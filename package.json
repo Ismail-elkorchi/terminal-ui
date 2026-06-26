@@ -91,7 +91,8 @@
     "check:runtime": "node --test tests/runtime/*.test.mjs",
     "check:security": "node --test tests/security/*.test.mjs",
     "check:unit": "node --test tests/unit/*.test.mjs",
-    "test": "npm run check"
+    "test": "npm run check",
+    "prepare": "npm run build"
   },
   "engines": {
     "node": ">=24"
