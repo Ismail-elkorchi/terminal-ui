@@ -236,6 +236,7 @@ test('schemas reject malformed nested public payloads', async () => {
     cursorVisibility: { supported: true, confidence: 'known' },
     title: { supported: true, confidence: 'known' },
     bell: { supported: true, confidence: 'known' },
+    clipboard: { supported: false, confidence: 'known' },
     diagnostics: [{}]
   }), false);
 

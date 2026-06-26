@@ -1,4 +1,4 @@
-import { sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
+import { extractTextSelection, sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
 import {
   createScrollState,
   normalizeScrollState,
@@ -108,10 +108,7 @@ export function scrollbackAccessibleChildren(widget: Widget, node: LayoutNode): 
 export function extractScrollbackSelectionText(input: ExtractScrollbackSelectionTextInput): string | undefined {
   if (input.selectedRange === undefined) return undefined;
   const content = input.items.map((item) => sanitizeTerminalText(item.text).text).join('\n');
-  const start = clampSelectionOffset(input.selectedRange.start, content.length);
-  const end = clampSelectionOffset(input.selectedRange.end, content.length);
-  if (start === end) return '';
-  return content.slice(Math.min(start, end), Math.max(start, end));
+  return extractTextSelection({ text: content, selection: input.selectedRange, sanitize: false });
 }
 
 function scrollbackDescription(widget: Widget, window: ScrollbackWindow): string {
@@ -271,9 +268,4 @@ function searchSegments(text: string, query: string): readonly ScrollbackTextSeg
   }
   if (cursor < text.length) segments.push({ text: text.slice(cursor) });
   return segments.length === 0 ? [{ text }] : segments;
-}
-
-function clampSelectionOffset(value: number, length: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(length, Math.floor(value)));
 }

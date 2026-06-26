@@ -17,6 +17,7 @@ export interface TerminalCapabilityInput {
   readonly cursorVisibility?: boolean;
   readonly title?: boolean;
   readonly bell?: boolean;
+  readonly clipboard?: boolean;
 }
 
 export function createCapabilities(input: TerminalCapabilityInput): TerminalCapabilities {
@@ -50,6 +51,7 @@ export function createCapabilities(input: TerminalCapabilityInput): TerminalCapa
     cursorVisibility: capability(input.cursorVisibility ?? outputProtocol, 'Output stream is not a TTY.'),
     title: capability(input.title ?? outputProtocol, 'Output stream is not a TTY.'),
     bell: capability(input.bell ?? outputProtocol, 'Output stream is not a TTY.'),
+    clipboard: capability(input.clipboard ?? false, 'Clipboard writes require explicit caller policy.'),
     diagnostics: []
   };
 }

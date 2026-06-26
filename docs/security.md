@@ -21,3 +21,7 @@ history provider or checkpoint policy.
 Terminal sessions restore raw input, alternate screen, bracketed paste, mouse
 reporting, focus reporting, and cursor visibility across success, cancellation,
 interruption, timeout, and thrown failures.
+
+Clipboard mutation is not a widget side effect. Selection helpers return text,
+and OSC 52 clipboard writes are exposed through explicit protocol helpers that
+require caller policy and host capability support before emitting a sequence.

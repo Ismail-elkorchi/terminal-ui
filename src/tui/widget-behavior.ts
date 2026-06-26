@@ -1,6 +1,23 @@
 import { clipTextCells, measureTextCells } from '../text/index.ts';
 import { commandPaletteWindow } from './command-surface.ts';
+import {
+  barChartAccessibleBase,
+  barChartAccessibleChildren,
+  barChartText,
+  chartAccessibleBase,
+  chartText,
+  sparklineAccessibleBase,
+  sparklineText
+} from './chart-widgets.ts';
+import {
+  paginatorAccessibleBase,
+  paginatorText,
+  treeAccessibleBase,
+  treeAccessibleChildren,
+  treeText
+} from './data-widgets.ts';
 import { gridCellRects, splitTracks } from './regions.ts';
+import { normalizeScrollState, visibleWindowFromScroll } from './scroll.ts';
 import { visibleWindow, windowDescription } from './visible-window.ts';
 import {
   scrollbackAccessibleBase,
@@ -14,6 +31,17 @@ import {
   structuredBlockAccessibleBase,
   structuredBlockText
 } from './structured-block.ts';
+import {
+  activityIndicatorAccessibleBase,
+  activityIndicatorText,
+  helpBarAccessibleBase,
+  helpBarText,
+  richTextAccessibleBase,
+  richTextText,
+  textAreaAccessibleBase,
+  textAreaCursor,
+  textAreaText
+} from './text-widgets.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { Widget, WidgetKind } from '../widgets/index.ts';
@@ -59,6 +87,13 @@ const widgetBehaviors = {
       value: stringify(widget.props['content'])
     })
   },
+  richText: {
+    render: (widget, node, context) => {
+      writeBlock(context.cells, node.bounds, richTextText(widget, node.bounds));
+      return undefined;
+    },
+    accessibleBase: (widget, _node, id) => richTextAccessibleBase(widget, id)
+  },
   statusBar: {
     render: (widget, node, context) => {
       writeBlock(context.cells, node.bounds, stringify(widget.props['text']));
@@ -85,6 +120,29 @@ const widgetBehaviors = {
     }),
     focusable: () => true
   },
+  textArea: {
+    render: (widget, node, context) => {
+      writeBlock(context.cells, node.bounds, textAreaText(widget, node.bounds));
+      return undefined;
+    },
+    accessibleBase: (widget, _node, id, focused) => textAreaAccessibleBase(widget, id, focused),
+    cursor: (widget, target) => textAreaCursor(widget, target.bounds),
+    focusable: () => true
+  },
+  helpBar: {
+    render: (widget, node, context) => {
+      writeBlock(context.cells, node.bounds, helpBarText(widget));
+      return undefined;
+    },
+    accessibleBase: (widget, _node, id) => helpBarAccessibleBase(widget, id)
+  },
+  activityIndicator: {
+    render: (widget, node, context) => {
+      writeBlock(context.cells, node.bounds, activityIndicatorText(widget));
+      return undefined;
+    },
+    accessibleBase: (widget, _node, id) => activityIndicatorAccessibleBase(widget, id)
+  },
   spinner: {
     render: (widget, node, context) => {
       writeBlock(context.cells, node.bounds, `${stringify(widget.props['label']) || 'Loading'} ...`);
@@ -104,6 +162,29 @@ const widgetBehaviors = {
     },
     accessibleBase: (widget, _node, id) => accessibleProgressNode(widget, id)
   },
+  sparkline: {
+    render: (widget, node, context) => {
+      writeBlock(context.cells, node.bounds, sparklineText(widget));
+      return undefined;
+    },
+    accessibleBase: (widget, _node, id) => sparklineAccessibleBase(widget, id)
+  },
+  barChart: {
+    render: (widget, node, context) => {
+      writeBlock(context.cells, node.bounds, barChartText(widget, node));
+      return undefined;
+    },
+    accessibleBase: (widget, node, id, focused) => barChartAccessibleBase(widget, node, id, focused),
+    accessibleChildren: (widget, node) => barChartAccessibleChildren(widget, node),
+    focusable: (widget) => widget.keyMap !== undefined && Object.keys(widget.keyMap).length > 0
+  },
+  chart: {
+    render: (widget, node, context) => {
+      writeBlock(context.cells, node.bounds, chartText(widget, node));
+      return undefined;
+    },
+    accessibleBase: (widget, _node, id) => chartAccessibleBase(widget, id)
+  },
   list: {
     render: (widget, node, context) => {
       writeBlock(context.cells, node.bounds, listText(widget, node.bounds.height));
@@ -121,6 +202,22 @@ const widgetBehaviors = {
     },
     accessibleBase: (widget, node, id, focused) => tableAccessibleNode(widget, node, id, focused),
     accessibleChildren: (widget, node) => tableAccessibleChildren(widget, node)
+  },
+  tree: {
+    render: (widget, node, context) => {
+      writeBlock(context.cells, node.bounds, treeText(widget, node));
+      return undefined;
+    },
+    accessibleBase: (widget, node, id, focused) => treeAccessibleBase(widget, node, id, focused),
+    accessibleChildren: (widget, node) => treeAccessibleChildren(widget, node),
+    focusable: () => true
+  },
+  paginator: {
+    render: (widget, node, context) => {
+      writeBlock(context.cells, node.bounds, paginatorText(widget));
+      return undefined;
+    },
+    accessibleBase: (widget, _node, id) => paginatorAccessibleBase(widget, id)
   },
   box: {
     childBounds: (widget, bounds) => (widget.children ?? []).map(() => inset(bounds, 1)),
@@ -331,9 +428,9 @@ function progressText(widget: Widget): string {
 }
 
 function listText(widget: Widget, height: number): string {
-  const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
+  const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
-  const window = visibleWindow(items.length, height, selected);
+  const window = listWindow(widget, items.length, height, selected);
   return items
     .slice(window.start, window.end)
     .map((item, index) => {
@@ -344,12 +441,17 @@ function listText(widget: Widget, height: number): string {
 }
 
 function tableText(widget: Widget, height: number): string {
-  const rows = Array.isArray(widget.props['rows']) ? widget.props['rows'] : [];
-  const window = visibleWindow(rows.length, height, 0);
-  return rows
+  const rows = tableRows(widget);
+  const columns = tableColumns(widget);
+  const hasHeader = columns.some((column) => column.header !== undefined);
+  const bodyHeight = Math.max(0, height - (hasHeader ? 1 : 0));
+  const selected = selectedTableRow(widget);
+  const window = visibleWindow(rows.length, bodyHeight, selected);
+  const lines = hasHeader ? [tableHeaderText(columns)] : [];
+  lines.push(...rows
     .slice(window.start, window.end)
-    .map((row) => Array.isArray(row) ? row.map(String).join('  ') : String(row))
-    .join('\n');
+    .map((row, index) => tableRowText(row, columns, window.start + index === selected)));
+  return lines.join('\n');
 }
 
 function accessibleProgressNode(widget: Widget, id: string): AccessibleNode {
@@ -375,9 +477,9 @@ function accessibleProgressNode(widget: Widget, id: string): AccessibleNode {
 }
 
 function listAccessibleNode(widget: Widget, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
-  const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
+  const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
-  const window = visibleWindow(items.length, node.bounds.height, selected);
+  const window = listWindow(widget, items.length, node.bounds.height, selected);
   return {
     id,
     role: 'listbox',
@@ -388,8 +490,10 @@ function listAccessibleNode(widget: Widget, node: LayoutNode, id: string, focuse
 }
 
 function tableAccessibleNode(widget: Widget, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
-  const rows = Array.isArray(widget.props['rows']) ? widget.props['rows'] : [];
-  const window = visibleWindow(rows.length, node.bounds.height, 0);
+  const rows = tableRows(widget);
+  const columns = tableColumns(widget);
+  const hasHeader = columns.some((column) => column.header !== undefined);
+  const window = visibleWindow(rows.length, Math.max(0, node.bounds.height - (hasHeader ? 1 : 0)), selectedTableRow(widget));
   return {
     id,
     role: 'table',
@@ -400,9 +504,9 @@ function tableAccessibleNode(widget: Widget, node: LayoutNode, id: string, focus
 }
 
 function listAccessibleChildren(widget: Widget, node: LayoutNode): readonly AccessibleNode[] {
-  const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
+  const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
-  const window = visibleWindow(items.length, node.bounds.height, selected);
+  const window = listWindow(widget, items.length, node.bounds.height, selected);
   return items.slice(window.start, window.end).map((item, index) => {
     const itemIndex = window.start + index;
     return {
@@ -415,13 +519,17 @@ function listAccessibleChildren(widget: Widget, node: LayoutNode): readonly Acce
 }
 
 function tableAccessibleChildren(widget: Widget, node: LayoutNode): readonly AccessibleNode[] {
-  const rows = Array.isArray(widget.props['rows']) ? widget.props['rows'] : [];
-  const window = visibleWindow(rows.length, node.bounds.height, 0);
+  const rows = tableRows(widget);
+  const columns = tableColumns(widget);
+  const hasHeader = columns.some((column) => column.header !== undefined);
+  const selected = selectedTableRow(widget);
+  const window = visibleWindow(rows.length, Math.max(0, node.bounds.height - (hasHeader ? 1 : 0)), selected);
   return rows.slice(window.start, window.end).map((row, index) => {
     const rowIndex = window.start + index;
     return {
       id: `${widget.id ?? 'table'}:row:${String(rowIndex)}`,
       role: 'row',
+      selected: rowIndex === selected,
       children: tableCells(row, widget.id ?? 'table', rowIndex)
     };
   });
@@ -435,6 +543,67 @@ function tableCells(row: unknown, tableId: string, rowIndex: number): readonly A
     label: String(cell),
     value: String(cell)
   }));
+}
+
+function filteredListItems(widget: Widget): readonly unknown[] {
+  const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
+  const query = stringify(widget.props['filterQuery']).trim().toLocaleLowerCase();
+  if (query.length === 0) return items;
+  return items.filter((item) => String(item).toLocaleLowerCase().includes(query));
+}
+
+function listWindow(widget: Widget, count: number, height: number, selected: number) {
+  const scroll = widget.props['scroll'];
+  if (typeof scroll === 'object' && scroll !== null) {
+    return visibleWindowFromScroll(normalizeScrollState({
+      ...scroll as Parameters<typeof normalizeScrollState>[0],
+      contentRows: count,
+      viewportRows: height
+    }));
+  }
+  return visibleWindow(count, height, selected);
+}
+
+function tableRows(widget: Widget): readonly unknown[] {
+  return Array.isArray(widget.props['rows']) ? widget.props['rows'] : [];
+}
+
+function tableColumns(widget: Widget): readonly { readonly header?: string; readonly width?: number }[] {
+  if (!Array.isArray(widget.props['columns'])) return [];
+  return widget.props['columns'].flatMap((column): { readonly header?: string; readonly width?: number }[] => {
+    if (typeof column !== 'object' || column === null) return [];
+    const header = (column as { readonly header?: unknown }).header;
+    const width = (column as { readonly width?: unknown }).width;
+    return [{
+      ...(typeof header === 'string' ? { header } : {}),
+      ...(typeof width === 'number' && Number.isFinite(width) ? { width: Math.max(1, Math.floor(width)) } : {})
+    }];
+  });
+}
+
+function tableHeaderText(columns: readonly { readonly header?: string; readonly width?: number }[]): string {
+  return columns.map((column) => tableCellText(column.header ?? '', column.width)).join('  ');
+}
+
+function tableRowText(row: unknown, columns: readonly { readonly width?: number }[], selected: boolean): string {
+  const cells = Array.isArray(row) ? row : [row];
+  const rendered = (columns.length === 0 ? cells.map((cell) => String(cell)) : columns.map((column, index) => tableCellText(String(cells[index] ?? ''), column.width))).join('  ');
+  return `${selected ? '› ' : '  '}${rendered}`;
+}
+
+function tableCellText(value: string, width: number | undefined): string {
+  if (width === undefined) return value;
+  const clipped = clipTextCells(value, width).text;
+  return clipped.padEnd(width, ' ');
+}
+
+function selectedTableRow(widget: Widget): number {
+  const selectedCell = widget.props['selectedCell'];
+  if (typeof selectedCell === 'object' && selectedCell !== null) {
+    const row = (selectedCell as { readonly row?: unknown }).row;
+    if (typeof row === 'number' && Number.isFinite(row)) return Math.max(0, Math.floor(row));
+  }
+  return Math.max(0, Math.floor(numberProp(widget, 'selected') ?? 0));
 }
 
 function commandBarText(widget: Widget, height: number): string {

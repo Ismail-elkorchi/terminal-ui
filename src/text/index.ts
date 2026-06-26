@@ -3,5 +3,8 @@ export { editTextBuffer } from './edit.ts';
 export { segmentGraphemes } from './graphemes.ts';
 export { measureTextCells } from './measure.ts';
 export { sanitizeTerminalText } from './sanitize.ts';
+export { extractTextSelection } from './selection.ts';
+export { editTextAreaBuffer } from './text-area-edit.ts';
 export { wrapTextCells } from './wrap.ts';
 export type * from './types.ts';
+export type { ExtractTextSelectionInput } from './selection.ts';

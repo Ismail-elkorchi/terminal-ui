@@ -2,7 +2,7 @@ import { toAccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic } from '../diagnostics.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalHost, TerminalRestoreReason, TerminalSession } from '../host/index.ts';
+import type { TerminalRestoreReason, TerminalSession } from '../host/index.ts';
 import type { TuiExit } from './types.ts';
 
 export function tuiSnapshot(id: string): AccessibleSnapshot {
@@ -10,27 +10,6 @@ export function tuiSnapshot(id: string): AccessibleSnapshot {
     source: 'tui',
     root: { id, role: 'application', label: id }
   });
-}
-
-export async function rejectNonTtyTui<TState>(
-  id: string,
-  host: TerminalHost
-): Promise<TuiExit<TState> | undefined> {
-  const capabilities = await host.getCapabilities();
-  if (capabilities.isTty) return undefined;
-  return {
-    status: 'error',
-    diagnostics: [
-      diagnostic('HOST_CAPABILITY_UNAVAILABLE', 'Full-screen TUI requires a TTY terminal host.', {
-        target: id,
-        data: {
-          runtime: capabilities.runtime,
-          isTty: false
-        }
-      })
-    ],
-    snapshot: tuiSnapshot(id)
-  };
 }
 
 export async function setupTuiSession(session: TerminalSession): Promise<readonly TerminalDiagnostic[]> {

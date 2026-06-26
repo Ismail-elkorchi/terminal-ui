@@ -19,6 +19,7 @@
     "cursorVisibility",
     "title",
     "bell",
+    "clipboard",
     "diagnostics"
   ],
   "properties": {
@@ -58,6 +59,7 @@
     "cursorVisibility": { "$ref": "#/$defs/capabilitySupport" },
     "title": { "$ref": "#/$defs/capabilitySupport" },
     "bell": { "$ref": "#/$defs/capabilitySupport" },
+    "clipboard": { "$ref": "#/$defs/capabilitySupport" },
     "diagnostics": {
       "type": "array",
       "items": { "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/terminal-diagnostic.schema.json" }

@@ -20,9 +20,18 @@ import type {
   CommandBarWidgetOptions,
   CommandPaletteWidgetOptions,
   GridWidgetOptions,
+  HelpBarWidgetOptions,
   ModalWidgetOptions,
+  PaginatorWidgetOptions,
+  RichTextWidgetOptions,
+  SparklineWidgetOptions,
   SplitPaneWidgetOptions,
+  TextAreaWidgetOptions,
   TabsWidgetOptions,
+  TreeWidgetOptions,
+  ActivityIndicatorWidgetOptions,
+  BarChartWidgetOptions,
+  ChartWidgetOptions,
   WidgetKeyMap,
   WidgetKind,
   WidgetMouseMap
@@ -35,6 +44,18 @@ export function text(content: string | StyledText, options: TextWidgetOptions = 
     props: { content },
     ...interactionOptions(options),
     ...(options.accessibility === undefined ? {} : { accessibility: options.accessibility })
+  };
+}
+
+export function richText<TMessage>(options: RichTextWidgetOptions<TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'richText',
+    props: {
+      segments: options.segments,
+      ...(options.wrap === undefined ? {} : { wrap: options.wrap })
+    },
+    ...interactionOptions(options)
   };
 }
 
@@ -55,7 +76,12 @@ export function list<TValue, TMessage>(options: ListWidgetOptions<TValue, TMessa
   return {
     ...optionalId(options.id),
     kind: 'list',
-    props: { items: options.items, ...(options.selected === undefined ? {} : { selected: options.selected }) },
+    props: {
+      items: options.items,
+      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }),
+      ...(options.scroll === undefined ? {} : { scroll: options.scroll })
+    },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionOptions({ mouseMap: options.mouseMap, accessibility: options.accessibility })
   };
@@ -66,9 +92,39 @@ export function table<TMessage>(options: TableWidgetOptions<TMessage>): Widget<T
   return {
     ...optionalId(options.id),
     kind: 'table',
-    props: { rows: options.rows },
+    props: {
+      rows: options.rows,
+      ...(options.columns === undefined ? {} : { columns: options.columns }),
+      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.selectedCell === undefined ? {} : { selectedCell: options.selectedCell })
+    },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionOptions({ mouseMap: options.mouseMap, accessibility: options.accessibility })
+  };
+}
+
+export function tree<TMessage>(options: TreeWidgetOptions<TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'tree',
+    props: {
+      nodes: options.nodes,
+      ...(options.selected === undefined ? {} : { selected: options.selected })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function paginator<TMessage>(options: PaginatorWidgetOptions<TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'paginator',
+    props: {
+      page: options.page,
+      pageCount: options.pageCount,
+      ...(options.label === undefined ? {} : { label: options.label })
+    },
+    ...interactionOptions(options)
   };
 }
 
@@ -83,6 +139,20 @@ export function inputField<TMessage>(options: InputFieldWidgetOptions<TMessage>)
   };
 }
 
+export function textArea<TMessage>(options: TextAreaWidgetOptions<TMessage> = {}): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'textArea',
+    props: {
+      value: options.value ?? '',
+      ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+      ...(options.selection === undefined ? {} : { selection: options.selection }),
+      ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder })
+    },
+    ...interactionOptions(options)
+  };
+}
+
 export function statusBar<TMessage>(options: StatusBarWidgetOptions<TMessage>): Widget<TMessage> {
   const keyMap = messageKeyMap(options.message, options.keyMap);
   return {
@@ -91,6 +161,27 @@ export function statusBar<TMessage>(options: StatusBarWidgetOptions<TMessage>): 
     props: { text: options.text },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionOptions({ mouseMap: options.mouseMap, accessibility: options.accessibility })
+  };
+}
+
+export function helpBar<TMessage>(options: HelpBarWidgetOptions<TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'helpBar',
+    props: { bindings: options.bindings },
+    ...interactionOptions(options)
+  };
+}
+
+export function activityIndicator(options: ActivityIndicatorWidgetOptions = {}): Widget<never> {
+  return {
+    ...optionalId(options.id),
+    kind: 'activityIndicator',
+    props: {
+      ...(options.label === undefined ? {} : { label: options.label }),
+      ...(options.status === undefined ? {} : { status: options.status })
+    },
+    ...interactionOptions(options)
   };
 }
 
@@ -103,6 +194,45 @@ export function progressBar(options: ProgressBarWidgetOptions): Widget<never> {
       ...(options.value === undefined ? {} : { value: options.value }),
       ...(options.max === undefined ? {} : { max: options.max }),
       ...(options.indeterminate === undefined ? {} : { indeterminate: options.indeterminate })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function sparkline(options: SparklineWidgetOptions): Widget<never> {
+  return {
+    ...optionalId(options.id),
+    kind: 'sparkline',
+    props: {
+      values: options.values,
+      ...(options.min === undefined ? {} : { min: options.min }),
+      ...(options.max === undefined ? {} : { max: options.max })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function barChart<TMessage>(options: BarChartWidgetOptions<TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'barChart',
+    props: {
+      items: options.items,
+      ...(options.max === undefined ? {} : { max: options.max }),
+      ...(options.selected === undefined ? {} : { selected: options.selected })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function chart<TMessage>(options: ChartWidgetOptions<TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'chart',
+    props: {
+      series: options.series,
+      ...(options.min === undefined ? {} : { min: options.min }),
+      ...(options.max === undefined ? {} : { max: options.max })
     },
     ...interactionOptions(options)
   };

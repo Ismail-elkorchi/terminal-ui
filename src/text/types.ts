@@ -42,6 +42,8 @@ export interface TextEditBuffer {
   readonly selection?: TextSelection;
 }
 
+export type TextAreaEditBuffer = TextEditBuffer;
+
 export type TextEditOperation =
   | { readonly kind: 'insert'; readonly text: string }
   | { readonly kind: 'deleteBackward' }
@@ -51,6 +53,11 @@ export type TextEditOperation =
   | { readonly kind: 'moveHome' }
   | { readonly kind: 'moveEnd' }
   | { readonly kind: 'replaceSelection'; readonly text: string };
+
+export type TextAreaEditOperation =
+  | TextEditOperation
+  | { readonly kind: 'moveLineStart' }
+  | { readonly kind: 'moveLineEnd' };
 
 export interface TextClipResult {
   readonly text: string;

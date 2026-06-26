@@ -1,13 +1,13 @@
 import { diagnostic } from '../diagnostics.ts';
 import { runTuiInputLoop } from './input-loop.ts';
 import {
-  rejectNonTtyTui,
   restoreReasonForExit,
   restoreTuiSession,
   setupTuiSession,
   tuiSnapshot,
   withDiagnostics
 } from './lifecycle.ts';
+import { runTuiNonTty } from './non-tty.ts';
 import { createTuiRuntime } from './runtime.ts';
 import { createTuiTranscript, recordTuiRestore, withTuiTranscript } from './transcript.ts';
 import type { TerminalHost } from '../host/index.ts';
@@ -29,7 +29,7 @@ export async function runTui<TState, TMessage>(
       snapshot: tuiSnapshot(app.id)
     }, transcript);
   }
-  const nonTtyExit = await rejectNonTtyTui<TState>(app.id, host);
+  const nonTtyExit = await runTuiNonTty(app, host, transcript);
   if (nonTtyExit !== undefined) return withTuiTranscript(nonTtyExit, transcript);
   const session = await host.beginSession({ id: app.id });
   const setupDiagnostics = await setupTuiSession(session);

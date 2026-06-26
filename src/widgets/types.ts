@@ -1,7 +1,7 @@
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { MouseAction } from '../input/index.ts';
 import type { TextSelection } from '../text/index.ts';
-import type { StyledTone } from '../theme/index.ts';
+import type { StyledText, StyledTone } from '../theme/index.ts';
 import type { LayoutTrack } from '../tui/regions.ts';
 import type { ScrollState } from '../tui/scroll.ts';
 
@@ -17,15 +17,24 @@ export interface Widget<TMessage = unknown> {
 
 export type WidgetKind =
   | 'text'
+  | 'richText'
   | 'box'
   | 'stack'
   | 'row'
   | 'list'
   | 'table'
+  | 'tree'
+  | 'paginator'
   | 'inputField'
+  | 'textArea'
   | 'statusBar'
+  | 'helpBar'
+  | 'activityIndicator'
   | 'progressBar'
   | 'spinner'
+  | 'sparkline'
+  | 'barChart'
+  | 'chart'
   | 'viewport'
   | 'scrollback'
   | 'structuredBlock'
@@ -47,6 +56,15 @@ export type AccessibleNodeDefinition = AccessibleNode;
 export interface TextWidgetOptions {
   readonly id?: string;
   readonly mouseMap?: WidgetMouseMap<never>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface RichTextWidgetOptions<TMessage = never> {
+  readonly id?: string;
+  readonly segments: readonly StyledText[];
+  readonly wrap?: boolean;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
@@ -75,6 +93,8 @@ export interface ListWidgetOptions<TValue, TMessage> {
   readonly id?: string;
   readonly items: readonly TValue[];
   readonly selected?: number;
+  readonly filterQuery?: string;
+  readonly scroll?: ScrollState;
   readonly toMessage?: (value: TValue) => TMessage;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
@@ -84,7 +104,47 @@ export interface ListWidgetOptions<TValue, TMessage> {
 export interface TableWidgetOptions<TMessage> {
   readonly id?: string;
   readonly rows: readonly unknown[];
+  readonly columns?: readonly TableColumn[];
+  readonly selected?: number;
+  readonly selectedCell?: TableCellSelection;
   readonly message?: TMessage;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface TableColumn {
+  readonly header?: string;
+  readonly width?: number;
+}
+
+export interface TableCellSelection {
+  readonly row: number;
+  readonly column?: number;
+}
+
+export interface TreeNode {
+  readonly id: string;
+  readonly label: string;
+  readonly children?: readonly TreeNode[];
+  readonly expanded?: boolean;
+  readonly disabled?: boolean;
+}
+
+export interface TreeWidgetOptions<TMessage = never> {
+  readonly id?: string;
+  readonly nodes: readonly TreeNode[];
+  readonly selected?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface PaginatorWidgetOptions<TMessage = never> {
+  readonly id?: string;
+  readonly page: number;
+  readonly pageCount: number;
+  readonly label?: string;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
@@ -99,12 +159,46 @@ export interface InputFieldWidgetOptions<TMessage> {
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
+export interface TextAreaWidgetOptions<TMessage = never> {
+  readonly id?: string;
+  readonly value?: string;
+  readonly cursor?: number;
+  readonly selection?: TextSelection;
+  readonly placeholder?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
 export interface StatusBarWidgetOptions<TMessage> {
   readonly id?: string;
   readonly text: string;
   readonly message?: TMessage;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface HelpBinding {
+  readonly key: string;
+  readonly label: string;
+}
+
+export interface HelpBarWidgetOptions<TMessage = never> {
+  readonly id?: string;
+  readonly bindings: readonly HelpBinding[];
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export type ActivityIndicatorStatus = 'idle' | 'running' | 'success' | 'warning' | 'error';
+
+export interface ActivityIndicatorWidgetOptions {
+  readonly id?: string;
+  readonly label?: string;
+  readonly status?: ActivityIndicatorStatus;
+  readonly mouseMap?: WidgetMouseMap<never>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
@@ -115,6 +209,46 @@ export interface ProgressBarWidgetOptions {
   readonly max?: number;
   readonly indeterminate?: boolean;
   readonly mouseMap?: WidgetMouseMap<never>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface SparklineWidgetOptions {
+  readonly id?: string;
+  readonly values: readonly number[];
+  readonly min?: number;
+  readonly max?: number;
+  readonly mouseMap?: WidgetMouseMap<never>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface BarChartItem {
+  readonly label: string;
+  readonly value: number;
+}
+
+export interface BarChartWidgetOptions<TMessage = never> {
+  readonly id?: string;
+  readonly items: readonly BarChartItem[];
+  readonly max?: number;
+  readonly selected?: number;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface ChartSeries {
+  readonly id: string;
+  readonly label?: string;
+  readonly points: readonly number[];
+}
+
+export interface ChartWidgetOptions<TMessage = never> {
+  readonly id?: string;
+  readonly series: readonly ChartSeries[];
+  readonly min?: number;
+  readonly max?: number;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 

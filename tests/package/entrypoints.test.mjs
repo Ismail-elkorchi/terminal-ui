@@ -59,6 +59,7 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.renderWidgetFrame, 'function');
   assert.equal(typeof terminalUi.diffFrames, 'function');
   assert.equal(typeof terminalUi.renderFrame, 'function');
+  assert.equal(typeof terminalUi.createPtyTerminalHarness, 'function');
   assert.equal(typeof terminalUi.createTerminalHarness, 'function');
   assert.equal(typeof terminalUi.runInteractionScript, 'function');
   assert.equal(typeof terminalUi.findAccessibleNode, 'function');
@@ -89,6 +90,8 @@ test('testing harness declaration exposes captured output', async () => {
 
   assert.match(declaration, /output\(\): string;/u);
   assert.match(declaration, /readonly clock: ControlledTerminalClock;/u);
+  assert.match(declaration, /interface PtyTerminalHarness/u);
+  assert.match(declaration, /closeInput\(\): void;/u);
 });
 
 test('root declaration exposes primary public type contracts', async () => {
@@ -98,16 +101,32 @@ test('root declaration exposes primary public type contracts', async () => {
     'KeyEvent',
     'TextEditBuffer',
     'TextEditOperation',
+    'TextAreaEditBuffer',
+    'TextAreaEditOperation',
+    'ExtractTextSelectionInput',
+    'TuiNonTtyPolicy',
+    'PaginationWindow',
+    'TreeAction',
+    'TableColumn',
     'TerminalTheme',
     'StyledText',
     'Widget',
     'WidgetKind',
     'CommandBarWidgetOptions',
     'CommandPaletteWidgetOptions',
+    'RichTextWidgetOptions',
     'GridWidgetOptions',
     'SplitPaneWidgetOptions',
     'TabsWidgetOptions',
     'ModalWidgetOptions',
+    'TextAreaWidgetOptions',
+    'TreeWidgetOptions',
+    'PaginatorWidgetOptions',
+    'HelpBarWidgetOptions',
+    'ActivityIndicatorWidgetOptions',
+    'SparklineWidgetOptions',
+    'BarChartWidgetOptions',
+    'ChartWidgetOptions',
     'ScreenStack',
     'PromptChoice',
     'NonTtyPromptPolicy',

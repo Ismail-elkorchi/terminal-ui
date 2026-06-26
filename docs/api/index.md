@@ -30,3 +30,6 @@ The subpath entrypoints are:
 All public results use typed data for ordinary cancellation, validation
 failure, non-TTY denial, transcript replay mismatch, and terminal capability
 problems.
+
+Clipboard helpers live under the protocol entrypoint. They are capability and
+policy gated; widgets never write to the clipboard directly.

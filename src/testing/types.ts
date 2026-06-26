@@ -1,5 +1,14 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { ControlledTerminalClock, MemoryTerminalHost, TerminalHost, TerminalViewport } from '../host/index.ts';
+import type { TerminalDiagnostic } from '../diagnostics.ts';
+import type {
+  ControlledTerminalClock,
+  MemoryTerminalHost,
+  PtyTerminalHost,
+  TerminalClock,
+  TerminalHost,
+  TerminalStateSnapshot,
+  TerminalViewport
+} from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../tui/index.ts';
 import type {
@@ -24,6 +33,31 @@ export interface TerminalHarness extends TranscriptReplayTarget {
   diffs(): readonly RenderDiff[];
   restores(): ReturnType<MemoryTerminalHost['restores']>;
   output(): string;
+}
+
+export interface PtyTerminalHarnessOptions {
+  readonly id?: string;
+  readonly viewport?: TerminalViewport;
+  readonly available?: boolean;
+}
+
+export type PtyTerminalHarnessResult =
+  | { readonly ok: true; readonly harness: PtyTerminalHarness }
+  | { readonly ok: false; readonly diagnostic: TerminalDiagnostic };
+
+export interface PtyTerminalHarness extends TranscriptReplayTarget {
+  readonly host: PtyTerminalHost;
+  readonly clock: TerminalClock;
+  readonly transcript: TranscriptRecorder;
+  input(event: InputEvent | string): Promise<void>;
+  resize(viewport: TerminalViewport): Promise<void>;
+  closeInput(): void;
+  snapshot(): AccessibleSnapshot;
+  frames(): readonly Frame[];
+  diffs(): readonly RenderDiff[];
+  restores(): readonly TerminalStateSnapshot[];
+  output(): string;
+  dispose(): Promise<void>;
 }
 
 export interface InteractionScript {

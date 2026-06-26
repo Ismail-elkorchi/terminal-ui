@@ -16,6 +16,12 @@ The returned `InteractionResult` includes the final output, snapshot,
 transcript, and diagnostics so downstream tests can decide how to report or
 store the failure.
 
+`createPtyTerminalHarness()` exercises the caller-managed PTY host boundary.
+It captures output, frames, diffs, restore checkpoints, resize events, and raw
+mode state while still avoiding a mandatory native PTY dependency. When a PTY
+adapter is unavailable, it returns a typed diagnostic instead of skipping with
+ambient process state.
+
 Executable example:
 
 - `examples/testing/harness.mjs`

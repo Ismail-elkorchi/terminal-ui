@@ -9,10 +9,13 @@ Non-TTY behavior is deterministic and surface-specific.
   `multiselect()`, and `autocomplete()` reject in non-TTY mode unless the
   caller provides an explicit `provided_value` contract.
 - Progress prompts can run in transcript-only mode.
-- Full-screen TUI surfaces reject non-TTY hosts.
+- Full-screen TUI surfaces default to rejection. TUI definitions may opt into
+  `transcript_only`, `last_frame`, or `line_fallback`. These fallback paths do
+  not enter alternate screen, raw input, mouse reporting, focus reporting, or
+  other full-screen protocols.
 - Shells can run transcript-only or reject depending on caller policy.
 
 Diagnostics should tell callers which explicit input source, default, manifest,
 environment value, or policy can make the interaction non-interactive.
-Use `diagnosticHint` on prompt and shell non-TTY policies to include that
+Use `diagnosticHint` on prompt, shell, and TUI non-TTY policies to include that
 caller-facing alternative in typed denial diagnostics.

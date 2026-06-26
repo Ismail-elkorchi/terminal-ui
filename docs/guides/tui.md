@@ -16,6 +16,10 @@ alternate screen, bracketed paste, raw input, click mouse reporting, focus
 reporting, and cursor visibility. Unsupported optional protocols are reported
 as diagnostics; restoration still runs through the same session path.
 
+Non-TTY behavior is explicit on the TUI definition. The default is `reject`.
+Apps may opt into `transcript_only`, `last_frame`, or `line_fallback`; these
+paths do not enter full-screen terminal protocols or emit control sequences.
+
 TUI transcript capture is opt-in with `transcript: { enabled: true }` on the
 TUI definition. Enabled transcripts record normalized input events, frames,
 render diffs, restore checkpoints, final diagnostics, and the final accessible
@@ -47,8 +51,8 @@ signals, and app-triggered messages cannot overlap render commits.
 Scrollable widgets share the same `ScrollState` and `scrollReducer()` primitive.
 Use it for line/page/top/bottom movement, item-into-view behavior, horizontal
 offsets, and follow-tail log views. Existing visible-window helpers route
-through this reducer so list, table, viewport, and future scrollback widgets use
-one scroll model instead of per-widget arithmetic.
+through this reducer so list, table, viewport, and scrollback widgets use one
+scroll model instead of per-widget arithmetic.
 
 Command surfaces are ordinary widgets. Apps decide which normalized key names
 map to palette, accept, cancel, or history messages through widget `keyMap`

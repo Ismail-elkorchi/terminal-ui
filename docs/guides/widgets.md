@@ -3,10 +3,11 @@
 Widgets are pure data descriptions. Constructing a widget never writes to the
 terminal, reads input, mutates global state, or performs runtime side effects.
 
-Built-in widget factories include text, box, stack, row, grid, split panes,
-tabs, modal, list, table, input-field, command bar, command palette, status
-bar, progress bar, spinner, viewport, and scrollback widgets, plus structured
-blocks and activity feeds.
+Built-in widget factories include text, rich text, text area, box, stack, row,
+grid, split panes, tabs, modal, list, table, tree, paginator, input-field,
+command bar, command palette, status bar, help bar, activity indicator,
+progress bar, spinner, sparkline, bar chart, chart, viewport, and scrollback
+widgets, plus structured blocks and activity feeds.
 
 Widget metadata drives layout, focus routing, rendering, and accessible
 snapshots.
@@ -18,9 +19,16 @@ and `viewport()` can participate in keyboard-only workflows without pretending
 to be input fields.
 
 `statusBar()` and `spinner()` expose accessible `status` nodes.
+`helpBar()` renders keybinding hints as ordinary status text.
+`activityIndicator()` renders compact activity state for reusable app chrome.
 `progressBar()` exposes a `progressbar` node, clamps determinate values into
 range, and marks omitted values or `indeterminate: true` as indeterminate
 progress.
+
+`richText()` accepts styled text segments and renders sanitized display text.
+`textArea()` provides a bounded multi-line text surface with cursor and
+selection metadata. Editing behavior stays in application state and shared text
+helpers; widgets remain pure data.
 
 `viewport()` renders one child through a bounded window. `scrollRow` and
 `scrollColumn` choose the visible offset, while `contentRows` and
@@ -33,6 +41,14 @@ explicit `ScrollState` for controlled navigation, marks omitted rows, sanitizes
 terminal control sequences, and exposes only the visible window in the frame and
 accessibility tree. It also supports optional wrapping, search match metadata,
 and pure selected-text extraction without mutating the terminal clipboard.
+
+`list()` supports selected rows, caller-provided filters, and explicit
+`ScrollState`. `table()` supports constrained columns and selected rows or
+cells. `tree()` renders visible expanded nodes with selected-row accessibility;
+use the pure `treeReducer()` helper for expansion state. `paginator()` renders
+normalized page state and pairs with the pure `paginationWindow()` helper.
+`sparkline()`, `barChart()`, and `chart()` are bounded text-dashboard
+primitives for compact terminal metrics.
 
 `structuredBlock()` renders a single titled record with optional summary,
 status, fields, body, details, and collapsed state. `activityFeed()` renders a

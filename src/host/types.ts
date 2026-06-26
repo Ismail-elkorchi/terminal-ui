@@ -142,6 +142,7 @@ export interface TerminalCapabilities {
   readonly cursorVisibility: CapabilitySupport;
   readonly title: CapabilitySupport;
   readonly bell: CapabilitySupport;
+  readonly clipboard: CapabilitySupport;
   readonly diagnostics: readonly TerminalDiagnostic[];
 }
 

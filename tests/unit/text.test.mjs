@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   clipTextCells,
+  editTextAreaBuffer,
   editTextBuffer,
   measureTextCells,
   sanitizeTerminalText,
@@ -95,6 +96,19 @@ test('text editing replaces selections and uses spec-shaped home/end operations'
   assert.deepEqual(
     editTextBuffer({ text: 'abc', cursor: 2, selection: { start: 0, end: 2 } }, { kind: 'moveHome' }),
     { text: 'abc', cursor: 0 }
+  );
+});
+
+test('text area editing handles multiline inserts and line-relative movement', () => {
+  const pasted = editTextAreaBuffer({ text: 'alpha', cursor: 5 }, { kind: 'insert', text: '\nbravo\ncharlie' });
+  assert.deepEqual(pasted, { text: 'alpha\nbravo\ncharlie', cursor: 'alpha\nbravo\ncharlie'.length });
+  assert.deepEqual(
+    editTextAreaBuffer({ text: pasted.text, cursor: 'alpha\nbr'.length }, { kind: 'moveLineStart' }),
+    { text: pasted.text, cursor: 'alpha\n'.length }
+  );
+  assert.deepEqual(
+    editTextAreaBuffer({ text: pasted.text, cursor: 'alpha\nbr'.length }, { kind: 'moveLineEnd' }),
+    { text: pasted.text, cursor: 'alpha\nbravo'.length }
   );
 });
 

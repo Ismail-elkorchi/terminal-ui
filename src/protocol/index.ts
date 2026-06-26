@@ -1,5 +1,7 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalHost, TerminalStateChange, TerminalStateSnapshot } from '../host/index.ts';
+export type { ClipboardWritePolicy, ClipboardWriteResult } from './clipboard.ts';
+export { createClipboardWriteSequence, writeClipboardText } from './clipboard.ts';
 
 export interface TerminalProtocolWriter {
   enableAlternateScreen(): Promise<void>;

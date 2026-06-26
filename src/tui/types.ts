@@ -16,6 +16,7 @@ export interface TuiDefinition<TState, TMessage> {
   readonly onExit?: TuiExitHandler<TState>;
   readonly transcript?: TranscriptPolicy;
   readonly accessibility?: TuiAccessibilityOptions<TState>;
+  readonly nonTty?: TuiNonTtyPolicy<TMessage>;
 }
 
 export interface TuiApp<TState, TMessage> {
@@ -46,6 +47,19 @@ export interface TuiContext<TMessage> {
 }
 
 export type TuiMessageSource = 'input' | 'signal' | 'timer' | 'external' | 'internal';
+
+export type TuiNonTtyMode = 'reject' | 'transcript_only' | 'line_fallback' | 'last_frame';
+
+export type TuiNonTtyPolicy<TMessage> =
+  | {
+      readonly mode: 'reject' | 'transcript_only' | 'last_frame';
+      readonly diagnosticHint?: string;
+    }
+  | {
+      readonly mode: 'line_fallback';
+      readonly diagnosticHint?: string;
+      message(line: string): TMessage;
+    };
 
 export interface TuiCommand<TMessage> {
   readonly kind: 'dispatch';
