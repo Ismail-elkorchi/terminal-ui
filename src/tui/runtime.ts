@@ -73,12 +73,6 @@ export function createTuiRuntime<TState, TMessage>(
         publishChange({ kind: 'exit', exit: terminalExit });
         return { handled: true, state, frame, exit: terminalExit };
       }
-      if (isCancelKey(event)) {
-        terminalExit = exitWithStatus('cancelled', state, frame);
-        await disposeSubscriptions();
-        publishChange({ kind: 'exit', exit: terminalExit });
-        return { handled: true, state, frame, exit: terminalExit };
-      }
       if (event.kind === 'resize') {
         const resized = await runtime.resize(event.viewport);
         return { handled: true, state: ensureState(), frame: resized };
@@ -94,6 +88,12 @@ export function createTuiRuntime<TState, TMessage>(
       }
       const message = await messageForInput(state, event);
       if (message === undefined) {
+        if (isCancelKey(event)) {
+          terminalExit = exitWithStatus('cancelled', state, frame);
+          await disposeSubscriptions();
+          publishChange({ kind: 'exit', exit: terminalExit });
+          return { handled: true, state, frame, exit: terminalExit };
+        }
         if (event.kind === 'key' && event.key === 'tab') {
           const next = await moveFocus(state, event.shift ? 'previous' : 'next');
           return { handled: true, state, frame: next };

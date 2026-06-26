@@ -664,6 +664,38 @@ test('TUI runtime lets focused widgets handle tab before focus traversal', async
   assert.match(renderFrame(runtime.frame()), /accepted/);
 });
 
+test('TUI runtime lets focused widgets handle escape before cancellation', async () => {
+  const app = defineTui({
+    id: 'escape-keymap-routing',
+    init: () => ({ active: 'open' }),
+    update: (_state, message) => ({ state: { active: message.active } }),
+    view: (state) => inputField({
+      id: 'dialog-field',
+      value: state.active,
+      keyMap: { escape: { active: 'closed' } }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const handled = await runtime.handleInput({
+    kind: 'key',
+    key: 'escape',
+    sequence: '\u001B',
+    ctrl: false,
+    alt: false,
+    shift: false,
+    meta: false
+  });
+
+  assert.equal(handled.handled, true);
+  assert.equal(handled.exit, undefined);
+  assert.equal(runtime.exit(), undefined);
+  assert.deepEqual(runtime.getState(), { active: 'closed' });
+  assert.match(renderFrame(runtime.frame()), /closed/);
+});
+
 test('TUI runtime routes focused text and paste input through widget input maps', async () => {
   const app = defineTui({
     id: 'input-map-routing',
