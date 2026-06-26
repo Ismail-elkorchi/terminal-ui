@@ -351,7 +351,13 @@ export function layoutChildBounds(widget: Widget, bounds: Rect): readonly Rect[]
 
 export function isWidgetFocusable(widget: Widget): boolean {
   return widgetBehavior(widget.kind).focusable?.(widget)
-    ?? (widget.keyMap !== undefined && Object.keys(widget.keyMap).length > 0);
+    ?? hasKeyboardOrInputMap(widget);
+}
+
+function hasKeyboardOrInputMap(widget: Widget): boolean {
+  return (widget.keyMap !== undefined && Object.keys(widget.keyMap).length > 0)
+    || widget.inputMap?.text !== undefined
+    || widget.inputMap?.paste !== undefined;
 }
 
 export function renderWidgetBehavior(

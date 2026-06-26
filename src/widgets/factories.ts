@@ -34,6 +34,7 @@ import type {
   ChartWidgetOptions,
   WidgetKeyMap,
   WidgetKind,
+  WidgetInputMap,
   WidgetMouseMap
 } from './types.ts';
 
@@ -135,7 +136,7 @@ export function inputField<TMessage>(options: InputFieldWidgetOptions<TMessage>)
     kind: 'inputField',
     props: { value: options.value ?? '' },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionOptions({ mouseMap: options.mouseMap, accessibility: options.accessibility })
+    ...interactionOptions({ inputMap: options.inputMap, mouseMap: options.mouseMap, accessibility: options.accessibility })
   };
 }
 
@@ -466,17 +467,20 @@ function mergeKeyMaps<TMessage>(
 function interactionOptions<TMessage>(
   options: {
     readonly keyMap?: WidgetKeyMap<TMessage> | undefined;
+    readonly inputMap?: WidgetInputMap<TMessage> | undefined;
     readonly mouseMap?: WidgetMouseMap<TMessage> | undefined;
     readonly accessibility?: AccessibleNodeDefinition | undefined;
   }
 ): {
   readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly inputMap?: WidgetInputMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 } {
   const keyMap = normalizedKeyMap(options.keyMap);
   return {
     ...(keyMap === undefined ? {} : { keyMap }),
+    ...(options.inputMap === undefined ? {} : { inputMap: options.inputMap }),
     ...(options.mouseMap === undefined ? {} : { mouseMap: options.mouseMap }),
     ...(options.accessibility === undefined ? {} : { accessibility: options.accessibility })
   };

@@ -312,6 +312,7 @@ export type {
   ActivityFeedWidgetOptions,
   Widget,
   WidgetChildren,
+  WidgetInputMap,
   WidgetKeyMap,
   WidgetKind,
   WidgetMouseMap,

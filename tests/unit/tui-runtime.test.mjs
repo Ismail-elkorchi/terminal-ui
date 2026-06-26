@@ -641,6 +641,33 @@ test('TUI runtime routes key events through focused widget keymaps', async () =>
   assert.match(renderFrame(runtime.frame()), /second/);
 });
 
+test('TUI runtime routes focused text and paste input through widget input maps', async () => {
+  const app = defineTui({
+    id: 'input-map-routing',
+    init: () => ({ value: '' }),
+    update: (state, message) => ({ state: { value: `${state.value}${message.text}` } }),
+    view: (state) => inputField({
+      id: 'field',
+      value: state.value,
+      inputMap: {
+        text: (textValue) => ({ text: textValue }),
+        paste: (textValue) => ({ text: `[${textValue}]` })
+      }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 30, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const typed = await runtime.handleInput({ kind: 'text', text: 'a' });
+  const pasted = await runtime.handleInput({ kind: 'paste', text: 'bc' });
+
+  assert.equal(typed.handled, true);
+  assert.equal(pasted.handled, true);
+  assert.deepEqual(runtime.getState(), { value: 'a[bc]' });
+  assert.match(renderFrame(runtime.frame()), /a\[bc\]/);
+});
+
 test('TUI runtime restores a serialized focus path when it still exists', async () => {
   const app = defineTui({
     id: 'focus-restore',

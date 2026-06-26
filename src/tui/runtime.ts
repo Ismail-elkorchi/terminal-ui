@@ -305,11 +305,16 @@ export function createTuiRuntime<TState, TMessage>(
 
   async function messageForInput(state: TState, event: InputEvent): Promise<TMessage | undefined> {
     const key = inputEventKey(event);
-    if (key === undefined) return undefined;
     const context = await createRuntimeContext('internal');
     const widget = options.app.definition.view(state, context);
     const layout = layoutWidget(widget, context.viewport);
     const focused = findWidgetFocusTarget(widget, layout, currentFocusPath);
+    if (event.kind === 'text') {
+      const mapped = focused?.widget.inputMap?.text?.(event.text);
+      if (mapped !== undefined) return mapped;
+    }
+    if (event.kind === 'paste') return focused?.widget.inputMap?.paste?.(event.text);
+    if (key === undefined) return undefined;
     return focused?.widget.keyMap?.[key];
   }
 

@@ -11,6 +11,7 @@ export interface Widget<TMessage = unknown> {
   readonly props: WidgetProps;
   readonly children?: readonly Widget<TMessage>[];
   readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly inputMap?: WidgetInputMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
@@ -50,6 +51,10 @@ export type WidgetKind =
 export type WidgetProps = Record<string, unknown>;
 export type WidgetChildren<TMessage> = readonly Widget<TMessage>[] | Widget<TMessage>;
 export type WidgetKeyMap<TMessage> = Record<string, TMessage>;
+export interface WidgetInputMap<TMessage> {
+  readonly text?: (text: string) => TMessage;
+  readonly paste?: (text: string) => TMessage;
+}
 export type WidgetMouseMap<TMessage> = Partial<Record<MouseAction, TMessage>>;
 export type AccessibleNodeDefinition = AccessibleNode;
 
@@ -155,6 +160,7 @@ export interface InputFieldWidgetOptions<TMessage> {
   readonly value?: string;
   readonly message?: TMessage;
   readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly inputMap?: WidgetInputMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
@@ -166,6 +172,7 @@ export interface TextAreaWidgetOptions<TMessage = never> {
   readonly selection?: TextSelection;
   readonly placeholder?: string;
   readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly inputMap?: WidgetInputMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
@@ -340,6 +347,7 @@ export interface CommandBarWidgetOptions<TMessage = never> {
   readonly selectedSuggestion?: number;
   readonly historyIndex?: number;
   readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly inputMap?: WidgetInputMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
