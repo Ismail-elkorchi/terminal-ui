@@ -668,6 +668,25 @@ test('TUI runtime routes focused text and paste input through widget input maps'
   assert.match(renderFrame(runtime.frame()), /a\[bc\]/);
 });
 
+test('runTui accepts an initial focus path', async () => {
+  const app = defineTui({
+    id: 'run-focus-restore',
+    init: () => ({ active: 'idle' }),
+    update: (_state, message) => ({ state: { active: message.active }, exit: {} }),
+    view: (state) => stack([
+      inputField({ id: 'first', value: state.active, keyMap: { enter: { active: 'first' } } }),
+      inputField({ id: 'second', value: state.active, keyMap: { enter: { active: 'second' } } })
+    ])
+  });
+  const host = createMemoryTerminalHost({ viewport: { columns: 20, rows: 4 } });
+  host.input('\r');
+
+  const exit = await runTui(app, host, { initialFocusPath: ['stack:1:1', 'second'] });
+
+  assert.equal(exit.status, 'completed');
+  assert.deepEqual(exit.state, { active: 'second' });
+});
+
 test('TUI runtime restores a serialized focus path when it still exists', async () => {
   const app = defineTui({
     id: 'focus-restore',

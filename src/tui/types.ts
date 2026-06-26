@@ -115,6 +115,10 @@ export interface TuiRuntimeOptions<TState, TMessage> {
   readonly transcript?: TranscriptRecorder;
 }
 
+export interface TuiRunOptions {
+  readonly initialFocusPath?: FocusPath;
+}
+
 export interface TuiRuntime<TState, TMessage> {
   readonly app: TuiApp<TState, TMessage>;
   readonly host: TerminalHost;

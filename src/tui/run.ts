@@ -11,11 +11,12 @@ import { runTuiNonTty } from './non-tty.ts';
 import { createTuiRuntime } from './runtime.ts';
 import { createTuiTranscript, recordTuiRestore, withTuiTranscript } from './transcript.ts';
 import type { TerminalHost } from '../host/index.ts';
-import type { TuiApp, TuiExit } from './types.ts';
+import type { TuiApp, TuiExit, TuiRunOptions } from './types.ts';
 
 export async function runTui<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
-  host?: TerminalHost
+  host?: TerminalHost,
+  options: TuiRunOptions = {}
 ): Promise<TuiExit<TState>> {
   const transcript = createTuiTranscript(app);
   if (host === undefined) {
@@ -35,7 +36,12 @@ export async function runTui<TState, TMessage>(
   const setupDiagnostics = await setupTuiSession(session);
   let runtime: ReturnType<typeof createTuiRuntime<TState, TMessage>> | undefined;
   try {
-    runtime = createTuiRuntime({ app, host, ...(transcript === undefined ? {} : { transcript }) });
+    runtime = createTuiRuntime({
+      app,
+      host,
+      ...(options.initialFocusPath === undefined ? {} : { initialFocusPath: options.initialFocusPath }),
+      ...(transcript === undefined ? {} : { transcript })
+    });
     await runtime.start();
     const exit = await runTuiInputLoop(runtime, transcript);
     await runtime.dispose();
