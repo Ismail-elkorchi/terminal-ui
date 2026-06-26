@@ -1,0 +1,21 @@
+# Testing Harness
+
+The testing harness provides a memory terminal host, deterministic clock,
+transcript recorder, input injection, resize events, frames, render diffs,
+accessible snapshots, restore checkpoints, and output capture.
+
+Use it to test prompts, shells, and TUI apps without private imports.
+
+`harness.clock` is a controlled terminal clock. Use `advance(ms)` to drive
+timeouts, debounced prompt data sources, validation delays, and scripted waits
+without relying on real timers.
+
+`runInteractionScript()` returns typed diagnostics for script assertion
+failures instead of throwing ordinary assertion errors through the harness.
+The returned `InteractionResult` includes the final output, snapshot,
+transcript, and diagnostics so downstream tests can decide how to report or
+store the failure.
+
+Executable example:
+
+- `examples/testing/harness.mjs`

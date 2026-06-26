@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ismail-elkorchi.dev/terminal-ui/render-diff.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "width", "height", "operations", "fullRewrite"],
+  "properties": {
+    "schemaVersion": { "const": "terminal-ui.render-diff.v1" },
+    "width": { "type": "integer", "minimum": 0 },
+    "height": { "type": "integer", "minimum": 0 },
+    "operations": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "required": ["kind", "row", "column", "text"],
+            "properties": {
+              "kind": { "const": "write" },
+              "row": { "type": "integer", "minimum": 1 },
+              "column": { "type": "integer", "minimum": 1 },
+              "text": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["kind", "row"],
+            "properties": {
+              "kind": { "const": "clearLine" },
+              "row": { "type": "integer", "minimum": 1 }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["kind", "row", "column"],
+            "properties": {
+              "kind": { "const": "moveCursor" },
+              "row": { "type": "integer", "minimum": 1 },
+              "column": { "type": "integer", "minimum": 1 }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["kind", "visible"],
+            "properties": {
+              "kind": { "const": "showCursor" },
+              "visible": { "type": "boolean" }
+            },
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "fullRewrite": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

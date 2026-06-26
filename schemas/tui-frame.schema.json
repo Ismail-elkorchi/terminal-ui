@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ismail-elkorchi.dev/terminal-ui/tui-frame.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "width", "height", "cells", "accessibility"],
+  "properties": {
+    "schemaVersion": { "const": "terminal-ui.tui-frame.v1" },
+    "width": { "type": "integer", "minimum": 0 },
+    "height": { "type": "integer", "minimum": 0 },
+    "cells": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["row", "column", "text"],
+        "properties": {
+          "row": { "type": "integer", "minimum": 1 },
+          "column": { "type": "integer", "minimum": 1 },
+          "text": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "cursor": {
+      "type": "object",
+      "required": ["row", "column"],
+      "properties": {
+        "row": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "focusPath": { "type": "array", "items": { "type": "string" } },
+    "accessibility": { "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/accessible-snapshot.schema.json" }
+  },
+  "additionalProperties": false
+}

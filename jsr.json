@@ -1,0 +1,40 @@
+{
+  "name": "@ismail-elkorchi/terminal-ui",
+  "version": "0.1.0",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./host": "./src/host/index.ts",
+    "./input": "./src/input/index.ts",
+    "./protocol": "./src/protocol/index.ts",
+    "./text": "./src/text/index.ts",
+    "./theme": "./src/theme/index.ts",
+    "./prompts": "./src/prompts/index.ts",
+    "./shell": "./src/shell/index.ts",
+    "./tui": "./src/tui/index.ts",
+    "./widgets": "./src/widgets/index.ts",
+    "./accessibility": "./src/accessibility/index.ts",
+    "./transcript": "./src/transcript/index.ts",
+    "./testing": "./src/testing/index.ts",
+    "./schemas": "./src/schemas/index.ts",
+    "./schemas/accessible-snapshot.schema.json": "./schemas/accessible-snapshot.schema.json",
+    "./schemas/interaction-transcript.schema.json": "./schemas/interaction-transcript.schema.json",
+    "./schemas/prompt-result.schema.json": "./schemas/prompt-result.schema.json",
+    "./schemas/render-diff.schema.json": "./schemas/render-diff.schema.json",
+    "./schemas/shell-transcript.schema.json": "./schemas/shell-transcript.schema.json",
+    "./schemas/terminal-capabilities.schema.json": "./schemas/terminal-capabilities.schema.json",
+    "./schemas/terminal-diagnostic.schema.json": "./schemas/terminal-diagnostic.schema.json",
+    "./schemas/tui-frame.schema.json": "./schemas/tui-frame.schema.json"
+  },
+  "imports": {
+    "@ismail-elkorchi/cli-core": "npm:@ismail-elkorchi/cli-core@^0.1.0"
+  },
+  "publish": {
+    "include": [
+      "src",
+      "schemas",
+      "README.md",
+      "LICENSE"
+    ]
+  }
+}

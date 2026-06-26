@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ismail-elkorchi.dev/terminal-ui/accessible-snapshot.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "source", "root", "focusPath", "diagnostics"],
+  "properties": {
+    "schemaVersion": { "const": "terminal-ui.accessible-snapshot.v1" },
+    "source": { "enum": ["prompt", "shell", "tui", "widget", "progress"] },
+    "title": { "type": "string" },
+    "root": { "$ref": "#/$defs/accessibleNode" },
+    "focusPath": { "type": "array", "items": { "type": "string" } },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/terminal-diagnostic.schema.json" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "accessibleNode": {
+      "type": "object",
+      "required": ["id", "role"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "role": {
+          "enum": [
+            "application",
+            "dialog",
+            "status",
+            "progressbar",
+            "textbox",
+            "button",
+            "checkbox",
+            "radio",
+            "listbox",
+            "option",
+            "menu",
+            "menuitem",
+            "table",
+            "row",
+            "cell",
+            "text"
+          ]
+        },
+        "label": { "type": "string" },
+        "value": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "null" }
+          ]
+        },
+        "focused": { "type": "boolean" },
+        "selected": { "type": "boolean" },
+        "disabled": { "type": "boolean" },
+        "expanded": { "type": "boolean" },
+        "checked": { "anyOf": [{ "type": "boolean" }, { "const": "mixed" }] },
+        "progress": {
+          "type": "object",
+          "properties": {
+            "value": { "type": "number" },
+            "max": { "type": "number" },
+            "indeterminate": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "description": { "type": "string" },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/accessibleNode" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}

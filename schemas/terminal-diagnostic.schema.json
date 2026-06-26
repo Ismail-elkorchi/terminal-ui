@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ismail-elkorchi.dev/terminal-ui/terminal-diagnostic.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "code", "severity", "message"],
+  "properties": {
+    "schemaVersion": { "const": "terminal-ui.terminal-diagnostic.v1" },
+    "code": {
+      "enum": [
+        "HOST_CAPABILITY_UNAVAILABLE",
+        "HOST_STREAM_CLOSED",
+        "HOST_RESTORE_FAILED",
+        "HOST_PROTOCOL_UNSUPPORTED",
+        "INPUT_CANCELLED",
+        "INPUT_INTERRUPTED",
+        "INPUT_TIMEOUT",
+        "PROMPT_VALIDATION_FAILED",
+        "PROMPT_NON_TTY_DENIED",
+        "PROMPT_EDITOR_UNAVAILABLE",
+        "PROMPT_DATA_SOURCE_FAILED",
+        "SHELL_COMMAND_PARSE_DIAGNOSTIC",
+        "SHELL_COMMAND_PARSE_FAILED",
+        "SHELL_COMMAND_VALIDATE_DIAGNOSTIC",
+        "SHELL_COMMAND_VALIDATE_FAILED",
+        "SHELL_COMMAND_RUN_DIAGNOSTIC",
+        "SHELL_COMMAND_RUN_FAILED",
+        "TUI_RENDER_FAILED",
+        "TUI_LAYOUT_FAILED",
+        "TEXT_UNSAFE_CONTROL_SEQUENCE",
+        "TRANSCRIPT_REPLAY_FAILED",
+        "INTERACTION_SCRIPT_FAILED",
+        "ACCESSIBLE_SNAPSHOT_INVALID"
+      ]
+    },
+    "severity": { "enum": ["debug", "info", "warning", "error", "fatal"] },
+    "message": { "type": "string" },
+    "target": { "type": "string" },
+    "cause": { "$ref": "#/$defs/diagnosticValue" },
+    "hint": { "type": "string" },
+    "data": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/diagnosticValue" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "diagnosticValue": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "null" },
+        { "type": "array", "items": { "$ref": "#/$defs/diagnosticValue" } },
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/diagnosticValue" }
+        }
+      ]
+    }
+  }
+}

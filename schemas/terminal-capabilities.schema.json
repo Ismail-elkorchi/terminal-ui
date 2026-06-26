@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ismail-elkorchi.dev/terminal-ui/terminal-capabilities.schema.json",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "runtime",
+    "isTty",
+    "color",
+    "unicode",
+    "rawInput",
+    "resize",
+    "hyperlinks",
+    "enhancedKeyboard",
+    "bracketedPaste",
+    "mouseReporting",
+    "alternateScreen",
+    "focusReporting",
+    "cursorVisibility",
+    "title",
+    "bell",
+    "diagnostics"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "terminal-ui.terminal-capabilities.v1" },
+    "runtime": { "enum": ["node", "deno", "bun", "memory"] },
+    "isTty": { "type": "boolean" },
+    "color": {
+      "type": "object",
+      "required": ["depth", "hasBasicColors", "has256Colors", "hasTrueColor"],
+      "properties": {
+        "depth": { "enum": [0, 1, 4, 8, 24] },
+        "hasBasicColors": { "type": "boolean" },
+        "has256Colors": { "type": "boolean" },
+        "hasTrueColor": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "unicode": {
+      "type": "object",
+      "required": ["graphemeClusters", "eastAsianWidth", "emojiWidth", "bidi"],
+      "properties": {
+        "graphemeClusters": { "const": true },
+        "eastAsianWidth": { "enum": ["narrow", "wide", "ambiguous-narrow", "ambiguous-wide"] },
+        "emojiWidth": { "enum": ["narrow", "wide"] },
+        "bidi": { "enum": ["full", "stable-fallback"] }
+      },
+      "additionalProperties": false
+    },
+    "rawInput": { "$ref": "#/$defs/capabilitySupport" },
+    "resize": { "$ref": "#/$defs/capabilitySupport" },
+    "hyperlinks": { "$ref": "#/$defs/capabilitySupport" },
+    "enhancedKeyboard": { "$ref": "#/$defs/capabilitySupport" },
+    "bracketedPaste": { "$ref": "#/$defs/capabilitySupport" },
+    "mouseReporting": { "$ref": "#/$defs/capabilitySupport" },
+    "alternateScreen": { "$ref": "#/$defs/capabilitySupport" },
+    "focusReporting": { "$ref": "#/$defs/capabilitySupport" },
+    "cursorVisibility": { "$ref": "#/$defs/capabilitySupport" },
+    "title": { "$ref": "#/$defs/capabilitySupport" },
+    "bell": { "$ref": "#/$defs/capabilitySupport" },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/terminal-diagnostic.schema.json" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "capabilitySupport": {
+      "type": "object",
+      "required": ["supported", "confidence"],
+      "properties": {
+        "supported": { "type": "boolean" },
+        "confidence": { "enum": ["known", "detected", "assumed", "unknown"] },
+        "reason": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

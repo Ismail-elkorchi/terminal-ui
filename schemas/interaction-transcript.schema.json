@@ -1,0 +1,441 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ismail-elkorchi.dev/terminal-ui/interaction-transcript.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "id", "source", "steps", "diagnostics", "redactions"],
+  "properties": {
+    "schemaVersion": { "const": "terminal-ui.interaction-transcript.v1" },
+    "id": { "type": "string", "minLength": 1 },
+    "source": { "enum": ["prompt", "shell", "tui", "test", "replay"] },
+    "startedAt": { "type": "string" },
+    "steps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/step" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/diagnostic" }
+    },
+    "redactions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "reason"],
+        "properties": {
+          "path": { "type": "string" },
+          "reason": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "step": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "event"],
+          "properties": {
+            "kind": { "const": "input" },
+            "event": { "$ref": "#/$defs/inputEvent" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "frame"],
+          "properties": {
+            "kind": { "const": "frame" },
+            "frame": { "$ref": "#/$defs/frame" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "diff"],
+          "properties": {
+            "kind": { "const": "diff" },
+            "diff": { "$ref": "#/$defs/renderDiff" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "snapshot"],
+          "properties": {
+            "kind": { "const": "snapshot" },
+            "snapshot": { "$ref": "#/$defs/accessibleSnapshot" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "diagnostic"],
+          "properties": {
+            "kind": { "const": "diagnostic" },
+            "diagnostic": { "$ref": "#/$defs/diagnostic" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "checkpoint"],
+          "properties": {
+            "kind": { "const": "restore" },
+            "checkpoint": { "$ref": "#/$defs/restoreCheckpoint" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "inputEvent": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "key", "ctrl", "alt", "shift", "meta"],
+          "properties": {
+            "kind": { "const": "key" },
+            "key": {
+              "enum": [
+                "enter",
+                "escape",
+                "tab",
+                "backspace",
+                "delete",
+                "arrowUp",
+                "arrowDown",
+                "arrowLeft",
+                "arrowRight",
+                "pageUp",
+                "pageDown",
+                "home",
+                "end",
+                "space",
+                "ctrlC",
+                "ctrlD",
+                "unknown"
+              ]
+            },
+            "sequence": { "type": "string" },
+            "ctrl": { "type": "boolean" },
+            "alt": { "type": "boolean" },
+            "shift": { "type": "boolean" },
+            "meta": { "type": "boolean" },
+            "repeat": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "text", "paste"],
+          "properties": {
+            "kind": { "const": "text" },
+            "text": { "type": "string" },
+            "paste": { "const": false }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "text", "bracketed"],
+          "properties": {
+            "kind": { "const": "paste" },
+            "text": { "type": "string" },
+            "bracketed": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "sequence", "encoding", "action", "button", "row", "column", "rawCode", "modifiers"],
+          "properties": {
+            "kind": { "const": "mouse" },
+            "sequence": { "type": "string" },
+            "encoding": { "enum": ["sgr", "x10"] },
+            "action": { "enum": ["press", "release", "drag", "move", "wheel"] },
+            "button": { "enum": ["left", "middle", "right", "wheelUp", "wheelDown", "none", "unknown"] },
+            "row": { "type": "integer", "minimum": 1 },
+            "column": { "type": "integer", "minimum": 1 },
+            "rawCode": { "type": "integer" },
+            "modifiers": {
+              "type": "object",
+              "required": ["shift", "alt", "ctrl"],
+              "properties": {
+                "shift": { "type": "boolean" },
+                "alt": { "type": "boolean" },
+                "ctrl": { "type": "boolean" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "viewport"],
+          "properties": {
+            "kind": { "const": "resize" },
+            "viewport": { "$ref": "#/$defs/viewport" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "focused"],
+          "properties": {
+            "kind": { "const": "focus" },
+            "focused": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "signal"],
+          "properties": {
+            "kind": { "const": "signal" },
+            "signal": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": { "const": "end" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "sequence"],
+          "properties": {
+            "kind": { "const": "unknown" },
+            "sequence": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "viewport": {
+      "type": "object",
+      "required": ["columns", "rows"],
+      "properties": {
+        "columns": { "type": "integer", "minimum": 1 },
+        "rows": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "frame": {
+      "type": "object",
+      "required": ["schemaVersion", "width", "height", "cells", "accessibility"],
+      "properties": {
+        "schemaVersion": { "const": "terminal-ui.tui-frame.v1" },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "cells": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/frameCell" }
+        },
+        "cursor": { "$ref": "#/$defs/cursor" },
+        "focusPath": { "type": "array", "items": { "type": "string" } },
+        "accessibility": { "$ref": "#/$defs/accessibleSnapshot" }
+      },
+      "additionalProperties": false
+    },
+    "frameCell": {
+      "type": "object",
+      "required": ["row", "column", "text"],
+      "properties": {
+        "row": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "text": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "cursor": {
+      "type": "object",
+      "required": ["row", "column"],
+      "properties": {
+        "row": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "renderDiff": {
+      "type": "object",
+      "required": ["schemaVersion", "width", "height", "operations", "fullRewrite"],
+      "properties": {
+        "schemaVersion": { "const": "terminal-ui.render-diff.v1" },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "operations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/renderOperation" }
+        },
+        "fullRewrite": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "renderOperation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "row", "column", "text"],
+          "properties": {
+            "kind": { "const": "write" },
+            "row": { "type": "integer", "minimum": 1 },
+            "column": { "type": "integer", "minimum": 1 },
+            "text": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "row"],
+          "properties": {
+            "kind": { "const": "clearLine" },
+            "row": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "row", "column"],
+          "properties": {
+            "kind": { "const": "moveCursor" },
+            "row": { "type": "integer", "minimum": 1 },
+            "column": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "visible"],
+          "properties": {
+            "kind": { "const": "showCursor" },
+            "visible": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "accessibleSnapshot": {
+      "type": "object",
+      "required": ["schemaVersion", "source", "root", "focusPath", "diagnostics"],
+      "properties": {
+        "schemaVersion": { "const": "terminal-ui.accessible-snapshot.v1" },
+        "source": { "enum": ["prompt", "shell", "tui", "widget", "progress"] },
+        "title": { "type": "string" },
+        "root": { "$ref": "#/$defs/accessibleNode" },
+        "focusPath": { "type": "array", "items": { "type": "string" } },
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
+      },
+      "additionalProperties": false
+    },
+    "accessibleNode": {
+      "type": "object",
+      "required": ["id", "role"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "role": {
+          "enum": [
+            "application",
+            "dialog",
+            "status",
+            "progressbar",
+            "textbox",
+            "button",
+            "checkbox",
+            "radio",
+            "listbox",
+            "option",
+            "menu",
+            "menuitem",
+            "table",
+            "row",
+            "cell",
+            "text"
+          ]
+        },
+        "label": { "type": "string" },
+        "value": {
+          "anyOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "null" }
+          ]
+        },
+        "focused": { "type": "boolean" },
+        "selected": { "type": "boolean" },
+        "disabled": { "type": "boolean" },
+        "expanded": { "type": "boolean" },
+        "checked": { "anyOf": [{ "type": "boolean" }, { "const": "mixed" }] },
+        "progress": {
+          "type": "object",
+          "properties": {
+            "value": { "type": "number" },
+            "max": { "type": "number" },
+            "indeterminate": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "description": { "type": "string" },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/accessibleNode" } }
+      },
+      "additionalProperties": false
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["schemaVersion", "code", "severity", "message"],
+      "properties": {
+        "schemaVersion": { "const": "terminal-ui.terminal-diagnostic.v1" },
+        "code": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["debug", "info", "warning", "error", "fatal"] },
+        "message": { "type": "string" },
+        "target": { "type": "string" },
+        "cause": { "$ref": "#/$defs/diagnosticValue" },
+        "hint": { "type": "string" },
+        "data": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/diagnosticValue" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "diagnosticValue": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "null" },
+        { "type": "array", "items": { "$ref": "#/$defs/diagnosticValue" } },
+        {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/diagnosticValue" }
+        }
+      ]
+    },
+    "restoreCheckpoint": {
+      "type": "object",
+      "required": [
+        "rawInput",
+        "alternateScreen",
+        "bracketedPaste",
+        "mouseReporting",
+        "focusReporting",
+        "cursorVisible"
+      ],
+      "properties": {
+        "rawInput": { "type": "boolean" },
+        "alternateScreen": { "type": "boolean" },
+        "bracketedPaste": { "type": "boolean" },
+        "mouseReporting": { "enum": ["none", "click", "drag", "all"] },
+        "focusReporting": { "type": "boolean" },
+        "cursorVisible": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

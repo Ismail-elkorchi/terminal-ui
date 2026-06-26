@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.ismail-elkorchi.dev/terminal-ui/prompt-result.schema.json",
+  "type": "object",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["schemaVersion", "status", "value", "diagnostics", "snapshot"],
+      "properties": {
+        "schemaVersion": { "const": "terminal-ui.prompt-result.v1" },
+        "status": { "const": "submitted" },
+        "value": true,
+        "diagnostics": {
+          "type": "array",
+          "items": { "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/terminal-diagnostic.schema.json" }
+        },
+        "transcript": { "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/interaction-transcript.schema.json" },
+        "snapshot": { "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/accessible-snapshot.schema.json" }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": ["schemaVersion", "status", "reason", "diagnostics"],
+      "properties": {
+        "schemaVersion": { "const": "terminal-ui.prompt-result.v1" },
+        "status": { "const": "aborted" },
+        "reason": {
+          "enum": ["cancelled", "interrupted", "timeout", "non_tty_denied", "validation_failed", "host_error"]
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": { "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/terminal-diagnostic.schema.json" }
+        },
+        "transcript": { "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/interaction-transcript.schema.json" },
+        "snapshot": { "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/accessible-snapshot.schema.json" }
+      },
+      "additionalProperties": false
+    }
+  ]
+}

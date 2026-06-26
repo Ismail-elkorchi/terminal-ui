@@ -3,46 +3,98 @@
   "version": "0.1.0",
   "description": "Runtime-agnostic terminal host, prompt, shell, widget, TUI, accessibility, and testing primitives.",
   "type": "module",
+  "types": "./dist/index.d.ts",
+  "main": "./dist/index.js",
   "license": "MIT",
   "sideEffects": false,
   "exports": {
     ".": {
-      "types": "./src/index.d.ts",
-      "default": "./src/index.js"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./host": {
-      "types": "./src/host.d.ts",
-      "default": "./src/host.js"
+      "types": "./dist/host/index.d.ts",
+      "default": "./dist/host/index.js"
+    },
+    "./input": {
+      "types": "./dist/input/index.d.ts",
+      "default": "./dist/input/index.js"
+    },
+    "./protocol": {
+      "types": "./dist/protocol/index.d.ts",
+      "default": "./dist/protocol/index.js"
+    },
+    "./text": {
+      "types": "./dist/text/index.d.ts",
+      "default": "./dist/text/index.js"
+    },
+    "./theme": {
+      "types": "./dist/theme/index.d.ts",
+      "default": "./dist/theme/index.js"
     },
     "./prompts": {
-      "types": "./src/prompts.d.ts",
-      "default": "./src/prompts.js"
+      "types": "./dist/prompts/index.d.ts",
+      "default": "./dist/prompts/index.js"
     },
     "./shell": {
-      "types": "./src/shell.d.ts",
-      "default": "./src/shell.js"
+      "types": "./dist/shell/index.d.ts",
+      "default": "./dist/shell/index.js"
     },
     "./tui": {
-      "types": "./src/tui.d.ts",
-      "default": "./src/tui.js"
+      "types": "./dist/tui/index.d.ts",
+      "default": "./dist/tui/index.js"
     },
     "./widgets": {
-      "types": "./src/widgets.d.ts",
-      "default": "./src/widgets.js"
+      "types": "./dist/widgets/index.d.ts",
+      "default": "./dist/widgets/index.js"
+    },
+    "./accessibility": {
+      "types": "./dist/accessibility/index.d.ts",
+      "default": "./dist/accessibility/index.js"
+    },
+    "./transcript": {
+      "types": "./dist/transcript/index.d.ts",
+      "default": "./dist/transcript/index.js"
     },
     "./testing": {
-      "types": "./src/testing.d.ts",
-      "default": "./src/testing.js"
+      "types": "./dist/testing/index.d.ts",
+      "default": "./dist/testing/index.js"
+    },
+    "./schemas": {
+      "types": "./dist/schemas/index.d.ts",
+      "default": "./dist/schemas/index.js"
+    },
+    "./schemas/*.json": {
+      "default": "./dist/schemas/*.json"
     }
   },
   "files": [
-    "src",
+    "dist",
+    "docs",
+    "examples",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "check": "node --test",
-    "test": "node --test"
+    "build": "tsc -p tsconfig.json && node scripts/copy-schemas.mjs",
+    "clean": "rm -rf dist",
+    "lint": "eslint \"src/**/*.ts\"",
+    "check": "npm run lint && npm run build && npm run check:runtime && npm run check:jsr && npm run check:fixtures && npm run check:acceptance && npm run check:conformance && npm run check:integration && npm run check:package && npm run check:performance && npm run check:property && npm run check:security && npm run check:unit",
+    "check:acceptance": "node --test tests/acceptance/*.test.mjs",
+    "check:conformance": "node --test tests/conformance/*.test.mjs",
+    "check:fixtures": "node --test tests/fixtures/*.test.mjs",
+    "check:integration": "node --test tests/integration/*.test.mjs",
+    "check:jsr": "deno publish --dry-run --allow-dirty --quiet",
+    "check:package": "node --test tests/package/*.test.mjs",
+    "check:performance": "node --test tests/performance/*.test.mjs",
+    "check:property": "node --test tests/property/*.test.mjs",
+    "check:runtime": "node --test tests/runtime/*.test.mjs",
+    "check:security": "node --test tests/security/*.test.mjs",
+    "check:unit": "node --test tests/unit/*.test.mjs",
+    "test": "npm run check"
+  },
+  "engines": {
+    "node": ">=24"
   },
   "keywords": [
     "terminal",
@@ -51,5 +103,18 @@
     "tui",
     "accessibility",
     "testing"
-  ]
+  ],
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.1",
+    "@typescript-eslint/eslint-plugin": "^8.62.0",
+    "@typescript-eslint/parser": "^8.62.0",
+    "ajv": "^8.20.0",
+    "eslint": "^10.5.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.0"
+  },
+  "dependencies": {
+    "@ismail-elkorchi/cli-core": "^0.1.0"
+  }
 }

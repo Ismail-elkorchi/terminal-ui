@@ -1,0 +1,63 @@
+import { toAccessibleSnapshot, validateAccessibleSnapshot } from '../accessibility/index.ts';
+import { diffFrames, renderDiff, renderWidgetFrame } from './render.ts';
+import { recordTuiFrame } from './transcript.ts';
+import type { AccessibleSnapshot } from '../accessibility/index.ts';
+import type { TerminalHost, TerminalViewport } from '../host/index.ts';
+import type { FocusPath } from './focus.ts';
+import type { Frame, RenderDiff } from './frame.ts';
+import type { TuiApp, TuiContext, TuiRuntimeOptions } from './types.ts';
+
+export function renderCurrentFrame<TState, TMessage>(
+  app: TuiApp<TState, TMessage>,
+  state: TState,
+  context: TuiContext<TMessage>,
+  focusPath: FocusPath | undefined
+): Frame {
+  const options = focusPath === undefined ? {} : { focusPath };
+  const frame = renderWidgetFrame(app.definition.view(state, context), context.viewport, options);
+  const accessibility = appAccessibility(app, state, frame);
+  return accessibility === frame.accessibility ? frame : { ...frame, accessibility };
+}
+
+export async function commitFrame(
+  host: TerminalHost,
+  previousFrame: Frame | undefined,
+  frame: Frame,
+  transcript: TuiRuntimeOptions<unknown, unknown>['transcript'] | undefined
+): Promise<RenderDiff> {
+  const diff = diffFrames(previousFrame, frame);
+  recordHostFrame(host, frame, diff);
+  recordTuiFrame(transcript, frame, diff);
+  await host.write({ text: renderDiff(diff) });
+  return diff;
+}
+
+export function setHostViewport(host: TerminalHost, viewport: TerminalViewport): void {
+  const resizable = host as TerminalHost & { setViewport?: (viewport: TerminalViewport) => void };
+  resizable.setViewport?.(viewport);
+}
+
+function appAccessibility<TState, TMessage>(
+  app: TuiApp<TState, TMessage>,
+  state: TState,
+  frame: Frame
+): AccessibleSnapshot {
+  const described = app.definition.accessibility?.describe?.(state);
+  if (described === undefined) return frame.accessibility;
+  const normalized = toAccessibleSnapshot(described);
+  const valid = validateAccessibleSnapshot(normalized);
+  if (valid.ok) return normalized;
+  return toAccessibleSnapshot({
+    ...frame.accessibility,
+    diagnostics: [...frame.accessibility.diagnostics, valid.error]
+  });
+}
+
+function recordHostFrame(host: TerminalHost, frame: Frame, diff: RenderDiff): void {
+  const recorder = host as TerminalHost & {
+    recordFrame?: (frame: Frame) => void;
+    recordDiff?: (diff: RenderDiff) => void;
+  };
+  recorder.recordFrame?.(frame);
+  recorder.recordDiff?.(diff);
+}
