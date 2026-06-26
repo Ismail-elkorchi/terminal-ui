@@ -33,10 +33,12 @@ export async function runTui<TState, TMessage>(
   if (nonTtyExit !== undefined) return withTuiTranscript(nonTtyExit, transcript);
   const session = await host.beginSession({ id: app.id });
   const setupDiagnostics = await setupTuiSession(session);
+  let runtime: ReturnType<typeof createTuiRuntime<TState, TMessage>> | undefined;
   try {
-    const runtime = createTuiRuntime({ app, host, ...(transcript === undefined ? {} : { transcript }) });
+    runtime = createTuiRuntime({ app, host, ...(transcript === undefined ? {} : { transcript }) });
     await runtime.start();
     const exit = await runTuiInputLoop(runtime, transcript);
+    await runtime.dispose();
     if ('state' in exit && exit.state !== undefined) {
       await app.definition.onExit?.(exit.state);
     }
@@ -44,6 +46,7 @@ export async function runTui<TState, TMessage>(
     recordTuiRestore(transcript, session.initialState);
     return withTuiTranscript(withDiagnostics(exit, [...setupDiagnostics, ...restoreDiagnostics]), transcript);
   } catch (cause) {
+    await runtime?.dispose();
     const restoreDiagnostics = await restoreTuiSession(session, 'error');
     recordTuiRestore(transcript, session.initialState);
     return withTuiTranscript({

@@ -3,6 +3,7 @@ import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalStateSnapshot } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../tui/index.ts';
+import type { TuiMessageSource } from '../tui/types.ts';
 
 export interface InteractionTranscript {
   readonly schemaVersion: 'terminal-ui.interaction-transcript.v1';
@@ -18,6 +19,7 @@ export type TranscriptSource = 'prompt' | 'shell' | 'tui' | 'test' | 'replay';
 
 export type InteractionTranscriptStep =
   | { readonly kind: 'input'; readonly event: InputEvent }
+  | { readonly kind: 'message'; readonly source: TuiMessageSource; readonly message: unknown }
   | { readonly kind: 'frame'; readonly frame: Frame }
   | { readonly kind: 'diff'; readonly diff: RenderDiff }
   | { readonly kind: 'snapshot'; readonly snapshot: AccessibleSnapshot }

@@ -45,16 +45,32 @@ export interface TuiContext<TMessage> {
   dispatch(message: TMessage): void;
 }
 
+export type TuiMessageSource = 'input' | 'signal' | 'timer' | 'external' | 'internal';
+
 export interface TuiCommand<TMessage> {
   readonly kind: 'dispatch';
   readonly message: TMessage;
+}
+
+export interface TuiEventSource<TMessage> {
+  readonly id: string;
+  readonly source?: Exclude<TuiMessageSource, 'input' | 'internal'>;
+  messages(context: TuiSubscriptionContext<TMessage>): AsyncIterable<TMessage>;
+  dispose?(): void | Promise<void>;
+}
+
+export interface TuiSubscriptionContext<TMessage> extends TuiContext<TMessage> {
+  readonly signal: AbortSignal;
 }
 
 export interface TuiExitRequest {
   readonly reason?: string;
 }
 
-export type TuiSubscriptions<TState, TMessage> = (state: TState) => readonly TuiCommand<TMessage>[];
+export type TuiSubscriptions<TState, TMessage> = (
+  state: TState,
+  context: TuiContext<TMessage>
+) => readonly TuiEventSource<TMessage>[];
 export type TuiExitHandler<TState> = (state: TState) => void | Promise<void>;
 
 export interface TuiAccessibilityOptions<TState> {
@@ -98,10 +114,16 @@ export interface TuiRuntime<TState, TMessage> {
   ): Promise<readonly TuiInputResult<TState>[]>;
   flushInput(): Promise<readonly TuiInputResult<TState>[]>;
   resetInput(): void;
+  nextChange(): Promise<TuiRuntimeChange<TState>>;
+  dispose(): Promise<void>;
   getState(): TState | undefined;
   frame(): Frame | undefined;
   exit(): TuiExit<TState> | undefined;
 }
+
+export type TuiRuntimeChange<TState> =
+  | { readonly kind: 'frame'; readonly frame: Frame }
+  | { readonly kind: 'exit'; readonly exit: TuiExit<TState> };
 
 export interface TuiInputResult<TState> {
   readonly handled: boolean;

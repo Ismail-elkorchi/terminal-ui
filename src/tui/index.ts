@@ -1,7 +1,21 @@
 import { layoutWidget } from './layout.ts';
 import { diffFrames, renderDiff, renderFrame, renderWidgetFrame } from './render.ts';
+import type {
+  CommandBarAction,
+  CommandBarState,
+  CommandPaletteFilterResult,
+  CommandPaletteWindowInput
+} from './command-surface.ts';
 import type { FocusPath } from './focus.ts';
 import type { LayoutNode, Rect } from './layout.ts';
+import type { LayoutTrack, Screen, ScreenStack, ScreenStackAction } from './regions.ts';
+import type { CreateScrollStateInput, ScrollAction, ScrollState, ScrollVisibleWindow } from './scroll.ts';
+import type {
+  ExtractScrollbackSelectionTextInput,
+  ScrollbackTextSegment,
+  ScrollbackVisibleRow,
+  ScrollbackWindow
+} from './scrollback.ts';
 import type {
   CursorPosition,
   Frame,
@@ -20,9 +34,29 @@ export type {
   Rect,
   RenderDiff,
   RenderFrameOptions,
-  RenderOperation
+  RenderOperation,
+  CommandBarAction,
+  CommandBarState,
+  CommandPaletteFilterResult,
+  CommandPaletteWindowInput,
+  LayoutTrack,
+  Screen,
+  ScreenStack,
+  ScreenStackAction,
+  CreateScrollStateInput,
+  ScrollAction,
+  ScrollState,
+  ScrollVisibleWindow,
+  ExtractScrollbackSelectionTextInput,
+  ScrollbackTextSegment,
+  ScrollbackVisibleRow,
+  ScrollbackWindow
 };
 export { diffFrames, layoutWidget, renderDiff, renderFrame, renderWidgetFrame };
+export { commandBarReducer, commandPaletteWindow, filterCommandPaletteEntries } from './command-surface.ts';
+export { activeScreen, gridCellRects, screenStackReducer, splitTracks } from './regions.ts';
+export { createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll } from './scroll.ts';
+export { extractScrollbackSelectionText, scrollbackWindow } from './scrollback.ts';
 export { defineTui } from './definition.ts';
 export { createTuiRuntime } from './runtime.ts';
 export { runTui } from './run.ts';

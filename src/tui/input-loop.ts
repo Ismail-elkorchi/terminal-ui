@@ -13,12 +13,19 @@ export async function runTuiInputLoop<TState, TMessage>(
   const signals = createSignalQueue(runtime.host.signals.subscribe.bind(runtime.host.signals));
   let inputNext = input.next();
   let signalNext = signals.next();
+  let runtimeChangeNext = runtime.nextChange();
   try {
     for (;;) {
       const event = await Promise.race([
         inputNext.then((result) => ({ kind: 'input' as const, result })),
-        signalNext.then((signal) => ({ kind: 'signal' as const, signal }))
+        signalNext.then((signal) => ({ kind: 'signal' as const, signal })),
+        runtimeChangeNext.then((change) => ({ kind: 'runtime' as const, change }))
       ]);
+      if (event.kind === 'runtime') {
+        runtimeChangeNext = runtime.nextChange();
+        if (event.change.kind === 'exit') return event.change.exit;
+        continue;
+      }
       if (event.kind === 'signal') {
         signalNext = signals.next();
         transcript?.record({ kind: 'input', event: { kind: 'signal', signal: event.signal } });

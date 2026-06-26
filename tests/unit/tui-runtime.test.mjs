@@ -8,7 +8,7 @@ import {
   createTerminalHarness,
   runInteractionScript
 } from '../../dist/testing/index.js';
-import { validateTranscript } from '../../dist/transcript/index.js';
+import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
 import {
   createTuiRuntime,
   defineTui,
@@ -412,22 +412,121 @@ test('TUI runtime start preserves init-dispatched exits with the rendered snapsh
   assert.equal(exit?.snapshot.root.id, 'done-label');
 });
 
-test('TUI runtime applies subscriptions before the initial committed frame', async () => {
+test('TUI runtime consumes async subscription sources without duplicate restarts', async () => {
+  let starts = 0;
   const app = defineTui({
     id: 'subscription-init',
     init: () => ({ count: 0 }),
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
-    subscriptions: (state) => state.count === 0 ? [{ kind: 'dispatch', message: { delta: 1 } }] : [],
+    subscriptions: () => [{
+      id: 'timer-source',
+      source: 'timer',
+      async *messages() {
+        starts += 1;
+        yield { delta: 1 };
+      }
+    }],
     view: (state) => text(`Count ${state.count}`, { id: 'subscription-count' })
   });
   const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
+  await waitUntil(() => runtime.getState()?.count === 1);
+  await runtime.dispatch({ delta: 1 });
 
-  assert.deepEqual(runtime.getState(), { count: 1 });
-  assert.equal(harness.frames().length, 1);
-  assert.match(renderFrame(runtime.frame()), /Count 1/);
+  assert.deepEqual(runtime.getState(), { count: 2 });
+  assert.equal(starts, 1);
+  assert.match(renderFrame(runtime.frame()), /Count 2/);
+});
+
+test('TUI runtime cancels subscription sources when they leave the definition', async () => {
+  let sourceSignal;
+  let disposeCount = 0;
+  const app = defineTui({
+    id: 'subscription-cancel',
+    init: () => ({ enabled: true }),
+    update: (_state, message) => ({ state: { enabled: message.enabled } }),
+    subscriptions: (state) => state.enabled
+      ? [{
+          id: 'long-source',
+          async *messages(context) {
+            sourceSignal = context.signal;
+            await new Promise(() => undefined);
+          },
+          dispose() {
+            disposeCount += 1;
+          }
+        }]
+      : [],
+    view: (state) => text(state.enabled ? 'enabled' : 'disabled', { id: 'subscription-state' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await waitUntil(() => sourceSignal !== undefined);
+  assert.equal(sourceSignal.aborted, false);
+
+  await runtime.dispatch({ enabled: false });
+
+  assert.equal(sourceSignal.aborted, true);
+  assert.equal(disposeCount, 1);
+  assert.match(renderFrame(runtime.frame()), /disabled/);
+});
+
+test('TUI runtime serializes concurrent external dispatches', async () => {
+  let activeUpdates = 0;
+  let maxActiveUpdates = 0;
+  const order = [];
+  const app = defineTui({
+    id: 'serialized-dispatch',
+    init: () => ({ count: 0 }),
+    update: async (state, message) => {
+      activeUpdates += 1;
+      maxActiveUpdates = Math.max(maxActiveUpdates, activeUpdates);
+      order.push(`start:${message.delta}`);
+      await Promise.resolve();
+      activeUpdates -= 1;
+      order.push(`end:${message.delta}`);
+      return { state: { count: state.count + message.delta } };
+    },
+    view: (state) => text(`Count ${state.count}`, { id: 'serialized-count' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await Promise.all([
+    runtime.dispatch({ delta: 1 }),
+    runtime.dispatch({ delta: 2 }),
+    runtime.dispatch({ delta: 3 })
+  ]);
+
+  assert.equal(maxActiveUpdates, 1);
+  assert.deepEqual(runtime.getState(), { count: 6 });
+  assert.deepEqual(order, ['start:1', 'end:1', 'start:2', 'end:2', 'start:3', 'end:3']);
+});
+
+test('TUI runtime records external dispatch messages in transcripts', async () => {
+  const transcript = createTranscriptRecorder({ id: 'external-message-transcript', source: 'tui' });
+  const app = defineTui({
+    id: 'external-message',
+    init: () => ({ count: 0 }),
+    update: (state, message) => ({ state: { count: state.count + message.delta } }),
+    view: (state) => text(`Count ${state.count}`, { id: 'external-count' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host, transcript });
+
+  await runtime.start();
+  await runtime.dispatch({ delta: 4 });
+  const snapshot = transcript.snapshot();
+
+  assert.equal(validateTranscript(snapshot).ok, true);
+  assert.ok(snapshot.steps.some((step) => step.kind === 'message'
+    && step.source === 'external'
+    && step.message.delta === 4));
 });
 
 test('TUI runtime queues context dispatch during initialization before first render', async () => {

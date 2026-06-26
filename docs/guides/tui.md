@@ -34,6 +34,32 @@ same reducer/render path directly. `runtime.start()` initializes the app and
 returns the committed initial `Frame`; completion remains available through
 `runtime.exit()` and `runTui()`.
 
+Subscriptions are async event sources, not one-shot dispatch commands. A
+subscription returns stable `id` values plus async `messages(context)` iterables.
+The runtime starts a source once for a stable id, serializes every emitted
+message through `runtime.dispatch()`, and aborts/disposes sources when they
+leave the subscription set or when the TUI exits.
+
+`runtime.dispatch(message)` is also the canonical external entry point for
+custom event loops. Dispatches are serialized, so stream events, timers, input,
+signals, and app-triggered messages cannot overlap render commits.
+
+Scrollable widgets share the same `ScrollState` and `scrollReducer()` primitive.
+Use it for line/page/top/bottom movement, item-into-view behavior, horizontal
+offsets, and follow-tail log views. Existing visible-window helpers route
+through this reducer so list, table, viewport, and future scrollback widgets use
+one scroll model instead of per-widget arithmetic.
+
+Command surfaces are ordinary widgets. Apps decide which normalized key names
+map to palette, accept, cancel, or history messages through widget `keyMap`
+values; `terminal-ui` does not reserve a global command-palette shortcut.
+
+Layout regions are structural widget data. `grid()`, `splitPane()`, `tabs()`,
+and `modal()` produce regular layout nodes, frames, diffs, and accessible
+snapshots. For application navigation, use the pure `screenStackReducer()` and
+`activeScreen()` helpers; a screen stack is serializable state, not a hidden
+runtime mode.
+
 Executable example:
 
 - `examples/tui/render-frame.mjs`

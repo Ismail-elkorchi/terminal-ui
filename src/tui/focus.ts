@@ -84,7 +84,7 @@ export function focusPathIncludes(left: FocusPath | undefined, right: FocusPath)
 
 function collectLayoutTargets(layout: LayoutNode, parentPath: FocusPath): readonly LayoutFocusTarget[] {
   const path = [...parentPath, focusSegment(layout)];
-  const current = layout.focusable
+  const current = layout.focusable && layout.bounds.width > 0 && layout.bounds.height > 0
     ? [{ path, bounds: layout.bounds, kind: layout.kind, focusable: layout.focusable }]
     : [];
   return [
@@ -99,7 +99,13 @@ function collectWidgetTargets<TMessage>(
   parentPath: FocusPath
 ): readonly WidgetLayoutTarget<TMessage>[] {
   const path = [...parentPath, focusSegment(layout)];
-  const current = [{ path, bounds: layout.bounds, kind: layout.kind, focusable: layout.focusable, widget }];
+  const current = [{
+    path,
+    bounds: layout.bounds,
+    kind: layout.kind,
+    focusable: layout.focusable && layout.bounds.width > 0 && layout.bounds.height > 0,
+    widget
+  }];
   const children = widget.children ?? [];
   return [
     ...current,

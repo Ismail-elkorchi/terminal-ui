@@ -48,6 +48,13 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.createCommandPalette, 'function');
   assert.equal(typeof terminalUi.defineTui, 'function');
   assert.equal(typeof terminalUi.createTuiRuntime, 'function');
+  assert.equal(typeof terminalUi.commandBarReducer, 'function');
+  assert.equal(typeof terminalUi.commandPaletteWindow, 'function');
+  assert.equal(typeof terminalUi.filterCommandPaletteEntries, 'function');
+  assert.equal(typeof terminalUi.screenStackReducer, 'function');
+  assert.equal(typeof terminalUi.activeScreen, 'function');
+  assert.equal(typeof terminalUi.splitTracks, 'function');
+  assert.equal(typeof terminalUi.gridCellRects, 'function');
   assert.equal(typeof terminalUi.layoutWidget, 'function');
   assert.equal(typeof terminalUi.renderWidgetFrame, 'function');
   assert.equal(typeof terminalUi.diffFrames, 'function');
@@ -95,6 +102,13 @@ test('root declaration exposes primary public type contracts', async () => {
     'StyledText',
     'Widget',
     'WidgetKind',
+    'CommandBarWidgetOptions',
+    'CommandPaletteWidgetOptions',
+    'GridWidgetOptions',
+    'SplitPaneWidgetOptions',
+    'TabsWidgetOptions',
+    'ModalWidgetOptions',
+    'ScreenStack',
     'PromptChoice',
     'NonTtyPromptPolicy',
     'ShellArgvParser',

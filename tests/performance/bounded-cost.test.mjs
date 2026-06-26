@@ -4,7 +4,7 @@ import test from 'node:test';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createInputDecoder } from '../../dist/input/index.js';
 import { createTuiRuntime, defineTui, diffFrames, renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
-import { inputField, list, text } from '../../dist/widgets/index.js';
+import { inputField, list, scrollback, text } from '../../dist/widgets/index.js';
 
 test('paste bursts decode as one paste event instead of per-character key churn', () => {
   const decoder = createInputDecoder();
@@ -26,6 +26,18 @@ test('large list rendering is bounded by viewport size, not collection size', ()
   assert.ok(frame.cells.length <= frame.width * frame.height);
   assert.equal(frame.accessibility.root.children?.length, 10);
   assert.equal(frame.accessibility.root.description, 'Showing 39996-40005 of 50000 items.');
+});
+
+test('large scrollback rendering is bounded by viewport size, not collection size', () => {
+  const items = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
+  const frame = renderWidgetFrame(scrollback({ id: 'large-scrollback', items }), { columns: 48, rows: 12 });
+  const output = renderFrame(frame);
+
+  assert.match(output, /Line 99999/u);
+  assert.doesNotMatch(output, /Line 0/u);
+  assert.ok(frame.cells.length <= frame.width * frame.height);
+  assert.equal(frame.accessibility.root.children?.length, 12);
+  assert.equal(frame.accessibility.root.description, 'Showing 99989-100000 of 100000 scrollback rows. Omitted before: 99988. Omitted after: 0.');
 });
 
 test('small local frame updates produce bounded render diffs', () => {

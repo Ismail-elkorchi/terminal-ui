@@ -44,6 +44,16 @@
         },
         {
           "type": "object",
+          "required": ["kind", "source", "message"],
+          "properties": {
+            "kind": { "const": "message" },
+            "source": { "enum": ["input", "signal", "timer", "external", "internal"] },
+            "message": true
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
           "required": ["kind", "frame"],
           "properties": {
             "kind": { "const": "frame" },

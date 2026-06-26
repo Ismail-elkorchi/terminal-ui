@@ -5,9 +5,11 @@ import type { TerminalStateSnapshot, TerminalViewport } from '../host/index.ts';
 import type { KeyName, MouseAction, MouseButton, MouseEncoding } from '../input/index.ts';
 import type { Result } from '../result.ts';
 import type { CursorPosition, FrameCell, RenderOperation } from '../tui/index.ts';
+import type { TuiMessageSource } from '../tui/types.ts';
 import type { InteractionTranscript, TranscriptSource } from './types.ts';
 
 const transcriptSources = ['prompt', 'shell', 'tui', 'test', 'replay'] as const satisfies readonly TranscriptSource[];
+const messageSources = ['input', 'signal', 'timer', 'external', 'internal'] as const satisfies readonly TuiMessageSource[];
 const keyNames = [
   'enter',
   'escape',
@@ -75,6 +77,8 @@ function stepIssue(step: unknown): string | undefined {
   switch (step['kind']) {
     case 'input':
       return inputEventIssue(step['event']);
+    case 'message':
+      return messageStepIssue(step);
     case 'frame':
       return frameIssue(step['frame']);
     case 'diff':
@@ -88,6 +92,11 @@ function stepIssue(step: unknown): string | undefined {
     default:
       return `unsupported step kind: ${String(step['kind'])}.`;
   }
+}
+
+function messageStepIssue(step: Record<string, unknown>): string | undefined {
+  if (!isOneOf(step['source'], messageSources)) return `unsupported message source: ${String(step['source'])}.`;
+  return Object.hasOwn(step, 'message') ? undefined : 'message step requires message.';
 }
 
 function inputEventIssue(event: unknown): string | undefined {

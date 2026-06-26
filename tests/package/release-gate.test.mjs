@@ -49,6 +49,22 @@ test('terminal-ui source does not own low-level argv tokenization', async () => 
   }
 });
 
+test('TUI render, layout, and accessibility delegate widget behavior through the registry', async () => {
+  const centralFiles = [
+    '../../src/tui/render.ts',
+    '../../src/tui/layout.ts',
+    '../../src/tui/render-accessibility.ts'
+  ];
+  for (const relativePath of centralFiles) {
+    const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
+    assert.doesNotMatch(source, /switch\s*\(\s*widget\.kind\s*\)/u, relativePath);
+    assert.doesNotMatch(source, /case\s+['"`](?:text|box|stack|row|list|table|inputField|statusBar|progressBar|spinner|viewport|custom)['"`]/u, relativePath);
+  }
+
+  const registry = await readFile(new URL('../../src/tui/widget-behavior.ts', import.meta.url), 'utf8');
+  assert.match(registry, /satisfies Record<WidgetKind, WidgetBehavior>/u);
+});
+
 async function sourceFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];

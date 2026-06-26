@@ -6,14 +6,23 @@ import type {
   ListWidgetOptions,
   ProgressBarWidgetOptions,
   RowWidgetOptions,
+  ScrollbackWidgetOptions,
   SpinnerWidgetOptions,
   StackWidgetOptions,
+  StructuredBlockWidgetOptions,
   StatusBarWidgetOptions,
   TableWidgetOptions,
   TextWidgetOptions,
   ViewportWidgetOptions,
+  ActivityFeedWidgetOptions,
   Widget,
   WidgetChildren,
+  CommandBarWidgetOptions,
+  CommandPaletteWidgetOptions,
+  GridWidgetOptions,
+  ModalWidgetOptions,
+  SplitPaneWidgetOptions,
+  TabsWidgetOptions,
   WidgetKeyMap,
   WidgetKind,
   WidgetMouseMap
@@ -117,6 +126,147 @@ export function viewport<TMessage>(child: Widget<TMessage>, options: ViewportWid
       ...(options.scrollColumn === undefined ? {} : { scrollColumn: options.scrollColumn }),
       ...(options.contentRows === undefined ? {} : { contentRows: options.contentRows }),
       ...(options.contentColumns === undefined ? {} : { contentColumns: options.contentColumns })
+    },
+    children: [child],
+    ...interactionOptions(options)
+  };
+}
+
+export function scrollback<TMessage>(options: ScrollbackWidgetOptions<TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'scrollback',
+    props: {
+      items: options.items,
+      ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
+      ...(options.wrap === undefined ? {} : { wrap: options.wrap }),
+      ...(options.searchQuery === undefined ? {} : { searchQuery: options.searchQuery }),
+      ...(options.selectedRange === undefined ? {} : { selectedRange: options.selectedRange })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function structuredBlock<TMessage>(options: StructuredBlockWidgetOptions<TMessage>): Widget<TMessage> {
+  return {
+    id: options.id,
+    kind: 'structuredBlock',
+    props: {
+      title: options.title,
+      ...(options.summary === undefined ? {} : { summary: options.summary }),
+      ...(options.tone === undefined ? {} : { tone: options.tone }),
+      ...(options.status === undefined ? {} : { status: options.status }),
+      ...(options.fields === undefined ? {} : { fields: options.fields }),
+      ...(options.body === undefined ? {} : { body: options.body }),
+      ...(options.details === undefined ? {} : { details: options.details }),
+      ...(options.collapsed === undefined ? {} : { collapsed: options.collapsed })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function activityFeed<TMessage>(options: ActivityFeedWidgetOptions<TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'activityFeed',
+    props: {
+      blocks: options.blocks,
+      ...(options.selected === undefined ? {} : { selected: options.selected })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function commandBar<TMessage>(options: CommandBarWidgetOptions<TMessage> = {}): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'commandBar',
+    props: {
+      value: options.value ?? '',
+      ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+      ...(options.prompt === undefined ? {} : { prompt: options.prompt }),
+      ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
+      ...(options.suggestions === undefined ? {} : { suggestions: options.suggestions }),
+      ...(options.selectedSuggestion === undefined ? {} : { selectedSuggestion: options.selectedSuggestion }),
+      ...(options.historyIndex === undefined ? {} : { historyIndex: options.historyIndex })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function commandPalette<TMessage>(options: CommandPaletteWidgetOptions<TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'commandPalette',
+    props: {
+      entries: options.entries,
+      ...(options.title === undefined ? {} : { title: options.title }),
+      ...(options.query === undefined ? {} : { query: options.query }),
+      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.maxVisible === undefined ? {} : { maxVisible: options.maxVisible }),
+      ...(options.helpText === undefined ? {} : { helpText: options.helpText })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function grid<TMessage>(
+  children: WidgetChildren<TMessage>,
+  options: GridWidgetOptions<TMessage>
+): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'grid',
+    props: { rows: options.rows, columns: options.columns },
+    children: Array.isArray(children) ? children : [children],
+    ...interactionOptions(options)
+  };
+}
+
+export function splitPane<TMessage>(
+  children: WidgetChildren<TMessage>,
+  options: SplitPaneWidgetOptions<TMessage>
+): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'splitPane',
+    props: {
+      direction: options.direction,
+      ...(options.sizes === undefined ? {} : { sizes: options.sizes })
+    },
+    children: Array.isArray(children) ? children : [children],
+    ...interactionOptions(options)
+  };
+}
+
+export function tabs<TMessage>(options: TabsWidgetOptions<TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'tabs',
+    props: {
+      tabs: options.tabs.map((tab) => ({
+        id: tab.id,
+        label: tab.label,
+        ...(tab.disabled === undefined ? {} : { disabled: tab.disabled })
+      })),
+      ...(options.selected === undefined ? {} : { selected: options.selected })
+    },
+    children: options.tabs.map((tab) => tab.panel),
+    ...interactionOptions(options)
+  };
+}
+
+export function modal<TMessage>(
+  child: Widget<TMessage>,
+  options: ModalWidgetOptions<TMessage> = {}
+): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'modal',
+    props: {
+      ...(options.title === undefined ? {} : { title: options.title }),
+      ...(options.width === undefined ? {} : { width: options.width }),
+      ...(options.height === undefined ? {} : { height: options.height })
     },
     children: [child],
     ...interactionOptions(options)
