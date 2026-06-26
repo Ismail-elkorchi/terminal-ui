@@ -35,3 +35,11 @@ test('writeClipboardText requires host clipboard capability before emitting OSC 
   assert.equal(blocked.diagnostic.code, 'HOST_PROTOCOL_UNSUPPORTED');
   assert.equal(host.output(), '');
 });
+
+test('memory host can opt into clipboard capability for protocol tests', async () => {
+  const host = createMemoryTerminalHost({ clipboard: true });
+  const copied = await writeClipboardText(host, 'copy me', { allow: true });
+
+  assert.equal(copied.ok, true);
+  assert.match(host.output(), /^\u001B\]52;c;Y29weSBtZQ==\u0007$/u);
+});

@@ -206,7 +206,8 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     inputIsTty: stdin.isTty(),
     outputIsTty: stdout.isTty(),
     columns: viewport.columns,
-    rawInput: true
+    rawInput: true,
+    ...(options.clipboard === undefined ? {} : { clipboard: options.clipboard })
   });
   const env = new ObjectEnvironment(options.env ?? {});
   const frames: unknown[] = [];

@@ -202,6 +202,7 @@ export interface MemoryTerminalHostOptions {
   readonly id?: string;
   readonly viewport?: TerminalViewport;
   readonly isTty?: boolean;
+  readonly clipboard?: boolean;
   readonly env?: Record<string, string>;
 }
 
