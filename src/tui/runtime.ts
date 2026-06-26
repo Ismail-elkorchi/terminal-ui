@@ -83,10 +83,6 @@ export function createTuiRuntime<TState, TMessage>(
         const resized = await runtime.resize(event.viewport);
         return { handled: true, state: ensureState(), frame: resized };
       }
-      if (event.kind === 'key' && event.key === 'tab') {
-        const next = await moveFocus(state, event.shift ? 'previous' : 'next');
-        return { handled: true, state, frame: next };
-      }
       if (event.kind === 'mouse') {
         const message = await messageForMouse(state, event);
         if (message === undefined) return { handled: false, state, frame };
@@ -97,7 +93,13 @@ export function createTuiRuntime<TState, TMessage>(
           : { handled: true, state: nextState, frame: nextFrame, exit: terminalExit };
       }
       const message = await messageForInput(state, event);
-      if (message === undefined) return { handled: false, state, frame };
+      if (message === undefined) {
+        if (event.kind === 'key' && event.key === 'tab') {
+          const next = await moveFocus(state, event.shift ? 'previous' : 'next');
+          return { handled: true, state, frame: next };
+        }
+        return { handled: false, state, frame };
+      }
       const nextState = await dispatchQueue.run(() => dispatchInternal(message, 'input'));
       const nextFrame = ensureFrame();
       return terminalExit === undefined

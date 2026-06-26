@@ -641,6 +641,29 @@ test('TUI runtime routes key events through focused widget keymaps', async () =>
   assert.match(renderFrame(runtime.frame()), /second/);
 });
 
+test('TUI runtime lets focused widgets handle tab before focus traversal', async () => {
+  const app = defineTui({
+    id: 'tab-keymap-routing',
+    init: () => ({ active: 'none' }),
+    update: (_state, message) => ({ state: { active: message.active } }),
+    view: (state) => stack([
+      inputField({ id: 'first', value: state.active, keyMap: { tab: { active: 'accepted' } } }),
+      inputField({ id: 'second', value: state.active, keyMap: { enter: { active: 'second' } } })
+    ])
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 4 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const focusBefore = runtime.frame().focusPath;
+  const handled = await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.equal(handled.handled, true);
+  assert.deepEqual(runtime.getState(), { active: 'accepted' });
+  assert.deepEqual(runtime.frame().focusPath, focusBefore);
+  assert.match(renderFrame(runtime.frame()), /accepted/);
+});
+
 test('TUI runtime routes focused text and paste input through widget input maps', async () => {
   const app = defineTui({
     id: 'input-map-routing',
