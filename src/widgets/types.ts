@@ -369,6 +369,7 @@ export interface CommandPaletteWidgetOptions<TMessage = never> {
   readonly maxVisible?: number;
   readonly helpText?: string;
   readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly inputMap?: WidgetInputMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }

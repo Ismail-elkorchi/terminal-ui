@@ -52,3 +52,18 @@ test('commandPalette widget renders query, filtered entries, help, and accessibi
   assert.equal(frame.accessibility.root.role, 'menu');
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
 });
+
+test('commandPalette widget exposes input maps for interactive filtering', () => {
+  const widget = commandPalette({
+    id: 'palette',
+    query: '',
+    entries,
+    inputMap: {
+      text: (value) => ({ type: 'query', value }),
+      paste: (value) => ({ type: 'query', value })
+    }
+  });
+
+  assert.deepEqual(widget.inputMap?.text?.('r'), { type: 'query', value: 'r' });
+  assert.deepEqual(widget.inputMap?.paste?.('run'), { type: 'query', value: 'run' });
+});
