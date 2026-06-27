@@ -56,7 +56,9 @@ scroll model instead of per-widget arithmetic.
 
 Command surfaces are ordinary widgets. Apps decide which normalized key names
 map to palette, accept, cancel, or history messages through widget `keyMap`
-values; `terminal-ui` does not reserve a global command-palette shortcut.
+values; `terminal-ui` does not reserve a global command-palette shortcut,
+Escape key, or Ctrl-C key event. Host signals such as `SIGINT` and `SIGTERM`
+still interrupt the full-screen run through the terminal host signal path.
 
 Layout regions are structural widget data. `grid()`, `splitPane()`, `tabs()`,
 and `modal()` produce regular layout nodes, frames, diffs, and accessible
@@ -67,3 +69,7 @@ runtime mode.
 Executable example:
 
 - `examples/tui/render-frame.mjs`
+- `examples/tui/installer-wizard.mjs`
+- `examples/tui/chat-interface.mjs`
+- `examples/tui/game-board.mjs`
+- `examples/testing/visual-snapshots.mjs`

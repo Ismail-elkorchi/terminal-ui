@@ -14,6 +14,7 @@ import {
 import type { PromptInteractionHooks } from './interaction-hooks.ts';
 import { createPromptSnapshot, promptValueForSnapshot } from './snapshot.ts';
 import { completePromptState, type PromptRuntimeState } from './state.ts';
+import { promptValueView } from './value-view.ts';
 import type { PromptDefinition, PromptResult } from './types.ts';
 
 export async function applySelectEvent<TValue>(
@@ -59,7 +60,7 @@ export async function applyMultiSelectEvent<TValue>(
     const bounds = validateMultiSelectBounds(prompt, state, values.length);
     if (bounds !== undefined) return bounds;
     return hooks.submit(
-      prompt as unknown as PromptDefinition<readonly TValue[]>,
+      promptValueView(prompt),
       values,
       host,
       state

@@ -5,11 +5,14 @@ import { collectFocusPath, nodePath } from './snapshot.ts';
 import { accessibleRoles, accessibleSources } from './types.ts';
 import type { Result } from '../result.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { AccessibleSnapshot } from './types.ts';
+import type { AccessibleNode, AccessibleSnapshot } from './types.ts';
 
 export function validateAccessibleSnapshot(snapshot: unknown): Result<AccessibleSnapshot> {
   const failure = firstSnapshotIssue(snapshot);
-  return failure === undefined ? ok(snapshot as AccessibleSnapshot) : err(failure);
+  if (failure !== undefined) return err(failure);
+  return isAccessibleSnapshot(snapshot)
+    ? ok(snapshot)
+    : err(accessibilityFailure('Accessible snapshot failed type narrowing after validation.'));
 }
 
 function firstSnapshotIssue(snapshot: unknown): TerminalDiagnostic | undefined {
@@ -35,9 +38,23 @@ function firstSnapshotIssue(snapshot: unknown): TerminalDiagnostic | undefined {
   }
   const nodeIssue = firstNodeIssue(snapshot['root'], new Set());
   if (nodeIssue !== undefined) return nodeIssue;
-  const focusIssue = firstFocusIssue(snapshot as unknown as AccessibleSnapshot);
+  if (!isAccessibleNode(snapshot['root'])) {
+    return accessibilityFailure('Accessible snapshot root failed type narrowing after validation.');
+  }
+  const focusIssue = firstFocusIssue({
+    root: snapshot['root'],
+    focusPath: snapshot['focusPath']
+  });
   if (focusIssue !== undefined) return focusIssue;
   return undefined;
+}
+
+function isAccessibleSnapshot(value: unknown): value is AccessibleSnapshot {
+  return firstSnapshotIssue(value) === undefined;
+}
+
+function isAccessibleNode(value: unknown): value is AccessibleNode {
+  return firstNodeIssue(value, new Set()) === undefined;
 }
 
 function firstNodeIssue(node: unknown, ids: Set<string>): TerminalDiagnostic | undefined {
@@ -79,7 +96,9 @@ function firstNodeIssue(node: unknown, ids: Set<string>): TerminalDiagnostic | u
   return undefined;
 }
 
-function firstFocusIssue(snapshot: AccessibleSnapshot): TerminalDiagnostic | undefined {
+function firstFocusIssue(
+  snapshot: Pick<AccessibleSnapshot, 'root' | 'focusPath'>
+): TerminalDiagnostic | undefined {
   const actualFocusPath = collectFocusPath(snapshot.root);
   if (snapshot.focusPath.length === 0) {
     return actualFocusPath.length === 0

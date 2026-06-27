@@ -65,13 +65,23 @@ interface ProcessOutputLike {
 }
 
 function bunGlobal(): BunLike | undefined {
-  return (globalThis as unknown as { readonly Bun?: BunLike }).Bun;
+  const value: unknown = Reflect.get(globalThis, 'Bun');
+  return isBunLike(value) ? value : undefined;
 }
 
 function processGlobal(): ProcessLike | undefined {
-  return (globalThis as unknown as { readonly process?: ProcessLike }).process;
+  const value: unknown = Reflect.get(globalThis, 'process');
+  return isProcessLike(value) ? value : undefined;
 }
 
 function optionalEnv(env: Record<string, string> | undefined): { readonly env?: Record<string, string> } {
   return env === undefined ? {} : { env };
+}
+
+function isBunLike(value: unknown): value is BunLike {
+  return value !== null && typeof value === 'object';
+}
+
+function isProcessLike(value: unknown): value is ProcessLike {
+  return value !== null && typeof value === 'object';
 }

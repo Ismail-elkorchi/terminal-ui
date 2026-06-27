@@ -12,7 +12,7 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
     schemaVersion: 'terminal-ui.tui-frame.v1',
     width: 3,
     height: 1,
-    cells: [{ row: 1, column: 1, text: 'x' }],
+    cells: [{ row: 1, column: 1, text: 'x', width: 1 }],
     accessibility: snapshot
   };
   const diff = {
@@ -20,7 +20,7 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
     width: 3,
     height: 1,
     fullRewrite: true,
-    operations: [{ kind: 'write', row: 1, column: 1, text: 'x' }]
+    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] }]
   };
   const restore = {
     rawInput: false,
@@ -149,7 +149,7 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
           width: 2,
           height: 1,
           fullRewrite: true,
-          operations: [{ kind: 'write', row: 0, column: 1, text: 'x' }]
+          operations: [{ kind: 'write', row: 0, column: 1, spans: [{ text: 'x' }] }]
         }
       }
     ],

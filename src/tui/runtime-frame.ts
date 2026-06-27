@@ -1,5 +1,5 @@
 import { toAccessibleSnapshot, validateAccessibleSnapshot } from '../accessibility/index.ts';
-import { diffFrames, renderDiff, renderWidgetFrame } from './render.ts';
+import { diffFrames, renderDiffWithOptions, renderWidgetFrame } from './render.ts';
 import { recordTuiFrame } from './transcript.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalHost, TerminalViewport } from '../host/index.ts';
@@ -11,10 +11,13 @@ export function renderCurrentFrame<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
   state: TState,
   context: TuiContext<TMessage>,
-  focusPath: FocusPath | undefined
+  focusPath: FocusPath | undefined,
+  options: TuiRuntimeOptions<TState, TMessage>
 ): Frame {
-  const options = focusPath === undefined ? {} : { focusPath };
-  const frame = renderWidgetFrame(app.definition.view(state, context), context.viewport, options);
+  const frame = renderWidgetFrame(app.definition.view(state, context), context.viewport, {
+    ...(focusPath === undefined ? {} : { focusPath }),
+    ...(options.theme === undefined ? {} : { theme: options.theme })
+  });
   const accessibility = appAccessibility(app, state, frame);
   return accessibility === frame.accessibility ? frame : { ...frame, accessibility };
 }
@@ -23,12 +26,14 @@ export async function commitFrame(
   host: TerminalHost,
   previousFrame: Frame | undefined,
   frame: Frame,
-  transcript: TuiRuntimeOptions<unknown, unknown>['transcript'] | undefined
+  transcript: TuiRuntimeOptions<unknown, unknown>['transcript'] | undefined,
+  theme: TuiRuntimeOptions<unknown, unknown>['theme'] | undefined
 ): Promise<RenderDiff> {
   const diff = diffFrames(previousFrame, frame);
+  const capabilities = await host.getCapabilities();
   recordHostFrame(host, frame, diff);
   recordTuiFrame(transcript, frame, diff);
-  await host.write({ text: renderDiff(diff) });
+  await host.write({ text: renderDiffWithOptions(diff, { capabilities, hyperlinks: true, ...(theme === undefined ? {} : { theme }) }) });
   return diff;
 }
 

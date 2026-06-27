@@ -49,19 +49,24 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.defineTui, 'function');
   assert.equal(typeof terminalUi.createTuiRuntime, 'function');
   assert.equal(typeof terminalUi.commandBarReducer, 'function');
-  assert.equal(typeof terminalUi.commandPaletteWindow, 'function');
-  assert.equal(typeof terminalUi.filterCommandPaletteEntries, 'function');
+  assert.equal(typeof terminalUi.paletteWindow, 'function');
+  assert.equal(typeof terminalUi.filterPaletteEntries, 'function');
   assert.equal(typeof terminalUi.screenStackReducer, 'function');
   assert.equal(typeof terminalUi.activeScreen, 'function');
   assert.equal(typeof terminalUi.splitTracks, 'function');
   assert.equal(typeof terminalUi.gridCellRects, 'function');
   assert.equal(typeof terminalUi.layoutWidget, 'function');
   assert.equal(typeof terminalUi.renderWidgetFrame, 'function');
+  assert.equal(typeof terminalUi.drawBorder, 'function');
   assert.equal(typeof terminalUi.diffFrames, 'function');
   assert.equal(typeof terminalUi.renderFrame, 'function');
   assert.equal(typeof terminalUi.createPtyTerminalHarness, 'function');
   assert.equal(typeof terminalUi.createTerminalHarness, 'function');
+  assert.equal(typeof terminalUi.createVisualSnapshot, 'function');
   assert.equal(typeof terminalUi.runInteractionScript, 'function');
+  assert.equal(typeof terminalUi.assertVisibleText, 'function');
+  assert.equal(typeof terminalUi.assertSelected, 'function');
+  assert.equal(typeof terminalUi.assertHitTarget, 'function');
   assert.equal(typeof terminalUi.findAccessibleNode, 'function');
   assert.equal(typeof terminalUi.validateAccessibleSnapshot, 'function');
   assert.equal(typeof terminalUi.validateTranscript, 'function');
@@ -109,16 +114,66 @@ test('root declaration exposes primary public type contracts', async () => {
     'TreeAction',
     'TableColumn',
     'TerminalTheme',
-    'StyledText',
+    'ThemeToken',
+    'ThemeColor',
+    'TerminalSymbols',
+    'BorderGlyphSet',
+    'BorderStyle',
+    'Layer',
+    'LayoutAlignment',
+    'LayoutSize',
+    'LayoutJustification',
+    'LayoutOverflow',
+    'LayoutFlowOptions',
+    'GridLayoutOptions',
     'Widget',
     'WidgetKind',
     'CommandBarWidgetOptions',
+    'CommandBarValidation',
+    'CommandBarValidationTone',
     'CommandPaletteWidgetOptions',
+    'PaletteEntry',
+    'PaletteWidgetOptions',
+    'FormWidgetOptions',
+    'FieldWidgetOptions',
+    'LabelWidgetOptions',
+    'ButtonWidgetOptions',
+    'CheckboxWidgetOptions',
+    'FormOption',
+    'RadioGroupWidgetOptions',
+    'SelectBoxWidgetOptions',
+    'TextInputWidgetOptions',
+    'NumberInputWidgetOptions',
+    'MenuItem',
+    'MenuWidgetOptions',
+    'MenuBarWidgetOptions',
+    'ContextMenuWidgetOptions',
+    'DropdownWidgetOptions',
+    'CanvasPainter',
+    'CanvasPainterInput',
+    'CanvasWidgetOptions',
+    'SurfaceWidgetOptions',
+    'AbsoluteWidgetOptions',
+    'OverlayWidgetOptions',
     'RichTextWidgetOptions',
     'GridWidgetOptions',
     'SplitPaneWidgetOptions',
     'TabsWidgetOptions',
     'ModalWidgetOptions',
+    'TableCellRenderInput',
+    'TableColumnAlignment',
+    'TableColumnWidth',
+    'TableSortDirection',
+    'CustomWidgetOptions',
+    'WidgetLayerOptions',
+    'WidgetFocusOptions',
+    'WidgetFocusScope',
+    'WidgetRenderer',
+    'WidgetRenderInput',
+    'WidgetAccessibilityInput',
+    'FocusTarget',
+    'HitTarget',
+    'FrameHitTarget',
     'TextAreaWidgetOptions',
     'TreeWidgetOptions',
     'PaginatorWidgetOptions',
@@ -137,10 +192,16 @@ test('root declaration exposes primary public type contracts', async () => {
     'TuiContext',
     'TuiInit',
     'TuiUpdateResult',
+    'AccessibilityOptions',
     'AccessibleValue',
     'InteractionResult',
     'TranscriptReplayTarget',
-    'InteractionScript'
+    'InteractionScript',
+    'VisibleTextAssertion',
+    'SelectedAssertion',
+    'HitTargetAssertion',
+    'VisualSnapshotArtifacts',
+    'VisualSnapshotInput'
   ];
 
   for (const typeName of publicTypes) {

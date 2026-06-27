@@ -1,19 +1,27 @@
-import type { AccessibleNode } from '../accessibility/index.ts';
+import type { AccessibilityOptions, AccessibleNode } from '../accessibility/index.ts';
 import type { MouseAction } from '../input/index.ts';
 import type { TextSelection } from '../text/index.ts';
-import type { StyledText, StyledTone } from '../theme/index.ts';
-import type { LayoutTrack } from '../tui/regions.ts';
+import type { BorderStyle } from '../tui/border.ts';
+import type { RenderSpan, TerminalStyle } from '../tui/render-primitives.ts';
+import type { WidgetRenderer } from '../tui/widget-renderer.ts';
+import type { GridLayoutOptions, LayoutFlowOptions, LayoutSize } from '../tui/regions.ts';
 import type { ScrollState } from '../tui/scroll.ts';
+import type { FrameBuffer } from '../tui/frame-buffer.ts';
+import type { Rect } from '../tui/layout.ts';
+import type { TerminalTheme } from '../theme/index.ts';
 
 export interface Widget<TMessage = unknown> {
   readonly id?: string;
   readonly kind: WidgetKind;
   readonly props: WidgetProps;
+  readonly layer?: WidgetLayerOptions;
+  readonly focus?: WidgetFocusOptions;
   readonly children?: readonly Widget<TMessage>[];
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly inputMap?: WidgetInputMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
+  readonly custom?: CustomWidgetRuntime<TMessage>;
 }
 
 export type WidgetKind =
@@ -28,6 +36,23 @@ export type WidgetKind =
   | 'paginator'
   | 'inputField'
   | 'textArea'
+  | 'form'
+  | 'field'
+  | 'label'
+  | 'button'
+  | 'checkbox'
+  | 'radioGroup'
+  | 'selectBox'
+  | 'textInput'
+  | 'numberInput'
+  | 'menu'
+  | 'menuBar'
+  | 'contextMenu'
+  | 'dropdown'
+  | 'canvas'
+  | 'surface'
+  | 'absolute'
+  | 'overlay'
   | 'statusBar'
   | 'helpBar'
   | 'activityIndicator'
@@ -41,7 +66,7 @@ export type WidgetKind =
   | 'structuredBlock'
   | 'activityFeed'
   | 'commandBar'
-  | 'commandPalette'
+  | 'palette'
   | 'grid'
   | 'splitPane'
   | 'tabs'
@@ -51,50 +76,76 @@ export type WidgetKind =
 export type WidgetProps = Record<string, unknown>;
 export type WidgetChildren<TMessage> = readonly Widget<TMessage>[] | Widget<TMessage>;
 export type WidgetKeyMap<TMessage> = Record<string, TMessage>;
+export interface WidgetLayerOptions {
+  readonly zIndex?: number;
+  readonly visible?: boolean;
+  readonly focus?: WidgetFocusOptions;
+}
+export type WidgetFocusScope = 'none' | 'contain';
+export interface WidgetFocusOptions {
+  readonly disabled?: boolean;
+  readonly order?: number;
+  readonly scope?: WidgetFocusScope;
+}
 export interface WidgetInputMap<TMessage> {
   readonly text?: (text: string) => TMessage;
   readonly paste?: (text: string) => TMessage;
 }
 export type WidgetMouseMap<TMessage> = Partial<Record<MouseAction, TMessage>>;
-export type AccessibleNodeDefinition = AccessibleNode;
+export type AccessibleNodeDefinition = AccessibleNode | AccessibilityOptions;
 
-export interface TextWidgetOptions {
+export interface CustomWidgetRuntime<TMessage = unknown> {
+  readonly renderer: WidgetRenderer<TMessage>;
+  readonly state?: unknown;
+}
+
+export interface CustomWidgetOptions<TMessage> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly renderer: WidgetRenderer<TMessage>;
+  readonly state?: unknown;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly inputMap?: WidgetInputMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface TextWidgetOptions extends WidgetLayerOptions {
   readonly id?: string;
   readonly mouseMap?: WidgetMouseMap<never>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface RichTextWidgetOptions<TMessage = never> {
+export interface RichTextWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
-  readonly segments: readonly StyledText[];
+  readonly segments: readonly RenderSpan[];
   readonly wrap?: boolean;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface BoxWidgetOptions<TMessage = never> {
+export interface BoxWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
+  readonly id?: string;
+  readonly border?: BorderStyle;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface StackWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
   readonly id?: string;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface StackWidgetOptions<TMessage = never> {
+export interface RowWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
   readonly id?: string;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface RowWidgetOptions<TMessage = never> {
-  readonly id?: string;
-  readonly keyMap?: WidgetKeyMap<TMessage>;
-  readonly mouseMap?: WidgetMouseMap<TMessage>;
-  readonly accessibility?: AccessibleNodeDefinition;
-}
-
-export interface ListWidgetOptions<TValue, TMessage> {
+export interface ListWidgetOptions<TValue, TMessage> extends WidgetLayerOptions {
   readonly id?: string;
   readonly items: readonly TValue[];
   readonly selected?: number;
@@ -106,21 +157,41 @@ export interface ListWidgetOptions<TValue, TMessage> {
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface TableWidgetOptions<TMessage> {
+export interface TableWidgetOptions<TMessage> extends WidgetLayerOptions {
   readonly id?: string;
   readonly rows: readonly unknown[];
   readonly columns?: readonly TableColumn[];
   readonly selected?: number;
   readonly selectedCell?: TableCellSelection;
+  readonly scroll?: ScrollState;
+  readonly stickyHeader?: boolean;
+  readonly emptyText?: string;
   readonly message?: TMessage;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
+export type TableColumnWidth = number | LayoutSize;
+export type TableColumnAlignment = 'start' | 'center' | 'end';
+export type TableSortDirection = 'ascending' | 'descending';
+
+export interface TableCellRenderInput {
+  readonly value: unknown;
+  readonly row: unknown;
+  readonly rowIndex: number;
+  readonly columnIndex: number;
+}
+
 export interface TableColumn {
   readonly header?: string;
-  readonly width?: number;
+  readonly width?: TableColumnWidth;
+  readonly align?: TableColumnAlignment;
+  readonly hidden?: boolean;
+  readonly style?: TerminalStyle;
+  readonly headerStyle?: TerminalStyle;
+  readonly render?: (input: TableCellRenderInput) => string | RenderSpan | readonly RenderSpan[];
+  readonly sort?: TableSortDirection;
 }
 
 export interface TableCellSelection {
@@ -134,18 +205,25 @@ export interface TreeNode {
   readonly children?: readonly TreeNode[];
   readonly expanded?: boolean;
   readonly disabled?: boolean;
+  readonly lazy?: boolean;
+  readonly icon?: string;
+  readonly metadata?: Readonly<Record<string, unknown>>;
 }
 
-export interface TreeWidgetOptions<TMessage = never> {
+export interface TreeWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly nodes: readonly TreeNode[];
   readonly selected?: string;
+  readonly filterQuery?: string;
+  readonly scroll?: ScrollState;
+  readonly emptyText?: string;
+  readonly toMessage?: (node: TreeNode) => TMessage;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface PaginatorWidgetOptions<TMessage = never> {
+export interface PaginatorWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly page: number;
   readonly pageCount: number;
@@ -155,7 +233,7 @@ export interface PaginatorWidgetOptions<TMessage = never> {
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface InputFieldWidgetOptions<TMessage> {
+export interface InputFieldWidgetOptions<TMessage> extends WidgetLayerOptions {
   readonly id?: string;
   readonly value?: string;
   readonly message?: TMessage;
@@ -165,7 +243,7 @@ export interface InputFieldWidgetOptions<TMessage> {
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface TextAreaWidgetOptions<TMessage = never> {
+export interface TextAreaWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly value?: string;
   readonly cursor?: number;
@@ -177,7 +255,229 @@ export interface TextAreaWidgetOptions<TMessage = never> {
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface StatusBarWidgetOptions<TMessage> {
+export interface FormWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
+  readonly id?: string;
+  readonly title?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface FieldWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
+  readonly id?: string;
+  readonly label: string;
+  readonly description?: string;
+  readonly error?: string;
+  readonly required?: boolean;
+  readonly disabled?: boolean;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface LabelWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly text: string;
+  readonly forId?: string;
+  readonly required?: boolean;
+  readonly disabled?: boolean;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface ButtonWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label: string;
+  readonly message?: TMessage;
+  readonly disabled?: boolean;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface CheckboxWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label: string;
+  readonly checked: boolean;
+  readonly message?: TMessage;
+  readonly required?: boolean;
+  readonly disabled?: boolean;
+  readonly error?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface FormOption<TValue = string> {
+  readonly id: string;
+  readonly label: string;
+  readonly value: TValue;
+  readonly disabled?: boolean;
+  readonly description?: string;
+}
+
+export interface RadioGroupWidgetOptions<TValue = string, TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label?: string;
+  readonly options: readonly FormOption<TValue>[];
+  readonly selected?: string;
+  readonly toMessage?: (option: FormOption<TValue>) => TMessage;
+  readonly required?: boolean;
+  readonly disabled?: boolean;
+  readonly error?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface SelectBoxWidgetOptions<TValue = string, TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label?: string;
+  readonly options: readonly FormOption<TValue>[];
+  readonly selected?: string;
+  readonly placeholder?: string;
+  readonly toMessage?: (option: FormOption<TValue>) => TMessage;
+  readonly required?: boolean;
+  readonly disabled?: boolean;
+  readonly error?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface TextInputWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly value?: string;
+  readonly cursor?: number;
+  readonly selection?: TextSelection;
+  readonly placeholder?: string;
+  readonly required?: boolean;
+  readonly disabled?: boolean;
+  readonly error?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly inputMap?: WidgetInputMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface NumberInputWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly value?: number;
+  readonly cursor?: number;
+  readonly placeholder?: string;
+  readonly min?: number;
+  readonly max?: number;
+  readonly step?: number;
+  readonly required?: boolean;
+  readonly disabled?: boolean;
+  readonly error?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly inputMap?: WidgetInputMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface MenuItem<TMessage = never> {
+  readonly id: string;
+  readonly label: string;
+  readonly message?: TMessage;
+  readonly disabled?: boolean;
+  readonly checked?: boolean;
+  readonly description?: string;
+  readonly shortcut?: string;
+  readonly children?: readonly MenuItem<TMessage>[];
+  readonly expanded?: boolean;
+}
+
+export interface MenuWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly items: readonly MenuItem<TMessage>[];
+  readonly selected?: string;
+  readonly emptyText?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface MenuBarWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly items: readonly MenuItem<TMessage>[];
+  readonly selected?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface ContextMenuWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly items: readonly MenuItem<TMessage>[];
+  readonly selected?: string;
+  readonly title?: string;
+  readonly emptyText?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface DropdownWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label?: string;
+  readonly items: readonly MenuItem<TMessage>[];
+  readonly selected?: string;
+  readonly open?: boolean;
+  readonly placeholder?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface CanvasPainterInput {
+  readonly buffer: FrameBuffer;
+  readonly bounds: Rect;
+  readonly theme: TerminalTheme;
+  readonly state?: unknown;
+}
+
+export type CanvasPainter = (input: CanvasPainterInput) => void;
+
+export interface CanvasWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly painter: CanvasPainter;
+  readonly state?: unknown;
+  readonly label?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface SurfaceWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface AbsoluteWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly row: number;
+  readonly column: number;
+  readonly width?: number;
+  readonly height?: number;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface OverlayWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface StatusBarWidgetOptions<TMessage> extends WidgetLayerOptions {
   readonly id?: string;
   readonly text: string;
   readonly message?: TMessage;
@@ -191,7 +491,7 @@ export interface HelpBinding {
   readonly label: string;
 }
 
-export interface HelpBarWidgetOptions<TMessage = never> {
+export interface HelpBarWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly bindings: readonly HelpBinding[];
   readonly keyMap?: WidgetKeyMap<TMessage>;
@@ -201,7 +501,7 @@ export interface HelpBarWidgetOptions<TMessage = never> {
 
 export type ActivityIndicatorStatus = 'idle' | 'running' | 'success' | 'warning' | 'error';
 
-export interface ActivityIndicatorWidgetOptions {
+export interface ActivityIndicatorWidgetOptions extends WidgetLayerOptions {
   readonly id?: string;
   readonly label?: string;
   readonly status?: ActivityIndicatorStatus;
@@ -209,7 +509,7 @@ export interface ActivityIndicatorWidgetOptions {
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface ProgressBarWidgetOptions {
+export interface ProgressBarWidgetOptions extends WidgetLayerOptions {
   readonly id?: string;
   readonly label?: string;
   readonly value?: number;
@@ -219,7 +519,7 @@ export interface ProgressBarWidgetOptions {
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface SparklineWidgetOptions {
+export interface SparklineWidgetOptions extends WidgetLayerOptions {
   readonly id?: string;
   readonly values: readonly number[];
   readonly min?: number;
@@ -233,7 +533,7 @@ export interface BarChartItem {
   readonly value: number;
 }
 
-export interface BarChartWidgetOptions<TMessage = never> {
+export interface BarChartWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly items: readonly BarChartItem[];
   readonly max?: number;
@@ -249,7 +549,7 @@ export interface ChartSeries {
   readonly points: readonly number[];
 }
 
-export interface ChartWidgetOptions<TMessage = never> {
+export interface ChartWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly series: readonly ChartSeries[];
   readonly min?: number;
@@ -259,14 +559,14 @@ export interface ChartWidgetOptions<TMessage = never> {
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface SpinnerWidgetOptions {
+export interface SpinnerWidgetOptions extends WidgetLayerOptions {
   readonly id?: string;
   readonly label?: string;
   readonly mouseMap?: WidgetMouseMap<never>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface ViewportWidgetOptions<TMessage = never> {
+export interface ViewportWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
   readonly id?: string;
   readonly scrollRow?: number;
   readonly scrollColumn?: number;
@@ -280,12 +580,12 @@ export interface ViewportWidgetOptions<TMessage = never> {
 export interface ScrollbackItem {
   readonly id: string;
   readonly text: string;
-  readonly tone?: StyledTone;
+  readonly style?: TerminalStyle;
   readonly timestamp?: string;
   readonly metadata?: Record<string, string>;
 }
 
-export interface ScrollbackWidgetOptions<TMessage = never> {
+export interface ScrollbackWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly items: readonly ScrollbackItem[];
   readonly scroll?: ScrollState;
@@ -297,7 +597,16 @@ export interface ScrollbackWidgetOptions<TMessage = never> {
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export type StructuredBlockStatus = 'pending' | 'running' | 'success' | 'failed' | 'cancelled';
+export type StructuredBlockStatus =
+  | 'pending'
+  | 'running'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'failed'
+  | 'cancelled'
+  | 'skipped'
+  | 'info';
 
 export interface StructuredBlockField {
   readonly label: string;
@@ -308,7 +617,7 @@ export interface StructuredBlock {
   readonly id: string;
   readonly title: string;
   readonly summary?: string;
-  readonly tone?: StyledTone;
+  readonly style?: TerminalStyle;
   readonly status?: StructuredBlockStatus;
   readonly fields?: readonly StructuredBlockField[];
   readonly body?: string;
@@ -316,13 +625,13 @@ export interface StructuredBlock {
   readonly collapsed?: boolean;
 }
 
-export interface StructuredBlockWidgetOptions<TMessage = never> extends StructuredBlock {
+export interface StructuredBlockWidgetOptions<TMessage = never> extends StructuredBlock, WidgetLayerOptions {
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface ActivityFeedWidgetOptions<TMessage = never> {
+export interface ActivityFeedWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly blocks: readonly StructuredBlock[];
   readonly selected?: number;
@@ -337,12 +646,24 @@ export interface CommandBarSuggestion {
   readonly description?: string;
 }
 
-export interface CommandBarWidgetOptions<TMessage = never> {
+export type CommandBarValidationTone = 'info' | 'warning' | 'error';
+
+export interface CommandBarValidation {
+  readonly message: string;
+  readonly tone?: CommandBarValidationTone;
+}
+
+export interface CommandBarWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly value?: string;
   readonly cursor?: number;
+  readonly selection?: TextSelection;
   readonly prompt?: string;
   readonly placeholder?: string;
+  readonly completionPreview?: string;
+  readonly validation?: CommandBarValidation;
+  readonly footer?: string;
+  readonly matchQuery?: string;
   readonly suggestions?: readonly CommandBarSuggestion[];
   readonly selectedSuggestion?: number;
   readonly historyIndex?: number;
@@ -358,35 +679,66 @@ export interface CommandPaletteEntry {
   readonly description?: string;
   readonly keywords?: readonly string[];
   readonly disabled?: boolean;
+  readonly preview?: string;
 }
 
-export interface CommandPaletteWidgetOptions<TMessage = never> {
+export interface PaletteEntry<TValue = string> {
+  readonly id: string;
+  readonly label: string;
+  readonly value: TValue;
+  readonly description?: string;
+  readonly keywords?: readonly string[];
+  readonly disabled?: boolean;
+  readonly preview?: string;
+}
+
+export interface PaletteWidgetOptions<TValue = string, TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly title?: string;
   readonly query?: string;
-  readonly entries: readonly CommandPaletteEntry[];
+  readonly entries: readonly PaletteEntry<TValue>[];
   readonly selected?: number;
+  readonly selectedId?: string;
+  readonly scroll?: ScrollState;
   readonly maxVisible?: number;
   readonly helpText?: string;
+  readonly emptyText?: string;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly inputMap?: WidgetInputMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface GridWidgetOptions<TMessage = never> {
+export interface CommandPaletteWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
-  readonly rows: readonly LayoutTrack[];
-  readonly columns: readonly LayoutTrack[];
+  readonly title?: string;
+  readonly query?: string;
+  readonly entries: readonly CommandPaletteEntry[];
+  readonly selected?: number;
+  readonly selectedId?: string;
+  readonly scroll?: ScrollState;
+  readonly maxVisible?: number;
+  readonly helpText?: string;
+  readonly emptyText?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly inputMap?: WidgetInputMap<TMessage>;
+  readonly mouseMap?: WidgetMouseMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface GridWidgetOptions<TMessage = never> extends WidgetLayerOptions, GridLayoutOptions {
+  readonly id?: string;
+  readonly rows: readonly LayoutSize[];
+  readonly columns: readonly LayoutSize[];
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface SplitPaneWidgetOptions<TMessage = never> {
+export interface SplitPaneWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
   readonly id?: string;
   readonly direction: 'horizontal' | 'vertical';
-  readonly sizes?: readonly LayoutTrack[];
+  readonly sizes?: readonly LayoutSize[];
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly mouseMap?: WidgetMouseMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
@@ -399,7 +751,7 @@ export interface TabItem<TMessage = never> {
   readonly disabled?: boolean;
 }
 
-export interface TabsWidgetOptions<TMessage = never> {
+export interface TabsWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
   readonly id?: string;
   readonly tabs: readonly TabItem<TMessage>[];
   readonly selected?: string;
@@ -408,9 +760,10 @@ export interface TabsWidgetOptions<TMessage = never> {
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface ModalWidgetOptions<TMessage = never> {
+export interface ModalWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
   readonly id?: string;
   readonly title?: string;
+  readonly border?: BorderStyle;
   readonly width?: number;
   readonly height?: number;
   readonly keyMap?: WidgetKeyMap<TMessage>;

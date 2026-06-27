@@ -208,14 +208,14 @@ test('runPrompt applies prompt theme symbols and terminal styling safely', async
     ],
     defaultValue: ['one'],
     theme: {
-      symbols: { pointer: '=>\u001B[31m', checked: '{yes}\u001B[0m', unchecked: '{no}' },
-      styles: { tones: { normal: { color: 'brightCyan' } } }
+      symbols: { pointer: '=>\u001B[31m', checkboxChecked: '{yes}\u001B[0m', checkboxUnchecked: '{no}' },
+      colors: { 'text.default': { kind: 'ansi', value: 14 } }
     }
   }), themedHarness.host);
 
   await waitUntil(() => themedHarness.output().includes('Pick:'));
   const themedOutput = themedHarness.output();
-  assert.match(themedOutput, /\u001B\[96m/u);
+  assert.match(themedOutput, /\u001B\[(?:96|38;5;14)m/u);
   assert.match(themedOutput, /=> \{yes\} One/u);
   assert.doesNotMatch(themedOutput, /\u001B\[31m/u);
 
@@ -229,7 +229,7 @@ test('runPrompt applies prompt theme symbols and terminal styling safely', async
   plainHost.stdin.close();
   const plainResult = await runPrompt(input({
     label: 'Name',
-    theme: { styles: { tones: { normal: { color: 'brightCyan' } } } }
+    theme: { colors: { 'text.default': { kind: 'ansi', value: 14 } } }
   }), plainHost);
 
   assert.equal(plainResult.status, 'submitted');

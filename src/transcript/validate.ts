@@ -4,7 +4,7 @@ import { err, ok } from '../result.ts';
 import type { TerminalStateSnapshot, TerminalViewport } from '../host/index.ts';
 import type { KeyName, MouseAction, MouseButton, MouseEncoding } from '../input/index.ts';
 import type { Result } from '../result.ts';
-import type { CursorPosition, FrameCell, RenderOperation } from '../tui/index.ts';
+import type { CursorPosition } from '../tui/index.ts';
 import type { TuiMessageSource } from '../tui/types.ts';
 import type { InteractionTranscript, TranscriptSource } from './types.ts';
 
@@ -34,42 +34,54 @@ const mouseActions = ['press', 'release', 'drag', 'move', 'wheel'] as const sati
 const mouseButtons = ['left', 'middle', 'right', 'wheelUp', 'wheelDown', 'none', 'unknown'] as const satisfies readonly MouseButton[];
 
 export function validateTranscript(transcript: unknown): Result<InteractionTranscript> {
-  if (!isRecord(transcript)) return transcriptFailure('Interaction transcript must be an object.');
+  const issue = transcriptIssue(transcript);
+  if (issue !== undefined) return transcriptFailure(issue);
+  return isInteractionTranscript(transcript)
+    ? ok(transcript)
+    : transcriptFailure('Interaction transcript failed type narrowing after validation.');
+}
+
+function isInteractionTranscript(value: unknown): value is InteractionTranscript {
+  return transcriptIssue(value) === undefined;
+}
+
+function transcriptIssue(transcript: unknown): string | undefined {
+  if (!isRecord(transcript)) return 'Interaction transcript must be an object.';
   if (transcript['schemaVersion'] !== 'terminal-ui.interaction-transcript.v1') {
-    return transcriptFailure('Unsupported interaction transcript schema version.');
+    return 'Unsupported interaction transcript schema version.';
   }
   if (!isNonEmptyString(transcript['id'])) {
-    return transcriptFailure('Interaction transcript id must not be empty.');
+    return 'Interaction transcript id must not be empty.';
   }
   if (!isOneOf(transcript['source'], transcriptSources)) {
-    return transcriptFailure(`Unsupported interaction transcript source: ${String(transcript['source'])}.`);
+    return `Unsupported interaction transcript source: ${String(transcript['source'])}.`;
   }
   if (transcript['startedAt'] !== undefined && typeof transcript['startedAt'] !== 'string') {
-    return transcriptFailure('Interaction transcript startedAt must be a string when present.');
+    return 'Interaction transcript startedAt must be a string when present.';
   }
-  if (!Array.isArray(transcript['steps'])) return transcriptFailure('Interaction transcript steps must be an array.');
+  if (!Array.isArray(transcript['steps'])) return 'Interaction transcript steps must be an array.';
   if (!Array.isArray(transcript['diagnostics'])) {
-    return transcriptFailure('Interaction transcript diagnostics must be an array.');
+    return 'Interaction transcript diagnostics must be an array.';
   }
   if (!Array.isArray(transcript['redactions'])) {
-    return transcriptFailure('Interaction transcript redactions must be an array.');
+    return 'Interaction transcript redactions must be an array.';
   }
 
   for (const [index, item] of transcript['steps'].entries()) {
     const issue = stepIssue(item);
-    if (issue !== undefined) return transcriptFailure(`Invalid transcript step at index ${String(index)}: ${issue}`);
+    if (issue !== undefined) return `Invalid transcript step at index ${String(index)}: ${issue}`;
   }
   for (const [index, item] of transcript['diagnostics'].entries()) {
     const issue = diagnosticIssue(item);
-    if (issue !== undefined) return transcriptFailure(`Invalid transcript diagnostic at index ${String(index)}: ${issue}`);
+    if (issue !== undefined) return `Invalid transcript diagnostic at index ${String(index)}: ${issue}`;
   }
   for (const [index, item] of transcript['redactions'].entries()) {
     if (!isRecord(item) || typeof item['path'] !== 'string' || typeof item['reason'] !== 'string') {
-      return transcriptFailure(`Invalid transcript redaction at index ${String(index)}.`);
+      return `Invalid transcript redaction at index ${String(index)}.`;
     }
   }
 
-  return ok(transcript as unknown as InteractionTranscript);
+  return undefined;
 }
 
 function stepIssue(step: unknown): string | undefined {
@@ -181,11 +193,15 @@ function frameIssue(frame: unknown): string | undefined {
 
 function frameCellIssue(cell: unknown): string | undefined {
   if (!isRecord(cell)) return 'cell must be an object.';
-  const typed = cell as Partial<FrameCell>;
-  if (!isIntegerAtLeast(typed.row, 1) || !isIntegerAtLeast(typed.column, 1)) {
+  if (!isIntegerAtLeast(cell['row'], 1) || !isIntegerAtLeast(cell['column'], 1)) {
     return 'row and column must be positive integers.';
   }
-  return typeof typed.text === 'string' ? undefined : 'text must be a string.';
+  if (typeof cell['text'] !== 'string') return 'text must be a string.';
+  if (!isIntegerAtLeast(cell['width'], 0)) return 'width must be a non-negative integer.';
+  if (cell['continuation'] !== undefined && typeof cell['continuation'] !== 'boolean') {
+    return 'continuation must be a boolean.';
+  }
+  return undefined;
 }
 
 function cursorIssue(cursor: unknown): string | undefined {
@@ -213,23 +229,40 @@ function renderDiffIssue(diff: unknown): string | undefined {
 
 function renderOperationIssue(operation: unknown): string | undefined {
   if (!isRecord(operation)) return 'operation must be an object.';
-  const typed = operation as Partial<RenderOperation>;
-  switch (typed.kind) {
+  switch (operation['kind']) {
     case 'write':
-      return isIntegerAtLeast(typed.row, 1) && isIntegerAtLeast(typed.column, 1) && typeof typed.text === 'string'
+      return isIntegerAtLeast(operation['row'], 1)
+        && isIntegerAtLeast(operation['column'], 1)
+        && Array.isArray(operation['spans'])
+        && operation['spans'].every((item) => isRecord(item) && typeof item['text'] === 'string')
         ? undefined
-        : 'write requires row, column, and text.';
+        : 'write requires row, column, and spans.';
+    case 'clearRect':
+      return rectIssue(operation['bounds']) ?? undefined;
     case 'clearLine':
-      return isIntegerAtLeast(typed.row, 1) ? undefined : 'clearLine requires row.';
+      if (!isIntegerAtLeast(operation['row'], 1)) return 'clearLine requires row.';
+      return operation['fromColumn'] === undefined || isIntegerAtLeast(operation['fromColumn'], 1)
+        ? undefined
+        : 'clearLine fromColumn must be a positive integer.';
     case 'moveCursor':
-      return isIntegerAtLeast(typed.row, 1) && isIntegerAtLeast(typed.column, 1)
+      return isIntegerAtLeast(operation['row'], 1) && isIntegerAtLeast(operation['column'], 1)
         ? undefined
         : 'moveCursor requires row and column.';
     case 'showCursor':
-      return typeof typed.visible === 'boolean' ? undefined : 'showCursor requires visible.';
+      return typeof operation['visible'] === 'boolean' ? undefined : 'showCursor requires visible.';
     default:
-      return `unsupported diff operation kind: ${String(typed.kind)}.`;
+      return `unsupported diff operation kind: ${String(operation['kind'])}.`;
   }
+}
+
+function rectIssue(rect: unknown): string | undefined {
+  if (!isRecord(rect)) return 'clearRect bounds must be an object.';
+  return isIntegerAtLeast(rect['row'], 1)
+    && isIntegerAtLeast(rect['column'], 1)
+    && isIntegerAtLeast(rect['width'], 0)
+    && isIntegerAtLeast(rect['height'], 0)
+    ? undefined
+    : 'clearRect bounds must contain row, column, width, and height.';
 }
 
 function snapshotIssue(snapshot: unknown): string | undefined {

@@ -7,40 +7,62 @@ import {
   validateAccessibleSnapshot
 } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { defaultTheme, defineTheme, mergeThemes, renderStyledText } from '../../dist/theme/index.js';
-import { renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
-import { text } from '../../dist/widgets/index.js';
+import { defaultThemes, defineTheme, mergeThemes, resolveTerminalStyle } from '../../dist/theme/index.js';
+import { renderDiffWithOptions, renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
+import { richText } from '../../dist/widgets/index.js';
 
-test('theme API defines, merges, renders, and degrades styled text', async () => {
+test('theme API defines token palettes, merges symbols, and resolves semantic styles', async () => {
   const colorHost = createMemoryTerminalHost();
   const monoHost = createMemoryTerminalHost({ isTty: false });
   const colorCapabilities = await colorHost.getCapabilities();
   const monoCapabilities = await monoHost.getCapabilities();
   const theme = defineTheme({
     name: 'custom',
-    symbols: { pointer: '>\u001B[31m', checked: '[x]\u001B[0m' },
-    styles: {
-      tones: { error: { color: 'brightRed' } },
-      emphasis: { underline: { underline: true } }
-    },
+    symbols: { pointer: '>\u001B[31m', checkboxChecked: '[x]\u001B[0m' },
+    colors: { 'status.error': { kind: 'ansi', value: 9 } },
     spacing: { gap: 2 }
   });
-  const merged = mergeThemes(theme, { styles: { tones: { success: { color: 'brightGreen', bold: true } } } });
+  const merged = mergeThemes(theme, {
+    colors: {
+      'custom.surface': { kind: 'rgb', r: 1, g: 2, b: 3 },
+      'status.success': { kind: 'ansi', value: 10 }
+    }
+  });
+  const diff = {
+    schemaVersion: 'terminal-ui.render-diff.v1',
+    width: 4,
+    height: 1,
+    fullRewrite: false,
+    operations: [{
+      kind: 'write',
+      row: 1,
+      column: 1,
+      spans: [{ text: 'bad\u001B[31m', style: { fg: { kind: 'theme', token: 'status.error' }, underline: true } }]
+    }]
+  };
 
   assert.equal(theme.name, 'custom');
   assert.equal(theme.symbols.pointer, '>');
-  assert.equal(theme.symbols.checked, '[x]');
+  assert.equal(theme.symbols.checkboxChecked, '[x]');
   assert.equal(theme.spacing.gap, 2);
-  assert.deepEqual(merged.styles.tones.success, { color: 'brightGreen', bold: true });
-  assert.equal(renderStyledText({ text: 'bad\u001B[31m', tone: 'error', emphasis: 'underline' }, theme, colorCapabilities), '\u001B[4m\u001B[91mbad\u001B[0m');
-  assert.equal(renderStyledText({ text: 'plain', tone: 'success' }, theme, monoCapabilities), 'plain');
+  assert.deepEqual(merged.colors['custom.surface'], { kind: 'rgb', r: 1, g: 2, b: 3 });
+  assert.deepEqual(
+    resolveTerminalStyle({ fg: { kind: 'theme', token: 'missing.custom' } }, theme),
+    { fg: theme.colors['text.default'] }
+  );
+  assert.match(renderDiffWithOptions(diff, { capabilities: colorCapabilities, theme }), /\u001B\[4;38;5;9mbad\u001B\[0m/u);
+  assert.equal(renderDiffWithOptions(diff, { capabilities: monoCapabilities, theme }), '\u001B[1;1Hbad');
+  assert.equal(defaultThemes.noColor.name, 'noColor');
 });
 
-test('text widgets preserve StyledText data and render its plain text into frames', () => {
-  const widget = text({ text: 'Styled title', tone: 'accent', emphasis: 'bold' }, { id: 'styled-title' });
+test('rich text widgets preserve render spans and render their plain text into frames', () => {
+  const widget = richText({
+    id: 'styled-title',
+    segments: [{ text: 'Styled title', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }]
+  });
   const frame = renderWidgetFrame(widget, { columns: 20, rows: 2 });
 
-  assert.deepEqual(widget.props.content, { text: 'Styled title', tone: 'accent', emphasis: 'bold' });
+  assert.deepEqual(widget.props.segments, [{ text: 'Styled title', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }]);
   assert.equal(renderFrame(frame), 'Styled title');
   assert.equal(frame.accessibility.root.value, 'Styled title');
 });

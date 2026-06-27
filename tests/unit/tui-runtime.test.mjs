@@ -18,7 +18,7 @@ import {
   renderWidgetFrame,
   runTui
 } from '../../dist/tui/index.js';
-import { box, inputField, list, progressBar, row, spinner, stack, statusBar, table, text, viewport } from '../../dist/widgets/index.js';
+import { box, custom, inputField, list, modal, progressBar, row, spinner, stack, statusBar, table, text, tree, viewport } from '../../dist/widgets/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
 test('runTui emits deterministic transcripts when enabled', async () => {
@@ -64,10 +64,11 @@ test('TUI frame rendering positions wide graphemes by terminal cells', () => {
   const addressed = renderFrame(frame, { includeControlSequences: true });
 
   assert.equal(output, 'A🙂B');
-  assert.deepEqual(frame.cells.slice(0, 3).map((cell) => [cell.column, cell.text]), [
-    [1, 'A'],
-    [2, '🙂'],
-    [4, 'B']
+  assert.deepEqual(frame.cells.slice(0, 4).map((cell) => [cell.column, cell.text, cell.width, cell.continuation === true]), [
+    [1, 'A', 1, false],
+    [2, '🙂', 2, false],
+    [3, '', 0, true],
+    [4, 'B', 1, false]
   ]);
   assert.match(addressed, /\u001B\[1;2H🙂/u);
   assert.match(addressed, /\u001B\[1;4HB/u);
@@ -96,8 +97,8 @@ test('TUI status, progress, and spinner widgets render accessible status state',
   const [statusNode, progressNode, pendingNode, spinnerNode] = frame.accessibility.root.children;
 
   assert.match(output, /Ready/);
-  assert.match(output, /Sync \[##########\] 100\/100/);
-  assert.match(output, /Waiting \[----------\]/);
+  assert.match(output, /Sync \[██████████\] 100\/100/);
+  assert.match(output, /Waiting \[░░░░░░░░░░\]/);
   assert.match(output, /Working \.\.\./);
   assert.deepEqual([statusNode?.role, statusNode?.value], ['status', 'Ready']);
   assert.deepEqual([progressNode?.role, progressNode?.label, progressNode?.progress], [
@@ -126,7 +127,7 @@ test('renderDiff serializes clear, write, cursor, and visibility operations', ()
   assert.ok(diff.operations.some((operation) => operation.kind === 'clearLine'));
   assert.ok(diff.operations.some((operation) => operation.kind === 'write'));
   assert.ok(diff.operations.some((operation) => operation.kind === 'moveCursor'));
-  assert.match(output, /\u001B\[1;1H\u001B\[2K/u);
+  assert.match(output, /\u001B\[1;1H\u001B\[0K/u);
   assert.match(output, /\u001B\[1;1HGo/u);
   assert.match(output, /\u001B\[\?25l$/u);
 });
@@ -258,27 +259,36 @@ test('runTui preserves sanitized completed exit reasons', async () => {
   assert.equal(harness.restores().length, 1);
 });
 
-test('runTui exits and restores on cancel and interrupt input', async () => {
+test('runTui lets apps own escape and ctrlC key bindings', async () => {
   const app = defineTui({
-    id: 'run-loop-exit',
-    init: () => ({ ready: true }),
-    update: (state) => ({ state }),
-    view: () => inputField({ id: 'exit-field', value: 'ready' })
+    id: 'run-loop-key-exit',
+    init: () => ({ active: 'ready' }),
+    update: (_state, message) => ({ state: { active: message.active }, exit: {} }),
+    view: (state) => inputField({
+      id: 'exit-field',
+      value: state.active,
+      keyMap: {
+        escape: { active: 'escape' },
+        ctrlC: { active: 'ctrlC' }
+      }
+    })
   });
-  const cancelledHarness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
-  cancelledHarness.host.input('\u001B');
-  const cancelled = await runTui(app, cancelledHarness.host);
+  const escapeHarness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  escapeHarness.host.input('\u001B');
+  const escape = await runTui(app, escapeHarness.host);
 
-  const interruptedHarness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
-  interruptedHarness.host.input('\u0003');
-  const interrupted = await runTui(app, interruptedHarness.host);
+  const ctrlCHarness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  ctrlCHarness.host.input('\u0003');
+  const ctrlC = await runTui(app, ctrlCHarness.host);
 
-  assert.equal(cancelled.status, 'cancelled');
-  assert.equal(interrupted.status, 'interrupted');
-  assert.equal(cancelledHarness.restores().length, 1);
-  assert.equal(interruptedHarness.restores().length, 1);
-  assert.equal(cancelledHarness.host.stdin.isRawModeEnabled(), false);
-  assert.equal(interruptedHarness.host.stdin.isRawModeEnabled(), false);
+  assert.equal(escape.status, 'completed');
+  assert.equal(ctrlC.status, 'completed');
+  assert.deepEqual(escape.state, { active: 'escape' });
+  assert.deepEqual(ctrlC.state, { active: 'ctrlC' });
+  assert.equal(escapeHarness.restores().length, 1);
+  assert.equal(ctrlCHarness.restores().length, 1);
+  assert.equal(escapeHarness.host.stdin.isRawModeEnabled(), false);
+  assert.equal(ctrlCHarness.host.stdin.isRawModeEnabled(), false);
 });
 
 test('runTui re-renders when the host emits resize signals', async () => {
@@ -664,7 +674,7 @@ test('TUI runtime lets focused widgets handle tab before focus traversal', async
   assert.match(renderFrame(runtime.frame()), /accepted/);
 });
 
-test('TUI runtime lets focused widgets handle escape before cancellation', async () => {
+test('TUI runtime routes escape through focused widget keymaps', async () => {
   const app = defineTui({
     id: 'escape-keymap-routing',
     init: () => ({ active: 'open' }),
@@ -867,6 +877,141 @@ test('TUI runtime traverses focus backward with shifted tab', async () => {
   assert.deepEqual(runtime.frame().focusPath, ['stack:1:1', 'first']);
 });
 
+test('TUI runtime respects explicit focus order and disabled focus targets', async () => {
+  const app = defineTui({
+    id: 'ordered-focus',
+    init: () => ({ active: 'idle' }),
+    update: (_state, message) => ({ state: { active: message.active } }),
+    view: (state) => stack([
+      inputField({
+        id: 'disabled',
+        value: state.active,
+        keyMap: { enter: { active: 'disabled' } },
+        focus: { disabled: true, order: 0 }
+      }),
+      inputField({
+        id: 'later',
+        value: state.active,
+        keyMap: { enter: { active: 'later' } },
+        focus: { order: 2 }
+      }),
+      inputField({
+        id: 'first',
+        value: state.active,
+        keyMap: { enter: { active: 'first' } },
+        focus: { order: 1 }
+      })
+    ])
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 6 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const first = await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  const tab = await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
+  const second = await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.equal(first.handled, true);
+  assert.equal(tab.handled, true);
+  assert.equal(second.handled, true);
+  assert.deepEqual(runtime.frame().focusPath, ['stack:1:1', 'later']);
+  assert.deepEqual(runtime.getState(), { active: 'later' });
+});
+
+test('TUI runtime traps focus inside modal and scoped popover widgets', async () => {
+  const modalApp = defineTui({
+    id: 'modal-focus-scope',
+    init: () => ({ active: 'idle' }),
+    update: (_state, message) => ({ state: { active: message.active } }),
+    view: (state) => stack([
+      inputField({ id: 'background', value: state.active, keyMap: { enter: { active: 'background' } } }),
+      modal(inputField({ id: 'dialog-field', value: state.active, keyMap: { enter: { active: 'dialog' } } }), {
+        id: 'dialog',
+        width: 20,
+        height: 4
+      })
+    ])
+  });
+  const modalHarness = createTerminalHarness({ viewport: { columns: 30, rows: 8 } });
+  const modalRuntime = createTuiRuntime({ app: modalApp, host: modalHarness.host });
+
+  await modalRuntime.start();
+  const modalTab = await modalRuntime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
+  const modalEnter = await modalRuntime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.equal(modalTab.handled, true);
+  assert.equal(modalEnter.handled, true);
+  assert.deepEqual(modalRuntime.frame().focusPath, ['stack:1:1', 'dialog', 'dialog-field']);
+  assert.deepEqual(modalRuntime.getState(), { active: 'dialog' });
+
+  const popoverApp = defineTui({
+    id: 'popover-focus-scope',
+    init: () => ({ active: 'idle' }),
+    update: (_state, message) => ({ state: { active: message.active } }),
+    view: (state) => stack([
+      inputField({ id: 'page-field', value: state.active, keyMap: { enter: { active: 'page' } } }),
+      box(inputField({ id: 'popover-field', value: state.active, keyMap: { enter: { active: 'popover' } } }), {
+        id: 'popover',
+        zIndex: 10,
+        focus: { scope: 'contain' }
+      })
+    ])
+  });
+  const popoverHarness = createTerminalHarness({ viewport: { columns: 30, rows: 8 } });
+  const popoverRuntime = createTuiRuntime({ app: popoverApp, host: popoverHarness.host });
+
+  await popoverRuntime.start();
+  const popoverEnter = await popoverRuntime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.equal(popoverEnter.handled, true);
+  assert.deepEqual(popoverRuntime.frame().focusPath, ['stack:1:1', 'popover', 'popover-field']);
+  assert.deepEqual(popoverRuntime.getState(), { active: 'popover' });
+});
+
+test('TUI runtime traverses multiple custom focus targets within one widget', async () => {
+  const renderer = {
+    render({ buffer, node }) {
+      buffer.write(node.bounds.row, node.bounds.column, [{ text: 'AB' }]);
+    },
+    accessibility({ id, focused }) {
+      return {
+        id,
+        role: 'application',
+        label: 'Custom focus regions',
+        ...(focused ? { focused } : {})
+      };
+    },
+    focusTargets({ bounds }) {
+      return [
+        {
+          id: 'left',
+          bounds: { row: bounds.row, column: bounds.column, width: 1, height: 1 },
+          order: 2
+        },
+        {
+          id: 'right',
+          bounds: { row: bounds.row, column: bounds.column + 1, width: 1, height: 1 },
+          order: 1
+        }
+      ];
+    }
+  };
+  const app = defineTui({
+    id: 'custom-focus-targets',
+    init: () => ({}),
+    update: (state) => ({ state }),
+    view: () => custom({ id: 'custom-board', renderer })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 10, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  assert.deepEqual(runtime.frame().focusPath, ['custom-board', 'right']);
+
+  await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
+  assert.deepEqual(runtime.frame().focusPath, ['custom-board', 'left']);
+});
+
 test('TUI frame accessibility uses widget metadata and marks only the active focus target', async () => {
   const app = defineTui({
     id: 'a11y-frame',
@@ -1040,9 +1185,9 @@ test('viewport widgets keep offscreen content from leaking into neighboring layo
   assert.doesNotMatch(output, /left-0|left-1/u);
 });
 
-test('TUI runtime exposes cancellation and interruption as input exits', async () => {
+test('TUI runtime does not reserve escape or ctrlC key events', async () => {
   const app = defineTui({
-    id: 'input-exit',
+    id: 'unreserved-keys',
     init: () => ({ ready: true }),
     update: (state) => ({ state }),
     view: () => inputField({ id: 'exit-field', value: 'ready' })
@@ -1051,7 +1196,7 @@ test('TUI runtime exposes cancellation and interruption as input exits', async (
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const cancelled = await runtime.handleInput({
+  const escape = await runtime.handleInput({
     kind: 'key',
     key: 'escape',
     sequence: '\u001B',
@@ -1060,7 +1205,7 @@ test('TUI runtime exposes cancellation and interruption as input exits', async (
     shift: false,
     meta: false
   });
-  const interrupted = await runtime.handleInput({
+  const ctrlC = await runtime.handleInput({
     kind: 'key',
     key: 'ctrlC',
     sequence: '\u0003',
@@ -1070,8 +1215,10 @@ test('TUI runtime exposes cancellation and interruption as input exits', async (
     meta: false
   });
 
-  assert.equal(cancelled.exit?.status, 'cancelled');
-  assert.equal(interrupted.exit?.status, 'interrupted');
+  assert.equal(escape.handled, false);
+  assert.equal(ctrlC.handled, false);
+  assert.equal(escape.exit, undefined);
+  assert.equal(ctrlC.exit, undefined);
   assert.equal(harness.frames().length, 1);
 });
 
@@ -1165,9 +1312,77 @@ test('TUI runtime routes mouse events to widgets under the pointer', async () =>
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
+  assert.deepEqual(runtime.frame().hitTargets?.[0], {
+    id: 'mouse-field:mouse:press',
+    bounds: { row: 1, column: 1, width: 20, height: 3 },
+    cursor: 'pointer',
+    zIndex: 0
+  });
   const result = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
 
   assert.equal(result[0]?.handled, true);
   assert.deepEqual(runtime.getState(), { clicked: true });
   assert.match(renderFrame(runtime.frame()), /clicked/);
+});
+
+test('TUI runtime routes tree row hit targets to node messages', async () => {
+  const app = defineTui({
+    id: 'tree-mouse-routing',
+    init: () => ({ selected: 'none' }),
+    update: (_state, message) => ({ state: { selected: message.id } }),
+    view: (state) => tree({
+      id: 'tree',
+      selected: state.selected,
+      nodes: [
+        { id: 'root', label: 'Root', expanded: true, children: [{ id: 'child', label: 'Child' }] }
+      ],
+      toMessage: (node) => ({ id: node.id })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const result = await runtime.handleInputChunk({ data: '\u001B[<0;1;2M' });
+
+  assert.equal(result[0]?.handled, true);
+  assert.deepEqual(runtime.getState(), { selected: 'child' });
+  assert.match(renderFrame(runtime.frame()), /Child/);
+});
+
+test('TUI runtime routes overlapping mouse events to the topmost layer', async () => {
+  const app = defineTui({
+    id: 'layered-mouse-routing',
+    init: () => ({ clicked: 'none' }),
+    update: (_state, message) => ({ state: { clicked: message.clicked } }),
+    view: () => box([
+      inputField({
+        id: 'lower-mouse-field',
+        value: 'lower',
+        zIndex: 0,
+        mouseMap: { press: { clicked: 'lower' } }
+      }),
+      inputField({
+        id: 'upper-mouse-field',
+        value: 'upper',
+        zIndex: 20,
+        mouseMap: { press: { clicked: 'upper' } }
+      })
+    ], {
+      id: 'mouse-layer-root',
+      border: { kind: 'none' }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  assert.deepEqual(runtime.frame().hitTargets?.map((target) => [target.id, target.zIndex]), [
+    ['lower-mouse-field:mouse:press', 0],
+    ['upper-mouse-field:mouse:press', 20]
+  ]);
+  const result = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+
+  assert.equal(result[0]?.handled, true);
+  assert.deepEqual(runtime.getState(), { clicked: 'upper' });
 });

@@ -5,6 +5,7 @@ import { editPromptBufferForEvent, isMultilineText } from './buffer-edit.ts';
 import type { PromptInteractionHooks } from './interaction-hooks.ts';
 import { createPromptSnapshot, promptValueForSnapshot } from './snapshot.ts';
 import { completePromptState, type PromptRuntimeState } from './state.ts';
+import { promptValueView } from './value-view.ts';
 import type { PromptDefinition, PromptResult } from './types.ts';
 import { validatePromptValue } from './validation.ts';
 
@@ -32,7 +33,7 @@ export function scheduleInitialValidation<TValue>(
   hooks: PromptInteractionHooks
 ): void {
   if (prompt.kind !== 'input' && prompt.kind !== 'password') return;
-  scheduleTextValidation(prompt as unknown as PromptDefinition<string>, host, state, hooks);
+  scheduleTextValidation(promptValueView(prompt), host, state, hooks);
 }
 
 function scheduleTextValidation(

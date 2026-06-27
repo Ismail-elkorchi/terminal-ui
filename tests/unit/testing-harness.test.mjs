@@ -3,8 +3,8 @@ import test from 'node:test';
 
 import { input, runPrompt } from '../../dist/prompts/index.js';
 import { createTerminalHarness, replayTranscript, runInteractionScript } from '../../dist/testing/index.js';
-import { defineTui, runTui } from '../../dist/tui/index.js';
-import { inputField } from '../../dist/widgets/index.js';
+import { defineTui, renderWidgetFrame, runTui } from '../../dist/tui/index.js';
+import { button, richText, stack, tree, inputField } from '../../dist/widgets/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
 test('testing harness records input and output deterministically', async () => {
@@ -173,4 +173,48 @@ test('terminal harness resize events drive active TUI resize handling', async ()
       .map((step) => step.event),
     [{ kind: 'resize', viewport: { columns: 12, rows: 3 } }]
   );
+});
+
+test('interaction scripts assert styled text focus selection and hit targets against recorded frames', async () => {
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 9 } });
+  const frame = renderWidgetFrame(stack([
+    richText({
+      id: 'styled-line',
+      segments: [{ text: 'Styled', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]
+    }),
+    tree({
+      id: 'tree',
+      selected: 'child',
+      keyMap: { enter: { kind: 'confirm' } },
+      nodes: [
+        {
+          id: 'root',
+          label: 'Root',
+          expanded: true,
+          children: [{ id: 'child', label: 'Child' }]
+        }
+      ],
+      toMessage: (node) => ({ kind: 'select', id: node.id })
+    }),
+    button({
+      id: 'confirm',
+      label: 'Confirm',
+      message: { kind: 'confirm' }
+    })
+  ]), { columns: 24, rows: 9 });
+  harness.recordFrame(frame);
+  const target = frame.hitTargets?.find((item) => item.id === 'confirm:control');
+  assert.ok(target);
+
+  const scriptResult = await runInteractionScript(harness, {
+    id: 'semantic-assertions',
+    steps: [
+      { kind: 'assertVisibleText', assertion: { text: 'Styled', styleToken: 'accent.primary' } },
+      { kind: 'assertFocus', assertion: { id: 'tree' } },
+      { kind: 'assertSelected', assertion: { id: 'tree:child', label: 'Child' } },
+      { kind: 'assertHitTarget', assertion: { id: target.id, row: target.bounds.row, column: target.bounds.column } }
+    ]
+  });
+
+  assert.equal(scriptResult.diagnostics.length, 0);
 });

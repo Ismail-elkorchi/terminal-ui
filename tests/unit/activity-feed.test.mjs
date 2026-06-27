@@ -42,6 +42,11 @@ test('structuredBlock renders collapsed and expanded block data', () => {
   );
   assert.equal(collapsed.accessibility.root.description, 'status pending, collapsed, 1 fields');
   assert.equal(expanded.accessibility.root.description, 'status running, expanded, 1 fields');
+  assert.deepEqual(collapsed.accessibility.root.children?.map((node) => [node.id, node.value]), [
+    ['queued:status', 'pending'],
+    ['queued:summary', 'Waiting for a worker'],
+    ['queued:field:owner', 'scheduler']
+  ]);
 });
 
 test('structuredBlock sanitizes terminal control sequences', () => {
@@ -55,6 +60,39 @@ test('structuredBlock sanitizes terminal control sequences', () => {
   assert.equal(frame.accessibility.root.label, 'Title red');
 });
 
+test('structuredBlock supports required status states with themed status cells', () => {
+  const statuses = ['pending', 'running', 'success', 'warning', 'error', 'failed', 'cancelled', 'skipped', 'info'];
+  for (const status of statuses) {
+    const frame = renderWidgetFrame(structuredBlock({
+      id: `status-${status}`,
+      title: `Status ${status}`,
+      status
+    }), { columns: 40, rows: 2 });
+    const statusCell = frame.cells.find((cell) => cell.text === status[0]);
+
+    assert.match(renderFrame(frame), new RegExp(`\\[${status}\\] Status ${status}`, 'u'));
+    assert.equal(statusCell?.style?.bold, true);
+    assert.equal(statusCell?.style?.fg?.kind, 'theme');
+  }
+});
+
+test('structuredBlock aligns fields and wraps long body text predictably', () => {
+  const frame = renderWidgetFrame(structuredBlock({
+    id: 'details',
+    title: 'Details',
+    fields: [
+      { label: 'short', value: 'one' },
+      { label: 'longer-label', value: 'two' }
+    ],
+    body: 'abcdefghijklmnopqrst'
+  }), { columns: 18, rows: 8 });
+
+  assert.equal(
+    renderFrame(frame),
+    '[-] Details\nshort       : one\nlonger-label: two\nabcdefghijklmnopqr\nst'
+  );
+});
+
 test('activityFeed renders selected visible blocks and accessible options', () => {
   const frame = renderWidgetFrame(activityFeed({
     id: 'feed',
@@ -63,11 +101,12 @@ test('activityFeed renders selected visible blocks and accessible options', () =
   }), { columns: 36, rows: 10 });
   const output = renderFrame(frame);
 
-  assert.match(output, /> \[-\] \[running\] Running task/u);
+  assert.match(output, /› \[-\] \[running\] Running task/u);
   assert.match(output, /Streaming output/u);
   assert.match(output, /Details: extra diagnostics/u);
   assert.equal(frame.accessibility.root.role, 'listbox');
   assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 3 activity blocks.');
+  assert.equal(frame.cells.find((cell) => cell.text === '›')?.style?.bg?.kind, 'theme');
   assert.deepEqual(frame.accessibility.root.children?.map((node) => [node.id, node.selected]), [
     ['feed:block:queued', false],
     ['feed:block:running', true],

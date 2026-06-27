@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { defineTui, runTui } from '../../dist/tui/index.js';
+import { defineTui, renderFrame, runTui } from '../../dist/tui/index.js';
 import {
   activityFeed,
   commandBar,
-  commandPalette,
   grid,
+  palette,
   scrollback,
   splitPane,
   statusBar,
@@ -31,13 +31,13 @@ function workspaceView(state) {
       {
         id: 'actions',
         label: 'Actions',
-        panel: commandPalette({
+        panel: palette({
           id: 'palette',
           title: 'Actions',
           query: state.query,
           entries: [
-            { id: 'open', label: 'Open' },
-            { id: 'quit', label: 'Quit' }
+            { id: 'open', label: 'Open', value: 'open' },
+            { id: 'quit', label: 'Quit', value: 'quit' }
           ],
           selected: 0
         })
@@ -56,13 +56,13 @@ function workspaceView(state) {
     ], {
       id: 'body',
       direction: 'horizontal',
-      sizes: [{ kind: 'fixed', size: 20 }, { kind: 'fill' }]
+      sizes: [{ kind: 'fixed', cells: 20 }, { kind: 'fill' }]
     }),
     statusBar({ id: 'status', text: state.palette ? 'palette' : 'log' }),
     commandBar({ id: 'command', prompt: '/', value: state.query })
   ], {
     id: 'workspace',
-    rows: [{ kind: 'fixed', size: 1 }, { kind: 'fill' }, { kind: 'fixed', size: 1 }, { kind: 'fixed', size: 1 }],
+    rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }],
     columns: [{ kind: 'fill' }],
     keyMap: { p: { type: 'palette' }, enter: { type: 'exit' } }
   });
@@ -86,10 +86,14 @@ test('layout regions compose scrollback, activity, tabs, palette, status, and co
 
   assert.equal(exit.status, 'completed');
   assert.equal(exit.state.palette, true);
-  assert.match(harness.output(), /Workspace/u);
-  assert.match(harness.output(), /Actions/u);
-  assert.match(harness.output(), /Open/u);
-  assert.match(harness.output(), /\/o/u);
-  assert.ok(harness.frames().length >= 2);
+  const frames = harness.frames();
+  const lastFrame = frames.at(-1);
+  assert.notEqual(lastFrame, undefined);
+  const frameText = lastFrame.cells.map((cell) => cell.text).join('');
+  assert.match(frameText, /Workspace/u);
+  assert.match(frameText, /Actions/u);
+  assert.match(frameText, /Open/u);
+  assert.match(renderFrame(lastFrame), /\/o/u);
+  assert.ok(frames.length >= 2);
   assert.equal(harness.snapshot().root.id, 'workspace');
 });

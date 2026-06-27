@@ -56,6 +56,30 @@ test('scrollback sanitizes terminal control sequences before rendering and acces
   assert.equal(frame.accessibility.root.children?.[0]?.value, 'safe red text');
 });
 
+test('scrollback renders timestamp metadata and item style through visible rows', () => {
+  const widget = scrollback({
+    id: 'metadata-log',
+    items: [{
+      id: 'meta-1',
+      timestamp: '10:30',
+      metadata: { status: 'ok', source: 'worker' },
+      text: 'Zulu',
+      style: { fg: { kind: 'theme', token: 'status.success' }, bold: true }
+    }]
+  });
+  const layout = layoutWidget(widget, { columns: 80, rows: 2 });
+  const window = scrollbackWindow(widget, layout);
+  const frame = renderWidgetFrame(widget, { columns: 80, rows: 2 });
+  const styledCell = frame.cells.find((cell) => cell.text === 'Z');
+
+  assert.equal(window.rows[0]?.text, '[10:30] source=worker status=ok Zulu');
+  assert.equal(window.rows[0]?.timestamp, '[10:30]');
+  assert.deepEqual(window.rows[0]?.metadata, { source: 'worker', status: 'ok' });
+  assert.equal(renderFrame(frame), '[10:30] source=worker status=ok Zulu');
+  assert.deepEqual(styledCell?.style, { fg: { kind: 'theme', token: 'status.success' }, bold: true });
+  assert.equal(frame.accessibility.root.children?.[0]?.value, '[10:30] source=worker status=ok Zulu');
+});
+
 test('scrollback wraps visible rows when requested', () => {
   const frame = renderWidgetFrame(scrollback({
     id: 'wrapped-log',
@@ -80,7 +104,7 @@ test('scrollback search navigates to the first match and exposes match segments'
   assert.deepEqual(
     window.rows.find((row) => row.text === 'needle row')?.segments,
     [
-      { text: 'needle', tone: 'accent', emphasis: 'underline', matched: true },
+      { text: 'needle', style: { fg: { kind: 'theme', token: 'menu.match' }, underline: true }, matched: true },
       { text: ' row' }
     ]
   );

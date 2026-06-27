@@ -7,7 +7,7 @@ import { renderCurrentFrame } from './runtime-frame.ts';
 import { recordTuiFrame } from './transcript.ts';
 import type { TerminalHost, TerminalInputChunk } from '../host/index.ts';
 import type { TranscriptRecorder } from '../transcript/index.ts';
-import type { TuiApp, TuiExit } from './types.ts';
+import type { TuiApp, TuiExit, TuiRuntimeOptions } from './types.ts';
 
 export async function runTuiNonTty<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
@@ -44,7 +44,7 @@ export async function runTuiNonTty<TState, TMessage>(
         state = result.state;
       }
     }
-    const frame = renderCurrentFrame(app, state, context, undefined);
+    const frame = renderCurrentFrame(app, state, context, undefined, runtimeOptions(app, host, transcript));
     recordTuiFrame(transcript, frame, diffFrames(undefined, frame));
     if (policy.mode === 'last_frame' || policy.mode === 'line_fallback') {
       await host.write({ text: `${renderFrame(frame)}\n` });
@@ -63,6 +63,18 @@ export async function runTuiNonTty<TState, TMessage>(
       snapshot: tuiSnapshot(app.id)
     };
   }
+}
+
+function runtimeOptions<TState, TMessage>(
+  app: TuiApp<TState, TMessage>,
+  host: TerminalHost,
+  transcript: TranscriptRecorder | undefined
+): TuiRuntimeOptions<TState, TMessage> {
+  return {
+    app,
+    host,
+    ...(transcript === undefined ? {} : { transcript })
+  };
 }
 
 async function readLine(host: TerminalHost): Promise<string | undefined> {

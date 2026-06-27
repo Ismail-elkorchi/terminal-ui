@@ -1,4 +1,5 @@
-import { defineTheme, renderStyledText } from '../theme/index.ts';
+import { defineTheme } from '../theme/index.ts';
+import { serializeRenderSpans } from '../tui/ansi.ts';
 import type { TerminalHost } from '../host/index.ts';
 import type { ShellState, ShellSuggestion, TerminalShell } from './types.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -14,7 +15,12 @@ export async function rewriteLine(shell: TerminalShell, host: TerminalHost): Pro
 async function promptText(shell: TerminalShell, host: TerminalHost): Promise<string> {
   const theme = defineTheme(shell.options.theme ?? {});
   const capabilities = await host.getCapabilities();
-  return renderStyledText({ text: promptPlainText(shell, theme) }, theme, capabilities);
+  const prompt = promptPlainText(shell, theme);
+  return serializeRenderSpans([
+    shell.options.theme === undefined
+      ? { text: prompt }
+      : { text: prompt, style: { fg: { kind: 'theme', token: 'text.default' } } }
+  ], { capabilities, theme });
 }
 
 function promptPlainText(shell: TerminalShell, theme: TerminalTheme): string {

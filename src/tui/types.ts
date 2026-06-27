@@ -2,6 +2,7 @@ import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalCapabilities, TerminalClock, TerminalHost, TerminalInputChunk, TerminalViewport } from '../host/index.ts';
 import type { InputDecodeOptions, InputEvent } from '../input/index.ts';
+import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { InteractionTranscript, TranscriptPolicy, TranscriptRecorder } from '../transcript/index.ts';
 import type { Widget } from '../widgets/index.ts';
 import type { Frame } from './frame.ts';
@@ -112,6 +113,7 @@ export interface TuiRuntimeOptions<TState, TMessage> {
   readonly app: TuiApp<TState, TMessage>;
   readonly host: TerminalHost;
   readonly initialFocusPath?: FocusPath;
+  readonly theme?: TerminalTheme | TerminalThemeDefinition;
   readonly transcript?: TranscriptRecorder;
 }
 

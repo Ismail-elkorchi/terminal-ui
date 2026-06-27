@@ -1,11 +1,16 @@
 import { diagnostic } from '../diagnostics.ts';
 import { replayTranscript } from '../transcript/index.ts';
 import {
+  assertFocus,
+  assertHitTarget,
   assertNoSecretLeak,
   assertOutput,
+  assertSelected,
   assertSnapshot,
-  assertTerminalRestored
+  assertTerminalRestored,
+  assertVisibleText
 } from './assertions.ts';
+import type { Frame } from '../tui/index.ts';
 import type { InteractionResult, InteractionScript, TerminalHarness } from './types.ts';
 
 export { replayTranscript };
@@ -36,6 +41,18 @@ export async function runInteractionScript(
         case 'assertSnapshot':
           assertSnapshot(harness.snapshot(), step.assertion);
           break;
+        case 'assertFocus':
+          assertFocus(harness.snapshot(), step.assertion);
+          break;
+        case 'assertSelected':
+          assertSelected(harness.snapshot(), step.assertion);
+          break;
+        case 'assertVisibleText':
+          assertVisibleText(latestFrame(harness), step.assertion);
+          break;
+        case 'assertHitTarget':
+          assertHitTarget(latestFrame(harness), step.assertion);
+          break;
         case 'assertRestore':
           assertTerminalRestored(currentResult(harness));
           break;
@@ -57,6 +74,12 @@ export async function runInteractionScript(
     }
   }
   return currentResult(harness);
+}
+
+function latestFrame(harness: TerminalHarness): Frame {
+  const frame = harness.frames().at(-1);
+  if (frame === undefined) throw new Error('Expected harness to have recorded at least one frame.');
+  return frame;
 }
 
 function currentResult(harness: TerminalHarness): InteractionResult {

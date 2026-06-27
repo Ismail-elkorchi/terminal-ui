@@ -1,6 +1,6 @@
 # @ismail-elkorchi/terminal-ui
 
-`terminal-ui` provides deterministic, typed terminal interaction primitives for prompts, shell loops, widgets, full-screen TUI rendering, accessibility snapshots, transcripts, and test harnesses.
+`terminal-ui` provides general-purpose TypeScript primitives for terminal user interfaces: runtime hosts, input, layout, rendering, widgets, prompts, accessibility, transcripts, and deterministic testing.
 
 The package is ESM-only and targets Node, Deno, Bun, and memory-backed tests. Public examples live under `examples/` and are executed by the package test suite against the built package exports.
 
@@ -24,6 +24,18 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 - `examples/prompts/non-tty-input.mjs` demonstrates deterministic non-TTY prompt input.
 - `examples/shell/cli-core-shell.mjs` demonstrates a shell backed by a real `cli-core` program.
 - `examples/tui/render-frame.mjs` demonstrates widget tree to frame rendering.
+- `examples/tui/forms-settings.mjs` demonstrates form controls for settings screens.
+- `examples/tui/file-browser.mjs` demonstrates tree-based browsing.
+- `examples/tui/data-table.mjs` demonstrates bounded tabular data.
+- `examples/tui/log-viewer.mjs` demonstrates scrollback for event streams.
+- `examples/tui/command-palette.mjs` demonstrates a generic palette.
+- `examples/tui/installer-wizard.mjs` demonstrates modal wizard composition.
+- `examples/tui/text-editor.mjs` demonstrates a bounded text editor surface.
+- `examples/tui/game-board.mjs` demonstrates canvas-like drawing.
+- `examples/tui/chat-interface.mjs` demonstrates history plus input composition.
+- `examples/tui/monitoring-console.mjs` demonstrates status and chart widgets.
+- `examples/tui/custom-widget.mjs` demonstrates a custom renderer.
+- `examples/testing/visual-snapshots.mjs` demonstrates deterministic visual snapshot artifacts.
 - `examples/testing/harness.mjs` demonstrates the memory testing harness.
 
 ## Guides
@@ -35,6 +47,9 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 - [Shells with cli-core](./guides/shell.md)
 - [TUI rendering](./guides/tui.md)
 - [Widgets](./guides/widgets.md)
+- [Themes](./guides/themes.md)
+- [Custom widgets](./guides/custom-widgets.md)
+- [Layout](./guides/layout.md)
 - [Host adapters](./guides/host-adapters.md)
 - [Accessibility](./accessibility.md)
 - [Transcripts and replay](./guides/transcript-replay.md)

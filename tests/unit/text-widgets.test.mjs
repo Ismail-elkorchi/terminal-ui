@@ -8,8 +8,8 @@ test('richText renders sanitized styled segments as plain frame text', () => {
   const frame = renderWidgetFrame(richText({
     id: 'rich',
     segments: [
-      { text: 'Build ', tone: 'muted' },
-      { text: '\u001B[31mfailed\u001B[0m', tone: 'error', emphasis: 'bold' }
+      { text: 'Build ', style: { fg: { kind: 'theme', token: 'text.muted' } } },
+      { text: '\u001B[31mfailed\u001B[0m', style: { fg: { kind: 'theme', token: 'status.error' }, bold: true } }
     ]
   }), { columns: 24, rows: 2 });
 
@@ -47,6 +47,6 @@ test('helpBar and activityIndicator provide reusable app chrome', () => {
 
   assert.equal(renderFrame(helpFrame), 'Enter open  Esc close');
   assert.equal(helpFrame.accessibility.root.role, 'status');
-  assert.equal(renderFrame(activityFrame), '... Indexing (running)');
-  assert.equal(activityFrame.accessibility.root.value, '... Indexing (running)');
+  assert.equal(renderFrame(activityFrame), 'i Indexing (running)');
+  assert.equal(activityFrame.accessibility.root.value, 'i Indexing (running)');
 });

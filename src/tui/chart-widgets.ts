@@ -2,6 +2,7 @@ import { sanitizeTerminalText } from '../text/index.ts';
 import { numberProp } from './widget-props.ts';
 import { visibleWindow } from './visible-window.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
+import type { TerminalTheme } from '../theme/index.ts';
 import type { BarChartItem, ChartSeries, Widget } from '../widgets/index.ts';
 import type { LayoutNode } from './layout.ts';
 
@@ -25,18 +26,18 @@ export function sparklineAccessibleBase(widget: Widget, id: string): AccessibleN
   };
 }
 
-export function barChartText(widget: Widget, node: LayoutNode): string {
+export function barChartText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
   const items = barItems(widget.props['items']);
   const selected = numberProp(widget, 'selected') ?? -1;
   const max = Math.max(1, numberProp(widget, 'max') ?? Math.max(1, ...items.map((item) => item.value)));
   const window = visibleWindow(items.length, node.bounds.height, selected);
   return items.slice(window.start, window.end).map((item, offset) => {
     const index = window.start + offset;
-    const prefix = index === selected ? '›' : ' ';
+    const prefix = index === selected ? theme.symbols.pointer : theme.symbols.unselected;
     const label = sanitizeTerminalText(item.label).text;
     const available = Math.max(1, node.bounds.width - label.length - String(item.value).length - 5);
     const filled = Math.max(0, Math.min(available, Math.round((item.value / max) * available)));
-    return `${prefix} ${label} ${'#'.repeat(filled)} ${String(item.value)}`;
+    return `${prefix} ${label} ${theme.symbols.progressFilled.repeat(filled)} ${String(item.value)}`;
   }).join('\n');
 }
 

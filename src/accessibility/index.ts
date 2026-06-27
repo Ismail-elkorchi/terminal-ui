@@ -1,4 +1,5 @@
 export type {
+  AccessibilityOptions,
   AccessibleNode,
   AccessibleProgress,
   AccessibleRole,

@@ -1,5 +1,11 @@
 import { clipTextCells, measureTextCells } from '../text/index.ts';
-import { commandPaletteWindow } from './command-surface.ts';
+import {
+  commandBarAccessibleChildren,
+  commandBarBlock,
+  commandBarCursor
+} from './command-bar.ts';
+import { drawBorder } from './border.ts';
+import { createFrameBuffer } from './frame.ts';
 import {
   barChartAccessibleBase,
   barChartAccessibleChildren,
@@ -11,25 +17,23 @@ import {
 } from './chart-widgets.ts';
 import {
   paginatorAccessibleBase,
-  paginatorText,
-  treeAccessibleBase,
-  treeAccessibleChildren,
-  treeText
+  paginatorText
 } from './data-widgets.ts';
-import { gridCellRects, splitTracks } from './regions.ts';
+import { gridCellRects, layoutContentBounds, splitTracks } from './regions.ts';
 import { normalizeScrollState, visibleWindowFromScroll } from './scroll.ts';
+import { paletteAccessibleChildren, paletteBlock } from './palette.ts';
 import { visibleWindow, windowDescription } from './visible-window.ts';
 import {
   scrollbackAccessibleBase,
   scrollbackAccessibleChildren,
-  scrollbackText
+  scrollbackBlock
 } from './scrollback.ts';
 import {
   activityFeedAccessibleBase,
   activityFeedAccessibleChildren,
-  activityFeedText,
+  activityFeedBlock,
   structuredBlockAccessibleBase,
-  structuredBlockText
+  structuredBlockBlock
 } from './structured-block.ts';
 import {
   activityIndicatorAccessibleBase,
@@ -37,50 +41,93 @@ import {
   helpBarAccessibleBase,
   helpBarText,
   richTextAccessibleBase,
-  richTextText,
+  richTextBlock,
   textAreaAccessibleBase,
   textAreaCursor,
   textAreaText
 } from './text-widgets.ts';
+import {
+  buttonAccessibleBase,
+  buttonBlock,
+  checkboxAccessibleBase,
+  checkboxBlock,
+  controlHitTargets,
+  fieldAccessibleBase,
+  fieldBlock,
+  fieldContentBounds,
+  formAccessibleBase,
+  formBlock,
+  formContentBounds,
+  labelAccessibleBase,
+  labelBlock,
+  numberInputAccessibleBase,
+  numberInputBlock,
+  numberInputCursor,
+  optionHitTargets,
+  radioGroupAccessibleBase,
+  radioGroupAccessibleChildren,
+  radioGroupBlock,
+  selectBoxAccessibleBase,
+  selectBoxAccessibleChildren,
+  selectBoxBlock,
+  textInputAccessibleBase,
+  textInputBlock,
+  textInputCursor
+} from './form-widgets.ts';
+import {
+  absoluteAccessibleBase,
+  absoluteChildBounds,
+  canvasAccessibleBase,
+  overlayAccessibleBase,
+  overlayChildBounds,
+  renderCanvas,
+  surfaceAccessibleBase,
+  surfaceChildBounds
+} from './drawing-widgets.ts';
+import {
+  contextMenuBlock,
+  contextMenuHitTargets,
+  dropdownAccessibleBase,
+  dropdownAccessibleChildren,
+  dropdownBlock,
+  dropdownHitTargets,
+  menuAccessibleBase,
+  menuAccessibleChildren,
+  menuBarBlock,
+  menuBarHitTargets,
+  menuBlock,
+  menuCursor,
+  menuHitTargets
+} from './menu-widgets.ts';
+import { tableAccessibleBase, tableAccessibleChildren, tableBlock } from './table.ts';
+import { treeAccessibleBase, treeAccessibleChildren, treeBlock, treeHitTargets } from './tree.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
-import type { Widget, WidgetKind } from '../widgets/index.ts';
-import type { FrameCell } from './frame.ts';
+import type { TerminalTheme } from '../theme/index.ts';
+import type { Widget, WidgetFocusScope, WidgetKind } from '../widgets/index.ts';
+import type { BorderStyle } from './border.ts';
+import type { WidgetLayoutTarget } from './focus.ts';
+import type { FrameBuffer, FrameCell, RenderBlock, RenderLine, RenderSpan, TerminalColor, TerminalStyle } from './frame.ts';
 import type { LayoutNode, Rect } from './layout.ts';
-import type { LayoutTrack } from './regions.ts';
+import type {
+  GridLayoutOptions,
+  LayoutAlignment,
+  LayoutFlowOptions,
+  LayoutInsetInput,
+  LayoutJustification,
+  LayoutOverflow,
+  LayoutSize
+} from './regions.ts';
+import type { FocusTarget, HitTarget, WidgetRenderer, WidgetRenderInput } from './widget-renderer.ts';
 
-export interface WidgetBehavior {
-  readonly childBounds?: (widget: Widget, bounds: Rect) => readonly Rect[];
-  readonly render?: (widget: Widget, node: LayoutNode, context: WidgetRenderContext) => WidgetRenderResult;
-  readonly accessibleBase?: (
-    widget: Widget,
-    node: LayoutNode,
-    id: string,
-    focused: boolean
-  ) => AccessibleNode;
-  readonly accessibleChildren?: (widget: Widget, node: LayoutNode) => readonly AccessibleNode[] | undefined;
-  readonly cursor?: (widget: Widget, target: WidgetLayoutTarget) => { readonly row: number; readonly column: number } | undefined;
-  readonly focusable?: (widget: Widget) => boolean;
-}
+type BuiltinWidgetKind = Exclude<WidgetKind, 'custom'>;
 
-export interface WidgetRenderContext {
-  readonly cells: FrameCell[];
-  renderChildren(target?: FrameCell[]): void;
-}
-
-export type WidgetRenderResult = 'skipChildren' | undefined;
-
-export interface WidgetLayoutTarget {
-  readonly bounds: Rect;
-}
-
-const widgetBehaviors = {
+const widgetRenderers = {
   text: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, stringify(widget.props['content']));
-      return undefined;
+    render: ({ widget, node, buffer }) => {
+      writeBlock(buffer, node.bounds, stringify(widget.props['content']));
     },
-    accessibleBase: (widget, _node, id) => ({
+    accessibility: ({ widget, id }) => ({
       id,
       role: 'text',
       label: id,
@@ -88,18 +135,16 @@ const widgetBehaviors = {
     })
   },
   richText: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, richTextText(widget, node.bounds));
-      return undefined;
+    render: ({ widget, node, buffer }) => {
+      writeRenderBlock(buffer, node.bounds, richTextBlock(widget, node.bounds));
     },
-    accessibleBase: (widget, _node, id) => richTextAccessibleBase(widget, id)
+    accessibility: ({ widget, id }) => richTextAccessibleBase(widget, id)
   },
   statusBar: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, stringify(widget.props['text']));
-      return undefined;
+    render: ({ widget, node, buffer }) => {
+      writeBlock(buffer, node.bounds, stringify(widget.props['text']));
     },
-    accessibleBase: (widget, _node, id) => ({
+    accessibility: ({ widget, id }) => ({
       id,
       role: 'status',
       label: id,
@@ -107,48 +152,201 @@ const widgetBehaviors = {
     })
   },
   inputField: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, stringify(widget.props['value']));
-      return undefined;
+    render: ({ widget, node, buffer }) => {
+      writeBlock(buffer, node.bounds, stringify(widget.props['value']));
     },
-    accessibleBase: (widget, _node, id, focused) => ({
+    accessibility: ({ widget, id, focused }) => ({
       id,
       role: 'textbox',
       label: id,
       value: stringify(widget.props['value']),
       ...(focused ? { focused } : {})
     }),
-    focusable: () => true
+    focusTargets: ({ bounds }) => [focusTarget(bounds)]
   },
   textArea: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, textAreaText(widget, node.bounds));
-      return undefined;
+    render: ({ widget, node, buffer }) => {
+      writeBlock(buffer, node.bounds, textAreaText(widget, node.bounds));
     },
-    accessibleBase: (widget, _node, id, focused) => textAreaAccessibleBase(widget, id, focused),
-    cursor: (widget, target) => textAreaCursor(widget, target.bounds),
-    focusable: () => true
+    accessibility: ({ widget, id, focused }) => textAreaAccessibleBase(widget, id, focused),
+    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, textAreaCursor(widget, bounds))]
+  },
+  form: {
+    layout: ({ widget, bounds }) => splitTracks(
+      formContentBounds(widget, bounds),
+      'vertical',
+      fillLayoutSizes(widget.children?.length ?? 0),
+      layoutFlowOptions(widget)
+    ),
+    render: (input) => {
+      writeRenderBlock(input.buffer, input.node.bounds, formBlock(input.widget, input.node.bounds));
+      input.renderChildren();
+    },
+    accessibility: ({ widget, id, focused }) => formAccessibleBase(widget, id, focused)
+  },
+  field: {
+    layout: ({ widget, bounds }) => splitTracks(
+      fieldContentBounds(widget, bounds),
+      'vertical',
+      fillLayoutSizes(widget.children?.length ?? 0),
+      layoutFlowOptions(widget)
+    ),
+    render: (input) => {
+      writeRenderBlock(input.buffer, input.node.bounds, fieldBlock(input.widget, input.node.bounds));
+      input.renderChildren();
+    },
+    accessibility: ({ widget, id, focused }) => fieldAccessibleBase(widget, id, focused)
+  },
+  label: {
+    render: ({ widget, node, buffer }) => {
+      writeRenderBlock(buffer, node.bounds, labelBlock(widget, node.bounds));
+    },
+    accessibility: ({ widget, id }) => labelAccessibleBase(widget, id)
+  },
+  button: {
+    render: ({ widget, node, buffer }) => {
+      writeRenderBlock(buffer, node.bounds, buttonBlock(widget, node.bounds));
+    },
+    accessibility: ({ widget, id, focused }) => buttonAccessibleBase(widget, id, focused),
+    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    hitTargets: ({ widget, bounds }) => controlHitTargets(widget, bounds)
+  },
+  checkbox: {
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, checkboxBlock(widget, node.bounds, theme));
+    },
+    accessibility: ({ widget, id, focused }) => checkboxAccessibleBase(widget, id, focused),
+    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    hitTargets: ({ widget, bounds }) => controlHitTargets(widget, bounds)
+  },
+  radioGroup: {
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, radioGroupBlock(widget, node.bounds, theme));
+    },
+    accessibility: ({ widget, id, focused }) => ({
+      ...radioGroupAccessibleBase(widget, id, focused),
+      children: radioGroupAccessibleChildren(widget)
+    }),
+    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    hitTargets: ({ widget, bounds }) => optionHitTargets(widget, bounds)
+  },
+  selectBox: {
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, selectBoxBlock(widget, node.bounds, theme));
+    },
+    accessibility: ({ widget, id, focused }) => ({
+      ...selectBoxAccessibleBase(widget, id, focused),
+      children: selectBoxAccessibleChildren(widget)
+    }),
+    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    hitTargets: ({ widget, bounds }) => optionHitTargets(widget, bounds)
+  },
+  textInput: {
+    render: ({ widget, node, buffer }) => {
+      writeRenderBlock(buffer, node.bounds, textInputBlock(widget, node.bounds));
+    },
+    accessibility: ({ widget, id, focused }) => textInputAccessibleBase(widget, id, focused),
+    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds, textInputCursor(widget, bounds))]
+  },
+  numberInput: {
+    render: ({ widget, node, buffer }) => {
+      writeRenderBlock(buffer, node.bounds, numberInputBlock(widget, node.bounds));
+    },
+    accessibility: ({ widget, id, focused }) => numberInputAccessibleBase(widget, id, focused),
+    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds, numberInputCursor(widget, bounds))]
+  },
+  menu: {
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, menuBlock(widget, node.bounds, theme));
+    },
+    accessibility: ({ widget, id, focused }) => ({
+      ...menuAccessibleBase(widget, id, focused),
+      children: menuAccessibleChildren(widget)
+    }),
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
+    hitTargets: ({ widget, bounds }) => menuHitTargets(widget, bounds)
+  },
+  menuBar: {
+    render: ({ widget, node, buffer }) => {
+      writeRenderBlock(buffer, node.bounds, menuBarBlock(widget, node.bounds));
+    },
+    accessibility: ({ widget, id, focused }) => ({
+      ...menuAccessibleBase(widget, id, focused),
+      children: menuAccessibleChildren(widget)
+    }),
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
+    hitTargets: ({ widget, bounds }) => menuBarHitTargets(widget, bounds)
+  },
+  contextMenu: {
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, contextMenuBlock(widget, node.bounds, theme));
+    },
+    accessibility: ({ widget, id, focused }) => ({
+      ...menuAccessibleBase(widget, id, focused),
+      children: menuAccessibleChildren(widget)
+    }),
+    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, menuCursor(widget, bounds, widget.props['title'] === undefined ? 0 : 1))],
+    hitTargets: ({ widget, bounds }) => contextMenuHitTargets(widget, bounds)
+  },
+  dropdown: {
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, dropdownBlock(widget, node.bounds, theme));
+    },
+    accessibility: ({ widget, id, focused }) => {
+      const children = dropdownAccessibleChildren(widget);
+      return {
+        ...dropdownAccessibleBase(widget, id, focused),
+        ...(children === undefined ? {} : { children })
+      };
+    },
+    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, menuCursor(widget, bounds, widget.props['open'] === true ? 1 : 0))],
+    hitTargets: ({ widget, bounds }) => dropdownHitTargets(widget, bounds)
+  },
+  canvas: {
+    render: (input) => {
+      renderCanvas(input);
+    },
+    accessibility: ({ widget, id, focused }) => canvasAccessibleBase(widget, id, focused),
+    focusTargets: ({ widget, bounds }) => hasKeyboardOrInputMap(widget) ? [focusTarget(bounds)] : []
+  },
+  surface: {
+    layout: ({ widget, bounds }) => surfaceChildBounds(widget, bounds),
+    render: (input) => {
+      input.renderChildren();
+    },
+    accessibility: ({ widget, id, focused }) => surfaceAccessibleBase(widget, id, focused)
+  },
+  absolute: {
+    layout: ({ widget, bounds }) => absoluteChildBounds(widget, bounds),
+    render: (input) => {
+      input.renderChildren();
+    },
+    accessibility: ({ id, focused }) => absoluteAccessibleBase(id, focused)
+  },
+  overlay: {
+    layout: ({ widget, bounds }) => overlayChildBounds(widget, bounds),
+    render: (input) => {
+      input.renderChildren();
+    },
+    accessibility: ({ id, focused }) => overlayAccessibleBase(id, focused)
   },
   helpBar: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, helpBarText(widget));
-      return undefined;
+    render: ({ widget, node, buffer }) => {
+      writeBlock(buffer, node.bounds, helpBarText(widget));
     },
-    accessibleBase: (widget, _node, id) => helpBarAccessibleBase(widget, id)
+    accessibility: ({ widget, id }) => helpBarAccessibleBase(widget, id)
   },
   activityIndicator: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, activityIndicatorText(widget));
-      return undefined;
+    render: ({ widget, node, buffer, theme }) => {
+      writeBlock(buffer, node.bounds, activityIndicatorText(widget, theme));
     },
-    accessibleBase: (widget, _node, id) => activityIndicatorAccessibleBase(widget, id)
+    accessibility: ({ widget, id }) => activityIndicatorAccessibleBase(widget, id)
   },
   spinner: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, `${stringify(widget.props['label']) || 'Loading'} ...`);
-      return undefined;
+    render: ({ widget, node, buffer }) => {
+      writeBlock(buffer, node.bounds, `${stringify(widget.props['label']) || 'Loading'} ...`);
     },
-    accessibleBase: (widget, _node, id) => ({
+    accessibility: ({ widget, id }) => ({
       id,
       role: 'status',
       label: id,
@@ -156,89 +354,102 @@ const widgetBehaviors = {
     })
   },
   progressBar: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, progressText(widget));
-      return undefined;
+    render: ({ widget, node, buffer, theme }) => {
+      writeBlock(buffer, node.bounds, progressText(widget, theme));
     },
-    accessibleBase: (widget, _node, id) => accessibleProgressNode(widget, id)
+    accessibility: ({ widget, id }) => accessibleProgressNode(widget, id)
   },
   sparkline: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, sparklineText(widget));
-      return undefined;
+    render: ({ widget, node, buffer }) => {
+      writeBlock(buffer, node.bounds, sparklineText(widget));
     },
-    accessibleBase: (widget, _node, id) => sparklineAccessibleBase(widget, id)
+    accessibility: ({ widget, id }) => sparklineAccessibleBase(widget, id)
   },
   barChart: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, barChartText(widget, node));
-      return undefined;
+    render: ({ widget, node, buffer, theme }) => {
+      writeBlock(buffer, node.bounds, barChartText(widget, node, theme));
     },
-    accessibleBase: (widget, node, id, focused) => barChartAccessibleBase(widget, node, id, focused),
-    accessibleChildren: (widget, node) => barChartAccessibleChildren(widget, node),
-    focusable: (widget) => widget.keyMap !== undefined && Object.keys(widget.keyMap).length > 0
+    accessibility: ({ widget, node, id, focused }) => ({
+      ...barChartAccessibleBase(widget, node, id, focused),
+      children: barChartAccessibleChildren(widget, node)
+    }),
+    focusTargets: ({ widget, bounds }) => hasKeyboardOrInputMap(widget) ? [focusTarget(bounds)] : []
   },
   chart: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, chartText(widget, node));
-      return undefined;
+    render: ({ widget, node, buffer }) => {
+      writeBlock(buffer, node.bounds, chartText(widget, node));
     },
-    accessibleBase: (widget, _node, id) => chartAccessibleBase(widget, id)
+    accessibility: ({ widget, id }) => chartAccessibleBase(widget, id)
   },
   list: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, listText(widget, node.bounds.height));
-      return undefined;
+    render: ({ widget, node, buffer, theme }) => {
+      writeBlock(buffer, node.bounds, listText(widget, node.bounds.height, theme));
     },
-    accessibleBase: (widget, node, id, focused) => listAccessibleNode(widget, node, id, focused),
-    accessibleChildren: (widget, node) => listAccessibleChildren(widget, node),
-    cursor: listCursor,
-    focusable: () => true
+    accessibility: ({ widget, node, id, focused }) => ({
+      ...listAccessibleNode(widget, node, id, focused),
+      children: listAccessibleChildren(widget, node)
+    }),
+    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, listCursor(widget, bounds))]
   },
   table: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, tableText(widget, node.bounds.height));
-      return undefined;
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, tableBlock(widget, node.bounds, theme));
     },
-    accessibleBase: (widget, node, id, focused) => tableAccessibleNode(widget, node, id, focused),
-    accessibleChildren: (widget, node) => tableAccessibleChildren(widget, node)
+    accessibility: ({ widget, node, id, focused }) => ({
+      ...tableAccessibleBase(widget, node.bounds, id, focused),
+      children: tableAccessibleChildren(widget, node.bounds)
+    })
   },
   tree: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, treeText(widget, node));
-      return undefined;
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, treeBlock(widget, node.bounds, theme));
     },
-    accessibleBase: (widget, node, id, focused) => treeAccessibleBase(widget, node, id, focused),
-    accessibleChildren: (widget, node) => treeAccessibleChildren(widget, node),
-    focusable: () => true
+    accessibility: ({ widget, node, id, focused }) => ({
+      ...treeAccessibleBase(widget, node.bounds, id, focused),
+      children: treeAccessibleChildren(widget, node.bounds)
+    }),
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
+    hitTargets: ({ widget, bounds }) => treeHitTargets(widget, bounds)
   },
   paginator: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, paginatorText(widget));
-      return undefined;
+    render: ({ widget, node, buffer }) => {
+      writeBlock(buffer, node.bounds, paginatorText(widget));
     },
-    accessibleBase: (widget, _node, id) => paginatorAccessibleBase(widget, id)
+    accessibility: ({ widget, id }) => paginatorAccessibleBase(widget, id)
   },
   box: {
-    childBounds: (widget, bounds) => (widget.children ?? []).map(() => inset(bounds, 1)),
-    render: (_widget, node, context) => {
-      drawBox(context.cells, node.bounds);
-      return undefined;
-    }
+    layout: ({ widget, bounds }) => (widget.children ?? [])
+      .map(() => layoutContentBounds(borderContentBounds(bounds, borderForWidget(widget)), layoutFlowOptions(widget))),
+    render: (input) => {
+      drawBorder(input.buffer, input.node.bounds, borderForWidget(input.widget), input.theme);
+      input.renderChildren();
+    },
+    accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   row: {
-    childBounds: (widget, bounds) => splitHorizontal(bounds, widget.children?.length ?? 0)
-  },
-  stack: {},
-  viewport: {
-    childBounds: (widget, bounds) => [viewportChildBounds(widget, bounds)],
-    render: (_widget, node, context) => {
-      const viewportCells: FrameCell[] = [];
-      context.renderChildren(viewportCells);
-      context.cells.push(...viewportCells.filter((cell) => cellInside(cell, node.bounds)));
-      return 'skipChildren';
+    layout: ({ widget, bounds }) => splitTracks(bounds, 'horizontal', fillLayoutSizes(widget.children?.length ?? 0), layoutFlowOptions(widget)),
+    render: (input) => {
+      input.renderChildren();
     },
-    accessibleBase: (widget, node, id) => ({
+    accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
+  },
+  stack: {
+    layout: ({ widget, bounds }) => splitTracks(bounds, 'vertical', fillLayoutSizes(widget.children?.length ?? 0), layoutFlowOptions(widget)),
+    render: (input) => {
+      input.renderChildren();
+    },
+    accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
+  },
+  viewport: {
+    layout: ({ widget, bounds }) => [viewportChildBounds(widget, bounds)],
+    render: (input) => {
+      const viewportBuffer = createFrameBuffer(input.buffer.width, input.buffer.height);
+      input.renderChildren(viewportBuffer);
+      for (const cell of viewportBuffer.snapshot().cells) {
+        if (cellInside(cell, input.node.bounds)) input.buffer.writeCell(cell);
+      }
+    },
+    accessibility: ({ widget, node, id }) => ({
       id,
       role: 'text',
       label: id,
@@ -246,112 +457,117 @@ const widgetBehaviors = {
     })
   },
   scrollback: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, scrollbackText(widget, node));
-      return undefined;
+    render: ({ widget, node, buffer }) => {
+      writeRenderBlock(buffer, node.bounds, scrollbackBlock(widget, node));
     },
-    accessibleBase: (widget, node, id) => scrollbackAccessibleBase(widget, node, id),
-    accessibleChildren: (widget, node) => scrollbackAccessibleChildren(widget, node)
+    accessibility: ({ widget, node, id }) => ({
+      ...scrollbackAccessibleBase(widget, node, id),
+      children: scrollbackAccessibleChildren(widget, node)
+    })
   },
   structuredBlock: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, structuredBlockText(widget));
-      return undefined;
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, structuredBlockBlock(widget, node, theme));
     },
-    accessibleBase: (widget, _node, id) => structuredBlockAccessibleBase(widget, id)
+    accessibility: ({ widget, id }) => structuredBlockAccessibleBase(widget, id)
   },
   activityFeed: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, activityFeedText(widget, node));
-      return undefined;
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, activityFeedBlock(widget, node, theme));
     },
-    accessibleBase: (widget, node, id, focused) => activityFeedAccessibleBase(widget, node, id, focused),
-    accessibleChildren: (widget, node) => activityFeedAccessibleChildren(widget, node)
+    accessibility: ({ widget, node, id, focused }) => ({
+      ...activityFeedAccessibleBase(widget, node, id, focused),
+      children: activityFeedAccessibleChildren(widget, node)
+    })
   },
   commandBar: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, commandBarText(widget, node.bounds.height));
-      return undefined;
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, commandBarBlock(widget, node.bounds.height, theme));
     },
-    accessibleBase: (widget, _node, id, focused) => ({
-      id,
-      role: 'textbox',
-      label: stringify(widget.props['prompt']) || id,
-      value: stringify(widget.props['value']),
-      ...(focused ? { focused } : {})
-    }),
-    accessibleChildren: (widget) => commandBarAccessibleChildren(widget),
-    cursor: commandBarCursor,
-    focusable: () => true
+    accessibility: ({ widget, id, focused }) => {
+      const children = commandBarAccessibleChildren(widget);
+      return {
+        id,
+        role: 'textbox',
+        label: stringify(widget.props['prompt']) || id,
+        value: stringify(widget.props['value']),
+        ...(focused ? { focused } : {}),
+        ...(children === undefined ? {} : { children })
+      };
+    },
+    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, commandBarCursor(widget, bounds))]
   },
-  commandPalette: {
-    render: (widget, node, context) => {
-      writeBlock(context.cells, node.bounds, commandPaletteText(widget, node.bounds.height));
-      return undefined;
+  palette: {
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, paletteBlock(widget, node.bounds.height, theme));
     },
-    accessibleBase: (widget, _node, id, focused) => ({
+    accessibility: ({ widget, node, id, focused }) => ({
       id,
       role: 'menu',
       label: stringify(widget.props['title']) || id,
       value: stringify(widget.props['query']),
-      ...(focused ? { focused } : {})
+      ...(focused ? { focused } : {}),
+      children: paletteAccessibleChildren(widget, node.bounds.height)
     }),
-    accessibleChildren: (widget, node) => commandPaletteAccessibleChildren(widget, node),
-    focusable: () => true
+    focusTargets: ({ bounds }) => [focusTarget(bounds)]
   },
   grid: {
-    childBounds: (widget, bounds) => gridChildBounds(widget, bounds)
+    layout: ({ widget, bounds }) => gridChildBounds(widget, bounds),
+    render: (input) => {
+      input.renderChildren();
+    },
+    accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   splitPane: {
-    childBounds: (widget, bounds) => splitPaneChildBounds(widget, bounds)
+    layout: ({ widget, bounds }) => splitPaneChildBounds(widget, bounds),
+    render: (input) => {
+      input.renderChildren();
+    },
+    accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   tabs: {
-    childBounds: (widget, bounds) => tabsChildBounds(widget, bounds),
-    render: (widget, node, context) => {
-      writeBlock(context.cells, { ...node.bounds, height: Math.min(1, node.bounds.height) }, tabsHeaderText(widget));
-      return undefined;
+    layout: ({ widget, bounds }) => tabsChildBounds(widget, bounds),
+    render: (input) => {
+      writeBlock(input.buffer, { ...input.node.bounds, height: Math.min(1, input.node.bounds.height) }, tabsHeaderText(input.widget));
+      input.renderChildren();
     },
-    accessibleBase: (_widget, _node, id, focused) => ({
+    accessibility: ({ widget, id, focused }) => ({
       id,
       role: 'menu',
       label: id,
-      ...(focused ? { focused } : {})
-    }),
-    accessibleChildren: (widget) => tabsAccessibleChildren(widget)
-  },
-  modal: {
-    childBounds: (widget, bounds) => [inset(modalChildBounds(widget, bounds), 1)],
-    render: (widget, node, context) => {
-      drawBox(context.cells, modalChildBounds(widget, node.bounds));
-      const title = stringify(widget.props['title']);
-      if (title.length > 0) {
-        writeText(context.cells, modalChildBounds(widget, node.bounds).row, modalChildBounds(widget, node.bounds).column + 2, ` ${title} `);
-      }
-      return undefined;
-    },
-    accessibleBase: (widget, _node, id) => ({
-      id,
-      role: 'dialog',
-      label: stringify(widget.props['title']) || id
+      ...(focused ? { focused } : {}),
+      children: tabsAccessibleChildren(widget)
     })
   },
-  custom: {}
-} satisfies Record<WidgetKind, WidgetBehavior>;
+  modal: {
+    layout: ({ widget, bounds }) => [borderContentBounds(modalChildBounds(widget, bounds), borderForModal(widget))],
+    render: (input) => {
+      const childBounds = modalChildBounds(input.widget, input.node.bounds);
+      drawBorder(input.buffer, childBounds, borderForModal(input.widget), input.theme);
+      input.renderChildren();
+    },
+    accessibility: ({ widget, id }) => ({
+      id,
+      role: 'dialog',
+      label: modalLabel(widget) || id
+    })
+  }
+} satisfies Record<BuiltinWidgetKind, WidgetRenderer>;
 
-export function widgetBehavior(kind: WidgetKind): WidgetBehavior {
-  return widgetBehaviors[kind];
+export function widgetRenderer<TMessage>(widget: Widget<TMessage>): WidgetRenderer<TMessage> {
+  if (widget.kind === 'custom') return customRenderer(widget);
+  return widgetRenderers[widget.kind] as WidgetRenderer<TMessage>;
 }
 
-export function layoutChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
+export function layoutChildBounds(widget: Widget, bounds: Rect, theme: TerminalTheme): readonly Rect[] {
   const children = widget.children ?? [];
   if (children.length === 0) return [];
   if (bounds.width <= 0 || bounds.height <= 0) return children.map(() => emptyRect(bounds));
-  return widgetBehavior(widget.kind).childBounds?.(widget, bounds) ?? splitVertical(bounds, children.length);
-}
-
-export function isWidgetFocusable(widget: Widget): boolean {
-  return widgetBehavior(widget.kind).focusable?.(widget)
-    ?? hasKeyboardOrInputMap(widget);
+  const renderer = widgetRenderer(widget);
+  if (renderer.layout === undefined) {
+    throw new Error(`Widget "${widget.kind}" has children but does not define layout.`);
+  }
+  return renderer.layout({ widget, bounds, theme });
 }
 
 function hasKeyboardOrInputMap(widget: Widget): boolean {
@@ -360,80 +576,259 @@ function hasKeyboardOrInputMap(widget: Widget): boolean {
     || widget.inputMap?.paste !== undefined;
 }
 
-export function renderWidgetBehavior(
+export function renderWidgetRenderer(
   widget: Widget,
-  node: LayoutNode,
-  context: WidgetRenderContext
-): WidgetRenderResult {
-  return widgetBehavior(widget.kind).render?.(widget, node, context);
+  input: Omit<WidgetRenderInput, 'widget'>
+): void {
+  widgetRenderer(widget).render({ ...input, widget });
 }
 
-export function widgetAccessibleBaseNode(
+export function widgetAccessibleNode(
   widget: Widget,
   node: LayoutNode,
   id: string,
-  focused: boolean
+  focused: boolean,
+  theme: TerminalTheme
 ): AccessibleNode {
-  return widgetBehavior(widget.kind).accessibleBase?.(widget, node, id, focused)
-    ?? { id, role: 'text', label: id, ...(focused ? { focused } : {}) };
+  const renderer = widgetRenderer(widget);
+  if (renderer.accessibility === undefined) {
+    throw new Error(`Widget "${id}" must provide accessibility or be marked decorative.`);
+  }
+  return renderer.accessibility({ widget, node, id, focused, theme });
 }
 
-export function widgetAccessibleChildren(widget: Widget, node: LayoutNode): readonly AccessibleNode[] | undefined {
-  return widgetBehavior(widget.kind).accessibleChildren?.(widget, node);
+export function widgetFocusTargets(widget: Widget, bounds: Rect, theme: TerminalTheme): readonly FocusTarget[] {
+  const explicit = widgetRenderer(widget).focusTargets?.({ widget, bounds, theme }) ?? [];
+  const targets = explicit.length > 0 || !hasKeyboardOrInputMap(widget)
+    ? explicit
+    : [{ bounds }];
+  return targets.map((target): FocusTarget => {
+    const order = target.order ?? widget.focus?.order;
+    return {
+      ...(target.id === undefined ? {} : { id: target.id }),
+      bounds: target.bounds,
+      ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
+      disabled: target.disabled === true || widget.focus?.disabled === true,
+      ...(order === undefined ? {} : { order })
+    };
+  });
+}
+
+export function widgetFocusScope(widget: Widget): WidgetFocusScope | undefined {
+  const scope = widget.focus?.scope ?? (widget.kind === 'modal' ? 'contain' : undefined);
+  return scope === 'none' ? undefined : scope;
 }
 
 export function widgetCursor(
   widget: Widget,
-  target: WidgetLayoutTarget
+  target: WidgetLayoutTarget<unknown>,
+  theme: TerminalTheme
 ): { readonly row: number; readonly column: number } | undefined {
-  return widgetBehavior(widget.kind).cursor?.(widget, target);
+  return target.cursor
+    ?? widgetFocusTargets(widget, target.bounds, theme).find((item) => sameRect(item.bounds, target.bounds))?.cursor;
 }
 
-function writeBlock(cells: FrameCell[], bounds: Rect, text: string): void {
+export function widgetHitTargets<TMessage>(
+  widget: Widget<TMessage>,
+  target: WidgetLayoutTarget<TMessage>,
+  theme: TerminalTheme
+): readonly HitTarget<TMessage>[] {
+  return [
+    ...(widgetRenderer(widget).hitTargets?.({ widget, bounds: target.bounds, theme }) ?? []),
+    ...mouseMapHitTargets(widget, target.bounds, target.layer.zIndex)
+  ];
+}
+
+function mouseMapHitTargets<TMessage>(
+  widget: Widget<TMessage>,
+  bounds: Rect,
+  zIndex: number
+): readonly HitTarget<TMessage>[] {
+  if (widget.mouseMap === undefined) return [];
+  return Object.entries(widget.mouseMap).map(([action, message]) => ({
+    id: `${widget.id ?? widget.kind}:mouse:${action}`,
+    bounds,
+    message,
+    cursor: 'pointer' as const,
+    zIndex
+  }));
+}
+
+function customRenderer<TMessage>(widget: Widget<TMessage>): WidgetRenderer<TMessage> {
+  const renderer = widget.custom?.renderer;
+  if (renderer === undefined) {
+    throw new Error('Custom widgets must provide a renderer.');
+  }
+  return renderer;
+}
+
+function borderForWidget(widget: Widget): BorderStyle {
+  return borderFromValue(widget.props['border']) ?? { kind: 'single' };
+}
+
+function borderForModal(widget: Widget): BorderStyle {
+  const border = borderFromValue(widget.props['border']) ?? { kind: 'single' };
+  if (border.title !== undefined || border.kind === 'none') return border;
+  const title = modalLabel(widget);
+  return title.length === 0 ? border : { ...border, title };
+}
+
+function modalLabel(widget: Widget): string {
+  const title = stringify(widget.props['title']);
+  if (title.length > 0) return title;
+  return borderFromValue(widget.props['border'])?.title ?? '';
+}
+
+function borderContentBounds(bounds: Rect, border: BorderStyle): Rect {
+  return border.kind === 'none' ? bounds : inset(bounds, 1);
+}
+
+function borderFromValue(value: unknown): BorderStyle | undefined {
+  if (!isRecord(value)) return undefined;
+  const kind = value['kind'];
+  if (!isBorderKind(kind)) return undefined;
+  const title = value['title'];
+  const style = terminalStyleFromValue(value['style']);
+  return {
+    kind,
+    ...(typeof title === 'string' ? { title } : {}),
+    ...(style === undefined ? {} : { style })
+  };
+}
+
+function isBorderKind(value: unknown): value is BorderStyle['kind'] {
+  return value === 'none'
+    || value === 'single'
+    || value === 'double'
+    || value === 'rounded'
+    || value === 'heavy'
+    || value === 'ascii';
+}
+
+function terminalStyleFromValue(value: unknown): TerminalStyle | undefined {
+  if (!isRecord(value)) return undefined;
+  const fg = terminalColorFromValue(value['fg']);
+  const bg = terminalColorFromValue(value['bg']);
+  return {
+    ...(fg === undefined ? {} : { fg }),
+    ...(bg === undefined ? {} : { bg }),
+    ...(typeof value['bold'] === 'boolean' ? { bold: value['bold'] } : {}),
+    ...(typeof value['dim'] === 'boolean' ? { dim: value['dim'] } : {}),
+    ...(typeof value['italic'] === 'boolean' ? { italic: value['italic'] } : {}),
+    ...(typeof value['underline'] === 'boolean' ? { underline: value['underline'] } : {}),
+    ...(typeof value['strikethrough'] === 'boolean' ? { strikethrough: value['strikethrough'] } : {}),
+    ...(typeof value['inverse'] === 'boolean' ? { inverse: value['inverse'] } : {}),
+    ...(typeof value['hidden'] === 'boolean' ? { hidden: value['hidden'] } : {})
+  };
+}
+
+function terminalColorFromValue(value: unknown): TerminalColor | undefined {
+  if (!isRecord(value)) return undefined;
+  const kind = value['kind'];
+  if (kind === 'ansi') {
+    const color = value['value'];
+    return typeof color === 'number' && Number.isFinite(color) ? { kind, value: color } : undefined;
+  }
+  if (kind === 'rgb') {
+    const r = value['r'];
+    const g = value['g'];
+    const b = value['b'];
+    return typeof r === 'number' && Number.isFinite(r)
+      && typeof g === 'number' && Number.isFinite(g)
+      && typeof b === 'number' && Number.isFinite(b)
+      ? { kind, r, g, b }
+      : undefined;
+  }
+  if (kind === 'theme') {
+    const token = value['token'];
+    return typeof token === 'string' ? { kind, token } : undefined;
+  }
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function groupAccessibleNode(id: string, focused: boolean): AccessibleNode {
+  return {
+    id,
+    role: 'text',
+    label: id,
+    ...(focused ? { focused } : {})
+  };
+}
+
+function focusTarget(
+  bounds: Rect,
+  cursor?: { readonly row: number; readonly column: number }
+): FocusTarget {
+  return {
+    bounds,
+    ...(cursor === undefined ? {} : { cursor })
+  };
+}
+
+function sameRect(left: Rect, right: Rect): boolean {
+  return left.row === right.row
+    && left.column === right.column
+    && left.width === right.width
+    && left.height === right.height;
+}
+
+function writeBlock(buffer: FrameBuffer, bounds: Rect, text: string): void {
+  writeRenderBlock(buffer, bounds, {
+    lines: text.split('\n').map((lineText) => ({ spans: [{ text: lineText }] }))
+  });
+}
+
+function writeRenderBlock(buffer: FrameBuffer, bounds: Rect, block: RenderBlock): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
-  const lines = text.split('\n').slice(0, bounds.height);
+  const lines = block.lines.slice(0, bounds.height);
   for (let offset = 0; offset < lines.length; offset += 1) {
-    const line = clipTextCells(lines[offset] ?? '', bounds.width).text;
-    writeText(cells, bounds.row + offset, bounds.column, line);
+    const clipped = clipRenderLine(lines[offset] ?? { spans: [] }, bounds.width);
+    buffer.writeLine(bounds.row + offset, bounds.column, clipped);
   }
 }
 
-function writeText(cells: FrameCell[], row: number, column: number, text: string): void {
-  let nextColumn = column;
-  for (const segment of measureTextCells(text).graphemes) {
-    cells.push({ row, column: nextColumn, text: segment.text });
-    nextColumn += segment.cells;
+function clipRenderLine(renderLine: RenderLine, maxCells: number): RenderLine {
+  const spans: RenderSpan[] = [];
+  let cells = 0;
+  for (const currentSpan of renderLine.spans) {
+    if (cells >= maxCells) break;
+    const clippedText = clipSpanText(currentSpan.text, maxCells - cells);
+    if (clippedText.length === 0) continue;
+    spans.push({
+      text: clippedText,
+      ...(currentSpan.style === undefined ? {} : { style: currentSpan.style }),
+      ...(currentSpan.link === undefined ? {} : { link: currentSpan.link }),
+      ...(currentSpan.source === undefined ? {} : { source: currentSpan.source })
+    });
+    cells += measureTextCells(clippedText).cells;
   }
+  return { spans: Object.freeze(spans) };
 }
 
-function drawBox(cells: FrameCell[], bounds: Rect): void {
-  if (bounds.width < 2 || bounds.height < 2) return;
-  const top = `┌${'─'.repeat(Math.max(0, bounds.width - 2))}┐`;
-  const bottom = `└${'─'.repeat(Math.max(0, bounds.width - 2))}┘`;
-  writeText(cells, bounds.row, bounds.column, top);
-  for (let row = bounds.row + 1; row < bounds.row + bounds.height - 1; row += 1) {
-    writeText(cells, row, bounds.column, '│');
-    writeText(cells, row, bounds.column + bounds.width - 1, '│');
-  }
-  writeText(cells, bounds.row + bounds.height - 1, bounds.column, bottom);
+function clipSpanText(text: string, maxCells: number): string {
+  return clipTextCells(text, maxCells).text;
 }
 
-function progressText(widget: Widget): string {
+function progressText(widget: Widget, theme: TerminalTheme): string {
   const label = stringify(widget.props['label']);
   const prefix = label.length === 0 ? '' : `${label} `;
   if (widget.props['indeterminate'] === true || widget.props['value'] === undefined) {
-    return `${prefix}[----------]`;
+    return `${prefix}[${theme.symbols.progressEmpty.repeat(10)}]`;
   }
   const value = numberProp(widget, 'value');
   const rawMax = numberProp(widget, 'max') ?? 100;
   const max = rawMax > 0 ? rawMax : 100;
-  if (value === undefined) return `${prefix}[----------]`;
+  if (value === undefined) return `${prefix}[${theme.symbols.progressEmpty.repeat(10)}]`;
   const clamped = Math.max(0, Math.min(max, value));
   const filled = Math.round((clamped / max) * 10);
-  return `${prefix}[${'#'.repeat(filled)}${'-'.repeat(10 - filled)}] ${String(clamped)}/${String(max)}`;
+  return `${prefix}[${theme.symbols.progressFilled.repeat(filled)}${theme.symbols.progressEmpty.repeat(10 - filled)}] ${String(clamped)}/${String(max)}`;
 }
 
-function listText(widget: Widget, height: number): string {
+function listText(widget: Widget, height: number, theme: TerminalTheme): string {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
   const window = listWindow(widget, items.length, height, selected);
@@ -441,23 +836,9 @@ function listText(widget: Widget, height: number): string {
     .slice(window.start, window.end)
     .map((item, index) => {
       const itemIndex = window.start + index;
-      return `${itemIndex === selected ? '›' : ' '} ${String(item)}`;
+      return `${itemIndex === selected ? theme.symbols.pointer : theme.symbols.unselected} ${String(item)}`;
     })
     .join('\n');
-}
-
-function tableText(widget: Widget, height: number): string {
-  const rows = tableRows(widget);
-  const columns = tableColumns(widget);
-  const hasHeader = columns.some((column) => column.header !== undefined);
-  const bodyHeight = Math.max(0, height - (hasHeader ? 1 : 0));
-  const selected = selectedTableRow(widget);
-  const window = visibleWindow(rows.length, bodyHeight, selected);
-  const lines = hasHeader ? [tableHeaderText(columns)] : [];
-  lines.push(...rows
-    .slice(window.start, window.end)
-    .map((row, index) => tableRowText(row, columns, window.start + index === selected)));
-  return lines.join('\n');
 }
 
 function accessibleProgressNode(widget: Widget, id: string): AccessibleNode {
@@ -495,20 +876,6 @@ function listAccessibleNode(widget: Widget, node: LayoutNode, id: string, focuse
   };
 }
 
-function tableAccessibleNode(widget: Widget, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
-  const rows = tableRows(widget);
-  const columns = tableColumns(widget);
-  const hasHeader = columns.some((column) => column.header !== undefined);
-  const window = visibleWindow(rows.length, Math.max(0, node.bounds.height - (hasHeader ? 1 : 0)), selectedTableRow(widget));
-  return {
-    id,
-    role: 'table',
-    label: id,
-    description: windowDescription('rows', window, rows.length),
-    ...(focused ? { focused } : {})
-  };
-}
-
 function listAccessibleChildren(widget: Widget, node: LayoutNode): readonly AccessibleNode[] {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
@@ -522,33 +889,6 @@ function listAccessibleChildren(widget: Widget, node: LayoutNode): readonly Acce
       selected: itemIndex === selected
     };
   });
-}
-
-function tableAccessibleChildren(widget: Widget, node: LayoutNode): readonly AccessibleNode[] {
-  const rows = tableRows(widget);
-  const columns = tableColumns(widget);
-  const hasHeader = columns.some((column) => column.header !== undefined);
-  const selected = selectedTableRow(widget);
-  const window = visibleWindow(rows.length, Math.max(0, node.bounds.height - (hasHeader ? 1 : 0)), selected);
-  return rows.slice(window.start, window.end).map((row, index) => {
-    const rowIndex = window.start + index;
-    return {
-      id: `${widget.id ?? 'table'}:row:${String(rowIndex)}`,
-      role: 'row',
-      selected: rowIndex === selected,
-      children: tableCells(row, widget.id ?? 'table', rowIndex)
-    };
-  });
-}
-
-function tableCells(row: unknown, tableId: string, rowIndex: number): readonly AccessibleNode[] {
-  const cells = Array.isArray(row) ? row : [row];
-  return cells.map((cell, cellIndex) => ({
-    id: `${tableId}:row:${String(rowIndex)}:cell:${String(cellIndex)}`,
-    role: 'cell',
-    label: String(cell),
-    value: String(cell)
-  }));
 }
 
 function filteredListItems(widget: Widget): readonly unknown[] {
@@ -570,167 +910,24 @@ function listWindow(widget: Widget, count: number, height: number, selected: num
   return visibleWindow(count, height, selected);
 }
 
-function tableRows(widget: Widget): readonly unknown[] {
-  return Array.isArray(widget.props['rows']) ? widget.props['rows'] : [];
-}
-
-function tableColumns(widget: Widget): readonly { readonly header?: string; readonly width?: number }[] {
-  if (!Array.isArray(widget.props['columns'])) return [];
-  return widget.props['columns'].flatMap((column): { readonly header?: string; readonly width?: number }[] => {
-    if (typeof column !== 'object' || column === null) return [];
-    const header = (column as { readonly header?: unknown }).header;
-    const width = (column as { readonly width?: unknown }).width;
-    return [{
-      ...(typeof header === 'string' ? { header } : {}),
-      ...(typeof width === 'number' && Number.isFinite(width) ? { width: Math.max(1, Math.floor(width)) } : {})
-    }];
-  });
-}
-
-function tableHeaderText(columns: readonly { readonly header?: string; readonly width?: number }[]): string {
-  return columns.map((column) => tableCellText(column.header ?? '', column.width)).join('  ');
-}
-
-function tableRowText(row: unknown, columns: readonly { readonly width?: number }[], selected: boolean): string {
-  const cells = Array.isArray(row) ? row : [row];
-  const rendered = (columns.length === 0 ? cells.map((cell) => String(cell)) : columns.map((column, index) => tableCellText(String(cells[index] ?? ''), column.width))).join('  ');
-  return `${selected ? '› ' : '  '}${rendered}`;
-}
-
-function tableCellText(value: string, width: number | undefined): string {
-  if (width === undefined) return value;
-  const clipped = clipTextCells(value, width).text;
-  return clipped.padEnd(width, ' ');
-}
-
-function selectedTableRow(widget: Widget): number {
-  const selectedCell = widget.props['selectedCell'];
-  if (typeof selectedCell === 'object' && selectedCell !== null) {
-    const row = (selectedCell as { readonly row?: unknown }).row;
-    if (typeof row === 'number' && Number.isFinite(row)) return Math.max(0, Math.floor(row));
-  }
-  return Math.max(0, Math.floor(numberProp(widget, 'selected') ?? 0));
-}
-
-function commandBarText(widget: Widget, height: number): string {
-  const prompt = stringify(widget.props['prompt']) || '> ';
-  const value = stringify(widget.props['value']);
-  const placeholder = stringify(widget.props['placeholder']);
-  const display = value.length === 0 && placeholder.length > 0 ? placeholder : value;
-  const suggestions = commandBarSuggestions(widget);
-  const selected = nonNegativeInteger(numberProp(widget, 'selectedSuggestion'));
-  const lines = [`${prompt}${display}`];
-  if (height > 1) {
-    lines.push(...suggestions.slice(0, Math.max(0, height - 1)).map((suggestion, index) => {
-      const label = stringify(suggestion['label']) || stringify(suggestion['value']);
-      const description = stringify(suggestion['description']);
-      const suffix = description.length === 0 ? '' : ` - ${description}`;
-      return `${index === selected ? '›' : ' '} ${label}${suffix}`;
-    }));
-  }
-  return lines.join('\n');
-}
-
-function commandBarAccessibleChildren(widget: Widget): readonly AccessibleNode[] | undefined {
-  const suggestions = commandBarSuggestions(widget);
-  if (suggestions.length === 0) return undefined;
-  const selected = nonNegativeInteger(numberProp(widget, 'selectedSuggestion'));
-  return suggestions.map((suggestion, index) => ({
-    id: `${widget.id ?? 'command-bar'}:suggestion:${String(index)}`,
-    role: 'option',
-    label: stringify(suggestion['label']) || stringify(suggestion['value']),
-    value: stringify(suggestion['value']),
-    selected: index === selected
-  }));
-}
-
-function commandBarCursor(widget: Widget, target: WidgetLayoutTarget): { readonly row: number; readonly column: number } {
-  const prompt = stringify(widget.props['prompt']) || '> ';
-  const value = stringify(widget.props['value']);
-  const cursor = Math.max(0, Math.min(value.length, Math.floor(numberProp(widget, 'cursor') ?? value.length)));
-  return { row: target.bounds.row, column: target.bounds.column + Math.max(0, Math.min(target.bounds.width - 1, prompt.length + cursor)) };
-}
-
-function commandPaletteText(widget: Widget, height: number): string {
-  const title = stringify(widget.props['title']);
-  const query = stringify(widget.props['query']);
-  const helpText = stringify(widget.props['helpText']);
-  const entries = commandPaletteEntries(widget);
-  const maxVisible = numberProp(widget, 'maxVisible') ?? Math.max(1, height - 2);
-  const selected = numberProp(widget, 'selected');
-  const window = commandPaletteWindow({
-    entries,
-    query,
-    ...(selected === undefined ? {} : { selected }),
-    limit: Math.max(1, Math.min(maxVisible, Math.max(1, height - 2)))
-  });
-  const lines = [
-    title.length === 0 ? 'Command palette' : title,
-    `> ${query}`
-  ];
-  lines.push(...window.entries.map((entry, index) => {
-    const suffix = entry.description === undefined ? '' : ` - ${entry.description}`;
-    return `${index === window.selected ? '›' : ' '} ${entry.label}${suffix}`;
-  }));
-  if (helpText.length > 0 && lines.length < height) lines.push(helpText);
-  return lines.slice(0, height).join('\n');
-}
-
-function commandPaletteAccessibleChildren(widget: Widget, node: LayoutNode): readonly AccessibleNode[] {
-  const selected = numberProp(widget, 'selected');
-  const window = commandPaletteWindow({
-    entries: commandPaletteEntries(widget),
-    query: stringify(widget.props['query']),
-    ...(selected === undefined ? {} : { selected }),
-    limit: Math.max(1, node.bounds.height - 2)
-  });
-  return window.entries.map((entry, index) => ({
-    id: `${widget.id ?? 'command-palette'}:${entry.id}`,
-    role: 'menuitem',
-    label: entry.label,
-    ...(entry.description === undefined ? {} : { description: entry.description }),
-    selected: index === window.selected,
-    disabled: entry.disabled === true
-  }));
-}
-
-function commandBarSuggestions(widget: Widget): readonly Record<string, unknown>[] {
-  return Array.isArray(widget.props['suggestions']) ? widget.props['suggestions'] as readonly Record<string, unknown>[] : [];
-}
-
-function commandPaletteEntries(widget: Widget): readonly {
-  readonly id: string;
-  readonly label: string;
-  readonly description?: string;
-  readonly keywords?: readonly string[];
-  readonly disabled?: boolean;
-}[] {
-  if (!Array.isArray(widget.props['entries'])) return [];
-  return widget.props['entries'].filter((entry): entry is {
-    readonly id: string;
-    readonly label: string;
-    readonly description?: string;
-    readonly keywords?: readonly string[];
-    readonly disabled?: boolean;
-  } => typeof entry === 'object'
-    && entry !== null
-    && typeof (entry as { readonly id?: unknown }).id === 'string'
-    && typeof (entry as { readonly label?: unknown }).label === 'string');
-}
-
 function gridChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
-  const rows = layoutTracks(widget.props['rows']);
-  const columns = layoutTracks(widget.props['columns']);
-  const cells = gridCellRects(bounds, rows.length === 0 ? [{ kind: 'fill' }] : rows, columns.length === 0 ? [{ kind: 'fill' }] : columns);
+  const rows = layoutSizes(widget.props['rows']);
+  const columns = layoutSizes(widget.props['columns']);
+  const cells = gridCellRects(
+    bounds,
+    rows.length === 0 ? [{ kind: 'fill' }] : rows,
+    columns.length === 0 ? [{ kind: 'fill' }] : columns,
+    gridLayoutOptions(widget)
+  );
   return (widget.children ?? []).map((_child, index) => cells[index] ?? emptyRect(bounds));
 }
 
 function splitPaneChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
   const children = widget.children ?? [];
-  const explicit = layoutTracks(widget.props['sizes']);
+  const explicit = layoutSizes(widget.props['sizes']);
   const tracks = explicit.length === children.length ? explicit : children.map(() => ({ kind: 'fill' as const }));
   const direction = widget.props['direction'] === 'horizontal' ? 'horizontal' : 'vertical';
-  return splitTracks(bounds, direction, tracks);
+  return splitTracks(bounds, direction, tracks, layoutFlowOptions(widget));
 }
 
 function tabsChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
@@ -774,26 +971,114 @@ function modalChildBounds(widget: Widget, bounds: Rect): Rect {
   });
 }
 
-function layoutTracks(value: unknown): readonly LayoutTrack[] {
+function layoutSizes(value: unknown): readonly LayoutSize[] {
   return Array.isArray(value)
-    ? value.flatMap((track): LayoutTrack[] => {
+    ? value.flatMap((track): LayoutSize[] => {
         if (typeof track !== 'object' || track === null) return [];
         const kind = (track as { readonly kind?: unknown }).kind;
         if (kind === 'fixed') {
-          const size = (track as { readonly size?: unknown }).size;
-          return typeof size === 'number' ? [{ kind, size }] : [];
+          const cells = (track as { readonly cells?: unknown }).cells;
+          return typeof cells === 'number' ? [{ kind, cells }] : [];
         }
         if (kind === 'percent') {
-          const percent = (track as { readonly percent?: unknown }).percent;
-          return typeof percent === 'number' ? [{ kind, percent }] : [];
+          const value = (track as { readonly value?: unknown }).value;
+          return typeof value === 'number' ? [{ kind, value }] : [];
         }
         if (kind === 'fill') {
           const weight = (track as { readonly weight?: unknown }).weight;
           return typeof weight === 'number' ? [{ kind, weight }] : [{ kind }];
         }
+        if (kind === 'content') {
+          const min = (track as { readonly min?: unknown }).min;
+          const max = (track as { readonly max?: unknown }).max;
+          return [{
+            kind,
+            ...(typeof min === 'number' ? { min } : {}),
+            ...(typeof max === 'number' ? { max } : {})
+          }];
+        }
         return [];
       })
     : [];
+}
+
+function fillLayoutSizes(count: number): readonly LayoutSize[] {
+  return Array.from({ length: Math.max(0, count) }, () => ({ kind: 'fill' }));
+}
+
+function gridLayoutOptions(widget: Widget): GridLayoutOptions {
+  return {
+    ...layoutFlowOptions(widget),
+    ...optionalNumberProp(widget, 'rowGap'),
+    ...optionalNumberProp(widget, 'columnGap')
+  };
+}
+
+function layoutFlowOptions(widget: Widget): LayoutFlowOptions {
+  return {
+    ...optionalNumberProp(widget, 'gap'),
+    ...optionalInsetProp(widget, 'padding'),
+    ...optionalInsetProp(widget, 'margin'),
+    ...optionalNumberProp(widget, 'minWidth'),
+    ...optionalNumberProp(widget, 'minHeight'),
+    ...optionalNumberProp(widget, 'maxWidth'),
+    ...optionalNumberProp(widget, 'maxHeight'),
+    ...optionalAlignmentProp(widget),
+    ...optionalJustificationProp(widget),
+    ...optionalOverflowProp(widget)
+  };
+}
+
+function optionalNumberProp(widget: Widget, key: string): Record<string, number> {
+  const value = widget.props[key];
+  return typeof value === 'number' && Number.isFinite(value) ? { [key]: value } : {};
+}
+
+function optionalInsetProp(widget: Widget, key: string): Record<string, LayoutInsetInput> {
+  const value = widget.props[key];
+  if (typeof value === 'number' && Number.isFinite(value)) return { [key]: value };
+  if (!isInsetObject(value)) return {};
+  return { [key]: value };
+}
+
+function optionalAlignmentProp(widget: Widget): { readonly align?: LayoutAlignment } {
+  const value = widget.props['align'];
+  return isLayoutAlignment(value) ? { align: value } : {};
+}
+
+function optionalJustificationProp(widget: Widget): { readonly justify?: LayoutJustification } {
+  const value = widget.props['justify'];
+  return isLayoutJustification(value) ? { justify: value } : {};
+}
+
+function optionalOverflowProp(widget: Widget): { readonly overflow?: LayoutOverflow } {
+  const value = widget.props['overflow'];
+  return isLayoutOverflow(value) ? { overflow: value } : {};
+}
+
+function isLayoutAlignment(value: unknown): value is LayoutAlignment {
+  return value === 'start' || value === 'center' || value === 'end' || value === 'stretch';
+}
+
+function isLayoutJustification(value: unknown): value is LayoutJustification {
+  return value === 'start' || value === 'center' || value === 'end' || value === 'stretch';
+}
+
+function isLayoutOverflow(value: unknown): value is LayoutOverflow {
+  return value === 'clip' || value === 'visible';
+}
+
+function isInsetObject(value: unknown): value is Exclude<LayoutInsetInput, number> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return insetFieldIsValid(record['top'])
+    && insetFieldIsValid(record['right'])
+    && insetFieldIsValid(record['bottom'])
+    && insetFieldIsValid(record['left']);
+}
+
+function insetFieldIsValid(value: unknown): boolean {
+  return value === undefined || (typeof value === 'number' && Number.isFinite(value));
 }
 
 function tabItems(widget: Widget): readonly {
@@ -842,41 +1127,17 @@ function viewportChildBounds(widget: Widget, bounds: Rect): Rect {
   };
 }
 
-function listCursor(widget: Widget, target: WidgetLayoutTarget): { readonly row: number; readonly column: number } {
+function listCursor(widget: Widget, bounds: Rect): { readonly row: number; readonly column: number } {
   const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
   const selected = numberProp(widget, 'selected');
-  if (selected === undefined || items.length === 0 || target.bounds.height <= 0) {
-    return { row: target.bounds.row, column: target.bounds.column };
+  if (selected === undefined || items.length === 0 || bounds.height <= 0) {
+    return { row: bounds.row, column: bounds.column };
   }
-  const window = visibleWindow(items.length, target.bounds.height, selected);
+  const window = visibleWindow(items.length, bounds.height, selected);
   const selectedRow = selected >= window.start && selected < window.end
-    ? target.bounds.row + selected - window.start
-    : target.bounds.row;
-  return { row: selectedRow, column: target.bounds.column };
-}
-
-function splitVertical(bounds: Rect, count: number): readonly Rect[] {
-  const base = Math.max(1, Math.floor(bounds.height / count));
-  let row = bounds.row;
-  return Array.from({ length: count }, (_value, index) => {
-    const remaining = bounds.row + bounds.height - row;
-    const height = index === count - 1 ? remaining : Math.min(base, remaining);
-    const rect = { row, column: bounds.column, width: bounds.width, height: Math.max(0, height) };
-    row += height;
-    return clampRect(rect);
-  });
-}
-
-function splitHorizontal(bounds: Rect, count: number): readonly Rect[] {
-  const base = Math.max(1, Math.floor(bounds.width / count));
-  let column = bounds.column;
-  return Array.from({ length: count }, (_value, index) => {
-    const remaining = bounds.column + bounds.width - column;
-    const width = index === count - 1 ? remaining : Math.min(base, remaining);
-    const rect = { row: bounds.row, column, width: Math.max(0, width), height: bounds.height };
-    column += width;
-    return clampRect(rect);
-  });
+    ? bounds.row + selected - window.start
+    : bounds.row;
+  return { row: selectedRow, column: bounds.column };
 }
 
 function inset(bounds: Rect, amount: number): Rect {

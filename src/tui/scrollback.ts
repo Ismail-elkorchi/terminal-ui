@@ -8,11 +8,11 @@ import {
 import { stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TextSelection } from '../text/index.ts';
-import type { StyledText } from '../theme/index.ts';
 import type { ScrollbackItem, Widget } from '../widgets/index.ts';
 import type { LayoutNode } from './layout.ts';
+import type { RenderBlock, RenderSpan } from './render-primitives.ts';
 
-export interface ScrollbackTextSegment extends StyledText {
+export interface ScrollbackTextSegment extends RenderSpan {
   readonly matched?: boolean;
 }
 
@@ -22,6 +22,8 @@ export interface ScrollbackVisibleRow {
   readonly segments: readonly ScrollbackTextSegment[];
   readonly sourceItemId?: string;
   readonly sourceItemIndex?: number;
+  readonly timestamp?: string;
+  readonly metadata?: Readonly<Record<string, string>>;
   readonly matched?: boolean;
 }
 
@@ -65,7 +67,7 @@ export function scrollbackWindow(widget: Widget, node: LayoutNode): ScrollbackWi
         item,
         window.start + index,
         0,
-        sanitizeTerminalText(item.text).text,
+        displayTextForItem(item),
         ''
       ))
     : expandedRows.slice(window.start, window.end);
@@ -83,6 +85,12 @@ export function scrollbackWindow(widget: Widget, node: LayoutNode): ScrollbackWi
 
 export function scrollbackText(widget: Widget, node: LayoutNode): string {
   return scrollbackWindow(widget, node).rows.map((row) => row.text).join('\n');
+}
+
+export function scrollbackBlock(widget: Widget, node: LayoutNode): RenderBlock {
+  return {
+    lines: scrollbackWindow(widget, node).rows.map((row) => ({ spans: row.segments }))
+  };
 }
 
 export function scrollbackAccessibleBase(widget: Widget, node: LayoutNode, id: string): AccessibleNode {
@@ -134,7 +142,7 @@ function scrollbackRows(
   for (let index = 0; index < items.length; index += 1) {
     const item = items[index];
     if (item === undefined) continue;
-    const text = sanitizeTerminalText(item.text).text;
+    const text = displayTextForItem(item);
     const lines = wrap && width > 0 ? wrapTextCells(text, width).map((line) => line.text) : [text];
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
       const line = lines[lineIndex] ?? '';
@@ -152,13 +160,15 @@ function scrollbackRow(
   text: string,
   query: string
 ): ScrollbackVisibleRow {
-  const segments = searchSegments(text, query);
+  const segments = searchSegments(text, query, item.style);
   return {
     id: `${widget.id ?? 'scrollback'}:item:${String(itemIndex)}:line:${String(lineIndex)}`,
     text,
     segments,
     sourceItemId: item.id,
     sourceItemIndex: itemIndex,
+    ...timestampForItem(item),
+    ...metadataForItem(item),
     matched: segments.some((segment) => segment.matched === true)
   };
 }
@@ -201,6 +211,49 @@ function isScrollbackItem(value: unknown): value is ScrollbackItem {
     && 'text' in value
     && typeof value.id === 'string'
     && typeof value.text === 'string';
+}
+
+function displayTextForItem(item: ScrollbackItem): string {
+  const text = sanitizeTerminalText(item.text).text;
+  const prefix = [
+    ...timestampText(item),
+    ...metadataText(item)
+  ];
+  return prefix.length === 0 ? text : `${prefix.join(' ')} ${text}`;
+}
+
+function timestampForItem(item: ScrollbackItem): { readonly timestamp?: string } {
+  const [timestamp] = timestampText(item);
+  return timestamp === undefined ? {} : { timestamp };
+}
+
+function timestampText(item: ScrollbackItem): readonly string[] {
+  return typeof item.timestamp === 'string'
+    ? [`[${sanitizeTerminalText(item.timestamp).text}]`]
+    : [];
+}
+
+function metadataForItem(item: ScrollbackItem): { readonly metadata?: Readonly<Record<string, string>> } {
+  const entries = metadataEntries(item.metadata);
+  return entries.length === 0 ? {} : { metadata: Object.fromEntries(entries) };
+}
+
+function metadataText(item: ScrollbackItem): readonly string[] {
+  return metadataEntries(item.metadata).map(([key, value]) => `${key}=${value}`);
+}
+
+function metadataEntries(value: unknown): readonly (readonly [string, string])[] {
+  if (!isRecord(value)) return [];
+  return Object.entries(value)
+    .flatMap(([key, rawValue]): (readonly [string, string])[] => {
+      if (typeof rawValue !== 'string') return [];
+      return [[sanitizeTerminalText(key).text, sanitizeTerminalText(rawValue).text]];
+    })
+    .sort(([left], [right]) => left.localeCompare(right));
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function scrollStateProp(widget: Widget) {
@@ -252,8 +305,12 @@ function matchedRowIndexes(rows: readonly ScrollbackVisibleRow[]): readonly numb
   return indexes;
 }
 
-function searchSegments(text: string, query: string): readonly ScrollbackTextSegment[] {
-  if (query.length === 0) return [{ text }];
+function searchSegments(
+  text: string,
+  query: string,
+  style: RenderSpan['style'] | undefined
+): readonly ScrollbackTextSegment[] {
+  if (query.length === 0) return [{ text, ...(style === undefined ? {} : { style }) }];
   const lowerText = text.toLocaleLowerCase();
   const lowerQuery = query.toLocaleLowerCase();
   const segments: ScrollbackTextSegment[] = [];
@@ -261,11 +318,23 @@ function searchSegments(text: string, query: string): readonly ScrollbackTextSeg
   for (;;) {
     const matchIndex = lowerText.indexOf(lowerQuery, cursor);
     if (matchIndex === -1) break;
-    if (matchIndex > cursor) segments.push({ text: text.slice(cursor, matchIndex) });
+    if (matchIndex > cursor) {
+      segments.push({ text: text.slice(cursor, matchIndex), ...(style === undefined ? {} : { style }) });
+    }
     const end = matchIndex + query.length;
-    segments.push({ text: text.slice(matchIndex, end), tone: 'accent', emphasis: 'underline', matched: true });
+    segments.push({
+      text: text.slice(matchIndex, end),
+      style: {
+        ...(style ?? {}),
+        fg: { kind: 'theme', token: 'menu.match' },
+        underline: true
+      },
+      matched: true
+    });
     cursor = end;
   }
-  if (cursor < text.length) segments.push({ text: text.slice(cursor) });
-  return segments.length === 0 ? [{ text }] : segments;
+  if (cursor < text.length) {
+    segments.push({ text: text.slice(cursor), ...(style === undefined ? {} : { style }) });
+  }
+  return segments.length === 0 ? [{ text, ...(style === undefined ? {} : { style }) }] : segments;
 }

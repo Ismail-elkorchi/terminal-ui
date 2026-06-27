@@ -23,6 +23,7 @@ import {
   withPromptDiagnostics,
   withPromptTranscript
 } from './transcript.ts';
+import { promptResultValueView, promptValueView } from './value-view.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalHost, TerminalInputChunk, TerminalRestoreReason } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
@@ -31,8 +32,7 @@ import type { PromptInteractionHooks } from './interaction-hooks.ts';
 import type { PromptRuntimeState } from './state.ts';
 import type {
   PromptDefinition,
-  PromptResult,
-  ProgressResult
+  PromptResult
 } from './types.ts';
 
 const promptInteractionHooks: PromptInteractionHooks = {
@@ -45,7 +45,8 @@ export async function runPrompt<TValue>(
   host?: TerminalHost
 ): Promise<PromptResult<TValue>> {
   if (prompt.kind === 'progress' && prompt.progressTask !== undefined) {
-    return runProgressPrompt(prompt as unknown as PromptDefinition<ProgressResult>, host) as Promise<PromptResult<TValue>>;
+    const result = await runProgressPrompt(promptValueView(prompt), host);
+    return promptResultValueView(result);
   }
   if (host?.stdin.isTty() === true && isInteractivePrompt(prompt)) {
     return runInteractivePrompt(prompt, host);
@@ -55,16 +56,18 @@ export async function runPrompt<TValue>(
     return runTranscriptOnlyPrompt(prompt, snapshot, host);
   }
   if (prompt.kind === 'editor') {
-    return runEditorPrompt(prompt as unknown as PromptDefinition<string>, snapshot, host) as Promise<PromptResult<TValue>>;
+    const result = await runEditorPrompt(promptValueView(prompt), snapshot, host);
+    return promptResultValueView(result);
   }
   if (hasProvidedNonTtyValue(prompt)) {
     return submitPrompt(prompt, prompt.nonTty.value, snapshot, host);
   }
   if (canSubmitDefaultInNonTty(prompt)) {
-    return submitPrompt(prompt, prompt.defaultValue as TValue, snapshot, host);
+    return submitPrompt(prompt, prompt.defaultValue, snapshot, host);
   }
   if (host?.stdin.isTty() === false && prompt.kind === 'input' && nonTtyMode(prompt) === 'line_fallback') {
-    return runLineFallbackPrompt(prompt as unknown as PromptDefinition<string>, host) as Promise<PromptResult<TValue>>;
+    const result = await runLineFallbackPrompt(promptValueView(prompt), host);
+    return promptResultValueView(result);
   }
   return {
     schemaVersion: 'terminal-ui.prompt-result.v1',
@@ -279,8 +282,8 @@ async function applyPromptEvent<TValue>(
     };
   }
   if (prompt.kind === 'confirm') {
-    const result = await applyConfirmEvent(prompt as unknown as PromptDefinition<boolean>, host, state, event);
-    return result as PromptResult<TValue> | undefined;
+    const result = await applyConfirmEvent(promptValueView(prompt), host, state, event);
+    return result === undefined ? undefined : promptResultValueView(result);
   }
   if (prompt.kind === 'select') {
     const result = await applySelectEvent(prompt, host, state, event, promptInteractionHooks);
@@ -288,20 +291,20 @@ async function applyPromptEvent<TValue>(
   }
   if (prompt.kind === 'multiselect') {
     const result = await applyMultiSelectEvent(prompt, host, state, event, promptInteractionHooks);
-    return result as PromptResult<TValue> | undefined;
+    return result === undefined ? undefined : promptResultValueView(result);
   }
   if (prompt.kind === 'autocomplete') {
     const result = await applyAutocompleteEvent(prompt, host, state, event, promptInteractionHooks);
     return result;
   }
   const result = await applyTextPromptEvent(
-    prompt as unknown as PromptDefinition<string>,
+    promptValueView(prompt),
     host,
     state,
     event,
     promptInteractionHooks
   );
-  return result as PromptResult<TValue> | undefined;
+  return result === undefined ? undefined : promptResultValueView(result);
 }
 
 async function applyConfirmEvent(

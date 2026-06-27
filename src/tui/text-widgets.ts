@@ -1,9 +1,20 @@
 import { clipTextCells, sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
+import { block, line, span } from './frame.ts';
 import { numberProp, stringify } from './widget-props.ts';
+import { defaultTheme } from '../theme/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
-import type { StyledText } from '../theme/index.ts';
+import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
+import type { RenderBlock, RenderSpan } from './frame.ts';
 import type { Rect } from './layout.ts';
+
+export function richTextBlock(widget: Widget, bounds: Rect): RenderBlock {
+  const segments = styledSegments(widget);
+  if (widget.props['wrap'] === true && bounds.width > 0) {
+    return blockFromPlainText(richTextText(widget, bounds));
+  }
+  return block([line(segments.map(cleanSpan))]);
+}
 
 export function richTextText(widget: Widget, bounds: Rect): string {
   const text = styledSegments(widget).map((segment) => sanitizeTerminalText(segment.text).text).join('');
@@ -68,10 +79,10 @@ export function helpBarAccessibleBase(widget: Widget, id: string): AccessibleNod
   };
 }
 
-export function activityIndicatorText(widget: Widget): string {
+export function activityIndicatorText(widget: Widget, theme: TerminalTheme): string {
   const label = stringify(widget.props['label']) || 'Activity';
   const status = activityStatus(widget.props['status']);
-  return `${statusMarker(status)} ${label}${status === 'idle' ? '' : ` (${status})`}`;
+  return `${statusMarker(status, theme)} ${label}${status === 'idle' ? '' : ` (${status})`}`;
 }
 
 export function activityIndicatorAccessibleBase(widget: Widget, id: string): AccessibleNode {
@@ -79,17 +90,25 @@ export function activityIndicatorAccessibleBase(widget: Widget, id: string): Acc
     id,
     role: 'status',
     label: id,
-    value: activityIndicatorText(widget)
+    value: activityIndicatorText(widget, defaultTheme)
   };
 }
 
-function styledSegments(widget: Widget): readonly StyledText[] {
+function styledSegments(widget: Widget): readonly RenderSpan[] {
   if (!Array.isArray(widget.props['segments'])) return [];
-  return widget.props['segments'].filter((segment): segment is StyledText =>
+  return widget.props['segments'].filter((segment): segment is RenderSpan =>
     typeof segment === 'object'
     && segment !== null
     && typeof (segment as { readonly text?: unknown }).text === 'string'
   );
+}
+
+function cleanSpan(segment: RenderSpan): RenderSpan {
+  return span(sanitizeTerminalText(segment.text).text, {
+    ...(segment.style === undefined ? {} : { style: segment.style }),
+    ...(segment.link === undefined ? {} : { link: segment.link }),
+    ...(segment.source === undefined ? {} : { source: segment.source })
+  });
 }
 
 function textAreaDescription(widget: Widget, value: string): string {
@@ -116,17 +135,21 @@ function activityStatus(value: unknown): 'idle' | 'running' | 'success' | 'warni
   return value === 'running' || value === 'success' || value === 'warning' || value === 'error' ? value : 'idle';
 }
 
-function statusMarker(status: ReturnType<typeof activityStatus>): string {
+function blockFromPlainText(text: string): RenderBlock {
+  return block(text.split('\n').map((part) => line([span(part)])));
+}
+
+function statusMarker(status: ReturnType<typeof activityStatus>, theme: TerminalTheme): string {
   switch (status) {
     case 'running':
-      return '...';
+      return theme.symbols.statusInfo;
     case 'success':
-      return '+';
+      return theme.symbols.statusSuccess;
     case 'warning':
-      return '!';
+      return theme.symbols.statusWarning;
     case 'error':
-      return 'x';
+      return theme.symbols.statusError;
     case 'idle':
-      return '-';
+      return theme.symbols.progressEmpty;
   }
 }

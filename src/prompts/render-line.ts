@@ -51,7 +51,7 @@ function choiceLine<TValue>(
 ): string {
   const pointer = index === state.focusedChoiceIndex ? theme.symbols.pointer : ' ';
   const marker = prompt.kind === 'multiselect'
-    ? (state.selectedChoiceIndexes.has(index) ? theme.symbols.checked : theme.symbols.unchecked)
+    ? (state.selectedChoiceIndexes.has(index) ? theme.symbols.checkboxChecked : theme.symbols.checkboxUnchecked)
     : theme.symbols.unselected;
   const suffix = choice.disabled === undefined || choice.disabled === false
     ? ''
@@ -67,7 +67,7 @@ export function choiceStatusLines<TValue>(
 ): readonly string[] {
   if (prompt.kind !== 'select' && prompt.kind !== 'multiselect' && prompt.kind !== 'autocomplete') return [];
   if (state.choiceDiagnostics.length > 0) {
-    return state.choiceDiagnostics.map((item) => `${theme.symbols.error} ${item.message}`);
+    return state.choiceDiagnostics.map((item) => `${theme.symbols.statusError} ${item.message}`);
   }
   if (state.choiceLoading) return ['  Loading...'];
   if (state.choices.length === 0) return [prompt.kind === 'autocomplete' ? '  No matches' : '  No choices'];

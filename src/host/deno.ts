@@ -40,7 +40,8 @@ function optionalEnv(env: Record<string, string> | undefined): { readonly env?: 
 }
 
 function denoGlobal(): DenoLike | undefined {
-  return (globalThis as unknown as { readonly Deno?: DenoLike }).Deno;
+  const value: unknown = Reflect.get(globalThis, 'Deno');
+  return isDenoLike(value) ? value : undefined;
 }
 
 function denoEnvironment(deno: DenoLike | undefined): Record<string, string> | undefined {
@@ -49,4 +50,8 @@ function denoEnvironment(deno: DenoLike | undefined): Record<string, string> | u
   } catch {
     return undefined;
   }
+}
+
+function isDenoLike(value: unknown): value is DenoLike {
+  return value !== null && typeof value === 'object';
 }

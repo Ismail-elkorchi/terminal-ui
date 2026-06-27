@@ -11,6 +11,7 @@ import type {
 } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../tui/index.ts';
+import type { ThemeToken } from '../theme/index.ts';
 import type {
   InteractionResult,
   TranscriptRecorder,
@@ -71,6 +72,10 @@ export type InteractionStep =
   | { readonly kind: 'resize'; readonly viewport: TerminalViewport }
   | { readonly kind: 'wait'; readonly ms: number }
   | { readonly kind: 'assertSnapshot'; readonly assertion: SnapshotAssertion }
+  | { readonly kind: 'assertFocus'; readonly assertion: FocusAssertion }
+  | { readonly kind: 'assertSelected'; readonly assertion: SelectedAssertion }
+  | { readonly kind: 'assertVisibleText'; readonly assertion: VisibleTextAssertion }
+  | { readonly kind: 'assertHitTarget'; readonly assertion: HitTargetAssertion }
   | { readonly kind: 'assertOutput'; readonly includes?: string; readonly excludes?: string }
   | { readonly kind: 'assertRestore' }
   | { readonly kind: 'assertNoSecretLeak'; readonly secret: string };
@@ -84,4 +89,21 @@ export type { InteractionResult };
 
 export interface FocusAssertion {
   readonly id: string;
+}
+
+export interface SelectedAssertion {
+  readonly id?: string;
+  readonly label?: string;
+  readonly value?: string | number | boolean | null;
+}
+
+export interface VisibleTextAssertion {
+  readonly text: string;
+  readonly styleToken?: ThemeToken;
+}
+
+export interface HitTargetAssertion {
+  readonly row: number;
+  readonly column: number;
+  readonly id?: string;
 }

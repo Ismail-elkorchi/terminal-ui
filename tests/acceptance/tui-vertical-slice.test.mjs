@@ -66,7 +66,10 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.equal(diff.schemaVersion, 'terminal-ui.render-diff.v1');
   assert.equal(diff.fullRewrite, false);
   assert.ok(diff.operations.some((operation) => operation.kind === 'clearLine'));
-  assert.ok(diff.operations.some((operation) => operation.kind === 'write' && operation.text.includes('Submitted')));
+  assert.ok(diff.operations.some((operation) =>
+    operation.kind === 'write'
+    && operation.spans.some((span) => span.text.includes('Submitted'))
+  ));
   assert.ok(renderDiff(diff).includes('\u001B['));
 
   const app = defineTui({

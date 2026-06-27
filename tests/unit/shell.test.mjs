@@ -483,7 +483,7 @@ test('runShell applies shell theme symbols and sanitizes rendered shell text', a
     prompt: '$\u001B[31m ',
     theme: {
       symbols: { pointer: '=>\u001B[31m', unselected: '.\u001B[0m' },
-      styles: { tones: { normal: { color: 'brightGreen' } } }
+      colors: { 'text.default': { kind: 'ansi', value: 10 } }
     },
     commands: {
       kind: 'adapter',
@@ -507,7 +507,7 @@ test('runShell applies shell theme symbols and sanitizes rendered shell text', a
   const output = host.output();
 
   assert.equal(result.status, 'completed');
-  assert.match(output, /\u001B\[92m/u);
+  assert.match(output, /\u001B\[(?:92|38;5;10)m/u);
   assert.match(output, /=> doctor - Inspect local setup/u);
   assert.match(output, /\. deploy - Deploy an environment/u);
   assert.doesNotMatch(output, /\u001B\[31m|\u001B\[33m/u);

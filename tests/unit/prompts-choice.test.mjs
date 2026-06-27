@@ -28,7 +28,7 @@ test('runPrompt supports interactive select navigation and disabled choices', as
   assert.equal(result.snapshot.root.children[0]?.disabled, true);
   assert.equal(result.snapshot.root.children[2]?.selected, true);
   assert.match(harness.output(), /Color:/);
-  assert.match(harness.output(), />   Blue/);
+  assert.match(harness.output(), /›   Blue/);
 });
 
 test('runPrompt renders choice descriptions and sanitizes prompt output', async () => {
@@ -300,7 +300,7 @@ test('runPrompt highlights autocomplete label matches without mutating submitted
   }), harness.host);
 
   harness.host.input('re');
-  await waitUntil(() => /\u001B\[4m\u001B\[35mReplay/u.test(harness.output()));
+  await waitUntil(() => /\u001B\[4;38;5;13mReplay/u.test(harness.output()));
   assert.doesNotMatch(harness.output(), /\u001B\[31m/u);
   harness.host.input('\r');
   harness.host.stdin.close();

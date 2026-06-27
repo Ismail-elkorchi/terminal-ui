@@ -13,12 +13,24 @@
         "oneOf": [
           {
             "type": "object",
-            "required": ["kind", "row", "column", "text"],
+            "required": ["kind", "row", "column", "spans"],
             "properties": {
               "kind": { "const": "write" },
               "row": { "type": "integer", "minimum": 1 },
               "column": { "type": "integer", "minimum": 1 },
-              "text": { "type": "string" }
+              "spans": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/renderSpan" }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["kind", "bounds"],
+            "properties": {
+              "kind": { "const": "clearRect" },
+              "bounds": { "$ref": "#/$defs/rect" }
             },
             "additionalProperties": false
           },
@@ -27,7 +39,8 @@
             "required": ["kind", "row"],
             "properties": {
               "kind": { "const": "clearLine" },
-              "row": { "type": "integer", "minimum": 1 }
+              "row": { "type": "integer", "minimum": 1 },
+              "fromColumn": { "type": "integer", "minimum": 1 }
             },
             "additionalProperties": false
           },
@@ -54,6 +67,97 @@
       }
     },
     "fullRewrite": { "type": "boolean" }
+  },
+  "$defs": {
+    "rect": {
+      "type": "object",
+      "required": ["row", "column", "width", "height"],
+      "properties": {
+        "row": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "renderSpan": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string" },
+        "style": { "$ref": "#/$defs/terminalStyle" },
+        "link": { "$ref": "#/$defs/terminalLink" },
+        "source": { "$ref": "#/$defs/frameCellSource" }
+      },
+      "additionalProperties": false
+    },
+    "terminalStyle": {
+      "type": "object",
+      "properties": {
+        "fg": { "$ref": "#/$defs/terminalColor" },
+        "bg": { "$ref": "#/$defs/terminalColor" },
+        "bold": { "type": "boolean" },
+        "dim": { "type": "boolean" },
+        "italic": { "type": "boolean" },
+        "underline": { "type": "boolean" },
+        "strikethrough": { "type": "boolean" },
+        "inverse": { "type": "boolean" },
+        "hidden": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "terminalColor": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "value"],
+          "properties": {
+            "kind": { "const": "ansi" },
+            "value": { "type": "integer", "minimum": 0, "maximum": 255 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "r", "g", "b"],
+          "properties": {
+            "kind": { "const": "rgb" },
+            "r": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "g": { "type": "integer", "minimum": 0, "maximum": 255 },
+            "b": { "type": "integer", "minimum": 0, "maximum": 255 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind", "token"],
+          "properties": {
+            "kind": { "const": "theme" },
+            "token": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "terminalLink": {
+      "type": "object",
+      "required": ["href"],
+      "properties": {
+        "href": { "type": "string" },
+        "id": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "frameCellSource": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string" },
+        "role": { "type": "string" },
+        "label": { "type": "string" }
+      },
+      "additionalProperties": false
+    }
   },
   "additionalProperties": false
 }

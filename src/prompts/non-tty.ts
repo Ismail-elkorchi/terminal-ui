@@ -10,7 +10,9 @@ export function hasProvidedNonTtyValue<TValue>(
   return prompt.nonTty?.mode === 'provided_value' && 'value' in prompt.nonTty;
 }
 
-export function canSubmitDefaultInNonTty<TValue>(prompt: PromptDefinition<TValue>): boolean {
+export function canSubmitDefaultInNonTty<TValue>(
+  prompt: PromptDefinition<TValue>
+): prompt is PromptDefinition<TValue> & { readonly defaultValue: TValue } {
   if (prompt.defaultValue === undefined || prompt.nonTty?.mode === 'reject') return false;
   return prompt.kind === 'input'
     || prompt.kind === 'password'

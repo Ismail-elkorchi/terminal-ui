@@ -26,6 +26,12 @@ export interface AccessibleNode {
   readonly children?: readonly AccessibleNode[];
 }
 
+export interface AccessibilityOptions {
+  readonly decorative?: boolean;
+  readonly label?: string;
+  readonly description?: string;
+}
+
 export type AccessibleValue = string | number | boolean | null;
 
 export interface AccessibleProgress {
