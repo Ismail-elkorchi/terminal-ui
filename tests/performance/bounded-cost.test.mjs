@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createInputDecoder } from '../../dist/input/index.js';
-import { createTuiRuntime, defineTui, diffFrames, renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
+import { createTuiRuntime, defineTui, diffFrames, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import {
   button,
   canvas,
@@ -34,7 +34,7 @@ test('paste bursts decode as one paste event instead of per-character key churn'
 test('large list rendering is bounded by viewport size, not collection size', () => {
   const items = Array.from({ length: 50_000 }, (_value, index) => `Item ${index}`);
   const frame = renderWidgetFrame(list({ id: 'large-list', items, selected: 40_000 }), { columns: 32, rows: 10 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.match(output, /Item 40000/u);
   assert.doesNotMatch(output, /Item 0/u);
@@ -46,7 +46,7 @@ test('large list rendering is bounded by viewport size, not collection size', ()
 test('large scrollback rendering is bounded by viewport size, not collection size', () => {
   const items = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
   const frame = renderWidgetFrame(scrollback({ id: 'large-scrollback', items }), { columns: 48, rows: 12 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.match(output, /Line 99999/u);
   assert.doesNotMatch(output, /Line 0/u);
@@ -92,7 +92,7 @@ test('full frame render stays bounded by viewport for mixed widget trees', () =>
   ]), { columns: 60, rows: 16 });
 
   assert.ok(frame.cells.length <= frame.width * frame.height);
-  assert.equal(renderFrame(frame).split('\n').length <= 16, true);
+  assert.equal(renderFramePlain(frame).split('\n').length <= 16, true);
   assert.equal(frame.accessibility.root.children?.length, 3);
 });
 
@@ -119,8 +119,8 @@ test('append-heavy scrollback diffs stay bounded by visible rows', () => {
   const next = renderWidgetFrame(scrollback({ id: 'append-log', items: afterItems }), { columns: 48, rows: 8 });
   const diff = diffFrames(previous, next);
 
-  assert.match(renderFrame(next), /Line 100000/u);
-  assert.doesNotMatch(renderFrame(next), /Line 0/u);
+  assert.match(renderFramePlain(next), /Line 100000/u);
+  assert.doesNotMatch(renderFramePlain(next), /Line 0/u);
   assert.equal(next.accessibility.root.children?.length, 8);
   assert.ok(diff.operations.length <= 16);
 });
@@ -137,8 +137,8 @@ test('large table viewport is bounded independently from row count', () => {
     rows: Array.from({ length: 50_000 }, (_value, index) => [`Row ${index}`, index, `metadata ${index}`])
   }), { columns: 64, rows: 12 });
 
-  assert.match(renderFrame(frame), /Row 42000/u);
-  assert.doesNotMatch(renderFrame(frame), /Row 0/u);
+  assert.match(renderFramePlain(frame), /Row 42000/u);
+  assert.doesNotMatch(renderFramePlain(frame), /Row 0/u);
   assert.ok(frame.cells.length <= frame.width * frame.height);
   assert.equal((frame.accessibility.root.children?.length ?? 0) <= 12, true);
 });
@@ -155,8 +155,8 @@ test('large tree viewport is bounded independently from node count', () => {
     }]
   }), { columns: 40, rows: 10 });
 
-  assert.match(renderFrame(frame), /Node 40000/u);
-  assert.doesNotMatch(renderFrame(frame), /Node 0/u);
+  assert.match(renderFramePlain(frame), /Node 40000/u);
+  assert.doesNotMatch(renderFramePlain(frame), /Node 0/u);
   assert.ok(frame.cells.length <= frame.width * frame.height);
   assert.equal((frame.accessibility.root.children?.length ?? 0) <= 10, true);
 });
@@ -176,7 +176,7 @@ test('palette filtering returns bounded windows for large entry sets', () => {
     entries
   }), { columns: 48, rows: 8 });
 
-  assert.match(renderFrame(frame), /Entry 19999/u);
+  assert.match(renderFramePlain(frame), /Entry 19999/u);
   assert.ok(frame.cells.length <= frame.width * frame.height);
   assert.equal((frame.accessibility.root.children?.length ?? 0) <= 5, true);
 });
@@ -218,7 +218,7 @@ test('custom canvas render stays bounded even when painters write outside the vi
   }), { columns: 32, rows: 8 });
 
   assert.ok(frame.cells.length <= frame.width * frame.height);
-  assert.equal(renderFrame(frame).split('\n').length, 8);
+  assert.equal(renderFramePlain(frame).split('\n').length, 8);
 });
 
 test('resize storms commit one frame per resize without hidden unbounded loops', async () => {

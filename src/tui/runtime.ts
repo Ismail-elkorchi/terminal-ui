@@ -326,9 +326,11 @@ export function createTuiRuntime<TState, TMessage>(
           index,
           zIndex: hitTarget.zIndex ?? target.layer.zIndex
         })));
-    return hits
+    const hit = hits
       .sort((left, right) => right.zIndex - left.zIndex || right.index - left.index)
-      .at(0)?.hitTarget.message;
+      .at(0)?.hitTarget;
+    if (hit === undefined) return undefined;
+    return hit.message;
   }
 }
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
+import { renderFramePlain, renderWidgetFrame, renderWidgetLayers } from '../../dist/tui/index.js';
 import { absolute, canvas, overlay, surface, text } from '../../dist/widgets/index.js';
 
 test('canvas writes styled spans through safe frame-buffer APIs', () => {
@@ -14,7 +14,7 @@ test('canvas writes styled spans through safe frame-buffer APIs', () => {
     }
   }), { columns: 8, rows: 3 });
 
-  assert.equal(renderFrame(frame), 'A🙂B\n  safe');
+  assert.equal(renderFramePlain(frame), 'A🙂B\n  safe');
   assert.equal(frame.cells.find((cell) => cell.text === 'A')?.style?.fg?.token, 'accent.primary');
   assert.equal(frame.cells.some((cell) => cell.text.includes('\u001B')), false);
   assert.equal(frame.accessibility.root.role, 'application');
@@ -56,14 +56,36 @@ test('surface absolute and overlay compose arbitrary positioned overlapping cont
     { id: 'surface', label: 'Drawing surface' }
   ), { columns: 12, rows: 3 });
 
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.equal(output, 'base-TOPe\nwide界!ail');
   assert.equal(frame.accessibility.root.label, 'Drawing surface');
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'application');
 });
 
+test('layer projection keeps overlapping z-index content separate before compositing', () => {
+  const widget = surface(
+    overlay([
+      text('lower', { id: 'lower', zIndex: 0 }),
+      text('UPPER', { id: 'upper', zIndex: 10 })
+    ], { id: 'layer-overlay' }),
+    { id: 'layer-surface' }
+  );
+
+  const layers = renderWidgetLayers(widget, { columns: 8, rows: 2 });
+  const frame = renderWidgetFrame(widget, { columns: 8, rows: 2 });
+
+  assert.deepEqual(layers.map((layer) => layer.zIndex), [0, 10]);
+  assert.equal(layers[0]?.cells.some((cell) => cell.text === 'l'), true);
+  assert.equal(layers[1]?.cells.some((cell) => cell.text === 'U'), true);
+  assert.equal(renderFramePlain(frame), 'UPPER');
+});
+
 test('canvas rejects missing painters as programmer errors', () => {
+  assert.throws(
+    () => canvas({ id: 'bad-canvas-factory', painter: undefined }),
+    /Canvas widgets must provide a painter function/u
+  );
   assert.throws(
     () => renderWidgetFrame({ id: 'bad-canvas', kind: 'canvas', props: {} }, { columns: 4, rows: 2 }),
     /Canvas widgets must provide a painter/u

@@ -1,0 +1,7 @@
+Visual fixture
+
+Render [██████░░░░] 3/5
+
+  Area        State
+  Frame       stable
+› Diff        ready

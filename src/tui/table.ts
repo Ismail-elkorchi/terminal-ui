@@ -1,7 +1,8 @@
-import { clipTextCells, measureTextCells, sanitizeTerminalText } from '../text/index.ts';
+import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { numberProp, stringify } from './widget-props.ts';
+import { widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
-import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
+import type { TerminalTheme } from '../theme/index.ts';
 import type {
   TableCellRenderInput,
   TableColumn,
@@ -10,6 +11,7 @@ import type {
   Widget
 } from '../widgets/index.ts';
 import type { Rect } from './layout.ts';
+import { clipRenderSpans } from './render-primitives.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import type { ScrollState } from './scroll.ts';
 
@@ -43,14 +45,14 @@ export function tableBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): 
   const widths = columnWidths(columns, rows, Math.max(1, bounds.width - 2));
   const lines: RenderLine[] = [];
   if (hasHeader && headerHeight > 0) {
-    lines.push(scrolledLine(headerLine(columns, widths), window.horizontalOffset, bounds.width));
+    lines.push(scrolledLine(headerLine(widget, columns, widths), window.horizontalOffset, bounds.width));
   }
   if (rows.length === 0 && bodyHeight > 0) {
     lines.push(scrolledLine(emptyLine(widget), window.horizontalOffset, bounds.width));
   } else {
     lines.push(...window.rows.map((row, visibleIndex) => {
       const rowIndex = window.start + visibleIndex;
-      return scrolledLine(rowLine(row, rowIndex, columns, widths, rowIndex === window.selected, selectedTableCell(widget), theme), window.horizontalOffset, bounds.width);
+      return scrolledLine(rowLine(widget, row, rowIndex, columns, widths, rowIndex === window.selected, selectedTableCell(widget), theme), window.horizontalOffset, bounds.width);
     }));
   }
   return { lines: lines.slice(0, bounds.height) };
@@ -123,17 +125,18 @@ function tableWindow(widget: Widget, rows: readonly unknown[], bodyHeight: numbe
   };
 }
 
-function headerLine(columns: readonly NormalizedColumn[], widths: readonly number[]): RenderLine {
+function headerLine(widget: Widget, columns: readonly NormalizedColumn[], widths: readonly number[]): RenderLine {
   const spans: RenderSpan[] = [{ text: '  ' }];
   columns.forEach((column, index) => {
     if (index > 0) spans.push({ text: '  ' });
     const label = `${column.header ?? ''}${sortMarker(column.sort)}`;
-    spans.push(...cellSpans([{ text: label, style: column.headerStyle ?? themeStyle('table.header') }], widths[index] ?? 1, column.align));
+    spans.push(...cellSpans([styledSpan(label, column.headerStyle ?? widgetStyle(widget, 'title'))], widths[index] ?? 1, column.align));
   });
   return { spans };
 }
 
 function rowLine(
+  widget: Widget,
   row: unknown,
   rowIndex: number,
   columns: readonly NormalizedColumn[],
@@ -142,11 +145,13 @@ function rowLine(
   selectedCell: { readonly row: number; readonly column: number } | undefined,
   theme: TerminalTheme
 ): RenderLine {
-  const spans: RenderSpan[] = [{ text: `${selected ? theme.symbols.pointer : theme.symbols.unselected} ` }];
+  const spans: RenderSpan[] = [styledSpan(`${selected ? theme.symbols.pointer : theme.symbols.unselected} `, selected ? widgetStyle(widget, 'value', 'selected') : undefined)];
   columns.forEach((column, columnIndex) => {
     if (columnIndex > 0) spans.push({ text: '  ' });
     const rendered = renderCell(row, rowIndex, column, columnIndex);
-    const selectedStyle = selectedCell?.row === rowIndex && selectedCell.column === columnIndex ? selectionStyle() : undefined;
+    const selectedStyle = selectedCell?.row === rowIndex && selectedCell.column === columnIndex
+      ? widgetStyle(widget, 'value', 'selected')
+      : undefined;
     spans.push(...cellSpans(rendered, widths[columnIndex] ?? 1, column.align, selectedStyle));
   });
   return { spans };
@@ -157,7 +162,7 @@ function emptyLine(widget: Widget): RenderLine {
   return {
     spans: [
       { text: '  ' },
-      { text: emptyText, style: themeStyle('text.muted') }
+      styledSpan(emptyText, widgetStyle(widget, 'placeholder'))
     ]
   };
 }
@@ -186,34 +191,33 @@ function cleanSpan(span: RenderSpan, fallbackStyle: TerminalStyle | undefined): 
   };
 }
 
+function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
+  return style === undefined ? { text } : { text, style };
+}
+
 function cellSpans(
   spans: readonly RenderSpan[],
   width: number,
   align: TableColumnAlignment,
   overrideStyle?: TerminalStyle
 ): readonly RenderSpan[] {
-  const text = spans.map((span) => span.text).join('');
-  const clipped = clipTextCells(text, width, { ellipsis: '…' }).text;
-  const cells = measureTextCells(clipped).cells;
+  const clipped = overrideStyle === undefined
+    ? clipRenderSpans(spans, width, { ellipsis: '…' })
+    : clipRenderSpans(spans, width, { ellipsis: '…' }).map((currentSpan) => ({
+        text: currentSpan.text,
+        style: overrideStyle,
+        ...(currentSpan.link === undefined ? {} : { link: currentSpan.link }),
+        ...(currentSpan.source === undefined ? {} : { source: currentSpan.source })
+      }));
+  const cells = clipped.reduce((sum, currentSpan) => sum + measureTextCells(currentSpan.text).cells, 0);
   const padding = Math.max(0, width - cells);
   const before = align === 'end' ? padding : align === 'center' ? Math.floor(padding / 2) : 0;
   const after = Math.max(0, padding - before);
   const rendered: RenderSpan[] = [];
   if (before > 0) rendered.push({ text: ' '.repeat(before) });
-  rendered.push({ text: clipped, ...(overrideStyle === undefined ? mergedSpanOptions(spans, clipped) : { style: overrideStyle }) });
+  rendered.push(...clipped);
   if (after > 0) rendered.push({ text: ' '.repeat(after) });
   return rendered;
-}
-
-function mergedSpanOptions(spans: readonly RenderSpan[], clipped: string): Omit<RenderSpan, 'text'> {
-  if (spans.length !== 1 || clipped.length === 0) return {};
-  const span = spans[0];
-  if (span === undefined) return {};
-  return {
-    ...(span.style === undefined ? {} : { style: span.style }),
-    ...(span.link === undefined ? {} : { link: span.link }),
-    ...(span.source === undefined ? {} : { source: span.source })
-  };
 }
 
 function scrolledLine(line: RenderLine, offsetCells: number, width: number): RenderLine {
@@ -385,20 +389,6 @@ function sortMarker(sort: TableColumn['sort']): string {
   if (sort === 'ascending') return ' ↑';
   if (sort === 'descending') return ' ↓';
   return '';
-}
-
-function selectionStyle(): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: 'selection.foreground' },
-    bg: { kind: 'theme', token: 'selection.background' }
-  };
-}
-
-function themeStyle(token: ThemeToken, options: Omit<TerminalStyle, 'fg'> = {}): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token },
-    ...options
-  };
 }
 
 function clean(value: string): string {

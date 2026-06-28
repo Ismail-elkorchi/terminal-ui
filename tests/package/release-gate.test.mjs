@@ -63,10 +63,42 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
     assert.doesNotMatch(source, /case\s+['"`](?:text|box|stack|row|list|table|inputField|statusBar|progressBar|spinner|viewport|custom)['"`]/u, relativePath);
   }
 
-  const registry = await readFile(new URL('../../src/tui/widget-behavior.ts', import.meta.url), 'utf8');
+  const behavior = await readFile(new URL('../../src/tui/widget-behavior.ts', import.meta.url), 'utf8');
+  const registry = await readFile(new URL('../../src/tui/renderers/index.ts', import.meta.url), 'utf8');
+
+  await assert.rejects(access(new URL('../../src/tui/renderers/support.ts', import.meta.url)));
+  assert.match(behavior, /builtinWidgetRenderers\[widget\.kind\]/u);
+  assert.doesNotMatch(behavior, /const\s+widgetRenderers\s*=/u);
+  assert.doesNotMatch(behavior, /satisfies Record<BuiltinWidgetKind, WidgetRenderer>/u);
+  assert.doesNotMatch(behavior, /from\s+['"]\.\/(?:form-widgets|menu-widgets|drawing-widgets|table|chart-widgets|data-widgets|palette|command-bar|progress-widget|structured-block)['"]/u);
   assert.match(registry, /satisfies Record<BuiltinWidgetKind, WidgetRenderer>/u);
   assert.doesNotMatch(registry, /custom:\s*\{\s*\}/u);
   assert.doesNotMatch(registry, /\?\.\(widget,\s*node,\s*id,\s*focused\)/u);
+
+  const rendererFiles = [
+    '../../src/tui/renderers/text-renderers.ts',
+    '../../src/tui/renderers/form-renderers.ts',
+    '../../src/tui/renderers/menu-renderers.ts',
+    '../../src/tui/renderers/data-renderers.ts',
+    '../../src/tui/renderers/layout-renderers.ts',
+    '../../src/tui/renderers/drawing-renderers.ts',
+    '../../src/tui/renderers/feedback-renderers.ts',
+    '../../src/tui/renderers/support/block.ts',
+    '../../src/tui/renderers/support/border.ts',
+    '../../src/tui/renderers/support/common.ts',
+    '../../src/tui/renderers/support/layout.ts',
+    '../../src/tui/renderers/support/list.ts',
+    '../../src/tui/renderers/support/scroll.ts',
+    '../../src/tui/renderers/support/tabs.ts',
+    '../../src/tui/renderers/support/viewport.ts'
+  ];
+
+  for (const rendererFile of rendererFiles) {
+    const url = new URL(rendererFile, import.meta.url);
+    await access(url);
+    const source = await readFile(url, 'utf8');
+    assert.doesNotMatch(source, /from\s+['"]\.\.\/widget-behavior\.ts['"]/u, rendererFile);
+  }
 });
 
 test('widget modules do not write directly to terminal hosts', async () => {
@@ -85,6 +117,28 @@ test('widget modules do not write directly to terminal hosts', async () => {
   for (const file of widgetFiles) {
     const source = await readFile(file, 'utf8');
     if (file.pathname.endsWith('/src/tui/runtime-frame.ts') || file.pathname.endsWith('/src/tui/non-tty.ts')) continue;
+    for (const pattern of forbiddenPatterns) {
+      assert.doesNotMatch(source, pattern, file.pathname);
+    }
+  }
+});
+
+test('widget rendering code uses semantic styles instead of raw terminal colors', async () => {
+  const files = [
+    ...await sourceFiles(new URL('../../src/widgets/', import.meta.url)),
+    ...await sourceFiles(new URL('../../src/tui/', import.meta.url))
+  ].filter((file) => ![
+    '/src/tui/ansi.ts',
+    '/src/tui/render-primitives.ts',
+    '/src/tui/frame.ts'
+  ].some((suffix) => file.pathname.endsWith(suffix)));
+  const forbiddenPatterns = [
+    /\bkind:\s*['"]ansi['"]/u,
+    /\bkind:\s*['"]rgb['"]/u
+  ];
+
+  for (const file of files) {
+    const source = await readFile(file, 'utf8');
     for (const pattern of forbiddenPatterns) {
       assert.doesNotMatch(source, pattern, file.pathname);
     }
@@ -114,13 +168,33 @@ test('source has no compatibility wrapper or obsolete render model markers', asy
     /\bcompat(?:ibility)?(?:Shim|Wrapper|Alias|Layer)\b/iu,
     /\blegacy(?:Frame|Render|Layout|Widget)\b/u,
     /\bold(?:Frame|Render|Layout|Widget)\b/u,
+    ...removedMouseApiPatterns(),
+    /\bfirstChangedColumnInRow\b/u,
+    /\bsameJson\b/u,
+    /\bcontentTrackSize\b/u,
     /\browLevelDiff\b/u,
-    /\bunstyledFrame\b/u
+    /\bunstyledFrame\b/u,
+    /\bincludeControlSequences\b/u
   ];
 
   for (const file of files) {
     const source = await readFile(file, 'utf8');
     for (const pattern of forbiddenPatterns) {
+      assert.doesNotMatch(source, pattern, file.pathname);
+    }
+  }
+});
+
+test('removed mouse-map API names do not appear in active tests docs or examples', async () => {
+  const files = [
+    ...await sourceFiles(new URL('../../docs/', import.meta.url), '.md'),
+    ...await sourceFiles(new URL('../../examples/', import.meta.url), '.mjs'),
+    ...await sourceFiles(new URL('../../tests/', import.meta.url), '.mjs')
+  ].filter((file) => !file.pathname.endsWith('/tests/package/release-gate.test.mjs'));
+
+  for (const file of files) {
+    const source = await readFile(file, 'utf8');
+    for (const pattern of removedMouseApiPatterns()) {
       assert.doesNotMatch(source, pattern, file.pathname);
     }
   }
@@ -232,6 +306,7 @@ test('custom widgets can render only through buffer-scoped renderer inputs', asy
   const rendererTypes = await readFile(new URL('../../src/tui/widget-renderer.ts', import.meta.url), 'utf8');
   const widgetTypes = await readFile(new URL('../../src/widgets/types.ts', import.meta.url), 'utf8');
   const factories = await readFile(new URL('../../src/widgets/factories.ts', import.meta.url), 'utf8');
+  const validation = await readFile(new URL('../../src/widgets/extension-validation.ts', import.meta.url), 'utf8');
 
   assert.match(rendererTypes, /interface WidgetRenderInput/u);
   assert.match(rendererTypes, /readonly buffer: FrameBuffer;/u);
@@ -240,13 +315,34 @@ test('custom widgets can render only through buffer-scoped renderer inputs', asy
   assert.doesNotMatch(rendererTypes, /\bhost\b/u);
   assert.doesNotMatch(rendererTypes, /\bwrite\s*\(/u);
 
-  const customTypes = widgetTypes.slice(widgetTypes.indexOf('export interface CustomWidgetRuntime'));
-  assert.match(customTypes, /readonly renderer: WidgetRenderer<TMessage>;/u);
-  assert.doesNotMatch(customTypes, /\bTerminalHost\b/u);
-  assert.doesNotMatch(customTypes, /\bclipboard\b/iu);
+  const customRuntimeTypes = widgetTypes.slice(
+    widgetTypes.indexOf('export interface CustomWidgetRuntime'),
+    widgetTypes.indexOf('export interface CustomWidgetOptions')
+  );
+  const customOptionTypes = widgetTypes.slice(
+    widgetTypes.indexOf('export interface CustomWidgetOptions'),
+    widgetTypes.indexOf('export interface TextWidgetOptions')
+  );
+  const canvasOptionTypes = widgetTypes.slice(
+    widgetTypes.indexOf('export interface CanvasWidgetOptions'),
+    widgetTypes.indexOf('export interface SurfaceWidgetOptions')
+  );
+  assert.match(customRuntimeTypes, /readonly renderer: WidgetRenderer<TMessage>;/u);
+  assert.match(customOptionTypes, /readonly renderer: WidgetRenderer<TMessage>;/u);
+  assert.doesNotMatch(customOptionTypes, /\breadonly painter\b/u);
+  assert.match(canvasOptionTypes, /readonly painter: CanvasPainter;/u);
+  assert.doesNotMatch(canvasOptionTypes, /\breadonly renderer\b/u);
+  assert.match(widgetTypes, /export interface CanvasPainterInput[\s\S]*readonly buffer: FrameBuffer;[\s\S]*readonly bounds: Rect;/u);
+  assert.doesNotMatch(customRuntimeTypes, /\bTerminalHost\b/u);
+  assert.doesNotMatch(customRuntimeTypes, /\bclipboard\b/iu);
 
+  assert.match(factories, /assertCanvasPainter\(options\.painter\)/u);
+  assert.match(factories, /assertCustomRenderer\(options\.renderer/u);
   assert.match(factories, /kind: 'custom'/u);
   assert.doesNotMatch(factories, /\bhost\b/u);
+  assert.doesNotMatch(validation, /\bTerminalHost\b/u);
+  assert.doesNotMatch(validation, /\bhost\b/u);
+  assert.doesNotMatch(validation, /\bwrite\s*\(/u);
 });
 
 async function sourceFiles(directory, extension = '.ts') {
@@ -294,4 +390,11 @@ function runtimeSource(source) {
     .split('\n')
     .filter((line) => !line.startsWith('import type '))
     .join('\n');
+}
+
+function removedMouseApiPatterns() {
+  return [
+    new RegExp(`\\b${'mouse' + 'Map'}\\b`, 'u'),
+    new RegExp(`\\b${'Widget' + 'Mouse' + 'Map'}\\b`, 'u')
+  ];
 }

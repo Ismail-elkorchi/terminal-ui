@@ -7,7 +7,8 @@ The root entrypoint exposes the main vertical path:
 - `runPrompt()`
 - `createShell()` and `runShell()`
 - `defineTui()`, `runTui()`, `layoutWidget()`, `renderWidgetFrame()`,
-  `diffFrames()`, `renderDiff()`, and `renderFrame()`
+  `diffFrames()`, `renderDiffAnsi()`, `renderFramePlain()`,
+  `renderFrameAnsi()`, and `renderFrameDebug()`
 - `toAccessibleSnapshot()`, `findAccessibleNode()`, and
   `validateAccessibleSnapshot()`
 
@@ -33,3 +34,9 @@ problems.
 
 Clipboard helpers live under the protocol entrypoint. They are capability and
 policy gated; widgets never write to the clipboard directly.
+
+Rendering APIs expose the current frame pipeline explicitly: `FrameBuffer`,
+`RenderSpan`, `RenderLine`, `RenderBlock`, `Frame`, `diffFrames()`,
+`renderFramePlain()`, `renderFrameAnsi()`, `renderFrameDebug()`, and
+`renderDiffAnsi()`. See [Rendering internals](../guides/rendering-internals.md)
+for how those pieces fit together.

@@ -1,4 +1,4 @@
-import { renderFrame, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
+import { renderFramePlain, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
 import { button, checkbox, field, form, row, selectBox, textInput } from '@ismail-elkorchi/terminal-ui/widgets';
 
 const widget = form([
@@ -31,4 +31,4 @@ const widget = form([
   title: 'Settings'
 });
 
-console.log(renderFrame(renderWidgetFrame(widget, { columns: 48, rows: 12 })));
+console.log(renderFramePlain(renderWidgetFrame(widget, { columns: 48, rows: 12 })));

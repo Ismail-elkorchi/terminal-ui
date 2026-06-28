@@ -8,7 +8,7 @@ import type {
   TerminalLink,
   TerminalStyle
 } from './render-primitives.ts';
-import { span } from './render-primitives.ts';
+import { sameFrameCell, sameFrameCellSource, sameTerminalLink, sameTerminalStyle, span } from './render-primitives.ts';
 import type { RenderSerializeOptions } from './ansi.ts';
 
 export interface Frame {
@@ -55,6 +55,11 @@ export interface RenderDiff {
   readonly fullRewrite: boolean;
 }
 
+export interface FrameRowDiff {
+  readonly row: number;
+  readonly operations: readonly RenderOperation[];
+}
+
 export type RenderOperation =
   | { readonly kind: 'write'; readonly row: number; readonly column: number; readonly spans: readonly RenderSpan[] }
   | { readonly kind: 'clearRect'; readonly bounds: Rect }
@@ -66,12 +71,7 @@ export type TerminalEffect =
   | { readonly kind: 'setTitle'; readonly title: string }
   | { readonly kind: 'bell' };
 
-export interface RenderFrameOptions {
-  readonly includeControlSequences?: boolean;
-  readonly serialize?: RenderSerializeOptions;
-}
-
-export type { RenderSerializeOptions } from './ansi.ts';
+export type { AnsiStyleState, RenderSerializeOptions } from './ansi.ts';
 
 export type {
   FrameCellSource,
@@ -84,12 +84,35 @@ export type {
 } from './render-primitives.ts';
 export type { FrameBuffer, FrameBufferSnapshotOptions } from './frame-buffer.ts';
 export { createFrameBuffer } from './frame-buffer.ts';
-export { block, blockFromText, line, span } from './render-primitives.ts';
+export {
+  block,
+  blockFromText,
+  clipRenderSpans,
+  line,
+  sameFrameCell,
+  sameFrameCellSource,
+  sameTerminalColor,
+  sameTerminalLink,
+  sameTerminalStyle,
+  span
+} from './render-primitives.ts';
+export { serializeRenderSpansStateful } from './ansi.ts';
 
-export function renderFrame(frame: Frame, options: RenderFrameOptions = {}): string {
-  if (options.includeControlSequences === true) return renderFrameControlSequences(frame, options);
+export function renderFramePlain(frame: Frame): string {
   const rows = Array.from({ length: frame.height }, (_value, index) => rowTextFromCells(frame, index + 1));
   return trimTrailingEmptyRows(rows).join('\n');
+}
+
+export function renderFrameAnsi(frame: Frame, options: RenderSerializeOptions): string {
+  const operations: RenderOperation[] = [...frameWriteOperations(frame)];
+  if (frame.cursor !== undefined) operations.push({ kind: 'moveCursor', row: frame.cursor.row, column: frame.cursor.column });
+  return renderDiffAnsi({
+    schemaVersion: 'terminal-ui.render-diff.v1',
+    width: frame.width,
+    height: frame.height,
+    operations,
+    fullRewrite: true
+  }, options);
 }
 
 export function diffFrames(previous: Frame | undefined, next: Frame): RenderDiff {
@@ -106,13 +129,12 @@ export function diffFrames(previous: Frame | undefined, next: Frame): RenderDiff
     };
   }
 
+  const previousCells = indexFrameCells(previous);
+  const nextCells = indexFrameCells(next);
   const operations: RenderOperation[] = [];
 
   for (let row = 1; row <= next.height; row += 1) {
-    const firstChangedColumn = firstChangedColumnInRow(previous, next, row);
-    if (firstChangedColumn === undefined) continue;
-    operations.push({ kind: 'clearLine', row, fromColumn: firstChangedColumn });
-    operations.push(...rowWriteOperations(next, row, firstChangedColumn));
+    operations.push(...diffRow(previousCells, nextCells, next, row).operations);
   }
 
   if (next.cursor !== undefined) {
@@ -122,22 +144,7 @@ export function diffFrames(previous: Frame | undefined, next: Frame): RenderDiff
   return { schemaVersion: 'terminal-ui.render-diff.v1', width: next.width, height: next.height, operations, fullRewrite: false };
 }
 
-function firstChangedColumnInRow(previous: Frame, next: Frame, row: number): number | undefined {
-  const previousCells = cellMap(previous);
-  const nextCells = cellMap(next);
-  for (let column = 1; column <= next.width; column += 1) {
-    if (!sameCell(previousCells.get(cellKey(row, column)), nextCells.get(cellKey(row, column)))) {
-      return column;
-    }
-  }
-  return undefined;
-}
-
-export function renderDiff(diff: RenderDiff): string {
-  return renderDiffWithOptions(diff);
-}
-
-export function renderDiffWithOptions(diff: RenderDiff, options?: RenderSerializeOptions): string {
+export function renderDiffAnsi(diff: RenderDiff, options?: RenderSerializeOptions): string {
   return diff.operations.map((operation) => renderOperation(operation, options)).join('');
 }
 
@@ -145,7 +152,7 @@ export function compareCells(left: FrameCell, right: FrameCell): number {
   return left.row - right.row || left.column - right.column;
 }
 
-function renderFrameControlSequences(frame: Frame, options: RenderFrameOptions): string {
+export function renderFrameDebug(frame: Frame): string {
   const writes = frame.cells
     .filter((cell) =>
       cell.continuation !== true
@@ -155,7 +162,7 @@ function renderFrameControlSequences(frame: Frame, options: RenderFrameOptions):
       && cell.column <= frame.width
     )
     .sort(compareCells)
-    .map((cell) => `\u001B[${String(cell.row)};${String(cell.column)}H${serializeRenderSpans([cellToSpan(cell)], options.serialize)}`)
+    .map((cell) => `\u001B[${String(cell.row)};${String(cell.column)}H${serializeRenderSpans([cellToSpan(cell)])}`)
     .join('');
   const cursor = frame.cursor === undefined
     ? ''
@@ -199,10 +206,6 @@ function rowTextFromCells(frame: Frame, row: number): string {
   return output.replace(/\s+$/u, '');
 }
 
-function cellMap(frame: Frame): Map<string, FrameCell> {
-  return new Map(frame.cells.map((cell) => [cellKey(cell.row, cell.column), cell]));
-}
-
 function trimTrailingEmptyRows(rows: string[]): string[] {
   const next = [...rows];
   while (next.length > 0 && next.at(-1) === '') next.pop();
@@ -213,12 +216,13 @@ function frameWriteOperations(frame: Frame): readonly RenderOperation[] {
   return Array.from({ length: frame.height }, (_value, index) => rowWriteOperations(frame, index + 1, 1)).flat();
 }
 
-function rowWriteOperations(frame: Frame, row: number, fromColumn: number): readonly RenderOperation[] {
+function rowWriteOperations(frame: Frame, row: number, fromColumn: number, toColumn = frame.width): readonly RenderOperation[] {
   const rowCells = frame.cells
     .filter((cell) =>
       cell.continuation !== true
       && cell.row === row
       && cell.column >= fromColumn
+      && cell.column <= toColumn
       && cell.column <= frame.width
     )
     .sort(compareCells);
@@ -240,13 +244,83 @@ function rowWriteOperations(frame: Frame, row: number, fromColumn: number): read
   return spans.length === 0 ? [] : [{ kind: 'write', row, column: fromColumn, spans: Object.freeze(spans) }];
 }
 
+function diffRow(
+  previousCells: IndexedFrameCells,
+  nextCells: IndexedFrameCells,
+  next: Frame,
+  row: number
+): FrameRowDiff {
+  const operations: RenderOperation[] = [];
+  let runStart: number | undefined;
+  for (let column = 1; column <= next.width; column += 1) {
+    const changed = !sameCell(cellAt(previousCells, row, column), cellAt(nextCells, row, column));
+    if (changed && runStart === undefined) runStart = column;
+    if ((!changed || column === next.width) && runStart !== undefined) {
+      const runEnd = changed && column === next.width ? column : column - 1;
+      operations.push(...changedRunOperations(previousCells, nextCells, next, row, runStart, runEnd));
+      runStart = undefined;
+    }
+  }
+  return { row, operations: Object.freeze(operations) };
+}
+
+function changedRunOperations(
+  previousCells: IndexedFrameCells,
+  nextCells: IndexedFrameCells,
+  next: Frame,
+  row: number,
+  fromColumn: number,
+  toColumn: number
+): readonly RenderOperation[] {
+  const operations: RenderOperation[] = [];
+  if (runNeedsClear(previousCells, nextCells, row, fromColumn, toColumn)) {
+    operations.push({ kind: 'clearRect', bounds: { row, column: fromColumn, width: toColumn - fromColumn + 1, height: 1 } });
+  }
+  operations.push(...rowWriteOperations(next, row, fromColumn, toColumn));
+  return operations;
+}
+
+function runNeedsClear(
+  previousCells: IndexedFrameCells,
+  nextCells: IndexedFrameCells,
+  row: number,
+  fromColumn: number,
+  toColumn: number
+): boolean {
+  for (let column = fromColumn; column <= toColumn; column += 1) {
+    const previous = cellAt(previousCells, row, column);
+    const next = cellAt(nextCells, row, column);
+    if (previous !== undefined && next === undefined) return true;
+    if (previous === undefined || next === undefined) continue;
+    if (previous.width !== next.width) return true;
+    if ((previous.continuation === true) !== (next.continuation === true)) return true;
+  }
+  return false;
+}
+
+type IndexedFrameCells = readonly (readonly (FrameCell | undefined)[])[];
+
+function indexFrameCells(frame: Frame): IndexedFrameCells {
+  const rows = Array.from({ length: frame.height }, () => Array<FrameCell | undefined>(frame.width));
+  for (const cell of frame.cells) {
+    if (cell.row < 1 || cell.row > frame.height || cell.column < 1 || cell.column > frame.width) continue;
+    const row = rows[cell.row - 1];
+    if (row !== undefined) row[cell.column - 1] = cell;
+  }
+  return rows;
+}
+
+function cellAt(cells: IndexedFrameCells, row: number, column: number): FrameCell | undefined {
+  return cells[row - 1]?.[column - 1];
+}
+
 function pushSpan(spans: RenderSpan[], next: RenderSpan): void {
   const previous = spans.at(-1);
   if (
     previous !== undefined
-    && sameJson(previous.style, next.style)
-    && sameJson(previous.link, next.link)
-    && sameJson(previous.source, next.source)
+    && sameTerminalStyle(previous.style, next.style)
+    && sameTerminalLink(previous.link, next.link)
+    && sameFrameCellSource(previous.source, next.source)
   ) {
     spans[spans.length - 1] = { ...previous, text: `${previous.text}${next.text}` };
     return;
@@ -255,16 +329,7 @@ function pushSpan(spans: RenderSpan[], next: RenderSpan): void {
 }
 
 function sameCell(left: FrameCell | undefined, right: FrameCell | undefined): boolean {
-  if (left === undefined || right === undefined) return left === right;
-  return left.text === right.text
-    && left.width === right.width
-    && left.continuation === right.continuation
-    && sameJson(left.style, right.style)
-    && sameJson(left.link, right.link);
-}
-
-function sameJson(left: unknown, right: unknown): boolean {
-  return JSON.stringify(left) === JSON.stringify(right);
+  return sameFrameCell(left, right);
 }
 
 function clearRectText(bounds: Rect): string {
@@ -273,10 +338,6 @@ function clearRectText(bounds: Rect): string {
     parts.push(`\u001B[${String(row)};${String(bounds.column)}H${' '.repeat(Math.max(0, bounds.width))}`);
   }
   return parts.join('');
-}
-
-function cellKey(row: number, column: number): string {
-  return `${String(row)}:${String(column)}`;
 }
 
 function cellToSpan(cell: FrameCell): RenderSpan {

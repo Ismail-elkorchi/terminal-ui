@@ -6,6 +6,7 @@ import {
   visibleWindowFromScroll
 } from './scroll.ts';
 import { stringify } from './widget-props.ts';
+import { themeStyle, widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TextSelection } from '../text/index.ts';
 import type { ScrollbackItem, Widget } from '../widgets/index.ts';
@@ -72,7 +73,7 @@ export function scrollbackWindow(widget: Widget, node: LayoutNode): ScrollbackWi
       ))
     : expandedRows.slice(window.start, window.end);
   return {
-    rows: withOmissionMarkers(visibleRows, omittedBefore, omittedAfter, node.bounds.height),
+    rows: withOmissionMarkers(widget, visibleRows, omittedBefore, omittedAfter, node.bounds.height),
     totalRows,
     start: window.start,
     end: window.end,
@@ -174,6 +175,7 @@ function scrollbackRow(
 }
 
 function withOmissionMarkers(
+  widget: Widget,
   rows: readonly ScrollbackVisibleRow[],
   omittedBefore: number,
   omittedAfter: number,
@@ -182,19 +184,19 @@ function withOmissionMarkers(
   if (height <= 0) return [];
   const result = [...rows];
   if (omittedBefore > 0 && result.length > 0) {
-    result[0] = omissionRow('before', `... ${String(omittedBefore)} earlier rows omitted ...`);
+    result[0] = omissionRow(widget, 'before', `... ${String(omittedBefore)} earlier rows omitted ...`);
   }
   if (omittedAfter > 0 && result.length > 1) {
-    result[result.length - 1] = omissionRow('after', `... ${String(omittedAfter)} later rows omitted ...`);
+    result[result.length - 1] = omissionRow(widget, 'after', `... ${String(omittedAfter)} later rows omitted ...`);
   }
   return result.slice(0, height);
 }
 
-function omissionRow(position: 'before' | 'after', text: string): ScrollbackVisibleRow {
+function omissionRow(widget: Widget, position: 'before' | 'after', text: string): ScrollbackVisibleRow {
   return {
     id: `scrollback:omitted-${position}`,
     text,
-    segments: [{ text }]
+    segments: [styledSegment(text, widgetStyle(widget, 'placeholder'))]
   };
 }
 
@@ -326,8 +328,7 @@ function searchSegments(
       text: text.slice(matchIndex, end),
       style: {
         ...(style ?? {}),
-        fg: { kind: 'theme', token: 'menu.match' },
-        underline: true
+        ...themeStyle('menu.match', { underline: true })
       },
       matched: true
     });
@@ -337,4 +338,8 @@ function searchSegments(
     segments.push({ text: text.slice(cursor), ...(style === undefined ? {} : { style }) });
   }
   return segments.length === 0 ? [{ text, ...(style === undefined ? {} : { style }) }] : segments;
+}
+
+function styledSegment(text: string, style: RenderSpan['style'] | undefined): ScrollbackTextSegment {
+  return style === undefined ? { text } : { text, style };
 }

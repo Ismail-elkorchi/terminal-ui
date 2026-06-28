@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createFrameBuffer, diffFrames, renderDiffWithOptions, renderFrame } from '../../dist/tui/index.js';
+import { createFrameBuffer, diffFrames, renderDiffAnsi, renderFrameAnsi, renderFramePlain } from '../../dist/tui/index.js';
 import { richText } from '../../dist/widgets/index.js';
 import { renderWidgetFrame } from '../../dist/tui/index.js';
 
@@ -10,7 +10,7 @@ test('FrameBuffer records ASCII, Unicode width, emoji, CJK, and combining marks 
   buffer.write(1, 1, [{ text: 'Aé界🙂e\u0301' }]);
   const frame = buffer.snapshot();
 
-  assert.equal(renderFrame(frame), 'Aé界🙂é');
+  assert.equal(renderFramePlain(frame), 'Aé界🙂é');
   assert.deepEqual(frame.cells.map((cell) => [cell.column, cell.text, cell.width, cell.continuation === true]), [
     [1, 'A', 1, false],
     [2, 'é', 1, false],
@@ -27,7 +27,7 @@ test('FrameBuffer clips writes to bounds without leaking partial wide glyphs', (
   buffer.write(1, 3, [{ text: 'ABCD' }]);
   buffer.write(1, 4, [{ text: '界' }]);
 
-  assert.equal(renderFrame(buffer.snapshot()), '  AB');
+  assert.equal(renderFramePlain(buffer.snapshot()), '  AB');
 });
 
 test('FrameBuffer clears stale wide-glyph continuation cells when overwritten', () => {
@@ -36,7 +36,7 @@ test('FrameBuffer clears stale wide-glyph continuation cells when overwritten', 
   buffer.write(1, 2, [{ text: 'A' }]);
   const frame = buffer.snapshot();
 
-  assert.equal(renderFrame(frame), ' A');
+  assert.equal(renderFramePlain(frame), ' A');
   assert.deepEqual(frame.cells.map((cell) => [cell.column, cell.text, cell.width, cell.continuation === true]), [
     [2, 'A', 1, false]
   ]);
@@ -66,27 +66,108 @@ test('richText emits styled cells through render spans', () => {
     ]
   }), { columns: 20, rows: 2 });
 
-  assert.equal(renderFrame(frame), 'Error muted');
+  assert.equal(renderFramePlain(frame), 'Error muted');
   assert.deepEqual(frame.cells[0]?.style, { fg: { kind: 'theme', token: 'status.error' }, bold: true });
   assert.deepEqual(frame.cells[5]?.style, { fg: { kind: 'theme', token: 'text.muted' } });
 });
 
 test('diffFrames emits changed span runs instead of whole-line text operations', () => {
-  const before = createFrameBuffer(8, 1);
-  before.write(1, 1, [{ text: 'abcdef' }]);
-  const after = createFrameBuffer(8, 1);
-  after.write(1, 1, [{ text: 'abcxef' }]);
+  const before = createFrameBuffer(80, 1);
+  before.write(1, 1, [{ text: 'abcdefghijklmnopqrstuvwxyz' }]);
+  const after = createFrameBuffer(80, 1);
+  after.write(1, 1, [{ text: 'abcdefghijklXnopqrstuvwxyz' }]);
 
   const diff = diffFrames(before.snapshot(), after.snapshot());
 
   assert.equal(diff.fullRewrite, false);
   assert.deepEqual(diff.operations, [
-    { kind: 'clearLine', row: 1, fromColumn: 4 },
-    { kind: 'write', row: 1, column: 4, spans: [{ text: 'xef' }] }
+    { kind: 'write', row: 1, column: 13, spans: [{ text: 'X' }] }
   ]);
 });
 
-test('renderDiffWithOptions serializes styled spans according to terminal color capability', () => {
+test('diffFrames clears trailing deletions without rewriting unchanged row prefixes', () => {
+  const before = createFrameBuffer(16, 1);
+  before.write(1, 1, [{ text: 'prefix-tail' }]);
+  const after = createFrameBuffer(16, 1);
+  after.write(1, 1, [{ text: 'prefix' }]);
+
+  const diff = diffFrames(before.snapshot(), after.snapshot());
+
+  assert.equal(diff.fullRewrite, false);
+  assert.deepEqual(diff.operations, [
+    { kind: 'clearRect', bounds: { row: 1, column: 7, width: 5, height: 1 } }
+  ]);
+});
+
+test('diffFrames emits minimal style-only writes without clearing row tails', () => {
+  const before = createFrameBuffer(12, 1);
+  before.write(1, 1, [{ text: 'same text' }]);
+  const after = createFrameBuffer(12, 1);
+  after.write(1, 1, [
+    { text: 'same', style: { bold: true } },
+    { text: ' text' }
+  ]);
+
+  const diff = diffFrames(before.snapshot(), after.snapshot());
+
+  assert.equal(diff.fullRewrite, false);
+  assert.deepEqual(diff.operations, [
+    { kind: 'write', row: 1, column: 1, spans: [{ text: 'same', style: { bold: true } }] }
+  ]);
+});
+
+test('diffFrames treats link-only and source-only cell changes as minimal writes', () => {
+  const beforeLink = createFrameBuffer(12, 1);
+  beforeLink.write(1, 1, [{ text: 'doc', link: { href: 'https://old.example' } }]);
+  const afterLink = createFrameBuffer(12, 1);
+  afterLink.write(1, 1, [{ text: 'doc', link: { href: 'https://new.example' } }]);
+  const beforeSource = createFrameBuffer(12, 1);
+  beforeSource.write(1, 1, [{ text: 'src', source: { id: 'old', kind: 'test' } }]);
+  const afterSource = createFrameBuffer(12, 1);
+  afterSource.write(1, 1, [{ text: 'src', source: { id: 'new', kind: 'test' } }]);
+
+  assert.deepEqual(diffFrames(beforeLink.snapshot(), afterLink.snapshot()).operations, [
+    { kind: 'write', row: 1, column: 1, spans: [{ text: 'doc', link: { href: 'https://new.example' } }] }
+  ]);
+  assert.deepEqual(diffFrames(beforeSource.snapshot(), afterSource.snapshot()).operations, [
+    { kind: 'write', row: 1, column: 1, spans: [{ text: 'src', source: { id: 'new', kind: 'test' } }] }
+  ]);
+});
+
+test('diffFrames clears only the changed wide-glyph run when a wide cell narrows', () => {
+  const before = createFrameBuffer(8, 1);
+  before.write(1, 1, [{ text: '界abc' }]);
+  const after = createFrameBuffer(8, 1);
+  after.write(1, 1, [{ text: 'Z abc' }]);
+
+  const diff = diffFrames(before.snapshot(), after.snapshot());
+
+  assert.equal(diff.fullRewrite, false);
+  assert.deepEqual(diff.operations, [
+    { kind: 'clearRect', bounds: { row: 1, column: 1, width: 2, height: 1 } },
+    { kind: 'write', row: 1, column: 1, spans: [{ text: 'Z ' }] }
+  ]);
+});
+
+test('renderFrameAnsi serializes full frames as row runs instead of per-cell cursor moves', () => {
+  const buffer = createFrameBuffer(10, 3);
+  buffer.write(1, 1, [
+    { text: 'AB', style: { fg: { kind: 'theme', token: 'status.success' } } },
+    { text: 'CD', style: { fg: { kind: 'theme', token: 'status.warning' } } }
+  ]);
+  buffer.write(3, 4, [{ text: 'Z' }]);
+
+  const output = renderFrameAnsi(buffer.snapshot(), { capabilities: capabilities(8) });
+  const cursorMoves = output.match(/\u001B\[\d+;\d+H/gu) ?? [];
+
+  assert.deepEqual(cursorMoves, ['\u001B[1;1H', '\u001B[3;1H']);
+  assert.match(output, /\u001B\[1;1H/u);
+  assert.match(output, /AB/u);
+  assert.match(output, /CD/u);
+  assert.match(output, /\u001B\[3;1H   Z/u);
+});
+
+test('renderDiffAnsi serializes styled spans according to terminal color capability', () => {
   const diff = {
     schemaVersion: 'terminal-ui.render-diff.v1',
     width: 6,
@@ -100,16 +181,16 @@ test('renderDiffWithOptions serializes styled spans according to terminal color 
     }]
   };
 
-  const trueColor = renderDiffWithOptions(diff, { capabilities: capabilities(24) });
-  const color256 = renderDiffWithOptions(diff, { capabilities: capabilities(8) });
-  const noColor = renderDiffWithOptions(diff, { capabilities: capabilities(0) });
+  const trueColor = renderDiffAnsi(diff, { capabilities: capabilities(24) });
+  const color256 = renderDiffAnsi(diff, { capabilities: capabilities(8) });
+  const noColor = renderDiffAnsi(diff, { capabilities: capabilities(0) });
 
   assert.match(trueColor, /\u001B\[1;38;2;12;34;56mHi\u001B\[0m/u);
   assert.match(color256, /\u001B\[1;38;5;\d+mHi\u001B\[0m/u);
   assert.equal(noColor, '\u001B[1;1HHi');
 });
 
-test('renderDiffWithOptions gates OSC 8 hyperlinks by capability and option', () => {
+test('renderDiffAnsi gates OSC 8 hyperlinks by capability and option', () => {
   const diff = {
     schemaVersion: 'terminal-ui.render-diff.v1',
     width: 4,
@@ -123,8 +204,8 @@ test('renderDiffWithOptions gates OSC 8 hyperlinks by capability and option', ()
     }]
   };
 
-  const enabled = renderDiffWithOptions(diff, { capabilities: capabilities(8, true), hyperlinks: true });
-  const disabled = renderDiffWithOptions(diff, { capabilities: capabilities(8, true), hyperlinks: false });
+  const enabled = renderDiffAnsi(diff, { capabilities: capabilities(8, true), hyperlinks: true });
+  const disabled = renderDiffAnsi(diff, { capabilities: capabilities(8, true), hyperlinks: false });
 
   assert.ok(enabled.includes('\u001B]8;id=doc;https://example.test\u0007doc\u001B]8;;\u0007'));
   assert.equal(disabled, '\u001B[1;1Hdoc');

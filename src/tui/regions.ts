@@ -63,13 +63,14 @@ export function splitTracks(
   bounds: Rect,
   orientation: 'horizontal' | 'vertical',
   tracks: readonly LayoutSize[],
-  options: LayoutFlowOptions = {}
+  options: LayoutFlowOptions = {},
+  contentSizes: readonly number[] = []
 ): readonly Rect[] {
   const contentBounds = layoutContentBounds(bounds, options);
   const totalDimension = orientation === 'horizontal' ? contentBounds.width : contentBounds.height;
   const gap = normalizedGap(options.gap);
   const total = Math.max(0, totalDimension - gap * Math.max(0, tracks.length - 1));
-  const sizes = resolveTrackSizes(total, tracks);
+  const sizes = resolveTrackSizes(total, tracks, contentSizes);
   let row = contentBounds.row;
   let column = contentBounds.column;
   return sizes.map((size) => {
@@ -119,14 +120,20 @@ export function activeScreen<TState>(stack: ScreenStack<TState>): Screen<TState>
   return stack.screens.at(-1);
 }
 
-function resolveTrackSizes(total: number, tracks: readonly LayoutSize[]): readonly number[] {
+function resolveTrackSizes(
+  total: number,
+  tracks: readonly LayoutSize[],
+  contentSizes: readonly number[]
+): readonly number[] {
   if (tracks.length === 0) return [];
   const safeTotal = Math.max(0, Math.floor(total));
   const fixed = tracks.map((track) => track.kind === 'fixed' ? Math.max(0, Math.floor(track.cells)) : 0);
   const percent = tracks.map((track) => track.kind === 'percent'
     ? Math.max(0, Math.floor(safeTotal * Math.max(0, track.value) / 100))
     : 0);
-  const content = tracks.map((track) => track.kind === 'content' ? contentTrackSize(track) : 0);
+  const content = tracks.map((track, index) => track.kind === 'content'
+    ? measuredContentTrackSize(track, contentSizes[index])
+    : 0);
   const claimed = fixed.reduce((sum, value) => sum + value, 0)
     + percent.reduce((sum, value) => sum + value, 0)
     + content.reduce((sum, value) => sum + value, 0);
@@ -149,10 +156,11 @@ function resolveTrackSizes(total: number, tracks: readonly LayoutSize[]): readon
   return fitSizes(sizes, safeTotal);
 }
 
-function contentTrackSize(track: Extract<LayoutSize, { readonly kind: 'content' }>): number {
+function measuredContentTrackSize(track: Extract<LayoutSize, { readonly kind: 'content' }>, measured: number | undefined): number {
   const min = Math.max(0, Math.floor(track.min ?? 0));
-  const max = track.max === undefined ? min : Math.max(0, Math.floor(track.max));
-  return Math.min(min, max);
+  const preferred = measured === undefined || !Number.isFinite(measured) ? min : Math.max(min, Math.floor(measured));
+  if (track.max === undefined) return preferred;
+  return Math.min(preferred, Math.max(min, Math.floor(track.max)));
 }
 
 export function layoutContentBounds(bounds: Rect, options: LayoutFlowOptions = {}): Rect {

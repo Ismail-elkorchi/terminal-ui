@@ -1,0 +1,35 @@
+Frame 0
+cluster healthy
+
+
+⠋ Refreshing telemetry
+
+
+› api ████████████████████ 80      *
+  worker ██████████ 45           **
+  queue █████ 20               **
+                              *
+
+Frame 1
+cluster healthy
+
+
+⠙ Refreshing telemetry
+
+
+› api ████████████████████ 80      *
+  worker ██████████ 45           **
+  queue █████ 20               **
+                              *
+
+Frame 2
+cluster healthy
+
+
+⠹ Refreshing telemetry
+
+
+› api ████████████████████ 80      *
+  worker ██████████ 45           **
+  queue █████ 20               **
+                              *

@@ -1,4 +1,5 @@
-import { diffFrames, renderFrame } from '../tui/index.ts';
+import { createCapabilities } from '../host/index.ts';
+import { diffFrames, renderFrameAnsi, renderFramePlain } from '../tui/index.ts';
 import type { Frame, FrameHitTarget, RenderDiff, RenderSerializeOptions } from '../tui/index.ts';
 
 export interface VisualSnapshotInput {
@@ -24,11 +25,8 @@ export function createVisualSnapshot(input: VisualSnapshotInput): VisualSnapshot
   const diff = input.diff ?? diffFrames(input.previousFrame, input.frame);
   return {
     schemaVersion: 'terminal-ui.visual-snapshots.v1',
-    plainTextFrame: renderFrame(input.frame),
-    ansiFrame: normalizeAnsi(renderFrame(input.frame, {
-      includeControlSequences: true,
-      ...(input.ansi === undefined ? {} : { serialize: input.ansi })
-    })),
+    plainTextFrame: renderFramePlain(input.frame),
+    ansiFrame: normalizeAnsi(renderFrameAnsi(input.frame, input.ansi ?? defaultAnsiOptions())),
     frameJson: stableJson(frame),
     accessibilityJson: stableJson(input.frame.accessibility),
     diffJson: stableJson(diff),
@@ -37,6 +35,17 @@ export function createVisualSnapshot(input: VisualSnapshotInput): VisualSnapshot
       cursor: input.frame.cursor ?? null,
       focusPath: input.frame.focusPath ?? [],
       accessibilityFocusPath: input.frame.accessibility.focusPath
+    })
+  };
+}
+
+function defaultAnsiOptions(): RenderSerializeOptions {
+  return {
+    capabilities: createCapabilities({
+      runtime: 'memory',
+      inputIsTty: true,
+      outputIsTty: true,
+      rawInput: true
     })
   };
 }

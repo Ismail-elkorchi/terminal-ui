@@ -1,4 +1,4 @@
-import { renderFrame, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
+import { renderFramePlain, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
 import { button, checkbox, form, modal, progressBar, row, stack, statusBar } from '@ismail-elkorchi/terminal-ui/widgets';
 
 const widget = stack([
@@ -16,4 +16,4 @@ const widget = stack([
   statusBar({ id: 'status', text: 'Ready to continue' })
 ]);
 
-console.log(renderFrame(renderWidgetFrame(widget, { columns: 50, rows: 12 })));
+console.log(renderFramePlain(renderWidgetFrame(widget, { columns: 50, rows: 12 })));

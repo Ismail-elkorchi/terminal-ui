@@ -14,6 +14,11 @@ viewport, and scrollback widgets, plus structured blocks and activity feeds.
 Widget metadata drives layout, focus routing, rendering, and accessible
 snapshots.
 
+For renderer-facing implementation guidance, see
+[Building polished widgets](./building-polished-widgets.md). For the frame,
+diff, span, and ANSI pipeline, see
+[Rendering internals](./rendering-internals.md).
+
 Accessibility metadata can provide a full accessible node override or lightweight
 options such as `label`, `description`, and `decorative`. Decorative widgets are
 excluded from their parent's accessibility tree and must not expose keyboard,
@@ -23,9 +28,9 @@ accessibility renderer or opt into `decorative: true` for pure visual content.
 Widgets can expose pointer hit regions during render/layout. Hit regions carry
 stable ids, bounds, optional cursor hints, messages, and z-index metadata. The
 runtime routes mouse events to the topmost matching hit region, using layer
-order as a deterministic tie-breaker. A widget-level `mouseMap` is treated as
-declarative whole-widget hit metadata and is projected into generated hit
-regions; the runtime does not keep a separate mouse-map routing path.
+order as a deterministic tie-breaker. Hit targets are the pointer interaction
+model; widgets should expose pointer behavior through renderer-owned hit
+targets or high-level factory options that compile to hit targets.
 
 Every widget factory accepts layer metadata. `zIndex` raises or lowers a widget
 relative to its parent stacking context, and higher visible layers render above
@@ -50,12 +55,39 @@ composed popover, overlay, or custom surface can opt into the same behavior
 without a special runtime path. Custom renderers may expose multiple focus
 targets with local ids, bounds, cursor positions, disabled state, and order.
 
+Every widget factory also accepts `styles`, a semantic slot map for local
+visual overrides. Slots are named for stable widget parts and states:
+`root`, `border`, `title`, `label`, `value`, `placeholder`, `selected`,
+`focused`, `disabled`, `error`, `warning`, and `success`. Built-in widgets map
+those slots onto theme-backed defaults, then merge caller-provided slots over
+the defaults. There is no CSS cascade: a style only affects the widget that
+receives it and the specific slots that renderer uses.
+
+```js
+const saveButton = button({
+  label: 'Save',
+  styles: {
+    label: { fg: { kind: 'theme', token: 'status.success' }, bold: true },
+    focused: { fg: { kind: 'theme', token: 'focus.border' } }
+  }
+});
+
+const dialog = modal(saveButton, {
+  title: 'Confirm',
+  styles: {
+    border: { fg: { kind: 'theme', token: 'status.warning' } }
+  }
+});
+```
+
 `statusBar()` and `spinner()` expose accessible `status` nodes.
 `helpBar()` renders keybinding hints as ordinary status text.
 `activityIndicator()` renders compact activity state for reusable app chrome.
 `progressBar()` exposes a `progressbar` node, clamps determinate values into
 range, and marks omitted values or `indeterminate: true` as indeterminate
-progress.
+progress. Its visual model supports determinate and indeterminate bars,
+compact or full metrics, caller-selected bar width, label placement,
+percentage display, and semantic status tone.
 
 `richText()` accepts styled text segments and renders sanitized display text.
 `textArea()` provides a bounded multi-line text surface with cursor and
@@ -144,11 +176,12 @@ grid, split-pane, tabs, viewport, box, and modal compositions use shared layout
 flow options such as gap, padding, margin, min/max dimensions, horizontal
 alignment, vertical justification, and clipped or visible overflow. `box()` and
 `modal()` use the shared border model, including single,
-double, rounded, heavy, ascii, and borderless variants. `tabs()` renders tab labels
-and lays out only the selected panel, so hidden panels do not participate in
-focus traversal. `modal()` centers a bounded dialog and lays child content
-inside the border. These are layout primitives; screen-specific state and
-application routing stay outside widgets.
+double, rounded, heavy, ascii, and borderless variants. Border titles can align
+to the start, center, or end, and focused bordered widgets can use a focused
+border style. `tabs()` renders tab labels and lays out only the selected panel,
+so hidden panels do not participate in focus traversal. `modal()` centers a
+bounded dialog and lays child content inside the border. These are layout
+primitives; screen-specific state and application routing stay outside widgets.
 
 Executable examples:
 

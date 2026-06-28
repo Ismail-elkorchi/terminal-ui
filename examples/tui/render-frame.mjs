@@ -1,4 +1,4 @@
-import { renderFrame, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
+import { renderFramePlain, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
 import { box, row, stack, text } from '@ismail-elkorchi/terminal-ui/widgets';
 
 const widget = box(
@@ -14,4 +14,4 @@ const widget = box(
 
 const frame = renderWidgetFrame(widget, { columns: 24, rows: 5 });
 
-console.log(renderFrame(frame));
+console.log(renderFramePlain(frame));

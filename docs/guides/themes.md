@@ -25,6 +25,15 @@ Theme output is resolved by the render serializer, not by widgets. Widgets emit
 semantic style data; renderers and serializers decide how that style maps to the
 current terminal capability.
 
+Widget factories accept local `styles` for semantic slots such as `root`,
+`border`, `title`, `label`, `value`, `placeholder`, `selected`, `focused`,
+`disabled`, `error`, `warning`, and `success`. These slots layer over theme
+defaults for that widget only; they do not create a global cascade.
+
+For renderer-facing style behavior, see
+[Rendering internals](./rendering-internals.md). For state and slot guidance,
+see [Building polished widgets](./building-polished-widgets.md).
+
 Executable examples:
 
 - `examples/tui/forms-settings.mjs`

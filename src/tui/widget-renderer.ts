@@ -11,14 +11,19 @@ export interface WidgetMeasureInput<TMessage = unknown> {
 }
 
 export interface WidgetMeasureResult {
-  readonly width?: number;
-  readonly height?: number;
+  readonly minWidth: number;
+  readonly minHeight: number;
+  readonly preferredWidth: number;
+  readonly preferredHeight: number;
+  readonly maxWidth?: number;
+  readonly maxHeight?: number;
 }
 
 export interface WidgetLayoutInput<TMessage = unknown> {
   readonly widget: Widget<TMessage>;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
+  readonly childMeasures: readonly WidgetMeasureResult[];
 }
 
 export interface WidgetRenderInput<TMessage = unknown> {
@@ -26,6 +31,7 @@ export interface WidgetRenderInput<TMessage = unknown> {
   readonly node: LayoutNode;
   readonly buffer: FrameBuffer;
   readonly theme: TerminalTheme;
+  readonly focused: boolean;
   renderChildren(target?: FrameBuffer): void;
 }
 
@@ -44,7 +50,7 @@ export interface WidgetFocusInput<TMessage = unknown> {
 }
 
 export interface FocusTarget {
-  readonly id?: string;
+  readonly id: string;
   readonly bounds: Rect;
   readonly cursor?: {
     readonly row: number;
@@ -52,6 +58,7 @@ export interface FocusTarget {
   };
   readonly disabled?: boolean;
   readonly order?: number;
+  readonly scopeId?: string;
 }
 
 export interface WidgetHitInput<TMessage = unknown> {

@@ -11,6 +11,10 @@ The core vertical path is:
 4. Serialize a full frame or incremental `RenderDiff`.
 5. Test the result with the memory harness.
 
+For the renderer data model behind that path, see
+[Rendering internals](./rendering-internals.md). For widget authoring
+guidance, see [Building polished widgets](./building-polished-widgets.md).
+
 Full-screen TUI runs enter terminal protocols through the session manager:
 alternate screen, bracketed paste, raw input, click mouse reporting, focus
 reporting, and cursor visibility. Unsupported optional protocols are reported

@@ -10,7 +10,7 @@ import {
   segmentGraphemes,
   wrapTextCells
 } from '../../dist/text/index.js';
-import { renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
+import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import { text } from '../../dist/widgets/index.js';
 
 test('text measurement sanitizes control sequences and measures visible cells', () => {
@@ -42,7 +42,7 @@ test('text rendering keeps bidirectional content in stable logical order', () =>
   const content = 'abc אבג 123';
   const frame = renderWidgetFrame(text(content, { id: 'bidi-fallback' }), { columns: 20, rows: 2 });
 
-  assert.equal(renderFrame(frame), content);
+  assert.equal(renderFramePlain(frame), content);
   assert.equal(frame.cells.map((cell) => cell.text).join(''), content);
 });
 

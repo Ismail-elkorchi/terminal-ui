@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { findAccessibleNode } from '../../dist/accessibility/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { defineTui, renderFrame, runTui } from '../../dist/tui/index.js';
+import { defineTui, renderFramePlain, runTui } from '../../dist/tui/index.js';
 import { activityFeed, box, statusBar, stack } from '../../dist/widgets/index.js';
 
 function view(state) {
@@ -40,8 +40,8 @@ test('activity feed vertical slice maps generic activity blocks through runtime 
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state?.selected, 1);
   assert.equal(harness.frames().length, 2);
-  assert.match(renderFrame(harness.frames()[0]), /› \[\+\] \[pending\] One/u);
-  assert.match(renderFrame(harness.frames()[1]), /› \[\+\] \[running\] Two/u);
+  assert.match(renderFramePlain(harness.frames()[0]), /› \[\+\] \[pending\] One/u);
+  assert.match(renderFramePlain(harness.frames()[1]), /› \[\+\] \[running\] Two/u);
   assert.equal(harness.snapshot().root.id, 'root');
   assert.equal(findAccessibleNode(harness.snapshot(), 'activity')?.role, 'listbox');
   assert.equal(harness.restores().length, 1);

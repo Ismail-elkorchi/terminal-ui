@@ -1,0 +1,8 @@
+Settings
+Name
+Shown in window titles
+[ ] Send diagnostics
+
+Theme: Modern ▸
+
+[ Save ]                [ Cancel ]

@@ -1,0 +1,1 @@
+\x1b[1;1HVisual fixture\x1b[3;1HRender \x1b[38;5;8m[\x1b[38;5;14m██████\x1b[38;5;8m░░░░]\x1b[39m 3/5\x1b[5;1H  \x1b[1;38;5;15mArea\x1b[22;39m        \x1b[1;38;5;15mState\x1b[22;39m   \x1b[6;1H  Frame       stable  \x1b[7;1H\x1b[1;38;5;15;48;5;4m› \x1b[22;39;49mDiff        \x1b[1;38;5;15;48;5;4mready\x1b[22;39;49m   

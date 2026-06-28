@@ -1,8 +1,10 @@
 import { clipTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { stringify } from './widget-props.ts';
+import { widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
+import { clipRenderSpans } from './render-primitives.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import type { Rect } from './layout.ts';
 import type { HitTarget } from './widget-renderer.ts';
@@ -29,16 +31,16 @@ interface MenuRow {
 export function menuBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const rows = menuRows(widget, bounds, 0);
   if (rows.length === 0 && bounds.height > 0) {
-    return { lines: [{ spans: [{ text: emptyText(widget), style: themeStyle('text.muted') }] }] };
+    return { lines: [{ spans: [styledSpan(emptyText(widget), widgetStyle(widget, 'placeholder'))] }] };
   }
-  return { lines: rows.map((row) => menuLine(row.item, selectedId(widget), bounds.width, theme)) };
+  return { lines: rows.map((row) => menuLine(widget, row.item, selectedId(widget), bounds.width, theme)) };
 }
 
 export function contextMenuBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const title = clean(stringify(widget.props['title']));
   const lines: RenderLine[] = [];
   if (title.length > 0) {
-    lines.push({ spans: [{ text: clip(title, bounds.width), style: themeStyle('text.strong', { bold: true }) }] });
+    lines.push({ spans: [styledSpan(clip(title, bounds.width), widgetStyle(widget, 'title'))] });
   }
   lines.push(...menuBlock(widget, {
     ...bounds,
@@ -51,13 +53,13 @@ export function menuBarBlock(widget: Widget, bounds: Rect): RenderBlock {
   const selected = selectedId(widget);
   const spans: RenderSpan[] = [];
   for (const item of topLevelMenuItems(widget)) {
-    if (spans.length > 0) spans.push({ text: '  ', style: themeStyle('text.muted') });
+    if (spans.length > 0) spans.push(styledSpan('  ', widgetStyle(widget, 'value', 'disabled')));
     spans.push(styledSpan(
       item.label,
       item.disabled === true
-        ? themeStyle('text.muted', { dim: true })
+        ? widgetStyle(widget, 'value', 'disabled')
         : item.id === selected
-          ? themeStyle('menu.selected', { bold: true })
+          ? widgetStyle(widget, 'value', 'selected')
         : undefined
     ));
   }
@@ -78,7 +80,7 @@ export function dropdownBlock(widget: Widget, bounds: Rect, theme: TerminalTheme
   const lines: RenderLine[] = [{
     spans: [styledSpan(
       clip(`${prefix}${value} ${open ? theme.symbols.treeExpanded : theme.symbols.treeCollapsed}`, bounds.width),
-      selected === undefined ? themeStyle('input.placeholder', { dim: true }) : undefined
+      selected === undefined ? widgetStyle(widget, 'placeholder') : widgetStyle(widget, 'value')
     )]
   }];
   if (open) {
@@ -194,12 +196,14 @@ function hitTargetForRow<TMessage>(
 }
 
 function menuRows(widget: Widget, bounds: Rect, rowOffset: number): readonly MenuRow[] {
-  return visibleMenuItems(widget)
-    .slice(0, Math.max(0, bounds.height - rowOffset))
+  const rows = visibleMenuItems(widget);
+  const start = menuScrollOffset(widget, rows.length, Math.max(0, bounds.height - rowOffset));
+  return rows
+    .slice(start, start + Math.max(0, bounds.height - rowOffset))
     .map((item, index) => ({ item, row: rowOffset + index }));
 }
 
-function menuLine(item: VisibleMenuItem, selected: string | undefined, width: number, theme: TerminalTheme): RenderLine {
+function menuLine(widget: Widget, item: VisibleMenuItem, selected: string | undefined, width: number, theme: TerminalTheme): RenderLine {
   const pointer = item.id === selected ? theme.symbols.pointer : theme.symbols.unselected;
   const checked = item.checked === true ? theme.symbols.checkboxChecked : '   ';
   const branch = item.hasChildren ? item.expanded === true ? theme.symbols.treeExpanded : theme.symbols.treeCollapsed : theme.symbols.unselected;
@@ -207,7 +211,7 @@ function menuLine(item: VisibleMenuItem, selected: string | undefined, width: nu
   const indent = '  '.repeat(item.depth);
   const text = `${pointer} ${indent}${checked} ${branch} ${item.label}${shortcut}`;
   return {
-    spans: [styledSpan(clip(text, width), menuItemStyle(item, selected))]
+    spans: [styledSpan(clip(text, width), menuItemStyle(widget, item, selected))]
   };
 }
 
@@ -275,29 +279,25 @@ function emptyText(widget: Widget): string {
   return text.length === 0 ? 'No menu items' : text;
 }
 
+function menuScrollOffset(widget: Widget, total: number, height: number): number {
+  const scroll = widget.props['scroll'];
+  if (!isRecord(scroll)) return 0;
+  const rawOffset = scroll['offsetRow'];
+  if (typeof rawOffset !== 'number' || !Number.isFinite(rawOffset)) return 0;
+  return Math.max(0, Math.min(Math.floor(rawOffset), Math.max(0, total - Math.max(0, height))));
+}
+
 function clipSpans(spans: readonly RenderSpan[], width: number): readonly RenderSpan[] {
-  const clipped: RenderSpan[] = [];
-  let used = 0;
-  for (const current of spans) {
-    const text = clip(current.text, width - used);
-    if (text.length === 0) break;
-    clipped.push({
-      text,
-      ...(current.style === undefined ? {} : { style: current.style })
-    });
-    used += text.length;
-    if (used >= width) break;
-  }
-  return clipped;
+  return clipRenderSpans(spans, Math.max(0, width), { ellipsis: '…' });
 }
 
 function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
   return style === undefined ? { text } : { text, style };
 }
 
-function menuItemStyle(item: VisibleMenuItem, selected: string | undefined): TerminalStyle | undefined {
-  if (item.disabled === true) return themeStyle('text.muted', { dim: true });
-  if (item.id === selected) return themeStyle('menu.selected', { bold: true });
+function menuItemStyle(widget: Widget, item: VisibleMenuItem, selected: string | undefined): TerminalStyle | undefined {
+  if (item.disabled === true) return widgetStyle(widget, 'value', 'disabled');
+  if (item.id === selected) return widgetStyle(widget, 'value', 'selected');
   return undefined;
 }
 
@@ -307,13 +307,6 @@ function clip(value: string, width: number): string {
 
 function clean(value: string): string {
   return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
-}
-
-function themeStyle(token: string, extra: Omit<TerminalStyle, 'fg'> = {}): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token },
-    ...extra
-  };
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

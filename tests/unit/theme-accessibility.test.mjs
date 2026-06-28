@@ -8,7 +8,7 @@ import {
 } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { defaultThemes, defineTheme, mergeThemes, resolveTerminalStyle } from '../../dist/theme/index.js';
-import { renderDiffWithOptions, renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
+import { renderDiffAnsi, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import { richText } from '../../dist/widgets/index.js';
 
 test('theme API defines token palettes, merges symbols, and resolves semantic styles', async () => {
@@ -18,7 +18,11 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
   const monoCapabilities = await monoHost.getCapabilities();
   const theme = defineTheme({
     name: 'custom',
-    symbols: { pointer: '>\u001B[31m', checkboxChecked: '[x]\u001B[0m' },
+    symbols: {
+      pointer: '>\u001B[31m',
+      checkboxChecked: '[x]\u001B[0m',
+      spinnerFrames: ['a\u001B[31m', 'b']
+    },
     colors: { 'status.error': { kind: 'ansi', value: 9 } },
     spacing: { gap: 2 }
   });
@@ -44,14 +48,15 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
   assert.equal(theme.name, 'custom');
   assert.equal(theme.symbols.pointer, '>');
   assert.equal(theme.symbols.checkboxChecked, '[x]');
+  assert.deepEqual(theme.symbols.spinnerFrames, ['a', 'b']);
   assert.equal(theme.spacing.gap, 2);
   assert.deepEqual(merged.colors['custom.surface'], { kind: 'rgb', r: 1, g: 2, b: 3 });
   assert.deepEqual(
     resolveTerminalStyle({ fg: { kind: 'theme', token: 'missing.custom' } }, theme),
     { fg: theme.colors['text.default'] }
   );
-  assert.match(renderDiffWithOptions(diff, { capabilities: colorCapabilities, theme }), /\u001B\[4;38;5;9mbad\u001B\[0m/u);
-  assert.equal(renderDiffWithOptions(diff, { capabilities: monoCapabilities, theme }), '\u001B[1;1Hbad');
+  assert.match(renderDiffAnsi(diff, { capabilities: colorCapabilities, theme }), /\u001B\[4;38;5;9mbad\u001B\[0m/u);
+  assert.equal(renderDiffAnsi(diff, { capabilities: monoCapabilities, theme }), '\u001B[1;1Hbad');
   assert.equal(defaultThemes.noColor.name, 'noColor');
 });
 
@@ -63,7 +68,7 @@ test('rich text widgets preserve render spans and render their plain text into f
   const frame = renderWidgetFrame(widget, { columns: 20, rows: 2 });
 
   assert.deepEqual(widget.props.segments, [{ text: 'Styled title', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }]);
-  assert.equal(renderFrame(frame), 'Styled title');
+  assert.equal(renderFramePlain(frame), 'Styled title');
   assert.equal(frame.accessibility.root.value, 'Styled title');
 });
 

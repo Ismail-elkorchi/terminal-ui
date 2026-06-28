@@ -21,7 +21,8 @@ import { runPrompt } from '@ismail-elkorchi/terminal-ui';
 
 The root entrypoint also exposes the primary TUI path:
 `defineTui`, `layoutWidget`, `renderWidgetFrame`, `diffFrames`,
-`renderFrame`, widgets, themes, and `createTerminalHarness`.
+`renderFramePlain`, `renderFrameAnsi`, `renderFrameDebug`, `renderDiffAnsi`,
+widgets, themes, and `createTerminalHarness`.
 
 Host adapters cover Node, Deno, Bun, memory-backed tests, and explicit
 caller-managed PTY-style streams.
@@ -62,7 +63,7 @@ await runTui(app);
 Layout and styled widgets:
 
 ```ts
-import { renderFrame, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
+import { renderFramePlain, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
 import { row, richText, stack, statusBar } from '@ismail-elkorchi/terminal-ui/widgets';
 
 const frame = renderWidgetFrame(stack([
@@ -73,7 +74,7 @@ const frame = renderWidgetFrame(stack([
   ])
 ]), { columns: 40, rows: 4 });
 
-console.log(renderFrame(frame));
+console.log(renderFramePlain(frame));
 ```
 
 Custom widget:

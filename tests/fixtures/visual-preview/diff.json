@@ -1,0 +1,157 @@
+{
+  "fullRewrite": true,
+  "height": 8,
+  "operations": [
+    {
+      "bounds": {
+        "column": 1,
+        "height": 8,
+        "row": 1,
+        "width": 40
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 1,
+      "kind": "write",
+      "row": 1,
+      "spans": [
+        {
+          "text": "Visual fixture"
+        }
+      ]
+    },
+    {
+      "column": 1,
+      "kind": "write",
+      "row": 3,
+      "spans": [
+        {
+          "text": "Render "
+        },
+        {
+          "style": {
+            "bold": false,
+            "fg": {
+              "kind": "theme",
+              "token": "status.pending"
+            }
+          },
+          "text": "["
+        },
+        {
+          "style": {
+            "bold": false,
+            "fg": {
+              "kind": "theme",
+              "token": "status.running"
+            }
+          },
+          "text": "██████"
+        },
+        {
+          "style": {
+            "bold": false,
+            "fg": {
+              "kind": "theme",
+              "token": "status.pending"
+            }
+          },
+          "text": "░░░░]"
+        },
+        {
+          "text": " 3/5"
+        }
+      ]
+    },
+    {
+      "column": 1,
+      "kind": "write",
+      "row": 5,
+      "spans": [
+        {
+          "text": "  "
+        },
+        {
+          "style": {
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "text.strong"
+            }
+          },
+          "text": "Area"
+        },
+        {
+          "text": "        "
+        },
+        {
+          "style": {
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "text.strong"
+            }
+          },
+          "text": "State"
+        },
+        {
+          "text": "   "
+        }
+      ]
+    },
+    {
+      "column": 1,
+      "kind": "write",
+      "row": 6,
+      "spans": [
+        {
+          "text": "  Frame       stable  "
+        }
+      ]
+    },
+    {
+      "column": 1,
+      "kind": "write",
+      "row": 7,
+      "spans": [
+        {
+          "style": {
+            "bg": {
+              "kind": "theme",
+              "token": "selection.background"
+            },
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "selection.foreground"
+            }
+          },
+          "text": "› "
+        },
+        {
+          "text": "Diff        "
+        },
+        {
+          "style": {
+            "bg": {
+              "kind": "theme",
+              "token": "selection.background"
+            },
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "selection.foreground"
+            }
+          },
+          "text": "ready"
+        },
+        {
+          "text": "   "
+        }
+      ]
+    }
+  ],
+  "schemaVersion": "terminal-ui.render-diff.v1",
+  "width": 40
+}

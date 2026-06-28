@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { access, readFile } from 'node:fs/promises';
 import test from 'node:test';
+import ts from 'typescript';
 
 const requiredDocs = [
   'docs/index.md',
@@ -11,6 +12,8 @@ const requiredDocs = [
   'docs/guides/shell.md',
   'docs/guides/tui.md',
   'docs/guides/widgets.md',
+  'docs/guides/rendering-internals.md',
+  'docs/guides/building-polished-widgets.md',
   'docs/guides/themes.md',
   'docs/guides/custom-widgets.md',
   'docs/guides/layout.md',
@@ -68,3 +71,68 @@ test('documentation points to executable public examples and avoids workbench pa
   assert.equal(combined.includes('tse-workbench'), false);
   assert.equal(combined.includes('Documents/Projects'), false);
 });
+
+test('rendering documentation describes current architecture without deferred API names', async () => {
+  const rendering = await readFile(new URL('../../docs/guides/rendering-internals.md', import.meta.url), 'utf8');
+  const polished = await readFile(new URL('../../docs/guides/building-polished-widgets.md', import.meta.url), 'utf8');
+  const combined = `${rendering}\n${polished}`;
+
+  for (const term of [
+    'styled cells',
+    'RenderSpan',
+    'RenderBlock',
+    'FrameBuffer',
+    'diffFrames()',
+    'renderFrameAnsi()',
+    'renderDiffAnsi()',
+    'themes',
+    'symbols',
+    'layout',
+    'hit targets',
+    'focus targets',
+    'accessibility',
+    'snapshots',
+    'custom()',
+    'canvas()'
+  ]) {
+    assert.ok(combined.includes(term), term);
+  }
+
+  assert.equal(combined.includes('includeControlSequences'), false);
+  assert.equal(combined.includes('compatibility'), false);
+  assert.equal(combined.includes('P0.5'), false);
+});
+
+test('documentation TypeScript and JavaScript snippets compile', async () => {
+  const docs = [
+    'README.md',
+    ...requiredDocs
+  ];
+  for (const path of docs) {
+    const source = await readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
+    for (const snippet of codeSnippets(source)) {
+      const result = ts.transpileModule(snippet.code, {
+        compilerOptions: {
+          allowJs: snippet.language === 'js' || snippet.language === 'javascript',
+          isolatedModules: true,
+          module: ts.ModuleKind.ESNext,
+          moduleResolution: ts.ModuleResolutionKind.Bundler,
+          noEmitOnError: true,
+          strict: true,
+          target: ts.ScriptTarget.ES2024
+        },
+        fileName: `${path}.${snippet.language === 'ts' || snippet.language === 'typescript' ? 'ts' : 'js'}`,
+        reportDiagnostics: true
+      });
+      assert.deepEqual(result.diagnostics ?? [], [], `${path} ${snippet.language} snippet:\n${snippet.code}`);
+    }
+  }
+});
+
+function codeSnippets(source) {
+  return [...source.matchAll(/```(?<language>ts|typescript|js|javascript)\n(?<code>[\s\S]*?)```/gu)]
+    .map((match) => ({
+      language: match.groups?.language ?? 'ts',
+      code: match.groups?.code ?? ''
+    }));
+}

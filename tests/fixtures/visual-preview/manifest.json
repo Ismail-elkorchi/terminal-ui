@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "terminal-ui.visual-preview-fixtures.v1",
+  "source": "scripts/render-fixtures.mjs",
+  "generatedFrom": "terminal-ui.visual-snapshots.v1",
+  "files": [
+    "plain.txt",
+    "ansi.txt",
+    "frame.json",
+    "accessibility.json",
+    "diff.json",
+    "hit-targets.json",
+    "focus-targets.json",
+    "preview.html"
+  ]
+}

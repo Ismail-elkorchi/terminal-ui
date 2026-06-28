@@ -1,5 +1,5 @@
 import { toAccessibleSnapshot, validateAccessibleSnapshot } from '../accessibility/index.ts';
-import { diffFrames, renderDiffWithOptions, renderWidgetFrame } from './render.ts';
+import { diffFrames, renderDiffAnsi, renderWidgetFrame } from './render.ts';
 import { recordTuiFrame } from './transcript.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalHost, TerminalViewport } from '../host/index.ts';
@@ -33,7 +33,7 @@ export async function commitFrame(
   const capabilities = await host.getCapabilities();
   recordHostFrame(host, frame, diff);
   recordTuiFrame(transcript, frame, diff);
-  await host.write({ text: renderDiffWithOptions(diff, { capabilities, hyperlinks: true, ...(theme === undefined ? {} : { theme }) }) });
+  await host.write({ text: renderDiffAnsi(diff, { capabilities, hyperlinks: true, ...(theme === undefined ? {} : { theme }) }) });
   return diff;
 }
 

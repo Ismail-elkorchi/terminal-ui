@@ -34,11 +34,12 @@ class CellFrameBuffer implements FrameBuffer {
   readonly width: number;
   readonly height: number;
 
-  private readonly cells = new Map<string, FrameCell>();
+  private readonly cells: (FrameCell | undefined)[];
 
   constructor(width: number, height: number) {
     this.width = Math.max(0, Math.floor(width));
     this.height = Math.max(0, Math.floor(height));
+    this.cells = Array.from({ length: this.width * this.height });
   }
 
   write(row: number, column: number, spans: readonly RenderSpan[]): void {
@@ -109,7 +110,7 @@ class CellFrameBuffer implements FrameBuffer {
       schemaVersion: 'terminal-ui.tui-frame.v1',
       width: this.width,
       height: this.height,
-      cells: Object.freeze([...this.cells.values()].sort(compareFrameCells)),
+      cells: Object.freeze(this.snapshotCells()),
       accessibility,
       ...(options.hitTargets === undefined ? {} : { hitTargets: options.hitTargets }),
       ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
@@ -123,6 +124,17 @@ class CellFrameBuffer implements FrameBuffer {
 
   private containsCell(row: number, column: number): boolean {
     return this.containsRow(row) && Number.isInteger(column) && column >= 1 && column <= this.width;
+  }
+
+  private snapshotCells(): readonly FrameCell[] {
+    const output: FrameCell[] = [];
+    for (let row = 1; row <= this.height; row += 1) {
+      for (let column = 1; column <= this.width; column += 1) {
+        const cell = this.cellAt(row, column);
+        if (cell !== undefined) output.push(cell);
+      }
+    }
+    return output;
   }
 
   private writeGrapheme(
@@ -142,9 +154,9 @@ class CellFrameBuffer implements FrameBuffer {
       ...(cell.link === undefined ? {} : { link: cell.link }),
       ...(cell.source === undefined ? {} : { source: cell.source })
     };
-    this.cells.set(key(row, column), mainCell);
+    this.setCell(row, column, mainCell);
     for (let offset = 1; offset < cell.width; offset += 1) {
-      this.cells.set(key(row, column + offset), {
+      this.setCell(row, column + offset, {
         row,
         column: column + offset,
         text: '',
@@ -160,9 +172,9 @@ class CellFrameBuffer implements FrameBuffer {
   private appendCombining(row: number, nextColumn: number, text: string): void {
     const targetColumn = nextColumn - 1;
     if (!this.containsCell(row, targetColumn)) return;
-    const target = this.cells.get(key(row, targetColumn));
+    const target = this.cellAt(row, targetColumn);
     if (target === undefined || target.continuation === true) return;
-    this.cells.set(key(row, targetColumn), {
+    this.setCell(row, targetColumn, {
       ...target,
       text: `${target.text}${text}`
     });
@@ -170,12 +182,12 @@ class CellFrameBuffer implements FrameBuffer {
 
   private clearCellGroup(row: number, column: number): void {
     if (!this.containsCell(row, column)) return;
-    const current = this.cells.get(key(row, column));
+    const current = this.cellAt(row, column);
     if (current === undefined) return;
     if (current.continuation === true) {
       const owner = this.findWideOwner(row, column);
       if (owner !== undefined) this.deleteCellSpan(owner);
-      else this.cells.delete(key(row, column));
+      else this.deleteCell(row, column);
       return;
     }
     this.deleteCellSpan(current);
@@ -183,7 +195,7 @@ class CellFrameBuffer implements FrameBuffer {
 
   private findWideOwner(row: number, column: number): FrameCell | undefined {
     for (let candidateColumn = column - 1; candidateColumn >= 1; candidateColumn -= 1) {
-      const candidate = this.cells.get(key(row, candidateColumn));
+      const candidate = this.cellAt(row, candidateColumn);
       if (candidate === undefined) continue;
       if (candidate.continuation === true) continue;
       return candidate.column + candidate.width > column ? candidate : undefined;
@@ -194,15 +206,26 @@ class CellFrameBuffer implements FrameBuffer {
   private deleteCellSpan(cell: FrameCell): void {
     const width = Math.max(1, cell.width);
     for (let offset = 0; offset < width; offset += 1) {
-      this.cells.delete(key(cell.row, cell.column + offset));
+      this.deleteCell(cell.row, cell.column + offset);
     }
   }
-}
 
-function key(row: number, column: number): string {
-  return `${String(row)}:${String(column)}`;
-}
+  private cellAt(row: number, column: number): FrameCell | undefined {
+    if (!this.containsCell(row, column)) return undefined;
+    return this.cells[this.index(row, column)];
+  }
 
-function compareFrameCells(left: FrameCell, right: FrameCell): number {
-  return left.row - right.row || left.column - right.column;
+  private setCell(row: number, column: number, cell: FrameCell): void {
+    if (!this.containsCell(row, column)) return;
+    this.cells[this.index(row, column)] = cell;
+  }
+
+  private deleteCell(row: number, column: number): void {
+    if (!this.containsCell(row, column)) return;
+    this.cells[this.index(row, column)] = undefined;
+  }
+
+  private index(row: number, column: number): number {
+    return (row - 1) * this.width + column - 1;
+  }
 }

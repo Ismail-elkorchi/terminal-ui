@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
+const packageJson = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
+
 const entrypoints = [
   '.',
   './host',
@@ -23,6 +25,18 @@ test('all public entrypoints import from built package', async () => {
   for (const entrypoint of entrypoints) {
     const module = await import(`@ismail-elkorchi/terminal-ui${entrypoint === '.' ? '' : entrypoint.slice(1)}`);
     assert.equal(typeof module, 'object', entrypoint);
+  }
+});
+
+test('all declared public value exports exist at runtime', async () => {
+  for (const entrypoint of entrypoints) {
+    const exportConfig = packageJson.exports[entrypoint];
+    assert.equal(typeof exportConfig.types, 'string', entrypoint);
+    const declaration = await readFile(new URL(`../../${exportConfig.types}`, import.meta.url), 'utf8');
+    const module = await import(`@ismail-elkorchi/terminal-ui${entrypoint === '.' ? '' : entrypoint.slice(1)}`);
+    for (const exportName of declaredValueExports(declaration)) {
+      assert.ok(exportName in module, `${entrypoint} missing runtime export ${exportName}`);
+    }
   }
 });
 
@@ -57,9 +71,19 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.gridCellRects, 'function');
   assert.equal(typeof terminalUi.layoutWidget, 'function');
   assert.equal(typeof terminalUi.renderWidgetFrame, 'function');
+  assert.equal(typeof terminalUi.renderWidgetLayers, 'function');
+  assert.equal(typeof terminalUi.scrollbarLayout, 'function');
+  assert.equal(typeof terminalUi.renderScrollbars, 'function');
+  assert.equal(typeof terminalUi.spinnerReducer, 'function');
+  assert.equal(typeof terminalUi.nextSpinnerFrameIndex, 'function');
+  assert.equal(typeof terminalUi.normalizeSpinnerFrameIndex, 'function');
   assert.equal(typeof terminalUi.drawBorder, 'function');
+  assert.equal(typeof terminalUi.clipRenderSpans, 'function');
   assert.equal(typeof terminalUi.diffFrames, 'function');
-  assert.equal(typeof terminalUi.renderFrame, 'function');
+  assert.equal(typeof terminalUi.renderDiffAnsi, 'function');
+  assert.equal(typeof terminalUi.renderFrameAnsi, 'function');
+  assert.equal(typeof terminalUi.renderFrameDebug, 'function');
+  assert.equal(typeof terminalUi.renderFramePlain, 'function');
   assert.equal(typeof terminalUi.createPtyTerminalHarness, 'function');
   assert.equal(typeof terminalUi.createTerminalHarness, 'function');
   assert.equal(typeof terminalUi.createVisualSnapshot, 'function');
@@ -101,6 +125,8 @@ test('testing harness declaration exposes captured output', async () => {
 
 test('root declaration exposes primary public type contracts', async () => {
   const declaration = await readFile(new URL('../../dist/index.d.ts', import.meta.url), 'utf8');
+  const rendererDeclaration = await readFile(new URL('../../dist/tui/widget-renderer.d.ts', import.meta.url), 'utf8');
+  const borderDeclaration = await readFile(new URL('../../dist/tui/border.d.ts', import.meta.url), 'utf8');
   const publicTypes = [
     'InputEvent',
     'KeyEvent',
@@ -112,6 +138,9 @@ test('root declaration exposes primary public type contracts', async () => {
     'TuiNonTtyPolicy',
     'PaginationWindow',
     'TreeAction',
+    'SpinnerAction',
+    'SpinnerReducerOptions',
+    'SpinnerState',
     'TableColumn',
     'TerminalTheme',
     'ThemeToken',
@@ -128,6 +157,8 @@ test('root declaration exposes primary public type contracts', async () => {
     'GridLayoutOptions',
     'Widget',
     'WidgetKind',
+    'WidgetStyleSlots',
+    'WidgetVisualState',
     'CommandBarWidgetOptions',
     'CommandBarValidation',
     'CommandBarValidationTone',
@@ -177,6 +208,8 @@ test('root declaration exposes primary public type contracts', async () => {
     'TextAreaWidgetOptions',
     'TreeWidgetOptions',
     'PaginatorWidgetOptions',
+    'ProgressBarLabelPosition',
+    'ProgressBarMode',
     'HelpBarWidgetOptions',
     'ActivityIndicatorWidgetOptions',
     'SparklineWidgetOptions',
@@ -207,4 +240,40 @@ test('root declaration exposes primary public type contracts', async () => {
   for (const typeName of publicTypes) {
     assert.match(declaration, new RegExp(`\\b${typeName}\\b`, 'u'), typeName);
   }
+  assert.match(rendererDeclaration, /export interface FocusTarget \{/u);
+  assert.match(rendererDeclaration, /readonly id: string;/u);
+  assert.doesNotMatch(rendererDeclaration, /readonly id\?: string;/u);
+  assert.match(rendererDeclaration, /readonly scopeId\?: string;/u);
+  assert.match(rendererDeclaration, /readonly focused: boolean;/u);
+  assert.match(borderDeclaration, /readonly titleAlign\?: 'start' \| 'center' \| 'end';/u);
+  assert.match(borderDeclaration, /readonly focusStyle\?: TerminalStyle;/u);
 });
+
+function declaredValueExports(declaration) {
+  const names = new Set();
+  for (const match of declaration.matchAll(/export\s+\{(?<names>[^}]+)\}/gu)) {
+    for (const name of exportedNames(match.groups?.names ?? '')) {
+      names.add(name);
+    }
+  }
+  for (const match of declaration.matchAll(/export\s+\*\s+as\s+(?<name>[A-Za-z_$][\w$]*)\s+from/gu)) {
+    if (match.groups?.name !== undefined) names.add(match.groups.name);
+  }
+  for (const match of declaration.matchAll(/export\s+declare\s+(?:const|function|class)\s+(?<name>[A-Za-z_$][\w$]*)/gu)) {
+    if (match.groups?.name !== undefined) names.add(match.groups.name);
+  }
+  return [...names].sort((left, right) => left.localeCompare(right));
+}
+
+function exportedNames(source) {
+  return source
+    .split(',')
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0)
+    .filter((name) => !name.startsWith('type '))
+    .map((name) => name.replace(/^type\s+/u, ''))
+    .map((name) => {
+      const alias = /\s+as\s+(?<alias>[A-Za-z_$][\w$]*)$/u.exec(name);
+      return alias?.groups?.alias ?? name;
+    });
+}

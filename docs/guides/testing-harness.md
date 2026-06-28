@@ -22,6 +22,27 @@ mode state while still avoiding a mandatory native PTY dependency. When a PTY
 adapter is unavailable, it returns a typed diagnostic instead of skipping with
 ambient process state.
 
+Visual preview artifacts are generated from the same snapshot machinery used
+by tests. Run `npm run fixtures:update` to refresh
+`tests/fixtures/visual-preview`, which contains plain text, ANSI text,
+structured frame JSON, accessibility JSON, diff JSON, hit/focus target JSON,
+and an HTML preview. The fixture check recomputes those artifacts and fails
+when they drift, so documentation previews stay tied to stable renderer output
+instead of local terminal screenshots.
+
+Executable example output is fixture-backed as well. The same update command
+refreshes `tests/fixtures/example-output`, and `check:fixtures` reruns every
+public example against those fixtures. That keeps examples as reviewable
+visual/product regressions instead of smoke tests that only prove a process
+printed something.
+
+Renderer and widget regression tests should prove current public behavior:
+styled cells, spans, blocks, frame JSON, diffs, ANSI, focus targets, hit
+targets, accessibility, and bounded viewport cost. See
+[Rendering internals](./rendering-internals.md) and
+[Building polished widgets](./building-polished-widgets.md).
+
 Executable example:
 
 - `examples/testing/harness.mjs`
+- `examples/testing/visual-snapshots.mjs`

@@ -1,5 +1,6 @@
 import { clipTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { stringify } from './widget-props.ts';
+import { widgetStyle } from './widget-style.ts';
 import { visibleWindow, windowDescription } from './visible-window.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -39,11 +40,11 @@ export function treeBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): R
   const window = treeWindow(widget, rows, bounds.height, selected);
   if (rows.length === 0 && bounds.height > 0) {
     return {
-      lines: [{ spans: [{ text: emptyText(widget), style: mutedStyle() }] }]
+      lines: [{ spans: [styledSpan(emptyText(widget), widgetStyle(widget, 'placeholder'))] }]
     };
   }
   return {
-    lines: window.rows.map((row) => treeLine(row, selected, bounds.width, theme))
+    lines: window.rows.map((row) => treeLine(widget, row, selected, bounds.width, theme))
   };
 }
 
@@ -108,13 +109,13 @@ function reduceNode(node: TreeNode, action: TreeAction): TreeNode {
   return { ...base, expanded: false };
 }
 
-function treeLine(row: VisibleTreeNode, selected: string | undefined, width: number, theme: TerminalTheme): RenderLine {
+function treeLine(widget: Widget, row: VisibleTreeNode, selected: string | undefined, width: number, theme: TerminalTheme): RenderLine {
   const marker = row.node.id === selected ? theme.symbols.pointer : theme.symbols.unselected;
   const branch = branchSymbol(row.node, row.lazyPlaceholder === true, theme);
   const icon = row.node.icon === undefined ? '' : `${row.node.icon} `;
   const label = row.lazyPlaceholder === true ? 'Loading…' : row.node.label;
   const text = `${marker} ${'  '.repeat(row.depth)}${branch} ${icon}${label}`;
-  const style = treeNodeStyle(row);
+  const style = treeNodeStyle(widget, row, row.node.id === selected);
   return {
     spans: [{
       text: clipTextCells(text, Math.max(0, width), { ellipsis: '…' }).text,
@@ -129,15 +130,15 @@ function branchSymbol(node: TreeNode, lazyPlaceholder: boolean, theme: TerminalT
   return node.expanded === true ? theme.symbols.treeExpanded : theme.symbols.treeCollapsed;
 }
 
-function treeNodeStyle(row: VisibleTreeNode): TerminalStyle | undefined {
-  if (row.lazyPlaceholder === true || row.node.disabled === true) return mutedStyle();
+function treeNodeStyle(widget: Widget, row: VisibleTreeNode, selected: boolean): TerminalStyle | undefined {
+  if (row.lazyPlaceholder === true) return widgetStyle(widget, 'placeholder');
+  if (row.node.disabled === true) return widgetStyle(widget, 'value', 'disabled');
+  if (selected) return widgetStyle(widget, 'value', 'selected');
   return undefined;
 }
 
-function mutedStyle(): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: 'text.muted' }
-  };
+function styledSpan(text: string, style: TerminalStyle | undefined): RenderLine['spans'][number] {
+  return style === undefined ? { text } : { text, style };
 }
 
 function visibleTreeNodes(widget: Widget): readonly VisibleTreeNode[] {

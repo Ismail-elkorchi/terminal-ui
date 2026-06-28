@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { createTuiRuntime, defineTui, renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
+import { createTuiRuntime, defineTui, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import { contextMenu, dropdown, menu, menuBar, stack } from '../../dist/widgets/index.js';
 
 const enter = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
@@ -40,7 +40,7 @@ test('menu renders nested checked disabled items with menu accessibility', () =>
     items,
     selected: 'recent'
   }), { columns: 40, rows: 8 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.match(output, /New  N/u);
   assert.match(output, /▾ Open/u);
@@ -83,7 +83,7 @@ test('menuBar contextMenu and dropdown render reusable menu surfaces', () => {
   ]);
 
   const frame = renderWidgetFrame(widget, { columns: 44, rows: 13 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.match(output, /File  Edit/u);
   assert.match(output, /Actions/u);

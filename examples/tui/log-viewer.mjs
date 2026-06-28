@@ -1,4 +1,4 @@
-import { createScrollState, renderFrame, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
+import { createScrollState, renderFramePlain, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
 import { scrollback } from '@ismail-elkorchi/terminal-ui/widgets';
 
 const items = Array.from({ length: 12 }, (_value, index) => ({
@@ -15,4 +15,4 @@ const widget = scrollback({
   scroll: createScrollState({ contentRows: items.length, viewportRows: 5, offsetRow: 7 })
 });
 
-console.log(renderFrame(renderWidgetFrame(widget, { columns: 54, rows: 5 })));
+console.log(renderFramePlain(renderWidgetFrame(widget, { columns: 54, rows: 5 })));

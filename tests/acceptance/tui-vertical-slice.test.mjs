@@ -6,8 +6,8 @@ import {
   defineTui,
   diffFrames,
   layoutWidget,
-  renderDiff,
-  renderFrame,
+  renderDiffAnsi,
+  renderFramePlain,
   renderWidgetFrame,
   runTui
 } from '../../dist/tui/index.js';
@@ -54,7 +54,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.equal(frame.accessibility.root.id, 'root-box');
   assert.ok(frame.focusPath?.includes('action-field'));
 
-  const rendered = renderFrame(frame);
+  const rendered = renderFramePlain(frame);
   assert.match(rendered, /Terminal workbench/u);
   assert.match(rendered, /Left pane/u);
   assert.match(rendered, /Press enter/u);
@@ -65,12 +65,17 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   const diff = diffFrames(frame, submittedFrame);
   assert.equal(diff.schemaVersion, 'terminal-ui.render-diff.v1');
   assert.equal(diff.fullRewrite, false);
-  assert.ok(diff.operations.some((operation) => operation.kind === 'clearLine'));
+  assert.ok(diff.operations.every((operation) => operation.kind !== 'clearLine'));
+  assert.ok(diff.operations.some((operation) =>
+    operation.kind === 'clearRect'
+    && operation.bounds.row === 3
+    && operation.bounds.column > 1
+  ));
   assert.ok(diff.operations.some((operation) =>
     operation.kind === 'write'
     && operation.spans.some((span) => span.text.includes('Submitted'))
   ));
-  assert.ok(renderDiff(diff).includes('\u001B['));
+  assert.ok(renderDiffAnsi(diff).includes('\u001B['));
 
   const app = defineTui({
     id: 'vertical-slice-runtime',

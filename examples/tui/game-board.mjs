@@ -1,4 +1,4 @@
-import { renderFrame, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
+import { renderFramePlain, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
 import { canvas } from '@ismail-elkorchi/terminal-ui/widgets';
 
 const widget = canvas({
@@ -15,4 +15,4 @@ const widget = canvas({
   }
 });
 
-console.log(renderFrame(renderWidgetFrame(widget, { columns: 12, rows: 5 })));
+console.log(renderFramePlain(renderWidgetFrame(widget, { columns: 12, rows: 5 })));

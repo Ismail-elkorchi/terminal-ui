@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
-import { defineTheme } from '../../dist/theme/index.js';
-import { renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
+import { createCapabilities } from '../../dist/host/index.js';
+import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { defineTheme, highContrastTheme } from '../../dist/theme/index.js';
+import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import {
   absolute,
   activityFeed,
@@ -317,14 +319,12 @@ const cases = [
       id: 'canvas',
       label: unsafe,
       keyMap: { enter: { kind: 'enter' } },
-      mouseMap: { press: { kind: 'press' } },
       painter({ buffer, bounds }) {
         buffer.write(bounds.row, bounds.column, [renderSpan(unsafe, { style: { fg: { kind: 'theme', token: 'accent.primary' } } })]);
       }
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
-    expectHitTargets: true,
     expectStyledCells: true
   },
   {
@@ -575,8 +575,8 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
 for (const current of cases) {
   test(`${current.name} semantic snapshots expose frame ANSI accessibility sizing sanitization and theme behavior`, () => {
     const frame = renderWidgetFrame(current.widget(), viewportNormal);
-    const plain = renderFrame(frame);
-    const ansi = renderFrame(frame, { includeControlSequences: true });
+    const plain = renderFramePlain(frame);
+    const snapshot = createVisualSnapshot({ frame });
     const accessibilityJson = JSON.stringify(frame.accessibility);
 
     assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v1');
@@ -584,10 +584,10 @@ for (const current of cases) {
     assert.equal(frame.height, viewportNormal.rows);
     assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
     assert.match(plain, current.expectText);
-    assert.match(ansi, /\u001B\[/u);
     assert.doesNotMatch(plain, /\u001B/u);
     assert.doesNotMatch(accessibilityJson, /\u001B/u);
     assertCellsAreInsideFrame(frame);
+    assertWidgetVisualSnapshot(snapshot, current, viewportNormal, `${current.name} default`);
 
     if (current.expectStyledCells === true) {
       assert.equal(frame.cells.some((cell) => cell.style !== undefined), true);
@@ -610,12 +610,74 @@ for (const current of cases) {
     assert.equal(tiny.height, viewportTiny.rows);
     assert.equal(validateAccessibleSnapshot(tiny.accessibility).ok, true);
     assertCellsAreInsideFrame(tiny);
-    assert.doesNotMatch(renderFrame(tiny), /\u001B/u);
+    assert.doesNotMatch(renderFramePlain(tiny), /\u001B/u);
 
     const themedFrame = renderWidgetFrame(current.widget(), viewportNormal, { theme: themed });
     assert.equal(validateAccessibleSnapshot(themedFrame.accessibility).ok, true);
     assertCellsAreInsideFrame(themedFrame);
+
+    const highContrastFrame = renderWidgetFrame(current.widget(), viewportNormal, { theme: highContrastTheme });
+    assert.equal(validateAccessibleSnapshot(highContrastFrame.accessibility).ok, true);
+    assertCellsAreInsideFrame(highContrastFrame);
+    assertWidgetVisualSnapshot(
+      createVisualSnapshot({ frame: highContrastFrame, ansi: { capabilities: colorCapabilities(), theme: highContrastTheme } }),
+      current,
+      viewportNormal,
+      `${current.name} high contrast`
+    );
+
+    const noColorSnapshot = createVisualSnapshot({ frame, ansi: { capabilities: noColorCapabilities() } });
+    assertWidgetVisualSnapshot(noColorSnapshot, current, viewportNormal, `${current.name} no color`);
+    assert.doesNotMatch(noColorSnapshot.ansiFrame, /\\x1b\[[0-9;]*m/u, `${current.name} no-color snapshot should not emit SGR`);
   });
+}
+
+function assertWidgetVisualSnapshot(snapshot, current, viewport, label) {
+  const frameJson = JSON.parse(snapshot.frameJson);
+  const hitTargets = JSON.parse(snapshot.hitTargetJson);
+  const focusTargets = JSON.parse(snapshot.focusTargetJson);
+
+  assert.equal(snapshot.schemaVersion, 'terminal-ui.visual-snapshots.v1', `${label}: snapshot schema`);
+  assert.match(snapshot.plainTextFrame, current.expectText, `${label}: plain frame`);
+  assert.match(snapshot.ansiFrame, /\\x1b\[/u, `${label}: ANSI frame`);
+  assert.doesNotMatch(snapshot.ansiFrame, /\u001B/u, `${label}: raw ANSI leaked into normalized ANSI artifact`);
+  assert.doesNotMatch(snapshot.frameJson, /\u001B/u, `${label}: raw ANSI leaked into frame JSON`);
+  assert.doesNotMatch(snapshot.accessibilityJson, /\u001B/u, `${label}: raw ANSI leaked into accessibility JSON`);
+  assert.equal(frameJson.schemaVersion, 'terminal-ui.tui-frame.v1', `${label}: frame schema`);
+  assert.equal(frameJson.width, viewport.columns, `${label}: frame width`);
+  assert.equal(frameJson.height, viewport.rows, `${label}: frame height`);
+  assert.equal(Array.isArray(frameJson.cells), true, `${label}: frame cells`);
+  assert.equal(Array.isArray(hitTargets), true, `${label}: hit target artifact`);
+  assert.equal(Array.isArray(focusTargets.focusPath), true, `${label}: focus target artifact`);
+  assert.equal(Array.isArray(focusTargets.accessibilityFocusPath), true, `${label}: accessibility focus artifact`);
+  if (current.expectFocus === true) {
+    assert.equal(focusTargets.focusPath.length > 0, true, `${label}: focus path`);
+    assert.equal(focusTargets.accessibilityFocusPath.length > 0, true, `${label}: accessibility focus path`);
+  }
+  if (current.expectHitTargets === true) {
+    assert.equal(hitTargets.length > 0, true, `${label}: hit targets`);
+  }
+}
+
+function colorCapabilities() {
+  return createCapabilities({
+    runtime: 'memory',
+    inputIsTty: true,
+    outputIsTty: true,
+    rawInput: true
+  });
+}
+
+function noColorCapabilities() {
+  return {
+    ...colorCapabilities(),
+    color: {
+      depth: 0,
+      hasBasicColors: false,
+      has256Colors: false,
+      hasTrueColor: false
+    }
+  };
 }
 
 function assertCellsAreInsideFrame(frame) {

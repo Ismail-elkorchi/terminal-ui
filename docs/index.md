@@ -47,6 +47,8 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 - [Shells with cli-core](./guides/shell.md)
 - [TUI rendering](./guides/tui.md)
 - [Widgets](./guides/widgets.md)
+- [Rendering internals](./guides/rendering-internals.md)
+- [Building polished widgets](./guides/building-polished-widgets.md)
 - [Themes](./guides/themes.md)
 - [Custom widgets](./guides/custom-widgets.md)
 - [Layout](./guides/layout.md)

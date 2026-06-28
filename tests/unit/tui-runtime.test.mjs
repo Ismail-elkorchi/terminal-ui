@@ -13,12 +13,31 @@ import {
   createTuiRuntime,
   defineTui,
   diffFrames,
-  renderDiff,
-  renderFrame,
+  renderDiffAnsi,
+  renderFrameDebug,
+  renderFramePlain,
   renderWidgetFrame,
   runTui
 } from '../../dist/tui/index.js';
-import { box, custom, inputField, list, modal, progressBar, row, spinner, stack, statusBar, table, text, tree, viewport } from '../../dist/widgets/index.js';
+import {
+  box,
+  contextMenu,
+  custom,
+  dropdown,
+  inputField,
+  list,
+  modal,
+  progressBar,
+  row,
+  spinner,
+  stack,
+  statusBar,
+  table,
+  tabs,
+  text,
+  tree,
+  viewport
+} from '../../dist/widgets/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
 test('runTui emits deterministic transcripts when enabled', async () => {
@@ -48,20 +67,45 @@ test('runTui emits deterministic transcripts when enabled', async () => {
   assert.ok(exit.transcript?.steps.some((step) => step.kind === 'snapshot'));
 });
 
-test('renderFrame can emit cursor-addressed control-sequence output', () => {
+test('TUI tabs expose clickable tab hit targets', async () => {
+  const app = defineTui({
+    id: 'tabs-click-tui',
+    init: () => ({ selected: 'left' }),
+    update: (_state, message) => ({ state: { selected: message.selected } }),
+    view: (state) => tabs({
+      id: 'click-tabs',
+      selected: state.selected,
+      tabs: [
+        { id: 'left', label: 'Left', message: { selected: 'left' }, panel: text('left panel') },
+        { id: 'right', label: 'Right', message: { selected: 'right' }, panel: text('right panel') }
+      ]
+    })
+  });
+  const host = createMemoryTerminalHost({ viewport: { columns: 32, rows: 4 } });
+  const runtime = createTuiRuntime({ app, host });
+  const frame = await runtime.start();
+  const target = frame.hitTargets?.find((item) => item.id === 'click-tabs:tab:right');
+  assert.notEqual(target, undefined);
+
+  await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}M` });
+
+  assert.equal(runtime.getState()?.selected, 'right');
+});
+
+test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
   const frame = renderWidgetFrame(inputField({ id: 'addressed-field', value: 'Go' }), { columns: 8, rows: 2 });
-  const output = renderFrame(frame, { includeControlSequences: true });
+  const output = renderFrameDebug(frame);
 
   assert.match(output, /^\u001B\[1;1HG/u);
   assert.match(output, /\u001B\[1;2Ho/u);
   assert.match(output, /\u001B\[1;1H$/u);
-  assert.equal(renderFrame(frame), 'Go');
+  assert.equal(renderFramePlain(frame), 'Go');
 });
 
 test('TUI frame rendering positions wide graphemes by terminal cells', () => {
   const frame = renderWidgetFrame(text('A🙂B', { id: 'wide-text' }), { columns: 8, rows: 2 });
-  const output = renderFrame(frame);
-  const addressed = renderFrame(frame, { includeControlSequences: true });
+  const output = renderFramePlain(frame);
+  const addressed = renderFrameDebug(frame);
 
   assert.equal(output, 'A🙂B');
   assert.deepEqual(frame.cells.slice(0, 4).map((cell) => [cell.column, cell.text, cell.width, cell.continuation === true]), [
@@ -77,8 +121,8 @@ test('TUI frame rendering positions wide graphemes by terminal cells', () => {
 test('TUI frame cursor follows the selected visible list item', () => {
   const items = Array.from({ length: 10 }, (_value, index) => `Item ${index}`);
   const frame = renderWidgetFrame(list({ id: 'cursor-list', items, selected: 6 }), { columns: 16, rows: 5 });
-  const output = renderFrame(frame);
-  const addressed = renderFrame(frame, { includeControlSequences: true });
+  const output = renderFramePlain(frame);
+  const addressed = renderFrameDebug(frame);
 
   assert.deepEqual(frame.focusPath, ['cursor-list']);
   assert.deepEqual(frame.cursor, { row: 3, column: 1 });
@@ -93,13 +137,13 @@ test('TUI status, progress, and spinner widgets render accessible status state',
     progressBar({ id: 'pending', label: 'Waiting', indeterminate: true }),
     spinner({ id: 'spinner', label: 'Working' })
   ]), { columns: 32, rows: 8 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
   const [statusNode, progressNode, pendingNode, spinnerNode] = frame.accessibility.root.children;
 
   assert.match(output, /Ready/);
   assert.match(output, /Sync \[██████████\] 100\/100/);
   assert.match(output, /Waiting \[░░░░░░░░░░\]/);
-  assert.match(output, /Working \.\.\./);
+  assert.match(output, /⠋ Working/);
   assert.deepEqual([statusNode?.role, statusNode?.value], ['status', 'Ready']);
   assert.deepEqual([progressNode?.role, progressNode?.label, progressNode?.progress], [
     'progressbar',
@@ -111,24 +155,24 @@ test('TUI status, progress, and spinner widgets render accessible status state',
     'Waiting',
     { indeterminate: true }
   ]);
-  assert.deepEqual([spinnerNode?.role, spinnerNode?.value], ['status', 'Working']);
+  assert.deepEqual([spinnerNode?.role, spinnerNode?.value], ['status', 'Working (running)']);
   assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
 });
 
-test('renderDiff serializes clear, write, cursor, and visibility operations', () => {
+test('renderDiffAnsi serializes clear, write, cursor, and visibility operations', () => {
   const previous = renderWidgetFrame(text('Longer text', { id: 'before' }), { columns: 16, rows: 2 });
   const next = renderWidgetFrame(inputField({ id: 'after', value: 'Go' }), { columns: 16, rows: 2 });
   const diff = diffFrames(previous, next);
-  const output = renderDiff({
+  const output = renderDiffAnsi({
     ...diff,
     operations: [...diff.operations, { kind: 'showCursor', visible: false }]
   });
 
-  assert.ok(diff.operations.some((operation) => operation.kind === 'clearLine'));
+  assert.ok(diff.operations.some((operation) => operation.kind === 'clearRect'));
   assert.ok(diff.operations.some((operation) => operation.kind === 'write'));
   assert.ok(diff.operations.some((operation) => operation.kind === 'moveCursor'));
-  assert.match(output, /\u001B\[1;1H\u001B\[0K/u);
-  assert.match(output, /\u001B\[1;1HGo/u);
+  assert.match(output, /\u001B\[1;3H {9}/u);
+  assert.match(output, /\u001B\[1;1HG/u);
   assert.match(output, /\u001B\[\?25l$/u);
 });
 
@@ -230,7 +274,7 @@ test('runTui processes host input chunks until the app exits', async () => {
   assert.equal(harness.diffs()[0].schemaVersion, 'terminal-ui.render-diff.v1');
   assert.equal(harness.diffs()[0].fullRewrite, true);
   assert.equal(harness.diffs()[1].fullRewrite, false);
-  assert.match(renderFrame(harness.frames()[1]), /submitted/);
+  assert.match(renderFramePlain(harness.frames()[1]), /submitted/);
   assert.equal(harness.restores().length, 1);
   assert.equal(harness.host.stdin.isRawModeEnabled(), false);
 });
@@ -315,7 +359,7 @@ test('runTui re-renders when the host emits resize signals', async () => {
   assert.equal(exit.status, 'completed');
   assert.equal(harness.frames()[1].width, 12);
   assert.equal(harness.diffs()[1].fullRewrite, true);
-  assert.match(renderFrame(harness.frames()[1]), /columns:12/);
+  assert.match(renderFramePlain(harness.frames()[1]), /columns:12/);
   assert.equal(harness.restores().length, 1);
 });
 
@@ -376,7 +420,7 @@ test('TUI runtime dispatch updates state and records incremental render diffs', 
   assert.equal(harness.diffs().length, 2);
   assert.equal(harness.diffs()[0].fullRewrite, true);
   assert.equal(harness.diffs()[1].fullRewrite, false);
-  assert.match(renderFrame(runtime.frame()), /Count 2/);
+  assert.match(renderFramePlain(runtime.frame()), /Count 2/);
 });
 
 test('TUI runtime start returns the committed initial frame', async () => {
@@ -447,7 +491,7 @@ test('TUI runtime consumes async subscription sources without duplicate restarts
 
   assert.deepEqual(runtime.getState(), { count: 2 });
   assert.equal(starts, 1);
-  assert.match(renderFrame(runtime.frame()), /Count 2/);
+  assert.match(renderFramePlain(runtime.frame()), /Count 2/);
 });
 
 test('TUI runtime cancels subscription sources when they leave the definition', async () => {
@@ -482,7 +526,7 @@ test('TUI runtime cancels subscription sources when they leave the definition', 
 
   assert.equal(sourceSignal.aborted, true);
   assert.equal(disposeCount, 1);
-  assert.match(renderFrame(runtime.frame()), /disabled/);
+  assert.match(renderFramePlain(runtime.frame()), /disabled/);
 });
 
 test('TUI runtime serializes concurrent external dispatches', async () => {
@@ -556,7 +600,7 @@ test('TUI runtime queues context dispatch during initialization before first ren
 
   assert.deepEqual(runtime.getState(), { ready: true });
   assert.equal(harness.frames().length, 1);
-  assert.match(renderFrame(runtime.frame()), /ready/);
+  assert.match(renderFramePlain(runtime.frame()), /ready/);
 });
 
 test('TUI runtime queues context dispatch during updates before commit', async () => {
@@ -580,7 +624,7 @@ test('TUI runtime queues context dispatch during updates before commit', async (
 
   assert.deepEqual(runtime.getState(), { step: 2 });
   assert.equal(harness.frames().length, 2);
-  assert.match(renderFrame(runtime.frame()), /Step 2/);
+  assert.match(renderFramePlain(runtime.frame()), /Step 2/);
 });
 
 test('TUI runtime settles update commands before committing the next frame', async () => {
@@ -601,7 +645,7 @@ test('TUI runtime settles update commands before committing the next frame', asy
 
   assert.deepEqual(runtime.getState(), { count: 11 });
   assert.equal(harness.frames().length, 2);
-  assert.match(renderFrame(runtime.frame()), /Count 11/);
+  assert.match(renderFramePlain(runtime.frame()), /Count 11/);
 });
 
 test('TUI runtime resize re-renders against the memory host viewport', async () => {
@@ -620,7 +664,7 @@ test('TUI runtime resize re-renders against the memory host viewport', async () 
   assert.equal(runtime.frame().width, 12);
   assert.equal(harness.frames().length, 2);
   assert.equal(harness.diffs()[1].fullRewrite, true);
-  assert.match(renderFrame(runtime.frame()), /Wide label/);
+  assert.match(renderFramePlain(runtime.frame()), /Wide label/);
 });
 
 test('TUI runtime routes key events through focused widget keymaps', async () => {
@@ -648,7 +692,7 @@ test('TUI runtime routes key events through focused widget keymaps', async () =>
   assert.deepEqual(runtime.frame().focusPath, ['stack:1:1', 'second']);
   assert.equal(harness.frames().length, 4);
   assert.equal(harness.diffs()[0].fullRewrite, true);
-  assert.match(renderFrame(runtime.frame()), /second/);
+  assert.match(renderFramePlain(runtime.frame()), /second/);
 });
 
 test('TUI runtime lets focused widgets handle tab before focus traversal', async () => {
@@ -671,7 +715,7 @@ test('TUI runtime lets focused widgets handle tab before focus traversal', async
   assert.equal(handled.handled, true);
   assert.deepEqual(runtime.getState(), { active: 'accepted' });
   assert.deepEqual(runtime.frame().focusPath, focusBefore);
-  assert.match(renderFrame(runtime.frame()), /accepted/);
+  assert.match(renderFramePlain(runtime.frame()), /accepted/);
 });
 
 test('TUI runtime routes escape through focused widget keymaps', async () => {
@@ -703,7 +747,7 @@ test('TUI runtime routes escape through focused widget keymaps', async () => {
   assert.equal(handled.exit, undefined);
   assert.equal(runtime.exit(), undefined);
   assert.deepEqual(runtime.getState(), { active: 'closed' });
-  assert.match(renderFrame(runtime.frame()), /closed/);
+  assert.match(renderFramePlain(runtime.frame()), /closed/);
 });
 
 test('TUI runtime routes focused text and paste input through widget input maps', async () => {
@@ -730,7 +774,7 @@ test('TUI runtime routes focused text and paste input through widget input maps'
   assert.equal(typed.handled, true);
   assert.equal(pasted.handled, true);
   assert.deepEqual(runtime.getState(), { value: 'a[bc]' });
-  assert.match(renderFrame(runtime.frame()), /a\[bc\]/);
+  assert.match(renderFramePlain(runtime.frame()), /a\[bc\]/);
 });
 
 test('runTui accepts an initial focus path', async () => {
@@ -849,7 +893,7 @@ test('TUI runtime treats keyed container widgets as focusable controls', async (
   assert.deepEqual(runtime.frame().focusPath, ['stack:1:1', 'action']);
   assert.equal(action?.role, 'button');
   assert.equal(action?.focused, true);
-  assert.match(renderFrame(runtime.frame()), /Action action/);
+  assert.match(renderFramePlain(runtime.frame()), /Action action/);
 });
 
 test('TUI runtime traverses focus backward with shifted tab', async () => {
@@ -966,6 +1010,75 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
   assert.equal(popoverEnter.handled, true);
   assert.deepEqual(popoverRuntime.frame().focusPath, ['stack:1:1', 'popover', 'popover-field']);
   assert.deepEqual(popoverRuntime.getState(), { active: 'popover' });
+});
+
+test('TUI runtime focuses top-layer context menus and open dropdowns', async () => {
+  const contextMenuApp = defineTui({
+    id: 'context-menu-focus',
+    init: () => ({ active: 'idle' }),
+    update: (_state, message) => ({ state: { active: message.active } }),
+    view: (state) => box([
+      inputField({ id: 'page-field', value: state.active, keyMap: { enter: { active: 'page' } } }),
+      contextMenu({
+        id: 'actions-menu',
+        title: 'Actions',
+        selected: 'copy',
+        zIndex: 10,
+        items: [
+          { id: 'copy', label: 'Copy', message: { active: 'context-menu' } },
+          { id: 'paste', label: 'Paste', message: { active: 'paste' } }
+        ]
+      })
+    ], {
+      id: 'context-menu-root',
+      border: { kind: 'none' }
+    })
+  });
+  const contextMenuRuntime = createTuiRuntime({
+    app: contextMenuApp,
+    host: createTerminalHarness({ viewport: { columns: 24, rows: 5 } }).host
+  });
+
+  await contextMenuRuntime.start();
+  const contextResult = await contextMenuRuntime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.equal(contextResult.handled, true);
+  assert.deepEqual(contextMenuRuntime.frame().focusPath, ['context-menu-root', 'actions-menu']);
+  assert.deepEqual(contextMenuRuntime.getState(), { active: 'context-menu' });
+
+  const dropdownApp = defineTui({
+    id: 'dropdown-focus',
+    init: () => ({ active: 'idle' }),
+    update: (_state, message) => ({ state: { active: message.active } }),
+    view: (state) => box([
+      inputField({ id: 'page-field', value: state.active, keyMap: { enter: { active: 'page' } } }),
+      dropdown({
+        id: 'theme-dropdown',
+        label: 'Theme',
+        selected: 'dark',
+        open: true,
+        zIndex: 10,
+        items: [
+          { id: 'light', label: 'Light', message: { active: 'light' } },
+          { id: 'dark', label: 'Dark', message: { active: 'dropdown' } }
+        ]
+      })
+    ], {
+      id: 'dropdown-root',
+      border: { kind: 'none' }
+    })
+  });
+  const dropdownRuntime = createTuiRuntime({
+    app: dropdownApp,
+    host: createTerminalHarness({ viewport: { columns: 24, rows: 5 } }).host
+  });
+
+  await dropdownRuntime.start();
+  const dropdownResult = await dropdownRuntime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.equal(dropdownResult.handled, true);
+  assert.deepEqual(dropdownRuntime.frame().focusPath, ['dropdown-root', 'theme-dropdown']);
+  assert.deepEqual(dropdownRuntime.getState(), { active: 'dropdown' });
 });
 
 test('TUI runtime traverses multiple custom focus targets within one widget', async () => {
@@ -1089,7 +1202,7 @@ test('TUI runtime uses app-level accessibility descriptions for frames and exits
   const running = runTui(app, harness.host);
 
   await waitUntil(() => harness.frames().length === 1);
-  assert.match(renderFrame(harness.frames()[0]), /ready/);
+  assert.match(renderFramePlain(harness.frames()[0]), /ready/);
   assert.equal(harness.frames()[0].accessibility.title, 'Custom accessibility');
   assert.equal(harness.frames()[0].accessibility.root.id, 'custom-root');
   assert.equal(harness.frames()[0].accessibility.root.label, 'Accessible ready');
@@ -1137,7 +1250,7 @@ test('TUI rendering windows large list and table widgets to visible height', () 
     list({ id: 'many-items', items: manyItems, selected: 990 }),
     table({ id: 'many-rows', rows: manyItems.map((item) => [item, 'value']) })
   ]), { columns: 24, rows: 8 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
   const listNode = frame.accessibility.root.children[0];
   const tableNode = frame.accessibility.root.children[1];
 
@@ -1161,7 +1274,7 @@ test('viewport widgets render a clipped scrolled window into child content', () 
       contentColumns: 8
     }
   ), { columns: 5, rows: 2 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.equal(output, 'w-1\nw-2');
   assert.equal(frame.cells.length, 6);
@@ -1179,7 +1292,7 @@ test('viewport widgets keep offscreen content from leaking into neighboring layo
     ),
     text('right', { id: 'right-content' })
   ]), { columns: 12, rows: 1 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.match(output, /^left-2right$/u);
   assert.doesNotMatch(output, /left-0|left-1/u);
@@ -1242,7 +1355,7 @@ test('TUI runtime decodes input chunks before routing them', async () => {
   assert.equal(results.length, 1);
   assert.equal(results[0].handled, true);
   assert.deepEqual(runtime.getState(), { committed: true });
-  assert.match(renderFrame(runtime.frame()), /committed/);
+  assert.match(renderFramePlain(runtime.frame()), /committed/);
 });
 
 test('TUI runtime buffers split input chunks before routing them', async () => {
@@ -1268,7 +1381,7 @@ test('TUI runtime buffers split input chunks before routing them', async () => {
   assert.equal(second[0]?.handled, false);
   assert.equal(second[1]?.handled, true);
   assert.deepEqual(runtime.getState(), { committed: true });
-  assert.match(renderFrame(runtime.frame()), /committed/);
+  assert.match(renderFramePlain(runtime.frame()), /committed/);
 });
 
 test('TUI runtime ignores non-command paste, focus, and mouse events without corrupting state', async () => {
@@ -1305,7 +1418,7 @@ test('TUI runtime routes mouse events to widgets under the pointer', async () =>
     view: (state) => inputField({
       id: 'mouse-field',
       value: state.clicked ? 'clicked' : 'idle',
-      mouseMap: { press: { clicked: true } }
+      message: { clicked: true }
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -1313,7 +1426,7 @@ test('TUI runtime routes mouse events to widgets under the pointer', async () =>
 
   await runtime.start();
   assert.deepEqual(runtime.frame().hitTargets?.[0], {
-    id: 'mouse-field:mouse:press',
+    id: 'mouse-field:input',
     bounds: { row: 1, column: 1, width: 20, height: 3 },
     cursor: 'pointer',
     zIndex: 0
@@ -1322,7 +1435,7 @@ test('TUI runtime routes mouse events to widgets under the pointer', async () =>
 
   assert.equal(result[0]?.handled, true);
   assert.deepEqual(runtime.getState(), { clicked: true });
-  assert.match(renderFrame(runtime.frame()), /clicked/);
+  assert.match(renderFramePlain(runtime.frame()), /clicked/);
 });
 
 test('TUI runtime routes tree row hit targets to node messages', async () => {
@@ -1347,7 +1460,7 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
 
   assert.equal(result[0]?.handled, true);
   assert.deepEqual(runtime.getState(), { selected: 'child' });
-  assert.match(renderFrame(runtime.frame()), /Child/);
+  assert.match(renderFramePlain(runtime.frame()), /Child/);
 });
 
 test('TUI runtime routes overlapping mouse events to the topmost layer', async () => {
@@ -1360,13 +1473,13 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
         id: 'lower-mouse-field',
         value: 'lower',
         zIndex: 0,
-        mouseMap: { press: { clicked: 'lower' } }
+        message: { clicked: 'lower' }
       }),
       inputField({
         id: 'upper-mouse-field',
         value: 'upper',
         zIndex: 20,
-        mouseMap: { press: { clicked: 'upper' } }
+        message: { clicked: 'upper' }
       })
     ], {
       id: 'mouse-layer-root',
@@ -1378,8 +1491,8 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
 
   await runtime.start();
   assert.deepEqual(runtime.frame().hitTargets?.map((target) => [target.id, target.zIndex]), [
-    ['lower-mouse-field:mouse:press', 0],
-    ['upper-mouse-field:mouse:press', 20]
+    ['lower-mouse-field:input', 0],
+    ['upper-mouse-field:input', 20]
   ]);
   const result = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
 

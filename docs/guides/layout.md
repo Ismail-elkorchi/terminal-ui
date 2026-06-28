@@ -24,6 +24,9 @@ the buffer handles clipping, wide glyphs, overwrite behavior, and source
 metadata. Diffs and ANSI serialization operate on frames rather than on widget
 objects.
 
+See [Rendering internals](./rendering-internals.md) for the frame, diff, and
+serialization pipeline that consumes layout output.
+
 Executable examples:
 
 - `examples/tui/render-frame.mjs`

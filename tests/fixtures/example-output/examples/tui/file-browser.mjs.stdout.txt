@@ -1,0 +1,6 @@
+  ▾ project
+›   ▾ src
+        index.ts
+    ▸ docs
+
+2 folders, 2 files

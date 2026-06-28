@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
+import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import { barChart, chart, sparkline } from '../../dist/widgets/index.js';
 
 test('sparkline renders bounded numeric points', () => {
@@ -10,7 +10,7 @@ test('sparkline renders bounded numeric points', () => {
     values: [0, 1, 2, 3]
   }), { columns: 8, rows: 1 });
 
-  assert.equal(renderFrame(frame), '▁▃▆█');
+  assert.equal(renderFramePlain(frame), '▁▃▆█');
   assert.equal(frame.accessibility.root.description, '4 sparkline points.');
 });
 
@@ -25,7 +25,7 @@ test('barChart windows visible bars and exposes selected accessibility', () => {
     ]
   }), { columns: 20, rows: 2 });
 
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
   assert.match(output, /B/u);
   assert.match(output, /› C/u);
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
@@ -37,7 +37,7 @@ test('chart plots series into a bounded text canvas', () => {
     series: [{ id: 'one', points: [0, 2, 1, 3] }]
   }), { columns: 4, rows: 4 });
 
-  assert.match(renderFrame(frame), /\*/u);
+  assert.match(renderFramePlain(frame), /\*/u);
   assert.equal(frame.accessibility.root.description, '1 chart series.');
   assert.ok(frame.cells.length <= 16);
 });

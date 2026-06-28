@@ -1,6 +1,23 @@
 import { layoutWidget } from './layout.ts';
 import { drawBorder } from './border.ts';
-import { createFrameBuffer, diffFrames, renderDiff, renderDiffWithOptions, renderFrame, renderWidgetFrame } from './render.ts';
+import {
+  createFrameBuffer,
+  clipRenderSpans,
+  diffFrames,
+  renderDiffAnsi,
+  renderFrameAnsi,
+  renderFrameDebug,
+  renderFramePlain,
+  renderWidgetFrame,
+  renderWidgetLayers,
+  sameFrameCell,
+  sameFrameCellSource,
+  serializeRenderSpansStateful,
+  sameTerminalColor,
+  sameTerminalLink,
+  sameTerminalStyle
+} from './render.ts';
+import type { RenderLayer } from './render.ts';
 import type { BorderStyle } from './border.ts';
 import type {
   CommandBarAction,
@@ -24,6 +41,18 @@ import type {
   ScreenStackAction
 } from './regions.ts';
 import type { CreateScrollStateInput, ScrollAction, ScrollState, ScrollVisibleWindow } from './scroll.ts';
+import type {
+  ScrollbarLayout,
+  ScrollbarOptions,
+  ScrollbarState,
+  ScrollbarThumb,
+  ScrollbarTrack
+} from './scrollbar.ts';
+import type {
+  SpinnerAction,
+  SpinnerReducerOptions,
+  SpinnerState
+} from './spinner.ts';
 import type { TreeAction } from './tree.ts';
 import type {
   FocusTarget,
@@ -44,14 +73,15 @@ import type {
   ScrollbackWindow
 } from './scrollback.ts';
 import type {
+  AnsiStyleState,
   CursorPosition,
   Frame,
   FrameCell,
   FrameBuffer,
   FrameCellSource,
   FrameHitTarget,
+  FrameRowDiff,
   RenderDiff,
-  RenderFrameOptions,
   RenderBlock,
   RenderLine,
   RenderOperation,
@@ -64,18 +94,20 @@ import type {
 
 export type {
   CursorPosition,
+  AnsiStyleState,
   FocusPath,
   Frame,
   FrameCell,
   FrameBuffer,
   FrameCellSource,
   FrameHitTarget,
+  FrameRowDiff,
   Layer,
   LayoutNode,
   Rect,
   RenderBlock,
   RenderDiff,
-  RenderFrameOptions,
+  RenderLayer,
   RenderLine,
   RenderOperation,
   RenderSerializeOptions,
@@ -105,6 +137,14 @@ export type {
   ScrollAction,
   ScrollState,
   ScrollVisibleWindow,
+  ScrollbarLayout,
+  ScrollbarOptions,
+  ScrollbarState,
+  ScrollbarThumb,
+  ScrollbarTrack,
+  SpinnerAction,
+  SpinnerReducerOptions,
+  SpinnerState,
   ExtractScrollbackSelectionTextInput,
   ScrollbackTextSegment,
   ScrollbackVisibleRow,
@@ -121,12 +161,32 @@ export type {
   WidgetRenderer,
   WidgetRenderInput
 };
-export { createFrameBuffer, diffFrames, drawBorder, layoutWidget, renderDiff, renderDiffWithOptions, renderFrame, renderWidgetFrame };
+export {
+  createFrameBuffer,
+  clipRenderSpans,
+  diffFrames,
+  drawBorder,
+  layoutWidget,
+  renderDiffAnsi,
+  renderFrameAnsi,
+  renderFrameDebug,
+  renderFramePlain,
+  renderWidgetFrame,
+  renderWidgetLayers,
+  sameFrameCell,
+  sameFrameCellSource,
+  serializeRenderSpansStateful,
+  sameTerminalColor,
+  sameTerminalLink,
+  sameTerminalStyle
+};
 export { commandBarReducer } from './command-surface.ts';
 export { filterPaletteEntries, paletteWindow } from './palette.ts';
 export { paginationWindow } from './pagination.ts';
 export { activeScreen, gridCellRects, screenStackReducer, splitTracks } from './regions.ts';
 export { createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll } from './scroll.ts';
+export { renderScrollbars, scrollbarLayout } from './scrollbar.ts';
+export { nextSpinnerFrameIndex, normalizeSpinnerFrameIndex, spinnerReducer } from './spinner.ts';
 export { extractScrollbackSelectionText, scrollbackWindow } from './scrollback.ts';
 export { treeReducer } from './tree.ts';
 export { defineTui } from './definition.ts';

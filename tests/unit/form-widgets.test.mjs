@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { createTuiRuntime, defineTui, renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
+import { createTuiRuntime, defineTui, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import {
   button,
   checkbox,
@@ -77,7 +77,7 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
   });
 
   const frame = renderWidgetFrame(widget, { columns: 48, rows: 24 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.match(output, /Setup/u);
   assert.match(output, /Name \*/u);
@@ -178,6 +178,6 @@ test('form controls emit submit and cancel messages while app state owns values'
 
   assert.equal(submit.state.result, 'submit');
   assert.equal(cancel.state.result, 'cancel');
-  assert.equal(renderFrame(submit.frame).includes('submit'), true);
-  assert.equal(renderFrame(cancel.frame).includes('cancel'), true);
+  assert.equal(renderFramePlain(submit.frame).includes('submit'), true);
+  assert.equal(renderFramePlain(cancel.frame).includes('cancel'), true);
 });

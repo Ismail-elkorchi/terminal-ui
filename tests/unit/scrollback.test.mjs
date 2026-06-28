@@ -5,7 +5,7 @@ import {
   createScrollState,
   extractScrollbackSelectionText,
   layoutWidget,
-  renderFrame,
+  renderFramePlain,
   renderWidgetFrame,
   scrollbackWindow
 } from '../../dist/tui/index.js';
@@ -18,7 +18,7 @@ function item(index, text = `Row ${index}`) {
 test('scrollback follows the tail by default and marks omitted earlier rows', () => {
   const items = Array.from({ length: 20 }, (_value, index) => item(index));
   const frame = renderWidgetFrame(scrollback({ id: 'log', items }), { columns: 36, rows: 4 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.match(output, /\.\.\. 16 earlier rows omitted \.\.\./u);
   assert.match(output, /Row 17/u);
@@ -36,7 +36,7 @@ test('scrollback accepts explicit scroll state and marks omitted later rows', ()
     items,
     scroll: createScrollState({ offsetRow: 0, contentRows: 10, viewportRows: 3 })
   }), { columns: 36, rows: 3 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.match(output, /Row 0/u);
   assert.match(output, /Row 1/u);
@@ -50,7 +50,7 @@ test('scrollback sanitizes terminal control sequences before rendering and acces
     id: 'safe-log',
     items: [item(0, 'safe \u001B[31mred\u001B[0m text')]
   }), { columns: 40, rows: 2 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.equal(output, 'safe red text');
   assert.equal(frame.accessibility.root.children?.[0]?.value, 'safe red text');
@@ -75,7 +75,7 @@ test('scrollback renders timestamp metadata and item style through visible rows'
   assert.equal(window.rows[0]?.text, '[10:30] source=worker status=ok Zulu');
   assert.equal(window.rows[0]?.timestamp, '[10:30]');
   assert.deepEqual(window.rows[0]?.metadata, { source: 'worker', status: 'ok' });
-  assert.equal(renderFrame(frame), '[10:30] source=worker status=ok Zulu');
+  assert.equal(renderFramePlain(frame), '[10:30] source=worker status=ok Zulu');
   assert.deepEqual(styledCell?.style, { fg: { kind: 'theme', token: 'status.success' }, bold: true });
   assert.equal(frame.accessibility.root.children?.[0]?.value, '[10:30] source=worker status=ok Zulu');
 });
@@ -87,7 +87,7 @@ test('scrollback wraps visible rows when requested', () => {
     wrap: true
   }), { columns: 3, rows: 3 });
 
-  assert.equal(renderFrame(frame), 'abc\ndef');
+  assert.equal(renderFramePlain(frame), 'abc\ndef');
   assert.equal(frame.accessibility.root.description, 'Showing 1-2 of 2 scrollback rows. Omitted before: 0. Omitted after: 0.');
   assert.deepEqual(frame.accessibility.root.children?.map((node) => node.value), ['abc', 'def']);
 });
@@ -108,7 +108,7 @@ test('scrollback search navigates to the first match and exposes match segments'
       { text: ' row' }
     ]
   );
-  assert.match(renderFrame(frame), /needle row/u);
+  assert.match(renderFramePlain(frame), /needle row/u);
   assert.ok(frame.accessibility.root.children?.some((node) => node.description === 'Search match.'));
   assert.equal(
     frame.accessibility.root.description,

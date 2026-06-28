@@ -73,8 +73,13 @@ export interface TerminalSymbols {
   readonly statusSuccess: string;
   readonly progressFilled: string;
   readonly progressEmpty: string;
+  readonly spinnerFrames: readonly string[];
   readonly collapsed: string;
   readonly expanded: string;
+  readonly scrollbarVerticalTrack: string;
+  readonly scrollbarVerticalThumb: string;
+  readonly scrollbarHorizontalTrack: string;
+  readonly scrollbarHorizontalThumb: string;
 }
 
 export interface TerminalSpacing {
@@ -116,8 +121,13 @@ export interface TerminalSymbolsDefinition {
   readonly statusSuccess?: string;
   readonly progressFilled?: string;
   readonly progressEmpty?: string;
+  readonly spinnerFrames?: readonly string[];
   readonly collapsed?: string;
   readonly expanded?: string;
+  readonly scrollbarVerticalTrack?: string;
+  readonly scrollbarVerticalThumb?: string;
+  readonly scrollbarHorizontalTrack?: string;
+  readonly scrollbarHorizontalThumb?: string;
 }
 
 export interface TerminalThemeDefinition {
@@ -145,8 +155,13 @@ export const asciiSymbols: TerminalSymbols = {
   statusSuccess: '+',
   progressFilled: '#',
   progressEmpty: '-',
+  spinnerFrames: ['-', '\\', '|', '/'],
   collapsed: '[+]',
-  expanded: '[-]'
+  expanded: '[-]',
+  scrollbarVerticalTrack: '|',
+  scrollbarVerticalThumb: '#',
+  scrollbarHorizontalTrack: '-',
+  scrollbarHorizontalThumb: '#'
 };
 
 export const unicodeSymbols: TerminalSymbols = {
@@ -167,8 +182,13 @@ export const unicodeSymbols: TerminalSymbols = {
   statusSuccess: '✓',
   progressFilled: '█',
   progressEmpty: '░',
+  spinnerFrames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
   collapsed: '[+]',
-  expanded: '[-]'
+  expanded: '[-]',
+  scrollbarVerticalTrack: '│',
+  scrollbarVerticalThumb: '█',
+  scrollbarHorizontalTrack: '─',
+  scrollbarHorizontalThumb: '█'
 };
 
 const modernColors = {
@@ -343,8 +363,13 @@ function mergeSymbols(base: TerminalSymbols, override: TerminalSymbolsDefinition
     statusSuccess: override.statusSuccess ?? base.statusSuccess,
     progressFilled: override.progressFilled ?? base.progressFilled,
     progressEmpty: override.progressEmpty ?? base.progressEmpty,
+    spinnerFrames: override.spinnerFrames ?? base.spinnerFrames,
     collapsed: override.collapsed ?? base.collapsed,
-    expanded: override.expanded ?? base.expanded
+    expanded: override.expanded ?? base.expanded,
+    scrollbarVerticalTrack: override.scrollbarVerticalTrack ?? base.scrollbarVerticalTrack,
+    scrollbarVerticalThumb: override.scrollbarVerticalThumb ?? base.scrollbarVerticalThumb,
+    scrollbarHorizontalTrack: override.scrollbarHorizontalTrack ?? base.scrollbarHorizontalTrack,
+    scrollbarHorizontalThumb: override.scrollbarHorizontalThumb ?? base.scrollbarHorizontalThumb
   });
 }
 
@@ -378,8 +403,13 @@ function sanitizeSymbols(symbols: TerminalSymbols): TerminalSymbols {
     statusSuccess: cleanSymbol(symbols.statusSuccess),
     progressFilled: cleanSymbol(symbols.progressFilled),
     progressEmpty: cleanSymbol(symbols.progressEmpty),
+    spinnerFrames: cleanSymbolList(symbols.spinnerFrames, asciiSymbols.spinnerFrames),
     collapsed: cleanSymbol(symbols.collapsed),
-    expanded: cleanSymbol(symbols.expanded)
+    expanded: cleanSymbol(symbols.expanded),
+    scrollbarVerticalTrack: cleanSymbol(symbols.scrollbarVerticalTrack),
+    scrollbarVerticalThumb: cleanSymbol(symbols.scrollbarVerticalThumb),
+    scrollbarHorizontalTrack: cleanSymbol(symbols.scrollbarHorizontalTrack),
+    scrollbarHorizontalThumb: cleanSymbol(symbols.scrollbarHorizontalThumb)
   };
 }
 
@@ -395,5 +425,10 @@ function sanitizeBorder(border: BorderGlyphSet): BorderGlyphSet {
 }
 
 function cleanSymbol(value: string): string {
-  return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
+  return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ') || '?';
+}
+
+function cleanSymbolList(values: readonly string[], fallback: readonly string[]): readonly string[] {
+  const cleaned = values.map(cleanSymbol).filter((value) => value.length > 0);
+  return Object.freeze(cleaned.length === 0 ? [...fallback] : cleaned);
 }

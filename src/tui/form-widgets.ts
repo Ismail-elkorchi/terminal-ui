@@ -1,5 +1,6 @@
 import { clipTextCells, measureTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { block, line, span } from './frame.ts';
+import { widgetStyle } from './widget-style.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -31,7 +32,7 @@ export function fieldContentBounds(widget: Widget, bounds: Rect): Rect {
 export function formBlock(widget: Widget, bounds: Rect): RenderBlock {
   const title = formTitle(widget);
   if (title.length === 0 || bounds.height <= 0) return block([]);
-  return block([line([span(clip(title, bounds.width), { style: strongStyle() })])]);
+  return block([line([styledSpan(clip(title, bounds.width), widgetStyle(widget, 'title'))])]);
 }
 
 export function fieldBlock(widget: Widget, bounds: Rect): RenderBlock {
@@ -43,13 +44,13 @@ export function fieldBlock(widget: Widget, bounds: Rect): RenderBlock {
 
 export function labelBlock(widget: Widget, bounds: Rect): RenderBlock {
   const text = labelText(widget);
-  return block([line([styledSpan(clip(text, bounds.width), widget.props['disabled'] === true ? mutedStyle() : undefined)])]);
+  return block([line([styledSpan(clip(text, bounds.width), widgetStyle(widget, 'label', widget.props['disabled'] === true ? 'disabled' : undefined))])]);
 }
 
-export function buttonBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function buttonBlock(widget: Widget, bounds: Rect, focused = false): RenderBlock {
   const label = clean(stringify(widget.props['label'])) || 'Button';
-  const style = widget.props['disabled'] === true ? mutedStyle() : focusableStyle();
-  return block([line([span(clip(`[ ${label} ]`, bounds.width), { style })])]);
+  const style = widgetStyle(widget, 'label', widget.props['disabled'] === true ? 'disabled' : focused ? 'focused' : undefined);
+  return block([line([styledSpan(clip(`[ ${label} ]`, bounds.width), style)])]);
 }
 
 export function checkboxBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
@@ -67,7 +68,7 @@ export function radioGroupBlock(widget: Widget, bounds: Rect, theme: TerminalThe
   const lines: RenderLine[] = [];
   const label = clean(stringify(widget.props['label']));
   if (label.length > 0) {
-    lines.push(line([span(clip(labelWithRequired(label, widget.props['required'] === true), bounds.width), { style: strongStyle() })]));
+    lines.push(line([styledSpan(clip(labelWithRequired(label, widget.props['required'] === true), bounds.width), widgetStyle(widget, 'label'))]));
   }
   const selected = selectedId(widget);
   for (const option of formOptions(widget)) {
@@ -86,10 +87,10 @@ export function selectBoxBlock(widget: Widget, bounds: Rect, theme: TerminalThem
   const value = selected?.label ?? placeholder;
   const prefix = label.length === 0 ? '' : `${labelWithRequired(label, widget.props['required'] === true)}: `;
   const style = widget.props['disabled'] === true
-    ? mutedStyle()
+    ? widgetStyle(widget, 'value', 'disabled')
     : selected === undefined
-      ? placeholderStyle()
-      : undefined;
+      ? widgetStyle(widget, 'placeholder')
+      : widgetStyle(widget, 'value');
   const rows = [
     line([styledSpan(clip(`${prefix}${value} ${theme.symbols.treeCollapsed}`, bounds.width), style)]),
     ...errorLines(widget, bounds.width)
@@ -97,12 +98,12 @@ export function selectBoxBlock(widget: Widget, bounds: Rect, theme: TerminalThem
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function textInputBlock(widget: Widget, bounds: Rect): RenderBlock {
-  return controlInputBlock(inputValue(widget), widget, bounds);
+export function textInputBlock(widget: Widget, bounds: Rect, focused = false): RenderBlock {
+  return controlInputBlock(inputValue(widget), widget, bounds, focused);
 }
 
-export function numberInputBlock(widget: Widget, bounds: Rect): RenderBlock {
-  return controlInputBlock(numberInputValue(widget), widget, bounds);
+export function numberInputBlock(widget: Widget, bounds: Rect, focused = false): RenderBlock {
+  return controlInputBlock(numberInputValue(widget), widget, bounds, focused);
 }
 
 export function formAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
@@ -262,14 +263,14 @@ export function optionHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rec
   });
 }
 
-function controlInputBlock(value: string, widget: Widget, bounds: Rect): RenderBlock {
+function controlInputBlock(value: string, widget: Widget, bounds: Rect, focused: boolean): RenderBlock {
   const placeholder = clean(stringify(widget.props['placeholder']));
   const displayValue = value.length === 0 && placeholder.length > 0 ? placeholder : value;
   const style = widget.props['disabled'] === true
-    ? mutedStyle()
+    ? widgetStyle(widget, 'value', 'disabled')
     : value.length === 0 && placeholder.length > 0
-      ? placeholderStyle()
-      : undefined;
+      ? widgetStyle(widget, 'placeholder')
+      : widgetStyle(widget, 'value', focused ? 'focused' : undefined);
   const rows = [
     line([styledSpan(clip(displayValue, bounds.width), style)]),
     ...errorLines(widget, bounds.width)
@@ -293,21 +294,25 @@ function inputAccessibleBase(widget: Widget, id: string, focused: boolean, value
 function fieldHeaderLines(widget: Widget): readonly { readonly text: string; readonly style?: TerminalStyle }[] {
   const rows: { readonly text: string; readonly style?: TerminalStyle }[] = [];
   const label = labelWithRequired(clean(stringify(widget.props['label'])), widget.props['required'] === true);
-  if (label.length > 0) rows.push({ text: label, style: widget.props['disabled'] === true ? mutedStyle() : strongStyle() });
+  if (label.length > 0) pushStyledRow(rows, label, widgetStyle(widget, 'label', widget.props['disabled'] === true ? 'disabled' : undefined));
   const description = clean(stringify(widget.props['description']));
-  if (description.length > 0) rows.push({ text: description, style: mutedStyle() });
+  if (description.length > 0) pushStyledRow(rows, description, widgetStyle(widget, 'value', 'disabled'));
   const error = clean(stringify(widget.props['error']));
-  if (error.length > 0) rows.push({ text: error, style: errorStyle() });
+  if (error.length > 0) pushStyledRow(rows, error, widgetStyle(widget, 'error', 'error'));
   return rows;
 }
 
 function errorLines(widget: Widget, width: number): readonly RenderLine[] {
   const error = clean(stringify(widget.props['error']));
-  return error.length === 0 ? [] : [line([span(clip(error, width), { style: errorStyle() })])];
+  return error.length === 0 ? [] : [line([styledSpan(clip(error, width), widgetStyle(widget, 'error', 'error'))])];
 }
 
 function styledSpan(text: string, style: TerminalStyle | undefined) {
   return style === undefined ? span(text) : span(text, { style });
+}
+
+function pushStyledRow(rows: { text: string; style?: TerminalStyle }[], text: string, style: TerminalStyle | undefined): void {
+  rows.push(style === undefined ? { text } : { text, style });
 }
 
 function fieldDescription(widget: Widget): string {
@@ -369,13 +374,13 @@ function optionMessageFactory<TMessage>(widget: Widget<TMessage>): ((option: For
 }
 
 function optionStyle(option: FormOption<unknown>, widget: Widget): TerminalStyle | undefined {
-  if (option.disabled === true || widget.props['disabled'] === true) return mutedStyle();
-  if (option.id === selectedId(widget)) return focusableStyle();
+  if (option.disabled === true || widget.props['disabled'] === true) return widgetStyle(widget, 'value', 'disabled');
+  if (option.id === selectedId(widget)) return widgetStyle(widget, 'value', 'selected');
   return undefined;
 }
 
 function controlStyle(widget: Widget): TerminalStyle | undefined {
-  return widget.props['disabled'] === true ? mutedStyle() : undefined;
+  return widget.props['disabled'] === true ? widgetStyle(widget, 'value', 'disabled') : undefined;
 }
 
 function inputValue(widget: Widget): string {
@@ -402,39 +407,6 @@ function clip(value: string, width: number): string {
 
 function clean(value: string): string {
   return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
-}
-
-function strongStyle(): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: 'text.strong' },
-    bold: true
-  };
-}
-
-function mutedStyle(): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: 'text.muted' }
-  };
-}
-
-function errorStyle(): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: 'status.error' }
-  };
-}
-
-function placeholderStyle(): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: 'input.placeholder' },
-    dim: true
-  };
-}
-
-function focusableStyle(): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: 'accent.primary' },
-    bold: true
-  };
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

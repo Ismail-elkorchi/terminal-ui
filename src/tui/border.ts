@@ -7,7 +7,9 @@ import type { Rect } from './layout.ts';
 export interface BorderStyle {
   readonly kind: 'none' | 'single' | 'double' | 'rounded' | 'heavy' | 'ascii';
   readonly title?: string;
+  readonly titleAlign?: 'start' | 'center' | 'end';
   readonly style?: TerminalStyle;
+  readonly focusStyle?: TerminalStyle;
 }
 
 interface BorderGlyphs {
@@ -31,11 +33,11 @@ export function drawBorder(
   const terminalStyle = style.style;
 
   if (bounds.height === 1) {
-    writeBorderText(buffer, bounds.row, bounds.column, horizontalLine(bounds.width, glyphs, 'top', style.title), terminalStyle);
+    writeBorderText(buffer, bounds.row, bounds.column, horizontalLine(bounds.width, glyphs, 'top', style.title, style.titleAlign), terminalStyle);
     return;
   }
 
-  writeBorderText(buffer, bounds.row, bounds.column, horizontalLine(bounds.width, glyphs, 'top', style.title), terminalStyle);
+  writeBorderText(buffer, bounds.row, bounds.column, horizontalLine(bounds.width, glyphs, 'top', style.title, style.titleAlign), terminalStyle);
   for (let row = bounds.row + 1; row < bounds.row + bounds.height - 1; row += 1) {
     writeBorderText(buffer, row, bounds.column, glyphs.vertical, terminalStyle);
     if (bounds.width > 1) {
@@ -55,7 +57,8 @@ function horizontalLine(
   width: number,
   glyphs: BorderGlyphs,
   position: 'top' | 'bottom',
-  title?: string
+  title?: string,
+  titleAlign: BorderStyle['titleAlign'] = 'start'
 ): string {
   if (width <= 1) return position === 'top' ? glyphs.topLeft : glyphs.bottomLeft;
   const left = position === 'top' ? glyphs.topLeft : glyphs.bottomLeft;
@@ -64,7 +67,10 @@ function horizontalLine(
   const base = `${left}${glyphs.horizontal.repeat(innerWidth)}${right}`;
   if (position === 'bottom' || title === undefined || title.length === 0 || innerWidth <= 0) return base;
   const clippedTitle = clipTextCells(` ${title} `, innerWidth);
-  return `${left}${clippedTitle.text}${glyphs.horizontal.repeat(Math.max(0, innerWidth - clippedTitle.cells))}${right}`;
+  const remaining = Math.max(0, innerWidth - clippedTitle.cells);
+  const before = titleAlign === 'end' ? remaining : titleAlign === 'center' ? Math.floor(remaining / 2) : 0;
+  const after = remaining - before;
+  return `${left}${glyphs.horizontal.repeat(before)}${clippedTitle.text}${glyphs.horizontal.repeat(after)}${right}`;
 }
 
 function glyphsForBorder(kind: Exclude<BorderStyle['kind'], 'none'>, theme: TerminalTheme): BorderGlyphs {

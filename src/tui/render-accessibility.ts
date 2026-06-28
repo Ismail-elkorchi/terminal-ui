@@ -95,9 +95,6 @@ function assertDecorativeWidgetIsNotInteractive(widget: Widget, node: LayoutNode
   if (widget.inputMap?.text !== undefined || widget.inputMap?.paste !== undefined) {
     throw new Error(`Decorative widget "${widget.id ?? widget.kind}" cannot define text input messages.`);
   }
-  if (widget.mouseMap !== undefined && Object.keys(widget.mouseMap).length > 0) {
-    throw new Error(`Decorative widget "${widget.id ?? widget.kind}" cannot define mouse messages.`);
-  }
   if (widget.custom?.renderer.hitTargets !== undefined || widgetFocusTargets(widget, node.bounds, theme).some((target) => !target.disabled)) {
     throw new Error(`Decorative widget "${widget.id ?? widget.kind}" cannot expose focus or hit targets.`);
   }

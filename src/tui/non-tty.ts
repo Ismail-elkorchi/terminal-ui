@@ -2,7 +2,7 @@ import { diagnostic } from '../diagnostics.ts';
 import { createTuiContext } from './context.ts';
 import { completedExitFromSnapshot } from './exit.ts';
 import { tuiSnapshot } from './lifecycle.ts';
-import { diffFrames, renderFrame } from './render.ts';
+import { diffFrames, renderFramePlain } from './render.ts';
 import { renderCurrentFrame } from './runtime-frame.ts';
 import { recordTuiFrame } from './transcript.ts';
 import type { TerminalHost, TerminalInputChunk } from '../host/index.ts';
@@ -47,7 +47,7 @@ export async function runTuiNonTty<TState, TMessage>(
     const frame = renderCurrentFrame(app, state, context, undefined, runtimeOptions(app, host, transcript));
     recordTuiFrame(transcript, frame, diffFrames(undefined, frame));
     if (policy.mode === 'last_frame' || policy.mode === 'line_fallback') {
-      await host.write({ text: `${renderFrame(frame)}\n` });
+      await host.write({ text: `${renderFramePlain(frame)}\n` });
     }
     await app.definition.onExit?.(state);
     return completedExitFromSnapshot(state, frame.accessibility, policy.mode);

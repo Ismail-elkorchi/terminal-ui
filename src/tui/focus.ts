@@ -11,6 +11,7 @@ export interface LayoutFocusTarget {
   readonly focusable: boolean;
   readonly disabled: boolean;
   readonly order?: number;
+  readonly scopeId?: string;
   readonly cursor?: {
     readonly row: number;
     readonly column: number;
@@ -102,7 +103,8 @@ function collectLayoutTargets(layout: LayoutNode, parentPath: FocusPath): readon
       focusable,
       disabled: target.disabled,
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
-      ...(target.order === undefined ? {} : { order: target.order })
+      ...(target.order === undefined ? {} : { order: target.order }),
+      ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId })
     };
   });
   return [
@@ -129,6 +131,7 @@ function collectWidgetFocusRegionTargets<TMessage>(
       disabled: target.disabled,
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
       ...(target.order === undefined ? {} : { order: target.order }),
+      ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId }),
       widget
     };
   });
@@ -172,8 +175,9 @@ function focusSegment(layout: LayoutNode): string {
   return layout.id ?? `${layout.kind}:${String(layout.bounds.row)}:${String(layout.bounds.column)}`;
 }
 
-function targetPath(basePath: FocusPath, id: string | undefined, index: number, count: number): FocusPath {
-  if (id !== undefined) return [...basePath, id];
+function targetPath(basePath: FocusPath, id: string, index: number, count: number): FocusPath {
+  if (id === 'self' && count === 1) return basePath;
+  if (id !== '') return [...basePath, id];
   return count > 1 ? [...basePath, `focus:${String(index)}`] : basePath;
 }
 

@@ -1,4 +1,4 @@
-import { renderFrame, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
+import { renderFramePlain, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
 import { helpBar, stack, textArea } from '@ismail-elkorchi/terminal-ui/widgets';
 
 const widget = stack([
@@ -16,4 +16,4 @@ const widget = stack([
   })
 ]);
 
-console.log(renderFrame(renderWidgetFrame(widget, { columns: 42, rows: 8 })));
+console.log(renderFramePlain(renderWidgetFrame(widget, { columns: 42, rows: 8 })));

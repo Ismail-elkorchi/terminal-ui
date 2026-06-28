@@ -1,0 +1,78 @@
+{
+  "diagnostics": [],
+  "focusPath": [],
+  "root": {
+    "children": [
+      {
+        "id": "status",
+        "label": "status",
+        "role": "status",
+        "value": "Visual fixture"
+      },
+      {
+        "id": "progress",
+        "label": "Render",
+        "progress": {
+          "max": 5,
+          "value": 3
+        },
+        "role": "progressbar"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "id": "metrics:row:0:cell:0",
+                "label": "Frame",
+                "role": "cell",
+                "selected": false,
+                "value": "Frame"
+              },
+              {
+                "id": "metrics:row:0:cell:1",
+                "label": "stable",
+                "role": "cell",
+                "selected": false,
+                "value": "stable"
+              }
+            ],
+            "id": "metrics:row:0",
+            "role": "row",
+            "selected": false
+          },
+          {
+            "children": [
+              {
+                "id": "metrics:row:1:cell:0",
+                "label": "Diff",
+                "role": "cell",
+                "selected": false,
+                "value": "Diff"
+              },
+              {
+                "id": "metrics:row:1:cell:1",
+                "label": "ready",
+                "role": "cell",
+                "selected": true,
+                "value": "ready"
+              }
+            ],
+            "id": "metrics:row:1",
+            "role": "row",
+            "selected": true
+          }
+        ],
+        "description": "Showing 1-2 of 2 rows.",
+        "id": "metrics",
+        "label": "metrics",
+        "role": "table"
+      }
+    ],
+    "id": "stack-1-1",
+    "label": "stack-1-1",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

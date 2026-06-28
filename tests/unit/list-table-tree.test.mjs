@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   createScrollState,
   paginationWindow,
-  renderFrame,
+  renderFramePlain,
   renderWidgetFrame,
   treeReducer
 } from '../../dist/tui/index.js';
@@ -19,7 +19,7 @@ test('list widget filters items and can use explicit shared scroll state', () =>
     scroll: createScrollState({ offsetRow: 1, contentRows: 4, viewportRows: 2 })
   }), { columns: 24, rows: 2 });
 
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
   assert.match(output, /bravo/u);
   assert.match(output, /charlie/u);
   assert.doesNotMatch(output, /alpha/u);
@@ -40,9 +40,9 @@ test('table widget renders constrained columns and selected rows', () => {
     ]
   }), { columns: 24, rows: 3 });
 
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
   assert.match(output, /Name   Val…/u);
-  assert.match(output, /› brav…  200/u);
+  assert.match(output, /› bravo  200/u);
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
 });
 
@@ -70,14 +70,14 @@ test('table supports scroll state column sizing styled renderers sort markers em
     ]
   }), { columns: 34, rows: 3 });
 
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
   const styledScore = frame.cells.find((cell) => cell.text === '2');
   const selectedScore = frame.cells.find((cell) => cell.text === '0' && cell.style?.bg?.token === 'selection.background');
 
   assert.match(output, /Name ↑/u);
   assert.doesNotMatch(output, /Hidden/u);
-  assert.match(output, /bravo…/u);
-  assert.match(output, /charli…/u);
+  assert.match(output, /bravo🙂/u);
+  assert.match(output, /charlie/u);
   assert.equal(styledScore?.style?.fg?.token, 'status.success');
   assert.equal(selectedScore?.style?.bg?.token, 'selection.background');
   assert.equal(frame.accessibility.root.children?.[1]?.children?.[1]?.selected, true);
@@ -91,8 +91,8 @@ test('table renders a styled empty state', () => {
     emptyText: 'No data'
   }), { columns: 24, rows: 3 });
 
-  assert.match(renderFrame(frame), /No data/u);
-  assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === 'N')?.style?.fg?.token, 'text.muted');
+  assert.match(renderFramePlain(frame), /No data/u);
+  assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === 'N')?.style?.fg?.token, 'input.placeholder');
 });
 
 test('table uses shared horizontal scroll state', () => {
@@ -115,7 +115,7 @@ test('table uses shared horizontal scroll state', () => {
     ]
   }), { columns: 16, rows: 2 });
 
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
   assert.doesNotMatch(output, /alpha/u);
   assert.match(output, /Second/u);
   assert.match(output, /beta/u);
@@ -132,7 +132,7 @@ test('treeReducer toggles nested expansion without mutating input nodes', () => 
 
   assert.equal(nodes[0]?.expanded, undefined);
   assert.equal(expanded[0]?.expanded, true);
-  assert.match(renderFrame(frame), /Child/u);
+  assert.match(renderFramePlain(frame), /Child/u);
 });
 
 test('tree filters through descendants and exposes selected disabled metadata-rich nodes', () => {
@@ -151,7 +151,7 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
     }]
   }), { columns: 32, rows: 4 });
 
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
   const disabledCell = frame.cells.find((cell) => cell.text === 'A');
 
   assert.match(output, /Workspace/u);
@@ -174,7 +174,7 @@ test('tree renders lazy placeholders and clips tiny viewports safely', () => {
     }]
   }), { columns: 14, rows: 2 });
 
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
   assert.match(output, /Very long…/u);
   assert.match(output, /Loading/u);
   assert.equal(frame.accessibility.root.children?.[1]?.disabled, true);

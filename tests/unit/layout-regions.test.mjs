@@ -7,12 +7,27 @@ import {
   drawBorder,
   gridCellRects,
   layoutWidget,
-  renderFrame,
+  renderFramePlain,
   renderWidgetFrame,
+  renderWidgetLayers,
   screenStackReducer,
   splitTracks
 } from '../../dist/tui/index.js';
-import { box, commandBar, grid, inputField, modal, splitPane, tabs, text } from '../../dist/widgets/index.js';
+import { defaultTheme } from '../../dist/theme/index.js';
+import {
+  box,
+  canvas,
+  commandBar,
+  contextMenu,
+  dropdown,
+  grid,
+  inputField,
+  modal,
+  splitPane,
+  table,
+  tabs,
+  text
+} from '../../dist/widgets/index.js';
 
 test('track helpers split fixed, percent, and fill regions deterministically', () => {
   assert.deepEqual(
@@ -83,6 +98,44 @@ test('grid and splitPane widgets lay out common app shells', () => {
   assert.deepEqual(layout.children[1]?.children[1]?.bounds, { row: 2, column: 11, width: 22, height: 5 });
   assert.deepEqual(layout.children[2]?.bounds, { row: 7, column: 1, width: 40, height: 1 });
   assert.deepEqual(layout.children[3]?.bounds, { row: 8, column: 1, width: 40, height: 1 });
+});
+
+test('splitPane content tracks use measured child width', () => {
+  const widget = splitPane([
+    text('measured', { id: 'measured' }),
+    text('remaining', { id: 'remaining' })
+  ], {
+    id: 'measured-pane',
+    direction: 'horizontal',
+    sizes: [{ kind: 'content' }, { kind: 'fill' }]
+  });
+
+  const layout = layoutWidget(widget, { columns: 20, rows: 3 });
+
+  assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 8, height: 3 });
+  assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 9, width: 12, height: 3 });
+});
+
+test('grid content rows and columns use measured child dimensions', () => {
+  const widget = grid([
+    text('wide-label', { id: 'wide-label' }),
+    text('two\nrows', { id: 'two-rows' }),
+    text('x', { id: 'x' }),
+    text('y', { id: 'y' })
+  ], {
+    id: 'measured-grid',
+    rows: [{ kind: 'content' }, { kind: 'fill' }],
+    columns: [{ kind: 'content' }, { kind: 'fill' }],
+    rowGap: 1,
+    columnGap: 1
+  });
+
+  const layout = layoutWidget(widget, { columns: 20, rows: 6 });
+
+  assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 10, height: 2 });
+  assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 12, width: 9, height: 2 });
+  assert.deepEqual(layout.children[2]?.bounds, { row: 4, column: 1, width: 10, height: 3 });
+  assert.deepEqual(layout.children[3]?.bounds, { row: 4, column: 12, width: 9, height: 3 });
 });
 
 test('layout flow options align, justify, and bound content regions', () => {
@@ -156,7 +209,7 @@ test('border model supports styled widget borders and borderless layout', () => 
     id: 'panel',
     border: { kind: 'double', title: 'Panel' }
   }), { columns: 14, rows: 4 });
-  const doubleOutput = renderFrame(doubleFrame);
+  const doubleOutput = renderFramePlain(doubleFrame);
 
   assert.match(doubleOutput, /╔ Panel/u);
   assert.match(doubleOutput, /╗/u);
@@ -171,7 +224,7 @@ test('border model supports styled widget borders and borderless layout', () => 
   const borderlessFrame = renderWidgetFrame(borderless, { columns: 8, rows: 2 });
 
   assert.deepEqual(borderlessLayout.children[0]?.bounds, { row: 1, column: 1, width: 8, height: 2 });
-  assert.equal(renderFrame(borderlessFrame), 'flush');
+  assert.equal(renderFramePlain(borderlessFrame), 'flush');
 });
 
 test('shared border renderer clips titles and supports tiny ascii borders', () => {
@@ -182,12 +235,65 @@ test('shared border renderer clips titles and supports tiny ascii borders', () =
   });
   const frame = buffer.snapshot();
 
-  assert.equal(renderFrame(frame).split('\n')[0], '+ Very +');
+  assert.equal(renderFramePlain(frame).split('\n')[0], '+ Very +');
 
   const tiny = createFrameBuffer(1, 1);
   drawBorder(tiny, { row: 1, column: 1, width: 1, height: 1 }, { kind: 'heavy' });
 
-  assert.equal(renderFrame(tiny.snapshot()), '┏');
+  assert.equal(renderFramePlain(tiny.snapshot()), '┏');
+});
+
+test('shared border renderer aligns titles and clips wide unicode safely', () => {
+  const centered = createFrameBuffer(12, 1);
+  drawBorder(centered, { row: 1, column: 1, width: 12, height: 1 }, {
+    kind: 'single',
+    title: 'Hi',
+    titleAlign: 'center'
+  }, defaultTheme);
+  const ended = createFrameBuffer(12, 1);
+  drawBorder(ended, { row: 1, column: 1, width: 12, height: 1 }, {
+    kind: 'single',
+    title: 'Hi',
+    titleAlign: 'end'
+  }, defaultTheme);
+  const wide = createFrameBuffer(6, 1);
+  drawBorder(wide, { row: 1, column: 1, width: 6, height: 1 }, {
+    kind: 'rounded',
+    title: '界界界',
+    titleAlign: 'center'
+  }, defaultTheme);
+
+  assert.equal(renderFramePlain(centered.snapshot()), '┌─── Hi ───┐');
+  assert.equal(renderFramePlain(ended.snapshot()), '┌────── Hi ┐');
+  assert.equal(renderFramePlain(wide.snapshot()), '╭ 界─╮');
+});
+
+test('focused bordered widgets use focus border style without changing layout', () => {
+  const frame = renderWidgetFrame(box(text('inside', { id: 'inside' }), {
+    id: 'focus-panel',
+    border: { kind: 'single', title: 'Panel' },
+    keyMap: { Enter: { kind: 'submit' } }
+  }), { columns: 12, rows: 3 });
+  const topLeft = frame.cells.find((cell) => cell.row === 1 && cell.column === 1);
+
+  assert.equal(renderFramePlain(frame).split('\n')[0], '┌ Panel ───┐');
+  assert.deepEqual(topLeft?.style?.fg, { kind: 'theme', token: 'focus.border' });
+});
+
+test('focused bordered widgets respect explicit focus style override', () => {
+  const frame = renderWidgetFrame(box(text('inside', { id: 'inside' }), {
+    id: 'focus-panel-custom',
+    border: {
+      kind: 'heavy',
+      title: 'Panel',
+      focusStyle: { fg: { kind: 'theme', token: 'status.warning' }, bold: true }
+    },
+    keyMap: { Enter: { kind: 'submit' } }
+  }), { columns: 12, rows: 3 });
+  const topLeft = frame.cells.find((cell) => cell.row === 1 && cell.column === 1);
+
+  assert.deepEqual(topLeft?.style?.fg, { kind: 'theme', token: 'status.warning' });
+  assert.equal(topLeft?.style?.bold, true);
 });
 
 test('layers render top z-index content last and hide invisible widgets', () => {
@@ -202,7 +308,7 @@ test('layers render top z-index content last and hide invisible widgets', () => 
 
   const layout = layoutWidget(widget, { columns: 12, rows: 2 });
   const frame = renderWidgetFrame(widget, { columns: 12, rows: 2 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.equal(layout.children[0]?.layer.zIndex, 0);
   assert.equal(layout.children[1]?.layer.zIndex, 5);
@@ -225,6 +331,119 @@ test('focus is scoped to the topmost visible focus layer', () => {
 
   assert.deepEqual(frame.focusPath, ['focus-root', 'upper-input']);
   assert.deepEqual(frame.cursor, { row: 1, column: 1 });
+});
+
+test('overlapping modal renders above lower layer content', () => {
+  const widget = box([
+    canvas({
+      id: 'modal-backdrop-canvas',
+      zIndex: 0,
+      painter({ buffer, bounds }) {
+        for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
+          buffer.write(row, bounds.column, [{ text: 'backdrop backdrop backdrop' }]);
+        }
+      }
+    }),
+    modal(text('front', { id: 'front' }), {
+      id: 'dialog-layer',
+      title: 'Dialog',
+      width: 14,
+      height: 5,
+      zIndex: 20
+    })
+  ], {
+    id: 'modal-layer-root',
+    border: { kind: 'none' }
+  });
+
+  const layers = renderWidgetLayers(widget, { columns: 24, rows: 7 });
+  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 24, rows: 7 }));
+
+  assert.deepEqual(layers.map((layer) => layer.zIndex), [0, 20]);
+  assert.equal(layers[0]?.cells.some((cell) => cell.text === 'b'), true);
+  assert.equal(layers[1]?.cells.some((cell) => cell.text === 'f'), true);
+  assert.match(output, /Dialog/u);
+  assert.match(output, /front/u);
+});
+
+test('dropdown renders above table content in a higher layer', () => {
+  const widget = box([
+    table({
+      id: 'settings-table',
+      zIndex: 0,
+      columns: [
+        { header: 'Name', width: 8 },
+        { header: 'Value', width: 8 }
+      ],
+      rows: [
+        ['Theme', 'System'],
+        ['Mode', 'Compact']
+      ]
+    }),
+    dropdown({
+      id: 'theme-dropdown-layer',
+      zIndex: 15,
+      label: 'Theme',
+      selected: 'dark',
+      open: true,
+      items: [
+        { id: 'light', label: 'Light', message: { kind: 'theme', value: 'light' } },
+        { id: 'dark', label: 'Dark', message: { kind: 'theme', value: 'dark' } }
+      ]
+    })
+  ], {
+    id: 'dropdown-layer-root',
+    border: { kind: 'none' }
+  });
+
+  const layers = renderWidgetLayers(widget, { columns: 28, rows: 5 });
+  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 28, rows: 5 }));
+  const firstLine = output.split('\n')[0] ?? '';
+
+  assert.deepEqual(layers.map((layer) => layer.zIndex), [0, 15]);
+  assert.equal(layers[0]?.cells.some((cell) => cell.text === 'N'), true);
+  assert.equal(layers[1]?.cells.some((cell) => cell.text === 'L'), true);
+  assert.match(firstLine, /^Theme: Dark/u);
+  assert.doesNotMatch(firstLine, /^Name/u);
+  assert.match(output, /Light/u);
+});
+
+test('context menu renders above canvas content in a higher layer', () => {
+  const widget = box([
+    canvas({
+      id: 'context-menu-canvas',
+      zIndex: 0,
+      painter({ buffer, bounds }) {
+        for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
+          buffer.write(row, bounds.column, [{ text: 'canvas canvas canvas' }]);
+        }
+      }
+    }),
+    contextMenu({
+      id: 'canvas-context-menu',
+      zIndex: 12,
+      title: 'Actions',
+      selected: 'copy',
+      items: [
+        { id: 'copy', label: 'Copy', message: { kind: 'copy' } },
+        { id: 'paste', label: 'Paste', message: { kind: 'paste' } }
+      ]
+    })
+  ], {
+    id: 'context-layer-root',
+    border: { kind: 'none' }
+  });
+
+  const layers = renderWidgetLayers(widget, { columns: 24, rows: 4 });
+  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 24, rows: 4 }));
+  const firstLine = output.split('\n')[0] ?? '';
+
+  assert.deepEqual(layers.map((layer) => layer.zIndex), [0, 12]);
+  assert.equal(layers[0]?.cells.some((cell) => cell.text === 'c'), true);
+  assert.equal(layers[1]?.cells.some((cell) => cell.text === 'A'), true);
+  assert.match(firstLine, /^Actions/u);
+  assert.doesNotMatch(firstLine, /^canvas/u);
+  assert.match(output, /Copy/u);
 });
 
 test('screen stack supports push, pop, replace, reset, and active screen lookup', () => {

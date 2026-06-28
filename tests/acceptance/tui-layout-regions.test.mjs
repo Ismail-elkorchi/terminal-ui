@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { defineTui, renderFrame, runTui } from '../../dist/tui/index.js';
+import { defineTui, renderFramePlain, runTui } from '../../dist/tui/index.js';
 import {
   activityFeed,
   commandBar,
@@ -93,7 +93,7 @@ test('layout regions compose scrollback, activity, tabs, palette, status, and co
   assert.match(frameText, /Workspace/u);
   assert.match(frameText, /Actions/u);
   assert.match(frameText, /Open/u);
-  assert.match(renderFrame(lastFrame), /\/o/u);
+  assert.match(renderFramePlain(lastFrame), /\/o/u);
   assert.ok(frames.length >= 2);
   assert.equal(harness.snapshot().root.id, 'workspace');
 });

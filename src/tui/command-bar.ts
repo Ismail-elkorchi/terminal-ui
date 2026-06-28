@@ -1,7 +1,8 @@
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { numberProp, stringify } from './widget-props.ts';
+import { themeStyle, widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
-import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
+import type { TerminalTheme } from '../theme/index.ts';
 import type { TextSelection } from '../text/index.ts';
 import type { CommandBarSuggestion, CommandBarValidation, CommandBarValidationTone, Widget } from '../widgets/index.ts';
 import type { Rect } from './layout.ts';
@@ -10,18 +11,19 @@ import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './rende
 export function commandBarBlock(widget: Widget, height: number, theme: TerminalTheme): RenderBlock {
   const lines: RenderLine[] = [inputLine(widget)];
   const validation = validationProp(widget);
-  if (height > lines.length && validation !== undefined) lines.push(validationLine(validation));
+  if (height > lines.length && validation !== undefined) lines.push(validationLine(widget, validation));
   const suggestions = commandBarSuggestions(widget);
   const selected = nonNegativeInteger(numberProp(widget, 'selectedSuggestion'));
   const remaining = Math.max(0, height - lines.length - footerReserve(widget));
   lines.push(...suggestions.slice(0, remaining).map((suggestion, index) => suggestionLine(
+    widget,
     suggestion,
     index === selected,
     matchQuery(widget),
     theme
   )));
   const footer = footerText(widget);
-  if (height > lines.length && footer.length > 0) lines.push(mutedLine(footer));
+  if (height > lines.length && footer.length > 0) lines.push(mutedLine(widget, footer));
   return { lines: lines.slice(0, height) };
 }
 
@@ -65,26 +67,27 @@ function inputLine(widget: Widget): RenderLine {
   const placeholder = placeholderText(widget);
   const completion = completionText(widget);
   const spans: RenderSpan[] = [
-    { text: promptText(widget), style: themeStyle('input.placeholder') },
+    styledSpan(promptText(widget), widgetStyle(widget, 'placeholder')),
     ...(value.length === 0 && placeholder.length > 0
-      ? [{ text: placeholder, style: themeStyle('input.placeholder', { dim: true }) }]
-      : valueSpans(value, selectionProp(widget)))
+      ? [styledSpan(placeholder, widgetStyle(widget, 'placeholder'))]
+      : valueSpans(widget, value, selectionProp(widget)))
   ];
   if (value.length > 0 && completion.length > 0) {
-    spans.push({ text: completion, style: themeStyle('text.muted', { dim: true }) });
+    spans.push(styledSpan(completion, widgetStyle(widget, 'value', 'disabled')));
   }
   return {
     spans
   };
 }
 
-function validationLine(validation: CommandBarValidation): RenderLine {
+function validationLine(widget: Widget, validation: CommandBarValidation): RenderLine {
   return {
-    spans: [{ text: validation.message, style: validationStyle(validation.tone ?? 'error') }]
+    spans: [styledSpan(validation.message, validationStyle(widget, validation.tone ?? 'error'))]
   };
 }
 
 function suggestionLine(
+  widget: Widget,
   suggestion: CommandBarSuggestion,
   selected: boolean,
   query: string,
@@ -93,20 +96,20 @@ function suggestionLine(
   const label = suggestion.label ?? suggestion.value;
   const description = suggestion.description;
   const spans: RenderSpan[] = [
-    { text: `${selected ? theme.symbols.pointer : theme.symbols.unselected} `, ...(selected ? { style: selectedStyle() } : {}) },
+    styledSpan(`${selected ? theme.symbols.pointer : theme.symbols.unselected} `, selected ? widgetStyle(widget, 'value', 'selected') : undefined),
     ...matchSpans(label, query)
   ];
   if (description !== undefined && description.length > 0) {
-    spans.push({ text: ` - ${description}`, style: themeStyle('text.muted') });
+    spans.push(styledSpan(` - ${description}`, widgetStyle(widget, 'value', 'disabled')));
   }
   return {
     spans
   };
 }
 
-function mutedLine(text: string): RenderLine {
+function mutedLine(widget: Widget, text: string): RenderLine {
   return {
-    spans: [{ text, style: themeStyle('text.muted') }]
+    spans: [styledSpan(text, widgetStyle(widget, 'value', 'disabled'))]
   };
 }
 
@@ -165,46 +168,23 @@ function validationTone(value: unknown): CommandBarValidationTone | undefined {
   return value === 'info' || value === 'warning' || value === 'error' ? value : undefined;
 }
 
-function validationStyle(tone: CommandBarValidationTone): TerminalStyle {
-  return {
-    fg: {
-      kind: 'theme',
-      token: tone === 'info' ? 'status.info' : tone === 'warning' ? 'status.warning' : 'status.error'
-    },
-    bold: tone === 'error'
-  };
+function validationStyle(widget: Widget, tone: CommandBarValidationTone): TerminalStyle | undefined {
+  if (tone === 'info') return widgetStyle(widget, 'value', 'focused');
+  return widgetStyle(widget, tone, tone);
 }
 
-function selectedStyle(): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: 'selection.foreground' },
-    bg: { kind: 'theme', token: 'selection.background' },
-    bold: true
-  };
-}
-
-function textSelectionStyle(): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: 'selection.foreground' },
-    bg: { kind: 'theme', token: 'selection.background' }
-  };
-}
-
-function themeStyle(token: ThemeToken, options: Omit<TerminalStyle, 'fg'> = {}): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token },
-    ...options
-  };
-}
-
-function valueSpans(value: string, selection: TextSelection | undefined): readonly RenderSpan[] {
+function valueSpans(widget: Widget, value: string, selection: TextSelection | undefined): readonly RenderSpan[] {
   const normalized = normalizeSelection(value, selection);
-  if (normalized === undefined) return [{ text: value }];
+  if (normalized === undefined) return [styledSpan(value, widgetStyle(widget, 'value'))];
   return [
-    ...(normalized.start > 0 ? [{ text: value.slice(0, normalized.start) }] : []),
-    { text: value.slice(normalized.start, normalized.end), style: textSelectionStyle() },
-    ...(normalized.end < value.length ? [{ text: value.slice(normalized.end) }] : [])
+    ...(normalized.start > 0 ? [styledSpan(value.slice(0, normalized.start), widgetStyle(widget, 'value'))] : []),
+    styledSpan(value.slice(normalized.start, normalized.end), widgetStyle(widget, 'value', 'selected')),
+    ...(normalized.end < value.length ? [styledSpan(value.slice(normalized.end), widgetStyle(widget, 'value'))] : [])
   ];
+}
+
+function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
+  return style === undefined ? { text } : { text, style };
 }
 
 function selectionProp(widget: Widget): TextSelection | undefined {

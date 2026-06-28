@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
+import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import { paginator, tree } from '../../dist/widgets/index.js';
 
 test('tree renders expanded visible nodes and accessible selection state', () => {
@@ -21,7 +21,7 @@ test('tree renders expanded visible nodes and accessible selection state', () =>
     ]
   }), { columns: 32, rows: 4 });
 
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
   assert.match(output, /▾ Root/u);
   assert.match(output, /›     Child/u);
   assert.doesNotMatch(output, /Hidden$/u);
@@ -38,6 +38,6 @@ test('paginator normalizes page bounds and renders compact status', () => {
     pageCount: 4
   }), { columns: 24, rows: 1 });
 
-  assert.equal(renderFrame(frame), 'Results Page 4 of 4');
+  assert.equal(renderFramePlain(frame), 'Results Page 4 of 4');
   assert.equal(frame.accessibility.root.value, 'Results Page 4 of 4');
 });

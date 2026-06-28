@@ -1,0 +1,1 @@
+{"schemaVersion":"terminal-ui.visual-snapshots.v1","plainTextFrame":"Snapshot example\n\nProgress [██████░░░░] 3/5","frameBytes":5825}

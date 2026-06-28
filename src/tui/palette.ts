@@ -1,7 +1,8 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import { numberProp, stringify } from './widget-props.ts';
+import { themeStyle, widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
-import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
+import type { TerminalTheme } from '../theme/index.ts';
 import type { PaletteEntry, Widget } from '../widgets/index.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import type { ScrollState } from './scroll.ts';
@@ -86,16 +87,17 @@ export function paletteBlock(widget: Widget, height: number, theme: TerminalThem
   });
   const selectedPreview = window.selectedEntry?.preview;
   const lines: RenderLine[] = [
-    { spans: [{ text: title.length === 0 ? 'Palette' : title, style: themeStyle('text.strong') }] },
-    { spans: [{ text: '> ', style: themeStyle('input.placeholder') }, { text: query }] }
+    { spans: [styledSpan(title.length === 0 ? 'Palette' : title, widgetStyle(widget, 'title'))] },
+    { spans: [styledSpan('> ', widgetStyle(widget, 'placeholder')), styledSpan(query, widgetStyle(widget, 'value'))] }
   ];
   const reserve = (selectedPreview === undefined || selectedPreview.length === 0 ? 0 : 1)
     + (helpText.length === 0 ? 0 : 1);
   const availableEntries = Math.max(0, height - lines.length - reserve);
   if (window.total === 0 && availableEntries > 0) {
-    lines.push({ spans: [{ text: emptyText(widget), style: themeStyle('text.muted') }] });
+    lines.push({ spans: [styledSpan(emptyText(widget), widgetStyle(widget, 'placeholder'))] });
   } else {
     lines.push(...window.entries.slice(0, availableEntries).map((entry, index) => entryLine(
+      widget,
       entry,
       index === window.selected,
       query,
@@ -103,10 +105,10 @@ export function paletteBlock(widget: Widget, height: number, theme: TerminalThem
     )));
   }
   if (selectedPreview !== undefined && selectedPreview.length > 0 && lines.length < height) {
-    lines.push({ spans: [{ text: selectedPreview, style: themeStyle('text.muted') }] });
+    lines.push({ spans: [styledSpan(selectedPreview, widgetStyle(widget, 'value', 'disabled'))] });
   }
   if (helpText.length > 0 && lines.length < height) {
-    lines.push({ spans: [{ text: helpText, style: themeStyle('text.muted') }] });
+    lines.push({ spans: [styledSpan(helpText, widgetStyle(widget, 'value', 'disabled'))] });
   }
   return { lines: lines.slice(0, height) };
 }
@@ -176,18 +178,19 @@ function subsequenceScore(text: string, query: string): number | undefined {
 }
 
 function entryLine<TValue>(
+  widget: Widget,
   entry: PaletteEntry<TValue>,
   selected: boolean,
   query: string,
   theme: TerminalTheme
 ): RenderLine {
-  const baseStyle = entry.disabled === true ? themeStyle('text.muted', { dim: true }) : undefined;
+  const baseStyle = entry.disabled === true ? widgetStyle(widget, 'value', 'disabled') : widgetStyle(widget, 'value');
   const spans: RenderSpan[] = [
-    { text: `${selected ? theme.symbols.pointer : theme.symbols.unselected} `, ...(selected ? { style: selectedStyle() } : {}) },
+    styledSpan(`${selected ? theme.symbols.pointer : theme.symbols.unselected} `, selected ? widgetStyle(widget, 'value', 'selected') : undefined),
     ...matchSpans(entry.label, query, baseStyle)
   ];
   if (entry.description !== undefined && entry.description.length > 0) {
-    spans.push({ text: ` - ${entry.description}`, style: themeStyle('text.muted', entry.disabled === true ? { dim: true } : {}) });
+    spans.push(styledSpan(` - ${entry.description}`, widgetStyle(widget, 'value', entry.disabled === true ? 'disabled' : undefined)));
   }
   return { spans };
 }
@@ -208,6 +211,10 @@ function matchSpans(text: string, query: string, baseStyle: TerminalStyle | unde
   }
   if (cursor < text.length) spans.push({ text: text.slice(cursor), ...(baseStyle === undefined ? {} : { style: baseStyle }) });
   return spans.length === 0 ? [{ text, ...(baseStyle === undefined ? {} : { style: baseStyle }) }] : spans;
+}
+
+function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
+  return style === undefined ? { text } : { text, style };
 }
 
 function paletteEntries(widget: Widget): readonly PaletteEntry<unknown>[] {
@@ -304,21 +311,6 @@ function helpTextProp(widget: Widget): string {
 function emptyText(widget: Widget): string {
   const text = clean(stringify(widget.props['emptyText']));
   return text.length === 0 ? 'No matches' : text;
-}
-
-function selectedStyle(): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: 'selection.foreground' },
-    bg: { kind: 'theme', token: 'selection.background' },
-    bold: true
-  };
-}
-
-function themeStyle(token: ThemeToken, options: Omit<TerminalStyle, 'fg'> = {}): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token },
-    ...options
-  };
 }
 
 function clean(value: string): string {

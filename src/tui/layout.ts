@@ -30,7 +30,7 @@ export interface LayoutNode {
 }
 
 export interface LayoutFocusRegion {
-  readonly id?: string;
+  readonly id: string;
   readonly bounds: Rect;
   readonly cursor?: {
     readonly row: number;
@@ -38,6 +38,7 @@ export interface LayoutFocusRegion {
   };
   readonly disabled: boolean;
   readonly order?: number;
+  readonly scopeId?: string;
 }
 
 export function layoutWidget(
@@ -70,11 +71,12 @@ function layoutNode(widget: Widget, bounds: Rect, theme: TerminalTheme, ordinal:
   }
   const childBounds = boundsForChildren(widget, bounds, theme);
   const focusTargets = widgetFocusTargets(widget, bounds, theme).map((target): LayoutFocusRegion => ({
-    ...(target.id === undefined ? {} : { id: target.id }),
+    id: target.id,
     bounds: target.bounds,
     ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
     disabled: target.disabled === true,
-    ...(target.order === undefined ? {} : { order: target.order })
+    ...(target.order === undefined ? {} : { order: target.order }),
+    ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId })
   }));
   const focusScope = widgetFocusScope(widget);
   return {

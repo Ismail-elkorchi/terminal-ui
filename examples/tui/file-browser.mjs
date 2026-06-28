@@ -1,4 +1,4 @@
-import { renderFrame, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
+import { renderFramePlain, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
 import { stack, statusBar, tree } from '@ismail-elkorchi/terminal-ui/widgets';
 
 const widget = stack([
@@ -20,4 +20,4 @@ const widget = stack([
   statusBar({ id: 'status', text: '2 folders, 2 files' })
 ]);
 
-console.log(renderFrame(renderWidgetFrame(widget, { columns: 36, rows: 10 })));
+console.log(renderFramePlain(renderWidgetFrame(widget, { columns: 36, rows: 10 })));

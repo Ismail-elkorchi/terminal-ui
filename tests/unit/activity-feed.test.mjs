@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { renderFrame, renderWidgetFrame } from '../../dist/tui/index.js';
+import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import { activityFeed, structuredBlock } from '../../dist/widgets/index.js';
 
 const blocks = [
@@ -35,9 +35,9 @@ test('structuredBlock renders collapsed and expanded block data', () => {
   const collapsed = renderWidgetFrame(structuredBlock(blocks[0]), { columns: 32, rows: 6 });
   const expanded = renderWidgetFrame(structuredBlock(blocks[1]), { columns: 32, rows: 8 });
 
-  assert.equal(renderFrame(collapsed), '[+] [pending] Queued task\nWaiting for a worker\nowner: scheduler');
+  assert.equal(renderFramePlain(collapsed), '[+] [pending] Queued task\nWaiting for a worker\nowner: scheduler');
   assert.equal(
-    renderFrame(expanded),
+    renderFramePlain(expanded),
     '[-] [running] Running task\nStreaming output\nattempt: 2\nline one\nline two\nDetails: extra diagnostics'
   );
   assert.equal(collapsed.accessibility.root.description, 'status pending, collapsed, 1 fields');
@@ -56,7 +56,7 @@ test('structuredBlock sanitizes terminal control sequences', () => {
     body: 'Body \u001B[32mgreen\u001B[0m'
   }), { columns: 40, rows: 4 });
 
-  assert.equal(renderFrame(frame), '[-] Title red\nBody green');
+  assert.equal(renderFramePlain(frame), '[-] Title red\nBody green');
   assert.equal(frame.accessibility.root.label, 'Title red');
 });
 
@@ -70,7 +70,7 @@ test('structuredBlock supports required status states with themed status cells',
     }), { columns: 40, rows: 2 });
     const statusCell = frame.cells.find((cell) => cell.text === status[0]);
 
-    assert.match(renderFrame(frame), new RegExp(`\\[${status}\\] Status ${status}`, 'u'));
+    assert.match(renderFramePlain(frame), new RegExp(`\\[${status}\\] Status ${status}`, 'u'));
     assert.equal(statusCell?.style?.bold, true);
     assert.equal(statusCell?.style?.fg?.kind, 'theme');
   }
@@ -88,7 +88,7 @@ test('structuredBlock aligns fields and wraps long body text predictably', () =>
   }), { columns: 18, rows: 8 });
 
   assert.equal(
-    renderFrame(frame),
+    renderFramePlain(frame),
     '[-] Details\nshort       : one\nlonger-label: two\nabcdefghijklmnopqr\nst'
   );
 });
@@ -99,7 +99,7 @@ test('activityFeed renders selected visible blocks and accessible options', () =
     blocks,
     selected: 1
   }), { columns: 36, rows: 10 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.match(output, /› \[-\] \[running\] Running task/u);
   assert.match(output, /Streaming output/u);
@@ -126,7 +126,7 @@ test('activityFeed bounds rendered rows to the viewport', () => {
     blocks: manyBlocks,
     selected: 990
   }), { columns: 32, rows: 5 });
-  const output = renderFrame(frame);
+  const output = renderFramePlain(frame);
 
   assert.match(output, /Block 990/u);
   assert.doesNotMatch(output, /Block 0/u);
