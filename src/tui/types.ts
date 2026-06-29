@@ -92,6 +92,11 @@ export interface TuiAccessibilityOptions<TState> {
   readonly describe?: (state: TState) => AccessibleSnapshot;
 }
 
+export type TuiTheme<TState> =
+  | TerminalTheme
+  | TerminalThemeDefinition
+  | ((state: TState) => TerminalTheme | TerminalThemeDefinition);
+
 export type TuiExit<TState> =
   | {
       readonly status: 'completed';
@@ -113,12 +118,13 @@ export interface TuiRuntimeOptions<TState, TMessage> {
   readonly app: TuiApp<TState, TMessage>;
   readonly host: TerminalHost;
   readonly initialFocusPath?: FocusPath;
-  readonly theme?: TerminalTheme | TerminalThemeDefinition;
+  readonly theme?: TuiTheme<TState>;
   readonly transcript?: TranscriptRecorder;
 }
 
-export interface TuiRunOptions {
+export interface TuiRunOptions<TState = unknown> {
   readonly initialFocusPath?: FocusPath;
+  readonly theme?: TuiTheme<TState>;
 }
 
 export interface TuiRuntime<TState, TMessage> {

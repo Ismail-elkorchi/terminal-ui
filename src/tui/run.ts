@@ -16,7 +16,7 @@ import type { TuiApp, TuiExit, TuiRunOptions } from './types.ts';
 export async function runTui<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
   host?: TerminalHost,
-  options: TuiRunOptions = {}
+  options: TuiRunOptions<TState> = {}
 ): Promise<TuiExit<TState>> {
   const transcript = createTuiTranscript(app);
   if (host === undefined) {
@@ -40,6 +40,7 @@ export async function runTui<TState, TMessage>(
       app,
       host,
       ...(options.initialFocusPath === undefined ? {} : { initialFocusPath: options.initialFocusPath }),
+      ...(options.theme === undefined ? {} : { theme: options.theme }),
       ...(transcript === undefined ? {} : { transcript })
     });
     await runtime.start();

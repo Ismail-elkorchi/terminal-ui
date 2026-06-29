@@ -1,16 +1,15 @@
 import { createInputDecoder, decodeInputChunk } from '../input/index.ts';
-import { defineTheme, isTerminalTheme } from '../theme/index.ts';
 import { createTuiContext } from './context.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
 import { completedExitFromSnapshot } from './exit.ts';
 import { collectWidgetLayoutTargets, findWidgetFocusTarget, nextFocusPath, previousFocusPath } from './focus.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { layoutWidget } from './layout.ts';
-import { commitFrame, renderCurrentFrame, setHostViewport } from './runtime-frame.ts';
+import { commitFrame, renderCurrentFrame, resolveTuiTheme, setHostViewport } from './runtime-frame.ts';
 import { createTuiSubscriptionManager } from './subscriptions.ts';
 import { widgetHitTargets } from './widget-behavior.ts';
 import type { InputEvent, MouseEvent as TerminalMouseEvent } from '../input/index.ts';
-import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
+import type { TerminalTheme } from '../theme/index.ts';
 import type { Frame } from './frame.ts';
 import type { FocusPath } from './focus.ts';
 import type { Rect } from './layout.ts';
@@ -35,6 +34,7 @@ export function createTuiRuntime<TState, TMessage>(
 ): TuiRuntime<TState, TMessage> {
   let currentState: TState | undefined;
   let currentFrame: Frame | undefined;
+  let currentThemeFingerprint: string | undefined;
   let currentFocusPath: FocusPath | undefined = options.initialFocusPath;
   let terminalExit: TuiExit<TState> | undefined;
   let started = false;
@@ -139,10 +139,13 @@ export function createTuiRuntime<TState, TMessage>(
     const context = await createRuntimeContext('internal');
     currentState = await options.app.definition.init(context);
     await settleQueuedWork(context);
-    const frame = renderCurrentFrame(options.app, ensureState(), context, currentFocusPath, options);
+    const state = ensureState();
+    const theme = resolveTuiTheme(options.theme, state);
+    const frame = renderCurrentFrame(options.app, state, context, currentFocusPath, options);
     currentFrame = frame;
+    currentThemeFingerprint = themeFingerprint(theme);
     currentFocusPath = frame.focusPath;
-    await commitFrame(options.host, undefined, frame, options.transcript, options.theme);
+    await commitFrame(options.host, undefined, frame, options.transcript, theme);
     updateCompletedExitSnapshot(frame);
     publishChange({ kind: 'frame', frame });
     if (terminalExit !== undefined) publishChange({ kind: 'exit', exit: terminalExit });
@@ -154,9 +157,13 @@ export function createTuiRuntime<TState, TMessage>(
     const context = await createRuntimeContext('internal');
     enqueueMessage(message, source);
     await settleQueuedWork(context);
-    const frame = renderCurrentFrame(options.app, ensureState(), context, currentFocusPath, options);
-    await commitFrame(options.host, currentFrame, frame, options.transcript, options.theme);
+    const state = ensureState();
+    const theme = resolveTuiTheme(options.theme, state);
+    const previousFrame = frameDiffBase(theme);
+    const frame = renderCurrentFrame(options.app, state, context, currentFocusPath, options);
+    await commitFrame(options.host, previousFrame, frame, options.transcript, theme);
     currentFrame = frame;
+    currentThemeFingerprint = themeFingerprint(theme);
     currentFocusPath = frame.focusPath;
     updateCompletedExitSnapshot(frame);
     publishChange({ kind: 'frame', frame });
@@ -169,9 +176,12 @@ export function createTuiRuntime<TState, TMessage>(
     options.transcript?.record({ kind: 'input', event: { kind: 'resize', viewport } });
     setHostViewport(options.host, viewport);
     const context = await createRuntimeContext('internal');
+    const theme = resolveTuiTheme(options.theme, state);
+    const previousFrame = frameDiffBase(theme);
     const frame = renderCurrentFrame(options.app, state, context, currentFocusPath, options);
-    await commitFrame(options.host, currentFrame, frame, options.transcript, options.theme);
+    await commitFrame(options.host, previousFrame, frame, options.transcript, theme);
     currentFrame = frame;
+    currentThemeFingerprint = themeFingerprint(theme);
     currentFocusPath = frame.focusPath;
     publishChange({ kind: 'frame', frame });
     return frame;
@@ -284,13 +294,16 @@ export function createTuiRuntime<TState, TMessage>(
   async function moveFocus(state: TState, direction: 'next' | 'previous'): Promise<Frame> {
     const context = await createRuntimeContext('internal');
     const widget = options.app.definition.view(state, context);
-    const layout = layoutWidget(widget, context.viewport, options.theme);
+    const theme = resolveTuiTheme(options.theme, state);
+    const layout = layoutWidget(widget, context.viewport, theme);
     currentFocusPath = direction === 'next'
       ? nextFocusPath(layout, currentFocusPath)
       : previousFocusPath(layout, currentFocusPath);
     const frame = renderCurrentFrame(options.app, state, context, currentFocusPath, options);
-    await commitFrame(options.host, currentFrame, frame, options.transcript, options.theme);
+    const previousFrame = frameDiffBase(theme);
+    await commitFrame(options.host, previousFrame, frame, options.transcript, theme);
     currentFrame = frame;
+    currentThemeFingerprint = themeFingerprint(theme);
     currentFocusPath = frame.focusPath;
     publishChange({ kind: 'frame', frame });
     return frame;
@@ -300,7 +313,8 @@ export function createTuiRuntime<TState, TMessage>(
     const key = inputEventKey(event);
     const context = await createRuntimeContext('internal');
     const widget = options.app.definition.view(state, context);
-    const layout = layoutWidget(widget, context.viewport, options.theme);
+    const theme = resolveTuiTheme(options.theme, state);
+    const layout = layoutWidget(widget, context.viewport, theme);
     const focused = findWidgetFocusTarget(widget, layout, currentFocusPath);
     if (event.kind === 'text') {
       const mapped = focused?.widget.inputMap?.text?.(event.text);
@@ -314,8 +328,8 @@ export function createTuiRuntime<TState, TMessage>(
   async function messageForMouse(state: TState, event: TerminalMouseEvent): Promise<TMessage | undefined> {
     const context = await createRuntimeContext('internal');
     const widget = options.app.definition.view(state, context);
-    const layout = layoutWidget(widget, context.viewport, options.theme);
-    const theme = themeForRuntime(options.theme);
+    const theme = resolveTuiTheme(options.theme, state);
+    const layout = layoutWidget(widget, context.viewport, theme);
     const hits = collectWidgetLayoutTargets(widget, layout)
       .filter((target) => containsPoint(target.bounds, event.row, event.column))
       .map((target, index) => ({ target, index }))
@@ -332,6 +346,19 @@ export function createTuiRuntime<TState, TMessage>(
     if (hit === undefined) return undefined;
     return hit.message;
   }
+
+  function frameDiffBase(theme: TerminalTheme): Frame | undefined {
+    return currentThemeFingerprint === themeFingerprint(theme) ? currentFrame : undefined;
+  }
+}
+
+function themeFingerprint(theme: TerminalTheme): string {
+  return JSON.stringify({
+    name: theme.name,
+    colors: theme.colors,
+    symbols: theme.symbols,
+    spacing: theme.spacing
+  });
 }
 
 function inputEventKey(event: InputEvent): string | undefined {
@@ -345,9 +372,4 @@ function containsPoint(bounds: Rect, row: number, column: number): boolean {
     && row < bounds.row + bounds.height
     && column >= bounds.column
     && column < bounds.column + bounds.width;
-}
-
-function themeForRuntime(theme: TerminalTheme | TerminalThemeDefinition | undefined): TerminalTheme {
-  if (theme === undefined) return defineTheme();
-  return isTerminalTheme(theme) ? theme : defineTheme(theme);
 }

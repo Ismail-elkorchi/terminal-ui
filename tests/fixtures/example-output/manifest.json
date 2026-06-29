@@ -3,20 +3,11 @@
   "source": "scripts/render-example-fixtures.mjs",
   "generatedFrom": "tests/package/example-list.mjs",
   "files": [
+    "examples/showcase/app.mjs.stdout.txt",
+    "examples/showcase/scripted.mjs.stdout.txt",
+    "examples/showcase/preview.mjs.stdout.txt",
     "examples/prompts/non-tty-input.mjs.stdout.txt",
     "examples/shell/cli-core-shell.mjs.stdout.txt",
-    "examples/tui/render-frame.mjs.stdout.txt",
-    "examples/tui/forms-settings.mjs.stdout.txt",
-    "examples/tui/file-browser.mjs.stdout.txt",
-    "examples/tui/data-table.mjs.stdout.txt",
-    "examples/tui/log-viewer.mjs.stdout.txt",
-    "examples/tui/command-palette.mjs.stdout.txt",
-    "examples/tui/installer-wizard.mjs.stdout.txt",
-    "examples/tui/text-editor.mjs.stdout.txt",
-    "examples/tui/game-board.mjs.stdout.txt",
-    "examples/tui/chat-interface.mjs.stdout.txt",
-    "examples/tui/monitoring-console.mjs.stdout.txt",
-    "examples/tui/custom-widget.mjs.stdout.txt",
     "examples/testing/visual-snapshots.mjs.stdout.txt",
     "examples/testing/harness.mjs.stdout.txt"
   ]

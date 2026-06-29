@@ -28,6 +28,7 @@ import {
   list,
   modal,
   progressBar,
+  richText,
   row,
   spinner,
   stack,
@@ -794,6 +795,35 @@ test('runTui accepts an initial focus path', async () => {
 
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state, { active: 'second' });
+});
+
+test('runTui accepts a state-derived theme', async () => {
+  const app = defineTui({
+    id: 'run-state-theme',
+    init: () => ({ active: false }),
+    update: () => ({ state: { active: true }, exit: {} }),
+    view: () => richText({
+      id: 'theme-label',
+      segments: [{ text: 'theme', style: { fg: { kind: 'theme', token: 'accent.primary' } } }],
+      keyMap: { enter: { active: true } }
+    })
+  });
+  const host = createMemoryTerminalHost({ viewport: { columns: 12, rows: 2 } });
+  host.input('\r');
+
+  const exit = await runTui(app, host, {
+    theme: (state) => ({
+      colors: {
+        'accent.primary': state.active
+          ? { kind: 'ansi', value: 2 }
+          : { kind: 'ansi', value: 1 }
+      }
+    })
+  });
+
+  assert.equal(exit.status, 'completed');
+  assert.match(host.output(), /\u001B\[38;5;1m/u);
+  assert.match(host.output(), /\u001B\[38;5;2m/u);
 });
 
 test('TUI runtime restores a serialized focus path when it still exists', async () => {

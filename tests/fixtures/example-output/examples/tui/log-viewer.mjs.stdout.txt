@@ -1,5 +1,0 @@
-... 7 earlier rows omitted ...
-[10:08] source=api event 8
-[10:09] source=worker retry completed
-[10:10] source=api event 10
-[10:11] source=worker event 11

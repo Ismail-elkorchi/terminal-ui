@@ -1,5 +1,0 @@
-Actions
-> op
-› Open File - Pick a file
-  Open Settings
-enter accepts, escape closes

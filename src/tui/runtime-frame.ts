@@ -1,11 +1,13 @@
 import { toAccessibleSnapshot, validateAccessibleSnapshot } from '../accessibility/index.ts';
+import { defineTheme, isTerminalTheme } from '../theme/index.ts';
 import { diffFrames, renderDiffAnsi, renderWidgetFrame } from './render.ts';
 import { recordTuiFrame } from './transcript.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalHost, TerminalViewport } from '../host/index.ts';
+import type { TerminalTheme } from '../theme/index.ts';
 import type { FocusPath } from './focus.ts';
 import type { Frame, RenderDiff } from './frame.ts';
-import type { TuiApp, TuiContext, TuiRuntimeOptions } from './types.ts';
+import type { TuiApp, TuiContext, TuiRuntimeOptions, TuiTheme } from './types.ts';
 
 export function renderCurrentFrame<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
@@ -14,9 +16,10 @@ export function renderCurrentFrame<TState, TMessage>(
   focusPath: FocusPath | undefined,
   options: TuiRuntimeOptions<TState, TMessage>
 ): Frame {
+  const theme = resolveTuiTheme(options.theme, state);
   const frame = renderWidgetFrame(app.definition.view(state, context), context.viewport, {
     ...(focusPath === undefined ? {} : { focusPath }),
-    ...(options.theme === undefined ? {} : { theme: options.theme })
+    theme
   });
   const accessibility = appAccessibility(app, state, frame);
   return accessibility === frame.accessibility ? frame : { ...frame, accessibility };
@@ -27,14 +30,20 @@ export async function commitFrame(
   previousFrame: Frame | undefined,
   frame: Frame,
   transcript: TuiRuntimeOptions<unknown, unknown>['transcript'] | undefined,
-  theme: TuiRuntimeOptions<unknown, unknown>['theme'] | undefined
+  theme: TerminalTheme
 ): Promise<RenderDiff> {
   const diff = diffFrames(previousFrame, frame);
   const capabilities = await host.getCapabilities();
   recordHostFrame(host, frame, diff);
   recordTuiFrame(transcript, frame, diff);
-  await host.write({ text: renderDiffAnsi(diff, { capabilities, hyperlinks: true, ...(theme === undefined ? {} : { theme }) }) });
+  await host.write({ text: renderDiffAnsi(diff, { capabilities, hyperlinks: true, theme }) });
   return diff;
+}
+
+export function resolveTuiTheme<TState>(theme: TuiTheme<TState> | undefined, state: TState): TerminalTheme {
+  const resolved = typeof theme === 'function' ? theme(state) : theme;
+  if (resolved === undefined) return defineTheme();
+  return isTerminalTheme(resolved) ? resolved : defineTheme(resolved);
 }
 
 export function setHostViewport(host: TerminalHost, viewport: TerminalViewport): void {

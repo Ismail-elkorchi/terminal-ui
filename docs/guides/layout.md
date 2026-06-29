@@ -29,7 +29,6 @@ serialization pipeline that consumes layout output.
 
 Executable examples:
 
-- `examples/tui/render-frame.mjs`
-- `examples/tui/installer-wizard.mjs`
-- `examples/tui/chat-interface.mjs`
-- `examples/tui/monitoring-console.mjs`
+- `examples/showcase/app.mjs`
+- `examples/showcase/scripted.mjs`
+- `examples/showcase/preview.mjs`

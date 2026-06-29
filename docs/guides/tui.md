@@ -37,6 +37,10 @@ that reason after terminal-text sanitization.
 layout still contains that target; otherwise the runtime falls back to the first
 focusable widget.
 
+`runTui(app, host, { theme })` and `createTuiRuntime({ theme })` accept either a
+theme object or a `(state) => theme` function. Use the function form when a
+full-screen app needs live theme changes driven by ordinary application state.
+
 For lower-level tests and custom event loops, `createTuiRuntime()` exposes the
 same reducer/render path directly. `runtime.start()` initializes the app and
 returns the committed initial `Frame`; completion remains available through
@@ -70,10 +74,9 @@ snapshots. For application navigation, use the pure `screenStackReducer()` and
 `activeScreen()` helpers; a screen stack is serializable state, not a hidden
 runtime mode.
 
-Executable example:
+Executable examples:
 
-- `examples/tui/render-frame.mjs`
-- `examples/tui/installer-wizard.mjs`
-- `examples/tui/chat-interface.mjs`
-- `examples/tui/game-board.mjs`
+- `examples/showcase/app.mjs`
+- `examples/showcase/scripted.mjs`
+- `examples/showcase/preview.mjs`
 - `examples/testing/visual-snapshots.mjs`

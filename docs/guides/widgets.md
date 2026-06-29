@@ -185,11 +185,6 @@ primitives; screen-specific state and application routing stay outside widgets.
 
 Executable examples:
 
-- `examples/tui/forms-settings.mjs`
-- `examples/tui/file-browser.mjs`
-- `examples/tui/data-table.mjs`
-- `examples/tui/log-viewer.mjs`
-- `examples/tui/command-palette.mjs`
-- `examples/tui/text-editor.mjs`
-- `examples/tui/game-board.mjs`
-- `examples/tui/custom-widget.mjs`
+- `examples/showcase/app.mjs`
+- `examples/showcase/scripted.mjs`
+- `examples/showcase/preview.mjs`

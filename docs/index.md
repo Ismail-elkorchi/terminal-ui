@@ -21,20 +21,11 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 
 ## Examples
 
+- `examples/showcase/app.mjs` demonstrates the full-screen Northstar Control app.
+- `examples/showcase/scripted.mjs` drives the same app through deterministic runtime state changes.
+- `examples/showcase/preview.mjs` emits frame, diff, hit-target, focus, and accessibility evidence from the showcase.
 - `examples/prompts/non-tty-input.mjs` demonstrates deterministic non-TTY prompt input.
 - `examples/shell/cli-core-shell.mjs` demonstrates a shell backed by a real `cli-core` program.
-- `examples/tui/render-frame.mjs` demonstrates widget tree to frame rendering.
-- `examples/tui/forms-settings.mjs` demonstrates form controls for settings screens.
-- `examples/tui/file-browser.mjs` demonstrates tree-based browsing.
-- `examples/tui/data-table.mjs` demonstrates bounded tabular data.
-- `examples/tui/log-viewer.mjs` demonstrates scrollback for event streams.
-- `examples/tui/command-palette.mjs` demonstrates a generic palette.
-- `examples/tui/installer-wizard.mjs` demonstrates modal wizard composition.
-- `examples/tui/text-editor.mjs` demonstrates a bounded text editor surface.
-- `examples/tui/game-board.mjs` demonstrates canvas-like drawing.
-- `examples/tui/chat-interface.mjs` demonstrates history plus input composition.
-- `examples/tui/monitoring-console.mjs` demonstrates status and chart widgets.
-- `examples/tui/custom-widget.mjs` demonstrates a custom renderer.
 - `examples/testing/visual-snapshots.mjs` demonstrates deterministic visual snapshot artifacts.
 - `examples/testing/harness.mjs` demonstrates the memory testing harness.
 

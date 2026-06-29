@@ -36,6 +36,6 @@ see [Building polished widgets](./building-polished-widgets.md).
 
 Executable examples:
 
-- `examples/tui/forms-settings.mjs`
-- `examples/tui/monitoring-console.mjs`
+- `examples/showcase/app.mjs`
+- `examples/showcase/scripted.mjs`
 - `examples/testing/visual-snapshots.mjs`

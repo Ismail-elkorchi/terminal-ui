@@ -86,8 +86,6 @@ screenshots.
 
 Executable examples:
 
-- `examples/tui/render-frame.mjs`
-- `examples/tui/data-table.mjs`
-- `examples/tui/game-board.mjs`
-- `examples/tui/custom-widget.mjs`
+- `examples/showcase/app.mjs`
+- `examples/showcase/preview.mjs`
 - `examples/testing/visual-snapshots.mjs`
