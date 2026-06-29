@@ -1,5 +1,12 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalStyle } from '../tui/render-primitives.ts';
+import { catppuccinThemeDefinition } from './packs/catppuccin.ts';
+import { draculaThemeDefinition } from './packs/dracula.ts';
+import { gruvboxThemeDefinition } from './packs/gruvbox.ts';
+import { monochromeThemeDefinition } from './packs/monochrome.ts';
+import { nordThemeDefinition } from './packs/nord.ts';
+import { solarizedThemeDefinition } from './packs/solarized.ts';
+import { tokyoNightThemeDefinition } from './packs/tokyo-night.ts';
 
 export type CoreThemeToken =
   | 'app.background'
@@ -89,6 +96,7 @@ export interface TerminalSpacing {
 
 export interface TerminalTheme {
   readonly name: string;
+  readonly fingerprint: string;
   readonly colors: Readonly<Record<string, ThemeColor>>;
   readonly symbols: TerminalSymbols;
   readonly spacing: TerminalSpacing;
@@ -246,40 +254,40 @@ const highContrastColors = {
   'menu.match': { kind: 'ansi', value: 11 }
 } satisfies Readonly<Record<CoreThemeToken, ThemeColor>>;
 
-export const minimalTheme: TerminalTheme = {
+export const minimalTheme: TerminalTheme = createTheme({
   name: 'minimal',
   colors: {},
   symbols: asciiSymbols,
   spacing: { gap: 1, padding: 0 }
-};
+});
 
-export const modernTheme: TerminalTheme = {
+export const modernTheme: TerminalTheme = createTheme({
   name: 'modern',
   colors: modernColors,
   symbols: unicodeSymbols,
   spacing: { gap: 1, padding: 0 }
-};
+});
 
-export const compactTheme: TerminalTheme = {
+export const compactTheme: TerminalTheme = createTheme({
   name: 'compact',
   colors: modernColors,
   symbols: asciiSymbols,
   spacing: { gap: 0, padding: 0 }
-};
+});
 
-export const highContrastTheme: TerminalTheme = {
+export const highContrastTheme: TerminalTheme = createTheme({
   name: 'highContrast',
   colors: highContrastColors,
   symbols: asciiSymbols,
   spacing: { gap: 1, padding: 0 }
-};
+});
 
-export const noColorTheme: TerminalTheme = {
+export const noColorTheme: TerminalTheme = createTheme({
   name: 'noColor',
   colors: {},
   symbols: asciiSymbols,
   spacing: { gap: 1, padding: 0 }
-};
+});
 
 export const defaultTheme: TerminalTheme = modernTheme;
 
@@ -291,6 +299,24 @@ export const defaultThemes = {
   noColor: noColorTheme
 } as const;
 
+export const catppuccinTheme: TerminalTheme = defineTheme(catppuccinThemeDefinition, modernTheme);
+export const nordTheme: TerminalTheme = defineTheme(nordThemeDefinition, modernTheme);
+export const tokyoNightTheme: TerminalTheme = defineTheme(tokyoNightThemeDefinition, modernTheme);
+export const solarizedTheme: TerminalTheme = defineTheme(solarizedThemeDefinition, modernTheme);
+export const gruvboxTheme: TerminalTheme = defineTheme(gruvboxThemeDefinition, modernTheme);
+export const draculaTheme: TerminalTheme = defineTheme(draculaThemeDefinition, modernTheme);
+export const monochromeTheme: TerminalTheme = defineTheme(monochromeThemeDefinition, modernTheme);
+
+export const themePacks = {
+  catppuccin: catppuccinTheme,
+  nord: nordTheme,
+  tokyoNight: tokyoNightTheme,
+  solarized: solarizedTheme,
+  gruvbox: gruvboxTheme,
+  dracula: draculaTheme,
+  monochrome: monochromeTheme
+} as const;
+
 export function defineTheme(
   definition: TerminalThemeDefinition = {},
   base: TerminalTheme = defaultTheme
@@ -299,12 +325,12 @@ export function defineTheme(
 }
 
 export function mergeThemes(base: TerminalTheme, override: TerminalThemeDefinition): TerminalTheme {
-  return {
+  return createTheme({
     name: override.name ?? base.name,
     colors: { ...base.colors, ...(override.colors ?? {}) },
     symbols: mergeSymbols(base.symbols, override.symbols),
     spacing: { ...base.spacing, ...(override.spacing ?? {}) }
-  };
+  });
 }
 
 export function resolveThemeColor(
@@ -338,9 +364,90 @@ export function resolveTerminalStyle(
 
 export function isTerminalTheme(theme: TerminalTheme | TerminalThemeDefinition): theme is TerminalTheme {
   return theme.name !== undefined
-    && theme.colors !== undefined
-    && theme.symbols !== undefined
-    && theme.spacing !== undefined;
+    && 'fingerprint' in theme
+    && typeof theme.fingerprint === 'string';
+}
+
+function createTheme(theme: Omit<TerminalTheme, 'fingerprint'>): TerminalTheme {
+  const normalized = {
+    name: theme.name,
+    colors: theme.colors,
+    symbols: sanitizeSymbols(theme.symbols),
+    spacing: theme.spacing
+  };
+  return {
+    ...normalized,
+    fingerprint: themeFingerprint(normalized)
+  };
+}
+
+function themeFingerprint(theme: Omit<TerminalTheme, 'fingerprint'>): string {
+  return `theme:${hashString(JSON.stringify([
+    theme.name,
+    colorEntries(theme.colors),
+    symbolEntries(theme.symbols),
+    [theme.spacing.gap, theme.spacing.padding]
+  ]))}`;
+}
+
+function colorEntries(colors: Readonly<Record<string, ThemeColor>>): readonly unknown[] {
+  return Object.entries(colors)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([token, color]) => [
+      token,
+      color.kind === 'ansi'
+        ? ['ansi', color.value]
+        : ['rgb', color.r, color.g, color.b]
+    ]);
+}
+
+function symbolEntries(symbols: TerminalSymbols): readonly unknown[] {
+  return [
+    ['borderSingle', borderEntries(symbols.borderSingle)],
+    ['borderRounded', borderEntries(symbols.borderRounded)],
+    ['treeExpanded', symbols.treeExpanded],
+    ['treeCollapsed', symbols.treeCollapsed],
+    ['pointer', symbols.pointer],
+    ['selected', symbols.selected],
+    ['unselected', symbols.unselected],
+    ['checkboxChecked', symbols.checkboxChecked],
+    ['checkboxUnchecked', symbols.checkboxUnchecked],
+    ['radioChecked', symbols.radioChecked],
+    ['radioUnchecked', symbols.radioUnchecked],
+    ['statusError', symbols.statusError],
+    ['statusWarning', symbols.statusWarning],
+    ['statusInfo', symbols.statusInfo],
+    ['statusSuccess', symbols.statusSuccess],
+    ['progressFilled', symbols.progressFilled],
+    ['progressEmpty', symbols.progressEmpty],
+    ['spinnerFrames', [...symbols.spinnerFrames]],
+    ['collapsed', symbols.collapsed],
+    ['expanded', symbols.expanded],
+    ['scrollbarVerticalTrack', symbols.scrollbarVerticalTrack],
+    ['scrollbarVerticalThumb', symbols.scrollbarVerticalThumb],
+    ['scrollbarHorizontalTrack', symbols.scrollbarHorizontalTrack],
+    ['scrollbarHorizontalThumb', symbols.scrollbarHorizontalThumb]
+  ];
+}
+
+function borderEntries(border: BorderGlyphSet): readonly unknown[] {
+  return [
+    ['topLeft', border.topLeft],
+    ['topRight', border.topRight],
+    ['bottomLeft', border.bottomLeft],
+    ['bottomRight', border.bottomRight],
+    ['horizontal', border.horizontal],
+    ['vertical', border.vertical]
+  ];
+}
+
+function hashString(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
 }
 
 function mergeSymbols(base: TerminalSymbols, override: TerminalSymbolsDefinition | undefined): TerminalSymbols {
@@ -412,6 +519,8 @@ function sanitizeSymbols(symbols: TerminalSymbols): TerminalSymbols {
     scrollbarHorizontalThumb: cleanSymbol(symbols.scrollbarHorizontalThumb)
   };
 }
+
+export { contrastColor, deriveSurface, ensureContrast } from './contrast.ts';
 
 function sanitizeBorder(border: BorderGlyphSet): BorderGlyphSet {
   return {

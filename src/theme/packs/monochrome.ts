@@ -1,0 +1,27 @@
+import { rgb, themePackDefinition } from './shared.ts';
+
+export const monochromeThemeDefinition = themePackDefinition('monochrome', {
+  'app.background': rgb(10, 10, 10),
+  'app.foreground': rgb(238, 238, 238),
+  'surface.background': rgb(18, 18, 18),
+  'surface.border': rgb(112, 112, 112),
+  'surface.title': rgb(238, 238, 238),
+  'text.default': rgb(238, 238, 238),
+  'text.muted': rgb(160, 160, 160),
+  'text.strong': rgb(255, 255, 255),
+  'accent.primary': rgb(255, 255, 255),
+  'accent.secondary': rgb(190, 190, 190),
+  'status.info': rgb(210, 210, 210),
+  'status.success': rgb(238, 238, 238),
+  'status.warning': rgb(190, 190, 190),
+  'status.error': rgb(255, 255, 255),
+  'selection.background': rgb(238, 238, 238),
+  'selection.foreground': rgb(0, 0, 0),
+  'focus.border': rgb(255, 255, 255),
+  'focus.background': rgb(42, 42, 42),
+  'menu.match': rgb(255, 255, 255),
+  'menu.selected': rgb(238, 238, 238),
+  'chart.series.1': rgb(238, 238, 238),
+  'chart.series.2': rgb(180, 180, 180),
+  'chart.series.3': rgb(120, 120, 120)
+});

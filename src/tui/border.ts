@@ -90,7 +90,8 @@ function writeBorderText(
 ): void {
   buffer.write(row, column, [{
     text,
-    ...(style === undefined ? {} : { style })
+    ...(style === undefined ? {} : { style }),
+    source: { kind: 'box', role: 'border' }
   }]);
 }
 

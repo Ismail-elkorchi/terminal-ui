@@ -78,7 +78,7 @@
   "scripts": {
     "build": "rm -rf dist && tsc -p tsconfig.json && node scripts/copy-schemas.mjs",
     "clean": "rm -rf dist",
-    "fixtures:update": "npm run build && node scripts/render-fixtures.mjs && node scripts/render-example-fixtures.mjs",
+    "fixtures:update": "npm run build && node scripts/render-fixtures.mjs && node scripts/render-example-fixtures.mjs && node scripts/generate-visual-gallery.mjs",
     "lint": "eslint \"src/**/*.ts\"",
     "check": "npm run lint && npm run build && npm run check:runtime && npm run check:jsr && npm run check:fixtures && npm run check:acceptance && npm run check:conformance && npm run check:integration && npm run check:package && npm run check:performance && npm run check:property && npm run check:security && npm run check:unit",
     "check:acceptance": "node --test tests/acceptance/*.test.mjs",

@@ -1,39 +1,31 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { Widget } from '../../../widgets/index.ts';
-import { normalizeScrollState, visibleWindowFromScroll } from '../../scroll.ts';
-import { visibleWindow, windowDescription } from '../../visible-window.ts';
+import { rowWindow, scrollStateFromUnknown } from '../../data-window.ts';
+import type { ScrollState } from '../../scroll.ts';
+import { windowDescription } from '../../visible-window.ts';
 import { numberProp, stringify } from '../../widget-props.ts';
 import type { LayoutNode, Rect } from '../../layout.ts';
 import type { ScrollbarState } from '../../scrollbar.ts';
+import type { HitTarget } from '../../widget-renderer.ts';
 
 export function listScrollbarState(widget: Widget, bounds: Rect): ScrollbarState {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
-  const window = listWindow(widget, items.length, bounds.height, selected);
-  const scroll = normalizeScrollState({
-    offsetRow: window.start,
-    offsetColumn: 0,
-    contentRows: items.length,
-    contentColumns: bounds.width,
-    viewportRows: bounds.height,
-    viewportColumns: bounds.width,
-    followTail: false
-  });
+  const window = listWindow(widget, items, bounds.height, selected, bounds.width);
   return {
-    offsetRow: scroll.offsetRow,
-    offsetColumn: scroll.offsetColumn,
-    contentRows: scroll.contentRows,
-    contentColumns: scroll.contentColumns
+    offsetRow: window.start,
+    offsetColumn: window.offsetColumn,
+    contentRows: window.totalRows,
+    contentColumns: bounds.width
   };
 }
 
 export function listText(widget: Widget, height: number, theme: TerminalTheme): string {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
-  const window = listWindow(widget, items.length, height, selected);
-  return items
-    .slice(window.start, window.end)
+  const window = listWindow(widget, items, height, selected);
+  return window.rows
     .map((item, index) => {
       const itemIndex = window.start + index;
       return `${itemIndex === selected ? theme.symbols.pointer : theme.symbols.unselected} ${String(item)}`;
@@ -44,7 +36,7 @@ export function listText(widget: Widget, height: number, theme: TerminalTheme): 
 export function listAccessibleNode(widget: Widget, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
-  const window = listWindow(widget, items.length, node.bounds.height, selected);
+  const window = listWindow(widget, items, node.bounds.height, selected, node.bounds.width);
   return {
     id,
     role: 'listbox',
@@ -57,8 +49,8 @@ export function listAccessibleNode(widget: Widget, node: LayoutNode, id: string,
 export function listAccessibleChildren(widget: Widget, node: LayoutNode): readonly AccessibleNode[] {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
-  const window = listWindow(widget, items.length, node.bounds.height, selected);
-  return items.slice(window.start, window.end).map((item, index) => {
+  const window = listWindow(widget, items, node.bounds.height, selected, node.bounds.width);
+  return window.rows.map((item, index) => {
     const itemIndex = window.start + index;
     return {
       id: `${widget.id ?? 'list'}:option:${String(itemIndex)}`,
@@ -70,16 +62,38 @@ export function listAccessibleChildren(widget: Widget, node: LayoutNode): readon
 }
 
 export function listCursor(widget: Widget, bounds: Rect): { readonly row: number; readonly column: number } {
-  const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
+  const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected');
   if (selected === undefined || items.length === 0 || bounds.height <= 0) {
     return { row: bounds.row, column: bounds.column };
   }
-  const window = visibleWindow(items.length, bounds.height, selected);
+  const window = listWindow(widget, items, bounds.height, selected, bounds.width);
   const selectedRow = selected >= window.start && selected < window.end
     ? bounds.row + selected - window.start
     : bounds.row;
   return { row: selectedRow, column: bounds.column };
+}
+
+export function listHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = toMessageProp(widget);
+  if (toMessage === undefined) return [];
+  const items = filteredListItems(widget);
+  const selected = numberProp(widget, 'selected') ?? -1;
+  const window = listWindow(widget, items, bounds.height, selected, bounds.width);
+  return window.rows.flatMap((item, index): HitTarget<TMessage>[] => {
+    const itemIndex = window.start + index;
+    return [{
+      id: `${widget.id ?? 'list'}:option:${String(itemIndex)}`,
+      bounds: {
+        row: bounds.row + index,
+        column: bounds.column,
+        width: bounds.width,
+        height: 1
+      },
+      message: toMessage(item),
+      cursor: 'pointer'
+    }];
+  });
 }
 
 function filteredListItems(widget: Widget): readonly unknown[] {
@@ -89,14 +103,26 @@ function filteredListItems(widget: Widget): readonly unknown[] {
   return items.filter((item) => String(item).toLocaleLowerCase().includes(query));
 }
 
-function listWindow(widget: Widget, count: number, height: number, selected: number) {
-  const scroll = widget.props['scroll'];
-  if (typeof scroll === 'object' && scroll !== null) {
-    return visibleWindowFromScroll(normalizeScrollState({
-      ...scroll as Parameters<typeof normalizeScrollState>[0],
-      contentRows: count,
-      viewportRows: height
-    }));
-  }
-  return visibleWindow(count, height, selected);
+function listWindow(widget: Widget, items: readonly unknown[], height: number, selected: number, width = 0) {
+  return rowWindow(items, {
+    viewportRows: height,
+    viewportColumns: width,
+    contentColumns: width,
+    selectedIndex: selected,
+    ...scrollInput(widget)
+  });
+}
+
+function scrollInput(widget: Widget): { readonly scroll?: ScrollState } {
+  const scroll = scrollStateFromUnknown(widget.props['scroll']);
+  return scroll === undefined ? {} : { scroll };
+}
+
+function toMessageProp<TMessage>(widget: Widget<TMessage>): ((value: unknown) => TMessage) | undefined {
+  const toMessage = widget.props['toMessage'];
+  return isListMessageFactory(toMessage) ? (value) => toMessage(value) as TMessage : undefined;
+}
+
+function isListMessageFactory(value: unknown): value is (item: unknown) => unknown {
+  return typeof value === 'function';
 }

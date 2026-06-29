@@ -1,7 +1,8 @@
 import { clipTextCells, sanitizeTerminalText } from '../text/index.ts';
+import { rowWindow, scrollStateFromUnknown } from './data-window.ts';
 import { stringify } from './widget-props.ts';
 import { widgetStyle } from './widget-style.ts';
-import { visibleWindow, windowDescription } from './visible-window.ts';
+import { windowDescription } from './visible-window.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TreeNode, Widget } from '../widgets/index.ts';
@@ -193,16 +194,14 @@ function metadataValues(metadata: Readonly<Record<string, unknown>> | undefined)
 }
 
 function treeWindow(widget: Widget, rows: readonly VisibleTreeNode[], height: number, selected: string | undefined): TreeWindow {
-  const scroll = scrollProp(widget);
-  if (scroll !== undefined) {
-    const start = Math.max(0, Math.min(rows.length, Math.floor(scroll.offsetRow)));
-    const end = Math.min(rows.length, start + Math.max(0, height));
-    return { rows: rows.slice(start, end), start, end };
-  }
   const selectedIndex = selectedTreeIndex(rows, selected) ?? 0;
-  const window = visibleWindow(rows.length, height, selectedIndex);
+  const window = rowWindow(rows, {
+    viewportRows: height,
+    selectedIndex,
+    ...scrollInput(widget)
+  });
   return {
-    rows: rows.slice(window.start, window.end),
+    rows: window.rows,
     start: window.start,
     end: window.end
   };
@@ -253,26 +252,9 @@ function selectedTreeIndex(rows: readonly VisibleTreeNode[], selected: string | 
   return index === -1 ? undefined : index;
 }
 
-function scrollProp(widget: Widget): ScrollState | undefined {
-  const scroll = widget.props['scroll'];
-  if (!isRecord(scroll)) return undefined;
-  const offsetRow = scroll['offsetRow'];
-  const offsetColumn = scroll['offsetColumn'];
-  const contentRows = scroll['contentRows'];
-  const contentColumns = scroll['contentColumns'];
-  const viewportRows = scroll['viewportRows'];
-  const viewportColumns = scroll['viewportColumns'];
-  const followTail = scroll['followTail'];
-  if (
-    typeof offsetRow !== 'number'
-    || typeof offsetColumn !== 'number'
-    || typeof contentRows !== 'number'
-    || typeof contentColumns !== 'number'
-    || typeof viewportRows !== 'number'
-    || typeof viewportColumns !== 'number'
-    || typeof followTail !== 'boolean'
-  ) return undefined;
-  return { offsetRow, offsetColumn, contentRows, contentColumns, viewportRows, viewportColumns, followTail };
+function scrollInput(widget: Widget): { readonly scroll?: ScrollState } {
+  const scroll = scrollStateFromUnknown(widget.props['scroll']);
+  return scroll === undefined ? {} : { scroll };
 }
 
 function toMessageProp<TMessage>(widget: Widget<TMessage>): ((node: TreeNode) => TMessage) | undefined {

@@ -28,6 +28,7 @@ import {
   listAccessibleChildren,
   listAccessibleNode,
   listCursor,
+  listHitTargets,
   listScrollbarState,
   listText
 } from './support/list.ts';
@@ -73,7 +74,8 @@ export const dataRenderers = {
       ...listAccessibleNode(widget, node, id, focused),
       children: listAccessibleChildren(widget, node)
     }),
-    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, listCursor(widget, bounds))]
+    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, listCursor(widget, bounds))],
+    hitTargets: ({ widget, bounds }) => listHitTargets(widget, bounds)
   },
   table: {
     render: ({ widget, node, buffer, theme }) => {

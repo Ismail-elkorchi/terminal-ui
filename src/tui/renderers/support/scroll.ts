@@ -1,10 +1,10 @@
 import { measureTextCells, sanitizeTerminalText } from '../../../text/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { Widget } from '../../../widgets/index.ts';
+import { dataWindow } from '../../data-window.ts';
 import { normalizeScrollState } from '../../scroll.ts';
 import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
 import { scrollbackWindow } from '../../scrollback.ts';
-import { visibleWindow } from '../../visible-window.ts';
 import { numberProp, stringify } from '../../widget-props.ts';
 import { isRecord, nonNegativeInteger } from './common.ts';
 import type { FrameBuffer } from '../../frame.ts';
@@ -63,8 +63,12 @@ function isScrollbarVisibility(value: unknown): value is NonNullable<ScrollbarOp
 
 export function tableScrollbarState(widget: Widget, bounds: Rect): ScrollbarState {
   const rows = Array.isArray(widget.props['rows']) ? widget.props['rows'] : [];
-  const selected = Math.max(0, Math.floor(numberProp(widget, 'selected') ?? 0));
-  const window = visibleWindow(rows.length, bounds.height, selected);
+  const selected = selectedTableRow(widget);
+  const window = dataWindow({
+    totalRows: rows.length,
+    viewportRows: bounds.height,
+    selectedIndex: selected
+  });
   const configured = normalizedWidgetScroll(widget, {
     offsetRow: scrollNumberProp(widget, 'offsetRow') ?? window.start,
     contentRows: scrollNumberProp(widget, 'contentRows') ?? rows.length,
@@ -199,4 +203,13 @@ function textAreaLines(widget: Widget): readonly string[] {
   const placeholder = sanitizeTerminalText(stringify(widget.props['placeholder'])).text;
   const display = value.length === 0 && placeholder.length > 0 ? placeholder : value;
   return display.length === 0 ? [''] : display.split('\n');
+}
+
+function selectedTableRow(widget: Widget): number {
+  const selectedCell = widget.props['selectedCell'];
+  if (isRecord(selectedCell)) {
+    const row = selectedCell['row'];
+    if (typeof row === 'number' && Number.isFinite(row)) return Math.max(0, Math.floor(row));
+  }
+  return Math.max(0, Math.floor(numberProp(widget, 'selected') ?? 0));
 }

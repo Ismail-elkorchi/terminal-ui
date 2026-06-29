@@ -303,7 +303,11 @@
           "type": "array",
           "items": { "$ref": "#/$defs/renderOperation" }
         },
-        "fullRewrite": { "type": "boolean" }
+        "fullRewrite": { "type": "boolean" },
+        "dirtyRegions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/rect" }
+        }
       },
       "additionalProperties": false
     },

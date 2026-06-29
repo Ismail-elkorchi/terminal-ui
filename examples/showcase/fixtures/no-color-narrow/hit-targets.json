@@ -1,0 +1,244 @@
+[
+  {
+    "bounds": {
+      "column": 30,
+      "height": 1,
+      "row": 5,
+      "width": 10
+    },
+    "cursor": "pointer",
+    "id": "workspace-tabs:tab:dashboard",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 41,
+      "height": 1,
+      "row": 5,
+      "width": 7
+    },
+    "cursor": "pointer",
+    "id": "workspace-tabs:tab:data",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 49,
+      "height": 1,
+      "row": 5,
+      "width": 6
+    },
+    "cursor": "pointer",
+    "id": "workspace-tabs:tab:text",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 59,
+      "height": 1,
+      "row": 5,
+      "width": 6
+    },
+    "cursor": "pointer",
+    "id": "inspector-tabs:tab:selection",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 66,
+      "height": 1,
+      "row": 5,
+      "width": 6
+    },
+    "cursor": "pointer",
+    "id": "inspector-tabs:tab:a11y",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 73,
+      "height": 1,
+      "row": 5,
+      "width": 8
+    },
+    "cursor": "pointer",
+    "id": "inspector-tabs:tab:render",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 82,
+      "height": 1,
+      "row": 5,
+      "width": 7
+    },
+    "cursor": "pointer",
+    "id": "inspector-tabs:tab:theme",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 7,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "nav-filter:input",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 9,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:dashboard",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 10,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:data",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 11,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:text",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 12,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:diagram",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 13,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:forms",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 14,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:activity",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 15,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:assurance",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 16,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:transcript",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 17,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:accessibility",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 18,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:snapshots",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 20,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "quick-list:option:0",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 21,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "quick-list:option:1",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 22,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "quick-list:option:2",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 23,
+      "width": 23
+    },
+    "cursor": "pointer",
+    "id": "quick-list:option:3",
+    "zIndex": 0
+  }
+]

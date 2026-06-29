@@ -1,6 +1,7 @@
 import { clipTextCells, measureTextCells } from '../text/index.ts';
 import type { ThemeToken } from '../theme/index.ts';
 import type { FrameCell } from './frame.ts';
+import type { FrameSemanticRole } from './frame-passes/index.ts';
 
 export interface TerminalStyle {
   readonly fg?: TerminalColor;
@@ -27,7 +28,7 @@ export interface TerminalLink {
 export interface FrameCellSource {
   readonly id?: string;
   readonly kind?: string;
-  readonly role?: string;
+  readonly role?: FrameSemanticRole;
   readonly label?: string;
 }
 

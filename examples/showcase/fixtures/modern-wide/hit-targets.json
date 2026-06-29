@@ -1,0 +1,288 @@
+[
+  {
+    "bounds": {
+      "column": 33,
+      "height": 1,
+      "row": 5,
+      "width": 10
+    },
+    "cursor": "pointer",
+    "id": "workspace-tabs:tab:dashboard",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 44,
+      "height": 1,
+      "row": 5,
+      "width": 7
+    },
+    "cursor": "pointer",
+    "id": "workspace-tabs:tab:data",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 52,
+      "height": 1,
+      "row": 5,
+      "width": 10
+    },
+    "cursor": "pointer",
+    "id": "workspace-tabs:tab:text",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 63,
+      "height": 1,
+      "row": 5,
+      "width": 5
+    },
+    "cursor": "pointer",
+    "id": "workspace-tabs:tab:diagram",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 69,
+      "height": 1,
+      "row": 5,
+      "width": 10
+    },
+    "cursor": "pointer",
+    "id": "workspace-tabs:tab:forms",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 80,
+      "height": 1,
+      "row": 5,
+      "width": 8
+    },
+    "cursor": "pointer",
+    "id": "workspace-tabs:tab:activity",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 121,
+      "height": 1,
+      "row": 5,
+      "width": 6
+    },
+    "cursor": "pointer",
+    "id": "inspector-tabs:tab:selection",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 128,
+      "height": 1,
+      "row": 5,
+      "width": 6
+    },
+    "cursor": "pointer",
+    "id": "inspector-tabs:tab:a11y",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 135,
+      "height": 1,
+      "row": 5,
+      "width": 8
+    },
+    "cursor": "pointer",
+    "id": "inspector-tabs:tab:render",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 144,
+      "height": 1,
+      "row": 5,
+      "width": 7
+    },
+    "cursor": "pointer",
+    "id": "inspector-tabs:tab:theme",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 7,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "nav-filter:input",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 9,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:operations",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 10,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:dashboard",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 11,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:data",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 12,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:text",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 13,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:diagram",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 14,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:forms",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 15,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:activity",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 16,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:assurance",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 17,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:transcript",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 18,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:accessibility",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 19,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:snapshots",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 32,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "quick-list:option:0",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 33,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "quick-list:option:1",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 34,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "quick-list:option:2",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 3,
+      "height": 1,
+      "row": 35,
+      "width": 26
+    },
+    "cursor": "pointer",
+    "id": "quick-list:option:3",
+    "zIndex": 0
+  }
+]

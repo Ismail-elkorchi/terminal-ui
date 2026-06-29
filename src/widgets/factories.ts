@@ -111,7 +111,8 @@ export function list<TValue, TMessage>(options: ListWidgetOptions<TValue, TMessa
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
-      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar })
+      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+      ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionOptions({
@@ -539,6 +540,8 @@ export function progressBar(options: ProgressBarWidgetOptions): Widget<never> {
       ...(options.mode === undefined ? {} : { mode: options.mode }),
       ...(options.labelPosition === undefined ? {} : { labelPosition: options.labelPosition }),
       ...(options.showPercentage === undefined ? {} : { showPercentage: options.showPercentage }),
+      ...(options.elapsedMs === undefined ? {} : { elapsedMs: options.elapsedMs }),
+      ...(options.remainingMs === undefined ? {} : { remainingMs: options.remainingMs }),
       ...(options.status === undefined ? {} : { status: options.status })
     },
     ...interactionOptions(options)

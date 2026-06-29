@@ -44,7 +44,7 @@ export async function runTuiNonTty<TState, TMessage>(
         state = result.state;
       }
     }
-    const frame = renderCurrentFrame(app, state, context, undefined, runtimeOptions(app, host, transcript));
+    const frame = renderCurrentFrame(app, state, context, undefined, runtimeOptions(app, host, transcript), 0).frame;
     recordTuiFrame(transcript, frame, diffFrames(undefined, frame));
     if (policy.mode === 'last_frame' || policy.mode === 'line_fallback') {
       await host.write({ text: `${renderFramePlain(frame)}\n` });

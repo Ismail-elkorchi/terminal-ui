@@ -4,6 +4,7 @@ import type { Widget } from '../widgets/index.ts';
 import type { CanvasPainterInput } from '../widgets/types.ts';
 import type { Rect } from './layout.ts';
 import type { WidgetRenderInput } from './widget-renderer.ts';
+import { createCanvas2D } from './canvas2d/index.ts';
 
 export function renderCanvas(input: WidgetRenderInput): void {
   const painter = canvasPainter(input.widget.props['painter']);
@@ -12,6 +13,7 @@ export function renderCanvas(input: WidgetRenderInput): void {
   }
   painter({
     buffer: input.buffer,
+    canvas: createCanvas2D(input.buffer, input.node.bounds),
     bounds: input.node.bounds,
     theme: input.theme,
     ...(input.widget.props['state'] === undefined ? {} : { state: input.widget.props['state'] })

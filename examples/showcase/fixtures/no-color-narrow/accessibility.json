@@ -1,0 +1,402 @@
+{
+  "diagnostics": [],
+  "focusPath": [
+    "showcase-overlay",
+    "showcase-shell"
+  ],
+  "root": {
+    "children": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "checked": false,
+                        "description": "F",
+                        "disabled": false,
+                        "id": "main-menu:file",
+                        "label": "File",
+                        "role": "menuitem",
+                        "selected": false
+                      },
+                      {
+                        "checked": true,
+                        "description": "V",
+                        "disabled": false,
+                        "id": "main-menu:view",
+                        "label": "View",
+                        "role": "menuitem",
+                        "selected": true
+                      },
+                      {
+                        "checked": false,
+                        "description": "T",
+                        "disabled": false,
+                        "id": "main-menu:tools",
+                        "label": "Tools",
+                        "role": "menuitem",
+                        "selected": false
+                      },
+                      {
+                        "checked": false,
+                        "description": "?",
+                        "disabled": false,
+                        "id": "main-menu:help",
+                        "label": "Help",
+                        "role": "menuitem",
+                        "selected": false
+                      }
+                    ],
+                    "id": "main-menu",
+                    "label": "main-menu",
+                    "role": "menu"
+                  },
+                  {
+                    "id": "top-status",
+                    "label": "top-status",
+                    "role": "status",
+                    "value": "Northstar Control  Live events  catppuccin"
+                  },
+                  {
+                    "id": "top-activity",
+                    "label": "top-activity",
+                    "role": "status",
+                    "value": "i Live events live (running)"
+                  }
+                ],
+                "id": "top-row",
+                "label": "top-row",
+                "role": "text"
+              },
+              {
+                "id": "top-progress",
+                "label": "harbor service",
+                "progress": {
+                  "max": 100,
+                  "value": 72
+                },
+                "role": "progressbar"
+              }
+            ],
+            "id": "top-chrome",
+            "label": "top-chrome",
+            "role": "text"
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "id": "nav-title",
+                        "label": "nav-title",
+                        "role": "text",
+                        "value": "Navigator"
+                      },
+                      {
+                        "id": "nav-filter",
+                        "label": "nav-filter",
+                        "role": "textbox",
+                        "value": ""
+                      },
+                      {
+                        "children": [
+                          {
+                            "disabled": false,
+                            "id": "showcase-nav:dashboard",
+                            "label": "Overview",
+                            "role": "option",
+                            "selected": false,
+                            "value": "operations/dashboard"
+                          },
+                          {
+                            "disabled": false,
+                            "id": "showcase-nav:data",
+                            "label": "Fleet board",
+                            "role": "option",
+                            "selected": false,
+                            "value": "operations/data"
+                          },
+                          {
+                            "disabled": false,
+                            "id": "showcase-nav:text",
+                            "label": "Briefing room",
+                            "role": "option",
+                            "selected": false,
+                            "value": "operations/text"
+                          },
+                          {
+                            "disabled": false,
+                            "id": "showcase-nav:diagram",
+                            "label": "Route map",
+                            "role": "option",
+                            "selected": false,
+                            "value": "operations/diagram"
+                          },
+                          {
+                            "disabled": false,
+                            "id": "showcase-nav:forms",
+                            "label": "Dispatch desk",
+                            "role": "option",
+                            "selected": false,
+                            "value": "operations/forms"
+                          },
+                          {
+                            "disabled": false,
+                            "id": "showcase-nav:activity",
+                            "label": "Live events",
+                            "role": "option",
+                            "selected": true,
+                            "value": "operations/activity"
+                          },
+                          {
+                            "disabled": false,
+                            "expanded": true,
+                            "id": "showcase-nav:assurance",
+                            "label": "Assurance",
+                            "role": "option",
+                            "selected": false,
+                            "value": "assurance"
+                          },
+                          {
+                            "disabled": false,
+                            "id": "showcase-nav:transcript",
+                            "label": "Transcript",
+                            "role": "option",
+                            "selected": false,
+                            "value": "assurance/transcript"
+                          },
+                          {
+                            "disabled": false,
+                            "id": "showcase-nav:accessibility",
+                            "label": "Accessibility",
+                            "role": "option",
+                            "selected": false,
+                            "value": "assurance/accessibility"
+                          },
+                          {
+                            "disabled": false,
+                            "id": "showcase-nav:snapshots",
+                            "label": "Snapshots",
+                            "role": "option",
+                            "selected": false,
+                            "value": "assurance/snapshots"
+                          }
+                        ],
+                        "description": "Showing 2-11 of 11 tree rows.",
+                        "id": "showcase-nav",
+                        "label": "showcase-nav",
+                        "role": "listbox"
+                      },
+                      {
+                        "children": [
+                          {
+                            "id": "quick-list:option:0",
+                            "label": "Palette",
+                            "role": "option",
+                            "selected": true
+                          },
+                          {
+                            "id": "quick-list:option:1",
+                            "label": "Handoff",
+                            "role": "option",
+                            "selected": false
+                          },
+                          {
+                            "id": "quick-list:option:2",
+                            "label": "Theme",
+                            "role": "option",
+                            "selected": false
+                          },
+                          {
+                            "id": "quick-list:option:3",
+                            "label": "Context",
+                            "role": "option",
+                            "selected": false
+                          }
+                        ],
+                        "description": "Showing 1-4 of 4 items.",
+                        "id": "quick-list",
+                        "label": "quick-list",
+                        "role": "listbox"
+                      }
+                    ],
+                    "id": "nav-grid",
+                    "label": "nav-grid",
+                    "role": "text"
+                  }
+                ],
+                "id": "navigation-pane",
+                "label": "navigation-pane",
+                "role": "text"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "disabled": false,
+                        "id": "workspace-tabs:dashboard",
+                        "label": "Overview",
+                        "role": "menuitem",
+                        "selected": false
+                      },
+                      {
+                        "disabled": false,
+                        "id": "workspace-tabs:data",
+                        "label": "Fleet",
+                        "role": "menuitem",
+                        "selected": false
+                      },
+                      {
+                        "disabled": false,
+                        "id": "workspace-tabs:text",
+                        "label": "Briefing",
+                        "role": "menuitem",
+                        "selected": false
+                      },
+                      {
+                        "disabled": false,
+                        "id": "workspace-tabs:diagram",
+                        "label": "Map",
+                        "role": "menuitem",
+                        "selected": false
+                      },
+                      {
+                        "disabled": false,
+                        "id": "workspace-tabs:forms",
+                        "label": "Dispatch",
+                        "role": "menuitem",
+                        "selected": false
+                      },
+                      {
+                        "disabled": false,
+                        "id": "workspace-tabs:activity",
+                        "label": "Events",
+                        "role": "menuitem",
+                        "selected": true
+                      }
+                    ],
+                    "id": "workspace-tabs",
+                    "label": "workspace-tabs",
+                    "role": "menu"
+                  }
+                ],
+                "id": "workspace-pane",
+                "label": "workspace-pane",
+                "role": "text"
+              },
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "disabled": false,
+                        "id": "inspector-tabs:selection",
+                        "label": "Pick",
+                        "role": "menuitem",
+                        "selected": false
+                      },
+                      {
+                        "disabled": false,
+                        "id": "inspector-tabs:a11y",
+                        "label": "A11y",
+                        "role": "menuitem",
+                        "selected": true
+                      },
+                      {
+                        "disabled": false,
+                        "id": "inspector-tabs:render",
+                        "label": "Render",
+                        "role": "menuitem",
+                        "selected": false
+                      },
+                      {
+                        "disabled": false,
+                        "id": "inspector-tabs:theme",
+                        "label": "Theme",
+                        "role": "menuitem",
+                        "selected": false
+                      }
+                    ],
+                    "id": "inspector-tabs",
+                    "label": "inspector-tabs",
+                    "role": "menu"
+                  }
+                ],
+                "id": "inspector-pane",
+                "label": "inspector-pane",
+                "role": "text"
+              }
+            ],
+            "id": "main-layout",
+            "label": "main-layout",
+            "role": "text"
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "id": "showcase-command:validation",
+                    "label": "info",
+                    "role": "status",
+                    "value": "command ready"
+                  },
+                  {
+                    "id": "showcase-command:suggestion:0",
+                    "label": "Open palette",
+                    "role": "option",
+                    "selected": false,
+                    "value": "/palette"
+                  },
+                  {
+                    "id": "showcase-command:suggestion:1",
+                    "label": "Cycle theme",
+                    "role": "option",
+                    "selected": true,
+                    "value": "/theme"
+                  },
+                  {
+                    "id": "showcase-command:suggestion:2",
+                    "label": "Open handoff",
+                    "role": "option",
+                    "selected": false,
+                    "value": "/handoff"
+                  }
+                ],
+                "id": "showcase-command",
+                "label": "›",
+                "role": "textbox",
+                "value": "/events"
+              },
+              {
+                "id": "showcase-help",
+                "label": "showcase-help",
+                "role": "status",
+                "value": "Tab focus  Enter activate  /palette commands  /handoff modal  Ctrl-C exit"
+              }
+            ],
+            "id": "bottom-chrome",
+            "label": "bottom-chrome",
+            "role": "text"
+          }
+        ],
+        "focused": true,
+        "id": "showcase-shell",
+        "label": "Northstar Control",
+        "role": "application"
+      }
+    ],
+    "id": "showcase-overlay",
+    "label": "showcase-overlay",
+    "role": "application"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

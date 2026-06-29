@@ -1,0 +1,1302 @@
+{
+  "fullRewrite": false,
+  "height": 30,
+  "operations": [
+    {
+      "column": 50,
+      "kind": "write",
+      "row": 1,
+      "spans": [
+        {
+          "text": "Live even"
+        }
+      ]
+    },
+    {
+      "column": 63,
+      "kind": "write",
+      "row": 1,
+      "spans": [
+        {
+          "text": "Live events live (ru"
+        }
+      ]
+    },
+    {
+      "column": 84,
+      "kind": "write",
+      "row": 1,
+      "spans": [
+        {
+          "text": "ning)"
+        }
+      ]
+    },
+    {
+      "column": 30,
+      "kind": "write",
+      "row": 5,
+      "spans": [
+        {
+          "text": " "
+        }
+      ]
+    },
+    {
+      "column": 39,
+      "kind": "write",
+      "row": 5,
+      "spans": [
+        {
+          "text": " "
+        }
+      ]
+    },
+    {
+      "column": 59,
+      "kind": "write",
+      "row": 5,
+      "spans": [
+        {
+          "text": " "
+        }
+      ]
+    },
+    {
+      "column": 64,
+      "kind": "write",
+      "row": 5,
+      "spans": [
+        {
+          "text": " "
+        }
+      ]
+    },
+    {
+      "column": 66,
+      "kind": "write",
+      "row": 5,
+      "spans": [
+        {
+          "text": "["
+        }
+      ]
+    },
+    {
+      "column": 71,
+      "kind": "write",
+      "row": 5,
+      "spans": [
+        {
+          "text": "]"
+        }
+      ]
+    },
+    {
+      "column": 29,
+      "kind": "write",
+      "row": 6,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "++ Live event timeline --++"
+        }
+      ]
+    },
+    {
+      "column": 59,
+      "kind": "write",
+      "row": 6,
+      "spans": [
+        {
+          "text": "Accessible"
+        }
+      ]
+    },
+    {
+      "column": 70,
+      "kind": "write",
+      "row": 6,
+      "spans": [
+        {
+          "text": "snapshot"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 30,
+        "height": 1,
+        "row": 7,
+        "width": 25
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 30,
+      "kind": "write",
+      "row": 7,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        },
+        {
+          "text": "                       "
+        },
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 59,
+        "height": 1,
+        "row": 7,
+        "width": 24
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 30,
+        "height": 1,
+        "row": 8,
+        "width": 25
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 30,
+      "kind": "write",
+      "row": 8,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        },
+        {
+          "text": "   [-] "
+        },
+        {
+          "style": {
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "status.success"
+            }
+          },
+          "text": "[success]"
+        },
+        {
+          "text": " Berth "
+        },
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 59,
+        "height": 1,
+        "row": 8,
+        "width": 14
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 5,
+      "kind": "write",
+      "row": 9,
+      "spans": [
+        {
+          "text": " "
+        }
+      ]
+    },
+    {
+      "column": 7,
+      "kind": "write",
+      "row": 9,
+      "spans": [
+        {
+          "text": " "
+        }
+      ]
+    },
+    {
+      "column": 9,
+      "kind": "write",
+      "row": 9,
+      "spans": [
+        {
+          "text": "▣ Overview"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 30,
+        "height": 1,
+        "row": 9,
+        "width": 25
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 30,
+      "kind": "write",
+      "row": 9,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        },
+        {
+          "text": "   Aster enters berth  "
+        },
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 59,
+        "height": 1,
+        "row": 9,
+        "width": 18
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 3,
+      "kind": "write",
+      "row": 10,
+      "spans": [
+        {
+          "text": "      ▤ Fleet board"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 30,
+        "height": 1,
+        "row": 10,
+        "width": 23
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 30,
+      "kind": "write",
+      "row": 10,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        },
+        {
+          "text": "   12 inside the activ"
+        }
+      ]
+    },
+    {
+      "column": 54,
+      "kind": "write",
+      "row": 10,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 59,
+        "height": 1,
+        "row": 10,
+        "width": 13
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 9,
+      "kind": "write",
+      "row": 11,
+      "spans": [
+        {
+          "text": "¶"
+        }
+      ]
+    },
+    {
+      "column": 11,
+      "kind": "write",
+      "row": 11,
+      "spans": [
+        {
+          "text": "Bri"
+        }
+      ]
+    },
+    {
+      "column": 15,
+      "kind": "write",
+      "row": 11,
+      "spans": [
+        {
+          "text": "fing "
+        }
+      ]
+    },
+    {
+      "column": 21,
+      "kind": "write",
+      "row": 11,
+      "spans": [
+        {
+          "text": "oom"
+        }
+      ]
+    },
+    {
+      "column": 30,
+      "kind": "write",
+      "row": 11,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "column": 32,
+      "kind": "write",
+      "row": 11,
+      "spans": [
+        {
+          "text": "  e tide window"
+        }
+      ]
+    },
+    {
+      "column": 54,
+      "kind": "write",
+      "row": 11,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "column": 9,
+      "kind": "write",
+      "row": 12,
+      "spans": [
+        {
+          "text": "◎"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 11,
+        "height": 1,
+        "row": 12,
+        "width": 13
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 11,
+      "kind": "write",
+      "row": 12,
+      "spans": [
+        {
+          "text": "Route map"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 29,
+        "height": 1,
+        "row": 12,
+        "width": 27
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 29,
+      "kind": "write",
+      "row": 12,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "||"
+        },
+        {
+          "text": "   "
+        },
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.muted"
+            }
+          },
+          "text": "pilot: "
+        },
+        {
+          "text": "Rin          "
+        },
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "||"
+        }
+      ]
+    },
+    {
+      "column": 9,
+      "kind": "write",
+      "row": 13,
+      "spans": [
+        {
+          "text": "☷"
+        }
+      ]
+    },
+    {
+      "column": 11,
+      "kind": "write",
+      "row": 13,
+      "spans": [
+        {
+          "text": "Dispatch desk"
+        }
+      ]
+    },
+    {
+      "column": 32,
+      "kind": "write",
+      "row": 13,
+      "spans": [
+        {
+          "text": "  "
+        },
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.muted"
+            }
+          },
+          "text": "berth: "
+        },
+        {
+          "text": "12"
+        }
+      ]
+    },
+    {
+      "column": 59,
+      "kind": "write",
+      "row": 13,
+      "spans": [
+        {
+          "text": "> application: Northstar Contr"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 3,
+        "height": 1,
+        "row": 14,
+        "width": 21
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 3,
+      "kind": "write",
+      "row": 14,
+      "spans": [
+        {
+          "style": {
+            "bg": {
+              "kind": "theme",
+              "token": "selection.background"
+            },
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "selection.foreground"
+            }
+          },
+          "text": ">     ✦ Live events"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 32,
+        "height": 1,
+        "row": 14,
+        "width": 20
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 59,
+      "kind": "write",
+      "row": 14,
+      "spans": [
+        {
+          "text": "  tree: operations navigation"
+        }
+      ]
+    },
+    {
+      "column": 5,
+      "kind": "write",
+      "row": 15,
+      "spans": [
+        {
+          "text": "v"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 7,
+        "height": 1,
+        "row": 15,
+        "width": 11
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 7,
+      "kind": "write",
+      "row": 15,
+      "spans": [
+        {
+          "text": "⚙ Assuranc"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 19,
+        "height": 1,
+        "row": 15,
+        "width": 3
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 29,
+      "kind": "write",
+      "row": 15,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "++-----------------------++"
+        }
+      ]
+    },
+    {
+      "column": 59,
+      "kind": "write",
+      "row": 15,
+      "spans": [
+        {
+          "text": "  group: route workspace"
+        }
+      ]
+    },
+    {
+      "column": 5,
+      "kind": "write",
+      "row": 16,
+      "spans": [
+        {
+          "text": " "
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 7,
+        "height": 1,
+        "row": 16,
+        "width": 14
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 7,
+      "kind": "write",
+      "row": 16,
+      "spans": [
+        {
+          "text": "  ◫ Transcript"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 30,
+        "height": 1,
+        "row": 16,
+        "width": 1
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 32,
+        "height": 1,
+        "row": 16,
+        "width": 20
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 54,
+        "height": 1,
+        "row": 16,
+        "width": 1
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 61,
+      "kind": "write",
+      "row": 16,
+      "spans": [
+        {
+          "text": "textbox:"
+        }
+      ]
+    },
+    {
+      "column": 70,
+      "kind": "write",
+      "row": 16,
+      "spans": [
+        {
+          "text": "command"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 78,
+        "height": 1,
+        "row": 16,
+        "width": 11
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 78,
+      "kind": "write",
+      "row": 16,
+      "spans": [
+        {
+          "text": "bar"
+        }
+      ]
+    },
+    {
+      "column": 9,
+      "kind": "write",
+      "row": 17,
+      "spans": [
+        {
+          "text": "◇"
+        }
+      ]
+    },
+    {
+      "column": 11,
+      "kind": "write",
+      "row": 17,
+      "spans": [
+        {
+          "text": "Acce"
+        }
+      ]
+    },
+    {
+      "column": 16,
+      "kind": "write",
+      "row": 17,
+      "spans": [
+        {
+          "text": "sibility"
+        }
+      ]
+    },
+    {
+      "column": 29,
+      "kind": "write",
+      "row": 17,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "++ Selected event -------++"
+        }
+      ]
+    },
+    {
+      "column": 61,
+      "kind": "write",
+      "row": 17,
+      "spans": [
+        {
+          "text": "status: live operations"
+        }
+      ]
+    },
+    {
+      "column": 85,
+      "kind": "write",
+      "row": 17,
+      "spans": [
+        {
+          "text": "stat"
+        }
+      ]
+    },
+    {
+      "column": 9,
+      "kind": "write",
+      "row": 18,
+      "spans": [
+        {
+          "text": "◈"
+        }
+      ]
+    },
+    {
+      "column": 11,
+      "kind": "write",
+      "row": 18,
+      "spans": [
+        {
+          "text": "Snap"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 16,
+        "height": 1,
+        "row": 18,
+        "width": 8
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 16,
+      "kind": "write",
+      "row": 18,
+      "spans": [
+        {
+          "text": "hots"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 59,
+        "height": 1,
+        "row": 18,
+        "width": 30
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 32,
+      "kind": "write",
+      "row": 19,
+      "spans": [
+        {
+          "text": "[-] "
+        },
+        {
+          "style": {
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "status.info"
+            }
+          },
+          "text": "[info]"
+        },
+        {
+          "text": " Cold-chain"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 59,
+        "height": 1,
+        "row": 19,
+        "width": 30
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 32,
+      "kind": "write",
+      "row": 20,
+      "spans": [
+        {
+          "text": "Temperature telemetry"
+        }
+      ]
+    },
+    {
+      "column": 59,
+      "kind": "write",
+      "row": 20,
+      "spans": [
+        {
+          "text": "coverage"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 68,
+        "height": 1,
+        "row": 20,
+        "width": 21
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 68,
+      "kind": "write",
+      "row": 20,
+      "spans": [
+        {
+          "style": {
+            "bold": false,
+            "fg": {
+              "kind": "theme",
+              "token": "status.pending"
+            }
+          },
+          "text": "["
+        },
+        {
+          "style": {
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "status.success"
+            }
+          },
+          "text": "##########"
+        },
+        {
+          "style": {
+            "bold": false,
+            "fg": {
+              "kind": "theme",
+              "token": "status.pending"
+            }
+          },
+          "text": "]"
+        }
+      ]
+    },
+    {
+      "column": 32,
+      "kind": "write",
+      "row": 21,
+      "spans": [
+        {
+          "text": " stayed inside the tr"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 29,
+        "height": 1,
+        "row": 22,
+        "width": 27
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 29,
+      "kind": "write",
+      "row": 22,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "||"
+        },
+        {
+          "text": " ansfer band           "
+        },
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "||"
+        }
+      ]
+    },
+    {
+      "column": 30,
+      "kind": "write",
+      "row": 23,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "column": 32,
+      "kind": "write",
+      "row": 23,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.muted"
+            }
+          },
+          "text": "block: "
+        },
+        {
+          "text": "7"
+        }
+      ]
+    },
+    {
+      "column": 54,
+      "kind": "write",
+      "row": 23,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 29,
+        "height": 1,
+        "row": 24,
+        "width": 27
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 29,
+      "kind": "write",
+      "row": 24,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "||"
+        },
+        {
+          "text": "                       "
+        },
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "||"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 2,
+        "height": 1,
+        "row": 27,
+        "width": 62
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 2,
+      "kind": "write",
+      "row": 27,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.default"
+            }
+          },
+          "text": "/events"
+        }
+      ]
+    },
+    {
+      "column": 1,
+      "kind": "write",
+      "row": 28,
+      "spans": [
+        {
+          "style": {
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "accent.primary"
+            }
+          },
+          "text": "command "
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 10,
+        "height": 1,
+        "row": 28,
+        "width": 22
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 10,
+      "kind": "write",
+      "row": 28,
+      "spans": [
+        {
+          "style": {
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "accent.primary"
+            }
+          },
+          "text": "eady"
+        }
+      ]
+    },
+    {
+      "column": 1,
+      "kind": "moveCursor",
+      "row": 1
+    }
+  ],
+  "schemaVersion": "terminal-ui.render-diff.v1",
+  "width": 90
+}

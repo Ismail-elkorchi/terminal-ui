@@ -1,5 +1,6 @@
-import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
+import { sanitizeTerminalText } from '../text/index.ts';
 import { numberProp, stringify } from './widget-props.ts';
+import { selectedTextSpans, singleLineCursorColumn } from './text-display.ts';
 import { themeStyle, widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -57,8 +58,9 @@ export function commandBarAccessibleChildren(widget: Widget): readonly Accessibl
 export function commandBarCursor(widget: Widget, bounds: Rect): { readonly row: number; readonly column: number } {
   const prompt = promptText(widget);
   const value = valueText(widget);
-  const cursor = Math.max(0, Math.min(value.length, Math.floor(numberProp(widget, 'cursor') ?? value.length)));
-  const beforeCursorCells = measureTextCells(`${prompt}${value.slice(0, cursor)}`).cells;
+  const promptCells = singleLineCursorColumn(prompt, prompt.length);
+  const valueCells = singleLineCursorColumn(value, numberProp(widget, 'cursor'));
+  const beforeCursorCells = promptCells + valueCells;
   return { row: bounds.row, column: bounds.column + Math.max(0, Math.min(bounds.width - 1, beforeCursorCells)) };
 }
 
@@ -175,12 +177,12 @@ function validationStyle(widget: Widget, tone: CommandBarValidationTone): Termin
 
 function valueSpans(widget: Widget, value: string, selection: TextSelection | undefined): readonly RenderSpan[] {
   const normalized = normalizeSelection(value, selection);
-  if (normalized === undefined) return [styledSpan(value, widgetStyle(widget, 'value'))];
-  return [
-    ...(normalized.start > 0 ? [styledSpan(value.slice(0, normalized.start), widgetStyle(widget, 'value'))] : []),
-    styledSpan(value.slice(normalized.start, normalized.end), widgetStyle(widget, 'value', 'selected')),
-    ...(normalized.end < value.length ? [styledSpan(value.slice(normalized.end), widgetStyle(widget, 'value'))] : [])
-  ];
+  return selectedTextSpans(
+    value,
+    normalized,
+    widgetStyle(widget, 'value'),
+    widgetStyle(widget, 'value', 'selected')
+  );
 }
 
 function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {

@@ -21,6 +21,7 @@ import {
 } from '../../dist/tui/index.js';
 import {
   box,
+  button,
   contextMenu,
   custom,
   dropdown,
@@ -93,13 +94,37 @@ test('TUI tabs expose clickable tab hit targets', async () => {
   assert.equal(runtime.getState()?.selected, 'right');
 });
 
+test('TUI runtime routes mouse input through the committed render cache', async () => {
+  let viewCalls = 0;
+  const app = defineTui({
+    id: 'cached-routing-tui',
+    init: () => ({ count: 0 }),
+    update: (state) => ({ state: { count: state.count + 1 } }),
+    view: (state) => {
+      viewCalls += 1;
+      return button({ id: 'cached-button', label: `Count ${state.count}`, message: { kind: 'click' } });
+    }
+  });
+  const host = createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host });
+  const frame = await runtime.start();
+  const target = frame.hitTargets?.find((item) => item.id.startsWith('cached-button'));
+
+  assert.equal(viewCalls, 1);
+  assert.notEqual(target, undefined);
+  await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}M` });
+
+  assert.equal(runtime.getState()?.count, 1);
+  assert.equal(viewCalls, 2);
+});
+
 test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
   const frame = renderWidgetFrame(inputField({ id: 'addressed-field', value: 'Go' }), { columns: 8, rows: 2 });
   const output = renderFrameDebug(frame);
 
   assert.match(output, /^\u001B\[1;1HG/u);
   assert.match(output, /\u001B\[1;2Ho/u);
-  assert.match(output, /\u001B\[1;1H$/u);
+  assert.match(output, new RegExp(`\\u001B\\[${String(frame.cursor?.row)};${String(frame.cursor?.column)}H$`, 'u'));
   assert.equal(renderFramePlain(frame), 'Go');
 });
 

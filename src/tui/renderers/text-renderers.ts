@@ -15,6 +15,7 @@ import {
   scrollbarsForWidget,
   textAreaScrollbarState
 } from './support/scroll.ts';
+import { singleLineCursorColumn, visibleLineText } from '../text-display.ts';
 import type { RendererMap } from './types.ts';
 
 export const textRenderers = {
@@ -37,7 +38,7 @@ export const textRenderers = {
   },
   inputField: {
     render: ({ widget, node, buffer }) => {
-      writeBlock(buffer, node.bounds, stringify(widget.props['value']));
+      writeBlock(buffer, node.bounds, visibleLineText(stringify(widget.props['value']), 0, node.bounds.width));
     },
     accessibility: ({ widget, id, focused }) => ({
       id,
@@ -46,7 +47,10 @@ export const textRenderers = {
       value: stringify(widget.props['value']),
       ...(focused ? { focused } : {})
     }),
-    focusTargets: ({ bounds }) => [focusTarget(bounds)],
+    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, {
+      row: bounds.row,
+      column: bounds.column + singleLineCursorColumn(stringify(widget.props['value']), undefined, Math.max(0, bounds.width - 1))
+    })],
     hitTargets: ({ widget, bounds }) => widgetMessageHitTargets(widget, bounds, 'input')
   },
   textArea: {

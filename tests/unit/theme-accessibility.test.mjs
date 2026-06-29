@@ -46,10 +46,12 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
   };
 
   assert.equal(theme.name, 'custom');
+  assert.match(theme.fingerprint, /^theme:[0-9a-f]{8}$/u);
   assert.equal(theme.symbols.pointer, '>');
   assert.equal(theme.symbols.checkboxChecked, '[x]');
   assert.deepEqual(theme.symbols.spinnerFrames, ['a', 'b']);
   assert.equal(theme.spacing.gap, 2);
+  assert.notEqual(merged.fingerprint, theme.fingerprint);
   assert.deepEqual(merged.colors['custom.surface'], { kind: 'rgb', r: 1, g: 2, b: 3 });
   assert.deepEqual(
     resolveTerminalStyle({ fg: { kind: 'theme', token: 'missing.custom' } }, theme),
@@ -58,6 +60,30 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
   assert.match(renderDiffAnsi(diff, { capabilities: colorCapabilities, theme }), /\u001B\[4;38;5;9mbad\u001B\[0m/u);
   assert.equal(renderDiffAnsi(diff, { capabilities: monoCapabilities, theme }), '\u001B[1;1Hbad');
   assert.equal(defaultThemes.noColor.name, 'noColor');
+});
+
+test('theme fingerprints are stable for equivalent themes and change with theme content', () => {
+  const first = defineTheme({
+    name: 'ordered',
+    colors: {
+      'custom.b': { kind: 'rgb', r: 1, g: 2, b: 3 },
+      'custom.a': { kind: 'ansi', value: 4 }
+    }
+  });
+  const second = defineTheme({
+    name: 'ordered',
+    colors: {
+      'custom.a': { kind: 'ansi', value: 4 },
+      'custom.b': { kind: 'rgb', r: 1, g: 2, b: 3 }
+    }
+  });
+  const changed = mergeThemes(first, { spacing: { padding: 1 } });
+
+  assert.equal(first.fingerprint, second.fingerprint);
+  assert.notEqual(changed.fingerprint, first.fingerprint);
+  for (const theme of Object.values(defaultThemes)) {
+    assert.match(theme.fingerprint, /^theme:[0-9a-f]{8}$/u);
+  }
 });
 
 test('rich text widgets preserve render spans and render their plain text into frames', () => {

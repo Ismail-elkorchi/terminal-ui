@@ -1,6 +1,6 @@
 import { sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
+import { dataWindow, rowWindow } from './data-window.ts';
 import { numberProp, stringify } from './widget-props.ts';
-import { visibleWindow } from './visible-window.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { StructuredBlock, StructuredBlockField, StructuredBlockStatus, Widget } from '../widgets/index.ts';
@@ -43,7 +43,11 @@ export function activityFeedBlock(widget: Widget, node: LayoutNode, theme: Termi
 export function activityFeedAccessibleBase(widget: Widget, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
   const blocks = activityFeedBlocks(widget);
   const selected = selectedBlockIndex(widget, blocks.length);
-  const window = visibleWindow(blocks.length, Math.max(1, node.bounds.height), selected ?? 0);
+  const window = dataWindow({
+    totalRows: blocks.length,
+    viewportRows: Math.max(1, node.bounds.height),
+    selectedIndex: selected ?? 0
+  });
   return {
     id,
     role: 'listbox',
@@ -95,8 +99,11 @@ function visibleActivityBlocks(
 ): readonly { readonly block: StructuredBlock; readonly index: number }[] {
   const blocks = activityFeedBlocks(widget);
   const selected = selectedBlockIndex(widget, blocks.length) ?? 0;
-  const window = visibleWindow(blocks.length, Math.max(1, node.bounds.height), selected);
-  return blocks.slice(window.start, window.end).map((block, offset) => ({
+  const window = rowWindow(blocks, {
+    viewportRows: Math.max(1, node.bounds.height),
+    selectedIndex: selected
+  });
+  return window.rows.map((block, offset) => ({
     block,
     index: window.start + offset
   }));

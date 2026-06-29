@@ -7,6 +7,7 @@ import type { GridLayoutOptions, LayoutFlowOptions, LayoutSize } from '../tui/re
 import type { ScrollState } from '../tui/scroll.ts';
 import type { ScrollbarOptions } from '../tui/scrollbar.ts';
 import type { FrameBuffer } from '../tui/frame-buffer.ts';
+import type { Canvas2D } from '../tui/canvas2d/index.ts';
 import type { Rect } from '../tui/layout.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 
@@ -444,6 +445,7 @@ export interface DropdownWidgetOptions<TMessage = never> extends WidgetLayerOpti
 
 export interface CanvasPainterInput {
   readonly buffer: FrameBuffer;
+  readonly canvas: Canvas2D;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
   readonly state?: unknown;
@@ -525,6 +527,8 @@ export interface ProgressBarWidgetOptions extends WidgetLayerOptions {
   readonly mode?: ProgressBarMode;
   readonly labelPosition?: ProgressBarLabelPosition;
   readonly showPercentage?: boolean;
+  readonly elapsedMs?: number;
+  readonly remainingMs?: number;
   readonly status?: ActivityIndicatorStatus;
   readonly accessibility?: AccessibleNodeDefinition;
 }

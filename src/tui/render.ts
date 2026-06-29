@@ -2,15 +2,19 @@ import { toAccessibleSnapshot } from '../accessibility/index.ts';
 import { defineTheme, isTerminalTheme } from '../theme/index.ts';
 import { collectLayoutFocusTargets, collectWidgetLayoutTargets, findWidgetFocusTarget, focusPathIncludes, resolveFocusPath } from './focus.ts';
 import { createFrameBuffer } from './frame.ts';
+import { applyFramePasses, boxDrawingJoinPass } from './frame-passes/index.ts';
 import { layoutWidget } from './layout.ts';
 import { accessibleNode } from './render-accessibility.ts';
+import { createDraftRenderRegion } from './render-regions.ts';
 import { renderWidgetRenderer, widgetCursor, widgetHitTargets } from './widget-behavior.ts';
 import type { TerminalViewport } from '../host/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
-import type { FocusPath, LayoutFocusTarget } from './focus.ts';
-import type { Frame, FrameBuffer, FrameCell, FrameHitTarget } from './frame.ts';
+import type { FocusPath } from './focus.ts';
+import type { Frame, FrameBuffer, FrameHitTarget } from './frame.ts';
+import type { FramePass } from './frame-passes/index.ts';
 import type { Layer, LayoutNode, Rect } from './layout.ts';
+import type { DraftRenderRegion, RenderRegion } from './render-regions.ts';
 
 export {
   clipRenderSpans,
@@ -30,6 +34,7 @@ export {
 export type {
   CursorPosition,
   AnsiStyleState,
+  DiffFramesOptions,
   Frame,
   FrameBuffer,
   FrameCell,
@@ -46,19 +51,22 @@ export type {
   TerminalLink,
   TerminalStyle
 } from './frame.ts';
+export type { RenderRegion } from './render-regions.ts';
 
 export interface RenderWidgetFrameOptions {
   readonly focusPath?: FocusPath;
   readonly theme?: TerminalTheme | TerminalThemeDefinition;
+  readonly framePasses?: readonly FramePass[];
+  readonly disableFramePasses?: boolean;
 }
 
-export interface RenderLayer {
-  readonly id: string;
-  readonly zIndex: number;
-  readonly bounds: Rect;
-  readonly cells: readonly FrameCell[];
-  readonly hitTargets: readonly FrameHitTarget[];
-  readonly focusTargets: readonly LayoutFocusTarget[];
+export interface RenderWidgetFrameProjection<TMessage = unknown> {
+  readonly widget: Widget<TMessage>;
+  readonly viewport: TerminalViewport;
+  readonly theme: TerminalTheme;
+  readonly layout: LayoutNode;
+  readonly regions: readonly RenderRegion[];
+  readonly frame: Frame;
 }
 
 export function renderWidgetFrame(
@@ -66,65 +74,82 @@ export function renderWidgetFrame(
   viewport: TerminalViewport,
   options: RenderWidgetFrameOptions = {}
 ): Frame {
+  return renderWidgetFrameProjection(widget, viewport, options).frame;
+}
+
+export function renderWidgetFrameProjection<TMessage>(
+  widget: Widget<TMessage>,
+  viewport: TerminalViewport,
+  options: RenderWidgetFrameOptions = {}
+): RenderWidgetFrameProjection<TMessage> {
   const theme = themeForOptions(options.theme);
   const layout = layoutWidget(widget, viewport, theme);
   const resolvedFocusPath = resolveFocusPath(layout, options.focusPath);
-  const layers = renderLayoutLayers(widget, layout, viewport, theme, resolvedFocusPath);
-  const buffer = compositeLayers(viewport, layers);
+  const regions = renderLayoutRegions(widget, layout, viewport, theme, resolvedFocusPath);
+  const buffer = compositeRegions(viewport, regions);
+  applyFramePasses(buffer, framePassesForOptions(options), { theme, viewport });
   const cursor = cursorForFocusedWidget(widget, layout, resolvedFocusPath, theme);
-  const hitTargets = layers.flatMap((layer) => layer.hitTargets);
+  const hitTargets = regions.flatMap((region) => region.hitTargets);
   const accessibility = toAccessibleSnapshot({
     source: 'tui',
     root: accessibleNode(widget, layout, [], resolvedFocusPath, theme),
     ...(resolvedFocusPath === undefined ? {} : { focusPath: resolvedFocusPath })
   });
-  return buffer.snapshot({
+  const frame = buffer.snapshot({
     accessibility,
     ...(hitTargets.length === 0 ? {} : { hitTargets }),
     ...(cursor === undefined ? {} : { cursor }),
     ...(resolvedFocusPath === undefined ? {} : { focusPath: resolvedFocusPath })
   });
+  return { widget, viewport, theme, layout, regions, frame };
 }
 
-export function renderWidgetLayers(
+function framePassesForOptions(options: RenderWidgetFrameOptions): readonly FramePass[] {
+  if (options.disableFramePasses === true) return [];
+  return options.framePasses ?? defaultFramePasses;
+}
+
+const defaultFramePasses: readonly FramePass[] = Object.freeze([boxDrawingJoinPass]);
+
+export function renderWidgetRegions(
   widget: Widget,
   viewport: TerminalViewport,
   options: RenderWidgetFrameOptions = {}
-): readonly RenderLayer[] {
-  const theme = themeForOptions(options.theme);
-  const layout = layoutWidget(widget, viewport, theme);
-  return renderLayoutLayers(widget, layout, viewport, theme, resolveFocusPath(layout, options.focusPath));
+): readonly RenderRegion[] {
+  return renderWidgetFrameProjection(widget, viewport, options).regions;
 }
 
-function renderLayoutLayers(
+function renderLayoutRegions(
   widget: Widget,
   layout: LayoutNode,
   viewport: TerminalViewport,
   theme: TerminalTheme,
   focusPath: FocusPath | undefined
-): readonly RenderLayer[] {
-  const composer = createLayerComposer(viewport);
-  renderWidgetToLayer(widget, layout, [], composer.layerFor(layout.layer), composer, theme, focusPath);
+): readonly RenderRegion[] {
+  const composer = createRegionComposer(viewport);
+  renderWidgetToRegion(widget, layout, [], composer.regionFor(layout.layer), composer, theme, focusPath);
   return composer.snapshot(widget, layout, theme);
 }
 
-function frameHitTargets(widget: Widget, layout: LayoutNode, theme: TerminalTheme, zIndex: number): readonly FrameHitTarget[] {
-  return collectWidgetLayoutTargets(widget, layout).filter((target) => target.layer.zIndex === zIndex).flatMap((target): FrameHitTarget[] =>
+function frameHitTargets(widget: Widget, layout: LayoutNode, theme: TerminalTheme, region: DraftRenderRegion): readonly FrameHitTarget[] {
+  return collectWidgetLayoutTargets(widget, layout)
+    .filter((target) => target.layer.zIndex === region.zIndex && rectsOverlap(target.bounds, region.bounds))
+    .flatMap((target): FrameHitTarget[] =>
     widgetHitTargets(target.widget, target, theme).map((hitTarget) => ({
       id: hitTarget.id,
       bounds: hitTarget.bounds,
       ...(hitTarget.cursor === undefined ? {} : { cursor: hitTarget.cursor }),
-      zIndex: hitTarget.zIndex ?? zIndex
+      zIndex: hitTarget.zIndex ?? region.zIndex
     }))
   );
 }
 
-function renderWidgetToLayer(
+function renderWidgetToRegion(
   widget: Widget,
   node: LayoutNode,
   parentPath: FocusPath,
-  layer: MutableRenderLayer,
-  composer: LayerComposer,
+  region: DraftRenderRegion,
+  composer: RegionComposer,
   theme: TerminalTheme,
   focusPath: FocusPath | undefined
 ): void {
@@ -132,33 +157,33 @@ function renderWidgetToLayer(
   const path = nodePath(node, parentPath);
   renderWidgetRenderer(widget, {
     node,
-    buffer: layer.buffer,
+    buffer: region.buffer,
     theme,
     focused: focusPathIncludes(focusPath, path),
-    renderChildren(target = layer.buffer) {
-      renderWidgetChildrenToLayers(widget, node, path, target, layer, composer, theme, focusPath);
+    renderChildren(target = region.buffer) {
+      renderWidgetChildrenToRegions(widget, node, path, target, region, composer, theme, focusPath);
     }
   });
 }
 
-function renderWidgetChildrenToLayers(
+function renderWidgetChildrenToRegions(
   widget: Widget,
   node: LayoutNode,
   path: FocusPath,
   buffer: FrameBuffer,
-  layer: MutableRenderLayer,
-  composer: LayerComposer,
+  region: DraftRenderRegion,
+  composer: RegionComposer,
   theme: TerminalTheme,
   focusPath: FocusPath | undefined
 ): void {
   const children = widget.children ?? [];
   for (const { child, childNode } of orderedChildren(children, node)) {
-    if (buffer !== layer.buffer) {
+    if (buffer !== region.buffer) {
       renderWidgetToBuffer(child, childNode, path, buffer, theme, focusPath);
       continue;
     }
-    const childLayer = childNode.layer.zIndex === layer.zIndex ? layer : composer.layerFor(childNode.layer);
-    renderWidgetToLayer(child, childNode, path, childLayer, composer, theme, focusPath);
+    const childRegion = childNode.layer.zIndex === region.zIndex ? region : composer.regionFor(childNode.layer);
+    renderWidgetToRegion(child, childNode, path, childRegion, composer, theme, focusPath);
   }
 }
 
@@ -201,67 +226,59 @@ function orderedChildren(
     .sort((left, right) => left.childNode.layer.zIndex - right.childNode.layer.zIndex || left.index - right.index);
 }
 
-interface MutableRenderLayer {
-  readonly id: string;
-  readonly zIndex: number;
-  readonly order: number;
-  bounds: Rect;
-  readonly buffer: FrameBuffer;
+interface RegionComposer {
+  regionFor(layer: Layer): DraftRenderRegion;
+  snapshot(widget: Widget, layout: LayoutNode, theme: TerminalTheme): readonly RenderRegion[];
 }
 
-interface LayerComposer {
-  layerFor(layer: Layer): MutableRenderLayer;
-  snapshot(widget: Widget, layout: LayoutNode, theme: TerminalTheme): readonly RenderLayer[];
-}
-
-function createLayerComposer(viewport: TerminalViewport): LayerComposer {
-  const layers: MutableRenderLayer[] = [];
+function createRegionComposer(viewport: TerminalViewport): RegionComposer {
+  const regions: DraftRenderRegion[] = [];
+  let regionOrder = 0;
   return {
-    layerFor(layer) {
-      const existing = layers.find((item) => item.zIndex === layer.zIndex);
-      if (existing !== undefined) {
-        existing.bounds = unionRects(existing.bounds, layer.bounds);
-        return existing;
-      }
-      const next: MutableRenderLayer = {
-        id: `z:${String(layer.zIndex)}`,
+    regionFor(layer) {
+      const region = createDraftRenderRegion({
+        id: `z:${String(layer.zIndex)}:r:${String(regionOrder)}`,
         zIndex: layer.zIndex,
-        order: layers.length,
-        bounds: layer.bounds,
-        buffer: createFrameBuffer(viewport.columns, viewport.rows)
-      };
-      layers.push(next);
-      return next;
+        order: regionOrder,
+        viewport,
+        bounds: layer.bounds
+      });
+      regionOrder += 1;
+      regions.push(region);
+      return region;
     },
     snapshot(widget, layout, theme) {
-      return layers
+      return regions
         .toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)
-        .map((layer): RenderLayer => ({
-          id: layer.id,
-          zIndex: layer.zIndex,
-          bounds: layer.bounds,
-          cells: layer.buffer.snapshot().cells,
-          hitTargets: frameHitTargets(widget, layout, theme, layer.zIndex),
-          focusTargets: collectLayoutFocusTargets(layout).filter((target) => target.layer.zIndex === layer.zIndex)
+        .map((region): RenderRegion => ({
+          id: region.id,
+          zIndex: region.zIndex,
+          order: region.order,
+          bounds: region.bounds,
+          opacity: 'transparent',
+          cells: region.buffer.snapshot().cells,
+          hitTargets: frameHitTargets(widget, layout, theme, region),
+          focusTargets: collectLayoutFocusTargets(layout).filter((target) =>
+            target.layer.zIndex === region.zIndex && rectsOverlap(target.bounds, region.bounds)
+          )
         }));
     }
   };
 }
 
-function compositeLayers(viewport: TerminalViewport, layers: readonly RenderLayer[]): FrameBuffer {
+export function compositeRegions(viewport: TerminalViewport, regions: readonly RenderRegion[]): FrameBuffer {
   const buffer = createFrameBuffer(viewport.columns, viewport.rows);
-  for (const layer of layers) {
-    for (const cell of layer.cells) buffer.writeCell(cell);
+  for (const region of regions.toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)) {
+    for (const cell of region.cells) buffer.writeCell(cell);
   }
   return buffer;
 }
 
-function unionRects(left: Rect, right: Rect): Rect {
-  const row = Math.min(left.row, right.row);
-  const column = Math.min(left.column, right.column);
-  const bottom = Math.max(left.row + left.height, right.row + right.height);
-  const rightEdge = Math.max(left.column + left.width, right.column + right.width);
-  return { row, column, width: Math.max(0, rightEdge - column), height: Math.max(0, bottom - row) };
+function rectsOverlap(left: Rect, right: Rect): boolean {
+  return left.row < right.row + right.height
+    && left.row + left.height > right.row
+    && left.column < right.column + right.width
+    && left.column + left.width > right.column;
 }
 
 function themeForOptions(theme: TerminalTheme | TerminalThemeDefinition | undefined): TerminalTheme {

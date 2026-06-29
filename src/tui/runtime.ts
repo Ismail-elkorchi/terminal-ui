@@ -4,15 +4,16 @@ import { createSerializedDispatchQueue } from './dispatch-queue.ts';
 import { completedExitFromSnapshot } from './exit.ts';
 import { collectWidgetLayoutTargets, findWidgetFocusTarget, nextFocusPath, previousFocusPath } from './focus.ts';
 import { tuiSnapshot } from './lifecycle.ts';
-import { layoutWidget } from './layout.ts';
-import { commitFrame, renderCurrentFrame, resolveTuiTheme, setHostViewport } from './runtime-frame.ts';
+import { commitFrame, dirtyRegionsForRenderCommit, renderCurrentFrame, resolveTuiTheme, setHostViewport } from './runtime-frame.ts';
 import { createTuiSubscriptionManager } from './subscriptions.ts';
 import { widgetHitTargets } from './widget-behavior.ts';
 import type { InputEvent, MouseEvent as TerminalMouseEvent } from '../input/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
+import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { Frame } from './frame.ts';
 import type { FocusPath } from './focus.ts';
 import type { Rect } from './layout.ts';
+import type { RenderCommitCandidate } from './runtime-frame.ts';
 import type {
   TuiCommand,
   TuiContext,
@@ -33,8 +34,8 @@ export function createTuiRuntime<TState, TMessage>(
   options: TuiRuntimeOptions<TState, TMessage>
 ): TuiRuntime<TState, TMessage> {
   let currentState: TState | undefined;
-  let currentFrame: Frame | undefined;
-  let currentThemeFingerprint: string | undefined;
+  let currentRender: RenderCommitCandidate<TMessage> | undefined;
+  let stateVersion = 0;
   let currentFocusPath: FocusPath | undefined = options.initialFocusPath;
   let terminalExit: TuiExit<TState> | undefined;
   let started = false;
@@ -75,7 +76,7 @@ export function createTuiRuntime<TState, TMessage>(
         return { handled: true, state: ensureState(), frame: resized };
       }
       if (event.kind === 'mouse') {
-        const message = await messageForMouse(state, event);
+        const message = messageForMouse(state, event);
         if (message === undefined) return { handled: false, state, frame };
         const nextState = await dispatchQueue.run(() => dispatchInternal(message, 'input'));
         const nextFrame = ensureFrame();
@@ -83,7 +84,7 @@ export function createTuiRuntime<TState, TMessage>(
           ? { handled: true, state: nextState, frame: nextFrame }
           : { handled: true, state: nextState, frame: nextFrame, exit: terminalExit };
       }
-      const message = await messageForInput(state, event);
+      const message = messageForInput(state, event);
       if (message === undefined) {
         if (event.kind === 'key' && event.key === 'tab') {
           const next = await moveFocus(state, event.shift ? 'previous' : 'next');
@@ -122,7 +123,7 @@ export function createTuiRuntime<TState, TMessage>(
       return currentState;
     },
     frame() {
-      return currentFrame;
+      return currentRender?.frame;
     },
     exit() {
       return terminalExit;
@@ -132,7 +133,7 @@ export function createTuiRuntime<TState, TMessage>(
 
   async function startInternal(): Promise<Frame> {
     if (started) {
-      if (currentFrame !== undefined) return currentFrame;
+      if (currentRender !== undefined) return currentRender.frame;
     }
     if (disposed) throw new Error('TUI runtime has been disposed.');
     started = true;
@@ -141,15 +142,13 @@ export function createTuiRuntime<TState, TMessage>(
     await settleQueuedWork(context);
     const state = ensureState();
     const theme = resolveTuiTheme(options.theme, state);
-    const frame = renderCurrentFrame(options.app, state, context, currentFocusPath, options);
-    currentFrame = frame;
-    currentThemeFingerprint = themeFingerprint(theme);
-    currentFocusPath = frame.focusPath;
-    await commitFrame(options.host, undefined, frame, options.transcript, theme);
-    updateCompletedExitSnapshot(frame);
-    publishChange({ kind: 'frame', frame });
+    const render = renderCurrentFrame(options.app, state, context, currentFocusPath, options, stateVersion);
+    storeCurrentRender(render);
+    await commitFrame(options.host, undefined, render.frame, options.transcript, theme);
+    updateCompletedExitSnapshot(render.frame);
+    publishChange({ kind: 'frame', frame: render.frame });
     if (terminalExit !== undefined) publishChange({ kind: 'exit', exit: terminalExit });
-    return frame;
+    return render.frame;
   }
 
   async function dispatchInternal(message: TMessage, source: TuiMessageSource): Promise<TState> {
@@ -160,13 +159,11 @@ export function createTuiRuntime<TState, TMessage>(
     const state = ensureState();
     const theme = resolveTuiTheme(options.theme, state);
     const previousFrame = frameDiffBase(theme);
-    const frame = renderCurrentFrame(options.app, state, context, currentFocusPath, options);
-    await commitFrame(options.host, previousFrame, frame, options.transcript, theme);
-    currentFrame = frame;
-    currentThemeFingerprint = themeFingerprint(theme);
-    currentFocusPath = frame.focusPath;
-    updateCompletedExitSnapshot(frame);
-    publishChange({ kind: 'frame', frame });
+    const render = renderCurrentFrame(options.app, state, context, currentFocusPath, options, stateVersion);
+    await commitFrame(options.host, previousFrame, render.frame, options.transcript, theme, dirtyCommitOptions(previousFrame, render));
+    storeCurrentRender(render);
+    updateCompletedExitSnapshot(render.frame);
+    publishChange({ kind: 'frame', frame: render.frame });
     if (terminalExit !== undefined) publishChange({ kind: 'exit', exit: terminalExit });
     return ensureState();
   }
@@ -178,13 +175,11 @@ export function createTuiRuntime<TState, TMessage>(
     const context = await createRuntimeContext('internal');
     const theme = resolveTuiTheme(options.theme, state);
     const previousFrame = frameDiffBase(theme);
-    const frame = renderCurrentFrame(options.app, state, context, currentFocusPath, options);
-    await commitFrame(options.host, previousFrame, frame, options.transcript, theme);
-    currentFrame = frame;
-    currentThemeFingerprint = themeFingerprint(theme);
-    currentFocusPath = frame.focusPath;
-    publishChange({ kind: 'frame', frame });
-    return frame;
+    const render = renderCurrentFrame(options.app, state, context, currentFocusPath, options, stateVersion);
+    await commitFrame(options.host, previousFrame, render.frame, options.transcript, theme, dirtyCommitOptions(previousFrame, render));
+    storeCurrentRender(render);
+    publishChange({ kind: 'frame', frame: render.frame });
+    return render.frame;
   }
 
   async function settleQueuedWork(context: TuiContext<TMessage>): Promise<void> {
@@ -233,6 +228,7 @@ export function createTuiRuntime<TState, TMessage>(
     const state = ensureState();
     const result = await options.app.definition.update(state, item.message, context);
     currentState = result.state;
+    stateVersion += 1;
     for (const command of result.commands ?? []) {
       if (terminalExit !== undefined) break;
       await applyCommand(command, context);
@@ -240,7 +236,7 @@ export function createTuiRuntime<TState, TMessage>(
     if (result.exit !== undefined) {
       terminalExit = completedExitFromSnapshot(
         ensureState(),
-        currentFrame?.accessibility ?? tuiSnapshot(options.app.id),
+        currentRender?.frame.accessibility ?? tuiSnapshot(options.app.id),
         result.exit.reason
       );
     }
@@ -285,37 +281,43 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   function ensureFrame(): Frame {
-    if (currentFrame === undefined) {
+    if (currentRender === undefined) {
       throw new Error('TUI runtime does not have a frame.');
     }
-    return currentFrame;
+    return currentRender.frame;
+  }
+
+  function ensureRender(): RenderCommitCandidate<TMessage> {
+    if (currentRender === undefined) {
+      throw new Error('TUI runtime does not have a committed render.');
+    }
+    return currentRender;
+  }
+
+  function storeCurrentRender(render: RenderCommitCandidate<TMessage>): void {
+    currentRender = render;
+    currentFocusPath = render.frame.focusPath;
   }
 
   async function moveFocus(state: TState, direction: 'next' | 'previous'): Promise<Frame> {
     const context = await createRuntimeContext('internal');
-    const widget = options.app.definition.view(state, context);
+    const current = ensureRender();
     const theme = resolveTuiTheme(options.theme, state);
-    const layout = layoutWidget(widget, context.viewport, theme);
     currentFocusPath = direction === 'next'
-      ? nextFocusPath(layout, currentFocusPath)
-      : previousFocusPath(layout, currentFocusPath);
-    const frame = renderCurrentFrame(options.app, state, context, currentFocusPath, options);
+      ? nextFocusPath(current.layout, currentFocusPath)
+      : previousFocusPath(current.layout, currentFocusPath);
+    const render = renderCurrentFrame(options.app, state, context, currentFocusPath, options, stateVersion);
     const previousFrame = frameDiffBase(theme);
-    await commitFrame(options.host, previousFrame, frame, options.transcript, theme);
-    currentFrame = frame;
-    currentThemeFingerprint = themeFingerprint(theme);
-    currentFocusPath = frame.focusPath;
-    publishChange({ kind: 'frame', frame });
-    return frame;
+    await commitFrame(options.host, previousFrame, render.frame, options.transcript, theme, dirtyCommitOptions(previousFrame, render));
+    storeCurrentRender(render);
+    publishChange({ kind: 'frame', frame: render.frame });
+    return render.frame;
   }
 
-  async function messageForInput(state: TState, event: InputEvent): Promise<TMessage | undefined> {
+  function messageForInput(_state: TState, event: InputEvent): TMessage | undefined {
     const key = inputEventKey(event);
-    const context = await createRuntimeContext('internal');
-    const widget = options.app.definition.view(state, context);
-    const theme = resolveTuiTheme(options.theme, state);
-    const layout = layoutWidget(widget, context.viewport, theme);
-    const focused = findWidgetFocusTarget(widget, layout, currentFocusPath);
+    const current = ensureRender();
+    const focused = findWidgetFocusTarget(current.widget, current.layout, currentFocusPath);
     if (event.kind === 'text') {
       const mapped = focused?.widget.inputMap?.text?.(event.text);
       if (mapped !== undefined) return mapped;
@@ -325,15 +327,12 @@ export function createTuiRuntime<TState, TMessage>(
     return focused?.widget.keyMap?.[key];
   }
 
-  async function messageForMouse(state: TState, event: TerminalMouseEvent): Promise<TMessage | undefined> {
-    const context = await createRuntimeContext('internal');
-    const widget = options.app.definition.view(state, context);
-    const theme = resolveTuiTheme(options.theme, state);
-    const layout = layoutWidget(widget, context.viewport, theme);
-    const hits = collectWidgetLayoutTargets(widget, layout)
+  function messageForMouse(_state: TState, event: TerminalMouseEvent): TMessage | undefined {
+    const current = ensureRender();
+    const hits = collectWidgetLayoutTargets(current.widget, current.layout)
       .filter((target) => containsPoint(target.bounds, event.row, event.column))
       .map((target, index) => ({ target, index }))
-      .flatMap(({ target, index }) => widgetHitTargets(target.widget, target, theme)
+      .flatMap(({ target, index }) => widgetHitTargets(target.widget, target, current.theme)
         .filter((hitTarget) => containsPoint(hitTarget.bounds, event.row, event.column))
         .map((hitTarget) => ({
           hitTarget,
@@ -348,17 +347,17 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   function frameDiffBase(theme: TerminalTheme): Frame | undefined {
-    return currentThemeFingerprint === themeFingerprint(theme) ? currentFrame : undefined;
+    return currentRender?.themeFingerprint === theme.fingerprint ? currentRender.frame : undefined;
   }
-}
 
-function themeFingerprint(theme: TerminalTheme): string {
-  return JSON.stringify({
-    name: theme.name,
-    colors: theme.colors,
-    symbols: theme.symbols,
-    spacing: theme.spacing
-  });
+  function dirtyCommitOptions(
+    previousFrame: Frame | undefined,
+    render: RenderCommitCandidate<TMessage>
+  ): { readonly dirtyRegions?: DirtyRegionSet } {
+    if (previousFrame === undefined) return {};
+    const dirtyRegions = dirtyRegionsForRenderCommit(currentRender, render);
+    return dirtyRegions === undefined ? {} : { dirtyRegions };
+  }
 }
 
 function inputEventKey(event: InputEvent): string | undefined {

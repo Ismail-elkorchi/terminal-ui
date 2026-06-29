@@ -9,7 +9,7 @@ import {
   layoutWidget,
   renderFramePlain,
   renderWidgetFrame,
-  renderWidgetLayers,
+  renderWidgetRegions,
   screenStackReducer,
   splitTracks
 } from '../../dist/tui/index.js';
@@ -330,10 +330,10 @@ test('focus is scoped to the topmost visible focus layer', () => {
   const frame = renderWidgetFrame(widget, { columns: 16, rows: 2 }, { focusPath: ['focus-root', 'lower-input'] });
 
   assert.deepEqual(frame.focusPath, ['focus-root', 'upper-input']);
-  assert.deepEqual(frame.cursor, { row: 1, column: 1 });
+  assert.deepEqual(frame.cursor, { row: 1, column: 6 });
 });
 
-test('overlapping modal renders above lower layer content', () => {
+test('overlapping modal renders above lower region content', () => {
   const widget = box([
     canvas({
       id: 'modal-backdrop-canvas',
@@ -356,17 +356,17 @@ test('overlapping modal renders above lower layer content', () => {
     border: { kind: 'none' }
   });
 
-  const layers = renderWidgetLayers(widget, { columns: 24, rows: 7 });
+  const regions = renderWidgetRegions(widget, { columns: 24, rows: 7 });
   const output = renderFramePlain(renderWidgetFrame(widget, { columns: 24, rows: 7 }));
 
-  assert.deepEqual(layers.map((layer) => layer.zIndex), [0, 20]);
-  assert.equal(layers[0]?.cells.some((cell) => cell.text === 'b'), true);
-  assert.equal(layers[1]?.cells.some((cell) => cell.text === 'f'), true);
+  assert.deepEqual(regions.map((region) => region.zIndex), [0, 20]);
+  assert.equal(regions[0]?.cells.some((cell) => cell.text === 'b'), true);
+  assert.equal(regions[1]?.cells.some((cell) => cell.text === 'f'), true);
   assert.match(output, /Dialog/u);
   assert.match(output, /front/u);
 });
 
-test('dropdown renders above table content in a higher layer', () => {
+test('dropdown renders above table content in a higher region', () => {
   const widget = box([
     table({
       id: 'settings-table',
@@ -396,19 +396,19 @@ test('dropdown renders above table content in a higher layer', () => {
     border: { kind: 'none' }
   });
 
-  const layers = renderWidgetLayers(widget, { columns: 28, rows: 5 });
+  const regions = renderWidgetRegions(widget, { columns: 28, rows: 5 });
   const output = renderFramePlain(renderWidgetFrame(widget, { columns: 28, rows: 5 }));
   const firstLine = output.split('\n')[0] ?? '';
 
-  assert.deepEqual(layers.map((layer) => layer.zIndex), [0, 15]);
-  assert.equal(layers[0]?.cells.some((cell) => cell.text === 'N'), true);
-  assert.equal(layers[1]?.cells.some((cell) => cell.text === 'L'), true);
+  assert.deepEqual(regions.map((region) => region.zIndex), [0, 15]);
+  assert.equal(regions[0]?.cells.some((cell) => cell.text === 'N'), true);
+  assert.equal(regions[1]?.cells.some((cell) => cell.text === 'L'), true);
   assert.match(firstLine, /^Theme: Dark/u);
   assert.doesNotMatch(firstLine, /^Name/u);
   assert.match(output, /Light/u);
 });
 
-test('context menu renders above canvas content in a higher layer', () => {
+test('context menu renders above canvas content in a higher region', () => {
   const widget = box([
     canvas({
       id: 'context-menu-canvas',
@@ -434,13 +434,13 @@ test('context menu renders above canvas content in a higher layer', () => {
     border: { kind: 'none' }
   });
 
-  const layers = renderWidgetLayers(widget, { columns: 24, rows: 4 });
+  const regions = renderWidgetRegions(widget, { columns: 24, rows: 4 });
   const output = renderFramePlain(renderWidgetFrame(widget, { columns: 24, rows: 4 }));
   const firstLine = output.split('\n')[0] ?? '';
 
-  assert.deepEqual(layers.map((layer) => layer.zIndex), [0, 12]);
-  assert.equal(layers[0]?.cells.some((cell) => cell.text === 'c'), true);
-  assert.equal(layers[1]?.cells.some((cell) => cell.text === 'A'), true);
+  assert.deepEqual(regions.map((region) => region.zIndex), [0, 12]);
+  assert.equal(regions[0]?.cells.some((cell) => cell.text === 'c'), true);
+  assert.equal(regions[1]?.cells.some((cell) => cell.text === 'A'), true);
   assert.match(firstLine, /^Actions/u);
   assert.doesNotMatch(firstLine, /^canvas/u);
   assert.match(output, /Copy/u);

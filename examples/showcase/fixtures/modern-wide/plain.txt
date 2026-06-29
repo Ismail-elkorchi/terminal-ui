@@ -1,0 +1,41 @@
+File  View  Tools  Help                               Northstar Control  Overview  catppuccin               i Overview live (running)
+harbor service [███████░░░] 72/100 72%
+
+┌ Explore ───────────────────┐ ┌ Workspace ─────────────────────────────────────────────────────────────────────────┐ ┌ Inspector ─────────────────────────────┐
+│ Navigator                  │ │[Overview]  Fleet   Briefing   Map   Dispatch   Events                              │ │ [Pick]  A11y   Render   Theme          │
+│                            │ │[-] [running] Night watch                                                           │ │ [-] [info] Overview                    │
+│                            │ │Harbor stable. West lane is dense, Aster is secured, and Vector is clearing channel │ │ Selected route: Overview               │
+│                            │ │C.                                                                                  │ │ vessel : Atlas                         │
+│   ▾ ◆ Operations           │ │vessel : Atlas                                                                      │ │ route  : dashboard                     │
+│ ›     ▣ Overview           │ │service: 72%                                                                        │ │ overlay: none                          │
+│       ▤ Fleet board        │ │command: /overview                                                                  │ │                                        │
+│       ¶ Briefing room      │ │                                                                                    │ │                                        │
+│       ◎ Route map          │ │┌ Harbor map ─────────────────────────────────────────┐ ┌ Shift board ─────────────┐│ │                                        │
+│       ☷ Dispatch desk      │ ││ ··Harbor routing canvas············⡀·⢀··⡀······     │ │                          ││ │                                        │
+│       ✦ Live events        │ ││ ·                                  ⠈⠢⡀⠑⢄⠈ ▀▄  ·     │ │   berths ███████████ 95  ││ │                                        │
+│   ▾ ⚙ Assurance           │ ││ ·    ◉────────────────●─────────────────●     ·     │ │ › lanes ███████████ 89   ││ │                                        │
+│       ◫ Transcript         │ ││ ·Outer marker      Channel C       Inner harbor     │ │   crews ███████████ 91   ││ │                                        │
+│       ◇ Accessibility      │ ││ ·     Pulse           Vector            Aster ·     │ │   weather ██████████ 92  ││ │                                        │
+│       ◈ Snapshots          │ ││ ·                                             ·     │ │                          ││ │                                        │
+│                            │ ││ ·  Weather easing       Berth 12 ready        ·     │ │                          ││ │                                        │
+│                            │ ││ ···············································     │ │                          ││ │                                        │
+│                            │ ││                                                     │ │   Area          State    ││ │   Key       Value                      │
+│                            │ ││                                                     │ │ › Route         Overview ││ │   operator  Mira                       │
+│                            │ ││                                                     │ │   Vessel        Atlas    ││ │ › mouse     enabled                    │
+│                            │ ││ ┌ Live route ──────────────────────────────────────┐│ │   Overlay       none     ││ │   signal    89                         │
+│                            │ ││ │                                                  ││ │   Action        Harbor … ││ │   action    Harbor overview ready. Cl… │
+│                            │ ││ │ [-] [running] Active route                       ││ │                          ││ │                                        │
+│                            │ ││ │ Vector clears channel C while Pulse holds at the ││ │                          ││ │                                        │
+│                            │ ││ │  ferry marker.                                   ││ │ [-] [info] Watch         ││ │                                        │
+│                            │ ││ │ service: 72%                                     ││ │ Harbor overview ready. C ││ │                                        │
+│                            │ ││ │                                                  ││ │ lick, tab, type, or open ││ │                                        │
+│ › Palette                  │ ││ └──────────────────────────────────────────────────┘│ │  the palette.            ││ │                                        │
+│   Handoff                  │ ││                                                     │ │ route  : dashboard       ││ │                                        │
+│   Theme                    │ ││                                                     │ │ overlay: none            ││ │                                        │
+│   Context                  │ ││                                                     │ │                          ││ │                                        │
+│                            │ ││                                                     │ │                          ││ │                                        │
+│                            │ │└─────────────────────────────────────────────────────┘ └──────────────────────────┘│ │                                        │
+└────────────────────────────┘ └────────────────────────────────────────────────────────────────────────────────────┘ └────────────────────────────────────────┘
+›/overview
+command ready
+Tab focus  Enter activate  /palette commands  /handoff modal  Ctrl-C exit

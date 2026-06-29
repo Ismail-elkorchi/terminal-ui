@@ -2,14 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  clipTextCells,
-  editTextAreaBuffer,
-  editTextBuffer,
-  measureTextCells,
-  sanitizeTerminalText,
-  segmentGraphemes,
-  wrapTextCells
-} from '../../dist/text/index.js';
+	  clipTextCells,
+	  createTerminalTextIndex,
+	  editTextAreaBuffer,
+	  editTextBuffer,
+	  lineSelectionAt,
+	  measureTextCells,
+	  sanitizeTerminalText,
+	  segmentGraphemes,
+	  selectedText,
+	  terminalTextWidth,
+	  wordSelectionAt,
+	  wrapTextCells
+	} from '../../dist/text/index.js';
 import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import { text } from '../../dist/widgets/index.js';
 
@@ -78,6 +83,36 @@ test('text editing respects grapheme boundaries', () => {
   assert.deepEqual(emoji, { text: 'ab', cursor: 1 });
   assert.equal(moved.cursor, 'a🙂'.length);
   assert.deepEqual(deleted, { text: 'x', cursor: 0 });
+});
+
+test('terminal text index maps grapheme, visual, and byte offsets', () => {
+  const textValue = 'A👩‍💻e\u0301界\tمرحبا';
+  const index = createTerminalTextIndex(textValue);
+  const afterEmoji = 'A👩‍💻'.length;
+  const encoder = new TextEncoder();
+
+  assert.equal(index.codeUnits, textValue.length);
+  assert.equal(index.bytes, encoder.encode(textValue).byteLength);
+  assert.equal(index.codeUnitOffsetToGraphemeIndex(2), 1);
+  assert.equal(index.codeUnitOffsetToGraphemeIndex(textValue.length), index.graphemes.length);
+  assert.equal(index.graphemeIndexToCodeUnitOffset(2), afterEmoji);
+  assert.equal(index.graphemeIndexToVisualColumn(2), 3);
+  assert.equal(index.byteOffsetToGraphemeIndex(encoder.encode('A👩').byteLength), 1);
+  assert.equal(index.graphemeIndexToByteOffset(2), encoder.encode('A👩‍💻').byteLength);
+  assert.equal(index.selectedText(index.wordSelectionAt(textValue.indexOf('م'))), 'مرحبا');
+});
+
+test('terminal text index handles wide cells, lines, tabs, and standalone helpers', () => {
+  const wide = createTerminalTextIndex('a界b');
+  const multiline = 'alpha\nβeta🙂\nمرحبا';
+  const line = lineSelectionAt(multiline, multiline.indexOf('🙂'));
+
+  assert.equal(wide.cells, 4);
+  assert.equal(wide.graphemeIndexToVisualColumn(2), 3);
+  assert.equal(wide.visualColumnToGraphemeIndex(2), 1);
+  assert.equal(terminalTextWidth('界🙂'), 4);
+  assert.equal(selectedText(multiline, line), 'βeta🙂');
+  assert.equal(selectedText('one\tأربعة two', wordSelectionAt('one\tأربعة two', 5)), 'أربعة');
 });
 
 test('text editing replaces selections and uses spec-shaped home/end operations', () => {

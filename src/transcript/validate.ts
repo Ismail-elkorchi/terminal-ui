@@ -220,6 +220,13 @@ function renderDiffIssue(diff: unknown): string | undefined {
   }
   if (typeof diff['fullRewrite'] !== 'boolean') return 'diff fullRewrite must be a boolean.';
   if (!Array.isArray(diff['operations'])) return 'diff operations must be an array.';
+  if (diff['dirtyRegions'] !== undefined) {
+    if (!Array.isArray(diff['dirtyRegions'])) return 'diff dirtyRegions must be an array.';
+    for (const [index, rect] of diff['dirtyRegions'].entries()) {
+      const issue = rectIssue(rect);
+      if (issue !== undefined) return `diff dirtyRegions ${String(index)}: ${issue}`;
+    }
+  }
   for (const [index, operation] of diff['operations'].entries()) {
     const issue = renderOperationIssue(operation);
     if (issue !== undefined) return `diff operation ${String(index)}: ${issue}`;

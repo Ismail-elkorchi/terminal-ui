@@ -1,5 +1,6 @@
-import { clipTextCells, measureTextCells, sanitizeTerminalText } from '../text/index.ts';
+import { clipTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { block, line, span } from './frame.ts';
+import { singleLineCursorColumn } from './text-display.ts';
 import { widgetStyle } from './widget-style.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -393,11 +394,9 @@ function numberInputValue(widget: Widget): string {
 }
 
 function singleLineCursor(value: string, cursor: number | undefined, bounds: Rect): { readonly row: number; readonly column: number } {
-  const offset = Math.max(0, Math.min(value.length, Math.floor(cursor ?? value.length)));
-  const cells = measureTextCells(value.slice(0, offset)).cells;
   return {
     row: bounds.row,
-    column: bounds.column + Math.max(0, Math.min(Math.max(0, bounds.width - 1), cells))
+    column: bounds.column + singleLineCursorColumn(value, cursor, Math.max(0, bounds.width - 1))
   };
 }
 

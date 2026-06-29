@@ -1,4 +1,5 @@
 import { sanitizeTerminalText } from '../text/index.ts';
+import { rowWindow } from './data-window.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { themeStyle, widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -42,21 +43,20 @@ export function paletteWindow<TValue>(input: PaletteWindowInput<TValue>): Palett
     };
   }
   const selectedAbsolute = selectedIndex(filtered, input);
-  const maxStart = Math.max(0, total - limit);
-  const start = input.scroll === undefined
-    ? Math.min(Math.max(0, selectedAbsolute - Math.floor(limit / 2)), maxStart)
-    : Math.min(Math.max(0, Math.floor(input.scroll.offsetRow)), maxStart);
-  const end = Math.min(total, start + limit);
-  const selected = selectedAbsolute >= start && selectedAbsolute < end ? selectedAbsolute - start : undefined;
+  const window = rowWindow(filtered, {
+    viewportRows: limit,
+    selectedIndex: selectedAbsolute,
+    ...(input.scroll === undefined ? {} : { scroll: input.scroll })
+  });
   return {
-    entries: filtered.slice(start, end),
-    ...(selected === undefined ? {} : { selected }),
+    entries: window.rows,
+    ...(window.selectedVisibleIndex === undefined ? {} : { selected: window.selectedVisibleIndex }),
     ...(filtered[selectedAbsolute] === undefined ? {} : { selectedEntry: filtered[selectedAbsolute] }),
     total,
-    start,
-    end,
-    omittedBefore: start,
-    omittedAfter: Math.max(0, total - end)
+    start: window.start,
+    end: window.end,
+    omittedBefore: window.omittedBefore,
+    omittedAfter: window.omittedAfter
   };
 }
 

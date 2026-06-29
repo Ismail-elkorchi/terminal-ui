@@ -1,0 +1,14 @@
+{
+  "accessibilityFocusPath": [
+    "showcase-overlay",
+    "showcase-shell"
+  ],
+  "cursor": {
+    "column": 1,
+    "row": 1
+  },
+  "focusPath": [
+    "showcase-overlay",
+    "showcase-shell"
+  ]
+}

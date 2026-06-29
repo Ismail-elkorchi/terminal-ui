@@ -1,8 +1,9 @@
-import { clipTextCells, measureTextCells, sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
+import { sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
 import { block, line, span } from './frame.ts';
 import { normalizeScrollState } from './scroll.ts';
 import { normalizeSpinnerFrameIndex } from './spinner.ts';
 import { activityStatus, statusMarker, statusStyle } from './status-visual.ts';
+import { textCursorLineMetrics, textDisplayWidth, visibleLineText } from './text-display.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { defaultTheme } from '../theme/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -39,7 +40,7 @@ export function textAreaText(widget: Widget, bounds: Rect): string {
   const scroll = textAreaScroll(widget, lines, bounds);
   return lines
     .slice(scroll.offsetRow, scroll.offsetRow + Math.max(0, bounds.height))
-    .map((lineText) => clipTextCells(scrolledLineText(lineText, scroll.offsetColumn), Math.max(0, bounds.width)).text)
+    .map((lineText) => visibleLineText(lineText, scroll.offsetColumn, bounds.width))
     .join('\n');
 }
 
@@ -57,12 +58,10 @@ export function textAreaAccessibleBase(widget: Widget, id: string, focused: bool
 
 export function textAreaCursor(widget: Widget, bounds: Rect): { readonly row: number; readonly column: number } {
   const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
-  const cursor = Math.max(0, Math.min(value.length, Math.floor(numberProp(widget, 'cursor') ?? value.length)));
-  const before = value.slice(0, cursor).split('\n');
+  const metrics = textCursorLineMetrics(value, numberProp(widget, 'cursor'));
   const scroll = textAreaScroll(widget, textAreaLines(widget), bounds);
-  const rowOffset = Math.max(0, Math.min(bounds.height - 1, before.length - 1 - scroll.offsetRow));
-  const currentLine = before.at(-1) ?? '';
-  const columnOffset = Math.max(0, Math.min(bounds.width - 1, Math.max(0, measureTextCells(currentLine).cells - scroll.offsetColumn)));
+  const rowOffset = Math.max(0, Math.min(bounds.height - 1, metrics.lineIndex - scroll.offsetRow));
+  const columnOffset = Math.max(0, Math.min(bounds.width - 1, Math.max(0, metrics.columnCells - scroll.offsetColumn)));
   return { row: bounds.row + rowOffset, column: bounds.column + columnOffset };
 }
 
@@ -158,7 +157,7 @@ function textAreaScroll(
 ): ReturnType<typeof normalizeScrollState> {
   const raw = widget.props['scroll'];
   const rawRecord = isRecord(raw) ? raw : {};
-  const contentColumns = lines.reduce<number>((max, lineText) => Math.max(max, measureTextCells(lineText).cells), 0);
+  const contentColumns = lines.reduce<number>((max, lineText) => Math.max(max, textDisplayWidth(lineText)), 0);
   return normalizeScrollState({
     offsetRow: numberField(rawRecord, 'offsetRow') ?? 0,
     offsetColumn: numberField(rawRecord, 'offsetColumn') ?? 0,
@@ -168,20 +167,6 @@ function textAreaScroll(
     viewportColumns: bounds.width,
     followTail: rawRecord['followTail'] === true
   });
-}
-
-function scrolledLineText(lineText: string, offsetCells: number): string {
-  if (offsetCells <= 0) return lineText;
-  let skipped = 0;
-  let output = '';
-  for (const segment of measureTextCells(lineText).graphemes) {
-    if (skipped < offsetCells) {
-      skipped += segment.cells;
-      continue;
-    }
-    output += segment.text;
-  }
-  return output;
 }
 
 function numberField(record: Readonly<Record<string, unknown>>, key: string): number | undefined {

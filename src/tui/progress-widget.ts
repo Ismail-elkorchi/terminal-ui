@@ -19,6 +19,8 @@ interface ProgressModel {
   readonly filled: number;
   readonly showPercentage: boolean;
   readonly percentage: number;
+  readonly elapsedMs?: number;
+  readonly remainingMs?: number;
 }
 
 export function progressBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
@@ -45,14 +47,16 @@ export function progressAccessibleBase(widget: Widget, id: string): AccessibleNo
       id,
       role: 'progressbar',
       label: model.label || id,
-      progress: { indeterminate: true }
+      progress: { indeterminate: true },
+      ...progressDescription(model)
     };
   }
   return {
     id,
     role: 'progressbar',
     label: model.label || id,
-    progress: { value: model.value, max: model.max }
+    progress: { value: model.value, max: model.max },
+    ...progressDescription(model)
   };
 }
 
@@ -67,13 +71,17 @@ function progressBarSpans(model: ProgressModel, theme: TerminalTheme) {
 }
 
 function progressMetricSpans(model: ProgressModel) {
-  if (model.indeterminate) return [];
+  if (model.indeterminate) return timingSpans(model);
   if (model.mode === 'compact') {
-    return model.showPercentage ? [span(` ${String(model.percentage)}%`)] : [];
+    return [
+      ...(model.showPercentage ? [span(` ${String(model.percentage)}%`)] : []),
+      ...timingSpans(model)
+    ];
   }
   return [
     span(` ${String(model.value)}/${String(model.max)}`),
-    ...(model.showPercentage ? [span(` ${String(model.percentage)}%`)] : [])
+    ...(model.showPercentage ? [span(` ${String(model.percentage)}%`)] : []),
+    ...timingSpans(model)
   ];
 }
 
@@ -96,8 +104,48 @@ function progressModel(widget: Widget): ProgressModel {
     barWidth,
     filled: indeterminate ? 0 : Math.round((value / max) * barWidth),
     showPercentage: widget.props['showPercentage'] === true,
-    percentage
+    percentage,
+    ...durationProp('elapsedMs', widget.props['elapsedMs']),
+    ...durationProp('remainingMs', widget.props['remainingMs'])
   };
+}
+
+function timingSpans(model: ProgressModel) {
+  const text = timingText(model);
+  return text.length === 0 ? [] : [span(` ${text}`)];
+}
+
+function progressDescription(model: ProgressModel): { readonly description?: string } {
+  const text = timingText(model);
+  return text.length === 0 ? {} : { description: text };
+}
+
+function timingText(model: ProgressModel): string {
+  const parts = [
+    model.elapsedMs === undefined ? undefined : `${formatDuration(model.elapsedMs)} elapsed`,
+    model.remainingMs === undefined ? undefined : `${formatDuration(model.remainingMs)} left`
+  ].filter((part): part is string => part !== undefined);
+  return parts.join(' ');
+}
+
+function durationProp<TKey extends 'elapsedMs' | 'remainingMs'>(
+  key: TKey,
+  value: unknown
+): Pick<ProgressModel, TKey> | Record<string, never> {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? { [key]: Math.floor(value) } as Pick<ProgressModel, TKey>
+    : {};
+}
+
+function formatDuration(milliseconds: number): string {
+  const totalSeconds = Math.floor(milliseconds / 1000);
+  if (totalSeconds < 60) return `${String(totalSeconds)}s`;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) return seconds === 0 ? `${String(minutes)}m` : `${String(minutes)}m${String(seconds).padStart(2, '0')}s`;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes === 0 ? `${String(hours)}h` : `${String(hours)}h${String(remainingMinutes).padStart(2, '0')}m`;
 }
 
 function boundedBarWidth(value: number | undefined): number {

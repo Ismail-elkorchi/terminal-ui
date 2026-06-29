@@ -1,0 +1,91 @@
+{
+  "fullRewrite": false,
+  "height": 42,
+  "operations": [
+    {
+      "column": 42,
+      "kind": "write",
+      "row": 11,
+      "spans": [
+        {
+          "text": "/overview"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 2,
+        "height": 1,
+        "row": 39,
+        "width": 62
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 2,
+      "kind": "write",
+      "row": 39,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.default"
+            }
+          },
+          "text": "/overview"
+        }
+      ]
+    },
+    {
+      "column": 1,
+      "kind": "write",
+      "row": 40,
+      "spans": [
+        {
+          "style": {
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "accent.primary"
+            }
+          },
+          "text": "command "
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 10,
+        "height": 1,
+        "row": 40,
+        "width": 22
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 10,
+      "kind": "write",
+      "row": 40,
+      "spans": [
+        {
+          "style": {
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "accent.primary"
+            }
+          },
+          "text": "eady"
+        }
+      ]
+    },
+    {
+      "column": 1,
+      "kind": "moveCursor",
+      "row": 1
+    }
+  ],
+  "schemaVersion": "terminal-ui.render-diff.v1",
+  "width": 160
+}

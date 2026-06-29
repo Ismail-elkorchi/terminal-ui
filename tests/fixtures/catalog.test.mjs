@@ -26,3 +26,12 @@ test('visual preview fixtures are generated from stable snapshot output', () => 
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
 });
+
+test('showcase gallery fixtures are generated from stable public showcase output', () => {
+  const result = spawnSync(process.execPath, ['scripts/generate-visual-gallery.mjs', '--check'], {
+    cwd: root,
+    encoding: 'utf8'
+  });
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+});

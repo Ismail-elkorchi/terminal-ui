@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "terminal-ui.showcase-gallery-fixtures.v1",
+  "source": "scripts/generate-visual-gallery.mjs",
+  "variants": [
+    {
+      "id": "modern-wide",
+      "label": "Modern wide",
+      "viewport": {
+        "columns": 160,
+        "rows": 42
+      },
+      "theme": "modern"
+    },
+    {
+      "id": "high-contrast-medium",
+      "label": "High contrast medium",
+      "viewport": {
+        "columns": 122,
+        "rows": 34
+      },
+      "theme": "highContrast"
+    },
+    {
+      "id": "no-color-narrow",
+      "label": "No color narrow",
+      "viewport": {
+        "columns": 90,
+        "rows": 30
+      },
+      "theme": "noColor"
+    }
+  ]
+}

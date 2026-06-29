@@ -129,6 +129,7 @@ test('widget rendering code uses semantic styles instead of raw terminal colors'
     ...await sourceFiles(new URL('../../src/tui/', import.meta.url))
   ].filter((file) => ![
     '/src/tui/ansi.ts',
+    '/src/tui/serialization-policy.ts',
     '/src/tui/render-primitives.ts',
     '/src/tui/frame.ts'
   ].some((suffix) => file.pathname.endsWith(suffix)));
@@ -302,6 +303,167 @@ test('rendering and layout code do not read runtime globals', async () => {
   }
 });
 
+test('runtime hot paths use precomputed theme fingerprints', async () => {
+  const runtimeFiles = await namedTuiSourceFiles([
+    'runtime.ts',
+    'runtime-frame.ts'
+  ]);
+
+  for (const file of runtimeFiles) {
+    const source = await readFile(file, 'utf8');
+    assert.doesNotMatch(source, /JSON\.stringify\s*\(/u, file.pathname);
+  }
+
+  const themeSource = await readFile(new URL('../../src/theme/index.ts', import.meta.url), 'utf8');
+  assert.match(themeSource, /readonly fingerprint: string;/u);
+  assert.match(themeSource, /fingerprint: themeFingerprint/u);
+});
+
+test('TUI widgets and examples use scheduler sources instead of raw timers', async () => {
+  const files = [
+    ...await sourceFiles(new URL('../../src/tui/', import.meta.url)),
+    ...await sourceFiles(new URL('../../src/widgets/', import.meta.url)),
+    ...await sourceFiles(new URL('../../examples/', import.meta.url), '.mjs')
+  ];
+  const forbiddenPatterns = [
+    /\bsetTimeout\s*\(/u,
+    /\bsetInterval\s*\(/u
+  ];
+
+  for (const file of files) {
+    const source = await readFile(file, 'utf8');
+    for (const pattern of forbiddenPatterns) {
+      assert.doesNotMatch(source, pattern, file.pathname);
+    }
+  }
+});
+
+test('terminal text indexing and editing stay centralized', async () => {
+  const sourceFilesToCheck = [
+    ...await sourceFiles(sourceRoot),
+    ...await sourceFiles(new URL('../../examples/', import.meta.url), '.mjs')
+  ];
+  const textSources = [
+    '/src/text/graphemes.ts',
+    '/src/text/measure.ts',
+    '/src/text/terminal-text-index.ts'
+  ];
+
+  for (const file of sourceFilesToCheck) {
+    const source = await readFile(file, 'utf8');
+    if (!textSources.some((suffix) => file.pathname.endsWith(suffix))) {
+      assert.doesNotMatch(source, /\bnew Intl\.Segmenter\b/u, file.pathname);
+      assert.doesNotMatch(source, /Extended_Pictographic/u, file.pathname);
+    }
+  }
+
+  const showcase = await readFile(new URL('../../examples/showcase/app.mjs', import.meta.url), 'utf8');
+  const commandBar = await readFile(new URL('../../src/tui/command-bar.ts', import.meta.url), 'utf8');
+  const formWidgets = await readFile(new URL('../../src/tui/form-widgets.ts', import.meta.url), 'utf8');
+  const textWidgets = await readFile(new URL('../../src/tui/text-widgets.ts', import.meta.url), 'utf8');
+  const textRenderers = await readFile(new URL('../../src/tui/renderers/text-renderers.ts', import.meta.url), 'utf8');
+
+  assert.match(showcase, /from '@ismail-elkorchi\/terminal-ui\/text'/u);
+  assert.match(showcase, /\beditTextBuffer\b/u);
+  assert.doesNotMatch(showcase, /\.slice\(0,\s*-1\)/u);
+  assert.match(commandBar, /from '\.\/text-display\.ts'/u);
+  assert.match(formWidgets, /from '\.\/text-display\.ts'/u);
+  assert.match(textWidgets, /from '\.\/text-display\.ts'/u);
+  assert.match(textRenderers, /from '\.\.\/text-display\.ts'/u);
+});
+
+test('TUI ANSI serialization decisions are owned by the internal policy', async () => {
+  const policy = await readFile(new URL('../../src/tui/serialization-policy.ts', import.meta.url), 'utf8');
+  const ansi = await readFile(new URL('../../src/tui/ansi.ts', import.meta.url), 'utf8');
+  const frame = await readFile(new URL('../../src/tui/frame.ts', import.meta.url), 'utf8');
+
+  assert.match(policy, /export interface TerminalSerializationPolicy/u);
+  assert.match(policy, /readonly capabilities: TerminalCapabilities;/u);
+  assert.match(policy, /resetStyle\(\): string;/u);
+  assert.match(policy, /styleTransition\(previous: TerminalStyle \| undefined, next: TerminalStyle \| undefined\): string;/u);
+  assert.match(ansi, /createTerminalSerializationPolicy\(options\)/u);
+  assert.match(frame, /createTerminalSerializationPolicy\(options\)/u);
+
+  for (const file of await sourceFiles(new URL('../../src/tui/', import.meta.url))) {
+    if (file.pathname.endsWith('/src/tui/serialization-policy.ts')) continue;
+    const source = await readFile(file, 'utf8');
+    assert.doesNotMatch(source, /\\u001[Bb]|\\u0007|\\x1b|\\033/u, file.pathname);
+  }
+});
+
+test('frame passes are applied before snapshots and remain serialization-free', async () => {
+  const renderSource = await readFile(new URL('../../src/tui/render.ts', import.meta.url), 'utf8');
+  assert.match(renderSource, /const buffer = compositeRegions\(viewport, regions\);[\s\S]*applyFramePasses\(buffer/u);
+  assert.match(renderSource, /const frame = buffer\.snapshot/u);
+
+  for (const file of await sourceFiles(new URL('../../src/tui/frame-passes/', import.meta.url))) {
+    const source = await readFile(file, 'utf8');
+    assert.doesNotMatch(source, /renderDiffAnsi|renderFrameAnsi|serializeRenderSpans|ansi|ANSI|\\u001[Bb]|\\x1b|\\033/u, file.pathname);
+  }
+});
+
+test('runtime input routing uses the committed render cache', async () => {
+  const runtime = await readFile(new URL('../../src/tui/runtime.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(runtime, /\blayoutWidget\(/u);
+  assert.match(runtime, /\bensureRender\(\)/u);
+  assert.match(runtime, /findWidgetFocusTarget\(current\.widget, current\.layout/u);
+  assert.match(runtime, /collectWidgetLayoutTargets\(current\.widget, current\.layout\)/u);
+});
+
+test('RenderRegion replaces the obsolete render layer model', async () => {
+  const renderSource = await readFile(new URL('../../src/tui/render.ts', import.meta.url), 'utf8');
+  const regionSource = await readFile(new URL('../../src/tui/render-regions.ts', import.meta.url), 'utf8');
+  const tuiEntrypoint = await readFile(new URL('../../src/tui/index.ts', import.meta.url), 'utf8');
+  const rootEntrypoint = await readFile(new URL('../../src/index.ts', import.meta.url), 'utf8');
+
+  assert.match(regionSource, /interface RenderRegion/u);
+  assert.match(regionSource, /readonly opacity: 'opaque' \| 'transparent' \| 'inheritBackground'/u);
+  assert.match(regionSource, /createRegionFrameBuffer/u);
+  assert.match(renderSource, /composer\.regionFor/u);
+  assert.match(renderSource, /renderWidgetRegions/u);
+  assert.match(renderSource, /compositeRegions/u);
+  assert.doesNotMatch(renderSource, /buffer:\s*createFrameBuffer\(viewport\.columns,\s*viewport\.rows\)/u);
+  for (const [label, source] of [['render', renderSource], ['regions', regionSource], ['tui', tuiEntrypoint], ['root', rootEntrypoint]]) {
+    assert.doesNotMatch(source, /\bRenderLayer\b/u, label);
+    assert.doesNotMatch(source, /\bMutableRenderLayer\b/u, label);
+    assert.doesNotMatch(source, /\bLayerComposer\b/u, label);
+    assert.doesNotMatch(source, /\bRenderRegionInternal\b/u, label);
+    assert.doesNotMatch(source, /\brenderWidgetLayers\b/u, label);
+    assert.doesNotMatch(source, /\bcompositeLayers\b/u, label);
+  }
+});
+
+test('dirty region narrowing is structural and render-diff visible', async () => {
+  const dirtySource = await readFile(new URL('../../src/tui/dirty-regions.ts', import.meta.url), 'utf8');
+  const frameSource = await readFile(new URL('../../src/tui/frame.ts', import.meta.url), 'utf8');
+  const runtimeFrameSource = await readFile(new URL('../../src/tui/runtime-frame.ts', import.meta.url), 'utf8');
+
+  assert.match(dirtySource, /export interface DirtyRegionSet/u);
+  assert.match(dirtySource, /dirtyRegionsForRegionChanges/u);
+  assert.match(frameSource, /readonly dirtyRegions\?: readonly Rect\[\];/u);
+  assert.match(frameSource, /dirtyColumnRanges/u);
+  assert.match(runtimeFrameSource, /dirtyRegionsForRenderCommit/u);
+  assert.doesNotMatch(dirtySource, /widget\.kind|contextMenu|dropdown|modal/u);
+});
+
+test('box drawing joins are source-role gated frame passes', async () => {
+  const borderSource = await readFile(new URL('../../src/tui/border.ts', import.meta.url), 'utf8');
+  const joinPass = await readFile(new URL('../../src/tui/frame-passes/box-drawing-join.ts', import.meta.url), 'utf8');
+  const rendererSources = await Promise.all(
+    (await sourceFiles(new URL('../../src/tui/renderers/', import.meta.url))).map(async (file) => ({
+      file,
+      source: await readFile(file, 'utf8')
+    }))
+  );
+
+  assert.match(borderSource, /source:\s*\{\s*kind:\s*'box',\s*role:\s*'border'\s*\}/u);
+  assert.match(joinPass, /cell\.source\?\.role === 'border' \|\| cell\.source\?\.role === 'separator'/u);
+  assert.doesNotMatch(joinPass, /source\?\.role !== 'text'/u);
+  for (const { file, source } of rendererSources) {
+    assert.doesNotMatch(source, /boxDrawingJoin|joinedDirections|glyphForDirections/u, file.pathname);
+  }
+});
+
 test('custom widgets can render only through buffer-scoped renderer inputs', async () => {
   const rendererTypes = await readFile(new URL('../../src/tui/widget-renderer.ts', import.meta.url), 'utf8');
   const widgetTypes = await readFile(new URL('../../src/widgets/types.ts', import.meta.url), 'utf8');
@@ -333,6 +495,7 @@ test('custom widgets can render only through buffer-scoped renderer inputs', asy
   assert.match(canvasOptionTypes, /readonly painter: CanvasPainter;/u);
   assert.doesNotMatch(canvasOptionTypes, /\breadonly renderer\b/u);
   assert.match(widgetTypes, /export interface CanvasPainterInput[\s\S]*readonly buffer: FrameBuffer;[\s\S]*readonly bounds: Rect;/u);
+  assert.match(widgetTypes, /export interface CanvasPainterInput[\s\S]*readonly buffer: FrameBuffer;[\s\S]*readonly canvas: Canvas2D;[\s\S]*readonly bounds: Rect;/u);
   assert.doesNotMatch(customRuntimeTypes, /\bTerminalHost\b/u);
   assert.doesNotMatch(customRuntimeTypes, /\bclipboard\b/iu);
 
@@ -343,6 +506,24 @@ test('custom widgets can render only through buffer-scoped renderer inputs', asy
   assert.doesNotMatch(validation, /\bTerminalHost\b/u);
   assert.doesNotMatch(validation, /\bhost\b/u);
   assert.doesNotMatch(validation, /\bwrite\s*\(/u);
+});
+
+test('Canvas2D is a FrameBuffer-backed helper without host or ANSI escapes', async () => {
+  const canvasSources = await Promise.all(
+    (await sourceFiles(new URL('../../src/tui/canvas2d/', import.meta.url))).map(async (file) => ({
+      file,
+      source: await readFile(file, 'utf8')
+    }))
+  );
+  const drawingSource = await readFile(new URL('../../src/tui/drawing-widgets.ts', import.meta.url), 'utf8');
+  const widgetTypes = await readFile(new URL('../../src/widgets/types.ts', import.meta.url), 'utf8');
+
+  assert.match(drawingSource, /createCanvas2D\(input\.buffer,\s*input\.node\.bounds\)/u);
+  assert.match(widgetTypes, /readonly buffer: FrameBuffer;/u);
+  assert.match(widgetTypes, /readonly canvas: Canvas2D;/u);
+  for (const { file, source } of canvasSources) {
+    assert.doesNotMatch(source, /\bprocess\b|\bfs\b|\bTerminalHost\b|\x1B/u, file.pathname);
+  }
 });
 
 async function sourceFiles(directory, extension = '.ts') {

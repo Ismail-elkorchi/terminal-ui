@@ -1,4 +1,5 @@
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
+import { rowWindow, scrollStateFromUnknown } from './data-window.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -102,26 +103,17 @@ export function tableAccessibleChildren(widget: Widget, bounds: Rect): readonly 
 }
 
 function tableWindow(widget: Widget, rows: readonly unknown[], bodyHeight: number, selected: number): TableWindow {
-  const scroll = scrollProp(widget);
-  if (scroll !== undefined) {
-    const start = Math.max(0, Math.min(rows.length, Math.floor(scroll.offsetRow)));
-    const end = Math.min(rows.length, start + Math.max(0, bodyHeight));
-    return {
-      rows: rows.slice(start, end),
-      start,
-      end,
-      selected,
-      horizontalOffset: Math.max(0, Math.floor(scroll.offsetColumn))
-    };
-  }
-  const start = Math.min(Math.max(0, selected - Math.floor(bodyHeight / 2)), Math.max(0, rows.length - bodyHeight));
-  const end = Math.min(rows.length, start + Math.max(0, bodyHeight));
+  const window = rowWindow(rows, {
+    viewportRows: bodyHeight,
+    selectedIndex: selected,
+    ...scrollInput(widget)
+  });
   return {
-    rows: rows.slice(start, end),
-    start,
-    end,
+    rows: window.rows,
+    start: window.start,
+    end: window.end,
     selected,
-    horizontalOffset: 0
+    horizontalOffset: window.offsetColumn
   };
 }
 
@@ -363,26 +355,9 @@ function selectedTableCell(widget: Widget): { readonly row: number; readonly col
   };
 }
 
-function scrollProp(widget: Widget): ScrollState | undefined {
-  const scroll = widget.props['scroll'];
-  if (!isRecord(scroll)) return undefined;
-  const offsetRow = scroll['offsetRow'];
-  const offsetColumn = scroll['offsetColumn'];
-  const contentRows = scroll['contentRows'];
-  const contentColumns = scroll['contentColumns'];
-  const viewportRows = scroll['viewportRows'];
-  const viewportColumns = scroll['viewportColumns'];
-  const followTail = scroll['followTail'];
-  if (
-    typeof offsetRow !== 'number'
-    || typeof offsetColumn !== 'number'
-    || typeof contentRows !== 'number'
-    || typeof contentColumns !== 'number'
-    || typeof viewportRows !== 'number'
-    || typeof viewportColumns !== 'number'
-    || typeof followTail !== 'boolean'
-  ) return undefined;
-  return { offsetRow, offsetColumn, contentRows, contentColumns, viewportRows, viewportColumns, followTail };
+function scrollInput(widget: Widget): { readonly scroll?: ScrollState } {
+  const scroll = scrollStateFromUnknown(widget.props['scroll']);
+  return scroll === undefined ? {} : { scroll };
 }
 
 function sortMarker(sort: TableColumn['sort']): string {

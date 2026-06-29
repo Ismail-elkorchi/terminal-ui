@@ -1,5 +1,9 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import { serializeRenderSpans } from './ansi.ts';
+import { createDirtyRegionSet } from './dirty-regions.ts';
+import { createTerminalSerializationPolicy } from './serialization-policy.ts';
+import type { TerminalSerializationPolicy } from './serialization-policy.ts';
+import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FocusPath } from './focus.ts';
 import type { Rect } from './layout.ts';
 import type {
@@ -53,6 +57,11 @@ export interface RenderDiff {
   readonly height: number;
   readonly operations: readonly RenderOperation[];
   readonly fullRewrite: boolean;
+  readonly dirtyRegions?: readonly Rect[];
+}
+
+export interface DiffFramesOptions {
+  readonly dirtyRegions?: DirtyRegionSet | readonly Rect[];
 }
 
 export interface FrameRowDiff {
@@ -115,7 +124,7 @@ export function renderFrameAnsi(frame: Frame, options: RenderSerializeOptions): 
   }, options);
 }
 
-export function diffFrames(previous: Frame | undefined, next: Frame): RenderDiff {
+export function diffFrames(previous: Frame | undefined, next: Frame, options: DiffFramesOptions = {}): RenderDiff {
   if (previous?.width !== next.width || previous.height !== next.height) {
     return {
       schemaVersion: 'terminal-ui.render-diff.v1',
@@ -132,20 +141,37 @@ export function diffFrames(previous: Frame | undefined, next: Frame): RenderDiff
   const previousCells = indexFrameCells(previous);
   const nextCells = indexFrameCells(next);
   const operations: RenderOperation[] = [];
+  const dirtyRegions = dirtyRectsForFrame(next, options.dirtyRegions);
 
-  for (let row = 1; row <= next.height; row += 1) {
-    operations.push(...diffRow(previousCells, nextCells, next, row).operations);
+  if (dirtyRegions === undefined) {
+    for (let row = 1; row <= next.height; row += 1) {
+      operations.push(...diffRow(previousCells, nextCells, next, row, 1, next.width).operations);
+    }
+  } else {
+    for (const [row, ranges] of dirtyColumnRanges(dirtyRegions)) {
+      for (const range of ranges) {
+        operations.push(...diffRow(previousCells, nextCells, next, row, range.fromColumn, range.toColumn).operations);
+      }
+    }
   }
 
   if (next.cursor !== undefined) {
     operations.push({ kind: 'moveCursor', row: next.cursor.row, column: next.cursor.column });
   }
 
-  return { schemaVersion: 'terminal-ui.render-diff.v1', width: next.width, height: next.height, operations, fullRewrite: false };
+  return {
+    schemaVersion: 'terminal-ui.render-diff.v1',
+    width: next.width,
+    height: next.height,
+    operations,
+    fullRewrite: false,
+    ...(dirtyRegions === undefined ? {} : { dirtyRegions })
+  };
 }
 
 export function renderDiffAnsi(diff: RenderDiff, options?: RenderSerializeOptions): string {
-  return diff.operations.map((operation) => renderOperation(operation, options)).join('');
+  const policy = createTerminalSerializationPolicy(options);
+  return diff.operations.map((operation) => renderOperation(operation, options, policy)).join('');
 }
 
 export function compareCells(left: FrameCell, right: FrameCell): number {
@@ -153,6 +179,7 @@ export function compareCells(left: FrameCell, right: FrameCell): number {
 }
 
 export function renderFrameDebug(frame: Frame): string {
+  const policy = createTerminalSerializationPolicy();
   const writes = frame.cells
     .filter((cell) =>
       cell.continuation !== true
@@ -162,26 +189,30 @@ export function renderFrameDebug(frame: Frame): string {
       && cell.column <= frame.width
     )
     .sort(compareCells)
-    .map((cell) => `\u001B[${String(cell.row)};${String(cell.column)}H${serializeRenderSpans([cellToSpan(cell)])}`)
+    .map((cell) => `${policy.cursorMove(cell.row, cell.column)}${serializeRenderSpans([cellToSpan(cell)])}`)
     .join('');
   const cursor = frame.cursor === undefined
     ? ''
-    : `\u001B[${String(frame.cursor.row)};${String(frame.cursor.column)}H`;
+    : policy.cursorMove(frame.cursor.row, frame.cursor.column);
   return `${writes}${cursor}`;
 }
 
-function renderOperation(operation: RenderOperation, options: RenderSerializeOptions | undefined): string {
+function renderOperation(
+  operation: RenderOperation,
+  options: RenderSerializeOptions | undefined,
+  policy: TerminalSerializationPolicy
+): string {
   switch (operation.kind) {
     case 'write':
-      return `\u001B[${String(operation.row)};${String(operation.column)}H${serializeRenderSpans(operation.spans, options)}`;
+      return `${policy.cursorMove(operation.row, operation.column)}${serializeRenderSpans(operation.spans, options)}`;
     case 'clearRect':
-      return clearRectText(operation.bounds);
+      return policy.clearRect(operation.bounds);
     case 'clearLine':
-      return `\u001B[${String(operation.row)};${String(operation.fromColumn ?? 1)}H\u001B[0K`;
+      return policy.clearLine(operation.row, operation.fromColumn);
     case 'moveCursor':
-      return `\u001B[${String(operation.row)};${String(operation.column)}H`;
+      return policy.cursorMove(operation.row, operation.column);
     case 'showCursor':
-      return operation.visible ? '\u001B[?25h' : '\u001B[?25l';
+      return policy.showCursor(operation.visible);
   }
 }
 
@@ -248,20 +279,63 @@ function diffRow(
   previousCells: IndexedFrameCells,
   nextCells: IndexedFrameCells,
   next: Frame,
-  row: number
+  row: number,
+  fromColumn: number,
+  toColumn: number
 ): FrameRowDiff {
   const operations: RenderOperation[] = [];
   let runStart: number | undefined;
-  for (let column = 1; column <= next.width; column += 1) {
+  for (let column = fromColumn; column <= toColumn; column += 1) {
     const changed = !sameCell(cellAt(previousCells, row, column), cellAt(nextCells, row, column));
     if (changed && runStart === undefined) runStart = column;
-    if ((!changed || column === next.width) && runStart !== undefined) {
-      const runEnd = changed && column === next.width ? column : column - 1;
+    if ((!changed || column === toColumn) && runStart !== undefined) {
+      const runEnd = changed && column === toColumn ? column : column - 1;
       operations.push(...changedRunOperations(previousCells, nextCells, next, row, runStart, runEnd));
       runStart = undefined;
     }
   }
   return { row, operations: Object.freeze(operations) };
+}
+
+function dirtyRectsForFrame(frame: Frame, input: DirtyRegionSet | readonly Rect[] | undefined): readonly Rect[] | undefined {
+  if (input === undefined) return undefined;
+  const rects = isDirtyRegionSet(input) ? input.rects : input;
+  return createDirtyRegionSet(rects).intersect({ row: 1, column: 1, width: frame.width, height: frame.height }).rects;
+}
+
+function isDirtyRegionSet(input: DirtyRegionSet | readonly Rect[]): input is DirtyRegionSet {
+  return !Array.isArray(input);
+}
+
+function dirtyColumnRanges(rects: readonly Rect[]): ReadonlyMap<number, readonly { readonly fromColumn: number; readonly toColumn: number }[]> {
+  const rows = new Map<number, { readonly fromColumn: number; readonly toColumn: number }[]>();
+  for (const rect of rects) {
+    const fromColumn = rect.column;
+    const toColumn = rect.column + rect.width - 1;
+    for (let row = rect.row; row < rect.row + rect.height; row += 1) {
+      rows.set(row, [...(rows.get(row) ?? []), { fromColumn, toColumn }]);
+    }
+  }
+  return new Map([...rows.entries()].map(([row, ranges]) => [row, mergeColumnRanges(ranges)]));
+}
+
+function mergeColumnRanges(
+  ranges: readonly { readonly fromColumn: number; readonly toColumn: number }[]
+): readonly { readonly fromColumn: number; readonly toColumn: number }[] {
+  const sorted = [...ranges].toSorted((left, right) => left.fromColumn - right.fromColumn || left.toColumn - right.toColumn);
+  const merged: { readonly fromColumn: number; readonly toColumn: number }[] = [];
+  for (const range of sorted) {
+    const previous = merged.at(-1);
+    if (previous !== undefined && previous.toColumn + 1 >= range.fromColumn) {
+      merged[merged.length - 1] = {
+        fromColumn: previous.fromColumn,
+        toColumn: Math.max(previous.toColumn, range.toColumn)
+      };
+      continue;
+    }
+    merged.push(range);
+  }
+  return Object.freeze(merged);
 }
 
 function changedRunOperations(
@@ -330,14 +404,6 @@ function pushSpan(spans: RenderSpan[], next: RenderSpan): void {
 
 function sameCell(left: FrameCell | undefined, right: FrameCell | undefined): boolean {
   return sameFrameCell(left, right);
-}
-
-function clearRectText(bounds: Rect): string {
-  const parts: string[] = [];
-  for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
-    parts.push(`\u001B[${String(row)};${String(bounds.column)}H${' '.repeat(Math.max(0, bounds.width))}`);
-  }
-  return parts.join('');
 }
 
 function cellToSpan(cell: FrameCell): RenderSpan {

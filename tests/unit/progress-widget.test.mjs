@@ -39,6 +39,36 @@ test('progressBar supports compact mode end label and explicit bar width', () =>
   assert.equal(renderFramePlain(frame), '[█░░░] Build');
 });
 
+test('progressBar renders explicit elapsed and remaining timing without hidden clocks', () => {
+  const frame = renderWidgetFrame(progressBar({
+    id: 'timed',
+    label: 'Upload',
+    value: 2,
+    max: 4,
+    barWidth: 4,
+    showPercentage: true,
+    elapsedMs: 65_000,
+    remainingMs: 125_000
+  }), { columns: 64, rows: 1 });
+
+  assert.equal(renderFramePlain(frame), 'Upload [██░░] 2/4 50% 1m05s elapsed 2m05s left');
+  assert.equal(frame.accessibility.root.description, '1m05s elapsed 2m05s left');
+});
+
+test('progressBar ignores invalid timing fields', () => {
+  const frame = renderWidgetFrame(progressBar({
+    id: 'invalid-timing',
+    label: 'Sync',
+    value: 1,
+    max: 2,
+    elapsedMs: -1,
+    remainingMs: Number.NaN
+  }), { columns: 32, rows: 1 });
+
+  assert.equal(renderFramePlain(frame), 'Sync [█████░░░░░] 1/2');
+  assert.equal(frame.accessibility.root.description, undefined);
+});
+
 test('progressBar supports label-free percentage and tiny viewport clipping', () => {
   const frame = renderWidgetFrame(progressBar({
     id: 'tiny',

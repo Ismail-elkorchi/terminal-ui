@@ -62,7 +62,17 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.createCommandPalette, 'function');
   assert.equal(typeof terminalUi.defineTui, 'function');
   assert.equal(typeof terminalUi.createTuiRuntime, 'function');
+  assert.equal(typeof terminalUi.intervalSource, 'function');
+  assert.equal(typeof terminalUi.timeoutSource, 'function');
+  assert.equal(typeof terminalUi.animationSource, 'function');
+  assert.equal(typeof terminalUi.contrastColor, 'function');
+  assert.equal(typeof terminalUi.ensureContrast, 'function');
+  assert.equal(typeof terminalUi.deriveSurface, 'function');
+  assert.equal(typeof terminalUi.themePacks, 'object');
   assert.equal(typeof terminalUi.commandBarReducer, 'function');
+  assert.equal(typeof terminalUi.dataWindow, 'function');
+  assert.equal(typeof terminalUi.rowWindow, 'function');
+  assert.equal(typeof terminalUi.scrollStateFromUnknown, 'function');
   assert.equal(typeof terminalUi.paletteWindow, 'function');
   assert.equal(typeof terminalUi.filterPaletteEntries, 'function');
   assert.equal(typeof terminalUi.screenStackReducer, 'function');
@@ -71,7 +81,7 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.gridCellRects, 'function');
   assert.equal(typeof terminalUi.layoutWidget, 'function');
   assert.equal(typeof terminalUi.renderWidgetFrame, 'function');
-  assert.equal(typeof terminalUi.renderWidgetLayers, 'function');
+  assert.equal(typeof terminalUi.renderWidgetRegions, 'function');
   assert.equal(typeof terminalUi.scrollbarLayout, 'function');
   assert.equal(typeof terminalUi.renderScrollbars, 'function');
   assert.equal(typeof terminalUi.spinnerReducer, 'function');
@@ -159,6 +169,8 @@ test('root declaration exposes primary public type contracts', async () => {
     'WidgetKind',
     'WidgetStyleSlots',
     'WidgetVisualState',
+    'DataWindow',
+    'DataWindowInput',
     'CommandBarWidgetOptions',
     'CommandBarValidation',
     'CommandBarValidationTone',
@@ -182,6 +194,13 @@ test('root declaration exposes primary public type contracts', async () => {
     'DropdownWidgetOptions',
     'CanvasPainter',
     'CanvasPainterInput',
+    'Canvas2D',
+    'StrokeFillOptions',
+    'CanvasPoint',
+    'BlockGlyph',
+    'BrailleCellPoint',
+    'AxisLine',
+    'TooltipLine',
     'CanvasWidgetOptions',
     'SurfaceWidgetOptions',
     'AbsoluteWidgetOptions',
@@ -205,6 +224,9 @@ test('root declaration exposes primary public type contracts', async () => {
     'FocusTarget',
     'HitTarget',
     'FrameHitTarget',
+    'RenderRegion',
+    'DirtyRegionSet',
+    'DiffFramesOptions',
     'TextAreaWidgetOptions',
     'TreeWidgetOptions',
     'PaginatorWidgetOptions',

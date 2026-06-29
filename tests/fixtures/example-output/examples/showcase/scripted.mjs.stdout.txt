@@ -6,19 +6,19 @@ theme index: 1
 host frames: 20
 host diffs: 20
 input command: /dispatch
-hit targets: 23
+hit targets: 27
 focus path: showcase-overlay > showcase-shell
 
-File  View  Tools  Help                               Northstar Control  Live events  aurora                i Live events live (running)
+File  View  Tools  Help                               Northstar Control  Live events  tokyoNight            i Live events live (running)
 harbor service [███████░░░] 74/100 74%
 
-╭ Explore ───────────────────╮ ╭ Workspace ─────────────────────────────────────────────────────────────────────────╮ ╭ Inspector ─────────────────────────────╮
+┌ Explore ───────────────────┐ ┌ Workspace ─────────────────────────────────────────────────────────────────────────┐ ┌ Inspector ─────────────────────────────┐
 │ Navigator                  │ │ Overview   Fleet   Briefing   Map   Dispatch  [Events]                             │ │  Pick   A11y  [Render]  Theme          │
 │                            │ │  [-] [success] Berth window secured                ┌ Selected event ──────────────┐│ │ [-] [success] Render pipeline          │
 │                            │ │  Aster enters berth 12 inside the active tide wind │                              ││ │ widget tree → layout tree → frame → di │
 │                            │ │  ow                                                │ [-] [info] Cold-chain cleare ││ │ ff                                     │
 │   ▾ ◆ Operations           │ │  pilot: Rin                                        │ Temperature telemetry stayed ││ │ viewport  : 160x42                     │
-│       ▣ Overview           │ │  berth: 12                                         │  inside the transfer band    ││ │ theme     : aurora                     │
+│       ▣ Overview           │ │  berth: 12                                         │  inside the transfer band    ││ │ theme     : tokyoNight                 │
 │       ▤ Fleet board        │ │  Cargo transfer, inspection, and outbound clearanc │ block: 7                     ││ │ transcript: enabled                    │
 │       ¶ Briefing room      │ │  e are now staged in sequence.                     │ crew : Mira                  ││ │                                        │
 │       ◎ Route map          │ │  [-] [running] Lane pressure rising                │                              ││ │                                        │
@@ -46,7 +46,7 @@ harbor service [███████░░░] 74/100 74%
 │   Context                  │ │                                                    │                              ││ │                                        │
 │                            │ │                                                    │                              ││ │                                        │
 │                            │ │                                                    └──────────────────────────────┘│ │                                        │
-╰────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────╯ ╰────────────────────────────────────────╯
+└────────────────────────────┘ └────────────────────────────────────────────────────────────────────────────────────┘ └────────────────────────────────────────┘
 ›/palette
 command ready
 Tab focus  Enter activate  /palette commands  /handoff modal  Ctrl-C exit

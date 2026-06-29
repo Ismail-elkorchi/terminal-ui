@@ -1,16 +1,19 @@
 import { fileURLToPath } from 'node:url';
 
 import { createTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
+import { clipTextCells, editTextBuffer } from '@ismail-elkorchi/terminal-ui/text';
 import { createVisualSnapshot } from '@ismail-elkorchi/terminal-ui/testing';
 import {
   createTuiRuntime,
   defineTui,
   diffFrames,
+  blockSpan,
+  intervalSource,
   renderFramePlain,
   renderWidgetFrame,
   runTui
 } from '@ismail-elkorchi/terminal-ui/tui';
-import { defineTheme, highContrastTheme, modernTheme, noColorTheme } from '@ismail-elkorchi/terminal-ui/theme';
+import { catppuccinTheme, highContrastTheme, noColorTheme, tokyoNightTheme } from '@ismail-elkorchi/terminal-ui/theme';
 import {
   absolute,
   activityFeed,
@@ -71,68 +74,10 @@ import {
 
 export const showcaseViewport = Object.freeze({ columns: 160, rows: 42 });
 
-const themeSequence = Object.freeze(['studio', 'aurora', 'highContrast', 'noColor']);
+const themeSequence = Object.freeze(['catppuccin', 'tokyoNight', 'highContrast', 'noColor']);
 const quickActions = Object.freeze(['Palette', 'Handoff', 'Theme', 'Context']);
 const commandFocusPath = Object.freeze(['showcase-overlay', 'showcase-shell', 'bottom-chrome', 'showcase-command']);
-
-const studioTheme = defineTheme({
-  name: 'studio',
-  colors: {
-    'app.background': rgb(7, 10, 18),
-    'app.foreground': rgb(225, 232, 240),
-    'surface.background': rgb(11, 15, 26),
-    'surface.foreground': rgb(225, 232, 240),
-    'surface.border': rgb(74, 86, 112),
-    'surface.title': rgb(141, 176, 255),
-    'text.default': rgb(225, 232, 240),
-    'text.muted': rgb(128, 143, 166),
-    'text.strong': rgb(255, 255, 255),
-    'accent.primary': rgb(119, 183, 255),
-    'accent.secondary': rgb(245, 166, 255),
-    'status.info': rgb(100, 211, 255),
-    'status.success': rgb(96, 211, 148),
-    'status.warning': rgb(245, 191, 104),
-    'status.error': rgb(255, 116, 116),
-    'status.pending': rgb(128, 143, 166),
-    'status.running': rgb(119, 183, 255),
-    'selection.background': rgb(49, 92, 170),
-    'selection.foreground': rgb(255, 255, 255),
-    'focus.border': rgb(116, 211, 255),
-    'focus.background': rgb(32, 48, 79),
-    'input.cursor': rgb(255, 255, 255),
-    'input.placeholder': rgb(128, 143, 166),
-    'menu.match': rgb(245, 166, 255),
-    'menu.selected': rgb(116, 211, 255),
-    'table.header': rgb(141, 176, 255),
-    'table.border': rgb(74, 86, 112),
-    'tree.branch': rgb(91, 107, 139),
-    'scrollbar.track': rgb(42, 49, 67),
-    'scrollbar.thumb': rgb(141, 176, 255),
-    'chart.series.1': rgb(96, 211, 148),
-    'chart.series.2': rgb(119, 183, 255),
-    'chart.series.3': rgb(245, 166, 255)
-  }
-}, modernTheme);
-
-const auroraTheme = defineTheme({
-  name: 'aurora',
-  colors: {
-    'app.background': rgb(5, 14, 17),
-    'surface.background': rgb(7, 22, 26),
-    'surface.border': rgb(61, 98, 104),
-    'surface.title': rgb(149, 235, 213),
-    'text.default': rgb(228, 249, 244),
-    'text.muted': rgb(128, 177, 168),
-    'accent.primary': rgb(149, 235, 213),
-    'accent.secondary': rgb(252, 197, 132),
-    'status.info': rgb(118, 205, 255),
-    'status.success': rgb(130, 232, 177),
-    'status.warning': rgb(252, 197, 132),
-    'selection.background': rgb(25, 97, 103),
-    'focus.border': rgb(149, 235, 213),
-    'menu.match': rgb(252, 197, 132)
-  }
-}, studioTheme);
+const commandQueryCells = 24;
 
 export function initialShowcaseState() {
   return {
@@ -175,7 +120,7 @@ export function createShowcaseApp() {
     init: () => initialShowcaseState(),
     update: updateShowcase,
     view: (state, context) => showcaseView(state, context.viewport),
-    subscriptions: () => [tickerSource()],
+    subscriptions: () => [intervalSource('showcase-ticker', 700, { kind: 'tick' })],
     accessibility: {
       describe: (state) => ({
         source: 'tui',
@@ -198,11 +143,11 @@ export function createShowcaseApp() {
 
 export function showcaseTheme(state) {
   const name = themeSequence[state.themeIndex % themeSequence.length];
-  if (name === 'studio') return studioTheme;
-  if (name === 'aurora') return auroraTheme;
+  if (name === 'catppuccin') return catppuccinTheme;
+  if (name === 'tokyoNight') return tokyoNightTheme;
   if (name === 'highContrast') return highContrastTheme;
   if (name === 'noColor') return noColorTheme;
-  return studioTheme;
+  return catppuccinTheme;
 }
 
 export function renderShowcaseFrame(state = initialShowcaseState(), viewport = showcaseViewport) {
@@ -304,9 +249,9 @@ function updateShowcase(state, message) {
     case 'quickPick':
       return { state: applyQuickAction(state, quickActions[state.selectedQuickAction] ?? 'Palette') };
     case 'navFilter':
-      return { state: { ...state, navFilter: message.value, commandQuery: message.value.slice(0, 24), lastAction: 'Navigation filter updated.' } };
+      return { state: filterNavigation(state, message.value) };
     case 'navFilterText':
-      return { state: { ...state, navFilter: `${state.navFilter}${message.text}`, commandQuery: `${state.navFilter}${message.text}`.slice(0, 24) } };
+      return { state: filterNavigation(state, editTextAtEnd(state.navFilter, { kind: 'insert', text: message.text }).text) };
     case 'command':
       return {
         state: {
@@ -320,21 +265,21 @@ function updateShowcase(state, message) {
     case 'commandText':
       return { state: editCommand(state, { kind: 'insert', text: message.text }) };
     case 'commandBackspace':
-      return { state: editCommand(state, { kind: 'backspace' }) };
+      return { state: editCommand(state, { kind: 'deleteBackward' }) };
     case 'commandDelete':
-      return { state: editCommand(state, { kind: 'delete' }) };
+      return { state: editCommand(state, { kind: 'deleteForward' }) };
     case 'commandMove':
-      return { state: editCommand(state, { kind: 'move', delta: message.delta }) };
+      return { state: editCommand(state, message.delta < 0 ? { kind: 'moveLeft' } : { kind: 'moveRight' }) };
     case 'commandHome':
-      return { state: editCommand(state, { kind: 'home' }) };
+      return { state: editCommand(state, { kind: 'moveHome' }) };
     case 'commandEnd':
-      return { state: editCommand(state, { kind: 'end' }) };
+      return { state: editCommand(state, { kind: 'moveEnd' }) };
     case 'submitCommand':
       return { state: runCommand(state) };
     case 'draftText':
-      return { state: { ...state, draftText: `${state.draftText}${message.text}`, lastAction: 'Draft text edited.' } };
+      return { state: editDraftText(state, { kind: 'insert', text: message.text }) };
     case 'draftBackspace':
-      return { state: { ...state, draftText: state.draftText.slice(0, -1), lastAction: 'Draft text edited.' } };
+      return { state: editDraftText(state, { kind: 'deleteBackward' }) };
     case 'escape':
       return { state: { ...state, paletteOpen: false, modalOpen: false, contextMenuOpen: false, dropdownOpen: false, lastAction: 'Closed transient UI.' } };
     case 'exit':
@@ -344,7 +289,7 @@ function updateShowcase(state, message) {
   }
 }
 
-function showcaseView(state, viewport = showcaseViewport) {
+export function showcaseView(state, viewport = showcaseViewport) {
   const base = grid([
     topChrome(state),
     mainRegion(state, viewport),
@@ -435,7 +380,7 @@ function navigationPane(state) {
       message: { kind: 'palette', open: true },
       keyMap: {
         enter: { kind: 'palette', open: true },
-        backspace: { kind: 'navFilter', value: state.navFilter.slice(0, -1) },
+        backspace: { kind: 'navFilter', value: editTextAtEnd(state.navFilter, { kind: 'deleteBackward' }).text },
         escape: { kind: 'navFilter', value: '' }
       },
       inputMap: {
@@ -806,8 +751,8 @@ function diagramPanel(state) {
 
 function formsPanel(state) {
   const themeOptions = [
-    { id: 'studio', label: 'Studio', value: 'studio' },
-    { id: 'aurora', label: 'Aurora', value: 'aurora' },
+    { id: 'catppuccin', label: 'Catppuccin', value: 'catppuccin' },
+    { id: 'tokyo-night', label: 'Tokyo Night', value: 'tokyoNight' },
     { id: 'contrast', label: 'High contrast', value: 'highContrast' },
     { id: 'plain', label: 'No color', value: 'noColor' }
   ];
@@ -857,8 +802,8 @@ function formsPanel(state) {
         open: state.dropdownOpen,
         selected: themeLabel(state),
         items: [
-          { id: 'studio', label: 'Studio', checked: themeLabel(state) === 'studio', message: { kind: 'setTheme', value: 'studio' } },
-          { id: 'aurora', label: 'Aurora', checked: themeLabel(state) === 'aurora', message: { kind: 'setTheme', value: 'aurora' } },
+          { id: 'catppuccin', label: 'Catppuccin', checked: themeLabel(state) === 'catppuccin', message: { kind: 'setTheme', value: 'catppuccin' } },
+          { id: 'tokyo-night', label: 'Tokyo Night', checked: themeLabel(state) === 'tokyoNight', message: { kind: 'setTheme', value: 'tokyoNight' } },
           { id: 'contrast', label: 'High contrast', checked: themeLabel(state) === 'highContrast', message: { kind: 'setTheme', value: 'highContrast' } },
           { id: 'plain', label: 'No color', checked: themeLabel(state) === 'noColor', message: { kind: 'setTheme', value: 'noColor' } }
         ],
@@ -1251,27 +1196,34 @@ function heroCanvas(state) {
     id: 'hero-canvas',
     label: 'Interactive app diagram',
     state,
-    painter({ buffer, bounds }) {
+    painter({ canvas }) {
       const phase = state.spinnerFrame % 4;
-      const lines = [
-        'Outer marker      Channel C       Inner harbor',
-        '     ●───────────────●─────────────────●',
-        '     Pulse           Vector            Aster',
-        '       hold            clear             berth 12',
-        '',
-        'Weather: easing      Cargo: cold-chain clear',
-        'Crew: Mira + Rin     Next handoff: 22:30'
-      ];
-      for (const [index, lineText] of lines.entries()) {
-        const active = index === phase * 2 || index === phase * 2 + 1;
-        buffer.write(bounds.row + index, bounds.column, [{
-          text: lineText,
-          style: {
-            fg: { kind: 'theme', token: active ? 'accent.primary' : 'text.default' },
-            ...(active ? { bold: true } : {})
-          }
-        }]);
+      const muted = { fg: { kind: 'theme', token: 'text.muted' } };
+      const bright = { fg: { kind: 'theme', token: 'accent.primary' }, bold: true };
+      const soft = { fg: { kind: 'theme', token: 'status.success' } };
+      canvas.rect({ row: 0, column: 0, width: 47, height: 8 }, {
+        stroke: { text: '·', style: muted }
+      });
+      canvas.text(2, 0, [{ text: 'Harbor routing canvas', style: bright }]);
+      canvas.line(6, 2, 21, 2, { text: '─', style: soft });
+      canvas.line(22, 2, 39, 2, { text: '─', style: soft });
+      for (const [index, x] of [5, 22, 40].entries()) {
+        const active = index === phase % 3;
+        canvas.point(x, 2, { text: active ? '◉' : '●', style: active ? bright : soft });
       }
+      canvas.text(1, 3, [{ text: 'Outer marker      Channel C       Inner harbor', style: muted }]);
+      canvas.text(6, 4, [
+        { text: 'Pulse', style: phase === 0 ? bright : muted },
+        { text: '           Vector', style: phase === 1 ? bright : muted },
+        { text: '            Aster', style: phase === 2 ? bright : muted }
+      ]);
+      canvas.text(3, 6, [{ text: 'Weather easing', style: soft }]);
+      canvas.text(24, 6, [{ text: 'Berth 12 ready', style: soft }]);
+      for (let offset = 0; offset < 12; offset += 1) {
+        canvas.braillePoint(70 + offset, 3 + ((offset + phase) % 5), { fg: { kind: 'theme', token: 'accent.primary' } });
+      }
+      canvas.text(42, 1, [blockSpan('upper', { fg: { kind: 'theme', token: 'accent.primary' } })]);
+      canvas.text(43, 1, [blockSpan('lower', { fg: { kind: 'theme', token: 'accent.primary' } })]);
     }
   });
 }
@@ -1320,25 +1272,29 @@ function applyPaletteEntry(state, entry) {
 }
 
 function editCommand(state, action) {
-  const value = state.commandValue;
-  const cursor = clamp(state.commandCursor, 0, value.length);
-  if (action.kind === 'insert') {
-    const next = `${value.slice(0, cursor)}${action.text}${value.slice(cursor)}`;
-    return commandState(state, next, cursor + action.text.length);
-  }
-  if (action.kind === 'backspace') {
-    if (cursor === 0) return state;
-    const next = `${value.slice(0, cursor - 1)}${value.slice(cursor)}`;
-    return commandState(state, next, cursor - 1);
-  }
-  if (action.kind === 'delete') {
-    if (cursor >= value.length) return state;
-    const next = `${value.slice(0, cursor)}${value.slice(cursor + 1)}`;
-    return commandState(state, next, cursor);
-  }
-  if (action.kind === 'move') return commandState(state, value, clamp(cursor + action.delta, 0, value.length));
-  if (action.kind === 'home') return commandState(state, value, 0);
-  return commandState(state, value, value.length);
+  const next = editTextBuffer(
+    { text: state.commandValue, cursor: clamp(state.commandCursor, 0, state.commandValue.length) },
+    action
+  );
+  return commandState(state, next.text, next.cursor);
+}
+
+function editDraftText(state, action) {
+  const next = editTextAtEnd(state.draftText, action);
+  return { ...state, draftText: next.text, lastAction: 'Draft text edited.' };
+}
+
+function editTextAtEnd(textValue, action) {
+  return editTextBuffer({ text: textValue, cursor: textValue.length }, action);
+}
+
+function filterNavigation(state, value) {
+  return {
+    ...state,
+    navFilter: value,
+    commandQuery: queryPreview(value),
+    lastAction: 'Navigation filter updated.'
+  };
 }
 
 function commandState(state, value, cursor) {
@@ -1346,8 +1302,12 @@ function commandState(state, value, cursor) {
     ...state,
     commandValue: value,
     commandCursor: cursor,
-    commandQuery: value.replace(/^\/+/u, '').slice(0, 24)
+    commandQuery: queryPreview(value.replace(/^\/+/u, ''))
   };
+}
+
+function queryPreview(value) {
+  return clipTextCells(value, commandQueryCells).text;
 }
 
 function runCommand(state) {
@@ -1400,25 +1360,8 @@ function commandValidation(value) {
   return { tone: 'info', message: completionPreview(value) === undefined ? 'command ready' : 'completion available' };
 }
 
-function tickerSource() {
-  return {
-    id: 'showcase-ticker',
-    source: 'timer',
-    async *messages(context) {
-      while (!context.signal.aborted) {
-        await context.clock.sleep(700, context.signal);
-        if (!context.signal.aborted) yield { kind: 'tick' };
-      }
-    }
-  };
-}
-
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, Math.floor(value)));
-}
-
-function rgb(r, g, b) {
-  return { kind: 'rgb', r, g, b };
 }
 
 function routeForNode(id) {
@@ -1438,7 +1381,7 @@ function routeLabel(route) {
 }
 
 function themeLabel(state) {
-  return themeSequence[state.themeIndex % themeSequence.length] ?? 'studio';
+  return themeSequence[state.themeIndex % themeSequence.length] ?? 'catppuccin';
 }
 
 function themeIndexFor(value) {

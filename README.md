@@ -24,6 +24,9 @@ The root entrypoint also exposes the primary TUI path:
 `renderFramePlain`, `renderFrameAnsi`, `renderFrameDebug`, `renderDiffAnsi`,
 widgets, themes, and `createTerminalHarness`.
 
+The showcase gallery under `docs/gallery/` is generated from the executable
+showcase app and checked by the fixture suite.
+
 Host adapters cover Node, Deno, Bun, memory-backed tests, and explicit
 caller-managed PTY-style streams.
 

@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import {
   createScrollState,
+  createTuiRuntime,
+  dataWindow,
+  defineTui,
   paginationWindow,
   renderFramePlain,
   renderWidgetFrame,
@@ -10,6 +14,57 @@ import {
 } from '../../dist/tui/index.js';
 import { span } from '../../dist/tui/frame.js';
 import { list, table, tree } from '../../dist/widgets/index.js';
+
+const mousePress = (row, column) => ({
+  kind: 'mouse',
+  sequence: '',
+  encoding: 'sgr',
+  action: 'press',
+  button: 'left',
+  row,
+  column,
+  rawCode: 0,
+  modifiers: { shift: false, alt: false, ctrl: false }
+});
+
+test('dataWindow keeps selected rows visible and preserves explicit scroll windows', () => {
+  assert.deepEqual(
+    dataWindow({ totalRows: 100, viewportRows: 5, selectedIndex: 40 }),
+    {
+      totalRows: 100,
+      start: 38,
+      end: 43,
+      selectedIndex: 40,
+      selectedVisibleIndex: 2,
+      offsetColumn: 0,
+      omittedBefore: 38,
+      omittedAfter: 57
+    }
+  );
+
+  assert.deepEqual(
+    dataWindow({
+      totalRows: 100,
+      viewportRows: 5,
+      scroll: createScrollState({
+        offsetRow: 10,
+        offsetColumn: 3,
+        contentRows: 100,
+        contentColumns: 20,
+        viewportRows: 5,
+        viewportColumns: 8
+      })
+    }),
+    {
+      totalRows: 100,
+      start: 10,
+      end: 15,
+      offsetColumn: 3,
+      omittedBefore: 10,
+      omittedAfter: 85
+    }
+  );
+});
 
 test('list widget filters items and can use explicit shared scroll state', () => {
   const frame = renderWidgetFrame(list({
@@ -24,6 +79,36 @@ test('list widget filters items and can use explicit shared scroll state', () =>
   assert.match(output, /charlie/u);
   assert.doesNotMatch(output, /alpha/u);
   assert.equal(frame.accessibility.root.description, 'Showing 2-3 of 4 items.');
+});
+
+test('list cursor and mouse hit targets use the filtered visible rows', async () => {
+  const frame = renderWidgetFrame(list({
+    id: 'clickable-list',
+    items: ['alpha', 'bravo', 'charlie', 'delta'],
+    filterQuery: 'br',
+    selected: 0,
+    toMessage: (value) => ({ kind: 'chosen', value })
+  }), { columns: 24, rows: 2 });
+
+  assert.deepEqual(frame.cursor, { row: 1, column: 1 });
+  assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['clickable-list:option:0']);
+
+  const app = defineTui({
+    id: 'list-click-flow',
+    init: () => ({ selected: 'none' }),
+    update: (_state, message) => ({ state: { selected: String(message.value) } }),
+    view: () => list({
+      id: 'clickable-list',
+      items: ['alpha', 'bravo'],
+      toMessage: (value) => ({ kind: 'chosen', value })
+    })
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 2 } }) });
+
+  await runtime.start();
+  const result = await runtime.handleInput(mousePress(2, 1));
+
+  assert.equal(result.state.selected, 'bravo');
 });
 
 test('table widget renders constrained columns and selected rows', () => {
@@ -119,6 +204,30 @@ test('table uses shared horizontal scroll state', () => {
   assert.doesNotMatch(output, /alpha/u);
   assert.match(output, /Second/u);
   assert.match(output, /beta/u);
+});
+
+test('table selected cell row drives the shared vertical window and scrollbar scope', () => {
+  const frame = renderWidgetFrame(table({
+    id: 'selected-cell-window',
+    selectedCell: { row: 4, column: 0 },
+    scrollbar: { visible: 'always' },
+    columns: [{ header: 'Name', width: 12 }],
+    rows: [
+      ['alpha'],
+      ['bravo'],
+      ['charlie'],
+      ['delta'],
+      ['echo'],
+      ['foxtrot']
+    ]
+  }), { columns: 16, rows: 3 });
+
+  const output = renderFramePlain(frame);
+
+  assert.doesNotMatch(output, /alpha/u);
+  assert.match(output, /echo/u);
+  assert.equal(frame.accessibility.root.description, 'Showing 4-5 of 6 rows.');
+  assert.equal(frame.cells.filter((cell) => cell.column === 16).length, 2);
 });
 
 test('treeReducer toggles nested expansion without mutating input nodes', () => {

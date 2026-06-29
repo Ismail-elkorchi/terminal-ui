@@ -1,21 +1,21 @@
 Northstar Control visual preview
 schema: terminal-ui.visual-snapshots.v1
-frame: 160x42 cells=2092
-diff operations: 170 fullRewrite=false
-hit targets: 22
+frame: 160x42 cells=2100
+diff operations: 184 fullRewrite=false
+hit targets: 26
 focus: showcase-overlay > showcase-shell
 accessibility root: application showcase-overlay
 
-File  View  Tools  Help                               Northstar Control  Route map  studio                  i Route map live (running)
+File  View  Tools  Help                               Northstar Control  Route map  catppuccin              i Route map live (running)
 harbor service [█████████░] 88/100 88%
 
-╭ Explore ───────────────────╮ ╭ Workspace ─────────────────────────────────────────────────────────────────────────╮ ╭ Inspector ─────────────────────────────╮
+┌ Explore ───────────────────┐ ┌ Workspace ─────────────────────────────────────────────────────────────────────────┐ ┌ Inspector ─────────────────────────────┐
 │ Navigator                  │ │ Overview   Fleet   Briefing  [Map]  Dispatch   Events                              │ │  Pick   A11y  [Render]  Theme          │
 │                            │ │╔ Route map ══════════════════════════════════════╗  ┌ Route notes ────────────────┐│ │ [-] [success] Render pipeline          │
 │                            │ │║                                                 ║  │                             ││ │ widget tree → layout tree → frame → di │
 │                            │ │║ outer marker ──▶ west lane ──▶ inner harbor   ║  │ Channel C is reserved for V ││ │ ff                                     │
 │   ▾ ◆ Operations           │ │║       │              │             │            ║  │                             ││ │ viewport  : 160x42                     │
-│       ▣ Overview           │ │║       └── Pulse      └── Vector    └── Aster    ║  │ Pulse holds at the ferry ma ││ │ theme     : studio                     │
+│       ▣ Overview           │ │║       └── Pulse      └── Vector    └── Aster    ║  │ Pulse holds at the ferry ma ││ │ theme     : catppuccin                 │
 │       ▤ Fleet board        │ │║                                                 ║  │                             ││ │ transcript: enabled                    │
 │       ¶ Briefing room      │ │║ pilots • weather • berth windows                ║  │ Aster remains on berth 12 w ││ │                                        │
 │ ›     ◎ Route map          │ │║                                                 ║  │                             ││ │                                        │
@@ -29,7 +29,7 @@ harbor service [█████████░] 88/100 88%
 │                            │ │                                                     │   inner ███████████ 63      ││ │                                        │
 │                            │ │                                                     │                             ││ │ ▁▃▂▇▅▆▂█▃                              │
 │                            │ │                                                     │                             ││ │                                        │
-│                            │ │┌ Dispatch note ───────────────────────────────────────────────────────────────────┐│ │                                        │
+│                            │ │┌ Dispatch note ─────────────────────────────────────┴─────────────────────────────┤│ │                                        │
 │                            │ ││                                                                                  ││ │                                        │
 │                            │ ││ [-] [running] Active instruction                                                 ││ │                                        │
 │                            │ ││ Hold Pulse at the ferry marker until Vector exits the west lane.                 ││ │                                        │
@@ -43,7 +43,7 @@ harbor service [█████████░] 88/100 88%
 │   Context                  │ │                                                                                    │ │                                        │
 │                            │ │                                                                                    │ │                                        │
 │                            │ │                                                                                    │ │                                        │
-╰────────────────────────────╯ ╰────────────────────────────────────────────────────────────────────────────────────╯ ╰────────────────────────────────────────╯
+└────────────────────────────┘ └────────────────────────────────────────────────────────────────────────────────────┘ └────────────────────────────────────────┘
 ›/map
 command ready
 Tab focus  Enter activate  /palette commands  /handoff modal  Ctrl-C exit

@@ -36,6 +36,23 @@ export interface TextSelection {
   readonly end: number;
 }
 
+export interface TerminalTextIndex {
+  readonly text: string;
+  readonly graphemes: readonly GraphemeSegment[];
+  readonly cells: number;
+  readonly codeUnits: number;
+  readonly bytes: number;
+  graphemeIndexToCodeUnitOffset(index: number): number;
+  codeUnitOffsetToGraphemeIndex(offset: number): number;
+  graphemeIndexToVisualColumn(index: number): number;
+  visualColumnToGraphemeIndex(column: number): number;
+  graphemeIndexToByteOffset(index: number): number;
+  byteOffsetToGraphemeIndex(offset: number): number;
+  wordSelectionAt(offset: number): TextSelection;
+  lineSelectionAt(offset: number): TextSelection;
+  selectedText(selection: TextSelection): string;
+}
+
 export interface TextEditBuffer {
   readonly text: string;
   readonly cursor: number;
