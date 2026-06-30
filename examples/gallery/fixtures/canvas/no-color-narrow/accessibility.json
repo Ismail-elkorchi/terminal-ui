@@ -1,0 +1,27 @@
+{
+  "diagnostics": [],
+  "focusPath": [],
+  "root": {
+    "children": [
+      {
+        "id": "text-2-2",
+        "label": "text-2-2",
+        "role": "text",
+        "value": "{\"value\":\"Canvas\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+      },
+      {
+        "id": "canvas-gallery",
+        "label": "Canvas primitives",
+        "role": "application",
+        "scope": {
+          "kind": "document"
+        }
+      }
+    ],
+    "id": "canvas-gallery",
+    "label": "canvas-gallery",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

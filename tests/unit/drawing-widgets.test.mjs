@@ -38,6 +38,35 @@ test('canvas painters receive Canvas2D helpers while keeping direct buffer acces
   assert.equal(renderFramePlain(frame), '████ ok\n████\nraw');
 });
 
+test('Canvas2D draws curves polygons and transformed paths through the frame buffer', () => {
+  const frame = renderWidgetFrame(canvas({
+    id: 'canvas2d-shapes',
+    painter({ canvas }) {
+      canvas.circle({ x: 3, y: 2 }, 2, { stroke: { text: 'o' } });
+      canvas.ellipse({ x: 8, y: 2 }, 2, 1, { fill: { text: 'e' } });
+      canvas.arc({ x: 8, y: 4 }, 2, 0, Math.PI, { stroke: { text: 'a' } });
+      canvas.fillPolygon([
+        { x: 1, y: 4 },
+        { x: 4, y: 4 },
+        { x: 2, y: 5 }
+      ], { text: 'p' });
+      canvas.withTransform({ translateX: 9, translateY: 0 }, (drawing) => {
+        drawing.polyline([{ x: 0, y: 0 }, { x: 2, y: 0 }], { text: 't' });
+      });
+      canvas.point(99, 99, { text: 'x' });
+    }
+  }), { columns: 12, rows: 6 });
+
+  const marks = frame.cells.map((cell) => `${String(cell.row)}:${String(cell.column)}:${cell.text}`);
+
+  assert.equal(marks.includes('1:10:t'), true);
+  assert.equal(frame.cells.some((cell) => cell.text === 'o'), true);
+  assert.equal(frame.cells.some((cell) => cell.text === 'e'), true);
+  assert.equal(frame.cells.some((cell) => cell.text === 'a'), true);
+  assert.equal(frame.cells.some((cell) => cell.text === 'p'), true);
+  assert.equal(frame.cells.some((cell) => cell.text === 'x'), false);
+});
+
 test('surface absolute and overlay compose arbitrary positioned overlapping content', () => {
   const frame = renderWidgetFrame(surface(
     overlay([
@@ -128,6 +157,9 @@ test('region-local overlay buffers preserve clipped viewport coordinates and hit
 
   assert.deepEqual(overlayRegion?.bounds, { row: 2, column: 7, width: 4, height: 1 });
   assert.equal(overlayRegion?.cells.every((cell) => cell.row === 2 && cell.column >= 7 && cell.column <= 10), true);
+  assert.deepEqual(overlayRegion?.metadata.writtenBounds.rects, [
+    { row: 2, column: 7, width: 4, height: 1 }
+  ]);
   assert.deepEqual(hitTarget?.bounds, { row: 2, column: 7, width: 4, height: 1 });
   assert.match(renderFramePlain(frame).split('\n')[1] ?? '', /^......../u);
 });

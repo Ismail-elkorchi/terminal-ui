@@ -6,6 +6,7 @@
     "examples/showcase/app.mjs.stdout.txt",
     "examples/showcase/scripted.mjs.stdout.txt",
     "examples/showcase/preview.mjs.stdout.txt",
+    "examples/gallery/animation-sequences.mjs.stdout.txt",
     "examples/prompts/non-tty-input.mjs.stdout.txt",
     "examples/shell/cli-core-shell.mjs.stdout.txt",
     "examples/testing/visual-snapshots.mjs.stdout.txt",

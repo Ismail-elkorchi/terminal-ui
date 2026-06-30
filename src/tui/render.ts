@@ -5,16 +5,16 @@ import { createFrameBuffer } from './frame.ts';
 import { applyFramePasses, boxDrawingJoinPass } from './frame-passes/index.ts';
 import { layoutWidget } from './layout.ts';
 import { accessibleNode } from './render-accessibility.ts';
-import { createDraftRenderRegion } from './render-regions.ts';
+import { createDraftRenderRegion, regionIdForLayoutNode, toRegionHitTarget } from './render-regions.ts';
 import { renderWidgetRenderer, widgetCursor, widgetHitTargets } from './widget-behavior.ts';
 import type { TerminalViewport } from '../host/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
 import type { FocusPath } from './focus.ts';
-import type { Frame, FrameBuffer, FrameHitTarget } from './frame.ts';
+import type { Frame, FrameBuffer, FrameCell, FrameHitTarget } from './frame.ts';
 import type { FramePass } from './frame-passes/index.ts';
-import type { Layer, LayoutNode, Rect } from './layout.ts';
-import type { DraftRenderRegion, RenderRegion } from './render-regions.ts';
+import type { LayoutNode, Rect } from './layout.ts';
+import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
 
 export {
   clipRenderSpans,
@@ -51,7 +51,7 @@ export type {
   TerminalLink,
   TerminalStyle
 } from './frame.ts';
-export type { RenderRegion } from './render-regions.ts';
+export type { RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
 
 export interface RenderWidgetFrameOptions {
   readonly focusPath?: FocusPath;
@@ -65,7 +65,7 @@ export interface RenderWidgetFrameProjection<TMessage = unknown> {
   readonly viewport: TerminalViewport;
   readonly theme: TerminalTheme;
   readonly layout: LayoutNode;
-  readonly regions: readonly RenderRegion[];
+  readonly regions: readonly RenderRegion<TMessage>[];
   readonly frame: Frame;
 }
 
@@ -89,7 +89,7 @@ export function renderWidgetFrameProjection<TMessage>(
   const buffer = compositeRegions(viewport, regions);
   applyFramePasses(buffer, framePassesForOptions(options), { theme, viewport });
   const cursor = cursorForFocusedWidget(widget, layout, resolvedFocusPath, theme);
-  const hitTargets = regions.flatMap((region) => region.hitTargets);
+  const hitTargets = regions.flatMap((region) => region.hitTargets.map(frameHitTargetFromRegion));
   const accessibility = toAccessibleSnapshot({
     source: 'tui',
     root: accessibleNode(widget, layout, [], resolvedFocusPath, theme),
@@ -119,37 +119,47 @@ export function renderWidgetRegions(
   return renderWidgetFrameProjection(widget, viewport, options).regions;
 }
 
-function renderLayoutRegions(
-  widget: Widget,
+function renderLayoutRegions<TMessage>(
+  widget: Widget<TMessage>,
   layout: LayoutNode,
   viewport: TerminalViewport,
   theme: TerminalTheme,
   focusPath: FocusPath | undefined
-): readonly RenderRegion[] {
-  const composer = createRegionComposer(viewport);
-  renderWidgetToRegion(widget, layout, [], composer.regionFor(layout.layer), composer, theme, focusPath);
+): readonly RenderRegion<TMessage>[] {
+  const composer = createRegionComposer<TMessage>(viewport);
+  const path = nodePath(layout, []);
+  renderWidgetToRegion(widget, layout, [], composer.regionFor(layout, path), composer, theme, focusPath);
   return composer.snapshot(widget, layout, theme);
 }
 
-function frameHitTargets(widget: Widget, layout: LayoutNode, theme: TerminalTheme, region: DraftRenderRegion): readonly FrameHitTarget[] {
+function frameHitTargets<TMessage>(
+  widget: Widget<TMessage>,
+  layout: LayoutNode,
+  theme: TerminalTheme,
+  region: DraftRenderRegion
+): readonly RenderRegionHitTarget<TMessage>[] {
   return collectWidgetLayoutTargets(widget, layout)
     .filter((target) => target.layer.zIndex === region.zIndex && rectsOverlap(target.bounds, region.bounds))
-    .flatMap((target): FrameHitTarget[] =>
-    widgetHitTargets(target.widget, target, theme).map((hitTarget) => ({
-      id: hitTarget.id,
-      bounds: hitTarget.bounds,
-      ...(hitTarget.cursor === undefined ? {} : { cursor: hitTarget.cursor }),
-      zIndex: hitTarget.zIndex ?? region.zIndex
-    }))
-  );
+    .flatMap((target): RenderRegionHitTarget<TMessage>[] =>
+      widgetHitTargets(target.widget, target, theme).map((hitTarget) => toRegionHitTarget(hitTarget, region))
+    );
 }
 
-function renderWidgetToRegion(
-  widget: Widget,
+function frameHitTargetFromRegion(hitTarget: RenderRegionHitTarget): FrameHitTarget {
+  return {
+    id: hitTarget.id,
+    bounds: hitTarget.bounds,
+    ...(hitTarget.cursor === undefined ? {} : { cursor: hitTarget.cursor }),
+    ...(hitTarget.zIndex === undefined ? {} : { zIndex: hitTarget.zIndex })
+  };
+}
+
+function renderWidgetToRegion<TMessage>(
+  widget: Widget<TMessage>,
   node: LayoutNode,
   parentPath: FocusPath,
   region: DraftRenderRegion,
-  composer: RegionComposer,
+  composer: RegionComposer<TMessage>,
   theme: TerminalTheme,
   focusPath: FocusPath | undefined
 ): void {
@@ -166,13 +176,13 @@ function renderWidgetToRegion(
   });
 }
 
-function renderWidgetChildrenToRegions(
-  widget: Widget,
+function renderWidgetChildrenToRegions<TMessage>(
+  widget: Widget<TMessage>,
   node: LayoutNode,
   path: FocusPath,
   buffer: FrameBuffer,
   region: DraftRenderRegion,
-  composer: RegionComposer,
+  composer: RegionComposer<TMessage>,
   theme: TerminalTheme,
   focusPath: FocusPath | undefined
 ): void {
@@ -182,13 +192,13 @@ function renderWidgetChildrenToRegions(
       renderWidgetToBuffer(child, childNode, path, buffer, theme, focusPath);
       continue;
     }
-    const childRegion = childNode.layer.zIndex === region.zIndex ? region : composer.regionFor(childNode.layer);
+    const childRegion = childNode.layer.zIndex === region.zIndex ? region : composer.regionFor(childNode, [...path, childNode.id ?? childNode.layer.id]);
     renderWidgetToRegion(child, childNode, path, childRegion, composer, theme, focusPath);
   }
 }
 
-function renderWidgetToBuffer(
-  widget: Widget,
+function renderWidgetToBuffer<TMessage>(
+  widget: Widget<TMessage>,
   node: LayoutNode,
   parentPath: FocusPath,
   buffer: FrameBuffer,
@@ -211,7 +221,7 @@ function renderWidgetToBuffer(
 }
 
 function nodePath(node: LayoutNode, parentPath: FocusPath): FocusPath {
-  return [...parentPath, node.id ?? `${node.kind}:${String(node.bounds.row)}:${String(node.bounds.column)}`];
+  return [...parentPath, node.id ?? node.layer.id];
 }
 
 function orderedChildren(
@@ -226,22 +236,23 @@ function orderedChildren(
     .sort((left, right) => left.childNode.layer.zIndex - right.childNode.layer.zIndex || left.index - right.index);
 }
 
-interface RegionComposer {
-  regionFor(layer: Layer): DraftRenderRegion;
-  snapshot(widget: Widget, layout: LayoutNode, theme: TerminalTheme): readonly RenderRegion[];
+interface RegionComposer<TMessage> {
+  regionFor(node: LayoutNode, path: FocusPath): DraftRenderRegion;
+  snapshot(widget: Widget<TMessage>, layout: LayoutNode, theme: TerminalTheme): readonly RenderRegion<TMessage>[];
 }
 
-function createRegionComposer(viewport: TerminalViewport): RegionComposer {
+function createRegionComposer<TMessage>(viewport: TerminalViewport): RegionComposer<TMessage> {
   const regions: DraftRenderRegion[] = [];
   let regionOrder = 0;
   return {
-    regionFor(layer) {
+    regionFor(node, path) {
       const region = createDraftRenderRegion({
-        id: `z:${String(layer.zIndex)}:r:${String(regionOrder)}`,
-        zIndex: layer.zIndex,
+        id: regionIdForLayoutNode(node, path),
+        zIndex: node.layer.zIndex,
         order: regionOrder,
         viewport,
-        bounds: layer.bounds
+        bounds: node.layer.bounds,
+        opacity: node.layer.opacity
       });
       regionOrder += 1;
       regions.push(region);
@@ -250,18 +261,22 @@ function createRegionComposer(viewport: TerminalViewport): RegionComposer {
     snapshot(widget, layout, theme) {
       return regions
         .toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)
-        .map((region): RenderRegion => ({
-          id: region.id,
-          zIndex: region.zIndex,
-          order: region.order,
-          bounds: region.bounds,
-          opacity: 'transparent',
-          cells: region.buffer.snapshot().cells,
-          hitTargets: frameHitTargets(widget, layout, theme, region),
-          focusTargets: collectLayoutFocusTargets(layout).filter((target) =>
-            target.layer.zIndex === region.zIndex && rectsOverlap(target.bounds, region.bounds)
-          )
-        }));
+        .map((region): RenderRegion<TMessage> => {
+          const snapshot = region.buffer.snapshot();
+          return {
+            id: region.id,
+            zIndex: region.zIndex,
+            order: region.order,
+            bounds: region.bounds,
+            opacity: region.opacity,
+            cells: snapshot.cells,
+            metadata: snapshot.metadata,
+            hitTargets: frameHitTargets(widget, layout, theme, region),
+            focusTargets: collectLayoutFocusTargets(layout).filter((target) =>
+              target.layer.zIndex === region.zIndex && rectsOverlap(target.bounds, region.bounds)
+            )
+          };
+        });
     }
   };
 }
@@ -269,9 +284,39 @@ function createRegionComposer(viewport: TerminalViewport): RegionComposer {
 export function compositeRegions(viewport: TerminalViewport, regions: readonly RenderRegion[]): FrameBuffer {
   const buffer = createFrameBuffer(viewport.columns, viewport.rows);
   for (const region of regions.toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)) {
+    if (region.opacity === 'opaque') {
+      buffer.clear(region.bounds);
+      for (const cell of region.cells) buffer.writeCell(cell);
+      continue;
+    }
+    if (region.opacity === 'inheritBackground') {
+      const lowerCells = indexedCells(buffer.snapshot().cells);
+      for (const cell of region.cells) buffer.writeCell(withInheritedBackground(cell, lowerCells.get(cellKey(cell))));
+      continue;
+    }
     for (const cell of region.cells) buffer.writeCell(cell);
   }
   return buffer;
+}
+
+function indexedCells(cells: readonly FrameCell[]): ReadonlyMap<string, FrameCell> {
+  return new Map(cells.map((cell) => [cellKey(cell), cell]));
+}
+
+function cellKey(cell: { readonly row: number; readonly column: number }): string {
+  return `${String(cell.row)}:${String(cell.column)}`;
+}
+
+function withInheritedBackground(cell: FrameCell, lower: FrameCell | undefined): FrameCell {
+  const background = lower?.style?.bg;
+  if (background === undefined || cell.style?.bg !== undefined) return cell;
+  return {
+    ...cell,
+    style: {
+      ...cell.style,
+      bg: background
+    }
+  };
 }
 
 function rectsOverlap(left: Rect, right: Rect): boolean {

@@ -39,6 +39,7 @@ export const menuRenderers = {
     },
     accessibility: ({ widget, id, focused }) => ({
       ...menuAccessibleBase(widget, id, focused),
+      scope: { kind: 'menu' },
       children: menuAccessibleChildren(widget)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
@@ -50,6 +51,7 @@ export const menuRenderers = {
     },
     accessibility: ({ widget, id, focused }) => ({
       ...menuAccessibleBase(widget, id, focused),
+      scope: { kind: 'menu' },
       children: menuAccessibleChildren(widget)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
@@ -61,6 +63,7 @@ export const menuRenderers = {
     },
     accessibility: ({ widget, id, focused }) => ({
       ...menuAccessibleBase(widget, id, focused),
+      scope: { kind: 'popover' },
       children: menuAccessibleChildren(widget)
     }),
     focusTargets: ({ widget, bounds }) => [focusTarget(bounds, menuCursor(widget, bounds, widget.props['title'] === undefined ? 0 : 1))],
@@ -74,6 +77,7 @@ export const menuRenderers = {
       const children = dropdownAccessibleChildren(widget);
       return {
         ...dropdownAccessibleBase(widget, id, focused),
+        ...(widget.props['open'] === true ? { scope: { kind: 'menu' as const } } : {}),
         ...(children === undefined ? {} : { children })
       };
     },
@@ -109,6 +113,7 @@ export const menuRenderers = {
       label: stringify(widget.props['title']) || id,
       value: stringify(widget.props['query']),
       ...(focused ? { focused } : {}),
+      scope: { kind: 'menu' },
       children: paletteAccessibleChildren(widget, node.bounds.height)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)]

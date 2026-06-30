@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1008" height="644" viewBox="0 0 1008 644" xml:space="preserve">
+<rect width="100%" height="100%" fill="#000000"/>
+<rect x="24" y="70" width="8" height="18" fill="#ffffff"/>
+<rect x="32" y="70" width="8" height="18" fill="#ffffff"/>
+<rect x="240" y="70" width="8" height="18" fill="#ffffff"/>
+<rect x="248" y="70" width="8" height="18" fill="#ffffff"/>
+<text x="16" y="30" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+------------------------------------------------------------------------------------------------------------------------+</text>
+<text x="16" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|  </text>
+<text x="40" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">Name</text>
+<text x="72" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">   </text>
+<text x="96" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">State</text>
+<text x="136" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">        </text>
+<text x="200" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">Score ↓</text>
+<text x="256" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">g":{"kind":"theme","token":"accent.primary"},"bold":true}}</text>
+<text x="984" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="66" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|  Atlas  active            92</text>
+<text x="984" y="66" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="84" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="24" y="84" fill="#000000" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">&gt; </text>
+<text x="40" y="84" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Lumen  review            </text>
+<text x="240" y="84" fill="#000000" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">85</text>
+<text x="984" y="84" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="102" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|  Pulse  blocked           61</text>
+<text x="984" y="102" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="120" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|  Nova   active            98</text>
+<text x="984" y="120" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="138" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="138" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="156" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="156" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="174" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="174" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="192" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="192" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="210" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="210" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="228" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="228" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="246" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="246" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="264" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="264" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="282" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="282" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="300" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="300" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="318" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="318" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="336" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="336" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="354" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="354" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="372" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="372" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="390" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="390" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="408" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="408" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="426" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="426" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="444" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="444" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="462" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="462" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="480" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="480" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="498" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="498" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="516" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="516" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="534" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="534" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="552" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="552" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="570" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="570" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="588" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="588" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="606" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="984" y="606" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="16" y="624" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+------------------------------------------------------------------------------------------------------------------------+</text>
+</svg>

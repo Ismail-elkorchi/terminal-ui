@@ -35,6 +35,7 @@ test('textArea renders multiline windows and exposes cursor/accessibility state'
   assert.deepEqual(frame.cursor, { row: 2, column: 5 });
   assert.equal(frame.accessibility.root.role, 'textbox');
   assert.equal(frame.accessibility.root.description, '2 lines. Selection active.');
+  assert.equal(frame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
 });
 
 test('text widgets map Unicode cursor positions through the shared text contract', () => {
@@ -42,7 +43,8 @@ test('text widgets map Unicode cursor positions through the shared text contract
   const textInputFrame = renderWidgetFrame(textInput({
     id: 'unicode-input',
     value,
-    cursor: 'a🙂'.length
+    cursor: 'a🙂'.length,
+    selection: { start: 1, end: 'a🙂'.length }
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-input'] });
   const inputFieldFrame = renderWidgetFrame(inputField({
     id: 'unicode-field',
@@ -60,6 +62,7 @@ test('text widgets map Unicode cursor positions through the shared text contract
   assert.deepEqual(inputFieldFrame.cursor, { row: 1, column: 5 });
   assert.deepEqual(commandFrame.cursor, { row: 1, column: 6 });
   assert.equal(renderFramePlain(commandFrame), '> a🙂界b');
+  assert.equal(textInputFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
   assert.equal(commandFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
 });
 

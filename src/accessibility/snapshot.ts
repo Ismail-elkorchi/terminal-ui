@@ -60,7 +60,16 @@ function sanitizeAccessibleNode(node: AccessibleNode): AccessibleNode {
     ...(node.label === undefined ? {} : { label: sanitizeAccessibleText(node.label) }),
     ...(node.description === undefined ? {} : { description: sanitizeAccessibleText(node.description) }),
     ...(node.value === undefined ? {} : { value: sanitizeAccessibleValue(node.value) }),
+    ...(node.position === undefined ? {} : { position: sanitizePosition(node.position) }),
     ...(node.children === undefined ? {} : { children: node.children.map(sanitizeAccessibleNode) })
+  };
+}
+
+function sanitizePosition(position: NonNullable<AccessibleNode['position']>): NonNullable<AccessibleNode['position']> {
+  return {
+    ...position,
+    ...(position.columnLabel === undefined ? {} : { columnLabel: sanitizeAccessibleText(position.columnLabel) }),
+    ...(position.group === undefined ? {} : { group: sanitizeAccessibleText(position.group) })
   };
 }
 

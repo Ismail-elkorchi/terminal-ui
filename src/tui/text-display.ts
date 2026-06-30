@@ -14,6 +14,12 @@ export interface TextCursorLineMetrics {
   readonly columnCells: number;
 }
 
+export interface VisibleLineWindow {
+  readonly text: string;
+  readonly startOffset: number;
+  readonly endOffset: number;
+}
+
 export function singleLineCursorColumn(value: string, cursor: number | undefined, maxColumns?: number): number {
   const index = createTerminalTextIndex(value);
   const boundedCursor = normalizeTextCursor(value, cursor ?? value.length);
@@ -38,11 +44,20 @@ export function selectedTextSpans(
 }
 
 export function visibleLineText(lineText: string, offsetCells: number, width: number): string {
+  return visibleLineWindow(lineText, offsetCells, width).text;
+}
+
+export function visibleLineWindow(lineText: string, offsetCells: number, width: number): VisibleLineWindow {
   const start = Math.max(0, Math.floor(offsetCells));
   const index = createTerminalTextIndex(lineText);
   const startGrapheme = index.visualColumnToGraphemeIndex(start);
   const startOffset = index.graphemeIndexToCodeUnitOffset(startGrapheme);
-  return clipTextCells(textRange(lineText, startOffset, lineText.length), Math.max(0, width)).text;
+  const clipped = clipTextCells(textRange(lineText, startOffset, lineText.length), Math.max(0, width)).text;
+  return {
+    text: clipped,
+    startOffset,
+    endOffset: startOffset + clipped.length
+  };
 }
 
 export function textCursorLineMetrics(value: string, cursor: number | undefined): TextCursorLineMetrics {
@@ -61,6 +76,14 @@ export function textDisplayWidth(value: string): number {
   return terminalTextWidth(value);
 }
 
+export function selectionFromUnknown(value: string, selection: unknown): TextSelection | undefined {
+  if (!isRecord(selection)) return undefined;
+  const start = selection['start'];
+  const end = selection['end'];
+  if (typeof start !== 'number' || typeof end !== 'number') return undefined;
+  return normalizeTextSelection(value, { start, end });
+}
+
 function textRange(value: string, start: number, end: number): string {
   return value.slice(start, end);
 }
@@ -72,4 +95,8 @@ function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan 
 function clampColumn(cells: number, maxColumns: number | undefined): number {
   const max = maxColumns === undefined ? cells : Math.max(0, Math.floor(maxColumns));
   return Math.max(0, Math.min(max, cells));
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

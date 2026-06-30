@@ -134,16 +134,52 @@ test('text editing replaces selections and uses spec-shaped home/end operations'
   );
 });
 
-test('text area editing handles multiline inserts and line-relative movement', () => {
+test('text editing supports word operations and selection movement', () => {
+  assert.deepEqual(
+    editTextBuffer({ text: 'alpha bravo charlie', cursor: 'alpha bravo'.length }, { kind: 'deleteWordBackward' }),
+    { text: 'alpha  charlie', cursor: 'alpha '.length }
+  );
+  assert.deepEqual(
+    editTextBuffer({ text: 'alpha bravo charlie', cursor: 'alpha '.length }, { kind: 'deleteWordForward' }),
+    { text: 'alpha  charlie', cursor: 'alpha '.length }
+  );
+  assert.deepEqual(
+    editTextBuffer({ text: 'alpha bravo', cursor: 'alpha bravo'.length }, { kind: 'moveWordLeft' }),
+    { text: 'alpha bravo', cursor: 'alpha '.length }
+  );
+  assert.deepEqual(
+    editTextBuffer({ text: 'alpha bravo', cursor: 0 }, { kind: 'moveWordRight', select: true }),
+    { text: 'alpha bravo', cursor: 'alpha'.length, selection: { start: 0, end: 'alpha'.length } }
+  );
+  assert.deepEqual(
+    editTextBuffer({ text: 'alpha bravo', cursor: 0 }, { kind: 'selectAll' }),
+    { text: 'alpha bravo', cursor: 'alpha bravo'.length, selection: { start: 0, end: 'alpha bravo'.length } }
+  );
+});
+
+test('text area editing handles multiline inserts and line/page movement', () => {
   const pasted = editTextAreaBuffer({ text: 'alpha', cursor: 5 }, { kind: 'insert', text: '\nbravo\ncharlie' });
   assert.deepEqual(pasted, { text: 'alpha\nbravo\ncharlie', cursor: 'alpha\nbravo\ncharlie'.length });
   assert.deepEqual(
-    editTextAreaBuffer({ text: pasted.text, cursor: 'alpha\nbr'.length }, { kind: 'moveLineStart' }),
+    editTextAreaBuffer({ text: pasted.text, cursor: 'alpha\nbr'.length }, { kind: 'moveHome' }),
     { text: pasted.text, cursor: 'alpha\n'.length }
   );
   assert.deepEqual(
-    editTextAreaBuffer({ text: pasted.text, cursor: 'alpha\nbr'.length }, { kind: 'moveLineEnd' }),
+    editTextAreaBuffer({ text: pasted.text, cursor: 'alpha\nbr'.length }, { kind: 'moveEnd' }),
     { text: pasted.text, cursor: 'alpha\nbravo'.length }
+  );
+  assert.deepEqual(
+    editTextAreaBuffer({ text: pasted.text, cursor: 'alpha\nbra'.length }, { kind: 'moveLineDown', select: true }),
+    {
+      text: pasted.text,
+      cursor: 'alpha\nbravo\ncha'.length,
+      selection: { start: 'alpha\nbra'.length, end: 'alpha\nbravo\ncha'.length }
+    }
+  );
+  const twelveLines = Array.from({ length: 12 }, (_, index) => `line${String(index)}`).join('\n');
+  assert.deepEqual(
+    editTextBuffer({ text: twelveLines, cursor: 'line0'.length }, { kind: 'movePageDown' }),
+    { text: twelveLines, cursor: twelveLines.indexOf('line10') + 'line1'.length }
   );
 });
 

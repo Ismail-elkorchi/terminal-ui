@@ -9,11 +9,10 @@ import {
   defineTui,
   paginationWindow,
   renderFramePlain,
-  renderWidgetFrame,
-  treeReducer
+  renderWidgetFrame
 } from '../../dist/tui/index.js';
 import { span } from '../../dist/tui/frame.js';
-import { list, table, tree } from '../../dist/widgets/index.js';
+import { list, table, tree, treeReducer } from '../../dist/widgets/index.js';
 
 const mousePress = (row, column) => ({
   kind: 'mouse',
@@ -128,7 +127,9 @@ test('table widget renders constrained columns and selected rows', () => {
   const output = renderFramePlain(frame);
   assert.match(output, /Name   Val…/u);
   assert.match(output, /› bravo  200/u);
-  assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
+  assert.deepEqual(frame.accessibility.root.window, { start: 0, end: 2, total: 2, omittedBefore: 0, omittedAfter: 0 });
+  assert.equal(frame.accessibility.root.children?.[0]?.children?.[1]?.position?.columnLabel, 'Value');
+  assert.equal(frame.accessibility.root.children?.[2]?.selected, true);
 });
 
 test('table supports scroll state column sizing styled renderers sort markers empty states and cell selection', () => {
@@ -165,7 +166,9 @@ test('table supports scroll state column sizing styled renderers sort markers em
   assert.match(output, /charlie/u);
   assert.equal(styledScore?.style?.fg?.token, 'status.success');
   assert.equal(selectedScore?.style?.bg?.token, 'selection.background');
-  assert.equal(frame.accessibility.root.children?.[1]?.children?.[1]?.selected, true);
+  assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.value, 'Name');
+  assert.equal(frame.accessibility.root.children?.[2]?.children?.[1]?.selected, true);
+  assert.equal(frame.accessibility.root.children?.[2]?.children?.[1]?.position?.columnLabel, 'Score');
 });
 
 test('table renders a styled empty state', () => {

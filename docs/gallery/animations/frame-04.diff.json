@@ -1,0 +1,725 @@
+{
+  "schemaVersion": "terminal-ui.render-diff.v1",
+  "width": 84,
+  "height": 18,
+  "operations": [
+    {
+      "kind": "write",
+      "row": 1,
+      "column": 27,
+      "spans": [
+        {
+          "text": "4"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 1,
+      "column": 32,
+      "spans": [
+        {
+          "text": "48"
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 5,
+        "column": 1,
+        "width": 84,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 6,
+        "column": 1,
+        "width": 10,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 6,
+        "column": 42,
+        "width": 18,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 6,
+        "column": 84,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 7,
+        "column": 1,
+        "width": 33,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 7,
+        "column": 42,
+        "width": 21,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 7,
+        "column": 84,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 8,
+        "column": 1,
+        "width": 7,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 8,
+        "column": 42,
+        "width": 14,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 8,
+        "column": 84,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 9,
+        "column": 1,
+        "width": 84,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 10,
+      "column": 1,
+      "spans": [
+        {
+          "text": "┌────────────────────────────────────────┐┌────────────────────────────────────────┐",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 11,
+      "column": 1,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "⠼",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.running"
+            },
+            "bold": false
+          }
+        },
+        {
+          "text": " Spinner"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 11,
+      "column": 42,
+      "spans": [
+        {
+          "text": "││",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "chart data appended"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 11,
+      "column": 84,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 12,
+      "column": 1,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 12,
+        "column": 21,
+        "width": 44,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 12,
+      "column": 21,
+      "spans": [
+        {
+          "text": "                     "
+        },
+        {
+          "text": "││",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "modal opened"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 12,
+      "column": 84,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 13,
+        "column": 1,
+        "width": 59,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 13,
+      "column": 1,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "Progress "
+        },
+        {
+          "text": "[",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.pending"
+            },
+            "bold": false
+          }
+        },
+        {
+          "text": "██████████",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.running"
+            },
+            "bold": false
+          }
+        },
+        {
+          "text": "]",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.pending"
+            },
+            "bold": false
+          }
+        },
+        {
+          "text": " 100/100 100%      "
+        },
+        {
+          "text": "││",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "sequence complet"
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 13,
+        "column": 61,
+        "width": 4,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 13,
+      "column": 84,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 14,
+      "column": 1,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 14,
+        "column": 21,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 14,
+      "column": 42,
+      "spans": [
+        {
+          "text": "││",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 14,
+        "column": 64,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 14,
+      "column": 84,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 15,
+      "column": 1,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "   ***"
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 15,
+        "column": 21,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 15,
+      "column": 42,
+      "spans": [
+        {
+          "text": "││",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 15,
+        "column": 64,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 15,
+      "column": 84,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 16,
+      "column": 1,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "* *"
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 16,
+        "column": 21,
+        "width": 44,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 16,
+      "column": 21,
+      "spans": [
+        {
+          "text": "                     "
+        },
+        {
+          "text": "││",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 16,
+      "column": 84,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 17,
+      "column": 1,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": " *"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 17,
+      "column": 42,
+      "spans": [
+        {
+          "text": "││",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 17,
+      "column": 84,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 18,
+      "column": 1,
+      "spans": [
+        {
+          "text": "└────────────────────────────────────────┘└────────────────────────────────────────┘",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    }
+  ],
+  "fullRewrite": false
+}

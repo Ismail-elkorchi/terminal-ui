@@ -26,12 +26,14 @@ Render [██████░░░░] 3/5
         {
           &quot;id&quot;: &quot;status&quot;,
           &quot;label&quot;: &quot;status&quot;,
+          &quot;live&quot;: &quot;polite&quot;,
           &quot;role&quot;: &quot;status&quot;,
           &quot;value&quot;: &quot;Visual fixture&quot;
         },
         {
           &quot;id&quot;: &quot;progress&quot;,
           &quot;label&quot;: &quot;Render&quot;,
+          &quot;live&quot;: &quot;polite&quot;,
           &quot;progress&quot;: {
             &quot;max&quot;: 5,
             &quot;value&quot;: 3
@@ -43,8 +45,52 @@ Render [██████░░░░] 3/5
             {
               &quot;children&quot;: [
                 {
+                  &quot;id&quot;: &quot;metrics:header:0&quot;,
+                  &quot;label&quot;: &quot;Area&quot;,
+                  &quot;position&quot;: {
+                    &quot;columnCount&quot;: 2,
+                    &quot;columnIndex&quot;: 0,
+                    &quot;columnLabel&quot;: &quot;Area&quot;,
+                    &quot;rowCount&quot;: 3,
+                    &quot;rowIndex&quot;: 0
+                  },
+                  &quot;role&quot;: &quot;cell&quot;,
+                  &quot;value&quot;: &quot;Area&quot;
+                },
+                {
+                  &quot;id&quot;: &quot;metrics:header:1&quot;,
+                  &quot;label&quot;: &quot;State&quot;,
+                  &quot;position&quot;: {
+                    &quot;columnCount&quot;: 2,
+                    &quot;columnIndex&quot;: 1,
+                    &quot;columnLabel&quot;: &quot;State&quot;,
+                    &quot;rowCount&quot;: 3,
+                    &quot;rowIndex&quot;: 0
+                  },
+                  &quot;role&quot;: &quot;cell&quot;,
+                  &quot;value&quot;: &quot;State&quot;
+                }
+              ],
+              &quot;id&quot;: &quot;metrics:headers&quot;,
+              &quot;position&quot;: {
+                &quot;columnCount&quot;: 2,
+                &quot;rowCount&quot;: 3,
+                &quot;rowIndex&quot;: 0
+              },
+              &quot;role&quot;: &quot;row&quot;
+            },
+            {
+              &quot;children&quot;: [
+                {
                   &quot;id&quot;: &quot;metrics:row:0:cell:0&quot;,
                   &quot;label&quot;: &quot;Frame&quot;,
+                  &quot;position&quot;: {
+                    &quot;columnCount&quot;: 2,
+                    &quot;columnIndex&quot;: 0,
+                    &quot;columnLabel&quot;: &quot;Area&quot;,
+                    &quot;rowCount&quot;: 3,
+                    &quot;rowIndex&quot;: 1
+                  },
                   &quot;role&quot;: &quot;cell&quot;,
                   &quot;selected&quot;: false,
                   &quot;value&quot;: &quot;Frame&quot;
@@ -52,12 +98,26 @@ Render [██████░░░░] 3/5
                 {
                   &quot;id&quot;: &quot;metrics:row:0:cell:1&quot;,
                   &quot;label&quot;: &quot;stable&quot;,
+                  &quot;position&quot;: {
+                    &quot;columnCount&quot;: 2,
+                    &quot;columnIndex&quot;: 1,
+                    &quot;columnLabel&quot;: &quot;State&quot;,
+                    &quot;rowCount&quot;: 3,
+                    &quot;rowIndex&quot;: 1
+                  },
                   &quot;role&quot;: &quot;cell&quot;,
                   &quot;selected&quot;: false,
                   &quot;value&quot;: &quot;stable&quot;
                 }
               ],
               &quot;id&quot;: &quot;metrics:row:0&quot;,
+              &quot;position&quot;: {
+                &quot;columnCount&quot;: 2,
+                &quot;count&quot;: 2,
+                &quot;index&quot;: 0,
+                &quot;rowCount&quot;: 3,
+                &quot;rowIndex&quot;: 1
+              },
               &quot;role&quot;: &quot;row&quot;,
               &quot;selected&quot;: false
             },
@@ -66,6 +126,13 @@ Render [██████░░░░] 3/5
                 {
                   &quot;id&quot;: &quot;metrics:row:1:cell:0&quot;,
                   &quot;label&quot;: &quot;Diff&quot;,
+                  &quot;position&quot;: {
+                    &quot;columnCount&quot;: 2,
+                    &quot;columnIndex&quot;: 0,
+                    &quot;columnLabel&quot;: &quot;Area&quot;,
+                    &quot;rowCount&quot;: 3,
+                    &quot;rowIndex&quot;: 2
+                  },
                   &quot;role&quot;: &quot;cell&quot;,
                   &quot;selected&quot;: false,
                   &quot;value&quot;: &quot;Diff&quot;
@@ -73,12 +140,26 @@ Render [██████░░░░] 3/5
                 {
                   &quot;id&quot;: &quot;metrics:row:1:cell:1&quot;,
                   &quot;label&quot;: &quot;ready&quot;,
+                  &quot;position&quot;: {
+                    &quot;columnCount&quot;: 2,
+                    &quot;columnIndex&quot;: 1,
+                    &quot;columnLabel&quot;: &quot;State&quot;,
+                    &quot;rowCount&quot;: 3,
+                    &quot;rowIndex&quot;: 2
+                  },
                   &quot;role&quot;: &quot;cell&quot;,
                   &quot;selected&quot;: true,
                   &quot;value&quot;: &quot;ready&quot;
                 }
               ],
               &quot;id&quot;: &quot;metrics:row:1&quot;,
+              &quot;position&quot;: {
+                &quot;columnCount&quot;: 2,
+                &quot;count&quot;: 2,
+                &quot;index&quot;: 1,
+                &quot;rowCount&quot;: 3,
+                &quot;rowIndex&quot;: 2
+              },
               &quot;role&quot;: &quot;row&quot;,
               &quot;selected&quot;: true
             }
@@ -86,7 +167,18 @@ Render [██████░░░░] 3/5
           &quot;description&quot;: &quot;Showing 1-2 of 2 rows.&quot;,
           &quot;id&quot;: &quot;metrics&quot;,
           &quot;label&quot;: &quot;metrics&quot;,
-          &quot;role&quot;: &quot;table&quot;
+          &quot;position&quot;: {
+            &quot;columnCount&quot;: 2,
+            &quot;rowCount&quot;: 2
+          },
+          &quot;role&quot;: &quot;table&quot;,
+          &quot;window&quot;: {
+            &quot;end&quot;: 2,
+            &quot;omittedAfter&quot;: 0,
+            &quot;omittedBefore&quot;: 0,
+            &quot;start&quot;: 0,
+            &quot;total&quot;: 2
+          }
         }
       ],
       &quot;id&quot;: &quot;stack-1-1&quot;,
@@ -941,6 +1033,80 @@ Render [██████░░░░] 3/5
     }
   ],
   &quot;height&quot;: 8,
+  &quot;metadata&quot;: {
+    &quot;clearedBounds&quot;: {
+      &quot;rects&quot;: []
+    },
+    &quot;fingerprint&quot;: &quot;f2cf1e3d&quot;,
+    &quot;rowFingerprints&quot;: [
+      {
+        &quot;fingerprint&quot;: &quot;8a8a1d3a&quot;,
+        &quot;row&quot;: 1
+      },
+      {
+        &quot;fingerprint&quot;: &quot;811c9dc5&quot;,
+        &quot;row&quot;: 2
+      },
+      {
+        &quot;fingerprint&quot;: &quot;7ce483f2&quot;,
+        &quot;row&quot;: 3
+      },
+      {
+        &quot;fingerprint&quot;: &quot;811c9dc5&quot;,
+        &quot;row&quot;: 4
+      },
+      {
+        &quot;fingerprint&quot;: &quot;566ff2da&quot;,
+        &quot;row&quot;: 5
+      },
+      {
+        &quot;fingerprint&quot;: &quot;f2d7b590&quot;,
+        &quot;row&quot;: 6
+      },
+      {
+        &quot;fingerprint&quot;: &quot;7ed4cab6&quot;,
+        &quot;row&quot;: 7
+      },
+      {
+        &quot;fingerprint&quot;: &quot;811c9dc5&quot;,
+        &quot;row&quot;: 8
+      }
+    ],
+    &quot;writtenBounds&quot;: {
+      &quot;rects&quot;: [
+        {
+          &quot;column&quot;: 1,
+          &quot;height&quot;: 1,
+          &quot;row&quot;: 1,
+          &quot;width&quot;: 14
+        },
+        {
+          &quot;column&quot;: 1,
+          &quot;height&quot;: 1,
+          &quot;row&quot;: 3,
+          &quot;width&quot;: 23
+        },
+        {
+          &quot;column&quot;: 1,
+          &quot;height&quot;: 1,
+          &quot;row&quot;: 5,
+          &quot;width&quot;: 22
+        },
+        {
+          &quot;column&quot;: 1,
+          &quot;height&quot;: 1,
+          &quot;row&quot;: 6,
+          &quot;width&quot;: 22
+        },
+        {
+          &quot;column&quot;: 1,
+          &quot;height&quot;: 1,
+          &quot;row&quot;: 7,
+          &quot;width&quot;: 22
+        }
+      ]
+    }
+  },
   &quot;schemaVersion&quot;: &quot;terminal-ui.tui-frame.v1&quot;,
   &quot;width&quot;: 40
 }

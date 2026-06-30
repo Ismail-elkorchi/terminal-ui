@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="752" height="572" viewBox="0 0 752 572" xml:space="preserve">
+<rect width="100%" height="100%" fill="#101014"/>
+<text x="16" y="30" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+----------------------------------------------------------------+----------------------++</text>
+<text x="16" y="48" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|[Overview]  Details tyle":{"fg":{"kind":"theme","token":"accent.+----------------------++</text>
+<text x="16" y="66" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|{"value":"Tabbed workspace"}</text>
+<text x="536" y="66" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|{"value":"Inspector pa||</text>
+<text x="16" y="84" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="84" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="84" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="264" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+ Dialog ------------------+</text>
+<text x="536" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="264" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|{"value":"Modal focus scop|</text>
+<text x="536" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="264" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="480" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="264" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="480" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="264" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+--------------------------+</text>
+<text x="536" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="462" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="462" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="462" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="480" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="480" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="480" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="498" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="498" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="498" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="516" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="516" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="720" y="516" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
+<text x="16" y="534" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="536" y="534" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+----------------------++</text>
+<text x="16" y="552" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+----------------------------------------------------------------+----------------------++</text>
+</svg>

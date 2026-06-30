@@ -4,8 +4,8 @@ import {
   richTextAccessibleBase,
   richTextBlock,
   textAreaAccessibleBase,
+  textAreaBlock,
   textAreaCursor,
-  textAreaText
 } from '../text-widgets.ts';
 import { stringify } from '../widget-props.ts';
 import { writeBlock, writeRenderBlock } from './support/block.ts';
@@ -56,7 +56,7 @@ export const textRenderers = {
   textArea: {
     render: ({ widget, node, buffer, theme }) => {
       const scrollbars = scrollbarsForWidget(widget, node.bounds, textAreaScrollbarState(widget, node.bounds), 'both');
-      writeBlock(buffer, scrollbars.contentBounds, textAreaText(widget, scrollbars.contentBounds));
+      writeRenderBlock(buffer, scrollbars.contentBounds, textAreaBlock(widget, scrollbars.contentBounds));
       drawScrollbars(buffer, scrollbars, theme);
     },
     accessibility: ({ widget, id, focused }) => textAreaAccessibleBase(widget, id, focused),

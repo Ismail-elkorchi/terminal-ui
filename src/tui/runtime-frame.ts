@@ -20,7 +20,7 @@ export interface RenderCommitCandidate<TMessage> {
   readonly viewport: TerminalViewport;
   readonly widget: Widget<TMessage>;
   readonly layout: LayoutNode;
-  readonly regions: readonly RenderRegion[];
+  readonly regions: readonly RenderRegion<TMessage>[];
   readonly frame: Frame;
   readonly theme: TerminalTheme;
 }

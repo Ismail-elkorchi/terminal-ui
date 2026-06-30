@@ -1,0 +1,160 @@
+{
+  "schemaVersion": "terminal-ui.render-diff.v1",
+  "width": 84,
+  "height": 18,
+  "operations": [
+    {
+      "kind": "write",
+      "row": 1,
+      "column": 27,
+      "spans": [
+        {
+          "text": "3"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 1,
+      "column": 32,
+      "spans": [
+        {
+          "text": "36"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 6,
+      "column": 2,
+      "spans": [
+        {
+          "text": "⠸",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.running"
+            },
+            "bold": false
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 6,
+      "column": 44,
+      "spans": [
+        {
+          "text": "schedule"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 6,
+      "column": 53,
+      "spans": [
+        {
+          "text": " tick"
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 6,
+        "column": 59,
+        "width": 4,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 6,
+      "column": 59,
+      "spans": [
+        {
+          "text": "1"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 7,
+      "column": 17,
+      "spans": [
+        {
+          "text": "██",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.running"
+            },
+            "bold": false
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 7,
+      "column": 24,
+      "spans": [
+        {
+          "text": "72"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 7,
+      "column": 31,
+      "spans": [
+        {
+          "text": "72"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 7,
+      "column": 44,
+      "spans": [
+        {
+          "text": "chart data appended"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 8,
+      "column": 44,
+      "spans": [
+        {
+          "text": "modal"
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 8,
+        "column": 50,
+        "width": 13,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 8,
+      "column": 50,
+      "spans": [
+        {
+          "text": "opened"
+        }
+      ]
+    }
+  ],
+  "fullRewrite": false
+}

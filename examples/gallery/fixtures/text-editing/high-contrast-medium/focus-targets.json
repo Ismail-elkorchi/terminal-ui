@@ -1,0 +1,16 @@
+{
+  "accessibilityFocusPath": [
+    "text-editing-gallery",
+    "stack:2:2",
+    "text-input"
+  ],
+  "cursor": {
+    "column": 26,
+    "row": 2
+  },
+  "focusPath": [
+    "text-editing-gallery",
+    "stack:2:2",
+    "text-input"
+  ]
+}

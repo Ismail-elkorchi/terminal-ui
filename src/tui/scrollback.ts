@@ -5,6 +5,7 @@ import {
   scrollReducer,
   visibleWindowFromScroll
 } from './scroll.ts';
+import { highlightRenderSpans } from './text-highlight.ts';
 import { stringify } from './widget-props.ts';
 import { themeStyle, widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -312,32 +313,10 @@ function searchSegments(
   query: string,
   style: RenderSpan['style'] | undefined
 ): readonly ScrollbackTextSegment[] {
-  if (query.length === 0) return [{ text, ...(style === undefined ? {} : { style }) }];
-  const lowerText = text.toLocaleLowerCase();
-  const lowerQuery = query.toLocaleLowerCase();
-  const segments: ScrollbackTextSegment[] = [];
-  let cursor = 0;
-  for (;;) {
-    const matchIndex = lowerText.indexOf(lowerQuery, cursor);
-    if (matchIndex === -1) break;
-    if (matchIndex > cursor) {
-      segments.push({ text: text.slice(cursor, matchIndex), ...(style === undefined ? {} : { style }) });
-    }
-    const end = matchIndex + query.length;
-    segments.push({
-      text: text.slice(matchIndex, end),
-      style: {
-        ...(style ?? {}),
-        ...themeStyle('menu.match', { underline: true })
-      },
-      matched: true
-    });
-    cursor = end;
-  }
-  if (cursor < text.length) {
-    segments.push({ text: text.slice(cursor), ...(style === undefined ? {} : { style }) });
-  }
-  return segments.length === 0 ? [{ text, ...(style === undefined ? {} : { style }) }] : segments;
+  return highlightRenderSpans(text, query, {
+    ...(style === undefined ? {} : { baseStyle: style }),
+    matchStyle: themeStyle('menu.match', { underline: true })
+  });
 }
 
 function styledSegment(text: string, style: RenderSpan['style'] | undefined): ScrollbackTextSegment {

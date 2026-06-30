@@ -21,7 +21,8 @@ export const feedbackRenderers = {
       id,
       role: 'status',
       label: id,
-      value: stringify(widget.props['text'])
+      value: stringify(widget.props['text']),
+      live: 'polite'
     })
   },
   helpBar: {

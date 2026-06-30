@@ -1,0 +1,122 @@
+{
+  "schemaVersion": "terminal-ui.render-diff.v1",
+  "width": 84,
+  "height": 18,
+  "operations": [
+    {
+      "kind": "write",
+      "row": 1,
+      "column": 27,
+      "spans": [
+        {
+          "text": "1"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 1,
+      "column": 32,
+      "spans": [
+        {
+          "text": "120ms"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 11,
+      "column": 2,
+      "spans": [
+        {
+          "text": "⠙",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.running"
+            },
+            "bold": false
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 12,
+      "column": 44,
+      "spans": [
+        {
+          "text": "scheduler tick 1"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 13,
+      "column": 2,
+      "spans": [
+        {
+          "text": "Progress "
+        },
+        {
+          "text": "[",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.pending"
+            },
+            "bold": false
+          }
+        },
+        {
+          "text": "█",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.running"
+            },
+            "bold": false
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 13,
+      "column": 14,
+      "spans": [
+        {
+          "text": "░░░",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.pending"
+            },
+            "bold": false
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 13,
+      "column": 22,
+      "spans": [
+        {
+          "text": "]",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.pending"
+            },
+            "bold": false
+          }
+        },
+        {
+          "text": " 24/100 24%"
+        }
+      ]
+    }
+  ],
+  "fullRewrite": false
+}

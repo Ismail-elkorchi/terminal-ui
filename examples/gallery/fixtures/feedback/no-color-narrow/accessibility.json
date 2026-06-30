@@ -1,0 +1,73 @@
+{
+  "diagnostics": [],
+  "focusPath": [],
+  "root": {
+    "children": [
+      {
+        "id": "text-2-2",
+        "label": "text-2-2",
+        "role": "text",
+        "value": "{\"value\":\"Feedback\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+      },
+      {
+        "children": [
+          {
+            "id": "status",
+            "label": "status",
+            "live": "polite",
+            "role": "status",
+            "value": "Connected"
+          },
+          {
+            "id": "help",
+            "label": "help",
+            "live": "polite",
+            "role": "status",
+            "value": "Tab focus  Enter activate"
+          },
+          {
+            "id": "activity",
+            "label": "activity",
+            "live": "polite",
+            "role": "status",
+            "value": "i Rendering (running)"
+          },
+          {
+            "id": "progress",
+            "label": "Coverage",
+            "live": "polite",
+            "progress": {
+              "max": 100,
+              "value": 72
+            },
+            "role": "progressbar"
+          },
+          {
+            "id": "pending",
+            "label": "Streaming",
+            "live": "polite",
+            "progress": {
+              "indeterminate": true
+            },
+            "role": "progressbar"
+          },
+          {
+            "id": "spinner",
+            "label": "spinner",
+            "live": "polite",
+            "role": "status",
+            "value": "Refreshing (running)"
+          }
+        ],
+        "id": "stack-2-2",
+        "label": "stack-2-2",
+        "role": "text"
+      }
+    ],
+    "id": "feedback-gallery",
+    "label": "feedback-gallery",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

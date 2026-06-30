@@ -10,7 +10,7 @@ import {
   renderWidgetFrame,
   renderWidgetRegions
 } from '../../dist/tui/index.js';
-import { absolute, overlay, surface, text } from '../../dist/widgets/index.js';
+import { absolute, canvas, modal, overlay, surface, text } from '../../dist/widgets/index.js';
 
 test('DirtyRegionSet adds unions intersects and normalizes rectangles', () => {
   const first = createDirtyRegionSet([{ row: 2, column: 2, width: 3, height: 1 }]);
@@ -59,6 +59,134 @@ test('dirty diff for moved regions round-trips to the full next frame', () => {
   assert.equal(diff.fullRewrite, false);
   assert.equal(renderFramePlain(applied), renderFramePlain(next));
   assert.equal(diff.dirtyRegions?.some((rect) => rect.width === viewport.columns && rect.height === viewport.rows), false);
+});
+
+test('region fingerprints skip unchanged regions', () => {
+  const regions = renderWidgetRegions(text('same', { id: 'fingerprint-same' }), { columns: 12, rows: 3 });
+  const dirty = dirtyRegionsForRegionChanges(regions, regions);
+
+  assert.deepEqual(dirty?.rects, []);
+});
+
+test('row fingerprints skip unchanged rows in retained region damage', () => {
+  const previous = surface(
+    canvas({
+      id: 'row-fingerprint-canvas',
+      painter({ buffer }) {
+        buffer.write(1, 1, [{ text: 'stable' }]);
+        buffer.write(2, 1, [{ text: 'before' }]);
+      }
+    }),
+    { id: 'row-fingerprint-surface' }
+  );
+  const next = surface(
+    canvas({
+      id: 'row-fingerprint-canvas',
+      painter({ buffer }) {
+        buffer.write(1, 1, [{ text: 'stable' }]);
+        buffer.write(2, 1, [{ text: 'after' }]);
+      }
+    }),
+    { id: 'row-fingerprint-surface' }
+  );
+  const dirty = dirtyRegionsForRegionChanges(
+    renderWidgetRegions(previous, { columns: 12, rows: 4 }),
+    renderWidgetRegions(next, { columns: 12, rows: 4 })
+  );
+
+  assert.deepEqual(dirty?.rects, [
+    { row: 2, column: 1, width: 6, height: 1 }
+  ]);
+});
+
+test('write coverage narrows retained damage columns when row fingerprints change', () => {
+  const previous = surface(
+    canvas({
+      id: 'coverage-canvas',
+      painter({ buffer }) {
+        buffer.write(2, 5, [{ text: 'A' }]);
+      }
+    }),
+    { id: 'coverage-surface' }
+  );
+  const next = surface(
+    canvas({
+      id: 'coverage-canvas',
+      painter({ buffer }) {
+        buffer.write(2, 5, [{ text: 'B' }]);
+      }
+    }),
+    { id: 'coverage-surface' }
+  );
+  const dirty = dirtyRegionsForRegionChanges(
+    renderWidgetRegions(previous, { columns: 12, rows: 4 }),
+    renderWidgetRegions(next, { columns: 12, rows: 4 })
+  );
+
+  assert.deepEqual(dirty?.rects, [
+    { row: 2, column: 5, width: 1, height: 1 }
+  ]);
+});
+
+test('region ids stay stable when a sibling overlay is inserted', () => {
+  const before = overlay([
+    text('background', { id: 'stable-background' }),
+    absolute(text('HUD', { id: 'stable-hud', zIndex: 10 }), {
+      id: 'stable-hud-position',
+      row: 2,
+      column: 2,
+      width: 3,
+      height: 1
+    })
+  ], { id: 'stable-overlay-root' });
+  const after = overlay([
+    text('background', { id: 'stable-background' }),
+    absolute(text('TIP', { id: 'inserted-tip', zIndex: 5 }), {
+      id: 'inserted-tip-position',
+      row: 1,
+      column: 8,
+      width: 3,
+      height: 1
+    }),
+    absolute(text('HUD', { id: 'stable-hud', zIndex: 10 }), {
+      id: 'stable-hud-position',
+      row: 2,
+      column: 2,
+      width: 3,
+      height: 1
+    })
+  ], { id: 'stable-overlay-root' });
+  const beforeHud = renderWidgetRegions(before, { columns: 16, rows: 4 }).find((region) => region.zIndex === 10);
+  const afterHud = renderWidgetRegions(after, { columns: 16, rows: 4 }).find((region) => region.zIndex === 10);
+
+  assert.equal(beforeHud?.id, afterHud?.id);
+});
+
+test('region ids stay stable when modal content changes', () => {
+  const before = overlay([
+    text('backdrop', { id: 'modal-backdrop' }),
+    modal(text('front', { id: 'modal-content' }), {
+      id: 'stable-dialog',
+      title: 'Dialog',
+      width: 12,
+      height: 5,
+      zIndex: 20
+    })
+  ], { id: 'modal-region-root' });
+  const after = overlay([
+    text('backdrop', { id: 'modal-backdrop' }),
+    modal(text('changed', { id: 'modal-content' }), {
+      id: 'stable-dialog',
+      title: 'Dialog',
+      width: 12,
+      height: 5,
+      zIndex: 20
+    })
+  ], { id: 'modal-region-root' });
+  const beforeDialog = renderWidgetRegions(before, { columns: 20, rows: 7 }).find((region) => region.zIndex === 20);
+  const afterDialog = renderWidgetRegions(after, { columns: 20, rows: 7 }).find((region) => region.zIndex === 20);
+
+  assert.equal(beforeDialog?.id, afterDialog?.id);
 });
 
 function movingOverlay(row, column) {

@@ -1,4 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
+import { createCanvas2D, drawLineSeries } from './canvas2d/index.ts';
+import { createFrameBuffer } from './frame-buffer.ts';
 import { numberProp } from './widget-props.ts';
 import { visibleWindow } from './visible-window.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -75,17 +77,16 @@ export function chartText(widget: Widget, node: LayoutNode): string {
   const points = series.flatMap((item) => item.points);
   if (points.length === 0 || node.bounds.height <= 0 || node.bounds.width <= 0) return '';
   const range = rangeFor(points, numberProp(widget, 'min'), numberProp(widget, 'max'));
-  const canvas = Array.from({ length: node.bounds.height }, () => Array.from({ length: node.bounds.width }, () => ' '));
+  const buffer = createFrameBuffer(node.bounds.width, node.bounds.height);
+  const canvas = createCanvas2D(buffer, { row: 1, column: 1, width: node.bounds.width, height: node.bounds.height });
   for (const item of series) {
     const visible = item.points.slice(0, node.bounds.width);
-    for (let column = 0; column < visible.length; column += 1) {
-      const value = visible[column] ?? 0;
-      const row = node.bounds.height - 1 - normalizedIndex(value, range, node.bounds.height - 1);
-      const rowCells = canvas[row];
-      if (rowCells !== undefined) rowCells[column] = '*';
-    }
+    drawLineSeries(canvas, visible.map((value, column) => ({ x: column, y: value })), {
+      yScale: { domain: [range.min, range.max], range: [node.bounds.height - 1, 0] },
+      span: { text: '*' }
+    });
   }
-  return canvas.map((row) => row.join('').trimEnd()).join('\n');
+  return frameBufferText(buffer, node.bounds.width, node.bounds.height);
 }
 
 export function chartAccessibleBase(widget: Widget, id: string): AccessibleNode {
@@ -141,4 +142,14 @@ function chartSeries(value: unknown): readonly ChartSeries[] {
     ...(item.label === undefined ? {} : { label: sanitizeTerminalText(item.label).text }),
     points: numberArray(item.points)
   }));
+}
+
+function frameBufferText(buffer: ReturnType<typeof createFrameBuffer>, width: number, height: number): string {
+  const rows = Array.from({ length: height }, () => Array.from({ length: width }, () => ' '));
+  for (const cell of buffer.snapshot().cells) {
+    const row = rows[cell.row - 1];
+    if (row === undefined || cell.column < 1 || cell.column > width) continue;
+    row[cell.column - 1] = cell.text;
+  }
+  return rows.map((row) => row.join('').trimEnd()).join('\n');
 }

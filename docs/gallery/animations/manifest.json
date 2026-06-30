@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "terminal-ui.animation-gallery.v1",
+  "source": "examples/gallery/animation-sequences.mjs",
+  "viewport": {
+    "columns": 84,
+    "rows": 18
+  },
+  "frames": [
+    {
+      "id": "frame-00",
+      "timeMs": 0,
+      "hasDiff": false
+    },
+    {
+      "id": "frame-01",
+      "timeMs": 120,
+      "hasDiff": true
+    },
+    {
+      "id": "frame-02",
+      "timeMs": 240,
+      "hasDiff": true
+    },
+    {
+      "id": "frame-03",
+      "timeMs": 360,
+      "hasDiff": true
+    },
+    {
+      "id": "frame-04",
+      "timeMs": 480,
+      "hasDiff": true
+    }
+  ]
+}

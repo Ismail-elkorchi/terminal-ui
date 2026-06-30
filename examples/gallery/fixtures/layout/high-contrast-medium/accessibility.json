@@ -1,0 +1,88 @@
+{
+  "diagnostics": [],
+  "focusPath": [],
+  "root": {
+    "children": [
+      {
+        "id": "text-2-2",
+        "label": "text-2-2",
+        "role": "text",
+        "value": "{\"value\":\"Layout\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "disabled": false,
+                    "id": "tabs:overview",
+                    "label": "Overview",
+                    "role": "menuitem",
+                    "selected": true
+                  },
+                  {
+                    "disabled": false,
+                    "id": "tabs:details",
+                    "label": "Details",
+                    "role": "menuitem",
+                    "selected": false
+                  }
+                ],
+                "id": "tabs",
+                "label": "tabs",
+                "role": "menu"
+              },
+              {
+                "children": [
+                  {
+                    "id": "text-3-99",
+                    "label": "text-3-99",
+                    "role": "text",
+                    "value": "{\"value\":\"Inspector panel\"}"
+                  }
+                ],
+                "id": "inspector",
+                "label": "inspector",
+                "role": "text"
+              }
+            ],
+            "id": "splitPane-2-2",
+            "label": "splitPane-2-2",
+            "role": "text"
+          },
+          {
+            "children": [
+              {
+                "id": "text-16-49",
+                "label": "text-16-49",
+                "role": "text",
+                "value": "{\"value\":\"Modal focus scope\"}"
+              }
+            ],
+            "id": "layout-modal",
+            "label": "Dialog",
+            "role": "dialog",
+            "scope": {
+              "kind": "modal",
+              "obscuresBackground": true,
+              "trapsFocus": true
+            }
+          }
+        ],
+        "id": "overlay-2-2",
+        "label": "overlay-2-2",
+        "role": "application",
+        "scope": {
+          "kind": "popover"
+        }
+      }
+    ],
+    "id": "layout-gallery",
+    "label": "layout-gallery",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

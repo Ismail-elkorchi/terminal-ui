@@ -1,0 +1,30 @@
++----------------------------------------------------------------------------------------+
+|Command palettete","style":{"fg":{"kind":"theme","token":"accent.primary"},"bold":true}}|
+|> op                                                                                    |
+|> Open dashboard                                                                        |
+|  Open logs                                                                             |
+|  Optimize layout - Reflow panels                                                       |
+|Switch to the operational dashboard.                                                    |
+|enter accepts, esc closes                                                               |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
++----------------------------------------------------------------------------------------+

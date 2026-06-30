@@ -1,0 +1,30 @@
++----------------------------------------------------------------------------------------+
+|Search terminal graphemes 🙂le":{"fg":{"kind":"theme","token":"accent.primary"},"bold":t|
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|Line one                                                                                |
+|Line two with selection                                                                 |
+|Line three                                                                              |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|/palette                                                                                |
+|> Open palette                                                                          |
+|  Open wizard                                                                           |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|Rich styled text                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
+|                                                                                        |
++----------------------------------------------------------------------------------------+

@@ -1,0 +1,14 @@
+{
+  "accessibilityFocusPath": [
+    "trees-gallery",
+    "tree-gallery"
+  ],
+  "cursor": {
+    "column": 2,
+    "row": 2
+  },
+  "focusPath": [
+    "trees-gallery",
+    "tree-gallery"
+  ]
+}

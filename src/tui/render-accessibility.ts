@@ -28,7 +28,7 @@ export function accessibleNode(
   }
   const base = widgetAccessibleNode(widget, node, id, focusPathIncludes(focusPath, path), theme);
   const children = base.children ?? accessibleChildren(widget, node, path, focusPath, theme);
-  return mergeAccessibleNode(base, widget.accessibility, children);
+  return mergeAccessibleNode(withScope(base, widget), widget.accessibility, children);
 }
 
 function accessibleChildren(
@@ -86,6 +86,29 @@ function accessibleNodeOverride(value: AccessibilityOptions | AccessibleNode | u
 
 function isAccessibleNode(value: AccessibilityOptions | AccessibleNode): value is AccessibleNode {
   return 'role' in value;
+}
+
+function withScope(base: AccessibleNode, widget: Widget): AccessibleNode {
+  if (base.scope !== undefined) return base;
+  if (widget.kind === 'overlay') {
+    return {
+      ...base,
+      scope: {
+        kind: 'popover',
+        ...(widget.focus?.scope === 'contain' ? { trapsFocus: true } : {})
+      }
+    };
+  }
+  if (widget.focus?.scope === 'contain') {
+    return {
+      ...base,
+      scope: {
+        kind: 'popover',
+        trapsFocus: true
+      }
+    };
+  }
+  return base;
 }
 
 function assertDecorativeWidgetIsNotInteractive(widget: Widget, node: LayoutNode, theme: TerminalTheme): void {

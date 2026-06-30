@@ -108,17 +108,25 @@ function editBufferForEvent(buffer: TextEditBuffer, event: InputEvent): TextEdit
   if (event.kind !== 'key') return buffer;
   switch (event.key) {
     case 'backspace':
-      return editTextBuffer(buffer, { kind: 'deleteBackward' });
+      return editTextBuffer(buffer, event.alt || event.ctrl ? { kind: 'deleteWordBackward' } : { kind: 'deleteBackward' });
     case 'delete':
-      return editTextBuffer(buffer, { kind: 'deleteForward' });
+      return editTextBuffer(buffer, event.alt || event.ctrl ? { kind: 'deleteWordForward' } : { kind: 'deleteForward' });
     case 'arrowLeft':
-      return editTextBuffer(buffer, { kind: 'moveLeft' });
+      return editTextBuffer(buffer, event.alt || event.ctrl
+        ? { kind: 'moveWordLeft', select: event.shift }
+        : { kind: 'moveLeft', select: event.shift });
     case 'arrowRight':
-      return editTextBuffer(buffer, { kind: 'moveRight' });
+      return editTextBuffer(buffer, event.alt || event.ctrl
+        ? { kind: 'moveWordRight', select: event.shift }
+        : { kind: 'moveRight', select: event.shift });
     case 'home':
-      return editTextBuffer(buffer, { kind: 'moveHome' });
+      return editTextBuffer(buffer, { kind: 'moveHome', select: event.shift });
     case 'end':
-      return editTextBuffer(buffer, { kind: 'moveEnd' });
+      return editTextBuffer(buffer, { kind: 'moveEnd', select: event.shift });
+    case 'pageUp':
+      return editTextBuffer(buffer, { kind: 'movePageUp', select: event.shift });
+    case 'pageDown':
+      return editTextBuffer(buffer, { kind: 'movePageDown', select: event.shift });
     case 'space':
       return editTextBuffer(buffer, { kind: 'insert', text: ' ' });
     default:

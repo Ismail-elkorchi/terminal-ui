@@ -1,0 +1,83 @@
+{
+  "schemaVersion": "terminal-ui.widget-gallery.v1",
+  "source": "scripts/generate-visual-gallery.mjs",
+  "categories": [
+    {
+      "id": "forms",
+      "label": "Forms"
+    },
+    {
+      "id": "text-editing",
+      "label": "Text editing"
+    },
+    {
+      "id": "tables",
+      "label": "Tables"
+    },
+    {
+      "id": "trees",
+      "label": "Trees"
+    },
+    {
+      "id": "palette",
+      "label": "Palette"
+    },
+    {
+      "id": "scrollback",
+      "label": "Scrollback"
+    },
+    {
+      "id": "canvas",
+      "label": "Canvas"
+    },
+    {
+      "id": "charts",
+      "label": "Charts"
+    },
+    {
+      "id": "feedback",
+      "label": "Feedback"
+    },
+    {
+      "id": "menus",
+      "label": "Menus"
+    },
+    {
+      "id": "layout",
+      "label": "Layout"
+    },
+    {
+      "id": "accessibility",
+      "label": "Accessibility"
+    }
+  ],
+  "variants": [
+    {
+      "id": "modern-wide",
+      "label": "Modern wide",
+      "viewport": {
+        "columns": 160,
+        "rows": 42
+      },
+      "theme": "modern"
+    },
+    {
+      "id": "high-contrast-medium",
+      "label": "High contrast medium",
+      "viewport": {
+        "columns": 122,
+        "rows": 34
+      },
+      "theme": "highContrast"
+    },
+    {
+      "id": "no-color-narrow",
+      "label": "No color narrow",
+      "viewport": {
+        "columns": 90,
+        "rows": 30
+      },
+      "theme": "noColor"
+    }
+  ]
+}

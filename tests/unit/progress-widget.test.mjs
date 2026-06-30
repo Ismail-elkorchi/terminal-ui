@@ -91,10 +91,11 @@ test('progressBar renders indeterminate bars with scoped progress accessibility'
     label: 'Waiting',
     indeterminate: true,
     barWidth: 4,
+    frame: 1,
     status: 'warning'
   }), { columns: 24, rows: 1 });
 
-  assert.equal(renderFramePlain(frame), 'Waiting [░░░░]');
+  assert.equal(renderFramePlain(frame), 'Waiting [░██░]');
   assert.deepEqual(frame.accessibility.root.progress, { indeterminate: true });
 });
 

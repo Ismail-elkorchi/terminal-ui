@@ -91,7 +91,13 @@ export type {
   TerminalLink,
   TerminalStyle
 } from './render-primitives.ts';
-export type { FrameBuffer, FrameBufferSnapshotOptions } from './frame-buffer.ts';
+export type {
+  FrameBuffer,
+  FrameBufferSnapshot,
+  FrameBufferSnapshotMetadata,
+  FrameBufferSnapshotOptions,
+  FrameRowFingerprint
+} from './frame-buffer.ts';
 export { createFrameBuffer } from './frame-buffer.ts';
 export {
   block,
@@ -138,10 +144,10 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
     };
   }
 
-  const previousCells = indexFrameCells(previous);
-  const nextCells = indexFrameCells(next);
   const operations: RenderOperation[] = [];
   const dirtyRegions = dirtyRectsForFrame(next, options.dirtyRegions);
+  const previousCells = indexFrameCells(previous, dirtyRegions);
+  const nextCells = indexFrameCells(next, dirtyRegions);
 
   if (dirtyRegions === undefined) {
     for (let row = 1; row <= next.height; row += 1) {
@@ -372,20 +378,35 @@ function runNeedsClear(
   return false;
 }
 
-type IndexedFrameCells = readonly (readonly (FrameCell | undefined)[])[];
+type IndexedFrameCells = ReadonlyMap<string, FrameCell>;
 
-function indexFrameCells(frame: Frame): IndexedFrameCells {
-  const rows = Array.from({ length: frame.height }, () => Array<FrameCell | undefined>(frame.width));
+function indexFrameCells(frame: Frame, dirtyRegions: readonly Rect[] | undefined): IndexedFrameCells {
+  const cells = new Map<string, FrameCell>();
   for (const cell of frame.cells) {
     if (cell.row < 1 || cell.row > frame.height || cell.column < 1 || cell.column > frame.width) continue;
-    const row = rows[cell.row - 1];
-    if (row !== undefined) row[cell.column - 1] = cell;
+    if (dirtyRegions !== undefined && !cellOverlapsAnyRect(cell, dirtyRegions)) continue;
+    cells.set(cellKey(cell.row, cell.column), cell);
   }
-  return rows;
+  return cells;
 }
 
 function cellAt(cells: IndexedFrameCells, row: number, column: number): FrameCell | undefined {
-  return cells[row - 1]?.[column - 1];
+  return cells.get(cellKey(row, column));
+}
+
+function cellKey(row: number, column: number): string {
+  return `${String(row)}:${String(column)}`;
+}
+
+function cellOverlapsAnyRect(cell: FrameCell, rects: readonly Rect[]): boolean {
+  return rects.some((rect) => cellOverlapsRect(cell, rect));
+}
+
+function cellOverlapsRect(cell: FrameCell, rect: Rect): boolean {
+  return cell.row >= rect.row
+    && cell.row < rect.row + rect.height
+    && cell.column < rect.column + rect.width
+    && cell.column + Math.max(1, cell.width) > rect.column;
 }
 
 function pushSpan(spans: RenderSpan[], next: RenderSpan): void {

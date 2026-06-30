@@ -1,0 +1,160 @@
+{
+  "diagnostics": [],
+  "focusPath": [
+    "menus-gallery",
+    "stack:2:2",
+    "menubar"
+  ],
+  "root": {
+    "children": [
+      {
+        "id": "text-2-2",
+        "label": "text-2-2",
+        "role": "text",
+        "value": "{\"value\":\"Menus\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "checked": false,
+                "disabled": false,
+                "id": "menubar:file",
+                "label": "File",
+                "role": "menuitem",
+                "selected": false
+              },
+              {
+                "checked": false,
+                "disabled": false,
+                "id": "menubar:tools",
+                "label": "Tools",
+                "role": "menuitem",
+                "selected": true
+              },
+              {
+                "checked": false,
+                "disabled": false,
+                "id": "menubar:help",
+                "label": "Help",
+                "role": "menuitem",
+                "selected": false
+              }
+            ],
+            "focused": true,
+            "id": "menubar",
+            "label": "menubar",
+            "role": "menu",
+            "scope": {
+              "kind": "menu"
+            }
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "checked": false,
+                    "disabled": false,
+                    "id": "menu:build",
+                    "label": "Build",
+                    "role": "menuitem",
+                    "selected": false
+                  },
+                  {
+                    "checked": true,
+                    "disabled": false,
+                    "id": "menu:format",
+                    "label": "Format",
+                    "role": "menuitem",
+                    "selected": true
+                  },
+                  {
+                    "checked": false,
+                    "disabled": true,
+                    "id": "menu:deploy",
+                    "label": "Deploy",
+                    "role": "menuitem",
+                    "selected": false
+                  }
+                ],
+                "id": "menu",
+                "label": "menu",
+                "role": "menu",
+                "scope": {
+                  "kind": "menu"
+                }
+              },
+              {
+                "children": [
+                  {
+                    "checked": false,
+                    "disabled": false,
+                    "id": "dropdown:modern",
+                    "label": "Modern",
+                    "role": "menuitem",
+                    "selected": true
+                  },
+                  {
+                    "checked": false,
+                    "disabled": false,
+                    "id": "dropdown:contrast",
+                    "label": "High contrast",
+                    "role": "menuitem",
+                    "selected": false
+                  }
+                ],
+                "expanded": true,
+                "id": "dropdown",
+                "label": "Theme",
+                "role": "menu",
+                "scope": {
+                  "kind": "menu"
+                },
+                "value": "Modern"
+              },
+              {
+                "children": [
+                  {
+                    "checked": false,
+                    "disabled": false,
+                    "id": "context:copy",
+                    "label": "Copy",
+                    "role": "menuitem",
+                    "selected": true
+                  },
+                  {
+                    "checked": false,
+                    "disabled": false,
+                    "id": "context:inspect",
+                    "label": "Inspect",
+                    "role": "menuitem",
+                    "selected": false
+                  }
+                ],
+                "id": "context",
+                "label": "Context",
+                "role": "menu",
+                "scope": {
+                  "kind": "popover"
+                }
+              }
+            ],
+            "id": "row-22-2",
+            "label": "row-22-2",
+            "role": "text"
+          }
+        ],
+        "id": "stack-2-2",
+        "label": "stack-2-2",
+        "role": "text"
+      }
+    ],
+    "id": "menus-gallery",
+    "label": "menus-gallery",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

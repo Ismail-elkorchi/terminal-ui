@@ -7,12 +7,14 @@
         {
           "id": "status",
           "label": "status",
+          "live": "polite",
           "role": "status",
           "value": "Visual fixture"
         },
         {
           "id": "progress",
           "label": "Render",
+          "live": "polite",
           "progress": {
             "max": 5,
             "value": 3
@@ -24,8 +26,52 @@
             {
               "children": [
                 {
+                  "id": "metrics:header:0",
+                  "label": "Area",
+                  "position": {
+                    "columnCount": 2,
+                    "columnIndex": 0,
+                    "columnLabel": "Area",
+                    "rowCount": 3,
+                    "rowIndex": 0
+                  },
+                  "role": "cell",
+                  "value": "Area"
+                },
+                {
+                  "id": "metrics:header:1",
+                  "label": "State",
+                  "position": {
+                    "columnCount": 2,
+                    "columnIndex": 1,
+                    "columnLabel": "State",
+                    "rowCount": 3,
+                    "rowIndex": 0
+                  },
+                  "role": "cell",
+                  "value": "State"
+                }
+              ],
+              "id": "metrics:headers",
+              "position": {
+                "columnCount": 2,
+                "rowCount": 3,
+                "rowIndex": 0
+              },
+              "role": "row"
+            },
+            {
+              "children": [
+                {
                   "id": "metrics:row:0:cell:0",
                   "label": "Frame",
+                  "position": {
+                    "columnCount": 2,
+                    "columnIndex": 0,
+                    "columnLabel": "Area",
+                    "rowCount": 3,
+                    "rowIndex": 1
+                  },
                   "role": "cell",
                   "selected": false,
                   "value": "Frame"
@@ -33,12 +79,26 @@
                 {
                   "id": "metrics:row:0:cell:1",
                   "label": "stable",
+                  "position": {
+                    "columnCount": 2,
+                    "columnIndex": 1,
+                    "columnLabel": "State",
+                    "rowCount": 3,
+                    "rowIndex": 1
+                  },
                   "role": "cell",
                   "selected": false,
                   "value": "stable"
                 }
               ],
               "id": "metrics:row:0",
+              "position": {
+                "columnCount": 2,
+                "count": 2,
+                "index": 0,
+                "rowCount": 3,
+                "rowIndex": 1
+              },
               "role": "row",
               "selected": false
             },
@@ -47,6 +107,13 @@
                 {
                   "id": "metrics:row:1:cell:0",
                   "label": "Diff",
+                  "position": {
+                    "columnCount": 2,
+                    "columnIndex": 0,
+                    "columnLabel": "Area",
+                    "rowCount": 3,
+                    "rowIndex": 2
+                  },
                   "role": "cell",
                   "selected": false,
                   "value": "Diff"
@@ -54,12 +121,26 @@
                 {
                   "id": "metrics:row:1:cell:1",
                   "label": "ready",
+                  "position": {
+                    "columnCount": 2,
+                    "columnIndex": 1,
+                    "columnLabel": "State",
+                    "rowCount": 3,
+                    "rowIndex": 2
+                  },
                   "role": "cell",
                   "selected": true,
                   "value": "ready"
                 }
               ],
               "id": "metrics:row:1",
+              "position": {
+                "columnCount": 2,
+                "count": 2,
+                "index": 1,
+                "rowCount": 3,
+                "rowIndex": 2
+              },
               "role": "row",
               "selected": true
             }
@@ -67,7 +148,18 @@
           "description": "Showing 1-2 of 2 rows.",
           "id": "metrics",
           "label": "metrics",
-          "role": "table"
+          "position": {
+            "columnCount": 2,
+            "rowCount": 2
+          },
+          "role": "table",
+          "window": {
+            "end": 2,
+            "omittedAfter": 0,
+            "omittedBefore": 0,
+            "start": 0,
+            "total": 2
+          }
         }
       ],
       "id": "stack-1-1",
@@ -922,6 +1014,80 @@
     }
   ],
   "height": 8,
+  "metadata": {
+    "clearedBounds": {
+      "rects": []
+    },
+    "fingerprint": "f2cf1e3d",
+    "rowFingerprints": [
+      {
+        "fingerprint": "8a8a1d3a",
+        "row": 1
+      },
+      {
+        "fingerprint": "811c9dc5",
+        "row": 2
+      },
+      {
+        "fingerprint": "7ce483f2",
+        "row": 3
+      },
+      {
+        "fingerprint": "811c9dc5",
+        "row": 4
+      },
+      {
+        "fingerprint": "566ff2da",
+        "row": 5
+      },
+      {
+        "fingerprint": "f2d7b590",
+        "row": 6
+      },
+      {
+        "fingerprint": "7ed4cab6",
+        "row": 7
+      },
+      {
+        "fingerprint": "811c9dc5",
+        "row": 8
+      }
+    ],
+    "writtenBounds": {
+      "rects": [
+        {
+          "column": 1,
+          "height": 1,
+          "row": 1,
+          "width": 14
+        },
+        {
+          "column": 1,
+          "height": 1,
+          "row": 3,
+          "width": 23
+        },
+        {
+          "column": 1,
+          "height": 1,
+          "row": 5,
+          "width": 22
+        },
+        {
+          "column": 1,
+          "height": 1,
+          "row": 6,
+          "width": 22
+        },
+        {
+          "column": 1,
+          "height": 1,
+          "row": 7,
+          "width": 22
+        }
+      ]
+    }
+  },
   "schemaVersion": "terminal-ui.tui-frame.v1",
   "width": 40
 }

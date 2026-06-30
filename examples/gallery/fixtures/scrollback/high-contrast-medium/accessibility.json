@@ -1,0 +1,52 @@
+{
+  "diagnostics": [],
+  "focusPath": [],
+  "root": {
+    "children": [
+      {
+        "id": "text-2-2",
+        "label": "text-2-2",
+        "role": "text",
+        "value": "{\"value\":\"Scrollback\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+      },
+      {
+        "children": [
+          {
+            "id": "scrollback-gallery:item:0:line:0",
+            "label": "info: booted terminal runtime",
+            "role": "text",
+            "value": "info: booted terminal runtime"
+          },
+          {
+            "description": "Search match.",
+            "id": "scrollback-gallery:item:1:line:0",
+            "label": "warn: input queue is filling",
+            "role": "text",
+            "value": "warn: input queue is filling"
+          },
+          {
+            "id": "scrollback-gallery:item:2:line:0",
+            "label": "ok: frame diff committed",
+            "role": "text",
+            "value": "ok: frame diff committed"
+          },
+          {
+            "id": "scrollback-gallery:item:3:line:0",
+            "label": "error: provider event dropped",
+            "role": "text",
+            "value": "error: provider event dropped"
+          }
+        ],
+        "description": "Showing 1-4 of 4 scrollback rows. Omitted before: 0. Omitted after: 0. Search query: warn. Matches in rows: 1.",
+        "id": "scrollback-gallery",
+        "label": "scrollback-gallery",
+        "role": "text"
+      }
+    ],
+    "id": "scrollback-gallery",
+    "label": "scrollback-gallery",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

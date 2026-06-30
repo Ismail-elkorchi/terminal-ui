@@ -118,6 +118,43 @@ test('TUI runtime routes mouse input through the committed render cache', async 
   assert.equal(viewCalls, 2);
 });
 
+test('TUI runtime uses committed hit targets without recomputing renderer hit targets', async () => {
+  let hitTargetCalls = 0;
+  const renderer = {
+    render({ node, buffer }) {
+      buffer.write(node.bounds.row, node.bounds.column, [{ text: 'cached hit' }]);
+    },
+    accessibility({ id }) {
+      return { id, role: 'button', label: 'cached hit' };
+    },
+    hitTargets({ bounds }) {
+      hitTargetCalls += 1;
+      return [{ id: 'cached-region-hit:press', bounds, message: { clicked: true }, cursor: 'pointer' }];
+    }
+  };
+  const app = defineTui({
+    id: 'committed-hit-target-routing-tui',
+    init: () => ({ clicked: false }),
+    update: (_state, message) => ({ state: { clicked: message.clicked } }),
+    view: () => custom({
+      id: 'cached-region-hit',
+      renderer
+    })
+  });
+  const host = createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host });
+  const frame = await runtime.start();
+  const target = frame.hitTargets?.find((item) => item.id === 'cached-region-hit:press');
+
+  assert.equal(hitTargetCalls, 1);
+  assert.notEqual(target, undefined);
+  assert.equal('message' in target, false);
+  await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}M` });
+
+  assert.deepEqual(runtime.getState(), { clicked: true });
+  assert.equal(hitTargetCalls, 2);
+});
+
 test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
   const frame = renderWidgetFrame(inputField({ id: 'addressed-field', value: 'Go' }), { columns: 8, rows: 2 });
   const output = renderFrameDebug(frame);
@@ -168,7 +205,7 @@ test('TUI status, progress, and spinner widgets render accessible status state',
 
   assert.match(output, /Ready/);
   assert.match(output, /Sync \[██████████\] 100\/100/);
-  assert.match(output, /Waiting \[░░░░░░░░░░\]/);
+  assert.match(output, /Waiting \[████░░░░░░\]/);
   assert.match(output, /⠋ Working/);
   assert.deepEqual([statusNode?.role, statusNode?.value], ['status', 'Ready']);
   assert.deepEqual([progressNode?.role, progressNode?.label, progressNode?.progress], [
@@ -182,6 +219,7 @@ test('TUI status, progress, and spinner widgets render accessible status state',
     { indeterminate: true }
   ]);
   assert.deepEqual([spinnerNode?.role, spinnerNode?.value], ['status', 'Working (running)']);
+  assert.deepEqual([statusNode?.live, progressNode?.live, pendingNode?.live, spinnerNode?.live], ['polite', 'polite', 'polite', 'polite']);
   assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
 });
 
@@ -1041,6 +1079,11 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
   assert.equal(modalTab.handled, true);
   assert.equal(modalEnter.handled, true);
   assert.deepEqual(modalRuntime.frame().focusPath, ['stack:1:1', 'dialog', 'dialog-field']);
+  assert.deepEqual(modalRuntime.frame().accessibility.root.children?.[1]?.scope, {
+    kind: 'modal',
+    trapsFocus: true,
+    obscuresBackground: true
+  });
   assert.deepEqual(modalRuntime.getState(), { active: 'dialog' });
 
   const popoverApp = defineTui({
@@ -1064,6 +1107,10 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
 
   assert.equal(popoverEnter.handled, true);
   assert.deepEqual(popoverRuntime.frame().focusPath, ['stack:1:1', 'popover', 'popover-field']);
+  assert.deepEqual(popoverRuntime.frame().accessibility.root.children?.[1]?.scope, {
+    kind: 'popover',
+    trapsFocus: true
+  });
   assert.deepEqual(popoverRuntime.getState(), { active: 'popover' });
 });
 

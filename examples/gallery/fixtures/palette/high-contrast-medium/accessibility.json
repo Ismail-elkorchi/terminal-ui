@@ -1,0 +1,72 @@
+{
+  "diagnostics": [],
+  "focusPath": [
+    "palette-gallery",
+    "palette-gallery"
+  ],
+  "root": {
+    "children": [
+      {
+        "id": "text-2-2",
+        "label": "text-2-2",
+        "role": "text",
+        "value": "{\"value\":\"Palette\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+      },
+      {
+        "children": [
+          {
+            "disabled": false,
+            "id": "palette-gallery:open-dashboard",
+            "label": "Open dashboard",
+            "position": {
+              "count": 3,
+              "group": "Navigation",
+              "index": 0
+            },
+            "role": "option",
+            "selected": true,
+            "value": "Switch to the operational dashboard."
+          },
+          {
+            "disabled": false,
+            "id": "palette-gallery:open-logs",
+            "label": "Open logs",
+            "position": {
+              "count": 3,
+              "group": "Navigation",
+              "index": 1
+            },
+            "role": "option",
+            "selected": false
+          },
+          {
+            "description": "Reflow panels",
+            "disabled": false,
+            "id": "palette-gallery:optimize",
+            "label": "Optimize layout",
+            "position": {
+              "count": 3,
+              "group": "Actions",
+              "index": 2
+            },
+            "role": "option",
+            "selected": false
+          }
+        ],
+        "focused": true,
+        "id": "palette-gallery",
+        "label": "Command palette",
+        "role": "menu",
+        "scope": {
+          "kind": "menu"
+        },
+        "value": "op"
+      }
+    ],
+    "id": "palette-gallery",
+    "label": "palette-gallery",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

@@ -1,0 +1,18 @@
+{
+  "accessibilityFocusPath": [
+    "forms-gallery",
+    "forms-body",
+    "field:2:2",
+    "name"
+  ],
+  "cursor": {
+    "column": 17,
+    "row": 3
+  },
+  "focusPath": [
+    "forms-gallery",
+    "forms-body",
+    "field:2:2",
+    "name"
+  ]
+}

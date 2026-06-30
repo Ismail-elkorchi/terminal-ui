@@ -11,10 +11,13 @@ export interface Rect {
   readonly height: number;
 }
 
+export type RegionOpacity = 'opaque' | 'transparent' | 'inheritBackground';
+
 export interface Layer {
   readonly id: string;
   readonly zIndex: number;
   readonly bounds: Rect;
+  readonly opacity: RegionOpacity;
 }
 
 export interface LayoutNode {
@@ -56,7 +59,7 @@ export function layoutWidget(
 function layoutNode(widget: Widget, bounds: Rect, theme: TerminalTheme, ordinal: number, parentZIndex: number): LayoutNode {
   const visible = widget.layer?.visible !== false;
   const zIndex = parentZIndex + zIndexForWidget(widget);
-  const layer = { id: layerId(widget, bounds, ordinal), zIndex, bounds };
+  const layer = { id: layerId(widget, bounds, ordinal), zIndex, bounds, opacity: opacityForWidget(widget) };
   if (!visible) {
     return {
       ...(widget.id === undefined ? {} : { id: widget.id }),
@@ -114,6 +117,10 @@ function clampRect(bounds: Rect): Rect {
 function zIndexForWidget(widget: Widget): number {
   const zIndex = widget.layer?.zIndex;
   return zIndex === undefined || !Number.isFinite(zIndex) ? 0 : zIndex;
+}
+
+function opacityForWidget(widget: Widget): RegionOpacity {
+  return widget.layer?.opacity ?? 'transparent';
 }
 
 function layerId(widget: Widget, bounds: Rect, ordinal: number): string {

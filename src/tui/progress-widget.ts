@@ -1,6 +1,7 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { ActivityIndicatorStatus, ProgressBarLabelPosition, ProgressBarMode, Widget } from '../widgets/index.ts';
+import { indeterminateProgressFrame } from '../widgets/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import { block, line, span } from './frame.ts';
 import { activityStatus, statusStyle } from './status-visual.ts';
@@ -19,6 +20,7 @@ interface ProgressModel {
   readonly filled: number;
   readonly showPercentage: boolean;
   readonly percentage: number;
+  readonly frame: number;
   readonly elapsedMs?: number;
   readonly remainingMs?: number;
 }
@@ -48,6 +50,7 @@ export function progressAccessibleBase(widget: Widget, id: string): AccessibleNo
       role: 'progressbar',
       label: model.label || id,
       progress: { indeterminate: true },
+      live: 'polite',
       ...progressDescription(model)
     };
   }
@@ -56,13 +59,18 @@ export function progressAccessibleBase(widget: Widget, id: string): AccessibleNo
     role: 'progressbar',
     label: model.label || id,
     progress: { value: model.value, max: model.max },
+    live: 'polite',
     ...progressDescription(model)
   };
 }
 
 function progressBarSpans(model: ProgressModel, theme: TerminalTheme) {
   if (model.indeterminate) {
-    return [span(theme.symbols.progressEmpty.repeat(model.barWidth), { style: statusStyle('idle') })];
+    return indeterminateProgressFrame(model.frame, model.barWidth).cells.map((cell) =>
+      cell.active
+        ? span(theme.symbols.progressFilled, { style: statusStyle(model.status) })
+        : span(theme.symbols.progressEmpty, { style: statusStyle('idle') })
+    );
   }
   return [
     span(theme.symbols.progressFilled.repeat(model.filled), { style: statusStyle(model.status) }),
@@ -105,6 +113,7 @@ function progressModel(widget: Widget): ProgressModel {
     filled: indeterminate ? 0 : Math.round((value / max) * barWidth),
     showPercentage: widget.props['showPercentage'] === true,
     percentage,
+    frame: Math.floor(numberProp(widget, 'frame') ?? 0),
     ...durationProp('elapsedMs', widget.props['elapsedMs']),
     ...durationProp('remainingMs', widget.props['remainingMs'])
   };

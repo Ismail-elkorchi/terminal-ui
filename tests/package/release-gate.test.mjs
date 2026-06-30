@@ -359,17 +359,35 @@ test('terminal text indexing and editing stay centralized', async () => {
 
   const showcase = await readFile(new URL('../../examples/showcase/app.mjs', import.meta.url), 'utf8');
   const commandBar = await readFile(new URL('../../src/tui/command-bar.ts', import.meta.url), 'utf8');
+  const commandSurface = await readFile(new URL('../../src/tui/command-surface.ts', import.meta.url), 'utf8');
   const formWidgets = await readFile(new URL('../../src/tui/form-widgets.ts', import.meta.url), 'utf8');
   const textWidgets = await readFile(new URL('../../src/tui/text-widgets.ts', import.meta.url), 'utf8');
   const textRenderers = await readFile(new URL('../../src/tui/renderers/text-renderers.ts', import.meta.url), 'utf8');
+  const textTypes = await readFile(new URL('../../src/text/types.ts', import.meta.url), 'utf8');
+  const textAreaEdit = await readFile(new URL('../../src/text/text-area-edit.ts', import.meta.url), 'utf8');
 
   assert.match(showcase, /from '@ismail-elkorchi\/terminal-ui\/text'/u);
   assert.match(showcase, /\beditTextBuffer\b/u);
   assert.doesNotMatch(showcase, /\.slice\(0,\s*-1\)/u);
   assert.match(commandBar, /from '\.\/text-display\.ts'/u);
+  assert.match(commandBar, /from '\.\/text-highlight\.ts'/u);
+  assert.match(commandSurface, /\bmoveWordLeft\b/u);
+  assert.match(commandSurface, /\bselectAll\b/u);
   assert.match(formWidgets, /from '\.\/text-display\.ts'/u);
   assert.match(textWidgets, /from '\.\/text-display\.ts'/u);
   assert.match(textRenderers, /from '\.\.\/text-display\.ts'/u);
+  assert.doesNotMatch(textTypes, /\bmoveLineStart\b/u);
+  assert.doesNotMatch(textTypes, /\bmoveLineEnd\b/u);
+  assert.doesNotMatch(textAreaEdit, /\bmoveLineStart\b/u);
+  assert.doesNotMatch(textAreaEdit, /\bmoveLineEnd\b/u);
+  assert.doesNotMatch(commandBar, /function matchSpans/u);
+  assert.doesNotMatch(commandBar, /lowerText\.indexOf/u);
+  const palette = await readFile(new URL('../../src/tui/palette.ts', import.meta.url), 'utf8');
+  const scrollback = await readFile(new URL('../../src/tui/scrollback.ts', import.meta.url), 'utf8');
+  assert.match(palette, /from '\.\/text-highlight\.ts'/u);
+  assert.match(scrollback, /from '\.\/text-highlight\.ts'/u);
+  assert.doesNotMatch(palette, /function matchSpans/u);
+  assert.doesNotMatch(scrollback, /lowerText\.indexOf/u);
 });
 
 test('TUI ANSI serialization decisions are owned by the internal policy', async () => {
@@ -407,7 +425,9 @@ test('runtime input routing uses the committed render cache', async () => {
   assert.doesNotMatch(runtime, /\blayoutWidget\(/u);
   assert.match(runtime, /\bensureRender\(\)/u);
   assert.match(runtime, /findWidgetFocusTarget\(current\.widget, current\.layout/u);
-  assert.match(runtime, /collectWidgetLayoutTargets\(current\.widget, current\.layout\)/u);
+  assert.match(runtime, /regionHitsAt\(current\.regions/u);
+  assert.doesNotMatch(runtime, /collectWidgetLayoutTargets\(current\.widget, current\.layout\)/u);
+  assert.doesNotMatch(runtime, /widgetHitTargets\(/u);
 });
 
 test('RenderRegion replaces the obsolete render layer model', async () => {
@@ -417,11 +437,15 @@ test('RenderRegion replaces the obsolete render layer model', async () => {
   const rootEntrypoint = await readFile(new URL('../../src/index.ts', import.meta.url), 'utf8');
 
   assert.match(regionSource, /interface RenderRegion/u);
-  assert.match(regionSource, /readonly opacity: 'opaque' \| 'transparent' \| 'inheritBackground'/u);
+  assert.match(regionSource, /regionIdForLayoutNode/u);
+  assert.match(regionSource, /readonly opacity: RegionOpacity;/u);
+  assert.match(regionSource, /readonly metadata: FrameBufferSnapshotMetadata;/u);
+  assert.match(regionSource, /translateSnapshotMetadata/u);
   assert.match(regionSource, /createRegionFrameBuffer/u);
   assert.match(renderSource, /composer\.regionFor/u);
   assert.match(renderSource, /renderWidgetRegions/u);
   assert.match(renderSource, /compositeRegions/u);
+  assert.doesNotMatch(renderSource, /id:\s*`z:\$\{String\([^`]+zIndex[^`]+`\s*,/u);
   assert.doesNotMatch(renderSource, /buffer:\s*createFrameBuffer\(viewport\.columns,\s*viewport\.rows\)/u);
   for (const [label, source] of [['render', renderSource], ['regions', regionSource], ['tui', tuiEntrypoint], ['root', rootEntrypoint]]) {
     assert.doesNotMatch(source, /\bRenderLayer\b/u, label);
@@ -435,11 +459,22 @@ test('RenderRegion replaces the obsolete render layer model', async () => {
 
 test('dirty region narrowing is structural and render-diff visible', async () => {
   const dirtySource = await readFile(new URL('../../src/tui/dirty-regions.ts', import.meta.url), 'utf8');
+  const frameBufferSource = await readFile(new URL('../../src/tui/frame-buffer.ts', import.meta.url), 'utf8');
   const frameSource = await readFile(new URL('../../src/tui/frame.ts', import.meta.url), 'utf8');
   const runtimeFrameSource = await readFile(new URL('../../src/tui/runtime-frame.ts', import.meta.url), 'utf8');
 
   assert.match(dirtySource, /export interface DirtyRegionSet/u);
   assert.match(dirtySource, /dirtyRegionsForRegionChanges/u);
+  assert.match(dirtySource, /metadata\.fingerprint/u);
+  assert.match(dirtySource, /rowFingerprints/u);
+  assert.match(dirtySource, /writtenBounds/u);
+  assert.match(dirtySource, /clearedBounds/u);
+  assert.doesNotMatch(dirtySource, /sameRegionCells/u);
+  assert.doesNotMatch(dirtySource, /toSorted\(compareCellPosition\)/u);
+  assert.match(frameBufferSource, /export interface FrameBufferSnapshotMetadata/u);
+  assert.match(frameBufferSource, /readonly writtenBounds: DirtyRegionSet;/u);
+  assert.match(frameBufferSource, /readonly clearedBounds: DirtyRegionSet;/u);
+  assert.match(frameBufferSource, /readonly rowFingerprints: readonly FrameRowFingerprint\[\];/u);
   assert.match(frameSource, /readonly dirtyRegions\?: readonly Rect\[\];/u);
   assert.match(frameSource, /dirtyColumnRanges/u);
   assert.match(runtimeFrameSource, /dirtyRegionsForRenderCommit/u);

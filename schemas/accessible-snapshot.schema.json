@@ -64,6 +64,44 @@
           },
           "additionalProperties": false
         },
+        "live": { "enum": ["off", "polite", "assertive"] },
+        "scope": {
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": { "enum": ["document", "modal", "popover", "menu"] },
+            "trapsFocus": { "type": "boolean" },
+            "obscuresBackground": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "window": {
+          "type": "object",
+          "required": ["start", "end", "total"],
+          "properties": {
+            "start": { "type": "integer", "minimum": 0 },
+            "end": { "type": "integer", "minimum": 0 },
+            "total": { "type": "integer", "minimum": 0 },
+            "omittedBefore": { "type": "integer", "minimum": 0 },
+            "omittedAfter": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "position": {
+          "type": "object",
+          "properties": {
+            "index": { "type": "integer", "minimum": 0 },
+            "count": { "type": "integer", "minimum": 0 },
+            "level": { "type": "integer", "minimum": 0 },
+            "rowIndex": { "type": "integer", "minimum": 0 },
+            "rowCount": { "type": "integer", "minimum": 0 },
+            "columnIndex": { "type": "integer", "minimum": 0 },
+            "columnCount": { "type": "integer", "minimum": 0 },
+            "columnLabel": { "type": "string" },
+            "group": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
         "description": { "type": "string" },
         "children": { "type": "array", "items": { "$ref": "#/$defs/accessibleNode" } }
       },

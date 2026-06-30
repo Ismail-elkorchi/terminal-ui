@@ -1,0 +1,72 @@
+{
+  "diagnostics": [],
+  "focusPath": [
+    "text-editing-gallery",
+    "stack:2:2",
+    "text-input"
+  ],
+  "root": {
+    "children": [
+      {
+        "id": "text-2-2",
+        "label": "text-2-2",
+        "role": "text",
+        "value": "{\"value\":\"Text editing\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+      },
+      {
+        "children": [
+          {
+            "focused": true,
+            "id": "text-input",
+            "label": "text-input",
+            "role": "textbox",
+            "value": "Search terminal graphemes 🙂"
+          },
+          {
+            "description": "3 lines. Selection active.",
+            "id": "text-area",
+            "label": "text-area",
+            "role": "textbox",
+            "value": "Line one\nLine two with selection\nLine three"
+          },
+          {
+            "children": [
+              {
+                "id": "command:suggestion:0",
+                "label": "Open palette",
+                "role": "option",
+                "selected": true,
+                "value": "palette"
+              },
+              {
+                "id": "command:suggestion:1",
+                "label": "Open wizard",
+                "role": "option",
+                "selected": false,
+                "value": "wizard"
+              }
+            ],
+            "id": "command",
+            "label": "/",
+            "role": "textbox",
+            "value": "palette"
+          },
+          {
+            "id": "rich",
+            "label": "rich",
+            "role": "text",
+            "value": "Rich styled text"
+          }
+        ],
+        "id": "stack-2-2",
+        "label": "stack-2-2",
+        "role": "text"
+      }
+    ],
+    "id": "text-editing-gallery",
+    "label": "text-editing-gallery",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

@@ -1,18 +1,44 @@
 import { createFrameBuffer } from './frame.ts';
+import { createDirtyRegionSet } from './dirty-regions.ts';
 import type { TerminalViewport } from '../host/index.ts';
-import type { FrameBuffer, FrameBufferSnapshotOptions, FrameCell, FrameHitTarget } from './frame.ts';
-import type { LayoutFocusTarget } from './focus.ts';
-import type { Rect } from './layout.ts';
+import type { DirtyRegionSet } from './dirty-regions.ts';
+import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotMetadata, FrameBufferSnapshotOptions, FrameCell, FrameHitTarget } from './frame.ts';
+import type { FocusPath, LayoutFocusTarget } from './focus.ts';
+import type { LayoutNode, Rect, RegionOpacity } from './layout.ts';
+import type { HitTarget } from './widget-renderer.ts';
 
-export interface RenderRegion {
+export interface RenderRegionHitTarget<TMessage = unknown> extends FrameHitTarget {
+  readonly message: TMessage;
+}
+
+export interface RenderRegion<TMessage = unknown> {
   readonly id: string;
   readonly zIndex: number;
   readonly order: number;
   readonly bounds: Rect;
-  readonly opacity: 'opaque' | 'transparent' | 'inheritBackground';
+  readonly opacity: RegionOpacity;
   readonly cells: readonly FrameCell[];
-  readonly hitTargets: readonly FrameHitTarget[];
+  readonly metadata: FrameBufferSnapshotMetadata;
+  readonly hitTargets: readonly RenderRegionHitTarget<TMessage>[];
   readonly focusTargets: readonly LayoutFocusTarget[];
+}
+
+export function toRegionHitTarget<TMessage>(
+  hitTarget: HitTarget<TMessage>,
+  region: { readonly zIndex: number }
+): RenderRegionHitTarget<TMessage> {
+  return {
+    id: hitTarget.id,
+    bounds: hitTarget.bounds,
+    message: hitTarget.message,
+    ...(hitTarget.cursor === undefined ? {} : { cursor: hitTarget.cursor }),
+    zIndex: hitTarget.zIndex ?? region.zIndex
+  };
+}
+
+export function regionIdForLayoutNode(node: LayoutNode, path: FocusPath): string {
+  const semanticPath = path.length === 0 ? [node.id ?? node.layer.id] : path;
+  return `region:${semanticPath.map(regionIdSegment).join('/')}:z:${String(node.layer.zIndex)}`;
 }
 
 export interface DraftRenderRegion {
@@ -20,7 +46,15 @@ export interface DraftRenderRegion {
   readonly zIndex: number;
   readonly order: number;
   readonly bounds: Rect;
+  readonly opacity: RegionOpacity;
   readonly buffer: FrameBuffer;
+}
+
+function regionIdSegment(value: string): string {
+  return value
+    .replaceAll('%', '%25')
+    .replaceAll('/', '%2f')
+    .replaceAll(':', '%3a');
 }
 
 export function createDraftRenderRegion(
@@ -30,15 +64,17 @@ export function createDraftRenderRegion(
     readonly order: number;
     readonly viewport: TerminalViewport;
     readonly bounds: Rect;
+    readonly opacity: RegionOpacity;
   }
 ): DraftRenderRegion {
-  const { id, zIndex, order, viewport, bounds } = input;
+  const { id, zIndex, order, viewport, bounds, opacity } = input;
   const regionBounds = normalizeRegionBounds(viewport, bounds);
   return {
     id,
     zIndex,
     order,
     bounds: regionBounds,
+    opacity,
     buffer: createRegionFrameBuffer(viewport, regionBounds)
   };
 }
@@ -66,13 +102,14 @@ function createRegionFrameBuffer(viewport: TerminalViewport, bounds: Rect): Fram
       if (clearBounds === undefined) return;
       local.clear(toLocalRect(bounds, clearBounds));
     },
-    snapshot(options?: FrameBufferSnapshotOptions) {
+    snapshot(options?: FrameBufferSnapshotOptions): FrameBufferSnapshot {
       const frame = local.snapshot(options);
       return {
         ...frame,
         width: viewport.columns,
         height: viewport.rows,
-        cells: frame.cells.map((cell) => toViewportCell(bounds, cell))
+        cells: frame.cells.map((cell) => toViewportCell(bounds, cell)),
+        metadata: translateSnapshotMetadata(bounds, frame.metadata)
       };
     }
   };
@@ -136,4 +173,22 @@ function toViewportCell(bounds: Rect, cell: FrameCell): FrameCell {
     row: cell.row + bounds.row - 1,
     column: cell.column + bounds.column - 1
   };
+}
+
+function translateSnapshotMetadata(bounds: Rect, metadata: FrameBufferSnapshotMetadata): FrameBufferSnapshotMetadata {
+  return {
+    writtenBounds: translateDirtyRegionSet(bounds, metadata.writtenBounds),
+    clearedBounds: translateDirtyRegionSet(bounds, metadata.clearedBounds),
+    rowFingerprints: metadata.rowFingerprints,
+    fingerprint: metadata.fingerprint
+  };
+}
+
+function translateDirtyRegionSet(bounds: Rect, dirtyRegions: DirtyRegionSet): DirtyRegionSet {
+  return createDirtyRegionSet(dirtyRegions.rects.map((rect) => ({
+    row: rect.row + bounds.row - 1,
+    column: rect.column + bounds.column - 1,
+    width: rect.width,
+    height: rect.height
+  })));
 }

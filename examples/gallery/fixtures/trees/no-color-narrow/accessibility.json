@@ -1,0 +1,119 @@
+{
+  "diagnostics": [],
+  "focusPath": [
+    "trees-gallery",
+    "tree-gallery"
+  ],
+  "root": {
+    "children": [
+      {
+        "id": "text-2-2",
+        "label": "text-2-2",
+        "role": "text",
+        "value": "{\"value\":\"Trees\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+      },
+      {
+        "children": [
+          {
+            "disabled": false,
+            "expanded": true,
+            "id": "tree-gallery:workspace",
+            "label": "Workspace",
+            "position": {
+              "count": 6,
+              "index": 0,
+              "level": 1
+            },
+            "role": "option",
+            "selected": false,
+            "value": "workspace"
+          },
+          {
+            "disabled": false,
+            "expanded": true,
+            "id": "tree-gallery:apps",
+            "label": "Apps",
+            "position": {
+              "count": 6,
+              "index": 1,
+              "level": 2
+            },
+            "role": "option",
+            "selected": false,
+            "value": "workspace/apps"
+          },
+          {
+            "disabled": false,
+            "id": "tree-gallery:studio",
+            "label": "Studio",
+            "position": {
+              "count": 6,
+              "index": 2,
+              "level": 3
+            },
+            "role": "option",
+            "selected": false,
+            "value": "workspace/apps/studio"
+          },
+          {
+            "disabled": false,
+            "id": "tree-gallery:reports",
+            "label": "Reports",
+            "position": {
+              "count": 6,
+              "index": 3,
+              "level": 3
+            },
+            "role": "option",
+            "selected": true,
+            "value": "workspace/apps/reports"
+          },
+          {
+            "disabled": false,
+            "expanded": true,
+            "id": "tree-gallery:assets",
+            "label": "Assets",
+            "position": {
+              "count": 6,
+              "index": 4,
+              "level": 2
+            },
+            "role": "option",
+            "selected": false,
+            "value": "workspace/assets"
+          },
+          {
+            "disabled": true,
+            "id": "tree-gallery:assets:lazy",
+            "label": "Loading assets",
+            "position": {
+              "count": 6,
+              "index": 5,
+              "level": 3
+            },
+            "role": "option",
+            "selected": false,
+            "value": "workspace/assets/lazy"
+          }
+        ],
+        "description": "Showing 1-6 of 6 tree rows.",
+        "focused": true,
+        "id": "tree-gallery",
+        "label": "tree-gallery",
+        "role": "listbox",
+        "window": {
+          "end": 6,
+          "omittedAfter": 0,
+          "omittedBefore": 0,
+          "start": 0,
+          "total": 6
+        }
+      }
+    ],
+    "id": "trees-gallery",
+    "label": "trees-gallery",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

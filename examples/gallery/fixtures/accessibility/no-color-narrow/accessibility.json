@@ -1,0 +1,79 @@
+{
+  "diagnostics": [],
+  "focusPath": [],
+  "root": {
+    "children": [
+      {
+        "id": "text-2-2",
+        "label": "text-2-2",
+        "role": "text",
+        "value": "{\"value\":\"Accessibility\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "id": "summary:status",
+                "label": "status",
+                "role": "status",
+                "value": "info"
+              },
+              {
+                "id": "summary:summary",
+                "label": "summary",
+                "role": "text",
+                "value": "Scope, window, position, and live metadata are serializable."
+              }
+            ],
+            "description": "status info, expanded",
+            "id": "summary",
+            "label": "Accessible summary",
+            "role": "text",
+            "value": "Scope, window, position, and live metadata are serializable."
+          },
+          {
+            "children": [
+              {
+                "description": "status success, expanded",
+                "id": "activity:block:scope",
+                "label": "Modal scope",
+                "role": "option",
+                "selected": false,
+                "value": "Focus is contained."
+              },
+              {
+                "description": "status running, expanded",
+                "id": "activity:block:window",
+                "label": "Window metadata",
+                "role": "option",
+                "selected": true,
+                "value": "Visible ranges are explicit."
+              },
+              {
+                "description": "status warning, expanded",
+                "id": "activity:block:live",
+                "label": "Live region",
+                "role": "option",
+                "selected": false,
+                "value": "Status updates are polite."
+              }
+            ],
+            "description": "Showing 1-3 of 3 activity blocks.",
+            "id": "activity",
+            "label": "activity",
+            "role": "listbox"
+          }
+        ],
+        "id": "stack-2-2",
+        "label": "stack-2-2",
+        "role": "text"
+      }
+    ],
+    "id": "accessibility-gallery",
+    "label": "accessibility-gallery",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

@@ -1,6 +1,7 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import { numberProp, stringify } from './widget-props.ts';
-import { selectedTextSpans, singleLineCursorColumn } from './text-display.ts';
+import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn } from './text-display.ts';
+import { highlightRenderSpans } from './text-highlight.ts';
 import { themeStyle, widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -72,7 +73,7 @@ function inputLine(widget: Widget): RenderLine {
     styledSpan(promptText(widget), widgetStyle(widget, 'placeholder')),
     ...(value.length === 0 && placeholder.length > 0
       ? [styledSpan(placeholder, widgetStyle(widget, 'placeholder'))]
-      : valueSpans(widget, value, selectionProp(widget)))
+      : valueSpans(widget, value, selectionFromUnknown(value, widget.props['selection'])))
   ];
   if (value.length > 0 && completion.length > 0) {
     spans.push(styledSpan(completion, widgetStyle(widget, 'value', 'disabled')));
@@ -99,7 +100,7 @@ function suggestionLine(
   const description = suggestion.description;
   const spans: RenderSpan[] = [
     styledSpan(`${selected ? theme.symbols.pointer : theme.symbols.unselected} `, selected ? widgetStyle(widget, 'value', 'selected') : undefined),
-    ...matchSpans(label, query)
+    ...highlightRenderSpans(label, query, { matchStyle: themeStyle('menu.match', { underline: true }) })
   ];
   if (description !== undefined && description.length > 0) {
     spans.push(styledSpan(` - ${description}`, widgetStyle(widget, 'value', 'disabled')));
@@ -113,27 +114,6 @@ function mutedLine(widget: Widget, text: string): RenderLine {
   return {
     spans: [styledSpan(text, widgetStyle(widget, 'value', 'disabled'))]
   };
-}
-
-function matchSpans(text: string, query: string): readonly RenderSpan[] {
-  if (query.length === 0) return [{ text }];
-  const lowerText = text.toLocaleLowerCase();
-  const lowerQuery = query.toLocaleLowerCase();
-  const spans: RenderSpan[] = [];
-  let cursor = 0;
-  for (;;) {
-    const index = lowerText.indexOf(lowerQuery, cursor);
-    if (index === -1) break;
-    if (index > cursor) spans.push({ text: text.slice(cursor, index) });
-    const end = index + query.length;
-    spans.push({
-      text: text.slice(index, end),
-      style: themeStyle('menu.match', { underline: true })
-    });
-    cursor = end;
-  }
-  if (cursor < text.length) spans.push({ text: text.slice(cursor) });
-  return spans.length === 0 ? [{ text }] : spans;
 }
 
 function commandBarSuggestions(widget: Widget): readonly CommandBarSuggestion[] {
@@ -176,10 +156,9 @@ function validationStyle(widget: Widget, tone: CommandBarValidationTone): Termin
 }
 
 function valueSpans(widget: Widget, value: string, selection: TextSelection | undefined): readonly RenderSpan[] {
-  const normalized = normalizeSelection(value, selection);
   return selectedTextSpans(
     value,
-    normalized,
+    selection,
     widgetStyle(widget, 'value'),
     widgetStyle(widget, 'value', 'selected')
   );
@@ -187,22 +166,6 @@ function valueSpans(widget: Widget, value: string, selection: TextSelection | un
 
 function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
   return style === undefined ? { text } : { text, style };
-}
-
-function selectionProp(widget: Widget): TextSelection | undefined {
-  const selection = widget.props['selection'];
-  if (!isRecord(selection)) return undefined;
-  const start = selection['start'];
-  const end = selection['end'];
-  if (typeof start !== 'number' || typeof end !== 'number') return undefined;
-  return normalizeSelection(valueText(widget), { start, end });
-}
-
-function normalizeSelection(value: string, selection: TextSelection | undefined): TextSelection | undefined {
-  if (selection === undefined) return undefined;
-  const start = Math.max(0, Math.min(value.length, Math.floor(Math.min(selection.start, selection.end))));
-  const end = Math.max(0, Math.min(value.length, Math.floor(Math.max(selection.start, selection.end))));
-  return start === end ? undefined : { start, end };
 }
 
 function footerReserve(widget: Widget): number {

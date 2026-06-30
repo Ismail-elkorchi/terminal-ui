@@ -1,6 +1,8 @@
 import { measureTextCells } from '../text/index.ts';
 import { toAccessibleSnapshot } from '../accessibility/index.ts';
+import { createDirtyRegionSet } from './dirty-regions.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
+import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FocusPath } from './focus.ts';
 import type { CursorPosition, Frame, FrameCell, FrameHitTarget } from './frame.ts';
 import type { Rect } from './layout.ts';
@@ -13,6 +15,22 @@ export interface FrameBufferSnapshotOptions {
   readonly hitTargets?: readonly FrameHitTarget[];
 }
 
+export interface FrameRowFingerprint {
+  readonly row: number;
+  readonly fingerprint: string;
+}
+
+export interface FrameBufferSnapshotMetadata {
+  readonly writtenBounds: DirtyRegionSet;
+  readonly clearedBounds: DirtyRegionSet;
+  readonly rowFingerprints: readonly FrameRowFingerprint[];
+  readonly fingerprint: string;
+}
+
+export interface FrameBufferSnapshot extends Frame {
+  readonly metadata: FrameBufferSnapshotMetadata;
+}
+
 export interface FrameBuffer {
   readonly width: number;
   readonly height: number;
@@ -23,7 +41,7 @@ export interface FrameBuffer {
   writeCell(cell: FrameCell): void;
 
   clear(rect?: Rect): void;
-  snapshot(options?: FrameBufferSnapshotOptions): Frame;
+  snapshot(options?: FrameBufferSnapshotOptions): FrameBufferSnapshot;
 }
 
 export function createFrameBuffer(width: number, height: number): FrameBuffer {
@@ -35,6 +53,8 @@ class CellFrameBuffer implements FrameBuffer {
   readonly height: number;
 
   private readonly cells: (FrameCell | undefined)[];
+  private writtenBounds: DirtyRegionSet = createDirtyRegionSet();
+  private clearedBounds: DirtyRegionSet = createDirtyRegionSet();
 
   constructor(width: number, height: number) {
     this.width = Math.max(0, Math.floor(width));
@@ -89,29 +109,35 @@ class CellFrameBuffer implements FrameBuffer {
   }
 
   clear(rect?: Rect): void {
-    const bounds = rect ?? { row: 1, column: 1, width: this.width, height: this.height };
-    const rowStart = Math.max(1, Math.floor(bounds.row));
-    const rowEnd = Math.min(this.height, rowStart + Math.max(0, Math.floor(bounds.height)) - 1);
-    const columnStart = Math.max(1, Math.floor(bounds.column));
-    const columnEnd = Math.min(this.width, columnStart + Math.max(0, Math.floor(bounds.width)) - 1);
-    for (let row = rowStart; row <= rowEnd; row += 1) {
-      for (let column = columnStart; column <= columnEnd; column += 1) {
-        this.clearCellGroup(row, column);
+    const clipped = this.clipRect(rect ?? { row: 1, column: 1, width: this.width, height: this.height });
+    if (clipped === undefined) return;
+    this.clearedBounds = this.clearedBounds.add(clipped);
+    for (let row = clipped.row; row < clipped.row + clipped.height; row += 1) {
+      for (let column = clipped.column; column < clipped.column + clipped.width; column += 1) {
+        this.clearCellGroup(row, column, 'none');
       }
     }
   }
 
-  snapshot(options: FrameBufferSnapshotOptions = {}): Frame {
+  snapshot(options: FrameBufferSnapshotOptions = {}): FrameBufferSnapshot {
     const accessibility = options.accessibility ?? toAccessibleSnapshot({
       source: 'tui',
       root: { id: 'frame', role: 'text', label: 'frame' }
     });
+    const cells = Object.freeze(this.snapshotCells());
+    const rowFingerprints = Object.freeze(rowFingerprintsForCells(cells, this.height));
     return {
       schemaVersion: 'terminal-ui.tui-frame.v1',
       width: this.width,
       height: this.height,
-      cells: Object.freeze(this.snapshotCells()),
+      cells,
       accessibility,
+      metadata: {
+        writtenBounds: this.writtenBounds,
+        clearedBounds: this.clearedBounds,
+        rowFingerprints,
+        fingerprint: bufferFingerprint(rowFingerprints)
+      },
       ...(options.hitTargets === undefined ? {} : { hitTargets: options.hitTargets }),
       ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
       ...(options.focusPath === undefined ? {} : { focusPath: options.focusPath })
@@ -124,6 +150,16 @@ class CellFrameBuffer implements FrameBuffer {
 
   private containsCell(row: number, column: number): boolean {
     return this.containsRow(row) && Number.isInteger(column) && column >= 1 && column <= this.width;
+  }
+
+  private clipRect(rect: Rect): Rect | undefined {
+    const row = Math.max(1, Math.floor(rect.row));
+    const column = Math.max(1, Math.floor(rect.column));
+    const bottom = Math.min(this.height + 1, Math.floor(rect.row) + Math.max(0, Math.floor(rect.height)));
+    const right = Math.min(this.width + 1, Math.floor(rect.column) + Math.max(0, Math.floor(rect.width)));
+    const width = Math.max(0, right - column);
+    const height = Math.max(0, bottom - row);
+    return width === 0 || height === 0 ? undefined : { row, column, width, height };
   }
 
   private snapshotCells(): readonly FrameCell[] {
@@ -143,7 +179,7 @@ class CellFrameBuffer implements FrameBuffer {
     cell: Omit<FrameCell, 'row' | 'column'>
   ): void {
     for (let offset = 0; offset < cell.width; offset += 1) {
-      this.clearCellGroup(row, column + offset);
+      this.clearCellGroup(row, column + offset, 'write');
     }
     const mainCell: FrameCell = {
       row,
@@ -180,17 +216,20 @@ class CellFrameBuffer implements FrameBuffer {
     });
   }
 
-  private clearCellGroup(row: number, column: number): void {
+  private clearCellGroup(row: number, column: number, coverage: 'write' | 'none'): void {
     if (!this.containsCell(row, column)) return;
     const current = this.cellAt(row, column);
     if (current === undefined) return;
     if (current.continuation === true) {
       const owner = this.findWideOwner(row, column);
-      if (owner !== undefined) this.deleteCellSpan(owner);
-      else this.deleteCell(row, column);
+      if (owner !== undefined) this.deleteCellSpan(owner, coverage);
+      else {
+        if (coverage === 'write') this.markWritten({ row, column, width: 1, height: 1 });
+        this.deleteCell(row, column);
+      }
       return;
     }
-    this.deleteCellSpan(current);
+    this.deleteCellSpan(current, coverage);
   }
 
   private findWideOwner(row: number, column: number): FrameCell | undefined {
@@ -203,8 +242,9 @@ class CellFrameBuffer implements FrameBuffer {
     return undefined;
   }
 
-  private deleteCellSpan(cell: FrameCell): void {
+  private deleteCellSpan(cell: FrameCell, coverage: 'write' | 'none'): void {
     const width = Math.max(1, cell.width);
+    if (coverage === 'write') this.markWritten({ row: cell.row, column: cell.column, width, height: 1 });
     for (let offset = 0; offset < width; offset += 1) {
       this.deleteCell(cell.row, cell.column + offset);
     }
@@ -218,6 +258,7 @@ class CellFrameBuffer implements FrameBuffer {
   private setCell(row: number, column: number, cell: FrameCell): void {
     if (!this.containsCell(row, column)) return;
     this.cells[this.index(row, column)] = cell;
+    this.markWritten({ row, column, width: 1, height: 1 });
   }
 
   private deleteCell(row: number, column: number): void {
@@ -228,4 +269,74 @@ class CellFrameBuffer implements FrameBuffer {
   private index(row: number, column: number): number {
     return (row - 1) * this.width + column - 1;
   }
+
+  private markWritten(rect: Rect): void {
+    const clipped = this.clipRect(rect);
+    if (clipped !== undefined) this.writtenBounds = this.writtenBounds.add(clipped);
+  }
+}
+
+function rowFingerprintsForCells(cells: readonly FrameCell[], height: number): readonly FrameRowFingerprint[] {
+  const rows = new Map<number, FrameCell[]>();
+  for (const cell of cells) rows.set(cell.row, [...(rows.get(cell.row) ?? []), cell]);
+  return Array.from({ length: height }, (_value, index): FrameRowFingerprint => {
+    const row = index + 1;
+    const rowCells = rows.get(row)?.toSorted((left, right) => left.column - right.column) ?? [];
+    return {
+      row,
+      fingerprint: hashString(rowCells.map(cellFingerprintInput).join('|'))
+    };
+  });
+}
+
+function bufferFingerprint(rows: readonly FrameRowFingerprint[]): string {
+  return hashString(rows.map((row) => `${String(row.row)}:${row.fingerprint}`).join('|'));
+}
+
+function cellFingerprintInput(cell: FrameCell): string {
+  return stableString([
+    cell.column,
+    cell.text,
+    cell.width,
+    cell.continuation === true,
+    cell.style,
+    cell.link,
+    cell.source
+  ]);
+}
+
+function stableString(value: unknown): string {
+  if (value === null) return 'null';
+  if (value === undefined) return 'undefined';
+  if (typeof value === 'string') return stringLiteral(value);
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  if (Array.isArray(value)) return `[${value.map(stableString).join(',')}]`;
+  if (typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .toSorted(([left], [right]) => left.localeCompare(right))
+      .map(([key, entry]) => `${stringLiteral(key)}:${stableString(entry)}`)
+      .join(',')}}`;
+  }
+  if (typeof value === 'bigint') return `bigint:${value.toString()}`;
+  if (typeof value === 'symbol') return 'symbol';
+  if (typeof value === 'function') return 'function';
+  return 'unknown';
+}
+
+function stringLiteral(value: string): string {
+  return `"${value
+    .replaceAll('\\', '\\\\')
+    .replaceAll('"', '\\"')
+    .replaceAll('\n', '\\n')
+    .replaceAll('\r', '\\r')
+    .replaceAll('\t', '\\t')}"`;
+}
+
+function hashString(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash.toString(16).padStart(8, '0');
 }

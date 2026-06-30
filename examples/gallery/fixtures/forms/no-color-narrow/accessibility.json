@@ -1,0 +1,81 @@
+{
+  "diagnostics": [],
+  "focusPath": [
+    "forms-gallery",
+    "forms-body",
+    "field:2:2",
+    "name"
+  ],
+  "root": {
+    "children": [
+      {
+        "id": "text-2-2",
+        "label": "text-2-2",
+        "role": "text",
+        "value": "{\"value\":\"Forms\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "focused": true,
+                "id": "name",
+                "label": "name",
+                "role": "textbox",
+                "value": "Nova Operations"
+              }
+            ],
+            "id": "field-2-2",
+            "label": "Name",
+            "role": "text"
+          },
+          {
+            "children": [
+              {
+                "id": "budget",
+                "label": "budget",
+                "role": "textbox",
+                "value": "42"
+              }
+            ],
+            "id": "field-6-2",
+            "label": "Budget",
+            "role": "text"
+          },
+          {
+            "checked": true,
+            "id": "ship",
+            "label": "Ready to ship",
+            "role": "checkbox"
+          },
+          {
+            "children": [],
+            "id": "mode",
+            "label": "mode",
+            "role": "listbox"
+          },
+          {
+            "children": [],
+            "id": "region",
+            "label": "region",
+            "role": "listbox"
+          },
+          {
+            "id": "submit",
+            "label": "Apply changes",
+            "role": "button"
+          }
+        ],
+        "id": "forms-body",
+        "label": "forms-body",
+        "role": "application"
+      }
+    ],
+    "id": "forms-gallery",
+    "label": "forms-gallery",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

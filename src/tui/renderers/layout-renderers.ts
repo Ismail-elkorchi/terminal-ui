@@ -100,7 +100,12 @@ export const layoutRenderers = {
     accessibility: ({ widget, id }) => ({
       id,
       role: 'dialog',
-      label: modalLabel(widget) || id
+      label: modalLabel(widget) || id,
+      scope: {
+        kind: 'modal',
+        trapsFocus: true,
+        obscuresBackground: true
+      }
     })
   }
 } satisfies RendererMap<'box' | 'row' | 'stack' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'modal'>;

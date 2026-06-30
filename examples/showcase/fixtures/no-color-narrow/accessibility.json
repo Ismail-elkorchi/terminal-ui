@@ -53,17 +53,22 @@
                     ],
                     "id": "main-menu",
                     "label": "main-menu",
-                    "role": "menu"
+                    "role": "menu",
+                    "scope": {
+                      "kind": "menu"
+                    }
                   },
                   {
                     "id": "top-status",
                     "label": "top-status",
+                    "live": "polite",
                     "role": "status",
                     "value": "Northstar Control  Live events  catppuccin"
                   },
                   {
                     "id": "top-activity",
                     "label": "top-activity",
+                    "live": "polite",
                     "role": "status",
                     "value": "i Live events live (running)"
                   }
@@ -75,6 +80,7 @@
               {
                 "id": "top-progress",
                 "label": "harbor service",
+                "live": "polite",
                 "progress": {
                   "max": 100,
                   "value": 72
@@ -110,6 +116,11 @@
                             "disabled": false,
                             "id": "showcase-nav:dashboard",
                             "label": "Overview",
+                            "position": {
+                              "count": 11,
+                              "index": 1,
+                              "level": 2
+                            },
                             "role": "option",
                             "selected": false,
                             "value": "operations/dashboard"
@@ -118,6 +129,11 @@
                             "disabled": false,
                             "id": "showcase-nav:data",
                             "label": "Fleet board",
+                            "position": {
+                              "count": 11,
+                              "index": 2,
+                              "level": 2
+                            },
                             "role": "option",
                             "selected": false,
                             "value": "operations/data"
@@ -126,6 +142,11 @@
                             "disabled": false,
                             "id": "showcase-nav:text",
                             "label": "Briefing room",
+                            "position": {
+                              "count": 11,
+                              "index": 3,
+                              "level": 2
+                            },
                             "role": "option",
                             "selected": false,
                             "value": "operations/text"
@@ -134,6 +155,11 @@
                             "disabled": false,
                             "id": "showcase-nav:diagram",
                             "label": "Route map",
+                            "position": {
+                              "count": 11,
+                              "index": 4,
+                              "level": 2
+                            },
                             "role": "option",
                             "selected": false,
                             "value": "operations/diagram"
@@ -142,6 +168,11 @@
                             "disabled": false,
                             "id": "showcase-nav:forms",
                             "label": "Dispatch desk",
+                            "position": {
+                              "count": 11,
+                              "index": 5,
+                              "level": 2
+                            },
                             "role": "option",
                             "selected": false,
                             "value": "operations/forms"
@@ -150,6 +181,11 @@
                             "disabled": false,
                             "id": "showcase-nav:activity",
                             "label": "Live events",
+                            "position": {
+                              "count": 11,
+                              "index": 6,
+                              "level": 2
+                            },
                             "role": "option",
                             "selected": true,
                             "value": "operations/activity"
@@ -159,6 +195,11 @@
                             "expanded": true,
                             "id": "showcase-nav:assurance",
                             "label": "Assurance",
+                            "position": {
+                              "count": 11,
+                              "index": 7,
+                              "level": 1
+                            },
                             "role": "option",
                             "selected": false,
                             "value": "assurance"
@@ -167,6 +208,11 @@
                             "disabled": false,
                             "id": "showcase-nav:transcript",
                             "label": "Transcript",
+                            "position": {
+                              "count": 11,
+                              "index": 8,
+                              "level": 2
+                            },
                             "role": "option",
                             "selected": false,
                             "value": "assurance/transcript"
@@ -175,6 +221,11 @@
                             "disabled": false,
                             "id": "showcase-nav:accessibility",
                             "label": "Accessibility",
+                            "position": {
+                              "count": 11,
+                              "index": 9,
+                              "level": 2
+                            },
                             "role": "option",
                             "selected": false,
                             "value": "assurance/accessibility"
@@ -183,6 +234,11 @@
                             "disabled": false,
                             "id": "showcase-nav:snapshots",
                             "label": "Snapshots",
+                            "position": {
+                              "count": 11,
+                              "index": 10,
+                              "level": 2
+                            },
                             "role": "option",
                             "selected": false,
                             "value": "assurance/snapshots"
@@ -191,7 +247,14 @@
                         "description": "Showing 2-11 of 11 tree rows.",
                         "id": "showcase-nav",
                         "label": "showcase-nav",
-                        "role": "listbox"
+                        "role": "listbox",
+                        "window": {
+                          "end": 11,
+                          "omittedAfter": 0,
+                          "omittedBefore": 1,
+                          "start": 1,
+                          "total": 11
+                        }
                       },
                       {
                         "children": [
@@ -378,6 +441,7 @@
               {
                 "id": "showcase-help",
                 "label": "showcase-help",
+                "live": "polite",
                 "role": "status",
                 "value": "Tab focus  Enter activate  /palette commands  /handoff modal  Ctrl-C exit"
               }
@@ -395,7 +459,10 @@
     ],
     "id": "showcase-overlay",
     "label": "showcase-overlay",
-    "role": "application"
+    "role": "application",
+    "scope": {
+      "kind": "popover"
+    }
   },
   "schemaVersion": "terminal-ui.accessible-snapshot.v1",
   "source": "tui"

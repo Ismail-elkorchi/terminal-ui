@@ -47,6 +47,7 @@ export function canvasAccessibleBase(widget: Widget, id: string, focused: boolea
     id,
     role: 'application',
     label: stringify(widget.props['label']) || id,
+    scope: { kind: 'document' },
     ...(focused ? { focused } : {})
   };
 }
@@ -56,6 +57,7 @@ export function surfaceAccessibleBase(widget: Widget, id: string, focused: boole
     id,
     role: 'application',
     label: stringify(widget.props['label']) || id,
+    scope: { kind: 'document' },
     ...(focused ? { focused } : {})
   };
 }
@@ -65,6 +67,7 @@ export function absoluteAccessibleBase(id: string, focused: boolean): Accessible
     id,
     role: 'application',
     label: id,
+    scope: { kind: 'document' },
     ...(focused ? { focused } : {})
   };
 }
@@ -74,6 +77,7 @@ export function overlayAccessibleBase(id: string, focused: boolean): AccessibleN
     id,
     role: 'application',
     label: id,
+    scope: { kind: 'popover' },
     ...(focused ? { focused } : {})
   };
 }

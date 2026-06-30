@@ -1,5 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import { rowWindow } from './data-window.ts';
+import { highlightRenderSpans } from './text-highlight.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { themeStyle, widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -126,6 +127,12 @@ export function paletteAccessibleChildren(widget: Widget, height: number): reado
     role: 'option',
     label: entry.label,
     ...(entry.description === undefined ? {} : { description: entry.description }),
+    ...(entry.preview === undefined ? {} : { value: entry.preview }),
+    position: {
+      index: window.start + index,
+      count: window.total,
+      ...(entry.group === undefined ? {} : { group: entry.group })
+    },
     selected: index === window.selected,
     disabled: entry.disabled === true
   }));
@@ -187,30 +194,15 @@ function entryLine<TValue>(
   const baseStyle = entry.disabled === true ? widgetStyle(widget, 'value', 'disabled') : widgetStyle(widget, 'value');
   const spans: RenderSpan[] = [
     styledSpan(`${selected ? theme.symbols.pointer : theme.symbols.unselected} `, selected ? widgetStyle(widget, 'value', 'selected') : undefined),
-    ...matchSpans(entry.label, query, baseStyle)
+    ...highlightRenderSpans(entry.label, query.trim(), {
+      ...(baseStyle === undefined ? {} : { baseStyle }),
+      matchStyle: themeStyle('menu.match', { underline: true })
+    })
   ];
   if (entry.description !== undefined && entry.description.length > 0) {
     spans.push(styledSpan(` - ${entry.description}`, widgetStyle(widget, 'value', entry.disabled === true ? 'disabled' : undefined)));
   }
   return { spans };
-}
-
-function matchSpans(text: string, query: string, baseStyle: TerminalStyle | undefined): readonly RenderSpan[] {
-  if (query.trim().length === 0) return [{ text, ...(baseStyle === undefined ? {} : { style: baseStyle }) }];
-  const lowerText = text.toLocaleLowerCase();
-  const lowerQuery = query.trim().toLocaleLowerCase();
-  const spans: RenderSpan[] = [];
-  let cursor = 0;
-  for (;;) {
-    const index = lowerText.indexOf(lowerQuery, cursor);
-    if (index === -1) break;
-    if (index > cursor) spans.push({ text: text.slice(cursor, index), ...(baseStyle === undefined ? {} : { style: baseStyle }) });
-    const end = index + lowerQuery.length;
-    spans.push({ text: text.slice(index, end), style: themeStyle('menu.match', { underline: true }) });
-    cursor = end;
-  }
-  if (cursor < text.length) spans.push({ text: text.slice(cursor), ...(baseStyle === undefined ? {} : { style: baseStyle }) });
-  return spans.length === 0 ? [{ text, ...(baseStyle === undefined ? {} : { style: baseStyle }) }] : spans;
 }
 
 function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
@@ -227,10 +219,12 @@ function paletteEntries(widget: Widget): readonly PaletteEntry<unknown>[] {
     if (typeof id !== 'string' || typeof label !== 'string') return [];
     const description = entry['description'];
     const preview = entry['preview'];
+    const group = entry['group'];
     return [{
       id: clean(id),
       label: clean(label),
       value: entry['value'] ?? id,
+      ...(typeof group === 'string' ? { group: clean(group) } : {}),
       ...(typeof description === 'string' ? { description: clean(description) } : {}),
       ...(typeof preview === 'string' ? { preview: clean(preview) } : {}),
       ...(entry['disabled'] === true ? { disabled: true } : {}),

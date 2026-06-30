@@ -1,0 +1,312 @@
+{
+  "diagnostics": [],
+  "focusPath": [],
+  "root": {
+    "children": [
+      {
+        "id": "text-2-2",
+        "label": "text-2-2",
+        "role": "text",
+        "value": "{\"value\":\"Tables\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "id": "table-gallery:header:0",
+                "label": "Name",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 0,
+                  "columnLabel": "Name",
+                  "rowCount": 5,
+                  "rowIndex": 0
+                },
+                "role": "cell",
+                "value": "Name"
+              },
+              {
+                "id": "table-gallery:header:1",
+                "label": "State",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 1,
+                  "columnLabel": "State",
+                  "rowCount": 5,
+                  "rowIndex": 0
+                },
+                "role": "cell",
+                "value": "State"
+              },
+              {
+                "id": "table-gallery:header:2",
+                "label": "Score",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 2,
+                  "columnLabel": "Score",
+                  "rowCount": 5,
+                  "rowIndex": 0
+                },
+                "role": "cell",
+                "value": "Score"
+              }
+            ],
+            "id": "table-gallery:headers",
+            "position": {
+              "columnCount": 3,
+              "rowCount": 5,
+              "rowIndex": 0
+            },
+            "role": "row"
+          },
+          {
+            "children": [
+              {
+                "id": "table-gallery:row:0:cell:0",
+                "label": "Atlas",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 0,
+                  "columnLabel": "Name",
+                  "rowCount": 5,
+                  "rowIndex": 1
+                },
+                "role": "cell",
+                "selected": false,
+                "value": "Atlas"
+              },
+              {
+                "id": "table-gallery:row:0:cell:1",
+                "label": "active",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 1,
+                  "columnLabel": "State",
+                  "rowCount": 5,
+                  "rowIndex": 1
+                },
+                "role": "cell",
+                "selected": false,
+                "value": "active"
+              },
+              {
+                "id": "table-gallery:row:0:cell:2",
+                "label": "92",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 2,
+                  "columnLabel": "Score",
+                  "rowCount": 5,
+                  "rowIndex": 1
+                },
+                "role": "cell",
+                "selected": false,
+                "value": "92"
+              }
+            ],
+            "id": "table-gallery:row:0",
+            "position": {
+              "columnCount": 3,
+              "count": 4,
+              "index": 0,
+              "rowCount": 5,
+              "rowIndex": 1
+            },
+            "role": "row",
+            "selected": false
+          },
+          {
+            "children": [
+              {
+                "id": "table-gallery:row:1:cell:0",
+                "label": "Lumen",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 0,
+                  "columnLabel": "Name",
+                  "rowCount": 5,
+                  "rowIndex": 2
+                },
+                "role": "cell",
+                "selected": false,
+                "value": "Lumen"
+              },
+              {
+                "id": "table-gallery:row:1:cell:1",
+                "label": "review",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 1,
+                  "columnLabel": "State",
+                  "rowCount": 5,
+                  "rowIndex": 2
+                },
+                "role": "cell",
+                "selected": false,
+                "value": "review"
+              },
+              {
+                "id": "table-gallery:row:1:cell:2",
+                "label": "85",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 2,
+                  "columnLabel": "Score",
+                  "rowCount": 5,
+                  "rowIndex": 2
+                },
+                "role": "cell",
+                "selected": true,
+                "value": "85"
+              }
+            ],
+            "id": "table-gallery:row:1",
+            "position": {
+              "columnCount": 3,
+              "count": 4,
+              "index": 1,
+              "rowCount": 5,
+              "rowIndex": 2
+            },
+            "role": "row",
+            "selected": true
+          },
+          {
+            "children": [
+              {
+                "id": "table-gallery:row:2:cell:0",
+                "label": "Pulse",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 0,
+                  "columnLabel": "Name",
+                  "rowCount": 5,
+                  "rowIndex": 3
+                },
+                "role": "cell",
+                "selected": false,
+                "value": "Pulse"
+              },
+              {
+                "id": "table-gallery:row:2:cell:1",
+                "label": "blocked",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 1,
+                  "columnLabel": "State",
+                  "rowCount": 5,
+                  "rowIndex": 3
+                },
+                "role": "cell",
+                "selected": false,
+                "value": "blocked"
+              },
+              {
+                "id": "table-gallery:row:2:cell:2",
+                "label": "61",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 2,
+                  "columnLabel": "Score",
+                  "rowCount": 5,
+                  "rowIndex": 3
+                },
+                "role": "cell",
+                "selected": false,
+                "value": "61"
+              }
+            ],
+            "id": "table-gallery:row:2",
+            "position": {
+              "columnCount": 3,
+              "count": 4,
+              "index": 2,
+              "rowCount": 5,
+              "rowIndex": 3
+            },
+            "role": "row",
+            "selected": false
+          },
+          {
+            "children": [
+              {
+                "id": "table-gallery:row:3:cell:0",
+                "label": "Nova",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 0,
+                  "columnLabel": "Name",
+                  "rowCount": 5,
+                  "rowIndex": 4
+                },
+                "role": "cell",
+                "selected": false,
+                "value": "Nova"
+              },
+              {
+                "id": "table-gallery:row:3:cell:1",
+                "label": "active",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 1,
+                  "columnLabel": "State",
+                  "rowCount": 5,
+                  "rowIndex": 4
+                },
+                "role": "cell",
+                "selected": false,
+                "value": "active"
+              },
+              {
+                "id": "table-gallery:row:3:cell:2",
+                "label": "98",
+                "position": {
+                  "columnCount": 3,
+                  "columnIndex": 2,
+                  "columnLabel": "Score",
+                  "rowCount": 5,
+                  "rowIndex": 4
+                },
+                "role": "cell",
+                "selected": false,
+                "value": "98"
+              }
+            ],
+            "id": "table-gallery:row:3",
+            "position": {
+              "columnCount": 3,
+              "count": 4,
+              "index": 3,
+              "rowCount": 5,
+              "rowIndex": 4
+            },
+            "role": "row",
+            "selected": false
+          }
+        ],
+        "description": "Showing 1-4 of 4 rows.",
+        "id": "table-gallery",
+        "label": "table-gallery",
+        "position": {
+          "columnCount": 3,
+          "rowCount": 4
+        },
+        "role": "table",
+        "window": {
+          "end": 4,
+          "omittedAfter": 0,
+          "omittedBefore": 0,
+          "start": 0,
+          "total": 4
+        }
+      }
+    ],
+    "id": "tables-gallery",
+    "label": "tables-gallery",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

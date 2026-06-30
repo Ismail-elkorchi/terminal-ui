@@ -25,6 +25,7 @@
         "additionalProperties": false
       }
     },
+    "metadata": { "$ref": "#/$defs/frameBufferSnapshotMetadata" },
     "hitTargets": {
       "type": "array",
       "items": { "$ref": "#/$defs/frameHitTarget" }
@@ -117,6 +118,40 @@
         "bounds": { "$ref": "#/$defs/rect" },
         "cursor": { "enum": ["pointer", "text", "default"] },
         "zIndex": { "type": "integer" }
+      },
+      "additionalProperties": false
+    },
+    "frameBufferSnapshotMetadata": {
+      "type": "object",
+      "required": ["writtenBounds", "clearedBounds", "rowFingerprints", "fingerprint"],
+      "properties": {
+        "writtenBounds": { "$ref": "#/$defs/dirtyRegionSet" },
+        "clearedBounds": { "$ref": "#/$defs/dirtyRegionSet" },
+        "rowFingerprints": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/frameRowFingerprint" }
+        },
+        "fingerprint": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "dirtyRegionSet": {
+      "type": "object",
+      "required": ["rects"],
+      "properties": {
+        "rects": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/rect" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "frameRowFingerprint": {
+      "type": "object",
+      "required": ["row", "fingerprint"],
+      "properties": {
+        "row": { "type": "integer", "minimum": 1 },
+        "fingerprint": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },

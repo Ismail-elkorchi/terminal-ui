@@ -23,6 +23,7 @@ import {
   grid,
   inputField,
   modal,
+  overlay,
   splitPane,
   table,
   tabs,
@@ -357,11 +358,18 @@ test('overlapping modal renders above lower region content', () => {
   });
 
   const regions = renderWidgetRegions(widget, { columns: 24, rows: 7 });
-  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 24, rows: 7 }));
+  const frame = renderWidgetFrame(widget, { columns: 24, rows: 7 });
+  const output = renderFramePlain(frame);
+  const modalRegion = regions[1];
+  const leakedBackdropCells = modalRegion === undefined
+    ? []
+    : frame.cells.filter((cell) => cell.text === 'b' && cellInsideRect(cell, modalRegion.bounds));
 
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 20]);
+  assert.equal(modalRegion?.opacity, 'opaque');
   assert.equal(regions[0]?.cells.some((cell) => cell.text === 'b'), true);
   assert.equal(regions[1]?.cells.some((cell) => cell.text === 'f'), true);
+  assert.deepEqual(leakedBackdropCells, []);
   assert.match(output, /Dialog/u);
   assert.match(output, /front/u);
 });
@@ -439,11 +447,37 @@ test('context menu renders above canvas content in a higher region', () => {
   const firstLine = output.split('\n')[0] ?? '';
 
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 12]);
+  assert.equal(regions[1]?.opacity, 'transparent');
   assert.equal(regions[0]?.cells.some((cell) => cell.text === 'c'), true);
   assert.equal(regions[1]?.cells.some((cell) => cell.text === 'A'), true);
   assert.match(firstLine, /^Actions/u);
   assert.doesNotMatch(firstLine, /^canvas/u);
   assert.match(output, /Copy/u);
+});
+
+test('inheritBackground regions preserve lower background styles', () => {
+  const widget = overlay([
+    canvas({
+      id: 'background-style-canvas',
+      painter({ buffer }) {
+        buffer.write(1, 1, [{ text: 'A', style: { bg: { kind: 'ansi', value: 1 } } }]);
+      }
+    }),
+    canvas({
+      id: 'inherited-background-canvas',
+      zIndex: 4,
+      opacity: 'inheritBackground',
+      painter({ buffer }) {
+        buffer.write(1, 1, [{ text: 'B', style: { fg: { kind: 'ansi', value: 2 } } }]);
+      }
+    })
+  ], { id: 'inherit-background-root' });
+  const frame = renderWidgetFrame(widget, { columns: 4, rows: 2 });
+  const cell = frame.cells.find((item) => item.row === 1 && item.column === 1);
+
+  assert.equal(cell?.text, 'B');
+  assert.deepEqual(cell?.style?.fg, { kind: 'ansi', value: 2 });
+  assert.deepEqual(cell?.style?.bg, { kind: 'ansi', value: 1 });
 });
 
 test('screen stack supports push, pop, replace, reset, and active screen lookup', () => {
@@ -461,3 +495,10 @@ test('screen stack supports push, pop, replace, reset, and active screen lookup'
   const reset = screenStackReducer(popped, { kind: 'reset', screens: [] });
   assert.equal(activeScreen(reset), undefined);
 });
+
+function cellInsideRect(cell, rect) {
+  return cell.row >= rect.row
+    && cell.row < rect.row + rect.height
+    && cell.column >= rect.column
+    && cell.column < rect.column + rect.width;
+}

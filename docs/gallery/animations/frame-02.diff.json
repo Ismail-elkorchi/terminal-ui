@@ -1,0 +1,648 @@
+{
+  "schemaVersion": "terminal-ui.render-diff.v1",
+  "width": 84,
+  "height": 18,
+  "operations": [
+    {
+      "kind": "write",
+      "row": 1,
+      "column": 27,
+      "spans": [
+        {
+          "text": "2"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 1,
+      "column": 32,
+      "spans": [
+        {
+          "text": "24"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 5,
+      "column": 1,
+      "spans": [
+        {
+          "text": "┌────────────────────────────────────────┐┌────────────────────────────────────────┐",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 6,
+      "column": 1,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "⠹",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.running"
+            },
+            "bold": false
+          }
+        },
+        {
+          "text": " Spinner"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 6,
+      "column": 42,
+      "spans": [
+        {
+          "text": "││",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "booting render loop"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 6,
+      "column": 84,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 7,
+      "column": 1,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "Progress "
+        },
+        {
+          "text": "[",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.pending"
+            },
+            "bold": false
+          }
+        },
+        {
+          "text": "█████",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.running"
+            },
+            "bold": false
+          }
+        },
+        {
+          "text": "░░░░░]",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.pending"
+            },
+            "bold": false
+          }
+        },
+        {
+          "text": " 48/100 48%"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 7,
+      "column": 42,
+      "spans": [
+        {
+          "text": "││",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "scheduler tick 1"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 7,
+      "column": 84,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 8,
+      "column": 1,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "******"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 8,
+      "column": 42,
+      "spans": [
+        {
+          "text": "││",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "chart data appended"
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 8,
+      "column": 84,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "write",
+      "row": 9,
+      "column": 1,
+      "spans": [
+        {
+          "text": "└────────────────────────────────────────┘└────────────────────────────────────────┘",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 10,
+        "column": 1,
+        "width": 84,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 11,
+        "column": 1,
+        "width": 10,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 11,
+        "column": 42,
+        "width": 21,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 11,
+        "column": 84,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 12,
+        "column": 1,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 12,
+      "column": 21,
+      "spans": [
+        {
+          "text": "┌ Sequence modal ──────────────────────────┐",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 12,
+        "column": 84,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 13,
+        "column": 1,
+        "width": 64,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 13,
+      "column": 1,
+      "spans": [
+        {
+          "text": "                    "
+        },
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        },
+        {
+          "text": "{\"id\":\"modal-text\",\"value\":\"Modal frame: d"
+        },
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 13,
+        "column": 84,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 14,
+        "column": 1,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 14,
+      "column": 21,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 14,
+        "column": 42,
+        "width": 2,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 14,
+      "column": 64,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 14,
+        "column": 84,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 15,
+        "column": 1,
+        "width": 7,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 15,
+      "column": 21,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 15,
+        "column": 42,
+        "width": 2,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 15,
+      "column": 64,
+      "spans": [
+        {
+          "text": "│",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 15,
+        "column": 84,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 16,
+        "column": 1,
+        "width": 5,
+        "height": 1
+      }
+    },
+    {
+      "kind": "write",
+      "row": 16,
+      "column": 21,
+      "spans": [
+        {
+          "text": "└──────────────────────────────────────────┘",
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "source": {
+            "kind": "box",
+            "role": "border"
+          }
+        }
+      ]
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 16,
+        "column": 84,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 17,
+        "column": 1,
+        "width": 2,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 17,
+        "column": 42,
+        "width": 2,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 17,
+        "column": 84,
+        "width": 1,
+        "height": 1
+      }
+    },
+    {
+      "kind": "clearRect",
+      "bounds": {
+        "row": 18,
+        "column": 1,
+        "width": 84,
+        "height": 1
+      }
+    }
+  ],
+  "fullRewrite": false
+}

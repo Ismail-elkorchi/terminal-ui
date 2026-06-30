@@ -8,7 +8,7 @@ import type { ScrollState } from '../tui/scroll.ts';
 import type { ScrollbarOptions } from '../tui/scrollbar.ts';
 import type { FrameBuffer } from '../tui/frame-buffer.ts';
 import type { Canvas2D } from '../tui/canvas2d/index.ts';
-import type { Rect } from '../tui/layout.ts';
+import type { Rect, RegionOpacity } from '../tui/layout.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 
 export interface Widget<TMessage = unknown> {
@@ -80,6 +80,7 @@ export type WidgetKeyMap<TMessage> = Record<string, TMessage>;
 export interface WidgetLayerOptions {
   readonly zIndex?: number;
   readonly visible?: boolean;
+  readonly opacity?: RegionOpacity;
   readonly focus?: WidgetFocusOptions;
   readonly styles?: WidgetStyleSlots;
 }
@@ -227,6 +228,8 @@ export interface TreeNode {
   readonly expanded?: boolean;
   readonly disabled?: boolean;
   readonly lazy?: boolean;
+  readonly lazyStatus?: 'pending' | 'error' | 'empty';
+  readonly lazyMessage?: string;
   readonly icon?: string;
   readonly metadata?: Readonly<Record<string, unknown>>;
 }
@@ -529,6 +532,7 @@ export interface ProgressBarWidgetOptions extends WidgetLayerOptions {
   readonly showPercentage?: boolean;
   readonly elapsedMs?: number;
   readonly remainingMs?: number;
+  readonly frame?: number;
   readonly status?: ActivityIndicatorStatus;
   readonly accessibility?: AccessibleNodeDefinition;
 }
@@ -686,6 +690,7 @@ export interface CommandBarWidgetOptions<TMessage = never> extends WidgetLayerOp
 export interface CommandPaletteEntry {
   readonly id: string;
   readonly label: string;
+  readonly group?: string;
   readonly description?: string;
   readonly keywords?: readonly string[];
   readonly disabled?: boolean;
@@ -696,6 +701,7 @@ export interface PaletteEntry<TValue = string> {
   readonly id: string;
   readonly label: string;
   readonly value: TValue;
+  readonly group?: string;
   readonly description?: string;
   readonly keywords?: readonly string[];
   readonly disabled?: boolean;

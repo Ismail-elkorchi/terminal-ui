@@ -33,6 +33,8 @@ interface TableWindow {
   readonly end: number;
   readonly selected: number;
   readonly horizontalOffset: number;
+  readonly omittedBefore: number;
+  readonly omittedAfter: number;
 }
 
 export function tableBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
@@ -71,6 +73,17 @@ export function tableAccessibleBase(widget: Widget, bounds: Rect, id: string, fo
     role: 'table',
     label: id,
     description: `Showing ${String(window.start + 1)}-${String(window.end)} of ${String(rows.length)} rows.`,
+    window: {
+      start: window.start,
+      end: window.end,
+      total: rows.length,
+      omittedBefore: window.omittedBefore,
+      omittedAfter: window.omittedAfter
+    },
+    position: {
+      rowCount: rows.length,
+      columnCount: columns.length
+    },
     ...(focused ? { focused } : {})
   };
 }
@@ -82,24 +95,68 @@ export function tableAccessibleChildren(widget: Widget, bounds: Rect): readonly 
   const headerHeight = hasHeader && widget.props['stickyHeader'] !== false ? 1 : 0;
   const window = tableWindow(widget, rows, Math.max(0, bounds.height - headerHeight), selectedTableRow(widget));
   const selectedCell = selectedTableCell(widget);
-  return window.rows.map((row, visibleIndex) => {
+  const headerRow: AccessibleNode[] = hasHeader
+    ? [{
+        id: `${widget.id ?? 'table'}:headers`,
+        role: 'row',
+        position: {
+          rowIndex: 0,
+          rowCount: rows.length + 1,
+          columnCount: columns.length
+        },
+        children: columns.map((column, columnIndex) => ({
+          id: `${widget.id ?? 'table'}:header:${String(column.index)}`,
+          role: 'cell',
+          label: columnLabel(column, columnIndex),
+          value: columnLabel(column, columnIndex),
+          position: {
+            rowIndex: 0,
+            rowCount: rows.length + 1,
+            columnIndex,
+            columnCount: columns.length,
+            columnLabel: columnLabel(column, columnIndex)
+          }
+        }))
+      }]
+    : [];
+  const bodyRows: AccessibleNode[] = window.rows.map((row, visibleIndex) => {
     const rowIndex = window.start + visibleIndex;
     return {
       id: `${widget.id ?? 'table'}:row:${String(rowIndex)}`,
       role: 'row',
       selected: rowIndex === window.selected,
+      position: {
+        index: rowIndex,
+        count: rows.length,
+        rowIndex: hasHeader ? rowIndex + 1 : rowIndex,
+        rowCount: hasHeader ? rows.length + 1 : rows.length,
+        columnCount: columns.length
+      },
       children: columns.map((column, columnIndex) => {
         const value = rowCell(row, column.index);
+        const label = columnLabel(column, columnIndex);
         return {
           id: `${widget.id ?? 'table'}:row:${String(rowIndex)}:cell:${String(column.index)}`,
           role: 'cell',
           label: displayValue(value),
           value: displayValue(value),
+          position: {
+            rowIndex: hasHeader ? rowIndex + 1 : rowIndex,
+            rowCount: hasHeader ? rows.length + 1 : rows.length,
+            columnIndex,
+            columnCount: columns.length,
+            columnLabel: label
+          },
           selected: selectedCell?.row === rowIndex && selectedCell.column === columnIndex
         };
       })
     };
   });
+  return [...headerRow, ...bodyRows];
+}
+
+function columnLabel(column: NormalizedColumn, index: number): string {
+  return column.header ?? `Column ${String(index + 1)}`;
 }
 
 function tableWindow(widget: Widget, rows: readonly unknown[], bodyHeight: number, selected: number): TableWindow {
@@ -113,7 +170,9 @@ function tableWindow(widget: Widget, rows: readonly unknown[], bodyHeight: numbe
     start: window.start,
     end: window.end,
     selected,
-    horizontalOffset: window.offsetColumn
+    horizontalOffset: window.offsetColumn,
+    omittedBefore: window.omittedBefore,
+    omittedAfter: window.omittedAfter
   };
 }
 

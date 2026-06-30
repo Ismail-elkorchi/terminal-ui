@@ -57,6 +57,57 @@ test('FrameBuffer preserves style, links, and source metadata per visible cell',
   assert.deepEqual(first?.source, { id: 'title', kind: 'example', role: 'heading', label: 'Title' });
 });
 
+test('FrameBuffer snapshot metadata records clipped write and clear coverage', () => {
+  const buffer = createFrameBuffer(6, 3);
+  buffer.write(1, 2, [{ text: 'A界' }]);
+  buffer.write(2, -1, [{ text: 'BC' }]);
+  buffer.clear({ row: 2, column: 5, width: 10, height: 3 });
+  const snapshot = buffer.snapshot();
+
+  assert.deepEqual(snapshot.metadata.writtenBounds.rects, [
+    { row: 1, column: 2, width: 3, height: 1 }
+  ]);
+  assert.deepEqual(snapshot.metadata.clearedBounds.rects, [
+    { row: 2, column: 5, width: 2, height: 2 }
+  ]);
+});
+
+test('FrameBuffer snapshot metadata marks overwritten wide-glyph spans as written coverage', () => {
+  const buffer = createFrameBuffer(4, 1);
+  buffer.write(1, 1, [{ text: '界' }]);
+  buffer.write(1, 2, [{ text: 'A' }]);
+
+  assert.deepEqual(buffer.snapshot().metadata.writtenBounds.rects, [
+    { row: 1, column: 1, width: 2, height: 1 }
+  ]);
+});
+
+test('FrameBuffer snapshot metadata fingerprints rows and full buffers deterministically', () => {
+  const first = createFrameBuffer(6, 2);
+  first.write(1, 1, [{ text: 'same' }]);
+  const second = createFrameBuffer(6, 2);
+  second.write(1, 1, [{ text: 'same' }]);
+  const changed = createFrameBuffer(6, 2);
+  changed.write(1, 1, [{ text: 'same' }]);
+  changed.write(2, 1, [{ text: 'new' }]);
+
+  const firstSnapshot = first.snapshot();
+  const secondSnapshot = second.snapshot();
+  const changedSnapshot = changed.snapshot();
+
+  assert.deepEqual(firstSnapshot.metadata.rowFingerprints, secondSnapshot.metadata.rowFingerprints);
+  assert.equal(firstSnapshot.metadata.fingerprint, secondSnapshot.metadata.fingerprint);
+  assert.equal(
+    firstSnapshot.metadata.rowFingerprints[0]?.fingerprint,
+    changedSnapshot.metadata.rowFingerprints[0]?.fingerprint
+  );
+  assert.notEqual(
+    firstSnapshot.metadata.rowFingerprints[1]?.fingerprint,
+    changedSnapshot.metadata.rowFingerprints[1]?.fingerprint
+  );
+  assert.notEqual(firstSnapshot.metadata.fingerprint, changedSnapshot.metadata.fingerprint);
+});
+
 test('richText emits styled cells through render spans', () => {
   const frame = renderWidgetFrame(richText({
     id: 'styled',

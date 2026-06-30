@@ -1,0 +1,16 @@
+{
+  "accessibilityFocusPath": [
+    "menus-gallery",
+    "stack:2:2",
+    "menubar"
+  ],
+  "cursor": {
+    "column": 2,
+    "row": 2
+  },
+  "focusPath": [
+    "menus-gallery",
+    "stack:2:2",
+    "menubar"
+  ]
+}

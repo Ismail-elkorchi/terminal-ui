@@ -15,22 +15,32 @@ export function editPromptBufferForEvent(state: PromptRuntimeState, event: Input
   if (event.kind !== 'key') return false;
   switch (event.key) {
     case 'backspace':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'deleteBackward' });
+      state.buffer = editTextBuffer(state.buffer, event.alt || event.ctrl ? { kind: 'deleteWordBackward' } : { kind: 'deleteBackward' });
       return true;
     case 'delete':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'deleteForward' });
+      state.buffer = editTextBuffer(state.buffer, event.alt || event.ctrl ? { kind: 'deleteWordForward' } : { kind: 'deleteForward' });
       return true;
     case 'arrowLeft':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'moveLeft' });
+      state.buffer = editTextBuffer(state.buffer, event.alt || event.ctrl
+        ? { kind: 'moveWordLeft', select: event.shift }
+        : { kind: 'moveLeft', select: event.shift });
       return true;
     case 'arrowRight':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'moveRight' });
+      state.buffer = editTextBuffer(state.buffer, event.alt || event.ctrl
+        ? { kind: 'moveWordRight', select: event.shift }
+        : { kind: 'moveRight', select: event.shift });
       return true;
     case 'home':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'moveHome' });
+      state.buffer = editTextBuffer(state.buffer, { kind: 'moveHome', select: event.shift });
       return true;
     case 'end':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'moveEnd' });
+      state.buffer = editTextBuffer(state.buffer, { kind: 'moveEnd', select: event.shift });
+      return true;
+    case 'pageUp':
+      state.buffer = editTextBuffer(state.buffer, { kind: 'movePageUp', select: event.shift });
+      return true;
+    case 'pageDown':
+      state.buffer = editTextBuffer(state.buffer, { kind: 'movePageDown', select: event.shift });
       return true;
     case 'space':
       state.buffer = editTextBuffer(state.buffer, { kind: 'insert', text: ' ' });

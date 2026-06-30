@@ -3,7 +3,15 @@ import test from 'node:test';
 
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createInputDecoder } from '../../dist/input/index.js';
-import { createTuiRuntime, defineTui, diffFrames, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
+import {
+  createTuiRuntime,
+  defineTui,
+  diffFrames,
+  dirtyRegionsForRegionChanges,
+  renderFramePlain,
+  renderWidgetFrame,
+  renderWidgetRegions
+} from '../../dist/tui/index.js';
 import {
   button,
   canvas,
@@ -141,6 +149,64 @@ test('large table viewport is bounded independently from row count', () => {
   assert.doesNotMatch(renderFramePlain(frame), /Row 0/u);
   assert.ok(frame.cells.length <= frame.width * frame.height);
   assert.equal((frame.accessibility.root.children?.length ?? 0) <= 12, true);
+});
+
+test('large table retained damage is narrowed to changed visible rows', () => {
+  const viewport = { columns: 64, rows: 12 };
+  const rows = Array.from({ length: 20_000 }, (_value, index) => [`Row ${index}`, index, `metadata ${index}`]);
+  const previousWidget = table({
+    id: 'large-table-damage',
+    selectedCell: { row: 12_000, column: 1 },
+    columns: [
+      { header: 'Name', width: { kind: 'fixed', cells: 16 } },
+      { header: 'Score', width: { kind: 'fixed', cells: 8 }, align: 'end' },
+      { header: 'Notes', width: { kind: 'fill' } }
+    ],
+    rows
+  });
+  const nextWidget = table({
+    id: 'large-table-damage',
+    selectedCell: { row: 12_000, column: 2 },
+    columns: [
+      { header: 'Name', width: { kind: 'fixed', cells: 16 } },
+      { header: 'Score', width: { kind: 'fixed', cells: 8 }, align: 'end' },
+      { header: 'Notes', width: { kind: 'fill' } }
+    ],
+    rows
+  });
+  const dirty = dirtyRegionsForRegionChanges(
+    renderWidgetRegions(previousWidget, viewport),
+    renderWidgetRegions(nextWidget, viewport)
+  );
+
+  assert.deepEqual(dirty?.rects, [
+    { row: 7, column: 1, width: 64, height: 1 }
+  ]);
+  assert.equal(dirty?.rects.some((rect) => rect.width === viewport.columns && rect.height === viewport.rows), false);
+});
+
+test('large sparse canvas retained damage is narrowed to touched cells', () => {
+  const viewport = { columns: 120, rows: 40 };
+  const previousWidget = canvas({
+    id: 'sparse-canvas-damage',
+    painter({ buffer }) {
+      buffer.write(20, 60, [{ text: 'A' }]);
+    }
+  });
+  const nextWidget = canvas({
+    id: 'sparse-canvas-damage',
+    painter({ buffer }) {
+      buffer.write(20, 60, [{ text: 'B' }]);
+    }
+  });
+  const dirty = dirtyRegionsForRegionChanges(
+    renderWidgetRegions(previousWidget, viewport),
+    renderWidgetRegions(nextWidget, viewport)
+  );
+
+  assert.deepEqual(dirty?.rects, [
+    { row: 20, column: 60, width: 1, height: 1 }
+  ]);
 });
 
 test('large tree viewport is bounded independently from node count', () => {

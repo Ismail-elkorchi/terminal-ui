@@ -22,6 +22,10 @@ export interface AccessibleNode {
   readonly expanded?: boolean;
   readonly checked?: boolean | 'mixed';
   readonly progress?: AccessibleProgress;
+  readonly live?: AccessibleLiveRegion;
+  readonly scope?: AccessibleScope;
+  readonly window?: AccessibleWindow;
+  readonly position?: AccessiblePosition;
   readonly description?: string;
   readonly children?: readonly AccessibleNode[];
 }
@@ -38,6 +42,36 @@ export interface AccessibleProgress {
   readonly value?: number;
   readonly max?: number;
   readonly indeterminate?: boolean;
+}
+
+export type AccessibleLiveRegion = 'off' | 'polite' | 'assertive';
+
+export type AccessibleScopeKind = 'document' | 'modal' | 'popover' | 'menu';
+
+export interface AccessibleScope {
+  readonly kind: AccessibleScopeKind;
+  readonly trapsFocus?: boolean;
+  readonly obscuresBackground?: boolean;
+}
+
+export interface AccessibleWindow {
+  readonly start: number;
+  readonly end: number;
+  readonly total: number;
+  readonly omittedBefore?: number;
+  readonly omittedAfter?: number;
+}
+
+export interface AccessiblePosition {
+  readonly index?: number;
+  readonly count?: number;
+  readonly level?: number;
+  readonly rowIndex?: number;
+  readonly rowCount?: number;
+  readonly columnIndex?: number;
+  readonly columnCount?: number;
+  readonly columnLabel?: string;
+  readonly group?: string;
 }
 
 export type AccessibleRole =

@@ -2,11 +2,10 @@ import { createInputDecoder, decodeInputChunk } from '../input/index.ts';
 import { createTuiContext } from './context.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
 import { completedExitFromSnapshot } from './exit.ts';
-import { collectWidgetLayoutTargets, findWidgetFocusTarget, nextFocusPath, previousFocusPath } from './focus.ts';
+import { findWidgetFocusTarget, nextFocusPath, previousFocusPath } from './focus.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { commitFrame, dirtyRegionsForRenderCommit, renderCurrentFrame, resolveTuiTheme, setHostViewport } from './runtime-frame.ts';
 import { createTuiSubscriptionManager } from './subscriptions.ts';
-import { widgetHitTargets } from './widget-behavior.ts';
 import type { InputEvent, MouseEvent as TerminalMouseEvent } from '../input/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
@@ -14,6 +13,7 @@ import type { Frame } from './frame.ts';
 import type { FocusPath } from './focus.ts';
 import type { Rect } from './layout.ts';
 import type { RenderCommitCandidate } from './runtime-frame.ts';
+import type { RenderRegion, RenderRegionHitTarget } from './render.ts';
 import type {
   TuiCommand,
   TuiContext,
@@ -329,18 +329,13 @@ export function createTuiRuntime<TState, TMessage>(
 
   function messageForMouse(_state: TState, event: TerminalMouseEvent): TMessage | undefined {
     const current = ensureRender();
-    const hits = collectWidgetLayoutTargets(current.widget, current.layout)
-      .filter((target) => containsPoint(target.bounds, event.row, event.column))
-      .map((target, index) => ({ target, index }))
-      .flatMap(({ target, index }) => widgetHitTargets(target.widget, target, current.theme)
-        .filter((hitTarget) => containsPoint(hitTarget.bounds, event.row, event.column))
-        .map((hitTarget) => ({
-          hitTarget,
-          index,
-          zIndex: hitTarget.zIndex ?? target.layer.zIndex
-        })));
-    const hit = hits
-      .sort((left, right) => right.zIndex - left.zIndex || right.index - left.index)
+    const hit = regionHitsAt(current.regions, event.row, event.column)
+      .toSorted((left, right) =>
+        right.zIndex - left.zIndex
+        || right.region.zIndex - left.region.zIndex
+        || right.region.order - left.region.order
+        || right.index - left.index
+      )
       .at(0)?.hitTarget;
     if (hit === undefined) return undefined;
     return hit.message;
@@ -358,6 +353,28 @@ export function createTuiRuntime<TState, TMessage>(
     const dirtyRegions = dirtyRegionsForRenderCommit(currentRender, render);
     return dirtyRegions === undefined ? {} : { dirtyRegions };
   }
+}
+
+function regionHitsAt<TMessage>(
+  regions: readonly RenderRegion<TMessage>[],
+  row: number,
+  column: number
+): readonly {
+    readonly hitTarget: RenderRegionHitTarget<TMessage>;
+    readonly region: RenderRegion<TMessage>;
+    readonly index: number;
+    readonly zIndex: number;
+  }[] {
+  return regions.flatMap((region) =>
+    region.hitTargets
+      .filter((hitTarget) => containsPoint(hitTarget.bounds, row, column))
+      .map((hitTarget, index) => ({
+        hitTarget,
+        region,
+        index,
+        zIndex: hitTarget.zIndex ?? region.zIndex
+      }))
+  );
 }
 
 function inputEventKey(event: InputEvent): string | undefined {

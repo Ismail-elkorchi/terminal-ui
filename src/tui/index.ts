@@ -20,8 +20,24 @@ import {
 } from './render.ts';
 import { boxDrawingJoinPass } from './frame-passes/index.ts';
 import { createCanvas2D } from './canvas2d/index.ts';
-import type { AxisLine, BlockGlyph, BrailleCellPoint, Canvas2D, CanvasPoint, StrokeFillOptions, TooltipLine } from './canvas2d/index.ts';
-import type { RenderRegion, RenderWidgetFrameProjection } from './render.ts';
+import type {
+  AxisLine,
+  BarDatum,
+  BarSeriesOptions,
+  BlockGlyph,
+  BrailleCellPoint,
+  Canvas2D,
+  CanvasPoint,
+  CanvasTransform,
+  CanvasTransformInput,
+  ChartAxesOptions,
+  ChartPoint,
+  ChartScale,
+  SeriesOptions,
+  StrokeFillOptions,
+  TooltipLine
+} from './canvas2d/index.ts';
+import type { RenderRegion, RenderRegionHitTarget, RenderWidgetFrameProjection } from './render.ts';
 import type { BorderStyle } from './border.ts';
 import type {
   CommandBarAction,
@@ -31,7 +47,7 @@ import type { DataWindow, DataWindowInput } from './data-window.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FocusPath } from './focus.ts';
 import type { FramePass, FramePassContext, FrameSemanticRole } from './frame-passes/index.ts';
-import type { Layer, LayoutNode, Rect } from './layout.ts';
+import type { Layer, LayoutNode, Rect, RegionOpacity } from './layout.ts';
 import type { PaginationInput, PaginationWindow } from './pagination.ts';
 import type { PaletteFilterResult, PaletteWindowInput } from './palette.ts';
 import type {
@@ -60,7 +76,7 @@ import type {
   SpinnerReducerOptions,
   SpinnerState
 } from './spinner.ts';
-import type { TreeAction } from './tree.ts';
+import type { HighlightRenderSpan, HighlightRenderSpansOptions } from './text-highlight.ts';
 import type {
   FocusTarget,
   HitTarget,
@@ -86,8 +102,12 @@ import type {
   Frame,
   FrameCell,
   FrameBuffer,
+  FrameBufferSnapshot,
+  FrameBufferSnapshotMetadata,
+  FrameBufferSnapshotOptions,
   FrameCellSource,
   FrameHitTarget,
+  FrameRowFingerprint,
   FrameRowDiff,
   RenderDiff,
   RenderBlock,
@@ -112,24 +132,40 @@ export type {
   Frame,
   FrameCell,
   FrameBuffer,
+  FrameBufferSnapshot,
+  FrameBufferSnapshotMetadata,
+  FrameBufferSnapshotOptions,
   FrameCellSource,
   FrameHitTarget,
+  FrameRowFingerprint,
+  FrameRowDiff,
   AxisLine,
+  BarDatum,
+  BarSeriesOptions,
   BlockGlyph,
   BrailleCellPoint,
   Canvas2D,
   CanvasPoint,
-  FrameRowDiff,
+  CanvasTransform,
+  CanvasTransformInput,
+  ChartAxesOptions,
+  ChartPoint,
+  ChartScale,
+  HighlightRenderSpan,
+  HighlightRenderSpansOptions,
   Layer,
   LayoutNode,
   Rect,
+  RegionOpacity,
   RenderBlock,
   RenderDiff,
   RenderRegion,
+  RenderRegionHitTarget,
   RenderWidgetFrameProjection,
   RenderLine,
   RenderOperation,
   RenderSerializeOptions,
+  SeriesOptions,
   RenderSpan,
   StrokeFillOptions,
   TerminalColor,
@@ -172,7 +208,6 @@ export type {
   ScrollbackTextSegment,
   ScrollbackVisibleRow,
   ScrollbackWindow,
-  TreeAction,
   FocusTarget,
   HitTarget,
   WidgetAccessibilityInput,
@@ -207,7 +242,32 @@ export {
   sameTerminalStyle
 };
 export { commandBarReducer } from './command-surface.ts';
-export { blockGlyph, blockSpan, brailleCellForPoint, brailleCharacter, brailleMaskForSubcell, horizontalAxis, integerPoint, linePoints, rectInteriorPoints, rectStrokePoints, tooltipLines, verticalAxis } from './canvas2d/index.ts';
+export {
+  blockGlyph,
+  blockSpan,
+  brailleCellForPoint,
+  brailleCharacter,
+  brailleMaskForSubcell,
+  canvasTransform,
+  composeCanvasTransform,
+  drawAxes,
+  drawBarSeries,
+  drawLineSeries,
+  ellipseInteriorPoints,
+  ellipseStrokePoints,
+  horizontalAxis,
+  identityCanvasTransform,
+  integerPoint,
+  linePoints,
+  polygonInteriorPoints,
+  rectInteriorPoints,
+  rectStrokePoints,
+  tooltipLines,
+  transformCanvasPoint,
+  transformCanvasRect,
+  scaleChartValue,
+  verticalAxis
+} from './canvas2d/index.ts';
 export { dataWindow, rowWindow, scrollStateFromUnknown } from './data-window.ts';
 export { createDirtyRegionSet, dirtyRegionsForRegionChanges } from './dirty-regions.ts';
 export { filterPaletteEntries, paletteWindow } from './palette.ts';
@@ -218,7 +278,7 @@ export { renderScrollbars, scrollbarLayout } from './scrollbar.ts';
 export { animationSource, intervalSource, timeoutSource } from './scheduler.ts';
 export { nextSpinnerFrameIndex, normalizeSpinnerFrameIndex, spinnerReducer } from './spinner.ts';
 export { extractScrollbackSelectionText, scrollbackWindow } from './scrollback.ts';
-export { treeReducer } from './tree.ts';
+export { highlightRenderSpans } from './text-highlight.ts';
 export { defineTui } from './definition.ts';
 export { createTuiRuntime } from './runtime.ts';
 export { runTui } from './run.ts';

@@ -1,0 +1,68 @@
+{
+  "diagnostics": [],
+  "focusPath": [],
+  "root": {
+    "children": [
+      {
+        "id": "text-2-2",
+        "label": "text-2-2",
+        "role": "text",
+        "value": "{\"value\":\"Charts\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+      },
+      {
+        "children": [
+          {
+            "description": "8 sparkline points.",
+            "id": "spark",
+            "label": "spark",
+            "role": "text",
+            "value": "▁▂▃▇▄▆█▅"
+          },
+          {
+            "children": [
+              {
+                "id": "bars:0",
+                "label": "input",
+                "role": "option",
+                "selected": false,
+                "value": 86
+              },
+              {
+                "id": "bars:1",
+                "label": "a11y",
+                "role": "option",
+                "selected": true,
+                "value": 94
+              },
+              {
+                "id": "bars:2",
+                "label": "diff",
+                "role": "option",
+                "selected": false,
+                "value": 78
+              }
+            ],
+            "description": "3 bars. Showing 1-3.",
+            "id": "bars",
+            "label": "bars",
+            "role": "listbox"
+          },
+          {
+            "description": "1 chart series.",
+            "id": "chart",
+            "label": "chart",
+            "role": "text"
+          }
+        ],
+        "id": "grid-2-2",
+        "label": "grid-2-2",
+        "role": "text"
+      }
+    ],
+    "id": "charts-gallery",
+    "label": "charts-gallery",
+    "role": "text"
+  },
+  "schemaVersion": "terminal-ui.accessible-snapshot.v1",
+  "source": "tui"
+}

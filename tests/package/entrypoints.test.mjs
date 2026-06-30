@@ -79,6 +79,30 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.activeScreen, 'function');
   assert.equal(typeof terminalUi.splitTracks, 'function');
   assert.equal(typeof terminalUi.gridCellRects, 'function');
+  assert.equal(typeof terminalUi.highlightRenderSpans, 'function');
+  assert.equal(typeof terminalUi.canvasTransform, 'function');
+  assert.equal(typeof terminalUi.transformCanvasPoint, 'function');
+  assert.equal(typeof terminalUi.drawLineSeries, 'function');
+  assert.equal(typeof terminalUi.drawBarSeries, 'function');
+  assert.equal(typeof terminalUi.drawAxes, 'function');
+  assert.equal(typeof terminalUi.ellipseStrokePoints, 'function');
+  assert.equal(typeof terminalUi.polygonInteriorPoints, 'function');
+  assert.equal(typeof terminalUi.widgets.tableReducer, 'function');
+  assert.equal(typeof terminalUi.widgets.sortTableRows, 'function');
+  assert.equal(typeof terminalUi.widgets.treeReducer, 'function');
+  assert.equal(typeof terminalUi.widgets.treeStateReducer, 'function');
+  assert.equal(typeof terminalUi.widgets.treeNodeMatches, 'function');
+  assert.equal(typeof terminalUi.widgets.paletteReducer, 'function');
+  assert.equal(typeof terminalUi.widgets.groupPaletteEntries, 'function');
+  assert.equal(typeof terminalUi.widgets.paletteStatus, 'function');
+  assert.equal(typeof terminalUi.widgets.scrollbackReducer, 'function');
+  assert.equal(typeof terminalUi.widgets.scrollbackSearchMarks, 'function');
+  assert.equal(typeof terminalUi.widgets.followTailScrollState, 'function');
+  assert.equal(typeof terminalUi.widgets.progressStatus, 'function');
+  assert.equal(typeof terminalUi.widgets.indeterminateProgressFrame, 'function');
+  assert.equal(typeof terminalUi.widgets.activityFeedReducer, 'function');
+  assert.equal(typeof terminalUi.widgets.visibleActivityFeedBlocks, 'function');
+  assert.equal(typeof terminalUi.widgets.copyActivityFeedVisibleText, 'function');
   assert.equal(typeof terminalUi.layoutWidget, 'function');
   assert.equal(typeof terminalUi.renderWidgetFrame, 'function');
   assert.equal(typeof terminalUi.renderWidgetRegions, 'function');
@@ -141,13 +165,17 @@ test('root declaration exposes primary public type contracts', async () => {
     'InputEvent',
     'KeyEvent',
     'TextEditBuffer',
+    'TextEditHistory',
+    'TextEditHistoryOperation',
     'TextEditOperation',
-    'TextAreaEditBuffer',
-    'TextAreaEditOperation',
+    'TextHighlightMatch',
+    'TextHighlightOptions',
     'ExtractTextSelectionInput',
     'TuiNonTtyPolicy',
     'PaginationWindow',
     'TreeAction',
+    'TreeState',
+    'TreeStateAction',
     'SpinnerAction',
     'SpinnerReducerOptions',
     'SpinnerState',
@@ -176,6 +204,9 @@ test('root declaration exposes primary public type contracts', async () => {
     'CommandBarValidationTone',
     'CommandPaletteWidgetOptions',
     'PaletteEntry',
+    'PaletteAction',
+    'PaletteState',
+    'PaletteAsyncState',
     'PaletteWidgetOptions',
     'FormWidgetOptions',
     'FieldWidgetOptions',
@@ -195,6 +226,11 @@ test('root declaration exposes primary public type contracts', async () => {
     'CanvasPainter',
     'CanvasPainterInput',
     'Canvas2D',
+    'CanvasTransform',
+    'CanvasTransformInput',
+    'ChartScale',
+    'ChartPoint',
+    'ChartAxesOptions',
     'StrokeFillOptions',
     'CanvasPoint',
     'BlockGlyph',
@@ -206,16 +242,24 @@ test('root declaration exposes primary public type contracts', async () => {
     'AbsoluteWidgetOptions',
     'OverlayWidgetOptions',
     'RichTextWidgetOptions',
+    'ScrollbackAction',
+    'ScrollbackSearchMark',
+    'ScrollbackState',
     'GridWidgetOptions',
     'SplitPaneWidgetOptions',
     'TabsWidgetOptions',
     'ModalWidgetOptions',
     'TableCellRenderInput',
+    'TableAction',
     'TableColumnAlignment',
     'TableColumnWidth',
+    'TableReducerOptions',
+    'TableSortState',
+    'TableState',
     'TableSortDirection',
     'CustomWidgetOptions',
     'WidgetLayerOptions',
+    'RegionOpacity',
     'WidgetFocusOptions',
     'WidgetFocusScope',
     'WidgetRenderer',
@@ -224,7 +268,14 @@ test('root declaration exposes primary public type contracts', async () => {
     'FocusTarget',
     'HitTarget',
     'FrameHitTarget',
+    'FrameBufferSnapshot',
+    'FrameBufferSnapshotMetadata',
+    'FrameBufferSnapshotOptions',
+    'FrameRowFingerprint',
+    'HighlightRenderSpan',
+    'HighlightRenderSpansOptions',
     'RenderRegion',
+    'RenderRegionHitTarget',
     'DirtyRegionSet',
     'DiffFramesOptions',
     'TextAreaWidgetOptions',

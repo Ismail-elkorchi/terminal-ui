@@ -1,4 +1,3 @@
-import { sameFrameCell } from './render-primitives.ts';
 import type { Rect } from './layout.ts';
 import type { RenderRegion } from './render-regions.ts';
 
@@ -24,13 +23,15 @@ export function dirtyRegionsForRegionChanges(
 
   for (const previousRegion of previous) {
     const nextRegion = nextById.get(previousRegion.id);
-    if (nextRegion === undefined || !sameRegion(previousRegion, nextRegion)) {
+    if (nextRegion === undefined) {
       dirty = dirty.add(previousRegion.bounds);
+      continue;
     }
+    dirty = dirty.union(dirtyRegionsForChangedRegion(previousRegion, nextRegion));
   }
   for (const nextRegion of next) {
     const previousRegion = previousById.get(nextRegion.id);
-    if (previousRegion === undefined || !sameRegion(previousRegion, nextRegion)) {
+    if (previousRegion === undefined) {
       dirty = dirty.add(nextRegion.bounds);
     }
   }
@@ -38,23 +39,46 @@ export function dirtyRegionsForRegionChanges(
   return dirty.rects.length === 0 ? createDirtyRegionSet() : dirty;
 }
 
+function dirtyRegionsForChangedRegion(previous: RenderRegion, next: RenderRegion): DirtyRegionSet {
+  if (!sameRegionSurface(previous, next)) {
+    return createDirtyRegionSet([previous.bounds, next.bounds]);
+  }
+  if (previous.metadata.fingerprint === next.metadata.fingerprint) return createDirtyRegionSet();
+
+  const changedRows = changedRowRects(previous, next);
+  const coverage = previous.metadata.writtenBounds
+    .union(previous.metadata.clearedBounds)
+    .union(next.metadata.writtenBounds)
+    .union(next.metadata.clearedBounds);
+  const coverageNarrowed = intersectRegionSets(changedRows, coverage);
+  return coverageNarrowed.rects.length > 0 ? coverageNarrowed : changedRows;
+}
+
 function dirtyRegionSetFromRects(input: readonly Rect[]): DirtyRegionSet {
   const rects = normalizeRects(input);
-  return {
-    rects,
-    add(rect) {
-      return dirtyRegionSetFromRects([...rects, rect]);
+  return Object.defineProperties({ rects }, {
+    add: {
+      enumerable: false,
+      value(rect: Rect): DirtyRegionSet {
+        return dirtyRegionSetFromRects([...rects, rect]);
+      }
     },
-    union(other) {
-      return dirtyRegionSetFromRects([...rects, ...other.rects]);
+    union: {
+      enumerable: false,
+      value(other: DirtyRegionSet): DirtyRegionSet {
+        return dirtyRegionSetFromRects([...rects, ...other.rects]);
+      }
     },
-    intersect(bounds) {
-      return dirtyRegionSetFromRects(rects.flatMap((rect) => {
-        const next = intersectRects(rect, bounds);
-        return next === undefined ? [] : [next];
-      }));
+    intersect: {
+      enumerable: false,
+      value(bounds: Rect): DirtyRegionSet {
+        return dirtyRegionSetFromRects(rects.flatMap((rect) => {
+          const next = intersectRects(rect, bounds);
+          return next === undefined ? [] : [next];
+        }));
+      }
     }
-  };
+  }) as DirtyRegionSet;
 }
 
 function normalizeRects(input: readonly Rect[]): readonly Rect[] {
@@ -97,28 +121,34 @@ function intersectRects(left: Rect, right: Rect): Rect | undefined {
   return width === 0 || height === 0 ? undefined : { row, column, width, height };
 }
 
-function sameRegion(left: RenderRegion, right: RenderRegion): boolean {
+function sameRegionSurface(left: RenderRegion, right: RenderRegion): boolean {
   return left.zIndex === right.zIndex
     && left.order === right.order
     && left.opacity === right.opacity
-    && sameRect(left.bounds, right.bounds)
-    && sameRegionCells(left, right);
+    && sameRect(left.bounds, right.bounds);
 }
 
-function sameRegionCells(left: RenderRegion, right: RenderRegion): boolean {
-  if (left.cells.length !== right.cells.length) return false;
-  const leftCells = [...left.cells].toSorted(compareCellPosition);
-  const rightCells = [...right.cells].toSorted(compareCellPosition);
-  return leftCells.every((cell, index) => {
-    const other = rightCells[index];
-    return cell.row === other?.row
-      && cell.column === other.column
-      && sameFrameCell(cell, other);
-  });
+function changedRowRects(previous: RenderRegion, next: RenderRegion): DirtyRegionSet {
+  const previousRows = new Map(previous.metadata.rowFingerprints.map((row) => [row.row, row.fingerprint]));
+  const nextRows = new Map(next.metadata.rowFingerprints.map((row) => [row.row, row.fingerprint]));
+  const rowCount = Math.max(previous.bounds.height, next.bounds.height);
+  const rects: Rect[] = [];
+  for (let localRow = 1; localRow <= rowCount; localRow += 1) {
+    if (previousRows.get(localRow) === nextRows.get(localRow)) continue;
+    rects.push({
+      row: previous.bounds.row + localRow - 1,
+      column: previous.bounds.column,
+      width: previous.bounds.width,
+      height: 1
+    });
+  }
+  return createDirtyRegionSet(rects);
 }
 
-function compareCellPosition(left: { readonly row: number; readonly column: number }, right: { readonly row: number; readonly column: number }): number {
-  return left.row - right.row || left.column - right.column;
+function intersectRegionSets(left: DirtyRegionSet, right: DirtyRegionSet): DirtyRegionSet {
+  let output = createDirtyRegionSet();
+  for (const rect of right.rects) output = output.union(left.intersect(rect));
+  return output;
 }
 
 function sameRect(left: Rect, right: Rect): boolean {

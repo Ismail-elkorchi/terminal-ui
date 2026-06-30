@@ -13,10 +13,15 @@ export type CommandBarAction =
   | { readonly kind: 'insert'; readonly text: string }
   | { readonly kind: 'deleteBackward' }
   | { readonly kind: 'deleteForward' }
-  | { readonly kind: 'moveLeft' }
-  | { readonly kind: 'moveRight' }
-  | { readonly kind: 'moveHome' }
-  | { readonly kind: 'moveEnd' }
+  | { readonly kind: 'deleteWordBackward' }
+  | { readonly kind: 'deleteWordForward' }
+  | { readonly kind: 'moveLeft'; readonly select?: boolean }
+  | { readonly kind: 'moveRight'; readonly select?: boolean }
+  | { readonly kind: 'moveWordLeft'; readonly select?: boolean }
+  | { readonly kind: 'moveWordRight'; readonly select?: boolean }
+  | { readonly kind: 'moveHome'; readonly select?: boolean }
+  | { readonly kind: 'moveEnd'; readonly select?: boolean }
+  | { readonly kind: 'selectAll' }
   | { readonly kind: 'historyPrevious' }
   | { readonly kind: 'historyNext' }
   | { readonly kind: 'selectSuggestion'; readonly direction: 1 | -1 }
@@ -28,10 +33,15 @@ export function commandBarReducer(state: CommandBarState, action: CommandBarActi
     case 'insert':
     case 'deleteBackward':
     case 'deleteForward':
+    case 'deleteWordBackward':
+    case 'deleteWordForward':
     case 'moveLeft':
     case 'moveRight':
+    case 'moveWordLeft':
+    case 'moveWordRight':
     case 'moveHome':
     case 'moveEnd':
+    case 'selectAll':
       return withClearedHistory({
         ...state,
         input: editTextBuffer(state.input, actionToTextEdit(action))
@@ -58,7 +68,21 @@ export function commandBarReducer(state: CommandBarState, action: CommandBarActi
 function actionToTextEdit(
   action: Extract<
     CommandBarAction,
-    { readonly kind: 'insert' | 'deleteBackward' | 'deleteForward' | 'moveLeft' | 'moveRight' | 'moveHome' | 'moveEnd' }
+    {
+      readonly kind:
+        | 'insert'
+        | 'deleteBackward'
+        | 'deleteForward'
+        | 'deleteWordBackward'
+        | 'deleteWordForward'
+        | 'moveLeft'
+        | 'moveRight'
+        | 'moveWordLeft'
+        | 'moveWordRight'
+        | 'moveHome'
+        | 'moveEnd'
+        | 'selectAll';
+    }
   >
 ): Parameters<typeof editTextBuffer>[1] {
   switch (action.kind) {
@@ -66,12 +90,54 @@ function actionToTextEdit(
       return { kind: 'insert', text: action.text };
     case 'deleteBackward':
     case 'deleteForward':
-    case 'moveLeft':
-    case 'moveRight':
-    case 'moveHome':
-    case 'moveEnd':
+    case 'deleteWordBackward':
+    case 'deleteWordForward':
+    case 'selectAll':
       return { kind: action.kind };
+    case 'moveLeft':
+      return optionalSelection('moveLeft', action.select);
+    case 'moveRight':
+      return optionalSelection('moveRight', action.select);
+    case 'moveWordLeft':
+      return optionalSelection('moveWordLeft', action.select);
+    case 'moveWordRight':
+      return optionalSelection('moveWordRight', action.select);
+    case 'moveHome':
+      return optionalSelection('moveHome', action.select);
+    case 'moveEnd':
+      return optionalSelection('moveEnd', action.select);
   }
+}
+
+function optionalSelection(
+  kind: 'moveLeft',
+  select: boolean | undefined
+): Extract<Parameters<typeof editTextBuffer>[1], { readonly kind: 'moveLeft' }>;
+function optionalSelection(
+  kind: 'moveRight',
+  select: boolean | undefined
+): Extract<Parameters<typeof editTextBuffer>[1], { readonly kind: 'moveRight' }>;
+function optionalSelection(
+  kind: 'moveWordLeft',
+  select: boolean | undefined
+): Extract<Parameters<typeof editTextBuffer>[1], { readonly kind: 'moveWordLeft' }>;
+function optionalSelection(
+  kind: 'moveWordRight',
+  select: boolean | undefined
+): Extract<Parameters<typeof editTextBuffer>[1], { readonly kind: 'moveWordRight' }>;
+function optionalSelection(
+  kind: 'moveHome',
+  select: boolean | undefined
+): Extract<Parameters<typeof editTextBuffer>[1], { readonly kind: 'moveHome' }>;
+function optionalSelection(
+  kind: 'moveEnd',
+  select: boolean | undefined
+): Extract<Parameters<typeof editTextBuffer>[1], { readonly kind: 'moveEnd' }>;
+function optionalSelection(
+  kind: 'moveLeft' | 'moveRight' | 'moveWordLeft' | 'moveWordRight' | 'moveHome' | 'moveEnd',
+  select: boolean | undefined
+): Parameters<typeof editTextBuffer>[1] {
+  return select === undefined ? { kind } : { kind, select };
 }
 
 function commandBarHistory(state: CommandBarState, direction: 1 | -1): CommandBarState {

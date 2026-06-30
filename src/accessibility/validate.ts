@@ -86,12 +86,78 @@ function firstNodeIssue(node: unknown, ids: Set<string>): TerminalDiagnostic | u
   }
   const progressIssue = progressIssueForNode(node, id);
   if (progressIssue !== undefined) return progressIssue;
+  const liveIssue = liveIssueForNode(node, id);
+  if (liveIssue !== undefined) return liveIssue;
+  const scopeIssue = scopeIssueForNode(node, id);
+  if (scopeIssue !== undefined) return scopeIssue;
+  const windowIssue = windowIssueForNode(node, id);
+  if (windowIssue !== undefined) return windowIssue;
+  const positionIssue = positionIssueForNode(node, id);
+  if (positionIssue !== undefined) return positionIssue;
   if (node['children'] !== undefined && !Array.isArray(node['children'])) {
     return accessibilityFailure('Accessible node children must be an array.', id);
   }
   for (const child of node['children'] ?? []) {
     const childIssue = firstNodeIssue(child, ids);
     if (childIssue !== undefined) return childIssue;
+  }
+  return undefined;
+}
+
+function liveIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
+  return node['live'] === undefined || (typeof node['live'] === 'string' && ['off', 'polite', 'assertive'].includes(node['live']))
+    ? undefined
+    : accessibilityFailure('Accessible node live region must be "off", "polite", or "assertive".', id);
+}
+
+function scopeIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
+  const scope = node['scope'];
+  if (scope === undefined) return undefined;
+  if (!isRecord(scope)) return accessibilityFailure('Accessible node scope must be an object.', id);
+  if (!['document', 'modal', 'popover', 'menu'].includes(String(scope['kind']))) {
+    return accessibilityFailure('Accessible node scope kind is unsupported.', id);
+  }
+  for (const field of ['trapsFocus', 'obscuresBackground'] as const) {
+    if (scope[field] !== undefined && typeof scope[field] !== 'boolean') {
+      return accessibilityFailure(`Accessible node scope ${field} must be a boolean.`, id);
+    }
+  }
+  return undefined;
+}
+
+function windowIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
+  const window = node['window'];
+  if (window === undefined) return undefined;
+  if (!isRecord(window)) return accessibilityFailure('Accessible node window must be an object.', id);
+  for (const field of ['start', 'end', 'total'] as const) {
+    if (!isNonNegativeInteger(window[field])) return accessibilityFailure(`Accessible node window ${field} must be a non-negative integer.`, id);
+  }
+  for (const field of ['omittedBefore', 'omittedAfter'] as const) {
+    if (window[field] !== undefined && !isNonNegativeInteger(window[field])) {
+      return accessibilityFailure(`Accessible node window ${field} must be a non-negative integer.`, id);
+    }
+  }
+  if (Number(window['end']) < Number(window['start'])) return accessibilityFailure('Accessible node window end must not be before start.', id);
+  if (Number(window['end']) > Number(window['total'])) return accessibilityFailure('Accessible node window end must not exceed total.', id);
+  return undefined;
+}
+
+function positionIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
+  const position = node['position'];
+  if (position === undefined) return undefined;
+  if (!isRecord(position)) return accessibilityFailure('Accessible node position must be an object.', id);
+  for (const field of ['index', 'count', 'level', 'rowIndex', 'rowCount', 'columnIndex', 'columnCount'] as const) {
+    if (position[field] !== undefined && !isNonNegativeInteger(position[field])) {
+      return accessibilityFailure(`Accessible node position ${field} must be a non-negative integer.`, id);
+    }
+  }
+  for (const field of ['columnLabel', 'group'] as const) {
+    if (position[field] !== undefined && typeof position[field] !== 'string') {
+      return accessibilityFailure(`Accessible node position ${field} must be a string.`, id);
+    }
+    if (typeof position[field] === 'string' && sanitizeTerminalText(position[field]).changed) {
+      return accessibilityFailure(`Accessible node position ${field} must not contain terminal control sequences.`, id);
+    }
   }
   return undefined;
 }
@@ -179,6 +245,10 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNonNegativeInteger(value: unknown): boolean {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
 function samePath(left: readonly string[], right: readonly string[]): boolean {

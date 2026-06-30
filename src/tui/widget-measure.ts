@@ -367,7 +367,7 @@ function fakeLayoutNode(widget: Widget, bounds: Rect): LayoutNode {
     ...(widget.id === undefined ? {} : { id: widget.id }),
     kind: widget.kind,
     bounds,
-    layer: { id: widget.id ?? widget.kind, zIndex: 0, bounds },
+    layer: { id: widget.id ?? widget.kind, zIndex: 0, bounds, opacity: widget.layer?.opacity ?? 'transparent' },
     visible: true,
     focusable: false,
     focusTargets: [],

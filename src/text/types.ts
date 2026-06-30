@@ -59,22 +59,24 @@ export interface TextEditBuffer {
   readonly selection?: TextSelection;
 }
 
-export type TextAreaEditBuffer = TextEditBuffer;
-
 export type TextEditOperation =
   | { readonly kind: 'insert'; readonly text: string }
   | { readonly kind: 'deleteBackward' }
   | { readonly kind: 'deleteForward' }
-  | { readonly kind: 'moveLeft' }
-  | { readonly kind: 'moveRight' }
-  | { readonly kind: 'moveHome' }
-  | { readonly kind: 'moveEnd' }
+  | { readonly kind: 'deleteWordBackward' }
+  | { readonly kind: 'deleteWordForward' }
+  | { readonly kind: 'moveLeft'; readonly select?: boolean }
+  | { readonly kind: 'moveRight'; readonly select?: boolean }
+  | { readonly kind: 'moveWordLeft'; readonly select?: boolean }
+  | { readonly kind: 'moveWordRight'; readonly select?: boolean }
+  | { readonly kind: 'moveHome'; readonly select?: boolean }
+  | { readonly kind: 'moveEnd'; readonly select?: boolean }
+  | { readonly kind: 'moveLineUp'; readonly select?: boolean }
+  | { readonly kind: 'moveLineDown'; readonly select?: boolean }
+  | { readonly kind: 'movePageUp'; readonly select?: boolean }
+  | { readonly kind: 'movePageDown'; readonly select?: boolean }
+  | { readonly kind: 'selectAll' }
   | { readonly kind: 'replaceSelection'; readonly text: string };
-
-export type TextAreaEditOperation =
-  | TextEditOperation
-  | { readonly kind: 'moveLineStart' }
-  | { readonly kind: 'moveLineEnd' };
 
 export interface TextClipResult {
   readonly text: string;

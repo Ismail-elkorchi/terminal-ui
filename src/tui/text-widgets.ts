@@ -3,13 +3,20 @@ import { block, line, span } from './frame.ts';
 import { normalizeScrollState } from './scroll.ts';
 import { normalizeSpinnerFrameIndex } from './spinner.ts';
 import { activityStatus, statusMarker, statusStyle } from './status-visual.ts';
-import { textCursorLineMetrics, textDisplayWidth, visibleLineText } from './text-display.ts';
+import {
+  selectedTextSpans,
+  selectionFromUnknown,
+  textCursorLineMetrics,
+  textDisplayWidth,
+  visibleLineWindow
+} from './text-display.ts';
+import { widgetStyle } from './widget-style.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { defaultTheme } from '../theme/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
-import type { RenderBlock, RenderSpan } from './frame.ts';
+import type { RenderBlock, RenderLine, RenderSpan } from './frame.ts';
 import type { Rect } from './layout.ts';
 
 export function richTextBlock(widget: Widget, bounds: Rect): RenderBlock {
@@ -36,12 +43,36 @@ export function richTextAccessibleBase(widget: Widget, id: string): AccessibleNo
 }
 
 export function textAreaText(widget: Widget, bounds: Rect): string {
+  return textAreaBlock(widget, bounds).lines.map((currentLine) =>
+    currentLine.spans.map((currentSpan) => currentSpan.text).join('')
+  ).join('\n');
+}
+
+export function textAreaBlock(widget: Widget, bounds: Rect): RenderBlock {
+  const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
+  const placeholder = sanitizeTerminalText(stringify(widget.props['placeholder'])).text;
+  const usesPlaceholder = value.length === 0 && placeholder.length > 0;
   const lines = textAreaLines(widget);
   const scroll = textAreaScroll(widget, lines, bounds);
-  return lines
+  const lineRecords = textAreaLineRecords(usesPlaceholder ? placeholder : value);
+  const selection = usesPlaceholder ? undefined : selectionFromUnknown(value, widget.props['selection']);
+  return block(lineRecords
     .slice(scroll.offsetRow, scroll.offsetRow + Math.max(0, bounds.height))
-    .map((lineText) => visibleLineText(lineText, scroll.offsetColumn, bounds.width))
-    .join('\n');
+    .map((record): RenderLine => {
+      const window = visibleLineWindow(record.text, scroll.offsetColumn, bounds.width);
+      const selectionInWindow = selectionIntersection(selection, record.start + window.startOffset, record.start + window.endOffset);
+      return line(selectedTextSpans(
+        window.text,
+        selectionInWindow === undefined
+          ? undefined
+          : {
+              start: selectionInWindow.start - record.start - window.startOffset,
+              end: selectionInWindow.end - record.start - window.startOffset
+            },
+        usesPlaceholder ? widgetStyle(widget, 'placeholder') : widgetStyle(widget, 'value'),
+        widgetStyle(widget, 'value', 'selected')
+      ));
+    }));
 }
 
 export function textAreaAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
@@ -76,7 +107,8 @@ export function helpBarAccessibleBase(widget: Widget, id: string): AccessibleNod
     id,
     role: 'status',
     label: id,
-    value: helpBarText(widget)
+    value: helpBarText(widget),
+    live: 'polite'
   };
 }
 
@@ -91,7 +123,8 @@ export function activityIndicatorAccessibleBase(widget: Widget, id: string): Acc
     id,
     role: 'status',
     label: id,
-    value: activityIndicatorText(widget, defaultTheme)
+    value: activityIndicatorText(widget, defaultTheme),
+    live: 'polite'
   };
 }
 
@@ -115,7 +148,8 @@ export function spinnerAccessibleBase(widget: Widget, id: string): AccessibleNod
     id,
     role: 'status',
     label: id,
-    value: `${label} (${status})`
+    value: `${label} (${status})`,
+    live: 'polite'
   };
 }
 
@@ -148,6 +182,27 @@ function textAreaLines(widget: Widget): readonly string[] {
   const placeholder = sanitizeTerminalText(stringify(widget.props['placeholder'])).text;
   const display = value.length === 0 && placeholder.length > 0 ? placeholder : value;
   return display.length === 0 ? [''] : display.split('\n');
+}
+
+function textAreaLineRecords(value: string): readonly { readonly text: string; readonly start: number }[] {
+  const lines = value.length === 0 ? [''] : value.split('\n');
+  let start = 0;
+  return lines.map((lineText) => {
+    const record = { text: lineText, start };
+    start += lineText.length + 1;
+    return record;
+  });
+}
+
+function selectionIntersection(
+  selection: ReturnType<typeof selectionFromUnknown>,
+  start: number,
+  end: number
+): ReturnType<typeof selectionFromUnknown> {
+  if (selection === undefined) return undefined;
+  const nextStart = Math.max(start, selection.start);
+  const nextEnd = Math.min(end, selection.end);
+  return nextStart >= nextEnd ? undefined : { start: nextStart, end: nextEnd };
 }
 
 function textAreaScroll(

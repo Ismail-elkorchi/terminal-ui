@@ -542,6 +542,7 @@ export function progressBar(options: ProgressBarWidgetOptions): Widget<never> {
       ...(options.showPercentage === undefined ? {} : { showPercentage: options.showPercentage }),
       ...(options.elapsedMs === undefined ? {} : { elapsedMs: options.elapsedMs }),
       ...(options.remainingMs === undefined ? {} : { remainingMs: options.remainingMs }),
+      ...(options.frame === undefined ? {} : { frame: options.frame }),
       ...(options.status === undefined ? {} : { status: options.status })
     },
     ...interactionOptions(options)
@@ -788,7 +789,7 @@ export function modal<TMessage>(
       ...layoutProps(options)
     },
     children: [child],
-    ...interactionOptions({ ...options, focus })
+    ...interactionOptions({ ...options, focus, opacity: options.opacity ?? 'opaque' })
   };
 }
 
@@ -981,7 +982,8 @@ function widgetLayer(options: WidgetLayerOptions): { readonly layer?: WidgetLaye
 function widgetLayerFields(options: WidgetLayerOptions): WidgetLayerOptions {
   return {
     ...(options.zIndex === undefined ? {} : { zIndex: options.zIndex }),
-    ...(options.visible === undefined ? {} : { visible: options.visible })
+    ...(options.visible === undefined ? {} : { visible: options.visible }),
+    ...(options.opacity === undefined ? {} : { opacity: options.opacity })
   };
 }
 

@@ -1,6 +1,6 @@
 import { clipTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { block, line, span } from './frame.ts';
-import { singleLineCursorColumn } from './text-display.ts';
+import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn } from './text-display.ts';
 import { widgetStyle } from './widget-style.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -266,14 +266,23 @@ export function optionHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rec
 
 function controlInputBlock(value: string, widget: Widget, bounds: Rect, focused: boolean): RenderBlock {
   const placeholder = clean(stringify(widget.props['placeholder']));
-  const displayValue = value.length === 0 && placeholder.length > 0 ? placeholder : value;
+  const showsPlaceholder = value.length === 0 && placeholder.length > 0;
+  const displayValue = showsPlaceholder ? placeholder : value;
   const style = widget.props['disabled'] === true
     ? widgetStyle(widget, 'value', 'disabled')
-    : value.length === 0 && placeholder.length > 0
+    : showsPlaceholder
       ? widgetStyle(widget, 'placeholder')
       : widgetStyle(widget, 'value', focused ? 'focused' : undefined);
+  const spans = showsPlaceholder
+    ? [styledSpan(displayValue, style)]
+    : selectedTextSpans(
+        displayValue,
+        selectionFromUnknown(displayValue, widget.props['selection']),
+        style,
+        widgetStyle(widget, 'value', 'selected')
+      );
   const rows = [
-    line([styledSpan(clip(displayValue, bounds.width), style)]),
+    line(spans),
     ...errorLines(widget, bounds.width)
   ];
   return block(rows.slice(0, Math.max(0, bounds.height)));

@@ -5,9 +5,9 @@ import { filterPaletteEntries, paletteWindow, renderWidgetFrame } from '../../di
 import { commandPalette, palette } from '../../dist/widgets/index.js';
 
 const entries = [
-  { id: 'open-file', label: 'Open File', value: { kind: 'file' }, description: 'Open a file', keywords: ['file'], preview: 'src/index.ts' },
-  { id: 'toggle-terminal', label: 'Toggle Terminal', value: { kind: 'action' }, description: 'Show terminal', keywords: ['shell'] },
-  { id: 'run-tests', label: 'Run Tests', value: { kind: 'action' }, description: 'Execute tests', keywords: ['verify'], disabled: true }
+  { id: 'open-file', label: 'Open File', group: 'Files', value: { kind: 'file' }, description: 'Open a file', keywords: ['file'], preview: 'src/index.ts' },
+  { id: 'toggle-terminal', label: 'Toggle Terminal', group: 'Workspace', value: { kind: 'action' }, description: 'Show terminal', keywords: ['shell'] },
+  { id: 'run-tests', label: 'Run Tests', group: 'Workspace', value: { kind: 'action' }, description: 'Execute tests', keywords: ['verify'], disabled: true }
 ];
 
 test('palette filtering is fuzzy stable and value-agnostic', () => {
@@ -76,8 +76,11 @@ test('palette widget renders query matches disabled entries preview help empty s
   assert.equal(matchCell?.style?.fg?.token, 'menu.match');
   assert.equal(disabledCell?.style?.fg?.token, 'text.muted');
   assert.equal(frame.accessibility.root.role, 'menu');
+  assert.deepEqual(frame.accessibility.root.scope, { kind: 'menu' });
   assert.equal(frame.accessibility.root.children?.[0]?.selected, true);
   assert.equal(frame.accessibility.root.children?.[0]?.disabled, true);
+  assert.equal(frame.accessibility.root.children?.[0]?.position?.group, 'Workspace');
+  assert.equal(frame.accessibility.root.children?.[0]?.value, undefined);
 });
 
 test('palette widget renders empty states for unrelated queries', () => {
