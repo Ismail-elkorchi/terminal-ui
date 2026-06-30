@@ -109,6 +109,40 @@ test('surface absolute and overlay compose arbitrary positioned overlapping cont
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'application');
 });
 
+test('surface variants draw semantic background border and shadow without owning state', () => {
+  const widget = surface(text('inside', { id: 'surface-content' }), {
+    id: 'visual-surface',
+    label: 'Visual surface',
+    variant: 'warning',
+    border: { kind: 'dashed', title: 'Alert' },
+    shadow: true
+  });
+  const frame = renderWidgetFrame(widget, { columns: 14, rows: 4 });
+  const output = renderFramePlain(frame);
+  const backgroundCell = frame.cells.find((cell) => cell.source?.kind === 'surface' && cell.source.role === 'decoration' && cell.style?.bg !== undefined);
+  const borderCell = frame.cells.find((cell) => cell.source?.role === 'border');
+  const shadowCell = frame.cells.find((cell) => cell.source?.label === 'shadow');
+
+  assert.match(output, /Alert/u);
+  assert.match(output, /inside/u);
+  assert.deepEqual(backgroundCell?.style?.bg, { kind: 'theme', token: 'surface.warning.background' });
+  assert.deepEqual(borderCell?.style?.fg, { kind: 'theme', token: 'surface.warning.border' });
+  assert.deepEqual(shadowCell?.style?.fg, { kind: 'theme', token: 'surface.shadow' });
+});
+
+test('surface variants reserve border content space while plain surfaces stay transparent', () => {
+  const visualLayout = renderWidgetFrame(surface(text('inner', { id: 'inner' }), {
+    id: 'visual',
+    variant: 'raised'
+  }), { columns: 10, rows: 3 });
+  const transparent = renderWidgetFrame(surface(text('flush', { id: 'flush' }), {
+    id: 'plain'
+  }), { columns: 10, rows: 3 });
+
+  assert.match(renderFramePlain(visualLayout).split('\n')[1] ?? '', /^│inner/u);
+  assert.equal(renderFramePlain(transparent), 'flush');
+});
+
 test('region projection keeps overlapping z-index content separate before compositing', () => {
   const widget = surface(
     overlay([

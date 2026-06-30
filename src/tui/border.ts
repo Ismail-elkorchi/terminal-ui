@@ -1,11 +1,12 @@
 import { clipTextCells } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { TerminalStyle } from './frame.ts';
+import type { TerminalColor, TerminalStyle } from './frame.ts';
 import type { FrameBuffer } from './frame.ts';
 import type { Rect } from './layout.ts';
 
+export type BorderKind = 'none' | 'single' | 'double' | 'rounded' | 'heavy' | 'ascii' | 'dashed' | 'dotted' | 'empty';
 export interface BorderStyle {
-  readonly kind: 'none' | 'single' | 'double' | 'rounded' | 'heavy' | 'ascii';
+  readonly kind: BorderKind;
   readonly title?: string;
   readonly titleAlign?: 'start' | 'center' | 'end';
   readonly style?: TerminalStyle;
@@ -73,11 +74,43 @@ function horizontalLine(
   return `${left}${glyphs.horizontal.repeat(before)}${clippedTitle.text}${glyphs.horizontal.repeat(after)}${right}`;
 }
 
+export function borderStyleFromValue(value: unknown): BorderStyle | undefined {
+  if (!isRecord(value)) return undefined;
+  const kind = value['kind'];
+  if (!isBorderKind(kind)) return undefined;
+  const title = value['title'];
+  const titleAlign = value['titleAlign'];
+  const style = terminalStyleFromValue(value['style']);
+  const focusStyle = terminalStyleFromValue(value['focusStyle']);
+  return {
+    kind,
+    ...(typeof title === 'string' ? { title } : {}),
+    ...(isTitleAlign(titleAlign) ? { titleAlign } : {}),
+    ...(style === undefined ? {} : { style }),
+    ...(focusStyle === undefined ? {} : { focusStyle })
+  };
+}
+
+export function isBorderKind(value: unknown): value is BorderStyle['kind'] {
+  return value === 'none'
+    || value === 'single'
+    || value === 'double'
+    || value === 'rounded'
+    || value === 'heavy'
+    || value === 'ascii'
+    || value === 'dashed'
+    || value === 'dotted'
+    || value === 'empty';
+}
+
 function glyphsForBorder(kind: Exclude<BorderStyle['kind'], 'none'>, theme: TerminalTheme): BorderGlyphs {
   if (kind === 'single') return theme.symbols.borderSingle;
   if (kind === 'rounded') return theme.symbols.borderRounded;
   if (kind === 'ascii') return asciiGlyphs;
   if (kind === 'double') return doubleGlyphs;
+  if (kind === 'dashed') return dashedGlyphs;
+  if (kind === 'dotted') return dottedGlyphs;
+  if (kind === 'empty') return emptyGlyphs;
   return heavyGlyphs;
 }
 
@@ -121,3 +154,79 @@ const heavyGlyphs: BorderGlyphs = {
   horizontal: '━',
   vertical: '┃'
 };
+
+const dashedGlyphs: BorderGlyphs = {
+  topLeft: '┌',
+  topRight: '┐',
+  bottomLeft: '└',
+  bottomRight: '┘',
+  horizontal: '┄',
+  vertical: '┆'
+};
+
+const dottedGlyphs: BorderGlyphs = {
+  topLeft: '┌',
+  topRight: '┐',
+  bottomLeft: '└',
+  bottomRight: '┘',
+  horizontal: '┈',
+  vertical: '┊'
+};
+
+const emptyGlyphs: BorderGlyphs = {
+  topLeft: ' ',
+  topRight: ' ',
+  bottomLeft: ' ',
+  bottomRight: ' ',
+  horizontal: ' ',
+  vertical: ' '
+};
+
+function isTitleAlign(value: unknown): value is NonNullable<BorderStyle['titleAlign']> {
+  return value === 'start' || value === 'center' || value === 'end';
+}
+
+function terminalStyleFromValue(value: unknown): TerminalStyle | undefined {
+  if (!isRecord(value)) return undefined;
+  const fg = terminalColorFromValue(value['fg']);
+  const bg = terminalColorFromValue(value['bg']);
+  return {
+    ...(fg === undefined ? {} : { fg }),
+    ...(bg === undefined ? {} : { bg }),
+    ...(typeof value['bold'] === 'boolean' ? { bold: value['bold'] } : {}),
+    ...(typeof value['dim'] === 'boolean' ? { dim: value['dim'] } : {}),
+    ...(typeof value['italic'] === 'boolean' ? { italic: value['italic'] } : {}),
+    ...(typeof value['underline'] === 'boolean' ? { underline: value['underline'] } : {}),
+    ...(typeof value['strikethrough'] === 'boolean' ? { strikethrough: value['strikethrough'] } : {}),
+    ...(typeof value['inverse'] === 'boolean' ? { inverse: value['inverse'] } : {}),
+    ...(typeof value['hidden'] === 'boolean' ? { hidden: value['hidden'] } : {})
+  };
+}
+
+function terminalColorFromValue(value: unknown): TerminalColor | undefined {
+  if (!isRecord(value)) return undefined;
+  const kind = value['kind'];
+  if (kind === 'ansi') {
+    const color = value['value'];
+    return typeof color === 'number' && Number.isFinite(color) ? { kind, value: color } : undefined;
+  }
+  if (kind === 'rgb') {
+    const r = value['r'];
+    const g = value['g'];
+    const b = value['b'];
+    return typeof r === 'number' && Number.isFinite(r)
+      && typeof g === 'number' && Number.isFinite(g)
+      && typeof b === 'number' && Number.isFinite(b)
+      ? { kind, r, g, b }
+      : undefined;
+  }
+  if (kind === 'theme') {
+    const token = value['token'];
+    return typeof token === 'string' ? { kind, token } : undefined;
+  }
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null;
+}

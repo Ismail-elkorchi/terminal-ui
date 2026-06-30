@@ -74,6 +74,8 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.rowWindow, 'function');
   assert.equal(typeof terminalUi.scrollStateFromUnknown, 'function');
   assert.equal(typeof terminalUi.paletteWindow, 'function');
+  assert.equal(typeof terminalUi.placeTooltip, 'function');
+  assert.equal(typeof terminalUi.placeNotificationStack, 'function');
   assert.equal(typeof terminalUi.filterPaletteEntries, 'function');
   assert.equal(typeof terminalUi.screenStackReducer, 'function');
   assert.equal(typeof terminalUi.activeScreen, 'function');
@@ -95,6 +97,52 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.widgets.paletteReducer, 'function');
   assert.equal(typeof terminalUi.widgets.groupPaletteEntries, 'function');
   assert.equal(typeof terminalUi.widgets.paletteStatus, 'function');
+  assert.equal(typeof terminalUi.widgets.hoverableReducer, 'function');
+  assert.equal(typeof terminalUi.widgets.hoverableActive, 'function');
+  assert.equal(typeof terminalUi.widgets.notificationReducer, 'function');
+  assert.equal(typeof terminalUi.widgets.visibleNotifications, 'function');
+  assert.equal(typeof terminalUi.widgets.notificationsToActivityBlocks, 'function');
+  assert.equal(typeof terminalUi.widgets.notificationStack, 'function');
+  assert.equal(typeof terminalUi.widgets.paginatedTable, 'function');
+  assert.equal(typeof terminalUi.widgets.virtualTable, 'function');
+  assert.equal(typeof terminalUi.widgets.defineBreakpoints, 'function');
+  assert.equal(typeof terminalUi.widgets.responsive, 'function');
+  assert.equal(typeof terminalUi.widgets.viewportVariant, 'function');
+  assert.equal(typeof terminalUi.widgets.areaGrid, 'function');
+  assert.equal(typeof terminalUi.widgets.gauge, 'function');
+  assert.equal(typeof terminalUi.widgets.heatmap, 'function');
+  assert.equal(typeof terminalUi.widgets.toggleSwitch, 'function');
+  assert.equal(typeof terminalUi.widgets.slider, 'function');
+  assert.equal(typeof terminalUi.widgets.rangeSlider, 'function');
+  assert.equal(typeof terminalUi.widgets.checkboxList, 'function');
+  assert.equal(typeof terminalUi.widgets.colorPicker, 'function');
+  assert.equal(typeof terminalUi.widgets.datePicker, 'function');
+  assert.equal(typeof terminalUi.widgets.panel, 'function');
+  assert.equal(typeof terminalUi.widgets.topBar, 'function');
+  assert.equal(typeof terminalUi.widgets.bottomBar, 'function');
+  assert.equal(typeof terminalUi.widgets.sidePanel, 'function');
+  assert.equal(typeof terminalUi.widgets.toolbar, 'function');
+  assert.equal(typeof terminalUi.widgets.actionBar, 'function');
+  assert.equal(typeof terminalUi.widgets.statusDock, 'function');
+  assert.equal(typeof terminalUi.widgets.commandDock, 'function');
+  assert.equal(typeof terminalUi.widgets.contentHeader, 'function');
+  assert.equal(typeof terminalUi.widgets.drawer, 'function');
+  assert.equal(typeof terminalUi.widgets.messageBox, 'function');
+  assert.equal(typeof terminalUi.widgets.confirmDialog, 'function');
+  assert.equal(typeof terminalUi.widgets.inputDialog, 'function');
+  assert.equal(typeof terminalUi.widgets.wizardDialog, 'function');
+  assert.equal(typeof terminalUi.widgets.floatingWindow, 'function');
+  assert.equal(typeof terminalUi.widgets.windowReducer, 'function');
+  assert.equal(typeof terminalUi.widgets.fileExplorer, 'function');
+  assert.equal(typeof terminalUi.widgets.fileDialog, 'function');
+  assert.equal(typeof terminalUi.widgets.fileExplorerEntriesToTreeNodes, 'function');
+  assert.equal(typeof terminalUi.widgets.fileExplorerBreadcrumbs, 'function');
+  assert.equal(typeof terminalUi.widgets.breadcrumb, 'function');
+  assert.equal(typeof terminalUi.widgets.collapsibleSection, 'function');
+  assert.equal(typeof terminalUi.widgets.accordion, 'function');
+  assert.equal(typeof terminalUi.widgets.carousel, 'function');
+  assert.equal(typeof terminalUi.widgets.tabOverflowMenu, 'function');
+  assert.equal(typeof terminalUi.widgets.shortcutBar, 'function');
   assert.equal(typeof terminalUi.widgets.scrollbackReducer, 'function');
   assert.equal(typeof terminalUi.widgets.scrollbackSearchMarks, 'function');
   assert.equal(typeof terminalUi.widgets.followTailScrollState, 'function');
@@ -185,6 +233,7 @@ test('root declaration exposes primary public type contracts', async () => {
     'ThemeColor',
     'TerminalSymbols',
     'BorderGlyphSet',
+    'BorderKind',
     'BorderStyle',
     'Layer',
     'LayoutAlignment',
@@ -203,13 +252,17 @@ test('root declaration exposes primary public type contracts', async () => {
     'CommandBarValidation',
     'CommandBarValidationTone',
     'CommandPaletteWidgetOptions',
+    'AreaGridWidgetOptions',
     'PaletteEntry',
     'PaletteAction',
     'PaletteState',
     'PaletteAsyncState',
     'PaletteWidgetOptions',
+    'PaginatedTableOptions',
     'FormWidgetOptions',
     'FieldWidgetOptions',
+    'GaugeVariant',
+    'GaugeWidgetOptions',
     'LabelWidgetOptions',
     'ButtonWidgetOptions',
     'CheckboxWidgetOptions',
@@ -223,6 +276,50 @@ test('root declaration exposes primary public type contracts', async () => {
     'MenuBarWidgetOptions',
     'ContextMenuWidgetOptions',
     'DropdownWidgetOptions',
+    'DividerLineKind',
+    'DividerOrientation',
+    'DividerWidgetOptions',
+    'TooltipPlacement',
+    'TooltipTone',
+    'TooltipWidgetOptions',
+    'TooltipPlacementInput',
+    'TooltipSize',
+    'NotificationAction',
+    'NotificationItem',
+    'NotificationPlacement',
+    'NotificationReducerOptions',
+    'NotificationStackPlacementInput',
+    'NotificationStackSize',
+    'NotificationStackWidgetOptions',
+    'NotificationState',
+    'NotificationTone',
+    'BreakpointRange',
+    'ResponsiveBreakpointMap',
+    'ResponsiveVariants',
+    'ViewportDimensions',
+    'DialogAction',
+    'MessageBoxOptions',
+    'ConfirmDialogOptions',
+    'InputDialogOptions',
+    'WizardDialogOptions',
+    'WizardStep',
+    'FloatingWindowOptions',
+    'WindowAction',
+    'WindowGeometry',
+    'WindowReducerOptions',
+    'NavigationAction',
+    'BreadcrumbOptions',
+    'CollapsibleSectionOptions',
+    'AccordionItem',
+    'AccordionOptions',
+    'CarouselItem',
+    'CarouselOptions',
+    'TabOverflowItem',
+    'TabOverflowMenuOptions',
+    'ShortcutItem',
+    'ShortcutBarOptions',
+    'HoverableAction',
+    'HoverableState',
     'CanvasPainter',
     'CanvasPainterInput',
     'Canvas2D',
@@ -230,13 +327,17 @@ test('root declaration exposes primary public type contracts', async () => {
     'CanvasTransformInput',
     'ChartScale',
     'ChartPoint',
+    'ChartPointEvent',
+    'ChartPointSelection',
     'ChartAxesOptions',
+    'ChartSeriesKind',
     'StrokeFillOptions',
     'CanvasPoint',
     'BlockGlyph',
     'BrailleCellPoint',
     'AxisLine',
     'TooltipLine',
+    'SurfaceVariant',
     'CanvasWidgetOptions',
     'SurfaceWidgetOptions',
     'AbsoluteWidgetOptions',
@@ -288,6 +389,9 @@ test('root declaration exposes primary public type contracts', async () => {
     'SparklineWidgetOptions',
     'BarChartWidgetOptions',
     'ChartWidgetOptions',
+    'HeatmapCell',
+    'HeatmapSelection',
+    'HeatmapWidgetOptions',
     'ScreenStack',
     'PromptChoice',
     'NonTtyPromptPolicy',
@@ -307,7 +411,8 @@ test('root declaration exposes primary public type contracts', async () => {
     'SelectedAssertion',
     'HitTargetAssertion',
     'VisualSnapshotArtifacts',
-    'VisualSnapshotInput'
+    'VisualSnapshotInput',
+    'VirtualTableOptions'
   ];
 
   for (const typeName of publicTypes) {

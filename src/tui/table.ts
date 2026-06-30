@@ -25,6 +25,7 @@ interface NormalizedColumn {
   readonly headerStyle?: TerminalStyle;
   readonly render?: (input: TableCellRenderInput) => string | RenderSpan | readonly RenderSpan[];
   readonly sort?: TableColumn['sort'];
+  readonly resizable?: boolean;
 }
 
 interface TableWindow {
@@ -180,7 +181,7 @@ function headerLine(widget: Widget, columns: readonly NormalizedColumn[], widths
   const spans: RenderSpan[] = [{ text: '  ' }];
   columns.forEach((column, index) => {
     if (index > 0) spans.push({ text: '  ' });
-    const label = `${column.header ?? ''}${sortMarker(column.sort)}`;
+    const label = `${column.header ?? ''}${sortMarker(column.sort)}${resizeMarker(column)}`;
     spans.push(...cellSpans([styledSpan(label, column.headerStyle ?? widgetStyle(widget, 'title'))], widths[index] ?? 1, column.align));
   });
   return { spans };
@@ -369,7 +370,8 @@ function normalizeColumn(column: unknown, index: number): readonly NormalizedCol
     ...(isTerminalStyle(style) ? { style } : {}),
     ...(isTerminalStyle(headerStyle) ? { headerStyle } : {}),
     ...(isCellRenderer(render) ? { render } : {}),
-    ...(sort === 'ascending' || sort === 'descending' ? { sort } : {})
+    ...(sort === 'ascending' || sort === 'descending' ? { sort } : {}),
+    ...(column['resizable'] === true ? { resizable: true } : {})
   }];
 }
 
@@ -423,6 +425,10 @@ function sortMarker(sort: TableColumn['sort']): string {
   if (sort === 'ascending') return ' ↑';
   if (sort === 'descending') return ' ↓';
   return '';
+}
+
+function resizeMarker(column: Pick<NormalizedColumn, 'resizable'>): string {
+  return column.resizable === true ? ' ↔' : '';
 }
 
 function clean(value: string): string {

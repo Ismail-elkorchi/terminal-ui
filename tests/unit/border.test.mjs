@@ -21,7 +21,10 @@ test('drawBorder renders 2x2 corners for every visible border kind', () => {
     { kind: 'rounded', expected: '╭╮\n╰╯' },
     { kind: 'double', expected: '╔╗\n╚╝' },
     { kind: 'heavy', expected: '┏┓\n┗┛' },
-    { kind: 'ascii', expected: '++\n++' }
+    { kind: 'ascii', expected: '++\n++' },
+    { kind: 'dashed', expected: '┌┐\n└┘' },
+    { kind: 'dotted', expected: '┌┐\n└┘' },
+    { kind: 'empty', expected: '' }
   ];
 
   for (const current of cases) {

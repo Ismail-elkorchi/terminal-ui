@@ -1,7 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="752" height="572" viewBox="0 0 752 572" xml:space="preserve">
 <rect width="100%" height="100%" fill="#101014"/>
 <text x="16" y="30" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+----------------------------------------------------------------------------------------+</text>
-<text x="16" y="48" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|info: booted terminal runtime:{"fg":{"kind":"theme","token":"accent.primary"},"bold":tru|</text>
+<text x="16" y="48" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|info: booted terminal runtime</text>
+<text x="728" y="48" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="66" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="24" y="66" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" text-decoration="underline">warn</text>
 <text x="56" y="66" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">: input queue is filling</text>

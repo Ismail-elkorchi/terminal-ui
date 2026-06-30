@@ -10,7 +10,7 @@ import {
   renderFramePlain,
   renderWidgetFrame
 } from '../../dist/tui/index.js';
-import { barChart, chart, sparkline } from '../../dist/widgets/index.js';
+import { barChart, chart, gauge, heatmap, sparkline } from '../../dist/widgets/index.js';
 
 test('sparkline renders bounded numeric points', () => {
   const frame = renderWidgetFrame(sparkline({
@@ -48,6 +48,68 @@ test('chart plots series into a bounded text canvas', () => {
   assert.match(renderFramePlain(frame), /\*/u);
   assert.equal(frame.accessibility.root.description, '1 chart series.');
   assert.ok(frame.cells.length <= 16);
+});
+
+test('chart renders scatter points legends axis labels and selectable point hit targets', () => {
+  const frame = renderWidgetFrame(chart({
+    id: 'scatter-chart',
+    legend: true,
+    xLabel: 'watch cycle',
+    yLabel: 'signal',
+    selected: { series: 'scatter', point: 2 },
+    series: [
+      { id: 'line', label: 'Line', points: [1, 3, 2, 4], kind: 'line', glyph: '+' },
+      { id: 'scatter', label: 'Scatter', points: [4, 1, 3, 2], kind: 'scatter', glyph: 'o' }
+    ],
+    keyMap: { enter: { kind: 'chart-enter' } },
+    toMessage: (point) => ({ kind: 'chart-point', ...point })
+  }), { columns: 32, rows: 7 });
+
+  const output = renderFramePlain(frame);
+  assert.match(output, /\+ Line  o Scatter/u);
+  assert.match(output, /signal/u);
+  assert.match(output, /watch cycle/u);
+  assert.match(output, /◆/u);
+  assert.equal(frame.hitTargets.some((target) => target.id === 'scatter-chart:scatter:2'), true);
+  assert.equal(frame.accessibility.root.children?.some((child) => child.label === 'Scatter' && child.selected === true), true);
+});
+
+test('gauge renders a labeled bounded meter with progress accessibility', () => {
+  const frame = renderWidgetFrame(gauge({
+    id: 'gauge',
+    label: 'Throughput',
+    value: 75,
+    max: 100,
+    width: 10,
+    status: 'success'
+  }), { columns: 32, rows: 1 });
+
+  const output = renderFramePlain(frame);
+  assert.match(output, /Throughput/u);
+  assert.match(output, /75%/u);
+  assert.equal(frame.accessibility.root.role, 'progressbar');
+  assert.equal(frame.accessibility.root.value, 75);
+});
+
+test('heatmap renders selectable cells with accessibility and hit targets', () => {
+  const frame = renderWidgetFrame(heatmap({
+    id: 'heatmap',
+    rows: [
+      [{ id: 'a', label: 'Alpha', value: 1 }, { id: 'b', label: 'Bravo', value: 5 }],
+      [{ id: 'c', label: 'Charlie', value: 3 }]
+    ],
+    min: 0,
+    max: 5,
+    selected: { row: 0, column: 1 },
+    keyMap: { enter: { kind: 'select-current' } },
+    toMessage: (cell, row, column) => ({ kind: 'heatmap-select', id: cell.id, row, column })
+  }), { columns: 12, rows: 3 });
+
+  const output = renderFramePlain(frame);
+  assert.match(output, /\[█\]/u);
+  assert.equal(frame.accessibility.root.role, 'table');
+  assert.equal(frame.accessibility.root.children?.some((child) => child.label === 'Bravo' && child.selected === true), true);
+  assert.equal(frame.hitTargets.some((target) => target.id === 'heatmap:0:1' && target.cursor === 'pointer'), true);
 });
 
 test('Canvas2D chart helpers draw axes line series and bars', () => {

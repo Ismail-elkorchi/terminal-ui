@@ -5,6 +5,7 @@ import type { CanvasPainterInput } from '../widgets/types.ts';
 import type { Rect } from './layout.ts';
 import type { WidgetRenderInput } from './widget-renderer.ts';
 import { createCanvas2D } from './canvas2d/index.ts';
+import { surfaceChildContentBounds } from './surface.ts';
 
 export function renderCanvas(input: WidgetRenderInput): void {
   const painter = canvasPainter(input.widget.props['painter']);
@@ -21,7 +22,8 @@ export function renderCanvas(input: WidgetRenderInput): void {
 }
 
 export function surfaceChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
-  return (widget.children ?? []).map(() => bounds);
+  const contentBounds = surfaceChildContentBounds(widget, bounds);
+  return (widget.children ?? []).map(() => contentBounds);
 }
 
 export function absoluteChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {

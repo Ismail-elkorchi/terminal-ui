@@ -5,6 +5,7 @@ import { writeBlock } from './support/block.ts';
 import { borderContentBounds, borderForModal, borderForWidget, modalLabel } from './support/border.ts';
 import { cellInside, groupAccessibleNode } from './support/common.ts';
 import {
+  areaGridChildBounds,
   fillLayoutSizes,
   gridChildBounds,
   layoutFlowOptions,
@@ -68,6 +69,13 @@ export const layoutRenderers = {
     },
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
+  areaGrid: {
+    layout: ({ widget, bounds }) => areaGridChildBounds(widget, bounds),
+    render: (input) => {
+      input.renderChildren();
+    },
+    accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
+  },
   splitPane: {
     layout: ({ widget, bounds, childMeasures }) => splitPaneChildBounds(widget, bounds, childMeasures),
     render: (input) => {
@@ -108,4 +116,4 @@ export const layoutRenderers = {
       }
     })
   }
-} satisfies RendererMap<'box' | 'row' | 'stack' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'modal'>;
+} satisfies RendererMap<'box' | 'row' | 'stack' | 'viewport' | 'grid' | 'areaGrid' | 'splitPane' | 'tabs' | 'modal'>;

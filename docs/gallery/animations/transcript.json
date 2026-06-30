@@ -3859,7 +3859,16 @@
                             "id": "chart",
                             "role": "text",
                             "label": "chart",
-                            "description": "1 chart series."
+                            "description": "1 chart series.",
+                            "children": [
+                              {
+                                "id": "chart:live",
+                                "role": "text",
+                                "label": "Live",
+                                "value": "6 points",
+                                "selected": false
+                              }
+                            ]
                           }
                         ]
                       }
@@ -8147,7 +8156,16 @@
                             "id": "chart",
                             "role": "text",
                             "label": "chart",
-                            "description": "1 chart series."
+                            "description": "1 chart series.",
+                            "children": [
+                              {
+                                "id": "chart:live",
+                                "role": "text",
+                                "label": "Live",
+                                "value": "6 points",
+                                "selected": false
+                              }
+                            ]
                           }
                         ]
                       }
@@ -14155,7 +14173,16 @@
                                 "id": "chart",
                                 "role": "text",
                                 "label": "chart",
-                                "description": "1 chart series."
+                                "description": "1 chart series.",
+                                "children": [
+                                  {
+                                    "id": "chart:live",
+                                    "role": "text",
+                                    "label": "Live",
+                                    "value": "6 points",
+                                    "selected": false
+                                  }
+                                ]
                               }
                             ]
                           }
@@ -20643,7 +20670,16 @@
                                 "id": "chart",
                                 "role": "text",
                                 "label": "chart",
-                                "description": "1 chart series."
+                                "description": "1 chart series.",
+                                "children": [
+                                  {
+                                    "id": "chart:live",
+                                    "role": "text",
+                                    "label": "Live",
+                                    "value": "6 points",
+                                    "selected": false
+                                  }
+                                ]
                               }
                             ]
                           }
@@ -25186,7 +25222,16 @@
                             "id": "chart",
                             "role": "text",
                             "label": "chart",
-                            "description": "1 chart series."
+                            "description": "1 chart series.",
+                            "children": [
+                              {
+                                "id": "chart:live",
+                                "role": "text",
+                                "label": "Live",
+                                "value": "6 points",
+                                "selected": false
+                              }
+                            ]
                           }
                         ]
                       }

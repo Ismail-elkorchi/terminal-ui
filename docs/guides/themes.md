@@ -10,6 +10,11 @@ The built-in presets are:
 - `highContrastTheme`
 - `noColorTheme`
 
+Optional theme packs are exported as named themes: Catppuccin, Nord, Tokyo
+Night, Solarized, Gruvbox, Dracula, and Monochrome. They are ordinary
+`TerminalTheme` values; applications choose them explicitly instead of the
+runtime hardwiring a product identity.
+
 Use `defineTheme()` to start from a preset-like shape and override only the
 tokens your UI needs. Built-in widgets use core semantic tokens such as
 `text.default`, `accent.primary`, `status.error`, `selection.background`,
@@ -39,3 +44,4 @@ Executable examples:
 - `examples/showcase/app.mjs`
 - `examples/showcase/scripted.mjs`
 - `examples/testing/visual-snapshots.mjs`
+- `examples/products/chart-explorer.mjs`

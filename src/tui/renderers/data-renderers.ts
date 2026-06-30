@@ -3,7 +3,15 @@ import {
   barChartAccessibleChildren,
   barChartText,
   chartAccessibleBase,
+  chartAccessibleChildren,
+  chartHitTargets,
   chartText,
+  gaugeAccessibleBase,
+  gaugeText,
+  heatmapAccessibleBase,
+  heatmapAccessibleChildren,
+  heatmapHitTargets,
+  heatmapText,
   sparklineAccessibleBase,
   sparklineText
 } from '../chart-widgets.ts';
@@ -62,7 +70,29 @@ export const dataRenderers = {
     render: ({ widget, node, buffer }) => {
       writeBlock(buffer, node.bounds, chartText(widget, node));
     },
-    accessibility: ({ widget, id }) => chartAccessibleBase(widget, id)
+    accessibility: ({ widget, id }) => ({
+      ...chartAccessibleBase(widget, id),
+      children: chartAccessibleChildren(widget)
+    }),
+    focusTargets: ({ widget, bounds }) => hasKeyboardOrInputMap(widget) ? [focusTarget(bounds)] : [],
+    hitTargets: ({ widget, bounds }) => chartHitTargets(widget, bounds)
+  },
+  gauge: {
+    render: ({ widget, node, buffer, theme }) => {
+      writeBlock(buffer, node.bounds, gaugeText(widget, theme));
+    },
+    accessibility: ({ widget, id }) => gaugeAccessibleBase(widget, id)
+  },
+  heatmap: {
+    render: ({ widget, node, buffer }) => {
+      writeBlock(buffer, node.bounds, heatmapText(widget, node));
+    },
+    accessibility: ({ widget, node, id, focused }) => ({
+      ...heatmapAccessibleBase(widget, node, id, focused),
+      children: heatmapAccessibleChildren(widget, node)
+    }),
+    focusTargets: ({ widget, bounds }) => hasKeyboardOrInputMap(widget) ? [focusTarget(bounds)] : [],
+    hitTargets: ({ widget, bounds }) => heatmapHitTargets(widget, bounds)
   },
   list: {
     render: ({ widget, node, buffer, theme }) => {
@@ -133,4 +163,4 @@ export const dataRenderers = {
       children: activityFeedAccessibleChildren(widget, node)
     })
   }
-} satisfies RendererMap<'sparkline' | 'barChart' | 'chart' | 'list' | 'table' | 'tree' | 'paginator' | 'scrollback' | 'structuredBlock' | 'activityFeed'>;
+} satisfies RendererMap<'sparkline' | 'barChart' | 'chart' | 'gauge' | 'heatmap' | 'list' | 'table' | 'tree' | 'paginator' | 'scrollback' | 'structuredBlock' | 'activityFeed'>;

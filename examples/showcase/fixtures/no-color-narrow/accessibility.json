@@ -99,260 +99,194 @@
                   {
                     "children": [
                       {
-                        "id": "nav-title",
-                        "label": "nav-title",
-                        "role": "text",
-                        "value": "Operations"
-                      },
-                      {
-                        "id": "nav-filter",
-                        "label": "nav-filter",
-                        "role": "textbox",
-                        "value": ""
-                      },
-                      {
                         "children": [
                           {
-                            "disabled": false,
-                            "expanded": true,
-                            "id": "showcase-nav:operations",
-                            "label": "Operations",
-                            "position": {
-                              "count": 7,
-                              "index": 0,
-                              "level": 1
-                            },
-                            "role": "option",
-                            "selected": false,
-                            "value": "operations"
+                            "id": "workspace-breadcrumb:watch",
+                            "label": "Watch",
+                            "role": "button"
                           },
                           {
-                            "disabled": false,
-                            "id": "showcase-nav:dashboard",
-                            "label": "Overview",
-                            "position": {
-                              "count": 7,
-                              "index": 1,
-                              "level": 2
-                            },
-                            "role": "option",
-                            "selected": false,
-                            "value": "operations/dashboard"
+                            "id": "workspace-breadcrumb:separator:1",
+                            "label": "workspace-breadcrumb:separator:1",
+                            "role": "text",
+                            "value": "›"
                           },
                           {
-                            "disabled": false,
-                            "id": "showcase-nav:data",
-                            "label": "Fleet board",
-                            "position": {
-                              "count": 7,
-                              "index": 2,
-                              "level": 2
-                            },
-                            "role": "option",
-                            "selected": false,
-                            "value": "operations/data"
-                          },
-                          {
-                            "disabled": false,
-                            "id": "showcase-nav:text",
-                            "label": "Briefing room",
-                            "position": {
-                              "count": 7,
-                              "index": 3,
-                              "level": 2
-                            },
-                            "role": "option",
-                            "selected": false,
-                            "value": "operations/text"
-                          },
-                          {
-                            "disabled": false,
-                            "id": "showcase-nav:diagram",
-                            "label": "Route map",
-                            "position": {
-                              "count": 7,
-                              "index": 4,
-                              "level": 2
-                            },
-                            "role": "option",
-                            "selected": false,
-                            "value": "operations/diagram"
-                          },
-                          {
-                            "disabled": false,
-                            "id": "showcase-nav:forms",
-                            "label": "Dispatch desk",
-                            "position": {
-                              "count": 7,
-                              "index": 5,
-                              "level": 2
-                            },
-                            "role": "option",
-                            "selected": false,
-                            "value": "operations/forms"
-                          },
-                          {
-                            "disabled": false,
-                            "id": "showcase-nav:activity",
+                            "id": "workspace-breadcrumb:activity",
                             "label": "Live events",
-                            "position": {
-                              "count": 7,
-                              "index": 6,
-                              "level": 2
-                            },
-                            "role": "option",
-                            "selected": true,
-                            "value": "operations/activity"
+                            "role": "button"
                           }
                         ],
-                        "description": "Showing 1-7 of 7 tree rows.",
-                        "id": "showcase-nav",
-                        "label": "showcase-nav",
-                        "role": "listbox",
-                        "window": {
-                          "end": 7,
-                          "omittedAfter": 0,
-                          "omittedBefore": 0,
-                          "start": 0,
-                          "total": 7
-                        }
+                        "id": "workspace-breadcrumb",
+                        "label": "workspace-breadcrumb",
+                        "role": "text"
                       },
                       {
                         "children": [
                           {
-                            "id": "quick-list:option:0",
-                            "label": "Palette",
-                            "role": "option",
-                            "selected": true
+                            "id": "workspace-route-menu:dashboard",
+                            "label": "Overview",
+                            "role": "button"
                           },
                           {
-                            "id": "quick-list:option:1",
-                            "label": "Handoff",
-                            "role": "option",
-                            "selected": false
+                            "id": "workspace-route-menu:data",
+                            "label": "Fleet",
+                            "role": "button"
                           },
                           {
-                            "id": "quick-list:option:2",
-                            "label": "Theme",
-                            "role": "option",
-                            "selected": false
+                            "id": "workspace-route-menu:text",
+                            "label": "Briefing",
+                            "role": "button"
                           },
                           {
-                            "id": "quick-list:option:3",
-                            "label": "Context",
-                            "role": "option",
-                            "selected": false
+                            "id": "workspace-route-menu:diagram",
+                            "label": "Map",
+                            "role": "button"
+                          },
+                          {
+                            "id": "workspace-route-menu:overflow-label",
+                            "label": "workspace-route-menu:overflow-label",
+                            "role": "text",
+                            "value": "More routes"
+                          },
+                          {
+                            "children": [
+                              {
+                                "checked": false,
+                                "disabled": false,
+                                "id": "workspace-route-menu:overflow:forms",
+                                "label": "Dispatch",
+                                "role": "menuitem",
+                                "selected": false
+                              },
+                              {
+                                "checked": false,
+                                "disabled": false,
+                                "id": "workspace-route-menu:overflow:activity",
+                                "label": "Events",
+                                "role": "menuitem",
+                                "selected": true
+                              }
+                            ],
+                            "id": "workspace-route-menu:overflow",
+                            "label": "workspace-route-menu:overflow",
+                            "role": "menu",
+                            "scope": {
+                              "kind": "menu"
+                            }
                           }
                         ],
-                        "description": "Showing 1-4 of 4 items.",
-                        "id": "quick-list",
-                        "label": "quick-list",
-                        "role": "listbox"
+                        "id": "workspace-route-menu",
+                        "label": "workspace-route-menu",
+                        "role": "text"
                       }
                     ],
-                    "id": "navigation-pane",
-                    "label": "navigation-pane",
+                    "id": "workspace-navigation",
+                    "label": "workspace-navigation",
                     "role": "text"
-                  }
-                ],
-                "id": "navigation-shell",
-                "label": "navigation-shell",
-                "role": "text"
-              },
-              {
-                "children": [
-                  {
-                    "disabled": false,
-                    "id": "workspace-tabs:dashboard",
-                    "label": "Overview",
-                    "role": "menuitem",
-                    "selected": false
                   },
-                  {
-                    "disabled": false,
-                    "id": "workspace-tabs:data",
-                    "label": "Fleet",
-                    "role": "menuitem",
-                    "selected": false
-                  },
-                  {
-                    "disabled": false,
-                    "id": "workspace-tabs:text",
-                    "label": "Briefing",
-                    "role": "menuitem",
-                    "selected": false
-                  },
-                  {
-                    "disabled": false,
-                    "id": "workspace-tabs:diagram",
-                    "label": "Map",
-                    "role": "menuitem",
-                    "selected": false
-                  },
-                  {
-                    "disabled": false,
-                    "id": "workspace-tabs:forms",
-                    "label": "Dispatch",
-                    "role": "menuitem",
-                    "selected": false
-                  },
-                  {
-                    "disabled": false,
-                    "id": "workspace-tabs:activity",
-                    "label": "Events",
-                    "role": "menuitem",
-                    "selected": true
-                  }
-                ],
-                "id": "workspace-tabs",
-                "label": "workspace-tabs",
-                "role": "menu"
-              },
-              {
-                "children": [
                   {
                     "children": [
                       {
-                        "disabled": false,
-                        "id": "inspector-tabs:vessel",
-                        "label": "Vessel",
-                        "role": "menuitem",
-                        "selected": true
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "description": "status success, expanded, 2 fields",
+                                "id": "activity-feed:block:berth",
+                                "label": "Berth window secured",
+                                "role": "option",
+                                "selected": false,
+                                "value": "Aster enters berth 12 inside the active tide window"
+                              },
+                              {
+                                "description": "status running, expanded, 2 fields",
+                                "id": "activity-feed:block:lane",
+                                "label": "Lane pressure rising",
+                                "role": "option",
+                                "selected": true,
+                                "value": "Ferry wake and supply traffic are sharing channel C"
+                              },
+                              {
+                                "description": "status info, expanded, 2 fields",
+                                "id": "activity-feed:block:cargo",
+                                "label": "Cold-chain cleared",
+                                "role": "option",
+                                "selected": false,
+                                "value": "Temperature telemetry stayed inside the transfer band"
+                              },
+                              {
+                                "description": "status warning, expanded, 2 fields",
+                                "id": "activity-feed:block:weather",
+                                "label": "Weather advisory easing",
+                                "role": "option",
+                                "selected": false,
+                                "value": "Outer marker gusts remain uneven but trend downward"
+                              }
+                            ],
+                            "description": "Showing 1-4 of 4 activity blocks.",
+                            "id": "activity-feed",
+                            "label": "activity-feed",
+                            "role": "listbox"
+                          }
+                        ],
+                        "id": "activity-feed-card",
+                        "label": "activity-feed-card",
+                        "role": "text"
                       },
                       {
-                        "disabled": false,
-                        "id": "inspector-tabs:route",
-                        "label": "Route",
-                        "role": "menuitem",
-                        "selected": false
-                      },
-                      {
-                        "disabled": false,
-                        "id": "inspector-tabs:event",
-                        "label": "Event",
-                        "role": "menuitem",
-                        "selected": false
-                      },
-                      {
-                        "disabled": false,
-                        "id": "inspector-tabs:theme",
-                        "label": "Theme",
-                        "role": "menuitem",
-                        "selected": false
+                        "children": [
+                          {
+                            "children": [
+                              {
+                                "id": "selected-activity:status",
+                                "label": "status",
+                                "role": "status",
+                                "value": "running"
+                              },
+                              {
+                                "id": "selected-activity:summary",
+                                "label": "summary",
+                                "role": "text",
+                                "value": "Ferry wake and supply traffic are sharing channel C"
+                              },
+                              {
+                                "id": "selected-activity:field:sector",
+                                "label": "sector",
+                                "role": "text",
+                                "value": "west lane"
+                              },
+                              {
+                                "id": "selected-activity:field:watch",
+                                "label": "watch",
+                                "role": "text",
+                                "value": "14 min"
+                              }
+                            ],
+                            "description": "status running, expanded, 2 fields",
+                            "id": "selected-activity",
+                            "label": "Lane pressure rising",
+                            "role": "text",
+                            "value": "Ferry wake and supply traffic are sharing channel C"
+                          }
+                        ],
+                        "id": "activity-detail-card",
+                        "label": "activity-detail-card",
+                        "role": "text"
                       }
                     ],
-                    "id": "inspector-tabs",
-                    "label": "inspector-tabs",
-                    "role": "menu"
+                    "id": "activity-compact-grid",
+                    "label": "activity-compact-grid",
+                    "role": "text"
                   }
                 ],
-                "id": "inspector-pane",
-                "label": "inspector-pane",
+                "id": "workspace-shell",
+                "label": "workspace-shell",
                 "role": "text"
               }
             ],
-            "id": "main-layout",
-            "label": "main-layout",
+            "id": "main-layout-narrow",
+            "label": "main-layout-narrow",
             "role": "text"
           },
           {
@@ -400,11 +334,31 @@
                 "value": "/events"
               },
               {
-                "id": "showcase-help",
-                "label": "showcase-help",
-                "live": "polite",
-                "role": "status",
-                "value": "Tab focus  Enter activate  /palette commands  /handoff modal  Ctrl-C exit"
+                "children": [
+                  {
+                    "id": "showcase-shortcuts:palette",
+                    "label": "/ commands",
+                    "role": "button"
+                  },
+                  {
+                    "id": "showcase-shortcuts:handoff",
+                    "label": "H handoff",
+                    "role": "button"
+                  },
+                  {
+                    "id": "showcase-shortcuts:theme",
+                    "label": "T theme",
+                    "role": "button"
+                  },
+                  {
+                    "id": "showcase-shortcuts:context",
+                    "label": "C context",
+                    "role": "button"
+                  }
+                ],
+                "id": "showcase-shortcuts",
+                "label": "showcase-shortcuts",
+                "role": "text"
               }
             ],
             "id": "bottom-chrome",

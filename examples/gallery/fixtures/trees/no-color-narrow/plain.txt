@@ -1,5 +1,5 @@
 +----------------------------------------------------------------------------------------+
-|  v Workspacees","style":{"fg":{"kind":"theme","token":"accent.primary"},"bold":true}}  |
+|  v Workspace                                                                           |
 |    v Apps                                                                              |
 |        Studio                                                                          |
 |>       Reports                                                                         |

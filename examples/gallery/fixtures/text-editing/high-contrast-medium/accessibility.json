@@ -8,10 +8,10 @@
   "root": {
     "children": [
       {
-        "id": "text-2-2",
-        "label": "text-2-2",
+        "id": "richText-2-2",
+        "label": "richText-2-2",
         "role": "text",
-        "value": "{\"value\":\"Text editing\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+        "value": "Text editing"
       },
       {
         "children": [

@@ -3,8 +3,12 @@ import type {
   BoxWidgetOptions,
   ButtonWidgetOptions,
   AbsoluteWidgetOptions,
+  AreaGridWidgetOptions,
   CanvasWidgetOptions,
   CheckboxWidgetOptions,
+  CheckboxListWidgetOptions,
+  ColorPickerWidgetOptions,
+  DatePickerWidgetOptions,
   InputFieldWidgetOptions,
   FieldWidgetOptions,
   FormWidgetOptions,
@@ -12,12 +16,16 @@ import type {
   LabelWidgetOptions,
   ContextMenuWidgetOptions,
   DropdownWidgetOptions,
+  DividerWidgetOptions,
+  TooltipWidgetOptions,
   MenuBarWidgetOptions,
   MenuItem,
   MenuWidgetOptions,
+  NotificationStackWidgetOptions,
   NumberInputWidgetOptions,
   ProgressBarWidgetOptions,
   RadioGroupWidgetOptions,
+  RangeSliderWidgetOptions,
   RowWidgetOptions,
   ScrollbackWidgetOptions,
   SelectBoxWidgetOptions,
@@ -30,6 +38,8 @@ import type {
   TableWidgetOptions,
   TextInputWidgetOptions,
   TextWidgetOptions,
+  SliderWidgetOptions,
+  ToggleSwitchWidgetOptions,
   ViewportWidgetOptions,
   ActivityFeedWidgetOptions,
   Widget,
@@ -38,7 +48,9 @@ import type {
   CommandPaletteWidgetOptions,
   CustomWidgetOptions,
   GridWidgetOptions,
+  GaugeWidgetOptions,
   HelpBarWidgetOptions,
+  HeatmapWidgetOptions,
   ModalWidgetOptions,
   PaletteWidgetOptions,
   PaginatorWidgetOptions,
@@ -292,6 +304,94 @@ export function checkbox<TMessage>(options: CheckboxWidgetOptions<TMessage>): Wi
   };
 }
 
+export function toggleSwitch<TMessage>(options: ToggleSwitchWidgetOptions<TMessage>): Widget<TMessage> {
+  const keyMap = messageKeyMap(options.message, options.keyMap);
+  return {
+    ...optionalId(options.id),
+    kind: 'toggleSwitch',
+    props: {
+      label: options.label,
+      checked: options.checked,
+      ...(options.onLabel === undefined ? {} : { onLabel: options.onLabel }),
+      ...(options.offLabel === undefined ? {} : { offLabel: options.offLabel }),
+      ...(options.message === undefined ? {} : { message: options.message }),
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      ...(options.error === undefined ? {} : { error: options.error })
+    },
+    ...(keyMap === undefined ? {} : { keyMap }),
+    ...interactionOptions({
+      accessibility: options.accessibility,
+      ...widgetInteractionFields(options)
+    })
+  };
+}
+
+export function slider<TMessage>(options: SliderWidgetOptions<TMessage>): Widget<TMessage> {
+  const keyMap = sliderKeyMap(options, options.keyMap);
+  return {
+    ...optionalId(options.id),
+    kind: 'slider',
+    props: {
+      ...(options.label === undefined ? {} : { label: options.label }),
+      value: options.value,
+      ...(options.min === undefined ? {} : { min: options.min }),
+      ...(options.max === undefined ? {} : { max: options.max }),
+      ...(options.step === undefined ? {} : { step: options.step }),
+      ...(options.width === undefined ? {} : { width: options.width }),
+      ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage }),
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      ...(options.error === undefined ? {} : { error: options.error })
+    },
+    ...(keyMap === undefined ? {} : { keyMap }),
+    ...interactionOptions({
+      accessibility: options.accessibility,
+      ...widgetInteractionFields(options)
+    })
+  };
+}
+
+export function rangeSlider<TMessage>(options: RangeSliderWidgetOptions<TMessage>): Widget<TMessage> {
+  const keyMap = rangeSliderKeyMap(options, options.keyMap);
+  return {
+    ...optionalId(options.id),
+    kind: 'rangeSlider',
+    props: {
+      ...(options.label === undefined ? {} : { label: options.label }),
+      start: options.start,
+      end: options.end,
+      ...(options.min === undefined ? {} : { min: options.min }),
+      ...(options.max === undefined ? {} : { max: options.max }),
+      ...(options.step === undefined ? {} : { step: options.step }),
+      ...(options.width === undefined ? {} : { width: options.width }),
+      ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage }),
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      ...(options.error === undefined ? {} : { error: options.error })
+    },
+    ...(keyMap === undefined ? {} : { keyMap }),
+    ...interactionOptions({
+      accessibility: options.accessibility,
+      ...widgetInteractionFields(options)
+    })
+  };
+}
+
+export function checkboxList<TValue, TMessage>(options: CheckboxListWidgetOptions<TValue, TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'checkboxList',
+    props: {
+      options: options.options,
+      ...(options.label === undefined ? {} : { label: options.label }),
+      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage }),
+      ...(options.required === undefined ? {} : { required: options.required }),
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      ...(options.error === undefined ? {} : { error: options.error })
+    },
+    ...interactionOptions(options)
+  };
+}
+
 export function radioGroup<TValue, TMessage>(options: RadioGroupWidgetOptions<TValue, TMessage>): Widget<TMessage> {
   return {
     ...optionalId(options.id),
@@ -302,6 +402,40 @@ export function radioGroup<TValue, TMessage>(options: RadioGroupWidgetOptions<TV
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage }),
       ...(options.required === undefined ? {} : { required: options.required }),
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      ...(options.error === undefined ? {} : { error: options.error })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function colorPicker<TValue, TMessage>(options: ColorPickerWidgetOptions<TValue, TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'colorPicker',
+    props: {
+      options: options.options,
+      ...(options.label === undefined ? {} : { label: options.label }),
+      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.columns === undefined ? {} : { columns: options.columns }),
+      ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage }),
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      ...(options.error === undefined ? {} : { error: options.error })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function datePicker<TValue, TMessage>(options: DatePickerWidgetOptions<TValue, TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'datePicker',
+    props: {
+      days: options.days,
+      ...(options.label === undefined ? {} : { label: options.label }),
+      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.columns === undefined ? {} : { columns: options.columns }),
+      ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
@@ -441,6 +575,69 @@ export function dropdown<TMessage>(options: DropdownWidgetOptions<TMessage>): Wi
   };
 }
 
+export function divider<TMessage>(options: DividerWidgetOptions<TMessage> = {}): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'divider',
+    props: {
+      ...(options.orientation === undefined ? {} : { orientation: options.orientation }),
+      ...(options.line === undefined ? {} : { line: options.line }),
+      ...(options.label === undefined ? {} : { label: options.label }),
+      ...(options.labelAlign === undefined ? {} : { labelAlign: options.labelAlign })
+    },
+    ...interactionOptions({
+      keyMap: options.keyMap,
+      accessibility: options.accessibility,
+      ...widgetInteractionFields(options)
+    })
+  };
+}
+
+export function tooltip<TMessage>(options: TooltipWidgetOptions<TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'tooltip',
+    props: {
+      content: options.content,
+      ...(options.title === undefined ? {} : { title: options.title }),
+      ...(options.tone === undefined ? {} : { tone: options.tone }),
+      ...(options.placement === undefined ? {} : { placement: options.placement }),
+      ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
+      ...(options.border === undefined ? {} : { border: options.border })
+    },
+    ...interactionOptions({
+      keyMap: options.keyMap,
+      accessibility: options.accessibility,
+      ...widgetInteractionFields(options)
+    })
+  };
+}
+
+export function notificationStack<TMessage>(options: NotificationStackWidgetOptions<TMessage>): Widget<TMessage> {
+  const dismissMessage = selectedNotificationDismissMessage(options);
+  return {
+    ...optionalId(options.id),
+    kind: 'notificationStack',
+    props: {
+      items: options.items,
+      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.placement === undefined ? {} : { placement: options.placement }),
+      ...(options.maxVisible === undefined ? {} : { maxVisible: options.maxVisible }),
+      ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth })
+    },
+    ...interactionOptions({
+      keyMap: mergeKeyMaps(
+        dismissMessage === undefined
+          ? undefined
+          : { escape: dismissMessage, delete: dismissMessage, backspace: dismissMessage },
+        options.keyMap
+      ),
+      accessibility: options.accessibility,
+      ...widgetInteractionFields(options)
+    })
+  };
+}
+
 export function canvas<TMessage>(options: CanvasWidgetOptions<TMessage>): Widget<TMessage> {
   assertCanvasPainter(options.painter);
   return {
@@ -460,7 +657,10 @@ export function surface<TMessage>(children: WidgetChildren<TMessage>, options: S
     ...optionalId(options.id),
     kind: 'surface',
     props: {
-      ...(options.label === undefined ? {} : { label: options.label })
+      ...(options.label === undefined ? {} : { label: options.label }),
+      ...(options.variant === undefined ? {} : { variant: options.variant }),
+      ...(options.border === undefined ? {} : { border: options.border }),
+      ...(options.shadow === undefined ? {} : { shadow: options.shadow })
     },
     children: Array.isArray(children) ? children : [children],
     ...interactionOptions(options)
@@ -582,7 +782,46 @@ export function chart<TMessage>(options: ChartWidgetOptions<TMessage>): Widget<T
     props: {
       series: options.series,
       ...(options.min === undefined ? {} : { min: options.min }),
-      ...(options.max === undefined ? {} : { max: options.max })
+      ...(options.max === undefined ? {} : { max: options.max }),
+      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.legend === undefined ? {} : { legend: options.legend }),
+      ...(options.xLabel === undefined ? {} : { xLabel: options.xLabel }),
+      ...(options.yLabel === undefined ? {} : { yLabel: options.yLabel }),
+      ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function gauge(options: GaugeWidgetOptions): Widget<never> {
+  return {
+    ...optionalId(options.id),
+    kind: 'gauge',
+    props: {
+      ...(options.label === undefined ? {} : { label: options.label }),
+      value: options.value,
+      ...(options.min === undefined ? {} : { min: options.min }),
+      ...(options.max === undefined ? {} : { max: options.max }),
+      ...(options.width === undefined ? {} : { width: options.width }),
+      ...(options.variant === undefined ? {} : { variant: options.variant }),
+      ...(options.status === undefined ? {} : { status: options.status })
+    },
+    ...interactionOptions(options)
+  };
+}
+
+export function heatmap<TValue, TMessage>(options: HeatmapWidgetOptions<TValue, TMessage>): Widget<TMessage> {
+  return {
+    ...optionalId(options.id),
+    kind: 'heatmap',
+    props: {
+      rows: options.rows,
+      ...(options.min === undefined ? {} : { min: options.min }),
+      ...(options.max === undefined ? {} : { max: options.max }),
+      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.cellWidth === undefined ? {} : { cellWidth: options.cellWidth }),
+      ...(options.gap === undefined ? {} : { gap: options.gap }),
+      ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage })
     },
     ...interactionOptions(options)
   };
@@ -715,6 +954,34 @@ export function commandPalette<TMessage>(options: CommandPaletteWidgetOptions<TM
       value: entry.id
     }))
   });
+}
+
+export function areaGrid<TMessage>(options: AreaGridWidgetOptions<TMessage>): Widget<TMessage> {
+  const template = parseAreaGridTemplate(options.areas);
+  const areaNames = areaGridAreaNames(template);
+  assertAreaGridChildren(areaNames, options.children);
+  if (options.rows.length !== template.length) {
+    throw new RangeError(`areaGrid rows length ${String(options.rows.length)} must match template rows ${String(template.length)}.`);
+  }
+  if (template[0] !== undefined && options.columns.length !== template[0].length) {
+    throw new RangeError(`areaGrid columns length ${String(options.columns.length)} must match template columns ${String(template[0].length)}.`);
+  }
+  return {
+    ...optionalId(options.id),
+    kind: 'areaGrid',
+    props: {
+      areas: template,
+      areaNames,
+      rows: options.rows,
+      columns: options.columns,
+      ...(options.gap === undefined ? {} : { gap: options.gap }),
+      ...(options.rowGap === undefined ? {} : { rowGap: options.rowGap }),
+      ...(options.columnGap === undefined ? {} : { columnGap: options.columnGap }),
+      ...layoutProps(options)
+    },
+    children: areaNames.map((name) => options.children[name]).filter((child): child is Widget<TMessage> => child !== undefined),
+    ...interactionOptions(options)
+  };
 }
 
 export function grid<TMessage>(
@@ -879,6 +1146,87 @@ function optionalId(id: string | undefined): { readonly id?: string } {
   return id === undefined ? {} : { id };
 }
 
+function selectedNotificationDismissMessage<TMessage>(
+  options: NotificationStackWidgetOptions<TMessage>
+): TMessage | undefined {
+  if (options.toDismissMessage === undefined) return undefined;
+  const items = options.items.slice(0, notificationMaxVisible(options.maxVisible));
+  const selected = options.selected === undefined ? 0 : Math.max(0, Math.min(items.length - 1, Math.floor(options.selected)));
+  const item = items[selected];
+  return item === undefined ? undefined : options.toDismissMessage(item);
+}
+
+function notificationMaxVisible(value: number | undefined): number {
+  return value === undefined || !Number.isFinite(value)
+    ? 4
+    : Math.max(1, Math.min(12, Math.floor(value)));
+}
+
+function parseAreaGridTemplate(source: string): readonly (readonly string[])[] {
+  const rows = source
+    .trim()
+    .split('\n')
+    .map((row) => row.trim())
+    .filter((row) => row.length > 0)
+    .map((row) => row.split(/\s+/u));
+  if (rows.length === 0) throw new RangeError('areaGrid areas must contain at least one row.');
+  const width = rows[0]?.length ?? 0;
+  if (width === 0) throw new RangeError('areaGrid areas must contain at least one column.');
+  for (const row of rows) {
+    if (row.length !== width) throw new RangeError('areaGrid areas must be rectangular.');
+    for (const name of row) {
+      if (name !== '.' && !/^[A-Za-z][A-Za-z0-9_-]*$/u.test(name)) {
+        throw new RangeError(`areaGrid area name "${name}" is invalid.`);
+      }
+    }
+  }
+  assertAreaGridTemplateRectangles(rows);
+  return rows;
+}
+
+function areaGridAreaNames(template: readonly (readonly string[])[]): readonly string[] {
+  const names: string[] = [];
+  for (const row of template) {
+    for (const name of row) {
+      if (name === '.' || names.includes(name)) continue;
+      names.push(name);
+    }
+  }
+  return names;
+}
+
+function assertAreaGridChildren(
+  areaNames: readonly string[],
+  children: Readonly<Record<string, Widget>>
+): void {
+  const names = new Set(areaNames);
+  for (const name of areaNames) {
+    if (children[name] === undefined) throw new RangeError(`areaGrid is missing child for area "${name}".`);
+  }
+  for (const name of Object.keys(children)) {
+    if (!names.has(name)) throw new RangeError(`areaGrid child "${name}" is not used by the template.`);
+  }
+}
+
+function assertAreaGridTemplateRectangles(template: readonly (readonly string[])[]): void {
+  for (const name of areaGridAreaNames(template)) {
+    const cells = template.flatMap((row, rowIndex) =>
+      row.map((value, columnIndex) => ({ value, rowIndex, columnIndex })).filter((cell) => cell.value === name)
+    );
+    const minRow = Math.min(...cells.map((cell) => cell.rowIndex));
+    const maxRow = Math.max(...cells.map((cell) => cell.rowIndex));
+    const minColumn = Math.min(...cells.map((cell) => cell.columnIndex));
+    const maxColumn = Math.max(...cells.map((cell) => cell.columnIndex));
+    for (let row = minRow; row <= maxRow; row += 1) {
+      for (let column = minColumn; column <= maxColumn; column += 1) {
+        if (template[row]?.[column] !== name) {
+          throw new RangeError(`areaGrid area "${name}" must be rectangular.`);
+        }
+      }
+    }
+  }
+}
+
 function listKeyMap<TValue, TMessage>(
   options: ListWidgetOptions<TValue, TMessage>
 ): WidgetKeyMap<TMessage> | undefined {
@@ -906,6 +1254,28 @@ function messageKeyMap<TMessage>(
   explicit: WidgetKeyMap<TMessage> | undefined
 ): WidgetKeyMap<TMessage> | undefined {
   return mergeKeyMaps(message === undefined ? undefined : { enter: message }, explicit);
+}
+
+function sliderKeyMap<TMessage>(
+  options: SliderWidgetOptions<TMessage>,
+  explicit: WidgetKeyMap<TMessage> | undefined
+): WidgetKeyMap<TMessage> | undefined {
+  return mergeKeyMaps({
+    ...(options.decrementMessage === undefined ? {} : { left: options.decrementMessage, down: options.decrementMessage }),
+    ...(options.incrementMessage === undefined ? {} : { right: options.incrementMessage, up: options.incrementMessage })
+  }, explicit);
+}
+
+function rangeSliderKeyMap<TMessage>(
+  options: RangeSliderWidgetOptions<TMessage>,
+  explicit: WidgetKeyMap<TMessage> | undefined
+): WidgetKeyMap<TMessage> | undefined {
+  return mergeKeyMaps({
+    ...(options.decrementStartMessage === undefined ? {} : { left: options.decrementStartMessage }),
+    ...(options.incrementStartMessage === undefined ? {} : { right: options.incrementStartMessage }),
+    ...(options.decrementEndMessage === undefined ? {} : { down: options.decrementEndMessage }),
+    ...(options.incrementEndMessage === undefined ? {} : { up: options.incrementEndMessage })
+  }, explicit);
 }
 
 function menuKeyMap<TMessage>(

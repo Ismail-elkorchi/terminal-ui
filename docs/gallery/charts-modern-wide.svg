@@ -2,87 +2,128 @@
 <rect width="100%" height="100%" fill="#000000"/>
 <text x="16" y="30" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐</text>
 <text x="16" y="48" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
-<text x="24" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">▁▂▃▇▄▆█▅:"Charts","style":{"fg":{"kind":"theme","tok  input █████████████████████████████████████ 86</text>
+<text x="24" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">▁▂▃▇▄▆█▅</text>
+<text x="440" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  input █████████████████████████████████████ 86</text>
+<text x="856" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">    *</text>
 <text x="1288" y="48" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="66" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="440" y="66" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">› a11y █████████████████████████████████████████ 94</text>
+<text x="856" y="66" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">    *</text>
 <text x="1288" y="66" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="84" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="440" y="84" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  diff ██████████████████████████████████ 78</text>
+<text x="856" y="84" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">    *</text>
 <text x="1288" y="84" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="102" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="102" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">    *</text>
 <text x="1288" y="102" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="120" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="120" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">    *</text>
 <text x="1288" y="120" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="138" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="138" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">    *</text>
 <text x="1288" y="138" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="156" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="156" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">    *</text>
 <text x="1288" y="156" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="174" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="174" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">    *</text>
 <text x="1288" y="174" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="192" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="192" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">    *</text>
 <text x="1288" y="192" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="210" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="210" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  * *</text>
 <text x="1288" y="210" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="228" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="228" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  * *</text>
 <text x="1288" y="228" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="246" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="246" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  * *</text>
 <text x="1288" y="246" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="264" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="264" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  * *</text>
 <text x="1288" y="264" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="282" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="282" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  * *</text>
 <text x="1288" y="282" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="300" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="300" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  * *</text>
 <text x="1288" y="300" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="318" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="318" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  **</text>
 <text x="1288" y="318" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="336" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="336" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  **</text>
 <text x="1288" y="336" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="354" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="354" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  **</text>
 <text x="1288" y="354" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="372" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="372" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  **</text>
 <text x="1288" y="372" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="390" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="390" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">* **</text>
 <text x="1288" y="390" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="408" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="408" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">* **</text>
 <text x="1288" y="408" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="426" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="426" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">* **</text>
 <text x="1288" y="426" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="444" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="444" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">* **</text>
 <text x="1288" y="444" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="462" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="462" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">* **</text>
 <text x="1288" y="462" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="480" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="480" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">** *</text>
 <text x="1288" y="480" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="498" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="498" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">** *</text>
 <text x="1288" y="498" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="516" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="516" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">** *</text>
 <text x="1288" y="516" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="534" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="534" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">** *</text>
 <text x="1288" y="534" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="552" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="552" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">** *</text>
 <text x="1288" y="552" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="570" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="570" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">** *</text>
 <text x="1288" y="570" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="588" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="588" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> *</text>
 <text x="1288" y="588" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="606" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="606" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> *</text>
 <text x="1288" y="606" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="624" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="624" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> *</text>
 <text x="1288" y="624" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="642" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="642" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> *</text>
 <text x="1288" y="642" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="660" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="660" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> *</text>
 <text x="1288" y="660" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="678" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="678" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> *</text>
 <text x="1288" y="678" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="696" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="696" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> *</text>
 <text x="1288" y="696" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="714" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="714" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> *</text>
 <text x="1288" y="714" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="732" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="732" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> *</text>
 <text x="1288" y="732" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="750" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
+<text x="856" y="750" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> *</text>
 <text x="1288" y="750" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="768" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘</text>
 </svg>

@@ -339,7 +339,9 @@ function animationIndex(sequence) {
 
 function galleryShell(title, child) {
   return box([
-    text({ value: title, style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }),
+    richText({
+      segments: [{ text: title, style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }]
+    }),
     child
   ], { id: `${slug(title)}-gallery`, border: { label: title } });
 }
@@ -478,7 +480,7 @@ function chartsGallery() {
     ] }),
     chart({
       id: 'chart',
-      series: [{ id: 'series', points: [{ x: 0, y: 3 }, { x: 3, y: 1 }, { x: 6, y: 4 }] }]
+      series: [{ id: 'series', points: [3, 1, 4, 2, 5] }]
     })
   ], { columns: [{ kind: 'fill' }, { kind: 'fill' }, { kind: 'fill' }] }));
 }
@@ -526,13 +528,13 @@ function layoutGallery() {
         id: 'tabs',
         selected: 'overview',
         tabs: [
-          { id: 'overview', label: 'Overview', panel: text({ value: 'Tabbed workspace' }) },
-          { id: 'details', label: 'Details', panel: text({ value: 'Hidden panel' }) }
+          { id: 'overview', label: 'Overview', panel: text('Tabbed workspace') },
+          { id: 'details', label: 'Details', panel: text('Hidden panel') }
         ]
       }),
-      box(text({ value: 'Inspector panel' }), { id: 'inspector', border: { label: 'Inspector' } })
+      box(text('Inspector panel'), { id: 'inspector', border: { label: 'Inspector' } })
     ], { direction: 'horizontal', sizes: [{ kind: 'fill' }, { kind: 'fixed', cells: 24 }] }),
-    modal(text({ value: 'Modal focus scope' }), { id: 'layout-modal', title: 'Dialog', width: 28, height: 5 })
+    modal(text('Modal focus scope'), { id: 'layout-modal', title: 'Dialog', width: 28, height: 5 })
   ]));
 }
 

@@ -12,7 +12,7 @@ import {
   renderWidgetFrame
 } from '../../dist/tui/index.js';
 import { span } from '../../dist/tui/frame.js';
-import { list, table, tree, treeReducer } from '../../dist/widgets/index.js';
+import { list, paginatedTable, table, tree, treeReducer, virtualTable } from '../../dist/widgets/index.js';
 
 const mousePress = (row, column) => ({
   kind: 'mouse',
@@ -169,6 +169,60 @@ test('table supports scroll state column sizing styled renderers sort markers em
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.value, 'Name');
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[1]?.selected, true);
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[1]?.position?.columnLabel, 'Score');
+});
+
+test('table headers can expose a visible resize affordance without changing reducer ownership', () => {
+  const frame = renderWidgetFrame(table({
+    id: 'resizable-table',
+    columns: [
+      { header: 'Name', width: 8, resizable: true },
+      { header: 'Score', width: 6 }
+    ],
+    rows: [['Atlas', 89]]
+  }), { columns: 24, rows: 2 });
+
+  assert.match(renderFramePlain(frame), /Name ↔/u);
+});
+
+test('paginatedTable composes table and paginator over a bounded page', () => {
+  const frame = renderWidgetFrame(paginatedTable({
+    id: 'fleet-pages',
+    label: 'Fleet',
+    page: 2,
+    pageSize: 2,
+    selected: 2,
+    columns: [{ header: 'Name', width: 8 }],
+    rows: [['Aster'], ['Atlas'], ['Pulse'], ['Lumen'], ['Vector']]
+  }), { columns: 24, rows: 5 });
+
+  const output = renderFramePlain(frame);
+  assert.match(output, /Pulse/u);
+  assert.doesNotMatch(output, /Aster/u);
+  assert.match(output, /Fleet Page 2 of 3/u);
+  assert.equal(frame.accessibility.root.children?.some((node) => node.role === 'table'), true);
+});
+
+test('virtualTable applies sticky headers and both-axis scrollbar defaults to existing table rendering', () => {
+  const scroll = createScrollState({
+    offsetRow: 2,
+    contentRows: 8,
+    viewportRows: 3,
+    contentColumns: 40,
+    viewportColumns: 14
+  });
+  const frame = renderWidgetFrame(virtualTable({
+    id: 'virtual-table',
+    scroll,
+    columns: [{ header: 'Name', width: 12 }, { header: 'Score', width: 8 }],
+    rows: Array.from({ length: 8 }, (_value, index) => [`Vessel ${String(index)}`, index * 10])
+  }), { columns: 18, rows: 4 });
+
+  const output = renderFramePlain(frame);
+  assert.match(output, /Name/u);
+  assert.match(output, /Vessel 2/u);
+  assert.doesNotMatch(output, /Vessel 0/u);
+  assert.match(output, /█/u);
+  assert.match(output, /│/u);
 });
 
 test('table renders a styled empty state', () => {

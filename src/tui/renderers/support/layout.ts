@@ -43,6 +43,29 @@ export function gridChildBounds(widget: Widget, bounds: Rect, childMeasures: rea
   return (widget.children ?? []).map((_child, index) => cells[index] ?? emptyRect(bounds));
 }
 
+export function areaGridChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
+  const template = areaGridTemplate(widget.props['areas']);
+  const areaNames = areaGridAreaNames(widget.props['areaNames']);
+  if (template.length === 0 || areaNames.length === 0) return [];
+  const rows = layoutSizes(widget.props['rows']);
+  const columns = layoutSizes(widget.props['columns']);
+  const options = gridLayoutOptions(widget);
+  const contentBounds = layoutContentBounds(bounds, options);
+  const rowRects = splitTracks(
+    contentBounds,
+    'vertical',
+    rows.length === 0 ? [{ kind: 'fill' }] : rows,
+    gapOnlyOptions(options.rowGap ?? options.gap)
+  );
+  const columnRects = splitTracks(
+    contentBounds,
+    'horizontal',
+    columns.length === 0 ? [{ kind: 'fill' }] : columns,
+    gapOnlyOptions(options.columnGap ?? options.gap)
+  );
+  return areaNames.map((name) => areaBounds(template, name, rowRects, columnRects) ?? emptyRect(bounds));
+}
+
 export function splitPaneChildBounds(widget: Widget, bounds: Rect, childMeasures: readonly WidgetMeasureResult[]): readonly Rect[] {
   const children = widget.children ?? [];
   const explicit = layoutSizes(widget.props['sizes']);
@@ -108,11 +131,48 @@ export function fillLayoutSizes(count: number): readonly LayoutSize[] {
   return Array.from({ length: Math.max(0, count) }, () => ({ kind: 'fill' }));
 }
 
-function gridLayoutOptions(widget: Widget): GridLayoutOptions {
+export function gridLayoutOptions(widget: Widget): GridLayoutOptions {
   return {
     ...layoutFlowOptions(widget),
     ...optionalNumberProp(widget, 'rowGap'),
     ...optionalNumberProp(widget, 'columnGap')
+  };
+}
+
+function areaGridTemplate(value: unknown): readonly (readonly string[])[] {
+  return Array.isArray(value)
+    ? value.flatMap((row): readonly string[][] => Array.isArray(row) && row.every((cell) => typeof cell === 'string') ? [row] : [])
+    : [];
+}
+
+function areaGridAreaNames(value: unknown): readonly string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function areaBounds(
+  template: readonly (readonly string[])[],
+  name: string,
+  rows: readonly Rect[],
+  columns: readonly Rect[]
+): Rect | undefined {
+  const cells = template.flatMap((row, rowIndex) =>
+    row.map((value, columnIndex) => ({ value, rowIndex, columnIndex })).filter((cell) => cell.value === name)
+  );
+  if (cells.length === 0) return undefined;
+  const minRow = Math.min(...cells.map((cell) => cell.rowIndex));
+  const maxRow = Math.max(...cells.map((cell) => cell.rowIndex));
+  const minColumn = Math.min(...cells.map((cell) => cell.columnIndex));
+  const maxColumn = Math.max(...cells.map((cell) => cell.columnIndex));
+  const top = rows[minRow];
+  const bottom = rows[maxRow];
+  const left = columns[minColumn];
+  const right = columns[maxColumn];
+  if (top === undefined || bottom === undefined || left === undefined || right === undefined) return undefined;
+  return {
+    row: top.row,
+    column: left.column,
+    width: Math.max(0, right.column + right.width - left.column),
+    height: Math.max(0, bottom.row + bottom.height - top.row)
   };
 }
 

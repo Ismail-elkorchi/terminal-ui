@@ -4,12 +4,15 @@ Widgets are pure data descriptions. Constructing a widget never writes to the
 terminal, reads input, mutates global state, or performs runtime side effects.
 
 Built-in widget factories include text, rich text, text area, box, stack, row,
-grid, split panes, tabs, modal, list, table, tree, paginator, input-field,
-form, field, label, button, checkbox, radio group, select box, text input,
-number input, menu, menu bar, context menu, dropdown, canvas, surface,
-absolute placement, overlay, command bar, command palette, status bar, help
-bar, activity indicator, progress bar, spinner, sparkline, bar chart, chart,
-viewport, and scrollback widgets, plus structured blocks and activity feeds.
+grid, static named-area grids, split panes, tabs, modal, list, table, tree,
+paginator, input-field, form, field, label, button, checkbox, radio group,
+select box, text input, number input, toggle switch, slider, range slider,
+checkbox list, color picker, date picker, menu, menu bar, context menu,
+dropdown, divider, tooltip, notification stack, canvas, surface, absolute
+placement, overlay, command bar, command palette, status bar, help bar,
+activity indicator, progress bar, spinner, sparkline, bar chart, chart, gauge,
+heatmap, viewport, and scrollback widgets, plus structured blocks and activity
+feeds.
 
 Widget metadata drives layout, focus routing, rendering, and accessible
 snapshots.
@@ -147,8 +150,10 @@ icons, metadata matching, row mouse targets, clipping, and accessible expanded
 state;
 use the pure `treeReducer()` helper for expansion state. `paginator()` renders
 normalized page state and pairs with the pure `paginationWindow()` helper.
-`sparkline()`, `barChart()`, and `chart()` are bounded text-dashboard
-primitives for compact terminal metrics.
+`sparkline()`, `barChart()`, `chart()`, `gauge()`, and `heatmap()` are bounded
+text-dashboard primitives for compact terminal metrics. `chart()` supports line
+and scatter series, legends, axis labels, selected points, and hit targets;
+`heatmap()` exposes selectable cells and accessible table-like cell metadata.
 
 `structuredBlock()` renders a single titled record with optional summary,
 status, fields, body, details, and collapsed state. `activityFeed()` renders a
@@ -188,3 +193,9 @@ Executable examples:
 - `examples/showcase/app.mjs`
 - `examples/showcase/scripted.mjs`
 - `examples/showcase/preview.mjs`
+- `examples/products/file-manager.mjs`
+- `examples/products/system-monitor.mjs`
+- `examples/products/notes-workspace.mjs`
+- `examples/products/data-dashboard.mjs`
+- `examples/products/form-wizard.mjs`
+- `examples/products/chart-explorer.mjs`

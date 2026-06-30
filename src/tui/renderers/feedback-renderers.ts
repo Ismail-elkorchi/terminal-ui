@@ -8,6 +8,10 @@ import {
   progressAccessibleBase,
   progressBlock
 } from '../progress-widget.ts';
+import {
+  notificationStackAccessibleBase,
+  renderNotificationStack
+} from '../notifications.ts';
 import { stringify } from '../widget-props.ts';
 import { writeBlock, writeRenderBlock } from './support/block.ts';
 import type { RendererMap } from './types.ts';
@@ -42,5 +46,11 @@ export const feedbackRenderers = {
       writeRenderBlock(buffer, node.bounds, progressBlock(widget, theme));
     },
     accessibility: ({ widget, id }) => progressAccessibleBase(widget, id)
+  },
+  notificationStack: {
+    render: ({ widget, node, buffer, theme }) => {
+      renderNotificationStack(widget, buffer, node.bounds, theme);
+    },
+    accessibility: ({ widget, id, focused }) => notificationStackAccessibleBase(widget, id, focused)
   }
-} satisfies RendererMap<'statusBar' | 'helpBar' | 'spinner' | 'progressBar'>;
+} satisfies RendererMap<'statusBar' | 'helpBar' | 'spinner' | 'progressBar' | 'notificationStack'>;

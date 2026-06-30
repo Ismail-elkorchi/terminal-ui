@@ -1,13 +1,14 @@
 import {
   activityIndicator,
+  accordion,
   commandBar,
   grid,
-  helpBar,
   inputField,
   list,
   menuBar,
   progressBar,
   row,
+  shortcutBar,
   stack,
   statusBar,
   text,
@@ -91,17 +92,26 @@ export function navigationPane(state) {
       },
       scrollbar: { visible: true }
     }),
-    list({
-      id: 'quick-list',
-      items: quickActions,
-      selected: state.selectedQuickAction,
-      toMessage: (value) => quickActionMessage(value),
-      keyMap: {
-        arrowDown: { kind: 'quick', index: Math.min(quickActions.length - 1, state.selectedQuickAction + 1) },
-        arrowUp: { kind: 'quick', index: Math.max(0, state.selectedQuickAction - 1) },
-        enter: { kind: 'quickPick' }
-      },
-      scrollbar: { visible: true }
+    accordion({
+      id: 'quick-accordion',
+      items: [{
+        id: 'launch',
+        title: 'Quick launch',
+        expanded: true,
+        message: { kind: 'quickPick' },
+        body: list({
+          id: 'quick-list',
+          items: quickActions,
+          selected: state.selectedQuickAction,
+          toMessage: (value) => quickActionMessage(value),
+          keyMap: {
+            arrowDown: { kind: 'quick', index: Math.min(quickActions.length - 1, state.selectedQuickAction + 1) },
+            arrowUp: { kind: 'quick', index: Math.max(0, state.selectedQuickAction - 1) },
+            enter: { kind: 'quickPick' }
+          },
+          scrollbar: { visible: true }
+        })
+      }]
     })
   ], {
     id: 'navigation-pane',
@@ -109,7 +119,7 @@ export function navigationPane(state) {
       { kind: 'fixed', cells: 1 },
       { kind: 'fixed', cells: 1 },
       { kind: 'fill' },
-      { kind: 'fixed', cells: 6 }
+      { kind: 'fixed', cells: 8 }
     ],
     columns: [{ kind: 'fill' }],
     gap: 1
@@ -147,14 +157,13 @@ export function bottomChrome(state) {
         paste: (value) => ({ kind: 'commandText', text: value })
       }
     }),
-    helpBar({
-      id: 'showcase-help',
-      bindings: [
-        { key: 'Tab', label: 'focus' },
-        { key: 'Enter', label: 'activate' },
-        { key: '/palette', label: 'commands' },
-        { key: '/handoff', label: 'modal' },
-        { key: 'Ctrl-C', label: 'exit' }
+    shortcutBar({
+      id: 'showcase-shortcuts',
+      shortcuts: [
+        { id: 'palette', key: '/', label: 'commands', message: { kind: 'palette', open: true } },
+        { id: 'handoff', key: 'H', label: 'handoff', message: { kind: 'modal', open: true } },
+        { id: 'theme', key: 'T', label: 'theme', message: { kind: 'theme' } },
+        { id: 'context', key: 'C', label: 'context', message: { kind: 'context', open: true } }
       ]
     })
   ], { id: 'bottom-chrome' });

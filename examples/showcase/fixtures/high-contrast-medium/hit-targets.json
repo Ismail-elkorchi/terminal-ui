@@ -4,105 +4,83 @@
       "column": 25,
       "height": 1,
       "row": 4,
-      "width": 10
+      "width": 32
     },
     "cursor": "pointer",
-    "id": "workspace-tabs:tab:dashboard",
+    "id": "workspace-breadcrumb:watch:control",
     "zIndex": 0
   },
   {
     "bounds": {
-      "column": 36,
+      "column": 91,
       "height": 1,
       "row": 4,
-      "width": 7
+      "width": 32
     },
     "cursor": "pointer",
-    "id": "workspace-tabs:tab:data",
+    "id": "workspace-breadcrumb:diagram:control",
     "zIndex": 0
   },
   {
     "bounds": {
-      "column": 44,
-      "height": 1,
-      "row": 4,
-      "width": 10
-    },
-    "cursor": "pointer",
-    "id": "workspace-tabs:tab:text",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 55,
-      "height": 1,
-      "row": 4,
-      "width": 5
-    },
-    "cursor": "pointer",
-    "id": "workspace-tabs:tab:diagram",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 61,
-      "height": 1,
-      "row": 4,
-      "width": 10
-    },
-    "cursor": "pointer",
-    "id": "workspace-tabs:tab:forms",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 72,
-      "height": 1,
-      "row": 4,
-      "width": 8
-    },
-    "cursor": "pointer",
-    "id": "workspace-tabs:tab:activity",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 99,
+      "column": 25,
       "height": 1,
       "row": 5,
-      "width": 8
+      "width": 15
     },
     "cursor": "pointer",
-    "id": "inspector-tabs:tab:vessel",
+    "id": "workspace-route-menu:dashboard:control",
     "zIndex": 0
   },
   {
     "bounds": {
-      "column": 108,
+      "column": 41,
       "height": 1,
       "row": 5,
-      "width": 7
+      "width": 15
     },
     "cursor": "pointer",
-    "id": "inspector-tabs:tab:route",
+    "id": "workspace-route-menu:data:control",
     "zIndex": 0
   },
   {
     "bounds": {
-      "column": 116,
+      "column": 57,
       "height": 1,
       "row": 5,
-      "width": 5
+      "width": 15
     },
     "cursor": "pointer",
-    "id": "inspector-tabs:tab:event",
+    "id": "workspace-route-menu:text:control",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 73,
+      "height": 1,
+      "row": 5,
+      "width": 15
+    },
+    "cursor": "pointer",
+    "id": "workspace-route-menu:diagram:control",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 105,
+      "height": 1,
+      "row": 5,
+      "width": 18
+    },
+    "cursor": "pointer",
+    "id": "workspace-route-menu:overflow:forms",
     "zIndex": 0
   },
   {
     "bounds": {
       "column": 3,
       "height": 1,
-      "row": 7,
+      "row": 8,
       "width": 19
     },
     "cursor": "pointer",
@@ -113,7 +91,7 @@
     "bounds": {
       "column": 3,
       "height": 1,
-      "row": 9,
+      "row": 10,
       "width": 19
     },
     "cursor": "pointer",
@@ -122,13 +100,13 @@
   },
   {
     "bounds": {
-      "column": 3,
+      "column": 101,
       "height": 1,
       "row": 10,
-      "width": 19
+      "width": 1
     },
     "cursor": "pointer",
-    "id": "showcase-nav:dashboard",
+    "id": "route-pressure:lane:3",
     "zIndex": 0
   },
   {
@@ -139,7 +117,62 @@
       "width": 19
     },
     "cursor": "pointer",
-    "id": "showcase-nav:data",
+    "id": "showcase-nav:dashboard",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 98,
+      "height": 1,
+      "row": 11,
+      "width": 1
+    },
+    "cursor": "pointer",
+    "id": "route-pressure:gust:0",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 100,
+      "height": 1,
+      "row": 11,
+      "width": 1
+    },
+    "cursor": "pointer",
+    "id": "route-pressure:gust:2",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 100,
+      "height": 1,
+      "row": 11,
+      "width": 1
+    },
+    "cursor": "pointer",
+    "id": "route-pressure:lane:2",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 101,
+      "height": 1,
+      "row": 11,
+      "width": 1
+    },
+    "cursor": "pointer",
+    "id": "route-pressure:gust:3",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 102,
+      "height": 1,
+      "row": 11,
+      "width": 1
+    },
+    "cursor": "pointer",
+    "id": "route-pressure:lane:4",
     "zIndex": 0
   },
   {
@@ -150,7 +183,62 @@
       "width": 19
     },
     "cursor": "pointer",
-    "id": "showcase-nav:text",
+    "id": "showcase-nav:data",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 99,
+      "height": 1,
+      "row": 12,
+      "width": 1
+    },
+    "cursor": "pointer",
+    "id": "route-pressure:gust:1",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 99,
+      "height": 1,
+      "row": 12,
+      "width": 1
+    },
+    "cursor": "pointer",
+    "id": "route-pressure:lane:1",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 102,
+      "height": 1,
+      "row": 12,
+      "width": 1
+    },
+    "cursor": "pointer",
+    "id": "route-pressure:gust:4",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 103,
+      "height": 1,
+      "row": 12,
+      "width": 1
+    },
+    "cursor": "pointer",
+    "id": "route-pressure:gust:5",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 103,
+      "height": 1,
+      "row": 12,
+      "width": 1
+    },
+    "cursor": "pointer",
+    "id": "route-pressure:lane:5",
     "zIndex": 0
   },
   {
@@ -161,7 +249,7 @@
       "width": 19
     },
     "cursor": "pointer",
-    "id": "showcase-nav:diagram",
+    "id": "showcase-nav:text",
     "zIndex": 0
   },
   {
@@ -172,7 +260,18 @@
       "width": 19
     },
     "cursor": "pointer",
-    "id": "showcase-nav:forms",
+    "id": "showcase-nav:diagram",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 98,
+      "height": 1,
+      "row": 14,
+      "width": 1
+    },
+    "cursor": "pointer",
+    "id": "route-pressure:lane:0",
     "zIndex": 0
   },
   {
@@ -183,15 +282,37 @@
       "width": 19
     },
     "cursor": "pointer",
-    "id": "showcase-nav:activity",
+    "id": "showcase-nav:forms",
     "zIndex": 0
   },
   {
     "bounds": {
       "column": 3,
       "height": 1,
-      "row": 24,
+      "row": 16,
       "width": 19
+    },
+    "cursor": "pointer",
+    "id": "showcase-nav:activity",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 5,
+      "height": 2,
+      "row": 22,
+      "width": 15
+    },
+    "cursor": "pointer",
+    "id": "quick-accordion:launch:header:control",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 5,
+      "height": 1,
+      "row": 25,
+      "width": 15
     },
     "cursor": "pointer",
     "id": "quick-list:option:0",
@@ -199,10 +320,10 @@
   },
   {
     "bounds": {
-      "column": 3,
+      "column": 5,
       "height": 1,
-      "row": 25,
-      "width": 19
+      "row": 26,
+      "width": 15
     },
     "cursor": "pointer",
     "id": "quick-list:option:1",
@@ -210,10 +331,10 @@
   },
   {
     "bounds": {
-      "column": 3,
+      "column": 5,
       "height": 1,
-      "row": 26,
-      "width": 19
+      "row": 27,
+      "width": 15
     },
     "cursor": "pointer",
     "id": "quick-list:option:2",
@@ -221,13 +342,46 @@
   },
   {
     "bounds": {
-      "column": 3,
-      "height": 1,
-      "row": 27,
-      "width": 19
+      "column": 1,
+      "height": 2,
+      "row": 33,
+      "width": 29
     },
     "cursor": "pointer",
-    "id": "quick-list:option:3",
+    "id": "showcase-shortcuts:palette:control",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 31,
+      "height": 2,
+      "row": 33,
+      "width": 29
+    },
+    "cursor": "pointer",
+    "id": "showcase-shortcuts:handoff:control",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 61,
+      "height": 2,
+      "row": 33,
+      "width": 29
+    },
+    "cursor": "pointer",
+    "id": "showcase-shortcuts:theme:control",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 91,
+      "height": 2,
+      "row": 33,
+      "width": 32
+    },
+    "cursor": "pointer",
+    "id": "showcase-shortcuts:context:control",
     "zIndex": 0
   }
 ]

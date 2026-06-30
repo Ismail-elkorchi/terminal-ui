@@ -1,0 +1,21 @@
+
+
+     ┌ Open example ────────────────────────────────────────────────────────────────┐
+     │                                                                              │
+     │ Filter                                                                       │
+     │ showcase                                                                     │
+     │                                                                              │
+     │                                                                              │
+     │ files         /             file-dialog.m ┌ Preview ───────────────────────┐ │
+     │                                           │files/file-dialog.mjs           │ │
+     │                                           │                                │ │
+     │                                           │                                │ │
+     │   ▾ ▸ files                               │                                │ │
+     │ ›     · file-dialog.mjs                   │                                │ │
+     │   ▾ ▸ gallery                             │                                │ │
+     │     ▸ ▸ fixtures                          └────────────────────────────────┘ │
+     │                                                                              │
+     │ [ Cancel ]                            [ Open ]                               │
+     │                                                                              │
+     └──────────────────────────────────────────────────────────────────────────────┘
+{"source":"examples/files/file-dialog.mjs","adapter":"node-fs-example","entryCount":52,"selected":"files/file-dialog.mjs"}

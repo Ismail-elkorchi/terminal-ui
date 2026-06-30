@@ -27,6 +27,10 @@ widgets, themes, and `createTerminalHarness`.
 The showcase gallery under `docs/gallery/` is generated from the executable
 showcase app and checked by the fixture suite.
 
+Focused product examples under `examples/products/` demonstrate file manager,
+system monitor, note workspace, data dashboard, form wizard, and chart explorer
+workflows with the same visual primitives used by the showcase.
+
 Host adapters cover Node, Deno, Bun, memory-backed tests, and explicit
 caller-managed PTY-style streams.
 
@@ -120,6 +124,14 @@ Executable examples:
 - `examples/showcase/app.mjs`
 - `examples/showcase/scripted.mjs`
 - `examples/showcase/preview.mjs`
+- `examples/gallery/animation-sequences.mjs`
+- `examples/files/file-dialog.mjs`
+- `examples/products/file-manager.mjs`
+- `examples/products/system-monitor.mjs`
+- `examples/products/notes-workspace.mjs`
+- `examples/products/data-dashboard.mjs`
+- `examples/products/form-wizard.mjs`
+- `examples/products/chart-explorer.mjs`
 - `examples/prompts/non-tty-input.mjs`
 - `examples/shell/cli-core-shell.mjs`
 - `examples/testing/visual-snapshots.mjs`

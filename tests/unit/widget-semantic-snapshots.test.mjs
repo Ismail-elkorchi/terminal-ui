@@ -10,36 +10,50 @@ import {
   absolute,
   activityFeed,
   activityIndicator,
+  accordion,
+  areaGrid,
   barChart,
   box,
+  breadcrumb,
   button,
   canvas,
+  carousel,
   chart,
   checkbox,
+  checkboxList,
+  collapsibleSection,
   commandBar,
   commandPalette,
   contextMenu,
+  colorPicker,
+  datePicker,
+  divider,
   dropdown,
   field,
   form,
+  gauge,
   grid,
   helpBar,
+  heatmap,
   inputField,
   label,
   list,
   menu,
   menuBar,
   modal,
+  notificationStack,
   numberInput,
   overlay,
   paginator,
   palette,
   progressBar,
   radioGroup,
+  rangeSlider,
   richText,
   row,
   scrollback,
   selectBox,
+  shortcutBar,
   sparkline,
   spinner,
   splitPane,
@@ -47,12 +61,16 @@ import {
   statusBar,
   structuredBlock,
   surface,
+  slider,
   table,
   tabs,
+  tabOverflowMenu,
   text,
   textArea,
   textInput,
+  tooltip,
   tree,
+  toggleSwitch,
   viewport
 } from '../../dist/widgets/index.js';
 
@@ -248,6 +266,53 @@ const cases = [
     expectHitTargets: true
   },
   {
+    name: 'toggleSwitch',
+    widget: () => toggleSwitch({ id: 'toggle', label: unsafe, checked: true, message: { kind: 'toggle' } }),
+    expectText: /Unsafe red text/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
+    name: 'slider',
+    widget: () => slider({
+      id: 'slider',
+      label: unsafe,
+      value: 5,
+      max: 10,
+      toMessage: (value) => ({ kind: 'slider', value })
+    }),
+    expectText: /Unsafe red text/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
+    name: 'rangeSlider',
+    widget: () => rangeSlider({
+      id: 'range-slider',
+      label: unsafe,
+      start: 2,
+      end: 8,
+      max: 10,
+      toMessage: (value) => ({ kind: 'range', value })
+    }),
+    expectText: /Unsafe red text/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
+    name: 'checkboxList',
+    widget: () => checkboxList({
+      id: 'checkbox-list',
+      label: unsafe,
+      options: optionItems,
+      selected: ['alpha'],
+      toMessage: (option, checked) => ({ kind: 'checkboxList', value: option.value, checked })
+    }),
+    expectText: /Beta/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
     name: 'radioGroup',
     widget: () => radioGroup({
       id: 'radio',
@@ -270,6 +335,39 @@ const cases = [
       toMessage: (option) => ({ kind: 'select', value: option.value })
     }),
     expectText: /Choice/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
+    name: 'colorPicker',
+    widget: () => colorPicker({
+      id: 'color-picker',
+      label: unsafe,
+      options: [
+        { id: 'alpha', label: unsafe, value: 'alpha', swatch: '■' },
+        { id: 'beta', label: 'Beta', value: 'beta', swatch: '◆' }
+      ],
+      selected: 'alpha',
+      toMessage: (option) => ({ kind: 'color', value: option.value })
+    }),
+    expectText: /Beta/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
+    name: 'datePicker',
+    widget: () => datePicker({
+      id: 'date-picker',
+      label: unsafe,
+      selected: '2026-06-03',
+      days: [
+        { id: '2026-06-01', label: '1', value: '2026-06-01' },
+        { id: '2026-06-02', label: '2', value: '2026-06-02', today: true },
+        { id: '2026-06-03', label: '3', value: '2026-06-03' }
+      ],
+      toMessage: (day) => ({ kind: 'date', value: day.value })
+    }),
+    expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
   },
@@ -312,6 +410,18 @@ const cases = [
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true
+  },
+  {
+    name: 'divider',
+    widget: () => divider({ id: 'divider', label: unsafe, line: 'dashed' }),
+    expectText: /Unsafe red text/u,
+    expectStyledCells: true
+  },
+  {
+    name: 'tooltip',
+    widget: () => tooltip({ id: 'tooltip', title: 'Hint', content: unsafe, tone: 'warning' }),
+    expectText: /Unsafe red text/u,
+    expectStyledCells: true
   },
   {
     name: 'canvas',
@@ -373,6 +483,18 @@ const cases = [
     expectText: /Unsafe red text/u
   },
   {
+    name: 'notificationStack',
+    widget: () => notificationStack({
+      id: 'notifications',
+      items: [
+        { id: 'warning', title: unsafe, message: 'Check route', tone: 'warning' }
+      ],
+      maxWidth: 32
+    }),
+    expectText: /Unsafe red text/u,
+    expectStyledCells: true
+  },
+  {
     name: 'sparkline',
     widget: () => sparkline({ id: 'sparkline', values: [0, 1, 2, 3] }),
     expectText: /[▁#]/u
@@ -392,6 +514,27 @@ const cases = [
     name: 'chart',
     widget: () => chart({ id: 'chart', series: [{ id: 'series', label: unsafe, points: [0, 2, 1, 3] }] }),
     expectText: /\*/u
+  },
+  {
+    name: 'gauge',
+    widget: () => gauge({ id: 'gauge', label: unsafe, value: 7, max: 10 }),
+    expectText: /Unsafe red text/u
+  },
+  {
+    name: 'heatmap',
+    widget: () => heatmap({
+      id: 'heatmap',
+      rows: [
+        [{ id: 'a', label: unsafe, value: 1 }, { id: 'b', label: 'Beta', value: 3 }],
+        [{ id: 'c', label: 'Gamma', value: 5 }]
+      ],
+      selected: { row: 0, column: 1 },
+      keyMap: { enter: { kind: 'heatmap-enter' } },
+      toMessage: (cell, row, column) => ({ kind: 'heatmap', id: cell.id, row, column })
+    }),
+    expectText: /[░▒▓█◆]/u,
+    expectFocus: true,
+    expectHitTargets: true
   },
   {
     name: 'spinner',
@@ -470,6 +613,107 @@ const cases = [
     expectFocus: true
   },
   {
+    name: 'breadcrumb',
+    widget: () => breadcrumb({
+      id: 'breadcrumb',
+      items: [
+        { id: 'home', label: unsafe, message: { kind: 'home' } },
+        { id: 'routes', label: 'Routes', message: { kind: 'routes' } }
+      ]
+    }),
+    expectText: /Routes/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
+    name: 'collapsibleSection',
+    widget: () => collapsibleSection({
+      id: 'collapsible',
+      title: unsafe,
+      expanded: true,
+      message: { kind: 'toggle' },
+      body: text('Section body')
+    }),
+    expectText: /Section body/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
+    name: 'accordion',
+    widget: () => accordion({
+      id: 'accordion',
+      items: [
+        { id: 'one', title: unsafe, expanded: true, body: text('First body'), message: { kind: 'one' } },
+        { id: 'two', title: 'Second', body: text('Hidden body'), message: { kind: 'two' } }
+      ]
+    }),
+    expectText: /First body/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
+    name: 'carousel',
+    widget: () => carousel({
+      id: 'carousel',
+      selected: 'one',
+      previousMessage: { kind: 'previous' },
+      nextMessage: { kind: 'next' },
+      items: [
+        { id: 'one', label: unsafe, body: text('Carousel body'), message: { kind: 'one' } },
+        { id: 'two', label: 'Second', body: text('Second body'), message: { kind: 'two' } }
+      ]
+    }),
+    expectText: /Carousel body/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
+    name: 'tabOverflowMenu',
+    widget: () => tabOverflowMenu({
+      id: 'tab-overflow',
+      selected: 'one',
+      maxVisible: 1,
+      tabs: [
+        { id: 'one', label: unsafe, message: { kind: 'one' } },
+        { id: 'two', label: 'Second', message: { kind: 'two' } }
+      ]
+    }),
+    expectText: /Second/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
+    name: 'shortcutBar',
+    widget: () => shortcutBar({
+      id: 'shortcut-bar',
+      shortcuts: [
+        { id: 'palette', key: '/', label: unsafe, message: { kind: 'palette' } },
+        { id: 'save', key: 'Ctrl+S', label: 'Save', message: { kind: 'save' } }
+      ]
+    }),
+    expectText: /Save/u,
+    expectFocus: true,
+    expectHitTargets: true
+  },
+  {
+    name: 'areaGrid',
+    widget: () => areaGrid({
+      id: 'area-grid',
+      areas: `
+        top top
+        left main
+      `,
+      rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }],
+      columns: [{ kind: 'fixed', cells: 10 }, { kind: 'fill' }],
+      children: {
+        top: text(unsafe, { id: 'area-top' }),
+        left: text('Left', { id: 'area-left' }),
+        main: text('Main', { id: 'area-main' })
+      }
+    }),
+    expectText: /Main/u
+  },
+  {
     name: 'grid',
     widget: () => grid([
       text(unsafe, { id: 'grid-one' }),
@@ -523,21 +767,32 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
   const names = cases.map((item) => item.name).sort();
   assert.deepEqual(names, [
     'absolute',
+    'accordion',
     'activityFeed',
     'activityIndicator',
+    'areaGrid',
     'barChart',
     'box',
+    'breadcrumb',
     'button',
     'canvas',
+    'carousel',
     'chart',
     'checkbox',
+    'checkboxList',
+    'collapsibleSection',
+    'colorPicker',
     'commandBar',
     'commandPalette',
     'contextMenu',
+    'datePicker',
+    'divider',
     'dropdown',
     'field',
     'form',
+    'gauge',
     'grid',
+    'heatmap',
     'helpBar',
     'inputField',
     'label',
@@ -545,16 +800,20 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
     'menu',
     'menuBar',
     'modal',
+    'notificationStack',
     'numberInput',
     'overlay',
     'paginator',
     'palette',
     'progressBar',
     'radioGroup',
+    'rangeSlider',
     'richText',
     'row',
     'scrollback',
     'selectBox',
+    'shortcutBar',
+    'slider',
     'sparkline',
     'spinner',
     'splitPane',
@@ -562,11 +821,14 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
     'statusBar',
     'structuredBlock',
     'surface',
+    'tabOverflowMenu',
     'table',
     'tabs',
     'text',
     'textArea',
     'textInput',
+    'toggleSwitch',
+    'tooltip',
     'tree',
     'viewport'
   ]);

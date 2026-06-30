@@ -1,5 +1,5 @@
 +------------------------------------------------------------------------------------------------------------------------+
-|info: booted terminal runtime:{"fg":{"kind":"theme","token":"accent.primary"},"bold":true}}                             |
+|info: booted terminal runtime                                                                                           |
 |warn: input queue is filling                                                                                            |
 |ok: frame diff committed                                                                                                |
 |error: provider event dropped                                                                                           |

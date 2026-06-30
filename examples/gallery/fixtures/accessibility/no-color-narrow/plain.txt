@@ -1,5 +1,5 @@
 +----------------------------------------------------------------------------------------+
-|[-] [info] Accessible summaryle":{"fg":{"kind":"theme","token":"accent.primary"},"bold":|
+|[-] [info] Accessible summary                                                           |
 |Scope, window, position, and live metadata are serializable.                            |
 |                                                                                        |
 |                                                                                        |

@@ -10,6 +10,7 @@ import type { FrameBuffer } from '../tui/frame-buffer.ts';
 import type { Canvas2D } from '../tui/canvas2d/index.ts';
 import type { Rect, RegionOpacity } from '../tui/layout.ts';
 import type { TerminalTheme } from '../theme/index.ts';
+import type { SurfaceVariant } from '../tui/surface.ts';
 
 export interface Widget<TMessage = unknown> {
   readonly id?: string;
@@ -42,6 +43,12 @@ export type WidgetKind =
   | 'label'
   | 'button'
   | 'checkbox'
+  | 'toggleSwitch'
+  | 'slider'
+  | 'rangeSlider'
+  | 'checkboxList'
+  | 'colorPicker'
+  | 'datePicker'
   | 'radioGroup'
   | 'selectBox'
   | 'textInput'
@@ -50,6 +57,9 @@ export type WidgetKind =
   | 'menuBar'
   | 'contextMenu'
   | 'dropdown'
+  | 'divider'
+  | 'tooltip'
+  | 'notificationStack'
   | 'canvas'
   | 'surface'
   | 'absolute'
@@ -62,12 +72,15 @@ export type WidgetKind =
   | 'sparkline'
   | 'barChart'
   | 'chart'
+  | 'gauge'
+  | 'heatmap'
   | 'viewport'
   | 'scrollback'
   | 'structuredBlock'
   | 'activityFeed'
   | 'commandBar'
   | 'palette'
+  | 'areaGrid'
   | 'grid'
   | 'splitPane'
   | 'tabs'
@@ -210,6 +223,7 @@ export interface TableColumn {
   readonly width?: TableColumnWidth;
   readonly align?: TableColumnAlignment;
   readonly hidden?: boolean;
+  readonly resizable?: boolean;
   readonly style?: TerminalStyle;
   readonly headerStyle?: TerminalStyle;
   readonly render?: (input: TableCellRenderInput) => string | RenderSpan | readonly RenderSpan[];
@@ -327,12 +341,120 @@ export interface CheckboxWidgetOptions<TMessage = never> extends WidgetLayerOpti
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
+export interface ToggleSwitchWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label: string;
+  readonly checked: boolean;
+  readonly onLabel?: string;
+  readonly offLabel?: string;
+  readonly message?: TMessage;
+  readonly disabled?: boolean;
+  readonly error?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface SliderWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label?: string;
+  readonly value: number;
+  readonly min?: number;
+  readonly max?: number;
+  readonly step?: number;
+  readonly width?: number;
+  readonly toMessage?: (value: number) => TMessage;
+  readonly decrementMessage?: TMessage;
+  readonly incrementMessage?: TMessage;
+  readonly disabled?: boolean;
+  readonly error?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface RangeSliderValue {
+  readonly start: number;
+  readonly end: number;
+}
+
+export interface RangeSliderWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label?: string;
+  readonly start: number;
+  readonly end: number;
+  readonly min?: number;
+  readonly max?: number;
+  readonly step?: number;
+  readonly width?: number;
+  readonly toMessage?: (value: RangeSliderValue) => TMessage;
+  readonly decrementStartMessage?: TMessage;
+  readonly incrementStartMessage?: TMessage;
+  readonly decrementEndMessage?: TMessage;
+  readonly incrementEndMessage?: TMessage;
+  readonly disabled?: boolean;
+  readonly error?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
 export interface FormOption<TValue = string> {
   readonly id: string;
   readonly label: string;
   readonly value: TValue;
   readonly disabled?: boolean;
   readonly description?: string;
+}
+
+export interface CheckboxListWidgetOptions<TValue = string, TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label?: string;
+  readonly options: readonly FormOption<TValue>[];
+  readonly selected?: readonly string[];
+  readonly toMessage?: (option: FormOption<TValue>, checked: boolean) => TMessage;
+  readonly required?: boolean;
+  readonly disabled?: boolean;
+  readonly error?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface ColorPickerOption<TValue = string> extends FormOption<TValue> {
+  readonly swatch?: string;
+  readonly style?: TerminalStyle;
+}
+
+export interface ColorPickerWidgetOptions<TValue = string, TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label?: string;
+  readonly options: readonly ColorPickerOption<TValue>[];
+  readonly selected?: string;
+  readonly columns?: number;
+  readonly toMessage?: (option: ColorPickerOption<TValue>) => TMessage;
+  readonly disabled?: boolean;
+  readonly error?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface DatePickerDay<TValue = string> {
+  readonly id: string;
+  readonly label: string;
+  readonly value: TValue;
+  readonly disabled?: boolean;
+  readonly today?: boolean;
+  readonly outsideMonth?: boolean;
+}
+
+export interface DatePickerWidgetOptions<TValue = string, TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label?: string;
+  readonly days: readonly DatePickerDay<TValue>[];
+  readonly selected?: string;
+  readonly columns?: number;
+  readonly toMessage?: (day: DatePickerDay<TValue>) => TMessage;
+  readonly disabled?: boolean;
+  readonly error?: string;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
 }
 
 export interface RadioGroupWidgetOptions<TValue = string, TMessage = never> extends WidgetLayerOptions {
@@ -446,6 +568,60 @@ export interface DropdownWidgetOptions<TMessage = never> extends WidgetLayerOpti
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
+export type DividerOrientation = 'horizontal' | 'vertical';
+export type DividerLineKind = 'single' | 'double' | 'heavy' | 'dashed' | 'dotted' | 'ascii' | 'empty';
+
+export interface DividerWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly orientation?: DividerOrientation;
+  readonly line?: DividerLineKind;
+  readonly label?: string;
+  readonly labelAlign?: 'start' | 'center' | 'end';
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export type TooltipPlacement = 'auto' | 'above' | 'below' | 'left' | 'right' | 'cursor';
+export type TooltipTone = 'default' | 'info' | 'success' | 'warning' | 'error';
+
+export interface TooltipWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly content: string | readonly string[];
+  readonly title?: string;
+  readonly tone?: TooltipTone;
+  readonly placement?: TooltipPlacement;
+  readonly maxWidth?: number;
+  readonly border?: BorderStyle;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export type NotificationTone = 'info' | 'success' | 'warning' | 'error' | 'progress';
+export type NotificationPlacement = 'top-right' | 'bottom-right' | 'centered-stack';
+
+export interface NotificationItem {
+  readonly id: string;
+  readonly title: string;
+  readonly message?: string;
+  readonly tone?: NotificationTone;
+  readonly progress?: number;
+  readonly createdAt?: number;
+  readonly expiresAt?: number;
+  readonly paused?: boolean;
+}
+
+export interface NotificationStackWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly items: readonly NotificationItem[];
+  readonly selected?: number;
+  readonly placement?: NotificationPlacement;
+  readonly maxVisible?: number;
+  readonly maxWidth?: number;
+  readonly toDismissMessage?: (item: NotificationItem) => TMessage;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
 export interface CanvasPainterInput {
   readonly buffer: FrameBuffer;
   readonly canvas: Canvas2D;
@@ -468,6 +644,9 @@ export interface CanvasWidgetOptions<TMessage = never> extends WidgetLayerOption
 export interface SurfaceWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly label?: string;
+  readonly variant?: SurfaceVariant;
+  readonly border?: BorderStyle;
+  readonly shadow?: boolean;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
@@ -563,6 +742,22 @@ export interface ChartSeries {
   readonly id: string;
   readonly label?: string;
   readonly points: readonly number[];
+  readonly kind?: ChartSeriesKind;
+  readonly glyph?: string;
+}
+
+export type ChartSeriesKind = 'line' | 'scatter';
+
+export interface ChartPointSelection {
+  readonly series: string;
+  readonly point: number;
+}
+
+export interface ChartPointEvent {
+  readonly series: string;
+  readonly seriesLabel?: string;
+  readonly point: number;
+  readonly value: number;
 }
 
 export interface ChartWidgetOptions<TMessage = never> extends WidgetLayerOptions {
@@ -570,6 +765,51 @@ export interface ChartWidgetOptions<TMessage = never> extends WidgetLayerOptions
   readonly series: readonly ChartSeries[];
   readonly min?: number;
   readonly max?: number;
+  readonly selected?: ChartPointSelection;
+  readonly legend?: boolean;
+  readonly xLabel?: string;
+  readonly yLabel?: string;
+  readonly toMessage?: (point: ChartPointEvent) => TMessage;
+  readonly keyMap?: WidgetKeyMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export type GaugeVariant = 'linear' | 'dial';
+
+export interface GaugeWidgetOptions extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly label?: string;
+  readonly value: number;
+  readonly min?: number;
+  readonly max?: number;
+  readonly width?: number;
+  readonly variant?: GaugeVariant;
+  readonly status?: ActivityIndicatorStatus;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface HeatmapCell<TValue = unknown> {
+  readonly id: string;
+  readonly label?: string;
+  readonly value: number;
+  readonly payload?: TValue;
+  readonly disabled?: boolean;
+}
+
+export interface HeatmapSelection {
+  readonly row: number;
+  readonly column: number;
+}
+
+export interface HeatmapWidgetOptions<TValue = unknown, TMessage = never> extends WidgetLayerOptions {
+  readonly id?: string;
+  readonly rows: readonly (readonly HeatmapCell<TValue>[])[];
+  readonly min?: number;
+  readonly max?: number;
+  readonly selected?: HeatmapSelection;
+  readonly cellWidth?: number;
+  readonly gap?: number;
+  readonly toMessage?: (cell: HeatmapCell<TValue>, row: number, column: number) => TMessage;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
@@ -739,6 +979,16 @@ export interface CommandPaletteWidgetOptions<TMessage = never> extends WidgetLay
   readonly emptyText?: string;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly inputMap?: WidgetInputMap<TMessage>;
+  readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface AreaGridWidgetOptions<TMessage = never> extends WidgetLayerOptions, GridLayoutOptions {
+  readonly id?: string;
+  readonly areas: string;
+  readonly children: Readonly<Record<string, Widget<TMessage>>>;
+  readonly rows: readonly LayoutSize[];
+  readonly columns: readonly LayoutSize[];
+  readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 

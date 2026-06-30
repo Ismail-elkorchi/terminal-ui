@@ -51,7 +51,7 @@
 <text x="56" y="48" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" opacity="0.68">  </text>
 <text x="72" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">Tools</text>
 <text x="112" y="48" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" opacity="0.68">  </text>
-<text x="128" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Help"style":{"fg":{"kind":"theme","token":"accent.primary"},"bold":true}}</text>
+<text x="128" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Help</text>
 <text x="1288" y="48" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="66" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="1288" y="66" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>

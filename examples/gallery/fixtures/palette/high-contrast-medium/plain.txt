@@ -1,5 +1,5 @@
 +------------------------------------------------------------------------------------------------------------------------+
-|Command palettete","style":{"fg":{"kind":"theme","token":"accent.primary"},"bold":true}}                                |
+|Command palette                                                                                                         |
 |> op                                                                                                                    |
 |> Open dashboard                                                                                                        |
 |  Open logs                                                                                                             |

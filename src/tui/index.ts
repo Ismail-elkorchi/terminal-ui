@@ -20,6 +20,8 @@ import {
 } from './render.ts';
 import { boxDrawingJoinPass } from './frame-passes/index.ts';
 import { createCanvas2D } from './canvas2d/index.ts';
+import { placeNotificationStack } from './notifications.ts';
+import { placeTooltip } from './tooltip.ts';
 import type {
   AxisLine,
   BarDatum,
@@ -38,11 +40,12 @@ import type {
   TooltipLine
 } from './canvas2d/index.ts';
 import type { RenderRegion, RenderRegionHitTarget, RenderWidgetFrameProjection } from './render.ts';
-import type { BorderStyle } from './border.ts';
+import type { BorderKind, BorderStyle } from './border.ts';
 import type {
   CommandBarAction,
   CommandBarState
 } from './command-surface.ts';
+import type { SurfaceVariant } from './surface.ts';
 import type { DataWindow, DataWindowInput } from './data-window.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FocusPath } from './focus.ts';
@@ -76,6 +79,8 @@ import type {
   SpinnerReducerOptions,
   SpinnerState
 } from './spinner.ts';
+import type { NotificationStackPlacementInput, NotificationStackSize } from './notifications.ts';
+import type { TooltipPlacementInput, TooltipSize } from './tooltip.ts';
 import type { HighlightRenderSpan, HighlightRenderSpansOptions } from './text-highlight.ts';
 import type {
   FocusTarget,
@@ -171,13 +176,18 @@ export type {
   TerminalColor,
   TerminalLink,
   TerminalStyle,
+  NotificationStackPlacementInput,
+  NotificationStackSize,
   TooltipLine,
+  TooltipPlacementInput,
+  TooltipSize,
   CommandBarAction,
   CommandBarState,
   DataWindow,
   DataWindowInput,
   PaletteFilterResult,
   PaletteWindowInput,
+  BorderKind,
   BorderStyle,
   PaginationInput,
   PaginationWindow,
@@ -208,6 +218,7 @@ export type {
   ScrollbackTextSegment,
   ScrollbackVisibleRow,
   ScrollbackWindow,
+  SurfaceVariant,
   FocusTarget,
   HitTarget,
   WidgetAccessibilityInput,
@@ -233,6 +244,8 @@ export {
   renderFramePlain,
   renderWidgetFrame,
   renderWidgetRegions,
+  placeNotificationStack,
+  placeTooltip,
   boxDrawingJoinPass,
   sameFrameCell,
   sameFrameCellSource,

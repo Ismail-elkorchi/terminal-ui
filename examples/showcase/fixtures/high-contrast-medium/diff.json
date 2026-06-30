@@ -100,49 +100,82 @@
       ]
     },
     {
-      "column": 25,
+      "column": 93,
       "kind": "write",
       "row": 4,
       "spans": [
         {
-          "text": " "
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.strong"
+            }
+          },
+          "text": "Route map ]"
         }
       ]
     },
     {
-      "column": 34,
-      "kind": "write",
-      "row": 4,
-      "spans": [
-        {
-          "text": " "
-        }
-      ]
-    },
-    {
-      "column": 55,
-      "kind": "write",
-      "row": 4,
-      "spans": [
-        {
-          "text": "["
-        }
-      ]
-    },
-    {
-      "column": 59,
-      "kind": "write",
-      "row": 4,
-      "spans": [
-        {
-          "text": "]"
-        }
-      ]
-    },
-    {
-      "column": 25,
+      "column": 27,
       "kind": "write",
       "row": 5,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.strong"
+            }
+          },
+          "text": "Overview "
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 37,
+        "height": 1,
+        "row": 5,
+        "width": 2
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 75,
+      "kind": "write",
+      "row": 5,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.strong"
+            }
+          },
+          "text": "[Map"
+        }
+      ]
+    },
+    {
+      "column": 80,
+      "kind": "write",
+      "row": 5,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.strong"
+            }
+          },
+          "text": " ]"
+        }
+      ]
+    },
+    {
+      "column": 25,
+      "kind": "write",
+      "row": 6,
       "spans": [
         {
           "source": {
@@ -160,10 +193,30 @@
       ]
     },
     {
+      "column": 96,
+      "kind": "write",
+      "row": 6,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "+ Lane pressure ----------+"
+        }
+      ]
+    },
+    {
       "bounds": {
         "column": 25,
         "height": 1,
-        "row": 6,
+        "row": 7,
         "width": 60
       },
       "kind": "clearRect"
@@ -171,7 +224,7 @@
     {
       "column": 25,
       "kind": "write",
-      "row": 6,
+      "row": 7,
       "spans": [
         {
           "source": {
@@ -191,7 +244,7 @@
     {
       "column": 92,
       "kind": "write",
-      "row": 6,
+      "row": 7,
       "spans": [
         {
           "source": {
@@ -209,19 +262,50 @@
       ]
     },
     {
-      "bounds": {
-        "column": 99,
-        "height": 1,
-        "row": 6,
-        "width": 22
-      },
-      "kind": "clearRect"
+      "column": 96,
+      "kind": "write",
+      "row": 7,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "column": 122,
+      "kind": "write",
+      "row": 7,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
     },
     {
       "bounds": {
         "column": 25,
         "height": 1,
-        "row": 7,
+        "row": 8,
         "width": 64
       },
       "kind": "clearRect"
@@ -229,7 +313,7 @@
     {
       "column": 25,
       "kind": "write",
-      "row": 7,
+      "row": 8,
       "spans": [
         {
           "source": {
@@ -261,7 +345,7 @@
     {
       "column": 92,
       "kind": "write",
-      "row": 7,
+      "row": 8,
       "spans": [
         {
           "source": {
@@ -279,19 +363,60 @@
       ]
     },
     {
-      "bounds": {
-        "column": 99,
-        "height": 1,
-        "row": 7,
-        "width": 22
-      },
-      "kind": "clearRect"
+      "column": 96,
+      "kind": "write",
+      "row": 8,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "column": 98,
+      "kind": "write",
+      "row": 8,
+      "spans": [
+        {
+          "text": "+ lane  o gust"
+        }
+      ]
+    },
+    {
+      "column": 122,
+      "kind": "write",
+      "row": 8,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
     },
     {
       "bounds": {
         "column": 25,
         "height": 1,
-        "row": 8,
+        "row": 9,
         "width": 51
       },
       "kind": "clearRect"
@@ -299,7 +424,7 @@
     {
       "column": 25,
       "kind": "write",
-      "row": 8,
+      "row": 9,
       "spans": [
         {
           "source": {
@@ -344,7 +469,7 @@
     {
       "column": 88,
       "kind": "write",
-      "row": 8,
+      "row": 9,
       "spans": [
         {
           "style": {
@@ -360,7 +485,7 @@
     {
       "column": 92,
       "kind": "write",
-      "row": 8,
+      "row": 9,
       "spans": [
         {
           "source": {
@@ -378,19 +503,60 @@
       ]
     },
     {
-      "bounds": {
-        "column": 99,
-        "height": 1,
-        "row": 8,
-        "width": 22
-      },
-      "kind": "clearRect"
+      "column": 96,
+      "kind": "write",
+      "row": 9,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "column": 98,
+      "kind": "write",
+      "row": 9,
+      "spans": [
+        {
+          "text": "traffic"
+        }
+      ]
+    },
+    {
+      "column": 122,
+      "kind": "write",
+      "row": 9,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
     },
     {
       "bounds": {
         "column": 25,
         "height": 1,
-        "row": 9,
+        "row": 10,
         "width": 16
       },
       "kind": "clearRect"
@@ -398,7 +564,7 @@
     {
       "column": 25,
       "kind": "write",
-      "row": 9,
+      "row": 10,
       "spans": [
         {
           "source": {
@@ -442,7 +608,7 @@
     {
       "column": 57,
       "kind": "write",
-      "row": 9,
+      "row": 10,
       "spans": [
         {
           "style": {
@@ -458,7 +624,7 @@
     {
       "column": 88,
       "kind": "write",
-      "row": 9,
+      "row": 10,
       "spans": [
         {
           "style": {
@@ -474,7 +640,7 @@
     {
       "column": 92,
       "kind": "write",
-      "row": 9,
+      "row": 10,
       "spans": [
         {
           "source": {
@@ -492,18 +658,59 @@
       ]
     },
     {
-      "bounds": {
-        "column": 99,
-        "height": 1,
-        "row": 9,
-        "width": 16
-      },
-      "kind": "clearRect"
+      "column": 96,
+      "kind": "write",
+      "row": 10,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "column": 98,
+      "kind": "write",
+      "row": 10,
+      "spans": [
+        {
+          "text": "   ++"
+        }
+      ]
+    },
+    {
+      "column": 122,
+      "kind": "write",
+      "row": 10,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
     },
     {
       "column": 3,
       "kind": "write",
-      "row": 10,
+      "row": 11,
       "spans": [
         {
           "text": "      ▣ Overview"
@@ -514,15 +721,15 @@
       "bounds": {
         "column": 25,
         "height": 1,
-        "row": 10,
-        "width": 71
+        "row": 11,
+        "width": 98
       },
       "kind": "clearRect"
     },
     {
       "column": 25,
       "kind": "write",
-      "row": 10,
+      "row": 11,
       "spans": [
         {
           "source": {
@@ -624,22 +831,45 @@
             }
           },
           "text": "║"
+        },
+        {
+          "text": "   "
+        },
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        },
+        {
+          "text": " o oo +                  "
+        },
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
         }
       ]
     },
     {
-      "bounds": {
-        "column": 99,
-        "height": 1,
-        "row": 10,
-        "width": 12
-      },
-      "kind": "clearRect"
-    },
-    {
       "column": 25,
       "kind": "write",
-      "row": 11,
+      "row": 12,
       "spans": [
         {
           "source": {
@@ -657,9 +887,18 @@
       ]
     },
     {
+      "bounds": {
+        "column": 27,
+        "height": 1,
+        "row": 12,
+        "width": 5
+      },
+      "kind": "clearRect"
+    },
+    {
       "column": 27,
       "kind": "write",
-      "row": 11,
+      "row": 12,
       "spans": [
         {
           "style": {
@@ -675,7 +914,7 @@
     {
       "column": 35,
       "kind": "write",
-      "row": 11,
+      "row": 12,
       "spans": [
         {
           "style": {
@@ -752,158 +991,13 @@
       ]
     },
     {
-      "column": 88,
-      "kind": "write",
-      "row": 11,
-      "spans": [
-        {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "text.muted"
-            }
-          },
-          "text": "·"
-        }
-      ]
-    },
-    {
-      "column": 92,
-      "kind": "write",
-      "row": 11,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "║"
-        }
-      ]
-    },
-    {
       "bounds": {
-        "column": 95,
+        "column": 79,
         "height": 1,
-        "row": 11,
-        "width": 1
+        "row": 12,
+        "width": 8
       },
       "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 99,
-        "height": 1,
-        "row": 11,
-        "width": 17
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 25,
-      "kind": "write",
-      "row": 12,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "║"
-        }
-      ]
-    },
-    {
-      "column": 27,
-      "kind": "write",
-      "row": 12,
-      "spans": [
-        {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "text.muted"
-            }
-          },
-          "text": "·"
-        }
-      ]
-    },
-    {
-      "column": 35,
-      "kind": "write",
-      "row": 12,
-      "spans": [
-        {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "accent.primary"
-            }
-          },
-          "text": "oo"
-        }
-      ]
-    },
-    {
-      "column": 38,
-      "kind": "write",
-      "row": 12,
-      "spans": [
-        {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "accent.primary"
-            }
-          },
-          "text": "oo"
-        }
-      ]
-    },
-    {
-      "column": 55,
-      "kind": "write",
-      "row": 12,
-      "spans": [
-        {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "status.warning"
-            }
-          },
-          "text": "***"
-        }
-      ]
-    },
-    {
-      "column": 63,
-      "kind": "write",
-      "row": 12,
-      "spans": [
-        {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "status.warning"
-            }
-          },
-          "text": "***"
-        }
-      ]
     },
     {
       "column": 88,
@@ -942,43 +1036,43 @@
       ]
     },
     {
-      "bounds": {
-        "column": 95,
-        "height": 1,
-        "row": 12,
-        "width": 1
-      },
-      "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 99,
-        "height": 1,
-        "row": 12,
-        "width": 14
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 3,
+      "column": 96,
       "kind": "write",
-      "row": 13,
+      "row": 12,
       "spans": [
         {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
           "style": {
-            "bg": {
-              "kind": "theme",
-              "token": "selection.background"
-            },
-            "bold": true,
             "fg": {
               "kind": "theme",
-              "token": "selection.foreground"
+              "token": "surface.border"
             }
           },
-          "text": ">     ◎ Route map"
+          "text": "|"
         }
       ]
+    },
+    {
+      "column": 98,
+      "kind": "write",
+      "row": 12,
+      "spans": [
+        {
+          "text": " o  oo"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 105,
+        "height": 1,
+        "row": 12,
+        "width": 7
+      },
+      "kind": "clearRect"
     },
     {
       "column": 25,
@@ -1005,7 +1099,7 @@
         "column": 27,
         "height": 1,
         "row": 13,
-        "width": 67
+        "width": 35
       },
       "kind": "clearRect"
     },
@@ -1013,6 +1107,190 @@
       "column": 27,
       "kind": "write",
       "row": 13,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.muted"
+            }
+          },
+          "text": "·"
+        },
+        {
+          "text": "       "
+        },
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "accent.primary"
+            }
+          },
+          "text": "oo"
+        },
+        {
+          "text": " "
+        },
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "accent.primary"
+            }
+          },
+          "text": "oo"
+        },
+        {
+          "text": "               "
+        },
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.warning"
+            }
+          },
+          "text": "***"
+        }
+      ]
+    },
+    {
+      "column": 63,
+      "kind": "write",
+      "row": 13,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "status.warning"
+            }
+          },
+          "text": "***"
+        }
+      ]
+    },
+    {
+      "column": 88,
+      "kind": "write",
+      "row": 13,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.muted"
+            }
+          },
+          "text": "·"
+        }
+      ]
+    },
+    {
+      "column": 92,
+      "kind": "write",
+      "row": 13,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "║"
+        }
+      ]
+    },
+    {
+      "column": 96,
+      "kind": "write",
+      "row": 13,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "column": 98,
+      "kind": "write",
+      "row": 13,
+      "spans": [
+        {
+          "text": "+"
+        }
+      ]
+    },
+    {
+      "column": 3,
+      "kind": "write",
+      "row": 14,
+      "spans": [
+        {
+          "style": {
+            "bg": {
+              "kind": "theme",
+              "token": "selection.background"
+            },
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "selection.foreground"
+            }
+          },
+          "text": ">     ◎ Route map"
+        }
+      ]
+    },
+    {
+      "column": 25,
+      "kind": "write",
+      "row": 14,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "║"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 27,
+        "height": 1,
+        "row": 14,
+        "width": 12
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 27,
+      "kind": "write",
+      "row": 14,
       "spans": [
         {
           "style": {
@@ -1034,10 +1312,23 @@
             }
           },
           "text": "ooo"
-        },
-        {
-          "text": "                  "
-        },
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 57,
+        "height": 1,
+        "row": 14,
+        "width": 12
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 57,
+      "kind": "write",
+      "row": 14,
+      "spans": [
         {
           "style": {
             "fg": {
@@ -1046,79 +1337,6 @@
             }
           },
           "text": "*******"
-        },
-        {
-          "text": "                        "
-        },
-        {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "text.muted"
-            }
-          },
-          "text": "·"
-        },
-        {
-          "text": "   "
-        },
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "║"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 95,
-        "height": 1,
-        "row": 13,
-        "width": 1
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 25,
-      "kind": "write",
-      "row": 14,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "║"
-        }
-      ]
-    },
-    {
-      "column": 27,
-      "kind": "write",
-      "row": 14,
-      "spans": [
-        {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "text.muted"
-            }
-          },
-          "text": "·"
         }
       ]
     },
@@ -1139,10 +1357,22 @@
       ]
     },
     {
-      "column": 92,
+      "bounds": {
+        "column": 91,
+        "height": 1,
+        "row": 14,
+        "width": 13
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 91,
       "kind": "write",
       "row": 14,
       "spans": [
+        {
+          "text": " "
+        },
         {
           "source": {
             "kind": "box",
@@ -1155,26 +1385,27 @@
             }
           },
           "text": "║"
+        },
+        {
+          "text": "   "
+        },
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        },
+        {
+          "text": " +"
         }
       ]
-    },
-    {
-      "bounds": {
-        "column": 95,
-        "height": 1,
-        "row": 14,
-        "width": 1
-      },
-      "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 25,
-        "height": 1,
-        "row": 15,
-        "width": 71
-      },
-      "kind": "clearRect"
     },
     {
       "column": 25,
@@ -1193,47 +1424,23 @@
             }
           },
           "text": "║"
-        },
-        {
-          "text": " "
-        },
-        {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "text.muted"
-            }
-          },
-          "text": "·"
-        },
-        {
-          "text": "    "
-        },
-        {
-          "style": {
-            "bold": true,
-            "fg": {
-              "kind": "theme",
-              "token": "text.default"
-            }
-          },
-          "text": "Atlas: cleared"
-        },
-        {
-          "text": "            "
-        },
-        {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "text.muted"
-            }
-          },
-          "text": "owner Mira"
-        },
-        {
-          "text": "                    "
-        },
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 27,
+        "height": 1,
+        "row": 15,
+        "width": 11
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 27,
+      "kind": "write",
+      "row": 15,
+      "spans": [
         {
           "style": {
             "fg": {
@@ -1242,10 +1449,48 @@
             }
           },
           "text": "·"
-        },
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 51,
+        "height": 1,
+        "row": 15,
+        "width": 11
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 75,
+        "height": 1,
+        "row": 15,
+        "width": 11
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 88,
+      "kind": "write",
+      "row": 15,
+      "spans": [
         {
-          "text": "   "
-        },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.muted"
+            }
+          },
+          "text": "·"
+        }
+      ]
+    },
+    {
+      "column": 92,
+      "kind": "write",
+      "row": 15,
+      "spans": [
         {
           "source": {
             "kind": "box",
@@ -1258,6 +1503,45 @@
             }
           },
           "text": "║"
+        }
+      ]
+    },
+    {
+      "column": 96,
+      "kind": "write",
+      "row": 15,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 98,
+        "height": 1,
+        "row": 15,
+        "width": 12
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 98,
+      "kind": "write",
+      "row": 15,
+      "spans": [
+        {
+          "text": "watch cycle"
         }
       ]
     },
@@ -1298,6 +1582,39 @@
       ]
     },
     {
+      "column": 32,
+      "kind": "write",
+      "row": 16,
+      "spans": [
+        {
+          "style": {
+            "bold": true,
+            "fg": {
+              "kind": "theme",
+              "token": "text.default"
+            }
+          },
+          "text": "Atlas: cleared"
+        }
+      ]
+    },
+    {
+      "column": 58,
+      "kind": "write",
+      "row": 16,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.muted"
+            }
+          },
+          "text": "owner Mira"
+        }
+      ]
+    },
+    {
       "column": 88,
       "kind": "write",
       "row": 16,
@@ -1334,18 +1651,130 @@
       ]
     },
     {
+      "column": 96,
+      "kind": "write",
+      "row": 16,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "column": 25,
+      "kind": "write",
+      "row": 17,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "║"
+        }
+      ]
+    },
+    {
+      "column": 27,
+      "kind": "write",
+      "row": 17,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.muted"
+            }
+          },
+          "text": "·"
+        }
+      ]
+    },
+    {
+      "column": 88,
+      "kind": "write",
+      "row": 17,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.muted"
+            }
+          },
+          "text": "·"
+        }
+      ]
+    },
+    {
+      "column": 92,
+      "kind": "write",
+      "row": 17,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "║"
+        }
+      ]
+    },
+    {
+      "column": 96,
+      "kind": "write",
+      "row": 17,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "+-------------------------+"
+        }
+      ]
+    },
+    {
       "bounds": {
         "column": 25,
         "height": 1,
-        "row": 17,
-        "width": 71
+        "row": 18,
+        "width": 98
       },
       "kind": "clearRect"
     },
     {
       "column": 25,
       "kind": "write",
-      "row": 17,
+      "row": 18,
       "spans": [
         {
           "source": {
@@ -1405,7 +1834,7 @@
     {
       "column": 25,
       "kind": "write",
-      "row": 18,
+      "row": 19,
       "spans": [
         {
           "source": {
@@ -1425,7 +1854,7 @@
     {
       "column": 27,
       "kind": "write",
-      "row": 18,
+      "row": 19,
       "spans": [
         {
           "style": {
@@ -1441,7 +1870,7 @@
     {
       "column": 88,
       "kind": "write",
-      "row": 18,
+      "row": 19,
       "spans": [
         {
           "style": {
@@ -1457,7 +1886,7 @@
     {
       "column": 92,
       "kind": "write",
-      "row": 18,
+      "row": 19,
       "spans": [
         {
           "source": {
@@ -1475,27 +1904,28 @@
       ]
     },
     {
-      "bounds": {
-        "column": 95,
-        "height": 1,
-        "row": 18,
-        "width": 1
-      },
-      "kind": "clearRect"
+      "column": 96,
+      "kind": "write",
+      "row": 19,
+      "spans": [
+        {
+          "text": "Channel C remains the activ"
+        }
+      ]
     },
     {
       "bounds": {
-        "column": 99,
+        "column": 25,
         "height": 1,
-        "row": 18,
-        "width": 22
+        "row": 20,
+        "width": 98
       },
       "kind": "clearRect"
     },
     {
       "column": 25,
       "kind": "write",
-      "row": 19,
+      "row": 20,
       "spans": [
         {
           "source": {
@@ -1509,23 +1939,10 @@
             }
           },
           "text": "║"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 27,
-        "height": 1,
-        "row": 19,
-        "width": 67
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 27,
-      "kind": "write",
-      "row": 19,
-      "spans": [
+        },
+        {
+          "text": " "
+        },
         {
           "style": {
             "fg": {
@@ -1554,82 +1971,6 @@
       ]
     },
     {
-      "bounds": {
-        "column": 95,
-        "height": 1,
-        "row": 19,
-        "width": 1
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 25,
-      "kind": "write",
-      "row": 20,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "║"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 27,
-        "height": 1,
-        "row": 20,
-        "width": 1
-      },
-      "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 92,
-        "height": 1,
-        "row": 20,
-        "width": 2
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 92,
-      "kind": "write",
-      "row": 20,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "║"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 95,
-        "height": 1,
-        "row": 20,
-        "width": 1
-      },
-      "kind": "clearRect"
-    },
-    {
       "column": 25,
       "kind": "write",
       "row": 21,
@@ -1648,24 +1989,6 @@
           "text": "║"
         }
       ]
-    },
-    {
-      "bounds": {
-        "column": 27,
-        "height": 1,
-        "row": 21,
-        "width": 1
-      },
-      "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 92,
-        "height": 1,
-        "row": 21,
-        "width": 2
-      },
-      "kind": "clearRect"
     },
     {
       "column": 92,
@@ -1689,19 +2012,10 @@
     },
     {
       "bounds": {
-        "column": 95,
+        "column": 122,
         "height": 1,
         "row": 21,
         "width": 1
-      },
-      "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 25,
-        "height": 1,
-        "row": 22,
-        "width": 69
       },
       "kind": "clearRect"
     },
@@ -1721,13 +2035,51 @@
               "token": "surface.border"
             }
           },
-          "text": "╚══════════════════════════════════════════════════════════════════╝"
+          "text": "║"
         }
       ]
     },
     {
       "bounds": {
-        "column": 95,
+        "column": 27,
+        "height": 1,
+        "row": 22,
+        "width": 20
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 75,
+        "height": 1,
+        "row": 22,
+        "width": 10
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 92,
+      "kind": "write",
+      "row": 22,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "║"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 122,
         "height": 1,
         "row": 22,
         "width": 1
@@ -1735,19 +2087,58 @@
       "kind": "clearRect"
     },
     {
+      "column": 25,
+      "kind": "write",
+      "row": 23,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "╚══════════════════════════════════════════════════════════════════╝"
+        }
+      ]
+    },
+    {
+      "column": 96,
+      "kind": "write",
+      "row": 23,
+      "spans": [
+        {
+          "text": "Atlas updates the route boa"
+        }
+      ]
+    },
+    {
       "bounds": {
         "column": 25,
         "height": 1,
-        "row": 23,
+        "row": 24,
         "width": 1
       },
       "kind": "clearRect"
     },
     {
       "bounds": {
-        "column": 95,
+        "column": 27,
         "height": 1,
-        "row": 23,
+        "row": 24,
+        "width": 30
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 122,
+        "height": 1,
+        "row": 24,
         "width": 1
       },
       "kind": "clearRect"
@@ -1755,7 +2146,7 @@
     {
       "column": 25,
       "kind": "write",
-      "row": 24,
+      "row": 25,
       "spans": [
         {
           "text": "[-] "
@@ -1771,103 +2162,35 @@
           "text": "[running]"
         },
         {
-          "text": " Active instruction"
+          "text": " Active ins"
         }
       ]
     },
     {
       "bounds": {
-        "column": 95,
-        "height": 1,
-        "row": 24,
-        "width": 1
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 25,
-      "kind": "write",
-      "row": 25,
-      "spans": [
-        {
-          "text": "Atlas stay"
-        }
-      ]
-    },
-    {
-      "column": 37,
-      "kind": "write",
-      "row": 25,
-      "spans": [
-        {
-          "text": "under Mira's watch until the"
-        }
-      ]
-    },
-    {
-      "column": 66,
-      "kind": "write",
-      "row": 25,
-      "spans": [
-        {
-          "text": "next "
-        }
-      ]
-    },
-    {
-      "column": 72,
-      "kind": "write",
-      "row": 25,
-      "spans": [
-        {
-          "text": "ou"
-        }
-      ]
-    },
-    {
-      "column": 75,
-      "kind": "write",
-      "row": 25,
-      "spans": [
-        {
-          "text": "e cl"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 80,
+        "column": 50,
         "height": 1,
         "row": 25,
-        "width": 14
+        "width": 71
       },
       "kind": "clearRect"
     },
     {
-      "column": 80,
+      "column": 50,
       "kind": "write",
       "row": 25,
       "spans": [
         {
-          "text": "arance."
+          "text": "ruction"
         }
       ]
     },
     {
       "bounds": {
-        "column": 95,
+        "column": 122,
         "height": 1,
         "row": 25,
         "width": 1
-      },
-      "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 25,
-        "height": 1,
-        "row": 26,
-        "width": 45
       },
       "kind": "clearRect"
     },
@@ -1877,22 +2200,33 @@
       "row": 26,
       "spans": [
         {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "text.muted"
-            }
-          },
-          "text": "risk   : "
-        },
+          "text": "Atlas stay"
+        }
+      ]
+    },
+    {
+      "column": 36,
+      "kind": "write",
+      "row": 26,
+      "spans": [
         {
-          "text": "low"
+          "text": " unde"
+        }
+      ]
+    },
+    {
+      "column": 42,
+      "kind": "write",
+      "row": 26,
+      "spans": [
+        {
+          "text": " Mira's watch until the next route clearance."
         }
       ]
     },
     {
       "bounds": {
-        "column": 95,
+        "column": 122,
         "height": 1,
         "row": 26,
         "width": 1
@@ -1911,7 +2245,23 @@
               "token": "text.muted"
             }
           },
-          "text": "handoff:"
+          "text": "ri"
+        }
+      ]
+    },
+    {
+      "column": 28,
+      "kind": "write",
+      "row": 27,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.muted"
+            }
+          },
+          "text": "k   :"
         }
       ]
     },
@@ -1930,13 +2280,23 @@
       "row": 27,
       "spans": [
         {
-          "text": "pending"
+          "text": "low"
+        }
+      ]
+    },
+    {
+      "column": 96,
+      "kind": "write",
+      "row": 27,
+      "spans": [
+        {
+          "text": "▂▄▁▆▅▇▄█▆"
         }
       ]
     },
     {
       "bounds": {
-        "column": 95,
+        "column": 122,
         "height": 1,
         "row": 27,
         "width": 1
@@ -1944,26 +2304,34 @@
       "kind": "clearRect"
     },
     {
-      "bounds": {
-        "column": 25,
-        "height": 1,
-        "row": 28,
-        "width": 1
-      },
-      "kind": "clearRect"
+      "column": 25,
+      "kind": "write",
+      "row": 28,
+      "spans": [
+        {
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "text.muted"
+            }
+          },
+          "text": "handoff:"
+        }
+      ]
+    },
+    {
+      "column": 34,
+      "kind": "write",
+      "row": 28,
+      "spans": [
+        {
+          "text": "pending"
+        }
+      ]
     },
     {
       "bounds": {
-        "column": 27,
-        "height": 1,
-        "row": 28,
-        "width": 12
-      },
-      "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 95,
+        "column": 122,
         "height": 1,
         "row": 28,
         "width": 1
@@ -1981,7 +2349,7 @@
     },
     {
       "bounds": {
-        "column": 95,
+        "column": 122,
         "height": 1,
         "row": 29,
         "width": 1
@@ -1993,7 +2361,7 @@
         "column": 25,
         "height": 1,
         "row": 30,
-        "width": 71
+        "width": 98
       },
       "kind": "clearRect"
     },

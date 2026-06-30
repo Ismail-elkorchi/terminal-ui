@@ -11,7 +11,7 @@ import {
   renderWidgetFrame,
   runTui
 } from '@ismail-elkorchi/terminal-ui/tui';
-import { grid, overlay } from '@ismail-elkorchi/terminal-ui/widgets';
+import { areaGrid, defineBreakpoints, overlay, responsive } from '@ismail-elkorchi/terminal-ui/widgets';
 
 import { commandFocusPath, initialShowcaseState, routeLabel, showcaseViewport } from './state.mjs';
 import { showcaseTheme } from './theme.mjs';
@@ -22,6 +22,12 @@ import { transientLayers } from './views/overlays.mjs';
 
 export { initialShowcaseState, showcaseViewport } from './state.mjs';
 export { showcaseTheme } from './theme.mjs';
+
+const showcaseBreakpoints = defineBreakpoints({
+  narrow: { maxColumns: 99 },
+  medium: { minColumns: 100, maxColumns: 149 },
+  wide: { minColumns: 150 }
+});
 
 export function createShowcaseApp() {
   return defineTui({
@@ -42,7 +48,7 @@ export function createShowcaseApp() {
           label: `Northstar Control, ${routeLabel(state.selectedRoute)} route`,
           children: [
             { id: 'showcase-nav', role: 'tree', label: 'Operations navigation' },
-            { id: 'workspace-tabs', role: 'tablist', label: 'Operations workspace' },
+            { id: 'workspace-route-menu', role: 'tablist', label: 'Operations workspace' },
             { id: 'inspector-tabs', role: 'tablist', label: 'Contextual inspector' },
             { id: 'showcase-command', role: 'textbox', label: 'Command bar', value: state.commandValue }
           ]
@@ -95,12 +101,23 @@ export function createShowcaseSnapshot(state = initialShowcaseState(), previousS
 }
 
 export function showcaseView(state, viewport = showcaseViewport) {
-  const base = grid([
-    topChrome(state),
-    mainRegion(state, viewport),
-    bottomChrome(state)
-  ], {
+  return responsive(viewport, showcaseBreakpoints, {
+    wide: () => showcaseVariant(state, viewport, 'wide'),
+    medium: () => showcaseVariant(state, viewport, 'medium'),
+    narrow: () => showcaseVariant(state, viewport, 'narrow')
+  });
+}
+
+function showcaseVariant(state, viewport, variant) {
+  const parts = createViewParts(state, viewport, variant);
+  const base = areaGrid({
     id: 'showcase-shell',
+    areas: `
+      top
+      main
+      bottom
+    `,
+    children: parts,
     rows: [{ kind: 'fixed', cells: 3 }, { kind: 'fill' }, { kind: 'fixed', cells: 4 }],
     columns: [{ kind: 'fill' }],
     accessibility: { role: 'application', label: 'Northstar Control' },
@@ -111,6 +128,14 @@ export function showcaseView(state, viewport = showcaseViewport) {
     }
   });
   return overlay([base, ...transientLayers(state)], { id: 'showcase-overlay' });
+}
+
+function createViewParts(state, viewport, variant) {
+  return {
+    top: topChrome(state),
+    main: mainRegion(state, viewport, variant),
+    bottom: bottomChrome(state)
+  };
 }
 
 async function main() {

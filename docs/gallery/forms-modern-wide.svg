@@ -2,7 +2,8 @@
 <rect width="100%" height="100%" fill="#000000"/>
 <text x="16" y="30" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐</text>
 <text x="16" y="48" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
-<text x="24" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Namelue":"Forms","style":{"fg":{"kind":"theme","token":"accent.primary"},"bold":true}}</text>
+<text x="24" y="48" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Name</text>
+<text x="56" y="48" fill="#ff00ff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">s</text>
 <text x="1288" y="48" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="16" y="66" fill="#808080" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">│</text>
 <text x="24" y="66" fill="#ffffff" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Nova Operations</text>

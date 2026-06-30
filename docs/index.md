@@ -25,6 +25,14 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 - `examples/showcase/scripted.mjs` drives the same app through deterministic runtime state changes.
 - `examples/showcase/preview.mjs` emits frame, diff, hit-target, focus, and accessibility evidence from the showcase.
 - [Generated showcase gallery](./gallery/index.md) contains code-generated SVG/HTML previews and structural fixture artifacts.
+- `examples/gallery/animation-sequences.mjs` demonstrates deterministic animated frame and diff artifacts.
+- `examples/files/file-dialog.mjs` demonstrates a file-dialog workflow with an external Node filesystem adapter.
+- `examples/products/file-manager.mjs` demonstrates a product-shaped file manager.
+- `examples/products/system-monitor.mjs` demonstrates a product-shaped system monitor.
+- `examples/products/notes-workspace.mjs` demonstrates a product-shaped note/editor workspace.
+- `examples/products/data-dashboard.mjs` demonstrates a product-shaped data table dashboard.
+- `examples/products/form-wizard.mjs` demonstrates a product-shaped form wizard.
+- `examples/products/chart-explorer.mjs` demonstrates a product-shaped chart explorer.
 - `examples/prompts/non-tty-input.mjs` demonstrates deterministic non-TTY prompt input.
 - `examples/shell/cli-core-shell.mjs` demonstrates a shell backed by a real `cli-core` program.
 - `examples/testing/visual-snapshots.mjs` demonstrates deterministic visual snapshot artifacts.

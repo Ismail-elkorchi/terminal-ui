@@ -1,0 +1,33 @@
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ Harbor Files                        Pure file-explorer model with call  ┌──────────────────────────────────┐ │
+└─────────────────────────────────────────────────────────────────────────┴──────────────────────────────────┴─┘
+
+┌ File manager ─────────────────────────────────────────────────────────────┐ ┌ Selection ─────────────────────┐
+│                                                                           │ │                                │
+│ dispatch    /           shift-report ┌ Preview ─────────────────────────┐ │ │                                │
+│                                      │# Shift report                    │ │ │                                │
+│                                      │                                  │ │ │                                │
+│                                      │                                  │ │ │                                │
+│                                      │                                  │ │ │  entries: 6     matches: 2     │
+│                                      │                                  │ │ │                                │
+│                                      │Two arrivals staged. South crane i│ │ │                                │
+│                                      │                                  │ │ │                                │
+│                                      │                                  │ │ │   [-] [success] Selected dispa │
+│   ▾ ▸ dispatch                       │                                  │ │ │   Preview and breadcrumb updat │
+│ ›     · shift-report.md              │                                  │ │ │   ed.                          │
+│       · checklist.txt                │Next action: confirm tug assignmen│ │ │                                │
+│                                      │                                  │ │ │                                │
+│                                      │                                  │ │ │    ┌ success Preview refresh┐  │
+│                                      │                                  │ │ │    │Preview refreshed       │  │
+│                                      │                                  │ │ │    │dispatch/shift-report.md│  │
+│                                      │                                  │ │ │    └────────────────────────┘  │
+│                                      └──────────────────────────────────┘ │ │                                │
+│                                                                           │ │                                │
+└───────────────────────────────────────────────────────────────────────────┘ └────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ >/open dispatch/shift-report.md                                                                              │
+│                                                                                                              │
+│ Tab focus  Enter apply  / commands                                                                           │
+└──────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+{"source":"examples/products/file-manager.mjs","workflow":"file-manager","action":"select dispatch report","viewport":{"columns":112,"rows":32},"selectedBefore":"harbor/berths.json","selectedAfter":"dispatch/shift-report.md","previewVisible":true}

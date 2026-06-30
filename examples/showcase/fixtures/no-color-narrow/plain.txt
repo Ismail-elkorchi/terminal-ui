@@ -1,29 +1,29 @@
 File  View  Tools  Help       Northstar Control  Live even  i Live events live (running)
 Atlas service [#######---] 72/100 72%
 
-+ Watch --------------+  Overview   Fleet   Briefing   Map   Di + Inspector -------------+
-| Operations          | + Live event timeline ----------------+ | [Vessel]  Route   Even |
-|                     | |                                     | |                        |
-|                     | |   [-] [success] Berth window secure | |                        |
-|                     | |   Aster enters berth 12 inside the  | |                        |
-|   v ◆ Operations    | |   active tide window                | |                        |
-|       ▣ Overview    | |   pilot: Rin                        | |                        |
-|       ▤ Fleet boar… | |   berth: 12                         | |                        |
-|       ¶ Briefing r… | |   Cargo transfer, inspection, and o | |                        |
-|       ◎ Route map   | |   utbound clearance are now staged  | |                        |
-|       ☷ Dispatch d… | |   in sequence.                      | |                        |
-| >     ✦ Live event… | |                                     | |                        |
-|                     | +-------------------------------------+ |                        |
-|                     |                                         |                        |
-|                     | + Selected event ---------------------+ |                        |
-|                     | |                                     | |                        |
-| > Palette           | | [-] [running] Lane pressure rising  | |                        |
-|   Handoff           | | Ferry wake and supply traffic are s | |                        |
-|   Theme             | | haring channel C                    | |                        |
-|   Context           | | sector: west lane                   | |                        |
-|                     | | watch : 14 min                      | |                        |
-|                     | |                                     | |                        |
-+---------------------+ +-------------------------------------+ +------------------------+
+[ Watch ]                     ›                             [ Live events ]
+[ Overview ]   [ Fleet ]      [ Briefing ]   [ Map ]        More routes            Dispat…
++ Live event timeline -------------------------------------------------------------------+
+|                                                                                        |
+|   [-] [success] Berth window secured                                                   |
+|   Aster enters berth 12 inside the active tide window                                  |
+|   pilot: Rin                                                                           |
+|   berth: 12                                                                            |
+|   Cargo transfer, inspection, and outbound clearance are now staged in sequence.       |
+| > [-] [running] Lane pressure rising                                                   |
+|   Ferry wake and supply traffic are sharing channel C                                  |
+|                                                                                        |
++----------------------------------------------------------------------------------------+
+
++ Selected event ------------------------------------------------------------------------+
+|                                                                                        |
+| [-] [running] Lane pressure rising                                                     |
+| Ferry wake and supply traffic are sharing channel C                                    |
+| sector: west lane                                                                      |
+| watch : 14 min                                                                         |
+|                                                                                        |
+|                                                                                        |
++----------------------------------------------------------------------------------------+
 ›/events
 command ready
-Tab focus  Enter activate  /palette commands  /handoff modal  Ctrl-C exit
+[ / commands ]        [ H handoff ]         [ T theme ]           [ C context ]

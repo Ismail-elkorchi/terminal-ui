@@ -8,6 +8,9 @@ import {
   surfaceAccessibleBase,
   surfaceChildBounds
 } from '../drawing-widgets.ts';
+import { dividerAccessibleBase, renderDivider } from '../divider.ts';
+import { drawSurfaceChrome } from '../surface.ts';
+import { renderTooltip, tooltipAccessibleBase } from '../tooltip.ts';
 import { focusTarget, hasKeyboardOrInputMap } from './support/common.ts';
 import type { RendererMap } from './types.ts';
 
@@ -22,6 +25,7 @@ export const drawingRenderers = {
   surface: {
     layout: ({ widget, bounds }) => surfaceChildBounds(widget, bounds),
     render: (input) => {
+      drawSurfaceChrome(input.buffer, input.node.bounds, input.widget, input.theme, input.focused);
       input.renderChildren();
     },
     accessibility: ({ widget, id, focused }) => surfaceAccessibleBase(widget, id, focused)
@@ -39,5 +43,17 @@ export const drawingRenderers = {
       input.renderChildren();
     },
     accessibility: ({ id, focused }) => overlayAccessibleBase(id, focused)
+  },
+  divider: {
+    render: ({ widget, node, buffer }) => {
+      renderDivider(widget, buffer, node.bounds);
+    },
+    accessibility: ({ widget, id, focused }) => dividerAccessibleBase(widget, id, focused)
+  },
+  tooltip: {
+    render: ({ widget, node, buffer, theme }) => {
+      renderTooltip(widget, buffer, node.bounds, theme);
+    },
+    accessibility: ({ widget, id, focused }) => tooltipAccessibleBase(widget, id, focused)
   }
-} satisfies RendererMap<'canvas' | 'surface' | 'absolute' | 'overlay'>;
+} satisfies RendererMap<'canvas' | 'surface' | 'absolute' | 'overlay' | 'divider' | 'tooltip'>;

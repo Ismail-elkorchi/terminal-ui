@@ -3,76 +3,164 @@
   "height": 42,
   "operations": [
     {
-      "bounds": {
-        "column": 131,
-        "height": 1,
-        "row": 6,
-        "width": 25
-      },
-      "kind": "clearRect"
+      "column": 131,
+      "kind": "write",
+      "row": 7,
+      "spans": [
+        {
+          "source": {
+            "kind": "surface",
+            "role": "decoration"
+          },
+          "style": {
+            "bg": {
+              "kind": "theme",
+              "token": "surface.inset.background"
+            }
+          },
+          "text": "                         "
+        }
+      ]
     },
     {
-      "bounds": {
-        "column": 131,
-        "height": 1,
-        "row": 7,
-        "width": 28
-      },
-      "kind": "clearRect"
+      "column": 131,
+      "kind": "write",
+      "row": 8,
+      "spans": [
+        {
+          "source": {
+            "kind": "surface",
+            "role": "decoration"
+          },
+          "style": {
+            "bg": {
+              "kind": "theme",
+              "token": "surface.inset.background"
+            }
+          },
+          "text": "                            "
+        }
+      ]
     },
     {
-      "bounds": {
-        "column": 131,
-        "height": 1,
-        "row": 8,
-        "width": 16
-      },
-      "kind": "clearRect"
+      "column": 131,
+      "kind": "write",
+      "row": 9,
+      "spans": [
+        {
+          "source": {
+            "kind": "surface",
+            "role": "decoration"
+          },
+          "style": {
+            "bg": {
+              "kind": "theme",
+              "token": "surface.inset.background"
+            }
+          },
+          "text": "                "
+        }
+      ]
     },
     {
-      "bounds": {
-        "column": 131,
-        "height": 1,
-        "row": 9,
-        "width": 16
-      },
-      "kind": "clearRect"
+      "column": 131,
+      "kind": "write",
+      "row": 10,
+      "spans": [
+        {
+          "source": {
+            "kind": "surface",
+            "role": "decoration"
+          },
+          "style": {
+            "bg": {
+              "kind": "theme",
+              "token": "surface.inset.background"
+            }
+          },
+          "text": "                "
+        }
+      ]
     },
     {
-      "bounds": {
-        "column": 131,
-        "height": 1,
-        "row": 10,
-        "width": 12
-      },
-      "kind": "clearRect"
+      "column": 131,
+      "kind": "write",
+      "row": 11,
+      "spans": [
+        {
+          "source": {
+            "kind": "surface",
+            "role": "decoration"
+          },
+          "style": {
+            "bg": {
+              "kind": "theme",
+              "token": "surface.inset.background"
+            }
+          },
+          "text": "            "
+        }
+      ]
     },
     {
-      "bounds": {
-        "column": 131,
-        "height": 1,
-        "row": 11,
-        "width": 17
-      },
-      "kind": "clearRect"
+      "column": 131,
+      "kind": "write",
+      "row": 12,
+      "spans": [
+        {
+          "source": {
+            "kind": "surface",
+            "role": "decoration"
+          },
+          "style": {
+            "bg": {
+              "kind": "theme",
+              "token": "surface.inset.background"
+            }
+          },
+          "text": "                 "
+        }
+      ]
     },
     {
-      "bounds": {
-        "column": 131,
-        "height": 1,
-        "row": 12,
-        "width": 14
-      },
-      "kind": "clearRect"
+      "column": 131,
+      "kind": "write",
+      "row": 13,
+      "spans": [
+        {
+          "source": {
+            "kind": "surface",
+            "role": "decoration"
+          },
+          "style": {
+            "bg": {
+              "kind": "theme",
+              "token": "surface.inset.background"
+            }
+          },
+          "text": "              "
+        }
+      ]
     },
     {
-      "bounds": {
-        "column": 131,
-        "height": 1,
-        "row": 22,
-        "width": 26
-      },
-      "kind": "clearRect"
+      "column": 131,
+      "kind": "write",
+      "row": 22,
+      "spans": [
+        {
+          "source": {
+            "kind": "surface",
+            "role": "decoration"
+          },
+          "style": {
+            "bg": {
+              "kind": "theme",
+              "token": "surface.inset.background"
+            }
+          },
+          "text": "                          "
+        }
+      ]
     },
     {
       "bounds": {

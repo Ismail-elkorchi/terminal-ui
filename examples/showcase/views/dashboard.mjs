@@ -1,10 +1,12 @@
 import { blockSpan } from '@ismail-elkorchi/terminal-ui/tui';
 import {
   absolute,
-  barChart,
   box,
   canvas,
+  carousel,
+  gauge,
   grid,
+  heatmap,
   progressBar,
   row,
   sparkline,
@@ -81,7 +83,7 @@ function wideOperationsFloor(state) {
     stack([
       capacityBoard(state),
       selectedVesselCard(state),
-      actionCard(state)
+      storyCarousel(state)
     ], {
       id: 'operations-side-stack',
       gap: 1
@@ -96,57 +98,145 @@ function wideOperationsFloor(state) {
 
 function compactOperationsFloor(state) {
   return splitPane([
-    box(stack([
-      heroCanvas(state),
-      routeTimeline(state)
-    ], { id: 'compact-map-stack', gap: 1 }), {
-      id: 'compact-operations-map',
-      border: { kind: 'rounded', title: 'Harbor surface' },
-      padding: 1
-    }),
-    box(stack([
-      capacityBoard(state),
-      selectedVesselCard(state)
-    ], { id: 'compact-side-stack', gap: 1 }), {
-      id: 'compact-operation-board',
-      border: { kind: 'rounded', title: 'Watch board' },
-      padding: 1
-    })
+    compactHarborSurface(state),
+    compactWatchBoard(state)
   ], {
     id: 'compact-dashboard-body',
     direction: 'vertical',
-    sizes: [{ kind: 'fill', weight: 2 }, { kind: 'fixed', cells: 14 }],
+    sizes: [{ kind: 'fixed', cells: 8 }, { kind: 'fill' }],
     gap: 1
   });
 }
 
-function capacityBoard(state) {
-  return box(stack([
-    barChart({
-      id: 'capacity-bars',
-      selected: state.fleetTable.selectedRow % 4,
-      items: [
-        { label: 'berths', value: 95 },
-        { label: 'lanes', value: selectedVessel(state).status === 'routing' ? 86 : 72 },
-        { label: 'crews', value: 91 },
-        { label: 'weather', value: 82 + (state.spinnerFrame % 8) }
-      ]
-    }),
+function compactHarborSurface(state) {
+  const vessel = selectedVessel(state);
+  return box(grid([
+    row([
+      text('outer'),
+      text('─'),
+      text(vessel.name, { id: 'compact-active-vessel' }),
+      text('─'),
+      text(vessel.status === 'routing' ? 'channel C' : 'berth 12'),
+      text('─'),
+      text('handoff')
+    ], { id: 'compact-route-row', gap: 1 }),
     progressBar({
-      id: 'capacity-progress',
+      id: 'compact-route-progress',
+      label: 'route clearance',
+      value: Math.max(20, vessel.score - 10 + (state.spinnerFrame % 6)),
+      max: 100,
+      mode: 'full',
+      status: vessel.score < 75 ? 'warning' : 'running'
+    }),
+    row([
+      text(`owner ${vessel.owner}`),
+      text(`signal ${String(vessel.score)}%`),
+      text(`state ${vessel.status}`)
+    ], { id: 'compact-vessel-facts', gap: 3 }),
+    signalStrip(state)
+  ], {
+    id: 'compact-harbor-grid',
+    rows: [
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 1 }
+    ],
+    columns: [{ kind: 'fill' }],
+    gap: 0
+  }), {
+    id: 'compact-operations-map',
+    border: { kind: 'rounded', title: 'Harbor surface' },
+    padding: { left: 1, right: 1 }
+  });
+}
+
+function compactWatchBoard(state) {
+  return box(grid([
+    row([
+      progressBar({
+        id: 'compact-capacity-progress',
+        label: 'service',
+        value: state.progress,
+        max: 100,
+        mode: 'compact',
+        status: progressTone(state.progress)
+      }),
+      sparkline({ id: 'compact-capacity-sparkline', values: sparklineValues(state.spinnerFrame) })
+    ], { id: 'compact-capacity-row', gap: 2 }),
+    selectedVesselCard(state)
+  ], {
+    id: 'compact-side-grid',
+    rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }],
+    columns: [{ kind: 'fill' }],
+    gap: 1
+  }), {
+    id: 'compact-operation-board',
+    border: { kind: 'rounded', title: 'Watch board' },
+    padding: 1
+  });
+}
+
+function capacityBoard(state) {
+  return box(surface([
+    absolute(gauge({
+      id: 'capacity-gauge',
       label: 'service',
       value: state.progress,
       max: 100,
-      mode: 'full',
-      showPercentage: true,
+      width: 10,
       status: progressTone(state.progress)
+    }), {
+      id: 'capacity-gauge-region',
+      row: 1,
+      column: 1,
+      width: 25,
+      height: 1
     }),
-    sparkline({ id: 'capacity-sparkline', values: sparklineValues(state.spinnerFrame) })
-  ], { id: 'capacity-stack', gap: 1 }), {
+    absolute(pressureHeatmap(state), {
+      id: 'pressure-heatmap-region',
+      row: 3,
+      column: 1,
+      width: 25,
+      height: 2
+    }),
+    absolute(sparkline({ id: 'capacity-sparkline', values: sparklineValues(state.spinnerFrame) }), {
+      id: 'capacity-sparkline-region',
+      row: 6,
+      column: 1,
+      width: 25,
+      height: 1
+    })
+  ], { id: 'capacity-surface', label: 'Capacity telemetry' }), {
     id: 'capacity-board',
     border: { kind: 'single', title: 'Capacity' },
-    padding: 1
+    padding: 0
   });
+}
+
+function pressureHeatmap(state) {
+  return heatmap({
+    id: 'pressure-heatmap',
+    rows: pressureRows(state),
+    min: 60,
+    max: 100,
+    selected: {
+      row: Math.floor(state.fleetTable.selectedRow / 3),
+      column: state.fleetTable.selectedRow % 3
+    },
+    cellWidth: 3,
+    gap: 1,
+    keyMap: { enter: { kind: 'row', row: state.fleetTable.selectedRow } },
+    toMessage: (_cell, rowIndex, columnIndex) => ({ kind: 'pressureCell', row: rowIndex, column: columnIndex })
+  });
+}
+
+function pressureRows(state) {
+  return [0, 1].map((rowIndex) => dataRows.slice(rowIndex * 3, rowIndex * 3 + 3).map((vessel, columnIndex) => ({
+    id: vessel.name,
+    label: `${vessel.name} pressure`,
+    value: Math.min(100, vessel.score + (state.spinnerFrame + rowIndex + columnIndex) % 5)
+  })));
 }
 
 function selectedVesselCard(state) {
@@ -175,6 +265,55 @@ function actionCard(state) {
       { label: 'density', value: String(state.density) },
       { label: 'layout', value: state.layoutMode },
       { label: 'mouse', value: state.mouseEnabled ? 'enabled' : 'disabled' }
+    ]
+  });
+}
+
+function storyCarousel(state) {
+  const selected = ['pulse', 'vessel', 'service'].includes(state.selectedStory) ? state.selectedStory : 'pulse';
+  return box(carousel({
+    id: 'watch-story',
+    selected,
+    previousMessage: { kind: 'storyPrevious' },
+    nextMessage: { kind: 'storyNext' },
+    bodySize: { kind: 'fixed', cells: 7 },
+    items: [
+      {
+        id: 'pulse',
+        label: 'Pulse',
+        message: { kind: 'story', id: 'pulse' },
+        body: actionCard(state)
+      },
+      {
+        id: 'vessel',
+        label: selectedVessel(state).name,
+        message: { kind: 'story', id: 'vessel' },
+        body: selectedVesselCard(state)
+      },
+      {
+        id: 'service',
+        label: 'Service',
+        message: { kind: 'story', id: 'service' },
+        body: serviceStory(state)
+      }
+    ]
+  }), {
+    id: 'watch-story-card',
+    border: { kind: 'single', title: 'Watch story' },
+    padding: 1
+  });
+}
+
+function serviceStory(state) {
+  return structuredBlock({
+    id: 'service-story',
+    title: 'Service rhythm',
+    status: state.progress >= 92 ? 'success' : 'running',
+    summary: 'Progress, route pressure, and selected vessel state move together as the app ticks.',
+    fields: [
+      { label: 'service', value: `${String(state.progress)}%` },
+      { label: 'story', value: state.selectedStory },
+      { label: 'vessel', value: selectedVessel(state).name }
     ]
   });
 }

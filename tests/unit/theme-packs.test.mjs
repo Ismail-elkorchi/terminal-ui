@@ -47,6 +47,9 @@ test('theme packs are exported as optional named TerminalTheme values', () => {
     assert.match(theme.fingerprint, /^theme:[0-9a-f]{8}$/u);
     assert.equal(resolveTerminalStyle({ fg: { kind: 'theme', token: 'accent.primary' } }, theme)?.fg?.kind, 'rgb');
     assert.equal(typeof theme.colors['surface.background'], 'object');
+    assert.equal(typeof theme.colors['surface.raised.background'], 'object');
+    assert.equal(typeof theme.colors['surface.warning.border'], 'object');
+    assert.equal(typeof theme.colors['surface.shadow'], 'object');
   }
 });
 

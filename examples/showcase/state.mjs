@@ -5,6 +5,7 @@ export const commandFocusPath = Object.freeze(['showcase-overlay', 'showcase-she
 export const commandQueryCells = 24;
 export const themeSequence = Object.freeze(['catppuccin', 'tokyoNight', 'highContrast', 'noColor']);
 export const quickActions = Object.freeze(['Palette', 'Handoff', 'Theme', 'Context']);
+export const storySlides = Object.freeze(['pulse', 'vessel', 'service']);
 
 export function initialShowcaseState() {
   return {
@@ -12,6 +13,7 @@ export function initialShowcaseState() {
     selectedInspector: 'vessel',
     selectedNavigation: 'dashboard',
     selectedQuickAction: 0,
+    selectedStory: storySlides[0],
     navFilter: '',
     commandValue: '',
     commandCursor: 0,
@@ -21,6 +23,8 @@ export function initialShowcaseState() {
     contextMenuOpen: false,
     dropdownOpen: false,
     mouseEnabled: true,
+    selectedChannels: ['vhf', 'ais'],
+    dispatchDate: '2026-06-15',
     layoutMode: 'balanced',
     density: 3,
     draftText: [
@@ -30,6 +34,7 @@ export function initialShowcaseState() {
     ].join('\n'),
     lastAction: 'Harbor overview ready. Select a vessel, open a route, or type a command.',
     themeIndex: 0,
+    clock: 0,
     spinnerFrame: 0,
     scrollRow: 2,
     progress: 72,
@@ -60,6 +65,10 @@ export function initialShowcaseState() {
       selectedMatchIndex: 0,
       foldedIds: [],
       followTail: false
+    },
+    notificationState: {
+      items: [],
+      history: []
     }
   };
 }

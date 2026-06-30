@@ -3,32 +3,39 @@ import {
   absolute,
   barChart,
   box,
+  breadcrumb,
   button,
   canvas,
-  checkbox,
+  chart,
+  checkboxList,
+  collapsibleSection,
+  colorPicker,
+  datePicker,
   dropdown,
+  areaGrid,
   field,
   form,
   grid,
   inputField,
   menu,
-  numberInput,
-  paginator,
+  paginatedTable,
   progressBar,
   radioGroup,
   richText,
   row,
   scrollback,
-  selectBox,
   sparkline,
   splitPane,
   stack,
   structuredBlock,
   surface,
-  table,
+  sidePanel,
+  slider,
   tabs,
+  tabOverflowMenu,
   text,
   textArea,
+  toggleSwitch,
   viewport
 } from '@ismail-elkorchi/terminal-ui/widgets';
 
@@ -44,80 +51,142 @@ import { navigationPane } from './chrome.mjs';
 import { dashboardPanel } from './dashboard.mjs';
 import { compactViewport, progressTone } from './view-utils.mjs';
 
-export function mainRegion(state, viewport) {
+export function mainRegion(state, viewport, variant = responsiveVariant(viewport)) {
   const compact = compactViewport(viewport);
   const inspectorWidth = state.layoutMode === 'wide' ? 30 : compact ? 26 : 32;
   const navWidth = state.layoutMode === 'compact' ? 20 : compact ? 23 : 24;
-  return splitPane([
-    box(navigationPane(state), {
-      id: 'navigation-shell',
-      border: { kind: 'rounded', title: 'Watch' },
-      padding: { left: 1, right: 1 }
-    }),
-    workspacePane(state, viewport),
-    inspectorPane(state)
-  ], {
-    id: 'main-layout',
-    direction: 'horizontal',
-    sizes: [
-      { kind: 'fixed', cells: navWidth },
-      { kind: 'fill', weight: 4 },
-      { kind: 'fixed', cells: inspectorWidth }
-    ],
-    gap: 1
+  const nav = navigationShell(state);
+  const workspace = workspacePane(state, viewport);
+  const inspector = inspectorPane(state);
+
+  if (variant === 'wide') {
+    return areaGrid({
+      id: 'main-layout-wide',
+      areas: 'nav workspace inspector',
+      rows: [{ kind: 'fill' }],
+      columns: [
+        { kind: 'fixed', cells: navWidth },
+        { kind: 'fill', weight: 4 },
+        { kind: 'fixed', cells: inspectorWidth }
+      ],
+      children: { nav, workspace, inspector },
+      gap: 1
+    });
+  }
+
+  if (variant === 'medium') {
+    return areaGrid({
+      id: 'main-layout-medium',
+      areas: 'nav workspace',
+      rows: [{ kind: 'fill' }],
+      columns: [{ kind: 'fixed', cells: navWidth }, { kind: 'fill', weight: 4 }],
+      children: { nav, workspace },
+      gap: 1
+    });
+  }
+
+  return areaGrid({
+    id: 'main-layout-narrow',
+    areas: 'workspace',
+    rows: [{ kind: 'fill' }],
+    columns: [{ kind: 'fill' }],
+    children: { workspace }
+  });
+}
+
+function navigationShell(state) {
+  return sidePanel({
+    id: 'navigation-shell',
+    title: 'Watch',
+    body: navigationPane(state),
+    variant: 'inset'
   });
 }
 
 function workspacePane(state, viewport) {
-  return tabs({
-    id: 'workspace-tabs',
-    selected: state.selectedRoute,
-    tabs: [
-      showcaseTab(state, 'dashboard', 'Overview', dashboardPanel(state, viewport)),
-      showcaseTab(state, 'data', 'Fleet', dataPanel(state)),
-      showcaseTab(state, 'text', 'Briefing', textPanel(state)),
-      showcaseTab(state, 'diagram', 'Map', diagramPanel(state)),
-      showcaseTab(state, 'forms', 'Dispatch', formsPanel(state)),
-      showcaseTab(state, 'activity', 'Events', activityPanel(state, viewport))
-    ]
+  return splitPane([
+    workspaceNavigation(state, viewport),
+    routePanel(state, viewport, state.selectedRoute)
+  ], {
+    id: 'workspace-shell',
+    direction: 'vertical',
+    sizes: [{ kind: 'fixed', cells: 2 }, { kind: 'fill' }],
+    gap: 0
   });
 }
 
-function showcaseTab(state, id, label, panel) {
-  return {
-    id,
-    label,
-    message: { kind: 'route', route: id },
-    panel: state.selectedRoute === id ? panel : box(text('', { id: `workspace-${id}-inactive-text` }), {
-      id: `workspace-${id}-inactive`,
-      visible: false
+function workspaceNavigation(state, viewport) {
+  return stack([
+    breadcrumb({
+      id: 'workspace-breadcrumb',
+      separator: '›',
+      items: [
+        { id: 'watch', label: 'Watch', message: { kind: 'route', route: 'dashboard' } },
+        { id: state.selectedRoute, label: routeLabel(state.selectedRoute), message: { kind: 'route', route: state.selectedRoute } }
+      ]
+    }),
+    tabOverflowMenu({
+      id: 'workspace-route-menu',
+      selected: state.selectedRoute,
+      maxVisible: 4,
+      overflowLabel: 'More routes',
+      tabs: routeItems().map(({ id, label }) => ({
+        id,
+        label,
+        message: { kind: 'route', route: id }
+      }))
     })
-  };
+  ], {
+    id: 'workspace-navigation'
+  });
+}
+
+function routeItems() {
+  return [
+    { id: 'dashboard', label: 'Overview' },
+    { id: 'data', label: 'Fleet' },
+    { id: 'text', label: 'Briefing' },
+    { id: 'diagram', label: 'Map' },
+    { id: 'forms', label: 'Dispatch' },
+    { id: 'activity', label: 'Events' }
+  ];
+}
+
+function routePanel(state, viewport, id) {
+  if (id === 'dashboard') return dashboardPanel(state, viewport);
+  if (id === 'data') return dataPanel(state);
+  if (id === 'text') return textPanel(state);
+  if (id === 'diagram') return diagramPanel(state);
+  if (id === 'forms') return formsPanel(state);
+  return activityPanel(state, viewport);
 }
 
 function dataPanel(state) {
   const sortedRows = dataRows;
   return stack([
-    table({
-      id: 'showcase-table',
+    paginatedTable({
+      id: 'showcase-table-pages',
+      tableId: 'showcase-table',
+      paginatorId: 'data-pages',
+      label: 'Fleet',
+      page: 1,
+      pageSize: 6,
       rows: sortedRows.map((rowItem) => [rowItem.name, rowItem.type, rowItem.status, rowItem.score]),
       selected: state.fleetTable.selectedRow,
       selectedCell: { row: state.fleetTable.selectedRow, column: state.fleetTable.selectedColumn ?? 2 },
       stickyHeader: true,
       columns: [
-        { header: 'Vessel', width: { kind: 'fixed', cells: state.fleetTable.columnWidths?.name ?? 10 }, sort: 'ascending' },
+        { header: 'Vessel', width: { kind: 'fixed', cells: state.fleetTable.columnWidths?.name ?? 10 }, sort: 'ascending', resizable: true },
         { header: 'Class', width: { kind: 'fill' } },
-        { header: 'State', width: { kind: 'fixed', cells: state.fleetTable.columnWidths?.status ?? 10 } },
+        { header: 'State', width: { kind: 'fixed', cells: state.fleetTable.columnWidths?.status ?? 10 }, resizable: true },
         { header: 'Signal', width: { kind: 'fixed', cells: 7 }, align: 'end' }
       ],
       keyMap: {
         arrowDown: { kind: 'row', row: Math.min(dataRows.length - 1, state.fleetTable.selectedRow + 1) },
         arrowUp: { kind: 'row', row: Math.max(0, state.fleetTable.selectedRow - 1) }
-      },
-      scrollbar: { visible: true }
+      }
     }),
     row([
-      paginator({ id: 'data-pages', label: 'Fleet', page: 1, pageCount: 4 }),
       progressBar({ id: 'data-progress', label: `${selectedVessel(state).name} clearance`, value: selectedVessel(state).score, max: 100, mode: 'compact', status: progressTone(selectedVessel(state).score) })
     ], { id: 'data-footer', gap: 2 })
   ], { id: 'data-stack', gap: 1 });
@@ -211,14 +280,18 @@ function diagramPanel(state) {
       width: 68,
       height: 8
     }),
-    absolute(box(barChart({
+    absolute(box(chart({
       id: 'route-pressure',
-      selected: 1,
-      items: [
-        { label: 'north', value: 42 },
-        { label: 'west', value: selectedVessel(state).status === 'routing' ? 91 : 76 },
-        { label: 'inner', value: 63 }
-      ]
+      legend: true,
+      yLabel: 'traffic',
+      xLabel: 'watch cycle',
+      selected: { series: 'lane', point: state.spinnerFrame % 6 },
+      series: [
+        { id: 'lane', label: 'lane', kind: 'line', glyph: '+', points: [42, 55, 67, selectedVessel(state).status === 'routing' ? 91 : 76, 70, 63] },
+        { id: 'gust', label: 'gust', kind: 'scatter', glyph: 'o', points: [64, 58, 71, 69, 62, 57] }
+      ],
+      keyMap: { enter: { kind: 'chartPoint', series: 'lane', point: state.spinnerFrame % 6 } },
+      toMessage: (point) => ({ kind: 'chartPoint', series: point.series, point: point.point })
     }), { id: 'lane-pressure-card', border: { kind: 'single', title: 'Lane pressure' }, padding: 1 }), {
       id: 'lane-pressure-region',
       row: 1,
@@ -242,10 +315,15 @@ function diagramPanel(state) {
 
 function formsPanel(state) {
   const themeOptions = [
-    { id: 'catppuccin', label: 'Catppuccin', value: 'catppuccin' },
-    { id: 'tokyo-night', label: 'Tokyo Night', value: 'tokyoNight' },
-    { id: 'contrast', label: 'High contrast', value: 'highContrast' },
-    { id: 'plain', label: 'No color', value: 'noColor' }
+    { id: 'catppuccin', label: 'Catppuccin', value: 'catppuccin', swatch: '●' },
+    { id: 'tokyoNight', label: 'Tokyo Night', value: 'tokyoNight', swatch: '◆' },
+    { id: 'highContrast', label: 'High contrast', value: 'highContrast', swatch: '■' },
+    { id: 'noColor', label: 'No color', value: 'noColor', swatch: '◇' }
+  ];
+  const channelOptions = [
+    { id: 'vhf', label: 'VHF', value: 'vhf' },
+    { id: 'ais', label: 'AIS', value: 'ais' },
+    { id: 'sms', label: 'SMS', value: 'sms' }
   ];
   return splitPane([
     form([
@@ -254,21 +332,28 @@ function formsPanel(state) {
         label: 'Console',
         description: 'Visible name for this operations room'
       }),
-      field(numberInput({
+      field(slider({
         id: 'density',
         value: state.density,
         min: 1,
         max: 5,
-        keyMap: {
-          arrowUp: { kind: 'density', value: state.density + 1 },
-          arrowDown: { kind: 'density', value: state.density - 1 }
-        }
+        width: 9,
+        decrementMessage: { kind: 'density', value: state.density - 1 },
+        incrementMessage: { kind: 'density', value: state.density + 1 },
+        toMessage: (value) => ({ kind: 'density', value })
       }), {
         id: 'density-field',
         label: 'Density',
         description: 'Changes spacing and side-board proportions'
       }),
-      checkbox({ id: 'mouse-enabled', label: 'Mouse controls', checked: state.mouseEnabled, message: { kind: 'toggleMouse' } }),
+      toggleSwitch({ id: 'mouse-enabled', label: 'Mouse controls', checked: state.mouseEnabled, message: { kind: 'toggleMouse' } }),
+      checkboxList({
+        id: 'dispatch-channels',
+        label: 'Dispatch channels',
+        options: channelOptions,
+        selected: state.selectedChannels,
+        toMessage: (option, checked) => ({ kind: 'channel', id: option.id, checked })
+      }),
       radioGroup({
         id: 'layout-mode',
         label: 'Layout mode',
@@ -280,12 +365,20 @@ function formsPanel(state) {
         ],
         toMessage: (option) => ({ kind: 'layoutMode', value: option.value })
       }),
-      selectBox({
+      colorPicker({
         id: 'theme-select',
         label: 'Theme',
         selected: themeLabel(state),
+        columns: 2,
         options: themeOptions,
         toMessage: (option) => ({ kind: 'setTheme', value: option.value })
+      }),
+      datePicker({
+        id: 'dispatch-date',
+        label: 'Dispatch window',
+        selected: state.dispatchDate,
+        days: dispatchDays(),
+        toMessage: (day) => ({ kind: 'dispatchDate', value: day.value })
       }),
       dropdown({
         id: 'theme-dropdown',
@@ -326,6 +419,19 @@ function formsPanel(state) {
   });
 }
 
+function dispatchDays() {
+  return Array.from({ length: 21 }, (_, index) => {
+    const day = index + 1;
+    const value = `2026-06-${String(day).padStart(2, '0')}`;
+    return {
+      id: value,
+      label: String(day),
+      value,
+      today: day === 15
+    };
+  });
+}
+
 function activityPanel(state, viewport) {
   const feed = activityFeed({
       id: 'activity-feed',
@@ -360,19 +466,20 @@ function activityPanel(state, viewport) {
 }
 
 function inspectorPane(state) {
-  return box(tabs({
-    id: 'inspector-tabs',
-    selected: state.selectedInspector,
-    tabs: [
-      inspectorTab(state, 'vessel', 'Vessel', vesselInspector(state)),
-      inspectorTab(state, 'route', 'Route', routeInspector(state)),
-      inspectorTab(state, 'event', 'Event', eventInspector(state)),
-      inspectorTab(state, 'theme', 'Theme', themeInspector(state))
-    ]
-  }), {
+  return sidePanel({
     id: 'inspector-pane',
-    border: { kind: 'rounded', title: 'Inspector' },
-    padding: { left: 1, right: 1 }
+    title: 'Inspector',
+    body: tabs({
+      id: 'inspector-tabs',
+      selected: state.selectedInspector,
+      tabs: [
+        inspectorTab(state, 'vessel', 'Vessel', vesselInspector(state)),
+        inspectorTab(state, 'route', 'Route', routeInspector(state)),
+        inspectorTab(state, 'event', 'Event', eventInspector(state)),
+        inspectorTab(state, 'theme', 'Theme', themeInspector(state))
+      ]
+    }),
+    variant: 'inset'
   });
 }
 
@@ -421,14 +528,20 @@ function routeInspector(state) {
         { label: 'last action', value: state.lastAction }
       ]
     }),
-    barChart({
-      id: 'route-bars',
-      items: [
-        { label: 'traffic', value: 78 },
-        { label: 'weather', value: 82 },
-        { label: 'crew', value: 91 }
-      ],
-      selected: state.spinnerFrame % 3
+    collapsibleSection({
+      id: 'route-conditions',
+      title: 'Conditions',
+      expanded: true,
+      message: { kind: 'inspector', inspector: 'route' },
+      body: barChart({
+        id: 'route-bars',
+        items: [
+          { label: 'traffic', value: 78 },
+          { label: 'weather', value: 82 },
+          { label: 'crew', value: 91 }
+        ],
+        selected: state.spinnerFrame % 3
+      })
     })
   ], { id: 'route-inspector', gap: 1 });
 }
@@ -465,4 +578,10 @@ function eventCard(state) {
     summary: block.summary ?? '',
     fields: block.fields ?? []
   });
+}
+
+function responsiveVariant(viewport) {
+  if (viewport.columns < 100) return 'narrow';
+  if (viewport.columns < 150) return 'medium';
+  return 'wide';
 }

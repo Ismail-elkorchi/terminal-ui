@@ -1,5 +1,5 @@
 +----------------------------------------------------------------------------------------+
-|Namelue":"Forms","style":{"fg":{"kind":"theme","token":"accent.primary"},"bold":true}}  |
+|Names                                                                                   |
 |Nova Operations                                                                         |
 |                                                                                        |
 |                                                                                        |

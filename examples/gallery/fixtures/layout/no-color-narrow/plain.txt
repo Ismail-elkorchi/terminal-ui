@@ -1,6 +1,6 @@
 +----------------------------------------------------------------+----------------------++
-|[Overview]  Details tyle":{"fg":{"kind":"theme","token":"accent.+----------------------++
-|{"value":"Tabbed workspace"}                                    |{"value":"Inspector pa||
+|[Overview]  Details                                             +----------------------++
+|Tabbed workspace                                                |Inspector panel       ||
 |                                                                |                      ||
 |                                                                |                      ||
 |                                                                |                      ||
@@ -11,7 +11,7 @@
 |                                                                |                      ||
 |                                                                |                      ||
 |                              + Dialog ------------------+      |                      ||
-|                              |{"value":"Modal focus scop|      |                      ||
+|                              |Modal focus scope         |      |                      ||
 |                              |                          |      |                      ||
 |                              |                          |      |                      ||
 |                              +--------------------------+      |                      ||

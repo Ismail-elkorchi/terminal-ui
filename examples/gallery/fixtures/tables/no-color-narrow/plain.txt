@@ -1,5 +1,5 @@
 +----------------------------------------------------------------------------------------+
-|  Name   State        Score ↓g":{"kind":"theme","token":"accent.primary"},"bold":true}} |
+|  Name   State        Score ↓                                                           |
 |  Atlas  active            92                                                           |
 |> Lumen  review            85                                                           |
 |  Pulse  blocked           61                                                           |

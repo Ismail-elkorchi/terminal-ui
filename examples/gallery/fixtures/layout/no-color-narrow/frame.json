@@ -5,10 +5,10 @@
     "root": {
       "children": [
         {
-          "id": "text-2-2",
-          "label": "text-2-2",
+          "id": "richText-2-2",
+          "label": "richText-2-2",
           "role": "text",
-          "value": "{\"value\":\"Layout\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+          "value": "Layout"
         },
         {
           "children": [
@@ -41,7 +41,7 @@
                       "id": "text-3-67",
                       "label": "text-3-67",
                       "role": "text",
-                      "value": "{\"value\":\"Inspector panel\"}"
+                      "value": "Inspector panel"
                     }
                   ],
                   "id": "inspector",
@@ -59,7 +59,7 @@
                   "id": "text-14-33",
                   "label": "text-14-33",
                   "role": "text",
-                  "value": "{\"value\":\"Modal focus scope\"}"
+                  "value": "Modal focus scope"
                 }
               ],
               "id": "layout-modal",
@@ -1665,270 +1665,6 @@
       "width": 1
     },
     {
-      "column": 22,
-      "row": 2,
-      "text": "t",
-      "width": 1
-    },
-    {
-      "column": 23,
-      "row": 2,
-      "text": "y",
-      "width": 1
-    },
-    {
-      "column": 24,
-      "row": 2,
-      "text": "l",
-      "width": 1
-    },
-    {
-      "column": 25,
-      "row": 2,
-      "text": "e",
-      "width": 1
-    },
-    {
-      "column": 26,
-      "row": 2,
-      "text": "\"",
-      "width": 1
-    },
-    {
-      "column": 27,
-      "row": 2,
-      "text": ":",
-      "width": 1
-    },
-    {
-      "column": 28,
-      "row": 2,
-      "text": "{",
-      "width": 1
-    },
-    {
-      "column": 29,
-      "row": 2,
-      "text": "\"",
-      "width": 1
-    },
-    {
-      "column": 30,
-      "row": 2,
-      "text": "f",
-      "width": 1
-    },
-    {
-      "column": 31,
-      "row": 2,
-      "text": "g",
-      "width": 1
-    },
-    {
-      "column": 32,
-      "row": 2,
-      "text": "\"",
-      "width": 1
-    },
-    {
-      "column": 33,
-      "row": 2,
-      "text": ":",
-      "width": 1
-    },
-    {
-      "column": 34,
-      "row": 2,
-      "text": "{",
-      "width": 1
-    },
-    {
-      "column": 35,
-      "row": 2,
-      "text": "\"",
-      "width": 1
-    },
-    {
-      "column": 36,
-      "row": 2,
-      "text": "k",
-      "width": 1
-    },
-    {
-      "column": 37,
-      "row": 2,
-      "text": "i",
-      "width": 1
-    },
-    {
-      "column": 38,
-      "row": 2,
-      "text": "n",
-      "width": 1
-    },
-    {
-      "column": 39,
-      "row": 2,
-      "text": "d",
-      "width": 1
-    },
-    {
-      "column": 40,
-      "row": 2,
-      "text": "\"",
-      "width": 1
-    },
-    {
-      "column": 41,
-      "row": 2,
-      "text": ":",
-      "width": 1
-    },
-    {
-      "column": 42,
-      "row": 2,
-      "text": "\"",
-      "width": 1
-    },
-    {
-      "column": 43,
-      "row": 2,
-      "text": "t",
-      "width": 1
-    },
-    {
-      "column": 44,
-      "row": 2,
-      "text": "h",
-      "width": 1
-    },
-    {
-      "column": 45,
-      "row": 2,
-      "text": "e",
-      "width": 1
-    },
-    {
-      "column": 46,
-      "row": 2,
-      "text": "m",
-      "width": 1
-    },
-    {
-      "column": 47,
-      "row": 2,
-      "text": "e",
-      "width": 1
-    },
-    {
-      "column": 48,
-      "row": 2,
-      "text": "\"",
-      "width": 1
-    },
-    {
-      "column": 49,
-      "row": 2,
-      "text": ",",
-      "width": 1
-    },
-    {
-      "column": 50,
-      "row": 2,
-      "text": "\"",
-      "width": 1
-    },
-    {
-      "column": 51,
-      "row": 2,
-      "text": "t",
-      "width": 1
-    },
-    {
-      "column": 52,
-      "row": 2,
-      "text": "o",
-      "width": 1
-    },
-    {
-      "column": 53,
-      "row": 2,
-      "text": "k",
-      "width": 1
-    },
-    {
-      "column": 54,
-      "row": 2,
-      "text": "e",
-      "width": 1
-    },
-    {
-      "column": 55,
-      "row": 2,
-      "text": "n",
-      "width": 1
-    },
-    {
-      "column": 56,
-      "row": 2,
-      "text": "\"",
-      "width": 1
-    },
-    {
-      "column": 57,
-      "row": 2,
-      "text": ":",
-      "width": 1
-    },
-    {
-      "column": 58,
-      "row": 2,
-      "text": "\"",
-      "width": 1
-    },
-    {
-      "column": 59,
-      "row": 2,
-      "text": "a",
-      "width": 1
-    },
-    {
-      "column": 60,
-      "row": 2,
-      "text": "c",
-      "width": 1
-    },
-    {
-      "column": 61,
-      "row": 2,
-      "text": "c",
-      "width": 1
-    },
-    {
-      "column": 62,
-      "row": 2,
-      "text": "e",
-      "width": 1
-    },
-    {
-      "column": 63,
-      "row": 2,
-      "text": "n",
-      "width": 1
-    },
-    {
-      "column": 64,
-      "row": 2,
-      "text": "t",
-      "width": 1
-    },
-    {
-      "column": 65,
-      "row": 2,
-      "text": ".",
-      "width": 1
-    },
-    {
       "column": 66,
       "row": 2,
       "source": {
@@ -2347,169 +2083,97 @@
     {
       "column": 2,
       "row": 3,
-      "text": "{",
+      "text": "T",
       "width": 1
     },
     {
       "column": 3,
       "row": 3,
-      "text": "\"",
+      "text": "a",
       "width": 1
     },
     {
       "column": 4,
       "row": 3,
-      "text": "v",
+      "text": "b",
       "width": 1
     },
     {
       "column": 5,
       "row": 3,
-      "text": "a",
+      "text": "b",
       "width": 1
     },
     {
       "column": 6,
       "row": 3,
-      "text": "l",
+      "text": "e",
       "width": 1
     },
     {
       "column": 7,
       "row": 3,
-      "text": "u",
+      "text": "d",
       "width": 1
     },
     {
       "column": 8,
       "row": 3,
-      "text": "e",
+      "text": " ",
       "width": 1
     },
     {
       "column": 9,
       "row": 3,
-      "text": "\"",
+      "text": "w",
       "width": 1
     },
     {
       "column": 10,
       "row": 3,
-      "text": ":",
+      "text": "o",
       "width": 1
     },
     {
       "column": 11,
       "row": 3,
-      "text": "\"",
+      "text": "r",
       "width": 1
     },
     {
       "column": 12,
       "row": 3,
-      "text": "T",
+      "text": "k",
       "width": 1
     },
     {
       "column": 13,
       "row": 3,
-      "text": "a",
+      "text": "s",
       "width": 1
     },
     {
       "column": 14,
       "row": 3,
-      "text": "b",
+      "text": "p",
       "width": 1
     },
     {
       "column": 15,
       "row": 3,
-      "text": "b",
+      "text": "a",
       "width": 1
     },
     {
       "column": 16,
       "row": 3,
-      "text": "e",
+      "text": "c",
       "width": 1
     },
     {
       "column": 17,
       "row": 3,
-      "text": "d",
-      "width": 1
-    },
-    {
-      "column": 18,
-      "row": 3,
-      "text": " ",
-      "width": 1
-    },
-    {
-      "column": 19,
-      "row": 3,
-      "text": "w",
-      "width": 1
-    },
-    {
-      "column": 20,
-      "row": 3,
-      "text": "o",
-      "width": 1
-    },
-    {
-      "column": 21,
-      "row": 3,
-      "text": "r",
-      "width": 1
-    },
-    {
-      "column": 22,
-      "row": 3,
-      "text": "k",
-      "width": 1
-    },
-    {
-      "column": 23,
-      "row": 3,
-      "text": "s",
-      "width": 1
-    },
-    {
-      "column": 24,
-      "row": 3,
-      "text": "p",
-      "width": 1
-    },
-    {
-      "column": 25,
-      "row": 3,
-      "text": "a",
-      "width": 1
-    },
-    {
-      "column": 26,
-      "row": 3,
-      "text": "c",
-      "width": 1
-    },
-    {
-      "column": 27,
-      "row": 3,
       "text": "e",
-      "width": 1
-    },
-    {
-      "column": 28,
-      "row": 3,
-      "text": "\"",
-      "width": 1
-    },
-    {
-      "column": 29,
-      "row": 3,
-      "text": "}",
       "width": 1
     },
     {
@@ -2531,133 +2195,91 @@
     {
       "column": 67,
       "row": 3,
-      "text": "{",
+      "text": "I",
       "width": 1
     },
     {
       "column": 68,
       "row": 3,
-      "text": "\"",
+      "text": "n",
       "width": 1
     },
     {
       "column": 69,
       "row": 3,
-      "text": "v",
+      "text": "s",
       "width": 1
     },
     {
       "column": 70,
       "row": 3,
-      "text": "a",
+      "text": "p",
       "width": 1
     },
     {
       "column": 71,
       "row": 3,
-      "text": "l",
+      "text": "e",
       "width": 1
     },
     {
       "column": 72,
       "row": 3,
-      "text": "u",
+      "text": "c",
       "width": 1
     },
     {
       "column": 73,
       "row": 3,
-      "text": "e",
+      "text": "t",
       "width": 1
     },
     {
       "column": 74,
       "row": 3,
-      "text": "\"",
+      "text": "o",
       "width": 1
     },
     {
       "column": 75,
       "row": 3,
-      "text": ":",
+      "text": "r",
       "width": 1
     },
     {
       "column": 76,
       "row": 3,
-      "text": "\"",
+      "text": " ",
       "width": 1
     },
     {
       "column": 77,
       "row": 3,
-      "text": "I",
+      "text": "p",
       "width": 1
     },
     {
       "column": 78,
       "row": 3,
-      "text": "n",
+      "text": "a",
       "width": 1
     },
     {
       "column": 79,
       "row": 3,
-      "text": "s",
+      "text": "n",
       "width": 1
     },
     {
       "column": 80,
       "row": 3,
-      "text": "p",
+      "text": "e",
       "width": 1
     },
     {
       "column": 81,
       "row": 3,
-      "text": "e",
-      "width": 1
-    },
-    {
-      "column": 82,
-      "row": 3,
-      "text": "c",
-      "width": 1
-    },
-    {
-      "column": 83,
-      "row": 3,
-      "text": "t",
-      "width": 1
-    },
-    {
-      "column": 84,
-      "row": 3,
-      "text": "o",
-      "width": 1
-    },
-    {
-      "column": 85,
-      "row": 3,
-      "text": "r",
-      "width": 1
-    },
-    {
-      "column": 86,
-      "row": 3,
-      "text": " ",
-      "width": 1
-    },
-    {
-      "column": 87,
-      "row": 3,
-      "text": "p",
-      "width": 1
-    },
-    {
-      "column": 88,
-      "row": 3,
-      "text": "a",
+      "text": "l",
       "width": 1
     },
     {
@@ -3815,19 +3437,19 @@
     {
       "column": 33,
       "row": 14,
-      "text": "{",
+      "text": "M",
       "width": 1
     },
     {
       "column": 34,
       "row": 14,
-      "text": "\"",
+      "text": "o",
       "width": 1
     },
     {
       "column": 35,
       "row": 14,
-      "text": "v",
+      "text": "d",
       "width": 1
     },
     {
@@ -3845,127 +3467,73 @@
     {
       "column": 38,
       "row": 14,
-      "text": "u",
+      "text": " ",
       "width": 1
     },
     {
       "column": 39,
       "row": 14,
-      "text": "e",
+      "text": "f",
       "width": 1
     },
     {
       "column": 40,
       "row": 14,
-      "text": "\"",
+      "text": "o",
       "width": 1
     },
     {
       "column": 41,
       "row": 14,
-      "text": ":",
+      "text": "c",
       "width": 1
     },
     {
       "column": 42,
       "row": 14,
-      "text": "\"",
+      "text": "u",
       "width": 1
     },
     {
       "column": 43,
       "row": 14,
-      "text": "M",
+      "text": "s",
       "width": 1
     },
     {
       "column": 44,
       "row": 14,
-      "text": "o",
+      "text": " ",
       "width": 1
     },
     {
       "column": 45,
       "row": 14,
-      "text": "d",
+      "text": "s",
       "width": 1
     },
     {
       "column": 46,
       "row": 14,
-      "text": "a",
+      "text": "c",
       "width": 1
     },
     {
       "column": 47,
       "row": 14,
-      "text": "l",
+      "text": "o",
       "width": 1
     },
     {
       "column": 48,
       "row": 14,
-      "text": " ",
+      "text": "p",
       "width": 1
     },
     {
       "column": 49,
       "row": 14,
-      "text": "f",
-      "width": 1
-    },
-    {
-      "column": 50,
-      "row": 14,
-      "text": "o",
-      "width": 1
-    },
-    {
-      "column": 51,
-      "row": 14,
-      "text": "c",
-      "width": 1
-    },
-    {
-      "column": 52,
-      "row": 14,
-      "text": "u",
-      "width": 1
-    },
-    {
-      "column": 53,
-      "row": 14,
-      "text": "s",
-      "width": 1
-    },
-    {
-      "column": 54,
-      "row": 14,
-      "text": " ",
-      "width": 1
-    },
-    {
-      "column": 55,
-      "row": 14,
-      "text": "s",
-      "width": 1
-    },
-    {
-      "column": 56,
-      "row": 14,
-      "text": "c",
-      "width": 1
-    },
-    {
-      "column": 57,
-      "row": 14,
-      "text": "o",
-      "width": 1
-    },
-    {
-      "column": 58,
-      "row": 14,
-      "text": "p",
+      "text": "e",
       "width": 1
     },
     {
@@ -7302,18 +6870,18 @@
     "clearedBounds": {
       "rects": []
     },
-    "fingerprint": "99e08ecb",
+    "fingerprint": "4af3de68",
     "rowFingerprints": [
       {
         "fingerprint": "ad2ea71b",
         "row": 1
       },
       {
-        "fingerprint": "5aa41e24",
+        "fingerprint": "29b3b395",
         "row": 2
       },
       {
-        "fingerprint": "05152793",
+        "fingerprint": "a4f88600",
         "row": 3
       },
       {
@@ -7357,7 +6925,7 @@
         "row": 13
       },
       {
-        "fingerprint": "5b728064",
+        "fingerprint": "b4b88f20",
         "row": 14
       },
       {
@@ -7437,23 +7005,35 @@
           "column": 1,
           "height": 1,
           "row": 2,
-          "width": 90
-        },
-        {
-          "column": 1,
-          "height": 1,
-          "row": 3,
-          "width": 29
+          "width": 21
         },
         {
           "column": 66,
           "height": 1,
-          "row": 3,
+          "row": 2,
           "width": 25
         },
         {
           "column": 1,
           "height": 1,
+          "row": 3,
+          "width": 17
+        },
+        {
+          "column": 66,
+          "height": 1,
+          "row": 3,
+          "width": 16
+        },
+        {
+          "column": 89,
+          "height": 1,
+          "row": 3,
+          "width": 2
+        },
+        {
+          "column": 1,
+          "height": 1,
           "row": 4,
           "width": 1
         },
@@ -7647,7 +7227,13 @@
           "column": 32,
           "height": 1,
           "row": 14,
-          "width": 28
+          "width": 18
+        },
+        {
+          "column": 59,
+          "height": 1,
+          "row": 14,
+          "width": 1
         },
         {
           "column": 66,

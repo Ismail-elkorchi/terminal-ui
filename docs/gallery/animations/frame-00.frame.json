@@ -34,6 +34,15 @@
                       "role": "progressbar"
                     },
                     {
+                      "children": [
+                        {
+                          "id": "chart:live",
+                          "label": "Live",
+                          "role": "text",
+                          "selected": false,
+                          "value": "6 points"
+                        }
+                      ],
                       "description": "1 chart series.",
                       "id": "chart",
                       "label": "chart",

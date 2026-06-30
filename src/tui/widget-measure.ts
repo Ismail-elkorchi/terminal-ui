@@ -1,24 +1,33 @@
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { commandBarBlock } from './command-bar.ts';
-import { barChartText, chartText, sparklineText } from './chart-widgets.ts';
+import { barChartText, chartText, gaugeText, heatmapText, sparklineText } from './chart-widgets.ts';
+import { dividerPreferredSize } from './divider.ts';
 import { paginatorText } from './data-widgets.ts';
 import {
   buttonBlock,
   checkboxBlock,
+  checkboxListBlock,
+  colorPickerBlock,
+  datePickerBlock,
   labelBlock,
   numberInputBlock,
   radioGroupBlock,
+  rangeSliderBlock,
   selectBoxBlock,
-  textInputBlock
+  sliderBlock,
+  textInputBlock,
+  toggleSwitchBlock
 } from './form-widgets.ts';
 import { contextMenuBlock, dropdownBlock, menuBarBlock, menuBlock } from './menu-widgets.ts';
 import { paletteBlock } from './palette.ts';
 import { progressText } from './progress-widget.ts';
+import { notificationStackPreferredSize } from './notifications.ts';
 import { borderForWidget } from './renderers/support/border.ts';
 import { isRecord, nonNegativeInteger } from './renderers/support/common.ts';
 import { tabsHeaderText } from './renderers/support/tabs.ts';
 import { activityFeedBlock, structuredBlockBlock } from './structured-block.ts';
 import { activityIndicatorText, helpBarText, richTextBlock, spinnerBlock } from './text-widgets.ts';
+import { tooltipPreferredSize } from './tooltip.ts';
 import { treeBlock } from './tree.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -73,10 +82,22 @@ export function measureBuiltinWidget(
       return measureRenderBlock(buttonBlock(widget, intrinsicBounds(bounds)));
     case 'checkbox':
       return measureRenderBlock(checkboxBlock(widget, intrinsicBounds(bounds), theme));
+    case 'toggleSwitch':
+      return measureRenderBlock(toggleSwitchBlock(widget, intrinsicBounds(bounds)));
+    case 'slider':
+      return measureRenderBlock(sliderBlock(widget, intrinsicBounds(bounds)));
+    case 'rangeSlider':
+      return measureRenderBlock(rangeSliderBlock(widget, intrinsicBounds(bounds)));
+    case 'checkboxList':
+      return measureRenderBlock(checkboxListBlock(widget, intrinsicBounds(bounds), theme));
     case 'radioGroup':
       return measureRenderBlock(radioGroupBlock(widget, intrinsicBounds(bounds), theme));
     case 'selectBox':
       return measureRenderBlock(selectBoxBlock(widget, intrinsicBounds(bounds), theme));
+    case 'colorPicker':
+      return measureRenderBlock(colorPickerBlock(widget, intrinsicBounds(bounds)));
+    case 'datePicker':
+      return measureRenderBlock(datePickerBlock(widget, intrinsicBounds(bounds)));
     case 'textInput':
       return measureRenderBlock(textInputBlock(widget, intrinsicBounds(bounds)));
     case 'numberInput':
@@ -89,6 +110,14 @@ export function measureBuiltinWidget(
       return measureRenderBlock(contextMenuBlock(widget, intrinsicBounds(bounds), theme));
     case 'dropdown':
       return measureRenderBlock(dropdownBlock(widget, intrinsicBounds(bounds), theme));
+    case 'divider': {
+      const preferred = dividerPreferredSize(widget);
+      return measureSize(preferred.width, preferred.height);
+    }
+    case 'tooltip': {
+      const preferred = tooltipPreferredSize(widget);
+      return measureSize(preferred.width, preferred.height);
+    }
     case 'helpBar':
       return measurePlainText(helpBarText(widget));
     case 'activityIndicator':
@@ -97,12 +126,20 @@ export function measureBuiltinWidget(
       return measureRenderBlock(spinnerBlock(widget, theme));
     case 'progressBar':
       return measurePlainText(progressText(widget, theme));
+    case 'notificationStack': {
+      const preferred = notificationStackPreferredSize(widget);
+      return measureSize(preferred.width, preferred.height);
+    }
     case 'sparkline':
       return measurePlainText(sparklineText(widget));
     case 'barChart':
       return measurePlainText(barChartText(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
     case 'chart':
       return measurePlainText(chartText(widget, fakeLayoutNode(widget, intrinsicBounds(bounds))));
+    case 'gauge':
+      return measurePlainText(gaugeText(widget, theme));
+    case 'heatmap':
+      return measurePlainText(heatmapText(widget, fakeLayoutNode(widget, intrinsicBounds(bounds))));
     case 'list':
       return measureListWidget(widget, theme);
     case 'table':
@@ -130,6 +167,7 @@ export function measureBuiltinWidget(
     case 'row':
       return measureChildrenHorizontally(widget, bounds, theme, measureWidget);
     case 'grid':
+    case 'areaGrid':
     case 'splitPane':
     case 'surface':
     case 'overlay':

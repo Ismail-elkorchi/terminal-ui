@@ -15,6 +15,19 @@ export type CoreThemeToken =
   | 'surface.foreground'
   | 'surface.border'
   | 'surface.title'
+  | 'surface.raised.background'
+  | 'surface.raised.border'
+  | 'surface.inset.background'
+  | 'surface.inset.border'
+  | 'surface.selected.background'
+  | 'surface.selected.border'
+  | 'surface.warning.background'
+  | 'surface.warning.border'
+  | 'surface.danger.background'
+  | 'surface.danger.border'
+  | 'surface.success.background'
+  | 'surface.success.border'
+  | 'surface.shadow'
   | 'text.default'
   | 'text.muted'
   | 'text.strong'
@@ -206,6 +219,19 @@ const modernColors = {
   'surface.foreground': { kind: 'ansi', value: 15 },
   'surface.border': { kind: 'ansi', value: 8 },
   'surface.title': { kind: 'ansi', value: 14 },
+  'surface.raised.background': { kind: 'ansi', value: 0 },
+  'surface.raised.border': { kind: 'ansi', value: 7 },
+  'surface.inset.background': { kind: 'ansi', value: 0 },
+  'surface.inset.border': { kind: 'ansi', value: 8 },
+  'surface.selected.background': { kind: 'ansi', value: 4 },
+  'surface.selected.border': { kind: 'ansi', value: 12 },
+  'surface.warning.background': { kind: 'ansi', value: 0 },
+  'surface.warning.border': { kind: 'ansi', value: 11 },
+  'surface.danger.background': { kind: 'ansi', value: 0 },
+  'surface.danger.border': { kind: 'ansi', value: 9 },
+  'surface.success.background': { kind: 'ansi', value: 0 },
+  'surface.success.border': { kind: 'ansi', value: 10 },
+  'surface.shadow': { kind: 'ansi', value: 8 },
   'text.default': { kind: 'ansi', value: 15 },
   'text.muted': { kind: 'ansi', value: 8 },
   'text.strong': { kind: 'ansi', value: 15 },
@@ -244,6 +270,14 @@ const highContrastColors = {
   'app.background': { kind: 'ansi', value: 0 },
   'app.foreground': { kind: 'ansi', value: 15 },
   'surface.border': { kind: 'ansi', value: 15 },
+  'surface.raised.border': { kind: 'ansi', value: 15 },
+  'surface.inset.border': { kind: 'ansi', value: 7 },
+  'surface.selected.background': { kind: 'ansi', value: 15 },
+  'surface.selected.border': { kind: 'ansi', value: 15 },
+  'surface.warning.border': { kind: 'ansi', value: 11 },
+  'surface.danger.border': { kind: 'ansi', value: 15 },
+  'surface.success.border': { kind: 'ansi', value: 15 },
+  'surface.shadow': { kind: 'ansi', value: 7 },
   'text.muted': { kind: 'ansi', value: 7 },
   'accent.primary': { kind: 'ansi', value: 11 },
   'status.error': { kind: 'ansi', value: 15 },

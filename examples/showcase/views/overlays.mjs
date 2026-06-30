@@ -1,15 +1,14 @@
 import {
   absolute,
   box,
-  button,
   commandPalette,
   contextMenu,
   custom,
-  modal,
+  floatingWindow,
+  notificationStack,
   overlay,
-  row,
-  stack,
-  structuredBlock
+  structuredBlock,
+  wizardDialog
 } from '@ismail-elkorchi/terminal-ui/widgets';
 
 import { commandEntries } from '../data.mjs';
@@ -20,7 +19,21 @@ export function transientLayers(state) {
   if (state.contextMenuOpen) layers.push(contextMenuOverlay(state));
   if (state.paletteOpen) layers.push(commandPaletteOverlay(state));
   if (state.modalOpen) layers.push(wizardModal(state));
+  if (state.notificationState.items.length > 0) layers.push(notificationOverlay(state));
   return layers;
+}
+
+function notificationOverlay(state) {
+  return notificationStack({
+    id: 'showcase-notifications',
+    items: state.notificationState.items,
+    selected: 0,
+    placement: 'top-right',
+    maxVisible: 3,
+    maxWidth: 36,
+    zIndex: 50,
+    toDismissMessage: (item) => ({ kind: 'notificationDismiss', id: item.id })
+  });
 }
 
 function commandPaletteOverlay(state) {
@@ -65,8 +78,18 @@ function commandPaletteOverlay(state) {
 
 function wizardModal(state) {
   const vessel = selectedVessel(state);
-  return modal(stack([
-    structuredBlock({
+  return wizardDialog({
+    id: 'handoff-wizard',
+    title: 'Handoff wizard',
+    width: 58,
+    height: 12,
+    steps: [
+      { id: 'watch', label: 'Watch' },
+      { id: 'route', label: 'Route' },
+      { id: 'handoff', label: 'Handoff' }
+    ],
+    currentStep: 1,
+    body: structuredBlock({
       id: 'wizard-summary',
       title: 'Shift handoff',
       status: 'running',
@@ -77,37 +100,33 @@ function wizardModal(state) {
         { label: 'signal', value: `${String(vessel.score)}%` }
       ]
     }),
-    row([
-      button({ id: 'wizard-close', label: 'Close', message: { kind: 'modal', open: false } }),
-      button({ id: 'wizard-theme', label: 'Cycle theme', message: { kind: 'theme' } })
-    ], { id: 'wizard-actions', gap: 1 })
-  ], { id: 'wizard-stack', gap: 1 }), {
-    id: 'handoff-wizard',
-    title: 'Handoff wizard',
-    width: 58,
-    height: 12,
-    zIndex: 30,
-    border: { kind: 'rounded' }
+    actions: [
+      { id: 'wizard-close', label: 'Close', message: { kind: 'modal', open: false } },
+      { id: 'wizard-theme', label: 'Cycle theme', message: { kind: 'theme' } }
+    ],
+    zIndex: 30
   });
 }
 
 function contextMenuOverlay(state) {
-  return absolute(contextMenu({
-    id: 'floating-context',
-    title: `${selectedVessel(state).name} actions`,
-    selected: 'snapshot',
-    items: [
-      { id: 'snapshot', label: 'Create route snapshot', shortcut: 'S' },
-      { id: 'handoff', label: 'Open handoff', message: { kind: 'modal', open: true }, shortcut: 'H' },
-      { id: 'close', label: 'Close', message: { kind: 'context', open: false }, shortcut: 'Esc' }
-    ]
-  }), {
+  return floatingWindow({
     id: 'context-placement',
+    title: `${selectedVessel(state).name} actions`,
+    body: contextMenu({
+      id: 'floating-context',
+      selected: 'snapshot',
+      items: [
+        { id: 'snapshot', label: 'Create route snapshot', shortcut: 'S' },
+        { id: 'handoff', label: 'Open handoff', message: { kind: 'modal', open: true }, shortcut: 'H' },
+        { id: 'close', label: 'Close', message: { kind: 'context', open: false }, shortcut: 'Esc' }
+      ]
+    }),
     row: 8,
     column: 45,
     width: 34,
-    height: 8,
-    zIndex: 25
+    height: 10,
+    closeMessage: { kind: 'context', open: false },
+    active: true
   });
 }
 

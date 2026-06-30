@@ -4,10 +4,10 @@
   "root": {
     "children": [
       {
-        "id": "text-2-2",
-        "label": "text-2-2",
+        "id": "richText-2-2",
+        "label": "richText-2-2",
         "role": "text",
-        "value": "{\"value\":\"Charts\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+        "value": "Charts"
       },
       {
         "children": [
@@ -48,6 +48,15 @@
             "role": "listbox"
           },
           {
+            "children": [
+              {
+                "id": "chart:series",
+                "label": "series",
+                "role": "text",
+                "selected": false,
+                "value": "5 points"
+              }
+            ],
             "description": "1 chart series.",
             "id": "chart",
             "label": "chart",

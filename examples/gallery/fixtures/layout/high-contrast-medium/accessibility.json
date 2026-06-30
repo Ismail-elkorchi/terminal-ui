@@ -4,10 +4,10 @@
   "root": {
     "children": [
       {
-        "id": "text-2-2",
-        "label": "text-2-2",
+        "id": "richText-2-2",
+        "label": "richText-2-2",
         "role": "text",
-        "value": "{\"value\":\"Layout\",\"style\":{\"fg\":{\"kind\":\"theme\",\"token\":\"accent.primary\"},\"bold\":true}}"
+        "value": "Layout"
       },
       {
         "children": [
@@ -40,7 +40,7 @@
                     "id": "text-3-99",
                     "label": "text-3-99",
                     "role": "text",
-                    "value": "{\"value\":\"Inspector panel\"}"
+                    "value": "Inspector panel"
                   }
                 ],
                 "id": "inspector",
@@ -58,7 +58,7 @@
                 "id": "text-16-49",
                 "label": "text-16-49",
                 "role": "text",
-                "value": "{\"value\":\"Modal focus scope\"}"
+                "value": "Modal focus scope"
               }
             ],
             "id": "layout-modal",
