@@ -79,7 +79,7 @@
               },
               {
                 "id": "top-progress",
-                "label": "harbor service",
+                "label": "Atlas service",
                 "live": "polite",
                 "progress": {
                   "max": 100,
@@ -102,7 +102,7 @@
                         "id": "nav-title",
                         "label": "nav-title",
                         "role": "text",
-                        "value": "Navigator"
+                        "value": "Operations"
                       },
                       {
                         "id": "nav-filter",
@@ -118,7 +118,7 @@
                             "id": "showcase-nav:operations",
                             "label": "Operations",
                             "position": {
-                              "count": 11,
+                              "count": 7,
                               "index": 0,
                               "level": 1
                             },
@@ -131,7 +131,7 @@
                             "id": "showcase-nav:dashboard",
                             "label": "Overview",
                             "position": {
-                              "count": 11,
+                              "count": 7,
                               "index": 1,
                               "level": 2
                             },
@@ -144,7 +144,7 @@
                             "id": "showcase-nav:data",
                             "label": "Fleet board",
                             "position": {
-                              "count": 11,
+                              "count": 7,
                               "index": 2,
                               "level": 2
                             },
@@ -157,7 +157,7 @@
                             "id": "showcase-nav:text",
                             "label": "Briefing room",
                             "position": {
-                              "count": 11,
+                              "count": 7,
                               "index": 3,
                               "level": 2
                             },
@@ -170,7 +170,7 @@
                             "id": "showcase-nav:diagram",
                             "label": "Route map",
                             "position": {
-                              "count": 11,
+                              "count": 7,
                               "index": 4,
                               "level": 2
                             },
@@ -183,7 +183,7 @@
                             "id": "showcase-nav:forms",
                             "label": "Dispatch desk",
                             "position": {
-                              "count": 11,
+                              "count": 7,
                               "index": 5,
                               "level": 2
                             },
@@ -196,78 +196,25 @@
                             "id": "showcase-nav:activity",
                             "label": "Live events",
                             "position": {
-                              "count": 11,
+                              "count": 7,
                               "index": 6,
                               "level": 2
                             },
                             "role": "option",
                             "selected": false,
                             "value": "operations/activity"
-                          },
-                          {
-                            "disabled": false,
-                            "expanded": true,
-                            "id": "showcase-nav:assurance",
-                            "label": "Assurance",
-                            "position": {
-                              "count": 11,
-                              "index": 7,
-                              "level": 1
-                            },
-                            "role": "option",
-                            "selected": false,
-                            "value": "assurance"
-                          },
-                          {
-                            "disabled": false,
-                            "id": "showcase-nav:transcript",
-                            "label": "Transcript",
-                            "position": {
-                              "count": 11,
-                              "index": 8,
-                              "level": 2
-                            },
-                            "role": "option",
-                            "selected": false,
-                            "value": "assurance/transcript"
-                          },
-                          {
-                            "disabled": false,
-                            "id": "showcase-nav:accessibility",
-                            "label": "Accessibility",
-                            "position": {
-                              "count": 11,
-                              "index": 9,
-                              "level": 2
-                            },
-                            "role": "option",
-                            "selected": false,
-                            "value": "assurance/accessibility"
-                          },
-                          {
-                            "disabled": false,
-                            "id": "showcase-nav:snapshots",
-                            "label": "Snapshots",
-                            "position": {
-                              "count": 11,
-                              "index": 10,
-                              "level": 2
-                            },
-                            "role": "option",
-                            "selected": false,
-                            "value": "assurance/snapshots"
                           }
                         ],
-                        "description": "Showing 1-11 of 11 tree rows.",
+                        "description": "Showing 1-7 of 7 tree rows.",
                         "id": "showcase-nav",
                         "label": "showcase-nav",
                         "role": "listbox",
                         "window": {
-                          "end": 11,
+                          "end": 7,
                           "omittedAfter": 0,
                           "omittedBefore": 0,
                           "start": 0,
-                          "total": 11
+                          "total": 7
                         }
                       },
                       {
@@ -303,70 +250,63 @@
                         "role": "listbox"
                       }
                     ],
-                    "id": "nav-grid",
-                    "label": "nav-grid",
+                    "id": "navigation-pane",
+                    "label": "navigation-pane",
                     "role": "text"
                   }
                 ],
-                "id": "navigation-pane",
-                "label": "navigation-pane",
+                "id": "navigation-shell",
+                "label": "navigation-shell",
                 "role": "text"
               },
               {
                 "children": [
                   {
-                    "children": [
-                      {
-                        "disabled": false,
-                        "id": "workspace-tabs:dashboard",
-                        "label": "Overview",
-                        "role": "menuitem",
-                        "selected": false
-                      },
-                      {
-                        "disabled": false,
-                        "id": "workspace-tabs:data",
-                        "label": "Fleet",
-                        "role": "menuitem",
-                        "selected": false
-                      },
-                      {
-                        "disabled": false,
-                        "id": "workspace-tabs:text",
-                        "label": "Briefing",
-                        "role": "menuitem",
-                        "selected": false
-                      },
-                      {
-                        "disabled": false,
-                        "id": "workspace-tabs:diagram",
-                        "label": "Map",
-                        "role": "menuitem",
-                        "selected": true
-                      },
-                      {
-                        "disabled": false,
-                        "id": "workspace-tabs:forms",
-                        "label": "Dispatch",
-                        "role": "menuitem",
-                        "selected": false
-                      },
-                      {
-                        "disabled": false,
-                        "id": "workspace-tabs:activity",
-                        "label": "Events",
-                        "role": "menuitem",
-                        "selected": false
-                      }
-                    ],
-                    "id": "workspace-tabs",
-                    "label": "workspace-tabs",
-                    "role": "menu"
+                    "disabled": false,
+                    "id": "workspace-tabs:dashboard",
+                    "label": "Overview",
+                    "role": "menuitem",
+                    "selected": false
+                  },
+                  {
+                    "disabled": false,
+                    "id": "workspace-tabs:data",
+                    "label": "Fleet",
+                    "role": "menuitem",
+                    "selected": false
+                  },
+                  {
+                    "disabled": false,
+                    "id": "workspace-tabs:text",
+                    "label": "Briefing",
+                    "role": "menuitem",
+                    "selected": false
+                  },
+                  {
+                    "disabled": false,
+                    "id": "workspace-tabs:diagram",
+                    "label": "Map",
+                    "role": "menuitem",
+                    "selected": true
+                  },
+                  {
+                    "disabled": false,
+                    "id": "workspace-tabs:forms",
+                    "label": "Dispatch",
+                    "role": "menuitem",
+                    "selected": false
+                  },
+                  {
+                    "disabled": false,
+                    "id": "workspace-tabs:activity",
+                    "label": "Events",
+                    "role": "menuitem",
+                    "selected": false
                   }
                 ],
-                "id": "workspace-pane",
-                "label": "workspace-pane",
-                "role": "text"
+                "id": "workspace-tabs",
+                "label": "workspace-tabs",
+                "role": "menu"
               },
               {
                 "children": [
@@ -374,24 +314,24 @@
                     "children": [
                       {
                         "disabled": false,
-                        "id": "inspector-tabs:selection",
-                        "label": "Pick",
-                        "role": "menuitem",
-                        "selected": false
-                      },
-                      {
-                        "disabled": false,
-                        "id": "inspector-tabs:a11y",
-                        "label": "A11y",
-                        "role": "menuitem",
-                        "selected": false
-                      },
-                      {
-                        "disabled": false,
-                        "id": "inspector-tabs:render",
-                        "label": "Render",
+                        "id": "inspector-tabs:vessel",
+                        "label": "Vessel",
                         "role": "menuitem",
                         "selected": true
+                      },
+                      {
+                        "disabled": false,
+                        "id": "inspector-tabs:route",
+                        "label": "Route",
+                        "role": "menuitem",
+                        "selected": false
+                      },
+                      {
+                        "disabled": false,
+                        "id": "inspector-tabs:event",
+                        "label": "Event",
+                        "role": "menuitem",
+                        "selected": false
                       },
                       {
                         "disabled": false,
@@ -445,6 +385,13 @@
                     "role": "option",
                     "selected": false,
                     "value": "/handoff"
+                  },
+                  {
+                    "id": "showcase-command:suggestion:3",
+                    "label": "Open fleet board",
+                    "role": "option",
+                    "selected": false,
+                    "value": "/fleet"
                   }
                 ],
                 "id": "showcase-command",

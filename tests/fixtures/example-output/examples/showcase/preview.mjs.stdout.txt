@@ -1,49 +1,49 @@
 Northstar Control visual preview
 schema: terminal-ui.visual-snapshots.v1
-frame: 160x42 cells=2100
-diff operations: 184 fullRewrite=false
-hit targets: 26
+frame: 160x42 cells=1732
+diff operations: 209 fullRewrite=false
+hit targets: 22
 focus: showcase-overlay > showcase-shell
 accessibility root: application showcase-overlay
 
 File  View  Tools  Help                               Northstar Control  Route map  catppuccin              i Route map live (running)
-harbor service [█████████░] 88/100 88%
+Atlas service [█████████░] 88/100 88%
 
-┌ Explore ───────────────────┐ ┌ Workspace ─────────────────────────────────────────────────────────────────────────┐ ┌ Inspector ─────────────────────────────┐
-│ Navigator                  │ │ Overview   Fleet   Briefing  [Map]  Dispatch   Events                              │ │  Pick   A11y  [Render]  Theme          │
-│                            │ │╔ Route map ══════════════════════════════════════╗  ┌ Route notes ────────────────┐│ │ [-] [success] Render pipeline          │
-│                            │ │║                                                 ║  │                             ││ │ widget tree → layout tree → frame → di │
-│                            │ │║ outer marker ──▶ west lane ──▶ inner harbor   ║  │ Channel C is reserved for V ││ │ ff                                     │
-│   ▾ ◆ Operations           │ │║       │              │             │            ║  │                             ││ │ viewport  : 160x42                     │
-│       ▣ Overview           │ │║       └── Pulse      └── Vector    └── Aster    ║  │ Pulse holds at the ferry ma ││ │ theme     : catppuccin                 │
-│       ▤ Fleet board        │ │║                                                 ║  │                             ││ │ transcript: enabled                    │
-│       ¶ Briefing room      │ │║ pilots • weather • berth windows                ║  │ Aster remains on berth 12 w ││ │                                        │
-│ ›     ◎ Route map          │ │║                                                 ║  │                             ││ │                                        │
-│       ☷ Dispatch desk      │ │║                                                 ║  │                             ││ │                                        │
-│       ✦ Live events        │ │║                                                 ║  └─────────────────────────────┘│ │                                        │
-│   ▾ ⚙ Assurance           │ │║                                                 ║                                 │ │                                        │
-│       ◫ Transcript         │ │╚═════════════════════════════════════════════════╝  ┌ Lane pressure ──────────────┐│ │                                        │
-│       ◇ Accessibility      │ │                                                     │                             ││ │                                        │
-│       ◈ Snapshots          │ │Signal meter     █████████░ 87%                      │   north ███████ 42          ││ │                                        │
-│                            │ │                                                     │ › west ████████████████ 86  ││ │                                        │
-│                            │ │                                                     │   inner ███████████ 63      ││ │                                        │
-│                            │ │                                                     │                             ││ │ ▁▃▂▇▅▆▂█▃                              │
-│                            │ │                                                     │                             ││ │                                        │
-│                            │ │┌ Dispatch note ─────────────────────────────────────┴─────────────────────────────┤│ │                                        │
-│                            │ ││                                                                                  ││ │                                        │
-│                            │ ││ [-] [running] Active instruction                                                 ││ │                                        │
-│                            │ ││ Hold Pulse at the ferry marker until Vector exits the west lane.                 ││ │                                        │
-│                            │ ││ watch  : 14 min                                                                  ││ │                                        │
-│                            │ ││ risk   : medium                                                                  ││ │                                        │
-│                            │ ││ handoff: pending                                                                 ││ │                                        │
-│                            │ ││                                                                                  ││ │                                        │
-│ › Palette                  │ │└──────────────────────────────────────────────────────────────────────────────────┘│ │                                        │
-│   Handoff                  │ │                                                                                    │ │                                        │
-│   Theme                    │ │                                                                                    │ │                                        │
-│   Context                  │ │                                                                                    │ │                                        │
-│                            │ │                                                                                    │ │                                        │
-│                            │ │                                                                                    │ │                                        │
-└────────────────────────────┘ └────────────────────────────────────────────────────────────────────────────────────┘ └────────────────────────────────────────┘
+┌ Watch ───────────────┐  Overview   Fleet   Briefing  [Map]  Dispatch   Events                                                 ┌ Inspector ───────────────────┐
+│ Operations           │ ╔ Route map ═══════════════════════════════════════════════════════╗   ┌ Lane pressure ──────────────┐ │  Vessel  [Route]  Event   Th │
+│                      │ ║                                                                  ║   │                             │ │ [-] [info] Route map         │
+│                      │ ║ ······························································   ║   │   north ████████ 42         │ │ Atlas is the active object f │
+│                      │ ║ · Outer marker ───── west lane ───── inner harbor            ·   ║   │ › west ████████████████ 76  │ │ or this route view.          │
+│   ▾ ◆ Operations     │ ║ ·        ooo                  *******                        ·   ║   │   inner ████████████ 63     │ │ layout     : balanced        │
+│       ▣ Overview     │ ║ ·       oo oo               ***     ***                      ·   ║   │                             │ │ density    : 3               │
+│       ▤ Fleet board  │ ║ ·       o───o───────────────*─────────*──────────            ·   ║   │                             │ │ last action: Harbor overview │
+│       ¶ Briefing ro… │ ║ ·       oo oo               ***     ***                      ·   ║   │                             │ │                              │
+│ ›     ◎ Route map    │ ║ ·        ooo                  *******                        ·   ║   │                             │ │                              │
+│       ☷ Dispatch de… │ ║ ·                                                            ·   ║   │                             │ │                              │
+│       ✦ Live events  │ ║ ·    Atlas: cleared            owner Mira                    ·   ║   │                             │ │                              │
+│                      │ ║ ·                                                            ·   ║   └─────────────────────────────┘ │                              │
+│                      │ ║ ·                                                            ·   ║                                   │                              │
+│                      │ ║ ·                                                            ·   ║   Channel C remains the active co │                              │
+│                      │ ║ ······························································   ║                                   │                              │
+│                      │ ║                                                                  ║                                   │                              │
+│                      │ ║                                                                  ║                                   │                              │
+│                      │ ╚══════════════════════════════════════════════════════════════════╝                                   │   traffic ████████████ 78    │
+│                      │                                                                        Atlas updates the route board i │ › weather █████████████ 82   │
+│                      │ [-] [running] Active instruction                                                                       │   crew █████████████████ 91  │
+│                      │ Atlas stays under Mira's watch until the next route clearance.                                         │                              │
+│                      │ risk   : low                                                                                           │                              │
+│                      │ handoff: pending                                                                                       │                              │
+│                      │                                                                        ▂▄▁▆▅▇▄█▆                       │                              │
+│                      │                                                                                                        │                              │
+│                      │                                                                                                        │                              │
+│                      │                                                                                                        │                              │
+│ › Palette            │                                                                                                        │                              │
+│   Handoff            │                                                                                                        │                              │
+│   Theme              │                                                                                                        │                              │
+│   Context            │                                                                                                        │                              │
+│                      │                                                                                                        │                              │
+│                      │                                                                                                        │                              │
+└──────────────────────┘                                                                                                        └──────────────────────────────┘
 ›/map
 command ready
 Tab focus  Enter activate  /palette commands  /handoff modal  Ctrl-C exit

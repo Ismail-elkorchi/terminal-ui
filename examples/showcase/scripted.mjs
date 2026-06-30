@@ -18,7 +18,7 @@ const messages = [
   { kind: 'modal', open: false },
   { kind: 'route', route: 'activity' },
   { kind: 'activity', index: 2 },
-  { kind: 'inspector', inspector: 'render' },
+  { kind: 'inspector', inspector: 'event' },
   { kind: 'tick' },
   { kind: 'theme' }
 ];

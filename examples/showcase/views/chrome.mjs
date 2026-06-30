@@ -1,0 +1,168 @@
+import {
+  activityIndicator,
+  commandBar,
+  grid,
+  helpBar,
+  inputField,
+  list,
+  menuBar,
+  progressBar,
+  row,
+  stack,
+  statusBar,
+  text,
+  tree
+} from '@ismail-elkorchi/terminal-ui/widgets';
+
+import { navigationNodes, paletteSuggestions } from '../data.mjs';
+import { overlayLabel, quickActions, routeForNode, routeLabel, selectedVessel, statusLabel } from '../state.mjs';
+import { completionPreview, commandValidation } from '../update.mjs';
+import { themeLabel } from '../theme.mjs';
+import { progressTone } from './view-utils.mjs';
+
+export function topChrome(state) {
+  return stack([
+    row([
+      menuBar({
+        id: 'main-menu',
+        selected: 'view',
+        items: [
+          { id: 'file', label: 'File', shortcut: 'F' },
+          { id: 'view', label: 'View', shortcut: 'V', checked: true },
+          { id: 'tools', label: 'Tools', shortcut: 'T' },
+          { id: 'help', label: 'Help', shortcut: '?' }
+        ],
+        keyMap: {
+          '?': { kind: 'modal', open: true },
+          '/': { kind: 'palette', open: true },
+          t: { kind: 'theme' }
+        }
+      }),
+      statusBar({
+        id: 'top-status',
+        text: `Northstar Control  ${routeLabel(state.selectedRoute)}  ${themeLabel(state)}`
+      }),
+      activityIndicator({
+        id: 'top-activity',
+        label: statusLabel(state),
+        status: state.progress >= 92 ? 'success' : 'running'
+      })
+    ], { id: 'top-row', gap: 2 }),
+    progressBar({
+      id: 'top-progress',
+      label: `${selectedVessel(state).name} service`,
+      value: state.progress,
+      max: 100,
+      mode: 'full',
+      showPercentage: true,
+      status: progressTone(state.progress),
+      frame: state.spinnerFrame
+    })
+  ], { id: 'top-chrome' });
+}
+
+export function navigationPane(state) {
+  return grid([
+    text('Operations', { id: 'nav-title' }),
+    inputField({
+      id: 'nav-filter',
+      value: state.navFilter,
+      message: { kind: 'palette', open: true },
+      keyMap: {
+        enter: { kind: 'palette', open: true },
+        backspace: { kind: 'navFilter', value: state.navFilter.slice(0, Math.max(0, state.navFilter.length - 1)) },
+        escape: { kind: 'navFilter', value: '' }
+      },
+      inputMap: {
+        text: (value) => ({ kind: 'navFilterText', text: value }),
+        paste: (value) => ({ kind: 'navFilter', value })
+      }
+    }),
+    tree({
+      id: 'showcase-nav',
+      nodes: navigationNodes,
+      selected: state.selectedNavigation,
+      filterQuery: state.navFilter,
+      toMessage: (node) => ({ kind: 'route', route: routeForNode(node.id) }),
+      keyMap: {
+        arrowDown: { kind: 'route', route: 'data' },
+        arrowUp: { kind: 'route', route: 'dashboard' },
+        '/': { kind: 'palette', open: true }
+      },
+      scrollbar: { visible: true }
+    }),
+    list({
+      id: 'quick-list',
+      items: quickActions,
+      selected: state.selectedQuickAction,
+      toMessage: (value) => quickActionMessage(value),
+      keyMap: {
+        arrowDown: { kind: 'quick', index: Math.min(quickActions.length - 1, state.selectedQuickAction + 1) },
+        arrowUp: { kind: 'quick', index: Math.max(0, state.selectedQuickAction - 1) },
+        enter: { kind: 'quickPick' }
+      },
+      scrollbar: { visible: true }
+    })
+  ], {
+    id: 'navigation-pane',
+    rows: [
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fill' },
+      { kind: 'fixed', cells: 6 }
+    ],
+    columns: [{ kind: 'fill' }],
+    gap: 1
+  });
+}
+
+export function bottomChrome(state) {
+  return stack([
+    commandBar({
+      id: 'showcase-command',
+      prompt: '›',
+      value: state.commandValue,
+      cursor: state.commandCursor,
+      placeholder: 'Type /palette, /theme, /handoff, /fleet, /dispatch, /events...',
+      completionPreview: completionPreview(state.commandValue),
+      suggestions: paletteSuggestions,
+      selectedSuggestion: state.paletteOpen ? 0 : 1,
+      matchQuery: state.commandQuery,
+      validation: commandValidation(state.commandValue),
+      footer: `Enter runs · Tab focus · Esc closes overlays · ${state.mouseEnabled ? 'mouse on' : 'mouse off'} · ${overlayLabel(state)}`,
+      keyMap: {
+        enter: { kind: 'submitCommand' },
+        escape: { kind: 'escape' },
+        backspace: { kind: 'commandBackspace' },
+        delete: { kind: 'commandDelete' },
+        arrowLeft: { kind: 'commandMove', delta: -1 },
+        arrowRight: { kind: 'commandMove', delta: 1 },
+        home: { kind: 'commandHome' },
+        end: { kind: 'commandEnd' },
+        arrowUp: { kind: 'paletteMove', delta: -1 },
+        arrowDown: { kind: 'paletteMove', delta: 1 }
+      },
+      inputMap: {
+        text: (value) => ({ kind: 'commandText', text: value }),
+        paste: (value) => ({ kind: 'commandText', text: value })
+      }
+    }),
+    helpBar({
+      id: 'showcase-help',
+      bindings: [
+        { key: 'Tab', label: 'focus' },
+        { key: 'Enter', label: 'activate' },
+        { key: '/palette', label: 'commands' },
+        { key: '/handoff', label: 'modal' },
+        { key: 'Ctrl-C', label: 'exit' }
+      ]
+    })
+  ], { id: 'bottom-chrome' });
+}
+
+function quickActionMessage(value) {
+  if (value === 'Palette') return { kind: 'palette', open: true };
+  if (value === 'Handoff') return { kind: 'modal', open: true };
+  if (value === 'Context') return { kind: 'context', open: true };
+  return { kind: 'theme' };
+}

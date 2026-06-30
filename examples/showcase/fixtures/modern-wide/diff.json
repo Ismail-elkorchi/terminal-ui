@@ -3,14 +3,76 @@
   "height": 42,
   "operations": [
     {
-      "column": 42,
-      "kind": "write",
-      "row": 11,
-      "spans": [
-        {
-          "text": "/overview"
-        }
-      ]
+      "bounds": {
+        "column": 131,
+        "height": 1,
+        "row": 6,
+        "width": 25
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 131,
+        "height": 1,
+        "row": 7,
+        "width": 28
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 131,
+        "height": 1,
+        "row": 8,
+        "width": 16
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 131,
+        "height": 1,
+        "row": 9,
+        "width": 16
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 131,
+        "height": 1,
+        "row": 10,
+        "width": 12
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 131,
+        "height": 1,
+        "row": 11,
+        "width": 17
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 131,
+        "height": 1,
+        "row": 12,
+        "width": 14
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 131,
+        "height": 1,
+        "row": 22,
+        "width": 26
+      },
+      "kind": "clearRect"
     },
     {
       "bounds": {
@@ -59,7 +121,7 @@
         "column": 10,
         "height": 1,
         "row": 40,
-        "width": 22
+        "width": 28
       },
       "kind": "clearRect"
     },

@@ -33,9 +33,9 @@
       ]
     },
     {
-      "column": 30,
+      "column": 25,
       "kind": "write",
-      "row": 5,
+      "row": 4,
       "spans": [
         {
           "text": " "
@@ -43,9 +43,9 @@
       ]
     },
     {
-      "column": 39,
+      "column": 34,
       "kind": "write",
-      "row": 5,
+      "row": 4,
       "spans": [
         {
           "text": " "
@@ -53,47 +53,36 @@
       ]
     },
     {
-      "column": 59,
+      "column": 25,
       "kind": "write",
       "row": 5,
       "spans": [
         {
-          "text": " "
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "+ Live event timeline ----------------+"
         }
       ]
     },
     {
-      "column": 64,
-      "kind": "write",
-      "row": 5,
-      "spans": [
-        {
-          "text": " "
-        }
-      ]
+      "bounds": {
+        "column": 25,
+        "height": 1,
+        "row": 6,
+        "width": 39
+      },
+      "kind": "clearRect"
     },
     {
-      "column": 66,
-      "kind": "write",
-      "row": 5,
-      "spans": [
-        {
-          "text": "["
-        }
-      ]
-    },
-    {
-      "column": 71,
-      "kind": "write",
-      "row": 5,
-      "spans": [
-        {
-          "text": "]"
-        }
-      ]
-    },
-    {
-      "column": 29,
+      "column": 25,
       "kind": "write",
       "row": 6,
       "spans": [
@@ -108,97 +97,48 @@
               "token": "surface.border"
             }
           },
-          "text": "++ Live event timeline --++"
-        }
-      ]
-    },
-    {
-      "column": 59,
-      "kind": "write",
-      "row": 6,
-      "spans": [
+          "text": "|"
+        },
         {
-          "text": "Accessible"
-        }
-      ]
-    },
-    {
-      "column": 70,
-      "kind": "write",
-      "row": 6,
-      "spans": [
+          "text": "                                     "
+        },
         {
-          "text": "snapshot"
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
         }
       ]
     },
     {
       "bounds": {
-        "column": 30,
+        "column": 67,
         "height": 1,
-        "row": 7,
-        "width": 25
+        "row": 6,
+        "width": 22
       },
       "kind": "clearRect"
     },
     {
-      "column": 30,
+      "bounds": {
+        "column": 25,
+        "height": 1,
+        "row": 7,
+        "width": 37
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 25,
       "kind": "write",
       "row": 7,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "|"
-        },
-        {
-          "text": "                       "
-        },
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "|"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 59,
-        "height": 1,
-        "row": 7,
-        "width": 24
-      },
-      "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 30,
-        "height": 1,
-        "row": 8,
-        "width": 25
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 30,
-      "kind": "write",
-      "row": 8,
       "spans": [
         {
           "source": {
@@ -227,8 +167,15 @@
           "text": "[success]"
         },
         {
-          "text": " Berth "
-        },
+          "text": " Berth window secure"
+        }
+      ]
+    },
+    {
+      "column": 63,
+      "kind": "write",
+      "row": 7,
+      "spans": [
         {
           "source": {
             "kind": "box",
@@ -246,56 +193,26 @@
     },
     {
       "bounds": {
-        "column": 59,
+        "column": 67,
+        "height": 1,
+        "row": 7,
+        "width": 22
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 25,
         "height": 1,
         "row": 8,
-        "width": 14
+        "width": 37
       },
       "kind": "clearRect"
     },
     {
-      "column": 5,
+      "column": 25,
       "kind": "write",
-      "row": 9,
-      "spans": [
-        {
-          "text": " "
-        }
-      ]
-    },
-    {
-      "column": 7,
-      "kind": "write",
-      "row": 9,
-      "spans": [
-        {
-          "text": " "
-        }
-      ]
-    },
-    {
-      "column": 9,
-      "kind": "write",
-      "row": 9,
-      "spans": [
-        {
-          "text": "▣ Overview"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 30,
-        "height": 1,
-        "row": 9,
-        "width": 25
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 30,
-      "kind": "write",
-      "row": 9,
+      "row": 8,
       "spans": [
         {
           "source": {
@@ -311,8 +228,15 @@
           "text": "|"
         },
         {
-          "text": "   Aster enters berth  "
-        },
+          "text": "   Aster enters berth 12 inside the "
+        }
+      ]
+    },
+    {
+      "column": 63,
+      "kind": "write",
+      "row": 8,
+      "spans": [
         {
           "source": {
             "kind": "box",
@@ -330,10 +254,71 @@
     },
     {
       "bounds": {
-        "column": 59,
+        "column": 67,
+        "height": 1,
+        "row": 8,
+        "width": 22
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 25,
         "height": 1,
         "row": 9,
-        "width": 18
+        "width": 22
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 25,
+      "kind": "write",
+      "row": 9,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        },
+        {
+          "text": "   active tide window"
+        }
+      ]
+    },
+    {
+      "column": 63,
+      "kind": "write",
+      "row": 9,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 67,
+        "height": 1,
+        "row": 9,
+        "width": 16
       },
       "kind": "clearRect"
     },
@@ -343,21 +328,21 @@
       "row": 10,
       "spans": [
         {
-          "text": "      ▤ Fleet board"
+          "text": "      ▣ Overview"
         }
       ]
     },
     {
       "bounds": {
-        "column": 30,
+        "column": 25,
         "height": 1,
         "row": 10,
-        "width": 23
+        "width": 39
       },
       "kind": "clearRect"
     },
     {
-      "column": 30,
+      "column": 25,
       "kind": "write",
       "row": 10,
       "spans": [
@@ -373,186 +358,6 @@
             }
           },
           "text": "|"
-        },
-        {
-          "text": "   12 inside the activ"
-        }
-      ]
-    },
-    {
-      "column": 54,
-      "kind": "write",
-      "row": 10,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "|"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 59,
-        "height": 1,
-        "row": 10,
-        "width": 13
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 9,
-      "kind": "write",
-      "row": 11,
-      "spans": [
-        {
-          "text": "¶"
-        }
-      ]
-    },
-    {
-      "column": 11,
-      "kind": "write",
-      "row": 11,
-      "spans": [
-        {
-          "text": "Bri"
-        }
-      ]
-    },
-    {
-      "column": 15,
-      "kind": "write",
-      "row": 11,
-      "spans": [
-        {
-          "text": "fing "
-        }
-      ]
-    },
-    {
-      "column": 21,
-      "kind": "write",
-      "row": 11,
-      "spans": [
-        {
-          "text": "oom"
-        }
-      ]
-    },
-    {
-      "column": 30,
-      "kind": "write",
-      "row": 11,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "|"
-        }
-      ]
-    },
-    {
-      "column": 32,
-      "kind": "write",
-      "row": 11,
-      "spans": [
-        {
-          "text": "  e tide window"
-        }
-      ]
-    },
-    {
-      "column": 54,
-      "kind": "write",
-      "row": 11,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "|"
-        }
-      ]
-    },
-    {
-      "column": 9,
-      "kind": "write",
-      "row": 12,
-      "spans": [
-        {
-          "text": "◎"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 11,
-        "height": 1,
-        "row": 12,
-        "width": 13
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 11,
-      "kind": "write",
-      "row": 12,
-      "spans": [
-        {
-          "text": "Route map"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 29,
-        "height": 1,
-        "row": 12,
-        "width": 27
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 29,
-      "kind": "write",
-      "row": 12,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "||"
         },
         {
           "text": "   "
@@ -567,7 +372,7 @@
           "text": "pilot: "
         },
         {
-          "text": "Rin          "
+          "text": "Rin                        "
         },
         {
           "source": {
@@ -580,37 +385,48 @@
               "token": "surface.border"
             }
           },
-          "text": "||"
+          "text": "|"
         }
       ]
     },
     {
-      "column": 9,
-      "kind": "write",
-      "row": 13,
-      "spans": [
-        {
-          "text": "☷"
-        }
-      ]
+      "bounds": {
+        "column": 67,
+        "height": 1,
+        "row": 10,
+        "width": 12
+      },
+      "kind": "clearRect"
     },
     {
-      "column": 11,
-      "kind": "write",
-      "row": 13,
-      "spans": [
-        {
-          "text": "Dispatch desk"
-        }
-      ]
+      "bounds": {
+        "column": 25,
+        "height": 1,
+        "row": 11,
+        "width": 39
+      },
+      "kind": "clearRect"
     },
     {
-      "column": 32,
+      "column": 25,
       "kind": "write",
-      "row": 13,
+      "row": 11,
       "spans": [
         {
-          "text": "  "
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        },
+        {
+          "text": "   "
         },
         {
           "style": {
@@ -622,33 +438,150 @@
           "text": "berth: "
         },
         {
-          "text": "12"
-        }
-      ]
-    },
-    {
-      "column": 59,
-      "kind": "write",
-      "row": 13,
-      "spans": [
+          "text": "12                         "
+        },
         {
-          "text": "> application: Northstar Contr"
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
         }
       ]
     },
     {
       "bounds": {
-        "column": 3,
+        "column": 67,
         "height": 1,
-        "row": 14,
-        "width": 21
+        "row": 11,
+        "width": 17
       },
       "kind": "clearRect"
     },
     {
-      "column": 3,
+      "column": 25,
+      "kind": "write",
+      "row": 12,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "column": 27,
+      "kind": "write",
+      "row": 12,
+      "spans": [
+        {
+          "text": "  Cargo transfer, inspection, and o"
+        }
+      ]
+    },
+    {
+      "column": 63,
+      "kind": "write",
+      "row": 12,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 67,
+        "height": 1,
+        "row": 12,
+        "width": 14
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 25,
+        "height": 1,
+        "row": 13,
+        "width": 39
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 25,
+      "kind": "write",
+      "row": 13,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        },
+        {
+          "text": "   utbound clearance are now staged  "
+        },
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "column": 27,
       "kind": "write",
       "row": 14,
+      "spans": [
+        {
+          "text": "  in sequence."
+        }
+      ]
+    },
+    {
+      "column": 3,
+      "kind": "write",
+      "row": 15,
       "spans": [
         {
           "style": {
@@ -662,71 +595,23 @@
               "token": "selection.foreground"
             }
           },
-          "text": ">     ✦ Live events"
+          "text": ">     ✦ Live event…"
         }
       ]
     },
     {
       "bounds": {
-        "column": 32,
-        "height": 1,
-        "row": 14,
-        "width": 20
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 59,
-      "kind": "write",
-      "row": 14,
-      "spans": [
-        {
-          "text": "  tree: operations navigation"
-        }
-      ]
-    },
-    {
-      "column": 5,
-      "kind": "write",
-      "row": 15,
-      "spans": [
-        {
-          "text": "v"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 7,
+        "column": 27,
         "height": 1,
         "row": 15,
-        "width": 11
+        "width": 35
       },
       "kind": "clearRect"
     },
     {
-      "column": 7,
+      "column": 25,
       "kind": "write",
-      "row": 15,
-      "spans": [
-        {
-          "text": "⚙ Assuranc"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 19,
-        "height": 1,
-        "row": 15,
-        "width": 3
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 29,
-      "kind": "write",
-      "row": 15,
+      "row": 16,
       "spans": [
         {
           "source": {
@@ -739,149 +624,59 @@
               "token": "surface.border"
             }
           },
-          "text": "++-----------------------++"
-        }
-      ]
-    },
-    {
-      "column": 59,
-      "kind": "write",
-      "row": 15,
-      "spans": [
-        {
-          "text": "  group: route workspace"
-        }
-      ]
-    },
-    {
-      "column": 5,
-      "kind": "write",
-      "row": 16,
-      "spans": [
-        {
-          "text": " "
+          "text": "+-------------------------------------+"
         }
       ]
     },
     {
       "bounds": {
-        "column": 7,
+        "column": 67,
         "height": 1,
         "row": 16,
-        "width": 14
+        "width": 22
       },
       "kind": "clearRect"
     },
     {
-      "column": 7,
-      "kind": "write",
-      "row": 16,
-      "spans": [
-        {
-          "text": "  ◫ Transcript"
-        }
-      ]
-    },
-    {
       "bounds": {
-        "column": 30,
+        "column": 25,
         "height": 1,
-        "row": 16,
+        "row": 17,
         "width": 1
       },
       "kind": "clearRect"
     },
     {
       "bounds": {
-        "column": 32,
+        "column": 27,
         "height": 1,
-        "row": 16,
-        "width": 20
-      },
-      "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 54,
-        "height": 1,
-        "row": 16,
+        "row": 17,
         "width": 1
       },
       "kind": "clearRect"
     },
     {
-      "column": 61,
-      "kind": "write",
-      "row": 16,
-      "spans": [
-        {
-          "text": "textbox:"
-        }
-      ]
-    },
-    {
-      "column": 70,
-      "kind": "write",
-      "row": 16,
-      "spans": [
-        {
-          "text": "command"
-        }
-      ]
-    },
-    {
       "bounds": {
-        "column": 78,
+        "column": 61,
         "height": 1,
-        "row": 16,
-        "width": 11
+        "row": 17,
+        "width": 1
       },
       "kind": "clearRect"
     },
     {
-      "column": 78,
-      "kind": "write",
-      "row": 16,
-      "spans": [
-        {
-          "text": "bar"
-        }
-      ]
+      "bounds": {
+        "column": 63,
+        "height": 1,
+        "row": 17,
+        "width": 1
+      },
+      "kind": "clearRect"
     },
     {
-      "column": 9,
+      "column": 25,
       "kind": "write",
-      "row": 17,
-      "spans": [
-        {
-          "text": "◇"
-        }
-      ]
-    },
-    {
-      "column": 11,
-      "kind": "write",
-      "row": 17,
-      "spans": [
-        {
-          "text": "Acce"
-        }
-      ]
-    },
-    {
-      "column": 16,
-      "kind": "write",
-      "row": 17,
-      "spans": [
-        {
-          "text": "sibility"
-        }
-      ]
-    },
-    {
-      "column": 29,
-      "kind": "write",
-      "row": 17,
+      "row": 18,
       "spans": [
         {
           "source": {
@@ -894,253 +689,147 @@
               "token": "surface.border"
             }
           },
-          "text": "++ Selected event -------++"
+          "text": "+ Selected event "
         }
       ]
     },
     {
       "column": 61,
       "kind": "write",
-      "row": 17,
-      "spans": [
-        {
-          "text": "status: live operations"
-        }
-      ]
-    },
-    {
-      "column": 85,
-      "kind": "write",
-      "row": 17,
-      "spans": [
-        {
-          "text": "stat"
-        }
-      ]
-    },
-    {
-      "column": 9,
-      "kind": "write",
       "row": 18,
       "spans": [
         {
-          "text": "◈"
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "--+"
         }
       ]
     },
     {
-      "column": 11,
+      "column": 31,
       "kind": "write",
-      "row": 18,
+      "row": 20,
       "spans": [
-        {
-          "text": "Snap"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 16,
-        "height": 1,
-        "row": 18,
-        "width": 8
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 16,
-      "kind": "write",
-      "row": 18,
-      "spans": [
-        {
-          "text": "hots"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 59,
-        "height": 1,
-        "row": 18,
-        "width": 30
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 32,
-      "kind": "write",
-      "row": 19,
-      "spans": [
-        {
-          "text": "[-] "
-        },
         {
           "style": {
             "bold": true,
             "fg": {
               "kind": "theme",
-              "token": "status.info"
+              "token": "status.running"
             }
           },
-          "text": "[info]"
-        },
-        {
-          "text": " Cold-chain"
+          "text": "[running]"
         }
       ]
     },
     {
-      "bounds": {
-        "column": 59,
-        "height": 1,
-        "row": 19,
-        "width": 30
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 32,
+      "column": 41,
       "kind": "write",
       "row": 20,
       "spans": [
         {
-          "text": "Temperature telemetry"
+          "text": "Lane pressure rising"
         }
       ]
     },
     {
-      "column": 59,
-      "kind": "write",
-      "row": 20,
-      "spans": [
-        {
-          "text": "coverage"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 68,
-        "height": 1,
-        "row": 20,
-        "width": 21
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 68,
-      "kind": "write",
-      "row": 20,
-      "spans": [
-        {
-          "style": {
-            "bold": false,
-            "fg": {
-              "kind": "theme",
-              "token": "status.pending"
-            }
-          },
-          "text": "["
-        },
-        {
-          "style": {
-            "bold": true,
-            "fg": {
-              "kind": "theme",
-              "token": "status.success"
-            }
-          },
-          "text": "##########"
-        },
-        {
-          "style": {
-            "bold": false,
-            "fg": {
-              "kind": "theme",
-              "token": "status.pending"
-            }
-          },
-          "text": "]"
-        }
-      ]
-    },
-    {
-      "column": 32,
+      "column": 27,
       "kind": "write",
       "row": 21,
       "spans": [
         {
-          "text": " stayed inside the tr"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 29,
-        "height": 1,
-        "row": 22,
-        "width": 27
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 29,
-      "kind": "write",
-      "row": 22,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "||"
-        },
-        {
-          "text": " ansfer band           "
-        },
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "||"
+          "text": "Fe"
         }
       ]
     },
     {
       "column": 30,
       "kind": "write",
-      "row": 23,
+      "row": 21,
       "spans": [
         {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "|"
+          "text": "ry "
         }
       ]
     },
     {
-      "column": 32,
+      "column": 34,
+      "kind": "write",
+      "row": 21,
+      "spans": [
+        {
+          "text": "ake and"
+        }
+      ]
+    },
+    {
+      "column": 42,
+      "kind": "write",
+      "row": 21,
+      "spans": [
+        {
+          "text": "supply "
+        }
+      ]
+    },
+    {
+      "column": 50,
+      "kind": "write",
+      "row": 21,
+      "spans": [
+        {
+          "text": "raffic are s"
+        }
+      ]
+    },
+    {
+      "column": 27,
+      "kind": "write",
+      "row": 22,
+      "spans": [
+        {
+          "text": "haring chan"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 39,
+        "height": 1,
+        "row": 22,
+        "width": 23
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 39,
+      "kind": "write",
+      "row": 22,
+      "spans": [
+        {
+          "text": "el C"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 27,
+        "height": 1,
+        "row": 23,
+        "width": 35
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 27,
       "kind": "write",
       "row": 23,
       "spans": [
@@ -1151,75 +840,29 @@
               "token": "text.muted"
             }
           },
-          "text": "block: "
+          "text": "sector: "
         },
         {
-          "text": "7"
+          "text": "west lane"
         }
       ]
     },
     {
-      "column": 54,
-      "kind": "write",
-      "row": 23,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "|"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 29,
-        "height": 1,
-        "row": 24,
-        "width": 27
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 29,
+      "column": 27,
       "kind": "write",
       "row": 24,
       "spans": [
         {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
           "style": {
             "fg": {
               "kind": "theme",
-              "token": "surface.border"
+              "token": "text.muted"
             }
           },
-          "text": "||"
+          "text": "watch : "
         },
         {
-          "text": "                       "
-        },
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "||"
+          "text": "14 min"
         }
       ]
     },
@@ -1270,7 +913,7 @@
         "column": 10,
         "height": 1,
         "row": 28,
-        "width": 22
+        "width": 28
       },
       "kind": "clearRect"
     },

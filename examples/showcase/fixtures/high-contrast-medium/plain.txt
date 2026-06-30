@@ -1,33 +1,33 @@
 File  View  Tools  Help                  Northstar Control  Route map  catppucci  i Route map live (running)
-harbor service [#########-] 88/100 88%
+Atlas service [#########-] 88/100 88%
 
-+ Explore ----------------+ + Workspace ----------------------------------------------+ + Inspector ---------------------+
-| Navigator               | | Overview   Fleet   Briefing  [Map]  Dispatch   Events   | |  Pick   A11y  [Render]  Theme  |
-|                         | |╔ Route map ══════════════════════════════════════╗  + R++ | [-] [success] Render pipeline  |
-|                         | |║                                                 ║  |  || | widget tree → layout tree → fr |
-|                         | |║ outer marker ──▶ west lane ──▶ inner harbor   ║  |  || | ame → diff                     |
-|   v ◆ Operations        | |║       │              │             │            ║  |  || | viewport  : 160x42             |
-|       ▣ Overview        | |║       └── Pulse      └── Vector    └── Aster    ║  |  || | theme     : catppuccin         |
-|       ▤ Fleet board     | |║                                                 ║  |  || | transcript: enabled            |
-|       ¶ Briefing room   | |║ pilots • weather • berth windows                ║  |  || |                                |
-| >     ◎ Route map       | |║                                                 ║  |  || |                                |
-|       ☷ Dispatch desk   | |║                                                 ║  |  || |                                |
-|       ✦ Live events     | |║                                                 ║  +--++ |                                |
-|   v ⚙ Assurance        | |║                                                 ║      | |                                |
-|       ◫ Transcript      | |╚═════════════════════════════════════════════════╝  + L++ |                                |
-|       ◇ Accessibility   | |                                                     |  || | ▁▃▂▇▅▆▂█▃                      |
-|       ◈ Snapshots       | |Signal meter     █████████░ 87%                      |  || |                                |
-|                         | |                                                     |  || |                                |
-|                         | |                                                     |  || |                                |
-|                         | |                                                     |  || |                                |
-|                         | |                                                     |  || |                                |
-| > Palette               | ++ Dispatch note -------------------------------------+--++ |                                |
-|   Handoff               | ||                                                       || |                                |
-|   Theme                 | || [-] [running] Active instruction                      || |                                |
-|   Context               | || Hold Pulse at the ferry marker until Vector exits the || |                                |
-|                         | ||                                                       || |                                |
-|                         | ++-------------------------------------------------------++ |                                |
-+-------------------------+ ++-------------------------------------------------------++ +--------------------------------+
++ Watch --------------+  Overview   Fleet   Briefing  [Map]  Dispatch   Events                  + Inspector -------------+
+| Operations          | ╔ Route map ═══════════════════════════════════════════════════════╗    | [Vessel]  Route   Even |
+|                     | ║                                                                  ║    |                        |
+|                     | ║ ······························································   ║    |                        |
+|                     | ║ · Outer marker ───── west lane ───── inner harbor            ·   ║    |                        |
+|   v ◆ Operations    | ║ ·        ooo                  *******                        ·   ║    |                        |
+|       ▣ Overview    | ║ ·       oo oo               ***     ***                      ·   ║    |                        |
+|       ▤ Fleet boar… | ║ ·       o───o───────────────*─────────*──────────            ·   ║    |                        |
+|       ¶ Briefing r… | ║ ·       oo oo               ***     ***                      ·   ║    |                        |
+| >     ◎ Route map   | ║ ·        ooo                  *******                        ·   ║    |                        |
+|       ☷ Dispatch d… | ║ ·                                                            ·   ║    |                        |
+|       ✦ Live event… | ║ ·    Atlas: cleared            owner Mira                    ·   ║    |                        |
+|                     | ║ ·                                                            ·   ║    |                        |
+|                     | ║ ·                                                            ·   ║    |                        |
+|                     | ║ ·                                                            ·   ║    |                        |
+|                     | ║ ······························································   ║    |                        |
+|                     | ║                                                                  ║    |                        |
+|                     | ║                                                                  ║    |                        |
+|                     | ╚══════════════════════════════════════════════════════════════════╝    |                        |
+|                     |                                                                         |                        |
+| > Palette           | [-] [running] Active instruction                                        |                        |
+|   Handoff           | Atlas stays under Mira's watch until the next route clearance.          |                        |
+|   Theme             | risk   : low                                                            |                        |
+|   Context           | handoff: pending                                                        |                        |
+|                     |                                                                         |                        |
+|                     |                                                                         |                        |
++---------------------+                                                                         +------------------------+
 ›/map
 command ready
 Tab focus  Enter activate  /palette commands  /handoff modal  Ctrl-C exit

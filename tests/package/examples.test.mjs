@@ -28,10 +28,11 @@ test('showcase app renders a polished fullscreen preview in non-TTY mode', () =>
 
   assert.equal(result.status, 0, result.stderr || result.stdout);
   assert.match(result.stdout, /Northstar Control/u);
-  assert.match(result.stdout, /Workspace/u);
+  assert.match(result.stdout, /Live harbor surface/u);
   assert.match(result.stdout, /Inspector/u);
   assert.match(result.stdout, /Overview/u);
-  assert.match(result.stdout, /harbor service/u);
+  assert.match(result.stdout, /Atlas service/u);
+  assert.doesNotMatch(result.stdout, /Render pipeline|Accessible snapshot|widget tree/u);
 });
 
 test('showcase scripted tour drives runtime frames diffs hit targets and route changes', () => {
@@ -48,7 +49,8 @@ test('showcase scripted tour drives runtime frames diffs hit targets and route c
   assert.match(result.stdout, /input command: \/dispatch/u);
   assert.match(result.stdout, /hit targets: \d+/u);
   assert.match(result.stdout, /final route: activity/u);
-  assert.match(result.stdout, /final inspector: render/u);
+  assert.match(result.stdout, /final inspector: event/u);
+  assert.doesNotMatch(result.stdout, /Render pipeline|Accessible snapshot|widget tree/u);
 });
 
 test('showcase visual preview exposes snapshot frame diff hit focus and accessibility evidence', () => {
@@ -65,4 +67,5 @@ test('showcase visual preview exposes snapshot frame diff hit focus and accessib
   assert.match(result.stdout, /hit targets: \d+/u);
   assert.match(result.stdout, /accessibility root: application/u);
   assert.match(result.stdout, /Route map/u);
+  assert.doesNotMatch(result.stdout, /Render pipeline|Accessible snapshot|widget tree/u);
 });

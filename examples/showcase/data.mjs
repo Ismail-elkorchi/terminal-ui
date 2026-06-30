@@ -12,17 +12,6 @@ export const navigationNodes = Object.freeze([
       { id: 'forms', label: 'Dispatch desk', icon: '☷' },
       { id: 'activity', label: 'Live events', icon: '✦' }
     ]
-  },
-  {
-    id: 'assurance',
-    label: 'Assurance',
-    icon: '⚙',
-    expanded: true,
-    children: [
-      { id: 'transcript', label: 'Transcript', icon: '◫' },
-      { id: 'accessibility', label: 'Accessibility', icon: '◇' },
-      { id: 'snapshots', label: 'Snapshots', icon: '◈' }
-    ]
   }
 ]);
 
@@ -105,5 +94,6 @@ export const activityBlocks = Object.freeze([
 export const paletteSuggestions = Object.freeze([
   { value: '/palette', label: 'Open palette', description: 'Search all command routes' },
   { value: '/theme', label: 'Cycle theme', description: 'Switch semantic theme tokens' },
-  { value: '/handoff', label: 'Open handoff', description: 'Prepare the shift handoff modal' }
+  { value: '/handoff', label: 'Open handoff', description: 'Prepare the shift handoff modal' },
+  { value: '/fleet', label: 'Open fleet board', description: 'Inspect and select vessels' }
 ]);

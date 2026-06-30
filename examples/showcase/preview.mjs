@@ -5,7 +5,7 @@ const current = {
   ...previous,
   selectedRoute: 'diagram',
   selectedNavigation: 'diagram',
-  selectedInspector: 'render',
+  selectedInspector: 'route',
   commandQuery: 'map',
   commandValue: '/map',
   commandCursor: 4,

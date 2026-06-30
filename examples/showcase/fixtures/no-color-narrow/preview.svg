@@ -9,174 +9,164 @@
 <text x="168" y="30" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Help</text>
 <text x="256" y="30" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Northstar Control  Live even</text>
 <text x="496" y="30" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">i Live events live (running)</text>
-<text x="16" y="48" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">harbor service [#######---] 72/100 72%</text>
-<text x="16" y="84" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+ Explore ----------------+</text>
-<text x="240" y="84" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+ Workspace --------------+</text>
-<text x="464" y="84" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+ Inspector ---------------------+</text>
+<text x="16" y="48" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Atlas service [#######---] 72/100 72%</text>
+<text x="16" y="84" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+ Watch --------------+</text>
+<text x="208" y="84" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> Overview   Fleet   Briefing   Map   Di</text>
+<text x="528" y="84" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+ Inspector -------------+</text>
 <text x="16" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="32" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Navigator</text>
-<text x="224" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">| Overview   Fleet   Brief|</text>
-<text x="464" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="480" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> Pick  [A11y]  Render   Theme </text>
+<text x="32" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Operations</text>
+<text x="192" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+ Live event timeline ----------------+</text>
+<text x="528" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="544" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">[Vessel]  Route   Even</text>
 <text x="728" y="102" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="224" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">++ Live event timeline --++</text>
-<text x="464" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="480" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Accessible snapshot</text>
+<text x="192" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="512" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="120" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="224" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="440" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="192" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  [-] </text>
+<text x="272" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">[success]</text>
+<text x="344" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> Berth window secure</text>
+<text x="512" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="138" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="224" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="264" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  [-] </text>
-<text x="312" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">[success]</text>
-<text x="384" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> Berth</text>
-<text x="440" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="192" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  Aster enters berth 12 inside the </text>
+<text x="512" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="156" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="32" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ▣ Overview</text>
-<text x="224" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="264" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  Aster enters berth </text>
-<text x="440" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="32" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  v ◆ Operations</text>
+<text x="192" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  active tide window</text>
+<text x="512" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="174" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="32" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ▤ Fleet board</text>
-<text x="224" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="264" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  12 inside the activ</text>
-<text x="440" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="32" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ▣ Overview</text>
+<text x="192" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  pilot: Rin</text>
+<text x="512" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="192" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="32" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ¶ Briefing room</text>
-<text x="224" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="264" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  e tide window</text>
-<text x="440" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="32" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ▤ Fleet boar…</text>
+<text x="192" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  berth: 12</text>
+<text x="512" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="210" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="32" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ◎ Route map</text>
-<text x="224" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="264" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  pilot: Rin</text>
-<text x="440" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="32" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ¶ Briefing r…</text>
+<text x="192" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  Cargo transfer, inspection, and o</text>
+<text x="512" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="228" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="32" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ☷ Dispatch desk</text>
-<text x="224" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="264" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  berth: 12</text>
-<text x="440" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="480" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">&gt; application: Northstar Contr</text>
+<text x="32" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ◎ Route map</text>
+<text x="192" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  utbound clearance are now staged </text>
+<text x="512" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="246" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="32" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">&gt;     ✦ Live events</text>
-<text x="224" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="440" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="480" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  tree: operations navigation</text>
+<text x="32" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ☷ Dispatch d…</text>
+<text x="192" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  in sequence.</text>
+<text x="512" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="264" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="32" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  v ⚙ Assurance</text>
-<text x="224" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">++-----------------------++</text>
-<text x="464" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="480" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  group: route workspace</text>
+<text x="32" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">&gt;     ✦ Live event…</text>
+<text x="192" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="512" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="282" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="32" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ◫ Transcript</text>
-<text x="224" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="448" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="464" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="480" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  textbox: command bar</text>
+<text x="192" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+-------------------------------------+</text>
+<text x="528" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="300" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="32" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ◇ Accessibility</text>
-<text x="224" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">++ Selected event -------++</text>
-<text x="464" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="480" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  status: live operations stat</text>
+<text x="192" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="318" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="32" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">      ◈ Snapshots</text>
-<text x="224" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="440" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="192" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+ Selected event ---------------------+</text>
+<text x="528" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="336" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="224" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="264" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">[-] </text>
-<text x="296" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">[info]</text>
-<text x="344" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> Cold-chain</text>
-<text x="440" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="192" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="512" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="354" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="32" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">&gt; Palette</text>
-<text x="224" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="264" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Temperature telemetry</text>
-<text x="440" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="480" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">coverage [</text>
-<text x="560" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">##########</text>
-<text x="640" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">]</text>
+<text x="192" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">[-] </text>
+<text x="256" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">[running]</text>
+<text x="328" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> Lane pressure rising</text>
+<text x="512" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="372" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="32" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  Handoff</text>
-<text x="224" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="264" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14"> stayed inside the tr</text>
-<text x="440" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="192" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">Ferry wake and supply traffic are s</text>
+<text x="512" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="390" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="32" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  Theme</text>
-<text x="224" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="264" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">ansfer band</text>
-<text x="440" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="192" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">haring channel C</text>
+<text x="512" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="408" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="32" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">  Context</text>
-<text x="224" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="264" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">block: 7</text>
-<text x="440" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="192" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">sector: west lane</text>
+<text x="512" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="426" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="224" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="440" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">||</text>
-<text x="464" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="192" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="224" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">watch : 14 min</text>
+<text x="512" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="444" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="16" y="462" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="224" y="462" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="240" y="462" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">++-----------------------++</text>
-<text x="464" y="462" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="192" y="462" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="208" y="462" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="512" y="462" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
+<text x="528" y="462" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
 <text x="728" y="462" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">|</text>
-<text x="16" y="480" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+-------------------------+</text>
-<text x="240" y="480" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">++-----------------------++</text>
-<text x="464" y="480" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+--------------------------------+</text>
+<text x="16" y="480" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+---------------------+</text>
+<text x="208" y="480" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+-------------------------------------+</text>
+<text x="528" y="480" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">+------------------------+</text>
 <text x="16" y="498" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" opacity="0.68">›</text>
 <text x="24" y="498" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14">/events</text>
 <text x="16" y="516" fill="#f5f5f5" font-family="ui-monospace,SFMono-Regular,Consolas,monospace" font-size="14" font-weight="700">command ready</text>

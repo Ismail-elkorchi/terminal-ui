@@ -1,9 +1,9 @@
 [
   {
     "bounds": {
-      "column": 30,
+      "column": 25,
       "height": 1,
-      "row": 5,
+      "row": 4,
       "width": 10
     },
     "cursor": "pointer",
@@ -12,9 +12,9 @@
   },
   {
     "bounds": {
-      "column": 41,
+      "column": 36,
       "height": 1,
-      "row": 5,
+      "row": 4,
       "width": 7
     },
     "cursor": "pointer",
@@ -23,9 +23,9 @@
   },
   {
     "bounds": {
-      "column": 49,
+      "column": 44,
       "height": 1,
-      "row": 5,
+      "row": 4,
       "width": 10
     },
     "cursor": "pointer",
@@ -34,9 +34,9 @@
   },
   {
     "bounds": {
-      "column": 60,
+      "column": 55,
       "height": 1,
-      "row": 5,
+      "row": 4,
       "width": 5
     },
     "cursor": "pointer",
@@ -45,9 +45,9 @@
   },
   {
     "bounds": {
-      "column": 66,
+      "column": 61,
       "height": 1,
-      "row": 5,
+      "row": 4,
       "width": 10
     },
     "cursor": "pointer",
@@ -56,9 +56,9 @@
   },
   {
     "bounds": {
-      "column": 77,
+      "column": 72,
       "height": 1,
-      "row": 5,
+      "row": 4,
       "width": 8
     },
     "cursor": "pointer",
@@ -67,46 +67,35 @@
   },
   {
     "bounds": {
-      "column": 91,
-      "height": 1,
-      "row": 5,
-      "width": 6
-    },
-    "cursor": "pointer",
-    "id": "inspector-tabs:tab:selection",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 98,
-      "height": 1,
-      "row": 5,
-      "width": 6
-    },
-    "cursor": "pointer",
-    "id": "inspector-tabs:tab:a11y",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 105,
+      "column": 99,
       "height": 1,
       "row": 5,
       "width": 8
     },
     "cursor": "pointer",
-    "id": "inspector-tabs:tab:render",
+    "id": "inspector-tabs:tab:vessel",
     "zIndex": 0
   },
   {
     "bounds": {
-      "column": 114,
+      "column": 108,
       "height": 1,
       "row": 5,
       "width": 7
     },
     "cursor": "pointer",
-    "id": "inspector-tabs:tab:theme",
+    "id": "inspector-tabs:tab:route",
+    "zIndex": 0
+  },
+  {
+    "bounds": {
+      "column": 116,
+      "height": 1,
+      "row": 5,
+      "width": 5
+    },
+    "cursor": "pointer",
+    "id": "inspector-tabs:tab:event",
     "zIndex": 0
   },
   {
@@ -114,7 +103,7 @@
       "column": 3,
       "height": 1,
       "row": 7,
-      "width": 23
+      "width": 19
     },
     "cursor": "pointer",
     "id": "nav-filter:input",
@@ -125,7 +114,7 @@
       "column": 3,
       "height": 1,
       "row": 9,
-      "width": 23
+      "width": 19
     },
     "cursor": "pointer",
     "id": "showcase-nav:operations",
@@ -136,7 +125,7 @@
       "column": 3,
       "height": 1,
       "row": 10,
-      "width": 23
+      "width": 19
     },
     "cursor": "pointer",
     "id": "showcase-nav:dashboard",
@@ -147,7 +136,7 @@
       "column": 3,
       "height": 1,
       "row": 11,
-      "width": 23
+      "width": 19
     },
     "cursor": "pointer",
     "id": "showcase-nav:data",
@@ -158,7 +147,7 @@
       "column": 3,
       "height": 1,
       "row": 12,
-      "width": 23
+      "width": 19
     },
     "cursor": "pointer",
     "id": "showcase-nav:text",
@@ -169,7 +158,7 @@
       "column": 3,
       "height": 1,
       "row": 13,
-      "width": 23
+      "width": 19
     },
     "cursor": "pointer",
     "id": "showcase-nav:diagram",
@@ -180,7 +169,7 @@
       "column": 3,
       "height": 1,
       "row": 14,
-      "width": 23
+      "width": 19
     },
     "cursor": "pointer",
     "id": "showcase-nav:forms",
@@ -191,7 +180,7 @@
       "column": 3,
       "height": 1,
       "row": 15,
-      "width": 23
+      "width": 19
     },
     "cursor": "pointer",
     "id": "showcase-nav:activity",
@@ -201,52 +190,8 @@
     "bounds": {
       "column": 3,
       "height": 1,
-      "row": 16,
-      "width": 23
-    },
-    "cursor": "pointer",
-    "id": "showcase-nav:assurance",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 3,
-      "height": 1,
-      "row": 17,
-      "width": 23
-    },
-    "cursor": "pointer",
-    "id": "showcase-nav:transcript",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 3,
-      "height": 1,
-      "row": 18,
-      "width": 23
-    },
-    "cursor": "pointer",
-    "id": "showcase-nav:accessibility",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 3,
-      "height": 1,
-      "row": 19,
-      "width": 23
-    },
-    "cursor": "pointer",
-    "id": "showcase-nav:snapshots",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 3,
-      "height": 1,
       "row": 24,
-      "width": 23
+      "width": 19
     },
     "cursor": "pointer",
     "id": "quick-list:option:0",
@@ -257,7 +202,7 @@
       "column": 3,
       "height": 1,
       "row": 25,
-      "width": 23
+      "width": 19
     },
     "cursor": "pointer",
     "id": "quick-list:option:1",
@@ -268,7 +213,7 @@
       "column": 3,
       "height": 1,
       "row": 26,
-      "width": 23
+      "width": 19
     },
     "cursor": "pointer",
     "id": "quick-list:option:2",
@@ -279,7 +224,7 @@
       "column": 3,
       "height": 1,
       "row": 27,
-      "width": 23
+      "width": 19
     },
     "cursor": "pointer",
     "id": "quick-list:option:3",

@@ -1,29 +1,29 @@
 File  View  Tools  Help       Northstar Control  Live even  i Live events live (running)
-harbor service [#######---] 72/100 72%
+Atlas service [#######---] 72/100 72%
 
-+ Explore ----------------+ + Workspace --------------+ + Inspector ---------------------+
-| Navigator               | | Overview   Fleet   Brief| |  Pick  [A11y]  Render   Theme  |
-|                         | ++ Live event timeline --++ | Accessible snapshot            |
-|                         | ||                       || |                                |
-|                         | ||   [-] [success] Berth || |                                |
-|       ▣ Overview        | ||   Aster enters berth  || |                                |
-|       ▤ Fleet board     | ||   12 inside the activ || |                                |
-|       ¶ Briefing room   | ||   e tide window       || |                                |
-|       ◎ Route map       | ||   pilot: Rin          || |                                |
-|       ☷ Dispatch desk   | ||   berth: 12           || | > application: Northstar Contr |
-| >     ✦ Live events     | ||                       || |   tree: operations navigation  |
-|   v ⚙ Assurance        | ++-----------------------++ |   group: route workspace       |
-|       ◫ Transcript      | |                         | |   textbox: command bar         |
-|       ◇ Accessibility   | ++ Selected event -------++ |   status: live operations stat |
-|       ◈ Snapshots       | ||                       || |                                |
-|                         | || [-] [info] Cold-chain || |                                |
-| > Palette               | || Temperature telemetry || | coverage [##########]          |
-|   Handoff               | ||  stayed inside the tr || |                                |
-|   Theme                 | || ansfer band           || |                                |
-|   Context               | || block: 7              || |                                |
-|                         | ||                       || |                                |
-|                         | ++-----------------------++ |                                |
-+-------------------------+ ++-----------------------++ +--------------------------------+
++ Watch --------------+  Overview   Fleet   Briefing   Map   Di + Inspector -------------+
+| Operations          | + Live event timeline ----------------+ | [Vessel]  Route   Even |
+|                     | |                                     | |                        |
+|                     | |   [-] [success] Berth window secure | |                        |
+|                     | |   Aster enters berth 12 inside the  | |                        |
+|   v ◆ Operations    | |   active tide window                | |                        |
+|       ▣ Overview    | |   pilot: Rin                        | |                        |
+|       ▤ Fleet boar… | |   berth: 12                         | |                        |
+|       ¶ Briefing r… | |   Cargo transfer, inspection, and o | |                        |
+|       ◎ Route map   | |   utbound clearance are now staged  | |                        |
+|       ☷ Dispatch d… | |   in sequence.                      | |                        |
+| >     ✦ Live event… | |                                     | |                        |
+|                     | +-------------------------------------+ |                        |
+|                     |                                         |                        |
+|                     | + Selected event ---------------------+ |                        |
+|                     | |                                     | |                        |
+| > Palette           | | [-] [running] Lane pressure rising  | |                        |
+|   Handoff           | | Ferry wake and supply traffic are s | |                        |
+|   Theme             | | haring channel C                    | |                        |
+|   Context           | | sector: west lane                   | |                        |
+|                     | | watch : 14 min                      | |                        |
+|                     | |                                     | |                        |
++---------------------+ +-------------------------------------+ +------------------------+
 ›/events
 command ready
 Tab focus  Enter activate  /palette commands  /handoff modal  Ctrl-C exit

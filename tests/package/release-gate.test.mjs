@@ -357,7 +357,13 @@ test('terminal text indexing and editing stay centralized', async () => {
     }
   }
 
-  const showcase = await readFile(new URL('../../examples/showcase/app.mjs', import.meta.url), 'utf8');
+  const showcaseSources = await Promise.all(
+    (await sourceFiles(new URL('../../examples/showcase/', import.meta.url), '.mjs')).map(async (file) => ({
+      file,
+      source: await readFile(file, 'utf8')
+    }))
+  );
+  const showcase = showcaseSources.map((entry) => entry.source).join('\n');
   const commandBar = await readFile(new URL('../../src/tui/command-bar.ts', import.meta.url), 'utf8');
   const commandSurface = await readFile(new URL('../../src/tui/command-surface.ts', import.meta.url), 'utf8');
   const formWidgets = await readFile(new URL('../../src/tui/form-widgets.ts', import.meta.url), 'utf8');
