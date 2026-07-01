@@ -9,6 +9,7 @@ import {
   fillLayoutSizes,
   gridChildBounds,
   layoutFlowOptions,
+  priorityFillLayoutSizes,
   splitPaneChildBounds
 } from './support/layout.ts';
 import { tabsAccessibleChildren, tabsChildBounds, tabsHeaderText, tabsHitTargets } from './support/tabs.ts';
@@ -31,7 +32,7 @@ export const layoutRenderers = {
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   row: {
-    layout: ({ widget, bounds }) => splitTracks(bounds, 'horizontal', fillLayoutSizes(widget.children?.length ?? 0), layoutFlowOptions(widget)),
+    layout: ({ widget, bounds }) => splitTracks(bounds, 'horizontal', priorityFillLayoutSizes(widget.children ?? []), layoutFlowOptions(widget)),
     render: (input) => {
       input.renderChildren();
     },

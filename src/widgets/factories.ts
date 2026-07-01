@@ -83,7 +83,10 @@ export function text(content: string, options: TextWidgetOptions = {}): Widget<n
   return {
     ...optionalId(options.id),
     kind: 'text',
-    props: { content },
+    props: {
+      content,
+      ...(options.textRole === undefined ? {} : { textRole: options.textRole })
+    },
     ...interactionOptions(options),
     ...(options.accessibility === undefined ? {} : { accessibility: options.accessibility })
   };
@@ -1353,7 +1356,8 @@ function widgetLayerFields(options: WidgetLayerOptions): WidgetLayerOptions {
   return {
     ...(options.zIndex === undefined ? {} : { zIndex: options.zIndex }),
     ...(options.visible === undefined ? {} : { visible: options.visible }),
-    ...(options.opacity === undefined ? {} : { opacity: options.opacity })
+    ...(options.opacity === undefined ? {} : { opacity: options.opacity }),
+    ...(options.overflowPriority === undefined ? {} : { overflowPriority: options.overflowPriority })
   };
 }
 

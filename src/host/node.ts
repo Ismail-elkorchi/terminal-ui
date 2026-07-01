@@ -1,5 +1,5 @@
 import process from 'node:process';
-import { createCapabilities } from './capabilities.ts';
+import { resolveTerminalCapabilities } from './capabilities.ts';
 import { BasicTerminalSession } from './session.ts';
 import { restoreActiveTerminalSessions } from './session-registry.ts';
 import type {
@@ -146,12 +146,16 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     columns: stdout.columns ?? 80,
     rows: stdout.rows ?? 24
   });
-  const capabilities = createCapabilities({
-    runtime: 'node',
-    inputIsTty: stdin.isTty(),
-    outputIsTty: stdout.isTty(),
-    columns: getViewport().columns,
-    rawInput: typeof inputStream.setRawMode === 'function'
+  const capabilities = resolveTerminalCapabilities({
+    host: {
+      runtime: 'node',
+      inputIsTty: stdin.isTty(),
+      outputIsTty: stdout.isTty(),
+      columns: getViewport().columns,
+      rows: getViewport().rows,
+      rawInput: typeof inputStream.setRawMode === 'function'
+    },
+    environment: { variables: options.env ?? nodeProcess.env }
   });
   const host: TerminalHost = {
     id: options.id ?? 'node',

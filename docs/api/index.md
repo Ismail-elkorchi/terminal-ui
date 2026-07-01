@@ -9,6 +9,8 @@ The root entrypoint exposes the main vertical path:
 - `defineTui()`, `runTui()`, `layoutWidget()`, `renderWidgetFrame()`,
   `diffFrames()`, `renderDiffAnsi()`, `renderFramePlain()`,
   `renderFrameAnsi()`, and `renderFrameDebug()`
+- `resolveSelectedText()` and `copySelectedTextToClipboard()` for
+  app-owned TUI text selection flows
 - `toAccessibleSnapshot()`, `findAccessibleNode()`, and
   `validateAccessibleSnapshot()`
 
@@ -34,6 +36,8 @@ problems.
 
 Clipboard helpers live under the protocol entrypoint. They are capability and
 policy gated; widgets never write to the clipboard directly.
+TUI selection helpers resolve selected text from caller-owned source state and
+then delegate clipboard mutation to the same explicit protocol policy.
 
 Rendering APIs expose the current frame pipeline explicitly: `FrameBuffer`,
 `RenderSpan`, `RenderLine`, `RenderBlock`, `Frame`, `diffFrames()`,

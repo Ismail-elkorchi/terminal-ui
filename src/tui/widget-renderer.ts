@@ -3,6 +3,7 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/types.ts';
 import type { FrameBuffer } from './frame.ts';
 import type { LayoutNode, Rect } from './layout.ts';
+import type { PointerEventKind, RoutedPointerEvent } from './pointer-types.ts';
 
 export interface WidgetMeasureInput<TMessage = unknown> {
   readonly widget: Widget<TMessage>;
@@ -70,7 +71,8 @@ export interface WidgetHitInput<TMessage = unknown> {
 export interface HitTarget<TMessage = unknown> {
   readonly id: string;
   readonly bounds: Rect;
-  readonly message: TMessage;
+  readonly accepts?: readonly PointerEventKind[];
+  message(event: RoutedPointerEvent): TMessage | undefined;
   readonly cursor?: 'pointer' | 'text' | 'default';
   readonly zIndex?: number;
 }

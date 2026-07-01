@@ -3,7 +3,7 @@
     "bounds": {
       "column": 25,
       "height": 1,
-      "row": 4,
+      "row": 5,
       "width": 32
     },
     "cursor": "pointer",
@@ -14,7 +14,7 @@
     "bounds": {
       "column": 91,
       "height": 1,
-      "row": 4,
+      "row": 5,
       "width": 32
     },
     "cursor": "pointer",
@@ -25,7 +25,7 @@
     "bounds": {
       "column": 25,
       "height": 1,
-      "row": 5,
+      "row": 6,
       "width": 15
     },
     "cursor": "pointer",
@@ -36,7 +36,7 @@
     "bounds": {
       "column": 41,
       "height": 1,
-      "row": 5,
+      "row": 6,
       "width": 15
     },
     "cursor": "pointer",
@@ -47,7 +47,7 @@
     "bounds": {
       "column": 57,
       "height": 1,
-      "row": 5,
+      "row": 6,
       "width": 15
     },
     "cursor": "pointer",
@@ -58,7 +58,7 @@
     "bounds": {
       "column": 73,
       "height": 1,
-      "row": 5,
+      "row": 6,
       "width": 15
     },
     "cursor": "pointer",
@@ -69,7 +69,7 @@
     "bounds": {
       "column": 105,
       "height": 1,
-      "row": 5,
+      "row": 6,
       "width": 18
     },
     "cursor": "pointer",
@@ -78,31 +78,9 @@
   },
   {
     "bounds": {
-      "column": 3,
-      "height": 1,
-      "row": 8,
-      "width": 19
-    },
-    "cursor": "pointer",
-    "id": "nav-filter:input",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 3,
-      "height": 1,
-      "row": 10,
-      "width": 19
-    },
-    "cursor": "pointer",
-    "id": "showcase-nav:operations",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
       "column": 101,
       "height": 1,
-      "row": 10,
+      "row": 11,
       "width": 1
     },
     "cursor": "pointer",
@@ -111,20 +89,9 @@
   },
   {
     "bounds": {
-      "column": 3,
-      "height": 1,
-      "row": 11,
-      "width": 19
-    },
-    "cursor": "pointer",
-    "id": "showcase-nav:dashboard",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
       "column": 98,
       "height": 1,
-      "row": 11,
+      "row": 12,
       "width": 1
     },
     "cursor": "pointer",
@@ -135,7 +102,7 @@
     "bounds": {
       "column": 100,
       "height": 1,
-      "row": 11,
+      "row": 12,
       "width": 1
     },
     "cursor": "pointer",
@@ -146,7 +113,7 @@
     "bounds": {
       "column": 100,
       "height": 1,
-      "row": 11,
+      "row": 12,
       "width": 1
     },
     "cursor": "pointer",
@@ -157,7 +124,7 @@
     "bounds": {
       "column": 101,
       "height": 1,
-      "row": 11,
+      "row": 12,
       "width": 1
     },
     "cursor": "pointer",
@@ -168,7 +135,7 @@
     "bounds": {
       "column": 102,
       "height": 1,
-      "row": 11,
+      "row": 12,
       "width": 1
     },
     "cursor": "pointer",
@@ -177,20 +144,9 @@
   },
   {
     "bounds": {
-      "column": 3,
-      "height": 1,
-      "row": 12,
-      "width": 19
-    },
-    "cursor": "pointer",
-    "id": "showcase-nav:data",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
       "column": 99,
       "height": 1,
-      "row": 12,
+      "row": 13,
       "width": 1
     },
     "cursor": "pointer",
@@ -201,7 +157,7 @@
     "bounds": {
       "column": 99,
       "height": 1,
-      "row": 12,
+      "row": 13,
       "width": 1
     },
     "cursor": "pointer",
@@ -212,7 +168,7 @@
     "bounds": {
       "column": 102,
       "height": 1,
-      "row": 12,
+      "row": 13,
       "width": 1
     },
     "cursor": "pointer",
@@ -223,7 +179,7 @@
     "bounds": {
       "column": 103,
       "height": 1,
-      "row": 12,
+      "row": 13,
       "width": 1
     },
     "cursor": "pointer",
@@ -234,7 +190,7 @@
     "bounds": {
       "column": 103,
       "height": 1,
-      "row": 12,
+      "row": 13,
       "width": 1
     },
     "cursor": "pointer",
@@ -243,31 +199,9 @@
   },
   {
     "bounds": {
-      "column": 3,
-      "height": 1,
-      "row": 13,
-      "width": 19
-    },
-    "cursor": "pointer",
-    "id": "showcase-nav:text",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 3,
-      "height": 1,
-      "row": 14,
-      "width": 19
-    },
-    "cursor": "pointer",
-    "id": "showcase-nav:diagram",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
       "column": 98,
       "height": 1,
-      "row": 14,
+      "row": 15,
       "width": 1
     },
     "cursor": "pointer",
@@ -278,29 +212,18 @@
     "bounds": {
       "column": 3,
       "height": 1,
-      "row": 15,
+      "row": 20,
       "width": 19
     },
     "cursor": "pointer",
-    "id": "showcase-nav:forms",
-    "zIndex": 0
-  },
-  {
-    "bounds": {
-      "column": 3,
-      "height": 1,
-      "row": 16,
-      "width": 19
-    },
-    "cursor": "pointer",
-    "id": "showcase-nav:activity",
+    "id": "nav-filter:input",
     "zIndex": 0
   },
   {
     "bounds": {
       "column": 5,
       "height": 2,
-      "row": 22,
+      "row": 21,
       "width": 15
     },
     "cursor": "pointer",
@@ -311,7 +234,7 @@
     "bounds": {
       "column": 5,
       "height": 1,
-      "row": 25,
+      "row": 24,
       "width": 15
     },
     "cursor": "pointer",
@@ -322,7 +245,7 @@
     "bounds": {
       "column": 5,
       "height": 1,
-      "row": 26,
+      "row": 25,
       "width": 15
     },
     "cursor": "pointer",
@@ -333,7 +256,7 @@
     "bounds": {
       "column": 5,
       "height": 1,
-      "row": 27,
+      "row": 26,
       "width": 15
     },
     "cursor": "pointer",
@@ -342,21 +265,21 @@
   },
   {
     "bounds": {
-      "column": 1,
-      "height": 2,
-      "row": 33,
-      "width": 29
+      "column": 3,
+      "height": 0,
+      "row": 32,
+      "width": 0
     },
     "cursor": "pointer",
-    "id": "showcase-shortcuts:palette:control",
+    "id": "showcase-shortcuts:context:control",
     "zIndex": 0
   },
   {
     "bounds": {
-      "column": 31,
-      "height": 2,
-      "row": 33,
-      "width": 29
+      "column": 3,
+      "height": 0,
+      "row": 32,
+      "width": 0
     },
     "cursor": "pointer",
     "id": "showcase-shortcuts:handoff:control",
@@ -364,24 +287,24 @@
   },
   {
     "bounds": {
-      "column": 61,
-      "height": 2,
-      "row": 33,
-      "width": 29
+      "column": 3,
+      "height": 0,
+      "row": 32,
+      "width": 0
     },
     "cursor": "pointer",
-    "id": "showcase-shortcuts:theme:control",
+    "id": "showcase-shortcuts:palette:control",
     "zIndex": 0
   },
   {
     "bounds": {
-      "column": 91,
-      "height": 2,
-      "row": 33,
-      "width": 32
+      "column": 3,
+      "height": 0,
+      "row": 32,
+      "width": 0
     },
     "cursor": "pointer",
-    "id": "showcase-shortcuts:context:control",
+    "id": "showcase-shortcuts:theme:control",
     "zIndex": 0
   }
 ]

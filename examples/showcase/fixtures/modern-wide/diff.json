@@ -5,7 +5,7 @@
     {
       "column": 131,
       "kind": "write",
-      "row": 7,
+      "row": 23,
       "spans": [
         {
           "source": {
@@ -25,7 +25,7 @@
     {
       "column": 131,
       "kind": "write",
-      "row": 8,
+      "row": 24,
       "spans": [
         {
           "source": {
@@ -45,7 +45,7 @@
     {
       "column": 131,
       "kind": "write",
-      "row": 9,
+      "row": 25,
       "spans": [
         {
           "source": {
@@ -65,7 +65,7 @@
     {
       "column": 131,
       "kind": "write",
-      "row": 10,
+      "row": 26,
       "spans": [
         {
           "source": {
@@ -85,7 +85,7 @@
     {
       "column": 131,
       "kind": "write",
-      "row": 11,
+      "row": 27,
       "spans": [
         {
           "source": {
@@ -105,7 +105,7 @@
     {
       "column": 131,
       "kind": "write",
-      "row": 12,
+      "row": 28,
       "spans": [
         {
           "source": {
@@ -125,27 +125,7 @@
     {
       "column": 131,
       "kind": "write",
-      "row": 13,
-      "spans": [
-        {
-          "source": {
-            "kind": "surface",
-            "role": "decoration"
-          },
-          "style": {
-            "bg": {
-              "kind": "theme",
-              "token": "surface.inset.background"
-            }
-          },
-          "text": "              "
-        }
-      ]
-    },
-    {
-      "column": 131,
-      "kind": "write",
-      "row": 22,
+      "row": 30,
       "spans": [
         {
           "source": {
@@ -159,74 +139,6 @@
             }
           },
           "text": "                          "
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 2,
-        "height": 1,
-        "row": 39,
-        "width": 62
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 2,
-      "kind": "write",
-      "row": 39,
-      "spans": [
-        {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "text.default"
-            }
-          },
-          "text": "/overview"
-        }
-      ]
-    },
-    {
-      "column": 1,
-      "kind": "write",
-      "row": 40,
-      "spans": [
-        {
-          "style": {
-            "bold": true,
-            "fg": {
-              "kind": "theme",
-              "token": "accent.primary"
-            }
-          },
-          "text": "command "
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 10,
-        "height": 1,
-        "row": 40,
-        "width": 28
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 10,
-      "kind": "write",
-      "row": 40,
-      "spans": [
-        {
-          "style": {
-            "bold": true,
-            "fg": {
-              "kind": "theme",
-              "token": "accent.primary"
-            }
-          },
-          "text": "eady"
         }
       ]
     },

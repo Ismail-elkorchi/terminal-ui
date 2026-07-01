@@ -1,4 +1,4 @@
-import type { Widget } from '../../../widgets/index.ts';
+import type { Widget, WidgetOverflowPriority } from '../../../widgets/index.ts';
 import { layoutContentBounds, splitTracks } from '../../regions.ts';
 import { emptyRect, isRecord } from './common.ts';
 import type { Rect } from '../../layout.ts';
@@ -129,6 +129,27 @@ export function layoutSizes(value: unknown): readonly LayoutSize[] {
 
 export function fillLayoutSizes(count: number): readonly LayoutSize[] {
   return Array.from({ length: Math.max(0, count) }, () => ({ kind: 'fill' }));
+}
+
+export function priorityFillLayoutSizes(children: readonly Widget[]): readonly LayoutSize[] {
+  return children.map((child) => ({
+    kind: 'fill',
+    weight: overflowPriorityWeight(child.layer?.overflowPriority)
+  }));
+}
+
+function overflowPriorityWeight(priority: WidgetOverflowPriority | undefined): number {
+  switch (priority) {
+    case 'required':
+      return 8;
+    case 'important':
+      return 4;
+    case 'decorative':
+      return 1;
+    case 'secondary':
+    default:
+      return 2;
+  }
 }
 
 export function gridLayoutOptions(widget: Widget): GridLayoutOptions {

@@ -5,10 +5,12 @@ import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotMetadata, FrameBufferSnapshotOptions, FrameCell, FrameHitTarget } from './frame.ts';
 import type { FocusPath, LayoutFocusTarget } from './focus.ts';
 import type { LayoutNode, Rect, RegionOpacity } from './layout.ts';
+import type { PointerEventKind, RoutedPointerEvent } from './pointer-types.ts';
 import type { HitTarget } from './widget-renderer.ts';
 
 export interface RenderRegionHitTarget<TMessage = unknown> extends FrameHitTarget {
-  readonly message: TMessage;
+  readonly accepts?: readonly PointerEventKind[];
+  message(event: RoutedPointerEvent): TMessage | undefined;
 }
 
 export interface RenderRegion<TMessage = unknown> {
@@ -30,7 +32,8 @@ export function toRegionHitTarget<TMessage>(
   return {
     id: hitTarget.id,
     bounds: hitTarget.bounds,
-    message: hitTarget.message,
+    ...(hitTarget.accepts === undefined ? {} : { accepts: hitTarget.accepts }),
+    message: (event) => hitTarget.message(event),
     ...(hitTarget.cursor === undefined ? {} : { cursor: hitTarget.cursor }),
     zIndex: hitTarget.zIndex ?? region.zIndex
   };

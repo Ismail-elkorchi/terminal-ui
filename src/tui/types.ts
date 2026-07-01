@@ -1,12 +1,13 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalCapabilities, TerminalClock, TerminalHost, TerminalInputChunk, TerminalViewport } from '../host/index.ts';
-import type { InputDecodeOptions, InputEvent } from '../input/index.ts';
+import type { TerminalCapabilityProfile, TerminalClock, TerminalHost, TerminalInputChunk, TerminalViewport } from '../host/index.ts';
+import type { InputDecodeOptions, InputEvent, InputPipelineOptions } from '../input/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { InteractionTranscript, TranscriptPolicy, TranscriptRecorder } from '../transcript/index.ts';
 import type { Widget } from '../widgets/index.ts';
 import type { Frame } from './frame.ts';
 import type { FocusPath } from './focus.ts';
+import type { SessionProtocolPolicy } from './session-policy.ts';
 
 export interface TuiDefinition<TState, TMessage> {
   readonly id?: string;
@@ -42,7 +43,7 @@ export interface TuiUpdateResult<TState, TMessage> {
 export interface TuiContext<TMessage> {
   readonly host: TerminalHost;
   readonly viewport: TerminalViewport;
-  readonly capabilities: TerminalCapabilities;
+  readonly capabilities: TerminalCapabilityProfile;
   readonly clock: TerminalClock;
   dispatch(message: TMessage): void;
 }
@@ -120,11 +121,13 @@ export interface TuiRuntimeOptions<TState, TMessage> {
   readonly initialFocusPath?: FocusPath;
   readonly theme?: TuiTheme<TState>;
   readonly transcript?: TranscriptRecorder;
+  readonly input?: InputPipelineOptions;
 }
 
 export interface TuiRunOptions<TState = unknown> {
   readonly initialFocusPath?: FocusPath;
   readonly theme?: TuiTheme<TState>;
+  readonly sessionPolicy?: SessionProtocolPolicy;
 }
 
 export interface TuiRuntime<TState, TMessage> {

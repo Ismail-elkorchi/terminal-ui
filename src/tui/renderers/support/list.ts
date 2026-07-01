@@ -90,7 +90,7 @@ export function listHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect)
         width: bounds.width,
         height: 1
       },
-      message: toMessage(item),
+      message: () => toMessage(item),
       cursor: 'pointer'
     }];
   });

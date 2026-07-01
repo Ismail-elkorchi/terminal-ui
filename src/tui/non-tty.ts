@@ -2,7 +2,8 @@ import { diagnostic } from '../diagnostics.ts';
 import { createTuiContext } from './context.ts';
 import { completedExitFromSnapshot } from './exit.ts';
 import { tuiSnapshot } from './lifecycle.ts';
-import { diffFrames, renderFramePlain } from './render.ts';
+import { projectTuiOutput } from './output-projection.ts';
+import { diffFrames } from './render.ts';
 import { renderCurrentFrame } from './runtime-frame.ts';
 import { recordTuiFrame } from './transcript.ts';
 import type { TerminalHost, TerminalInputChunk } from '../host/index.ts';
@@ -47,7 +48,8 @@ export async function runTuiNonTty<TState, TMessage>(
     const frame = renderCurrentFrame(app, state, context, undefined, runtimeOptions(app, host, transcript), 0).frame;
     recordTuiFrame(transcript, frame, diffFrames(undefined, frame));
     if (policy.mode === 'last_frame' || policy.mode === 'line_fallback') {
-      await host.write({ text: `${renderFramePlain(frame)}\n` });
+      const projection = projectTuiOutput({ frame });
+      await host.write({ text: `${projection.accessibleText}\n\n${projection.plainTextFrame}\n` });
     }
     await app.definition.onExit?.(state);
     return completedExitFromSnapshot(state, frame.accessibility, policy.mode);

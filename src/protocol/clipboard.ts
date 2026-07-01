@@ -50,7 +50,7 @@ export async function writeClipboardText(
   policy: ClipboardWritePolicy
 ): Promise<ClipboardWriteResult> {
   const capabilities = await host.getCapabilities();
-  if (!capabilities.clipboard.supported) {
+  if (capabilities.clipboard.status !== 'supported') {
     return {
       ok: false,
       diagnostic: diagnostic('HOST_PROTOCOL_UNSUPPORTED', 'Terminal clipboard write is unavailable.', {
@@ -58,7 +58,7 @@ export async function writeClipboardText(
         target: 'clipboard',
         data: {
           confidence: capabilities.clipboard.confidence,
-          reason: capabilities.clipboard.reason ?? null
+          diagnostics: capabilities.clipboard.diagnostics.map((item) => item.message)
         }
       })
     };

@@ -69,11 +69,44 @@
   "$defs": {
     "capabilitySupport": {
       "type": "object",
-      "required": ["supported", "confidence"],
+      "required": ["status", "confidence", "facts", "diagnostics", "requiresSessionOperation"],
       "properties": {
-        "supported": { "type": "boolean" },
-        "confidence": { "enum": ["known", "detected", "assumed", "unknown"] },
-        "reason": { "type": "string" }
+        "status": { "enum": ["supported", "unavailable"] },
+        "confidence": { "enum": ["detected", "assumed", "forced", "unavailable"] },
+        "facts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/capabilitySourceFact" }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": { "$ref": "https://schemas.ismail-elkorchi.dev/terminal-ui/terminal-diagnostic.schema.json" }
+        },
+        "requiresSessionOperation": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "capabilitySourceFact": {
+      "type": "object",
+      "required": ["kind", "name", "value"],
+      "properties": {
+        "kind": { "enum": ["host", "environment", "probe", "override"] },
+        "name": { "type": "string", "minLength": 1 },
+        "value": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "null" },
+            {
+              "type": "array",
+              "items": {}
+            },
+            {
+              "type": "object",
+              "additionalProperties": {}
+            }
+          ]
+        }
       },
       "additionalProperties": false
     }

@@ -31,7 +31,17 @@ const keyNames = [
 ] as const satisfies readonly KeyName[];
 const mouseEncodings = ['sgr', 'x10'] as const satisfies readonly MouseEncoding[];
 const mouseActions = ['press', 'release', 'drag', 'move', 'wheel'] as const satisfies readonly MouseAction[];
-const mouseButtons = ['left', 'middle', 'right', 'wheelUp', 'wheelDown', 'none', 'unknown'] as const satisfies readonly MouseButton[];
+const mouseButtons = [
+  'left',
+  'middle',
+  'right',
+  'wheelUp',
+  'wheelDown',
+  'wheelLeft',
+  'wheelRight',
+  'none',
+  'unknown'
+] as const satisfies readonly MouseButton[];
 
 export function validateTranscript(transcript: unknown): Result<InteractionTranscript> {
   const issue = transcriptIssue(transcript);

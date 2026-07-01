@@ -1,9 +1,20 @@
 import { toAccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic } from '../diagnostics.ts';
+import { applySessionProtocolPolicy } from './session-policy.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalRestoreReason, TerminalSession } from '../host/index.ts';
 import type { TuiExit } from './types.ts';
+import type { SessionProtocolPolicy, SessionProtocolSetupResult } from './session-policy.ts';
+export { applySessionProtocolPolicy, createSessionProtocolPlan, defaultSessionProtocolPolicy } from './session-policy.ts';
+export type {
+  CursorVisibilityPolicy,
+  ProtocolRequirement,
+  SessionProtocolOperation,
+  SessionProtocolOperationKind,
+  SessionProtocolPolicy,
+  SessionProtocolSetupResult
+} from './session-policy.ts';
 
 export function tuiSnapshot(id: string): AccessibleSnapshot {
   return toAccessibleSnapshot({
@@ -12,23 +23,11 @@ export function tuiSnapshot(id: string): AccessibleSnapshot {
   });
 }
 
-export async function setupTuiSession(session: TerminalSession): Promise<readonly TerminalDiagnostic[]> {
-  const diagnostics: TerminalDiagnostic[] = [];
-  for (const result of [
-    await session.enableAlternateScreen(),
-    await session.enableBracketedPaste(),
-    await session.enableRawInput(),
-    await session.enableMouseReporting('click'),
-    await session.enableFocusReporting(),
-    await session.hideCursor()
-  ]) {
-    if (result.ok) {
-      diagnostics.push(...(result.diagnostics ?? []));
-    } else {
-      diagnostics.push(result.error, ...(result.diagnostics ?? []));
-    }
-  }
-  return diagnostics;
+export async function setupTuiSession(
+  session: TerminalSession,
+  policy?: SessionProtocolPolicy
+): Promise<SessionProtocolSetupResult> {
+  return applySessionProtocolPolicy(session, policy);
 }
 
 export async function restoreTuiSession(

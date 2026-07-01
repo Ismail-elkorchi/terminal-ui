@@ -24,12 +24,13 @@ printProductExample({
   action: 'select chart point',
   appName: 'Signal Lab',
   route: 'Chart explorer',
-  subtitle: 'Interactive chart selection, heatmap, gauge, carousel, and tooltip',
+  subtitle: 'Wind sample 4 selected, heatmap, gauge, carousel, and tooltip',
   status: 'analysis',
   commandValue: '/select wind:4',
-  commandFooter: 'Selected point moved along the Wind series',
+  commandFooter: 'Wind sample 4 selected along the Wind series',
   main: panel({
     title: 'Signal explorer',
+    density: 'compact',
     body: stack([
       chart({
         id: 'wind-chart',
@@ -61,7 +62,9 @@ printProductExample({
   }),
   side: sidePanel({
     title: 'Signal inspector',
+    density: 'compact',
     body: stack([
+      text('Wind sample 4', { textRole: 'metric' }),
       inspectorCard('Selected signal', [
         `series before: ${selectedBefore.series}:${String(selectedBefore.point)}`,
         `series after: ${selectedAfter.series}:${String(selectedAfter.point)}`,

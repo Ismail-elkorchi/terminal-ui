@@ -20,6 +20,7 @@ test('visual snapshots produce deterministic plain ANSI frame accessibility diff
   assert.equal(first.plainTextFrame, '[ Run ]');
   assert.match(first.ansiFrame, /\\x1b\[1;1H/u);
   assert.doesNotMatch(first.ansiFrame, /\u001B/u);
+  assert.match(first.accessibleText, /- button: Run/u);
   assert.match(first.frameJson, /"schemaVersion": "terminal-ui.tui-frame.v1"/u);
   assert.match(first.accessibilityJson, /"role": "button"/u);
   assert.match(first.diffJson, /"schemaVersion": "terminal-ui.render-diff.v1"/u);

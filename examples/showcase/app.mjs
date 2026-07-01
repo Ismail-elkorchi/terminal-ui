@@ -118,7 +118,7 @@ function showcaseVariant(state, viewport, variant) {
       bottom
     `,
     children: parts,
-    rows: [{ kind: 'fixed', cells: 3 }, { kind: 'fill' }, { kind: 'fixed', cells: 4 }],
+    rows: [{ kind: 'fixed', cells: 4 }, { kind: 'fill' }, { kind: 'fixed', cells: 5 }],
     columns: [{ kind: 'fill' }],
     accessibility: { role: 'application', label: 'Northstar Control' },
     keyMap: {

@@ -2,16 +2,18 @@ import {
   activityIndicator,
   accordion,
   commandBar,
+  commandDock,
   grid,
   inputField,
   list,
   menuBar,
   progressBar,
-  row,
   shortcutBar,
   stack,
+  statusDock,
   statusBar,
   text,
+  topBar,
   tree
 } from '@ismail-elkorchi/terminal-ui/widgets';
 
@@ -19,12 +21,17 @@ import { navigationNodes, paletteSuggestions } from '../data.mjs';
 import { overlayLabel, quickActions, routeForNode, routeLabel, selectedVessel, statusLabel } from '../state.mjs';
 import { completionPreview, commandValidation } from '../update.mjs';
 import { themeLabel } from '../theme.mjs';
-import { progressTone } from './view-utils.mjs';
+import { densityRole, progressTone } from './view-utils.mjs';
 
 export function topChrome(state) {
+  const density = densityRole(state.density);
   return stack([
-    row([
-      menuBar({
+    topBar({
+      id: 'showcase-top-bar',
+      title: 'Northstar Control',
+      variant: 'base',
+      density,
+      leading: menuBar({
         id: 'main-menu',
         selected: 'view',
         items: [
@@ -39,16 +46,13 @@ export function topChrome(state) {
           t: { kind: 'theme' }
         }
       }),
-      statusBar({
-        id: 'top-status',
-        text: `Northstar Control  ${routeLabel(state.selectedRoute)}  ${themeLabel(state)}`
-      }),
-      activityIndicator({
+      center: text(routeLabel(state.selectedRoute), { id: 'top-route', textRole: 'subtitle' }),
+      trailing: activityIndicator({
         id: 'top-activity',
-        label: statusLabel(state),
+        label: `${statusLabel(state)} · ${themeLabel(state)}`,
         status: state.progress >= 92 ? 'success' : 'running'
       })
-    ], { id: 'top-row', gap: 2 }),
+    }),
     progressBar({
       id: 'top-progress',
       label: `${selectedVessel(state).name} service`,
@@ -64,7 +68,7 @@ export function topChrome(state) {
 
 export function navigationPane(state) {
   return grid([
-    text('Operations', { id: 'nav-title' }),
+    text('Operations', { id: 'nav-title', textRole: 'heading' }),
     inputField({
       id: 'nav-filter',
       value: state.navFilter,
@@ -127,8 +131,10 @@ export function navigationPane(state) {
 }
 
 export function bottomChrome(state) {
-  return stack([
-    commandBar({
+  return commandDock({
+    id: 'showcase-command-dock',
+    density: densityRole(state.density),
+    input: commandBar({
       id: 'showcase-command',
       prompt: '›',
       value: state.commandValue,
@@ -157,7 +163,7 @@ export function bottomChrome(state) {
         paste: (value) => ({ kind: 'commandText', text: value })
       }
     }),
-    shortcutBar({
+    help: shortcutBar({
       id: 'showcase-shortcuts',
       shortcuts: [
         { id: 'palette', key: '/', label: 'commands', message: { kind: 'palette', open: true } },
@@ -165,8 +171,16 @@ export function bottomChrome(state) {
         { id: 'theme', key: 'T', label: 'theme', message: { kind: 'theme' } },
         { id: 'context', key: 'C', label: 'context', message: { kind: 'context', open: true } }
       ]
+    }),
+    status: statusDock({
+      id: 'bottom-status',
+      density: 'compact',
+      items: [
+        statusBar({ id: 'bottom-status-action', text: state.lastAction }),
+        text(overlayLabel(state), { id: 'bottom-status-overlay', textRole: 'metadata' })
+      ]
     })
-  ], { id: 'bottom-chrome' });
+  });
 }
 
 function quickActionMessage(value) {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createCapabilities } from '../../dist/host/index.js';
+import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
@@ -163,11 +163,13 @@ test('progressBar visual snapshots stay readable in high contrast and no color m
 });
 
 function colorCapabilities() {
-  return createCapabilities({
-    runtime: 'memory',
-    inputIsTty: true,
-    outputIsTty: true,
-    rawInput: true
+  return resolveTerminalCapabilities({
+    host: {
+      runtime: 'memory',
+      inputIsTty: true,
+      outputIsTty: true,
+      rawInput: true
+    }
   });
 }
 

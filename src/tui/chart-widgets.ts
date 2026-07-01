@@ -148,7 +148,7 @@ export function chartHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect
     return [{
       id: `${widget.id ?? 'chart'}:${item.id}:${String(point)}`,
       bounds: { row: position.row, column: position.column, width: 1, height: 1 },
-      message: toMessage({
+      message: () => toMessage({
         series: item.id,
         ...(item.label === undefined ? {} : { seriesLabel: item.label }),
         point,
@@ -259,7 +259,7 @@ export function heatmapHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Re
           width: Math.min(cellWidth, bounds.column + bounds.width - column),
           height: 1
         },
-        message: toMessage(cell, rowIndex, columnIndex),
+        message: () => toMessage(cell, rowIndex, columnIndex),
         cursor: 'pointer'
       }];
     });

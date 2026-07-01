@@ -153,7 +153,7 @@ export function menuBarHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Re
       targets.push({
         id: `${widget.id ?? widget.kind}:${item.id}`,
         bounds: { row: bounds.row, column, width, height: 1 },
-        message: item.message as TMessage,
+        message: () => item.message as TMessage,
         cursor: 'pointer'
       });
     }
@@ -190,7 +190,7 @@ function hitTargetForRow<TMessage>(
       width: bounds.width,
       height: 1
     },
-    message: row.item.message as TMessage,
+    message: () => row.item.message as TMessage,
     cursor: 'pointer'
   }];
 }

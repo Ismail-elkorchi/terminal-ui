@@ -1,41 +1,42 @@
-File  View  Tools  Help                               Northstar Control  Overview  catppuccin               i Overview live (running)
+ File  View  Tools  Help            Northstar Control                                                    Overview          i Overview live · catppuccin (runnin
+
 Atlas service [███████░░░] 72/100 72%
 
-┌ Watch ───────────────┐ [ Watch ]                         ›                                 [ Overview ]                       ┌ Inspector ───────────────────┐
+┌──────────────────────┐ [ Watch ]                         ›                                 [ Overview ]                       ┌──────────────────────────────┐
 │                      │ [ [Overview] ]   [ Fleet ]        [ Briefing ]     [ Map ]          More routes              Dispatch  │                              │
-│ Operations           │ [-] [running] Night watch command                                                                      │ [Vessel]  Route   Event   Th │
+│ Watch                │ [-] [running] Night watch command                                                                      │ Inspector                    │
 │                      │ Atlas is cleared; Overview is active and overlays are clear.                                           │                              │
 │                      │ selected   : Atlas                                                                                     │                              │
 │                      │ signal     : 89%                                                                                       │                              │
-│   ▾ ◆ Operations     │ service    : 72%                                                                                       │                              │
-│ ›     ▣ Overview     │ ┌ Live harbor surface ─────────────────────────────────────────────────┐ ┌ Capacity ─────────────────┐ │                              │
-│       ▤ Fleet board  │ │ ··Northstar harbor radar··········································   │ │service [███████░░░] 72%   │ │                              │
-│       ¶ Briefing ro… │ │ ·                                               ⠢⡀ ⠐⢄  ⠂  ▀▄     ·   │ │                           │ │                              │
-│       ◎ Route map    │ │ ·                                                ⠈⠢⡀ ⠑⢄          ·   │ │███ [▓] ░░░                │ │                              │
-│       ☷ Dispatch de… │ │ ·      ◉────────────────────────●─────────────────────────●      ·   │ │▓▓▓ ▒▒▒ ░░░                │ │                              │
-│       ✦ Live events  │ │ · outer marker          channel C             inner harbor       ·   │ │                           │ │                              │
+│                      │ service    : 72%                                                                                       │                              │
+│                      │ ┌ Live harbor surface ─────────────────────────────────────────────────┐ ┌ Capacity ─────────────────┐ │                              │
+│                      │ │ ··Northstar harbor radar··········································   │ │service [███████░░░] 72%   │ │                              │
+│                      │ │ ·                                               ⠢⡀ ⠐⢄  ⠂  ▀▄     ·   │ │                           │ │                              │
+│                      │ │ ·                                                ⠈⠢⡀ ⠑⢄          ·   │ │███ [▓] ░░░                │ │                              │
+│                      │ │ ·      ◉────────────────────────●─────────────────────────●      ·   │ │▓▓▓ ▒▒▒ ░░░                │ │                              │
+│                      │ │ · outer marker          channel C             inner harbor       ·   │ │                           │ │                              │
 │                      │ │ ·                                                                ·   │ │▁▄▄▄▅▅▅▇▇█                 │ │                              │
 │                      │ │ ·      Atlas      vector lane  berth 12                          ·   │ └───────────────────────────┘ │                              │
 │                      │ │ ·                                                                ·   │                               │                              │
 │                      │ │ ·                                                                ·   │ [-] [success] Atlas · researc │                              │
-│                      │ │ ·   watch owner: Mira               signal 89%                   ·   │ Mira owns this watch item. Se │                              │
+│ Operations           │ │ ·   watch owner: Mira               signal 89%                   ·   │ Mira owns this watch item. Se │ [Vessel]  Route   Event   Th │
 │                      │ │ ·                                                                ·   │ lecting a different fleet row │                              │
 │                      │ │ ·                                                                ·   │  updates this card, the map n │                              │
 │                      │ │ ·                                                                ·   │ ode, and the inspector.       │                              │
-│                      │ │ ·                                                                ·   │ state  : cleared              │                              │
+│ ›     ▣ Overview     │ │ ·                                                                ·   │ state  : cleared              │                              │
 │                      │ │ ··································································   │ signal : 89%                  │                              │
-│                      │ │                                                                      │ route  : Overview             │                              │
-│                      │ │                                                                      │                               │                              │
-│ ┌──────────────────┐ │ │                                                                      │ ┌ Watch story ──────────────┐ │                              │
-│ │ [ ▾ Quick launc… │ │ │ ┌ Route timeline ───────────────────────────────────────────────────┐│ │                           │ │                              │
-│ │                  │ │ │ │                                                                   ││ │ [ Prev… Pulse   [ Next ]  │ │                              │
-│ │                  │ │ │ │                                                                   ││ │                           │ │                              │
-│ │ › Palette      █ │ │ │ │ route clearance [████████░░] 79/100                               ││ │ [-] [info] Operations pul │ │                              │
-│ │   Handoff      █ │ │ │ │                                                                   ││ │ Harbor overview ready. Se │ │                              │
-│ │   Theme        │ │ │ │ └───────────────────────────────────────────────────────────────────┘│ │ lect a vessel, open a rou │ │                              │
-│ └──────────────────┘ │ │                                                                      │ │                           │ │                              │
-│                      │ │   Aster 96%       › Atlas 89%         Pulse 72%         Lumen 93%    │ │                           │ │                              │
+│ ┌──────────────────┐ │ │                                                                      │ route  : Overview             │                              │
+│ │ [ ▾ Quick launc… │ │ │                                                                      │                               │                              │
+│ │                  │ │ │                                                                      │ ┌ Watch story ──────────────┐ │                              │
+│ │                  │ │ │ ┌ Route timeline ───────────────────────────────────────────────────┐│ │                           │ │                              │
+│ │ › Palette      █ │ │ │ │                                                                   ││ │ [ Prev… Pulse   [ Next ]  │ │                              │
+│ │   Handoff      █ │ │ │ │                                                                   ││ │                           │ │                              │
+│ │   Theme        │ │ │ │ │ route clearance [████████░░] 79/100                               ││ │ [-] [info] Operations pul │ │                              │
+│ └──────────────────┘ │ │ │                                                                   ││ │                           │ │                              │
+│                      │ │ └───────────────────────────────────────────────────────────────────┘│ │                           │ │                              │
 └──────────────────────┘ └──────────────────────────────────────────────────────────────────────┘ └───────────────────────────┘ └──────────────────────────────┘
-›/overview
-command ready
-[ / commands ]                          [ H handoff ]                           [ T theme ]                             [ C context ]
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│ ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐ │
+└─┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴─┘

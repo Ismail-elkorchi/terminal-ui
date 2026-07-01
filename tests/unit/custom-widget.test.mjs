@@ -53,7 +53,7 @@ test('custom widget hit targets route mouse messages', async () => {
       return { id, role: 'button', label: 'hit' };
     },
     hitTargets({ bounds }) {
-      return [{ id: 'custom-hit:press', bounds, message: { clicked: true }, cursor: 'pointer' }];
+      return [{ id: 'custom-hit:press', bounds, message: () => ({ clicked: true }), cursor: 'pointer' }];
     }
   };
   const app = defineTui({
@@ -189,7 +189,7 @@ test('decorative custom widgets cannot expose interaction targets', () => {
       buffer.write(node.bounds.row, node.bounds.column, [{ text: 'button' }]);
     },
     hitTargets({ bounds }) {
-      return [{ id: 'press', bounds, message: { pressed: true } }];
+      return [{ id: 'press', bounds, message: () => ({ pressed: true }) }];
     }
   };
 

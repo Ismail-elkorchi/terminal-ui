@@ -90,10 +90,12 @@ export type WidgetKind =
 export type WidgetProps = Record<string, unknown>;
 export type WidgetChildren<TMessage> = readonly Widget<TMessage>[] | Widget<TMessage>;
 export type WidgetKeyMap<TMessage> = Record<string, TMessage>;
+export type WidgetOverflowPriority = 'required' | 'important' | 'secondary' | 'decorative';
 export interface WidgetLayerOptions {
   readonly zIndex?: number;
   readonly visible?: boolean;
   readonly opacity?: RegionOpacity;
+  readonly overflowPriority?: WidgetOverflowPriority;
   readonly focus?: WidgetFocusOptions;
   readonly styles?: WidgetStyleSlots;
 }
@@ -107,6 +109,30 @@ export type WidgetVisualState =
   | 'error'
   | 'warning'
   | 'success';
+
+export type WidgetTextRole =
+  | 'title'
+  | 'subtitle'
+  | 'heading'
+  | 'body'
+  | 'caption'
+  | 'metadata'
+  | 'metric'
+  | 'badge'
+  | 'danger'
+  | 'warning'
+  | 'success';
+
+export type WidgetAnatomyRole =
+  | 'header'
+  | 'body'
+  | 'footer'
+  | 'toolbar'
+  | 'status'
+  | 'actions'
+  | 'empty';
+
+export type WidgetDensityRole = 'compact' | 'normal' | 'spacious';
 
 export interface WidgetStyleSlots {
   readonly root?: TerminalStyle;
@@ -150,6 +176,7 @@ export interface CustomWidgetOptions<TMessage> extends WidgetLayerOptions {
 
 export interface TextWidgetOptions extends WidgetLayerOptions {
   readonly id?: string;
+  readonly textRole?: WidgetTextRole;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 

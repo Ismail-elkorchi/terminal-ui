@@ -1,16 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { renderWidgetFrame } from '../../dist/tui/index.js';
+import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import {
   button,
   menuBar,
   modal,
+  panel,
   palette,
+  row,
   scrollback,
+  stack,
   table,
   text,
   textInput,
+  topBar,
   tree
 } from '../../dist/widgets/index.js';
 
@@ -107,4 +111,53 @@ test('scrollback and modal chrome use placeholder and border slots', () => {
 
   assert.equal(styleFor(scrollbackFrame, '.')?.fg?.token, 'status.warning');
   assert.equal(styleFor(modalFrame, '┌')?.fg?.token, 'status.error');
+});
+
+test('semantic text roles and component anatomy use shared visual grammar', () => {
+  const textFrame = renderWidgetFrame(stack([
+    text('42', { textRole: 'metric' }),
+    text('quiet', { textRole: 'caption' }),
+    text('risk', { textRole: 'danger' })
+  ]), { columns: 16, rows: 4 });
+  const panelFrame = renderWidgetFrame(panel({
+    id: 'status-panel',
+    title: 'Harbor',
+    actions: text('Edit', { textRole: 'badge' }),
+    body: text('Body'),
+    status: text('Ready', { textRole: 'success' }),
+    density: 'compact'
+  }), { columns: 32, rows: 8 });
+
+  assert.equal(styleFor(textFrame, '4')?.fg?.token, 'accent.primary');
+  assert.equal(styleFor(textFrame, 'q')?.fg?.token, 'text.muted');
+  assert.equal(styleFor(textFrame, 'r')?.fg?.token, 'status.error');
+  assert.equal(styleFor(panelFrame, 'H')?.fg?.token, 'text.strong');
+  assert.equal(styleFor(panelFrame, 'E')?.bg?.token, 'selection.background');
+  assert.equal(styleFor(panelFrame, 'R')?.fg?.token, 'status.success');
+});
+
+test('overflow priority preserves important row content before decorative content', () => {
+  const frame = renderWidgetFrame(row([
+    text('REQUIRED', { overflowPriority: 'required' }),
+    text('secondary', { overflowPriority: 'secondary' }),
+    text('decorative', { overflowPriority: 'decorative' })
+  ], { gap: 0 }), { columns: 11, rows: 1 });
+
+  assert.equal(renderFramePlain(frame).trimEnd(), 'REQUIREDsed');
+});
+
+test('chrome components assign overflow priority through ordinary widget metadata', () => {
+  const trailing = text('Ready', { overflowPriority: 'required' });
+  const widget = topBar({
+    title: 'Northstar',
+    center: text('secondary route'),
+    trailing
+  });
+  const content = widget.children?.[0];
+  const children = content?.children ?? [];
+
+  assert.equal(children[0]?.layer?.overflowPriority, 'required');
+  assert.equal(children[1]?.layer?.overflowPriority, 'secondary');
+  assert.equal(children[2], trailing);
+  assert.equal(children[2]?.layer?.overflowPriority, 'required');
 });

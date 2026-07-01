@@ -95,7 +95,7 @@ export function treeHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect)
         width: bounds.width,
         height: 1
       },
-      message: toMessage(row.node),
+      message: () => toMessage(row.node),
       cursor: 'pointer'
     }];
   });

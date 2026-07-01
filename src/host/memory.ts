@@ -1,5 +1,5 @@
 import { BasicTerminalSession } from './session.ts';
-import { createCapabilities } from './capabilities.ts';
+import { resolveTerminalCapabilities } from './capabilities.ts';
 import { restoreActiveTerminalSessions } from './session-registry.ts';
 import type {
   ControlledTerminalClock,
@@ -201,13 +201,17 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
   const stderr = new BufferOutput(viewport.columns, viewport.rows, isTty);
   const signals = new MemorySignals();
   const clock = new MemoryClock();
-  const capabilities = createCapabilities({
-    runtime: 'memory',
-    inputIsTty: stdin.isTty(),
-    outputIsTty: stdout.isTty(),
-    columns: viewport.columns,
-    rawInput: true,
-    ...(options.clipboard === undefined ? {} : { clipboard: options.clipboard })
+  const capabilities = resolveTerminalCapabilities({
+    host: {
+      runtime: 'memory',
+      inputIsTty: stdin.isTty(),
+      outputIsTty: stdout.isTty(),
+      columns: viewport.columns,
+      rows: viewport.rows,
+      rawInput: true
+    },
+    environment: { variables: options.env ?? {} },
+    ...(options.clipboard === undefined ? {} : { overrides: { clipboard: options.clipboard } })
   });
   const env = new ObjectEnvironment(options.env ?? {});
   const frames: unknown[] = [];

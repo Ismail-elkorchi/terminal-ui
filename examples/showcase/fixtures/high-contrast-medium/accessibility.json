@@ -15,67 +15,82 @@
                   {
                     "children": [
                       {
-                        "checked": false,
-                        "description": "F",
-                        "disabled": false,
-                        "id": "main-menu:file",
-                        "label": "File",
-                        "role": "menuitem",
-                        "selected": false
+                        "children": [
+                          {
+                            "checked": false,
+                            "description": "F",
+                            "disabled": false,
+                            "id": "main-menu:file",
+                            "label": "File",
+                            "role": "menuitem",
+                            "selected": false
+                          },
+                          {
+                            "checked": true,
+                            "description": "V",
+                            "disabled": false,
+                            "id": "main-menu:view",
+                            "label": "View",
+                            "role": "menuitem",
+                            "selected": true
+                          },
+                          {
+                            "checked": false,
+                            "description": "T",
+                            "disabled": false,
+                            "id": "main-menu:tools",
+                            "label": "Tools",
+                            "role": "menuitem",
+                            "selected": false
+                          },
+                          {
+                            "checked": false,
+                            "description": "?",
+                            "disabled": false,
+                            "id": "main-menu:help",
+                            "label": "Help",
+                            "role": "menuitem",
+                            "selected": false
+                          }
+                        ],
+                        "id": "main-menu",
+                        "label": "main-menu",
+                        "role": "menu",
+                        "scope": {
+                          "kind": "menu"
+                        }
                       },
                       {
-                        "checked": true,
-                        "description": "V",
-                        "disabled": false,
-                        "id": "main-menu:view",
-                        "label": "View",
-                        "role": "menuitem",
-                        "selected": true
+                        "id": "showcase-top-bar:title",
+                        "label": "showcase-top-bar:title",
+                        "role": "text",
+                        "value": "Northstar Control"
                       },
                       {
-                        "checked": false,
-                        "description": "T",
-                        "disabled": false,
-                        "id": "main-menu:tools",
-                        "label": "Tools",
-                        "role": "menuitem",
-                        "selected": false
+                        "id": "top-route",
+                        "label": "top-route",
+                        "role": "text",
+                        "value": "Route map"
                       },
                       {
-                        "checked": false,
-                        "description": "?",
-                        "disabled": false,
-                        "id": "main-menu:help",
-                        "label": "Help",
-                        "role": "menuitem",
-                        "selected": false
+                        "id": "top-activity",
+                        "label": "top-activity",
+                        "live": "polite",
+                        "role": "status",
+                        "value": "i Route map live · catppuccin (running)"
                       }
                     ],
-                    "id": "main-menu",
-                    "label": "main-menu",
-                    "role": "menu",
-                    "scope": {
-                      "kind": "menu"
-                    }
-                  },
-                  {
-                    "id": "top-status",
-                    "label": "top-status",
-                    "live": "polite",
-                    "role": "status",
-                    "value": "Northstar Control  Route map  catppuccin"
-                  },
-                  {
-                    "id": "top-activity",
-                    "label": "top-activity",
-                    "live": "polite",
-                    "role": "status",
-                    "value": "i Route map live (running)"
+                    "id": "showcase-top-bar:content",
+                    "label": "showcase-top-bar:content",
+                    "role": "text"
                   }
                 ],
-                "id": "top-row",
-                "label": "top-row",
-                "role": "text"
+                "id": "showcase-top-bar",
+                "label": "showcase-top-bar",
+                "role": "application",
+                "scope": {
+                  "kind": "document"
+                }
               },
               {
                 "id": "top-progress",
@@ -99,6 +114,12 @@
                   {
                     "children": [
                       {
+                        "id": "navigation-shell:title",
+                        "label": "navigation-shell:title",
+                        "role": "text",
+                        "value": "Watch"
+                      },
+                      {
                         "children": [
                           {
                             "id": "nav-title",
@@ -113,107 +134,14 @@
                             "value": ""
                           },
                           {
-                            "children": [
-                              {
-                                "disabled": false,
-                                "expanded": true,
-                                "id": "showcase-nav:operations",
-                                "label": "Operations",
-                                "position": {
-                                  "count": 7,
-                                  "index": 0,
-                                  "level": 1
-                                },
-                                "role": "option",
-                                "selected": false,
-                                "value": "operations"
-                              },
-                              {
-                                "disabled": false,
-                                "id": "showcase-nav:dashboard",
-                                "label": "Overview",
-                                "position": {
-                                  "count": 7,
-                                  "index": 1,
-                                  "level": 2
-                                },
-                                "role": "option",
-                                "selected": false,
-                                "value": "operations/dashboard"
-                              },
-                              {
-                                "disabled": false,
-                                "id": "showcase-nav:data",
-                                "label": "Fleet board",
-                                "position": {
-                                  "count": 7,
-                                  "index": 2,
-                                  "level": 2
-                                },
-                                "role": "option",
-                                "selected": false,
-                                "value": "operations/data"
-                              },
-                              {
-                                "disabled": false,
-                                "id": "showcase-nav:text",
-                                "label": "Briefing room",
-                                "position": {
-                                  "count": 7,
-                                  "index": 3,
-                                  "level": 2
-                                },
-                                "role": "option",
-                                "selected": false,
-                                "value": "operations/text"
-                              },
-                              {
-                                "disabled": false,
-                                "id": "showcase-nav:diagram",
-                                "label": "Route map",
-                                "position": {
-                                  "count": 7,
-                                  "index": 4,
-                                  "level": 2
-                                },
-                                "role": "option",
-                                "selected": true,
-                                "value": "operations/diagram"
-                              },
-                              {
-                                "disabled": false,
-                                "id": "showcase-nav:forms",
-                                "label": "Dispatch desk",
-                                "position": {
-                                  "count": 7,
-                                  "index": 5,
-                                  "level": 2
-                                },
-                                "role": "option",
-                                "selected": false,
-                                "value": "operations/forms"
-                              },
-                              {
-                                "disabled": false,
-                                "id": "showcase-nav:activity",
-                                "label": "Live events",
-                                "position": {
-                                  "count": 7,
-                                  "index": 6,
-                                  "level": 2
-                                },
-                                "role": "option",
-                                "selected": false,
-                                "value": "operations/activity"
-                              }
-                            ],
-                            "description": "Showing 1-7 of 7 tree rows.",
+                            "children": [],
+                            "description": "Showing 1-0 of 7 tree rows.",
                             "id": "showcase-nav",
                             "label": "showcase-nav",
                             "role": "listbox",
                             "window": {
-                              "end": 7,
-                              "omittedAfter": 0,
+                              "end": 0,
+                              "omittedAfter": 7,
                               "omittedBefore": 0,
                               "start": 0,
                               "total": 7
@@ -494,8 +422,8 @@
                           {
                             "children": [
                               {
-                                "id": "text-19-96",
-                                "label": "text-19-96",
+                                "id": "text-20-96",
+                                "label": "text-20-96",
                                 "role": "text",
                                 "value": "Channel C remains the active constraint."
                               },
@@ -548,76 +476,116 @@
               {
                 "children": [
                   {
-                    "id": "showcase-command:validation",
-                    "label": "info",
-                    "role": "status",
-                    "value": "command ready"
+                    "children": [
+                      {
+                        "id": "showcase-command:validation",
+                        "label": "info",
+                        "role": "status",
+                        "value": "command ready"
+                      },
+                      {
+                        "id": "showcase-command:suggestion:0",
+                        "label": "Open palette",
+                        "role": "option",
+                        "selected": false,
+                        "value": "/palette"
+                      },
+                      {
+                        "id": "showcase-command:suggestion:1",
+                        "label": "Cycle theme",
+                        "role": "option",
+                        "selected": true,
+                        "value": "/theme"
+                      },
+                      {
+                        "id": "showcase-command:suggestion:2",
+                        "label": "Open handoff",
+                        "role": "option",
+                        "selected": false,
+                        "value": "/handoff"
+                      },
+                      {
+                        "id": "showcase-command:suggestion:3",
+                        "label": "Open fleet board",
+                        "role": "option",
+                        "selected": false,
+                        "value": "/fleet"
+                      }
+                    ],
+                    "id": "showcase-command",
+                    "label": "›",
+                    "role": "textbox",
+                    "value": "/map"
                   },
                   {
-                    "id": "showcase-command:suggestion:0",
-                    "label": "Open palette",
-                    "role": "option",
-                    "selected": false,
-                    "value": "/palette"
+                    "children": [
+                      {
+                        "id": "showcase-shortcuts:palette",
+                        "label": "/ commands",
+                        "role": "button"
+                      },
+                      {
+                        "id": "showcase-shortcuts:handoff",
+                        "label": "H handoff",
+                        "role": "button"
+                      },
+                      {
+                        "id": "showcase-shortcuts:theme",
+                        "label": "T theme",
+                        "role": "button"
+                      },
+                      {
+                        "id": "showcase-shortcuts:context",
+                        "label": "C context",
+                        "role": "button"
+                      }
+                    ],
+                    "id": "showcase-shortcuts",
+                    "label": "showcase-shortcuts",
+                    "role": "text"
                   },
                   {
-                    "id": "showcase-command:suggestion:1",
-                    "label": "Cycle theme",
-                    "role": "option",
-                    "selected": true,
-                    "value": "/theme"
-                  },
-                  {
-                    "id": "showcase-command:suggestion:2",
-                    "label": "Open handoff",
-                    "role": "option",
-                    "selected": false,
-                    "value": "/handoff"
-                  },
-                  {
-                    "id": "showcase-command:suggestion:3",
-                    "label": "Open fleet board",
-                    "role": "option",
-                    "selected": false,
-                    "value": "/fleet"
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "id": "bottom-status-action",
+                            "label": "bottom-status-action",
+                            "live": "polite",
+                            "role": "status",
+                            "value": "Harbor overview ready. Select a vessel, open a route, or type a command."
+                          },
+                          {
+                            "id": "bottom-status-overlay",
+                            "label": "bottom-status-overlay",
+                            "role": "text",
+                            "value": "clear"
+                          }
+                        ],
+                        "id": "bottom-status:items",
+                        "label": "bottom-status:items",
+                        "role": "text"
+                      }
+                    ],
+                    "id": "bottom-status",
+                    "label": "bottom-status",
+                    "role": "application",
+                    "scope": {
+                      "kind": "document"
+                    }
                   }
                 ],
-                "id": "showcase-command",
-                "label": "›",
-                "role": "textbox",
-                "value": "/map"
-              },
-              {
-                "children": [
-                  {
-                    "id": "showcase-shortcuts:palette",
-                    "label": "/ commands",
-                    "role": "button"
-                  },
-                  {
-                    "id": "showcase-shortcuts:handoff",
-                    "label": "H handoff",
-                    "role": "button"
-                  },
-                  {
-                    "id": "showcase-shortcuts:theme",
-                    "label": "T theme",
-                    "role": "button"
-                  },
-                  {
-                    "id": "showcase-shortcuts:context",
-                    "label": "C context",
-                    "role": "button"
-                  }
-                ],
-                "id": "showcase-shortcuts",
-                "label": "showcase-shortcuts",
+                "id": "showcase-command-dock:content",
+                "label": "showcase-command-dock:content",
                 "role": "text"
               }
             ],
-            "id": "bottom-chrome",
-            "label": "bottom-chrome",
-            "role": "text"
+            "id": "showcase-command-dock",
+            "label": "showcase-command-dock",
+            "role": "application",
+            "scope": {
+              "kind": "document"
+            }
           }
         ],
         "focused": true,

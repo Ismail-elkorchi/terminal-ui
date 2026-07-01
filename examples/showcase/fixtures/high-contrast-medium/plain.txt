@@ -1,33 +1,34 @@
-File  View  Tools  Help                  Northstar Control  Route map  catppucci  i Route map live (running)
+ File  View  Tools  Help    Northstar Control                                   Route map     i Route map live · catppucc
+
 Atlas service [#########-] 88/100 88%
 
-+ Watch --------------+ [ Watch ]                        ›                                [ Route map ]
++---------------------+ [ Watch ]                        ›                                [ Route map ]
 |                     | [ Overview ]    [ Fleet ]       [ Briefing ]    [ [Map] ]       More routes             Dispatch
-| Operations          | ╔ Route map ═══════════════════════════════════════════════════════╗   + Lane pressure ----------+
+| Watch               | ╔ Route map ═══════════════════════════════════════════════════════╗   + Lane pressure ----------+
 |                     | ║                                                                  ║   |                         |
 |                     | ║ ······························································   ║   | + lane  o gust          |
 |                     | ║ · Outer marker ───── west lane ───── inner harbor            ·   ║   | traffic                 |
-|   v ◆ Operations    | ║ ·        ooo                  *******                        ·   ║   |    ++                   |
-|       ▣ Overview    | ║ ·       oo oo               ***     ***                      ·   ║   | o oo +                  |
-|       ▤ Fleet boar… | ║ ·       o───o───────────────*─────────*──────────            ·   ║   |  o  oo                  |
-|       ¶ Briefing r… | ║ ·       oo oo               ***     ***                      ·   ║   | +                       |
-| >     ◎ Route map   | ║ ·        ooo                  *******                        ·   ║   | +                       |
-|       ☷ Dispatch d… | ║ ·                                                            ·   ║   | watch cycle             |
-|       ✦ Live event… | ║ ·    Atlas: cleared            owner Mira                    ·   ║   |                         |
-|                     | ║ ·                                                            ·   ║   +-------------------------+
+|                     | ║ ·        ooo                  *******                        ·   ║   |    ++                   |
+|                     | ║ ·       oo oo               ***     ***                      ·   ║   | o oo +                  |
+|                     | ║ ·       o───o───────────────*─────────*──────────            ·   ║   |  o  oo                  |
+|                     | ║ ·       oo oo               ***     ***                      ·   ║   | +                       |
+|                     | ║ ·        ooo                  *******                        ·   ║   | +                       |
+|                     | ║ ·                                                            ·   ║   | watch cycle             |
+|                     | ║ ·    Atlas: cleared            owner Mira                    ·   ║   |                         |
+| Operations          | ║ ·                                                            ·   ║   +-------------------------+
 |                     | ║ ·                                                            ·   ║
-|                     | ║ ·                                                            ·   ║   Channel C remains the activ
-|                     | ║ ······························································   ║
-| +-----------------+ | ║                                                                  ║
-| | [ ▾ Quick laun… | | ║                                                                  ║
-| |                 | | ╚══════════════════════════════════════════════════════════════════╝   Atlas updates the route boa
-| |                 | |
-| | > Palette     # | | [-] [running] Active instruction
-| |   Handoff     # | | Atlas stays under Mira's watch until the next route clearance.
-| |   Theme       | | | risk   : low                                                           ▂▄▁▆▅▇▄█▆
-| +-----------------+ | handoff: pending
-|                     |
-+---------------------+
-›/map
-command ready
-[ / commands ]                [ H handoff ]                 [ T theme ]                   [ C context ]
+| +-----------------+ | ║ ·                                                            ·   ║   Channel C remains the activ
+| | [ ▾ Quick laun… | | ║ ······························································   ║
+| |                 | | ║                                                                  ║
+| |                 | | ║                                                                  ║   Atlas updates the route boa
+| | > Palette     # | | ╚══════════════════════════════════════════════════════════════════╝
+| |   Handoff     # | |
+| |   Theme       | | | [-] [running] Active instruction                                       ▂▄▁▆▅▇▄█▆
+| +-----------------+ | Atlas stays under Mira's watch until the next route clearance.
+|                     | risk   : low
++---------------------+ handoff: pending
++---------------------+--------------------------------------------------------------------------------------------------+
+|                                                                                                                        |
+|                                                                                                                        |
+| +--------------------------------------------------------------------------------------------------------------------+ |
++-+--------------------------------------------------------------------------------------------------------------------+-+

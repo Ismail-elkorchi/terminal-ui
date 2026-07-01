@@ -49,7 +49,7 @@ import {
 import { themeLabel } from '../theme.mjs';
 import { navigationPane } from './chrome.mjs';
 import { dashboardPanel } from './dashboard.mjs';
-import { compactViewport, progressTone } from './view-utils.mjs';
+import { compactViewport, densityRole, progressTone } from './view-utils.mjs';
 
 export function mainRegion(state, viewport, variant = responsiveVariant(viewport)) {
   const compact = compactViewport(viewport);
@@ -99,7 +99,8 @@ function navigationShell(state) {
     id: 'navigation-shell',
     title: 'Watch',
     body: navigationPane(state),
-    variant: 'inset'
+    variant: 'inset',
+    density: densityRole(state.density)
   });
 }
 
@@ -479,7 +480,8 @@ function inspectorPane(state) {
         inspectorTab(state, 'theme', 'Theme', themeInspector(state))
       ]
     }),
-    variant: 'inset'
+    variant: 'inset',
+    density: densityRole(state.density)
   });
 }
 
@@ -555,7 +557,7 @@ function eventInspector(state) {
 
 function themeInspector(state) {
   return stack([
-    text(`Current: ${themeLabel(state)}`),
+    text(`Current: ${themeLabel(state)}`, { textRole: 'metadata' }),
     barChart({
       id: 'theme-bars',
       items: [

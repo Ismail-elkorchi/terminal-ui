@@ -13,6 +13,10 @@ Non-TTY behavior is deterministic and surface-specific.
   `transcript_only`, `last_frame`, or `line_fallback`. These fallback paths do
   not enter alternate screen, raw input, mouse reporting, focus reporting, or
   other full-screen protocols.
+- `last_frame` and `line_fallback` output come from the same output projection
+  as visual frames and accessibility snapshots. The human output includes an
+  accessible linear summary followed by the plain frame, rather than only a raw
+  rectangle dump.
 - Shells can run transcript-only or reject depending on caller policy.
 
 Diagnostics should tell callers which explicit input source, default, manifest,

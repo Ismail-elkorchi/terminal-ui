@@ -3,7 +3,7 @@
     "bounds": {
       "column": 1,
       "height": 1,
-      "row": 4,
+      "row": 5,
       "width": 29
     },
     "cursor": "pointer",
@@ -14,7 +14,7 @@
     "bounds": {
       "column": 61,
       "height": 1,
-      "row": 4,
+      "row": 5,
       "width": 30
     },
     "cursor": "pointer",
@@ -25,7 +25,7 @@
     "bounds": {
       "column": 1,
       "height": 1,
-      "row": 5,
+      "row": 6,
       "width": 14
     },
     "cursor": "pointer",
@@ -36,7 +36,7 @@
     "bounds": {
       "column": 16,
       "height": 1,
-      "row": 5,
+      "row": 6,
       "width": 14
     },
     "cursor": "pointer",
@@ -47,7 +47,7 @@
     "bounds": {
       "column": 31,
       "height": 1,
-      "row": 5,
+      "row": 6,
       "width": 14
     },
     "cursor": "pointer",
@@ -58,7 +58,7 @@
     "bounds": {
       "column": 46,
       "height": 1,
-      "row": 5,
+      "row": 6,
       "width": 14
     },
     "cursor": "pointer",
@@ -69,7 +69,7 @@
     "bounds": {
       "column": 76,
       "height": 1,
-      "row": 5,
+      "row": 6,
       "width": 15
     },
     "cursor": "pointer",
@@ -78,21 +78,21 @@
   },
   {
     "bounds": {
-      "column": 1,
-      "height": 2,
-      "row": 29,
-      "width": 21
+      "column": 3,
+      "height": 0,
+      "row": 28,
+      "width": 0
     },
     "cursor": "pointer",
-    "id": "showcase-shortcuts:palette:control",
+    "id": "showcase-shortcuts:context:control",
     "zIndex": 0
   },
   {
     "bounds": {
-      "column": 23,
-      "height": 2,
-      "row": 29,
-      "width": 21
+      "column": 3,
+      "height": 0,
+      "row": 28,
+      "width": 0
     },
     "cursor": "pointer",
     "id": "showcase-shortcuts:handoff:control",
@@ -100,24 +100,24 @@
   },
   {
     "bounds": {
-      "column": 45,
-      "height": 2,
-      "row": 29,
-      "width": 21
+      "column": 3,
+      "height": 0,
+      "row": 28,
+      "width": 0
     },
     "cursor": "pointer",
-    "id": "showcase-shortcuts:theme:control",
+    "id": "showcase-shortcuts:palette:control",
     "zIndex": 0
   },
   {
     "bounds": {
-      "column": 67,
-      "height": 2,
-      "row": 29,
-      "width": 24
+      "column": 3,
+      "height": 0,
+      "row": 28,
+      "width": 0
     },
     "cursor": "pointer",
-    "id": "showcase-shortcuts:context:control",
+    "id": "showcase-shortcuts:theme:control",
     "zIndex": 0
   }
 ]

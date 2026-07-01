@@ -1,9 +1,10 @@
-import { createInputDecoder, decodeInputChunk } from '../input/index.ts';
+import { createInputPipeline } from '../input/index.ts';
 import { createTuiContext } from './context.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
 import { completedExitFromSnapshot } from './exit.ts';
 import { findWidgetFocusTarget, nextFocusPath, previousFocusPath } from './focus.ts';
 import { tuiSnapshot } from './lifecycle.ts';
+import { createPointerRouter } from './pointer-router.ts';
 import { commitFrame, dirtyRegionsForRenderCommit, renderCurrentFrame, resolveTuiTheme, setHostViewport } from './runtime-frame.ts';
 import { createTuiSubscriptionManager } from './subscriptions.ts';
 import type { InputEvent, MouseEvent as TerminalMouseEvent } from '../input/index.ts';
@@ -11,9 +12,7 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { Frame } from './frame.ts';
 import type { FocusPath } from './focus.ts';
-import type { Rect } from './layout.ts';
 import type { RenderCommitCandidate } from './runtime-frame.ts';
-import type { RenderRegion, RenderRegionHitTarget } from './render.ts';
 import type {
   TuiCommand,
   TuiContext,
@@ -43,7 +42,8 @@ export function createTuiRuntime<TState, TMessage>(
   const pendingMessages: PendingTuiMessage<TMessage>[] = [];
   const pendingChanges: TuiRuntimeChange<TState>[] = [];
   const changeWaiters: ((change: TuiRuntimeChange<TState>) => void)[] = [];
-  const inputDecoder = createInputDecoder();
+  const inputPipeline = createInputPipeline(options.input);
+  const pointerRouter = createPointerRouter<TMessage>();
   const dispatchQueue = createSerializedDispatchQueue();
   const subscriptions = createTuiSubscriptionManager<TState, TMessage>({
     host: options.host,
@@ -99,16 +99,14 @@ export function createTuiRuntime<TState, TMessage>(
         : { handled: true, state: nextState, frame: nextFrame, exit: terminalExit };
     },
     handleInputChunk(chunk, decodeOptions) {
-      const events = decodeOptions === undefined
-        ? inputDecoder.decode(chunk)
-        : decodeInputChunk(chunk, decodeOptions);
+      const events = inputPipeline.decode(chunk, decodeOptions);
       return processInputEvents(events);
     },
     flushInput() {
-      return processInputEvents(inputDecoder.flush());
+      return processInputEvents(inputPipeline.flush());
     },
     resetInput() {
-      inputDecoder.reset();
+      inputPipeline.reset();
     },
     nextChange() {
       const next = pendingChanges.shift();
@@ -329,16 +327,7 @@ export function createTuiRuntime<TState, TMessage>(
 
   function messageForMouse(_state: TState, event: TerminalMouseEvent): TMessage | undefined {
     const current = ensureRender();
-    const hit = regionHitsAt(current.regions, event.row, event.column)
-      .toSorted((left, right) =>
-        right.zIndex - left.zIndex
-        || right.region.zIndex - left.region.zIndex
-        || right.region.order - left.region.order
-        || right.index - left.index
-      )
-      .at(0)?.hitTarget;
-    if (hit === undefined) return undefined;
-    return hit.message;
+    return pointerRouter.route(current.regions, event).message;
   }
 
   function frameDiffBase(theme: TerminalTheme): Frame | undefined {
@@ -355,37 +344,8 @@ export function createTuiRuntime<TState, TMessage>(
   }
 }
 
-function regionHitsAt<TMessage>(
-  regions: readonly RenderRegion<TMessage>[],
-  row: number,
-  column: number
-): readonly {
-    readonly hitTarget: RenderRegionHitTarget<TMessage>;
-    readonly region: RenderRegion<TMessage>;
-    readonly index: number;
-    readonly zIndex: number;
-  }[] {
-  return regions.flatMap((region) =>
-    region.hitTargets
-      .filter((hitTarget) => containsPoint(hitTarget.bounds, row, column))
-      .map((hitTarget, index) => ({
-        hitTarget,
-        region,
-        index,
-        zIndex: hitTarget.zIndex ?? region.zIndex
-      }))
-  );
-}
-
 function inputEventKey(event: InputEvent): string | undefined {
   if (event.kind === 'key') return event.key;
   if (event.kind === 'text') return event.text;
   return undefined;
-}
-
-function containsPoint(bounds: Rect, row: number, column: number): boolean {
-  return row >= bounds.row
-    && row < bounds.row + bounds.height
-    && column >= bounds.column
-    && column < bounds.column + bounds.width;
 }

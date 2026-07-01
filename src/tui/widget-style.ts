@@ -1,5 +1,5 @@
 import type { ThemeToken } from '../theme/index.ts';
-import type { Widget, WidgetStyleSlots, WidgetVisualState } from '../widgets/index.ts';
+import type { Widget, WidgetStyleSlots, WidgetTextRole, WidgetVisualState } from '../widgets/index.ts';
 import type { TerminalStyle } from './render-primitives.ts';
 
 export type WidgetStyleSlot = keyof WidgetStyleSlots;
@@ -26,6 +26,35 @@ export function widgetStyle(widget: Widget, slot: WidgetStyleSlot, state?: Widge
     slot,
     ...(state === undefined ? {} : { state })
   });
+}
+
+export function defaultStyleForTextRole(role: WidgetTextRole): TerminalStyle | undefined {
+  switch (role) {
+    case 'title':
+      return themeStyle('surface.title', { bold: true });
+    case 'subtitle':
+    case 'caption':
+    case 'metadata':
+      return themeStyle('text.muted', { dim: true });
+    case 'heading':
+      return themeStyle('text.strong', { bold: true });
+    case 'body':
+      return themeStyle('text.default');
+    case 'metric':
+      return themeStyle('accent.primary', { bold: true });
+    case 'badge':
+      return {
+        fg: { kind: 'theme', token: 'selection.foreground' },
+        bg: { kind: 'theme', token: 'selection.background' },
+        bold: true
+      };
+    case 'danger':
+      return themeStyle('status.error', { bold: true });
+    case 'warning':
+      return themeStyle('status.warning', { bold: true });
+    case 'success':
+      return themeStyle('status.success', { bold: true });
+  }
 }
 
 export function defaultStyleForSlot(slot: WidgetStyleSlot): TerminalStyle | undefined {

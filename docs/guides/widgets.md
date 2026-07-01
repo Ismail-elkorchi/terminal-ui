@@ -17,6 +17,22 @@ feeds.
 Widget metadata drives layout, focus routing, rendering, and accessible
 snapshots.
 
+The shared visual grammar lives on existing widget and component options, not
+in a separate recipe layer. `text()` accepts semantic `textRole` values such as
+`title`, `heading`, `caption`, `metadata`, `metric`, `badge`, `danger`,
+`warning`, and `success`; renderers map those roles to theme tokens. Chrome
+components such as `panel()`, `topBar()`, `sidePanel()`, `commandDock()`,
+`statusDock()`, and `drawer()` expose ordinary anatomy and density options so
+applications can compose headers, actions, status, footers, compact surfaces,
+and spacious surfaces without changing runtime behavior.
+
+Widgets can also declare `overflowPriority` metadata: `required`,
+`important`, `secondary`, or `decorative`. Row layout uses this metadata when
+space is tight so identity/status content keeps more room than secondary or
+decorative content. Chrome components assign sensible defaults to their own
+title, actions, status, and secondary regions while preserving any explicit
+priority already set on caller-provided child widgets.
+
 For renderer-facing implementation guidance, see
 [Building polished widgets](./building-polished-widgets.md). For the frame,
 diff, span, and ANSI pipeline, see
@@ -29,11 +45,12 @@ text-input, focus, or pointer interaction. Custom widgets must either provide an
 accessibility renderer or opt into `decorative: true` for pure visual content.
 
 Widgets can expose pointer hit regions during render/layout. Hit regions carry
-stable ids, bounds, optional cursor hints, messages, and z-index metadata. The
-runtime routes mouse events to the topmost matching hit region, using layer
-order as a deterministic tie-breaker. Hit targets are the pointer interaction
-model; widgets should expose pointer behavior through renderer-owned hit
-targets or high-level factory options that compile to hit targets.
+stable ids, bounds, optional cursor hints, accepted pointer event kinds,
+event-aware message functions, and z-index metadata. The runtime routes mouse
+events to the topmost matching hit region, using layer order as a deterministic
+tie-breaker. Hit targets are the pointer interaction model; widgets should
+expose pointer behavior through renderer-owned hit targets or high-level
+factory options that compile to hit targets.
 
 Every widget factory accepts layer metadata. `zIndex` raises or lowers a widget
 relative to its parent stacking context, and higher visible layers render above

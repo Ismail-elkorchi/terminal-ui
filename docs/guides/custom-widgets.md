@@ -28,6 +28,12 @@ Interactive custom widgets must provide accessibility. Pure decoration may opt
 into `accessibility: { decorative: true }`, but decorative widgets cannot expose
 keyboard, text input, focus, or pointer interaction.
 
+Hit targets are routed pointer targets. A target declares stable bounds and a
+`message(event)` function that receives the normalized pointer event. Targets
+can opt into event kinds such as `contextMenu`, `scroll`, `dragStart`, `drag`,
+or `dragEnd`; targets without an explicit event list use normal click
+activation.
+
 Use `canvas()` when application code only needs to paint cells. A canvas painter
 receives `FrameBuffer`, bounds, theme, and optional state. It cannot measure,
 lay out children, expose custom focus targets, or emit pointer targets. Canvas

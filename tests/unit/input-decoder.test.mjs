@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createInputDecoder, decodeInputChunk } from '../../dist/input/index.js';
+import {
+  createInputDecoder,
+  createInputPipeline,
+  decodeInputChunk,
+  resolveInputPipelineProfile
+} from '../../dist/input/index.js';
+import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 
 test('input decoder normalizes basic control keys', () => {
   assert.equal(decodeInputChunk({ data: '\u0003' })[0]?.kind, 'key');
@@ -111,6 +117,17 @@ test('input decoder parses mouse release, wheel, and legacy mouse reports', () =
     rawCode: 64,
     modifiers: { shift: false, alt: false, ctrl: false }
   });
+  assert.deepEqual(decodeInputChunk({ data: '\u001B[<67;2;3M' })[0], {
+    kind: 'mouse',
+    sequence: '\u001B[<67;2;3M',
+    encoding: 'sgr',
+    action: 'wheel',
+    button: 'wheelRight',
+    row: 3,
+    column: 2,
+    rawCode: 67,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
   assert.deepEqual(decodeInputChunk({ data: '\u001B[M !!' })[0], {
     kind: 'mouse',
     sequence: '\u001B[M !!',
@@ -208,4 +225,77 @@ test('stateful input decoder only buffers split bracketed paste when recognition
     { kind: 'text', text: 'done', paste: false },
     { kind: 'unknown', sequence: '\u001B[201~' }
   ]);
+});
+
+test('input pipeline selects the legacy profile and preserves bracketed paste boundaries by default', () => {
+  const pipeline = createInputPipeline();
+
+  assert.deepEqual(pipeline.profile.keyboard, { active: 'legacy', requested: 'auto' });
+  assert.equal(pipeline.profile.bracketedPaste, true);
+  assert.deepEqual(pipeline.profile.diagnostics, []);
+  assert.deepEqual(pipeline.decode({ data: 'a\u001B[200~pasted\u001B[201~' }), [
+    { kind: 'text', text: 'a', paste: false },
+    { kind: 'paste', text: 'pasted', bracketed: true }
+  ]);
+});
+
+test('input pipeline follows the active session protocol for bracketed paste parsing', () => {
+  const pipeline = createInputPipeline({ bracketedPaste: false });
+
+  assert.equal(pipeline.profile.bracketedPaste, false);
+  assert.deepEqual(pipeline.decodeOnce({ data: '\u001B[200~pasted\ntext\u001B[201~' }), [
+    { kind: 'unknown', sequence: '\u001B[200~' },
+    { kind: 'text', text: 'pasted', paste: false },
+    {
+      kind: 'key',
+      key: 'enter',
+      sequence: '\n',
+      ctrl: false,
+      alt: false,
+      shift: false,
+      meta: false
+    },
+    { kind: 'text', text: 'text', paste: false },
+    { kind: 'unknown', sequence: '\u001B[201~' }
+  ]);
+});
+
+test('input pipeline reports enhanced keyboard fallback instead of faking support', () => {
+  const capabilities = resolveTerminalCapabilities({
+    host: {
+      runtime: 'memory',
+      inputIsTty: true,
+      outputIsTty: true,
+      rawInput: true
+    },
+    overrides: {
+      enhancedKeyboard: true
+    }
+  });
+  const profile = resolveInputPipelineProfile({ capabilities, keyboard: 'enhanced' });
+
+  assert.deepEqual(profile.keyboard, { active: 'legacy', requested: 'enhanced' });
+  assert.equal(profile.diagnostics.length, 1);
+  assert.equal(profile.diagnostics[0]?.code, 'INPUT_PROFILE_UNSUPPORTED');
+  assert.equal(profile.diagnostics[0]?.severity, 'warning');
+  assert.deepEqual(profile.diagnostics[0]?.data, {
+    requested: 'enhanced',
+    active: 'legacy',
+    capability: 'supported',
+    confidence: 'forced'
+  });
+});
+
+test('input pipeline disables bracketed paste when capabilities do not support it', () => {
+  const capabilities = resolveTerminalCapabilities({
+    host: {
+      runtime: 'memory',
+      inputIsTty: false,
+      outputIsTty: true,
+      rawInput: true
+    }
+  });
+  const profile = resolveInputPipelineProfile({ capabilities });
+
+  assert.equal(profile.bracketedPaste, false);
 });

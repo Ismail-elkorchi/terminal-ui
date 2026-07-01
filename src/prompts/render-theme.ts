@@ -1,7 +1,7 @@
 import { defineTheme } from '../theme/index.ts';
 import { serializeRenderSpans } from '../tui/ansi.ts';
 import { choiceStatusLines, promptLine } from './render-line.ts';
-import type { TerminalCapabilities } from '../host/index.ts';
+import type { TerminalCapabilityProfile } from '../host/index.ts';
 import type { PromptRuntimeState } from './state.ts';
 import type { PromptChoice } from './types.ts';
 import type { PromptDefinition } from './types.ts';
@@ -11,7 +11,7 @@ import type { RenderSpan } from '../tui/render-primitives.ts';
 export function renderPromptText<TValue>(
   prompt: PromptDefinition<TValue>,
   state: PromptRuntimeState,
-  capabilities: TerminalCapabilities
+  capabilities: TerminalCapabilityProfile
 ): string {
   const hasThemeOverride = prompt.theme !== undefined;
   const theme = defineTheme(prompt.theme ?? {});
@@ -23,7 +23,7 @@ function renderAutocompletePrompt<TValue>(
   prompt: PromptDefinition<TValue>,
   state: PromptRuntimeState,
   theme: TerminalTheme,
-  capabilities: TerminalCapabilities,
+  capabilities: TerminalCapabilityProfile,
   useDefaultTextStyle: boolean
 ): string {
   return [
@@ -38,7 +38,7 @@ function renderAutocompleteChoiceLine(
   index: number,
   state: PromptRuntimeState,
   theme: TerminalTheme,
-  capabilities: TerminalCapabilities,
+  capabilities: TerminalCapabilityProfile,
   useDefaultTextStyle: boolean
 ): string {
   const pointer = index === state.focusedChoiceIndex ? theme.symbols.pointer : ' ';
@@ -69,7 +69,7 @@ function highlightedField(text: string, query: string): RenderSpan {
 function renderParts(
   parts: readonly RenderSpan[],
   theme: TerminalTheme,
-  capabilities: TerminalCapabilities,
+  capabilities: TerminalCapabilityProfile,
   useDefaultTextStyle: boolean
 ): string {
   return serializeRenderSpans(

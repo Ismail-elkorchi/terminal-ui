@@ -1,5 +1,15 @@
 export type {
+  CapabilityConfidence,
+  CapabilitySourceFact,
+  CapabilitySourceKind,
   CapabilitySupport,
+  CapabilityStatus,
+  TerminalCapabilityName,
+  TerminalCapabilityProfile,
+  TerminalColorCapability,
+  TerminalUnicodeCapability
+} from './capability-types.ts';
+export type {
   BunTerminalHostOptions,
   CreateTerminalHostOptions,
   ControlledTerminalClock,
@@ -16,9 +26,7 @@ export type {
   RuntimeInputSource,
   RuntimeTerminalInputOptions,
   RuntimeTerminalOutputOptions,
-  TerminalCapabilities,
   TerminalClock,
-  TerminalColorCapability,
   TerminalEnvironment,
   TerminalHost,
   TerminalInput,
@@ -33,18 +41,24 @@ export type {
   TerminalSignalSource,
   TerminalStateChange,
   TerminalStateSnapshot,
-  TerminalUnicodeCapability,
   TerminalViewport,
   Unsubscribe
 } from './types.ts';
+export type {
+  CapabilityOverride,
+  CapabilityOverrides,
+  EnvironmentFacts,
+  ProtocolProbeFacts,
+  TerminalCapabilityResolverInput,
+  TerminalHostFacts
+} from './capabilities.ts';
 export type { MemoryTerminalHost } from './memory.ts';
-export type { TerminalCapabilityInput } from './capabilities.ts';
 export { createBunTerminalHost } from './bun.ts';
 export { createDenoTerminalHost } from './deno.ts';
 export { createMemoryTerminalHost } from './memory.ts';
 export { createNodeTerminalHost } from './node.ts';
 export { createPtyTerminalHost } from './pty.ts';
-export { createCapabilities } from './capabilities.ts';
+export { capabilityIsSupported, resolveTerminalCapabilities } from './capabilities.ts';
 
 import { createBunTerminalHost } from './bun.ts';
 import { createDenoTerminalHost } from './deno.ts';
@@ -58,10 +72,10 @@ import type {
   DenoTerminalHostOptions,
   MemoryTerminalHostOptions,
   PtyTerminalHostOptions,
-  TerminalCapabilities,
   TerminalHost,
   TerminalRestoreResult
 } from './types.ts';
+import type { TerminalCapabilityProfile } from './capability-types.ts';
 
 type Mutable<T> = { -readonly [K in keyof T]: T[K] };
 
@@ -100,7 +114,7 @@ function defaultRuntimeTarget(): 'node' | 'deno' | 'bun' | 'memory' {
   return 'node';
 }
 
-export async function detectTerminalCapabilities(host: TerminalHost): Promise<TerminalCapabilities> {
+export async function detectTerminalCapabilities(host: TerminalHost): Promise<TerminalCapabilityProfile> {
   return host.getCapabilities();
 }
 

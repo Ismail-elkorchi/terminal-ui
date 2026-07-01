@@ -48,7 +48,16 @@ export interface MouseEvent {
 
 export type MouseEncoding = 'sgr' | 'x10';
 export type MouseAction = 'press' | 'release' | 'drag' | 'move' | 'wheel';
-export type MouseButton = 'left' | 'middle' | 'right' | 'wheelUp' | 'wheelDown' | 'none' | 'unknown';
+export type MouseButton =
+  | 'left'
+  | 'middle'
+  | 'right'
+  | 'wheelUp'
+  | 'wheelDown'
+  | 'wheelLeft'
+  | 'wheelRight'
+  | 'none'
+  | 'unknown';
 
 export interface MouseModifiers {
   readonly shift: boolean;

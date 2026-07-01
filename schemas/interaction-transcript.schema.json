@@ -164,7 +164,9 @@
             "sequence": { "type": "string" },
             "encoding": { "enum": ["sgr", "x10"] },
             "action": { "enum": ["press", "release", "drag", "move", "wheel"] },
-            "button": { "enum": ["left", "middle", "right", "wheelUp", "wheelDown", "none", "unknown"] },
+            "button": {
+              "enum": ["left", "middle", "right", "wheelUp", "wheelDown", "wheelLeft", "wheelRight", "none", "unknown"]
+            },
             "row": { "type": "integer", "minimum": 1 },
             "column": { "type": "integer", "minimum": 1 },
             "rawCode": { "type": "integer" },

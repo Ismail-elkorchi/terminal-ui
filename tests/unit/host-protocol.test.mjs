@@ -3,12 +3,13 @@ import test from 'node:test';
 
 import {
   createBunTerminalHost,
-  createCapabilities,
+  resolveTerminalCapabilities,
   createDenoTerminalHost,
   createMemoryTerminalHost,
   restoreTerminalState
 } from '../../dist/host/index.js';
 import { createProtocolWriter, createRestorePlan } from '../../dist/protocol/index.js';
+import { applySessionProtocolPolicy, createSessionProtocolPlan } from '../../dist/tui/index.js';
 
 test('memory host captures output and exposes capabilities', async () => {
   const host = createMemoryTerminalHost();
@@ -18,17 +19,20 @@ test('memory host captures output and exposes capabilities', async () => {
 });
 
 test('host capability helper distinguishes input and output protocol support', () => {
-  const capabilities = createCapabilities({
-    runtime: 'node',
-    inputIsTty: true,
-    outputIsTty: true,
-    rawInput: false,
-    columns: 80
+  const capabilities = resolveTerminalCapabilities({
+    host: {
+      runtime: 'node',
+      inputIsTty: true,
+      outputIsTty: true,
+      rawInput: false,
+      columns: 80
+    }
   });
 
   assert.equal(capabilities.isTty, true);
-  assert.equal(capabilities.rawInput.supported, false);
-  assert.equal(capabilities.alternateScreen.supported, true);
+  assert.equal(capabilities.rawInput.status, 'unavailable');
+  assert.equal(capabilities.rawInput.diagnostics[0]?.code, 'HOST_CAPABILITY_UNAVAILABLE');
+  assert.equal(capabilities.alternateScreen.status, 'supported');
 });
 
 test('protocol writer emits typed mouse mode and sanitized title sequences', async () => {
@@ -88,6 +92,63 @@ test('restore plans expose ordered state operations consumed by terminal session
   assert.equal(result.ok, true);
   assert.deepEqual(result.restored.map((operation) => operation.kind), plan.operations.map((operation) => operation.kind));
   assert.deepEqual(host.restores()[0], snapshot);
+});
+
+test('session protocol policies plan and apply only requested operations', async () => {
+  const host = createMemoryTerminalHost();
+  const session = await host.beginSession({ id: 'policy-apply-session' });
+  const policy = {
+    alternateScreen: 'disabled',
+    rawInput: 'required',
+    bracketedPaste: 'disabled',
+    focusReporting: 'disabled',
+    cursorVisibility: { state: 'hide', requirement: 'disabled' },
+    mouseReporting: { mode: 'drag', requirement: 'optional' }
+  };
+
+  const plan = createSessionProtocolPlan(policy);
+  const result = await applySessionProtocolPolicy(session, policy);
+
+  assert.equal(plan.length, 6);
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.applied.map((item) => item.kind), ['rawInput', 'mouseReporting']);
+  assert.deepEqual(result.skipped.map((item) => item.kind), [
+    'alternateScreen',
+    'bracketedPaste',
+    'focusReporting',
+    'cursorVisibility'
+  ]);
+  assert.equal(result.diagnostics.some((item) => item.code === 'HOST_PROTOCOL_SKIPPED'), true);
+  assert.match(host.output(), /\u001B\[\?1002h/u);
+  assert.doesNotMatch(host.output(), /\u001B\[\?1049h/u);
+});
+
+test('session protocol policies fail only required unavailable operations', async () => {
+  const host = createDenoTerminalHost({
+    stdin: { source: asyncIterable([]), isTty: true },
+    stdout: { write: () => {}, isTty: true }
+  });
+  const session = await host.beginSession({ id: 'policy-required-unavailable' });
+  const result = await applySessionProtocolPolicy(session, {
+    alternateScreen: 'disabled',
+    rawInput: 'required',
+    bracketedPaste: 'disabled',
+    focusReporting: 'disabled',
+    cursorVisibility: { state: 'hide', requirement: 'disabled' },
+    mouseReporting: { mode: 'none', requirement: 'disabled' }
+  });
+
+  assert.equal(result.ok, false);
+  assert.deepEqual(result.applied, []);
+  assert.deepEqual(result.skipped.map((item) => item.kind), [
+    'alternateScreen',
+    'bracketedPaste',
+    'rawInput',
+    'mouseReporting',
+    'focusReporting',
+    'cursorVisibility'
+  ]);
+  assert.equal(result.diagnostics.some((item) => item.code === 'HOST_PROTOCOL_UNSUPPORTED'), true);
 });
 
 test('terminal sessions preserve raw input state that existed before the session', async () => {
@@ -265,7 +326,7 @@ test('runtime stream hosts only advertise raw input when a raw-mode setter exist
   const unsupportedRaw = await unsupportedSession.enableRawInput();
 
   assert.equal(unsupportedCapabilities.isTty, true);
-  assert.equal(unsupportedCapabilities.rawInput.supported, false);
+  assert.equal(unsupportedCapabilities.rawInput.status, 'unavailable');
   assert.equal(unsupportedRaw.ok, false);
   assert.equal(unsupportedRaw.error.code, 'HOST_PROTOCOL_UNSUPPORTED');
 
@@ -283,7 +344,7 @@ test('runtime stream hosts only advertise raw input when a raw-mode setter exist
   const supportedRaw = await supportedSession.enableRawInput();
   await supportedSession.restore('success');
 
-  assert.equal(supportedCapabilities.rawInput.supported, true);
+  assert.equal(supportedCapabilities.rawInput.status, 'supported');
   assert.equal(supportedRaw.ok, true);
   assert.deepEqual(rawModes, [true, false]);
 });

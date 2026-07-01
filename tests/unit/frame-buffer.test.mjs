@@ -264,8 +264,8 @@ test('renderDiffAnsi gates OSC 8 hyperlinks by capability and option', () => {
 
 function capabilities(depth, hyperlinks = false) {
   const support = (supported) => supported
-    ? { supported: true, confidence: 'detected' }
-    : { supported: false, confidence: 'known', reason: 'test capability disabled' };
+    ? { status: 'supported', confidence: 'detected', facts: [], diagnostics: [], requiresSessionOperation: false }
+    : { status: 'unavailable', confidence: 'unavailable', facts: [], diagnostics: [], requiresSessionOperation: false };
   return {
     schemaVersion: 'terminal-ui.terminal-capabilities.v1',
     runtime: 'node',

@@ -3,39 +3,36 @@
   "height": 30,
   "operations": [
     {
-      "column": 50,
+      "column": 60,
       "kind": "write",
       "row": 1,
       "spans": [
         {
+          "style": {
+            "dim": true,
+            "fg": {
+              "kind": "theme",
+              "token": "text.muted"
+            }
+          },
           "text": "Live even"
         }
       ]
     },
     {
-      "column": 63,
+      "column": 73,
       "kind": "write",
       "row": 1,
       "spans": [
         {
-          "text": "Live events live (ru"
-        }
-      ]
-    },
-    {
-      "column": 84,
-      "kind": "write",
-      "row": 1,
-      "spans": [
-        {
-          "text": "ning)"
+          "text": "Live events live "
         }
       ]
     },
     {
       "column": 63,
       "kind": "write",
-      "row": 4,
+      "row": 5,
       "spans": [
         {
           "style": {
@@ -51,7 +48,7 @@
     {
       "column": 3,
       "kind": "write",
-      "row": 5,
+      "row": 6,
       "spans": [
         {
           "style": {
@@ -68,7 +65,7 @@
       "bounds": {
         "column": 13,
         "height": 1,
-        "row": 5,
+        "row": 6,
         "width": 2
       },
       "kind": "clearRect"
@@ -76,7 +73,7 @@
     {
       "column": 1,
       "kind": "write",
-      "row": 6,
+      "row": 7,
       "spans": [
         {
           "source": {
@@ -97,7 +94,7 @@
       "bounds": {
         "column": 1,
         "height": 1,
-        "row": 7,
+        "row": 8,
         "width": 60
       },
       "kind": "clearRect"
@@ -105,7 +102,7 @@
     {
       "column": 1,
       "kind": "write",
-      "row": 7,
+      "row": 8,
       "spans": [
         {
           "source": {
@@ -125,7 +122,7 @@
     {
       "column": 90,
       "kind": "write",
-      "row": 7,
+      "row": 8,
       "spans": [
         {
           "source": {
@@ -146,7 +143,7 @@
       "bounds": {
         "column": 1,
         "height": 1,
-        "row": 8,
+        "row": 9,
         "width": 38
       },
       "kind": "clearRect"
@@ -154,7 +151,7 @@
     {
       "column": 1,
       "kind": "write",
-      "row": 8,
+      "row": 9,
       "spans": [
         {
           "source": {
@@ -190,58 +187,6 @@
     {
       "column": 90,
       "kind": "write",
-      "row": 8,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "|"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 1,
-        "height": 1,
-        "row": 9,
-        "width": 55
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 1,
-      "kind": "write",
-      "row": 9,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "|"
-        },
-        {
-          "text": "   Aster enters berth 12 inside the active tide window"
-        }
-      ]
-    },
-    {
-      "column": 90,
-      "kind": "write",
       "row": 9,
       "spans": [
         {
@@ -264,7 +209,7 @@
         "column": 1,
         "height": 1,
         "row": 10,
-        "width": 10
+        "width": 55
       },
       "kind": "clearRect"
     },
@@ -272,6 +217,58 @@
       "column": 1,
       "kind": "write",
       "row": 10,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        },
+        {
+          "text": "   Aster enters berth 12 inside the active tide window"
+        }
+      ]
+    },
+    {
+      "column": 90,
+      "kind": "write",
+      "row": 10,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
+      "bounds": {
+        "column": 1,
+        "height": 1,
+        "row": 11,
+        "width": 10
+      },
+      "kind": "clearRect"
+    },
+    {
+      "column": 1,
+      "kind": "write",
+      "row": 11,
       "spans": [
         {
           "source": {
@@ -304,7 +301,7 @@
       "bounds": {
         "column": 12,
         "height": 1,
-        "row": 10,
+        "row": 11,
         "width": 5
       },
       "kind": "clearRect"
@@ -312,7 +309,7 @@
     {
       "column": 12,
       "kind": "write",
-      "row": 10,
+      "row": 11,
       "spans": [
         {
           "text": "Rin"
@@ -322,7 +319,7 @@
     {
       "column": 90,
       "kind": "write",
-      "row": 10,
+      "row": 11,
       "spans": [
         {
           "source": {
@@ -343,7 +340,7 @@
       "bounds": {
         "column": 1,
         "height": 1,
-        "row": 11,
+        "row": 12,
         "width": 90
       },
       "kind": "clearRect"
@@ -351,7 +348,7 @@
     {
       "column": 1,
       "kind": "write",
-      "row": 11,
+      "row": 12,
       "spans": [
         {
           "source": {
@@ -399,7 +396,7 @@
     {
       "column": 3,
       "kind": "write",
-      "row": 12,
+      "row": 13,
       "spans": [
         {
           "text": "  Ca"
@@ -409,7 +406,7 @@
     {
       "column": 8,
       "kind": "write",
-      "row": 12,
+      "row": 13,
       "spans": [
         {
           "text": "go transfer, inspection, and outbound clearance are now staged in sequence."
@@ -417,159 +414,18 @@
       ]
     },
     {
-      "column": 3,
-      "kind": "write",
-      "row": 13,
-      "spans": [
-        {
-          "style": {
-            "bg": {
-              "kind": "theme",
-              "token": "selection.background"
-            },
-            "bold": true,
-            "fg": {
-              "kind": "theme",
-              "token": "selection.foreground"
-            }
-          },
-          "text": "> "
-        },
-        {
-          "text": "[-]"
-        }
-      ]
-    },
-    {
-      "column": 9,
-      "kind": "write",
-      "row": 13,
-      "spans": [
-        {
-          "style": {
-            "bold": true,
-            "fg": {
-              "kind": "theme",
-              "token": "status.running"
-            }
-          },
-          "text": "[running]"
-        }
-      ]
-    },
-    {
-      "column": 19,
-      "kind": "write",
-      "row": 13,
-      "spans": [
-        {
-          "text": "Lane pressure rising"
-        }
-      ]
-    },
-    {
-      "column": 3,
-      "kind": "write",
-      "row": 14,
-      "spans": [
-        {
-          "style": {
-            "bg": {
-              "kind": "theme",
-              "token": "selection.background"
-            },
-            "bold": true,
-            "fg": {
-              "kind": "theme",
-              "token": "selection.foreground"
-            }
-          },
-          "text": "  "
-        },
-        {
-          "text": "F"
-        }
-      ]
-    },
-    {
-      "column": 8,
-      "kind": "write",
-      "row": 14,
-      "spans": [
-        {
-          "text": "ry w"
-        }
-      ]
-    },
-    {
-      "column": 13,
-      "kind": "write",
-      "row": 14,
-      "spans": [
-        {
-          "text": "ke and supply traffic are"
-        }
-      ]
-    },
-    {
-      "column": 39,
-      "kind": "write",
-      "row": 14,
-      "spans": [
-        {
-          "text": "sharing channel C"
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 61,
-        "height": 1,
-        "row": 14,
-        "width": 13
-      },
-      "kind": "clearRect"
-    },
-    {
       "bounds": {
         "column": 3,
         "height": 1,
-        "row": 15,
-        "width": 11
-      },
-      "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 25,
-        "height": 1,
-        "row": 15,
-        "width": 11
-      },
-      "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 47,
-        "height": 1,
-        "row": 15,
-        "width": 11
-      },
-      "kind": "clearRect"
-    },
-    {
-      "bounds": {
-        "column": 69,
-        "height": 1,
-        "row": 15,
-        "width": 11
+        "row": 14,
+        "width": 35
       },
       "kind": "clearRect"
     },
     {
       "column": 1,
       "kind": "write",
-      "row": 16,
+      "row": 15,
       "spans": [
         {
           "source": {
@@ -590,8 +446,44 @@
       "bounds": {
         "column": 1,
         "height": 1,
-        "row": 17,
+        "row": 16,
         "width": 1
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 3,
+        "height": 1,
+        "row": 16,
+        "width": 11
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 25,
+        "height": 1,
+        "row": 16,
+        "width": 11
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 47,
+        "height": 1,
+        "row": 16,
+        "width": 11
+      },
+      "kind": "clearRect"
+    },
+    {
+      "bounds": {
+        "column": 69,
+        "height": 1,
+        "row": 16,
+        "width": 11
       },
       "kind": "clearRect"
     },
@@ -599,35 +491,15 @@
       "bounds": {
         "column": 90,
         "height": 1,
-        "row": 17,
+        "row": 16,
         "width": 1
       },
       "kind": "clearRect"
     },
     {
-      "column": 2,
-      "kind": "write",
-      "row": 18,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": " Selected event "
-        }
-      ]
-    },
-    {
       "column": 1,
       "kind": "write",
-      "row": 19,
+      "row": 17,
       "spans": [
         {
           "source": {
@@ -640,27 +512,7 @@
               "token": "surface.border"
             }
           },
-          "text": "|"
-        }
-      ]
-    },
-    {
-      "column": 90,
-      "kind": "write",
-      "row": 19,
-      "spans": [
-        {
-          "source": {
-            "kind": "box",
-            "role": "border"
-          },
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "surface.border"
-            }
-          },
-          "text": "|"
+          "text": "+ Selected event ------------------------------------------------------------------------+"
         }
       ]
     },
@@ -668,7 +520,7 @@
       "bounds": {
         "column": 1,
         "height": 1,
-        "row": 20,
+        "row": 19,
         "width": 90
       },
       "kind": "clearRect"
@@ -676,7 +528,7 @@
     {
       "column": 1,
       "kind": "write",
-      "row": 20,
+      "row": 19,
       "spans": [
         {
           "source": {
@@ -723,9 +575,29 @@
       ]
     },
     {
+      "column": 1,
+      "kind": "write",
+      "row": 20,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
       "column": 3,
       "kind": "write",
-      "row": 21,
+      "row": 20,
       "spans": [
         {
           "text": "Ferry wake and supply traffic are sharing channel C"
@@ -733,19 +605,55 @@
       ]
     },
     {
+      "column": 90,
+      "kind": "write",
+      "row": 20,
+      "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        }
+      ]
+    },
+    {
       "bounds": {
-        "column": 3,
+        "column": 1,
         "height": 1,
-        "row": 22,
-        "width": 20
+        "row": 21,
+        "width": 90
       },
       "kind": "clearRect"
     },
     {
-      "column": 3,
+      "column": 1,
       "kind": "write",
-      "row": 22,
+      "row": 21,
       "spans": [
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
+        },
+        {
+          "text": " "
+        },
         {
           "style": {
             "fg": {
@@ -756,23 +664,27 @@
           "text": "sector: "
         },
         {
-          "text": "west lane"
+          "text": "west lane                                                                      "
+        },
+        {
+          "source": {
+            "kind": "box",
+            "role": "border"
+          },
+          "style": {
+            "fg": {
+              "kind": "theme",
+              "token": "surface.border"
+            }
+          },
+          "text": "|"
         }
       ]
     },
     {
-      "bounds": {
-        "column": 47,
-        "height": 1,
-        "row": 22,
-        "width": 10
-      },
-      "kind": "clearRect"
-    },
-    {
       "column": 3,
       "kind": "write",
-      "row": 23,
+      "row": 22,
       "spans": [
         {
           "style": {
@@ -792,78 +704,19 @@
       "bounds": {
         "column": 3,
         "height": 1,
-        "row": 24,
-        "width": 30
+        "row": 23,
+        "width": 20
       },
       "kind": "clearRect"
     },
     {
       "bounds": {
-        "column": 2,
+        "column": 47,
         "height": 1,
-        "row": 27,
-        "width": 62
+        "row": 23,
+        "width": 10
       },
       "kind": "clearRect"
-    },
-    {
-      "column": 2,
-      "kind": "write",
-      "row": 27,
-      "spans": [
-        {
-          "style": {
-            "fg": {
-              "kind": "theme",
-              "token": "text.default"
-            }
-          },
-          "text": "/events"
-        }
-      ]
-    },
-    {
-      "column": 1,
-      "kind": "write",
-      "row": 28,
-      "spans": [
-        {
-          "style": {
-            "bold": true,
-            "fg": {
-              "kind": "theme",
-              "token": "accent.primary"
-            }
-          },
-          "text": "command "
-        }
-      ]
-    },
-    {
-      "bounds": {
-        "column": 10,
-        "height": 1,
-        "row": 28,
-        "width": 28
-      },
-      "kind": "clearRect"
-    },
-    {
-      "column": 10,
-      "kind": "write",
-      "row": 28,
-      "spans": [
-        {
-          "style": {
-            "bold": true,
-            "fg": {
-              "kind": "theme",
-              "token": "accent.primary"
-            }
-          },
-          "text": "eady"
-        }
-      ]
     },
     {
       "column": 1,

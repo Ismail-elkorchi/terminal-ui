@@ -423,7 +423,7 @@ export function controlHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Re
   return [{
     id: `${widget.id ?? widget.kind}:control`,
     bounds,
-    message,
+    message: () => message,
     cursor: 'pointer'
   }];
 }
@@ -443,7 +443,7 @@ export function optionHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rec
         width: bounds.width,
         height: 1
       },
-      message: toMessage(option),
+      message: () => toMessage(option),
       cursor: 'pointer'
     }];
   });
@@ -465,7 +465,7 @@ export function checkboxListHitTargets<TMessage>(widget: Widget<TMessage>, bound
         width: bounds.width,
         height: 1
       },
-      message: toMessage(option, !selected.has(option.id)),
+      message: () => toMessage(option, !selected.has(option.id)),
       cursor: 'pointer'
     }];
   });
@@ -484,7 +484,7 @@ export function sliderHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rec
       width: 1,
       height: 1
     },
-    message: toMessage(value),
+    message: () => toMessage(value),
     cursor: 'pointer'
   }));
 }
@@ -502,7 +502,7 @@ export function rangeSliderHitTargets<TMessage>(widget: Widget<TMessage>, bounds
       width: 1,
       height: 1
     },
-    message: toMessage(rangeForClick(model, value)),
+    message: () => toMessage(rangeForClick(model, value)),
     cursor: 'pointer'
   }));
 }
@@ -524,7 +524,7 @@ export function pickerHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rec
         width: pickerCellWidth(widget),
         height: 1
       },
-      message: toMessage(option),
+      message: () => toMessage(option),
       cursor: 'pointer'
     }];
   });

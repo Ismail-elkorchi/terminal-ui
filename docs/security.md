@@ -18,10 +18,16 @@ Shell history, recovery files, and
 checkpoint files are never written unless the caller supplies an explicit
 history provider or checkpoint policy.
 
-Terminal sessions restore raw input, alternate screen, bracketed paste, mouse
-reporting, focus reporting, and cursor visibility across success, cancellation,
-interruption, timeout, and thrown failures.
+Terminal sessions apply protocol setup through `SessionProtocolPolicy`, then
+restore raw input, alternate screen, bracketed paste, mouse reporting, focus
+reporting, and cursor visibility across success, cancellation, interruption,
+timeout, and thrown failures. Required setup failures stop the full-screen run
+before application rendering starts; optional or disabled operations are
+recorded as diagnostics.
 
 Clipboard mutation is not a widget side effect. Selection helpers return text,
 and OSC 52 clipboard writes are exposed through explicit protocol helpers that
 require caller policy and host capability support before emitting a sequence.
+`resolveSelectedText()` works only from caller-owned selectable sources and
+does not infer selection from terminal-native emulator state. Use terminal
+native selection when the application should not own or copy the selected text.

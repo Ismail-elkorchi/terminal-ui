@@ -15,10 +15,22 @@ For the renderer data model behind that path, see
 [Rendering internals](./rendering-internals.md). For widget authoring
 guidance, see [Building polished widgets](./building-polished-widgets.md).
 
-Full-screen TUI runs enter terminal protocols through the session manager:
-alternate screen, bracketed paste, raw input, click mouse reporting, focus
-reporting, and cursor visibility. Unsupported optional protocols are reported
-as diagnostics; restoration still runs through the same session path.
+Full-screen TUI runs enter terminal protocols through the session manager and a
+`SessionProtocolPolicy`. The default policy requires alternate screen and raw
+input, requests bracketed paste, click mouse reporting, focus reporting, and a
+hidden cursor as optional protocol operations, and records diagnostics for
+skipped or failed setup. Callers can explicitly disable protocols, require
+them, or request other mouse reporting modes without changing widget code.
+Restoration still runs through the same session path and restores only state
+that was actually changed.
+
+Input bytes are decoded through an input pipeline selected from the active
+terminal capability profile and the session setup result. The current keyboard
+profile is the stable legacy terminal profile; enhanced keyboard protocols are
+reported as an unsupported input profile instead of being silently simulated.
+Bracketed paste parsing follows the protocol operation that was actually
+enabled for the session, so a skipped or disabled bracketed-paste setup cannot
+accidentally turn ordinary input bytes into a paste event.
 
 Non-TTY behavior is explicit on the TUI definition. The default is `reject`.
 Apps may opt into `transcript_only`, `last_frame`, or `line_fallback`; these
@@ -67,6 +79,23 @@ map to palette, accept, cancel, or history messages through widget `keyMap`
 values; `terminal-ui` does not reserve a global command-palette shortcut,
 Escape key, or Ctrl-C key event. Host signals such as `SIGINT` and `SIGTERM`
 still interrupt the full-screen run through the terminal host signal path.
+
+Mouse input is normalized through the TUI pointer router before widget messages
+are dispatched. Hit targets are event-aware: each target can accept pointer
+event kinds and compute a caller-owned message from the routed event. Ordinary
+targets default to one left-click activation; release events, right-click
+context-menu input, wheel scroll input, and drag/capture input do not reuse the
+same static activation message. Routed pointer events preserve viewport
+coordinates, target-local coordinates, button/modifier state, vertical and
+horizontal scroll deltas, captured target ids, and the raw terminal mouse event
+for tests and richer widgets.
+
+Application text selection is caller-owned state. Use `resolveSelectedText()`
+to turn explicit selectable text sources and ranges into copyable text, or
+`copySelectedTextToClipboard()` to run that selected text through the
+capability- and policy-gated OSC 52 clipboard protocol. Terminal-native
+selection remains a separate mode: the app can delegate to it, but the runtime
+does not invent selected text from terminal emulator state.
 
 Layout regions are structural widget data. `grid()`, `splitPane()`, `tabs()`,
 and `modal()` produce regular layout nodes, frames, diffs, and accessible

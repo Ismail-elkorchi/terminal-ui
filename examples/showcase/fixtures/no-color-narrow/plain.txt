@@ -1,4 +1,5 @@
-File  View  Tools  Help       Northstar Control  Live even  i Live events live (running)
+ File  View  Tools…  Northstar Control                     Live even  i Live events live
+
 Atlas service [#######---] 72/100 72%
 
 [ Watch ]                     ›                             [ Live events ]
@@ -10,8 +11,6 @@ Atlas service [#######---] 72/100 72%
 |   pilot: Rin                                                                           |
 |   berth: 12                                                                            |
 |   Cargo transfer, inspection, and outbound clearance are now staged in sequence.       |
-| > [-] [running] Lane pressure rising                                                   |
-|   Ferry wake and supply traffic are sharing channel C                                  |
 |                                                                                        |
 +----------------------------------------------------------------------------------------+
 
@@ -24,6 +23,8 @@ Atlas service [#######---] 72/100 72%
 |                                                                                        |
 |                                                                                        |
 +----------------------------------------------------------------------------------------+
-›/events
-command ready
-[ / commands ]        [ H handoff ]         [ T theme ]           [ C context ]
++----------------------------------------------------------------------------------------+
+|                                                                                        |
+|                                                                                        |
+| +------------------------------------------------------------------------------------+ |
++-+------------------------------------------------------------------------------------+-+

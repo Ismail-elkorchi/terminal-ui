@@ -59,7 +59,9 @@ test('TUI non-TTY last_frame mode writes readable text without control sequences
 
   assert.equal(result.status, 'completed');
   assert.equal(result.reason, 'last_frame');
-  assert.equal(host.output(), 'ready\n');
+  assert.match(host.output(), /# status/u);
+  assert.match(host.output(), /- status: status = ready/u);
+  assert.match(host.output(), /\n\nready\n$/u);
   assert.doesNotMatch(host.output(), /\u001B\[/u);
 });
 
@@ -83,5 +85,7 @@ test('TUI non-TTY line_fallback maps one input line into an app message', async 
   assert.equal(result.status, 'completed');
   assert.equal(result.reason, 'line_fallback');
   assert.deepEqual(result.state, { name: 'Ada' });
-  assert.equal(host.output(), 'Hello Ada\n');
+  assert.match(host.output(), /# greeting/u);
+  assert.match(host.output(), /- text: greeting = Hello Ada/u);
+  assert.match(host.output(), /\n\nHello Ada\n$/u);
 });

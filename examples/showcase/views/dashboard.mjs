@@ -114,7 +114,7 @@ function compactHarborSurface(state) {
     row([
       text('outer'),
       text('─'),
-      text(vessel.name, { id: 'compact-active-vessel' }),
+      text(vessel.name, { id: 'compact-active-vessel', textRole: 'metric' }),
       text('─'),
       text(vessel.status === 'routing' ? 'channel C' : 'berth 12'),
       text('─'),
@@ -129,9 +129,9 @@ function compactHarborSurface(state) {
       status: vessel.score < 75 ? 'warning' : 'running'
     }),
     row([
-      text(`owner ${vessel.owner}`),
-      text(`signal ${String(vessel.score)}%`),
-      text(`state ${vessel.status}`)
+      text(`owner ${vessel.owner}`, { textRole: 'metadata' }),
+      text(`signal ${String(vessel.score)}%`, { textRole: 'metric' }),
+      text(`state ${vessel.status}`, { textRole: vessel.score < 75 ? 'warning' : 'success' })
     ], { id: 'compact-vessel-facts', gap: 3 }),
     signalStrip(state)
   ], {
@@ -324,7 +324,7 @@ function routeTimeline(state) {
     row([
       text('outer marker'),
       text('──'),
-      text(vessel.name, { id: 'timeline-vessel' }),
+      text(vessel.name, { id: 'timeline-vessel', textRole: 'metric' }),
       text('──'),
       text(vessel.status === 'routing' ? 'channel C' : 'berth 12'),
       text('──'),

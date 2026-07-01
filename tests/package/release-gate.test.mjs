@@ -402,7 +402,7 @@ test('TUI ANSI serialization decisions are owned by the internal policy', async 
   const frame = await readFile(new URL('../../src/tui/frame.ts', import.meta.url), 'utf8');
 
   assert.match(policy, /export interface TerminalSerializationPolicy/u);
-  assert.match(policy, /readonly capabilities: TerminalCapabilities;/u);
+  assert.match(policy, /readonly capabilities: TerminalCapabilityProfile;/u);
   assert.match(policy, /resetStyle\(\): string;/u);
   assert.match(policy, /styleTransition\(previous: TerminalStyle \| undefined, next: TerminalStyle \| undefined\): string;/u);
   assert.match(ansi, /createTerminalSerializationPolicy\(options\)/u);
@@ -428,10 +428,13 @@ test('frame passes are applied before snapshots and remain serialization-free', 
 
 test('runtime input routing uses the committed render cache', async () => {
   const runtime = await readFile(new URL('../../src/tui/runtime.ts', import.meta.url), 'utf8');
+  assert.match(runtime, /createInputPipeline\(options\.input\)/u);
+  assert.doesNotMatch(runtime, /createInputDecoder\(/u);
   assert.doesNotMatch(runtime, /\blayoutWidget\(/u);
   assert.match(runtime, /\bensureRender\(\)/u);
   assert.match(runtime, /findWidgetFocusTarget\(current\.widget, current\.layout/u);
-  assert.match(runtime, /regionHitsAt\(current\.regions/u);
+  assert.match(runtime, /createPointerRouter<TMessage>\(\)/u);
+  assert.match(runtime, /pointerRouter\.route\(current\.regions, event\)/u);
   assert.doesNotMatch(runtime, /collectWidgetLayoutTargets\(current\.widget, current\.layout\)/u);
   assert.doesNotMatch(runtime, /widgetHitTargets\(/u);
 });

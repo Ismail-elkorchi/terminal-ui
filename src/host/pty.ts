@@ -1,4 +1,4 @@
-import { createCapabilities } from './capabilities.ts';
+import { resolveTerminalCapabilities } from './capabilities.ts';
 import { BasicTerminalSession } from './session.ts';
 import { ObjectEnvironment, RuntimeClock, RuntimeInput, RuntimeSignals } from './runtime-streams.ts';
 import { restoreActiveTerminalSessions } from './session-registry.ts';
@@ -54,12 +54,16 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
   const stderr = new PtyOutput({ ...options.stderr, isTty: options.stderr?.isTty ?? true }, () => viewport);
   const clock = new RuntimeClock();
   const runtime = options.runtime ?? 'node';
-  const capabilities = createCapabilities({
-    runtime,
-    inputIsTty: stdin.isTty(),
-    outputIsTty: stdout.isTty(),
-    columns: viewport.columns,
-    rawInput: options.stdin?.setRawMode !== undefined
+  const capabilities = resolveTerminalCapabilities({
+    host: {
+      runtime,
+      inputIsTty: stdin.isTty(),
+      outputIsTty: stdout.isTty(),
+      columns: viewport.columns,
+      rows: viewport.rows,
+      rawInput: options.stdin?.setRawMode !== undefined
+    },
+    environment: { variables: options.env ?? {} }
   });
   const env = new ObjectEnvironment(options.env ?? {});
 

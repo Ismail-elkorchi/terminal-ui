@@ -1,6 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import { defaultTheme, defineTheme, isTerminalTheme, resolveTerminalStyle } from '../theme/index.ts';
-import type { TerminalCapabilities } from '../host/index.ts';
+import type { TerminalCapabilityProfile } from '../host/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
 import type { TerminalSerializationPolicy } from './serialization-policy.ts';
@@ -8,7 +8,7 @@ import type { RenderSpan, TerminalLink, TerminalStyle } from './render-primitive
 import { sameTerminalLink, sameTerminalStyle } from './render-primitives.ts';
 
 export interface RenderSerializeOptions {
-  readonly capabilities: TerminalCapabilities;
+  readonly capabilities: TerminalCapabilityProfile;
   readonly theme?: TerminalTheme | TerminalThemeDefinition;
   readonly forceColor?: boolean;
   readonly hyperlinks?: boolean;
@@ -80,7 +80,7 @@ function withoutLink(state: AnsiStyleState): AnsiStyleState {
 
 function effectiveLink(span: RenderSpan, options: RenderSerializeOptions | undefined): TerminalLink | undefined {
   if (span.link === undefined) return undefined;
-  if (options?.hyperlinks !== true || !options.capabilities.hyperlinks.supported) return undefined;
+  if (options?.hyperlinks !== true || options.capabilities.hyperlinks.status !== 'supported') return undefined;
   const href = sanitizeTerminalText(span.link.href).text;
   if (href.length === 0) return undefined;
   if (span.link.id === undefined) return { href };

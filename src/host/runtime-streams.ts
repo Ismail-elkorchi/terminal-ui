@@ -1,4 +1,4 @@
-import { createCapabilities } from './capabilities.ts';
+import { resolveTerminalCapabilities } from './capabilities.ts';
 import { BasicTerminalSession } from './session.ts';
 import { restoreActiveTerminalSessions } from './session-registry.ts';
 import type { RuntimeTarget } from '../package.ts';
@@ -6,7 +6,6 @@ import type {
   RuntimeInputSource,
   RuntimeTerminalInputOptions,
   RuntimeTerminalOutputOptions,
-  TerminalCapabilities,
   TerminalClock,
   TerminalEnvironment,
   TerminalHost,
@@ -20,6 +19,7 @@ import type {
   TerminalViewport,
   Unsubscribe
 } from './types.ts';
+import type { TerminalCapabilityProfile } from './capability-types.ts';
 
 export interface StreamTerminalHostOptions {
   readonly id: string;
@@ -40,12 +40,16 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
     columns: stdout.columns ?? 80,
     rows: stdout.rows ?? 24
   });
-  const capabilities: TerminalCapabilities = createCapabilities({
-    runtime: options.runtime,
-    inputIsTty: stdin.isTty(),
-    outputIsTty: stdout.isTty(),
-    columns: getViewport().columns,
-    rawInput: options.stdin?.setRawMode !== undefined
+  const capabilities: TerminalCapabilityProfile = resolveTerminalCapabilities({
+    host: {
+      runtime: options.runtime,
+      inputIsTty: stdin.isTty(),
+      outputIsTty: stdout.isTty(),
+      columns: getViewport().columns,
+      rows: getViewport().rows,
+      rawInput: options.stdin?.setRawMode !== undefined
+    },
+    environment: { variables: options.env ?? {} }
   });
   const host: TerminalHost = {
     id: options.id,

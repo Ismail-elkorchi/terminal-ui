@@ -49,8 +49,9 @@ When content is larger than the bounds:
 
 Keyboard behavior comes from widget `keyMap`, `inputMap`, focus metadata, and
 renderer focus targets. Pointer behavior comes from hit targets. The runtime
-routes input after rendering; renderers should only describe target geometry
-and messages.
+routes input after rendering; renderers should describe target geometry,
+accepted pointer event kinds, and how a routed pointer event maps to a
+caller-owned message.
 
 Layer metadata controls z-order. Higher visible layers render above lower
 layers and receive pointer hits first. Modal or popover-like compositions can

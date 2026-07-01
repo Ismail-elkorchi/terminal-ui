@@ -1,5 +1,5 @@
-import { createCapabilities } from '../host/index.ts';
-import { diffFrames, renderFrameAnsi, renderFramePlain } from '../tui/index.ts';
+import { resolveTerminalCapabilities } from '../host/index.ts';
+import { diffFrames, projectTuiOutput } from '../tui/index.ts';
 import type { Frame, FrameHitTarget, RenderDiff, RenderSerializeOptions } from '../tui/index.ts';
 
 export interface VisualSnapshotInput {
@@ -12,6 +12,7 @@ export interface VisualSnapshotInput {
 export interface VisualSnapshotArtifacts {
   readonly schemaVersion: 'terminal-ui.visual-snapshots.v1';
   readonly plainTextFrame: string;
+  readonly accessibleText: string;
   readonly ansiFrame: string;
   readonly frameJson: string;
   readonly accessibilityJson: string;
@@ -23,10 +24,12 @@ export interface VisualSnapshotArtifacts {
 export function createVisualSnapshot(input: VisualSnapshotInput): VisualSnapshotArtifacts {
   const frame = normalizeFrame(input.frame);
   const diff = input.diff ?? diffFrames(input.previousFrame, input.frame);
+  const projection = projectTuiOutput({ frame: input.frame, ansi: input.ansi ?? defaultAnsiOptions() });
   return {
     schemaVersion: 'terminal-ui.visual-snapshots.v1',
-    plainTextFrame: renderFramePlain(input.frame),
-    ansiFrame: normalizeAnsi(renderFrameAnsi(input.frame, input.ansi ?? defaultAnsiOptions())),
+    plainTextFrame: projection.plainTextFrame,
+    accessibleText: projection.accessibleText,
+    ansiFrame: normalizeAnsi(projection.ansiFrame ?? ''),
     frameJson: stableJson(frame),
     accessibilityJson: stableJson(input.frame.accessibility),
     diffJson: stableJson(diff),
@@ -41,11 +44,13 @@ export function createVisualSnapshot(input: VisualSnapshotInput): VisualSnapshot
 
 function defaultAnsiOptions(): RenderSerializeOptions {
   return {
-    capabilities: createCapabilities({
-      runtime: 'memory',
-      inputIsTty: true,
-      outputIsTty: true,
-      rawInput: true
+    capabilities: resolveTerminalCapabilities({
+      host: {
+        runtime: 'memory',
+        inputIsTty: true,
+        outputIsTty: true,
+        rawInput: true
+      }
     })
   };
 }

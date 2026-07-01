@@ -225,18 +225,18 @@ test('schemas reject malformed nested public payloads', async () => {
     isTty: true,
     color: { depth: 0, hasBasicColors: false, has256Colors: false, hasTrueColor: false },
     unicode: { graphemeClusters: true, eastAsianWidth: 'ambiguous-narrow', emojiWidth: 'wide', bidi: 'stable-fallback' },
-    rawInput: { supported: true, confidence: 'known' },
-    resize: { supported: true, confidence: 'known' },
-    hyperlinks: { supported: false, confidence: 'known' },
-    enhancedKeyboard: { supported: false, confidence: 'known' },
-    bracketedPaste: { supported: true, confidence: 'known' },
-    mouseReporting: { supported: true, confidence: 'known' },
-    alternateScreen: { supported: true, confidence: 'known' },
-    focusReporting: { supported: true, confidence: 'known' },
-    cursorVisibility: { supported: true, confidence: 'known' },
-    title: { supported: true, confidence: 'known' },
-    bell: { supported: true, confidence: 'known' },
-    clipboard: { supported: false, confidence: 'known' },
+    rawInput: capabilitySupport('supported'),
+    resize: capabilitySupport('supported'),
+    hyperlinks: capabilitySupport('unavailable'),
+    enhancedKeyboard: capabilitySupport('unavailable'),
+    bracketedPaste: capabilitySupport('supported'),
+    mouseReporting: capabilitySupport('supported'),
+    alternateScreen: capabilitySupport('supported'),
+    focusReporting: capabilitySupport('supported'),
+    cursorVisibility: capabilitySupport('supported'),
+    title: capabilitySupport('supported'),
+    bell: capabilitySupport('supported'),
+    clipboard: capabilitySupport('unavailable'),
     diagnostics: [{}]
   }), false);
 
@@ -247,6 +247,16 @@ test('schemas reject malformed nested public payloads', async () => {
     message: 'Unknown code should not satisfy the public diagnostic contract.'
   }), false);
 });
+
+function capabilitySupport(status) {
+  return {
+    status,
+    confidence: status === 'supported' ? 'assumed' : 'unavailable',
+    facts: [{ kind: 'host', name: 'test', value: true }],
+    diagnostics: [],
+    requiresSessionOperation: false
+  };
+}
 
 async function loadSchemaValidators() {
   const ajv = new Ajv2020({ allErrors: true, strict: true });

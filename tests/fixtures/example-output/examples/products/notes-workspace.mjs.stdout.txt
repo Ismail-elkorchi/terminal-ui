@@ -1,27 +1,27 @@
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ Notes Desk                          Text area, activity log, breadcrum  ┌──────────────────────────────────┐ │
-└─────────────────────────────────────────────────────────────────────────┴──────────────────────────────────┴─┘
+│ Notes Desk                                 Text area, activity   ┌─────────────────────────────────────────┐ │
+└──────────────────────────────────────────────────────────────────┴─────────────────────────────────────────┴─┘
 
-┌ Note editor ──────────────────────────────────────────────────────────────┐ ┌ Document state ────────────────┐
+┌───────────────────────────────────────────────────────────────────────────┐ ┌────────────────────────────────┐
+│                                                                           │ │                                │
+│ Note editor                                                               │ │ Document state                 │
+│                                                                           │ │                                │
+│                                                                           │ │                                │
+│                                                                           │ │                                │
+│                                                                           │ │                                │
+│                                                                           │ │                                │
+│                                                                           │ │                                │
+│                                                                           │ │                                │
 │                                                                           │ │                                │
 │ [ Desk ]      /             [ Operations… /             [ Harbor review … │ │                                │
 │                                                                           │ │                                │
-│                                                                           │ │                                │
-│                                                                           │ │                                │
 │                                                                           │ │  lines: 5       comments: 3    │
-│                                                                           │ │                                │
-│ # Harbor review - published                                               │ │                                │
-│                                                                           │ │                                │
-│ - Confirmed night berth handoff.                                          │ │ Published: [ yes ] no          │
-│ - Added follow-up for crane operator.                                     │ │                                │
-│ - Published summary to the watch board.                                   │ │                                │
+│ # Harbor review - published                                             █ │ │                                │
+│                                                                         │ │ │ Published: [ yes ] no          │
 │                                                                           │ │                                │
 │ Mina: add the south crane follow-up.                                      │ │   [-] [success] Note edited    │
 │ Jon: publication window is open.                                          │ │   Title and checklist were upd │
 │ System: note published to watch board.                                    │ │   ated.                        │
-│                                                                           │ │   [-] [success] Published      │
-│                                                                           │ │   Workspace state reflects the │
-│                                                                           │ │    action.                     │
 │                                                                           │ │                                │
 └───────────────────────────────────────────────────────────────────────────┘ └────────────────────────────────┘
 

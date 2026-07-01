@@ -6,7 +6,6 @@ import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { Result } from '../result.ts';
 import type {
   MouseReportingMode,
-  TerminalCapabilities,
   TerminalHost,
   TerminalRestoreReason,
   TerminalRestoreResult,
@@ -14,6 +13,7 @@ import type {
   TerminalStateChange,
   TerminalStateSnapshot
 } from './types.ts';
+import type { TerminalCapabilityProfile } from './capability-types.ts';
 
 export class BasicTerminalSession implements TerminalSession {
   readonly startedAt: number;
@@ -25,7 +25,7 @@ export class BasicTerminalSession implements TerminalSession {
   constructor(
     readonly id: string,
     readonly host: TerminalHost,
-    readonly capabilities: TerminalCapabilities
+    readonly capabilities: TerminalCapabilityProfile
   ) {
     this.startedAt = host.clock.now();
     this.initialState = {
@@ -144,7 +144,7 @@ export class BasicTerminalSession implements TerminalSession {
       | 'cursorVisibility'
   ): Result<never> | undefined {
     const capability = this.capabilities[kind];
-    if (capability.supported) return undefined;
+    if (capability.status === 'supported') return undefined;
     return err(diagnostic(
       'HOST_PROTOCOL_UNSUPPORTED',
       `Terminal protocol is unavailable: ${kind}.`,
@@ -154,7 +154,7 @@ export class BasicTerminalSession implements TerminalSession {
         data: {
           capability: kind,
           confidence: capability.confidence,
-          reason: capability.reason ?? null
+          diagnostics: capability.diagnostics.map((item) => item.message)
         }
       }
     ));

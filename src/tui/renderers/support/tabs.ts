@@ -51,7 +51,7 @@ export function tabsHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect)
           width: Math.min(width, Math.max(0, bounds.column + bounds.width - column)),
           height: 1
         },
-        message: tab.message as TMessage,
+        message: () => tab.message as TMessage,
         cursor: 'pointer'
       });
     }

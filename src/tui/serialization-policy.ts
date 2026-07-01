@@ -1,17 +1,17 @@
-import { createCapabilities } from '../host/capabilities.ts';
-import type { TerminalCapabilities } from '../host/index.ts';
+import { resolveTerminalCapabilities } from '../host/capabilities.ts';
+import type { TerminalCapabilityProfile } from '../host/index.ts';
 import type { Rect } from './layout.ts';
 import type { CursorPosition } from './frame.ts';
 import type { TerminalColor, TerminalLink, TerminalStyle } from './render-primitives.ts';
 import { sameTerminalColor } from './render-primitives.ts';
 
 export interface TerminalSerializationPolicyInput {
-  readonly capabilities?: TerminalCapabilities;
+  readonly capabilities?: TerminalCapabilityProfile;
   readonly forceColor?: boolean;
 }
 
 export interface TerminalSerializationPolicy {
-  readonly capabilities: TerminalCapabilities;
+  readonly capabilities: TerminalCapabilityProfile;
   cursorMove(row: number, column: number, previous?: CursorPosition): string;
   clearLine(row: number, fromColumn?: number): string;
   clearRect(bounds: Rect): string;
@@ -64,11 +64,13 @@ export function createTerminalSerializationPolicy(
 
 const escapeSequence = '\u001B';
 const bellSequence = '\u0007';
-const defaultSerializationCapabilities = createCapabilities({
-  runtime: 'memory',
-  inputIsTty: false,
-  outputIsTty: false,
-  rawInput: false
+const defaultSerializationCapabilities = resolveTerminalCapabilities({
+  host: {
+    runtime: 'memory',
+    inputIsTty: false,
+    outputIsTty: false,
+    rawInput: false
+  }
 });
 
 function csi(body: string): string {
@@ -81,7 +83,7 @@ function sgr(codes: readonly string[]): string {
 
 function styleOpen(
   style: TerminalStyle | undefined,
-  capabilities: TerminalCapabilities,
+  capabilities: TerminalCapabilityProfile,
   forceColor: boolean | undefined
 ): string {
   if (style === undefined) return '';
@@ -91,7 +93,7 @@ function styleOpen(
 function styleTransitionCodes(
   previous: TerminalStyle,
   next: TerminalStyle | undefined,
-  capabilities: TerminalCapabilities,
+  capabilities: TerminalCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
   if (forceColor !== true && capabilities.color.depth === 0) return [];
@@ -126,7 +128,7 @@ function uniqueCodes(codes: readonly string[]): readonly string[] {
 
 function styleCodes(
   style: TerminalStyle,
-  capabilities: TerminalCapabilities,
+  capabilities: TerminalCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
   if (forceColor !== true && capabilities.color.depth === 0) return [];
@@ -148,7 +150,7 @@ function colorTransitionCodes(
   target: 'fg' | 'bg',
   previous: TerminalColor | undefined,
   next: TerminalColor | undefined,
-  capabilities: TerminalCapabilities,
+  capabilities: TerminalCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
   if (sameTerminalColor(previous, next)) return [];
@@ -159,7 +161,7 @@ function colorTransitionCodes(
 function colorCodes(
   target: 'fg' | 'bg',
   color: TerminalColor | undefined,
-  capabilities: TerminalCapabilities,
+  capabilities: TerminalCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
   if (color === undefined || color.kind === 'theme') return [];

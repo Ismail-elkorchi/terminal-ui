@@ -33,7 +33,28 @@ export async function runTui<TState, TMessage>(
   const nonTtyExit = await runTuiNonTty(app, host, transcript);
   if (nonTtyExit !== undefined) return withTuiTranscript(nonTtyExit, transcript);
   const session = await host.beginSession({ id: app.id });
-  const setupDiagnostics = await setupTuiSession(session);
+  const setup = await setupTuiSession(session, options.sessionPolicy);
+  const setupDiagnostics = setup.diagnostics;
+  if (!setup.ok) {
+    const restoreDiagnostics = await restoreTuiSession(session, 'error');
+    recordTuiRestore(transcript, session.initialState);
+    return withTuiTranscript({
+      status: 'error',
+      diagnostics: [
+        ...setupDiagnostics,
+        diagnostic('HOST_PROTOCOL_UNSUPPORTED', 'Required terminal session protocol setup failed.', {
+          severity: 'error',
+          target: app.id,
+          data: {
+            applied: setup.applied.map((item) => item.kind),
+            skipped: setup.skipped.map((item) => item.kind)
+          }
+        }),
+        ...restoreDiagnostics
+      ],
+      snapshot: tuiSnapshot(app.id)
+    }, transcript);
+  }
   let runtime: ReturnType<typeof createTuiRuntime<TState, TMessage>> | undefined;
   try {
     runtime = createTuiRuntime({
@@ -41,6 +62,10 @@ export async function runTui<TState, TMessage>(
       host,
       ...(options.initialFocusPath === undefined ? {} : { initialFocusPath: options.initialFocusPath }),
       ...(options.theme === undefined ? {} : { theme: options.theme }),
+      input: {
+        capabilities: session.capabilities,
+        bracketedPaste: setup.applied.some((item) => item.kind === 'bracketedPaste' && item.enabled)
+      },
       ...(transcript === undefined ? {} : { transcript })
     });
     await runtime.start();

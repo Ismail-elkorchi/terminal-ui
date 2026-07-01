@@ -82,7 +82,13 @@ function mouseAction(rawCode: number, released: boolean): MouseAction {
 
 function mouseButton(rawCode: number, baseCode: number, released: boolean): MouseButton {
   if (released) return 'none';
-  if ((rawCode & 64) !== 0) return baseCode === 0 ? 'wheelUp' : baseCode === 1 ? 'wheelDown' : 'unknown';
+  if ((rawCode & 64) !== 0) {
+    if (baseCode === 0) return 'wheelUp';
+    if (baseCode === 1) return 'wheelDown';
+    if (baseCode === 2) return 'wheelLeft';
+    if (baseCode === 3) return 'wheelRight';
+    return 'unknown';
+  }
   switch (baseCode) {
     case 0:
       return 'left';

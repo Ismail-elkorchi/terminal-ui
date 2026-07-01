@@ -20,7 +20,7 @@ export function widgetMessageHitTargets<TMessage>(
   return [{
     id: `${widget.id ?? widget.kind}:${suffix}`,
     bounds,
-    message: widget.props['message'] as TMessage,
+    message: () => widget.props['message'] as TMessage,
     cursor: 'pointer'
   }];
 }

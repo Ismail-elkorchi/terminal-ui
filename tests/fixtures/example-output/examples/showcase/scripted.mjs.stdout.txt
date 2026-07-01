@@ -3,43 +3,42 @@ frames: 20
 final route: activity
 final inspector: event
 theme index: 1
-host frames: 20
-host diffs: 20
+host frames: 18
+host diffs: 18
 input command: /dispatch
-hit targets: 27
+hit targets: 21
 focus path: showcase-overlay > showcase-notifications
 
-File  View  Tools  Help                               Northstar Control  Live events  tokyoNight            i Live events live (running)
-Lumen service [███████░░░] 74/100 74%                                                                                            ┌ success Theme cycled ──────┐
-                                                                                                                                 │Theme cycled                │
-┌ Watch ───────────────┐ [ Watch ]                         ›                                 [ Live events ]                    ┌┤Semantic colors retinted the├┐
-│                      │ [ Overview ]     [ Fleet ]        [ Briefing ]     [ Map ]          More routes              Dispatch  ││workspace.                  ││
-│ Operations           │   [-] [success] Berth window secured                                [-] [info] Cold-chain cleared      │└────────────────────────────┘│
-│                      │   Aster enters berth 12 inside the active tide window               Temperature telemetry stayed insid │ [-] [info] Cold-chain cleare │
-│                      │   pilot: Rin                                                        e the transfer band                │ Temperat┌ info Live events ─┐│
-│                      │   berth: 12                                                         block: 7                           │  inside │Live events        ││
-│   ▾ ◆ Operations     │   Cargo transfer, inspection, and outbound clearance are now staged crew : Mira                        │ block: 7│Opened Live events.││
-│       ▣ Overview     │    in sequence.                                                                                        │ crew : M└───────────────────┘│
-│       ▤ Fleet board  │   [-] [running] Lane pressure rising                                                                   │                              │
-│       ¶ Briefing ro… │   Ferry wake and supply traffic are sharing channel C                                              ┌ success Handoff closed ─────────┐│
-│       ◎ Route map    │   sector: west lane                                                                                │Handoff closed                   ││
-│       ☷ Dispatch de… │   watch : 14 min                                                                                   │Operations floor is active again.││
-│ ›     ✦ Live events  │   Dispatcher is holding one low-priority departure until Vector cle                                └───┬─────────────────────────────┘│
+ File  View  Tools  Help            Northstar Control                                                    Live events       i Live events live · tokyoNight (run
+                                                                                                                                 ┌ success Theme cycled ──────┐
+Lumen service [███████░░░] 74/100 74%                                                                                            │Theme cycled                │
+                                                                                                                                 │Semantic colors retinted the│
+┌──────────────────────┐ [ Watch ]                         ›                                 [ Live events ]                    ┌┤workspace.                  ├┐
+│                      │ [ Overview ]     [ Fleet ]        [ Briefing ]     [ Map ]          More routes              Dispatch  │└────────────────────────────┘│
+│ Watch                │   [-] [success] Berth window secured                                [-] [info] Cold-chain cleared      │ Inspector                    │
+│                      │   Aster enters berth 12 inside the active tide window               Temperature telemetry stayed insid │         ┌ info Live events ─┐│
+│                      │   pilot: Rin                                                        e the transfer band                │         │Live events        ││
+│                      │   berth: 12                                                         block: 7                           │         │Opened Live events.││
+│                      │   Cargo transfer, inspection, and outbound clearance are now staged crew : Mira                        │         └───────────────────┘│
+│                      │    in sequence.                                                                                        │                              │
+│                      │   [-] [running] Lane pressure rising                                                               ┌ success Handoff closed ─────────┐│
+│                      │   Ferry wake and supply traffic are sharing channel C                                              │Handoff closed                   ││
+│                      │   sector: west lane                                                                                │Operations floor is active again.││
+│                      │   watch : 14 min                                                                                   └───┬─────────────────────────────┘│
+│                      │   Dispatcher is holding one low-priority departure until Vector cle                                    │                              │
 │                      │   ars the crossing.                                                                                    │                              │
 │                      │ › [-] [info] Cold-chain cleared                                                                        │                              │
 │                      │   Temperature telemetry stayed inside the transfer band                                                │                              │
 │                      │   block: 7                                                                                             │                              │
-│                      │   crew : Mira                                                                                          │                              │
-│                      │   Details: The next handoff should keep the final crate group under                                    │ handoff [████████░░]         │
-│                      │    watch until truck bay release.                                                                      │                              │
-│                      │   [-] [warning] Weather advisory easing                                                                │                              │
-│                      │   Outer marker gusts remain uneven but trend downward                                                  │                              │
-│                      │   gust: 18 kt                                                                                          │                              │
-│                      │   eta : 22 min                                                                                         │                              │
-│                      │                                                                                                        │                              │
-│ ┌──────────────────┐ │                                                                                                        │                              │
+│ Operations           │   crew : Mira                                                                                          │  Vessel   Route  [Event]  Th │
+│                      │   Details: The next handoff should keep the final crate group under                                    │ [-] [info] Cold-chain cleare │
+│                      │    watch until truck bay release.                                                                      │ Temperature telemetry stayed │
+│                      │   [-] [warning] Weather advisory easing                                                                │  inside the transfer band    │
+│ ›     ✦ Live events  │   Outer marker gusts remain uneven but trend downward                                                  │ block: 7                     │
+│                      │   gust: 18 kt                                                                                          │ crew : Mira                  │
+│ ┌──────────────────┐ │   eta : 22 min                                                                                         │                              │
 │ │ [ ▾ Quick launc… │ │                                                                                                        │                              │
-│ │                  │ │                                                                                                        │                              │
+│ │                  │ │                                                                                                        │ handoff [████████░░]         │
 │ │                  │ │                                                                                                        │                              │
 │ │ › Palette      █ │ │                                                                                                        │                              │
 │ │   Handoff      █ │ │                                                                                                        │                              │
@@ -47,6 +46,8 @@ Lumen service [███████░░░] 74/100 74%                       
 │ └──────────────────┘ │                                                                                                        │                              │
 │                      │                                                                                                        │                              │
 └──────────────────────┘                                                                                                        └──────────────────────────────┘
-›/palette
-command ready
-[ / commands ]                          [ H handoff ]                           [ T theme ]                             [ C context ]
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│ ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐ │
+└─┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴─┘

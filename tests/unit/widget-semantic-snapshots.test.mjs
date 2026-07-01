@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
-import { createCapabilities } from '../../dist/host/index.js';
+import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { defineTheme, highContrastTheme } from '../../dist/theme/index.js';
 import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
@@ -922,11 +922,13 @@ function assertWidgetVisualSnapshot(snapshot, current, viewport, label) {
 }
 
 function colorCapabilities() {
-  return createCapabilities({
-    runtime: 'memory',
-    inputIsTty: true,
-    outputIsTty: true,
-    rawInput: true
+  return resolveTerminalCapabilities({
+    host: {
+      runtime: 'memory',
+      inputIsTty: true,
+      outputIsTty: true,
+      rawInput: true
+    }
   });
 }
 

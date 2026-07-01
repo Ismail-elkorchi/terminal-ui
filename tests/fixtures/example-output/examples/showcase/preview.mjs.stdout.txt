@@ -1,49 +1,50 @@
 Northstar Control visual preview
 schema: terminal-ui.visual-snapshots.v1
-frame: 160x42 cells=3039
-diff operations: 249 fullRewrite=false
-hit targets: 40
+frame: 160x42 cells=3889
+diff operations: 209 fullRewrite=false
+hit targets: 34
 focus: showcase-overlay > showcase-shell
 accessibility root: application showcase-overlay
 
-File  View  Tools  Help                               Northstar Control  Route map  catppuccin              i Route map live (running)
+ File  View  Tools  Help            Northstar Control                                                    Route map         i Route map live · catppuccin (runni
+
 Atlas service [█████████░] 88/100 88%
 
-┌ Watch ───────────────┐ [ Watch ]                         ›                                 [ Route map ]                      ┌ Inspector ───────────────────┐
+┌──────────────────────┐ [ Watch ]                         ›                                 [ Route map ]                      ┌──────────────────────────────┐
 │                      │ [ Overview ]     [ Fleet ]        [ Briefing ]     [ [Map] ]        More routes              Dispatch  │                              │
-│ Operations           │ ╔ Route map ═══════════════════════════════════════════════════════╗   ┌ Lane pressure ──────────────┐ │  Vessel  [Route]  Event   Th │
-│                      │ ║                                                                  ║   │                             │ │ [-] [info] Route map         │
-│                      │ ║ ······························································   ║   │ + lane  o gust              │ │ Atlas is the active object f │
-│                      │ ║ · Outer marker ───── west lane ───── inner harbor            ·   ║   │ traffic                     │ │ or this route view.          │
-│   ▾ ◆ Operations     │ ║ ·        ooo                  *******                        ·   ║   │    ++                       │ │ layout     : balanced        │
-│       ▣ Overview     │ ║ ·       oo oo               ***     ***                      ·   ║   │ o oo +                      │ │ density    : 3               │
-│       ▤ Fleet board  │ ║ ·       o───o───────────────*─────────*──────────            ·   ║   │  o  oo                      │ │ last action: Harbor overview │
-│       ¶ Briefing ro… │ ║ ·       oo oo               ***     ***                      ·   ║   │ +                           │ │                              │
-│ ›     ◎ Route map    │ ║ ·        ooo                  *******                        ·   ║   │ +                           │ │                              │
-│       ☷ Dispatch de… │ ║ ·                                                            ·   ║   │ watch cycle                 │ │                              │
-│       ✦ Live events  │ ║ ·    Atlas: cleared            owner Mira                    ·   ║   │                             │ │                              │
+│ Watch                │ ╔ Route map ═══════════════════════════════════════════════════════╗   ┌ Lane pressure ──────────────┐ │ Inspector                    │
+│                      │ ║                                                                  ║   │                             │ │                              │
+│                      │ ║ ······························································   ║   │ + lane  o gust              │ │                              │
+│                      │ ║ · Outer marker ───── west lane ───── inner harbor            ·   ║   │ traffic                     │ │                              │
+│                      │ ║ ·        ooo                  *******                        ·   ║   │    ++                       │ │                              │
+│                      │ ║ ·       oo oo               ***     ***                      ·   ║   │ o oo +                      │ │                              │
+│                      │ ║ ·       o───o───────────────*─────────*──────────            ·   ║   │  o  oo                      │ │                              │
+│                      │ ║ ·       oo oo               ***     ***                      ·   ║   │ +                           │ │                              │
+│                      │ ║ ·        ooo                  *******                        ·   ║   │ +                           │ │                              │
+│                      │ ║ ·                                                            ·   ║   │ watch cycle                 │ │                              │
+│                      │ ║ ·    Atlas: cleared            owner Mira                    ·   ║   │                             │ │                              │
 │                      │ ║ ·                                                            ·   ║   └─────────────────────────────┘ │                              │
 │                      │ ║ ·                                                            ·   ║                                   │                              │
 │                      │ ║ ·                                                            ·   ║   Channel C remains the active co │                              │
 │                      │ ║ ······························································   ║                                   │                              │
-│                      │ ║                                                                  ║                                   │                              │
-│                      │ ║                                                                  ║                                   │ ┌──────────────────────────┐ │
-│                      │ ╚══════════════════════════════════════════════════════════════════╝                                   │ │ [ ▾ Conditions ]         │ │
-│                      │                                                                        Atlas updates the route board i │ │                          │ │
-│                      │ [-] [running] Active instruction                                                                       │ │                          │ │
-│                      │ Atlas stays under Mira's watch until the next route clearance.                                         │ │                          │ │
-│                      │ risk   : low                                                                                           │ │                          │ │
-│                      │ handoff: pending                                                                                       │ │                          │ │
-│ ┌──────────────────┐ │                                                                        ▂▄▁▆▅▇▄█▆                       │ │                          │ │
-│ │ [ ▾ Quick launc… │ │                                                                                                        │ │   traffic █████████ 78   │ │
-│ │                  │ │                                                                                                        │ │ › weather █████████ 82   │ │
-│ │                  │ │                                                                                                        │ │   crew █████████████ 91  │ │
+│ Operations           │ ║                                                                  ║                                   │  Vessel  [Route]  Event   Th │
+│                      │ ║                                                                  ║                                   │ [-] [info] Route map         │
+│                      │ ╚══════════════════════════════════════════════════════════════════╝                                   │ Atlas is the active object f │
+│                      │                                                                        Atlas updates the route board i │ or this route view.          │
+│ ›     ◎ Route map    │ [-] [running] Active instruction                                                                       │ layout     : balanced        │
+│                      │ Atlas stays under Mira's watch until the next route clearance.                                         │ density    : 3               │
+│ ┌──────────────────┐ │ risk   : low                                                                                           │ last action: Harbor overview │
+│ │ [ ▾ Quick launc… │ │ handoff: pending                                                                                       │                              │
+│ │                  │ │                                                                        ▂▄▁▆▅▇▄█▆                       │ ┌──────────────────────────┐ │
+│ │                  │ │                                                                                                        │ │ [ ▾ Conditions ]         │ │
 │ │ › Palette      █ │ │                                                                                                        │ │                          │ │
-│ │   Handoff      █ │ │                                                                                                        │ │                          │ │
-│ │   Theme        │ │ │                                                                                                        │ │                          │ │
+│ │   Handoff      █ │ │                                                                                                        │ │   traffic █████████ 78   │ │
+│ │   Theme        │ │ │                                                                                                        │ │ › weather █████████ 82   │ │
 │ └──────────────────┘ │                                                                                                        │ └──────────────────────────┘ │
 │                      │                                                                                                        │                              │
 └──────────────────────┘                                                                                                        └──────────────────────────────┘
-›/map
-command ready
-[ / commands ]                          [ H handoff ]                           [ T theme ]                             [ C context ]
+┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                                                                                                                                              │
+│                                                                                                                                                              │
+│ ┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐ │
+└─┴──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┴─┘

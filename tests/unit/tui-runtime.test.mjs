@@ -129,7 +129,7 @@ test('TUI runtime uses committed hit targets without recomputing renderer hit ta
     },
     hitTargets({ bounds }) {
       hitTargetCalls += 1;
-      return [{ id: 'cached-region-hit:press', bounds, message: { clicked: true }, cursor: 'pointer' }];
+      return [{ id: 'cached-region-hit:press', bounds, message: () => ({ clicked: true }), cursor: 'pointer' }];
     }
   };
   const app = defineTui({
@@ -841,6 +841,35 @@ test('TUI runtime routes focused text and paste input through widget input maps'
   assert.match(renderFramePlain(runtime.frame()), /a\[bc\]/);
 });
 
+test('TUI runtime decodes input chunks through the configured input pipeline', async () => {
+  const app = defineTui({
+    id: 'input-pipeline-routing',
+    init: () => ({ value: '' }),
+    update: (state, message) => ({ state: { value: `${state.value}${message.text}` } }),
+    view: (state) => inputField({
+      id: 'pipeline-field',
+      value: state.value,
+      inputMap: {
+        text: (textValue) => ({ text: textValue }),
+        paste: (textValue) => ({ text: `[${textValue}]` })
+      }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 30, rows: 3 } });
+  const runtime = createTuiRuntime({
+    app,
+    host: harness.host,
+    input: { bracketedPaste: false }
+  });
+
+  await runtime.start();
+  const results = await runtime.handleInputChunk({ data: '\u001B[200~pasted\ntext\u001B[201~' });
+
+  assert.equal(results.some((result) => result.handled), true);
+  assert.deepEqual(runtime.getState(), { value: 'pastedtext' });
+  assert.match(renderFramePlain(runtime.frame()), /pastedtext/);
+});
+
 test('runTui accepts an initial focus path', async () => {
   const app = defineTui({
     id: 'run-focus-restore',
@@ -1538,6 +1567,129 @@ test('TUI runtime routes mouse events to widgets under the pointer', async () =>
   assert.equal(result[0]?.handled, true);
   assert.deepEqual(runtime.getState(), { clicked: true });
   assert.match(renderFramePlain(runtime.frame()), /clicked/);
+});
+
+test('TUI pointer routing does not activate on release right click or wheel', async () => {
+  const app = defineTui({
+    id: 'pointer-router-events',
+    init: () => ({ clicks: 0 }),
+    update: (state, message) => ({ state: { clicks: state.clicks + message.clicks } }),
+    view: (state) => inputField({
+      id: 'pointer-field',
+      value: `clicks ${state.clicks}`,
+      message: { clicks: 1 }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const leftPress = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
+  const rightPress = await runtime.handleInputChunk({ data: '\u001B[<2;1;1M' });
+  const wheel = await runtime.handleInputChunk({ data: '\u001B[<64;1;1M' });
+
+  assert.equal(leftPress[0]?.handled, true);
+  assert.equal(release[0]?.handled, false);
+  assert.equal(rightPress[0]?.handled, false);
+  assert.equal(wheel[0]?.handled, false);
+  assert.deepEqual(runtime.getState(), { clicks: 1 });
+});
+
+test('TUI pointer targets receive event-aware messages and horizontal wheel deltas', async () => {
+  const renderer = {
+    render({ node, buffer }) {
+      buffer.write(node.bounds.row, node.bounds.column, [{ text: 'pointer target' }]);
+    },
+    accessibility({ id }) {
+      return { id, role: 'button', label: 'pointer target' };
+    },
+    hitTargets({ bounds }) {
+      return [{
+        id: 'event-aware-hit',
+        bounds,
+        accepts: ['contextMenu', 'scroll'],
+        message: (event) => ({
+          kind: event.kind,
+          button: event.button,
+          deltaRows: event.deltaRows,
+          deltaColumns: event.deltaColumns,
+          localRow: event.localRow,
+          localColumn: event.localColumn
+        }),
+        cursor: 'pointer'
+      }];
+    }
+  };
+  const app = defineTui({
+    id: 'event-aware-pointer-tui',
+    init: () => ({ events: [] }),
+    update: (state, message) => ({ state: { events: [...state.events, message] } }),
+    view: () => custom({ id: 'event-aware-pointer', renderer })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const rightPress = await runtime.handleInputChunk({ data: '\u001B[<2;2;1M' });
+  const wheelRight = await runtime.handleInputChunk({ data: '\u001B[<67;3;1M' });
+
+  assert.equal(rightPress[0]?.handled, true);
+  assert.equal(wheelRight[0]?.handled, true);
+  assert.deepEqual(runtime.getState(), {
+    events: [
+      { kind: 'contextMenu', button: 'right', deltaRows: 0, deltaColumns: 0, localRow: 1, localColumn: 2 },
+      { kind: 'scroll', button: 'wheelRight', deltaRows: 0, deltaColumns: 1, localRow: 1, localColumn: 3 }
+    ]
+  });
+});
+
+test('TUI pointer drag routes to the captured origin target', async () => {
+  const renderer = {
+    render({ node, buffer }) {
+      buffer.write(node.bounds.row, node.bounds.column, [{ text: 'drag target' }]);
+    },
+    accessibility({ id }) {
+      return { id, role: 'button', label: 'drag target' };
+    },
+    hitTargets({ bounds }) {
+      return [{
+        id: 'drag-hit',
+        bounds: { ...bounds, width: 4 },
+        accepts: ['dragStart', 'dragEnd'],
+        message: (event) => ({
+          kind: event.kind,
+          targetId: event.targetId,
+          capturedTargetId: event.capturedTargetId,
+          localColumn: event.localColumn
+        }),
+        cursor: 'pointer'
+      }];
+    }
+  };
+  const app = defineTui({
+    id: 'drag-pointer-tui',
+    init: () => ({ events: [] }),
+    update: (state, message) => ({ state: { events: [...state.events, message] } }),
+    view: () => custom({ id: 'drag-pointer', renderer })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  const drag = await runtime.handleInputChunk({ data: '\u001B[<32;10;1M' });
+  const release = await runtime.handleInputChunk({ data: '\u001B[<0;10;1m' });
+
+  assert.equal(press[0]?.handled, false);
+  assert.equal(drag[0]?.handled, true);
+  assert.equal(release[0]?.handled, true);
+  assert.deepEqual(runtime.getState(), {
+    events: [
+      { kind: 'dragStart', targetId: 'drag-hit', capturedTargetId: 'drag-hit', localColumn: 10 },
+      { kind: 'dragEnd', targetId: 'drag-hit', capturedTargetId: 'drag-hit', localColumn: 10 }
+    ]
+  });
 });
 
 test('TUI runtime routes tree row hit targets to node messages', async () => {

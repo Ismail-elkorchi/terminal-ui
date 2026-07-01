@@ -1,6 +1,7 @@
 import type { RuntimeTarget } from '../package.ts';
 import type { Result } from '../result.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
+import type { TerminalCapabilityProfile } from './capability-types.ts';
 
 export interface TerminalViewport {
   readonly columns: number;
@@ -63,7 +64,7 @@ export interface TerminalHost {
   readonly env: TerminalEnvironment;
 
   getViewport(): TerminalViewport;
-  getCapabilities(): Promise<TerminalCapabilities>;
+  getCapabilities(): Promise<TerminalCapabilityProfile>;
   beginSession(options?: TerminalSessionOptions): Promise<TerminalSession>;
   write(output: TerminalOutputChunk): Promise<void>;
   flush?(): Promise<void>;
@@ -79,7 +80,7 @@ export interface TerminalSession {
   readonly host: TerminalHost;
   readonly startedAt: number;
   readonly initialState: TerminalStateSnapshot;
-  readonly capabilities: TerminalCapabilities;
+  readonly capabilities: TerminalCapabilityProfile;
 
   enableRawInput(): Promise<Result<TerminalStateChange>>;
   enableAlternateScreen(): Promise<Result<TerminalStateChange>>;
@@ -124,47 +125,6 @@ export type TerminalRestoreReason =
   | 'disposed';
 
 export type MouseReportingMode = 'none' | 'click' | 'drag' | 'all';
-
-export interface TerminalCapabilities {
-  readonly schemaVersion: 'terminal-ui.terminal-capabilities.v1';
-  readonly runtime: RuntimeTarget;
-  readonly isTty: boolean;
-  readonly color: TerminalColorCapability;
-  readonly unicode: TerminalUnicodeCapability;
-  readonly rawInput: CapabilitySupport;
-  readonly resize: CapabilitySupport;
-  readonly hyperlinks: CapabilitySupport;
-  readonly enhancedKeyboard: CapabilitySupport;
-  readonly bracketedPaste: CapabilitySupport;
-  readonly mouseReporting: CapabilitySupport;
-  readonly alternateScreen: CapabilitySupport;
-  readonly focusReporting: CapabilitySupport;
-  readonly cursorVisibility: CapabilitySupport;
-  readonly title: CapabilitySupport;
-  readonly bell: CapabilitySupport;
-  readonly clipboard: CapabilitySupport;
-  readonly diagnostics: readonly TerminalDiagnostic[];
-}
-
-export interface CapabilitySupport {
-  readonly supported: boolean;
-  readonly confidence: 'known' | 'detected' | 'assumed' | 'unknown';
-  readonly reason?: string;
-}
-
-export interface TerminalColorCapability {
-  readonly depth: 0 | 1 | 4 | 8 | 24;
-  readonly hasBasicColors: boolean;
-  readonly has256Colors: boolean;
-  readonly hasTrueColor: boolean;
-}
-
-export interface TerminalUnicodeCapability {
-  readonly graphemeClusters: true;
-  readonly eastAsianWidth: 'narrow' | 'wide' | 'ambiguous-narrow' | 'ambiguous-wide';
-  readonly emojiWidth: 'narrow' | 'wide';
-  readonly bidi: 'full' | 'stable-fallback';
-}
 
 export interface NodeReadableTerminalStream extends AsyncIterable<string | Uint8Array> {
   readonly isTTY?: boolean;

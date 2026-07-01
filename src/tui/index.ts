@@ -53,6 +53,20 @@ import type { FramePass, FramePassContext, FrameSemanticRole } from './frame-pas
 import type { Layer, LayoutNode, Rect, RegionOpacity } from './layout.ts';
 import type { PaginationInput, PaginationWindow } from './pagination.ts';
 import type { PaletteFilterResult, PaletteWindowInput } from './palette.ts';
+import type { OutputProjection, OutputProjectionInput } from './output-projection.ts';
+import type {
+  PointerRouteResult,
+  PointerRouter,
+} from './pointer-router.ts';
+import type { PointerEventKind, PointerSource, RoutedPointerEvent } from './pointer-types.ts';
+import type {
+  CopySelectedTextInput,
+  CopySelectedTextResult,
+  ResolveSelectedTextInput,
+  ResolveSelectedTextResult,
+  SelectableTextSource,
+  SelectionInteractionMode
+} from './selection-interaction.ts';
 import type {
   GridLayoutOptions,
   LayoutAlignment,
@@ -79,6 +93,14 @@ import type {
   SpinnerReducerOptions,
   SpinnerState
 } from './spinner.ts';
+import type {
+  CursorVisibilityPolicy,
+  ProtocolRequirement,
+  SessionProtocolOperation,
+  SessionProtocolOperationKind,
+  SessionProtocolPolicy,
+  SessionProtocolSetupResult
+} from './session-policy.ts';
 import type { NotificationStackPlacementInput, NotificationStackSize } from './notifications.ts';
 import type { TooltipPlacementInput, TooltipSize } from './tooltip.ts';
 import type { HighlightRenderSpan, HighlightRenderSpansOptions } from './text-highlight.ts';
@@ -187,6 +209,19 @@ export type {
   DataWindowInput,
   PaletteFilterResult,
   PaletteWindowInput,
+  OutputProjection,
+  OutputProjectionInput,
+  PointerEventKind,
+  PointerRouteResult,
+  PointerRouter,
+  PointerSource,
+  RoutedPointerEvent,
+  CopySelectedTextInput,
+  CopySelectedTextResult,
+  ResolveSelectedTextInput,
+  ResolveSelectedTextResult,
+  SelectableTextSource,
+  SelectionInteractionMode,
   BorderKind,
   BorderStyle,
   PaginationInput,
@@ -214,6 +249,12 @@ export type {
   SpinnerAction,
   SpinnerReducerOptions,
   SpinnerState,
+  CursorVisibilityPolicy,
+  ProtocolRequirement,
+  SessionProtocolOperation,
+  SessionProtocolOperationKind,
+  SessionProtocolPolicy,
+  SessionProtocolSetupResult,
   ExtractScrollbackSelectionTextInput,
   ScrollbackTextSegment,
   ScrollbackVisibleRow,
@@ -284,12 +325,20 @@ export {
 export { dataWindow, rowWindow, scrollStateFromUnknown } from './data-window.ts';
 export { createDirtyRegionSet, dirtyRegionsForRegionChanges } from './dirty-regions.ts';
 export { filterPaletteEntries, paletteWindow } from './palette.ts';
+export { projectTuiOutput, renderAccessibleSnapshot } from './output-projection.ts';
+export { createPointerRouter } from './pointer-router.ts';
+export { copySelectedTextToClipboard, resolveSelectedText } from './selection-interaction.ts';
 export { paginationWindow } from './pagination.ts';
 export { activeScreen, gridCellRects, screenStackReducer, splitTracks } from './regions.ts';
 export { createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll } from './scroll.ts';
 export { renderScrollbars, scrollbarLayout } from './scrollbar.ts';
 export { animationSource, intervalSource, timeoutSource } from './scheduler.ts';
 export { nextSpinnerFrameIndex, normalizeSpinnerFrameIndex, spinnerReducer } from './spinner.ts';
+export {
+  applySessionProtocolPolicy,
+  createSessionProtocolPlan,
+  defaultSessionProtocolPolicy
+} from './session-policy.ts';
 export { extractScrollbackSelectionText, scrollbackWindow } from './scrollback.ts';
 export { highlightRenderSpans } from './text-highlight.ts';
 export { defineTui } from './definition.ts';
