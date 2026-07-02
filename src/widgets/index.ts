@@ -56,6 +56,7 @@ export {
   tabs,
   viewport
 } from './factories.ts';
+export type * from './contracts.ts';
 export type * from './types.ts';
 export {
   activityBlockCollapsed,

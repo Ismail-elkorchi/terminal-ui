@@ -1,10 +1,10 @@
 import { highlightRenderSpans } from './text-highlight.ts';
 import { mergeStyles, themeStyle, widgetStyle } from './widget-style.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { Widget } from '../widgets/index.ts';
+import type { Widget, WidgetTone } from '../widgets/index.ts';
 import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
 
-export type CommandSurfaceTone = 'info' | 'warning' | 'error' | 'success' | 'muted';
+export type CommandSurfaceTone = Extract<WidgetTone, 'info' | 'warning' | 'error' | 'success' | 'muted'>;
 
 export function commandStatusSpans(
   widget: Widget,

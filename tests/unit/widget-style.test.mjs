@@ -15,6 +15,7 @@ import {
   list,
   menuBar,
   modal,
+  notificationStack,
   palette,
   progressBar,
   row,
@@ -23,6 +24,7 @@ import {
   spinner,
   stack,
   statusBar,
+  structuredBlock,
   table,
   tabs,
   text,
@@ -314,6 +316,32 @@ test('feedback widgets use shared status styles and source metadata', () => {
   assert.equal(spinnerFrame.cells.find((cell) => cell.text === '✓')?.source?.kind, 'spinner');
   assert.equal(styleFor(progressFrame, '█')?.fg?.token, 'status.error');
   assert.equal(progressFrame.cells.find((cell) => cell.text === '█')?.source?.label, 'filled');
+});
+
+test('record and notification widgets use shared semantic status contracts', () => {
+  const failedBlockFrame = renderWidgetFrame(structuredBlock({
+    id: 'failed-block',
+    title: 'Import',
+    status: 'failed'
+  }), { columns: 32, rows: 2 });
+  const skippedBlockFrame = renderWidgetFrame(structuredBlock({
+    id: 'skipped-block',
+    title: 'Import',
+    status: 'skipped'
+  }), { columns: 32, rows: 2 });
+  const notificationFrame = renderWidgetFrame(notificationStack({
+    id: 'notices',
+    items: [{
+      id: 'sync',
+      title: 'Sync',
+      tone: 'progress',
+      progress: 50
+    }]
+  }), { columns: 42, rows: 6 });
+
+  assert.equal(styleFor(failedBlockFrame, 'f')?.fg?.token, 'status.error');
+  assert.equal(styleFor(skippedBlockFrame, 's')?.fg?.token, 'status.warning');
+  assert.equal(styleFor(notificationFrame, '█')?.fg?.token, 'status.running');
 });
 
 test('chart widgets use shared visual state styles and source metadata', () => {

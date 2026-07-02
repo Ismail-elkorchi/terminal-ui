@@ -11,6 +11,18 @@ import type { Canvas2D } from '../tui/canvas2d/index.ts';
 import type { Rect, RegionOpacity } from '../tui/layout.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { SurfaceVariant } from '../tui/surface.ts';
+import type {
+  WidgetActionItem,
+  WidgetActionTone,
+  WidgetFieldItem,
+  WidgetProcessStatus,
+  WidgetRecordStatus,
+  WidgetSearchEntry,
+  WidgetSuggestionItem,
+  WidgetTone,
+  WidgetValidationTone,
+  WidgetValueItem
+} from './contracts.ts';
 
 export interface Widget<TMessage = unknown> {
   readonly id?: string;
@@ -320,7 +332,7 @@ export interface LabelWidgetOptions<TMessage = never> extends WidgetLayerOptions
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export type ButtonTone = 'default' | 'primary' | 'secondary' | 'destructive';
+export type ButtonTone = Extract<WidgetTone, 'default' | 'primary' | 'secondary' | 'destructive'>;
 
 export interface ButtonWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
@@ -401,13 +413,7 @@ export interface RangeSliderWidgetOptions<TMessage = never> extends WidgetLayerO
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface FormOption<TValue = string> {
-  readonly id: string;
-  readonly label: string;
-  readonly value: TValue;
-  readonly disabled?: boolean;
-  readonly description?: string;
-}
+export type FormOption<TValue = string> = WidgetValueItem<TValue>;
 
 export interface CheckboxListWidgetOptions<TValue = string, TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
@@ -440,11 +446,7 @@ export interface ColorPickerWidgetOptions<TValue = string, TMessage = never> ext
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface DatePickerDay<TValue = string> {
-  readonly id: string;
-  readonly label: string;
-  readonly value: TValue;
-  readonly disabled?: boolean;
+export interface DatePickerDay<TValue = string> extends WidgetValueItem<TValue> {
   readonly today?: boolean;
   readonly outsideMonth?: boolean;
 }
@@ -520,17 +522,10 @@ export interface NumberInputWidgetOptions<TMessage = never> extends WidgetLayerO
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export type MenuItemTone = 'default' | 'destructive';
+export type MenuItemTone = WidgetActionTone;
 
-export interface MenuItem<TMessage = never> {
-  readonly id: string;
-  readonly label: string;
-  readonly message?: TMessage;
-  readonly disabled?: boolean;
+export interface MenuItem<TMessage = never> extends WidgetActionItem<TMessage> {
   readonly checked?: boolean;
-  readonly tone?: MenuItemTone;
-  readonly description?: string;
-  readonly shortcut?: string;
   readonly children?: readonly MenuItem<TMessage>[];
   readonly expanded?: boolean;
 }
@@ -591,7 +586,7 @@ export interface DividerWidgetOptions<TMessage = never> extends WidgetLayerOptio
 }
 
 export type TooltipPlacement = 'auto' | 'above' | 'below' | 'left' | 'right' | 'cursor';
-export type TooltipTone = 'default' | 'info' | 'success' | 'warning' | 'error';
+export type TooltipTone = Extract<WidgetTone, 'default' | 'info' | 'success' | 'warning' | 'error'>;
 
 export interface TooltipWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
@@ -605,7 +600,7 @@ export interface TooltipWidgetOptions<TMessage = never> extends WidgetLayerOptio
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export type NotificationTone = 'info' | 'success' | 'warning' | 'error' | 'progress';
+export type NotificationTone = Extract<WidgetTone, 'info' | 'success' | 'warning' | 'error' | 'progress'>;
 export type NotificationPlacement = 'top-right' | 'bottom-right' | 'centered-stack';
 
 export interface NotificationItem {
@@ -696,7 +691,7 @@ export interface HelpBarWidgetOptions<TMessage = never> extends WidgetLayerOptio
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export type ActivityIndicatorStatus = 'idle' | 'running' | 'success' | 'warning' | 'error';
+export type ActivityIndicatorStatus = WidgetProcessStatus;
 
 export interface ActivityIndicatorWidgetOptions extends WidgetLayerOptions {
   readonly id?: string;
@@ -879,21 +874,9 @@ export interface ScrollbackWidgetOptions<TMessage = never> extends WidgetLayerOp
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export type StructuredBlockStatus =
-  | 'pending'
-  | 'running'
-  | 'success'
-  | 'warning'
-  | 'error'
-  | 'failed'
-  | 'cancelled'
-  | 'skipped'
-  | 'info';
+export type StructuredBlockStatus = WidgetRecordStatus;
 
-export interface StructuredBlockField {
-  readonly label: string;
-  readonly value: string;
-}
+export type StructuredBlockField = WidgetFieldItem;
 
 export interface StructuredBlock {
   readonly id: string;
@@ -920,13 +903,9 @@ export interface ActivityFeedWidgetOptions<TMessage = never> extends WidgetLayer
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface CommandBarSuggestion {
-  readonly value: string;
-  readonly label?: string;
-  readonly description?: string;
-}
+export type CommandBarSuggestion = WidgetSuggestionItem;
 
-export type CommandBarValidationTone = 'info' | 'warning' | 'error';
+export type CommandBarValidationTone = WidgetValidationTone;
 
 export interface CommandBarValidation {
   readonly message: string;
@@ -952,16 +931,7 @@ export interface CommandBarWidgetOptions<TMessage = never> extends WidgetLayerOp
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface PaletteEntry<TValue = string> {
-  readonly id: string;
-  readonly label: string;
-  readonly value: TValue;
-  readonly group?: string;
-  readonly description?: string;
-  readonly keywords?: readonly string[];
-  readonly disabled?: boolean;
-  readonly preview?: string;
-}
+export type PaletteEntry<TValue = string> = WidgetSearchEntry<TValue>;
 
 export interface PaletteWidgetOptions<TValue = string, TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;

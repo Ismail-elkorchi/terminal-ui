@@ -8,6 +8,7 @@ import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { numberProp } from './widget-props.ts';
 import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
 import type { NotificationItem, NotificationPlacement, NotificationTone, Widget } from '../widgets/index.ts';
+import { statusFromTone, statusToken } from './status-visual.ts';
 
 export interface NotificationStackSize {
   readonly width: number;
@@ -277,18 +278,7 @@ function borderToken(tone: NotificationTone): ThemeToken {
 }
 
 function foregroundToken(tone: NotificationTone): ThemeToken {
-  switch (tone) {
-    case 'success':
-      return 'status.success';
-    case 'warning':
-      return 'status.warning';
-    case 'error':
-      return 'status.error';
-    case 'progress':
-      return 'status.running';
-    case 'info':
-      return 'status.info';
-  }
+  return statusToken(statusFromTone(tone));
 }
 
 function notificationTone(item: NotificationItem): NotificationTone {

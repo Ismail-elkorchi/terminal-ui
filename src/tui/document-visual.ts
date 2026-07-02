@@ -2,10 +2,12 @@ import { highlightRenderSpans } from './text-highlight.ts';
 import type {
   StructuredBlockField,
   StructuredBlockStatus,
-  Widget
+  Widget,
+  WidgetStatus
 } from '../widgets/index.ts';
 import { span } from './render-primitives.ts';
 import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
+import { statusStyle } from './status-visual.ts';
 import { mergeStyles, themeStyle, widgetStyle } from './widget-style.ts';
 
 export type DocumentSurfaceKind = 'scrollback' | 'structuredBlock' | 'activityFeed';
@@ -55,10 +57,7 @@ export function documentHighlightSpans(input: {
 }
 
 export function documentStatusStyle(status: StructuredBlockStatus): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: documentStatusToken(status) },
-    bold: true
-  };
+  return mergeStyles(statusStyle(recordBaseStatus(status)), { bold: true }) ?? { bold: true };
 }
 
 export function documentMarkerStyle(widget: Widget, selected = false): TerminalStyle | undefined {
@@ -136,11 +135,8 @@ export function scrollbackOmissionStyle(widget: Widget): TerminalStyle | undefin
   return widgetStyle(widget, 'placeholder');
 }
 
-function documentStatusToken(status: StructuredBlockStatus): string {
-  if (status === 'pending') return 'status.pending';
-  if (status === 'running') return 'status.running';
-  if (status === 'success') return 'status.success';
-  if (status === 'warning' || status === 'skipped' || status === 'cancelled') return 'status.warning';
-  if (status === 'error' || status === 'failed') return 'status.error';
-  return 'status.info';
+function recordBaseStatus(status: StructuredBlockStatus): WidgetStatus {
+  if (status === 'failed') return 'error';
+  if (status === 'cancelled' || status === 'skipped') return 'warning';
+  return status;
 }
