@@ -12,7 +12,7 @@ import {
   renderWidgetFrame
 } from '../../dist/tui/index.js';
 import { span } from '../../dist/tui/frame.js';
-import { list, paginatedTable, table, tree, treeReducer, virtualTable } from '../../dist/widgets/index.js';
+import { list, paginator, stack, table, tree, treeReducer } from '../../dist/widgets/index.js';
 
 const mousePress = (row, column) => ({
   kind: 'mouse',
@@ -184,16 +184,23 @@ test('table headers can expose a visible resize affordance without changing redu
   assert.match(renderFramePlain(frame), /Name ↔/u);
 });
 
-test('paginatedTable composes table and paginator over a bounded page', () => {
-  const frame = renderWidgetFrame(paginatedTable({
-    id: 'fleet-pages',
-    label: 'Fleet',
-    page: 2,
-    pageSize: 2,
-    selected: 2,
-    columns: [{ header: 'Name', width: 8 }],
-    rows: [['Aster'], ['Atlas'], ['Pulse'], ['Lumen'], ['Vector']]
-  }), { columns: 24, rows: 5 });
+test('table and paginator compose explicitly over a bounded page', () => {
+  const rows = [['Aster'], ['Atlas'], ['Pulse'], ['Lumen'], ['Vector']];
+  const page = paginationWindow({ page: 2, pageSize: 2, total: rows.length });
+  const frame = renderWidgetFrame(stack([
+    table({
+      id: 'fleet-pages-table',
+      selected: 0,
+      columns: [{ header: 'Name', width: 8 }],
+      rows: rows.slice(page.start, page.end)
+    }),
+    paginator({
+      id: 'fleet-pages-paginator',
+      label: 'Fleet',
+      page: page.page,
+      pageCount: page.pageCount
+    })
+  ]), { columns: 24, rows: 5 });
 
   const output = renderFramePlain(frame);
   assert.match(output, /Pulse/u);
@@ -202,7 +209,7 @@ test('paginatedTable composes table and paginator over a bounded page', () => {
   assert.equal(frame.accessibility.root.children?.some((node) => node.role === 'table'), true);
 });
 
-test('virtualTable applies sticky headers and both-axis scrollbar defaults to existing table rendering', () => {
+test('table supports sticky headers and both-axis scrollbars directly', () => {
   const scroll = createScrollState({
     offsetRow: 2,
     contentRows: 8,
@@ -210,9 +217,11 @@ test('virtualTable applies sticky headers and both-axis scrollbar defaults to ex
     contentColumns: 40,
     viewportColumns: 14
   });
-  const frame = renderWidgetFrame(virtualTable({
+  const frame = renderWidgetFrame(table({
     id: 'virtual-table',
     scroll,
+    scrollbar: { axis: 'both' },
+    stickyHeader: true,
     columns: [{ header: 'Name', width: 12 }, { header: 'Score', width: 8 }],
     rows: Array.from({ length: 8 }, (_value, index) => [`Vessel ${String(index)}`, index * 10])
   }), { columns: 18, rows: 4 });

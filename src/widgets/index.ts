@@ -58,14 +58,6 @@ export {
 } from './factories.ts';
 export type * from './types.ts';
 export {
-  paginatedTable,
-  virtualTable
-} from './table-presets.ts';
-export type {
-  PaginatedTableOptions,
-  VirtualTableOptions
-} from './table-presets.ts';
-export {
   activityBlockCollapsed,
   activityFeedReducer,
   copyActivityFeedVisibleText,

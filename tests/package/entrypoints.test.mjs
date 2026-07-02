@@ -103,8 +103,6 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.widgets.visibleNotifications, 'function');
   assert.equal(typeof terminalUi.widgets.notificationsToActivityBlocks, 'function');
   assert.equal(typeof terminalUi.widgets.notificationStack, 'function');
-  assert.equal(typeof terminalUi.widgets.paginatedTable, 'function');
-  assert.equal(typeof terminalUi.widgets.virtualTable, 'function');
   assert.equal(typeof terminalUi.widgets.defineBreakpoints, 'function');
   assert.equal(typeof terminalUi.widgets.responsive, 'function');
   assert.equal(typeof terminalUi.widgets.viewportVariant, 'function');
@@ -231,7 +229,6 @@ test('root declaration exposes primary public type contracts', async () => {
     'PaletteState',
     'PaletteAsyncState',
     'PaletteWidgetOptions',
-    'PaginatedTableOptions',
     'FormWidgetOptions',
     'FieldWidgetOptions',
     'GaugeVariant',
@@ -363,8 +360,7 @@ test('root declaration exposes primary public type contracts', async () => {
     'SelectedAssertion',
     'HitTargetAssertion',
     'VisualSnapshotArtifacts',
-    'VisualSnapshotInput',
-    'VirtualTableOptions'
+    'VisualSnapshotInput'
   ];
 
   for (const typeName of publicTypes) {
