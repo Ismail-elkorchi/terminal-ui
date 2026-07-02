@@ -108,7 +108,7 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.widgets.defineBreakpoints, 'function');
   assert.equal(typeof terminalUi.widgets.responsive, 'function');
   assert.equal(typeof terminalUi.widgets.viewportVariant, 'function');
-  assert.equal(typeof terminalUi.widgets.areaGrid, 'function');
+  assert.equal(typeof terminalUi.widgets.grid, 'function');
   assert.equal(typeof terminalUi.widgets.gauge, 'function');
   assert.equal(typeof terminalUi.widgets.heatmap, 'function');
   assert.equal(typeof terminalUi.widgets.toggleSwitch, 'function');
@@ -225,7 +225,7 @@ test('root declaration exposes primary public type contracts', async () => {
     'CommandBarWidgetOptions',
     'CommandBarValidation',
     'CommandBarValidationTone',
-    'AreaGridWidgetOptions',
+    'GridAreasWidgetOptions',
     'PaletteEntry',
     'PaletteAction',
     'PaletteState',

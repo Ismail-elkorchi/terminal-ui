@@ -3,12 +3,12 @@
 Widgets are pure data descriptions. Constructing a widget never writes to the
 terminal, reads input, mutates global state, or performs runtime side effects.
 
-Built-in widget factories include text, rich text, text area, box, stack, row,
-grid, static named-area grids, split panes, tabs, modal, list, table, tree,
-paginator, input-field, form, field, label, button, checkbox, radio group,
-select box, text input, number input, toggle switch, slider, range slider,
+Built-in widget factories include text, rich text, text area, surface, stack, row,
+grid, static named-grid areas, split panes, tabs, modal, list, table, tree,
+paginator, form, field, label, button, checkbox, radio group,
+selectBox, text input, number input, toggle switch, slider, range slider,
 checkbox list, color picker, date picker, menu, menu bar, context menu,
-dropdown, divider, tooltip, notification stack, canvas, surface, absolute
+dropdown, divider, tooltip, notification stack, canvas, absolute
 placement, overlay, command bar, palette, status bar, help bar, activity
 indicator, progress bar, spinner, sparkline, bar chart, chart, gauge, heatmap,
 viewport, and scrollback widgets, plus structured blocks and activity feeds.
@@ -55,7 +55,7 @@ cases in the renderer.
 
 Widgets with a non-empty `keyMap` are keyboard-focusable controls. The TUI
 runtime routes matching normalized key names to the focused widget's message,
-so containers such as `box()`, `stack()`, `row()`, `table()`, `statusBar()`,
+so containers such as `surface()`, `stack()`, `row()`, `table()`, `statusBar()`,
 and `viewport()` can participate in keyboard-only workflows without pretending
 to be input fields.
 
@@ -129,13 +129,13 @@ Accessibility exposes `menu` and `menuitem` roles with selected, checked,
 disabled, and expanded state.
 
 `canvas()` lets application code draw styled spans through the safe
-`FrameBuffer` API. `surface()` creates a general coordinate-space container,
-`absolute()` places one child at a caller-provided relative rectangle, and
-`overlay()` stacks children into the same bounds. These primitives are for
-games, maps, diagrams, custom editors, dashboards, and drawing tools. They do
-not accept raw ANSI output; text still passes through frame-buffer clipping,
-Unicode-width handling, sanitization, style preservation, and accessibility
-projection.
+`FrameBuffer` API. `surface()` is the visual container primitive for neutral,
+bordered, raised, inset, selected, and status-toned content. `absolute()` places
+one child at a caller-provided relative rectangle, and `overlay()` stacks
+children into the same bounds. These primitives are for games, maps, diagrams,
+custom editors, dashboards, and drawing tools. They do not accept raw ANSI
+output; text still passes through frame-buffer clipping, Unicode-width handling,
+sanitization, style preservation, and accessibility projection.
 
 `viewport()` renders one child through a bounded window. `scrollRow` and
 `scrollColumn` choose the visible offset, while `contentRows` and
@@ -186,16 +186,18 @@ shells or application commands.
 
 `grid()` lays children into row/column tracks. `splitPane()` divides children
 along one axis with fixed, percent, content, or fill layout sizes. Stack, row,
-grid, split-pane, tabs, viewport, box, and modal compositions use shared layout
-flow options such as gap, padding, margin, min/max dimensions, horizontal
-alignment, vertical justification, and clipped or visible overflow. `box()` and
-`modal()` use the shared border model, including single,
-double, rounded, heavy, ascii, and borderless variants. Border titles can align
-to the start, center, or end, and focused bordered widgets can use a focused
-border style. `tabs()` renders tab labels and lays out only the selected panel,
-so hidden panels do not participate in focus traversal. `modal()` centers a
-bounded dialog and lays child content inside the border. These are layout
-primitives; screen-specific state and application routing stay outside widgets.
+grid, split-pane, tabs, viewport, surface, and modal compositions use shared
+layout flow options such as gap, padding, margin, min/max dimensions,
+horizontal alignment, vertical justification, and clipped or visible overflow.
+`surface()` and `modal()` use the shared border model, including single,
+double, rounded, heavy, ascii, and borderless variants. Surface variants provide
+neutral, raised, inset, selected, warning, danger, and success hierarchy without
+requiring a border for every visual distinction. Border titles can align to the
+start, center, or end, and focused bordered widgets can use a focused border
+style. `tabs()` renders tab labels and lays out only the selected panel, so
+hidden panels do not participate in focus traversal. `modal()` centers a bounded
+dialog and lays child content inside the border. These are layout primitives;
+screen-specific state and application routing stay outside widgets.
 
 Executable example:
 

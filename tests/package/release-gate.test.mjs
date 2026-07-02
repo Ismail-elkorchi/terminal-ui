@@ -76,7 +76,7 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
   for (const relativePath of centralFiles) {
     const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
     assert.doesNotMatch(source, /switch\s*\(\s*widget\.kind\s*\)/u, relativePath);
-    assert.doesNotMatch(source, /case\s+['"`](?:text|box|stack|row|list|table|inputField|statusBar|progressBar|spinner|viewport|custom)['"`]/u, relativePath);
+    assert.doesNotMatch(source, /case\s+['"`](?:text|surface|stack|row|list|table|textInput|statusBar|progressBar|spinner|viewport|custom)['"`]/u, relativePath);
   }
 
   const behavior = await readFile(new URL('../../src/tui/widget-behavior.ts', import.meta.url), 'utf8');
@@ -387,6 +387,7 @@ test('terminal text indexing and editing stay centralized', async () => {
   const commandVisual = await readFile(new URL('../../src/tui/command-visual.ts', import.meta.url), 'utf8');
   const formWidgets = await readFile(new URL('../../src/tui/form-widgets.ts', import.meta.url), 'utf8');
   const formVisual = await readFile(new URL('../../src/tui/form-visual.ts', import.meta.url), 'utf8');
+  const formRenderers = await readFile(new URL('../../src/tui/renderers/form-renderers.ts', import.meta.url), 'utf8');
   const inputVisual = await readFile(new URL('../../src/tui/input-visual.ts', import.meta.url), 'utf8');
   const menuWidgets = await readFile(new URL('../../src/tui/menu-widgets.ts', import.meta.url), 'utf8');
   const menuVisual = await readFile(new URL('../../src/tui/menu-visual.ts', import.meta.url), 'utf8');
@@ -431,8 +432,8 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(textWidgets, /from '\.\/text-display\.ts'/u);
   assert.match(textWidgets, /from '\.\/input-visual\.ts'/u);
   assert.match(textWidgets, /from '\.\/feedback-visual\.ts'/u);
-  assert.match(textRenderers, /from '\.\.\/input-visual\.ts'/u);
   assert.match(textRenderers, /from '\.\.\/feedback-visual\.ts'/u);
+  assert.match(formRenderers, /\btextInputBlock\b/u);
   assert.doesNotMatch(textTypes, /\bmoveLineStart\b/u);
   assert.doesNotMatch(textTypes, /\bmoveLineEnd\b/u);
   assert.doesNotMatch(textAreaEdit, /\bmoveLineStart\b/u);
@@ -561,7 +562,7 @@ test('box drawing joins are source-role gated frame passes', async () => {
     }))
   );
 
-  assert.match(borderSource, /source:\s*\{\s*kind:\s*'box',\s*role:\s*'border'\s*\}/u);
+  assert.match(borderSource, /source:\s*\{\s*kind:\s*'border',\s*role:\s*'border'\s*\}/u);
   assert.match(joinPass, /cell\.source\?\.role === 'border' \|\| cell\.source\?\.role === 'separator'/u);
   assert.doesNotMatch(joinPass, /source\?\.role !== 'text'/u);
   for (const { file, source } of rendererSources) {

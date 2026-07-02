@@ -1,15 +1,12 @@
 import type {
   AccessibleNodeDefinition,
-  BoxWidgetOptions,
   ButtonWidgetOptions,
   AbsoluteWidgetOptions,
-  AreaGridWidgetOptions,
   CanvasWidgetOptions,
   CheckboxWidgetOptions,
   CheckboxListWidgetOptions,
   ColorPickerWidgetOptions,
   DatePickerWidgetOptions,
-  InputFieldWidgetOptions,
   FieldWidgetOptions,
   FormWidgetOptions,
   ListWidgetOptions,
@@ -46,6 +43,7 @@ import type {
   WidgetChildren,
   CommandBarWidgetOptions,
   CustomWidgetOptions,
+  GridAreasWidgetOptions,
   GridWidgetOptions,
   GaugeWidgetOptions,
   HelpBarWidgetOptions,
@@ -101,10 +99,6 @@ export function richText<TMessage>(options: RichTextWidgetOptions<TMessage>): Wi
     },
     ...interactionOptions(options)
   };
-}
-
-export function box<TMessage>(children: WidgetChildren<TMessage>, options: BoxWidgetOptions<TMessage> = {}): Widget<TMessage> {
-  return widget('box', children, options);
 }
 
 export function stack<TMessage>(children: WidgetChildren<TMessage>, options: StackWidgetOptions<TMessage> = {}): Widget<TMessage> {
@@ -186,24 +180,6 @@ export function paginator<TMessage>(options: PaginatorWidgetOptions<TMessage>): 
       ...(options.label === undefined ? {} : { label: options.label })
     },
     ...interactionOptions(options)
-  };
-}
-
-export function inputField<TMessage>(options: InputFieldWidgetOptions<TMessage>): Widget<TMessage> {
-  const keyMap = inputFieldKeyMap(options);
-  return {
-    ...optionalId(options.id),
-    kind: 'inputField',
-    props: {
-      value: options.value ?? '',
-      ...(options.message === undefined ? {} : { message: options.message })
-    },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionOptions({
-      inputMap: options.inputMap,
-      accessibility: options.accessibility,
-      ...widgetInteractionFields(options)
-    })
   };
 }
 
@@ -470,6 +446,7 @@ export function selectBox<TValue, TMessage>(options: SelectBoxWidgetOptions<TVal
 }
 
 export function textInput<TMessage>(options: TextInputWidgetOptions<TMessage> = {}): Widget<TMessage> {
+  const keyMap = messageKeyMap(options.message, options.keyMap);
   return {
     ...optionalId(options.id),
     kind: 'textInput',
@@ -478,11 +455,17 @@ export function textInput<TMessage>(options: TextInputWidgetOptions<TMessage> = 
       ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
       ...(options.selection === undefined ? {} : { selection: options.selection }),
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
+      ...(options.message === undefined ? {} : { message: options.message }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
-    ...interactionOptions(options)
+    ...(keyMap === undefined ? {} : { keyMap }),
+    ...interactionOptions({
+      inputMap: options.inputMap,
+      accessibility: options.accessibility,
+      ...widgetInteractionFields(options)
+    })
   };
 }
 
@@ -674,7 +657,8 @@ export function surface<TMessage>(children: WidgetChildren<TMessage>, options: S
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.variant === undefined ? {} : { variant: options.variant }),
       ...(options.border === undefined ? {} : { border: options.border }),
-      ...(options.shadow === undefined ? {} : { shadow: options.shadow })
+      ...(options.shadow === undefined ? {} : { shadow: options.shadow }),
+      ...layoutProps(options)
     },
     children: Array.isArray(children) ? children : [children],
     ...interactionOptions(options)
@@ -976,51 +960,59 @@ export function palette<TValue, TMessage>(options: PaletteWidgetOptions<TValue, 
   };
 }
 
-export function areaGrid<TMessage>(options: AreaGridWidgetOptions<TMessage>): Widget<TMessage> {
-  const template = parseAreaGridTemplate(options.areas);
-  const areaNames = areaGridAreaNames(template);
-  assertAreaGridChildren(areaNames, options.children);
-  if (options.rows.length !== template.length) {
-    throw new RangeError(`areaGrid rows length ${String(options.rows.length)} must match template rows ${String(template.length)}.`);
-  }
-  if (template[0] !== undefined && options.columns.length !== template[0].length) {
-    throw new RangeError(`areaGrid columns length ${String(options.columns.length)} must match template columns ${String(template[0].length)}.`);
-  }
-  return {
-    ...optionalId(options.id),
-    kind: 'areaGrid',
-    props: {
-      areas: template,
-      areaNames,
-      rows: options.rows,
-      columns: options.columns,
-      ...(options.gap === undefined ? {} : { gap: options.gap }),
-      ...(options.rowGap === undefined ? {} : { rowGap: options.rowGap }),
-      ...(options.columnGap === undefined ? {} : { columnGap: options.columnGap }),
-      ...layoutProps(options)
-    },
-    children: areaNames.map((name) => options.children[name]).filter((child): child is Widget<TMessage> => child !== undefined),
-    ...interactionOptions(options)
-  };
-}
-
 export function grid<TMessage>(
   children: WidgetChildren<TMessage>,
   options: GridWidgetOptions<TMessage>
+): Widget<TMessage>;
+export function grid<TMessage>(
+  options: GridAreasWidgetOptions<TMessage>
+): Widget<TMessage>;
+export function grid<TMessage>(
+  childrenOrOptions: WidgetChildren<TMessage> | GridAreasWidgetOptions<TMessage>,
+  options?: GridWidgetOptions<TMessage>
 ): Widget<TMessage> {
+  if (options !== undefined) {
+    return {
+      ...optionalId(options.id),
+      kind: 'grid',
+      props: {
+        rows: options.rows,
+        columns: options.columns,
+        ...(options.gap === undefined ? {} : { gap: options.gap }),
+        ...(options.rowGap === undefined ? {} : { rowGap: options.rowGap }),
+        ...(options.columnGap === undefined ? {} : { columnGap: options.columnGap }),
+        ...layoutProps(options)
+      },
+      children: Array.isArray(childrenOrOptions) ? childrenOrOptions : [childrenOrOptions],
+      ...interactionOptions(options)
+    };
+  }
+
+  const areaOptions = childrenOrOptions as GridAreasWidgetOptions<TMessage>;
+  const template = parseGridAreasTemplate(areaOptions.areas);
+  const areaNames = gridAreaNames(template);
+  assertGridAreaChildren(areaNames, areaOptions.children);
+  if (areaOptions.rows.length !== template.length) {
+    throw new RangeError(`grid areas rows length ${String(areaOptions.rows.length)} must match template rows ${String(template.length)}.`);
+  }
+  if (template[0] !== undefined && areaOptions.columns.length !== template[0].length) {
+    throw new RangeError(`grid areas columns length ${String(areaOptions.columns.length)} must match template columns ${String(template[0].length)}.`);
+  }
   return {
-    ...optionalId(options.id),
+    ...optionalId(areaOptions.id),
     kind: 'grid',
     props: {
-      rows: options.rows,
-      columns: options.columns,
-      ...(options.gap === undefined ? {} : { gap: options.gap }),
-      ...(options.rowGap === undefined ? {} : { rowGap: options.rowGap }),
-      ...(options.columnGap === undefined ? {} : { columnGap: options.columnGap }),
-      ...layoutProps(options)
+      areas: template,
+      areaNames,
+      rows: areaOptions.rows,
+      columns: areaOptions.columns,
+      ...(areaOptions.gap === undefined ? {} : { gap: areaOptions.gap }),
+      ...(areaOptions.rowGap === undefined ? {} : { rowGap: areaOptions.rowGap }),
+      ...(areaOptions.columnGap === undefined ? {} : { columnGap: areaOptions.columnGap }),
+      ...layoutProps(areaOptions)
     },
-    children: Array.isArray(children) ? children : [children],
-    ...interactionOptions(options)
+    children: areaNames.map((name) => areaOptions.children[name]).filter((child): child is Widget<TMessage> => child !== undefined),
+    ...interactionOptions(areaOptions)
   };
 }
 
@@ -1182,29 +1174,29 @@ function notificationMaxVisible(value: number | undefined): number {
     : Math.max(1, Math.min(12, Math.floor(value)));
 }
 
-function parseAreaGridTemplate(source: string): readonly (readonly string[])[] {
+function parseGridAreasTemplate(source: string): readonly (readonly string[])[] {
   const rows = source
     .trim()
     .split('\n')
     .map((row) => row.trim())
     .filter((row) => row.length > 0)
     .map((row) => row.split(/\s+/u));
-  if (rows.length === 0) throw new RangeError('areaGrid areas must contain at least one row.');
+  if (rows.length === 0) throw new RangeError('grid areas must contain at least one row.');
   const width = rows[0]?.length ?? 0;
-  if (width === 0) throw new RangeError('areaGrid areas must contain at least one column.');
+  if (width === 0) throw new RangeError('grid areas must contain at least one column.');
   for (const row of rows) {
-    if (row.length !== width) throw new RangeError('areaGrid areas must be rectangular.');
+    if (row.length !== width) throw new RangeError('grid areas must be rectangular.');
     for (const name of row) {
       if (name !== '.' && !/^[A-Za-z][A-Za-z0-9_-]*$/u.test(name)) {
-        throw new RangeError(`areaGrid area name "${name}" is invalid.`);
+        throw new RangeError(`grid area name "${name}" is invalid.`);
       }
     }
   }
-  assertAreaGridTemplateRectangles(rows);
+  assertGridAreaTemplateRectangles(rows);
   return rows;
 }
 
-function areaGridAreaNames(template: readonly (readonly string[])[]): readonly string[] {
+function gridAreaNames(template: readonly (readonly string[])[]): readonly string[] {
   const names: string[] = [];
   for (const row of template) {
     for (const name of row) {
@@ -1215,21 +1207,21 @@ function areaGridAreaNames(template: readonly (readonly string[])[]): readonly s
   return names;
 }
 
-function assertAreaGridChildren(
+function assertGridAreaChildren(
   areaNames: readonly string[],
   children: Readonly<Record<string, Widget>>
 ): void {
   const names = new Set(areaNames);
   for (const name of areaNames) {
-    if (children[name] === undefined) throw new RangeError(`areaGrid is missing child for area "${name}".`);
+    if (children[name] === undefined) throw new RangeError(`grid is missing child for area "${name}".`);
   }
   for (const name of Object.keys(children)) {
-    if (!names.has(name)) throw new RangeError(`areaGrid child "${name}" is not used by the template.`);
+    if (!names.has(name)) throw new RangeError(`grid child "${name}" is not used by the template.`);
   }
 }
 
-function assertAreaGridTemplateRectangles(template: readonly (readonly string[])[]): void {
-  for (const name of areaGridAreaNames(template)) {
+function assertGridAreaTemplateRectangles(template: readonly (readonly string[])[]): void {
+  for (const name of gridAreaNames(template)) {
     const cells = template.flatMap((row, rowIndex) =>
       row.map((value, columnIndex) => ({ value, rowIndex, columnIndex })).filter((cell) => cell.value === name)
     );
@@ -1240,7 +1232,7 @@ function assertAreaGridTemplateRectangles(template: readonly (readonly string[])
     for (let row = minRow; row <= maxRow; row += 1) {
       for (let column = minColumn; column <= maxColumn; column += 1) {
         if (template[row]?.[column] !== name) {
-          throw new RangeError(`areaGrid area "${name}" must be rectangular.`);
+          throw new RangeError(`grid area "${name}" must be rectangular.`);
         }
       }
     }
@@ -1256,15 +1248,6 @@ function listKeyMap<TValue, TMessage>(
     : options.toMessage(selectedItem);
   return mergeKeyMaps(
     enterMessage === undefined ? undefined : { enter: enterMessage },
-    options.keyMap
-  );
-}
-
-function inputFieldKeyMap<TMessage>(
-  options: InputFieldWidgetOptions<TMessage>
-): WidgetKeyMap<TMessage> | undefined {
-  return mergeKeyMaps(
-    options.message === undefined ? undefined : { enter: options.message },
     options.keyMap
   );
 }

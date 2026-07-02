@@ -131,6 +131,10 @@ test('surface variants draw semantic background border and shadow without owning
 });
 
 test('surface variants reserve border content space while plain surfaces stay transparent', () => {
+  const neutral = renderWidgetFrame(surface(text('neutral', { id: 'neutral-inner' }), {
+    id: 'neutral',
+    variant: 'neutral'
+  }), { columns: 10, rows: 2 });
   const visualLayout = renderWidgetFrame(surface(text('inner', { id: 'inner' }), {
     id: 'visual',
     variant: 'raised'
@@ -139,6 +143,7 @@ test('surface variants reserve border content space while plain surfaces stay tr
     id: 'plain'
   }), { columns: 10, rows: 3 });
 
+  assert.deepEqual(neutral.cells.find((cell) => cell.source?.kind === 'surface')?.style?.bg, { kind: 'theme', token: 'surface.background' });
   assert.match(renderFramePlain(visualLayout).split('\n')[1] ?? '', /^│inner/u);
   assert.equal(renderFramePlain(transparent), 'flush');
 });

@@ -48,13 +48,13 @@ Basic full-screen app:
 
 ```ts
 import { defineTui, runTui } from '@ismail-elkorchi/terminal-ui';
-import { inputField } from '@ismail-elkorchi/terminal-ui/widgets';
+import { textInput } from '@ismail-elkorchi/terminal-ui/widgets';
 
 const app = defineTui({
   id: 'example',
   init: () => ({ value: 'ready' }),
   update: (state) => ({ state, exit: {} }),
-  view: (state) => inputField({ id: 'field', value: state.value })
+  view: (state) => textInput({ id: 'field', value: state.value })
 });
 
 await runTui(app);

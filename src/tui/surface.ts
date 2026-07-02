@@ -8,13 +8,19 @@ import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
 
 export type SurfaceVariant =
-  | 'base'
+  | 'neutral'
   | 'raised'
   | 'inset'
   | 'selected'
   | 'warning'
   | 'danger'
   | 'success';
+
+export interface SurfaceChromeOptions {
+  readonly variant?: SurfaceVariant;
+  readonly border?: BorderStyle;
+  readonly shadow?: boolean;
+}
 
 export function surfaceChildContentBounds(widget: Widget, bounds: Rect): Rect {
   const border = surfaceBorder(widget);
@@ -36,14 +42,30 @@ export function drawSurfaceChrome(
   focused: boolean
 ): void {
   const variant = surfaceVariantFromValue(widget.props['variant']);
-  const border = surfaceFocusedBorder(surfaceBorder(widget, variant), focused);
-  if (variant !== undefined) fillSurfaceBackground(buffer, bounds, surfaceBackgroundStyle(widget, variant));
-  if (widget.props['shadow'] === true) drawSurfaceShadow(buffer, bounds);
+  const border = surfaceBorder(widget, variant);
+  drawSurfaceFrame(buffer, bounds, widget, theme, focused, {
+    ...(variant === undefined ? {} : { variant }),
+    ...(border === undefined ? {} : { border }),
+    ...(widget.props['shadow'] === true ? { shadow: true } : {})
+  });
+}
+
+export function drawSurfaceFrame(
+  buffer: FrameBuffer,
+  bounds: Rect,
+  widget: Widget,
+  theme: TerminalTheme,
+  focused: boolean,
+  options: SurfaceChromeOptions
+): void {
+  const border = surfaceFocusedBorder(options.border, focused);
+  if (options.variant !== undefined) fillSurfaceBackground(buffer, bounds, surfaceBackgroundStyle(widget, options.variant));
+  if (options.shadow === true) drawSurfaceShadow(buffer, bounds);
   if (border !== undefined) drawBorder(buffer, bounds, border, theme);
 }
 
 function surfaceVariantFromValue(value: unknown): SurfaceVariant | undefined {
-  return value === 'base'
+  return value === 'neutral'
     || value === 'raised'
     || value === 'inset'
     || value === 'selected'
@@ -57,7 +79,7 @@ function surfaceVariantFromValue(value: unknown): SurfaceVariant | undefined {
 function surfaceBorder(widget: Widget, variant = surfaceVariantFromValue(widget.props['variant'])): BorderStyle | undefined {
   const explicit = borderStyleFromValue(widget.props['border']);
   if (explicit !== undefined) return surfaceBorderStyle(widget, explicit, variant);
-  if (variant === undefined || variant === 'base') return undefined;
+  if (variant === undefined || variant === 'neutral') return undefined;
   return surfaceBorderStyle(widget, { kind: 'single' }, variant);
 }
 
@@ -125,7 +147,7 @@ export function drawSurfaceShadow(buffer: FrameBuffer, bounds: Rect): void {
 
 function surfaceBackgroundToken(variant: SurfaceVariant): ThemeToken {
   switch (variant) {
-    case 'base':
+    case 'neutral':
       return 'surface.background';
     case 'raised':
       return 'surface.raised.background';
@@ -144,7 +166,7 @@ function surfaceBackgroundToken(variant: SurfaceVariant): ThemeToken {
 
 function surfaceBorderToken(variant: SurfaceVariant): ThemeToken {
   switch (variant) {
-    case 'base':
+    case 'neutral':
       return 'surface.border';
     case 'raised':
       return 'surface.raised.border';

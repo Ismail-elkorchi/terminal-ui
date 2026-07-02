@@ -4,7 +4,7 @@ import test from 'node:test';
 import { input, runPrompt } from '../../dist/prompts/index.js';
 import { createTerminalHarness, replayTranscript, runInteractionScript } from '../../dist/testing/index.js';
 import { defineTui, renderWidgetFrame, runTui } from '../../dist/tui/index.js';
-import { button, richText, stack, tree, inputField } from '../../dist/widgets/index.js';
+import { button, richText, stack, tree, textInput } from '../../dist/widgets/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
 test('testing harness records input and output deterministically', async () => {
@@ -83,7 +83,7 @@ test('terminal harness delivers normalized key events to TUI runtimes', async ()
     id: 'harness-key-events',
     init: () => ({ submitted: false }),
     update: (_state, message) => ({ state: { submitted: message.submitted }, exit: {} }),
-    view: (state) => inputField({
+    view: (state) => textInput({
       id: 'submit',
       value: state.submitted ? 'submitted' : 'waiting',
       message: { submitted: true }
@@ -149,7 +149,7 @@ test('terminal harness resize events drive active TUI resize handling', async ()
     id: 'harness-resize',
     init: () => ({ done: false }),
     update: (_state, message) => ({ state: { done: message.done }, exit: {} }),
-    view: (_state, context) => inputField({
+    view: (_state, context) => textInput({
       id: 'resize-field',
       value: `columns:${context.viewport.columns}`,
       message: { done: true }

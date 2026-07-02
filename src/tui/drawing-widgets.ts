@@ -5,6 +5,8 @@ import type { CanvasPainterInput } from '../widgets/types.ts';
 import type { Rect } from './layout.ts';
 import type { WidgetRenderInput } from './widget-renderer.ts';
 import { createCanvas2D } from './canvas2d/index.ts';
+import { layoutContentBounds } from './regions.ts';
+import { layoutFlowOptions } from './renderers/support/layout.ts';
 import { surfaceChildContentBounds } from './surface.ts';
 
 export function renderCanvas(input: WidgetRenderInput): void {
@@ -22,7 +24,7 @@ export function renderCanvas(input: WidgetRenderInput): void {
 }
 
 export function surfaceChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
-  const contentBounds = surfaceChildContentBounds(widget, bounds);
+  const contentBounds = layoutContentBounds(surfaceChildContentBounds(widget, bounds), layoutFlowOptions(widget));
   return (widget.children ?? []).map(() => contentBounds);
 }
 
@@ -57,9 +59,8 @@ export function canvasAccessibleBase(widget: Widget, id: string, focused: boolea
 export function surfaceAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
   return {
     id,
-    role: 'application',
+    role: 'text',
     label: stringify(widget.props['label']) || id,
-    scope: { kind: 'document' },
     ...(focused ? { focused } : {})
   };
 }

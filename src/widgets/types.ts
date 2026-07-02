@@ -29,14 +29,12 @@ export interface Widget<TMessage = unknown> {
 export type WidgetKind =
   | 'text'
   | 'richText'
-  | 'box'
   | 'stack'
   | 'row'
   | 'list'
   | 'table'
   | 'tree'
   | 'paginator'
-  | 'inputField'
   | 'textArea'
   | 'form'
   | 'field'
@@ -80,7 +78,6 @@ export type WidgetKind =
   | 'activityFeed'
   | 'commandBar'
   | 'palette'
-  | 'areaGrid'
   | 'grid'
   | 'splitPane'
   | 'tabs'
@@ -173,13 +170,6 @@ export interface RichTextWidgetOptions<TMessage = never> extends WidgetLayerOpti
   readonly id?: string;
   readonly segments: readonly RenderSpan[];
   readonly wrap?: boolean;
-  readonly keyMap?: WidgetKeyMap<TMessage>;
-  readonly accessibility?: AccessibleNodeDefinition;
-}
-
-export interface BoxWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
-  readonly id?: string;
-  readonly border?: BorderStyle;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
@@ -283,15 +273,6 @@ export interface PaginatorWidgetOptions<TMessage = never> extends WidgetLayerOpt
   readonly pageCount: number;
   readonly label?: string;
   readonly keyMap?: WidgetKeyMap<TMessage>;
-  readonly accessibility?: AccessibleNodeDefinition;
-}
-
-export interface InputFieldWidgetOptions<TMessage> extends WidgetLayerOptions {
-  readonly id?: string;
-  readonly value?: string;
-  readonly message?: TMessage;
-  readonly keyMap?: WidgetKeyMap<TMessage>;
-  readonly inputMap?: WidgetInputMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
@@ -514,6 +495,7 @@ export interface TextInputWidgetOptions<TMessage = never> extends WidgetLayerOpt
   readonly cursor?: number;
   readonly selection?: TextSelection;
   readonly placeholder?: string;
+  readonly message?: TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
@@ -668,7 +650,7 @@ export interface CanvasWidgetOptions<TMessage = never> extends WidgetLayerOption
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface SurfaceWidgetOptions<TMessage = never> extends WidgetLayerOptions {
+export interface SurfaceWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
   readonly id?: string;
   readonly label?: string;
   readonly variant?: SurfaceVariant;
@@ -998,18 +980,18 @@ export interface PaletteWidgetOptions<TValue = string, TMessage = never> extends
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface AreaGridWidgetOptions<TMessage = never> extends WidgetLayerOptions, GridLayoutOptions {
+export interface GridWidgetOptions<TMessage = never> extends WidgetLayerOptions, GridLayoutOptions {
   readonly id?: string;
-  readonly areas: string;
-  readonly children: Readonly<Record<string, Widget<TMessage>>>;
   readonly rows: readonly LayoutSize[];
   readonly columns: readonly LayoutSize[];
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface GridWidgetOptions<TMessage = never> extends WidgetLayerOptions, GridLayoutOptions {
+export interface GridAreasWidgetOptions<TMessage = never> extends WidgetLayerOptions, GridLayoutOptions {
   readonly id?: string;
+  readonly areas: string;
+  readonly children: Readonly<Record<string, Widget<TMessage>>>;
   readonly rows: readonly LayoutSize[];
   readonly columns: readonly LayoutSize[];
   readonly keyMap?: WidgetKeyMap<TMessage>;

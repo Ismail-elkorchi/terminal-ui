@@ -20,7 +20,7 @@ import {
   tokyoNightTheme
 } from '../../dist/theme/index.js';
 import { renderWidgetFrame } from '../../dist/tui/index.js';
-import { barChart, box, progressBar, stack, table, text } from '../../dist/widgets/index.js';
+import { barChart, progressBar, stack, surface, table, text } from '../../dist/widgets/index.js';
 
 const packedThemes = [
   catppuccinTheme,
@@ -90,8 +90,8 @@ test('theme matrix snapshots cover core widgets with packs high contrast and no 
   const themes = [...packedThemes, highContrastTheme, noColorTheme];
   for (const theme of themes) {
     const frame = renderWidgetFrame(stack([
-      box(text(`Theme ${theme.name}`, { id: `title-${theme.name}` }), {
-        id: `box-${theme.name}`,
+      surface(text(`Theme ${theme.name}`, { id: `title-${theme.name}` }), {
+        id: `surface-${theme.name}`,
         border: { kind: 'rounded', title: theme.name },
         padding: 1
       }),

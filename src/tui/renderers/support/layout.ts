@@ -14,6 +14,9 @@ import type {
 import type { WidgetMeasureResult } from '../../widget-renderer.ts';
 
 export function gridChildBounds(widget: Widget, bounds: Rect, childMeasures: readonly WidgetMeasureResult[]): readonly Rect[] {
+  if (Array.isArray(widget.props['areas'])) {
+    return gridAreaChildBounds(widget, bounds);
+  }
   const rows = layoutSizes(widget.props['rows']);
   const columns = layoutSizes(widget.props['columns']);
   const resolvedRows = rows.length === 0 ? [{ kind: 'fill' as const }] : rows;
@@ -43,9 +46,9 @@ export function gridChildBounds(widget: Widget, bounds: Rect, childMeasures: rea
   return (widget.children ?? []).map((_child, index) => cells[index] ?? emptyRect(bounds));
 }
 
-export function areaGridChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
-  const template = areaGridTemplate(widget.props['areas']);
-  const areaNames = areaGridAreaNames(widget.props['areaNames']);
+function gridAreaChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
+  const template = gridAreasTemplate(widget.props['areas']);
+  const areaNames = gridAreaNames(widget.props['areaNames']);
   if (template.length === 0 || areaNames.length === 0) return [];
   const rows = layoutSizes(widget.props['rows']);
   const columns = layoutSizes(widget.props['columns']);
@@ -160,13 +163,13 @@ export function gridLayoutOptions(widget: Widget): GridLayoutOptions {
   };
 }
 
-function areaGridTemplate(value: unknown): readonly (readonly string[])[] {
+function gridAreasTemplate(value: unknown): readonly (readonly string[])[] {
   return Array.isArray(value)
     ? value.flatMap((row): readonly string[][] => Array.isArray(row) && row.every((cell) => typeof cell === 'string') ? [row] : [])
     : [];
 }
 
-function areaGridAreaNames(value: unknown): readonly string[] {
+function gridAreaNames(value: unknown): readonly string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 

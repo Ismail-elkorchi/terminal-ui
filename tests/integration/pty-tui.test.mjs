@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { createPtyTerminalHarness } from '../../dist/testing/index.js';
 import { defineTui, runTui } from '../../dist/tui/index.js';
-import { inputField, text } from '../../dist/widgets/index.js';
+import { textInput, text } from '../../dist/widgets/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
 const enterKey = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
@@ -19,7 +19,7 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
       state: { submitted: message.submitted },
       ...(message.submitted ? { exit: { reason: 'submitted' } } : {})
     }),
-    view: (state) => inputField({
+    view: (state) => textInput({
       id: 'submit',
       value: state.submitted ? 'submitted' : 'waiting',
       message: { submitted: true }

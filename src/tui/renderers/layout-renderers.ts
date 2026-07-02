@@ -1,11 +1,9 @@
-import { drawBorder } from '../border.ts';
 import { createFrameBuffer } from '../frame.ts';
-import { layoutContentBounds, splitTracks } from '../regions.ts';
+import { splitTracks } from '../regions.ts';
 import { writeRenderBlock } from './support/block.ts';
-import { borderContentBounds, borderForModal, borderForWidget, modalLabel } from './support/border.ts';
+import { borderContentBounds, borderForModal, modalLabel } from './support/border.ts';
 import { cellInside, groupAccessibleNode } from './support/common.ts';
 import {
-  areaGridChildBounds,
   fillLayoutSizes,
   gridChildBounds,
   layoutFlowOptions,
@@ -19,19 +17,10 @@ import {
   viewportScrollbarState
 } from './support/scroll.ts';
 import { modalChildBounds, viewportAccessibleDescription, viewportChildBounds } from './support/viewport.ts';
-import { drawSurfaceShadow, fillSurfaceBackground, surfaceBackgroundStyle } from '../surface.ts';
+import { drawSurfaceFrame } from '../surface.ts';
 import type { RendererMap } from './types.ts';
 
 export const layoutRenderers = {
-  box: {
-    layout: ({ widget, bounds }) => (widget.children ?? [])
-      .map(() => layoutContentBounds(borderContentBounds(bounds, borderForWidget(widget)), layoutFlowOptions(widget))),
-    render: (input) => {
-      drawBorder(input.buffer, input.node.bounds, borderForWidget(input.widget, input.focused), input.theme);
-      input.renderChildren();
-    },
-    accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
-  },
   row: {
     layout: ({ widget, bounds }) => splitTracks(bounds, 'horizontal', priorityFillLayoutSizes(widget.children ?? []), layoutFlowOptions(widget)),
     render: (input) => {
@@ -77,13 +66,6 @@ export const layoutRenderers = {
     },
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
-  areaGrid: {
-    layout: ({ widget, bounds }) => areaGridChildBounds(widget, bounds),
-    render: (input) => {
-      input.renderChildren();
-    },
-    accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
-  },
   splitPane: {
     layout: ({ widget, bounds, childMeasures }) => splitPaneChildBounds(widget, bounds, childMeasures),
     render: (input) => {
@@ -113,9 +95,11 @@ export const layoutRenderers = {
     layout: ({ widget, bounds }) => [borderContentBounds(modalChildBounds(widget, bounds), borderForModal(widget))],
     render: (input) => {
       const childBounds = modalChildBounds(input.widget, input.node.bounds);
-      fillSurfaceBackground(input.buffer, childBounds, surfaceBackgroundStyle(input.widget, 'raised'));
-      drawSurfaceShadow(input.buffer, childBounds);
-      drawBorder(input.buffer, childBounds, borderForModal(input.widget, input.focused), input.theme);
+      drawSurfaceFrame(input.buffer, childBounds, input.widget, input.theme, input.focused, {
+        variant: 'raised',
+        border: borderForModal(input.widget),
+        shadow: true
+      });
       input.renderChildren();
     },
     accessibility: ({ widget, id }) => ({
@@ -129,4 +113,4 @@ export const layoutRenderers = {
       }
     })
   }
-} satisfies RendererMap<'box' | 'row' | 'stack' | 'viewport' | 'grid' | 'areaGrid' | 'splitPane' | 'tabs' | 'modal'>;
+} satisfies RendererMap<'row' | 'stack' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'modal'>;

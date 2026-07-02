@@ -17,7 +17,7 @@ import {
   canvas,
   commandBar,
   form,
-  inputField,
+  textInput,
   list,
   palette,
   richText,
@@ -25,7 +25,6 @@ import {
   stack,
   table,
   text,
-  textInput,
   tree
 } from '../../dist/widgets/index.js';
 
@@ -64,8 +63,8 @@ test('large scrollback rendering is bounded by viewport size, not collection siz
 });
 
 test('small local frame updates produce bounded render diffs', () => {
-  const previous = renderWidgetFrame(inputField({ id: 'field', value: 'alpha' }), { columns: 24, rows: 3 });
-  const next = renderWidgetFrame(inputField({ id: 'field', value: 'alpha!' }), { columns: 24, rows: 3 });
+  const previous = renderWidgetFrame(textInput({ id: 'field', value: 'alpha' }), { columns: 24, rows: 3 });
+  const next = renderWidgetFrame(textInput({ id: 'field', value: 'alpha!' }), { columns: 24, rows: 3 });
   const diff = diffFrames(previous, next);
 
   assert.equal(diff.fullRewrite, false);

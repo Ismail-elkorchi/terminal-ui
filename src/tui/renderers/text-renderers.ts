@@ -10,9 +10,8 @@ import { activityIndicatorBlock } from '../feedback-visual.ts';
 import { stringify } from '../widget-props.ts';
 import { block, line, span } from '../frame.ts';
 import { defaultStyleForTextRole } from '../widget-style.ts';
-import { singleLineInputBlock, singleLineInputCursor } from '../input-visual.ts';
 import { writeBlock, writeRenderBlock } from './support/block.ts';
-import { focusTarget, widgetMessageHitTargets } from './support/common.ts';
+import { focusTarget } from './support/common.ts';
 import {
   drawScrollbars,
   scrollbarsForWidget,
@@ -43,32 +42,6 @@ export const textRenderers = {
     },
     accessibility: ({ widget, id }) => richTextAccessibleBase(widget, id)
   },
-  inputField: {
-    render: ({ widget, node, buffer, focused, theme }) => {
-      writeRenderBlock(buffer, node.bounds, singleLineInputBlock({
-        widget,
-        bounds: node.bounds,
-        theme,
-        value: stringify(widget.props['value']),
-        focused
-      }));
-    },
-    accessibility: ({ widget, id, focused }) => ({
-      id,
-      role: 'textbox',
-      label: id,
-      value: stringify(widget.props['value']),
-      ...(focused ? { focused } : {})
-    }),
-    focusTargets: ({ widget, bounds, theme }) => [focusTarget(bounds, singleLineInputCursor({
-      widget,
-      bounds,
-      theme,
-      value: stringify(widget.props['value']),
-      focused: true
-    }))],
-    hitTargets: ({ widget, bounds }) => widgetMessageHitTargets(widget, bounds, 'input')
-  },
   textArea: {
     render: ({ widget, node, buffer, theme, focused }) => {
       const scrollbars = scrollbarsForWidget(widget, node.bounds, textAreaScrollbarState(widget, node.bounds), 'both');
@@ -86,7 +59,7 @@ export const textRenderers = {
     },
     accessibility: ({ widget, id }) => activityIndicatorAccessibleBase(widget, id)
   }
-} satisfies RendererMap<'text' | 'richText' | 'inputField' | 'textArea' | 'activityIndicator'>;
+} satisfies RendererMap<'text' | 'richText' | 'textArea' | 'activityIndicator'>;
 
 function textRoleStyle(value: unknown) {
   return value === 'title'

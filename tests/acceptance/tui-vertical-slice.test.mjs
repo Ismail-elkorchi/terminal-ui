@@ -11,15 +11,15 @@ import {
   renderWidgetFrame,
   runTui
 } from '../../dist/tui/index.js';
-import { box, inputField, row, stack, statusBar, text } from '../../dist/widgets/index.js';
+import { row, stack, statusBar, surface, text, textInput } from '../../dist/widgets/index.js';
 
 function dashboardWidget(state) {
-  return box(
+  return surface(
     stack([
       text('Terminal workbench', { id: 'title' }),
       row([
         text('Left pane', { id: 'left-pane' }),
-        inputField({
+        textInput({
           id: 'action-field',
           value: state.submitted ? 'Submitted' : 'Press enter',
           message: { type: 'submit' }
@@ -30,7 +30,7 @@ function dashboardWidget(state) {
         text: state.submitted ? 'Status: done' : 'Status: waiting'
       })
     ], { id: 'body' }),
-    { id: 'root-box' }
+    { id: 'root-surface', border: { kind: 'single' } }
   );
 }
 
@@ -39,8 +39,8 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
 
   const viewport = { columns: 30, rows: 6 };
   const layout = layoutWidget(initialWidget, viewport);
-  assert.equal(layout.kind, 'box');
-  assert.equal(layout.id, 'root-box');
+  assert.equal(layout.kind, 'surface');
+  assert.equal(layout.id, 'root-surface');
   assert.deepEqual(layout.bounds, { row: 1, column: 1, width: 30, height: 6 });
   assert.equal(layout.children[0]?.kind, 'stack');
   assert.equal(layout.children[0]?.children[1]?.kind, 'row');
@@ -51,7 +51,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.equal(frame.width, 30);
   assert.equal(frame.height, 6);
   assert.equal(frame.accessibility.source, 'tui');
-  assert.equal(frame.accessibility.root.id, 'root-box');
+  assert.equal(frame.accessibility.root.id, 'root-surface');
   assert.ok(frame.focusPath?.includes('action-field'));
 
   const rendered = renderFramePlain(frame);
@@ -103,12 +103,12 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.ok(dirtyRegions.length > 1);
   assert.equal(harness.restores().length, 1);
   assert.equal(harness.snapshot().source, 'tui');
-  assert.equal(harness.snapshot().root.id, 'root-box');
+  assert.equal(harness.snapshot().root.id, 'root-surface');
   assert.equal(harness.transcript.snapshot().steps.filter((step) => step.kind === 'frame').length, 2);
   assert.equal(harness.transcript.snapshot().steps.filter((step) => step.kind === 'diff').length, 2);
   assert.equal(harness.transcript.snapshot().steps.filter((step) => step.kind === 'restore').length, 1);
   assert.match(harness.output(), /Terminal workbench/u);
   assert.match(harness.output(), /Submitted/u);
-  assert.equal(exit.snapshot.root.id, 'root-box');
+  assert.equal(exit.snapshot.root.id, 'root-surface');
   assert.equal(harness.host.stdin.isRawModeEnabled(), false);
 });

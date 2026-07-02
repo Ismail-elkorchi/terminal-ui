@@ -10,7 +10,7 @@ import {
   scrollReducer,
   visibleWindowFromScroll
 } from '../../dist/tui/index.js';
-import { inputField, stack } from '../../dist/widgets/index.js';
+import { textInput, stack } from '../../dist/widgets/index.js';
 import { textSamples } from '../support/text-samples.mjs';
 
 test('text property checks keep sanitization segmentation clipping and wrapping bounded', () => {
@@ -67,18 +67,18 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
     init: () => ({ active: 'initial' }),
     update: (state, message) => ({ state: { ...state, active: message.kind } }),
     view: (state) => stack([
-      inputField({
+      textInput({
         id: 'first',
         value: state.active,
         keyMap: { enter: { kind: 'first' } }
       }),
-      inputField({
+      textInput({
         id: 'disabled',
         value: state.active,
         focus: { disabled: true },
         keyMap: { enter: { kind: 'disabled' } }
       }),
-      inputField({
+      textInput({
         id: 'second',
         value: state.active,
         keyMap: { enter: { kind: 'second' } }

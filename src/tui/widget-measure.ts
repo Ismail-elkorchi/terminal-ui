@@ -1,4 +1,5 @@
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
+import { borderStyleFromValue } from './border.ts';
 import { commandBarBlock } from './command-bar.ts';
 import { barChartText, chartText, gaugeText, heatmapText, sparklineText } from './chart-widgets.ts';
 import { dividerPreferredSize } from './divider.ts';
@@ -23,7 +24,6 @@ import { paletteBlock } from './palette.ts';
 import { progressText } from './progress-widget.ts';
 import { notificationStackPreferredSize } from './notifications.ts';
 import { statusBarText } from './feedback-visual.ts';
-import { borderForWidget } from './renderers/support/border.ts';
 import { isRecord, nonNegativeInteger } from './renderers/support/common.ts';
 import { tabsHeaderText } from './renderers/support/tabs.ts';
 import { activityFeedBlock, structuredBlockBlock } from './structured-block.ts';
@@ -33,6 +33,7 @@ import { treeBlock } from './tree.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
+import type { BorderStyle } from './border.ts';
 import type { RenderBlock, RenderLine } from './frame.ts';
 import type { LayoutNode, Rect } from './layout.ts';
 import type { WidgetMeasureResult } from './widget-renderer.ts';
@@ -73,8 +74,6 @@ export function measureBuiltinWidget(
       return measureRenderBlock(richTextBlock(widget, intrinsicBounds(bounds)));
     case 'statusBar':
       return measurePlainText(statusBarText(widget));
-    case 'inputField':
-      return measurePlainText(stringify(widget.props['value']));
     case 'textArea':
       return measurePlainText(textAreaMeasureText(widget));
     case 'label':
@@ -159,8 +158,6 @@ export function measureBuiltinWidget(
       return measureRenderBlock(commandBarBlock(widget, intrinsicBounds(bounds).height, theme));
     case 'palette':
       return measureRenderBlock(paletteBlock(widget, intrinsicBounds(bounds).height, theme));
-    case 'box':
-      return measureBoxWidget(widget, bounds, theme, measureWidget);
     case 'form':
     case 'field':
     case 'stack':
@@ -168,11 +165,11 @@ export function measureBuiltinWidget(
     case 'row':
       return measureChildrenHorizontally(widget, bounds, theme, measureWidget);
     case 'grid':
-    case 'areaGrid':
     case 'splitPane':
-    case 'surface':
     case 'overlay':
       return measureChildrenOverlay(widget, bounds, theme, measureWidget);
+    case 'surface':
+      return measureSurfaceWidget(widget, bounds, theme, measureWidget);
     case 'absolute':
       return measureAbsoluteWidget(widget, bounds, theme, measureWidget);
     case 'canvas':
@@ -228,16 +225,23 @@ function measureTableWidget(widget: Widget): WidgetMeasureResult {
   return measureSize(width, rows.length + (hasHeader ? 1 : 0));
 }
 
-function measureBoxWidget(
+function measureSurfaceWidget(
   widget: Widget,
   bounds: Rect,
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
 ): WidgetMeasureResult {
   const content = measureChildrenOverlay(widget, bounds, theme, measureWidget);
-  const border = borderForWidget(widget);
+  const border = borderFromWidget(widget);
   const insetCells = border.kind === 'none' ? 0 : 2;
   return measureSize(content.preferredWidth + insetCells, content.preferredHeight + insetCells);
+}
+
+function borderFromWidget(widget: Widget): BorderStyle {
+  const explicit = borderStyleFromValue(widget.props['border']);
+  if (explicit !== undefined) return explicit;
+  const variant = widget.props['variant'];
+  return variant === undefined || variant === 'neutral' ? { kind: 'none' } : { kind: 'single' };
 }
 
 function measureChildrenVertically(
@@ -338,7 +342,7 @@ function measureModalWidget(
   if (explicitWidth !== undefined && explicitHeight !== undefined) {
     return measureSize(explicitWidth, explicitHeight, Math.min(4, explicitWidth), Math.min(3, explicitHeight));
   }
-  const content = measureBoxWidget(widget, bounds, theme, measureWidget);
+  const content = measureSurfaceWidget(widget, bounds, theme, measureWidget);
   return measureSize(
     explicitWidth ?? Math.max(4, content.preferredWidth),
     explicitHeight ?? Math.max(3, content.preferredHeight)

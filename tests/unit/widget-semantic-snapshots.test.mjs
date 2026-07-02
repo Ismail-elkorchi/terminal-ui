@@ -10,9 +10,7 @@ import {
   absolute,
   activityFeed,
   activityIndicator,
-  areaGrid,
   barChart,
-  box,
   button,
   canvas,
   chart,
@@ -30,7 +28,7 @@ import {
   grid,
   helpBar,
   heatmap,
-  inputField,
+  textInput,
   label,
   list,
   menu,
@@ -60,7 +58,6 @@ import {
   tabs,
   text,
   textArea,
-  textInput,
   tooltip,
   tree,
   toggleSwitch,
@@ -146,14 +143,6 @@ const cases = [
     expectStyledCells: true
   },
   {
-    name: 'box',
-    widget: () => box(text(unsafe, { id: 'box-child' }), {
-      id: 'box',
-      border: { kind: 'single', title: unsafe }
-    }),
-    expectText: /Unsafe red text/u
-  },
-  {
     name: 'stack',
     widget: () => stack([
       text(unsafe, { id: 'stack-one' }),
@@ -205,12 +194,6 @@ const cases = [
     name: 'paginator',
     widget: () => paginator({ id: 'pages', label: unsafe, page: 2, pageCount: 3 }),
     expectText: /Page 2 of 3/u
-  },
-  {
-    name: 'inputField',
-    widget: () => inputField({ id: 'input-field', value: unsafe }),
-    expectText: /Unsafe red text/u,
-    expectFocus: true
   },
   {
     name: 'textArea',
@@ -432,7 +415,11 @@ const cases = [
   },
   {
     name: 'surface',
-    widget: () => surface(text(unsafe, { id: 'surface-child' }), { id: 'surface', label: unsafe }),
+    widget: () => surface(text(unsafe, { id: 'surface-child' }), {
+      id: 'surface',
+      label: unsafe,
+      border: { kind: 'single', title: unsafe }
+    }),
     expectText: /Unsafe red text/u
   },
   {
@@ -592,24 +579,6 @@ const cases = [
     expectFocus: true
   },
   {
-    name: 'areaGrid',
-    widget: () => areaGrid({
-      id: 'area-grid',
-      areas: `
-        top top
-        left main
-      `,
-      rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }],
-      columns: [{ kind: 'fixed', cells: 10 }, { kind: 'fill' }],
-      children: {
-        top: text(unsafe, { id: 'area-top' }),
-        left: text('Left', { id: 'area-left' }),
-        main: text('Main', { id: 'area-main' })
-      }
-    }),
-    expectText: /Main/u
-  },
-  {
     name: 'grid',
     widget: () => grid([
       text(unsafe, { id: 'grid-one' }),
@@ -665,9 +634,7 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
     'absolute',
     'activityFeed',
     'activityIndicator',
-    'areaGrid',
     'barChart',
-    'box',
     'button',
     'canvas',
     'chart',
@@ -685,7 +652,6 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
     'grid',
     'heatmap',
     'helpBar',
-    'inputField',
     'label',
     'list',
     'menu',

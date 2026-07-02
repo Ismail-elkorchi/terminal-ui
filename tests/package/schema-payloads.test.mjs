@@ -12,7 +12,7 @@ import { input, runPrompt } from '../../dist/prompts/index.js';
 import { createShell, runShell } from '../../dist/shell/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { defineTui, diffFrames, renderWidgetFrame } from '../../dist/tui/index.js';
-import { inputField, text } from '../../dist/widgets/index.js';
+import { textInput, text } from '../../dist/widgets/index.js';
 
 const schemaFiles = [
   'accessible-snapshot.schema.json',
@@ -50,7 +50,7 @@ test('schemas validate payloads emitted by public runtime APIs', async () => {
     id: 'schema-payloads',
     init: () => ({ ready: true }),
     update: (state) => ({ state }),
-    view: () => inputField({ id: 'schema-field', value: 'ready' })
+    view: () => textInput({ id: 'schema-field', value: 'ready' })
   });
   const frame = renderWidgetFrame(app.definition.view({ ready: true }, {
     host: harness.host,

@@ -15,19 +15,19 @@ import {
 } from '../../dist/tui/index.js';
 import { defaultTheme } from '../../dist/theme/index.js';
 import {
-  box,
   canvas,
   commandBar,
   contextMenu,
   dropdown,
   grid,
-  inputField,
+  textInput,
   modal,
   overlay,
   splitPane,
   table,
   tabs,
-  text
+  text,
+  surface
 } from '../../dist/widgets/index.js';
 
 test('track helpers split fixed, percent, and fill regions deterministically', () => {
@@ -140,8 +140,8 @@ test('grid content rows and columns use measured child dimensions', () => {
 });
 
 test('layout flow options align, justify, and bound content regions', () => {
-  const widget = box(text('centered', { id: 'centered' }), {
-    id: 'aligned-box',
+  const widget = surface(text('centered', { id: 'centered' }), {
+    id: 'aligned-surface',
     border: { kind: 'none' },
     maxWidth: 4,
     maxHeight: 1,
@@ -155,11 +155,11 @@ test('layout flow options align, justify, and bound content regions', () => {
 });
 
 test('layout overflow controls whether min sizes can exceed parent bounds', () => {
-  const clipped = layoutWidget(box(text('clip', { id: 'clip' }), {
+  const clipped = layoutWidget(surface(text('clip', { id: 'clip' }), {
     border: { kind: 'none' },
     minWidth: 8
   }), { columns: 4, rows: 2 });
-  const visible = layoutWidget(box(text('visible', { id: 'visible' }), {
+  const visible = layoutWidget(surface(text('visible', { id: 'visible' }), {
     border: { kind: 'none' },
     minWidth: 8,
     overflow: 'visible'
@@ -174,8 +174,8 @@ test('tabs render only the selected panel as focusable content', () => {
     id: 'tabs',
     selected: 'second',
     tabs: [
-      { id: 'first', label: 'First', panel: inputField({ id: 'first-input', value: 'hidden' }) },
-      { id: 'second', label: 'Second', panel: inputField({ id: 'second-input', value: 'visible' }) }
+      { id: 'first', label: 'First', panel: textInput({ id: 'first-input', value: 'hidden' }) },
+      { id: 'second', label: 'Second', panel: textInput({ id: 'second-input', value: 'visible' }) }
     ]
   });
 
@@ -206,7 +206,7 @@ test('modal centers a bounded dialog and lays out child content inside the borde
 });
 
 test('border model supports styled widget borders and borderless layout', () => {
-  const doubleFrame = renderWidgetFrame(box(text('inside', { id: 'inside' }), {
+  const doubleFrame = renderWidgetFrame(surface(text('inside', { id: 'inside' }), {
     id: 'panel',
     border: { kind: 'double', title: 'Panel' }
   }), { columns: 14, rows: 4 });
@@ -217,7 +217,7 @@ test('border model supports styled widget borders and borderless layout', () => 
   assert.match(doubleOutput, /║/u);
   assert.match(doubleOutput, /╚/u);
 
-  const borderless = box(text('flush', { id: 'flush' }), {
+  const borderless = surface(text('flush', { id: 'flush' }), {
     id: 'plain',
     border: { kind: 'none' }
   });
@@ -270,7 +270,7 @@ test('shared border renderer aligns titles and clips wide unicode safely', () =>
 });
 
 test('focused bordered widgets use focus border style without changing layout', () => {
-  const frame = renderWidgetFrame(box(text('inside', { id: 'inside' }), {
+  const frame = renderWidgetFrame(surface(text('inside', { id: 'inside' }), {
     id: 'focus-panel',
     border: { kind: 'single', title: 'Panel' },
     keyMap: { Enter: { kind: 'submit' } }
@@ -282,7 +282,7 @@ test('focused bordered widgets use focus border style without changing layout', 
 });
 
 test('focused bordered widgets respect explicit focus style override', () => {
-  const frame = renderWidgetFrame(box(text('inside', { id: 'inside' }), {
+  const frame = renderWidgetFrame(surface(text('inside', { id: 'inside' }), {
     id: 'focus-panel-custom',
     border: {
       kind: 'heavy',
@@ -298,7 +298,7 @@ test('focused bordered widgets respect explicit focus style override', () => {
 });
 
 test('layers render top z-index content last and hide invisible widgets', () => {
-  const widget = box([
+  const widget = surface([
     text('lower', { id: 'lower', zIndex: 0 }),
     text('UPPER', { id: 'upper', zIndex: 5 }),
     text('hidden', { id: 'hidden', zIndex: 10, visible: false })
@@ -320,9 +320,9 @@ test('layers render top z-index content last and hide invisible widgets', () => 
 });
 
 test('focus is scoped to the topmost visible focus layer', () => {
-  const widget = box([
-    inputField({ id: 'lower-input', value: 'lower', zIndex: 0 }),
-    inputField({ id: 'upper-input', value: 'upper', zIndex: 8 })
+  const widget = surface([
+    textInput({ id: 'lower-input', value: 'lower', zIndex: 0 }),
+    textInput({ id: 'upper-input', value: 'upper', zIndex: 8 })
   ], {
     id: 'focus-root',
     border: { kind: 'none' }
@@ -335,7 +335,7 @@ test('focus is scoped to the topmost visible focus layer', () => {
 });
 
 test('overlapping modal renders above lower region content', () => {
-  const widget = box([
+  const widget = surface([
     canvas({
       id: 'modal-backdrop-canvas',
       zIndex: 0,
@@ -375,7 +375,7 @@ test('overlapping modal renders above lower region content', () => {
 });
 
 test('dropdown renders above table content in a higher region', () => {
-  const widget = box([
+  const widget = surface([
     table({
       id: 'settings-table',
       zIndex: 0,
@@ -417,7 +417,7 @@ test('dropdown renders above table content in a higher region', () => {
 });
 
 test('context menu renders above canvas content in a higher region', () => {
-  const widget = box([
+  const widget = surface([
     canvas({
       id: 'context-menu-canvas',
       zIndex: 0,

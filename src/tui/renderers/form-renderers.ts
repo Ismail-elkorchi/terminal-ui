@@ -47,7 +47,7 @@ import {
 } from '../form-widgets.ts';
 import { splitTracks } from '../regions.ts';
 import { writeRenderBlock } from './support/block.ts';
-import { focusTarget } from './support/common.ts';
+import { focusTarget, widgetMessageHitTargets } from './support/common.ts';
 import { fillLayoutSizes, layoutFlowOptions } from './support/layout.ts';
 import type { RendererMap } from './types.ts';
 
@@ -184,7 +184,8 @@ export const formRenderers = {
       writeRenderBlock(buffer, node.bounds, textInputBlock(widget, node.bounds, focused, theme));
     },
     accessibility: ({ widget, id, focused }) => textInputAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds, textInputCursor(widget, bounds))]
+    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds, textInputCursor(widget, bounds))],
+    hitTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : widgetMessageHitTargets(widget, bounds, 'input')
   },
   numberInput: {
     render: ({ widget, node, buffer, focused, theme }) => {

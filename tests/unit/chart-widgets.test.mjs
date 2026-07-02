@@ -11,7 +11,7 @@ import {
   renderFramePlain,
   renderWidgetFrame
 } from '../../dist/tui/index.js';
-import { barChart, box, chart, gauge, heatmap, progressBar, row, sparkline, stack } from '../../dist/widgets/index.js';
+import { barChart, chart, gauge, heatmap, progressBar, row, sparkline, stack, surface } from '../../dist/widgets/index.js';
 
 test('sparkline renders bounded numeric points', () => {
   const frame = renderWidgetFrame(sparkline({
@@ -122,7 +122,7 @@ test('chart renders error state without anonymous text cells', () => {
 test('chart intrinsic measurement remains bounded inside content layout', () => {
   const layout = layoutWidget(stack([
     row([
-      box(stack([
+      surface(stack([
         progressBar({ id: 'progress', value: 48, max: 100 }),
         chart({ id: 'chart', series: [{ id: 'live', points: [2, 4, 3, 5, 6, 8] }] })
       ]), { id: 'motion', border: { label: 'Motion' } })

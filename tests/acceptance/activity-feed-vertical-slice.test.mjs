@@ -4,10 +4,10 @@ import test from 'node:test';
 import { findAccessibleNode } from '../../dist/accessibility/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { defineTui, renderFramePlain, runTui } from '../../dist/tui/index.js';
-import { activityFeed, box, statusBar, stack } from '../../dist/widgets/index.js';
+import { activityFeed, stack, statusBar, surface } from '../../dist/widgets/index.js';
 
 function view(state) {
-  return box(stack([
+  return surface(stack([
     activityFeed({
       id: 'activity',
       selected: state.selected,
@@ -15,7 +15,7 @@ function view(state) {
       keyMap: { enter: { kind: 'advance' } }
     }),
     statusBar({ id: 'status', text: `Selected ${state.selected}` })
-  ]), { id: 'root' });
+  ]), { id: 'root', border: { kind: 'single' } });
 }
 
 test('activity feed vertical slice maps generic activity blocks through runtime frames', async () => {

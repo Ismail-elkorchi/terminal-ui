@@ -8,7 +8,7 @@ import {
   renderWidgetFrame,
   spinnerReducer
 } from '../../dist/tui/index.js';
-import { activityIndicator, commandBar, helpBar, inputField, richText, spinner, textArea, textInput } from '../../dist/widgets/index.js';
+import { activityIndicator, commandBar, helpBar, richText, spinner, textArea, textInput } from '../../dist/widgets/index.js';
 
 test('richText renders sanitized styled segments as plain frame text', () => {
   const frame = renderWidgetFrame(richText({
@@ -46,7 +46,7 @@ test('text widgets map Unicode cursor positions through the shared text contract
     cursor: 'a🙂'.length,
     selection: { start: 1, end: 'a🙂'.length }
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-input'] });
-  const inputFieldFrame = renderWidgetFrame(inputField({
+  const secondaryInputFrame = renderWidgetFrame(textInput({
     id: 'unicode-field',
     value: 'go🙂'
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-field'] });
@@ -59,13 +59,24 @@ test('text widgets map Unicode cursor positions through the shared text contract
   }), { columns: 18, rows: 1 }, { focusPath: ['unicode-command'] });
 
   assert.deepEqual(textInputFrame.cursor, { row: 1, column: 7 });
-  assert.deepEqual(inputFieldFrame.cursor, { row: 1, column: 8 });
+  assert.deepEqual(secondaryInputFrame.cursor, { row: 1, column: 8 });
   assert.deepEqual(commandFrame.cursor, { row: 1, column: 6 });
   assert.equal(renderFramePlain(textInputFrame), '›[ a🙂界b ]');
-  assert.equal(renderFramePlain(inputFieldFrame), '›[ go🙂 ]');
+  assert.equal(renderFramePlain(secondaryInputFrame), '›[ go🙂 ]');
   assert.equal(renderFramePlain(commandFrame), '> a🙂界b');
   assert.equal(textInputFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
   assert.equal(commandFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
+});
+
+test('disabled textInput exposes no mouse hit target', () => {
+  const frame = renderWidgetFrame(textInput({
+    id: 'disabled-input',
+    value: 'locked',
+    disabled: true,
+    message: { kind: 'submit' }
+  }), { columns: 16, rows: 1 });
+
+  assert.deepEqual(frame.hitTargets ?? [], []);
 });
 
 test('textArea horizontal windows use visual cells without splitting graphemes', () => {
