@@ -134,13 +134,13 @@ export function measureBuiltinWidget(
     case 'sparkline':
       return measurePlainText(sparklineText(widget, theme));
     case 'barChart':
-      return measurePlainText(barChartText(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
+      return measurePlainText(barChartText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
     case 'chart':
-      return measurePlainText(chartText(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
+      return measurePlainText(chartText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
     case 'gauge':
       return measurePlainText(gaugeText(widget, theme));
     case 'heatmap':
-      return measurePlainText(heatmapText(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
+      return measurePlainText(heatmapText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
     case 'list':
       return measureListWidget(widget, theme);
     case 'table':
@@ -399,6 +399,20 @@ function intrinsicBounds(bounds: Rect): Rect {
     width: Math.max(bounds.width, 1_000),
     height: Math.max(bounds.height, 1_000)
   };
+}
+
+function visualMeasureBounds(bounds: Rect): Rect {
+  return {
+    row: bounds.row,
+    column: bounds.column,
+    width: boundedMeasureSize(bounds.width, 40, 120),
+    height: boundedMeasureSize(bounds.height, 8, 30)
+  };
+}
+
+function boundedMeasureSize(value: number, minimum: number, maximum: number): number {
+  const current = Number.isFinite(value) ? Math.floor(value) : 0;
+  return Math.min(maximum, Math.max(minimum, current));
 }
 
 function fakeLayoutNode(widget: Widget, bounds: Rect): LayoutNode {

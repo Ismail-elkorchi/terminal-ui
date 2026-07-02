@@ -7,10 +7,11 @@ import {
   drawAxes,
   drawBarSeries,
   drawLineSeries,
+  layoutWidget,
   renderFramePlain,
   renderWidgetFrame
 } from '../../dist/tui/index.js';
-import { barChart, chart, gauge, heatmap, sparkline } from '../../dist/widgets/index.js';
+import { barChart, box, chart, gauge, heatmap, progressBar, row, sparkline, stack } from '../../dist/widgets/index.js';
 
 test('sparkline renders bounded numeric points', () => {
   const frame = renderWidgetFrame(sparkline({
@@ -118,6 +119,22 @@ test('chart renders error state without anonymous text cells', () => {
   assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.label, 'state.error');
 });
 
+test('chart intrinsic measurement remains bounded inside content layout', () => {
+  const layout = layoutWidget(stack([
+    row([
+      box(stack([
+        progressBar({ id: 'progress', value: 48, max: 100 }),
+        chart({ id: 'chart', series: [{ id: 'live', points: [2, 4, 3, 5, 6, 8] }] })
+      ]), { id: 'motion', border: { label: 'Motion' } })
+    ])
+  ]), { columns: 84, rows: 18 });
+  const chartNode = findLayoutNode(layout, 'chart');
+
+  assert.ok(chartNode !== undefined);
+  assert.equal(chartNode.bounds.width <= 84, true);
+  assert.equal(chartNode.bounds.height <= 18, true);
+});
+
 test('gauge renders a labeled bounded meter with progress accessibility', () => {
   const frame = renderWidgetFrame(gauge({
     id: 'gauge',
@@ -199,4 +216,13 @@ function frameBufferText(buffer, width, height) {
     row[cell.column - 1] = cell.text;
   }
   return rows.map((row) => row.join('').trimEnd()).join('\n');
+}
+
+function findLayoutNode(node, id) {
+  if (node.id === id) return node;
+  for (const child of node.children ?? []) {
+    const found = findLayoutNode(child, id);
+    if (found !== undefined) return found;
+  }
+  return undefined;
 }

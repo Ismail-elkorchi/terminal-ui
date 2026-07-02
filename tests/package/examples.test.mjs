@@ -69,7 +69,14 @@ const productExampleAssertions = [
   }
 ];
 
-for (const example of exampleScripts) {
+const structuredExampleScripts = new Set([
+  'examples/showcase/app.mjs',
+  'examples/showcase/scripted.mjs',
+  'examples/showcase/preview.mjs',
+  ...productExampleAssertions.map((item) => item.script)
+]);
+
+for (const example of exampleScripts.filter((item) => !structuredExampleScripts.has(item))) {
   test(`example runs: ${example}`, () => {
     const result = spawnSync(process.execPath, [example], {
       cwd: root,

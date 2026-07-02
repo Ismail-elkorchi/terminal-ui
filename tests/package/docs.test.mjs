@@ -102,7 +102,7 @@ test('rendering documentation describes current architecture without deferred AP
   assert.equal(combined.includes('P0.5'), false);
 });
 
-test('documentation TypeScript and JavaScript snippets compile', async () => {
+test('documentation TypeScript and JavaScript snippets transpile without syntax errors', async () => {
   const docs = [
     'README.md',
     ...requiredDocs

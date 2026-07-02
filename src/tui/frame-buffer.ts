@@ -1,6 +1,6 @@
 import { measureTextCells } from '../text/index.ts';
 import { toAccessibleSnapshot } from '../accessibility/index.ts';
-import { createDirtyRegionSet } from './dirty-regions.ts';
+import { DirtyCoverageAccumulator } from './dirty-coverage.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FocusPath } from './focus.ts';
@@ -53,8 +53,8 @@ class CellFrameBuffer implements FrameBuffer {
   readonly height: number;
 
   private readonly cells: (FrameCell | undefined)[];
-  private writtenBounds: DirtyRegionSet = createDirtyRegionSet();
-  private clearedBounds: DirtyRegionSet = createDirtyRegionSet();
+  private readonly writtenCoverage = new DirtyCoverageAccumulator();
+  private readonly clearedCoverage = new DirtyCoverageAccumulator();
 
   constructor(width: number, height: number) {
     this.width = Math.max(0, Math.floor(width));
@@ -111,7 +111,7 @@ class CellFrameBuffer implements FrameBuffer {
   clear(rect?: Rect): void {
     const clipped = this.clipRect(rect ?? { row: 1, column: 1, width: this.width, height: this.height });
     if (clipped === undefined) return;
-    this.clearedBounds = this.clearedBounds.add(clipped);
+    this.clearedCoverage.add(clipped);
     for (let row = clipped.row; row < clipped.row + clipped.height; row += 1) {
       for (let column = clipped.column; column < clipped.column + clipped.width; column += 1) {
         this.clearCellGroup(row, column, 'none');
@@ -124,8 +124,7 @@ class CellFrameBuffer implements FrameBuffer {
       source: 'tui',
       root: { id: 'frame', role: 'text', label: 'frame' }
     });
-    const cells = Object.freeze(this.snapshotCells());
-    const rowFingerprints = Object.freeze(rowFingerprintsForCells(cells, this.height));
+    const { cells, rowFingerprints } = this.snapshotCellsAndFingerprints();
     return {
       schemaVersion: 'terminal-ui.tui-frame.v1',
       width: this.width,
@@ -133,8 +132,8 @@ class CellFrameBuffer implements FrameBuffer {
       cells,
       accessibility,
       metadata: {
-        writtenBounds: this.writtenBounds,
-        clearedBounds: this.clearedBounds,
+        writtenBounds: this.writtenCoverage.toDirtyRegionSet(),
+        clearedBounds: this.clearedCoverage.toDirtyRegionSet(),
         rowFingerprints,
         fingerprint: bufferFingerprint(rowFingerprints)
       },
@@ -162,15 +161,27 @@ class CellFrameBuffer implements FrameBuffer {
     return width === 0 || height === 0 ? undefined : { row, column, width, height };
   }
 
-  private snapshotCells(): readonly FrameCell[] {
+  private snapshotCellsAndFingerprints(): {
+    readonly cells: readonly FrameCell[];
+    readonly rowFingerprints: readonly FrameRowFingerprint[];
+  } {
     const output: FrameCell[] = [];
+    const rowFingerprints: FrameRowFingerprint[] = [];
     for (let row = 1; row <= this.height; row += 1) {
+      let rowHash = fnvOffset;
       for (let column = 1; column <= this.width; column += 1) {
         const cell = this.cellAt(row, column);
-        if (cell !== undefined) output.push(cell);
+        if (cell !== undefined) {
+          output.push(cell);
+          rowHash = hashFrameCell(rowHash, cell);
+        }
       }
+      rowFingerprints.push({ row, fingerprint: hashToString(rowHash) });
     }
-    return output;
+    return {
+      cells: Object.freeze(output),
+      rowFingerprints: Object.freeze(rowFingerprints)
+    };
   }
 
   private writeGrapheme(
@@ -181,6 +192,7 @@ class CellFrameBuffer implements FrameBuffer {
     for (let offset = 0; offset < cell.width; offset += 1) {
       this.clearCellGroup(row, column + offset, 'write');
     }
+    this.markWritten({ row, column, width: Math.max(1, cell.width), height: 1 });
     const mainCell: FrameCell = {
       row,
       column,
@@ -210,6 +222,7 @@ class CellFrameBuffer implements FrameBuffer {
     if (!this.containsCell(row, targetColumn)) return;
     const target = this.cellAt(row, targetColumn);
     if (target === undefined || target.continuation === true) return;
+    this.markWritten({ row: target.row, column: target.column, width: Math.max(1, target.width), height: 1 });
     this.setCell(row, targetColumn, {
       ...target,
       text: `${target.text}${text}`
@@ -258,7 +271,6 @@ class CellFrameBuffer implements FrameBuffer {
   private setCell(row: number, column: number, cell: FrameCell): void {
     if (!this.containsCell(row, column)) return;
     this.cells[this.index(row, column)] = cell;
-    this.markWritten({ row, column, width: 1, height: 1 });
   }
 
   private deleteCell(row: number, column: number): void {
@@ -272,71 +284,78 @@ class CellFrameBuffer implements FrameBuffer {
 
   private markWritten(rect: Rect): void {
     const clipped = this.clipRect(rect);
-    if (clipped !== undefined) this.writtenBounds = this.writtenBounds.add(clipped);
+    if (clipped !== undefined) this.writtenCoverage.add(clipped);
   }
-}
-
-function rowFingerprintsForCells(cells: readonly FrameCell[], height: number): readonly FrameRowFingerprint[] {
-  const rows = new Map<number, FrameCell[]>();
-  for (const cell of cells) rows.set(cell.row, [...(rows.get(cell.row) ?? []), cell]);
-  return Array.from({ length: height }, (_value, index): FrameRowFingerprint => {
-    const row = index + 1;
-    const rowCells = rows.get(row)?.toSorted((left, right) => left.column - right.column) ?? [];
-    return {
-      row,
-      fingerprint: hashString(rowCells.map(cellFingerprintInput).join('|'))
-    };
-  });
 }
 
 function bufferFingerprint(rows: readonly FrameRowFingerprint[]): string {
-  return hashString(rows.map((row) => `${String(row.row)}:${row.fingerprint}`).join('|'));
+  let hash = fnvOffset;
+  for (const row of rows) {
+    hash = hashNumber(hash, row.row);
+    hash = hashText(hash, row.fingerprint);
+  }
+  return hashToString(hash);
 }
 
-function cellFingerprintInput(cell: FrameCell): string {
-  return stableString([
-    cell.column,
-    cell.text,
-    cell.width,
-    cell.continuation === true,
-    cell.style,
-    cell.link,
-    cell.source
-  ]);
+const fnvOffset = 0x811c9dc5;
+const fnvPrime = 0x01000193;
+
+function hashFrameCell(hash: number, cell: FrameCell): number {
+  let next = hashText(hash, 'cell');
+  next = hashNumber(next, cell.column);
+  next = hashText(next, cell.text);
+  next = hashNumber(next, cell.width);
+  next = hashBoolean(next, cell.continuation === true);
+  next = hashJsonValue(next, cell.style);
+  next = hashJsonValue(next, cell.link);
+  return hashJsonValue(next, cell.source);
 }
 
-function stableString(value: unknown): string {
-  if (value === null) return 'null';
-  if (value === undefined) return 'undefined';
-  if (typeof value === 'string') return stringLiteral(value);
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
-  if (Array.isArray(value)) return `[${value.map(stableString).join(',')}]`;
+function hashJsonValue(hash: number, value: unknown): number {
+  if (value === null) return hashText(hash, 'null');
+  if (value === undefined) return hashText(hash, 'undefined');
+  if (typeof value === 'string') return hashText(hashText(hash, 'string'), value);
+  if (typeof value === 'number') return hashNumber(hashText(hash, 'number'), value);
+  if (typeof value === 'boolean') return hashBoolean(hashText(hash, 'boolean'), value);
+  if (Array.isArray(value)) {
+    let next = hashText(hash, 'array');
+    for (const item of value) next = hashJsonValue(next, item);
+    return hashText(next, 'end-array');
+  }
   if (typeof value === 'object') {
-    return `{${Object.entries(value as Record<string, unknown>)
-      .toSorted(([left], [right]) => left.localeCompare(right))
-      .map(([key, entry]) => `${stringLiteral(key)}:${stableString(entry)}`)
-      .join(',')}}`;
+    let next = hashText(hash, 'object');
+    for (const [key, entry] of Object.entries(value as Record<string, unknown>).toSorted(([left], [right]) => left.localeCompare(right))) {
+      next = hashText(next, key);
+      next = hashJsonValue(next, entry);
+    }
+    return hashText(next, 'end-object');
   }
-  if (typeof value === 'bigint') return `bigint:${value.toString()}`;
-  if (typeof value === 'symbol') return 'symbol';
-  if (typeof value === 'function') return 'function';
-  return 'unknown';
+  if (typeof value === 'bigint') return hashText(hashText(hash, 'bigint'), value.toString());
+  if (typeof value === 'symbol') return hashText(hash, 'symbol');
+  if (typeof value === 'function') return hashText(hash, 'function');
+  return hashText(hash, 'unknown');
 }
 
-function stringLiteral(value: string): string {
-  return `"${value
-    .replaceAll('\\', '\\\\')
-    .replaceAll('"', '\\"')
-    .replaceAll('\n', '\\n')
-    .replaceAll('\r', '\\r')
-    .replaceAll('\t', '\\t')}"`;
-}
-
-function hashString(value: string): string {
-  let hash = 0x811c9dc5;
+function hashText(hash: number, value: string): number {
+  let next = hash;
   for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
+    next = hashCodeUnit(next, value.charCodeAt(index));
   }
+  return hashCodeUnit(next, 0);
+}
+
+function hashNumber(hash: number, value: number): number {
+  return hashText(hash, Number.isFinite(value) ? String(value) : 'NaN');
+}
+
+function hashBoolean(hash: number, value: boolean): number {
+  return hashText(hash, value ? 'true' : 'false');
+}
+
+function hashCodeUnit(hash: number, value: number): number {
+  return Math.imul((hash ^ value) >>> 0, fnvPrime) >>> 0;
+}
+
+function hashToString(hash: number): string {
   return hash.toString(16).padStart(8, '0');
 }

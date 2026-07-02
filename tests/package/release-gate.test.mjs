@@ -6,17 +6,20 @@ const packageJson = JSON.parse(await readFile(new URL('../../package.json', impo
 const sourceRoot = new URL('../../src/', import.meta.url);
 const repositoryRoot = new URL('../../', import.meta.url);
 
-const requiredCheckScripts = [
-  'check:jsr',
-  'check:runtime',
+const fastCheckScripts = [
   'check:acceptance',
   'check:conformance',
   'check:integration',
   'check:package',
-  'check:performance',
   'check:property',
   'check:security',
   'check:unit'
+];
+
+const fullOnlyCheckScripts = [
+  'check:runtime',
+  'check:jsr',
+  'check:performance'
 ];
 
 test('release check is composed from explicit product suite lanes', () => {
@@ -25,9 +28,16 @@ test('release check is composed from explicit product suite lanes', () => {
   assert.equal(typeof scripts.build, 'string');
   assert.match(scripts.build, /rm -rf dist/u);
   assert.equal(typeof scripts.check, 'string');
+  assert.equal(typeof scripts['check:fast'], 'string');
 
-  for (const scriptName of requiredCheckScripts) {
+  for (const scriptName of [...fastCheckScripts, ...fullOnlyCheckScripts]) {
     assert.equal(typeof scripts[scriptName], 'string', scriptName);
+  }
+  for (const scriptName of fastCheckScripts) {
+    assert.ok(scripts['check:fast'].includes(`npm run ${scriptName}`), scriptName);
+  }
+  assert.ok(scripts.check.includes('npm run check:fast'));
+  for (const scriptName of fullOnlyCheckScripts) {
     assert.ok(scripts.check.includes(`npm run ${scriptName}`), scriptName);
   }
 });
@@ -560,6 +570,11 @@ test('dirty region narrowing is structural and render-diff visible', async () =>
   assert.match(frameBufferSource, /readonly writtenBounds: DirtyRegionSet;/u);
   assert.match(frameBufferSource, /readonly clearedBounds: DirtyRegionSet;/u);
   assert.match(frameBufferSource, /readonly rowFingerprints: readonly FrameRowFingerprint\[\];/u);
+  assert.match(frameBufferSource, /DirtyCoverageAccumulator/u);
+  assert.match(frameBufferSource, /snapshotCellsAndFingerprints/u);
+  assert.doesNotMatch(frameBufferSource, /this\.writtenBounds\s*=\s*this\.writtenBounds\.add/u);
+  assert.doesNotMatch(frameBufferSource, /this\.clearedBounds\s*=\s*this\.clearedBounds\.add/u);
+  assert.doesNotMatch(frameBufferSource, /function stableString/u);
   assert.match(frameSource, /readonly dirtyRegions\?: readonly Rect\[\];/u);
   assert.match(frameSource, /dirtyColumnRanges/u);
   assert.match(runtimeFrameSource, /dirtyRegionsForRenderCommit/u);

@@ -29,7 +29,7 @@ const showcaseBreakpoints = defineBreakpoints({
   wide: { minColumns: 150 }
 });
 
-export function createShowcaseApp() {
+export function createShowcaseApp(options = {}) {
   return defineTui({
     id: 'terminal-ui-showcase',
     transcript: { enabled: true },
@@ -37,7 +37,9 @@ export function createShowcaseApp() {
     init: () => initialShowcaseState(),
     update: updateShowcase,
     view: (state, context) => showcaseView(state, context.viewport),
-    subscriptions: () => [intervalSource('showcase-ticker', 700, { kind: 'tick' })],
+    ...(options.subscriptions === false
+      ? {}
+      : { subscriptions: () => [intervalSource('showcase-ticker', 700, { kind: 'tick' })] }),
     accessibility: {
       describe: (state) => ({
         source: 'tui',
@@ -64,7 +66,7 @@ export function renderShowcaseFrame(state = initialShowcaseState(), viewport = s
 
 export async function runShowcaseScript(messages, options = {}) {
   const host = options.host ?? createTerminalHost({ runtime: 'memory', viewport: options.viewport ?? showcaseViewport });
-  const app = createShowcaseApp();
+  const app = createShowcaseApp({ subscriptions: false });
   const runtime = createTuiRuntime({
     app,
     host,
@@ -72,23 +74,26 @@ export async function runShowcaseScript(messages, options = {}) {
     initialFocusPath: commandFocusPath
   });
   const frames = [];
-  frames.push(await runtime.start());
-  for (const step of messages) {
-    if (typeof step.input === 'string') {
-      const results = await runtime.handleInputChunk({ data: step.input });
-      for (const result of results) frames.push(result.frame);
-      continue;
+  try {
+    frames.push(await runtime.start());
+    for (const step of messages) {
+      if (typeof step.input === 'string') {
+        const results = await runtime.handleInputChunk({ data: step.input });
+        for (const result of results) frames.push(result.frame);
+        continue;
+      }
+      await runtime.dispatch(step);
+      const frame = runtime.frame();
+      if (frame !== undefined) frames.push(frame);
     }
-    await runtime.dispatch(step);
-    const frame = runtime.frame();
-    if (frame !== undefined) frames.push(frame);
+    return {
+      host,
+      frames,
+      state: runtime.getState()
+    };
+  } finally {
+    await runtime.dispose();
   }
-  return {
-    host,
-    runtime,
-    frames,
-    state: runtime.getState()
-  };
 }
 
 export function createShowcaseSnapshot(state = initialShowcaseState(), previousState) {

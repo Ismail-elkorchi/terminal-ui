@@ -1,29 +1,21 @@
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/tui';
 
-import { runShowcaseScript, showcaseViewport } from './app.mjs';
+import { runShowcaseScript } from './app.mjs';
+
+const scriptedViewport = Object.freeze({ columns: 96, rows: 30 });
 
 const messages = [
   { input: '/dispatch\r' },
   { kind: 'route', route: 'data' },
   { kind: 'row', row: 3 },
-  { kind: 'route', route: 'text' },
-  { kind: 'command', value: '/palette' },
-  { kind: 'palette', open: true },
-  { kind: 'palette', open: false },
-  { kind: 'route', route: 'diagram' },
-  { kind: 'context', open: true },
-  { kind: 'context', open: false },
-  { kind: 'route', route: 'forms' },
   { kind: 'modal', open: true },
   { kind: 'modal', open: false },
   { kind: 'route', route: 'activity' },
   { kind: 'activity', index: 2 },
-  { kind: 'inspector', inspector: 'event' },
-  { kind: 'tick' },
-  { kind: 'theme' }
+  { kind: 'inspector', inspector: 'event' }
 ];
 
-const result = await runShowcaseScript(messages, { viewport: showcaseViewport });
+const result = await runShowcaseScript(messages, { viewport: scriptedViewport });
 const finalFrame = result.frames.at(-1);
 
 if (finalFrame === undefined || result.state === undefined) {

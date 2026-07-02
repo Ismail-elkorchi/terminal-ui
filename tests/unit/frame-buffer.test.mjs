@@ -82,6 +82,17 @@ test('FrameBuffer snapshot metadata marks overwritten wide-glyph spans as writte
   ]);
 });
 
+test('FrameBuffer compacts dense write coverage at snapshot time', () => {
+  const buffer = createFrameBuffer(40, 10);
+  for (let row = 1; row <= 10; row += 1) {
+    buffer.write(row, 1, [{ text: 'X'.repeat(40) }]);
+  }
+
+  assert.deepEqual(buffer.snapshot().metadata.writtenBounds.rects, [
+    { row: 1, column: 1, width: 40, height: 10 }
+  ]);
+});
+
 test('FrameBuffer snapshot metadata fingerprints rows and full buffers deterministically', () => {
   const first = createFrameBuffer(6, 2);
   first.write(1, 1, [{ text: 'same' }]);
