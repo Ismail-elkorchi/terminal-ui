@@ -15,8 +15,9 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { TextSelection } from '../text/index.ts';
 import type { CommandBarSuggestion, CommandBarValidation, CommandBarValidationTone, Widget } from '../widgets/index.ts';
 import { optionalWidgetValidationTone } from '../widgets/index.ts';
+import type { CursorPosition } from './cursor.ts';
 import type { Rect } from './layout.ts';
-import type { RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
+import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
 
 export function commandBarBlock(widget: Widget, height: number, theme: TerminalTheme): RenderBlock {
   const lines: RenderLine[] = [inputLine(widget)];
@@ -28,6 +29,7 @@ export function commandBarBlock(widget: Widget, height: number, theme: TerminalT
   lines.push(...suggestions.slice(0, remaining).map((suggestion, index) => suggestionLine(
     widget,
     suggestion,
+    index,
     index === selected,
     matchQuery(widget),
     theme
@@ -65,13 +67,17 @@ export function commandBarAccessibleChildren(widget: Widget): readonly Accessibl
   return children.length === 0 ? undefined : children;
 }
 
-export function commandBarCursor(widget: Widget, bounds: Rect): { readonly row: number; readonly column: number } {
+export function commandBarCursor(widget: Widget, bounds: Rect): CursorPosition {
   const prompt = promptText(widget);
   const value = valueText(widget);
   const promptCells = singleLineCursorColumn(prompt, prompt.length);
   const valueCells = singleLineCursorColumn(value, numberProp(widget, 'cursor'));
   const beforeCursorCells = promptCells + valueCells;
-  return { row: bounds.row, column: bounds.column + Math.max(0, Math.min(bounds.width - 1, beforeCursorCells)) };
+  return {
+    row: bounds.row,
+    column: bounds.column + Math.max(0, Math.min(bounds.width - 1, beforeCursorCells)),
+    source: commandSource(widget, 'cursor', 'cursor')
+  };
 }
 
 function inputLine(widget: Widget): RenderLine {
@@ -79,17 +85,21 @@ function inputLine(widget: Widget): RenderLine {
   const placeholder = placeholderText(widget);
   const completion = completionText(widget);
   const spans: RenderSpan[] = [
-    styledSpan(promptText(widget), widgetStyle(widget, 'placeholder')),
+    styledSpan(promptText(widget), widgetStyle(widget, 'placeholder'), commandSource(widget, 'prompt', 'decoration')),
     ...(value.length === 0 && placeholder.length > 0
-      ? [styledSpan(placeholder, widgetStyle(widget, 'placeholder'))]
+      ? [styledSpan(placeholder, widgetStyle(widget, 'placeholder'), commandSource(widget, 'placeholder'))]
       : valueSpans(widget, value, selectionFromUnknown(value, widget.props['selection'])))
   ];
   if (value.length > 0 && completion.length > 0) {
-    spans.push(styledSpan(completion, widgetStyle(widget, 'value', 'disabled')));
+    spans.push(styledSpan(completion, widgetStyle(widget, 'value', 'disabled'), commandSource(widget, 'completion')));
   }
   const historyIndex = numberProp(widget, 'historyIndex');
   if (historyIndex !== undefined) {
-    spans.push(styledSpan(`  #${String(Math.max(0, Math.floor(historyIndex)) + 1)}`, widgetStyle(widget, 'value', 'disabled')));
+    spans.push(styledSpan(
+      `  #${String(Math.max(0, Math.floor(historyIndex)) + 1)}`,
+      widgetStyle(widget, 'value', 'disabled'),
+      commandSource(widget, 'history')
+    ));
   }
   return {
     spans
@@ -98,13 +108,17 @@ function inputLine(widget: Widget): RenderLine {
 
 function validationLine(widget: Widget, validation: CommandBarValidation, theme: TerminalTheme): RenderLine {
   return {
-    spans: commandStatusSpans(widget, theme, validationToneForSurface(validation.tone ?? 'error'), validation.message)
+    spans: commandStatusSpans(widget, theme, validationToneForSurface(validation.tone ?? 'error'), validation.message, {
+      markerSource: commandSource(widget, 'validation.marker', 'decoration'),
+      textSource: commandSource(widget, 'validation')
+    })
   };
 }
 
 function suggestionLine(
   widget: Widget,
   suggestion: CommandBarSuggestion,
+  index: number,
   selected: boolean,
   query: string,
   theme: TerminalTheme
@@ -114,11 +128,18 @@ function suggestionLine(
   const disabled = suggestion.disabled === true;
   const rowStyle = commandRowStyle(widget, selected, disabled);
   const spans: RenderSpan[] = [
-    ...commandSelectionMarkerSpans(widget, theme, selected),
-    ...commandMatchSpans(label, query, rowStyle)
+    ...commandSelectionMarkerSpans(widget, theme, selected, commandSource(widget, `suggestion.${String(index)}.marker`, 'decoration')),
+    ...commandMatchSpans(label, query, rowStyle, {
+      source: commandSource(widget, `suggestion.${String(index)}.label`),
+      matchSource: commandSource(widget, `suggestion.${String(index)}.match`)
+    })
   ];
   if (description !== undefined && description.length > 0) {
-    spans.push(styledSpan(` · ${description}`, commandMetadataStyle(widget, selected, disabled)));
+    spans.push(styledSpan(
+      ` · ${description}`,
+      commandMetadataStyle(widget, selected, disabled),
+      commandSource(widget, `suggestion.${String(index)}.description`)
+    ));
   }
   return {
     spans
@@ -127,7 +148,10 @@ function suggestionLine(
 
 function mutedLine(widget: Widget, text: string, theme: TerminalTheme): RenderLine {
   return {
-    spans: commandStatusSpans(widget, theme, 'muted', text)
+    spans: commandStatusSpans(widget, theme, 'muted', text, {
+      markerSource: commandSource(widget, 'footer.marker', 'decoration'),
+      textSource: commandSource(widget, 'footer')
+    })
   };
 }
 
@@ -172,8 +196,21 @@ function valueSpans(widget: Widget, value: string, selection: TextSelection | un
     value,
     selection,
     widgetStyle(widget, 'value'),
-    widgetStyle(widget, 'value', 'selected')
+    widgetStyle(widget, 'value', 'selected'),
+    {
+      normalSource: commandSource(widget, 'value'),
+      selectedSource: commandSource(widget, 'selection')
+    }
   );
+}
+
+function commandSource(widget: Widget, label: string, role: FrameCellSource['role'] = 'text'): FrameCellSource {
+  return {
+    ...(widget.id === undefined ? {} : { id: widget.id }),
+    kind: widget.kind,
+    role,
+    label
+  };
 }
 
 function footerReserve(widget: Widget): number {

@@ -35,7 +35,8 @@
       "required": ["row", "column"],
       "properties": {
         "row": { "type": "integer", "minimum": 1 },
-        "column": { "type": "integer", "minimum": 1 }
+        "column": { "type": "integer", "minimum": 1 },
+        "source": { "$ref": "#/$defs/frameCellSource" }
       },
       "additionalProperties": false
     },

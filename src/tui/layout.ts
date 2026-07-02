@@ -2,6 +2,7 @@ import type { TerminalViewport } from '../host/index.ts';
 import { defineTheme, isTerminalTheme } from '../theme/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { Widget, WidgetFocusScope, WidgetKind } from '../widgets/index.ts';
+import type { CursorPosition } from './cursor.ts';
 import { layoutChildBounds, widgetFocusScope, widgetFocusTargets } from './widget-behavior.ts';
 
 export interface Rect {
@@ -35,10 +36,7 @@ export interface LayoutNode {
 export interface LayoutFocusRegion {
   readonly id: string;
   readonly bounds: Rect;
-  readonly cursor?: {
-    readonly row: number;
-    readonly column: number;
-  };
+  readonly cursor?: CursorPosition;
   readonly disabled: boolean;
   readonly order?: number;
   readonly scopeId?: string;

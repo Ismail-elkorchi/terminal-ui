@@ -446,7 +446,13 @@ test('focus is scoped to the topmost visible focus layer', () => {
   const frame = renderWidgetFrame(widget, { columns: 16, rows: 2 }, { focusPath: ['focus-root', 'lower-input'] });
 
   assert.deepEqual(frame.focusPath, ['focus-root', 'upper-input']);
-  assert.deepEqual(frame.cursor, { row: 1, column: 9 });
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 9 });
+  assert.deepEqual(frame.cursor?.source, {
+    id: 'upper-input',
+    kind: 'textInput',
+    role: 'cursor',
+    label: 'cursor'
+  });
 });
 
 test('overlapping modal renders above lower region content', () => {
@@ -616,4 +622,8 @@ function cellInsideRect(cell, rect) {
     && cell.row < rect.row + rect.height
     && cell.column >= rect.column
     && cell.column < rect.column + rect.width;
+}
+
+function cursorPosition(cursor) {
+  return cursor === undefined ? undefined : { row: cursor.row, column: cursor.column };
 }

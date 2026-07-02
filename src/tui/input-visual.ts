@@ -5,7 +5,8 @@ import { widgetStyle } from './widget-style.ts';
 import type { TextSelection } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
-import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
+import type { CursorPosition } from './cursor.ts';
+import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from './layout.ts';
 
 export interface SingleLineInputBlockInput {
@@ -40,21 +41,26 @@ export function singleLineInputBlock(input: SingleLineInputBlockInput): RenderBl
     model.display,
     model.usesPlaceholder ? undefined : input.selection,
     model.contentStyle,
-    widgetStyle(input.widget, 'value', 'selected')
+    widgetStyle(input.widget, 'value', 'selected'),
+    {
+      normalSource: inputSource(input.widget, model.usesPlaceholder ? 'placeholder' : 'value'),
+      selectedSource: inputSource(input.widget, 'selection')
+    }
   );
   return block([line([
-    styledSpan(model.prefix, model.chromeStyle),
+    styledSpan(model.prefix, model.chromeStyle, inputSource(input.widget, 'chrome.prefix', 'decoration')),
     ...clipSpans(contentSpans, Math.max(0, input.bounds.width - model.prefixWidth - model.suffixWidth)),
-    styledSpan(model.suffix, model.chromeStyle)
+    styledSpan(model.suffix, model.chromeStyle, inputSource(input.widget, 'chrome.suffix', 'decoration'))
   ])]);
 }
 
-export function singleLineInputCursor(input: SingleLineInputBlockInput): { readonly row: number; readonly column: number } {
+export function singleLineInputCursor(input: SingleLineInputBlockInput): CursorPosition {
   const model = singleLineInputModel({ ...input, focused: true });
   const contentWidth = Math.max(0, input.bounds.width - model.prefixWidth - model.suffixWidth);
   return {
     row: input.bounds.row,
-    column: input.bounds.column + model.prefixWidth + singleLineCursorColumn(input.value, input.cursor, Math.max(0, contentWidth - 1))
+    column: input.bounds.column + model.prefixWidth + singleLineCursorColumn(input.value, input.cursor, Math.max(0, contentWidth - 1)),
+    source: inputSource(input.widget, 'cursor', 'cursor')
   };
 }
 
@@ -71,7 +77,7 @@ export function textAreaInputLine(input: TextAreaInputBlockInput, lineInput: {
     ? undefined
     : selectionIntersection(input.selection, lineInput.lineRecord.start + window.startOffset, lineInput.lineRecord.start + window.endOffset);
   return line([
-    styledSpan(prefix, inputChromeStyle(input.widget, input.focused === true)),
+    styledSpan(prefix, inputChromeStyle(input.widget, input.focused === true), inputSource(input.widget, 'chrome.prefix', 'decoration')),
     ...selectedTextSpans(
       window.text,
       selectionInWindow === undefined
@@ -79,9 +85,13 @@ export function textAreaInputLine(input: TextAreaInputBlockInput, lineInput: {
         : {
             start: selectionInWindow.start - lineInput.lineRecord.start - window.startOffset,
             end: selectionInWindow.end - lineInput.lineRecord.start - window.startOffset
-          },
+      },
       input.usesPlaceholder === true ? widgetStyle(input.widget, 'placeholder') : inputContentStyle(input.widget, input.focused === true),
-      widgetStyle(input.widget, 'value', 'selected')
+      widgetStyle(input.widget, 'value', 'selected'),
+      {
+        normalSource: inputSource(input.widget, input.usesPlaceholder === true ? 'placeholder' : 'value'),
+        selectedSource: inputSource(input.widget, 'selection')
+      }
     )
   ]);
 }
@@ -93,14 +103,15 @@ export function textAreaInputCursor(input: {
   readonly rowOffset: number;
   readonly columnCells: number;
   readonly offsetColumn: number;
-}): { readonly row: number; readonly column: number } {
+}): CursorPosition {
   const prefixWidth = terminalTextWidth(textAreaLinePrefix(input.widget, input.theme, true, 0));
   return {
     row: input.bounds.row + input.rowOffset,
     column: input.bounds.column + prefixWidth + Math.max(0, Math.min(
       Math.max(0, input.bounds.width - prefixWidth - 1),
       Math.max(0, input.columnCells - input.offsetColumn)
-    ))
+    )),
+    source: inputSource(input.widget, 'cursor', 'cursor')
   };
 }
 
@@ -200,6 +211,18 @@ function selectionIntersection(
   return nextStart >= nextEnd ? undefined : { start: nextStart, end: nextEnd };
 }
 
-function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
-  return style === undefined ? span(text) : span(text, { style });
+function styledSpan(text: string, style: TerminalStyle | undefined, source: FrameCellSource): RenderSpan {
+  return span(text, {
+    ...(style === undefined ? {} : { style }),
+    source
+  });
+}
+
+function inputSource(widget: Widget, label: string, role: FrameCellSource['role'] = 'text'): FrameCellSource {
+  return {
+    ...(widget.id === undefined ? {} : { id: widget.id }),
+    kind: widget.kind,
+    role,
+    label
+  };
 }

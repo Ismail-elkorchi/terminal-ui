@@ -4,6 +4,7 @@ import { createDirtyRegionSet } from './dirty-regions.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
 import type { TerminalSerializationPolicy } from './serialization-policy.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
+import type { CursorPosition } from './cursor.ts';
 import type { FocusPath } from './focus.ts';
 import type { Rect } from './layout.ts';
 import type {
@@ -37,10 +38,7 @@ export interface FrameCell {
   readonly continuation?: boolean;
 }
 
-export interface CursorPosition {
-  readonly row: number;
-  readonly column: number;
-}
+export type { CursorPosition } from './cursor.ts';
 
 export interface FrameHitTarget {
   readonly id: string;

@@ -1,6 +1,7 @@
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/types.ts';
+import type { CursorPosition } from './cursor.ts';
 import type { FrameBuffer } from './frame.ts';
 import type { LayoutNode, Rect } from './layout.ts';
 import type { PointerEventKind, RoutedPointerEvent } from './pointer-types.ts';
@@ -53,10 +54,7 @@ export interface WidgetFocusInput<TMessage = unknown> {
 export interface FocusTarget {
   readonly id: string;
   readonly bounds: Rect;
-  readonly cursor?: {
-    readonly row: number;
-    readonly column: number;
-  };
+  readonly cursor?: CursorPosition;
   readonly disabled?: boolean;
   readonly order?: number;
   readonly scopeId?: string;

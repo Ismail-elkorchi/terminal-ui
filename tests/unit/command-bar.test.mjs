@@ -51,7 +51,7 @@ test('commandBar widget renders prompt, suggestions, cursor, and accessibility',
   assert.match(text, /\/op/u);
   assert.match(text, /open · Open item/u);
   assert.match(text, /›/u);
-  assert.deepEqual(frame.cursor, { row: 1, column: 4 });
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 4 });
   assert.equal(frame.accessibility.root.role, 'textbox');
   assert.equal(frame.accessibility.root.value, 'op');
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
@@ -85,7 +85,7 @@ test('commandBar renders completion preview validation footer match styles and w
   assert.match(output, /\?a🙂bc/u);
   assert.match(output, /Choose a value/u);
   assert.match(output, /enter accepts/u);
-  assert.deepEqual(frame.cursor, { row: 1, column: 5 });
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 5 });
   assert.equal(previewCell?.style?.fg?.token, 'text.muted');
   assert.equal(selectedCell?.style?.bg?.token, 'selection.background');
   assert.equal(validationCell?.style?.fg?.token, 'status.warning');
@@ -94,4 +94,38 @@ test('commandBar renders completion preview validation footer match styles and w
     ['launcher:validation', 'Choose a value'],
     ['launcher:suggestion:0', 'a🙂bc']
   ]);
+});
+
+function cursorPosition(cursor) {
+  return cursor === undefined ? undefined : { row: cursor.row, column: cursor.column };
+}
+
+test('commandBar exposes prompt value selection suggestion validation and footer source metadata', () => {
+  const frame = renderWidgetFrame(
+    commandBar({
+      id: 'cmd-source',
+      prompt: ':',
+      value: 'open file',
+      selection: { start: 5, end: 9 },
+      completionPreview: 's',
+      validation: { tone: 'warning', message: 'Needs target' },
+      suggestions: [
+        { value: 'open-file', label: 'Open file', description: 'recent' }
+      ],
+      selectedSuggestion: 0,
+      footer: 'Enter run'
+    }),
+    { columns: 48, rows: 5 },
+    { focusPath: ['cmd-source'] }
+  );
+
+  assert.equal(frame.cells.find((cell) => cell.text === ':')?.source?.label, 'prompt');
+  assert.equal(frame.cells.find((cell) => cell.text === 'o')?.source?.label, 'value');
+  assert.equal(frame.cells.find((cell) => cell.text === 'f')?.source?.label, 'selection');
+  assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === 's')?.source?.label, 'completion');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.label, 'validation');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'suggestion.0.marker')?.text, '›');
+  assert.equal(frame.cells.find((cell) => cell.text === 'O')?.source?.label, 'suggestion.0.match');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'suggestion.0.description')?.text, ' ');
+  assert.equal(frame.cells.find((cell) => cell.text === 'E')?.source?.label, 'footer');
 });

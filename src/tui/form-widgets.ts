@@ -21,6 +21,7 @@ import { numberProp, stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import { defaultTheme, type TerminalTheme } from '../theme/index.ts';
 import type { ButtonTone, ColorPickerOption, DatePickerDay, FormOption, RangeSliderValue, Widget, WidgetVisualState } from '../widgets/index.ts';
+import type { CursorPosition } from './cursor.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from './layout.ts';
 import type { HitTarget } from './widget-renderer.ts';
@@ -504,12 +505,12 @@ export function numberInputAccessibleBase(widget: Widget, id: string, focused: b
   return inputAccessibleBase(widget, id, focused, numberInputValue(widget));
 }
 
-export function textInputCursor(widget: Widget, bounds: Rect): { readonly row: number; readonly column: number } {
-  return singleLineCursor(inputValue(widget), numberProp(widget, 'cursor'), bounds, defaultTheme);
+export function textInputCursor(widget: Widget, bounds: Rect): CursorPosition {
+  return singleLineCursor(widget, inputValue(widget), numberProp(widget, 'cursor'), bounds, defaultTheme);
 }
 
-export function numberInputCursor(widget: Widget, bounds: Rect): { readonly row: number; readonly column: number } {
-  return singleLineCursor(numberInputValue(widget), numberProp(widget, 'cursor'), bounds, defaultTheme);
+export function numberInputCursor(widget: Widget, bounds: Rect): CursorPosition {
+  return singleLineCursor(widget, numberInputValue(widget), numberProp(widget, 'cursor'), bounds, defaultTheme);
 }
 
 export function controlHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
@@ -1101,9 +1102,9 @@ function numberInputValue(widget: Widget): string {
   return typeof value === 'number' && Number.isFinite(value) ? String(value) : '';
 }
 
-function singleLineCursor(value: string, cursor: number | undefined, bounds: Rect, theme: TerminalTheme): { readonly row: number; readonly column: number } {
+function singleLineCursor(widget: Widget, value: string, cursor: number | undefined, bounds: Rect, theme: TerminalTheme): CursorPosition {
   return singleLineInputCursor({
-    widget: { kind: 'textInput', props: { value } },
+    widget,
     bounds,
     theme,
     value,

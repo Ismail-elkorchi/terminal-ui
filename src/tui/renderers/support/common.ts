@@ -1,5 +1,6 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
 import type { Widget } from '../../../widgets/index.ts';
+import type { CursorPosition } from '../../cursor.ts';
 import type { FrameCell } from '../../frame.ts';
 import type { Rect } from '../../layout.ts';
 import type { FocusTarget, HitTarget } from '../../widget-renderer.ts';
@@ -40,7 +41,7 @@ export function groupAccessibleNode(id: string, focused: boolean): AccessibleNod
 
 export function focusTarget(
   bounds: Rect,
-  cursor?: { readonly row: number; readonly column: number }
+  cursor?: CursorPosition
 ): FocusTarget {
   return {
     id: 'self',

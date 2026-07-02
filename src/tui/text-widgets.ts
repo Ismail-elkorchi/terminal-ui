@@ -24,6 +24,7 @@ import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget, WidgetTextRole } from '../widgets/index.ts';
 import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
+import type { CursorPosition } from './cursor.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from './layout.ts';
 
@@ -114,7 +115,7 @@ export function textAreaAccessibleBase(widget: Widget, id: string, focused: bool
   };
 }
 
-export function textAreaCursor(widget: Widget, bounds: Rect, theme: TerminalTheme = defaultTheme): { readonly row: number; readonly column: number } {
+export function textAreaCursor(widget: Widget, bounds: Rect, theme: TerminalTheme = defaultTheme): CursorPosition {
   const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
   const metrics = textCursorLineMetrics(value, numberProp(widget, 'cursor'));
   const contentBounds = textAreaInputContentBounds(bounds, theme);

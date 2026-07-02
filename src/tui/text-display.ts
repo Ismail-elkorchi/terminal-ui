@@ -7,7 +7,7 @@ import {
   terminalTextWidth
 } from '../text/index.ts';
 import type { TextSelection } from '../text/index.ts';
-import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
+import type { FrameCellSource, RenderSpan, TerminalStyle } from './render-primitives.ts';
 
 export interface TextCursorLineMetrics {
   readonly lineIndex: number;
@@ -18,6 +18,11 @@ export interface VisibleLineWindow {
   readonly text: string;
   readonly startOffset: number;
   readonly endOffset: number;
+}
+
+export interface SelectedTextSpanOptions {
+  readonly normalSource?: FrameCellSource;
+  readonly selectedSource?: FrameCellSource;
 }
 
 export function singleLineCursorColumn(value: string, cursor: number | undefined, maxColumns?: number): number {
@@ -32,14 +37,15 @@ export function selectedTextSpans(
   value: string,
   selection: TextSelection | undefined,
   normalStyle: TerminalStyle | undefined,
-  selectedStyle: TerminalStyle | undefined
+  selectedStyle: TerminalStyle | undefined,
+  options: SelectedTextSpanOptions = {}
 ): readonly RenderSpan[] {
   const normalized = normalizeTextSelection(value, selection);
-  if (normalized === undefined) return [styledSpan(value, normalStyle)];
+  if (normalized === undefined) return [styledSpan(value, normalStyle, options.normalSource)];
   return [
-    ...(normalized.start > 0 ? [styledSpan(textRange(value, 0, normalized.start), normalStyle)] : []),
-    styledSpan(textRange(value, normalized.start, normalized.end), selectedStyle),
-    ...(normalized.end < value.length ? [styledSpan(textRange(value, normalized.end, value.length), normalStyle)] : [])
+    ...(normalized.start > 0 ? [styledSpan(textRange(value, 0, normalized.start), normalStyle, options.normalSource)] : []),
+    styledSpan(textRange(value, normalized.start, normalized.end), selectedStyle, options.selectedSource),
+    ...(normalized.end < value.length ? [styledSpan(textRange(value, normalized.end, value.length), normalStyle, options.normalSource)] : [])
   ].filter((span) => span.text.length > 0);
 }
 
@@ -88,8 +94,12 @@ function textRange(value: string, start: number, end: number): string {
   return value.slice(start, end);
 }
 
-function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
-  return style === undefined ? { text } : { text, style };
+function styledSpan(text: string, style: TerminalStyle | undefined, source: FrameCellSource | undefined): RenderSpan {
+  return {
+    text,
+    ...(style === undefined ? {} : { style }),
+    ...(source === undefined ? {} : { source })
+  };
 }
 
 function clampColumn(cells: number, maxColumns: number | undefined): number {

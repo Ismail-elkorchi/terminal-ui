@@ -2,7 +2,7 @@ import { highlightRenderSpans } from './text-highlight.ts';
 import { mergeStyles, themeStyle, widgetStyle } from './widget-style.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget, WidgetTone } from '../widgets/index.ts';
-import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
+import type { FrameCellSource, RenderSpan, TerminalStyle } from './render-primitives.ts';
 
 export type CommandSurfaceTone = Extract<WidgetTone, 'info' | 'warning' | 'error' | 'success' | 'muted'>;
 
@@ -11,25 +11,41 @@ export function commandStatusSpans(
   theme: TerminalTheme,
   tone: CommandSurfaceTone,
   text: string,
-  options: { readonly textStyle?: TerminalStyle; readonly markerStyle?: TerminalStyle } = {}
+  options: {
+    readonly textStyle?: TerminalStyle;
+    readonly markerStyle?: TerminalStyle;
+    readonly markerSource?: FrameCellSource;
+    readonly textSource?: FrameCellSource;
+  } = {}
 ): readonly RenderSpan[] {
   const markerStyle = options.markerStyle ?? commandToneStyle(widget, tone);
   const textStyle = options.textStyle ?? (tone === 'muted' ? widgetStyle(widget, 'value', 'disabled') : markerStyle);
   return [
-    styledSpan(`${commandToneSymbol(theme, tone)} `, markerStyle),
-    styledSpan(text, textStyle)
+    styledSpan(`${commandToneSymbol(theme, tone)} `, markerStyle, options.markerSource),
+    styledSpan(text, textStyle, options.textSource)
   ];
 }
 
 export function commandMatchSpans(
   text: string,
   query: string,
-  baseStyle?: TerminalStyle
+  baseStyle?: TerminalStyle,
+  options: {
+    readonly source?: FrameCellSource;
+    readonly matchSource?: FrameCellSource;
+  } = {}
 ): readonly RenderSpan[] {
   return highlightRenderSpans(text, query.trim(), {
     ...(baseStyle === undefined ? {} : { baseStyle }),
     matchStyle: themeStyle('menu.match', { underline: true })
-  });
+  }).map((current) => ({
+    text: current.text,
+    ...(current.style === undefined ? {} : { style: current.style }),
+    ...(current.link === undefined ? {} : { link: current.link }),
+    ...(current.matched === true
+      ? { source: options.matchSource ?? options.source }
+      : options.source === undefined ? {} : { source: options.source })
+  }));
 }
 
 export function commandRowStyle(widget: Widget, selected: boolean, disabled = false): TerminalStyle | undefined {
@@ -49,24 +65,29 @@ export function commandMetadataStyle(widget: Widget, selected: boolean, disabled
 export function commandSelectionMarkerSpans(
   widget: Widget,
   theme: TerminalTheme,
-  selected: boolean
+  selected: boolean,
+  source?: FrameCellSource
 ): readonly RenderSpan[] {
   const style = selected ? widgetStyle(widget, 'value', 'selected') : undefined;
   return [
-    styledSpan(`${selected ? theme.symbols.pointer : theme.symbols.unselected} `, style)
+    styledSpan(`${selected ? theme.symbols.pointer : theme.symbols.unselected} `, style, source)
   ];
 }
 
-export function commandGroupSpans(widget: Widget, group: string | undefined, selected: boolean): readonly RenderSpan[] {
+export function commandGroupSpans(widget: Widget, group: string | undefined, selected: boolean, source?: FrameCellSource): readonly RenderSpan[] {
   if (group === undefined || group.length === 0) return [];
   const style = commandMetadataStyle(widget, selected);
   return [
-    styledSpan(`[${group}] `, style)
+    styledSpan(`[${group}] `, style, source)
   ];
 }
 
-export function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
-  return style === undefined ? { text } : { text, style };
+export function styledSpan(text: string, style: TerminalStyle | undefined, source?: FrameCellSource): RenderSpan {
+  return {
+    text,
+    ...(style === undefined ? {} : { style }),
+    ...(source === undefined ? {} : { source })
+  };
 }
 
 function commandToneStyle(widget: Widget, tone: CommandSurfaceTone): TerminalStyle | undefined {

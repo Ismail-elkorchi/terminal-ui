@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import {
   nextSpinnerFrameIndex,
   normalizeSpinnerFrameIndex,
@@ -8,7 +9,9 @@ import {
   renderWidgetFrame,
   spinnerReducer
 } from '../../dist/tui/index.js';
-import { activityIndicator, commandBar, helpBar, richText, spinner, text, textArea, textInput } from '../../dist/widgets/index.js';
+import { highContrastTheme } from '../../dist/theme/index.js';
+import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { activityIndicator, commandBar, helpBar, numberInput, richText, spinner, stack, text, textArea, textInput } from '../../dist/widgets/index.js';
 
 test('richText renders sanitized styled segments as plain frame text', () => {
   const frame = renderWidgetFrame(richText({
@@ -90,10 +93,36 @@ test('textArea renders multiline windows and exposes cursor/accessibility state'
   }), { columns: 20, rows: 3 });
 
   assert.equal(renderFramePlain(frame), '› line one\n│ line two');
-  assert.deepEqual(frame.cursor, { row: 2, column: 7 });
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 2, column: 7 });
   assert.equal(frame.accessibility.root.role, 'textbox');
   assert.equal(frame.accessibility.root.description, '2 lines. Selection active.');
   assert.equal(frame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
+});
+
+test('editable text controls expose source metadata for chrome value placeholder and selection', () => {
+  const inputFrame = renderWidgetFrame(textInput({
+    id: 'email',
+    value: 'abc',
+    selection: { start: 1, end: 2 }
+  }), { columns: 12, rows: 1 });
+  const placeholderFrame = renderWidgetFrame(textInput({
+    id: 'empty',
+    value: '',
+    placeholder: 'Email'
+  }), { columns: 12, rows: 1 });
+  const numberFrame = renderWidgetFrame(numberInput({
+    id: 'qty',
+    value: 42
+  }), { columns: 12, rows: 1 });
+
+  assert.equal(inputFrame.cells.find((cell) => cell.text === '[')?.source?.label, 'chrome.prefix');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === 'a')?.source?.label, 'value');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.label, 'selection');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === ']')?.source?.label, 'chrome.suffix');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.id, 'email');
+  assert.equal(placeholderFrame.cells.find((cell) => cell.text === 'E')?.source?.label, 'placeholder');
+  assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.kind, 'numberInput');
+  assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.label, 'value');
 });
 
 test('text widgets map Unicode cursor positions through the shared text contract', () => {
@@ -116,14 +145,89 @@ test('text widgets map Unicode cursor positions through the shared text contract
     selection: { start: 1, end: 'a🙂'.length }
   }), { columns: 18, rows: 1 }, { focusPath: ['unicode-command'] });
 
-  assert.deepEqual(textInputFrame.cursor, { row: 1, column: 7 });
-  assert.deepEqual(secondaryInputFrame.cursor, { row: 1, column: 8 });
-  assert.deepEqual(commandFrame.cursor, { row: 1, column: 6 });
+  assert.deepEqual(cursorPosition(textInputFrame.cursor), { row: 1, column: 7 });
+  assert.deepEqual(cursorPosition(secondaryInputFrame.cursor), { row: 1, column: 8 });
+  assert.deepEqual(cursorPosition(commandFrame.cursor), { row: 1, column: 6 });
+  assert.deepEqual(textInputFrame.cursor?.source, {
+    id: 'unicode-input',
+    kind: 'textInput',
+    role: 'cursor',
+    label: 'cursor'
+  });
+  assert.deepEqual(secondaryInputFrame.cursor?.source, {
+    id: 'unicode-field',
+    kind: 'textInput',
+    role: 'cursor',
+    label: 'cursor'
+  });
+  assert.deepEqual(commandFrame.cursor?.source, {
+    id: 'unicode-command',
+    kind: 'commandBar',
+    role: 'cursor',
+    label: 'cursor'
+  });
   assert.equal(renderFramePlain(textInputFrame), '›[ a🙂界b ]');
   assert.equal(renderFramePlain(secondaryInputFrame), '›[ go🙂 ]');
   assert.equal(renderFramePlain(commandFrame), '> a🙂界b');
   assert.equal(textInputFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
   assert.equal(commandFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
+});
+
+test('textArea editable cells expose chrome value placeholder and selection source metadata', () => {
+  const selectedFrame = renderWidgetFrame(textArea({
+    id: 'notes',
+    value: 'alpha\nbeta',
+    selection: { start: 1, end: 4 }
+  }), { columns: 12, rows: 2 });
+  const placeholderFrame = renderWidgetFrame(textArea({
+    id: 'notes-empty',
+    value: '',
+    placeholder: 'Write notes'
+  }), { columns: 12, rows: 1 });
+
+  assert.equal(selectedFrame.cells.find((cell) => cell.text === '›')?.source?.label, 'chrome.prefix');
+  assert.equal(selectedFrame.cells.find((cell) => cell.text === 'a')?.source?.label, 'value');
+  assert.equal(selectedFrame.cells.find((cell) => cell.text === 'l')?.source?.label, 'selection');
+  assert.equal(selectedFrame.cells.find((cell) => cell.row === 2 && cell.text === 'b')?.source?.label, 'value');
+  assert.equal(placeholderFrame.cells.find((cell) => cell.text === 'W')?.source?.label, 'placeholder');
+});
+
+test('editable text controls remain readable in high contrast and no-color projections', () => {
+  const widget = stack([
+    textInput({
+      id: 'contrast-input',
+      value: 'alpha',
+      selection: { start: 1, end: 4 },
+      error: 'Invalid value'
+    }),
+    commandBar({
+      id: 'contrast-command',
+      prompt: '/',
+      value: '',
+      placeholder: 'command',
+      validation: { tone: 'warning', message: 'Waiting' }
+    })
+  ]);
+  const frame = renderWidgetFrame(widget, { columns: 28, rows: 3 }, {
+    theme: highContrastTheme,
+    focusPath: ['contrast-input']
+  });
+  const highContrast = createVisualSnapshot({
+    frame,
+    ansi: { capabilities: colorCapabilities(), theme: highContrastTheme }
+  });
+  const noColor = createVisualSnapshot({
+    frame,
+    ansi: { capabilities: noColorCapabilities(), theme: highContrastTheme }
+  });
+
+  assert.match(highContrast.plainTextFrame, /x\[ alpha \]/u);
+  assert.match(highContrast.plainTextFrame, /\/command/u);
+  assert.match(highContrast.ansiFrame, /\\x1b\[/u);
+  assert.match(highContrast.frameJson, /"label": "selection"/u);
+  assert.match(highContrast.frameJson, /"label": "validation"/u);
+  assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
+  assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
 });
 
 test('disabled textInput exposes no mouse hit target', () => {
@@ -146,8 +250,41 @@ test('textArea horizontal windows use visual cells without splitting graphemes',
   }), { columns: 5, rows: 2 }, { focusPath: ['unicode-area'] });
 
   assert.equal(renderFramePlain(frame), '› 界b\n│ in');
-  assert.deepEqual(frame.cursor, { row: 1, column: 5 });
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 5 });
+  assert.deepEqual(frame.cursor?.source, {
+    id: 'unicode-area',
+    kind: 'textArea',
+    role: 'cursor',
+    label: 'cursor'
+  });
 });
+
+function cursorPosition(cursor) {
+  return cursor === undefined ? undefined : { row: cursor.row, column: cursor.column };
+}
+
+function colorCapabilities() {
+  return resolveTerminalCapabilities({
+    host: {
+      runtime: 'memory',
+      inputIsTty: true,
+      outputIsTty: true,
+      rawInput: true
+    }
+  });
+}
+
+function noColorCapabilities() {
+  return {
+    ...colorCapabilities(),
+    color: {
+      depth: 0,
+      hasBasicColors: false,
+      has256Colors: false,
+      hasTrueColor: false
+    }
+  };
+}
 
 test('helpBar and activityIndicator provide reusable app chrome', () => {
   const helpFrame = renderWidgetFrame(helpBar({

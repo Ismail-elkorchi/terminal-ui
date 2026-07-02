@@ -1,4 +1,5 @@
 import type { Widget } from '../widgets/index.ts';
+import type { CursorPosition } from './cursor.ts';
 import type { Layer, LayoutNode, Rect } from './layout.ts';
 
 export type FocusPath = readonly string[];
@@ -12,10 +13,7 @@ export interface LayoutFocusTarget {
   readonly disabled: boolean;
   readonly order?: number;
   readonly scopeId?: string;
-  readonly cursor?: {
-    readonly row: number;
-    readonly column: number;
-  };
+  readonly cursor?: CursorPosition;
 }
 
 export interface WidgetFocusTarget<TMessage> extends LayoutFocusTarget {
