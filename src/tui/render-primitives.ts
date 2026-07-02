@@ -105,6 +105,43 @@ export function clipRenderSpans(
   return compactSpans(clipped);
 }
 
+export function wrapRenderSpans(
+  spans: readonly RenderSpan[],
+  width: number
+): readonly RenderLine[] {
+  if (width <= 0) throw new RangeError('width must be positive.');
+  const lines: RenderLine[] = [];
+  let current: { readonly text: string; readonly options: Omit<RenderSpan, 'text'>; readonly cells: number }[] = [];
+  let usedCells = 0;
+
+  const pushLine = (): void => {
+    lines.push(line(compactSpans(current.map((segment) => ({
+      text: segment.text,
+      options: segment.options
+    })))));
+    current = [];
+    usedCells = 0;
+  };
+
+  for (const currentSpan of spans) {
+    const options = spanOptions(currentSpan);
+    for (const segment of measureTextCells(currentSpan.text).graphemes) {
+      if (segment.text === '\n') {
+        pushLine();
+        continue;
+      }
+      if (usedCells > 0 && usedCells + segment.cells > width) {
+        pushLine();
+      }
+      current.push({ text: segment.text, options, cells: segment.cells });
+      usedCells += segment.cells;
+    }
+  }
+
+  pushLine();
+  return Object.freeze(lines);
+}
+
 export function sameTerminalStyle(left: TerminalStyle | undefined, right: TerminalStyle | undefined): boolean {
   if (left === undefined || right === undefined) return left === right;
   return sameTerminalColor(left.fg, right.fg)

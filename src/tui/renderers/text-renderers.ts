@@ -2,15 +2,14 @@ import {
   activityIndicatorAccessibleBase,
   richTextAccessibleBase,
   richTextBlock,
+  textAccessibleBase,
   textAreaAccessibleBase,
   textAreaBlock,
   textAreaCursor,
+  textBlock,
 } from '../text-widgets.ts';
 import { activityIndicatorBlock } from '../feedback-visual.ts';
-import { stringify } from '../widget-props.ts';
-import { block, line, span } from '../frame.ts';
-import { defaultStyleForTextRole } from '../widget-style.ts';
-import { writeBlock, writeRenderBlock } from './support/block.ts';
+import { writeRenderBlock } from './support/block.ts';
 import { focusTarget } from './support/common.ts';
 import {
   drawScrollbars,
@@ -22,19 +21,9 @@ import type { RendererMap } from './types.ts';
 export const textRenderers = {
   text: {
     render: ({ widget, node, buffer }) => {
-      const style = textRoleStyle(widget.props['textRole']);
-      if (style === undefined) {
-        writeBlock(buffer, node.bounds, stringify(widget.props['content']));
-        return;
-      }
-      writeRenderBlock(buffer, node.bounds, block([line([span(stringify(widget.props['content']), { style })])]));
+      writeRenderBlock(buffer, node.bounds, textBlock(widget));
     },
-    accessibility: ({ widget, id }) => ({
-      id,
-      role: 'text',
-      label: id,
-      value: stringify(widget.props['content'])
-    })
+    accessibility: ({ widget, id }) => textAccessibleBase(widget, id)
   },
   richText: {
     render: ({ widget, node, buffer }) => {
@@ -58,19 +47,3 @@ export const textRenderers = {
     accessibility: ({ widget, id }) => activityIndicatorAccessibleBase(widget, id)
   }
 } satisfies RendererMap<'text' | 'richText' | 'textArea' | 'activityIndicator'>;
-
-function textRoleStyle(value: unknown) {
-  return value === 'title'
-    || value === 'subtitle'
-    || value === 'heading'
-    || value === 'body'
-    || value === 'caption'
-    || value === 'metadata'
-    || value === 'metric'
-    || value === 'badge'
-    || value === 'danger'
-    || value === 'warning'
-    || value === 'success'
-    ? defaultStyleForTextRole(value)
-    : undefined;
-}

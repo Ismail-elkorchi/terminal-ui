@@ -1,9 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createFrameBuffer, diffFrames, renderDiffAnsi, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import { richText, text } from '../../dist/widgets/index.js';
 import { textSamples } from '../support/text-samples.mjs';
+
+const colorCapabilities = resolveTerminalCapabilities({
+  host: {
+    runtime: 'memory',
+    inputIsTty: true,
+    outputIsTty: true,
+    rawInput: true
+  },
+  environment: {
+    variables: {
+      COLORTERM: 'truecolor',
+      TERM: 'xterm-256color'
+    }
+  }
+});
 
 test('render diff property checks keep unchanged frames empty and local changes incremental', () => {
   for (const value of textSamples) {
@@ -27,7 +43,7 @@ test('diff round-trips reproduce the next frame text and keep ANSI serialization
     const next = renderWidgetFrame(text(`unsafe ${index} ${value} \u001B[31mred`), { columns: 18, rows: 4 });
     const diff = diffFrames(before, next);
     const applied = applyDiffToFrame(before, diff);
-    const serialized = renderDiffAnsi(diff, { capabilities: { colorDepth: 'truecolor', hyperlinks: false } });
+    const serialized = renderDiffAnsi(diff, { capabilities: colorCapabilities });
     const detail = `index=${String(index)} seed=${String(seed)} value=${JSON.stringify(value)}`;
 
     assert.equal(renderFramePlain(applied), renderFramePlain(next), `${detail}: diff round-trip changed visible text`);

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { clipRenderSpans, createScrollState, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
+import { clipRenderSpans, createScrollState, renderFramePlain, renderWidgetFrame, wrapRenderSpans } from '../../dist/tui/index.js';
 import { table } from '../../dist/widgets/index.js';
 
 const red = { fg: { kind: 'ansi', value: 1 } };
@@ -18,6 +18,27 @@ test('clipRenderSpans clips by cell width while preserving style link and source
   assert.deepEqual(clipped, [
     { text: 'ab', style: red, link: { href: 'https://example.test/a' }, source: { id: 'a', kind: 'token' } },
     { text: '🙂…', style: blue, link: { href: 'https://example.test/b' }, source: { id: 'b', kind: 'token' } }
+  ]);
+});
+
+test('wrapRenderSpans wraps by cell width while preserving style link and source', () => {
+  const wrapped = wrapRenderSpans([
+    { text: 'ab', style: red, link: { href: 'https://example.test/a' }, source: { id: 'a', kind: 'token' } },
+    { text: '🙂cd', style: blue, link: { href: 'https://example.test/b' }, source: { id: 'b', kind: 'token' } }
+  ], 4);
+
+  assert.deepEqual(wrapped, [
+    {
+      spans: [
+        { text: 'ab', style: red, link: { href: 'https://example.test/a' }, source: { id: 'a', kind: 'token' } },
+        { text: '🙂', style: blue, link: { href: 'https://example.test/b' }, source: { id: 'b', kind: 'token' } }
+      ]
+    },
+    {
+      spans: [
+        { text: 'cd', style: blue, link: { href: 'https://example.test/b' }, source: { id: 'b', kind: 'token' } }
+      ]
+    }
   ]);
 });
 

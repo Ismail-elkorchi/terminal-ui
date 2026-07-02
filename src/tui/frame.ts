@@ -109,7 +109,8 @@ export {
   sameTerminalColor,
   sameTerminalLink,
   sameTerminalStyle,
-  span
+  span,
+  wrapRenderSpans
 } from './render-primitives.ts';
 export { serializeRenderSpansStateful } from './ansi.ts';
 

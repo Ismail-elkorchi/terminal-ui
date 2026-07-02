@@ -1,5 +1,5 @@
-import { sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
-import { block, line, span } from './frame.ts';
+import { sanitizeTerminalText } from '../text/index.ts';
+import { block, blockFromText, line, span, wrapRenderSpans } from './frame.ts';
 import { normalizeScrollState } from './scroll.ts';
 import {
   selectionFromUnknown,
@@ -17,27 +17,47 @@ import {
   spinnerBlock as feedbackSpinnerBlock,
   spinnerText as feedbackSpinnerText
 } from './feedback-visual.ts';
+import { defaultStyleForTextRole, mergeStyles, resolveWidgetStyle } from './widget-style.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { defaultTheme } from '../theme/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { Widget } from '../widgets/index.ts';
+import type { Widget, WidgetTextRole } from '../widgets/index.ts';
 import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
-import type { RenderBlock, RenderLine, RenderSpan } from './frame.ts';
+import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from './layout.ts';
 
+export function textBlock(widget: Widget): RenderBlock {
+  const content = sanitizeTerminalText(stringify(widget.props['content'])).text;
+  return blockFromText(content, {
+    ...styleOption(textStyle(widget)),
+    source: textSource(widget)
+  });
+}
+
+export function textAccessibleBase(widget: Widget, id: string): AccessibleNode {
+  return {
+    id,
+    role: 'text',
+    label: id,
+    value: sanitizeTerminalText(stringify(widget.props['content'])).text
+  };
+}
+
 export function richTextBlock(widget: Widget, bounds: Rect): RenderBlock {
-  const segments = styledSegments(widget);
+  const segments = richTextSegments(widget);
   if (widget.props['wrap'] === true && bounds.width > 0) {
-    return blockFromPlainText(richTextText(widget, bounds));
+    return block(wrapRenderSpans(segments, bounds.width));
   }
-  return block([line(segments.map(cleanSpan))]);
+  return block([line(segments)]);
 }
 
 export function richTextText(widget: Widget, bounds: Rect): string {
-  const text = styledSegments(widget).map((segment) => sanitizeTerminalText(segment.text).text).join('');
-  if (widget.props['wrap'] !== true || bounds.width <= 0) return text;
-  return wrapTextCells(text, bounds.width).map((line) => line.text).join('\n');
+  const segments = richTextSegments(widget);
+  const lines = widget.props['wrap'] === true && bounds.width > 0
+    ? wrapRenderSpans(segments, bounds.width)
+    : [line(segments)];
+  return lines.map(lineText).join('\n');
 }
 
 export function richTextAccessibleBase(widget: Widget, id: string): AccessibleNode {
@@ -45,7 +65,7 @@ export function richTextAccessibleBase(widget: Widget, id: string): AccessibleNo
     id,
     role: 'text',
     label: id,
-    value: styledSegments(widget).map((segment) => sanitizeTerminalText(segment.text).text).join('')
+    value: richTextSegments(widget).map((segment) => segment.text).join('')
   };
 }
 
@@ -167,12 +187,78 @@ function styledSegments(widget: Widget): readonly RenderSpan[] {
   );
 }
 
-function cleanSpan(segment: RenderSpan): RenderSpan {
+function richTextSegments(widget: Widget): readonly RenderSpan[] {
+  const rootStyle = resolveWidgetStyle(widget, { slot: 'root' });
+  return styledSegments(widget).map((segment, index) => cleanSpan(widget, segment, index, rootStyle));
+}
+
+function cleanSpan(
+  widget: Widget,
+  segment: RenderSpan,
+  index: number,
+  rootStyle: RenderSpan['style']
+): RenderSpan {
   return span(sanitizeTerminalText(segment.text).text, {
-    ...(segment.style === undefined ? {} : { style: segment.style }),
+    ...styleOption(mergeStyles(rootStyle, segment.style)),
     ...(segment.link === undefined ? {} : { link: segment.link }),
-    ...(segment.source === undefined ? {} : { source: segment.source })
+    source: segment.source ?? richTextSource(widget, index)
   });
+}
+
+function textStyle(widget: Widget): TerminalStyle | undefined {
+  const role = widgetTextRole(widget.props['textRole']);
+  const base = role === undefined ? undefined : defaultStyleForTextRole(role);
+  if (base === undefined) return resolveWidgetStyle(widget, { slot: 'root' });
+  return resolveWidgetStyle(widget, {
+    slot: 'root',
+    base
+  });
+}
+
+function styleOption(style: TerminalStyle | undefined): { readonly style?: TerminalStyle } {
+  return style === undefined ? {} : { style };
+}
+
+function textSource(widget: Widget): FrameCellSource {
+  const role = widgetTextRole(widget.props['textRole']);
+  return {
+    ...(widget.id === undefined ? {} : { id: widget.id }),
+    kind: 'text',
+    role: 'text',
+    label: role === undefined ? 'content' : `role.${role}`
+  };
+}
+
+function richTextSource(widget: Widget, index: number): FrameCellSource {
+  return {
+    ...(widget.id === undefined ? {} : { id: widget.id }),
+    kind: 'richText',
+    role: 'text',
+    label: `segment.${String(index)}`
+  };
+}
+
+function widgetTextRole(value: unknown): WidgetTextRole | undefined {
+  switch (value) {
+    case 'title':
+    case 'subtitle':
+    case 'heading':
+    case 'body':
+    case 'caption':
+    case 'metadata':
+    case 'metric':
+    case 'badge':
+    case 'danger':
+    case 'warning':
+    case 'success':
+      return value;
+    default:
+      return undefined;
+  }
+}
+
+function lineText(renderLine: RenderLine): string {
+  return renderLine.spans.map((currentSpan) => currentSpan.text).join('');
 }
 
 function textAreaDescription(widget: Widget, value: string): string {
@@ -228,8 +314,4 @@ function numberField(record: Readonly<Record<string, unknown>>, key: string): nu
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function blockFromPlainText(text: string): RenderBlock {
-  return block(text.split('\n').map((part) => line([span(part)])));
 }

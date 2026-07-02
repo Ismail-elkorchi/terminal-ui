@@ -16,7 +16,8 @@ import {
   serializeRenderSpansStateful,
   sameTerminalColor,
   sameTerminalLink,
-  sameTerminalStyle
+  sameTerminalStyle,
+  wrapRenderSpans
 } from './render.ts';
 import { boxDrawingJoinPass } from './frame-passes/index.ts';
 import { createCanvas2D } from './canvas2d/index.ts';
@@ -293,7 +294,8 @@ export {
   serializeRenderSpansStateful,
   sameTerminalColor,
   sameTerminalLink,
-  sameTerminalStyle
+  sameTerminalStyle,
+  wrapRenderSpans
 };
 export { commandBarReducer } from './command-surface.ts';
 export {

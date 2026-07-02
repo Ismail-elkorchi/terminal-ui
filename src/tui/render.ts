@@ -29,7 +29,8 @@ export {
   serializeRenderSpansStateful,
   sameTerminalColor,
   sameTerminalLink,
-  sameTerminalStyle
+  sameTerminalStyle,
+  wrapRenderSpans
 } from './frame.ts';
 export type {
   CursorPosition,

@@ -8,7 +8,7 @@ import {
   renderWidgetFrame,
   spinnerReducer
 } from '../../dist/tui/index.js';
-import { activityIndicator, commandBar, helpBar, richText, spinner, textArea, textInput } from '../../dist/widgets/index.js';
+import { activityIndicator, commandBar, helpBar, richText, spinner, text, textArea, textInput } from '../../dist/widgets/index.js';
 
 test('richText renders sanitized styled segments as plain frame text', () => {
   const frame = renderWidgetFrame(richText({
@@ -21,6 +21,64 @@ test('richText renders sanitized styled segments as plain frame text', () => {
 
   assert.equal(renderFramePlain(frame), 'Build failed');
   assert.equal(frame.accessibility.root.value, 'Build failed');
+  assert.deepEqual(frame.cells.find((cell) => cell.text === 'B')?.source, {
+    id: 'rich',
+    kind: 'richText',
+    role: 'text',
+    label: 'segment.0'
+  });
+});
+
+test('text renders through shared role styles and source metadata', () => {
+  const frame = renderWidgetFrame(text('Danger', {
+    id: 'danger-text',
+    textRole: 'danger',
+    styles: {
+      root: { underline: true }
+    }
+  }), { columns: 12, rows: 1 });
+  const first = frame.cells.find((cell) => cell.text === 'D');
+
+  assert.deepEqual(first?.style, {
+    fg: { kind: 'theme', token: 'status.error' },
+    bold: true,
+    underline: true
+  });
+  assert.deepEqual(first?.source, {
+    id: 'danger-text',
+    kind: 'text',
+    role: 'text',
+    label: 'role.danger'
+  });
+  assert.equal(frame.accessibility.root.value, 'Danger');
+});
+
+test('wrapped richText preserves segment style link and source metadata', () => {
+  const frame = renderWidgetFrame(richText({
+    id: 'rich-wrap',
+    wrap: true,
+    segments: [
+      {
+        text: 'Alpha ',
+        style: { fg: { kind: 'theme', token: 'status.success' } },
+        source: { id: 'alpha', kind: 'token', role: 'text', label: 'alpha' }
+      },
+      {
+        text: 'Beta',
+        style: { fg: { kind: 'theme', token: 'status.warning' }, bold: true },
+        link: { href: 'https://example.test/beta' },
+        source: { id: 'beta', kind: 'token', role: 'text', label: 'beta' }
+      }
+    ]
+  }), { columns: 6, rows: 2 });
+  const beta = frame.cells.find((cell) => cell.text === 'B');
+
+  assert.equal(renderFramePlain(frame), 'Alpha\nBeta');
+  assert.deepEqual(frame.cells.find((cell) => cell.text === 'A')?.style, { fg: { kind: 'theme', token: 'status.success' } });
+  assert.deepEqual(beta?.style, { fg: { kind: 'theme', token: 'status.warning' }, bold: true });
+  assert.deepEqual(beta?.link, { href: 'https://example.test/beta' });
+  assert.deepEqual(beta?.source, { id: 'beta', kind: 'token', role: 'text', label: 'beta' });
+  assert.equal(frame.accessibility.root.value, 'Alpha Beta');
 });
 
 test('textArea renders multiline windows and exposes cursor/accessibility state', () => {
