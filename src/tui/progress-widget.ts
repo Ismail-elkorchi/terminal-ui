@@ -2,8 +2,9 @@ import { sanitizeTerminalText } from '../text/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { ActivityIndicatorStatus, ProgressBarLabelPosition, ProgressBarMode, Widget } from '../widgets/index.ts';
 import { indeterminateProgressFrame } from '../widgets/index.ts';
+import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import { activityStatus, statusStyle } from './status-visual.ts';
+import { statusStyle } from './status-visual.ts';
 import { block, line } from './frame.ts';
 import { feedbackTextSpan } from './feedback-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
@@ -106,7 +107,7 @@ function progressModel(widget: Widget): ProgressModel {
     label: sanitizeTerminalText(stringify(widget.props['label'])).text,
     mode: progressMode(widget.props['mode']),
     labelPosition: progressLabelPosition(widget.props['labelPosition']),
-    status: activityStatus(widget.props['status'], 'running'),
+    status: normalizeWidgetProcessStatus(widget.props['status'], 'running'),
     indeterminate,
     value,
     max,

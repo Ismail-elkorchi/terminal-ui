@@ -13,7 +13,8 @@ import {
 import { numberProp, stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { StructuredBlock, StructuredBlockField, StructuredBlockStatus, Widget } from '../widgets/index.ts';
+import type { StructuredBlock, StructuredBlockField, Widget } from '../widgets/index.ts';
+import { optionalWidgetRecordStatus } from '../widgets/index.ts';
 import type { LayoutNode } from './layout.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 
@@ -275,7 +276,8 @@ function optionalStyle(value: unknown): Pick<StructuredBlock, 'style'> | Record<
 }
 
 function optionalStatus(value: unknown): Pick<StructuredBlock, 'status'> | Record<string, never> {
-  return isStatus(value) ? { status: value } : {};
+  const status = optionalWidgetRecordStatus(value);
+  return status === undefined ? {} : { status };
 }
 
 function optionalFields(value: unknown): Pick<StructuredBlock, 'fields'> | Record<string, never> {
@@ -291,18 +293,6 @@ function isField(value: unknown): value is StructuredBlockField {
     && 'value' in value
     && typeof value.label === 'string'
     && typeof value.value === 'string';
-}
-
-function isStatus(value: unknown): value is StructuredBlockStatus {
-  return value === 'pending'
-    || value === 'running'
-    || value === 'success'
-    || value === 'warning'
-    || value === 'error'
-    || value === 'failed'
-    || value === 'cancelled'
-    || value === 'skipped'
-    || value === 'info';
 }
 
 function isTerminalStyle(value: unknown): value is TerminalStyle {

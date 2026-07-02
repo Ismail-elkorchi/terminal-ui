@@ -1,4 +1,4 @@
-export type ProgressStatus = 'empty' | 'partial' | 'complete' | 'overflow';
+export type ProgressCompletionState = 'empty' | 'partial' | 'complete' | 'overflow';
 
 export interface ProgressFrameCell {
   readonly index: number;
@@ -13,7 +13,7 @@ export interface ProgressFrame {
   readonly cells: readonly ProgressFrameCell[];
 }
 
-export function progressStatus(value: number, max: number): ProgressStatus {
+export function progressCompletionState(value: number, max: number): ProgressCompletionState {
   const normalizedMax = normalizePositiveInteger(max, 100);
   const normalizedValue = normalizeFiniteNumber(value, 0);
   if (normalizedValue <= 0) return 'empty';

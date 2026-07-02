@@ -1,9 +1,10 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { ActivityIndicatorStatus, Widget } from '../widgets/index.ts';
+import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
 import { block, line, span } from './render-primitives.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from './render-primitives.ts';
-import { activityStatus, statusMarker, statusStyle } from './status-visual.ts';
+import { statusMarker, statusStyle } from './status-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { mergeStyles, widgetStyle } from './widget-style.ts';
 import { normalizeSpinnerFrameIndex } from './spinner.ts';
@@ -34,7 +35,7 @@ export function helpBarText(widget: Widget): string {
 
 export function activityIndicatorBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
   const label = stringify(widget.props['label']) || 'Activity';
-  const status = activityStatus(widget.props['status']);
+  const status = normalizeWidgetProcessStatus(widget.props['status']);
   return block([line(statusLineSpans(widget, {
     kind: 'activityIndicator',
     label,
@@ -49,7 +50,7 @@ export function activityIndicatorText(widget: Widget, theme: TerminalTheme): str
 }
 
 export function spinnerBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
-  const status = activityStatus(widget.props['status'], 'running');
+  const status = normalizeWidgetProcessStatus(widget.props['status'], 'running');
   const label = stringify(widget.props['label']) || 'Loading';
   return block([line(statusLineSpans(widget, {
     kind: 'spinner',

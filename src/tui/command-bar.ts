@@ -14,6 +14,7 @@ import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TextSelection } from '../text/index.ts';
 import type { CommandBarSuggestion, CommandBarValidation, CommandBarValidationTone, Widget } from '../widgets/index.ts';
+import { optionalWidgetValidationTone } from '../widgets/index.ts';
 import type { Rect } from './layout.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
 
@@ -155,15 +156,11 @@ function validationProp(widget: Widget): CommandBarValidation | undefined {
   if (!isRecord(validation)) return undefined;
   const message = validation['message'];
   if (typeof message !== 'string' || message.length === 0) return undefined;
-  const tone = validationTone(validation['tone']);
+  const tone = optionalWidgetValidationTone(validation['tone']);
   return {
     message: clean(message),
     ...(tone === undefined ? {} : { tone })
   };
-}
-
-function validationTone(value: unknown): CommandBarValidationTone | undefined {
-  return value === 'info' || value === 'warning' || value === 'error' ? value : undefined;
 }
 
 function validationToneForSurface(tone: CommandBarValidationTone): 'info' | 'warning' | 'error' {

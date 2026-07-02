@@ -8,7 +8,8 @@ import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { numberProp } from './widget-props.ts';
 import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
 import type { NotificationItem, NotificationPlacement, NotificationTone, Widget } from '../widgets/index.ts';
-import { statusFromTone, statusToken } from './status-visual.ts';
+import { normalizeNotificationTone, statusFromTone } from '../widgets/index.ts';
+import { statusToken } from './status-visual.ts';
 
 export interface NotificationStackSize {
   readonly width: number;
@@ -113,7 +114,7 @@ function renderNotificationCard(
   theme: TerminalTheme
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
-  const tone = notificationTone(card.item);
+  const tone = normalizeNotificationTone(card.item.tone);
   fillCardBackground(buffer, bounds, tone, card.selected);
   drawBorder(buffer, bounds, notificationBorder(card, tone, theme), theme);
   const contentBounds = {
@@ -279,11 +280,6 @@ function borderToken(tone: NotificationTone): ThemeToken {
 
 function foregroundToken(tone: NotificationTone): ThemeToken {
   return statusToken(statusFromTone(tone));
-}
-
-function notificationTone(item: NotificationItem): NotificationTone {
-  const tone = item.tone;
-  return tone === 'success' || tone === 'warning' || tone === 'error' || tone === 'progress' ? tone : 'info';
 }
 
 function notificationPlacement(widget: Widget): NotificationPlacement {

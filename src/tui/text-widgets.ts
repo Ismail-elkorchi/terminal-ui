@@ -17,12 +17,12 @@ import {
   spinnerBlock as feedbackSpinnerBlock,
   spinnerText as feedbackSpinnerText
 } from './feedback-visual.ts';
-import { activityStatus } from './status-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { defaultTheme } from '../theme/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
+import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from './frame.ts';
 import type { Rect } from './layout.ts';
 
@@ -147,7 +147,7 @@ export function spinnerText(widget: Widget, theme: TerminalTheme): string {
 }
 
 export function spinnerAccessibleBase(widget: Widget, id: string): AccessibleNode {
-  const status = activityStatus(widget.props['status'], 'running');
+  const status = normalizeWidgetProcessStatus(widget.props['status'], 'running');
   const label = stringify(widget.props['label']) || 'Loading';
   return {
     id,

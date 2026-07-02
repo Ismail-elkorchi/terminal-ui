@@ -519,6 +519,7 @@ export type {
   PaletteState,
   PaletteWidgetOptions,
   PaginatorWidgetOptions,
+  ProgressCompletionState,
   ProgressBarLabelPosition,
   ProgressBarMode,
   ProgressBarWidgetOptions,

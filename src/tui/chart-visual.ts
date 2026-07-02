@@ -1,9 +1,10 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { ActivityIndicatorStatus, Widget } from '../widgets/index.ts';
+import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
 import { block, line, span } from './render-primitives.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from './render-primitives.ts';
-import { activityStatus, statusMarker, statusStyle } from './status-visual.ts';
+import { statusMarker, statusStyle } from './status-visual.ts';
 import { stringify } from './widget-props.ts';
 import { mergeStyles, widgetStyle } from './widget-style.ts';
 
@@ -12,7 +13,7 @@ export type ChartStateKind = 'empty' | 'loading' | 'error';
 
 export function chartStatus(value: unknown): ActivityIndicatorStatus | undefined {
   if (value === undefined) return undefined;
-  return activityStatus(value, 'idle');
+  return normalizeWidgetProcessStatus(value, 'idle');
 }
 
 export function chartStateBlock(

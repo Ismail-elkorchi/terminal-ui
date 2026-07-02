@@ -1,37 +1,6 @@
 import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
-import type { ActivityIndicatorStatus, WidgetStatus, WidgetTone } from '../widgets/index.ts';
+import type { WidgetStatus } from '../widgets/index.ts';
 import type { TerminalStyle } from './frame.ts';
-
-export function widgetStatus(value: unknown, fallback: WidgetStatus = 'idle'): WidgetStatus {
-  return isWidgetStatus(value) ? value : fallback;
-}
-
-export function activityStatus(value: unknown, fallback: ActivityIndicatorStatus = 'idle'): ActivityIndicatorStatus {
-  return value === 'idle' || value === 'running' || value === 'success' || value === 'warning' || value === 'error'
-    ? value
-    : fallback;
-}
-
-export function statusFromTone(tone: WidgetTone, fallback: WidgetStatus = 'info'): WidgetStatus {
-  switch (tone) {
-    case 'success':
-      return 'success';
-    case 'warning':
-      return 'warning';
-    case 'error':
-    case 'destructive':
-      return 'error';
-    case 'progress':
-      return 'running';
-    case 'info':
-      return 'info';
-    case 'default':
-    case 'primary':
-    case 'secondary':
-    case 'muted':
-      return fallback;
-  }
-}
 
 export function statusMarker(status: WidgetStatus, theme: TerminalTheme): string {
   switch (status) {
@@ -73,14 +42,4 @@ export function statusToken(status: WidgetStatus): ThemeToken {
     case 'idle':
       return 'status.pending';
   }
-}
-
-function isWidgetStatus(value: unknown): value is WidgetStatus {
-  return value === 'idle'
-    || value === 'pending'
-    || value === 'running'
-    || value === 'success'
-    || value === 'warning'
-    || value === 'error'
-    || value === 'info';
 }

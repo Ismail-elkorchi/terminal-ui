@@ -2,9 +2,9 @@ import { highlightRenderSpans } from './text-highlight.ts';
 import type {
   StructuredBlockField,
   StructuredBlockStatus,
-  Widget,
-  WidgetStatus
+  Widget
 } from '../widgets/index.ts';
+import { baseStatusForRecordStatus } from '../widgets/index.ts';
 import { span } from './render-primitives.ts';
 import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { statusStyle } from './status-visual.ts';
@@ -57,7 +57,7 @@ export function documentHighlightSpans(input: {
 }
 
 export function documentStatusStyle(status: StructuredBlockStatus): TerminalStyle {
-  return mergeStyles(statusStyle(recordBaseStatus(status)), { bold: true }) ?? { bold: true };
+  return mergeStyles(statusStyle(baseStatusForRecordStatus(status)), { bold: true }) ?? { bold: true };
 }
 
 export function documentMarkerStyle(widget: Widget, selected = false): TerminalStyle | undefined {
@@ -133,10 +133,4 @@ export function scrollbackBodyStyle(
 
 export function scrollbackOmissionStyle(widget: Widget): TerminalStyle | undefined {
   return widgetStyle(widget, 'placeholder');
-}
-
-function recordBaseStatus(status: StructuredBlockStatus): WidgetStatus {
-  if (status === 'failed') return 'error';
-  if (status === 'cancelled' || status === 'skipped') return 'warning';
-  return status;
 }

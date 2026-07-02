@@ -118,8 +118,12 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.widgets.scrollbackReducer, 'function');
   assert.equal(typeof terminalUi.widgets.scrollbackSearchMarks, 'function');
   assert.equal(typeof terminalUi.widgets.followTailScrollState, 'function');
-  assert.equal(typeof terminalUi.widgets.progressStatus, 'function');
+  assert.equal(typeof terminalUi.widgets.progressCompletionState, 'function');
   assert.equal(typeof terminalUi.widgets.indeterminateProgressFrame, 'function');
+  assert.equal(typeof terminalUi.widgets.normalizeWidgetProcessStatus, 'function');
+  assert.equal(typeof terminalUi.widgets.optionalWidgetRecordStatus, 'function');
+  assert.equal(typeof terminalUi.widgets.normalizeNotificationTone, 'function');
+  assert.equal(typeof terminalUi.widgets.recordStatusFromTone, 'function');
   assert.equal(typeof terminalUi.widgets.activityFeedReducer, 'function');
   assert.equal(typeof terminalUi.widgets.visibleActivityFeedBlocks, 'function');
   assert.equal(typeof terminalUi.widgets.copyActivityFeedVisibleText, 'function');
@@ -341,6 +345,7 @@ test('root declaration exposes primary public type contracts', async () => {
     'TextAreaWidgetOptions',
     'TreeWidgetOptions',
     'PaginatorWidgetOptions',
+    'ProgressCompletionState',
     'ProgressBarLabelPosition',
     'ProgressBarMode',
     'HelpBarWidgetOptions',

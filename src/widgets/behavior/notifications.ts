@@ -1,5 +1,6 @@
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { NotificationItem, StructuredBlock, StructuredBlockStatus } from '../types.ts';
+import { normalizeNotificationTone, recordStatusFromTone } from '../status.ts';
 
 export interface NotificationState {
   readonly items: readonly NotificationItem[];
@@ -104,27 +105,7 @@ function sanitizeNotificationItem(item: NotificationItem): NotificationItem {
 }
 
 function notificationStatus(item: NotificationItem): StructuredBlockStatus {
-  switch (notificationTone(item)) {
-    case 'success':
-      return 'success';
-    case 'warning':
-      return 'warning';
-    case 'error':
-      return 'error';
-    case 'progress':
-      return 'running';
-    case 'info':
-      return 'info';
-  }
-}
-
-function notificationTone(item: NotificationItem): NonNullable<NotificationItem['tone']> {
-  return item.tone === 'success'
-    || item.tone === 'warning'
-    || item.tone === 'error'
-    || item.tone === 'progress'
-    ? item.tone
-    : 'info';
+  return recordStatusFromTone(normalizeNotificationTone(item.tone));
 }
 
 function boundItems(items: readonly NotificationItem[], limit: number): readonly NotificationItem[] {

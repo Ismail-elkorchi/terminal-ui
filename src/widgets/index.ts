@@ -66,8 +66,27 @@ export {
 } from './behavior/activity-feed.ts';
 export {
   indeterminateProgressFrame,
-  progressStatus
+  progressCompletionState
 } from './behavior/feedback.ts';
+export {
+  baseStatusForRecordStatus,
+  isNotificationTone,
+  isWidgetProcessStatus,
+  isWidgetRecordStatus,
+  isWidgetStatus,
+  isWidgetTone,
+  isWidgetValidationTone,
+  normalizeNotificationTone,
+  normalizeWidgetProcessStatus,
+  normalizeWidgetRecordStatus,
+  normalizeWidgetStatus,
+  normalizeWidgetTone,
+  optionalWidgetProcessStatus,
+  optionalWidgetRecordStatus,
+  optionalWidgetValidationTone,
+  recordStatusFromTone,
+  statusFromTone
+} from './status.ts';
 export {
   groupPaletteEntries,
   paletteReducer,
@@ -112,7 +131,7 @@ export type {
 export type {
   ProgressFrame,
   ProgressFrameCell,
-  ProgressStatus
+  ProgressCompletionState
 } from './behavior/feedback.ts';
 export type {
   PaletteAction,
