@@ -23,9 +23,9 @@ adapter is unavailable, it returns a typed diagnostic instead of skipping with
 ambient process state.
 
 Executable examples are tested directly by the package suite. The tests run
-each public example, assert successful process output, and check semantic
-markers or JSON summaries for product-shaped examples. This keeps examples
-reviewable without maintaining generated stdout snapshots.
+each public example, assert successful process output, and check focused
+semantic markers for showcase examples. This keeps examples reviewable without
+maintaining generated stdout snapshots.
 
 Renderer and widget regression tests should prove current public behavior:
 styled cells, spans, blocks, frame JSON, diffs, ANSI, focus targets, hit
@@ -36,4 +36,3 @@ targets, accessibility, and bounded viewport cost. See
 Executable example:
 
 - `examples/testing/harness.mjs`
-- `examples/testing/visual-snapshots.mjs`

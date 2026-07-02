@@ -209,10 +209,3 @@ Executable examples:
 
 - `examples/showcase/app.mjs`
 - `examples/showcase/scripted.mjs`
-- `examples/showcase/preview.mjs`
-- `examples/products/file-manager.mjs`
-- `examples/products/system-monitor.mjs`
-- `examples/products/notes-workspace.mjs`
-- `examples/products/data-dashboard.mjs`
-- `examples/products/form-wizard.mjs`
-- `examples/products/chart-explorer.mjs`

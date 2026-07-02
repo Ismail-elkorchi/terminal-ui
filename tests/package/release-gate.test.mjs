@@ -22,7 +22,7 @@ const fullOnlyCheckScripts = [
   'check:performance'
 ];
 
-test('release check is composed from explicit product suite lanes', () => {
+test('release check is composed from explicit suite lanes', () => {
   const scripts = packageJson.scripts;
   assert.equal(typeof scripts.lint, 'string');
   assert.equal(typeof scripts.build, 'string');
@@ -181,7 +181,6 @@ test('documentation local links resolve', async () => {
 test('examples stay hand-written and generated visual fixture trees stay absent', async () => {
   for (const directory of [
     '../../docs/gallery/',
-    '../../examples/gallery/fixtures/',
     '../../examples/showcase/fixtures/',
     '../../tests/fixtures/'
   ]) {

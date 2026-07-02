@@ -85,4 +85,3 @@ Executable examples:
 
 - `examples/showcase/app.mjs`
 - `examples/showcase/scripted.mjs`
-- `examples/showcase/preview.mjs`

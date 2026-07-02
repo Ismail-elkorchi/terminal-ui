@@ -49,5 +49,3 @@ state, focus, hit-target, and style-slot expectations, see
 Executable examples:
 
 - `examples/showcase/app.mjs`
-- `examples/showcase/preview.mjs`
-- `examples/testing/visual-snapshots.mjs`

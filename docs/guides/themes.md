@@ -43,5 +43,3 @@ Executable examples:
 
 - `examples/showcase/app.mjs`
 - `examples/showcase/scripted.mjs`
-- `examples/testing/visual-snapshots.mjs`
-- `examples/products/chart-explorer.mjs`
