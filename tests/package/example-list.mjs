@@ -10,6 +10,7 @@ export const exampleScripts = Object.freeze([
   'examples/products/data-dashboard.mjs',
   'examples/products/form-wizard.mjs',
   'examples/products/chart-explorer.mjs',
+  'examples/products/ide-workbench.mjs',
   'examples/prompts/non-tty-input.mjs',
   'examples/shell/cli-core-shell.mjs',
   'examples/testing/visual-snapshots.mjs',

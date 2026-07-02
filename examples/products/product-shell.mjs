@@ -39,7 +39,7 @@ export function productFrame(options) {
       bottom bottom
     `,
     rows: [{ kind: 'fixed', cells: 3 }, { kind: 'fill' }, { kind: 'fixed', cells: 5 }],
-    columns: [{ kind: 'fill' }, { kind: 'fixed', cells: 34 }],
+    columns: [{ kind: 'fill' }, { kind: 'fixed', cells: options.sideWidth ?? 34 }],
     gap: 1,
     children: {
       top: productTopBar(options),

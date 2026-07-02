@@ -66,6 +66,17 @@ const productExampleAssertions = [
       action: 'select chart point',
       selectedValue: 48
     }
+  },
+  {
+    script: 'examples/products/ide-workbench.mjs',
+    text: [/Code Studio/u, /IDE workbench/u, /agent-panel\.ts/u, /Terminal · Problems/u],
+    summary: {
+      workflow: 'ide-workbench',
+      action: 'open modified agent panel',
+      selectedAfter: 'src/agent-panel.ts',
+      testCount: 12,
+      terminalVisible: true
+    }
   }
 ];
 
