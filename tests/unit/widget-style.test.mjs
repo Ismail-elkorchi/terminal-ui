@@ -206,7 +206,9 @@ test('list table and tree share data navigation selection and match styles', () 
 
 test('tabs use shared selected disabled and value styles', () => {
   const frame = renderWidgetFrame(tabs({
+    id: 'tabs',
     selected: 'data',
+    keyMap: { enter: { kind: 'activate-tabs' } },
     tabs: [
       { id: 'dash', label: 'Dash', panel: text('Dashboard') },
       { id: 'data', label: 'Data', panel: text('Data view') },
@@ -215,13 +217,16 @@ test('tabs use shared selected disabled and value styles', () => {
     styles: {
       value: tokenStyle('text.muted'),
       selected: tokenStyle('status.success'),
+      focused: tokenStyle('accent.primary', { underline: true }),
       disabled: tokenStyle('status.warning')
     }
-  }), { columns: 32, rows: 3 });
+  }), { columns: 32, rows: 3 }, { focusPath: ['tabs'] });
   const dStyles = stylesFor(frame, 'D');
+  const selectedLabel = frame.cells.find((cell) => cell.source?.id === 'data' && cell.source?.label === 'label');
 
   assert.equal(dStyles[0]?.fg?.token, 'text.muted');
-  assert.equal(dStyles[1]?.fg?.token, 'status.success');
+  assert.equal(selectedLabel?.style?.fg?.token, 'accent.primary');
+  assert.equal(selectedLabel?.style?.underline, true);
   assert.equal(styleFor(frame, 'A')?.fg?.token, 'status.warning');
 });
 
@@ -236,6 +241,9 @@ test('scrollback and modal chrome use placeholder and border slots', () => {
     text('Body'),
     {
       title: 'Panel',
+      width: 14,
+      height: 6,
+      actions: row([button({ label: 'OK' })]),
       styles: {
         border: tokenStyle('status.error')
       }
@@ -244,6 +252,7 @@ test('scrollback and modal chrome use placeholder and border slots', () => {
 
   assert.equal(styleFor(scrollbackFrame, '.')?.fg?.token, 'status.warning');
   assert.equal(styleFor(modalFrame, '┌')?.fg?.token, 'status.error');
+  assert.equal(styleForCell(modalFrame, (cell) => cell.source?.kind === 'modal' && cell.source.label === 'action-separator')?.fg?.token, 'status.error');
 });
 
 test('semantic text roles use shared visual grammar', () => {

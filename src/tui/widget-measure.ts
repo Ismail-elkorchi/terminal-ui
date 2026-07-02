@@ -342,10 +342,27 @@ function measureModalWidget(
   if (explicitWidth !== undefined && explicitHeight !== undefined) {
     return measureSize(explicitWidth, explicitHeight, Math.min(4, explicitWidth), Math.min(3, explicitHeight));
   }
-  const content = measureSurfaceWidget(widget, bounds, theme, measureWidget);
+  const content = measureModalContentWidget(widget, bounds, theme, measureWidget);
+  const border = borderStyleFromValue(widget.props['border']) ?? { kind: 'single' };
+  const insetCells = border.kind === 'none' ? 0 : 2;
   return measureSize(
-    explicitWidth ?? Math.max(4, content.preferredWidth),
-    explicitHeight ?? Math.max(3, content.preferredHeight)
+    explicitWidth ?? Math.max(4, content.preferredWidth + insetCells),
+    explicitHeight ?? Math.max(3, content.preferredHeight + insetCells)
+  );
+}
+
+function measureModalContentWidget(
+  widget: Widget,
+  bounds: Rect,
+  theme: TerminalTheme,
+  measureWidget: WidgetMeasureFunction
+): WidgetMeasureResult {
+  const measures = childMeasuresFor(widget, bounds, theme, measureWidget);
+  const body = measures[0] ?? zeroWidgetMeasure();
+  const actions = measures[1];
+  return measureSize(
+    Math.max(body.preferredWidth, actions?.preferredWidth ?? 0),
+    body.preferredHeight + (actions === undefined ? 0 : actions.preferredHeight + 1)
   );
 }
 

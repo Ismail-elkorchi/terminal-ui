@@ -13,16 +13,19 @@ import {
   screenStackReducer,
   splitTracks
 } from '../../dist/tui/index.js';
-import { defaultTheme } from '../../dist/theme/index.js';
+import { defaultTheme, noColorTheme } from '../../dist/theme/index.js';
 import {
+  button,
   canvas,
   commandBar,
   contextMenu,
   dropdown,
   grid,
+  absolute,
   textInput,
   modal,
   overlay,
+  row,
   splitPane,
   table,
   tabs,
@@ -117,6 +120,32 @@ test('splitPane content tracks use measured child width', () => {
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 9, width: 12, height: 3 });
 });
 
+test('splitPane pressure keeps pane order and clamps oversized tracks', () => {
+  const widget = splitPane([
+    text('left', { id: 'left' }),
+    text('middle', { id: 'middle' }),
+    text('right', { id: 'right' })
+  ], {
+    id: 'tight-panes',
+    direction: 'horizontal',
+    sizes: [
+      { kind: 'fixed', cells: 4 },
+      { kind: 'fill' },
+      { kind: 'fixed', cells: 4 }
+    ],
+    gap: 1
+  });
+
+  const layout = layoutWidget(widget, { columns: 7, rows: 1 });
+
+  assert.deepEqual(layout.children.map((child) => child.bounds), [
+    { row: 1, column: 1, width: 4, height: 1 },
+    { row: 1, column: 6, width: 0, height: 1 },
+    { row: 1, column: 7, width: 1, height: 1 }
+  ]);
+  assert.equal(renderFramePlain(renderWidgetFrame(widget, { columns: 7, rows: 1 })), 'left  r');
+});
+
 test('grid content rows and columns use measured child dimensions', () => {
   const widget = grid([
     text('wide-label', { id: 'wide-label' }),
@@ -175,7 +204,12 @@ test('tabs render only the selected panel as focusable content', () => {
     selected: 'second',
     tabs: [
       { id: 'first', label: 'First', panel: textInput({ id: 'first-input', value: 'hidden' }) },
-      { id: 'second', label: 'Second', panel: textInput({ id: 'second-input', value: 'visible' }) }
+      {
+        id: 'second',
+        label: 'Second',
+        description: 'Visible editor panel',
+        panel: textInput({ id: 'second-input', value: 'visible' })
+      }
     ]
   });
 
@@ -187,6 +221,61 @@ test('tabs render only the selected panel as focusable content', () => {
   assert.ok(frame.focusPath?.includes('second-input'));
   assert.ok(!frame.focusPath?.includes('first-input'));
   assert.match(frame.cells.map((cell) => cell.text).join(''), /\[Second\]/u);
+  assert.equal(frame.accessibility.root.children?.[1]?.description, 'Visible editor panel');
+});
+
+test('tabs keep active markers disabled targets and overflow visible without color', () => {
+  const frame = renderWidgetFrame(tabs({
+    id: 'tabs',
+    selected: 'alpha',
+    tabs: [
+      { id: 'alpha', label: 'Alpha', message: { kind: 'alpha' }, panel: text('Alpha panel') },
+      { id: 'beta', label: 'Beta', disabled: true, message: { kind: 'beta' }, panel: text('Beta panel') },
+      { id: 'gamma', label: 'Gamma', message: { kind: 'gamma' }, panel: text('Gamma panel') }
+    ]
+  }), { columns: 14, rows: 3 }, { theme: noColorTheme });
+  const header = renderFramePlain(frame).split('\n')[0] ?? '';
+
+  assert.match(header, /\[Alpha\]/u);
+  assert.match(header, /…/u);
+  assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['tabs:tab:alpha']);
+  assert.equal(frame.cells.find((cell) => cell.source?.id === 'alpha' && cell.source.label === 'marker.selected.open')?.text, '[');
+  assert.equal(frame.cells.find((cell) => cell.source?.id === 'alpha' && cell.source.label === 'marker.selected.close')?.text, ']');
+});
+
+test('absolute clips child bounds without leaking outside its parent', () => {
+  const widget = absolute(text('OVERFLOW', { id: 'absolute-text' }), {
+    id: 'absolute-clip',
+    row: 1,
+    column: 4,
+    width: 8,
+    height: 1
+  });
+
+  const layout = layoutWidget(widget, { columns: 6, rows: 1 });
+  const frame = renderWidgetFrame(widget, { columns: 6, rows: 1 });
+
+  assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 4, width: 3, height: 1 });
+  assert.equal(renderFramePlain(frame), '   OVE');
+  assert.equal(frame.accessibility.root.children?.[0]?.id, 'absolute-text');
+  assert.equal(frame.accessibility.root.children?.[0]?.value, 'OVERFLOW');
+});
+
+test('overlay preserves declaration order within one layer and z-order across layers', () => {
+  const sameLayer = overlay([
+    text('ONE', { id: 'one' }),
+    text('TWO', { id: 'two' })
+  ], { id: 'same-layer' });
+  const layered = overlay([
+    text('LOW', { id: 'low', zIndex: 2 }),
+    text('MID', { id: 'mid', zIndex: 1 }),
+    text('TOP', { id: 'top', zIndex: 3 })
+  ], { id: 'layered' });
+  const regions = renderWidgetRegions(layered, { columns: 3, rows: 1 });
+
+  assert.equal(renderFramePlain(renderWidgetFrame(sameLayer, { columns: 3, rows: 1 })), 'TWO');
+  assert.deepEqual(regions.map((region) => region.zIndex), [0, 1, 2, 3]);
+  assert.equal(renderFramePlain(renderWidgetFrame(layered, { columns: 3, rows: 1 })), 'TOP');
 });
 
 test('modal centers a bounded dialog and lays out child content inside the border', () => {
@@ -203,6 +292,32 @@ test('modal centers a bounded dialog and lays out child content inside the borde
   const rendered = frame.cells.map((cell) => cell.text).join('');
   assert.equal(frame.accessibility.root.label, 'Confirm');
   assert.match(rendered, /inside/u);
+});
+
+test('modal reserves a structurally separated action area without color', () => {
+  const widget = modal(text('Modal body', { id: 'body' }), {
+    id: 'dialog',
+    title: 'Confirm',
+    width: 20,
+    height: 7,
+    actions: row([
+      button({ id: 'cancel', label: 'Cancel' }),
+      button({ id: 'confirm', label: 'OK' })
+    ], { gap: 1 })
+  });
+  const layout = layoutWidget(widget, { columns: 30, rows: 9 }, noColorTheme);
+
+  assert.deepEqual(layout.children[0]?.bounds, { row: 3, column: 7, width: 18, height: 3 });
+  assert.deepEqual(layout.children[1]?.bounds, { row: 7, column: 7, width: 18, height: 1 });
+
+  const frame = renderWidgetFrame(widget, { columns: 30, rows: 9 }, { theme: noColorTheme });
+  const separatorCells = frame.cells.filter((cell) => cell.source?.kind === 'modal' && cell.source.label === 'action-separator');
+
+  assert.equal(separatorCells.length, 18);
+  assert.deepEqual([...new Set(separatorCells.map((cell) => cell.text))], ['-']);
+  assert.match(renderFramePlain(frame), /Modal body/u);
+  assert.match(renderFramePlain(frame), /Cancel/u);
+  assert.match(renderFramePlain(frame), /OK/u);
 });
 
 test('border model supports styled widget borders and borderless layout', () => {

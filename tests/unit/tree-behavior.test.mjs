@@ -51,16 +51,18 @@ test('treeStateReducer owns selection filter and rename interaction state', () =
   assert.equal(cleared.filterQuery, undefined);
 });
 
-test('treeNodeMatches searches label id icon lazy message and metadata', () => {
+test('treeNodeMatches searches label id description icon lazy message and metadata', () => {
   const node = {
     id: 'api',
     label: 'Service',
+    description: 'Request handlers',
     icon: 'S',
     lazyMessage: 'Network pending',
     metadata: { domain: 'server' }
   };
 
   assert.equal(treeNodeMatches(node, 'service'), true);
+  assert.equal(treeNodeMatches(node, 'handlers'), true);
   assert.equal(treeNodeMatches(node, 'server'), true);
   assert.equal(treeNodeMatches(node, 'network'), true);
   assert.equal(treeNodeMatches(node, 'missing'), false);

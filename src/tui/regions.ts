@@ -151,6 +151,7 @@ function resolveTrackSizes(
   const lastFill = sizes.findLastIndex((_size, index) => tracks[index]?.kind === 'fill');
   if (lastFill !== -1) {
     const delta = safeTotal - sizes.reduce((sum, value) => sum + value, 0);
+    if ((sizes[lastFill] ?? 0) + delta < 0) return fitSizes(sizes, safeTotal);
     return sizes.map((size, index) => index === lastFill ? size + delta : size);
   }
   return fitSizes(sizes, safeTotal);

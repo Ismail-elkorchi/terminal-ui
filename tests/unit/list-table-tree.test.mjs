@@ -321,7 +321,7 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
       icon: '▣',
       children: [
         { id: 'ui', label: 'Terminal UI', metadata: { domain: 'widgets' } },
-        { id: 'api', label: 'API Layer', disabled: true, metadata: { domain: 'server' } }
+        { id: 'api', label: 'API Layer', description: 'Server request boundary', disabled: true, metadata: { domain: 'server' } }
       ]
     }]
   }), { columns: 32, rows: 4 });
@@ -335,6 +335,7 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
   assert.equal(disabledCell?.style?.fg?.token, 'text.muted');
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
   assert.equal(frame.accessibility.root.children?.[1]?.disabled, true);
+  assert.equal(frame.accessibility.root.children?.[1]?.description, 'Server request boundary');
   assert.equal(frame.accessibility.root.children?.[1]?.value, 'root/api');
 });
 

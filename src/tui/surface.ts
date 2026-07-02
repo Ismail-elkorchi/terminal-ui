@@ -3,7 +3,8 @@ import type { BorderStyle } from './border.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
 import type { Rect } from './layout.ts';
 import type { TerminalStyle } from './render-primitives.ts';
-import { mergeStyles } from './widget-style.ts';
+import { mergeStyles, resolveWidgetStyle } from './widget-style.ts';
+import { stringify } from './widget-props.ts';
 import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
 
@@ -78,9 +79,9 @@ function surfaceVariantFromValue(value: unknown): SurfaceVariant | undefined {
 
 function surfaceBorder(widget: Widget, variant = surfaceVariantFromValue(widget.props['variant'])): BorderStyle | undefined {
   const explicit = borderStyleFromValue(widget.props['border']);
-  if (explicit !== undefined) return surfaceBorderStyle(widget, explicit, variant);
+  if (explicit !== undefined) return surfaceBorderStyle(widget, surfaceTitledBorder(widget, explicit), variant);
   if (variant === undefined || variant === 'neutral') return undefined;
-  return surfaceBorderStyle(widget, { kind: 'single' }, variant);
+  return surfaceBorderStyle(widget, surfaceTitledBorder(widget, { kind: 'single' }), variant);
 }
 
 function surfaceFocusedBorder(border: BorderStyle | undefined, focused: boolean): BorderStyle | undefined {
@@ -97,15 +98,34 @@ function surfaceFocusedBorder(border: BorderStyle | undefined, focused: boolean)
 function surfaceBorderStyle(widget: Widget, border: BorderStyle, variant: SurfaceVariant | undefined): BorderStyle {
   if (border.kind === 'none') return border;
   const variantStyle = variant === undefined ? undefined : surfaceBorderTokenStyle(variant);
-  const style = mergeStyles(variantStyle, widget.styles?.border, border.style);
+  const style = mergeStyles(
+    resolveWidgetStyle(widget, {
+      slot: 'border',
+      ...(surfaceDisabled(widget) ? { state: 'disabled' } : {}),
+      ...(variantStyle === undefined ? {} : { base: variantStyle })
+    }),
+    border.style
+  );
   return style === undefined ? border : { ...border, style };
 }
 
 export function surfaceBackgroundStyle(widget: Widget, variant: SurfaceVariant): TerminalStyle {
-  return mergeStyles(
-    { bg: { kind: 'theme', token: surfaceBackgroundToken(variant) } },
-    widget.styles?.root
-  ) ?? { bg: { kind: 'theme', token: surfaceBackgroundToken(variant) } };
+  const base = { bg: { kind: 'theme', token: surfaceBackgroundToken(variant) } } satisfies TerminalStyle;
+  return resolveWidgetStyle(widget, {
+    slot: 'root',
+    base,
+    ...(surfaceDisabled(widget) ? { state: 'disabled' } : {})
+  }) ?? base;
+}
+
+function surfaceTitledBorder(widget: Widget, border: BorderStyle): BorderStyle {
+  if (border.kind === 'none' || border.title !== undefined) return border;
+  const label = stringify(widget.props['label']);
+  return label.length === 0 ? border : { ...border, title: label };
+}
+
+function surfaceDisabled(widget: Widget): boolean {
+  return widget.props['disabled'] === true;
 }
 
 function surfaceBorderTokenStyle(variant: SurfaceVariant): TerminalStyle {

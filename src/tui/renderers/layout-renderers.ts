@@ -1,7 +1,7 @@
 import { createFrameBuffer } from '../frame.ts';
 import { splitTracks } from '../regions.ts';
 import { writeRenderBlock } from './support/block.ts';
-import { borderContentBounds, borderForModal, modalLabel } from './support/border.ts';
+import { borderForModal, modalLabel } from './support/border.ts';
 import { cellInside, groupAccessibleNode } from './support/common.ts';
 import {
   fillLayoutSizes,
@@ -16,7 +16,13 @@ import {
   scrollbarsForWidget,
   viewportScrollbarState
 } from './support/scroll.ts';
-import { modalChildBounds, viewportAccessibleDescription, viewportChildBounds } from './support/viewport.ts';
+import {
+  drawViewportIndicators,
+  viewportAccessibleDescription,
+  viewportChildBounds,
+  viewportIndicatorCellKey
+} from './support/viewport.ts';
+import { drawModalActionSeparator, modalChildBounds, modalDialogBounds } from './support/modal.ts';
 import { drawSurfaceFrame } from '../surface.ts';
 import type { RendererMap } from './types.ts';
 
@@ -47,9 +53,14 @@ export const layoutRenderers = {
       const viewportBuffer = createFrameBuffer(input.buffer.width, input.buffer.height);
       input.renderChildren(viewportBuffer);
       const scrollbars = scrollbarsForWidget(input.widget, input.node.bounds, viewportScrollbarState(input.widget, input.node.bounds), 'both');
+      const occupiedCells = new Set<string>();
       for (const cell of viewportBuffer.snapshot().cells) {
-        if (cellInside(cell, scrollbars.contentBounds)) input.buffer.writeCell(cell);
+        if (cellInside(cell, scrollbars.contentBounds)) {
+          input.buffer.writeCell(cell);
+          occupiedCells.add(viewportIndicatorCellKey(cell.row, cell.column));
+        }
       }
+      drawViewportIndicators(input.buffer, input.widget, scrollbars.contentBounds, input.theme, occupiedCells);
       drawScrollbars(input.buffer, scrollbars, input.theme);
     },
     accessibility: ({ widget, node, id }) => ({
@@ -79,7 +90,7 @@ export const layoutRenderers = {
       writeRenderBlock(input.buffer, {
         ...input.node.bounds,
         height: Math.min(1, input.node.bounds.height)
-      }, tabsHeaderBlock(input.widget, input.node.bounds));
+      }, tabsHeaderBlock(input.widget, input.node.bounds, input.focused));
       input.renderChildren();
     },
     accessibility: ({ widget, id, focused }) => ({
@@ -92,14 +103,16 @@ export const layoutRenderers = {
     hitTargets: ({ widget, bounds }) => tabsHitTargets(widget, bounds)
   },
   modal: {
-    layout: ({ widget, bounds }) => [borderContentBounds(modalChildBounds(widget, bounds), borderForModal(widget))],
+    layout: ({ widget, bounds, childMeasures }) => modalChildBounds(widget, bounds, borderForModal(widget), childMeasures),
     render: (input) => {
-      const childBounds = modalChildBounds(input.widget, input.node.bounds);
+      const border = borderForModal(input.widget, input.focused);
+      const childBounds = modalDialogBounds(input.widget, input.node.bounds);
       drawSurfaceFrame(input.buffer, childBounds, input.widget, input.theme, input.focused, {
         variant: 'raised',
-        border: borderForModal(input.widget),
+        border,
         shadow: true
       });
+      drawModalActionSeparator(input.buffer, input.node, input.theme, border.style);
       input.renderChildren();
     },
     accessibility: ({ widget, id }) => ({

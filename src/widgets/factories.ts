@@ -658,6 +658,7 @@ export function surface<TMessage>(children: WidgetChildren<TMessage>, options: S
       ...(options.variant === undefined ? {} : { variant: options.variant }),
       ...(options.border === undefined ? {} : { border: options.border }),
       ...(options.shadow === undefined ? {} : { shadow: options.shadow }),
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...layoutProps(options)
     },
     children: Array.isArray(children) ? children : [children],
@@ -1041,6 +1042,7 @@ export function tabs<TMessage>(options: TabsWidgetOptions<TMessage>): Widget<TMe
       tabs: options.tabs.map((tab) => ({
         id: tab.id,
         label: tab.label,
+        ...(tab.description === undefined ? {} : { description: tab.description }),
         ...(tab.disabled === undefined ? {} : { disabled: tab.disabled }),
         ...(tab.message === undefined ? {} : { message: tab.message })
       })),
@@ -1067,7 +1069,7 @@ export function modal<TMessage>(
       ...(options.height === undefined ? {} : { height: options.height }),
       ...layoutProps(options)
     },
-    children: [child],
+    children: options.actions === undefined ? [child] : [child, options.actions],
     ...interactionOptions({ ...options, focus, opacity: options.opacity ?? 'opaque' })
   };
 }

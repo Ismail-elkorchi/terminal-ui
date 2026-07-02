@@ -1,5 +1,6 @@
 import { clipTextCells, measureTextCells } from '../text/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
+import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
 import type { DividerLineKind, DividerOrientation } from '../widgets/types.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
@@ -13,14 +14,14 @@ interface DividerGlyphs {
   readonly vertical: string;
 }
 
-export function renderDivider(widget: Widget, buffer: FrameBuffer, bounds: Rect): void {
+export function renderDivider(widget: Widget, buffer: FrameBuffer, bounds: Rect, theme: TerminalTheme): void {
   const orientation = dividerOrientation(widget);
   const style = dividerStyle(widget);
   if (orientation === 'vertical') {
-    renderVerticalDivider(widget, buffer, bounds, style);
+    renderVerticalDivider(widget, buffer, bounds, style, theme);
     return;
   }
-  renderHorizontalDivider(widget, buffer, bounds, style);
+  renderHorizontalDivider(widget, buffer, bounds, style, theme);
 }
 
 export function dividerAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
@@ -41,9 +42,15 @@ export function dividerPreferredSize(widget: Widget): { readonly width: number; 
     : { width: Math.max(1, labelCells + (labelCells === 0 ? 0 : 2)), height: 1 };
 }
 
-function renderHorizontalDivider(widget: Widget, buffer: FrameBuffer, bounds: Rect, style: TerminalStyle | undefined): void {
+function renderHorizontalDivider(
+  widget: Widget,
+  buffer: FrameBuffer,
+  bounds: Rect,
+  style: TerminalStyle | undefined,
+  theme: TerminalTheme
+): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
-  const glyph = dividerGlyphs(widget).horizontal;
+  const glyph = dividerGlyphs(widget, theme).horizontal;
   const label = dividerLabel(widget);
   const text = label.length === 0
     ? glyph.repeat(bounds.width)
@@ -55,9 +62,15 @@ function renderHorizontalDivider(widget: Widget, buffer: FrameBuffer, bounds: Re
   }]);
 }
 
-function renderVerticalDivider(widget: Widget, buffer: FrameBuffer, bounds: Rect, style: TerminalStyle | undefined): void {
+function renderVerticalDivider(
+  widget: Widget,
+  buffer: FrameBuffer,
+  bounds: Rect,
+  style: TerminalStyle | undefined,
+  theme: TerminalTheme
+): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
-  const glyph = dividerGlyphs(widget).vertical;
+  const glyph = dividerGlyphs(widget, theme).vertical;
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
     buffer.write(row, bounds.column, [{
       text: glyph,
@@ -106,10 +119,13 @@ function dividerLabelAlign(widget: Widget): 'start' | 'center' | 'end' {
   return value === 'center' || value === 'end' ? value : 'start';
 }
 
-function dividerGlyphs(widget: Widget): DividerGlyphs {
+function dividerGlyphs(widget: Widget, theme: TerminalTheme): DividerGlyphs {
   switch (dividerLineKind(widget)) {
     case 'single':
-      return { horizontal: '─', vertical: '│' };
+      return {
+        horizontal: theme.symbols.borderSingle.horizontal,
+        vertical: theme.symbols.borderSingle.vertical
+      };
     case 'double':
       return { horizontal: '═', vertical: '║' };
     case 'heavy':

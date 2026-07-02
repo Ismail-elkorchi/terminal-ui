@@ -100,6 +100,11 @@ export interface TerminalSymbols {
   readonly scrollbarVerticalThumb: string;
   readonly scrollbarHorizontalTrack: string;
   readonly scrollbarHorizontalThumb: string;
+  readonly viewportClipTop: string;
+  readonly viewportClipBottom: string;
+  readonly viewportClipLeft: string;
+  readonly viewportClipRight: string;
+  readonly viewportEmpty: string;
 }
 
 export interface TerminalSpacing {
@@ -149,6 +154,11 @@ export interface TerminalSymbolsDefinition {
   readonly scrollbarVerticalThumb?: string;
   readonly scrollbarHorizontalTrack?: string;
   readonly scrollbarHorizontalThumb?: string;
+  readonly viewportClipTop?: string;
+  readonly viewportClipBottom?: string;
+  readonly viewportClipLeft?: string;
+  readonly viewportClipRight?: string;
+  readonly viewportEmpty?: string;
 }
 
 export interface TerminalThemeDefinition {
@@ -182,7 +192,12 @@ export const asciiSymbols: TerminalSymbols = {
   scrollbarVerticalTrack: '|',
   scrollbarVerticalThumb: '#',
   scrollbarHorizontalTrack: '-',
-  scrollbarHorizontalThumb: '#'
+  scrollbarHorizontalThumb: '#',
+  viewportClipTop: '^',
+  viewportClipBottom: 'v',
+  viewportClipLeft: '<',
+  viewportClipRight: '>',
+  viewportEmpty: '.'
 };
 
 export const unicodeSymbols: TerminalSymbols = {
@@ -209,7 +224,12 @@ export const unicodeSymbols: TerminalSymbols = {
   scrollbarVerticalTrack: '│',
   scrollbarVerticalThumb: '█',
   scrollbarHorizontalTrack: '─',
-  scrollbarHorizontalThumb: '█'
+  scrollbarHorizontalThumb: '█',
+  viewportClipTop: '↑',
+  viewportClipBottom: '↓',
+  viewportClipLeft: '←',
+  viewportClipRight: '→',
+  viewportEmpty: '∅'
 };
 
 const modernColors = {
@@ -478,7 +498,12 @@ function symbolEntries(symbols: TerminalSymbols): readonly unknown[] {
     ['scrollbarVerticalTrack', symbols.scrollbarVerticalTrack],
     ['scrollbarVerticalThumb', symbols.scrollbarVerticalThumb],
     ['scrollbarHorizontalTrack', symbols.scrollbarHorizontalTrack],
-    ['scrollbarHorizontalThumb', symbols.scrollbarHorizontalThumb]
+    ['scrollbarHorizontalThumb', symbols.scrollbarHorizontalThumb],
+    ['viewportClipTop', symbols.viewportClipTop],
+    ['viewportClipBottom', symbols.viewportClipBottom],
+    ['viewportClipLeft', symbols.viewportClipLeft],
+    ['viewportClipRight', symbols.viewportClipRight],
+    ['viewportEmpty', symbols.viewportEmpty]
   ];
 }
 
@@ -528,7 +553,12 @@ function mergeSymbols(base: TerminalSymbols, override: TerminalSymbolsDefinition
     scrollbarVerticalTrack: override.scrollbarVerticalTrack ?? base.scrollbarVerticalTrack,
     scrollbarVerticalThumb: override.scrollbarVerticalThumb ?? base.scrollbarVerticalThumb,
     scrollbarHorizontalTrack: override.scrollbarHorizontalTrack ?? base.scrollbarHorizontalTrack,
-    scrollbarHorizontalThumb: override.scrollbarHorizontalThumb ?? base.scrollbarHorizontalThumb
+    scrollbarHorizontalThumb: override.scrollbarHorizontalThumb ?? base.scrollbarHorizontalThumb,
+    viewportClipTop: override.viewportClipTop ?? base.viewportClipTop,
+    viewportClipBottom: override.viewportClipBottom ?? base.viewportClipBottom,
+    viewportClipLeft: override.viewportClipLeft ?? base.viewportClipLeft,
+    viewportClipRight: override.viewportClipRight ?? base.viewportClipRight,
+    viewportEmpty: override.viewportEmpty ?? base.viewportEmpty
   });
 }
 
@@ -568,7 +598,12 @@ function sanitizeSymbols(symbols: TerminalSymbols): TerminalSymbols {
     scrollbarVerticalTrack: cleanSymbol(symbols.scrollbarVerticalTrack),
     scrollbarVerticalThumb: cleanSymbol(symbols.scrollbarVerticalThumb),
     scrollbarHorizontalTrack: cleanSymbol(symbols.scrollbarHorizontalTrack),
-    scrollbarHorizontalThumb: cleanSymbol(symbols.scrollbarHorizontalThumb)
+    scrollbarHorizontalThumb: cleanSymbol(symbols.scrollbarHorizontalThumb),
+    viewportClipTop: cleanSymbol(symbols.viewportClipTop),
+    viewportClipBottom: cleanSymbol(symbols.viewportClipBottom),
+    viewportClipLeft: cleanSymbol(symbols.viewportClipLeft),
+    viewportClipRight: cleanSymbol(symbols.viewportClipRight),
+    viewportEmpty: cleanSymbol(symbols.viewportEmpty)
   };
 }
 

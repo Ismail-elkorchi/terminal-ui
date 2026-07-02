@@ -69,6 +69,7 @@ export function treeAccessibleChildren(widget: Widget, bounds: Rect): readonly A
     id: `${widget.id ?? 'tree'}:${row.node.id}`,
     role: 'option',
     label: row.node.label,
+    ...(row.node.description === undefined ? {} : { description: row.node.description }),
     selected: row.node.id === selected,
     disabled: row.node.disabled === true || row.lazyPlaceholder === true,
     ...(row.node.children === undefined && row.node.lazy !== true ? {} : { expanded: row.node.expanded === true }),
@@ -215,6 +216,7 @@ function sanitizeNode(value: unknown): readonly TreeNode[] {
   const label = value['label'];
   if (typeof id !== 'string' || typeof label !== 'string') return [];
   const children = value['children'];
+  const description = value['description'];
   const expanded = value['expanded'];
   const disabled = value['disabled'];
   const lazy = value['lazy'];
@@ -225,6 +227,7 @@ function sanitizeNode(value: unknown): readonly TreeNode[] {
   return [{
     id: clean(id),
     label: clean(label),
+    ...(typeof description === 'string' ? { description: clean(description) } : {}),
     ...(Array.isArray(children) ? { children: children.flatMap((child): readonly TreeNode[] => sanitizeNode(child)) } : {}),
     ...(expanded === undefined ? {} : { expanded: expanded === true }),
     ...(disabled === undefined ? {} : { disabled: disabled === true }),

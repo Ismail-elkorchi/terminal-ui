@@ -1408,9 +1408,10 @@ test('viewport widgets render a clipped scrolled window into child content', () 
     }
   ), { columns: 5, rows: 2 });
   const output = renderFramePlain(frame);
+  const rightMarker = frame.cells.find((cell) => cell.source?.kind === 'viewport' && cell.source.label === 'clip-right');
 
-  assert.equal(output, 'w-1\nw-2');
-  assert.equal(frame.cells.length, 6);
+  assert.equal(output, 'w-1 →\nw-2');
+  assert.equal(rightMarker?.text, '→');
   assert.equal(
     frame.accessibility.root.description,
     'Showing rows 2-3 of 4, columns 3-7 of 8.'
@@ -1429,6 +1430,40 @@ test('viewport widgets keep offscreen content from leaking into neighboring layo
 
   assert.match(output, /^left-2right$/u);
   assert.doesNotMatch(output, /left-0|left-1/u);
+});
+
+test('viewport widgets expose empty virtual content without rendering child content', () => {
+  const frame = renderWidgetFrame(viewport(
+    text('hidden child', { id: 'empty-content' }),
+    { id: 'empty-window', contentRows: 0, contentColumns: 8 }
+  ), { columns: 5, rows: 3 });
+  const output = renderFramePlain(frame);
+  const emptyMarker = frame.cells.find((cell) => cell.source?.kind === 'viewport' && cell.source.label === 'empty');
+
+  assert.doesNotMatch(output, /hidden child/u);
+  assert.equal(emptyMarker?.text, '∅');
+  assert.equal(frame.accessibility.root.description, 'Empty viewport content.');
+});
+
+test('viewport clipped-edge indicators do not overwrite visible content cells', () => {
+  const frame = renderWidgetFrame(viewport(
+    text('\n\n\n', { id: 'blank-content' }),
+    {
+      id: 'blank-window',
+      scrollRow: 1,
+      scrollColumn: 1,
+      contentRows: 5,
+      contentColumns: 5
+    }
+  ), { columns: 3, rows: 3 });
+  const labels = new Set(frame.cells
+    .map((cell) => cell.source?.label)
+    .filter((label) => label !== undefined));
+
+  assert.ok(labels.has('clip-top'));
+  assert.ok(labels.has('clip-bottom'));
+  assert.ok(labels.has('clip-left'));
+  assert.ok(labels.has('clip-right'));
 });
 
 test('TUI runtime does not reserve escape or ctrlC key events', async () => {

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { highContrastTheme, noColorTheme } from '../../dist/theme/index.js';
 import { blockSpan, renderFramePlain, renderWidgetFrame, renderWidgetRegions } from '../../dist/tui/index.js';
 import { absolute, button, canvas, overlay, surface, text } from '../../dist/widgets/index.js';
 
@@ -146,6 +147,41 @@ test('surface variants reserve border content space while plain surfaces stay tr
   assert.deepEqual(neutral.cells.find((cell) => cell.source?.kind === 'surface')?.style?.bg, { kind: 'theme', token: 'surface.background' });
   assert.match(renderFramePlain(visualLayout).split('\n')[1] ?? '', /^│inner/u);
   assert.equal(renderFramePlain(transparent), 'flush');
+});
+
+test('surface labels disabled state and theme variants stay structural', () => {
+  const disabled = renderWidgetFrame(surface(text('locked', { id: 'locked-body' }), {
+    id: 'locked-surface',
+    label: 'Locked',
+    variant: 'raised',
+    disabled: true,
+    keyMap: { enter: { kind: 'locked' } }
+  }), { columns: 14, rows: 3 }, { focusPath: ['locked-surface'] });
+  const highContrast = renderWidgetFrame(surface(text('selected', { id: 'selected-body' }), {
+    id: 'selected-surface',
+    label: 'Selected',
+    variant: 'selected'
+  }), { columns: 14, rows: 3 }, { theme: highContrastTheme });
+  const noColor = renderWidgetFrame(surface(text('plain', { id: 'plain-body' }), {
+    id: 'plain-surface',
+    label: 'Plain',
+    variant: 'raised'
+  }), { columns: 12, rows: 3 }, { theme: noColorTheme });
+
+  const disabledBorder = disabled.cells.find((cell) => cell.source?.role === 'border');
+  const disabledBackground = disabled.cells.find((cell) => cell.source?.kind === 'surface' && cell.style?.bg !== undefined);
+  const selectedBorder = highContrast.cells.find((cell) => cell.source?.role === 'border');
+  const selectedBackground = highContrast.cells.find((cell) => cell.source?.kind === 'surface' && cell.style?.bg !== undefined);
+
+  assert.match(renderFramePlain(disabled).split('\n')[0] ?? '', /Locked/u);
+  assert.equal(disabled.focusPath, undefined);
+  assert.equal(disabled.accessibility.root.disabled, true);
+  assert.equal(disabledBorder?.style?.fg?.token, 'text.muted');
+  assert.equal(disabledBackground?.style?.bg?.token, 'surface.raised.background');
+  assert.equal(disabledBackground?.style?.fg?.token, 'text.muted');
+  assert.equal(selectedBorder?.style?.fg?.token, 'surface.selected.border');
+  assert.equal(selectedBackground?.style?.bg?.token, 'surface.selected.background');
+  assert.equal(renderFramePlain(noColor).split('\n')[0], '+ Plain ---+');
 });
 
 test('region projection keeps overlapping z-index content separate before compositing', () => {

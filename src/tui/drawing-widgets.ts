@@ -61,6 +61,7 @@ export function surfaceAccessibleBase(widget: Widget, id: string, focused: boole
     id,
     role: 'text',
     label: stringify(widget.props['label']) || id,
+    ...(widget.props['disabled'] === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }

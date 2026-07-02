@@ -6,7 +6,8 @@ import { normalizeScrollState } from '../../scroll.ts';
 import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
 import { scrollbackWindow } from '../../scrollback.ts';
 import { numberProp, stringify } from '../../widget-props.ts';
-import { isRecord, nonNegativeInteger } from './common.ts';
+import { isRecord } from './common.ts';
+import { viewportVisualState } from './viewport.ts';
 import type { FrameBuffer } from '../../frame.ts';
 import type { LayoutNode, Rect } from '../../layout.ts';
 import type { ScrollbarLayout, ScrollbarOptions, ScrollbarState } from '../../scrollbar.ts';
@@ -90,15 +91,12 @@ export function treeScrollbarState(widget: Widget, bounds: Rect): ScrollbarState
 }
 
 export function viewportScrollbarState(widget: Widget, bounds: Rect): ScrollbarState {
-  const scrollRow = nonNegativeInteger(numberProp(widget, 'scrollRow'));
-  const scrollColumn = nonNegativeInteger(numberProp(widget, 'scrollColumn'));
-  const contentRows = Math.max(bounds.height + scrollRow, nonNegativeInteger(numberProp(widget, 'contentRows')));
-  const contentColumns = Math.max(bounds.width + scrollColumn, nonNegativeInteger(numberProp(widget, 'contentColumns')));
+  const state = viewportVisualState(widget, bounds);
   return {
-    offsetRow: scrollRow,
-    offsetColumn: scrollColumn,
-    contentRows,
-    contentColumns
+    offsetRow: state.offsetRow,
+    offsetColumn: state.offsetColumn,
+    contentRows: state.contentRows,
+    contentColumns: state.contentColumns
   };
 }
 

@@ -3,7 +3,7 @@ import type { Widget } from '../../../widgets/index.ts';
 import { stringify } from '../../widget-props.ts';
 import { clipRenderSpans } from '../../render-primitives.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from '../../render-primitives.ts';
-import { widgetStyle } from '../../widget-style.ts';
+import { mergeStyles, widgetStyle } from '../../widget-style.ts';
 import { clampRect, emptyRect } from './common.ts';
 import type { Rect } from '../../layout.ts';
 import type { HitTarget } from '../../widget-renderer.ts';
@@ -26,21 +26,22 @@ export function tabsHeaderText(widget: Widget): string {
   return tabs.map((tab, index) => `${index === selected ? '[' : ' '}${tab.label}${index === selected ? ']' : ' '}`).join(' ');
 }
 
-export function tabsHeaderBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function tabsHeaderBlock(widget: Widget, bounds: Rect, focused = false): RenderBlock {
   if (bounds.height <= 0 || bounds.width <= 0) return { lines: [] };
   const tabs = tabItems(widget);
   const selected = selectedTabIndex(widget, tabs);
   const spans = tabs.flatMap((tab, index): readonly RenderSpan[] => {
-    const style = tab.disabled === true
-      ? widgetStyle(widget, 'value', 'disabled')
-      : index === selected
-        ? widgetStyle(widget, 'value', 'selected')
-        : widgetStyle(widget, 'value');
+    const selectedTab = index === selected;
+    const style = tabHeaderStyle(widget, {
+      disabled: tab.disabled === true,
+      focused: focused && selectedTab,
+      selected: selectedTab
+    });
     return [
-      ...(index === 0 ? [] : [styledSpan(' ', widgetStyle(widget, 'value', 'disabled'))]),
-      styledSpan(index === selected ? '[' : ' ', style),
-      styledSpan(tab.label, style),
-      styledSpan(index === selected ? ']' : ' ', style)
+      ...(index === 0 ? [] : [tabSpan(' ', widgetStyle(widget, 'value', 'disabled'), tab.id, 'separator', 'separator')]),
+      tabSpan(selectedTab ? '[' : ' ', style, tab.id, selectedTab ? 'marker.selected.open' : 'marker.unselected.open', 'decoration'),
+      tabSpan(tab.label, style, tab.id, 'label', 'text'),
+      tabSpan(selectedTab ? ']' : ' ', style, tab.id, selectedTab ? 'marker.selected.close' : 'marker.unselected.close', 'decoration')
     ];
   });
   return {
@@ -57,6 +58,7 @@ export function tabsAccessibleChildren(widget: Widget): readonly AccessibleNode[
     id: `${widget.id ?? 'tabs'}:${tab.id}`,
     role: 'menuitem',
     label: tab.label,
+    ...(tab.description === undefined ? {} : { description: tab.description }),
     selected: index === selected,
     disabled: tab.disabled === true
   }));
@@ -91,6 +93,7 @@ export function tabsHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect)
 function tabItems(widget: Widget): readonly {
   readonly id: string;
   readonly label: string;
+  readonly description?: string;
   readonly disabled?: boolean;
   readonly message?: unknown;
 }[] {
@@ -98,14 +101,25 @@ function tabItems(widget: Widget): readonly {
   return widget.props['tabs'].filter((tab): tab is {
     readonly id: string;
     readonly label: string;
+    readonly description?: string;
     readonly disabled?: boolean;
     readonly message?: unknown;
   } =>
     typeof tab === 'object'
-      && tab !== null
-      && typeof (tab as { readonly id?: unknown }).id === 'string'
-      && typeof (tab as { readonly label?: unknown }).label === 'string'
-  );
+    && tab !== null
+    && typeof (tab as { readonly id?: unknown }).id === 'string'
+    && typeof (tab as { readonly label?: unknown }).label === 'string'
+  ).map((tab) => ({
+    id: stringify(tab.id),
+    label: stringify(tab.label),
+    ...(
+      typeof tab.description === 'string' && tab.description.length > 0
+        ? { description: stringify(tab.description) }
+        : {}
+    ),
+    ...(tab.disabled === undefined ? {} : { disabled: tab.disabled }),
+    ...(tab.message === undefined ? {} : { message: tab.message })
+  }));
 }
 
 function selectedTabIndex(widget: Widget, tabs: readonly { readonly id: string }[]): number {
@@ -114,6 +128,34 @@ function selectedTabIndex(widget: Widget, tabs: readonly { readonly id: string }
   return Math.max(0, index === -1 ? 0 : index);
 }
 
-function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
-  return style === undefined ? { text } : { text, style };
+function tabHeaderStyle(
+  widget: Widget,
+  state: { readonly selected: boolean; readonly focused: boolean; readonly disabled: boolean }
+): TerminalStyle | undefined {
+  if (state.disabled) return widgetStyle(widget, 'value', 'disabled');
+  if (state.selected && state.focused) {
+    return mergeStyles(widgetStyle(widget, 'value', 'selected'), widgetStyle(widget, 'value', 'focused'));
+  }
+  if (state.selected) return widgetStyle(widget, 'value', 'selected');
+  if (state.focused) return widgetStyle(widget, 'value', 'focused');
+  return widgetStyle(widget, 'value');
+}
+
+function tabSpan(
+  text: string,
+  style: TerminalStyle | undefined,
+  id: string,
+  label: string,
+  role: 'decoration' | 'separator' | 'text'
+): RenderSpan {
+  return {
+    text,
+    ...(style === undefined ? {} : { style }),
+    source: {
+      id,
+      kind: 'tabs',
+      role,
+      label
+    }
+  };
 }

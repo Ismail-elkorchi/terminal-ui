@@ -85,8 +85,9 @@ const saveButton = button({
   }
 });
 
-const dialog = modal(saveButton, {
+const dialog = modal(text('Save changes?'), {
   title: 'Confirm',
+  actions: row([saveButton]),
   styles: {
     border: { fg: { kind: 'theme', token: 'status.warning' } }
   }
@@ -140,7 +141,9 @@ sanitization, style preservation, and accessibility projection.
 `viewport()` renders one child through a bounded window. `scrollRow` and
 `scrollColumn` choose the visible offset, while `contentRows` and
 `contentColumns` describe the virtual content area. Offscreen child cells are
-clipped before they enter the frame.
+clipped before they enter the frame. Empty virtual content renders a structural
+placeholder, and clipped-edge indicators are drawn only into unoccupied edge
+cells so viewport chrome never overwrites visible child content.
 
 `scrollback()` renders append-heavy text records such as logs, transcripts,
 stream output, and event feeds. It follows the tail by default, accepts an
@@ -196,7 +199,8 @@ requiring a border for every visual distinction. Border titles can align to the
 start, center, or end, and focused bordered widgets can use a focused border
 style. `tabs()` renders tab labels and lays out only the selected panel, so
 hidden panels do not participate in focus traversal. `modal()` centers a bounded
-dialog and lays child content inside the border. These are layout primitives;
+dialog, lays body content inside the border, and can reserve an optional
+`actions` widget as a separated bottom action area. These are layout primitives;
 screen-specific state and application routing stay outside widgets.
 
 Executable example:

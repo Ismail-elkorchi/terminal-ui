@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { noColorTheme } from '../../dist/theme/index.js';
 import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import { divider } from '../../dist/widgets/index.js';
 
@@ -34,4 +35,19 @@ test('divider renders vertical and empty separators without layout state', () =>
   assert.equal(renderFramePlain(vertical), '┊\n┊\n┊');
   assert.equal(renderFramePlain(empty), '');
   assert.equal(empty.cells.every((cell) => cell.source?.role === 'separator'), true);
+});
+
+test('divider uses theme separator glyphs for single-line no-color output', () => {
+  const horizontal = renderWidgetFrame(divider({
+    id: 'no-color-horizontal',
+    label: 'Section',
+    labelAlign: 'center'
+  }), { columns: 16, rows: 1 }, { theme: noColorTheme });
+  const vertical = renderWidgetFrame(divider({
+    id: 'no-color-vertical',
+    orientation: 'vertical'
+  }), { columns: 1, rows: 3 }, { theme: noColorTheme });
+
+  assert.equal(renderFramePlain(horizontal), '--- Section ----');
+  assert.equal(renderFramePlain(vertical), '|\n|\n|');
 });

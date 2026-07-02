@@ -45,8 +45,8 @@ export const drawingRenderers = {
     accessibility: ({ id, focused }) => overlayAccessibleBase(id, focused)
   },
   divider: {
-    render: ({ widget, node, buffer }) => {
-      renderDivider(widget, buffer, node.bounds);
+    render: ({ widget, node, buffer, theme }) => {
+      renderDivider(widget, buffer, node.bounds, theme);
     },
     accessibility: ({ widget, id, focused }) => dividerAccessibleBase(widget, id, focused)
   },

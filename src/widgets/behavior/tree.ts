@@ -56,6 +56,7 @@ export function treeNodeMatches(node: TreeNode, query: string): boolean {
   return [
     node.id,
     node.label,
+    node.description,
     node.icon,
     node.lazyMessage,
     ...(node.metadata === undefined

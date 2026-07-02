@@ -14,14 +14,19 @@ import type { SurfaceVariant } from '../tui/surface.ts';
 import type {
   WidgetActionItem,
   WidgetActionTone,
+  WidgetChoiceItem,
   WidgetFieldItem,
+  WidgetHierarchyItem,
+  WidgetKeyBinding,
+  WidgetNavigationItem,
   WidgetProcessStatus,
   WidgetRecordStatus,
   WidgetSearchEntry,
   WidgetSuggestionItem,
+  WidgetTitledItem,
   WidgetTone,
-  WidgetValidationTone,
-  WidgetValueItem
+  WidgetTreeItem,
+  WidgetValidationTone
 } from './contracts.ts';
 
 export interface Widget<TMessage = unknown> {
@@ -253,12 +258,7 @@ export interface TableCellSelection {
   readonly column?: number;
 }
 
-export interface TreeNode {
-  readonly id: string;
-  readonly label: string;
-  readonly children?: readonly TreeNode[];
-  readonly expanded?: boolean;
-  readonly disabled?: boolean;
+export interface TreeNode extends WidgetTreeItem<TreeNode> {
   readonly lazy?: boolean;
   readonly lazyStatus?: 'pending' | 'error' | 'empty';
   readonly lazyMessage?: string;
@@ -413,7 +413,7 @@ export interface RangeSliderWidgetOptions<TMessage = never> extends WidgetLayerO
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export type FormOption<TValue = string> = WidgetValueItem<TValue>;
+export type FormOption<TValue = string> = WidgetChoiceItem<TValue>;
 
 export interface CheckboxListWidgetOptions<TValue = string, TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
@@ -446,7 +446,7 @@ export interface ColorPickerWidgetOptions<TValue = string, TMessage = never> ext
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface DatePickerDay<TValue = string> extends WidgetValueItem<TValue> {
+export interface DatePickerDay<TValue = string> extends WidgetChoiceItem<TValue> {
   readonly today?: boolean;
   readonly outsideMonth?: boolean;
 }
@@ -524,10 +524,8 @@ export interface NumberInputWidgetOptions<TMessage = never> extends WidgetLayerO
 
 export type MenuItemTone = WidgetActionTone;
 
-export interface MenuItem<TMessage = never> extends WidgetActionItem<TMessage> {
+export interface MenuItem<TMessage = never> extends WidgetActionItem<TMessage>, WidgetHierarchyItem<MenuItem<TMessage>> {
   readonly checked?: boolean;
-  readonly children?: readonly MenuItem<TMessage>[];
-  readonly expanded?: boolean;
 }
 
 export interface MenuWidgetOptions<TMessage = never> extends WidgetLayerOptions {
@@ -603,9 +601,7 @@ export interface TooltipWidgetOptions<TMessage = never> extends WidgetLayerOptio
 export type NotificationTone = Extract<WidgetTone, 'info' | 'success' | 'warning' | 'error' | 'progress'>;
 export type NotificationPlacement = 'top-right' | 'bottom-right' | 'centered-stack';
 
-export interface NotificationItem {
-  readonly id: string;
-  readonly title: string;
+export interface NotificationItem extends WidgetTitledItem {
   readonly message?: string;
   readonly tone?: NotificationTone;
   readonly progress?: number;
@@ -651,6 +647,7 @@ export interface SurfaceWidgetOptions<TMessage = never> extends WidgetLayerOptio
   readonly variant?: SurfaceVariant;
   readonly border?: BorderStyle;
   readonly shadow?: boolean;
+  readonly disabled?: boolean;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
@@ -679,10 +676,7 @@ export interface StatusBarWidgetOptions<TMessage> extends WidgetLayerOptions {
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface HelpBinding {
-  readonly key: string;
-  readonly label: string;
-}
+export type HelpBinding = WidgetKeyBinding;
 
 export interface HelpBarWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
@@ -878,9 +872,7 @@ export type StructuredBlockStatus = WidgetRecordStatus;
 
 export type StructuredBlockField = WidgetFieldItem;
 
-export interface StructuredBlock {
-  readonly id: string;
-  readonly title: string;
+export interface StructuredBlock extends WidgetTitledItem {
   readonly summary?: string;
   readonly style?: TerminalStyle;
   readonly status?: StructuredBlockStatus;
@@ -976,12 +968,8 @@ export interface SplitPaneWidgetOptions<TMessage = never> extends WidgetLayerOpt
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface TabItem<TMessage = never> {
-  readonly id: string;
-  readonly label: string;
+export interface TabItem<TMessage = never> extends WidgetNavigationItem<TMessage> {
   readonly panel: Widget<TMessage>;
-  readonly disabled?: boolean;
-  readonly message?: TMessage;
 }
 
 export interface TabsWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
@@ -998,6 +986,7 @@ export interface ModalWidgetOptions<TMessage = never> extends WidgetLayerOptions
   readonly border?: BorderStyle;
   readonly width?: number;
   readonly height?: number;
+  readonly actions?: Widget<TMessage>;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
