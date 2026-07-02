@@ -58,7 +58,8 @@ export function commandBarAccessibleChildren(widget: Widget): readonly Accessibl
     role: 'option' as const,
     label: suggestion.label ?? suggestion.value,
     value: suggestion.value,
-    selected: index === selected
+    selected: index === selected,
+    disabled: suggestion.disabled === true
   })));
   return children.length === 0 ? undefined : children;
 }
@@ -109,13 +110,14 @@ function suggestionLine(
 ): RenderLine {
   const label = suggestion.label ?? suggestion.value;
   const description = suggestion.description;
-  const rowStyle = commandRowStyle(widget, selected);
+  const disabled = suggestion.disabled === true;
+  const rowStyle = commandRowStyle(widget, selected, disabled);
   const spans: RenderSpan[] = [
     ...commandSelectionMarkerSpans(widget, theme, selected),
     ...commandMatchSpans(label, query, rowStyle)
   ];
   if (description !== undefined && description.length > 0) {
-    spans.push(styledSpan(` · ${description}`, commandMetadataStyle(widget, selected)));
+    spans.push(styledSpan(` · ${description}`, commandMetadataStyle(widget, selected, disabled)));
   }
   return {
     spans
@@ -137,10 +139,12 @@ function commandBarSuggestions(widget: Widget): readonly CommandBarSuggestion[] 
         if (typeof value !== 'string') return [];
         const label = suggestion['label'];
         const description = suggestion['description'];
+        const disabled = suggestion['disabled'];
         return [{
           value: clean(value),
           ...(typeof label === 'string' ? { label: clean(label) } : {}),
-          ...(typeof description === 'string' ? { description: clean(description) } : {})
+          ...(typeof description === 'string' ? { description: clean(description) } : {}),
+          ...(disabled === true ? { disabled } : {})
         }];
       })
     : [];

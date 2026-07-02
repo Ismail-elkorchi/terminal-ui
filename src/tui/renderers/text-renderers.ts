@@ -49,9 +49,7 @@ export const textRenderers = {
       drawScrollbars(buffer, scrollbars, theme);
     },
     accessibility: ({ widget, id, focused }) => textAreaAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds, theme }) => widget.props['disabled'] === true
-      ? []
-      : [focusTarget(bounds, textAreaCursor(widget, bounds, theme))]
+    focusTargets: ({ widget, bounds, theme }) => [focusTarget(bounds, textAreaCursor(widget, bounds, theme))]
   },
   activityIndicator: {
     render: ({ widget, node, buffer, theme }) => {

@@ -89,7 +89,7 @@ export const formRenderers = {
       writeRenderBlock(buffer, node.bounds, buttonBlock(widget, node.bounds, focused, theme));
     },
     accessibility: ({ widget, id, focused }) => buttonAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ widget, bounds }) => controlHitTargets(widget, bounds)
   },
   checkbox: {
@@ -97,7 +97,7 @@ export const formRenderers = {
       writeRenderBlock(buffer, node.bounds, checkboxBlock(widget, node.bounds, theme));
     },
     accessibility: ({ widget, id, focused }) => checkboxAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ widget, bounds }) => controlHitTargets(widget, bounds)
   },
   toggleSwitch: {
@@ -105,7 +105,7 @@ export const formRenderers = {
       writeRenderBlock(buffer, node.bounds, toggleSwitchBlock(widget, node.bounds));
     },
     accessibility: ({ widget, id, focused }) => toggleSwitchAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ widget, bounds }) => controlHitTargets(widget, bounds)
   },
   slider: {
@@ -113,7 +113,7 @@ export const formRenderers = {
       writeRenderBlock(buffer, node.bounds, sliderBlock(widget, node.bounds));
     },
     accessibility: ({ widget, id, focused }) => sliderAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ widget, bounds }) => sliderHitTargets(widget, bounds)
   },
   rangeSlider: {
@@ -121,7 +121,7 @@ export const formRenderers = {
       writeRenderBlock(buffer, node.bounds, rangeSliderBlock(widget, node.bounds));
     },
     accessibility: ({ widget, id, focused }) => rangeSliderAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ widget, bounds }) => rangeSliderHitTargets(widget, bounds)
   },
   checkboxList: {
@@ -132,7 +132,7 @@ export const formRenderers = {
       ...checkboxListAccessibleBase(widget, id, focused),
       children: checkboxListAccessibleChildren(widget)
     }),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ widget, bounds }) => checkboxListHitTargets(widget, bounds)
   },
   radioGroup: {
@@ -143,7 +143,7 @@ export const formRenderers = {
       ...radioGroupAccessibleBase(widget, id, focused),
       children: radioGroupAccessibleChildren(widget)
     }),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ widget, bounds }) => optionHitTargets(widget, bounds)
   },
   selectBox: {
@@ -154,7 +154,7 @@ export const formRenderers = {
       ...selectBoxAccessibleBase(widget, id, focused),
       children: selectBoxAccessibleChildren(widget)
     }),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ widget, bounds }) => optionHitTargets(widget, bounds)
   },
   colorPicker: {
@@ -165,7 +165,7 @@ export const formRenderers = {
       ...colorPickerAccessibleBase(widget, id, focused),
       children: colorPickerAccessibleChildren(widget)
     }),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ widget, bounds }) => pickerHitTargets(widget, bounds)
   },
   datePicker: {
@@ -176,7 +176,7 @@ export const formRenderers = {
       ...datePickerAccessibleBase(widget, id, focused),
       children: datePickerAccessibleChildren(widget)
     }),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ widget, bounds }) => pickerHitTargets(widget, bounds)
   },
   textInput: {
@@ -184,15 +184,15 @@ export const formRenderers = {
       writeRenderBlock(buffer, node.bounds, textInputBlock(widget, node.bounds, focused, theme));
     },
     accessibility: ({ widget, id, focused }) => textInputAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds, textInputCursor(widget, bounds))],
-    hitTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : widgetMessageHitTargets(widget, bounds, 'input')
+    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, textInputCursor(widget, bounds))],
+    hitTargets: ({ widget, bounds }) => widgetMessageHitTargets(widget, bounds, 'input')
   },
   numberInput: {
     render: ({ widget, node, buffer, focused, theme }) => {
       writeRenderBlock(buffer, node.bounds, numberInputBlock(widget, node.bounds, focused, theme));
     },
     accessibility: ({ widget, id, focused }) => numberInputAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds, numberInputCursor(widget, bounds))]
+    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, numberInputCursor(widget, bounds))]
   }
 } satisfies RendererMap<
   | 'form'

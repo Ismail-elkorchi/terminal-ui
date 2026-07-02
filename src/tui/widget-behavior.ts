@@ -1,5 +1,6 @@
 import { builtinWidgetRenderers } from './renderers/index.ts';
 import { measureBuiltinWidget, sanitizeWidgetMeasure, zeroWidgetMeasure } from './widget-measure.ts';
+import { widgetInteractionDisabled } from './widget-interaction.ts';
 import {
   emptyRect,
   hasKeyboardOrInputMap,
@@ -58,6 +59,7 @@ export function widgetAccessibleNode(
 }
 
 export function widgetFocusTargets(widget: Widget, bounds: Rect, theme: TerminalTheme): readonly FocusTarget[] {
+  if (widgetInteractionDisabled(widget)) return [];
   const explicit = widgetRenderer(widget).focusTargets?.({ widget, bounds, theme }) ?? [];
   const targets = explicit.length > 0 || !hasKeyboardOrInputMap(widget)
     ? explicit
@@ -97,6 +99,7 @@ export function widgetHitTargets<TMessage>(
   target: WidgetLayoutTarget<TMessage>,
   theme: TerminalTheme
 ): readonly HitTarget<TMessage>[] {
+  if (widgetInteractionDisabled(widget)) return [];
   return widgetRenderer(widget).hitTargets?.({ widget, bounds: target.bounds, theme }) ?? [];
 }
 

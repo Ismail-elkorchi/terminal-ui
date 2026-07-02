@@ -513,7 +513,6 @@ export function numberInputCursor(widget: Widget, bounds: Rect): { readonly row:
 }
 
 export function controlHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  if (widget.props['disabled'] === true) return [];
   if (!('message' in widget.props)) return [];
   const message = widget.props['message'] as TMessage;
   return [{
@@ -525,7 +524,6 @@ export function controlHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Re
 }
 
 export function optionHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  if (widget.props['disabled'] === true) return [];
   const toMessage = optionMessageFactory(widget);
   if (toMessage === undefined) return [];
   const labelOffset = clean(stringify(widget.props['label'])).length > 0 ? 1 : 0;
@@ -546,7 +544,6 @@ export function optionHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rec
 }
 
 export function checkboxListHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  if (widget.props['disabled'] === true) return [];
   const toMessage = checkboxListMessageFactory(widget);
   if (toMessage === undefined) return [];
   const selected = selectedIds(widget);
@@ -568,7 +565,6 @@ export function checkboxListHitTargets<TMessage>(widget: Widget<TMessage>, bound
 }
 
 export function sliderHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  if (widget.props['disabled'] === true) return [];
   const toMessage = sliderMessageFactory(widget);
   if (toMessage === undefined) return [];
   const model = sliderModel(widget);
@@ -586,7 +582,6 @@ export function sliderHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rec
 }
 
 export function rangeSliderHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  if (widget.props['disabled'] === true) return [];
   const toMessage = rangeSliderMessageFactory(widget);
   if (toMessage === undefined) return [];
   const model = rangeSliderModel(widget);
@@ -604,7 +599,6 @@ export function rangeSliderHitTargets<TMessage>(widget: Widget<TMessage>, bounds
 }
 
 export function pickerHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  if (widget.props['disabled'] === true) return [];
   const toMessage = pickerMessageFactory(widget);
   if (toMessage === undefined) return [];
   const columns = pickerColumns(widget, widget.kind === 'datePicker' ? 7 : 4);
