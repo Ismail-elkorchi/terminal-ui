@@ -31,8 +31,8 @@ test('textArea renders multiline windows and exposes cursor/accessibility state'
     selection: { start: 0, end: 4 }
   }), { columns: 20, rows: 3 });
 
-  assert.equal(renderFramePlain(frame), 'line one\nline two');
-  assert.deepEqual(frame.cursor, { row: 2, column: 5 });
+  assert.equal(renderFramePlain(frame), '› line one\n│ line two');
+  assert.deepEqual(frame.cursor, { row: 2, column: 7 });
   assert.equal(frame.accessibility.root.role, 'textbox');
   assert.equal(frame.accessibility.root.description, '2 lines. Selection active.');
   assert.equal(frame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
@@ -58,9 +58,11 @@ test('text widgets map Unicode cursor positions through the shared text contract
     selection: { start: 1, end: 'a🙂'.length }
   }), { columns: 18, rows: 1 }, { focusPath: ['unicode-command'] });
 
-  assert.deepEqual(textInputFrame.cursor, { row: 1, column: 4 });
-  assert.deepEqual(inputFieldFrame.cursor, { row: 1, column: 5 });
+  assert.deepEqual(textInputFrame.cursor, { row: 1, column: 7 });
+  assert.deepEqual(inputFieldFrame.cursor, { row: 1, column: 8 });
   assert.deepEqual(commandFrame.cursor, { row: 1, column: 6 });
+  assert.equal(renderFramePlain(textInputFrame), '›[ a🙂界b ]');
+  assert.equal(renderFramePlain(inputFieldFrame), '›[ go🙂 ]');
   assert.equal(renderFramePlain(commandFrame), '> a🙂界b');
   assert.equal(textInputFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
   assert.equal(commandFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
@@ -72,10 +74,10 @@ test('textArea horizontal windows use visual cells without splitting graphemes',
     value: 'a🙂界b\nplain',
     cursor: 'a🙂界'.length,
     scroll: { offsetRow: 0, offsetColumn: 3, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0 }
-  }), { columns: 3, rows: 2 }, { focusPath: ['unicode-area'] });
+  }), { columns: 5, rows: 2 }, { focusPath: ['unicode-area'] });
 
-  assert.equal(renderFramePlain(frame), '界b\nin');
-  assert.deepEqual(frame.cursor, { row: 1, column: 3 });
+  assert.equal(renderFramePlain(frame), '› 界b\n│ in');
+  assert.deepEqual(frame.cursor, { row: 1, column: 5 });
 });
 
 test('helpBar and activityIndicator provide reusable app chrome', () => {

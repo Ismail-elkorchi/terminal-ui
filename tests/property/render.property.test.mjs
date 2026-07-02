@@ -3,14 +3,10 @@ import test from 'node:test';
 
 import { createFrameBuffer, diffFrames, renderDiffAnsi, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import { richText, text } from '../../dist/widgets/index.js';
-import { terminalFixtures } from '../fixtures/catalog.mjs';
-
-const textFixtures = terminalFixtures
-  .map((fixture) => fixture.data.text)
-  .filter((value) => typeof value === 'string');
+import { textSamples } from '../support/text-samples.mjs';
 
 test('render diff property checks keep unchanged frames empty and local changes incremental', () => {
-  for (const value of textFixtures) {
+  for (const value of textSamples) {
     const before = renderWidgetFrame(text(value), { columns: 20, rows: 3 });
     const same = diffFrames(before, before);
     const after = renderWidgetFrame(text(`${value} changed`), { columns: 20, rows: 3 });
@@ -59,7 +55,7 @@ test('style-only diffs are incremental and preserve visual dimensions', () => {
 });
 
 function generatedTexts(count) {
-  const seeds = [...textFixtures, '', 'plain', 'wide界text', 'emoji🙂text', 'combining e\u0301', '\u001B[31mred'];
+  const seeds = [...textSamples, '', 'plain', 'wide界text', 'emoji🙂text', 'combining e\u0301', '\u001B[31mred'];
   const output = [];
   let state = 0x12345678;
   while (output.length < count) {

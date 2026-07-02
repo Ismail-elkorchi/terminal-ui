@@ -6,6 +6,8 @@ import { table } from '../../dist/widgets/index.js';
 
 const red = { fg: { kind: 'ansi', value: 1 } };
 const blue = { fg: { kind: 'ansi', value: 4 } };
+const selectedRed = selectedCellStyle(red);
+const selectedBlue = selectedCellStyle(blue);
 
 test('clipRenderSpans clips by cell width while preserving style link and source', () => {
   const clipped = clipRenderSpans([
@@ -39,12 +41,12 @@ test('table clipping keeps multi-span cell styles instead of flattening to plain
       .filter((cell) => cell.row === 2 && cell.column >= 3)
       .map((cell) => [cell.text, cell.style]),
     [
-      ['p', red],
-      ['a', red],
-      ['s', red],
-      ['s', red],
-      ['-', blue],
-      ['…', blue]
+      ['p', selectedRed],
+      ['a', selectedRed],
+      ['s', selectedRed],
+      ['s', selectedRed],
+      ['-', selectedBlue],
+      ['…', selectedBlue]
     ]
   );
 });
@@ -67,10 +69,18 @@ test('table horizontal scrolling keeps span styles after clipped cells are shift
   assert.deepEqual(
     frame.cells.map((cell) => [cell.text, cell.style]),
     [
-      ['r', blue],
-      ['i', blue],
-      ['g', blue],
-      ['…', blue]
+      ['r', selectedBlue],
+      ['i', selectedBlue],
+      ['g', selectedBlue],
+      ['…', selectedBlue]
     ]
   );
 });
+
+function selectedCellStyle(style) {
+  return {
+    bg: { kind: 'theme', token: 'selection.background' },
+    bold: true,
+    ...style
+  };
+}

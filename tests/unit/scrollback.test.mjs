@@ -71,12 +71,17 @@ test('scrollback renders timestamp metadata and item style through visible rows'
   const window = scrollbackWindow(widget, layout);
   const frame = renderWidgetFrame(widget, { columns: 80, rows: 2 });
   const styledCell = frame.cells.find((cell) => cell.text === 'Z');
+  const timestampCell = frame.cells.find((cell) => cell.text === '[');
+  const metadataCell = frame.cells.find((cell) => cell.text === 's');
 
   assert.equal(window.rows[0]?.text, '[10:30] source=worker status=ok Zulu');
   assert.equal(window.rows[0]?.timestamp, '[10:30]');
   assert.deepEqual(window.rows[0]?.metadata, { source: 'worker', status: 'ok' });
   assert.equal(renderFramePlain(frame), '[10:30] source=worker status=ok Zulu');
+  assert.equal(timestampCell?.source?.label, 'timestamp');
+  assert.equal(metadataCell?.source?.label, 'metadata');
   assert.deepEqual(styledCell?.style, { fg: { kind: 'theme', token: 'status.success' }, bold: true });
+  assert.equal(styledCell?.source?.label, 'body');
   assert.equal(frame.accessibility.root.children?.[0]?.value, '[10:30] source=worker status=ok Zulu');
 });
 
@@ -100,14 +105,15 @@ test('scrollback search navigates to the first match and exposes match segments'
   const frame = renderWidgetFrame(widget, { columns: 40, rows: 5 });
 
   assert.equal(window.matchCount, 1);
-  assert.ok(window.rows.some((row) => row.text === 'needle row' && row.matched === true));
-  assert.deepEqual(
-    window.rows.find((row) => row.text === 'needle row')?.segments,
-    [
-      { text: 'needle', style: { fg: { kind: 'theme', token: 'menu.match' }, underline: true }, matched: true },
-      { text: ' row' }
-    ]
-  );
+  const matchedRow = window.rows.find((row) => row.text === 'needle row');
+  assert.equal(matchedRow?.matched, true);
+  assert.equal(matchedRow?.segments[0]?.text, 'needle');
+  assert.equal(matchedRow?.segments[0]?.matched, true);
+  assert.equal(matchedRow?.segments[0]?.style?.fg?.token, 'menu.match');
+  assert.equal(matchedRow?.segments[0]?.source?.label, 'body.match');
+  assert.equal(matchedRow?.segments[1]?.text, ' row');
+  assert.equal(matchedRow?.segments[1]?.style?.fg?.token, 'text.default');
+  assert.equal(matchedRow?.segments[1]?.source?.label, 'body');
   assert.match(renderFramePlain(frame), /needle row/u);
   assert.ok(frame.accessibility.root.children?.some((node) => node.description === 'Search match.'));
   assert.equal(

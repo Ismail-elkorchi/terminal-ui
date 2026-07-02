@@ -12,9 +12,19 @@ test('notificationStack renders stacked status cards with semantic styles and ac
   const frame = renderWidgetFrame(notificationStack({
     id: 'notices',
     items: [
-      { id: 'deploy', title: 'Deploying', message: 'Harbor route update', tone: 'progress', progress: 42 },
+      {
+        id: 'deploy',
+        title: 'Deploying',
+        message: 'Harbor route update',
+        tone: 'progress',
+        progress: 42,
+        paused: true,
+        createdAt: 0,
+        expiresAt: 5_000
+      },
       { id: 'done', title: 'Saved', message: 'State stored', tone: 'success' }
     ],
+    selected: 0,
     placement: 'top-right',
     maxVisible: 2,
     maxWidth: 28
@@ -22,15 +32,21 @@ test('notificationStack renders stacked status cards with semantic styles and ac
   const output = renderFramePlain(frame);
   const border = frame.cells.find((cell) => cell.source?.role === 'border');
   const progressCell = frame.cells.find((cell) => cell.source?.label === 'progress' && cell.text.length > 0);
+  const selectedTitle = frame.cells.find((cell) => cell.source?.id === 'deploy' && cell.source?.label === 'title');
 
   assert.match(output, /Deploying/u);
   assert.match(output, /Harbor route update/u);
+  assert.match(output, /paused · ttl 5s/u);
+  assert.match(output, /› progress paused/u);
   assert.match(output, /Saved/u);
-  assert.deepEqual(border?.style?.fg, { kind: 'theme', token: 'surface.selected.border' });
+  assert.deepEqual(border?.style?.fg, { kind: 'theme', token: 'selection.foreground' });
   assert.equal(progressCell?.source?.kind, 'notification');
+  assert.deepEqual(selectedTitle?.style?.bg, { kind: 'theme', token: 'selection.background' });
   assert.equal(frame.accessibility.root.role, 'status');
   assert.equal(frame.accessibility.root.scope?.kind, 'popover');
   assert.equal(frame.accessibility.root.children?.length, 2);
+  assert.equal(frame.accessibility.root.children?.[0]?.selected, true);
+  assert.match(frame.accessibility.root.children?.[0]?.description ?? '', /paused · ttl 5s/u);
 });
 
 test('notificationStack creates keyboard dismiss mappings for the selected visible item', () => {

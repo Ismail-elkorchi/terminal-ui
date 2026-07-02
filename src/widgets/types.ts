@@ -314,6 +314,9 @@ export interface TextAreaWidgetOptions<TMessage = never> extends WidgetLayerOpti
   readonly placeholder?: string;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
+  readonly required?: boolean;
+  readonly disabled?: boolean;
+  readonly error?: string;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly inputMap?: WidgetInputMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
@@ -347,11 +350,16 @@ export interface LabelWidgetOptions<TMessage = never> extends WidgetLayerOptions
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
+export type ButtonTone = 'default' | 'primary' | 'secondary' | 'destructive';
+
 export interface ButtonWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly label: string;
   readonly message?: TMessage;
   readonly disabled?: boolean;
+  readonly tone?: ButtonTone;
+  readonly pressed?: boolean;
+  readonly pending?: boolean;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
@@ -541,12 +549,15 @@ export interface NumberInputWidgetOptions<TMessage = never> extends WidgetLayerO
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
+export type MenuItemTone = 'default' | 'destructive';
+
 export interface MenuItem<TMessage = never> {
   readonly id: string;
   readonly label: string;
   readonly message?: TMessage;
   readonly disabled?: boolean;
   readonly checked?: boolean;
+  readonly tone?: MenuItemTone;
   readonly description?: string;
   readonly shortcut?: string;
   readonly children?: readonly MenuItem<TMessage>[];
@@ -748,6 +759,10 @@ export interface SparklineWidgetOptions extends WidgetLayerOptions {
   readonly values: readonly number[];
   readonly min?: number;
   readonly max?: number;
+  readonly status?: ActivityIndicatorStatus;
+  readonly emptyText?: string;
+  readonly loadingText?: string;
+  readonly errorText?: string;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
@@ -761,6 +776,10 @@ export interface BarChartWidgetOptions<TMessage = never> extends WidgetLayerOpti
   readonly items: readonly BarChartItem[];
   readonly max?: number;
   readonly selected?: number;
+  readonly status?: ActivityIndicatorStatus;
+  readonly emptyText?: string;
+  readonly loadingText?: string;
+  readonly errorText?: string;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }
@@ -796,6 +815,10 @@ export interface ChartWidgetOptions<TMessage = never> extends WidgetLayerOptions
   readonly legend?: boolean;
   readonly xLabel?: string;
   readonly yLabel?: string;
+  readonly status?: ActivityIndicatorStatus;
+  readonly emptyText?: string;
+  readonly loadingText?: string;
+  readonly errorText?: string;
   readonly toMessage?: (point: ChartPointEvent) => TMessage;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
@@ -836,6 +859,10 @@ export interface HeatmapWidgetOptions<TValue = unknown, TMessage = never> extend
   readonly selected?: HeatmapSelection;
   readonly cellWidth?: number;
   readonly gap?: number;
+  readonly status?: ActivityIndicatorStatus;
+  readonly emptyText?: string;
+  readonly loadingText?: string;
+  readonly errorText?: string;
   readonly toMessage?: (cell: HeatmapCell<TValue>, row: number, column: number) => TMessage;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;

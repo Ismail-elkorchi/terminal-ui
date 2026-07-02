@@ -70,8 +70,10 @@ test('palette widget renders query matches disabled entries preview help empty s
   const disabledCell = frame.cells.find((cell) => cell.text === 'T' && cell.style?.fg?.token === 'text.muted');
 
   assert.match(lines.get(1) ?? '', /Things/u);
-  assert.match(lines.get(2) ?? '', /> run/u);
+  assert.match(lines.get(1) ?? '', /1\/3 match/u);
+  assert.match(lines.get(2) ?? '', /› run/u);
   assert.match([...lines.values()].join('\n'), /Run Tests/u);
+  assert.match([...lines.values()].join('\n'), /\[Workspace\]/u);
   assert.match([...lines.values()].join('\n'), /enter accepts/u);
   assert.equal(matchCell?.style?.fg?.token, 'menu.match');
   assert.equal(disabledCell?.style?.fg?.token, 'text.muted');

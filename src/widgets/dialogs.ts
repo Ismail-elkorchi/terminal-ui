@@ -2,15 +2,12 @@ import type { BorderStyle } from '../tui/border.ts';
 import type { LayoutInsetInput } from '../tui/regions.ts';
 import {
   absolute,
-  button,
   field,
   inputField,
   modal,
   progressBar,
-  row,
   stack,
-  surface,
-  text
+  surface
 } from './factories.ts';
 import type {
   AccessibleNodeDefinition,
@@ -19,6 +16,12 @@ import type {
   WidgetInputMap,
   WidgetKeyMap
 } from './types.ts';
+import {
+  dialogActionWidgets,
+  dialogChildren,
+  dialogMessageWidgets,
+  dialogStepSummary
+} from './dialog-visual.ts';
 
 interface DialogOptions<TMessage> {
   readonly id?: string;
@@ -93,8 +96,8 @@ export interface FloatingWindowOptions<TMessage = never> {
 
 export function messageBox<TMessage>(options: MessageBoxOptions<TMessage>): Widget<TMessage> {
   return modal(dialogBody([
-    ...messageWidgets<TMessage>(options.message, childId(options.id, 'message')),
-    ...actionWidgets(options.actions, childId(options.id, 'actions'))
+    ...dialogMessageWidgets<TMessage>(options.message, childId(options.id, 'message')),
+    ...dialogActionWidgets(options.actions, childId(options.id, 'actions'))
   ], options.id), modalOptions(options));
 }
 
@@ -142,7 +145,7 @@ export function inputDialog<TMessage>(options: InputDialogOptions<TMessage>): Wi
       label: options.label,
       ...(options.description === undefined ? {} : { description: options.description })
     }),
-    ...actionWidgets(actions, childId(options.id, 'actions'))
+    ...dialogActionWidgets(actions, childId(options.id, 'actions'))
   ], options.id), modalOptions(options));
 }
 
@@ -150,6 +153,7 @@ export function wizardDialog<TMessage>(options: WizardDialogOptions<TMessage>): 
   const current = boundedStep(options.currentStep, options.steps.length);
   const step = options.steps[current];
   return modal(dialogBody([
+    ...dialogStepSummary<TMessage>(options.steps, current, childId(options.id, 'steps')),
     progressBar({
       id: childId(options.id, 'progress'),
       label: step === undefined ? 'Step' : step.label,
@@ -158,15 +162,15 @@ export function wizardDialog<TMessage>(options: WizardDialogOptions<TMessage>): 
       mode: 'full',
       showPercentage: false
     }),
-    ...childrenArray(options.body),
-    ...actionWidgets(options.actions, childId(options.id, 'actions'))
+    ...dialogChildren(options.body),
+    ...dialogActionWidgets(options.actions, childId(options.id, 'actions'))
   ], options.id), modalOptions(options));
 }
 
 export function floatingWindow<TMessage>(options: FloatingWindowOptions<TMessage>): Widget<TMessage> {
   const footer = [
-    ...childrenArray(options.footer),
-    ...actionWidgets(options.closeMessage === undefined
+    ...dialogChildren(options.footer),
+    ...dialogActionWidgets(options.closeMessage === undefined
       ? []
       : [{
           id: childId(options.id, 'close'),
@@ -175,7 +179,7 @@ export function floatingWindow<TMessage>(options: FloatingWindowOptions<TMessage
         }], childId(options.id, 'actions'))
   ];
   return absolute(surface(stack([
-    ...childrenArray(options.body),
+    ...dialogChildren(options.body),
     ...footer
   ], {
     id: childId(options.id, 'content'),
@@ -220,35 +224,6 @@ function modalOptions<TMessage>(options: DialogOptions<TMessage>) {
     ...(options.keyMap === undefined ? {} : { keyMap: options.keyMap }),
     ...(options.accessibility === undefined ? {} : { accessibility: options.accessibility })
   };
-}
-
-function messageWidgets<TMessage>(message: string | readonly string[], id: string): readonly Widget<TMessage>[] {
-  const lines = typeof message === 'string' ? message.split('\n') : message;
-  return lines.map((line, index) => text(line, { id: `${id}:${String(index)}` }));
-}
-
-function actionWidgets<TMessage>(
-  actions: readonly DialogAction<TMessage>[] | undefined,
-  id: string
-): readonly Widget<TMessage>[] {
-  if (actions === undefined || actions.length === 0) return [];
-  return [row(actions.map((action) =>
-    button({
-      ...(action.id === undefined ? {} : { id: action.id }),
-      label: action.label,
-      message: action.message,
-      ...(action.disabled === undefined ? {} : { disabled: action.disabled })
-    })
-  ), {
-    id,
-    gap: 1,
-    align: 'end'
-  })];
-}
-
-function childrenArray<TMessage>(children: WidgetChildren<TMessage> | undefined): readonly Widget<TMessage>[] {
-  if (children === undefined) return [];
-  return Array.isArray(children) ? [...children as readonly Widget<TMessage>[]] : [children as Widget<TMessage>];
 }
 
 function childId(id: string | undefined, suffix: string): string {

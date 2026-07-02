@@ -1,6 +1,9 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
 import type { Widget } from '../../../widgets/index.ts';
 import { stringify } from '../../widget-props.ts';
+import { clipRenderSpans } from '../../render-primitives.ts';
+import type { RenderBlock, RenderSpan, TerminalStyle } from '../../render-primitives.ts';
+import { widgetStyle } from '../../widget-style.ts';
 import { clampRect, emptyRect } from './common.ts';
 import type { Rect } from '../../layout.ts';
 import type { HitTarget } from '../../widget-renderer.ts';
@@ -21,6 +24,30 @@ export function tabsHeaderText(widget: Widget): string {
   const tabs = tabItems(widget);
   const selected = selectedTabIndex(widget, tabs);
   return tabs.map((tab, index) => `${index === selected ? '[' : ' '}${tab.label}${index === selected ? ']' : ' '}`).join(' ');
+}
+
+export function tabsHeaderBlock(widget: Widget, bounds: Rect): RenderBlock {
+  if (bounds.height <= 0 || bounds.width <= 0) return { lines: [] };
+  const tabs = tabItems(widget);
+  const selected = selectedTabIndex(widget, tabs);
+  const spans = tabs.flatMap((tab, index): readonly RenderSpan[] => {
+    const style = tab.disabled === true
+      ? widgetStyle(widget, 'value', 'disabled')
+      : index === selected
+        ? widgetStyle(widget, 'value', 'selected')
+        : widgetStyle(widget, 'value');
+    return [
+      ...(index === 0 ? [] : [styledSpan(' ', widgetStyle(widget, 'value', 'disabled'))]),
+      styledSpan(index === selected ? '[' : ' ', style),
+      styledSpan(tab.label, style),
+      styledSpan(index === selected ? ']' : ' ', style)
+    ];
+  });
+  return {
+    lines: [{
+      spans: clipRenderSpans(spans, Math.max(0, bounds.width), { ellipsis: '…' })
+    }]
+  };
 }
 
 export function tabsAccessibleChildren(widget: Widget): readonly AccessibleNode[] {
@@ -85,4 +112,8 @@ function selectedTabIndex(widget: Widget, tabs: readonly { readonly id: string }
   const selected = stringify(widget.props['selected']);
   const index = selected.length === 0 ? 0 : tabs.findIndex((tab) => tab.id === selected);
   return Math.max(0, index === -1 ? 0 : index);
+}
+
+function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
+  return style === undefined ? { text } : { text, style };
 }

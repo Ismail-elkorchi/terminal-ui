@@ -46,8 +46,8 @@ export const menuRenderers = {
     hitTargets: ({ widget, bounds }) => menuHitTargets(widget, bounds)
   },
   menuBar: {
-    render: ({ widget, node, buffer }) => {
-      writeRenderBlock(buffer, node.bounds, menuBarBlock(widget, node.bounds));
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, menuBarBlock(widget, node.bounds, theme));
     },
     accessibility: ({ widget, id, focused }) => ({
       ...menuAccessibleBase(widget, id, focused),

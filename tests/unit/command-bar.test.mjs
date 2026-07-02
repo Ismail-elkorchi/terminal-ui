@@ -49,7 +49,7 @@ test('commandBar widget renders prompt, suggestions, cursor, and accessibility',
 
   const text = frame.cells.map((cell) => cell.text).join('');
   assert.match(text, /\/op/u);
-  assert.match(text, /open - Open item/u);
+  assert.match(text, /open · Open item/u);
   assert.match(text, /›/u);
   assert.deepEqual(frame.cursor, { row: 1, column: 4 });
   assert.equal(frame.accessibility.root.role, 'textbox');

@@ -16,6 +16,10 @@ function plain(widget, viewport = { columns: 72, rows: 12 }) {
   return renderFramePlain(renderWidgetFrame(widget, viewport));
 }
 
+function styleForCell(frame, predicate) {
+  return frame.cells.find(predicate)?.style;
+}
+
 test('breadcrumb renders clickable route parts and separators', () => {
   const widget = breadcrumb({
     id: 'crumbs',
@@ -33,6 +37,8 @@ test('breadcrumb renders clickable route parts and separators', () => {
   assert.match(output, /Harbor/u);
   assert.match(output, /Berth 4/u);
   assert.ok(frame.hitTargets?.some((target) => target.id === 'crumbs:harbor:control'));
+  assert.equal(styleForCell(frame, (cell) => cell.text === '/')?.fg?.token, 'surface.border');
+  assert.equal(styleForCell(frame, (cell) => cell.text === 'B')?.bg?.token, 'selection.background');
 });
 
 test('collapsibleSection hides and shows body from caller-owned expanded state', () => {
@@ -116,11 +122,12 @@ test('tabOverflowMenu renders visible tabs and an overflow menu for hidden tabs'
 
   assert.equal(widget.kind, 'row');
   assert.match(output, /Dashboard/u);
-  assert.match(output, /\[Ops\]/u);
+  assert.match(output, /\[ ● Ops \]/u);
   assert.match(output, /More tabs/u);
   assert.match(output, /Reports/u);
   assert.match(output, /Admin/u);
   assert.ok(frame.hitTargets?.some((target) => target.id === 'tabs:overflow:reports'));
+  assert.equal(styleForCell(frame, (cell) => cell.text === 'O')?.bg?.token, 'selection.background');
 });
 
 test('shortcutBar renders command hints as ordinary buttons with typed messages', () => {
@@ -135,7 +142,7 @@ test('shortcutBar renders command hints as ordinary buttons with typed messages'
   const output = renderFramePlain(frame);
 
   assert.equal(widget.kind, 'row');
-  assert.match(output, /\/ Palette/u);
-  assert.match(output, /Ctrl\+S Save/u);
+  assert.match(output, /\[\/\] Palette/u);
+  assert.match(output, /\[Ctrl\+S\] Save/u);
   assert.ok(frame.hitTargets?.some((target) => target.id === 'shortcuts:save:control'));
 });

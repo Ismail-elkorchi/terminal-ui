@@ -1,9 +1,12 @@
 import {
   helpBarAccessibleBase,
-  helpBarText,
   spinnerAccessibleBase,
-  spinnerBlock
 } from '../text-widgets.ts';
+import {
+  helpBarBlock,
+  statusBarBlock,
+  spinnerBlock
+} from '../feedback-visual.ts';
 import {
   progressAccessibleBase,
   progressBlock
@@ -13,13 +16,13 @@ import {
   renderNotificationStack
 } from '../notifications.ts';
 import { stringify } from '../widget-props.ts';
-import { writeBlock, writeRenderBlock } from './support/block.ts';
+import { writeRenderBlock } from './support/block.ts';
 import type { RendererMap } from './types.ts';
 
 export const feedbackRenderers = {
   statusBar: {
     render: ({ widget, node, buffer }) => {
-      writeBlock(buffer, node.bounds, stringify(widget.props['text']));
+      writeRenderBlock(buffer, node.bounds, statusBarBlock(widget));
     },
     accessibility: ({ widget, id }) => ({
       id,
@@ -31,7 +34,7 @@ export const feedbackRenderers = {
   },
   helpBar: {
     render: ({ widget, node, buffer }) => {
-      writeBlock(buffer, node.bounds, helpBarText(widget));
+      writeRenderBlock(buffer, node.bounds, helpBarBlock(widget));
     },
     accessibility: ({ widget, id }) => helpBarAccessibleBase(widget, id)
   },

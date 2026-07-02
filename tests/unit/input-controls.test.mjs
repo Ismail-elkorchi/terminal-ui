@@ -53,6 +53,11 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
   assert.ok(frame.hitTargets?.some((target) => target.id === 'range:value:8'));
   assert.deepEqual(frame.accessibility.root.children?.[0]?.checked, true);
   assert.equal(frame.accessibility.root.children?.[1]?.role, 'progressbar');
+  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.kind, 'toggleSwitch');
+  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.label, 'value.on.open');
+  assert.equal(frame.cells.find((cell) => cell.source?.id === 'slider' && cell.text === '●')?.source?.label, 'track.handle');
+  assert.equal(frame.cells.find((cell) => cell.source?.id === 'range' && cell.source?.label === 'track.startHandle')?.text, '●');
+  assert.equal(frame.cells.find((cell) => cell.source?.id === 'range' && cell.source?.label === 'track.endHandle')?.text, '●');
 });
 
 test('checkboxList colorPicker and datePicker expose selectable item hit targets and accessibility', () => {
@@ -94,20 +99,40 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
       toMessage: (day) => ({ kind: 'date', id: day.id })
     })
   ], { gap: 1 });
-  const frame = renderWidgetFrame(widget, { columns: 72, rows: 16 });
+  const frame = renderWidgetFrame(widget, { columns: 72, rows: 18 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Channels/u);
   assert.match(output, /\[x\] Email/u);
   assert.match(output, /\[ \] SMS/u);
   assert.match(output, /Accent/u);
+  assert.match(output, /Selected: ■ Green/u);
   assert.match(output, /\[■ Green/u);
   assert.match(output, /June/u);
+  assert.match(output, /Mo\s+Tu\s+We\s+Th\s+Fr\s+Sa\s+Su/u);
   assert.match(output, /\[15\]/u);
   assert.ok(frame.hitTargets?.some((target) => target.id === 'check-list:sms'));
   assert.ok(frame.hitTargets?.some((target) => target.id === 'colors:blue'));
   assert.ok(frame.hitTargets?.some((target) => target.id === 'dates:2026-06-10'));
+  assert.deepEqual(frame.hitTargets?.find((target) => target.id === 'colors:blue')?.bounds, {
+    row: 9,
+    column: 13,
+    width: 12,
+    height: 1
+  });
+  assert.deepEqual(frame.hitTargets?.find((target) => target.id === 'dates:2026-06-10')?.bounds, {
+    row: 16,
+    column: 9,
+    width: 4,
+    height: 1
+  });
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.checked, true);
   assert.equal(frame.accessibility.root.children?.[1]?.children?.[0]?.selected, true);
   assert.equal(frame.accessibility.root.children?.[2]?.role, 'table');
+  assert.equal(frame.cells.find((cell) => cell.source?.id === 'check-list' && cell.text === 'x')?.source?.label, 'option.marker.checked');
+  assert.equal(frame.cells.find((cell) => cell.source?.id === 'colors' && cell.text === 'S')?.source?.label, 'summary.label');
+  assert.equal(frame.cells.find((cell) => cell.source?.id === 'colors' && cell.source?.label === 'summary.swatch')?.style?.bg?.token, 'selection.background');
+  assert.equal(frame.cells.find((cell) => cell.source?.id === 'colors' && cell.source?.label === 'option.green.swatch')?.text, '■');
+  assert.equal(frame.cells.find((cell) => cell.source?.id === 'dates' && cell.source?.label === 'weekday.mo')?.style?.fg?.token, 'text.muted');
+  assert.equal(frame.cells.find((cell) => cell.source?.id === 'dates' && cell.text === '[')?.source?.label, 'day.2026-06-15.open');
 });

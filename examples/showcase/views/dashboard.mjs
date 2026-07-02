@@ -8,6 +8,7 @@ import {
   grid,
   heatmap,
   progressBar,
+  richText,
   row,
   sparkline,
   splitPane,
@@ -80,12 +81,18 @@ function wideOperationsFloor(state) {
       border: { kind: 'rounded', title: 'Live harbor surface' },
       padding: 0
     }),
-    stack([
+    grid([
       capacityBoard(state),
       selectedVesselCard(state),
       storyCarousel(state)
     ], {
-      id: 'operations-side-stack',
+      id: 'operations-side-grid',
+      rows: [
+        { kind: 'fixed', cells: 8 },
+        { kind: 'fill' },
+        { kind: 'fixed', cells: 10 }
+      ],
+      columns: [{ kind: 'fill' }],
       gap: 1
     })
   ], {
@@ -320,16 +327,8 @@ function serviceStory(state) {
 
 function routeTimeline(state) {
   const vessel = selectedVessel(state);
-  return box(stack([
-    row([
-      text('outer marker'),
-      text('──'),
-      text(vessel.name, { id: 'timeline-vessel', textRole: 'metric' }),
-      text('──'),
-      text(vessel.status === 'routing' ? 'channel C' : 'berth 12'),
-      text('──'),
-      text('handoff')
-    ], { id: 'timeline-row', gap: 1 }),
+  return box(grid([
+    timelineMilestones(state),
     progressBar({
       id: 'timeline-progress',
       label: 'route clearance',
@@ -337,18 +336,72 @@ function routeTimeline(state) {
       max: 100,
       mode: 'full',
       status: vessel.score < 75 ? 'warning' : 'running'
-    })
-  ], { id: 'timeline-stack', gap: 1 }), {
+    }),
+    row([
+      text(`owner ${vessel.owner}`, { id: 'timeline-owner', textRole: 'metadata' }),
+      text(`signal ${String(vessel.score)}%`, { id: 'timeline-signal', textRole: vessel.score < 75 ? 'warning' : 'metric' }),
+      text(`state ${vessel.status}`, { id: 'timeline-state', textRole: vessel.status === 'holding' || vessel.status === 'watch' ? 'warning' : 'success' })
+    ], { id: 'timeline-facts', gap: 3 })
+  ], {
+    id: 'timeline-grid',
+    rows: [
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 1 }
+    ],
+    columns: [{ kind: 'fill' }],
+    gap: 0
+  }), {
     id: 'route-timeline',
     border: { kind: 'single', title: 'Route timeline' },
     padding: 1
   });
 }
 
+function timelineMilestones(state) {
+  const vessel = selectedVessel(state);
+  const target = vessel.status === 'routing' ? 'channel C' : 'berth 12';
+  const targetToken = vessel.status === 'routing' ? 'status.warning' : 'status.success';
+  return richText({
+    id: 'timeline-row',
+    segments: [
+      timelineSpan('outer marker', 'timeline-outer', 'text.muted'),
+      timelineSpan('  ──  ', 'timeline-separator-a', 'border'),
+      timelineSpan(vessel.name, 'timeline-vessel', 'accent.primary', true),
+      timelineSpan('  ──  ', 'timeline-separator-b', 'border'),
+      timelineSpan(target, 'timeline-route-target', targetToken, true),
+      timelineSpan('  ──  ', 'timeline-separator-c', 'border'),
+      timelineSpan('handoff', 'timeline-handoff', 'text.muted')
+    ]
+  });
+}
+
+function timelineSpan(textValue, id, token, bold = false) {
+  return {
+    text: textValue,
+    style: {
+      fg: { kind: 'theme', token },
+      ...(bold ? { bold: true } : {})
+    },
+    source: {
+      kind: 'showcaseTimeline',
+      role: id.includes('separator') ? 'separator' : 'text',
+      id,
+      label: id
+    }
+  };
+}
+
 function signalStrip(state) {
-  return row(dataRows.slice(0, 4).map((vessel, index) =>
-    text(`${index === state.fleetTable.selectedRow ? '›' : ' '} ${vessel.name} ${String(Math.min(100, vessel.score + (index === state.fleetTable.selectedRow ? state.spinnerFrame % 5 : 0)))}%`)
-  ), { id: 'signal-strip', gap: 3 });
+  return row(dataRows.slice(0, 4).map((vessel, index) => {
+    const selected = index === state.fleetTable.selectedRow;
+    const score = Math.min(100, vessel.score + (selected ? state.spinnerFrame % 5 : 0));
+    const role = selected ? 'metric' : score < 75 ? 'warning' : 'metadata';
+    return text(`${selected ? '›' : ' '} ${vessel.name} ${String(score)}%`, {
+      id: `signal-strip-${vessel.name.toLowerCase()}`,
+      textRole: role
+    });
+  }), { id: 'signal-strip', gap: 3 });
 }
 
 function heroCanvas(state) {

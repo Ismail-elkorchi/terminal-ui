@@ -1,4 +1,16 @@
 import { sanitizeTerminalText } from '../text/index.ts';
+import {
+  chartLabelStyle,
+  chartMetricStyle,
+  chartPlaceholderStyle,
+  chartSelectedStyle,
+  chartSpan,
+  chartStateBlock,
+  chartStateDescription,
+  chartStatus,
+  chartTextFromBlock,
+  chartValueStyle
+} from './chart-visual.ts';
 import { createCanvas2D, drawLineSeries } from './canvas2d/index.ts';
 import { createFrameBuffer } from './frame-buffer.ts';
 import { numberProp } from './widget-props.ts';
@@ -7,16 +19,38 @@ import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { BarChartItem, ChartPointEvent, ChartSeries, HeatmapCell, Widget } from '../widgets/index.ts';
 import type { LayoutNode, Rect } from './layout.ts';
+import { clipRenderSpans } from './render-primitives.ts';
+import type { RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
 import type { HitTarget } from './widget-renderer.ts';
 
 const sparkGlyphs = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'] as const;
 const heatmapGlyphs = [' ', '░', '▒', '▓', '█'] as const;
 
-export function sparklineText(widget: Widget): string {
+export function sparklineBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
   const values = numberArray(widget.props['values']);
-  if (values.length === 0) return '';
+  const state = chartStateBlock(widget, 'sparkline', theme, {
+    empty: values.length === 0,
+    emptyText: chartStateDescription(widget, 'No sparkline data'),
+    loadingText: cleanLabel(widget.props['loadingText']),
+    errorText: cleanLabel(widget.props['errorText'])
+  });
+  if (state !== undefined) return state;
   const range = rangeFor(values, numberProp(widget, 'min'), numberProp(widget, 'max'));
-  return values.map((value) => sparkGlyph(value, range)).join('');
+  return {
+    lines: [{
+      spans: values.map((value, index) => chartSpan(
+        widget,
+        'sparkline',
+        `point.${String(index)}`,
+        sparkGlyph(value, range),
+        chartValueStyle(widget)
+      ))
+    }]
+  };
+}
+
+export function sparklineText(widget: Widget, theme: TerminalTheme): string {
+  return chartTextFromBlock(sparklineBlock(widget, theme));
 }
 
 export function sparklineAccessibleBase(widget: Widget, id: string): AccessibleNode {
@@ -25,24 +59,49 @@ export function sparklineAccessibleBase(widget: Widget, id: string): AccessibleN
     id,
     role: 'text',
     label: id,
-    value: sparklineText(widget),
+    ...(values.length === 0 ? {} : { value: `${String(values.length)} points` }),
     description: `${String(values.length)} sparkline points.`
   };
 }
 
-export function barChartText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
+export function barChartBlock(widget: Widget, node: LayoutNode, theme: TerminalTheme): RenderBlock {
   const items = barItems(widget.props['items']);
+  const state = chartStateBlock(widget, 'barChart', theme, {
+    empty: items.length === 0,
+    emptyText: chartStateDescription(widget, 'No bars'),
+    loadingText: cleanLabel(widget.props['loadingText']),
+    errorText: cleanLabel(widget.props['errorText'])
+  });
+  if (state !== undefined) return state;
   const selected = numberProp(widget, 'selected') ?? -1;
   const max = Math.max(1, numberProp(widget, 'max') ?? Math.max(1, ...items.map((item) => item.value)));
   const window = visibleWindow(items.length, node.bounds.height, selected);
-  return items.slice(window.start, window.end).map((item, offset) => {
+  return {
+    lines: items.slice(window.start, window.end).map((item, offset) => {
     const index = window.start + offset;
-    const prefix = index === selected ? theme.symbols.pointer : theme.symbols.unselected;
+    const currentSelected = index === selected;
+    const prefix = currentSelected ? theme.symbols.pointer : theme.symbols.unselected;
     const label = sanitizeTerminalText(item.label).text;
     const available = Math.max(1, node.bounds.width - label.length - String(item.value).length - 5);
     const filled = Math.max(0, Math.min(available, Math.round((item.value / max) * available)));
-    return `${prefix} ${label} ${theme.symbols.progressFilled.repeat(filled)} ${String(item.value)}`;
-  }).join('\n');
+      const selectionStyle = currentSelected ? chartSelectedStyle(widget) : undefined;
+      return {
+        spans: [
+          chartSpan(widget, 'barChart', 'selection', prefix, selectionStyle ?? chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'barChart', 'separator', ' ', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'barChart', 'label', label, selectionStyle ?? chartLabelStyle(widget)),
+          chartSpan(widget, 'barChart', 'separator', ' ', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'barChart', 'bar.filled', theme.symbols.progressFilled.repeat(filled), chartMetricStyle(widget)),
+          chartSpan(widget, 'barChart', 'separator', ' ', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'barChart', 'value', String(item.value), selectionStyle ?? chartValueStyle(widget))
+        ]
+      };
+    })
+  };
+}
+
+export function barChartText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
+  return chartTextFromBlock(barChartBlock(widget, node, theme));
 }
 
 export function barChartAccessibleBase(widget: Widget, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
@@ -74,12 +133,19 @@ export function barChartAccessibleChildren(widget: Widget, node: LayoutNode): re
   });
 }
 
-export function chartText(widget: Widget, node: LayoutNode): string {
+export function chartBlock(widget: Widget, node: LayoutNode, theme: TerminalTheme): RenderBlock {
   const series = chartSeries(widget.props['series']);
   const points = series.flatMap((item) => item.points);
-  if (points.length === 0 || node.bounds.height <= 0 || node.bounds.width <= 0) return '';
+  const state = chartStateBlock(widget, 'chart', theme, {
+    empty: points.length === 0,
+    emptyText: chartStateDescription(widget, 'No chart data'),
+    loadingText: cleanLabel(widget.props['loadingText']),
+    errorText: cleanLabel(widget.props['errorText'])
+  });
+  if (state !== undefined) return state;
+  if (node.bounds.height <= 0 || node.bounds.width <= 0) return { lines: [] };
   const layout = chartLayout(widget, node.bounds);
-  if (layout.plotHeight <= 0 || layout.plotWidth <= 0) return chartChromeText(widget, node.bounds.width);
+  if (layout.plotHeight <= 0 || layout.plotWidth <= 0) return chartChromeBlock(widget, node.bounds.width);
   const range = rangeFor(points, numberProp(widget, 'min'), numberProp(widget, 'max'));
   const buffer = createFrameBuffer(node.bounds.width, node.bounds.height);
   writeChartChrome(buffer, widget, node.bounds.width);
@@ -94,12 +160,16 @@ export function chartText(widget: Widget, node: LayoutNode): string {
     const glyph = seriesGlyph(item);
     if (item.kind === 'scatter') {
       visible.forEach((value, column) => {
-        canvas.point(column, yForValue(value, range, layout.plotHeight), { text: glyph });
+        canvas.point(
+          column,
+          yForValue(value, range, layout.plotHeight),
+          chartSpan(widget, 'chart', `series.${item.id}`, glyph, chartValueStyle(widget))
+        );
       });
     } else {
       drawLineSeries(canvas, visible.map((value, column) => ({ x: column, y: value })), {
         yScale: { domain: [range.min, range.max], range: [layout.plotHeight - 1, 0] },
-        span: { text: glyph }
+        span: chartSpan(widget, 'chart', `series.${item.id}`, glyph, chartValueStyle(widget))
       });
     }
   }
@@ -107,10 +177,14 @@ export function chartText(widget: Widget, node: LayoutNode): string {
   if (selected !== undefined) {
     const position = chartPointPosition(widget, node.bounds, selected.series, selected.point, range);
     if (position !== undefined) {
-      buffer.write(position.row, position.column, [{ text: '◆' }]);
+      buffer.write(position.row, position.column, [chartSpan(widget, 'chart', 'selected-point', '◆', chartSelectedStyle(widget))]);
     }
   }
-  return frameBufferText(buffer, node.bounds.width, node.bounds.height);
+  return frameBufferBlock(buffer, node.bounds.width, node.bounds.height);
+}
+
+export function chartText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
+  return chartTextFromBlock(chartBlock(widget, node, theme));
 }
 
 export function chartAccessibleBase(widget: Widget, id: string): AccessibleNode {
@@ -159,7 +233,7 @@ export function chartHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect
   }));
 }
 
-export function gaugeText(widget: Widget, theme: TerminalTheme): string {
+export function gaugeBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
   const value = numberProp(widget, 'value') ?? 0;
   const min = numberProp(widget, 'min') ?? 0;
   const max = Math.max(min + 1, numberProp(widget, 'max') ?? 100);
@@ -168,11 +242,32 @@ export function gaugeText(widget: Widget, theme: TerminalTheme): string {
   const filled = Math.round(ratio * width);
   const empty = Math.max(0, width - filled);
   const label = cleanLabel(widget.props['label']);
-  const status = cleanLabel(widget.props['status']);
+  const status = chartStatus(widget.props['status']);
   const valueText = `${String(Math.round(ratio * 100))}%`;
-  const prefix = label.length === 0 ? '' : `${label} `;
-  const suffix = status.length === 0 ? valueText : `${valueText} ${status}`;
-  return `${prefix}[${theme.symbols.progressFilled.repeat(filled)}${theme.symbols.progressEmpty.repeat(empty)}] ${suffix}`;
+  return {
+    lines: [{
+      spans: [
+        ...(label.length === 0 ? [] : [
+          chartSpan(widget, 'gauge', 'label', label, chartLabelStyle(widget)),
+          chartSpan(widget, 'gauge', 'separator', ' ', chartPlaceholderStyle(widget))
+        ]),
+        chartSpan(widget, 'gauge', 'bar.open', '[', chartPlaceholderStyle(widget)),
+        chartSpan(widget, 'gauge', 'bar.filled', theme.symbols.progressFilled.repeat(filled), chartMetricStyle(widget, status)),
+        chartSpan(widget, 'gauge', 'bar.empty', theme.symbols.progressEmpty.repeat(empty), chartPlaceholderStyle(widget)),
+        chartSpan(widget, 'gauge', 'bar.close', ']', chartPlaceholderStyle(widget)),
+        chartSpan(widget, 'gauge', 'separator', ' ', chartPlaceholderStyle(widget)),
+        chartSpan(widget, 'gauge', 'value', valueText, chartMetricStyle(widget, status)),
+        ...(status === undefined ? [] : [
+          chartSpan(widget, 'gauge', 'separator', ' ', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'gauge', 'status', status, chartMetricStyle(widget, status))
+        ])
+      ]
+    }]
+  };
+}
+
+export function gaugeText(widget: Widget, theme: TerminalTheme): string {
+  return chartTextFromBlock(gaugeBlock(widget, theme));
 }
 
 export function gaugeAccessibleBase(widget: Widget, id: string): AccessibleNode {
@@ -189,23 +284,40 @@ export function gaugeAccessibleBase(widget: Widget, id: string): AccessibleNode 
   };
 }
 
-export function heatmapText(widget: Widget, node: LayoutNode): string {
+export function heatmapBlock(widget: Widget, node: LayoutNode, theme: TerminalTheme): RenderBlock {
   const rows = heatmapRows(widget.props['rows']);
-  if (rows.length === 0) return '';
+  const state = chartStateBlock(widget, 'heatmap', theme, {
+    empty: rows.length === 0,
+    emptyText: chartStateDescription(widget, 'No heatmap data'),
+    loadingText: cleanLabel(widget.props['loadingText']),
+    errorText: cleanLabel(widget.props['errorText'])
+  });
+  if (state !== undefined) return state;
   const cellWidth = heatmapCellWidth(widget);
   const gap = heatmapGap(widget);
   const range = heatmapRange(rows, numberProp(widget, 'min'), numberProp(widget, 'max'));
   const selected = heatmapSelected(widget);
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
-  return rows.slice(rowWindow.start, rowWindow.end).map((row, rowOffset) => {
+  return {
+    lines: rows.slice(rowWindow.start, rowWindow.end).map((row, rowOffset): RenderLine => {
     const rowIndex = rowWindow.start + rowOffset;
-    const cells = row.map((cell, columnIndex) => heatmapCellText(cell, {
-      cellWidth,
-      range,
-      selected: selected?.row === rowIndex && selected.column === columnIndex
-    }));
-    return cells.join(' '.repeat(gap)).slice(0, Math.max(0, node.bounds.width));
-  }).join('\n');
+      const spans = row.flatMap((cell, columnIndex): readonly RenderSpan[] => [
+        ...(columnIndex === 0 ? [] : [
+          chartSpan(widget, 'heatmap', 'gap', ' '.repeat(gap), chartPlaceholderStyle(widget))
+        ]),
+        chartSpan(widget, 'heatmap', `cell.${String(rowIndex)}.${String(columnIndex)}`, heatmapCellText(cell, {
+          cellWidth,
+          range,
+          selected: selected?.row === rowIndex && selected.column === columnIndex
+        }), selected?.row === rowIndex && selected.column === columnIndex ? chartSelectedStyle(widget) : chartMetricStyle(widget))
+      ]);
+      return { spans: clipLineSpans(spans, Math.max(0, node.bounds.width)) };
+    })
+  };
+}
+
+export function heatmapText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
+  return chartTextFromBlock(heatmapBlock(widget, node, theme));
 }
 
 export function heatmapAccessibleBase(widget: Widget, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
@@ -332,31 +444,45 @@ function chartHeaderRows(widget: Widget): number {
 }
 
 function writeChartChrome(buffer: ReturnType<typeof createFrameBuffer>, widget: Widget, width: number): void {
-  const rows = chartChromeRows(widget);
-  rows.forEach((line, index) => {
-    buffer.write(index + 1, 1, [{ text: line.slice(0, width) }]);
+  chartHeaderBlock(widget, width).lines.forEach((line, index) => {
+    buffer.write(index + 1, 1, line.spans);
   });
-  const xLabel = cleanLabel(widget.props['xLabel']);
-  if (xLabel.length > 0) {
-    buffer.write(buffer.height, 1, [{ text: xLabel.slice(0, width) }]);
+  const footer = chartFooterBlock(widget, width);
+  if (footer.lines.length > 0) {
+    buffer.write(buffer.height, 1, footer.lines[0]?.spans ?? []);
   }
 }
 
-function chartChromeText(widget: Widget, width: number): string {
-  const rows = chartChromeRows(widget);
-  const xLabel = cleanLabel(widget.props['xLabel']);
-  return [...rows, ...(xLabel.length === 0 ? [] : [xLabel])].map((line) => line.slice(0, width)).join('\n');
+function chartChromeBlock(widget: Widget, width: number): RenderBlock {
+  return { lines: [...chartHeaderBlock(widget, width).lines, ...chartFooterBlock(widget, width).lines] };
 }
 
-function chartChromeRows(widget: Widget): readonly string[] {
-  const rows: string[] = [];
+function chartHeaderBlock(widget: Widget, width: number): RenderBlock {
+  const rows: RenderLine[] = [];
   if (widget.props['legend'] === true) {
-    const labels = chartSeries(widget.props['series']).map((item) => `${seriesGlyph(item)} ${item.label ?? item.id}`);
-    rows.push(labels.join('  '));
+    rows.push({
+      spans: clipLineSpans(chartSeries(widget.props['series']).flatMap((item, index): readonly RenderSpan[] => [
+        ...(index === 0 ? [] : [chartSpan(widget, 'chart', 'legend.separator', '  ', chartPlaceholderStyle(widget))]),
+        chartSpan(widget, 'chart', 'legend.glyph', seriesGlyph(item), chartValueStyle(widget)),
+        chartSpan(widget, 'chart', 'legend.separator', ' ', chartPlaceholderStyle(widget)),
+        chartSpan(widget, 'chart', 'legend.label', item.label ?? item.id, chartLabelStyle(widget))
+      ]), width)
+    });
   }
   const yLabel = cleanLabel(widget.props['yLabel']);
-  if (yLabel.length > 0) rows.push(yLabel);
-  return rows;
+  if (yLabel.length > 0) {
+    rows.push({ spans: [chartSpan(widget, 'chart', 'yLabel', yLabel.slice(0, width), chartLabelStyle(widget))] });
+  }
+  return { lines: rows };
+}
+
+function chartFooterBlock(widget: Widget, width: number): RenderBlock {
+  const xLabel = cleanLabel(widget.props['xLabel']);
+  return {
+    lines: xLabel.length === 0
+      ? []
+      : [{ spans: [chartSpan(widget, 'chart', 'xLabel', xLabel.slice(0, width), chartLabelStyle(widget))] }]
+  };
 }
 
 function seriesGlyph(series: ChartSeries): string {
@@ -492,12 +618,35 @@ function heatmapMessageFactory<TMessage>(
     : undefined;
 }
 
-function frameBufferText(buffer: ReturnType<typeof createFrameBuffer>, width: number, height: number): string {
-  const rows = Array.from({ length: height }, () => Array.from({ length: width }, () => ' '));
+function frameBufferBlock(buffer: ReturnType<typeof createFrameBuffer>, width: number, height: number): RenderBlock {
+  const rows = Array.from({ length: height }, (): RenderSpan[] =>
+    Array.from({ length: width }, (): RenderSpan => ({ text: ' ' }))
+  );
   for (const cell of buffer.snapshot().cells) {
     const row = rows[cell.row - 1];
     if (row === undefined || cell.column < 1 || cell.column > width) continue;
-    row[cell.column - 1] = cell.text;
+    row[cell.column - 1] = {
+      text: cell.text,
+      ...(cell.style === undefined ? {} : { style: cell.style }),
+      ...(cell.link === undefined ? {} : { link: cell.link }),
+      ...(cell.source === undefined ? {} : { source: cell.source })
+    };
   }
-  return rows.map((row) => row.join('').trimEnd()).join('\n');
+  return {
+    lines: rows.map((row) => ({ spans: trimTrailingPlainSpaces(row) }))
+  };
+}
+
+function clipLineSpans(spans: readonly RenderSpan[], width: number): readonly RenderSpan[] {
+  return clipRenderSpans(spans, width);
+}
+
+function trimTrailingPlainSpaces(spans: readonly RenderSpan[]): readonly RenderSpan[] {
+  let end = spans.length;
+  while (end > 0) {
+    const current = spans[end - 1];
+    if (current?.text !== ' ' || current.style !== undefined || current.link !== undefined || current.source !== undefined) break;
+    end -= 1;
+  }
+  return spans.slice(0, end);
 }

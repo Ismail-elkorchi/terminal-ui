@@ -42,6 +42,10 @@ test('structuredBlock renders collapsed and expanded block data', () => {
   );
   assert.equal(collapsed.accessibility.root.description, 'status pending, collapsed, 1 fields');
   assert.equal(expanded.accessibility.root.description, 'status running, expanded, 1 fields');
+  assert.equal(collapsed.cells.find((cell) => cell.text === '+')?.source?.label, 'toggle');
+  assert.equal(collapsed.cells.find((cell) => cell.text === 'p')?.source?.label, 'status');
+  assert.equal(collapsed.cells.find((cell) => cell.text === 'Q')?.source?.label, 'title');
+  assert.ok(collapsed.cells.some((cell) => cell.source?.label === 'field.label' && cell.text === 'o'));
   assert.deepEqual(collapsed.accessibility.root.children?.map((node) => [node.id, node.value]), [
     ['queued:status', 'pending'],
     ['queued:summary', 'Waiting for a worker'],
@@ -107,6 +111,10 @@ test('activityFeed renders selected visible blocks and accessible options', () =
   assert.equal(frame.accessibility.root.role, 'listbox');
   assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 3 activity blocks.');
   assert.equal(frame.cells.find((cell) => cell.text === '›')?.style?.bg?.kind, 'theme');
+  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.label, 'selection');
+  assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.kind, 'activityFeed');
+  assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.label, 'title');
+  assert.equal(frame.cells.find((cell) => cell.text === 'R')?.style?.bg?.token, 'selection.background');
   assert.deepEqual(frame.accessibility.root.children?.map((node) => [node.id, node.selected]), [
     ['feed:block:queued', false],
     ['feed:block:running', true],

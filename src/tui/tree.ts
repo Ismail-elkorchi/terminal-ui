@@ -1,14 +1,16 @@
-import { clipTextCells, sanitizeTerminalText } from '../text/index.ts';
+import { sanitizeTerminalText } from '../text/index.ts';
 import { treeNodeMatches } from '../widgets/behavior/tree.ts';
+import { dataValueSpans, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
 import { rowWindow, scrollStateFromUnknown } from './data-window.ts';
 import { stringify } from './widget-props.ts';
-import { widgetStyle } from './widget-style.ts';
+import { themeStyle, widgetStyle } from './widget-style.ts';
 import { windowDescription } from './visible-window.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TreeNode, Widget } from '../widgets/index.ts';
 import type { Rect } from './layout.ts';
-import type { RenderBlock, RenderLine, TerminalStyle } from './render-primitives.ts';
+import { clipRenderSpans } from './render-primitives.ts';
+import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import type { ScrollState } from './scroll.ts';
 import type { HitTarget } from './widget-renderer.ts';
 
@@ -102,17 +104,23 @@ export function treeHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect)
 }
 
 function treeLine(widget: Widget, row: VisibleTreeNode, selected: string | undefined, width: number, theme: TerminalTheme): RenderLine {
-  const marker = row.node.id === selected ? theme.symbols.pointer : theme.symbols.unselected;
+  const isSelected = row.node.id === selected;
   const branch = branchSymbol(row.node, row.lazyPlaceholder === true, theme);
   const icon = row.node.icon === undefined ? '' : `${row.node.icon} `;
   const label = row.node.label;
-  const text = `${marker} ${'  '.repeat(row.depth)}${branch} ${icon}${label}`;
-  const style = treeNodeStyle(widget, row, row.node.id === selected);
+  const style = treeNodeStyle(widget, row, isSelected);
+  const branchStyle = mergeDataStyles(themeStyle('tree.branch'), style);
+  const query = filterQuery(widget);
+  const spans: RenderSpan[] = [
+    ...selectionMarkerSpans(widget, isSelected, theme, style),
+    styledSpan('  '.repeat(row.depth), branchStyle),
+    styledSpan(branch, branchStyle),
+    { text: ' ' },
+    ...(icon.length === 0 ? [] : [styledSpan(icon, branchStyle)]),
+    ...dataValueSpans(label, query, style)
+  ];
   return {
-    spans: [{
-      text: clipTextCells(text, Math.max(0, width), { ellipsis: '…' }).text,
-      ...(style === undefined ? {} : { style })
-    }]
+    spans: clipRenderSpans(spans, Math.max(0, width), { ellipsis: '…' })
   };
 }
 
@@ -135,7 +143,7 @@ function styledSpan(text: string, style: TerminalStyle | undefined): RenderLine[
 
 function visibleTreeNodes(widget: Widget): readonly VisibleTreeNode[] {
   const roots = treeNodes(widget.props['nodes']);
-  const query = clean(stringify(widget.props['filterQuery'])).trim().toLocaleLowerCase();
+  const query = filterQuery(widget).toLocaleLowerCase();
   const rows: VisibleTreeNode[] = [];
   for (const node of roots) collectVisibleTreeNode(rows, node, 0, [], query);
   return rows;
@@ -260,6 +268,10 @@ function toMessageProp<TMessage>(widget: Widget<TMessage>): ((node: TreeNode) =>
 function emptyText(widget: Widget): string {
   const text = clean(stringify(widget.props['emptyText']));
   return text.length === 0 ? 'No nodes' : text;
+}
+
+function filterQuery(widget: Widget): string {
+  return clean(stringify(widget.props['filterQuery'])).trim();
 }
 
 function lazyPlaceholderLabel(node: TreeNode): string {

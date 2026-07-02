@@ -1,7 +1,7 @@
 import { drawBorder } from '../border.ts';
 import { createFrameBuffer } from '../frame.ts';
 import { layoutContentBounds, splitTracks } from '../regions.ts';
-import { writeBlock } from './support/block.ts';
+import { writeRenderBlock } from './support/block.ts';
 import { borderContentBounds, borderForModal, borderForWidget, modalLabel } from './support/border.ts';
 import { cellInside, groupAccessibleNode } from './support/common.ts';
 import {
@@ -12,7 +12,7 @@ import {
   priorityFillLayoutSizes,
   splitPaneChildBounds
 } from './support/layout.ts';
-import { tabsAccessibleChildren, tabsChildBounds, tabsHeaderText, tabsHitTargets } from './support/tabs.ts';
+import { tabsAccessibleChildren, tabsChildBounds, tabsHeaderBlock, tabsHitTargets } from './support/tabs.ts';
 import {
   drawScrollbars,
   scrollbarsForWidget,
@@ -39,7 +39,13 @@ export const layoutRenderers = {
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   stack: {
-    layout: ({ widget, bounds }) => splitTracks(bounds, 'vertical', fillLayoutSizes(widget.children?.length ?? 0), layoutFlowOptions(widget)),
+    layout: ({ widget, bounds, childMeasures }) => splitTracks(
+      bounds,
+      'vertical',
+      fillLayoutSizes(widget.children?.length ?? 0),
+      layoutFlowOptions(widget),
+      childMeasures.map((measure) => measure.preferredHeight)
+    ),
     render: (input) => {
       input.renderChildren();
     },
@@ -87,7 +93,10 @@ export const layoutRenderers = {
   tabs: {
     layout: ({ widget, bounds }) => tabsChildBounds(widget, bounds),
     render: (input) => {
-      writeBlock(input.buffer, { ...input.node.bounds, height: Math.min(1, input.node.bounds.height) }, tabsHeaderText(input.widget));
+      writeRenderBlock(input.buffer, {
+        ...input.node.bounds,
+        height: Math.min(1, input.node.bounds.height)
+      }, tabsHeaderBlock(input.widget, input.node.bounds));
       input.renderChildren();
     },
     accessibility: ({ widget, id, focused }) => ({

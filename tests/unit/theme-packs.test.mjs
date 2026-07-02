@@ -63,6 +63,29 @@ test('contrast helpers preserve readable foreground choices', () => {
   assert.deepEqual(deriveSurface({ kind: 'rgb', r: 20, g: 20, b: 20 }, 2), { kind: 'rgb', r: 40, g: 40, b: 40 });
 });
 
+test('high contrast theme keeps semantic status chart and diff tokens distinct', () => {
+  assert.deepEqual(highContrastTheme.colors['status.error'], { kind: 'ansi', value: 9 });
+  assert.deepEqual(highContrastTheme.colors['status.success'], { kind: 'ansi', value: 10 });
+  assert.deepEqual(highContrastTheme.colors['status.warning'], { kind: 'ansi', value: 11 });
+  assert.deepEqual(highContrastTheme.colors['status.info'], { kind: 'ansi', value: 14 });
+  assert.deepEqual(highContrastTheme.colors['surface.danger.border'], highContrastTheme.colors['status.error']);
+  assert.deepEqual(highContrastTheme.colors['surface.success.border'], highContrastTheme.colors['status.success']);
+  assert.deepEqual(highContrastTheme.colors['diff.remove'], highContrastTheme.colors['status.error']);
+  assert.deepEqual(highContrastTheme.colors['diff.add'], highContrastTheme.colors['status.success']);
+  assert.deepEqual(highContrastTheme.colors['diff.context'], highContrastTheme.colors['text.muted']);
+  assert.notDeepEqual(highContrastTheme.colors['chart.series.1'], highContrastTheme.colors['chart.series.2']);
+  assert.notDeepEqual(highContrastTheme.colors['chart.series.2'], highContrastTheme.colors['chart.series.3']);
+  assert.deepEqual(resolveTerminalStyle({
+    fg: { kind: 'theme', token: 'selection.foreground' },
+    bg: { kind: 'theme', token: 'selection.background' },
+    bold: true
+  }, highContrastTheme), {
+    fg: { kind: 'ansi', value: 0 },
+    bg: { kind: 'ansi', value: 15 },
+    bold: true
+  });
+});
+
 test('theme matrix snapshots cover core widgets with packs high contrast and no color', () => {
   const themes = [...packedThemes, highContrastTheme, noColorTheme];
   for (const theme of themes) {

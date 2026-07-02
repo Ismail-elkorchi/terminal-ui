@@ -1,4 +1,5 @@
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
+import { mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
 import { rowWindow, scrollStateFromUnknown } from './data-window.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { widgetStyle } from './widget-style.ts';
@@ -197,14 +198,15 @@ function rowLine(
   selectedCell: { readonly row: number; readonly column: number } | undefined,
   theme: TerminalTheme
 ): RenderLine {
-  const spans: RenderSpan[] = [styledSpan(`${selected ? theme.symbols.pointer : theme.symbols.unselected} `, selected ? widgetStyle(widget, 'value', 'selected') : undefined)];
+  const selectedStyle = selected ? widgetStyle(widget, 'value', 'selected') : undefined;
+  const spans: RenderSpan[] = [...selectionMarkerSpans(widget, selected, theme, selectedStyle)];
   columns.forEach((column, columnIndex) => {
     if (columnIndex > 0) spans.push({ text: '  ' });
     const rendered = renderCell(row, rowIndex, column, columnIndex);
-    const selectedStyle = selectedCell?.row === rowIndex && selectedCell.column === columnIndex
-      ? widgetStyle(widget, 'value', 'selected')
-      : undefined;
-    spans.push(...cellSpans(rendered, widths[columnIndex] ?? 1, column.align, selectedStyle));
+    const cellSelectedStyle = selectedCell?.row === rowIndex && selectedCell.column === columnIndex
+      ? mergeDataStyles(selectedStyle, widgetStyle(widget, 'value', 'active'))
+      : selectedStyle;
+    spans.push(...cellSpans(rendered, widths[columnIndex] ?? 1, column.align, cellSelectedStyle));
   });
   return { spans };
 }
@@ -255,12 +257,15 @@ function cellSpans(
 ): readonly RenderSpan[] {
   const clipped = overrideStyle === undefined
     ? clipRenderSpans(spans, width, { ellipsis: '…' })
-    : clipRenderSpans(spans, width, { ellipsis: '…' }).map((currentSpan) => ({
-        text: currentSpan.text,
-        style: overrideStyle,
-        ...(currentSpan.link === undefined ? {} : { link: currentSpan.link }),
-        ...(currentSpan.source === undefined ? {} : { source: currentSpan.source })
-      }));
+    : clipRenderSpans(spans, width, { ellipsis: '…' }).map((currentSpan) => {
+        const style = mergeDataStyles(overrideStyle, currentSpan.style);
+        return {
+          text: currentSpan.text,
+          ...(style === undefined ? {} : { style }),
+          ...(currentSpan.link === undefined ? {} : { link: currentSpan.link }),
+          ...(currentSpan.source === undefined ? {} : { source: currentSpan.source })
+        };
+      });
   const cells = clipped.reduce((sum, currentSpan) => sum + measureTextCells(currentSpan.text).cells, 0);
   const padding = Math.max(0, width - cells);
   const before = align === 'end' ? padding : align === 'center' ? Math.floor(padding / 2) : 0;

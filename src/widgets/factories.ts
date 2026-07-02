@@ -218,7 +218,10 @@ export function textArea<TMessage>(options: TextAreaWidgetOptions<TMessage> = {}
       ...(options.selection === undefined ? {} : { selection: options.selection }),
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
-      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar })
+      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+      ...(options.required === undefined ? {} : { required: options.required }),
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      ...(options.error === undefined ? {} : { error: options.error })
     },
     ...interactionOptions(options)
   };
@@ -276,7 +279,10 @@ export function button<TMessage>(options: ButtonWidgetOptions<TMessage>): Widget
     props: {
       label: options.label,
       ...(options.message === undefined ? {} : { message: options.message }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled })
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      ...(options.tone === undefined ? {} : { tone: options.tone }),
+      ...(options.pressed === undefined ? {} : { pressed: options.pressed }),
+      ...(options.pending === undefined ? {} : { pending: options.pending })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionOptions({
@@ -539,6 +545,9 @@ export function menuBar<TMessage>(options: MenuBarWidgetOptions<TMessage>): Widg
 
 export function contextMenu<TMessage>(options: ContextMenuWidgetOptions<TMessage>): Widget<TMessage> {
   const keyMap = menuKeyMap(options.items, options.selected, options.keyMap);
+  const layerOptions = options.opacity === undefined
+    ? { ...options, opacity: 'opaque' as const }
+    : options;
   return {
     ...optionalId(options.id),
     kind: 'contextMenu',
@@ -553,13 +562,16 @@ export function contextMenu<TMessage>(options: ContextMenuWidgetOptions<TMessage
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionOptions({
       accessibility: options.accessibility,
-      ...widgetInteractionFields(options)
+      ...widgetInteractionFields(layerOptions)
     })
   };
 }
 
 export function dropdown<TMessage>(options: DropdownWidgetOptions<TMessage>): Widget<TMessage> {
   const keyMap = menuKeyMap(options.items, options.selected, options.keyMap);
+  const layerOptions = options.opacity === undefined && options.open === true
+    ? { ...options, opacity: 'opaque' as const }
+    : options;
   return {
     ...optionalId(options.id),
     kind: 'dropdown',
@@ -573,7 +585,7 @@ export function dropdown<TMessage>(options: DropdownWidgetOptions<TMessage>): Wi
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionOptions({
       accessibility: options.accessibility,
-      ...widgetInteractionFields(options)
+      ...widgetInteractionFields(layerOptions)
     })
   };
 }
@@ -759,7 +771,11 @@ export function sparkline(options: SparklineWidgetOptions): Widget<never> {
     props: {
       values: options.values,
       ...(options.min === undefined ? {} : { min: options.min }),
-      ...(options.max === undefined ? {} : { max: options.max })
+      ...(options.max === undefined ? {} : { max: options.max }),
+      ...(options.status === undefined ? {} : { status: options.status }),
+      ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
+      ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
+      ...(options.errorText === undefined ? {} : { errorText: options.errorText })
     },
     ...interactionOptions(options)
   };
@@ -772,7 +788,11 @@ export function barChart<TMessage>(options: BarChartWidgetOptions<TMessage>): Wi
     props: {
       items: options.items,
       ...(options.max === undefined ? {} : { max: options.max }),
-      ...(options.selected === undefined ? {} : { selected: options.selected })
+      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.status === undefined ? {} : { status: options.status }),
+      ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
+      ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
+      ...(options.errorText === undefined ? {} : { errorText: options.errorText })
     },
     ...interactionOptions(options)
   };
@@ -790,6 +810,10 @@ export function chart<TMessage>(options: ChartWidgetOptions<TMessage>): Widget<T
       ...(options.legend === undefined ? {} : { legend: options.legend }),
       ...(options.xLabel === undefined ? {} : { xLabel: options.xLabel }),
       ...(options.yLabel === undefined ? {} : { yLabel: options.yLabel }),
+      ...(options.status === undefined ? {} : { status: options.status }),
+      ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
+      ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
+      ...(options.errorText === undefined ? {} : { errorText: options.errorText }),
       ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage })
     },
     ...interactionOptions(options)
@@ -824,6 +848,10 @@ export function heatmap<TValue, TMessage>(options: HeatmapWidgetOptions<TValue, 
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.cellWidth === undefined ? {} : { cellWidth: options.cellWidth }),
       ...(options.gap === undefined ? {} : { gap: options.gap }),
+      ...(options.status === undefined ? {} : { status: options.status }),
+      ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
+      ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
+      ...(options.errorText === undefined ? {} : { errorText: options.errorText }),
       ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage })
     },
     ...interactionOptions(options)

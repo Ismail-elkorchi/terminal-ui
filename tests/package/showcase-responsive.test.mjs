@@ -4,8 +4,12 @@ import test from 'node:test';
 import { renderFramePlain } from '../../dist/tui/index.js';
 import { initialShowcaseState, renderShowcaseFrame } from '../../examples/showcase/app.mjs';
 
+function showcaseFrame(columns, rows) {
+  return renderShowcaseFrame(initialShowcaseState(), { columns, rows });
+}
+
 function showcaseText(columns, rows) {
-  return renderFramePlain(renderShowcaseFrame(initialShowcaseState(), { columns, rows }));
+  return renderFramePlain(showcaseFrame(columns, rows));
 }
 
 test('showcase renders deliberate wide medium and narrow responsive variants', () => {
@@ -32,3 +36,33 @@ test('showcase renders deliberate wide medium and narrow responsive variants', (
     assert.doesNotMatch(text, /Render pipeline|Accessible snapshot|widget tree/u);
   }
 });
+
+test('showcase wide dashboard keeps route timeline readable and source-tagged', () => {
+  const frame = showcaseFrame(160, 42);
+  const text = renderFramePlain(frame);
+
+  assert.match(text, /outer marker\s+──\s+Atlas\s+──\s+berth 12\s+──\s+handoff/u);
+  assert.doesNotMatch(text, /outer ma\s+──/u);
+  assert.equal(sourceText(frame, 'timeline-outer'), 'outer marker');
+  assert.equal(sourceText(frame, 'timeline-vessel'), 'Atlas');
+  assert.equal(sourceText(frame, 'timeline-route-target'), 'berth 12');
+  assert.equal(sourceRole(frame, 'timeline-separator-a'), 'separator');
+  assert.equal(sourceToken(frame, 'timeline-route-target'), 'status.success');
+});
+
+function sourceText(frame, sourceId) {
+  return frame.cells
+    .filter((cell) => cell.source?.id === sourceId)
+    .toSorted((left, right) => left.row - right.row || left.column - right.column)
+    .map((cell) => cell.text)
+    .join('');
+}
+
+function sourceRole(frame, sourceId) {
+  return frame.cells.find((cell) => cell.source?.id === sourceId)?.source?.role;
+}
+
+function sourceToken(frame, sourceId) {
+  const cell = frame.cells.find((current) => current.source?.id === sourceId && current.style?.fg?.kind === 'theme');
+  return cell?.style?.fg?.token;
+}

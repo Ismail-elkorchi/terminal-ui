@@ -24,9 +24,6 @@ The root entrypoint also exposes the primary TUI path:
 `renderFramePlain`, `renderFrameAnsi`, `renderFrameDebug`, `renderDiffAnsi`,
 widgets, themes, and `createTerminalHarness`.
 
-The showcase gallery under `docs/gallery/` is generated from the executable
-showcase app and checked by the fixture suite.
-
 Focused product examples under `examples/products/` demonstrate file manager,
 system monitor, note workspace, data dashboard, form wizard, and chart explorer
 workflows with the same visual primitives used by the showcase.

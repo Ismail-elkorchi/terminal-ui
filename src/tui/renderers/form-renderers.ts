@@ -85,8 +85,8 @@ export const formRenderers = {
     accessibility: ({ widget, id }) => labelAccessibleBase(widget, id)
   },
   button: {
-    render: ({ widget, node, buffer, focused }) => {
-      writeRenderBlock(buffer, node.bounds, buttonBlock(widget, node.bounds, focused));
+    render: ({ widget, node, buffer, focused, theme }) => {
+      writeRenderBlock(buffer, node.bounds, buttonBlock(widget, node.bounds, focused, theme));
     },
     accessibility: ({ widget, id, focused }) => buttonAccessibleBase(widget, id, focused),
     focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds)],
@@ -180,15 +180,15 @@ export const formRenderers = {
     hitTargets: ({ widget, bounds }) => pickerHitTargets(widget, bounds)
   },
   textInput: {
-    render: ({ widget, node, buffer, focused }) => {
-      writeRenderBlock(buffer, node.bounds, textInputBlock(widget, node.bounds, focused));
+    render: ({ widget, node, buffer, focused, theme }) => {
+      writeRenderBlock(buffer, node.bounds, textInputBlock(widget, node.bounds, focused, theme));
     },
     accessibility: ({ widget, id, focused }) => textInputAccessibleBase(widget, id, focused),
     focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds, textInputCursor(widget, bounds))]
   },
   numberInput: {
-    render: ({ widget, node, buffer, focused }) => {
-      writeRenderBlock(buffer, node.bounds, numberInputBlock(widget, node.bounds, focused));
+    render: ({ widget, node, buffer, focused, theme }) => {
+      writeRenderBlock(buffer, node.bounds, numberInputBlock(widget, node.bounds, focused, theme));
     },
     accessibility: ({ widget, id, focused }) => numberInputAccessibleBase(widget, id, focused),
     focusTargets: ({ widget, bounds }) => widget.props['disabled'] === true ? [] : [focusTarget(bounds, numberInputCursor(widget, bounds))]

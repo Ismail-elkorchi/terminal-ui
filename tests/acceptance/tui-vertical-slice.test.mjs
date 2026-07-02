@@ -57,7 +57,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   const rendered = renderFramePlain(frame);
   assert.match(rendered, /Terminal workbench/u);
   assert.match(rendered, /Left pane/u);
-  assert.match(rendered, /Press enter/u);
+  assert.match(rendered, /Press en…/u);
 
   const submittedFrame = renderWidgetFrame(dashboardWidget({ submitted: true }), viewport, {
     focusPath: frame.focusPath
@@ -68,7 +68,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.ok(diff.operations.every((operation) => operation.kind !== 'clearLine'));
   assert.ok(diff.operations.some((operation) =>
     operation.kind === 'clearRect'
-    && operation.bounds.row === 3
+    && operation.bounds.row === 4
     && operation.bounds.column > 1
   ));
   assert.ok(diff.operations.some((operation) =>

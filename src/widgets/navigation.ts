@@ -16,6 +16,11 @@ import type {
   WidgetChildren,
   WidgetKeyMap
 } from './types.ts';
+import {
+  navigationButton as visualNavigationButton,
+  navigationSeparator,
+  navigationStatus
+} from './navigation-visual.ts';
 
 export interface NavigationAction<TMessage = never> {
   readonly id: string;
@@ -118,9 +123,15 @@ export interface ShortcutBarOptions<TMessage = never> {
 
 export function breadcrumb<TMessage>(options: BreadcrumbOptions<TMessage>): Widget<TMessage> {
   const separator = options.separator ?? '/';
-  return row(options.items.flatMap((item, index): readonly Widget<TMessage>[] => [
-    ...(index === 0 ? [] : [text(separator, { id: childId(options.id, `separator:${String(index)}`) })]),
-    navigationButton(item, childId(options.id, item.id))
+  const currentIndex = Math.max(0, options.items.length - 1);
+  return row<TMessage>(options.items.flatMap((item, index): readonly Widget<TMessage>[] => [
+    ...(index === 0 ? [] : [navigationSeparator<TMessage>(separator, childId(options.id, `separator:${String(index)}`))]),
+    visualNavigationButton<TMessage>({
+      item,
+      id: childId(options.id, item.id),
+      selected: index === currentIndex,
+      primary: index === currentIndex
+    })
   ]), {
     ...(options.id === undefined ? {} : { id: options.id }),
     gap: 1,
@@ -130,11 +141,15 @@ export function breadcrumb<TMessage>(options: BreadcrumbOptions<TMessage>): Widg
 }
 
 export function collapsibleSection<TMessage>(options: CollapsibleSectionOptions<TMessage>): Widget<TMessage> {
-  const header = button({
+  const header = visualNavigationButton<TMessage>({
+    item: {
+      id: 'header',
+      label: `${options.expanded ? '▾' : '▸'} ${options.title}`,
+      ...(options.message === undefined ? {} : { message: options.message }),
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled })
+    },
     id: childId(options.id, 'header'),
-    label: `${options.expanded ? '▾' : '▸'} ${options.title}`,
-    ...(options.message === undefined ? {} : { message: options.message }),
-    ...(options.disabled === undefined ? {} : { disabled: options.disabled })
+    selected: options.expanded
   });
   return box(stack([
     header,
@@ -176,16 +191,16 @@ export function carousel<TMessage>(options: CarouselOptions<TMessage>): Widget<T
     options.bodySize ?? { kind: 'fill' },
     ...(options.showDots === false ? [] : [{ kind: 'fixed', cells: 1 } satisfies LayoutSize])
   ];
-  const controls = row([
+  const controls = row<TMessage>([
     button({
       id: childId(options.id, 'previous'),
-      label: 'Previous',
+      label: '← Previous',
       ...(options.previousMessage === undefined ? { disabled: true } : { message: options.previousMessage })
     }),
-    text(item === undefined ? 'No item' : item.label, { id: childId(options.id, 'label') }),
+    navigationStatus<TMessage>(item === undefined ? 'No item' : item.label, childId(options.id, 'label'), item === undefined ? 'warning' : 'metric'),
     button({
       id: childId(options.id, 'next'),
-      label: 'Next',
+      label: 'Next →',
       ...(options.nextMessage === undefined ? { disabled: true } : { message: options.nextMessage })
     })
   ], {
@@ -195,7 +210,7 @@ export function carousel<TMessage>(options: CarouselOptions<TMessage>): Widget<T
   });
   const body = item?.body ?? text('No carousel item', { id: childId(options.id, 'empty') });
   const dots = options.showDots === false ? [] : [carouselDots(options)];
-  return splitPane([
+  return splitPane<TMessage>([
     controls,
     body,
     ...dots
@@ -213,15 +228,16 @@ export function tabOverflowMenu<TMessage>(options: TabOverflowMenuOptions<TMessa
   const maxVisible = Math.max(0, Math.floor(options.maxVisible ?? 4));
   const visible = options.tabs.slice(0, maxVisible);
   const hidden = options.tabs.slice(maxVisible);
-  return row([
-    ...visible.map((item) => navigationButton({
-      ...item,
-      label: item.id === options.selected ? `[${item.label}]` : item.label
-    }, childId(options.id, item.id))),
+  return row<TMessage>([
+    ...visible.map((item) => visualNavigationButton<TMessage>({
+      item,
+      id: childId(options.id, item.id),
+      selected: item.id === options.selected
+    })),
     ...(hidden.length === 0
       ? []
       : [
-          text(options.overflowLabel ?? 'More', { id: childId(options.id, 'overflow-label') }),
+          navigationStatus<TMessage>(options.overflowLabel ?? 'More', childId(options.id, 'overflow-label'), 'metadata'),
           menu({
             id: childId(options.id, 'overflow'),
             ...(options.selected === undefined ? {} : { selected: options.selected }),
@@ -242,11 +258,14 @@ export function tabOverflowMenu<TMessage>(options: TabOverflowMenuOptions<TMessa
 }
 
 export function shortcutBar<TMessage>(options: ShortcutBarOptions<TMessage>): Widget<TMessage> {
-  return row(options.shortcuts.map((item) => button({
-    id: childId(options.id, item.id),
-    label: `${item.key} ${item.label}`,
-    ...(item.message === undefined ? {} : { message: item.message }),
-    ...(item.disabled === undefined ? {} : { disabled: item.disabled })
+  return row<TMessage>(options.shortcuts.map((item) => visualNavigationButton<TMessage>({
+    item: {
+      id: item.id,
+      label: `[${item.key}] ${item.label}`,
+      ...(item.message === undefined ? {} : { message: item.message }),
+      ...(item.disabled === undefined ? {} : { disabled: item.disabled })
+    },
+    id: childId(options.id, item.id)
   })), {
     ...(options.id === undefined ? {} : { id: options.id }),
     gap: 1,
@@ -255,22 +274,14 @@ export function shortcutBar<TMessage>(options: ShortcutBarOptions<TMessage>): Wi
   });
 }
 
-function navigationButton<TMessage>(item: NavigationAction<TMessage>, id: string): Widget<TMessage> {
-  return button({
-    id,
-    label: item.label,
-    ...(item.message === undefined ? {} : { message: item.message }),
-    ...(item.disabled === undefined ? {} : { disabled: item.disabled })
-  });
-}
-
 function carouselDots<TMessage>(options: CarouselOptions<TMessage>): Widget<TMessage> {
-  return row(options.items.map((item) => navigationButton({
-    id: item.id,
+  return row(options.items.map((item) => button({
+    id: childId(options.id, `dot:${item.id}`),
     label: item.id === options.selected ? '●' : '○',
     ...(item.message === undefined ? {} : { message: item.message }),
-    ...(item.disabled === undefined ? {} : { disabled: item.disabled })
-  }, childId(options.id, `dot:${item.id}`))), {
+    ...(item.disabled === undefined ? {} : { disabled: item.disabled }),
+    ...(item.id === options.selected ? { tone: 'secondary' as const } : {})
+  })), {
     id: childId(options.id, 'dots'),
     gap: 1,
     align: 'center'

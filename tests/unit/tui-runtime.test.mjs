@@ -159,10 +159,11 @@ test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
   const frame = renderWidgetFrame(inputField({ id: 'addressed-field', value: 'Go' }), { columns: 8, rows: 2 });
   const output = renderFrameDebug(frame);
 
-  assert.match(output, /^\u001B\[1;1HG/u);
-  assert.match(output, /\u001B\[1;2Ho/u);
+  assert.match(output, /^\u001B\[1;1H›/u);
+  assert.match(output, /\u001B\[1;4HG/u);
+  assert.match(output, /\u001B\[1;5Ho/u);
   assert.match(output, new RegExp(`\\u001B\\[${String(frame.cursor?.row)};${String(frame.cursor?.column)}H$`, 'u'));
-  assert.equal(renderFramePlain(frame), 'Go');
+  assert.equal(renderFramePlain(frame), '›[ Go ]');
 });
 
 test('TUI frame rendering positions wide graphemes by terminal cells', () => {
@@ -235,8 +236,8 @@ test('renderDiffAnsi serializes clear, write, cursor, and visibility operations'
   assert.ok(diff.operations.some((operation) => operation.kind === 'clearRect'));
   assert.ok(diff.operations.some((operation) => operation.kind === 'write'));
   assert.ok(diff.operations.some((operation) => operation.kind === 'moveCursor'));
-  assert.match(output, /\u001B\[1;3H {9}/u);
-  assert.match(output, /\u001B\[1;1HG/u);
+  assert.match(output, /\u001B\[1;1H {11}/u);
+  assert.match(output, /\u001B\[1;1H›\[ Go \]/u);
   assert.match(output, /\u001B\[\?25l$/u);
 });
 
@@ -423,7 +424,8 @@ test('runTui re-renders when the host emits resize signals', async () => {
   assert.equal(exit.status, 'completed');
   assert.equal(harness.frames()[1].width, 12);
   assert.equal(harness.diffs()[1].fullRewrite, true);
-  assert.match(renderFramePlain(harness.frames()[1]), /columns:12/);
+  assert.match(renderFramePlain(harness.frames()[1]), /column…/);
+  assert.equal(harness.frames()[1].accessibility.root.value, 'columns:12');
   assert.equal(harness.restores().length, 1);
 });
 

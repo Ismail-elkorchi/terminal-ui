@@ -16,6 +16,10 @@ function plain(widget, viewport = { columns: 64, rows: 16 }) {
   return renderFramePlain(renderWidgetFrame(widget, viewport));
 }
 
+function styleForCell(frame, predicate) {
+  return frame.cells.find(predicate)?.style;
+}
+
 test('dialog helpers compose modal widgets for common GUI flows', () => {
   const cases = [
     {
@@ -95,6 +99,31 @@ test('floatingWindow is a positioned ordinary widget with caller-owned geometry'
   assert.match(output, /Window/u);
   assert.match(output, /Floating/u);
   assert.match(output, /Close/u);
+});
+
+test('dialog helpers use shared action and step state visuals', () => {
+  const confirmFrame = renderWidgetFrame(confirmDialog({
+    title: 'Confirm',
+    message: ['Launch handoff?', 'This will notify the crew.'],
+    confirmMessage: { kind: 'yes' },
+    cancelMessage: { kind: 'no' },
+    width: 44,
+    height: 10
+  }), { columns: 64, rows: 16 });
+  const wizardFrame = renderWidgetFrame(wizardDialog({
+    title: 'Wizard',
+    steps: [{ id: 'plan', label: 'Plan' }, { id: 'commit', label: 'Commit' }, { id: 'done', label: 'Done' }],
+    currentStep: 1,
+    body: text('Review changes'),
+    actions: [{ label: 'Next', message: { kind: 'next' } }],
+    width: 56,
+    height: 12
+  }), { columns: 72, rows: 16 });
+
+  assert.equal(styleForCell(confirmFrame, (cell) => cell.text === 'C' && cell.style?.bg?.token === 'selection.background')?.bg?.token, 'selection.background');
+  assert.equal(styleForCell(confirmFrame, (cell) => cell.text === 'T')?.fg?.token, 'text.muted');
+  assert.equal(styleForCell(wizardFrame, (cell) => cell.text === '✓')?.fg?.token, 'status.success');
+  assert.equal(styleForCell(wizardFrame, (cell) => cell.text === '●')?.bg?.token, 'selection.background');
 });
 
 test('windowReducer moves resizes and clamps caller-owned geometry', () => {

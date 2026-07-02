@@ -1,15 +1,16 @@
 import {
   activityIndicatorAccessibleBase,
-  activityIndicatorText,
   richTextAccessibleBase,
   richTextBlock,
   textAreaAccessibleBase,
   textAreaBlock,
   textAreaCursor,
 } from '../text-widgets.ts';
+import { activityIndicatorBlock } from '../feedback-visual.ts';
 import { stringify } from '../widget-props.ts';
 import { block, line, span } from '../frame.ts';
 import { defaultStyleForTextRole } from '../widget-style.ts';
+import { singleLineInputBlock, singleLineInputCursor } from '../input-visual.ts';
 import { writeBlock, writeRenderBlock } from './support/block.ts';
 import { focusTarget, widgetMessageHitTargets } from './support/common.ts';
 import {
@@ -17,7 +18,6 @@ import {
   scrollbarsForWidget,
   textAreaScrollbarState
 } from './support/scroll.ts';
-import { singleLineCursorColumn, visibleLineText } from '../text-display.ts';
 import type { RendererMap } from './types.ts';
 
 export const textRenderers = {
@@ -44,8 +44,14 @@ export const textRenderers = {
     accessibility: ({ widget, id }) => richTextAccessibleBase(widget, id)
   },
   inputField: {
-    render: ({ widget, node, buffer }) => {
-      writeBlock(buffer, node.bounds, visibleLineText(stringify(widget.props['value']), 0, node.bounds.width));
+    render: ({ widget, node, buffer, focused, theme }) => {
+      writeRenderBlock(buffer, node.bounds, singleLineInputBlock({
+        widget,
+        bounds: node.bounds,
+        theme,
+        value: stringify(widget.props['value']),
+        focused
+      }));
     },
     accessibility: ({ widget, id, focused }) => ({
       id,
@@ -54,24 +60,29 @@ export const textRenderers = {
       value: stringify(widget.props['value']),
       ...(focused ? { focused } : {})
     }),
-    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, {
-      row: bounds.row,
-      column: bounds.column + singleLineCursorColumn(stringify(widget.props['value']), undefined, Math.max(0, bounds.width - 1))
-    })],
+    focusTargets: ({ widget, bounds, theme }) => [focusTarget(bounds, singleLineInputCursor({
+      widget,
+      bounds,
+      theme,
+      value: stringify(widget.props['value']),
+      focused: true
+    }))],
     hitTargets: ({ widget, bounds }) => widgetMessageHitTargets(widget, bounds, 'input')
   },
   textArea: {
-    render: ({ widget, node, buffer, theme }) => {
+    render: ({ widget, node, buffer, theme, focused }) => {
       const scrollbars = scrollbarsForWidget(widget, node.bounds, textAreaScrollbarState(widget, node.bounds), 'both');
-      writeRenderBlock(buffer, scrollbars.contentBounds, textAreaBlock(widget, scrollbars.contentBounds));
+      writeRenderBlock(buffer, scrollbars.contentBounds, textAreaBlock(widget, scrollbars.contentBounds, theme, focused));
       drawScrollbars(buffer, scrollbars, theme);
     },
     accessibility: ({ widget, id, focused }) => textAreaAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, textAreaCursor(widget, bounds))]
+    focusTargets: ({ widget, bounds, theme }) => widget.props['disabled'] === true
+      ? []
+      : [focusTarget(bounds, textAreaCursor(widget, bounds, theme))]
   },
   activityIndicator: {
     render: ({ widget, node, buffer, theme }) => {
-      writeBlock(buffer, node.bounds, activityIndicatorText(widget, theme));
+      writeRenderBlock(buffer, node.bounds, activityIndicatorBlock(widget, theme));
     },
     accessibility: ({ widget, id }) => activityIndicatorAccessibleBase(widget, id)
   }

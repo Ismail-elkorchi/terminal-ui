@@ -3,11 +3,7 @@ import test from 'node:test';
 
 import { createFrameBuffer, layoutWidget, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import { row, stack, text } from '../../dist/widgets/index.js';
-import { terminalFixtures } from '../fixtures/catalog.mjs';
-
-const textFixtures = terminalFixtures
-  .map((fixture) => fixture.data.text)
-  .filter((value) => typeof value === 'string');
+import { textSamples } from '../support/text-samples.mjs';
 
 test('layout and clipping properties keep rendered cells inside the viewport', () => {
   for (const { index, seed, value } of generatedTexts(64)) {
@@ -49,7 +45,7 @@ test('frame buffer overwrite and Unicode properties preserve valid cell topology
 });
 
 function generatedTexts(count) {
-  const seeds = [...textFixtures, '', 'plain', 'wide界text', 'emoji🙂text', 'combining e\u0301', '\u001B[31mred'];
+  const seeds = [...textSamples, '', 'plain', 'wide界text', 'emoji🙂text', 'combining e\u0301', '\u001B[31mred'];
   const output = [];
   let state = 0x12345678;
   while (output.length < count) {

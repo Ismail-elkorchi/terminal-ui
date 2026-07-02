@@ -1,19 +1,26 @@
 import { sanitizeTerminalText } from '../text/index.ts';
+import {
+  commandMatchSpans,
+  commandMetadataStyle,
+  commandRowStyle,
+  commandSelectionMarkerSpans,
+  commandStatusSpans,
+  styledSpan
+} from './command-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn } from './text-display.ts';
-import { highlightRenderSpans } from './text-highlight.ts';
-import { themeStyle, widgetStyle } from './widget-style.ts';
+import { widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TextSelection } from '../text/index.ts';
 import type { CommandBarSuggestion, CommandBarValidation, CommandBarValidationTone, Widget } from '../widgets/index.ts';
 import type { Rect } from './layout.ts';
-import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
+import type { RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
 
 export function commandBarBlock(widget: Widget, height: number, theme: TerminalTheme): RenderBlock {
   const lines: RenderLine[] = [inputLine(widget)];
   const validation = validationProp(widget);
-  if (height > lines.length && validation !== undefined) lines.push(validationLine(widget, validation));
+  if (height > lines.length && validation !== undefined) lines.push(validationLine(widget, validation, theme));
   const suggestions = commandBarSuggestions(widget);
   const selected = nonNegativeInteger(numberProp(widget, 'selectedSuggestion'));
   const remaining = Math.max(0, height - lines.length - footerReserve(widget));
@@ -25,7 +32,7 @@ export function commandBarBlock(widget: Widget, height: number, theme: TerminalT
     theme
   )));
   const footer = footerText(widget);
-  if (height > lines.length && footer.length > 0) lines.push(mutedLine(widget, footer));
+  if (height > lines.length && footer.length > 0) lines.push(mutedLine(widget, footer, theme));
   return { lines: lines.slice(0, height) };
 }
 
@@ -78,14 +85,18 @@ function inputLine(widget: Widget): RenderLine {
   if (value.length > 0 && completion.length > 0) {
     spans.push(styledSpan(completion, widgetStyle(widget, 'value', 'disabled')));
   }
+  const historyIndex = numberProp(widget, 'historyIndex');
+  if (historyIndex !== undefined) {
+    spans.push(styledSpan(`  #${String(Math.max(0, Math.floor(historyIndex)) + 1)}`, widgetStyle(widget, 'value', 'disabled')));
+  }
   return {
     spans
   };
 }
 
-function validationLine(widget: Widget, validation: CommandBarValidation): RenderLine {
+function validationLine(widget: Widget, validation: CommandBarValidation, theme: TerminalTheme): RenderLine {
   return {
-    spans: [styledSpan(validation.message, validationStyle(widget, validation.tone ?? 'error'))]
+    spans: commandStatusSpans(widget, theme, validationToneForSurface(validation.tone ?? 'error'), validation.message)
   };
 }
 
@@ -98,21 +109,22 @@ function suggestionLine(
 ): RenderLine {
   const label = suggestion.label ?? suggestion.value;
   const description = suggestion.description;
+  const rowStyle = commandRowStyle(widget, selected);
   const spans: RenderSpan[] = [
-    styledSpan(`${selected ? theme.symbols.pointer : theme.symbols.unselected} `, selected ? widgetStyle(widget, 'value', 'selected') : undefined),
-    ...highlightRenderSpans(label, query, { matchStyle: themeStyle('menu.match', { underline: true }) })
+    ...commandSelectionMarkerSpans(widget, theme, selected),
+    ...commandMatchSpans(label, query, rowStyle)
   ];
   if (description !== undefined && description.length > 0) {
-    spans.push(styledSpan(` - ${description}`, widgetStyle(widget, 'value', 'disabled')));
+    spans.push(styledSpan(` · ${description}`, commandMetadataStyle(widget, selected)));
   }
   return {
     spans
   };
 }
 
-function mutedLine(widget: Widget, text: string): RenderLine {
+function mutedLine(widget: Widget, text: string, theme: TerminalTheme): RenderLine {
   return {
-    spans: [styledSpan(text, widgetStyle(widget, 'value', 'disabled'))]
+    spans: commandStatusSpans(widget, theme, 'muted', text)
   };
 }
 
@@ -150,9 +162,8 @@ function validationTone(value: unknown): CommandBarValidationTone | undefined {
   return value === 'info' || value === 'warning' || value === 'error' ? value : undefined;
 }
 
-function validationStyle(widget: Widget, tone: CommandBarValidationTone): TerminalStyle | undefined {
-  if (tone === 'info') return widgetStyle(widget, 'value', 'focused');
-  return widgetStyle(widget, tone, tone);
+function validationToneForSurface(tone: CommandBarValidationTone): 'info' | 'warning' | 'error' {
+  return tone;
 }
 
 function valueSpans(widget: Widget, value: string, selection: TextSelection | undefined): readonly RenderSpan[] {
@@ -162,10 +173,6 @@ function valueSpans(widget: Widget, value: string, selection: TextSelection | un
     widgetStyle(widget, 'value'),
     widgetStyle(widget, 'value', 'selected')
   );
-}
-
-function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
-  return style === undefined ? { text } : { text, style };
 }
 
 function footerReserve(widget: Widget): number {

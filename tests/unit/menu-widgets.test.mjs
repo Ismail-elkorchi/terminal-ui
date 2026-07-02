@@ -20,7 +20,7 @@ const mousePress = (row, column) => ({
 });
 
 const items = [
-  { id: 'new', label: 'New', message: { kind: 'new' }, shortcut: 'N' },
+  { id: 'new', label: 'New', message: { kind: 'new' }, description: 'Create item', shortcut: 'N' },
   {
     id: 'open',
     label: 'Open',
@@ -31,6 +31,7 @@ const items = [
     ]
   },
   { id: 'autosave', label: 'Autosave', checked: true, message: { kind: 'autosave' } },
+  { id: 'delete', label: 'Delete', tone: 'destructive', message: { kind: 'delete' } },
   { id: 'disabled', label: 'Disabled', disabled: true, message: { kind: 'disabled' } }
 ];
 
@@ -42,10 +43,13 @@ test('menu renders nested checked disabled items with menu accessibility', () =>
   }), { columns: 40, rows: 8 });
   const output = renderFramePlain(frame);
 
-  assert.match(output, /New  N/u);
+  assert.match(output, /New\s+Create item\s+N/u);
+  assert.match(output, /Create item/u);
   assert.match(output, /▾ Open/u);
   assert.match(output, /›\s+Recent/u);
   assert.match(output, /\[x\]/u);
+  assert.match(output, /×\s+Delete/u);
+  assert.equal(frame.cells.find((cell) => cell.text === 'D' && cell.source?.id === 'delete')?.style?.fg?.token, 'status.error');
   assert.match(output, /Disabled/u);
   assert.equal(frame.accessibility.root.role, 'menu');
   assert.equal(frame.accessibility.root.children?.find((node) => node.label === 'Recent')?.selected, true);
@@ -85,9 +89,9 @@ test('menuBar contextMenu and dropdown render reusable menu surfaces', () => {
   const frame = renderWidgetFrame(widget, { columns: 44, rows: 13 });
   const output = renderFramePlain(frame);
 
-  assert.match(output, /File  Edit/u);
+  assert.match(output, /› File  - Edit/u);
   assert.match(output, /Actions/u);
-  assert.match(output, /Theme: Dark ▾/u);
+  assert.match(output, /Theme: \[Dark ▾\]/u);
   assert.match(output, /Light/u);
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'menu');
   assert.equal(frame.accessibility.root.children?.[1]?.role, 'menu');
@@ -117,7 +121,7 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
 
   await runtime.start();
   const keyed = await runtime.handleInput(enter);
-  const mouse = await runtime.handleInput(mousePress(5, 1));
+  const mouse = await runtime.handleInput(mousePress(5, 2));
 
   assert.equal(keyed.state.action, 'recent');
   assert.equal(mouse.state.action, 'help');

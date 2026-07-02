@@ -678,7 +678,7 @@ const cases = [
         { id: 'two', label: 'Second', message: { kind: 'two' } }
       ]
     }),
-    expectText: /Second/u,
+    expectText: /Sec/u,
     expectFocus: true,
     expectHitTargets: true
   },

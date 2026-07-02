@@ -2,15 +2,12 @@ import type { LayoutSize } from '../tui/regions.ts';
 import type { ScrollState } from '../tui/scroll.ts';
 import type { ScrollbarOptions } from '../tui/scrollbar.ts';
 import {
-  button,
   field,
   inputField,
   modal,
-  row,
   splitPane,
   stack,
   surface,
-  text,
   tree
 } from './factories.ts';
 import type {
@@ -21,6 +18,11 @@ import type {
   WidgetKeyMap,
   TreeNode
 } from './types.ts';
+import { dialogActionWidgets } from './dialog-visual.ts';
+import {
+  fileBreadcrumbRow,
+  filePreviewTitle
+} from './file-visual.ts';
 
 export type FileExplorerEntryKind = 'file' | 'directory' | 'symlink' | 'other';
 
@@ -95,7 +97,7 @@ export function fileExplorer<TMessage>(options: FileExplorerWidgetOptions<TMessa
     ...(options.accessibility === undefined ? {} : { accessibility: options.accessibility })
   });
   const body = stack<TMessage>([
-    breadcrumbRow<TMessage>(breadcrumbs, childId(options.id, 'breadcrumbs')),
+    fileBreadcrumbRow<TMessage>(breadcrumbs, childId(options.id, 'breadcrumbs')),
     explorerTree
   ], {
     id: childId(options.id, 'body'),
@@ -110,7 +112,14 @@ export function fileExplorer<TMessage>(options: FileExplorerWidgetOptions<TMessa
       id: childId(options.id, 'preview'),
       label: selected === undefined ? 'Preview' : selected.name,
       variant: 'inset',
-      border: { kind: 'single', title: 'Preview' }
+      border: { kind: 'single', title: filePreviewTitle(selected === undefined
+        ? undefined
+        : {
+            id: selected.id,
+            label: selected.name,
+            path: selected.path,
+            kind: selected.kind
+          }) }
     })
   ], {
     ...(options.id === undefined ? {} : { id: options.id }),
@@ -134,12 +143,12 @@ export function fileDialog<TMessage>(options: FileDialogOptions<TMessage>): Widg
   const content = [
     ...(filter === undefined ? [] : [filter]),
     fileExplorer(options),
-    actionRow(options)
+    ...dialogActionWidgets(fileDialogActions(options), childId(options.id, 'actions'))
   ];
   const sizes: LayoutSize[] = [
     ...(filter === undefined ? [] : [{ kind: 'fixed', cells: 3 } satisfies LayoutSize]),
     { kind: 'fill' },
-    { kind: 'fixed', cells: 1 }
+    ...(options.confirmMessage === undefined && options.cancelMessage === undefined ? [] : [{ kind: 'fixed', cells: 1 } satisfies LayoutSize])
   ];
   return modal<TMessage>(stack<TMessage>([
     splitPane<TMessage>(content, {
@@ -190,46 +199,27 @@ export function fileExplorerBreadcrumbs(
   return findBreadcrumbs(entries, selectedId) ?? [];
 }
 
-function actionRow<TMessage>(options: FileDialogOptions<TMessage>): Widget<TMessage> {
-  const actions = [
+function fileDialogActions<TMessage>(options: FileDialogOptions<TMessage>) {
+  return [
     ...(options.cancelMessage === undefined
       ? []
       : [
-          button({
+          {
             id: childId(options.id, 'cancel'),
             label: options.cancelLabel ?? 'Cancel',
             message: options.cancelMessage
-          })
+          }
         ]),
     ...(options.confirmMessage === undefined
       ? []
       : [
-          button({
+          {
             id: childId(options.id, 'confirm'),
             label: options.confirmLabel ?? 'Open',
             message: options.confirmMessage
-          })
+          }
         ])
   ];
-  return row(actions, {
-    id: childId(options.id, 'actions'),
-    gap: 1,
-    align: 'end'
-  });
-}
-
-function breadcrumbRow<TMessage>(
-  breadcrumbs: readonly FileExplorerBreadcrumb[],
-  id: string
-): Widget<TMessage> {
-  if (breadcrumbs.length === 0) return text('No selection', { id });
-  return row(breadcrumbs.flatMap((part, index): readonly Widget<TMessage>[] => [
-    ...(index === 0 ? [] : [text('/', { id: `${id}:separator:${String(index)}` })]),
-    text(part.label, { id: `${id}:${part.id}` })
-  ]), {
-    id,
-    gap: 1
-  });
 }
 
 function findBreadcrumbs(

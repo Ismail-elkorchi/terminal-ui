@@ -22,6 +22,7 @@ import { contextMenuBlock, dropdownBlock, menuBarBlock, menuBlock } from './menu
 import { paletteBlock } from './palette.ts';
 import { progressText } from './progress-widget.ts';
 import { notificationStackPreferredSize } from './notifications.ts';
+import { statusBarText } from './feedback-visual.ts';
 import { borderForWidget } from './renderers/support/border.ts';
 import { isRecord, nonNegativeInteger } from './renderers/support/common.ts';
 import { tabsHeaderText } from './renderers/support/tabs.ts';
@@ -71,7 +72,7 @@ export function measureBuiltinWidget(
     case 'richText':
       return measureRenderBlock(richTextBlock(widget, intrinsicBounds(bounds)));
     case 'statusBar':
-      return measurePlainText(stringify(widget.props['text']));
+      return measurePlainText(statusBarText(widget));
     case 'inputField':
       return measurePlainText(stringify(widget.props['value']));
     case 'textArea':
@@ -79,7 +80,7 @@ export function measureBuiltinWidget(
     case 'label':
       return measureRenderBlock(labelBlock(widget, intrinsicBounds(bounds)));
     case 'button':
-      return measureRenderBlock(buttonBlock(widget, intrinsicBounds(bounds)));
+      return measureRenderBlock(buttonBlock(widget, intrinsicBounds(bounds), false, theme));
     case 'checkbox':
       return measureRenderBlock(checkboxBlock(widget, intrinsicBounds(bounds), theme));
     case 'toggleSwitch':
@@ -99,13 +100,13 @@ export function measureBuiltinWidget(
     case 'datePicker':
       return measureRenderBlock(datePickerBlock(widget, intrinsicBounds(bounds)));
     case 'textInput':
-      return measureRenderBlock(textInputBlock(widget, intrinsicBounds(bounds)));
+      return measureRenderBlock(textInputBlock(widget, intrinsicBounds(bounds), false, theme));
     case 'numberInput':
-      return measureRenderBlock(numberInputBlock(widget, intrinsicBounds(bounds)));
+      return measureRenderBlock(numberInputBlock(widget, intrinsicBounds(bounds), false, theme));
     case 'menu':
       return measureRenderBlock(menuBlock(widget, intrinsicBounds(bounds), theme));
     case 'menuBar':
-      return measureRenderBlock(menuBarBlock(widget, intrinsicBounds(bounds)));
+      return measureRenderBlock(menuBarBlock(widget, intrinsicBounds(bounds), theme));
     case 'contextMenu':
       return measureRenderBlock(contextMenuBlock(widget, intrinsicBounds(bounds), theme));
     case 'dropdown':
@@ -131,15 +132,15 @@ export function measureBuiltinWidget(
       return measureSize(preferred.width, preferred.height);
     }
     case 'sparkline':
-      return measurePlainText(sparklineText(widget));
+      return measurePlainText(sparklineText(widget, theme));
     case 'barChart':
       return measurePlainText(barChartText(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
     case 'chart':
-      return measurePlainText(chartText(widget, fakeLayoutNode(widget, intrinsicBounds(bounds))));
+      return measurePlainText(chartText(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
     case 'gauge':
       return measurePlainText(gaugeText(widget, theme));
     case 'heatmap':
-      return measurePlainText(heatmapText(widget, fakeLayoutNode(widget, intrinsicBounds(bounds))));
+      return measurePlainText(heatmapText(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
     case 'list':
       return measureListWidget(widget, theme);
     case 'table':

@@ -2,10 +2,14 @@ import type { AccessibleNode } from '../../../accessibility/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { Widget } from '../../../widgets/index.ts';
 import { rowWindow, scrollStateFromUnknown } from '../../data-window.ts';
+import { dataValueSpans, selectionMarkerSpans } from '../../data-visual.ts';
 import type { ScrollState } from '../../scroll.ts';
+import { sanitizeTerminalText } from '../../../text/index.ts';
 import { windowDescription } from '../../visible-window.ts';
 import { numberProp, stringify } from '../../widget-props.ts';
+import { widgetStyle } from '../../widget-style.ts';
 import type { LayoutNode, Rect } from '../../layout.ts';
+import type { RenderBlock, RenderLine } from '../../render-primitives.ts';
 import type { ScrollbarState } from '../../scrollbar.ts';
 import type { HitTarget } from '../../widget-renderer.ts';
 
@@ -21,16 +25,24 @@ export function listScrollbarState(widget: Widget, bounds: Rect): ScrollbarState
   };
 }
 
-export function listText(widget: Widget, height: number, theme: TerminalTheme): string {
+export function listBlock(widget: Widget, height: number, theme: TerminalTheme): RenderBlock {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
   const window = listWindow(widget, items, height, selected);
-  return window.rows
-    .map((item, index) => {
+  const query = filterQuery(widget);
+  return {
+    lines: window.rows.map((item, index): RenderLine => {
       const itemIndex = window.start + index;
-      return `${itemIndex === selected ? theme.symbols.pointer : theme.symbols.unselected} ${String(item)}`;
+      const isSelected = itemIndex === selected;
+      const style = isSelected ? widgetStyle(widget, 'value', 'selected') : undefined;
+      return {
+        spans: [
+          ...selectionMarkerSpans(widget, isSelected, theme, style),
+          ...dataValueSpans(clean(String(item)), query, style)
+        ]
+      };
     })
-    .join('\n');
+  };
 }
 
 export function listAccessibleNode(widget: Widget, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
@@ -98,9 +110,13 @@ export function listHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect)
 
 function filteredListItems(widget: Widget): readonly unknown[] {
   const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
-  const query = stringify(widget.props['filterQuery']).trim().toLocaleLowerCase();
+  const query = filterQuery(widget).toLocaleLowerCase();
   if (query.length === 0) return items;
   return items.filter((item) => String(item).toLocaleLowerCase().includes(query));
+}
+
+function filterQuery(widget: Widget): string {
+  return clean(stringify(widget.props['filterQuery'])).trim();
 }
 
 function listWindow(widget: Widget, items: readonly unknown[], height: number, selected: number, width = 0) {
@@ -125,4 +141,8 @@ function toMessageProp<TMessage>(widget: Widget<TMessage>): ((value: unknown) =>
 
 function isListMessageFactory(value: unknown): value is (item: unknown) => unknown {
   return typeof value === 'function';
+}
+
+function clean(value: string): string {
+  return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
 }

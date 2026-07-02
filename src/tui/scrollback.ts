@@ -5,9 +5,14 @@ import {
   scrollReducer,
   visibleWindowFromScroll
 } from './scroll.ts';
-import { highlightRenderSpans } from './text-highlight.ts';
+import {
+  documentHighlightSpans,
+  documentSpan,
+  scrollbackBodyStyle,
+  scrollbackMetadataStyle,
+  scrollbackOmissionStyle
+} from './document-visual.ts';
 import { stringify } from './widget-props.ts';
-import { themeStyle, widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TextSelection } from '../text/index.ts';
 import type { ScrollbackItem, Widget } from '../widgets/index.ts';
@@ -162,10 +167,10 @@ function scrollbackRow(
   text: string,
   query: string
 ): ScrollbackVisibleRow {
-  const segments = searchSegments(text, query, item.style);
+  const segments = scrollbackLineSpans(widget, item, lineIndex, text, query);
   return {
     id: `${widget.id ?? 'scrollback'}:item:${String(itemIndex)}:line:${String(lineIndex)}`,
-    text,
+    text: segments.map((segment) => segment.text).join(''),
     segments,
     sourceItemId: item.id,
     sourceItemIndex: itemIndex,
@@ -197,7 +202,7 @@ function omissionRow(widget: Widget, position: 'before' | 'after', text: string)
   return {
     id: `scrollback:omitted-${position}`,
     text,
-    segments: [styledSegment(text, widgetStyle(widget, 'placeholder'))]
+    segments: [documentSpan(widget, 'scrollback', `omitted.${position}`, text, scrollbackOmissionStyle(widget))]
   };
 }
 
@@ -308,17 +313,67 @@ function matchedRowIndexes(rows: readonly ScrollbackVisibleRow[]): readonly numb
   return indexes;
 }
 
-function searchSegments(
+function scrollbackLineSpans(
+  widget: Widget,
+  item: ScrollbackItem,
+  lineIndex: number,
   text: string,
-  query: string,
-  style: RenderSpan['style'] | undefined
+  query: string
 ): readonly ScrollbackTextSegment[] {
-  return highlightRenderSpans(text, query, {
-    ...(style === undefined ? {} : { baseStyle: style }),
-    matchStyle: themeStyle('menu.match', { underline: true })
-  });
+  return lineIndex === 0 && text === displayTextForItem(item)
+    ? scrollbackFullLineSpans(widget, item, query)
+    : documentHighlightSpans({
+        widget,
+        kind: 'scrollback',
+        label: 'body',
+        text,
+        query,
+        baseStyle: scrollbackBodyStyle(widget, item.style)
+      });
 }
 
-function styledSegment(text: string, style: RenderSpan['style'] | undefined): ScrollbackTextSegment {
-  return style === undefined ? { text } : { text, style };
+function scrollbackFullLineSpans(
+  widget: Widget,
+  item: ScrollbackItem,
+  query: string
+): readonly ScrollbackTextSegment[] {
+  const metadataStyle = scrollbackMetadataStyle(widget);
+  const spans: ScrollbackTextSegment[] = [];
+  for (const timestamp of timestampText(item)) {
+    appendGap(spans, widget);
+    spans.push(...documentHighlightSpans({
+      widget,
+      kind: 'scrollback',
+      label: 'timestamp',
+      text: timestamp,
+      query,
+      baseStyle: metadataStyle
+    }));
+  }
+  for (const [key, value] of metadataEntries(item.metadata)) {
+    appendGap(spans, widget);
+    spans.push(...documentHighlightSpans({
+      widget,
+      kind: 'scrollback',
+      label: 'metadata',
+      text: `${key}=${value}`,
+      query,
+      baseStyle: metadataStyle
+    }));
+  }
+  appendGap(spans, widget);
+  spans.push(...documentHighlightSpans({
+    widget,
+    kind: 'scrollback',
+    label: 'body',
+    text: sanitizeTerminalText(item.text).text,
+    query,
+    baseStyle: scrollbackBodyStyle(widget, item.style)
+  }));
+  return spans.filter((span) => span.text.length > 0);
+}
+
+function appendGap(spans: ScrollbackTextSegment[], widget: Widget): void {
+  if (spans.length === 0) return;
+  spans.push(documentSpan(widget, 'scrollback', 'separator', ' ', scrollbackMetadataStyle(widget)));
 }

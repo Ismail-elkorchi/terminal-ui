@@ -58,10 +58,10 @@ printProductExample({
           }), { label: 'Track' }),
           field(checkboxList({
             label: 'Checks',
-            selected: ['a11y', 'fixtures'],
+            selected: ['a11y', 'visual-qa'],
             options: [
               { value: 'a11y', label: 'Accessibility' },
-              { value: 'fixtures', label: 'Visual fixtures' },
+              { value: 'visual-qa', label: 'Visual QA' },
               { value: 'docs', label: 'Docs' }
             ]
           }), { label: 'Required checks' }),

@@ -1,19 +1,19 @@
 import {
   barChartAccessibleBase,
   barChartAccessibleChildren,
-  barChartText,
+  barChartBlock,
   chartAccessibleBase,
   chartAccessibleChildren,
+  chartBlock,
   chartHitTargets,
-  chartText,
   gaugeAccessibleBase,
-  gaugeText,
+  gaugeBlock,
   heatmapAccessibleBase,
   heatmapAccessibleChildren,
+  heatmapBlock,
   heatmapHitTargets,
-  heatmapText,
   sparklineAccessibleBase,
-  sparklineText
+  sparklineBlock
 } from '../chart-widgets.ts';
 import { paginatorAccessibleBase, paginatorText } from '../data-widgets.ts';
 import {
@@ -35,10 +35,10 @@ import { focusTarget, hasKeyboardOrInputMap } from './support/common.ts';
 import {
   listAccessibleChildren,
   listAccessibleNode,
+  listBlock,
   listCursor,
   listHitTargets,
-  listScrollbarState,
-  listText
+  listScrollbarState
 } from './support/list.ts';
 import {
   drawScrollbars,
@@ -51,14 +51,14 @@ import type { RendererMap } from './types.ts';
 
 export const dataRenderers = {
   sparkline: {
-    render: ({ widget, node, buffer }) => {
-      writeBlock(buffer, node.bounds, sparklineText(widget));
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, sparklineBlock(widget, theme));
     },
     accessibility: ({ widget, id }) => sparklineAccessibleBase(widget, id)
   },
   barChart: {
     render: ({ widget, node, buffer, theme }) => {
-      writeBlock(buffer, node.bounds, barChartText(widget, node, theme));
+      writeRenderBlock(buffer, node.bounds, barChartBlock(widget, node, theme));
     },
     accessibility: ({ widget, node, id, focused }) => ({
       ...barChartAccessibleBase(widget, node, id, focused),
@@ -67,8 +67,8 @@ export const dataRenderers = {
     focusTargets: ({ widget, bounds }) => hasKeyboardOrInputMap(widget) ? [focusTarget(bounds)] : []
   },
   chart: {
-    render: ({ widget, node, buffer }) => {
-      writeBlock(buffer, node.bounds, chartText(widget, node));
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, chartBlock(widget, node, theme));
     },
     accessibility: ({ widget, id }) => ({
       ...chartAccessibleBase(widget, id),
@@ -79,13 +79,13 @@ export const dataRenderers = {
   },
   gauge: {
     render: ({ widget, node, buffer, theme }) => {
-      writeBlock(buffer, node.bounds, gaugeText(widget, theme));
+      writeRenderBlock(buffer, node.bounds, gaugeBlock(widget, theme));
     },
     accessibility: ({ widget, id }) => gaugeAccessibleBase(widget, id)
   },
   heatmap: {
-    render: ({ widget, node, buffer }) => {
-      writeBlock(buffer, node.bounds, heatmapText(widget, node));
+    render: ({ widget, node, buffer, theme }) => {
+      writeRenderBlock(buffer, node.bounds, heatmapBlock(widget, node, theme));
     },
     accessibility: ({ widget, node, id, focused }) => ({
       ...heatmapAccessibleBase(widget, node, id, focused),
@@ -97,7 +97,7 @@ export const dataRenderers = {
   list: {
     render: ({ widget, node, buffer, theme }) => {
       const scrollbars = scrollbarsForWidget(widget, node.bounds, listScrollbarState(widget, node.bounds), 'vertical');
-      writeBlock(buffer, scrollbars.contentBounds, listText(widget, scrollbars.contentBounds.height, theme));
+      writeRenderBlock(buffer, scrollbars.contentBounds, listBlock(widget, scrollbars.contentBounds.height, theme));
       drawScrollbars(buffer, scrollbars, theme);
     },
     accessibility: ({ widget, node, id, focused }) => ({

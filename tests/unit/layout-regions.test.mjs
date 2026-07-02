@@ -331,7 +331,7 @@ test('focus is scoped to the topmost visible focus layer', () => {
   const frame = renderWidgetFrame(widget, { columns: 16, rows: 2 }, { focusPath: ['focus-root', 'lower-input'] });
 
   assert.deepEqual(frame.focusPath, ['focus-root', 'upper-input']);
-  assert.deepEqual(frame.cursor, { row: 1, column: 6 });
+  assert.deepEqual(frame.cursor, { row: 1, column: 9 });
 });
 
 test('overlapping modal renders above lower region content', () => {
@@ -411,7 +411,7 @@ test('dropdown renders above table content in a higher region', () => {
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 15]);
   assert.equal(regions[0]?.cells.some((cell) => cell.text === 'N'), true);
   assert.equal(regions[1]?.cells.some((cell) => cell.text === 'L'), true);
-  assert.match(firstLine, /^Theme: Dark/u);
+  assert.match(firstLine, /^Theme: \[Dark ▾\]/u);
   assert.doesNotMatch(firstLine, /^Name/u);
   assert.match(output, /Light/u);
 });
@@ -447,7 +447,7 @@ test('context menu renders above canvas content in a higher region', () => {
   const firstLine = output.split('\n')[0] ?? '';
 
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 12]);
-  assert.equal(regions[1]?.opacity, 'transparent');
+  assert.equal(regions[1]?.opacity, 'opaque');
   assert.equal(regions[0]?.cells.some((cell) => cell.text === 'c'), true);
   assert.equal(regions[1]?.cells.some((cell) => cell.text === 'A'), true);
   assert.match(firstLine, /^Actions/u);

@@ -20,6 +20,20 @@ test('sparkline renders bounded numeric points', () => {
 
   assert.equal(renderFramePlain(frame), '▁▃▆█');
   assert.equal(frame.accessibility.root.description, '4 sparkline points.');
+  assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.kind, 'sparkline');
+  assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.label, 'point.0');
+});
+
+test('sparkline renders an empty state with chart source metadata', () => {
+  const frame = renderWidgetFrame(sparkline({
+    id: 'empty-spark',
+    values: [],
+    emptyText: 'No signal'
+  }), { columns: 20, rows: 1 });
+
+  assert.match(renderFramePlain(frame), /No signal/u);
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.kind, 'sparkline');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.label, 'state.empty');
 });
 
 test('barChart windows visible bars and exposes selected accessibility', () => {
@@ -37,6 +51,21 @@ test('barChart windows visible bars and exposes selected accessibility', () => {
   assert.match(output, /B/u);
   assert.match(output, /› C/u);
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
+  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.kind, 'barChart');
+  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.label, 'label');
+});
+
+test('barChart renders loading state from shared chart state contract', () => {
+  const frame = renderWidgetFrame(barChart({
+    id: 'loading-bars',
+    status: 'running',
+    loadingText: 'Loading bars',
+    items: []
+  }), { columns: 24, rows: 1 });
+
+  assert.match(renderFramePlain(frame), /Loading bars/u);
+  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.kind, 'barChart');
+  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.label, 'state.loading');
 });
 
 test('chart plots series into a bounded text canvas', () => {
@@ -48,6 +77,7 @@ test('chart plots series into a bounded text canvas', () => {
   assert.match(renderFramePlain(frame), /\*/u);
   assert.equal(frame.accessibility.root.description, '1 chart series.');
   assert.ok(frame.cells.length <= 16);
+  assert.equal(frame.cells.find((cell) => cell.text === '*')?.source?.kind, 'chart');
 });
 
 test('chart renders scatter points legends axis labels and selectable point hit targets', () => {
@@ -72,6 +102,20 @@ test('chart renders scatter points legends axis labels and selectable point hit 
   assert.match(output, /◆/u);
   assert.equal(frame.hitTargets.some((target) => target.id === 'scatter-chart:scatter:2'), true);
   assert.equal(frame.accessibility.root.children?.some((child) => child.label === 'Scatter' && child.selected === true), true);
+  assert.equal(frame.cells.find((cell) => cell.text === '◆')?.source?.label, 'selected-point');
+});
+
+test('chart renders error state without anonymous text cells', () => {
+  const frame = renderWidgetFrame(chart({
+    id: 'error-chart',
+    status: 'error',
+    errorText: 'Chart unavailable',
+    series: [{ id: 'one', points: [1, 2, 3] }]
+  }), { columns: 24, rows: 1 });
+
+  assert.match(renderFramePlain(frame), /Chart unavailable/u);
+  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.kind, 'chart');
+  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.label, 'state.error');
 });
 
 test('gauge renders a labeled bounded meter with progress accessibility', () => {
@@ -89,6 +133,8 @@ test('gauge renders a labeled bounded meter with progress accessibility', () => 
   assert.match(output, /75%/u);
   assert.equal(frame.accessibility.root.role, 'progressbar');
   assert.equal(frame.accessibility.root.value, 75);
+  assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.kind, 'gauge');
+  assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.label, 'label');
 });
 
 test('heatmap renders selectable cells with accessibility and hit targets', () => {
@@ -110,6 +156,20 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
   assert.equal(frame.accessibility.root.role, 'table');
   assert.equal(frame.accessibility.root.children?.some((child) => child.label === 'Bravo' && child.selected === true), true);
   assert.equal(frame.hitTargets.some((target) => target.id === 'heatmap:0:1' && target.cursor === 'pointer'), true);
+  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.kind, 'heatmap');
+  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.label, 'cell.0.1');
+});
+
+test('heatmap renders empty state through chart state contract', () => {
+  const frame = renderWidgetFrame(heatmap({
+    id: 'empty-heatmap',
+    rows: [],
+    emptyText: 'No heatmap data'
+  }), { columns: 24, rows: 1 });
+
+  assert.match(renderFramePlain(frame), /No heatmap data/u);
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.kind, 'heatmap');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.label, 'state.empty');
 });
 
 test('Canvas2D chart helpers draw axes line series and bars', () => {

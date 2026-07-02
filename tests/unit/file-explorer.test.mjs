@@ -44,6 +44,10 @@ const entries = [
   }
 ];
 
+function styleForCell(frame, predicate) {
+  return frame.cells.find(predicate)?.style;
+}
+
 test('fileExplorer maps caller-owned entries to existing tree nodes', () => {
   const nodes = fileExplorerEntriesToTreeNodes(entries);
   const leaf = nodes[0]?.children?.[0]?.children?.[0];
@@ -82,14 +86,17 @@ test('fileExplorer composes breadcrumbs tree filtering and preview without files
       return { kind: 'select', path: entry.path };
     }
   });
-  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 72, rows: 10 }));
+  const frame = renderWidgetFrame(widget, { columns: 72, rows: 10 });
+  const output = renderFramePlain(frame);
 
   assert.match(output, /Workspace/u);
   assert.match(output, /src/u);
   assert.match(output, /index\.ts/u);
-  assert.match(output, /Preview/u);
+  assert.match(output, /Preview: index\.ts/u);
   assert.match(output, /export const value/u);
   assert.equal(widget.kind, 'splitPane');
+  assert.equal(styleForCell(frame, (cell) => cell.text === '/' && cell.style?.fg?.token === 'surface.border')?.fg?.token, 'surface.border');
+  assert.equal(styleForCell(frame, (cell) => cell.text === 'i' && cell.style?.fg?.token === 'accent.primary')?.fg?.token, 'accent.primary');
 });
 
 test('fileExplorer rendering stays bounded for large trees through existing tree windowing', () => {
@@ -134,7 +141,8 @@ test('fileDialog composes file explorer filter preview and actions in a modal', 
     width: 70,
     height: 14
   });
-  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 80, rows: 18 }));
+  const frame = renderWidgetFrame(widget, { columns: 80, rows: 18 });
+  const output = renderFramePlain(frame);
 
   assert.equal(widget.kind, 'modal');
   assert.match(output, /Open file/u);
@@ -144,4 +152,5 @@ test('fileDialog composes file explorer filter preview and actions in a modal', 
   assert.match(output, /# Readme/u);
   assert.match(output, /Cancel/u);
   assert.match(output, /Open/u);
+  assert.equal(styleForCell(frame, (cell) => cell.text === 'O' && cell.style?.bg?.token === 'selection.background')?.bg?.token, 'selection.background');
 });

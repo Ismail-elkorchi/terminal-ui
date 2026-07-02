@@ -1,16 +1,23 @@
 import { sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
 import { block, line, span } from './frame.ts';
 import { normalizeScrollState } from './scroll.ts';
-import { normalizeSpinnerFrameIndex } from './spinner.ts';
-import { activityStatus, statusMarker, statusStyle } from './status-visual.ts';
 import {
-  selectedTextSpans,
   selectionFromUnknown,
   textCursorLineMetrics,
-  textDisplayWidth,
-  visibleLineWindow
+  textDisplayWidth
 } from './text-display.ts';
-import { widgetStyle } from './widget-style.ts';
+import {
+  textAreaInputContentBounds,
+  textAreaInputCursor,
+  textAreaInputLine
+} from './input-visual.ts';
+import {
+  activityIndicatorText as feedbackActivityIndicatorText,
+  helpBarText as feedbackHelpBarText,
+  spinnerBlock as feedbackSpinnerBlock,
+  spinnerText as feedbackSpinnerText
+} from './feedback-visual.ts';
+import { activityStatus } from './status-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { defaultTheme } from '../theme/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -43,36 +50,35 @@ export function richTextAccessibleBase(widget: Widget, id: string): AccessibleNo
 }
 
 export function textAreaText(widget: Widget, bounds: Rect): string {
-  return textAreaBlock(widget, bounds).lines.map((currentLine) =>
+  return textAreaBlock(widget, bounds, defaultTheme).lines.map((currentLine) =>
     currentLine.spans.map((currentSpan) => currentSpan.text).join('')
   ).join('\n');
 }
 
-export function textAreaBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function textAreaBlock(widget: Widget, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
   const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
   const placeholder = sanitizeTerminalText(stringify(widget.props['placeholder'])).text;
   const usesPlaceholder = value.length === 0 && placeholder.length > 0;
   const lines = textAreaLines(widget);
-  const scroll = textAreaScroll(widget, lines, bounds);
+  const contentBounds = textAreaInputContentBounds(bounds, theme);
+  const scroll = textAreaScroll(widget, lines, contentBounds);
   const lineRecords = textAreaLineRecords(usesPlaceholder ? placeholder : value);
   const selection = usesPlaceholder ? undefined : selectionFromUnknown(value, widget.props['selection']);
   return block(lineRecords
     .slice(scroll.offsetRow, scroll.offsetRow + Math.max(0, bounds.height))
-    .map((record): RenderLine => {
-      const window = visibleLineWindow(record.text, scroll.offsetColumn, bounds.width);
-      const selectionInWindow = selectionIntersection(selection, record.start + window.startOffset, record.start + window.endOffset);
-      return line(selectedTextSpans(
-        window.text,
-        selectionInWindow === undefined
-          ? undefined
-          : {
-              start: selectionInWindow.start - record.start - window.startOffset,
-              end: selectionInWindow.end - record.start - window.startOffset
-            },
-        usesPlaceholder ? widgetStyle(widget, 'placeholder') : widgetStyle(widget, 'value'),
-        widgetStyle(widget, 'value', 'selected')
-      ));
-    }));
+    .map((record, index): RenderLine => textAreaInputLine({
+      widget,
+      bounds,
+      theme,
+      lines: lineRecords,
+      usesPlaceholder,
+      focused,
+      ...(selection === undefined ? {} : { selection })
+    }, {
+      lineRecord: record,
+      rowIndex: index,
+      offsetColumn: scroll.offsetColumn
+    })));
 }
 
 export function textAreaAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
@@ -83,23 +89,29 @@ export function textAreaAccessibleBase(widget: Widget, id: string, focused: bool
     label: id,
     value,
     description: textAreaDescription(widget, value),
+    ...(widget.props['disabled'] === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
 
-export function textAreaCursor(widget: Widget, bounds: Rect): { readonly row: number; readonly column: number } {
+export function textAreaCursor(widget: Widget, bounds: Rect, theme: TerminalTheme = defaultTheme): { readonly row: number; readonly column: number } {
   const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
   const metrics = textCursorLineMetrics(value, numberProp(widget, 'cursor'));
-  const scroll = textAreaScroll(widget, textAreaLines(widget), bounds);
+  const contentBounds = textAreaInputContentBounds(bounds, theme);
+  const scroll = textAreaScroll(widget, textAreaLines(widget), contentBounds);
   const rowOffset = Math.max(0, Math.min(bounds.height - 1, metrics.lineIndex - scroll.offsetRow));
-  const columnOffset = Math.max(0, Math.min(bounds.width - 1, Math.max(0, metrics.columnCells - scroll.offsetColumn)));
-  return { row: bounds.row + rowOffset, column: bounds.column + columnOffset };
+  return textAreaInputCursor({
+    widget,
+    bounds,
+    theme,
+    rowOffset,
+    columnCells: metrics.columnCells,
+    offsetColumn: scroll.offsetColumn
+  });
 }
 
 export function helpBarText(widget: Widget): string {
-  return helpBindings(widget)
-    .map((binding) => `${binding.key} ${binding.label}`)
-    .join('  ');
+  return feedbackHelpBarText(widget);
 }
 
 export function helpBarAccessibleBase(widget: Widget, id: string): AccessibleNode {
@@ -113,9 +125,7 @@ export function helpBarAccessibleBase(widget: Widget, id: string): AccessibleNod
 }
 
 export function activityIndicatorText(widget: Widget, theme: TerminalTheme): string {
-  const label = stringify(widget.props['label']) || 'Activity';
-  const status = activityStatus(widget.props['status']);
-  return `${statusMarker(status, theme)} ${label}${status === 'idle' ? '' : ` (${status})`}`;
+  return feedbackActivityIndicatorText(widget, theme);
 }
 
 export function activityIndicatorAccessibleBase(widget: Widget, id: string): AccessibleNode {
@@ -129,21 +139,16 @@ export function activityIndicatorAccessibleBase(widget: Widget, id: string): Acc
 }
 
 export function spinnerBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
-  const status = spinnerStatus(widget.props['status']);
-  const label = spinnerLabel(widget);
-  return block([line([
-    span(spinnerMarker(widget, theme, status), { style: statusStyle(status) }),
-    span(` ${label}${status === 'running' ? '' : ` (${status})`}`)
-  ])]);
+  return feedbackSpinnerBlock(widget, theme);
 }
 
 export function spinnerText(widget: Widget, theme: TerminalTheme): string {
-  return spinnerBlock(widget, theme).lines.map((currentLine) => currentLine.spans.map((currentSpan) => currentSpan.text).join('')).join('\n');
+  return feedbackSpinnerText(widget, theme);
 }
 
 export function spinnerAccessibleBase(widget: Widget, id: string): AccessibleNode {
-  const status = spinnerStatus(widget.props['status']);
-  const label = spinnerLabel(widget);
+  const status = activityStatus(widget.props['status'], 'running');
+  const label = stringify(widget.props['label']) || 'Loading';
   return {
     id,
     role: 'status',
@@ -174,7 +179,10 @@ function textAreaDescription(widget: Widget, value: string): string {
   const lines = value.length === 0 ? 0 : value.split('\n').length;
   const selection = widget.props['selection'];
   const selectionText = typeof selection === 'object' && selection !== null ? ' Selection active.' : '';
-  return `${String(lines)} lines.${selectionText}`;
+  const requiredText = widget.props['required'] === true ? ' Required.' : '';
+  const error = sanitizeTerminalText(stringify(widget.props['error'])).text;
+  const errorText = error.length === 0 ? '' : ` ${error}`;
+  return `${String(lines)} lines.${selectionText}${requiredText}${errorText}`;
 }
 
 function textAreaLines(widget: Widget): readonly string[] {
@@ -192,17 +200,6 @@ function textAreaLineRecords(value: string): readonly { readonly text: string; r
     start += lineText.length + 1;
     return record;
   });
-}
-
-function selectionIntersection(
-  selection: ReturnType<typeof selectionFromUnknown>,
-  start: number,
-  end: number
-): ReturnType<typeof selectionFromUnknown> {
-  if (selection === undefined) return undefined;
-  const nextStart = Math.max(start, selection.start);
-  const nextEnd = Math.min(end, selection.end);
-  return nextStart >= nextEnd ? undefined : { start: nextStart, end: nextEnd };
 }
 
 function textAreaScroll(
@@ -231,43 +228,6 @@ function numberField(record: Readonly<Record<string, unknown>>, key: string): nu
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function helpBindings(widget: Widget): readonly { readonly key: string; readonly label: string }[] {
-  if (!Array.isArray(widget.props['bindings'])) return [];
-  return widget.props['bindings'].filter((binding): binding is { readonly key: string; readonly label: string } =>
-    typeof binding === 'object'
-    && binding !== null
-    && typeof (binding as { readonly key?: unknown }).key === 'string'
-    && typeof (binding as { readonly label?: unknown }).label === 'string'
-  ).map((binding) => ({
-    key: sanitizeTerminalText(binding.key).text,
-    label: sanitizeTerminalText(binding.label).text
-  }));
-}
-
-function spinnerStatus(value: unknown): ReturnType<typeof activityStatus> {
-  return activityStatus(value, 'running');
-}
-
-function spinnerLabel(widget: Widget): string {
-  return stringify(widget.props['label']) || 'Loading';
-}
-
-function spinnerMarker(widget: Widget, theme: TerminalTheme, status: ReturnType<typeof activityStatus>): string {
-  if (status !== 'running') return statusMarker(status, theme);
-  const frames = spinnerFrames(widget, theme);
-  const frameIndex = numberProp(widget, 'frameIndex') ?? 0;
-  return frames[normalizeSpinnerFrameIndex(frameIndex, frames.length)] ?? theme.symbols.statusInfo;
-}
-
-function spinnerFrames(widget: Widget, theme: TerminalTheme): readonly string[] {
-  const frames = widget.props['frames'];
-  if (!Array.isArray(frames)) return theme.symbols.spinnerFrames;
-  const cleaned = frames.filter((frame): frame is string => typeof frame === 'string')
-    .map((frame) => sanitizeTerminalText(frame).text.replace(/\s*\n\s*/gu, ' '))
-    .filter((frame) => frame.length > 0);
-  return cleaned.length === 0 ? theme.symbols.spinnerFrames : cleaned;
 }
 
 function blockFromPlainText(text: string): RenderBlock {

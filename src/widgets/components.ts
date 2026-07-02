@@ -3,6 +3,7 @@ import type { LayoutAlignment, LayoutInsetInput } from '../tui/regions.ts';
 import type { SurfaceVariant } from '../tui/surface.ts';
 import {
   row,
+  splitPane,
   stack,
   surface,
   text
@@ -96,14 +97,14 @@ export interface DrawerOptions<TMessage = never> extends ComponentOptions<TMessa
 }
 
 export function panel<TMessage>(options: PanelOptions<TMessage>): Widget<TMessage> {
-  return surface<TMessage>(stack<TMessage>([
+  return surface<TMessage>(verticalContent<TMessage>([
     ...panelHeader(options),
     ...childrenArray(options.body),
     ...panelFooter(options)
   ], {
     id: childId(options.id, 'content'),
-    gap: options.gap ?? densityGap(options.density),
-    padding: options.padding ?? densityPadding(options.density)
+    gap: options.gap ?? densityGap(chromeDensity(options.density)),
+    padding: options.padding ?? densityPadding(chromeDensity(options.density))
   }), {
     ...componentOptions(options),
     variant: options.variant ?? 'raised',
@@ -121,14 +122,14 @@ export function bottomBar<TMessage>(options: AppBarOptions<TMessage>): Widget<TM
 }
 
 export function sidePanel<TMessage>(options: SidePanelOptions<TMessage>): Widget<TMessage> {
-  return surface<TMessage>(stack<TMessage>([
+  return surface<TMessage>(verticalContent<TMessage>([
     ...labelRows<TMessage>(options.title, childId(options.id, 'title'), 'heading'),
     ...childrenArray(options.body),
     ...childrenArray(options.footer)
   ], {
     id: childId(options.id, 'content'),
-    gap: densityGap(options.density),
-    padding: densityPadding(options.density)
+    gap: densityGap(chromeDensity(options.density)),
+    padding: densityPadding(chromeDensity(options.density))
   }), {
     ...componentOptions(options),
     variant: options.variant ?? 'inset',
@@ -164,22 +165,24 @@ export function statusDock<TMessage>(options: StatusDockOptions<TMessage>): Widg
     padding: densityHorizontalPadding(options.density)
   }), {
     ...componentOptions(options),
-    variant: 'inset'
+    variant: 'inset',
+    border: { kind: 'none' }
   });
 }
 
 export function commandDock<TMessage>(options: CommandDockOptions<TMessage>): Widget<TMessage> {
-  return surface<TMessage>(stack<TMessage>([
+  return surface<TMessage>(verticalContent<TMessage>([
     options.input,
     ...childrenArray(options.help),
     ...childrenArray(options.status)
   ], {
     id: childId(options.id, 'content'),
-    gap: densityGap(options.density),
+    gap: densityGap(chromeDensity(options.density)),
     padding: densityHorizontalPadding(options.density)
   }), {
     ...componentOptions(options),
-    variant: 'raised'
+    variant: 'raised',
+    border: { kind: 'none' }
   });
 }
 
@@ -198,14 +201,14 @@ export function contentHeader<TMessage>(options: ContentHeaderOptions<TMessage>)
 }
 
 export function drawer<TMessage>(options: DrawerOptions<TMessage>): Widget<TMessage> {
-  return surface<TMessage>(stack<TMessage>([
+  return surface<TMessage>(verticalContent<TMessage>([
     ...labelRows<TMessage>(options.title, childId(options.id, 'title'), 'heading'),
     ...childrenArray(options.body),
     ...childrenArray(options.footer)
   ], {
     id: childId(options.id, 'content'),
-    gap: densityGap(options.density),
-    padding: densityPadding(options.density)
+    gap: densityGap(chromeDensity(options.density)),
+    padding: densityPadding(chromeDensity(options.density))
   }), {
     ...componentOptions(options),
     variant: 'raised',
@@ -231,13 +234,31 @@ function appBar<TMessage>(kind: 'topBar' | 'bottomBar', options: AppBarOptions<T
     justify: 'stretch'
   }), {
     ...componentOptions(options),
-    variant: options.variant ?? (kind === 'topBar' ? 'raised' : 'inset')
+    variant: options.variant ?? (kind === 'topBar' ? 'raised' : 'inset'),
+    border: { kind: 'none' }
   });
 }
 
 function childrenArray<TMessage>(children: WidgetChildren<TMessage> | undefined): readonly Widget<TMessage>[] {
   if (children === undefined) return [];
   return Array.isArray(children) ? [...children as readonly Widget<TMessage>[]] : [children as Widget<TMessage>];
+}
+
+function verticalContent<TMessage>(
+  children: readonly Widget<TMessage>[],
+  options: {
+    readonly id: string;
+    readonly gap: number;
+    readonly padding: LayoutInsetInput;
+  }
+): Widget<TMessage> {
+  return splitPane(children, {
+    id: options.id,
+    direction: 'vertical',
+    sizes: children.map(() => ({ kind: 'content' })),
+    gap: options.gap,
+    padding: options.padding
+  });
 }
 
 function panelHeader<TMessage>(options: PanelOptions<TMessage>): readonly Widget<TMessage>[] {
@@ -325,6 +346,10 @@ function withOverflowPriority<TMessage>(
 
 function densityGap(density: WidgetDensityRole | undefined): number {
   return density === 'compact' ? 0 : density === 'spacious' ? 2 : 1;
+}
+
+function chromeDensity(density: WidgetDensityRole | undefined): WidgetDensityRole {
+  return density ?? 'compact';
 }
 
 function densityWideGap(density: WidgetDensityRole | undefined): number {

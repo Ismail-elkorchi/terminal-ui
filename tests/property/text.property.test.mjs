@@ -11,14 +11,10 @@ import {
   visibleWindowFromScroll
 } from '../../dist/tui/index.js';
 import { inputField, stack } from '../../dist/widgets/index.js';
-import { terminalFixtures } from '../fixtures/catalog.mjs';
-
-const textFixtures = terminalFixtures
-  .map((fixture) => fixture.data.text)
-  .filter((value) => typeof value === 'string');
+import { textSamples } from '../support/text-samples.mjs';
 
 test('text property checks keep sanitization segmentation clipping and wrapping bounded', () => {
-  for (const value of textFixtures) {
+  for (const value of textSamples) {
     const sanitized = sanitizeTerminalText(value);
     const metrics = measureTextCells(value);
     const clipped = clipTextCells(value, 6, { ellipsis: '…' });

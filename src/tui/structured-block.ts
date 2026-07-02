@@ -1,5 +1,15 @@
 import { sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
 import { dataWindow, rowWindow } from './data-window.ts';
+import {
+  documentBodyStyle,
+  documentDetailStyle,
+  documentFieldSpans,
+  documentMarkerStyle,
+  documentSpan,
+  documentStatusStyle,
+  documentSummaryStyle,
+  documentTitleStyle
+} from './document-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -7,13 +17,23 @@ import type { StructuredBlock, StructuredBlockField, StructuredBlockStatus, Widg
 import type { LayoutNode } from './layout.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 
+interface StructuredBlockRenderOptions {
+  readonly widget: Widget;
+  readonly kind: 'structuredBlock' | 'activityFeed';
+  readonly selected: boolean;
+}
+
 export function structuredBlockText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
   return renderBlockText(structuredBlockBlock(widget, node, theme));
 }
 
 export function structuredBlockBlock(widget: Widget, node: LayoutNode, theme: TerminalTheme): RenderBlock {
   return {
-    lines: structuredBlockLines(blockFromWidget(widget), theme, node.bounds.width)
+    lines: structuredBlockLines(blockFromWidget(widget), theme, node.bounds.width, {
+      widget,
+      kind: 'structuredBlock',
+      selected: false
+    })
   };
 }
 
@@ -78,13 +98,17 @@ function activityFeedRows(widget: Widget, node: LayoutNode, theme: TerminalTheme
   for (const { block, index } of visibleActivityBlocks(widget, node)) {
     const selectedRow = selected === index;
     const marker = selectedRow ? `${theme.symbols.pointer} ` : '  ';
-    const lines = structuredBlockLines(block, theme, Math.max(0, node.bounds.width - marker.length));
+    const lines = structuredBlockLines(block, theme, Math.max(0, node.bounds.width - marker.length), {
+      widget,
+      kind: 'activityFeed',
+      selected: selectedRow
+    });
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
       if (rows.length >= node.bounds.height) return rows;
       const prefix = lineIndex === 0 ? marker : '  ';
       rows.push({
         spans: [
-          { text: prefix, ...(selectedRow ? { style: selectedPrefixStyle() } : {}) },
+          documentSpan(widget, 'activityFeed', 'selection', prefix, documentMarkerStyle(widget, selectedRow)),
           ...(lines[lineIndex]?.spans ?? [])
         ]
       });
@@ -109,23 +133,34 @@ function visibleActivityBlocks(
   }));
 }
 
-function structuredBlockLines(block: StructuredBlock, theme: TerminalTheme, width: number): readonly RenderLine[] {
+function structuredBlockLines(
+  block: StructuredBlock,
+  theme: TerminalTheme,
+  width: number,
+  options: StructuredBlockRenderOptions
+): readonly RenderLine[] {
   const collapsed = block.collapsed === true;
   const fieldLabelWidth = maxFieldLabelWidth(block.fields ?? []);
-  const lines: RenderLine[] = [headerLine(block, theme, collapsed)];
+  const lines: RenderLine[] = [headerLine(block, theme, collapsed, options)];
   if (block.summary !== undefined && block.summary.length > 0) {
-    lines.push(...wrappedTextLines(block.summary, width, block.style));
+    lines.push(...wrappedTextLines(block.summary, width, documentSummaryStyle(options.widget), options, 'summary'));
   }
   for (const field of block.fields ?? []) {
-    lines.push(fieldLine(field, fieldLabelWidth));
+    lines.push(fieldLine(field, fieldLabelWidth, options));
   }
   if (!collapsed && block.body !== undefined && block.body.length > 0) {
-    lines.push(...wrappedTextLines(block.body, width, block.style));
+    lines.push(...wrappedTextLines(block.body, width, documentBodyStyle(options.widget, block.style), options, 'body'));
   }
   if (!collapsed && block.details !== undefined && block.details.length > 0) {
     const detailLines = block.details.split('\n');
     for (let index = 0; index < detailLines.length; index += 1) {
-      lines.push(...wrappedTextLines(index === 0 ? `Details: ${detailLines[index] ?? ''}` : detailLines[index] ?? '', width, block.style));
+      lines.push(...wrappedTextLines(
+        index === 0 ? `Details: ${detailLines[index] ?? ''}` : detailLines[index] ?? '',
+        width,
+        documentDetailStyle(options.widget, block.style),
+        options,
+        'details'
+      ));
     }
   }
   return lines;
@@ -290,57 +325,57 @@ function optionalBoolean(value: unknown): boolean {
   return value === undefined || typeof value === 'boolean';
 }
 
-function headerLine(block: StructuredBlock, theme: TerminalTheme, collapsed: boolean): RenderLine {
-  const spans: RenderSpan[] = [{ text: collapsed ? theme.symbols.collapsed : theme.symbols.expanded }];
+function headerLine(
+  block: StructuredBlock,
+  theme: TerminalTheme,
+  collapsed: boolean,
+  options: StructuredBlockRenderOptions
+): RenderLine {
+  const spans: RenderSpan[] = [
+    documentSpan(
+      options.widget,
+      options.kind,
+      'toggle',
+      collapsed ? theme.symbols.collapsed : theme.symbols.expanded,
+      documentMarkerStyle(options.widget, options.selected)
+    )
+  ];
   if (block.status !== undefined) {
-    spans.push({ text: ' ' }, { text: `[${block.status}]`, style: statusStyle(block.status) });
+    spans.push(
+      documentSpan(options.widget, options.kind, 'separator', ' ', documentMarkerStyle(options.widget, options.selected)),
+      documentSpan(options.widget, options.kind, 'status', `[${block.status}]`, documentStatusStyle(block.status))
+    );
   }
-  spans.push({ text: ' ' }, { text: block.title, ...(block.style === undefined ? {} : { style: block.style }) });
+  spans.push(
+    documentSpan(options.widget, options.kind, 'separator', ' ', documentMarkerStyle(options.widget, options.selected)),
+    documentSpan(options.widget, options.kind, 'title', block.title, documentTitleStyle(options.widget, block.style, options.selected))
+  );
   return { spans };
 }
 
-function fieldLine(field: StructuredBlockField, labelWidth: number): RenderLine {
+function fieldLine(field: StructuredBlockField, labelWidth: number, options: StructuredBlockRenderOptions): RenderLine {
   return {
-    spans: [
-      { text: field.label.padEnd(labelWidth), style: { fg: { kind: 'theme', token: 'text.muted' } } },
-      { text: ': ', style: { fg: { kind: 'theme', token: 'text.muted' } } },
-      { text: field.value }
-    ]
+    spans: documentFieldSpans(options.widget, field, labelWidth, options.selected, options.kind)
   };
 }
 
-function wrappedTextLines(text: string, width: number, style: TerminalStyle | undefined): readonly RenderLine[] {
+function wrappedTextLines(
+  text: string,
+  width: number,
+  style: TerminalStyle | undefined,
+  options: StructuredBlockRenderOptions,
+  label: string
+): readonly RenderLine[] {
   return text.split('\n').flatMap((line): RenderLine[] => {
     const wrapped = width > 0 ? wrapTextCells(line, width).map((item) => item.text) : [line];
     return wrapped.map((textLine) => ({
-      spans: [{ text: textLine, ...(style === undefined ? {} : { style }) }]
+      spans: [documentSpan(options.widget, options.kind, label, textLine, style)]
     }));
   });
 }
 
 function maxFieldLabelWidth(fields: readonly StructuredBlockField[]): number {
   return fields.reduce((width, field) => Math.max(width, field.label.length), 0);
-}
-
-function statusStyle(status: StructuredBlockStatus): TerminalStyle {
-  return { fg: { kind: 'theme', token: statusToken(status) }, bold: true };
-}
-
-function selectedPrefixStyle(): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: 'selection.foreground' },
-    bg: { kind: 'theme', token: 'selection.background' },
-    bold: true
-  };
-}
-
-function statusToken(status: StructuredBlockStatus): string {
-  if (status === 'pending') return 'status.pending';
-  if (status === 'running') return 'status.running';
-  if (status === 'success') return 'status.success';
-  if (status === 'warning' || status === 'skipped' || status === 'cancelled') return 'status.warning';
-  if (status === 'error' || status === 'failed') return 'status.error';
-  return 'status.info';
 }
 
 function renderBlockText(block: RenderBlock): string {
