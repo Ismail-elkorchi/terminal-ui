@@ -19,6 +19,7 @@ import {
   viewportScrollbarState
 } from './support/scroll.ts';
 import { modalChildBounds, viewportAccessibleDescription, viewportChildBounds } from './support/viewport.ts';
+import { drawSurfaceShadow, fillSurfaceBackground, surfaceBackgroundStyle } from '../surface.ts';
 import type { RendererMap } from './types.ts';
 
 export const layoutRenderers = {
@@ -112,6 +113,8 @@ export const layoutRenderers = {
     layout: ({ widget, bounds }) => [borderContentBounds(modalChildBounds(widget, bounds), borderForModal(widget))],
     render: (input) => {
       const childBounds = modalChildBounds(input.widget, input.node.bounds);
+      fillSurfaceBackground(input.buffer, childBounds, surfaceBackgroundStyle(input.widget, 'raised'));
+      drawSurfaceShadow(input.buffer, childBounds);
       drawBorder(input.buffer, childBounds, borderForModal(input.widget, input.focused), input.theme);
       input.renderChildren();
     },

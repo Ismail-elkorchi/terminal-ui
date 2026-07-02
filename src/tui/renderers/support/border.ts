@@ -4,22 +4,34 @@ import { stringify } from '../../widget-props.ts';
 import { mergeStyles, widgetStyle } from '../../widget-style.ts';
 import type { BorderStyle } from '../../border.ts';
 import type { Rect } from '../../layout.ts';
+import type { TerminalStyle } from '../../render-primitives.ts';
 
 export function borderForWidget(widget: Widget, focused = false): BorderStyle {
   return focusBorder(defaultBorderStyle(widget, borderStyleFromValue(widget.props['border']) ?? { kind: 'single' }), focused);
 }
 
 export function borderForModal(widget: Widget, focused = false): BorderStyle {
-  const border = defaultBorderStyle(widget, borderStyleFromValue(widget.props['border']) ?? { kind: 'single' });
+  const border = defaultBorderStyle(
+    widget,
+    borderStyleFromValue(widget.props['border']) ?? { kind: 'single' },
+    modalBorderStyle(widget)
+  );
   if (border.title !== undefined || border.kind === 'none') return focusBorder(border, focused);
   const title = modalLabel(widget);
   return focusBorder(title.length === 0 ? border : { ...border, title }, focused);
 }
 
-function defaultBorderStyle(widget: Widget, border: BorderStyle): BorderStyle {
+function defaultBorderStyle(widget: Widget, border: BorderStyle, baseStyle = widgetStyle(widget, 'border')): BorderStyle {
   if (border.kind === 'none') return border;
-  const style = mergeStyles(widgetStyle(widget, 'border'), border.style);
+  const style = mergeStyles(baseStyle, border.style);
   return style === undefined ? border : { ...border, style };
+}
+
+function modalBorderStyle(widget: Widget): TerminalStyle | undefined {
+  return mergeStyles(
+    { fg: { kind: 'theme', token: 'surface.raised.border' } },
+    widget.styles?.border
+  );
 }
 
 export function modalLabel(widget: Widget): string {

@@ -2,6 +2,7 @@ import type { BorderStyle } from '../tui/border.ts';
 import type { LayoutAlignment, LayoutInsetInput } from '../tui/regions.ts';
 import type { SurfaceVariant } from '../tui/surface.ts';
 import {
+  divider,
   row,
   splitPane,
   stack,
@@ -97,11 +98,7 @@ export interface DrawerOptions<TMessage = never> extends ComponentOptions<TMessa
 }
 
 export function panel<TMessage>(options: PanelOptions<TMessage>): Widget<TMessage> {
-  return surface<TMessage>(verticalContent<TMessage>([
-    ...panelHeader(options),
-    ...childrenArray(options.body),
-    ...panelFooter(options)
-  ], {
+  return surface<TMessage>(verticalContent<TMessage>(panelSections(options), {
     id: childId(options.id, 'content'),
     gap: options.gap ?? densityGap(chromeDensity(options.density)),
     padding: options.padding ?? densityPadding(chromeDensity(options.density))
@@ -122,11 +119,7 @@ export function bottomBar<TMessage>(options: AppBarOptions<TMessage>): Widget<TM
 }
 
 export function sidePanel<TMessage>(options: SidePanelOptions<TMessage>): Widget<TMessage> {
-  return surface<TMessage>(verticalContent<TMessage>([
-    ...labelRows<TMessage>(options.title, childId(options.id, 'title'), 'heading'),
-    ...childrenArray(options.body),
-    ...childrenArray(options.footer)
-  ], {
+  return surface<TMessage>(verticalContent<TMessage>(sidePanelSections(options), {
     id: childId(options.id, 'content'),
     gap: densityGap(chromeDensity(options.density)),
     padding: densityPadding(chromeDensity(options.density))
@@ -171,11 +164,7 @@ export function statusDock<TMessage>(options: StatusDockOptions<TMessage>): Widg
 }
 
 export function commandDock<TMessage>(options: CommandDockOptions<TMessage>): Widget<TMessage> {
-  return surface<TMessage>(verticalContent<TMessage>([
-    options.input,
-    ...childrenArray(options.help),
-    ...childrenArray(options.status)
-  ], {
+  return surface<TMessage>(verticalContent<TMessage>(commandDockSections(options), {
     id: childId(options.id, 'content'),
     gap: densityGap(chromeDensity(options.density)),
     padding: densityHorizontalPadding(options.density)
@@ -184,6 +173,14 @@ export function commandDock<TMessage>(options: CommandDockOptions<TMessage>): Wi
     variant: 'raised',
     border: { kind: 'none' }
   });
+}
+
+function commandDockSections<TMessage>(options: CommandDockOptions<TMessage>): readonly Widget<TMessage>[] {
+  return sectionedContent(options.id, [
+    { id: 'input', children: [options.input] },
+    { id: 'help', children: childrenArray(options.help) },
+    { id: 'status', children: childrenArray(options.status) }
+  ]);
 }
 
 export function contentHeader<TMessage>(options: ContentHeaderOptions<TMessage>): Widget<TMessage> {
@@ -201,11 +198,7 @@ export function contentHeader<TMessage>(options: ContentHeaderOptions<TMessage>)
 }
 
 export function drawer<TMessage>(options: DrawerOptions<TMessage>): Widget<TMessage> {
-  return surface<TMessage>(verticalContent<TMessage>([
-    ...labelRows<TMessage>(options.title, childId(options.id, 'title'), 'heading'),
-    ...childrenArray(options.body),
-    ...childrenArray(options.footer)
-  ], {
+  return surface<TMessage>(verticalContent<TMessage>(drawerSections(options), {
     id: childId(options.id, 'content'),
     gap: densityGap(chromeDensity(options.density)),
     padding: densityPadding(chromeDensity(options.density))
@@ -236,6 +229,55 @@ function appBar<TMessage>(kind: 'topBar' | 'bottomBar', options: AppBarOptions<T
     ...componentOptions(options),
     variant: options.variant ?? (kind === 'topBar' ? 'raised' : 'inset'),
     border: { kind: 'none' }
+  });
+}
+
+function panelSections<TMessage>(options: PanelOptions<TMessage>): readonly Widget<TMessage>[] {
+  const header = panelHeader(options);
+  const body = childrenArray(options.body);
+  const footer = panelFooter(options);
+  return sectionedContent(options.id, [
+    { id: 'header', children: header },
+    { id: 'body', children: body },
+    { id: 'footer', children: footer }
+  ]);
+}
+
+function sidePanelSections<TMessage>(options: SidePanelOptions<TMessage>): readonly Widget<TMessage>[] {
+  return sectionedContent(options.id, [
+    { id: 'title', children: labelRows<TMessage>(options.title, childId(options.id, 'title'), 'heading') },
+    { id: 'body', children: childrenArray(options.body) },
+    { id: 'footer', children: childrenArray(options.footer) }
+  ]);
+}
+
+function drawerSections<TMessage>(options: DrawerOptions<TMessage>): readonly Widget<TMessage>[] {
+  return sectionedContent(options.id, [
+    { id: 'title', children: labelRows<TMessage>(options.title, childId(options.id, 'title'), 'heading') },
+    { id: 'body', children: childrenArray(options.body) },
+    { id: 'footer', children: childrenArray(options.footer) }
+  ]);
+}
+
+function sectionedContent<TMessage>(
+  id: string | undefined,
+  sections: readonly {
+    readonly id: string;
+    readonly children: readonly Widget<TMessage>[];
+  }[]
+): readonly Widget<TMessage>[] {
+  const visibleSections = sections.filter((section) => section.children.length > 0);
+  return visibleSections.flatMap((section, index): readonly Widget<TMessage>[] => [
+    ...(index === 0 ? [] : [sectionDivider<TMessage>(id, section.id)]),
+    ...section.children
+  ]);
+}
+
+function sectionDivider<TMessage>(id: string | undefined, suffix: string): Widget<TMessage> {
+  return divider<TMessage>({
+    id: childId(id, `${suffix}-divider`),
+    line: 'single',
+    overflowPriority: 'decorative'
   });
 }
 

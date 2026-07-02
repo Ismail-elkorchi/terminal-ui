@@ -5,6 +5,7 @@ import type { BorderStyle } from './border.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
 import type { Rect } from './layout.ts';
 import type { TerminalStyle } from './render-primitives.ts';
+import { drawSurfaceShadow } from './surface.ts';
 import { stringify } from './widget-props.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TooltipPlacement, TooltipTone, Widget } from '../widgets/index.ts';
@@ -28,6 +29,7 @@ export function renderTooltip(widget: Widget, buffer: FrameBuffer, bounds: Rect,
   const tone = tooltipTone(widget);
   const border = tooltipBorder(widget, tone);
   fillTooltipBackground(buffer, bounds, tooltipBackgroundStyle(tone));
+  drawSurfaceShadow(buffer, bounds);
   drawBorder(buffer, bounds, border, theme);
   const contentBounds = {
     row: bounds.row + 1,

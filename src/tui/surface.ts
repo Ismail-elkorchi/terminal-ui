@@ -79,7 +79,7 @@ function surfaceBorderStyle(widget: Widget, border: BorderStyle, variant: Surfac
   return style === undefined ? border : { ...border, style };
 }
 
-function surfaceBackgroundStyle(widget: Widget, variant: SurfaceVariant): TerminalStyle {
+export function surfaceBackgroundStyle(widget: Widget, variant: SurfaceVariant): TerminalStyle {
   return mergeStyles(
     { bg: { kind: 'theme', token: surfaceBackgroundToken(variant) } },
     widget.styles?.root
@@ -92,7 +92,7 @@ function surfaceBorderTokenStyle(variant: SurfaceVariant): TerminalStyle {
   };
 }
 
-function fillSurfaceBackground(buffer: FrameBuffer, bounds: Rect, style: TerminalStyle): void {
+export function fillSurfaceBackground(buffer: FrameBuffer, bounds: Rect, style: TerminalStyle): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const text = ' '.repeat(bounds.width);
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
@@ -104,7 +104,7 @@ function fillSurfaceBackground(buffer: FrameBuffer, bounds: Rect, style: Termina
   }
 }
 
-function drawSurfaceShadow(buffer: FrameBuffer, bounds: Rect): void {
+export function drawSurfaceShadow(buffer: FrameBuffer, bounds: Rect): void {
   if (bounds.width <= 3 || bounds.height <= 3) return;
   const style: TerminalStyle = { fg: { kind: 'theme', token: 'surface.shadow' }, dim: true };
   const rightColumn = bounds.column + bounds.width - 2;

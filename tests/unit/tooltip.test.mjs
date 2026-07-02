@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { resolveTerminalCapabilities } from '../../dist/host/index.js';
+import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { highContrastTheme } from '../../dist/theme/index.js';
 import { placeTooltip, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
 import { tooltip } from '../../dist/widgets/index.js';
 
@@ -14,11 +17,25 @@ test('tooltip renders bounded popover content with semantic surface tokens', () 
   const output = renderFramePlain(frame);
   const border = frame.cells.find((cell) => cell.source?.role === 'border');
   const content = frame.cells.find((cell) => cell.text === 'U');
+  const highContrastFrame = renderWidgetFrame(tooltip({
+    id: 'tip-hc',
+    title: 'Hint',
+    content: ['Use Enter', 'Press Esc'],
+    tone: 'info'
+  }), { columns: 14, rows: 4 }, { theme: highContrastTheme });
+  const noColor = createVisualSnapshot({
+    frame: highContrastFrame,
+    ansi: { capabilities: noColorCapabilities(), theme: highContrastTheme }
+  });
 
   assert.match(output, /Hint/u);
   assert.match(output, /Use Enter/u);
   assert.deepEqual(border?.style?.fg, { kind: 'theme', token: 'surface.selected.border' });
   assert.deepEqual(content?.style?.fg, { kind: 'theme', token: 'text.default' });
+  assert.equal(frame.cells.some((cell) => cell.source?.label === 'shadow'), true);
+  assert.equal(highContrastFrame.cells.some((cell) => cell.source?.label === 'shadow'), true);
+  assert.match(noColor.plainTextFrame, /Hint/u);
+  assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
   assert.equal(frame.accessibility.root.scope?.kind, 'popover');
   assert.equal(frame.accessibility.root.live, 'polite');
 });
@@ -49,3 +66,26 @@ test('tooltip placement flips and clamps inside viewport', () => {
     placement: 'above'
   }), { row: 1, column: 1, width: 30, height: 10 });
 });
+
+function colorCapabilities() {
+  return resolveTerminalCapabilities({
+    host: {
+      runtime: 'memory',
+      inputIsTty: true,
+      outputIsTty: true,
+      rawInput: true
+    }
+  });
+}
+
+function noColorCapabilities() {
+  return {
+    ...colorCapabilities(),
+    color: {
+      depth: 0,
+      hasBasicColors: false,
+      has256Colors: false,
+      hasTrueColor: false
+    }
+  };
+}
