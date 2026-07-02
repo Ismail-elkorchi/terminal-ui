@@ -10,20 +10,15 @@ import {
   absolute,
   activityFeed,
   activityIndicator,
-  accordion,
   areaGrid,
   barChart,
   box,
-  breadcrumb,
   button,
   canvas,
-  carousel,
   chart,
   checkbox,
   checkboxList,
-  collapsibleSection,
   commandBar,
-  commandPalette,
   contextMenu,
   colorPicker,
   datePicker,
@@ -53,7 +48,6 @@ import {
   row,
   scrollback,
   selectBox,
-  shortcutBar,
   sparkline,
   spinner,
   splitPane,
@@ -64,7 +58,6 @@ import {
   slider,
   table,
   tabs,
-  tabOverflowMenu,
   text,
   textArea,
   textInput,
@@ -599,103 +592,6 @@ const cases = [
     expectFocus: true
   },
   {
-    name: 'commandPalette',
-    widget: () => commandPalette({
-      id: 'command-palette',
-      title: unsafe,
-      entries: [
-        { id: 'open', label: unsafe, preview: 'Preview' },
-        { id: 'close', label: 'Close', disabled: true }
-      ],
-      selectedId: 'open'
-    }),
-    expectText: /Preview/u,
-    expectFocus: true
-  },
-  {
-    name: 'breadcrumb',
-    widget: () => breadcrumb({
-      id: 'breadcrumb',
-      items: [
-        { id: 'home', label: unsafe, message: { kind: 'home' } },
-        { id: 'routes', label: 'Routes', message: { kind: 'routes' } }
-      ]
-    }),
-    expectText: /Routes/u,
-    expectFocus: true,
-    expectHitTargets: true
-  },
-  {
-    name: 'collapsibleSection',
-    widget: () => collapsibleSection({
-      id: 'collapsible',
-      title: unsafe,
-      expanded: true,
-      message: { kind: 'toggle' },
-      body: text('Section body')
-    }),
-    expectText: /Section body/u,
-    expectFocus: true,
-    expectHitTargets: true
-  },
-  {
-    name: 'accordion',
-    widget: () => accordion({
-      id: 'accordion',
-      items: [
-        { id: 'one', title: unsafe, expanded: true, body: text('First body'), message: { kind: 'one' } },
-        { id: 'two', title: 'Second', body: text('Hidden body'), message: { kind: 'two' } }
-      ]
-    }),
-    expectText: /First body/u,
-    expectFocus: true,
-    expectHitTargets: true
-  },
-  {
-    name: 'carousel',
-    widget: () => carousel({
-      id: 'carousel',
-      selected: 'one',
-      previousMessage: { kind: 'previous' },
-      nextMessage: { kind: 'next' },
-      items: [
-        { id: 'one', label: unsafe, body: text('Carousel body'), message: { kind: 'one' } },
-        { id: 'two', label: 'Second', body: text('Second body'), message: { kind: 'two' } }
-      ]
-    }),
-    expectText: /Carousel body/u,
-    expectFocus: true,
-    expectHitTargets: true
-  },
-  {
-    name: 'tabOverflowMenu',
-    widget: () => tabOverflowMenu({
-      id: 'tab-overflow',
-      selected: 'one',
-      maxVisible: 1,
-      tabs: [
-        { id: 'one', label: unsafe, message: { kind: 'one' } },
-        { id: 'two', label: 'Second', message: { kind: 'two' } }
-      ]
-    }),
-    expectText: /Sec/u,
-    expectFocus: true,
-    expectHitTargets: true
-  },
-  {
-    name: 'shortcutBar',
-    widget: () => shortcutBar({
-      id: 'shortcut-bar',
-      shortcuts: [
-        { id: 'palette', key: '/', label: unsafe, message: { kind: 'palette' } },
-        { id: 'save', key: 'Ctrl+S', label: 'Save', message: { kind: 'save' } }
-      ]
-    }),
-    expectText: /Save/u,
-    expectFocus: true,
-    expectHitTargets: true
-  },
-  {
     name: 'areaGrid',
     widget: () => areaGrid({
       id: 'area-grid',
@@ -767,23 +663,18 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
   const names = cases.map((item) => item.name).sort();
   assert.deepEqual(names, [
     'absolute',
-    'accordion',
     'activityFeed',
     'activityIndicator',
     'areaGrid',
     'barChart',
     'box',
-    'breadcrumb',
     'button',
     'canvas',
-    'carousel',
     'chart',
     'checkbox',
     'checkboxList',
-    'collapsibleSection',
     'colorPicker',
     'commandBar',
-    'commandPalette',
     'contextMenu',
     'datePicker',
     'divider',
@@ -812,7 +703,6 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
     'row',
     'scrollback',
     'selectBox',
-    'shortcutBar',
     'slider',
     'sparkline',
     'spinner',
@@ -821,7 +711,6 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
     'statusBar',
     'structuredBlock',
     'surface',
-    'tabOverflowMenu',
     'table',
     'tabs',
     'text',

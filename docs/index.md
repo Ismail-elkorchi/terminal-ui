@@ -21,8 +21,6 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 
 ## Examples
 
-- `examples/showcase/app.mjs` demonstrates the full-screen Northstar Control app.
-- `examples/showcase/scripted.mjs` drives the same app through deterministic runtime state changes.
 - `examples/prompts/non-tty-input.mjs` demonstrates deterministic non-TTY prompt input.
 - `examples/shell/cli-core-shell.mjs` demonstrates a shell backed by a real `cli-core` program.
 - `examples/testing/harness.mjs` demonstrates the memory testing harness.

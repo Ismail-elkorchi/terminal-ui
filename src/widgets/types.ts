@@ -123,17 +123,6 @@ export type WidgetTextRole =
   | 'warning'
   | 'success';
 
-export type WidgetAnatomyRole =
-  | 'header'
-  | 'body'
-  | 'footer'
-  | 'toolbar'
-  | 'status'
-  | 'actions'
-  | 'empty';
-
-export type WidgetDensityRole = 'compact' | 'normal' | 'spacious';
-
 export interface WidgetStyleSlots {
   readonly root?: TerminalStyle;
   readonly border?: TerminalStyle;
@@ -981,16 +970,6 @@ export interface CommandBarWidgetOptions<TMessage = never> extends WidgetLayerOp
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface CommandPaletteEntry {
-  readonly id: string;
-  readonly label: string;
-  readonly group?: string;
-  readonly description?: string;
-  readonly keywords?: readonly string[];
-  readonly disabled?: boolean;
-  readonly preview?: string;
-}
-
 export interface PaletteEntry<TValue = string> {
   readonly id: string;
   readonly label: string;
@@ -1007,23 +986,6 @@ export interface PaletteWidgetOptions<TValue = string, TMessage = never> extends
   readonly title?: string;
   readonly query?: string;
   readonly entries: readonly PaletteEntry<TValue>[];
-  readonly selected?: number;
-  readonly selectedId?: string;
-  readonly scroll?: ScrollState;
-  readonly scrollbar?: ScrollbarOptions;
-  readonly maxVisible?: number;
-  readonly helpText?: string;
-  readonly emptyText?: string;
-  readonly keyMap?: WidgetKeyMap<TMessage>;
-  readonly inputMap?: WidgetInputMap<TMessage>;
-  readonly accessibility?: AccessibleNodeDefinition;
-}
-
-export interface CommandPaletteWidgetOptions<TMessage = never> extends WidgetLayerOptions {
-  readonly id?: string;
-  readonly title?: string;
-  readonly query?: string;
-  readonly entries: readonly CommandPaletteEntry[];
   readonly selected?: number;
   readonly selectedId?: string;
   readonly scroll?: ScrollState;

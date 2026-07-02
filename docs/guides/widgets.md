@@ -9,29 +9,22 @@ paginator, input-field, form, field, label, button, checkbox, radio group,
 select box, text input, number input, toggle switch, slider, range slider,
 checkbox list, color picker, date picker, menu, menu bar, context menu,
 dropdown, divider, tooltip, notification stack, canvas, surface, absolute
-placement, overlay, command bar, command palette, status bar, help bar,
-activity indicator, progress bar, spinner, sparkline, bar chart, chart, gauge,
-heatmap, viewport, and scrollback widgets, plus structured blocks and activity
-feeds.
+placement, overlay, command bar, palette, status bar, help bar, activity
+indicator, progress bar, spinner, sparkline, bar chart, chart, gauge, heatmap,
+viewport, and scrollback widgets, plus structured blocks and activity feeds.
 
 Widget metadata drives layout, focus routing, rendering, and accessible
 snapshots.
 
-The shared visual grammar lives on existing widget and component options, not
-in a separate recipe layer. `text()` accepts semantic `textRole` values such as
+The shared visual grammar lives on existing widget options, not in a separate
+recipe or product-component layer. `text()` accepts semantic `textRole` values such as
 `title`, `heading`, `caption`, `metadata`, `metric`, `badge`, `danger`,
-`warning`, and `success`; renderers map those roles to theme tokens. Chrome
-components such as `panel()`, `topBar()`, `sidePanel()`, `commandDock()`,
-`statusDock()`, and `drawer()` expose ordinary anatomy and density options so
-applications can compose headers, actions, status, footers, compact surfaces,
-and spacious surfaces without changing runtime behavior.
+`warning`, and `success`; renderers map those roles to theme tokens.
 
 Widgets can also declare `overflowPriority` metadata: `required`,
 `important`, `secondary`, or `decorative`. Row layout uses this metadata when
 space is tight so identity/status content keeps more room than secondary or
-decorative content. Chrome components assign sensible defaults to their own
-title, actions, status, and secondary regions while preserving any explicit
-priority already set on caller-provided child widgets.
+decorative content.
 
 For renderer-facing implementation guidance, see
 [Building polished widgets](./building-polished-widgets.md). For the frame,
@@ -189,8 +182,7 @@ and completion acceptance. `palette()` renders a bounded fuzzy-filtered entry
 list with highlighted matches, disabled entries, preview/help rows, stable
 selection, scroll offsets, and empty states. The pure `filterPaletteEntries()`
 and `paletteWindow()` helpers keep filtering and selection independent from
-shells or application commands. `commandPalette()` is only a small
-command-shaped convenience factory over `palette()`.
+shells or application commands.
 
 `grid()` lays children into row/column tracks. `splitPane()` divides children
 along one axis with fixed, percent, content, or fill layout sizes. Stack, row,
@@ -205,7 +197,6 @@ so hidden panels do not participate in focus traversal. `modal()` centers a
 bounded dialog and lays child content inside the border. These are layout
 primitives; screen-specific state and application routing stay outside widgets.
 
-Executable examples:
+Executable example:
 
-- `examples/showcase/app.mjs`
-- `examples/showcase/scripted.mjs`
+- `examples/testing/harness.mjs`

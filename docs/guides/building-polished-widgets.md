@@ -81,7 +81,6 @@ A polished widget should have tests that prove:
 - tiny viewports clip instead of crashing;
 - raw control sequences are sanitized.
 
-Executable examples:
+Executable example:
 
-- `examples/showcase/app.mjs`
-- `examples/showcase/scripted.mjs`
+- `examples/testing/harness.mjs`

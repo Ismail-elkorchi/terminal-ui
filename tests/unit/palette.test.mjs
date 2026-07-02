@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { filterPaletteEntries, paletteWindow, renderWidgetFrame } from '../../dist/tui/index.js';
-import { commandPalette, palette } from '../../dist/widgets/index.js';
+import { palette } from '../../dist/widgets/index.js';
 
 const entries = [
   { id: 'open-file', label: 'Open File', group: 'Files', value: { kind: 'file' }, description: 'Open a file', keywords: ['file'], preview: 'src/index.ts' },
@@ -98,22 +98,4 @@ test('palette widget renders empty states for unrelated queries', () => {
 
   const text = frame.cells.map((cell) => cell.text).join('');
   assert.match(text, /No available entries/u);
-});
-
-test('commandPalette is a thin command-specialized palette factory', () => {
-  const widget = commandPalette({
-    id: 'commands',
-    query: '',
-    entries: [
-      { id: 'open', label: 'Open' }
-    ],
-    inputMap: {
-      text: (value) => ({ type: 'query', value }),
-      paste: (value) => ({ type: 'query', value })
-    }
-  });
-
-  assert.equal(widget.kind, 'palette');
-  assert.deepEqual(widget.inputMap?.text?.('r'), { type: 'query', value: 'r' });
-  assert.deepEqual(widget.inputMap?.paste?.('run'), { type: 'query', value: 'run' });
 });

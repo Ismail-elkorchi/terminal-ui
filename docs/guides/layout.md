@@ -27,7 +27,6 @@ objects.
 See [Rendering internals](./rendering-internals.md) for the frame, diff, and
 serialization pipeline that consumes layout output.
 
-Executable examples:
+Executable example:
 
-- `examples/showcase/app.mjs`
-- `examples/showcase/scripted.mjs`
+- `examples/testing/harness.mjs`

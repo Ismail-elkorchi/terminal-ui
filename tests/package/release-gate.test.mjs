@@ -181,7 +181,6 @@ test('documentation local links resolve', async () => {
 test('examples stay hand-written and generated visual fixture trees stay absent', async () => {
   for (const directory of [
     '../../docs/gallery/',
-    '../../examples/showcase/fixtures/',
     '../../tests/fixtures/'
   ]) {
     await assert.rejects(access(new URL(directory, import.meta.url)), directory);
@@ -383,13 +382,6 @@ test('terminal text indexing and editing stay centralized', async () => {
     }
   }
 
-  const showcaseSources = await Promise.all(
-    (await sourceFiles(new URL('../../examples/showcase/', import.meta.url), '.mjs')).map(async (file) => ({
-      file,
-      source: await readFile(file, 'utf8')
-    }))
-  );
-  const showcase = showcaseSources.map((entry) => entry.source).join('\n');
   const commandBar = await readFile(new URL('../../src/tui/command-bar.ts', import.meta.url), 'utf8');
   const commandSurface = await readFile(new URL('../../src/tui/command-surface.ts', import.meta.url), 'utf8');
   const commandVisual = await readFile(new URL('../../src/tui/command-visual.ts', import.meta.url), 'utf8');
@@ -403,12 +395,6 @@ test('terminal text indexing and editing stay centralized', async () => {
   const documentVisual = await readFile(new URL('../../src/tui/document-visual.ts', import.meta.url), 'utf8');
   const chartWidgets = await readFile(new URL('../../src/tui/chart-widgets.ts', import.meta.url), 'utf8');
   const chartVisual = await readFile(new URL('../../src/tui/chart-visual.ts', import.meta.url), 'utf8');
-  const navigationWidgets = await readFile(new URL('../../src/widgets/navigation.ts', import.meta.url), 'utf8');
-  const navigationVisual = await readFile(new URL('../../src/widgets/navigation-visual.ts', import.meta.url), 'utf8');
-  const dialogWidgets = await readFile(new URL('../../src/widgets/dialogs.ts', import.meta.url), 'utf8');
-  const dialogVisual = await readFile(new URL('../../src/widgets/dialog-visual.ts', import.meta.url), 'utf8');
-  const fileWidgets = await readFile(new URL('../../src/widgets/file-explorer.ts', import.meta.url), 'utf8');
-  const fileVisual = await readFile(new URL('../../src/widgets/file-visual.ts', import.meta.url), 'utf8');
   const dataRenderers = await readFile(new URL('../../src/tui/renderers/data-renderers.ts', import.meta.url), 'utf8');
   const textWidgets = await readFile(new URL('../../src/tui/text-widgets.ts', import.meta.url), 'utf8');
   const textRenderers = await readFile(new URL('../../src/tui/renderers/text-renderers.ts', import.meta.url), 'utf8');
@@ -416,9 +402,6 @@ test('terminal text indexing and editing stay centralized', async () => {
   const textTypes = await readFile(new URL('../../src/text/types.ts', import.meta.url), 'utf8');
   const textAreaEdit = await readFile(new URL('../../src/text/text-area-edit.ts', import.meta.url), 'utf8');
 
-  assert.match(showcase, /from '@ismail-elkorchi\/terminal-ui\/text'/u);
-  assert.match(showcase, /\beditTextBuffer\b/u);
-  assert.doesNotMatch(showcase, /\.slice\(0,\s*-1\)/u);
   assert.match(commandBar, /from '\.\/text-display\.ts'/u);
   assert.match(commandBar, /from '\.\/command-visual\.ts'/u);
   assert.match(commandVisual, /from '\.\/text-highlight\.ts'/u);
@@ -440,15 +423,6 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(documentVisual, /\bdocumentFieldSpans\b/u);
   assert.match(chartWidgets, /from '\.\/chart-visual\.ts'/u);
   assert.match(chartVisual, /\bchartStateBlock\b/u);
-  assert.match(navigationWidgets, /from '\.\/navigation-visual\.ts'/u);
-  assert.match(navigationVisual, /\bnavigationSeparator\b/u);
-  assert.match(navigationVisual, /\bnavigationStatus\b/u);
-  assert.match(dialogWidgets, /from '\.\/dialog-visual\.ts'/u);
-  assert.match(dialogVisual, /\bdialogActionWidgets\b/u);
-  assert.match(dialogVisual, /\bdialogStepSummary\b/u);
-  assert.match(fileWidgets, /from '\.\/file-visual\.ts'/u);
-  assert.match(fileVisual, /\bfileBreadcrumbRow\b/u);
-  assert.match(fileVisual, /\bfilePreviewTitle\b/u);
   assert.match(dataRenderers, /\bsparklineBlock\b/u);
   assert.match(dataRenderers, /\bbarChartBlock\b/u);
   assert.match(dataRenderers, /\bchartBlock\b/u);
@@ -468,9 +442,6 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.doesNotMatch(menuWidgets, /function menuItemStyle/u);
   assert.doesNotMatch(feedbackRenderers, /\bwriteBlock\b/u);
   assert.doesNotMatch(dataRenderers, /sparklineText|barChartText|chartText|gaugeText|heatmapText/u);
-  assert.doesNotMatch(navigationWidgets, /function navigationButton/u);
-  assert.doesNotMatch(dialogWidgets, /function actionWidgets|function messageWidgets/u);
-  assert.doesNotMatch(fileWidgets, /function actionRow|function breadcrumbRow/u);
   const palette = await readFile(new URL('../../src/tui/palette.ts', import.meta.url), 'utf8');
   const scrollback = await readFile(new URL('../../src/tui/scrollback.ts', import.meta.url), 'utf8');
   assert.match(palette, /from '\.\/command-visual\.ts'/u);

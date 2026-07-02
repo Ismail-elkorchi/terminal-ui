@@ -84,6 +84,6 @@ plain text, accessibility JSON, and deterministic preview artifacts. Use these
 snapshots to test renderer-visible behavior instead of host-specific terminal
 screenshots.
 
-Executable examples:
+Executable example:
 
-- `examples/showcase/app.mjs`
+- `examples/testing/harness.mjs`

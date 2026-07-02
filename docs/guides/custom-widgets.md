@@ -46,6 +46,6 @@ and canvas painters, see [Rendering internals](./rendering-internals.md). For
 state, focus, hit-target, and style-slot expectations, see
 [Building polished widgets](./building-polished-widgets.md).
 
-Executable examples:
+Executable example:
 
-- `examples/showcase/app.mjs`
+- `examples/testing/harness.mjs`

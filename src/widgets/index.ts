@@ -11,7 +11,6 @@ export {
   checkbox,
   checkboxList,
   commandBar,
-  commandPalette,
   contextMenu,
   colorPicker,
   datePicker,
@@ -99,42 +98,6 @@ export {
   viewportVariant
 } from './responsive.ts';
 export {
-  actionBar,
-  bottomBar,
-  commandDock,
-  contentHeader,
-  drawer,
-  panel,
-  sidePanel,
-  statusDock,
-  toolbar,
-  topBar
-} from './components.ts';
-export {
-  accordion,
-  breadcrumb,
-  carousel,
-  collapsibleSection,
-  shortcutBar,
-  tabOverflowMenu
-} from './navigation.ts';
-export {
-  confirmDialog,
-  floatingWindow,
-  inputDialog,
-  messageBox,
-  wizardDialog
-} from './dialogs.ts';
-export {
-  fileDialog,
-  fileExplorer,
-  fileExplorerBreadcrumbs,
-  fileExplorerEntriesToTreeNodes
-} from './file-explorer.ts';
-export {
-  windowReducer
-} from './behavior/windows.ts';
-export {
   followTailScrollState,
   nextScrollbackMatch,
   scrollbackReducer,
@@ -183,51 +146,6 @@ export type {
   ResponsiveVariants,
   ViewportDimensions
 } from './responsive.ts';
-export type {
-  ActionBarOptions,
-  AppBarOptions,
-  CommandDockOptions,
-  ContentHeaderOptions,
-  DrawerOptions,
-  PanelOptions,
-  SidePanelOptions,
-  StatusDockOptions,
-  ToolbarOptions
-} from './components.ts';
-export type {
-  AccordionItem,
-  AccordionOptions,
-  BreadcrumbOptions,
-  CarouselItem,
-  CarouselOptions,
-  CollapsibleSectionOptions,
-  NavigationAction,
-  ShortcutBarOptions,
-  ShortcutItem,
-  TabOverflowItem,
-  TabOverflowMenuOptions
-} from './navigation.ts';
-export type {
-  ConfirmDialogOptions,
-  DialogAction,
-  FloatingWindowOptions,
-  InputDialogOptions,
-  MessageBoxOptions,
-  WizardDialogOptions,
-  WizardStep
-} from './dialogs.ts';
-export type {
-  FileDialogOptions,
-  FileExplorerBreadcrumb,
-  FileExplorerEntry,
-  FileExplorerEntryKind,
-  FileExplorerWidgetOptions
-} from './file-explorer.ts';
-export type {
-  WindowAction,
-  WindowGeometry,
-  WindowReducerOptions
-} from './behavior/windows.ts';
 export type {
   ScrollbackAction,
   ScrollbackSearchMark,

@@ -45,7 +45,6 @@ import type {
   Widget,
   WidgetChildren,
   CommandBarWidgetOptions,
-  CommandPaletteWidgetOptions,
   CustomWidgetOptions,
   GridWidgetOptions,
   GaugeWidgetOptions,
@@ -975,16 +974,6 @@ export function palette<TValue, TMessage>(options: PaletteWidgetOptions<TValue, 
     },
     ...interactionOptions(options)
   };
-}
-
-export function commandPalette<TMessage>(options: CommandPaletteWidgetOptions<TMessage>): Widget<TMessage> {
-  return palette({
-    ...options,
-    entries: options.entries.map((entry) => ({
-      ...entry,
-      value: entry.id
-    }))
-  });
 }
 
 export function areaGrid<TMessage>(options: AreaGridWidgetOptions<TMessage>): Widget<TMessage> {

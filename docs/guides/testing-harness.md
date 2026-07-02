@@ -23,9 +23,8 @@ adapter is unavailable, it returns a typed diagnostic instead of skipping with
 ambient process state.
 
 Executable examples are tested directly by the package suite. The tests run
-each public example, assert successful process output, and check focused
-semantic markers for showcase examples. This keeps examples reviewable without
-maintaining generated stdout snapshots.
+each public example and assert successful process output. This keeps examples
+reviewable without maintaining generated stdout snapshots.
 
 Renderer and widget regression tests should prove current public behavior:
 styled cells, spans, blocks, frame JSON, diffs, ANSI, focus targets, hit

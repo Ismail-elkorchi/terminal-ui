@@ -103,7 +103,6 @@ snapshots. For application navigation, use the pure `screenStackReducer()` and
 `activeScreen()` helpers; a screen stack is serializable state, not a hidden
 runtime mode.
 
-Executable examples:
+Executable example:
 
-- `examples/showcase/app.mjs`
-- `examples/showcase/scripted.mjs`
+- `examples/testing/harness.mjs`

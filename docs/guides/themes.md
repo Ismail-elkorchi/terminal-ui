@@ -39,7 +39,6 @@ For renderer-facing style behavior, see
 [Rendering internals](./rendering-internals.md). For state and slot guidance,
 see [Building polished widgets](./building-polished-widgets.md).
 
-Executable examples:
+Executable example:
 
-- `examples/showcase/app.mjs`
-- `examples/showcase/scripted.mjs`
+- `examples/testing/harness.mjs`
