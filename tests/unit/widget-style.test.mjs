@@ -107,7 +107,7 @@ test('button states use shared styles and structural markers', () => {
   assert.equal(destructiveFrame.cells.find((cell) => cell.text === '×')?.source?.label, 'state.marker');
   assert.equal(pressedFrame.cells.find((cell) => cell.text === '●')?.source?.label, 'state.marker');
   assert.equal(disabledFrame.cells.find((cell) => cell.text === '-')?.source?.label, 'state.marker');
-  assert.equal(disabledFrame.cells.find((cell) => cell.text === 'D')?.source?.label, 'label');
+  assert.equal(disabledFrame.cells.find((cell) => cell.text === 'D')?.source?.label, 'label.text');
 });
 
 test('text entry chrome uses shared border focus and error styles', () => {
@@ -431,7 +431,7 @@ test('choice and picker controls use shared form visual styles and source metada
   assert.equal(toggleFrame.cells.find((cell) => cell.source?.label === 'value.off')?.style?.fg?.token, 'input.placeholder');
   assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.label === 'track.handle')?.bg?.token, 'selection.background');
   assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.label === 'track.filled')?.fg?.token, 'accent.secondary');
-  assert.equal(checkboxFrame.cells.find((cell) => cell.text === 'x')?.source?.label, 'option.marker.checked');
+  assert.equal(checkboxFrame.cells.find((cell) => cell.text === 'x')?.source?.label, 'option.a.marker.checked');
   assert.equal(styleForCell(colorFrame, (cell) => cell.source?.label === 'summary.swatch')?.bg?.token, 'selection.background');
   assert.equal(colorFrame.cells.find((cell) => cell.source?.label === 'option.green.swatch')?.text, '■');
   assert.equal(dateFrame.cells.find((cell) => cell.source?.label === 'weekday.mo')?.style?.fg?.token, 'text.muted');

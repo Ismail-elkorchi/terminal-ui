@@ -1,5 +1,6 @@
 import { clipTextCells, sanitizeTerminalText, terminalTextWidth } from '../text/index.ts';
 import { block, line, span } from './frame.ts';
+import { formSource, type FormVisualKind } from './form-visual.ts';
 import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn, visibleLineWindow } from './text-display.ts';
 import { widgetStyle } from './widget-style.ts';
 import type { TextSelection } from '../text/index.ts';
@@ -48,9 +49,9 @@ export function singleLineInputBlock(input: SingleLineInputBlockInput): RenderBl
     }
   );
   return block([line([
-    styledSpan(model.prefix, model.chromeStyle, inputSource(input.widget, 'chrome.prefix', 'decoration')),
+    styledSpan(model.prefix, model.chromeStyle, inputSource(input.widget, 'chrome', 'chrome.prefix')),
     ...clipSpans(contentSpans, Math.max(0, input.bounds.width - model.prefixWidth - model.suffixWidth)),
-    styledSpan(model.suffix, model.chromeStyle, inputSource(input.widget, 'chrome.suffix', 'decoration'))
+    styledSpan(model.suffix, model.chromeStyle, inputSource(input.widget, 'chrome', 'chrome.suffix'))
   ])]);
 }
 
@@ -60,7 +61,7 @@ export function singleLineInputCursor(input: SingleLineInputBlockInput): CursorP
   return {
     row: input.bounds.row,
     column: input.bounds.column + model.prefixWidth + singleLineCursorColumn(input.value, input.cursor, Math.max(0, contentWidth - 1)),
-    source: inputSource(input.widget, 'cursor', 'cursor')
+    source: inputSource(input.widget, 'cursor')
   };
 }
 
@@ -77,7 +78,7 @@ export function textAreaInputLine(input: TextAreaInputBlockInput, lineInput: {
     ? undefined
     : selectionIntersection(input.selection, lineInput.lineRecord.start + window.startOffset, lineInput.lineRecord.start + window.endOffset);
   return line([
-    styledSpan(prefix, inputChromeStyle(input.widget, input.focused === true), inputSource(input.widget, 'chrome.prefix', 'decoration')),
+    styledSpan(prefix, inputChromeStyle(input.widget, input.focused === true), inputSource(input.widget, 'chrome', 'chrome.prefix')),
     ...selectedTextSpans(
       window.text,
       selectionInWindow === undefined
@@ -111,7 +112,7 @@ export function textAreaInputCursor(input: {
       Math.max(0, input.bounds.width - prefixWidth - 1),
       Math.max(0, input.columnCells - input.offsetColumn)
     )),
-    source: inputSource(input.widget, 'cursor', 'cursor')
+    source: inputSource(input.widget, 'cursor')
   };
 }
 
@@ -218,11 +219,6 @@ function styledSpan(text: string, style: TerminalStyle | undefined, source: Fram
   });
 }
 
-function inputSource(widget: Widget, label: string, role: FrameCellSource['role'] = 'text'): FrameCellSource {
-  return {
-    ...(widget.id === undefined ? {} : { id: widget.id }),
-    kind: widget.kind,
-    role,
-    label
-  };
+function inputSource(widget: Widget, visual: FormVisualKind, label: string = visual): FrameCellSource {
+  return formSource(widget, visual, label);
 }

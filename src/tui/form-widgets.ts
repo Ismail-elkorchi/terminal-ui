@@ -11,6 +11,7 @@ import {
   formPlaceholderStyle,
   formSpan,
   formValueStyle,
+  labelSpans,
   optionControlState,
   separatorSpan
 } from './form-visual.ts';
@@ -50,23 +51,24 @@ export function formBlock(widget: Widget, bounds: Rect): RenderBlock {
   const title = formTitle(widget);
   if (title.length === 0 || bounds.height <= 0) return block([]);
   return block([clippedFormLine([
-    formSpan(widget, 'title', title, widgetStyle(widget, 'title'))
+    formSpan(widget, 'title', 'form.title', title, widgetStyle(widget, 'title'))
   ], bounds.width)]);
 }
 
 export function fieldBlock(widget: Widget, bounds: Rect): RenderBlock {
-  return block(fieldHeaderLines(widget).slice(0, Math.max(0, bounds.height)).map((item) => {
-    return clippedFormLine([
-      formSpan(widget, item.label, item.text, item.style)
-    ], bounds.width);
-  }));
+  return block(fieldHeaderLines(widget).slice(0, Math.max(0, bounds.height)).map((item) =>
+    clippedFormLine(item, bounds.width)
+  ));
 }
 
 export function labelBlock(widget: Widget, bounds: Rect): RenderBlock {
-  const text = labelText(widget);
-  return block([clippedFormLine([
-    formSpan(widget, 'label', text, formLabelStyle(widget, widget.props['disabled'] === true ? 'disabled' : undefined))
-  ], bounds.width)]);
+  return block([clippedFormLine(labelSpans(
+    widget,
+    'label',
+    clean(stringify(widget.props['text'])),
+    widget.props['disabled'] === true ? 'disabled' : undefined,
+    widget.props['required'] === true
+  ), bounds.width)]);
 }
 
 export function buttonBlock(widget: Widget, bounds: Rect, focused = false, theme: TerminalTheme): RenderBlock {
@@ -77,13 +79,12 @@ export function buttonBlock(widget: Widget, bounds: Rect, focused = false, theme
 export function checkboxBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const checked = widget.props['checked'] === true;
   const symbol = checked ? theme.symbols.checkboxChecked : theme.symbols.checkboxUnchecked;
-  const label = labelWithRequired(clean(stringify(widget.props['label'])), widget.props['required'] === true);
   const state = formControlState(widget, checked);
   const lines = [
     clippedFormLine([
-      formSpan(widget, checked ? 'marker.checked' : 'marker.unchecked', symbol, formMarkerStyle(widget, state), 'decoration'),
+      formSpan(widget, 'marker', checked ? 'marker.checked' : 'marker.unchecked', symbol, formMarkerStyle(widget, state)),
       separatorSpan(widget),
-      formSpan(widget, 'label', label, formLabelStyle(widget, state))
+      ...labelSpans(widget, 'label', clean(stringify(widget.props['label'])), state, widget.props['required'] === true)
     ], bounds.width),
     ...errorLines(widget, bounds.width)
   ];
@@ -102,22 +103,22 @@ export function toggleSwitchBlock(widget: Widget, bounds: Rect): RenderBlock {
       ...controlPrefixSpans(widget, label, formControlState(widget)),
       ...(checked
         ? [
-            formSpan(widget, 'value.on.open', '[', formMarkerStyle(widget, enabledState), 'decoration'),
+            formSpan(widget, 'chrome', 'value.on.open', '[', formMarkerStyle(widget, enabledState)),
             separatorSpan(widget),
-            formSpan(widget, 'value.on', onLabel, formValueStyle(widget, enabledState)),
+            formSpan(widget, 'value', 'value.on', onLabel, formValueStyle(widget, enabledState)),
             separatorSpan(widget),
-            formSpan(widget, 'value.on.close', ']', formMarkerStyle(widget, enabledState), 'decoration'),
+            formSpan(widget, 'chrome', 'value.on.close', ']', formMarkerStyle(widget, enabledState)),
             separatorSpan(widget),
-            formSpan(widget, 'value.off', offLabel, formPlaceholderStyle(widget))
+            formSpan(widget, 'placeholder', 'value.off', offLabel, formPlaceholderStyle(widget))
           ]
         : [
-            formSpan(widget, 'value.on', onLabel, formPlaceholderStyle(widget)),
+            formSpan(widget, 'placeholder', 'value.on', onLabel, formPlaceholderStyle(widget)),
             separatorSpan(widget),
-            formSpan(widget, 'value.off.open', '[', formMarkerStyle(widget, disabledState), 'decoration'),
+            formSpan(widget, 'chrome', 'value.off.open', '[', formMarkerStyle(widget, disabledState)),
             separatorSpan(widget),
-            formSpan(widget, 'value.off', offLabel, formValueStyle(widget, disabledState)),
+            formSpan(widget, 'value', 'value.off', offLabel, formValueStyle(widget, disabledState)),
             separatorSpan(widget),
-            formSpan(widget, 'value.off.close', ']', formMarkerStyle(widget, disabledState), 'decoration')
+            formSpan(widget, 'chrome', 'value.off.close', ']', formMarkerStyle(widget, disabledState))
           ])
     ], bounds.width),
     ...errorLines(widget, bounds.width)
@@ -134,7 +135,7 @@ export function sliderBlock(widget: Widget, bounds: Rect): RenderBlock {
       ...controlPrefixSpans(widget, label, state),
       ...sliderTrackSpans(widget, model),
       separatorSpan(widget),
-      formSpan(widget, 'value', formatNumber(model.value), formValueStyle(widget, state))
+      formSpan(widget, 'value', 'value.current', formatNumber(model.value), formValueStyle(widget, state))
     ], bounds.width),
     ...errorLines(widget, bounds.width)
   ];
@@ -150,9 +151,9 @@ export function rangeSliderBlock(widget: Widget, bounds: Rect): RenderBlock {
       ...controlPrefixSpans(widget, label, state),
       ...rangeSliderTrackSpans(widget, model),
       separatorSpan(widget),
-      formSpan(widget, 'value.start', formatNumber(model.start), formValueStyle(widget, state)),
-      formSpan(widget, 'value.separator', '-', undefined, 'separator'),
-      formSpan(widget, 'value.end', formatNumber(model.end), formValueStyle(widget, state))
+      formSpan(widget, 'value', 'value.start', formatNumber(model.start), formValueStyle(widget, state)),
+      formSpan(widget, 'separator', 'value.separator', '-'),
+      formSpan(widget, 'value', 'value.end', formatNumber(model.end), formValueStyle(widget, state))
     ], bounds.width),
     ...errorLines(widget, bounds.width)
   ];
@@ -163,11 +164,9 @@ export function checkboxListBlock(widget: Widget, bounds: Rect, theme: TerminalT
   const lines: RenderLine[] = [];
   const label = clean(stringify(widget.props['label']));
   if (label.length > 0) {
-    lines.push(clippedFormLine(controlLabelSpans(
-      widget,
-      labelWithRequired(label, widget.props['required'] === true),
-      formControlState(widget)
-    ), bounds.width));
+    lines.push(clippedFormLine(controlLabelSpans(widget, label, formControlState(widget), {
+      required: widget.props['required'] === true
+    }), bounds.width));
   }
   const selected = selectedIds(widget);
   for (const option of formOptions(widget)) {
@@ -177,9 +176,9 @@ export function checkboxListBlock(widget: Widget, bounds: Rect, theme: TerminalT
       ...(option.disabled === undefined ? {} : { disabled: option.disabled })
     });
     lines.push(clippedFormLine([
-      formSpan(widget, selected.has(option.id) ? 'option.marker.checked' : 'option.marker.unchecked', symbol, formMarkerStyle(widget, state), 'decoration'),
+      formSpan(widget, 'marker', selected.has(option.id) ? `option.${option.id}.marker.checked` : `option.${option.id}.marker.unchecked`, symbol, formMarkerStyle(widget, state)),
       separatorSpan(widget),
-      formSpan(widget, `option.${option.id}.label`, option.label, optionStyle(option, widget))
+      formSpan(widget, 'option', `option.${option.id}.label`, option.label, optionStyle(option, widget))
     ], bounds.width));
   }
   lines.push(...errorLines(widget, bounds.width));
@@ -190,11 +189,9 @@ export function radioGroupBlock(widget: Widget, bounds: Rect, theme: TerminalThe
   const lines: RenderLine[] = [];
   const label = clean(stringify(widget.props['label']));
   if (label.length > 0) {
-    lines.push(clippedFormLine(controlLabelSpans(
-      widget,
-      labelWithRequired(label, widget.props['required'] === true),
-      formControlState(widget)
-    ), bounds.width));
+    lines.push(clippedFormLine(controlLabelSpans(widget, label, formControlState(widget), {
+      required: widget.props['required'] === true
+    }), bounds.width));
   }
   const selected = selectedId(widget);
   for (const option of formOptions(widget)) {
@@ -204,9 +201,9 @@ export function radioGroupBlock(widget: Widget, bounds: Rect, theme: TerminalThe
       ...(option.disabled === undefined ? {} : { disabled: option.disabled })
     });
     lines.push(clippedFormLine([
-      formSpan(widget, option.id === selected ? 'option.marker.selected' : 'option.marker', symbol, formMarkerStyle(widget, state), 'decoration'),
+      formSpan(widget, 'marker', option.id === selected ? `option.${option.id}.marker.selected` : `option.${option.id}.marker`, symbol, formMarkerStyle(widget, state)),
       separatorSpan(widget),
-      formSpan(widget, `option.${option.id}.label`, option.label, optionStyle(option, widget))
+      formSpan(widget, 'option', `option.${option.id}.label`, option.label, optionStyle(option, widget))
     ], bounds.width));
   }
   lines.push(...errorLines(widget, bounds.width));
@@ -254,10 +251,12 @@ export function selectBoxBlock(widget: Widget, bounds: Rect, theme: TerminalThem
       : widgetStyle(widget, 'value');
   const rows = [
     clippedFormLine([
-      ...controlPrefixSpans(widget, labelWithRequired(label, widget.props['required'] === true), formControlState(widget)),
-      formSpan(widget, selected === undefined ? 'placeholder' : 'value', value, style),
+      ...controlPrefixSpans(widget, label, formControlState(widget), {
+        required: widget.props['required'] === true
+      }),
+      formSpan(widget, selected === undefined ? 'placeholder' : 'value', selected === undefined ? 'value.placeholder' : 'value.selected', value, style),
       separatorSpan(widget),
-      formSpan(widget, 'marker.dropdown', theme.symbols.treeCollapsed, formMarkerStyle(widget), 'decoration')
+      formSpan(widget, 'chrome', 'chrome.dropdown', theme.symbols.treeCollapsed, formMarkerStyle(widget))
     ], bounds.width),
     ...errorLines(widget, bounds.width)
   ];
@@ -651,14 +650,22 @@ function inputAccessibleBase(widget: Widget, id: string, focused: boolean, value
   };
 }
 
-function fieldHeaderLines(widget: Widget): readonly { readonly label: string; readonly text: string; readonly style?: TerminalStyle }[] {
-  const rows: { label: string; text: string; style?: TerminalStyle }[] = [];
-  const label = labelWithRequired(clean(stringify(widget.props['label'])), widget.props['required'] === true);
-  if (label.length > 0) pushStyledRow(rows, 'label', label, formLabelStyle(widget, widget.props['disabled'] === true ? 'disabled' : undefined));
+function fieldHeaderLines(widget: Widget): readonly (readonly RenderSpan[])[] {
+  const rows: (readonly RenderSpan[])[] = [];
+  const label = clean(stringify(widget.props['label']));
+  if (label.length > 0 || widget.props['required'] === true) {
+    rows.push(labelSpans(
+      widget,
+      'field.label',
+      label,
+      widget.props['disabled'] === true ? 'disabled' : undefined,
+      widget.props['required'] === true
+    ));
+  }
   const description = clean(stringify(widget.props['description']));
-  if (description.length > 0) pushStyledRow(rows, 'description', description, formValueStyle(widget, 'disabled'));
+  if (description.length > 0) rows.push([formSpan(widget, 'description', 'field.description', description, formValueStyle(widget, 'disabled'))]);
   const error = clean(stringify(widget.props['error']));
-  if (error.length > 0) pushStyledRow(rows, 'error', error, formErrorStyle(widget));
+  if (error.length > 0) rows.push([formSpan(widget, 'error', 'validation.error', error, formErrorStyle(widget))]);
   return rows;
 }
 
@@ -666,7 +673,7 @@ function errorLines(widget: Widget, width: number): readonly RenderLine[] {
   const error = clean(stringify(widget.props['error']));
   return error.length === 0
     ? []
-    : [clippedFormLine([formSpan(widget, 'error', error, formErrorStyle(widget))], width)];
+    : [clippedFormLine([formSpan(widget, 'error', 'validation.error', error, formErrorStyle(widget))], width)];
 }
 
 function clippedFormLine(spans: readonly RenderSpan[], width: number): RenderLine {
@@ -677,16 +684,16 @@ function buttonSpans(widget: Widget, label: string, focused: boolean, theme: Ter
   const spans: RenderSpan[] = [];
   const style = buttonStyle(widget, focused);
   if (focused && widget.props['disabled'] !== true) {
-    spans.push(formSpan(widget, 'chrome.focus', theme.symbols.pointer, style, 'decoration'));
+    spans.push(formSpan(widget, 'chrome', 'chrome.focus', theme.symbols.pointer, style));
   }
   const state = buttonStateMarker(widget, theme);
-  spans.push(formSpan(widget, 'chrome.open', '[ ', style, 'decoration'));
+  spans.push(formSpan(widget, 'chrome', 'chrome.open', '[ ', style));
   if (state.length > 0) {
-    spans.push(formSpan(widget, 'state.marker', state, style, 'decoration'));
+    spans.push(formSpan(widget, 'state', 'state.marker', state, style));
     spans.push(separatorSpan(widget));
   }
-  spans.push(formSpan(widget, 'label', label, style));
-  spans.push(formSpan(widget, 'chrome.close', ' ]', style, 'decoration'));
+  spans.push(formSpan(widget, 'label', 'label.text', label, style));
+  spans.push(formSpan(widget, 'chrome', 'chrome.close', ' ]', style));
   return spans;
 }
 
@@ -746,15 +753,6 @@ function buttonDescription(widget: Widget): string {
     buttonTone(widget) === 'destructive' ? 'Destructive action.' : ''
   ].filter((part) => part.length > 0);
   return parts.join(' ');
-}
-
-function pushStyledRow(
-  rows: { label: string; text: string; style?: TerminalStyle }[],
-  label: string,
-  text: string,
-  style: TerminalStyle | undefined
-): void {
-  rows.push(style === undefined ? { label, text } : { label, text, style });
 }
 
 function fieldDescription(widget: Widget): string {
@@ -899,7 +897,7 @@ function sliderTrackSpans(widget: Widget, model: SliderModel): readonly RenderSp
         ? { text: '━', label: 'track.filled', selected: false }
         : { text: '─', label: 'track.empty', selected: false };
     const state = disabled ? 'disabled' : current.selected ? 'selected' : current.label === 'track.filled' ? 'active' : undefined;
-    return formSpan(widget, current.label, current.text, formMarkerStyle(widget, state), current.selected ? 'decoration' : 'separator');
+    return formSpan(widget, current.selected ? 'handle' : 'track', current.label, current.text, formMarkerStyle(widget, state));
   });
 }
 
@@ -914,7 +912,7 @@ function rangeSliderTrackSpans(widget: Widget, model: RangeSliderModel): readonl
         ? { text: '━', label: 'track.filled', selected: false }
         : { text: '─', label: 'track.empty', selected: false };
     const state = disabled ? 'disabled' : current.selected ? 'selected' : current.label === 'track.filled' ? 'active' : undefined;
-    return formSpan(widget, current.label, current.text, formMarkerStyle(widget, state), current.selected ? 'decoration' : 'separator');
+    return formSpan(widget, current.selected ? 'handle' : 'track', current.label, current.text, formMarkerStyle(widget, state));
   });
 }
 
@@ -1031,11 +1029,11 @@ function colorPickerSummarySpans(option: ColorPickerOption<unknown>, widget: Wid
   const disabled = option.disabled === true || widget.props['disabled'] === true;
   const style = disabled ? widgetStyle(widget, 'value', 'disabled') : option.style ?? widgetStyle(widget, 'value', 'selected');
   return [
-    formSpan(widget, 'summary.label', 'Selected', formLabelStyle(widget, disabled ? 'disabled' : undefined)),
-    formSpan(widget, 'summary.separator', ': ', undefined, 'separator'),
-    formSpan(widget, 'summary.swatch', option.swatch ?? '■', style, 'decoration'),
+    formSpan(widget, 'summary', 'summary.label', 'Selected', formLabelStyle(widget, disabled ? 'disabled' : undefined)),
+    formSpan(widget, 'separator', 'summary.separator', ': '),
+    formSpan(widget, 'swatch', 'summary.swatch', option.swatch ?? '■', style),
     separatorSpan(widget),
-    formSpan(widget, 'summary.value', option.label, style)
+    formSpan(widget, 'summary', 'summary.value', option.label, style)
   ];
 }
 
@@ -1047,18 +1045,18 @@ function colorPickerSpans(option: ColorPickerOption<unknown>, widget: Widget): r
   const state = optionControlState(widget, { selected, disabled });
   const style = disabled ? widgetStyle(widget, 'value', 'disabled') : option.style ?? optionStyle(option, widget);
   return [
-    formSpan(widget, `option.${option.id}.open`, selected ? '[' : ' ', formMarkerStyle(widget, state), 'decoration'),
-    formSpan(widget, `option.${option.id}.swatch`, swatch, style, 'decoration'),
+    formSpan(widget, 'marker', `option.${option.id}.open`, selected ? '[' : ' ', formMarkerStyle(widget, state)),
+    formSpan(widget, 'swatch', `option.${option.id}.swatch`, swatch, style),
     separatorSpan(widget),
-    formSpan(widget, `option.${option.id}.label`, label, style),
-    formSpan(widget, `option.${option.id}.close`, selected ? ']' : ' ', formMarkerStyle(widget, state), 'decoration'),
+    formSpan(widget, 'option', `option.${option.id}.label`, label, style),
+    formSpan(widget, 'marker', `option.${option.id}.close`, selected ? ']' : ' ', formMarkerStyle(widget, state)),
     separatorSpan(widget)
   ];
 }
 
 function datePickerWeekdayHeaderSpans(widget: Widget): readonly RenderSpan[] {
   return ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((label) =>
-    formSpan(widget, `weekday.${label.toLowerCase()}`, ` ${label} `, formLabelStyle(widget, 'disabled'))
+    formSpan(widget, 'weekday', `weekday.${label.toLowerCase()}`, ` ${label} `, formLabelStyle(widget, 'disabled'))
   );
 }
 
@@ -1068,21 +1066,21 @@ function datePickerCellSpans(day: DatePickerDay<unknown>, widget: Widget): reado
   const state = datePickerDayState(day, widget);
   if (selected) {
     return [
-      formSpan(widget, `day.${day.id}.open`, '[', formMarkerStyle(widget, state), 'decoration'),
-      formSpan(widget, `day.${day.id}.label`, label, datePickerDayStyle(day, widget)),
-      formSpan(widget, `day.${day.id}.close`, ']', formMarkerStyle(widget, state), 'decoration')
+      formSpan(widget, 'marker', `day.${day.id}.open`, '[', formMarkerStyle(widget, state)),
+      formSpan(widget, 'day', `day.${day.id}.label`, label, datePickerDayStyle(day, widget)),
+      formSpan(widget, 'marker', `day.${day.id}.close`, ']', formMarkerStyle(widget, state))
     ];
   }
   if (day.today === true) {
     return [
-      formSpan(widget, `day.${day.id}.today`, '*', formMarkerStyle(widget, state), 'decoration'),
-      formSpan(widget, `day.${day.id}.label`, label, datePickerDayStyle(day, widget)),
+      formSpan(widget, 'marker', `day.${day.id}.today`, '*', formMarkerStyle(widget, state)),
+      formSpan(widget, 'day', `day.${day.id}.label`, label, datePickerDayStyle(day, widget)),
       separatorSpan(widget)
     ];
   }
   return [
     separatorSpan(widget),
-    formSpan(widget, `day.${day.id}.label`, label, datePickerDayStyle(day, widget)),
+    formSpan(widget, 'day', `day.${day.id}.label`, label, datePickerDayStyle(day, widget)),
     separatorSpan(widget)
   ];
 }
