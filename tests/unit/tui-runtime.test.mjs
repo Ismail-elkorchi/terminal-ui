@@ -91,6 +91,7 @@ test('TUI tabs expose clickable tab hit targets', async () => {
   assert.notEqual(target, undefined);
 
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}M` });
+  await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}m` });
 
   assert.equal(runtime.getState()?.selected, 'right');
 });
@@ -114,6 +115,9 @@ test('TUI runtime routes mouse input through the committed render cache', async 
   assert.equal(viewCalls, 1);
   assert.notEqual(target, undefined);
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}M` });
+  assert.equal(runtime.getState()?.count, 0);
+  assert.equal(viewCalls, 1);
+  await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}m` });
 
   assert.equal(runtime.getState()?.count, 1);
   assert.equal(viewCalls, 2);
@@ -151,6 +155,7 @@ test('TUI runtime uses committed hit targets without recomputing renderer hit ta
   assert.notEqual(target, undefined);
   assert.equal('message' in target, false);
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}M` });
+  await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}m` });
 
   assert.deepEqual(runtime.getState(), { clicked: true });
   assert.equal(hitTargetCalls, 2);
@@ -1600,14 +1605,16 @@ test('TUI runtime routes mouse events to widgets under the pointer', async () =>
     cursor: 'pointer',
     zIndex: 0
   });
-  const result = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
 
-  assert.equal(result[0]?.handled, true);
+  assert.equal(press[0]?.handled, false);
+  assert.equal(release[0]?.handled, true);
   assert.deepEqual(runtime.getState(), { clicked: true });
   assert.match(renderFramePlain(runtime.frame()), /clicked/);
 });
 
-test('TUI pointer routing does not activate on release right click or wheel', async () => {
+test('TUI pointer click activates once on left release and ignores right click or wheel', async () => {
   const app = defineTui({
     id: 'pointer-router-events',
     init: () => ({ clicks: 0 }),
@@ -1627,11 +1634,135 @@ test('TUI pointer routing does not activate on release right click or wheel', as
   const rightPress = await runtime.handleInputChunk({ data: '\u001B[<2;1;1M' });
   const wheel = await runtime.handleInputChunk({ data: '\u001B[<64;1;1M' });
 
-  assert.equal(leftPress[0]?.handled, true);
-  assert.equal(release[0]?.handled, false);
+  assert.equal(leftPress[0]?.handled, false);
+  assert.equal(release[0]?.handled, true);
   assert.equal(rightPress[0]?.handled, false);
   assert.equal(wheel[0]?.handled, false);
   assert.deepEqual(runtime.getState(), { clicks: 1 });
+});
+
+test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages', async () => {
+  const renderer = {
+    render({ node, buffer }) {
+      buffer.write(node.bounds.row, node.bounds.column, [{ text: 'pointer lifecycle' }]);
+    },
+    accessibility({ id }) {
+      return { id, role: 'button', label: 'pointer lifecycle' };
+    },
+    hitTargets({ bounds }) {
+      return [{
+        id: 'lifecycle-hit',
+        bounds,
+        accepts: ['pointerDown', 'pointerUp'],
+        message: (event) => ({
+          kind: event.kind,
+          button: event.button,
+          targetId: event.targetId,
+          capturedTargetId: event.capturedTargetId,
+          localColumn: event.localColumn
+        }),
+        cursor: 'pointer'
+      }];
+    }
+  };
+  const app = defineTui({
+    id: 'pointer-lifecycle-tui',
+    init: () => ({ events: [] }),
+    update: (state, message) => ({ state: { events: [...state.events, message] } }),
+    view: () => custom({ id: 'pointer-lifecycle', renderer })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const press = await runtime.handleInputChunk({ data: '\u001B[<0;2;1M' });
+  const release = await runtime.handleInputChunk({ data: '\u001B[<0;2;1m' });
+
+  assert.equal(press[0]?.handled, true);
+  assert.equal(release[0]?.handled, true);
+  assert.deepEqual(runtime.getState(), {
+    events: [
+      {
+        kind: 'pointerDown',
+        button: 'left',
+        targetId: 'lifecycle-hit',
+        capturedTargetId: 'lifecycle-hit',
+        localColumn: 2
+      },
+      {
+        kind: 'pointerUp',
+        button: 'left',
+        targetId: 'lifecycle-hit',
+        capturedTargetId: 'lifecycle-hit',
+        localColumn: 2
+      }
+    ]
+  });
+});
+
+test('TUI pointer hover emits enter leave and hover when crossing targets', async () => {
+  const renderer = {
+    render({ node, buffer }) {
+      buffer.write(node.bounds.row, node.bounds.column, [{ text: 'left  right' }]);
+    },
+    accessibility({ id }) {
+      return { id, role: 'group', label: 'hover lifecycle' };
+    },
+    hitTargets({ bounds }) {
+      const accepts = ['enter', 'leave', 'hover'];
+      return [
+        {
+          id: 'left-hit',
+          bounds: { ...bounds, width: 5 },
+          accepts,
+          message: (event) => ({
+            kind: event.kind,
+            targetId: event.targetId,
+            localColumn: event.localColumn
+          }),
+          cursor: 'pointer'
+        },
+        {
+          id: 'right-hit',
+          bounds: { ...bounds, column: bounds.column + 6, width: 5 },
+          accepts,
+          message: (event) => ({
+            kind: event.kind,
+            targetId: event.targetId,
+            localColumn: event.localColumn
+          }),
+          cursor: 'pointer'
+        }
+      ];
+    }
+  };
+  const app = defineTui({
+    id: 'hover-lifecycle-tui',
+    init: () => ({ events: [] }),
+    update: (state, message) => ({ state: { events: [...state.events, message] } }),
+    view: () => custom({ id: 'hover-lifecycle', renderer })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const moveLeft = await runtime.handleInputChunk({ data: '\u001B[<35;2;1M' });
+  const moveRight = await runtime.handleInputChunk({ data: '\u001B[<35;8;1M' });
+  const moveOutside = await runtime.handleInputChunk({ data: '\u001B[<35;20;1M' });
+
+  assert.equal(moveLeft[0]?.handled, true);
+  assert.equal(moveRight[0]?.handled, true);
+  assert.equal(moveOutside[0]?.handled, true);
+  assert.deepEqual(runtime.getState(), {
+    events: [
+      { kind: 'enter', targetId: 'left-hit', localColumn: 2 },
+      { kind: 'hover', targetId: 'left-hit', localColumn: 2 },
+      { kind: 'leave', targetId: 'left-hit', localColumn: 8 },
+      { kind: 'enter', targetId: 'right-hit', localColumn: 2 },
+      { kind: 'hover', targetId: 'right-hit', localColumn: 2 },
+      { kind: 'leave', targetId: 'right-hit', localColumn: 14 }
+    ]
+  });
 });
 
 test('TUI pointer targets receive event-aware messages and horizontal wheel deltas', async () => {
@@ -1748,9 +1879,11 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const result = await runtime.handleInputChunk({ data: '\u001B[<0;1;2M' });
+  const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;2M' });
+  const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;2m' });
 
-  assert.equal(result[0]?.handled, true);
+  assert.equal(press[0]?.handled, false);
+  assert.equal(release[0]?.handled, true);
   assert.deepEqual(runtime.getState(), { selected: 'child' });
   assert.match(renderFramePlain(runtime.frame()), /Child/);
 });
@@ -1786,9 +1919,11 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
     ['lower-mouse-field:input', 0],
     ['upper-mouse-field:input', 20]
   ]);
-  const result = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
 
-  assert.equal(result[0]?.handled, true);
+  assert.equal(press[0]?.handled, false);
+  assert.equal(release[0]?.handled, true);
   assert.deepEqual(runtime.getState(), { clicked: 'upper' });
 });
 
@@ -1818,8 +1953,10 @@ test('TUI runtime routes same-layer overlay mouse events to the last visible chi
     'lower-overlay-field:input',
     'upper-overlay-field:input'
   ]);
-  const result = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
 
-  assert.equal(result[0]?.handled, true);
+  assert.equal(press[0]?.handled, false);
+  assert.equal(release[0]?.handled, true);
   assert.deepEqual(runtime.getState(), { clicked: 'upper' });
 });

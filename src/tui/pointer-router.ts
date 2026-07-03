@@ -13,69 +13,124 @@ export interface PointerRouter<TMessage> {
   route(
     regions: readonly RenderRegion<TMessage>[],
     event: TerminalMouseEvent
-  ): PointerRouteResult<TMessage>;
+  ): readonly PointerRouteResult<TMessage>[];
   reset(): void;
 }
 
 interface PointerPress<TMessage> {
   readonly target: RenderRegionHitTarget<TMessage>;
+  readonly button: TerminalMouseEvent['button'];
   readonly dragging: boolean;
 }
 
 export function createPointerRouter<TMessage>(): PointerRouter<TMessage> {
   let press: PointerPress<TMessage> | undefined;
+  let hover: RenderRegionHitTarget<TMessage> | undefined;
 
   return {
     route(regions, event) {
-      const hit = event.action === 'drag' || (event.action === 'release' && press?.dragging === true)
-        ? press?.target
-        : topHitAt(regions, event.row, event.column);
-      const routed = routedPointerEvent(event, hit, press);
+      const pointerHit = topHitAt(regions, event.row, event.column);
       if (event.action === 'press') {
-        press = hit === undefined ? undefined : { target: hit, dragging: false };
-        return {
-          event: routed,
-          ...(hit === undefined ? {} : { hit }),
-          ...messageForTarget(hit, routed)
-        };
+        press = pointerHit === undefined ? undefined : { target: pointerHit, button: event.button, dragging: false };
+        return pressResults(event, pointerHit, press);
       }
       if (event.action === 'drag' && press !== undefined) {
-        const dragged = routed;
-        press = { ...press, dragging: true };
-        return {
-          event: dragged,
-          ...(hit === undefined ? {} : { hit }),
-          ...messageForTarget(hit, dragged)
-        };
+        const kind = press.dragging ? 'drag' : 'dragStart';
+        const dragging = { ...press, dragging: true };
+        press = dragging;
+        return [routeResult(event, press.target, kind, dragging)];
       }
       if (event.action === 'release') {
+        const activePress = press;
         press = undefined;
+        return releaseResults(event, pointerHit, activePress);
       }
-      return {
-        event: routed,
-        ...(hit === undefined ? {} : { hit }),
-        ...messageForTarget(hit, routed)
-      };
+      if (event.action === 'move') {
+        const results = hoverResults(event, hover, pointerHit);
+        hover = pointerHit;
+        return results;
+      }
+      if (event.action === 'wheel') return [routeResult(event, pointerHit, 'scroll', press)];
+      return [];
     },
     reset() {
       press = undefined;
+      hover = undefined;
     }
+  };
+}
+
+function pressResults<TMessage>(
+  event: TerminalMouseEvent,
+  hit: RenderRegionHitTarget<TMessage> | undefined,
+  activePress: PointerPress<TMessage> | undefined
+): readonly PointerRouteResult<TMessage>[] {
+  if (hit === undefined) return [routeResult(event, undefined, 'pointerDown', activePress)];
+  const results = [routeResult(event, hit, 'pointerDown', activePress)];
+  return event.button === 'right'
+    ? [...results, routeResult(event, hit, 'contextMenu', activePress)]
+    : results;
+}
+
+function releaseResults<TMessage>(
+  event: TerminalMouseEvent,
+  pointerHit: RenderRegionHitTarget<TMessage> | undefined,
+  activePress: PointerPress<TMessage> | undefined
+): readonly PointerRouteResult<TMessage>[] {
+  if (activePress === undefined) return [routeResult(event, pointerHit, 'pointerUp', undefined)];
+  if (activePress.dragging) return [routeResult(event, activePress.target, 'dragEnd', activePress)];
+
+  const released = routeResult(event, activePress.target, 'pointerUp', activePress);
+  if (activePress.button !== 'left' || !sameTarget(activePress.target, pointerHit)) return [released];
+  return [released, routeResult(event, activePress.target, 'click', activePress)];
+}
+
+function hoverResults<TMessage>(
+  event: TerminalMouseEvent,
+  previous: RenderRegionHitTarget<TMessage> | undefined,
+  next: RenderRegionHitTarget<TMessage> | undefined
+): readonly PointerRouteResult<TMessage>[] {
+  const results: PointerRouteResult<TMessage>[] = [];
+  if (previous !== undefined && !sameTarget(previous, next)) {
+    results.push(routeResult(event, previous, 'leave', undefined));
+  }
+  if (next !== undefined && !sameTarget(previous, next)) {
+    results.push(routeResult(event, next, 'enter', undefined));
+  }
+  if (next !== undefined) {
+    results.push(routeResult(event, next, 'hover', undefined));
+  }
+  return results;
+}
+
+function routeResult<TMessage>(
+  event: TerminalMouseEvent,
+  hit: RenderRegionHitTarget<TMessage> | undefined,
+  kind: PointerEventKind,
+  press: PointerPress<TMessage> | undefined
+): PointerRouteResult<TMessage> {
+  const routed = routedPointerEvent(event, hit, kind, press);
+  return {
+    event: routed,
+    ...(hit === undefined ? {} : { hit }),
+    ...messageForTarget(hit, routed)
   };
 }
 
 function routedPointerEvent<TMessage>(
   event: TerminalMouseEvent,
   hit: RenderRegionHitTarget<TMessage> | undefined,
+  kind: PointerEventKind,
   press: PointerPress<TMessage> | undefined
 ): RoutedPointerEvent {
   const local = hit === undefined ? undefined : localPoint(hit.bounds, event.row, event.column);
   return {
-    kind: pointerKind(event, press),
+    kind,
     source: 'mouse',
     row: event.row,
     column: event.column,
     ...(local === undefined ? {} : { localRow: local.row, localColumn: local.column }),
-    button: event.button,
+    button: releaseButton(event, press),
     modifiers: event.modifiers,
     deltaRows: pointerDeltaRows(event),
     deltaColumns: pointerDeltaColumns(event),
@@ -85,13 +140,11 @@ function routedPointerEvent<TMessage>(
   };
 }
 
-function pointerKind(event: TerminalMouseEvent, press: PointerPress<unknown> | undefined): PointerEventKind {
-  if (event.action === 'wheel') return 'scroll';
-  if (event.action === 'release') return press?.dragging === true ? 'dragEnd' : 'pointerUp';
-  if (event.action === 'drag') return press?.dragging === true ? 'drag' : 'dragStart';
-  if (event.action === 'move') return 'hover';
-  if (event.button === 'right') return 'contextMenu';
-  return 'click';
+function releaseButton<TMessage>(
+  event: TerminalMouseEvent,
+  press: PointerPress<TMessage> | undefined
+): TerminalMouseEvent['button'] {
+  return event.action === 'release' && press !== undefined ? press.button : event.button;
 }
 
 function pointerDeltaRows(event: TerminalMouseEvent): number {
@@ -119,6 +172,13 @@ function messageForTarget<TMessage>(
 
 function targetAccepts<TMessage>(hit: RenderRegionHitTarget<TMessage>, kind: PointerEventKind): boolean {
   return hit.accepts?.includes(kind) ?? kind === 'click';
+}
+
+function sameTarget<TMessage>(
+  left: RenderRegionHitTarget<TMessage> | undefined,
+  right: RenderRegionHitTarget<TMessage> | undefined
+): boolean {
+  return left !== undefined && left.id === right?.id;
 }
 
 function topHitAt<TMessage>(

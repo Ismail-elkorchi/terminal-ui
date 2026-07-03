@@ -76,9 +76,9 @@ export function createTuiRuntime<TState, TMessage>(
         return { handled: true, state: ensureState(), frame: resized };
       }
       if (event.kind === 'mouse') {
-        const message = messageForMouse(state, event);
-        if (message === undefined) return { handled: false, state, frame };
-        const nextState = await dispatchQueue.run(() => dispatchInternal(message, 'input'));
+        const messages = messagesForMouse(state, event);
+        if (messages.length === 0) return { handled: false, state, frame };
+        const nextState = await dispatchQueue.run(() => dispatchManyInternal(messages, 'input'));
         const nextFrame = ensureFrame();
         return terminalExit === undefined
           ? { handled: true, state: nextState, frame: nextFrame }
@@ -107,6 +107,7 @@ export function createTuiRuntime<TState, TMessage>(
     },
     resetInput() {
       inputPipeline.reset();
+      pointerRouter.reset();
     },
     nextChange() {
       const next = pendingChanges.shift();
@@ -150,9 +151,15 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   async function dispatchInternal(message: TMessage, source: TuiMessageSource): Promise<TState> {
+    return dispatchManyInternal([message], source);
+  }
+
+  async function dispatchManyInternal(messages: readonly TMessage[], source: TuiMessageSource): Promise<TState> {
     await ensureStarted();
     const context = await createRuntimeContext('internal');
-    enqueueMessage(message, source);
+    for (const message of messages) {
+      enqueueMessage(message, source);
+    }
     await settleQueuedWork(context);
     const state = ensureState();
     const theme = resolveTuiTheme(options.theme, state);
@@ -325,9 +332,10 @@ export function createTuiRuntime<TState, TMessage>(
     return focused?.widget.keyMap?.[key];
   }
 
-  function messageForMouse(_state: TState, event: TerminalMouseEvent): TMessage | undefined {
+  function messagesForMouse(_state: TState, event: TerminalMouseEvent): readonly TMessage[] {
     const current = ensureRender();
-    return pointerRouter.route(current.regions, event).message;
+    return pointerRouter.route(current.regions, event)
+      .flatMap((result) => result.message === undefined ? [] : [result.message]);
   }
 
   function frameDiffBase(theme: TerminalTheme): Frame | undefined {

@@ -25,6 +25,17 @@ const mousePress = (row, column) => ({
   rawCode: 0,
   modifiers: { shift: false, alt: false, ctrl: false }
 });
+const mouseRelease = (row, column) => ({
+  kind: 'mouse',
+  sequence: '',
+  encoding: 'sgr',
+  action: 'release',
+  button: 'none',
+  row,
+  column,
+  rawCode: 0,
+  modifiers: { shift: false, alt: false, ctrl: false }
+});
 
 test('dataWindow keeps selected rows visible and preserves explicit scroll windows', () => {
   assert.deepEqual(
@@ -125,9 +136,11 @@ test('list cursor and mouse hit targets use the filtered visible rows', async ()
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 2 } }) });
 
   await runtime.start();
-  const result = await runtime.handleInput(mousePress(2, 1));
+  const press = await runtime.handleInput(mousePress(2, 1));
+  const release = await runtime.handleInput(mouseRelease(2, 1));
 
-  assert.equal(result.state.selected, 'bravo');
+  assert.equal(press.handled, false);
+  assert.equal(release.state.selected, 'bravo');
 });
 
 test('table widget renders constrained columns and selected rows', () => {

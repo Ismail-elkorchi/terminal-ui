@@ -110,9 +110,11 @@ test('custom widget hit targets route mouse messages', async () => {
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const result = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+  const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
 
-  assert.equal(result[0]?.handled, true);
+  assert.equal(press[0]?.handled, false);
+  assert.equal(release[0]?.handled, true);
   assert.deepEqual(runtime.getState(), { clicked: true });
   assert.match(renderFramePlain(runtime.frame()), /hit/);
   assert.deepEqual(runtime.frame().hitTargets?.[0], {

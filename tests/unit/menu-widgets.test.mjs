@@ -18,6 +18,17 @@ const mousePress = (row, column) => ({
   rawCode: 0,
   modifiers: { shift: false, alt: false, ctrl: false }
 });
+const mouseRelease = (row, column) => ({
+  kind: 'mouse',
+  sequence: '',
+  encoding: 'sgr',
+  action: 'release',
+  button: 'none',
+  row,
+  column,
+  rawCode: 0,
+  modifiers: { shift: false, alt: false, ctrl: false }
+});
 
 const items = [
   { id: 'new', label: 'New', message: { kind: 'new' }, description: 'Create item', shortcut: 'N' },
@@ -125,8 +136,10 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
 
   await runtime.start();
   const keyed = await runtime.handleInput(enter);
-  const mouse = await runtime.handleInput(mousePress(5, 2));
+  const mousePressResult = await runtime.handleInput(mousePress(5, 2));
+  const mouseReleaseResult = await runtime.handleInput(mouseRelease(5, 2));
 
   assert.equal(keyed.state.action, 'recent');
-  assert.equal(mouse.state.action, 'help');
+  assert.equal(mousePressResult.handled, false);
+  assert.equal(mouseReleaseResult.state.action, 'help');
 });
