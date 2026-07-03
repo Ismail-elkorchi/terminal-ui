@@ -10,14 +10,23 @@ test('divider renders labelled horizontal separators with semantic source roles'
     id: 'section-divider',
     line: 'dashed',
     label: 'Operations',
-    labelAlign: 'center'
+    labelAlign: 'center',
+    styles: {
+      label: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true }
+    }
   }), { columns: 24, rows: 1 });
   const separatorCells = frame.cells.filter((cell) => cell.source?.role === 'separator');
+  const labelCells = frame.cells.filter((cell) => cell.source?.kind === 'divider' && cell.source.label === 'label');
 
   assert.equal(renderFramePlain(frame), '┄┄┄┄┄┄ Operations ┄┄┄┄┄┄');
   assert.equal(separatorCells.length > 0, true);
   assert.equal(separatorCells.every((cell) => cell.source?.kind === 'divider'), true);
+  assert.equal(separatorCells.some((cell) => cell.source?.label === 'separator.before'), true);
+  assert.equal(separatorCells.some((cell) => cell.source?.label === 'separator.after'), true);
+  assert.equal(labelCells.map((cell) => cell.text).join(''), ' Operations ');
   assert.deepEqual(separatorCells[0]?.style?.fg, { kind: 'theme', token: 'surface.border' });
+  assert.deepEqual(labelCells[1]?.style?.fg, { kind: 'theme', token: 'accent.primary' });
+  assert.equal(labelCells[1]?.style?.bold, true);
   assert.equal(frame.accessibility.root.label, 'Operations');
 });
 

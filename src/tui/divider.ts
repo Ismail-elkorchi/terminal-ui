@@ -5,7 +5,7 @@ import type { Widget } from '../widgets/index.ts';
 import type { DividerLineKind, DividerOrientation } from '../widgets/types.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
 import type { Rect } from './layout.ts';
-import type { TerminalStyle } from './render-primitives.ts';
+import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { stringify } from './widget-props.ts';
 import { mergeStyles, widgetStyle } from './widget-style.ts';
 
@@ -52,14 +52,10 @@ function renderHorizontalDivider(
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const glyph = dividerGlyphs(widget, theme).horizontal;
   const label = dividerLabel(widget);
-  const text = label.length === 0
-    ? glyph.repeat(bounds.width)
-    : labelledDividerText(glyph, label, bounds.width, dividerLabelAlign(widget));
-  buffer.write(bounds.row, bounds.column, [{
-    text,
-    ...(style === undefined ? {} : { style }),
-    source: { kind: 'divider', role: 'separator' }
-  }]);
+  const spans = label.length === 0
+    ? [separatorSpan(glyph.repeat(bounds.width), style)]
+    : labelledDividerSpans(widget, glyph, label, bounds.width, dividerLabelAlign(widget), style);
+  buffer.write(bounds.row, bounds.column, spans);
 }
 
 function renderVerticalDivider(
@@ -80,18 +76,24 @@ function renderVerticalDivider(
   }
 }
 
-function labelledDividerText(
+function labelledDividerSpans(
+  widget: Widget,
   glyph: string,
   label: string,
   width: number,
-  align: 'start' | 'center' | 'end'
-): string {
+  align: 'start' | 'center' | 'end',
+  style: TerminalStyle | undefined
+): readonly RenderSpan[] {
   const clippedLabel = clipTextCells(` ${label} `, Math.max(0, width)).text;
   const labelCells = measureTextCells(clippedLabel).cells;
   const remaining = Math.max(0, width - labelCells);
   const before = align === 'end' ? remaining : align === 'center' ? Math.floor(remaining / 2) : 0;
   const after = remaining - before;
-  return `${glyph.repeat(before)}${clippedLabel}${glyph.repeat(after)}`;
+  return [
+    separatorSpan(glyph.repeat(before), style, 'separator.before'),
+    labelSpan(widget, clippedLabel, style),
+    separatorSpan(glyph.repeat(after), style, 'separator.after')
+  ].filter((span) => span.text.length > 0);
 }
 
 function dividerOrientation(widget: Widget): DividerOrientation {
@@ -143,4 +145,25 @@ function dividerGlyphs(widget: Widget, theme: TerminalTheme): DividerGlyphs {
 
 function dividerStyle(widget: Widget): TerminalStyle | undefined {
   return mergeStyles(widgetStyle(widget, 'border'), widget.styles?.root);
+}
+
+function dividerLabelStyle(widget: Widget, base: TerminalStyle | undefined): TerminalStyle | undefined {
+  return mergeStyles(base, widgetStyle(widget, 'label'));
+}
+
+function separatorSpan(text: string, style: TerminalStyle | undefined, label = 'separator'): RenderSpan {
+  return {
+    text,
+    ...(style === undefined ? {} : { style }),
+    source: { kind: 'divider', role: 'separator', label }
+  };
+}
+
+function labelSpan(widget: Widget, text: string, baseStyle: TerminalStyle | undefined): RenderSpan {
+  const style = dividerLabelStyle(widget, baseStyle);
+  return {
+    text,
+    ...(style === undefined ? {} : { style }),
+    source: { kind: 'divider', role: 'text', label: 'label' }
+  };
 }
