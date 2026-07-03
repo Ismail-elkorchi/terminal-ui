@@ -73,6 +73,33 @@ test('track helpers split fixed, percent, and fill regions deterministically', (
       { row: 2, column: 4, width: 7, height: 3 }
     ]
   );
+
+  assert.deepEqual(
+    splitTracks(
+      { row: 1, column: 1, width: 10, height: 1 },
+      'horizontal',
+      [{ kind: 'fixed', cells: 3 }, { kind: 'fixed', cells: 2 }],
+      { gap: 1 }
+    ),
+    [
+      { row: 1, column: 1, width: 3, height: 1 },
+      { row: 1, column: 5, width: 2, height: 1 }
+    ]
+  );
+
+  assert.deepEqual(
+    splitTracks(
+      { row: 1, column: 1, width: 7, height: 1 },
+      'horizontal',
+      [{ kind: 'fixed', cells: 2 }, { kind: 'fixed', cells: 2 }, { kind: 'fixed', cells: 2 }],
+      { gap: 3 }
+    ),
+    [
+      { row: 1, column: 1, width: 2, height: 1 },
+      { row: 1, column: 4, width: 2, height: 1 },
+      { row: 1, column: 6, width: 2, height: 1 }
+    ]
+  );
 });
 
 test('grid and splitPane widgets lay out common app shells', () => {
@@ -120,7 +147,7 @@ test('splitPane content tracks use measured child width', () => {
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 9, width: 12, height: 3 });
 });
 
-test('splitPane pressure keeps pane order and clamps oversized tracks', () => {
+test('splitPane pressure keeps pane order and collapses gaps before clipping content', () => {
   const widget = splitPane([
     text('left', { id: 'left' }),
     text('middle', { id: 'middle' }),
@@ -140,10 +167,28 @@ test('splitPane pressure keeps pane order and clamps oversized tracks', () => {
 
   assert.deepEqual(layout.children.map((child) => child.bounds), [
     { row: 1, column: 1, width: 4, height: 1 },
-    { row: 1, column: 6, width: 0, height: 1 },
-    { row: 1, column: 7, width: 1, height: 1 }
+    { row: 1, column: 5, width: 0, height: 1 },
+    { row: 1, column: 5, width: 3, height: 1 }
   ]);
-  assert.equal(renderFramePlain(renderWidgetFrame(widget, { columns: 7, rows: 1 })), 'left  r');
+  assert.equal(renderFramePlain(renderWidgetFrame(widget, { columns: 7, rows: 1 })), 'leftrig');
+});
+
+test('row pressure uses overflow priority without rewarding decorative tail content', () => {
+  const widget = row([
+    text('REQUIRED', { id: 'required', overflowPriority: 'required' }),
+    text('secondary', { id: 'secondary', overflowPriority: 'secondary' }),
+    text('decorative', { id: 'decorative', overflowPriority: 'decorative' })
+  ], { gap: 0 });
+
+  const layout = layoutWidget(widget, { columns: 5, rows: 1 });
+  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 5, rows: 1 }));
+
+  assert.deepEqual(layout.children.map((child) => child.bounds), [
+    { row: 1, column: 1, width: 4, height: 1 },
+    { row: 1, column: 5, width: 1, height: 1 },
+    { row: 1, column: 6, width: 0, height: 1 }
+  ]);
+  assert.equal(output, 'REQUs');
 });
 
 test('grid content rows and columns use measured child dimensions', () => {
@@ -166,6 +211,27 @@ test('grid content rows and columns use measured child dimensions', () => {
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 12, width: 9, height: 2 });
   assert.deepEqual(layout.children[2]?.bounds, { row: 4, column: 1, width: 10, height: 3 });
   assert.deepEqual(layout.children[3]?.bounds, { row: 4, column: 12, width: 9, height: 3 });
+});
+
+test('named-area grid content tracks use measured area children', () => {
+  const widget = grid({
+    id: 'named-content-grid',
+    areas: 'left right',
+    rows: [{ kind: 'content' }],
+    columns: [{ kind: 'content' }, { kind: 'fill' }],
+    columnGap: 1,
+    children: {
+      left: text('wide-label', { id: 'left' }),
+      right: text('right', { id: 'right' })
+    }
+  });
+
+  const layout = layoutWidget(widget, { columns: 20, rows: 3 });
+  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 20, rows: 3 }));
+
+  assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 10, height: 1 });
+  assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 12, width: 9, height: 1 });
+  assert.equal(output.split('\n')[0], 'wide-label right');
 });
 
 test('layout flow options align, justify, and bound content regions', () => {

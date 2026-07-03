@@ -15,7 +15,7 @@ import type { WidgetMeasureResult } from '../../widget-renderer.ts';
 
 export function gridChildBounds(widget: Widget, bounds: Rect, childMeasures: readonly WidgetMeasureResult[]): readonly Rect[] {
   if (Array.isArray(widget.props['areas'])) {
-    return gridAreaChildBounds(widget, bounds);
+    return gridAreaChildBounds(widget, bounds, childMeasures);
   }
   const rows = layoutSizes(widget.props['rows']);
   const columns = layoutSizes(widget.props['columns']);
@@ -46,7 +46,7 @@ export function gridChildBounds(widget: Widget, bounds: Rect, childMeasures: rea
   return (widget.children ?? []).map((_child, index) => cells[index] ?? emptyRect(bounds));
 }
 
-function gridAreaChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
+function gridAreaChildBounds(widget: Widget, bounds: Rect, childMeasures: readonly WidgetMeasureResult[]): readonly Rect[] {
   const template = gridAreasTemplate(widget.props['areas']);
   const areaNames = gridAreaNames(widget.props['areaNames']);
   if (template.length === 0 || areaNames.length === 0) return [];
@@ -58,13 +58,15 @@ function gridAreaChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
     contentBounds,
     'vertical',
     rows.length === 0 ? [{ kind: 'fill' }] : rows,
-    gapOnlyOptions(options.rowGap ?? options.gap)
+    gapOnlyOptions(options.rowGap ?? options.gap),
+    gridAreaContentSizes(template, areaNames, childMeasures, 'vertical')
   );
   const columnRects = splitTracks(
     contentBounds,
     'horizontal',
     columns.length === 0 ? [{ kind: 'fill' }] : columns,
-    gapOnlyOptions(options.columnGap ?? options.gap)
+    gapOnlyOptions(options.columnGap ?? options.gap),
+    gridAreaContentSizes(template, areaNames, childMeasures, 'horizontal')
   );
   return areaNames.map((name) => areaBounds(template, name, rowRects, columnRects) ?? emptyRect(bounds));
 }
@@ -93,6 +95,31 @@ function gridContentSizes(
     if (!matches) return max;
     return Math.max(max, orientation === 'horizontal' ? measure.preferredWidth : measure.preferredHeight);
   }, 0));
+}
+
+function gridAreaContentSizes(
+  template: readonly (readonly string[])[],
+  areaNames: readonly string[],
+  childMeasures: readonly WidgetMeasureResult[],
+  orientation: 'horizontal' | 'vertical'
+): readonly number[] {
+  const trackCount = orientation === 'horizontal' ? (template[0]?.length ?? 0) : template.length;
+  const sizes = Array.from({ length: trackCount }, () => 0);
+  areaNames.forEach((name, areaIndex) => {
+    const span = areaSpan(template, name);
+    if (span === undefined) return;
+    const measure = childMeasures[areaIndex];
+    const preferred = orientation === 'horizontal' ? measure?.preferredWidth : measure?.preferredHeight;
+    if (preferred === undefined) return;
+    const start = orientation === 'horizontal' ? span.minColumn : span.minRow;
+    const end = orientation === 'horizontal' ? span.maxColumn : span.maxRow;
+    const trackSpan = Math.max(1, end - start + 1);
+    const perTrack = Math.ceil(preferred / trackSpan);
+    for (let index = start; index <= end; index += 1) {
+      sizes[index] = Math.max(sizes[index] ?? 0, perTrack);
+    }
+  });
+  return sizes;
 }
 
 function gapOnlyOptions(gap: number | undefined): LayoutFlowOptions {
@@ -179,24 +206,34 @@ function areaBounds(
   rows: readonly Rect[],
   columns: readonly Rect[]
 ): Rect | undefined {
-  const cells = template.flatMap((row, rowIndex) =>
-    row.map((value, columnIndex) => ({ value, rowIndex, columnIndex })).filter((cell) => cell.value === name)
-  );
-  if (cells.length === 0) return undefined;
-  const minRow = Math.min(...cells.map((cell) => cell.rowIndex));
-  const maxRow = Math.max(...cells.map((cell) => cell.rowIndex));
-  const minColumn = Math.min(...cells.map((cell) => cell.columnIndex));
-  const maxColumn = Math.max(...cells.map((cell) => cell.columnIndex));
-  const top = rows[minRow];
-  const bottom = rows[maxRow];
-  const left = columns[minColumn];
-  const right = columns[maxColumn];
+  const span = areaSpan(template, name);
+  if (span === undefined) return undefined;
+  const top = rows[span.minRow];
+  const bottom = rows[span.maxRow];
+  const left = columns[span.minColumn];
+  const right = columns[span.maxColumn];
   if (top === undefined || bottom === undefined || left === undefined || right === undefined) return undefined;
   return {
     row: top.row,
     column: left.column,
     width: Math.max(0, right.column + right.width - left.column),
     height: Math.max(0, bottom.row + bottom.height - top.row)
+  };
+}
+
+function areaSpan(
+  template: readonly (readonly string[])[],
+  name: string
+): { readonly minRow: number; readonly maxRow: number; readonly minColumn: number; readonly maxColumn: number } | undefined {
+  const cells = template.flatMap((row, rowIndex) =>
+    row.map((value, columnIndex) => ({ value, rowIndex, columnIndex })).filter((cell) => cell.value === name)
+  );
+  if (cells.length === 0) return undefined;
+  return {
+    minRow: Math.min(...cells.map((cell) => cell.rowIndex)),
+    maxRow: Math.max(...cells.map((cell) => cell.rowIndex)),
+    minColumn: Math.min(...cells.map((cell) => cell.columnIndex)),
+    maxColumn: Math.max(...cells.map((cell) => cell.columnIndex))
   };
 }
 

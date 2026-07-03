@@ -68,17 +68,17 @@ export function splitTracks(
 ): readonly Rect[] {
   const contentBounds = layoutContentBounds(bounds, options);
   const totalDimension = orientation === 'horizontal' ? contentBounds.width : contentBounds.height;
-  const gap = normalizedGap(options.gap);
-  const total = Math.max(0, totalDimension - gap * Math.max(0, tracks.length - 1));
-  const sizes = resolveTrackSizes(total, tracks, contentSizes);
+  const gap = resolveGapSizes(totalDimension, tracks, normalizedGap(options.gap), contentSizes);
+  const sizes = resolveTrackSizes(totalDimension - gap.reduce((sum, value) => sum + value, 0), tracks, contentSizes);
   let row = contentBounds.row;
   let column = contentBounds.column;
-  return sizes.map((size) => {
+  return sizes.map((size, index) => {
     const rect = orientation === 'horizontal'
       ? { row: contentBounds.row, column, width: size, height: contentBounds.height }
       : { row, column: contentBounds.column, width: contentBounds.width, height: size };
-    if (orientation === 'horizontal') column += size + gap;
-    else row += size + gap;
+    const nextGap = gap[index] ?? 0;
+    if (orientation === 'horizontal') column += size + nextGap;
+    else row += size + nextGap;
     return clampRect(rect);
   });
 }
@@ -138,23 +138,88 @@ function resolveTrackSizes(
     + percent.reduce((sum, value) => sum + value, 0)
     + content.reduce((sum, value) => sum + value, 0);
   const fillTracks = tracks.map((track) => track.kind === 'fill' ? Math.max(1, Math.floor(track.weight ?? 1)) : 0);
-  const fillWeight = fillTracks.reduce((sum, value) => sum + value, 0);
   const remaining = Math.max(0, safeTotal - claimed);
+  const fillSizes = weightedFillSizes(remaining, fillTracks);
   const sizes = tracks.map((track, index) => {
     if (track.kind === 'fixed') return fixed[index] ?? 0;
     if (track.kind === 'percent') return percent[index] ?? 0;
     if (track.kind === 'content') return content[index] ?? 0;
-    const weight = fillTracks[index] ?? 1;
-    const size = fillWeight === 0 ? 0 : Math.floor(remaining * weight / fillWeight);
+    return fillSizes[index] ?? 0;
+  });
+  return sizes.reduce((sum, value) => sum + value, 0) > safeTotal ? fitSizes(sizes, safeTotal) : sizes;
+}
+
+function resolveGapSizes(
+  totalDimension: number,
+  tracks: readonly LayoutSize[],
+  requestedGap: number,
+  contentSizes: readonly number[]
+): readonly number[] {
+  const gapCount = Math.max(0, tracks.length - 1);
+  if (gapCount === 0 || requestedGap === 0) return Array.from({ length: gapCount }, () => 0);
+  const safeTotal = Math.max(0, Math.floor(totalDimension));
+  const requestedGapTotal = requestedGap * gapCount;
+  const idealContentTotal = Math.max(0, safeTotal - requestedGapTotal);
+  const idealNonFillClaim = nonFillTrackClaim(idealContentTotal, tracks, contentSizes);
+  if (idealNonFillClaim <= idealContentTotal) {
+    return Array.from({ length: gapCount }, () => requestedGap);
+  }
+  const maximumGapTotal = Math.max(0, safeTotal - nonFillTrackClaim(safeTotal, tracks, contentSizes));
+  return distributeGapCells(Math.min(requestedGapTotal, maximumGapTotal), gapCount, requestedGap);
+}
+
+function nonFillTrackClaim(
+  total: number,
+  tracks: readonly LayoutSize[],
+  contentSizes: readonly number[]
+): number {
+  const safeTotal = Math.max(0, Math.floor(total));
+  return tracks.reduce((sum, track, index) => {
+    if (track.kind === 'fixed') return sum + Math.max(0, Math.floor(track.cells));
+    if (track.kind === 'percent') return sum + Math.max(0, Math.floor(safeTotal * Math.max(0, track.value) / 100));
+    if (track.kind === 'content') return sum + measuredContentTrackSize(track, contentSizes[index]);
+    return sum;
+  }, 0);
+}
+
+function distributeGapCells(totalGap: number, gapCount: number, requestedGap: number): readonly number[] {
+  let remaining = Math.max(0, Math.floor(totalGap));
+  return Array.from({ length: gapCount }, () => {
+    const size = Math.min(requestedGap, remaining);
+    remaining -= size;
     return size;
   });
-  const lastFill = sizes.findLastIndex((_size, index) => tracks[index]?.kind === 'fill');
-  if (lastFill !== -1) {
-    const delta = safeTotal - sizes.reduce((sum, value) => sum + value, 0);
-    if ((sizes[lastFill] ?? 0) + delta < 0) return fitSizes(sizes, safeTotal);
-    return sizes.map((size, index) => index === lastFill ? size + delta : size);
+}
+
+function weightedFillSizes(total: number, weights: readonly number[]): readonly number[] {
+  const safeTotal = Math.max(0, Math.floor(total));
+  const totalWeight = weights.reduce((sum, value) => sum + value, 0);
+  if (safeTotal === 0 || totalWeight === 0) return weights.map(() => 0);
+  const shares = weights.map((weight, index) => {
+    if (weight <= 0) return { index, weight, floor: 0, fraction: 0 };
+    const exact = safeTotal * weight / totalWeight;
+    return {
+      index,
+      weight,
+      floor: Math.floor(exact),
+      fraction: exact - Math.floor(exact)
+    };
+  });
+  const sizes = shares.map((share) => share.floor);
+  let remaining = safeTotal - sizes.reduce((sum, value) => sum + value, 0);
+  const remainderOrder = [...shares]
+    .filter((share) => share.weight > 0)
+    .sort((left, right) =>
+      right.fraction - left.fraction
+      || right.weight - left.weight
+      || right.index - left.index
+    );
+  for (const share of remainderOrder) {
+    if (remaining <= 0) break;
+    sizes[share.index] = (sizes[share.index] ?? 0) + 1;
+    remaining -= 1;
   }
-  return fitSizes(sizes, safeTotal);
+  return sizes;
 }
 
 function measuredContentTrackSize(track: Extract<LayoutSize, { readonly kind: 'content' }>, measured: number | undefined): number {
