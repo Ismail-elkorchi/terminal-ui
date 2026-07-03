@@ -80,6 +80,26 @@ test('list widget filters items and can use explicit shared scroll state', () =>
   assert.equal(frame.accessibility.root.description, 'Showing 2-3 of 4 items.');
 });
 
+test('list widget exposes source-aware row values matches and empty filter state', () => {
+  const frame = renderWidgetFrame(list({
+    id: 'items',
+    items: ['Atlas', 'Pulse'],
+    selected: 0,
+    filterQuery: 'at'
+  }), { columns: 24, rows: 2 });
+  const emptyFrame = renderWidgetFrame(list({
+    id: 'empty-items',
+    items: [],
+    filterQuery: 'missing'
+  }), { columns: 24, rows: 2 });
+
+  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.label, 'item.0.marker');
+  assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.label, 'item.0.match');
+  assert.equal(frame.cells.find((cell) => cell.text === 'l')?.source?.label, 'item.0.value');
+  assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N')?.source?.label, 'filter.empty');
+  assert.match(renderFramePlain(emptyFrame), /No matching items/u);
+});
+
 test('list cursor and mouse hit targets use the filtered visible rows', async () => {
   const frame = renderWidgetFrame(list({
     id: 'clickable-list',
@@ -145,7 +165,10 @@ test('table supports scroll state column sizing styled renderers sort markers em
         header: 'Score',
         width: { kind: 'fixed', cells: 5 },
         align: 'end',
-        render: ({ value }) => span(String(value), { style: { fg: { kind: 'theme', token: 'status.success' } } })
+        render: ({ value }) => span(String(value), {
+          style: { fg: { kind: 'theme', token: 'status.success' } },
+          source: { id: 'score-renderer', kind: 'external', role: 'text', label: 'score.value' }
+        })
       },
       { header: 'Notes', width: { kind: 'fill' } }
     ],
@@ -159,16 +182,48 @@ test('table supports scroll state column sizing styled renderers sort markers em
   const output = renderFramePlain(frame);
   const styledScore = frame.cells.find((cell) => cell.text === '2');
   const selectedScore = frame.cells.find((cell) => cell.text === '0' && cell.style?.bg?.token === 'selection.background');
+  const sortMarker = frame.cells.find((cell) => cell.text === '↑');
 
   assert.match(output, /Name ↑/u);
   assert.doesNotMatch(output, /Hidden/u);
   assert.match(output, /bravo🙂/u);
   assert.match(output, /charlie/u);
   assert.equal(styledScore?.style?.fg?.token, 'status.success');
+  assert.equal(styledScore?.source?.label, 'score.value');
+  assert.equal(styledScore?.source?.kind, 'external');
+  assert.equal(sortMarker?.source?.label, 'header.1.sort');
   assert.equal(selectedScore?.style?.bg?.token, 'selection.background');
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.value, 'Name');
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[1]?.selected, true);
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[1]?.position?.columnLabel, 'Score');
+});
+
+test('table source metadata describes headers rows cells separators and empty state', () => {
+  const frame = renderWidgetFrame(table({
+    id: 'fleet-table',
+    selectedCell: { row: 1, column: 1 },
+    columns: [
+      { header: 'Name', width: 6, resizable: true },
+      { header: 'Score', width: 5 }
+    ],
+    rows: [
+      ['Atlas', 89],
+      ['Pulse', 92]
+    ]
+  }), { columns: 28, rows: 3 });
+  const emptyFrame = renderWidgetFrame(table({
+    id: 'empty-table',
+    columns: [{ header: 'Name', width: 8 }],
+    rows: [],
+    emptyText: 'No rows'
+  }), { columns: 24, rows: 3 });
+
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.label, 'header.0.label');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'header.0.resize')?.source?.role, 'decoration');
+  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.label, 'row.1.marker');
+  assert.equal(frame.cells.find((cell) => cell.text === 'P')?.source?.label, 'row.1.cell.0');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'column.separator')?.source?.role, 'separator');
+  assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N' && cell.row === 2)?.source?.label, 'empty');
 });
 
 test('table headers can expose a visible resize affordance without changing reducer ownership', () => {
@@ -206,6 +261,9 @@ test('table and paginator compose explicitly over a bounded page', () => {
   assert.match(output, /Pulse/u);
   assert.doesNotMatch(output, /Aster/u);
   assert.match(output, /Fleet Page 2 of 3/u);
+  assert.equal(frame.cells.find((cell) => cell.text === 'F')?.source?.label, 'label');
+  assert.equal(frame.cells.find((cell) => cell.text === '2')?.source?.label, 'page.value');
+  assert.equal(frame.cells.find((cell) => cell.text === '3')?.source?.label, 'page.count');
   assert.equal(frame.accessibility.root.children?.some((node) => node.role === 'table'), true);
 });
 
@@ -333,6 +391,9 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
   assert.match(output, /API Layer/u);
   assert.doesNotMatch(output, /Terminal UI/u);
   assert.equal(disabledCell?.style?.fg?.token, 'text.muted');
+  assert.equal(frame.cells.find((cell) => cell.text === '▣')?.source?.label, 'node.root.icon');
+  assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.label, 'node.api.label');
+  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.label, 'node.api.label');
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
   assert.equal(frame.accessibility.root.children?.[1]?.disabled, true);
   assert.equal(frame.accessibility.root.children?.[1]?.description, 'Server request boundary');
@@ -353,6 +414,7 @@ test('tree renders lazy placeholders and clips tiny viewports safely', () => {
   const output = renderFramePlain(frame);
   assert.match(output, /Very long…/u);
   assert.match(output, /Loading/u);
+  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.label, 'node.root:lazy.label');
   assert.equal(frame.accessibility.root.children?.[1]?.disabled, true);
 });
 

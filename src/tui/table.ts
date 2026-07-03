@@ -1,5 +1,5 @@
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
-import { mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
+import { dataSource, dataSpan, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
 import { rowWindow, scrollStateFromUnknown } from './data-window.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { widgetStyle } from './widget-style.ts';
@@ -14,7 +14,7 @@ import type {
 } from '../widgets/index.ts';
 import type { Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
-import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
+import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import type { ScrollState } from './scroll.ts';
 
 interface NormalizedColumn {
@@ -179,11 +179,30 @@ function tableWindow(widget: Widget, rows: readonly unknown[], bodyHeight: numbe
 }
 
 function headerLine(widget: Widget, columns: readonly NormalizedColumn[], widths: readonly number[]): RenderLine {
-  const spans: RenderSpan[] = [{ text: '  ' }];
+  const spans: RenderSpan[] = [dataSpan('  ', undefined, tableSource(widget, 'header.leading', undefined, 'decoration'))];
   columns.forEach((column, index) => {
-    if (index > 0) spans.push({ text: '  ' });
-    const label = `${column.header ?? ''}${sortMarker(column.sort)}${resizeMarker(column)}`;
-    spans.push(...cellSpans([styledSpan(label, column.headerStyle ?? widgetStyle(widget, 'title'))], widths[index] ?? 1, column.align));
+    if (index > 0) spans.push(dataSpan('  ', undefined, tableSource(widget, 'column.separator', undefined, 'separator')));
+    const headerStyle = column.headerStyle ?? widgetStyle(widget, 'title');
+    const headerSourceId = `${widget.id ?? 'table'}:header:${String(column.index)}`;
+    const label = column.header ?? '';
+    const labelSpans: RenderSpan[] = [
+      ...(label.length === 0 ? [] : [dataSpan(label, headerStyle, tableSource(widget, `header.${String(column.index)}.label`, headerSourceId))])
+    ];
+    const sort = sortMarker(column.sort);
+    if (sort.length > 0) {
+      labelSpans.push(dataSpan(sort, headerStyle, tableSource(widget, `header.${String(column.index)}.sort`, headerSourceId, 'decoration')));
+    }
+    const resize = resizeMarker(column);
+    if (resize.length > 0) {
+      labelSpans.push(dataSpan(resize, headerStyle, tableSource(widget, `header.${String(column.index)}.resize`, headerSourceId, 'decoration')));
+    }
+    spans.push(...cellSpans(
+      labelSpans,
+      widths[index] ?? 1,
+      column.align,
+      undefined,
+      tableSource(widget, `header.${String(column.index)}.padding`, headerSourceId, 'decoration')
+    ));
   });
   return { spans };
 }
@@ -199,14 +218,28 @@ function rowLine(
   theme: TerminalTheme
 ): RenderLine {
   const selectedStyle = selected ? widgetStyle(widget, 'value', 'selected') : undefined;
-  const spans: RenderSpan[] = [...selectionMarkerSpans(widget, selected, theme, selectedStyle)];
+  const rowSourceId = `${widget.id ?? 'table'}:row:${String(rowIndex)}`;
+  const spans: RenderSpan[] = [...selectionMarkerSpans(
+    widget,
+    selected,
+    theme,
+    selectedStyle,
+    tableSource(widget, `row.${String(rowIndex)}.marker`, rowSourceId, 'decoration')
+  )];
   columns.forEach((column, columnIndex) => {
-    if (columnIndex > 0) spans.push({ text: '  ' });
-    const rendered = renderCell(row, rowIndex, column, columnIndex);
+    if (columnIndex > 0) spans.push(dataSpan('  ', undefined, tableSource(widget, 'column.separator', undefined, 'separator')));
+    const cellSourceId = `${widget.id ?? 'table'}:row:${String(rowIndex)}:cell:${String(column.index)}`;
+    const rendered = renderCell(row, rowIndex, column, columnIndex, tableSource(widget, `row.${String(rowIndex)}.cell.${String(column.index)}`, cellSourceId));
     const cellSelectedStyle = selectedCell?.row === rowIndex && selectedCell.column === columnIndex
       ? mergeDataStyles(selectedStyle, widgetStyle(widget, 'value', 'active'))
       : selectedStyle;
-    spans.push(...cellSpans(rendered, widths[columnIndex] ?? 1, column.align, cellSelectedStyle));
+    spans.push(...cellSpans(
+      rendered,
+      widths[columnIndex] ?? 1,
+      column.align,
+      cellSelectedStyle,
+      tableSource(widget, `row.${String(rowIndex)}.cell.${String(column.index)}.padding`, cellSourceId, 'decoration')
+    ));
   });
   return { spans };
 }
@@ -215,45 +248,52 @@ function emptyLine(widget: Widget): RenderLine {
   const emptyText = clean(stringify(widget.props['emptyText'])) || 'No rows';
   return {
     spans: [
-      { text: '  ' },
-      styledSpan(emptyText, widgetStyle(widget, 'placeholder'))
+      dataSpan('  ', undefined, tableSource(widget, 'empty.leading', undefined, 'decoration')),
+      dataSpan(emptyText, widgetStyle(widget, 'placeholder'), tableSource(widget, 'empty'))
     ]
   };
 }
 
-function renderCell(row: unknown, rowIndex: number, column: NormalizedColumn, columnIndex: number): readonly RenderSpan[] {
+function renderCell(
+  row: unknown,
+  rowIndex: number,
+  column: NormalizedColumn,
+  columnIndex: number,
+  fallbackSource: FrameCellSource
+): readonly RenderSpan[] {
   const value = rowCell(row, column.index);
   if (column.render !== undefined) {
-    return renderResultToSpans(column.render({ value, row, rowIndex, columnIndex }), column.style);
+    return renderResultToSpans(column.render({ value, row, rowIndex, columnIndex }), column.style, fallbackSource);
   }
-  return [{ text: displayValue(value), ...(column.style === undefined ? {} : { style: column.style }) }];
+  return [dataSpan(displayValue(value), column.style, fallbackSource)];
 }
 
-function renderResultToSpans(result: string | RenderSpan | readonly RenderSpan[], style: TerminalStyle | undefined): readonly RenderSpan[] {
-  if (typeof result === 'string') return [{ text: clean(result), ...(style === undefined ? {} : { style }) }];
-  if (isRenderSpanArray(result)) return result.map((span) => cleanSpan(span, style));
-  return [cleanSpan(result, style)];
+function renderResultToSpans(
+  result: string | RenderSpan | readonly RenderSpan[],
+  style: TerminalStyle | undefined,
+  fallbackSource: FrameCellSource
+): readonly RenderSpan[] {
+  if (typeof result === 'string') return [dataSpan(clean(result), style, fallbackSource)];
+  if (isRenderSpanArray(result)) return result.map((span) => cleanSpan(span, style, fallbackSource));
+  return [cleanSpan(result, style, fallbackSource)];
 }
 
-function cleanSpan(span: RenderSpan, fallbackStyle: TerminalStyle | undefined): RenderSpan {
+function cleanSpan(span: RenderSpan, fallbackStyle: TerminalStyle | undefined, fallbackSource: FrameCellSource): RenderSpan {
   return {
     text: clean(span.text),
     ...(span.style === undefined && fallbackStyle !== undefined ? { style: fallbackStyle } : {}),
     ...(span.style === undefined ? {} : { style: span.style }),
     ...(span.link === undefined ? {} : { link: span.link }),
-    ...(span.source === undefined ? {} : { source: span.source })
+    source: span.source ?? fallbackSource
   };
-}
-
-function styledSpan(text: string, style: TerminalStyle | undefined): RenderSpan {
-  return style === undefined ? { text } : { text, style };
 }
 
 function cellSpans(
   spans: readonly RenderSpan[],
   width: number,
   align: TableColumnAlignment,
-  overrideStyle?: TerminalStyle
+  overrideStyle?: TerminalStyle,
+  paddingSource?: FrameCellSource
 ): readonly RenderSpan[] {
   const clipped = overrideStyle === undefined
     ? clipRenderSpans(spans, width, { ellipsis: '…' })
@@ -271,9 +311,9 @@ function cellSpans(
   const before = align === 'end' ? padding : align === 'center' ? Math.floor(padding / 2) : 0;
   const after = Math.max(0, padding - before);
   const rendered: RenderSpan[] = [];
-  if (before > 0) rendered.push({ text: ' '.repeat(before) });
+  if (before > 0) rendered.push(dataSpan(' '.repeat(before), undefined, paddingSource));
   rendered.push(...clipped);
-  if (after > 0) rendered.push({ text: ' '.repeat(after) });
+  if (after > 0) rendered.push(dataSpan(' '.repeat(after), undefined, paddingSource));
   return rendered;
 }
 
@@ -463,4 +503,11 @@ function isTerminalStyle(value: unknown): value is TerminalStyle {
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function tableSource(widget: Widget, label: string, id?: string, role: FrameCellSource['role'] = 'text'): FrameCellSource {
+  return dataSource(widget, label, {
+    ...(id === undefined ? {} : { id }),
+    role
+  });
 }

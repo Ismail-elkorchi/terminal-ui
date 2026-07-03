@@ -2,7 +2,7 @@ import type { AccessibleNode } from '../../../accessibility/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { Widget } from '../../../widgets/index.ts';
 import { rowWindow, scrollStateFromUnknown } from '../../data-window.ts';
-import { dataValueSpans, selectionMarkerSpans } from '../../data-visual.ts';
+import { dataSource, dataSpan, dataValueSpans, selectionMarkerSpans } from '../../data-visual.ts';
 import type { ScrollState } from '../../scroll.ts';
 import { sanitizeTerminalText } from '../../../text/index.ts';
 import { windowDescription } from '../../visible-window.ts';
@@ -30,15 +30,36 @@ export function listBlock(widget: Widget, height: number, theme: TerminalTheme):
   const selected = numberProp(widget, 'selected') ?? -1;
   const window = listWindow(widget, items, height, selected);
   const query = filterQuery(widget);
+  if (window.rows.length === 0 && height > 0) {
+    return {
+      lines: [{
+        spans: [dataSpan(
+          query.length === 0 ? 'No items' : 'No matching items',
+          widgetStyle(widget, 'placeholder'),
+          dataSource(widget, query.length === 0 ? 'empty' : 'filter.empty', { role: 'text' })
+        )]
+      }]
+    };
+  }
   return {
     lines: window.rows.map((item, index): RenderLine => {
       const itemIndex = window.start + index;
       const isSelected = itemIndex === selected;
       const style = isSelected ? widgetStyle(widget, 'value', 'selected') : undefined;
+      const itemSourceId = `${widget.id ?? 'list'}:option:${String(itemIndex)}`;
       return {
         spans: [
-          ...selectionMarkerSpans(widget, isSelected, theme, style),
-          ...dataValueSpans(clean(String(item)), query, style)
+          ...selectionMarkerSpans(
+            widget,
+            isSelected,
+            theme,
+            style,
+            dataSource(widget, `item.${String(itemIndex)}.marker`, { id: itemSourceId, role: 'decoration' })
+          ),
+          ...dataValueSpans(clean(String(item)), query, style, {
+            source: dataSource(widget, `item.${String(itemIndex)}.value`, { id: itemSourceId }),
+            matchSource: dataSource(widget, `item.${String(itemIndex)}.match`, { id: itemSourceId })
+          })
         ]
       };
     })

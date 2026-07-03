@@ -15,7 +15,7 @@ import {
   sparklineAccessibleBase,
   sparklineBlock
 } from '../chart-widgets.ts';
-import { paginatorAccessibleBase, paginatorText } from '../data-widgets.ts';
+import { paginatorAccessibleBase, paginatorBlock } from '../data-widgets.ts';
 import {
   activityFeedAccessibleBase,
   activityFeedAccessibleChildren,
@@ -30,7 +30,7 @@ import {
 } from '../scrollback.ts';
 import { tableAccessibleBase, tableAccessibleChildren, tableBlock } from '../table.ts';
 import { treeAccessibleBase, treeAccessibleChildren, treeBlock, treeHitTargets } from '../tree.ts';
-import { writeBlock, writeRenderBlock } from './support/block.ts';
+import { writeRenderBlock } from './support/block.ts';
 import { focusTarget, hasKeyboardOrInputMap } from './support/common.ts';
 import {
   listAccessibleChildren,
@@ -133,7 +133,7 @@ export const dataRenderers = {
   },
   paginator: {
     render: ({ widget, node, buffer }) => {
-      writeBlock(buffer, node.bounds, paginatorText(widget));
+      writeRenderBlock(buffer, node.bounds, paginatorBlock(widget));
     },
     accessibility: ({ widget, id }) => paginatorAccessibleBase(widget, id)
   },

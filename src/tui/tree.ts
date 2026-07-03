@@ -1,6 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import { treeNodeMatches } from '../widgets/behavior/tree.ts';
-import { dataValueSpans, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
+import { dataSource, dataSpan, dataValueSpans, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
 import { rowWindow, scrollStateFromUnknown } from './data-window.ts';
 import { stringify } from './widget-props.ts';
 import { themeStyle, widgetStyle } from './widget-style.ts';
@@ -10,7 +10,7 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { TreeNode, Widget } from '../widgets/index.ts';
 import type { Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
-import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
+import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import type { ScrollState } from './scroll.ts';
 import type { HitTarget } from './widget-renderer.ts';
 
@@ -33,7 +33,9 @@ export function treeBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): R
   const window = treeWindow(widget, rows, bounds.height, selected);
   if (rows.length === 0 && bounds.height > 0) {
     return {
-      lines: [{ spans: [styledSpan(emptyText(widget), widgetStyle(widget, 'placeholder'))] }]
+      lines: [{
+        spans: [dataSpan(emptyText(widget), widgetStyle(widget, 'placeholder'), treeSource(widget, 'empty'))]
+      }]
     };
   }
   return {
@@ -112,13 +114,23 @@ function treeLine(widget: Widget, row: VisibleTreeNode, selected: string | undef
   const style = treeNodeStyle(widget, row, isSelected);
   const branchStyle = mergeDataStyles(themeStyle('tree.branch'), style);
   const query = filterQuery(widget);
+  const nodeSourceId = `${widget.id ?? 'tree'}:${row.node.id}`;
   const spans: RenderSpan[] = [
-    ...selectionMarkerSpans(widget, isSelected, theme, style),
-    styledSpan('  '.repeat(row.depth), branchStyle),
-    styledSpan(branch, branchStyle),
-    { text: ' ' },
-    ...(icon.length === 0 ? [] : [styledSpan(icon, branchStyle)]),
-    ...dataValueSpans(label, query, style)
+    ...selectionMarkerSpans(
+      widget,
+      isSelected,
+      theme,
+      style,
+      treeSource(widget, `node.${row.node.id}.marker`, nodeSourceId, 'decoration')
+    ),
+    ...(row.depth === 0 ? [] : [dataSpan('  '.repeat(row.depth), branchStyle, treeSource(widget, `node.${row.node.id}.indent`, nodeSourceId, 'decoration'))]),
+    dataSpan(branch, branchStyle, treeSource(widget, `node.${row.node.id}.branch`, nodeSourceId, 'decoration')),
+    dataSpan(' ', undefined, treeSource(widget, `node.${row.node.id}.branch.gap`, nodeSourceId, 'decoration')),
+    ...(icon.length === 0 ? [] : [dataSpan(icon, branchStyle, treeSource(widget, `node.${row.node.id}.icon`, nodeSourceId, 'decoration'))]),
+    ...dataValueSpans(label, query, style, {
+      source: treeSource(widget, `node.${row.node.id}.label`, nodeSourceId),
+      matchSource: treeSource(widget, `node.${row.node.id}.match`, nodeSourceId)
+    })
   ];
   return {
     spans: clipRenderSpans(spans, Math.max(0, width), { ellipsis: '…' })
@@ -136,10 +148,6 @@ function treeNodeStyle(widget: Widget, row: VisibleTreeNode, selected: boolean):
   if (row.node.disabled === true) return widgetStyle(widget, 'value', 'disabled');
   if (selected) return widgetStyle(widget, 'value', 'selected');
   return undefined;
-}
-
-function styledSpan(text: string, style: TerminalStyle | undefined): RenderLine['spans'][number] {
-  return style === undefined ? { text } : { text, style };
 }
 
 function visibleTreeNodes(widget: Widget): readonly VisibleTreeNode[] {
@@ -293,4 +301,11 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 
 function isTreeMessageFactory(value: unknown): value is (node: TreeNode) => unknown {
   return typeof value === 'function';
+}
+
+function treeSource(widget: Widget, label: string, id?: string, role: FrameCellSource['role'] = 'text'): FrameCellSource {
+  return dataSource(widget, label, {
+    ...(id === undefined ? {} : { id }),
+    role
+  });
 }

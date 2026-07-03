@@ -209,6 +209,10 @@ test('list table and tree share data navigation selection and match styles', () 
   assert.equal(styleForCell(activeTableFrame, (cell) => cell.text === 'A')?.bg?.token, 'selection.background');
   assert.equal(styleForCell(treeFrame, (cell) => cell.text === '▾')?.fg?.token, 'tree.branch');
   assert.equal(styleForCell(treeFrame, (cell) => cell.text === 'A')?.fg?.token, 'menu.match');
+  assert.equal(listFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'item.0.match');
+  assert.equal(tableFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'row.0.cell.0');
+  assert.equal(activeTableFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'row.0.cell.0');
+  assert.equal(treeFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'node.api.match');
 });
 
 test('tabs use shared selected disabled and value styles', () => {
