@@ -1,9 +1,4 @@
-import type {
-  ActivityIndicatorStatus,
-  CommandBarValidationTone,
-  NotificationTone,
-  StructuredBlockStatus
-} from './types.ts';
+import type { NotificationTone } from './types.ts';
 import type {
   WidgetProcessStatus,
   WidgetRecordStatus,
@@ -85,41 +80,41 @@ export function normalizeWidgetStatus(value: unknown, fallback: WidgetStatus = '
   return isWidgetStatus(value) ? value : fallback;
 }
 
-export function isWidgetProcessStatus(value: unknown): value is ActivityIndicatorStatus {
+export function isWidgetProcessStatus(value: unknown): value is WidgetProcessStatus {
   return includesValue(widgetProcessStatuses, value);
 }
 
 export function normalizeWidgetProcessStatus(
   value: unknown,
-  fallback: ActivityIndicatorStatus = 'idle'
-): ActivityIndicatorStatus {
+  fallback: WidgetProcessStatus = 'idle'
+): WidgetProcessStatus {
   return isWidgetProcessStatus(value) ? value : fallback;
 }
 
-export function optionalWidgetProcessStatus(value: unknown): ActivityIndicatorStatus | undefined {
+export function optionalWidgetProcessStatus(value: unknown): WidgetProcessStatus | undefined {
   return isWidgetProcessStatus(value) ? value : undefined;
 }
 
-export function isWidgetRecordStatus(value: unknown): value is StructuredBlockStatus {
+export function isWidgetRecordStatus(value: unknown): value is WidgetRecordStatus {
   return includesValue(widgetRecordStatuses, value);
 }
 
-export function optionalWidgetRecordStatus(value: unknown): StructuredBlockStatus | undefined {
+export function optionalWidgetRecordStatus(value: unknown): WidgetRecordStatus | undefined {
   return isWidgetRecordStatus(value) ? value : undefined;
 }
 
 export function normalizeWidgetRecordStatus(
   value: unknown,
-  fallback: StructuredBlockStatus = 'info'
-): StructuredBlockStatus {
+  fallback: WidgetRecordStatus = 'info'
+): WidgetRecordStatus {
   return isWidgetRecordStatus(value) ? value : fallback;
 }
 
-export function isWidgetValidationTone(value: unknown): value is CommandBarValidationTone {
+export function isWidgetValidationTone(value: unknown): value is WidgetValidationTone {
   return includesValue(widgetValidationTones, value);
 }
 
-export function optionalWidgetValidationTone(value: unknown): CommandBarValidationTone | undefined {
+export function optionalWidgetValidationTone(value: unknown): WidgetValidationTone | undefined {
   return isWidgetValidationTone(value) ? value : undefined;
 }
 
@@ -154,8 +149,8 @@ export function statusFromTone(tone: WidgetTone, fallback: WidgetStatus = 'info'
 
 export function recordStatusFromTone(
   tone: WidgetTone,
-  fallback: StructuredBlockStatus = 'info'
-): StructuredBlockStatus {
+  fallback: WidgetRecordStatus = 'info'
+): WidgetRecordStatus {
   switch (tone) {
     case 'success':
       return 'success';
@@ -176,7 +171,7 @@ export function recordStatusFromTone(
   }
 }
 
-export function baseStatusForRecordStatus(status: StructuredBlockStatus): WidgetStatus {
+export function baseStatusForRecordStatus(status: WidgetRecordStatus): WidgetStatus {
   if (status === 'failed') return 'error';
   if (status === 'cancelled' || status === 'skipped') return 'warning';
   return status;

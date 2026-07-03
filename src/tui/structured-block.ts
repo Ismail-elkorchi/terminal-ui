@@ -14,7 +14,7 @@ import {
 import { numberProp, stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { StructuredBlock, StructuredBlockField, Widget } from '../widgets/index.ts';
+import type { StructuredBlock, WidgetFieldItem, Widget } from '../widgets/index.ts';
 import { optionalWidgetRecordStatus } from '../widgets/index.ts';
 import type { LayoutNode } from './layout.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
@@ -241,7 +241,7 @@ function sanitizeBlock(block: StructuredBlock): StructuredBlock {
   };
 }
 
-function sanitizeField(field: StructuredBlockField): StructuredBlockField {
+function sanitizeField(field: WidgetFieldItem): WidgetFieldItem {
   return {
     label: cleanLine(field.label),
     value: cleanLine(field.value)
@@ -281,7 +281,7 @@ function optionalFields(value: unknown): Pick<StructuredBlock, 'fields'> | Recor
   return fields.length === 0 ? {} : { fields };
 }
 
-function isField(value: unknown): value is StructuredBlockField {
+function isField(value: unknown): value is WidgetFieldItem {
   return typeof value === 'object'
     && value !== null
     && 'label' in value
@@ -341,7 +341,7 @@ function headerLine(
   return { spans };
 }
 
-function fieldLine(field: StructuredBlockField, labelWidth: number, options: StructuredBlockRenderOptions): RenderLine {
+function fieldLine(field: WidgetFieldItem, labelWidth: number, options: StructuredBlockRenderOptions): RenderLine {
   return {
     spans: documentFieldSpans(options.widget, field, labelWidth, options.selected, options.kind)
   };
@@ -383,7 +383,7 @@ function detailTextLines(
   return wrappedTextLines(plain, width, style, options, 'detail', 'details.body');
 }
 
-function maxFieldLabelWidth(fields: readonly StructuredBlockField[]): number {
+function maxFieldLabelWidth(fields: readonly WidgetFieldItem[]): number {
   return fields.reduce((width, field) => Math.max(width, field.label.length), 0);
 }
 

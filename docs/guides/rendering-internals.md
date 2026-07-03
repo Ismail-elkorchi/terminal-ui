@@ -53,7 +53,7 @@ style, hyperlink, and source metadata match.
 
 ## Measurement
 
-`WidgetMeasureResult` is the canonical measurement shape for widgets. The
+`Measurement` is the canonical measurement shape for widgets. The
 measurement helpers normalize, clamp, and combine minimum, preferred, and
 optional maximum sizes for vertical, horizontal, overlay, and bounded layout
 pressure. Text, span, line, and block measurement use the same terminal cell

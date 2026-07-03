@@ -14,7 +14,7 @@ import { widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TextSelection } from '../text/index.ts';
-import type { CommandBarSuggestion, CommandBarValidation, CommandBarValidationTone, Widget } from '../widgets/index.ts';
+import type { WidgetSuggestionItem, CommandBarValidation, WidgetValidationTone, Widget } from '../widgets/index.ts';
 import { optionalWidgetValidationTone } from '../widgets/index.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { Rect } from './layout.ts';
@@ -118,7 +118,7 @@ function validationLine(widget: Widget, validation: CommandBarValidation, theme:
 
 function suggestionLine(
   widget: Widget,
-  suggestion: CommandBarSuggestion,
+  suggestion: WidgetSuggestionItem,
   index: number,
   selected: boolean,
   query: string,
@@ -156,10 +156,10 @@ function mutedLine(widget: Widget, text: string, theme: TerminalTheme): RenderLi
   };
 }
 
-function commandBarSuggestions(widget: Widget): readonly CommandBarSuggestion[] {
+function commandBarSuggestions(widget: Widget): readonly WidgetSuggestionItem[] {
   const suggestions = widget.props['suggestions'];
   return Array.isArray(suggestions)
-    ? suggestions.flatMap((suggestion): CommandBarSuggestion[] => {
+    ? suggestions.flatMap((suggestion): WidgetSuggestionItem[] => {
         if (!isRecord(suggestion)) return [];
         const value = suggestion['value'];
         if (typeof value !== 'string') return [];
@@ -188,7 +188,7 @@ function validationProp(widget: Widget): CommandBarValidation | undefined {
   };
 }
 
-function validationToneForSurface(tone: CommandBarValidationTone): 'info' | 'warning' | 'error' {
+function validationToneForSurface(tone: WidgetValidationTone): 'info' | 'warning' | 'error' {
   return tone;
 }
 

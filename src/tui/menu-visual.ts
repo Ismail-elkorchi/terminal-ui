@@ -1,5 +1,5 @@
 import type { TerminalTheme } from '../theme/index.ts';
-import type { MenuItemTone, Widget } from '../widgets/index.ts';
+import type { WidgetActionTone, Widget } from '../widgets/index.ts';
 import { widgetFrameSource } from './frame-source.ts';
 import { clipRenderSpans, span } from './render-primitives.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
@@ -15,7 +15,7 @@ export interface MenuVisualItem {
   readonly depth: number;
   readonly expanded?: boolean;
   readonly hasChildren: boolean;
-  readonly tone?: MenuItemTone;
+  readonly tone?: WidgetActionTone;
 }
 
 export function menuTitleLine(widget: Widget, title: string, width: number): RenderLine {

@@ -1,6 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
-import type { ActivityIndicatorStatus, ProgressBarLabelPosition, ProgressBarMode, Widget } from '../widgets/index.ts';
+import type { WidgetProcessStatus, ProgressBarLabelPosition, ProgressBarMode, Widget } from '../widgets/index.ts';
 import { indeterminateProgressFrame } from '../widgets/index.ts';
 import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -14,7 +14,7 @@ interface ProgressModel {
   readonly label: string;
   readonly mode: ProgressBarMode;
   readonly labelPosition: ProgressBarLabelPosition;
-  readonly status: ActivityIndicatorStatus;
+  readonly status: WidgetProcessStatus;
   readonly indeterminate: boolean;
   readonly value: number;
   readonly max: number;

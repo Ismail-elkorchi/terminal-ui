@@ -1,5 +1,6 @@
 import { sanitizeTerminalText } from '../../text/index.ts';
-import type { NotificationItem, StructuredBlock, StructuredBlockStatus } from '../types.ts';
+import type { WidgetRecordStatus } from '../contracts.ts';
+import type { NotificationItem, StructuredBlock } from '../types.ts';
 import { normalizeNotificationTone, recordStatusFromTone } from '../status.ts';
 
 export interface NotificationState {
@@ -104,7 +105,7 @@ function sanitizeNotificationItem(item: NotificationItem): NotificationItem {
   };
 }
 
-function notificationStatus(item: NotificationItem): StructuredBlockStatus {
+function notificationStatus(item: NotificationItem): WidgetRecordStatus {
   return recordStatusFromTone(normalizeNotificationTone(item.tone));
 }
 

@@ -124,7 +124,6 @@ import type {
   WidgetHitInput,
   WidgetLayoutInput,
   WidgetMeasureInput,
-  WidgetMeasureResult,
   WidgetRenderer,
   WidgetRenderInput
 } from './widget-renderer.ts';
@@ -285,7 +284,6 @@ export type {
   WidgetHitInput,
   WidgetLayoutInput,
   WidgetMeasureInput,
-  WidgetMeasureResult,
   WidgetRenderer,
   WidgetRenderInput
 };

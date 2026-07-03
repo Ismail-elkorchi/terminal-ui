@@ -16,15 +16,17 @@ test('public item contracts stay narrow instead of collapsing into one universal
   assert.match(contracts, /export interface WidgetTreeItem<TNode> extends WidgetItemBase, WidgetHierarchyItem<TNode> \{\}/u);
   assert.doesNotMatch(contracts, /WidgetValueItem|UniversalItem|BaseSelectable/u);
 
-  assert.match(types, /export type FormOption<TValue = string> = WidgetChoiceItem<TValue>;/u);
+  assert.doesNotMatch(types, /export type (?:FormOption|MenuItemTone|HelpBinding|ActivityIndicatorStatus|StructuredBlockStatus|StructuredBlockField|CommandBarSuggestion|CommandBarValidationTone|PaletteEntry)\b/u);
+  assert.doesNotMatch(types, /export type Widget(?:ChoiceItem|ActionTone|KeyBinding|ProcessStatus|RecordStatus|FieldItem|SuggestionItem|ValidationTone|SearchEntry)[\s\S]*=\s*Widget/u);
+  assert.match(types, /readonly options: readonly WidgetChoiceItem<TValue>\[\];/u);
   assert.match(types, /export interface DatePickerDay<TValue = string> extends WidgetChoiceItem<TValue>/u);
   assert.match(types, /export interface MenuItem<TMessage = never> extends WidgetActionItem<TMessage>, WidgetHierarchyItem<MenuItem<TMessage>>/u);
-  assert.match(types, /export type CommandBarSuggestion = WidgetSuggestionItem;/u);
-  assert.match(types, /export type PaletteEntry<TValue = string> = WidgetSearchEntry<TValue>;/u);
   assert.match(types, /export interface TabItem<TMessage = never> extends WidgetNavigationItem<TMessage>/u);
-  assert.match(types, /export type HelpBinding = WidgetKeyBinding;/u);
+  assert.match(types, /readonly bindings: readonly WidgetKeyBinding\[\];/u);
   assert.match(types, /export interface NotificationItem extends WidgetTitledItem/u);
-  assert.match(types, /export type StructuredBlockField = WidgetFieldItem;/u);
+  assert.match(types, /readonly fields\?: readonly WidgetFieldItem\[\];/u);
+  assert.match(types, /readonly suggestions\?: readonly WidgetSuggestionItem\[\];/u);
+  assert.match(types, /readonly entries: readonly WidgetSearchEntry<TValue>\[\];/u);
 
   const treeNode = sliceBetween(types, 'export interface TreeNode', 'export interface TreeWidgetOptions');
   assert.doesNotMatch(treeNode, /readonly disabled\?: boolean;/u);

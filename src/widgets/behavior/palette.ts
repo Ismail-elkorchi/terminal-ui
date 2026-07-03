@@ -1,9 +1,9 @@
-import type { PaletteEntry } from '../types.ts';
+import type { WidgetSearchEntry } from '../contracts.ts';
 
 export type PaletteAsyncState<TValue = string> =
-  | { readonly status: 'idle'; readonly entries: readonly PaletteEntry<TValue>[] }
-  | { readonly status: 'loading'; readonly entries: readonly PaletteEntry<TValue>[] }
-  | { readonly status: 'error'; readonly entries: readonly PaletteEntry<TValue>[]; readonly message: string };
+  | { readonly status: 'idle'; readonly entries: readonly WidgetSearchEntry<TValue>[] }
+  | { readonly status: 'loading'; readonly entries: readonly WidgetSearchEntry<TValue>[] }
+  | { readonly status: 'error'; readonly entries: readonly WidgetSearchEntry<TValue>[]; readonly message: string };
 
 export interface PaletteState {
   readonly query: string;
@@ -23,10 +23,10 @@ export type PaletteAction =
 export interface PaletteGroup<TValue = string> {
   readonly id: string;
   readonly label: string;
-  readonly entries: readonly PaletteEntry<TValue>[];
+  readonly entries: readonly WidgetSearchEntry<TValue>[];
 }
 
-export type PaletteGroupSelector<TValue> = (entry: PaletteEntry<TValue>) => {
+export type PaletteGroupSelector<TValue> = (entry: WidgetSearchEntry<TValue>) => {
   readonly id: string;
   readonly label?: string;
 };
@@ -65,10 +65,10 @@ export function paletteReducer(state: PaletteState, action: PaletteAction): Pale
 }
 
 export function groupPaletteEntries<TValue>(
-  entries: readonly PaletteEntry<TValue>[],
+  entries: readonly WidgetSearchEntry<TValue>[],
   groupFor: PaletteGroupSelector<TValue>
 ): readonly PaletteGroup<TValue>[] {
-  const groups = new Map<string, { label: string; entries: PaletteEntry<TValue>[] }>();
+  const groups = new Map<string, { label: string; entries: WidgetSearchEntry<TValue>[] }>();
   for (const entry of entries) {
     const group = groupFor(entry);
     const current = groups.get(group.id);

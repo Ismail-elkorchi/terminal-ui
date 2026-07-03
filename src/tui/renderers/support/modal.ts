@@ -4,8 +4,8 @@ import type { BorderStyle } from '../../border.ts';
 import type { FrameBuffer } from '../../frame.ts';
 import { frameCellSource } from '../../frame-source.ts';
 import type { LayoutNode, Rect } from '../../layout.ts';
+import type { Measurement } from '../../measurement.ts';
 import type { TerminalStyle } from '../../render-primitives.ts';
-import type { WidgetMeasureResult } from '../../widget-renderer.ts';
 import { numberProp } from '../../widget-props.ts';
 import { borderContentBounds } from './border.ts';
 import { clampRect, nonNegativeInteger } from './common.ts';
@@ -25,7 +25,7 @@ export function modalChildBounds(
   widget: Widget,
   bounds: Rect,
   border: BorderStyle,
-  childMeasures: readonly WidgetMeasureResult[]
+  childMeasures: readonly Measurement[]
 ): readonly Rect[] {
   const contentBounds = borderContentBounds(modalDialogBounds(widget, bounds), border);
   if (!modalHasActions(widget)) return [contentBounds];
@@ -81,7 +81,7 @@ function modalHasActions(widget: Widget): boolean {
   return (widget.children?.length ?? 0) > 1;
 }
 
-function modalActionHeight(contentHeight: number, measure: WidgetMeasureResult | undefined): number {
+function modalActionHeight(contentHeight: number, measure: Measurement | undefined): number {
   if (contentHeight <= 0) return 0;
   const preferred = Math.max(1, nonNegativeInteger(measure?.preferredHeight));
   return Math.min(preferred, contentHeight <= 1 ? contentHeight : contentHeight - 1);

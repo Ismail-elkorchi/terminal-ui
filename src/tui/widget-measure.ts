@@ -45,16 +45,16 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
 import type { BorderStyle } from './border.ts';
 import type { LayoutNode, Rect } from './layout.ts';
-import type { WidgetMeasureResult } from './widget-renderer.ts';
+import type { Measurement } from './measurement.ts';
 
-export type WidgetMeasureFunction = (widget: Widget, bounds: Rect, theme: TerminalTheme) => WidgetMeasureResult;
+export type WidgetMeasureFunction = (widget: Widget, bounds: Rect, theme: TerminalTheme) => Measurement;
 
 export function measureBuiltinWidget(
   widget: Widget,
   bounds: Rect,
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
-): WidgetMeasureResult {
+): Measurement {
   switch (widget.kind) {
     case 'text':
       return measureText(stringify(widget.props['content']));
@@ -173,7 +173,7 @@ export function measureBuiltinWidget(
   }
 }
 
-function measureListWidget(widget: Widget, theme: TerminalTheme): WidgetMeasureResult {
+function measureListWidget(widget: Widget, theme: TerminalTheme): Measurement {
   const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
   const lines = items.map((item, index) => {
     const marker = index === numberProp(widget, 'selected') ? theme.symbols.pointer : theme.symbols.unselected;
@@ -182,7 +182,7 @@ function measureListWidget(widget: Widget, theme: TerminalTheme): WidgetMeasureR
   return measureLines(lines);
 }
 
-function measureTableWidget(widget: Widget): WidgetMeasureResult {
+function measureTableWidget(widget: Widget): Measurement {
   const rows = Array.isArray(widget.props['rows']) ? widget.props['rows'] : [];
   const columns = tableColumnMeasureInputs(widget, rows);
   const width = columns.reduce((sum, column, index) => sum + column.width + (index === 0 ? 2 : 4), 0);
@@ -195,7 +195,7 @@ function measureSurfaceWidget(
   bounds: Rect,
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
-): WidgetMeasureResult {
+): Measurement {
   const content = measureChildrenOverlay(widget, bounds, theme, measureWidget);
   const border = borderFromWidget(widget);
   const insetCells = border.kind === 'none' ? 0 : 2;
@@ -214,7 +214,7 @@ function measureChildrenVertically(
   bounds: Rect,
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
-): WidgetMeasureResult {
+): Measurement {
   return combineMeasurementsVertically(
     childMeasuresFor(widget, bounds, theme, measureWidget),
     nonNegativeInteger(numberProp(widget, 'gap'))
@@ -226,7 +226,7 @@ function measureChildrenHorizontally(
   bounds: Rect,
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
-): WidgetMeasureResult {
+): Measurement {
   return combineMeasurementsHorizontally(
     childMeasuresFor(widget, bounds, theme, measureWidget),
     nonNegativeInteger(numberProp(widget, 'gap'))
@@ -238,7 +238,7 @@ function measureChildrenOverlay(
   bounds: Rect,
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
-): WidgetMeasureResult {
+): Measurement {
   return combineMeasurementsOverlay(childMeasuresFor(widget, bounds, theme, measureWidget));
 }
 
@@ -247,7 +247,7 @@ function measureAbsoluteWidget(
   bounds: Rect,
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
-): WidgetMeasureResult {
+): Measurement {
   const measures = childMeasuresFor(widget, bounds, theme, measureWidget);
   const width = nonNegativeInteger(numberProp(widget, 'width'));
   const height = nonNegativeInteger(numberProp(widget, 'height'));
@@ -255,7 +255,7 @@ function measureAbsoluteWidget(
   return measureSize(width || content.preferredWidth, height || content.preferredHeight);
 }
 
-function measureCanvasWidget(widget: Widget): WidgetMeasureResult {
+function measureCanvasWidget(widget: Widget): Measurement {
   const label = stringify(widget.props['label']);
   return label.length === 0 ? zeroMeasurement() : measureText(label);
 }
@@ -265,7 +265,7 @@ function measureViewportWidget(
   bounds: Rect,
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
-): WidgetMeasureResult {
+): Measurement {
   const content = measureChildrenOverlay(widget, bounds, theme, measureWidget);
   return measureSize(
     Math.max(content.preferredWidth, nonNegativeInteger(numberProp(widget, 'contentColumns'))),
@@ -278,7 +278,7 @@ function measureTabsWidget(
   bounds: Rect,
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
-): WidgetMeasureResult {
+): Measurement {
   const header = measureText(tabsHeaderText(widget));
   const panel = measureChildrenOverlay(widget, bounds, theme, measureWidget);
   return measureSize(Math.max(header.preferredWidth, panel.preferredWidth), header.preferredHeight + panel.preferredHeight);
@@ -289,7 +289,7 @@ function measureModalWidget(
   bounds: Rect,
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
-): WidgetMeasureResult {
+): Measurement {
   const explicitWidth = numberProp(widget, 'width');
   const explicitHeight = numberProp(widget, 'height');
   if (explicitWidth !== undefined && explicitHeight !== undefined) {
@@ -309,7 +309,7 @@ function measureModalContentWidget(
   bounds: Rect,
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
-): WidgetMeasureResult {
+): Measurement {
   const measures = childMeasuresFor(widget, bounds, theme, measureWidget);
   const body = measures[0] ?? zeroMeasurement();
   const actions = measures[1];
@@ -324,7 +324,7 @@ function childMeasuresFor(
   bounds: Rect,
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
-): readonly WidgetMeasureResult[] {
+): readonly Measurement[] {
   return (widget.children ?? []).map((child) => measureWidget(child, bounds, theme));
 }
 

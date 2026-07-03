@@ -1,6 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { ActivityIndicatorStatus, Widget } from '../widgets/index.ts';
+import type { WidgetProcessStatus, Widget } from '../widgets/index.ts';
 import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
 import { widgetFrameSource } from './frame-source.ts';
 import { block, line, span } from './render-primitives.ts';
@@ -107,7 +107,7 @@ export function feedbackStatusMarkerSpan(
   widget: Widget,
   kind: FeedbackVisualKind,
   label: string,
-  status: ActivityIndicatorStatus,
+  status: WidgetProcessStatus,
   marker: string
 ): RenderSpan {
   return feedbackSpan(widget, marker, {
@@ -149,7 +149,7 @@ function statusLineSpans(
   input: {
     readonly kind: FeedbackVisualKind;
     readonly label: string;
-    readonly status: ActivityIndicatorStatus;
+    readonly status: WidgetProcessStatus;
     readonly marker: string;
     readonly showRunningStatus: boolean;
   }
@@ -174,7 +174,7 @@ function statusLineSpans(
 function statusSuffixSpans(
   widget: Widget,
   kind: FeedbackVisualKind,
-  status: ActivityIndicatorStatus,
+  status: WidgetProcessStatus,
   showRunningStatus: boolean
 ): readonly RenderSpan[] {
   if (status === 'idle' || (status === 'running' && !showRunningStatus)) return [];
@@ -189,7 +189,7 @@ function statusSuffixSpans(
   ];
 }
 
-function spinnerMarker(widget: Widget, theme: TerminalTheme, status: ActivityIndicatorStatus): string {
+function spinnerMarker(widget: Widget, theme: TerminalTheme, status: WidgetProcessStatus): string {
   if (status !== 'running') return statusMarker(status, theme);
   const frames = spinnerFrames(widget, theme);
   const frameIndex = numberProp(widget, 'frameIndex') ?? 0;

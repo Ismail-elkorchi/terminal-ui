@@ -12,7 +12,8 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget, WidgetFocusScope } from '../widgets/index.ts';
 import type { WidgetLayoutTarget } from './focus.ts';
 import type { LayoutNode, Rect } from './layout.ts';
-import type { FocusTarget, HitTarget, WidgetMeasureResult, WidgetRenderer, WidgetRenderInput } from './widget-renderer.ts';
+import type { Measurement } from './measurement.ts';
+import type { FocusTarget, HitTarget, WidgetRenderer, WidgetRenderInput } from './widget-renderer.ts';
 
 export function widgetRenderer<TMessage>(widget: Widget<TMessage>): WidgetRenderer<TMessage> {
   if (widget.kind === 'custom') return customRenderer(widget);
@@ -31,7 +32,7 @@ export function layoutChildBounds(widget: Widget, bounds: Rect, theme: TerminalT
   return renderer.layout({ widget, bounds, theme, childMeasures });
 }
 
-export function widgetMeasure(widget: Widget, bounds: Rect, theme: TerminalTheme): WidgetMeasureResult {
+export function widgetMeasure(widget: Widget, bounds: Rect, theme: TerminalTheme): Measurement {
   const renderer = widgetRenderer(widget);
   if (renderer.measure !== undefined) return normalizeMeasurement(renderer.measure({ widget, bounds, theme }));
   if (widget.kind === 'custom') return zeroMeasurement();

@@ -1,9 +1,15 @@
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { measureRenderBlock as renderBlockSize, measureRenderLine } from './render-primitives.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
-import type { WidgetMeasureResult } from './widget-renderer.ts';
 
-export type Measurement = WidgetMeasureResult;
+export interface Measurement {
+  readonly minWidth: number;
+  readonly minHeight: number;
+  readonly preferredWidth: number;
+  readonly preferredHeight: number;
+  readonly maxWidth?: number;
+  readonly maxHeight?: number;
+}
 
 export interface MeasurementInput {
   readonly minWidth?: number;

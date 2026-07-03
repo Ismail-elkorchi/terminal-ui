@@ -21,7 +21,7 @@ import { defaultStyleForState, mergeStyles, resolveWidgetStyle, themeStyle, widg
 import { numberProp, stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import { defaultTheme, type TerminalTheme } from '../theme/index.ts';
-import type { ButtonTone, ColorPickerOption, DatePickerDay, FormOption, RangeSliderValue, Widget, WidgetVisualState } from '../widgets/index.ts';
+import type { ButtonTone, ColorPickerOption, DatePickerDay, WidgetChoiceItem, RangeSliderValue, Widget, WidgetVisualState } from '../widgets/index.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from './layout.ts';
@@ -782,17 +782,17 @@ function selectedId(widget: Widget): string | undefined {
   return typeof selected === 'string' ? clean(selected) : undefined;
 }
 
-function selectedOption(widget: Widget): FormOption<unknown> | undefined {
+function selectedOption(widget: Widget): WidgetChoiceItem<unknown> | undefined {
   const selected = selectedId(widget);
   return selected === undefined ? undefined : formOptions(widget).find((option) => option.id === selected);
 }
 
-function formOptions(widget: Widget): readonly FormOption<unknown>[] {
+function formOptions(widget: Widget): readonly WidgetChoiceItem<unknown>[] {
   const options = widget.props['options'];
-  return Array.isArray(options) ? options.flatMap((option): readonly FormOption<unknown>[] => sanitizeOption(option)) : [];
+  return Array.isArray(options) ? options.flatMap((option): readonly WidgetChoiceItem<unknown>[] => sanitizeOption(option)) : [];
 }
 
-function sanitizeOption(value: unknown): readonly FormOption<unknown>[] {
+function sanitizeOption(value: unknown): readonly WidgetChoiceItem<unknown>[] {
   if (!isRecord(value)) return [];
   const id = value['id'];
   const label = value['label'];
@@ -807,7 +807,7 @@ function sanitizeOption(value: unknown): readonly FormOption<unknown>[] {
   }];
 }
 
-function optionMessageFactory<TMessage>(widget: Widget<TMessage>): ((option: FormOption<unknown>) => TMessage) | undefined {
+function optionMessageFactory<TMessage>(widget: Widget<TMessage>): ((option: WidgetChoiceItem<unknown>) => TMessage) | undefined {
   const toMessage = widget.props['toMessage'];
   if (!isOptionMessageFactory(toMessage)) return undefined;
   return (option) => toMessage(option) as TMessage;
@@ -815,7 +815,7 @@ function optionMessageFactory<TMessage>(widget: Widget<TMessage>): ((option: For
 
 function checkboxListMessageFactory<TMessage>(
   widget: Widget<TMessage>
-): ((option: FormOption<unknown>, checked: boolean) => TMessage) | undefined {
+): ((option: WidgetChoiceItem<unknown>, checked: boolean) => TMessage) | undefined {
   const toMessage = widget.props['toMessage'];
   if (!isCheckboxListMessageFactory(toMessage)) return undefined;
   return (option, checked) => toMessage(option, checked) as TMessage;
@@ -839,7 +839,7 @@ function pickerMessageFactory<TMessage>(widget: Widget<TMessage>): ((option: Col
   return (option) => toMessage(option) as TMessage;
 }
 
-function optionStyle(option: FormOption<unknown>, widget: Widget): TerminalStyle | undefined {
+function optionStyle(option: WidgetChoiceItem<unknown>, widget: Widget): TerminalStyle | undefined {
   if (option.disabled === true || widget.props['disabled'] === true) return widgetStyle(widget, 'value', 'disabled');
   if (option.id === selectedId(widget)) return widgetStyle(widget, 'value', 'selected');
   return undefined;
@@ -1135,13 +1135,13 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isOptionMessageFactory(value: unknown): value is (option: FormOption<unknown>) => unknown {
+function isOptionMessageFactory(value: unknown): value is (option: WidgetChoiceItem<unknown>) => unknown {
   return typeof value === 'function';
 }
 
 function isCheckboxListMessageFactory(
   value: unknown
-): value is (option: FormOption<unknown>, checked: boolean) => unknown {
+): value is (option: WidgetChoiceItem<unknown>, checked: boolean) => unknown {
   return typeof value === 'function';
 }
 

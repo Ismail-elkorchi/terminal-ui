@@ -4,6 +4,7 @@ import type { Widget } from '../widgets/types.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { FrameBuffer } from './frame.ts';
 import type { LayoutNode, Rect } from './layout.ts';
+import type { Measurement } from './measurement.ts';
 import type { PointerEventKind, RoutedPointerEvent } from './pointer-types.ts';
 
 export interface WidgetMeasureInput<TMessage = unknown> {
@@ -12,20 +13,11 @@ export interface WidgetMeasureInput<TMessage = unknown> {
   readonly theme: TerminalTheme;
 }
 
-export interface WidgetMeasureResult {
-  readonly minWidth: number;
-  readonly minHeight: number;
-  readonly preferredWidth: number;
-  readonly preferredHeight: number;
-  readonly maxWidth?: number;
-  readonly maxHeight?: number;
-}
-
 export interface WidgetLayoutInput<TMessage = unknown> {
   readonly widget: Widget<TMessage>;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
-  readonly childMeasures: readonly WidgetMeasureResult[];
+  readonly childMeasures: readonly Measurement[];
 }
 
 export interface WidgetRenderInput<TMessage = unknown> {
@@ -76,7 +68,7 @@ export interface HitTarget<TMessage = unknown> {
 }
 
 export interface WidgetRenderer<TMessage = unknown> {
-  measure?(input: WidgetMeasureInput<TMessage>): WidgetMeasureResult;
+  measure?(input: WidgetMeasureInput<TMessage>): Measurement;
   layout?(input: WidgetLayoutInput<TMessage>): readonly Rect[];
   render(input: WidgetRenderInput<TMessage>): void;
   accessibility?(input: WidgetAccessibilityInput<TMessage>): AccessibleNode;

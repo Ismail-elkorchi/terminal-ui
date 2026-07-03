@@ -14,14 +14,14 @@ import { numberProp, stringify } from './widget-props.ts';
 import { widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { PaletteEntry, Widget } from '../widgets/index.ts';
+import type { WidgetSearchEntry, Widget } from '../widgets/index.ts';
 import type { Rect } from './layout.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
 import type { ScrollState } from './scroll.ts';
 import type { HitTarget } from './widget-renderer.ts';
 
 export interface PaletteWindowInput<TValue = string> {
-  readonly entries: readonly PaletteEntry<TValue>[];
+  readonly entries: readonly WidgetSearchEntry<TValue>[];
   readonly query?: string;
   readonly selected?: number;
   readonly selectedId?: string;
@@ -30,9 +30,9 @@ export interface PaletteWindowInput<TValue = string> {
 }
 
 export interface PaletteFilterResult<TValue = string> {
-  readonly entries: readonly PaletteEntry<TValue>[];
+  readonly entries: readonly WidgetSearchEntry<TValue>[];
   readonly selected?: number;
-  readonly selectedEntry?: PaletteEntry<TValue>;
+  readonly selectedEntry?: WidgetSearchEntry<TValue>;
   readonly total: number;
   readonly start: number;
   readonly end: number;
@@ -83,9 +83,9 @@ export function paletteWindow<TValue>(input: PaletteWindowInput<TValue>): Palett
 }
 
 export function filterPaletteEntries<TValue>(
-  entries: readonly PaletteEntry<TValue>[],
+  entries: readonly WidgetSearchEntry<TValue>[],
   query: string
-): readonly PaletteEntry<TValue>[] {
+): readonly WidgetSearchEntry<TValue>[] {
   const normalized = query.trim().toLocaleLowerCase();
   if (normalized.length === 0) return entries;
   return entries
@@ -197,7 +197,7 @@ export function paletteAccessibleChildren(widget: Widget, height: number): reado
 }
 
 function selectedIndex<TValue>(
-  entries: readonly PaletteEntry<TValue>[],
+  entries: readonly WidgetSearchEntry<TValue>[],
   input: Pick<PaletteWindowInput<TValue>, 'selected' | 'selectedId'>
 ): number {
   if (input.selectedId !== undefined) {
@@ -207,7 +207,7 @@ function selectedIndex<TValue>(
   return clampIndex(input.selected ?? 0, entries.length);
 }
 
-function paletteEntryScore<TValue>(entry: PaletteEntry<TValue>, query: string): number | undefined {
+function paletteEntryScore<TValue>(entry: WidgetSearchEntry<TValue>, query: string): number | undefined {
   const haystacks = [
     entry.label,
     entry.id,
@@ -244,7 +244,7 @@ function subsequenceScore(text: string, query: string): number | undefined {
 
 function entryLine<TValue>(
   widget: Widget,
-  entry: PaletteEntry<TValue>,
+  entry: WidgetSearchEntry<TValue>,
   selected: boolean,
   query: string,
   theme: TerminalTheme
@@ -295,10 +295,10 @@ function paletteRenderModel(widget: Widget, height: number): PaletteRenderModel 
   };
 }
 
-function paletteEntries(widget: Widget): readonly PaletteEntry<unknown>[] {
+function paletteEntries(widget: Widget): readonly WidgetSearchEntry<unknown>[] {
   const entries = widget.props['entries'];
   if (!Array.isArray(entries)) return [];
-  return entries.flatMap((entry): PaletteEntry<unknown>[] => {
+  return entries.flatMap((entry): WidgetSearchEntry<unknown>[] => {
     if (!isRecord(entry)) return [];
     const id = entry['id'];
     const label = entry['label'];
@@ -335,7 +335,7 @@ function selectedInput(widget: Widget): Pick<PaletteWindowInput<unknown>, 'selec
   };
 }
 
-function paletteMessageFactory<TMessage>(widget: Widget<TMessage>): ((entry: PaletteEntry<unknown>) => TMessage) | undefined {
+function paletteMessageFactory<TMessage>(widget: Widget<TMessage>): ((entry: WidgetSearchEntry<unknown>) => TMessage) | undefined {
   const toMessage = widget.props['toMessage'];
   if (!isPaletteMessageFactory(toMessage)) return undefined;
   return (entry) => toMessage(entry) as TMessage;
@@ -432,6 +432,6 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isPaletteMessageFactory(value: unknown): value is (entry: PaletteEntry<unknown>) => unknown {
+function isPaletteMessageFactory(value: unknown): value is (entry: WidgetSearchEntry<unknown>) => unknown {
   return typeof value === 'function';
 }

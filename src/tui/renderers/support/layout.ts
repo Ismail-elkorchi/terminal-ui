@@ -11,9 +11,9 @@ import type {
   LayoutOverflow,
   LayoutSize
 } from '../../regions.ts';
-import type { WidgetMeasureResult } from '../../widget-renderer.ts';
+import type { Measurement } from '../../measurement.ts';
 
-export function gridChildBounds(widget: Widget, bounds: Rect, childMeasures: readonly WidgetMeasureResult[]): readonly Rect[] {
+export function gridChildBounds(widget: Widget, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {
   if (Array.isArray(widget.props['areas'])) {
     return gridAreaChildBounds(widget, bounds, childMeasures);
   }
@@ -46,7 +46,7 @@ export function gridChildBounds(widget: Widget, bounds: Rect, childMeasures: rea
   return (widget.children ?? []).map((_child, index) => cells[index] ?? emptyRect(bounds));
 }
 
-function gridAreaChildBounds(widget: Widget, bounds: Rect, childMeasures: readonly WidgetMeasureResult[]): readonly Rect[] {
+function gridAreaChildBounds(widget: Widget, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {
   const template = gridAreasTemplate(widget.props['areas']);
   const areaNames = gridAreaNames(widget.props['areaNames']);
   if (template.length === 0 || areaNames.length === 0) return [];
@@ -71,7 +71,7 @@ function gridAreaChildBounds(widget: Widget, bounds: Rect, childMeasures: readon
   return areaNames.map((name) => areaBounds(template, name, rowRects, columnRects) ?? emptyRect(bounds));
 }
 
-export function splitPaneChildBounds(widget: Widget, bounds: Rect, childMeasures: readonly WidgetMeasureResult[]): readonly Rect[] {
+export function splitPaneChildBounds(widget: Widget, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {
   const children = widget.children ?? [];
   const explicit = layoutSizes(widget.props['sizes']);
   const tracks = explicit.length === children.length ? explicit : children.map(() => ({ kind: 'fill' as const }));
@@ -82,7 +82,7 @@ export function splitPaneChildBounds(widget: Widget, bounds: Rect, childMeasures
 }
 
 function gridContentSizes(
-  childMeasures: readonly WidgetMeasureResult[],
+  childMeasures: readonly Measurement[],
   rowCount: number,
   columnCount: number,
   orientation: 'horizontal' | 'vertical'
@@ -100,7 +100,7 @@ function gridContentSizes(
 function gridAreaContentSizes(
   template: readonly (readonly string[])[],
   areaNames: readonly string[],
-  childMeasures: readonly WidgetMeasureResult[],
+  childMeasures: readonly Measurement[],
   orientation: 'horizontal' | 'vertical'
 ): readonly number[] {
   const trackCount = orientation === 'horizontal' ? (template[0]?.length ?? 0) : template.length;

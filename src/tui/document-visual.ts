@@ -1,7 +1,7 @@
 import { highlightRenderSpans } from './text-highlight.ts';
 import type {
-  StructuredBlockField,
-  StructuredBlockStatus,
+  WidgetFieldItem,
+  WidgetRecordStatus,
   Widget
 } from '../widgets/index.ts';
 import { baseStatusForRecordStatus } from '../widgets/index.ts';
@@ -83,7 +83,7 @@ export function documentSource(
   });
 }
 
-export function documentStatusStyle(status: StructuredBlockStatus): TerminalStyle {
+export function documentStatusStyle(status: WidgetRecordStatus): TerminalStyle {
   return mergeStyles(statusStyle(baseStatusForRecordStatus(status)), { bold: true }) ?? { bold: true };
 }
 
@@ -137,7 +137,7 @@ export function documentDetailStyle(
 
 export function documentFieldSpans(
   widget: Widget,
-  field: StructuredBlockField,
+  field: WidgetFieldItem,
   labelWidth: number,
   selected = false,
   kind: DocumentSurfaceKind = 'structuredBlock'

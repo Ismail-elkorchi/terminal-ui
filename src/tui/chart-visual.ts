@@ -1,6 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { ActivityIndicatorStatus, Widget } from '../widgets/index.ts';
+import type { WidgetProcessStatus, Widget } from '../widgets/index.ts';
 import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
 import { widgetFrameSource } from './frame-source.ts';
 import { block, line, span } from './render-primitives.ts';
@@ -32,7 +32,7 @@ export type ChartVisualKind =
   | 'status'
   | 'threshold';
 
-export function chartStatus(value: unknown): ActivityIndicatorStatus | undefined {
+export function chartStatus(value: unknown): WidgetProcessStatus | undefined {
   if (value === undefined) return undefined;
   return normalizeWidgetProcessStatus(value, 'idle');
 }
@@ -112,7 +112,7 @@ export function chartPlaceholderStyle(widget: Widget): TerminalStyle | undefined
   return widgetStyle(widget, 'placeholder');
 }
 
-export function chartMetricStyle(widget: Widget, status?: ActivityIndicatorStatus): TerminalStyle | undefined {
+export function chartMetricStyle(widget: Widget, status?: WidgetProcessStatus): TerminalStyle | undefined {
   return mergeStyles(
     widgetStyle(widget, 'value'),
     status === undefined || status === 'idle' ? undefined : statusStyle(status)

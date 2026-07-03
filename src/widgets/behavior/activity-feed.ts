@@ -1,11 +1,12 @@
 import { sanitizeTerminalText } from '../../text/index.ts';
-import type { StructuredBlock, StructuredBlockStatus } from '../types.ts';
+import type { WidgetRecordStatus } from '../contracts.ts';
+import type { StructuredBlock } from '../types.ts';
 
 export interface ActivityFeedState {
   readonly selected?: number;
   readonly expandedIds: readonly string[];
   readonly collapsedIds: readonly string[];
-  readonly statusFilter?: readonly StructuredBlockStatus[];
+  readonly statusFilter?: readonly WidgetRecordStatus[];
 }
 
 export type ActivityFeedAction =
@@ -15,7 +16,7 @@ export type ActivityFeedAction =
   | { readonly kind: 'toggleBlock'; readonly id?: string }
   | { readonly kind: 'expandBlock'; readonly id?: string }
   | { readonly kind: 'collapseBlock'; readonly id?: string }
-  | { readonly kind: 'setStatusFilter'; readonly statuses?: readonly StructuredBlockStatus[] }
+  | { readonly kind: 'setStatusFilter'; readonly statuses?: readonly WidgetRecordStatus[] }
   | { readonly kind: 'jumpToFirstProblem' };
 
 export interface ActivityFeedReducerOptions {
@@ -27,7 +28,7 @@ export interface ActivityFeedVisibleBlock {
   readonly index: number;
 }
 
-const problemStatuses: readonly StructuredBlockStatus[] = ['error', 'failed', 'warning'];
+const problemStatuses: readonly WidgetRecordStatus[] = ['error', 'failed', 'warning'];
 
 export function activityFeedReducer(
   state: ActivityFeedState,
@@ -107,13 +108,13 @@ function firstVisibleIndex(blocks: readonly StructuredBlock[], state: ActivityFe
 
 function firstStatusIndex(
   blocks: readonly StructuredBlock[],
-  statuses: readonly StructuredBlockStatus[]
+  statuses: readonly WidgetRecordStatus[]
 ): number | undefined {
   const index = blocks.findIndex((block) => block.status !== undefined && statuses.includes(block.status));
   return index === -1 ? undefined : index;
 }
 
-function matchesStatusFilter(block: StructuredBlock, statuses: readonly StructuredBlockStatus[] | undefined): boolean {
+function matchesStatusFilter(block: StructuredBlock, statuses: readonly WidgetRecordStatus[] | undefined): boolean {
   return statuses === undefined || statuses.length === 0 || (block.status !== undefined && statuses.includes(block.status));
 }
 
@@ -144,7 +145,7 @@ function setBlockCollapsed(state: ActivityFeedState, id: string, collapsed: bool
 
 function withStatusFilter(
   state: ActivityFeedState,
-  statuses: readonly StructuredBlockStatus[] | undefined,
+  statuses: readonly WidgetRecordStatus[] | undefined,
   blocks: readonly StructuredBlock[]
 ): ActivityFeedState {
   if (statuses === undefined || statuses.length === 0) {

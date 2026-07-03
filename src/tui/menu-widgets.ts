@@ -2,7 +2,7 @@ import { sanitizeTerminalText } from '../text/index.ts';
 import { stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { MenuItemTone, Widget } from '../widgets/index.ts';
+import type { WidgetActionTone, Widget } from '../widgets/index.ts';
 import {
   dropdownControlLine,
   menuBarLine,
@@ -21,7 +21,7 @@ interface VisibleMenuItem extends MenuVisualItem {
   readonly message?: unknown;
   readonly disabled?: boolean;
   readonly checked?: boolean;
-  readonly tone?: MenuItemTone;
+  readonly tone?: WidgetActionTone;
   readonly description?: string;
   readonly shortcut?: string;
   readonly depth: number;
