@@ -4,7 +4,7 @@ import { borderStyleFromValue, drawBorder } from './border.ts';
 import type { BorderStyle } from './border.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
 import type { Rect } from './layout.ts';
-import type { TerminalStyle } from './render-primitives.ts';
+import type { FrameCellSource, TerminalStyle } from './render-primitives.ts';
 import { drawSurfaceShadow } from './surface.ts';
 import { stringify } from './widget-props.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -24,12 +24,14 @@ export interface TooltipPlacementInput {
   readonly margin?: number;
 }
 
+export type TooltipVisualKind = 'background' | 'content' | 'shadow';
+
 export function renderTooltip(widget: Widget, buffer: FrameBuffer, bounds: Rect, theme: TerminalTheme): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const tone = tooltipTone(widget);
   const border = tooltipBorder(widget, tone);
-  fillTooltipBackground(buffer, bounds, tooltipBackgroundStyle(tone));
-  drawSurfaceShadow(buffer, bounds);
+  fillTooltipBackground(widget, buffer, bounds, tooltipBackgroundStyle(tone));
+  drawSurfaceShadow(buffer, bounds, tooltipSource(widget, 'shadow', 'shadow'));
   drawBorder(buffer, bounds, border, theme);
   const contentBounds = {
     row: bounds.row + 1,
@@ -43,7 +45,7 @@ export function renderTooltip(widget: Widget, buffer: FrameBuffer, bounds: Rect,
     buffer.write(contentBounds.row + index, contentBounds.column, [{
       text: line,
       style: tooltipTextStyle(tone),
-      source: { kind: 'tooltip', role: 'text' }
+      source: tooltipSource(widget, 'content', `content.${String(index)}`)
     }]);
   }
 }
@@ -129,15 +131,24 @@ function tooltipBorder(widget: Widget, tone: TooltipTone): BorderStyle {
   };
 }
 
-function fillTooltipBackground(buffer: FrameBuffer, bounds: Rect, style: TerminalStyle): void {
+function fillTooltipBackground(widget: Widget, buffer: FrameBuffer, bounds: Rect, style: TerminalStyle): void {
   const text = ' '.repeat(bounds.width);
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
     buffer.write(row, bounds.column, [{
       text,
       style,
-      source: { kind: 'tooltip', role: 'decoration' }
+      source: tooltipSource(widget, 'background', 'background')
     }]);
   }
+}
+
+function tooltipSource(widget: Widget, visual: TooltipVisualKind, label: string): FrameCellSource {
+  return {
+    kind: 'tooltip',
+    role: visual === 'content' ? 'text' : 'decoration',
+    ...(widget.id === undefined ? {} : { id: widget.id }),
+    label
+  };
 }
 
 function tooltipBackgroundStyle(tone: TooltipTone): TerminalStyle {

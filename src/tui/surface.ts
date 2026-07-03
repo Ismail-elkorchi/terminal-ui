@@ -2,7 +2,7 @@ import { borderStyleFromValue, drawBorder } from './border.ts';
 import type { BorderStyle } from './border.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
 import type { Rect } from './layout.ts';
-import type { TerminalStyle } from './render-primitives.ts';
+import type { FrameCellSource, TerminalStyle } from './render-primitives.ts';
 import { mergeStyles, resolveWidgetStyle } from './widget-style.ts';
 import { stringify } from './widget-props.ts';
 import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
@@ -146,7 +146,11 @@ export function fillSurfaceBackground(buffer: FrameBuffer, bounds: Rect, style: 
   }
 }
 
-export function drawSurfaceShadow(buffer: FrameBuffer, bounds: Rect): void {
+export function drawSurfaceShadow(
+  buffer: FrameBuffer,
+  bounds: Rect,
+  source: FrameCellSource = { kind: 'surface', role: 'decoration', label: 'shadow' }
+): void {
   if (bounds.width <= 3 || bounds.height <= 3) return;
   const style: TerminalStyle = { fg: { kind: 'theme', token: 'surface.shadow' }, dim: true };
   const rightColumn = bounds.column + bounds.width - 2;
@@ -155,13 +159,13 @@ export function drawSurfaceShadow(buffer: FrameBuffer, bounds: Rect): void {
     buffer.write(row, rightColumn, [{
       text: '░',
       style,
-      source: { kind: 'surface', role: 'decoration', label: 'shadow' }
+      source
     }]);
   }
   buffer.write(bottomRow, bounds.column + 1, [{
     text: '░'.repeat(Math.max(0, bounds.width - 2)),
     style,
-    source: { kind: 'surface', role: 'decoration', label: 'shadow' }
+    source
   }]);
 }
 
