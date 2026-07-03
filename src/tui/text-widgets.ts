@@ -1,5 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import { block, blockFromText, line, span, wrapRenderSpans } from './frame.ts';
+import { widgetFrameSource } from './frame-source.ts';
 import { normalizeScrollState } from './scroll.ts';
 import {
   selectionFromUnknown,
@@ -222,21 +223,22 @@ function styleOption(style: TerminalStyle | undefined): { readonly style?: Termi
 
 function textSource(widget: Widget): FrameCellSource {
   const role = widgetTextRole(widget.props['textRole']);
-  return {
-    ...(widget.id === undefined ? {} : { id: widget.id }),
-    kind: 'text',
+  return widgetFrameSource(widget, {
+    family: 'text',
     role: 'text',
+    part: role === undefined ? 'content' : `role.${role}`,
     label: role === undefined ? 'content' : `role.${role}`
-  };
+  });
 }
 
 function richTextSource(widget: Widget, index: number): FrameCellSource {
-  return {
-    ...(widget.id === undefined ? {} : { id: widget.id }),
-    kind: 'richText',
+  return widgetFrameSource(widget, {
+    family: 'text',
     role: 'text',
+    part: 'segment',
+    itemIndex: index,
     label: `segment.${String(index)}`
-  };
+  });
 }
 
 function widgetTextRole(value: unknown): WidgetTextRole | undefined {

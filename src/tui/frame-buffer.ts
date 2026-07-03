@@ -1,12 +1,13 @@
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { toAccessibleSnapshot } from '../accessibility/index.ts';
 import { DirtyCoverageAccumulator } from './dirty-coverage.ts';
+import { sanitizeFrameCellSource } from './frame-source.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FocusPath } from './focus.ts';
 import type { CursorPosition, Frame, FrameCell, FrameHitTarget } from './frame.ts';
 import type { Rect } from './layout.ts';
-import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalLink } from './render-primitives.ts';
+import type { RenderBlock, RenderLine, RenderSpan, TerminalLink } from './render-primitives.ts';
 
 export interface FrameBufferSnapshotOptions {
   readonly cursor?: CursorPosition;
@@ -292,15 +293,6 @@ function sanitizeTerminalLink(link: TerminalLink): TerminalLink {
   return {
     href: sanitizeTerminalText(link.href).text,
     ...(link.id === undefined ? {} : { id: sanitizeTerminalText(link.id).text })
-  };
-}
-
-function sanitizeFrameCellSource(source: FrameCellSource): FrameCellSource {
-  return {
-    ...(source.id === undefined ? {} : { id: sanitizeTerminalText(source.id).text }),
-    ...(source.kind === undefined ? {} : { kind: sanitizeTerminalText(source.kind).text }),
-    ...(source.role === undefined ? {} : { role: sanitizeTerminalText(source.role).text as NonNullable<FrameCellSource['role']> }),
-    ...(source.label === undefined ? {} : { label: sanitizeTerminalText(source.label).text })
   };
 }
 

@@ -1,5 +1,6 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
 import type { Widget } from '../../../widgets/index.ts';
+import { widgetFrameSource } from '../../frame-source.ts';
 import { stringify } from '../../widget-props.ts';
 import { clipRenderSpans } from '../../render-primitives.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from '../../render-primitives.ts';
@@ -38,10 +39,10 @@ export function tabsHeaderBlock(widget: Widget, bounds: Rect, focused = false): 
       selected: selectedTab
     });
     return [
-      ...(index === 0 ? [] : [tabSpan(' ', widgetStyle(widget, 'value', 'disabled'), tab.id, 'separator', 'separator')]),
-      tabSpan(selectedTab ? '[' : ' ', style, tab.id, selectedTab ? 'marker.selected.open' : 'marker.unselected.open', 'decoration'),
-      tabSpan(tab.label, style, tab.id, 'label', 'text'),
-      tabSpan(selectedTab ? ']' : ' ', style, tab.id, selectedTab ? 'marker.selected.close' : 'marker.unselected.close', 'decoration')
+      ...(index === 0 ? [] : [tabSpan(widget, ' ', widgetStyle(widget, 'value', 'disabled'), tab.id, 'separator', 'separator')]),
+      tabSpan(widget, selectedTab ? '[' : ' ', style, tab.id, selectedTab ? 'marker.selected.open' : 'marker.unselected.open', 'decoration'),
+      tabSpan(widget, tab.label, style, tab.id, 'label', 'text'),
+      tabSpan(widget, selectedTab ? ']' : ' ', style, tab.id, selectedTab ? 'marker.selected.close' : 'marker.unselected.close', 'decoration')
     ];
   });
   return {
@@ -142,20 +143,22 @@ function tabHeaderStyle(
 }
 
 function tabSpan(
+  widget: Widget,
   text: string,
   style: TerminalStyle | undefined,
-  id: string,
+  itemId: string,
   label: string,
   role: 'decoration' | 'separator' | 'text'
 ): RenderSpan {
   return {
     text,
     ...(style === undefined ? {} : { style }),
-    source: {
-      id,
-      kind: 'tabs',
+    source: widgetFrameSource(widget, {
+      family: 'layout',
       role,
+      part: label,
+      itemId,
       label
-    }
+    })
   };
 }

@@ -1,5 +1,6 @@
 import { clipTextCells } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
+import { frameCellSource } from './frame-source.ts';
 import type { TerminalColor, TerminalStyle } from './frame.ts';
 import type { FrameBuffer } from './frame.ts';
 import type { Rect } from './layout.ts';
@@ -124,7 +125,7 @@ function writeBorderText(
   buffer.write(row, column, [{
     text,
     ...(style === undefined ? {} : { style }),
-    source: { kind: 'border', role: 'border' }
+    source: frameCellSource({ ownerKind: 'border', family: 'surface', role: 'border', part: 'border' })
   }]);
 }
 

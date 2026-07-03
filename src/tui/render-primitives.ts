@@ -1,7 +1,8 @@
 import { clipTextCells, measureTextCells } from '../text/index.ts';
 import type { ThemeToken } from '../theme/index.ts';
 import type { FrameCell } from './frame.ts';
-import type { FrameSemanticRole } from './frame-passes/index.ts';
+import { sameFrameCellSource } from './frame-source.ts';
+import type { FrameCellSource } from './frame-source.ts';
 
 export interface TerminalStyle {
   readonly fg?: TerminalColor;
@@ -25,13 +26,6 @@ export interface TerminalLink {
   readonly id?: string;
 }
 
-export interface FrameCellSource {
-  readonly id?: string;
-  readonly kind?: string;
-  readonly role?: FrameSemanticRole;
-  readonly label?: string;
-}
-
 export interface RenderSpan {
   readonly text: string;
   readonly style?: TerminalStyle;
@@ -45,6 +39,18 @@ export interface RenderLine {
 
 export interface RenderBlock {
   readonly lines: readonly RenderLine[];
+}
+
+export type RenderAlignment = 'start' | 'center' | 'end';
+
+export interface RenderBlockSize {
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface PadRenderLineOptions {
+  readonly align?: RenderAlignment;
+  readonly fill?: RenderSpan;
 }
 
 export function span(text: string, options: Omit<RenderSpan, 'text'> = {}): RenderSpan {
@@ -103,6 +109,52 @@ export function clipRenderSpans(
     clipped.push({ text: fittedEllipsis, options: ellipsisOptions ?? clipped.at(-1)?.options ?? {} });
   }
   return compactSpans(clipped);
+}
+
+export function clipRenderLine(
+  renderLine: RenderLine,
+  maxCells: number,
+  options: { readonly ellipsis?: string } = {}
+): RenderLine {
+  return line(clipRenderSpans(renderLine.spans, maxCells, options));
+}
+
+export function measureRenderSpans(spans: readonly RenderSpan[]): number {
+  return spans.reduce((sum, currentSpan) => sum + measureTextCells(currentSpan.text).cells, 0);
+}
+
+export function measureRenderLine(renderLine: RenderLine): number {
+  return measureRenderSpans(renderLine.spans);
+}
+
+export function measureRenderBlock(renderBlock: RenderBlock): RenderBlockSize {
+  return {
+    width: renderBlock.lines.reduce((max, currentLine) => Math.max(max, measureRenderLine(currentLine)), 0),
+    height: renderBlock.lines.length
+  };
+}
+
+export function padRenderLine(renderLine: RenderLine, width: number, options: PadRenderLineOptions = {}): RenderLine {
+  if (width < 0) throw new RangeError('width must be non-negative.');
+  const currentWidth = measureRenderLine(renderLine);
+  if (currentWidth >= width) return renderLine;
+  const missing = width - currentWidth;
+  const before = paddingForAlignment(missing, options.align ?? 'start');
+  const after = missing - before;
+  const fillSpan = options.fill ?? { text: ' ' };
+  return line([
+    ...repeatFillSpan(fillSpan, before),
+    ...renderLine.spans,
+    ...repeatFillSpan(fillSpan, after)
+  ]);
+}
+
+export function alignRenderLine(renderLine: RenderLine, width: number, align: RenderAlignment): RenderLine {
+  return padRenderLine(clipRenderLine(renderLine, width), width, { align });
+}
+
+export function compactRenderSpans(spans: readonly RenderSpan[]): readonly RenderSpan[] {
+  return compactSpans(spans.map((currentSpan) => ({ text: currentSpan.text, options: spanOptions(currentSpan) })));
 }
 
 export function wrapRenderSpans(
@@ -173,14 +225,6 @@ export function sameTerminalLink(left: TerminalLink | undefined, right: Terminal
   return left.href === right.href && left.id === right.id;
 }
 
-export function sameFrameCellSource(left: FrameCellSource | undefined, right: FrameCellSource | undefined): boolean {
-  if (left === undefined || right === undefined) return left === right;
-  return left.id === right.id
-    && left.kind === right.kind
-    && left.role === right.role
-    && left.label === right.label;
-}
-
 export function sameFrameCell(left: FrameCell | undefined, right: FrameCell | undefined): boolean {
   if (left === undefined || right === undefined) return left === right;
   return left.text === right.text
@@ -203,6 +247,27 @@ function spanOptions(span: RenderSpan): Omit<RenderSpan, 'text'> {
   };
 }
 
+function paddingForAlignment(missing: number, align: RenderAlignment): number {
+  switch (align) {
+    case 'start':
+      return 0;
+    case 'center':
+      return Math.floor(missing / 2);
+    case 'end':
+      return missing;
+  }
+}
+
+function repeatFillSpan(fill: RenderSpan, cells: number): readonly RenderSpan[] {
+  if (cells === 0) return [];
+  const text = fill.text.length === 0 ? ' ' : fill.text;
+  const measured = measureTextCells(text).cells;
+  if (measured !== 1) {
+    return [{ ...fill, text: ' '.repeat(cells) }];
+  }
+  return [{ ...fill, text: text.repeat(cells) }];
+}
+
 function compactSpans(
   segments: readonly { readonly text: string; readonly options: Omit<RenderSpan, 'text'> }[]
 ): readonly RenderSpan[] {
@@ -223,3 +288,6 @@ function compactSpans(
   }
   return Object.freeze(result);
 }
+
+export type { FrameCellSource } from './frame-source.ts';
+export { sameFrameCellSource } from './frame-source.ts';

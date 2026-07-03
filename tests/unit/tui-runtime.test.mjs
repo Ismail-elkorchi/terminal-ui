@@ -1414,7 +1414,7 @@ test('viewport widgets render a clipped scrolled window into child content', () 
     }
   ), { columns: 5, rows: 2 });
   const output = renderFramePlain(frame);
-  const rightMarker = frame.cells.find((cell) => cell.source?.kind === 'viewport' && cell.source.label === 'clip-right');
+  const rightMarker = frame.cells.find((cell) => cell.source?.ownerKind === 'viewport' && cell.source.label === 'clip-right');
 
   assert.equal(output, 'w-1 →\nw-2');
   assert.equal(rightMarker?.text, '→');
@@ -1444,7 +1444,7 @@ test('viewport widgets expose empty virtual content without rendering child cont
     { id: 'empty-window', contentRows: 0, contentColumns: 8 }
   ), { columns: 5, rows: 3 });
   const output = renderFramePlain(frame);
-  const emptyMarker = frame.cells.find((cell) => cell.source?.kind === 'viewport' && cell.source.label === 'empty');
+  const emptyMarker = frame.cells.find((cell) => cell.source?.ownerKind === 'viewport' && cell.source.label === 'empty');
 
   assert.doesNotMatch(output, /hidden child/u);
   assert.equal(emptyMarker?.text, '∅');

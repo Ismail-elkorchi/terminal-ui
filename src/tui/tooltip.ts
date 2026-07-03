@@ -3,6 +3,7 @@ import type { AccessibleNode } from '../accessibility/index.ts';
 import { borderStyleFromValue, drawBorder } from './border.ts';
 import type { BorderStyle } from './border.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
+import { widgetFrameSource } from './frame-source.ts';
 import type { Rect } from './layout.ts';
 import type { FrameCellSource, TerminalStyle } from './render-primitives.ts';
 import { drawSurfaceShadow } from './surface.ts';
@@ -143,12 +144,13 @@ function fillTooltipBackground(widget: Widget, buffer: FrameBuffer, bounds: Rect
 }
 
 function tooltipSource(widget: Widget, visual: TooltipVisualKind, label: string): FrameCellSource {
-  return {
-    kind: 'tooltip',
+  return widgetFrameSource(widget, {
+    family: 'drawing',
     role: visual === 'content' ? 'text' : 'decoration',
-    ...(widget.id === undefined ? {} : { id: widget.id }),
+    part: label,
+    partKind: visual,
     label
-  };
+  });
 }
 
 function tooltipBackgroundStyle(tone: TooltipTone): TerminalStyle {

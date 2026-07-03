@@ -17,9 +17,18 @@ import type { LayoutNode, Rect } from './layout.ts';
 import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
 
 export {
+  alignRenderLine,
+  clipRenderLine,
   clipRenderSpans,
+  compactRenderSpans,
   createFrameBuffer,
   diffFrames,
+  frameCellSource,
+  frameSourcePart,
+  measureRenderBlock,
+  measureRenderLine,
+  measureRenderSpans,
+  padRenderLine,
   renderDiffAnsi,
   renderFrameAnsi,
   renderFrameDebug,
@@ -30,6 +39,8 @@ export {
   sameTerminalColor,
   sameTerminalLink,
   sameTerminalStyle,
+  sanitizeFrameCellSource,
+  widgetFrameSource,
   wrapRenderSpans
 } from './frame.ts';
 export type {
@@ -42,7 +53,10 @@ export type {
   FrameCellSource,
   FocusPath,
   FrameRowDiff,
+  PadRenderLineOptions,
+  RenderAlignment,
   RenderBlock,
+  RenderBlockSize,
   RenderDiff,
   RenderLine,
   RenderOperation,

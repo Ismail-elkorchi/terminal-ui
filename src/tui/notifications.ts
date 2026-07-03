@@ -3,6 +3,7 @@ import type { AccessibleNode } from '../accessibility/index.ts';
 import { drawBorder } from './border.ts';
 import type { BorderStyle } from './border.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
+import { widgetFrameSource } from './frame-source.ts';
 import type { Rect } from './layout.ts';
 import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { numberProp } from './widget-props.ts';
@@ -122,7 +123,7 @@ function renderNotificationCard(
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const tone = normalizeNotificationTone(card.item.tone);
-  fillCardBackground(buffer, bounds, card.item, tone, card.selected);
+  fillCardBackground(buffer, widget, bounds, card.item, tone, card.selected);
   drawBorder(buffer, bounds, notificationBorder(card, tone, theme), theme);
   const contentBounds = {
     row: bounds.row + 1,
@@ -135,7 +136,13 @@ function renderNotificationCard(
     buffer.write(contentBounds.row + index, contentBounds.column, [{
       text: clipTextCells(cardLine.text, contentBounds.width).text,
       style: cardTextStyle(tone, index === 0, card.selected),
-      source: { kind: 'notification', role: 'text', id: card.item.id, label: cardLine.kind }
+      source: widgetFrameSource(widget, {
+        family: 'feedback',
+        role: 'text',
+        part: cardLine.kind,
+        itemId: card.item.id,
+        label: cardLine.kind
+      })
     }]);
   }
   if (card.item.progress !== undefined && contentBounds.height > 0) {
@@ -182,6 +189,7 @@ function cardContentLines(item: NotificationItem, width: number): readonly Notif
 
 function fillCardBackground(
   buffer: FrameBuffer,
+  widget: Widget,
   bounds: Rect,
   item: NotificationItem,
   tone: NotificationTone,
@@ -193,7 +201,13 @@ function fillCardBackground(
     buffer.write(row, bounds.column, [{
       text: line,
       style,
-      source: { kind: 'notification', role: 'decoration', id: item.id, label: 'background' }
+      source: widgetFrameSource(widget, {
+        family: 'feedback',
+        role: 'decoration',
+        part: 'background',
+        itemId: item.id,
+        label: 'background'
+      })
     }]);
   }
 }

@@ -2,6 +2,7 @@ import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { ActivityIndicatorStatus, Widget } from '../widgets/index.ts';
 import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
+import { widgetFrameSource } from './frame-source.ts';
 import { block, line, span } from './render-primitives.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import type { FrameSemanticRole } from './frame-passes/index.ts';
@@ -224,11 +225,13 @@ export function feedbackSpan(
 ): RenderSpan {
   return span(text, {
     ...(options.style === undefined ? {} : { style: options.style }),
-    source: {
-      kind: options.kind,
+    source: widgetFrameSource(widget, {
+      family: 'feedback',
       role: options.role ?? 'text',
-      ...(options.sourceId === undefined && widget.id === undefined ? {} : { id: options.sourceId ?? widget.id }),
+      part: options.label,
+      partKind: options.kind,
+      ...(options.sourceId === undefined ? {} : { itemId: options.sourceId }),
       label: options.label
-    }
+    })
   });
 }

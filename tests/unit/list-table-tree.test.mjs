@@ -180,7 +180,7 @@ test('table supports scroll state column sizing styled renderers sort markers em
         align: 'end',
         render: ({ value }) => span(String(value), {
           style: { fg: { kind: 'theme', token: 'status.success' } },
-          source: { id: 'score-renderer', kind: 'external', role: 'text', label: 'score.value' }
+          source: { ownerId: 'score-renderer', ownerKind: 'external', role: 'text', label: 'score.value' }
         })
       },
       { header: 'Notes', width: { kind: 'fill' } }
@@ -203,7 +203,7 @@ test('table supports scroll state column sizing styled renderers sort markers em
   assert.match(output, /charlie/u);
   assert.equal(styledScore?.style?.fg?.token, 'status.success');
   assert.equal(styledScore?.source?.label, 'score.value');
-  assert.equal(styledScore?.source?.kind, 'external');
+  assert.equal(styledScore?.source?.ownerKind, 'external');
   assert.equal(sortMarker?.source?.label, 'header.1.sort');
   assert.equal(selectedScore?.style?.bg?.token, 'selection.background');
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.value, 'Name');

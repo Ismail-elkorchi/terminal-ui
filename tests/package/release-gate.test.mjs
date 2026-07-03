@@ -562,7 +562,7 @@ test('box drawing joins are source-role gated frame passes', async () => {
     }))
   );
 
-  assert.match(borderSource, /source:\s*\{\s*kind:\s*'border',\s*role:\s*'border'\s*\}/u);
+  assert.match(borderSource, /frameCellSource\(\{\s*ownerKind:\s*'border',\s*family:\s*'surface',\s*role:\s*'border',\s*part:\s*'border'\s*\}\)/u);
   assert.match(joinPass, /cell\.source\?\.role === 'border' \|\| cell\.source\?\.role === 'separator'/u);
   assert.doesNotMatch(joinPass, /source\?\.role !== 'text'/u);
   for (const { file, source } of rendererSources) {

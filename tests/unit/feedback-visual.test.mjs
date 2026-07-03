@@ -48,9 +48,9 @@ test('feedback status widgets preserve state in high contrast and no color outpu
   ].join('\n'));
   assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'activity' && cell.text === '!')?.source?.label, 'status.marker');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'spinner' && cell.text === '+')?.source?.label, 'status.marker');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'progress' && cell.text === 'x')?.source?.label, 'status.marker');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'activity' && cell.text === '!')?.source?.label, 'status.marker');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'spinner' && cell.text === '+')?.source?.label, 'status.marker');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'progress' && cell.text === 'x')?.source?.label, 'status.marker');
 });
 
 function colorCapabilities() {

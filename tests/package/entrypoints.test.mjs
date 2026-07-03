@@ -137,6 +137,29 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.normalizeSpinnerFrameIndex, 'function');
   assert.equal(typeof terminalUi.drawBorder, 'function');
   assert.equal(typeof terminalUi.clipRenderSpans, 'function');
+  assert.equal(typeof terminalUi.clipRenderLine, 'function');
+  assert.equal(typeof terminalUi.wrapRenderSpans, 'function');
+  assert.equal(typeof terminalUi.compactRenderSpans, 'function');
+  assert.equal(typeof terminalUi.padRenderLine, 'function');
+  assert.equal(typeof terminalUi.alignRenderLine, 'function');
+  assert.equal(typeof terminalUi.measureRenderSpans, 'function');
+  assert.equal(typeof terminalUi.measureRenderLine, 'function');
+  assert.equal(typeof terminalUi.measureRenderBlock, 'function');
+  assert.equal(typeof terminalUi.frameCellSource, 'function');
+  assert.equal(typeof terminalUi.widgetFrameSource, 'function');
+  assert.equal(typeof terminalUi.sanitizeFrameCellSource, 'function');
+  assert.equal(typeof terminalUi.sameFrameCellSource, 'function');
+  assert.equal(typeof terminalUi.measurement, 'function');
+  assert.equal(typeof terminalUi.normalizeMeasurement, 'function');
+  assert.equal(typeof terminalUi.clampMeasurement, 'function');
+  assert.equal(typeof terminalUi.zeroMeasurement, 'function');
+  assert.equal(typeof terminalUi.measureText, 'function');
+  assert.equal(typeof terminalUi.measureSpans, 'function');
+  assert.equal(typeof terminalUi.measureLine, 'function');
+  assert.equal(typeof terminalUi.measureBlock, 'function');
+  assert.equal(typeof terminalUi.combineMeasurementsVertically, 'function');
+  assert.equal(typeof terminalUi.combineMeasurementsHorizontally, 'function');
+  assert.equal(typeof terminalUi.combineMeasurementsOverlay, 'function');
   assert.equal(typeof terminalUi.diffFrames, 'function');
   assert.equal(typeof terminalUi.renderDiffAnsi, 'function');
   assert.equal(typeof terminalUi.renderFrameAnsi, 'function');
@@ -343,8 +366,12 @@ test('root declaration exposes primary public type contracts', async () => {
     'FrameBufferSnapshotMetadata',
     'FrameBufferSnapshotOptions',
     'FrameRowFingerprint',
+    'FrameCellSource',
     'HighlightRenderSpan',
     'HighlightRenderSpansOptions',
+    'RenderAlignment',
+    'RenderBlockSize',
+    'PadRenderLineOptions',
     'RenderRegion',
     'RenderRegionHitTarget',
     'DirtyRegionSet',
@@ -382,7 +409,9 @@ test('root declaration exposes primary public type contracts', async () => {
     'SelectedAssertion',
     'HitTargetAssertion',
     'VisualSnapshotArtifacts',
-    'VisualSnapshotInput'
+    'VisualSnapshotInput',
+    'Measurement',
+    'MeasurementInput'
   ];
 
   for (const typeName of publicTypes) {

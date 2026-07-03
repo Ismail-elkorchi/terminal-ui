@@ -10,21 +10,21 @@ test('renderWidgetFrame applies frame passes after composition and before snapsh
     id: 'test-marker',
     apply(buffer, context) {
       assert.equal(context.viewport.columns, 3);
-      buffer.write(1, 1, [{ text: 'Z', source: { id: 'marker', role: 'custom' } }]);
+      buffer.write(1, 1, [{ text: 'Z', source: { ownerId: 'marker', role: 'custom' } }]);
     }
   };
 
   const frame = renderWidgetFrame(text('abc'), { columns: 3, rows: 1 }, { framePasses: [pass] });
 
   assert.equal(renderFramePlain(frame), 'Zbc');
-  assert.deepEqual(frame.cells[0]?.source, { id: 'marker', role: 'custom' });
+  assert.deepEqual(frame.cells[0]?.source, { ownerId: 'marker', role: 'custom' });
 });
 
 test('renderWidgetFrame can disable configured frame passes for debug and tests', () => {
   const pass = {
     id: 'test-marker',
     apply(buffer) {
-      buffer.write(1, 1, [{ text: 'Z', source: { id: 'marker', role: 'custom' } }]);
+      buffer.write(1, 1, [{ text: 'Z', source: { ownerId: 'marker', role: 'custom' } }]);
     }
   };
 

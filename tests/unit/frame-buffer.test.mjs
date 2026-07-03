@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createFrameBuffer, diffFrames, renderDiffAnsi, renderFrameAnsi, renderFramePlain } from '../../dist/tui/index.js';
+import {
+  createFrameBuffer,
+  diffFrames,
+  frameCellSource,
+  renderDiffAnsi,
+  renderFrameAnsi,
+  renderFramePlain,
+  sanitizeFrameCellSource
+} from '../../dist/tui/index.js';
 import { richText } from '../../dist/widgets/index.js';
 import { renderWidgetFrame } from '../../dist/tui/index.js';
 
@@ -48,13 +56,46 @@ test('FrameBuffer preserves style, links, and source metadata per visible cell',
     text: 'Hi',
     style: { bold: true, fg: { kind: 'theme', token: 'accent.primary' } },
     link: { href: 'https://example.test', id: 'doc' },
-    source: { id: 'title', kind: 'example', role: 'heading', label: 'Title' }
+    source: { ownerId: 'title', ownerKind: 'example', family: 'test', role: 'heading', part: 'title', label: 'Title' }
   }]);
   const [first, second] = buffer.snapshot().cells;
 
   assert.deepEqual(first?.style, { bold: true, fg: { kind: 'theme', token: 'accent.primary' } });
   assert.deepEqual(second?.link, { href: 'https://example.test', id: 'doc' });
-  assert.deepEqual(first?.source, { id: 'title', kind: 'example', role: 'heading', label: 'Title' });
+  assert.deepEqual(first?.source, { ownerId: 'title', ownerKind: 'example', family: 'test', role: 'heading', part: 'title', label: 'Title' });
+});
+
+test('FrameCellSource sanitizes stable structured metadata before entering frames', () => {
+  const sanitized = sanitizeFrameCellSource({
+    ownerId: 'owner\u001B[31m',
+    ownerKind: 'widget',
+    family: 'text',
+    role: 'text',
+    part: 'body',
+    partKind: 'segment',
+    itemId: 'item',
+    itemIndex: 2.9,
+    state: 'selected',
+    label: 'Title',
+    ignored: 'legacy'
+  });
+
+  assert.deepEqual(sanitized, {
+    ownerId: 'owner',
+    ownerKind: 'widget',
+    family: 'text',
+    role: 'text',
+    part: 'body',
+    partKind: 'segment',
+    itemId: 'item',
+    itemIndex: 2,
+    state: 'selected',
+    label: 'Title'
+  });
+
+  const buffer = createFrameBuffer(4, 1);
+  buffer.write(1, 1, [{ text: 'A', source: frameCellSource({ ownerId: 'cell', kind: 'legacy', itemIndex: -1 }) }]);
+  assert.deepEqual(buffer.snapshot().cells[0]?.source, { ownerId: 'cell', itemIndex: 0 });
 });
 
 test('FrameBuffer snapshot metadata records clipped write and clear coverage', () => {
@@ -184,15 +225,15 @@ test('diffFrames treats link-only and source-only cell changes as minimal writes
   const afterLink = createFrameBuffer(12, 1);
   afterLink.write(1, 1, [{ text: 'doc', link: { href: 'https://new.example' } }]);
   const beforeSource = createFrameBuffer(12, 1);
-  beforeSource.write(1, 1, [{ text: 'src', source: { id: 'old', kind: 'test' } }]);
+  beforeSource.write(1, 1, [{ text: 'src', source: { ownerId: 'old', ownerKind: 'test' } }]);
   const afterSource = createFrameBuffer(12, 1);
-  afterSource.write(1, 1, [{ text: 'src', source: { id: 'new', kind: 'test' } }]);
+  afterSource.write(1, 1, [{ text: 'src', source: { ownerId: 'new', ownerKind: 'test' } }]);
 
   assert.deepEqual(diffFrames(beforeLink.snapshot(), afterLink.snapshot()).operations, [
     { kind: 'write', row: 1, column: 1, spans: [{ text: 'doc', link: { href: 'https://new.example' } }] }
   ]);
   assert.deepEqual(diffFrames(beforeSource.snapshot(), afterSource.snapshot()).operations, [
-    { kind: 'write', row: 1, column: 1, spans: [{ text: 'src', source: { id: 'new', kind: 'test' } }] }
+    { kind: 'write', row: 1, column: 1, spans: [{ text: 'src', source: { ownerId: 'new', ownerKind: 'test' } }] }
   ]);
 });
 

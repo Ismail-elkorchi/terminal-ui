@@ -104,9 +104,15 @@
     "frameCellSource": {
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "kind": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "ownerKind": { "type": "string" },
+        "family": { "type": "string" },
         "role": { "type": "string" },
+        "part": { "type": "string" },
+        "partKind": { "type": "string" },
+        "itemId": { "type": "string" },
+        "itemIndex": { "type": "integer", "minimum": 0 },
+        "state": { "type": "string" },
         "label": { "type": "string" }
       },
       "additionalProperties": false

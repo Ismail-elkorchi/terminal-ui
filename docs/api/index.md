@@ -40,7 +40,8 @@ TUI selection helpers resolve selected text from caller-owned source state and
 then delegate clipboard mutation to the same explicit protocol policy.
 
 Rendering APIs expose the current frame pipeline explicitly: `FrameBuffer`,
-`RenderSpan`, `RenderLine`, `RenderBlock`, `Frame`, `diffFrames()`,
-`renderFramePlain()`, `renderFrameAnsi()`, `renderFrameDebug()`, and
-`renderDiffAnsi()`. See [Rendering internals](../guides/rendering-internals.md)
-for how those pieces fit together.
+`FrameCellSource`, `RenderSpan`, `RenderLine`, `RenderBlock`, `Frame`,
+render-span helpers, measurement helpers, `diffFrames()`, `renderFramePlain()`,
+`renderFrameAnsi()`, `renderFrameDebug()`, and `renderDiffAnsi()`. See
+[Rendering internals](../guides/rendering-internals.md) for how those pieces
+fit together.

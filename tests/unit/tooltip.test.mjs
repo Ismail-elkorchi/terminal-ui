@@ -17,8 +17,8 @@ test('tooltip renders bounded popover content with semantic surface tokens', () 
   const output = renderFramePlain(frame);
   const border = frame.cells.find((cell) => cell.source?.role === 'border');
   const content = frame.cells.find((cell) => cell.text === 'U');
-  const background = frame.cells.find((cell) => cell.source?.kind === 'tooltip' && cell.source.label === 'background');
-  const shadow = frame.cells.find((cell) => cell.source?.kind === 'tooltip' && cell.source.label === 'shadow');
+  const background = frame.cells.find((cell) => cell.source?.ownerKind === 'tooltip' && cell.source.part === 'background');
+  const shadow = frame.cells.find((cell) => cell.source?.ownerKind === 'tooltip' && cell.source.part === 'shadow');
   const highContrastFrame = renderWidgetFrame(tooltip({
     id: 'tip-hc',
     title: 'Hint',
@@ -34,15 +34,27 @@ test('tooltip renders bounded popover content with semantic surface tokens', () 
   assert.match(output, /Use Enter/u);
   assert.deepEqual(border?.style?.fg, { kind: 'theme', token: 'surface.selected.border' });
   assert.deepEqual(content?.style?.fg, { kind: 'theme', token: 'text.default' });
-  assert.deepEqual(background?.source, { id: 'tip', kind: 'tooltip', role: 'decoration', label: 'background' });
-  assert.deepEqual(content?.source, { id: 'tip', kind: 'tooltip', role: 'text', label: 'content.0' });
-  assert.deepEqual(shadow?.source, { id: 'tip', kind: 'tooltip', role: 'decoration', label: 'shadow' });
-  assert.equal(highContrastFrame.cells.some((cell) => cell.source?.kind === 'tooltip' && cell.source.label === 'shadow'), true);
+  assert.deepEqual(background?.source, tooltipSource('tip', 'decoration', 'background'));
+  assert.deepEqual(content?.source, tooltipSource('tip', 'text', 'content.0', 'content'));
+  assert.deepEqual(shadow?.source, tooltipSource('tip', 'decoration', 'shadow'));
+  assert.equal(highContrastFrame.cells.some((cell) => cell.source?.ownerKind === 'tooltip' && cell.source.part === 'shadow'), true);
   assert.match(noColor.plainTextFrame, /Hint/u);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
   assert.equal(frame.accessibility.root.scope?.kind, 'popover');
   assert.equal(frame.accessibility.root.live, 'polite');
 });
+
+function tooltipSource(ownerId, role, label, partKind = label) {
+  return {
+    ownerId,
+    ownerKind: 'tooltip',
+    family: 'drawing',
+    role,
+    part: label,
+    partKind,
+    label
+  };
+}
 
 test('tooltip placement flips and clamps inside viewport', () => {
   const viewport = { row: 1, column: 1, width: 30, height: 10 };

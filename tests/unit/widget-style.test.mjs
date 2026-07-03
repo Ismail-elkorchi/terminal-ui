@@ -233,7 +233,7 @@ test('tabs use shared selected disabled and value styles', () => {
     }
   }), { columns: 32, rows: 3 }, { focusPath: ['tabs'] });
   const dStyles = stylesFor(frame, 'D');
-  const selectedLabel = frame.cells.find((cell) => cell.source?.id === 'data' && cell.source?.label === 'label');
+  const selectedLabel = frame.cells.find((cell) => cell.source?.itemId === 'data' && cell.source?.label === 'label');
 
   assert.equal(dStyles[0]?.fg?.token, 'text.muted');
   assert.equal(selectedLabel?.style?.fg?.token, 'accent.primary');
@@ -263,7 +263,7 @@ test('scrollback and modal chrome use placeholder and border slots', () => {
 
   assert.equal(styleFor(scrollbackFrame, '.')?.fg?.token, 'status.warning');
   assert.equal(styleFor(modalFrame, '┌')?.fg?.token, 'status.error');
-  assert.equal(styleForCell(modalFrame, (cell) => cell.source?.kind === 'modal' && cell.source.label === 'action-separator')?.fg?.token, 'status.error');
+  assert.equal(styleForCell(modalFrame, (cell) => cell.source?.ownerKind === 'modal' && cell.source.label === 'action-separator')?.fg?.token, 'status.error');
 });
 
 test('semantic text roles use shared visual grammar', () => {
@@ -327,7 +327,7 @@ test('feedback widgets use shared status styles and source metadata', () => {
   }), { columns: 32, rows: 1 });
 
   assert.equal(styleFor(statusFrame, 'R')?.fg?.token, 'status.success');
-  assert.equal(statusFrame.cells.find((cell) => cell.text === 'R')?.source?.kind, 'statusBar');
+  assert.equal(statusFrame.cells.find((cell) => cell.text === 'R')?.source?.ownerKind, 'statusBar');
   assert.equal(styleFor(helpFrame, 'E')?.fg?.token, 'accent.primary');
   assert.equal(helpFrame.cells.find((cell) => cell.text === 'E')?.source?.label, 'binding.0.key');
   assert.equal(styleFor(activityFrame, '!')?.fg?.token, 'status.warning');
@@ -390,7 +390,7 @@ test('chart widgets use shared visual state styles and source metadata', () => {
   }), { columns: 8, rows: 1 });
 
   assert.equal(styleFor(barFrame, 'A')?.fg?.token, 'status.success');
-  assert.equal(barFrame.cells.find((cell) => cell.text === 'A')?.source?.kind, 'barChart');
+  assert.equal(barFrame.cells.find((cell) => cell.text === 'A')?.source?.ownerKind, 'barChart');
   assert.equal(styleFor(chartFrame, 'U')?.fg?.token, 'status.error');
   assert.equal(chartFrame.cells.find((cell) => cell.text === 'U')?.source?.label, 'state.error.message');
   assert.equal(styleFor(heatmapFrame, '█')?.fg?.token, 'status.warning');

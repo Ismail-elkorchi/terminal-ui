@@ -82,7 +82,10 @@ export type { AnsiStyleState, RenderSerializeOptions } from './ansi.ts';
 
 export type {
   FrameCellSource,
+  PadRenderLineOptions,
+  RenderAlignment,
   RenderBlock,
+  RenderBlockSize,
   RenderLine,
   RenderSpan,
   TerminalColor,
@@ -98,10 +101,17 @@ export type {
 } from './frame-buffer.ts';
 export { createFrameBuffer } from './frame-buffer.ts';
 export {
+  alignRenderLine,
   block,
   blockFromText,
+  clipRenderLine,
   clipRenderSpans,
+  compactRenderSpans,
   line,
+  measureRenderBlock,
+  measureRenderLine,
+  measureRenderSpans,
+  padRenderLine,
   sameFrameCell,
   sameFrameCellSource,
   sameTerminalColor,
@@ -110,6 +120,12 @@ export {
   span,
   wrapRenderSpans
 } from './render-primitives.ts';
+export {
+  frameCellSource,
+  frameSourcePart,
+  sanitizeFrameCellSource,
+  widgetFrameSource
+} from './frame-source.ts';
 export { serializeRenderSpansStateful } from './ansi.ts';
 
 export function renderFramePlain(frame: Frame): string {

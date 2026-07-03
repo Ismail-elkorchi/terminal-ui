@@ -58,11 +58,11 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
   assert.ok(frame.hitTargets?.some((target) => target.id === 'range:value:8'));
   assert.deepEqual(frame.accessibility.root.children?.[0]?.checked, true);
   assert.equal(frame.accessibility.root.children?.[1]?.role, 'progressbar');
-  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.kind, 'toggleSwitch');
+  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.ownerKind, 'toggleSwitch');
   assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.label, 'value.on.open');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'slider' && cell.text === '●')?.source?.label, 'track.handle');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'range' && cell.source?.label === 'track.startHandle')?.text, '●');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'range' && cell.source?.label === 'track.endHandle')?.text, '●');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'slider' && cell.text === '●')?.source?.label, 'track.handle');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'range' && cell.source?.label === 'track.startHandle')?.text, '●');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'range' && cell.source?.label === 'track.endHandle')?.text, '●');
 });
 
 test('checkboxList colorPicker and datePicker expose selectable item hit targets and accessibility', () => {
@@ -134,15 +134,15 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.checked, true);
   assert.equal(frame.accessibility.root.children?.[1]?.children?.[0]?.selected, true);
   assert.equal(frame.accessibility.root.children?.[2]?.role, 'table');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'check-list' && cell.text === 'x')?.source?.label, 'option.email.marker.checked');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'check-list' && cell.text === 'x')?.source?.role, 'decoration');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'colors' && cell.text === 'S')?.source?.label, 'summary.label');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'colors' && cell.source?.label === 'summary.swatch')?.style?.bg?.token, 'selection.background');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'colors' && cell.source?.label === 'summary.swatch')?.source?.role, 'decoration');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'colors' && cell.source?.label === 'option.green.swatch')?.text, '■');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'dates' && cell.source?.label === 'weekday.mo')?.style?.fg?.token, 'text.muted');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'dates' && cell.text === '[')?.source?.label, 'day.2026-06-15.open');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'dates' && cell.text === '1')?.source?.role, 'text');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'check-list' && cell.text === 'x')?.source?.label, 'option.email.marker.checked');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'check-list' && cell.text === 'x')?.source?.role, 'decoration');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.text === 'S')?.source?.label, 'summary.label');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.source?.label === 'summary.swatch')?.style?.bg?.token, 'selection.background');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.source?.label === 'summary.swatch')?.source?.role, 'decoration');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.source?.label === 'option.green.swatch')?.text, '■');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.source?.label === 'weekday.mo')?.style?.fg?.token, 'text.muted');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.text === '[')?.source?.label, 'day.2026-06-15.open');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.text === '1')?.source?.role, 'text');
 });
 
 test('form controls keep state visible in high contrast and no-color projections', () => {

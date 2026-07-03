@@ -1,3 +1,4 @@
+import { frameCellSource } from '../frame-source.ts';
 import type { RenderSpan } from '../render-primitives.ts';
 import type { Canvas2D } from './canvas2d.ts';
 
@@ -36,19 +37,19 @@ export interface BarSeriesOptions extends SeriesOptions {
 
 const DEFAULT_AXIS_SPAN = {
   text: '─',
-  source: { kind: 'canvas2d', role: 'separator', label: 'axis.line' }
+  source: frameCellSource({ ownerKind: 'canvas2d', family: 'drawing', role: 'separator', part: 'axis.line', label: 'axis.line' })
 } satisfies RenderSpan;
 const DEFAULT_TICK_SPAN = {
   text: '┼',
-  source: { kind: 'canvas2d', role: 'chart', label: 'axis.tick' }
+  source: frameCellSource({ ownerKind: 'canvas2d', family: 'drawing', role: 'chart', part: 'axis.tick', label: 'axis.tick' })
 } satisfies RenderSpan;
 const DEFAULT_SERIES_SPAN = {
   text: '*',
-  source: { kind: 'canvas2d', role: 'chart', label: 'series.line' }
+  source: frameCellSource({ ownerKind: 'canvas2d', family: 'drawing', role: 'chart', part: 'series.line', label: 'series.line' })
 } satisfies RenderSpan;
 const DEFAULT_BAR_SPAN = {
   text: '█',
-  source: { kind: 'canvas2d', role: 'chart', label: 'bar.fill' }
+  source: frameCellSource({ ownerKind: 'canvas2d', family: 'drawing', role: 'chart', part: 'bar.fill', label: 'bar.fill' })
 } satisfies RenderSpan;
 
 export function scaleChartValue(value: number, scale: ChartScale): number {

@@ -5,6 +5,7 @@ import type {
   Widget
 } from '../widgets/index.ts';
 import { baseStatusForRecordStatus } from '../widgets/index.ts';
+import { widgetFrameSource } from './frame-source.ts';
 import { span } from './render-primitives.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { statusStyle } from './status-visual.ts';
@@ -73,12 +74,13 @@ export function documentSource(
   visual: DocumentVisualKind,
   label: string
 ): FrameCellSource {
-  return {
-    kind,
+  return widgetFrameSource(widget, {
+    family: kind,
     role: roleForVisual(visual),
-    ...(widget.id === undefined ? {} : { id: widget.id }),
+    part: label,
+    partKind: visual,
     label
-  };
+  });
 }
 
 export function documentStatusStyle(status: StructuredBlockStatus): TerminalStyle {

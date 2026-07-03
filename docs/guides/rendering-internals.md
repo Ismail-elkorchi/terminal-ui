@@ -27,12 +27,37 @@ The buffer sanitizes control sequences, clips by terminal cell width, preserves
 Unicode grapheme boundaries, and clears stale continuation cells when content
 changes shape.
 
+## Source Metadata
+
+`FrameCellSource` is the renderer-owned provenance contract for visible
+cells. It identifies the owning widget or renderer (`ownerId`, `ownerKind`),
+the widget family, semantic role, visual part, optional item identity or index,
+visual state, and a human-readable label when that information is available.
+
+Source metadata is JSON-serializable, sanitized before it enters a frame,
+included in frame equality and fingerprinting, and exposed in frame schemas.
+Use `widgetFrameSource()` for widget-owned cells, `frameCellSource()` for
+non-widget renderer cells, and `frameSourcePart()` when deriving a more specific
+part from an existing source.
+
 ## Render Spans And Blocks
 
 `RenderSpan` is the smallest styled text unit. `RenderLine` and `RenderBlock`
 group spans into terminal-visible rows and blocks. Widgets such as rich text,
 tables, scrollback, structured blocks, charts, and command bars use spans so
 style survives clipping, wrapping, scrolling, and snapshot generation.
+
+The shared span helpers measure spans by terminal cell width, clip and wrap by
+grapheme boundaries, pad and align lines, and compact adjacent spans only when
+style, hyperlink, and source metadata match.
+
+## Measurement
+
+`WidgetMeasureResult` is the canonical measurement shape for widgets. The
+measurement helpers normalize, clamp, and combine minimum, preferred, and
+optional maximum sizes for vertical, horizontal, overlay, and bounded layout
+pressure. Text, span, line, and block measurement use the same terminal cell
+rules as rendering.
 
 Use render blocks when the artifact is already structured as rows. Use widgets
 when the artifact participates in layout, focus, hit targets, accessibility, or

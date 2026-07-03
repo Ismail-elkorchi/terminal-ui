@@ -2,6 +2,7 @@ import type { TerminalTheme } from '../../../theme/index.ts';
 import type { Widget } from '../../../widgets/index.ts';
 import type { BorderStyle } from '../../border.ts';
 import type { FrameBuffer } from '../../frame.ts';
+import { frameCellSource } from '../../frame-source.ts';
 import type { LayoutNode, Rect } from '../../layout.ts';
 import type { TerminalStyle } from '../../render-primitives.ts';
 import type { WidgetMeasureResult } from '../../widget-renderer.ts';
@@ -58,7 +59,7 @@ export function drawModalActionSeparator(
   buffer.write(bounds.row, bounds.column, [{
     text: theme.symbols.borderSingle.horizontal.repeat(bounds.width),
     ...(style === undefined ? {} : { style }),
-    source: { kind: 'modal', role: 'separator', label: 'action-separator' }
+    source: frameCellSource({ ownerKind: 'modal', family: 'layout', role: 'separator', part: 'action-separator', label: 'action-separator' })
   }]);
 }
 

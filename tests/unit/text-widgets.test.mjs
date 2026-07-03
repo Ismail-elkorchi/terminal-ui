@@ -24,12 +24,10 @@ test('richText renders sanitized styled segments as plain frame text', () => {
 
   assert.equal(renderFramePlain(frame), 'Build failed');
   assert.equal(frame.accessibility.root.value, 'Build failed');
-  assert.deepEqual(frame.cells.find((cell) => cell.text === 'B')?.source, {
-    id: 'rich',
-    kind: 'richText',
-    role: 'text',
-    label: 'segment.0'
-  });
+  assert.deepEqual(frame.cells.find((cell) => cell.text === 'B')?.source, textSource('rich', 'richText', 'segment.0', {
+    part: 'segment',
+    itemIndex: 0
+  }));
 });
 
 test('text renders through shared role styles and source metadata', () => {
@@ -47,12 +45,7 @@ test('text renders through shared role styles and source metadata', () => {
     bold: true,
     underline: true
   });
-  assert.deepEqual(first?.source, {
-    id: 'danger-text',
-    kind: 'text',
-    role: 'text',
-    label: 'role.danger'
-  });
+  assert.deepEqual(first?.source, textSource('danger-text', 'text', 'role.danger', { part: 'role.danger' }));
   assert.equal(frame.accessibility.root.value, 'Danger');
 });
 
@@ -64,13 +57,13 @@ test('wrapped richText preserves segment style link and source metadata', () => 
       {
         text: 'Alpha ',
         style: { fg: { kind: 'theme', token: 'status.success' } },
-        source: { id: 'alpha', kind: 'token', role: 'text', label: 'alpha' }
+        source: { ownerId: 'alpha', ownerKind: 'token', role: 'text', label: 'alpha' }
       },
       {
         text: 'Beta',
         style: { fg: { kind: 'theme', token: 'status.warning' }, bold: true },
         link: { href: 'https://example.test/beta' },
-        source: { id: 'beta', kind: 'token', role: 'text', label: 'beta' }
+        source: { ownerId: 'beta', ownerKind: 'token', role: 'text', label: 'beta' }
       }
     ]
   }), { columns: 6, rows: 2 });
@@ -80,7 +73,7 @@ test('wrapped richText preserves segment style link and source metadata', () => 
   assert.deepEqual(frame.cells.find((cell) => cell.text === 'A')?.style, { fg: { kind: 'theme', token: 'status.success' } });
   assert.deepEqual(beta?.style, { fg: { kind: 'theme', token: 'status.warning' }, bold: true });
   assert.deepEqual(beta?.link, { href: 'https://example.test/beta' });
-  assert.deepEqual(beta?.source, { id: 'beta', kind: 'token', role: 'text', label: 'beta' });
+  assert.deepEqual(beta?.source, { ownerId: 'beta', ownerKind: 'token', role: 'text', label: 'beta' });
   assert.equal(frame.accessibility.root.value, 'Alpha Beta');
 });
 
@@ -119,9 +112,9 @@ test('editable text controls expose source metadata for chrome value placeholder
   assert.equal(inputFrame.cells.find((cell) => cell.text === 'a')?.source?.label, 'value');
   assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.label, 'selection');
   assert.equal(inputFrame.cells.find((cell) => cell.text === ']')?.source?.label, 'chrome.suffix');
-  assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.id, 'email');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.ownerId, 'email');
   assert.equal(placeholderFrame.cells.find((cell) => cell.text === 'E')?.source?.label, 'placeholder');
-  assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.kind, 'numberInput');
+  assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.ownerKind, 'numberInput');
   assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.label, 'value');
 });
 
@@ -148,22 +141,14 @@ test('text widgets map Unicode cursor positions through the shared text contract
   assert.deepEqual(cursorPosition(textInputFrame.cursor), { row: 1, column: 7 });
   assert.deepEqual(cursorPosition(secondaryInputFrame.cursor), { row: 1, column: 8 });
   assert.deepEqual(cursorPosition(commandFrame.cursor), { row: 1, column: 6 });
-  assert.deepEqual(textInputFrame.cursor?.source, {
-    id: 'unicode-input',
-    kind: 'textInput',
-    role: 'cursor',
-    label: 'cursor'
-  });
-  assert.deepEqual(secondaryInputFrame.cursor?.source, {
-    id: 'unicode-field',
-    kind: 'textInput',
-    role: 'cursor',
-    label: 'cursor'
-  });
+  assert.deepEqual(textInputFrame.cursor?.source, formSource('unicode-input', 'textInput', 'cursor'));
+  assert.deepEqual(secondaryInputFrame.cursor?.source, formSource('unicode-field', 'textInput', 'cursor'));
   assert.deepEqual(commandFrame.cursor?.source, {
-    id: 'unicode-command',
-    kind: 'commandBar',
+    ownerId: 'unicode-command',
+    ownerKind: 'commandBar',
+    family: 'command',
     role: 'cursor',
+    part: 'cursor',
     label: 'cursor'
   });
   assert.equal(renderFramePlain(textInputFrame), '›[ a🙂界b ]');
@@ -251,16 +236,34 @@ test('textArea horizontal windows use visual cells without splitting graphemes',
 
   assert.equal(renderFramePlain(frame), '› 界b\n│ in');
   assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 5 });
-  assert.deepEqual(frame.cursor?.source, {
-    id: 'unicode-area',
-    kind: 'textArea',
-    role: 'cursor',
-    label: 'cursor'
-  });
+  assert.deepEqual(frame.cursor?.source, formSource('unicode-area', 'textArea', 'cursor'));
 });
 
 function cursorPosition(cursor) {
   return cursor === undefined ? undefined : { row: cursor.row, column: cursor.column };
+}
+
+function textSource(ownerId, ownerKind, label, extra = {}) {
+  return {
+    ownerId,
+    ownerKind,
+    family: 'text',
+    role: 'text',
+    label,
+    ...extra
+  };
+}
+
+function formSource(ownerId, ownerKind, label) {
+  return {
+    ownerId,
+    ownerKind,
+    family: 'form',
+    role: 'cursor',
+    part: label,
+    partKind: 'cursor',
+    label
+  };
 }
 
 function colorCapabilities() {

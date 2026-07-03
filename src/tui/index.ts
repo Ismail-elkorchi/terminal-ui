@@ -1,10 +1,19 @@
 import { layoutWidget } from './layout.ts';
 import { drawBorder } from './border.ts';
 import {
+  alignRenderLine,
   createFrameBuffer,
+  clipRenderLine,
   clipRenderSpans,
+  compactRenderSpans,
   compositeRegions,
   diffFrames,
+  frameCellSource,
+  frameSourcePart,
+  measureRenderBlock,
+  measureRenderLine,
+  measureRenderSpans,
+  padRenderLine,
   renderDiffAnsi,
   renderFrameAnsi,
   renderFrameDebug,
@@ -17,6 +26,8 @@ import {
   sameTerminalColor,
   sameTerminalLink,
   sameTerminalStyle,
+  sanitizeFrameCellSource,
+  widgetFrameSource,
   wrapRenderSpans
 } from './render.ts';
 import { boxDrawingJoinPass } from './frame-passes/index.ts';
@@ -137,8 +148,11 @@ import type {
   FrameHitTarget,
   FrameRowFingerprint,
   FrameRowDiff,
+  PadRenderLineOptions,
+  RenderAlignment,
   RenderDiff,
   RenderBlock,
+  RenderBlockSize,
   RenderLine,
   RenderOperation,
   RenderSerializeOptions,
@@ -167,6 +181,8 @@ export type {
   FrameHitTarget,
   FrameRowFingerprint,
   FrameRowDiff,
+  PadRenderLineOptions,
+  RenderAlignment,
   AxisLine,
   BarDatum,
   BarSeriesOptions,
@@ -186,6 +202,7 @@ export type {
   Rect,
   RegionOpacity,
   RenderBlock,
+  RenderBlockSize,
   RenderDiff,
   RenderRegion,
   RenderRegionHitTarget,
@@ -273,13 +290,22 @@ export type {
   WidgetRenderInput
 };
 export {
+  alignRenderLine,
   createFrameBuffer,
+  clipRenderLine,
   clipRenderSpans,
+  compactRenderSpans,
   compositeRegions,
   createCanvas2D,
   diffFrames,
   drawBorder,
+  frameCellSource,
+  frameSourcePart,
   layoutWidget,
+  measureRenderBlock,
+  measureRenderLine,
+  measureRenderSpans,
+  padRenderLine,
   renderDiffAnsi,
   renderFrameAnsi,
   renderFrameDebug,
@@ -295,7 +321,9 @@ export {
   sameTerminalColor,
   sameTerminalLink,
   sameTerminalStyle,
-  wrapRenderSpans
+  sanitizeFrameCellSource,
+  wrapRenderSpans,
+  widgetFrameSource
 };
 export { commandBarReducer } from './command-surface.ts';
 export {
@@ -327,6 +355,21 @@ export {
 export { dataWindow, rowWindow, scrollStateFromUnknown } from './data-window.ts';
 export { createDirtyRegionSet, dirtyRegionsForRegionChanges } from './dirty-regions.ts';
 export { filterPaletteEntries, paletteWindow } from './palette.ts';
+export {
+  clampMeasurement,
+  combineMeasurementsHorizontally,
+  combineMeasurementsOverlay,
+  combineMeasurementsVertically,
+  measurement,
+  measureBlock,
+  measureLine,
+  measureSize,
+  measureSpans,
+  measureText,
+  normalizeMeasurement,
+  zeroMeasurement
+} from './measurement.ts';
+export type { Measurement, MeasurementInput } from './measurement.ts';
 export { projectTuiOutput, renderAccessibleSnapshot } from './output-projection.ts';
 export { createPointerRouter } from './pointer-router.ts';
 export { copySelectedTextToClipboard, resolveSelectedText } from './selection-interaction.ts';

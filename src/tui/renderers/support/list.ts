@@ -54,11 +54,11 @@ export function listBlock(widget: Widget, height: number, theme: TerminalTheme):
             isSelected,
             theme,
             style,
-            dataSource(widget, `item.${String(itemIndex)}.marker`, { id: itemSourceId, role: 'decoration' })
+            dataSource(widget, `item.${String(itemIndex)}.marker`, { itemId: itemSourceId, itemIndex, role: 'decoration' })
           ),
           ...dataValueSpans(clean(String(item)), query, style, {
-            source: dataSource(widget, `item.${String(itemIndex)}.value`, { id: itemSourceId }),
-            matchSource: dataSource(widget, `item.${String(itemIndex)}.match`, { id: itemSourceId })
+            source: dataSource(widget, `item.${String(itemIndex)}.value`, { itemId: itemSourceId, itemIndex }),
+            matchSource: dataSource(widget, `item.${String(itemIndex)}.match`, { itemId: itemSourceId, itemIndex })
           })
         ]
       };

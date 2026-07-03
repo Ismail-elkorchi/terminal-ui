@@ -41,12 +41,13 @@ test('terminal link and source equality compare explicit fields', () => {
   assert.equal(sameTerminalLink({ href: 'https://example.test' }, { href: 'https://example.test', id: 'a' }), false);
   assert.equal(
     sameFrameCellSource(
-      { id: 'x', kind: 'text', role: 'label', label: 'Title' },
-      { label: 'Title', role: 'label', kind: 'text', id: 'x' }
+      { ownerId: 'x', ownerKind: 'text', family: 'text', role: 'label', part: 'title', label: 'Title' },
+      { label: 'Title', part: 'title', role: 'label', family: 'text', ownerKind: 'text', ownerId: 'x' }
     ),
     true
   );
-  assert.equal(sameFrameCellSource({ id: 'x' }, { id: 'y' }), false);
+  assert.equal(sameFrameCellSource({ ownerId: 'x' }, { ownerId: 'y' }), false);
+  assert.equal(sameFrameCellSource({ ownerId: 'x', itemId: 'a' }, { ownerId: 'x', itemId: 'b' }), false);
 });
 
 test('frame cell equality covers text, width, continuation, style, link, and source', () => {
@@ -57,7 +58,7 @@ test('frame cell equality covers text, width, continuation, style, link, and sou
     width: 2,
     style: { bold: true, fg: { kind: 'rgb', r: 1, g: 2, b: 3 } },
     link: { href: 'https://example.test' },
-    source: { id: 'cell', role: 'gridcell' }
+    source: { ownerId: 'cell', role: 'gridcell' }
   };
 
   assert.equal(sameFrameCell(cell, { ...cell, style: { fg: { kind: 'rgb', r: 1, g: 2, b: 3 }, bold: true } }), true);

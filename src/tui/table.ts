@@ -507,7 +507,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 
 function tableSource(widget: Widget, label: string, id?: string, role: FrameCellSource['role'] = 'text'): FrameCellSource {
   return dataSource(widget, label, {
-    ...(id === undefined ? {} : { id }),
+    ...(id === undefined ? {} : { itemId: id }),
     role
   });
 }

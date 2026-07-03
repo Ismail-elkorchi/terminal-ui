@@ -1,5 +1,6 @@
 import { builtinWidgetRenderers } from './renderers/index.ts';
-import { measureBuiltinWidget, sanitizeWidgetMeasure, zeroWidgetMeasure } from './widget-measure.ts';
+import { normalizeMeasurement, zeroMeasurement } from './measurement.ts';
+import { measureBuiltinWidget } from './widget-measure.ts';
 import { widgetInteractionDisabled } from './widget-interaction.ts';
 import {
   emptyRect,
@@ -32,8 +33,8 @@ export function layoutChildBounds(widget: Widget, bounds: Rect, theme: TerminalT
 
 export function widgetMeasure(widget: Widget, bounds: Rect, theme: TerminalTheme): WidgetMeasureResult {
   const renderer = widgetRenderer(widget);
-  if (renderer.measure !== undefined) return sanitizeWidgetMeasure(renderer.measure({ widget, bounds, theme }));
-  if (widget.kind === 'custom') return zeroWidgetMeasure();
+  if (renderer.measure !== undefined) return normalizeMeasurement(renderer.measure({ widget, bounds, theme }));
+  if (widget.kind === 'custom') return zeroMeasurement();
   return measureBuiltinWidget(widget, bounds, theme, widgetMeasure);
 }
 

@@ -4,6 +4,7 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
 import type { DividerLineKind, DividerOrientation } from '../widgets/types.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
+import { widgetFrameSource } from './frame-source.ts';
 import type { Rect } from './layout.ts';
 import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { stringify } from './widget-props.ts';
@@ -53,7 +54,7 @@ function renderHorizontalDivider(
   const glyph = dividerGlyphs(widget, theme).horizontal;
   const label = dividerLabel(widget);
   const spans = label.length === 0
-    ? [separatorSpan(glyph.repeat(bounds.width), style)]
+    ? [separatorSpan(widget, glyph.repeat(bounds.width), style)]
     : labelledDividerSpans(widget, glyph, label, bounds.width, dividerLabelAlign(widget), style);
   buffer.write(bounds.row, bounds.column, spans);
 }
@@ -71,7 +72,7 @@ function renderVerticalDivider(
     buffer.write(row, bounds.column, [{
       text: glyph,
       ...(style === undefined ? {} : { style }),
-      source: { kind: 'divider', role: 'separator' }
+      source: widgetFrameSource(widget, { family: 'drawing', role: 'separator', part: 'separator', label: 'separator' })
     }]);
   }
 }
@@ -90,9 +91,9 @@ function labelledDividerSpans(
   const before = align === 'end' ? remaining : align === 'center' ? Math.floor(remaining / 2) : 0;
   const after = remaining - before;
   return [
-    separatorSpan(glyph.repeat(before), style, 'separator.before'),
+    separatorSpan(widget, glyph.repeat(before), style, 'separator.before'),
     labelSpan(widget, clippedLabel, style),
-    separatorSpan(glyph.repeat(after), style, 'separator.after')
+    separatorSpan(widget, glyph.repeat(after), style, 'separator.after')
   ].filter((span) => span.text.length > 0);
 }
 
@@ -151,11 +152,11 @@ function dividerLabelStyle(widget: Widget, base: TerminalStyle | undefined): Ter
   return mergeStyles(base, widgetStyle(widget, 'label'));
 }
 
-function separatorSpan(text: string, style: TerminalStyle | undefined, label = 'separator'): RenderSpan {
+function separatorSpan(widget: Widget, text: string, style: TerminalStyle | undefined, label = 'separator'): RenderSpan {
   return {
     text,
     ...(style === undefined ? {} : { style }),
-    source: { kind: 'divider', role: 'separator', label }
+    source: widgetFrameSource(widget, { family: 'drawing', role: 'separator', part: label, label })
   };
 }
 
@@ -164,6 +165,6 @@ function labelSpan(widget: Widget, text: string, baseStyle: TerminalStyle | unde
   return {
     text,
     ...(style === undefined ? {} : { style }),
-    source: { kind: 'divider', role: 'text', label: 'label' }
+    source: widgetFrameSource(widget, { family: 'drawing', role: 'text', part: 'label', label: 'label' })
   };
 }

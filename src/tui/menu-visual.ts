@@ -1,5 +1,6 @@
 import type { TerminalTheme } from '../theme/index.ts';
 import type { MenuItemTone, Widget } from '../widgets/index.ts';
+import { widgetFrameSource } from './frame-source.ts';
 import { clipRenderSpans, span } from './render-primitives.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { mergeStyles, widgetStyle } from './widget-style.ts';
@@ -103,8 +104,8 @@ function menuBarItemSpans(
         ? theme.symbols.statusError
         : '';
   return [
-    ...(marker.length === 0 ? [] : [menuSpan(widget, `${marker} `, menuMarkerStyle(widget, item, selected), { id: item.id, label: 'marker' })]),
-    menuSpan(widget, item.label, labelStyle, { id: item.id, label: 'label' })
+    ...(marker.length === 0 ? [] : [menuSpan(widget, `${marker} `, menuMarkerStyle(widget, item, selected), { itemId: item.id, label: 'marker' })]),
+    menuSpan(widget, item.label, labelStyle, { itemId: item.id, label: 'label' })
   ];
 }
 
@@ -126,13 +127,13 @@ function menuItemSpans(
   const branch = item.hasChildren ? item.expanded === true ? theme.symbols.treeExpanded : theme.symbols.treeCollapsed : theme.symbols.unselected;
   const indent = '  '.repeat(Math.max(0, item.depth));
   return [
-    menuSpan(widget, `${marker} `, menuMarkerStyle(widget, item, selected), { id: item.id, label: 'marker' }),
-    ...(indent.length === 0 ? [] : [menuSpan(widget, indent, menuMutedStyle(widget, selected), { id: item.id, label: 'indent' })]),
-    menuSpan(widget, checked, item.checked === true ? menuCheckedStyle(widget, selected) : menuMutedStyle(widget, selected), { id: item.id, label: 'checked' }),
-    menuSpan(widget, ' ', menuMutedStyle(widget, selected), { id: item.id, label: 'gap' }),
-    menuSpan(widget, branch, item.hasChildren ? menuBranchStyle(widget, selected) : menuMutedStyle(widget, selected), { id: item.id, label: 'branch' }),
-    menuSpan(widget, ' ', menuMutedStyle(widget, selected), { id: item.id, label: 'gap' }),
-    menuSpan(widget, item.label, labelStyle, { id: item.id, label: 'label' }),
+    menuSpan(widget, `${marker} `, menuMarkerStyle(widget, item, selected), { itemId: item.id, label: 'marker' }),
+    ...(indent.length === 0 ? [] : [menuSpan(widget, indent, menuMutedStyle(widget, selected), { itemId: item.id, label: 'indent' })]),
+    menuSpan(widget, checked, item.checked === true ? menuCheckedStyle(widget, selected) : menuMutedStyle(widget, selected), { itemId: item.id, label: 'checked' }),
+    menuSpan(widget, ' ', menuMutedStyle(widget, selected), { itemId: item.id, label: 'gap' }),
+    menuSpan(widget, branch, item.hasChildren ? menuBranchStyle(widget, selected) : menuMutedStyle(widget, selected), { itemId: item.id, label: 'branch' }),
+    menuSpan(widget, ' ', menuMutedStyle(widget, selected), { itemId: item.id, label: 'gap' }),
+    menuSpan(widget, item.label, labelStyle, { itemId: item.id, label: 'label' }),
     ...descriptionSpans(widget, item, selected),
     ...shortcutSpans(widget, item, selected)
   ];
@@ -141,16 +142,16 @@ function menuItemSpans(
 function descriptionSpans(widget: Widget, item: MenuVisualItem, selected: boolean): readonly RenderSpan[] {
   if (item.description === undefined || item.description.length === 0) return [];
   return [
-    menuSpan(widget, '  ', menuMutedStyle(widget, selected), { id: item.id, label: 'description-gap' }),
-    menuSpan(widget, item.description, menuMutedStyle(widget, selected), { id: item.id, label: 'description' })
+    menuSpan(widget, '  ', menuMutedStyle(widget, selected), { itemId: item.id, label: 'description-gap' }),
+    menuSpan(widget, item.description, menuMutedStyle(widget, selected), { itemId: item.id, label: 'description' })
   ];
 }
 
 function shortcutSpans(widget: Widget, item: MenuVisualItem, selected: boolean): readonly RenderSpan[] {
   if (item.shortcut === undefined || item.shortcut.length === 0) return [];
   return [
-    menuSpan(widget, '  ', menuMutedStyle(widget, selected), { id: item.id, label: 'shortcut-gap' }),
-    menuSpan(widget, item.shortcut, menuShortcutStyle(widget, selected), { id: item.id, label: 'shortcut' })
+    menuSpan(widget, '  ', menuMutedStyle(widget, selected), { itemId: item.id, label: 'shortcut-gap' }),
+    menuSpan(widget, item.shortcut, menuShortcutStyle(widget, selected), { itemId: item.id, label: 'shortcut' })
   ];
 }
 
@@ -198,17 +199,17 @@ function menuSpan(
   widget: Widget,
   text: string,
   style: TerminalStyle | undefined,
-  source: { readonly id?: string; readonly label: string }
+  source: { readonly itemId?: string; readonly label: string }
 ): RenderSpan {
   return span(text, {
     ...(style === undefined ? {} : { style }),
-    source: {
-      kind: widget.kind,
+    source: widgetFrameSource(widget, {
+      family: 'menu',
       role: source.label === 'separator' ? 'separator' : 'text',
-      ...(widget.id === undefined ? {} : { id: widget.id }),
-      ...(source.id === undefined ? {} : { id: source.id }),
+      part: source.label,
+      ...(source.itemId === undefined ? {} : { itemId: source.itemId }),
       label: source.label
-    }
+    })
   });
 }
 

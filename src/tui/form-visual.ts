@@ -1,5 +1,6 @@
 import type { Widget } from '../widgets/index.ts';
 import { span } from './frame.ts';
+import { widgetFrameSource } from './frame-source.ts';
 import type { FrameCellSource, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import { line } from './render-primitives.ts';
 import { mergeStyles, widgetStyle } from './widget-style.ts';
@@ -51,12 +52,13 @@ export function formSpan(
 }
 
 export function formSource(widget: Widget, visual: FormVisualKind, label: string): FrameCellSource {
-  return {
-    kind: widget.kind,
+  return widgetFrameSource(widget, {
+    family: 'form',
     role: roleForVisual(visual),
-    ...(widget.id === undefined ? {} : { id: widget.id }),
+    part: label,
+    partKind: visual,
     label
-  };
+  });
 }
 
 export function formLine(spans: readonly RenderSpan[]): RenderLine {

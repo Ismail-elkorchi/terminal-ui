@@ -2,6 +2,7 @@ import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { ActivityIndicatorStatus, Widget } from '../widgets/index.ts';
 import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
+import { widgetFrameSource } from './frame-source.ts';
 import { block, line, span } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
@@ -86,12 +87,13 @@ export function chartSource(
   visual: ChartVisualKind,
   label: string
 ): FrameCellSource {
-  return {
-    kind,
+  return widgetFrameSource(widget, {
+    family: kind,
     role: roleForVisual(visual),
-    ...(widget.id === undefined ? {} : { id: widget.id }),
+    part: label,
+    partKind: visual,
     label
-  };
+  });
 }
 
 export function chartLabelStyle(widget: Widget): TerminalStyle | undefined {

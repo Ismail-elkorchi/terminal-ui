@@ -47,7 +47,7 @@ test('canvas painters can provide source metadata while focus stays widget-owned
     painter({ canvas }) {
       canvas.text(0, 0, [{
         text: 'node',
-        source: { id: 'node-a', kind: 'diagram', role: 'custom', label: 'node.label' }
+        source: { ownerId: 'node-a', ownerKind: 'diagram', role: 'custom', label: 'node.label' }
       }]);
     }
   }), { columns: 12, rows: 2 }, { focusPath: ['inspectable-canvas'] });
@@ -140,7 +140,7 @@ test('surface variants draw semantic background border and shadow without owning
   });
   const frame = renderWidgetFrame(widget, { columns: 14, rows: 4 });
   const output = renderFramePlain(frame);
-  const backgroundCell = frame.cells.find((cell) => cell.source?.kind === 'surface' && cell.source.role === 'decoration' && cell.style?.bg !== undefined);
+  const backgroundCell = frame.cells.find((cell) => cell.source?.ownerKind === 'surface' && cell.source.role === 'decoration' && cell.style?.bg !== undefined);
   const borderCell = frame.cells.find((cell) => cell.source?.role === 'border');
   const shadowCell = frame.cells.find((cell) => cell.source?.label === 'shadow');
 
@@ -164,7 +164,7 @@ test('surface variants reserve border content space while plain surfaces stay tr
     id: 'plain'
   }), { columns: 10, rows: 3 });
 
-  assert.deepEqual(neutral.cells.find((cell) => cell.source?.kind === 'surface')?.style?.bg, { kind: 'theme', token: 'surface.background' });
+  assert.deepEqual(neutral.cells.find((cell) => cell.source?.ownerKind === 'surface')?.style?.bg, { kind: 'theme', token: 'surface.background' });
   assert.match(renderFramePlain(visualLayout).split('\n')[1] ?? '', /^│inner/u);
   assert.equal(renderFramePlain(transparent), 'flush');
 });
@@ -189,9 +189,9 @@ test('surface labels disabled state and theme variants stay structural', () => {
   }), { columns: 12, rows: 3 }, { theme: noColorTheme });
 
   const disabledBorder = disabled.cells.find((cell) => cell.source?.role === 'border');
-  const disabledBackground = disabled.cells.find((cell) => cell.source?.kind === 'surface' && cell.style?.bg !== undefined);
+  const disabledBackground = disabled.cells.find((cell) => cell.source?.ownerKind === 'surface' && cell.style?.bg !== undefined);
   const selectedBorder = highContrast.cells.find((cell) => cell.source?.role === 'border');
-  const selectedBackground = highContrast.cells.find((cell) => cell.source?.kind === 'surface' && cell.style?.bg !== undefined);
+  const selectedBackground = highContrast.cells.find((cell) => cell.source?.ownerKind === 'surface' && cell.style?.bg !== undefined);
 
   assert.match(renderFramePlain(disabled).split('\n')[0] ?? '', /Locked/u);
   assert.equal(disabled.focusPath, undefined);

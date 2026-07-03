@@ -305,8 +305,8 @@ test('tabs keep active markers disabled targets and overflow visible without col
   assert.match(header, /\[Alpha\]/u);
   assert.match(header, /…/u);
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['tabs:tab:alpha']);
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'alpha' && cell.source.label === 'marker.selected.open')?.text, '[');
-  assert.equal(frame.cells.find((cell) => cell.source?.id === 'alpha' && cell.source.label === 'marker.selected.close')?.text, ']');
+  assert.equal(frame.cells.find((cell) => cell.source?.itemId === 'alpha' && cell.source.label === 'marker.selected.open')?.text, '[');
+  assert.equal(frame.cells.find((cell) => cell.source?.itemId === 'alpha' && cell.source.label === 'marker.selected.close')?.text, ']');
 });
 
 test('absolute clips child bounds without leaking outside its parent', () => {
@@ -423,7 +423,7 @@ test('modal reserves a structurally separated action area without color', () => 
   assert.deepEqual(layout.children[1]?.bounds, { row: 7, column: 7, width: 18, height: 1 });
 
   const frame = renderWidgetFrame(widget, { columns: 30, rows: 9 }, { theme: noColorTheme });
-  const separatorCells = frame.cells.filter((cell) => cell.source?.kind === 'modal' && cell.source.label === 'action-separator');
+  const separatorCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'modal' && cell.source.label === 'action-separator');
 
   assert.equal(separatorCells.length, 18);
   assert.deepEqual([...new Set(separatorCells.map((cell) => cell.text))], ['-']);
@@ -560,9 +560,12 @@ test('focus is scoped to the topmost visible focus layer', () => {
   assert.deepEqual(frame.focusPath, ['focus-root', 'upper-input']);
   assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 9 });
   assert.deepEqual(frame.cursor?.source, {
-    id: 'upper-input',
-    kind: 'textInput',
+    ownerId: 'upper-input',
+    ownerKind: 'textInput',
+    family: 'form',
     role: 'cursor',
+    part: 'cursor',
+    partKind: 'cursor',
     label: 'cursor'
   });
 });

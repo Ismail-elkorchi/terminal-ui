@@ -9,6 +9,7 @@ import {
   styledSpan
 } from './command-visual.ts';
 import { rowWindow } from './data-window.ts';
+import { widgetFrameSource } from './frame-source.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -414,12 +415,13 @@ function paletteSource(
   role: FrameCellSource['role'] = 'text',
   id = widget.id
 ): FrameCellSource {
-  return {
-    ...(id === undefined ? {} : { id }),
-    kind: widget.kind,
+  return widgetFrameSource(widget, {
+    family: 'command',
     role,
+    part: label,
+    ...(id === undefined || id === widget.id ? {} : { itemId: id }),
     label
-  };
+  });
 }
 
 function clampIndex(index: number, count: number): number {

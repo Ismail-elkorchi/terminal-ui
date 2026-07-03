@@ -202,7 +202,47 @@ test('prompt result schema enforces submitted and aborted result shapes', async 
 });
 
 test('schemas reject malformed nested public payloads', async () => {
-  const { validators } = await loadSchemaValidators();
+  const { ajv, validators } = await loadSchemaValidators();
+  const frameValidator = validators.get('tui-frame.schema.json');
+
+  assert.equal(frameValidator({
+    schemaVersion: 'terminal-ui.tui-frame.v1',
+    width: 1,
+    height: 1,
+    cells: [{
+      row: 1,
+      column: 1,
+      text: 'x',
+      width: 1,
+      source: {
+        ownerId: 'owner',
+        ownerKind: 'text',
+        family: 'text',
+        role: 'text',
+        part: 'body',
+        partKind: 'segment',
+        itemId: 'item',
+        itemIndex: 0,
+        state: 'selected',
+        label: 'Body'
+      }
+    }],
+    accessibility: {
+      schemaVersion: 'terminal-ui.accessible-snapshot.v1',
+      source: 'tui',
+      root: { id: 'ok', role: 'text' },
+      focusPath: [],
+      diagnostics: []
+    }
+  }), true, ajv.errorsText(frameValidator.errors));
+
+  assert.equal(frameValidator({
+    schemaVersion: 'terminal-ui.tui-frame.v1',
+    width: 1,
+    height: 1,
+    cells: [{ row: 1, column: 1, text: 'x', width: 1, source: { id: 'legacy', kind: 'old' } }],
+    accessibility: { root: { id: 'bad-source', role: 'text' } }
+  }), false);
 
   assert.equal(validators.get('tui-frame.schema.json')({
     schemaVersion: 'terminal-ui.tui-frame.v1',

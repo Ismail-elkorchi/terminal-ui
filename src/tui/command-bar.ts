@@ -8,6 +8,7 @@ import {
   styledSpan
 } from './command-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
+import { widgetFrameSource } from './frame-source.ts';
 import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn } from './text-display.ts';
 import { widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -205,12 +206,12 @@ function valueSpans(widget: Widget, value: string, selection: TextSelection | un
 }
 
 function commandSource(widget: Widget, label: string, role: FrameCellSource['role'] = 'text'): FrameCellSource {
-  return {
-    ...(widget.id === undefined ? {} : { id: widget.id }),
-    kind: widget.kind,
+  return widgetFrameSource(widget, {
+    family: 'command',
     role,
+    part: label,
     label
-  };
+  });
 }
 
 function footerReserve(widget: Widget): number {

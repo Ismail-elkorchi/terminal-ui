@@ -305,7 +305,7 @@ function isTreeMessageFactory(value: unknown): value is (node: TreeNode) => unkn
 
 function treeSource(widget: Widget, label: string, id?: string, role: FrameCellSource['role'] = 'text'): FrameCellSource {
   return dataSource(widget, label, {
-    ...(id === undefined ? {} : { id }),
+    ...(id === undefined ? {} : { itemId: id }),
     role
   });
 }

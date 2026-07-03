@@ -1,4 +1,4 @@
-import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
+import { measureTextCells } from '../text/index.ts';
 import { borderStyleFromValue } from './border.ts';
 import { commandBarBlock } from './command-bar.ts';
 import { barChartText, chartText, gaugeText, heatmapText, sparklineText } from './chart-widgets.ts';
@@ -20,6 +20,16 @@ import {
   toggleSwitchBlock
 } from './form-widgets.ts';
 import { contextMenuBlock, dropdownBlock, menuBarBlock, menuBlock } from './menu-widgets.ts';
+import {
+  combineMeasurementsHorizontally,
+  combineMeasurementsOverlay,
+  combineMeasurementsVertically,
+  measureBlock,
+  measureLines,
+  measureSize,
+  measureText,
+  zeroMeasurement
+} from './measurement.ts';
 import { paletteBlock } from './palette.ts';
 import { progressText } from './progress-widget.ts';
 import { notificationStackPreferredSize } from './notifications.ts';
@@ -34,32 +44,10 @@ import { numberProp, stringify } from './widget-props.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
 import type { BorderStyle } from './border.ts';
-import type { RenderBlock, RenderLine } from './frame.ts';
 import type { LayoutNode, Rect } from './layout.ts';
 import type { WidgetMeasureResult } from './widget-renderer.ts';
 
 export type WidgetMeasureFunction = (widget: Widget, bounds: Rect, theme: TerminalTheme) => WidgetMeasureResult;
-
-export function sanitizeWidgetMeasure(measure: WidgetMeasureResult): WidgetMeasureResult {
-  const minWidth = nonNegativeInteger(measure.minWidth);
-  const minHeight = nonNegativeInteger(measure.minHeight);
-  const maxWidth = optionalSize(measure.maxWidth);
-  const maxHeight = optionalSize(measure.maxHeight);
-  const preferredWidth = clampMeasuredSize(measure.preferredWidth, minWidth, maxWidth);
-  const preferredHeight = clampMeasuredSize(measure.preferredHeight, minHeight, maxHeight);
-  return {
-    minWidth,
-    minHeight,
-    preferredWidth,
-    preferredHeight,
-    ...(maxWidth === undefined ? {} : { maxWidth }),
-    ...(maxHeight === undefined ? {} : { maxHeight })
-  };
-}
-
-export function zeroWidgetMeasure(): WidgetMeasureResult {
-  return { minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 };
-}
 
 export function measureBuiltinWidget(
   widget: Widget,
@@ -69,47 +57,47 @@ export function measureBuiltinWidget(
 ): WidgetMeasureResult {
   switch (widget.kind) {
     case 'text':
-      return measurePlainText(stringify(widget.props['content']));
+      return measureText(stringify(widget.props['content']));
     case 'richText':
-      return measureRenderBlock(richTextBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(richTextBlock(widget, intrinsicBounds(bounds)));
     case 'statusBar':
-      return measurePlainText(statusBarText(widget));
+      return measureText(statusBarText(widget));
     case 'textArea':
-      return measurePlainText(textAreaMeasureText(widget));
+      return measureText(textAreaMeasureText(widget));
     case 'label':
-      return measureRenderBlock(labelBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(labelBlock(widget, intrinsicBounds(bounds)));
     case 'button':
-      return measureRenderBlock(buttonBlock(widget, intrinsicBounds(bounds), false, theme));
+      return measureBlock(buttonBlock(widget, intrinsicBounds(bounds), false, theme));
     case 'checkbox':
-      return measureRenderBlock(checkboxBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(checkboxBlock(widget, intrinsicBounds(bounds), theme));
     case 'toggleSwitch':
-      return measureRenderBlock(toggleSwitchBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(toggleSwitchBlock(widget, intrinsicBounds(bounds)));
     case 'slider':
-      return measureRenderBlock(sliderBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(sliderBlock(widget, intrinsicBounds(bounds)));
     case 'rangeSlider':
-      return measureRenderBlock(rangeSliderBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(rangeSliderBlock(widget, intrinsicBounds(bounds)));
     case 'checkboxList':
-      return measureRenderBlock(checkboxListBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(checkboxListBlock(widget, intrinsicBounds(bounds), theme));
     case 'radioGroup':
-      return measureRenderBlock(radioGroupBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(radioGroupBlock(widget, intrinsicBounds(bounds), theme));
     case 'selectBox':
-      return measureRenderBlock(selectBoxBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(selectBoxBlock(widget, intrinsicBounds(bounds), theme));
     case 'colorPicker':
-      return measureRenderBlock(colorPickerBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(colorPickerBlock(widget, intrinsicBounds(bounds)));
     case 'datePicker':
-      return measureRenderBlock(datePickerBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(datePickerBlock(widget, intrinsicBounds(bounds)));
     case 'textInput':
-      return measureRenderBlock(textInputBlock(widget, intrinsicBounds(bounds), false, theme));
+      return measureBlock(textInputBlock(widget, intrinsicBounds(bounds), false, theme));
     case 'numberInput':
-      return measureRenderBlock(numberInputBlock(widget, intrinsicBounds(bounds), false, theme));
+      return measureBlock(numberInputBlock(widget, intrinsicBounds(bounds), false, theme));
     case 'menu':
-      return measureRenderBlock(menuBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(menuBlock(widget, intrinsicBounds(bounds), theme));
     case 'menuBar':
-      return measureRenderBlock(menuBarBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(menuBarBlock(widget, intrinsicBounds(bounds), theme));
     case 'contextMenu':
-      return measureRenderBlock(contextMenuBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(contextMenuBlock(widget, intrinsicBounds(bounds), theme));
     case 'dropdown':
-      return measureRenderBlock(dropdownBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(dropdownBlock(widget, intrinsicBounds(bounds), theme));
     case 'divider': {
       const preferred = dividerPreferredSize(widget);
       return measureSize(preferred.width, preferred.height);
@@ -119,45 +107,45 @@ export function measureBuiltinWidget(
       return measureSize(preferred.width, preferred.height);
     }
     case 'helpBar':
-      return measurePlainText(helpBarText(widget));
+      return measureText(helpBarText(widget));
     case 'activityIndicator':
-      return measurePlainText(activityIndicatorText(widget, theme));
+      return measureText(activityIndicatorText(widget, theme));
     case 'spinner':
-      return measureRenderBlock(spinnerBlock(widget, theme));
+      return measureBlock(spinnerBlock(widget, theme));
     case 'progressBar':
-      return measurePlainText(progressText(widget, theme));
+      return measureText(progressText(widget, theme));
     case 'notificationStack': {
       const preferred = notificationStackPreferredSize(widget);
       return measureSize(preferred.width, preferred.height);
     }
     case 'sparkline':
-      return measurePlainText(sparklineText(widget, theme));
+      return measureText(sparklineText(widget, theme));
     case 'barChart':
-      return measurePlainText(barChartText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
+      return measureText(barChartText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
     case 'chart':
-      return measurePlainText(chartText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
+      return measureText(chartText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
     case 'gauge':
-      return measurePlainText(gaugeText(widget, theme));
+      return measureText(gaugeText(widget, theme));
     case 'heatmap':
-      return measurePlainText(heatmapText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
+      return measureText(heatmapText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
     case 'list':
       return measureListWidget(widget, theme);
     case 'table':
       return measureTableWidget(widget);
     case 'tree':
-      return measureRenderBlock(treeBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(treeBlock(widget, intrinsicBounds(bounds), theme));
     case 'paginator':
-      return measurePlainText(paginatorText(widget));
+      return measureText(paginatorText(widget));
     case 'scrollback':
-      return measurePlainText(scrollbackMeasureText(widget));
+      return measureText(scrollbackMeasureText(widget));
     case 'structuredBlock':
-      return measureRenderBlock(structuredBlockBlock(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
+      return measureBlock(structuredBlockBlock(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
     case 'activityFeed':
-      return measureRenderBlock(activityFeedBlock(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
+      return measureBlock(activityFeedBlock(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
     case 'commandBar':
-      return measureRenderBlock(commandBarBlock(widget, intrinsicBounds(bounds).height, theme));
+      return measureBlock(commandBarBlock(widget, intrinsicBounds(bounds).height, theme));
     case 'palette':
-      return measureRenderBlock(paletteBlock(widget, intrinsicBounds(bounds).height, theme));
+      return measureBlock(paletteBlock(widget, intrinsicBounds(bounds).height, theme));
     case 'form':
     case 'field':
     case 'stack':
@@ -181,31 +169,8 @@ export function measureBuiltinWidget(
     case 'modal':
       return measureModalWidget(widget, bounds, theme, measureWidget);
     case 'custom':
-      return zeroWidgetMeasure();
+      return zeroMeasurement();
   }
-}
-
-function measureSize(preferredWidth: number, preferredHeight: number, minWidth = 0, minHeight = 0): WidgetMeasureResult {
-  return sanitizeWidgetMeasure({ minWidth, minHeight, preferredWidth, preferredHeight });
-}
-
-function measurePlainText(text: string): WidgetMeasureResult {
-  const lines = cleanText(text).split('\n');
-  return measureSize(
-    lines.reduce((max, lineText) => Math.max(max, measureTextCells(lineText).cells), 0),
-    lines.length
-  );
-}
-
-function measureRenderBlock(block: RenderBlock): WidgetMeasureResult {
-  return measureSize(
-    block.lines.reduce((max, currentLine) => Math.max(max, measureRenderLineCells(currentLine)), 0),
-    block.lines.length
-  );
-}
-
-function measureRenderLineCells(renderLine: RenderLine): number {
-  return renderLine.spans.reduce((sum, currentSpan) => sum + measureTextCells(cleanText(currentSpan.text)).cells, 0);
 }
 
 function measureListWidget(widget: Widget, theme: TerminalTheme): WidgetMeasureResult {
@@ -250,13 +215,9 @@ function measureChildrenVertically(
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
 ): WidgetMeasureResult {
-  const measures = childMeasuresFor(widget, bounds, theme, measureWidget);
-  const gap = nonNegativeInteger(numberProp(widget, 'gap'));
-  const preferredHeight = measures.reduce((sum, measure) => sum + measure.preferredHeight, 0)
-    + gap * Math.max(0, measures.length - 1);
-  return measureSize(
-    measures.reduce((max, measure) => Math.max(max, measure.preferredWidth), 0),
-    preferredHeight
+  return combineMeasurementsVertically(
+    childMeasuresFor(widget, bounds, theme, measureWidget),
+    nonNegativeInteger(numberProp(widget, 'gap'))
   );
 }
 
@@ -266,13 +227,9 @@ function measureChildrenHorizontally(
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
 ): WidgetMeasureResult {
-  const measures = childMeasuresFor(widget, bounds, theme, measureWidget);
-  const gap = nonNegativeInteger(numberProp(widget, 'gap'));
-  const preferredWidth = measures.reduce((sum, measure) => sum + measure.preferredWidth, 0)
-    + gap * Math.max(0, measures.length - 1);
-  return measureSize(
-    preferredWidth,
-    measures.reduce((max, measure) => Math.max(max, measure.preferredHeight), 0)
+  return combineMeasurementsHorizontally(
+    childMeasuresFor(widget, bounds, theme, measureWidget),
+    nonNegativeInteger(numberProp(widget, 'gap'))
   );
 }
 
@@ -282,11 +239,7 @@ function measureChildrenOverlay(
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
 ): WidgetMeasureResult {
-  const measures = childMeasuresFor(widget, bounds, theme, measureWidget);
-  return measureSize(
-    measures.reduce((max, measure) => Math.max(max, measure.preferredWidth), 0),
-    measures.reduce((max, measure) => Math.max(max, measure.preferredHeight), 0)
-  );
+  return combineMeasurementsOverlay(childMeasuresFor(widget, bounds, theme, measureWidget));
 }
 
 function measureAbsoluteWidget(
@@ -298,13 +251,13 @@ function measureAbsoluteWidget(
   const measures = childMeasuresFor(widget, bounds, theme, measureWidget);
   const width = nonNegativeInteger(numberProp(widget, 'width'));
   const height = nonNegativeInteger(numberProp(widget, 'height'));
-  const content = measures[0] ?? zeroWidgetMeasure();
+  const content = measures[0] ?? zeroMeasurement();
   return measureSize(width || content.preferredWidth, height || content.preferredHeight);
 }
 
 function measureCanvasWidget(widget: Widget): WidgetMeasureResult {
   const label = stringify(widget.props['label']);
-  return label.length === 0 ? zeroWidgetMeasure() : measurePlainText(label);
+  return label.length === 0 ? zeroMeasurement() : measureText(label);
 }
 
 function measureViewportWidget(
@@ -326,7 +279,7 @@ function measureTabsWidget(
   theme: TerminalTheme,
   measureWidget: WidgetMeasureFunction
 ): WidgetMeasureResult {
-  const header = measurePlainText(tabsHeaderText(widget));
+  const header = measureText(tabsHeaderText(widget));
   const panel = measureChildrenOverlay(widget, bounds, theme, measureWidget);
   return measureSize(Math.max(header.preferredWidth, panel.preferredWidth), header.preferredHeight + panel.preferredHeight);
 }
@@ -358,7 +311,7 @@ function measureModalContentWidget(
   measureWidget: WidgetMeasureFunction
 ): WidgetMeasureResult {
   const measures = childMeasuresFor(widget, bounds, theme, measureWidget);
-  const body = measures[0] ?? zeroWidgetMeasure();
+  const body = measures[0] ?? zeroMeasurement();
   const actions = measures[1];
   return measureSize(
     Math.max(body.preferredWidth, actions?.preferredWidth ?? 0),
@@ -405,14 +358,6 @@ function tableColumnMeasureInputs(widget: Widget, rows: readonly unknown[]): rea
   });
 }
 
-function measureLines(lines: readonly string[]): WidgetMeasureResult {
-  return measureSize(lines.reduce((max, currentLine) => Math.max(max, measureTextCells(cleanText(currentLine)).cells), 0), lines.length);
-}
-
-function cleanText(text: string): string {
-  return sanitizeTerminalText(text).text;
-}
-
 function intrinsicBounds(bounds: Rect): Rect {
   return {
     row: bounds.row,
@@ -447,13 +392,4 @@ function fakeLayoutNode(widget: Widget, bounds: Rect): LayoutNode {
     focusTargets: [],
     children: []
   };
-}
-
-function optionalSize(value: number | undefined): number | undefined {
-  return value === undefined || !Number.isFinite(value) ? undefined : Math.max(0, Math.floor(value));
-}
-
-function clampMeasuredSize(value: number, min: number, max: number | undefined): number {
-  const preferred = Number.isFinite(value) ? Math.max(min, Math.floor(value)) : min;
-  return max === undefined ? preferred : Math.min(preferred, Math.max(min, max));
 }

@@ -1,7 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { clipRenderSpans, createScrollState, renderFramePlain, renderWidgetFrame, wrapRenderSpans } from '../../dist/tui/index.js';
+import {
+  alignRenderLine,
+  clipRenderLine,
+  clipRenderSpans,
+  compactRenderSpans,
+  createScrollState,
+  measureRenderBlock,
+  measureRenderLine,
+  measureRenderSpans,
+  padRenderLine,
+  renderFramePlain,
+  renderWidgetFrame,
+  wrapRenderSpans
+} from '../../dist/tui/index.js';
 import { table } from '../../dist/widgets/index.js';
 
 const red = { fg: { kind: 'ansi', value: 1 } };
@@ -11,34 +24,69 @@ const selectedBlue = selectedCellStyle(blue);
 
 test('clipRenderSpans clips by cell width while preserving style link and source', () => {
   const clipped = clipRenderSpans([
-    { text: 'ab', style: red, link: { href: 'https://example.test/a' }, source: { id: 'a', kind: 'token' } },
-    { text: '🙂cd', style: blue, link: { href: 'https://example.test/b' }, source: { id: 'b', kind: 'token' } }
+    { text: 'ab', style: red, link: { href: 'https://example.test/a' }, source: { ownerId: 'a', ownerKind: 'token' } },
+    { text: '🙂cd', style: blue, link: { href: 'https://example.test/b' }, source: { ownerId: 'b', ownerKind: 'token' } }
   ], 5, { ellipsis: '…' });
 
   assert.deepEqual(clipped, [
-    { text: 'ab', style: red, link: { href: 'https://example.test/a' }, source: { id: 'a', kind: 'token' } },
-    { text: '🙂…', style: blue, link: { href: 'https://example.test/b' }, source: { id: 'b', kind: 'token' } }
+    { text: 'ab', style: red, link: { href: 'https://example.test/a' }, source: { ownerId: 'a', ownerKind: 'token' } },
+    { text: '🙂…', style: blue, link: { href: 'https://example.test/b' }, source: { ownerId: 'b', ownerKind: 'token' } }
   ]);
 });
 
 test('wrapRenderSpans wraps by cell width while preserving style link and source', () => {
   const wrapped = wrapRenderSpans([
-    { text: 'ab', style: red, link: { href: 'https://example.test/a' }, source: { id: 'a', kind: 'token' } },
-    { text: '🙂cd', style: blue, link: { href: 'https://example.test/b' }, source: { id: 'b', kind: 'token' } }
+    { text: 'ab', style: red, link: { href: 'https://example.test/a' }, source: { ownerId: 'a', ownerKind: 'token' } },
+    { text: '🙂cd', style: blue, link: { href: 'https://example.test/b' }, source: { ownerId: 'b', ownerKind: 'token' } }
   ], 4);
 
   assert.deepEqual(wrapped, [
     {
       spans: [
-        { text: 'ab', style: red, link: { href: 'https://example.test/a' }, source: { id: 'a', kind: 'token' } },
-        { text: '🙂', style: blue, link: { href: 'https://example.test/b' }, source: { id: 'b', kind: 'token' } }
+        { text: 'ab', style: red, link: { href: 'https://example.test/a' }, source: { ownerId: 'a', ownerKind: 'token' } },
+        { text: '🙂', style: blue, link: { href: 'https://example.test/b' }, source: { ownerId: 'b', ownerKind: 'token' } }
       ]
     },
     {
       spans: [
-        { text: 'cd', style: blue, link: { href: 'https://example.test/b' }, source: { id: 'b', kind: 'token' } }
+        { text: 'cd', style: blue, link: { href: 'https://example.test/b' }, source: { ownerId: 'b', ownerKind: 'token' } }
       ]
     }
+  ]);
+});
+
+test('render span utilities measure compact pad clip and align while preserving metadata', () => {
+  const link = { href: 'https://example.test/a' };
+  const source = { ownerId: 'segment', ownerKind: 'richText', family: 'text', role: 'text', label: 'segment' };
+  const spans = [
+    { text: 'ab', style: red, link, source },
+    { text: '', style: red, link, source },
+    { text: 'c', style: red, link, source },
+    { text: '🙂', style: blue, source: { ownerId: 'emoji', ownerKind: 'richText', family: 'text' } }
+  ];
+  const compacted = compactRenderSpans(spans);
+
+  assert.deepEqual(compacted, [
+    { text: 'abc', style: red, link, source },
+    { text: '🙂', style: blue, source: { ownerId: 'emoji', ownerKind: 'richText', family: 'text' } }
+  ]);
+  assert.equal(measureRenderSpans(compacted), 5);
+  assert.equal(measureRenderLine({ spans: compacted }), 5);
+  assert.deepEqual(measureRenderBlock({ lines: [{ spans: compacted }, { spans: [{ text: '界' }] }] }), { width: 5, height: 2 });
+
+  assert.deepEqual(clipRenderLine({ spans: compacted }, 4, { ellipsis: '…' }).spans, [
+    { text: 'abc…', style: red, link, source }
+  ]);
+  assert.deepEqual(padRenderLine({ spans: [{ text: 'ok', style: blue, source }] }, 5, {
+    align: 'center',
+    fill: { text: '.', style: red, source: { ownerId: 'pad', ownerKind: 'pad' } }
+  }).spans, [
+    { text: '.', style: red, source: { ownerId: 'pad', ownerKind: 'pad' } },
+    { text: 'ok', style: blue, source },
+    { text: '..', style: red, source: { ownerId: 'pad', ownerKind: 'pad' } }
+  ]);
+  assert.deepEqual(alignRenderLine({ spans: [{ text: 'toolong', source }] }, 4, 'end').spans, [
+    { text: 'tool', source }
   ]);
 });
 

@@ -1,12 +1,15 @@
 import { highlightRenderSpans } from './text-highlight.ts';
+import { frameSourcePart, widgetFrameSource } from './frame-source.ts';
 import { themeStyle, widgetStyle } from './widget-style.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from './render-primitives.ts';
 
 export interface DataSourceOptions {
-  readonly id?: string;
+  readonly itemId?: string;
+  readonly itemIndex?: number;
   readonly role?: FrameCellSource['role'];
+  readonly state?: string;
 }
 
 export function selectionMarkerSpans(
@@ -17,9 +20,10 @@ export function selectionMarkerSpans(
   source?: FrameCellSource
 ): readonly RenderSpan[] {
   const markerStyle = selected ? (style ?? widgetStyle(widget, 'value', 'selected')) : undefined;
-  const gapSource = source?.label === undefined
-    ? source
-    : { ...source, label: `${source.label}.gap` };
+  const gapSource = frameSourcePart(source, {
+    ...(source?.part === undefined ? {} : { part: `${source.part}.gap` }),
+    ...(source?.label === undefined ? {} : { label: `${source.label}.gap` })
+  });
   return [
     dataSpan(selected ? theme.symbols.pointer : theme.symbols.unselected, markerStyle, source),
     dataSpan(' ', undefined, gapSource)
@@ -53,12 +57,15 @@ export function mergeDataStyles(...styles: readonly (TerminalStyle | undefined)[
 }
 
 export function dataSource(widget: Widget, label: string, options: DataSourceOptions = {}): FrameCellSource {
-  return {
-    ...(options.id === undefined && widget.id === undefined ? {} : { id: options.id ?? widget.id }),
-    kind: widget.kind,
+  return widgetFrameSource(widget, {
+    family: 'data',
     role: options.role ?? 'text',
+    part: label,
+    ...(options.itemId === undefined ? {} : { itemId: options.itemId }),
+    ...(options.itemIndex === undefined ? {} : { itemIndex: options.itemIndex }),
+    ...(options.state === undefined ? {} : { state: options.state }),
     label
-  };
+  });
 }
 
 export function dataSpan(text: string, style: TerminalStyle | undefined, source?: FrameCellSource): RenderSpan {

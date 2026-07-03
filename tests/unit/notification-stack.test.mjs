@@ -36,10 +36,10 @@ test('notificationStack renders stacked status cards with semantic styles and ac
   const border = frame.cells.find((cell) => cell.source?.role === 'border');
   const progressCell = frame.cells.find((cell) => cell.source?.label === 'progress.filled' && cell.text.length > 0);
   const progressValue = frame.cells.find((cell) => cell.source?.label === 'progress.value' && cell.text === '4');
-  const selectedTitle = frame.cells.find((cell) => cell.source?.id === 'deploy' && cell.source?.label === 'title');
-  const selectedMessage = frame.cells.find((cell) => cell.source?.id === 'deploy' && cell.source?.label === 'message');
-  const selectedMeta = frame.cells.find((cell) => cell.source?.id === 'deploy' && cell.source?.label === 'meta');
-  const background = frame.cells.find((cell) => cell.source?.id === 'deploy' && cell.source?.label === 'background');
+  const selectedTitle = frame.cells.find((cell) => cell.source?.itemId === 'deploy' && cell.source?.label === 'title');
+  const selectedMessage = frame.cells.find((cell) => cell.source?.itemId === 'deploy' && cell.source?.label === 'message');
+  const selectedMeta = frame.cells.find((cell) => cell.source?.itemId === 'deploy' && cell.source?.label === 'meta');
+  const background = frame.cells.find((cell) => cell.source?.itemId === 'deploy' && cell.source?.label === 'background');
 
   assert.match(output, /Deploying/u);
   assert.match(output, /Harbor route update/u);
@@ -47,9 +47,11 @@ test('notificationStack renders stacked status cards with semantic styles and ac
   assert.match(output, /› progress paused/u);
   assert.match(output, /Saved/u);
   assert.deepEqual(border?.style?.fg, { kind: 'theme', token: 'selection.foreground' });
-  assert.equal(progressCell?.source?.kind, 'notification');
+  assert.equal(progressCell?.source?.ownerKind, 'notificationStack');
+  assert.equal(progressCell?.source?.partKind, 'notification');
   assert.equal(progressCell?.source?.role, 'decoration');
-  assert.equal(progressValue?.source?.kind, 'notification');
+  assert.equal(progressValue?.source?.ownerKind, 'notificationStack');
+  assert.equal(progressValue?.source?.partKind, 'notification');
   assert.deepEqual(selectedTitle?.style?.bg, { kind: 'theme', token: 'selection.background' });
   assert.equal(selectedMessage?.source?.role, 'text');
   assert.equal(selectedMeta?.source?.role, 'text');

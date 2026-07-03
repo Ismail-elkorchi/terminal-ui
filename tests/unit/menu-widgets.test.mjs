@@ -60,7 +60,7 @@ test('menu renders nested checked disabled items with menu accessibility', () =>
   assert.match(output, /›\s+Recent/u);
   assert.match(output, /\[x\]/u);
   assert.match(output, /×\s+Delete/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'D' && cell.source?.id === 'delete')?.style?.fg?.token, 'status.error');
+  assert.equal(frame.cells.find((cell) => cell.text === 'D' && cell.source?.itemId === 'delete')?.style?.fg?.token, 'status.error');
   assert.match(output, /Disabled/u);
   assert.equal(frame.accessibility.root.role, 'menu');
   assert.equal(frame.accessibility.root.children?.find((node) => node.label === 'Recent')?.selected, true);
@@ -104,9 +104,9 @@ test('menuBar contextMenu and dropdown render reusable menu surfaces', () => {
   assert.match(output, /Actions/u);
   assert.match(output, /Theme: \[Dark ▾\]/u);
   assert.match(output, /Light/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'F')?.source?.kind, 'menuBar');
-  assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.kind, 'contextMenu');
-  assert.equal(frame.cells.find((cell) => cell.text === 'D')?.source?.kind, 'dropdown');
+  assert.equal(frame.cells.find((cell) => cell.text === 'F')?.source?.ownerKind, 'menuBar');
+  assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.ownerKind, 'contextMenu');
+  assert.equal(frame.cells.find((cell) => cell.text === 'D')?.source?.ownerKind, 'dropdown');
   assert.equal(frame.cells.find((cell) => cell.text === 'D')?.source?.label, 'dropdown-value');
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'menu');
   assert.equal(frame.accessibility.root.children?.[1]?.role, 'menu');
