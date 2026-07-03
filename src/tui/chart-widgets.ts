@@ -41,6 +41,7 @@ export function sparklineBlock(widget: Widget, theme: TerminalTheme): RenderBloc
       spans: values.map((value, index) => chartSpan(
         widget,
         'sparkline',
+        'point',
         `point.${String(index)}`,
         sparkGlyph(value, range),
         chartValueStyle(widget)
@@ -87,13 +88,13 @@ export function barChartBlock(widget: Widget, node: LayoutNode, theme: TerminalT
       const selectionStyle = currentSelected ? chartSelectedStyle(widget) : undefined;
       return {
         spans: [
-          chartSpan(widget, 'barChart', 'selection', prefix, selectionStyle ?? chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'barChart', 'separator', ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'barChart', 'label', label, selectionStyle ?? chartLabelStyle(widget)),
-          chartSpan(widget, 'barChart', 'separator', ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'barChart', 'bar.filled', theme.symbols.progressFilled.repeat(filled), chartMetricStyle(widget)),
-          chartSpan(widget, 'barChart', 'separator', ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'barChart', 'value', String(item.value), selectionStyle ?? chartValueStyle(widget))
+          chartSpan(widget, 'barChart', 'marker', `bar.${String(index)}.marker`, prefix, selectionStyle ?? chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'barChart', 'separator', `bar.${String(index)}.separator.beforeLabel`, ' ', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'barChart', 'label', `bar.${String(index)}.label`, label, selectionStyle ?? chartLabelStyle(widget)),
+          chartSpan(widget, 'barChart', 'separator', `bar.${String(index)}.separator.beforeFill`, ' ', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'barChart', 'bar', `bar.${String(index)}.fill`, theme.symbols.progressFilled.repeat(filled), chartMetricStyle(widget)),
+          chartSpan(widget, 'barChart', 'separator', `bar.${String(index)}.separator.beforeValue`, ' ', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'barChart', 'metric', `bar.${String(index)}.value`, String(item.value), selectionStyle ?? chartValueStyle(widget))
         ]
       };
     })
@@ -163,13 +164,13 @@ export function chartBlock(widget: Widget, node: LayoutNode, theme: TerminalThem
         canvas.point(
           column,
           yForValue(value, range, layout.plotHeight),
-          chartSpan(widget, 'chart', `series.${item.id}`, glyph, chartValueStyle(widget))
+          chartSpan(widget, 'chart', 'point', `series.${item.id}.point`, glyph, chartValueStyle(widget))
         );
       });
     } else {
       drawLineSeries(canvas, visible.map((value, column) => ({ x: column, y: value })), {
         yScale: { domain: [range.min, range.max], range: [layout.plotHeight - 1, 0] },
-        span: chartSpan(widget, 'chart', `series.${item.id}`, glyph, chartValueStyle(widget))
+        span: chartSpan(widget, 'chart', 'line', `series.${item.id}.line`, glyph, chartValueStyle(widget))
       });
     }
   }
@@ -177,7 +178,9 @@ export function chartBlock(widget: Widget, node: LayoutNode, theme: TerminalThem
   if (selected !== undefined) {
     const position = chartPointPosition(widget, node.bounds, selected.series, selected.point, range);
     if (position !== undefined) {
-      buffer.write(position.row, position.column, [chartSpan(widget, 'chart', 'selected-point', '◆', chartSelectedStyle(widget))]);
+      buffer.write(position.row, position.column, [
+        chartSpan(widget, 'chart', 'selected', `selection.${selected.series}.${String(selected.point)}`, '◆', chartSelectedStyle(widget))
+      ]);
     }
   }
   return frameBufferBlock(buffer, node.bounds.width, node.bounds.height);
@@ -248,18 +251,18 @@ export function gaugeBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
     lines: [{
       spans: [
         ...(label.length === 0 ? [] : [
-          chartSpan(widget, 'gauge', 'label', label, chartLabelStyle(widget)),
-          chartSpan(widget, 'gauge', 'separator', ' ', chartPlaceholderStyle(widget))
+          chartSpan(widget, 'gauge', 'label', 'metric.label', label, chartLabelStyle(widget)),
+          chartSpan(widget, 'gauge', 'separator', 'metric.separator.afterLabel', ' ', chartPlaceholderStyle(widget))
         ]),
-        chartSpan(widget, 'gauge', 'bar.open', '[', chartPlaceholderStyle(widget)),
-        chartSpan(widget, 'gauge', 'bar.filled', theme.symbols.progressFilled.repeat(filled), chartMetricStyle(widget, status)),
-        chartSpan(widget, 'gauge', 'bar.empty', theme.symbols.progressEmpty.repeat(empty), chartPlaceholderStyle(widget)),
-        chartSpan(widget, 'gauge', 'bar.close', ']', chartPlaceholderStyle(widget)),
-        chartSpan(widget, 'gauge', 'separator', ' ', chartPlaceholderStyle(widget)),
-        chartSpan(widget, 'gauge', 'value', valueText, chartMetricStyle(widget, status)),
+        chartSpan(widget, 'gauge', 'chrome', 'metric.bar.open', '[', chartPlaceholderStyle(widget)),
+        chartSpan(widget, 'gauge', 'fill', 'metric.bar.filled', theme.symbols.progressFilled.repeat(filled), chartMetricStyle(widget, status)),
+        chartSpan(widget, 'gauge', 'fill', 'metric.bar.empty', theme.symbols.progressEmpty.repeat(empty), chartPlaceholderStyle(widget)),
+        chartSpan(widget, 'gauge', 'chrome', 'metric.bar.close', ']', chartPlaceholderStyle(widget)),
+        chartSpan(widget, 'gauge', 'separator', 'metric.separator.beforeValue', ' ', chartPlaceholderStyle(widget)),
+        chartSpan(widget, 'gauge', 'metric', 'metric.value', valueText, chartMetricStyle(widget, status)),
         ...(status === undefined ? [] : [
-          chartSpan(widget, 'gauge', 'separator', ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'gauge', 'status', status, chartMetricStyle(widget, status))
+          chartSpan(widget, 'gauge', 'separator', 'status.separator', ' ', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'gauge', 'status', 'status.value', status, chartMetricStyle(widget, status))
         ])
       ]
     }]
@@ -303,13 +306,13 @@ export function heatmapBlock(widget: Widget, node: LayoutNode, theme: TerminalTh
     const rowIndex = rowWindow.start + rowOffset;
       const spans = row.flatMap((cell, columnIndex): readonly RenderSpan[] => [
         ...(columnIndex === 0 ? [] : [
-          chartSpan(widget, 'heatmap', 'gap', ' '.repeat(gap), chartPlaceholderStyle(widget))
+          chartSpan(widget, 'heatmap', 'separator', `cell.${String(rowIndex)}.${String(columnIndex)}.gap`, ' '.repeat(gap), chartPlaceholderStyle(widget))
         ]),
-        chartSpan(widget, 'heatmap', `cell.${String(rowIndex)}.${String(columnIndex)}`, heatmapCellText(cell, {
+        ...heatmapCellSpans(widget, cell, rowIndex, columnIndex, {
           cellWidth,
           range,
           selected: selected?.row === rowIndex && selected.column === columnIndex
-        }), selected?.row === rowIndex && selected.column === columnIndex ? chartSelectedStyle(widget) : chartMetricStyle(widget))
+        })
       ]);
       return { spans: clipLineSpans(spans, Math.max(0, node.bounds.width)) };
     })
@@ -462,16 +465,16 @@ function chartHeaderBlock(widget: Widget, width: number): RenderBlock {
   if (widget.props['legend'] === true) {
     rows.push({
       spans: clipLineSpans(chartSeries(widget.props['series']).flatMap((item, index): readonly RenderSpan[] => [
-        ...(index === 0 ? [] : [chartSpan(widget, 'chart', 'legend.separator', '  ', chartPlaceholderStyle(widget))]),
-        chartSpan(widget, 'chart', 'legend.glyph', seriesGlyph(item), chartValueStyle(widget)),
-        chartSpan(widget, 'chart', 'legend.separator', ' ', chartPlaceholderStyle(widget)),
-        chartSpan(widget, 'chart', 'legend.label', item.label ?? item.id, chartLabelStyle(widget))
+        ...(index === 0 ? [] : [chartSpan(widget, 'chart', 'separator', `legend.${item.id}.separator.beforeGlyph`, '  ', chartPlaceholderStyle(widget))]),
+        chartSpan(widget, 'chart', 'legend', `legend.${item.id}.glyph`, seriesGlyph(item), chartValueStyle(widget)),
+        chartSpan(widget, 'chart', 'separator', `legend.${item.id}.separator.beforeLabel`, ' ', chartPlaceholderStyle(widget)),
+        chartSpan(widget, 'chart', 'legend', `legend.${item.id}.label`, item.label ?? item.id, chartLabelStyle(widget))
       ]), width)
     });
   }
   const yLabel = cleanLabel(widget.props['yLabel']);
   if (yLabel.length > 0) {
-    rows.push({ spans: [chartSpan(widget, 'chart', 'yLabel', yLabel.slice(0, width), chartLabelStyle(widget))] });
+    rows.push({ spans: [chartSpan(widget, 'chart', 'axis', 'axis.y.label', yLabel.slice(0, width), chartLabelStyle(widget))] });
   }
   return { lines: rows };
 }
@@ -481,7 +484,7 @@ function chartFooterBlock(widget: Widget, width: number): RenderBlock {
   return {
     lines: xLabel.length === 0
       ? []
-      : [{ spans: [chartSpan(widget, 'chart', 'xLabel', xLabel.slice(0, width), chartLabelStyle(widget))] }]
+      : [{ spans: [chartSpan(widget, 'chart', 'axis', 'axis.x.label', xLabel.slice(0, width), chartLabelStyle(widget))] }]
   };
 }
 
@@ -558,19 +561,37 @@ function isHeatmapCell(value: unknown): value is HeatmapCell {
     && Number.isFinite((value as { readonly value: number }).value);
 }
 
-function heatmapCellText(
+function heatmapCellSpans(
+  widget: Widget,
   cell: HeatmapCell,
+  rowIndex: number,
+  columnIndex: number,
   options: {
     readonly cellWidth: number;
     readonly range: { readonly min: number; readonly max: number };
     readonly selected: boolean;
   }
-): string {
+): readonly RenderSpan[] {
   const glyph = heatmapGlyphs[normalizedIndex(cell.value, options.range, heatmapGlyphs.length - 1)] ?? heatmapGlyphs[0];
-  if (!options.selected) return glyph.repeat(options.cellWidth);
-  if (options.cellWidth === 1) return '◆';
-  if (options.cellWidth === 2) return `›${glyph}`;
-  return `[${glyph.repeat(Math.max(1, options.cellWidth - 2))}]`;
+  const id = `cell.${String(rowIndex)}.${String(columnIndex)}`;
+  const cellStyle = options.selected ? chartSelectedStyle(widget) : chartMetricStyle(widget);
+  if (!options.selected) {
+    return [chartSpan(widget, 'heatmap', 'cell', `${id}.value`, glyph.repeat(options.cellWidth), cellStyle)];
+  }
+  if (options.cellWidth === 1) {
+    return [chartSpan(widget, 'heatmap', 'selected', `${id}.selected`, '◆', cellStyle)];
+  }
+  if (options.cellWidth === 2) {
+    return [
+      chartSpan(widget, 'heatmap', 'marker', `${id}.selected.marker`, '›', cellStyle),
+      chartSpan(widget, 'heatmap', 'cell', `${id}.value`, glyph, cellStyle)
+    ];
+  }
+  return [
+    chartSpan(widget, 'heatmap', 'marker', `${id}.selected.open`, '[', cellStyle),
+    chartSpan(widget, 'heatmap', 'cell', `${id}.value`, glyph.repeat(Math.max(1, options.cellWidth - 2)), cellStyle),
+    chartSpan(widget, 'heatmap', 'marker', `${id}.selected.close`, ']', cellStyle)
+  ];
 }
 
 function heatmapRange(

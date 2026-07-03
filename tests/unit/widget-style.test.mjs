@@ -392,9 +392,9 @@ test('chart widgets use shared visual state styles and source metadata', () => {
   assert.equal(styleFor(barFrame, 'A')?.fg?.token, 'status.success');
   assert.equal(barFrame.cells.find((cell) => cell.text === 'A')?.source?.kind, 'barChart');
   assert.equal(styleFor(chartFrame, 'U')?.fg?.token, 'status.error');
-  assert.equal(chartFrame.cells.find((cell) => cell.text === 'U')?.source?.label, 'state.error');
+  assert.equal(chartFrame.cells.find((cell) => cell.text === 'U')?.source?.label, 'state.error.message');
   assert.equal(styleFor(heatmapFrame, '█')?.fg?.token, 'status.warning');
-  assert.equal(heatmapFrame.cells.find((cell) => cell.text === '█')?.source?.label, 'cell.0.0');
+  assert.equal(heatmapFrame.cells.find((cell) => cell.text === '█')?.source?.label, 'cell.0.0.value');
 });
 
 test('choice and picker controls use shared form visual styles and source metadata', () => {

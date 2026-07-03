@@ -3,13 +3,33 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { ActivityIndicatorStatus, Widget } from '../widgets/index.ts';
 import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
 import { block, line, span } from './render-primitives.ts';
-import type { RenderBlock, RenderSpan, TerminalStyle } from './render-primitives.ts';
+import type { FrameCellSource, RenderBlock, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
 import { stringify } from './widget-props.ts';
 import { mergeStyles, widgetStyle } from './widget-style.ts';
 
 export type ChartSurfaceKind = 'sparkline' | 'barChart' | 'chart' | 'gauge' | 'heatmap';
 export type ChartStateKind = 'empty' | 'loading' | 'error';
+export type ChartVisualKind =
+  | 'axis'
+  | 'bar'
+  | 'cell'
+  | 'chrome'
+  | 'empty'
+  | 'error'
+  | 'fill'
+  | 'label'
+  | 'legend'
+  | 'line'
+  | 'loading'
+  | 'marker'
+  | 'metric'
+  | 'point'
+  | 'selected'
+  | 'separator'
+  | 'series'
+  | 'status'
+  | 'threshold';
 
 export function chartStatus(value: unknown): ActivityIndicatorStatus | undefined {
   if (value === undefined) return undefined;
@@ -49,19 +69,29 @@ export function chartTextFromBlock(currentBlock: RenderBlock): string {
 export function chartSpan(
   widget: Widget,
   kind: ChartSurfaceKind,
+  visual: ChartVisualKind,
   label: string,
   text: string,
   style?: TerminalStyle
 ): RenderSpan {
   return span(text, {
     ...(style === undefined ? {} : { style }),
-    source: {
-      kind,
-      role: label === 'separator' || label === 'axis' ? 'separator' : 'chart',
-      ...(widget.id === undefined ? {} : { id: widget.id }),
-      label
-    }
+    source: chartSource(widget, kind, visual, label)
   });
+}
+
+export function chartSource(
+  widget: Widget,
+  kind: ChartSurfaceKind,
+  visual: ChartVisualKind,
+  label: string
+): FrameCellSource {
+  return {
+    kind,
+    role: roleForVisual(visual),
+    ...(widget.id === undefined ? {} : { id: widget.id }),
+    label
+  };
 }
 
 export function chartLabelStyle(widget: Widget): TerminalStyle | undefined {
@@ -102,13 +132,41 @@ function chartMessageBlock(
   const status = state === 'loading' ? 'running' : state === 'error' ? 'error' : 'idle';
   const messageStyle = state === 'empty' ? chartPlaceholderStyle(widget) : statusStyle(status);
   return block([line([
-    chartSpan(widget, kind, `state.${state}.marker`, statusMarker(status, theme), messageStyle),
-    chartSpan(widget, kind, 'separator', ' ', chartPlaceholderStyle(widget)),
-    chartSpan(widget, kind, `state.${state}`, cleanStateText(text, fallback), messageStyle)
+    chartSpan(widget, kind, 'marker', `state.${state}.marker`, statusMarker(status, theme), messageStyle),
+    chartSpan(widget, kind, 'separator', `state.${state}.separator`, ' ', chartPlaceholderStyle(widget)),
+    chartSpan(widget, kind, state, `state.${state}.message`, cleanStateText(text, fallback), messageStyle)
   ])]);
 }
 
 function cleanStateText(value: unknown, fallback: string): string {
   const cleaned = sanitizeTerminalText(stringify(value)).text.replace(/\s*\n\s*/gu, ' ').trim();
   return cleaned.length === 0 ? fallback : cleaned;
+}
+
+function roleForVisual(visual: ChartVisualKind): NonNullable<FrameCellSource['role']> {
+  switch (visual) {
+    case 'separator':
+      return 'separator';
+    case 'chrome':
+    case 'fill':
+    case 'marker':
+      return 'decoration';
+    case 'axis':
+    case 'bar':
+    case 'cell':
+    case 'line':
+    case 'point':
+    case 'selected':
+    case 'series':
+    case 'threshold':
+      return 'chart';
+    case 'empty':
+    case 'error':
+    case 'label':
+    case 'legend':
+    case 'loading':
+    case 'metric':
+    case 'status':
+      return 'text';
+  }
 }

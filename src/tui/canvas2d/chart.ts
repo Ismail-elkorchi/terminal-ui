@@ -34,10 +34,22 @@ export interface BarSeriesOptions extends SeriesOptions {
   readonly width?: number;
 }
 
-const DEFAULT_AXIS_SPAN: RenderSpan = Object.freeze({ text: '─' });
-const DEFAULT_TICK_SPAN: RenderSpan = Object.freeze({ text: '┼' });
-const DEFAULT_SERIES_SPAN: RenderSpan = Object.freeze({ text: '*' });
-const DEFAULT_BAR_SPAN: RenderSpan = Object.freeze({ text: '█' });
+const DEFAULT_AXIS_SPAN = {
+  text: '─',
+  source: { kind: 'canvas2d', role: 'separator', label: 'axis.line' }
+} satisfies RenderSpan;
+const DEFAULT_TICK_SPAN = {
+  text: '┼',
+  source: { kind: 'canvas2d', role: 'chart', label: 'axis.tick' }
+} satisfies RenderSpan;
+const DEFAULT_SERIES_SPAN = {
+  text: '*',
+  source: { kind: 'canvas2d', role: 'chart', label: 'series.line' }
+} satisfies RenderSpan;
+const DEFAULT_BAR_SPAN = {
+  text: '█',
+  source: { kind: 'canvas2d', role: 'chart', label: 'bar.fill' }
+} satisfies RenderSpan;
 
 export function scaleChartValue(value: number, scale: ChartScale): number {
   const [domainStart, domainEnd] = scale.domain;
@@ -53,7 +65,7 @@ export function drawAxes(canvas: Canvas2D, options: ChartAxesOptions = {}): void
   const bottom = Math.max(0, canvas.bounds.height - 1);
   const left = 0;
   canvas.line(0, bottom, Math.max(0, canvas.bounds.width - 1), bottom, axisSpan);
-  canvas.line(left, 0, left, bottom, { text: '│', ...(axisSpan.style === undefined ? {} : { style: axisSpan.style }) });
+  canvas.line(left, 0, left, bottom, withSpanText(axisSpan, '│'));
   for (const tick of options.xTicks ?? []) canvas.point(tick, bottom, tickSpan);
   for (const tick of options.yTicks ?? []) canvas.point(left, tick, tickSpan);
 }
@@ -86,4 +98,13 @@ export function drawBarSeries(
     const height = Math.max(0, bottom - top + 1);
     canvas.rect({ row: top, column: Math.round(x), width, height }, { fill: span });
   }
+}
+
+function withSpanText(span: RenderSpan, text: string): RenderSpan {
+  return {
+    text,
+    ...(span.style === undefined ? {} : { style: span.style }),
+    ...(span.link === undefined ? {} : { link: span.link }),
+    ...(span.source === undefined ? {} : { source: span.source })
+  };
 }

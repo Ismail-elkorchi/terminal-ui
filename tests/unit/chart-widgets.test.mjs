@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { highContrastTheme, noColorTheme } from '../../dist/theme/index.js';
 import {
   createCanvas2D,
   createFrameBuffer,
@@ -23,6 +24,7 @@ test('sparkline renders bounded numeric points', () => {
   assert.equal(frame.accessibility.root.description, '4 sparkline points.');
   assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.kind, 'sparkline');
   assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.label, 'point.0');
+  assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.role, 'chart');
 });
 
 test('sparkline renders an empty state with chart source metadata', () => {
@@ -34,7 +36,8 @@ test('sparkline renders an empty state with chart source metadata', () => {
 
   assert.match(renderFramePlain(frame), /No signal/u);
   assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.kind, 'sparkline');
-  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.label, 'state.empty');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.label, 'state.empty.message');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.role, 'text');
 });
 
 test('barChart windows visible bars and exposes selected accessibility', () => {
@@ -53,7 +56,9 @@ test('barChart windows visible bars and exposes selected accessibility', () => {
   assert.match(output, /› C/u);
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
   assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.kind, 'barChart');
-  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.label, 'label');
+  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.label, 'bar.2.label');
+  assert.equal(frame.cells.find((cell) => cell.text === '█')?.source?.label, 'bar.1.fill');
+  assert.equal(frame.cells.find((cell) => cell.text === '1')?.source?.label, 'bar.2.value');
 });
 
 test('barChart renders loading state from shared chart state contract', () => {
@@ -66,7 +71,7 @@ test('barChart renders loading state from shared chart state contract', () => {
 
   assert.match(renderFramePlain(frame), /Loading bars/u);
   assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.kind, 'barChart');
-  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.label, 'state.loading');
+  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.label, 'state.loading.message');
 });
 
 test('chart plots series into a bounded text canvas', () => {
@@ -103,7 +108,10 @@ test('chart renders scatter points legends axis labels and selectable point hit 
   assert.match(output, /◆/u);
   assert.equal(frame.hitTargets.some((target) => target.id === 'scatter-chart:scatter:2'), true);
   assert.equal(frame.accessibility.root.children?.some((child) => child.label === 'Scatter' && child.selected === true), true);
-  assert.equal(frame.cells.find((cell) => cell.text === '◆')?.source?.label, 'selected-point');
+  assert.equal(frame.cells.find((cell) => cell.text === '◆')?.source?.label, 'selection.scatter.2');
+  assert.equal(frame.cells.find((cell) => cell.text === '+')?.source?.label, 'legend.line.glyph');
+  assert.equal(frame.cells.find((cell) => cell.text === 's')?.source?.label, 'axis.y.label');
+  assert.equal(frame.cells.find((cell) => cell.text === 'w')?.source?.label, 'axis.x.label');
 });
 
 test('chart renders error state without anonymous text cells', () => {
@@ -116,7 +124,7 @@ test('chart renders error state without anonymous text cells', () => {
 
   assert.match(renderFramePlain(frame), /Chart unavailable/u);
   assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.kind, 'chart');
-  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.label, 'state.error');
+  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.label, 'state.error.message');
 });
 
 test('chart intrinsic measurement remains bounded inside content layout', () => {
@@ -151,7 +159,9 @@ test('gauge renders a labeled bounded meter with progress accessibility', () => 
   assert.equal(frame.accessibility.root.role, 'progressbar');
   assert.equal(frame.accessibility.root.value, 75);
   assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.kind, 'gauge');
-  assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.label, 'label');
+  assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.label, 'metric.label');
+  assert.equal(frame.cells.find((cell) => cell.text === '7')?.source?.label, 'metric.value');
+  assert.equal(frame.cells.find((cell) => cell.text === 's')?.source?.label, 'status.value');
 });
 
 test('heatmap renders selectable cells with accessibility and hit targets', () => {
@@ -174,7 +184,9 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
   assert.equal(frame.accessibility.root.children?.some((child) => child.label === 'Bravo' && child.selected === true), true);
   assert.equal(frame.hitTargets.some((target) => target.id === 'heatmap:0:1' && target.cursor === 'pointer'), true);
   assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.kind, 'heatmap');
-  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.label, 'cell.0.1');
+  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.label, 'cell.0.1.selected.open');
+  assert.equal(frame.cells.find((cell) => cell.text === '█')?.source?.label, 'cell.0.1.value');
+  assert.equal(frame.cells.find((cell) => cell.text === ']')?.source?.label, 'cell.0.1.selected.close');
 });
 
 test('heatmap renders empty state through chart state contract', () => {
@@ -186,7 +198,29 @@ test('heatmap renders empty state through chart state contract', () => {
 
   assert.match(renderFramePlain(frame), /No heatmap data/u);
   assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.kind, 'heatmap');
-  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.label, 'state.empty');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.label, 'state.empty.message');
+});
+
+test('chart widgets preserve visualization meaning in high contrast and no color themes', () => {
+  const highContrast = renderWidgetFrame(chart({
+    id: 'contrast-chart',
+    legend: true,
+    selected: { series: 'alpha', point: 1 },
+    series: [{ id: 'alpha', label: 'Alpha', points: [1, 3, 2], glyph: '+' }]
+  }), { columns: 18, rows: 5 }, { theme: highContrastTheme });
+  const noColor = renderWidgetFrame(heatmap({
+    id: 'mono-heatmap',
+    rows: [[{ id: 'a', value: 1 }, { id: 'b', value: 4 }]],
+    selected: { row: 0, column: 1 },
+    min: 0,
+    max: 4
+  }), { columns: 10, rows: 1 }, { theme: noColorTheme });
+
+  assert.match(renderFramePlain(highContrast), /Alpha/u);
+  assert.equal(highContrast.cells.find((cell) => cell.source?.label === 'selection.alpha.1')?.style?.bg?.token, 'selection.background');
+  assert.match(renderFramePlain(noColor), /\[█\]/u);
+  assert.equal(noColor.cells.find((cell) => cell.source?.label === 'cell.0.1.selected.open')?.text, '[');
+  assert.equal(noColor.cells.find((cell) => cell.source?.label === 'cell.0.1.value')?.source?.role, 'chart');
 });
 
 test('Canvas2D chart helpers draw axes line series and bars', () => {
@@ -194,18 +228,29 @@ test('Canvas2D chart helpers draw axes line series and bars', () => {
   const canvas = createCanvas2D(buffer, { row: 1, column: 1, width: 8, height: 4 });
 
   drawAxes(canvas, { xTicks: [1, 3], yTicks: [1] });
-  drawLineSeries(canvas, [{ x: 0, y: 3 }, { x: 3, y: 0 }], { span: { text: '*' } });
+  drawLineSeries(canvas, [{ x: 0, y: 3 }, { x: 3, y: 0 }]);
+  drawLineSeries(canvas, [{ x: 2, y: 3 }, { x: 2, y: 0 }], {
+    span: {
+      text: '+',
+      source: { kind: 'custom-series', role: 'chart', label: 'caller.series' }
+    }
+  });
   drawBarSeries(canvas, [{ x: 5, value: 4 }], {
     yScale: { domain: [0, 4], range: [3, 0] },
-    span: { text: '█' },
     width: 2
   });
 
   const text = frameBufferText(buffer, 8, 4);
+  const frame = buffer.snapshot();
 
   assert.match(text, /\*/u);
   assert.match(text, /█/u);
   assert.match(text, /┼/u);
+  assert.equal(frame.cells.find((cell) => cell.text === '┼')?.source?.label, 'axis.tick');
+  assert.equal(frame.cells.find((cell) => cell.text === '│')?.source?.label, 'axis.line');
+  assert.equal(frame.cells.find((cell) => cell.text === '*')?.source?.label, 'series.line');
+  assert.equal(frame.cells.find((cell) => cell.text === '+')?.source?.label, 'caller.series');
+  assert.equal(frame.cells.find((cell) => cell.text === '█')?.source?.label, 'bar.fill');
 });
 
 function frameBufferText(buffer, width, height) {

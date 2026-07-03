@@ -39,6 +39,26 @@ test('canvas painters receive Canvas2D helpers while keeping direct buffer acces
   assert.equal(renderFramePlain(frame), '████ ok\n████\nraw');
 });
 
+test('canvas painters can provide source metadata while focus stays widget-owned', () => {
+  const frame = renderWidgetFrame(canvas({
+    id: 'inspectable-canvas',
+    label: 'Inspectable canvas',
+    keyMap: { enter: { kind: 'activate-canvas' } },
+    painter({ canvas }) {
+      canvas.text(0, 0, [{
+        text: 'node',
+        source: { id: 'node-a', kind: 'diagram', role: 'custom', label: 'node.label' }
+      }]);
+    }
+  }), { columns: 12, rows: 2 }, { focusPath: ['inspectable-canvas'] });
+
+  assert.equal(renderFramePlain(frame), 'node');
+  assert.deepEqual(frame.focusPath, ['inspectable-canvas']);
+  assert.equal(frame.accessibility.root.focused, true);
+  assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.label, 'node.label');
+  assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.role, 'custom');
+});
+
 test('Canvas2D draws curves polygons and transformed paths through the frame buffer', () => {
   const frame = renderWidgetFrame(canvas({
     id: 'canvas2d-shapes',
