@@ -1,4 +1,4 @@
-import { measureTextCells } from '../text/index.ts';
+import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { toAccessibleSnapshot } from '../accessibility/index.ts';
 import { DirtyCoverageAccumulator } from './dirty-coverage.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
@@ -6,7 +6,7 @@ import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FocusPath } from './focus.ts';
 import type { CursorPosition, Frame, FrameCell, FrameHitTarget } from './frame.ts';
 import type { Rect } from './layout.ts';
-import type { RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
+import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalLink } from './render-primitives.ts';
 
 export interface FrameBufferSnapshotOptions {
   readonly cursor?: CursorPosition;
@@ -77,8 +77,8 @@ class CellFrameBuffer implements FrameBuffer {
             text: segment.text,
             width: segment.cells,
             ...(currentSpan.style === undefined ? {} : { style: currentSpan.style }),
-            ...(currentSpan.link === undefined ? {} : { link: currentSpan.link }),
-            ...(currentSpan.source === undefined ? {} : { source: currentSpan.source })
+            ...(currentSpan.link === undefined ? {} : { link: sanitizeTerminalLink(currentSpan.link) }),
+            ...(currentSpan.source === undefined ? {} : { source: sanitizeFrameCellSource(currentSpan.source) })
           });
         }
         nextColumn += segment.cells;
@@ -286,6 +286,22 @@ class CellFrameBuffer implements FrameBuffer {
     const clipped = this.clipRect(rect);
     if (clipped !== undefined) this.writtenCoverage.add(clipped);
   }
+}
+
+function sanitizeTerminalLink(link: TerminalLink): TerminalLink {
+  return {
+    href: sanitizeTerminalText(link.href).text,
+    ...(link.id === undefined ? {} : { id: sanitizeTerminalText(link.id).text })
+  };
+}
+
+function sanitizeFrameCellSource(source: FrameCellSource): FrameCellSource {
+  return {
+    ...(source.id === undefined ? {} : { id: sanitizeTerminalText(source.id).text }),
+    ...(source.kind === undefined ? {} : { kind: sanitizeTerminalText(source.kind).text }),
+    ...(source.role === undefined ? {} : { role: sanitizeTerminalText(source.role).text as NonNullable<FrameCellSource['role']> }),
+    ...(source.label === undefined ? {} : { label: sanitizeTerminalText(source.label).text })
+  };
 }
 
 function bufferFingerprint(rows: readonly FrameRowFingerprint[]): string {

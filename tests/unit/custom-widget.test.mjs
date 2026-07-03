@@ -44,6 +44,46 @@ test('custom widgets render through required renderer contract', () => {
   assert.equal(frame.accessibility.root.focused, true);
 });
 
+test('custom renderer output preserves metadata and sanitizes terminal controls', () => {
+  const renderer = {
+    render({ node, buffer }) {
+      buffer.write(node.bounds.row, node.bounds.column, [{
+        text: '\u001B[31mUnsafe\u001B[0m red \u0007text',
+        link: { href: 'https://example.test/\u001B[31mred', id: '\u001B[31mlink' },
+        source: {
+          id: '\u001B[31mcustom-source',
+          kind: '\u001B[31mcustom-renderer',
+          role: 'custom',
+          label: '\u001B[31munsafe-source'
+        }
+      }]);
+    },
+    accessibility({ id }) {
+      return {
+        id,
+        role: 'application',
+        label: '\u001B[31mUnsafe custom',
+        description: 'custom \u0007renderer'
+      };
+    }
+  };
+
+  const frame = renderWidgetFrame(custom({ id: 'sanitized-custom', renderer }), { columns: 32, rows: 2 });
+  const first = frame.cells[0];
+
+  assert.equal(renderFramePlain(frame), 'Unsafe red text');
+  assert.deepEqual(first?.link, { href: 'https://example.test/red', id: 'link' });
+  assert.deepEqual(first?.source, {
+    id: 'custom-source',
+    kind: 'custom-renderer',
+    role: 'custom',
+    label: 'unsafe-source'
+  });
+  assert.equal(frame.accessibility.root.label, 'Unsafe custom');
+  assert.equal(frame.accessibility.root.description, 'custom renderer');
+  assertNoTerminalControls(frame);
+});
+
 test('custom widget hit targets route mouse messages', async () => {
   const renderer = {
     render({ node, buffer }) {
@@ -212,4 +252,18 @@ function freezeWidget(widget) {
 function stateLabel(state) {
   if (state === null || typeof state !== 'object' || !('label' in state)) return '';
   return typeof state.label === 'string' ? state.label : '';
+}
+
+function assertNoTerminalControls(value) {
+  if (typeof value === 'string') {
+    assert.doesNotMatch(value, /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]|\u001B/u);
+    return;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) assertNoTerminalControls(item);
+    return;
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const item of Object.values(value)) assertNoTerminalControls(item);
+  }
 }
