@@ -107,7 +107,7 @@ function collectLayoutTargets(layout: LayoutNode, parentPath: FocusPath): readon
   });
   return [
     ...current,
-    ...layout.children.flatMap((child) => collectLayoutTargets(child, path))
+    ...orderedFocusChildren(layout).flatMap((child) => collectLayoutTargets(child, path))
   ];
 }
 
@@ -136,10 +136,9 @@ function collectWidgetFocusRegionTargets<TMessage>(
   const children = widget.children ?? [];
   return [
     ...current,
-    ...children.flatMap((child, index) => {
-      const childLayout = layout.children[index];
-      return childLayout === undefined ? [] : collectWidgetFocusRegionTargets(child, childLayout, path);
-    })
+    ...orderedWidgetFocusChildren(children, layout).flatMap(({ child, childLayout }) =>
+      collectWidgetFocusRegionTargets(child, childLayout, path)
+    )
   ];
 }
 
@@ -167,6 +166,33 @@ function collectWidgetLayoutNodeTargets<TMessage>(
       return childLayout === undefined ? [] : collectWidgetLayoutNodeTargets(child, childLayout, path);
     })
   ];
+}
+
+function orderedFocusChildren(layout: LayoutNode): readonly LayoutNode[] {
+  if (layout.kind !== 'overlay') return layout.children;
+  return layout.children
+    .map((child, index) => ({ child, index }))
+    .toSorted((left, right) =>
+      right.child.layer.zIndex - left.child.layer.zIndex
+      || right.index - left.index
+    )
+    .map((item) => item.child);
+}
+
+function orderedWidgetFocusChildren<TMessage>(
+  children: readonly Widget<TMessage>[],
+  layout: LayoutNode
+): readonly { readonly child: Widget<TMessage>; readonly childLayout: LayoutNode }[] {
+  const pairs = children
+    .map((child, index) => ({ child, childLayout: layout.children[index], index }))
+    .filter((item): item is { readonly child: Widget<TMessage>; readonly childLayout: LayoutNode; readonly index: number } =>
+      item.childLayout !== undefined
+    );
+  if (layout.kind !== 'overlay') return pairs;
+  return pairs.toSorted((left, right) =>
+    right.childLayout.layer.zIndex - left.childLayout.layer.zIndex
+    || right.index - left.index
+  );
 }
 
 function focusSegment(layout: LayoutNode): string {

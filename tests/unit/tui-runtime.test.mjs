@@ -27,6 +27,7 @@ import {
   textInput,
   list,
   modal,
+  overlay,
   progressBar,
   richText,
   row,
@@ -1784,6 +1785,38 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
   assert.deepEqual(runtime.frame().hitTargets?.map((target) => [target.id, target.zIndex]), [
     ['lower-mouse-field:input', 0],
     ['upper-mouse-field:input', 20]
+  ]);
+  const result = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+
+  assert.equal(result[0]?.handled, true);
+  assert.deepEqual(runtime.getState(), { clicked: 'upper' });
+});
+
+test('TUI runtime routes same-layer overlay mouse events to the last visible child', async () => {
+  const app = defineTui({
+    id: 'overlay-same-layer-mouse-routing',
+    init: () => ({ clicked: 'none' }),
+    update: (_state, message) => ({ state: { clicked: message.clicked } }),
+    view: () => overlay([
+      textInput({
+        id: 'lower-overlay-field',
+        value: 'lower',
+        message: { clicked: 'lower' }
+      }),
+      textInput({
+        id: 'upper-overlay-field',
+        value: 'upper',
+        message: { clicked: 'upper' }
+      })
+    ], { id: 'same-layer-overlay' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  assert.deepEqual(runtime.frame().hitTargets?.map((target) => target.id), [
+    'lower-overlay-field:input',
+    'upper-overlay-field:input'
   ]);
   const result = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
 

@@ -40,9 +40,8 @@ function accessibleChildren(
 ): readonly AccessibleNode[] | undefined {
   const children = widget.children ?? [];
   if (children.length === 0) return undefined;
-  const rendered = children.flatMap((child, index) => {
-    const childNode = node.children[index];
-    if (childNode?.visible !== true) return [];
+  const rendered = orderedAccessibleChildren(widget, node).flatMap(({ child, childNode }) => {
+    if (!childNode.visible) return [];
     if (isDecorative(child.accessibility)) {
       assertDecorativeWidgetIsNotInteractive(child, childNode, theme);
       return [];
@@ -50,6 +49,22 @@ function accessibleChildren(
     return [accessibleNode(child, childNode, path, focusPath, theme)];
   });
   return rendered.length === 0 ? undefined : rendered;
+}
+
+function orderedAccessibleChildren(
+  widget: Widget,
+  node: LayoutNode
+): readonly { readonly child: Widget; readonly childNode: LayoutNode }[] {
+  const pairs = (widget.children ?? [])
+    .map((child, index) => ({ child, childNode: node.children[index], index }))
+    .filter((item): item is { readonly child: Widget; readonly childNode: LayoutNode; readonly index: number } =>
+      item.childNode !== undefined
+    );
+  if (widget.kind !== 'overlay') return pairs;
+  return pairs.toSorted((left, right) =>
+    right.childNode.layer.zIndex - left.childNode.layer.zIndex
+    || right.index - left.index
+  );
 }
 
 function mergeAccessibleNode(

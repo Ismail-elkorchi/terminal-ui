@@ -30,16 +30,19 @@ export function surfaceChildBounds(widget: Widget, bounds: Rect): readonly Rect[
 
 export function absoluteChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
   if ((widget.children ?? []).length === 0) return [];
-  const rowOffset = Math.max(1, Math.floor(numberProp(widget, 'row') ?? 1));
-  const columnOffset = Math.max(1, Math.floor(numberProp(widget, 'column') ?? 1));
+  const rowOffset = Math.floor(numberProp(widget, 'row') ?? 1);
+  const columnOffset = Math.floor(numberProp(widget, 'column') ?? 1);
   const row = bounds.row + rowOffset - 1;
   const column = bounds.column + columnOffset - 1;
-  return [{
+  const width = Math.floor(numberProp(widget, 'width') ?? bounds.column + bounds.width - column);
+  const height = Math.floor(numberProp(widget, 'height') ?? bounds.row + bounds.height - row);
+  const childBounds = intersectRects(bounds, {
     row,
     column,
-    width: Math.max(0, Math.min(bounds.width - columnOffset + 1, Math.floor(numberProp(widget, 'width') ?? bounds.width - columnOffset + 1))),
-    height: Math.max(0, Math.min(bounds.height - rowOffset + 1, Math.floor(numberProp(widget, 'height') ?? bounds.height - rowOffset + 1)))
-  }];
+    width: Math.max(0, width),
+    height: Math.max(0, height)
+  });
+  return [childBounds ?? { row: bounds.row, column: bounds.column, width: 0, height: 0 }];
 }
 
 export function overlayChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
@@ -89,4 +92,14 @@ export function overlayAccessibleBase(id: string, focused: boolean): AccessibleN
 function canvasPainter(value: unknown): ((input: CanvasPainterInput) => void) | undefined {
   if (typeof value !== 'function') return undefined;
   return value as (input: CanvasPainterInput) => void;
+}
+
+function intersectRects(left: Rect, right: Rect): Rect | undefined {
+  const row = Math.max(left.row, right.row);
+  const column = Math.max(left.column, right.column);
+  const bottom = Math.min(left.row + left.height, right.row + right.height);
+  const endColumn = Math.min(left.column + left.width, right.column + right.width);
+  const width = Math.max(0, endColumn - column);
+  const height = Math.max(0, bottom - row);
+  return width === 0 || height === 0 ? undefined : { row, column, width, height };
 }

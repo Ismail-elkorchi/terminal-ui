@@ -327,6 +327,34 @@ test('absolute clips child bounds without leaking outside its parent', () => {
   assert.equal(frame.accessibility.root.children?.[0]?.value, 'OVERFLOW');
 });
 
+test('absolute clips top-left and fully outside placements to parent bounds', () => {
+  const partial = absolute(text('FLOAT', { id: 'partial-text' }), {
+    id: 'absolute-partial',
+    row: 0,
+    column: 0,
+    width: 5,
+    height: 2
+  });
+  const hidden = absolute(text('HIDDEN', { id: 'hidden-text' }), {
+    id: 'absolute-hidden',
+    row: -2,
+    column: 1,
+    width: 6,
+    height: 1
+  });
+
+  const partialLayout = layoutWidget(partial, { columns: 4, rows: 1 });
+  const hiddenLayout = layoutWidget(hidden, { columns: 6, rows: 2 });
+  const partialFrame = renderWidgetFrame(partial, { columns: 4, rows: 1 });
+  const hiddenFrame = renderWidgetFrame(hidden, { columns: 6, rows: 2 });
+
+  assert.deepEqual(partialLayout.children[0]?.bounds, { row: 1, column: 1, width: 4, height: 1 });
+  assert.deepEqual(hiddenLayout.children[0]?.bounds, { row: 1, column: 1, width: 0, height: 0 });
+  assert.equal(renderFramePlain(partialFrame), 'FLOA');
+  assert.equal(renderFramePlain(hiddenFrame), '');
+  assert.equal(hiddenFrame.accessibility.root.children?.[0]?.id, 'hidden-text');
+});
+
 test('overlay preserves declaration order within one layer and z-order across layers', () => {
   const sameLayer = overlay([
     text('ONE', { id: 'one' }),
@@ -342,6 +370,24 @@ test('overlay preserves declaration order within one layer and z-order across la
   assert.equal(renderFramePlain(renderWidgetFrame(sameLayer, { columns: 3, rows: 1 })), 'TWO');
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 1, 2, 3]);
   assert.equal(renderFramePlain(renderWidgetFrame(layered, { columns: 3, rows: 1 })), 'TOP');
+});
+
+test('overlay accessibility and initial focus follow topmost visual order', () => {
+  const widget = overlay([
+    textInput({ id: 'lower-field', value: 'lower' }),
+    textInput({ id: 'upper-field', value: 'upper' })
+  ], { id: 'focus-overlay' });
+  const zWidget = overlay([
+    text('LOW', { id: 'low-layer', zIndex: 0 }),
+    text('TOP', { id: 'top-layer', zIndex: 10 })
+  ], { id: 'accessibility-overlay' });
+
+  const frame = renderWidgetFrame(widget, { columns: 12, rows: 2 });
+  const zFrame = renderWidgetFrame(zWidget, { columns: 12, rows: 2 });
+
+  assert.deepEqual(frame.focusPath, ['focus-overlay', 'upper-field']);
+  assert.deepEqual(frame.accessibility.root.children?.map((node) => node.id), ['upper-field', 'lower-field']);
+  assert.deepEqual(zFrame.accessibility.root.children?.map((node) => node.id), ['top-layer', 'low-layer']);
 });
 
 test('modal centers a bounded dialog and lays out child content inside the border', () => {
