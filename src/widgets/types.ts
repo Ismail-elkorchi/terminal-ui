@@ -3,7 +3,15 @@ import type { TextSelection } from '../text/index.ts';
 import type { BorderStyle } from '../tui/border.ts';
 import type { RenderSpan, TerminalStyle } from '../tui/render-primitives.ts';
 import type { WidgetRenderer } from '../tui/widget-renderer.ts';
-import type { GridLayoutOptions, LayoutFlowOptions, LayoutSize } from '../tui/regions.ts';
+import type {
+  GridLayoutOptions,
+  LayoutAlignment,
+  LayoutFlowOptions,
+  LayoutInsetInput,
+  LayoutJustification,
+  LayoutOverflow,
+  LayoutSize
+} from '../tui/regions.ts';
 import type { ScrollState } from '../tui/scroll.ts';
 import type { ScrollbarOptions } from '../tui/scrollbar.ts';
 import type { FrameBuffer } from '../tui/frame-buffer.ts';
@@ -224,9 +232,23 @@ export interface TableWidgetOptions<TMessage> extends WidgetLayerOptions {
   readonly scrollbar?: ScrollbarOptions;
   readonly stickyHeader?: boolean;
   readonly emptyText?: string;
+  readonly toMessage?: (selection: TablePointerSelection) => TMessage;
   readonly message?: TMessage;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
+}
+
+export interface TablePointerSelection {
+  readonly row: unknown;
+  readonly rowIndex: number;
+  readonly cell?: TableCellPointerSelection;
+}
+
+export interface TableCellPointerSelection {
+  readonly value: unknown;
+  readonly columnIndex: number;
+  readonly sourceColumnIndex: number;
+  readonly columnLabel: string;
 }
 
 export type TableColumnWidth = number | LayoutSize;
@@ -636,13 +658,22 @@ export interface CanvasWidgetOptions<TMessage = never> extends WidgetLayerOption
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export interface SurfaceWidgetOptions<TMessage = never> extends WidgetLayerOptions, LayoutFlowOptions {
+export interface SurfaceWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly label?: string;
   readonly variant?: SurfaceVariant;
   readonly border?: BorderStyle;
   readonly shadow?: boolean;
   readonly disabled?: boolean;
+  readonly padding?: LayoutInsetInput;
+  readonly margin?: LayoutInsetInput;
+  readonly minWidth?: number;
+  readonly minHeight?: number;
+  readonly maxWidth?: number;
+  readonly maxHeight?: number;
+  readonly align?: LayoutAlignment;
+  readonly justify?: LayoutJustification;
+  readonly overflow?: LayoutOverflow;
   readonly keyMap?: WidgetKeyMap<TMessage>;
   readonly accessibility?: AccessibleNodeDefinition;
 }

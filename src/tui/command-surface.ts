@@ -1,11 +1,12 @@
 import { editTextBuffer } from '../text/index.ts';
 import type { TextEditBuffer } from '../text/index.ts';
+import type { WidgetSuggestionItem } from '../widgets/index.ts';
 
 export interface CommandBarState {
   readonly input: TextEditBuffer;
   readonly history: readonly string[];
   readonly historyIndex?: number;
-  readonly suggestions: readonly string[];
+  readonly suggestions: readonly WidgetSuggestionItem[];
   readonly selectedSuggestion?: number;
 }
 
@@ -55,12 +56,10 @@ export function commandBarReducer(state: CommandBarState, action: CommandBarActi
     case 'selectSuggestion':
       return selectSuggestion(state, action.direction);
     case 'acceptSuggestion': {
-      const suggestion = state.selectedSuggestion === undefined
-        ? state.suggestions[0]
-        : state.suggestions[state.selectedSuggestion];
-      return suggestion === undefined
+      const suggestion = acceptedSuggestion(state);
+      return suggestion === undefined || suggestion.disabled === true
         ? state
-        : withClearedSuggestion({ ...state, input: { text: suggestion, cursor: suggestion.length } });
+        : withClearedSuggestion({ ...state, input: { text: suggestion.value, cursor: suggestion.value.length } });
     }
   }
 }
@@ -154,8 +153,13 @@ function commandBarHistory(state: CommandBarState, direction: 1 | -1): CommandBa
 function selectSuggestion(state: CommandBarState, direction: 1 | -1): CommandBarState {
   if (state.suggestions.length === 0) return state;
   const current = state.selectedSuggestion ?? (direction === 1 ? -1 : 0);
-  const selectedSuggestion = (current + direction + state.suggestions.length) % state.suggestions.length;
-  return { ...state, selectedSuggestion };
+  for (let offset = 1; offset <= state.suggestions.length; offset += 1) {
+    const selectedSuggestion = (current + (direction * offset) + state.suggestions.length) % state.suggestions.length;
+    if (state.suggestions[selectedSuggestion]?.disabled !== true) {
+      return { ...state, selectedSuggestion };
+    }
+  }
+  return withClearedSuggestion(state);
 }
 
 function withClearedHistory(state: CommandBarState): CommandBarState {
@@ -174,6 +178,12 @@ function withClearedSuggestion(state: CommandBarState): CommandBarState {
     suggestions: state.suggestions,
     ...(state.historyIndex === undefined ? {} : { historyIndex: state.historyIndex })
   };
+}
+
+function acceptedSuggestion(state: CommandBarState): WidgetSuggestionItem | undefined {
+  return state.selectedSuggestion === undefined
+    ? state.suggestions.find((suggestion) => suggestion.disabled !== true)
+    : state.suggestions[state.selectedSuggestion];
 }
 
 function clampIndex(index: number, count: number): number {

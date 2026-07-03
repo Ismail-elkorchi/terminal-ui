@@ -70,7 +70,7 @@ export function measureText(text: string): Measurement {
 }
 
 export function measureSpans(spans: readonly RenderSpan[]): Measurement {
-  return measureSize(spans.reduce((sum, currentSpan) => sum + measureTextCells(sanitizeTerminalText(currentSpan.text).text).cells, 0), 1);
+  return measureSize(spans.reduce((sum, currentSpan) => sum + measureTextCells(currentSpan.text).cells, 0), 1);
 }
 
 export function measureLine(renderLine: RenderLine): Measurement {
@@ -84,7 +84,7 @@ export function measureBlock(block: RenderBlock): Measurement {
 
 export function measureLines(lines: readonly string[]): Measurement {
   return measureSize(
-    lines.reduce((max, currentLine) => Math.max(max, measureTextCells(sanitizeTerminalText(currentLine).text).cells), 0),
+    lines.reduce((max, currentLine) => Math.max(max, measureTextCells(currentLine).cells), 0),
     lines.length
   );
 }

@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { highContrastTheme, noColorTheme } from '../../dist/theme/index.js';
 import { blockSpan, renderFramePlain, renderWidgetFrame, renderWidgetRegions } from '../../dist/tui/index.js';
-import { absolute, button, canvas, overlay, surface, text } from '../../dist/widgets/index.js';
+import { absolute, button, canvas, overlay, stack, surface, text } from '../../dist/widgets/index.js';
 
 test('canvas writes styled spans through safe frame-buffer APIs', () => {
   const frame = renderWidgetFrame(canvas({
@@ -128,6 +128,30 @@ test('surface absolute and overlay compose arbitrary positioned overlapping cont
   assert.equal(output, 'base-TOPe\nwide界!ail');
   assert.equal(frame.accessibility.root.label, 'Drawing surface');
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'application');
+});
+
+test('surface is a single-child visual wrapper, not a layout container', () => {
+  assert.throws(
+    () => surface([text('one'), text('two')]),
+    /surface\(\) accepts exactly one child widget/u
+  );
+
+  const widget = surface(stack([
+    text('one'),
+    text('two')
+  ], {
+    gap: 1
+  }), {
+    id: 'single-child-surface',
+    label: 'Composed surface',
+    padding: 1,
+    gap: 5
+  });
+  const frame = renderWidgetFrame(widget, { columns: 18, rows: 5 });
+
+  assert.equal(widget.children.length, 1);
+  assert.equal(Object.hasOwn(widget.props, 'gap'), false);
+  assert.equal(renderFramePlain(frame), '\n one\n\n two');
 });
 
 test('surface variants draw semantic background border and shadow without owning state', () => {

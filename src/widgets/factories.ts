@@ -143,7 +143,8 @@ export function table<TMessage>(options: TableWidgetOptions<TMessage>): Widget<T
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.stickyHeader === undefined ? {} : { stickyHeader: options.stickyHeader }),
-      ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText })
+      ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
+      ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionOptions({
@@ -612,6 +613,7 @@ export function tooltip<TMessage>(options: TooltipWidgetOptions<TMessage>): Widg
 
 export function notificationStack<TMessage>(options: NotificationStackWidgetOptions<TMessage>): Widget<TMessage> {
   const dismissMessage = selectedNotificationDismissMessage(options);
+  const focus = options.focus ?? { disabled: true };
   return {
     ...optionalId(options.id),
     kind: 'notificationStack',
@@ -630,7 +632,7 @@ export function notificationStack<TMessage>(options: NotificationStackWidgetOpti
         options.keyMap
       ),
       accessibility: options.accessibility,
-      ...widgetInteractionFields(options)
+      ...widgetInteractionFields({ ...options, focus })
     })
   };
 }
@@ -649,7 +651,8 @@ export function canvas<TMessage>(options: CanvasWidgetOptions<TMessage>): Widget
   };
 }
 
-export function surface<TMessage>(children: WidgetChildren<TMessage>, options: SurfaceWidgetOptions<TMessage> = {}): Widget<TMessage> {
+export function surface<TMessage>(child: Widget<TMessage>, options: SurfaceWidgetOptions<TMessage> = {}): Widget<TMessage> {
+  assertSingleSurfaceChild(child);
   return {
     ...optionalId(options.id),
     kind: 'surface',
@@ -659,9 +662,9 @@ export function surface<TMessage>(children: WidgetChildren<TMessage>, options: S
       ...(options.border === undefined ? {} : { border: options.border }),
       ...(options.shadow === undefined ? {} : { shadow: options.shadow }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
-      ...layoutProps(options)
+      ...surfaceLayoutProps(options)
     },
-    children: Array.isArray(children) ? children : [children],
+    children: [child],
     ...interactionOptions(options)
   };
 }
@@ -1157,8 +1160,38 @@ function layoutProps(options: {
   };
 }
 
+function surfaceLayoutProps(options: {
+  readonly padding?: unknown;
+  readonly margin?: unknown;
+  readonly minWidth?: number;
+  readonly minHeight?: number;
+  readonly maxWidth?: number;
+  readonly maxHeight?: number;
+  readonly align?: unknown;
+  readonly justify?: unknown;
+  readonly overflow?: unknown;
+}): Widget['props'] {
+  return {
+    ...(options.padding === undefined ? {} : { padding: options.padding }),
+    ...(options.margin === undefined ? {} : { margin: options.margin }),
+    ...(options.minWidth === undefined ? {} : { minWidth: options.minWidth }),
+    ...(options.minHeight === undefined ? {} : { minHeight: options.minHeight }),
+    ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
+    ...(options.maxHeight === undefined ? {} : { maxHeight: options.maxHeight }),
+    ...(options.align === undefined ? {} : { align: options.align }),
+    ...(options.justify === undefined ? {} : { justify: options.justify }),
+    ...(options.overflow === undefined ? {} : { overflow: options.overflow })
+  };
+}
+
 function optionalId(id: string | undefined): { readonly id?: string } {
   return id === undefined ? {} : { id };
+}
+
+function assertSingleSurfaceChild<TMessage>(child: Widget<TMessage>): void {
+  if (Array.isArray(child)) {
+    throw new TypeError('surface() accepts exactly one child widget. Compose multiple children with stack(), row(), grid(), or overlay() before wrapping them in surface().');
+  }
 }
 
 function selectedNotificationDismissMessage<TMessage>(

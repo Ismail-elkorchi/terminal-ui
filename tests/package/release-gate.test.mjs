@@ -548,6 +548,7 @@ test('dirty region narrowing is structural and render-diff visible', async () =>
   assert.doesNotMatch(frameBufferSource, /function stableString/u);
   assert.match(frameSource, /readonly dirtyRegions\?: readonly Rect\[\];/u);
   assert.match(frameSource, /dirtyColumnRanges/u);
+  assert.match(frameSource, /unchangedFingerprintRows/u);
   assert.match(runtimeFrameSource, /dirtyRegionsForRenderCommit/u);
   assert.doesNotMatch(dirtySource, /widget\.kind|contextMenu|dropdown|modal/u);
 });

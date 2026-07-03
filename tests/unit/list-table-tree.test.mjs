@@ -165,6 +165,94 @@ test('table widget renders constrained columns and selected rows', () => {
   assert.equal(frame.accessibility.root.children?.[2]?.selected, true);
 });
 
+test('table exposes row hit targets and routes row messages', async () => {
+  const frame = renderWidgetFrame(table({
+    id: 'clickable-table',
+    rows: [
+      ['alpha', '100'],
+      ['bravo', '200']
+    ],
+    toMessage: ({ row, rowIndex }) => ({ kind: 'row', row, rowIndex })
+  }), { columns: 24, rows: 2 });
+
+  assert.deepEqual(frame.hitTargets?.map((target) => target.id), [
+    'clickable-table:row:0',
+    'clickable-table:row:1'
+  ]);
+  assert.deepEqual(frame.hitTargets?.[1]?.bounds, { row: 2, column: 1, width: 24, height: 1 });
+
+  const app = defineTui({
+    id: 'table-click-flow',
+    init: () => ({ selected: 'none' }),
+    update: (_state, message) => ({ state: { selected: `${String(message.rowIndex)}:${String(message.row[0])}` } }),
+    view: () => table({
+      id: 'clickable-table',
+      rows: [
+        ['alpha', '100'],
+        ['bravo', '200']
+      ],
+      toMessage: ({ row, rowIndex }) => ({ kind: 'row', row, rowIndex })
+    })
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 2 } }) });
+
+  await runtime.start();
+  const press = await runtime.handleInput(mousePress(2, 1));
+  const release = await runtime.handleInput(mouseRelease(2, 1));
+
+  assert.equal(press.handled, false);
+  assert.equal(release.state.selected, '1:bravo');
+});
+
+test('table exposes visible cell hit targets when cell selection is active', async () => {
+  const frame = renderWidgetFrame(table({
+    id: 'cell-table',
+    selectedCell: { row: 0, column: 1 },
+    columns: [
+      { header: 'Name', width: 6 },
+      { header: 'Score', width: 5 }
+    ],
+    rows: [
+      ['Atlas', 89],
+      ['Pulse', 92]
+    ],
+    toMessage: ({ rowIndex, cell }) => ({ kind: 'cell', rowIndex, cell })
+  }), { columns: 24, rows: 3 });
+
+  assert.deepEqual(frame.hitTargets?.map((target) => target.id), [
+    'cell-table:row:0:cell:0',
+    'cell-table:row:0:cell:1',
+    'cell-table:row:1:cell:0',
+    'cell-table:row:1:cell:1'
+  ]);
+  assert.deepEqual(frame.hitTargets?.[1]?.bounds, { row: 2, column: 11, width: 5, height: 1 });
+  const app = defineTui({
+    id: 'table-cell-click-flow',
+    init: () => ({ selected: 'none' }),
+    update: (_state, message) => ({ state: { selected: `${String(message.rowIndex)}:${String(message.cell.value)}:${message.cell.columnLabel}` } }),
+    view: () => table({
+      id: 'cell-table',
+      selectedCell: { row: 0, column: 1 },
+      columns: [
+        { header: 'Name', width: 6 },
+        { header: 'Score', width: 5 }
+      ],
+      rows: [
+        ['Atlas', 89],
+        ['Pulse', 92]
+      ],
+      toMessage: ({ rowIndex, cell }) => ({ kind: 'cell', rowIndex, cell })
+    })
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } }) });
+
+  await runtime.start();
+  await runtime.handleInput(mousePress(2, 11));
+  const release = await runtime.handleInput(mouseRelease(2, 11));
+
+  assert.equal(release.state.selected, '0:89:Score');
+});
+
 test('table supports scroll state column sizing styled renderers sort markers empty states and cell selection', () => {
   const frame = renderWidgetFrame(table({
     id: 'table',

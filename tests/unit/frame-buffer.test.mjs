@@ -92,6 +92,12 @@ test('FrameCellSource sanitizes stable structured metadata before entering frame
     state: 'selected',
     label: 'Title'
   });
+  assert.equal(Object.isFrozen(sanitized), true);
+  assert.equal(sanitizeFrameCellSource(sanitized), sanitized);
+  assert.equal(
+    sanitizeFrameCellSource({ ownerId: 'cell', itemIndex: 0 }),
+    sanitizeFrameCellSource({ ownerId: 'cell', itemIndex: 0 })
+  );
 
   const buffer = createFrameBuffer(4, 1);
   buffer.write(1, 1, [{ text: 'A', source: frameCellSource({ ownerId: 'cell', kind: 'legacy', itemIndex: -1 }) }]);

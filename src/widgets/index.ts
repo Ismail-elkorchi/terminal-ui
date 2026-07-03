@@ -88,9 +88,17 @@ export {
   statusFromTone
 } from './status.ts';
 export {
+  filterPaletteEntries,
   groupPaletteEntries,
+  paletteWindow,
   paletteReducer,
+  selectedPaletteEntry,
   paletteStatus
+} from './behavior/palette.ts';
+export type {
+  PaletteFilterResult,
+  PaletteSelectionInput,
+  PaletteWindowInput
 } from './behavior/palette.ts';
 export {
   hoverableActive,

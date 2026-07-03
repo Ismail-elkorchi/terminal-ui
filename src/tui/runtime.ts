@@ -2,7 +2,7 @@ import { createInputPipeline } from '../input/index.ts';
 import { createTuiContext } from './context.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
 import { completedExitFromSnapshot } from './exit.ts';
-import { findWidgetFocusTarget, nextFocusPath, previousFocusPath } from './focus.ts';
+import { findAnyLayoutFocusTarget, findWidgetFocusTarget, nextFocusPath, previousFocusPath } from './focus.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { createPointerRouter } from './pointer-router.ts';
 import { commitFrame, dirtyRegionsForRenderCommit, renderCurrentFrame, resolveTuiTheme, setHostViewport } from './runtime-frame.ts';
@@ -36,6 +36,7 @@ export function createTuiRuntime<TState, TMessage>(
   let currentRender: RenderCommitCandidate<TMessage> | undefined;
   let stateVersion = 0;
   let currentFocusPath: FocusPath | undefined = options.initialFocusPath;
+  let focusReturnPaths: FocusPath[] = [];
   let terminalExit: TuiExit<TState> | undefined;
   let started = false;
   let disposed = false;
@@ -141,8 +142,8 @@ export function createTuiRuntime<TState, TMessage>(
     await settleQueuedWork(context);
     const state = ensureState();
     const theme = resolveTuiTheme(options.theme, state);
-    const render = renderCurrentFrame(options.app, state, context, currentFocusPath, options, stateVersion);
-    storeCurrentRender(render);
+    const render = renderFrameWithFocusRecovery(state, context);
+    storeCurrentRender(render, currentFocusPath);
     await commitFrame(options.host, undefined, render.frame, options.transcript, theme);
     updateCompletedExitSnapshot(render.frame);
     publishChange({ kind: 'frame', frame: render.frame });
@@ -164,9 +165,9 @@ export function createTuiRuntime<TState, TMessage>(
     const state = ensureState();
     const theme = resolveTuiTheme(options.theme, state);
     const previousFrame = frameDiffBase(theme);
-    const render = renderCurrentFrame(options.app, state, context, currentFocusPath, options, stateVersion);
+    const render = renderFrameWithFocusRecovery(state, context);
     await commitFrame(options.host, previousFrame, render.frame, options.transcript, theme, dirtyCommitOptions(previousFrame, render));
-    storeCurrentRender(render);
+    storeCurrentRender(render, currentFocusPath);
     updateCompletedExitSnapshot(render.frame);
     publishChange({ kind: 'frame', frame: render.frame });
     if (terminalExit !== undefined) publishChange({ kind: 'exit', exit: terminalExit });
@@ -180,9 +181,9 @@ export function createTuiRuntime<TState, TMessage>(
     const context = await createRuntimeContext('internal');
     const theme = resolveTuiTheme(options.theme, state);
     const previousFrame = frameDiffBase(theme);
-    const render = renderCurrentFrame(options.app, state, context, currentFocusPath, options, stateVersion);
+    const render = renderFrameWithFocusRecovery(state, context);
     await commitFrame(options.host, previousFrame, render.frame, options.transcript, theme, dirtyCommitOptions(previousFrame, render));
-    storeCurrentRender(render);
+    storeCurrentRender(render, currentFocusPath);
     publishChange({ kind: 'frame', frame: render.frame });
     return render.frame;
   }
@@ -299,7 +300,41 @@ export function createTuiRuntime<TState, TMessage>(
     return currentRender;
   }
 
-  function storeCurrentRender(render: RenderCommitCandidate<TMessage>): void {
+  function renderFrameWithFocusRecovery(
+    state: TState,
+    context: TuiContext<TMessage>
+  ): RenderCommitCandidate<TMessage> {
+    const requestedFocusPath = currentFocusPath;
+    const render = renderCurrentFrame(options.app, state, context, requestedFocusPath, options, stateVersion);
+    const focusReturnPath = focusReturnPaths.at(-1);
+    if (
+      focusReturnPath === undefined
+      || requestedFocusPath === undefined
+      || sameFocusPath(render.frame.focusPath, requestedFocusPath)
+    ) {
+      return render;
+    }
+    const recovered = renderCurrentFrame(options.app, state, context, focusReturnPath, options, stateVersion);
+    return sameFocusPath(recovered.frame.focusPath, focusReturnPath) ? recovered : render;
+  }
+
+  function storeCurrentRender(render: RenderCommitCandidate<TMessage>, requestedFocusPath: FocusPath | undefined): void {
+    focusReturnPaths = focusReturnPaths.filter((path) => findAnyLayoutFocusTarget(render.layout, path) !== undefined);
+    if (
+      requestedFocusPath !== undefined
+      && render.frame.focusPath !== undefined
+      && !sameFocusPath(render.frame.focusPath, requestedFocusPath)
+      && findAnyLayoutFocusTarget(render.layout, requestedFocusPath) !== undefined
+      && !focusReturnPaths.some((path) => sameFocusPath(path, requestedFocusPath))
+    ) {
+      focusReturnPaths.push([...requestedFocusPath]);
+    }
+    if (
+      focusReturnPaths.length > 0
+      && sameFocusPath(render.frame.focusPath, focusReturnPaths.at(-1))
+    ) {
+      focusReturnPaths = focusReturnPaths.slice(0, -1);
+    }
     currentRender = render;
     currentFocusPath = render.frame.focusPath;
   }
@@ -311,10 +346,10 @@ export function createTuiRuntime<TState, TMessage>(
     currentFocusPath = direction === 'next'
       ? nextFocusPath(current.layout, currentFocusPath)
       : previousFocusPath(current.layout, currentFocusPath);
-    const render = renderCurrentFrame(options.app, state, context, currentFocusPath, options, stateVersion);
+    const render = renderFrameWithFocusRecovery(state, context);
     const previousFrame = frameDiffBase(theme);
     await commitFrame(options.host, previousFrame, render.frame, options.transcript, theme, dirtyCommitOptions(previousFrame, render));
-    storeCurrentRender(render);
+    storeCurrentRender(render, currentFocusPath);
     publishChange({ kind: 'frame', frame: render.frame });
     return render.frame;
   }
@@ -356,4 +391,9 @@ function inputEventKey(event: InputEvent): string | undefined {
   if (event.kind === 'key') return event.key;
   if (event.kind === 'text') return event.text;
   return undefined;
+}
+
+function sameFocusPath(left: FocusPath | undefined, right: FocusPath | undefined): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return left.length === right.length && left.every((segment, index) => segment === right[index]);
 }

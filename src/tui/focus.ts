@@ -75,6 +75,14 @@ export function findLayoutFocusTarget(
   return scopedFocusTargets(layout, collectLayoutFocusTargets(layout)).find((target) => samePath(target.path, path));
 }
 
+export function findAnyLayoutFocusTarget(
+  layout: LayoutNode,
+  path: FocusPath | undefined
+): LayoutFocusTarget | undefined {
+  if (path === undefined) return undefined;
+  return collectLayoutFocusTargets(layout).find((target) => target.focusable && samePath(target.path, path));
+}
+
 export function findWidgetFocusTarget<TMessage>(
   widget: Widget<TMessage>,
   layout: LayoutNode,

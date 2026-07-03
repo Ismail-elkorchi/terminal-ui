@@ -28,7 +28,18 @@ test('text measurement sanitizes control sequences and measures visible cells', 
     index: 0,
     kind: 'escape'
   }]);
+  assert.equal(Object.isFrozen(sanitized), true);
+  assert.equal(Object.isFrozen(sanitized.removedControlSequences), true);
   assert.equal(measureTextCells('a🙂').cells, 3);
+});
+
+test('text sanitization cache separates text and replacement tuples unambiguously', () => {
+  const unsafe = sanitizeTerminalText('b\u0000c', { replacement: 'a' });
+  const safe = sanitizeTerminalText('c', { replacement: 'a\u0000b' });
+
+  assert.equal(unsafe.text, 'bac');
+  assert.equal(safe.text, 'c');
+  assert.equal(safe.changed, false);
 });
 
 test('text measurement exposes grapheme segments and respects emoji width options', () => {
@@ -41,6 +52,16 @@ test('text measurement exposes grapheme segments and respects emoji width option
   ]);
   assert.equal(measureTextCells('a🙂', { emojiWidth: 'narrow' }).cells, 2);
   assert.equal(measureTextCells('界').cells, 2);
+});
+
+test('text measurement returns stable immutable metrics for repeated labels', () => {
+  const first = measureTextCells('Status: running');
+  const second = measureTextCells('Status: running');
+
+  assert.deepEqual(second, first);
+  assert.equal(Object.isFrozen(first), true);
+  assert.equal(Object.isFrozen(first.graphemes), true);
+  assert.equal(Object.isFrozen(first.graphemes[0]), true);
 });
 
 test('text rendering keeps bidirectional content in stable logical order', () => {

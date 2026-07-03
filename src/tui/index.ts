@@ -64,7 +64,7 @@ import type { FocusPath } from './focus.ts';
 import type { FramePass, FramePassContext, FrameSemanticRole } from './frame-passes/index.ts';
 import type { Layer, LayoutNode, Rect, RegionOpacity } from './layout.ts';
 import type { PaginationInput, PaginationWindow } from './pagination.ts';
-import type { PaletteFilterResult, PaletteWindowInput } from './palette.ts';
+import type { PaletteFilterResult, PaletteSelectionInput, PaletteWindowInput } from '../widgets/behavior/palette.ts';
 import type { OutputProjection, OutputProjectionInput } from './output-projection.ts';
 import type {
   PointerRouteResult,
@@ -225,6 +225,7 @@ export type {
   DataWindow,
   DataWindowInput,
   PaletteFilterResult,
+  PaletteSelectionInput,
   PaletteWindowInput,
   OutputProjection,
   OutputProjectionInput,
@@ -352,7 +353,7 @@ export {
 } from './canvas2d/index.ts';
 export { dataWindow, rowWindow, scrollStateFromUnknown } from './data-window.ts';
 export { createDirtyRegionSet, dirtyRegionsForRegionChanges } from './dirty-regions.ts';
-export { filterPaletteEntries, paletteWindow } from './palette.ts';
+export { filterPaletteEntries, paletteWindow, selectedPaletteEntry } from '../widgets/behavior/palette.ts';
 export {
   clampMeasurement,
   combineMeasurementsHorizontally,

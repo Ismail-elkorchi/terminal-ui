@@ -76,6 +76,18 @@ test('notificationStack creates keyboard dismiss mappings for the selected visib
   assert.deepEqual(widget.keyMap?.escape, { kind: 'dismiss', id: 'b' });
   assert.deepEqual(widget.keyMap?.delete, { kind: 'dismiss', id: 'b' });
   assert.deepEqual(widget.keyMap?.backspace, { kind: 'dismiss', id: 'b' });
+  assert.equal(renderWidgetFrame(widget, { columns: 32, rows: 8 }).focusPath, undefined);
+});
+
+test('notificationStack can opt into focus explicitly', () => {
+  const frame = renderWidgetFrame(notificationStack({
+    id: 'focusable-notices',
+    items: [{ id: 'a', title: 'Focusable' }],
+    focus: { disabled: false },
+    keyMap: { enter: { kind: 'open' } }
+  }), { columns: 32, rows: 8 });
+
+  assert.deepEqual(frame.focusPath, ['focusable-notices']);
 });
 
 test('placeNotificationStack supports top, bottom, and centered placement presets', () => {

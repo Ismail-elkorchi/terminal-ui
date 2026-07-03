@@ -29,7 +29,8 @@ const requiredDocs = [
 const executableExampleLinks = [
   'examples/prompts/non-tty-input.mjs',
   'examples/shell/cli-core-shell.mjs',
-  'examples/testing/harness.mjs'
+  'examples/testing/harness.mjs',
+  'examples/tui/interactive-workspace.mjs'
 ];
 
 test('documentation covers required product guide families', async () => {

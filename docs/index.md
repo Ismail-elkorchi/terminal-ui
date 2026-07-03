@@ -24,6 +24,7 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 - `examples/prompts/non-tty-input.mjs` demonstrates deterministic non-TTY prompt input.
 - `examples/shell/cli-core-shell.mjs` demonstrates a shell backed by a real `cli-core` program.
 - `examples/testing/harness.mjs` demonstrates the memory testing harness.
+- `examples/tui/interactive-workspace.mjs` demonstrates a hand-written interactive TUI using core primitives and generic widgets.
 
 ## Guides
 

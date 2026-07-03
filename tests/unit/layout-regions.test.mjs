@@ -525,13 +525,12 @@ test('focused bordered widgets respect explicit focus style override', () => {
 });
 
 test('layers render top z-index content last and hide invisible widgets', () => {
-  const widget = surface([
+  const widget = overlay([
     text('lower', { id: 'lower', zIndex: 0 }),
     text('UPPER', { id: 'upper', zIndex: 5 }),
     text('hidden', { id: 'hidden', zIndex: 10, visible: false })
   ], {
-    id: 'layer-root',
-    border: { kind: 'none' }
+    id: 'layer-root'
   });
 
   const layout = layoutWidget(widget, { columns: 12, rows: 2 });
@@ -547,12 +546,11 @@ test('layers render top z-index content last and hide invisible widgets', () => 
 });
 
 test('focus is scoped to the topmost visible focus layer', () => {
-  const widget = surface([
+  const widget = overlay([
     textInput({ id: 'lower-input', value: 'lower', zIndex: 0 }),
     textInput({ id: 'upper-input', value: 'upper', zIndex: 8 })
   ], {
-    id: 'focus-root',
-    border: { kind: 'none' }
+    id: 'focus-root'
   });
 
   const frame = renderWidgetFrame(widget, { columns: 16, rows: 2 }, { focusPath: ['focus-root', 'lower-input'] });
@@ -571,7 +569,7 @@ test('focus is scoped to the topmost visible focus layer', () => {
 });
 
 test('overlapping modal renders above lower region content', () => {
-  const widget = surface([
+  const widget = surface(overlay([
     canvas({
       id: 'modal-backdrop-canvas',
       zIndex: 0,
@@ -588,7 +586,7 @@ test('overlapping modal renders above lower region content', () => {
       height: 5,
       zIndex: 20
     })
-  ], {
+  ], { id: 'modal-layer-overlay' }), {
     id: 'modal-layer-root',
     border: { kind: 'none' }
   });
@@ -611,7 +609,7 @@ test('overlapping modal renders above lower region content', () => {
 });
 
 test('dropdown renders above table content in a higher region', () => {
-  const widget = surface([
+  const widget = surface(overlay([
     table({
       id: 'settings-table',
       zIndex: 0,
@@ -635,7 +633,7 @@ test('dropdown renders above table content in a higher region', () => {
         { id: 'dark', label: 'Dark', message: { kind: 'theme', value: 'dark' } }
       ]
     })
-  ], {
+  ], { id: 'dropdown-layer-overlay' }), {
     id: 'dropdown-layer-root',
     border: { kind: 'none' }
   });
@@ -653,7 +651,7 @@ test('dropdown renders above table content in a higher region', () => {
 });
 
 test('context menu renders above canvas content in a higher region', () => {
-  const widget = surface([
+  const widget = surface(overlay([
     canvas({
       id: 'context-menu-canvas',
       zIndex: 0,
@@ -673,7 +671,7 @@ test('context menu renders above canvas content in a higher region', () => {
         { id: 'paste', label: 'Paste', message: { kind: 'paste' } }
       ]
     })
-  ], {
+  ], { id: 'context-layer-overlay' }), {
     id: 'context-layer-root',
     border: { kind: 'none' }
   });

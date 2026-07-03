@@ -4,10 +4,11 @@ import { DirtyCoverageAccumulator } from './dirty-coverage.ts';
 import { sanitizeFrameCellSource } from './frame-source.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
+import type { FrameCellSource } from './frame-source.ts';
 import type { FocusPath } from './focus.ts';
 import type { CursorPosition, Frame, FrameCell, FrameHitTarget } from './frame.ts';
 import type { Rect } from './layout.ts';
-import type { RenderBlock, RenderLine, RenderSpan, TerminalLink } from './render-primitives.ts';
+import type { RenderBlock, RenderLine, RenderSpan, TerminalColor, TerminalLink, TerminalStyle } from './render-primitives.ts';
 
 export interface FrameBufferSnapshotOptions {
   readonly cursor?: CursorPosition;
@@ -68,6 +69,9 @@ class CellFrameBuffer implements FrameBuffer {
     let nextColumn = Math.floor(column);
     for (const currentSpan of spans) {
       const measured = measureTextCells(currentSpan.text);
+      const style = currentSpan.style;
+      const link = currentSpan.link === undefined ? undefined : sanitizeTerminalLink(currentSpan.link);
+      const source = currentSpan.source === undefined ? undefined : sanitizeFrameCellSource(currentSpan.source);
       for (const segment of measured.graphemes) {
         if (segment.cells === 0) {
           this.appendCombining(row, nextColumn, segment.text);
@@ -77,9 +81,9 @@ class CellFrameBuffer implements FrameBuffer {
           this.writeGrapheme(row, nextColumn, {
             text: segment.text,
             width: segment.cells,
-            ...(currentSpan.style === undefined ? {} : { style: currentSpan.style }),
-            ...(currentSpan.link === undefined ? {} : { link: sanitizeTerminalLink(currentSpan.link) }),
-            ...(currentSpan.source === undefined ? {} : { source: sanitizeFrameCellSource(currentSpan.source) })
+            ...(style === undefined ? {} : { style }),
+            ...(link === undefined ? {} : { link }),
+            ...(source === undefined ? {} : { source })
           });
         }
         nextColumn += segment.cells;
@@ -307,41 +311,92 @@ function bufferFingerprint(rows: readonly FrameRowFingerprint[]): string {
 
 const fnvOffset = 0x811c9dc5;
 const fnvPrime = 0x01000193;
+const hashTagCell = 0x01;
+const hashTagStyle = 0x02;
+const hashTagStyleNone = 0x03;
+const hashTagColorNone = 0x04;
+const hashTagColorAnsi = 0x05;
+const hashTagColorRgb = 0x06;
+const hashTagColorTheme = 0x07;
+const hashTagLink = 0x08;
+const hashTagLinkNone = 0x09;
+const hashTagSource = 0x0a;
+const hashTagSourceNone = 0x0b;
+const hashTagNumber = 0x0c;
+const hashTagNumberNan = 0x0d;
+const hashTagBoolean = 0x0e;
+const hashTagTextEnd = 0x0f;
+const sourceFingerprintCache = new WeakMap<FrameCellSource, number>();
 
 function hashFrameCell(hash: number, cell: FrameCell): number {
-  let next = hashText(hash, 'cell');
+  let next = hashCodeUnit(hash, hashTagCell);
   next = hashNumber(next, cell.column);
   next = hashText(next, cell.text);
   next = hashNumber(next, cell.width);
   next = hashBoolean(next, cell.continuation === true);
-  next = hashJsonValue(next, cell.style);
-  next = hashJsonValue(next, cell.link);
-  return hashJsonValue(next, cell.source);
+  next = hashTerminalStyle(next, cell.style);
+  next = hashTerminalLink(next, cell.link);
+  return hashFrameCellSource(next, cell.source);
 }
 
-function hashJsonValue(hash: number, value: unknown): number {
-  if (value === null) return hashText(hash, 'null');
-  if (value === undefined) return hashText(hash, 'undefined');
-  if (typeof value === 'string') return hashText(hashText(hash, 'string'), value);
-  if (typeof value === 'number') return hashNumber(hashText(hash, 'number'), value);
-  if (typeof value === 'boolean') return hashBoolean(hashText(hash, 'boolean'), value);
-  if (Array.isArray(value)) {
-    let next = hashText(hash, 'array');
-    for (const item of value) next = hashJsonValue(next, item);
-    return hashText(next, 'end-array');
-  }
-  if (typeof value === 'object') {
-    let next = hashText(hash, 'object');
-    for (const [key, entry] of Object.entries(value as Record<string, unknown>).toSorted(([left], [right]) => left.localeCompare(right))) {
-      next = hashText(next, key);
-      next = hashJsonValue(next, entry);
+function hashTerminalStyle(hash: number, style: TerminalStyle | undefined): number {
+  if (style === undefined) return hashCodeUnit(hash, hashTagStyleNone);
+  let next = hashCodeUnit(hash, hashTagStyle);
+  next = hashTerminalColor(next, style.fg);
+  next = hashTerminalColor(next, style.bg);
+  next = hashBoolean(next, style.bold === true);
+  next = hashBoolean(next, style.dim === true);
+  next = hashBoolean(next, style.italic === true);
+  next = hashBoolean(next, style.underline === true);
+  next = hashBoolean(next, style.strikethrough === true);
+  next = hashBoolean(next, style.inverse === true);
+  return hashBoolean(next, style.hidden === true);
+}
+
+function hashTerminalColor(hash: number, color: TerminalColor | undefined): number {
+  if (color === undefined) return hashCodeUnit(hash, hashTagColorNone);
+  switch (color.kind) {
+    case 'ansi':
+      return hashNumber(hashCodeUnit(hash, hashTagColorAnsi), color.value);
+    case 'rgb': {
+      let next = hashCodeUnit(hash, hashTagColorRgb);
+      next = hashNumber(next, color.r);
+      next = hashNumber(next, color.g);
+      return hashNumber(next, color.b);
     }
-    return hashText(next, 'end-object');
+    case 'theme':
+      return hashText(hashCodeUnit(hash, hashTagColorTheme), color.token);
   }
-  if (typeof value === 'bigint') return hashText(hashText(hash, 'bigint'), value.toString());
-  if (typeof value === 'symbol') return hashText(hash, 'symbol');
-  if (typeof value === 'function') return hashText(hash, 'function');
-  return hashText(hash, 'unknown');
+}
+
+function hashTerminalLink(hash: number, link: TerminalLink | undefined): number {
+  if (link === undefined) return hashCodeUnit(hash, hashTagLinkNone);
+  let next = hashCodeUnit(hash, hashTagLink);
+  next = hashText(next, link.href);
+  return hashText(next, link.id ?? '');
+}
+
+function hashFrameCellSource(hash: number, source: FrameCellSource | undefined): number {
+  if (source === undefined) return hashCodeUnit(hash, hashTagSourceNone);
+  return hashNumber(hashCodeUnit(hash, hashTagSource), frameCellSourceFingerprint(source));
+}
+
+function frameCellSourceFingerprint(source: FrameCellSource): number {
+  const cached = sourceFingerprintCache.get(source);
+  if (cached !== undefined) return cached;
+  let next = fnvOffset;
+  next = hashText(next, source.ownerId ?? '');
+  next = hashText(next, source.ownerKind ?? '');
+  next = hashText(next, source.family ?? '');
+  next = hashText(next, source.role ?? '');
+  next = hashText(next, source.part ?? '');
+  next = hashText(next, source.partKind ?? '');
+  next = hashText(next, source.itemId ?? '');
+  next = hashNumber(next, source.itemIndex ?? -1);
+  next = hashText(next, source.state ?? '');
+  next = hashText(next, source.label ?? '');
+  sourceFingerprintCache.set(source, next);
+  return next;
 }
 
 function hashText(hash: number, value: string): number {
@@ -349,15 +404,22 @@ function hashText(hash: number, value: string): number {
   for (let index = 0; index < value.length; index += 1) {
     next = hashCodeUnit(next, value.charCodeAt(index));
   }
-  return hashCodeUnit(next, 0);
+  return hashCodeUnit(next, hashTagTextEnd);
 }
 
 function hashNumber(hash: number, value: number): number {
-  return hashText(hash, Number.isFinite(value) ? String(value) : 'NaN');
+  let next = hashCodeUnit(hash, hashTagNumber);
+  if (!Number.isFinite(value)) return hashCodeUnit(next, hashTagNumberNan);
+  if (!Number.isInteger(value)) return hashText(next, String(value));
+  const normalized = Math.trunc(value);
+  next = hashBoolean(next, normalized < 0);
+  const absolute = Math.abs(normalized);
+  next = hashCodeUnit(next, absolute & 0xffff);
+  return hashCodeUnit(next, (absolute >>> 16) & 0xffff);
 }
 
 function hashBoolean(hash: number, value: boolean): number {
-  return hashText(hash, value ? 'true' : 'false');
+  return hashCodeUnit(hashCodeUnit(hash, hashTagBoolean), value ? 1 : 0);
 }
 
 function hashCodeUnit(hash: number, value: number): number {

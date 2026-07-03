@@ -106,3 +106,4 @@ runtime mode.
 Executable example:
 
 - `examples/testing/harness.mjs`
+- `examples/tui/interactive-workspace.mjs`

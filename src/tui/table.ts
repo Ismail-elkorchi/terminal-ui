@@ -9,6 +9,7 @@ import type {
   TableCellRenderInput,
   TableColumn,
   TableColumnAlignment,
+  TablePointerSelection,
   TableColumnWidth,
   Widget
 } from '../widgets/index.ts';
@@ -16,6 +17,7 @@ import type { Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import type { ScrollState } from './scroll.ts';
+import type { HitTarget } from './widget-renderer.ts';
 
 interface NormalizedColumn {
   readonly index: number;
@@ -155,6 +157,80 @@ export function tableAccessibleChildren(widget: Widget, bounds: Rect): readonly 
     };
   });
   return [...headerRow, ...bodyRows];
+}
+
+export function tableHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = tableMessageFactory(widget);
+  if (toMessage === undefined) return [];
+  const rows = tableRows(widget);
+  const columns = tableColumns(widget, rows);
+  const hasHeader = columns.some((column) => column.header !== undefined);
+  const headerHeight = hasHeader && widget.props['stickyHeader'] !== false ? 1 : 0;
+  const bodyHeight = Math.max(0, bounds.height - headerHeight);
+  const selected = selectedTableRow(widget);
+  const window = tableWindow(widget, rows, bodyHeight, selected);
+  const widths = columnWidths(columns, rows, Math.max(1, bounds.width - 2));
+  const selectedCell = selectedTableCell(widget);
+  return window.rows.flatMap((row, visibleIndex): HitTarget<TMessage>[] => {
+    const rowIndex = window.start + visibleIndex;
+    const rowBounds = {
+      row: bounds.row + headerHeight + visibleIndex,
+      column: bounds.column,
+      width: bounds.width,
+      height: 1
+    };
+    if (selectedCell !== undefined) {
+      return tableCellHitTargets(widget, row, rowIndex, columns, widths, rowBounds, window.horizontalOffset, toMessage);
+    }
+    return [{
+      id: `${widget.id ?? 'table'}:row:${String(rowIndex)}`,
+      bounds: rowBounds,
+      message: () => toMessage({ row, rowIndex }),
+      cursor: 'pointer'
+    }];
+  });
+}
+
+function tableCellHitTargets<TMessage>(
+  widget: Widget<TMessage>,
+  row: unknown,
+  rowIndex: number,
+  columns: readonly NormalizedColumn[],
+  widths: readonly number[],
+  rowBounds: Rect,
+  horizontalOffset: number,
+  toMessage: (selection: TablePointerSelection) => TMessage
+): HitTarget<TMessage>[] {
+  let lineColumn = 2;
+  return columns.flatMap((column, visibleColumnIndex): HitTarget<TMessage>[] => {
+    const separator = visibleColumnIndex === 0 ? 0 : 2;
+    const cellStart = lineColumn + separator;
+    const cellWidth = widths[visibleColumnIndex] ?? 1;
+    lineColumn = cellStart + cellWidth;
+    const visibleStart = Math.max(0, cellStart - horizontalOffset);
+    const visibleEnd = Math.min(rowBounds.width, cellStart + cellWidth - horizontalOffset);
+    if (visibleEnd <= visibleStart) return [];
+    return [{
+      id: `${widget.id ?? 'table'}:row:${String(rowIndex)}:cell:${String(column.index)}`,
+      bounds: {
+        row: rowBounds.row,
+        column: rowBounds.column + visibleStart,
+        width: visibleEnd - visibleStart,
+        height: 1
+      },
+      message: () => toMessage({
+        row,
+        rowIndex,
+        cell: {
+          value: rowCell(row, column.index),
+          columnIndex: visibleColumnIndex,
+          sourceColumnIndex: column.index,
+          columnLabel: columnLabel(column, visibleColumnIndex)
+        }
+      }),
+      cursor: 'pointer'
+    }];
+  });
 }
 
 function columnLabel(column: NormalizedColumn, index: number): string {
@@ -464,6 +540,13 @@ function selectedTableCell(widget: Widget): { readonly row: number; readonly col
 function scrollInput(widget: Widget): { readonly scroll?: ScrollState } {
   const scroll = scrollStateFromUnknown(widget.props['scroll']);
   return scroll === undefined ? {} : { scroll };
+}
+
+function tableMessageFactory<TMessage>(widget: Widget<TMessage>): ((selection: TablePointerSelection) => TMessage) | undefined {
+  const toMessage = widget.props['toMessage'];
+  return typeof toMessage === 'function'
+    ? (selection) => (toMessage as (selection: TablePointerSelection) => TMessage)(selection)
+    : undefined;
 }
 
 function sortMarker(sort: TableColumn['sort']): string {

@@ -74,6 +74,7 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.rowWindow, 'function');
   assert.equal(typeof terminalUi.scrollStateFromUnknown, 'function');
   assert.equal(typeof terminalUi.paletteWindow, 'function');
+  assert.equal(typeof terminalUi.selectedPaletteEntry, 'function');
   assert.equal(typeof terminalUi.placeTooltip, 'function');
   assert.equal(typeof terminalUi.placeNotificationStack, 'function');
   assert.equal(typeof terminalUi.filterPaletteEntries, 'function');
@@ -270,6 +271,9 @@ test('root declaration exposes primary public type contracts', async () => {
     'PaletteAction',
     'PaletteState',
     'PaletteAsyncState',
+    'PaletteFilterResult',
+    'PaletteSelectionInput',
+    'PaletteWindowInput',
     'PaletteWidgetOptions',
     'FormWidgetOptions',
     'FieldWidgetOptions',
@@ -341,6 +345,8 @@ test('root declaration exposes primary public type contracts', async () => {
     'TabsWidgetOptions',
     'ModalWidgetOptions',
     'TableCellRenderInput',
+    'TablePointerSelection',
+    'TableCellPointerSelection',
     'TableAction',
     'TableColumnAlignment',
     'TableColumnWidth',

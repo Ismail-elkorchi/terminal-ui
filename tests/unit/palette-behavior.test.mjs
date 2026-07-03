@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   groupPaletteEntries,
   paletteReducer,
+  selectedPaletteEntry,
   paletteStatus
 } from '../../dist/widgets/index.js';
 
@@ -26,6 +27,23 @@ test('paletteReducer owns query selection preview and multi-select state', () =>
   assert.deepEqual(selected.selectedIds, ['close']);
   assert.equal(preview.previewId, 'close');
   assert.deepEqual(cleared.selectedIds, []);
+});
+
+test('paletteReducer can edit query and move within filtered entries', () => {
+  const initial = { query: '', selectedIndex: 0, selectedIds: [] };
+  const typed = paletteReducer(initial, { kind: 'insertQuery', text: 'file🙂' });
+  const shortened = paletteReducer(typed, { kind: 'deleteQueryBackward' });
+  const moved = paletteReducer(shortened, { kind: 'moveFilteredSelection', delta: -1, entries });
+
+  assert.deepEqual(typed, { query: 'file🙂', selectedIndex: 0, selectedIds: [] });
+  assert.deepEqual(shortened, { query: 'file', selectedIndex: 0, selectedIds: [] });
+  assert.equal(moved.selectedIndex, 1);
+});
+
+test('selectedPaletteEntry returns the filtered selected entry from palette state', () => {
+  const state = { query: 'file', selectedIndex: 1, selectedIds: [] };
+
+  assert.equal(selectedPaletteEntry({ entries, state })?.id, 'close');
 });
 
 test('groupPaletteEntries preserves first-seen group order', () => {

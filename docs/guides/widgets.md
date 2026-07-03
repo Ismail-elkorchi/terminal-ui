@@ -130,13 +130,15 @@ Accessibility exposes `menu` and `menuitem` roles with selected, checked,
 disabled, and expanded state.
 
 `canvas()` lets application code draw styled spans through the safe
-`FrameBuffer` API. `surface()` is the visual container primitive for neutral,
-bordered, raised, inset, selected, and status-toned content. `absolute()` places
-one child at a caller-provided relative rectangle, and `overlay()` stacks
-children into the same bounds. These primitives are for games, maps, diagrams,
-custom editors, dashboards, and drawing tools. They do not accept raw ANSI
-output; text still passes through frame-buffer clipping, Unicode-width handling,
-sanitization, style preservation, and accessibility projection.
+`FrameBuffer` API. `surface()` is the single-child visual wrapper for neutral,
+bordered, raised, inset, selected, and status-toned content; compose multiple
+children first with `stack()`, `row()`, `grid()`, `splitPane()`, or `overlay()`.
+`absolute()` places one child at a caller-provided relative rectangle, and
+`overlay()` stacks children into the same bounds. These primitives are for
+games, maps, diagrams, custom editors, dashboards, and drawing tools. They do
+not accept raw ANSI output; text still passes through frame-buffer clipping,
+Unicode-width handling, sanitization, style preservation, and accessibility
+projection.
 
 `viewport()` renders one child through a bounded window. `scrollRow` and
 `scrollColumn` choose the visible offset, while `contentRows` and
@@ -183,15 +185,17 @@ with styled match segments. The pure `commandBarReducer()` helper uses the
 shared text edit buffer for editing, history movement, suggestion selection,
 and completion acceptance. `palette()` renders a bounded fuzzy-filtered entry
 list with highlighted matches, disabled entries, preview/help rows, stable
-selection, scroll offsets, and empty states. The pure `filterPaletteEntries()`
-and `paletteWindow()` helpers keep filtering and selection independent from
-shells or application commands.
+selection, scroll offsets, and empty states. The pure `filterPaletteEntries()`,
+`paletteWindow()`, `selectedPaletteEntry()`, and `paletteReducer()` helpers keep
+filtering and selection independent from shells or application commands.
 
 `grid()` lays children into row/column tracks. `splitPane()` divides children
 along one axis with fixed, percent, content, or fill layout sizes. Stack, row,
-grid, split-pane, tabs, viewport, surface, and modal compositions use shared
-layout flow options such as gap, padding, margin, min/max dimensions,
-horizontal alignment, vertical justification, and clipped or visible overflow.
+grid, split-pane, tabs, viewport, and modal compositions use shared layout flow
+options such as gap, padding, margin, min/max dimensions, horizontal alignment,
+vertical justification, and clipped or visible overflow. `surface()` uses the
+same visual bounds options except `gap`, because it wraps exactly one composed
+child.
 `surface()` and `modal()` use the shared border model, including single,
 double, rounded, heavy, ascii, and borderless variants. Surface variants provide
 neutral, raised, inset, selected, warning, danger, and success hierarchy without

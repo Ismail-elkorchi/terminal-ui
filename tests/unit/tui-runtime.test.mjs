@@ -27,6 +27,7 @@ import {
   textInput,
   list,
   modal,
+  notificationStack,
   overlay,
   progressBar,
   richText,
@@ -159,6 +160,156 @@ test('TUI runtime uses committed hit targets without recomputing renderer hit ta
 
   assert.deepEqual(runtime.getState(), { clicked: true });
   assert.equal(hitTargetCalls, 2);
+});
+
+test('TUI runtime keeps command focus when contained overlays close under passive notifications', async () => {
+  const app = defineTui({
+    id: 'overlay-focus-return-tui',
+    init: () => ({ command: '', paletteOpen: false, notifications: [] }),
+    update: (state, message) => {
+      if (message.kind === 'text') {
+        return { state: { ...state, command: `${state.command}${message.text}` } };
+      }
+      if (message.kind === 'open') {
+        return { state: { ...state, paletteOpen: true } };
+      }
+      if (message.kind === 'accept') {
+        return {
+          state: {
+            ...state,
+            paletteOpen: false,
+            notifications: [{ id: 'accepted', title: 'Accepted', tone: 'success' }]
+          }
+        };
+      }
+      return { state };
+    },
+    view: (state) => overlay([
+      stack([
+        textInput({
+          id: 'command',
+          value: state.command,
+          keyMap: { enter: { kind: 'open' } },
+          inputMap: { text: (currentText) => ({ kind: 'text', text: currentText }) }
+        })
+      ], { id: 'base' }),
+      ...(state.paletteOpen
+        ? [
+            surface(button({
+              id: 'accept',
+              label: 'Accept',
+              message: { kind: 'accept' }
+            }), {
+              id: 'palette-surface',
+              zIndex: 20,
+              focus: { scope: 'contain' }
+            })
+          ]
+        : []),
+      notificationStack({
+        id: 'notices',
+        items: state.notifications,
+        zIndex: 30,
+        toDismissMessage: (item) => ({ kind: 'dismiss', id: item.id })
+      })
+    ], { id: 'root' })
+  });
+  const host = createMemoryTerminalHost({ viewport: { columns: 48, rows: 8 } });
+  const runtime = createTuiRuntime({
+    app,
+    host,
+    initialFocusPath: ['root', 'base', 'command']
+  });
+
+  await runtime.start();
+  await runtime.handleInput({ kind: 'text', text: 'a' });
+  await runtime.handleInput({ kind: 'key', key: 'enter' });
+  assert.deepEqual(runtime.frame().focusPath, ['root', 'palette-surface', 'accept']);
+
+  await runtime.handleInput({ kind: 'key', key: 'enter' });
+  assert.equal(runtime.getState()?.notifications.length, 1);
+  assert.notDeepEqual(runtime.frame().focusPath, ['root', 'notices']);
+
+  await runtime.handleInput({ kind: 'text', text: 'b' });
+
+  assert.equal(runtime.getState()?.command, 'ab');
+});
+
+test('TUI runtime unwinds nested contained overlay focus to the original field', async () => {
+  const app = defineTui({
+    id: 'nested-overlay-focus-return-tui',
+    init: () => ({ command: '', modal: 'none' }),
+    update: (state, message) => {
+      if (message.kind === 'text') {
+        return { state: { ...state, command: `${state.command}${message.text}` } };
+      }
+      if (message.kind === 'openA') return { state: { ...state, modal: 'a' } };
+      if (message.kind === 'openB') return { state: { ...state, modal: 'b' } };
+      if (message.kind === 'closeB') return { state: { ...state, modal: 'a' } };
+      if (message.kind === 'closeA') return { state: { ...state, modal: 'none' } };
+      return { state };
+    },
+    view: (state) => overlay([
+      stack([
+        textInput({
+          id: 'command',
+          value: state.command,
+          keyMap: { enter: { kind: 'openA' } },
+          inputMap: { text: (currentText) => ({ kind: 'text', text: currentText }) }
+        })
+      ], { id: 'base' }),
+      ...(state.modal === 'a' || state.modal === 'b'
+        ? [
+            surface(stack([
+              button({ id: 'open-b', label: 'Open B', message: { kind: 'openB' } }),
+              button({ id: 'close-a', label: 'Close A', message: { kind: 'closeA' } })
+            ], { id: 'modal-a-actions' }), {
+              id: 'modal-a',
+              zIndex: 10,
+              focus: { scope: 'contain' }
+            })
+          ]
+        : []),
+      ...(state.modal === 'b'
+        ? [
+            surface(button({
+              id: 'close-b',
+              label: 'Close B',
+              message: { kind: 'closeB' }
+            }), {
+              id: 'modal-b',
+              zIndex: 20,
+              focus: { scope: 'contain' }
+            })
+          ]
+        : [])
+    ], { id: 'root' })
+  });
+  const host = createMemoryTerminalHost({ viewport: { columns: 48, rows: 10 } });
+  const runtime = createTuiRuntime({
+    app,
+    host,
+    initialFocusPath: ['root', 'base', 'command']
+  });
+
+  await runtime.start();
+  await runtime.handleInput({ kind: 'key', key: 'enter' });
+  assert.deepEqual(runtime.frame().focusPath, ['root', 'modal-a', 'modal-a-actions', 'open-b']);
+
+  await runtime.handleInput({ kind: 'key', key: 'enter' });
+  assert.deepEqual(runtime.frame().focusPath, ['root', 'modal-b', 'close-b']);
+
+  await runtime.handleInput({ kind: 'key', key: 'enter' });
+  assert.deepEqual(runtime.frame().focusPath, ['root', 'modal-a', 'modal-a-actions', 'open-b']);
+
+  await runtime.handleInput({ kind: 'key', key: 'tab' });
+  assert.deepEqual(runtime.frame().focusPath, ['root', 'modal-a', 'modal-a-actions', 'close-a']);
+
+  await runtime.handleInput({ kind: 'key', key: 'enter' });
+  assert.deepEqual(runtime.frame().focusPath, ['root', 'base', 'command']);
+
+  await runtime.handleInput({ kind: 'text', text: 'z' });
+  assert.equal(runtime.getState()?.command, 'z');
 });
 
 test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
@@ -1156,7 +1307,7 @@ test('TUI runtime focuses top-layer context menus and open dropdowns', async () 
     id: 'context-menu-focus',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => surface([
+    view: (state) => overlay([
       textInput({ id: 'page-field', value: state.active, keyMap: { enter: { active: 'page' } } }),
       contextMenu({
         id: 'actions-menu',
@@ -1169,8 +1320,7 @@ test('TUI runtime focuses top-layer context menus and open dropdowns', async () 
         ]
       })
     ], {
-      id: 'context-menu-root',
-      border: { kind: 'none' }
+      id: 'context-menu-root'
     })
   });
   const contextMenuRuntime = createTuiRuntime({
@@ -1189,7 +1339,7 @@ test('TUI runtime focuses top-layer context menus and open dropdowns', async () 
     id: 'dropdown-focus',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => surface([
+    view: (state) => overlay([
       textInput({ id: 'page-field', value: state.active, keyMap: { enter: { active: 'page' } } }),
       dropdown({
         id: 'theme-dropdown',
@@ -1203,8 +1353,7 @@ test('TUI runtime focuses top-layer context menus and open dropdowns', async () 
         ]
       })
     ], {
-      id: 'dropdown-root',
-      border: { kind: 'none' }
+      id: 'dropdown-root'
     })
   });
   const dropdownRuntime = createTuiRuntime({
@@ -1893,7 +2042,7 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
     id: 'layered-mouse-routing',
     init: () => ({ clicked: 'none' }),
     update: (_state, message) => ({ state: { clicked: message.clicked } }),
-    view: () => surface([
+    view: () => overlay([
       textInput({
         id: 'lower-mouse-field',
         value: 'lower',
@@ -1907,8 +2056,7 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
         message: { clicked: 'upper' }
       })
     ], {
-      id: 'mouse-layer-root',
-      border: { kind: 'none' }
+      id: 'mouse-layer-root'
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });

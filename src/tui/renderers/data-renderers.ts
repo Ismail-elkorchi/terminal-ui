@@ -28,7 +28,7 @@ import {
   scrollbackAccessibleChildren,
   scrollbackBlock
 } from '../scrollback.ts';
-import { tableAccessibleBase, tableAccessibleChildren, tableBlock } from '../table.ts';
+import { tableAccessibleBase, tableAccessibleChildren, tableBlock, tableHitTargets } from '../table.ts';
 import { treeAccessibleBase, treeAccessibleChildren, treeBlock, treeHitTargets } from '../tree.ts';
 import { writeRenderBlock } from './support/block.ts';
 import { focusTarget, hasKeyboardOrInputMap } from './support/common.ts';
@@ -116,7 +116,11 @@ export const dataRenderers = {
     accessibility: ({ widget, node, id, focused }) => ({
       ...tableAccessibleBase(widget, node.bounds, id, focused),
       children: tableAccessibleChildren(widget, node.bounds)
-    })
+    }),
+    hitTargets: ({ widget, bounds }) => {
+      const scrollbars = scrollbarsForWidget(widget, bounds, tableScrollbarState(widget, bounds), 'both');
+      return tableHitTargets(widget, scrollbars.contentBounds);
+    }
   },
   tree: {
     render: ({ widget, node, buffer, theme }) => {

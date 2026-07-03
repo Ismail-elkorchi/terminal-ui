@@ -8,7 +8,10 @@ test('commandBarReducer edits, navigates history, and accepts suggestions', () =
   const initial = {
     input: { text: '', cursor: 0 },
     history: ['build', 'test'],
-    suggestions: ['test --watch', 'test --coverage']
+    suggestions: [
+      { value: 'test --watch', label: 'test --watch' },
+      { value: 'test --coverage', label: 'test --coverage' }
+    ]
   };
 
   const typed = commandBarReducer(initial, { kind: 'insert', text: 't' });
@@ -29,6 +32,43 @@ test('commandBarReducer edits, navigates history, and accepts suggestions', () =
   const accepted = commandBarReducer(selected, { kind: 'acceptSuggestion' });
   assert.deepEqual(accepted.input, { text: 'test --watch', cursor: 12 });
   assert.equal('selectedSuggestion' in accepted, false);
+});
+
+test('commandBarReducer skips disabled suggestions for selection and acceptance', () => {
+  const initial = {
+    input: { text: '', cursor: 0 },
+    history: [],
+    suggestions: [
+      { value: 'deploy', label: 'Deploy', disabled: true },
+      { value: 'status', label: 'Status' },
+      { value: 'destroy', label: 'Destroy', disabled: true }
+    ]
+  };
+
+  const selected = commandBarReducer(initial, { kind: 'selectSuggestion', direction: 1 });
+  assert.equal(selected.selectedSuggestion, 1);
+
+  const accepted = commandBarReducer(selected, { kind: 'acceptSuggestion' });
+  assert.deepEqual(accepted.input, { text: 'status', cursor: 6 });
+
+  const manuallyDisabled = commandBarReducer({ ...initial, selectedSuggestion: 0 }, { kind: 'acceptSuggestion' });
+  assert.deepEqual(manuallyDisabled.input, { text: '', cursor: 0 });
+});
+
+test('commandBarReducer ignores accept when every suggestion is disabled', () => {
+  const initial = {
+    input: { text: 'd', cursor: 1 },
+    history: [],
+    suggestions: [
+      { value: 'deploy', label: 'Deploy', disabled: true }
+    ]
+  };
+
+  const selected = commandBarReducer(initial, { kind: 'selectSuggestion', direction: 1 });
+  assert.equal('selectedSuggestion' in selected, false);
+
+  const accepted = commandBarReducer(selected, { kind: 'acceptSuggestion' });
+  assert.deepEqual(accepted.input, { text: 'd', cursor: 1 });
 });
 
 test('commandBar widget renders prompt, suggestions, cursor, and accessibility', () => {

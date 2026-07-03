@@ -17,5 +17,20 @@ for (const example of exampleScripts) {
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.equal(result.stderr, '');
     assert.notEqual(result.stdout.trim(), '');
+    if (example.endsWith('/interactive-workspace.mjs')) {
+      const summary = JSON.parse(result.stdout);
+      assert.equal(summary.status, 'ok');
+      assert.equal(summary.selectedNode, 'queue:review');
+      assert.equal(summary.activeTab, 'activity');
+      assert.equal(summary.paletteUsed, true);
+      assert.equal(summary.pointerTree, true);
+      assert.equal(summary.pointerTable, true);
+      assert.equal(summary.pointerPalette, true);
+      assert.equal(summary.keyboardPaletteQuery, 'resolve');
+      assert.equal(summary.commandAfterPaletteAccept, '/issues');
+      assert.equal(summary.visible, true);
+      assert.equal(summary.tableHitTargets > 0, true);
+      assert.ok(summary.frames >= 4);
+    }
   });
 }
