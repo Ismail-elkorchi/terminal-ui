@@ -71,10 +71,7 @@ export function labelBlock(widget: Widget, bounds: Rect): RenderBlock {
 
 export function buttonBlock(widget: Widget, bounds: Rect, focused = false, theme: TerminalTheme): RenderBlock {
   const label = clean(stringify(widget.props['label'])) || 'Button';
-  const text = buttonText(widget, label, focused, theme);
-  return block([clippedFormLine([
-    formSpan(widget, 'button', text, buttonStyle(widget, focused))
-  ], bounds.width)]);
+  return block([clippedFormLine(buttonSpans(widget, label, focused, theme), bounds.width)]);
 }
 
 export function checkboxBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
@@ -676,10 +673,21 @@ function clippedFormLine(spans: readonly RenderSpan[], width: number): RenderLin
   return formLine(clipRenderSpans(spans, Math.max(0, width)));
 }
 
-function buttonText(widget: Widget, label: string, focused: boolean, theme: TerminalTheme): string {
-  const prefix = focused && widget.props['disabled'] !== true ? theme.symbols.pointer : '';
+function buttonSpans(widget: Widget, label: string, focused: boolean, theme: TerminalTheme): readonly RenderSpan[] {
+  const spans: RenderSpan[] = [];
+  const style = buttonStyle(widget, focused);
+  if (focused && widget.props['disabled'] !== true) {
+    spans.push(formSpan(widget, 'chrome.focus', theme.symbols.pointer, style, 'decoration'));
+  }
   const state = buttonStateMarker(widget, theme);
-  return state.length === 0 ? `${prefix}[ ${label} ]` : `${prefix}[ ${state} ${label} ]`;
+  spans.push(formSpan(widget, 'chrome.open', '[ ', style, 'decoration'));
+  if (state.length > 0) {
+    spans.push(formSpan(widget, 'state.marker', state, style, 'decoration'));
+    spans.push(separatorSpan(widget));
+  }
+  spans.push(formSpan(widget, 'label', label, style));
+  spans.push(formSpan(widget, 'chrome.close', ' ]', style, 'decoration'));
+  return spans;
 }
 
 function buttonStateMarker(widget: Widget, theme: TerminalTheme): string {

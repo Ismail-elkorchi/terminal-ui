@@ -101,6 +101,13 @@ test('button states use shared styles and structural markers', () => {
   assert.equal(styleFor(destructiveFrame, 'D')?.fg?.token, 'status.error');
   assert.equal(styleFor(pressedFrame, 'P')?.bg?.token, 'selection.background');
   assert.equal(styleFor(disabledFrame, 'D')?.fg?.token, 'text.muted');
+  assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.label, 'chrome.focus');
+  assert.equal(focusedFrame.cells.find((cell) => cell.text === '[')?.source?.label, 'chrome.open');
+  assert.equal(pendingFrame.cells.find((cell) => cell.text === 'i')?.source?.label, 'state.marker');
+  assert.equal(destructiveFrame.cells.find((cell) => cell.text === '×')?.source?.label, 'state.marker');
+  assert.equal(pressedFrame.cells.find((cell) => cell.text === '●')?.source?.label, 'state.marker');
+  assert.equal(disabledFrame.cells.find((cell) => cell.text === '-')?.source?.label, 'state.marker');
+  assert.equal(disabledFrame.cells.find((cell) => cell.text === 'D')?.source?.label, 'label');
 });
 
 test('text entry chrome uses shared border focus and error styles', () => {

@@ -20,7 +20,7 @@ export interface MenuVisualItem {
 export function menuTitleLine(widget: Widget, title: string, width: number): RenderLine {
   return {
     spans: clipSpans([
-      menuSpan(title, widgetStyle(widget, 'title'), { label: 'title' })
+      menuSpan(widget, title, widgetStyle(widget, 'title'), { label: 'title' })
     ], width)
   };
 }
@@ -28,7 +28,7 @@ export function menuTitleLine(widget: Widget, title: string, width: number): Ren
 export function menuEmptyLine(widget: Widget, text: string, width: number): RenderLine {
   return {
     spans: clipSpans([
-      menuSpan(text, widgetStyle(widget, 'placeholder'), { label: 'empty' })
+      menuSpan(widget, text, widgetStyle(widget, 'placeholder'), { label: 'empty' })
     ], width)
   };
 }
@@ -42,7 +42,7 @@ export function menuBarLine(
 ): RenderLine {
   const spans: RenderSpan[] = [];
   items.forEach((item, index) => {
-    if (index > 0) spans.push(menuSpan('  ', widgetStyle(widget, 'value', 'disabled'), { label: 'separator' }));
+    if (index > 0) spans.push(menuSpan(widget, '  ', widgetStyle(widget, 'value', 'disabled'), { label: 'separator' }));
     spans.push(...menuBarItemSpans(widget, item, item.id === selectedId, theme));
   });
   return { spans: clipSpans(spans, width) };
@@ -66,12 +66,12 @@ export function dropdownControlLine(input: {
     ...(input.label.length === 0
       ? []
       : [
-          menuSpan(`${input.label}: `, widgetStyle(input.widget, 'label'), { label: 'label' })
+          menuSpan(input.widget, `${input.label}: `, widgetStyle(input.widget, 'label'), { label: 'label' })
         ]),
-    menuSpan('[', chromeStyle, { label: 'dropdown-open' }),
-    menuSpan(input.value, stateStyle, { label: 'dropdown-value' }),
-    menuSpan(` ${marker}`, chromeStyle, { label: 'dropdown-marker' }),
-    menuSpan(']', chromeStyle, { label: 'dropdown-close' })
+    menuSpan(input.widget, '[', chromeStyle, { label: 'dropdown-open' }),
+    menuSpan(input.widget, input.value, stateStyle, { label: 'dropdown-value' }),
+    menuSpan(input.widget, ` ${marker}`, chromeStyle, { label: 'dropdown-marker' }),
+    menuSpan(input.widget, ']', chromeStyle, { label: 'dropdown-close' })
   ];
   return { spans: clipSpans(spans, input.width) };
 }
@@ -103,8 +103,8 @@ function menuBarItemSpans(
         ? theme.symbols.statusError
         : '';
   return [
-    ...(marker.length === 0 ? [] : [menuSpan(`${marker} `, menuMarkerStyle(widget, item, selected), { id: item.id, label: 'marker' })]),
-    menuSpan(item.label, labelStyle, { id: item.id, label: 'label' })
+    ...(marker.length === 0 ? [] : [menuSpan(widget, `${marker} `, menuMarkerStyle(widget, item, selected), { id: item.id, label: 'marker' })]),
+    menuSpan(widget, item.label, labelStyle, { id: item.id, label: 'label' })
   ];
 }
 
@@ -126,13 +126,13 @@ function menuItemSpans(
   const branch = item.hasChildren ? item.expanded === true ? theme.symbols.treeExpanded : theme.symbols.treeCollapsed : theme.symbols.unselected;
   const indent = '  '.repeat(Math.max(0, item.depth));
   return [
-    menuSpan(`${marker} `, menuMarkerStyle(widget, item, selected), { id: item.id, label: 'marker' }),
-    ...(indent.length === 0 ? [] : [menuSpan(indent, menuMutedStyle(widget, selected), { id: item.id, label: 'indent' })]),
-    menuSpan(checked, item.checked === true ? menuCheckedStyle(widget, selected) : menuMutedStyle(widget, selected), { id: item.id, label: 'checked' }),
-    menuSpan(' ', menuMutedStyle(widget, selected), { id: item.id, label: 'gap' }),
-    menuSpan(branch, item.hasChildren ? menuBranchStyle(widget, selected) : menuMutedStyle(widget, selected), { id: item.id, label: 'branch' }),
-    menuSpan(' ', menuMutedStyle(widget, selected), { id: item.id, label: 'gap' }),
-    menuSpan(item.label, labelStyle, { id: item.id, label: 'label' }),
+    menuSpan(widget, `${marker} `, menuMarkerStyle(widget, item, selected), { id: item.id, label: 'marker' }),
+    ...(indent.length === 0 ? [] : [menuSpan(widget, indent, menuMutedStyle(widget, selected), { id: item.id, label: 'indent' })]),
+    menuSpan(widget, checked, item.checked === true ? menuCheckedStyle(widget, selected) : menuMutedStyle(widget, selected), { id: item.id, label: 'checked' }),
+    menuSpan(widget, ' ', menuMutedStyle(widget, selected), { id: item.id, label: 'gap' }),
+    menuSpan(widget, branch, item.hasChildren ? menuBranchStyle(widget, selected) : menuMutedStyle(widget, selected), { id: item.id, label: 'branch' }),
+    menuSpan(widget, ' ', menuMutedStyle(widget, selected), { id: item.id, label: 'gap' }),
+    menuSpan(widget, item.label, labelStyle, { id: item.id, label: 'label' }),
     ...descriptionSpans(widget, item, selected),
     ...shortcutSpans(widget, item, selected)
   ];
@@ -141,16 +141,16 @@ function menuItemSpans(
 function descriptionSpans(widget: Widget, item: MenuVisualItem, selected: boolean): readonly RenderSpan[] {
   if (item.description === undefined || item.description.length === 0) return [];
   return [
-    menuSpan('  ', menuMutedStyle(widget, selected), { id: item.id, label: 'description-gap' }),
-    menuSpan(item.description, menuMutedStyle(widget, selected), { id: item.id, label: 'description' })
+    menuSpan(widget, '  ', menuMutedStyle(widget, selected), { id: item.id, label: 'description-gap' }),
+    menuSpan(widget, item.description, menuMutedStyle(widget, selected), { id: item.id, label: 'description' })
   ];
 }
 
 function shortcutSpans(widget: Widget, item: MenuVisualItem, selected: boolean): readonly RenderSpan[] {
   if (item.shortcut === undefined || item.shortcut.length === 0) return [];
   return [
-    menuSpan('  ', menuMutedStyle(widget, selected), { id: item.id, label: 'shortcut-gap' }),
-    menuSpan(item.shortcut, menuShortcutStyle(widget, selected), { id: item.id, label: 'shortcut' })
+    menuSpan(widget, '  ', menuMutedStyle(widget, selected), { id: item.id, label: 'shortcut-gap' }),
+    menuSpan(widget, item.shortcut, menuShortcutStyle(widget, selected), { id: item.id, label: 'shortcut' })
   ];
 }
 
@@ -195,6 +195,7 @@ function menuMutedStyle(widget: Widget, selected: boolean): TerminalStyle | unde
 }
 
 function menuSpan(
+  widget: Widget,
   text: string,
   style: TerminalStyle | undefined,
   source: { readonly id?: string; readonly label: string }
@@ -202,8 +203,9 @@ function menuSpan(
   return span(text, {
     ...(style === undefined ? {} : { style }),
     source: {
-      kind: 'menu',
+      kind: widget.kind,
       role: source.label === 'separator' ? 'separator' : 'text',
+      ...(widget.id === undefined ? {} : { id: widget.id }),
       ...(source.id === undefined ? {} : { id: source.id }),
       label: source.label
     }

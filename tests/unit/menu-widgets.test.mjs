@@ -93,6 +93,10 @@ test('menuBar contextMenu and dropdown render reusable menu surfaces', () => {
   assert.match(output, /Actions/u);
   assert.match(output, /Theme: \[Dark ▾\]/u);
   assert.match(output, /Light/u);
+  assert.equal(frame.cells.find((cell) => cell.text === 'F')?.source?.kind, 'menuBar');
+  assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.kind, 'contextMenu');
+  assert.equal(frame.cells.find((cell) => cell.text === 'D')?.source?.kind, 'dropdown');
+  assert.equal(frame.cells.find((cell) => cell.text === 'D')?.source?.label, 'dropdown-value');
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'menu');
   assert.equal(frame.accessibility.root.children?.[1]?.role, 'menu');
   assert.equal(frame.accessibility.root.children?.[2]?.expanded, true);

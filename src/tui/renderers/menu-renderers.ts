@@ -18,7 +18,7 @@ import {
   commandBarBlock,
   commandBarCursor
 } from '../command-bar.ts';
-import { paletteAccessibleChildren, paletteBlock } from '../palette.ts';
+import { paletteAccessibleChildren, paletteBlock, paletteHitTargets } from '../palette.ts';
 import { stringify } from '../widget-props.ts';
 import {
   drawScrollbars,
@@ -116,6 +116,10 @@ export const menuRenderers = {
       scope: { kind: 'menu' },
       children: paletteAccessibleChildren(widget, node.bounds.height)
     }),
-    focusTargets: ({ bounds }) => [focusTarget(bounds)]
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
+    hitTargets: ({ widget, bounds }) => {
+      const scrollbars = scrollbarsForWidget(widget, bounds, paletteScrollbarState(widget, bounds), 'vertical');
+      return paletteHitTargets(widget, scrollbars.contentBounds);
+    }
   }
 } satisfies RendererMap<'menu' | 'menuBar' | 'contextMenu' | 'dropdown' | 'commandBar' | 'palette'>;

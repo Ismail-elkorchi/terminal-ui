@@ -930,6 +930,7 @@ export interface PaletteWidgetOptions<TValue = string, TMessage = never> extends
   readonly title?: string;
   readonly query?: string;
   readonly entries: readonly PaletteEntry<TValue>[];
+  readonly toMessage?: (entry: PaletteEntry<TValue>) => TMessage;
   readonly selected?: number;
   readonly selectedId?: string;
   readonly scroll?: ScrollState;
