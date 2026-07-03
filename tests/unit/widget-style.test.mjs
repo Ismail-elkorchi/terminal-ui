@@ -329,13 +329,13 @@ test('feedback widgets use shared status styles and source metadata', () => {
   assert.equal(styleFor(statusFrame, 'R')?.fg?.token, 'status.success');
   assert.equal(statusFrame.cells.find((cell) => cell.text === 'R')?.source?.kind, 'statusBar');
   assert.equal(styleFor(helpFrame, 'E')?.fg?.token, 'accent.primary');
-  assert.equal(helpFrame.cells.find((cell) => cell.text === 'E')?.source?.kind, 'helpBar');
+  assert.equal(helpFrame.cells.find((cell) => cell.text === 'E')?.source?.label, 'binding.0.key');
   assert.equal(styleFor(activityFrame, '!')?.fg?.token, 'status.warning');
-  assert.equal(activityFrame.cells.find((cell) => cell.text === '!')?.source?.label, 'marker');
+  assert.equal(activityFrame.cells.find((cell) => cell.text === '!')?.source?.label, 'status.marker');
   assert.equal(styleFor(spinnerFrame, '✓')?.fg?.token, 'status.success');
-  assert.equal(spinnerFrame.cells.find((cell) => cell.text === '✓')?.source?.kind, 'spinner');
+  assert.equal(spinnerFrame.cells.find((cell) => cell.text === '✓')?.source?.label, 'status.marker');
   assert.equal(styleFor(progressFrame, '█')?.fg?.token, 'status.error');
-  assert.equal(progressFrame.cells.find((cell) => cell.text === '█')?.source?.label, 'filled');
+  assert.equal(progressFrame.cells.find((cell) => cell.text === '█')?.source?.label, 'progress.filled');
 });
 
 test('record and notification widgets use shared semantic status contracts', () => {

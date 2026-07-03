@@ -18,10 +18,19 @@ test('progressBar supports full mode percentage width and status tone', () => {
     status: 'success'
   }), { columns: 32, rows: 1 });
   const filledCell = frame.cells.find((cell) => cell.text === '█');
+  const markerCell = frame.cells.find((cell) => cell.source?.label === 'status.marker');
+  const valueCell = frame.cells.find((cell) => cell.source?.label === 'metric.value' && cell.text === '5');
+  const percentageCell = frame.cells.find((cell) => cell.source?.label === 'metric.percentage' && cell.text === '5');
 
-  assert.equal(renderFramePlain(frame), 'Deploy [██░░] 5/10 50%');
+  assert.equal(renderFramePlain(frame), '✓ Deploy [██░░] 5/10 50%');
+  assert.equal(markerCell?.text, '✓');
+  assert.equal(markerCell?.source?.role, 'decoration');
   assert.deepEqual(filledCell?.style?.fg, { kind: 'theme', token: 'status.success' });
   assert.equal(filledCell?.style?.bold, true);
+  assert.equal(filledCell?.source?.label, 'progress.filled');
+  assert.equal(filledCell?.source?.role, 'decoration');
+  assert.equal(valueCell?.text, '5');
+  assert.equal(percentageCell?.text, '5');
   assert.deepEqual(frame.accessibility.root.progress, { value: 5, max: 10 });
 });
 
@@ -94,8 +103,12 @@ test('progressBar renders indeterminate bars with scoped progress accessibility'
     frame: 1,
     status: 'warning'
   }), { columns: 24, rows: 1 });
+  const activeCell = frame.cells.find((cell) => cell.source?.label === 'progress.active');
+  const markerCell = frame.cells.find((cell) => cell.source?.label === 'status.marker');
 
-  assert.equal(renderFramePlain(frame), 'Waiting [░██░]');
+  assert.equal(renderFramePlain(frame), '! Waiting [░██░]');
+  assert.equal(markerCell?.text, '!');
+  assert.equal(activeCell?.source?.role, 'decoration');
   assert.deepEqual(frame.accessibility.root.progress, { indeterminate: true });
 });
 
@@ -155,7 +168,7 @@ test('progressBar visual snapshots stay readable in high contrast and no color m
     ansi: { capabilities: noColorCapabilities(), theme: highContrastTheme }
   });
 
-  assert.equal(highContrast.plainTextFrame, 'Theme [##--] 2/4 50%');
+  assert.equal(highContrast.plainTextFrame, '! Theme [##--] 2/4 50%');
   assert.match(highContrast.ansiFrame, /\\x1b\[/u);
   assert.match(highContrast.frameJson, /"token": "status.warning"/u);
   assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);

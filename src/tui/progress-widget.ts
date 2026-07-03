@@ -4,9 +4,9 @@ import type { ActivityIndicatorStatus, ProgressBarLabelPosition, ProgressBarMode
 import { indeterminateProgressFrame } from '../widgets/index.ts';
 import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import { statusStyle } from './status-visual.ts';
+import { statusMarker, statusStyle } from './status-visual.ts';
 import { block, line } from './frame.ts';
-import { feedbackTextSpan } from './feedback-visual.ts';
+import { feedbackStatusMarkerSpan, feedbackStructureSpan, feedbackTextSpan } from './feedback-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import type { RenderBlock } from './frame.ts';
 
@@ -30,10 +30,11 @@ interface ProgressModel {
 export function progressBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
   const model = progressModel(widget);
   const content = [
+    ...progressStatusSpans(widget, model, theme),
     ...(model.label.length > 0 && model.labelPosition === 'start' ? [feedbackTextSpan(widget, `${model.label} `, 'progressBar', 'label')] : []),
-    feedbackTextSpan(widget, '[', 'progressBar', 'open', statusStyle('idle')),
+    feedbackStructureSpan(widget, '[', 'progressBar', 'chrome.open', statusStyle('idle')),
     ...progressBarSpans(widget, model, theme),
-    feedbackTextSpan(widget, ']', 'progressBar', 'close', statusStyle('idle')),
+    feedbackStructureSpan(widget, ']', 'progressBar', 'chrome.close', statusStyle('idle')),
     ...progressMetricSpans(widget, model),
     ...(model.label.length > 0 && model.labelPosition === 'end' ? [feedbackTextSpan(widget, ` ${model.label}`, 'progressBar', 'label')] : [])
   ];
@@ -70,13 +71,21 @@ function progressBarSpans(widget: Widget, model: ProgressModel, theme: TerminalT
   if (model.indeterminate) {
     return indeterminateProgressFrame(model.frame, model.barWidth).cells.map((cell) =>
       cell.active
-        ? feedbackTextSpan(widget, theme.symbols.progressFilled, 'progressBar', 'active', statusStyle(model.status))
-        : feedbackTextSpan(widget, theme.symbols.progressEmpty, 'progressBar', 'empty', statusStyle('idle'))
+        ? feedbackStructureSpan(widget, theme.symbols.progressFilled, 'progressBar', 'progress.active', statusStyle(model.status))
+        : feedbackStructureSpan(widget, theme.symbols.progressEmpty, 'progressBar', 'progress.empty', statusStyle('idle'))
     );
   }
   return [
-    feedbackTextSpan(widget, theme.symbols.progressFilled.repeat(model.filled), 'progressBar', 'filled', statusStyle(model.status)),
-    feedbackTextSpan(widget, theme.symbols.progressEmpty.repeat(model.barWidth - model.filled), 'progressBar', 'empty', statusStyle('idle'))
+    feedbackStructureSpan(widget, theme.symbols.progressFilled.repeat(model.filled), 'progressBar', 'progress.filled', statusStyle(model.status)),
+    feedbackStructureSpan(widget, theme.symbols.progressEmpty.repeat(model.barWidth - model.filled), 'progressBar', 'progress.empty', statusStyle('idle'))
+  ];
+}
+
+function progressStatusSpans(widget: Widget, model: ProgressModel, theme: TerminalTheme) {
+  if (model.status === 'running') return [];
+  return [
+    feedbackStatusMarkerSpan(widget, 'progressBar', 'status.marker', model.status, statusMarker(model.status, theme)),
+    feedbackStructureSpan(widget, ' ', 'progressBar', 'status.gap')
   ];
 }
 
@@ -84,13 +93,13 @@ function progressMetricSpans(widget: Widget, model: ProgressModel) {
   if (model.indeterminate) return timingSpans(widget, model);
   if (model.mode === 'compact') {
     return [
-      ...(model.showPercentage ? [feedbackTextSpan(widget, ` ${String(model.percentage)}%`, 'progressBar', 'percentage')] : []),
+      ...(model.showPercentage ? [feedbackTextSpan(widget, ` ${String(model.percentage)}%`, 'progressBar', 'metric.percentage')] : []),
       ...timingSpans(widget, model)
     ];
   }
   return [
-    feedbackTextSpan(widget, ` ${String(model.value)}/${String(model.max)}`, 'progressBar', 'value'),
-    ...(model.showPercentage ? [feedbackTextSpan(widget, ` ${String(model.percentage)}%`, 'progressBar', 'percentage')] : []),
+    feedbackTextSpan(widget, ` ${String(model.value)}/${String(model.max)}`, 'progressBar', 'metric.value'),
+    ...(model.showPercentage ? [feedbackTextSpan(widget, ` ${String(model.percentage)}%`, 'progressBar', 'metric.percentage')] : []),
     ...timingSpans(widget, model)
   ];
 }
@@ -123,7 +132,7 @@ function progressModel(widget: Widget): ProgressModel {
 
 function timingSpans(widget: Widget, model: ProgressModel) {
   const text = timingText(model);
-  return text.length === 0 ? [] : [feedbackTextSpan(widget, ` ${text}`, 'progressBar', 'timing')];
+  return text.length === 0 ? [] : [feedbackTextSpan(widget, ` ${text}`, 'progressBar', 'metric.timing')];
 }
 
 function progressDescription(model: ProgressModel): { readonly description?: string } {

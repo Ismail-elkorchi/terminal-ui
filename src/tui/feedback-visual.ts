@@ -4,14 +4,35 @@ import type { ActivityIndicatorStatus, Widget } from '../widgets/index.ts';
 import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
 import { block, line, span } from './render-primitives.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from './render-primitives.ts';
+import type { FrameSemanticRole } from './frame-passes/index.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { mergeStyles, widgetStyle } from './widget-style.ts';
 import { normalizeSpinnerFrameIndex } from './spinner.ts';
 
+export type FeedbackVisualKind =
+  | 'statusBar'
+  | 'helpBar'
+  | 'activityIndicator'
+  | 'spinner'
+  | 'progressBar'
+  | 'notification';
+
+export interface FeedbackSpanOptions {
+  readonly kind: FeedbackVisualKind;
+  readonly label: string;
+  readonly style?: TerminalStyle | undefined;
+  readonly role?: FrameSemanticRole | undefined;
+  readonly sourceId?: string | undefined;
+}
+
 export function statusBarBlock(widget: Widget): RenderBlock {
   return block([line([
-    feedbackSpan(widget, stringify(widget.props['text']), 'statusBar', 'value', widgetStyle(widget, 'value'))
+    feedbackSpan(widget, stringify(widget.props['text']), {
+      kind: 'statusBar',
+      label: 'value',
+      style: widgetStyle(widget, 'value')
+    })
   ])]);
 }
 
@@ -21,11 +42,27 @@ export function statusBarText(widget: Widget): string {
 
 export function helpBarBlock(widget: Widget): RenderBlock {
   const bindings = helpBindings(widget);
-  const spans = bindings.flatMap((binding, index): readonly RenderSpan[] => [
-    ...(index === 0 ? [] : [feedbackSpan(widget, '  ', 'helpBar', 'separator', widgetStyle(widget, 'placeholder'))]),
-    feedbackSpan(widget, binding.key, 'helpBar', 'key', mergeStyles(widgetStyle(widget, 'label'), { bold: true })),
-    feedbackSpan(widget, ` ${binding.label}`, 'helpBar', 'label', widgetStyle(widget, 'value'))
-  ]);
+  const spans = bindings.flatMap((binding, index): readonly RenderSpan[] => {
+    const bindingLabel = `binding.${String(index)}`;
+    return [
+      ...(index === 0 ? [] : [feedbackSpan(widget, '  ', {
+        kind: 'helpBar',
+        label: `${bindingLabel}.separator`,
+        role: 'separator',
+        style: widgetStyle(widget, 'placeholder')
+      })]),
+      feedbackSpan(widget, binding.key, {
+        kind: 'helpBar',
+        label: `${bindingLabel}.key`,
+        style: mergeStyles(widgetStyle(widget, 'label'), { bold: true })
+      }),
+      feedbackSpan(widget, ` ${binding.label}`, {
+        kind: 'helpBar',
+        label: `${bindingLabel}.label`,
+        style: widgetStyle(widget, 'value')
+      })
+    ];
+  });
   return block([line(spans)]);
 }
 
@@ -67,22 +104,37 @@ export function spinnerText(widget: Widget, theme: TerminalTheme): string {
 
 export function feedbackStatusMarkerSpan(
   widget: Widget,
-  kind: string,
+  kind: FeedbackVisualKind,
   label: string,
   status: ActivityIndicatorStatus,
   marker: string
 ): RenderSpan {
-  return feedbackSpan(widget, marker, kind, label, statusStyle(status));
+  return feedbackSpan(widget, marker, {
+    kind,
+    label,
+    role: 'decoration',
+    style: statusStyle(status)
+  });
 }
 
 export function feedbackTextSpan(
   widget: Widget,
   text: string,
-  kind: string,
+  kind: FeedbackVisualKind,
   label: string,
   style: TerminalStyle | undefined = widgetStyle(widget, 'value')
 ): RenderSpan {
-  return feedbackSpan(widget, text, kind, label, style);
+  return feedbackSpan(widget, text, { kind, label, style });
+}
+
+export function feedbackStructureSpan(
+  widget: Widget,
+  text: string,
+  kind: FeedbackVisualKind,
+  label: string,
+  style: TerminalStyle | undefined = widgetStyle(widget, 'placeholder')
+): RenderSpan {
+  return feedbackSpan(widget, text, { kind, label, role: 'decoration', style });
 }
 
 export function blockText(currentBlock: RenderBlock): string {
@@ -94,7 +146,7 @@ export function blockText(currentBlock: RenderBlock): string {
 function statusLineSpans(
   widget: Widget,
   input: {
-    readonly kind: string;
+    readonly kind: FeedbackVisualKind;
     readonly label: string;
     readonly status: ActivityIndicatorStatus;
     readonly marker: string;
@@ -102,24 +154,37 @@ function statusLineSpans(
   }
 ): readonly RenderSpan[] {
   return [
-    feedbackStatusMarkerSpan(widget, input.kind, 'marker', input.status, input.marker),
-    feedbackSpan(widget, ' ', input.kind, 'gap', widgetStyle(widget, 'placeholder')),
-    feedbackSpan(widget, input.label, input.kind, 'label', widgetStyle(widget, 'value')),
+    feedbackStatusMarkerSpan(widget, input.kind, 'status.marker', input.status, input.marker),
+    feedbackSpan(widget, ' ', {
+      kind: input.kind,
+      label: 'status.gap',
+      role: 'separator',
+      style: widgetStyle(widget, 'placeholder')
+    }),
+    feedbackSpan(widget, input.label, {
+      kind: input.kind,
+      label: 'label',
+      style: widgetStyle(widget, 'value')
+    }),
     ...statusSuffixSpans(widget, input.kind, input.status, input.showRunningStatus)
   ];
 }
 
 function statusSuffixSpans(
   widget: Widget,
-  kind: string,
+  kind: FeedbackVisualKind,
   status: ActivityIndicatorStatus,
   showRunningStatus: boolean
 ): readonly RenderSpan[] {
   if (status === 'idle' || (status === 'running' && !showRunningStatus)) return [];
   return [
-    feedbackSpan(widget, ' (', kind, 'status-open', widgetStyle(widget, 'placeholder')),
-    feedbackSpan(widget, status, kind, 'status', statusStyle(status)),
-    feedbackSpan(widget, ')', kind, 'status-close', widgetStyle(widget, 'placeholder'))
+    feedbackStructureSpan(widget, ' (', kind, 'status.open'),
+    feedbackSpan(widget, status, {
+      kind,
+      label: 'status.value',
+      style: statusStyle(status)
+    }),
+    feedbackStructureSpan(widget, ')', kind, 'status.close')
   ];
 }
 
@@ -152,20 +217,18 @@ function helpBindings(widget: Widget): readonly { readonly key: string; readonly
   }));
 }
 
-function feedbackSpan(
+export function feedbackSpan(
   widget: Widget,
   text: string,
-  kind: string,
-  label: string,
-  style: TerminalStyle | undefined
+  options: FeedbackSpanOptions
 ): RenderSpan {
   return span(text, {
-    ...(style === undefined ? {} : { style }),
+    ...(options.style === undefined ? {} : { style: options.style }),
     source: {
-      kind,
-      role: label === 'separator' ? 'separator' : 'text',
-      ...(widget.id === undefined ? {} : { id: widget.id }),
-      label
+      kind: options.kind,
+      role: options.role ?? 'text',
+      ...(options.sourceId === undefined && widget.id === undefined ? {} : { id: options.sourceId ?? widget.id }),
+      label: options.label
     }
   });
 }

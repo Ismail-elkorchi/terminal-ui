@@ -9,6 +9,7 @@ import { numberProp } from './widget-props.ts';
 import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
 import type { NotificationItem, NotificationPlacement, NotificationTone, Widget } from '../widgets/index.ts';
 import { normalizeNotificationTone, statusFromTone } from '../widgets/index.ts';
+import { feedbackSpan } from './feedback-visual.ts';
 import { statusToken } from './status-visual.ts';
 
 export interface NotificationStackSize {
@@ -28,7 +29,12 @@ interface NotificationCard {
   readonly selected: boolean;
   readonly width: number;
   readonly height: number;
-  readonly lines: readonly string[];
+  readonly lines: readonly NotificationCardLine[];
+}
+
+interface NotificationCardLine {
+  readonly kind: 'title' | 'message' | 'meta';
+  readonly text: string;
 }
 
 export function renderNotificationStack(
@@ -56,7 +62,7 @@ export function renderNotificationStack(
       width: Math.min(card.width, stack.width),
       height: Math.min(card.height, stack.row + stack.height - row)
     };
-    renderNotificationCard(card, buffer, cardBounds, theme);
+    renderNotificationCard(widget, card, buffer, cardBounds, theme);
     row += card.height + 1;
   }
 }
@@ -108,6 +114,7 @@ export function placeNotificationStack(input: NotificationStackPlacementInput): 
 }
 
 function renderNotificationCard(
+  widget: Widget,
   card: NotificationCard,
   buffer: FrameBuffer,
   bounds: Rect,
@@ -115,7 +122,7 @@ function renderNotificationCard(
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const tone = normalizeNotificationTone(card.item.tone);
-  fillCardBackground(buffer, bounds, tone, card.selected);
+  fillCardBackground(buffer, bounds, card.item, tone, card.selected);
   drawBorder(buffer, bounds, notificationBorder(card, tone, theme), theme);
   const contentBounds = {
     row: bounds.row + 1,
@@ -124,15 +131,16 @@ function renderNotificationCard(
     height: Math.max(0, bounds.height - 2)
   };
   for (let index = 0; index < Math.min(card.lines.length, contentBounds.height); index += 1) {
+    const cardLine = card.lines[index] ?? { kind: 'message', text: '' };
     buffer.write(contentBounds.row + index, contentBounds.column, [{
-      text: clipTextCells(card.lines[index] ?? '', contentBounds.width).text,
+      text: clipTextCells(cardLine.text, contentBounds.width).text,
       style: cardTextStyle(tone, index === 0, card.selected),
-      source: { kind: 'notification', role: 'text', id: card.item.id, label: index === 0 ? 'title' : 'detail' }
+      source: { kind: 'notification', role: 'text', id: card.item.id, label: cardLine.kind }
     }]);
   }
   if (card.item.progress !== undefined && contentBounds.height > 0) {
     const progressRow = contentBounds.row + contentBounds.height - 1;
-    buffer.write(progressRow, contentBounds.column, progressSpans(card.item, contentBounds.width, tone, theme, card.selected));
+    buffer.write(progressRow, contentBounds.column, progressSpans(widget, card.item, contentBounds.width, tone, theme, card.selected));
   }
 }
 
@@ -141,7 +149,7 @@ function notificationCards(widget: Widget): readonly NotificationCard[] {
   const selected = notificationSelectedIndex(widget);
   return notificationItems(widget).map((item, index) => {
     const lines = cardContentLines(item, Math.max(1, maxWidth - 2));
-    const contentWidth = lines.reduce((max, line) => Math.max(max, measureTextCells(line).cells), 0);
+    const contentWidth = lines.reduce((max, line) => Math.max(max, measureTextCells(line.text).cells), 0);
     const titleWidth = measureTextCells(` ${item.title} `).cells;
     const progressWidth = item.progress === undefined ? 0 : Math.min(maxWidth - 2, 22);
     const width = Math.max(20, Math.min(maxWidth, Math.max(contentWidth, titleWidth, progressWidth) + 2));
@@ -163,28 +171,35 @@ function notificationItems(widget: Widget): readonly NotificationItem[] {
   return items.filter(isNotificationItem).slice(0, notificationMaxVisible(widget));
 }
 
-function cardContentLines(item: NotificationItem, width: number): readonly string[] {
+function cardContentLines(item: NotificationItem, width: number): readonly NotificationCardLine[] {
   const message = item.message === undefined ? [] : wrapTextCells(item.message, Math.max(1, width), { preserveWords: true }).slice(0, 2);
   return [
-    item.title,
-    ...message.map((line) => line.text),
-    ...notificationMetaLines(item)
+    { kind: 'title', text: item.title },
+    ...message.map((currentLine): NotificationCardLine => ({ kind: 'message', text: currentLine.text })),
+    ...notificationMetaLines(item).map((text): NotificationCardLine => ({ kind: 'meta', text }))
   ];
 }
 
-function fillCardBackground(buffer: FrameBuffer, bounds: Rect, tone: NotificationTone, selected: boolean): void {
+function fillCardBackground(
+  buffer: FrameBuffer,
+  bounds: Rect,
+  item: NotificationItem,
+  tone: NotificationTone,
+  selected: boolean
+): void {
   const style: TerminalStyle = { bg: { kind: 'theme', token: selected ? 'selection.background' : backgroundToken(tone) } };
   const line = ' '.repeat(bounds.width);
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
     buffer.write(row, bounds.column, [{
       text: line,
       style,
-      source: { kind: 'notification', role: 'decoration' }
+      source: { kind: 'notification', role: 'decoration', id: item.id, label: 'background' }
     }]);
   }
 }
 
 function progressSpans(
+  widget: Widget,
   item: NotificationItem,
   width: number,
   tone: NotificationTone,
@@ -195,21 +210,26 @@ function progressSpans(
   const barWidth = Math.max(1, Math.min(width - 6, 18));
   const filled = Math.round((progress / 100) * barWidth);
   return [
-    {
-      text: theme.symbols.progressFilled.repeat(filled),
-      style: { fg: { kind: 'theme', token: foregroundToken(tone) }, bold: true },
-      source: { kind: 'notification', role: 'decoration', id: item.id, label: 'progress' }
-    },
-    {
-      text: theme.symbols.progressEmpty.repeat(barWidth - filled),
-      style: { fg: { kind: 'theme', token: 'text.muted' } },
-      source: { kind: 'notification', role: 'decoration', id: item.id, label: 'progress' }
-    },
-    {
-      text: ` ${String(progress)}%`,
-      style: cardTextStyle(tone, false, selected),
-      source: { kind: 'notification', role: 'text', id: item.id, label: 'progress' }
-    }
+    feedbackSpan(widget, theme.symbols.progressFilled.repeat(filled), {
+      kind: 'notification',
+      label: 'progress.filled',
+      sourceId: item.id,
+      role: 'decoration',
+      style: { fg: { kind: 'theme', token: foregroundToken(tone) }, bold: true }
+    }),
+    feedbackSpan(widget, theme.symbols.progressEmpty.repeat(barWidth - filled), {
+      kind: 'notification',
+      label: 'progress.empty',
+      sourceId: item.id,
+      role: 'decoration',
+      style: { fg: { kind: 'theme', token: 'text.muted' } }
+    }),
+    feedbackSpan(widget, ` ${String(progress)}%`, {
+      kind: 'notification',
+      label: 'progress.value',
+      sourceId: item.id,
+      style: cardTextStyle(tone, false, selected)
+    })
   ];
 }
 

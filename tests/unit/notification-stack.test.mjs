@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { resolveTerminalCapabilities } from '../../dist/host/index.js';
+import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { highContrastTheme } from '../../dist/theme/index.js';
 import {
   placeNotificationStack,
   renderFramePlain,
@@ -31,8 +34,12 @@ test('notificationStack renders stacked status cards with semantic styles and ac
   }), { columns: 48, rows: 14 });
   const output = renderFramePlain(frame);
   const border = frame.cells.find((cell) => cell.source?.role === 'border');
-  const progressCell = frame.cells.find((cell) => cell.source?.label === 'progress' && cell.text.length > 0);
+  const progressCell = frame.cells.find((cell) => cell.source?.label === 'progress.filled' && cell.text.length > 0);
+  const progressValue = frame.cells.find((cell) => cell.source?.label === 'progress.value' && cell.text === '4');
   const selectedTitle = frame.cells.find((cell) => cell.source?.id === 'deploy' && cell.source?.label === 'title');
+  const selectedMessage = frame.cells.find((cell) => cell.source?.id === 'deploy' && cell.source?.label === 'message');
+  const selectedMeta = frame.cells.find((cell) => cell.source?.id === 'deploy' && cell.source?.label === 'meta');
+  const background = frame.cells.find((cell) => cell.source?.id === 'deploy' && cell.source?.label === 'background');
 
   assert.match(output, /Deploying/u);
   assert.match(output, /Harbor route update/u);
@@ -41,7 +48,12 @@ test('notificationStack renders stacked status cards with semantic styles and ac
   assert.match(output, /Saved/u);
   assert.deepEqual(border?.style?.fg, { kind: 'theme', token: 'selection.foreground' });
   assert.equal(progressCell?.source?.kind, 'notification');
+  assert.equal(progressCell?.source?.role, 'decoration');
+  assert.equal(progressValue?.source?.kind, 'notification');
   assert.deepEqual(selectedTitle?.style?.bg, { kind: 'theme', token: 'selection.background' });
+  assert.equal(selectedMessage?.source?.role, 'text');
+  assert.equal(selectedMeta?.source?.role, 'text');
+  assert.equal(background?.source?.role, 'decoration');
   assert.equal(frame.accessibility.root.role, 'status');
   assert.equal(frame.accessibility.root.scope?.kind, 'popover');
   assert.equal(frame.accessibility.root.children?.length, 2);
@@ -87,3 +99,59 @@ test('placeNotificationStack supports top, bottom, and centered placement preset
     height: 6
   });
 });
+
+test('notificationStack keeps tone progress and selection meaningful in no color output', () => {
+  const frame = renderWidgetFrame(notificationStack({
+    id: 'notices',
+    items: [{
+      id: 'failure',
+      title: 'Sync failed',
+      message: 'Retry required',
+      tone: 'error',
+      progress: 75
+    }],
+    selected: 0,
+    maxVisible: 1,
+    maxWidth: 28
+  }), { columns: 40, rows: 8 }, { theme: highContrastTheme });
+  const highContrast = createVisualSnapshot({
+    frame,
+    ansi: { capabilities: colorCapabilities(), theme: highContrastTheme }
+  });
+  const noColor = createVisualSnapshot({
+    frame,
+    ansi: { capabilities: noColorCapabilities(), theme: highContrastTheme }
+  });
+
+  assert.match(highContrast.plainTextFrame, /> error/u);
+  assert.match(highContrast.plainTextFrame, /Sync failed/u);
+  assert.match(highContrast.plainTextFrame, /Retry required/u);
+  assert.match(highContrast.plainTextFrame, /75%/u);
+  assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
+  assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'progress.filled')?.source?.role, 'decoration');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'progress.value')?.source?.role, 'text');
+});
+
+function colorCapabilities() {
+  return resolveTerminalCapabilities({
+    host: {
+      runtime: 'memory',
+      inputIsTty: true,
+      outputIsTty: true,
+      rawInput: true
+    }
+  });
+}
+
+function noColorCapabilities() {
+  return {
+    ...colorCapabilities(),
+    color: {
+      depth: 0,
+      hasBasicColors: false,
+      has256Colors: false,
+      hasTrueColor: false
+    }
+  };
+}
