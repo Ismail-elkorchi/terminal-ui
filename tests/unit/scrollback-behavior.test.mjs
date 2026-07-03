@@ -45,7 +45,8 @@ test('scrollbackSearchMarks and nextScrollbackMatch expose compact search state'
 test('visibleScrollbackItems folds records without mutating source items', () => {
   const visible = visibleScrollbackItems(items, { foldedIds: ['a'] });
 
-  assert.equal(visible[0]?.text, 'alpha');
+  assert.equal(visible[0]?.text, 'alpha ...');
+  assert.deepEqual(visible[0]?.metadata, { folded: 'true' });
   assert.equal(items[0]?.text, 'alpha\nmore alpha');
 });
 

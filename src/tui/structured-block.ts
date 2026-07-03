@@ -8,7 +8,8 @@ import {
   documentSpan,
   documentStatusStyle,
   documentSummaryStyle,
-  documentTitleStyle
+  documentTitleStyle,
+  sourceToken
 } from './document-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -109,7 +110,7 @@ function activityFeedRows(widget: Widget, node: LayoutNode, theme: TerminalTheme
       const prefix = lineIndex === 0 ? marker : '  ';
       rows.push({
         spans: [
-          documentSpan(widget, 'activityFeed', 'selection', prefix, documentMarkerStyle(widget, selectedRow)),
+          documentSpan(widget, 'activityFeed', 'marker', selectedRow ? 'selection.selected' : 'selection.unselected', prefix, documentMarkerStyle(widget, selectedRow)),
           ...(lines[lineIndex]?.spans ?? [])
         ]
       });
@@ -144,24 +145,18 @@ function structuredBlockLines(
   const fieldLabelWidth = maxFieldLabelWidth(block.fields ?? []);
   const lines: RenderLine[] = [headerLine(block, theme, collapsed, options)];
   if (block.summary !== undefined && block.summary.length > 0) {
-    lines.push(...wrappedTextLines(block.summary, width, documentSummaryStyle(options.widget), options, 'summary'));
+    lines.push(...wrappedTextLines(block.summary, width, documentSummaryStyle(options.widget, options.selected), options, 'summary', 'summary'));
   }
   for (const field of block.fields ?? []) {
     lines.push(fieldLine(field, fieldLabelWidth, options));
   }
   if (!collapsed && block.body !== undefined && block.body.length > 0) {
-    lines.push(...wrappedTextLines(block.body, width, documentBodyStyle(options.widget, block.style), options, 'body'));
+    lines.push(...wrappedTextLines(block.body, width, documentBodyStyle(options.widget, block.style, options.selected), options, 'body', 'body'));
   }
   if (!collapsed && block.details !== undefined && block.details.length > 0) {
     const detailLines = block.details.split('\n');
     for (let index = 0; index < detailLines.length; index += 1) {
-      lines.push(...wrappedTextLines(
-        index === 0 ? `Details: ${detailLines[index] ?? ''}` : detailLines[index] ?? '',
-        width,
-        documentDetailStyle(options.widget, block.style),
-        options,
-        'details'
-      ));
+      lines.push(...detailTextLines(detailLines[index] ?? '', index === 0, width, documentDetailStyle(options.widget, block.style, options.selected), options));
     }
   }
   return lines;
@@ -325,20 +320,23 @@ function headerLine(
     documentSpan(
       options.widget,
       options.kind,
-      'toggle',
+      'marker',
+      collapsed ? 'toggle.collapsed' : 'toggle.expanded',
       collapsed ? theme.symbols.collapsed : theme.symbols.expanded,
       documentMarkerStyle(options.widget, options.selected)
     )
   ];
   if (block.status !== undefined) {
     spans.push(
-      documentSpan(options.widget, options.kind, 'separator', ' ', documentMarkerStyle(options.widget, options.selected)),
-      documentSpan(options.widget, options.kind, 'status', `[${block.status}]`, documentStatusStyle(block.status))
+      documentSpan(options.widget, options.kind, 'separator', 'status.separator', ' ', documentMarkerStyle(options.widget, options.selected)),
+      documentSpan(options.widget, options.kind, 'chrome', 'status.open', '[', documentStatusStyle(block.status)),
+      documentSpan(options.widget, options.kind, 'status', `status.${sourceToken(block.status)}`, block.status, documentStatusStyle(block.status)),
+      documentSpan(options.widget, options.kind, 'chrome', 'status.close', ']', documentStatusStyle(block.status))
     );
   }
   spans.push(
-    documentSpan(options.widget, options.kind, 'separator', ' ', documentMarkerStyle(options.widget, options.selected)),
-    documentSpan(options.widget, options.kind, 'title', block.title, documentTitleStyle(options.widget, block.style, options.selected))
+    documentSpan(options.widget, options.kind, 'separator', 'title.separator', ' ', documentMarkerStyle(options.widget, options.selected)),
+    documentSpan(options.widget, options.kind, 'title', 'title', block.title, documentTitleStyle(options.widget, block.style, options.selected))
   );
   return { spans };
 }
@@ -354,14 +352,35 @@ function wrappedTextLines(
   width: number,
   style: TerminalStyle | undefined,
   options: StructuredBlockRenderOptions,
+  visual: 'body' | 'detail' | 'summary',
   label: string
 ): readonly RenderLine[] {
   return text.split('\n').flatMap((line): RenderLine[] => {
     const wrapped = width > 0 ? wrapTextCells(line, width).map((item) => item.text) : [line];
     return wrapped.map((textLine) => ({
-      spans: [documentSpan(options.widget, options.kind, label, textLine, style)]
+      spans: [documentSpan(options.widget, options.kind, visual, label, textLine, style)]
     }));
   });
+}
+
+function detailTextLines(
+  text: string,
+  firstLine: boolean,
+  width: number,
+  style: TerminalStyle | undefined,
+  options: StructuredBlockRenderOptions
+): readonly RenderLine[] {
+  if (!firstLine) return wrappedTextLines(text, width, style, options, 'detail', 'details.body');
+  const prefix = 'Details';
+  const detailText = text.length === 0 ? '' : text;
+  const spans: RenderSpan[] = [
+    documentSpan(options.widget, options.kind, 'detail', 'details.label', prefix, style),
+    documentSpan(options.widget, options.kind, 'separator', 'details.separator', ': ', style),
+    documentSpan(options.widget, options.kind, 'detail', 'details.body', detailText, style)
+  ];
+  const plain = spans.map((item) => item.text).join('');
+  if (width <= 0 || plain.length <= width) return [{ spans }];
+  return wrappedTextLines(plain, width, style, options, 'detail', 'details.body');
 }
 
 function maxFieldLabelWidth(fields: readonly StructuredBlockField[]): number {

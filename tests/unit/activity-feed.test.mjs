@@ -1,8 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { resolveTerminalCapabilities } from '../../dist/host/index.js';
+import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { highContrastTheme } from '../../dist/theme/index.js';
 import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
-import { activityFeed, structuredBlock } from '../../dist/widgets/index.js';
+import {
+  activityFeed,
+  activityFeedReducer,
+  structuredBlock,
+  visibleActivityFeedBlocks
+} from '../../dist/widgets/index.js';
 
 const blocks = [
   {
@@ -42,10 +50,10 @@ test('structuredBlock renders collapsed and expanded block data', () => {
   );
   assert.equal(collapsed.accessibility.root.description, 'status pending, collapsed, 1 fields');
   assert.equal(expanded.accessibility.root.description, 'status running, expanded, 1 fields');
-  assert.equal(collapsed.cells.find((cell) => cell.text === '+')?.source?.label, 'toggle');
-  assert.equal(collapsed.cells.find((cell) => cell.text === 'p')?.source?.label, 'status');
+  assert.equal(collapsed.cells.find((cell) => cell.text === '+')?.source?.label, 'toggle.collapsed');
+  assert.equal(collapsed.cells.find((cell) => cell.text === 'p')?.source?.label, 'status.pending');
   assert.equal(collapsed.cells.find((cell) => cell.text === 'Q')?.source?.label, 'title');
-  assert.ok(collapsed.cells.some((cell) => cell.source?.label === 'field.label' && cell.text === 'o'));
+  assert.ok(collapsed.cells.some((cell) => cell.source?.label === 'field.owner.label' && cell.text === 'o'));
   assert.deepEqual(collapsed.accessibility.root.children?.map((node) => [node.id, node.value]), [
     ['queued:status', 'pending'],
     ['queued:summary', 'Waiting for a worker'],
@@ -111,7 +119,7 @@ test('activityFeed renders selected visible blocks and accessible options', () =
   assert.equal(frame.accessibility.root.role, 'listbox');
   assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 3 activity blocks.');
   assert.equal(frame.cells.find((cell) => cell.text === '›')?.style?.bg?.kind, 'theme');
-  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.label, 'selection');
+  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.label, 'selection.selected');
   assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.kind, 'activityFeed');
   assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.label, 'title');
   assert.equal(frame.cells.find((cell) => cell.text === 'R')?.style?.bg?.token, 'selection.background');
@@ -120,6 +128,74 @@ test('activityFeed renders selected visible blocks and accessible options', () =
     ['feed:block:running', true],
     ['feed:block:done', false]
   ]);
+});
+
+test('activityFeed renders caller-owned reducer expansion state', () => {
+  const reducerBlocks = [
+    {
+      id: 'collapsed',
+      title: 'Collapsed',
+      summary: 'Hidden body',
+      status: 'pending',
+      body: 'body from reducer',
+      collapsed: true
+    },
+    {
+      id: 'open',
+      title: 'Open',
+      status: 'success',
+      body: 'already open'
+    }
+  ];
+  const state = activityFeedReducer({
+    selected: 0,
+    expandedIds: [],
+    collapsedIds: []
+  }, { kind: 'expandBlock', id: 'collapsed' }, { blocks: reducerBlocks });
+  const visibleBlocks = visibleActivityFeedBlocks(reducerBlocks, state).map((entry) => entry.block);
+  const frame = renderWidgetFrame(activityFeed({
+    id: 'feed-from-state',
+    blocks: visibleBlocks,
+    selected: state.selected
+  }), { columns: 40, rows: 6 });
+
+  assert.match(renderFramePlain(frame), /body from reducer/u);
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'toggle.expanded' && cell.text === '-')?.text, '-');
+  assert.equal(reducerBlocks[0]?.collapsed, true);
+});
+
+test('structuredBlock and activityFeed preserve document state in high contrast and no color output', () => {
+  const blockFrame = renderWidgetFrame(structuredBlock({
+    id: 'error-record',
+    title: 'Import',
+    status: 'error',
+    summary: 'Needs attention',
+    fields: [{ label: 'owner', value: 'scheduler' }],
+    body: 'Line one',
+    details: 'Trace id 42'
+  }), { columns: 44, rows: 8 }, { theme: highContrastTheme });
+  const feedFrame = renderWidgetFrame(activityFeed({
+    id: 'state-feed',
+    blocks,
+    selected: 1
+  }), { columns: 44, rows: 8 }, { theme: highContrastTheme });
+  const highContrast = createVisualSnapshot({
+    frame: feedFrame,
+    ansi: { capabilities: colorCapabilities(), theme: highContrastTheme }
+  });
+  const noColor = createVisualSnapshot({
+    frame: feedFrame,
+    ansi: { capabilities: noColorCapabilities(), theme: highContrastTheme }
+  });
+
+  assert.match(renderFramePlain(blockFrame), /\[-\] \[error\] Import/u);
+  assert.match(renderFramePlain(blockFrame), /Details: Trace id 42/u);
+  assert.equal(blockFrame.cells.find((cell) => cell.source?.label === 'status.error')?.style?.fg?.token, 'status.error');
+  assert.equal(blockFrame.cells.find((cell) => cell.source?.label === 'details.label')?.source?.role, 'text');
+  assert.equal(blockFrame.cells.find((cell) => cell.source?.label === 'field.owner.value')?.text, 's');
+  assert.match(highContrast.plainTextFrame, /> \[-\] \[running\] Running task/u);
+  assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
+  assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
 });
 
 test('activityFeed bounds rendered rows to the viewport', () => {
@@ -141,3 +217,26 @@ test('activityFeed bounds rendered rows to the viewport', () => {
   assert.ok(frame.cells.length <= frame.width * frame.height);
   assert.equal(frame.accessibility.root.children?.length, 5);
 });
+
+function colorCapabilities() {
+  return resolveTerminalCapabilities({
+    host: {
+      runtime: 'memory',
+      inputIsTty: true,
+      outputIsTty: true,
+      rawInput: true
+    }
+  });
+}
+
+function noColorCapabilities() {
+  return {
+    ...colorCapabilities(),
+    color: {
+      depth: 0,
+      hasBasicColors: false,
+      has256Colors: false,
+      hasTrueColor: false
+    }
+  };
+}

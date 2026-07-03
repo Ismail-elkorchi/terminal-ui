@@ -88,7 +88,11 @@ export function visibleScrollbackItems(
   return items.map((item) => state.foldedIds.includes(item.id)
     ? {
         ...item,
-        text: firstLine(item.text)
+        text: foldedText(item.text),
+        metadata: {
+          ...(item.metadata ?? {}),
+          folded: 'true'
+        }
       }
     : item);
 }
@@ -108,8 +112,11 @@ export function followTailScrollState(input: {
   }), { kind: 'bottom' });
 }
 
-function firstLine(text: string): string {
-  return sanitizeTerminalText(text).text.split('\n')[0] ?? '';
+function foldedText(text: string): string {
+  const sanitized = sanitizeTerminalText(text).text;
+  const lines = sanitized.split('\n');
+  const first = lines[0] ?? '';
+  return lines.length > 1 ? `${first} ...` : first;
 }
 
 function toggleId(ids: readonly string[], id: string): readonly string[] {

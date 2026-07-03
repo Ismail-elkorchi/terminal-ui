@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { resolveTerminalCapabilities } from '../../dist/host/index.js';
+import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { highContrastTheme } from '../../dist/theme/index.js';
 import {
   createScrollState,
   extractScrollbackSelectionText,
@@ -9,7 +12,7 @@ import {
   renderWidgetFrame,
   scrollbackWindow
 } from '../../dist/tui/index.js';
-import { scrollback } from '../../dist/widgets/index.js';
+import { scrollback, visibleScrollbackItems } from '../../dist/widgets/index.js';
 
 function item(index, text = `Row ${index}`) {
   return { id: `row-${index}`, text };
@@ -25,8 +28,10 @@ test('scrollback follows the tail by default and marks omitted earlier rows', ()
   assert.match(output, /Row 18/u);
   assert.match(output, /Row 19/u);
   assert.doesNotMatch(output, /Row 0/u);
-  assert.equal(frame.accessibility.root.description, 'Showing 17-20 of 20 scrollback rows. Omitted before: 16. Omitted after: 0.');
+  assert.equal(frame.accessibility.root.description, 'Showing 17-20 of 20 scrollback rows. Omitted before: 16. Omitted after: 0. Follow tail: true.');
   assert.equal(frame.accessibility.root.children?.length, 4);
+  assert.equal(frame.cells.find((cell) => cell.text === '.')?.source?.label, 'omission.before');
+  assert.equal(frame.cells.find((cell) => cell.text === '.')?.source?.role, 'decoration');
 });
 
 test('scrollback accepts explicit scroll state and marks omitted later rows', () => {
@@ -35,14 +40,15 @@ test('scrollback accepts explicit scroll state and marks omitted later rows', ()
     id: 'log',
     items,
     scroll: createScrollState({ offsetRow: 0, contentRows: 10, viewportRows: 3 })
-  }), { columns: 36, rows: 3 });
+  }), { columns: 48, rows: 3 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Row 0/u);
   assert.match(output, /Row 1/u);
-  assert.match(output, /\.\.\. 7 later rows omitted \.\.\./u);
+  assert.match(output, /\.\.\. 7 later rows omitted \(paused\) \.\.\./u);
   assert.doesNotMatch(output, /Row 9/u);
-  assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 10 scrollback rows. Omitted before: 0. Omitted after: 7.');
+  assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 10 scrollback rows. Omitted before: 0. Omitted after: 7. Follow tail: false.');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'omission.after')?.source?.role, 'decoration');
 });
 
 test('scrollback sanitizes terminal control sequences before rendering and accessibility', () => {
@@ -78,11 +84,28 @@ test('scrollback renders timestamp metadata and item style through visible rows'
   assert.equal(window.rows[0]?.timestamp, '[10:30]');
   assert.deepEqual(window.rows[0]?.metadata, { source: 'worker', status: 'ok' });
   assert.equal(renderFramePlain(frame), '[10:30] source=worker status=ok Zulu');
-  assert.equal(timestampCell?.source?.label, 'timestamp');
-  assert.equal(metadataCell?.source?.label, 'metadata');
+  assert.equal(timestampCell?.source?.label, 'timestamp.open');
+  assert.equal(metadataCell?.source?.label, 'metadata.source.key');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.status.value')?.text, 'o');
   assert.deepEqual(styledCell?.style, { fg: { kind: 'theme', token: 'status.success' }, bold: true });
   assert.equal(styledCell?.source?.label, 'body');
   assert.equal(frame.accessibility.root.children?.[0]?.value, '[10:30] source=worker status=ok Zulu');
+});
+
+test('scrollback renders folded helper output as visible document metadata', () => {
+  const visibleItems = visibleScrollbackItems([
+    { id: 'a', text: 'alpha\nmore alpha', metadata: { source: 'worker' } },
+    { id: 'b', text: 'bravo' }
+  ], { foldedIds: ['a'] });
+  const frame = renderWidgetFrame(scrollback({
+    id: 'folded-log',
+    items: visibleItems
+  }), { columns: 48, rows: 2 });
+
+  assert.match(renderFramePlain(frame), /folded=true source=worker alpha \.\.\./u);
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.folded.key')?.text, 'f');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.folded.value')?.text, 't');
+  assert.equal(visibleItems[0]?.text, 'alpha ...');
 });
 
 test('scrollback wraps visible rows when requested', () => {
@@ -93,7 +116,7 @@ test('scrollback wraps visible rows when requested', () => {
   }), { columns: 3, rows: 3 });
 
   assert.equal(renderFramePlain(frame), 'abc\ndef');
-  assert.equal(frame.accessibility.root.description, 'Showing 1-2 of 2 scrollback rows. Omitted before: 0. Omitted after: 0.');
+  assert.equal(frame.accessibility.root.description, 'Showing 1-2 of 2 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true.');
   assert.deepEqual(frame.accessibility.root.children?.map((node) => node.value), ['abc', 'def']);
 });
 
@@ -118,8 +141,39 @@ test('scrollback search navigates to the first match and exposes match segments'
   assert.ok(frame.accessibility.root.children?.some((node) => node.description === 'Search match.'));
   assert.equal(
     frame.accessibility.root.description,
-    'Showing 7-11 of 12 scrollback rows. Omitted before: 6. Omitted after: 1. Search query: needle. Matches in rows: 1.'
+    'Showing 7-11 of 12 scrollback rows. Omitted before: 6. Omitted after: 1. Follow tail: false. Search query: needle. Matches in rows: 1.'
   );
+});
+
+test('scrollback renders empty and selected text states in high contrast and no color output', () => {
+  const emptyFrame = renderWidgetFrame(scrollback({
+    id: 'empty-log',
+    items: []
+  }), { columns: 32, rows: 3 }, { theme: highContrastTheme });
+  const selectedFrame = renderWidgetFrame(scrollback({
+    id: 'selected-log',
+    items: [
+      { id: 'alpha', text: 'alpha' },
+      { id: 'bravo', text: 'bravo charlie' }
+    ],
+    selectedRange: { start: 3, end: 11 }
+  }), { columns: 32, rows: 4 }, { theme: highContrastTheme });
+  const highContrast = createVisualSnapshot({
+    frame: selectedFrame,
+    ansi: { capabilities: colorCapabilities(), theme: highContrastTheme }
+  });
+  const noColor = createVisualSnapshot({
+    frame: selectedFrame,
+    ansi: { capabilities: noColorCapabilities(), theme: highContrastTheme }
+  });
+
+  assert.equal(renderFramePlain(emptyFrame), 'No scrollback rows');
+  assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N')?.source?.label, 'empty');
+  assert.equal(renderFramePlain(selectedFrame), 'alp[ha]\n[bravo] charlie');
+  assert.equal(selectedFrame.cells.find((cell) => cell.source?.label === 'selection.open')?.source?.role, 'decoration');
+  assert.equal(selectedFrame.cells.find((cell) => cell.source?.label === 'body.selection')?.style?.bg?.token, 'selection.background');
+  assert.equal(highContrast.plainTextFrame, noColor.plainTextFrame);
+  assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
 });
 
 test('scrollback selection extraction is pure and sanitized', () => {
@@ -134,3 +188,26 @@ test('scrollback selection extraction is pure and sanitized', () => {
 
   assert.equal(text, 'ha\nbravo charli');
 });
+
+function colorCapabilities() {
+  return resolveTerminalCapabilities({
+    host: {
+      runtime: 'memory',
+      inputIsTty: true,
+      outputIsTty: true,
+      rawInput: true
+    }
+  });
+}
+
+function noColorCapabilities() {
+  return {
+    ...colorCapabilities(),
+    color: {
+      depth: 0,
+      hasBasicColors: false,
+      has256Colors: false,
+      hasTrueColor: false
+    }
+  };
+}

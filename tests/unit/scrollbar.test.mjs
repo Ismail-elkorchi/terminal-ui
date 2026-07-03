@@ -84,7 +84,7 @@ test('scrollback scrollbar is opt-in and preserves scoped visible-window accessi
 
   assert.equal(frame.cells.filter((cell) => cell.column === 12).length, 3);
   assert.match(renderFramePlain(frame), /Row 0/u);
-  assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 8 scrollback rows. Omitted before: 0. Omitted after: 5.');
+  assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 8 scrollback rows. Omitted before: 0. Omitted after: 5. Follow tail: false.');
 });
 
 test('textArea scrollbar follows explicit text scroll state', () => {

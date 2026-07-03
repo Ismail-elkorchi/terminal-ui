@@ -59,7 +59,7 @@ test('large scrollback rendering is bounded by viewport size, not collection siz
   assert.doesNotMatch(output, /Line 0/u);
   assert.ok(frame.cells.length <= frame.width * frame.height);
   assert.equal(frame.accessibility.root.children?.length, 12);
-  assert.equal(frame.accessibility.root.description, 'Showing 99989-100000 of 100000 scrollback rows. Omitted before: 99988. Omitted after: 0.');
+  assert.equal(frame.accessibility.root.description, 'Showing 99989-100000 of 100000 scrollback rows. Omitted before: 99988. Omitted after: 0. Follow tail: true.');
 });
 
 test('small local frame updates produce bounded render diffs', () => {
