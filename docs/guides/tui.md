@@ -80,6 +80,29 @@ values; `terminal-ui` does not reserve a global command-palette shortcut,
 Escape key, or Ctrl-C key event. Host signals such as `SIGINT` and `SIGTERM`
 still interrupt the full-screen run through the terminal host signal path.
 
+Use app-level `keyBindings` for application policy that should not belong to a
+particular focused widget. Bindings run in two explicit phases:
+
+1. `beforeFocus` bindings run before focused widget input and should be used
+   only for deliberate priority shortcuts.
+2. Focused widget `inputMap` and `keyMap` handle local control behavior.
+3. `afterFocus` bindings, the default phase, run only when the focused widget
+   did not handle the input.
+4. Built-in Tab focus traversal runs last.
+
+This keeps text fields, command bars, forms, and editors in control of local
+keys while still allowing apps to define global actions such as help, exit,
+interrupt, or top-level navigation. Printable single-key bindings such as `q`
+should usually stay mode-aware and default to `afterFocus`, so they do not steal
+ordinary text input. Escape and Ctrl-C are not special runtime exits; map them
+only when that behavior is correct for the app.
+
+Focus targets, pointer hit targets, and accessibility live regions are separate
+capabilities. A passive live region such as a notification stack does not need
+keyboard focus, and a pointer hit target does not imply keyboard focus. When a
+focus-contained overlay closes, the runtime restores the displaced focus path
+when it still exists, including through nested contained overlays.
+
 Mouse input is normalized through the TUI pointer router before widget messages
 are dispatched. Hit targets are event-aware: each target can accept pointer
 event kinds and compute a caller-owned message from the routed event. Ordinary

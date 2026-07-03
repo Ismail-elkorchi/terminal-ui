@@ -12,6 +12,15 @@ import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 test('input decoder normalizes basic control keys', () => {
   assert.equal(decodeInputChunk({ data: '\u0003' })[0]?.kind, 'key');
   assert.equal(decodeInputChunk({ data: '\u0003' })[0]?.key, 'ctrlC');
+  assert.deepEqual(decodeInputChunk({ data: '\u0011' })[0], {
+    kind: 'key',
+    key: 'ctrlQ',
+    sequence: '\u0011',
+    ctrl: true,
+    alt: false,
+    shift: false,
+    meta: false
+  });
 });
 
 test('input decoder normalizes shifted navigation keys', () => {

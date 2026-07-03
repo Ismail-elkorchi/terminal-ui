@@ -22,6 +22,7 @@ export const keySequences: ReadonlyMap<string, KeyName> = new Map([
   ['\t', 'tab'],
   ['\u0003', 'ctrlC'],
   ['\u0004', 'ctrlD'],
+  ['\u0011', 'ctrlQ'],
   ['\u007F', 'backspace'],
   ['\b', 'backspace']
 ]);
@@ -69,14 +70,14 @@ export function keyFromPrefix(value: string): KeyEvent | undefined {
   if (modified !== undefined) return modified;
   if (value.startsWith('\u001B[Z')) return normalizeKeyEvent({ key: 'tab', sequence: '\u001B[Z', shift: true });
   for (const [sequence, key] of keySequences) {
-    if (value.startsWith(sequence)) return normalizeKeyEvent({ key, sequence });
+    if (value.startsWith(sequence)) return keyEvent(key, sequence);
   }
   if (value === '\u001B') return normalizeKeyEvent({ key: 'escape', sequence: value });
   return undefined;
 }
 
 export function keyEvent(key: KeyName, sequence: string): KeyEvent {
-  return normalizeKeyEvent({ key, sequence, ctrl: key === 'ctrlC' || key === 'ctrlD' });
+  return normalizeKeyEvent({ key, sequence, ctrl: key === 'ctrlC' || key === 'ctrlD' || key === 'ctrlQ' });
 }
 
 function modifiedNavigationKeyFromPrefix(value: string): KeyEvent | undefined {

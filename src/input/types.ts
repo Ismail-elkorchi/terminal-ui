@@ -106,6 +106,7 @@ export type KeyName =
   | 'space'
   | 'ctrlC'
   | 'ctrlD'
+  | 'ctrlQ'
   | 'unknown';
 
 export interface InputDecodeOptions {

@@ -116,6 +116,9 @@ function defineWorkspaceApp() {
   return defineTui({
     id: 'interactive-workspace',
     init: () => initialState(),
+    keyBindings: [
+      { id: 'exit', keys: ['ctrlC', 'ctrlQ'], label: 'Exit', message: { kind: 'exit' } }
+    ],
     update: updateWorkspace,
     view: workspaceView,
     nonTty: { mode: 'last_frame' }
@@ -426,7 +429,7 @@ function commandSurface(state) {
     suggestions: state.command.suggestions,
     selectedSuggestion: state.command.selectedSuggestion,
     completionPreview: completionPreview(state.command.input.text),
-    footer: 'Enter run | Esc clear | Ctrl+C or q exits in a real terminal',
+    footer: 'Enter run | Esc clear | Ctrl+C/Ctrl+Q exit',
     inputMap: {
       text: (value) => ({ kind: 'commandEdit', action: { kind: 'insert', text: value } })
     },
@@ -440,7 +443,6 @@ function commandSurface(state) {
       tab: { kind: 'commandEdit', action: { kind: 'acceptSuggestion' } },
       enter: { kind: 'submitCommand' },
       escape: { kind: 'commandEdit', action: { kind: 'setValue', value: '' } },
-      q: { kind: 'exit' },
       '/': { kind: 'openPalette' }
     }
   }), {

@@ -941,6 +941,169 @@ test('TUI runtime lets focused widgets handle tab before focus traversal', async
   assert.match(renderFramePlain(runtime.frame()), /accepted/);
 });
 
+test('TUI runtime routes default app key bindings after focused widgets', async () => {
+  const app = defineTui({
+    id: 'app-key-binding-after-focus',
+    init: () => ({ active: 'open' }),
+    keyBindings: [
+      { id: 'close', keys: ['escape'], message: { active: 'closed' } }
+    ],
+    update: (_state, message) => ({ state: { active: message.active } }),
+    view: (state) => textInput({ id: 'field', value: state.active })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const handled = await runtime.handleInput({
+    kind: 'key',
+    key: 'escape',
+    sequence: '\u001B',
+    ctrl: false,
+    alt: false,
+    shift: false,
+    meta: false
+  });
+
+  assert.equal(handled.handled, true);
+  assert.deepEqual(runtime.getState(), { active: 'closed' });
+  assert.match(renderFramePlain(runtime.frame()), /closed/);
+});
+
+test('TUI runtime lets focused widgets override after-focus app bindings', async () => {
+  const app = defineTui({
+    id: 'app-key-binding-focused-wins',
+    init: () => ({ active: 'open' }),
+    keyBindings: [
+      { id: 'global-close', keys: ['escape'], message: { active: 'global' } }
+    ],
+    update: (_state, message) => ({ state: { active: message.active } }),
+    view: (state) => textInput({
+      id: 'field',
+      value: state.active,
+      keyMap: { escape: { active: 'local' } }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'escape',
+    sequence: '\u001B',
+    ctrl: false,
+    alt: false,
+    shift: false,
+    meta: false
+  });
+
+  assert.deepEqual(runtime.getState(), { active: 'local' });
+  assert.match(renderFramePlain(runtime.frame()), /local/);
+});
+
+test('TUI runtime lets before-focus app bindings intentionally preempt widgets', async () => {
+  const app = defineTui({
+    id: 'app-key-binding-before-focus',
+    init: () => ({ active: 'open' }),
+    keyBindings: [
+      { id: 'priority-enter', keys: ['enter'], phase: 'beforeFocus', message: { active: 'global' } }
+    ],
+    update: (_state, message) => ({ state: { active: message.active } }),
+    view: (state) => textInput({
+      id: 'field',
+      value: state.active,
+      keyMap: { enter: { active: 'local' } }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.deepEqual(runtime.getState(), { active: 'global' });
+  assert.match(renderFramePlain(runtime.frame()), /global/);
+});
+
+test('TUI runtime does not steal printable text for default app bindings', async () => {
+  const app = defineTui({
+    id: 'app-key-binding-printable-after-focus',
+    init: () => ({ value: '' }),
+    keyBindings: [
+      { id: 'quit', keys: ['q'], message: { value: 'quit' } }
+    ],
+    update: (state, message) => ({ state: { value: `${state.value}${message.value}` } }),
+    view: (state) => textInput({
+      id: 'field',
+      value: state.value,
+      inputMap: { text: (value) => ({ value }) }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.handleInput({ kind: 'text', text: 'q' });
+
+  assert.deepEqual(runtime.getState(), { value: 'q' });
+  assert.match(renderFramePlain(runtime.frame()), /q/);
+});
+
+test('TUI runtime evaluates app key binding predicates and dynamic messages', async () => {
+  const app = defineTui({
+    id: 'app-key-binding-dynamic',
+    init: () => ({ active: 'blocked', enabled: false }),
+    keyBindings: [
+      {
+        id: 'dynamic-help',
+        keys: ['f1'],
+        enabled: ({ state }) => state.enabled,
+        toMessage: ({ focusPath }) => ({ active: focusPath?.join('/') ?? 'none', enabled: true })
+      }
+    ],
+    update: (_state, message) => ({ state: message }),
+    view: (state) => textInput({
+      id: 'field',
+      value: state.active,
+      keyMap: { enter: { active: 'ready', enabled: true } }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 32, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const disabled = await runtime.handleInput({ kind: 'key', key: 'f1', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  const enabled = await runtime.handleInput({ kind: 'key', key: 'f1', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.equal(disabled.handled, false);
+  assert.equal(enabled.handled, true);
+  assert.deepEqual(runtime.getState(), { active: 'field', enabled: true });
+});
+
+test('TUI runtime keeps scanning app key bindings when earlier matches decline', async () => {
+  const app = defineTui({
+    id: 'app-key-binding-declined-fallback',
+    init: () => ({ active: 'open' }),
+    keyBindings: [
+      { id: 'metadata-only', keys: ['f1'], label: 'Help' },
+      { id: 'contextual-help', keys: ['f1'], toMessage: () => undefined },
+      { id: 'fallback-help', keys: ['f1'], message: { active: 'fallback' } }
+    ],
+    update: (_state, message) => ({ state: { active: message.active } }),
+    view: (state) => textInput({ id: 'field', value: state.active })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 32, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const handled = await runtime.handleInput({ kind: 'key', key: 'f1', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.equal(handled.handled, true);
+  assert.deepEqual(runtime.getState(), { active: 'fallback' });
+});
+
 test('TUI runtime routes escape through focused widget keymaps', async () => {
   const app = defineTui({
     id: 'escape-keymap-routing',

@@ -3,6 +3,7 @@ import { createTuiContext } from './context.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
 import { completedExitFromSnapshot } from './exit.ts';
 import { findAnyLayoutFocusTarget, findWidgetFocusTarget, nextFocusPath, previousFocusPath } from './focus.ts';
+import { resolveTuiKeyBinding } from './key-bindings.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { createPointerRouter } from './pointer-router.ts';
 import { commitFrame, dirtyRegionsForRenderCommit, renderCurrentFrame, resolveTuiTheme, setHostViewport } from './runtime-frame.ts';
@@ -356,6 +357,15 @@ export function createTuiRuntime<TState, TMessage>(
 
   function messageForInput(_state: TState, event: InputEvent): TMessage | undefined {
     const key = inputEventKey(event);
+    const beforeFocus = resolveTuiKeyBinding({
+      bindings: options.app.definition.keyBindings,
+      phase: 'beforeFocus',
+      state: _state,
+      event,
+      key,
+      focusPath: currentFocusPath
+    });
+    if (beforeFocus !== undefined) return beforeFocus;
     const current = ensureRender();
     const focused = findWidgetFocusTarget(current.widget, current.layout, currentFocusPath);
     if (event.kind === 'text') {
@@ -363,8 +373,16 @@ export function createTuiRuntime<TState, TMessage>(
       if (mapped !== undefined) return mapped;
     }
     if (event.kind === 'paste') return focused?.widget.inputMap?.paste?.(event.text);
-    if (key === undefined) return undefined;
-    return focused?.widget.keyMap?.[key];
+    const focusedMessage = key === undefined ? undefined : focused?.widget.keyMap?.[key];
+    if (focusedMessage !== undefined) return focusedMessage;
+    return resolveTuiKeyBinding({
+      bindings: options.app.definition.keyBindings,
+      phase: 'afterFocus',
+      state: _state,
+      event,
+      key,
+      focusPath: currentFocusPath
+    });
   }
 
   function messagesForMouse(_state: TState, event: TerminalMouseEvent): readonly TMessage[] {

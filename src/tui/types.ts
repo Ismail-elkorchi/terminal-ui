@@ -14,6 +14,7 @@ export interface TuiDefinition<TState, TMessage> {
   readonly init: TuiInit<TState, TMessage>;
   readonly update: TuiUpdate<TState, TMessage>;
   readonly view: TuiView<TState, TMessage>;
+  readonly keyBindings?: readonly TuiKeyBinding<TState, TMessage>[];
   readonly subscriptions?: TuiSubscriptions<TState, TMessage>;
   readonly onExit?: TuiExitHandler<TState>;
   readonly transcript?: TranscriptPolicy;
@@ -33,6 +34,25 @@ export type TuiUpdate<TState, TMessage> = (
   context: TuiContext<TMessage>
 ) => TuiUpdateResult<TState, TMessage> | Promise<TuiUpdateResult<TState, TMessage>>;
 export type TuiView<TState, TMessage> = (state: TState, context: TuiContext<TMessage>) => Widget<TMessage>;
+
+export type TuiKeyBindingPhase = 'beforeFocus' | 'afterFocus';
+
+export interface TuiKeyBindingContext<TState> {
+  readonly state: TState;
+  readonly event: InputEvent;
+  readonly key: string;
+  readonly focusPath?: FocusPath;
+}
+
+export interface TuiKeyBinding<TState, TMessage> {
+  readonly id: string;
+  readonly keys: readonly string[];
+  readonly phase?: TuiKeyBindingPhase;
+  readonly label?: string;
+  readonly enabled?: boolean | ((context: TuiKeyBindingContext<TState>) => boolean);
+  readonly message?: TMessage;
+  readonly toMessage?: (context: TuiKeyBindingContext<TState>) => TMessage | undefined;
+}
 
 export interface TuiUpdateResult<TState, TMessage> {
   readonly state: TState;
