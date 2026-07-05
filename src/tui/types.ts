@@ -64,6 +64,7 @@ export interface TuiContext<TMessage> {
   readonly host: TerminalHost;
   readonly viewport: TerminalViewport;
   readonly capabilities: TerminalCapabilityProfile;
+  readonly diagnostics: readonly TerminalDiagnostic[];
   readonly clock: TerminalClock;
   dispatch(message: TMessage): void;
 }
@@ -142,6 +143,7 @@ export interface TuiRuntimeOptions<TState, TMessage> {
   readonly theme?: TuiTheme<TState>;
   readonly transcript?: TranscriptRecorder;
   readonly input?: InputPipelineOptions;
+  readonly diagnostics?: readonly TerminalDiagnostic[];
 }
 
 export interface TuiRunOptions<TState = unknown> {

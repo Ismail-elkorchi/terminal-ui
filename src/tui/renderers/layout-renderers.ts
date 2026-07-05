@@ -4,7 +4,7 @@ import { writeRenderBlock } from './support/block.ts';
 import { borderForModal, modalLabel } from './support/border.ts';
 import { cellInside, groupAccessibleNode } from './support/common.ts';
 import {
-  fillLayoutSizes,
+  childLayoutSizes,
   gridChildBounds,
   layoutFlowOptions,
   priorityFillLayoutSizes,
@@ -13,6 +13,7 @@ import {
 import { tabsAccessibleChildren, tabsChildBounds, tabsHeaderBlock, tabsHitTargets } from './support/tabs.ts';
 import {
   drawScrollbars,
+  scrollbarHitTargetsForWidget,
   scrollbarsForWidget,
   viewportScrollbarState
 } from './support/scroll.ts';
@@ -28,7 +29,13 @@ import type { RendererMap } from './types.ts';
 
 export const layoutRenderers = {
   row: {
-    layout: ({ widget, bounds }) => splitTracks(bounds, 'horizontal', priorityFillLayoutSizes(widget.children ?? []), layoutFlowOptions(widget)),
+    layout: ({ widget, bounds, childMeasures }) => splitTracks(
+      bounds,
+      'horizontal',
+      childLayoutSizes(widget, priorityFillLayoutSizes(widget.children ?? [])),
+      layoutFlowOptions(widget),
+      childMeasures.map((measure) => measure.preferredWidth)
+    ),
     render: (input) => {
       input.renderChildren();
     },
@@ -38,7 +45,7 @@ export const layoutRenderers = {
     layout: ({ widget, bounds, childMeasures }) => splitTracks(
       bounds,
       'vertical',
-      fillLayoutSizes(widget.children?.length ?? 0),
+      childLayoutSizes(widget),
       layoutFlowOptions(widget),
       childMeasures.map((measure) => measure.preferredHeight)
     ),
@@ -52,7 +59,7 @@ export const layoutRenderers = {
     render: (input) => {
       const viewportBuffer = createFrameBuffer(input.buffer.width, input.buffer.height);
       input.renderChildren(viewportBuffer);
-      const scrollbars = scrollbarsForWidget(input.widget, input.node.bounds, viewportScrollbarState(input.widget, input.node.bounds), 'both');
+      const scrollbars = scrollbarsForWidget(input.widget, input.node.bounds, (contentBounds) => viewportScrollbarState(input.widget, contentBounds), 'both');
       const occupiedCells = new Set<string>();
       for (const cell of viewportBuffer.snapshot().cells) {
         if (cellInside(cell, scrollbars.contentBounds)) {
@@ -61,14 +68,18 @@ export const layoutRenderers = {
         }
       }
       drawViewportIndicators(input.buffer, input.widget, scrollbars.contentBounds, input.theme, occupiedCells);
-      drawScrollbars(input.buffer, scrollbars, input.theme);
+      drawScrollbars(input.buffer, input.widget, scrollbars, input.theme);
     },
     accessibility: ({ widget, node, id }) => ({
       id,
       role: 'text',
       label: id,
       description: viewportAccessibleDescription(widget, node)
-    })
+    }),
+    hitTargets: ({ widget, bounds }) => {
+      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => viewportScrollbarState(widget, contentBounds), 'both');
+      return scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state);
+    }
   },
   grid: {
     layout: ({ widget, bounds, childMeasures }) => gridChildBounds(widget, bounds, childMeasures),

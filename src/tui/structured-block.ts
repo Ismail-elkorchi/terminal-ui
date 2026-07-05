@@ -17,6 +17,7 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { StructuredBlock, WidgetFieldItem, Widget } from '../widgets/index.ts';
 import { optionalWidgetRecordStatus } from '../widgets/index.ts';
 import type { LayoutNode } from './layout.ts';
+import { clipRenderLine, clipRenderSpans } from './render-primitives.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 
 interface StructuredBlockRenderOptions {
@@ -143,12 +144,12 @@ function structuredBlockLines(
 ): readonly RenderLine[] {
   const collapsed = block.collapsed === true;
   const fieldLabelWidth = maxFieldLabelWidth(block.fields ?? []);
-  const lines: RenderLine[] = [headerLine(block, theme, collapsed, options)];
+  const lines: RenderLine[] = [headerLine(block, theme, collapsed, options, width)];
   if (block.summary !== undefined && block.summary.length > 0) {
-    lines.push(...wrappedTextLines(block.summary, width, documentSummaryStyle(options.widget, options.selected), options, 'summary', 'summary'));
+    lines.push(compactTextLine(block.summary, width, documentSummaryStyle(options.widget, options.selected), options, 'summary', 'summary'));
   }
   for (const field of block.fields ?? []) {
-    lines.push(fieldLine(field, fieldLabelWidth, options));
+    lines.push(fieldLine(field, fieldLabelWidth, width, options));
   }
   if (!collapsed && block.body !== undefined && block.body.length > 0) {
     lines.push(...wrappedTextLines(block.body, width, documentBodyStyle(options.widget, block.style, options.selected), options, 'body', 'body'));
@@ -314,7 +315,8 @@ function headerLine(
   block: StructuredBlock,
   theme: TerminalTheme,
   collapsed: boolean,
-  options: StructuredBlockRenderOptions
+  options: StructuredBlockRenderOptions,
+  width: number
 ): RenderLine {
   const spans: RenderSpan[] = [
     documentSpan(
@@ -338,12 +340,25 @@ function headerLine(
     documentSpan(options.widget, options.kind, 'separator', 'title.separator', ' ', documentMarkerStyle(options.widget, options.selected)),
     documentSpan(options.widget, options.kind, 'title', 'title', block.title, documentTitleStyle(options.widget, block.style, options.selected))
   );
-  return { spans };
+  return clipRenderLine({ spans }, Math.max(0, width), { ellipsis: '…', mode: 'middle' });
 }
 
-function fieldLine(field: WidgetFieldItem, labelWidth: number, options: StructuredBlockRenderOptions): RenderLine {
+function fieldLine(field: WidgetFieldItem, labelWidth: number, width: number, options: StructuredBlockRenderOptions): RenderLine {
   return {
-    spans: documentFieldSpans(options.widget, field, labelWidth, options.selected, options.kind)
+    spans: clipRenderSpans(documentFieldSpans(options.widget, field, labelWidth, options.selected, options.kind), Math.max(0, width), { ellipsis: '…', mode: 'middle' })
+  };
+}
+
+function compactTextLine(
+  text: string,
+  width: number,
+  style: TerminalStyle | undefined,
+  options: StructuredBlockRenderOptions,
+  visual: 'summary',
+  label: string
+): RenderLine {
+  return {
+    spans: clipRenderSpans([documentSpan(options.widget, options.kind, visual, label, text, style)], Math.max(0, width), { ellipsis: '…', mode: 'middle' })
   };
 }
 

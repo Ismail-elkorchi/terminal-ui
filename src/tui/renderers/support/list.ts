@@ -2,6 +2,7 @@ import type { AccessibleNode } from '../../../accessibility/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { Widget } from '../../../widgets/index.ts';
 import { rowWindow, scrollStateFromUnknown } from '../../data-window.ts';
+import { createScrollState, normalizeScrollState } from '../../scroll.ts';
 import { dataSource, dataSpan, dataValueSpans, selectionMarkerSpans } from '../../data-visual.ts';
 import type { ScrollState } from '../../scroll.ts';
 import { sanitizeTerminalText } from '../../../text/index.ts';
@@ -10,19 +11,31 @@ import { numberProp, stringify } from '../../widget-props.ts';
 import { widgetStyle } from '../../widget-style.ts';
 import type { LayoutNode, Rect } from '../../layout.ts';
 import type { RenderBlock, RenderLine } from '../../render-primitives.ts';
-import type { ScrollbarState } from '../../scrollbar.ts';
 import type { HitTarget } from '../../widget-renderer.ts';
 
-export function listScrollbarState(widget: Widget, bounds: Rect): ScrollbarState {
+export function listScrollbarState(widget: Widget, bounds: Rect): ScrollState {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
+  const explicitScroll = scrollStateFromUnknown(widget.props['scroll']);
+  if (explicitScroll !== undefined) {
+    return normalizeScrollState({
+      ...explicitScroll,
+      contentRows: items.length,
+      contentColumns: bounds.width,
+      viewportRows: bounds.height,
+      viewportColumns: bounds.width
+    });
+  }
   const window = listWindow(widget, items, bounds.height, selected, bounds.width);
-  return {
+  return createScrollState({
     offsetRow: window.start,
     offsetColumn: window.offsetColumn,
     contentRows: window.totalRows,
-    contentColumns: bounds.width
-  };
+    contentColumns: bounds.width,
+    viewportRows: bounds.height,
+    viewportColumns: bounds.width,
+    ...(window.selectedIndex === undefined ? {} : { selectedIndex: window.selectedIndex })
+  });
 }
 
 export function listBlock(widget: Widget, height: number, theme: TerminalTheme): RenderBlock {

@@ -1,9 +1,7 @@
-import type { TreeNode } from '../types.ts';
+import type { TreeDisclosureAction, TreeNode } from '../types.ts';
 
 export type TreeAction =
-  | { readonly kind: 'toggle'; readonly id: string }
-  | { readonly kind: 'expand'; readonly id: string }
-  | { readonly kind: 'collapse'; readonly id: string }
+  | TreeDisclosureAction
   | { readonly kind: 'expandAll' }
   | { readonly kind: 'collapseAll' }
   | { readonly kind: 'lazyPending'; readonly id: string; readonly message?: string }
@@ -20,6 +18,17 @@ export interface TreeState {
 export interface TreeRenameState {
   readonly id: string;
   readonly value: string;
+}
+
+export interface TreeVisibleRow {
+  readonly node: TreeNode;
+  readonly depth: number;
+  readonly path: readonly string[];
+  readonly lazyPlaceholder?: boolean;
+}
+
+export interface TreeVisibleRowsOptions {
+  readonly filterQuery?: string;
 }
 
 export type TreeStateAction =
@@ -66,6 +75,42 @@ export function treeNodeMatches(node: TreeNode, query: string): boolean {
     .some((value) => value.toLocaleLowerCase().includes(normalized));
 }
 
+export function visibleTreeRows(nodes: readonly TreeNode[], options: TreeVisibleRowsOptions = {}): readonly TreeVisibleRow[] {
+  const query = (options.filterQuery ?? '').trim().toLocaleLowerCase();
+  const rows: TreeVisibleRow[] = [];
+  for (const node of nodes) collectVisibleTreeRow(rows, node, 0, [], query);
+  return rows;
+}
+
+export function selectableTreeRows(rows: readonly TreeVisibleRow[]): readonly TreeVisibleRow[] {
+  return rows.filter((row) => row.node.disabled !== true && row.lazyPlaceholder !== true);
+}
+
+export function nextTreeRowId(
+  rows: readonly TreeVisibleRow[],
+  selected: string | undefined,
+  delta: number
+): string | undefined {
+  const selectable = selectableTreeRows(rows);
+  if (selectable.length === 0) return undefined;
+  const current = Math.max(0, selectable.findIndex((row) => row.node.id === selected));
+  return selectable[wrapIndex(current + delta, selectable.length)]?.node.id;
+}
+
+export function treeDisclosureAction(
+  node: TreeNode,
+  intent: 'toggle' | 'expand' | 'collapse'
+): TreeDisclosureAction | undefined {
+  if (!treeNodeCanDisclose(node)) return undefined;
+  if (intent === 'expand' && node.expanded === true) return undefined;
+  if (intent === 'collapse' && node.expanded !== true) return undefined;
+  return { kind: intent, id: node.id };
+}
+
+export function treeNodeCanDisclose(node: TreeNode): boolean {
+  return node.lazy === true || (node.children?.length ?? 0) > 0;
+}
+
 function reduceNode(node: TreeNode, action: TreeAction): TreeNode {
   const children = node.children?.map((child) => reduceNode(child, action));
   const base = children === undefined ? node : { ...node, children };
@@ -105,10 +150,59 @@ function reduceNode(node: TreeNode, action: TreeAction): TreeNode {
   }
 }
 
+function collectVisibleTreeRow(
+  rows: TreeVisibleRow[],
+  node: TreeNode,
+  depth: number,
+  parentPath: readonly string[],
+  query: string
+): boolean {
+  const path = [...parentPath, node.id];
+  const selfMatches = query.length === 0 || treeNodeMatches(node, query);
+  const descendantRows: TreeVisibleRow[] = [];
+  let descendantMatches = false;
+  for (const child of node.children ?? []) {
+    descendantMatches = collectVisibleTreeRow(descendantRows, child, depth + 1, path, query) || descendantMatches;
+  }
+  if (!selfMatches && !descendantMatches) return false;
+  rows.push({ node, depth, path });
+  if (query.length > 0) {
+    rows.push(...descendantRows);
+  } else if (node.expanded === true) {
+    if (node.lazy === true && (node.children === undefined || node.children.length === 0)) {
+      rows.push({
+        node: {
+          id: `${node.id}:lazy`,
+          label: lazyPlaceholderLabel(node),
+          disabled: true,
+          ...(node.lazyStatus === undefined ? {} : { lazyStatus: node.lazyStatus })
+        },
+        depth: depth + 1,
+        path: [...path, 'lazy'],
+        lazyPlaceholder: true
+      });
+    } else {
+      rows.push(...descendantRows);
+    }
+  }
+  return true;
+}
+
+function lazyPlaceholderLabel(node: TreeNode): string {
+  if (node.lazyStatus === 'error') return node.lazyMessage ?? 'Load failed';
+  if (node.lazyStatus === 'empty') return node.lazyMessage ?? 'No children';
+  return node.lazyMessage ?? 'Loading…';
+}
+
+function wrapIndex(index: number, length: number): number {
+  return ((index % length) + length) % length;
+}
+
 function lazySuccessNode(node: TreeNode, children: readonly TreeNode[]): TreeNode {
   return {
     id: node.id,
     label: node.label,
+    ...(node.description === undefined ? {} : { description: node.description }),
     ...(node.disabled === undefined ? {} : { disabled: node.disabled }),
     ...(node.icon === undefined ? {} : { icon: node.icon }),
     ...(node.metadata === undefined ? {} : { metadata: node.metadata }),

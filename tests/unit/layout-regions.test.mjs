@@ -27,6 +27,7 @@ import {
   overlay,
   row,
   splitPane,
+  stack,
   table,
   tabs,
   text,
@@ -145,6 +146,58 @@ test('splitPane content tracks use measured child width', () => {
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 8, height: 3 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 9, width: 12, height: 3 });
+});
+
+test('stack explicit sizes keep fixed chrome around fill content', () => {
+  const widget = stack([
+    text('Header', { id: 'header' }),
+    text('Body', { id: 'body' }),
+    text('Footer', { id: 'footer' })
+  ], {
+    id: 'vertical-shell',
+    sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }]
+  });
+
+  const layout = layoutWidget(widget, { columns: 20, rows: 6 });
+  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 20, rows: 6 }));
+
+  assert.deepEqual(layout.children.map((child) => child.bounds), [
+    { row: 1, column: 1, width: 20, height: 1 },
+    { row: 2, column: 1, width: 20, height: 4 },
+    { row: 6, column: 1, width: 20, height: 1 }
+  ]);
+  assert.equal(output.split('\n')[0], 'Header');
+  assert.equal(output.split('\n')[5], 'Footer');
+});
+
+test('row explicit sizes keep fixed sidebars around fill content', () => {
+  const widget = row([
+    text('Nav', { id: 'nav' }),
+    text('Main', { id: 'main' }),
+    text('Tools', { id: 'tools' })
+  ], {
+    id: 'horizontal-shell',
+    sizes: [{ kind: 'fixed', cells: 4 }, { kind: 'fill' }, { kind: 'content' }]
+  });
+
+  const layout = layoutWidget(widget, { columns: 16, rows: 2 });
+
+  assert.deepEqual(layout.children.map((child) => child.bounds), [
+    { row: 1, column: 1, width: 4, height: 2 },
+    { row: 1, column: 5, width: 7, height: 2 },
+    { row: 1, column: 12, width: 5, height: 2 }
+  ]);
+});
+
+test('stack and row reject size tracks that do not match child count', () => {
+  assert.throws(
+    () => stack([text('A'), text('B')], { sizes: [{ kind: 'fill' }] }),
+    /stack sizes length 1 must match child count 2/u
+  );
+  assert.throws(
+    () => row([text('A'), text('B')], { sizes: [{ kind: 'fill' }] }),
+    /row sizes length 1 must match child count 2/u
+  );
 });
 
 test('splitPane pressure keeps pane order and collapses gaps before clipping content', () => {
@@ -309,6 +362,34 @@ test('tabs keep active markers disabled targets and overflow visible without col
   assert.equal(frame.cells.find((cell) => cell.source?.itemId === 'alpha' && cell.source.label === 'marker.selected.close')?.text, ']');
 });
 
+test('tabs keep the selected tab visible when headers overflow', () => {
+  const frame = renderWidgetFrame(tabs({
+    id: 'tabs',
+    selected: 'gamma',
+    tabs: [
+      { id: 'alpha', label: 'Alpha', message: { kind: 'alpha' }, panel: text('Alpha panel') },
+      { id: 'beta', label: 'Beta', message: { kind: 'beta' }, panel: text('Beta panel') },
+      {
+        id: 'gamma',
+        label: 'Gamma',
+        badge: '2',
+        message: { kind: 'gamma' },
+        closeMessage: { kind: 'close-gamma' },
+        panel: text('Gamma panel')
+      },
+      { id: 'delta', label: 'Delta', message: { kind: 'delta' }, panel: text('Delta panel') }
+    ]
+  }), { columns: 15, rows: 3 }, { theme: noColorTheme });
+  const header = renderFramePlain(frame).split('\n')[0] ?? '';
+
+  assert.match(header, /…/u);
+  assert.match(header, /\[Gamma 2 ×\]/u);
+  assert.doesNotMatch(header, /Alpha/u);
+  assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['tabs:tab:gamma', 'tabs:tab:gamma:close']);
+  assert.equal(frame.cells.find((cell) => cell.source?.partKind === 'overflow')?.text, '…');
+  assert.equal(frame.accessibility.root.children?.[2]?.value, '2');
+});
+
 test('absolute clips child bounds without leaking outside its parent', () => {
   const widget = absolute(text('OVERFLOW', { id: 'absolute-text' }), {
     id: 'absolute-clip',
@@ -453,6 +534,37 @@ test('border model supports styled widget borders and borderless layout', () => 
 
   assert.deepEqual(borderlessLayout.children[0]?.bounds, { row: 1, column: 1, width: 8, height: 2 });
   assert.equal(renderFramePlain(borderlessFrame), 'flush');
+});
+
+test('surface chrome variant renders one-line bars without border chrome', () => {
+  const frame = renderWidgetFrame(surface(text('Menu', { id: 'menu-label' }), {
+    id: 'app-chrome',
+    variant: 'chrome',
+    padding: { left: 1, right: 1 }
+  }), { columns: 10, rows: 1 });
+  const output = renderFramePlain(frame);
+  const background = frame.cells.find((cell) =>
+    cell.source?.ownerKind === 'surface'
+    && cell.source.part === 'background'
+    && cell.style?.bg?.kind === 'theme'
+  );
+
+  assert.equal(output, ' Menu');
+  assert.equal(background?.style?.bg?.token, 'surface.chrome.background');
+  assert.equal(frame.cells.some((cell) => cell.source?.role === 'border'), false);
+});
+
+test('surface borders degrade in tiny regions to preserve child content', () => {
+  const widget = surface(text('Menu', { id: 'menu-label' }), {
+    id: 'tiny-raised',
+    variant: 'raised'
+  });
+  const layout = layoutWidget(widget, { columns: 10, rows: 1 });
+  const frame = renderWidgetFrame(widget, { columns: 10, rows: 1 });
+
+  assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 10, height: 1 });
+  assert.equal(renderFramePlain(frame), 'Menu');
+  assert.equal(frame.cells.some((cell) => cell.source?.role === 'border'), false);
 });
 
 test('shared border renderer clips titles and supports tiny ascii borders', () => {

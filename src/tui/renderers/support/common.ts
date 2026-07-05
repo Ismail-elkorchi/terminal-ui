@@ -17,6 +17,7 @@ export function widgetMessageHitTargets<TMessage>(
   suffix: string
 ): readonly HitTarget<TMessage>[] {
   if (bounds.width <= 0 || bounds.height <= 0) return [];
+  if (widget.props['disabled'] === true) return [];
   if (widget.props['message'] === undefined) return [];
   return [{
     id: `${widget.id ?? widget.kind}:${suffix}`,

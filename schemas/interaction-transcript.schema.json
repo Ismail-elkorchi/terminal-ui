@@ -326,6 +326,7 @@
       "properties": {
         "row": { "type": "integer", "minimum": 1 },
         "column": { "type": "integer", "minimum": 1 },
+        "style": { "$ref": "#/$defs/terminalStyle" },
         "source": { "$ref": "#/$defs/frameCellSource" }
       },
       "additionalProperties": false

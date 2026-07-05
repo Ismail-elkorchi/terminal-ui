@@ -1,3 +1,5 @@
+import type { RoutedPointerEvent } from './pointer-types.ts';
+
 export interface ScrollState {
   readonly offsetRow: number;
   readonly offsetColumn: number;
@@ -12,12 +14,40 @@ export interface ScrollState {
 export type ScrollAction =
   | { readonly kind: 'setContent'; readonly rows?: number; readonly columns?: number }
   | { readonly kind: 'setViewport'; readonly rows?: number; readonly columns?: number }
+  | { readonly kind: 'setOffset'; readonly rows?: number; readonly columns?: number }
   | { readonly kind: 'scrollLines'; readonly rows?: number; readonly columns?: number }
   | { readonly kind: 'scrollPages'; readonly rows?: number; readonly columns?: number }
   | { readonly kind: 'top' }
   | { readonly kind: 'bottom' }
   | { readonly kind: 'itemIntoView'; readonly index: number }
   | { readonly kind: 'setFollowTail'; readonly followTail: boolean };
+
+export type WidgetScrollEventSource = 'wheel' | 'pointerDown' | 'dragStart' | 'drag';
+export type WidgetScrollEventTarget =
+  | 'content'
+  | 'verticalScrollbarTrack'
+  | 'verticalScrollbarThumb'
+  | 'horizontalScrollbarTrack'
+  | 'horizontalScrollbarThumb';
+export type ScrollWheelUnit = 'line' | 'page';
+
+export interface ScrollWheelPolicy {
+  readonly unit?: ScrollWheelUnit;
+  readonly rows?: number;
+  readonly columns?: number;
+}
+
+export interface ScrollPolicy {
+  readonly wheel?: ScrollWheelPolicy;
+}
+
+export interface WidgetScrollEvent {
+  readonly action: ScrollAction;
+  readonly scroll: ScrollState;
+  readonly source: WidgetScrollEventSource;
+  readonly target: WidgetScrollEventTarget;
+  readonly pointer: RoutedPointerEvent;
+}
 
 export interface CreateScrollStateInput {
   readonly offsetRow?: number;
@@ -51,52 +81,70 @@ export function createScrollState(input: CreateScrollStateInput = {}): ScrollSta
 export function scrollReducer(state: ScrollState, action: ScrollAction): ScrollState {
   switch (action.kind) {
     case 'setContent':
-      return normalizeScrollState({
+      return preserveScrollIdentity(state, normalizeScrollState({
         ...state,
         contentRows: action.rows ?? state.contentRows,
         contentColumns: action.columns ?? state.contentColumns,
         offsetRow: state.followTail && action.rows !== undefined
           ? bottomOffset(action.rows, state.viewportRows)
           : state.offsetRow
-      });
+      }));
     case 'setViewport':
-      return normalizeScrollState({
+      return preserveScrollIdentity(state, normalizeScrollState({
         ...state,
         viewportRows: action.rows ?? state.viewportRows,
         viewportColumns: action.columns ?? state.viewportColumns
-      });
+      }));
+    case 'setOffset':
+      return preserveScrollIdentity(state, normalizeScrollState({
+        ...state,
+        offsetRow: action.rows ?? state.offsetRow,
+        offsetColumn: action.columns ?? state.offsetColumn,
+        followTail: action.rows === undefined ? state.followTail : false
+      }));
     case 'scrollLines':
-      return normalizeScrollState({
+      return preserveScrollIdentity(state, normalizeScrollState({
         ...state,
         offsetRow: state.offsetRow + (action.rows ?? 0),
         offsetColumn: state.offsetColumn + (action.columns ?? 0),
         followTail: action.rows === undefined || action.rows >= 0 ? state.followTail : false
-      });
+      }));
     case 'scrollPages':
-      return normalizeScrollState({
+      return preserveScrollIdentity(state, normalizeScrollState({
         ...state,
         offsetRow: state.offsetRow + (action.rows ?? 0) * Math.max(1, state.viewportRows),
         offsetColumn: state.offsetColumn + (action.columns ?? 0) * Math.max(1, state.viewportColumns),
         followTail: action.rows === undefined || action.rows >= 0 ? state.followTail : false
-      });
+      }));
     case 'top':
-      return normalizeScrollState({ ...state, offsetRow: 0, followTail: false });
+      return preserveScrollIdentity(state, normalizeScrollState({ ...state, offsetRow: 0, followTail: false }));
     case 'bottom':
-      return normalizeScrollState({ ...state, offsetRow: bottomOffset(state.contentRows, state.viewportRows), followTail: true });
+      return preserveScrollIdentity(state, normalizeScrollState({ ...state, offsetRow: bottomOffset(state.contentRows, state.viewportRows), followTail: true }));
     case 'itemIntoView':
-      return normalizeScrollState({
+      return preserveScrollIdentity(state, normalizeScrollState({
         ...state,
         offsetRow: centeredOffset(state.contentRows, state.viewportRows, action.index),
         selectedIndex: normalizeSelectedIndex(action.index, state.contentRows),
         followTail: false
-      });
+      }));
     case 'setFollowTail':
-      return normalizeScrollState({
+      return preserveScrollIdentity(state, normalizeScrollState({
         ...state,
         followTail: action.followTail,
         offsetRow: action.followTail ? bottomOffset(state.contentRows, state.viewportRows) : state.offsetRow
-      });
+      }));
   }
+}
+
+export function applyScrollEvent(state: ScrollState, event: WidgetScrollEvent): ScrollState {
+  const reconciled = normalizeScrollState({
+    ...state,
+    contentRows: event.scroll.contentRows,
+    contentColumns: event.scroll.contentColumns,
+    viewportRows: event.scroll.viewportRows,
+    viewportColumns: event.scroll.viewportColumns
+  });
+  return scrollReducer(reconciled, event.action);
 }
 
 export function visibleWindowFromScroll(state: ScrollState): ScrollVisibleWindow {
@@ -147,6 +195,21 @@ function bottomOffset(total: number, size: number): number {
 function normalizeSelectedIndex(index: number, total: number): number {
   if (total <= 0) return 0;
   return clamp(Math.floor(index), 0, total - 1);
+}
+
+function preserveScrollIdentity(previous: ScrollState, next: ScrollState): ScrollState {
+  return sameScrollState(previous, next) ? previous : next;
+}
+
+function sameScrollState(left: ScrollState, right: ScrollState): boolean {
+  return left.offsetRow === right.offsetRow
+    && left.offsetColumn === right.offsetColumn
+    && left.contentRows === right.contentRows
+    && left.contentColumns === right.contentColumns
+    && left.viewportRows === right.viewportRows
+    && left.viewportColumns === right.viewportColumns
+    && left.followTail === right.followTail
+    && left.selectedIndex === right.selectedIndex;
 }
 
 function nonNegativeInteger(value: number): number {

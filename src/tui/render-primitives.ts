@@ -53,6 +53,13 @@ export interface PadRenderLineOptions {
   readonly fill?: RenderSpan;
 }
 
+export type RenderClipMode = 'end' | 'middle';
+
+export interface ClipRenderSpansOptions {
+  readonly ellipsis?: string;
+  readonly mode?: RenderClipMode;
+}
+
 export function span(text: string, options: Omit<RenderSpan, 'text'> = {}): RenderSpan {
   return {
     text,
@@ -75,7 +82,7 @@ export function blockFromText(text: string, options: Omit<RenderSpan, 'text'> = 
 export function clipRenderSpans(
   spans: readonly RenderSpan[],
   maxCells: number,
-  options: { readonly ellipsis?: string } = {}
+  options: ClipRenderSpansOptions = {}
 ): readonly RenderSpan[] {
   if (maxCells < 0) throw new RangeError('maxCells must be non-negative.');
   if (maxCells === 0 || spans.length === 0) return [];
@@ -94,6 +101,9 @@ export function clipRenderSpans(
   const fittedEllipsis = ellipsis.length === 0 ? '' : clipTextCells(ellipsis, maxCells).text;
   const ellipsisCells = measureTextCells(fittedEllipsis).cells;
   const budget = Math.max(0, maxCells - ellipsisCells);
+  if (options.mode === 'middle') {
+    return middleClipSegments(segments, budget, fittedEllipsis);
+  }
   const clipped: { readonly text: string; readonly options: Omit<RenderSpan, 'text'> }[] = [];
   let used = 0;
   let ellipsisOptions: Omit<RenderSpan, 'text'> | undefined;
@@ -114,7 +124,7 @@ export function clipRenderSpans(
 export function clipRenderLine(
   renderLine: RenderLine,
   maxCells: number,
-  options: { readonly ellipsis?: string } = {}
+  options: ClipRenderSpansOptions = {}
 ): RenderLine {
   return line(clipRenderSpans(renderLine.spans, maxCells, options));
 }
@@ -266,6 +276,48 @@ function repeatFillSpan(fill: RenderSpan, cells: number): readonly RenderSpan[] 
     return [{ ...fill, text: ' '.repeat(cells) }];
   }
   return [{ ...fill, text: text.repeat(cells) }];
+}
+
+function middleClipSegments(
+  segments: readonly { readonly text: string; readonly cells: number; readonly options: Omit<RenderSpan, 'text'> }[],
+  budget: number,
+  fittedEllipsis: string
+): readonly RenderSpan[] {
+  const prefixBudget = Math.ceil(budget / 2);
+  const suffixBudget = Math.floor(budget / 2);
+  const prefix: { readonly text: string; readonly options: Omit<RenderSpan, 'text'> }[] = [];
+  const suffix: { readonly text: string; readonly options: Omit<RenderSpan, 'text'> }[] = [];
+  let prefixCells = 0;
+  let suffixCells = 0;
+  let prefixEnd = 0;
+  let suffixStart = segments.length;
+
+  for (let index = 0; index < segments.length; index += 1) {
+    const current = segments[index];
+    if (current === undefined || prefixCells + current.cells > prefixBudget) break;
+    prefix.push({ text: current.text, options: current.options });
+    prefixCells += current.cells;
+    prefixEnd = index + 1;
+  }
+
+  for (let index = segments.length - 1; index >= prefixEnd; index -= 1) {
+    const current = segments[index];
+    if (current === undefined || suffixCells + current.cells > suffixBudget) break;
+    suffix.unshift({ text: current.text, options: current.options });
+    suffixCells += current.cells;
+    suffixStart = index;
+  }
+
+  const ellipsisOptions = segments[prefixEnd]?.options
+    ?? segments[suffixStart - 1]?.options
+    ?? prefix.at(-1)?.options
+    ?? suffix.at(0)?.options
+    ?? {};
+  return compactSpans([
+    ...prefix,
+    ...(fittedEllipsis.length === 0 ? [] : [{ text: fittedEllipsis, options: ellipsisOptions }]),
+    ...suffix
+  ]);
 }
 
 function compactSpans(

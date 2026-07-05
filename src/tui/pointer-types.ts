@@ -13,15 +13,17 @@ export type PointerEventKind =
   | 'enter'
   | 'leave';
 
-export type PointerSource = 'mouse' | 'touch' | 'pen' | 'unknown';
-
 export interface RoutedPointerEvent {
   readonly kind: PointerEventKind;
-  readonly source: PointerSource;
+  readonly source: 'mouse';
   readonly row: number;
   readonly column: number;
   readonly localRow?: number;
   readonly localColumn?: number;
+  readonly pressRow?: number;
+  readonly pressColumn?: number;
+  readonly pressLocalRow?: number;
+  readonly pressLocalColumn?: number;
   readonly button: MouseButton;
   readonly modifiers: MouseModifiers;
   readonly deltaRows: number;

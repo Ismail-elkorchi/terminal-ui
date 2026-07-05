@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  applyScrollEvent,
   createScrollState,
   normalizeScrollState,
   scrollReducer,
@@ -45,6 +46,32 @@ test('scroll reducer supports line, page, top, and bottom actions', () => {
 
   state = scrollReducer(state, { kind: 'top' });
   assert.equal(state.offsetRow, 0);
+  assert.equal(state.followTail, false);
+});
+
+test('scroll reducer preserves identity for boundary no-op scrolls', () => {
+  const top = createScrollState({ contentRows: 100, viewportRows: 10 });
+  const stillTop = scrollReducer(top, { kind: 'scrollLines', rows: -1 });
+  assert.equal(stillTop, top);
+
+  const down = scrollReducer(top, { kind: 'scrollLines', rows: 1 });
+  assert.notEqual(down, top);
+  assert.equal(down.offsetRow, 1);
+
+  const backToTop = scrollReducer(down, { kind: 'scrollLines', rows: -1 });
+  assert.notEqual(backToTop, down);
+  assert.equal(backToTop.offsetRow, 0);
+});
+
+test('scroll reducer supports absolute offset actions for pointer scrollbars', () => {
+  let state = createScrollState({ contentRows: 100, contentColumns: 60, viewportRows: 10, viewportColumns: 20 });
+
+  state = scrollReducer(state, { kind: 'setOffset', rows: 40, columns: 12 });
+  assert.equal(state.offsetRow, 40);
+  assert.equal(state.offsetColumn, 12);
+
+  state = scrollReducer({ ...state, followTail: true }, { kind: 'setOffset', rows: 200 });
+  assert.equal(state.offsetRow, 90);
   assert.equal(state.followTail, false);
 });
 
@@ -92,4 +119,47 @@ test('normalizing a selected index clamps it to content bounds', () => {
     }).selectedIndex,
     2
   );
+});
+
+test('scroll events reconcile rendered viewport metrics before applying actions', () => {
+  const stale = createScrollState({
+    offsetRow: 79,
+    contentRows: 80,
+    viewportRows: 1
+  });
+
+  const next = applyScrollEvent(stale, {
+    action: { kind: 'scrollLines', rows: -3 },
+    scroll: createScrollState({
+      offsetRow: 74,
+      contentRows: 80,
+      viewportRows: 6
+    }),
+    source: 'wheel',
+    target: 'content',
+    pointer: {
+      kind: 'scroll',
+      source: 'mouse',
+      row: 1,
+      column: 1,
+      button: 'wheelUp',
+      modifiers: { shift: false, alt: false, ctrl: false },
+      deltaRows: -1,
+      deltaColumns: 0,
+      raw: {
+        kind: 'mouse',
+        sequence: '',
+        encoding: 'sgr',
+        action: 'wheel',
+        button: 'wheelUp',
+        row: 1,
+        column: 1,
+        rawCode: 64,
+        modifiers: { shift: false, alt: false, ctrl: false }
+      }
+    }
+  });
+
+  assert.equal(next.viewportRows, 6);
+  assert.equal(next.offsetRow, 71);
 });

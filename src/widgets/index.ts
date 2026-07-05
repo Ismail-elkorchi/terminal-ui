@@ -126,9 +126,14 @@ export {
   tableReducer
 } from './behavior/table.ts';
 export {
+  nextTreeRowId,
+  selectableTreeRows,
+  treeDisclosureAction,
+  treeNodeCanDisclose,
   treeNodeMatches,
   treeReducer,
-  treeStateReducer
+  treeStateReducer,
+  visibleTreeRows
 } from './behavior/tree.ts';
 export type {
   ActivityFeedAction,
@@ -179,5 +184,7 @@ export type {
   TreeAction,
   TreeRenameState,
   TreeState,
-  TreeStateAction
+  TreeStateAction,
+  TreeVisibleRow,
+  TreeVisibleRowsOptions
 } from './behavior/tree.ts';

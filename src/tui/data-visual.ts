@@ -9,6 +9,7 @@ export interface DataSourceOptions {
   readonly itemId?: string;
   readonly itemIndex?: number;
   readonly role?: FrameCellSource['role'];
+  readonly partKind?: string;
   readonly state?: string;
 }
 
@@ -61,6 +62,7 @@ export function dataSource(widget: Widget, label: string, options: DataSourceOpt
     family: 'data',
     role: options.role ?? 'text',
     part: label,
+    ...(options.partKind === undefined ? {} : { partKind: options.partKind }),
     ...(options.itemId === undefined ? {} : { itemId: options.itemId }),
     ...(options.itemIndex === undefined ? {} : { itemIndex: options.itemIndex }),
     ...(options.state === undefined ? {} : { state: options.state }),

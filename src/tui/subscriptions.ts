@@ -1,4 +1,5 @@
 import { createTuiContext } from './context.ts';
+import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalHost } from '../host/index.ts';
 import type {
   TuiContext,
@@ -23,6 +24,7 @@ export interface TuiSubscriptionManagerOptions<TState, TMessage> {
   readonly host: TerminalHost;
   readonly subscriptions?: TuiSubscriptions<TState, TMessage>;
   readonly dispatch: (message: TMessage, source: TuiMessageSource) => void;
+  readonly diagnostics?: readonly TerminalDiagnostic[];
 }
 
 export function createTuiSubscriptionManager<TState, TMessage>(
@@ -40,7 +42,8 @@ export function createTuiSubscriptionManager<TState, TMessage>(
         options.host,
         (message) => {
           options.dispatch(message, 'internal');
-        }
+        },
+        options.diagnostics ?? []
       );
       const requested = options.subscriptions(state, context);
       const requestedIds = new Set(requested.map((source) => source.id));

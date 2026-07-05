@@ -11,6 +11,7 @@ import type { Widget } from '../widgets/index.ts';
 
 export type SurfaceVariant =
   | 'neutral'
+  | 'chrome'
   | 'raised'
   | 'inset'
   | 'selected'
@@ -25,7 +26,7 @@ export interface SurfaceChromeOptions {
 }
 
 export function surfaceChildContentBounds(widget: Widget, bounds: Rect): Rect {
-  const border = surfaceBorder(widget);
+  const border = surfaceBorderForBounds(widget, bounds);
   return border === undefined || border.kind === 'none'
     ? bounds
     : {
@@ -44,7 +45,7 @@ export function drawSurfaceChrome(
   focused: boolean
 ): void {
   const variant = surfaceVariantFromValue(widget.props['variant']);
-  const border = surfaceBorder(widget, variant);
+  const border = surfaceBorderForBounds(widget, bounds, variant);
   drawSurfaceFrame(buffer, bounds, widget, theme, focused, {
     ...(variant === undefined ? {} : { variant }),
     ...(border === undefined ? {} : { border }),
@@ -60,14 +61,17 @@ export function drawSurfaceFrame(
   focused: boolean,
   options: SurfaceChromeOptions
 ): void {
-  const border = surfaceFocusedBorder(options.border, focused);
-  if (options.variant !== undefined) fillSurfaceBackground(buffer, bounds, surfaceBackgroundStyle(widget, options.variant));
+  const border = surfaceFocusedBorder(surfaceBorderWithinBounds(options.border, bounds), focused);
+  if (options.variant !== undefined) {
+    fillSurfaceBackground(buffer, bounds, surfaceBackgroundStyle(widget, options.variant, focused, border));
+  }
   if (options.shadow === true) drawSurfaceShadow(buffer, bounds);
   if (border !== undefined) drawBorder(buffer, bounds, border, theme);
 }
 
 function surfaceVariantFromValue(value: unknown): SurfaceVariant | undefined {
   return value === 'neutral'
+    || value === 'chrome'
     || value === 'raised'
     || value === 'inset'
     || value === 'selected'
@@ -81,8 +85,21 @@ function surfaceVariantFromValue(value: unknown): SurfaceVariant | undefined {
 function surfaceBorder(widget: Widget, variant = surfaceVariantFromValue(widget.props['variant'])): BorderStyle | undefined {
   const explicit = borderStyleFromValue(widget.props['border']);
   if (explicit !== undefined) return surfaceBorderStyle(widget, surfaceTitledBorder(widget, explicit), variant);
-  if (variant === undefined || variant === 'neutral') return undefined;
+  if (variant === undefined || variant === 'neutral' || variant === 'chrome') return undefined;
   return surfaceBorderStyle(widget, surfaceTitledBorder(widget, { kind: 'single' }), variant);
+}
+
+function surfaceBorderForBounds(
+  widget: Widget,
+  bounds: Rect,
+  variant = surfaceVariantFromValue(widget.props['variant'])
+): BorderStyle | undefined {
+  return surfaceBorderWithinBounds(surfaceBorder(widget, variant), bounds);
+}
+
+function surfaceBorderWithinBounds(border: BorderStyle | undefined, bounds: Rect): BorderStyle | undefined {
+  if (border === undefined || border.kind === 'none') return border;
+  return bounds.width >= 3 && bounds.height >= 3 ? border : undefined;
 }
 
 function surfaceFocusedBorder(border: BorderStyle | undefined, focused: boolean): BorderStyle | undefined {
@@ -110,13 +127,36 @@ function surfaceBorderStyle(widget: Widget, border: BorderStyle, variant: Surfac
   return style === undefined ? border : { ...border, style };
 }
 
-export function surfaceBackgroundStyle(widget: Widget, variant: SurfaceVariant): TerminalStyle {
+export function surfaceBackgroundStyle(
+  widget: Widget,
+  variant: SurfaceVariant,
+  focused = false,
+  border?: BorderStyle
+): TerminalStyle {
   const base = { bg: { kind: 'theme', token: surfaceBackgroundToken(variant) } } satisfies TerminalStyle;
+  const focusedBase = focused && !surfaceDisabled(widget) && (border === undefined || border.kind === 'none')
+    ? { ...base, bg: { kind: 'theme' as const, token: 'focus.background' } }
+    : base;
+  const state = surfaceDisabled(widget)
+    ? 'disabled'
+    : focused
+      ? 'focused'
+      : surfaceVisualStateFromValue(widget.props['visualState']);
   return resolveWidgetStyle(widget, {
     slot: 'root',
-    base,
-    ...(surfaceDisabled(widget) ? { state: 'disabled' } : {})
-  }) ?? base;
+    base: focusedBase,
+    ...(state === undefined ? {} : { state })
+  }) ?? focusedBase;
+}
+
+function surfaceVisualStateFromValue(value: unknown): 'active' | 'selected' | 'error' | 'warning' | 'success' | undefined {
+  return value === 'active'
+    || value === 'selected'
+    || value === 'error'
+    || value === 'warning'
+    || value === 'success'
+    ? value
+    : undefined;
 }
 
 function surfaceTitledBorder(widget: Widget, border: BorderStyle): BorderStyle {
@@ -174,6 +214,8 @@ function surfaceBackgroundToken(variant: SurfaceVariant): ThemeToken {
   switch (variant) {
     case 'neutral':
       return 'surface.background';
+    case 'chrome':
+      return 'surface.chrome.background';
     case 'raised':
       return 'surface.raised.background';
     case 'inset':
@@ -193,6 +235,8 @@ function surfaceBorderToken(variant: SurfaceVariant): ThemeToken {
   switch (variant) {
     case 'neutral':
       return 'surface.border';
+    case 'chrome':
+      return 'surface.chrome.border';
     case 'raised':
       return 'surface.raised.border';
     case 'inset':

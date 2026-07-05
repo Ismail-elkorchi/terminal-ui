@@ -143,7 +143,7 @@ export function measureBuiltinWidget(
     case 'activityFeed':
       return measureBlock(activityFeedBlock(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
     case 'commandBar':
-      return measureBlock(commandBarBlock(widget, intrinsicBounds(bounds).height, theme));
+      return measureBlock(commandBarBlock(widget, intrinsicBounds(bounds), theme));
     case 'palette':
       return measureBlock(paletteBlock(widget, intrinsicBounds(bounds).height, theme));
     case 'form':

@@ -6,6 +6,8 @@ export const tokyoNightThemeDefinition = themePackDefinition('tokyo-night', {
   'surface.background': rgb(22, 22, 30),
   'surface.border': rgb(65, 72, 104),
   'surface.title': rgb(125, 207, 255),
+  'surface.chrome.background': rgb(31, 35, 53),
+  'surface.chrome.border': rgb(65, 72, 104),
   'surface.raised.background': rgb(31, 35, 53),
   'surface.raised.border': rgb(122, 162, 247),
   'surface.inset.background': rgb(15, 15, 22),

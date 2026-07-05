@@ -66,6 +66,7 @@ export async function runTui<TState, TMessage>(
         capabilities: session.capabilities,
         bracketedPaste: setup.applied.some((item) => item.kind === 'bracketedPaste' && item.enabled)
       },
+      diagnostics: setupDiagnostics,
       ...(transcript === undefined ? {} : { transcript })
     });
     await runtime.start();

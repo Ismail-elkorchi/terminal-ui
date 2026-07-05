@@ -7,6 +7,8 @@ export const catppuccinThemeDefinition = themePackDefinition('catppuccin', {
   'surface.foreground': rgb(205, 214, 244),
   'surface.border': rgb(88, 91, 112),
   'surface.title': rgb(137, 180, 250),
+  'surface.chrome.background': rgb(30, 30, 46),
+  'surface.chrome.border': rgb(88, 91, 112),
   'surface.raised.background': rgb(30, 30, 46),
   'surface.raised.border': rgb(116, 119, 141),
   'surface.inset.background': rgb(17, 17, 27),

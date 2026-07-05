@@ -601,7 +601,8 @@ function appendLog(state, line) {
 
 function completionPreview(value) {
   if (value.length === 0) return undefined;
-  return commandSuggestions.find((suggestion) => suggestion.value.startsWith(value) && suggestion.value !== value)?.value;
+  const suggestion = commandSuggestions.find((item) => item.value.startsWith(value) && item.value !== value);
+  return suggestion === undefined ? undefined : suggestion.value.slice(value.length);
 }
 
 function ticketStatus(ticket) {
@@ -654,7 +655,7 @@ export async function runScriptedWorkspace() {
     const commandAfterPaletteAccept = runtime.getState().command.input.text;
     await runtime.handleInput(keyEvent('enter'));
 
-    const treeTarget = targetById(runtime, 'workspace-tree:queue:review');
+    const treeTarget = targetById(runtime, 'workspace-tree:queue:review:body');
     await click(runtime, treeTarget);
     const tableHitTargets = runtime.frame()?.hitTargets?.filter((target) => target.id.startsWith('ticket-table')).length ?? 0;
     const tableTarget = targetByPrefix(runtime, 'ticket-table:row:0');

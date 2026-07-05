@@ -54,7 +54,7 @@ export const defaultSessionProtocolPolicy: SessionProtocolPolicy = {
   bracketedPaste: 'optional',
   focusReporting: 'optional',
   cursorVisibility: { state: 'hide', requirement: 'optional' },
-  mouseReporting: { mode: 'click', requirement: 'optional' }
+  mouseReporting: { mode: 'drag', requirement: 'optional' }
 };
 
 export function createSessionProtocolPlan(
@@ -91,7 +91,7 @@ export async function applySessionProtocolPolicy(
       diagnostics.push(...(result.diagnostics ?? []));
       continue;
     }
-    diagnostics.push(result.error, ...(result.diagnostics ?? []));
+    diagnostics.push(operationFailureDiagnostic(session, item, result.error), ...(result.diagnostics ?? []));
     skipped.push(item);
     if (item.requirement === 'required') ok = false;
   }
@@ -134,6 +134,25 @@ function skippedDiagnostic(
     severity: 'info',
     target: session.id,
     data: {
+      operation: item.kind,
+      requirement: item.requirement,
+      target: String(item.target)
+    }
+  });
+}
+
+function operationFailureDiagnostic(
+  session: TerminalSession,
+  item: SessionProtocolOperation,
+  error: TerminalDiagnostic
+): TerminalDiagnostic {
+  return diagnostic(error.code, error.message, {
+    severity: error.severity,
+    target: error.target ?? session.id,
+    ...(error.cause === undefined ? {} : { cause: error.cause }),
+    ...(error.hint === undefined ? {} : { hint: error.hint }),
+    data: {
+      ...(error.data ?? {}),
       operation: item.kind,
       requirement: item.requirement,
       target: String(item.target)

@@ -105,6 +105,23 @@ test('structuredBlock aligns fields and wraps long body text predictably', () =>
   );
 });
 
+test('structuredBlock middle-clips compact summaries and fields', () => {
+  const frame = renderWidgetFrame(structuredBlock({
+    id: 'path-card',
+    title: 'Selected file',
+    summary: '/home/ismail-el-korchi/Documents/Projects/terminal-ui/src/accessibility/snapshot.ts',
+    fields: [
+      { label: 'path', value: '/home/ismail-el-korchi/Documents/Projects/terminal-ui/src/accessibility/snapshot.ts' }
+    ],
+    body: 'body text still wraps normally'
+  }), { columns: 34, rows: 6 });
+
+  assert.equal(
+    renderFramePlain(frame),
+    '[-] Selected file\n/home/ismail-el-k…lity/snapshot.ts\npath: /home/ismai…lity/snapshot.ts\nbody text still wraps normally'
+  );
+});
+
 test('activityFeed renders selected visible blocks and accessible options', () => {
   const frame = renderWidgetFrame(activityFeed({
     id: 'feed',

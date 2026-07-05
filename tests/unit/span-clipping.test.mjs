@@ -34,6 +34,20 @@ test('clipRenderSpans clips by cell width while preserving style link and source
   ]);
 });
 
+test('clipRenderSpans supports middle ellipsis while preserving edge metadata', () => {
+  const clipped = clipRenderSpans([
+    { text: 'src/', style: red, source: { ownerId: 'prefix', ownerKind: 'token' } },
+    { text: 'accessibility/', style: blue, source: { ownerId: 'middle', ownerKind: 'token' } },
+    { text: 'snapshot.ts', style: red, source: { ownerId: 'suffix', ownerKind: 'token' } }
+  ], 12, { ellipsis: '…', mode: 'middle' });
+
+  assert.deepEqual(clipped, [
+    { text: 'src/', style: red, source: { ownerId: 'prefix', ownerKind: 'token' } },
+    { text: 'ac…', style: blue, source: { ownerId: 'middle', ownerKind: 'token' } },
+    { text: 'ot.ts', style: red, source: { ownerId: 'suffix', ownerKind: 'token' } }
+  ]);
+});
+
 test('wrapRenderSpans wraps by cell width while preserving style link and source', () => {
   const wrapped = wrapRenderSpans([
     { text: 'ab', style: red, link: { href: 'https://example.test/a' }, source: { ownerId: 'a', ownerKind: 'token' } },

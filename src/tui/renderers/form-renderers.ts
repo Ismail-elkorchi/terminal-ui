@@ -45,7 +45,10 @@ import {
   toggleSwitchAccessibleBase,
   toggleSwitchBlock
 } from '../form-widgets.ts';
+import { singleLineInputPointerOffset } from '../input-visual.ts';
 import { splitTracks } from '../regions.ts';
+import { textPointerHitTargets, textPointerMessageFactory } from '../text-pointer.ts';
+import { stringify } from '../widget-props.ts';
 import { writeRenderBlock } from './support/block.ts';
 import { focusTarget, widgetMessageHitTargets } from './support/common.ts';
 import { fillLayoutSizes, layoutFlowOptions } from './support/layout.ts';
@@ -185,7 +188,23 @@ export const formRenderers = {
     },
     accessibility: ({ widget, id, focused }) => textInputAccessibleBase(widget, id, focused),
     focusTargets: ({ widget, bounds }) => [focusTarget(bounds, textInputCursor(widget, bounds))],
-    hitTargets: ({ widget, bounds }) => widgetMessageHitTargets(widget, bounds, 'input')
+    hitTargets: ({ widget, bounds, theme }) => [
+      ...widgetMessageHitTargets(widget, bounds, 'input'),
+      ...(widget.props['disabled'] === true
+        ? []
+        : textPointerHitTargets({
+            id: `${widget.id ?? widget.kind}:text`,
+            bounds,
+            toMessage: textPointerMessageFactory(widget),
+            offsetAt: (event) => singleLineInputPointerOffset({
+              widget,
+              bounds,
+              theme,
+              value: stringify(widget.props['value']),
+              placeholder: stringify(widget.props['placeholder'])
+            }, event)
+          }))
+    ]
   },
   numberInput: {
     render: ({ widget, node, buffer, focused, theme }) => {

@@ -44,16 +44,23 @@ export function menuBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): R
 }
 
 export function contextMenuBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
-  const title = clean(stringify(widget.props['title']));
-  const lines: RenderLine[] = [];
-  if (title.length > 0) {
-    lines.push(menuTitleLine(widget, title, bounds.width));
-  }
+  const lines: RenderLine[] = [...contextMenuTitleBlock(widget, bounds).lines];
   lines.push(...menuBlock(widget, {
     ...bounds,
     height: Math.max(0, bounds.height - lines.length)
   }, theme).lines);
   return { lines: lines.slice(0, Math.max(0, bounds.height)) };
+}
+
+export function contextMenuTitleBlock(widget: Widget, bounds: Rect): RenderBlock {
+  const title = clean(stringify(widget.props['title']));
+  return title.length > 0 && bounds.height > 0
+    ? { lines: [menuTitleLine(widget, title, bounds.width)] }
+    : { lines: [] };
+}
+
+export function contextMenuTitleRows(widget: Widget): number {
+  return clean(stringify(widget.props['title'])).length > 0 ? 1 : 0;
 }
 
 export function menuBarBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {

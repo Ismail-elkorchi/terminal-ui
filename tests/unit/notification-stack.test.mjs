@@ -7,9 +7,10 @@ import { highContrastTheme } from '../../dist/theme/index.js';
 import {
   placeNotificationStack,
   renderFramePlain,
+  renderWidgetRegions,
   renderWidgetFrame
 } from '../../dist/tui/index.js';
-import { notificationStack } from '../../dist/widgets/index.js';
+import { grid, notificationStack, text } from '../../dist/widgets/index.js';
 
 test('notificationStack renders stacked status cards with semantic styles and accessibility', () => {
   const frame = renderWidgetFrame(notificationStack({
@@ -63,6 +64,23 @@ test('notificationStack renders stacked status cards with semantic styles and ac
   assert.match(frame.accessibility.root.children?.[0]?.description ?? '', /paused · ttl 5s/u);
 });
 
+test('notificationStack middle-clips compact title and message lines', () => {
+  const frame = renderWidgetFrame(notificationStack({
+    id: 'notices',
+    items: [{
+      id: 'long-path',
+      title: 'Opened /home/ismail-el-korchi/Documents/Projects/terminal-ui/src/accessibility/snapshot.ts',
+      message: 'Stored /home/ismail-el-korchi/Documents/Projects/terminal-ui/src/accessibility/snapshot.ts',
+      tone: 'success'
+    }],
+    maxWidth: 32
+  }), { columns: 42, rows: 8 });
+  const output = renderFramePlain(frame);
+
+  assert.match(output, /Opened \/home\/is…ty\/snapshot\.ts/u);
+  assert.match(output, /Stored \/home\/is…ty\/snapshot\.ts/u);
+});
+
 test('notificationStack creates keyboard dismiss mappings for the selected visible item', () => {
   const widget = notificationStack({
     items: [
@@ -111,6 +129,65 @@ test('placeNotificationStack supports top, bottom, and centered placement preset
     column: 31,
     width: 20,
     height: 6
+  });
+});
+
+test('notificationStack is constrained by its layout bounds', () => {
+  const frame = renderWidgetFrame(grid({
+    areas: `
+      main notices
+    `,
+    columns: [{ kind: 'fill' }, { kind: 'fixed', cells: 24 }],
+    rows: [{ kind: 'fill' }],
+    children: {
+      main: text('Main content'),
+      notices: notificationStack({
+        id: 'notices',
+        items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
+        maxVisible: 1,
+        maxWidth: 22
+      })
+    }
+  }), { columns: 60, rows: 12 });
+  const notificationCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'notificationStack');
+
+  assert.ok(notificationCells.length > 0);
+  assert.equal(notificationCells.every((cell) => cell.column >= 36), true);
+  assert.match(renderFramePlain(frame), /Saved/u);
+});
+
+test('notificationStack skips cards when bounds cannot fit a viable card', () => {
+  const frame = renderWidgetFrame(notificationStack({
+    id: 'notices',
+    items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
+    maxVisible: 1,
+    maxWidth: 24
+  }), { columns: 28, rows: 2 });
+  const notificationCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'notificationStack');
+
+  assert.equal(notificationCells.length, 0);
+  assert.doesNotMatch(renderFramePlain(frame), /Saved/u);
+});
+
+test('notificationStack exposes dismiss hit targets for placed cards', () => {
+  const widget = notificationStack({
+    id: 'notices',
+    items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
+    maxVisible: 1,
+    maxWidth: 24,
+    toDismissMessage: (item) => ({ kind: 'dismiss', id: item.id })
+  });
+  const frame = renderWidgetFrame(widget, { columns: 36, rows: 8 });
+  const regions = renderWidgetRegions(widget, { columns: 36, rows: 8 });
+
+  const target = frame.hitTargets.find((candidate) => candidate.id === 'notices:notification:saved');
+  const routedTarget = regions.flatMap((region) => region.hitTargets).find((candidate) => candidate.id === 'notices:notification:saved');
+
+  assert.ok(target);
+  assert.ok(routedTarget);
+  assert.deepEqual(routedTarget.message({ kind: 'click', row: target.bounds.row, column: target.bounds.column, button: 'left' }), {
+    kind: 'dismiss',
+    id: 'saved'
   });
 });
 

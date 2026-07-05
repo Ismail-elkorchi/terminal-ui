@@ -43,6 +43,7 @@ import {
 import {
   drawScrollbars,
   scrollbackScrollbarState,
+  scrollbarHitTargetsForWidget,
   scrollbarsForWidget,
   tableScrollbarState,
   treeScrollbarState
@@ -96,44 +97,59 @@ export const dataRenderers = {
   },
   list: {
     render: ({ widget, node, buffer, theme }) => {
-      const scrollbars = scrollbarsForWidget(widget, node.bounds, listScrollbarState(widget, node.bounds), 'vertical');
+      const scrollbars = scrollbarsForWidget(widget, node.bounds, (contentBounds) => listScrollbarState(widget, contentBounds), 'vertical');
       writeRenderBlock(buffer, scrollbars.contentBounds, listBlock(widget, scrollbars.contentBounds.height, theme));
-      drawScrollbars(buffer, scrollbars, theme);
+      drawScrollbars(buffer, widget, scrollbars, theme);
     },
     accessibility: ({ widget, node, id, focused }) => ({
       ...listAccessibleNode(widget, node, id, focused),
       children: listAccessibleChildren(widget, node)
     }),
     focusTargets: ({ widget, bounds }) => [focusTarget(bounds, listCursor(widget, bounds))],
-    hitTargets: ({ widget, bounds }) => listHitTargets(widget, bounds)
+    hitTargets: ({ widget, bounds }) => {
+      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => listScrollbarState(widget, contentBounds), 'vertical');
+      return [
+        ...listHitTargets(widget, scrollbars.contentBounds),
+        ...scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state)
+      ];
+    }
   },
   table: {
     render: ({ widget, node, buffer, theme }) => {
-      const scrollbars = scrollbarsForWidget(widget, node.bounds, tableScrollbarState(widget, node.bounds), 'both');
+      const scrollbars = scrollbarsForWidget(widget, node.bounds, (contentBounds) => tableScrollbarState(widget, contentBounds), 'both');
       writeRenderBlock(buffer, scrollbars.contentBounds, tableBlock(widget, scrollbars.contentBounds, theme));
-      drawScrollbars(buffer, scrollbars, theme);
+      drawScrollbars(buffer, widget, scrollbars, theme);
     },
     accessibility: ({ widget, node, id, focused }) => ({
       ...tableAccessibleBase(widget, node.bounds, id, focused),
       children: tableAccessibleChildren(widget, node.bounds)
     }),
     hitTargets: ({ widget, bounds }) => {
-      const scrollbars = scrollbarsForWidget(widget, bounds, tableScrollbarState(widget, bounds), 'both');
-      return tableHitTargets(widget, scrollbars.contentBounds);
+      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => tableScrollbarState(widget, contentBounds), 'both');
+      return [
+        ...tableHitTargets(widget, scrollbars.contentBounds),
+        ...scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state)
+      ];
     }
   },
   tree: {
     render: ({ widget, node, buffer, theme }) => {
-      const scrollbars = scrollbarsForWidget(widget, node.bounds, treeScrollbarState(widget, node.bounds), 'vertical');
+      const scrollbars = scrollbarsForWidget(widget, node.bounds, (contentBounds) => treeScrollbarState(widget, contentBounds), 'vertical');
       writeRenderBlock(buffer, scrollbars.contentBounds, treeBlock(widget, scrollbars.contentBounds, theme));
-      drawScrollbars(buffer, scrollbars, theme);
+      drawScrollbars(buffer, widget, scrollbars, theme);
     },
     accessibility: ({ widget, node, id, focused }) => ({
       ...treeAccessibleBase(widget, node.bounds, id, focused),
       children: treeAccessibleChildren(widget, node.bounds)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => treeHitTargets(widget, bounds)
+    hitTargets: ({ widget, bounds }) => {
+      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => treeScrollbarState(widget, contentBounds), 'vertical');
+      return [
+        ...treeHitTargets(widget, scrollbars.contentBounds),
+        ...scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state)
+      ];
+    }
   },
   paginator: {
     render: ({ widget, node, buffer }) => {
@@ -143,14 +159,18 @@ export const dataRenderers = {
   },
   scrollback: {
     render: ({ widget, node, buffer, theme }) => {
-      const scrollbars = scrollbarsForWidget(widget, node.bounds, scrollbackScrollbarState(widget, node), 'vertical');
+      const scrollbars = scrollbarsForWidget(widget, node.bounds, (contentBounds) => scrollbackScrollbarState(widget, { bounds: contentBounds }), 'vertical');
       writeRenderBlock(buffer, scrollbars.contentBounds, scrollbackBlock(widget, { ...node, bounds: scrollbars.contentBounds }));
-      drawScrollbars(buffer, scrollbars, theme);
+      drawScrollbars(buffer, widget, scrollbars, theme);
     },
     accessibility: ({ widget, node, id }) => ({
       ...scrollbackAccessibleBase(widget, node, id),
       children: scrollbackAccessibleChildren(widget, node)
-    })
+    }),
+    hitTargets: ({ widget, bounds }) => {
+      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => scrollbackScrollbarState(widget, { bounds: contentBounds }), 'vertical');
+      return scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state);
+    }
   },
   structuredBlock: {
     render: ({ widget, node, buffer, theme }) => {

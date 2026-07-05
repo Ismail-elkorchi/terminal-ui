@@ -61,7 +61,6 @@ import type {
   BarChartWidgetOptions,
   ChartWidgetOptions,
   WidgetKeyMap,
-  WidgetKind,
   WidgetLayerOptions,
   WidgetStyleSlots,
   WidgetInputMap,
@@ -102,11 +101,33 @@ export function richText<TMessage>(options: RichTextWidgetOptions<TMessage>): Wi
 }
 
 export function stack<TMessage>(children: WidgetChildren<TMessage>, options: StackWidgetOptions<TMessage> = {}): Widget<TMessage> {
-  return widget('stack', children, options);
+  const childList = widgetChildren(children);
+  assertSizeTrackCount('stack', options.sizes, childList.length);
+  return {
+    ...optionalId(options.id),
+    kind: 'stack',
+    props: {
+      ...(options.sizes === undefined ? {} : { sizes: options.sizes }),
+      ...layoutProps(options)
+    },
+    children: childList,
+    ...interactionOptions(options)
+  };
 }
 
 export function row<TMessage>(children: WidgetChildren<TMessage>, options: RowWidgetOptions<TMessage> = {}): Widget<TMessage> {
-  return widget('row', children, options);
+  const childList = widgetChildren(children);
+  assertSizeTrackCount('row', options.sizes, childList.length);
+  return {
+    ...optionalId(options.id),
+    kind: 'row',
+    props: {
+      ...(options.sizes === undefined ? {} : { sizes: options.sizes }),
+      ...layoutProps(options)
+    },
+    children: childList,
+    ...interactionOptions(options)
+  };
 }
 
 export function list<TValue, TMessage>(options: ListWidgetOptions<TValue, TMessage>): Widget<TMessage> {
@@ -120,6 +141,8 @@ export function list<TValue, TMessage>(options: ListWidgetOptions<TValue, TMessa
       ...(options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+      ...(options.toScrollMessage === undefined ? {} : { toScrollMessage: options.toScrollMessage }),
       ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -142,6 +165,8 @@ export function table<TMessage>(options: TableWidgetOptions<TMessage>): Widget<T
       ...(options.selectedCell === undefined ? {} : { selectedCell: options.selectedCell }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+      ...(options.toScrollMessage === undefined ? {} : { toScrollMessage: options.toScrollMessage }),
       ...(options.stickyHeader === undefined ? {} : { stickyHeader: options.stickyHeader }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
       ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage })
@@ -164,8 +189,11 @@ export function tree<TMessage>(options: TreeWidgetOptions<TMessage>): Widget<TMe
       ...(options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+      ...(options.toScrollMessage === undefined ? {} : { toScrollMessage: options.toScrollMessage }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
-      ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage })
+      ...(options.toMessage === undefined ? {} : { toMessage: options.toMessage }),
+      ...(options.toDisclosureMessage === undefined ? {} : { toDisclosureMessage: options.toDisclosureMessage })
     },
     ...interactionOptions(options)
   };
@@ -192,12 +220,19 @@ export function textArea<TMessage>(options: TextAreaWidgetOptions<TMessage> = {}
       value: options.value ?? '',
       ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
       ...(options.selection === undefined ? {} : { selection: options.selection }),
+      ...(options.highlights === undefined ? {} : { highlights: options.highlights }),
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
+      ...(options.lineNumbers === undefined ? {} : { lineNumbers: options.lineNumbers }),
+      ...(options.activeLine === undefined ? {} : { activeLine: options.activeLine }),
+      ...(options.wrap === undefined ? {} : { wrap: options.wrap }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
-      ...(options.error === undefined ? {} : { error: options.error })
+      ...(options.error === undefined ? {} : { error: options.error }),
+      ...(options.toScrollMessage === undefined ? {} : { toScrollMessage: options.toScrollMessage }),
+      ...(options.toTextPointerMessage === undefined ? {} : { toTextPointerMessage: options.toTextPointerMessage })
     },
     ...interactionOptions(options)
   };
@@ -277,6 +312,7 @@ export function checkbox<TMessage>(options: CheckboxWidgetOptions<TMessage>): Wi
       label: options.label,
       checked: options.checked,
       ...(options.message === undefined ? {} : { message: options.message }),
+      ...(options.toTextPointerMessage === undefined ? {} : { toTextPointerMessage: options.toTextPointerMessage }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
@@ -457,6 +493,7 @@ export function textInput<TMessage>(options: TextInputWidgetOptions<TMessage> = 
       ...(options.selection === undefined ? {} : { selection: options.selection }),
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
       ...(options.message === undefined ? {} : { message: options.message }),
+      ...(options.toTextPointerMessage === undefined ? {} : { toTextPointerMessage: options.toTextPointerMessage }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
@@ -499,7 +536,9 @@ export function menu<TMessage>(options: MenuWidgetOptions<TMessage>): Widget<TMe
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
-      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar })
+      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+      ...(options.toScrollMessage === undefined ? {} : { toScrollMessage: options.toScrollMessage })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionOptions({
@@ -540,7 +579,9 @@ export function contextMenu<TMessage>(options: ContextMenuWidgetOptions<TMessage
       ...(options.title === undefined ? {} : { title: options.title }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
-      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar })
+      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+      ...(options.toScrollMessage === undefined ? {} : { toScrollMessage: options.toScrollMessage })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionOptions({
@@ -622,7 +663,8 @@ export function notificationStack<TMessage>(options: NotificationStackWidgetOpti
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.placement === undefined ? {} : { placement: options.placement }),
       ...(options.maxVisible === undefined ? {} : { maxVisible: options.maxVisible }),
-      ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth })
+      ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
+      ...(options.toDismissMessage === undefined ? {} : { toDismissMessage: options.toDismissMessage })
     },
     ...interactionOptions({
       keyMap: mergeKeyMaps(
@@ -659,6 +701,7 @@ export function surface<TMessage>(child: Widget<TMessage>, options: SurfaceWidge
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.variant === undefined ? {} : { variant: options.variant }),
+      ...(options.visualState === undefined ? {} : { visualState: options.visualState }),
       ...(options.border === undefined ? {} : { border: options.border }),
       ...(options.shadow === undefined ? {} : { shadow: options.shadow }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
@@ -869,6 +912,8 @@ export function viewport<TMessage>(child: Widget<TMessage>, options: ViewportWid
       ...(options.contentRows === undefined ? {} : { contentRows: options.contentRows }),
       ...(options.contentColumns === undefined ? {} : { contentColumns: options.contentColumns }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+      ...(options.toScrollMessage === undefined ? {} : { toScrollMessage: options.toScrollMessage }),
       ...layoutProps(options)
     },
     children: [child],
@@ -884,6 +929,8 @@ export function scrollback<TMessage>(options: ScrollbackWidgetOptions<TMessage>)
       items: options.items,
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+      ...(options.toScrollMessage === undefined ? {} : { toScrollMessage: options.toScrollMessage }),
       ...(options.wrap === undefined ? {} : { wrap: options.wrap }),
       ...(options.searchQuery === undefined ? {} : { searchQuery: options.searchQuery }),
       ...(options.selectedRange === undefined ? {} : { selectedRange: options.selectedRange })
@@ -938,7 +985,9 @@ export function commandBar<TMessage>(options: CommandBarWidgetOptions<TMessage> 
       ...(options.matchQuery === undefined ? {} : { matchQuery: options.matchQuery }),
       ...(options.suggestions === undefined ? {} : { suggestions: options.suggestions }),
       ...(options.selectedSuggestion === undefined ? {} : { selectedSuggestion: options.selectedSuggestion }),
-      ...(options.historyIndex === undefined ? {} : { historyIndex: options.historyIndex })
+      ...(options.historyIndex === undefined ? {} : { historyIndex: options.historyIndex }),
+      ...(options.display === undefined ? {} : { display: options.display }),
+      ...(options.toTextPointerMessage === undefined ? {} : { toTextPointerMessage: options.toTextPointerMessage })
     },
     ...interactionOptions(options)
   };
@@ -957,6 +1006,8 @@ export function palette<TValue, TMessage>(options: PaletteWidgetOptions<TValue, 
       ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
+      ...(options.toScrollMessage === undefined ? {} : { toScrollMessage: options.toScrollMessage }),
       ...(options.maxVisible === undefined ? {} : { maxVisible: options.maxVisible }),
       ...(options.helpText === undefined ? {} : { helpText: options.helpText }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText })
@@ -1048,7 +1099,9 @@ export function tabs<TMessage>(options: TabsWidgetOptions<TMessage>): Widget<TMe
         label: tab.label,
         ...(tab.description === undefined ? {} : { description: tab.description }),
         ...(tab.disabled === undefined ? {} : { disabled: tab.disabled }),
-        ...(tab.message === undefined ? {} : { message: tab.message })
+        ...(tab.message === undefined ? {} : { message: tab.message }),
+        ...(tab.badge === undefined ? {} : { badge: tab.badge }),
+        ...(tab.closeMessage === undefined ? {} : { closeMessage: tab.closeMessage })
       })),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...layoutProps(options)
@@ -1101,37 +1154,17 @@ export function custom<TMessage>(options: CustomWidgetOptions<TMessage>): Widget
   };
 }
 
-function widget<TMessage>(
-  kind: WidgetKind,
-  children: WidgetChildren<TMessage>,
-  options: {
-    readonly id?: string;
-    readonly border?: unknown;
-    readonly gap?: number;
-    readonly padding?: unknown;
-    readonly margin?: unknown;
-    readonly minWidth?: number;
-    readonly minHeight?: number;
-    readonly maxWidth?: number;
-    readonly maxHeight?: number;
-    readonly align?: unknown;
-    readonly justify?: unknown;
-    readonly overflow?: unknown;
-    readonly keyMap?: WidgetKeyMap<TMessage>;
-    readonly accessibility?: AccessibleNodeDefinition;
-  } & WidgetLayerOptions
-): Widget<TMessage> {
-  return {
-    ...optionalId(options.id),
-    kind,
-    props: { ...borderProps(options), ...layoutProps(options) },
-    children: Array.isArray(children) ? children : [children],
-    ...interactionOptions(options)
-  };
+function widgetChildren<TMessage>(children: WidgetChildren<TMessage>): readonly Widget<TMessage>[] {
+  const normalized: readonly Widget<TMessage>[] = Array.isArray(children)
+    ? (children as readonly Widget<TMessage>[])
+    : [children as Widget<TMessage>];
+  return normalized;
 }
 
-function borderProps(options: { readonly border?: unknown }): Widget['props'] {
-  return options.border === undefined ? {} : { border: options.border };
+function assertSizeTrackCount(kind: 'row' | 'stack', sizes: readonly unknown[] | undefined, childCount: number): void {
+  if (sizes !== undefined && sizes.length !== childCount) {
+    throw new RangeError(`${kind} sizes length ${String(sizes.length)} must match child count ${String(childCount)}.`);
+  }
 }
 
 function layoutProps(options: {

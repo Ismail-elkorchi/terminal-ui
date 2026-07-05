@@ -161,6 +161,12 @@ export function fillLayoutSizes(count: number): readonly LayoutSize[] {
   return Array.from({ length: Math.max(0, count) }, () => ({ kind: 'fill' }));
 }
 
+export function childLayoutSizes(widget: Widget, fallback?: readonly LayoutSize[]): readonly LayoutSize[] {
+  const children = widget.children ?? [];
+  const explicit = layoutSizes(widget.props['sizes']);
+  return explicit.length === children.length ? explicit : fallback ?? fillLayoutSizes(children.length);
+}
+
 export function priorityFillLayoutSizes(children: readonly Widget[]): readonly LayoutSize[] {
   return children.map((child) => ({
     kind: 'fill',

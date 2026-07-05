@@ -42,7 +42,8 @@ export function createTuiRuntime<TState, TMessage>(
   let started = false;
   let disposed = false;
   const pendingMessages: PendingTuiMessage<TMessage>[] = [];
-  const pendingChanges: TuiRuntimeChange<TState>[] = [];
+  let pendingFrameChange: Extract<TuiRuntimeChange<TState>, { readonly kind: 'frame' }> | undefined;
+  let pendingExitChange: Extract<TuiRuntimeChange<TState>, { readonly kind: 'exit' }> | undefined;
   const changeWaiters: ((change: TuiRuntimeChange<TState>) => void)[] = [];
   const inputPipeline = createInputPipeline(options.input);
   const pointerRouter = createPointerRouter<TMessage>();
@@ -52,6 +53,7 @@ export function createTuiRuntime<TState, TMessage>(
     ...(options.app.definition.subscriptions === undefined
       ? {}
       : { subscriptions: options.app.definition.subscriptions }),
+    ...(options.diagnostics === undefined ? {} : { diagnostics: options.diagnostics }),
     dispatch(message, source) {
       void dispatchQueue.run(() => dispatchInternal(message, source));
     }
@@ -112,7 +114,7 @@ export function createTuiRuntime<TState, TMessage>(
       pointerRouter.reset();
     },
     nextChange() {
-      const next = pendingChanges.shift();
+      const next = consumePendingChange();
       if (next !== undefined) return Promise.resolve(next);
       return new Promise((resolve) => changeWaiters.push(resolve));
     },
@@ -162,7 +164,14 @@ export function createTuiRuntime<TState, TMessage>(
     for (const message of messages) {
       enqueueMessage(message, source);
     }
+    const previousStateVersion = stateVersion;
+    const previousExit = terminalExit;
     await settleQueuedWork(context);
+    const exitChanged = terminalExit !== previousExit;
+    if (stateVersion === previousStateVersion) {
+      if (exitChanged && terminalExit !== undefined) publishChange({ kind: 'exit', exit: terminalExit });
+      return ensureState();
+    }
     const state = ensureState();
     const theme = resolveTuiTheme(options.theme, state);
     const previousFrame = frameDiffBase(theme);
@@ -201,7 +210,8 @@ export function createTuiRuntime<TState, TMessage>(
       options.host,
       (message) => {
         enqueueMessage(message, source);
-      }
+      },
+      options.diagnostics ?? []
     );
   }
 
@@ -215,17 +225,66 @@ export function createTuiRuntime<TState, TMessage>(
       waiter(change);
       return;
     }
-    pendingChanges.push(change);
+    if (change.kind === 'frame') {
+      pendingFrameChange = change;
+      return;
+    }
+    pendingExitChange = change;
+  }
+
+  function consumePendingChange(): TuiRuntimeChange<TState> | undefined {
+    if (pendingFrameChange !== undefined) {
+      const change = pendingFrameChange;
+      pendingFrameChange = undefined;
+      return change;
+    }
+    if (pendingExitChange !== undefined) {
+      const change = pendingExitChange;
+      pendingExitChange = undefined;
+      return change;
+    }
+    return undefined;
   }
 
   async function processInputEvents(events: readonly InputEvent[]): Promise<readonly TuiInputResult<TState>[]> {
     const results: TuiInputResult<TState>[] = [];
-    for (const event of events) {
+    for (let index = 0; index < events.length; index += 1) {
+      const event = events[index];
+      if (event === undefined) continue;
+      if (isWheelInputEvent(event)) {
+        const wheelEvents: TerminalMouseEvent[] = [event];
+        for (;;) {
+          const next = events[index + 1];
+          if (!isWheelInputEvent(next)) break;
+          wheelEvents.push(next);
+          index += 1;
+        }
+        results.push(...await handleWheelInputBatch(wheelEvents));
+        if (results.at(-1)?.exit !== undefined) break;
+        continue;
+      }
       const result = await runtime.handleInput(event);
       results.push(result);
       if (result.exit !== undefined) break;
     }
     return results;
+  }
+
+  async function handleWheelInputBatch(events: readonly TerminalMouseEvent[]): Promise<readonly TuiInputResult<TState>[]> {
+    const state = await ensureStarted();
+    const frame = ensureFrame();
+    for (const event of events) {
+      options.transcript?.record({ kind: 'input', event });
+    }
+    const messages = events.flatMap((event) => messagesForMouse(state, event));
+    if (messages.length === 0) {
+      return events.map(() => ({ handled: false, state, frame }));
+    }
+    const nextState = await dispatchQueue.run(() => dispatchManyInternal(messages, 'input'));
+    const nextFrame = ensureFrame();
+    return events.map(() => terminalExit === undefined
+      ? { handled: true, state: nextState, frame: nextFrame }
+      : { handled: true, state: nextState, frame: nextFrame, exit: terminalExit });
   }
 
   async function applyMessage(item: PendingTuiMessage<TMessage>, context: TuiContext<TMessage>): Promise<void> {
@@ -235,7 +294,7 @@ export function createTuiRuntime<TState, TMessage>(
     const state = ensureState();
     const result = await options.app.definition.update(state, item.message, context);
     currentState = result.state;
-    stateVersion += 1;
+    if (result.state !== state) stateVersion += 1;
     for (const command of result.commands ?? []) {
       if (terminalExit !== undefined) break;
       await applyCommand(command, context);
@@ -375,6 +434,11 @@ export function createTuiRuntime<TState, TMessage>(
     if (event.kind === 'paste') return focused?.widget.inputMap?.paste?.(event.text);
     const focusedMessage = key === undefined ? undefined : focused?.widget.keyMap?.[key];
     if (focusedMessage !== undefined) return focusedMessage;
+    const keyText = textFromUnmappedKey(event);
+    if (keyText !== undefined) {
+      const mapped = focused?.widget.inputMap?.text?.(keyText);
+      if (mapped !== undefined) return mapped;
+    }
     return resolveTuiKeyBinding({
       bindings: options.app.definition.keyBindings,
       phase: 'afterFocus',
@@ -408,6 +472,15 @@ export function createTuiRuntime<TState, TMessage>(
 function inputEventKey(event: InputEvent): string | undefined {
   if (event.kind === 'key') return event.key;
   if (event.kind === 'text') return event.text;
+  return undefined;
+}
+
+function isWheelInputEvent(event: InputEvent | undefined): event is TerminalMouseEvent {
+  return event?.kind === 'mouse' && event.action === 'wheel';
+}
+
+function textFromUnmappedKey(event: InputEvent): string | undefined {
+  if (event.kind === 'key' && event.key === 'space') return ' ';
   return undefined;
 }
 

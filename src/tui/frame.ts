@@ -81,11 +81,13 @@ export type TerminalEffect =
 export type { AnsiStyleState, RenderSerializeOptions } from './ansi.ts';
 
 export type {
+  ClipRenderSpansOptions,
   FrameCellSource,
   PadRenderLineOptions,
   RenderAlignment,
   RenderBlock,
   RenderBlockSize,
+  RenderClipMode,
   RenderLine,
   RenderSpan,
   TerminalColor,

@@ -95,6 +95,11 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.widgets.treeReducer, 'function');
   assert.equal(typeof terminalUi.widgets.treeStateReducer, 'function');
   assert.equal(typeof terminalUi.widgets.treeNodeMatches, 'function');
+  assert.equal(typeof terminalUi.widgets.visibleTreeRows, 'function');
+  assert.equal(typeof terminalUi.widgets.selectableTreeRows, 'function');
+  assert.equal(typeof terminalUi.widgets.nextTreeRowId, 'function');
+  assert.equal(typeof terminalUi.widgets.treeDisclosureAction, 'function');
+  assert.equal(typeof terminalUi.widgets.treeNodeCanDisclose, 'function');
   assert.equal(typeof terminalUi.widgets.paletteReducer, 'function');
   assert.equal(typeof terminalUi.widgets.groupPaletteEntries, 'function');
   assert.equal(typeof terminalUi.widgets.paletteStatus, 'function');
@@ -131,6 +136,7 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.layoutWidget, 'function');
   assert.equal(typeof terminalUi.renderWidgetFrame, 'function');
   assert.equal(typeof terminalUi.renderWidgetRegions, 'function');
+  assert.equal(typeof terminalUi.applyScrollEvent, 'function');
   assert.equal(typeof terminalUi.scrollbarLayout, 'function');
   assert.equal(typeof terminalUi.renderScrollbars, 'function');
   assert.equal(typeof terminalUi.spinnerReducer, 'function');
@@ -224,9 +230,12 @@ test('root declaration exposes primary public type contracts', async () => {
     'TuiKeyBindingPhase',
     'TuiNonTtyPolicy',
     'PaginationWindow',
+    'TreeDisclosureAction',
     'TreeAction',
     'TreeState',
     'TreeStateAction',
+    'TreeVisibleRow',
+    'TreeVisibleRowsOptions',
     'SpinnerAction',
     'SpinnerReducerOptions',
     'SpinnerState',
@@ -268,6 +277,7 @@ test('root declaration exposes primary public type contracts', async () => {
     'WidgetVisualState',
     'DataWindow',
     'DataWindowInput',
+    'CommandBarDisplay',
     'CommandBarWidgetOptions',
     'CommandBarValidation',
     'GridAreasWidgetOptions',
@@ -335,6 +345,7 @@ test('root declaration exposes primary public type contracts', async () => {
     'AxisLine',
     'TooltipLine',
     'SurfaceVariant',
+    'SurfaceVisualState',
     'CanvasWidgetOptions',
     'SurfaceWidgetOptions',
     'AbsoluteWidgetOptions',
@@ -375,7 +386,9 @@ test('root declaration exposes primary public type contracts', async () => {
     'FrameCellSource',
     'HighlightRenderSpan',
     'HighlightRenderSpansOptions',
+    'ClipRenderSpansOptions',
     'RenderAlignment',
+    'RenderClipMode',
     'RenderBlockSize',
     'PadRenderLineOptions',
     'RenderRegion',
@@ -383,6 +396,8 @@ test('root declaration exposes primary public type contracts', async () => {
     'DirtyRegionSet',
     'DiffFramesOptions',
     'TextAreaWidgetOptions',
+    'TextAreaHighlight',
+    'TextAreaWrapOptions',
     'TreeWidgetOptions',
     'PaginatorWidgetOptions',
     'ProgressCompletionState',

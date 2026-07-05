@@ -104,8 +104,14 @@ compact or full metrics, caller-selected bar width, label placement,
 percentage display, and semantic status tone.
 
 `richText()` accepts styled text segments and renders sanitized display text.
-`textArea()` provides a bounded multi-line text surface with cursor and
-selection metadata. Editing behavior stays in application state and shared text
+`textArea()` provides a bounded multi-line text surface with cursor,
+selection, caller-owned highlight ranges, optional line-number gutter, and
+optional active-line anatomy. Use `wrap: true` or `wrap: { mode: 'soft' }`
+when long logical lines should become visual rows instead of requiring
+horizontal scrolling. `textInput()`, `textArea()`, and `commandBar()` can opt
+into pointer-to-text messages with `toTextPointerMessage`, which maps terminal
+mouse press and drag events to text offsets without taking ownership of cursor
+or selection state. Editing behavior stays in application state and shared text
 helpers; widgets remain pure data.
 
 `form()` and `field()` are layout containers for general form-like UIs:
@@ -145,7 +151,18 @@ projection.
 `contentColumns` describe the virtual content area. Offscreen child cells are
 clipped before they enter the frame. Empty virtual content renders a structural
 placeholder, and clipped-edge indicators are drawn only into unoccupied edge
-cells so viewport chrome never overwrites visible child content.
+cells so viewport chrome never overwrites visible child content. When a
+scrollable widget exposes `toScrollMessage`, routed wheel and scrollbar input
+arrives as a structured scroll event; pass that event to `applyScrollEvent()`
+with the current caller-owned `ScrollState` so rendered viewport dimensions are
+reconciled before the action is applied. Use `scrollPolicy` when the default
+wheel step is not appropriate for the density of the widget. Scrollbar rendering
+is shared across scrollable widgets: track and thumb hit targets are distinct,
+thumb dragging preserves the original press anchor, and tracks/thumbs carry
+source metadata plus generic visual states (`idle`, `active`, `hover`,
+`disabled`, `inactive`) so debug projections, high-contrast output, and
+no-color output can distinguish scrollbar anatomy without each app
+hand-styling it.
 
 `scrollback()` renders append-heavy text records such as logs, transcripts,
 stream output, and event feeds. It follows the tail by default, accepts an
@@ -175,13 +192,28 @@ status, fields, body, details, and collapsed state. `activityFeed()` renders a
 bounded list of those records with selected-row accessibility. Block status
 values cover pending, running, success, warning, error, failed, cancelled,
 skipped, and info states through theme tokens; fields align to a shared label
-column, and long body/details text wraps within the available row width. These
-widgets are generic enough for logs, jobs, tasks, messages, diagnostics, and
-event streams; application-specific naming stays outside `terminal-ui`.
+column, compact summaries/fields preserve both ends with middle ellipsis, and
+long body/details text wraps within the available row width.
+`notificationStack()` uses the same compact middle clipping for card titles,
+messages, and metadata. Notification stacks place themselves inside their own
+layout bounds; constrain transient feedback by mounting the stack in the layout
+region where it is allowed to appear, usually an overlay child above the
+relevant content area. Cards that cannot fit a minimum viable height are not
+rendered as broken fragments. These widgets are generic enough for logs, jobs,
+tasks, messages, diagnostics, and event streams; application-specific naming
+stays outside `terminal-ui`.
 
 `commandBar()` renders a single-line input surface with a prompt, placeholder,
 cursor, completion preview, validation line, footer, and optional suggestions
-with styled match segments. The pure `commandBarReducer()` helper uses the
+with styled match segments. It is compact by default; use `display: 'expanded'`
+when suggestions and footer rows should be visible. Long input values use a
+cursor-relative horizontal window so the active edit point remains visible, and
+pointer-to-text offsets are resolved through that same visible window. Prompt,
+value, selection, completion, validation, suggestion, footer, and cursor parts
+expose structured source metadata and use the shared style slots, so the
+command surface can be embedded inside normal layout instead of relying on
+product-specific command docks. The pure
+`commandBarReducer()` helper uses the
 shared text edit buffer for editing, history movement, suggestion selection,
 and completion acceptance. `palette()` renders a bounded fuzzy-filtered entry
 list with highlighted matches, disabled entries, preview/help rows, stable
@@ -201,11 +233,14 @@ double, rounded, heavy, ascii, and borderless variants. Surface variants provide
 neutral, raised, inset, selected, warning, danger, and success hierarchy without
 requiring a border for every visual distinction. Border titles can align to the
 start, center, or end, and focused bordered widgets can use a focused border
-style. `tabs()` renders tab labels and lays out only the selected panel, so
-hidden panels do not participate in focus traversal. `modal()` centers a bounded
-dialog, lays body content inside the border, and can reserve an optional
-`actions` widget as a separated bottom action area. These are layout primitives;
-screen-specific state and application routing stay outside widgets.
+style. `tabs()` renders selected, inactive, disabled, badge, close, focus, and
+overflow anatomy, keeps the selected tab visible when the header overflows, and
+lays out only the selected panel so hidden panels do not participate in focus
+traversal. Tab selection, dirty state, close behavior, and activation policy
+remain caller-owned messages. `modal()` centers a bounded dialog, lays body
+content inside the border, and can reserve an optional `actions` widget as a
+separated bottom action area. These are layout primitives; screen-specific state
+and application routing stay outside widgets.
 
 Executable example:
 

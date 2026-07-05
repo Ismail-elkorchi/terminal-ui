@@ -1,6 +1,6 @@
 import {
-  contextMenuBlock,
-  contextMenuHitTargets,
+  contextMenuTitleBlock,
+  contextMenuTitleRows,
   dropdownAccessibleBase,
   dropdownAccessibleChildren,
   dropdownBlock,
@@ -16,14 +16,17 @@ import {
 import {
   commandBarAccessibleChildren,
   commandBarBlock,
-  commandBarCursor
+  commandBarCursor,
+  commandBarPointerOffset
 } from '../command-bar.ts';
 import { paletteAccessibleChildren, paletteBlock, paletteHitTargets } from '../palette.ts';
+import { textPointerHitTargets, textPointerMessageFactory } from '../text-pointer.ts';
 import { stringify } from '../widget-props.ts';
 import {
   drawScrollbars,
   menuScrollbarState,
   paletteScrollbarState,
+  scrollbarHitTargetsForWidget,
   scrollbarsForWidget
 } from './support/scroll.ts';
 import { writeRenderBlock } from './support/block.ts';
@@ -33,9 +36,9 @@ import type { RendererMap } from './types.ts';
 export const menuRenderers = {
   menu: {
     render: ({ widget, node, buffer, theme }) => {
-      const scrollbars = scrollbarsForWidget(widget, node.bounds, menuScrollbarState(widget, node.bounds), 'vertical');
+      const scrollbars = scrollbarsForWidget(widget, node.bounds, (contentBounds) => menuScrollbarState(widget, contentBounds), 'vertical');
       writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(widget, scrollbars.contentBounds, theme));
-      drawScrollbars(buffer, scrollbars, theme);
+      drawScrollbars(buffer, widget, scrollbars, theme);
     },
     accessibility: ({ widget, id, focused }) => ({
       ...menuAccessibleBase(widget, id, focused),
@@ -43,7 +46,13 @@ export const menuRenderers = {
       children: menuAccessibleChildren(widget)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => menuHitTargets(widget, bounds)
+    hitTargets: ({ widget, bounds }) => {
+      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => menuScrollbarState(widget, contentBounds), 'vertical');
+      return [
+        ...menuHitTargets(widget, scrollbars.contentBounds),
+        ...scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state)
+      ];
+    }
   },
   menuBar: {
     render: ({ widget, node, buffer, theme }) => {
@@ -59,7 +68,12 @@ export const menuRenderers = {
   },
   contextMenu: {
     render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, contextMenuBlock(widget, node.bounds, theme));
+      const titleRows = contextMenuTitleRows(widget);
+      const bodyBounds = contextMenuBodyBounds(node.bounds, titleRows);
+      const scrollbars = scrollbarsForWidget(widget, bodyBounds, (contentBounds) => menuScrollbarState(widget, contentBounds), 'vertical');
+      writeRenderBlock(buffer, node.bounds, contextMenuTitleBlock(widget, node.bounds));
+      writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(widget, scrollbars.contentBounds, theme));
+      drawScrollbars(buffer, widget, scrollbars, theme);
     },
     accessibility: ({ widget, id, focused }) => ({
       ...menuAccessibleBase(widget, id, focused),
@@ -67,7 +81,14 @@ export const menuRenderers = {
       children: menuAccessibleChildren(widget)
     }),
     focusTargets: ({ widget, bounds }) => [focusTarget(bounds, menuCursor(widget, bounds, widget.props['title'] === undefined ? 0 : 1))],
-    hitTargets: ({ widget, bounds }) => contextMenuHitTargets(widget, bounds)
+    hitTargets: ({ widget, bounds }) => {
+      const bodyBounds = contextMenuBodyBounds(bounds, contextMenuTitleRows(widget));
+      const scrollbars = scrollbarsForWidget(widget, bodyBounds, (contentBounds) => menuScrollbarState(widget, contentBounds), 'vertical');
+      return [
+        ...menuHitTargets(widget, scrollbars.contentBounds),
+        ...scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state)
+      ];
+    }
   },
   dropdown: {
     render: ({ widget, node, buffer, theme }) => {
@@ -86,7 +107,7 @@ export const menuRenderers = {
   },
   commandBar: {
     render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, commandBarBlock(widget, node.bounds.height, theme));
+      writeRenderBlock(buffer, node.bounds, commandBarBlock(widget, node.bounds, theme));
     },
     accessibility: ({ widget, id, focused }) => {
       const children = commandBarAccessibleChildren(widget);
@@ -99,13 +120,19 @@ export const menuRenderers = {
         ...(children === undefined ? {} : { children })
       };
     },
-    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, commandBarCursor(widget, bounds))]
+    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, commandBarCursor(widget, bounds))],
+    hitTargets: ({ widget, bounds }) => textPointerHitTargets({
+      id: `${widget.id ?? widget.kind}:text`,
+      bounds,
+      toMessage: textPointerMessageFactory(widget),
+      offsetAt: (event) => commandBarPointerOffset(widget, bounds, event)
+    })
   },
   palette: {
     render: ({ widget, node, buffer, theme }) => {
-      const scrollbars = scrollbarsForWidget(widget, node.bounds, paletteScrollbarState(widget, node.bounds), 'vertical');
+      const scrollbars = scrollbarsForWidget(widget, node.bounds, (contentBounds) => paletteScrollbarState(widget, contentBounds), 'vertical');
       writeRenderBlock(buffer, scrollbars.contentBounds, paletteBlock(widget, scrollbars.contentBounds.height, theme));
-      drawScrollbars(buffer, scrollbars, theme);
+      drawScrollbars(buffer, widget, scrollbars, theme);
     },
     accessibility: ({ widget, node, id, focused }) => ({
       id,
@@ -118,8 +145,24 @@ export const menuRenderers = {
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ widget, bounds }) => {
-      const scrollbars = scrollbarsForWidget(widget, bounds, paletteScrollbarState(widget, bounds), 'vertical');
-      return paletteHitTargets(widget, scrollbars.contentBounds);
+      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => paletteScrollbarState(widget, contentBounds), 'vertical');
+      return [
+        ...paletteHitTargets(widget, scrollbars.contentBounds),
+        ...scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state)
+      ];
     }
   }
 } satisfies RendererMap<'menu' | 'menuBar' | 'contextMenu' | 'dropdown' | 'commandBar' | 'palette'>;
+
+function contextMenuBodyBounds(
+  bounds: { readonly row: number; readonly column: number; readonly width: number; readonly height: number },
+  titleRows: number
+): typeof bounds {
+  const rows = Math.min(Math.max(0, titleRows), Math.max(0, bounds.height));
+  return {
+    row: bounds.row + rows,
+    column: bounds.column,
+    width: bounds.width,
+    height: Math.max(0, bounds.height - rows)
+  };
+}

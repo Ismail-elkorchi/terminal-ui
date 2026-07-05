@@ -20,6 +20,10 @@ export interface PointerRouter<TMessage> {
 interface PointerPress<TMessage> {
   readonly target: RenderRegionHitTarget<TMessage>;
   readonly button: TerminalMouseEvent['button'];
+  readonly row: number;
+  readonly column: number;
+  readonly localRow?: number;
+  readonly localColumn?: number;
   readonly dragging: boolean;
 }
 
@@ -29,9 +33,9 @@ export function createPointerRouter<TMessage>(): PointerRouter<TMessage> {
 
   return {
     route(regions, event) {
-      const pointerHit = topHitAt(regions, event.row, event.column);
+      const pointerHit = topHitAt(regions, event.row, event.column, acceptedKindsForEvent(event));
       if (event.action === 'press') {
-        press = pointerHit === undefined ? undefined : { target: pointerHit, button: event.button, dragging: false };
+        press = pointerHit === undefined ? undefined : pointerPress(event, pointerHit);
         return pressResults(event, pointerHit, press);
       }
       if (event.action === 'drag' && press !== undefined) {
@@ -57,6 +61,22 @@ export function createPointerRouter<TMessage>(): PointerRouter<TMessage> {
       press = undefined;
       hover = undefined;
     }
+  };
+}
+
+function pointerPress<TMessage>(
+  event: TerminalMouseEvent,
+  target: RenderRegionHitTarget<TMessage>
+): PointerPress<TMessage> {
+  const local = localPoint(target.bounds, event.row, event.column);
+  return {
+    target,
+    button: event.button,
+    row: event.row,
+    column: event.column,
+    localRow: local.row,
+    localColumn: local.column,
+    dragging: false
   };
 }
 
@@ -130,6 +150,14 @@ function routedPointerEvent<TMessage>(
     row: event.row,
     column: event.column,
     ...(local === undefined ? {} : { localRow: local.row, localColumn: local.column }),
+    ...(press === undefined
+      ? {}
+      : {
+          pressRow: press.row,
+          pressColumn: press.column,
+          ...(press.localRow === undefined ? {} : { pressLocalRow: press.localRow }),
+          ...(press.localColumn === undefined ? {} : { pressLocalColumn: press.localColumn })
+        }),
     button: releaseButton(event, press),
     modifiers: event.modifiers,
     deltaRows: pointerDeltaRows(event),
@@ -181,14 +209,37 @@ function sameTarget<TMessage>(
   return left !== undefined && left.id === right?.id;
 }
 
+function acceptedKindsForEvent(event: TerminalMouseEvent): readonly PointerEventKind[] {
+  switch (event.action) {
+    case 'wheel':
+      return ['scroll'];
+    case 'press':
+      return event.button === 'right'
+        ? ['pointerDown', 'contextMenu', 'dragStart', 'drag']
+        : ['pointerDown', 'click', 'dragStart', 'drag'];
+    case 'release':
+      return event.button === 'right'
+        ? ['pointerUp', 'contextMenu']
+        : ['pointerUp', 'click', 'dragEnd', 'drag'];
+    case 'drag':
+      return ['dragStart', 'drag'];
+    case 'move':
+      return ['enter', 'leave', 'hover'];
+    default:
+      return [];
+  }
+}
+
 function topHitAt<TMessage>(
   regions: readonly RenderRegion<TMessage>[],
   row: number,
-  column: number
+  column: number,
+  acceptedKinds: readonly PointerEventKind[]
 ): RenderRegionHitTarget<TMessage> | undefined {
   return regions.flatMap((region) =>
     region.hitTargets
       .filter((hitTarget) => containsPoint(hitTarget.bounds, row, column))
+      .filter((hitTarget) => targetAcceptsAny(hitTarget, acceptedKinds))
       .map((hitTarget, index) => ({
         hitTarget,
         region,
@@ -203,6 +254,13 @@ function topHitAt<TMessage>(
       || right.index - left.index
     )
     .at(0)?.hitTarget;
+}
+
+function targetAcceptsAny<TMessage>(
+  hit: RenderRegionHitTarget<TMessage>,
+  kinds: readonly PointerEventKind[]
+): boolean {
+  return kinds.some((kind) => targetAccepts(hit, kind));
 }
 
 function containsPoint(bounds: Rect, row: number, column: number): boolean {

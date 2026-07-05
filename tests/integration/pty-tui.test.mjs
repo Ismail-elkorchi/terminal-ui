@@ -41,7 +41,7 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
   assert.match(harness.output(), /\u001B\[\?1049l/u);
   assert.match(harness.output(), /\u001B\[\?2004h/u);
   assert.match(harness.output(), /\u001B\[\?2004l/u);
-  assert.match(harness.output(), /\u001B\[\?1000h\u001B\[\?1006h/u);
+  assert.match(harness.output(), /\u001B\[\?1006h\u001B\[\?1002h/u);
   assert.match(harness.output(), /\u001B\[\?1000l\u001B\[\?1006l/u);
   assert.match(harness.output(), /\u001B\[\?1004h/u);
   assert.match(harness.output(), /\u001B\[\?1004l/u);

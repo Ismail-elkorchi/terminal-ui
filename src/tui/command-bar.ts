@@ -9,43 +9,65 @@ import {
 } from './command-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { widgetFrameSource } from './frame-source.ts';
-import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn } from './text-display.ts';
-import { widgetStyle } from './widget-style.ts';
+import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn, visibleLineWindow } from './text-display.ts';
+import { textOffsetAtVisualColumn } from './text-pointer.ts';
+import { inputCursorStyle, widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TextSelection } from '../text/index.ts';
-import type { WidgetSuggestionItem, CommandBarValidation, WidgetValidationTone, Widget } from '../widgets/index.ts';
+import type { WidgetSuggestionItem, CommandBarDisplay, CommandBarValidation, WidgetValidationTone, Widget } from '../widgets/index.ts';
 import { optionalWidgetValidationTone } from '../widgets/index.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { Rect } from './layout.ts';
+import type { RoutedPointerEvent } from './pointer-types.ts';
+import { clipRenderSpans, measureRenderSpans } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
 
-export function commandBarBlock(widget: Widget, height: number, theme: TerminalTheme): RenderBlock {
-  const lines: RenderLine[] = [inputLine(widget)];
+type CommandPartKind =
+  | 'completion'
+  | 'cursor'
+  | 'description'
+  | 'footer'
+  | 'history'
+  | 'label'
+  | 'marker'
+  | 'match'
+  | 'placeholder'
+  | 'prompt'
+  | 'selection'
+  | 'validation'
+  | 'value'
+  | 'window';
+
+export function commandBarBlock(widget: Widget, bounds: Pick<Rect, 'width' | 'height'>, theme: TerminalTheme): RenderBlock {
+  const display = commandBarDisplay(widget);
+  const lines: RenderLine[] = [inputLine(widget, bounds.width)];
   const validation = validationProp(widget);
-  if (height > lines.length && validation !== undefined) lines.push(validationLine(widget, validation, theme));
-  const suggestions = commandBarSuggestions(widget);
-  const selected = nonNegativeInteger(numberProp(widget, 'selectedSuggestion'));
-  const remaining = Math.max(0, height - lines.length - footerReserve(widget));
-  lines.push(...suggestions.slice(0, remaining).map((suggestion, index) => suggestionLine(
-    widget,
-    suggestion,
-    index,
-    index === selected,
-    matchQuery(widget),
-    theme
-  )));
-  const footer = footerText(widget);
-  if (height > lines.length && footer.length > 0) lines.push(mutedLine(widget, footer, theme));
-  return { lines: lines.slice(0, height) };
+  if (bounds.height > lines.length && validation !== undefined) lines.push(validationLine(widget, validation, theme));
+  if (display === 'expanded') {
+    const suggestions = commandBarSuggestions(widget);
+    const selected = nonNegativeInteger(numberProp(widget, 'selectedSuggestion'));
+    const remaining = Math.max(0, bounds.height - lines.length - footerReserve(widget));
+    lines.push(...suggestions.slice(0, remaining).map((suggestion, index) => suggestionLine(
+      widget,
+      suggestion,
+      index,
+      index === selected,
+      matchQuery(widget),
+      theme
+    )));
+    const footer = footerText(widget);
+    if (bounds.height > lines.length && footer.length > 0) lines.push(mutedLine(widget, footer, theme));
+  }
+  return { lines: lines.slice(0, bounds.height) };
 }
 
 export function commandBarText(widget: Widget, height: number, theme: TerminalTheme): string {
-  return commandBarBlock(widget, height, theme).lines.map((line) => line.spans.map((span) => span.text).join('')).join('\n');
+  return commandBarBlock(widget, { width: 1_000, height }, theme).lines.map((line) => line.spans.map((span) => span.text).join('')).join('\n');
 }
 
 export function commandBarAccessibleChildren(widget: Widget): readonly AccessibleNode[] | undefined {
-  const suggestions = commandBarSuggestions(widget);
+  const suggestions = commandBarDisplay(widget) === 'expanded' ? commandBarSuggestions(widget) : [];
   const validation = validationProp(widget);
   const children: AccessibleNode[] = [];
   if (validation !== undefined) {
@@ -69,37 +91,49 @@ export function commandBarAccessibleChildren(widget: Widget): readonly Accessibl
 }
 
 export function commandBarCursor(widget: Widget, bounds: Rect): CursorPosition {
-  const prompt = promptText(widget);
-  const value = valueText(widget);
-  const promptCells = singleLineCursorColumn(prompt, prompt.length);
-  const valueCells = singleLineCursorColumn(value, numberProp(widget, 'cursor'));
-  const beforeCursorCells = promptCells + valueCells;
+  const model = commandInputModel(widget, bounds.width);
   return {
     row: bounds.row,
-    column: bounds.column + Math.max(0, Math.min(bounds.width - 1, beforeCursorCells)),
-    source: commandSource(widget, 'cursor', 'cursor')
+    column: bounds.column + Math.max(0, Math.min(bounds.width - 1, model.promptCells + model.cursorColumn)),
+    style: inputCursorStyle(),
+    source: commandSource(widget, 'cursor', { role: 'cursor', partKind: 'cursor' })
   };
 }
 
-function inputLine(widget: Widget): RenderLine {
-  const value = valueText(widget);
+export function commandBarPointerOffset(
+  widget: Widget,
+  bounds: Pick<Rect, 'width'>,
+  pointer: RoutedPointerEvent
+): number | undefined {
+  if (pointer.localColumn === undefined) return undefined;
+  const model = commandInputModel(widget, bounds.width);
+  const contentColumn = pointer.localColumn - 1 - model.promptCells;
+  return textOffsetAtVisualColumn(model.value, model.offsetCells + Math.max(0, contentColumn));
+}
+
+function inputLine(widget: Widget, width: number): RenderLine {
+  const model = commandInputModel(widget, width);
   const placeholder = placeholderText(widget);
   const completion = completionText(widget);
   const spans: RenderSpan[] = [
-    styledSpan(promptText(widget), widgetStyle(widget, 'placeholder'), commandSource(widget, 'prompt', 'decoration')),
-    ...(value.length === 0 && placeholder.length > 0
-      ? [styledSpan(placeholder, widgetStyle(widget, 'placeholder'), commandSource(widget, 'placeholder'))]
-      : valueSpans(widget, value, selectionFromUnknown(value, widget.props['selection'])))
+    styledSpan(model.prompt, widgetStyle(widget, 'label'), commandSource(widget, 'prompt', { role: 'decoration', partKind: 'prompt' })),
+    ...(model.value.length === 0 && placeholder.length > 0
+      ? clipRenderSpans([styledSpan(placeholder, widgetStyle(widget, 'placeholder'), commandSource(widget, 'placeholder', { partKind: 'placeholder' }))], model.contentWidth)
+      : valueWindowSpans(widget, model))
   ];
-  if (value.length > 0 && completion.length > 0) {
-    spans.push(styledSpan(completion, widgetStyle(widget, 'value', 'disabled'), commandSource(widget, 'completion')));
+  const visibleCells = measureRenderSpans(spans) - model.promptCells;
+  const completionWidth = Math.max(0, model.contentWidth - visibleCells);
+  if (model.value.length > 0 && completion.length > 0 && model.window.endOffset >= model.value.length && completionWidth > 0) {
+    spans.push(...clipRenderSpans([
+      styledSpan(completion, widgetStyle(widget, 'placeholder'), commandSource(widget, 'completion', { partKind: 'completion', state: 'preview' }))
+    ], completionWidth));
   }
   const historyIndex = numberProp(widget, 'historyIndex');
   if (historyIndex !== undefined) {
     spans.push(styledSpan(
       `  #${String(Math.max(0, Math.floor(historyIndex)) + 1)}`,
-      widgetStyle(widget, 'value', 'disabled'),
-      commandSource(widget, 'history')
+      widgetStyle(widget, 'placeholder'),
+      commandSource(widget, 'history', { partKind: 'history', state: 'history' })
     ));
   }
   return {
@@ -107,11 +141,40 @@ function inputLine(widget: Widget): RenderLine {
   };
 }
 
+interface CommandInputModel {
+  readonly prompt: string;
+  readonly promptCells: number;
+  readonly value: string;
+  readonly contentWidth: number;
+  readonly offsetCells: number;
+  readonly cursorColumn: number;
+  readonly window: ReturnType<typeof visibleLineWindow>;
+}
+
+function commandInputModel(widget: Widget, width: number): CommandInputModel {
+  const prompt = promptText(widget);
+  const value = valueText(widget);
+  const promptCells = singleLineCursorColumn(prompt, prompt.length);
+  const contentWidth = Math.max(0, Math.floor(width) - promptCells);
+  const cursorCells = singleLineCursorColumn(value, numberProp(widget, 'cursor'));
+  const offsetCells = Math.max(0, cursorCells - Math.max(0, contentWidth - 1));
+  const window = visibleLineWindow(value, offsetCells, contentWidth);
+  return {
+    prompt,
+    promptCells,
+    value,
+    contentWidth,
+    offsetCells,
+    cursorColumn: Math.max(0, cursorCells - offsetCells),
+    window
+  };
+}
+
 function validationLine(widget: Widget, validation: CommandBarValidation, theme: TerminalTheme): RenderLine {
   return {
     spans: commandStatusSpans(widget, theme, validationToneForSurface(validation.tone ?? 'error'), validation.message, {
-      markerSource: commandSource(widget, 'validation.marker', 'decoration'),
-      textSource: commandSource(widget, 'validation')
+      markerSource: commandSource(widget, 'validation.marker', { role: 'decoration', partKind: 'marker', state: validation.tone ?? 'error' }),
+      textSource: commandSource(widget, 'validation', { partKind: 'validation', state: validation.tone ?? 'error' })
     })
   };
 }
@@ -128,18 +191,19 @@ function suggestionLine(
   const description = suggestion.description;
   const disabled = suggestion.disabled === true;
   const rowStyle = commandRowStyle(widget, selected, disabled);
+  const state = disabled ? 'disabled' : selected ? 'selected' : undefined;
   const spans: RenderSpan[] = [
-    ...commandSelectionMarkerSpans(widget, theme, selected, commandSource(widget, `suggestion.${String(index)}.marker`, 'decoration')),
+    ...commandSelectionMarkerSpans(widget, theme, selected, commandSource(widget, `suggestion.${String(index)}.marker`, commandSourceOptions('marker', state, 'decoration'))),
     ...commandMatchSpans(label, query, rowStyle, {
-      source: commandSource(widget, `suggestion.${String(index)}.label`),
-      matchSource: commandSource(widget, `suggestion.${String(index)}.match`)
+      source: commandSource(widget, `suggestion.${String(index)}.label`, commandSourceOptions('label', state)),
+      matchSource: commandSource(widget, `suggestion.${String(index)}.match`, commandSourceOptions('match', state))
     })
   ];
   if (description !== undefined && description.length > 0) {
     spans.push(styledSpan(
       ` · ${description}`,
       commandMetadataStyle(widget, selected, disabled),
-      commandSource(widget, `suggestion.${String(index)}.description`)
+      commandSource(widget, `suggestion.${String(index)}.description`, commandSourceOptions('description', state))
     ));
   }
   return {
@@ -150,8 +214,8 @@ function suggestionLine(
 function mutedLine(widget: Widget, text: string, theme: TerminalTheme): RenderLine {
   return {
     spans: commandStatusSpans(widget, theme, 'muted', text, {
-      markerSource: commandSource(widget, 'footer.marker', 'decoration'),
-      textSource: commandSource(widget, 'footer')
+      markerSource: commandSource(widget, 'footer.marker', { role: 'decoration', partKind: 'marker', state: 'muted' }),
+      textSource: commandSource(widget, 'footer', { partKind: 'footer', state: 'muted' })
     })
   };
 }
@@ -192,30 +256,77 @@ function validationToneForSurface(tone: WidgetValidationTone): 'info' | 'warning
   return tone;
 }
 
-function valueSpans(widget: Widget, value: string, selection: TextSelection | undefined): readonly RenderSpan[] {
-  return selectedTextSpans(
-    value,
+function valueWindowSpans(widget: Widget, model: CommandInputModel): readonly RenderSpan[] {
+  const selection = windowSelection(selectionFromUnknown(model.value, widget.props['selection']), model.window.startOffset, model.window.endOffset);
+  const spans = selectedTextSpans(
+    model.window.text,
     selection,
     widgetStyle(widget, 'value'),
     widgetStyle(widget, 'value', 'selected'),
     {
-      normalSource: commandSource(widget, 'value'),
-      selectedSource: commandSource(widget, 'selection')
+      normalSource: commandSource(widget, 'value', { partKind: 'value' }),
+      selectedSource: commandSource(widget, 'selection', { partKind: 'selection', state: 'selected' })
     }
   );
+  if (model.offsetCells <= 0) return spans;
+  return [
+    styledSpan('‹', widgetStyle(widget, 'placeholder'), commandSource(widget, 'window.left', { role: 'decoration', partKind: 'window' })),
+    ...clipRenderSpans(spans, Math.max(0, model.contentWidth - 1))
+  ];
 }
 
-function commandSource(widget: Widget, label: string, role: FrameCellSource['role'] = 'text'): FrameCellSource {
+function windowSelection(selection: TextSelection | undefined, start: number, end: number): TextSelection | undefined {
+  if (selection === undefined) return undefined;
+  const nextStart = Math.max(start, selection.start);
+  const nextEnd = Math.min(end, selection.end);
+  if (nextStart >= nextEnd) return undefined;
+  return {
+    start: nextStart - start,
+    end: nextEnd - start
+  };
+}
+
+function commandSource(
+  widget: Widget,
+  label: string,
+  options: {
+    readonly role?: FrameCellSource['role'];
+    readonly partKind?: CommandPartKind;
+    readonly state?: string;
+  } = {}
+): FrameCellSource {
   return widgetFrameSource(widget, {
     family: 'command',
-    role,
+    role: options.role ?? 'text',
     part: label,
+    ...(options.partKind === undefined ? {} : { partKind: options.partKind }),
+    ...(options.state === undefined ? {} : { state: options.state }),
     label
   });
 }
 
+function commandSourceOptions(
+  partKind: CommandPartKind,
+  state?: string,
+  role?: FrameCellSource['role']
+): {
+  readonly role?: FrameCellSource['role'];
+  readonly partKind: CommandPartKind;
+  readonly state?: string;
+} {
+  return {
+    ...(role === undefined ? {} : { role }),
+    partKind,
+    ...(state === undefined ? {} : { state })
+  };
+}
+
 function footerReserve(widget: Widget): number {
   return footerText(widget).length === 0 ? 0 : 1;
+}
+
+function commandBarDisplay(widget: Widget): CommandBarDisplay {
+  return widget.props['display'] === 'expanded' ? 'expanded' : 'compact';
 }
 
 function matchQuery(widget: Widget): string {

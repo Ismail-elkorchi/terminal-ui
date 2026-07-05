@@ -57,6 +57,11 @@ Layer metadata controls z-order. Higher visible layers render above lower
 layers and receive pointer hits first. Modal or popover-like compositions can
 use focus containment without a special runtime mode.
 
+Transient feedback should be bounded by composition, not app roles. For
+example, mount `notificationStack()` inside an overlay child whose layout bounds
+are the area where notifications may appear. The stack places cards within
+those bounds and skips cards that cannot fit a minimum useful shape.
+
 ## Custom Rendering
 
 Use `custom()` for a full widget protocol: measurement, layout, rendering,

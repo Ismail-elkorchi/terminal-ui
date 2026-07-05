@@ -1,34 +1,29 @@
 import { sanitizeTerminalText } from '../text/index.ts';
-import { treeNodeMatches } from '../widgets/behavior/tree.ts';
-import { dataSource, dataSpan, dataValueSpans, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
+import { treeDisclosureAction, treeNodeCanDisclose, visibleTreeRows } from '../widgets/behavior/tree.ts';
+import type { TreeVisibleRow } from '../widgets/behavior/tree.ts';
+import { dataSource, dataSpan, dataValueSpans, selectionMarkerSpans } from './data-visual.ts';
 import { rowWindow, scrollStateFromUnknown } from './data-window.ts';
 import { stringify } from './widget-props.ts';
-import { themeStyle, widgetStyle } from './widget-style.ts';
+import { resolveWidgetStyle, themeStyle, widgetStyle } from './widget-style.ts';
 import { windowDescription } from './visible-window.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { TreeNode, Widget } from '../widgets/index.ts';
+import type { TreeDisclosureAction, TreeNode, Widget, WidgetVisualState } from '../widgets/index.ts';
 import type { Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
+import type { RoutedPointerEvent } from './pointer-types.ts';
 import type { ScrollState } from './scroll.ts';
 import type { HitTarget } from './widget-renderer.ts';
 
-interface VisibleTreeNode {
-  readonly node: TreeNode;
-  readonly depth: number;
-  readonly path: readonly string[];
-  readonly lazyPlaceholder?: boolean;
-}
-
 interface TreeWindow {
-  readonly rows: readonly VisibleTreeNode[];
+  readonly rows: readonly TreeVisibleRow[];
   readonly start: number;
   readonly end: number;
 }
 
 export function treeBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
-  const rows = visibleTreeNodes(widget);
+  const rows = treeVisibleRows(widget);
   const selected = selectedTreeId(widget);
   const window = treeWindow(widget, rows, bounds.height, selected);
   if (rows.length === 0 && bounds.height > 0) {
@@ -44,7 +39,7 @@ export function treeBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): R
 }
 
 export function treeAccessibleBase(widget: Widget, bounds: Rect, id: string, focused: boolean): AccessibleNode {
-  const rows = visibleTreeNodes(widget);
+  const rows = treeVisibleRows(widget);
   const selected = selectedTreeId(widget);
   const window = treeWindow(widget, rows, bounds.height, selected);
   return {
@@ -64,7 +59,7 @@ export function treeAccessibleBase(widget: Widget, bounds: Rect, id: string, foc
 }
 
 export function treeAccessibleChildren(widget: Widget, bounds: Rect): readonly AccessibleNode[] {
-  const rows = visibleTreeNodes(widget);
+  const rows = treeVisibleRows(widget);
   const selected = selectedTreeId(widget);
   const window = treeWindow(widget, rows, bounds.height, selected);
   return window.rows.map((row, index) => ({
@@ -86,33 +81,53 @@ export function treeAccessibleChildren(widget: Widget, bounds: Rect): readonly A
 
 export function treeHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = toMessageProp(widget);
-  if (toMessage === undefined) return [];
-  const rows = visibleTreeNodes(widget);
+  const toDisclosureMessage = toDisclosureMessageProp(widget);
+  if (toMessage === undefined && toDisclosureMessage === undefined) return [];
+  const rows = treeVisibleRows(widget);
   const selected = selectedTreeId(widget);
   const window = treeWindow(widget, rows, bounds.height, selected);
   return window.rows.flatMap((row, index): HitTarget<TMessage>[] => {
     if (row.lazyPlaceholder === true || row.node.disabled === true) return [];
-    return [{
-      id: `${widget.id ?? 'tree'}:${row.node.id}`,
-      bounds: {
-        row: bounds.row + index,
-        column: bounds.column,
-        width: bounds.width,
-        height: 1
-      },
-      message: () => toMessage(row.node),
-      cursor: 'pointer'
-    }];
+    const targets: HitTarget<TMessage>[] = [];
+    const disclosureMessage = toDisclosureMessage;
+    const disclosureBounds = treeNodeCanDisclose(row.node) ? treeDisclosureBounds(bounds, index, row) : undefined;
+    const hasDisclosureTarget = disclosureMessage !== undefined && disclosureBounds !== undefined;
+    if (hasDisclosureTarget) {
+      const messageForDisclosure = disclosureMessage;
+      targets.push({
+        id: `${widget.id ?? 'tree'}:${row.node.id}:disclosure`,
+        bounds: disclosureBounds,
+        message: (event) => {
+          const action = treeDisclosureAction(row.node, 'toggle');
+          return action === undefined ? undefined : messageForDisclosure(row.node, action, event);
+        },
+        cursor: 'pointer'
+      });
+    }
+    if (toMessage !== undefined) {
+      const rowBounds = treeRowBodyBounds(bounds, index, row, hasDisclosureTarget);
+      if (rowBounds.width > 0) {
+        targets.push({
+          id: `${widget.id ?? 'tree'}:${row.node.id}:body`,
+          bounds: rowBounds,
+          message: () => toMessage(row.node),
+          cursor: 'pointer'
+        });
+      }
+    }
+    return targets;
   });
 }
 
-function treeLine(widget: Widget, row: VisibleTreeNode, selected: string | undefined, width: number, theme: TerminalTheme): RenderLine {
+function treeLine(widget: Widget, row: TreeVisibleRow, selected: string | undefined, width: number, theme: TerminalTheme): RenderLine {
   const isSelected = row.node.id === selected;
   const branch = branchSymbol(row.node, row.lazyPlaceholder === true, theme);
   const icon = row.node.icon === undefined ? '' : `${row.node.icon} `;
   const label = row.node.label;
-  const style = treeNodeStyle(widget, row, isSelected);
-  const branchStyle = mergeDataStyles(themeStyle('tree.branch'), style);
+  const labelStyle = treeLabelStyle(widget, row, isSelected);
+  const branchStyle = treeBranchStyle(widget, row, isSelected);
+  const iconStyle = treeIconStyle(widget, row, isSelected);
+  const markerStyle = treeMarkerStyle(widget, row, isSelected);
   const query = filterQuery(widget);
   const nodeSourceId = `${widget.id ?? 'tree'}:${row.node.id}`;
   const spans: RenderSpan[] = [
@@ -120,16 +135,49 @@ function treeLine(widget: Widget, row: VisibleTreeNode, selected: string | undef
       widget,
       isSelected,
       theme,
-      style,
-      treeSource(widget, `node.${row.node.id}.marker`, nodeSourceId, 'decoration')
+      markerStyle,
+      treeSource(widget, `node.${row.node.id}.marker`, {
+        itemId: nodeSourceId,
+        partKind: 'selection-marker',
+        role: 'decoration',
+        ...treeSourceState(treeRowState(row, isSelected))
+      })
     ),
-    ...(row.depth === 0 ? [] : [dataSpan('  '.repeat(row.depth), branchStyle, treeSource(widget, `node.${row.node.id}.indent`, nodeSourceId, 'decoration'))]),
-    dataSpan(branch, branchStyle, treeSource(widget, `node.${row.node.id}.branch`, nodeSourceId, 'decoration')),
-    dataSpan(' ', undefined, treeSource(widget, `node.${row.node.id}.branch.gap`, nodeSourceId, 'decoration')),
-    ...(icon.length === 0 ? [] : [dataSpan(icon, branchStyle, treeSource(widget, `node.${row.node.id}.icon`, nodeSourceId, 'decoration'))]),
-    ...dataValueSpans(label, query, style, {
-      source: treeSource(widget, `node.${row.node.id}.label`, nodeSourceId),
-      matchSource: treeSource(widget, `node.${row.node.id}.match`, nodeSourceId)
+    ...(row.depth === 0 ? [] : [dataSpan('  '.repeat(row.depth), branchStyle, treeSource(widget, `node.${row.node.id}.indent`, {
+      itemId: nodeSourceId,
+      partKind: 'indent',
+      role: 'decoration',
+      ...treeSourceState(treeRowState(row, isSelected))
+    }))]),
+    dataSpan(branch, branchStyle, treeSource(widget, `node.${row.node.id}.disclosure`, {
+      itemId: nodeSourceId,
+      partKind: 'disclosure',
+      role: 'decoration',
+      ...treeSourceState(treeDisclosureState(row, isSelected))
+    })),
+    dataSpan(' ', undefined, treeSource(widget, `node.${row.node.id}.disclosure.gap`, {
+      itemId: nodeSourceId,
+      partKind: 'gap',
+      role: 'decoration',
+      ...treeSourceState(treeDisclosureState(row, isSelected))
+    })),
+    ...(icon.length === 0 ? [] : [dataSpan(icon, iconStyle, treeSource(widget, `node.${row.node.id}.icon`, {
+      itemId: nodeSourceId,
+      partKind: 'icon',
+      role: 'decoration',
+      ...treeSourceState(treeRowState(row, isSelected))
+    }))]),
+    ...dataValueSpans(label, query, labelStyle, {
+      source: treeSource(widget, `node.${row.node.id}.label`, {
+        itemId: nodeSourceId,
+        partKind: 'label',
+        ...treeSourceState(treeRowState(row, isSelected))
+      }),
+      matchSource: treeSource(widget, `node.${row.node.id}.match`, {
+        itemId: nodeSourceId,
+        partKind: 'match',
+        state: 'match'
+      })
     })
   ];
   return {
@@ -143,64 +191,65 @@ function branchSymbol(node: TreeNode, lazyPlaceholder: boolean, theme: TerminalT
   return node.expanded === true ? theme.symbols.treeExpanded : theme.symbols.treeCollapsed;
 }
 
-function treeNodeStyle(widget: Widget, row: VisibleTreeNode, selected: boolean): TerminalStyle | undefined {
+function treeLabelStyle(widget: Widget, row: TreeVisibleRow, selected: boolean): TerminalStyle | undefined {
   if (row.lazyPlaceholder === true) return widgetStyle(widget, 'placeholder');
-  if (row.node.disabled === true) return widgetStyle(widget, 'value', 'disabled');
-  if (selected) return widgetStyle(widget, 'value', 'selected');
-  return undefined;
+  const state = treeVisualState(row, selected);
+  return resolveWidgetStyle(widget, {
+    slot: 'value',
+    ...(state === undefined ? {} : { state })
+  });
 }
 
-function visibleTreeNodes(widget: Widget): readonly VisibleTreeNode[] {
+function treeBranchStyle(widget: Widget, row: TreeVisibleRow, selected: boolean): TerminalStyle | undefined {
+  if (row.lazyPlaceholder === true) return widgetStyle(widget, 'placeholder');
+  const state = treeVisualState(row, selected);
+  return resolveWidgetStyle(widget, {
+    slot: 'border',
+    base: themeStyle('tree.branch'),
+    ...(state === undefined ? {} : { state })
+  });
+}
+
+function treeIconStyle(widget: Widget, row: TreeVisibleRow, selected: boolean): TerminalStyle | undefined {
+  if (row.lazyPlaceholder === true) return widgetStyle(widget, 'placeholder');
+  const state = treeVisualState(row, selected);
+  return resolveWidgetStyle(widget, {
+    slot: 'label',
+    ...(state === undefined ? {} : { state })
+  });
+}
+
+function treeMarkerStyle(widget: Widget, row: TreeVisibleRow, selected: boolean): TerminalStyle | undefined {
+  if (row.lazyPlaceholder === true) return widgetStyle(widget, 'placeholder');
+  const state = treeVisualState(row, selected);
+  return state === undefined ? undefined : widgetStyle(widget, 'value', state);
+}
+
+function treeVisualState(row: TreeVisibleRow, selected: boolean): WidgetVisualState | undefined {
+  if (row.node.disabled === true) return 'disabled';
+  return selected ? 'selected' : undefined;
+}
+
+function treeRowState(row: TreeVisibleRow, selected: boolean): string | undefined {
+  if (row.lazyPlaceholder === true) return 'placeholder';
+  return treeVisualState(row, selected);
+}
+
+function treeDisclosureState(row: TreeVisibleRow, selected: boolean): string | undefined {
+  if (!treeNodeCanDisclose(row.node) && row.lazyPlaceholder !== true) return 'leaf';
+  return treeRowState(row, selected);
+}
+
+function treeSourceState(state: string | undefined): { readonly state?: string } {
+  return state === undefined ? {} : { state };
+}
+
+export function treeVisibleRows(widget: Widget): readonly TreeVisibleRow[] {
   const roots = treeNodes(widget.props['nodes']);
-  const query = filterQuery(widget).toLocaleLowerCase();
-  const rows: VisibleTreeNode[] = [];
-  for (const node of roots) collectVisibleTreeNode(rows, node, 0, [], query);
-  return rows;
+  return visibleTreeRows(roots, { filterQuery: filterQuery(widget) });
 }
 
-function collectVisibleTreeNode(
-  rows: VisibleTreeNode[],
-  node: TreeNode,
-  depth: number,
-  parentPath: readonly string[],
-  query: string
-): boolean {
-  const path = [...parentPath, node.id];
-  const selfMatches = query.length === 0 || nodeMatches(node, query);
-  const descendantRows: VisibleTreeNode[] = [];
-  let descendantMatches = false;
-  for (const child of node.children ?? []) {
-    descendantMatches = collectVisibleTreeNode(descendantRows, child, depth + 1, path, query) || descendantMatches;
-  }
-  if (!selfMatches && !descendantMatches) return false;
-  rows.push({ node, depth, path });
-  if (query.length > 0) {
-    rows.push(...descendantRows);
-  } else if (node.expanded === true) {
-    if (node.lazy === true && (node.children === undefined || node.children.length === 0)) {
-      rows.push({
-        node: {
-          id: `${node.id}:lazy`,
-          label: lazyPlaceholderLabel(node),
-          disabled: true,
-          ...(node.lazyStatus === undefined ? {} : { lazyStatus: node.lazyStatus })
-        },
-        depth: depth + 1,
-        path: [...path, 'lazy'],
-        lazyPlaceholder: true
-      });
-    } else {
-      rows.push(...descendantRows);
-    }
-  }
-  return true;
-}
-
-function nodeMatches(node: TreeNode, query: string): boolean {
-  return treeNodeMatches(node, query);
-}
-
-function treeWindow(widget: Widget, rows: readonly VisibleTreeNode[], height: number, selected: string | undefined): TreeWindow {
+function treeWindow(widget: Widget, rows: readonly TreeVisibleRow[], height: number, selected: string | undefined): TreeWindow {
   const selectedIndex = selectedTreeIndex(rows, selected) ?? 0;
   const window = rowWindow(rows, {
     viewportRows: height,
@@ -259,10 +308,35 @@ function selectedTreeId(widget: Widget): string | undefined {
   return typeof selected === 'string' ? clean(selected) : undefined;
 }
 
-function selectedTreeIndex(rows: readonly VisibleTreeNode[], selected: string | undefined): number | undefined {
+function selectedTreeIndex(rows: readonly TreeVisibleRow[], selected: string | undefined): number | undefined {
   if (selected === undefined) return undefined;
   const index = rows.findIndex((row) => row.node.id === selected);
   return index === -1 ? undefined : index;
+}
+
+function treeDisclosureBounds(bounds: Rect, rowIndex: number, row: TreeVisibleRow): Rect | undefined {
+  const offset = treeDisclosureColumnOffset(row);
+  if (offset >= bounds.width) return undefined;
+  return {
+    row: bounds.row + rowIndex,
+    column: bounds.column + offset,
+    width: Math.min(2, bounds.width - offset),
+    height: 1
+  };
+}
+
+function treeRowBodyBounds(bounds: Rect, rowIndex: number, row: TreeVisibleRow, hasDisclosureTarget: boolean): Rect {
+  const offset = hasDisclosureTarget ? Math.min(bounds.width, treeDisclosureColumnOffset(row) + 2) : 0;
+  return {
+    row: bounds.row + rowIndex,
+    column: bounds.column + offset,
+    width: Math.max(0, bounds.width - offset),
+    height: 1
+  };
+}
+
+function treeDisclosureColumnOffset(row: TreeVisibleRow): number {
+  return 2 + row.depth * 2;
 }
 
 function scrollInput(widget: Widget): { readonly scroll?: ScrollState } {
@@ -276,6 +350,14 @@ function toMessageProp<TMessage>(widget: Widget<TMessage>): ((node: TreeNode) =>
   return (node) => toMessage(node) as TMessage;
 }
 
+function toDisclosureMessageProp<TMessage>(
+  widget: Widget<TMessage>
+): ((node: TreeNode, action: TreeDisclosureAction, event: RoutedPointerEvent) => TMessage) | undefined {
+  const toDisclosureMessage = widget.props['toDisclosureMessage'];
+  if (!isTreeDisclosureMessageFactory(toDisclosureMessage)) return undefined;
+  return (node, action, event) => toDisclosureMessage(node, action, event) as TMessage;
+}
+
 function emptyText(widget: Widget): string {
   const text = clean(stringify(widget.props['emptyText']));
   return text.length === 0 ? 'No nodes' : text;
@@ -283,12 +365,6 @@ function emptyText(widget: Widget): string {
 
 function filterQuery(widget: Widget): string {
   return clean(stringify(widget.props['filterQuery'])).trim();
-}
-
-function lazyPlaceholderLabel(node: TreeNode): string {
-  if (node.lazyStatus === 'error') return node.lazyMessage ?? 'Load failed';
-  if (node.lazyStatus === 'empty') return node.lazyMessage ?? 'No children';
-  return node.lazyMessage ?? 'Loading…';
 }
 
 function clean(value: string): string {
@@ -303,9 +379,26 @@ function isTreeMessageFactory(value: unknown): value is (node: TreeNode) => unkn
   return typeof value === 'function';
 }
 
-function treeSource(widget: Widget, label: string, id?: string, role: FrameCellSource['role'] = 'text'): FrameCellSource {
+function isTreeDisclosureMessageFactory(
+  value: unknown
+): value is (node: TreeNode, action: TreeDisclosureAction, event: RoutedPointerEvent) => unknown {
+  return typeof value === 'function';
+}
+
+function treeSource(
+  widget: Widget,
+  label: string,
+  options: {
+    readonly itemId?: string;
+    readonly partKind?: string;
+    readonly role?: FrameCellSource['role'];
+    readonly state?: string;
+  } = {}
+): FrameCellSource {
   return dataSource(widget, label, {
-    ...(id === undefined ? {} : { itemId: id }),
-    role
+    ...(options.itemId === undefined ? {} : { itemId: options.itemId }),
+    role: options.role,
+    ...(options.partKind === undefined ? {} : { partKind: options.partKind }),
+    ...(options.state === undefined ? {} : { state: options.state })
   });
 }

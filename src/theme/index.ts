@@ -15,6 +15,8 @@ export type CoreThemeToken =
   | 'surface.foreground'
   | 'surface.border'
   | 'surface.title'
+  | 'surface.chrome.background'
+  | 'surface.chrome.border'
   | 'surface.raised.background'
   | 'surface.raised.border'
   | 'surface.inset.background'
@@ -239,6 +241,8 @@ const modernColors = {
   'surface.foreground': { kind: 'ansi', value: 15 },
   'surface.border': { kind: 'ansi', value: 8 },
   'surface.title': { kind: 'ansi', value: 14 },
+  'surface.chrome.background': { kind: 'ansi', value: 0 },
+  'surface.chrome.border': { kind: 'ansi', value: 8 },
   'surface.raised.background': { kind: 'ansi', value: 0 },
   'surface.raised.border': { kind: 'ansi', value: 7 },
   'surface.inset.background': { kind: 'ansi', value: 0 },
@@ -290,6 +294,7 @@ const highContrastColors = {
   'app.background': { kind: 'ansi', value: 0 },
   'app.foreground': { kind: 'ansi', value: 15 },
   'surface.border': { kind: 'ansi', value: 15 },
+  'surface.chrome.border': { kind: 'ansi', value: 15 },
   'surface.raised.border': { kind: 'ansi', value: 15 },
   'surface.inset.border': { kind: 'ansi', value: 7 },
   'surface.selected.background': { kind: 'ansi', value: 15 },

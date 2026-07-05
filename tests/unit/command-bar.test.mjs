@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { commandBarReducer, renderWidgetFrame } from '../../dist/tui/index.js';
+import { commandBarReducer, renderWidgetFrame, renderWidgetRegions } from '../../dist/tui/index.js';
 import { commandBar } from '../../dist/widgets/index.js';
 
 test('commandBarReducer edits, navigates history, and accepts suggestions', () => {
@@ -82,7 +82,8 @@ test('commandBar widget renders prompt, suggestions, cursor, and accessibility',
         { value: 'open', label: 'open', description: 'Open item' },
         { value: 'options', label: 'options' }
       ],
-      selectedSuggestion: 1
+      selectedSuggestion: 1,
+      display: 'expanded'
     }),
     { columns: 30, rows: 4 }
   );
@@ -111,7 +112,8 @@ test('commandBar renders completion preview validation footer match styles and w
       suggestions: [
         { value: 'a🙂bc', label: 'a🙂bc', description: 'first match' }
       ],
-      selectedSuggestion: 0
+      selectedSuggestion: 0,
+      display: 'expanded'
     }),
     { columns: 32, rows: 4 }
   );
@@ -126,7 +128,7 @@ test('commandBar renders completion preview validation footer match styles and w
   assert.match(output, /Choose a value/u);
   assert.match(output, /enter accepts/u);
   assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 5 });
-  assert.equal(previewCell?.style?.fg?.token, 'text.muted');
+  assert.equal(previewCell?.style?.fg?.token, 'input.placeholder');
   assert.equal(selectedCell?.style?.bg?.token, 'selection.background');
   assert.equal(validationCell?.style?.fg?.token, 'status.warning');
   assert.equal(matchCell?.style?.fg?.token, 'menu.match');
@@ -136,8 +138,116 @@ test('commandBar renders completion preview validation footer match styles and w
   ]);
 });
 
+test('commandBar stays compact by default even when suggestions are provided', () => {
+  const frame = renderWidgetFrame(
+    commandBar({
+      id: 'compact-command',
+      prompt: '/',
+      value: '',
+      placeholder: 'Type a command',
+      suggestions: [
+        { value: 'open', label: 'open', description: 'Open item' }
+      ],
+      selectedSuggestion: 0,
+      footer: 'Enter run'
+    }),
+    { columns: 32, rows: 5 }
+  );
+
+  const output = frame.cells.map((cell) => cell.text).join('');
+  assert.match(output, /Type a command/u);
+  assert.doesNotMatch(output, /Open item/u);
+  assert.doesNotMatch(output, /Enter run/u);
+  assert.equal(frame.accessibility.root.children, undefined);
+});
+
+test('commandBar windows long input around the cursor', () => {
+  const value = '/open /very/long/path/to/file.txt';
+  const frame = renderWidgetFrame(
+    commandBar({
+      id: 'long-command',
+      prompt: '>',
+      value,
+      cursor: value.length
+    }),
+    { columns: 18, rows: 3 }
+  );
+
+  const firstRow = frame.cells
+    .filter((cell) => cell.row === 1)
+    .sort((left, right) => left.column - right.column)
+    .map((cell) => cell.text)
+    .join('');
+
+  assert.match(firstRow, /^>‹/u);
+  assert.match(firstRow, /file\.txt/u);
+  assert.doesNotMatch(firstRow, /\/very\/long/u);
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 18 });
+});
+
+test('commandBar maps pointer positions through the cursor-relative input window', () => {
+  const regions = renderWidgetRegions(
+    commandBar({
+      id: 'windowed-command',
+      prompt: '>',
+      value: 'abcdef',
+      cursor: 6,
+      toTextPointerMessage: (event) => ({ event })
+    }),
+    { columns: 5, rows: 1 }
+  );
+  const target = targetById(regions, 'windowed-command:text');
+  const message = target.message(pointerEvent({
+    row: 1,
+    column: 3,
+    localRow: 1,
+    localColumn: 3
+  }));
+
+  assert.equal(message?.event.action, 'placeCursor');
+  assert.equal(message?.event.offset, 4);
+});
+
 function cursorPosition(cursor) {
   return cursor === undefined ? undefined : { row: cursor.row, column: cursor.column };
+}
+
+function targetById(regions, id) {
+  const target = regions.flatMap((region) => region.hitTargets).find((current) => current.id === id);
+  assert.ok(target, `expected hit target ${id}`);
+  return target;
+}
+
+function pointerEvent({
+  row,
+  column,
+  localRow,
+  localColumn
+}) {
+  return {
+    kind: 'pointerDown',
+    source: 'mouse',
+    row,
+    column,
+    localRow,
+    localColumn,
+    button: 'left',
+    modifiers: { shift: false, alt: false, ctrl: false },
+    deltaRows: 0,
+    deltaColumns: 0,
+    targetId: 'target',
+    raw: {
+      kind: 'mouse',
+      sequence: '',
+      encoding: 'sgr',
+      action: 'press',
+      button: 'left',
+      row,
+      column,
+      rawCode: 0,
+      modifiers: { shift: false, alt: false, ctrl: false }
+    }
+  };
 }
 
 test('commandBar exposes prompt value selection suggestion validation and footer source metadata', () => {
@@ -153,19 +263,27 @@ test('commandBar exposes prompt value selection suggestion validation and footer
         { value: 'open-file', label: 'Open file', description: 'recent' }
       ],
       selectedSuggestion: 0,
-      footer: 'Enter run'
+      footer: 'Enter run',
+      display: 'expanded'
     }),
     { columns: 48, rows: 5 },
     { focusPath: ['cmd-source'] }
   );
 
   assert.equal(frame.cells.find((cell) => cell.text === ':')?.source?.label, 'prompt');
+  assert.equal(frame.cells.find((cell) => cell.text === ':')?.source?.partKind, 'prompt');
   assert.equal(frame.cells.find((cell) => cell.text === 'o')?.source?.label, 'value');
+  assert.equal(frame.cells.find((cell) => cell.text === 'o')?.source?.partKind, 'value');
   assert.equal(frame.cells.find((cell) => cell.text === 'f')?.source?.label, 'selection');
+  assert.equal(frame.cells.find((cell) => cell.text === 'f')?.source?.partKind, 'selection');
   assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === 's')?.source?.label, 'completion');
+  assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === 's')?.source?.partKind, 'completion');
   assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.label, 'validation');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.partKind, 'validation');
   assert.equal(frame.cells.find((cell) => cell.source?.label === 'suggestion.0.marker')?.text, '›');
   assert.equal(frame.cells.find((cell) => cell.text === 'O')?.source?.label, 'suggestion.0.match');
+  assert.equal(frame.cells.find((cell) => cell.text === 'O')?.source?.partKind, 'match');
   assert.equal(frame.cells.find((cell) => cell.source?.label === 'suggestion.0.description')?.text, ' ');
   assert.equal(frame.cells.find((cell) => cell.text === 'E')?.source?.label, 'footer');
+  assert.equal(frame.cells.find((cell) => cell.text === 'E')?.source?.partKind, 'footer');
 });

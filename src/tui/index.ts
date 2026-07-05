@@ -70,7 +70,7 @@ import type {
   PointerRouteResult,
   PointerRouter,
 } from './pointer-router.ts';
-import type { PointerEventKind, PointerSource, RoutedPointerEvent } from './pointer-types.ts';
+import type { PointerEventKind, RoutedPointerEvent } from './pointer-types.ts';
 import type {
   CopySelectedTextInput,
   CopySelectedTextResult,
@@ -92,13 +92,28 @@ import type {
   ScreenStack,
   ScreenStackAction
 } from './regions.ts';
-import type { CreateScrollStateInput, ScrollAction, ScrollState, ScrollVisibleWindow } from './scroll.ts';
+import type {
+  CreateScrollStateInput,
+  ScrollAction,
+  ScrollPolicy,
+  ScrollState,
+  ScrollVisibleWindow,
+  ScrollWheelPolicy,
+  ScrollWheelUnit,
+  WidgetScrollEvent,
+  WidgetScrollEventSource,
+  WidgetScrollEventTarget
+} from './scroll.ts';
 import type {
   ScrollbarLayout,
+  ScrollbarInteractionAction,
+  ScrollbarInteractionState,
   ScrollbarOptions,
+  ScrollbarRenderOptions,
   ScrollbarState,
   ScrollbarThumb,
-  ScrollbarTrack
+  ScrollbarTrack,
+  ScrollbarVisualState
 } from './scrollbar.ts';
 import type {
   SpinnerAction,
@@ -116,6 +131,11 @@ import type {
 import type { NotificationStackPlacementInput, NotificationStackSize } from './notifications.ts';
 import type { TooltipPlacementInput, TooltipSize } from './tooltip.ts';
 import type { HighlightRenderSpan, HighlightRenderSpansOptions } from './text-highlight.ts';
+import type {
+  TextPointerAction,
+  TextPointerEvent,
+  TextPointerHitTargetInput
+} from './text-pointer.ts';
 import type {
   FocusTarget,
   HitTarget,
@@ -135,6 +155,7 @@ import type {
 } from './scrollback.ts';
 import type {
   AnsiStyleState,
+  ClipRenderSpansOptions,
   CursorPosition,
   DiffFramesOptions,
   Frame,
@@ -152,6 +173,7 @@ import type {
   RenderDiff,
   RenderBlock,
   RenderBlockSize,
+  RenderClipMode,
   RenderLine,
   RenderOperation,
   RenderSerializeOptions,
@@ -164,6 +186,7 @@ import type {
 export type {
   CursorPosition,
   AnsiStyleState,
+  ClipRenderSpansOptions,
   DiffFramesOptions,
   DirtyRegionSet,
   FocusPath,
@@ -182,6 +205,7 @@ export type {
   FrameRowDiff,
   PadRenderLineOptions,
   RenderAlignment,
+  RenderClipMode,
   AxisLine,
   BarDatum,
   BarSeriesOptions,
@@ -232,7 +256,6 @@ export type {
   PointerEventKind,
   PointerRouteResult,
   PointerRouter,
-  PointerSource,
   RoutedPointerEvent,
   CopySelectedTextInput,
   CopySelectedTextResult,
@@ -257,13 +280,26 @@ export type {
   ScreenStackAction,
   CreateScrollStateInput,
   ScrollAction,
+  ScrollPolicy,
   ScrollState,
   ScrollVisibleWindow,
+  ScrollWheelPolicy,
+  ScrollWheelUnit,
+  WidgetScrollEvent,
+  WidgetScrollEventSource,
+  WidgetScrollEventTarget,
   ScrollbarLayout,
+  ScrollbarInteractionAction,
+  ScrollbarInteractionState,
   ScrollbarOptions,
+  ScrollbarRenderOptions,
   ScrollbarState,
   ScrollbarThumb,
   ScrollbarTrack,
+  ScrollbarVisualState,
+  TextPointerAction,
+  TextPointerEvent,
+  TextPointerHitTargetInput,
   SpinnerAction,
   SpinnerReducerOptions,
   SpinnerState,
@@ -374,8 +410,19 @@ export { createPointerRouter } from './pointer-router.ts';
 export { copySelectedTextToClipboard, resolveSelectedText } from './selection-interaction.ts';
 export { paginationWindow } from './pagination.ts';
 export { activeScreen, gridCellRects, screenStackReducer, splitTracks } from './regions.ts';
-export { createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll } from './scroll.ts';
+export { applyScrollEvent, createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll } from './scroll.ts';
 export { renderScrollbars, scrollbarLayout } from './scrollbar.ts';
+export {
+  scrollbarInteractionReducer,
+  scrollbarVisualStateForTarget
+} from './scrollbar.ts';
+export {
+  clampedTextOffset,
+  textOffsetAtVisualColumn,
+  textPointerHitTargets,
+  textPointerMessageFactory,
+  textSelectionBetween
+} from './text-pointer.ts';
 export { animationSource, intervalSource, timeoutSource } from './scheduler.ts';
 export { nextSpinnerFrameIndex, normalizeSpinnerFrameIndex, spinnerReducer } from './spinner.ts';
 export {

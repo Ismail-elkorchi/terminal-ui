@@ -25,6 +25,7 @@ import {
   stack,
   statusBar,
   structuredBlock,
+  surface,
   table,
   tabs,
   text,
@@ -215,6 +216,36 @@ test('list table and tree share data navigation selection and match styles', () 
   assert.equal(treeFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'node.api.match');
 });
 
+test('tree rows expose styled disclosure icon and label anatomy', () => {
+  const frame = renderWidgetFrame(tree({
+    nodes: [{
+      id: 'root',
+      label: 'Root',
+      icon: '◆',
+      expanded: true,
+      children: [{ id: 'child', label: 'Child' }]
+    }],
+    styles: {
+      border: tokenStyle('status.warning'),
+      label: tokenStyle('status.info'),
+      value: tokenStyle('status.success')
+    }
+  }), { columns: 24, rows: 2 });
+  const disclosure = frame.cells.find((cell) => cell.text === '▾');
+  const icon = frame.cells.find((cell) => cell.text === '◆');
+  const label = frame.cells.find((cell) => cell.text === 'R');
+  const indent = frame.cells.find((cell) => cell.source?.partKind === 'indent');
+
+  assert.equal(disclosure?.style?.fg?.token, 'status.warning');
+  assert.equal(disclosure?.source?.partKind, 'disclosure');
+  assert.equal(disclosure?.source?.state, undefined);
+  assert.equal(icon?.style?.fg?.token, 'status.info');
+  assert.equal(icon?.source?.partKind, 'icon');
+  assert.equal(label?.style?.fg?.token, 'status.success');
+  assert.equal(label?.source?.partKind, 'label');
+  assert.equal(indent?.style?.fg?.token, 'status.warning');
+});
+
 test('tabs use shared selected disabled and value styles', () => {
   const frame = renderWidgetFrame(tabs({
     id: 'tabs',
@@ -276,6 +307,50 @@ test('semantic text roles use shared visual grammar', () => {
   assert.equal(styleFor(textFrame, '4')?.fg?.token, 'accent.primary');
   assert.equal(styleFor(textFrame, 'q')?.fg?.token, 'text.muted');
   assert.equal(styleFor(textFrame, 'r')?.fg?.token, 'status.error');
+});
+
+test('focused borderless surfaces expose root focus state', () => {
+  const focusedFrame = renderWidgetFrame(surface(text('Pane', { id: 'pane-label' }), {
+    id: 'focus-surface',
+    variant: 'chrome',
+    keyMap: { enter: { kind: 'activate' } }
+  }), { columns: 10, rows: 1 }, { focusPath: ['focus-surface'] });
+  const customFrame = renderWidgetFrame(surface(text('Pane', { id: 'custom-label' }), {
+    id: 'custom-focus-surface',
+    variant: 'chrome',
+    keyMap: { enter: { kind: 'activate' } },
+    styles: {
+      focused: { bg: { kind: 'theme', token: 'status.warning' } }
+    }
+  }), { columns: 10, rows: 1 }, { focusPath: ['custom-focus-surface'] });
+
+  assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'focus.background');
+  assert.equal(styleForCell(customFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'status.warning');
+});
+
+test('surface visualState exposes selected panes without stealing focus semantics', () => {
+  const selectedFrame = renderWidgetFrame(surface(text('Pane', { id: 'selected-label' }), {
+    id: 'selected-surface',
+    variant: 'chrome',
+    visualState: 'selected'
+  }), { columns: 10, rows: 1 });
+  const focusedFrame = renderWidgetFrame(surface(text('Pane', { id: 'focused-label' }), {
+    id: 'focused-surface',
+    variant: 'chrome',
+    visualState: 'selected',
+    keyMap: { enter: { kind: 'activate' } }
+  }), { columns: 10, rows: 1 }, { focusPath: ['focused-surface'] });
+  const disabledFrame = renderWidgetFrame(surface(text('Pane', { id: 'disabled-label' }), {
+    id: 'disabled-surface',
+    variant: 'chrome',
+    visualState: 'selected',
+    disabled: true
+  }), { columns: 10, rows: 1 });
+
+  assert.equal(styleForCell(selectedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'selection.background');
+  assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'focus.background');
+  assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'surface.chrome.background');
+  assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.part === 'background')?.fg?.token, 'text.muted');
 });
 
 test('overflow priority preserves important row content before decorative content', () => {

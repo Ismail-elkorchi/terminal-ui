@@ -59,7 +59,7 @@ function mouseReportingEnableSequence(mode: MouseReportingMode): string {
     : mode === 'drag'
       ? '1002'
       : '1003';
-  return `\u001B[?${baseMode}h\u001B[?1006h`;
+  return `\u001B[?1006h\u001B[?${baseMode}h`;
 }
 
 function mouseReportingDisableSequence(): string {

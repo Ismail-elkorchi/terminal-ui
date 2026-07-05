@@ -1,17 +1,21 @@
-import { clipTextCells, measureTextCells, wrapTextCells } from '../text/index.ts';
+import { measureTextCells } from '../text/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import { drawBorder } from './border.ts';
 import type { BorderStyle } from './border.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
 import { widgetFrameSource } from './frame-source.ts';
 import type { Rect } from './layout.ts';
+import { clipRenderSpans } from './render-primitives.ts';
 import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { numberProp } from './widget-props.ts';
+import type { HitTarget } from './widget-renderer.ts';
 import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
 import type { NotificationItem, NotificationPlacement, NotificationTone, Widget } from '../widgets/index.ts';
 import { normalizeNotificationTone, statusFromTone } from '../widgets/index.ts';
 import { feedbackSpan } from './feedback-visual.ts';
 import { statusToken } from './status-visual.ts';
+
+const MIN_NOTIFICATION_CARD_HEIGHT = 3;
 
 export interface NotificationStackSize {
   readonly width: number;
@@ -47,24 +51,8 @@ export function renderNotificationStack(
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const cards = notificationCards(widget);
   if (cards.length === 0) return;
-  const size = notificationStackSizeFromCards(cards);
-  const stack = placeNotificationStack({
-    viewport: bounds,
-    size,
-    placement: notificationPlacement(widget),
-    margin: 1
-  });
-  let row = stack.row;
-  for (const card of cards) {
-    if (row > stack.row + stack.height - 1) return;
-    const cardBounds = {
-      row,
-      column: stack.column + Math.max(0, stack.width - card.width),
-      width: Math.min(card.width, stack.width),
-      height: Math.min(card.height, stack.row + stack.height - row)
-    };
-    renderNotificationCard(widget, card, buffer, cardBounds, theme);
-    row += card.height + 1;
+  for (const placement of notificationCardPlacements(widget, bounds, cards)) {
+    renderNotificationCard(widget, placement.card, buffer, placement.bounds, theme);
   }
 }
 
@@ -98,20 +86,58 @@ export function notificationStackAccessibleBase(widget: Widget, id: string, focu
   };
 }
 
+export function notificationStackHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toDismissMessage = notificationDismissMessageFactory(widget);
+  if (toDismissMessage === undefined) return [];
+  return notificationCardPlacements(widget, bounds).map((placement): HitTarget<TMessage> => ({
+    id: `${widget.id ?? 'notificationStack'}:notification:${placement.card.item.id}`,
+    bounds: placement.bounds,
+    accepts: ['click'],
+    cursor: 'pointer',
+    message: () => toDismissMessage(placement.card.item)
+  }));
+}
+
 export function placeNotificationStack(input: NotificationStackPlacementInput): Rect {
   const margin = Math.max(0, Math.floor(input.margin ?? 1));
-  const width = Math.min(input.size.width, Math.max(0, input.viewport.width - margin * 2));
-  const height = Math.min(input.size.height, Math.max(0, input.viewport.height - margin * 2));
+  const usable = insetRect(input.viewport, margin);
+  const width = Math.min(input.size.width, usable.width);
+  const height = Math.min(input.size.height, usable.height);
   const placement = input.placement ?? 'top-right';
-  const row = placement === 'bottom-right'
-    ? input.viewport.row + input.viewport.height - height - margin
-    : placement === 'centered-stack'
-      ? input.viewport.row + Math.floor((input.viewport.height - height) / 2)
-      : input.viewport.row + margin;
-  const column = placement === 'centered-stack'
-    ? input.viewport.column + Math.floor((input.viewport.width - width) / 2)
-    : input.viewport.column + input.viewport.width - width - margin;
-  return clampRect({ row, column, width, height }, input.viewport);
+  const base = placeStackInArea(usable, { width, height }, placement);
+  return clampRect(base, input.viewport);
+}
+
+function notificationCardPlacements(widget: Widget, bounds: Rect, cards: readonly NotificationCard[] = notificationCards(widget)): readonly {
+  readonly card: NotificationCard;
+  readonly bounds: Rect;
+}[] {
+  if (bounds.width <= 0 || bounds.height <= 0 || cards.length === 0) return [];
+  const size = notificationStackSizeFromCards(cards);
+  const stack = placeNotificationStack({
+    viewport: bounds,
+    size,
+    placement: notificationPlacement(widget),
+    margin: 1
+  });
+  const placements: { readonly card: NotificationCard; readonly bounds: Rect }[] = [];
+  let row = stack.row;
+  for (const card of cards) {
+    if (row > stack.row + stack.height - 1) break;
+    const remainingHeight = stack.row + stack.height - row;
+    if (remainingHeight < MIN_NOTIFICATION_CARD_HEIGHT) break;
+    const cardBounds = {
+      row,
+      column: stack.column + Math.max(0, stack.width - card.width),
+      width: Math.min(card.width, stack.width),
+      height: Math.min(card.height, remainingHeight)
+    };
+    if (cardBounds.width > 0 && cardBounds.height >= MIN_NOTIFICATION_CARD_HEIGHT) {
+      placements.push({ card, bounds: cardBounds });
+    }
+    row += card.height + 1;
+  }
+  return placements;
 }
 
 function renderNotificationCard(
@@ -133,17 +159,21 @@ function renderNotificationCard(
   };
   for (let index = 0; index < Math.min(card.lines.length, contentBounds.height); index += 1) {
     const cardLine = card.lines[index] ?? { kind: 'message', text: '' };
-    buffer.write(contentBounds.row + index, contentBounds.column, [{
-      text: clipTextCells(cardLine.text, contentBounds.width).text,
-      style: cardTextStyle(tone, index === 0, card.selected),
-      source: widgetFrameSource(widget, {
+    const source = widgetFrameSource(widget, {
         family: 'feedback',
         role: 'text',
         part: cardLine.kind,
         itemId: card.item.id,
         label: cardLine.kind
-      })
-    }]);
+    });
+    buffer.write(contentBounds.row + index, contentBounds.column, clipRenderSpans([{
+      text: cardLine.text,
+      style: cardTextStyle(tone, index === 0, card.selected),
+      source
+    }], contentBounds.width, {
+      ellipsis: '…',
+      mode: 'middle'
+    }));
   }
   if (card.item.progress !== undefined && contentBounds.height > 0) {
     const progressRow = contentBounds.row + contentBounds.height - 1;
@@ -155,7 +185,7 @@ function notificationCards(widget: Widget): readonly NotificationCard[] {
   const maxWidth = notificationMaxWidth(widget);
   const selected = notificationSelectedIndex(widget);
   return notificationItems(widget).map((item, index) => {
-    const lines = cardContentLines(item, Math.max(1, maxWidth - 2));
+    const lines = cardContentLines(item);
     const contentWidth = lines.reduce((max, line) => Math.max(max, measureTextCells(line.text).cells), 0);
     const titleWidth = measureTextCells(` ${item.title} `).cells;
     const progressWidth = item.progress === undefined ? 0 : Math.min(maxWidth - 2, 22);
@@ -178,11 +208,10 @@ function notificationItems(widget: Widget): readonly NotificationItem[] {
   return items.filter(isNotificationItem).slice(0, notificationMaxVisible(widget));
 }
 
-function cardContentLines(item: NotificationItem, width: number): readonly NotificationCardLine[] {
-  const message = item.message === undefined ? [] : wrapTextCells(item.message, Math.max(1, width), { preserveWords: true }).slice(0, 2);
+function cardContentLines(item: NotificationItem): readonly NotificationCardLine[] {
   return [
     { kind: 'title', text: item.title },
-    ...message.map((currentLine): NotificationCardLine => ({ kind: 'message', text: currentLine.text })),
+    ...(item.message === undefined ? [] : [{ kind: 'message' as const, text: item.message }]),
     ...notificationMetaLines(item).map((text): NotificationCardLine => ({ kind: 'meta', text }))
   ];
 }
@@ -337,6 +366,11 @@ function notificationSelectedIndex(widget: Widget): number {
   return Math.max(0, Math.floor(value));
 }
 
+function notificationDismissMessageFactory<TMessage>(widget: Widget<TMessage>): ((item: NotificationItem) => TMessage) | undefined {
+  const candidate = widget.props['toDismissMessage'];
+  return typeof candidate === 'function' ? candidate as (item: NotificationItem) => TMessage : undefined;
+}
+
 function isNotificationItem(value: unknown): value is NotificationItem {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Record<string, unknown>;
@@ -399,5 +433,46 @@ function clampRect(rect: Rect, viewport: Rect): Rect {
     column: Math.max(viewport.column, Math.min(rect.column, viewport.column + viewport.width - width)),
     width,
     height
+  };
+}
+
+function insetRect(rect: Rect, margin: number): Rect {
+  return normalizeRect({
+    row: rect.row + margin,
+    column: rect.column + margin,
+    width: Math.max(0, rect.width - margin * 2),
+    height: Math.max(0, rect.height - margin * 2)
+  });
+}
+
+function placeStackInArea(
+  area: Rect,
+  size: NotificationStackSize,
+  placement: NotificationPlacement
+): Rect {
+  const width = Math.min(size.width, area.width);
+  const height = Math.min(size.height, area.height);
+  if (placement === 'centered-stack') {
+    return {
+      row: area.row + Math.floor((area.height - height) / 2),
+      column: area.column + Math.floor((area.width - width) / 2),
+      width,
+      height
+    };
+  }
+  return {
+    row: placement === 'bottom-right' ? area.row + area.height - height : area.row,
+    column: area.column + area.width - width,
+    width,
+    height
+  };
+}
+
+function normalizeRect(rect: Rect): Rect {
+  return {
+    row: Math.floor(Number.isFinite(rect.row) ? rect.row : 0),
+    column: Math.floor(Number.isFinite(rect.column) ? rect.column : 0),
+    width: Math.max(0, Math.floor(Number.isFinite(rect.width) ? rect.width : 0)),
+    height: Math.max(0, Math.floor(Number.isFinite(rect.height) ? rect.height : 0))
   };
 }

@@ -168,7 +168,8 @@ test('commandBar preserves disabled suggestion semantics', () => {
       suggestions: [
         { value: 'deploy', label: 'Deploy', description: 'Unavailable', disabled: true }
       ],
-      selectedSuggestion: 0
+      selectedSuggestion: 0,
+      display: 'expanded'
     }),
     { columns: 40, rows: 3 }
   );

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { diagnostic } from '../../dist/diagnostics.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import {
@@ -11,13 +12,16 @@ import {
 import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
 import {
   createTuiRuntime,
+  createScrollState,
   defineTui,
+  applyScrollEvent,
   diffFrames,
   renderDiffAnsi,
   renderFrameDebug,
   renderFramePlain,
   renderWidgetFrame,
-  runTui
+  runTui,
+  scrollReducer
 } from '../../dist/tui/index.js';
 import {
   button,
@@ -39,6 +43,7 @@ import {
   table,
   tabs,
   text,
+  textArea,
   tree,
   viewport
 } from '../../dist/widgets/index.js';
@@ -435,6 +440,96 @@ test('runTui reports a typed diagnostic when no host is provided', async () => {
   assert.equal(exit.snapshot.root.id, 'missing-host-tui');
 });
 
+test('TUI runtime exposes diagnostics to app views', async () => {
+  const appDiagnostic = diagnostic('HOST_PROTOCOL_UNSUPPORTED', 'Mouse reporting unavailable.', {
+    severity: 'warning',
+    data: {
+      operation: 'mouseReporting',
+      target: 'drag'
+    }
+  });
+  const app = defineTui({
+    id: 'diagnostic-view',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    view: (_state, context) => {
+      const item = context.diagnostics[0];
+      return text(`${item?.code ?? 'none'}:${item?.data?.operation ?? 'none'}:${item?.data?.target ?? 'none'}`);
+    }
+  });
+  const host = createMemoryTerminalHost({ viewport: { columns: 48, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host, diagnostics: [appDiagnostic] });
+
+  const frame = await runtime.start();
+
+  assert.match(renderFramePlain(frame), /HOST_PROTOCOL_UNSUPPORTED:mouseReporting:drag/u);
+});
+
+test('TUI runtime exposes diagnostics to subscription sources', async () => {
+  const appDiagnostic = diagnostic('HOST_PROTOCOL_SKIPPED', 'Terminal protocol operation skipped.', {
+    severity: 'info',
+    data: {
+      operation: 'mouseReporting',
+      target: 'none'
+    }
+  });
+  let observed;
+  const app = defineTui({
+    id: 'diagnostic-subscription',
+    init: () => ({ label: 'pending' }),
+    update: (_state, message) => ({ state: { label: message.label } }),
+    subscriptions: () => [{
+      id: 'diagnostic-source',
+      async *messages(context) {
+        observed = `${context.diagnostics[0]?.code ?? 'none'}:${context.diagnostics[0]?.data?.operation ?? 'none'}`;
+        yield { label: observed };
+      }
+    }],
+    view: (state) => text(state.label, { id: 'diagnostic-label' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 48, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host, diagnostics: [appDiagnostic] });
+
+  await runtime.start();
+  await waitUntil(() => observed !== undefined);
+  await waitUntil(() => renderFramePlain(runtime.frame()).includes('HOST_PROTOCOL_SKIPPED:mouseReporting'));
+
+  assert.equal(observed, 'HOST_PROTOCOL_SKIPPED:mouseReporting');
+  assert.match(renderFramePlain(runtime.frame()), /HOST_PROTOCOL_SKIPPED:mouseReporting/u);
+});
+
+test('runTui exposes setup diagnostics to app views', async () => {
+  const app = defineTui({
+    id: 'setup-diagnostic-view',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    view: (_state, context) => {
+      const item = context.diagnostics[0];
+      return text(`${item?.code ?? 'none'}:${item?.data?.operation ?? 'none'}:${item?.data?.target ?? 'none'}`);
+    }
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 52, rows: 3 } });
+  const running = runTui(app, harness.host, {
+    sessionPolicy: {
+      alternateScreen: 'disabled',
+      rawInput: 'disabled',
+      bracketedPaste: 'disabled',
+      focusReporting: 'disabled',
+      cursorVisibility: { state: 'hide', requirement: 'disabled' },
+      mouseReporting: { mode: 'none', requirement: 'disabled' }
+    }
+  });
+
+  await waitUntil(() => harness.frames().length === 1);
+  assert.match(renderFramePlain(harness.frames()[0]), /HOST_PROTOCOL_SKIPPED:alternateScreen:true/u);
+
+  harness.host.stdin.close();
+  const exit = await running;
+
+  assert.equal(exit.status, 'completed');
+  assert.equal(exit.diagnostics.some((item) => item.code === 'HOST_PROTOCOL_SKIPPED'), true);
+});
+
 test('runTui restores terminal protocols on successful exit', async () => {
   const app = defineTui({
     id: 'restored-success',
@@ -461,7 +556,7 @@ test('runTui restores terminal protocols on successful exit', async () => {
   assert.match(harness.output(), /\u001B\[\?1049l/);
   assert.match(harness.output(), /\u001B\[\?2004h/);
   assert.match(harness.output(), /\u001B\[\?2004l/);
-  assert.match(harness.output(), /\u001B\[\?1000h\u001B\[\?1006h/);
+  assert.match(harness.output(), /\u001B\[\?1006h\u001B\[\?1002h/);
   assert.match(harness.output(), /\u001B\[\?1003l\u001B\[\?1002l\u001B\[\?1000l\u001B\[\?1006l/);
   assert.match(harness.output(), /\u001B\[\?1004h/);
   assert.match(harness.output(), /\u001B\[\?1004l/);
@@ -804,6 +899,68 @@ test('TUI runtime records external dispatch messages in transcripts', async () =
   assert.ok(snapshot.steps.some((step) => step.kind === 'message'
     && step.source === 'external'
     && step.message.delta === 4));
+});
+
+test('TUI runtime coalesces unobserved frame changes', async () => {
+  const app = defineTui({
+    id: 'coalesced-frame-changes',
+    init: () => ({ count: 0 }),
+    update: (state, message) => ({ state: { count: state.count + message.delta } }),
+    view: (state) => text(`Count ${String(state.count)}`, { id: 'count' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.dispatch({ delta: 1 });
+  await runtime.dispatch({ delta: 1 });
+
+  const latest = await runtime.nextChange();
+  assert.equal(latest.kind, 'frame');
+  assert.match(renderFramePlain(latest.frame), /Count 2/u);
+
+  let resolved = false;
+  const pending = runtime.nextChange().then((change) => {
+    resolved = true;
+    return change;
+  });
+  await Promise.resolve();
+  assert.equal(resolved, false);
+
+  await runtime.dispatch({ delta: 1 });
+  const next = await pending;
+  assert.equal(next.kind, 'frame');
+  assert.match(renderFramePlain(next.frame), /Count 3/u);
+});
+
+test('TUI runtime does not publish frames for identity no-op updates', async () => {
+  const app = defineTui({
+    id: 'identity-noop-frame-changes',
+    init: () => ({ count: 0 }),
+    update: (state, message) => message.kind === 'noop'
+      ? { state }
+      : { state: { count: state.count + 1 } },
+    view: (state) => text(`Count ${String(state.count)}`, { id: 'count' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.nextChange();
+
+  let resolved = false;
+  const pending = runtime.nextChange().then((change) => {
+    resolved = true;
+    return change;
+  });
+  await runtime.dispatch({ kind: 'noop' });
+  await Promise.resolve();
+  assert.equal(resolved, false);
+
+  await runtime.dispatch({ kind: 'increment' });
+  const change = await pending;
+  assert.equal(change.kind, 'frame');
+  assert.match(renderFramePlain(change.frame), /Count 1/u);
 });
 
 test('TUI runtime queues context dispatch during initialization before first render', async () => {
@@ -1161,6 +1318,56 @@ test('TUI runtime routes focused text and paste input through widget input maps'
   assert.equal(pasted.handled, true);
   assert.deepEqual(runtime.getState(), { value: 'a[bc]' });
   assert.match(renderFramePlain(runtime.frame()), /a\[bc\]/);
+});
+
+test('TUI runtime routes single-space input chunks as text for editable focused widgets', async () => {
+  const app = defineTui({
+    id: 'space-input-routing',
+    init: () => ({ value: '' }),
+    update: (state, message) => ({ state: { value: `${state.value}${message.text}` } }),
+    view: (state) => textInput({
+      id: 'field',
+      value: state.value,
+      inputMap: {
+        text: (textValue) => ({ text: textValue })
+      }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 30, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.handleInputChunk({ data: '/folder' });
+  const space = await runtime.handleInputChunk({ data: ' ' });
+  await runtime.handleInputChunk({ data: 'src' });
+
+  assert.equal(space.some((result) => result.handled), true);
+  assert.deepEqual(runtime.getState(), { value: '/folder src' });
+  assert.match(renderFramePlain(runtime.frame()), /\/folder src/u);
+});
+
+test('TUI runtime lets focused space key bindings override text insertion', async () => {
+  const app = defineTui({
+    id: 'space-key-routing',
+    init: () => ({ value: '' }),
+    update: (_state, message) => ({ state: { value: message.text } }),
+    view: (state) => textInput({
+      id: 'field',
+      value: state.value,
+      keyMap: { space: { text: 'space-key' } },
+      inputMap: {
+        text: (textValue) => ({ text: textValue })
+      }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 30, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const space = await runtime.handleInputChunk({ data: ' ' });
+
+  assert.equal(space.some((result) => result.handled), true);
+  assert.deepEqual(runtime.getState(), { value: 'space-key' });
 });
 
 test('TUI runtime decodes input chunks through the configured input pipeline', async () => {
@@ -2125,6 +2332,652 @@ test('TUI pointer targets receive event-aware messages and horizontal wheel delt
   });
 });
 
+test('TUI wheel routing skips non-scroll child targets and reaches scroll owner', async () => {
+  const renderer = {
+    render({ node, buffer }) {
+      buffer.write(node.bounds.row, node.bounds.column, [{ text: 'child inside scroll owner' }]);
+    },
+    accessibility({ id }) {
+      return { id, role: 'group', label: 'scroll owner' };
+    },
+    hitTargets({ bounds }) {
+      return [
+        {
+          id: 'scroll-owner',
+          bounds,
+          accepts: ['scroll'],
+          message: (event) => ({
+            kind: 'scroll',
+            targetId: event.targetId,
+            localColumn: event.localColumn
+          }),
+          cursor: 'grab'
+        },
+        {
+          id: 'child-button',
+          bounds: { ...bounds, width: 8 },
+          accepts: ['click'],
+          message: () => ({ kind: 'child-click' }),
+          cursor: 'pointer',
+          zIndex: 1
+        }
+      ];
+    }
+  };
+  const app = defineTui({
+    id: 'wheel-scroll-owner-tui',
+    init: () => ({ events: [] }),
+    update: (state, message) => ({ state: { events: [...state.events, message] } }),
+    view: () => custom({ id: 'wheel-scroll-owner', renderer })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 28, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const wheel = await runtime.handleInputChunk({ data: '\u001B[<65;3;1M' });
+  const release = await runtime.handleInputChunk({ data: '\u001B[<0;3;1m' });
+
+  assert.equal(wheel[0]?.handled, true);
+  assert.equal(release[0]?.handled, false);
+  assert.deepEqual(runtime.getState(), {
+    events: [
+      { kind: 'scroll', targetId: 'scroll-owner', localColumn: 3 }
+    ]
+  });
+});
+
+test('TUI press routing keeps scroll-only content targets from swallowing text pointer targets', async () => {
+  const app = defineTui({
+    id: 'scroll-content-text-pointer-tui',
+    init: () => ({
+      scroll: createScrollState({ contentRows: 2, viewportRows: 1 }),
+      events: []
+    }),
+    update: (state, message) => {
+      if (message.kind === 'scroll') {
+        return {
+          state: {
+            ...state,
+            scroll: applyScrollEvent(state.scroll, message.event),
+            events: [...state.events, message]
+          }
+        };
+      }
+      return { state: { ...state, events: [...state.events, message] } };
+    },
+    view: (state) => textArea({
+      id: 'scrolling-text-pointer',
+      value: 'alpha\nbeta',
+      scroll: state.scroll,
+      scrollbar: { visible: 'always' },
+      toScrollMessage: (event) => ({ kind: 'scroll', event }),
+      toTextPointerMessage: (event) => ({ kind: 'text', event })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 16, rows: 4 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const contentTarget = targetById(runtime, 'scrolling-text-pointer:scroll:content');
+  const press = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'press',
+    button: 'left',
+    row: contentTarget.bounds.row,
+    column: contentTarget.bounds.column + 4,
+    rawCode: 0,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+
+  assert.equal(press.handled, true);
+  assert.equal(runtime.getState().events.length, 1);
+  assert.equal(runtime.getState().events[0].kind, 'text');
+  assert.equal(runtime.getState().events[0].event.action, 'placeCursor');
+});
+
+test('TUI wheel routing keeps scroll content hits in their overlay region layer', async () => {
+  const backgroundValue = Array.from({ length: 20 }, (_, index) => `background ${String(index + 1)}`).join('\n');
+  const foregroundContent = stack(
+    Array.from({ length: 20 }, (_, index) => text(`foreground ${String(index + 1)}`, { id: `foreground-${String(index)}` })),
+    { id: 'foreground-stack' }
+  );
+  const app = defineTui({
+    id: 'scroll-layer-routing-tui',
+    init: () => ({
+      background: createScrollState({ contentRows: 20, viewportRows: 1 }),
+      foreground: createScrollState({ contentRows: 20, viewportRows: 1 }),
+      events: []
+    }),
+    update: (state, message) => ({
+      state: {
+        ...state,
+        [message.owner]: applyScrollEvent(state[message.owner], message.event),
+        events: [...state.events, `${message.owner}:${message.event.target}`]
+      }
+    }),
+    view: (state) => overlay([
+      textArea({
+        id: 'background-scroll',
+        value: backgroundValue,
+        scroll: state.background,
+        scrollbar: { visible: 'always' },
+        toScrollMessage: (event) => ({ owner: 'background', event })
+      }),
+      viewport(foregroundContent, {
+        id: 'foreground-scroll',
+        contentRows: 20,
+        scroll: state.foreground,
+        toScrollMessage: (event) => ({ owner: 'foreground', event })
+      })
+    ], { id: 'scroll-layer-root' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 5 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const backgroundTrack = targetById(runtime, 'background-scroll:scrollbar:vertical:track');
+  const result = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'wheel',
+    button: 'wheelDown',
+    row: backgroundTrack.bounds.row,
+    column: backgroundTrack.bounds.column,
+    rawCode: 65,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+
+  assert.equal(result.handled, true);
+  assert.deepEqual(runtime.getState().events, ['foreground:content']);
+  assert.equal(runtime.getState().foreground.offsetRow, 3);
+  assert.equal(runtime.getState().background.offsetRow, 0);
+});
+
+test('TUI pointer scrolling and scrollbar track input route to controlled text areas', async () => {
+  const value = Array.from({ length: 40 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
+  const app = defineTui({
+    id: 'text-area-scroll-pointer-tui',
+    init: () => ({
+      scroll: createScrollState({ contentRows: 40, viewportRows: 1 }),
+      events: []
+    }),
+    update: (state, message) => ({
+      state: {
+        scroll: applyScrollEvent(state.scroll, message.event),
+        events: [...state.events, `${message.event.source}:${message.event.target}`]
+      }
+    }),
+    view: (state) => textArea({
+      id: 'scroll-editor',
+      value,
+      scroll: state.scroll,
+      scrollbar: { visible: 'always' },
+      toScrollMessage: (event) => ({ event })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 6 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const contentTarget = targetById(runtime, 'scroll-editor:scroll:content');
+  const wheel = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'wheel',
+    button: 'wheelDown',
+    row: contentTarget.bounds.row,
+    column: contentTarget.bounds.column,
+    rawCode: 64,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+  const wheelUpTarget = targetById(runtime, 'scroll-editor:scroll:content');
+  const wheelUp = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'wheel',
+    button: 'wheelUp',
+    row: wheelUpTarget.bounds.row,
+    column: wheelUpTarget.bounds.column,
+    rawCode: 64,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+  const trackTarget = targetById(runtime, 'scroll-editor:scrollbar:vertical:track');
+  const trackPress = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'press',
+    button: 'left',
+    row: trackTarget.bounds.row + trackTarget.bounds.height - 1,
+    column: trackTarget.bounds.column,
+    rawCode: 0,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+  const trackDrag = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'drag',
+    button: 'left',
+    row: trackTarget.bounds.row + trackTarget.bounds.height - 1,
+    column: trackTarget.bounds.column,
+    rawCode: 32,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+
+  assert.equal(wheel.handled, true);
+  assert.equal(wheelUp.handled, true);
+  assert.equal(wheelUp.state.scroll.offsetRow, 0);
+  assert.equal(trackPress.handled, true);
+  assert.equal(trackDrag.handled, true);
+  assert.deepEqual(runtime.getState().events, [
+    'wheel:content',
+    'wheel:content',
+    'pointerDown:verticalScrollbarTrack',
+    'dragStart:verticalScrollbarTrack'
+  ]);
+  assert.equal(runtime.getState().scroll.offsetRow, 35);
+  assert.match(renderFramePlain(runtime.frame()), /line 40/u);
+});
+
+test('TUI scrollbar thumb drag preserves the press anchor', async () => {
+  const value = Array.from({ length: 40 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
+  const app = defineTui({
+    id: 'text-area-thumb-scroll-pointer-tui',
+    init: () => ({
+      scroll: createScrollState({ offsetRow: 12, contentRows: 40, viewportRows: 1 }),
+      events: []
+    }),
+    update: (state, message) => ({
+      state: {
+        scroll: applyScrollEvent(state.scroll, message.event),
+        events: [...state.events, `${message.event.source}:${message.event.target}:${message.event.action.kind}`]
+      }
+    }),
+    view: (state) => textArea({
+      id: 'thumb-editor',
+      value,
+      scroll: state.scroll,
+      scrollbar: { visible: 'always' },
+      toScrollMessage: (event) => ({ event })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 10 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const thumbTarget = targetById(runtime, 'thumb-editor:scrollbar:vertical:thumb');
+  const pressRow = thumbTarget.bounds.row + 1;
+  const press = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'press',
+    button: 'left',
+    row: pressRow,
+    column: thumbTarget.bounds.column,
+    rawCode: 0,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+  const drag = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'drag',
+    button: 'left',
+    row: pressRow + 4,
+    column: thumbTarget.bounds.column,
+    rawCode: 32,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+
+  assert.equal(press.handled, true);
+  assert.equal(drag.handled, true);
+  assert.deepEqual(runtime.getState().events, [
+    'pointerDown:verticalScrollbarThumb:setOffset',
+    'dragStart:verticalScrollbarThumb:setOffset'
+  ]);
+  assert.equal(runtime.getState().scroll.offsetRow, 27);
+});
+
+test('TUI scrollbar thumb routing stays above its track inside elevated regions', async () => {
+  const value = Array.from({ length: 40 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
+  const app = defineTui({
+    id: 'elevated-thumb-scroll-pointer-tui',
+    init: () => ({
+      scroll: createScrollState({ offsetRow: 12, contentRows: 40, viewportRows: 1 }),
+      events: []
+    }),
+    update: (state, message) => ({
+      state: {
+        scroll: applyScrollEvent(state.scroll, message.event),
+        events: [...state.events, `${message.event.source}:${message.event.target}`]
+      }
+    }),
+    view: (state) => textArea({
+      id: 'elevated-thumb-editor',
+      value,
+      zIndex: 10,
+      scroll: state.scroll,
+      scrollbar: { visible: 'always' },
+      toScrollMessage: (event) => ({ event })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 10 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const thumbTarget = targetById(runtime, 'elevated-thumb-editor:scrollbar:vertical:thumb');
+  const press = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'press',
+    button: 'left',
+    row: thumbTarget.bounds.row,
+    column: thumbTarget.bounds.column,
+    rawCode: 0,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+
+  assert.equal(press.handled, true);
+  assert.deepEqual(runtime.getState().events, ['pointerDown:verticalScrollbarThumb']);
+});
+
+test('TUI runtime batches decoded wheel bursts into one accelerated frame update', async () => {
+  const value = Array.from({ length: 80 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
+  const app = defineTui({
+    id: 'text-area-scroll-burst-tui',
+    init: () => ({
+      scroll: createScrollState({ contentRows: 80, viewportRows: 1 })
+    }),
+    update: (state, message) => ({
+      state: {
+        scroll: applyScrollEvent(state.scroll, message.event)
+      }
+    }),
+    view: (state) => textArea({
+      id: 'scroll-editor',
+      value,
+      scroll: state.scroll,
+      scrollbar: { visible: 'always' },
+      toScrollMessage: (event) => ({ event })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 6 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const contentTarget = targetById(runtime, 'scroll-editor:scroll:content');
+  const wheelDown = `\u001B[<65;${String(contentTarget.bounds.column)};${String(contentTarget.bounds.row)}M`;
+  const results = await runtime.handleInputChunk({ data: wheelDown.repeat(3) });
+
+  assert.equal(results.length, 3);
+  assert.equal(results.every((result) => result.handled), true);
+  assert.equal(runtime.getState().scroll.offsetRow, 9);
+  assert.equal(harness.frames().length, 2);
+  assert.match(renderFramePlain(runtime.frame()), /line 10/u);
+});
+
+test('TUI routed wheel events honor widget scroll policy line steps', async () => {
+  const value = Array.from({ length: 40 }, (_, index) =>
+    `line ${String(index + 1).padStart(2, '0')} ${'x'.repeat(60)}`
+  ).join('\n');
+  const app = defineTui({
+    id: 'text-area-scroll-policy-lines-tui',
+    init: () => ({
+      scroll: createScrollState({ contentRows: 40, contentColumns: 80, viewportRows: 1, viewportColumns: 1 }),
+      event: undefined
+    }),
+    update: (state, message) => ({
+      state: {
+        scroll: applyScrollEvent(state.scroll, message.event),
+        event: message.event
+      }
+    }),
+    view: (state) => textArea({
+      id: 'scroll-editor',
+      value,
+      scroll: state.scroll,
+      scrollbar: { visible: 'always' },
+      scrollPolicy: { wheel: { rows: 8, columns: 5 } },
+      toScrollMessage: (event) => ({ event })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 22, rows: 6 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const contentTarget = targetById(runtime, 'scroll-editor:scroll:content');
+  const down = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'wheel',
+    button: 'wheelDown',
+    row: contentTarget.bounds.row,
+    column: contentTarget.bounds.column,
+    rawCode: 65,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+  const right = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'wheel',
+    button: 'wheelRight',
+    row: contentTarget.bounds.row,
+    column: contentTarget.bounds.column,
+    rawCode: 67,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+
+  assert.equal(down.handled, true);
+  assert.equal(right.handled, true);
+  assert.deepEqual(runtime.getState().event.action, { kind: 'scrollLines', columns: 5 });
+  assert.equal(runtime.getState().scroll.offsetRow, 8);
+  assert.equal(runtime.getState().scroll.offsetColumn, 5);
+  assert.match(renderFramePlain(runtime.frame()), /09 x/u);
+});
+
+test('TUI routed horizontal text area scroll uses the editable viewport after gutters', async () => {
+  const value = '01234567890123456789';
+  const app = defineTui({
+    id: 'text-area-horizontal-gutter-scroll-tui',
+    init: () => ({
+      scroll: createScrollState({}),
+      event: undefined
+    }),
+    update: (state, message) => ({
+      state: {
+        scroll: applyScrollEvent(state.scroll, message.event),
+        event: message.event
+      }
+    }),
+    view: (state) => textArea({
+      id: 'horizontal-gutter-editor',
+      value,
+      lineNumbers: true,
+      scroll: state.scroll,
+      scrollbar: { visible: 'always', axis: 'both' },
+      scrollPolicy: { wheel: { rows: 1, columns: 1 } },
+      toScrollMessage: (event) => ({ event })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 14, rows: 4 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const contentTarget = targetById(runtime, 'horizontal-gutter-editor:scroll:content');
+  const editableViewportColumns = contentTarget.bounds.width - 5;
+  for (let index = 0; index < 20; index += 1) {
+    await runtime.handleInput({
+      kind: 'mouse',
+      sequence: '',
+      encoding: 'sgr',
+      action: 'wheel',
+      button: 'wheelRight',
+      row: contentTarget.bounds.row,
+      column: contentTarget.bounds.column + 1,
+      rawCode: 67,
+      modifiers: { shift: false, alt: false, ctrl: false }
+    });
+  }
+
+  assert.equal(runtime.getState().event.scroll.viewportColumns, editableViewportColumns);
+  assert.equal(runtime.getState().scroll.offsetColumn, value.length - editableViewportColumns);
+});
+
+test('TUI routed wheel events support page-based widget scroll policy', async () => {
+  const value = Array.from({ length: 40 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
+  const app = defineTui({
+    id: 'text-area-scroll-policy-pages-tui',
+    init: () => ({
+      scroll: createScrollState({ contentRows: 40, viewportRows: 1 })
+    }),
+    update: (state, message) => ({
+      state: {
+        scroll: applyScrollEvent(state.scroll, message.event)
+      }
+    }),
+    view: (state) => textArea({
+      id: 'scroll-editor',
+      value,
+      scroll: state.scroll,
+      scrollbar: { visible: 'always' },
+      scrollPolicy: { wheel: { unit: 'page', rows: 1 } },
+      toScrollMessage: (event) => ({ event })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 6 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const contentTarget = targetById(runtime, 'scroll-editor:scroll:content');
+  const down = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'wheel',
+    button: 'wheelDown',
+    row: contentTarget.bounds.row,
+    column: contentTarget.bounds.column,
+    rawCode: 65,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+
+  assert.equal(down.handled, true);
+  assert.equal(runtime.getState().scroll.offsetRow, 5);
+  assert.match(renderFramePlain(runtime.frame()), /line 06/u);
+});
+
+test('TUI routed tree scroll events carry normalized rendered viewport metrics', async () => {
+  const nodes = Array.from({ length: 6 }, (_value, index) => ({
+    id: `node-${String(index)}`,
+    label: `Node ${String(index + 1)}`
+  }));
+  const app = defineTui({
+    id: 'tree-scroll-pointer-tui',
+    init: () => ({
+      scroll: createScrollState({}),
+      event: undefined
+    }),
+    update: (state, message) => ({
+      state: {
+        scroll: applyScrollEvent(state.scroll, message.event),
+        event: message.event
+      }
+    }),
+    view: (state) => tree({
+      id: 'tree-scroll',
+      nodes,
+      scroll: state.scroll,
+      scrollbar: { visible: 'always' },
+      toScrollMessage: (event) => ({ event })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const contentTarget = targetById(runtime, 'tree-scroll:scroll:content');
+  const result = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'wheel',
+    button: 'wheelDown',
+    row: contentTarget.bounds.row,
+    column: contentTarget.bounds.column,
+    rawCode: 64,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+
+  assert.equal(result.handled, true);
+  assert.equal(runtime.getState().event.scroll.contentRows, nodes.length);
+  assert.equal(runtime.getState().event.scroll.viewportRows, 3);
+  assert.equal(runtime.getState().scroll.offsetRow, 3);
+  assert.match(renderFramePlain(runtime.frame()), /Node 4/u);
+});
+
+test('TUI routed context menu scroll events use fixed title chrome and shared scroll policy', async () => {
+  const items = Array.from({ length: 8 }, (_value, index) => ({
+    id: `item-${String(index + 1)}`,
+    label: `Item ${String(index + 1)}`,
+    message: { kind: 'select', index }
+  }));
+  const app = defineTui({
+    id: 'context-menu-scroll-pointer-tui',
+    init: () => ({
+      scroll: createScrollState({ contentRows: items.length, viewportRows: 1 }),
+      event: undefined
+    }),
+    update: (state, message) => ({
+      state: {
+        scroll: applyScrollEvent(state.scroll, message.event),
+        event: message.event
+      }
+    }),
+    view: (state) => contextMenu({
+      id: 'context-scroll',
+      title: 'Actions',
+      items,
+      scroll: state.scroll,
+      scrollbar: { visible: 'always' },
+      scrollPolicy: { wheel: { rows: 2 } },
+      toScrollMessage: (event) => ({ event })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  const contentTarget = targetById(runtime, 'context-scroll:scroll:content');
+  const result = await runtime.handleInput({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action: 'wheel',
+    button: 'wheelDown',
+    row: contentTarget.bounds.row,
+    column: contentTarget.bounds.column,
+    rawCode: 65,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+
+  assert.equal(result.handled, true);
+  assert.equal(runtime.getState().event.scroll.viewportRows, 3);
+  assert.equal(runtime.getState().scroll.offsetRow, 2);
+  const frame = renderFramePlain(runtime.frame());
+  assert.match(frame, /Actions/u);
+  assert.match(frame, /Item 3/u);
+});
+
 test('TUI pointer drag routes to the captured origin target', async () => {
   const renderer = {
     render({ node, buffer }) {
@@ -2200,6 +3053,45 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
   assert.match(renderFramePlain(runtime.frame()), /Child/);
 });
 
+test('TUI runtime routes tree disclosure and body hit targets separately', async () => {
+  const app = defineTui({
+    id: 'tree-disclosure-routing',
+    init: () => ({ events: [] }),
+    update: (state, message) => ({ state: { events: [...state.events, message] } }),
+    view: () => tree({
+      id: 'tree',
+      selected: 'root',
+      nodes: [
+        { id: 'root', label: 'Root', expanded: true, children: [{ id: 'child', label: 'Child' }] }
+      ],
+      toMessage: (node) => ({ kind: 'body', id: node.id }),
+      toDisclosureMessage: (node, action, event) => ({
+        kind: 'disclosure',
+        id: node.id,
+        action: action.kind,
+        localColumn: event.localColumn
+      })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.handleInputChunk({ data: '\u001B[<0;3;1M' });
+  const disclosureRelease = await runtime.handleInputChunk({ data: '\u001B[<0;3;1m' });
+  await runtime.handleInputChunk({ data: '\u001B[<0;5;1M' });
+  const bodyRelease = await runtime.handleInputChunk({ data: '\u001B[<0;5;1m' });
+
+  assert.equal(disclosureRelease[0]?.handled, true);
+  assert.equal(bodyRelease[0]?.handled, true);
+  assert.deepEqual(runtime.getState(), {
+    events: [
+      { kind: 'disclosure', id: 'root', action: 'toggle', localColumn: 1 },
+      { kind: 'body', id: 'root' }
+    ]
+  });
+});
+
 test('TUI runtime routes overlapping mouse events to the topmost layer', async () => {
   const app = defineTui({
     id: 'layered-mouse-routing',
@@ -2271,3 +3163,9 @@ test('TUI runtime routes same-layer overlay mouse events to the last visible chi
   assert.equal(release[0]?.handled, true);
   assert.deepEqual(runtime.getState(), { clicked: 'upper' });
 });
+
+function targetById(runtime, id) {
+  const target = runtime.frame()?.hitTargets?.find((item) => item.id === id);
+  if (target === undefined) throw new Error(`Missing hit target ${id}`);
+  return target;
+}

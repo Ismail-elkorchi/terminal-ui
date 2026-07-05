@@ -16,6 +16,7 @@ export type FormControlState =
   | 'success';
 
 export type FormVisualKind =
+  | 'activeLine'
   | 'chrome'
   | 'cursor'
   | 'day'
@@ -24,6 +25,9 @@ export type FormVisualKind =
   | 'handle'
   | 'help'
   | 'label'
+  | 'lineNumber'
+  | 'gutter'
+  | 'highlight'
   | 'marker'
   | 'option'
   | 'placeholder'
@@ -151,8 +155,10 @@ function roleForVisual(visual: FormVisualKind): NonNullable<FrameCellSource['rol
   switch (visual) {
     case 'cursor':
       return 'cursor';
+    case 'gutter':
     case 'separator':
       return 'separator';
+    case 'activeLine':
     case 'chrome':
     case 'handle':
     case 'marker':
@@ -165,7 +171,9 @@ function roleForVisual(visual: FormVisualKind): NonNullable<FrameCellSource['rol
     case 'description':
     case 'error':
     case 'help':
+    case 'highlight':
     case 'label':
+    case 'lineNumber':
     case 'option':
     case 'placeholder':
     case 'selection':

@@ -17,6 +17,24 @@ for (const example of exampleScripts) {
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.equal(result.stderr, '');
     assert.notEqual(result.stdout.trim(), '');
+    if (example.endsWith('/ide-editor.mjs')) {
+      const summary = JSON.parse(result.stdout);
+      assert.equal(summary.status, 'ok');
+      assert.equal(summary.rootOpened, true);
+      assert.equal(summary.activeFile, 'plan.md');
+      assert.equal(summary.savedReadme, true);
+      assert.equal(summary.openBuffers, 2);
+      assert.equal(summary.dirtyBuffers, 0);
+      assert.equal(summary.paletteQuery, 'save');
+      assert.equal(summary.notesExpanded, true);
+      assert.equal(summary.readmeVisible, true);
+      assert.equal(summary.pointerTree, true);
+      assert.equal(summary.pointerMenu, true);
+      assert.equal(summary.treeTargets > 0, true);
+      assert.equal(summary.menuTargets > 0, true);
+      assert.equal(summary.visible, true);
+      assert.ok(summary.frames >= 8);
+    }
     if (example.endsWith('/interactive-workspace.mjs')) {
       const summary = JSON.parse(result.stdout);
       assert.equal(summary.status, 'ok');

@@ -112,6 +112,13 @@ export function themeStyle(token: ThemeToken, options: Omit<TerminalStyle, 'fg'>
   };
 }
 
+export function inputCursorStyle(): TerminalStyle {
+  return themeStyle('input.cursor', {
+    bold: true,
+    inverse: true
+  });
+}
+
 export function mergeStyles(...styles: readonly (TerminalStyle | undefined)[]): TerminalStyle | undefined {
   const merged = styles.reduce<TerminalStyle>((current, style) => style === undefined ? current : { ...current, ...style }, {});
   return Object.keys(merged).length === 0 ? undefined : merged;

@@ -8,7 +8,9 @@ import {
   renderFramePlain,
   renderScrollbars,
   renderWidgetFrame,
-  scrollbarLayout
+  scrollbarInteractionReducer,
+  scrollbarLayout,
+  scrollbarVisualStateForTarget
 } from '../../dist/tui/index.js';
 import { menu, palette, scrollback, table, textArea, tree, viewport, text } from '../../dist/widgets/index.js';
 
@@ -36,10 +38,100 @@ test('renderScrollbars uses theme scrollbar symbols and tokens', () => {
   renderScrollbars(buffer, layout, defaultTheme);
   const frame = buffer.snapshot();
   const trackCells = frame.cells.filter((cell) => cell.column === 4);
+  const thumbCell = trackCells.find((cell) => cell.text === defaultTheme.symbols.scrollbarVerticalThumb);
+  const trackCell = trackCells.find((cell) => cell.text === defaultTheme.symbols.scrollbarVerticalTrack);
 
   assert.equal(trackCells.length, 3);
-  assert.ok(trackCells.some((cell) => cell.text === defaultTheme.symbols.scrollbarVerticalThumb));
+  assert.ok(thumbCell);
+  assert.ok(trackCell);
   assert.ok(trackCells.every((cell) => cell.style?.fg?.kind === 'theme'));
+  assert.equal(thumbCell.source?.role, 'scrollbar');
+  assert.equal(thumbCell.source?.ownerKind, 'scrollbar');
+  assert.equal(thumbCell.source?.family, 'scroll');
+  assert.equal(thumbCell.source?.part, 'vertical.thumb');
+  assert.equal(thumbCell.source?.partKind, 'thumb');
+  assert.equal(thumbCell.source?.state, 'idle');
+  assert.equal(trackCell.source?.part, 'vertical.track');
+  assert.equal(trackCell.source?.partKind, 'track');
+});
+
+test('scrollbarLayout exposes inactive state for visible non-overflowing tracks', () => {
+  const layout = scrollbarLayout(
+    { row: 1, column: 1, width: 4, height: 3 },
+    { offsetRow: 0, offsetColumn: 0, contentRows: 2, contentColumns: 4 },
+    { axis: 'vertical', visible: 'always' }
+  );
+
+  assert.equal(layout.verticalTrack?.state, 'inactive');
+  assert.equal(layout.verticalTrack?.scrollable, false);
+
+  const buffer = createFrameBuffer(4, 3);
+  renderScrollbars(buffer, layout, defaultTheme);
+  const cells = buffer.snapshot().cells.filter((cell) => cell.column === 4);
+
+  assert.equal(cells.length, 3);
+  assert.ok(cells.every((cell) => cell.source?.state === 'inactive'));
+  assert.ok(cells.every((cell) => cell.style?.fg?.token === 'scrollbar.track'));
+  assert.ok(cells.every((cell) => cell.style?.dim === true));
+});
+
+test('scrollbar visualState controls active and hover thumb styling', () => {
+  const activeLayout = scrollbarLayout(
+    { row: 1, column: 1, width: 4, height: 3 },
+    { offsetRow: 1, offsetColumn: 0, contentRows: 8, contentColumns: 4 },
+    { axis: 'vertical', visualState: 'active' }
+  );
+  const hoverLayout = scrollbarLayout(
+    { row: 1, column: 1, width: 4, height: 3 },
+    { offsetRow: 1, offsetColumn: 0, contentRows: 8, contentColumns: 4 },
+    { axis: 'vertical', visualState: 'hover' }
+  );
+  const activeBuffer = createFrameBuffer(4, 3);
+  const hoverBuffer = createFrameBuffer(4, 3);
+
+  renderScrollbars(activeBuffer, activeLayout, defaultTheme);
+  renderScrollbars(hoverBuffer, hoverLayout, defaultTheme);
+
+  const activeThumb = activeBuffer.snapshot().cells.find((cell) => cell.text === defaultTheme.symbols.scrollbarVerticalThumb);
+  const hoverThumb = hoverBuffer.snapshot().cells.find((cell) => cell.text === defaultTheme.symbols.scrollbarVerticalThumb);
+
+  assert.equal(activeLayout.verticalTrack?.state, 'active');
+  assert.equal(activeThumb?.style?.bold, true);
+  assert.equal(activeThumb?.source?.state, 'active');
+  assert.equal(hoverLayout.verticalTrack?.state, 'hover');
+  assert.equal(hoverThumb?.style?.bold, true);
+  assert.equal(hoverThumb?.style?.inverse, true);
+  assert.equal(hoverThumb?.source?.state, 'hover');
+});
+
+test('scrollbar interaction reducer maps pointer lifecycle to caller-owned visual state', () => {
+  let state = scrollbarInteractionReducer({}, pointerAction({
+    kind: 'enter',
+    targetId: 'editor:scrollbar:vertical:thumb'
+  }));
+
+  assert.equal(scrollbarVisualStateForTarget(state, 'editor:scrollbar:vertical:thumb'), 'hover');
+  assert.equal(scrollbarVisualStateForTarget(state, 'editor:scrollbar:vertical:track'), undefined);
+
+  state = scrollbarInteractionReducer(state, pointerAction({
+    kind: 'pointerDown',
+    targetId: 'editor:scrollbar:vertical:thumb',
+    capturedTargetId: 'editor:scrollbar:vertical:thumb'
+  }));
+  assert.equal(scrollbarVisualStateForTarget(state, 'editor:scrollbar:vertical:thumb'), 'active');
+
+  state = scrollbarInteractionReducer(state, pointerAction({
+    kind: 'dragEnd',
+    targetId: 'editor:scrollbar:vertical:thumb',
+    capturedTargetId: 'editor:scrollbar:vertical:thumb'
+  }));
+  assert.equal(scrollbarVisualStateForTarget(state, 'editor:scrollbar:vertical:thumb'), 'hover');
+
+  state = scrollbarInteractionReducer(state, pointerAction({
+    kind: 'leave',
+    targetId: 'editor:scrollbar:vertical:thumb'
+  }));
+  assert.equal(scrollbarVisualStateForTarget(state, 'editor:scrollbar:vertical:thumb'), undefined);
 });
 
 test('scrollbar visibility modes control whether edge tracks reserve space', () => {
@@ -54,6 +146,33 @@ test('scrollbar visibility modes control whether edge tracks reserve space', () 
   );
   assert.equal(scrollbarLayout(bounds, overflowingState, { axis: 'vertical', visible: 'never' }).verticalTrack, undefined);
 });
+
+function pointerAction(event) {
+  return {
+    kind: 'pointer',
+    event: {
+      source: 'mouse',
+      row: 1,
+      column: 1,
+      button: 'left',
+      modifiers: { shift: false, alt: false, ctrl: false },
+      deltaRows: 0,
+      deltaColumns: 0,
+      raw: {
+        kind: 'mouse',
+        sequence: '',
+        encoding: 'sgr',
+        action: event.kind === 'leave' ? 'move' : 'press',
+        button: 'left',
+        row: 1,
+        column: 1,
+        rawCode: 0,
+        modifiers: { shift: false, alt: false, ctrl: false }
+      },
+      ...event
+    }
+  };
+}
 
 test('scrollbars render ASCII and Unicode symbol sets through theme data', () => {
   const layout = scrollbarLayout(
@@ -100,6 +219,25 @@ test('textArea scrollbar follows explicit text scroll state', () => {
   assert.match(output, /bravo/u);
   assert.match(output, /charlie/u);
   assert.equal(frame.cells.filter((cell) => cell.column === 10).length, 2);
+});
+
+test('widget scrollbars expose owner source metadata and visual state', () => {
+  const frame = renderWidgetFrame(textArea({
+    id: 'body',
+    value: 'alpha\nbravo\ncharlie',
+    scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }),
+    scrollbar: { visible: 'always', visualState: 'hover' }
+  }), { columns: 10, rows: 2 });
+
+  const thumbCell = frame.cells.find((cell) => cell.text === defaultTheme.symbols.scrollbarVerticalThumb);
+
+  assert.equal(thumbCell?.source?.ownerId, 'body');
+  assert.equal(thumbCell?.source?.ownerKind, 'textArea');
+  assert.equal(thumbCell?.source?.family, 'scroll');
+  assert.equal(thumbCell?.source?.role, 'scrollbar');
+  assert.equal(thumbCell?.source?.partKind, 'thumb');
+  assert.equal(thumbCell?.source?.state, 'hover');
+  assert.equal(thumbCell?.style?.inverse, true);
 });
 
 test('table scrollbar can expose vertical and horizontal scroll scope together', () => {

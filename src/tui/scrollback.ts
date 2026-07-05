@@ -55,7 +55,7 @@ export interface ExtractScrollbackSelectionTextInput {
   readonly selectedRange?: TextSelection;
 }
 
-export function scrollbackWindow(widget: Widget, node: LayoutNode): ScrollbackWindow {
+export function scrollbackWindow(widget: Widget, node: Pick<LayoutNode, 'bounds'>): ScrollbackWindow {
   const items = scrollbackItems(widget);
   const wrap = widget.props['wrap'] === true;
   const query = searchQueryProp(widget);

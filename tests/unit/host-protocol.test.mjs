@@ -9,7 +9,7 @@ import {
   restoreTerminalState
 } from '../../dist/host/index.js';
 import { createProtocolWriter, createRestorePlan } from '../../dist/protocol/index.js';
-import { applySessionProtocolPolicy, createSessionProtocolPlan } from '../../dist/tui/index.js';
+import { applySessionProtocolPolicy, createSessionProtocolPlan, defaultSessionProtocolPolicy } from '../../dist/tui/index.js';
 
 test('memory host captures output and exposes capabilities', async () => {
   const host = createMemoryTerminalHost();
@@ -43,8 +43,7 @@ test('protocol writer emits typed mouse mode and sanitized title sequences', asy
   await protocol.disableMouseReporting();
   await protocol.setTitle('Build\u001B[31m');
 
-  assert.match(host.output(), /\u001B\[\?1002h/u);
-  assert.match(host.output(), /\u001B\[\?1006h/u);
+  assert.match(host.output(), /^\u001B\[\?1006h\u001B\[\?1002h/u);
   assert.match(host.output(), /\u001B\[\?1003l\u001B\[\?1002l\u001B\[\?1000l\u001B\[\?1006l/u);
   assert.equal(host.output().includes('\u001B]0;Build\u0007'), true);
   assert.doesNotMatch(host.output(), /\u001B\[31m/u);
@@ -58,6 +57,13 @@ test('protocol writer rejects invalid typed protocol parameters', async () => {
   await assert.rejects(() => protocol.moveCursor(1, Number.NaN), /column must be a positive integer/u);
   await assert.rejects(() => protocol.enableMouseReporting('hover'), /mouse reporting mode/u);
   assert.equal(host.output(), '');
+});
+
+test('default session protocol requests drag mouse reporting for pointer capture', () => {
+  assert.deepEqual(defaultSessionProtocolPolicy.mouseReporting, {
+    mode: 'drag',
+    requirement: 'optional'
+  });
 });
 
 test('restore plans expose ordered state operations consumed by terminal sessions', async () => {
@@ -149,6 +155,38 @@ test('session protocol policies fail only required unavailable operations', asyn
     'cursorVisibility'
   ]);
   assert.equal(result.diagnostics.some((item) => item.code === 'HOST_PROTOCOL_UNSUPPORTED'), true);
+});
+
+test('session protocol diagnostics preserve requested operation and mouse mode', async () => {
+  const host = createDenoTerminalHost({
+    stdin: { source: asyncIterable([]), isTty: true },
+    stdout: { write: () => {}, isTty: false }
+  });
+  const session = await host.beginSession({ id: 'policy-mouse-unavailable' });
+  const result = await applySessionProtocolPolicy(session, {
+    alternateScreen: 'disabled',
+    rawInput: 'disabled',
+    bracketedPaste: 'disabled',
+    focusReporting: 'disabled',
+    cursorVisibility: { state: 'hide', requirement: 'disabled' },
+    mouseReporting: { mode: 'drag', requirement: 'optional' }
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.applied, []);
+  assert.deepEqual(result.skipped.map((item) => item.kind), [
+    'alternateScreen',
+    'bracketedPaste',
+    'rawInput',
+    'mouseReporting',
+    'focusReporting',
+    'cursorVisibility'
+  ]);
+  const diagnostic = result.diagnostics.find((item) => item.code === 'HOST_PROTOCOL_UNSUPPORTED');
+  assert.equal(diagnostic?.data?.capability, 'mouseReporting');
+  assert.equal(diagnostic?.data?.operation, 'mouseReporting');
+  assert.equal(diagnostic?.data?.requirement, 'optional');
+  assert.equal(diagnostic?.data?.target, 'drag');
 });
 
 test('terminal sessions preserve raw input state that existed before the session', async () => {

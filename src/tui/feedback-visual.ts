@@ -3,7 +3,7 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { WidgetProcessStatus, Widget } from '../widgets/index.ts';
 import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
 import { widgetFrameSource } from './frame-source.ts';
-import { block, line, span } from './render-primitives.ts';
+import { block, line, measureRenderSpans, span } from './render-primitives.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import type { FrameSemanticRole } from './frame-passes/index.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
@@ -41,30 +41,93 @@ export function statusBarText(widget: Widget): string {
   return blockText(statusBarBlock(widget));
 }
 
-export function helpBarBlock(widget: Widget): RenderBlock {
+export function helpBarBlock(widget: Widget, maxCells?: number): RenderBlock {
   const bindings = helpBindings(widget);
-  const spans = bindings.flatMap((binding, index): readonly RenderSpan[] => {
-    const bindingLabel = `binding.${String(index)}`;
-    return [
-      ...(index === 0 ? [] : [feedbackSpan(widget, '  ', {
-        kind: 'helpBar',
-        label: `${bindingLabel}.separator`,
-        role: 'separator',
-        style: widgetStyle(widget, 'placeholder')
-      })]),
-      feedbackSpan(widget, binding.key, {
-        kind: 'helpBar',
-        label: `${bindingLabel}.key`,
-        style: mergeStyles(widgetStyle(widget, 'label'), { bold: true })
-      }),
-      feedbackSpan(widget, ` ${binding.label}`, {
-        kind: 'helpBar',
-        label: `${bindingLabel}.label`,
-        style: widgetStyle(widget, 'value')
-      })
-    ];
-  });
+  const spans = fitHelpBindingSpans(widget, bindings, maxCells);
   return block([line(spans)]);
+}
+
+function fitHelpBindingSpans(
+  widget: Widget,
+  bindings: readonly { readonly key: string; readonly label: string }[],
+  maxCells: number | undefined
+): readonly RenderSpan[] {
+  if (maxCells === undefined) return helpBindingSpans(widget, bindings);
+  const fitted: RenderSpan[] = [];
+  for (let index = 0; index < bindings.length; index += 1) {
+    const binding = bindings[index];
+    if (binding === undefined) continue;
+    const group = helpBindingGroupSpans(widget, binding, index, fitted.length > 0);
+    if (measureRenderSpans([...fitted, ...group]) <= maxCells) {
+      fitted.push(...group);
+      continue;
+    }
+    appendHelpOverflow(widget, fitted, maxCells);
+    break;
+  }
+  return fitted;
+}
+
+function helpBindingSpans(
+  widget: Widget,
+  bindings: readonly { readonly key: string; readonly label: string }[]
+): readonly RenderSpan[] {
+  return bindings.flatMap((binding, index): readonly RenderSpan[] =>
+    helpBindingGroupSpans(widget, binding, index, index > 0)
+  );
+}
+
+function helpBindingGroupSpans(
+  widget: Widget,
+  binding: { readonly key: string; readonly label: string },
+  index: number,
+  separated: boolean
+): readonly RenderSpan[] {
+  const bindingLabel = `binding.${String(index)}`;
+  return [
+    ...(separated ? [feedbackSpan(widget, '  ', {
+      kind: 'helpBar',
+      label: `${bindingLabel}.separator`,
+      role: 'separator',
+      style: widgetStyle(widget, 'placeholder')
+    })] : []),
+    feedbackSpan(widget, binding.key, {
+      kind: 'helpBar',
+      label: `${bindingLabel}.key`,
+      style: mergeStyles(widgetStyle(widget, 'label'), { bold: true })
+    }),
+    feedbackSpan(widget, ` ${binding.label}`, {
+      kind: 'helpBar',
+      label: `${bindingLabel}.label`,
+      style: widgetStyle(widget, 'value')
+    })
+  ];
+}
+
+function appendHelpOverflow(widget: Widget, fitted: RenderSpan[], maxCells: number): void {
+  if (maxCells <= 0) return;
+  const marker = feedbackSpan(widget, '…', {
+    kind: 'helpBar',
+    label: 'overflow',
+    role: 'decoration',
+    style: widgetStyle(widget, 'placeholder')
+  });
+  const separatedMarker = fitted.length === 0
+    ? [marker]
+    : [
+        feedbackSpan(widget, '  ', {
+          kind: 'helpBar',
+          label: 'overflow.separator',
+          role: 'separator',
+          style: widgetStyle(widget, 'placeholder')
+        }),
+        marker
+      ];
+  if (measureRenderSpans([...fitted, ...separatedMarker]) <= maxCells) {
+    fitted.push(...separatedMarker);
+    return;
+  }
+  if (fitted.length === 0 && measureRenderSpans([marker]) <= maxCells) fitted.push(marker);
 }
 
 export function helpBarText(widget: Widget): string {

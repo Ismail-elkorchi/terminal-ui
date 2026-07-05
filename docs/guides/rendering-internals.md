@@ -50,6 +50,9 @@ style survives clipping, wrapping, scrolling, and snapshot generation.
 The shared span helpers measure spans by terminal cell width, clip and wrap by
 grapheme boundaries, pad and align lines, and compact adjacent spans only when
 style, hyperlink, and source metadata match.
+`clipRenderSpans()` supports end and middle ellipsis modes. Use middle clipping
+for compact identifiers or hierarchical labels where both the start and end are
+useful; use wrapping for prose.
 
 ## Measurement
 
@@ -90,7 +93,9 @@ snapshot text, and diagnostic control-sequence views do not share hidden flags.
 Themes resolve semantic tokens to terminal styles. Theme symbols provide
 terminal glyph choices for borders, progress, status, and scrollbars. Widgets
 may accept local style slots, but renderers decide which slots affect which
-parts.
+parts. Scrollbar renderers use one shared grammar: track cells, thumb cells,
+axis, owner widget, and visual state are source-marked in the frame, while the
+theme supplies only the generic track/thumb symbols and tokens.
 
 Layout assigns bounds before rendering. Focus targets and hit targets are
 renderer-owned data projected from those bounds. The runtime routes keyboard
