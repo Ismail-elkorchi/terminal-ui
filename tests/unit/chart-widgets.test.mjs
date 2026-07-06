@@ -25,6 +25,7 @@ test('sparkline renders bounded numeric points', () => {
   assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.ownerKind, 'sparkline');
   assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.label, 'point.0');
   assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.role, 'chart');
+  assert.equal(frame.cells.find((cell) => cell.text === '▁')?.style?.fg?.token, 'chart.series.1');
 });
 
 test('sparkline renders an empty state with chart source metadata', () => {
@@ -58,6 +59,8 @@ test('barChart windows visible bars and exposes selected accessibility', () => {
   assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.ownerKind, 'barChart');
   assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.label, 'bar.2.label');
   assert.equal(frame.cells.find((cell) => cell.text === '█')?.source?.label, 'bar.1.fill');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'bar.1.fill')?.style?.fg?.token, 'chart.series.2');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'bar.2.fill')?.style?.bg?.token, 'selection.background');
   assert.equal(frame.cells.find((cell) => cell.text === '1')?.source?.label, 'bar.2.value');
 });
 
@@ -110,7 +113,10 @@ test('chart renders scatter points legends axis labels and selectable point hit 
   assert.equal(frame.accessibility.root.children?.some((child) => child.label === 'Scatter' && child.selected === true), true);
   assert.equal(frame.cells.find((cell) => cell.text === '◆')?.source?.label, 'selection.scatter.2');
   assert.equal(frame.cells.find((cell) => cell.text === '+')?.source?.label, 'legend.line.glyph');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'legend.line.glyph')?.style?.fg?.token, 'chart.series.1');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'legend.scatter.glyph')?.style?.fg?.token, 'chart.series.2');
   assert.equal(frame.cells.find((cell) => cell.text === 's')?.source?.label, 'axis.y.label');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'axis.y.label')?.style?.fg?.token, 'chart.axis');
   assert.equal(frame.cells.find((cell) => cell.text === 'w')?.source?.label, 'axis.x.label');
 });
 
@@ -162,6 +168,25 @@ test('gauge renders a labeled bounded meter with progress accessibility', () => 
   assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.label, 'metric.label');
   assert.equal(frame.cells.find((cell) => cell.text === '7')?.source?.label, 'metric.value');
   assert.equal(frame.cells.find((cell) => cell.text === 's')?.source?.label, 'status.value');
+});
+
+test('heatmap intensity uses muted normal and emphasized visual levels', () => {
+  const frame = renderWidgetFrame(heatmap({
+    id: 'intensity-heatmap',
+    rows: [[{ id: 'empty', value: 0 }, { id: 'mid', value: 2 }, { id: 'hot', value: 4 }]],
+    min: 0,
+    max: 4
+  }), { columns: 12, rows: 1 });
+  const empty = frame.cells.find((cell) => cell.source?.label === 'cell.0.0.value');
+  const mid = frame.cells.find((cell) => cell.source?.label === 'cell.0.1.value');
+  const hot = frame.cells.find((cell) => cell.source?.label === 'cell.0.2.value');
+
+  assert.equal(empty?.style?.fg?.token, 'chart.muted');
+  assert.equal(empty?.style?.dim, true);
+  assert.equal(mid?.style?.fg?.token, 'chart.series.1');
+  assert.equal(mid?.style?.bold, undefined);
+  assert.equal(hot?.style?.fg?.token, 'chart.series.1');
+  assert.equal(hot?.style?.bold, true);
 });
 
 test('heatmap renders selectable cells with accessibility and hit targets', () => {

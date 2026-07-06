@@ -24,6 +24,7 @@ import { renderWidgetFrame } from '../../dist/tui/index.js';
 import {
   barChart,
   button,
+  chart,
   commandBar,
   helpBar,
   progressBar,
@@ -168,6 +169,16 @@ test('default theme specimen composes surface control text command log and data 
       scroll: { offsetRow: 0, offsetColumn: 0, contentRows: 3, viewportRows: 4 }
     }),
     progressBar({ id: 'specimen-progress', value: 72, label: 'coverage' }),
+    chart({
+      id: 'specimen-chart',
+      legend: true,
+      xLabel: 'time',
+      yLabel: 'load',
+      series: [
+        { id: 'cpu', label: 'CPU', points: [1, 3, 2, 4], glyph: '+' },
+        { id: 'io', label: 'IO', points: [3, 1, 4, 2], glyph: 'o' }
+      ]
+    }),
     table({
       id: 'specimen-table',
       selected: 0,
@@ -187,6 +198,7 @@ test('default theme specimen composes surface control text command log and data 
       { kind: 'fixed', cells: 2 },
       { kind: 'fixed', cells: 3 },
       { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 4 },
       { kind: 'fixed', cells: 3 },
       { kind: 'fixed', cells: 1 }
     ]
@@ -195,7 +207,7 @@ test('default theme specimen composes surface control text command log and data 
     variant: 'raised',
     border: { kind: 'rounded', title: 'Theme specimen' },
     padding: 1
-  }), { columns: 72, rows: 28 }, { theme: defaultTheme });
+  }), { columns: 72, rows: 32 }, { theme: defaultTheme });
 
   const tokenAt = (text, predicate = () => true) =>
     frame.cells.find((cell) => cell.text === text && predicate(cell))?.style;
@@ -209,6 +221,10 @@ test('default theme specimen composes surface control text command log and data 
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'log.info'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'log.warning'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'log.error'), true);
+  assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'control.track.filled'), true);
+  assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'chart.axis'), true);
+  assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'chart.series.1'), true);
+  assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'chart.series.2'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'table.header'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.bg?.token === 'surface.raised.background'), true);
   assert.equal(createVisualSnapshot({ frame }).schemaVersion, 'terminal-ui.visual-snapshots.v1');

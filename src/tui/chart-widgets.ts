@@ -1,9 +1,12 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import {
+  chartAxisStyle,
+  chartHeatmapStyle,
   chartLabelStyle,
   chartMetricStyle,
   chartPlaceholderStyle,
   chartSelectedStyle,
+  chartSeriesStyle,
   chartSpan,
   chartStateBlock,
   chartStateDescription,
@@ -44,7 +47,7 @@ export function sparklineBlock(widget: Widget, theme: TerminalTheme): RenderBloc
         'point',
         `point.${String(index)}`,
         sparkGlyph(value, range),
-        chartValueStyle(widget)
+        chartSeriesStyle(widget, 0)
       ))
     }]
   };
@@ -79,12 +82,12 @@ export function barChartBlock(widget: Widget, node: LayoutNode, theme: TerminalT
   const window = visibleWindow(items.length, node.bounds.height, selected);
   return {
     lines: items.slice(window.start, window.end).map((item, offset) => {
-    const index = window.start + offset;
-    const currentSelected = index === selected;
-    const prefix = currentSelected ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected;
-    const label = sanitizeTerminalText(item.label).text;
-    const available = Math.max(1, node.bounds.width - label.length - String(item.value).length - 5);
-    const filled = Math.max(0, Math.min(available, Math.round((item.value / max) * available)));
+      const index = window.start + offset;
+      const currentSelected = index === selected;
+      const prefix = currentSelected ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected;
+      const label = sanitizeTerminalText(item.label).text;
+      const available = Math.max(1, node.bounds.width - label.length - String(item.value).length - 5);
+      const filled = Math.max(0, Math.min(available, Math.round((item.value / max) * available)));
       const selectionStyle = currentSelected ? chartSelectedStyle(widget) : undefined;
       return {
         spans: [
@@ -92,7 +95,7 @@ export function barChartBlock(widget: Widget, node: LayoutNode, theme: TerminalT
           chartSpan(widget, 'barChart', 'separator', `bar.${String(index)}.separator.beforeLabel`, ' ', chartPlaceholderStyle(widget)),
           chartSpan(widget, 'barChart', 'label', `bar.${String(index)}.label`, label, selectionStyle ?? chartLabelStyle(widget)),
           chartSpan(widget, 'barChart', 'separator', `bar.${String(index)}.separator.beforeFill`, ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'barChart', 'bar', `bar.${String(index)}.fill`, theme.tokens.symbols.progressFilled.repeat(filled), chartMetricStyle(widget)),
+          chartSpan(widget, 'barChart', 'bar', `bar.${String(index)}.fill`, theme.tokens.symbols.progressFilled.repeat(filled), selectionStyle ?? chartSeriesStyle(widget, index)),
           chartSpan(widget, 'barChart', 'separator', `bar.${String(index)}.separator.beforeValue`, ' ', chartPlaceholderStyle(widget)),
           chartSpan(widget, 'barChart', 'metric', `bar.${String(index)}.value`, String(item.value), selectionStyle ?? chartValueStyle(widget))
         ]
@@ -156,21 +159,22 @@ export function chartBlock(widget: Widget, node: LayoutNode, theme: TerminalThem
     width: layout.plotWidth,
     height: layout.plotHeight
   });
-  for (const item of series) {
+  for (const [seriesIndex, item] of series.entries()) {
     const visible = item.points.slice(0, layout.plotWidth);
     const glyph = seriesGlyph(item);
+    const seriesStyle = chartSeriesStyle(widget, seriesIndex);
     if (item.kind === 'scatter') {
       visible.forEach((value, column) => {
         canvas.point(
           column,
           yForValue(value, range, layout.plotHeight),
-          chartSpan(widget, 'chart', 'point', `series.${item.id}.point`, glyph, chartValueStyle(widget))
+          chartSpan(widget, 'chart', 'point', `series.${item.id}.point`, glyph, seriesStyle)
         );
       });
     } else {
       drawLineSeries(canvas, visible.map((value, column) => ({ x: column, y: value })), {
         yScale: { domain: [range.min, range.max], range: [layout.plotHeight - 1, 0] },
-        span: chartSpan(widget, 'chart', 'line', `series.${item.id}.line`, glyph, chartValueStyle(widget))
+        span: chartSpan(widget, 'chart', 'line', `series.${item.id}.line`, glyph, seriesStyle)
       });
     }
   }
@@ -303,14 +307,14 @@ export function heatmapBlock(widget: Widget, node: LayoutNode, theme: TerminalTh
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
   return {
     lines: rows.slice(rowWindow.start, rowWindow.end).map((row, rowOffset): RenderLine => {
-    const rowIndex = rowWindow.start + rowOffset;
+      const rowIndex = rowWindow.start + rowOffset;
       const spans = row.flatMap((cell, columnIndex): readonly RenderSpan[] => [
         ...(columnIndex === 0 ? [] : [
           chartSpan(widget, 'heatmap', 'separator', `cell.${String(rowIndex)}.${String(columnIndex)}.gap`, ' '.repeat(gap), chartPlaceholderStyle(widget))
         ]),
-        ...heatmapCellSpans(widget, cell, rowIndex, columnIndex, {
+        ...heatmapCellSpans(widget, rowIndex, columnIndex, {
           cellWidth,
-          range,
+          intensity: normalizedIndex(cell.value, range, heatmapGlyphs.length - 1),
           selected: selected?.row === rowIndex && selected.column === columnIndex
         })
       ]);
@@ -466,7 +470,7 @@ function chartHeaderBlock(widget: Widget, width: number): RenderBlock {
     rows.push({
       spans: clipLineSpans(chartSeries(widget.props['series']).flatMap((item, index): readonly RenderSpan[] => [
         ...(index === 0 ? [] : [chartSpan(widget, 'chart', 'separator', `legend.${item.id}.separator.beforeGlyph`, '  ', chartPlaceholderStyle(widget))]),
-        chartSpan(widget, 'chart', 'legend', `legend.${item.id}.glyph`, seriesGlyph(item), chartValueStyle(widget)),
+        chartSpan(widget, 'chart', 'legend', `legend.${item.id}.glyph`, seriesGlyph(item), chartSeriesStyle(widget, index)),
         chartSpan(widget, 'chart', 'separator', `legend.${item.id}.separator.beforeLabel`, ' ', chartPlaceholderStyle(widget)),
         chartSpan(widget, 'chart', 'legend', `legend.${item.id}.label`, item.label ?? item.id, chartLabelStyle(widget))
       ]), width)
@@ -474,7 +478,7 @@ function chartHeaderBlock(widget: Widget, width: number): RenderBlock {
   }
   const yLabel = cleanLabel(widget.props['yLabel']);
   if (yLabel.length > 0) {
-    rows.push({ spans: [chartSpan(widget, 'chart', 'axis', 'axis.y.label', yLabel.slice(0, width), chartLabelStyle(widget))] });
+    rows.push({ spans: [chartSpan(widget, 'chart', 'axis', 'axis.y.label', yLabel.slice(0, width), chartAxisStyle(widget))] });
   }
   return { lines: rows };
 }
@@ -484,7 +488,7 @@ function chartFooterBlock(widget: Widget, width: number): RenderBlock {
   return {
     lines: xLabel.length === 0
       ? []
-      : [{ spans: [chartSpan(widget, 'chart', 'axis', 'axis.x.label', xLabel.slice(0, width), chartLabelStyle(widget))] }]
+      : [{ spans: [chartSpan(widget, 'chart', 'axis', 'axis.x.label', xLabel.slice(0, width), chartAxisStyle(widget))] }]
   };
 }
 
@@ -563,18 +567,17 @@ function isHeatmapCell(value: unknown): value is HeatmapCell {
 
 function heatmapCellSpans(
   widget: Widget,
-  cell: HeatmapCell,
   rowIndex: number,
   columnIndex: number,
   options: {
     readonly cellWidth: number;
-    readonly range: { readonly min: number; readonly max: number };
+    readonly intensity: number;
     readonly selected: boolean;
   }
 ): readonly RenderSpan[] {
-  const glyph = heatmapGlyphs[normalizedIndex(cell.value, options.range, heatmapGlyphs.length - 1)] ?? heatmapGlyphs[0];
+  const glyph = heatmapGlyphs[options.intensity] ?? heatmapGlyphs[0];
   const id = `cell.${String(rowIndex)}.${String(columnIndex)}`;
-  const cellStyle = options.selected ? chartSelectedStyle(widget) : chartMetricStyle(widget);
+  const cellStyle = chartHeatmapStyle(widget, options.intensity, options.selected);
   if (!options.selected) {
     return [chartSpan(widget, 'heatmap', 'cell', `${id}.value`, glyph.repeat(options.cellWidth), cellStyle)];
   }

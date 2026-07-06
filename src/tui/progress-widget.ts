@@ -8,7 +8,7 @@ import { statusMarker, statusStyle } from './status-visual.ts';
 import { block, line } from './frame.ts';
 import { feedbackStatusMarkerSpan, feedbackStructureSpan, feedbackTextSpan } from './feedback-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
-import type { RenderBlock } from './frame.ts';
+import type { RenderBlock, TerminalStyle } from './frame.ts';
 
 interface ProgressModel {
   readonly label: string;
@@ -71,13 +71,13 @@ function progressBarSpans(widget: Widget, model: ProgressModel, theme: TerminalT
   if (model.indeterminate) {
     return indeterminateProgressFrame(model.frame, model.barWidth).cells.map((cell) =>
       cell.active
-        ? feedbackStructureSpan(widget, theme.tokens.symbols.progressFilled, 'progressBar', 'progress.active', statusStyle(model.status))
-        : feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty, 'progressBar', 'progress.empty', statusStyle('idle'))
+        ? feedbackStructureSpan(widget, theme.tokens.symbols.progressFilled, 'progressBar', 'progress.active', progressFillStyle(model.status))
+        : feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty, 'progressBar', 'progress.empty', progressTrackStyle())
     );
   }
   return [
-    feedbackStructureSpan(widget, theme.tokens.symbols.progressFilled.repeat(model.filled), 'progressBar', 'progress.filled', statusStyle(model.status)),
-    feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty.repeat(model.barWidth - model.filled), 'progressBar', 'progress.empty', statusStyle('idle'))
+    feedbackStructureSpan(widget, theme.tokens.symbols.progressFilled.repeat(model.filled), 'progressBar', 'progress.filled', progressFillStyle(model.status)),
+    feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty.repeat(model.barWidth - model.filled), 'progressBar', 'progress.empty', progressTrackStyle())
   ];
 }
 
@@ -102,6 +102,21 @@ function progressMetricSpans(widget: Widget, model: ProgressModel) {
     ...(model.showPercentage ? [feedbackTextSpan(widget, ` ${String(model.percentage)}%`, 'progressBar', 'metric.percentage')] : []),
     ...timingSpans(widget, model)
   ];
+}
+
+function progressFillStyle(status: WidgetProcessStatus): TerminalStyle {
+  if (status === 'error' || status === 'warning' || status === 'success') return statusStyle(status);
+  return {
+    fg: { kind: 'theme', token: 'control.track.filled' },
+    bold: true
+  };
+}
+
+function progressTrackStyle(): TerminalStyle {
+  return {
+    fg: { kind: 'theme', token: 'control.track' },
+    dim: true
+  };
 }
 
 function progressModel(widget: Widget): ProgressModel {

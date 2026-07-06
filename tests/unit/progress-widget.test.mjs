@@ -44,8 +44,14 @@ test('progressBar supports compact mode end label and explicit bar width', () =>
     mode: 'compact',
     labelPosition: 'end'
   }), { columns: 32, rows: 1 });
+  const filled = frame.cells.find((cell) => cell.source?.label === 'progress.filled');
+  const empty = frame.cells.find((cell) => cell.source?.label === 'progress.empty');
 
   assert.equal(renderFramePlain(frame), '[█░░░] Build');
+  assert.equal(filled?.style?.fg?.token, 'control.track.filled');
+  assert.equal(filled?.style?.bold, true);
+  assert.equal(empty?.style?.fg?.token, 'control.track');
+  assert.equal(empty?.style?.dim, true);
 });
 
 test('progressBar renders explicit elapsed and remaining timing without hidden clocks', () => {
@@ -108,6 +114,7 @@ test('progressBar renders indeterminate bars with scoped progress accessibility'
 
   assert.equal(renderFramePlain(frame), '! Waiting [░██░]');
   assert.equal(markerCell?.text, '!');
+  assert.equal(activeCell?.style?.fg?.token, 'status.warning');
   assert.equal(activeCell?.source?.role, 'decoration');
   assert.deepEqual(frame.accessibility.root.progress, { indeterminate: true });
 });

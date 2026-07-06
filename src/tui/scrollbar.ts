@@ -250,7 +250,7 @@ function scrollbarStyle(thumb: boolean, state: ScrollbarVisualState): TerminalSt
   if (!thumb) {
     return {
       fg: { kind: 'theme', token: 'scrollbar.track' },
-      ...(state === 'disabled' || state === 'inactive' ? { dim: true } : {})
+      dim: true
     };
   }
   if (state === 'disabled' || state === 'inactive') {
@@ -259,10 +259,15 @@ function scrollbarStyle(thumb: boolean, state: ScrollbarVisualState): TerminalSt
       dim: true
     };
   }
+  if (state === 'active') {
+    return {
+      fg: { kind: 'theme', token: 'focus.border' },
+      bold: true
+    };
+  }
   return {
     fg: { kind: 'theme', token: 'scrollbar.thumb' },
-    ...(state === 'active' || state === 'hover' ? { bold: true } : {}),
-    ...(state === 'hover' ? { inverse: true } : {})
+    ...(state === 'hover' ? { bold: true } : {})
   };
 }
 

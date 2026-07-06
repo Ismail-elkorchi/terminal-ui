@@ -59,6 +59,10 @@ export const modernColors = {
   'control.toggle.off.background': rgb(72, 91, 89),
   'input.cursor': rgb(95, 252, 82),
   'input.placeholder': rgb(105, 118, 115),
+  'editor.gutter.foreground': rgb(104, 119, 116),
+  'editor.gutter.background': rgb(8, 14, 14),
+  'editor.gutter.active.foreground': rgb(56, 231, 189),
+  'editor.activeLine.background': rgb(14, 28, 27),
   'command.prompt': rgb(77, 230, 74),
   'command.match': rgb(242, 190, 55),
   'menu.match': rgb(242, 190, 55),
@@ -80,9 +84,13 @@ export const modernColors = {
   'diff.add': rgb(75, 222, 70),
   'diff.remove': rgb(255, 93, 75),
   'diff.context': rgb(130, 143, 139),
+  'chart.axis': rgb(91, 106, 103),
+  'chart.label': rgb(190, 204, 199),
+  'chart.value': rgb(222, 230, 226),
+  'chart.muted': rgb(74, 88, 86),
   'chart.series.1': rgb(79, 224, 72),
   'chart.series.2': rgb(47, 182, 255),
-  'chart.series.3': rgb(238, 59, 230)
+  'chart.series.3': rgb(238, 176, 43)
 } satisfies Readonly<Record<CoreColorToken, ThemeColor>>;
 
 export const highContrastColors = {
@@ -127,6 +135,10 @@ export const highContrastColors = {
   'control.toggle.on.background': { kind: 'ansi', value: 15 },
   'control.toggle.off.background': { kind: 'ansi', value: 7 },
   'input.cursor': { kind: 'ansi', value: 15 },
+  'editor.gutter.foreground': { kind: 'ansi', value: 7 },
+  'editor.gutter.background': { kind: 'ansi', value: 0 },
+  'editor.gutter.active.foreground': { kind: 'ansi', value: 14 },
+  'editor.activeLine.background': { kind: 'ansi', value: 0 },
   'command.prompt': { kind: 'ansi', value: 15 },
   'command.match': { kind: 'ansi', value: 11 },
   'menu.match': { kind: 'ansi', value: 11 },
@@ -148,6 +160,10 @@ export const highContrastColors = {
   'diff.add': { kind: 'ansi', value: 10 },
   'diff.remove': { kind: 'ansi', value: 9 },
   'diff.context': { kind: 'ansi', value: 7 },
+  'chart.axis': { kind: 'ansi', value: 7 },
+  'chart.label': { kind: 'ansi', value: 15 },
+  'chart.value': { kind: 'ansi', value: 15 },
+  'chart.muted': { kind: 'ansi', value: 7 },
   'chart.series.1': { kind: 'ansi', value: 10 },
   'chart.series.2': { kind: 'ansi', value: 14 },
   'chart.series.3': { kind: 'ansi', value: 13 }

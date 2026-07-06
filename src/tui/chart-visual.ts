@@ -7,7 +7,7 @@ import { block, line, span } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
 import { stringify } from './widget-props.ts';
-import { mergeStyles, widgetStyle } from './widget-style.ts';
+import { mergeStyles, themeStyle } from './widget-style.ts';
 
 export type ChartSurfaceKind = 'sparkline' | 'barChart' | 'chart' | 'gauge' | 'heatmap';
 export type ChartStateKind = 'empty' | 'loading' | 'error';
@@ -97,26 +97,62 @@ export function chartSource(
 }
 
 export function chartLabelStyle(widget: Widget): TerminalStyle | undefined {
-  return widgetStyle(widget, 'label');
+  return mergeStyles(themeStyle('chart.label'), widget.styles?.label);
 }
 
 export function chartValueStyle(widget: Widget): TerminalStyle | undefined {
-  return widgetStyle(widget, 'value');
+  return mergeStyles(themeStyle('chart.value'), widget.styles?.value);
 }
 
 export function chartSelectedStyle(widget: Widget): TerminalStyle | undefined {
-  return widgetStyle(widget, 'value', 'selected');
+  return mergeStyles(
+    {
+      fg: { kind: 'theme', token: 'selection.foreground' },
+      bg: { kind: 'theme', token: 'selection.background' },
+      bold: true
+    },
+    widget.styles?.selected
+  );
 }
 
 export function chartPlaceholderStyle(widget: Widget): TerminalStyle | undefined {
-  return widgetStyle(widget, 'placeholder');
+  return mergeStyles(themeStyle('chart.muted', { dim: true }), widget.styles?.placeholder);
+}
+
+export function chartAxisStyle(widget: Widget): TerminalStyle | undefined {
+  return mergeStyles(themeStyle('chart.axis', { dim: true }), widget.styles?.border);
+}
+
+export function chartSeriesStyle(widget: Widget, index: number): TerminalStyle | undefined {
+  return mergeStyles(themeStyle(chartSeriesToken(index), { bold: true }), widget.styles?.value);
+}
+
+export function chartHeatmapStyle(widget: Widget, intensity: number, selected: boolean): TerminalStyle | undefined {
+  if (selected) return chartSelectedStyle(widget);
+  if (intensity <= 0) return chartPlaceholderStyle(widget);
+  return mergeStyles(
+    themeStyle('chart.series.1'),
+    widget.styles?.value,
+    intensity === 1 ? { dim: true, bold: false } : undefined,
+    intensity >= 3 ? { bold: true } : undefined
+  );
 }
 
 export function chartMetricStyle(widget: Widget, status?: WidgetProcessStatus): TerminalStyle | undefined {
+  if (status === undefined || status === 'idle' || status === 'running') {
+    return chartSeriesStyle(widget, 0);
+  }
   return mergeStyles(
-    widgetStyle(widget, 'value'),
-    status === undefined || status === 'idle' ? undefined : statusStyle(status)
+    chartValueStyle(widget),
+    statusStyle(status)
   );
+}
+
+function chartSeriesToken(index: number): 'chart.series.1' | 'chart.series.2' | 'chart.series.3' {
+  const normalized = Math.max(0, Math.floor(index)) % 3;
+  if (normalized === 1) return 'chart.series.2';
+  if (normalized === 2) return 'chart.series.3';
+  return 'chart.series.1';
 }
 
 export function chartStateDescription(widget: Widget, fallback: string): string {

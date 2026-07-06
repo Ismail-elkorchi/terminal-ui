@@ -389,7 +389,7 @@ test('table supports sticky headers and both-axis scrollbars directly', () => {
   assert.match(output, /Name/u);
   assert.match(output, /Vessel 2/u);
   assert.doesNotMatch(output, /Vessel 0/u);
-  assert.match(output, /█/u);
+  assert.match(output, /[┃━]/u);
   assert.match(output, /│/u);
 });
 

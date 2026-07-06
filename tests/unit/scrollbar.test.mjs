@@ -97,10 +97,12 @@ test('scrollbar visualState controls active and hover thumb styling', () => {
 
   assert.equal(activeLayout.verticalTrack?.state, 'active');
   assert.equal(activeThumb?.style?.bold, true);
+  assert.equal(activeThumb?.style?.fg?.token, 'focus.border');
   assert.equal(activeThumb?.source?.state, 'active');
   assert.equal(hoverLayout.verticalTrack?.state, 'hover');
   assert.equal(hoverThumb?.style?.bold, true);
-  assert.equal(hoverThumb?.style?.inverse, true);
+  assert.equal(hoverThumb?.style?.inverse, undefined);
+  assert.equal(hoverThumb?.style?.fg?.token, 'scrollbar.thumb');
   assert.equal(hoverThumb?.source?.state, 'hover');
 });
 
@@ -237,7 +239,8 @@ test('widget scrollbars expose owner source metadata and visual state', () => {
   assert.equal(thumbCell?.source?.role, 'scrollbar');
   assert.equal(thumbCell?.source?.partKind, 'thumb');
   assert.equal(thumbCell?.source?.state, 'hover');
-  assert.equal(thumbCell?.style?.inverse, true);
+  assert.equal(thumbCell?.style?.inverse, undefined);
+  assert.equal(thumbCell?.style?.bold, true);
 });
 
 test('table scrollbar can expose vertical and horizontal scroll scope together', () => {
@@ -333,5 +336,16 @@ test('viewport scrollbar clips child rendering to content bounds', () => {
 
   const output = renderFramePlain(frame);
   assert.match(output, /abcd/u);
-  assert.ok(frame.cells.some((cell) => cell.row === 2 && cell.style?.fg?.token === 'scrollbar.track'));
+  const thumb = frame.cells.find((cell) => cell.row === 2 && cell.text === defaultTheme.tokens.symbols.scrollbarHorizontalThumb);
+  const track = frame.cells.find((cell) => cell.row === 2 && cell.text === defaultTheme.tokens.symbols.scrollbarHorizontalTrack);
+
+  assert.ok(thumb);
+  assert.ok(track);
+  assert.equal(thumb.source?.ownerKind, 'viewport');
+  assert.equal(thumb.source?.partKind, 'thumb');
+  assert.equal(thumb.style?.fg?.token, 'scrollbar.thumb');
+  assert.equal(track.source?.ownerKind, 'viewport');
+  assert.equal(track.source?.partKind, 'track');
+  assert.equal(track.style?.fg?.token, 'scrollbar.track');
+  assert.equal(track.style?.dim, true);
 });

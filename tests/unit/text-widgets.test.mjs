@@ -225,7 +225,12 @@ test('textArea can opt into line number gutter and active line anatomy', () => {
   assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === '│')?.source?.label, 'activeLine.gutter');
   assert.equal(activeContent?.source?.label, 'activeLine.value');
   assert.equal(activeContent?.source?.role, 'text');
-  assert.equal(activeContent?.style?.bold, true);
+  assert.equal(activeContent?.style?.fg?.token, 'text.default');
+  assert.equal(activeContent?.style?.bg?.token, 'editor.activeLine.background');
+  assert.equal(activeContent?.style?.bold, undefined);
+  assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === '1')?.style?.fg?.token, 'editor.gutter.foreground');
+  assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === '2')?.style?.fg?.token, 'editor.gutter.active.foreground');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'activeLine.background')?.style?.bg?.token, 'editor.activeLine.background');
 });
 
 test('textArea cursor uses the actual line-number gutter width', () => {
@@ -300,8 +305,8 @@ test('wrapped textArea exposes scrollbar scope over visual rows', () => {
     scrollbar: { visible: 'always', axis: 'vertical' }
   }), { columns: 9, rows: 2 });
 
-  assert.equal(renderFramePlain(frame), '› beta g█\n│ amma d│');
-  assert.equal(frame.cells.find((cell) => cell.text === '█')?.source?.ownerKind, 'textArea');
+  assert.equal(renderFramePlain(frame), '› beta g┃\n│ amma d│');
+  assert.equal(frame.cells.find((cell) => cell.text === '┃')?.source?.ownerKind, 'textArea');
   assert.equal(
     frame.accessibility.root.description,
     '1 lines. Showing 2-3 of 4 rows. Omitted before: 1. Omitted after: 1. Horizontal offset: 0.'

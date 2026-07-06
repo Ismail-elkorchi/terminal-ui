@@ -113,24 +113,26 @@ export function textAreaInputLine(input: TextAreaInputBlockInput, lineInput: {
     ? undefined
     : selectionIntersection(input.selection, lineInput.lineRecord.start + window.startOffset, lineInput.lineRecord.start + window.endOffset);
   const contentStyle = input.usesPlaceholder === true ? widgetStyle(input.widget, 'placeholder') : inputContentStyle(input.widget, input.focused === true, active);
+  const contentSpans = textAreaContentSpans(input.widget, {
+    text: window.text,
+    absoluteStart: lineInput.lineRecord.start + window.startOffset,
+    usesPlaceholder: input.usesPlaceholder === true,
+    active,
+    contentStyle,
+    selectedStyle: widgetStyle(input.widget, 'value', 'selected'),
+    ...(selectionInWindow === undefined
+      ? {}
+      : {
+          selection: {
+            start: selectionInWindow.start - lineInput.lineRecord.start - window.startOffset,
+            end: selectionInWindow.end - lineInput.lineRecord.start - window.startOffset
+          }
+        })
+  });
   return line([
     ...prefix,
-    ...textAreaContentSpans(input.widget, {
-      text: window.text,
-      absoluteStart: lineInput.lineRecord.start + window.startOffset,
-      usesPlaceholder: input.usesPlaceholder === true,
-      active,
-      contentStyle,
-      selectedStyle: widgetStyle(input.widget, 'value', 'selected'),
-      ...(selectionInWindow === undefined
-        ? {}
-        : {
-            selection: {
-              start: selectionInWindow.start - lineInput.lineRecord.start - window.startOffset,
-              end: selectionInWindow.end - lineInput.lineRecord.start - window.startOffset
-            }
-          })
-    })
+    ...contentSpans,
+    ...textAreaActiveLineFill(input.widget, active, contentWidth, contentSpans)
   ]);
 }
 
@@ -204,13 +206,15 @@ function textAreaLinePrefixSpans(
 ): readonly RenderSpan[] {
   const marker = textAreaLineMarker(widget, theme, focused, rowIndex, active);
   const lineNumber = textAreaLineNumber(widget, lineIndex, lineCount, firstVisualLine);
+  const markerStyle = textAreaMarkerStyle(widget, focused, active, rowIndex);
+  const gutterStyle = textAreaGutterStyle(widget, active);
   if (lineNumber === undefined) {
-    return [styledSpan(`${marker} `, textAreaPrefixStyle(widget, focused, active), inputSource(widget, active ? 'activeLine' : 'chrome', active ? 'activeLine.gutter' : 'chrome.prefix'))];
+    return [styledSpan(`${marker} `, markerStyle, inputSource(widget, active ? 'activeLine' : 'chrome', active ? 'activeLine.gutter' : 'chrome.prefix'))];
   }
   return [
-    styledSpan(marker, textAreaPrefixStyle(widget, focused, active), inputSource(widget, active ? 'activeLine' : 'chrome', active ? 'activeLine.marker' : 'chrome.marker')),
+    styledSpan(marker, markerStyle, inputSource(widget, active ? 'activeLine' : 'chrome', active ? 'activeLine.marker' : 'chrome.marker')),
     styledSpan(lineNumber, textAreaLineNumberStyle(widget, active), inputSource(widget, 'lineNumber', active ? 'activeLine.lineNumber' : 'lineNumber')),
-    styledSpan(` ${theme.tokens.symbols.borderSingle.vertical} `, textAreaPrefixStyle(widget, focused, active), inputSource(widget, 'gutter', active ? 'activeLine.gutter' : 'gutter.separator'))
+    styledSpan(` ${theme.tokens.symbols.borderSingle.vertical} `, gutterStyle, inputSource(widget, 'gutter', active ? 'activeLine.gutter' : 'gutter.separator'))
   ];
 }
 
@@ -245,20 +249,68 @@ function inputChromeStyle(widget: Widget, focused: boolean): TerminalStyle | und
   });
 }
 
-function textAreaPrefixStyle(widget: Widget, focused: boolean, active: boolean): TerminalStyle | undefined {
-  return mergeStyles(inputChromeStyle(widget, focused), active ? widgetStyle(widget, 'border', 'active') : undefined);
+function textAreaMarkerStyle(widget: Widget, focused: boolean, active: boolean, rowIndex: number): TerminalStyle | undefined {
+  if (active) return textAreaActiveGutterStyle(widget);
+  if (focused && rowIndex === 0) return inputChromeStyle(widget, true);
+  return textAreaGutterStyle(widget, false);
+}
+
+function textAreaGutterStyle(widget: Widget, active: boolean): TerminalStyle | undefined {
+  return active
+    ? textAreaActiveGutterStyle(widget)
+    : mergeStyles(
+        {
+          fg: { kind: 'theme', token: 'editor.gutter.foreground' },
+          bg: { kind: 'theme', token: 'editor.gutter.background' }
+        },
+        widget.styles?.border
+      );
+}
+
+function textAreaActiveGutterStyle(widget: Widget): TerminalStyle | undefined {
+  return mergeStyles(
+    {
+      fg: { kind: 'theme', token: 'editor.gutter.active.foreground' },
+      bg: { kind: 'theme', token: 'editor.activeLine.background' },
+      bold: true
+    },
+    widget.styles?.border
+  );
 }
 
 function textAreaLineNumberStyle(widget: Widget, active: boolean): TerminalStyle | undefined {
-  return mergeStyles(widgetStyle(widget, 'label'), active ? widgetStyle(widget, 'label', 'active') : undefined);
+  return active
+    ? mergeStyles(
+        {
+          fg: { kind: 'theme', token: 'editor.gutter.active.foreground' },
+          bg: { kind: 'theme', token: 'editor.activeLine.background' },
+          bold: true
+        },
+        widget.styles?.label
+      )
+    : mergeStyles(
+        {
+          fg: { kind: 'theme', token: 'editor.gutter.foreground' },
+          bg: { kind: 'theme', token: 'editor.gutter.background' }
+        },
+        widget.styles?.label
+      );
 }
 
 function inputContentStyle(widget: Widget, focused: boolean, active = false): TerminalStyle | undefined {
   if (widget.props['disabled'] === true) return widgetStyle(widget, 'value', 'disabled');
   if (typeof widget.props['error'] === 'string' && widget.props['error'].length > 0) return widgetStyle(widget, 'value', 'error');
   return mergeStyles(
-    widgetStyle(widget, 'value', focused ? 'focused' : undefined),
-    active ? widgetStyle(widget, 'value', 'active') : undefined
+    widgetStyle(widget, 'value'),
+    focused ? widget.styles?.focused : undefined,
+    active ? textAreaActiveLineTextStyle(widget) : undefined
+  );
+}
+
+function textAreaActiveLineTextStyle(widget: Widget): TerminalStyle | undefined {
+  return mergeStyles(
+    { bg: { kind: 'theme', token: 'editor.activeLine.background' } },
+    widget.styles?.value
   );
 }
 
@@ -309,6 +361,19 @@ function textAreaContentSpans(
       source: textAreaContentSource(widget, input.usesPlaceholder, input.active)
     })];
   });
+}
+
+function textAreaActiveLineFill(
+  widget: Widget,
+  active: boolean,
+  contentWidth: number,
+  contentSpans: readonly RenderSpan[]
+): readonly RenderSpan[] {
+  if (!active) return [];
+  const remaining = Math.max(0, contentWidth - spansWidth(contentSpans));
+  return remaining === 0
+    ? []
+    : [styledSpan(' '.repeat(remaining), textAreaActiveLineTextStyle(widget), inputSource(widget, 'activeLine', 'activeLine.background'))];
 }
 
 function textAreaHighlights(widget: Widget, start: number, end: number): readonly NormalizedTextAreaHighlight[] {
