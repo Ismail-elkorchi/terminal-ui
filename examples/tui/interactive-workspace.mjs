@@ -18,7 +18,6 @@ import {
   overlay,
   palette,
   progressBar,
-  row,
   stack,
   statusBar,
   structuredBlock,
@@ -100,6 +99,7 @@ function initialState() {
     },
     palette: { open: false, query: '', selectedIndex: 0, selectedIds: [], used: false },
     notifications: [],
+    nextNotificationId: 1,
     log: [
       'Workspace started.',
       'Loaded 6 issues from local state.',
@@ -204,13 +204,13 @@ function workspaceView(state, context) {
   const shell = wide ? wideWorkspace(state) : narrowWorkspace(state);
   const overlays = [
     shell,
-    ...(state.palette.open ? [paletteOverlay(state)] : []),
-    notificationStackForState(state)
+    ...(state.palette.open ? [paletteOverlay(state)] : [])
   ];
   return overlay(overlays, { id: 'workspace-root' });
 }
 
 function wideWorkspace(state) {
+  const commandRows = commandRowCount(state);
   return grid({
     id: 'workspace-grid',
     areas: `
@@ -218,7 +218,7 @@ function wideWorkspace(state) {
       nav    main   inspector
       command command command
     `,
-    rows: [{ kind: 'fixed', cells: 3 }, { kind: 'fill' }, { kind: 'fixed', cells: 4 }],
+    rows: [{ kind: 'fixed', cells: 2 }, { kind: 'fill' }, { kind: 'fixed', cells: commandRows }],
     columns: [{ kind: 'fixed', cells: 25 }, { kind: 'fill' }, { kind: 'fixed', cells: 32 }],
     gap: 1,
     children: {
@@ -232,6 +232,7 @@ function wideWorkspace(state) {
 }
 
 function narrowWorkspace(state) {
+  const commandRows = commandRowCount(state);
   return grid({
     id: 'workspace-grid-narrow',
     areas: `
@@ -239,7 +240,7 @@ function narrowWorkspace(state) {
       main
       command
     `,
-    rows: [{ kind: 'fixed', cells: 3 }, { kind: 'fill' }, { kind: 'fixed', cells: 4 }],
+    rows: [{ kind: 'fixed', cells: 2 }, { kind: 'fill' }, { kind: 'fixed', cells: commandRows }],
     columns: [{ kind: 'fill' }],
     gap: 1,
     children: {
@@ -255,10 +256,13 @@ function headerSurface(state) {
   return surface(stack([
     text('Interactive Workspace', { id: 'workspace-title', textRole: 'title' }),
     statusBar({ id: 'workspace-status', text: `${selected.id} ${selected.state} | ${state.tab} | ${state.tree.selected ?? 'all'}` })
-  ], { id: 'workspace-header-body', gap: 0 }), {
+  ], {
+    id: 'workspace-header-body',
+    gap: 0,
+    sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }]
+  }), {
     id: 'workspace-header',
-    label: 'Workspace',
-    variant: 'raised',
+    variant: 'chrome',
     padding: { left: 1, right: 1 }
   });
 }
@@ -283,7 +287,11 @@ function navigationSurface(state) {
         { key: 'tab', label: 'focus' }
       ]
     })
-  ], { id: 'workspace-navigation-body', gap: 1 }), {
+  ], {
+    id: 'workspace-navigation-body',
+    gap: 1,
+    sizes: [{ kind: 'fill' }, { kind: 'fixed', cells: 2 }]
+  }), {
     id: 'workspace-navigation',
     label: 'Navigator',
     variant: 'inset',
@@ -298,7 +306,7 @@ function mainSurface(state) {
     tabs: [
       { id: 'issues', label: 'Issues', description: 'Ticket table', message: { kind: 'setTab', tab: 'issues' }, panel: issueTablePanel(state) },
       { id: 'activity', label: 'Activity', description: 'Scrollable log', message: { kind: 'setTab', tab: 'activity' }, panel: activityPanel(state) },
-      { id: 'notes', label: 'Notes', description: 'Command guide', message: { kind: 'setTab', tab: 'notes' }, panel: notesPanel() }
+      { id: 'notes', label: 'Notes', description: 'Command guide', message: { kind: 'setTab', tab: 'notes' }, panel: notesPanel(state) }
     ],
     keyMap: {
       arrowLeft: { kind: 'setTab', tab: previousTab(state.tab) },
@@ -311,7 +319,7 @@ function issueTablePanel(state) {
   const rows = visibleTickets(state).map(ticketTableRow);
   const selected = Math.min(state.table.selectedRow ?? 0, Math.max(0, rows.length - 1));
   return surface(stack([
-    table({
+    notificationLayer(state, table({
       id: 'ticket-table',
       rows,
       selected,
@@ -330,7 +338,7 @@ function issueTablePanel(state) {
         arrowUp: { kind: 'table', action: { kind: 'selectRow', row: selected - 1 } },
         enter: { kind: 'submitCommand' }
       }
-    }),
+    })),
     helpBar({
       id: 'table-help',
       bindings: [
@@ -338,7 +346,11 @@ function issueTablePanel(state) {
         { key: '/palette', label: 'commands' }
       ]
     })
-  ], { id: 'issues-panel-body', gap: 1 }), {
+  ], {
+    id: 'issues-panel-body',
+    gap: 1,
+    sizes: [{ kind: 'fill' }, { kind: 'fixed', cells: 1 }]
+  }), {
     id: 'issues-panel',
     label: 'Ticket queue',
     variant: 'neutral',
@@ -354,11 +366,11 @@ function activityPanel(state) {
   const lines = state.log.map((item, index) => text(`${String(index + 1).padStart(2, '0')} ${item}`, {
     id: `activity-line-${String(index)}`
   }));
-  return surface(viewport(stack(lines, { id: 'activity-lines', gap: 0 }), {
+  return surface(notificationLayer(state, viewport(stack(lines, { id: 'activity-lines', gap: 0 }), {
     id: 'activity-viewport',
     contentRows: lines.length,
     scrollbar: { visible: 'auto' }
-  }), {
+  })), {
     id: 'activity-panel',
     label: 'Activity log',
     variant: 'neutral',
@@ -366,12 +378,12 @@ function activityPanel(state) {
   });
 }
 
-function notesPanel() {
-  return surface(stack([
+function notesPanel(state) {
+  return surface(notificationLayer(state, stack([
     text('This example is intentionally hand-written.', { id: 'note-purpose', textRole: 'body' }),
     text('It combines primitives without app-shell recipes or product composites.', { id: 'note-surface' }),
     text('Useful commands: /palette, /issues, /activity, /resolve, /assign ops.', { id: 'note-commands' })
-  ], { id: 'notes-panel-body', gap: 1 }), {
+  ], { id: 'notes-panel-body', gap: 1 })), {
     id: 'notes-panel',
     label: 'Notes',
     variant: 'neutral',
@@ -394,17 +406,16 @@ function inspectorSurface(state) {
       ],
       body: 'This panel updates when keyboard commands, palette choices, or tree clicks change app state.'
     }),
-    row([
+    stack([
       activityIndicator({ id: 'workspace-activity', label: 'runtime', status: ticket.state === 'running' ? 'running' : 'idle' }),
       progressBar({
         id: 'queue-progress',
-        label: 'triage',
+        label: 'resolved',
         value: resolvedCount(),
         max: tickets.length,
-        showPercentage: true,
-        status: 'running'
+        showPercentage: true
       })
-    ], { id: 'inspector-status-row', gap: 2 }),
+    ], { id: 'inspector-status-stack', gap: 0 }),
     button({
       id: 'resolve-button',
       label: 'Resolve selected',
@@ -420,16 +431,18 @@ function inspectorSurface(state) {
 }
 
 function commandSurface(state) {
+  const expanded = commandBarExpanded(state);
   return surface(commandBar({
     id: 'workspace-command',
-    prompt: '>',
+    prompt: '› ',
     value: state.command.input.text,
     cursor: state.command.input.cursor,
-    placeholder: 'Type /palette, /resolve, /assign ops, /activity, /issues',
-    suggestions: state.command.suggestions,
+    placeholder: 'Type /command',
+    suggestions: expanded ? state.command.suggestions : [],
     selectedSuggestion: state.command.selectedSuggestion,
-    completionPreview: completionPreview(state.command.input.text),
-    footer: 'Enter run | Esc clear | Ctrl+C/Ctrl+Q exit',
+    completionPreview: expanded ? completionPreview(state.command.input.text) : undefined,
+    footer: expanded ? 'Enter run | arrows suggestions | Esc clear | Tab focus | Ctrl+C/Ctrl+Q exit' : undefined,
+    display: expanded ? 'expanded' : 'compact',
     inputMap: {
       text: (value) => ({ kind: 'commandEdit', action: { kind: 'insert', text: value } })
     },
@@ -495,6 +508,13 @@ function notificationStackForState(state) {
   });
 }
 
+function notificationLayer(state, child) {
+  const notifications = state === undefined || state.notifications.length === 0
+    ? []
+    : [notificationStackForState(state)];
+  return overlay([child, ...notifications], { id: `${child.id ?? 'content'}-notifications` });
+}
+
 function navigationNodes() {
   return [
     {
@@ -552,7 +572,7 @@ function applyCommand(state, rawCommand) {
     const ticket = selectedTicket(withHistory);
     return {
       ...withHistory,
-      notifications: notify(withHistory, `${ticket.id} resolved`, 'success'),
+      ...notificationPatch(withHistory, `${ticket.id} resolved`, 'Generated by the interactive workspace example.', 'success'),
       log: appendLog(withHistory, `Resolved ${ticket.id}.`)
     };
   }
@@ -560,14 +580,14 @@ function applyCommand(state, rawCommand) {
     const ticket = selectedTicket(withHistory);
     return {
       ...withHistory,
-      notifications: notify(withHistory, `${ticket.id} assigned to Ops`, 'info'),
+      ...notificationPatch(withHistory, `${ticket.id} assigned to Ops`, 'Generated by the interactive workspace example.', 'info'),
       log: appendLog(withHistory, `Assigned ${ticket.id} to Ops.`)
     };
   }
   if (command === '/clear' || command.length === 0) return withHistory;
   return {
     ...withHistory,
-    notifications: notify(withHistory, `Unknown command: ${command}`, 'warning'),
+    ...notificationPatch(withHistory, `Unknown command: ${command}`, 'Generated by the interactive workspace example.', 'warning'),
     log: appendLog(withHistory, `Unknown command ignored: ${command}.`)
   };
 }
@@ -583,16 +603,19 @@ function reducePaletteState(state, action) {
   };
 }
 
-function notify(state, title, tone) {
-  return [
-    ...state.notifications,
-    {
-      id: `notice-${String(state.notifications.length + 1)}`,
-      title,
-      tone,
-      message: 'Generated by the interactive workspace example.'
-    }
-  ];
+function notificationPatch(state, title, message, tone) {
+  return {
+    nextNotificationId: state.nextNotificationId + 1,
+    notifications: [
+      ...state.notifications,
+      {
+        id: `notice-${String(state.nextNotificationId)}`,
+        title,
+        message,
+        tone
+      }
+    ]
+  };
 }
 
 function appendLog(state, line) {
@@ -603,6 +626,14 @@ function completionPreview(value) {
   if (value.length === 0) return undefined;
   const suggestion = commandSuggestions.find((item) => item.value.startsWith(value) && item.value !== value);
   return suggestion === undefined ? undefined : suggestion.value.slice(value.length);
+}
+
+function commandBarExpanded(state) {
+  return state.command.input.text.length > 0 || state.command.selectedSuggestion !== undefined;
+}
+
+function commandRowCount(state) {
+  return commandBarExpanded(state) ? 6 : 3;
 }
 
 function ticketStatus(ticket) {

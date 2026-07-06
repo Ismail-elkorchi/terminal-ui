@@ -243,7 +243,7 @@ function wideIdeView(state, context) {
     children: {
       top: topChrome(state),
       explorer: explorerPane(state),
-      editor: editorRegion(state),
+      editor: editorWorkspace(state),
       inspector: inspectorPane(state, context),
       command: commandPane(state)
     }
@@ -264,17 +264,10 @@ function narrowIdeView(state, _context) {
     gap: 1,
     children: {
       top: topChrome(state),
-      editor: editorRegion(state),
+      editor: editorWorkspace(state),
       command: commandPane(state)
     }
   });
-}
-
-function editorRegion(state) {
-  return overlay([
-    editorWorkspace(state),
-    notificationStackWidget(state)
-  ], { id: 'ide-editor-region' });
 }
 
 function topChrome(state) {
@@ -311,6 +304,7 @@ function notificationStackWidget(state) {
     items: state.notifications,
     placement: 'bottom-right',
     maxVisible: 3,
+    maxWidth: 36,
     toDismissMessage: (item) => ({ kind: 'dismissNotification', id: item.id })
   });
 }
@@ -364,7 +358,7 @@ function explorerPane(state) {
 function editorWorkspace(state) {
   const openBuffers = state.openOrder.map((filePath) => state.buffers[filePath]).filter(Boolean);
   if (openBuffers.length === 0) {
-    return surface(welcomePanel(state), {
+    return surface(notificationLayer(state, welcomePanel(state)), {
       id: 'empty-editor-surface',
       label: 'Editor',
       variant: 'neutral',
@@ -438,11 +432,10 @@ function editorPanel(state, buffer) {
           label: 'size',
           value: Math.min(buffer.text.length, MAX_FILE_BYTES),
           max: MAX_FILE_BYTES,
-          showPercentage: true,
-          status: buffer.dirty ? 'warning' : 'success'
+          showPercentage: true
         })
       ], { id: 'editor-meta', gap: 2 }),
-      editor: textArea({
+      editor: notificationLayer(state, textArea({
         id: 'ide-editor-text',
         value: buffer.text,
         cursor: buffer.cursor,
@@ -458,7 +451,7 @@ function editorPanel(state, buffer) {
           text: (value) => ({ kind: 'editActive', action: { kind: 'insert', text: value } })
         },
         keyMap: textAreaKeyMap()
-      }),
+      })),
       footer: helpBar({
         id: 'editor-help',
         bindings: [
@@ -475,6 +468,13 @@ function editorPanel(state, buffer) {
     variant: 'neutral',
     padding: 1
   });
+}
+
+function notificationLayer(state, child) {
+  const notifications = state.notifications.length === 0
+    ? []
+    : [notificationStackWidget(state)];
+  return overlay([child, ...notifications], { id: `${child.id ?? 'content'}-notifications` });
 }
 
 function inspectorPane(state, context) {
@@ -556,24 +556,15 @@ function commandPane(state) {
   const expanded = commandBarExpanded(state);
   return surface(commandBar({
     id: 'ide-command',
-    prompt: '>',
+    prompt: '› ',
     value: state.command.input.text,
     cursor: state.command.input.cursor,
-    placeholder: '/open README.md, /folder src, /save, /palette',
+    placeholder: 'Type /open, /folder, /save, /palette',
     suggestions: expanded ? state.command.suggestions : [],
     selectedSuggestion: state.command.selectedSuggestion,
     completionPreview: expanded ? completionPreview(state.command.input.text) : undefined,
     footer: expanded ? 'Enter run | arrows suggestions | Esc clear | Tab focus | Ctrl+C/Ctrl+Q exit' : undefined,
     display: expanded ? 'expanded' : 'compact',
-    styles: {
-      label: { fg: { kind: 'theme', token: 'accent.secondary' }, bold: true },
-      placeholder: { fg: { kind: 'theme', token: 'text.muted' }, dim: true },
-      selected: {
-        fg: { kind: 'theme', token: 'selection.foreground' },
-        bg: { kind: 'theme', token: 'selection.background' },
-        bold: true
-      }
-    },
     inputMap: {
       text: (value) => ({ kind: 'commandEdit', action: { kind: 'insert', text: value } })
     },
