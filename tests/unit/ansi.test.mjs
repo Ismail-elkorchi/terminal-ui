@@ -58,6 +58,22 @@ test('stateful ANSI serialization maps rgb colors through truecolor 256 color an
   assert.equal(serializeRenderSpansStateful(spans, { capabilities: capabilities(1) }), '\u001B[91mR\u001B[0m');
 });
 
+test('stateful ANSI serialization preserves ordered foreground and background color tuples during transitions', () => {
+  const spans = [
+    { text: 'A', style: { bold: true, fg: { kind: 'rgb', r: 218, g: 225, b: 220 }, bg: { kind: 'rgb', r: 14, g: 21, b: 21 } } },
+    { text: 'B', style: { fg: { kind: 'rgb', r: 218, g: 225, b: 220 }, bg: { kind: 'rgb', r: 10, g: 16, b: 16 } } }
+  ];
+
+  assert.equal(
+    serializeRenderSpansStateful(spans, { capabilities: capabilities(8) }),
+    '\u001B[1;38;5;188;48;5;16mA\u001B[22;48;5;16mB\u001B[0m'
+  );
+  assert.equal(
+    serializeRenderSpansStateful(spans, { capabilities: capabilities(24) }),
+    '\u001B[1;38;2;218;225;220;48;2;14;21;21mA\u001B[22;48;2;10;16;16mB\u001B[0m'
+  );
+});
+
 function capabilities(depth, hyperlinks = false) {
   const support = (supported) => supported
     ? { status: 'supported', confidence: 'detected', facts: [], diagnostics: [], requiresSessionOperation: false }

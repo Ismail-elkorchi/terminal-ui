@@ -97,7 +97,7 @@ function styleTransitionCodes(
   forceColor: boolean | undefined
 ): readonly string[] {
   if (forceColor !== true && capabilities.color.depth === 0) return [];
-  const codes: string[] = [
+  const attributeCodes = uniqueCodes([
     ...flagTransition(previous.bold, next?.bold, '1', '22'),
     ...flagTransition(previous.dim, next?.dim, '2', '22'),
     ...flagTransition(previous.italic, next?.italic, '3', '23'),
@@ -105,10 +105,12 @@ function styleTransitionCodes(
     ...flagTransition(previous.inverse, next?.inverse, '7', '27'),
     ...flagTransition(previous.hidden, next?.hidden, '8', '28'),
     ...flagTransition(previous.strikethrough, next?.strikethrough, '9', '29')
+  ]);
+  return [
+    ...attributeCodes,
+    ...colorTransitionCodes('fg', previous.fg, next?.fg, capabilities, forceColor),
+    ...colorTransitionCodes('bg', previous.bg, next?.bg, capabilities, forceColor)
   ];
-  codes.push(...colorTransitionCodes('fg', previous.fg, next?.fg, capabilities, forceColor));
-  codes.push(...colorTransitionCodes('bg', previous.bg, next?.bg, capabilities, forceColor));
-  return uniqueCodes(codes);
 }
 
 function flagTransition(
