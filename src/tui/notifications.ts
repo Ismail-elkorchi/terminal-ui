@@ -9,7 +9,7 @@ import { clipRenderSpans } from './render-primitives.ts';
 import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { numberProp } from './widget-props.ts';
 import type { HitTarget } from './widget-renderer.ts';
-import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
+import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
 import type { NotificationItem, NotificationPlacement, NotificationTone, Widget } from '../widgets/index.ts';
 import { normalizeNotificationTone, statusFromTone } from '../widgets/index.ts';
 import { feedbackSpan } from './feedback-visual.ts';
@@ -253,14 +253,14 @@ function progressSpans(
   const barWidth = Math.max(1, Math.min(width - 6, 18));
   const filled = Math.round((progress / 100) * barWidth);
   return [
-    feedbackSpan(widget, theme.symbols.progressFilled.repeat(filled), {
+    feedbackSpan(widget, theme.tokens.symbols.progressFilled.repeat(filled), {
       kind: 'notification',
       label: 'progress.filled',
       sourceId: item.id,
       role: 'decoration',
       style: { fg: { kind: 'theme', token: foregroundToken(tone) }, bold: true }
     }),
-    feedbackSpan(widget, theme.symbols.progressEmpty.repeat(barWidth - filled), {
+    feedbackSpan(widget, theme.tokens.symbols.progressEmpty.repeat(barWidth - filled), {
       kind: 'notification',
       label: 'progress.empty',
       sourceId: item.id,
@@ -285,7 +285,7 @@ function notificationBorder(card: NotificationCard, tone: NotificationTone, them
 }
 
 function notificationTitle(card: NotificationCard, tone: NotificationTone, theme: TerminalTheme): string {
-  const marker = card.selected ? `${theme.symbols.pointer} ` : '';
+  const marker = card.selected ? `${theme.tokens.symbols.pointer} ` : '';
   const paused = card.item.paused === true ? ' paused' : '';
   return `${marker}${toneLabel(tone)}${paused}`;
 }
@@ -313,7 +313,7 @@ function cardTextStyle(tone: NotificationTone, title: boolean, selected: boolean
   };
 }
 
-function backgroundToken(tone: NotificationTone): ThemeToken {
+function backgroundToken(tone: NotificationTone): ThemeColorToken {
   switch (tone) {
     case 'success':
       return 'surface.success.background';
@@ -327,7 +327,7 @@ function backgroundToken(tone: NotificationTone): ThemeToken {
   }
 }
 
-function borderToken(tone: NotificationTone): ThemeToken {
+function borderToken(tone: NotificationTone): ThemeColorToken {
   switch (tone) {
     case 'success':
       return 'surface.success.border';
@@ -341,7 +341,7 @@ function borderToken(tone: NotificationTone): ThemeToken {
   }
 }
 
-function foregroundToken(tone: NotificationTone): ThemeToken {
+function foregroundToken(tone: NotificationTone): ThemeColorToken {
   return statusToken(statusFromTone(tone));
 }
 

@@ -126,8 +126,8 @@ function dividerGlyphs(widget: Widget, theme: TerminalTheme): DividerGlyphs {
   switch (dividerLineKind(widget)) {
     case 'single':
       return {
-        horizontal: theme.symbols.borderSingle.horizontal,
-        vertical: theme.symbols.borderSingle.vertical
+        horizontal: theme.tokens.symbols.borderSingle.horizontal,
+        vertical: theme.tokens.symbols.borderSingle.vertical
       };
     case 'double':
       return { horizontal: '═', vertical: '║' };

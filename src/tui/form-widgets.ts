@@ -78,7 +78,7 @@ export function buttonBlock(widget: Widget, bounds: Rect, focused = false, theme
 
 export function checkboxBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const checked = widget.props['checked'] === true;
-  const symbol = checked ? theme.symbols.checkboxChecked : theme.symbols.checkboxUnchecked;
+  const symbol = checked ? theme.tokens.symbols.checkboxChecked : theme.tokens.symbols.checkboxUnchecked;
   const state = formControlState(widget, checked);
   const lines = [
     clippedFormLine([
@@ -105,7 +105,7 @@ export function toggleSwitchBlock(widget: Widget, bounds: Rect): RenderBlock {
         ? [
             formSpan(widget, 'chrome', 'value.on.open', '[', formMarkerStyle(widget, enabledState)),
             separatorSpan(widget),
-            formSpan(widget, 'value', 'value.on', onLabel, formValueStyle(widget, enabledState)),
+            formSpan(widget, 'value', 'value.on', onLabel, toggleValueStyle(widget, true)),
             separatorSpan(widget),
             formSpan(widget, 'chrome', 'value.on.close', ']', formMarkerStyle(widget, enabledState)),
             separatorSpan(widget),
@@ -116,7 +116,7 @@ export function toggleSwitchBlock(widget: Widget, bounds: Rect): RenderBlock {
             separatorSpan(widget),
             formSpan(widget, 'chrome', 'value.off.open', '[', formMarkerStyle(widget, disabledState)),
             separatorSpan(widget),
-            formSpan(widget, 'value', 'value.off', offLabel, formValueStyle(widget, disabledState)),
+            formSpan(widget, 'value', 'value.off', offLabel, toggleValueStyle(widget, false)),
             separatorSpan(widget),
             formSpan(widget, 'chrome', 'value.off.close', ']', formMarkerStyle(widget, disabledState))
           ])
@@ -170,7 +170,7 @@ export function checkboxListBlock(widget: Widget, bounds: Rect, theme: TerminalT
   }
   const selected = selectedIds(widget);
   for (const option of formOptions(widget)) {
-    const symbol = selected.has(option.id) ? theme.symbols.checkboxChecked : theme.symbols.checkboxUnchecked;
+    const symbol = selected.has(option.id) ? theme.tokens.symbols.checkboxChecked : theme.tokens.symbols.checkboxUnchecked;
     const state = optionControlState(widget, {
       selected: selected.has(option.id),
       ...(option.disabled === undefined ? {} : { disabled: option.disabled })
@@ -195,7 +195,7 @@ export function radioGroupBlock(widget: Widget, bounds: Rect, theme: TerminalThe
   }
   const selected = selectedId(widget);
   for (const option of formOptions(widget)) {
-    const symbol = option.id === selected ? theme.symbols.radioChecked : theme.symbols.radioUnchecked;
+    const symbol = option.id === selected ? theme.tokens.symbols.radioChecked : theme.tokens.symbols.radioUnchecked;
     const state = optionControlState(widget, {
       selected: option.id === selected,
       ...(option.disabled === undefined ? {} : { disabled: option.disabled })
@@ -256,7 +256,7 @@ export function selectBoxBlock(widget: Widget, bounds: Rect, theme: TerminalThem
       }),
       formSpan(widget, selected === undefined ? 'placeholder' : 'value', selected === undefined ? 'value.placeholder' : 'value.selected', value, style),
       separatorSpan(widget),
-      formSpan(widget, 'chrome', 'chrome.dropdown', theme.symbols.treeCollapsed, formMarkerStyle(widget))
+      formSpan(widget, 'chrome', 'chrome.dropdown', theme.tokens.symbols.treeCollapsed, formMarkerStyle(widget))
     ], bounds.width),
     ...errorLines(widget, bounds.width)
   ];
@@ -684,7 +684,7 @@ function buttonSpans(widget: Widget, label: string, focused: boolean, theme: Ter
   const spans: RenderSpan[] = [];
   const style = buttonStyle(widget, focused);
   if (focused && widget.props['disabled'] !== true) {
-    spans.push(formSpan(widget, 'chrome', 'chrome.focus', theme.symbols.pointer, style));
+    spans.push(formSpan(widget, 'chrome', 'chrome.focus', theme.tokens.symbols.pointer, style));
   }
   const state = buttonStateMarker(widget, theme);
   spans.push(formSpan(widget, 'chrome', 'chrome.open', '[ ', style));
@@ -699,9 +699,9 @@ function buttonSpans(widget: Widget, label: string, focused: boolean, theme: Ter
 
 function buttonStateMarker(widget: Widget, theme: TerminalTheme): string {
   if (widget.props['disabled'] === true) return '-';
-  if (widget.props['pending'] === true) return theme.symbols.statusInfo;
-  if (widget.props['pressed'] === true) return theme.symbols.selected;
-  return buttonTone(widget) === 'destructive' ? theme.symbols.statusError : '';
+  if (widget.props['pending'] === true) return theme.tokens.symbols.statusInfo;
+  if (widget.props['pressed'] === true) return theme.tokens.symbols.selected;
+  return buttonTone(widget) === 'destructive' ? theme.tokens.symbols.statusError : '';
 }
 
 function buttonStyle(widget: Widget, focused: boolean): TerminalStyle | undefined {
@@ -716,16 +716,37 @@ function buttonStyle(widget: Widget, focused: boolean): TerminalStyle | undefine
 
 function buttonBaseStyle(widget: Widget): TerminalStyle | undefined {
   if (widget.props['pending'] === true) return themeStyle('status.pending', { bold: true });
-  if (widget.props['pressed'] === true) return defaultStyleForState('selected');
+  if (widget.props['pressed'] === true) return controlToneStyle('primary');
   switch (buttonTone(widget)) {
     case 'default':
-      return undefined;
+      return controlToneStyle('default');
     case 'primary':
-      return defaultStyleForState('selected');
+      return controlToneStyle('primary');
     case 'secondary':
-      return defaultStyleForState('active');
+      return controlToneStyle('secondary');
     case 'destructive':
       return mergeStyles(defaultStyleForState('error'), { bold: true });
+  }
+}
+
+function controlToneStyle(tone: 'default' | 'primary' | 'secondary'): TerminalStyle {
+  switch (tone) {
+    case 'default':
+      return {
+        fg: { kind: 'theme', token: 'control.foreground' },
+        bg: { kind: 'theme', token: 'control.background' }
+      };
+    case 'primary':
+      return {
+        fg: { kind: 'theme', token: 'control.primary.foreground' },
+        bg: { kind: 'theme', token: 'control.primary.background' },
+        bold: true
+      };
+    case 'secondary':
+      return {
+        fg: { kind: 'theme', token: 'control.secondary.foreground' },
+        bg: { kind: 'theme', token: 'control.secondary.background' }
+      };
   }
 }
 
@@ -896,8 +917,7 @@ function sliderTrackSpans(widget: Widget, model: SliderModel): readonly RenderSp
       : index < position
         ? { text: '━', label: 'track.filled', selected: false }
         : { text: '─', label: 'track.empty', selected: false };
-    const state = disabled ? 'disabled' : current.selected ? 'selected' : current.label === 'track.filled' ? 'active' : undefined;
-    return formSpan(widget, current.selected ? 'handle' : 'track', current.label, current.text, formMarkerStyle(widget, state));
+    return formSpan(widget, current.selected ? 'handle' : 'track', current.label, current.text, sliderPartStyle(widget, current.label, disabled));
   });
 }
 
@@ -911,8 +931,36 @@ function rangeSliderTrackSpans(widget: Widget, model: RangeSliderModel): readonl
       : index > start && index < end
         ? { text: '━', label: 'track.filled', selected: false }
         : { text: '─', label: 'track.empty', selected: false };
-    const state = disabled ? 'disabled' : current.selected ? 'selected' : current.label === 'track.filled' ? 'active' : undefined;
-    return formSpan(widget, current.selected ? 'handle' : 'track', current.label, current.text, formMarkerStyle(widget, state));
+    return formSpan(widget, current.selected ? 'handle' : 'track', current.label, current.text, sliderPartStyle(widget, current.label, disabled));
+  });
+}
+
+function sliderPartStyle(widget: Widget, label: string, disabled: boolean): TerminalStyle | undefined {
+  const base: TerminalStyle = label.toLocaleLowerCase().endsWith('handle')
+    ? {
+        fg: { kind: 'theme', token: 'control.handle' },
+        bg: { kind: 'theme', token: 'control.track.filled' },
+        bold: true
+      }
+    : label === 'track.filled'
+      ? { fg: { kind: 'theme', token: 'control.track.filled' } }
+      : { fg: { kind: 'theme', token: 'control.track' } };
+  return resolveWidgetStyle(widget, {
+    slot: 'value',
+    base,
+    ...(disabled ? { state: 'disabled' } : {})
+  });
+}
+
+function toggleValueStyle(widget: Widget, checked: boolean): TerminalStyle | undefined {
+  if (widget.props['disabled'] === true) return widgetStyle(widget, 'value', 'disabled');
+  return resolveWidgetStyle(widget, {
+    slot: 'value',
+    base: {
+      fg: { kind: 'theme', token: checked ? 'control.primary.foreground' : 'control.foreground' },
+      bg: { kind: 'theme', token: checked ? 'control.toggle.on.background' : 'control.toggle.off.background' },
+      ...(checked ? { bold: true } : {})
+    }
   });
 }
 
@@ -1027,7 +1075,7 @@ function pickerOptionRowOffset(widget: Widget, columns: number): number {
 
 function colorPickerSummarySpans(option: ColorPickerOption<unknown>, widget: Widget): readonly RenderSpan[] {
   const disabled = option.disabled === true || widget.props['disabled'] === true;
-  const style = disabled ? widgetStyle(widget, 'value', 'disabled') : option.style ?? widgetStyle(widget, 'value', 'selected');
+  const style = disabled ? widgetStyle(widget, 'value', 'disabled') : option.style ?? colorSwatchStyle(widget);
   return [
     formSpan(widget, 'summary', 'summary.label', 'Selected', formLabelStyle(widget, disabled ? 'disabled' : undefined)),
     formSpan(widget, 'separator', 'summary.separator', ': '),
@@ -1043,7 +1091,7 @@ function colorPickerSpans(option: ColorPickerOption<unknown>, widget: Widget): r
   const swatch = option.swatch ?? '■';
   const label = clip(option.label, 8).padEnd(8, ' ');
   const state = optionControlState(widget, { selected, disabled });
-  const style = disabled ? widgetStyle(widget, 'value', 'disabled') : option.style ?? optionStyle(option, widget);
+  const style = disabled ? widgetStyle(widget, 'value', 'disabled') : option.style ?? optionStyle(option, widget) ?? colorSwatchStyle(widget);
   return [
     formSpan(widget, 'marker', `option.${option.id}.open`, selected ? '[' : ' ', formMarkerStyle(widget, state)),
     formSpan(widget, 'swatch', `option.${option.id}.swatch`, swatch, style),
@@ -1052,6 +1100,16 @@ function colorPickerSpans(option: ColorPickerOption<unknown>, widget: Widget): r
     formSpan(widget, 'marker', `option.${option.id}.close`, selected ? ']' : ' ', formMarkerStyle(widget, state)),
     separatorSpan(widget)
   ];
+}
+
+function colorSwatchStyle(widget: Widget): TerminalStyle | undefined {
+  return resolveWidgetStyle(widget, {
+    slot: 'value',
+    base: {
+      fg: { kind: 'theme', token: 'control.primary.foreground' },
+      bg: { kind: 'theme', token: 'control.primary.background' }
+    }
+  });
 }
 
 function datePickerWeekdayHeaderSpans(widget: Widget): readonly RenderSpan[] {

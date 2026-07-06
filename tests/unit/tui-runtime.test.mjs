@@ -1432,15 +1432,17 @@ test('runTui accepts a state-derived theme', async () => {
   const host = createMemoryTerminalHost({ viewport: { columns: 12, rows: 2 } });
   host.input('\r');
 
-  const exit = await runTui(app, host, {
-    theme: (state) => ({
-      colors: {
-        'accent.primary': state.active
-          ? { kind: 'ansi', value: 2 }
-          : { kind: 'ansi', value: 1 }
-      }
-    })
-  });
+	  const exit = await runTui(app, host, {
+	    theme: (state) => ({
+	      tokens: {
+	        colors: {
+	          'accent.primary': state.active
+	            ? { kind: 'ansi', value: 2 }
+	            : { kind: 'ansi', value: 1 }
+	        }
+	      }
+	    })
+	  });
 
   assert.equal(exit.status, 'completed');
   assert.match(host.output(), /\u001B\[38;5;1m/u);

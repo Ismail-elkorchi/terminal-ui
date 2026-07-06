@@ -94,7 +94,7 @@ function helpBindingGroupSpans(
     feedbackSpan(widget, binding.key, {
       kind: 'helpBar',
       label: `${bindingLabel}.key`,
-      style: mergeStyles(widgetStyle(widget, 'label'), { bold: true })
+      style: helpKeyStyle(widget)
     }),
     feedbackSpan(widget, ` ${binding.label}`, {
       kind: 'helpBar',
@@ -102,6 +102,17 @@ function helpBindingGroupSpans(
       style: widgetStyle(widget, 'value')
     })
   ];
+}
+
+function helpKeyStyle(widget: Widget): TerminalStyle | undefined {
+  return mergeStyles(
+    {
+      fg: { kind: 'theme', token: 'keyHint.foreground' },
+      bg: { kind: 'theme', token: 'keyHint.background' },
+      bold: true
+    },
+    widgetStyle(widget, 'label')
+  );
 }
 
 function appendHelpOverflow(widget: Widget, fitted: RenderSpan[], maxCells: number): void {
@@ -256,16 +267,16 @@ function spinnerMarker(widget: Widget, theme: TerminalTheme, status: WidgetProce
   if (status !== 'running') return statusMarker(status, theme);
   const frames = spinnerFrames(widget, theme);
   const frameIndex = numberProp(widget, 'frameIndex') ?? 0;
-  return frames[normalizeSpinnerFrameIndex(frameIndex, frames.length)] ?? theme.symbols.statusInfo;
+  return frames[normalizeSpinnerFrameIndex(frameIndex, frames.length)] ?? theme.tokens.symbols.statusInfo;
 }
 
 function spinnerFrames(widget: Widget, theme: TerminalTheme): readonly string[] {
   const frames = widget.props['frames'];
-  if (!Array.isArray(frames)) return theme.symbols.spinnerFrames;
+  if (!Array.isArray(frames)) return theme.tokens.symbols.spinnerFrames;
   const cleaned = frames.filter((frame): frame is string => typeof frame === 'string')
     .map((frame) => sanitizeTerminalText(frame).text.replace(/\s*\n\s*/gu, ' '))
     .filter((frame) => frame.length > 0);
-  return cleaned.length === 0 ? theme.symbols.spinnerFrames : cleaned;
+  return cleaned.length === 0 ? theme.tokens.symbols.spinnerFrames : cleaned;
 }
 
 function helpBindings(widget: Widget): readonly { readonly key: string; readonly label: string }[] {

@@ -1,4 +1,4 @@
-import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
+import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
 import type { WidgetStatus } from '../widgets/index.ts';
 import type { TerminalStyle } from './frame.ts';
 
@@ -6,16 +6,16 @@ export function statusMarker(status: WidgetStatus, theme: TerminalTheme): string
   switch (status) {
     case 'running':
     case 'info':
-      return theme.symbols.statusInfo;
+      return theme.tokens.symbols.statusInfo;
     case 'success':
-      return theme.symbols.statusSuccess;
+      return theme.tokens.symbols.statusSuccess;
     case 'warning':
-      return theme.symbols.statusWarning;
+      return theme.tokens.symbols.statusWarning;
     case 'error':
-      return theme.symbols.statusError;
+      return theme.tokens.symbols.statusError;
     case 'pending':
     case 'idle':
-      return theme.symbols.progressEmpty;
+      return theme.tokens.symbols.progressEmpty;
   }
 }
 
@@ -26,7 +26,7 @@ export function statusStyle(status: WidgetStatus): TerminalStyle {
   };
 }
 
-export function statusToken(status: WidgetStatus): ThemeToken {
+export function statusToken(status: WidgetStatus): ThemeColorToken {
   switch (status) {
     case 'running':
       return 'status.running';

@@ -4,7 +4,7 @@ import { widgetFrameSource } from '../../frame-source.ts';
 import { stringify } from '../../widget-props.ts';
 import { clipRenderSpans, measureRenderSpans } from '../../render-primitives.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from '../../render-primitives.ts';
-import { mergeStyles, widgetStyle } from '../../widget-style.ts';
+import { mergeStyles, themeStyle, widgetStyle } from '../../widget-style.ts';
 import { clampRect, emptyRect } from './common.ts';
 import type { Rect } from '../../layout.ts';
 import type { HitTarget } from '../../widget-renderer.ts';
@@ -248,17 +248,27 @@ function tabHeaderStyle(
 ): TerminalStyle | undefined {
   if (state.disabled) return widgetStyle(widget, 'value', 'disabled');
   if (state.selected && state.focused) {
-    return mergeStyles(widgetStyle(widget, 'value', 'selected'), widgetStyle(widget, 'value', 'focused'));
+    return mergeStyles(
+      widgetStyle(widget, 'value', 'selected'),
+      themeStyle('tab.active.foreground'),
+      widget.styles?.selected,
+      widgetStyle(widget, 'value', 'focused'),
+      widget.styles?.focused
+    );
   }
-  if (state.selected) return widgetStyle(widget, 'value', 'selected');
-  if (state.focused) return widgetStyle(widget, 'value', 'focused');
-  return widgetStyle(widget, 'value');
+  if (state.selected) return mergeStyles(widgetStyle(widget, 'value', 'selected'), themeStyle('tab.active.foreground'), widget.styles?.selected);
+  if (state.focused) return mergeStyles(themeStyle('tab.inactive.foreground'), widgetStyle(widget, 'value', 'focused'));
+  return mergeStyles(themeStyle('tab.inactive.foreground'), widgetStyle(widget, 'value'));
 }
 
 function tabBadgeStyle(widget: Widget, selected: boolean, disabled: boolean, focused: boolean): TerminalStyle | undefined {
   return mergeStyles(
-    widgetStyle(widget, 'warning', 'warning'),
     selected ? widgetStyle(widget, 'value', 'selected') : undefined,
+    {
+      fg: { kind: 'theme', token: 'badge.foreground' },
+      bg: { kind: 'theme', token: 'badge.background' },
+      bold: true
+    },
     disabled ? widgetStyle(widget, 'value', 'disabled') : undefined,
     focused ? widgetStyle(widget, 'value', 'focused') : undefined
   );

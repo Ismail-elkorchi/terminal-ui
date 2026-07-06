@@ -100,7 +100,7 @@ test('button states use shared styles and structural markers', () => {
   assert.equal(renderFramePlain(disabledFrame).trimEnd(), '[ - Disabled ]');
   assert.equal(styleFor(pendingFrame, 'S')?.fg?.token, 'status.pending');
   assert.equal(styleFor(destructiveFrame, 'D')?.fg?.token, 'status.error');
-  assert.equal(styleFor(pressedFrame, 'P')?.bg?.token, 'selection.background');
+  assert.equal(styleFor(pressedFrame, 'P')?.bg?.token, 'control.primary.background');
   assert.equal(styleFor(disabledFrame, 'D')?.fg?.token, 'text.muted');
   assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.label, 'chrome.focus');
   assert.equal(focusedFrame.cells.find((cell) => cell.text === '[')?.source?.label, 'chrome.open');
@@ -502,12 +502,12 @@ test('choice and picker controls use shared form visual styles and source metada
     days: [{ id: 'today', label: '2', value: 'today' }]
   }), { columns: 8, rows: 2 });
 
-  assert.equal(styleForCell(toggleFrame, (cell) => cell.source?.label === 'value.on')?.bg?.token, 'selection.background');
+  assert.equal(styleForCell(toggleFrame, (cell) => cell.source?.label === 'value.on')?.bg?.token, 'control.toggle.on.background');
   assert.equal(toggleFrame.cells.find((cell) => cell.source?.label === 'value.off')?.style?.fg?.token, 'input.placeholder');
-  assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.label === 'track.handle')?.bg?.token, 'selection.background');
-  assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.label === 'track.filled')?.fg?.token, 'accent.secondary');
+  assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.label === 'track.handle')?.bg?.token, 'control.track.filled');
+  assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.label === 'track.filled')?.fg?.token, 'control.track.filled');
   assert.equal(checkboxFrame.cells.find((cell) => cell.text === 'x')?.source?.label, 'option.a.marker.checked');
-  assert.equal(styleForCell(colorFrame, (cell) => cell.source?.label === 'summary.swatch')?.bg?.token, 'selection.background');
+  assert.equal(styleForCell(colorFrame, (cell) => cell.source?.label === 'summary.swatch')?.bg?.token, 'control.primary.background');
   assert.equal(colorFrame.cells.find((cell) => cell.source?.label === 'option.green.swatch')?.text, '■');
   assert.equal(dateFrame.cells.find((cell) => cell.source?.label === 'weekday.mo')?.style?.fg?.token, 'text.muted');
   assert.equal(dateFrame.cells.find((cell) => cell.text === '[')?.source?.label, 'day.today.open');

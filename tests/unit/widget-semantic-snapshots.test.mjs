@@ -70,16 +70,18 @@ const viewportWide = { columns: 64, rows: 14 };
 const viewportTiny = { columns: 1, rows: 1 };
 const themed = defineTheme({
   name: 'snapshot-theme',
-  colors: {
-    'accent.primary': { kind: 'ansi', value: 10 },
-    'text.default': { kind: 'ansi', value: 15 },
-    'surface.border': { kind: 'ansi', value: 12 }
-  },
-  symbols: {
-    pointer: '>',
-    selected: '*',
-    progressFilled: '#',
-    progressEmpty: '-'
+  tokens: {
+    colors: {
+      'accent.primary': { kind: 'ansi', value: 10 },
+      'text.default': { kind: 'ansi', value: 15 },
+      'surface.border': { kind: 'ansi', value: 12 }
+    },
+    symbols: {
+      pointer: '>',
+      selected: '*',
+      progressFilled: '#',
+      progressEmpty: '-'
+    }
   }
 });
 

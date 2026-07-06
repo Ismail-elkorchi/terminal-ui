@@ -206,12 +206,14 @@ test('runPrompt applies prompt theme symbols and terminal styling safely', async
       { label: 'One\u001B[31m', value: 'one' },
       { label: 'Two', value: 'two' }
     ],
-    defaultValue: ['one'],
-    theme: {
-      symbols: { pointer: '=>\u001B[31m', checkboxChecked: '{yes}\u001B[0m', checkboxUnchecked: '{no}' },
-      colors: { 'text.default': { kind: 'ansi', value: 14 } }
-    }
-  }), themedHarness.host);
+	    defaultValue: ['one'],
+	    theme: {
+	      tokens: {
+	        symbols: { pointer: '=>\u001B[31m', checkboxChecked: '{yes}\u001B[0m', checkboxUnchecked: '{no}' },
+	        colors: { 'text.default': { kind: 'ansi', value: 14 } }
+	      }
+	    }
+	  }), themedHarness.host);
 
   await waitUntil(() => themedHarness.output().includes('Pick:'));
   const themedOutput = themedHarness.output();
@@ -227,10 +229,10 @@ test('runPrompt applies prompt theme symbols and terminal styling safely', async
   const plainHost = createMemoryTerminalHost({ isTty: false });
   plainHost.input('Ada\n');
   plainHost.stdin.close();
-  const plainResult = await runPrompt(input({
-    label: 'Name',
-    theme: { colors: { 'text.default': { kind: 'ansi', value: 14 } } }
-  }), plainHost);
+	  const plainResult = await runPrompt(input({
+	    label: 'Name',
+	    theme: { tokens: { colors: { 'text.default': { kind: 'ansi', value: 14 } } } }
+	  }), plainHost);
 
   assert.equal(plainResult.status, 'submitted');
   assert.doesNotMatch(plainHost.output(), /\u001B\[/u);

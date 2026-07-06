@@ -45,7 +45,7 @@ export function paletteBlock(widget: Widget, height: number, theme: TerminalThem
     },
     {
       spans: [
-        styledSpan(`${theme.symbols.pointer} `, widgetStyle(widget, 'placeholder'), paletteSource(widget, 'query.marker', 'decoration')),
+        styledSpan(`${theme.tokens.symbols.pointer} `, widgetStyle(widget, 'placeholder'), paletteSource(widget, 'query.marker', 'decoration')),
         styledSpan(model.query, widgetStyle(widget, 'value'), paletteSource(widget, 'query'))
       ]
     }

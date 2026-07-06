@@ -18,18 +18,22 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
   const monoCapabilities = await monoHost.getCapabilities();
   const theme = defineTheme({
     name: 'custom',
-    symbols: {
-      pointer: '>\u001B[31m',
-      checkboxChecked: '[x]\u001B[0m',
-      spinnerFrames: ['a\u001B[31m', 'b']
-    },
-    colors: { 'status.error': { kind: 'ansi', value: 9 } },
-    spacing: { gap: 2 }
+    tokens: {
+      symbols: {
+        pointer: '>\u001B[31m',
+        checkboxChecked: '[x]\u001B[0m',
+        spinnerFrames: ['a\u001B[31m', 'b']
+      },
+      colors: { 'status.error': { kind: 'ansi', value: 9 } },
+      spacing: { gap: 2 }
+    }
   });
   const merged = mergeThemes(theme, {
-    colors: {
-      'custom.surface': { kind: 'rgb', r: 1, g: 2, b: 3 },
-      'status.success': { kind: 'ansi', value: 10 }
+    tokens: {
+      colors: {
+        'custom.surface': { kind: 'rgb', r: 1, g: 2, b: 3 },
+        'status.success': { kind: 'ansi', value: 10 }
+      }
     }
   });
   const diff = {
@@ -47,15 +51,15 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
 
   assert.equal(theme.name, 'custom');
   assert.match(theme.fingerprint, /^theme:[0-9a-f]{8}$/u);
-  assert.equal(theme.symbols.pointer, '>');
-  assert.equal(theme.symbols.checkboxChecked, '[x]');
-  assert.deepEqual(theme.symbols.spinnerFrames, ['a', 'b']);
-  assert.equal(theme.spacing.gap, 2);
+  assert.equal(theme.tokens.symbols.pointer, '>');
+  assert.equal(theme.tokens.symbols.checkboxChecked, '[x]');
+  assert.deepEqual(theme.tokens.symbols.spinnerFrames, ['a', 'b']);
+  assert.equal(theme.tokens.spacing.gap, 2);
   assert.notEqual(merged.fingerprint, theme.fingerprint);
-  assert.deepEqual(merged.colors['custom.surface'], { kind: 'rgb', r: 1, g: 2, b: 3 });
+  assert.deepEqual(merged.tokens.colors['custom.surface'], { kind: 'rgb', r: 1, g: 2, b: 3 });
   assert.deepEqual(
     resolveTerminalStyle({ fg: { kind: 'theme', token: 'missing.custom' } }, theme),
-    { fg: theme.colors['text.default'] }
+    { fg: theme.tokens.colors['text.default'] }
   );
   assert.match(renderDiffAnsi(diff, { capabilities: colorCapabilities, theme }), /\u001B\[4;38;5;9mbad\u001B\[0m/u);
   assert.equal(renderDiffAnsi(diff, { capabilities: monoCapabilities, theme }), '\u001B[1;1Hbad');
@@ -65,25 +69,44 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
 test('theme fingerprints are stable for equivalent themes and change with theme content', () => {
   const first = defineTheme({
     name: 'ordered',
-    colors: {
-      'custom.b': { kind: 'rgb', r: 1, g: 2, b: 3 },
-      'custom.a': { kind: 'ansi', value: 4 }
+    tokens: {
+      colors: {
+        'custom.b': { kind: 'rgb', r: 1, g: 2, b: 3 },
+        'custom.a': { kind: 'ansi', value: 4 }
+      }
     }
   });
   const second = defineTheme({
     name: 'ordered',
-    colors: {
-      'custom.a': { kind: 'ansi', value: 4 },
-      'custom.b': { kind: 'rgb', r: 1, g: 2, b: 3 }
+    tokens: {
+      colors: {
+        'custom.a': { kind: 'ansi', value: 4 },
+        'custom.b': { kind: 'rgb', r: 1, g: 2, b: 3 }
+      }
     }
   });
-  const changed = mergeThemes(first, { spacing: { padding: 1 } });
+  const changed = mergeThemes(first, { tokens: { spacing: { padding: 1 } } });
 
   assert.equal(first.fingerprint, second.fingerprint);
   assert.notEqual(changed.fingerprint, first.fingerprint);
   for (const theme of Object.values(defaultThemes)) {
     assert.match(theme.fingerprint, /^theme:[0-9a-f]{8}$/u);
   }
+});
+
+test('theme definitions reject removed top-level token fields', () => {
+  assert.throws(
+    () => defineTheme({ name: 'legacy', colors: {} }),
+    /Unsupported theme definition key: colors/u
+  );
+  assert.throws(
+    () => defineTheme({ name: 'legacy', symbols: {} }),
+    /Unsupported theme definition key: symbols/u
+  );
+  assert.throws(
+    () => defineTheme({ name: 'legacy', spacing: {} }),
+    /Unsupported theme definition key: spacing/u
+  );
 });
 
 test('rich text widgets preserve render spans and render their plain text into frames', () => {

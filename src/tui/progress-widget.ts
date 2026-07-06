@@ -71,13 +71,13 @@ function progressBarSpans(widget: Widget, model: ProgressModel, theme: TerminalT
   if (model.indeterminate) {
     return indeterminateProgressFrame(model.frame, model.barWidth).cells.map((cell) =>
       cell.active
-        ? feedbackStructureSpan(widget, theme.symbols.progressFilled, 'progressBar', 'progress.active', statusStyle(model.status))
-        : feedbackStructureSpan(widget, theme.symbols.progressEmpty, 'progressBar', 'progress.empty', statusStyle('idle'))
+        ? feedbackStructureSpan(widget, theme.tokens.symbols.progressFilled, 'progressBar', 'progress.active', statusStyle(model.status))
+        : feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty, 'progressBar', 'progress.empty', statusStyle('idle'))
     );
   }
   return [
-    feedbackStructureSpan(widget, theme.symbols.progressFilled.repeat(model.filled), 'progressBar', 'progress.filled', statusStyle(model.status)),
-    feedbackStructureSpan(widget, theme.symbols.progressEmpty.repeat(model.barWidth - model.filled), 'progressBar', 'progress.empty', statusStyle('idle'))
+    feedbackStructureSpan(widget, theme.tokens.symbols.progressFilled.repeat(model.filled), 'progressBar', 'progress.filled', statusStyle(model.status)),
+    feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty.repeat(model.barWidth - model.filled), 'progressBar', 'progress.empty', statusStyle('idle'))
   ];
 }
 

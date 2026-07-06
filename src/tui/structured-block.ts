@@ -100,7 +100,7 @@ function activityFeedRows(widget: Widget, node: LayoutNode, theme: TerminalTheme
   const rows: RenderLine[] = [];
   for (const { block, index } of visibleActivityBlocks(widget, node)) {
     const selectedRow = selected === index;
-    const marker = selectedRow ? `${theme.symbols.pointer} ` : '  ';
+    const marker = selectedRow ? `${theme.tokens.symbols.pointer} ` : '  ';
     const lines = structuredBlockLines(block, theme, Math.max(0, node.bounds.width - marker.length), {
       widget,
       kind: 'activityFeed',
@@ -324,7 +324,7 @@ function headerLine(
       options.kind,
       'marker',
       collapsed ? 'toggle.collapsed' : 'toggle.expanded',
-      collapsed ? theme.symbols.collapsed : theme.symbols.expanded,
+      collapsed ? theme.tokens.symbols.collapsed : theme.tokens.symbols.expanded,
       documentMarkerStyle(options.widget, options.selected)
     )
   ];

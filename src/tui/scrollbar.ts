@@ -191,7 +191,7 @@ function renderVerticalScrollbar(
   for (let offset = 0; offset < track.bounds.height; offset += 1) {
     const thumb = offset >= track.thumb.start && offset < track.thumb.start + track.thumb.size;
     buffer.write(track.bounds.row + offset, track.bounds.column, [span(
-      thumb ? theme.symbols.scrollbarVerticalThumb : theme.symbols.scrollbarVerticalTrack,
+      thumb ? theme.tokens.symbols.scrollbarVerticalThumb : theme.tokens.symbols.scrollbarVerticalTrack,
       {
         style: scrollbarStyle(thumb, track.state),
         source: scrollbarSource(track.axis, thumb ? 'thumb' : 'track', track.state, options)
@@ -209,7 +209,7 @@ function renderHorizontalScrollbar(
   for (let offset = 0; offset < track.bounds.width; offset += 1) {
     const thumb = offset >= track.thumb.start && offset < track.thumb.start + track.thumb.size;
     buffer.write(track.bounds.row, track.bounds.column + offset, [span(
-      thumb ? theme.symbols.scrollbarHorizontalThumb : theme.symbols.scrollbarHorizontalTrack,
+      thumb ? theme.tokens.symbols.scrollbarHorizontalThumb : theme.tokens.symbols.scrollbarHorizontalTrack,
       {
         style: scrollbarStyle(thumb, track.state),
         source: scrollbarSource(track.axis, thumb ? 'thumb' : 'track', track.state, options)

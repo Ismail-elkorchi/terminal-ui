@@ -37,7 +37,7 @@ export function commandMatchSpans(
 ): readonly RenderSpan[] {
   return highlightRenderSpans(text, query.trim(), {
     ...(baseStyle === undefined ? {} : { baseStyle }),
-    matchStyle: themeStyle('menu.match', { underline: true })
+    matchStyle: themeStyle('command.match', { underline: true })
   }).map((current) => ({
     text: current.text,
     ...(current.style === undefined ? {} : { style: current.style }),
@@ -70,7 +70,7 @@ export function commandSelectionMarkerSpans(
 ): readonly RenderSpan[] {
   const style = selected ? widgetStyle(widget, 'value', 'selected') : undefined;
   return [
-    styledSpan(`${selected ? theme.symbols.pointer : theme.symbols.unselected} `, style, source)
+    styledSpan(`${selected ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected} `, style, source)
   ];
 }
 
@@ -108,14 +108,14 @@ function commandToneStyle(widget: Widget, tone: CommandSurfaceTone): TerminalSty
 function commandToneSymbol(theme: TerminalTheme, tone: CommandSurfaceTone): string {
   switch (tone) {
     case 'info':
-      return theme.symbols.statusInfo;
+      return theme.tokens.symbols.statusInfo;
     case 'warning':
-      return theme.symbols.statusWarning;
+      return theme.tokens.symbols.statusWarning;
     case 'error':
-      return theme.symbols.statusError;
+      return theme.tokens.symbols.statusError;
     case 'success':
-      return theme.symbols.statusSuccess;
+      return theme.tokens.symbols.statusSuccess;
     case 'muted':
-      return theme.symbols.unselected;
+      return theme.tokens.symbols.unselected;
   }
 }

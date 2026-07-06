@@ -45,7 +45,7 @@ function shellOverlayText(state: ShellState, theme: TerminalTheme): string {
     ].filter((line): line is string => line !== undefined && line.length > 0).join('\n');
   }
   return state.suggestions
-    .map((suggestion, index) => `${index === layer.selectedIndex ? theme.symbols.pointer : theme.symbols.unselected} ${suggestionLine(suggestion)}`)
+    .map((suggestion, index) => `${index === layer.selectedIndex ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected} ${suggestionLine(suggestion)}`)
     .join('\n');
 }
 

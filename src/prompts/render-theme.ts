@@ -41,13 +41,13 @@ function renderAutocompleteChoiceLine(
   capabilities: TerminalCapabilityProfile,
   useDefaultTextStyle: boolean
 ): string {
-  const pointer = index === state.focusedChoiceIndex ? theme.symbols.pointer : ' ';
+  const pointer = index === state.focusedChoiceIndex ? theme.tokens.symbols.pointer : ' ';
   const suffix = choice.disabled === undefined || choice.disabled === false
     ? ''
     : ` (${choice.disabled === true ? 'disabled' : choice.disabled})`;
   const query = state.buffer.text;
   const parts: RenderSpan[] = [
-    { text: `${pointer} ${theme.symbols.unselected} ` },
+    { text: `${pointer} ${theme.tokens.symbols.unselected} ` },
     highlightedField(choice.label, query),
     ...(choice.description === undefined ? [] : [
       { text: ' - ' },
@@ -62,7 +62,7 @@ function highlightedField(text: string, query: string): RenderSpan {
   const normalizedQuery = query.trim().toLowerCase();
   const matches = normalizedQuery.length > 0 && text.toLowerCase().includes(normalizedQuery);
   return matches
-    ? { text, style: { fg: { kind: 'theme', token: 'menu.match' }, underline: true } }
+    ? { text, style: { fg: { kind: 'theme', token: 'command.match' }, underline: true } }
     : { text };
 }
 

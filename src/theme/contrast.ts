@@ -1,4 +1,4 @@
-import type { ThemeColor } from './index.ts';
+import type { ThemeColor } from './tokens.ts';
 
 const ANSI_RGB: Readonly<Record<number, readonly [number, number, number]>> = {
   0: [0, 0, 0],

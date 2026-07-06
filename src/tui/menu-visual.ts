@@ -3,7 +3,7 @@ import type { WidgetActionTone, Widget } from '../widgets/index.ts';
 import { widgetFrameSource } from './frame-source.ts';
 import { clipRenderSpans, span } from './render-primitives.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
-import { mergeStyles, widgetStyle } from './widget-style.ts';
+import { mergeStyles, themeStyle, widgetStyle } from './widget-style.ts';
 
 export interface MenuVisualItem {
   readonly id: string;
@@ -62,7 +62,7 @@ export function dropdownControlLine(input: {
     ? widgetStyle(input.widget, 'placeholder')
     : widgetStyle(input.widget, 'value');
   const chromeStyle = widgetStyle(input.widget, 'border');
-  const marker = input.open ? input.theme.symbols.treeExpanded : input.theme.symbols.treeCollapsed;
+  const marker = input.open ? input.theme.tokens.symbols.treeExpanded : input.theme.tokens.symbols.treeCollapsed;
   const spans: RenderSpan[] = [
     ...(input.label.length === 0
       ? []
@@ -99,9 +99,9 @@ function menuBarItemSpans(
   const marker = item.disabled === true
     ? '-'
     : selected
-      ? theme.symbols.pointer
+      ? theme.tokens.symbols.pointer
       : item.tone === 'destructive'
-        ? theme.symbols.statusError
+        ? theme.tokens.symbols.statusError
         : '';
   return [
     ...(marker.length === 0 ? [] : [menuSpan(widget, `${marker} `, menuMarkerStyle(widget, item, selected), { itemId: item.id, label: 'marker' })]),
@@ -119,12 +119,12 @@ function menuItemSpans(
   const marker = item.disabled === true
     ? '-'
     : selected
-      ? theme.symbols.pointer
+      ? theme.tokens.symbols.pointer
       : item.tone === 'destructive'
-        ? theme.symbols.statusError
-        : theme.symbols.unselected;
-  const checked = item.checked === true ? theme.symbols.checkboxChecked : '   ';
-  const branch = item.hasChildren ? item.expanded === true ? theme.symbols.treeExpanded : theme.symbols.treeCollapsed : theme.symbols.unselected;
+        ? theme.tokens.symbols.statusError
+        : theme.tokens.symbols.unselected;
+  const checked = item.checked === true ? theme.tokens.symbols.checkboxChecked : '   ';
+  const branch = item.hasChildren ? item.expanded === true ? theme.tokens.symbols.treeExpanded : theme.tokens.symbols.treeCollapsed : theme.tokens.symbols.unselected;
   const indent = '  '.repeat(Math.max(0, item.depth));
   return [
     menuSpan(widget, `${marker} `, menuMarkerStyle(widget, item, selected), { itemId: item.id, label: 'marker' }),
@@ -158,23 +158,23 @@ function shortcutSpans(widget: Widget, item: MenuVisualItem, selected: boolean):
 function menuLabelStyle(widget: Widget, item: MenuVisualItem, selected: boolean): TerminalStyle | undefined {
   if (item.disabled === true) return widgetStyle(widget, 'value', 'disabled');
   if (item.tone === 'destructive') return mergeStyles(
-    selected ? widgetStyle(widget, 'value', 'selected') : widgetStyle(widget, 'value'),
+    selected ? menuSelectedStyle(widget) : widgetStyle(widget, 'value'),
     widgetStyle(widget, 'error')
   );
-  if (selected) return widgetStyle(widget, 'value', 'selected');
+  if (selected) return menuSelectedStyle(widget);
   return widgetStyle(widget, 'value');
 }
 
 function menuMarkerStyle(widget: Widget, item: MenuVisualItem, selected: boolean): TerminalStyle | undefined {
   if (item.disabled === true) return widgetStyle(widget, 'value', 'disabled');
-  if (selected) return widgetStyle(widget, 'value', 'selected');
+  if (selected) return menuSelectedStyle(widget);
   return widgetStyle(widget, 'value');
 }
 
 function menuCheckedStyle(widget: Widget, selected: boolean): TerminalStyle | undefined {
   return mergeStyles(
     widgetStyle(widget, 'success'),
-    selected ? widgetStyle(widget, 'value', 'selected') : undefined
+    selected ? menuSelectedStyle(widget) : undefined
   );
 }
 
@@ -183,16 +183,20 @@ function menuBranchStyle(widget: Widget, selected: boolean): TerminalStyle | und
     {
       fg: { kind: 'theme', token: 'tree.branch' }
     },
-    selected ? widgetStyle(widget, 'value', 'selected') : undefined
+    selected ? menuSelectedStyle(widget) : undefined
   );
 }
 
 function menuShortcutStyle(widget: Widget, selected: boolean): TerminalStyle | undefined {
-  return selected ? widgetStyle(widget, 'value', 'selected') : widgetStyle(widget, 'label');
+  return selected ? menuSelectedStyle(widget) : widgetStyle(widget, 'label');
 }
 
 function menuMutedStyle(widget: Widget, selected: boolean): TerminalStyle | undefined {
-  return selected ? widgetStyle(widget, 'value', 'selected') : widgetStyle(widget, 'placeholder');
+  return selected ? menuSelectedStyle(widget) : widgetStyle(widget, 'placeholder');
+}
+
+function menuSelectedStyle(widget: Widget): TerminalStyle | undefined {
+  return mergeStyles(widgetStyle(widget, 'value', 'selected'), themeStyle('menu.selected'), widget.styles?.selected);
 }
 
 function menuSpan(

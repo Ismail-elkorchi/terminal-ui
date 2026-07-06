@@ -112,20 +112,24 @@ export type {
 export type {
   BorderGlyphSet,
   BorderGlyphSetDefinition,
-  CoreThemeToken,
-  TerminalSpacing,
+  CoreColorToken,
+  TerminalDesignTokenDefinition,
+  TerminalDesignTokens,
+  TerminalSpacingTokens,
   TerminalSymbols,
   TerminalSymbolsDefinition,
   TerminalTheme,
   TerminalThemeDefinition,
   ThemeColor,
-  ThemeToken
+  ThemeColorToken,
+  ThemeColorTokens
 } from './theme/index.ts';
 export {
   asciiSymbols,
   compactTheme,
   catppuccinTheme,
   contrastColor,
+  createTheme,
   defaultTheme,
   defaultThemes,
   deriveSurface,
@@ -134,6 +138,7 @@ export {
   defineTheme,
   gruvboxTheme,
   highContrastTheme,
+  mergeDesignTokens,
   mergeThemes,
   minimalTheme,
   modernTheme,

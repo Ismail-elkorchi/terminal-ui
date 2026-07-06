@@ -479,12 +479,14 @@ test('runShell exposes command palette navigation through normalized keyboard in
 });
 
 test('runShell applies shell theme symbols and sanitizes rendered shell text', async () => {
-  const shell = createShell({
-    prompt: '$\u001B[31m ',
-    theme: {
-      symbols: { pointer: '=>\u001B[31m', unselected: '.\u001B[0m' },
-      colors: { 'text.default': { kind: 'ansi', value: 10 } }
-    },
+	  const shell = createShell({
+	    prompt: '$\u001B[31m ',
+	    theme: {
+	      tokens: {
+	        symbols: { pointer: '=>\u001B[31m', unselected: '.\u001B[0m' },
+	        colors: { 'text.default': { kind: 'ansi', value: 10 } }
+	      }
+	    },
     commands: {
       kind: 'adapter',
       adapter: {

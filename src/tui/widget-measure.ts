@@ -176,7 +176,7 @@ export function measureBuiltinWidget(
 function measureListWidget(widget: Widget, theme: TerminalTheme): Measurement {
   const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
   const lines = items.map((item, index) => {
-    const marker = index === numberProp(widget, 'selected') ? theme.symbols.pointer : theme.symbols.unselected;
+    const marker = index === numberProp(widget, 'selected') ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected;
     return `${marker} ${String(item)}`;
   });
   return measureLines(lines);

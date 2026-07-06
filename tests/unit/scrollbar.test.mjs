@@ -38,8 +38,8 @@ test('renderScrollbars uses theme scrollbar symbols and tokens', () => {
   renderScrollbars(buffer, layout, defaultTheme);
   const frame = buffer.snapshot();
   const trackCells = frame.cells.filter((cell) => cell.column === 4);
-  const thumbCell = trackCells.find((cell) => cell.text === defaultTheme.symbols.scrollbarVerticalThumb);
-  const trackCell = trackCells.find((cell) => cell.text === defaultTheme.symbols.scrollbarVerticalTrack);
+  const thumbCell = trackCells.find((cell) => cell.text === defaultTheme.tokens.symbols.scrollbarVerticalThumb);
+  const trackCell = trackCells.find((cell) => cell.text === defaultTheme.tokens.symbols.scrollbarVerticalTrack);
 
   assert.equal(trackCells.length, 3);
   assert.ok(thumbCell);
@@ -92,8 +92,8 @@ test('scrollbar visualState controls active and hover thumb styling', () => {
   renderScrollbars(activeBuffer, activeLayout, defaultTheme);
   renderScrollbars(hoverBuffer, hoverLayout, defaultTheme);
 
-  const activeThumb = activeBuffer.snapshot().cells.find((cell) => cell.text === defaultTheme.symbols.scrollbarVerticalThumb);
-  const hoverThumb = hoverBuffer.snapshot().cells.find((cell) => cell.text === defaultTheme.symbols.scrollbarVerticalThumb);
+  const activeThumb = activeBuffer.snapshot().cells.find((cell) => cell.text === defaultTheme.tokens.symbols.scrollbarVerticalThumb);
+  const hoverThumb = hoverBuffer.snapshot().cells.find((cell) => cell.text === defaultTheme.tokens.symbols.scrollbarVerticalThumb);
 
   assert.equal(activeLayout.verticalTrack?.state, 'active');
   assert.equal(activeThumb?.style?.bold, true);
@@ -180,8 +180,8 @@ test('scrollbars render ASCII and Unicode symbol sets through theme data', () =>
     { offsetRow: 1, offsetColumn: 2, contentRows: 9, contentColumns: 9 },
     { axis: 'both', visible: 'always' }
   );
-  const asciiTheme = defineTheme({ name: 'ascii-scrollbars', symbols: asciiSymbols });
-  const unicodeTheme = defineTheme({ name: 'unicode-scrollbars', symbols: unicodeSymbols });
+  const asciiTheme = defineTheme({ name: 'ascii-scrollbars', tokens: { symbols: asciiSymbols } });
+  const unicodeTheme = defineTheme({ name: 'unicode-scrollbars', tokens: { symbols: unicodeSymbols } });
   const ascii = createFrameBuffer(5, 3);
   const unicode = createFrameBuffer(5, 3);
 
@@ -229,7 +229,7 @@ test('widget scrollbars expose owner source metadata and visual state', () => {
     scrollbar: { visible: 'always', visualState: 'hover' }
   }), { columns: 10, rows: 2 });
 
-  const thumbCell = frame.cells.find((cell) => cell.text === defaultTheme.symbols.scrollbarVerticalThumb);
+  const thumbCell = frame.cells.find((cell) => cell.text === defaultTheme.tokens.symbols.scrollbarVerticalThumb);
 
   assert.equal(thumbCell?.source?.ownerId, 'body');
   assert.equal(thumbCell?.source?.ownerKind, 'textArea');

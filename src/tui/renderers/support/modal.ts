@@ -57,7 +57,7 @@ export function drawModalActionSeparator(
   const bounds = modalActionSeparatorBounds(node);
   if (bounds === undefined) return;
   buffer.write(bounds.row, bounds.column, [{
-    text: theme.symbols.borderSingle.horizontal.repeat(bounds.width),
+    text: theme.tokens.symbols.borderSingle.horizontal.repeat(bounds.width),
     ...(style === undefined ? {} : { style }),
     source: frameCellSource({ ownerKind: 'modal', family: 'layout', role: 'separator', part: 'action-separator', label: 'action-separator' })
   }]);

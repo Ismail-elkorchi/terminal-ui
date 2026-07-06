@@ -1,5 +1,5 @@
 import { clipTextCells, measureTextCells } from '../text/index.ts';
-import type { ThemeToken } from '../theme/index.ts';
+import type { ThemeColorToken } from '../theme/index.ts';
 import type { FrameCell } from './frame.ts';
 import { sameFrameCellSource } from './frame-source.ts';
 import type { FrameCellSource } from './frame-source.ts';
@@ -19,7 +19,7 @@ export interface TerminalStyle {
 export type TerminalColor =
   | { readonly kind: 'ansi'; readonly value: number }
   | { readonly kind: 'rgb'; readonly r: number; readonly g: number; readonly b: number }
-  | { readonly kind: 'theme'; readonly token: ThemeToken };
+  | { readonly kind: 'theme'; readonly token: ThemeColorToken };
 
 export interface TerminalLink {
   readonly href: string;

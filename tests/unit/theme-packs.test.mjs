@@ -46,11 +46,11 @@ test('theme packs are exported as optional named TerminalTheme values', () => {
   for (const theme of packedThemes) {
     assert.match(theme.fingerprint, /^theme:[0-9a-f]{8}$/u);
     assert.equal(resolveTerminalStyle({ fg: { kind: 'theme', token: 'accent.primary' } }, theme)?.fg?.kind, 'rgb');
-    assert.equal(typeof theme.colors['surface.background'], 'object');
-    assert.equal(typeof theme.colors['surface.chrome.background'], 'object');
-    assert.equal(typeof theme.colors['surface.raised.background'], 'object');
-    assert.equal(typeof theme.colors['surface.warning.border'], 'object');
-    assert.equal(typeof theme.colors['surface.shadow'], 'object');
+    assert.equal(typeof theme.tokens.colors['surface.background'], 'object');
+    assert.equal(typeof theme.tokens.colors['surface.chrome.background'], 'object');
+    assert.equal(typeof theme.tokens.colors['surface.raised.background'], 'object');
+    assert.equal(typeof theme.tokens.colors['surface.warning.border'], 'object');
+    assert.equal(typeof theme.tokens.colors['surface.shadow'], 'object');
   }
 });
 
@@ -65,17 +65,17 @@ test('contrast helpers preserve readable foreground choices', () => {
 });
 
 test('high contrast theme keeps semantic status chart and diff tokens distinct', () => {
-  assert.deepEqual(highContrastTheme.colors['status.error'], { kind: 'ansi', value: 9 });
-  assert.deepEqual(highContrastTheme.colors['status.success'], { kind: 'ansi', value: 10 });
-  assert.deepEqual(highContrastTheme.colors['status.warning'], { kind: 'ansi', value: 11 });
-  assert.deepEqual(highContrastTheme.colors['status.info'], { kind: 'ansi', value: 14 });
-  assert.deepEqual(highContrastTheme.colors['surface.danger.border'], highContrastTheme.colors['status.error']);
-  assert.deepEqual(highContrastTheme.colors['surface.success.border'], highContrastTheme.colors['status.success']);
-  assert.deepEqual(highContrastTheme.colors['diff.remove'], highContrastTheme.colors['status.error']);
-  assert.deepEqual(highContrastTheme.colors['diff.add'], highContrastTheme.colors['status.success']);
-  assert.deepEqual(highContrastTheme.colors['diff.context'], highContrastTheme.colors['text.muted']);
-  assert.notDeepEqual(highContrastTheme.colors['chart.series.1'], highContrastTheme.colors['chart.series.2']);
-  assert.notDeepEqual(highContrastTheme.colors['chart.series.2'], highContrastTheme.colors['chart.series.3']);
+  assert.deepEqual(highContrastTheme.tokens.colors['status.error'], { kind: 'ansi', value: 9 });
+  assert.deepEqual(highContrastTheme.tokens.colors['status.success'], { kind: 'ansi', value: 10 });
+  assert.deepEqual(highContrastTheme.tokens.colors['status.warning'], { kind: 'ansi', value: 11 });
+  assert.deepEqual(highContrastTheme.tokens.colors['status.info'], { kind: 'ansi', value: 14 });
+  assert.deepEqual(highContrastTheme.tokens.colors['surface.danger.border'], highContrastTheme.tokens.colors['status.error']);
+  assert.deepEqual(highContrastTheme.tokens.colors['surface.success.border'], highContrastTheme.tokens.colors['status.success']);
+  assert.deepEqual(highContrastTheme.tokens.colors['diff.remove'], highContrastTheme.tokens.colors['status.error']);
+  assert.deepEqual(highContrastTheme.tokens.colors['diff.add'], highContrastTheme.tokens.colors['status.success']);
+  assert.deepEqual(highContrastTheme.tokens.colors['diff.context'], highContrastTheme.tokens.colors['text.muted']);
+  assert.notDeepEqual(highContrastTheme.tokens.colors['chart.series.1'], highContrastTheme.tokens.colors['chart.series.2']);
+  assert.notDeepEqual(highContrastTheme.tokens.colors['chart.series.2'], highContrastTheme.tokens.colors['chart.series.3']);
   assert.deepEqual(resolveTerminalStyle({
     fg: { kind: 'theme', token: 'selection.foreground' },
     bg: { kind: 'theme', token: 'selection.background' },

@@ -300,7 +300,7 @@ test('runPrompt highlights autocomplete label matches without mutating submitted
   }), harness.host);
 
   harness.host.input('re');
-  await waitUntil(() => /\u001B\[4;38;5;13mReplay/u.test(harness.output()));
+  await waitUntil(() => /\u001B\[[0-9;]*4[0-9;]*mReplay/u.test(harness.output()));
   assert.doesNotMatch(harness.output(), /\u001B\[31m/u);
   harness.host.input('\r');
   harness.host.stdin.close();

@@ -76,20 +76,20 @@ export function drawViewportIndicators(
   const state = viewportVisualState(widget, bounds);
   const style = widgetStyle(widget, 'placeholder');
   if (state.empty) {
-    writeViewportIndicator(buffer, widget, centered(bounds), theme.symbols.viewportEmpty, 'empty', style, occupiedCells);
+    writeViewportIndicator(buffer, widget, centered(bounds), theme.tokens.symbols.viewportEmpty, 'empty', style, occupiedCells);
     return;
   }
   if (state.clippedTop) {
-    writeViewportIndicator(buffer, widget, { row: bounds.row, column: midpoint(bounds.column, bounds.width) }, theme.symbols.viewportClipTop, 'clip-top', style, occupiedCells);
+    writeViewportIndicator(buffer, widget, { row: bounds.row, column: midpoint(bounds.column, bounds.width) }, theme.tokens.symbols.viewportClipTop, 'clip-top', style, occupiedCells);
   }
   if (state.clippedBottom) {
-    writeViewportIndicator(buffer, widget, { row: bounds.row + bounds.height - 1, column: midpoint(bounds.column, bounds.width) }, theme.symbols.viewportClipBottom, 'clip-bottom', style, occupiedCells);
+    writeViewportIndicator(buffer, widget, { row: bounds.row + bounds.height - 1, column: midpoint(bounds.column, bounds.width) }, theme.tokens.symbols.viewportClipBottom, 'clip-bottom', style, occupiedCells);
   }
   if (state.clippedLeft) {
-    writeViewportIndicator(buffer, widget, { row: midpoint(bounds.row, bounds.height), column: bounds.column }, theme.symbols.viewportClipLeft, 'clip-left', style, occupiedCells);
+    writeViewportIndicator(buffer, widget, { row: midpoint(bounds.row, bounds.height), column: bounds.column }, theme.tokens.symbols.viewportClipLeft, 'clip-left', style, occupiedCells);
   }
   if (state.clippedRight) {
-    writeViewportIndicator(buffer, widget, { row: midpoint(bounds.row, bounds.height), column: bounds.column + bounds.width - 1 }, theme.symbols.viewportClipRight, 'clip-right', style, occupiedCells);
+    writeViewportIndicator(buffer, widget, { row: midpoint(bounds.row, bounds.height), column: bounds.column + bounds.width - 1 }, theme.tokens.symbols.viewportClipRight, 'clip-right', style, occupiedCells);
   }
 }
 

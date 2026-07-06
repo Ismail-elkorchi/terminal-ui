@@ -81,7 +81,7 @@ export function barChartBlock(widget: Widget, node: LayoutNode, theme: TerminalT
     lines: items.slice(window.start, window.end).map((item, offset) => {
     const index = window.start + offset;
     const currentSelected = index === selected;
-    const prefix = currentSelected ? theme.symbols.pointer : theme.symbols.unselected;
+    const prefix = currentSelected ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected;
     const label = sanitizeTerminalText(item.label).text;
     const available = Math.max(1, node.bounds.width - label.length - String(item.value).length - 5);
     const filled = Math.max(0, Math.min(available, Math.round((item.value / max) * available)));
@@ -92,7 +92,7 @@ export function barChartBlock(widget: Widget, node: LayoutNode, theme: TerminalT
           chartSpan(widget, 'barChart', 'separator', `bar.${String(index)}.separator.beforeLabel`, ' ', chartPlaceholderStyle(widget)),
           chartSpan(widget, 'barChart', 'label', `bar.${String(index)}.label`, label, selectionStyle ?? chartLabelStyle(widget)),
           chartSpan(widget, 'barChart', 'separator', `bar.${String(index)}.separator.beforeFill`, ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'barChart', 'bar', `bar.${String(index)}.fill`, theme.symbols.progressFilled.repeat(filled), chartMetricStyle(widget)),
+          chartSpan(widget, 'barChart', 'bar', `bar.${String(index)}.fill`, theme.tokens.symbols.progressFilled.repeat(filled), chartMetricStyle(widget)),
           chartSpan(widget, 'barChart', 'separator', `bar.${String(index)}.separator.beforeValue`, ' ', chartPlaceholderStyle(widget)),
           chartSpan(widget, 'barChart', 'metric', `bar.${String(index)}.value`, String(item.value), selectionStyle ?? chartValueStyle(widget))
         ]
@@ -255,8 +255,8 @@ export function gaugeBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
           chartSpan(widget, 'gauge', 'separator', 'metric.separator.afterLabel', ' ', chartPlaceholderStyle(widget))
         ]),
         chartSpan(widget, 'gauge', 'chrome', 'metric.bar.open', '[', chartPlaceholderStyle(widget)),
-        chartSpan(widget, 'gauge', 'fill', 'metric.bar.filled', theme.symbols.progressFilled.repeat(filled), chartMetricStyle(widget, status)),
-        chartSpan(widget, 'gauge', 'fill', 'metric.bar.empty', theme.symbols.progressEmpty.repeat(empty), chartPlaceholderStyle(widget)),
+        chartSpan(widget, 'gauge', 'fill', 'metric.bar.filled', theme.tokens.symbols.progressFilled.repeat(filled), chartMetricStyle(widget, status)),
+        chartSpan(widget, 'gauge', 'fill', 'metric.bar.empty', theme.tokens.symbols.progressEmpty.repeat(empty), chartPlaceholderStyle(widget)),
         chartSpan(widget, 'gauge', 'chrome', 'metric.bar.close', ']', chartPlaceholderStyle(widget)),
         chartSpan(widget, 'gauge', 'separator', 'metric.separator.beforeValue', ' ', chartPlaceholderStyle(widget)),
         chartSpan(widget, 'gauge', 'metric', 'metric.value', valueText, chartMetricStyle(widget, status)),

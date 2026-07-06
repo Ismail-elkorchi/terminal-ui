@@ -6,7 +6,7 @@ import type { Rect } from './layout.ts';
 import type { FrameCellSource, TerminalStyle } from './render-primitives.ts';
 import { mergeStyles, resolveWidgetStyle } from './widget-style.ts';
 import { stringify } from './widget-props.ts';
-import type { TerminalTheme, ThemeToken } from '../theme/index.ts';
+import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
 import type { Widget } from '../widgets/index.ts';
 
 export type SurfaceVariant =
@@ -210,7 +210,7 @@ export function drawSurfaceShadow(
   }]);
 }
 
-function surfaceBackgroundToken(variant: SurfaceVariant): ThemeToken {
+function surfaceBackgroundToken(variant: SurfaceVariant): ThemeColorToken {
   switch (variant) {
     case 'neutral':
       return 'surface.background';
@@ -231,7 +231,7 @@ function surfaceBackgroundToken(variant: SurfaceVariant): ThemeToken {
   }
 }
 
-function surfaceBorderToken(variant: SurfaceVariant): ThemeToken {
+function surfaceBorderToken(variant: SurfaceVariant): ThemeColorToken {
   switch (variant) {
     case 'neutral':
       return 'surface.border';

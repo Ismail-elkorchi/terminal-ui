@@ -84,7 +84,7 @@ test('palette widget renders query matches disabled entries preview help empty s
   assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.label, 'entry.run-tests.group');
   assert.equal(matchCell?.source?.label, 'entry.run-tests.match');
   assert.equal(disabledCell?.source?.label, 'entry.run-tests.description');
-  assert.equal(matchCell?.style?.fg?.token, 'menu.match');
+  assert.equal(matchCell?.style?.fg?.token, 'command.match');
   assert.equal(disabledCell?.style?.fg?.token, 'text.muted');
   assert.equal(frame.accessibility.root.role, 'menu');
   assert.deepEqual(frame.accessibility.root.scope, { kind: 'menu' });

@@ -3,7 +3,7 @@ import { block, line, span } from './frame.ts';
 import { formSource, type FormVisualKind } from './form-visual.ts';
 import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn, visibleLineWindow } from './text-display.ts';
 import { textOffsetAtVisualColumn } from './text-pointer.ts';
-import { inputCursorStyle, mergeStyles, widgetStyle } from './widget-style.ts';
+import { inputCursorStyle, mergeStyles, resolveWidgetStyle, widgetStyle } from './widget-style.ts';
 import type { TextAreaHighlight } from '../widgets/index.ts';
 import type { TextSelection } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -157,7 +157,7 @@ export function textAreaInputCursor(input: {
 
 export function textAreaInputContentBounds(bounds: Rect, theme: TerminalTheme, widget?: Widget, lineCount = 1): Rect {
   const prefixWidth = widget === undefined
-    ? terminalTextWidth(`${theme.symbols.borderSingle.vertical} `)
+    ? terminalTextWidth(`${theme.tokens.symbols.borderSingle.vertical} `)
     : textAreaInputPrefixWidth(widget, theme, lineCount);
   return {
     ...bounds,
@@ -210,7 +210,7 @@ function textAreaLinePrefixSpans(
   return [
     styledSpan(marker, textAreaPrefixStyle(widget, focused, active), inputSource(widget, active ? 'activeLine' : 'chrome', active ? 'activeLine.marker' : 'chrome.marker')),
     styledSpan(lineNumber, textAreaLineNumberStyle(widget, active), inputSource(widget, 'lineNumber', active ? 'activeLine.lineNumber' : 'lineNumber')),
-    styledSpan(` ${theme.symbols.borderSingle.vertical} `, textAreaPrefixStyle(widget, focused, active), inputSource(widget, 'gutter', active ? 'activeLine.gutter' : 'gutter.separator'))
+    styledSpan(` ${theme.tokens.symbols.borderSingle.vertical} `, textAreaPrefixStyle(widget, focused, active), inputSource(widget, 'gutter', active ? 'activeLine.gutter' : 'gutter.separator'))
   ];
 }
 
@@ -219,21 +219,30 @@ function textAreaInputPrefixWidth(widget: Widget, theme: TerminalTheme, lineCoun
 }
 
 function textAreaLineMarker(widget: Widget, theme: TerminalTheme, focused: boolean, rowIndex: number, active: boolean): string {
-  if (active) return focused ? theme.symbols.pointer : theme.symbols.selected;
+  if (active) return focused ? theme.tokens.symbols.pointer : theme.tokens.symbols.selected;
   if (rowIndex === 0) return inputStateMarker(widget, theme, focused);
-  return theme.symbols.borderSingle.vertical;
+  return theme.tokens.symbols.borderSingle.vertical;
 }
 
 function inputStateMarker(widget: Widget, theme: TerminalTheme, focused: boolean): string {
   if (widget.props['disabled'] === true) return '-';
-  if (typeof widget.props['error'] === 'string' && widget.props['error'].length > 0) return theme.symbols.statusError;
-  return focused ? theme.symbols.pointer : theme.symbols.borderSingle.vertical;
+  if (typeof widget.props['error'] === 'string' && widget.props['error'].length > 0) return theme.tokens.symbols.statusError;
+  return focused ? theme.tokens.symbols.pointer : theme.tokens.symbols.borderSingle.vertical;
 }
 
 function inputChromeStyle(widget: Widget, focused: boolean): TerminalStyle | undefined {
-  if (widget.props['disabled'] === true) return widgetStyle(widget, 'border', 'disabled');
-  if (typeof widget.props['error'] === 'string' && widget.props['error'].length > 0) return widgetStyle(widget, 'border', 'error');
-  return widgetStyle(widget, 'border', focused ? 'focused' : undefined);
+  const state = widget.props['disabled'] === true
+    ? 'disabled'
+    : typeof widget.props['error'] === 'string' && widget.props['error'].length > 0
+      ? 'error'
+      : focused
+        ? 'focused'
+        : undefined;
+  return resolveWidgetStyle(widget, {
+    slot: 'border',
+    base: { fg: { kind: 'theme', token: 'control.border' } },
+    ...(state === undefined ? {} : { state })
+  });
 }
 
 function textAreaPrefixStyle(widget: Widget, focused: boolean, active: boolean): TerminalStyle | undefined {

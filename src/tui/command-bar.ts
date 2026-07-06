@@ -11,7 +11,7 @@ import { numberProp, stringify } from './widget-props.ts';
 import { widgetFrameSource } from './frame-source.ts';
 import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn, visibleLineWindow } from './text-display.ts';
 import { textOffsetAtVisualColumn } from './text-pointer.ts';
-import { inputCursorStyle, widgetStyle } from './widget-style.ts';
+import { inputCursorStyle, mergeStyles, themeStyle, widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TextSelection } from '../text/index.ts';
@@ -116,7 +116,7 @@ function inputLine(widget: Widget, width: number): RenderLine {
   const placeholder = placeholderText(widget);
   const completion = completionText(widget);
   const spans: RenderSpan[] = [
-    styledSpan(model.prompt, widgetStyle(widget, 'label'), commandSource(widget, 'prompt', { role: 'decoration', partKind: 'prompt' })),
+    styledSpan(model.prompt, commandPromptStyle(widget), commandSource(widget, 'prompt', { role: 'decoration', partKind: 'prompt' })),
     ...(model.value.length === 0 && placeholder.length > 0
       ? clipRenderSpans([styledSpan(placeholder, widgetStyle(widget, 'placeholder'), commandSource(widget, 'placeholder', { partKind: 'placeholder' }))], model.contentWidth)
       : valueWindowSpans(widget, model))
@@ -139,6 +139,10 @@ function inputLine(widget: Widget, width: number): RenderLine {
   return {
     spans
   };
+}
+
+function commandPromptStyle(widget: Widget): ReturnType<typeof widgetStyle> {
+  return mergeStyles(themeStyle('command.prompt'), widgetStyle(widget, 'label'));
 }
 
 interface CommandInputModel {

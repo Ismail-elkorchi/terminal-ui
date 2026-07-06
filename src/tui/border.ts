@@ -105,8 +105,8 @@ export function isBorderKind(value: unknown): value is BorderStyle['kind'] {
 }
 
 function glyphsForBorder(kind: Exclude<BorderStyle['kind'], 'none'>, theme: TerminalTheme): BorderGlyphs {
-  if (kind === 'single') return theme.symbols.borderSingle;
-  if (kind === 'rounded') return theme.symbols.borderRounded;
+  if (kind === 'single') return theme.tokens.symbols.borderSingle;
+  if (kind === 'rounded') return theme.tokens.symbols.borderRounded;
   if (kind === 'ascii') return asciiGlyphs;
   if (kind === 'double') return doubleGlyphs;
   if (kind === 'dashed') return dashedGlyphs;

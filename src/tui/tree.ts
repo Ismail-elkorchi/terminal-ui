@@ -186,9 +186,9 @@ function treeLine(widget: Widget, row: TreeVisibleRow, selected: string | undefi
 }
 
 function branchSymbol(node: TreeNode, lazyPlaceholder: boolean, theme: TerminalTheme): string {
-  if (lazyPlaceholder) return theme.symbols.unselected;
-  if ((node.children === undefined || node.children.length === 0) && node.lazy !== true) return theme.symbols.unselected;
-  return node.expanded === true ? theme.symbols.treeExpanded : theme.symbols.treeCollapsed;
+  if (lazyPlaceholder) return theme.tokens.symbols.unselected;
+  if ((node.children === undefined || node.children.length === 0) && node.lazy !== true) return theme.tokens.symbols.unselected;
+  return node.expanded === true ? theme.tokens.symbols.treeExpanded : theme.tokens.symbols.treeCollapsed;
 }
 
 function treeLabelStyle(widget: Widget, row: TreeVisibleRow, selected: boolean): TerminalStyle | undefined {

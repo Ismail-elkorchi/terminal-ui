@@ -26,7 +26,7 @@ export function selectionMarkerSpans(
     ...(source?.label === undefined ? {} : { label: `${source.label}.gap` })
   });
   return [
-    dataSpan(selected ? theme.symbols.pointer : theme.symbols.unselected, markerStyle, source),
+    dataSpan(selected ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected, markerStyle, source),
     dataSpan(' ', undefined, gapSource)
   ];
 }

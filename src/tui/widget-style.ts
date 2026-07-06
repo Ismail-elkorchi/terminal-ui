@@ -1,4 +1,4 @@
-import type { ThemeToken } from '../theme/index.ts';
+import type { ThemeColorToken } from '../theme/index.ts';
 import type { Widget, WidgetStyleSlots, WidgetTextRole, WidgetVisualState } from '../widgets/index.ts';
 import type { TerminalStyle } from './render-primitives.ts';
 
@@ -44,8 +44,8 @@ export function defaultStyleForTextRole(role: WidgetTextRole): TerminalStyle | u
       return themeStyle('accent.primary', { bold: true });
     case 'badge':
       return {
-        fg: { kind: 'theme', token: 'selection.foreground' },
-        bg: { kind: 'theme', token: 'selection.background' },
+        fg: { kind: 'theme', token: 'badge.foreground' },
+        bg: { kind: 'theme', token: 'badge.background' },
         bold: true
       };
     case 'danger':
@@ -105,7 +105,7 @@ export function defaultStyleForState(state: WidgetVisualState): TerminalStyle | 
   }
 }
 
-export function themeStyle(token: ThemeToken, options: Omit<TerminalStyle, 'fg'> = {}): TerminalStyle {
+export function themeStyle(token: ThemeColorToken, options: Omit<TerminalStyle, 'fg'> = {}): TerminalStyle {
   return {
     fg: { kind: 'theme', token },
     ...options

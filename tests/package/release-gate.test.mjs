@@ -339,7 +339,7 @@ test('runtime hot paths use precomputed theme fingerprints', async () => {
     assert.doesNotMatch(source, /JSON\.stringify\s*\(/u, file.pathname);
   }
 
-  const themeSource = await readFile(new URL('../../src/theme/index.ts', import.meta.url), 'utf8');
+  const themeSource = await readFile(new URL('../../src/theme/theme.ts', import.meta.url), 'utf8');
   assert.match(themeSource, /readonly fingerprint: string;/u);
   assert.match(themeSource, /fingerprint: themeFingerprint/u);
 });

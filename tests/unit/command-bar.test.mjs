@@ -131,7 +131,7 @@ test('commandBar renders completion preview validation footer match styles and w
   assert.equal(previewCell?.style?.fg?.token, 'input.placeholder');
   assert.equal(selectedCell?.style?.bg?.token, 'selection.background');
   assert.equal(validationCell?.style?.fg?.token, 'status.warning');
-  assert.equal(matchCell?.style?.fg?.token, 'menu.match');
+  assert.equal(matchCell?.style?.fg?.token, 'command.match');
   assert.deepEqual(frame.accessibility.root.children?.map((node) => [node.id, node.value]), [
     ['launcher:validation', 'Choose a value'],
     ['launcher:suggestion:0', 'a🙂bc']

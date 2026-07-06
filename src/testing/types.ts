@@ -11,7 +11,7 @@ import type {
 } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../tui/index.ts';
-import type { ThemeToken } from '../theme/index.ts';
+import type { ThemeColorToken } from '../theme/index.ts';
 import type {
   InteractionResult,
   TranscriptRecorder,
@@ -99,7 +99,7 @@ export interface SelectedAssertion {
 
 export interface VisibleTextAssertion {
   readonly text: string;
-  readonly styleToken?: ThemeToken;
+  readonly styleToken?: ThemeColorToken;
 }
 
 export interface HitTargetAssertion {
