@@ -20,14 +20,14 @@ export function selectionMarkerSpans(
   style?: TerminalStyle,
   source?: FrameCellSource
 ): readonly RenderSpan[] {
-  const markerStyle = selected ? (style ?? widgetStyle(widget, 'value', 'selected')) : undefined;
+  const markerStyle = selected ? (style ?? widgetStyle(widget, 'value', 'selected')) : widgetStyle(widget, 'placeholder');
   const gapSource = frameSourcePart(source, {
     ...(source?.part === undefined ? {} : { part: `${source.part}.gap` }),
     ...(source?.label === undefined ? {} : { label: `${source.label}.gap` })
   });
   return [
     dataSpan(selected ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected, markerStyle, source),
-    dataSpan(' ', undefined, gapSource)
+    dataSpan(' ', markerStyle, gapSource)
   ];
 }
 

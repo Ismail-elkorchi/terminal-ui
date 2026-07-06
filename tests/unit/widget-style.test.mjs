@@ -9,10 +9,13 @@ import {
   chart,
   checkboxList,
   colorPicker,
+  commandBar,
   datePicker,
+  dropdown,
   helpBar,
   heatmap,
   list,
+  menu,
   menuBar,
   modal,
   notificationStack,
@@ -45,6 +48,10 @@ function styleForCell(frame, predicate) {
 
 function stylesFor(frame, textValue) {
   return frame.cells.filter((cell) => cell.text === textValue).map((cell) => cell.style);
+}
+
+function styleForSource(frame, predicate) {
+  return frame.cells.find((cell) => cell.source !== undefined && predicate(cell.source, cell))?.style;
 }
 
 function tokenStyle(token, extra = {}) {
@@ -214,6 +221,98 @@ test('list table and tree share data navigation selection and match styles', () 
   assert.equal(tableFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'row.0.cell.0');
   assert.equal(activeTableFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'row.0.cell.0');
   assert.equal(treeFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'node.api.match');
+});
+
+test('default interactive widget anatomy uses theme tokens instead of terminal defaults', () => {
+  const buttonFrame = renderWidgetFrame(button({
+    id: 'primary',
+    label: 'Save',
+    tone: 'primary',
+    focus: { disabled: true }
+  }), { columns: 16, rows: 1 }, { focusPath: ['none'] });
+  const inputFrame = renderWidgetFrame(textInput({
+    id: 'query',
+    value: 'find',
+    focus: { disabled: true }
+  }), { columns: 18, rows: 1 });
+  const commandFrame = renderWidgetFrame(commandBar({
+    id: 'command',
+    value: '/open README.md',
+    display: 'expanded',
+    suggestions: [
+      { value: '/open', label: 'Open file' },
+      { value: '/save', label: 'Save file' }
+    ],
+    selectedSuggestion: 0
+  }), { columns: 36, rows: 3 });
+  const menuFrame = renderWidgetFrame(menu({
+    id: 'menu',
+    items: [
+      { id: 'open', label: 'Open' },
+      { id: 'save', label: 'Save' }
+    ],
+    selected: 'open'
+  }), { columns: 20, rows: 2 });
+  const dropdownFrame = renderWidgetFrame(dropdown({
+    id: 'region',
+    label: 'Region',
+    selected: 'us',
+    items: [
+      { id: 'us', label: 'United States' }
+    ]
+  }), { columns: 32, rows: 1 });
+  const paletteFrame = renderWidgetFrame(palette({
+    id: 'palette',
+    query: 'o',
+    selected: 1,
+    entries: [
+      { id: 'open', label: 'Open file' },
+      { id: 'toggle', label: 'Toggle theme' }
+    ]
+  }), { columns: 36, rows: 5 });
+  const tabsFrame = renderWidgetFrame(tabs({
+    id: 'tabs',
+    selected: 'one',
+    tabs: [
+      { id: 'one', label: 'One', panel: text('One') },
+      { id: 'two', label: 'Two', panel: text('Two') }
+    ]
+  }), { columns: 28, rows: 2 });
+  const tableFrame = renderWidgetFrame(table({
+    id: 'table',
+    columns: [{ header: 'Name' }],
+    rows: [['Atlas'], ['Pulse']]
+  }), { columns: 18, rows: 3 });
+  const treeFrame = renderWidgetFrame(tree({
+    id: 'tree',
+    nodes: [{
+      id: 'root',
+      label: 'Workspace',
+      expanded: true,
+      children: [{ id: 'api', label: 'API' }]
+    }]
+  }), { columns: 24, rows: 2 });
+  const noticeFrame = renderWidgetFrame(notificationStack({
+    id: 'notices',
+    items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
+    maxVisible: 1,
+    maxWidth: 24
+  }), { columns: 32, rows: 6 });
+
+  assert.equal(styleForSource(buttonFrame, (source) => source.label === 'label.text')?.fg?.token, 'control.primary.foreground');
+  assert.equal(styleForSource(inputFrame, (source) => source.part === 'value')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(commandFrame, (source) => source.part === 'prompt')?.fg?.token, 'command.prompt');
+  assert.equal(styleForSource(commandFrame, (source) => source.part === 'suggestion.0.label')?.bg?.token, 'selection.background');
+  assert.equal(styleForSource(menuFrame, (source) => source.part === 'label' && source.itemId === 'open')?.bg?.token, 'selection.background');
+  assert.equal(styleForSource(dropdownFrame, (source) => source.part === 'dropdown-value')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(paletteFrame, (source) => source.part === 'entry.open.label')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(tabsFrame, (source) => source.part === 'label' && source.itemId === 'one')?.fg?.token, 'tab.active.foreground');
+  assert.equal(styleForSource(tabsFrame, (source) => source.part === 'label' && source.itemId === 'two')?.fg?.token, 'tab.inactive.foreground');
+  assert.equal(styleForSource(tableFrame, (source) => source.part === 'row.1.cell.0')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(treeFrame, (source) => source.part === 'node.root.label')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(treeFrame, (source) => source.part === 'node.root.disclosure')?.fg?.token, 'tree.branch');
+  assert.equal(styleForSource(noticeFrame, (source) => source.part === 'title')?.fg?.token, 'status.success');
+  assert.equal(styleForSource(noticeFrame, (source) => source.part === 'message')?.fg?.token, 'text.default');
 });
 
 test('tree rows expose styled disclosure icon and label anatomy', () => {

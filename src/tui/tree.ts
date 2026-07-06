@@ -155,7 +155,7 @@ function treeLine(widget: Widget, row: TreeVisibleRow, selected: string | undefi
       role: 'decoration',
       ...treeSourceState(treeDisclosureState(row, isSelected))
     })),
-    dataSpan(' ', undefined, treeSource(widget, `node.${row.node.id}.disclosure.gap`, {
+    dataSpan(' ', branchStyle, treeSource(widget, `node.${row.node.id}.disclosure.gap`, {
       itemId: nodeSourceId,
       partKind: 'gap',
       role: 'decoration',

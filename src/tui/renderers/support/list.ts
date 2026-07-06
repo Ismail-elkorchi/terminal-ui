@@ -58,7 +58,7 @@ export function listBlock(widget: Widget, height: number, theme: TerminalTheme):
     lines: window.rows.map((item, index): RenderLine => {
       const itemIndex = window.start + index;
       const isSelected = itemIndex === selected;
-      const style = isSelected ? widgetStyle(widget, 'value', 'selected') : undefined;
+      const style = isSelected ? widgetStyle(widget, 'value', 'selected') : widgetStyle(widget, 'value');
       const itemSourceId = `${widget.id ?? 'list'}:option:${String(itemIndex)}`;
       return {
         spans: [

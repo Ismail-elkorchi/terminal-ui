@@ -255,9 +255,10 @@ function tableWindow(widget: Widget, rows: readonly unknown[], bodyHeight: numbe
 }
 
 function headerLine(widget: Widget, columns: readonly NormalizedColumn[], widths: readonly number[]): RenderLine {
-  const spans: RenderSpan[] = [dataSpan('  ', undefined, tableSource(widget, 'header.leading', undefined, 'decoration'))];
+  const decorationStyle = widgetStyle(widget, 'placeholder');
+  const spans: RenderSpan[] = [dataSpan('  ', decorationStyle, tableSource(widget, 'header.leading', undefined, 'decoration'))];
   columns.forEach((column, index) => {
-    if (index > 0) spans.push(dataSpan('  ', undefined, tableSource(widget, 'column.separator', undefined, 'separator')));
+    if (index > 0) spans.push(dataSpan('  ', decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
     const headerStyle = mergeStyles(themeStyle('table.header', { bold: true }), widget.styles?.title, column.headerStyle);
     const headerSourceId = `${widget.id ?? 'table'}:header:${String(column.index)}`;
     const label = column.header ?? '';
@@ -277,7 +278,8 @@ function headerLine(widget: Widget, columns: readonly NormalizedColumn[], widths
       widths[index] ?? 1,
       column.align,
       undefined,
-      tableSource(widget, `header.${String(column.index)}.padding`, headerSourceId, 'decoration')
+      tableSource(widget, `header.${String(column.index)}.padding`, headerSourceId, 'decoration'),
+      decorationStyle
     ));
   });
   return { spans };
@@ -294,6 +296,7 @@ function rowLine(
   theme: TerminalTheme
 ): RenderLine {
   const selectedStyle = selected ? widgetStyle(widget, 'value', 'selected') : undefined;
+  const decorationStyle = selectedStyle ?? widgetStyle(widget, 'placeholder');
   const rowSourceId = `${widget.id ?? 'table'}:row:${String(rowIndex)}`;
   const spans: RenderSpan[] = [...selectionMarkerSpans(
     widget,
@@ -303,9 +306,16 @@ function rowLine(
     tableSource(widget, `row.${String(rowIndex)}.marker`, rowSourceId, 'decoration')
   )];
   columns.forEach((column, columnIndex) => {
-    if (columnIndex > 0) spans.push(dataSpan('  ', undefined, tableSource(widget, 'column.separator', undefined, 'separator')));
+    if (columnIndex > 0) spans.push(dataSpan('  ', decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
     const cellSourceId = `${widget.id ?? 'table'}:row:${String(rowIndex)}:cell:${String(column.index)}`;
-    const rendered = renderCell(row, rowIndex, column, columnIndex, tableSource(widget, `row.${String(rowIndex)}.cell.${String(column.index)}`, cellSourceId));
+    const rendered = renderCell(
+      widget,
+      row,
+      rowIndex,
+      column,
+      columnIndex,
+      tableSource(widget, `row.${String(rowIndex)}.cell.${String(column.index)}`, cellSourceId)
+    );
     const cellSelectedStyle = selectedCell?.row === rowIndex && selectedCell.column === columnIndex
       ? mergeDataStyles(selectedStyle, widgetStyle(widget, 'value', 'active'))
       : selectedStyle;
@@ -314,7 +324,8 @@ function rowLine(
       widths[columnIndex] ?? 1,
       column.align,
       cellSelectedStyle,
-      tableSource(widget, `row.${String(rowIndex)}.cell.${String(column.index)}.padding`, cellSourceId, 'decoration')
+      tableSource(widget, `row.${String(rowIndex)}.cell.${String(column.index)}.padding`, cellSourceId, 'decoration'),
+      cellSelectedStyle ?? widgetStyle(widget, 'placeholder')
     ));
   });
   return { spans };
@@ -324,13 +335,14 @@ function emptyLine(widget: Widget): RenderLine {
   const emptyText = clean(stringify(widget.props['emptyText'])) || 'No rows';
   return {
     spans: [
-      dataSpan('  ', undefined, tableSource(widget, 'empty.leading', undefined, 'decoration')),
+      dataSpan('  ', widgetStyle(widget, 'placeholder'), tableSource(widget, 'empty.leading', undefined, 'decoration')),
       dataSpan(emptyText, widgetStyle(widget, 'placeholder'), tableSource(widget, 'empty'))
     ]
   };
 }
 
 function renderCell(
+  widget: Widget,
   row: unknown,
   rowIndex: number,
   column: NormalizedColumn,
@@ -338,10 +350,11 @@ function renderCell(
   fallbackSource: FrameCellSource
 ): readonly RenderSpan[] {
   const value = rowCell(row, column.index);
+  const fallbackStyle = mergeDataStyles(widgetStyle(widget, 'value'), column.style);
   if (column.render !== undefined) {
-    return renderResultToSpans(column.render({ value, row, rowIndex, columnIndex }), column.style, fallbackSource);
+    return renderResultToSpans(column.render({ value, row, rowIndex, columnIndex }), fallbackStyle, fallbackSource);
   }
-  return [dataSpan(displayValue(value), column.style, fallbackSource)];
+  return [dataSpan(displayValue(value), fallbackStyle, fallbackSource)];
 }
 
 function renderResultToSpans(
@@ -369,12 +382,13 @@ function cellSpans(
   width: number,
   align: TableColumnAlignment,
   overrideStyle?: TerminalStyle,
-  paddingSource?: FrameCellSource
+  paddingSource?: FrameCellSource,
+  paddingStyle?: TerminalStyle
 ): readonly RenderSpan[] {
   const clipped = overrideStyle === undefined
     ? clipRenderSpans(spans, width, { ellipsis: '…' })
     : clipRenderSpans(spans, width, { ellipsis: '…' }).map((currentSpan) => {
-        const style = mergeDataStyles(overrideStyle, currentSpan.style);
+        const style = mergeCellOverrideStyle(currentSpan.style, overrideStyle);
         return {
           text: currentSpan.text,
           ...(style === undefined ? {} : { style }),
@@ -387,10 +401,25 @@ function cellSpans(
   const before = align === 'end' ? padding : align === 'center' ? Math.floor(padding / 2) : 0;
   const after = Math.max(0, padding - before);
   const rendered: RenderSpan[] = [];
-  if (before > 0) rendered.push(dataSpan(' '.repeat(before), undefined, paddingSource));
+  if (before > 0) rendered.push(dataSpan(' '.repeat(before), paddingStyle, paddingSource));
   rendered.push(...clipped);
-  if (after > 0) rendered.push(dataSpan(' '.repeat(after), undefined, paddingSource));
+  if (after > 0) rendered.push(dataSpan(' '.repeat(after), paddingStyle, paddingSource));
   return rendered;
+}
+
+function mergeCellOverrideStyle(cellStyle: TerminalStyle | undefined, overrideStyle: TerminalStyle): TerminalStyle | undefined {
+  const style = mergeDataStyles(cellStyle, overrideStyle);
+  if (cellStyle?.fg !== undefined && !isNeutralForeground(cellStyle.fg)) {
+    return {
+      ...(style ?? {}),
+      fg: cellStyle.fg
+    };
+  }
+  return style;
+}
+
+function isNeutralForeground(color: NonNullable<TerminalStyle['fg']>): boolean {
+  return color.kind === 'theme' && color.token === 'text.default';
 }
 
 function scrolledLine(line: RenderLine, offsetCells: number, width: number): RenderLine {
