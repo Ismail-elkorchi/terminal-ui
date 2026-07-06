@@ -220,9 +220,9 @@ test('surface labels disabled state and theme variants stay structural', () => {
   assert.match(renderFramePlain(disabled).split('\n')[0] ?? '', /Locked/u);
   assert.equal(disabled.focusPath, undefined);
   assert.equal(disabled.accessibility.root.disabled, true);
-  assert.equal(disabledBorder?.style?.fg?.token, 'text.muted');
+  assert.equal(disabledBorder?.style?.fg?.token, 'text.disabled');
   assert.equal(disabledBackground?.style?.bg?.token, 'surface.raised.background');
-  assert.equal(disabledBackground?.style?.fg?.token, 'text.muted');
+  assert.equal(disabledBackground?.style?.fg?.token, 'text.disabled');
   assert.equal(selectedBorder?.style?.fg?.token, 'surface.selected.border');
   assert.equal(selectedBackground?.style?.bg?.token, 'surface.selected.background');
   assert.equal(renderFramePlain(noColor).split('\n')[0], '+ Plain ---+');

@@ -93,7 +93,7 @@ export function defaultStyleForState(state: WidgetVisualState): TerminalStyle | 
         bold: true
       };
     case 'disabled':
-      return themeStyle('text.muted', { dim: true });
+      return themeStyle('text.disabled', { dim: true });
     case 'active':
       return themeStyle('accent.secondary', { bold: true });
     case 'error':

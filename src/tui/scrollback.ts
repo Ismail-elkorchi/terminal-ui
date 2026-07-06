@@ -385,7 +385,7 @@ function scrollbackLineSpans(
         label: 'body',
         text,
         query,
-        baseStyle: scrollbackBodyStyle(widget, item.style)
+        baseStyle: scrollbackBodyStyle(widget, item.style, scrollbackLevel(item))
       });
 }
 
@@ -406,7 +406,7 @@ function scrollbackFullLineSpans(
     spans.push(...metadataSpans(widget, key, value, query, metadataStyle));
   }
   appendGap(spans, widget);
-  spans.push(...bodySpans(widget, sanitizeTerminalText(item.text).text, query, item.style, selection));
+  spans.push(...bodySpans(widget, item, sanitizeTerminalText(item.text).text, query, selection));
   return spans.filter((span) => span.text.length > 0);
 }
 
@@ -472,11 +472,12 @@ function metadataSpans(
 
 function bodySpans(
   widget: Widget,
+  item: ScrollbackItem,
   text: string,
   query: string,
-  itemStyle: ReturnType<typeof scrollbackBodyStyle>,
   selection: BodySelection | undefined
 ): readonly ScrollbackTextSegment[] {
+  const itemStyle = scrollbackBodyStyle(widget, item.style, scrollbackLevel(item));
   if (selection === undefined) {
     return documentHighlightSpans({
       widget,
@@ -485,7 +486,7 @@ function bodySpans(
       label: 'body',
       text,
       query,
-      baseStyle: scrollbackBodyStyle(widget, itemStyle)
+      baseStyle: itemStyle
     });
   }
   const start = Math.max(0, Math.min(text.length, selection.start));
@@ -498,7 +499,7 @@ function bodySpans(
       label: 'body',
       text,
       query,
-      baseStyle: scrollbackBodyStyle(widget, itemStyle)
+      baseStyle: itemStyle
     });
   }
   const before = text.slice(0, start);
@@ -513,7 +514,7 @@ function bodySpans(
       label: 'body',
       text: before,
       query,
-      baseStyle: scrollbackBodyStyle(widget, itemStyle)
+      baseStyle: itemStyle
     }),
     documentSpan(widget, 'scrollback', 'marker', 'selection.open', '[', selectedStyle),
     ...documentHighlightSpans({
@@ -523,7 +524,7 @@ function bodySpans(
       label: 'body.selection',
       text: selected,
       query,
-      baseStyle: scrollbackBodyStyle(widget, itemStyle, true)
+      baseStyle: scrollbackBodyStyle(widget, item.style, scrollbackLevel(item), true)
     }),
     documentSpan(widget, 'scrollback', 'marker', 'selection.close', ']', selectedStyle),
     ...documentHighlightSpans({
@@ -533,7 +534,18 @@ function bodySpans(
       label: 'body',
       text: after,
       query,
-      baseStyle: scrollbackBodyStyle(widget, itemStyle)
+      baseStyle: itemStyle
     })
   ];
+}
+
+function scrollbackLevel(item: ScrollbackItem): ScrollbackItem['level'] {
+  switch (item.level) {
+    case 'info':
+    case 'warning':
+    case 'error':
+      return item.level;
+    default:
+      return undefined;
+  }
 }

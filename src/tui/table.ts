@@ -2,7 +2,7 @@ import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { dataSource, dataSpan, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
 import { rowWindow, scrollStateFromUnknown } from './data-window.ts';
 import { numberProp, stringify } from './widget-props.ts';
-import { widgetStyle } from './widget-style.ts';
+import { mergeStyles, themeStyle, widgetStyle } from './widget-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type {
@@ -258,7 +258,7 @@ function headerLine(widget: Widget, columns: readonly NormalizedColumn[], widths
   const spans: RenderSpan[] = [dataSpan('  ', undefined, tableSource(widget, 'header.leading', undefined, 'decoration'))];
   columns.forEach((column, index) => {
     if (index > 0) spans.push(dataSpan('  ', undefined, tableSource(widget, 'column.separator', undefined, 'separator')));
-    const headerStyle = column.headerStyle ?? widgetStyle(widget, 'title');
+    const headerStyle = mergeStyles(themeStyle('table.header', { bold: true }), widget.styles?.title, column.headerStyle);
     const headerSourceId = `${widget.id ?? 'table'}:header:${String(column.index)}`;
     const label = column.header ?? '';
     const labelSpans: RenderSpan[] = [

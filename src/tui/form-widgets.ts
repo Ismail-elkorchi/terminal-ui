@@ -683,17 +683,18 @@ function clippedFormLine(spans: readonly RenderSpan[], width: number): RenderLin
 function buttonSpans(widget: Widget, label: string, focused: boolean, theme: TerminalTheme): readonly RenderSpan[] {
   const spans: RenderSpan[] = [];
   const style = buttonStyle(widget, focused);
+  const chromeStyle = buttonChromeStyle(widget, focused);
   if (focused && widget.props['disabled'] !== true) {
-    spans.push(formSpan(widget, 'chrome', 'chrome.focus', theme.tokens.symbols.pointer, style));
+    spans.push(formSpan(widget, 'chrome', 'chrome.focus', theme.tokens.symbols.pointer, chromeStyle));
   }
   const state = buttonStateMarker(widget, theme);
-  spans.push(formSpan(widget, 'chrome', 'chrome.open', '[ ', style));
+  spans.push(formSpan(widget, 'chrome', 'chrome.open', '[ ', chromeStyle));
   if (state.length > 0) {
     spans.push(formSpan(widget, 'state', 'state.marker', state, style));
     spans.push(separatorSpan(widget));
   }
   spans.push(formSpan(widget, 'label', 'label.text', label, style));
-  spans.push(formSpan(widget, 'chrome', 'chrome.close', ' ]', style));
+  spans.push(formSpan(widget, 'chrome', 'chrome.close', ' ]', chromeStyle));
   return spans;
 }
 
@@ -714,6 +715,16 @@ function buttonStyle(widget: Widget, focused: boolean): TerminalStyle | undefine
   });
 }
 
+function buttonChromeStyle(widget: Widget, focused: boolean): TerminalStyle | undefined {
+  const state = buttonState(widget, focused);
+  const base = buttonChromeBaseStyle(widget);
+  return resolveWidgetStyle(widget, {
+    slot: 'border',
+    ...(base === undefined ? {} : { base }),
+    ...(state === undefined ? {} : { state })
+  });
+}
+
 function buttonBaseStyle(widget: Widget): TerminalStyle | undefined {
   if (widget.props['pending'] === true) return themeStyle('status.pending', { bold: true });
   if (widget.props['pressed'] === true) return controlToneStyle('primary');
@@ -724,6 +735,21 @@ function buttonBaseStyle(widget: Widget): TerminalStyle | undefined {
       return controlToneStyle('primary');
     case 'secondary':
       return controlToneStyle('secondary');
+    case 'destructive':
+      return mergeStyles(defaultStyleForState('error'), { bold: true });
+  }
+}
+
+function buttonChromeBaseStyle(widget: Widget): TerminalStyle | undefined {
+  if (widget.props['pending'] === true) return themeStyle('status.pending', { bold: true });
+  if (widget.props['pressed'] === true) return controlToneBorderStyle('primary');
+  switch (buttonTone(widget)) {
+    case 'default':
+      return controlToneBorderStyle('default');
+    case 'primary':
+      return controlToneBorderStyle('primary');
+    case 'secondary':
+      return controlToneBorderStyle('secondary');
     case 'destructive':
       return mergeStyles(defaultStyleForState('error'), { bold: true });
   }
@@ -745,6 +771,27 @@ function controlToneStyle(tone: 'default' | 'primary' | 'secondary'): TerminalSt
     case 'secondary':
       return {
         fg: { kind: 'theme', token: 'control.secondary.foreground' },
+        bg: { kind: 'theme', token: 'control.secondary.background' }
+      };
+  }
+}
+
+function controlToneBorderStyle(tone: 'default' | 'primary' | 'secondary'): TerminalStyle {
+  switch (tone) {
+    case 'default':
+      return {
+        fg: { kind: 'theme', token: 'control.border' },
+        bg: { kind: 'theme', token: 'control.background' }
+      };
+    case 'primary':
+      return {
+        fg: { kind: 'theme', token: 'control.primary.border' },
+        bg: { kind: 'theme', token: 'control.primary.background' },
+        bold: true
+      };
+    case 'secondary':
+      return {
+        fg: { kind: 'theme', token: 'control.secondary.border' },
         bg: { kind: 'theme', token: 'control.secondary.background' }
       };
   }

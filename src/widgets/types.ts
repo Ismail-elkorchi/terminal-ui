@@ -27,6 +27,7 @@ import type {
   WidgetFieldItem,
   WidgetHierarchyItem,
   WidgetKeyBinding,
+  WidgetLogLevel,
   WidgetNavigationItem,
   WidgetProcessStatus,
   WidgetRecordStatus,
@@ -923,6 +924,7 @@ export interface ViewportWidgetOptions<TMessage = never> extends WidgetLayerOpti
 export interface ScrollbackItem {
   readonly id: string;
   readonly text: string;
+  readonly level?: WidgetLogLevel;
   readonly style?: TerminalStyle;
   readonly timestamp?: string;
   readonly metadata?: Record<string, string>;

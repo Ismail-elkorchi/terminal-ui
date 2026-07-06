@@ -92,6 +92,24 @@ test('scrollback renders timestamp metadata and item style through visible rows'
   assert.equal(frame.accessibility.root.children?.[0]?.value, '[10:30] source=worker status=ok Zulu');
 });
 
+test('scrollback renders log levels through log theme tokens and lets item styles refine them', () => {
+  const frame = renderWidgetFrame(scrollback({
+    id: 'level-log',
+    items: [
+      { id: 'info', level: 'info', text: 'Server ready' },
+      { id: 'warn', level: 'warning', text: 'Memory high' },
+      { id: 'error', level: 'error', text: 'Request failed', style: { bold: true } }
+    ],
+    scroll: createScrollState({ offsetRow: 0, contentRows: 3, viewportRows: 3 })
+  }), { columns: 40, rows: 3 });
+
+  assert.equal(frame.cells.find((cell) => cell.text === 'S')?.style?.fg?.token, 'log.info');
+  assert.equal(frame.cells.find((cell) => cell.text === 'M')?.style?.fg?.token, 'log.warning');
+  const error = frame.cells.find((cell) => cell.text === 'R');
+  assert.equal(error?.style?.fg?.token, 'log.error');
+  assert.equal(error?.style?.bold, true);
+});
+
 test('scrollback renders folded helper output as visible document metadata', () => {
   const visibleItems = visibleScrollbackItems([
     { id: 'a', text: 'alpha\nmore alpha', metadata: { source: 'worker' } },

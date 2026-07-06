@@ -101,7 +101,7 @@ test('button states use shared styles and structural markers', () => {
   assert.equal(styleFor(pendingFrame, 'S')?.fg?.token, 'status.pending');
   assert.equal(styleFor(destructiveFrame, 'D')?.fg?.token, 'status.error');
   assert.equal(styleFor(pressedFrame, 'P')?.bg?.token, 'control.primary.background');
-  assert.equal(styleFor(disabledFrame, 'D')?.fg?.token, 'text.muted');
+  assert.equal(styleFor(disabledFrame, 'D')?.fg?.token, 'text.disabled');
   assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.label, 'chrome.focus');
   assert.equal(focusedFrame.cells.find((cell) => cell.text === '[')?.source?.label, 'chrome.open');
   assert.equal(pendingFrame.cells.find((cell) => cell.text === 'i')?.source?.label, 'state.marker');
@@ -350,7 +350,7 @@ test('surface visualState exposes selected panes without stealing focus semantic
   assert.equal(styleForCell(selectedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'selection.background');
   assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'focus.background');
   assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'surface.chrome.background');
-  assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.part === 'background')?.fg?.token, 'text.muted');
+  assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.part === 'background')?.fg?.token, 'text.disabled');
 });
 
 test('overflow priority preserves important row content before decorative content', () => {
@@ -509,6 +509,6 @@ test('choice and picker controls use shared form visual styles and source metada
   assert.equal(checkboxFrame.cells.find((cell) => cell.text === 'x')?.source?.label, 'option.a.marker.checked');
   assert.equal(styleForCell(colorFrame, (cell) => cell.source?.label === 'summary.swatch')?.bg?.token, 'control.primary.background');
   assert.equal(colorFrame.cells.find((cell) => cell.source?.label === 'option.green.swatch')?.text, '■');
-  assert.equal(dateFrame.cells.find((cell) => cell.source?.label === 'weekday.mo')?.style?.fg?.token, 'text.muted');
+  assert.equal(dateFrame.cells.find((cell) => cell.source?.label === 'weekday.mo')?.style?.fg?.token, 'text.disabled');
   assert.equal(dateFrame.cells.find((cell) => cell.text === '[')?.source?.label, 'day.today.open');
 });

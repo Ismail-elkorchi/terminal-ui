@@ -1,6 +1,7 @@
 import { highlightRenderSpans } from './text-highlight.ts';
 import type {
   WidgetFieldItem,
+  WidgetLogLevel,
   WidgetRecordStatus,
   Widget
 } from '../widgets/index.ts';
@@ -171,9 +172,23 @@ export function scrollbackSelectedStyle(widget: Widget): TerminalStyle | undefin
 export function scrollbackBodyStyle(
   widget: Widget,
   itemStyle: TerminalStyle | undefined,
+  level: WidgetLogLevel | undefined,
   selected = false
 ): TerminalStyle | undefined {
-  return documentBodyStyle(widget, itemStyle, selected);
+  return documentBodyStyle(widget, mergeStyles(scrollbackLogLevelStyle(level), itemStyle), selected);
+}
+
+export function scrollbackLogLevelStyle(level: WidgetLogLevel | undefined): TerminalStyle | undefined {
+  switch (level) {
+    case 'info':
+      return themeStyle('log.info');
+    case 'warning':
+      return themeStyle('log.warning');
+    case 'error':
+      return themeStyle('log.error');
+    case undefined:
+      return undefined;
+  }
 }
 
 export function scrollbackOmissionStyle(widget: Widget): TerminalStyle | undefined {

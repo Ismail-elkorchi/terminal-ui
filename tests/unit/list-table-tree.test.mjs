@@ -491,7 +491,7 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
   assert.match(output, /Workspace/u);
   assert.match(output, /API Layer/u);
   assert.doesNotMatch(output, /Terminal UI/u);
-  assert.equal(disabledCell?.style?.fg?.token, 'text.muted');
+  assert.equal(disabledCell?.style?.fg?.token, 'text.disabled');
   assert.equal(frame.cells.find((cell) => cell.text === '▣')?.source?.label, 'node.root.icon');
   assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.label, 'node.api.label');
   assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.label, 'node.api.label');

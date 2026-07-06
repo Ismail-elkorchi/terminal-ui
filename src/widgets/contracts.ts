@@ -24,6 +24,7 @@ export type WidgetStatus =
 
 export type WidgetProcessStatus = Extract<WidgetStatus, 'idle' | 'running' | 'success' | 'warning' | 'error'>;
 export type WidgetRecordStatus = Exclude<WidgetStatus, 'idle'> | 'failed' | 'cancelled' | 'skipped';
+export type WidgetLogLevel = 'info' | 'warning' | 'error';
 
 export interface WidgetItemBase {
   readonly id: string;

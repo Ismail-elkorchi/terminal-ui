@@ -140,7 +140,7 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.source?.label === 'summary.swatch')?.style?.bg?.token, 'control.primary.background');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.source?.label === 'summary.swatch')?.source?.role, 'decoration');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.source?.label === 'option.green.swatch')?.text, '■');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.source?.label === 'weekday.mo')?.style?.fg?.token, 'text.muted');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.source?.label === 'weekday.mo')?.style?.fg?.token, 'text.disabled');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.text === '[')?.source?.label, 'day.2026-06-15.open');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.text === '1')?.source?.role, 'text');
 });

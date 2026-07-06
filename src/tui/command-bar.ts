@@ -142,7 +142,7 @@ function inputLine(widget: Widget, width: number): RenderLine {
 }
 
 function commandPromptStyle(widget: Widget): ReturnType<typeof widgetStyle> {
-  return mergeStyles(themeStyle('command.prompt'), widgetStyle(widget, 'label'));
+  return mergeStyles(themeStyle('command.prompt'), widget.styles?.label);
 }
 
 interface CommandInputModel {

@@ -72,10 +72,31 @@ test('wrapped richText preserves segment style link and source metadata', () => 
 
   assert.equal(renderFramePlain(frame), 'Alpha\nBeta');
   assert.deepEqual(frame.cells.find((cell) => cell.text === 'A')?.style, { fg: { kind: 'theme', token: 'status.success' } });
-  assert.deepEqual(beta?.style, { fg: { kind: 'theme', token: 'status.warning' }, bold: true });
+  assert.deepEqual(beta?.style, { fg: { kind: 'theme', token: 'status.warning' }, underline: true, bold: true });
   assert.deepEqual(beta?.link, { href: 'https://example.test/beta' });
   assert.deepEqual(beta?.source, { ownerId: 'beta', ownerKind: 'token', role: 'text', label: 'beta' });
   assert.equal(frame.accessibility.root.value, 'Alpha Beta');
+});
+
+test('richText gives linked spans the default link style without overriding explicit segment style', () => {
+  const frame = renderWidgetFrame(richText({
+    id: 'links',
+    segments: [
+      { text: 'Docs', link: { href: 'https://example.test/docs' } },
+      {
+        text: ' Warn',
+        style: { fg: { kind: 'theme', token: 'status.warning' }, bold: true },
+        link: { href: 'https://example.test/warn' }
+      }
+    ]
+  }), { columns: 16, rows: 1 });
+  const docs = frame.cells.find((cell) => cell.text === 'D');
+  const warn = frame.cells.find((cell) => cell.text === 'W');
+
+  assert.equal(docs?.style?.fg?.token, 'link.foreground');
+  assert.equal(docs?.style?.underline, true);
+  assert.deepEqual(docs?.link, { href: 'https://example.test/docs' });
+  assert.deepEqual(warn?.style, { fg: { kind: 'theme', token: 'status.warning' }, underline: true, bold: true });
 });
 
 test('textArea renders multiline windows and exposes cursor/accessibility state', () => {

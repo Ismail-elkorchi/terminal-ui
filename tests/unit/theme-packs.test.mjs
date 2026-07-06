@@ -6,6 +6,7 @@ import { createVisualSnapshot } from '../../dist/testing/index.js';
 import {
   catppuccinTheme,
   contrastColor,
+  defaultTheme,
   deriveSurface,
   draculaTheme,
   ensureContrast,
@@ -20,7 +21,20 @@ import {
   tokyoNightTheme
 } from '../../dist/theme/index.js';
 import { renderWidgetFrame } from '../../dist/tui/index.js';
-import { barChart, progressBar, stack, surface, table, text } from '../../dist/widgets/index.js';
+import {
+  barChart,
+  button,
+  commandBar,
+  helpBar,
+  progressBar,
+  richText,
+  scrollback,
+  stack,
+  surface,
+  tabs,
+  table,
+  text
+} from '../../dist/widgets/index.js';
 
 const packedThemes = [
   catppuccinTheme,
@@ -117,4 +131,85 @@ test('theme matrix snapshots cover core widgets with packs high contrast and no 
     assert.equal(frame.cells.every((cell) => cell.row >= 1 && cell.row <= frame.height && cell.column >= 1 && cell.column <= frame.width), true);
     assert.equal(createVisualSnapshot({ frame }).schemaVersion, 'terminal-ui.visual-snapshots.v1');
   }
+});
+
+test('default theme specimen composes surface control text command log and data tokens', () => {
+  const frame = renderWidgetFrame(surface(stack([
+    richText({
+      id: 'specimen-title',
+      segments: [
+        { text: 'terminal-ui ', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } },
+        { text: 'docs', link: { href: 'https://example.test/docs' } }
+      ]
+    }),
+    tabs({
+      id: 'specimen-tabs',
+      selected: 'one',
+      tabs: [
+        { id: 'one', label: 'tab one', badge: '3', panel: text('First panel') },
+        { id: 'two', label: 'tab two', panel: text('Second panel') }
+      ]
+    }),
+    button({ id: 'specimen-button', label: 'Primary', tone: 'primary', pressed: true }),
+    commandBar({
+      id: 'specimen-command',
+      value: '/open readme',
+      suggestions: [{ value: '/open', label: 'Open File' }],
+      selectedSuggestion: 0,
+      display: 'expanded'
+    }),
+    scrollback({
+      id: 'specimen-log',
+      items: [
+        { id: 'info', level: 'info', text: 'Ready' },
+        { id: 'warn', level: 'warning', text: 'High memory' },
+        { id: 'err', level: 'error', text: 'Failed request' }
+      ],
+      scroll: { offsetRow: 0, offsetColumn: 0, contentRows: 3, viewportRows: 4 }
+    }),
+    progressBar({ id: 'specimen-progress', value: 72, label: 'coverage' }),
+    table({
+      id: 'specimen-table',
+      selected: 0,
+      columns: [{ id: 'name', header: 'Name' }, { id: 'status', header: 'Status' }],
+      rows: [{ name: 'Atlas', status: 'Active' }]
+    }),
+    helpBar({
+      id: 'specimen-help',
+      bindings: [{ key: '?', label: 'Help' }]
+    })
+  ], {
+    gap: 1,
+    sizes: [
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 3 },
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 2 },
+      { kind: 'fixed', cells: 3 },
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 3 },
+      { kind: 'fixed', cells: 1 }
+    ]
+  }), {
+    id: 'specimen-surface',
+    variant: 'raised',
+    border: { kind: 'rounded', title: 'Theme specimen' },
+    padding: 1
+  }), { columns: 72, rows: 28 }, { theme: defaultTheme });
+
+  const tokenAt = (text, predicate = () => true) =>
+    frame.cells.find((cell) => cell.text === text && predicate(cell))?.style;
+
+  assert.equal(tokenAt('d')?.fg?.token, 'link.foreground');
+  assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'tab.active.foreground'), true);
+  assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'tab.inactive.foreground'), true);
+  assert.equal(frame.cells.some((cell) => cell.style?.bg?.token === 'badge.background'), true);
+  assert.equal(frame.cells.find((cell) => cell.text === 'P')?.style?.bg?.token, 'control.primary.background');
+  assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'command.prompt'), true);
+  assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'log.info'), true);
+  assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'log.warning'), true);
+  assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'log.error'), true);
+  assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'table.header'), true);
+  assert.equal(frame.cells.some((cell) => cell.style?.bg?.token === 'surface.raised.background'), true);
+  assert.equal(createVisualSnapshot({ frame }).schemaVersion, 'terminal-ui.visual-snapshots.v1');
 });

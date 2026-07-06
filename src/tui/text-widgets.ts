@@ -20,7 +20,7 @@ import {
   spinnerText as feedbackSpinnerText
 } from './feedback-visual.ts';
 import { clampedTextOffset, textOffsetAtVisualColumn } from './text-pointer.ts';
-import { defaultStyleForTextRole, mergeStyles, resolveWidgetStyle } from './widget-style.ts';
+import { defaultStyleForTextRole, mergeStyles, resolveWidgetStyle, themeStyle } from './widget-style.ts';
 import { numberProp, stringify } from './widget-props.ts';
 import { defaultTheme } from '../theme/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
@@ -239,10 +239,14 @@ function cleanSpan(
   rootStyle: RenderSpan['style']
 ): RenderSpan {
   return span(sanitizeTerminalText(segment.text).text, {
-    ...styleOption(mergeStyles(rootStyle, segment.style)),
+    ...styleOption(mergeStyles(rootStyle, linkStyle(segment), segment.style)),
     ...(segment.link === undefined ? {} : { link: segment.link }),
     source: segment.source ?? richTextSource(widget, index)
   });
+}
+
+function linkStyle(segment: RenderSpan): RenderSpan['style'] {
+  return segment.link === undefined ? undefined : themeStyle('link.foreground', { underline: true });
 }
 
 function textStyle(widget: Widget): TerminalStyle | undefined {

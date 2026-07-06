@@ -257,8 +257,8 @@ function tabHeaderStyle(
     );
   }
   if (state.selected) return mergeStyles(widgetStyle(widget, 'value', 'selected'), themeStyle('tab.active.foreground'), widget.styles?.selected);
-  if (state.focused) return mergeStyles(themeStyle('tab.inactive.foreground'), widgetStyle(widget, 'value', 'focused'));
-  return mergeStyles(themeStyle('tab.inactive.foreground'), widgetStyle(widget, 'value'));
+  if (state.focused) return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.value, widgetStyle(widget, 'value', 'focused'));
+  return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.value);
 }
 
 function tabBadgeStyle(widget: Widget, selected: boolean, disabled: boolean, focused: boolean): TerminalStyle | undefined {
@@ -297,10 +297,11 @@ function tabHeaderSpans(
 ): { readonly spans: readonly RenderSpan[]; readonly width: number; readonly bodyWidth: number; readonly closeOffset?: number } {
   const disabled = tab.disabled === true;
   const style = tabHeaderStyle(widget, { disabled, focused, selected });
+  const markerStyle = selected ? tabIndicatorStyle(widget, focused) : style;
   const closeStyle = tabCloseStyle(widget, selected, disabled, focused);
   const badge = tab.badge;
   const baseSpans = [
-    tabSpan(widget, selected ? '[' : ' ', style, tab.id, selected ? 'marker.selected.open' : 'marker.unselected.open', 'decoration', 'marker', stateForTab(selected, disabled, focused)),
+    tabSpan(widget, selected ? '[' : ' ', markerStyle, tab.id, selected ? 'marker.selected.open' : 'marker.unselected.open', 'decoration', 'marker', stateForTab(selected, disabled, focused)),
     tabSpan(widget, tab.label, style, tab.id, 'label', 'text', 'label', stateForTab(selected, disabled, focused)),
     ...(badge === undefined
       ? []
@@ -321,7 +322,7 @@ function tabHeaderSpans(
         tabSpan(widget, '×', closeStyle, tab.id, 'close', 'text', 'close', stateForTab(selected, disabled, focused))
       ];
   const endSpans = [
-    tabSpan(widget, selected ? ']' : ' ', style, tab.id, selected ? 'marker.selected.close' : 'marker.unselected.close', 'decoration', 'marker', stateForTab(selected, disabled, focused))
+    tabSpan(widget, selected ? ']' : ' ', markerStyle, tab.id, selected ? 'marker.selected.close' : 'marker.unselected.close', 'decoration', 'marker', stateForTab(selected, disabled, focused))
   ];
   const spans = [...baseSpans, ...closeSpans, ...endSpans];
   const width = measureRenderSpans(spans);
@@ -331,6 +332,10 @@ function tabHeaderSpans(
     bodyWidth: closeOffset ?? width,
     ...(closeOffset === undefined ? {} : { closeOffset })
   };
+}
+
+function tabIndicatorStyle(widget: Widget, focused: boolean): TerminalStyle | undefined {
+  return mergeStyles(themeStyle('tab.indicator', { bold: true }), widget.styles?.selected, focused ? widget.styles?.focused : undefined);
 }
 
 function stateForTab(selected: boolean, disabled: boolean, focused: boolean): string | undefined {

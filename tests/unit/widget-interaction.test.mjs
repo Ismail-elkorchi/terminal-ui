@@ -176,6 +176,6 @@ test('commandBar preserves disabled suggestion semantics', () => {
   const disabledDescriptionCell = frame.cells.find((cell) => cell.text === 'U');
 
   assert.match(renderFramePlain(frame), /Deploy/u);
-  assert.equal(disabledDescriptionCell?.style?.fg?.token, 'text.muted');
+  assert.equal(disabledDescriptionCell?.style?.fg?.token, 'text.disabled');
   assert.equal(frame.accessibility.root.children?.[0]?.disabled, true);
 });
