@@ -4,8 +4,8 @@ Transcripts are deterministic interaction recordings. They can include
 normalized input events, frames, render diffs, accessible snapshots,
 diagnostics, and terminal restore checkpoints.
 
-Transcript capture is opt-in for interactive prompts and shell sessions. Prompt
-and shell APIs expose `transcript: { enabled: true }`; prompt `transcript_only`
+Transcript capture is opt-in for interactive prompts and TUI sessions. Prompt
+and TUI APIs expose explicit transcript policies; prompt `transcript_only`
 non-TTY mode is an explicit transcript-producing mode. Sensitive prompt values
 and caller-provided secrets should be redacted before transcripts are exported.
 Redaction records the concrete transcript path that changed, so exported

@@ -22,7 +22,6 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 ## Examples
 
 - `examples/prompts/non-tty-input.mjs` demonstrates deterministic non-TTY prompt input.
-- `examples/shell/cli-core-shell.mjs` demonstrates a shell backed by a real `cli-core` program.
 - `examples/testing/harness.mjs` demonstrates the memory testing harness.
 - `examples/tui/interactive-workspace.mjs` demonstrates a hand-written interactive TUI using core primitives and generic widgets.
 
@@ -32,7 +31,6 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 - [Runtime support](./guides/runtime-support.md)
 - [Text measurement](./guides/text.md)
 - [Prompts](./guides/prompts.md)
-- [Shells with cli-core](./guides/shell.md)
 - [TUI rendering](./guides/tui.md)
 - [Widgets](./guides/widgets.md)
 - [Rendering internals](./guides/rendering-internals.md)
@@ -50,4 +48,4 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 
 ## Boundaries
 
-`terminal-ui` owns terminal interaction. Command definitions, command lookup, option binding, execution planning, and command manifests belong to `@ismail-elkorchi/cli-core`; low-level flag parsing belongs to `argv-flags`.
+`terminal-ui` owns terminal interaction. Command definitions, command lookup, option binding, execution planning, and command manifests belong to caller-owned application code or command libraries.

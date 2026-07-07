@@ -201,9 +201,9 @@ function withState(state) {
 
 function workspaceView(state, context) {
   const wide = context.viewport.columns >= 92;
-  const shell = wide ? wideWorkspace(state) : narrowWorkspace(state);
+  const workspace = wide ? wideWorkspace(state) : narrowWorkspace(state);
   const overlays = [
-    shell,
+    workspace,
     ...(state.palette.open ? [paletteOverlay(state)] : [])
   ];
   return overlay(overlays, { id: 'workspace-root' });
@@ -381,7 +381,7 @@ function activityPanel(state) {
 function notesPanel(state) {
   return surface(notificationLayer(state, stack([
     text('This example is intentionally hand-written.', { id: 'note-purpose', textRole: 'body' }),
-    text('It combines primitives without app-shell recipes or product composites.', { id: 'note-surface' }),
+    text('It combines primitives without app-frame recipes or product composites.', { id: 'note-surface' }),
     text('Useful commands: /palette, /issues, /activity, /resolve, /assign ops.', { id: 'note-commands' })
   ], { id: 'notes-panel-body', gap: 1 })), {
     id: 'notes-panel',

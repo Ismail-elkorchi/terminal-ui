@@ -15,7 +15,7 @@ export interface InteractionTranscript {
   readonly redactions: readonly TranscriptRedaction[];
 }
 
-export type TranscriptSource = 'prompt' | 'shell' | 'tui' | 'test' | 'replay';
+export type TranscriptSource = 'prompt' | 'tui' | 'test' | 'replay';
 
 export type InteractionTranscriptStep =
   | { readonly kind: 'input'; readonly event: InputEvent }

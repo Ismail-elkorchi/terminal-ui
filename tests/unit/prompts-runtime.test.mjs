@@ -138,7 +138,7 @@ test('runPrompt uses explicit editor adapters for long-form editor prompts', asy
   assert.equal(result.snapshot.root.value, 'draft\nfinal');
 });
 
-test('runPrompt resolves VISUAL before EDITOR without shell-splitting env commands', async () => {
+test('runPrompt resolves VISUAL before EDITOR without tokenizing env commands', async () => {
   const commands = [];
   const host = createMemoryTerminalHost({ env: { VISUAL: 'visual editor --flag', EDITOR: 'editor --fallback' } });
   const result = await runPrompt(editor({

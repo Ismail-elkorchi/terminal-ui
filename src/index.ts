@@ -201,38 +201,6 @@ export type {
   PromptValidator,
   SelectPromptOptions
 } from './prompts/index.ts';
-export { createShell, runShell } from './shell/index.ts';
-export { createCliCoreCommandSource, createCommandPalette } from './shell/index.ts';
-export type {
-  CliCoreCommandSourceInput,
-  CliCoreShellAdapter,
-  CommandPalette,
-  CommandPaletteOptions,
-  ShellCheckpoint,
-  ShellCheckpointPolicy,
-  ShellArgvParser,
-  ShellCommandParseInput,
-  ShellCommandSource,
-  ShellEvent,
-  ShellExit,
-  ShellHelpPreview,
-  ShellHistoryEntry,
-  ShellHistoryProvider,
-  ShellMode,
-  ShellNonTtyPolicy,
-  ShellOptions,
-  ShellPaletteAction,
-  ShellPromptRenderer,
-  ShellRunPolicy,
-  ShellRunRequest,
-  ShellState,
-  ShellSuggestion,
-  ShellTranscript,
-  ShellTranscriptCommand,
-  ShellTranscriptCommandStatus,
-  ShellTransientLayer,
-  TerminalShell
-} from './shell/index.ts';
 export {
   activeScreen,
   alignRenderLine,
@@ -732,7 +700,6 @@ export * as protocol from './protocol/index.ts';
 export * as text from './text/index.ts';
 export * as theme from './theme/index.ts';
 export * as prompts from './prompts/index.ts';
-export * as shell from './shell/index.ts';
 export * as tui from './tui/index.ts';
 export * as widgets from './widgets/index.ts';
 export * as accessibility from './accessibility/index.ts';

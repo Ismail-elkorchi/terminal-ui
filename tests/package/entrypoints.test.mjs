@@ -12,7 +12,6 @@ const entrypoints = [
   './text',
   './theme',
   './prompts',
-  './shell',
   './tui',
   './widgets',
   './accessibility',
@@ -57,9 +56,6 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.input, 'function');
   assert.equal(typeof terminalUi.password, 'function');
   assert.equal(typeof terminalUi.select, 'function');
-  assert.equal(typeof terminalUi.createShell, 'function');
-  assert.equal(typeof terminalUi.createCliCoreCommandSource, 'function');
-  assert.equal(typeof terminalUi.createCommandPalette, 'function');
   assert.equal(typeof terminalUi.defineTui, 'function');
   assert.equal(typeof terminalUi.createTuiRuntime, 'function');
   assert.equal(typeof terminalUi.intervalSource, 'function');
@@ -419,10 +415,6 @@ test('root declaration exposes primary public type contracts', async () => {
     'ScreenStack',
     'PromptChoice',
     'NonTtyPromptPolicy',
-    'ShellArgvParser',
-    'ShellEvent',
-    'ShellState',
-    'ShellTranscript',
     'TuiContext',
     'TuiInit',
     'TuiUpdateResult',

@@ -9,14 +9,9 @@ output. Protocol APIs validate their own parameters before emitting terminal
 control sequences.
 
 Password prompts mask rendered input, honor caller-provided mask symbols, and
-redact secrets from transcripts and snapshots. Interactive prompt and shell
-transcript capture is opt-in.
-Shell transcripts and shell diagnostics redact common secret-bearing command
-argument forms by default, including token/password flags and secret-like
-environment assignments.
-Shell history, recovery files, and
-checkpoint files are never written unless the caller supplies an explicit
-history provider or checkpoint policy.
+redact secrets from transcripts and snapshots. Interactive prompt and TUI
+transcript capture is opt-in. Transcript redaction records every modified path
+so exported recordings stay auditable without leaking the original value.
 
 Terminal sessions apply protocol setup through `SessionProtocolPolicy`, then
 restore raw input, alternate screen, bracketed paste, mouse reporting, focus

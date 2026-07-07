@@ -30,7 +30,7 @@ output.
 itself. Provide an explicit `editorAdapter` to own temporary files, spawning,
 and cleanup. The prompt resolves command preference as `editorCommand`, then
 `VISUAL`, then `EDITOR`, and passes the chosen argv candidate to the adapter
-without shell interpolation.
+without command interpolation.
 When `timeoutMs` expires, the adapter receives an aborted signal and the prompt
 returns typed timeout diagnostics.
 

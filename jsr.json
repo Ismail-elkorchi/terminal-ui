@@ -10,7 +10,6 @@
     "./text": "./src/text/index.ts",
     "./theme": "./src/theme/index.ts",
     "./prompts": "./src/prompts/index.ts",
-    "./shell": "./src/shell/index.ts",
     "./tui": "./src/tui/index.ts",
     "./widgets": "./src/widgets/index.ts",
     "./accessibility": "./src/accessibility/index.ts",
@@ -21,13 +20,9 @@
     "./schemas/interaction-transcript.schema.json": "./schemas/interaction-transcript.schema.json",
     "./schemas/prompt-result.schema.json": "./schemas/prompt-result.schema.json",
     "./schemas/render-diff.schema.json": "./schemas/render-diff.schema.json",
-    "./schemas/shell-transcript.schema.json": "./schemas/shell-transcript.schema.json",
     "./schemas/terminal-capabilities.schema.json": "./schemas/terminal-capabilities.schema.json",
     "./schemas/terminal-diagnostic.schema.json": "./schemas/terminal-diagnostic.schema.json",
     "./schemas/tui-frame.schema.json": "./schemas/tui-frame.schema.json"
-  },
-  "imports": {
-    "@ismail-elkorchi/cli-core": "npm:@ismail-elkorchi/cli-core@^0.1.0"
   },
   "publish": {
     "include": [

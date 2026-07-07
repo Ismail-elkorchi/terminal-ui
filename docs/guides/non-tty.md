@@ -17,9 +17,8 @@ Non-TTY behavior is deterministic and surface-specific.
   as visual frames and accessibility snapshots. The human output includes an
   accessible linear summary followed by the plain frame, rather than only a raw
   rectangle dump.
-- Shells can run transcript-only or reject depending on caller policy.
 
 Diagnostics should tell callers which explicit input source, default, manifest,
 environment value, or policy can make the interaction non-interactive.
-Use `diagnosticHint` on prompt, shell, and TUI non-TTY policies to include that
+Use `diagnosticHint` on prompt and TUI non-TTY policies to include that
 caller-facing alternative in typed denial diagnostics.

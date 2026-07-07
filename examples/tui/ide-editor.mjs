@@ -221,9 +221,9 @@ function withState(state) {
 }
 
 function ideView(state, context) {
-  const shell = context.viewport.columns >= 108 ? wideIdeView(state, context) : narrowIdeView(state, context);
+  const workspace = context.viewport.columns >= 108 ? wideIdeView(state, context) : narrowIdeView(state, context);
   return overlay([
-    shell,
+    workspace,
     ...(state.palette.open ? [paletteOverlay(state)] : []),
   ], { id: 'ide-root' });
 }

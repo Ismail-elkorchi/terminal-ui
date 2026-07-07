@@ -9,11 +9,10 @@ stable primitives:
 - terminal host adapters;
 - typed input events;
 - prompt definitions and typed prompt results;
-- `cli-core` backed shell command sources;
 - pure widget data;
 - frames and render diffs;
 - accessible snapshots;
 - transcripts and replay.
 
-Keep command semantics in `cli-core`; keep terminal interaction in
-`terminal-ui`.
+Keep command semantics in application code or command libraries; keep terminal
+interaction in `terminal-ui`.

@@ -9,7 +9,7 @@ export interface AccessibleSnapshot {
   readonly diagnostics: readonly TerminalDiagnostic[];
 }
 
-export type AccessibleSnapshotSource = 'prompt' | 'shell' | 'tui' | 'widget' | 'progress';
+export type AccessibleSnapshotSource = 'prompt' | 'tui' | 'widget' | 'progress';
 
 export interface AccessibleNode {
   readonly id: string;
@@ -121,7 +121,6 @@ export const accessibleRoles = [
 
 export const accessibleSources = [
   'prompt',
-  'shell',
   'tui',
   'widget',
   'progress'

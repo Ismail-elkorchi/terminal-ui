@@ -103,7 +103,7 @@ test('track helpers split fixed, percent, and fill regions deterministically', (
   );
 });
 
-test('grid and splitPane widgets lay out common app shells', () => {
+test('grid and splitPane widgets lay out common app frames', () => {
   const widget = grid([
     text('header', { id: 'header' }),
     splitPane([
@@ -118,7 +118,7 @@ test('grid and splitPane widgets lay out common app shells', () => {
     text('status', { id: 'status' }),
     commandBar({ id: 'command', value: '/help' })
   ], {
-    id: 'shell',
+    id: 'workspace-frame',
     rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }],
     columns: [{ kind: 'fill' }]
   });
@@ -154,7 +154,7 @@ test('stack explicit sizes keep fixed chrome around fill content', () => {
     text('Body', { id: 'body' }),
     text('Footer', { id: 'footer' })
   ], {
-    id: 'vertical-shell',
+    id: 'vertical-workspace-frame',
     sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }]
   });
 
@@ -176,7 +176,7 @@ test('row explicit sizes keep fixed sidebars around fill content', () => {
     text('Main', { id: 'main' }),
     text('Tools', { id: 'tools' })
   ], {
-    id: 'horizontal-shell',
+    id: 'horizontal-workspace-frame',
     sizes: [{ kind: 'fixed', cells: 4 }, { kind: 'fill' }, { kind: 'content' }]
   });
 

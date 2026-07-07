@@ -219,7 +219,7 @@ and completion acceptance. `palette()` renders a bounded fuzzy-filtered entry
 list with highlighted matches, disabled entries, preview/help rows, stable
 selection, scroll offsets, and empty states. The pure `filterPaletteEntries()`,
 `paletteWindow()`, `selectedPaletteEntry()`, and `paletteReducer()` helpers keep
-filtering and selection independent from shells or application commands.
+filtering and selection independent from application command systems.
 
 `grid()` lays children into row/column tracks. `splitPane()` divides children
 along one axis with fixed, percent, content, or fill layout sizes. Stack, row,

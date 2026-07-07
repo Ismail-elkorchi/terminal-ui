@@ -2,14 +2,11 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
-import { defineCli, describeCli } from '@ismail-elkorchi/cli-core';
 import Ajv2020 from 'ajv/dist/2020.js';
 
 import { accessibleRoles, accessibleSources } from '../../dist/accessibility/index.js';
 import { diagnostic, terminalDiagnosticCodes } from '../../dist/diagnostics.js';
-import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { input, runPrompt } from '../../dist/prompts/index.js';
-import { createShell, runShell } from '../../dist/shell/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { defineTui, diffFrames, renderWidgetFrame } from '../../dist/tui/index.js';
 import { textInput, text } from '../../dist/widgets/index.js';
@@ -20,27 +17,9 @@ const schemaFiles = [
   'terminal-capabilities.schema.json',
   'terminal-diagnostic.schema.json',
   'prompt-result.schema.json',
-  'shell-transcript.schema.json',
   'tui-frame.schema.json',
   'render-diff.schema.json'
 ];
-
-function parsedInvocation(input) {
-  const argv = input.split(/\s+/u).filter(Boolean);
-  return {
-    schemaVersion: 'cli-core.invocation.v1',
-    ok: true,
-    argv,
-    command: undefined,
-    commandPath: argv.slice(0, 1),
-    usedAlias: undefined,
-    options: { values: {}, present: {}, unknown: [], issues: [] },
-    positionals: {},
-    positionalList: argv.slice(1),
-    passThrough: [],
-    diagnostics: []
-  };
-}
 
 test('schemas validate payloads emitted by public runtime APIs', async () => {
   const { ajv, validators } = await loadSchemaValidators();
@@ -64,36 +43,6 @@ test('schemas validate payloads emitted by public runtime APIs', async () => {
   harness.host.recordFrame(frame);
   harness.host.recordDiff(diff);
 
-  const shell = createShell({
-    prompt: '$ ',
-    transcript: { enabled: true },
-    commands: {
-      kind: 'adapter',
-      adapter: {
-        describe: () => describeCli(defineCli({ name: 'schema-test', commands: [{ name: 'echo' }] })),
-        parse: ({ input }) => ({ ok: true, value: parsedInvocation(input) }),
-        run: async () => ({
-          schemaVersion: 'cli-core.run-result.v1',
-          runId: 'schema-shell-run',
-          mode: 'apply',
-          invocation: parsedInvocation('echo hi'),
-          ok: true,
-          exitKind: 'ok',
-          exitStatus: 0,
-          events: [],
-          effects: [],
-          artifacts: [],
-          diagnostics: []
-        })
-      }
-    }
-  });
-  const shellHost = createMemoryTerminalHost();
-  const runningShell = runShell(shell, shellHost);
-  shellHost.input('echo hi\r\u0004');
-  shellHost.stdin.close();
-  const shellResult = await runningShell;
-
   const promptResult = await runPrompt(input({
     label: 'Name',
     nonTty: { mode: 'provided_value', value: 'Ada' }
@@ -105,7 +54,6 @@ test('schemas validate payloads emitted by public runtime APIs', async () => {
     ['terminal-capabilities.schema.json', await harness.host.getCapabilities()],
     ['terminal-diagnostic.schema.json', diagnostic('INPUT_CANCELLED', 'Cancelled.', { cause: new Error('user input') })],
     ['prompt-result.schema.json', promptResult],
-    ['shell-transcript.schema.json', shellResult.transcript],
     ['tui-frame.schema.json', frame],
     ['render-diff.schema.json', diff]
   ]);
@@ -250,13 +198,6 @@ test('schemas reject malformed nested public payloads', async () => {
     height: 1,
     cells: [],
     accessibility: { root: { id: 'bad', role: 'text' } }
-  }), false);
-
-  assert.equal(validators.get('shell-transcript.schema.json')({
-    schemaVersion: 'terminal-ui.shell-transcript.v1',
-    id: 'shell',
-    commands: [{ input: 'run', status: 'failed', diagnostics: [{}] }],
-    diagnostics: []
   }), false);
 
   assert.equal(validators.get('terminal-capabilities.schema.json')({

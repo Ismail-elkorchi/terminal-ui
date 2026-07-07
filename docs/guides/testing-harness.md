@@ -4,7 +4,7 @@ The testing harness provides a memory terminal host, deterministic clock,
 transcript recorder, input injection, resize events, frames, render diffs,
 accessible snapshots, restore checkpoints, and output capture.
 
-Use it to test prompts, shells, and TUI apps without private imports.
+Use it to test prompts and TUI apps without private imports.
 
 `harness.clock` is a controlled terminal clock. Use `advance(ms)` to drive
 timeouts, debounced prompt data sources, validation delays, and scripted waits

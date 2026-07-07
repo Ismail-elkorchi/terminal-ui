@@ -5,7 +5,7 @@
   "required": ["schemaVersion", "source", "root", "focusPath", "diagnostics"],
   "properties": {
     "schemaVersion": { "const": "terminal-ui.accessible-snapshot.v1" },
-    "source": { "enum": ["prompt", "shell", "tui", "widget", "progress"] },
+    "source": { "enum": ["prompt", "tui", "widget", "progress"] },
     "title": { "type": "string" },
     "root": { "$ref": "#/$defs/accessibleNode" },
     "focusPath": { "type": "array", "items": { "type": "string" } },

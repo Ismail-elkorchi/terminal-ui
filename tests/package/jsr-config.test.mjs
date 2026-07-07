@@ -13,7 +13,6 @@ const npmToSourceEntries = new Map([
   ['./text', './src/text/index.ts'],
   ['./theme', './src/theme/index.ts'],
   ['./prompts', './src/prompts/index.ts'],
-  ['./shell', './src/shell/index.ts'],
   ['./tui', './src/tui/index.ts'],
   ['./widgets', './src/widgets/index.ts'],
   ['./accessibility', './src/accessibility/index.ts'],
@@ -27,7 +26,6 @@ const schemaEntries = [
   './schemas/interaction-transcript.schema.json',
   './schemas/prompt-result.schema.json',
   './schemas/render-diff.schema.json',
-  './schemas/shell-transcript.schema.json',
   './schemas/terminal-capabilities.schema.json',
   './schemas/terminal-diagnostic.schema.json',
   './schemas/tui-frame.schema.json'

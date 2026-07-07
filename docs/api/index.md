@@ -5,7 +5,6 @@ The root entrypoint exposes the main vertical path:
 
 - `createTerminalHost()` and `createMemoryTerminalHost()`
 - `runPrompt()`
-- `createShell()` and `runShell()`
 - `defineTui()`, `runTui()`, `layoutWidget()`, `renderWidgetFrame()`,
   `diffFrames()`, `renderDiffAnsi()`, `renderFramePlain()`,
   `renderFrameAnsi()`, and `renderFrameDebug()`
@@ -22,7 +21,6 @@ The subpath entrypoints are:
 - `@ismail-elkorchi/terminal-ui/text`
 - `@ismail-elkorchi/terminal-ui/theme`
 - `@ismail-elkorchi/terminal-ui/prompts`
-- `@ismail-elkorchi/terminal-ui/shell`
 - `@ismail-elkorchi/terminal-ui/tui`
 - `@ismail-elkorchi/terminal-ui/widgets`
 - `@ismail-elkorchi/terminal-ui/accessibility`

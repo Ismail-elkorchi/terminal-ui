@@ -10,7 +10,6 @@ const requiredArtifacts = new Map([
   ['./terminal-capabilities.schema.json', 'terminal-ui.terminal-capabilities.v1'],
   ['./terminal-diagnostic.schema.json', 'terminal-ui.terminal-diagnostic.v1'],
   ['./prompt-result.schema.json', 'terminal-ui.prompt-result.v1'],
-  ['./shell-transcript.schema.json', 'terminal-ui.shell-transcript.v1'],
   ['./tui-frame.schema.json', 'terminal-ui.tui-frame.v1'],
   ['./render-diff.schema.json', 'terminal-ui.render-diff.v1']
 ]);

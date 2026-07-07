@@ -188,7 +188,7 @@ surface(stack([
 }));
 ```
 
-Use `surface()` for visual grouping and elevation, not for app-shell policy.
+Use `surface()` for visual grouping and elevation, not for app-frame policy.
 `variant: 'chrome'` is the lightest app-bar treatment and is borderless by
 default. `neutral` is an unframed content background. `raised`, `inset`,
 `selected`, `warning`, `danger`, and `success` are framed panel/dialog states.

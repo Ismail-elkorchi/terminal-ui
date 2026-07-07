@@ -52,7 +52,7 @@ test('package scripts do not keep generated fixture maintenance lanes', () => {
 test('terminal-ui source does not own low-level argv tokenization', async () => {
   const files = await sourceFiles(sourceRoot);
   const forbiddenPatterns = [
-    /\bsplitShellCommandLine\b/u,
+    /\bsplitCommandLine\b/u,
     /\bsplitArgv\b/u,
     /\btokenizeArgv\b/u,
     /\bcommand-line\.ts\b/u,

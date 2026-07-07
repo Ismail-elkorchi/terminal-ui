@@ -9,7 +9,6 @@ const requiredDocs = [
   'docs/guides/runtime-support.md',
   'docs/guides/text.md',
   'docs/guides/prompts.md',
-  'docs/guides/shell.md',
   'docs/guides/tui.md',
   'docs/guides/widgets.md',
   'docs/guides/rendering-internals.md',
@@ -28,7 +27,6 @@ const requiredDocs = [
 
 const executableExampleLinks = [
   'examples/prompts/non-tty-input.mjs',
-  'examples/shell/cli-core-shell.mjs',
   'examples/testing/harness.mjs',
   'examples/tui/interactive-workspace.mjs'
 ];

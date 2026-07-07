@@ -6,7 +6,6 @@ const entrypoints = [
   ['text', '../dist/text/index.js'],
   ['theme', '../dist/theme/index.js'],
   ['prompts', '../dist/prompts/index.js'],
-  ['shell', '../dist/shell/index.js'],
   ['tui', '../dist/tui/index.js'],
   ['widgets', '../dist/widgets/index.js'],
   ['accessibility', '../dist/accessibility/index.js'],
@@ -27,7 +26,6 @@ assertFunction(root.createTerminalHost, `${runtime}:createTerminalHost`);
 assertFunction(root.createDenoTerminalHost, `${runtime}:createDenoTerminalHost`);
 assertFunction(root.createBunTerminalHost, `${runtime}:createBunTerminalHost`);
 assertFunction(root.runPrompt, `${runtime}:runPrompt`);
-assertFunction(root.createShell, `${runtime}:createShell`);
 assertFunction(root.defineTui, `${runtime}:defineTui`);
 assertArray(root.terminalUiPackage.runtimeTargets, `${runtime}:runtimeTargets`);
 
