@@ -65,7 +65,7 @@ export function defaultStyleForSlot(slot: WidgetStyleSlot): TerminalStyle | unde
     case 'border':
       return themeStyle('surface.border');
     case 'title':
-      return themeStyle('text.strong', { bold: true });
+      return themeStyle('surface.title', { bold: true });
     case 'label':
       return themeStyle('text.strong');
     case 'placeholder':

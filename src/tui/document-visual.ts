@@ -32,17 +32,24 @@ export interface DocumentHighlightSpan extends RenderSpan {
   readonly matched?: boolean;
 }
 
+export interface DocumentSourceOptions {
+  readonly itemId?: string;
+  readonly itemIndex?: number;
+  readonly state?: string;
+}
+
 export function documentSpan(
   widget: Widget,
   kind: DocumentSurfaceKind,
   visual: DocumentVisualKind,
   label: string,
   text: string,
-  style?: TerminalStyle
+  style?: TerminalStyle,
+  sourceOptions: DocumentSourceOptions = {}
 ): RenderSpan {
   return span(text, {
     ...(style === undefined ? {} : { style }),
-    source: documentSource(widget, kind, visual, label)
+    source: documentSource(widget, kind, visual, label, sourceOptions)
   });
 }
 
@@ -54,6 +61,7 @@ export function documentHighlightSpans(input: {
   readonly text: string;
   readonly query: string;
   readonly baseStyle?: TerminalStyle | undefined;
+  readonly sourceOptions?: DocumentSourceOptions | undefined;
 }): readonly DocumentHighlightSpan[] {
   return highlightRenderSpans(input.text, input.query.trim(), {
     ...(input.baseStyle === undefined ? {} : { baseStyle: input.baseStyle }),
@@ -64,7 +72,8 @@ export function documentHighlightSpans(input: {
       input.widget,
       input.kind,
       current.matched === true ? 'match' : input.visual,
-      current.matched === true ? `${input.label}.match` : input.label
+      current.matched === true ? `${input.label}.match` : input.label,
+      input.sourceOptions
     )
   }));
 }
@@ -73,13 +82,15 @@ export function documentSource(
   widget: Widget,
   kind: DocumentSurfaceKind,
   visual: DocumentVisualKind,
-  label: string
+  label: string,
+  sourceOptions: DocumentSourceOptions = {}
 ): FrameCellSource {
   return widgetFrameSource(widget, {
     family: kind,
     role: roleForVisual(visual),
     part: label,
     partKind: visual,
+    ...sourceOptions,
     label
   });
 }
@@ -141,7 +152,8 @@ export function documentFieldSpans(
   field: WidgetFieldItem,
   labelWidth: number,
   selected = false,
-  kind: DocumentSurfaceKind = 'structuredBlock'
+  kind: DocumentSurfaceKind = 'structuredBlock',
+  sourceOptions: DocumentSourceOptions = {}
 ): readonly RenderSpan[] {
   const labelStyle = mergeStyles(
     widgetStyle(widget, 'label', selected ? 'selected' : undefined),
@@ -155,13 +167,21 @@ export function documentFieldSpans(
     : widgetStyle(widget, 'placeholder');
   const key = sourceToken(field.label);
   return [
-    documentSpan(widget, kind, 'field', `field.${key}.label`, field.label.padEnd(labelWidth), labelStyle),
-    documentSpan(widget, kind, 'separator', `field.${key}.separator`, ': ', separatorStyle),
-    documentSpan(widget, kind, 'field', `field.${key}.value`, field.value, valueStyle)
+    documentSpan(widget, kind, 'field', `field.${key}.label`, field.label.padEnd(labelWidth), labelStyle, sourceOptions),
+    documentSpan(widget, kind, 'separator', `field.${key}.separator`, ': ', separatorStyle, sourceOptions),
+    documentSpan(widget, kind, 'field', `field.${key}.value`, field.value, valueStyle, sourceOptions)
   ];
 }
 
+export function scrollbackTimestampStyle(widget: Widget): TerminalStyle | undefined {
+  return mergeStyles(widgetStyle(widget, 'placeholder'), themeStyle('log.timestamp'));
+}
+
 export function scrollbackMetadataStyle(widget: Widget): TerminalStyle | undefined {
+  return mergeStyles(widgetStyle(widget, 'placeholder'), themeStyle('log.metadata'));
+}
+
+export function scrollbackMetadataSeparatorStyle(widget: Widget): TerminalStyle | undefined {
   return widgetStyle(widget, 'placeholder');
 }
 

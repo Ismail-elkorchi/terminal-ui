@@ -1,6 +1,7 @@
 import { sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
 import { dataWindow, rowWindow } from './data-window.ts';
 import {
+  type DocumentSourceOptions,
   documentBodyStyle,
   documentDetailStyle,
   documentFieldSpans,
@@ -24,6 +25,8 @@ interface StructuredBlockRenderOptions {
   readonly widget: Widget;
   readonly kind: 'structuredBlock' | 'activityFeed';
   readonly selected: boolean;
+  readonly itemId?: string;
+  readonly itemIndex?: number;
 }
 
 export function structuredBlockText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
@@ -31,11 +34,13 @@ export function structuredBlockText(widget: Widget, node: LayoutNode, theme: Ter
 }
 
 export function structuredBlockBlock(widget: Widget, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+  const block = blockFromWidget(widget);
   return {
-    lines: structuredBlockLines(blockFromWidget(widget), theme, node.bounds.width, {
+    lines: structuredBlockLines(block, theme, node.bounds.width, {
       widget,
       kind: 'structuredBlock',
-      selected: false
+      selected: false,
+      itemId: block.id
     })
   };
 }
@@ -104,14 +109,24 @@ function activityFeedRows(widget: Widget, node: LayoutNode, theme: TerminalTheme
     const lines = structuredBlockLines(block, theme, Math.max(0, node.bounds.width - marker.length), {
       widget,
       kind: 'activityFeed',
-      selected: selectedRow
+      selected: selectedRow,
+      itemId: block.id,
+      itemIndex: index
     });
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
       if (rows.length >= node.bounds.height) return rows;
       const prefix = lineIndex === 0 ? marker : '  ';
       rows.push({
         spans: [
-          documentSpan(widget, 'activityFeed', 'marker', selectedRow ? 'selection.selected' : 'selection.unselected', prefix, documentMarkerStyle(widget, selectedRow)),
+          documentSpan(
+            widget,
+            'activityFeed',
+            'marker',
+            selectedRow ? 'selection.selected' : 'selection.unselected',
+            prefix,
+            documentMarkerStyle(widget, selectedRow),
+            sourceOptionsForBlock({ itemId: block.id, itemIndex: index, selected: selectedRow })
+          ),
           ...(lines[lineIndex]?.spans ?? [])
         ]
       });
@@ -325,27 +340,32 @@ function headerLine(
       'marker',
       collapsed ? 'toggle.collapsed' : 'toggle.expanded',
       collapsed ? theme.tokens.symbols.collapsed : theme.tokens.symbols.expanded,
-      documentMarkerStyle(options.widget, options.selected)
+      documentMarkerStyle(options.widget, options.selected),
+      sourceOptionsForBlock(options)
     )
   ];
   if (block.status !== undefined) {
     spans.push(
-      documentSpan(options.widget, options.kind, 'separator', 'status.separator', ' ', documentMarkerStyle(options.widget, options.selected)),
-      documentSpan(options.widget, options.kind, 'chrome', 'status.open', '[', documentStatusStyle(block.status)),
-      documentSpan(options.widget, options.kind, 'status', `status.${sourceToken(block.status)}`, block.status, documentStatusStyle(block.status)),
-      documentSpan(options.widget, options.kind, 'chrome', 'status.close', ']', documentStatusStyle(block.status))
+      documentSpan(options.widget, options.kind, 'separator', 'status.separator', ' ', documentMarkerStyle(options.widget, options.selected), sourceOptionsForBlock(options)),
+      documentSpan(options.widget, options.kind, 'chrome', 'status.open', '[', documentStatusStyle(block.status), sourceOptionsForBlock(options)),
+      documentSpan(options.widget, options.kind, 'status', `status.${sourceToken(block.status)}`, block.status, documentStatusStyle(block.status), sourceOptionsForBlock(options)),
+      documentSpan(options.widget, options.kind, 'chrome', 'status.close', ']', documentStatusStyle(block.status), sourceOptionsForBlock(options))
     );
   }
   spans.push(
-    documentSpan(options.widget, options.kind, 'separator', 'title.separator', ' ', documentMarkerStyle(options.widget, options.selected)),
-    documentSpan(options.widget, options.kind, 'title', 'title', block.title, documentTitleStyle(options.widget, block.style, options.selected))
+    documentSpan(options.widget, options.kind, 'separator', 'title.separator', ' ', documentMarkerStyle(options.widget, options.selected), sourceOptionsForBlock(options)),
+    documentSpan(options.widget, options.kind, 'title', 'title', block.title, documentTitleStyle(options.widget, block.style, options.selected), sourceOptionsForBlock(options))
   );
   return clipRenderLine({ spans }, Math.max(0, width), { ellipsis: '…', mode: 'middle' });
 }
 
 function fieldLine(field: WidgetFieldItem, labelWidth: number, width: number, options: StructuredBlockRenderOptions): RenderLine {
   return {
-    spans: clipRenderSpans(documentFieldSpans(options.widget, field, labelWidth, options.selected, options.kind), Math.max(0, width), { ellipsis: '…', mode: 'middle' })
+    spans: clipRenderSpans(
+      documentFieldSpans(options.widget, field, labelWidth, options.selected, options.kind, sourceOptionsForBlock(options)),
+      Math.max(0, width),
+      { ellipsis: '…', mode: 'middle' }
+    )
   };
 }
 
@@ -358,7 +378,11 @@ function compactTextLine(
   label: string
 ): RenderLine {
   return {
-    spans: clipRenderSpans([documentSpan(options.widget, options.kind, visual, label, text, style)], Math.max(0, width), { ellipsis: '…', mode: 'middle' })
+    spans: clipRenderSpans(
+      [documentSpan(options.widget, options.kind, visual, label, text, style, sourceOptionsForBlock(options))],
+      Math.max(0, width),
+      { ellipsis: '…', mode: 'middle' }
+    )
   };
 }
 
@@ -373,7 +397,7 @@ function wrappedTextLines(
   return text.split('\n').flatMap((line): RenderLine[] => {
     const wrapped = width > 0 ? wrapTextCells(line, width).map((item) => item.text) : [line];
     return wrapped.map((textLine) => ({
-      spans: [documentSpan(options.widget, options.kind, visual, label, textLine, style)]
+      spans: [documentSpan(options.widget, options.kind, visual, label, textLine, style, sourceOptionsForBlock(options))]
     }));
   });
 }
@@ -389,9 +413,9 @@ function detailTextLines(
   const prefix = 'Details';
   const detailText = text.length === 0 ? '' : text;
   const spans: RenderSpan[] = [
-    documentSpan(options.widget, options.kind, 'detail', 'details.label', prefix, style),
-    documentSpan(options.widget, options.kind, 'separator', 'details.separator', ': ', style),
-    documentSpan(options.widget, options.kind, 'detail', 'details.body', detailText, style)
+    documentSpan(options.widget, options.kind, 'detail', 'details.label', prefix, style, sourceOptionsForBlock(options)),
+    documentSpan(options.widget, options.kind, 'separator', 'details.separator', ': ', style, sourceOptionsForBlock(options)),
+    documentSpan(options.widget, options.kind, 'detail', 'details.body', detailText, style, sourceOptionsForBlock(options))
   ];
   const plain = spans.map((item) => item.text).join('');
   if (width <= 0 || plain.length <= width) return [{ spans }];
@@ -404,6 +428,18 @@ function maxFieldLabelWidth(fields: readonly WidgetFieldItem[]): number {
 
 function renderBlockText(block: RenderBlock): string {
   return block.lines.map((line) => line.spans.map((span) => span.text).join('')).join('\n');
+}
+
+function sourceOptionsForBlock(input: {
+  readonly itemId?: string;
+  readonly itemIndex?: number;
+  readonly selected?: boolean;
+}): DocumentSourceOptions {
+  return {
+    ...(input.itemId === undefined ? {} : { itemId: input.itemId }),
+    ...(input.itemIndex === undefined ? {} : { itemIndex: input.itemIndex }),
+    ...(input.selected === true ? { state: 'selected' } : {})
+  };
 }
 
 function cleanLine(value: string): string {

@@ -163,7 +163,9 @@ function renderNotificationCard(
         family: 'feedback',
         role: 'text',
         part: cardLine.kind,
+        partKind: 'notification',
         itemId: card.item.id,
+        state: card.selected ? `selected.${tone}` : tone,
         label: cardLine.kind
     });
     buffer.write(contentBounds.row + index, contentBounds.column, clipRenderSpans([{
@@ -235,6 +237,7 @@ function fillCardBackground(
         role: 'decoration',
         part: 'background',
         itemId: item.id,
+        state: selected ? `selected.${tone}` : tone,
         label: 'background'
       })
     }]);
@@ -258,20 +261,23 @@ function progressSpans(
       label: 'progress.filled',
       sourceId: item.id,
       role: 'decoration',
-      style: { fg: { kind: 'theme', token: foregroundToken(tone) }, bold: true }
+      style: { fg: { kind: 'theme', token: foregroundToken(tone) }, bold: true },
+      state: tone
     }),
     feedbackSpan(widget, theme.tokens.symbols.progressEmpty.repeat(barWidth - filled), {
       kind: 'notification',
       label: 'progress.empty',
       sourceId: item.id,
       role: 'decoration',
-      style: { fg: { kind: 'theme', token: 'text.muted' } }
+      style: { fg: { kind: 'theme', token: 'text.muted' } },
+      state: tone
     }),
     feedbackSpan(widget, ` ${String(progress)}%`, {
       kind: 'notification',
       label: 'progress.value',
       sourceId: item.id,
-      style: cardTextStyle(tone, false, selected)
+      style: cardTextStyle(tone, false, selected),
+      state: selected ? `selected.${tone}` : tone
     })
   ];
 }

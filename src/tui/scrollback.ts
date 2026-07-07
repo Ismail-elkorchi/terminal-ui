@@ -12,7 +12,9 @@ import {
   scrollbackSelectedStyle,
   scrollbackBodyStyle,
   scrollbackMetadataStyle,
+  scrollbackMetadataSeparatorStyle,
   scrollbackOmissionStyle,
+  scrollbackTimestampStyle,
   sourceToken
 } from './document-visual.ts';
 import { stringify } from './widget-props.ts';
@@ -181,7 +183,7 @@ function scrollbackRow(
   query: string,
   selection?: BodySelection
 ): ScrollbackVisibleRow {
-  const segments = scrollbackLineSpans(widget, item, lineIndex, text, query, selection);
+  const segments = scrollbackLineSpans(widget, item, itemIndex, lineIndex, text, query, selection);
   return {
     id: `${widget.id ?? 'scrollback'}:item:${String(itemIndex)}:line:${String(lineIndex)}`,
     text: segments.map((segment) => segment.text).join(''),
@@ -371,13 +373,14 @@ function matchedRowIndexes(rows: readonly ScrollbackVisibleRow[]): readonly numb
 function scrollbackLineSpans(
   widget: Widget,
   item: ScrollbackItem,
+  itemIndex: number,
   lineIndex: number,
   text: string,
   query: string,
   selection?: BodySelection
 ): readonly ScrollbackTextSegment[] {
   return lineIndex === 0 && text === displayTextForItem(item)
-    ? scrollbackFullLineSpans(widget, item, query, selection)
+    ? scrollbackFullLineSpans(widget, item, itemIndex, query, selection)
     : documentHighlightSpans({
         widget,
         kind: 'scrollback',
@@ -385,47 +388,54 @@ function scrollbackLineSpans(
         label: 'body',
         text,
         query,
-        baseStyle: scrollbackBodyStyle(widget, item.style, scrollbackLevel(item))
+        baseStyle: scrollbackBodyStyle(widget, item.style, scrollbackLevel(item)),
+        sourceOptions: sourceOptionsForItem(item, itemIndex)
       });
 }
 
 function scrollbackFullLineSpans(
   widget: Widget,
   item: ScrollbackItem,
+  itemIndex: number,
   query: string,
   selection?: BodySelection
 ): readonly ScrollbackTextSegment[] {
+  const timestampStyle = scrollbackTimestampStyle(widget);
   const metadataStyle = scrollbackMetadataStyle(widget);
+  const separatorStyle = scrollbackMetadataSeparatorStyle(widget);
   const spans: ScrollbackTextSegment[] = [];
   for (const timestamp of timestampText(item)) {
     appendGap(spans, widget);
-    spans.push(...timestampSpans(widget, timestamp, query, metadataStyle));
+    spans.push(...timestampSpans(widget, item, itemIndex, timestamp, query, timestampStyle, separatorStyle));
   }
   for (const [key, value] of metadataEntries(item.metadata)) {
     appendGap(spans, widget);
-    spans.push(...metadataSpans(widget, key, value, query, metadataStyle));
+    spans.push(...metadataSpans(widget, item, itemIndex, key, value, query, metadataStyle, separatorStyle));
   }
   appendGap(spans, widget);
-  spans.push(...bodySpans(widget, item, sanitizeTerminalText(item.text).text, query, selection));
+  spans.push(...bodySpans(widget, item, itemIndex, sanitizeTerminalText(item.text).text, query, selection));
   return spans.filter((span) => span.text.length > 0);
 }
 
 function appendGap(spans: ScrollbackTextSegment[], widget: Widget): void {
   if (spans.length === 0) return;
-  spans.push(documentSpan(widget, 'scrollback', 'separator', 'separator', ' ', scrollbackMetadataStyle(widget)));
+  spans.push(documentSpan(widget, 'scrollback', 'separator', 'separator', ' ', scrollbackMetadataSeparatorStyle(widget)));
 }
 
 function timestampSpans(
   widget: Widget,
+  item: ScrollbackItem,
+  itemIndex: number,
   timestamp: string,
   query: string,
-  style: ReturnType<typeof scrollbackMetadataStyle>
+  style: ReturnType<typeof scrollbackMetadataStyle>,
+  separatorStyle: ReturnType<typeof scrollbackMetadataSeparatorStyle>
 ): readonly ScrollbackTextSegment[] {
   const value = timestamp.startsWith('[') && timestamp.endsWith(']')
     ? timestamp.slice(1, -1)
     : timestamp;
   return [
-    documentSpan(widget, 'scrollback', 'chrome', 'timestamp.open', '[', style),
+    documentSpan(widget, 'scrollback', 'chrome', 'timestamp.open', '[', separatorStyle, sourceOptionsForItem(item, itemIndex)),
     ...documentHighlightSpans({
       widget,
       kind: 'scrollback',
@@ -433,18 +443,22 @@ function timestampSpans(
       label: 'timestamp.value',
       text: value,
       query,
-      baseStyle: style
+      baseStyle: style,
+      sourceOptions: sourceOptionsForItem(item, itemIndex)
     }),
-    documentSpan(widget, 'scrollback', 'chrome', 'timestamp.close', ']', style)
+    documentSpan(widget, 'scrollback', 'chrome', 'timestamp.close', ']', separatorStyle, sourceOptionsForItem(item, itemIndex))
   ];
 }
 
 function metadataSpans(
   widget: Widget,
+  item: ScrollbackItem,
+  itemIndex: number,
   key: string,
   value: string,
   query: string,
-  style: ReturnType<typeof scrollbackMetadataStyle>
+  style: ReturnType<typeof scrollbackMetadataStyle>,
+  separatorStyle: ReturnType<typeof scrollbackMetadataSeparatorStyle>
 ): readonly ScrollbackTextSegment[] {
   const token = sourceToken(key);
   return [
@@ -455,9 +469,10 @@ function metadataSpans(
       label: `metadata.${token}.key`,
       text: key,
       query,
-      baseStyle: style
+      baseStyle: style,
+      sourceOptions: sourceOptionsForItem(item, itemIndex)
     }),
-    documentSpan(widget, 'scrollback', 'separator', `metadata.${token}.separator`, '=', style),
+    documentSpan(widget, 'scrollback', 'separator', `metadata.${token}.separator`, '=', separatorStyle, sourceOptionsForItem(item, itemIndex)),
     ...documentHighlightSpans({
       widget,
       kind: 'scrollback',
@@ -465,7 +480,8 @@ function metadataSpans(
       label: `metadata.${token}.value`,
       text: value,
       query,
-      baseStyle: style
+      baseStyle: style,
+      sourceOptions: sourceOptionsForItem(item, itemIndex)
     })
   ];
 }
@@ -473,6 +489,7 @@ function metadataSpans(
 function bodySpans(
   widget: Widget,
   item: ScrollbackItem,
+  itemIndex: number,
   text: string,
   query: string,
   selection: BodySelection | undefined
@@ -486,7 +503,8 @@ function bodySpans(
       label: 'body',
       text,
       query,
-      baseStyle: itemStyle
+      baseStyle: itemStyle,
+      sourceOptions: sourceOptionsForItem(item, itemIndex)
     });
   }
   const start = Math.max(0, Math.min(text.length, selection.start));
@@ -514,9 +532,10 @@ function bodySpans(
       label: 'body',
       text: before,
       query,
-      baseStyle: itemStyle
+      baseStyle: itemStyle,
+      sourceOptions: sourceOptionsForItem(item, itemIndex)
     }),
-    documentSpan(widget, 'scrollback', 'marker', 'selection.open', '[', selectedStyle),
+    documentSpan(widget, 'scrollback', 'marker', 'selection.open', '[', selectedStyle, sourceOptionsForItem(item, itemIndex, 'selected')),
     ...documentHighlightSpans({
       widget,
       kind: 'scrollback',
@@ -524,9 +543,10 @@ function bodySpans(
       label: 'body.selection',
       text: selected,
       query,
-      baseStyle: scrollbackBodyStyle(widget, item.style, scrollbackLevel(item), true)
+      baseStyle: scrollbackBodyStyle(widget, item.style, scrollbackLevel(item), true),
+      sourceOptions: sourceOptionsForItem(item, itemIndex, 'selected')
     }),
-    documentSpan(widget, 'scrollback', 'marker', 'selection.close', ']', selectedStyle),
+    documentSpan(widget, 'scrollback', 'marker', 'selection.close', ']', selectedStyle, sourceOptionsForItem(item, itemIndex, 'selected')),
     ...documentHighlightSpans({
       widget,
       kind: 'scrollback',
@@ -534,9 +554,18 @@ function bodySpans(
       label: 'body',
       text: after,
       query,
-      baseStyle: itemStyle
+      baseStyle: itemStyle,
+      sourceOptions: sourceOptionsForItem(item, itemIndex)
     })
   ];
+}
+
+function sourceOptionsForItem(item: ScrollbackItem, itemIndex: number, state?: string) {
+  return {
+    itemId: item.id,
+    itemIndex,
+    ...(state === undefined ? {} : { state })
+  };
 }
 
 function scrollbackLevel(item: ScrollbackItem): ScrollbackItem['level'] {

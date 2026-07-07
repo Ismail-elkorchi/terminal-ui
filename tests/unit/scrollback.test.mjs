@@ -85,10 +85,15 @@ test('scrollback renders timestamp metadata and item style through visible rows'
   assert.deepEqual(window.rows[0]?.metadata, { source: 'worker', status: 'ok' });
   assert.equal(renderFramePlain(frame), '[10:30] source=worker status=ok Zulu');
   assert.equal(timestampCell?.source?.label, 'timestamp.open');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'timestamp.value')?.style?.fg?.token, 'log.timestamp');
   assert.equal(metadataCell?.source?.label, 'metadata.source.key');
+  assert.equal(metadataCell?.style?.fg?.token, 'log.metadata');
   assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.status.value')?.text, 'o');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.status.value')?.source?.itemId, 'meta-1');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.status.value')?.source?.itemIndex, 0);
   assert.deepEqual(styledCell?.style, { fg: { kind: 'theme', token: 'status.success' }, bold: true });
   assert.equal(styledCell?.source?.label, 'body');
+  assert.equal(styledCell?.source?.itemId, 'meta-1');
   assert.equal(frame.accessibility.root.children?.[0]?.value, '[10:30] source=worker status=ok Zulu');
 });
 

@@ -139,6 +139,8 @@ test('activityFeed renders selected visible blocks and accessible options', () =
   assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.label, 'selection.selected');
   assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.ownerKind, 'activityFeed');
   assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.label, 'title');
+  assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.itemId, 'running');
+  assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.state, 'selected');
   assert.equal(frame.cells.find((cell) => cell.text === 'R')?.style?.bg?.token, 'selection.background');
   assert.deepEqual(frame.accessibility.root.children?.map((node) => [node.id, node.selected]), [
     ['feed:block:queued', false],

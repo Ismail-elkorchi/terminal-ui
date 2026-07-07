@@ -501,8 +501,10 @@ test('feedback widgets use shared status styles and source metadata', () => {
   }), { columns: 32, rows: 1 });
 
   assert.equal(styleFor(statusFrame, 'R')?.fg?.token, 'status.success');
+  assert.equal(styleFor(statusFrame, 'R')?.bg?.token, 'surface.chrome.background');
   assert.equal(statusFrame.cells.find((cell) => cell.text === 'R')?.source?.ownerKind, 'statusBar');
   assert.equal(styleFor(helpFrame, 'E')?.fg?.token, 'accent.primary');
+  assert.equal(styleFor(helpFrame, 'o')?.bg?.token, 'surface.chrome.background');
   assert.equal(helpFrame.cells.find((cell) => cell.text === 'E')?.source?.label, 'binding.0.key');
   assert.equal(styleFor(activityFrame, '!')?.fg?.token, 'status.warning');
   assert.equal(activityFrame.cells.find((cell) => cell.text === '!')?.source?.label, 'status.marker');

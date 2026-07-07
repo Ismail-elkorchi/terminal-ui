@@ -25,6 +25,7 @@ export interface FeedbackSpanOptions {
   readonly style?: TerminalStyle | undefined;
   readonly role?: FrameSemanticRole | undefined;
   readonly sourceId?: string | undefined;
+  readonly state?: string | undefined;
 }
 
 export function statusBarBlock(widget: Widget): RenderBlock {
@@ -32,7 +33,7 @@ export function statusBarBlock(widget: Widget): RenderBlock {
     feedbackSpan(widget, stringify(widget.props['text']), {
       kind: 'statusBar',
       label: 'value',
-      style: widgetStyle(widget, 'value')
+      style: feedbackBarValueStyle(widget)
     })
   ])]);
 }
@@ -89,7 +90,7 @@ function helpBindingGroupSpans(
       kind: 'helpBar',
       label: `${bindingLabel}.separator`,
       role: 'separator',
-      style: widgetStyle(widget, 'placeholder')
+      style: feedbackBarSeparatorStyle(widget)
     })] : []),
     feedbackSpan(widget, binding.key, {
       kind: 'helpBar',
@@ -99,13 +100,14 @@ function helpBindingGroupSpans(
     feedbackSpan(widget, ` ${binding.label}`, {
       kind: 'helpBar',
       label: `${bindingLabel}.label`,
-      style: widgetStyle(widget, 'value')
+      style: feedbackBarValueStyle(widget)
     })
   ];
 }
 
 function helpKeyStyle(widget: Widget): TerminalStyle | undefined {
   return mergeStyles(
+    feedbackBarValueStyle(widget),
     {
       fg: { kind: 'theme', token: 'keyHint.foreground' },
       bg: { kind: 'theme', token: 'keyHint.background' },
@@ -127,11 +129,11 @@ function appendHelpOverflow(widget: Widget, fitted: RenderSpan[], maxCells: numb
     ? [marker]
     : [
         feedbackSpan(widget, '  ', {
-          kind: 'helpBar',
-          label: 'overflow.separator',
-          role: 'separator',
-          style: widgetStyle(widget, 'placeholder')
-        }),
+      kind: 'helpBar',
+      label: 'overflow.separator',
+      role: 'separator',
+      style: feedbackBarSeparatorStyle(widget)
+    }),
         marker
       ];
   if (measureRenderSpans([...fitted, ...separatedMarker]) <= maxCells) {
@@ -188,7 +190,8 @@ export function feedbackStatusMarkerSpan(
     kind,
     label,
     role: 'decoration',
-    style: statusStyle(status)
+    style: statusStyle(status),
+    state: status
   });
 }
 
@@ -234,12 +237,12 @@ function statusLineSpans(
       kind: input.kind,
       label: 'status.gap',
       role: 'separator',
-      style: widgetStyle(widget, 'placeholder')
+      style: feedbackBarSeparatorStyle(widget)
     }),
     feedbackSpan(widget, input.label, {
       kind: input.kind,
       label: 'label',
-      style: widgetStyle(widget, 'value')
+      style: feedbackBarValueStyle(widget)
     }),
     ...statusSuffixSpans(widget, input.kind, input.status, input.showRunningStatus)
   ];
@@ -257,7 +260,8 @@ function statusSuffixSpans(
     feedbackSpan(widget, status, {
       kind,
       label: 'status.value',
-      style: statusStyle(status)
+      style: statusStyle(status),
+      state: status
     }),
     feedbackStructureSpan(widget, ')', kind, 'status.close')
   ];
@@ -305,7 +309,26 @@ export function feedbackSpan(
       part: options.label,
       partKind: options.kind,
       ...(options.sourceId === undefined ? {} : { itemId: options.sourceId }),
+      ...(options.state === undefined ? {} : { state: options.state }),
       label: options.label
     })
   });
+}
+
+function feedbackBarValueStyle(widget: Widget): TerminalStyle | undefined {
+  return mergeStyles(
+    {
+      bg: { kind: 'theme', token: 'surface.chrome.background' }
+    },
+    widgetStyle(widget, 'value')
+  );
+}
+
+function feedbackBarSeparatorStyle(widget: Widget): TerminalStyle | undefined {
+  return mergeStyles(
+    {
+      bg: { kind: 'theme', token: 'surface.chrome.background' }
+    },
+    widgetStyle(widget, 'placeholder')
+  );
 }

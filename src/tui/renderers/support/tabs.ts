@@ -250,13 +250,13 @@ function tabHeaderStyle(
   if (state.selected && state.focused) {
     return mergeStyles(
       widgetStyle(widget, 'value', 'selected'),
-      themeStyle('tab.active.foreground'),
+      themeStyle('tab.active.foreground', { underline: true }),
       widget.styles?.selected,
       widgetStyle(widget, 'value', 'focused'),
       widget.styles?.focused
     );
   }
-  if (state.selected) return mergeStyles(widgetStyle(widget, 'value', 'selected'), themeStyle('tab.active.foreground'), widget.styles?.selected);
+  if (state.selected) return mergeStyles(widgetStyle(widget, 'value', 'selected'), themeStyle('tab.active.foreground', { underline: true }), widget.styles?.selected);
   if (state.focused) return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.value, widgetStyle(widget, 'value', 'focused'));
   return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.value);
 }
