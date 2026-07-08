@@ -21,8 +21,7 @@ const requiredDocs = [
   'docs/guides/transcript-replay.md',
   'docs/guides/non-tty.md',
   'docs/security.md',
-  'docs/guides/testing-harness.md',
-  'docs/guides/migration.md'
+  'docs/guides/testing-harness.md'
 ];
 
 const executableExampleLinks = [

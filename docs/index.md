@@ -44,7 +44,6 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 - [Non-TTY behavior](./guides/non-tty.md)
 - [Security and redaction](./security.md)
 - [Testing harness](./guides/testing-harness.md)
-- [Migration notes](./guides/migration.md)
 
 ## Boundaries
 
