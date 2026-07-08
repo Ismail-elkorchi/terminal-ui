@@ -47,7 +47,7 @@ export const feedbackRenderers = {
   },
   progressBar: {
     render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, progressBlock(widget, theme));
+      writeRenderBlock(buffer, node.bounds, progressBlock(widget, theme, node.bounds.width));
     },
     accessibility: ({ widget, id }) => progressAccessibleBase(widget, id)
   },

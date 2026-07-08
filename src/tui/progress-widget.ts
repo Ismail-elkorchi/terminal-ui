@@ -1,6 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
-import type { WidgetProcessStatus, ProgressBarLabelPosition, ProgressBarMode, Widget } from '../widgets/index.ts';
+import type { WidgetProcessStatus, ProgressBarLabelPosition, ProgressBarDisplay, Widget } from '../widgets/index.ts';
 import { indeterminateProgressFrame } from '../widgets/index.ts';
 import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -8,37 +8,37 @@ import { statusMarker, statusStyle } from './status-visual.ts';
 import { block, line } from './frame.ts';
 import { feedbackStatusMarkerSpan, feedbackStructureSpan, feedbackTextSpan } from './feedback-visual.ts';
 import { numberProp, stringify } from './widget-props.ts';
-import type { RenderBlock, TerminalStyle } from './frame.ts';
+import { measureRenderSpans } from './render-primitives.ts';
+import { normalizeValueScale, valueScaleStyle } from './value-scale.ts';
+import type { RenderBlock, RenderSpan, TerminalStyle } from './frame.ts';
+import type { NormalizedValueScaleStop } from './value-scale.ts';
 
 interface ProgressModel {
   readonly label: string;
-  readonly mode: ProgressBarMode;
+  readonly display: ProgressBarDisplay;
   readonly labelPosition: ProgressBarLabelPosition;
   readonly status: WidgetProcessStatus;
   readonly indeterminate: boolean;
   readonly value: number;
   readonly max: number;
   readonly barWidth: number;
-  readonly filled: number;
-  readonly showPercentage: boolean;
   readonly percentage: number;
   readonly frame: number;
+  readonly valueScale: readonly NormalizedValueScaleStop[];
   readonly elapsedMs?: number;
   readonly remainingMs?: number;
 }
 
-export function progressBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
+interface ProgressParts {
+  readonly label: boolean;
+  readonly value: boolean;
+  readonly percentage: boolean;
+  readonly timing: boolean;
+}
+
+export function progressBlock(widget: Widget, theme: TerminalTheme, maxCells?: number): RenderBlock {
   const model = progressModel(widget);
-  const content = [
-    ...progressStatusSpans(widget, model, theme),
-    ...(model.label.length > 0 && model.labelPosition === 'start' ? [feedbackTextSpan(widget, `${model.label} `, 'progressBar', 'label')] : []),
-    feedbackStructureSpan(widget, '[', 'progressBar', 'chrome.open', statusStyle('idle')),
-    ...progressBarSpans(widget, model, theme),
-    feedbackStructureSpan(widget, ']', 'progressBar', 'chrome.close', statusStyle('idle')),
-    ...progressMetricSpans(widget, model),
-    ...(model.label.length > 0 && model.labelPosition === 'end' ? [feedbackTextSpan(widget, ` ${model.label}`, 'progressBar', 'label')] : [])
-  ];
-  return block([line(content)]);
+  return block([line(fitProgressSpans(widget, model, theme, maxCells))]);
 }
 
 export function progressText(widget: Widget, theme: TerminalTheme): string {
@@ -67,17 +67,97 @@ export function progressAccessibleBase(widget: Widget, id: string): AccessibleNo
   };
 }
 
-function progressBarSpans(widget: Widget, model: ProgressModel, theme: TerminalTheme) {
+function fitProgressSpans(widget: Widget, model: ProgressModel, theme: TerminalTheme, maxCells: number | undefined): readonly RenderSpan[] {
+  if (maxCells !== undefined && maxCells <= 0) return [];
+  const initialParts = progressParts(model);
+  const candidates: readonly ProgressParts[] = [
+    initialParts,
+    { ...initialParts, label: false },
+    { ...initialParts, label: false, timing: false },
+    { ...initialParts, label: false, timing: false, value: false },
+    { ...initialParts, label: false, timing: false, value: false, percentage: false }
+  ];
+  for (const parts of candidates) {
+    const spans = progressSpans(widget, model, theme, parts, maxCells);
+    if (maxCells === undefined || measureRenderSpans(spans) <= maxCells) return spans;
+  }
+  return progressSpans(widget, model, theme, candidates.at(-1) ?? initialParts, maxCells);
+}
+
+function progressSpans(
+  widget: Widget,
+  model: ProgressModel,
+  theme: TerminalTheme,
+  parts: ProgressParts,
+  maxCells: number | undefined
+): readonly RenderSpan[] {
+  const barWidth = fittedBarWidth(widget, model, theme, parts, maxCells);
+  return [
+    ...progressStatusSpans(widget, model, theme),
+    ...(parts.label && model.label.length > 0 && model.labelPosition === 'start' ? [feedbackTextSpan(widget, `${model.label} `, 'progressBar', 'label')] : []),
+    feedbackStructureSpan(widget, '[', 'progressBar', 'chrome.open', statusStyle('idle')),
+    ...progressBarSpans(widget, model, theme, barWidth),
+    feedbackStructureSpan(widget, ']', 'progressBar', 'chrome.close', statusStyle('idle')),
+    ...progressMetricSpans(widget, model, parts),
+    ...(parts.label && model.label.length > 0 && model.labelPosition === 'end' ? [feedbackTextSpan(widget, ` ${model.label}`, 'progressBar', 'label')] : [])
+  ];
+}
+
+function fittedBarWidth(
+  widget: Widget,
+  model: ProgressModel,
+  theme: TerminalTheme,
+  parts: ProgressParts,
+  maxCells: number | undefined
+): number {
+  if (maxCells === undefined) return model.barWidth;
+  const withoutBar = [
+    ...progressStatusSpans(widget, model, theme),
+    ...(parts.label && model.label.length > 0 && model.labelPosition === 'start' ? [feedbackTextSpan(widget, `${model.label} `, 'progressBar', 'label')] : []),
+    feedbackStructureSpan(widget, '[', 'progressBar', 'chrome.open', statusStyle('idle')),
+    feedbackStructureSpan(widget, ']', 'progressBar', 'chrome.close', statusStyle('idle')),
+    ...progressMetricSpans(widget, model, parts),
+    ...(parts.label && model.label.length > 0 && model.labelPosition === 'end' ? [feedbackTextSpan(widget, ` ${model.label}`, 'progressBar', 'label')] : [])
+  ];
+  return Math.max(1, Math.min(model.barWidth, maxCells - measureRenderSpans(withoutBar)));
+}
+
+function progressParts(model: ProgressModel): ProgressParts {
+  return {
+    label: model.labelPosition !== 'none',
+    value: model.display === 'bar+value' || model.display === 'bar+value+percent',
+    percentage: model.display === 'bar+percent' || model.display === 'bar+value+percent',
+    timing: model.elapsedMs !== undefined || model.remainingMs !== undefined
+  };
+}
+
+function progressBarSpans(widget: Widget, model: ProgressModel, theme: TerminalTheme, barWidth: number) {
   if (model.indeterminate) {
-    return indeterminateProgressFrame(model.frame, model.barWidth).cells.map((cell) =>
+    return indeterminateProgressFrame(model.frame, barWidth).cells.map((cell) =>
       cell.active
-        ? feedbackStructureSpan(widget, theme.tokens.symbols.progressFilled, 'progressBar', 'progress.active', progressFillStyle(model.status))
-        : feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty, 'progressBar', 'progress.empty', progressTrackStyle())
+        ? feedbackStructureSpan(widget, theme.tokens.symbols.progressFilled, 'progressBar', 'active', progressFillStyle(model.status))
+        : feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty, 'progressBar', 'track', progressTrackStyle())
     );
   }
+  const filled = Math.round((model.value / model.max) * barWidth);
+  if (model.valueScale.length === 0) {
+    return [
+      feedbackStructureSpan(widget, theme.tokens.symbols.progressFilled.repeat(filled), 'progressBar', 'filled', progressFillStyle(model.status)),
+      feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty.repeat(barWidth - filled), 'progressBar', 'track', progressTrackStyle())
+    ];
+  }
   return [
-    feedbackStructureSpan(widget, theme.tokens.symbols.progressFilled.repeat(model.filled), 'progressBar', 'progress.filled', progressFillStyle(model.status)),
-    feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty.repeat(model.barWidth - model.filled), 'progressBar', 'progress.empty', progressTrackStyle())
+    ...Array.from({ length: filled }, (_, index) => {
+      const segmentValue = ((index + 1) / Math.max(1, barWidth)) * model.max;
+      return feedbackStructureSpan(
+        widget,
+        theme.tokens.symbols.progressFilled,
+        'progressBar',
+        `segment.${String(index)}.filled`,
+        valueScaleStyle(segmentValue, { min: 0, max: model.max }, model.valueScale, progressFillStyle(model.status))
+      );
+    }),
+    feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty.repeat(barWidth - filled), 'progressBar', 'track', progressTrackStyle())
   ];
 }
 
@@ -89,18 +169,12 @@ function progressStatusSpans(widget: Widget, model: ProgressModel, theme: Termin
   ];
 }
 
-function progressMetricSpans(widget: Widget, model: ProgressModel) {
-  if (model.indeterminate) return timingSpans(widget, model);
-  if (model.mode === 'compact') {
-    return [
-      ...(model.showPercentage ? [feedbackTextSpan(widget, ` ${String(model.percentage)}%`, 'progressBar', 'metric.percentage')] : []),
-      ...timingSpans(widget, model)
-    ];
-  }
+function progressMetricSpans(widget: Widget, model: ProgressModel, parts: ProgressParts) {
+  if (model.indeterminate) return parts.timing ? timingSpans(widget, model) : [];
   return [
-    feedbackTextSpan(widget, ` ${String(model.value)}/${String(model.max)}`, 'progressBar', 'metric.value'),
-    ...(model.showPercentage ? [feedbackTextSpan(widget, ` ${String(model.percentage)}%`, 'progressBar', 'metric.percentage')] : []),
-    ...timingSpans(widget, model)
+    ...(parts.value ? [feedbackTextSpan(widget, ` ${String(model.value)}/${String(model.max)}`, 'progressBar', 'value')] : []),
+    ...(parts.percentage ? [feedbackTextSpan(widget, ` ${String(model.percentage)}%`, 'progressBar', 'percentage')] : []),
+    ...(parts.timing ? timingSpans(widget, model) : [])
   ];
 }
 
@@ -129,17 +203,16 @@ function progressModel(widget: Widget): ProgressModel {
   const percentage = max === 0 ? 0 : Math.round((value / max) * 100);
   return {
     label: sanitizeTerminalText(stringify(widget.props['label'])).text,
-    mode: progressMode(widget.props['mode']),
+    display: progressDisplay(widget.props['display']),
     labelPosition: progressLabelPosition(widget.props['labelPosition']),
     status: normalizeWidgetProcessStatus(widget.props['status'], 'running'),
     indeterminate,
     value,
     max,
     barWidth,
-    filled: indeterminate ? 0 : Math.round((value / max) * barWidth),
-    showPercentage: widget.props['showPercentage'] === true,
     percentage,
     frame: Math.floor(numberProp(widget, 'frame') ?? 0),
+    valueScale: normalizeValueScale(widget.props['valueScale']),
     ...durationProp('elapsedMs', widget.props['elapsedMs']),
     ...durationProp('remainingMs', widget.props['remainingMs'])
   };
@@ -147,7 +220,7 @@ function progressModel(widget: Widget): ProgressModel {
 
 function timingSpans(widget: Widget, model: ProgressModel) {
   const text = timingText(model);
-  return text.length === 0 ? [] : [feedbackTextSpan(widget, ` ${text}`, 'progressBar', 'metric.timing')];
+  return text.length === 0 ? [] : [feedbackTextSpan(widget, ` ${text}`, 'progressBar', 'timing')];
 }
 
 function progressDescription(model: ProgressModel): { readonly description?: string } {
@@ -188,8 +261,13 @@ function boundedBarWidth(value: number | undefined): number {
   return Math.max(1, Math.min(120, Math.floor(value)));
 }
 
-function progressMode(value: unknown): ProgressBarMode {
-  return value === 'compact' ? 'compact' : 'full';
+function progressDisplay(value: unknown): ProgressBarDisplay {
+  return value === 'bar'
+    || value === 'bar+percent'
+    || value === 'bar+value'
+    || value === 'bar+value+percent'
+    ? value
+    : 'bar+value';
 }
 
 function progressLabelPosition(value: unknown): ProgressBarLabelPosition {

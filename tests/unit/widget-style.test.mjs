@@ -496,7 +496,7 @@ test('feedback widgets use shared status styles and source metadata', () => {
     value: 2,
     max: 4,
     barWidth: 4,
-    showPercentage: true,
+    display: 'bar+value+percent',
     status: 'error'
   }), { columns: 32, rows: 1 });
 
@@ -513,7 +513,7 @@ test('feedback widgets use shared status styles and source metadata', () => {
   assert.equal(spinnerFrame.cells.find((cell) => cell.text === '✓')?.source?.label, 'status.marker');
   assert.equal(spinnerFrame.cells.find((cell) => cell.text === 'L')?.style?.fg?.token, 'text.default');
   assert.equal(styleFor(progressFrame, '█')?.fg?.token, 'status.error');
-  assert.equal(progressFrame.cells.find((cell) => cell.text === '█')?.source?.label, 'progress.filled');
+  assert.equal(progressFrame.cells.find((cell) => cell.text === '█')?.source?.label, 'filled');
 });
 
 test('record and notification widgets use shared semantic status contracts', () => {

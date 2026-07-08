@@ -1,5 +1,5 @@
 import type { Widget } from '../../../widgets/index.ts';
-import { borderStyleFromValue } from '../../border.ts';
+import { borderStyleFromValue, borderTitleText } from '../../border.ts';
 import { stringify } from '../../widget-props.ts';
 import { mergeStyles, widgetStyle } from '../../widget-style.ts';
 import type { BorderStyle } from '../../border.ts';
@@ -37,7 +37,8 @@ function modalBorderStyle(widget: Widget): TerminalStyle | undefined {
 export function modalLabel(widget: Widget): string {
   const title = stringify(widget.props['title']);
   if (title.length > 0) return title;
-  return borderStyleFromValue(widget.props['border'])?.title ?? '';
+  const borderTitle = borderStyleFromValue(widget.props['border'])?.title;
+  return borderTitleText(borderTitle);
 }
 
 export function borderContentBounds(bounds: Rect, border: BorderStyle): Rect {

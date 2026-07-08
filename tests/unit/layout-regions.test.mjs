@@ -487,6 +487,31 @@ test('modal centers a bounded dialog and lays out child content inside the borde
   assert.match(rendered, /inside/u);
 });
 
+test('modal accessibility label derives from structured border titles', () => {
+  const spanTitleFrame = renderWidgetFrame(modal(text('inside', { id: 'inside' }), {
+    id: 'span-dialog',
+    border: { kind: 'single', title: [{ text: 'Span' }, { text: ' title' }] },
+    width: 18,
+    height: 5
+  }), { columns: 30, rows: 9 });
+  const railTitleFrame = renderWidgetFrame(modal(text('inside', { id: 'inside' }), {
+    id: 'rail-dialog',
+    border: {
+      kind: 'single',
+      title: {
+        start: [{ text: 'Start' }],
+        center: 'Center',
+        end: [{ text: 'End' }]
+      }
+    },
+    width: 26,
+    height: 5
+  }), { columns: 34, rows: 9 });
+
+  assert.equal(spanTitleFrame.accessibility.root.label, 'Span title');
+  assert.equal(railTitleFrame.accessibility.root.label, 'Start Center End');
+});
+
 test('modal reserves a structurally separated action area without color', () => {
   const widget = modal(text('Modal body', { id: 'body' }), {
     id: 'dialog',

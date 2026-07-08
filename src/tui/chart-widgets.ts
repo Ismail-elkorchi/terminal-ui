@@ -1,10 +1,12 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import {
   chartAxisStyle,
+  chartBaselineStyle,
   chartHeatmapStyle,
   chartLabelStyle,
   chartMetricStyle,
   chartPlaceholderStyle,
+  chartPolarityStyle,
   chartSelectedStyle,
   chartSeriesStyle,
   chartSpan,
@@ -14,20 +16,29 @@ import {
   chartTextFromBlock,
   chartValueStyle
 } from './chart-visual.ts';
-import { createCanvas2D, drawLineSeries } from './canvas2d/index.ts';
+import { createCanvas2D, drawAreaSeries, drawLineSeries } from './canvas2d/index.ts';
 import { createFrameBuffer } from './frame-buffer.ts';
 import { numberProp } from './widget-props.ts';
+import { normalizeValueScale, valueScaleStyle } from './value-scale.ts';
 import { visibleWindow } from './visible-window.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { BarChartItem, ChartPointEvent, ChartSeries, HeatmapCell, Widget } from '../widgets/index.ts';
+import type { BarChartItem, ChartInterpolation, ChartPointEvent, ChartSampleAlign, ChartSampleMode, ChartSeries, HeatmapCell, Widget } from '../widgets/index.ts';
 import type { LayoutNode, Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
+import type { NormalizedValueScaleStop } from './value-scale.ts';
 import type { HitTarget } from './widget-renderer.ts';
 
 const sparkGlyphs = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'] as const;
 const heatmapGlyphs = [' ', '░', '▒', '▓', '█'] as const;
+
+interface ProjectedChartPoint {
+  readonly point: number;
+  readonly sourcePosition: number;
+  readonly column: number;
+  readonly value: number;
+}
 
 export function sparklineBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
   const values = numberArray(widget.props['values']);
@@ -39,6 +50,7 @@ export function sparklineBlock(widget: Widget, theme: TerminalTheme): RenderBloc
   });
   if (state !== undefined) return state;
   const range = rangeFor(values, numberProp(widget, 'min'), numberProp(widget, 'max'));
+  const scale = normalizeValueScale(widget.props['valueScale']);
   return {
     lines: [{
       spans: values.map((value, index) => chartSpan(
@@ -47,7 +59,7 @@ export function sparklineBlock(widget: Widget, theme: TerminalTheme): RenderBloc
         'point',
         `point.${String(index)}`,
         sparkGlyph(value, range),
-        chartSeriesStyle(widget, 0)
+        valueScaleStyle(value, range, scale, chartSeriesStyle(widget, 0))
       ))
     }]
   };
@@ -151,6 +163,7 @@ export function chartBlock(widget: Widget, node: LayoutNode, theme: TerminalThem
   const layout = chartLayout(widget, node.bounds);
   if (layout.plotHeight <= 0 || layout.plotWidth <= 0) return chartChromeBlock(widget, node.bounds.width);
   const range = rangeFor(points, numberProp(widget, 'min'), numberProp(widget, 'max'));
+  const widgetScale = normalizeValueScale(widget.props['valueScale']);
   const buffer = createFrameBuffer(node.bounds.width, node.bounds.height);
   writeChartChrome(buffer, widget, node.bounds.width);
   const canvas = createCanvas2D(buffer, {
@@ -159,20 +172,44 @@ export function chartBlock(widget: Widget, node: LayoutNode, theme: TerminalThem
     width: layout.plotWidth,
     height: layout.plotHeight
   });
+  if (usesSignedDomain(widget) && range.min < 0 && range.max > 0) {
+    canvas.line(0, yForValue(0, range, layout.plotHeight), Math.max(0, layout.plotWidth - 1), yForValue(0, range, layout.plotHeight), chartSpan(
+      widget,
+      'chart',
+      'baseline',
+      'baseline.zero',
+      '─',
+      chartBaselineStyle(widget)
+    ));
+  }
   for (const [seriesIndex, item] of series.entries()) {
-    const visible = item.points.slice(0, layout.plotWidth);
+    const visible = projectChartSeries(widget, item, layout.plotWidth);
     const glyph = seriesGlyph(item);
     const seriesStyle = chartSeriesStyle(widget, seriesIndex);
-    if (item.kind === 'scatter') {
-      visible.forEach((value, column) => {
+    const seriesScale = chartSeriesScale(item, widgetScale);
+    if (item.kind === 'area' || item.kind === 'bar') {
+      drawFilledChartSeries(canvas, widget, item, visible, range, layout.plotHeight, glyph, seriesStyle, seriesScale, usesSignedDomain(widget));
+    } else if (item.kind === 'scatter') {
+      visible.forEach((projected) => {
+        const signed = usesSignedDomain(widget);
+        const polarity = polarityForValue(projected.value);
         canvas.point(
-          column,
-          yForValue(value, range, layout.plotHeight),
-          chartSpan(widget, 'chart', 'point', `series.${item.id}.point`, glyph, seriesStyle)
+          projected.column,
+          yForValue(projected.value, range, layout.plotHeight),
+          chartSpan(
+            widget,
+            'chart',
+            'point',
+            signed ? `series.${item.id}.${polarity}.point` : `series.${item.id}.point`,
+            glyph,
+            chartPointStyle(projected.value, range, seriesScale, signed ? chartPolarityStyle(widget, polarity) : seriesStyle)
+          )
         );
       });
+    } else if (usesSignedDomain(widget) || seriesScale.length > 0) {
+      drawSegmentedChartLine(canvas, widget, item, visible, range, layout.plotHeight, glyph, seriesStyle, seriesScale, usesSignedDomain(widget));
     } else {
-      drawLineSeries(canvas, visible.map((value, column) => ({ x: column, y: value })), {
+      drawLineSeries(canvas, visible.map((projected) => ({ x: projected.column, y: projected.value })), {
         yScale: { domain: [range.min, range.max], range: [layout.plotHeight - 1, 0] },
         span: chartSpan(widget, 'chart', 'line', `series.${item.id}.line`, glyph, seriesStyle)
       });
@@ -188,6 +225,86 @@ export function chartBlock(widget: Widget, node: LayoutNode, theme: TerminalThem
     }
   }
   return frameBufferBlock(buffer, node.bounds.width, node.bounds.height);
+}
+
+function drawFilledChartSeries(
+  canvas: ReturnType<typeof createCanvas2D>,
+  widget: Widget,
+  item: ChartSeries,
+  visible: readonly ProjectedChartPoint[],
+  range: { readonly min: number; readonly max: number },
+  height: number,
+  glyph: string,
+  fallback: ReturnType<typeof chartSeriesStyle>,
+  scale: readonly NormalizedValueScaleStop[],
+  signed: boolean
+): void {
+  if (visible.length === 0) return;
+  const kind = item.kind === 'bar' ? 'bar' : 'area';
+  const baseline = signed && range.min < 0 && range.max > 0
+    ? yForValue(0, range, height)
+    : Math.max(0, height - 1);
+  for (const projected of visible) {
+    const polarity = polarityForValue(projected.value);
+    drawAreaSeries(canvas, [{ x: projected.column, y: projected.value }], {
+      yScale: { domain: [range.min, range.max], range: [height - 1, 0] },
+      baseline,
+      span: chartSpan(
+        widget,
+        'chart',
+        kind,
+        signed ? `series.${item.id}.${polarity}.${kind}` : `series.${item.id}.${kind}`,
+        glyph,
+        chartPointStyle(projected.value, range, scale, signed ? chartPolarityStyle(widget, polarity) : fallback)
+      )
+    });
+  }
+}
+
+function drawSegmentedChartLine(
+  canvas: ReturnType<typeof createCanvas2D>,
+  widget: Widget,
+  item: ChartSeries,
+  visible: readonly ProjectedChartPoint[],
+  range: { readonly min: number; readonly max: number },
+  height: number,
+  glyph: string,
+  fallback: ReturnType<typeof chartSeriesStyle>,
+  scale: readonly NormalizedValueScaleStop[],
+  signed: boolean
+): void {
+  if (visible.length === 0) return;
+  if (visible.length === 1) {
+    const projected = visible[0];
+    if (projected === undefined) return;
+    const polarity = polarityForValue(projected.value);
+    canvas.point(projected.column, yForValue(projected.value, range, height), chartSpan(
+      widget,
+      'chart',
+      'point',
+      signed ? `series.${item.id}.${polarity}.point` : `series.${item.id}.point`,
+      glyph,
+      chartPointStyle(projected.value, range, scale, signed ? chartPolarityStyle(widget, polarity) : fallback)
+    ));
+    return;
+  }
+  for (let index = 1; index < visible.length; index += 1) {
+    const previous = visible[index - 1];
+    const current = visible[index];
+    if (previous === undefined || current === undefined) continue;
+    const polarity = polarityForValue(current.value);
+    drawLineSeries(canvas, [{ x: previous.column, y: previous.value }, { x: current.column, y: current.value }], {
+      yScale: { domain: [range.min, range.max], range: [height - 1, 0] },
+      span: chartSpan(
+        widget,
+        'chart',
+        'line',
+        signed ? `series.${item.id}.${polarity}.line` : `series.${item.id}.line`,
+        glyph,
+        chartPointStyle(current.value, range, scale, signed ? chartPolarityStyle(widget, polarity) : fallback)
+      )
+    });
+  }
 }
 
 export function chartText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
@@ -223,17 +340,19 @@ export function chartHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect
   const points = series.flatMap((item) => item.points);
   if (points.length === 0) return [];
   const range = rangeFor(points, numberProp(widget, 'min'), numberProp(widget, 'max'));
-  return series.flatMap((item) => item.points.flatMap((value, point): HitTarget<TMessage>[] => {
-    const position = chartPointPosition(widget, bounds, item.id, point, range);
-    if (position === undefined) return [];
+  const layout = chartLayout(widget, bounds);
+  if (layout.plotHeight <= 0 || layout.plotWidth <= 0) return [];
+  return series.flatMap((item) => projectChartSeries(widget, item, layout.plotWidth).flatMap((projected): HitTarget<TMessage>[] => {
+    const row = bounds.row + layout.plotRow - 1 + yForValue(projected.value, range, layout.plotHeight);
+    const column = bounds.column + projected.column;
     return [{
-      id: `${widget.id ?? 'chart'}:${item.id}:${String(point)}`,
-      bounds: { row: position.row, column: position.column, width: 1, height: 1 },
+      id: `${widget.id ?? 'chart'}:${item.id}:${String(projected.column)}`,
+      bounds: { row, column, width: 1, height: 1 },
       message: () => toMessage({
         series: item.id,
         ...(item.label === undefined ? {} : { seriesLabel: item.label }),
-        point,
-        value
+        point: projected.point,
+        value: projected.value
       }),
       cursor: 'pointer'
     }];
@@ -246,6 +365,7 @@ export function gaugeBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
   const max = Math.max(min + 1, numberProp(widget, 'max') ?? 100);
   const width = boundedInteger(numberProp(widget, 'width'), 4, 40, 12);
   const ratio = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  if (gaugeVariant(widget) === 'dial') return gaugeDialBlock(widget, ratio, width);
   const filled = Math.round(ratio * width);
   const empty = Math.max(0, width - filled);
   const label = cleanLabel(widget.props['label']);
@@ -271,6 +391,52 @@ export function gaugeBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
       ]
     }]
   };
+}
+
+function gaugeDialBlock(widget: Widget, ratio: number, width: number): RenderBlock {
+  const innerWidth = Math.max(4, width);
+  const filled = Math.round(ratio * innerWidth);
+  const empty = Math.max(0, innerWidth - filled);
+  const label = cleanLabel(widget.props['label']);
+  const status = chartStatus(widget.props['status']);
+  const valueText = `${String(Math.round(ratio * 100))}%`;
+  const markerColumn = Math.max(0, Math.min(innerWidth - 1, Math.round(ratio * (innerWidth - 1))));
+  const marker = `${' '.repeat(markerColumn)}▲${' '.repeat(Math.max(0, innerWidth - markerColumn - 1))}`;
+  return {
+    lines: [
+      ...(label.length === 0 ? [] : [{
+        spans: [chartSpan(widget, 'gauge', 'label', 'dial.label', label, chartLabelStyle(widget))]
+      }]),
+      {
+        spans: [
+          chartSpan(widget, 'gauge', 'chrome', 'dial.open', '╭', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'gauge', 'fill', 'dial.filled', '─'.repeat(filled), chartMetricStyle(widget, status)),
+          chartSpan(widget, 'gauge', 'fill', 'dial.empty', '─'.repeat(empty), chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'gauge', 'chrome', 'dial.close', '╮', chartPlaceholderStyle(widget))
+        ]
+      },
+      {
+        spans: [
+          chartSpan(widget, 'gauge', 'chrome', 'dial.side.left', '│', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'gauge', 'marker', 'dial.needle', marker, chartMetricStyle(widget, status)),
+          chartSpan(widget, 'gauge', 'chrome', 'dial.side.right', '│', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'gauge', 'separator', 'dial.separator.beforeValue', ' ', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'gauge', 'metric', 'dial.value', valueText, chartValueStyle(widget))
+        ]
+      },
+      {
+        spans: [
+          chartSpan(widget, 'gauge', 'chrome', 'dial.bottom.open', '╰', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'gauge', 'chrome', 'dial.bottom.edge', '─'.repeat(innerWidth), chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'gauge', 'chrome', 'dial.bottom.close', '╯', chartPlaceholderStyle(widget))
+        ]
+      }
+    ]
+  };
+}
+
+function gaugeVariant(widget: Widget): 'linear' | 'dial' {
+  return widget.props['variant'] === 'dial' ? 'dial' : 'linear';
 }
 
 export function gaugeText(widget: Widget, theme: TerminalTheme): string {
@@ -304,6 +470,7 @@ export function heatmapBlock(widget: Widget, node: LayoutNode, theme: TerminalTh
   const gap = heatmapGap(widget);
   const range = heatmapRange(rows, numberProp(widget, 'min'), numberProp(widget, 'max'));
   const selected = heatmapSelected(widget);
+  const scale = normalizeValueScale(widget.props['valueScale']);
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
   return {
     lines: rows.slice(rowWindow.start, rowWindow.end).map((row, rowOffset): RenderLine => {
@@ -314,6 +481,9 @@ export function heatmapBlock(widget: Widget, node: LayoutNode, theme: TerminalTh
         ]),
         ...heatmapCellSpans(widget, rowIndex, columnIndex, {
           cellWidth,
+          value: cell.value,
+          range,
+          scale,
           intensity: normalizedIndex(cell.value, range, heatmapGlyphs.length - 1),
           selected: selected?.row === rowIndex && selected.column === columnIndex
         })
@@ -427,9 +597,106 @@ function chartSeries(value: unknown): readonly ChartSeries[] {
     id: sanitizeTerminalText(item.id).text,
     ...(item.label === undefined ? {} : { label: sanitizeTerminalText(item.label).text }),
     points: numberArray(item.points),
-    ...(item.kind === 'scatter' ? { kind: item.kind } : {}),
-    ...(typeof item.glyph === 'string' ? { glyph: sanitizeTerminalText(item.glyph).text } : {})
+    ...(isChartSeriesKind(item.kind) ? { kind: item.kind } : {}),
+    ...(typeof item.glyph === 'string' ? { glyph: sanitizeTerminalText(item.glyph).text } : {}),
+    ...(Array.isArray(item.valueScale) ? { valueScale: normalizeValueScale(item.valueScale) } : {}),
+    ...(isChartSampleMode(item.sampleMode) ? { sampleMode: item.sampleMode } : {}),
+    ...(isChartSampleAlign(item.sampleAlign) ? { sampleAlign: item.sampleAlign } : {}),
+    ...(isChartInterpolation(item.interpolation) ? { interpolation: item.interpolation } : {})
   }));
+}
+
+function isChartSeriesKind(value: unknown): value is NonNullable<ChartSeries['kind']> {
+  return value === 'line' || value === 'scatter' || value === 'area' || value === 'bar';
+}
+
+function isChartSampleMode(value: unknown): value is ChartSampleMode {
+  return value === 'one-per-column' || value === 'fit' || value === 'window';
+}
+
+function isChartSampleAlign(value: unknown): value is ChartSampleAlign {
+  return value === 'start' || value === 'end';
+}
+
+function isChartInterpolation(value: unknown): value is ChartInterpolation {
+  return value === 'nearest' || value === 'linear';
+}
+
+function projectChartSeries(widget: Widget, item: ChartSeries, plotWidth: number): readonly ProjectedChartPoint[] {
+  if (plotWidth <= 0 || item.points.length === 0) return [];
+  const mode = chartSeriesSampleMode(widget, item);
+  if (mode === 'fit') return fitChartSeries(widget, item, plotWidth);
+  const count = Math.min(item.points.length, plotWidth);
+  const align = mode === 'window' ? chartSeriesSampleAlign(widget, item) : 'start';
+  const pointStart = align === 'end' ? Math.max(0, item.points.length - count) : 0;
+  const columnStart = align === 'end' ? Math.max(0, plotWidth - count) : 0;
+  return Array.from({ length: count }, (_, index) => {
+    const point = pointStart + index;
+    return {
+      point,
+      sourcePosition: point,
+      column: columnStart + index,
+      value: item.points[point] ?? 0
+    };
+  });
+}
+
+function fitChartSeries(widget: Widget, item: ChartSeries, plotWidth: number): readonly ProjectedChartPoint[] {
+  if (plotWidth <= 0 || item.points.length === 0) return [];
+  if (plotWidth === 1 || item.points.length === 1) {
+    const point = chartSeriesSampleAlign(widget, item) === 'end' ? item.points.length - 1 : 0;
+    return [{ point, sourcePosition: point, column: 0, value: item.points[point] ?? 0 }];
+  }
+  const interpolation = chartSeriesInterpolation(widget, item);
+  return Array.from({ length: plotWidth }, (_value, column) => {
+    const position = (column / Math.max(1, plotWidth - 1)) * (item.points.length - 1);
+    const point = Math.max(0, Math.min(item.points.length - 1, Math.round(position)));
+    return {
+      point,
+      sourcePosition: position,
+      column,
+      value: interpolation === 'linear' ? interpolatedChartValue(item.points, position) : item.points[point] ?? 0
+    };
+  });
+}
+
+function interpolatedChartValue(points: readonly number[], position: number): number {
+  const leftIndex = Math.max(0, Math.min(points.length - 1, Math.floor(position)));
+  const rightIndex = Math.max(0, Math.min(points.length - 1, Math.ceil(position)));
+  const left = points[leftIndex] ?? 0;
+  const right = points[rightIndex] ?? left;
+  if (leftIndex === rightIndex) return left;
+  return left + (right - left) * (position - leftIndex);
+}
+
+function chartSeriesSampleMode(widget: Widget, item: ChartSeries): ChartSampleMode {
+  return item.sampleMode ?? (isChartSampleMode(widget.props['sampleMode']) ? widget.props['sampleMode'] : 'one-per-column');
+}
+
+function chartSeriesSampleAlign(widget: Widget, item: ChartSeries): ChartSampleAlign {
+  return item.sampleAlign ?? (isChartSampleAlign(widget.props['sampleAlign']) ? widget.props['sampleAlign'] : 'start');
+}
+
+function chartSeriesInterpolation(widget: Widget, item: ChartSeries): ChartInterpolation {
+  return item.interpolation ?? (isChartInterpolation(widget.props['interpolation']) ? widget.props['interpolation'] : 'nearest');
+}
+
+function chartSeriesScale(
+  item: ChartSeries,
+  fallback: readonly NormalizedValueScaleStop[]
+): readonly NormalizedValueScaleStop[] {
+  return Array.isArray(item.valueScale) && item.valueScale.length > 0
+    ? normalizeValueScale(item.valueScale)
+    : fallback;
+}
+
+function chartPointStyle(
+  value: number,
+  range: { readonly min: number; readonly max: number },
+  scale: readonly NormalizedValueScaleStop[],
+  fallback: ReturnType<typeof chartSeriesStyle>
+): ReturnType<typeof chartSeriesStyle> {
+  return valueScaleStyle(value, range, scale, fallback);
 }
 
 function chartLayout(widget: Widget, bounds: Rect): {
@@ -494,7 +761,16 @@ function chartFooterBlock(widget: Widget, width: number): RenderBlock {
 
 function seriesGlyph(series: ChartSeries): string {
   const glyph = cleanLabel(series.glyph);
-  return glyph.length === 0 ? '*' : glyph.slice(0, 2);
+  if (glyph.length > 0) return glyph.slice(0, 2);
+  return series.kind === 'area' || series.kind === 'bar' ? '█' : '*';
+}
+
+function usesSignedDomain(widget: Widget): boolean {
+  return widget.props['signedDomain'] === true;
+}
+
+function polarityForValue(value: number): 'positive' | 'negative' {
+  return value < 0 ? 'negative' : 'positive';
 }
 
 function selectedChartPoint(
@@ -523,11 +799,34 @@ function chartPointPosition(
   if (series === undefined) return undefined;
   const value = series.points[point];
   const layout = chartLayout(widget, bounds);
-  if (value === undefined || point >= layout.plotWidth || layout.plotHeight <= 0) return undefined;
+  if (value === undefined || layout.plotHeight <= 0 || layout.plotWidth <= 0) return undefined;
+  const projected = selectedProjectedPoint(widget, series, layout.plotWidth, point);
+  if (projected === undefined) return undefined;
   return {
-    row: bounds.row + layout.plotRow - 1 + yForValue(value, range, layout.plotHeight),
-    column: bounds.column + point
+    row: bounds.row + layout.plotRow - 1 + yForValue(projected.value, range, layout.plotHeight),
+    column: bounds.column + projected.column
   };
+}
+
+function selectedProjectedPoint(
+  widget: Widget,
+  series: ChartSeries,
+  plotWidth: number,
+  point: number
+): ProjectedChartPoint | undefined {
+  const projected = projectChartSeries(widget, series, plotWidth);
+  if (chartSeriesSampleMode(widget, series) !== 'fit') return projected.find((current) => current.point === point);
+  return nearestProjectedPoint(projected, point);
+}
+
+function nearestProjectedPoint(
+  projected: readonly ProjectedChartPoint[],
+  point: number
+): ProjectedChartPoint | undefined {
+  return projected.reduce<ProjectedChartPoint | undefined>((best, current) => {
+    if (best === undefined) return current;
+    return Math.abs(current.sourcePosition - point) < Math.abs(best.sourcePosition - point) ? current : best;
+  }, undefined);
 }
 
 function yForValue(value: number, range: { readonly min: number; readonly max: number }, height: number): number {
@@ -571,13 +870,21 @@ function heatmapCellSpans(
   columnIndex: number,
   options: {
     readonly cellWidth: number;
+    readonly value: number;
+    readonly range: { readonly min: number; readonly max: number };
+    readonly scale: readonly NormalizedValueScaleStop[];
     readonly intensity: number;
     readonly selected: boolean;
   }
 ): readonly RenderSpan[] {
   const glyph = heatmapGlyphs[options.intensity] ?? heatmapGlyphs[0];
   const id = `cell.${String(rowIndex)}.${String(columnIndex)}`;
-  const cellStyle = chartHeatmapStyle(widget, options.intensity, options.selected);
+  const cellStyle = valueScaleStyle(
+    options.value,
+    options.range,
+    options.scale,
+    chartHeatmapStyle(widget, options.intensity, options.selected)
+  );
   if (!options.selected) {
     return [chartSpan(widget, 'heatmap', 'cell', `${id}.value`, glyph.repeat(options.cellWidth), cellStyle)];
   }

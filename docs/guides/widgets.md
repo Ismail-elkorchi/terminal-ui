@@ -100,8 +100,11 @@ const dialog = modal(text('Save changes?'), {
 `progressBar()` exposes a `progressbar` node, clamps determinate values into
 range, and marks omitted values or `indeterminate: true` as indeterminate
 progress. Its visual model supports determinate and indeterminate bars,
-compact or full metrics, caller-selected bar width, label placement,
-percentage display, and semantic status tone.
+caller-selected bar width, label placement, semantic status tone, and explicit
+display policies: `bar`, `bar+percent`, `bar+value`, and
+`bar+value+percent`. Progress bars fit themselves to the actual rendered width,
+preserving useful bar anatomy in narrow bounds instead of relying on arbitrary
+string clipping.
 
 `richText()` accepts styled text segments and renders sanitized display text.
 `textArea()` provides a bounded multi-line text surface with cursor,
@@ -174,18 +177,25 @@ extraction without mutating the terminal clipboard.
 
 `list()` supports selected rows, caller-provided filters, and explicit
 `ScrollState`. `table()` supports fixed, fill, percent, and content column
-widths, sticky headers, row and cell selection, shared horizontal and vertical
-scroll state, alignment, truncation markers, styled cells, per-column renderers,
-sort indicators, hidden columns, and empty states. `tree()` renders expandable
-nested data with selected paths, disabled nodes, filtering, lazy placeholders,
-icons, metadata matching, row mouse targets, clipping, and accessible expanded
-state;
+widths, normal and dense spacing, text/metric/metadata column semantics, sticky
+headers, row and cell selection, shared horizontal and vertical scroll state,
+alignment, truncation markers, styled cells, per-column renderers, sort
+indicators, hidden columns, and empty states. `tree()` renders expandable nested
+data with selected paths, disabled nodes, filtering, lazy placeholders, icons,
+metadata matching, row mouse targets, clipping, and accessible expanded state;
 use the pure `treeReducer()` helper for expansion state. `paginator()` renders
 normalized page state and pairs with the pure `paginationWindow()` helper.
 `sparkline()`, `barChart()`, `chart()`, `gauge()`, and `heatmap()` are bounded
 text-dashboard primitives for compact terminal metrics. `chart()` supports line
-and scatter series, legends, axis labels, selected points, and hit targets;
-`heatmap()` exposes selectable cells and accessible table-like cell metadata.
+scatter, area, and bar series, legends, axis labels, selected points, hit
+targets, and signed domains with a zero baseline plus positive/negative
+polarity styling. Chart series can render one point per column, a raw
+start/end-aligned window, or a fitted projection across the available plot
+width with nearest or linear interpolation. `sparkline()`, `chart()`,
+`heatmap()`, and `progressBar()` can share a generic value scale for
+low/medium/high/critical visual ramps. `gauge()` supports linear and dial
+variants; `heatmap()` exposes selectable cells and accessible table-like cell
+metadata.
 
 `structuredBlock()` renders a single titled record with optional summary,
 status, fields, body, details, and collapsed state. `activityFeed()` renders a
@@ -231,9 +241,12 @@ child.
 `surface()` and `modal()` use the shared border model, including single,
 double, rounded, heavy, ascii, and borderless variants. Surface variants provide
 neutral, raised, inset, selected, warning, danger, and success hierarchy without
-requiring a border for every visual distinction. Border titles can align to the
-start, center, or end, and focused bordered widgets can use a focused border
-style. `tabs()` renders selected, inactive, disabled, badge, close, focus, and
+requiring a border for every visual distinction. Surface titles can be plain
+strings or structured render spans, while `label` remains the stable accessible
+name when the visual title needs richer anatomy. Border titles can align to the
+start, center, or end; structured title rails can place independent start,
+center, and end content in one border line for dense chrome. Focused bordered
+widgets can use a focused border style. `tabs()` renders selected, inactive, disabled, badge, close, focus, and
 overflow anatomy, keeps the selected tab visible when the header overflows, and
 lays out only the selected panel so hidden panels do not participate in focus
 traversal. Tab selection, dirty state, close behavior, and activation policy

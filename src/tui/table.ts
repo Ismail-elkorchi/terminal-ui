@@ -9,8 +9,10 @@ import type {
   TableCellRenderInput,
   TableColumn,
   TableColumnAlignment,
+  TableColumnSemantic,
   TablePointerSelection,
   TableColumnWidth,
+  TableDensity,
   Widget
 } from '../widgets/index.ts';
 import type { Rect } from './layout.ts';
@@ -24,6 +26,7 @@ interface NormalizedColumn {
   readonly header?: string;
   readonly width?: TableColumnWidth;
   readonly align: TableColumnAlignment;
+  readonly semantic: TableColumnSemantic;
   readonly style?: TerminalStyle;
   readonly headerStyle?: TerminalStyle;
   readonly render?: (input: TableCellRenderInput) => string | RenderSpan | readonly RenderSpan[];
@@ -41,25 +44,31 @@ interface TableWindow {
   readonly omittedAfter: number;
 }
 
+interface TableSpacing {
+  readonly marker: number;
+  readonly separator: number;
+}
+
 export function tableBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const rows = tableRows(widget);
   const columns = tableColumns(widget, rows);
+  const spacing = tableSpacing(widget);
   const hasHeader = columns.some((column) => column.header !== undefined);
   const headerHeight = hasHeader && widget.props['stickyHeader'] !== false ? 1 : 0;
   const bodyHeight = Math.max(0, bounds.height - headerHeight);
   const selected = selectedTableRow(widget);
   const window = tableWindow(widget, rows, bodyHeight, selected);
-  const widths = columnWidths(columns, rows, Math.max(1, bounds.width - 2));
+  const widths = columnWidths(columns, rows, Math.max(1, bounds.width - spacing.marker), spacing);
   const lines: RenderLine[] = [];
   if (hasHeader && headerHeight > 0) {
-    lines.push(scrolledLine(headerLine(widget, columns, widths), window.horizontalOffset, bounds.width));
+    lines.push(scrolledLine(headerLine(widget, columns, widths, spacing), window.horizontalOffset, bounds.width));
   }
   if (rows.length === 0 && bodyHeight > 0) {
-    lines.push(scrolledLine(emptyLine(widget), window.horizontalOffset, bounds.width));
+    lines.push(scrolledLine(emptyLine(widget, spacing), window.horizontalOffset, bounds.width));
   } else {
     lines.push(...window.rows.map((row, visibleIndex) => {
       const rowIndex = window.start + visibleIndex;
-      return scrolledLine(rowLine(widget, row, rowIndex, columns, widths, rowIndex === window.selected, selectedTableCell(widget), theme), window.horizontalOffset, bounds.width);
+      return scrolledLine(rowLine(widget, row, rowIndex, columns, widths, rowIndex === window.selected, selectedTableCell(widget), theme, spacing), window.horizontalOffset, bounds.width);
     }));
   }
   return { lines: lines.slice(0, bounds.height) };
@@ -164,12 +173,13 @@ export function tableHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect
   if (toMessage === undefined) return [];
   const rows = tableRows(widget);
   const columns = tableColumns(widget, rows);
+  const spacing = tableSpacing(widget);
   const hasHeader = columns.some((column) => column.header !== undefined);
   const headerHeight = hasHeader && widget.props['stickyHeader'] !== false ? 1 : 0;
   const bodyHeight = Math.max(0, bounds.height - headerHeight);
   const selected = selectedTableRow(widget);
   const window = tableWindow(widget, rows, bodyHeight, selected);
-  const widths = columnWidths(columns, rows, Math.max(1, bounds.width - 2));
+  const widths = columnWidths(columns, rows, Math.max(1, bounds.width - spacing.marker), spacing);
   const selectedCell = selectedTableCell(widget);
   return window.rows.flatMap((row, visibleIndex): HitTarget<TMessage>[] => {
     const rowIndex = window.start + visibleIndex;
@@ -180,7 +190,7 @@ export function tableHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect
       height: 1
     };
     if (selectedCell !== undefined) {
-      return tableCellHitTargets(widget, row, rowIndex, columns, widths, rowBounds, window.horizontalOffset, toMessage);
+      return tableCellHitTargets(widget, row, rowIndex, columns, widths, rowBounds, window.horizontalOffset, spacing, toMessage);
     }
     return [{
       id: `${widget.id ?? 'table'}:row:${String(rowIndex)}`,
@@ -199,11 +209,12 @@ function tableCellHitTargets<TMessage>(
   widths: readonly number[],
   rowBounds: Rect,
   horizontalOffset: number,
+  spacing: TableSpacing,
   toMessage: (selection: TablePointerSelection) => TMessage
 ): HitTarget<TMessage>[] {
-  let lineColumn = 2;
+  let lineColumn = spacing.marker;
   return columns.flatMap((column, visibleColumnIndex): HitTarget<TMessage>[] => {
-    const separator = visibleColumnIndex === 0 ? 0 : 2;
+    const separator = visibleColumnIndex === 0 ? 0 : spacing.separator;
     const cellStart = lineColumn + separator;
     const cellWidth = widths[visibleColumnIndex] ?? 1;
     lineColumn = cellStart + cellWidth;
@@ -254,24 +265,30 @@ function tableWindow(widget: Widget, rows: readonly unknown[], bodyHeight: numbe
   };
 }
 
-function headerLine(widget: Widget, columns: readonly NormalizedColumn[], widths: readonly number[]): RenderLine {
+function headerLine(widget: Widget, columns: readonly NormalizedColumn[], widths: readonly number[], spacing: TableSpacing): RenderLine {
   const decorationStyle = widgetStyle(widget, 'placeholder');
-  const spans: RenderSpan[] = [dataSpan('  ', decorationStyle, tableSource(widget, 'header.leading', undefined, 'decoration'))];
+  const spans: RenderSpan[] = [dataSpan(' '.repeat(spacing.marker), decorationStyle, tableSource(widget, 'header.marker', undefined, 'decoration'))];
   columns.forEach((column, index) => {
-    if (index > 0) spans.push(dataSpan('  ', decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
+    if (index > 0) spans.push(dataSpan(' '.repeat(spacing.separator), decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
     const headerStyle = mergeStyles(themeStyle('table.header', { bold: true }), widget.styles?.title, column.headerStyle);
     const headerSourceId = `${widget.id ?? 'table'}:header:${String(column.index)}`;
     const label = column.header ?? '';
     const labelSpans: RenderSpan[] = [
-      ...(label.length === 0 ? [] : [dataSpan(label, headerStyle, tableSource(widget, `header.${String(column.index)}.label`, headerSourceId))])
+      ...(label.length === 0 ? [] : [dataSpan(label, headerStyle, tableSource(widget, `header.${String(column.index)}.label`, headerSourceId, 'text', {
+        partKind: 'header'
+      }))])
     ];
     const sort = sortMarker(column.sort);
     if (sort.length > 0) {
-      labelSpans.push(dataSpan(sort, headerStyle, tableSource(widget, `header.${String(column.index)}.sort`, headerSourceId, 'decoration')));
+      labelSpans.push(dataSpan(sort, headerStyle, tableSource(widget, `header.${String(column.index)}.sort`, headerSourceId, 'decoration', {
+        partKind: 'sort'
+      })));
     }
     const resize = resizeMarker(column);
     if (resize.length > 0) {
-      labelSpans.push(dataSpan(resize, headerStyle, tableSource(widget, `header.${String(column.index)}.resize`, headerSourceId, 'decoration')));
+      labelSpans.push(dataSpan(resize, headerStyle, tableSource(widget, `header.${String(column.index)}.resize`, headerSourceId, 'decoration', {
+        partKind: 'resize'
+      })));
     }
     spans.push(...cellSpans(
       labelSpans,
@@ -293,7 +310,8 @@ function rowLine(
   widths: readonly number[],
   selected: boolean,
   selectedCell: { readonly row: number; readonly column: number } | undefined,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  spacing: TableSpacing
 ): RenderLine {
   const selectedStyle = selected ? widgetStyle(widget, 'value', 'selected') : undefined;
   const decorationStyle = selectedStyle ?? widgetStyle(widget, 'placeholder');
@@ -303,10 +321,13 @@ function rowLine(
     selected,
     theme,
     selectedStyle,
-    tableSource(widget, `row.${String(rowIndex)}.marker`, rowSourceId, 'decoration')
+    tableSource(widget, `row.${String(rowIndex)}.marker`, rowSourceId, 'decoration', {
+      partKind: 'marker',
+      ...(selected ? { state: 'selected' } : {})
+    })
   )];
   columns.forEach((column, columnIndex) => {
-    if (columnIndex > 0) spans.push(dataSpan('  ', decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
+    if (columnIndex > 0) spans.push(dataSpan(' '.repeat(spacing.separator), decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
     const cellSourceId = `${widget.id ?? 'table'}:row:${String(rowIndex)}:cell:${String(column.index)}`;
     const rendered = renderCell(
       widget,
@@ -314,7 +335,10 @@ function rowLine(
       rowIndex,
       column,
       columnIndex,
-      tableSource(widget, `row.${String(rowIndex)}.cell.${String(column.index)}`, cellSourceId)
+      tableSource(widget, `row.${String(rowIndex)}.cell.${String(column.index)}`, cellSourceId, 'text', {
+        partKind: column.semantic,
+        ...(selected ? { state: 'selected' } : {})
+      })
     );
     const cellSelectedStyle = selectedCell?.row === rowIndex && selectedCell.column === columnIndex
       ? mergeDataStyles(selectedStyle, widgetStyle(widget, 'value', 'active'))
@@ -324,18 +348,21 @@ function rowLine(
       widths[columnIndex] ?? 1,
       column.align,
       cellSelectedStyle,
-      tableSource(widget, `row.${String(rowIndex)}.cell.${String(column.index)}.padding`, cellSourceId, 'decoration'),
+      tableSource(widget, `row.${String(rowIndex)}.cell.${String(column.index)}.padding`, cellSourceId, 'decoration', {
+        partKind: 'padding',
+        ...(selected ? { state: 'selected' } : {})
+      }),
       cellSelectedStyle ?? widgetStyle(widget, 'placeholder')
     ));
   });
   return { spans };
 }
 
-function emptyLine(widget: Widget): RenderLine {
+function emptyLine(widget: Widget, spacing: TableSpacing): RenderLine {
   const emptyText = clean(stringify(widget.props['emptyText'])) || 'No rows';
   return {
     spans: [
-      dataSpan('  ', widgetStyle(widget, 'placeholder'), tableSource(widget, 'empty.leading', undefined, 'decoration')),
+      dataSpan(' '.repeat(spacing.marker), widgetStyle(widget, 'placeholder'), tableSource(widget, 'empty.marker', undefined, 'decoration')),
       dataSpan(emptyText, widgetStyle(widget, 'placeholder'), tableSource(widget, 'empty'))
     ]
   };
@@ -350,11 +377,17 @@ function renderCell(
   fallbackSource: FrameCellSource
 ): readonly RenderSpan[] {
   const value = rowCell(row, column.index);
-  const fallbackStyle = mergeDataStyles(widgetStyle(widget, 'value'), column.style);
+  const fallbackStyle = mergeDataStyles(tableSemanticStyle(widget, column.semantic), column.style);
   if (column.render !== undefined) {
     return renderResultToSpans(column.render({ value, row, rowIndex, columnIndex }), fallbackStyle, fallbackSource);
   }
   return [dataSpan(displayValue(value), fallbackStyle, fallbackSource)];
+}
+
+function tableSemanticStyle(widget: Widget, semantic: TableColumnSemantic): TerminalStyle | undefined {
+  if (semantic === 'metric') return mergeDataStyles(widgetStyle(widget, 'value'), themeStyle('table.metric'));
+  if (semantic === 'metadata') return mergeDataStyles(widgetStyle(widget, 'placeholder'), themeStyle('table.metadata', { dim: true }));
+  return widgetStyle(widget, 'value');
 }
 
 function renderResultToSpans(
@@ -447,9 +480,9 @@ function scrolledLine(line: RenderLine, offsetCells: number, width: number): Ren
   return { spans };
 }
 
-function columnWidths(columns: readonly NormalizedColumn[], rows: readonly unknown[], availableWidth: number): readonly number[] {
+function columnWidths(columns: readonly NormalizedColumn[], rows: readonly unknown[], availableWidth: number, spacing: TableSpacing): readonly number[] {
   if (columns.length === 0) return [];
-  const separators = Math.max(0, columns.length - 1) * 2;
+  const separators = Math.max(0, columns.length - 1) * spacing.separator;
   const widthBudget = Math.max(columns.length, availableWidth - separators);
   const base = columns.map((column) => intrinsicColumnWidth(column, rows));
   const fixed = columns.map((column, index) => explicitWidth(column.width, widthBudget, base[index] ?? 1));
@@ -500,7 +533,7 @@ function tableColumns(widget: Widget, rows: readonly unknown[]): readonly Normal
   const configured = Array.isArray(raw) ? raw.flatMap((column, index) => normalizeColumn(column, index)) : [];
   if (configured.length > 0) return configured;
   const count = rows.reduce<number>((max, row) => Math.max(max, rowCells(row).length), 0);
-  return Array.from({ length: count }, (_value, index) => ({ index, align: 'start' }));
+  return Array.from({ length: count }, (_value, index) => ({ index, align: 'start', semantic: 'text' }));
 }
 
 function normalizeColumn(column: unknown, index: number): readonly NormalizedColumn[] {
@@ -512,17 +545,35 @@ function normalizeColumn(column: unknown, index: number): readonly NormalizedCol
   const render = column['render'];
   const sort = column['sort'];
   const width = normalizeWidth(column['width']);
+  const normalizedAlign: TableColumnAlignment = align === 'center' || align === 'end' ? align : 'start';
+  const semantic = normalizeColumnSemantic(column['semantic'], normalizedAlign);
   return [{
     index,
     ...(typeof header === 'string' ? { header: clean(header) } : {}),
     ...(width === undefined ? {} : { width }),
-    align: align === 'center' || align === 'end' ? align : 'start',
+    align: normalizedAlign,
+    semantic,
     ...(isTerminalStyle(style) ? { style } : {}),
     ...(isTerminalStyle(headerStyle) ? { headerStyle } : {}),
     ...(isCellRenderer(render) ? { render } : {}),
     ...(sort === 'ascending' || sort === 'descending' ? { sort } : {}),
     ...(column['resizable'] === true ? { resizable: true } : {})
   }];
+}
+
+function tableSpacing(widget: Widget): TableSpacing {
+  return tableDensity(widget.props['density']) === 'dense'
+    ? { marker: 2, separator: 1 }
+    : { marker: 2, separator: 2 };
+}
+
+function tableDensity(value: unknown): TableDensity {
+  return value === 'dense' ? 'dense' : 'normal';
+}
+
+function normalizeColumnSemantic(value: unknown, align: TableColumnAlignment): TableColumnSemantic {
+  if (value === 'metric' || value === 'metadata' || value === 'text') return value;
+  return align === 'end' ? 'metric' : 'text';
 }
 
 function normalizeWidth(value: unknown): TableColumnWidth | undefined {
@@ -617,9 +668,19 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function tableSource(widget: Widget, label: string, id?: string, role: FrameCellSource['role'] = 'text'): FrameCellSource {
+function tableSource(
+  widget: Widget,
+  label: string,
+  id?: string,
+  role: FrameCellSource['role'] = 'text',
+  options: {
+    readonly partKind?: string;
+    readonly state?: string;
+  } = {}
+): FrameCellSource {
   return dataSource(widget, label, {
     ...(id === undefined ? {} : { itemId: id }),
-    role
+    role,
+    ...options
   });
 }

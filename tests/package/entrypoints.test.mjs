@@ -82,6 +82,7 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.canvasTransform, 'function');
   assert.equal(typeof terminalUi.transformCanvasPoint, 'function');
   assert.equal(typeof terminalUi.drawLineSeries, 'function');
+  assert.equal(typeof terminalUi.drawAreaSeries, 'function');
   assert.equal(typeof terminalUi.drawBarSeries, 'function');
   assert.equal(typeof terminalUi.drawAxes, 'function');
   assert.equal(typeof terminalUi.ellipseStrokePoints, 'function');
@@ -337,7 +338,11 @@ test('root declaration exposes primary public type contracts', async () => {
     'ChartPoint',
     'ChartPointEvent',
     'ChartPointSelection',
+    'ChartInterpolation',
+    'ChartSampleAlign',
+    'ChartSampleMode',
     'ChartAxesOptions',
+    'AreaSeriesOptions',
     'ChartSeriesKind',
     'StrokeFillOptions',
     'CanvasPoint',
@@ -364,7 +369,9 @@ test('root declaration exposes primary public type contracts', async () => {
     'TableCellPointerSelection',
     'TableAction',
     'TableColumnAlignment',
+    'TableColumnSemantic',
     'TableColumnWidth',
+    'TableDensity',
     'TableReducerOptions',
     'TableSortState',
     'TableState',
@@ -403,7 +410,9 @@ test('root declaration exposes primary public type contracts', async () => {
     'PaginatorWidgetOptions',
     'ProgressCompletionState',
     'ProgressBarLabelPosition',
-    'ProgressBarMode',
+    'ProgressBarDisplay',
+    'ValueScale',
+    'ValueScaleStop',
     'HelpBarWidgetOptions',
     'ActivityIndicatorWidgetOptions',
     'SparklineWidgetOptions',

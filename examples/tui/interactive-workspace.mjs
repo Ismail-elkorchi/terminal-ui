@@ -413,7 +413,7 @@ function inspectorSurface(state) {
         label: 'resolved',
         value: resolvedCount(),
         max: tickets.length,
-        showPercentage: true
+        display: 'bar+percent'
       })
     ], { id: 'inspector-status-stack', gap: 0 }),
     button({

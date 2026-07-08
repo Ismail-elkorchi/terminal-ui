@@ -175,6 +175,48 @@ test('surface variants draw semantic background border and shadow without owning
   assert.deepEqual(shadowCell?.style?.fg, { kind: 'theme', token: 'surface.shadow' });
 });
 
+test('surface titles can preserve structured span style and source metadata', () => {
+  const frame = renderWidgetFrame(surface(text('body', { id: 'body' }), {
+    id: 'metric-panel',
+    title: [
+      { text: 'cpu', style: { fg: { kind: 'theme', token: 'chart.label' } } },
+      { text: ' 38%', style: { fg: { kind: 'theme', token: 'chart.value' } } }
+    ],
+    border: { kind: 'single' },
+    variant: 'inset'
+  }), { columns: 16, rows: 3 });
+  const titleLabel = frame.cells.find((cell) => cell.text === 'c' && cell.source?.partKind === 'title');
+  const titleMetric = frame.cells.find((cell) => cell.text === '3' && cell.source?.partKind === 'title');
+
+  assert.match(renderFramePlain(frame).split('\n')[0] ?? '', /cpu 38%/u);
+  assert.equal(titleLabel?.source?.ownerKind, 'surface');
+  assert.equal(titleLabel?.source?.label, 'title.0');
+  assert.equal(titleLabel?.style?.fg?.token, 'chart.label');
+  assert.equal(titleMetric?.source?.label, 'title.1');
+  assert.equal(titleMetric?.style?.fg?.token, 'chart.value');
+});
+
+test('surface title rails render start center and end zones in the border line', () => {
+  const frame = renderWidgetFrame(surface(text('body', { id: 'rail-body' }), {
+    id: 'rail-surface',
+    title: {
+      start: [{ text: 'cpu', style: { fg: { kind: 'theme', token: 'surface.title' } } }],
+      center: [{ text: 'btop', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }],
+      end: [{ text: 'BAT 84%', style: { fg: { kind: 'theme', token: 'chart.value' } } }]
+    },
+    border: { kind: 'single' },
+    variant: 'chrome'
+  }), { columns: 40, rows: 3 });
+  const titleLine = renderFramePlain(frame).split('\n')[0] ?? '';
+
+  assert.match(titleLine, /cpu/u);
+  assert.match(titleLine, /btop/u);
+  assert.match(titleLine, /BAT 84%/u);
+  assert.equal(frame.cells.find((cell) => cell.text === 'c')?.source?.label, 'title.start.0');
+  assert.equal(frame.cells.find((cell) => cell.text === 'b')?.style?.fg?.token, 'accent.primary');
+  assert.equal(frame.cells.find((cell) => cell.text === 'B')?.style?.fg?.token, 'chart.value');
+});
+
 test('surface variants reserve border content space while plain surfaces stay transparent', () => {
   const neutral = renderWidgetFrame(surface(text('neutral', { id: 'neutral-inner' }), {
     id: 'neutral',

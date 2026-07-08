@@ -12,7 +12,9 @@ import { mergeStyles, themeStyle } from './widget-style.ts';
 export type ChartSurfaceKind = 'sparkline' | 'barChart' | 'chart' | 'gauge' | 'heatmap';
 export type ChartStateKind = 'empty' | 'loading' | 'error';
 export type ChartVisualKind =
+  | 'area'
   | 'axis'
+  | 'baseline'
   | 'bar'
   | 'cell'
   | 'chrome'
@@ -123,6 +125,17 @@ export function chartAxisStyle(widget: Widget): TerminalStyle | undefined {
   return mergeStyles(themeStyle('chart.axis', { dim: true }), widget.styles?.border);
 }
 
+export function chartBaselineStyle(widget: Widget): TerminalStyle | undefined {
+  return mergeStyles(themeStyle('chart.baseline', { dim: true }), widget.styles?.border);
+}
+
+export function chartPolarityStyle(widget: Widget, polarity: 'positive' | 'negative'): TerminalStyle | undefined {
+  return mergeStyles(
+    themeStyle(polarity === 'positive' ? 'chart.positive' : 'chart.negative', { bold: true }),
+    widget.styles?.value
+  );
+}
+
 export function chartSeriesStyle(widget: Widget, index: number): TerminalStyle | undefined {
   return mergeStyles(themeStyle(chartSeriesToken(index), { bold: true }), widget.styles?.value);
 }
@@ -185,11 +198,14 @@ function roleForVisual(visual: ChartVisualKind): NonNullable<FrameCellSource['ro
   switch (visual) {
     case 'separator':
       return 'separator';
+    case 'baseline':
+      return 'separator';
     case 'chrome':
     case 'fill':
     case 'marker':
       return 'decoration';
     case 'axis':
+    case 'area':
     case 'bar':
     case 'cell':
     case 'line':

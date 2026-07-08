@@ -1,9 +1,10 @@
 import { borderStyleFromValue, drawBorder } from './border.ts';
-import type { BorderStyle } from './border.ts';
+import type { BorderStyle, BorderTitle, BorderTitleContent, BorderTitleRail } from './border.ts';
+import { sanitizeTerminalText } from '../text/index.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
-import { frameCellSource } from './frame-source.ts';
+import { frameCellSource, widgetFrameSource } from './frame-source.ts';
 import type { Rect } from './layout.ts';
-import type { FrameCellSource, TerminalStyle } from './render-primitives.ts';
+import type { FrameCellSource, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { mergeStyles, resolveWidgetStyle } from './widget-style.ts';
 import { stringify } from './widget-props.ts';
 import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
@@ -161,8 +162,80 @@ function surfaceVisualStateFromValue(value: unknown): 'active' | 'selected' | 'e
 
 function surfaceTitledBorder(widget: Widget, border: BorderStyle): BorderStyle {
   if (border.kind === 'none' || border.title !== undefined) return border;
-  const label = stringify(widget.props['label']);
-  return label.length === 0 ? border : { ...border, title: label };
+  const title = surfaceTitle(widget);
+  return title === undefined ? border : { ...border, title };
+}
+
+function surfaceTitle(widget: Widget): BorderTitle | undefined {
+  const explicit = widget.props['title'];
+  if (isBorderTitleRailInput(explicit)) {
+    const rail = {
+      ...surfaceRailTitlePart(widget, 'start', explicit),
+      ...surfaceRailTitlePart(widget, 'center', explicit),
+      ...surfaceRailTitlePart(widget, 'end', explicit)
+    };
+    return Object.keys(rail).length === 0 ? undefined : rail;
+  }
+  return surfaceTitleContent(widget, explicit, 'title') ?? surfaceTitleContent(widget, stringify(widget.props['label']), 'title');
+}
+
+function surfaceRailTitlePart<TKey extends keyof BorderTitleRail>(
+  widget: Widget,
+  key: TKey,
+  input: Record<string, unknown>
+): Pick<BorderTitleRail, TKey> | Record<string, never> {
+  const title = surfaceTitleContent(widget, input[key], `title.${key}`);
+  return title === undefined ? {} : { [key]: title } as Pick<BorderTitleRail, TKey>;
+}
+
+function surfaceTitleContent(widget: Widget, value: unknown, label: string): BorderTitleContent | undefined {
+  if (Array.isArray(value)) {
+    const spans = value.flatMap((currentSpan, index): readonly RenderSpan[] =>
+      isRenderSpan(currentSpan) ? [surfaceTitleSpan(widget, currentSpan, `${label}.${String(index)}`)] : []
+    );
+    return spans.length === 0 ? undefined : spans;
+  }
+  const title = sanitizeTerminalText(typeof value === 'string' ? value : '').text;
+  return title.length === 0
+    ? undefined
+    : [surfaceTitleSpan(widget, { text: title }, `${label}.0`)];
+}
+
+function surfaceTitleSpan(widget: Widget, currentSpan: Pick<RenderSpan, 'text'> & Partial<RenderSpan>, label: string): RenderSpan {
+  const text = sanitizeTerminalText(currentSpan.text).text;
+  const style = currentSpan.style ?? surfaceTitleStyle(widget);
+  return {
+    text,
+    ...(style === undefined ? {} : { style }),
+    ...(currentSpan.link === undefined ? {} : { link: currentSpan.link }),
+    source: currentSpan.source ?? widgetFrameSource(widget, {
+      family: 'surface',
+      role: 'text',
+      part: label,
+      partKind: 'title',
+      label
+    })
+  };
+}
+
+function isBorderTitleRailInput(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object'
+    && value !== null
+    && !Array.isArray(value)
+    && ('start' in value || 'center' in value || 'end' in value);
+}
+
+function surfaceTitleStyle(widget: Widget): TerminalStyle | undefined {
+  return resolveWidgetStyle(widget, {
+    slot: 'title',
+    base: { fg: { kind: 'theme', token: 'surface.title' }, bold: true }
+  });
+}
+
+function isRenderSpan(value: unknown): value is RenderSpan {
+  return typeof value === 'object'
+    && value !== null
+    && typeof (value as { readonly text?: unknown }).text === 'string';
 }
 
 function surfaceDisabled(widget: Widget): boolean {

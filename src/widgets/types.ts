@@ -1,6 +1,6 @@
 import type { AccessibilityOptions, AccessibleNode } from '../accessibility/index.ts';
 import type { TextSelection } from '../text/index.ts';
-import type { BorderStyle } from '../tui/border.ts';
+import type { BorderStyle, BorderTitle } from '../tui/border.ts';
 import type { RenderSpan, TerminalStyle } from '../tui/render-primitives.ts';
 import type { WidgetRenderer } from '../tui/widget-renderer.ts';
 import type {
@@ -19,7 +19,7 @@ import type { RoutedPointerEvent } from '../tui/pointer-types.ts';
 import type { FrameBuffer } from '../tui/frame-buffer.ts';
 import type { Canvas2D } from '../tui/canvas2d/index.ts';
 import type { Rect, RegionOpacity } from '../tui/layout.ts';
-import type { TerminalTheme } from '../theme/index.ts';
+import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
 import type { SurfaceVariant } from '../tui/surface.ts';
 import type {
   WidgetActionItem,
@@ -237,6 +237,7 @@ export interface TableWidgetOptions<TMessage> extends WidgetLayerOptions {
   readonly columns?: readonly TableColumn[];
   readonly selected?: number;
   readonly selectedCell?: TableCellSelection;
+  readonly density?: TableDensity;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
@@ -265,6 +266,8 @@ export interface TableCellPointerSelection {
 export type TableColumnWidth = number | LayoutSize;
 export type TableColumnAlignment = 'start' | 'center' | 'end';
 export type TableSortDirection = 'ascending' | 'descending';
+export type TableDensity = 'normal' | 'dense';
+export type TableColumnSemantic = 'text' | 'metric' | 'metadata';
 
 export interface TableCellRenderInput {
   readonly value: unknown;
@@ -277,6 +280,7 @@ export interface TableColumn {
   readonly header?: string;
   readonly width?: TableColumnWidth;
   readonly align?: TableColumnAlignment;
+  readonly semantic?: TableColumnSemantic;
   readonly hidden?: boolean;
   readonly resizable?: boolean;
   readonly style?: TerminalStyle;
@@ -709,6 +713,7 @@ export interface CanvasWidgetOptions<TMessage = never> extends WidgetLayerOption
 export interface SurfaceWidgetOptions<TMessage = never> extends WidgetLayerOptions {
   readonly id?: string;
   readonly label?: string;
+  readonly title?: BorderTitle;
   readonly variant?: SurfaceVariant;
   readonly visualState?: SurfaceVisualState;
   readonly border?: BorderStyle;
@@ -765,8 +770,16 @@ export interface ActivityIndicatorWidgetOptions extends WidgetLayerOptions {
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
-export type ProgressBarMode = 'compact' | 'full';
+export type ProgressBarDisplay = 'bar' | 'bar+percent' | 'bar+value' | 'bar+value+percent';
 export type ProgressBarLabelPosition = 'start' | 'end' | 'none';
+
+export interface ValueScaleStop {
+  readonly at: number;
+  readonly token: ThemeColorToken;
+  readonly label?: string;
+}
+
+export type ValueScale = readonly ValueScaleStop[];
 
 export interface ProgressBarWidgetOptions extends WidgetLayerOptions {
   readonly id?: string;
@@ -775,13 +788,13 @@ export interface ProgressBarWidgetOptions extends WidgetLayerOptions {
   readonly max?: number;
   readonly indeterminate?: boolean;
   readonly barWidth?: number;
-  readonly mode?: ProgressBarMode;
+  readonly display?: ProgressBarDisplay;
   readonly labelPosition?: ProgressBarLabelPosition;
-  readonly showPercentage?: boolean;
   readonly elapsedMs?: number;
   readonly remainingMs?: number;
   readonly frame?: number;
   readonly status?: WidgetProcessStatus;
+  readonly valueScale?: ValueScale;
   readonly accessibility?: AccessibleNodeDefinition;
 }
 
@@ -791,6 +804,7 @@ export interface SparklineWidgetOptions extends WidgetLayerOptions {
   readonly min?: number;
   readonly max?: number;
   readonly status?: WidgetProcessStatus;
+  readonly valueScale?: ValueScale;
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
@@ -821,9 +835,16 @@ export interface ChartSeries {
   readonly points: readonly number[];
   readonly kind?: ChartSeriesKind;
   readonly glyph?: string;
+  readonly valueScale?: ValueScale;
+  readonly sampleMode?: ChartSampleMode;
+  readonly sampleAlign?: ChartSampleAlign;
+  readonly interpolation?: ChartInterpolation;
 }
 
-export type ChartSeriesKind = 'line' | 'scatter';
+export type ChartSeriesKind = 'line' | 'scatter' | 'area' | 'bar';
+export type ChartSampleMode = 'one-per-column' | 'fit' | 'window';
+export type ChartSampleAlign = 'start' | 'end';
+export type ChartInterpolation = 'nearest' | 'linear';
 
 export interface ChartPointSelection {
   readonly series: string;
@@ -844,9 +865,14 @@ export interface ChartWidgetOptions<TMessage = never> extends WidgetLayerOptions
   readonly max?: number;
   readonly selected?: ChartPointSelection;
   readonly legend?: boolean;
+  readonly signedDomain?: boolean;
   readonly xLabel?: string;
   readonly yLabel?: string;
   readonly status?: WidgetProcessStatus;
+  readonly valueScale?: ValueScale;
+  readonly sampleMode?: ChartSampleMode;
+  readonly sampleAlign?: ChartSampleAlign;
+  readonly interpolation?: ChartInterpolation;
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
@@ -891,6 +917,7 @@ export interface HeatmapWidgetOptions<TValue = unknown, TMessage = never> extend
   readonly cellWidth?: number;
   readonly gap?: number;
   readonly status?: WidgetProcessStatus;
+  readonly valueScale?: ValueScale;
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;

@@ -26,6 +26,10 @@ export interface SeriesOptions {
   readonly span?: RenderSpan;
 }
 
+export interface AreaSeriesOptions extends SeriesOptions {
+  readonly baseline?: number;
+}
+
 export interface BarDatum {
   readonly x: number;
   readonly value: number;
@@ -50,6 +54,10 @@ const DEFAULT_SERIES_SPAN = {
 const DEFAULT_BAR_SPAN = {
   text: '█',
   source: frameCellSource({ ownerKind: 'canvas2d', family: 'drawing', role: 'chart', part: 'bar.fill', label: 'bar.fill' })
+} satisfies RenderSpan;
+const DEFAULT_AREA_SPAN = {
+  text: '█',
+  source: frameCellSource({ ownerKind: 'canvas2d', family: 'drawing', role: 'chart', part: 'area.fill', label: 'area.fill' })
 } satisfies RenderSpan;
 
 export function scaleChartValue(value: number, scale: ChartScale): number {
@@ -82,6 +90,20 @@ export function drawLineSeries(
     y: options.yScale === undefined ? point.y : scaleChartValue(point.y, options.yScale)
   }));
   canvas.polyline(scaled, span);
+}
+
+export function drawAreaSeries(
+  canvas: Canvas2D,
+  points: readonly ChartPoint[],
+  options: AreaSeriesOptions = {}
+): void {
+  const span = options.span ?? DEFAULT_AREA_SPAN;
+  const baseline = Math.round(options.baseline ?? Math.max(0, canvas.bounds.height - 1));
+  for (const point of points) {
+    const x = options.xScale === undefined ? point.x : scaleChartValue(point.x, options.xScale);
+    const y = options.yScale === undefined ? point.y : scaleChartValue(point.y, options.yScale);
+    canvas.line(Math.round(x), Math.round(y), Math.round(x), baseline, span);
+  }
 }
 
 export function drawBarSeries(

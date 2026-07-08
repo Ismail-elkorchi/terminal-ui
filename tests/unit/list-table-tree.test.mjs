@@ -327,6 +327,58 @@ test('table source metadata describes headers rows cells separators and empty st
   assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N' && cell.row === 2)?.source?.label, 'empty');
 });
 
+test('table dense metric semantics tighten spacing and expose metric metadata', () => {
+  const frame = renderWidgetFrame(table({
+    id: 'metrics-table',
+    density: 'dense',
+    selected: 0,
+    stickyHeader: true,
+    rows: [[18, 'node', '188M', 4.2]],
+    columns: [
+      { header: 'PID', width: { kind: 'fixed', cells: 3 }, semantic: 'metadata', render: ({ row }) => String(row[0]) },
+      { header: 'Name', width: { kind: 'fixed', cells: 6 }, render: ({ row }) => row[1] },
+      { header: 'Mem', width: { kind: 'fixed', cells: 5 }, align: 'end', semantic: 'metric', render: ({ row }) => row[2] },
+      { header: 'CPU', width: { kind: 'fixed', cells: 4 }, align: 'end', semantic: 'metric', render: ({ row }) => row[3].toFixed(1) }
+    ]
+  }), { columns: 24, rows: 2 });
+  const metricCell = frame.cells.find((cell) => cell.text === '4' && cell.source?.label === 'row.0.cell.3');
+  const metadataCell = frame.cells.find((cell) => cell.text === '1' && cell.source?.label === 'row.0.cell.0');
+  const markerCell = frame.cells.find((cell) => cell.source?.label === 'row.0.marker');
+
+  assert.equal(renderFramePlain(frame), '  PID Name     Mem  CPU\n› 18  node    188M  4.2');
+  assert.equal(markerCell?.source?.partKind, 'marker');
+  assert.equal(markerCell?.source?.state, 'selected');
+  assert.equal(metadataCell?.source?.partKind, 'metadata');
+  assert.equal(metadataCell?.style?.fg?.token, 'table.metadata');
+  assert.equal(metricCell?.source?.partKind, 'metric');
+  assert.equal(metricCell?.style?.fg?.token, 'table.metric');
+  assert.equal(metricCell?.source?.state, 'selected');
+});
+
+test('table dense fill columns keep marker width aligned with cell hit targets', () => {
+  const frame = renderWidgetFrame(table({
+    id: 'dense-fill-table',
+    density: 'dense',
+    selected: 0,
+    selectedCell: { row: 0, column: 1 },
+    stickyHeader: true,
+    rows: [[18, 'node', 4.2]],
+    columns: [
+      { header: 'PID', width: { kind: 'fixed', cells: 3 }, render: ({ row }) => String(row[0]) },
+      { header: 'Name', width: { kind: 'fill' }, render: ({ row }) => row[1] },
+      { header: 'CPU', width: { kind: 'fixed', cells: 4 }, align: 'end', render: ({ row }) => row[2].toFixed(1) }
+    ],
+    toMessage: ({ rowIndex, cell }) => ({ kind: 'cell', rowIndex, cell })
+  }), { columns: 14, rows: 2 });
+
+  assert.equal(renderFramePlain(frame), '  PID Na…  CPU\n› 18  no…  4.2');
+  assert.deepEqual(frame.hitTargets.map((target) => target.bounds), [
+    { row: 2, column: 3, width: 3, height: 1 },
+    { row: 2, column: 7, width: 3, height: 1 },
+    { row: 2, column: 11, width: 4, height: 1 }
+  ]);
+});
+
 test('table headers can expose a visible resize affordance without changing reducer ownership', () => {
   const frame = renderWidgetFrame(table({
     id: 'resizable-table',

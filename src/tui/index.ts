@@ -35,6 +35,7 @@ import { createCanvas2D } from './canvas2d/index.ts';
 import { placeNotificationStack } from './notifications.ts';
 import { placeTooltip } from './tooltip.ts';
 import type {
+  AreaSeriesOptions,
   AxisLine,
   BarDatum,
   BarSeriesOptions,
@@ -206,6 +207,7 @@ export type {
   PadRenderLineOptions,
   RenderAlignment,
   RenderClipMode,
+  AreaSeriesOptions,
   AxisLine,
   BarDatum,
   BarSeriesOptions,
@@ -369,6 +371,7 @@ export {
   brailleMaskForSubcell,
   canvasTransform,
   composeCanvasTransform,
+  drawAreaSeries,
   drawAxes,
   drawBarSeries,
   drawLineSeries,

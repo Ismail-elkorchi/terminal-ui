@@ -27,7 +27,7 @@ test('feedback status widgets preserve state in high contrast and no color outpu
       max: 4,
       barWidth: 4,
       status: 'error',
-      showPercentage: true
+      display: 'bar+value+percent'
     })
   ], { gap: 0 }), { columns: 48, rows: 5 }, { theme: highContrastTheme });
   const highContrast = createVisualSnapshot({

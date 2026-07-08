@@ -432,7 +432,7 @@ function editorPanel(state, buffer) {
           label: 'size',
           value: Math.min(buffer.text.length, MAX_FILE_BYTES),
           max: MAX_FILE_BYTES,
-          showPercentage: true
+          display: 'bar+percent'
         })
       ], { id: 'editor-meta', gap: 2 }),
       editor: notificationLayer(state, textArea({

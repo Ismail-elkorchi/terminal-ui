@@ -6,6 +6,7 @@ import {
   createCanvas2D,
   createFrameBuffer,
   drawAxes,
+  drawAreaSeries,
   drawBarSeries,
   drawLineSeries,
   layoutWidget,
@@ -26,6 +27,25 @@ test('sparkline renders bounded numeric points', () => {
   assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.label, 'point.0');
   assert.equal(frame.cells.find((cell) => cell.text === '▁')?.source?.role, 'chart');
   assert.equal(frame.cells.find((cell) => cell.text === '▁')?.style?.fg?.token, 'chart.series.1');
+});
+
+test('sparkline valueScale styles points by normalized value', () => {
+  const frame = renderWidgetFrame(sparkline({
+    id: 'scaled-spark',
+    values: [0, 50, 100],
+    min: 0,
+    max: 100,
+    valueScale: [
+      { at: 0, token: 'scale.low' },
+      { at: 0.5, token: 'scale.high' },
+      { at: 0.9, token: 'scale.critical' }
+    ]
+  }), { columns: 8, rows: 1 });
+
+  assert.equal(renderFramePlain(frame), '▁▅█');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'point.0')?.style?.fg?.token, 'scale.low');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'point.1')?.style?.fg?.token, 'scale.high');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'point.2')?.style?.fg?.token, 'scale.critical');
 });
 
 test('sparkline renders an empty state with chart source metadata', () => {
@@ -87,6 +107,119 @@ test('chart plots series into a bounded text canvas', () => {
   assert.equal(frame.accessibility.root.description, '1 chart series.');
   assert.ok(frame.cells.length <= 16);
   assert.equal(frame.cells.find((cell) => cell.text === '*')?.source?.ownerKind, 'chart');
+});
+
+test('chart fit sample mode fills the available plot width', () => {
+  const frame = renderWidgetFrame(chart({
+    id: 'fit-chart',
+    min: 0,
+    max: 100,
+    sampleMode: 'fit',
+    series: [{ id: 'load', points: [0, 35, 70, 100], kind: 'area' }]
+  }), { columns: 12, rows: 4 });
+  const areaColumns = frame.cells
+    .filter((cell) => cell.source?.label === 'series.load.area')
+    .map((cell) => cell.column);
+
+  assert.equal(Math.min(...areaColumns), 1);
+  assert.equal(Math.max(...areaColumns), 12);
+});
+
+test('chart fit sample mode selects raw points by scaled source position', () => {
+  const firstFrame = renderWidgetFrame(chart({
+    id: 'fit-selected-first',
+    min: 0,
+    max: 10,
+    selected: { series: 'load', point: 0 },
+    sampleMode: 'fit',
+    series: [{ id: 'load', points: [0, 10], kind: 'scatter' }]
+  }), { columns: 10, rows: 3 });
+  const lastFrame = renderWidgetFrame(chart({
+    id: 'fit-selected-last',
+    min: 0,
+    max: 10,
+    selected: { series: 'load', point: 1 },
+    sampleMode: 'fit',
+    series: [{ id: 'load', points: [0, 10], kind: 'scatter' }]
+  }), { columns: 10, rows: 3 });
+  const firstSelection = firstFrame.cells.find((cell) => cell.source?.label === 'selection.load.0');
+  const lastSelection = lastFrame.cells.find((cell) => cell.source?.label === 'selection.load.1');
+
+  assert.equal(firstSelection?.column, 1);
+  assert.equal(lastSelection?.column, 10);
+});
+
+test('chart window sample mode renders a raw aligned window', () => {
+  const frame = renderWidgetFrame(chart({
+    id: 'window-chart',
+    min: 0,
+    max: 50,
+    series: [{ id: 'load', points: [10, 20, 30, 40, 50], kind: 'scatter', sampleMode: 'window', sampleAlign: 'end' }],
+    toMessage: (point) => ({ kind: 'chart-point', ...point })
+  }), { columns: 3, rows: 3 });
+  const firstTarget = frame.hitTargets.find((target) => target.id === 'window-chart:load:0');
+  const lastTarget = frame.hitTargets.find((target) => target.id === 'window-chart:load:2');
+
+  assert.deepEqual(firstTarget?.bounds, { row: 2, column: 1, width: 1, height: 1 });
+  assert.deepEqual(lastTarget?.bounds, { row: 1, column: 3, width: 1, height: 1 });
+});
+
+test('chart signedDomain renders zero baseline and polarity source metadata', () => {
+  const frame = renderWidgetFrame(chart({
+    id: 'signed-chart',
+    signedDomain: true,
+    min: -4,
+    max: 4,
+    series: [{ id: 'net', points: [-4, -2, 0, 2, 4], glyph: '*' }]
+  }), { columns: 12, rows: 5 });
+  const baselineCell = frame.cells.find((cell) => cell.source?.label === 'baseline.zero');
+  const positiveCell = frame.cells.find((cell) => cell.source?.label === 'series.net.positive.line');
+  const negativeCell = frame.cells.find((cell) => cell.source?.label === 'series.net.negative.line');
+
+  assert.match(renderFramePlain(frame), /─/u);
+  assert.equal(baselineCell?.source?.partKind, 'baseline');
+  assert.equal(baselineCell?.style?.fg?.token, 'chart.baseline');
+  assert.equal(positiveCell?.style?.fg?.token, 'chart.positive');
+  assert.equal(negativeCell?.style?.fg?.token, 'chart.negative');
+});
+
+test('chart renders area and bar series with signed baseline semantics', () => {
+  const frame = renderWidgetFrame(chart({
+    id: 'filled-chart',
+    signedDomain: true,
+    min: -4,
+    max: 4,
+    series: [
+      { id: 'cpu', points: [0, 2, 4], kind: 'area' },
+      { id: 'net', points: [0, -2, -4], kind: 'bar' }
+    ]
+  }), { columns: 8, rows: 5 });
+  const areaCell = frame.cells.find((cell) => cell.source?.label === 'series.cpu.positive.area');
+  const barCell = frame.cells.find((cell) => cell.source?.label === 'series.net.negative.bar');
+
+  assert.match(renderFramePlain(frame), /█/u);
+  assert.equal(areaCell?.source?.partKind, 'area');
+  assert.equal(areaCell?.style?.fg?.token, 'chart.positive');
+  assert.equal(barCell?.source?.partKind, 'bar');
+  assert.equal(barCell?.style?.fg?.token, 'chart.negative');
+});
+
+test('chart valueScale styles area series values without local renderer code', () => {
+  const frame = renderWidgetFrame(chart({
+    id: 'scaled-area',
+    min: 0,
+    max: 100,
+    series: [{ id: 'load', points: [10, 60, 95], kind: 'area' }],
+    valueScale: [
+      { at: 0, token: 'scale.low' },
+      { at: 0.5, token: 'scale.high' },
+      { at: 0.9, token: 'scale.critical' }
+    ]
+  }), { columns: 8, rows: 5 });
+
+  assert.equal(frame.cells.some((cell) => cell.source?.label === 'series.load.area' && cell.style?.fg?.token === 'scale.low'), true);
+  assert.equal(frame.cells.some((cell) => cell.source?.label === 'series.load.area' && cell.style?.fg?.token === 'scale.high'), true);
+  assert.equal(frame.cells.some((cell) => cell.source?.label === 'series.load.area' && cell.style?.fg?.token === 'scale.critical'), true);
 });
 
 test('chart renders scatter points legends axis labels and selectable point hit targets', () => {
@@ -170,6 +303,25 @@ test('gauge renders a labeled bounded meter with progress accessibility', () => 
   assert.equal(frame.cells.find((cell) => cell.text === 's')?.source?.label, 'status.value');
 });
 
+test('gauge dial variant renders distinct tested dial anatomy', () => {
+  const frame = renderWidgetFrame(gauge({
+    id: 'dial-gauge',
+    label: 'CPU',
+    value: 73,
+    max: 100,
+    width: 8,
+    variant: 'dial',
+    status: 'warning'
+  }), { columns: 16, rows: 4 });
+  const output = renderFramePlain(frame);
+
+  assert.match(output, /CPU/u);
+  assert.match(output, /73%/u);
+  assert.match(output, /▲/u);
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'dial.needle')?.style?.fg?.token, 'status.warning');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'dial.value')?.source?.partKind, 'metric');
+});
+
 test('heatmap intensity uses muted normal and emphasized visual levels', () => {
   const frame = renderWidgetFrame(heatmap({
     id: 'intensity-heatmap',
@@ -187,6 +339,22 @@ test('heatmap intensity uses muted normal and emphasized visual levels', () => {
   assert.equal(mid?.style?.bold, undefined);
   assert.equal(hot?.style?.fg?.token, 'chart.series.1');
   assert.equal(hot?.style?.bold, true);
+});
+
+test('heatmap valueScale can override intensity color while preserving glyph intensity', () => {
+  const frame = renderWidgetFrame(heatmap({
+    id: 'scaled-heatmap',
+    rows: [[{ id: 'cool', value: 1 }, { id: 'hot', value: 9 }]],
+    min: 0,
+    max: 10,
+    valueScale: [
+      { at: 0, token: 'scale.low' },
+      { at: 0.8, token: 'scale.critical' }
+    ]
+  }), { columns: 8, rows: 1 });
+
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'cell.0.0.value')?.style?.fg?.token, 'scale.low');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'cell.0.1.value')?.style?.fg?.token, 'scale.critical');
 });
 
 test('heatmap renders selectable cells with accessibility and hit targets', () => {
@@ -248,7 +416,7 @@ test('chart widgets preserve visualization meaning in high contrast and no color
   assert.equal(noColor.cells.find((cell) => cell.source?.label === 'cell.0.1.value')?.source?.role, 'chart');
 });
 
-test('Canvas2D chart helpers draw axes line series and bars', () => {
+test('Canvas2D chart helpers draw axes line area series and bars', () => {
   const buffer = createFrameBuffer(8, 4);
   const canvas = createCanvas2D(buffer, { row: 1, column: 1, width: 8, height: 4 });
 
@@ -260,6 +428,14 @@ test('Canvas2D chart helpers draw axes line series and bars', () => {
       source: { ownerKind: 'custom-series', role: 'chart', label: 'caller.series' }
     }
   });
+  drawAreaSeries(canvas, [{ x: 7, y: 2 }], {
+    baseline: 3,
+    span: {
+      text: 'a',
+      source: { ownerKind: 'custom-area', role: 'chart', label: 'area.fill' }
+    }
+  });
+  drawAreaSeries(canvas, [{ x: 4, y: 2 }], { baseline: 3 });
   drawBarSeries(canvas, [{ x: 5, value: 4 }], {
     yScale: { domain: [0, 4], range: [3, 0] },
     width: 2
@@ -275,7 +451,10 @@ test('Canvas2D chart helpers draw axes line series and bars', () => {
   assert.equal(frame.cells.find((cell) => cell.text === '│')?.source?.label, 'axis.line');
   assert.equal(frame.cells.find((cell) => cell.text === '*')?.source?.label, 'series.line');
   assert.equal(frame.cells.find((cell) => cell.text === '+')?.source?.label, 'caller.series');
-  assert.equal(frame.cells.find((cell) => cell.text === '█')?.source?.label, 'bar.fill');
+  assert.equal(frame.cells.find((cell) => cell.text === 'a')?.source?.label, 'area.fill');
+  assert.equal(frame.cells.find((cell) => cell.column === 5 && cell.text === '█')?.source?.ownerKind, 'canvas2d');
+  assert.equal(frame.cells.find((cell) => cell.column === 5 && cell.text === '█')?.source?.label, 'area.fill');
+  assert.ok(frame.cells.some((cell) => cell.text === '█' && cell.source?.label === 'bar.fill'));
 });
 
 function frameBufferText(buffer, width, height) {
