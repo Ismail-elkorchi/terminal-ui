@@ -1,6 +1,6 @@
-import type { WidgetKind } from '../../widgets/index.ts';
-import type { WidgetRenderer } from '../widget-renderer.ts';
+import type { RenderNodeKind } from '../../render-node/index.ts';
+import type { RenderNodeRenderer } from '../render-node-renderer.ts';
 
-export type BuiltinWidgetKind = Exclude<WidgetKind, 'custom'>;
+export type BuiltinRenderNodeKind = Exclude<RenderNodeKind, 'custom'>;
 
-export type RendererMap<K extends BuiltinWidgetKind> = Readonly<Record<K, WidgetRenderer>>;
+export type RendererMap<K extends BuiltinRenderNodeKind> = Readonly<Record<K, RenderNodeRenderer>>;

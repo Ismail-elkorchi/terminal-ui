@@ -1,8 +1,9 @@
+import type { RenderNode } from '../render-node/index.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
-import { stringify } from './widget-props.ts';
+import { stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { WidgetActionTone, Widget } from '../widgets/index.ts';
+import type { ComponentActionTone } from '../components/contracts.ts';
 import {
   dropdownControlLine,
   menuBarLine,
@@ -13,7 +14,7 @@ import {
 import type { MenuVisualItem } from './menu-visual.ts';
 import type { RenderBlock, RenderLine } from './render-primitives.ts';
 import type { Rect } from './layout.ts';
-import type { HitTarget } from './widget-renderer.ts';
+import type { HitTarget } from './render-node-renderer.ts';
 
 interface VisibleMenuItem extends MenuVisualItem {
   readonly id: string;
@@ -21,7 +22,7 @@ interface VisibleMenuItem extends MenuVisualItem {
   readonly message?: unknown;
   readonly disabled?: boolean;
   readonly checked?: boolean;
-  readonly tone?: WidgetActionTone;
+  readonly tone?: ComponentActionTone;
   readonly description?: string;
   readonly shortcut?: string;
   readonly depth: number;
@@ -35,7 +36,7 @@ interface MenuRow {
   readonly row: number;
 }
 
-export function menuBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function menuBlock(widget: RenderNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const rows = menuRows(widget, bounds, 0);
   if (rows.length === 0 && bounds.height > 0) {
     return { lines: [menuEmptyLine(widget, emptyText(widget), bounds.width)] };
@@ -43,7 +44,7 @@ export function menuBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): R
   return { lines: rows.map((row) => menuLine(widget, row.item, selectedId(widget), bounds.width, theme)) };
 }
 
-export function contextMenuBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function contextMenuBlock(widget: RenderNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const lines: RenderLine[] = [...contextMenuTitleBlock(widget, bounds).lines];
   lines.push(...menuBlock(widget, {
     ...bounds,
@@ -52,25 +53,25 @@ export function contextMenuBlock(widget: Widget, bounds: Rect, theme: TerminalTh
   return { lines: lines.slice(0, Math.max(0, bounds.height)) };
 }
 
-export function contextMenuTitleBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function contextMenuTitleBlock(widget: RenderNode, bounds: Rect): RenderBlock {
   const title = clean(stringify(widget.props['title']));
   return title.length > 0 && bounds.height > 0
     ? { lines: [menuTitleLine(widget, title, bounds.width)] }
     : { lines: [] };
 }
 
-export function contextMenuTitleRows(widget: Widget): number {
+export function contextMenuTitleRows(widget: RenderNode): number {
   return clean(stringify(widget.props['title'])).length > 0 ? 1 : 0;
 }
 
-export function menuBarBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function menuBarBlock(widget: RenderNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const selected = selectedId(widget);
   return {
     lines: [menuBarLine(widget, topLevelMenuItems(widget), selected, bounds.width, theme)]
   };
 }
 
-export function dropdownBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function dropdownBlock(widget: RenderNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const selected = selectedMenuItem(widget);
   const label = clean(stringify(widget.props['label']));
   const placeholder = clean(stringify(widget.props['placeholder'])) || 'Select…';
@@ -98,7 +99,7 @@ export function dropdownBlock(widget: Widget, bounds: Rect, theme: TerminalTheme
   return { lines: lines.slice(0, Math.max(0, bounds.height)) };
 }
 
-export function menuAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function menuAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   return {
     id,
     role: 'menu',
@@ -107,7 +108,7 @@ export function menuAccessibleBase(widget: Widget, id: string, focused: boolean)
   };
 }
 
-export function dropdownAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function dropdownAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const selected = selectedMenuItem(widget);
   return {
     id,
@@ -119,7 +120,7 @@ export function dropdownAccessibleBase(widget: Widget, id: string, focused: bool
   };
 }
 
-export function menuAccessibleChildren(widget: Widget): readonly AccessibleNode[] {
+export function menuAccessibleChildren(widget: RenderNode): readonly AccessibleNode[] {
   const selected = selectedId(widget);
   return visibleMenuItems(widget).map((item) => ({
     id: `${widget.id ?? widget.kind}:${item.id}`,
@@ -135,20 +136,20 @@ export function menuAccessibleChildren(widget: Widget): readonly AccessibleNode[
   }));
 }
 
-export function dropdownAccessibleChildren(widget: Widget): readonly AccessibleNode[] | undefined {
+export function dropdownAccessibleChildren(widget: RenderNode): readonly AccessibleNode[] | undefined {
   return widget.props['open'] === true ? menuAccessibleChildren(widget) : undefined;
 }
 
-export function menuHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function menuHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   return menuRows(widget, bounds, 0).flatMap((row) => hitTargetForRow(widget, bounds, row));
 }
 
-export function contextMenuHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function contextMenuHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const titleRows = clean(stringify(widget.props['title'])).length > 0 ? 1 : 0;
   return menuRows(widget, bounds, titleRows).flatMap((row) => hitTargetForRow(widget, bounds, row));
 }
 
-export function menuBarHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function menuBarHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   let column = bounds.column;
   const targets: HitTarget<TMessage>[] = [];
   const selected = selectedId(widget);
@@ -167,12 +168,12 @@ export function menuBarHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Re
   return targets;
 }
 
-export function dropdownHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function dropdownHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   if (widget.props['open'] !== true) return menuBarHitTargets(widget, bounds).slice(0, 1);
   return menuRows(widget, bounds, 1).flatMap((row) => hitTargetForRow(widget, bounds, row));
 }
 
-export function menuCursor(widget: Widget, bounds: Rect, rowOffset = 0): { readonly row: number; readonly column: number } {
+export function menuCursor(widget: RenderNode, bounds: Rect, rowOffset = 0): { readonly row: number; readonly column: number } {
   const selected = selectedId(widget);
   const row = selected === undefined ? 0 : menuRows(widget, bounds, rowOffset).find((item) => item.item.id === selected)?.row ?? rowOffset;
   return {
@@ -182,7 +183,7 @@ export function menuCursor(widget: Widget, bounds: Rect, rowOffset = 0): { reado
 }
 
 function hitTargetForRow<TMessage>(
-  _widget: Widget<TMessage>,
+  _widget: RenderNode<TMessage>,
   bounds: Rect,
   row: MenuRow
 ): HitTarget<TMessage>[] {
@@ -200,7 +201,7 @@ function hitTargetForRow<TMessage>(
   }];
 }
 
-function menuRows(widget: Widget, bounds: Rect, rowOffset: number): readonly MenuRow[] {
+function menuRows(widget: RenderNode, bounds: Rect, rowOffset: number): readonly MenuRow[] {
   const rows = visibleMenuItems(widget);
   const start = menuScrollOffset(widget, rows.length, Math.max(0, bounds.height - rowOffset));
   return rows
@@ -208,29 +209,29 @@ function menuRows(widget: Widget, bounds: Rect, rowOffset: number): readonly Men
     .map((item, index) => ({ item, row: rowOffset + index }));
 }
 
-function menuLine(widget: Widget, item: VisibleMenuItem, selected: string | undefined, width: number, theme: TerminalTheme): RenderLine {
+function menuLine(widget: RenderNode, item: VisibleMenuItem, selected: string | undefined, width: number, theme: TerminalTheme): RenderLine {
   return menuItemLine(widget, item, item.id === selected, width, theme);
 }
 
-function visibleMenuItems(widget: Widget): readonly VisibleMenuItem[] {
+function visibleMenuItems(widget: RenderNode): readonly VisibleMenuItem[] {
   return flattenVisibleMenuItems(menuItems(widget.props['items'], 0));
 }
 
-function topLevelMenuItems(widget: Widget): readonly VisibleMenuItem[] {
+function topLevelMenuItems(widget: RenderNode): readonly VisibleMenuItem[] {
   return menuItems(widget.props['items'], 0);
 }
 
-function selectedId(widget: Widget): string | undefined {
+function selectedId(widget: RenderNode): string | undefined {
   const selected = widget.props['selected'];
   return typeof selected === 'string' ? clean(selected) : firstEnabledItem(widget)?.id;
 }
 
-function selectedMenuItem(widget: Widget): VisibleMenuItem | undefined {
+function selectedMenuItem(widget: RenderNode): VisibleMenuItem | undefined {
   const selected = selectedId(widget);
   return selected === undefined ? undefined : visibleMenuItems(widget).find((item) => item.id === selected);
 }
 
-function firstEnabledItem(widget: Widget): VisibleMenuItem | undefined {
+function firstEnabledItem(widget: RenderNode): VisibleMenuItem | undefined {
   return visibleMenuItems(widget).find((item) => item.disabled !== true);
 }
 
@@ -277,12 +278,12 @@ function flattenVisibleMenuItems(items: readonly VisibleMenuItem[]): readonly Vi
   ]);
 }
 
-function emptyText(widget: Widget): string {
+function emptyText(widget: RenderNode): string {
   const text = clean(stringify(widget.props['emptyText']));
   return text.length === 0 ? 'No menu items' : text;
 }
 
-function menuScrollOffset(widget: Widget, total: number, height: number): number {
+function menuScrollOffset(widget: RenderNode, total: number, height: number): number {
   const scroll = widget.props['scroll'];
   if (!isRecord(scroll)) return 0;
   const rawOffset = scroll['offsetRow'];

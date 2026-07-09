@@ -2,7 +2,7 @@ import { createInputPipeline } from '../input/index.ts';
 import { createTuiContext } from './context.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
 import { completedExitFromSnapshot } from './exit.ts';
-import { findAnyLayoutFocusTarget, findWidgetFocusTarget, nextFocusPath, previousFocusPath } from './focus.ts';
+import { findAnyLayoutFocusTarget, findRenderNodeFocusTarget, nextFocusPath, previousFocusPath } from './focus.ts';
 import { resolveTuiKeyBinding } from './key-bindings.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { createPointerRouter } from './pointer-router.ts';
@@ -426,17 +426,17 @@ export function createTuiRuntime<TState, TMessage>(
     });
     if (beforeFocus !== undefined) return beforeFocus;
     const current = ensureRender();
-    const focused = findWidgetFocusTarget(current.widget, current.layout, currentFocusPath);
+    const focused = findRenderNodeFocusTarget(current.node, current.layout, currentFocusPath);
     if (event.kind === 'text') {
-      const mapped = focused?.widget.inputMap?.text?.(event.text);
+      const mapped = focused?.renderNode.inputMap?.text?.(event.text);
       if (mapped !== undefined) return mapped;
     }
-    if (event.kind === 'paste') return focused?.widget.inputMap?.paste?.(event.text);
-    const focusedMessage = key === undefined ? undefined : focused?.widget.keyMap?.[key];
+    if (event.kind === 'paste') return focused?.renderNode.inputMap?.paste?.(event.text);
+    const focusedMessage = key === undefined ? undefined : focused?.renderNode.keyMap?.[key];
     if (focusedMessage !== undefined) return focusedMessage;
     const keyText = textFromUnmappedKey(event);
     if (keyText !== undefined) {
-      const mapped = focused?.widget.inputMap?.text?.(keyText);
+      const mapped = focused?.renderNode.inputMap?.text?.(keyText);
       if (mapped !== undefined) return mapped;
     }
     return resolveTuiKeyBinding({

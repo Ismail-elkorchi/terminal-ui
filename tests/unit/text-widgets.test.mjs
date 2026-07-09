@@ -1,21 +1,35 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import {
   nextSpinnerFrameIndex,
   normalizeSpinnerFrameIndex,
-  renderFramePlain,
-  renderWidgetFrame,
-  renderWidgetRegions,
   spinnerReducer
-} from '../../dist/tui/index.js';
-import { highContrastTheme } from '../../dist/theme/index.js';
+} from '../../dist/behavior/index.js';
+import {
+  resolveTerminalCapabilities } from '../../dist/host/index.js';
+import {
+  renderFramePlain,
+  renderElementFrame,
+  renderElementRegions
+} from '../../dist/renderer/index.js';
+import {
+  highContrastTheme } from '../../dist/theme/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
-import { activityIndicator, commandBar, helpBar, numberInput, richText, spinner, stack, text, textArea, textInput } from '../../dist/widgets/index.js';
+import { activityIndicator,
+  commandBar,
+  helpBar,
+  numberInput,
+  richText,
+  spinner,
+  text,
+  textArea,
+  textInput
+} from '../../dist/components/index.js';
+import { stack } from '../../dist/layout/index.js';
 
 test('richText renders sanitized styled segments as plain frame text', () => {
-  const frame = renderWidgetFrame(richText({
+  const frame = renderElementFrame(richText({
     id: 'rich',
     segments: [
       { text: 'Build ', style: { fg: { kind: 'theme', token: 'text.muted' } } },
@@ -32,13 +46,15 @@ test('richText renders sanitized styled segments as plain frame text', () => {
 });
 
 test('text renders through shared role styles and source metadata', () => {
-  const frame = renderWidgetFrame(text('Danger', {
+  const frame = renderElementFrame(text('Danger', {
     id: 'danger-text',
     textRole: 'danger',
-    styles: {
-      root: { underline: true }
+    meta: {
+        styles: {
+            root: { underline: true }
+        }
     }
-  }), { columns: 12, rows: 1 });
+}), { columns: 12, rows: 1 });
   const first = frame.cells.find((cell) => cell.text === 'D');
 
   assert.deepEqual(first?.style, {
@@ -51,7 +67,7 @@ test('text renders through shared role styles and source metadata', () => {
 });
 
 test('wrapped richText preserves segment style link and source metadata', () => {
-  const frame = renderWidgetFrame(richText({
+  const frame = renderElementFrame(richText({
     id: 'rich-wrap',
     wrap: true,
     segments: [
@@ -79,7 +95,7 @@ test('wrapped richText preserves segment style link and source metadata', () => 
 });
 
 test('richText gives linked spans the default link style without overriding explicit segment style', () => {
-  const frame = renderWidgetFrame(richText({
+  const frame = renderElementFrame(richText({
     id: 'links',
     segments: [
       { text: 'Docs', link: { href: 'https://example.test/docs' } },
@@ -100,7 +116,7 @@ test('richText gives linked spans the default link style without overriding expl
 });
 
 test('textArea renders multiline windows and exposes cursor/accessibility state', () => {
-  const frame = renderWidgetFrame(textArea({
+  const frame = renderElementFrame(textArea({
     id: 'body',
     value: 'line one\nline two',
     cursor: 'line one\nline'.length,
@@ -120,17 +136,17 @@ test('textArea renders multiline windows and exposes cursor/accessibility state'
 });
 
 test('editable text controls expose source metadata for chrome value placeholder and selection', () => {
-  const inputFrame = renderWidgetFrame(textInput({
+  const inputFrame = renderElementFrame(textInput({
     id: 'email',
     value: 'abc',
     selection: { start: 1, end: 2 }
   }), { columns: 12, rows: 1 });
-  const placeholderFrame = renderWidgetFrame(textInput({
+  const placeholderFrame = renderElementFrame(textInput({
     id: 'empty',
     value: '',
     placeholder: 'Email'
   }), { columns: 12, rows: 1 });
-  const numberFrame = renderWidgetFrame(numberInput({
+  const numberFrame = renderElementFrame(numberInput({
     id: 'qty',
     value: 42
   }), { columns: 12, rows: 1 });
@@ -147,17 +163,17 @@ test('editable text controls expose source metadata for chrome value placeholder
 
 test('text widgets map Unicode cursor positions through the shared text contract', () => {
   const value = 'a🙂界b';
-  const textInputFrame = renderWidgetFrame(textInput({
+  const textInputFrame = renderElementFrame(textInput({
     id: 'unicode-input',
     value,
     cursor: 'a🙂'.length,
     selection: { start: 1, end: 'a🙂'.length }
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-input'] });
-  const secondaryInputFrame = renderWidgetFrame(textInput({
+  const secondaryInputFrame = renderElementFrame(textInput({
     id: 'unicode-field',
     value: 'go🙂'
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-field'] });
-  const commandFrame = renderWidgetFrame(commandBar({
+  const commandFrame = renderElementFrame(commandBar({
     id: 'unicode-command',
     prompt: '> ',
     value,
@@ -190,12 +206,12 @@ test('text widgets map Unicode cursor positions through the shared text contract
 });
 
 test('textArea editable cells expose chrome value placeholder and selection source metadata', () => {
-  const selectedFrame = renderWidgetFrame(textArea({
+  const selectedFrame = renderElementFrame(textArea({
     id: 'notes',
     value: 'alpha\nbeta',
     selection: { start: 1, end: 4 }
   }), { columns: 12, rows: 2 });
-  const placeholderFrame = renderWidgetFrame(textArea({
+  const placeholderFrame = renderElementFrame(textArea({
     id: 'notes-empty',
     value: '',
     placeholder: 'Write notes'
@@ -209,7 +225,7 @@ test('textArea editable cells expose chrome value placeholder and selection sour
 });
 
 test('textArea can opt into line number gutter and active line anatomy', () => {
-  const frame = renderWidgetFrame(textArea({
+  const frame = renderElementFrame(textArea({
     id: 'editor',
     value: 'alpha\nbeta',
     cursor: 'alpha\nb'.length,
@@ -237,7 +253,7 @@ test('textArea cursor uses the actual line-number gutter width', () => {
   const lines = Array.from({ length: 12 }, (_item, index) => `line ${String(index + 1)}`);
   const value = lines.join('\n');
   const cursor = lines.slice(0, 9).join('\n').length + 1;
-  const frame = renderWidgetFrame(textArea({
+  const frame = renderElementFrame(textArea({
     id: 'wide-gutter-editor',
     value,
     cursor,
@@ -251,7 +267,7 @@ test('textArea cursor uses the actual line-number gutter width', () => {
 });
 
 test('textArea renders caller-owned highlight ranges without overriding selection', () => {
-  const frame = renderWidgetFrame(textArea({
+  const frame = renderElementFrame(textArea({
     id: 'searchable',
     value: 'alpha beta gamma',
     selection: { start: 0, end: 5 },
@@ -277,7 +293,7 @@ test('textArea renders caller-owned highlight ranges without overriding selectio
 });
 
 test('textArea can soft-wrap long logical lines while preserving editor anatomy', () => {
-  const frame = renderWidgetFrame(textArea({
+  const frame = renderElementFrame(textArea({
     id: 'wrapped-editor',
     value: 'alpha beta gamma',
     cursor: 'alpha beta'.length,
@@ -297,7 +313,7 @@ test('textArea can soft-wrap long logical lines while preserving editor anatomy'
 });
 
 test('wrapped textArea exposes scrollbar scope over visual rows', () => {
-  const frame = renderWidgetFrame(textArea({
+  const frame = renderElementFrame(textArea({
     id: 'wrapped-scroll',
     value: 'alpha beta gamma delta',
     wrap: true,
@@ -329,7 +345,7 @@ test('editable text controls remain readable in high contrast and no-color proje
       validation: { tone: 'warning', message: 'Waiting' }
     })
   ]);
-  const frame = renderWidgetFrame(widget, { columns: 28, rows: 3 }, {
+  const frame = renderElementFrame(widget, { columns: 28, rows: 3 }, {
     theme: highContrastTheme,
     focusPath: ['contrast-input']
   });
@@ -352,21 +368,21 @@ test('editable text controls remain readable in high contrast and no-color proje
 });
 
 test('disabled textInput exposes no mouse hit target', () => {
-  const frame = renderWidgetFrame(textInput({
+  const frame = renderElementFrame(textInput({
     id: 'disabled-input',
     value: 'locked',
     disabled: true,
-    message: { kind: 'submit' }
+    onSubmit: { kind: 'submit' }
   }), { columns: 16, rows: 1 });
 
   assert.deepEqual(frame.hitTargets ?? [], []);
 });
 
 test('textInput maps pointer positions to text offsets when opted in', () => {
-  const regions = renderWidgetRegions(textInput({
+  const regions = renderElementRegions(textInput({
     id: 'editable-input',
     value: 'alpha',
-    toTextPointerMessage: (event) => ({ event })
+    onTextPointer: (event) => ({ event })
   }), { columns: 16, rows: 1 });
   const target = targetById(regions, 'editable-input:text');
   const message = target.message(pointerEvent({
@@ -382,22 +398,22 @@ test('textInput maps pointer positions to text offsets when opted in', () => {
 });
 
 test('disabled textInput suppresses opted-in text pointer targets', () => {
-  const frame = renderWidgetFrame(textInput({
+  const frame = renderElementFrame(textInput({
     id: 'disabled-editable-input',
     value: 'locked',
     disabled: true,
-    toTextPointerMessage: (event) => ({ event })
+    onTextPointer: (event) => ({ event })
   }), { columns: 16, rows: 1 });
 
   assert.deepEqual(frame.hitTargets ?? [], []);
 });
 
 test('textArea maps pointer positions through gutters visual rows and selection drag actions', () => {
-  const regions = renderWidgetRegions(textArea({
+  const regions = renderElementRegions(textArea({
     id: 'editable-area',
     value: 'alpha\nbeta',
     lineNumbers: true,
-    toTextPointerMessage: (event) => ({ event })
+    onTextPointer: (event) => ({ event })
   }), { columns: 24, rows: 2 });
   const target = targetById(regions, 'editable-area:text');
   const place = target.message(pointerEvent({
@@ -422,7 +438,7 @@ test('textArea maps pointer positions through gutters visual rows and selection 
 });
 
 test('textArea horizontal windows use visual cells without splitting graphemes', () => {
-  const frame = renderWidgetFrame(textArea({
+  const frame = renderElementFrame(textArea({
     id: 'unicode-area',
     value: 'a🙂界b\nplain',
     cursor: 'a🙂界'.length,
@@ -528,14 +544,14 @@ function noColorCapabilities() {
 }
 
 test('helpBar and activityIndicator provide reusable app chrome', () => {
-  const helpFrame = renderWidgetFrame(helpBar({
+  const helpFrame = renderElementFrame(helpBar({
     id: 'help',
     bindings: [
       { key: 'Enter', label: 'open' },
       { key: 'Esc', label: 'close' }
     ]
   }), { columns: 32, rows: 1 });
-  const activityFrame = renderWidgetFrame(activityIndicator({
+  const activityFrame = renderElementFrame(activityIndicator({
     id: 'activity',
     label: 'Indexing',
     status: 'running'
@@ -548,7 +564,7 @@ test('helpBar and activityIndicator provide reusable app chrome', () => {
 });
 
 test('helpBar keeps compact bindings whole instead of clipping partial labels', () => {
-  const frame = renderWidgetFrame(helpBar({
+  const frame = renderElementFrame(helpBar({
     id: 'help-compact',
     bindings: [
       { key: 'click', label: 'select/open file' },
@@ -562,13 +578,13 @@ test('helpBar keeps compact bindings whole instead of clipping partial labels', 
 });
 
 test('spinner renders state-driven frames, terminal status, and accessibility state', () => {
-  const runningFrame = renderWidgetFrame(spinner({
+  const runningFrame = renderElementFrame(spinner({
     id: 'spinner-running',
     label: 'Loading',
     frames: ['a', 'b'],
     frameIndex: 3
   }), { columns: 32, rows: 1 });
-  const successFrame = renderWidgetFrame(spinner({
+  const successFrame = renderElementFrame(spinner({
     id: 'spinner-success',
     label: 'Loaded',
     status: 'success',

@@ -1,12 +1,12 @@
 import { editTextBuffer } from '../text/index.ts';
 import type { TextEditBuffer } from '../text/index.ts';
-import type { WidgetSuggestionItem } from '../widgets/index.ts';
+import type { SuggestionItem } from '../components/contracts.ts';
 
 export interface CommandBarState {
   readonly input: TextEditBuffer;
   readonly history: readonly string[];
   readonly historyIndex?: number;
-  readonly suggestions: readonly WidgetSuggestionItem[];
+  readonly suggestions: readonly SuggestionItem[];
   readonly selectedSuggestion?: number;
 }
 
@@ -180,7 +180,7 @@ function withClearedSuggestion(state: CommandBarState): CommandBarState {
   };
 }
 
-function acceptedSuggestion(state: CommandBarState): WidgetSuggestionItem | undefined {
+function acceptedSuggestion(state: CommandBarState): SuggestionItem | undefined {
   return state.selectedSuggestion === undefined
     ? state.suggestions.find((suggestion) => suggestion.disabled !== true)
     : state.suggestions[state.selectedSuggestion];

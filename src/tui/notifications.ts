@@ -1,17 +1,18 @@
+import type { RenderNode } from '../render-node/index.ts';
 import { measureTextCells } from '../text/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import { drawBorder } from './border.ts';
 import type { BorderStyle } from './border.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
-import { widgetFrameSource } from './frame-source.ts';
+import { renderNodeFrameSource } from './frame-source.ts';
 import type { Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
 import type { RenderSpan, TerminalStyle } from './render-primitives.ts';
-import { numberProp } from './widget-props.ts';
-import type { HitTarget } from './widget-renderer.ts';
+import { numberProp } from './render-node-props.ts';
+import type { HitTarget } from './render-node-renderer.ts';
 import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
-import type { NotificationItem, NotificationPlacement, NotificationTone, Widget } from '../widgets/index.ts';
-import { normalizeNotificationTone, statusFromTone } from '../widgets/index.ts';
+import { normalizeNotificationTone, statusFromTone } from '../components/status.ts';
+import type { NotificationItem, NotificationPlacement, NotificationTone } from '../components/types.ts';
 import { feedbackSpan } from './feedback-visual.ts';
 import { statusToken } from './status-visual.ts';
 
@@ -43,7 +44,7 @@ interface NotificationCardLine {
 }
 
 export function renderNotificationStack(
-  widget: Widget,
+  widget: RenderNode,
   buffer: FrameBuffer,
   bounds: Rect,
   theme: TerminalTheme
@@ -56,11 +57,11 @@ export function renderNotificationStack(
   }
 }
 
-export function notificationStackPreferredSize(widget: Widget): NotificationStackSize {
+export function notificationStackPreferredSize(widget: RenderNode): NotificationStackSize {
   return notificationStackSizeFromCards(notificationCards(widget));
 }
 
-export function notificationStackAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function notificationStackAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const items = notificationItems(widget);
   const selected = notificationSelectedIndex(widget);
   return {
@@ -86,7 +87,7 @@ export function notificationStackAccessibleBase(widget: Widget, id: string, focu
   };
 }
 
-export function notificationStackHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function notificationStackHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toDismissMessage = notificationDismissMessageFactory(widget);
   if (toDismissMessage === undefined) return [];
   return notificationCardPlacements(widget, bounds).map((placement): HitTarget<TMessage> => ({
@@ -108,7 +109,7 @@ export function placeNotificationStack(input: NotificationStackPlacementInput): 
   return clampRect(base, input.viewport);
 }
 
-function notificationCardPlacements(widget: Widget, bounds: Rect, cards: readonly NotificationCard[] = notificationCards(widget)): readonly {
+function notificationCardPlacements(widget: RenderNode, bounds: Rect, cards: readonly NotificationCard[] = notificationCards(widget)): readonly {
   readonly card: NotificationCard;
   readonly bounds: Rect;
 }[] {
@@ -141,7 +142,7 @@ function notificationCardPlacements(widget: Widget, bounds: Rect, cards: readonl
 }
 
 function renderNotificationCard(
-  widget: Widget,
+  widget: RenderNode,
   card: NotificationCard,
   buffer: FrameBuffer,
   bounds: Rect,
@@ -159,7 +160,7 @@ function renderNotificationCard(
   };
   for (let index = 0; index < Math.min(card.lines.length, contentBounds.height); index += 1) {
     const cardLine = card.lines[index] ?? { kind: 'message', text: '' };
-    const source = widgetFrameSource(widget, {
+    const source = renderNodeFrameSource(widget, {
         family: 'feedback',
         role: 'text',
         part: cardLine.kind,
@@ -183,7 +184,7 @@ function renderNotificationCard(
   }
 }
 
-function notificationCards(widget: Widget): readonly NotificationCard[] {
+function notificationCards(widget: RenderNode): readonly NotificationCard[] {
   const maxWidth = notificationMaxWidth(widget);
   const selected = notificationSelectedIndex(widget);
   return notificationItems(widget).map((item, index) => {
@@ -205,7 +206,7 @@ function notificationStackSizeFromCards(cards: readonly NotificationCard[]): Not
   };
 }
 
-function notificationItems(widget: Widget): readonly NotificationItem[] {
+function notificationItems(widget: RenderNode): readonly NotificationItem[] {
   const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
   return items.filter(isNotificationItem).slice(0, notificationMaxVisible(widget));
 }
@@ -220,7 +221,7 @@ function cardContentLines(item: NotificationItem): readonly NotificationCardLine
 
 function fillCardBackground(
   buffer: FrameBuffer,
-  widget: Widget,
+  widget: RenderNode,
   bounds: Rect,
   item: NotificationItem,
   tone: NotificationTone,
@@ -232,7 +233,7 @@ function fillCardBackground(
     buffer.write(row, bounds.column, [{
       text: line,
       style,
-      source: widgetFrameSource(widget, {
+      source: renderNodeFrameSource(widget, {
         family: 'feedback',
         role: 'decoration',
         part: 'background',
@@ -245,7 +246,7 @@ function fillCardBackground(
 }
 
 function progressSpans(
-  widget: Widget,
+  widget: RenderNode,
   item: NotificationItem,
   width: number,
   tone: NotificationTone,
@@ -351,28 +352,28 @@ function foregroundToken(tone: NotificationTone): ThemeColorToken {
   return statusToken(statusFromTone(tone));
 }
 
-function notificationPlacement(widget: Widget): NotificationPlacement {
+function notificationPlacement(widget: RenderNode): NotificationPlacement {
   const placement = widget.props['placement'];
   return placement === 'bottom-right' || placement === 'centered-stack' ? placement : 'top-right';
 }
 
-function notificationMaxVisible(widget: Widget): number {
+function notificationMaxVisible(widget: RenderNode): number {
   const value = numberProp(widget, 'maxVisible');
   return value === undefined ? 4 : Math.max(1, Math.min(12, Math.floor(value)));
 }
 
-function notificationMaxWidth(widget: Widget): number {
+function notificationMaxWidth(widget: RenderNode): number {
   const value = numberProp(widget, 'maxWidth');
   return value === undefined ? 44 : Math.max(20, Math.min(120, Math.floor(value)));
 }
 
-function notificationSelectedIndex(widget: Widget): number {
+function notificationSelectedIndex(widget: RenderNode): number {
   const value = numberProp(widget, 'selected');
   if (value === undefined) return -1;
   return Math.max(0, Math.floor(value));
 }
 
-function notificationDismissMessageFactory<TMessage>(widget: Widget<TMessage>): ((item: NotificationItem) => TMessage) | undefined {
+function notificationDismissMessageFactory<TMessage>(widget: RenderNode<TMessage>): ((item: NotificationItem) => TMessage) | undefined {
   const candidate = widget.props['toDismissMessage'];
   return typeof candidate === 'function' ? candidate as (item: NotificationItem) => TMessage : undefined;
 }

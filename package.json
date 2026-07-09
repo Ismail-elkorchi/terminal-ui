@@ -40,9 +40,21 @@
       "types": "./dist/tui/index.d.ts",
       "default": "./dist/tui/index.js"
     },
-    "./widgets": {
-      "types": "./dist/widgets/index.d.ts",
-      "default": "./dist/widgets/index.js"
+    "./components": {
+      "types": "./dist/components/index.d.ts",
+      "default": "./dist/components/index.js"
+    },
+    "./layout": {
+      "types": "./dist/layout/index.d.ts",
+      "default": "./dist/layout/index.js"
+    },
+    "./behavior": {
+      "types": "./dist/behavior/index.d.ts",
+      "default": "./dist/behavior/index.js"
+    },
+    "./renderer": {
+      "types": "./dist/renderer/index.d.ts",
+      "default": "./dist/renderer/index.js"
     },
     "./accessibility": {
       "types": "./dist/accessibility/index.d.ts",

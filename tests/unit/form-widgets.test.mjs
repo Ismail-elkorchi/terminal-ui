@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+import { defineTui } from '../../dist/tui/index.js';
+import {
+  validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { createTuiRuntime, defineTui, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
+import { createTuiRuntime } from '../../dist/tui/index.js';
+import {
+  renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
 import {
   button,
   checkbox,
@@ -11,11 +17,13 @@ import {
   form,
   numberInput,
   radioGroup,
-  row,
   selectBox,
-  stack,
   textInput
-} from '../../dist/widgets/index.js';
+} from '../../dist/components/index.js';
+import {
+  row,
+  stack
+} from '../../dist/layout/index.js';
 
 const enter = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
 const tab = { kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false };
@@ -39,7 +47,7 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
       id: 'telemetry',
       label: 'Send diagnostics',
       checked: true,
-      message: { kind: 'toggleTelemetry' }
+      onChange: () => ({ kind: 'toggleTelemetry' })
     }),
     radioGroup({
       id: 'mode',
@@ -49,7 +57,7 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
         { id: 'safe', label: 'Safe', value: 'safe' },
         { id: 'fast', label: 'Fast', value: 'fast', disabled: true }
       ],
-      toMessage: (option) => ({ kind: 'selectMode', value: option.value })
+      onChange: (option) => ({ kind: 'selectMode', value: option.value })
     }),
     selectBox({
       id: 'region',
@@ -59,7 +67,7 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
         { id: 'eu', label: 'Europe', value: 'eu' },
         { id: 'us', label: 'United States', value: 'us' }
       ],
-      toMessage: (option) => ({ kind: 'selectRegion', value: option.value })
+      onChange: (option) => ({ kind: 'selectRegion', value: option.value })
     }),
     numberInput({
       id: 'workers',
@@ -68,15 +76,15 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
       max: 8
     }),
     row([
-      button({ id: 'submit', label: 'Continue', message: { kind: 'submit' } }),
-      button({ id: 'cancel', label: 'Cancel', message: { kind: 'cancel' } })
+      button({ id: 'submit', label: 'Continue', onPress: { kind: 'submit' } }),
+      button({ id: 'cancel', label: 'Cancel', onPress: { kind: 'cancel' } })
     ])
   ], {
     id: 'setup-form',
     title: 'Setup'
   });
 
-  const frame = renderWidgetFrame(widget, { columns: 48, rows: 24 });
+  const frame = renderElementFrame(widget, { columns: 48, rows: 24 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Setup/u);
@@ -117,7 +125,7 @@ test('form fields expose label required description and validation source anatom
     id: 'setup-form',
     title: 'Setup'
   });
-  const frame = renderWidgetFrame(widget, { columns: 42, rows: 8 });
+  const frame = renderElementFrame(widget, { columns: 42, rows: 8 });
 
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'setup-form' && cell.text === 'S')?.source?.label, 'form.title');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'name-field' && cell.text === 'N')?.source?.label, 'field.label.text');
@@ -145,7 +153,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
       checked: false,
       required: true,
       error: 'Required before submit',
-      message: { kind: 'toggleTerms' }
+      onChange: () => ({ kind: 'toggleTerms' })
     }),
     radioGroup({
       id: 'tier',
@@ -161,7 +169,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
     title: 'Account'
   });
 
-  const frame = renderWidgetFrame(widget, { columns: 40, rows: 10 }, {
+  const frame = renderElementFrame(widget, { columns: 40, rows: 10 }, {
     focusPath: ['account-form', 'terms']
   });
   const [emailField, terms, tier] = frame.accessibility.root.children;
@@ -188,13 +196,11 @@ test('form controls emit submit and cancel messages while app state owns values'
       textInput({
         id: 'query',
         value: state.result,
-        inputMap: {
-          text: (text) => ({ kind: `typed:${text}` })
-        }
+        onInput: (text) => ({ kind: `typed:${text}` })
       }),
       row([
-        button({ id: 'submit', label: 'Submit', message: { kind: 'submit' } }),
-        button({ id: 'cancel', label: 'Cancel', message: { kind: 'cancel' } })
+        button({ id: 'submit', label: 'Submit', onPress: { kind: 'submit' } }),
+        button({ id: 'cancel', label: 'Cancel', onPress: { kind: 'cancel' } })
       ])
     ], {
       id: 'flow-form',

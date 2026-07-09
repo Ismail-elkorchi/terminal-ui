@@ -1,11 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { boxDrawingJoinPass, createFrameBuffer, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
+import {
+  boxDrawingJoinPass,
+  createFrameBuffer,
+  renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
 import { defaultTheme } from '../../dist/theme/index.js';
-import { text } from '../../dist/widgets/index.js';
+import { text } from '../../dist/components/index.js';
 
-test('renderWidgetFrame applies frame passes after composition and before snapshot', () => {
+test('renderElementFrame applies frame passes after composition and before snapshot', () => {
   const pass = {
     id: 'test-marker',
     apply(buffer, context) {
@@ -14,13 +19,13 @@ test('renderWidgetFrame applies frame passes after composition and before snapsh
     }
   };
 
-  const frame = renderWidgetFrame(text('abc'), { columns: 3, rows: 1 }, { framePasses: [pass] });
+  const frame = renderElementFrame(text('abc'), { columns: 3, rows: 1 }, { framePasses: [pass] });
 
   assert.equal(renderFramePlain(frame), 'Zbc');
   assert.deepEqual(frame.cells[0]?.source, { ownerId: 'marker', role: 'custom' });
 });
 
-test('renderWidgetFrame can disable configured frame passes for debug and tests', () => {
+test('renderElementFrame can disable configured frame passes for debug and tests', () => {
   const pass = {
     id: 'test-marker',
     apply(buffer) {
@@ -28,7 +33,7 @@ test('renderWidgetFrame can disable configured frame passes for debug and tests'
     }
   };
 
-  const frame = renderWidgetFrame(text('abc'), { columns: 3, rows: 1 }, {
+  const frame = renderElementFrame(text('abc'), { columns: 3, rows: 1 }, {
     framePasses: [pass],
     disableFramePasses: true
   });

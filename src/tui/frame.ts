@@ -126,7 +126,7 @@ export {
   frameCellSource,
   frameSourcePart,
   sanitizeFrameCellSource,
-  widgetFrameSource
+  renderNodeFrameSource
 } from './frame-source.ts';
 export { serializeRenderSpansStateful } from './ansi.ts';
 

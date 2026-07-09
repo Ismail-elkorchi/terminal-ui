@@ -1,18 +1,31 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { asciiSymbols, defaultTheme, defineTheme, unicodeSymbols } from '../../dist/theme/index.js';
+import { createScrollState } from '../../dist/behavior/index.js';
+import {
+  asciiSymbols,
+  defaultTheme,
+  defineTheme,
+  unicodeSymbols } from '../../dist/theme/index.js';
 import {
   createFrameBuffer,
-  createScrollState,
   renderFramePlain,
   renderScrollbars,
-  renderWidgetFrame,
+  renderElementFrame,
   scrollbarInteractionReducer,
   scrollbarLayout,
   scrollbarVisualStateForTarget
-} from '../../dist/tui/index.js';
-import { menu, palette, scrollback, table, textArea, tree, viewport, text } from '../../dist/widgets/index.js';
+} from '../../dist/renderer/index.js';
+import {
+  menu,
+  palette,
+  scrollback,
+  table,
+  textArea,
+  tree,
+  text
+} from '../../dist/components/index.js';
+import { viewport } from '../../dist/layout/index.js';
 
 test('scrollbarLayout reserves edge tracks and computes proportional thumbs', () => {
   const layout = scrollbarLayout(
@@ -196,7 +209,7 @@ test('scrollbars render ASCII and Unicode symbol sets through theme data', () =>
 
 test('scrollback scrollbar is opt-in and preserves scoped visible-window accessibility', () => {
   const items = Array.from({ length: 8 }, (_value, index) => ({ id: `row-${index}`, text: `Row ${index}` }));
-  const frame = renderWidgetFrame(scrollback({
+  const frame = renderElementFrame(scrollback({
     id: 'log',
     items,
     scroll: createScrollState({ offsetRow: 0, contentRows: 8, viewportRows: 3 }),
@@ -209,7 +222,7 @@ test('scrollback scrollbar is opt-in and preserves scoped visible-window accessi
 });
 
 test('textArea scrollbar follows explicit text scroll state', () => {
-  const frame = renderWidgetFrame(textArea({
+  const frame = renderElementFrame(textArea({
     id: 'body',
     value: 'alpha\nbravo\ncharlie',
     scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }),
@@ -224,7 +237,7 @@ test('textArea scrollbar follows explicit text scroll state', () => {
 });
 
 test('widget scrollbars expose owner source metadata and visual state', () => {
-  const frame = renderWidgetFrame(textArea({
+  const frame = renderElementFrame(textArea({
     id: 'body',
     value: 'alpha\nbravo\ncharlie',
     scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }),
@@ -244,7 +257,7 @@ test('widget scrollbars expose owner source metadata and visual state', () => {
 });
 
 test('table scrollbar can expose vertical and horizontal scroll scope together', () => {
-  const frame = renderWidgetFrame(table({
+  const frame = renderElementFrame(table({
     id: 'wide',
     rows: [
       ['alpha-column', 'one'],
@@ -271,7 +284,7 @@ test('table scrollbar can expose vertical and horizontal scroll scope together',
 });
 
 test('menu scrollbar windows menu rows instead of drawing decorative chrome only', () => {
-  const frame = renderWidgetFrame(menu({
+  const frame = renderElementFrame(menu({
     id: 'menu',
     items: [
       { id: 'new', label: 'New' },
@@ -291,7 +304,7 @@ test('menu scrollbar windows menu rows instead of drawing decorative chrome only
 });
 
 test('tree scrollbar follows explicit tree scroll state', () => {
-  const frame = renderWidgetFrame(tree({
+  const frame = renderElementFrame(tree({
     id: 'tree',
     nodes: [
       { id: 'a', label: 'Alpha' },
@@ -311,7 +324,7 @@ test('tree scrollbar follows explicit tree scroll state', () => {
 });
 
 test('palette scrollbar renders beside the filtered result window', () => {
-  const frame = renderWidgetFrame(palette({
+  const frame = renderElementFrame(palette({
     id: 'palette',
     title: 'Actions',
     entries: [
@@ -329,7 +342,7 @@ test('palette scrollbar renders beside the filtered result window', () => {
 });
 
 test('viewport scrollbar clips child rendering to content bounds', () => {
-  const frame = renderWidgetFrame(viewport(text('abcdef'), {
+  const frame = renderElementFrame(viewport(text('abcdef'), {
     contentColumns: 6,
     scrollbar: { axis: 'horizontal' }
   }), { columns: 4, rows: 2 });

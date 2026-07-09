@@ -1,19 +1,26 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createTerminalHarness } from '../../dist/testing/index.js';
-import { defineTui, renderFramePlain, runTui } from '../../dist/tui/index.js';
+import {
+  defineTui,
+  runTui
+} from '../../dist/tui/index.js';
+import {
+  createTerminalHarness } from '../../dist/testing/index.js';
+import { renderFramePlain } from '../../dist/renderer/index.js';
 import {
   activityFeed,
   commandBar,
-  grid,
   palette,
   scrollback,
-  splitPane,
   statusBar,
-  tabs,
   text
-} from '../../dist/widgets/index.js';
+} from '../../dist/components/index.js';
+import {
+  grid,
+  splitPane,
+  tabs
+} from '../../dist/layout/index.js';
 
 function workspaceView(state) {
   const mainPanel = tabs({
@@ -64,7 +71,7 @@ function workspaceView(state) {
     id: 'workspace',
     rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }],
     columns: [{ kind: 'fill' }],
-    keyMap: { p: { type: 'palette' }, enter: { type: 'exit' } }
+    keys: { p: { type: 'palette' }, enter: { type: 'exit' } }
   });
 }
 

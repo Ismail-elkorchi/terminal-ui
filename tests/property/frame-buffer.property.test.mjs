@@ -1,8 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createFrameBuffer, layoutWidget, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
-import { row, stack, text } from '../../dist/widgets/index.js';
+import {
+  createFrameBuffer,
+  layoutElement,
+  renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import {
+  row,
+  stack
+} from '../../dist/layout/index.js';
+import { text } from '../../dist/components/index.js';
 import { textSamples } from '../support/text-samples.mjs';
 
 test('layout and clipping properties keep rendered cells inside the viewport', () => {
@@ -19,8 +28,8 @@ test('layout and clipping properties keep rendered cells inside the viewport', (
       gap: 1,
       padding: { top: 1, right: 1, bottom: 1, left: 1 }
     });
-    const layout = layoutWidget(widget, viewport);
-    const frame = renderWidgetFrame(widget, viewport);
+    const layout = layoutElement(widget, viewport);
+    const frame = renderElementFrame(widget, viewport);
     const detail = `index=${String(index)} seed=${String(seed)} viewport=${JSON.stringify(viewport)} value=${JSON.stringify(value)}`;
 
     assertBoundsInsideViewport(layout.bounds, viewport, `${detail}: root layout`);

@@ -1,6 +1,6 @@
 # Layout
 
-Layout turns a pure widget tree into deterministic rectangles, layers, focus
+Layout turns a pure element tree into deterministic rectangles, layers, focus
 targets, hit targets, and accessible structure.
 
 Use the shared layout primitives instead of per-widget geometry:
@@ -19,9 +19,9 @@ min/max dimensions, alignment, justification, overflow, z-index, visibility,
 and focus scope. Tiny terminal sizes should produce clipped or empty regions,
 not crashes.
 
-Rendering starts after layout. Widgets emit styled spans into a `FrameBuffer`;
+Rendering starts after layout. Renderers emit styled spans into a `FrameBuffer`;
 the buffer handles clipping, wide glyphs, overwrite behavior, and source
-metadata. Diffs and ANSI serialization operate on frames rather than on widget
+metadata. Diffs and ANSI serialization operate on frames rather than on element
 objects.
 
 See [Rendering internals](./rendering-internals.md) for the frame, diff, and

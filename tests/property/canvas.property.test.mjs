@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { renderWidgetFrame } from '../../dist/tui/index.js';
-import { canvas } from '../../dist/widgets/index.js';
+import { renderElementFrame } from '../../dist/renderer/index.js';
+import { canvas } from '../../dist/components/index.js';
 
 test('Canvas2D primitives clip out-of-bounds drawing to the viewport', () => {
   for (let index = 0; index < 64; index += 1) {
     const width = 4 + (index % 9);
     const height = 3 + (index % 5);
     const offset = index - 32;
-    const frame = renderWidgetFrame(canvas({
+    const frame = renderElementFrame(canvas({
       id: `canvas-property-${String(index)}`,
       painter({ canvas: drawing }) {
         drawing.withTransform({ translateX: offset, translateY: -offset, scaleX: 1 + (index % 3), scaleY: 1 + (index % 2) }, (current) => {

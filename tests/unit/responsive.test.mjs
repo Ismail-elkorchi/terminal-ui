@@ -5,7 +5,7 @@ import {
   defineBreakpoints,
   responsive,
   viewportVariant
-} from '../../dist/widgets/index.js';
+} from '../../dist/layout/index.js';
 
 test('responsive selects explicit viewport variants deterministically', () => {
   const breakpoints = defineBreakpoints({

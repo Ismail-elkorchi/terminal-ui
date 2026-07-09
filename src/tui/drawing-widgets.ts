@@ -1,34 +1,33 @@
-import { numberProp, stringify } from './widget-props.ts';
+import { numberProp, stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
-import type { Widget } from '../widgets/index.ts';
-import type { CanvasPainterInput } from '../widgets/types.ts';
+import type { RenderNode } from '../render-node/index.ts';
+import type { CanvasPainterInput } from '../components/types.ts';
 import type { Rect } from './layout.ts';
-import type { WidgetRenderInput } from './widget-renderer.ts';
+import type { RenderNodeRenderInput } from './render-node-renderer.ts';
 import { createCanvas2D } from './canvas2d/index.ts';
 import { layoutContentBounds } from './regions.ts';
 import { layoutFlowOptions } from './renderers/support/layout.ts';
 import { surfaceChildContentBounds } from './surface.ts';
 
-export function renderCanvas(input: WidgetRenderInput): void {
-  const painter = canvasPainter(input.widget.props['painter']);
+export function renderCanvas(input: RenderNodeRenderInput): void {
+  const painter = canvasPainter(input.renderNode.props['painter']);
   if (painter === undefined) {
     throw new Error('Canvas widgets must provide a painter.');
   }
   painter({
-    buffer: input.buffer,
-    canvas: createCanvas2D(input.buffer, input.node.bounds),
-    bounds: input.node.bounds,
+    canvas: createCanvas2D(input.buffer, input.layoutNode.bounds),
+    bounds: input.layoutNode.bounds,
     theme: input.theme,
-    ...(input.widget.props['state'] === undefined ? {} : { state: input.widget.props['state'] })
+    ...(input.renderNode.props['state'] === undefined ? {} : { state: input.renderNode.props['state'] })
   });
 }
 
-export function surfaceChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
+export function surfaceChildBounds(widget: RenderNode, bounds: Rect): readonly Rect[] {
   const contentBounds = layoutContentBounds(surfaceChildContentBounds(widget, bounds), layoutFlowOptions(widget));
   return (widget.children ?? []).map(() => contentBounds);
 }
 
-export function absoluteChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
+export function absoluteChildBounds(widget: RenderNode, bounds: Rect): readonly Rect[] {
   if ((widget.children ?? []).length === 0) return [];
   const rowOffset = Math.floor(numberProp(widget, 'row') ?? 1);
   const columnOffset = Math.floor(numberProp(widget, 'column') ?? 1);
@@ -45,11 +44,11 @@ export function absoluteChildBounds(widget: Widget, bounds: Rect): readonly Rect
   return [childBounds ?? { row: bounds.row, column: bounds.column, width: 0, height: 0 }];
 }
 
-export function overlayChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
+export function overlayChildBounds(widget: RenderNode, bounds: Rect): readonly Rect[] {
   return (widget.children ?? []).map(() => bounds);
 }
 
-export function canvasAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function canvasAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   return {
     id,
     role: 'application',
@@ -59,7 +58,7 @@ export function canvasAccessibleBase(widget: Widget, id: string, focused: boolea
   };
 }
 
-export function surfaceAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function surfaceAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   return {
     id,
     role: 'text',

@@ -3,36 +3,42 @@ import test from 'node:test';
 
 import {
   activeScreen,
+  screenStackReducer
+} from '../../dist/behavior/index.js';
+import {
   createFrameBuffer,
   drawBorder,
   gridCellRects,
-  layoutWidget,
+  layoutElement,
   renderFramePlain,
-  renderWidgetFrame,
-  renderWidgetRegions,
-  screenStackReducer,
+  renderElementFrame,
+  renderElementRegions,
   splitTracks
-} from '../../dist/tui/index.js';
-import { defaultTheme, noColorTheme } from '../../dist/theme/index.js';
+} from '../../dist/renderer/index.js';
+import {
+  defaultTheme,
+  noColorTheme } from '../../dist/theme/index.js';
 import {
   button,
   canvas,
   commandBar,
   contextMenu,
   dropdown,
+  textInput,
+  table,
+  text
+} from '../../dist/components/index.js';
+import {
   grid,
   absolute,
-  textInput,
   modal,
   overlay,
   row,
   splitPane,
   stack,
-  table,
   tabs,
-  text,
   surface
-} from '../../dist/widgets/index.js';
+} from '../../dist/layout/index.js';
 
 test('track helpers split fixed, percent, and fill regions deterministically', () => {
   assert.deepEqual(
@@ -123,7 +129,7 @@ test('grid and splitPane widgets lay out common app frames', () => {
     columns: [{ kind: 'fill' }]
   });
 
-  const layout = layoutWidget(widget, { columns: 40, rows: 8 });
+  const layout = layoutElement(widget, { columns: 40, rows: 8 });
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 40, height: 1 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 2, column: 1, width: 40, height: 5 });
   assert.deepEqual(layout.children[1]?.children[0]?.bounds, { row: 2, column: 1, width: 10, height: 5 });
@@ -142,7 +148,7 @@ test('splitPane content tracks use measured child width', () => {
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
   });
 
-  const layout = layoutWidget(widget, { columns: 20, rows: 3 });
+  const layout = layoutElement(widget, { columns: 20, rows: 3 });
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 8, height: 3 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 9, width: 12, height: 3 });
@@ -158,8 +164,8 @@ test('stack explicit sizes keep fixed chrome around fill content', () => {
     sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }]
   });
 
-  const layout = layoutWidget(widget, { columns: 20, rows: 6 });
-  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 20, rows: 6 }));
+  const layout = layoutElement(widget, { columns: 20, rows: 6 });
+  const output = renderFramePlain(renderElementFrame(widget, { columns: 20, rows: 6 }));
 
   assert.deepEqual(layout.children.map((child) => child.bounds), [
     { row: 1, column: 1, width: 20, height: 1 },
@@ -180,7 +186,7 @@ test('row explicit sizes keep fixed sidebars around fill content', () => {
     sizes: [{ kind: 'fixed', cells: 4 }, { kind: 'fill' }, { kind: 'content' }]
   });
 
-  const layout = layoutWidget(widget, { columns: 16, rows: 2 });
+  const layout = layoutElement(widget, { columns: 16, rows: 2 });
 
   assert.deepEqual(layout.children.map((child) => child.bounds), [
     { row: 1, column: 1, width: 4, height: 2 },
@@ -216,25 +222,46 @@ test('splitPane pressure keeps pane order and collapses gaps before clipping con
     gap: 1
   });
 
-  const layout = layoutWidget(widget, { columns: 7, rows: 1 });
+  const layout = layoutElement(widget, { columns: 7, rows: 1 });
 
   assert.deepEqual(layout.children.map((child) => child.bounds), [
     { row: 1, column: 1, width: 4, height: 1 },
     { row: 1, column: 5, width: 0, height: 1 },
     { row: 1, column: 5, width: 3, height: 1 }
   ]);
-  assert.equal(renderFramePlain(renderWidgetFrame(widget, { columns: 7, rows: 1 })), 'leftrig');
+  assert.equal(renderFramePlain(renderElementFrame(widget, { columns: 7, rows: 1 })), 'leftrig');
 });
 
 test('row pressure uses overflow priority without rewarding decorative tail content', () => {
   const widget = row([
-    text('REQUIRED', { id: 'required', overflowPriority: 'required' }),
-    text('secondary', { id: 'secondary', overflowPriority: 'secondary' }),
-    text('decorative', { id: 'decorative', overflowPriority: 'decorative' })
+    text('REQUIRED', {
+    id: 'required',
+    meta: {
+        layer: {
+            overflowPriority: 'required'
+        }
+    }
+}),
+    text('secondary', {
+    id: 'secondary',
+    meta: {
+        layer: {
+            overflowPriority: 'secondary'
+        }
+    }
+}),
+    text('decorative', {
+    id: 'decorative',
+    meta: {
+        layer: {
+            overflowPriority: 'decorative'
+        }
+    }
+})
   ], { gap: 0 });
 
-  const layout = layoutWidget(widget, { columns: 5, rows: 1 });
-  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 5, rows: 1 }));
+  const layout = layoutElement(widget, { columns: 5, rows: 1 });
+  const output = renderFramePlain(renderElementFrame(widget, { columns: 5, rows: 1 }));
 
   assert.deepEqual(layout.children.map((child) => child.bounds), [
     { row: 1, column: 1, width: 4, height: 1 },
@@ -258,7 +285,7 @@ test('grid content rows and columns use measured child dimensions', () => {
     columnGap: 1
   });
 
-  const layout = layoutWidget(widget, { columns: 20, rows: 6 });
+  const layout = layoutElement(widget, { columns: 20, rows: 6 });
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 10, height: 2 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 12, width: 9, height: 2 });
@@ -279,8 +306,8 @@ test('named-area grid content tracks use measured area children', () => {
     }
   });
 
-  const layout = layoutWidget(widget, { columns: 20, rows: 3 });
-  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 20, rows: 3 }));
+  const layout = layoutElement(widget, { columns: 20, rows: 3 });
+  const output = renderFramePlain(renderElementFrame(widget, { columns: 20, rows: 3 }));
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 10, height: 1 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 12, width: 9, height: 1 });
@@ -297,17 +324,17 @@ test('layout flow options align, justify, and bound content regions', () => {
     justify: 'end'
   });
 
-  const layout = layoutWidget(widget, { columns: 10, rows: 4 });
+  const layout = layoutElement(widget, { columns: 10, rows: 4 });
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 4, column: 4, width: 4, height: 1 });
 });
 
 test('layout overflow controls whether min sizes can exceed parent bounds', () => {
-  const clipped = layoutWidget(surface(text('clip', { id: 'clip' }), {
+  const clipped = layoutElement(surface(text('clip', { id: 'clip' }), {
     border: { kind: 'none' },
     minWidth: 8
   }), { columns: 4, rows: 2 });
-  const visible = layoutWidget(surface(text('visible', { id: 'visible' }), {
+  const visible = layoutElement(surface(text('visible', { id: 'visible' }), {
     border: { kind: 'none' },
     minWidth: 8,
     overflow: 'visible'
@@ -332,11 +359,11 @@ test('tabs render only the selected panel as focusable content', () => {
     ]
   });
 
-  const layout = layoutWidget(widget, { columns: 32, rows: 5 });
+  const layout = layoutElement(widget, { columns: 32, rows: 5 });
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 0, height: 0 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 2, column: 1, width: 32, height: 4 });
 
-  const frame = renderWidgetFrame(widget, { columns: 32, rows: 5 });
+  const frame = renderElementFrame(widget, { columns: 32, rows: 5 });
   assert.ok(frame.focusPath?.includes('second-input'));
   assert.ok(!frame.focusPath?.includes('first-input'));
   assert.match(frame.cells.map((cell) => cell.text).join(''), /\[Second\]/u);
@@ -344,13 +371,13 @@ test('tabs render only the selected panel as focusable content', () => {
 });
 
 test('tabs keep active markers disabled targets and overflow visible without color', () => {
-  const frame = renderWidgetFrame(tabs({
+  const frame = renderElementFrame(tabs({
     id: 'tabs',
     selected: 'alpha',
     tabs: [
-      { id: 'alpha', label: 'Alpha', message: { kind: 'alpha' }, panel: text('Alpha panel') },
-      { id: 'beta', label: 'Beta', disabled: true, message: { kind: 'beta' }, panel: text('Beta panel') },
-      { id: 'gamma', label: 'Gamma', message: { kind: 'gamma' }, panel: text('Gamma panel') }
+      { id: 'alpha', label: 'Alpha', onSelect: { kind: 'alpha' }, panel: text('Alpha panel') },
+      { id: 'beta', label: 'Beta', disabled: true, onSelect: { kind: 'beta' }, panel: text('Beta panel') },
+      { id: 'gamma', label: 'Gamma', onSelect: { kind: 'gamma' }, panel: text('Gamma panel') }
     ]
   }), { columns: 14, rows: 3 }, { theme: noColorTheme });
   const header = renderFramePlain(frame).split('\n')[0] ?? '';
@@ -363,21 +390,21 @@ test('tabs keep active markers disabled targets and overflow visible without col
 });
 
 test('tabs keep the selected tab visible when headers overflow', () => {
-  const frame = renderWidgetFrame(tabs({
+  const frame = renderElementFrame(tabs({
     id: 'tabs',
     selected: 'gamma',
     tabs: [
-      { id: 'alpha', label: 'Alpha', message: { kind: 'alpha' }, panel: text('Alpha panel') },
-      { id: 'beta', label: 'Beta', message: { kind: 'beta' }, panel: text('Beta panel') },
+      { id: 'alpha', label: 'Alpha', onSelect: { kind: 'alpha' }, panel: text('Alpha panel') },
+      { id: 'beta', label: 'Beta', onSelect: { kind: 'beta' }, panel: text('Beta panel') },
       {
         id: 'gamma',
         label: 'Gamma',
         badge: '2',
-        message: { kind: 'gamma' },
-        closeMessage: { kind: 'close-gamma' },
+        onSelect: { kind: 'gamma' },
+        onClose: { kind: 'close-gamma' },
         panel: text('Gamma panel')
       },
-      { id: 'delta', label: 'Delta', message: { kind: 'delta' }, panel: text('Delta panel') }
+      { id: 'delta', label: 'Delta', onSelect: { kind: 'delta' }, panel: text('Delta panel') }
     ]
   }), { columns: 15, rows: 3 }, { theme: noColorTheme });
   const header = renderFramePlain(frame).split('\n')[0] ?? '';
@@ -399,8 +426,8 @@ test('absolute clips child bounds without leaking outside its parent', () => {
     height: 1
   });
 
-  const layout = layoutWidget(widget, { columns: 6, rows: 1 });
-  const frame = renderWidgetFrame(widget, { columns: 6, rows: 1 });
+  const layout = layoutElement(widget, { columns: 6, rows: 1 });
+  const frame = renderElementFrame(widget, { columns: 6, rows: 1 });
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 4, width: 3, height: 1 });
   assert.equal(renderFramePlain(frame), '   OVE');
@@ -424,10 +451,10 @@ test('absolute clips top-left and fully outside placements to parent bounds', ()
     height: 1
   });
 
-  const partialLayout = layoutWidget(partial, { columns: 4, rows: 1 });
-  const hiddenLayout = layoutWidget(hidden, { columns: 6, rows: 2 });
-  const partialFrame = renderWidgetFrame(partial, { columns: 4, rows: 1 });
-  const hiddenFrame = renderWidgetFrame(hidden, { columns: 6, rows: 2 });
+  const partialLayout = layoutElement(partial, { columns: 4, rows: 1 });
+  const hiddenLayout = layoutElement(hidden, { columns: 6, rows: 2 });
+  const partialFrame = renderElementFrame(partial, { columns: 4, rows: 1 });
+  const hiddenFrame = renderElementFrame(hidden, { columns: 6, rows: 2 });
 
   assert.deepEqual(partialLayout.children[0]?.bounds, { row: 1, column: 1, width: 4, height: 1 });
   assert.deepEqual(hiddenLayout.children[0]?.bounds, { row: 1, column: 1, width: 0, height: 0 });
@@ -442,15 +469,36 @@ test('overlay preserves declaration order within one layer and z-order across la
     text('TWO', { id: 'two' })
   ], { id: 'same-layer' });
   const layered = overlay([
-    text('LOW', { id: 'low', zIndex: 2 }),
-    text('MID', { id: 'mid', zIndex: 1 }),
-    text('TOP', { id: 'top', zIndex: 3 })
+    text('LOW', {
+    id: 'low',
+    meta: {
+        layer: {
+            zIndex: 2
+        }
+    }
+}),
+    text('MID', {
+    id: 'mid',
+    meta: {
+        layer: {
+            zIndex: 1
+        }
+    }
+}),
+    text('TOP', {
+    id: 'top',
+    meta: {
+        layer: {
+            zIndex: 3
+        }
+    }
+})
   ], { id: 'layered' });
-  const regions = renderWidgetRegions(layered, { columns: 3, rows: 1 });
+  const regions = renderElementRegions(layered, { columns: 3, rows: 1 });
 
-  assert.equal(renderFramePlain(renderWidgetFrame(sameLayer, { columns: 3, rows: 1 })), 'TWO');
+  assert.equal(renderFramePlain(renderElementFrame(sameLayer, { columns: 3, rows: 1 })), 'TWO');
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 1, 2, 3]);
-  assert.equal(renderFramePlain(renderWidgetFrame(layered, { columns: 3, rows: 1 })), 'TOP');
+  assert.equal(renderFramePlain(renderElementFrame(layered, { columns: 3, rows: 1 })), 'TOP');
 });
 
 test('overlay accessibility and initial focus follow topmost visual order', () => {
@@ -459,12 +507,26 @@ test('overlay accessibility and initial focus follow topmost visual order', () =
     textInput({ id: 'upper-field', value: 'upper' })
   ], { id: 'focus-overlay' });
   const zWidget = overlay([
-    text('LOW', { id: 'low-layer', zIndex: 0 }),
-    text('TOP', { id: 'top-layer', zIndex: 10 })
+    text('LOW', {
+    id: 'low-layer',
+    meta: {
+        layer: {
+            zIndex: 0
+        }
+    }
+}),
+    text('TOP', {
+    id: 'top-layer',
+    meta: {
+        layer: {
+            zIndex: 10
+        }
+    }
+})
   ], { id: 'accessibility-overlay' });
 
-  const frame = renderWidgetFrame(widget, { columns: 12, rows: 2 });
-  const zFrame = renderWidgetFrame(zWidget, { columns: 12, rows: 2 });
+  const frame = renderElementFrame(widget, { columns: 12, rows: 2 });
+  const zFrame = renderElementFrame(zWidget, { columns: 12, rows: 2 });
 
   assert.deepEqual(frame.focusPath, ['focus-overlay', 'upper-field']);
   assert.deepEqual(frame.accessibility.root.children?.map((node) => node.id), ['upper-field', 'lower-field']);
@@ -478,23 +540,23 @@ test('modal centers a bounded dialog and lays out child content inside the borde
     width: 12,
     height: 5
   });
-  const layout = layoutWidget(widget, { columns: 30, rows: 9 });
+  const layout = layoutElement(widget, { columns: 30, rows: 9 });
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 4, column: 11, width: 10, height: 3 });
-  const frame = renderWidgetFrame(widget, { columns: 30, rows: 9 });
+  const frame = renderElementFrame(widget, { columns: 30, rows: 9 });
   const rendered = frame.cells.map((cell) => cell.text).join('');
   assert.equal(frame.accessibility.root.label, 'Confirm');
   assert.match(rendered, /inside/u);
 });
 
 test('modal accessibility label derives from structured border titles', () => {
-  const spanTitleFrame = renderWidgetFrame(modal(text('inside', { id: 'inside' }), {
+  const spanTitleFrame = renderElementFrame(modal(text('inside', { id: 'inside' }), {
     id: 'span-dialog',
     border: { kind: 'single', title: [{ text: 'Span' }, { text: ' title' }] },
     width: 18,
     height: 5
   }), { columns: 30, rows: 9 });
-  const railTitleFrame = renderWidgetFrame(modal(text('inside', { id: 'inside' }), {
+  const railTitleFrame = renderElementFrame(modal(text('inside', { id: 'inside' }), {
     id: 'rail-dialog',
     border: {
       kind: 'single',
@@ -523,12 +585,12 @@ test('modal reserves a structurally separated action area without color', () => 
       button({ id: 'confirm', label: 'OK' })
     ], { gap: 1 })
   });
-  const layout = layoutWidget(widget, { columns: 30, rows: 9 }, noColorTheme);
+  const layout = layoutElement(widget, { columns: 30, rows: 9 }, noColorTheme);
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 3, column: 7, width: 18, height: 3 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 7, column: 7, width: 18, height: 1 });
 
-  const frame = renderWidgetFrame(widget, { columns: 30, rows: 9 }, { theme: noColorTheme });
+  const frame = renderElementFrame(widget, { columns: 30, rows: 9 }, { theme: noColorTheme });
   const separatorCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'modal' && cell.source.label === 'action-separator');
 
   assert.equal(separatorCells.length, 18);
@@ -539,7 +601,7 @@ test('modal reserves a structurally separated action area without color', () => 
 });
 
 test('border model supports styled widget borders and borderless layout', () => {
-  const doubleFrame = renderWidgetFrame(surface(text('inside', { id: 'inside' }), {
+  const doubleFrame = renderElementFrame(surface(text('inside', { id: 'inside' }), {
     id: 'panel',
     border: { kind: 'double', title: 'Panel' }
   }), { columns: 14, rows: 4 });
@@ -554,15 +616,15 @@ test('border model supports styled widget borders and borderless layout', () => 
     id: 'plain',
     border: { kind: 'none' }
   });
-  const borderlessLayout = layoutWidget(borderless, { columns: 8, rows: 2 });
-  const borderlessFrame = renderWidgetFrame(borderless, { columns: 8, rows: 2 });
+  const borderlessLayout = layoutElement(borderless, { columns: 8, rows: 2 });
+  const borderlessFrame = renderElementFrame(borderless, { columns: 8, rows: 2 });
 
   assert.deepEqual(borderlessLayout.children[0]?.bounds, { row: 1, column: 1, width: 8, height: 2 });
   assert.equal(renderFramePlain(borderlessFrame), 'flush');
 });
 
 test('surface chrome variant renders one-line bars without border chrome', () => {
-  const frame = renderWidgetFrame(surface(text('Menu', { id: 'menu-label' }), {
+  const frame = renderElementFrame(surface(text('Menu', { id: 'menu-label' }), {
     id: 'app-chrome',
     variant: 'chrome',
     padding: { left: 1, right: 1 }
@@ -584,8 +646,8 @@ test('surface borders degrade in tiny regions to preserve child content', () => 
     id: 'tiny-raised',
     variant: 'raised'
   });
-  const layout = layoutWidget(widget, { columns: 10, rows: 1 });
-  const frame = renderWidgetFrame(widget, { columns: 10, rows: 1 });
+  const layout = layoutElement(widget, { columns: 10, rows: 1 });
+  const frame = renderElementFrame(widget, { columns: 10, rows: 1 });
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 10, height: 1 });
   assert.equal(renderFramePlain(frame), 'Menu');
@@ -634,10 +696,10 @@ test('shared border renderer aligns titles and clips wide unicode safely', () =>
 });
 
 test('focused bordered widgets use focus border style without changing layout', () => {
-  const frame = renderWidgetFrame(surface(text('inside', { id: 'inside' }), {
+  const frame = renderElementFrame(surface(text('inside', { id: 'inside' }), {
     id: 'focus-panel',
     border: { kind: 'single', title: 'Panel' },
-    keyMap: { Enter: { kind: 'submit' } }
+    keys: { Enter: { kind: 'submit' } }
   }), { columns: 12, rows: 3 });
   const topLeft = frame.cells.find((cell) => cell.row === 1 && cell.column === 1);
 
@@ -646,14 +708,14 @@ test('focused bordered widgets use focus border style without changing layout', 
 });
 
 test('focused bordered widgets respect explicit focus style override', () => {
-  const frame = renderWidgetFrame(surface(text('inside', { id: 'inside' }), {
+  const frame = renderElementFrame(surface(text('inside', { id: 'inside' }), {
     id: 'focus-panel-custom',
     border: {
       kind: 'heavy',
       title: 'Panel',
       focusStyle: { fg: { kind: 'theme', token: 'status.warning' }, bold: true }
     },
-    keyMap: { Enter: { kind: 'submit' } }
+    keys: { Enter: { kind: 'submit' } }
   }), { columns: 12, rows: 3 });
   const topLeft = frame.cells.find((cell) => cell.row === 1 && cell.column === 1);
 
@@ -663,15 +725,37 @@ test('focused bordered widgets respect explicit focus style override', () => {
 
 test('layers render top z-index content last and hide invisible widgets', () => {
   const widget = overlay([
-    text('lower', { id: 'lower', zIndex: 0 }),
-    text('UPPER', { id: 'upper', zIndex: 5 }),
-    text('hidden', { id: 'hidden', zIndex: 10, visible: false })
+    text('lower', {
+    id: 'lower',
+    meta: {
+        layer: {
+            zIndex: 0
+        }
+    }
+}),
+    text('UPPER', {
+    id: 'upper',
+    meta: {
+        layer: {
+            zIndex: 5
+        }
+    }
+}),
+    text('hidden', {
+    id: 'hidden',
+    meta: {
+        layer: {
+            zIndex: 10,
+            visible: false
+        }
+    }
+})
   ], {
     id: 'layer-root'
   });
 
-  const layout = layoutWidget(widget, { columns: 12, rows: 2 });
-  const frame = renderWidgetFrame(widget, { columns: 12, rows: 2 });
+  const layout = layoutElement(widget, { columns: 12, rows: 2 });
+  const frame = renderElementFrame(widget, { columns: 12, rows: 2 });
   const output = renderFramePlain(frame);
 
   assert.equal(layout.children[0]?.layer.zIndex, 0);
@@ -684,13 +768,27 @@ test('layers render top z-index content last and hide invisible widgets', () => 
 
 test('focus is scoped to the topmost visible focus layer', () => {
   const widget = overlay([
-    textInput({ id: 'lower-input', value: 'lower', zIndex: 0 }),
-    textInput({ id: 'upper-input', value: 'upper', zIndex: 8 })
+    textInput({
+    id: 'lower-input', value: 'lower',
+    meta: {
+        layer: {
+            zIndex: 0
+        }
+    }
+}),
+    textInput({
+    id: 'upper-input', value: 'upper',
+    meta: {
+        layer: {
+            zIndex: 8
+        }
+    }
+})
   ], {
     id: 'focus-root'
   });
 
-  const frame = renderWidgetFrame(widget, { columns: 16, rows: 2 }, { focusPath: ['focus-root', 'lower-input'] });
+  const frame = renderElementFrame(widget, { columns: 16, rows: 2 }, { focusPath: ['focus-root', 'lower-input'] });
 
   assert.deepEqual(frame.focusPath, ['focus-root', 'upper-input']);
   assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 9 });
@@ -708,28 +806,36 @@ test('focus is scoped to the topmost visible focus layer', () => {
 test('overlapping modal renders above lower region content', () => {
   const widget = surface(overlay([
     canvas({
-      id: 'modal-backdrop-canvas',
-      zIndex: 0,
-      painter({ buffer, bounds }) {
-        for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
-          buffer.write(row, bounds.column, [{ text: 'backdrop backdrop backdrop' }]);
+    id: 'modal-backdrop-canvas',
+    painter({ canvas, bounds }) {
+        for (let row = 0; row < bounds.height; row += 1) {
+            canvas.text(0, row, [{ text: 'backdrop backdrop backdrop' }]);
         }
-      }
-    }),
+    },
+    meta: {
+        layer: {
+            zIndex: 0
+        }
+    }
+}),
     modal(text('front', { id: 'front' }), {
-      id: 'dialog-layer',
-      title: 'Dialog',
-      width: 14,
-      height: 5,
-      zIndex: 20
-    })
+    id: 'dialog-layer',
+    title: 'Dialog',
+    width: 14,
+    height: 5,
+    meta: {
+        layer: {
+            zIndex: 20
+        }
+    }
+})
   ], { id: 'modal-layer-overlay' }), {
     id: 'modal-layer-root',
     border: { kind: 'none' }
   });
 
-  const regions = renderWidgetRegions(widget, { columns: 24, rows: 7 });
-  const frame = renderWidgetFrame(widget, { columns: 24, rows: 7 });
+  const regions = renderElementRegions(widget, { columns: 24, rows: 7 });
+  const frame = renderElementFrame(widget, { columns: 24, rows: 7 });
   const output = renderFramePlain(frame);
   const modalRegion = regions[1];
   const leakedBackdropCells = modalRegion === undefined
@@ -748,35 +854,43 @@ test('overlapping modal renders above lower region content', () => {
 test('dropdown renders above table content in a higher region', () => {
   const widget = surface(overlay([
     table({
-      id: 'settings-table',
-      zIndex: 0,
-      columns: [
+    id: 'settings-table',
+    columns: [
         { header: 'Name', width: 8 },
         { header: 'Value', width: 8 }
-      ],
-      rows: [
+    ],
+    rows: [
         ['Theme', 'System'],
         ['Mode', 'Compact']
-      ]
-    }),
+    ],
+    meta: {
+        layer: {
+            zIndex: 0
+        }
+    }
+}),
     dropdown({
-      id: 'theme-dropdown-layer',
-      zIndex: 15,
-      label: 'Theme',
-      selected: 'dark',
-      open: true,
-      items: [
-        { id: 'light', label: 'Light', message: { kind: 'theme', value: 'light' } },
-        { id: 'dark', label: 'Dark', message: { kind: 'theme', value: 'dark' } }
-      ]
-    })
+    id: 'theme-dropdown-layer',
+    label: 'Theme',
+    selected: 'dark',
+    open: true,
+    items: [
+        { id: 'light', label: 'Light', onPress: { kind: 'theme', value: 'light' } },
+        { id: 'dark', label: 'Dark', onPress: { kind: 'theme', value: 'dark' } }
+    ],
+    meta: {
+        layer: {
+            zIndex: 15
+        }
+    }
+})
   ], { id: 'dropdown-layer-overlay' }), {
     id: 'dropdown-layer-root',
     border: { kind: 'none' }
   });
 
-  const regions = renderWidgetRegions(widget, { columns: 28, rows: 5 });
-  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 28, rows: 5 }));
+  const regions = renderElementRegions(widget, { columns: 28, rows: 5 });
+  const output = renderFramePlain(renderElementFrame(widget, { columns: 28, rows: 5 }));
   const firstLine = output.split('\n')[0] ?? '';
 
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 15]);
@@ -790,31 +904,39 @@ test('dropdown renders above table content in a higher region', () => {
 test('context menu renders above canvas content in a higher region', () => {
   const widget = surface(overlay([
     canvas({
-      id: 'context-menu-canvas',
-      zIndex: 0,
-      painter({ buffer, bounds }) {
-        for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
-          buffer.write(row, bounds.column, [{ text: 'canvas canvas canvas' }]);
+    id: 'context-menu-canvas',
+    painter({ canvas, bounds }) {
+        for (let row = 0; row < bounds.height; row += 1) {
+            canvas.text(0, row, [{ text: 'canvas canvas canvas' }]);
         }
-      }
-    }),
+    },
+    meta: {
+        layer: {
+            zIndex: 0
+        }
+    }
+}),
     contextMenu({
-      id: 'canvas-context-menu',
-      zIndex: 12,
-      title: 'Actions',
-      selected: 'copy',
-      items: [
-        { id: 'copy', label: 'Copy', message: { kind: 'copy' } },
-        { id: 'paste', label: 'Paste', message: { kind: 'paste' } }
-      ]
-    })
+    id: 'canvas-context-menu',
+    title: 'Actions',
+    selected: 'copy',
+    items: [
+        { id: 'copy', label: 'Copy', onPress: { kind: 'copy' } },
+        { id: 'paste', label: 'Paste', onPress: { kind: 'paste' } }
+    ],
+    meta: {
+        layer: {
+            zIndex: 12
+        }
+    }
+})
   ], { id: 'context-layer-overlay' }), {
     id: 'context-layer-root',
     border: { kind: 'none' }
   });
 
-  const regions = renderWidgetRegions(widget, { columns: 24, rows: 4 });
-  const output = renderFramePlain(renderWidgetFrame(widget, { columns: 24, rows: 4 }));
+  const regions = renderElementRegions(widget, { columns: 24, rows: 4 });
+  const output = renderFramePlain(renderElementFrame(widget, { columns: 24, rows: 4 }));
   const firstLine = output.split('\n')[0] ?? '';
 
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 12]);
@@ -830,20 +952,24 @@ test('inheritBackground regions preserve lower background styles', () => {
   const widget = overlay([
     canvas({
       id: 'background-style-canvas',
-      painter({ buffer }) {
-        buffer.write(1, 1, [{ text: 'A', style: { bg: { kind: 'ansi', value: 1 } } }]);
+      painter({ canvas }) {
+        canvas.text(0, 0, [{ text: 'A', style: { bg: { kind: 'ansi', value: 1 } } }]);
       }
     }),
     canvas({
-      id: 'inherited-background-canvas',
-      zIndex: 4,
-      opacity: 'inheritBackground',
-      painter({ buffer }) {
-        buffer.write(1, 1, [{ text: 'B', style: { fg: { kind: 'ansi', value: 2 } } }]);
-      }
-    })
+    id: 'inherited-background-canvas',
+    painter({ canvas }) {
+        canvas.text(0, 0, [{ text: 'B', style: { fg: { kind: 'ansi', value: 2 } } }]);
+    },
+    meta: {
+        layer: {
+            zIndex: 4,
+            opacity: 'inheritBackground'
+        }
+    }
+})
   ], { id: 'inherit-background-root' });
-  const frame = renderWidgetFrame(widget, { columns: 4, rows: 2 });
+  const frame = renderElementFrame(widget, { columns: 4, rows: 2 });
   const cell = frame.cells.find((item) => item.row === 1 && item.column === 1);
 
   assert.equal(cell?.text, 'B');

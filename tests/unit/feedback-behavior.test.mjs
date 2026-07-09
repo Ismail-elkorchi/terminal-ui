@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   indeterminateProgressFrame,
   progressCompletionState
-} from '../../dist/widgets/index.js';
+} from '../../dist/behavior/index.js';
 
 test('progressCompletionState classifies bounded values deterministically', () => {
   assert.equal(progressCompletionState(0, 10), 'empty');

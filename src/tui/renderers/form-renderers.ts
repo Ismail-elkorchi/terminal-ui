@@ -48,7 +48,7 @@ import {
 import { singleLineInputPointerOffset } from '../input-visual.ts';
 import { splitTracks } from '../regions.ts';
 import { textPointerHitTargets, textPointerMessageFactory } from '../text-pointer.ts';
-import { stringify } from '../widget-props.ts';
+import { stringify } from '../render-node-props.ts';
 import { writeRenderBlock } from './support/block.ts';
 import { focusTarget, widgetMessageHitTargets } from './support/common.ts';
 import { fillLayoutSizes, layoutFlowOptions } from './support/layout.ts';
@@ -56,162 +56,162 @@ import type { RendererMap } from './types.ts';
 
 export const formRenderers = {
   form: {
-    layout: ({ widget, bounds }) => splitTracks(
-      formContentBounds(widget, bounds),
+    layout: ({ renderNode, bounds }) => splitTracks(
+      formContentBounds(renderNode, bounds),
       'vertical',
-      fillLayoutSizes(widget.children?.length ?? 0),
-      layoutFlowOptions(widget)
+      fillLayoutSizes(renderNode.children?.length ?? 0),
+      layoutFlowOptions(renderNode)
     ),
     render: (input) => {
-      writeRenderBlock(input.buffer, input.node.bounds, formBlock(input.widget, input.node.bounds));
+      writeRenderBlock(input.buffer, input.layoutNode.bounds, formBlock(input.renderNode, input.layoutNode.bounds));
       input.renderChildren();
     },
-    accessibility: ({ widget, id, focused }) => formAccessibleBase(widget, id, focused)
+    accessibility: ({ renderNode, id, focused }) => formAccessibleBase(renderNode, id, focused)
   },
   field: {
-    layout: ({ widget, bounds }) => splitTracks(
-      fieldContentBounds(widget, bounds),
+    layout: ({ renderNode, bounds }) => splitTracks(
+      fieldContentBounds(renderNode, bounds),
       'vertical',
-      fillLayoutSizes(widget.children?.length ?? 0),
-      layoutFlowOptions(widget)
+      fillLayoutSizes(renderNode.children?.length ?? 0),
+      layoutFlowOptions(renderNode)
     ),
     render: (input) => {
-      writeRenderBlock(input.buffer, input.node.bounds, fieldBlock(input.widget, input.node.bounds));
+      writeRenderBlock(input.buffer, input.layoutNode.bounds, fieldBlock(input.renderNode, input.layoutNode.bounds));
       input.renderChildren();
     },
-    accessibility: ({ widget, id, focused }) => fieldAccessibleBase(widget, id, focused)
+    accessibility: ({ renderNode, id, focused }) => fieldAccessibleBase(renderNode, id, focused)
   },
   label: {
-    render: ({ widget, node, buffer }) => {
-      writeRenderBlock(buffer, node.bounds, labelBlock(widget, node.bounds));
+    render: ({ renderNode, layoutNode, buffer }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, labelBlock(renderNode, layoutNode.bounds));
     },
-    accessibility: ({ widget, id }) => labelAccessibleBase(widget, id)
+    accessibility: ({ renderNode, id }) => labelAccessibleBase(renderNode, id)
   },
   button: {
-    render: ({ widget, node, buffer, focused, theme }) => {
-      writeRenderBlock(buffer, node.bounds, buttonBlock(widget, node.bounds, focused, theme));
+    render: ({ renderNode, layoutNode, buffer, focused, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, buttonBlock(renderNode, layoutNode.bounds, focused, theme));
     },
-    accessibility: ({ widget, id, focused }) => buttonAccessibleBase(widget, id, focused),
+    accessibility: ({ renderNode, id, focused }) => buttonAccessibleBase(renderNode, id, focused),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => controlHitTargets(widget, bounds)
+    hitTargets: ({ renderNode, bounds }) => controlHitTargets(renderNode, bounds)
   },
   checkbox: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, checkboxBlock(widget, node.bounds, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, checkboxBlock(renderNode, layoutNode.bounds, theme));
     },
-    accessibility: ({ widget, id, focused }) => checkboxAccessibleBase(widget, id, focused),
+    accessibility: ({ renderNode, id, focused }) => checkboxAccessibleBase(renderNode, id, focused),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => controlHitTargets(widget, bounds)
+    hitTargets: ({ renderNode, bounds }) => controlHitTargets(renderNode, bounds)
   },
   toggleSwitch: {
-    render: ({ widget, node, buffer }) => {
-      writeRenderBlock(buffer, node.bounds, toggleSwitchBlock(widget, node.bounds));
+    render: ({ renderNode, layoutNode, buffer }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, toggleSwitchBlock(renderNode, layoutNode.bounds));
     },
-    accessibility: ({ widget, id, focused }) => toggleSwitchAccessibleBase(widget, id, focused),
+    accessibility: ({ renderNode, id, focused }) => toggleSwitchAccessibleBase(renderNode, id, focused),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => controlHitTargets(widget, bounds)
+    hitTargets: ({ renderNode, bounds }) => controlHitTargets(renderNode, bounds)
   },
   slider: {
-    render: ({ widget, node, buffer }) => {
-      writeRenderBlock(buffer, node.bounds, sliderBlock(widget, node.bounds));
+    render: ({ renderNode, layoutNode, buffer }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, sliderBlock(renderNode, layoutNode.bounds));
     },
-    accessibility: ({ widget, id, focused }) => sliderAccessibleBase(widget, id, focused),
+    accessibility: ({ renderNode, id, focused }) => sliderAccessibleBase(renderNode, id, focused),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => sliderHitTargets(widget, bounds)
+    hitTargets: ({ renderNode, bounds }) => sliderHitTargets(renderNode, bounds)
   },
   rangeSlider: {
-    render: ({ widget, node, buffer }) => {
-      writeRenderBlock(buffer, node.bounds, rangeSliderBlock(widget, node.bounds));
+    render: ({ renderNode, layoutNode, buffer }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, rangeSliderBlock(renderNode, layoutNode.bounds));
     },
-    accessibility: ({ widget, id, focused }) => rangeSliderAccessibleBase(widget, id, focused),
+    accessibility: ({ renderNode, id, focused }) => rangeSliderAccessibleBase(renderNode, id, focused),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => rangeSliderHitTargets(widget, bounds)
+    hitTargets: ({ renderNode, bounds }) => rangeSliderHitTargets(renderNode, bounds)
   },
   checkboxList: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, checkboxListBlock(widget, node.bounds, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, checkboxListBlock(renderNode, layoutNode.bounds, theme));
     },
-    accessibility: ({ widget, id, focused }) => ({
-      ...checkboxListAccessibleBase(widget, id, focused),
-      children: checkboxListAccessibleChildren(widget)
+    accessibility: ({ renderNode, id, focused }) => ({
+      ...checkboxListAccessibleBase(renderNode, id, focused),
+      children: checkboxListAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => checkboxListHitTargets(widget, bounds)
+    hitTargets: ({ renderNode, bounds }) => checkboxListHitTargets(renderNode, bounds)
   },
   radioGroup: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, radioGroupBlock(widget, node.bounds, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, radioGroupBlock(renderNode, layoutNode.bounds, theme));
     },
-    accessibility: ({ widget, id, focused }) => ({
-      ...radioGroupAccessibleBase(widget, id, focused),
-      children: radioGroupAccessibleChildren(widget)
+    accessibility: ({ renderNode, id, focused }) => ({
+      ...radioGroupAccessibleBase(renderNode, id, focused),
+      children: radioGroupAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => optionHitTargets(widget, bounds)
+    hitTargets: ({ renderNode, bounds }) => optionHitTargets(renderNode, bounds)
   },
   selectBox: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, selectBoxBlock(widget, node.bounds, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, selectBoxBlock(renderNode, layoutNode.bounds, theme));
     },
-    accessibility: ({ widget, id, focused }) => ({
-      ...selectBoxAccessibleBase(widget, id, focused),
-      children: selectBoxAccessibleChildren(widget)
+    accessibility: ({ renderNode, id, focused }) => ({
+      ...selectBoxAccessibleBase(renderNode, id, focused),
+      children: selectBoxAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => optionHitTargets(widget, bounds)
+    hitTargets: ({ renderNode, bounds }) => optionHitTargets(renderNode, bounds)
   },
   colorPicker: {
-    render: ({ widget, node, buffer }) => {
-      writeRenderBlock(buffer, node.bounds, colorPickerBlock(widget, node.bounds));
+    render: ({ renderNode, layoutNode, buffer }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, colorPickerBlock(renderNode, layoutNode.bounds));
     },
-    accessibility: ({ widget, id, focused }) => ({
-      ...colorPickerAccessibleBase(widget, id, focused),
-      children: colorPickerAccessibleChildren(widget)
+    accessibility: ({ renderNode, id, focused }) => ({
+      ...colorPickerAccessibleBase(renderNode, id, focused),
+      children: colorPickerAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => pickerHitTargets(widget, bounds)
+    hitTargets: ({ renderNode, bounds }) => pickerHitTargets(renderNode, bounds)
   },
   datePicker: {
-    render: ({ widget, node, buffer }) => {
-      writeRenderBlock(buffer, node.bounds, datePickerBlock(widget, node.bounds));
+    render: ({ renderNode, layoutNode, buffer }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, datePickerBlock(renderNode, layoutNode.bounds));
     },
-    accessibility: ({ widget, id, focused }) => ({
-      ...datePickerAccessibleBase(widget, id, focused),
-      children: datePickerAccessibleChildren(widget)
+    accessibility: ({ renderNode, id, focused }) => ({
+      ...datePickerAccessibleBase(renderNode, id, focused),
+      children: datePickerAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => pickerHitTargets(widget, bounds)
+    hitTargets: ({ renderNode, bounds }) => pickerHitTargets(renderNode, bounds)
   },
   textInput: {
-    render: ({ widget, node, buffer, focused, theme }) => {
-      writeRenderBlock(buffer, node.bounds, textInputBlock(widget, node.bounds, focused, theme));
+    render: ({ renderNode, layoutNode, buffer, focused, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, textInputBlock(renderNode, layoutNode.bounds, focused, theme));
     },
-    accessibility: ({ widget, id, focused }) => textInputAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, textInputCursor(widget, bounds))],
-    hitTargets: ({ widget, bounds, theme }) => [
-      ...widgetMessageHitTargets(widget, bounds, 'input'),
-      ...(widget.props['disabled'] === true
+    accessibility: ({ renderNode, id, focused }) => textInputAccessibleBase(renderNode, id, focused),
+    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, textInputCursor(renderNode, bounds))],
+    hitTargets: ({ renderNode, bounds, theme }) => [
+      ...widgetMessageHitTargets(renderNode, bounds, 'input'),
+      ...(renderNode.props['disabled'] === true
         ? []
         : textPointerHitTargets({
-            id: `${widget.id ?? widget.kind}:text`,
+            id: `${renderNode.id ?? renderNode.kind}:text`,
             bounds,
-            toMessage: textPointerMessageFactory(widget),
+            toMessage: textPointerMessageFactory(renderNode),
             offsetAt: (event) => singleLineInputPointerOffset({
-              widget,
+              widget: renderNode,
               bounds,
               theme,
-              value: stringify(widget.props['value']),
-              placeholder: stringify(widget.props['placeholder'])
+              value: stringify(renderNode.props['value']),
+              placeholder: stringify(renderNode.props['placeholder'])
             }, event)
           }))
     ]
   },
   numberInput: {
-    render: ({ widget, node, buffer, focused, theme }) => {
-      writeRenderBlock(buffer, node.bounds, numberInputBlock(widget, node.bounds, focused, theme));
+    render: ({ renderNode, layoutNode, buffer, focused, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, numberInputBlock(renderNode, layoutNode.bounds, focused, theme));
     },
-    accessibility: ({ widget, id, focused }) => numberInputAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, numberInputCursor(widget, bounds))]
+    accessibility: ({ renderNode, id, focused }) => numberInputAccessibleBase(renderNode, id, focused),
+    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, numberInputCursor(renderNode, bounds))]
   }
 } satisfies RendererMap<
   | 'form'

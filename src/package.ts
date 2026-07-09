@@ -9,7 +9,10 @@ export type TerminalUiEntrypoint =
   | 'theme'
   | 'prompts'
   | 'tui'
-  | 'widgets'
+  | 'components'
+  | 'layout'
+  | 'behavior'
+  | 'renderer'
   | 'accessibility'
   | 'transcript'
   | 'testing'
@@ -37,7 +40,10 @@ export const terminalUiPackage: TerminalUiPackage = {
     'theme',
     'prompts',
     'tui',
-    'widgets',
+    'components',
+    'layout',
+    'behavior',
+    'renderer',
     'accessibility',
     'transcript',
     'testing',

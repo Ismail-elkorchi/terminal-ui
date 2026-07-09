@@ -2,7 +2,7 @@ import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalStateSnapshot } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
-import type { Frame, RenderDiff } from '../tui/index.ts';
+import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { TuiMessageSource } from '../tui/types.ts';
 
 export interface InteractionTranscript {

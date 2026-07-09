@@ -4,18 +4,18 @@ import test from 'node:test';
 import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
-import { renderWidgetFrame } from '../../dist/tui/index.js';
+import { renderElementFrame } from '../../dist/renderer/index.js';
 import {
   activityIndicator,
   helpBar,
   progressBar,
   spinner,
-  stack,
   statusBar
-} from '../../dist/widgets/index.js';
+} from '../../dist/components/index.js';
+import { stack } from '../../dist/layout/index.js';
 
 test('feedback status widgets preserve state in high contrast and no color output', () => {
-  const frame = renderWidgetFrame(stack([
+  const frame = renderElementFrame(stack([
     statusBar({ id: 'status', text: 'Ready' }),
     helpBar({ id: 'help', bindings: [{ key: 'Enter', label: 'run' }] }),
     activityIndicator({ id: 'activity', label: 'Indexing', status: 'warning' }),

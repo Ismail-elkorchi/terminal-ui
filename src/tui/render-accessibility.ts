@@ -1,13 +1,13 @@
 import { focusPathIncludes } from './focus.ts';
-import { widgetAccessibleNode, widgetFocusTargets } from './widget-behavior.ts';
+import { accessibilityForRenderNode, focusTargetsForRenderNode } from './render-node-behavior.ts';
 import type { AccessibilityOptions, AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { Widget } from '../widgets/index.ts';
+import type { RenderNode } from '../render-node/index.ts';
 import type { FocusPath } from './focus.ts';
 import type { LayoutNode } from './layout.ts';
 
 export function accessibleNode(
-  widget: Widget,
+  widget: RenderNode,
   node: LayoutNode,
   parentPath: FocusPath,
   focusPath: FocusPath | undefined,
@@ -23,16 +23,16 @@ export function accessibleNode(
   const path = [...parentPath, node.id ?? `${node.kind}:${String(node.bounds.row)}:${String(node.bounds.column)}`];
   const id = widget.id ?? `${widget.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`;
   if (isDecorative(widget.accessibility)) {
-    assertDecorativeWidgetIsNotInteractive(widget, node, theme);
+    assertDecorativeRenderNodeIsNotInteractive(widget, node, theme);
     return decorativeRootNode(id, widget.accessibility);
   }
-  const base = widgetAccessibleNode(widget, node, id, focusPathIncludes(focusPath, path), theme);
+  const base = accessibilityForRenderNode(widget, node, id, focusPathIncludes(focusPath, path), theme);
   const children = base.children ?? accessibleChildren(widget, node, path, focusPath, theme);
   return mergeAccessibleNode(withScope(base, widget), widget.accessibility, children);
 }
 
 function accessibleChildren(
-  widget: Widget,
+  widget: RenderNode,
   node: LayoutNode,
   path: FocusPath,
   focusPath: FocusPath | undefined,
@@ -43,7 +43,7 @@ function accessibleChildren(
   const rendered = orderedAccessibleChildren(widget, node).flatMap(({ child, childNode }) => {
     if (!childNode.visible) return [];
     if (isDecorative(child.accessibility)) {
-      assertDecorativeWidgetIsNotInteractive(child, childNode, theme);
+      assertDecorativeRenderNodeIsNotInteractive(child, childNode, theme);
       return [];
     }
     return [accessibleNode(child, childNode, path, focusPath, theme)];
@@ -52,12 +52,12 @@ function accessibleChildren(
 }
 
 function orderedAccessibleChildren(
-  widget: Widget,
+  widget: RenderNode,
   node: LayoutNode
-): readonly { readonly child: Widget; readonly childNode: LayoutNode }[] {
+): readonly { readonly child: RenderNode; readonly childNode: LayoutNode }[] {
   const pairs = (widget.children ?? [])
     .map((child, index) => ({ child, childNode: node.children[index], index }))
-    .filter((item): item is { readonly child: Widget; readonly childNode: LayoutNode; readonly index: number } =>
+    .filter((item): item is { readonly child: RenderNode; readonly childNode: LayoutNode; readonly index: number } =>
       item.childNode !== undefined
     );
   if (widget.kind !== 'overlay') return pairs;
@@ -103,7 +103,7 @@ function isAccessibleNode(value: AccessibilityOptions | AccessibleNode): value i
   return 'role' in value;
 }
 
-function withScope(base: AccessibleNode, widget: Widget): AccessibleNode {
+function withScope(base: AccessibleNode, widget: RenderNode): AccessibleNode {
   if (base.scope !== undefined) return base;
   if (widget.kind === 'overlay') {
     return {
@@ -126,14 +126,14 @@ function withScope(base: AccessibleNode, widget: Widget): AccessibleNode {
   return base;
 }
 
-function assertDecorativeWidgetIsNotInteractive(widget: Widget, node: LayoutNode, theme: TerminalTheme): void {
+function assertDecorativeRenderNodeIsNotInteractive(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): void {
   if (widget.keyMap !== undefined && Object.keys(widget.keyMap).length > 0) {
     throw new Error(`Decorative widget "${widget.id ?? widget.kind}" cannot define keyboard messages.`);
   }
   if (widget.inputMap?.text !== undefined || widget.inputMap?.paste !== undefined) {
     throw new Error(`Decorative widget "${widget.id ?? widget.kind}" cannot define text input messages.`);
   }
-  if (widget.custom?.renderer.hitTargets !== undefined || widgetFocusTargets(widget, node.bounds, theme).some((target) => !target.disabled)) {
+  if (widget.custom?.renderer.hitTargets !== undefined || focusTargetsForRenderNode(widget, node.bounds, theme).some((target) => !target.disabled)) {
     throw new Error(`Decorative widget "${widget.id ?? widget.kind}" cannot expose focus or hit targets.`);
   }
 }

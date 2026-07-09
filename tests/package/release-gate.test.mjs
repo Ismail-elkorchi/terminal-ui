@@ -79,15 +79,15 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
     assert.doesNotMatch(source, /case\s+['"`](?:text|surface|stack|row|list|table|textInput|statusBar|progressBar|spinner|viewport|custom)['"`]/u, relativePath);
   }
 
-  const behavior = await readFile(new URL('../../src/tui/widget-behavior.ts', import.meta.url), 'utf8');
+  const behavior = await readFile(new URL('../../src/tui/render-node-behavior.ts', import.meta.url), 'utf8');
   const registry = await readFile(new URL('../../src/tui/renderers/index.ts', import.meta.url), 'utf8');
 
   await assert.rejects(access(new URL('../../src/tui/renderers/support.ts', import.meta.url)));
-  assert.match(behavior, /builtinWidgetRenderers\[widget\.kind\]/u);
+  assert.match(behavior, /builtinRenderNodeRenderers\[widget\.kind\]/u);
   assert.doesNotMatch(behavior, /const\s+widgetRenderers\s*=/u);
-  assert.doesNotMatch(behavior, /satisfies Record<BuiltinWidgetKind, WidgetRenderer>/u);
+  assert.doesNotMatch(behavior, /satisfies Record<BuiltinRenderNodeKind, RenderNodeRenderer>/u);
   assert.doesNotMatch(behavior, /from\s+['"]\.\/(?:form-widgets|menu-widgets|drawing-widgets|table|chart-widgets|data-widgets|palette|command-bar|progress-widget|structured-block)['"]/u);
-  assert.match(registry, /satisfies Record<BuiltinWidgetKind, WidgetRenderer>/u);
+  assert.match(registry, /satisfies Record<BuiltinRenderNodeKind, RenderNodeRenderer>/u);
   assert.doesNotMatch(registry, /custom:\s*\{\s*\}/u);
   assert.doesNotMatch(registry, /\?\.\(widget,\s*node,\s*id,\s*focused\)/u);
 
@@ -119,7 +119,7 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
 
 test('widget modules do not write directly to terminal hosts', async () => {
   const widgetFiles = [
-    ...await sourceFiles(new URL('../../src/widgets/', import.meta.url)),
+    ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
     ...await sourceFiles(new URL('../../src/tui/', import.meta.url))
   ];
   const forbiddenPatterns = [
@@ -141,7 +141,7 @@ test('widget modules do not write directly to terminal hosts', async () => {
 
 test('widget rendering code uses semantic styles instead of raw terminal colors', async () => {
   const files = [
-    ...await sourceFiles(new URL('../../src/widgets/', import.meta.url)),
+    ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
     ...await sourceFiles(new URL('../../src/tui/', import.meta.url))
   ].filter((file) => ![
     '/src/tui/ansi.ts',
@@ -258,7 +258,7 @@ test('frame contract remains styled source-aware cells, spans, blocks, and buffe
 
 test('widget rendering layer has no command, clipboard, host-output, or raw ANSI side effects', async () => {
   const files = [
-    ...await sourceFiles(new URL('../../src/widgets/', import.meta.url)),
+    ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
     ...await namedTuiSourceFiles([
       'border.ts',
       'chart-widgets.ts',
@@ -273,8 +273,8 @@ test('widget rendering layer has no command, clipboard, host-output, or raw ANSI
       'table.ts',
       'text-widgets.ts',
       'tree.ts',
-      'widget-behavior.ts',
-      'widget-renderer.ts'
+      'render-node-behavior.ts',
+      'render-node-renderer.ts'
     ])
   ];
   const forbiddenPatterns = [
@@ -304,8 +304,8 @@ test('rendering and layout code do not read runtime globals', async () => {
     'render.ts',
     'render-accessibility.ts',
     'render-primitives.ts',
-    'widget-behavior.ts',
-    'widget-renderer.ts'
+    'render-node-behavior.ts',
+    'render-node-renderer.ts'
   ]);
   const layoutFiles = await namedTuiSourceFiles([
     'focus.ts',
@@ -347,7 +347,7 @@ test('runtime hot paths use precomputed theme fingerprints', async () => {
 test('TUI widgets and examples use scheduler sources instead of raw timers', async () => {
   const files = [
     ...await sourceFiles(new URL('../../src/tui/', import.meta.url)),
-    ...await sourceFiles(new URL('../../src/widgets/', import.meta.url)),
+    ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
     ...await sourceFiles(new URL('../../examples/', import.meta.url), '.mjs')
   ];
   const forbiddenPatterns = [
@@ -489,11 +489,11 @@ test('runtime input routing uses the committed render cache', async () => {
   assert.doesNotMatch(runtime, /createInputDecoder\(/u);
   assert.doesNotMatch(runtime, /\blayoutWidget\(/u);
   assert.match(runtime, /\bensureRender\(\)/u);
-  assert.match(runtime, /findWidgetFocusTarget\(current\.widget, current\.layout/u);
+  assert.match(runtime, /findRenderNodeFocusTarget\(current\.node, current\.layout/u);
   assert.match(runtime, /createPointerRouter<TMessage>\(\)/u);
   assert.match(runtime, /pointerRouter\.route\(current\.regions, event\)/u);
-  assert.doesNotMatch(runtime, /collectWidgetLayoutTargets\(current\.widget, current\.layout\)/u);
-  assert.doesNotMatch(runtime, /widgetHitTargets\(/u);
+  assert.doesNotMatch(runtime, /collectRenderNodeLayoutTargets\(current\.node, current\.layout\)/u);
+  assert.doesNotMatch(runtime, /hitTargetsForRenderNode\(/u);
 });
 
 test('RenderRegion replaces the obsolete render layer model', async () => {
@@ -509,7 +509,7 @@ test('RenderRegion replaces the obsolete render layer model', async () => {
   assert.match(regionSource, /translateSnapshotMetadata/u);
   assert.match(regionSource, /createRegionFrameBuffer/u);
   assert.match(renderSource, /composer\.regionFor/u);
-  assert.match(renderSource, /renderWidgetRegions/u);
+  assert.match(renderSource, /renderElementRegions/u);
   assert.match(renderSource, /compositeRegions/u);
   assert.doesNotMatch(renderSource, /id:\s*`z:\$\{String\([^`]+zIndex[^`]+`\s*,/u);
   assert.doesNotMatch(renderSource, /buffer:\s*createFrameBuffer\(viewport\.columns,\s*viewport\.rows\)/u);
@@ -574,44 +574,39 @@ test('box drawing joins are source-role gated frame passes', async () => {
   }
 });
 
-test('custom widgets can render only through buffer-scoped renderer inputs', async () => {
-  const rendererTypes = await readFile(new URL('../../src/tui/widget-renderer.ts', import.meta.url), 'utf8');
-  const widgetTypes = await readFile(new URL('../../src/widgets/types.ts', import.meta.url), 'utf8');
-  const factories = await readFile(new URL('../../src/widgets/factories.ts', import.meta.url), 'utf8');
-  const validation = await readFile(new URL('../../src/widgets/extension-validation.ts', import.meta.url), 'utf8');
+test('custom renderers can render only through buffer-scoped renderer inputs', async () => {
+  const rendererTypes = await readFile(new URL('../../src/tui/render-node-renderer.ts', import.meta.url), 'utf8');
+  const widgetTypes = await readFile(new URL('../../src/components/types.ts', import.meta.url), 'utf8');
+  const customWidgetTypes = await readFile(new URL('../../src/renderer/custom-element.ts', import.meta.url), 'utf8');
+  const factories = await readFile(new URL('../../src/components/factories.ts', import.meta.url), 'utf8');
+  const validation = await readFile(new URL('../../src/components/extension-validation.ts', import.meta.url), 'utf8');
 
-  assert.match(rendererTypes, /interface WidgetRenderInput/u);
+  assert.match(rendererTypes, /interface RenderNodeRenderInput/u);
   assert.match(rendererTypes, /readonly buffer: FrameBuffer;/u);
   assert.match(rendererTypes, /renderChildren\(target\?: FrameBuffer\): void;/u);
   assert.doesNotMatch(rendererTypes, /\bTerminalHost\b/u);
   assert.doesNotMatch(rendererTypes, /\bhost\b/u);
   assert.doesNotMatch(rendererTypes, /\bwrite\s*\(/u);
 
-  const customRuntimeTypes = widgetTypes.slice(
-    widgetTypes.indexOf('export interface CustomWidgetRuntime'),
-    widgetTypes.indexOf('export interface CustomWidgetOptions')
-  );
-  const customOptionTypes = widgetTypes.slice(
-    widgetTypes.indexOf('export interface CustomWidgetOptions'),
-    widgetTypes.indexOf('export interface TextWidgetOptions')
-  );
   const canvasOptionTypes = widgetTypes.slice(
-    widgetTypes.indexOf('export interface CanvasWidgetOptions'),
-    widgetTypes.indexOf('export interface SurfaceWidgetOptions')
+    widgetTypes.indexOf('export interface CanvasOptions'),
+    widgetTypes.indexOf('export interface SurfaceOptions')
   );
-  assert.match(customRuntimeTypes, /readonly renderer: WidgetRenderer<TMessage>;/u);
-  assert.match(customOptionTypes, /readonly renderer: WidgetRenderer<TMessage>;/u);
-  assert.doesNotMatch(customOptionTypes, /\breadonly painter\b/u);
+  assert.match(customWidgetTypes, /readonly renderer: RenderNodeRenderer<TMessage>;/u);
+  assert.doesNotMatch(customWidgetTypes, /\breadonly painter\b/u);
   assert.match(canvasOptionTypes, /readonly painter: CanvasPainter;/u);
   assert.doesNotMatch(canvasOptionTypes, /\breadonly renderer\b/u);
-  assert.match(widgetTypes, /export interface CanvasPainterInput[\s\S]*readonly buffer: FrameBuffer;[\s\S]*readonly bounds: Rect;/u);
-  assert.match(widgetTypes, /export interface CanvasPainterInput[\s\S]*readonly buffer: FrameBuffer;[\s\S]*readonly canvas: Canvas2D;[\s\S]*readonly bounds: Rect;/u);
-  assert.doesNotMatch(customRuntimeTypes, /\bTerminalHost\b/u);
-  assert.doesNotMatch(customRuntimeTypes, /\bclipboard\b/iu);
+  assert.match(widgetTypes, /export interface CanvasPainterInput[\s\S]*readonly canvas: Canvas2D;[\s\S]*readonly bounds: Rect;/u);
+  assert.doesNotMatch(widgetTypes, /export interface CanvasPainterInput[\s\S]*readonly buffer: FrameBuffer/u);
+  assert.doesNotMatch(widgetTypes, /\bWidgetRenderer\b/u);
+  assert.doesNotMatch(customWidgetTypes, /\bTerminalHost\b/u);
+  assert.doesNotMatch(customWidgetTypes, /\bclipboard\b/iu);
 
   assert.match(factories, /assertCanvasPainter\(options\.painter\)/u);
-  assert.match(factories, /assertCustomRenderer\(options\.renderer/u);
-  assert.match(factories, /kind: 'custom'/u);
+  assert.doesNotMatch(factories, /assertCustomRenderer\(options\.renderer/u);
+  assert.doesNotMatch(factories, /kind: 'custom'/u);
+  assert.match(customWidgetTypes, /assertCustomRenderer\(options\.renderer/u);
+  assert.match(customWidgetTypes, /kind: 'custom'/u);
   assert.doesNotMatch(factories, /\bhost\b/u);
   assert.doesNotMatch(validation, /\bTerminalHost\b/u);
   assert.doesNotMatch(validation, /\bhost\b/u);
@@ -626,11 +621,11 @@ test('Canvas2D is a FrameBuffer-backed helper without host or ANSI escapes', asy
     }))
   );
   const drawingSource = await readFile(new URL('../../src/tui/drawing-widgets.ts', import.meta.url), 'utf8');
-  const widgetTypes = await readFile(new URL('../../src/widgets/types.ts', import.meta.url), 'utf8');
+  const widgetTypes = await readFile(new URL('../../src/components/types.ts', import.meta.url), 'utf8');
 
-  assert.match(drawingSource, /createCanvas2D\(input\.buffer,\s*input\.node\.bounds\)/u);
-  assert.match(widgetTypes, /readonly buffer: FrameBuffer;/u);
+  assert.match(drawingSource, /createCanvas2D\(input\.buffer,\s*input\.layoutNode\.bounds\)/u);
   assert.match(widgetTypes, /readonly canvas: Canvas2D;/u);
+  assert.doesNotMatch(widgetTypes, /readonly buffer: FrameBuffer;/u);
   for (const { file, source } of canvasSources) {
     assert.doesNotMatch(source, /\bprocess\b|\bfs\b|\bTerminalHost\b|\x1B/u, file.pathname);
   }

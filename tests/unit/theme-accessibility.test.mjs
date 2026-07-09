@@ -7,9 +7,15 @@ import {
   validateAccessibleSnapshot
 } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { defaultThemes, defineTheme, mergeThemes, resolveTerminalStyle } from '../../dist/theme/index.js';
-import { renderDiffAnsi, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
-import { richText } from '../../dist/widgets/index.js';
+import { defaultThemes,
+  defineTheme,
+  mergeThemes,
+  resolveTerminalStyle } from '../../dist/theme/index.js';
+import { renderDiffAnsi,
+  renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import { richText } from '../../dist/components/index.js';
 
 test('theme API defines token palettes, merges symbols, and resolves semantic styles', async () => {
   const colorHost = createMemoryTerminalHost();
@@ -114,10 +120,12 @@ test('rich text widgets preserve render spans and render their plain text into f
     id: 'styled-title',
     segments: [{ text: 'Styled title', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }]
   });
-  const frame = renderWidgetFrame(widget, { columns: 20, rows: 2 });
+  const frame = renderElementFrame(widget, { columns: 20, rows: 2 });
 
-  assert.deepEqual(widget.props.segments, [{ text: 'Styled title', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }]);
   assert.equal(renderFramePlain(frame), 'Styled title');
+  assert.equal(frame.cells[0]?.style?.fg?.kind, 'theme');
+  assert.equal(frame.cells[0]?.style?.fg?.token, 'accent.primary');
+  assert.equal(frame.cells[0]?.style?.bold, true);
   assert.equal(frame.accessibility.root.value, 'Styled title');
 });
 

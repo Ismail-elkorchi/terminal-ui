@@ -1,9 +1,10 @@
+import type { RenderNode } from '../render-node/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { WidgetActionTone, Widget } from '../widgets/index.ts';
-import { widgetFrameSource } from './frame-source.ts';
+import type { ComponentActionTone } from '../components/contracts.ts';
+import { renderNodeFrameSource } from './frame-source.ts';
 import { clipRenderSpans, span } from './render-primitives.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
-import { mergeStyles, themeStyle, widgetStyle } from './widget-style.ts';
+import { mergeStyles, themeStyle, renderNodeStyle } from './render-node-style.ts';
 
 export interface MenuVisualItem {
   readonly id: string;
@@ -15,27 +16,27 @@ export interface MenuVisualItem {
   readonly depth: number;
   readonly expanded?: boolean;
   readonly hasChildren: boolean;
-  readonly tone?: WidgetActionTone;
+  readonly tone?: ComponentActionTone;
 }
 
-export function menuTitleLine(widget: Widget, title: string, width: number): RenderLine {
+export function menuTitleLine(widget: RenderNode, title: string, width: number): RenderLine {
   return {
     spans: clipSpans([
-      menuSpan(widget, title, widgetStyle(widget, 'title'), { label: 'title' })
+      menuSpan(widget, title, renderNodeStyle(widget, 'title'), { label: 'title' })
     ], width)
   };
 }
 
-export function menuEmptyLine(widget: Widget, text: string, width: number): RenderLine {
+export function menuEmptyLine(widget: RenderNode, text: string, width: number): RenderLine {
   return {
     spans: clipSpans([
-      menuSpan(widget, text, widgetStyle(widget, 'placeholder'), { label: 'empty' })
+      menuSpan(widget, text, renderNodeStyle(widget, 'placeholder'), { label: 'empty' })
     ], width)
   };
 }
 
 export function menuBarLine(
-  widget: Widget,
+  widget: RenderNode,
   items: readonly MenuVisualItem[],
   selectedId: string | undefined,
   width: number,
@@ -43,14 +44,14 @@ export function menuBarLine(
 ): RenderLine {
   const spans: RenderSpan[] = [];
   items.forEach((item, index) => {
-    if (index > 0) spans.push(menuSpan(widget, '  ', widgetStyle(widget, 'value', 'disabled'), { label: 'separator' }));
+    if (index > 0) spans.push(menuSpan(widget, '  ', renderNodeStyle(widget, 'value', 'disabled'), { label: 'separator' }));
     spans.push(...menuBarItemSpans(widget, item, item.id === selectedId, theme));
   });
   return { spans: clipSpans(spans, width) };
 }
 
 export function dropdownControlLine(input: {
-  readonly widget: Widget;
+  readonly widget: RenderNode;
   readonly label: string;
   readonly value: string;
   readonly placeholder: boolean;
@@ -59,15 +60,15 @@ export function dropdownControlLine(input: {
   readonly theme: TerminalTheme;
 }): RenderLine {
   const stateStyle = input.placeholder
-    ? widgetStyle(input.widget, 'placeholder')
-    : widgetStyle(input.widget, 'value');
-  const chromeStyle = widgetStyle(input.widget, 'border');
+    ? renderNodeStyle(input.widget, 'placeholder')
+    : renderNodeStyle(input.widget, 'value');
+  const chromeStyle = renderNodeStyle(input.widget, 'border');
   const marker = input.open ? input.theme.tokens.symbols.treeExpanded : input.theme.tokens.symbols.treeCollapsed;
   const spans: RenderSpan[] = [
     ...(input.label.length === 0
       ? []
       : [
-          menuSpan(input.widget, `${input.label}: `, widgetStyle(input.widget, 'label'), { label: 'label' })
+          menuSpan(input.widget, `${input.label}: `, renderNodeStyle(input.widget, 'label'), { label: 'label' })
         ]),
     menuSpan(input.widget, '[', chromeStyle, { label: 'dropdown-open' }),
     menuSpan(input.widget, input.value, stateStyle, { label: 'dropdown-value' }),
@@ -78,7 +79,7 @@ export function dropdownControlLine(input: {
 }
 
 export function menuItemLine(
-  widget: Widget,
+  widget: RenderNode,
   item: MenuVisualItem,
   selected: boolean,
   width: number,
@@ -90,7 +91,7 @@ export function menuItemLine(
 }
 
 function menuBarItemSpans(
-  widget: Widget,
+  widget: RenderNode,
   item: MenuVisualItem,
   selected: boolean,
   theme: TerminalTheme
@@ -110,7 +111,7 @@ function menuBarItemSpans(
 }
 
 function menuItemSpans(
-  widget: Widget,
+  widget: RenderNode,
   item: MenuVisualItem,
   selected: boolean,
   theme: TerminalTheme
@@ -139,7 +140,7 @@ function menuItemSpans(
   ];
 }
 
-function descriptionSpans(widget: Widget, item: MenuVisualItem, selected: boolean): readonly RenderSpan[] {
+function descriptionSpans(widget: RenderNode, item: MenuVisualItem, selected: boolean): readonly RenderSpan[] {
   if (item.description === undefined || item.description.length === 0) return [];
   return [
     menuSpan(widget, '  ', menuMutedStyle(widget, selected), { itemId: item.id, label: 'description-gap' }),
@@ -147,7 +148,7 @@ function descriptionSpans(widget: Widget, item: MenuVisualItem, selected: boolea
   ];
 }
 
-function shortcutSpans(widget: Widget, item: MenuVisualItem, selected: boolean): readonly RenderSpan[] {
+function shortcutSpans(widget: RenderNode, item: MenuVisualItem, selected: boolean): readonly RenderSpan[] {
   if (item.shortcut === undefined || item.shortcut.length === 0) return [];
   return [
     menuSpan(widget, '  ', menuMutedStyle(widget, selected), { itemId: item.id, label: 'shortcut-gap' }),
@@ -155,30 +156,30 @@ function shortcutSpans(widget: Widget, item: MenuVisualItem, selected: boolean):
   ];
 }
 
-function menuLabelStyle(widget: Widget, item: MenuVisualItem, selected: boolean): TerminalStyle | undefined {
-  if (item.disabled === true) return widgetStyle(widget, 'value', 'disabled');
+function menuLabelStyle(widget: RenderNode, item: MenuVisualItem, selected: boolean): TerminalStyle | undefined {
+  if (item.disabled === true) return renderNodeStyle(widget, 'value', 'disabled');
   if (item.tone === 'destructive') return mergeStyles(
-    selected ? menuSelectedStyle(widget) : widgetStyle(widget, 'value'),
-    widgetStyle(widget, 'error')
+    selected ? menuSelectedStyle(widget) : renderNodeStyle(widget, 'value'),
+    renderNodeStyle(widget, 'error')
   );
   if (selected) return menuSelectedStyle(widget);
-  return widgetStyle(widget, 'value');
+  return renderNodeStyle(widget, 'value');
 }
 
-function menuMarkerStyle(widget: Widget, item: MenuVisualItem, selected: boolean): TerminalStyle | undefined {
-  if (item.disabled === true) return widgetStyle(widget, 'value', 'disabled');
+function menuMarkerStyle(widget: RenderNode, item: MenuVisualItem, selected: boolean): TerminalStyle | undefined {
+  if (item.disabled === true) return renderNodeStyle(widget, 'value', 'disabled');
   if (selected) return menuSelectedStyle(widget);
-  return widgetStyle(widget, 'value');
+  return renderNodeStyle(widget, 'value');
 }
 
-function menuCheckedStyle(widget: Widget, selected: boolean): TerminalStyle | undefined {
+function menuCheckedStyle(widget: RenderNode, selected: boolean): TerminalStyle | undefined {
   return mergeStyles(
-    widgetStyle(widget, 'success'),
+    renderNodeStyle(widget, 'success'),
     selected ? menuSelectedStyle(widget) : undefined
   );
 }
 
-function menuBranchStyle(widget: Widget, selected: boolean): TerminalStyle | undefined {
+function menuBranchStyle(widget: RenderNode, selected: boolean): TerminalStyle | undefined {
   return mergeStyles(
     {
       fg: { kind: 'theme', token: 'tree.branch' }
@@ -187,27 +188,27 @@ function menuBranchStyle(widget: Widget, selected: boolean): TerminalStyle | und
   );
 }
 
-function menuShortcutStyle(widget: Widget, selected: boolean): TerminalStyle | undefined {
-  return selected ? menuSelectedStyle(widget) : widgetStyle(widget, 'label');
+function menuShortcutStyle(widget: RenderNode, selected: boolean): TerminalStyle | undefined {
+  return selected ? menuSelectedStyle(widget) : renderNodeStyle(widget, 'label');
 }
 
-function menuMutedStyle(widget: Widget, selected: boolean): TerminalStyle | undefined {
-  return selected ? menuSelectedStyle(widget) : widgetStyle(widget, 'placeholder');
+function menuMutedStyle(widget: RenderNode, selected: boolean): TerminalStyle | undefined {
+  return selected ? menuSelectedStyle(widget) : renderNodeStyle(widget, 'placeholder');
 }
 
-function menuSelectedStyle(widget: Widget): TerminalStyle | undefined {
-  return mergeStyles(widgetStyle(widget, 'value', 'selected'), themeStyle('menu.selected'), widget.styles?.selected);
+function menuSelectedStyle(widget: RenderNode): TerminalStyle | undefined {
+  return mergeStyles(renderNodeStyle(widget, 'value', 'selected'), themeStyle('menu.selected'), widget.styles?.selected);
 }
 
 function menuSpan(
-  widget: Widget,
+  widget: RenderNode,
   text: string,
   style: TerminalStyle | undefined,
   source: { readonly itemId?: string; readonly label: string }
 ): RenderSpan {
   return span(text, {
     ...(style === undefined ? {} : { style }),
-    source: widgetFrameSource(widget, {
+    source: renderNodeFrameSource(widget, {
       family: 'menu',
       role: source.label === 'separator' ? 'separator' : 'text',
       part: source.label,

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { highContrastTheme, noColorTheme } from '../../dist/theme/index.js';
+import {
+  highContrastTheme,
+  noColorTheme } from '../../dist/theme/index.js';
 import {
   createCanvas2D,
   createFrameBuffer,
@@ -9,14 +11,26 @@ import {
   drawAreaSeries,
   drawBarSeries,
   drawLineSeries,
-  layoutWidget,
+  layoutElement,
   renderFramePlain,
-  renderWidgetFrame
-} from '../../dist/tui/index.js';
-import { barChart, chart, gauge, heatmap, progressBar, row, sparkline, stack, surface } from '../../dist/widgets/index.js';
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import {
+  barChart,
+  chart,
+  gauge,
+  heatmap,
+  progressBar,
+  sparkline
+} from '../../dist/components/index.js';
+import {
+  row,
+  stack,
+  surface
+} from '../../dist/layout/index.js';
 
 test('sparkline renders bounded numeric points', () => {
-  const frame = renderWidgetFrame(sparkline({
+  const frame = renderElementFrame(sparkline({
     id: 'spark',
     values: [0, 1, 2, 3]
   }), { columns: 8, rows: 1 });
@@ -30,7 +44,7 @@ test('sparkline renders bounded numeric points', () => {
 });
 
 test('sparkline valueScale styles points by normalized value', () => {
-  const frame = renderWidgetFrame(sparkline({
+  const frame = renderElementFrame(sparkline({
     id: 'scaled-spark',
     values: [0, 50, 100],
     min: 0,
@@ -49,7 +63,7 @@ test('sparkline valueScale styles points by normalized value', () => {
 });
 
 test('sparkline renders an empty state with chart source metadata', () => {
-  const frame = renderWidgetFrame(sparkline({
+  const frame = renderElementFrame(sparkline({
     id: 'empty-spark',
     values: [],
     emptyText: 'No signal'
@@ -62,7 +76,7 @@ test('sparkline renders an empty state with chart source metadata', () => {
 });
 
 test('barChart windows visible bars and exposes selected accessibility', () => {
-  const frame = renderWidgetFrame(barChart({
+  const frame = renderElementFrame(barChart({
     id: 'bars',
     selected: 2,
     items: [
@@ -85,7 +99,7 @@ test('barChart windows visible bars and exposes selected accessibility', () => {
 });
 
 test('barChart renders loading state from shared chart state contract', () => {
-  const frame = renderWidgetFrame(barChart({
+  const frame = renderElementFrame(barChart({
     id: 'loading-bars',
     status: 'running',
     loadingText: 'Loading bars',
@@ -98,7 +112,7 @@ test('barChart renders loading state from shared chart state contract', () => {
 });
 
 test('chart plots series into a bounded text canvas', () => {
-  const frame = renderWidgetFrame(chart({
+  const frame = renderElementFrame(chart({
     id: 'chart',
     series: [{ id: 'one', points: [0, 2, 1, 3] }]
   }), { columns: 4, rows: 4 });
@@ -110,7 +124,7 @@ test('chart plots series into a bounded text canvas', () => {
 });
 
 test('chart fit sample mode fills the available plot width', () => {
-  const frame = renderWidgetFrame(chart({
+  const frame = renderElementFrame(chart({
     id: 'fit-chart',
     min: 0,
     max: 100,
@@ -126,7 +140,7 @@ test('chart fit sample mode fills the available plot width', () => {
 });
 
 test('chart fit sample mode selects raw points by scaled source position', () => {
-  const firstFrame = renderWidgetFrame(chart({
+  const firstFrame = renderElementFrame(chart({
     id: 'fit-selected-first',
     min: 0,
     max: 10,
@@ -134,7 +148,7 @@ test('chart fit sample mode selects raw points by scaled source position', () =>
     sampleMode: 'fit',
     series: [{ id: 'load', points: [0, 10], kind: 'scatter' }]
   }), { columns: 10, rows: 3 });
-  const lastFrame = renderWidgetFrame(chart({
+  const lastFrame = renderElementFrame(chart({
     id: 'fit-selected-last',
     min: 0,
     max: 10,
@@ -150,12 +164,12 @@ test('chart fit sample mode selects raw points by scaled source position', () =>
 });
 
 test('chart window sample mode renders a raw aligned window', () => {
-  const frame = renderWidgetFrame(chart({
+  const frame = renderElementFrame(chart({
     id: 'window-chart',
     min: 0,
     max: 50,
     series: [{ id: 'load', points: [10, 20, 30, 40, 50], kind: 'scatter', sampleMode: 'window', sampleAlign: 'end' }],
-    toMessage: (point) => ({ kind: 'chart-point', ...point })
+    onSelect: (point) => ({ kind: 'chart-point', ...point })
   }), { columns: 3, rows: 3 });
   const firstTarget = frame.hitTargets.find((target) => target.id === 'window-chart:load:0');
   const lastTarget = frame.hitTargets.find((target) => target.id === 'window-chart:load:2');
@@ -165,7 +179,7 @@ test('chart window sample mode renders a raw aligned window', () => {
 });
 
 test('chart signedDomain renders zero baseline and polarity source metadata', () => {
-  const frame = renderWidgetFrame(chart({
+  const frame = renderElementFrame(chart({
     id: 'signed-chart',
     signedDomain: true,
     min: -4,
@@ -184,7 +198,7 @@ test('chart signedDomain renders zero baseline and polarity source metadata', ()
 });
 
 test('chart renders area and bar series with signed baseline semantics', () => {
-  const frame = renderWidgetFrame(chart({
+  const frame = renderElementFrame(chart({
     id: 'filled-chart',
     signedDomain: true,
     min: -4,
@@ -205,7 +219,7 @@ test('chart renders area and bar series with signed baseline semantics', () => {
 });
 
 test('chart valueScale styles area series values without local renderer code', () => {
-  const frame = renderWidgetFrame(chart({
+  const frame = renderElementFrame(chart({
     id: 'scaled-area',
     min: 0,
     max: 100,
@@ -223,7 +237,7 @@ test('chart valueScale styles area series values without local renderer code', (
 });
 
 test('chart renders scatter points legends axis labels and selectable point hit targets', () => {
-  const frame = renderWidgetFrame(chart({
+  const frame = renderElementFrame(chart({
     id: 'scatter-chart',
     legend: true,
     xLabel: 'watch cycle',
@@ -233,8 +247,8 @@ test('chart renders scatter points legends axis labels and selectable point hit 
       { id: 'line', label: 'Line', points: [1, 3, 2, 4], kind: 'line', glyph: '+' },
       { id: 'scatter', label: 'Scatter', points: [4, 1, 3, 2], kind: 'scatter', glyph: 'o' }
     ],
-    keyMap: { enter: { kind: 'chart-enter' } },
-    toMessage: (point) => ({ kind: 'chart-point', ...point })
+    keys: { enter: { kind: 'chart-enter' } },
+    onSelect: (point) => ({ kind: 'chart-point', ...point })
   }), { columns: 32, rows: 7 });
 
   const output = renderFramePlain(frame);
@@ -254,7 +268,7 @@ test('chart renders scatter points legends axis labels and selectable point hit 
 });
 
 test('chart renders error state without anonymous text cells', () => {
-  const frame = renderWidgetFrame(chart({
+  const frame = renderElementFrame(chart({
     id: 'error-chart',
     status: 'error',
     errorText: 'Chart unavailable',
@@ -267,7 +281,7 @@ test('chart renders error state without anonymous text cells', () => {
 });
 
 test('chart intrinsic measurement remains bounded inside content layout', () => {
-  const layout = layoutWidget(stack([
+  const layout = layoutElement(stack([
     row([
       surface(stack([
         progressBar({ id: 'progress', value: 48, max: 100 }),
@@ -283,7 +297,7 @@ test('chart intrinsic measurement remains bounded inside content layout', () => 
 });
 
 test('gauge renders a labeled bounded meter with progress accessibility', () => {
-  const frame = renderWidgetFrame(gauge({
+  const frame = renderElementFrame(gauge({
     id: 'gauge',
     label: 'Throughput',
     value: 75,
@@ -304,7 +318,7 @@ test('gauge renders a labeled bounded meter with progress accessibility', () => 
 });
 
 test('gauge dial variant renders distinct tested dial anatomy', () => {
-  const frame = renderWidgetFrame(gauge({
+  const frame = renderElementFrame(gauge({
     id: 'dial-gauge',
     label: 'CPU',
     value: 73,
@@ -323,7 +337,7 @@ test('gauge dial variant renders distinct tested dial anatomy', () => {
 });
 
 test('heatmap intensity uses muted normal and emphasized visual levels', () => {
-  const frame = renderWidgetFrame(heatmap({
+  const frame = renderElementFrame(heatmap({
     id: 'intensity-heatmap',
     rows: [[{ id: 'empty', value: 0 }, { id: 'mid', value: 2 }, { id: 'hot', value: 4 }]],
     min: 0,
@@ -342,7 +356,7 @@ test('heatmap intensity uses muted normal and emphasized visual levels', () => {
 });
 
 test('heatmap valueScale can override intensity color while preserving glyph intensity', () => {
-  const frame = renderWidgetFrame(heatmap({
+  const frame = renderElementFrame(heatmap({
     id: 'scaled-heatmap',
     rows: [[{ id: 'cool', value: 1 }, { id: 'hot', value: 9 }]],
     min: 0,
@@ -358,7 +372,7 @@ test('heatmap valueScale can override intensity color while preserving glyph int
 });
 
 test('heatmap renders selectable cells with accessibility and hit targets', () => {
-  const frame = renderWidgetFrame(heatmap({
+  const frame = renderElementFrame(heatmap({
     id: 'heatmap',
     rows: [
       [{ id: 'a', label: 'Alpha', value: 1 }, { id: 'b', label: 'Bravo', value: 5 }],
@@ -367,8 +381,8 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
     min: 0,
     max: 5,
     selected: { row: 0, column: 1 },
-    keyMap: { enter: { kind: 'select-current' } },
-    toMessage: (cell, row, column) => ({ kind: 'heatmap-select', id: cell.id, row, column })
+    keys: { enter: { kind: 'select-current' } },
+    onSelect: (cell, row, column) => ({ kind: 'heatmap-select', id: cell.id, row, column })
   }), { columns: 12, rows: 3 });
 
   const output = renderFramePlain(frame);
@@ -383,7 +397,7 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
 });
 
 test('heatmap renders empty state through chart state contract', () => {
-  const frame = renderWidgetFrame(heatmap({
+  const frame = renderElementFrame(heatmap({
     id: 'empty-heatmap',
     rows: [],
     emptyText: 'No heatmap data'
@@ -395,13 +409,13 @@ test('heatmap renders empty state through chart state contract', () => {
 });
 
 test('chart widgets preserve visualization meaning in high contrast and no color themes', () => {
-  const highContrast = renderWidgetFrame(chart({
+  const highContrast = renderElementFrame(chart({
     id: 'contrast-chart',
     legend: true,
     selected: { series: 'alpha', point: 1 },
     series: [{ id: 'alpha', label: 'Alpha', points: [1, 3, 2], glyph: '+' }]
   }), { columns: 18, rows: 5 }, { theme: highContrastTheme });
-  const noColor = renderWidgetFrame(heatmap({
+  const noColor = renderElementFrame(heatmap({
     id: 'mono-heatmap',
     rows: [[{ id: 'a', value: 1 }, { id: 'b', value: 4 }]],
     selected: { row: 0, column: 1 },

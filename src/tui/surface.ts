@@ -2,13 +2,13 @@ import { borderStyleFromValue, drawBorder } from './border.ts';
 import type { BorderStyle, BorderTitle, BorderTitleContent, BorderTitleRail } from './border.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
-import { frameCellSource, widgetFrameSource } from './frame-source.ts';
+import { frameCellSource, renderNodeFrameSource } from './frame-source.ts';
 import type { Rect } from './layout.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from './render-primitives.ts';
-import { mergeStyles, resolveWidgetStyle } from './widget-style.ts';
-import { stringify } from './widget-props.ts';
+import { mergeStyles, resolveRenderNodeStyle } from './render-node-style.ts';
+import { stringify } from './render-node-props.ts';
 import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
-import type { Widget } from '../widgets/index.ts';
+import type { RenderNode } from '../render-node/index.ts';
 
 export type SurfaceVariant =
   | 'neutral'
@@ -26,7 +26,7 @@ export interface SurfaceChromeOptions {
   readonly shadow?: boolean;
 }
 
-export function surfaceChildContentBounds(widget: Widget, bounds: Rect): Rect {
+export function surfaceChildContentBounds(widget: RenderNode, bounds: Rect): Rect {
   const border = surfaceBorderForBounds(widget, bounds);
   return border === undefined || border.kind === 'none'
     ? bounds
@@ -41,7 +41,7 @@ export function surfaceChildContentBounds(widget: Widget, bounds: Rect): Rect {
 export function drawSurfaceChrome(
   buffer: FrameBuffer,
   bounds: Rect,
-  widget: Widget,
+  widget: RenderNode,
   theme: TerminalTheme,
   focused: boolean
 ): void {
@@ -57,7 +57,7 @@ export function drawSurfaceChrome(
 export function drawSurfaceFrame(
   buffer: FrameBuffer,
   bounds: Rect,
-  widget: Widget,
+  widget: RenderNode,
   theme: TerminalTheme,
   focused: boolean,
   options: SurfaceChromeOptions
@@ -83,7 +83,7 @@ function surfaceVariantFromValue(value: unknown): SurfaceVariant | undefined {
     : undefined;
 }
 
-function surfaceBorder(widget: Widget, variant = surfaceVariantFromValue(widget.props['variant'])): BorderStyle | undefined {
+function surfaceBorder(widget: RenderNode, variant = surfaceVariantFromValue(widget.props['variant'])): BorderStyle | undefined {
   const explicit = borderStyleFromValue(widget.props['border']);
   if (explicit !== undefined) return surfaceBorderStyle(widget, surfaceTitledBorder(widget, explicit), variant);
   if (variant === undefined || variant === 'neutral' || variant === 'chrome') return undefined;
@@ -91,7 +91,7 @@ function surfaceBorder(widget: Widget, variant = surfaceVariantFromValue(widget.
 }
 
 function surfaceBorderForBounds(
-  widget: Widget,
+  widget: RenderNode,
   bounds: Rect,
   variant = surfaceVariantFromValue(widget.props['variant'])
 ): BorderStyle | undefined {
@@ -114,11 +114,11 @@ function surfaceFocusedBorder(border: BorderStyle | undefined, focused: boolean)
   };
 }
 
-function surfaceBorderStyle(widget: Widget, border: BorderStyle, variant: SurfaceVariant | undefined): BorderStyle {
+function surfaceBorderStyle(widget: RenderNode, border: BorderStyle, variant: SurfaceVariant | undefined): BorderStyle {
   if (border.kind === 'none') return border;
   const variantStyle = variant === undefined ? undefined : surfaceBorderTokenStyle(variant);
   const style = mergeStyles(
-    resolveWidgetStyle(widget, {
+    resolveRenderNodeStyle(widget, {
       slot: 'border',
       ...(surfaceDisabled(widget) ? { state: 'disabled' } : {}),
       ...(variantStyle === undefined ? {} : { base: variantStyle })
@@ -129,7 +129,7 @@ function surfaceBorderStyle(widget: Widget, border: BorderStyle, variant: Surfac
 }
 
 export function surfaceBackgroundStyle(
-  widget: Widget,
+  widget: RenderNode,
   variant: SurfaceVariant,
   focused = false,
   border?: BorderStyle
@@ -143,7 +143,7 @@ export function surfaceBackgroundStyle(
     : focused
       ? 'focused'
       : surfaceVisualStateFromValue(widget.props['visualState']);
-  return resolveWidgetStyle(widget, {
+  return resolveRenderNodeStyle(widget, {
     slot: 'root',
     base: focusedBase,
     ...(state === undefined ? {} : { state })
@@ -160,13 +160,13 @@ function surfaceVisualStateFromValue(value: unknown): 'active' | 'selected' | 'e
     : undefined;
 }
 
-function surfaceTitledBorder(widget: Widget, border: BorderStyle): BorderStyle {
+function surfaceTitledBorder(widget: RenderNode, border: BorderStyle): BorderStyle {
   if (border.kind === 'none' || border.title !== undefined) return border;
   const title = surfaceTitle(widget);
   return title === undefined ? border : { ...border, title };
 }
 
-function surfaceTitle(widget: Widget): BorderTitle | undefined {
+function surfaceTitle(widget: RenderNode): BorderTitle | undefined {
   const explicit = widget.props['title'];
   if (isBorderTitleRailInput(explicit)) {
     const rail = {
@@ -180,7 +180,7 @@ function surfaceTitle(widget: Widget): BorderTitle | undefined {
 }
 
 function surfaceRailTitlePart<TKey extends keyof BorderTitleRail>(
-  widget: Widget,
+  widget: RenderNode,
   key: TKey,
   input: Record<string, unknown>
 ): Pick<BorderTitleRail, TKey> | Record<string, never> {
@@ -188,7 +188,7 @@ function surfaceRailTitlePart<TKey extends keyof BorderTitleRail>(
   return title === undefined ? {} : { [key]: title } as Pick<BorderTitleRail, TKey>;
 }
 
-function surfaceTitleContent(widget: Widget, value: unknown, label: string): BorderTitleContent | undefined {
+function surfaceTitleContent(widget: RenderNode, value: unknown, label: string): BorderTitleContent | undefined {
   if (Array.isArray(value)) {
     const spans = value.flatMap((currentSpan, index): readonly RenderSpan[] =>
       isRenderSpan(currentSpan) ? [surfaceTitleSpan(widget, currentSpan, `${label}.${String(index)}`)] : []
@@ -201,14 +201,14 @@ function surfaceTitleContent(widget: Widget, value: unknown, label: string): Bor
     : [surfaceTitleSpan(widget, { text: title }, `${label}.0`)];
 }
 
-function surfaceTitleSpan(widget: Widget, currentSpan: Pick<RenderSpan, 'text'> & Partial<RenderSpan>, label: string): RenderSpan {
+function surfaceTitleSpan(widget: RenderNode, currentSpan: Pick<RenderSpan, 'text'> & Partial<RenderSpan>, label: string): RenderSpan {
   const text = sanitizeTerminalText(currentSpan.text).text;
   const style = currentSpan.style ?? surfaceTitleStyle(widget);
   return {
     text,
     ...(style === undefined ? {} : { style }),
     ...(currentSpan.link === undefined ? {} : { link: currentSpan.link }),
-    source: currentSpan.source ?? widgetFrameSource(widget, {
+    source: currentSpan.source ?? renderNodeFrameSource(widget, {
       family: 'surface',
       role: 'text',
       part: label,
@@ -225,8 +225,8 @@ function isBorderTitleRailInput(value: unknown): value is Record<string, unknown
     && ('start' in value || 'center' in value || 'end' in value);
 }
 
-function surfaceTitleStyle(widget: Widget): TerminalStyle | undefined {
-  return resolveWidgetStyle(widget, {
+function surfaceTitleStyle(widget: RenderNode): TerminalStyle | undefined {
+  return resolveRenderNodeStyle(widget, {
     slot: 'title',
     base: { fg: { kind: 'theme', token: 'surface.title' }, bold: true }
   });
@@ -238,7 +238,7 @@ function isRenderSpan(value: unknown): value is RenderSpan {
     && typeof (value as { readonly text?: unknown }).text === 'string';
 }
 
-function surfaceDisabled(widget: Widget): boolean {
+function surfaceDisabled(widget: RenderNode): boolean {
   return widget.props['disabled'] === true;
 }
 

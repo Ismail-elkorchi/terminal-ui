@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { input, runPrompt } from '../../dist/prompts/index.js';
-import { createTerminalHarness, runInteractionScript } from '../../dist/testing/index.js';
-import { defineTui, runTui } from '../../dist/tui/index.js';
-import { text } from '../../dist/widgets/index.js';
+import {
+  defineTui,
+  runTui
+} from '../../dist/tui/index.js';
+import {
+  input,
+  runPrompt } from '../../dist/prompts/index.js';
+import { createTerminalHarness,
+  runInteractionScript } from '../../dist/testing/index.js';
+import { text } from '../../dist/components/index.js';
 
 test('public acceptance path covers prompt, TUI, and testing surfaces', async () => {
   const promptResult = await runPrompt(input({

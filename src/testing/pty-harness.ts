@@ -12,7 +12,7 @@ import type {
   TerminalStateSnapshot,
 } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
-import type { Frame, RenderDiff } from '../tui/index.ts';
+import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { InteractionTranscriptStep } from '../transcript/index.ts';
 import type { PtyTerminalHarness, PtyTerminalHarnessOptions, PtyTerminalHarnessResult } from './types.ts';
 

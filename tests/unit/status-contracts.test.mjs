@@ -3,37 +3,37 @@ import test from 'node:test';
 
 import {
   baseStatusForRecordStatus,
-  isWidgetProcessStatus,
-  isWidgetRecordStatus,
-  isWidgetValidationTone,
+  isProcessStatus,
+  isRecordStatus,
+  isValidationTone,
   normalizeNotificationTone,
-  normalizeWidgetProcessStatus,
-  optionalWidgetRecordStatus,
-  optionalWidgetValidationTone,
+  normalizeProcessStatus,
+  optionalRecordStatus,
+  optionalValidationTone,
   recordStatusFromTone,
   statusFromTone
-} from '../../dist/widgets/index.js';
+} from '../../dist/components/index.js';
 
 test('process status normalizers keep process semantics distinct from record status', () => {
-  assert.equal(isWidgetProcessStatus('running'), true);
-  assert.equal(isWidgetProcessStatus('pending'), false);
-  assert.equal(normalizeWidgetProcessStatus('success'), 'success');
-  assert.equal(normalizeWidgetProcessStatus('pending', 'idle'), 'idle');
+  assert.equal(isProcessStatus('running'), true);
+  assert.equal(isProcessStatus('pending'), false);
+  assert.equal(normalizeProcessStatus('success'), 'success');
+  assert.equal(normalizeProcessStatus('pending', 'idle'), 'idle');
 });
 
 test('record status normalizers accept event states without accepting idle', () => {
-  assert.equal(isWidgetRecordStatus('failed'), true);
-  assert.equal(isWidgetRecordStatus('skipped'), true);
-  assert.equal(isWidgetRecordStatus('idle'), false);
-  assert.equal(optionalWidgetRecordStatus('cancelled'), 'cancelled');
-  assert.equal(optionalWidgetRecordStatus('idle'), undefined);
+  assert.equal(isRecordStatus('failed'), true);
+  assert.equal(isRecordStatus('skipped'), true);
+  assert.equal(isRecordStatus('idle'), false);
+  assert.equal(optionalRecordStatus('cancelled'), 'cancelled');
+  assert.equal(optionalRecordStatus('idle'), undefined);
 });
 
 test('validation tone normalizer keeps validation tones narrow', () => {
-  assert.equal(isWidgetValidationTone('warning'), true);
-  assert.equal(isWidgetValidationTone('success'), false);
-  assert.equal(optionalWidgetValidationTone('error'), 'error');
-  assert.equal(optionalWidgetValidationTone('progress'), undefined);
+  assert.equal(isValidationTone('warning'), true);
+  assert.equal(isValidationTone('success'), false);
+  assert.equal(optionalValidationTone('error'), 'error');
+  assert.equal(optionalValidationTone('progress'), undefined);
 });
 
 test('notification tones normalize before mapping to status', () => {

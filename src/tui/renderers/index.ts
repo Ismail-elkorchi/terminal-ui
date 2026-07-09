@@ -5,10 +5,10 @@ import { formRenderers } from './form-renderers.ts';
 import { layoutRenderers } from './layout-renderers.ts';
 import { menuRenderers } from './menu-renderers.ts';
 import { textRenderers } from './text-renderers.ts';
-import type { BuiltinWidgetKind } from './types.ts';
-import type { WidgetRenderer } from '../widget-renderer.ts';
+import type { BuiltinRenderNodeKind } from './types.ts';
+import type { RenderNodeRenderer } from '../render-node-renderer.ts';
 
-export const builtinWidgetRenderers = {
+export const builtinRenderNodeRenderers = {
   ...textRenderers,
   ...feedbackRenderers,
   ...formRenderers,
@@ -16,4 +16,4 @@ export const builtinWidgetRenderers = {
   ...drawingRenderers,
   ...dataRenderers,
   ...layoutRenderers
-} satisfies Record<BuiltinWidgetKind, WidgetRenderer>;
+} satisfies Record<BuiltinRenderNodeKind, RenderNodeRenderer>;

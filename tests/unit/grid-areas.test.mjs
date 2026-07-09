@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
-import { grid, text } from '../../dist/widgets/index.js';
+import {
+  renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import { grid } from '../../dist/layout/index.js';
+import { text } from '../../dist/components/index.js';
 
 const rows = [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }];
 const columns = [{ kind: 'fixed', cells: 8 }, { kind: 'fill' }];
 
 test('grid lays out named rectangular areas without adaptive policy', () => {
-  const frame = renderWidgetFrame(grid({
+  const frame = renderElementFrame(grid({
     id: 'layout',
     areas: `
       top top

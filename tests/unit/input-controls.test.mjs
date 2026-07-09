@@ -1,10 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveTerminalCapabilities } from '../../dist/host/index.js';
+import {
+  resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
-import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
+import { renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
 import {
   checkbox,
   checkboxList,
@@ -13,9 +16,9 @@ import {
   rangeSlider,
   selectBox,
   slider,
-  stack,
   toggleSwitch
-} from '../../dist/widgets/index.js';
+} from '../../dist/components/index.js';
+import { stack } from '../../dist/layout/index.js';
 
 test('toggleSwitch slider and rangeSlider render caller-owned values with keyboard and mouse affordances', () => {
   const widget = stack([
@@ -23,7 +26,7 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
       id: 'switch',
       label: 'Live updates',
       checked: true,
-      message: { kind: 'toggle' }
+      onChange: () => ({ kind: 'toggle' })
     }),
     slider({
       id: 'slider',
@@ -32,9 +35,8 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
       min: 0,
       max: 100,
       width: 11,
-      decrementMessage: { kind: 'volumeDown' },
-      incrementMessage: { kind: 'volumeUp' },
-      toMessage: (value) => ({ kind: 'volume', value })
+      onStep: ({ direction }) => ({ kind: direction === 'decrement' ? 'volumeDown' : 'volumeUp' }),
+      onChange: (value) => ({ kind: 'volume', value })
     }),
     rangeSlider({
       id: 'range',
@@ -44,10 +46,10 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
       min: 0,
       max: 100,
       width: 11,
-      toMessage: (value) => ({ kind: 'range', value })
+      onChange: (value) => ({ kind: 'range', value })
     })
   ], { gap: 1 });
-  const frame = renderWidgetFrame(widget, { columns: 56, rows: 7 });
+  const frame = renderElementFrame(widget, { columns: 56, rows: 7 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Live updates: \[ On \] Off/u);
@@ -75,7 +77,7 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
         { id: 'sms', label: 'SMS', value: 'sms' }
       ],
       selected: ['email'],
-      toMessage: (option, checked) => ({ kind: 'channel', id: option.id, checked })
+      onChange: (option, checked) => ({ kind: 'channel', id: option.id, checked })
     }),
     colorPicker({
       id: 'colors',
@@ -86,7 +88,7 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
         { id: 'green', label: 'Green', value: 'green', swatch: '■' },
         { id: 'blue', label: 'Blue', value: 'blue', swatch: '◆' }
       ],
-      toMessage: (option) => ({ kind: 'color', id: option.id })
+      onChange: (option) => ({ kind: 'color', id: option.id })
     }),
     datePicker({
       id: 'dates',
@@ -101,10 +103,10 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
           today: day === 10
         };
       }),
-      toMessage: (day) => ({ kind: 'date', id: day.id })
+      onChange: (day) => ({ kind: 'date', id: day.id })
     })
   ], { gap: 1 });
-  const frame = renderWidgetFrame(widget, { columns: 72, rows: 18 });
+  const frame = renderElementFrame(widget, { columns: 72, rows: 18 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Channels/u);
@@ -173,7 +175,7 @@ test('form controls keep state visible in high contrast and no-color projections
       days: [{ id: 'today', label: '2', value: 'today', today: true }]
     })
   ], { gap: 1 });
-  const frame = renderWidgetFrame(widget, { columns: 32, rows: 8 }, { theme: highContrastTheme });
+  const frame = renderElementFrame(widget, { columns: 32, rows: 8 }, { theme: highContrastTheme });
   const highContrast = createVisualSnapshot({
     frame,
     ansi: { capabilities: colorCapabilities(), theme: highContrastTheme }

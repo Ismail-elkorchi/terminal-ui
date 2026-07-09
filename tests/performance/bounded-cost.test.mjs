@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createMemoryTerminalHost } from '../../dist/host/index.js';
+import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
+import {
+  createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createInputDecoder } from '../../dist/input/index.js';
 import {
-  createTuiRuntime,
-  defineTui,
   diffFrames,
   dirtyRegionsForRegionChanges,
   renderFramePlain,
-  renderWidgetFrame,
-  renderWidgetRegions
-} from '../../dist/tui/index.js';
+  renderElementFrame,
+  renderElementRegions
+} from '../../dist/renderer/index.js';
 import {
   button,
   canvas,
@@ -22,11 +22,11 @@ import {
   palette,
   richText,
   scrollback,
-  stack,
   table,
   text,
   tree
-} from '../../dist/widgets/index.js';
+} from '../../dist/components/index.js';
+import { stack } from '../../dist/layout/index.js';
 
 test('paste bursts decode as one paste event instead of per-character key churn', () => {
   const decoder = createInputDecoder();
@@ -40,7 +40,7 @@ test('paste bursts decode as one paste event instead of per-character key churn'
 
 test('large list rendering is bounded by viewport size, not collection size', () => {
   const items = Array.from({ length: 50_000 }, (_value, index) => `Item ${index}`);
-  const frame = renderWidgetFrame(list({ id: 'large-list', items, selected: 40_000 }), { columns: 32, rows: 10 });
+  const frame = renderElementFrame(list({ id: 'large-list', items, selected: 40_000 }), { columns: 32, rows: 10 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Item 40000/u);
@@ -52,7 +52,7 @@ test('large list rendering is bounded by viewport size, not collection size', ()
 
 test('large scrollback rendering is bounded by viewport size, not collection size', () => {
   const items = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
-  const frame = renderWidgetFrame(scrollback({ id: 'large-scrollback', items }), { columns: 48, rows: 12 });
+  const frame = renderElementFrame(scrollback({ id: 'large-scrollback', items }), { columns: 48, rows: 12 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Line 99999/u);
@@ -63,8 +63,8 @@ test('large scrollback rendering is bounded by viewport size, not collection siz
 });
 
 test('small local frame updates produce bounded render diffs', () => {
-  const previous = renderWidgetFrame(textInput({ id: 'field', value: 'alpha' }), { columns: 24, rows: 3 });
-  const next = renderWidgetFrame(textInput({ id: 'field', value: 'alpha!' }), { columns: 24, rows: 3 });
+  const previous = renderElementFrame(textInput({ id: 'field', value: 'alpha' }), { columns: 24, rows: 3 });
+  const next = renderElementFrame(textInput({ id: 'field', value: 'alpha!' }), { columns: 24, rows: 3 });
   const diff = diffFrames(previous, next);
 
   assert.equal(diff.fullRewrite, false);
@@ -73,7 +73,7 @@ test('small local frame updates produce bounded render diffs', () => {
 });
 
 test('full frame render stays bounded by viewport for mixed widget trees', () => {
-  const frame = renderWidgetFrame(stack([
+  const frame = renderElementFrame(stack([
     commandBar({
       id: 'search',
       prompt: '?',
@@ -104,11 +104,11 @@ test('full frame render stays bounded by viewport for mixed widget trees', () =>
 });
 
 test('style-only diffs are incremental and preserve visual dimensions', () => {
-  const previous = renderWidgetFrame(richText({
+  const previous = renderElementFrame(richText({
     id: 'status',
     segments: [{ text: 'same text', style: { fg: { kind: 'theme', token: 'status.info' } } }]
   }), { columns: 24, rows: 2 });
-  const next = renderWidgetFrame(richText({
+  const next = renderElementFrame(richText({
     id: 'status',
     segments: [{ text: 'same text', style: { fg: { kind: 'theme', token: 'status.error' } } }]
   }), { columns: 24, rows: 2 });
@@ -122,8 +122,8 @@ test('style-only diffs are incremental and preserve visual dimensions', () => {
 test('append-heavy scrollback diffs stay bounded by visible rows', () => {
   const beforeItems = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
   const afterItems = [...beforeItems, { id: 'line-100000', text: 'Line 100000' }];
-  const previous = renderWidgetFrame(scrollback({ id: 'append-log', items: beforeItems }), { columns: 48, rows: 8 });
-  const next = renderWidgetFrame(scrollback({ id: 'append-log', items: afterItems }), { columns: 48, rows: 8 });
+  const previous = renderElementFrame(scrollback({ id: 'append-log', items: beforeItems }), { columns: 48, rows: 8 });
+  const next = renderElementFrame(scrollback({ id: 'append-log', items: afterItems }), { columns: 48, rows: 8 });
   const diff = diffFrames(previous, next);
 
   assert.match(renderFramePlain(next), /Line 100000/u);
@@ -133,7 +133,7 @@ test('append-heavy scrollback diffs stay bounded by visible rows', () => {
 });
 
 test('large table viewport is bounded independently from row count', () => {
-  const frame = renderWidgetFrame(table({
+  const frame = renderElementFrame(table({
     id: 'large-table',
     selectedCell: { row: 42_000, column: 1 },
     columns: [
@@ -174,8 +174,8 @@ test('large table retained damage is narrowed to changed visible rows', () => {
     rows
   });
   const dirty = dirtyRegionsForRegionChanges(
-    renderWidgetRegions(previousWidget, viewport),
-    renderWidgetRegions(nextWidget, viewport)
+    renderElementRegions(previousWidget, viewport),
+    renderElementRegions(nextWidget, viewport)
   );
 
   assert.deepEqual(dirty?.rects, [
@@ -188,19 +188,19 @@ test('large sparse canvas retained damage is narrowed to touched cells', () => {
   const viewport = { columns: 120, rows: 40 };
   const previousWidget = canvas({
     id: 'sparse-canvas-damage',
-    painter({ buffer }) {
-      buffer.write(20, 60, [{ text: 'A' }]);
+    painter({ canvas }) {
+      canvas.text(59, 19, [{ text: 'A' }]);
     }
   });
   const nextWidget = canvas({
     id: 'sparse-canvas-damage',
-    painter({ buffer }) {
-      buffer.write(20, 60, [{ text: 'B' }]);
+    painter({ canvas }) {
+      canvas.text(59, 19, [{ text: 'B' }]);
     }
   });
   const dirty = dirtyRegionsForRegionChanges(
-    renderWidgetRegions(previousWidget, viewport),
-    renderWidgetRegions(nextWidget, viewport)
+    renderElementRegions(previousWidget, viewport),
+    renderElementRegions(nextWidget, viewport)
   );
 
   assert.deepEqual(dirty?.rects, [
@@ -209,7 +209,7 @@ test('large sparse canvas retained damage is narrowed to touched cells', () => {
 });
 
 test('large tree viewport is bounded independently from node count', () => {
-  const frame = renderWidgetFrame(tree({
+  const frame = renderElementFrame(tree({
     id: 'large-tree',
     selected: 'node-40000',
     nodes: [{
@@ -233,7 +233,7 @@ test('palette filtering returns bounded windows for large entry sets', () => {
     value: index,
     keywords: [`tag-${index % 25}`]
   }));
-  const frame = renderWidgetFrame(palette({
+  const frame = renderElementFrame(palette({
     id: 'large-palette',
     query: '19999',
     selectedId: 'entry-19999',
@@ -255,9 +255,9 @@ test('form navigation over many controls records one bounded frame per input', a
       ...Array.from({ length: 25 }, (_value, index) => textInput({
         id: `field-${index}`,
         value: state.active,
-        keyMap: { enter: { kind: `field-${index}` } }
+        keys: { enter: { kind: `field-${index}` } }
       })),
-      button({ id: 'done', label: 'Done', message: { kind: 'done' } })
+      button({ id: 'done', label: 'Done', onPress: { kind: 'done' } })
     ], { id: 'many-fields', title: 'Many fields' })
   });
   const host = createMemoryTerminalHost({ viewport: { columns: 32, rows: 12 } });
@@ -273,11 +273,11 @@ test('form navigation over many controls records one bounded frame per input', a
 });
 
 test('custom canvas render stays bounded even when painters write outside the viewport', () => {
-  const frame = renderWidgetFrame(canvas({
+  const frame = renderElementFrame(canvas({
     id: 'stress-canvas',
-    painter({ buffer, bounds }) {
-      for (let row = bounds.row - 20; row < bounds.row + bounds.height + 20; row += 1) {
-        buffer.write(row, bounds.column - 20, [{ text: `${'x'.repeat(200)}🙂` }]);
+    painter({ canvas, bounds }) {
+      for (let row = -20; row < bounds.height + 20; row += 1) {
+        canvas.line(-20, row, bounds.width + 180, row, { text: 'x' });
       }
     }
   }), { columns: 32, rows: 8 });

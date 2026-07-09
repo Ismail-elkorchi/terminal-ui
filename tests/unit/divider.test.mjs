@@ -1,20 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { noColorTheme } from '../../dist/theme/index.js';
-import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
-import { divider } from '../../dist/widgets/index.js';
+import {
+  noColorTheme } from '../../dist/theme/index.js';
+import { renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import { divider } from '../../dist/components/index.js';
 
 test('divider renders labelled horizontal separators with semantic source roles', () => {
-  const frame = renderWidgetFrame(divider({
+  const frame = renderElementFrame(divider({
     id: 'section-divider',
     line: 'dashed',
     label: 'Operations',
     labelAlign: 'center',
-    styles: {
-      label: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true }
+    meta: {
+        styles: {
+            label: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true }
+        }
     }
-  }), { columns: 24, rows: 1 });
+}), { columns: 24, rows: 1 });
   const separatorCells = frame.cells.filter((cell) => cell.source?.role === 'separator');
   const labelCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'divider' && cell.source.part === 'label');
 
@@ -31,12 +36,12 @@ test('divider renders labelled horizontal separators with semantic source roles'
 });
 
 test('divider renders vertical and empty separators without layout state', () => {
-  const vertical = renderWidgetFrame(divider({
+  const vertical = renderElementFrame(divider({
     id: 'vertical-divider',
     orientation: 'vertical',
     line: 'dotted'
   }), { columns: 3, rows: 3 });
-  const empty = renderWidgetFrame(divider({
+  const empty = renderElementFrame(divider({
     id: 'empty-divider',
     line: 'empty'
   }), { columns: 5, rows: 1 });
@@ -47,12 +52,12 @@ test('divider renders vertical and empty separators without layout state', () =>
 });
 
 test('divider uses theme separator glyphs for single-line no-color output', () => {
-  const horizontal = renderWidgetFrame(divider({
+  const horizontal = renderElementFrame(divider({
     id: 'no-color-horizontal',
     label: 'Section',
     labelAlign: 'center'
   }), { columns: 16, rows: 1 }, { theme: noColorTheme });
-  const vertical = renderWidgetFrame(divider({
+  const vertical = renderElementFrame(divider({
     id: 'no-color-vertical',
     orientation: 'vertical'
   }), { columns: 1, rows: 3 }, { theme: noColorTheme });

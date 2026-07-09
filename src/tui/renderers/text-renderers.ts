@@ -14,8 +14,8 @@ import { writeRenderBlock } from './support/block.ts';
 import { focusTarget } from './support/common.ts';
 import {
   drawScrollbars,
-  scrollbarHitTargetsForWidget,
-  scrollbarsForWidget,
+  scrollbarHitTargetsForRenderNode,
+  scrollbarsForRenderNode,
   textAreaScrollbarState
 } from './support/scroll.ts';
 import { textPointerHitTargets, textPointerMessageFactory } from '../text-pointer.ts';
@@ -23,44 +23,44 @@ import type { RendererMap } from './types.ts';
 
 export const textRenderers = {
   text: {
-    render: ({ widget, node, buffer }) => {
-      writeRenderBlock(buffer, node.bounds, textBlock(widget));
+    render: ({ renderNode, layoutNode, buffer }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, textBlock(renderNode));
     },
-    accessibility: ({ widget, id }) => textAccessibleBase(widget, id)
+    accessibility: ({ renderNode, id }) => textAccessibleBase(renderNode, id)
   },
   richText: {
-    render: ({ widget, node, buffer }) => {
-      writeRenderBlock(buffer, node.bounds, richTextBlock(widget, node.bounds));
+    render: ({ renderNode, layoutNode, buffer }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, richTextBlock(renderNode, layoutNode.bounds));
     },
-    accessibility: ({ widget, id }) => richTextAccessibleBase(widget, id)
+    accessibility: ({ renderNode, id }) => richTextAccessibleBase(renderNode, id)
   },
   textArea: {
-    render: ({ widget, node, buffer, theme, focused }) => {
-      const scrollbars = scrollbarsForWidget(widget, node.bounds, (contentBounds) => textAreaScrollbarState(widget, contentBounds), 'both');
-      writeRenderBlock(buffer, scrollbars.contentBounds, textAreaBlock(widget, scrollbars.contentBounds, theme, focused));
-      drawScrollbars(buffer, widget, scrollbars, theme);
+    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
+      const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => textAreaScrollbarState(renderNode, contentBounds), 'both');
+      writeRenderBlock(buffer, scrollbars.contentBounds, textAreaBlock(renderNode, scrollbars.contentBounds, theme, focused));
+      drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
-    accessibility: ({ widget, node, id, focused, theme }) => textAreaAccessibleBase(widget, id, focused, node.bounds, theme),
-    focusTargets: ({ widget, bounds, theme }) => [focusTarget(bounds, textAreaCursor(widget, bounds, theme))],
-    hitTargets: ({ widget, bounds, theme }) => {
-      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => textAreaScrollbarState(widget, contentBounds), 'both');
+    accessibility: ({ renderNode, layoutNode, id, focused, theme }) => textAreaAccessibleBase(renderNode, id, focused, layoutNode.bounds, theme),
+    focusTargets: ({ renderNode, bounds, theme }) => [focusTarget(bounds, textAreaCursor(renderNode, bounds, theme))],
+    hitTargets: ({ renderNode, bounds, theme }) => {
+      const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => textAreaScrollbarState(renderNode, contentBounds), 'both');
       return [
-        ...(widget.props['disabled'] === true
+        ...(renderNode.props['disabled'] === true
           ? []
           : textPointerHitTargets({
-              id: `${widget.id ?? widget.kind}:text`,
+              id: `${renderNode.id ?? renderNode.kind}:text`,
               bounds: scrollbars.contentBounds,
-              toMessage: textPointerMessageFactory(widget),
-              offsetAt: (event) => textAreaPointerOffset(widget, scrollbars.contentBounds, theme, event)
+              toMessage: textPointerMessageFactory(renderNode),
+              offsetAt: (event) => textAreaPointerOffset(renderNode, scrollbars.contentBounds, theme, event)
             })),
-        ...scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state)
+        ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)
       ];
     }
   },
   activityIndicator: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, activityIndicatorBlock(widget, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, activityIndicatorBlock(renderNode, theme));
     },
-    accessibility: ({ widget, id }) => activityIndicatorAccessibleBase(widget, id)
+    accessibility: ({ renderNode, id }) => activityIndicatorAccessibleBase(renderNode, id)
   }
 } satisfies RendererMap<'text' | 'richText' | 'textArea' | 'activityIndicator'>;

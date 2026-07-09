@@ -7,7 +7,7 @@ import {
   scrollbackReducer,
   scrollbackSearchMarks,
   visibleScrollbackItems
-} from '../../dist/widgets/index.js';
+} from '../../dist/behavior/index.js';
 
 const items = [
   { id: 'a', text: 'alpha\nmore alpha' },

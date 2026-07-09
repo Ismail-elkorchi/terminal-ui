@@ -1,40 +1,33 @@
+import type { RenderNode } from '../render-node/index.ts';
 import { sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
 import { dataWindow, rowWindow } from './data-window.ts';
 import {
-  type DocumentSourceOptions,
-  documentBodyStyle,
-  documentDetailStyle,
-  documentFieldSpans,
-  documentMarkerStyle,
-  documentSpan,
-  documentStatusStyle,
-  documentSummaryStyle,
-  documentTitleStyle,
-  sourceToken
+  type DocumentSourceOptions, documentBodyStyle, documentDetailStyle, documentFieldSpans, documentMarkerStyle, documentSpan, documentStatusStyle, documentSummaryStyle, documentTitleStyle, sourceToken
 } from './document-visual.ts';
-import { numberProp, stringify } from './widget-props.ts';
+import { numberProp, stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { StructuredBlock, WidgetFieldItem, Widget } from '../widgets/index.ts';
-import { optionalWidgetRecordStatus } from '../widgets/index.ts';
+import type { FieldItem } from '../components/contracts.ts';
+import { optionalRecordStatus } from '../components/status.ts';
+import type { StructuredBlock } from '../components/types.ts';
 import type { LayoutNode } from './layout.ts';
 import { clipRenderLine, clipRenderSpans } from './render-primitives.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 
 interface StructuredBlockRenderOptions {
-  readonly widget: Widget;
+  readonly widget: RenderNode;
   readonly kind: 'structuredBlock' | 'activityFeed';
   readonly selected: boolean;
   readonly itemId?: string;
   readonly itemIndex?: number;
 }
 
-export function structuredBlockText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
+export function structuredBlockText(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): string {
   return renderBlockText(structuredBlockBlock(widget, node, theme));
 }
 
-export function structuredBlockBlock(widget: Widget, node: LayoutNode, theme: TerminalTheme): RenderBlock {
-  const block = blockFromWidget(widget);
+export function structuredBlockBlock(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+  const block = blockFromRenderNode(widget);
   return {
     lines: structuredBlockLines(block, theme, node.bounds.width, {
       widget,
@@ -45,8 +38,8 @@ export function structuredBlockBlock(widget: Widget, node: LayoutNode, theme: Te
   };
 }
 
-export function structuredBlockAccessibleBase(widget: Widget, id: string): AccessibleNode {
-  const block = blockFromWidget(widget);
+export function structuredBlockAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
+  const block = blockFromRenderNode(widget);
   const children = structuredBlockAccessibleChildren(block, id);
   return {
     id,
@@ -58,17 +51,17 @@ export function structuredBlockAccessibleBase(widget: Widget, id: string): Acces
   };
 }
 
-export function activityFeedText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
+export function activityFeedText(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): string {
   return renderBlockText(activityFeedBlock(widget, node, theme));
 }
 
-export function activityFeedBlock(widget: Widget, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+export function activityFeedBlock(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
   return {
     lines: activityFeedRows(widget, node, theme)
   };
 }
 
-export function activityFeedAccessibleBase(widget: Widget, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
+export function activityFeedAccessibleBase(widget: RenderNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
   const blocks = activityFeedBlocks(widget);
   const selected = selectedBlockIndex(widget, blocks.length);
   const window = dataWindow({
@@ -87,7 +80,7 @@ export function activityFeedAccessibleBase(widget: Widget, node: LayoutNode, id:
   };
 }
 
-export function activityFeedAccessibleChildren(widget: Widget, node: LayoutNode): readonly AccessibleNode[] {
+export function activityFeedAccessibleChildren(widget: RenderNode, node: LayoutNode): readonly AccessibleNode[] {
   const blocks = visibleActivityBlocks(widget, node);
   const selected = selectedBlockIndex(widget, activityFeedBlocks(widget).length);
   return blocks.map(({ block, index }) => ({
@@ -100,7 +93,7 @@ export function activityFeedAccessibleChildren(widget: Widget, node: LayoutNode)
   }));
 }
 
-function activityFeedRows(widget: Widget, node: LayoutNode, theme: TerminalTheme): readonly RenderLine[] {
+function activityFeedRows(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): readonly RenderLine[] {
   const selected = selectedBlockIndex(widget, activityFeedBlocks(widget).length);
   const rows: RenderLine[] = [];
   for (const { block, index } of visibleActivityBlocks(widget, node)) {
@@ -136,7 +129,7 @@ function activityFeedRows(widget: Widget, node: LayoutNode, theme: TerminalTheme
 }
 
 function visibleActivityBlocks(
-  widget: Widget,
+  widget: RenderNode,
   node: LayoutNode
 ): readonly { readonly block: StructuredBlock; readonly index: number }[] {
   const blocks = activityFeedBlocks(widget);
@@ -216,7 +209,7 @@ function structuredBlockAccessibleChildren(block: StructuredBlock, id: string): 
   return children;
 }
 
-function blockFromWidget(widget: Widget): StructuredBlock {
+function blockFromRenderNode(widget: RenderNode): StructuredBlock {
   const title = stringify(widget.props['title']);
   return {
     id: widget.id ?? 'structured-block',
@@ -231,13 +224,13 @@ function blockFromWidget(widget: Widget): StructuredBlock {
   };
 }
 
-function activityFeedBlocks(widget: Widget): readonly StructuredBlock[] {
+function activityFeedBlocks(widget: RenderNode): readonly StructuredBlock[] {
   return Array.isArray(widget.props['blocks'])
     ? widget.props['blocks'].filter(isStructuredBlock).map(sanitizeBlock)
     : [];
 }
 
-function selectedBlockIndex(widget: Widget, length: number): number | undefined {
+function selectedBlockIndex(widget: RenderNode, length: number): number | undefined {
   const selected = numberProp(widget, 'selected');
   if (selected === undefined || length <= 0) return undefined;
   return Math.max(0, Math.min(length - 1, Math.floor(selected)));
@@ -257,7 +250,7 @@ function sanitizeBlock(block: StructuredBlock): StructuredBlock {
   };
 }
 
-function sanitizeField(field: WidgetFieldItem): WidgetFieldItem {
+function sanitizeField(field: FieldItem): FieldItem {
   return {
     label: cleanLine(field.label),
     value: cleanLine(field.value)
@@ -287,7 +280,7 @@ function optionalStyle(value: unknown): Pick<StructuredBlock, 'style'> | Record<
 }
 
 function optionalStatus(value: unknown): Pick<StructuredBlock, 'status'> | Record<string, never> {
-  const status = optionalWidgetRecordStatus(value);
+  const status = optionalRecordStatus(value);
   return status === undefined ? {} : { status };
 }
 
@@ -297,7 +290,7 @@ function optionalFields(value: unknown): Pick<StructuredBlock, 'fields'> | Recor
   return fields.length === 0 ? {} : { fields };
 }
 
-function isField(value: unknown): value is WidgetFieldItem {
+function isField(value: unknown): value is FieldItem {
   return typeof value === 'object'
     && value !== null
     && 'label' in value
@@ -359,7 +352,7 @@ function headerLine(
   return clipRenderLine({ spans }, Math.max(0, width), { ellipsis: '…', mode: 'middle' });
 }
 
-function fieldLine(field: WidgetFieldItem, labelWidth: number, width: number, options: StructuredBlockRenderOptions): RenderLine {
+function fieldLine(field: FieldItem, labelWidth: number, width: number, options: StructuredBlockRenderOptions): RenderLine {
   return {
     spans: clipRenderSpans(
       documentFieldSpans(options.widget, field, labelWidth, options.selected, options.kind, sourceOptionsForBlock(options)),
@@ -422,7 +415,7 @@ function detailTextLines(
   return wrappedTextLines(plain, width, style, options, 'detail', 'details.body');
 }
 
-function maxFieldLabelWidth(fields: readonly WidgetFieldItem[]): number {
+function maxFieldLabelWidth(fields: readonly FieldItem[]): number {
   return fields.reduce((width, field) => Math.max(width, field.label.length), 0);
 }
 

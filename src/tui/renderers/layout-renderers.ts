@@ -13,8 +13,8 @@ import {
 import { tabsAccessibleChildren, tabsChildBounds, tabsHeaderBlock, tabsHitTargets } from './support/tabs.ts';
 import {
   drawScrollbars,
-  scrollbarHitTargetsForWidget,
-  scrollbarsForWidget,
+  scrollbarHitTargetsForRenderNode,
+  scrollbarsForRenderNode,
   viewportScrollbarState
 } from './support/scroll.ts';
 import {
@@ -29,11 +29,11 @@ import type { RendererMap } from './types.ts';
 
 export const layoutRenderers = {
   row: {
-    layout: ({ widget, bounds, childMeasures }) => splitTracks(
+    layout: ({ renderNode, bounds, childMeasures }) => splitTracks(
       bounds,
       'horizontal',
-      childLayoutSizes(widget, priorityFillLayoutSizes(widget.children ?? [])),
-      layoutFlowOptions(widget),
+      childLayoutSizes(renderNode, priorityFillLayoutSizes(renderNode.children ?? [])),
+      layoutFlowOptions(renderNode),
       childMeasures.map((measure) => measure.preferredWidth)
     ),
     render: (input) => {
@@ -42,11 +42,11 @@ export const layoutRenderers = {
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   stack: {
-    layout: ({ widget, bounds, childMeasures }) => splitTracks(
+    layout: ({ renderNode, bounds, childMeasures }) => splitTracks(
       bounds,
       'vertical',
-      childLayoutSizes(widget),
-      layoutFlowOptions(widget),
+      childLayoutSizes(renderNode),
+      layoutFlowOptions(renderNode),
       childMeasures.map((measure) => measure.preferredHeight)
     ),
     render: (input) => {
@@ -55,11 +55,11 @@ export const layoutRenderers = {
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   viewport: {
-    layout: ({ widget, bounds }) => [viewportChildBounds(widget, bounds)],
+    layout: ({ renderNode, bounds }) => [viewportChildBounds(renderNode, bounds)],
     render: (input) => {
       const viewportBuffer = createFrameBuffer(input.buffer.width, input.buffer.height);
       input.renderChildren(viewportBuffer);
-      const scrollbars = scrollbarsForWidget(input.widget, input.node.bounds, (contentBounds) => viewportScrollbarState(input.widget, contentBounds), 'both');
+      const scrollbars = scrollbarsForRenderNode(input.renderNode, input.layoutNode.bounds, (contentBounds) => viewportScrollbarState(input.renderNode, contentBounds), 'both');
       const occupiedCells = new Set<string>();
       for (const cell of viewportBuffer.snapshot().cells) {
         if (cellInside(cell, scrollbars.contentBounds)) {
@@ -67,69 +67,69 @@ export const layoutRenderers = {
           occupiedCells.add(viewportIndicatorCellKey(cell.row, cell.column));
         }
       }
-      drawViewportIndicators(input.buffer, input.widget, scrollbars.contentBounds, input.theme, occupiedCells);
-      drawScrollbars(input.buffer, input.widget, scrollbars, input.theme);
+      drawViewportIndicators(input.buffer, input.renderNode, scrollbars.contentBounds, input.theme, occupiedCells);
+      drawScrollbars(input.buffer, input.renderNode, scrollbars, input.theme);
     },
-    accessibility: ({ widget, node, id }) => ({
+    accessibility: ({ renderNode, layoutNode, id }) => ({
       id,
       role: 'text',
       label: id,
-      description: viewportAccessibleDescription(widget, node)
+      description: viewportAccessibleDescription(renderNode, layoutNode)
     }),
-    hitTargets: ({ widget, bounds }) => {
-      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => viewportScrollbarState(widget, contentBounds), 'both');
-      return scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state);
+    hitTargets: ({ renderNode, bounds }) => {
+      const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => viewportScrollbarState(renderNode, contentBounds), 'both');
+      return scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state);
     }
   },
   grid: {
-    layout: ({ widget, bounds, childMeasures }) => gridChildBounds(widget, bounds, childMeasures),
+    layout: ({ renderNode, bounds, childMeasures }) => gridChildBounds(renderNode, bounds, childMeasures),
     render: (input) => {
       input.renderChildren();
     },
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   splitPane: {
-    layout: ({ widget, bounds, childMeasures }) => splitPaneChildBounds(widget, bounds, childMeasures),
+    layout: ({ renderNode, bounds, childMeasures }) => splitPaneChildBounds(renderNode, bounds, childMeasures),
     render: (input) => {
       input.renderChildren();
     },
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   tabs: {
-    layout: ({ widget, bounds }) => tabsChildBounds(widget, bounds),
+    layout: ({ renderNode, bounds }) => tabsChildBounds(renderNode, bounds),
     render: (input) => {
       writeRenderBlock(input.buffer, {
-        ...input.node.bounds,
-        height: Math.min(1, input.node.bounds.height)
-      }, tabsHeaderBlock(input.widget, input.node.bounds, input.focused));
+        ...input.layoutNode.bounds,
+        height: Math.min(1, input.layoutNode.bounds.height)
+      }, tabsHeaderBlock(input.renderNode, input.layoutNode.bounds, input.focused));
       input.renderChildren();
     },
-    accessibility: ({ widget, id, focused }) => ({
+    accessibility: ({ renderNode, id, focused }) => ({
       id,
       role: 'menu',
       label: id,
       ...(focused ? { focused } : {}),
-      children: tabsAccessibleChildren(widget)
+      children: tabsAccessibleChildren(renderNode)
     }),
-    hitTargets: ({ widget, bounds }) => tabsHitTargets(widget, bounds)
+    hitTargets: ({ renderNode, bounds }) => tabsHitTargets(renderNode, bounds)
   },
   modal: {
-    layout: ({ widget, bounds, childMeasures }) => modalChildBounds(widget, bounds, borderForModal(widget), childMeasures),
+    layout: ({ renderNode, bounds, childMeasures }) => modalChildBounds(renderNode, bounds, borderForModal(renderNode), childMeasures),
     render: (input) => {
-      const border = borderForModal(input.widget, input.focused);
-      const childBounds = modalDialogBounds(input.widget, input.node.bounds);
-      drawSurfaceFrame(input.buffer, childBounds, input.widget, input.theme, input.focused, {
+      const border = borderForModal(input.renderNode, input.focused);
+      const childBounds = modalDialogBounds(input.renderNode, input.layoutNode.bounds);
+      drawSurfaceFrame(input.buffer, childBounds, input.renderNode, input.theme, input.focused, {
         variant: 'raised',
         border,
         shadow: true
       });
-      drawModalActionSeparator(input.buffer, input.node, input.theme, border.style);
+      drawModalActionSeparator(input.buffer, input.layoutNode, input.theme, border.style);
       input.renderChildren();
     },
-    accessibility: ({ widget, id }) => ({
+    accessibility: ({ renderNode, id }) => ({
       id,
       role: 'dialog',
-      label: modalLabel(widget) || id,
+      label: modalLabel(renderNode) || id,
       scope: {
         kind: 'modal',
         trapsFocus: true,

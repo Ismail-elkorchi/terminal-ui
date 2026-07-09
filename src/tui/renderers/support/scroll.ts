@@ -1,12 +1,12 @@
 import { measureTextCells, sanitizeTerminalText } from '../../../text/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
-import type { Widget } from '../../../widgets/index.ts';
+import type { RenderNode } from '../../../render-node/index.ts';
 import { dataWindow } from '../../data-window.ts';
 import { createScrollState, normalizeScrollState } from '../../scroll.ts';
 import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
 import { scrollbackWindow } from '../../scrollback.ts';
 import { treeVisibleRows } from '../../tree.ts';
-import { numberProp, stringify } from '../../widget-props.ts';
+import { numberProp, stringify } from '../../render-node-props.ts';
 import { isRecord } from './common.ts';
 import { viewportVisualState } from './viewport.ts';
 import type { FrameBuffer } from '../../frame.ts';
@@ -15,9 +15,9 @@ import type { RoutedPointerEvent } from '../../pointer-types.ts';
 import type {
   ScrollAction,
   ScrollState,
-  WidgetScrollEvent,
-  WidgetScrollEventSource,
-  WidgetScrollEventTarget
+  ScrollEvent,
+  ScrollEventSource,
+  ScrollEventTarget
 } from '../../scroll.ts';
 import type {
   ScrollbarLayout,
@@ -26,7 +26,7 @@ import type {
   ScrollbarTrack,
   ScrollbarVisualState
 } from '../../scrollbar.ts';
-import type { HitTarget } from '../../widget-renderer.ts';
+import type { HitTarget } from '../../render-node-renderer.ts';
 
 const WHEEL_SCROLL_LINES = 3;
 const WHEEL_SCROLL_COLUMNS = 3;
@@ -37,20 +37,20 @@ interface NormalizedScrollWheelPolicy {
   readonly columns: number;
 }
 
-interface WidgetScrollbarPlan {
+interface RenderNodeScrollbarPlan {
   readonly contentBounds: Rect;
   readonly layout?: ScrollbarLayout;
   readonly state: ScrollState;
 }
 
-type WidgetScrollbarStateFactory = (bounds: Rect) => ScrollState;
+type RenderNodeScrollbarStateFactory = (bounds: Rect) => ScrollState;
 
-export function scrollbarsForWidget(
-  widget: Widget,
+export function scrollbarsForRenderNode(
+  widget: RenderNode,
   bounds: Rect,
-  stateForBounds: WidgetScrollbarStateFactory,
+  stateForBounds: RenderNodeScrollbarStateFactory,
   fallbackAxis: NonNullable<ScrollbarOptions['axis']>
-): WidgetScrollbarPlan {
+): RenderNodeScrollbarPlan {
   const initialState = stateForBounds(bounds);
   const options = scrollbarOptionsProp(widget, fallbackAxis);
   if (options === undefined) {
@@ -69,8 +69,8 @@ export function scrollbarsForWidget(
 
 export function drawScrollbars(
   buffer: FrameBuffer,
-  widget: Pick<Widget, 'id' | 'kind'>,
-  plan: WidgetScrollbarPlan,
+  widget: Pick<RenderNode, 'id' | 'kind'>,
+  plan: RenderNodeScrollbarPlan,
   theme: TerminalTheme
 ): void {
   if (plan.layout !== undefined) {
@@ -81,9 +81,9 @@ export function drawScrollbars(
   }
 }
 
-export function scrollbarHitTargetsForWidget<TMessage>(
-  widget: Widget<TMessage>,
-  plan: WidgetScrollbarPlan,
+export function scrollbarHitTargetsForRenderNode<TMessage>(
+  widget: RenderNode<TMessage>,
+  plan: RenderNodeScrollbarPlan,
   state: ScrollState
 ): readonly HitTarget<TMessage>[] {
   const factory = scrollMessageFactory(widget);
@@ -116,7 +116,7 @@ function reconciledScrollbarLayout(
   bounds: Rect,
   initialState: ScrollbarState,
   options: ScrollbarOptions,
-  stateForBounds: WidgetScrollbarStateFactory
+  stateForBounds: RenderNodeScrollbarStateFactory
 ): ScrollbarLayout {
   let layout = scrollbarLayout(bounds, initialState, options);
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -135,11 +135,11 @@ function rectsEqual(left: Rect, right: Rect): boolean {
 }
 
 function scrollMessageFactory<TMessage>(
-  widget: Widget<TMessage>
-): ((event: WidgetScrollEvent) => TMessage) | undefined {
+  widget: RenderNode<TMessage>
+): ((event: ScrollEvent) => TMessage) | undefined {
   const raw = widget.props['toScrollMessage'];
   return typeof raw === 'function'
-    ? (event) => (raw as (event: WidgetScrollEvent) => TMessage)(event)
+    ? (event) => (raw as (event: ScrollEvent) => TMessage)(event)
     : undefined;
 }
 
@@ -148,7 +148,7 @@ function scrollContentHitTarget<TMessage>(
   bounds: Rect,
   state: ScrollState,
   wheel: NormalizedScrollWheelPolicy,
-  factory: (event: WidgetScrollEvent) => TMessage
+  factory: (event: ScrollEvent) => TMessage
 ): HitTarget<TMessage> {
   return {
     id: `${id}:scroll:content`,
@@ -167,7 +167,7 @@ function scrollbarTrackHitTargets<TMessage>(
   track: ScrollbarTrack,
   state: ScrollState,
   wheel: NormalizedScrollWheelPolicy,
-  factory: (event: WidgetScrollEvent) => TMessage
+  factory: (event: ScrollEvent) => TMessage
 ): readonly HitTarget<TMessage>[] {
   const trackTarget: HitTarget<TMessage> = {
     id: `${id}:scrollbar:${axis}:track`,
@@ -213,8 +213,8 @@ function scrollEvent(
   action: ScrollAction,
   scroll: ScrollState,
   pointer: RoutedPointerEvent,
-  target: WidgetScrollEventTarget
-): WidgetScrollEvent {
+  target: ScrollEventTarget
+): ScrollEvent {
   return {
     action,
     scroll,
@@ -224,7 +224,7 @@ function scrollEvent(
   };
 }
 
-function scrollEventSource(event: RoutedPointerEvent): WidgetScrollEventSource {
+function scrollEventSource(event: RoutedPointerEvent): ScrollEventSource {
   switch (event.kind) {
     case 'scroll':
       return 'wheel';
@@ -335,7 +335,7 @@ function scrollbarThumbBounds(track: ScrollbarTrack): Rect | undefined {
 }
 
 function scrollbarOptionsProp(
-  widget: Widget,
+  widget: RenderNode,
   fallbackAxis: NonNullable<ScrollbarOptions['axis']>
 ): ScrollbarOptions | undefined {
   const raw = widget.props['scrollbar'];
@@ -350,7 +350,7 @@ function scrollbarOptionsProp(
   };
 }
 
-function scrollWheelPolicyProp(widget: Widget): NormalizedScrollWheelPolicy {
+function scrollWheelPolicyProp(widget: RenderNode): NormalizedScrollWheelPolicy {
   const raw = widget.props['scrollPolicy'];
   if (!isRecord(raw)) return defaultWheelPolicy();
   const wheel = raw['wheel'];
@@ -392,7 +392,7 @@ function isScrollbarVisualState(value: unknown): value is ScrollbarVisualState {
     || value === 'inactive';
 }
 
-export function tableScrollbarState(widget: Widget, bounds: Rect): ScrollState {
+export function tableScrollbarState(widget: RenderNode, bounds: Rect): ScrollState {
   const rows = Array.isArray(widget.props['rows']) ? widget.props['rows'] : [];
   const selected = selectedTableRow(widget);
   const window = dataWindow({
@@ -400,7 +400,7 @@ export function tableScrollbarState(widget: Widget, bounds: Rect): ScrollState {
     viewportRows: bounds.height,
     selectedIndex: selected
   });
-  const configured = normalizedWidgetScroll(widget, {
+  const configured = normalizedRenderNodeScroll(widget, {
     offsetRow: scrollNumberProp(widget, 'offsetRow') ?? window.start,
     contentRows: scrollNumberProp(widget, 'contentRows') ?? rows.length,
     contentColumns: scrollNumberProp(widget, 'contentColumns') ?? bounds.width,
@@ -410,9 +410,9 @@ export function tableScrollbarState(widget: Widget, bounds: Rect): ScrollState {
   return configured;
 }
 
-export function treeScrollbarState(widget: Widget, bounds: Rect): ScrollState {
+export function treeScrollbarState(widget: RenderNode, bounds: Rect): ScrollState {
   const rows = treeVisibleRows(widget);
-  const scroll = normalizedWidgetScroll(widget, {
+  const scroll = normalizedRenderNodeScroll(widget, {
     contentRows: rows.length,
     contentColumns: scrollNumberProp(widget, 'contentColumns') ?? bounds.width,
     viewportRows: bounds.height,
@@ -421,7 +421,7 @@ export function treeScrollbarState(widget: Widget, bounds: Rect): ScrollState {
   return scroll;
 }
 
-export function viewportScrollbarState(widget: Widget, bounds: Rect): ScrollState {
+export function viewportScrollbarState(widget: RenderNode, bounds: Rect): ScrollState {
   const state = viewportVisualState(widget, bounds);
   return normalizeScrollState({
     offsetRow: state.offsetRow,
@@ -434,7 +434,7 @@ export function viewportScrollbarState(widget: Widget, bounds: Rect): ScrollStat
   });
 }
 
-export function scrollbackScrollbarState(widget: Widget, node: Pick<LayoutNode, 'bounds'>): ScrollState {
+export function scrollbackScrollbarState(widget: RenderNode, node: Pick<LayoutNode, 'bounds'>): ScrollState {
   const window = scrollbackWindow(widget, node);
   return createScrollState({
     offsetRow: window.start,
@@ -447,9 +447,9 @@ export function scrollbackScrollbarState(widget: Widget, node: Pick<LayoutNode, 
   });
 }
 
-export function paletteScrollbarState(widget: Widget, bounds: Rect): ScrollState {
+export function paletteScrollbarState(widget: RenderNode, bounds: Rect): ScrollState {
   const entries = Array.isArray(widget.props['entries']) ? widget.props['entries'] : [];
-  const scroll = normalizedWidgetScroll(widget, {
+  const scroll = normalizedRenderNodeScroll(widget, {
     contentRows: scrollNumberProp(widget, 'contentRows') ?? entries.length,
     contentColumns: scrollNumberProp(widget, 'contentColumns') ?? bounds.width,
     viewportRows: bounds.height,
@@ -458,9 +458,9 @@ export function paletteScrollbarState(widget: Widget, bounds: Rect): ScrollState
   return scroll;
 }
 
-export function menuScrollbarState(widget: Widget, bounds: Rect): ScrollState {
+export function menuScrollbarState(widget: RenderNode, bounds: Rect): ScrollState {
   const rows = countMenuRows(widget.props['items']);
-  const scroll = normalizedWidgetScroll(widget, {
+  const scroll = normalizedRenderNodeScroll(widget, {
     contentRows: scrollNumberProp(widget, 'contentRows') ?? rows,
     contentColumns: scrollNumberProp(widget, 'contentColumns') ?? bounds.width,
     viewportRows: bounds.height,
@@ -469,7 +469,7 @@ export function menuScrollbarState(widget: Widget, bounds: Rect): ScrollState {
   return scroll;
 }
 
-export function textAreaScrollbarState(widget: Widget, bounds: Rect): ScrollState {
+export function textAreaScrollbarState(widget: RenderNode, bounds: Rect): ScrollState {
   const lines = textAreaLines(widget);
   const wrap = textAreaWrapEnabled(widget);
   const contentWidth = Math.max(0, bounds.width - textAreaPrefixWidth(widget, lines.length));
@@ -479,7 +479,7 @@ export function textAreaScrollbarState(widget: Widget, bounds: Rect): ScrollStat
   const contentColumns = wrap
     ? contentWidth
     : lines.reduce<number>((max, lineText) => Math.max(max, measureTextCells(lineText).cells), 0);
-  const scroll = normalizedWidgetScroll(widget, {
+  const scroll = normalizedRenderNodeScroll(widget, {
     contentRows,
     contentColumns,
     viewportRows: bounds.height,
@@ -488,7 +488,7 @@ export function textAreaScrollbarState(widget: Widget, bounds: Rect): ScrollStat
   return scroll;
 }
 
-interface WidgetScrollStateInput {
+interface RenderNodeScrollStateInput {
   readonly offsetRow?: number;
   readonly offsetColumn?: number;
   readonly contentRows: number;
@@ -497,7 +497,7 @@ interface WidgetScrollStateInput {
   readonly viewportColumns: number;
 }
 
-function normalizedWidgetScroll(widget: Widget, input: WidgetScrollStateInput): ReturnType<typeof normalizeScrollState> {
+function normalizedRenderNodeScroll(widget: RenderNode, input: RenderNodeScrollStateInput): ReturnType<typeof normalizeScrollState> {
   const raw = isRecord(widget.props['scroll']) ? widget.props['scroll'] : {};
   const selectedIndex = scrollNumberField(raw, 'selectedIndex');
   return normalizeScrollState({
@@ -512,7 +512,7 @@ function normalizedWidgetScroll(widget: Widget, input: WidgetScrollStateInput): 
   });
 }
 
-function scrollNumberProp(widget: Widget, key: string): number | undefined {
+function scrollNumberProp(widget: RenderNode, key: string): number | undefined {
   const raw = widget.props['scroll'];
   return isRecord(raw) ? scrollNumberField(raw, key) : undefined;
 }
@@ -531,14 +531,14 @@ function countMenuRows(value: unknown): number {
   }, 0);
 }
 
-function textAreaLines(widget: Widget): readonly string[] {
+function textAreaLines(widget: RenderNode): readonly string[] {
   const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
   const placeholder = sanitizeTerminalText(stringify(widget.props['placeholder'])).text;
   const display = value.length === 0 && placeholder.length > 0 ? placeholder : value;
   return display.length === 0 ? [''] : display.split('\n');
 }
 
-function textAreaWrapEnabled(widget: Widget): boolean {
+function textAreaWrapEnabled(widget: RenderNode): boolean {
   const raw = widget.props['wrap'];
   if (raw === true) return true;
   if (!isRecord(raw)) return false;
@@ -546,7 +546,7 @@ function textAreaWrapEnabled(widget: Widget): boolean {
   return mode === undefined || mode === 'soft';
 }
 
-function textAreaPrefixWidth(widget: Widget, lineCount: number): number {
+function textAreaPrefixWidth(widget: RenderNode, lineCount: number): number {
   const raw = widget.props['lineNumbers'];
   if (raw !== true && !isRecord(raw)) return 2;
   const start = isRecord(raw) && typeof raw['start'] === 'number' && Number.isFinite(raw['start'])
@@ -564,7 +564,7 @@ function wrappedTextAreaRows(lineText: string, width: number): number {
   return width <= 0 ? 1 : Math.max(1, Math.ceil(cells / width));
 }
 
-function selectedTableRow(widget: Widget): number {
+function selectedTableRow(widget: RenderNode): number {
   const selectedCell = widget.props['selectedCell'];
   if (isRecord(selectedCell)) {
     const row = selectedCell['row'];

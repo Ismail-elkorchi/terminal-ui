@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createScrollState } from '../../dist/tui/index.js';
-import { sortTableRows, tableReducer } from '../../dist/widgets/index.js';
+import { createScrollState } from '../../dist/behavior/index.js';
+import {
+  sortTableRows,
+  tableReducer
+} from '../../dist/behavior/index.js';
 
 test('tableReducer clamps row and cell selection through caller-provided bounds', () => {
   const row = tableReducer({}, { kind: 'selectRow', row: 12 }, { rowCount: 3 });

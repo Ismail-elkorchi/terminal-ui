@@ -1,7 +1,7 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { ThemeColorToken } from '../theme/index.ts';
 import type { TerminalStyle } from './render-primitives.ts';
-import { mergeStyles } from './widget-style.ts';
+import { mergeStyles } from './render-node-style.ts';
 
 export interface NormalizedValueScaleStop {
   readonly at: number;

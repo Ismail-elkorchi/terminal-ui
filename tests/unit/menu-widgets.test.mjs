@@ -1,10 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+import { defineTui } from '../../dist/tui/index.js';
+import {
+  validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { createTuiRuntime, defineTui, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
-import { contextMenu, dropdown, menu, menuBar, stack } from '../../dist/widgets/index.js';
+import { createTuiRuntime } from '../../dist/tui/index.js';
+import {
+  renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import {
+  contextMenu,
+  dropdown,
+  menu,
+  menuBar
+} from '../../dist/components/index.js';
+import { stack } from '../../dist/layout/index.js';
 
 const enter = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
 const mousePress = (row, column) => ({
@@ -31,23 +43,23 @@ const mouseRelease = (row, column) => ({
 });
 
 const items = [
-  { id: 'new', label: 'New', message: { kind: 'new' }, description: 'Create item', shortcut: 'N' },
+  { id: 'new', label: 'New', onPress: { kind: 'new' }, description: 'Create item', shortcut: 'N' },
   {
     id: 'open',
     label: 'Open',
     expanded: true,
     children: [
-      { id: 'recent', label: 'Recent', message: { kind: 'recent' } },
-      { id: 'disabled-recent', label: 'Disabled Recent', disabled: true, message: { kind: 'disabled' } }
+      { id: 'recent', label: 'Recent', onPress: { kind: 'recent' } },
+      { id: 'disabled-recent', label: 'Disabled Recent', disabled: true, onPress: { kind: 'disabled' } }
     ]
   },
-  { id: 'autosave', label: 'Autosave', checked: true, message: { kind: 'autosave' } },
-  { id: 'delete', label: 'Delete', tone: 'destructive', message: { kind: 'delete' } },
-  { id: 'disabled', label: 'Disabled', disabled: true, message: { kind: 'disabled' } }
+  { id: 'autosave', label: 'Autosave', checked: true, onPress: { kind: 'autosave' } },
+  { id: 'delete', label: 'Delete', tone: 'destructive', onPress: { kind: 'delete' } },
+  { id: 'disabled', label: 'Disabled', disabled: true, onPress: { kind: 'disabled' } }
 ];
 
 test('menu renders nested checked disabled items with menu accessibility', () => {
-  const frame = renderWidgetFrame(menu({
+  const frame = renderElementFrame(menu({
     id: 'file-menu',
     items,
     selected: 'recent'
@@ -74,8 +86,8 @@ test('menuBar contextMenu and dropdown render reusable menu surfaces', () => {
     menuBar({
       id: 'main-menu',
       items: [
-        { id: 'file', label: 'File', message: { kind: 'file' } },
-        { id: 'edit', label: 'Edit', message: { kind: 'edit' }, disabled: true }
+        { id: 'file', label: 'File', onPress: { kind: 'file' } },
+        { id: 'edit', label: 'Edit', onPress: { kind: 'edit' }, disabled: true }
       ],
       selected: 'file'
     }),
@@ -91,13 +103,13 @@ test('menuBar contextMenu and dropdown render reusable menu surfaces', () => {
       selected: 'dark',
       open: true,
       items: [
-        { id: 'light', label: 'Light', message: { kind: 'theme', value: 'light' } },
-        { id: 'dark', label: 'Dark', message: { kind: 'theme', value: 'dark' } }
+        { id: 'light', label: 'Light', onPress: { kind: 'theme', value: 'light' } },
+        { id: 'dark', label: 'Dark', onPress: { kind: 'theme', value: 'dark' } }
       ]
     })
   ]);
 
-  const frame = renderWidgetFrame(widget, { columns: 44, rows: 13 });
+  const frame = renderElementFrame(widget, { columns: 44, rows: 13 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /› File  - Edit/u);
@@ -127,7 +139,7 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
       menuBar({
         id: 'bar',
         items: [
-          { id: 'help', label: 'Help', message: { kind: 'help' } }
+          { id: 'help', label: 'Help', onPress: { kind: 'help' } }
         ]
       })
     ])

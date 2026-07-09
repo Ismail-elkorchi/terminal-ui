@@ -1,8 +1,8 @@
 import { highlightRenderSpans } from './text-highlight.ts';
-import { frameSourcePart, widgetFrameSource } from './frame-source.ts';
-import { themeStyle, widgetStyle } from './widget-style.ts';
+import { frameSourcePart, renderNodeFrameSource } from './frame-source.ts';
+import { themeStyle, renderNodeStyle } from './render-node-style.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { Widget } from '../widgets/index.ts';
+import type { RenderNode } from '../render-node/index.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from './render-primitives.ts';
 
 export interface DataSourceOptions {
@@ -14,13 +14,13 @@ export interface DataSourceOptions {
 }
 
 export function selectionMarkerSpans(
-  widget: Widget,
+  widget: RenderNode,
   selected: boolean,
   theme: TerminalTheme,
   style?: TerminalStyle,
   source?: FrameCellSource
 ): readonly RenderSpan[] {
-  const markerStyle = selected ? (style ?? widgetStyle(widget, 'value', 'selected')) : widgetStyle(widget, 'placeholder');
+  const markerStyle = selected ? (style ?? renderNodeStyle(widget, 'value', 'selected')) : renderNodeStyle(widget, 'placeholder');
   const gapSource = frameSourcePart(source, {
     ...(source?.part === undefined ? {} : { part: `${source.part}.gap` }),
     ...(source?.label === undefined ? {} : { label: `${source.label}.gap` })
@@ -57,8 +57,8 @@ export function mergeDataStyles(...styles: readonly (TerminalStyle | undefined)[
   return Object.keys(merged).length === 0 ? undefined : merged;
 }
 
-export function dataSource(widget: Widget, label: string, options: DataSourceOptions = {}): FrameCellSource {
-  return widgetFrameSource(widget, {
+export function dataSource(widget: RenderNode, label: string, options: DataSourceOptions = {}): FrameCellSource {
+  return renderNodeFrameSource(widget, {
     family: 'data',
     role: options.role ?? 'text',
     part: label,

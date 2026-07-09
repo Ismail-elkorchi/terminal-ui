@@ -1,12 +1,12 @@
 import { toAccessibleSnapshot, validateAccessibleSnapshot } from '../accessibility/index.ts';
+import type { RenderNode } from '../render-node/index.ts';
 import { defineTheme, isTerminalTheme } from '../theme/index.ts';
 import { dirtyRegionsForRegionChanges } from './dirty-regions.ts';
-import { diffFrames, renderDiffAnsi, renderWidgetFrameProjection } from './render.ts';
+import { diffFrames, renderDiffAnsi, renderElementProjection } from './render.ts';
 import { recordTuiFrame } from './transcript.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalHost, TerminalViewport } from '../host/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { Widget } from '../widgets/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FocusPath } from './focus.ts';
 import type { Frame, RenderDiff } from './frame.ts';
@@ -18,7 +18,7 @@ export interface RenderCommitCandidate<TMessage> {
   readonly stateVersion: number;
   readonly themeFingerprint: string;
   readonly viewport: TerminalViewport;
-  readonly widget: Widget<TMessage>;
+  readonly node: RenderNode<TMessage>;
   readonly layout: LayoutNode;
   readonly regions: readonly RenderRegion<TMessage>[];
   readonly frame: Frame;
@@ -34,7 +34,7 @@ export function renderCurrentFrame<TState, TMessage>(
   stateVersion: number
 ): RenderCommitCandidate<TMessage> {
   const theme = resolveTuiTheme(options.theme, state);
-  const projection = renderWidgetFrameProjection(app.definition.view(state, context), context.viewport, {
+  const projection = renderElementProjection(app.definition.view(state, context), context.viewport, {
     ...(focusPath === undefined ? {} : { focusPath }),
     theme
   });
@@ -44,7 +44,7 @@ export function renderCurrentFrame<TState, TMessage>(
     stateVersion,
     themeFingerprint: theme.fingerprint,
     viewport: context.viewport,
-    widget: projection.widget,
+    node: projection.node,
     layout: projection.layout,
     regions: projection.regions,
     frame,

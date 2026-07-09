@@ -14,7 +14,7 @@ const npmToSourceEntries = new Map([
   ['./theme', './src/theme/index.ts'],
   ['./prompts', './src/prompts/index.ts'],
   ['./tui', './src/tui/index.ts'],
-  ['./widgets', './src/widgets/index.ts'],
+  ['./components', './src/components/index.ts'],
   ['./accessibility', './src/accessibility/index.ts'],
   ['./transcript', './src/transcript/index.ts'],
   ['./testing', './src/testing/index.ts'],

@@ -23,7 +23,9 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 
 - `examples/prompts/non-tty-input.mjs` demonstrates deterministic non-TTY prompt input.
 - `examples/testing/harness.mjs` demonstrates the memory testing harness.
-- `examples/tui/interactive-workspace.mjs` demonstrates a hand-written interactive TUI using core primitives and generic widgets.
+- `examples/tui/interactive-workspace.mjs` demonstrates a hand-written interactive TUI using layout, components, behavior helpers, and runtime APIs.
+- `examples/tui/ide-editor.mjs` demonstrates a full-screen editor-style app using controlled tree, tabs, text area, command bar, and notifications.
+- `examples/tui/btop-monitor.mjs` demonstrates a full-screen monitor-style app using tables, charts, progress, surfaces, and subscriptions.
 
 ## Guides
 
@@ -32,11 +34,14 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 - [Text measurement](./guides/text.md)
 - [Prompts](./guides/prompts.md)
 - [TUI rendering](./guides/tui.md)
-- [Widgets](./guides/widgets.md)
+- [UI authoring](./guides/ui-authoring.md)
+- [Components](./guides/components.md)
+- [Behavior helpers](./guides/behavior.md)
+- [Public UI authoring model strategy](./guides/public-ui-authoring-model.md)
 - [Rendering internals](./guides/rendering-internals.md)
-- [Building polished widgets](./guides/building-polished-widgets.md)
+- [Building polished components](./guides/building-polished-components.md)
 - [Themes](./guides/themes.md)
-- [Custom widgets](./guides/custom-widgets.md)
+- [Renderer extensions](./guides/renderer-extensions.md)
 - [Layout](./guides/layout.md)
 - [Host adapters](./guides/host-adapters.md)
 - [Accessibility](./accessibility.md)

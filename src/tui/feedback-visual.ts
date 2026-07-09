@@ -1,14 +1,15 @@
+import type { RenderNode } from '../render-node/index.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { WidgetProcessStatus, Widget } from '../widgets/index.ts';
-import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
-import { widgetFrameSource } from './frame-source.ts';
+import type { ProcessStatus } from '../components/contracts.ts';
+import { normalizeProcessStatus } from '../components/status.ts';
+import { renderNodeFrameSource } from './frame-source.ts';
 import { block, line, measureRenderSpans, span } from './render-primitives.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import type { FrameSemanticRole } from './frame-passes/index.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
-import { numberProp, stringify } from './widget-props.ts';
-import { mergeStyles, widgetStyle } from './widget-style.ts';
+import { numberProp, stringify } from './render-node-props.ts';
+import { mergeStyles, renderNodeStyle } from './render-node-style.ts';
 import { normalizeSpinnerFrameIndex } from './spinner.ts';
 
 export type FeedbackVisualKind =
@@ -28,7 +29,7 @@ export interface FeedbackSpanOptions {
   readonly state?: string | undefined;
 }
 
-export function statusBarBlock(widget: Widget): RenderBlock {
+export function statusBarBlock(widget: RenderNode): RenderBlock {
   return block([line([
     feedbackSpan(widget, stringify(widget.props['text']), {
       kind: 'statusBar',
@@ -38,18 +39,18 @@ export function statusBarBlock(widget: Widget): RenderBlock {
   ])]);
 }
 
-export function statusBarText(widget: Widget): string {
+export function statusBarText(widget: RenderNode): string {
   return blockText(statusBarBlock(widget));
 }
 
-export function helpBarBlock(widget: Widget, maxCells?: number): RenderBlock {
+export function helpBarBlock(widget: RenderNode, maxCells?: number): RenderBlock {
   const bindings = helpBindings(widget);
   const spans = fitHelpBindingSpans(widget, bindings, maxCells);
   return block([line(spans)]);
 }
 
 function fitHelpBindingSpans(
-  widget: Widget,
+  widget: RenderNode,
   bindings: readonly { readonly key: string; readonly label: string }[],
   maxCells: number | undefined
 ): readonly RenderSpan[] {
@@ -70,7 +71,7 @@ function fitHelpBindingSpans(
 }
 
 function helpBindingSpans(
-  widget: Widget,
+  widget: RenderNode,
   bindings: readonly { readonly key: string; readonly label: string }[]
 ): readonly RenderSpan[] {
   return bindings.flatMap((binding, index): readonly RenderSpan[] =>
@@ -79,7 +80,7 @@ function helpBindingSpans(
 }
 
 function helpBindingGroupSpans(
-  widget: Widget,
+  widget: RenderNode,
   binding: { readonly key: string; readonly label: string },
   index: number,
   separated: boolean
@@ -105,7 +106,7 @@ function helpBindingGroupSpans(
   ];
 }
 
-function helpKeyStyle(widget: Widget): TerminalStyle | undefined {
+function helpKeyStyle(widget: RenderNode): TerminalStyle | undefined {
   return mergeStyles(
     feedbackBarValueStyle(widget),
     {
@@ -113,17 +114,17 @@ function helpKeyStyle(widget: Widget): TerminalStyle | undefined {
       bg: { kind: 'theme', token: 'keyHint.background' },
       bold: true
     },
-    widgetStyle(widget, 'label')
+    renderNodeStyle(widget, 'label')
   );
 }
 
-function appendHelpOverflow(widget: Widget, fitted: RenderSpan[], maxCells: number): void {
+function appendHelpOverflow(widget: RenderNode, fitted: RenderSpan[], maxCells: number): void {
   if (maxCells <= 0) return;
   const marker = feedbackSpan(widget, '…', {
     kind: 'helpBar',
     label: 'overflow',
     role: 'decoration',
-    style: widgetStyle(widget, 'placeholder')
+    style: renderNodeStyle(widget, 'placeholder')
   });
   const separatedMarker = fitted.length === 0
     ? [marker]
@@ -143,13 +144,13 @@ function appendHelpOverflow(widget: Widget, fitted: RenderSpan[], maxCells: numb
   if (fitted.length === 0 && measureRenderSpans([marker]) <= maxCells) fitted.push(marker);
 }
 
-export function helpBarText(widget: Widget): string {
+export function helpBarText(widget: RenderNode): string {
   return blockText(helpBarBlock(widget));
 }
 
-export function activityIndicatorBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
+export function activityIndicatorBlock(widget: RenderNode, theme: TerminalTheme): RenderBlock {
   const label = stringify(widget.props['label']) || 'Activity';
-  const status = normalizeWidgetProcessStatus(widget.props['status']);
+  const status = normalizeProcessStatus(widget.props['status']);
   return block([line(statusLineSpans(widget, {
     kind: 'activityIndicator',
     label,
@@ -159,12 +160,12 @@ export function activityIndicatorBlock(widget: Widget, theme: TerminalTheme): Re
   }))]);
 }
 
-export function activityIndicatorText(widget: Widget, theme: TerminalTheme): string {
+export function activityIndicatorText(widget: RenderNode, theme: TerminalTheme): string {
   return blockText(activityIndicatorBlock(widget, theme));
 }
 
-export function spinnerBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
-  const status = normalizeWidgetProcessStatus(widget.props['status'], 'running');
+export function spinnerBlock(widget: RenderNode, theme: TerminalTheme): RenderBlock {
+  const status = normalizeProcessStatus(widget.props['status'], 'running');
   const label = stringify(widget.props['label']) || 'Loading';
   return block([line(statusLineSpans(widget, {
     kind: 'spinner',
@@ -175,15 +176,15 @@ export function spinnerBlock(widget: Widget, theme: TerminalTheme): RenderBlock 
   }))]);
 }
 
-export function spinnerText(widget: Widget, theme: TerminalTheme): string {
+export function spinnerText(widget: RenderNode, theme: TerminalTheme): string {
   return blockText(spinnerBlock(widget, theme));
 }
 
 export function feedbackStatusMarkerSpan(
-  widget: Widget,
+  widget: RenderNode,
   kind: FeedbackVisualKind,
   label: string,
-  status: WidgetProcessStatus,
+  status: ProcessStatus,
   marker: string
 ): RenderSpan {
   return feedbackSpan(widget, marker, {
@@ -196,21 +197,21 @@ export function feedbackStatusMarkerSpan(
 }
 
 export function feedbackTextSpan(
-  widget: Widget,
+  widget: RenderNode,
   text: string,
   kind: FeedbackVisualKind,
   label: string,
-  style: TerminalStyle | undefined = widgetStyle(widget, 'value')
+  style: TerminalStyle | undefined = renderNodeStyle(widget, 'value')
 ): RenderSpan {
   return feedbackSpan(widget, text, { kind, label, style });
 }
 
 export function feedbackStructureSpan(
-  widget: Widget,
+  widget: RenderNode,
   text: string,
   kind: FeedbackVisualKind,
   label: string,
-  style: TerminalStyle | undefined = widgetStyle(widget, 'placeholder')
+  style: TerminalStyle | undefined = renderNodeStyle(widget, 'placeholder')
 ): RenderSpan {
   return feedbackSpan(widget, text, { kind, label, role: 'decoration', style });
 }
@@ -222,11 +223,11 @@ export function blockText(currentBlock: RenderBlock): string {
 }
 
 function statusLineSpans(
-  widget: Widget,
+  widget: RenderNode,
   input: {
     readonly kind: FeedbackVisualKind;
     readonly label: string;
-    readonly status: WidgetProcessStatus;
+    readonly status: ProcessStatus;
     readonly marker: string;
     readonly showRunningStatus: boolean;
   }
@@ -249,9 +250,9 @@ function statusLineSpans(
 }
 
 function statusSuffixSpans(
-  widget: Widget,
+  widget: RenderNode,
   kind: FeedbackVisualKind,
-  status: WidgetProcessStatus,
+  status: ProcessStatus,
   showRunningStatus: boolean
 ): readonly RenderSpan[] {
   if (status === 'idle' || (status === 'running' && !showRunningStatus)) return [];
@@ -267,14 +268,14 @@ function statusSuffixSpans(
   ];
 }
 
-function spinnerMarker(widget: Widget, theme: TerminalTheme, status: WidgetProcessStatus): string {
+function spinnerMarker(widget: RenderNode, theme: TerminalTheme, status: ProcessStatus): string {
   if (status !== 'running') return statusMarker(status, theme);
   const frames = spinnerFrames(widget, theme);
   const frameIndex = numberProp(widget, 'frameIndex') ?? 0;
   return frames[normalizeSpinnerFrameIndex(frameIndex, frames.length)] ?? theme.tokens.symbols.statusInfo;
 }
 
-function spinnerFrames(widget: Widget, theme: TerminalTheme): readonly string[] {
+function spinnerFrames(widget: RenderNode, theme: TerminalTheme): readonly string[] {
   const frames = widget.props['frames'];
   if (!Array.isArray(frames)) return theme.tokens.symbols.spinnerFrames;
   const cleaned = frames.filter((frame): frame is string => typeof frame === 'string')
@@ -283,7 +284,7 @@ function spinnerFrames(widget: Widget, theme: TerminalTheme): readonly string[] 
   return cleaned.length === 0 ? theme.tokens.symbols.spinnerFrames : cleaned;
 }
 
-function helpBindings(widget: Widget): readonly { readonly key: string; readonly label: string }[] {
+function helpBindings(widget: RenderNode): readonly { readonly key: string; readonly label: string }[] {
   if (!Array.isArray(widget.props['bindings'])) return [];
   return widget.props['bindings'].filter((binding): binding is { readonly key: string; readonly label: string } =>
     typeof binding === 'object'
@@ -297,13 +298,13 @@ function helpBindings(widget: Widget): readonly { readonly key: string; readonly
 }
 
 export function feedbackSpan(
-  widget: Widget,
+  widget: RenderNode,
   text: string,
   options: FeedbackSpanOptions
 ): RenderSpan {
   return span(text, {
     ...(options.style === undefined ? {} : { style: options.style }),
-    source: widgetFrameSource(widget, {
+    source: renderNodeFrameSource(widget, {
       family: 'feedback',
       role: options.role ?? 'text',
       part: options.label,
@@ -315,20 +316,20 @@ export function feedbackSpan(
   });
 }
 
-function feedbackBarValueStyle(widget: Widget): TerminalStyle | undefined {
+function feedbackBarValueStyle(widget: RenderNode): TerminalStyle | undefined {
   return mergeStyles(
     {
       bg: { kind: 'theme', token: 'surface.chrome.background' }
     },
-    widgetStyle(widget, 'value')
+    renderNodeStyle(widget, 'value')
   );
 }
 
-function feedbackBarSeparatorStyle(widget: Widget): TerminalStyle | undefined {
+function feedbackBarSeparatorStyle(widget: RenderNode): TerminalStyle | undefined {
   return mergeStyles(
     {
       bg: { kind: 'theme', token: 'surface.chrome.background' }
     },
-    widgetStyle(widget, 'placeholder')
+    renderNodeStyle(widget, 'placeholder')
   );
 }

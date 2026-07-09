@@ -10,11 +10,14 @@ const requiredDocs = [
   'docs/guides/text.md',
   'docs/guides/prompts.md',
   'docs/guides/tui.md',
-  'docs/guides/widgets.md',
+  'docs/guides/ui-authoring.md',
+  'docs/guides/components.md',
+  'docs/guides/behavior.md',
+  'docs/guides/public-ui-authoring-model.md',
   'docs/guides/rendering-internals.md',
-  'docs/guides/building-polished-widgets.md',
+  'docs/guides/building-polished-components.md',
   'docs/guides/themes.md',
-  'docs/guides/custom-widgets.md',
+  'docs/guides/renderer-extensions.md',
   'docs/guides/layout.md',
   'docs/guides/host-adapters.md',
   'docs/accessibility.md',
@@ -27,7 +30,9 @@ const requiredDocs = [
 const executableExampleLinks = [
   'examples/prompts/non-tty-input.mjs',
   'examples/testing/harness.mjs',
-  'examples/tui/interactive-workspace.mjs'
+  'examples/tui/interactive-workspace.mjs',
+  'examples/tui/ide-editor.mjs',
+  'examples/tui/btop-monitor.mjs'
 ];
 
 test('documentation covers required product guide families', async () => {
@@ -57,9 +62,39 @@ test('documentation points to executable public examples and avoids workbench pa
   assert.equal(combined.includes('Documents/Projects'), false);
 });
 
+test('documentation describes layered authoring instead of the removed widget surface', async () => {
+  const docs = await Promise.all(
+    requiredDocs.map((path) => readFile(new URL(`../../${path}`, import.meta.url), 'utf8'))
+  );
+  const combined = docs.join('\n');
+
+  for (const term of [
+    'docs/guides/widgets.md',
+    'docs/guides/custom-widgets.md',
+    'docs/guides/building-polished-widgets.md',
+    'Widgets are pure data descriptions',
+    'Widget Role Matrix',
+    'everything is widgets'
+  ]) {
+    assert.equal(combined.includes(term), false, term);
+  }
+
+  for (const term of [
+    'UI authoring',
+    'Components',
+    'Behavior helpers',
+    'Renderer extensions',
+    'Building polished components',
+    'Element<TMessage>',
+    'RenderNode<TMessage>'
+  ]) {
+    assert.ok(combined.includes(term), term);
+  }
+});
+
 test('rendering documentation describes current architecture without deferred API names', async () => {
   const rendering = await readFile(new URL('../../docs/guides/rendering-internals.md', import.meta.url), 'utf8');
-  const polished = await readFile(new URL('../../docs/guides/building-polished-widgets.md', import.meta.url), 'utf8');
+  const polished = await readFile(new URL('../../docs/guides/building-polished-components.md', import.meta.url), 'utf8');
   const combined = `${rendering}\n${polished}`;
 
   for (const term of [

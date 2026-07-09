@@ -6,7 +6,7 @@ import {
   activityFeedReducer,
   copyActivityFeedVisibleText,
   visibleActivityFeedBlocks
-} from '../../dist/widgets/index.js';
+} from '../../dist/behavior/index.js';
 
 const blocks = [
   {

@@ -1,33 +1,24 @@
+import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNodeVisualState } from '../render-node/index.ts';
 import { clipTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { block, clipRenderSpans } from './frame.ts';
 import {
-  controlLabelSpans,
-  controlPrefixSpans,
-  formControlState,
-  formErrorStyle,
-  formLabelStyle,
-  formLine,
-  formMarkerStyle,
-  formPlaceholderStyle,
-  formSpan,
-  formValueStyle,
-  labelSpans,
-  optionControlState,
-  separatorSpan
+  controlLabelSpans, controlPrefixSpans, formControlState, formErrorStyle, formLabelStyle, formLine, formMarkerStyle, formPlaceholderStyle, formSpan, formValueStyle, labelSpans, optionControlState, separatorSpan
 } from './form-visual.ts';
 import { selectionFromUnknown } from './text-display.ts';
 import { singleLineInputBlock, singleLineInputCursor } from './input-visual.ts';
-import { defaultStyleForState, mergeStyles, resolveWidgetStyle, themeStyle, widgetStyle } from './widget-style.ts';
-import { numberProp, stringify } from './widget-props.ts';
+import { defaultStyleForState, mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
+import { numberProp, stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import { defaultTheme, type TerminalTheme } from '../theme/index.ts';
-import type { ButtonTone, ColorPickerOption, DatePickerDay, WidgetChoiceItem, RangeSliderValue, Widget, WidgetVisualState } from '../widgets/index.ts';
+import type { ChoiceItem } from '../components/contracts.ts';
+import type { ButtonTone, ColorPickerOption, DatePickerDay, RangeSliderValue } from '../components/types.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from './layout.ts';
-import type { HitTarget } from './widget-renderer.ts';
+import type { HitTarget } from './render-node-renderer.ts';
 
-export function formContentBounds(widget: Widget, bounds: Rect): Rect {
+export function formContentBounds(widget: RenderNode, bounds: Rect): Rect {
   const titleRows = formTitle(widget).length === 0 ? 0 : 1;
   return {
     row: bounds.row + titleRows,
@@ -37,7 +28,7 @@ export function formContentBounds(widget: Widget, bounds: Rect): Rect {
   };
 }
 
-export function fieldContentBounds(widget: Widget, bounds: Rect): Rect {
+export function fieldContentBounds(widget: RenderNode, bounds: Rect): Rect {
   const headerRows = fieldHeaderLines(widget).length;
   return {
     row: bounds.row + headerRows,
@@ -47,21 +38,21 @@ export function fieldContentBounds(widget: Widget, bounds: Rect): Rect {
   };
 }
 
-export function formBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function formBlock(widget: RenderNode, bounds: Rect): RenderBlock {
   const title = formTitle(widget);
   if (title.length === 0 || bounds.height <= 0) return block([]);
   return block([clippedFormLine([
-    formSpan(widget, 'title', 'form.title', title, widgetStyle(widget, 'title'))
+    formSpan(widget, 'title', 'form.title', title, renderNodeStyle(widget, 'title'))
   ], bounds.width)]);
 }
 
-export function fieldBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function fieldBlock(widget: RenderNode, bounds: Rect): RenderBlock {
   return block(fieldHeaderLines(widget).slice(0, Math.max(0, bounds.height)).map((item) =>
     clippedFormLine(item, bounds.width)
   ));
 }
 
-export function labelBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function labelBlock(widget: RenderNode, bounds: Rect): RenderBlock {
   return block([clippedFormLine(labelSpans(
     widget,
     'label',
@@ -71,12 +62,12 @@ export function labelBlock(widget: Widget, bounds: Rect): RenderBlock {
   ), bounds.width)]);
 }
 
-export function buttonBlock(widget: Widget, bounds: Rect, focused = false, theme: TerminalTheme): RenderBlock {
+export function buttonBlock(widget: RenderNode, bounds: Rect, focused = false, theme: TerminalTheme): RenderBlock {
   const label = clean(stringify(widget.props['label'])) || 'Button';
   return block([clippedFormLine(buttonSpans(widget, label, focused, theme), bounds.width)]);
 }
 
-export function checkboxBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function checkboxBlock(widget: RenderNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const checked = widget.props['checked'] === true;
   const symbol = checked ? theme.tokens.symbols.checkboxChecked : theme.tokens.symbols.checkboxUnchecked;
   const state = formControlState(widget, checked);
@@ -91,7 +82,7 @@ export function checkboxBlock(widget: Widget, bounds: Rect, theme: TerminalTheme
   return block(lines.slice(0, Math.max(0, bounds.height)));
 }
 
-export function toggleSwitchBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function toggleSwitchBlock(widget: RenderNode, bounds: Rect): RenderBlock {
   const checked = widget.props['checked'] === true;
   const label = clean(stringify(widget.props['label']));
   const onLabel = clean(stringify(widget.props['onLabel'])) || 'On';
@@ -126,7 +117,7 @@ export function toggleSwitchBlock(widget: Widget, bounds: Rect): RenderBlock {
   return block(lines.slice(0, Math.max(0, bounds.height)));
 }
 
-export function sliderBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function sliderBlock(widget: RenderNode, bounds: Rect): RenderBlock {
   const model = sliderModel(widget);
   const label = clean(stringify(widget.props['label']));
   const state = formControlState(widget);
@@ -142,7 +133,7 @@ export function sliderBlock(widget: Widget, bounds: Rect): RenderBlock {
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function rangeSliderBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function rangeSliderBlock(widget: RenderNode, bounds: Rect): RenderBlock {
   const model = rangeSliderModel(widget);
   const label = clean(stringify(widget.props['label']));
   const state = formControlState(widget);
@@ -160,7 +151,7 @@ export function rangeSliderBlock(widget: Widget, bounds: Rect): RenderBlock {
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function checkboxListBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function checkboxListBlock(widget: RenderNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const lines: RenderLine[] = [];
   const label = clean(stringify(widget.props['label']));
   if (label.length > 0) {
@@ -185,7 +176,7 @@ export function checkboxListBlock(widget: Widget, bounds: Rect, theme: TerminalT
   return block(lines.slice(0, Math.max(0, bounds.height)));
 }
 
-export function radioGroupBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function radioGroupBlock(widget: RenderNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const lines: RenderLine[] = [];
   const label = clean(stringify(widget.props['label']));
   if (label.length > 0) {
@@ -210,7 +201,7 @@ export function radioGroupBlock(widget: Widget, bounds: Rect, theme: TerminalThe
   return block(lines.slice(0, Math.max(0, bounds.height)));
 }
 
-export function colorPickerBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function colorPickerBlock(widget: RenderNode, bounds: Rect): RenderBlock {
   const rows: RenderLine[] = [];
   const label = clean(stringify(widget.props['label']));
   if (label.length > 0) rows.push(clippedFormLine(controlLabelSpans(widget, label, formControlState(widget)), bounds.width));
@@ -225,7 +216,7 @@ export function colorPickerBlock(widget: Widget, bounds: Rect): RenderBlock {
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function datePickerBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function datePickerBlock(widget: RenderNode, bounds: Rect): RenderBlock {
   const rows: RenderLine[] = [];
   const label = clean(stringify(widget.props['label']));
   if (label.length > 0) rows.push(clippedFormLine(controlLabelSpans(widget, label, formControlState(widget)), bounds.width));
@@ -239,16 +230,16 @@ export function datePickerBlock(widget: Widget, bounds: Rect): RenderBlock {
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function selectBoxBlock(widget: Widget, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function selectBoxBlock(widget: RenderNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const selected = selectedOption(widget);
   const label = clean(stringify(widget.props['label']));
   const placeholder = clean(stringify(widget.props['placeholder'])) || 'Select…';
   const value = selected?.label ?? placeholder;
   const style = widget.props['disabled'] === true
-    ? widgetStyle(widget, 'value', 'disabled')
+    ? renderNodeStyle(widget, 'value', 'disabled')
     : selected === undefined
-      ? widgetStyle(widget, 'placeholder')
-      : widgetStyle(widget, 'value');
+      ? renderNodeStyle(widget, 'placeholder')
+      : renderNodeStyle(widget, 'value');
   const rows = [
     clippedFormLine([
       ...controlPrefixSpans(widget, label, formControlState(widget), {
@@ -263,15 +254,15 @@ export function selectBoxBlock(widget: Widget, bounds: Rect, theme: TerminalThem
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function textInputBlock(widget: Widget, bounds: Rect, focused = false, theme: TerminalTheme): RenderBlock {
+export function textInputBlock(widget: RenderNode, bounds: Rect, focused = false, theme: TerminalTheme): RenderBlock {
   return controlInputBlock(inputValue(widget), widget, bounds, focused, theme);
 }
 
-export function numberInputBlock(widget: Widget, bounds: Rect, focused = false, theme: TerminalTheme): RenderBlock {
+export function numberInputBlock(widget: RenderNode, bounds: Rect, focused = false, theme: TerminalTheme): RenderBlock {
   return controlInputBlock(numberInputValue(widget), widget, bounds, focused, theme);
 }
 
-export function formAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function formAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   return {
     id,
     role: 'application',
@@ -280,7 +271,7 @@ export function formAccessibleBase(widget: Widget, id: string, focused: boolean)
   };
 }
 
-export function fieldAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function fieldAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const description = fieldDescription(widget);
   return {
     id,
@@ -292,7 +283,7 @@ export function fieldAccessibleBase(widget: Widget, id: string, focused: boolean
   };
 }
 
-export function labelAccessibleBase(widget: Widget, id: string): AccessibleNode {
+export function labelAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
   const description = stringify(widget.props['forId']);
   return {
     id,
@@ -303,7 +294,7 @@ export function labelAccessibleBase(widget: Widget, id: string): AccessibleNode 
   };
 }
 
-export function buttonAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function buttonAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const description = buttonDescription(widget);
   return {
     id,
@@ -316,7 +307,7 @@ export function buttonAccessibleBase(widget: Widget, id: string, focused: boolea
   };
 }
 
-export function checkboxAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function checkboxAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const description = fieldDescription(widget);
   return {
     id,
@@ -329,7 +320,7 @@ export function checkboxAccessibleBase(widget: Widget, id: string, focused: bool
   };
 }
 
-export function toggleSwitchAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function toggleSwitchAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const onLabel = clean(stringify(widget.props['onLabel'])) || 'On';
   const offLabel = clean(stringify(widget.props['offLabel'])) || 'Off';
   const checked = widget.props['checked'] === true;
@@ -344,7 +335,7 @@ export function toggleSwitchAccessibleBase(widget: Widget, id: string, focused: 
   };
 }
 
-export function sliderAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function sliderAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const model = sliderModel(widget);
   return {
     id,
@@ -356,7 +347,7 @@ export function sliderAccessibleBase(widget: Widget, id: string, focused: boolea
   };
 }
 
-export function rangeSliderAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function rangeSliderAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const model = rangeSliderModel(widget);
   return {
     id,
@@ -368,7 +359,7 @@ export function rangeSliderAccessibleBase(widget: Widget, id: string, focused: b
   };
 }
 
-export function checkboxListAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function checkboxListAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const selected = selectedIds(widget);
   return {
     id,
@@ -380,7 +371,7 @@ export function checkboxListAccessibleBase(widget: Widget, id: string, focused: 
   };
 }
 
-export function checkboxListAccessibleChildren(widget: Widget): readonly AccessibleNode[] {
+export function checkboxListAccessibleChildren(widget: RenderNode): readonly AccessibleNode[] {
   const selected = selectedIds(widget);
   return formOptions(widget).map((option) => ({
     id: `${widget.id ?? 'checkboxList'}:${option.id}`,
@@ -393,7 +384,7 @@ export function checkboxListAccessibleChildren(widget: Widget): readonly Accessi
   }));
 }
 
-export function radioGroupAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function radioGroupAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const selected = selectedOption(widget);
   const description = fieldDescription(widget);
   return {
@@ -407,7 +398,7 @@ export function radioGroupAccessibleBase(widget: Widget, id: string, focused: bo
   };
 }
 
-export function radioGroupAccessibleChildren(widget: Widget): readonly AccessibleNode[] {
+export function radioGroupAccessibleChildren(widget: RenderNode): readonly AccessibleNode[] {
   const selected = selectedId(widget);
   return formOptions(widget).map((option) => ({
     id: `${widget.id ?? 'radioGroup'}:${option.id}`,
@@ -420,7 +411,7 @@ export function radioGroupAccessibleChildren(widget: Widget): readonly Accessibl
   }));
 }
 
-export function colorPickerAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function colorPickerAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const selected = selectedColorOption(widget);
   return {
     id,
@@ -432,7 +423,7 @@ export function colorPickerAccessibleBase(widget: Widget, id: string, focused: b
   };
 }
 
-export function colorPickerAccessibleChildren(widget: Widget): readonly AccessibleNode[] {
+export function colorPickerAccessibleChildren(widget: RenderNode): readonly AccessibleNode[] {
   const selected = selectedId(widget);
   return colorOptions(widget).map((option) => ({
     id: `${widget.id ?? 'colorPicker'}:${option.id}`,
@@ -444,7 +435,7 @@ export function colorPickerAccessibleChildren(widget: Widget): readonly Accessib
   }));
 }
 
-export function datePickerAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function datePickerAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const selected = selectedDatePickerDay(widget);
   return {
     id,
@@ -456,7 +447,7 @@ export function datePickerAccessibleBase(widget: Widget, id: string, focused: bo
   };
 }
 
-export function datePickerAccessibleChildren(widget: Widget): readonly AccessibleNode[] {
+export function datePickerAccessibleChildren(widget: RenderNode): readonly AccessibleNode[] {
   const selected = selectedId(widget);
   return datePickerDays(widget).map((day) => ({
     id: `${widget.id ?? 'datePicker'}:${day.id}`,
@@ -467,7 +458,7 @@ export function datePickerAccessibleChildren(widget: Widget): readonly Accessibl
   }));
 }
 
-export function selectBoxAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function selectBoxAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const selected = selectedOption(widget);
   const description = fieldDescription(widget);
   return {
@@ -481,7 +472,7 @@ export function selectBoxAccessibleBase(widget: Widget, id: string, focused: boo
   };
 }
 
-export function selectBoxAccessibleChildren(widget: Widget): readonly AccessibleNode[] {
+export function selectBoxAccessibleChildren(widget: RenderNode): readonly AccessibleNode[] {
   const selected = selectedId(widget);
   return formOptions(widget).map((option) => ({
     id: `${widget.id ?? 'selectBox'}:${option.id}`,
@@ -493,23 +484,23 @@ export function selectBoxAccessibleChildren(widget: Widget): readonly Accessible
   }));
 }
 
-export function textInputAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function textInputAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   return inputAccessibleBase(widget, id, focused, inputValue(widget));
 }
 
-export function numberInputAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function numberInputAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   return inputAccessibleBase(widget, id, focused, numberInputValue(widget));
 }
 
-export function textInputCursor(widget: Widget, bounds: Rect): CursorPosition {
+export function textInputCursor(widget: RenderNode, bounds: Rect): CursorPosition {
   return singleLineCursor(widget, inputValue(widget), numberProp(widget, 'cursor'), bounds, defaultTheme);
 }
 
-export function numberInputCursor(widget: Widget, bounds: Rect): CursorPosition {
+export function numberInputCursor(widget: RenderNode, bounds: Rect): CursorPosition {
   return singleLineCursor(widget, numberInputValue(widget), numberProp(widget, 'cursor'), bounds, defaultTheme);
 }
 
-export function controlHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function controlHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   if (!('message' in widget.props)) return [];
   const message = widget.props['message'] as TMessage;
   return [{
@@ -520,7 +511,7 @@ export function controlHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Re
   }];
 }
 
-export function optionHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function optionHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = optionMessageFactory(widget);
   if (toMessage === undefined) return [];
   const labelOffset = clean(stringify(widget.props['label'])).length > 0 ? 1 : 0;
@@ -540,7 +531,7 @@ export function optionHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rec
   });
 }
 
-export function checkboxListHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function checkboxListHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = checkboxListMessageFactory(widget);
   if (toMessage === undefined) return [];
   const selected = selectedIds(widget);
@@ -561,7 +552,7 @@ export function checkboxListHitTargets<TMessage>(widget: Widget<TMessage>, bound
   });
 }
 
-export function sliderHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function sliderHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = sliderMessageFactory(widget);
   if (toMessage === undefined) return [];
   const model = sliderModel(widget);
@@ -578,7 +569,7 @@ export function sliderHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rec
   }));
 }
 
-export function rangeSliderHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function rangeSliderHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = rangeSliderMessageFactory(widget);
   if (toMessage === undefined) return [];
   const model = rangeSliderModel(widget);
@@ -595,7 +586,7 @@ export function rangeSliderHitTargets<TMessage>(widget: Widget<TMessage>, bounds
   }));
 }
 
-export function pickerHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function pickerHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = pickerMessageFactory(widget);
   if (toMessage === undefined) return [];
   const columns = pickerColumns(widget, widget.kind === 'datePicker' ? 7 : 4);
@@ -617,7 +608,7 @@ export function pickerHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rec
   });
 }
 
-function controlInputBlock(value: string, widget: Widget, bounds: Rect, focused: boolean, theme: TerminalTheme): RenderBlock {
+function controlInputBlock(value: string, widget: RenderNode, bounds: Rect, focused: boolean, theme: TerminalTheme): RenderBlock {
   const placeholder = clean(stringify(widget.props['placeholder']));
   const cursor = numberProp(widget, 'cursor');
   const selection = selectionFromUnknown(value, widget.props['selection']);
@@ -637,7 +628,7 @@ function controlInputBlock(value: string, widget: Widget, bounds: Rect, focused:
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-function inputAccessibleBase(widget: Widget, id: string, focused: boolean, value: string): AccessibleNode {
+function inputAccessibleBase(widget: RenderNode, id: string, focused: boolean, value: string): AccessibleNode {
   const description = fieldDescription(widget);
   return {
     id,
@@ -650,7 +641,7 @@ function inputAccessibleBase(widget: Widget, id: string, focused: boolean, value
   };
 }
 
-function fieldHeaderLines(widget: Widget): readonly (readonly RenderSpan[])[] {
+function fieldHeaderLines(widget: RenderNode): readonly (readonly RenderSpan[])[] {
   const rows: (readonly RenderSpan[])[] = [];
   const label = clean(stringify(widget.props['label']));
   if (label.length > 0 || widget.props['required'] === true) {
@@ -669,7 +660,7 @@ function fieldHeaderLines(widget: Widget): readonly (readonly RenderSpan[])[] {
   return rows;
 }
 
-function errorLines(widget: Widget, width: number): readonly RenderLine[] {
+function errorLines(widget: RenderNode, width: number): readonly RenderLine[] {
   const error = clean(stringify(widget.props['error']));
   return error.length === 0
     ? []
@@ -680,7 +671,7 @@ function clippedFormLine(spans: readonly RenderSpan[], width: number): RenderLin
   return formLine(clipRenderSpans(spans, Math.max(0, width)));
 }
 
-function buttonSpans(widget: Widget, label: string, focused: boolean, theme: TerminalTheme): readonly RenderSpan[] {
+function buttonSpans(widget: RenderNode, label: string, focused: boolean, theme: TerminalTheme): readonly RenderSpan[] {
   const spans: RenderSpan[] = [];
   const style = buttonStyle(widget, focused);
   const chromeStyle = buttonChromeStyle(widget, focused);
@@ -698,34 +689,34 @@ function buttonSpans(widget: Widget, label: string, focused: boolean, theme: Ter
   return spans;
 }
 
-function buttonStateMarker(widget: Widget, theme: TerminalTheme): string {
+function buttonStateMarker(widget: RenderNode, theme: TerminalTheme): string {
   if (widget.props['disabled'] === true) return '-';
   if (widget.props['pending'] === true) return theme.tokens.symbols.statusInfo;
   if (widget.props['pressed'] === true) return theme.tokens.symbols.selected;
   return buttonTone(widget) === 'destructive' ? theme.tokens.symbols.statusError : '';
 }
 
-function buttonStyle(widget: Widget, focused: boolean): TerminalStyle | undefined {
+function buttonStyle(widget: RenderNode, focused: boolean): TerminalStyle | undefined {
   const state = buttonState(widget, focused);
   const base = buttonBaseStyle(widget);
-  return resolveWidgetStyle(widget, {
+  return resolveRenderNodeStyle(widget, {
     slot: 'label',
     ...(base === undefined ? {} : { base }),
     ...(state === undefined ? {} : { state })
   });
 }
 
-function buttonChromeStyle(widget: Widget, focused: boolean): TerminalStyle | undefined {
+function buttonChromeStyle(widget: RenderNode, focused: boolean): TerminalStyle | undefined {
   const state = buttonState(widget, focused);
   const base = buttonChromeBaseStyle(widget);
-  return resolveWidgetStyle(widget, {
+  return resolveRenderNodeStyle(widget, {
     slot: 'border',
     ...(base === undefined ? {} : { base }),
     ...(state === undefined ? {} : { state })
   });
 }
 
-function buttonBaseStyle(widget: Widget): TerminalStyle | undefined {
+function buttonBaseStyle(widget: RenderNode): TerminalStyle | undefined {
   if (widget.props['pending'] === true) return themeStyle('status.pending', { bold: true });
   if (widget.props['pressed'] === true) return controlToneStyle('primary');
   switch (buttonTone(widget)) {
@@ -740,7 +731,7 @@ function buttonBaseStyle(widget: Widget): TerminalStyle | undefined {
   }
 }
 
-function buttonChromeBaseStyle(widget: Widget): TerminalStyle | undefined {
+function buttonChromeBaseStyle(widget: RenderNode): TerminalStyle | undefined {
   if (widget.props['pending'] === true) return themeStyle('status.pending', { bold: true });
   if (widget.props['pressed'] === true) return controlToneBorderStyle('primary');
   switch (buttonTone(widget)) {
@@ -797,12 +788,12 @@ function controlToneBorderStyle(tone: 'default' | 'primary' | 'secondary'): Term
   }
 }
 
-function buttonState(widget: Widget, focused: boolean): WidgetVisualState | undefined {
+function buttonState(widget: RenderNode, focused: boolean): RenderNodeVisualState | undefined {
   if (widget.props['disabled'] === true) return 'disabled';
   return focused ? 'focused' : undefined;
 }
 
-function buttonTone(widget: Widget): ButtonTone {
+function buttonTone(widget: RenderNode): ButtonTone {
   const value = widget.props['tone'];
   switch (value) {
     case 'primary':
@@ -814,7 +805,7 @@ function buttonTone(widget: Widget): ButtonTone {
   }
 }
 
-function buttonDescription(widget: Widget): string {
+function buttonDescription(widget: RenderNode): string {
   const parts = [
     widget.props['pending'] === true ? 'Pending.' : '',
     widget.props['pressed'] === true ? 'Pressed.' : '',
@@ -823,7 +814,7 @@ function buttonDescription(widget: Widget): string {
   return parts.join(' ');
 }
 
-function fieldDescription(widget: Widget): string {
+function fieldDescription(widget: RenderNode): string {
   const parts = [
     clean(stringify(widget.props['description'])),
     widget.props['required'] === true ? 'Required.' : '',
@@ -832,11 +823,11 @@ function fieldDescription(widget: Widget): string {
   return parts.join(' ');
 }
 
-function formTitle(widget: Widget): string {
+function formTitle(widget: RenderNode): string {
   return clean(stringify(widget.props['title']));
 }
 
-function labelText(widget: Widget): string {
+function labelText(widget: RenderNode): string {
   return labelWithRequired(clean(stringify(widget.props['text'])), widget.props['required'] === true);
 }
 
@@ -845,22 +836,22 @@ function labelWithRequired(label: string, required: boolean): string {
   return required ? `${label} *` : label;
 }
 
-function selectedId(widget: Widget): string | undefined {
+function selectedId(widget: RenderNode): string | undefined {
   const selected = widget.props['selected'];
   return typeof selected === 'string' ? clean(selected) : undefined;
 }
 
-function selectedOption(widget: Widget): WidgetChoiceItem<unknown> | undefined {
+function selectedOption(widget: RenderNode): ChoiceItem<unknown> | undefined {
   const selected = selectedId(widget);
   return selected === undefined ? undefined : formOptions(widget).find((option) => option.id === selected);
 }
 
-function formOptions(widget: Widget): readonly WidgetChoiceItem<unknown>[] {
+function formOptions(widget: RenderNode): readonly ChoiceItem<unknown>[] {
   const options = widget.props['options'];
-  return Array.isArray(options) ? options.flatMap((option): readonly WidgetChoiceItem<unknown>[] => sanitizeOption(option)) : [];
+  return Array.isArray(options) ? options.flatMap((option): readonly ChoiceItem<unknown>[] => sanitizeOption(option)) : [];
 }
 
-function sanitizeOption(value: unknown): readonly WidgetChoiceItem<unknown>[] {
+function sanitizeOption(value: unknown): readonly ChoiceItem<unknown>[] {
   if (!isRecord(value)) return [];
   const id = value['id'];
   const label = value['label'];
@@ -875,45 +866,45 @@ function sanitizeOption(value: unknown): readonly WidgetChoiceItem<unknown>[] {
   }];
 }
 
-function optionMessageFactory<TMessage>(widget: Widget<TMessage>): ((option: WidgetChoiceItem<unknown>) => TMessage) | undefined {
+function optionMessageFactory<TMessage>(widget: RenderNode<TMessage>): ((option: ChoiceItem<unknown>) => TMessage) | undefined {
   const toMessage = widget.props['toMessage'];
   if (!isOptionMessageFactory(toMessage)) return undefined;
   return (option) => toMessage(option) as TMessage;
 }
 
 function checkboxListMessageFactory<TMessage>(
-  widget: Widget<TMessage>
-): ((option: WidgetChoiceItem<unknown>, checked: boolean) => TMessage) | undefined {
+  widget: RenderNode<TMessage>
+): ((option: ChoiceItem<unknown>, checked: boolean) => TMessage) | undefined {
   const toMessage = widget.props['toMessage'];
   if (!isCheckboxListMessageFactory(toMessage)) return undefined;
   return (option, checked) => toMessage(option, checked) as TMessage;
 }
 
-function sliderMessageFactory<TMessage>(widget: Widget<TMessage>): ((value: number) => TMessage) | undefined {
+function sliderMessageFactory<TMessage>(widget: RenderNode<TMessage>): ((value: number) => TMessage) | undefined {
   const toMessage = widget.props['toMessage'];
   if (!isSliderMessageFactory(toMessage)) return undefined;
   return (value) => toMessage(value) as TMessage;
 }
 
-function rangeSliderMessageFactory<TMessage>(widget: Widget<TMessage>): ((value: RangeSliderValue) => TMessage) | undefined {
+function rangeSliderMessageFactory<TMessage>(widget: RenderNode<TMessage>): ((value: RangeSliderValue) => TMessage) | undefined {
   const toMessage = widget.props['toMessage'];
   if (!isRangeSliderMessageFactory(toMessage)) return undefined;
   return (value) => toMessage(value) as TMessage;
 }
 
-function pickerMessageFactory<TMessage>(widget: Widget<TMessage>): ((option: ColorPickerOption<unknown> | DatePickerDay<unknown>) => TMessage) | undefined {
+function pickerMessageFactory<TMessage>(widget: RenderNode<TMessage>): ((option: ColorPickerOption<unknown> | DatePickerDay<unknown>) => TMessage) | undefined {
   const toMessage = widget.props['toMessage'];
   if (!isPickerMessageFactory(toMessage)) return undefined;
   return (option) => toMessage(option) as TMessage;
 }
 
-function optionStyle(option: WidgetChoiceItem<unknown>, widget: Widget): TerminalStyle | undefined {
-  if (option.disabled === true || widget.props['disabled'] === true) return widgetStyle(widget, 'value', 'disabled');
-  if (option.id === selectedId(widget)) return widgetStyle(widget, 'value', 'selected');
+function optionStyle(option: ChoiceItem<unknown>, widget: RenderNode): TerminalStyle | undefined {
+  if (option.disabled === true || widget.props['disabled'] === true) return renderNodeStyle(widget, 'value', 'disabled');
+  if (option.id === selectedId(widget)) return renderNodeStyle(widget, 'value', 'selected');
   return undefined;
 }
 
-function selectedIds(widget: Widget): ReadonlySet<string> {
+function selectedIds(widget: RenderNode): ReadonlySet<string> {
   const selected = widget.props['selected'];
   return new Set(Array.isArray(selected) ? selected.filter((id): id is string => typeof id === 'string').map(clean) : []);
 }
@@ -931,7 +922,7 @@ interface RangeSliderModel extends SliderModel {
   readonly end: number;
 }
 
-function sliderModel(widget: Widget): SliderModel {
+function sliderModel(widget: RenderNode): SliderModel {
   const min = finiteNumber(widget.props['min'], 0);
   const max = Math.max(min, finiteNumber(widget.props['max'], 100));
   const step = Math.max(0.000001, finiteNumber(widget.props['step'], 1));
@@ -944,7 +935,7 @@ function sliderModel(widget: Widget): SliderModel {
   };
 }
 
-function rangeSliderModel(widget: Widget): RangeSliderModel {
+function rangeSliderModel(widget: RenderNode): RangeSliderModel {
   const base = sliderModel({ ...widget, props: { ...widget.props, value: widget.props['start'] } });
   const start = clampNumber(finiteNumber(widget.props['start'], base.min), base.min, base.max);
   const end = clampNumber(finiteNumber(widget.props['end'], base.max), base.min, base.max);
@@ -955,7 +946,7 @@ function rangeSliderModel(widget: Widget): RangeSliderModel {
   };
 }
 
-function sliderTrackSpans(widget: Widget, model: SliderModel): readonly RenderSpan[] {
+function sliderTrackSpans(widget: RenderNode, model: SliderModel): readonly RenderSpan[] {
   const position = sliderPosition(model, model.value);
   const disabled = widget.props['disabled'] === true;
   return Array.from({ length: model.width }, (_, index): RenderSpan => {
@@ -968,7 +959,7 @@ function sliderTrackSpans(widget: Widget, model: SliderModel): readonly RenderSp
   });
 }
 
-function rangeSliderTrackSpans(widget: Widget, model: RangeSliderModel): readonly RenderSpan[] {
+function rangeSliderTrackSpans(widget: RenderNode, model: RangeSliderModel): readonly RenderSpan[] {
   const start = sliderPosition(model, model.start);
   const end = sliderPosition(model, model.end);
   const disabled = widget.props['disabled'] === true;
@@ -982,7 +973,7 @@ function rangeSliderTrackSpans(widget: Widget, model: RangeSliderModel): readonl
   });
 }
 
-function sliderPartStyle(widget: Widget, label: string, disabled: boolean): TerminalStyle | undefined {
+function sliderPartStyle(widget: RenderNode, label: string, disabled: boolean): TerminalStyle | undefined {
   const base: TerminalStyle = label.toLocaleLowerCase().endsWith('handle')
     ? {
         fg: { kind: 'theme', token: 'control.handle' },
@@ -992,16 +983,16 @@ function sliderPartStyle(widget: Widget, label: string, disabled: boolean): Term
     : label === 'track.filled'
       ? { fg: { kind: 'theme', token: 'control.track.filled' } }
       : { fg: { kind: 'theme', token: 'control.track' } };
-  return resolveWidgetStyle(widget, {
+  return resolveRenderNodeStyle(widget, {
     slot: 'value',
     base,
     ...(disabled ? { state: 'disabled' } : {})
   });
 }
 
-function toggleValueStyle(widget: Widget, checked: boolean): TerminalStyle | undefined {
-  if (widget.props['disabled'] === true) return widgetStyle(widget, 'value', 'disabled');
-  return resolveWidgetStyle(widget, {
+function toggleValueStyle(widget: RenderNode, checked: boolean): TerminalStyle | undefined {
+  if (widget.props['disabled'] === true) return renderNodeStyle(widget, 'value', 'disabled');
+  return resolveRenderNodeStyle(widget, {
     slot: 'value',
     base: {
       fg: { kind: 'theme', token: checked ? 'control.primary.foreground' : 'control.foreground' },
@@ -1052,7 +1043,7 @@ function labelPrefix(label: string): string {
   return label.length === 0 ? '' : `${label}: `;
 }
 
-function colorOptions(widget: Widget): readonly ColorPickerOption<unknown>[] {
+function colorOptions(widget: RenderNode): readonly ColorPickerOption<unknown>[] {
   const options = widget.props['options'];
   return Array.isArray(options) ? options.flatMap((option): readonly ColorPickerOption<unknown>[] => sanitizeColorOption(option)) : [];
 }
@@ -1075,12 +1066,12 @@ function sanitizeColorOption(value: unknown): readonly ColorPickerOption<unknown
   }];
 }
 
-function selectedColorOption(widget: Widget): ColorPickerOption<unknown> | undefined {
+function selectedColorOption(widget: RenderNode): ColorPickerOption<unknown> | undefined {
   const selected = selectedId(widget);
   return selected === undefined ? undefined : colorOptions(widget).find((option) => option.id === selected);
 }
 
-function datePickerDays(widget: Widget): readonly DatePickerDay<unknown>[] {
+function datePickerDays(widget: RenderNode): readonly DatePickerDay<unknown>[] {
   const days = widget.props['days'];
   return Array.isArray(days) ? days.flatMap((day): readonly DatePickerDay<unknown>[] => sanitizeDatePickerDay(day)) : [];
 }
@@ -1100,29 +1091,29 @@ function sanitizeDatePickerDay(value: unknown): readonly DatePickerDay<unknown>[
   }];
 }
 
-function selectedDatePickerDay(widget: Widget): DatePickerDay<unknown> | undefined {
+function selectedDatePickerDay(widget: RenderNode): DatePickerDay<unknown> | undefined {
   const selected = selectedId(widget);
   return selected === undefined ? undefined : datePickerDays(widget).find((day) => day.id === selected);
 }
 
-function pickerColumns(widget: Widget, fallback: number): number {
+function pickerColumns(widget: RenderNode, fallback: number): number {
   return Math.max(1, Math.floor(finiteNumber(widget.props['columns'], fallback)));
 }
 
-function pickerCellWidth(widget: Widget): number {
+function pickerCellWidth(widget: RenderNode): number {
   return widget.kind === 'datePicker' ? 4 : 12;
 }
 
-function pickerOptionRowOffset(widget: Widget, columns: number): number {
+function pickerOptionRowOffset(widget: RenderNode, columns: number): number {
   let offset = clean(stringify(widget.props['label'])).length > 0 ? 1 : 0;
   if (widget.kind === 'colorPicker' && selectedColorOption(widget) !== undefined) offset += 1;
   if (widget.kind === 'datePicker' && columns === 7) offset += 1;
   return offset;
 }
 
-function colorPickerSummarySpans(option: ColorPickerOption<unknown>, widget: Widget): readonly RenderSpan[] {
+function colorPickerSummarySpans(option: ColorPickerOption<unknown>, widget: RenderNode): readonly RenderSpan[] {
   const disabled = option.disabled === true || widget.props['disabled'] === true;
-  const style = disabled ? widgetStyle(widget, 'value', 'disabled') : option.style ?? colorSwatchStyle(widget);
+  const style = disabled ? renderNodeStyle(widget, 'value', 'disabled') : option.style ?? colorSwatchStyle(widget);
   return [
     formSpan(widget, 'summary', 'summary.label', 'Selected', formLabelStyle(widget, disabled ? 'disabled' : undefined)),
     formSpan(widget, 'separator', 'summary.separator', ': '),
@@ -1132,13 +1123,13 @@ function colorPickerSummarySpans(option: ColorPickerOption<unknown>, widget: Wid
   ];
 }
 
-function colorPickerSpans(option: ColorPickerOption<unknown>, widget: Widget): readonly RenderSpan[] {
+function colorPickerSpans(option: ColorPickerOption<unknown>, widget: RenderNode): readonly RenderSpan[] {
   const selected = option.id === selectedId(widget);
   const disabled = option.disabled === true || widget.props['disabled'] === true;
   const swatch = option.swatch ?? '■';
   const label = clip(option.label, 8).padEnd(8, ' ');
   const state = optionControlState(widget, { selected, disabled });
-  const style = disabled ? widgetStyle(widget, 'value', 'disabled') : option.style ?? optionStyle(option, widget) ?? colorSwatchStyle(widget);
+  const style = disabled ? renderNodeStyle(widget, 'value', 'disabled') : option.style ?? optionStyle(option, widget) ?? colorSwatchStyle(widget);
   return [
     formSpan(widget, 'marker', `option.${option.id}.open`, selected ? '[' : ' ', formMarkerStyle(widget, state)),
     formSpan(widget, 'swatch', `option.${option.id}.swatch`, swatch, style),
@@ -1149,8 +1140,8 @@ function colorPickerSpans(option: ColorPickerOption<unknown>, widget: Widget): r
   ];
 }
 
-function colorSwatchStyle(widget: Widget): TerminalStyle | undefined {
-  return resolveWidgetStyle(widget, {
+function colorSwatchStyle(widget: RenderNode): TerminalStyle | undefined {
+  return resolveRenderNodeStyle(widget, {
     slot: 'value',
     base: {
       fg: { kind: 'theme', token: 'control.primary.foreground' },
@@ -1159,13 +1150,13 @@ function colorSwatchStyle(widget: Widget): TerminalStyle | undefined {
   });
 }
 
-function datePickerWeekdayHeaderSpans(widget: Widget): readonly RenderSpan[] {
+function datePickerWeekdayHeaderSpans(widget: RenderNode): readonly RenderSpan[] {
   return ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((label) =>
     formSpan(widget, 'weekday', `weekday.${label.toLowerCase()}`, ` ${label} `, formLabelStyle(widget, 'disabled'))
   );
 }
 
-function datePickerCellSpans(day: DatePickerDay<unknown>, widget: Widget): readonly RenderSpan[] {
+function datePickerCellSpans(day: DatePickerDay<unknown>, widget: RenderNode): readonly RenderSpan[] {
   const label = clipNoEllipsis(day.label, 2).padStart(2, ' ');
   const selected = day.id === selectedId(widget);
   const state = datePickerDayState(day, widget);
@@ -1190,30 +1181,30 @@ function datePickerCellSpans(day: DatePickerDay<unknown>, widget: Widget): reado
   ];
 }
 
-function datePickerDayStyle(day: DatePickerDay<unknown>, widget: Widget): TerminalStyle | undefined {
-  if (day.disabled === true || widget.props['disabled'] === true) return widgetStyle(widget, 'value', 'disabled');
-  if (day.id === selectedId(widget)) return widgetStyle(widget, 'value', 'selected');
-  if (day.today === true) return widgetStyle(widget, 'value', 'focused');
-  if (day.outsideMonth === true) return widgetStyle(widget, 'value', 'disabled');
+function datePickerDayStyle(day: DatePickerDay<unknown>, widget: RenderNode): TerminalStyle | undefined {
+  if (day.disabled === true || widget.props['disabled'] === true) return renderNodeStyle(widget, 'value', 'disabled');
+  if (day.id === selectedId(widget)) return renderNodeStyle(widget, 'value', 'selected');
+  if (day.today === true) return renderNodeStyle(widget, 'value', 'focused');
+  if (day.outsideMonth === true) return renderNodeStyle(widget, 'value', 'disabled');
   return undefined;
 }
 
-function datePickerDayState(day: DatePickerDay<unknown>, widget: Widget): 'selected' | 'disabled' | 'focused' | undefined {
+function datePickerDayState(day: DatePickerDay<unknown>, widget: RenderNode): 'selected' | 'disabled' | 'focused' | undefined {
   if (day.disabled === true || widget.props['disabled'] === true || day.outsideMonth === true) return 'disabled';
   if (day.id === selectedId(widget)) return 'selected';
   return day.today === true ? 'focused' : undefined;
 }
 
-function inputValue(widget: Widget): string {
+function inputValue(widget: RenderNode): string {
   return clean(stringify(widget.props['value']));
 }
 
-function numberInputValue(widget: Widget): string {
+function numberInputValue(widget: RenderNode): string {
   const value = widget.props['value'];
   return typeof value === 'number' && Number.isFinite(value) ? String(value) : '';
 }
 
-function singleLineCursor(widget: Widget, value: string, cursor: number | undefined, bounds: Rect, theme: TerminalTheme): CursorPosition {
+function singleLineCursor(widget: RenderNode, value: string, cursor: number | undefined, bounds: Rect, theme: TerminalTheme): CursorPosition {
   return singleLineInputCursor({
     widget,
     bounds,
@@ -1240,13 +1231,13 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isOptionMessageFactory(value: unknown): value is (option: WidgetChoiceItem<unknown>) => unknown {
+function isOptionMessageFactory(value: unknown): value is (option: ChoiceItem<unknown>) => unknown {
   return typeof value === 'function';
 }
 
 function isCheckboxListMessageFactory(
   value: unknown
-): value is (option: WidgetChoiceItem<unknown>, checked: boolean) => unknown {
+): value is (option: ChoiceItem<unknown>, checked: boolean) => unknown {
   return typeof value === 'function';
 }
 

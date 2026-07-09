@@ -2,21 +2,23 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-	  clipTextCells,
-	  createTerminalTextIndex,
-	  editTextAreaBuffer,
-	  editTextBuffer,
-	  lineSelectionAt,
-	  measureTextCells,
-	  sanitizeTerminalText,
-	  segmentGraphemes,
-	  selectedText,
-	  terminalTextWidth,
-	  wordSelectionAt,
-	  wrapTextCells
+  clipTextCells,
+  createTerminalTextIndex,
+  editTextAreaBuffer,
+  editTextBuffer,
+  lineSelectionAt,
+  measureTextCells,
+  sanitizeTerminalText,
+  segmentGraphemes,
+  selectedText,
+  terminalTextWidth,
+  wordSelectionAt,
+  wrapTextCells
 	} from '../../dist/text/index.js';
-import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
-import { text } from '../../dist/widgets/index.js';
+import { renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import { text } from '../../dist/components/index.js';
 
 test('text measurement sanitizes control sequences and measures visible cells', () => {
   const sanitized = sanitizeTerminalText('\u001B[31mred');
@@ -66,7 +68,7 @@ test('text measurement returns stable immutable metrics for repeated labels', ()
 
 test('text rendering keeps bidirectional content in stable logical order', () => {
   const content = 'abc אבג 123';
-  const frame = renderWidgetFrame(text(content, { id: 'bidi-fallback' }), { columns: 20, rows: 2 });
+  const frame = renderElementFrame(text(content, { id: 'bidi-fallback' }), { columns: 20, rows: 2 });
 
   assert.equal(renderFramePlain(frame), content);
   assert.equal(frame.cells.map((cell) => cell.text).join(''), content);

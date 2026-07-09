@@ -1,13 +1,14 @@
+import type { RenderNode } from '../render-node/index.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { WidgetProcessStatus, Widget } from '../widgets/index.ts';
-import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
-import { widgetFrameSource } from './frame-source.ts';
+import type { ProcessStatus } from '../components/contracts.ts';
+import { normalizeProcessStatus } from '../components/status.ts';
+import { renderNodeFrameSource } from './frame-source.ts';
 import { block, line, span } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
-import { stringify } from './widget-props.ts';
-import { mergeStyles, themeStyle } from './widget-style.ts';
+import { stringify } from './render-node-props.ts';
+import { mergeStyles, themeStyle } from './render-node-style.ts';
 
 export type ChartSurfaceKind = 'sparkline' | 'barChart' | 'chart' | 'gauge' | 'heatmap';
 export type ChartStateKind = 'empty' | 'loading' | 'error';
@@ -34,13 +35,13 @@ export type ChartVisualKind =
   | 'status'
   | 'threshold';
 
-export function chartStatus(value: unknown): WidgetProcessStatus | undefined {
+export function chartStatus(value: unknown): ProcessStatus | undefined {
   if (value === undefined) return undefined;
-  return normalizeWidgetProcessStatus(value, 'idle');
+  return normalizeProcessStatus(value, 'idle');
 }
 
 export function chartStateBlock(
-  widget: Widget,
+  widget: RenderNode,
   kind: ChartSurfaceKind,
   theme: TerminalTheme,
   input: {
@@ -70,7 +71,7 @@ export function chartTextFromBlock(currentBlock: RenderBlock): string {
 }
 
 export function chartSpan(
-  widget: Widget,
+  widget: RenderNode,
   kind: ChartSurfaceKind,
   visual: ChartVisualKind,
   label: string,
@@ -84,12 +85,12 @@ export function chartSpan(
 }
 
 export function chartSource(
-  widget: Widget,
+  widget: RenderNode,
   kind: ChartSurfaceKind,
   visual: ChartVisualKind,
   label: string
 ): FrameCellSource {
-  return widgetFrameSource(widget, {
+  return renderNodeFrameSource(widget, {
     family: kind,
     role: roleForVisual(visual),
     part: label,
@@ -98,15 +99,15 @@ export function chartSource(
   });
 }
 
-export function chartLabelStyle(widget: Widget): TerminalStyle | undefined {
+export function chartLabelStyle(widget: RenderNode): TerminalStyle | undefined {
   return mergeStyles(themeStyle('chart.label'), widget.styles?.label);
 }
 
-export function chartValueStyle(widget: Widget): TerminalStyle | undefined {
+export function chartValueStyle(widget: RenderNode): TerminalStyle | undefined {
   return mergeStyles(themeStyle('chart.value'), widget.styles?.value);
 }
 
-export function chartSelectedStyle(widget: Widget): TerminalStyle | undefined {
+export function chartSelectedStyle(widget: RenderNode): TerminalStyle | undefined {
   return mergeStyles(
     {
       fg: { kind: 'theme', token: 'selection.foreground' },
@@ -117,30 +118,30 @@ export function chartSelectedStyle(widget: Widget): TerminalStyle | undefined {
   );
 }
 
-export function chartPlaceholderStyle(widget: Widget): TerminalStyle | undefined {
+export function chartPlaceholderStyle(widget: RenderNode): TerminalStyle | undefined {
   return mergeStyles(themeStyle('chart.muted', { dim: true }), widget.styles?.placeholder);
 }
 
-export function chartAxisStyle(widget: Widget): TerminalStyle | undefined {
+export function chartAxisStyle(widget: RenderNode): TerminalStyle | undefined {
   return mergeStyles(themeStyle('chart.axis', { dim: true }), widget.styles?.border);
 }
 
-export function chartBaselineStyle(widget: Widget): TerminalStyle | undefined {
+export function chartBaselineStyle(widget: RenderNode): TerminalStyle | undefined {
   return mergeStyles(themeStyle('chart.baseline', { dim: true }), widget.styles?.border);
 }
 
-export function chartPolarityStyle(widget: Widget, polarity: 'positive' | 'negative'): TerminalStyle | undefined {
+export function chartPolarityStyle(widget: RenderNode, polarity: 'positive' | 'negative'): TerminalStyle | undefined {
   return mergeStyles(
     themeStyle(polarity === 'positive' ? 'chart.positive' : 'chart.negative', { bold: true }),
     widget.styles?.value
   );
 }
 
-export function chartSeriesStyle(widget: Widget, index: number): TerminalStyle | undefined {
+export function chartSeriesStyle(widget: RenderNode, index: number): TerminalStyle | undefined {
   return mergeStyles(themeStyle(chartSeriesToken(index), { bold: true }), widget.styles?.value);
 }
 
-export function chartHeatmapStyle(widget: Widget, intensity: number, selected: boolean): TerminalStyle | undefined {
+export function chartHeatmapStyle(widget: RenderNode, intensity: number, selected: boolean): TerminalStyle | undefined {
   if (selected) return chartSelectedStyle(widget);
   if (intensity <= 0) return chartPlaceholderStyle(widget);
   return mergeStyles(
@@ -151,7 +152,7 @@ export function chartHeatmapStyle(widget: Widget, intensity: number, selected: b
   );
 }
 
-export function chartMetricStyle(widget: Widget, status?: WidgetProcessStatus): TerminalStyle | undefined {
+export function chartMetricStyle(widget: RenderNode, status?: ProcessStatus): TerminalStyle | undefined {
   if (status === undefined || status === 'idle' || status === 'running') {
     return chartSeriesStyle(widget, 0);
   }
@@ -168,12 +169,12 @@ function chartSeriesToken(index: number): 'chart.series.1' | 'chart.series.2' | 
   return 'chart.series.1';
 }
 
-export function chartStateDescription(widget: Widget, fallback: string): string {
+export function chartStateDescription(widget: RenderNode, fallback: string): string {
   return cleanStateText(widget.props['emptyText'], fallback);
 }
 
 function chartMessageBlock(
-  widget: Widget,
+  widget: RenderNode,
   kind: ChartSurfaceKind,
   state: ChartStateKind,
   theme: TerminalTheme,

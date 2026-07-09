@@ -9,9 +9,9 @@ import {
   renderFrameAnsi,
   renderFramePlain,
   sanitizeFrameCellSource
-} from '../../dist/tui/index.js';
-import { richText } from '../../dist/widgets/index.js';
-import { renderWidgetFrame } from '../../dist/tui/index.js';
+} from '../../dist/renderer/index.js';
+import { richText } from '../../dist/components/index.js';
+import { renderElementFrame } from '../../dist/renderer/index.js';
 
 test('FrameBuffer records ASCII, Unicode width, emoji, CJK, and combining marks deterministically', () => {
   const buffer = createFrameBuffer(10, 2);
@@ -167,7 +167,7 @@ test('FrameBuffer snapshot metadata fingerprints rows and full buffers determini
 });
 
 test('richText emits styled cells through render spans', () => {
-  const frame = renderWidgetFrame(richText({
+  const frame = renderElementFrame(richText({
     id: 'styled',
     segments: [
       { text: 'Error', style: { fg: { kind: 'theme', token: 'status.error' }, bold: true } },

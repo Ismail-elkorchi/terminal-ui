@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveTerminalCapabilities } from '../../dist/host/index.js';
+import {
+  resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
-import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
-import { progressBar } from '../../dist/widgets/index.js';
+import { renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import { progressBar } from '../../dist/components/index.js';
 
 test('progressBar supports value plus percentage display and status tone', () => {
-  const frame = renderWidgetFrame(progressBar({
+  const frame = renderElementFrame(progressBar({
     id: 'deploy',
     label: 'Deploy',
     value: 5,
@@ -35,7 +38,7 @@ test('progressBar supports value plus percentage display and status tone', () =>
 });
 
 test('progressBar supports bar-only display with end label and explicit bar width', () => {
-  const frame = renderWidgetFrame(progressBar({
+  const frame = renderElementFrame(progressBar({
     id: 'compact',
     label: 'Build',
     value: 1,
@@ -55,7 +58,7 @@ test('progressBar supports bar-only display with end label and explicit bar widt
 });
 
 test('progressBar valueScale renders segmented fill tokens', () => {
-  const frame = renderWidgetFrame(progressBar({
+  const frame = renderElementFrame(progressBar({
     id: 'scaled-progress',
     value: 8,
     max: 10,
@@ -79,7 +82,7 @@ test('progressBar valueScale renders segmented fill tokens', () => {
 });
 
 test('progressBar renders explicit elapsed and remaining timing without hidden clocks', () => {
-  const frame = renderWidgetFrame(progressBar({
+  const frame = renderElementFrame(progressBar({
     id: 'timed',
     label: 'Upload',
     value: 2,
@@ -95,7 +98,7 @@ test('progressBar renders explicit elapsed and remaining timing without hidden c
 });
 
 test('progressBar ignores invalid timing fields', () => {
-  const frame = renderWidgetFrame(progressBar({
+  const frame = renderElementFrame(progressBar({
     id: 'invalid-timing',
     label: 'Sync',
     value: 1,
@@ -109,7 +112,7 @@ test('progressBar ignores invalid timing fields', () => {
 });
 
 test('progressBar supports label-free percentage and tiny viewport clipping', () => {
-  const frame = renderWidgetFrame(progressBar({
+  const frame = renderElementFrame(progressBar({
     id: 'tiny',
     label: 'Hidden',
     labelPosition: 'none',
@@ -124,7 +127,7 @@ test('progressBar supports label-free percentage and tiny viewport clipping', ()
 });
 
 test('progressBar degrades display parts deterministically under width pressure', () => {
-  const normal = renderWidgetFrame(progressBar({
+  const normal = renderElementFrame(progressBar({
     id: 'normal-pressure',
     label: 'Sync',
     value: 3,
@@ -134,7 +137,7 @@ test('progressBar degrades display parts deterministically under width pressure'
     barWidth: 10,
     status: 'success'
   }), { columns: 20, rows: 1 });
-  const tight = renderWidgetFrame(progressBar({
+  const tight = renderElementFrame(progressBar({
     id: 'tight-pressure',
     label: 'Sync',
     value: 3,
@@ -144,7 +147,7 @@ test('progressBar degrades display parts deterministically under width pressure'
     barWidth: 10,
     status: 'success'
   }), { columns: 9, rows: 1 });
-  const tiny = renderWidgetFrame(progressBar({
+  const tiny = renderElementFrame(progressBar({
     id: 'tiny-pressure',
     label: 'Sync',
     value: 3,
@@ -166,7 +169,7 @@ test('progressBar degrades display parts deterministically under width pressure'
 });
 
 test('progressBar renders indeterminate bars with scoped progress accessibility', () => {
-  const frame = renderWidgetFrame(progressBar({
+  const frame = renderElementFrame(progressBar({
     id: 'waiting',
     label: 'Waiting',
     indeterminate: true,
@@ -185,7 +188,7 @@ test('progressBar renders indeterminate bars with scoped progress accessibility'
 });
 
 test('progressBar clamps 0 percent 100 percent and overflow values visibly', () => {
-  const empty = renderWidgetFrame(progressBar({
+  const empty = renderElementFrame(progressBar({
     id: 'empty',
     labelPosition: 'none',
     value: 0,
@@ -193,7 +196,7 @@ test('progressBar clamps 0 percent 100 percent and overflow values visibly', () 
     barWidth: 4,
     display: 'bar+percent'
   }), { columns: 12, rows: 1 });
-  const complete = renderWidgetFrame(progressBar({
+  const complete = renderElementFrame(progressBar({
     id: 'complete',
     labelPosition: 'none',
     value: 10,
@@ -201,7 +204,7 @@ test('progressBar clamps 0 percent 100 percent and overflow values visibly', () 
     barWidth: 4,
     display: 'bar+percent'
   }), { columns: 12, rows: 1 });
-  const overflow = renderWidgetFrame(progressBar({
+  const overflow = renderElementFrame(progressBar({
     id: 'overflow',
     labelPosition: 'none',
     value: 25,
@@ -219,7 +222,7 @@ test('progressBar clamps 0 percent 100 percent and overflow values visibly', () 
 });
 
 test('progressBar visual snapshots stay readable in high contrast and no color modes', () => {
-  const frame = renderWidgetFrame(progressBar({
+  const frame = renderElementFrame(progressBar({
     id: 'themed-progress',
     label: 'Theme',
     value: 2,

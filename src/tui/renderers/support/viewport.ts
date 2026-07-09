@@ -1,11 +1,11 @@
-import { numberProp } from '../../widget-props.ts';
+import { numberProp } from '../../render-node-props.ts';
 import { normalizeScrollState } from '../../scroll.ts';
-import { widgetStyle } from '../../widget-style.ts';
-import { widgetFrameSource } from '../../frame-source.ts';
+import { renderNodeStyle } from '../../render-node-style.ts';
+import { renderNodeFrameSource } from '../../frame-source.ts';
 import { nonNegativeInteger } from './common.ts';
 import type { FrameBuffer } from '../../frame.ts';
 import type { LayoutNode, Rect } from '../../layout.ts';
-import type { Widget } from '../../../widgets/index.ts';
+import type { RenderNode } from '../../../render-node/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 
 interface ViewportVisualState {
@@ -20,7 +20,7 @@ interface ViewportVisualState {
   readonly clippedRight: boolean;
 }
 
-export function viewportAccessibleDescription(widget: Widget, node: LayoutNode): string {
+export function viewportAccessibleDescription(widget: RenderNode, node: LayoutNode): string {
   const state = viewportVisualState(widget, node.bounds);
   if (state.empty) return 'Empty viewport content.';
   const rowEnd = Math.min(state.contentRows, state.offsetRow + node.bounds.height);
@@ -28,7 +28,7 @@ export function viewportAccessibleDescription(widget: Widget, node: LayoutNode):
   return `Showing rows ${String(state.offsetRow + 1)}-${String(rowEnd)} of ${String(state.contentRows)}, columns ${String(state.offsetColumn + 1)}-${String(columnEnd)} of ${String(state.contentColumns)}.`;
 }
 
-export function viewportChildBounds(widget: Widget, bounds: Rect): Rect {
+export function viewportChildBounds(widget: RenderNode, bounds: Rect): Rect {
   const state = viewportVisualState(widget, bounds);
   if (state.empty) return { row: bounds.row, column: bounds.column, width: 0, height: 0 };
   return {
@@ -39,7 +39,7 @@ export function viewportChildBounds(widget: Widget, bounds: Rect): Rect {
   };
 }
 
-export function viewportVisualState(widget: Widget, bounds: Rect): ViewportVisualState {
+export function viewportVisualState(widget: RenderNode, bounds: Rect): ViewportVisualState {
   const contentRows = contentSize(widget, 'contentRows', bounds.height);
   const contentColumns = contentSize(widget, 'contentColumns', bounds.width);
   const empty = contentRows === 0 || contentColumns === 0;
@@ -67,14 +67,14 @@ export function viewportVisualState(widget: Widget, bounds: Rect): ViewportVisua
 
 export function drawViewportIndicators(
   buffer: FrameBuffer,
-  widget: Widget,
+  widget: RenderNode,
   bounds: Rect,
   theme: TerminalTheme,
   occupiedCells: ReadonlySet<string> = new Set()
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const state = viewportVisualState(widget, bounds);
-  const style = widgetStyle(widget, 'placeholder');
+  const style = renderNodeStyle(widget, 'placeholder');
   if (state.empty) {
     writeViewportIndicator(buffer, widget, centered(bounds), theme.tokens.symbols.viewportEmpty, 'empty', style, occupiedCells);
     return;
@@ -95,18 +95,18 @@ export function drawViewportIndicators(
 
 function writeViewportIndicator(
   buffer: FrameBuffer,
-  widget: Widget,
+  widget: RenderNode,
   position: { readonly row: number; readonly column: number },
   text: string,
   label: string,
-  style: ReturnType<typeof widgetStyle>,
+  style: ReturnType<typeof renderNodeStyle>,
   occupiedCells: ReadonlySet<string>
 ): void {
   if (occupiedCells.has(cellKey(position.row, position.column))) return;
   buffer.write(position.row, position.column, [{
     text,
     ...(style === undefined ? {} : { style }),
-    source: widgetFrameSource(widget, { family: 'layout', role: 'decoration', part: label, label })
+    source: renderNodeFrameSource(widget, { family: 'layout', role: 'decoration', part: label, label })
   }]);
 }
 
@@ -114,7 +114,7 @@ export function viewportIndicatorCellKey(row: number, column: number): string {
   return cellKey(row, column);
 }
 
-function contentSize(widget: Widget, key: 'contentRows' | 'contentColumns', fallback: number): number {
+function contentSize(widget: RenderNode, key: 'contentRows' | 'contentColumns', fallback: number): number {
   return widget.props[key] === undefined
     ? Math.max(0, fallback + nonNegativeInteger(numberProp(widget, key === 'contentRows' ? 'scrollRow' : 'scrollColumn')))
     : nonNegativeInteger(numberProp(widget, key));

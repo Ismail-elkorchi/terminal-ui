@@ -1,10 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { input, runPrompt } from '../../dist/prompts/index.js';
-import { createTerminalHarness, replayTranscript, runInteractionScript } from '../../dist/testing/index.js';
-import { defineTui, renderWidgetFrame, runTui } from '../../dist/tui/index.js';
-import { button, richText, stack, tree, textInput } from '../../dist/widgets/index.js';
+import { runTui } from '../../dist/tui/index.js';
+import {
+  input,
+  runPrompt } from '../../dist/prompts/index.js';
+import { createTerminalHarness,
+  replayTranscript,
+  runInteractionScript } from '../../dist/testing/index.js';
+import { defineTui } from '../../dist/tui/index.js';
+import { renderElementFrame } from '../../dist/renderer/index.js';
+import {
+  button,
+  richText,
+  tree,
+  textInput
+} from '../../dist/components/index.js';
+import { stack } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
 test('testing harness records input and output deterministically', async () => {
@@ -86,7 +98,7 @@ test('terminal harness delivers normalized key events to TUI runtimes', async ()
     view: (state) => textInput({
       id: 'submit',
       value: state.submitted ? 'submitted' : 'waiting',
-      message: { submitted: true }
+      onSubmit: { submitted: true }
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -152,7 +164,7 @@ test('terminal harness resize events drive active TUI resize handling', async ()
     view: (_state, context) => textInput({
       id: 'resize-field',
       value: `columns:${context.viewport.columns}`,
-      message: { done: true }
+      onSubmit: { done: true }
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -178,7 +190,7 @@ test('terminal harness resize events drive active TUI resize handling', async ()
 
 test('interaction scripts assert styled text focus selection and hit targets against recorded frames', async () => {
   const harness = createTerminalHarness({ viewport: { columns: 24, rows: 9 } });
-  const frame = renderWidgetFrame(stack([
+  const frame = renderElementFrame(stack([
     richText({
       id: 'styled-line',
       segments: [{ text: 'Styled', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]
@@ -186,7 +198,7 @@ test('interaction scripts assert styled text focus selection and hit targets aga
     tree({
       id: 'tree',
       selected: 'child',
-      keyMap: { enter: { kind: 'confirm' } },
+      keys: { enter: { kind: 'confirm' } },
       nodes: [
         {
           id: 'root',
@@ -195,12 +207,12 @@ test('interaction scripts assert styled text focus selection and hit targets aga
           children: [{ id: 'child', label: 'Child' }]
         }
       ],
-      toMessage: (node) => ({ kind: 'select', id: node.id })
+      onSelect: (node) => ({ kind: 'select', id: node.id })
     }),
     button({
       id: 'confirm',
       label: 'Confirm',
-      message: { kind: 'confirm' }
+      onPress: { kind: 'confirm' }
     })
   ]), { columns: 24, rows: 9 });
   harness.recordFrame(frame);

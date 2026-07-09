@@ -3,19 +3,19 @@ import test from 'node:test';
 
 import {
   renderFramePlain,
-  renderWidgetFrame
-} from '../../dist/tui/index.js';
+  renderElementFrame
+} from '../../dist/renderer/index.js';
 import {
   nextTreeRowId,
   selectableTreeRows,
-  tree,
   treeDisclosureAction,
   treeNodeCanDisclose,
   treeNodeMatches,
   treeReducer,
   treeStateReducer,
   visibleTreeRows
-} from '../../dist/widgets/index.js';
+} from '../../dist/behavior/index.js';
+import { tree } from '../../dist/components/index.js';
 
 test('treeReducer models lazy pending success error and empty states', () => {
   const nodes = [{
@@ -37,7 +37,7 @@ test('treeReducer models lazy pending success error and empty states', () => {
   assert.deepEqual(loaded[0]?.metadata, { path: '/workspace/root' });
   assert.equal(empty[0]?.lazyStatus, 'empty');
 
-  const failedFrame = renderWidgetFrame(tree({ id: 'lazy-error', nodes: failed }), { columns: 24, rows: 3 });
+  const failedFrame = renderElementFrame(tree({ id: 'lazy-error', nodes: failed }), { columns: 24, rows: 3 });
   assert.match(renderFramePlain(failedFrame), /Network failed/u);
 });
 

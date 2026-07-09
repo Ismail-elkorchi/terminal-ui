@@ -1,5 +1,6 @@
+import type { RenderNode } from '../render-node/index.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
-import type { Widget } from '../widgets/index.ts';
+
 import type { FrameSemanticRole } from './frame-passes/index.ts';
 
 export interface FrameCellSource {
@@ -15,7 +16,7 @@ export interface FrameCellSource {
   readonly label?: string;
 }
 
-export interface WidgetFrameSourceOptions {
+export interface RenderNodeFrameSourceOptions {
   readonly family?: string;
   readonly role?: FrameSemanticRole;
   readonly part?: string;
@@ -30,7 +31,7 @@ const sanitizedFrameSources = new WeakSet<FrameCellSource>();
 const frameSourceInternLimit = 8192;
 const internedFrameSources = new Map<string, FrameCellSource>();
 
-export function widgetFrameSource(widget: Pick<Widget, 'id' | 'kind'>, options: WidgetFrameSourceOptions = {}): FrameCellSource {
+export function renderNodeFrameSource(widget: Pick<RenderNode, 'id' | 'kind'>, options: RenderNodeFrameSourceOptions = {}): FrameCellSource {
   return sanitizeFrameCellSource({
     ...(widget.id === undefined ? {} : { ownerId: widget.id }),
     ownerKind: widget.kind,
@@ -44,7 +45,7 @@ export function frameCellSource(input: FrameCellSource): FrameCellSource {
 
 export function frameSourcePart(
   source: FrameCellSource | undefined,
-  options: Pick<WidgetFrameSourceOptions, 'part' | 'partKind' | 'state' | 'label'>
+  options: Pick<RenderNodeFrameSourceOptions, 'part' | 'partKind' | 'state' | 'label'>
 ): FrameCellSource | undefined {
   if (source === undefined) return undefined;
   return sanitizeFrameCellSource({

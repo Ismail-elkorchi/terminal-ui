@@ -1,34 +1,21 @@
+import type { RenderNode } from '../render-node/index.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import {
-  chartAxisStyle,
-  chartBaselineStyle,
-  chartHeatmapStyle,
-  chartLabelStyle,
-  chartMetricStyle,
-  chartPlaceholderStyle,
-  chartPolarityStyle,
-  chartSelectedStyle,
-  chartSeriesStyle,
-  chartSpan,
-  chartStateBlock,
-  chartStateDescription,
-  chartStatus,
-  chartTextFromBlock,
-  chartValueStyle
+  chartAxisStyle, chartBaselineStyle, chartHeatmapStyle, chartLabelStyle, chartMetricStyle, chartPlaceholderStyle, chartPolarityStyle, chartSelectedStyle, chartSeriesStyle, chartSpan, chartStateBlock, chartStateDescription, chartStatus, chartTextFromBlock, chartValueStyle
 } from './chart-visual.ts';
 import { createCanvas2D, drawAreaSeries, drawLineSeries } from './canvas2d/index.ts';
 import { createFrameBuffer } from './frame-buffer.ts';
-import { numberProp } from './widget-props.ts';
+import { numberProp } from './render-node-props.ts';
 import { normalizeValueScale, valueScaleStyle } from './value-scale.ts';
 import { visibleWindow } from './visible-window.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { BarChartItem, ChartInterpolation, ChartPointEvent, ChartSampleAlign, ChartSampleMode, ChartSeries, HeatmapCell, Widget } from '../widgets/index.ts';
+import type { BarChartItem, ChartInterpolation, ChartPointEvent, ChartSampleAlign, ChartSampleMode, ChartSeries, HeatmapCell } from '../components/types.ts';
 import type { LayoutNode, Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
 import type { NormalizedValueScaleStop } from './value-scale.ts';
-import type { HitTarget } from './widget-renderer.ts';
+import type { HitTarget } from './render-node-renderer.ts';
 
 const sparkGlyphs = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'] as const;
 const heatmapGlyphs = [' ', '░', '▒', '▓', '█'] as const;
@@ -40,7 +27,7 @@ interface ProjectedChartPoint {
   readonly value: number;
 }
 
-export function sparklineBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
+export function sparklineBlock(widget: RenderNode, theme: TerminalTheme): RenderBlock {
   const values = numberArray(widget.props['values']);
   const state = chartStateBlock(widget, 'sparkline', theme, {
     empty: values.length === 0,
@@ -65,11 +52,11 @@ export function sparklineBlock(widget: Widget, theme: TerminalTheme): RenderBloc
   };
 }
 
-export function sparklineText(widget: Widget, theme: TerminalTheme): string {
+export function sparklineText(widget: RenderNode, theme: TerminalTheme): string {
   return chartTextFromBlock(sparklineBlock(widget, theme));
 }
 
-export function sparklineAccessibleBase(widget: Widget, id: string): AccessibleNode {
+export function sparklineAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
   const values = numberArray(widget.props['values']);
   return {
     id,
@@ -80,7 +67,7 @@ export function sparklineAccessibleBase(widget: Widget, id: string): AccessibleN
   };
 }
 
-export function barChartBlock(widget: Widget, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+export function barChartBlock(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
   const items = barItems(widget.props['items']);
   const state = chartStateBlock(widget, 'barChart', theme, {
     empty: items.length === 0,
@@ -116,11 +103,11 @@ export function barChartBlock(widget: Widget, node: LayoutNode, theme: TerminalT
   };
 }
 
-export function barChartText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
+export function barChartText(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): string {
   return chartTextFromBlock(barChartBlock(widget, node, theme));
 }
 
-export function barChartAccessibleBase(widget: Widget, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
+export function barChartAccessibleBase(widget: RenderNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
   const items = barItems(widget.props['items']);
   const selected = numberProp(widget, 'selected') ?? 0;
   const window = visibleWindow(items.length, node.bounds.height, selected);
@@ -133,7 +120,7 @@ export function barChartAccessibleBase(widget: Widget, node: LayoutNode, id: str
   };
 }
 
-export function barChartAccessibleChildren(widget: Widget, node: LayoutNode): readonly AccessibleNode[] {
+export function barChartAccessibleChildren(widget: RenderNode, node: LayoutNode): readonly AccessibleNode[] {
   const items = barItems(widget.props['items']);
   const selected = numberProp(widget, 'selected') ?? -1;
   const window = visibleWindow(items.length, node.bounds.height, selected);
@@ -149,7 +136,7 @@ export function barChartAccessibleChildren(widget: Widget, node: LayoutNode): re
   });
 }
 
-export function chartBlock(widget: Widget, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+export function chartBlock(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
   const series = chartSeries(widget.props['series']);
   const points = series.flatMap((item) => item.points);
   const state = chartStateBlock(widget, 'chart', theme, {
@@ -229,7 +216,7 @@ export function chartBlock(widget: Widget, node: LayoutNode, theme: TerminalThem
 
 function drawFilledChartSeries(
   canvas: ReturnType<typeof createCanvas2D>,
-  widget: Widget,
+  widget: RenderNode,
   item: ChartSeries,
   visible: readonly ProjectedChartPoint[],
   range: { readonly min: number; readonly max: number },
@@ -263,7 +250,7 @@ function drawFilledChartSeries(
 
 function drawSegmentedChartLine(
   canvas: ReturnType<typeof createCanvas2D>,
-  widget: Widget,
+  widget: RenderNode,
   item: ChartSeries,
   visible: readonly ProjectedChartPoint[],
   range: { readonly min: number; readonly max: number },
@@ -307,11 +294,11 @@ function drawSegmentedChartLine(
   }
 }
 
-export function chartText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
+export function chartText(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): string {
   return chartTextFromBlock(chartBlock(widget, node, theme));
 }
 
-export function chartAccessibleBase(widget: Widget, id: string): AccessibleNode {
+export function chartAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
   const series = chartSeries(widget.props['series']);
   return {
     id,
@@ -321,7 +308,7 @@ export function chartAccessibleBase(widget: Widget, id: string): AccessibleNode 
   };
 }
 
-export function chartAccessibleChildren(widget: Widget): readonly AccessibleNode[] {
+export function chartAccessibleChildren(widget: RenderNode): readonly AccessibleNode[] {
   const series = chartSeries(widget.props['series']);
   const selected = selectedChartPoint(widget, series);
   return series.map((item) => ({
@@ -333,7 +320,7 @@ export function chartAccessibleChildren(widget: Widget): readonly AccessibleNode
   }));
 }
 
-export function chartHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function chartHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = chartMessageFactory(widget);
   if (toMessage === undefined) return [];
   const series = chartSeries(widget.props['series']);
@@ -359,7 +346,7 @@ export function chartHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect
   }));
 }
 
-export function gaugeBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
+export function gaugeBlock(widget: RenderNode, theme: TerminalTheme): RenderBlock {
   const value = numberProp(widget, 'value') ?? 0;
   const min = numberProp(widget, 'min') ?? 0;
   const max = Math.max(min + 1, numberProp(widget, 'max') ?? 100);
@@ -393,7 +380,7 @@ export function gaugeBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
   };
 }
 
-function gaugeDialBlock(widget: Widget, ratio: number, width: number): RenderBlock {
+function gaugeDialBlock(widget: RenderNode, ratio: number, width: number): RenderBlock {
   const innerWidth = Math.max(4, width);
   const filled = Math.round(ratio * innerWidth);
   const empty = Math.max(0, innerWidth - filled);
@@ -435,15 +422,15 @@ function gaugeDialBlock(widget: Widget, ratio: number, width: number): RenderBlo
   };
 }
 
-function gaugeVariant(widget: Widget): 'linear' | 'dial' {
+function gaugeVariant(widget: RenderNode): 'linear' | 'dial' {
   return widget.props['variant'] === 'dial' ? 'dial' : 'linear';
 }
 
-export function gaugeText(widget: Widget, theme: TerminalTheme): string {
+export function gaugeText(widget: RenderNode, theme: TerminalTheme): string {
   return chartTextFromBlock(gaugeBlock(widget, theme));
 }
 
-export function gaugeAccessibleBase(widget: Widget, id: string): AccessibleNode {
+export function gaugeAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
   const value = numberProp(widget, 'value') ?? 0;
   const min = numberProp(widget, 'min') ?? 0;
   const max = Math.max(min + 1, numberProp(widget, 'max') ?? 100);
@@ -457,7 +444,7 @@ export function gaugeAccessibleBase(widget: Widget, id: string): AccessibleNode 
   };
 }
 
-export function heatmapBlock(widget: Widget, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+export function heatmapBlock(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
   const rows = heatmapRows(widget.props['rows']);
   const state = chartStateBlock(widget, 'heatmap', theme, {
     empty: rows.length === 0,
@@ -493,11 +480,11 @@ export function heatmapBlock(widget: Widget, node: LayoutNode, theme: TerminalTh
   };
 }
 
-export function heatmapText(widget: Widget, node: LayoutNode, theme: TerminalTheme): string {
+export function heatmapText(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): string {
   return chartTextFromBlock(heatmapBlock(widget, node, theme));
 }
 
-export function heatmapAccessibleBase(widget: Widget, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
+export function heatmapAccessibleBase(widget: RenderNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
   const rows = heatmapRows(widget.props['rows']);
   const selected = heatmapSelected(widget);
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
@@ -510,7 +497,7 @@ export function heatmapAccessibleBase(widget: Widget, node: LayoutNode, id: stri
   };
 }
 
-export function heatmapAccessibleChildren(widget: Widget, node: LayoutNode): readonly AccessibleNode[] {
+export function heatmapAccessibleChildren(widget: RenderNode, node: LayoutNode): readonly AccessibleNode[] {
   const rows = heatmapRows(widget.props['rows']);
   const selected = heatmapSelected(widget);
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
@@ -526,7 +513,7 @@ export function heatmapAccessibleChildren(widget: Widget, node: LayoutNode): rea
   });
 }
 
-export function heatmapHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function heatmapHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = heatmapMessageFactory(widget);
   if (toMessage === undefined) return [];
   const rows = heatmapRows(widget.props['rows']);
@@ -622,7 +609,7 @@ function isChartInterpolation(value: unknown): value is ChartInterpolation {
   return value === 'nearest' || value === 'linear';
 }
 
-function projectChartSeries(widget: Widget, item: ChartSeries, plotWidth: number): readonly ProjectedChartPoint[] {
+function projectChartSeries(widget: RenderNode, item: ChartSeries, plotWidth: number): readonly ProjectedChartPoint[] {
   if (plotWidth <= 0 || item.points.length === 0) return [];
   const mode = chartSeriesSampleMode(widget, item);
   if (mode === 'fit') return fitChartSeries(widget, item, plotWidth);
@@ -641,7 +628,7 @@ function projectChartSeries(widget: Widget, item: ChartSeries, plotWidth: number
   });
 }
 
-function fitChartSeries(widget: Widget, item: ChartSeries, plotWidth: number): readonly ProjectedChartPoint[] {
+function fitChartSeries(widget: RenderNode, item: ChartSeries, plotWidth: number): readonly ProjectedChartPoint[] {
   if (plotWidth <= 0 || item.points.length === 0) return [];
   if (plotWidth === 1 || item.points.length === 1) {
     const point = chartSeriesSampleAlign(widget, item) === 'end' ? item.points.length - 1 : 0;
@@ -669,15 +656,15 @@ function interpolatedChartValue(points: readonly number[], position: number): nu
   return left + (right - left) * (position - leftIndex);
 }
 
-function chartSeriesSampleMode(widget: Widget, item: ChartSeries): ChartSampleMode {
+function chartSeriesSampleMode(widget: RenderNode, item: ChartSeries): ChartSampleMode {
   return item.sampleMode ?? (isChartSampleMode(widget.props['sampleMode']) ? widget.props['sampleMode'] : 'one-per-column');
 }
 
-function chartSeriesSampleAlign(widget: Widget, item: ChartSeries): ChartSampleAlign {
+function chartSeriesSampleAlign(widget: RenderNode, item: ChartSeries): ChartSampleAlign {
   return item.sampleAlign ?? (isChartSampleAlign(widget.props['sampleAlign']) ? widget.props['sampleAlign'] : 'start');
 }
 
-function chartSeriesInterpolation(widget: Widget, item: ChartSeries): ChartInterpolation {
+function chartSeriesInterpolation(widget: RenderNode, item: ChartSeries): ChartInterpolation {
   return item.interpolation ?? (isChartInterpolation(widget.props['interpolation']) ? widget.props['interpolation'] : 'nearest');
 }
 
@@ -699,7 +686,7 @@ function chartPointStyle(
   return valueScaleStyle(value, range, scale, fallback);
 }
 
-function chartLayout(widget: Widget, bounds: Rect): {
+function chartLayout(widget: RenderNode, bounds: Rect): {
   readonly plotRow: number;
   readonly plotWidth: number;
   readonly plotHeight: number;
@@ -713,11 +700,11 @@ function chartLayout(widget: Widget, bounds: Rect): {
   };
 }
 
-function chartHeaderRows(widget: Widget): number {
+function chartHeaderRows(widget: RenderNode): number {
   return (widget.props['legend'] === true ? 1 : 0) + (cleanLabel(widget.props['yLabel']).length > 0 ? 1 : 0);
 }
 
-function writeChartChrome(buffer: ReturnType<typeof createFrameBuffer>, widget: Widget, width: number): void {
+function writeChartChrome(buffer: ReturnType<typeof createFrameBuffer>, widget: RenderNode, width: number): void {
   chartHeaderBlock(widget, width).lines.forEach((line, index) => {
     buffer.write(index + 1, 1, line.spans);
   });
@@ -727,11 +714,11 @@ function writeChartChrome(buffer: ReturnType<typeof createFrameBuffer>, widget: 
   }
 }
 
-function chartChromeBlock(widget: Widget, width: number): RenderBlock {
+function chartChromeBlock(widget: RenderNode, width: number): RenderBlock {
   return { lines: [...chartHeaderBlock(widget, width).lines, ...chartFooterBlock(widget, width).lines] };
 }
 
-function chartHeaderBlock(widget: Widget, width: number): RenderBlock {
+function chartHeaderBlock(widget: RenderNode, width: number): RenderBlock {
   const rows: RenderLine[] = [];
   if (widget.props['legend'] === true) {
     rows.push({
@@ -750,7 +737,7 @@ function chartHeaderBlock(widget: Widget, width: number): RenderBlock {
   return { lines: rows };
 }
 
-function chartFooterBlock(widget: Widget, width: number): RenderBlock {
+function chartFooterBlock(widget: RenderNode, width: number): RenderBlock {
   const xLabel = cleanLabel(widget.props['xLabel']);
   return {
     lines: xLabel.length === 0
@@ -765,7 +752,7 @@ function seriesGlyph(series: ChartSeries): string {
   return series.kind === 'area' || series.kind === 'bar' ? '█' : '*';
 }
 
-function usesSignedDomain(widget: Widget): boolean {
+function usesSignedDomain(widget: RenderNode): boolean {
   return widget.props['signedDomain'] === true;
 }
 
@@ -774,7 +761,7 @@ function polarityForValue(value: number): 'positive' | 'negative' {
 }
 
 function selectedChartPoint(
-  widget: Widget,
+  widget: RenderNode,
   series: readonly ChartSeries[]
 ): { readonly series: string; readonly point: number } | undefined {
   const selected = widget.props['selected'];
@@ -789,7 +776,7 @@ function selectedChartPoint(
 }
 
 function chartPointPosition(
-  widget: Widget,
+  widget: RenderNode,
   bounds: Rect,
   seriesId: string,
   point: number,
@@ -809,7 +796,7 @@ function chartPointPosition(
 }
 
 function selectedProjectedPoint(
-  widget: Widget,
+  widget: RenderNode,
   series: ChartSeries,
   plotWidth: number,
   point: number
@@ -837,7 +824,7 @@ function yForValue(value: number, range: { readonly min: number; readonly max: n
 }
 
 function chartMessageFactory<TMessage>(
-  widget: Widget<TMessage>
+  widget: RenderNode<TMessage>
 ): ((point: ChartPointEvent) => TMessage) | undefined {
   const toMessage = widget.props['toMessage'];
   return typeof toMessage === 'function'
@@ -865,7 +852,7 @@ function isHeatmapCell(value: unknown): value is HeatmapCell {
 }
 
 function heatmapCellSpans(
-  widget: Widget,
+  widget: RenderNode,
   rowIndex: number,
   columnIndex: number,
   options: {
@@ -913,7 +900,7 @@ function heatmapRange(
   return values.length === 0 ? { min: 0, max: 1 } : rangeFor(values, explicitMin, explicitMax);
 }
 
-function heatmapSelected(widget: Widget): { readonly row: number; readonly column: number } | undefined {
+function heatmapSelected(widget: RenderNode): { readonly row: number; readonly column: number } | undefined {
   const selected = widget.props['selected'];
   if (typeof selected !== 'object' || selected === null) return undefined;
   const row = (selected as { readonly row?: unknown }).row;
@@ -923,11 +910,11 @@ function heatmapSelected(widget: Widget): { readonly row: number; readonly colum
   return { row: Math.max(0, Math.floor(row)), column: Math.max(0, Math.floor(column)) };
 }
 
-function heatmapCellWidth(widget: Widget): number {
+function heatmapCellWidth(widget: RenderNode): number {
   return boundedInteger(numberProp(widget, 'cellWidth'), 1, 8, 3);
 }
 
-function heatmapGap(widget: Widget): number {
+function heatmapGap(widget: RenderNode): number {
   return boundedInteger(numberProp(widget, 'gap'), 0, 4, 1);
 }
 
@@ -941,7 +928,7 @@ function cleanLabel(value: unknown): string {
 }
 
 function heatmapMessageFactory<TMessage>(
-  widget: Widget<TMessage>
+  widget: RenderNode<TMessage>
 ): ((cell: HeatmapCell, row: number, column: number) => TMessage) | undefined {
   const toMessage = widget.props['toMessage'];
   return typeof toMessage === 'function'

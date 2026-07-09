@@ -7,7 +7,7 @@ const entrypoints = [
   ['theme', '../dist/theme/index.js'],
   ['prompts', '../dist/prompts/index.js'],
   ['tui', '../dist/tui/index.js'],
-  ['widgets', '../dist/widgets/index.js'],
+  ['components', '../dist/components/index.js'],
   ['accessibility', '../dist/accessibility/index.js'],
   ['transcript', '../dist/transcript/index.js'],
   ['testing', '../dist/testing/index.js'],

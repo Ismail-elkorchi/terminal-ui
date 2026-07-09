@@ -10,7 +10,7 @@ import {
   assertTerminalRestored,
   assertVisibleText
 } from './assertions.ts';
-import type { Frame } from '../tui/index.ts';
+import type { Frame } from '../renderer/index.ts';
 import type { InteractionResult, InteractionScript, TerminalHarness } from './types.ts';
 
 export { replayTranscript };

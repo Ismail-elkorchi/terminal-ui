@@ -5,7 +5,7 @@ import {
   notificationReducer,
   notificationsToActivityBlocks,
   visibleNotifications
-} from '../../dist/widgets/index.js';
+} from '../../dist/behavior/index.js';
 
 test('notificationReducer adds notifications, replaces ids, and bounds active items/history', () => {
   const empty = { items: [], history: [] };

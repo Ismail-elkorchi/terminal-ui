@@ -5,22 +5,24 @@ import {
   createTuiRuntime,
   defineTui,
   intervalSource,
-  renderFramePlain,
   runTui
 } from '@ismail-elkorchi/terminal-ui/tui';
+import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
+import {
+  grid,
+  row,
+  stack,
+  surface
+} from '@ismail-elkorchi/terminal-ui/layout';
 import {
   chart,
-  grid,
   helpBar,
   progressBar,
-  row,
   sparkline,
-  stack,
   statusBar,
-  surface,
   table,
   text
-} from '@ismail-elkorchi/terminal-ui/widgets';
+} from '@ismail-elkorchi/terminal-ui/components';
 
 const monitorScale = Object.freeze([
   { at: 0, token: 'scale.low', label: 'low' },
@@ -436,7 +438,7 @@ function processPanel(state) {
         { header: 'MemB', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ row }) => row.memory },
         { header: 'Cpu%', width: { kind: 'fixed', cells: 6 }, align: 'end', semantic: 'metric', render: ({ row }) => row.cpu.toFixed(1) }
       ],
-      keyMap: {
+      keys: {
         arrowDown: { kind: 'selectProcess', delta: 1 },
         arrowUp: { kind: 'selectProcess', delta: -1 },
         s: { kind: 'sort' }

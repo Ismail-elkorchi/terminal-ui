@@ -1,9 +1,11 @@
 import type { TerminalViewport } from '../host/index.ts';
+import type { RenderNode, RenderNodeFocusScope, RenderNodeKind } from '../render-node/index.ts';
+import type { Element } from '../components/element.ts';
+import { toRenderNode } from '../render-node/element.ts';
 import { defineTheme, isTerminalTheme } from '../theme/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
-import type { Widget, WidgetFocusScope, WidgetKind } from '../widgets/index.ts';
 import type { CursorPosition } from './cursor.ts';
-import { layoutChildBounds, widgetFocusScope, widgetFocusTargets } from './widget-behavior.ts';
+import { layoutChildBounds, focusScopeForRenderNode, focusTargetsForRenderNode } from './render-node-behavior.ts';
 
 export interface Rect {
   readonly row: number;
@@ -23,12 +25,12 @@ export interface Layer {
 
 export interface LayoutNode {
   readonly id?: string;
-  readonly kind: WidgetKind;
+  readonly kind: RenderNodeKind;
   readonly bounds: Rect;
   readonly layer: Layer;
   readonly visible: boolean;
   readonly focusable: boolean;
-  readonly focusScope?: WidgetFocusScope;
+  readonly focusScope?: RenderNodeFocusScope;
   readonly focusTargets: readonly LayoutFocusRegion[];
   readonly children: readonly LayoutNode[];
 }
@@ -42,8 +44,16 @@ export interface LayoutFocusRegion {
   readonly scopeId?: string;
 }
 
-export function layoutWidget(
-  widget: Widget,
+export function layoutElement(
+  element: Element,
+  viewport: TerminalViewport | Rect,
+  themeInput?: TerminalTheme | TerminalThemeDefinition
+): LayoutNode {
+  return layoutRenderNode(toRenderNode(element), viewport, themeInput);
+}
+
+export function layoutRenderNode(
+  widget: RenderNode,
   viewport: TerminalViewport | Rect,
   themeInput?: TerminalTheme | TerminalThemeDefinition
 ): LayoutNode {
@@ -54,10 +64,10 @@ export function layoutWidget(
   return layoutNode(widget, clampRect(bounds), theme, 0, 0);
 }
 
-function layoutNode(widget: Widget, bounds: Rect, theme: TerminalTheme, ordinal: number, parentZIndex: number): LayoutNode {
+function layoutNode(widget: RenderNode, bounds: Rect, theme: TerminalTheme, ordinal: number, parentZIndex: number): LayoutNode {
   const visible = widget.layer?.visible !== false;
-  const zIndex = parentZIndex + zIndexForWidget(widget);
-  const layer = { id: layerId(widget, bounds, ordinal), zIndex, bounds, opacity: opacityForWidget(widget) };
+  const zIndex = parentZIndex + zIndexForRenderNode(widget);
+  const layer = { id: layerId(widget, bounds, ordinal), zIndex, bounds, opacity: opacityForRenderNode(widget) };
   if (!visible) {
     return {
       ...(widget.id === undefined ? {} : { id: widget.id }),
@@ -71,7 +81,7 @@ function layoutNode(widget: Widget, bounds: Rect, theme: TerminalTheme, ordinal:
     };
   }
   const childBounds = boundsForChildren(widget, bounds, theme);
-  const focusTargets = widgetFocusTargets(widget, bounds, theme).map((target): LayoutFocusRegion => ({
+  const focusTargets = focusTargetsForRenderNode(widget, bounds, theme).map((target): LayoutFocusRegion => ({
     id: target.id,
     bounds: target.bounds,
     ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
@@ -79,7 +89,7 @@ function layoutNode(widget: Widget, bounds: Rect, theme: TerminalTheme, ordinal:
     ...(target.order === undefined ? {} : { order: target.order }),
     ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId })
   }));
-  const focusScope = widgetFocusScope(widget);
+  const focusScope = focusScopeForRenderNode(widget);
   return {
     ...(widget.id === undefined ? {} : { id: widget.id }),
     kind: widget.kind,
@@ -94,7 +104,7 @@ function layoutNode(widget: Widget, bounds: Rect, theme: TerminalTheme, ordinal:
   };
 }
 
-function boundsForChildren(widget: Widget, bounds: Rect, theme: TerminalTheme): readonly Rect[] {
+function boundsForChildren(widget: RenderNode, bounds: Rect, theme: TerminalTheme): readonly Rect[] {
   const children = widget.children ?? [];
   return children.length === 0 ? [] : layoutChildBounds(widget, bounds, theme);
 }
@@ -112,16 +122,16 @@ function clampRect(bounds: Rect): Rect {
   };
 }
 
-function zIndexForWidget(widget: Widget): number {
+function zIndexForRenderNode(widget: RenderNode): number {
   const zIndex = widget.layer?.zIndex;
   return zIndex === undefined || !Number.isFinite(zIndex) ? 0 : zIndex;
 }
 
-function opacityForWidget(widget: Widget): RegionOpacity {
+function opacityForRenderNode(widget: RenderNode): RegionOpacity {
   return widget.layer?.opacity ?? 'transparent';
 }
 
-function layerId(widget: Widget, bounds: Rect, ordinal: number): string {
+function layerId(widget: RenderNode, bounds: Rect, ordinal: number): string {
   return widget.id ?? `${widget.kind}:${String(bounds.row)}:${String(bounds.column)}:${String(ordinal)}`;
 }
 

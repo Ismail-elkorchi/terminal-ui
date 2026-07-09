@@ -1,17 +1,34 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { highContrastTheme, noColorTheme } from '../../dist/theme/index.js';
-import { blockSpan, renderFramePlain, renderWidgetFrame, renderWidgetRegions } from '../../dist/tui/index.js';
-import { absolute, button, canvas, overlay, stack, surface, text } from '../../dist/widgets/index.js';
+import {
+  highContrastTheme,
+  noColorTheme } from '../../dist/theme/index.js';
+import { blockSpan,
+  layoutElement,
+  renderFramePlain,
+  renderElementFrame,
+  renderElementRegions
+} from '../../dist/renderer/index.js';
+import {
+  absolute,
+  overlay,
+  stack,
+  surface
+} from '../../dist/layout/index.js';
+import {
+  button,
+  canvas,
+  text
+} from '../../dist/components/index.js';
 
-test('canvas writes styled spans through safe frame-buffer APIs', () => {
-  const frame = renderWidgetFrame(canvas({
+test('canvas writes styled spans through safe Canvas2D APIs', () => {
+  const frame = renderElementFrame(canvas({
     id: 'canvas',
     label: 'Game board',
-    painter({ buffer, bounds }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'A🙂B', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]);
-      buffer.write(bounds.row + 1, bounds.column + 2, [{ text: '\u001B[31msafe' }]);
+    painter({ canvas }) {
+      canvas.text(0, 0, [{ text: 'A🙂B', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]);
+      canvas.text(2, 1, [{ text: '\u001B[31msafe' }]);
     }
   }), { columns: 8, rows: 3 });
 
@@ -22,17 +39,17 @@ test('canvas writes styled spans through safe frame-buffer APIs', () => {
   assert.equal(frame.accessibility.root.label, 'Game board');
 });
 
-test('canvas painters receive Canvas2D helpers while keeping direct buffer access', () => {
-  const frame = renderWidgetFrame(canvas({
+test('canvas painters receive Canvas2D helpers without raw frame-buffer access', () => {
+  const frame = renderElementFrame(canvas({
     id: 'canvas2d',
     label: 'Canvas2D board',
-    painter({ buffer, bounds, canvas }) {
+    painter({ canvas }) {
       canvas.line(0, 0, 3, 0, { text: '-' });
       canvas.rect({ row: 0, column: 0, width: 4, height: 2 }, {
         stroke: blockSpan('full')
       });
       canvas.text(5, 0, [{ text: 'ok' }]);
-      buffer.write(bounds.row + 2, bounds.column, [{ text: 'raw ' }]);
+      canvas.text(0, 2, [{ text: 'raw ' }]);
     }
   }), { columns: 8, rows: 3 });
 
@@ -40,10 +57,10 @@ test('canvas painters receive Canvas2D helpers while keeping direct buffer acces
 });
 
 test('canvas painters can provide source metadata while focus stays widget-owned', () => {
-  const frame = renderWidgetFrame(canvas({
+  const frame = renderElementFrame(canvas({
     id: 'inspectable-canvas',
     label: 'Inspectable canvas',
-    keyMap: { enter: { kind: 'activate-canvas' } },
+    keys: { enter: { kind: 'activate-canvas' } },
     painter({ canvas }) {
       canvas.text(0, 0, [{
         text: 'node',
@@ -60,7 +77,7 @@ test('canvas painters can provide source metadata while focus stays widget-owned
 });
 
 test('Canvas2D draws curves polygons and transformed paths through the frame buffer', () => {
-  const frame = renderWidgetFrame(canvas({
+  const frame = renderElementFrame(canvas({
     id: 'canvas2d-shapes',
     painter({ canvas }) {
       canvas.circle({ x: 3, y: 2 }, 2, { stroke: { text: 'o' } });
@@ -89,13 +106,13 @@ test('Canvas2D draws curves polygons and transformed paths through the frame buf
 });
 
 test('surface absolute and overlay compose arbitrary positioned overlapping content', () => {
-  const frame = renderWidgetFrame(surface(
+  const frame = renderElementFrame(surface(
     overlay([
       canvas({
         id: 'base-canvas',
-        painter({ buffer, bounds }) {
-          buffer.write(bounds.row, bounds.column, [{ text: 'base-line' }]);
-          buffer.write(bounds.row + 1, bounds.column, [{ text: 'wide界tail' }]);
+        painter({ canvas }) {
+          canvas.text(0, 0, [{ text: 'base-line' }]);
+          canvas.text(0, 1, [{ text: 'wide界tail' }]);
         }
       }),
       absolute(text('TOP', { id: 'top-text' }), {
@@ -107,8 +124,8 @@ test('surface absolute and overlay compose arbitrary positioned overlapping cont
       }),
       absolute(canvas({
         id: 'mark-canvas',
-        painter({ buffer, bounds }) {
-          buffer.write(bounds.row, bounds.column, [{ text: '!' }]);
+        painter({ canvas }) {
+          canvas.text(0, 0, [{ text: '!' }]);
         }
       }), {
         id: 'absolute-mark',
@@ -133,7 +150,7 @@ test('surface absolute and overlay compose arbitrary positioned overlapping cont
 test('surface is a single-child visual wrapper, not a layout container', () => {
   assert.throws(
     () => surface([text('one'), text('two')]),
-    /surface\(\) accepts exactly one child widget/u
+    /surface\(\) expects exactly one non-surface child/u
   );
 
   const widget = surface(stack([
@@ -147,10 +164,10 @@ test('surface is a single-child visual wrapper, not a layout container', () => {
     padding: 1,
     gap: 5
   });
-  const frame = renderWidgetFrame(widget, { columns: 18, rows: 5 });
+  const frame = renderElementFrame(widget, { columns: 18, rows: 5 });
+  const layout = layoutElement(widget, { columns: 18, rows: 5 });
 
-  assert.equal(widget.children.length, 1);
-  assert.equal(Object.hasOwn(widget.props, 'gap'), false);
+  assert.equal(layout.children.length, 1);
   assert.equal(renderFramePlain(frame), '\n one\n\n two');
 });
 
@@ -162,7 +179,7 @@ test('surface variants draw semantic background border and shadow without owning
     border: { kind: 'dashed', title: 'Alert' },
     shadow: true
   });
-  const frame = renderWidgetFrame(widget, { columns: 14, rows: 4 });
+  const frame = renderElementFrame(widget, { columns: 14, rows: 4 });
   const output = renderFramePlain(frame);
   const backgroundCell = frame.cells.find((cell) => cell.source?.ownerKind === 'surface' && cell.source.role === 'decoration' && cell.style?.bg !== undefined);
   const borderCell = frame.cells.find((cell) => cell.source?.role === 'border');
@@ -176,7 +193,7 @@ test('surface variants draw semantic background border and shadow without owning
 });
 
 test('surface titles can preserve structured span style and source metadata', () => {
-  const frame = renderWidgetFrame(surface(text('body', { id: 'body' }), {
+  const frame = renderElementFrame(surface(text('body', { id: 'body' }), {
     id: 'metric-panel',
     title: [
       { text: 'cpu', style: { fg: { kind: 'theme', token: 'chart.label' } } },
@@ -197,7 +214,7 @@ test('surface titles can preserve structured span style and source metadata', ()
 });
 
 test('surface title rails render start center and end zones in the border line', () => {
-  const frame = renderWidgetFrame(surface(text('body', { id: 'rail-body' }), {
+  const frame = renderElementFrame(surface(text('body', { id: 'rail-body' }), {
     id: 'rail-surface',
     title: {
       start: [{ text: 'cpu', style: { fg: { kind: 'theme', token: 'surface.title' } } }],
@@ -218,15 +235,15 @@ test('surface title rails render start center and end zones in the border line',
 });
 
 test('surface variants reserve border content space while plain surfaces stay transparent', () => {
-  const neutral = renderWidgetFrame(surface(text('neutral', { id: 'neutral-inner' }), {
+  const neutral = renderElementFrame(surface(text('neutral', { id: 'neutral-inner' }), {
     id: 'neutral',
     variant: 'neutral'
   }), { columns: 10, rows: 2 });
-  const visualLayout = renderWidgetFrame(surface(text('inner', { id: 'inner' }), {
+  const visualLayout = renderElementFrame(surface(text('inner', { id: 'inner' }), {
     id: 'visual',
     variant: 'raised'
   }), { columns: 10, rows: 3 });
-  const transparent = renderWidgetFrame(surface(text('flush', { id: 'flush' }), {
+  const transparent = renderElementFrame(surface(text('flush', { id: 'flush' }), {
     id: 'plain'
   }), { columns: 10, rows: 3 });
 
@@ -236,19 +253,19 @@ test('surface variants reserve border content space while plain surfaces stay tr
 });
 
 test('surface labels disabled state and theme variants stay structural', () => {
-  const disabled = renderWidgetFrame(surface(text('locked', { id: 'locked-body' }), {
+  const disabled = renderElementFrame(surface(text('locked', { id: 'locked-body' }), {
     id: 'locked-surface',
     label: 'Locked',
     variant: 'raised',
     disabled: true,
-    keyMap: { enter: { kind: 'locked' } }
+    keys: { enter: { kind: 'locked' } }
   }), { columns: 14, rows: 3 }, { focusPath: ['locked-surface'] });
-  const highContrast = renderWidgetFrame(surface(text('selected', { id: 'selected-body' }), {
+  const highContrast = renderElementFrame(surface(text('selected', { id: 'selected-body' }), {
     id: 'selected-surface',
     label: 'Selected',
     variant: 'selected'
   }), { columns: 14, rows: 3 }, { theme: highContrastTheme });
-  const noColor = renderWidgetFrame(surface(text('plain', { id: 'plain-body' }), {
+  const noColor = renderElementFrame(surface(text('plain', { id: 'plain-body' }), {
     id: 'plain-surface',
     label: 'Plain',
     variant: 'raised'
@@ -273,14 +290,28 @@ test('surface labels disabled state and theme variants stay structural', () => {
 test('region projection keeps overlapping z-index content separate before compositing', () => {
   const widget = surface(
     overlay([
-      text('lower', { id: 'lower', zIndex: 0 }),
-      text('UPPER', { id: 'upper', zIndex: 10 })
+      text('lower', {
+    id: 'lower',
+    meta: {
+        layer: {
+            zIndex: 0
+        }
+    }
+}),
+      text('UPPER', {
+    id: 'upper',
+    meta: {
+        layer: {
+            zIndex: 10
+        }
+    }
+})
     ], { id: 'layer-overlay' }),
     { id: 'layer-surface' }
   );
 
-  const regions = renderWidgetRegions(widget, { columns: 8, rows: 2 });
-  const frame = renderWidgetFrame(widget, { columns: 8, rows: 2 });
+  const regions = renderElementRegions(widget, { columns: 8, rows: 2 });
+  const frame = renderElementFrame(widget, { columns: 8, rows: 2 });
 
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 10]);
   assert.equal(regions[0]?.cells.some((cell) => cell.text === 'l'), true);
@@ -294,13 +325,20 @@ test('region-local overlay buffers preserve clipped viewport coordinates and hit
     overlay([
       canvas({
         id: 'region-base',
-        painter({ buffer, bounds }) {
-          for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
-            buffer.write(row, bounds.column, [{ text: '..........' }]);
+        painter({ canvas, bounds }) {
+          for (let row = 0; row < bounds.height; row += 1) {
+            canvas.text(0, row, [{ text: '..........' }]);
           }
         }
       }),
-      absolute(button({ id: 'region-button', label: 'Launch', message: { kind: 'launch' }, zIndex: 10 }), {
+      absolute(button({
+    id: 'region-button', label: 'Launch', onPress: { kind: 'launch' },
+    meta: {
+        layer: {
+            zIndex: 10
+        }
+    }
+}), {
         id: 'region-absolute',
         row: 2,
         column: 7,
@@ -311,8 +349,8 @@ test('region-local overlay buffers preserve clipped viewport coordinates and hit
     { id: 'region-surface' }
   );
 
-  const regions = renderWidgetRegions(widget, { columns: 10, rows: 3 });
-  const frame = renderWidgetFrame(widget, { columns: 10, rows: 3 });
+  const regions = renderElementRegions(widget, { columns: 10, rows: 3 });
+  const frame = renderElementFrame(widget, { columns: 10, rows: 3 });
   const overlayRegion = regions.find((region) => region.zIndex === 10);
   const hitTarget = frame.hitTargets?.find((item) => item.id.startsWith('region-button'));
 
@@ -329,9 +367,5 @@ test('canvas rejects missing painters as programmer errors', () => {
   assert.throws(
     () => canvas({ id: 'bad-canvas-factory', painter: undefined }),
     /Canvas widgets must provide a painter function/u
-  );
-  assert.throws(
-    () => renderWidgetFrame({ id: 'bad-canvas', kind: 'canvas', props: {} }, { columns: 4, rows: 2 }),
-    /Canvas widgets must provide a painter/u
   );
 });

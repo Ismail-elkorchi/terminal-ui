@@ -2,14 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  createSessionProtocolPlan,
+  defaultSessionProtocolPolicy
+} from '../../dist/tui/index.js';
+import {
   createBunTerminalHost,
   resolveTerminalCapabilities,
   createDenoTerminalHost,
   createMemoryTerminalHost,
   restoreTerminalState
 } from '../../dist/host/index.js';
-import { createProtocolWriter, createRestorePlan } from '../../dist/protocol/index.js';
-import { applySessionProtocolPolicy, createSessionProtocolPlan, defaultSessionProtocolPolicy } from '../../dist/tui/index.js';
+import { createProtocolWriter,
+  createRestorePlan } from '../../dist/protocol/index.js';
+import { applySessionProtocolPolicy } from '../../dist/tui/index.js';
 
 test('memory host captures output and exposes capabilities', async () => {
   const host = createMemoryTerminalHost();

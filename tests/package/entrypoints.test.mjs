@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const packageJson = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
 
@@ -13,7 +15,10 @@ const entrypoints = [
   './theme',
   './prompts',
   './tui',
-  './widgets',
+  './components',
+  './layout',
+  './behavior',
+  './renderer',
   './accessibility',
   './transcript',
   './testing',
@@ -43,6 +48,10 @@ test('root exposes the primary vertical path', async () => {
   const terminalUi = await import('@ismail-elkorchi/terminal-ui');
   assert.equal(terminalUi.terminalUiPackage.schemaVersion, 'terminal-ui.v1');
   assert.deepEqual(terminalUi.terminalUiPackage.runtimeTargets, ['node', 'deno', 'bun', 'memory']);
+  assert.ok(terminalUi.terminalUiPackage.entrypoints.includes('components'));
+  assert.ok(terminalUi.terminalUiPackage.entrypoints.includes('layout'));
+  assert.ok(terminalUi.terminalUiPackage.entrypoints.includes('behavior'));
+  assert.ok(terminalUi.terminalUiPackage.entrypoints.includes('renderer'));
   assert.ok(terminalUi.terminalDiagnosticCodes.includes('INPUT_CANCELLED'));
   assert.ok(terminalUi.accessibleRoles.includes('application'));
   assert.ok(terminalUi.accessibleSources.includes('tui'));
@@ -65,110 +74,30 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.ensureContrast, 'function');
   assert.equal(typeof terminalUi.deriveSurface, 'function');
   assert.equal(typeof terminalUi.themePacks, 'object');
-  assert.equal(typeof terminalUi.commandBarReducer, 'function');
-  assert.equal(typeof terminalUi.dataWindow, 'function');
-  assert.equal(typeof terminalUi.rowWindow, 'function');
-  assert.equal(typeof terminalUi.scrollStateFromUnknown, 'function');
-  assert.equal(typeof terminalUi.paletteWindow, 'function');
-  assert.equal(typeof terminalUi.selectedPaletteEntry, 'function');
-  assert.equal(typeof terminalUi.placeTooltip, 'function');
-  assert.equal(typeof terminalUi.placeNotificationStack, 'function');
-  assert.equal(typeof terminalUi.filterPaletteEntries, 'function');
-  assert.equal(typeof terminalUi.screenStackReducer, 'function');
-  assert.equal(typeof terminalUi.activeScreen, 'function');
-  assert.equal(typeof terminalUi.splitTracks, 'function');
-  assert.equal(typeof terminalUi.gridCellRects, 'function');
-  assert.equal(typeof terminalUi.highlightRenderSpans, 'function');
-  assert.equal(typeof terminalUi.canvasTransform, 'function');
-  assert.equal(typeof terminalUi.transformCanvasPoint, 'function');
-  assert.equal(typeof terminalUi.drawLineSeries, 'function');
-  assert.equal(typeof terminalUi.drawAreaSeries, 'function');
-  assert.equal(typeof terminalUi.drawBarSeries, 'function');
-  assert.equal(typeof terminalUi.drawAxes, 'function');
-  assert.equal(typeof terminalUi.ellipseStrokePoints, 'function');
-  assert.equal(typeof terminalUi.polygonInteriorPoints, 'function');
-  assert.equal(typeof terminalUi.widgets.tableReducer, 'function');
-  assert.equal(typeof terminalUi.widgets.sortTableRows, 'function');
-  assert.equal(typeof terminalUi.widgets.treeReducer, 'function');
-  assert.equal(typeof terminalUi.widgets.treeStateReducer, 'function');
-  assert.equal(typeof terminalUi.widgets.treeNodeMatches, 'function');
-  assert.equal(typeof terminalUi.widgets.visibleTreeRows, 'function');
-  assert.equal(typeof terminalUi.widgets.selectableTreeRows, 'function');
-  assert.equal(typeof terminalUi.widgets.nextTreeRowId, 'function');
-  assert.equal(typeof terminalUi.widgets.treeDisclosureAction, 'function');
-  assert.equal(typeof terminalUi.widgets.treeNodeCanDisclose, 'function');
-  assert.equal(typeof terminalUi.widgets.paletteReducer, 'function');
-  assert.equal(typeof terminalUi.widgets.groupPaletteEntries, 'function');
-  assert.equal(typeof terminalUi.widgets.paletteStatus, 'function');
-  assert.equal(typeof terminalUi.widgets.hoverableReducer, 'function');
-  assert.equal(typeof terminalUi.widgets.hoverableActive, 'function');
-  assert.equal(typeof terminalUi.widgets.notificationReducer, 'function');
-  assert.equal(typeof terminalUi.widgets.visibleNotifications, 'function');
-  assert.equal(typeof terminalUi.widgets.notificationsToActivityBlocks, 'function');
-  assert.equal(typeof terminalUi.widgets.notificationStack, 'function');
-  assert.equal(typeof terminalUi.widgets.defineBreakpoints, 'function');
-  assert.equal(typeof terminalUi.widgets.responsive, 'function');
-  assert.equal(typeof terminalUi.widgets.viewportVariant, 'function');
-  assert.equal(typeof terminalUi.widgets.grid, 'function');
-  assert.equal(typeof terminalUi.widgets.gauge, 'function');
-  assert.equal(typeof terminalUi.widgets.heatmap, 'function');
-  assert.equal(typeof terminalUi.widgets.toggleSwitch, 'function');
-  assert.equal(typeof terminalUi.widgets.slider, 'function');
-  assert.equal(typeof terminalUi.widgets.rangeSlider, 'function');
-  assert.equal(typeof terminalUi.widgets.checkboxList, 'function');
-  assert.equal(typeof terminalUi.widgets.colorPicker, 'function');
-  assert.equal(typeof terminalUi.widgets.datePicker, 'function');
-  assert.equal(typeof terminalUi.widgets.scrollbackReducer, 'function');
-  assert.equal(typeof terminalUi.widgets.scrollbackSearchMarks, 'function');
-  assert.equal(typeof terminalUi.widgets.followTailScrollState, 'function');
-  assert.equal(typeof terminalUi.widgets.progressCompletionState, 'function');
-  assert.equal(typeof terminalUi.widgets.indeterminateProgressFrame, 'function');
-  assert.equal(typeof terminalUi.widgets.normalizeWidgetProcessStatus, 'function');
-  assert.equal(typeof terminalUi.widgets.optionalWidgetRecordStatus, 'function');
-  assert.equal(typeof terminalUi.widgets.normalizeNotificationTone, 'function');
-  assert.equal(typeof terminalUi.widgets.recordStatusFromTone, 'function');
-  assert.equal(typeof terminalUi.widgets.activityFeedReducer, 'function');
-  assert.equal(typeof terminalUi.widgets.visibleActivityFeedBlocks, 'function');
-  assert.equal(typeof terminalUi.widgets.copyActivityFeedVisibleText, 'function');
-  assert.equal(typeof terminalUi.layoutWidget, 'function');
-  assert.equal(typeof terminalUi.renderWidgetFrame, 'function');
-  assert.equal(typeof terminalUi.renderWidgetRegions, 'function');
-  assert.equal(typeof terminalUi.applyScrollEvent, 'function');
-  assert.equal(typeof terminalUi.scrollbarLayout, 'function');
-  assert.equal(typeof terminalUi.renderScrollbars, 'function');
-  assert.equal(typeof terminalUi.spinnerReducer, 'function');
-  assert.equal(typeof terminalUi.nextSpinnerFrameIndex, 'function');
-  assert.equal(typeof terminalUi.normalizeSpinnerFrameIndex, 'function');
-  assert.equal(typeof terminalUi.drawBorder, 'function');
-  assert.equal(typeof terminalUi.clipRenderSpans, 'function');
-  assert.equal(typeof terminalUi.clipRenderLine, 'function');
-  assert.equal(typeof terminalUi.wrapRenderSpans, 'function');
-  assert.equal(typeof terminalUi.compactRenderSpans, 'function');
-  assert.equal(typeof terminalUi.padRenderLine, 'function');
-  assert.equal(typeof terminalUi.alignRenderLine, 'function');
-  assert.equal(typeof terminalUi.measureRenderSpans, 'function');
-  assert.equal(typeof terminalUi.measureRenderLine, 'function');
-  assert.equal(typeof terminalUi.measureRenderBlock, 'function');
-  assert.equal(typeof terminalUi.frameCellSource, 'function');
-  assert.equal(typeof terminalUi.widgetFrameSource, 'function');
-  assert.equal(typeof terminalUi.sanitizeFrameCellSource, 'function');
-  assert.equal(typeof terminalUi.sameFrameCellSource, 'function');
-  assert.equal(typeof terminalUi.measurement, 'function');
-  assert.equal(typeof terminalUi.normalizeMeasurement, 'function');
-  assert.equal(typeof terminalUi.clampMeasurement, 'function');
-  assert.equal(typeof terminalUi.zeroMeasurement, 'function');
-  assert.equal(typeof terminalUi.measureText, 'function');
-  assert.equal(typeof terminalUi.measureSpans, 'function');
-  assert.equal(typeof terminalUi.measureLine, 'function');
-  assert.equal(typeof terminalUi.measureBlock, 'function');
-  assert.equal(typeof terminalUi.combineMeasurementsVertically, 'function');
-  assert.equal(typeof terminalUi.combineMeasurementsHorizontally, 'function');
-  assert.equal(typeof terminalUi.combineMeasurementsOverlay, 'function');
-  assert.equal(typeof terminalUi.diffFrames, 'function');
-  assert.equal(typeof terminalUi.renderDiffAnsi, 'function');
-  assert.equal(typeof terminalUi.renderFrameAnsi, 'function');
-  assert.equal(typeof terminalUi.renderFrameDebug, 'function');
-  assert.equal(typeof terminalUi.renderFramePlain, 'function');
+  assert.equal(typeof terminalUi.components.notificationStack, 'function');
+  assert.equal(typeof terminalUi.components.gauge, 'function');
+  assert.equal(typeof terminalUi.components.heatmap, 'function');
+  assert.equal(typeof terminalUi.components.toggleSwitch, 'function');
+  assert.equal(typeof terminalUi.components.slider, 'function');
+  assert.equal(typeof terminalUi.components.rangeSlider, 'function');
+  assert.equal(typeof terminalUi.components.checkboxList, 'function');
+  assert.equal(typeof terminalUi.components.colorPicker, 'function');
+  assert.equal(typeof terminalUi.components.datePicker, 'function');
+  assert.equal(typeof terminalUi.components.normalizeProcessStatus, 'function');
+  assert.equal(typeof terminalUi.components.optionalRecordStatus, 'function');
+  assert.equal(typeof terminalUi.components.normalizeNotificationTone, 'function');
+  assert.equal(typeof terminalUi.components.recordStatusFromTone, 'function');
+
+  assert.equal(typeof terminalUi.layout.grid, 'function');
+  assert.equal(typeof terminalUi.layout.responsive, 'function');
+  assert.equal('splitTracks' in terminalUi.layout, false);
+  assert.equal(typeof terminalUi.behavior.commandBarReducer, 'function');
+  assert.equal(typeof terminalUi.behavior.paletteReducer, 'function');
+  assert.equal(typeof terminalUi.behavior.screenStackReducer, 'function');
+  assert.equal(typeof terminalUi.renderer.renderElementFrame, 'function');
+  assert.equal(typeof terminalUi.renderer.renderFramePlain, 'function');
+  assert.equal(typeof terminalUi.renderer.drawAreaSeries, 'function');
+  assert.equal(typeof terminalUi.renderer.splitTracks, 'function');
   assert.equal(typeof terminalUi.createPtyTerminalHarness, 'function');
   assert.equal(typeof terminalUi.createTerminalHarness, 'function');
   assert.equal(typeof terminalUi.createVisualSnapshot, 'function');
@@ -179,6 +108,15 @@ test('root exposes the primary vertical path', async () => {
   assert.equal(typeof terminalUi.findAccessibleNode, 'function');
   assert.equal(typeof terminalUi.validateAccessibleSnapshot, 'function');
   assert.equal(typeof terminalUi.validateTranscript, 'function');
+
+  assert.equal('commandBarReducer' in terminalUi, false);
+  assert.equal('renderElementFrame' in terminalUi, false);
+  assert.equal('layoutElement' in terminalUi, false);
+  assert.equal('tableReducer' in terminalUi.components, false);
+  assert.equal('grid' in terminalUi.components, false);
+  assert.equal('custom' in terminalUi.components, false);
+  assert.equal('renderElementFrame' in terminalUi.tui, false);
+  assert.equal('layoutElement' in terminalUi.tui, false);
 });
 
 test('transcript entrypoint exposes replay against a structural harness target', async () => {
@@ -210,247 +148,195 @@ test('testing harness declaration exposes captured output', async () => {
 
 test('root declaration exposes primary public type contracts', async () => {
   const declaration = await readFile(new URL('../../dist/index.d.ts', import.meta.url), 'utf8');
-  const rendererDeclaration = await readFile(new URL('../../dist/tui/widget-renderer.d.ts', import.meta.url), 'utf8');
+  const componentsDeclaration = await readFile(new URL('../../dist/components/index.d.ts', import.meta.url), 'utf8');
+  const componentContractsDeclaration = await readFile(new URL('../../dist/components/contracts.d.ts', import.meta.url), 'utf8');
+  const componentElementDeclaration = await readFile(new URL('../../dist/components/element.d.ts', import.meta.url), 'utf8');
+  const componentTypesDeclaration = await readFile(new URL('../../dist/components/types.d.ts', import.meta.url), 'utf8');
+  const layoutDeclaration = await readFile(new URL('../../dist/layout/index.d.ts', import.meta.url), 'utf8');
+  const behaviorDeclaration = await readFile(new URL('../../dist/behavior/index.d.ts', import.meta.url), 'utf8');
+  const rendererDeclaration = await readFile(new URL('../../dist/renderer/index.d.ts', import.meta.url), 'utf8');
+  const tuiDeclaration = await readFile(new URL('../../dist/tui/index.d.ts', import.meta.url), 'utf8');
+  const tuiTypesDeclaration = await readFile(new URL('../../dist/tui/types.d.ts', import.meta.url), 'utf8');
+  const renderNodeRendererDeclaration = await readFile(new URL('../../dist/tui/render-node-renderer.d.ts', import.meta.url), 'utf8');
   const borderDeclaration = await readFile(new URL('../../dist/tui/border.d.ts', import.meta.url), 'utf8');
-  const publicTypes = [
+
+  for (const typeName of [
     'InputEvent',
     'KeyEvent',
     'TextEditBuffer',
-    'TextEditHistory',
-    'TextEditHistoryOperation',
-    'TextEditOperation',
-    'TextHighlightMatch',
-    'TextHighlightOptions',
-    'ExtractTextSelectionInput',
-    'TuiKeyBinding',
-    'TuiKeyBindingContext',
-    'TuiKeyBindingPhase',
-    'TuiNonTtyPolicy',
-    'PaginationWindow',
-    'TreeDisclosureAction',
-    'TreeAction',
-    'TreeState',
-    'TreeStateAction',
-    'TreeVisibleRow',
-    'TreeVisibleRowsOptions',
-    'SpinnerAction',
-    'SpinnerReducerOptions',
-    'SpinnerState',
-    'TableColumn',
     'TerminalTheme',
-    'TerminalThemeDefinition',
     'TerminalDesignTokens',
-    'TerminalDesignTokenDefinition',
-    'ThemeColorToken',
-    'ThemeColorTokens',
-    'ThemeColor',
-    'TerminalSpacingTokens',
-    'TerminalSymbols',
-    'BorderGlyphSet',
-    'BorderKind',
-    'BorderStyle',
-    'Layer',
-    'LayoutAlignment',
-    'LayoutSize',
-    'LayoutJustification',
-    'LayoutOverflow',
-    'LayoutFlowOptions',
-    'GridLayoutOptions',
-    'Widget',
-    'WidgetKind',
-    'WidgetActionItem',
-    'WidgetActionTone',
-    'WidgetChoiceItem',
-    'WidgetFieldItem',
-    'WidgetHierarchyItem',
-    'WidgetItemBase',
-    'WidgetKeyBinding',
-    'WidgetNavigationItem',
-    'WidgetProcessStatus',
-    'WidgetRecordStatus',
-    'WidgetSearchEntry',
-    'WidgetStatus',
-    'WidgetStyleSlots',
-    'WidgetSuggestionItem',
-    'WidgetTitledItem',
-    'WidgetTone',
-    'WidgetTreeItem',
-    'WidgetValidationTone',
-    'WidgetVisualState',
-    'DataWindow',
-    'DataWindowInput',
-    'CommandBarDisplay',
-    'CommandBarWidgetOptions',
-    'CommandBarValidation',
-    'GridAreasWidgetOptions',
-    'PaletteAction',
-    'PaletteState',
-    'PaletteAsyncState',
-    'PaletteFilterResult',
-    'PaletteSelectionInput',
-    'PaletteWindowInput',
-    'PaletteWidgetOptions',
-    'FormWidgetOptions',
-    'FieldWidgetOptions',
-    'GaugeVariant',
-    'GaugeWidgetOptions',
-    'LabelWidgetOptions',
-    'ButtonWidgetOptions',
-    'CheckboxWidgetOptions',
-    'RadioGroupWidgetOptions',
-    'SelectBoxWidgetOptions',
-    'TextInputWidgetOptions',
-    'NumberInputWidgetOptions',
-    'MenuItem',
-    'MenuWidgetOptions',
-    'MenuBarWidgetOptions',
-    'ContextMenuWidgetOptions',
-    'DropdownWidgetOptions',
-    'DividerLineKind',
-    'DividerOrientation',
-    'DividerWidgetOptions',
-    'TooltipPlacement',
-    'TooltipTone',
-    'TooltipWidgetOptions',
-    'TooltipPlacementInput',
-    'TooltipSize',
-    'NotificationAction',
-    'NotificationItem',
-    'NotificationPlacement',
-    'NotificationReducerOptions',
-    'NotificationStackPlacementInput',
-    'NotificationStackSize',
-    'NotificationStackWidgetOptions',
-    'NotificationState',
-    'NotificationTone',
-    'BreakpointRange',
-    'ResponsiveBreakpointMap',
-    'ResponsiveVariants',
-    'ViewportDimensions',
-    'HoverableAction',
-    'HoverableState',
-    'CanvasPainter',
-    'CanvasPainterInput',
-    'Canvas2D',
-    'CanvasTransform',
-    'CanvasTransformInput',
-    'ChartScale',
-    'ChartPoint',
-    'ChartPointEvent',
-    'ChartPointSelection',
-    'ChartInterpolation',
-    'ChartSampleAlign',
-    'ChartSampleMode',
-    'ChartAxesOptions',
-    'AreaSeriesOptions',
-    'ChartSeriesKind',
-    'StrokeFillOptions',
-    'CanvasPoint',
-    'BlockGlyph',
-    'BrailleCellPoint',
-    'AxisLine',
-    'TooltipLine',
-    'SurfaceVariant',
-    'SurfaceVisualState',
-    'CanvasWidgetOptions',
-    'SurfaceWidgetOptions',
-    'AbsoluteWidgetOptions',
-    'OverlayWidgetOptions',
-    'RichTextWidgetOptions',
-    'ScrollbackAction',
-    'ScrollbackSearchMark',
-    'ScrollbackState',
-    'GridWidgetOptions',
-    'SplitPaneWidgetOptions',
-    'TabsWidgetOptions',
-    'ModalWidgetOptions',
-    'TableCellRenderInput',
-    'TablePointerSelection',
-    'TableCellPointerSelection',
-    'TableAction',
-    'TableColumnAlignment',
-    'TableColumnSemantic',
-    'TableColumnWidth',
-    'TableDensity',
-    'TableReducerOptions',
-    'TableSortState',
-    'TableState',
-    'TableSortDirection',
-    'CustomWidgetOptions',
-    'WidgetLayerOptions',
-    'RegionOpacity',
-    'WidgetFocusOptions',
-    'WidgetFocusScope',
-    'WidgetRenderer',
-    'WidgetRenderInput',
-    'WidgetAccessibilityInput',
-    'FocusTarget',
-    'HitTarget',
-    'FrameHitTarget',
-    'FrameBufferSnapshot',
-    'FrameBufferSnapshotMetadata',
-    'FrameBufferSnapshotOptions',
-    'FrameRowFingerprint',
-    'FrameCellSource',
-    'HighlightRenderSpan',
-    'HighlightRenderSpansOptions',
-    'ClipRenderSpansOptions',
-    'RenderAlignment',
-    'RenderClipMode',
-    'RenderBlockSize',
-    'PadRenderLineOptions',
-    'RenderRegion',
-    'RenderRegionHitTarget',
-    'DirtyRegionSet',
-    'DiffFramesOptions',
-    'TextAreaWidgetOptions',
-    'TextAreaHighlight',
-    'TextAreaWrapOptions',
-    'TreeWidgetOptions',
-    'PaginatorWidgetOptions',
-    'ProgressCompletionState',
-    'ProgressBarLabelPosition',
-    'ProgressBarDisplay',
-    'ValueScale',
-    'ValueScaleStop',
-    'HelpBarWidgetOptions',
-    'ActivityIndicatorWidgetOptions',
-    'SparklineWidgetOptions',
-    'BarChartWidgetOptions',
-    'ChartWidgetOptions',
-    'HeatmapCell',
-    'HeatmapSelection',
-    'HeatmapWidgetOptions',
-    'ScreenStack',
-    'PromptChoice',
-    'NonTtyPromptPolicy',
-    'TuiContext',
-    'TuiInit',
-    'TuiUpdateResult',
-    'AccessibilityOptions',
-    'AccessibleValue',
-    'InteractionResult',
-    'TranscriptReplayTarget',
-    'InteractionScript',
-    'VisibleTextAssertion',
-    'SelectedAssertion',
-    'HitTargetAssertion',
-    'VisualSnapshotArtifacts',
-    'VisualSnapshotInput',
-    'Measurement',
-    'MeasurementInput'
-  ];
-
-  for (const typeName of publicTypes) {
+    'TuiDefinition',
+    'Element',
+    'ButtonOptions',
+    'CommandBarOptions',
+    'GridOptions',
+    'VisualSnapshotInput'
+  ]) {
     assert.match(declaration, new RegExp(`\\b${typeName}\\b`, 'u'), typeName);
   }
-  assert.match(rendererDeclaration, /export interface FocusTarget \{/u);
-  assert.match(rendererDeclaration, /readonly id: string;/u);
-  assert.doesNotMatch(rendererDeclaration, /readonly id\?: string;/u);
-  assert.match(rendererDeclaration, /readonly scopeId\?: string;/u);
-  assert.match(rendererDeclaration, /readonly focused: boolean;/u);
+
+  for (const typeName of [
+    'Element',
+    'ElementChildren'
+  ]) {
+    assert.match(componentElementDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
+  }
+  for (const typeName of [
+    'ActionItem',
+    'ChoiceItem',
+    'ComponentStatus',
+    'ComponentTone'
+  ]) {
+    assert.match(componentContractsDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
+  }
+  for (const typeName of [
+    'ComponentMeta',
+    'ComponentOptions',
+    'ButtonOptions',
+    'CommandBarOptions',
+    'MenuItem',
+    'TableColumn',
+    'TreeNode'
+  ]) {
+    assert.match(componentTypesDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
+  }
+  assert.doesNotMatch(componentTypesDeclaration, /\bTableAction\b/u);
+  assert.doesNotMatch(componentTypesDeclaration, /\bFrameBuffer\b/u);
+  for (const authoredDeclaration of [
+    declaration,
+    componentsDeclaration,
+    componentContractsDeclaration,
+    componentTypesDeclaration,
+    layoutDeclaration,
+    behaviorDeclaration
+  ]) {
+    assert.doesNotMatch(
+      authoredDeclaration,
+      /\b(?:[A-Za-z][A-Za-z0-9]*WidgetOptions|Widget(?:Tone|Status|Item|Role|State|Scope|Event|Renderer))\b/u
+    );
+  }
+
+  for (const typeName of [
+    'LayoutSize',
+    'LayoutFlowOptions',
+    'GridLayoutOptions',
+    'GridOptions',
+    'ResponsiveBreakpointMap',
+    'ViewportDimensions'
+  ]) {
+    assert.match(layoutDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `layout:${typeName}`);
+  }
+  assert.doesNotMatch(layoutDeclaration, /\bScreenStack\b/u);
+  assert.doesNotMatch(layoutDeclaration, /\b(?:Layer|LayoutNode|Rect|RegionOpacity)\b/u);
+  assert.doesNotMatch(layoutDeclaration, /\b(?:gridCellRects|splitTracks)\b/u);
+
+  for (const typeName of [
+    'CommandBarAction',
+    'CommandBarState',
+    'NotificationAction',
+    'PaletteAction',
+    'ScreenStack',
+    'ScrollAction',
+    'SpinnerAction',
+    'TableAction',
+    'TreeAction'
+  ]) {
+    assert.match(behaviorDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `behavior:${typeName}`);
+  }
+
+  for (const typeName of [
+    'Frame',
+    'FrameBuffer',
+    'FrameCellSource',
+    'Measurement',
+    'LayoutNode',
+    'Rect',
+    'RenderDiff',
+    'RenderSpan',
+    'RenderNodeRenderer',
+    'RenderNode'
+  ]) {
+    assert.match(rendererDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `renderer:${typeName}`);
+  }
+  assert.doesNotMatch(rendererDeclaration, /\bscrollbackWindow\b/u);
+
+  for (const typeName of [
+    'TuiContext',
+    'TuiInit',
+    'TuiKeyBinding',
+    'TuiRuntime',
+    'TuiUpdateResult'
+  ]) {
+    assert.match(tuiTypesDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `tui:${typeName}`);
+  }
+  assert.doesNotMatch(tuiDeclaration, /\bFrameBuffer\b/u);
+  assert.doesNotMatch(tuiDeclaration, /\bWidgetRenderer\b/u);
+
+  assert.doesNotMatch(componentElementDeclaration, /\bRenderNode\b/u);
+  assert.doesNotMatch(componentElementDeclaration, /\b(?:elementFromRenderNode|toRenderNode|toRenderNodes)\b/u);
+  assert.doesNotMatch(componentElementDeclaration, /readonly \[key: string\]: unknown;/u);
+
+  assert.match(renderNodeRendererDeclaration, /export interface FocusTarget \{/u);
+  assert.match(renderNodeRendererDeclaration, /readonly id: string;/u);
+  assert.doesNotMatch(renderNodeRendererDeclaration, /readonly id\?: string;/u);
+  assert.match(renderNodeRendererDeclaration, /readonly scopeId\?: string;/u);
+  assert.match(renderNodeRendererDeclaration, /readonly focused: boolean;/u);
   assert.match(borderDeclaration, /readonly titleAlign\?: 'start' \| 'center' \| 'end';/u);
   assert.match(borderDeclaration, /readonly focusStyle\?: TerminalStyle;/u);
+});
+
+test('public renderer helpers accept authored component elements', () => {
+  assertNoTypeDiagnostics(`
+    import { text } from '@ismail-elkorchi/terminal-ui/components';
+    import { stack } from '@ismail-elkorchi/terminal-ui/layout';
+    import { layoutElement, renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
+
+    const element = stack([text('x', { id: 'x' })], { id: 'root' });
+    const frame = renderElementFrame(element, { columns: 10, rows: 3 });
+    const layout = layoutElement(element, { columns: 10, rows: 3 });
+
+    void frame;
+    void layout;
+  `);
+});
+
+test('public authored Element rejects arbitrary objects', () => {
+  assertNoTypeDiagnostics(`
+    import type { Element } from '@ismail-elkorchi/terminal-ui/components';
+    import { renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
+
+    // @ts-expect-error plain objects are not authored terminal-ui elements
+    const invalidElement: Element = {};
+
+    // @ts-expect-error renderer helpers require authored terminal-ui elements
+    renderElementFrame({}, { columns: 10, rows: 3 });
+
+    void invalidElement;
+  `);
+});
+
+test('renderer and layout boundaries reject unauthored JavaScript objects', async () => {
+  const { text } = await import('@ismail-elkorchi/terminal-ui/components');
+  const { stack } = await import('@ismail-elkorchi/terminal-ui/layout');
+  const { renderElementFrame, renderFramePlain } = await import('@ismail-elkorchi/terminal-ui/renderer');
+  const invalid = { kind: 'text', props: { content: 'not authored' } };
+  const element = text('authored');
+
+  assert.equal(Object.isFrozen(element), true);
+  assert.deepEqual(Reflect.ownKeys(element), []);
+  assert.equal('kind' in element, false);
+  assert.equal('props' in element, false);
+  assert.equal(renderFramePlain(renderElementFrame(element, { columns: 10, rows: 3 })), 'authored');
+
+  assert.throws(
+    () => renderElementFrame(invalid, { columns: 10, rows: 3 }),
+    /Expected an Element created by a terminal-ui component or layout factory/u
+  );
+  assert.throws(
+    () => stack([invalid]),
+    /Expected an Element created by a terminal-ui component or layout factory/u
+  );
 });
 
 function declaredValueExports(declaration) {
@@ -467,6 +353,50 @@ function declaredValueExports(declaration) {
     if (match.groups?.name !== undefined) names.add(match.groups.name);
   }
   return [...names].sort((left, right) => left.localeCompare(right));
+}
+
+function assertNoTypeDiagnostics(source) {
+  const diagnostics = typecheckVirtualSource(source);
+  assert.deepEqual(
+    diagnostics.map((diagnostic) => formatDiagnostic(diagnostic)),
+    []
+  );
+}
+
+function typecheckVirtualSource(source) {
+  const fileName = fileURLToPath(new URL('__terminal_ui_public_typecheck__.ts', import.meta.url));
+  const options = {
+    target: ts.ScriptTarget.ES2024,
+    module: ts.ModuleKind.NodeNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeNext,
+    strict: true,
+    exactOptionalPropertyTypes: true,
+    noUncheckedIndexedAccess: true,
+    noEmit: true,
+    skipLibCheck: true,
+    types: ['node']
+  };
+  const host = ts.createCompilerHost(options);
+  const getSourceFile = host.getSourceFile.bind(host);
+  const fileExists = host.fileExists.bind(host);
+  const readFile = host.readFile.bind(host);
+
+  host.getSourceFile = (name, languageVersion, onError, shouldCreateNewSourceFile) =>
+    name === fileName
+      ? ts.createSourceFile(name, source, languageVersion, true)
+      : getSourceFile(name, languageVersion, onError, shouldCreateNewSourceFile);
+  host.fileExists = (name) => name === fileName || fileExists(name);
+  host.readFile = (name) => (name === fileName ? source : readFile(name));
+
+  const program = ts.createProgram([fileName], options, host);
+  return ts.getPreEmitDiagnostics(program);
+}
+
+function formatDiagnostic(diagnostic) {
+  const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
+  if (diagnostic.file === undefined || diagnostic.start === undefined) return message;
+  const position = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start);
+  return `${diagnostic.file.fileName}:${String(position.line + 1)}:${String(position.character + 1)} ${message}`;
 }
 
 function exportedNames(source) {

@@ -1,6 +1,6 @@
 import { resolveTerminalCapabilities } from '../host/index.ts';
-import { diffFrames, projectTuiOutput } from '../tui/index.ts';
-import type { Frame, FrameHitTarget, RenderDiff, RenderSerializeOptions } from '../tui/index.ts';
+import { diffFrames, projectTuiOutput } from '../renderer/index.ts';
+import type { Frame, FrameHitTarget, RenderDiff, RenderSerializeOptions } from '../renderer/index.ts';
 
 export interface VisualSnapshotInput {
   readonly frame: Frame;

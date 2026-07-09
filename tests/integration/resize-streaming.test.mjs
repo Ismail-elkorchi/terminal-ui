@@ -1,9 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import {
+  defineTui,
+  runTui
+} from '../../dist/tui/index.js';
 import { createPtyTerminalHarness } from '../../dist/testing/index.js';
-import { defineTui, runTui } from '../../dist/tui/index.js';
-import { scrollback, stack, statusBar } from '../../dist/widgets/index.js';
+import {
+  scrollback,
+  statusBar
+} from '../../dist/components/index.js';
+import { stack } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
 const enterKey = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
@@ -38,7 +45,7 @@ test('PTY harness handles resize while async stream messages are rendering', asy
       statusBar({
         id: 'status',
         text: `cols:${context.viewport.columns} items:${state.items.length}`,
-        message: { type: 'exit' }
+        onPress: { type: 'exit' }
       })
     ], { id: 'root' })
   });

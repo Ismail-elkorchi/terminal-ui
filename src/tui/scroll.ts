@@ -22,8 +22,8 @@ export type ScrollAction =
   | { readonly kind: 'itemIntoView'; readonly index: number }
   | { readonly kind: 'setFollowTail'; readonly followTail: boolean };
 
-export type WidgetScrollEventSource = 'wheel' | 'pointerDown' | 'dragStart' | 'drag';
-export type WidgetScrollEventTarget =
+export type ScrollEventSource = 'wheel' | 'pointerDown' | 'dragStart' | 'drag';
+export type ScrollEventTarget =
   | 'content'
   | 'verticalScrollbarTrack'
   | 'verticalScrollbarThumb'
@@ -41,11 +41,11 @@ export interface ScrollPolicy {
   readonly wheel?: ScrollWheelPolicy;
 }
 
-export interface WidgetScrollEvent {
+export interface ScrollEvent {
   readonly action: ScrollAction;
   readonly scroll: ScrollState;
-  readonly source: WidgetScrollEventSource;
-  readonly target: WidgetScrollEventTarget;
+  readonly source: ScrollEventSource;
+  readonly target: ScrollEventTarget;
   readonly pointer: RoutedPointerEvent;
 }
 
@@ -136,7 +136,7 @@ export function scrollReducer(state: ScrollState, action: ScrollAction): ScrollS
   }
 }
 
-export function applyScrollEvent(state: ScrollState, event: WidgetScrollEvent): ScrollState {
+export function applyScrollEvent(state: ScrollState, event: ScrollEvent): ScrollState {
   const reconciled = normalizeScrollState({
     ...state,
     contentRows: event.scroll.contentRows,

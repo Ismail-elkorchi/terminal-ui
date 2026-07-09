@@ -2,36 +2,40 @@ import process from 'node:process';
 
 import { createMemoryTerminalHost, createTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import {
-  commandBarReducer,
   createTuiRuntime,
   defineTui,
-  renderFramePlain,
   runTui
 } from '@ismail-elkorchi/terminal-ui/tui';
 import {
-  activityIndicator,
-  button,
-  commandBar,
-  grid,
-  helpBar,
-  notificationStack,
-  overlay,
-  palette,
-  progressBar,
-  stack,
-  statusBar,
-  structuredBlock,
-  surface,
-  table,
-  tabs,
-  text,
-  tree,
-  viewport,
+  commandBarReducer,
   paletteReducer,
   selectedPaletteEntry,
   tableReducer,
   treeStateReducer
-} from '@ismail-elkorchi/terminal-ui/widgets';
+} from '@ismail-elkorchi/terminal-ui/behavior';
+import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
+import {
+  grid,
+  overlay,
+  stack,
+  surface,
+  tabs,
+  viewport
+} from '@ismail-elkorchi/terminal-ui/layout';
+import {
+  activityIndicator,
+  button,
+  commandBar,
+  helpBar,
+  notificationStack,
+  palette,
+  progressBar,
+  statusBar,
+  structuredBlock,
+  table,
+  text,
+  tree
+} from '@ismail-elkorchi/terminal-ui/components';
 
 const tickets = Object.freeze([
   { id: 'T-101', queue: 'triage', title: 'Resize flicker in split pane', owner: 'Mina', severity: 'high', state: 'running' },
@@ -273,8 +277,8 @@ function navigationSurface(state) {
       id: 'workspace-tree',
       nodes: navigationNodes(),
       selected: state.tree.selected,
-      toMessage: (node) => ({ kind: 'selectNode', id: node.id, source: 'pointer' }),
-      keyMap: {
+      onSelect: (node) => ({ kind: 'selectNode', id: node.id, source: 'pointer' }),
+      keys: {
         arrowDown: { kind: 'selectNode', id: nextNodeId(state.tree.selected), source: 'keyboard' },
         arrowUp: { kind: 'selectNode', id: previousNodeId(state.tree.selected), source: 'keyboard' }
       },
@@ -304,11 +308,11 @@ function mainSurface(state) {
     id: 'workspace-tabs',
     selected: state.tab,
     tabs: [
-      { id: 'issues', label: 'Issues', description: 'Ticket table', message: { kind: 'setTab', tab: 'issues' }, panel: issueTablePanel(state) },
-      { id: 'activity', label: 'Activity', description: 'Scrollable log', message: { kind: 'setTab', tab: 'activity' }, panel: activityPanel(state) },
-      { id: 'notes', label: 'Notes', description: 'Command guide', message: { kind: 'setTab', tab: 'notes' }, panel: notesPanel(state) }
+      { id: 'issues', label: 'Issues', description: 'Ticket table', onSelect: { kind: 'setTab', tab: 'issues' }, panel: issueTablePanel(state) },
+      { id: 'activity', label: 'Activity', description: 'Scrollable log', onSelect: { kind: 'setTab', tab: 'activity' }, panel: activityPanel(state) },
+      { id: 'notes', label: 'Notes', description: 'Command guide', onSelect: { kind: 'setTab', tab: 'notes' }, panel: notesPanel(state) }
     ],
-    keyMap: {
+    keys: {
       arrowLeft: { kind: 'setTab', tab: previousTab(state.tab) },
       arrowRight: { kind: 'setTab', tab: nextTab(state.tab) }
     }
@@ -325,7 +329,7 @@ function issueTablePanel(state) {
       selected,
       stickyHeader: true,
       scrollbar: { visible: 'auto' },
-      toMessage: ({ rowIndex }) => ({ kind: 'selectTableRow', row: rowIndex, source: 'pointer' }),
+      onSelect: ({ rowIndex }) => ({ kind: 'selectTableRow', row: rowIndex, source: 'pointer' }),
       columns: [
         { header: 'ID', width: { kind: 'fixed', cells: 7 } },
         { header: 'Title', width: { kind: 'fill' } },
@@ -333,7 +337,7 @@ function issueTablePanel(state) {
         { header: 'Severity', width: { kind: 'fixed', cells: 10 } },
         { header: 'State', width: { kind: 'fixed', cells: 10 } }
       ],
-      keyMap: {
+      keys: {
         arrowDown: { kind: 'table', action: { kind: 'selectRow', row: selected + 1 } },
         arrowUp: { kind: 'table', action: { kind: 'selectRow', row: selected - 1 } },
         enter: { kind: 'submitCommand' }
@@ -420,7 +424,7 @@ function inspectorSurface(state) {
       id: 'resolve-button',
       label: 'Resolve selected',
       tone: 'primary',
-      message: { kind: 'paletteAccept', command: '/resolve', source: 'button' }
+      onPress: { kind: 'paletteAccept', command: '/resolve', source: 'button' }
     })
   ], { id: 'workspace-inspector-body', gap: 1 }), {
     id: 'workspace-inspector',
@@ -443,10 +447,8 @@ function commandSurface(state) {
     completionPreview: expanded ? completionPreview(state.command.input.text) : undefined,
     footer: expanded ? 'Enter run | arrows suggestions | Esc clear | Tab focus | Ctrl+C/Ctrl+Q exit' : undefined,
     display: expanded ? 'expanded' : 'compact',
-    inputMap: {
-      text: (value) => ({ kind: 'commandEdit', action: { kind: 'insert', text: value } })
-    },
-    keyMap: {
+    onInput: (value) => ({ kind: 'commandEdit', action: { kind: 'insert', text: value } }),
+    keys: {
       backspace: { kind: 'commandEdit', action: { kind: 'deleteBackward' } },
       delete: { kind: 'commandEdit', action: { kind: 'deleteForward' } },
       arrowLeft: { kind: 'commandEdit', action: { kind: 'moveLeft' } },
@@ -473,13 +475,11 @@ function paletteOverlay(state) {
     entries: paletteEntries,
     query: state.palette.query,
     selected: state.palette.selectedIndex,
-    toMessage: (entry) => ({ kind: 'paletteAccept', command: entry.value, source: 'pointer' }),
+    onSelect: (entry) => ({ kind: 'paletteAccept', command: entry.value, source: 'pointer' }),
     helpText: 'Type to filter. Enter accepts selected. Esc closes.',
     maxVisible: 6,
-    inputMap: {
-      text: (value) => ({ kind: 'paletteEdit', action: { kind: 'insertQuery', text: value } })
-    },
-    keyMap: {
+    onInput: (value) => ({ kind: 'paletteEdit', action: { kind: 'insertQuery', text: value } }),
+    keys: {
       backspace: { kind: 'paletteEdit', action: { kind: 'deleteQueryBackward' } },
       arrowDown: { kind: 'paletteEdit', action: { kind: 'moveFilteredSelection', delta: 1, entries: paletteEntries } },
       arrowUp: { kind: 'paletteEdit', action: { kind: 'moveFilteredSelection', delta: -1, entries: paletteEntries } },
@@ -490,11 +490,13 @@ function paletteOverlay(state) {
     id: 'workspace-palette-surface',
     label: 'Command palette',
     variant: 'raised',
-    zIndex: 20,
-    focus: { scope: 'contain' },
     shadow: true,
     padding: 1,
-    margin: { top: 4, left: 18, right: 18, bottom: 6 }
+    margin: { top: 4, left: 18, right: 18, bottom: 6 },
+    meta: {
+      layer: { zIndex: 20 },
+      focus: { scope: 'contain' }
+    }
   });
 }
 
@@ -504,7 +506,7 @@ function notificationStackForState(state) {
     items: state.notifications,
     placement: 'bottom-right',
     maxVisible: 2,
-    toDismissMessage: (item) => ({ kind: 'dismissNotification', id: item.id })
+    onDismiss: (item) => ({ kind: 'dismissNotification', id: item.id })
   });
 }
 

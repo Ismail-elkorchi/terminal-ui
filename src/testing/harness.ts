@@ -6,7 +6,7 @@ import { encodeHarnessInputEvent } from './input-events.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { MemoryTerminalHost, TerminalSignal } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
-import type { Frame, RenderDiff } from '../tui/index.ts';
+import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { InteractionTranscriptStep } from '../transcript/index.ts';
 import type { TerminalHarness, TerminalHarnessOptions } from './types.ts';
 

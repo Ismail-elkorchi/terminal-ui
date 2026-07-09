@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { defaultTheme } from '../../dist/theme/index.js';
-import { createFrameBuffer, drawBorder, renderFramePlain } from '../../dist/tui/index.js';
+import {
+  defaultTheme } from '../../dist/theme/index.js';
+import { createFrameBuffer,
+  drawBorder,
+  renderFramePlain
+} from '../../dist/renderer/index.js';
 
 test('drawBorder ignores empty rectangles without writing cells', () => {
   const zeroWidth = createFrameBuffer(3, 3);

@@ -6,42 +6,46 @@ import process from 'node:process';
 import { createMemoryTerminalHost, createTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { editTextAreaBuffer } from '@ismail-elkorchi/terminal-ui/text';
 import {
-  commandBarReducer,
-  createScrollState,
   createTuiRuntime,
   defineTui,
-  applyScrollEvent,
-  renderFramePlain,
-  runTui,
-  scrollReducer
+  runTui
 } from '@ismail-elkorchi/terminal-ui/tui';
+import {
+  applyScrollEvent,
+  commandBarReducer,
+  createScrollState,
+  nextTreeRowId,
+  paletteReducer,
+  scrollReducer,
+  selectedPaletteEntry,
+  treeReducer,
+  visibleTreeRows
+} from '@ismail-elkorchi/terminal-ui/behavior';
+import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
+import {
+  grid,
+  overlay,
+  row,
+  stack,
+  surface,
+  tabs,
+  viewport
+} from '@ismail-elkorchi/terminal-ui/layout';
 import {
   activityIndicator,
   commandBar,
-  grid,
   helpBar,
   menuBar,
   notificationStack,
-  overlay,
   palette,
-  paletteReducer,
   progressBar,
-  row,
-  selectedPaletteEntry,
-  stack,
   statusBar,
   structuredBlock,
-  surface,
   table,
-  tabs,
   text,
   textArea,
-  tree,
-  nextTreeRowId,
-  treeReducer,
-  visibleTreeRows,
-  viewport
-} from '@ismail-elkorchi/terminal-ui/widgets';
+  tree
+} from '@ismail-elkorchi/terminal-ui/components';
 
 const MAX_FILE_BYTES = 256_000;
 
@@ -276,11 +280,11 @@ function topChrome(state) {
     menuBar({
       id: 'ide-menu',
       items: [
-        { id: 'open-root', label: 'Open Cwd', message: { kind: 'menu', action: 'openCwd' } },
-        { id: 'save', label: 'Save', disabled: active === undefined || active.dirty !== true, message: { kind: 'saveActive', source: 'menu' } },
-        { id: 'close', label: 'Close', disabled: active === undefined, message: { kind: 'closeActive' } },
-        { id: 'palette', label: 'Palette', message: { kind: 'openPalette', source: 'menu' } },
-        { id: 'quit', label: 'Quit', message: { kind: 'exit' } }
+        { id: 'open-root', label: 'Open Cwd', onPress: { kind: 'menu', action: 'openCwd' } },
+        { id: 'save', label: 'Save', disabled: active === undefined || active.dirty !== true, onPress: { kind: 'saveActive', source: 'menu' } },
+        { id: 'close', label: 'Close', disabled: active === undefined, onPress: { kind: 'closeActive' } },
+        { id: 'palette', label: 'Palette', onPress: { kind: 'openPalette', source: 'menu' } },
+        { id: 'quit', label: 'Quit', onPress: { kind: 'exit' } }
       ],
       selected: 'save'
     }),
@@ -305,7 +309,7 @@ function notificationStackWidget(state) {
     placement: 'bottom-right',
     maxVisible: 3,
     maxWidth: 36,
-    toDismissMessage: (item) => ({ kind: 'dismissNotification', id: item.id })
+    onDismiss: (item) => ({ kind: 'dismissNotification', id: item.id })
   });
 }
 
@@ -318,9 +322,9 @@ function explorerPane(state) {
       nodes: state.tree.nodes,
       selected: state.tree.selected,
       scrollbar: { visible: 'auto' },
-      toMessage: (node) => ({ kind: 'selectTreeNode', id: node.id, source: 'pointer' }),
-      toDisclosureMessage: (node) => ({ kind: 'treeDisclosure', id: node.id, source: 'pointer' }),
-      keyMap: {
+      onSelect: (node) => ({ kind: 'selectTreeNode', id: node.id, source: 'pointer' }),
+      onDisclosure: (node) => ({ kind: 'treeDisclosure', id: node.id, source: 'pointer' }),
+      keys: {
         arrowDown: { kind: 'treeMove', delta: 1 },
         arrowUp: { kind: 'treeMove', delta: -1 },
         arrowRight: { kind: 'expandTree' },
@@ -372,12 +376,12 @@ function editorWorkspace(state) {
       id: buffer.path,
       label: buffer.label,
       ...(buffer.dirty ? { badge: '*' } : {}),
-      closeMessage: { kind: 'closeBuffer', path: buffer.path },
+      onClose: { kind: 'closeBuffer', path: buffer.path },
       description: buffer.path,
-      message: { kind: 'setActiveBuffer', path: buffer.path, source: 'tab' },
+      onSelect: { kind: 'setActiveBuffer', path: buffer.path, source: 'tab' },
       panel: editorPanel(state, buffer)
     })),
-    keyMap: {
+    keys: {
       arrowLeft: { kind: 'setActiveBuffer', path: adjacentBufferPath(state, -1), source: 'keyboard' },
       arrowRight: { kind: 'setActiveBuffer', path: adjacentBufferPath(state, 1), source: 'keyboard' }
     }
@@ -446,11 +450,9 @@ function editorPanel(state, buffer) {
         scrollbar: { visible: 'auto' },
         scrollPolicy: { wheel: { rows: 6, columns: 8 } },
         placeholder: 'Write here...',
-        toScrollMessage: (event) => ({ kind: 'scrollActive', event }),
-        inputMap: {
-          text: (value) => ({ kind: 'editActive', action: { kind: 'insert', text: value } })
-        },
-        keyMap: textAreaKeyMap()
+        onScroll: (event) => ({ kind: 'scrollActive', event }),
+        onInput: (value) => ({ kind: 'editActive', action: { kind: 'insert', text: value } }),
+        keys: textAreaKeyMap()
       })),
       footer: helpBar({
         id: 'editor-help',
@@ -514,7 +516,7 @@ function inspectorPane(state, context) {
         { header: 'Buffer', width: { kind: 'fill' } },
         { header: 'Size', width: { kind: 'fixed', cells: 10 } }
       ],
-      toMessage: ({ rowIndex }) => ({ kind: 'setActiveBuffer', path: state.openOrder[rowIndex] ?? state.activePath ?? '', source: 'pointer' })
+      onSelect: ({ rowIndex }) => ({ kind: 'setActiveBuffer', path: state.openOrder[rowIndex] ?? state.activePath ?? '', source: 'pointer' })
     }),
     viewport(stack(state.log.map((line, index) => text(`${String(index + 1).padStart(2, '0')} ${line}`, {
       id: `ide-log-${String(index)}`
@@ -565,10 +567,8 @@ function commandPane(state) {
     completionPreview: expanded ? completionPreview(state.command.input.text) : undefined,
     footer: expanded ? 'Enter run | arrows suggestions | Esc clear | Tab focus | Ctrl+C/Ctrl+Q exit' : undefined,
     display: expanded ? 'expanded' : 'compact',
-    inputMap: {
-      text: (value) => ({ kind: 'commandEdit', action: { kind: 'insert', text: value } })
-    },
-    keyMap: {
+    onInput: (value) => ({ kind: 'commandEdit', action: { kind: 'insert', text: value } }),
+    keys: {
       backspace: { kind: 'commandEdit', action: { kind: 'deleteBackward' } },
       delete: { kind: 'commandEdit', action: { kind: 'deleteForward' } },
       arrowLeft: { kind: 'commandEdit', action: { kind: 'moveLeft' } },
@@ -595,11 +595,9 @@ function paletteOverlay(state) {
     selected: state.palette.selectedIndex,
     maxVisible: 7,
     helpText: 'Type to filter. Enter accepts. Esc closes.',
-    toMessage: (entry) => ({ kind: 'paletteAccept', command: entry.value }),
-    inputMap: {
-      text: (value) => ({ kind: 'paletteEdit', action: { kind: 'insertQuery', text: value } })
-    },
-    keyMap: {
+    onSelect: (entry) => ({ kind: 'paletteAccept', command: entry.value }),
+    onInput: (value) => ({ kind: 'paletteEdit', action: { kind: 'insertQuery', text: value } }),
+    keys: {
       backspace: { kind: 'paletteEdit', action: { kind: 'deleteQueryBackward' } },
       arrowDown: { kind: 'paletteEdit', action: { kind: 'moveFilteredSelection', delta: 1, entries: commandEntries } },
       arrowUp: { kind: 'paletteEdit', action: { kind: 'moveFilteredSelection', delta: -1, entries: commandEntries } },
@@ -610,11 +608,13 @@ function paletteOverlay(state) {
     id: 'ide-palette-surface',
     label: 'Command palette',
     variant: 'raised',
-    zIndex: 20,
-    focus: { scope: 'contain' },
     shadow: true,
     padding: 1,
-    margin: { top: 4, left: 20, right: 20, bottom: 6 }
+    margin: { top: 4, left: 20, right: 20, bottom: 6 },
+    meta: {
+      layer: { zIndex: 20 },
+      focus: { scope: 'contain' }
+    }
   });
 }
 

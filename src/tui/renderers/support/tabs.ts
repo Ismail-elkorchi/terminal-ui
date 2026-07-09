@@ -1,13 +1,13 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
-import type { Widget } from '../../../widgets/index.ts';
-import { widgetFrameSource } from '../../frame-source.ts';
-import { stringify } from '../../widget-props.ts';
+import type { RenderNode } from '../../../render-node/index.ts';
+import { renderNodeFrameSource } from '../../frame-source.ts';
+import { stringify } from '../../render-node-props.ts';
 import { clipRenderSpans, measureRenderSpans } from '../../render-primitives.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from '../../render-primitives.ts';
-import { mergeStyles, themeStyle, widgetStyle } from '../../widget-style.ts';
+import { mergeStyles, themeStyle, renderNodeStyle } from '../../render-node-style.ts';
 import { clampRect, emptyRect } from './common.ts';
 import type { Rect } from '../../layout.ts';
-import type { HitTarget } from '../../widget-renderer.ts';
+import type { HitTarget } from '../../render-node-renderer.ts';
 
 interface TabItemView {
   readonly id: string;
@@ -36,7 +36,7 @@ interface TabHeaderLayout {
   readonly visibleTabs: readonly VisibleTabHeader[];
 }
 
-export function tabsChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
+export function tabsChildBounds(widget: RenderNode, bounds: Rect): readonly Rect[] {
   const tabs = tabItems(widget);
   const selected = selectedTabIndex(widget, tabs);
   const panelBounds = clampRect({
@@ -48,13 +48,13 @@ export function tabsChildBounds(widget: Widget, bounds: Rect): readonly Rect[] {
   return (widget.children ?? []).map((_child, index) => index === selected ? panelBounds : emptyRect(bounds));
 }
 
-export function tabsHeaderText(widget: Widget): string {
+export function tabsHeaderText(widget: RenderNode): string {
   const tabs = tabItems(widget);
   const selected = selectedTabIndex(widget, tabs);
   return tabs.map((tab, index) => tabHeaderSpans(widget, tab, index === selected, false).spans.map((span) => span.text).join('')).join(' ');
 }
 
-export function tabsHeaderBlock(widget: Widget, bounds: Rect, focused = false): RenderBlock {
+export function tabsHeaderBlock(widget: RenderNode, bounds: Rect, focused = false): RenderBlock {
   if (bounds.height <= 0 || bounds.width <= 0) return { lines: [] };
   const layout = tabHeaderLayout(widget, bounds.width, focused);
   return {
@@ -64,7 +64,7 @@ export function tabsHeaderBlock(widget: Widget, bounds: Rect, focused = false): 
   };
 }
 
-export function tabsAccessibleChildren(widget: Widget): readonly AccessibleNode[] {
+export function tabsAccessibleChildren(widget: RenderNode): readonly AccessibleNode[] {
   const tabs = tabItems(widget);
   const selected = selectedTabIndex(widget, tabs);
   return tabs.map((tab, index) => ({
@@ -78,7 +78,7 @@ export function tabsAccessibleChildren(widget: Widget): readonly AccessibleNode[
   }));
 }
 
-export function tabsHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function tabsHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   if (bounds.height <= 0 || bounds.width <= 0) return [];
   const layout = tabHeaderLayout(widget, bounds.width, false);
   const targets: HitTarget<TMessage>[] = [];
@@ -120,7 +120,7 @@ export function tabsHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect)
   return targets;
 }
 
-function tabItems(widget: Widget): readonly TabItemView[] {
+function tabItems(widget: RenderNode): readonly TabItemView[] {
   if (!Array.isArray(widget.props['tabs'])) return [];
   return widget.props['tabs'].filter((tab): tab is {
     readonly id: string;
@@ -154,7 +154,7 @@ function tabItems(widget: Widget): readonly TabItemView[] {
   }));
 }
 
-function tabHeaderLayout(widget: Widget, width: number, focused: boolean): TabHeaderLayout {
+function tabHeaderLayout(widget: RenderNode, width: number, focused: boolean): TabHeaderLayout {
   if (width <= 0) return { spans: [], visibleTabs: [] };
   const tabs = tabItems(widget);
   if (tabs.length === 0) return { spans: [], visibleTabs: [] };
@@ -201,7 +201,7 @@ function tabHeaderLayout(widget: Widget, width: number, focused: boolean): TabHe
   for (let index = start; index <= end; index += 1) {
     const entry = tabHeaderEntry(entries, index);
     if (index > start) {
-      spans.push(tabSpan(widget, ' ', widgetStyle(widget, 'value', 'disabled'), entry.tab.id, 'separator', 'separator'));
+      spans.push(tabSpan(widget, ' ', renderNodeStyle(widget, 'value', 'disabled'), entry.tab.id, 'separator', 'separator'));
       offset += 1;
     }
     visibleTabs.push({ ...entry, offset });
@@ -236,55 +236,55 @@ function overflowMarkerWidth(visible: boolean): number {
   return visible ? 2 : 0;
 }
 
-function selectedTabIndex(widget: Widget, tabs: readonly { readonly id: string }[]): number {
+function selectedTabIndex(widget: RenderNode, tabs: readonly { readonly id: string }[]): number {
   const selected = stringify(widget.props['selected']);
   const index = selected.length === 0 ? 0 : tabs.findIndex((tab) => tab.id === selected);
   return Math.max(0, index === -1 ? 0 : index);
 }
 
 function tabHeaderStyle(
-  widget: Widget,
+  widget: RenderNode,
   state: { readonly selected: boolean; readonly focused: boolean; readonly disabled: boolean }
 ): TerminalStyle | undefined {
-  if (state.disabled) return widgetStyle(widget, 'value', 'disabled');
+  if (state.disabled) return renderNodeStyle(widget, 'value', 'disabled');
   if (state.selected && state.focused) {
     return mergeStyles(
-      widgetStyle(widget, 'value', 'selected'),
+      renderNodeStyle(widget, 'value', 'selected'),
       themeStyle('tab.active.foreground', { underline: true }),
       widget.styles?.selected,
-      widgetStyle(widget, 'value', 'focused'),
+      renderNodeStyle(widget, 'value', 'focused'),
       widget.styles?.focused
     );
   }
-  if (state.selected) return mergeStyles(widgetStyle(widget, 'value', 'selected'), themeStyle('tab.active.foreground', { underline: true }), widget.styles?.selected);
-  if (state.focused) return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.value, widgetStyle(widget, 'value', 'focused'));
+  if (state.selected) return mergeStyles(renderNodeStyle(widget, 'value', 'selected'), themeStyle('tab.active.foreground', { underline: true }), widget.styles?.selected);
+  if (state.focused) return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.value, renderNodeStyle(widget, 'value', 'focused'));
   return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.value);
 }
 
-function tabBadgeStyle(widget: Widget, selected: boolean, disabled: boolean, focused: boolean): TerminalStyle | undefined {
+function tabBadgeStyle(widget: RenderNode, selected: boolean, disabled: boolean, focused: boolean): TerminalStyle | undefined {
   return mergeStyles(
-    selected ? widgetStyle(widget, 'value', 'selected') : undefined,
+    selected ? renderNodeStyle(widget, 'value', 'selected') : undefined,
     {
       fg: { kind: 'theme', token: 'badge.foreground' },
       bg: { kind: 'theme', token: 'badge.background' },
       bold: true
     },
-    disabled ? widgetStyle(widget, 'value', 'disabled') : undefined,
-    focused ? widgetStyle(widget, 'value', 'focused') : undefined
+    disabled ? renderNodeStyle(widget, 'value', 'disabled') : undefined,
+    focused ? renderNodeStyle(widget, 'value', 'focused') : undefined
   );
 }
 
-function tabCloseStyle(widget: Widget, selected: boolean, disabled: boolean, focused: boolean): TerminalStyle | undefined {
+function tabCloseStyle(widget: RenderNode, selected: boolean, disabled: boolean, focused: boolean): TerminalStyle | undefined {
   return mergeStyles(
-    widgetStyle(widget, 'placeholder'),
-    selected ? widgetStyle(widget, 'value', 'selected') : undefined,
-    disabled ? widgetStyle(widget, 'value', 'disabled') : undefined,
-    focused ? widgetStyle(widget, 'value', 'focused') : undefined
+    renderNodeStyle(widget, 'placeholder'),
+    selected ? renderNodeStyle(widget, 'value', 'selected') : undefined,
+    disabled ? renderNodeStyle(widget, 'value', 'disabled') : undefined,
+    focused ? renderNodeStyle(widget, 'value', 'focused') : undefined
   );
 }
 
 function tabHeaderSpans(
-  widget: Widget,
+  widget: RenderNode,
   tab: {
     readonly id: string;
     readonly label: string;
@@ -334,7 +334,7 @@ function tabHeaderSpans(
   };
 }
 
-function tabIndicatorStyle(widget: Widget, focused: boolean): TerminalStyle | undefined {
+function tabIndicatorStyle(widget: RenderNode, focused: boolean): TerminalStyle | undefined {
   return mergeStyles(themeStyle('tab.indicator', { bold: true }), widget.styles?.selected, focused ? widget.styles?.focused : undefined);
 }
 
@@ -346,7 +346,7 @@ function stateForTab(selected: boolean, disabled: boolean, focused: boolean): st
 }
 
 function tabSpan(
-  widget: Widget,
+  widget: RenderNode,
   text: string,
   style: TerminalStyle | undefined,
   itemId: string,
@@ -358,7 +358,7 @@ function tabSpan(
   return {
     text,
     ...(style === undefined ? {} : { style }),
-    source: widgetFrameSource(widget, {
+    source: renderNodeFrameSource(widget, {
       family: 'layout',
       role,
       part: label,
@@ -370,12 +370,12 @@ function tabSpan(
   };
 }
 
-function tabOverflowSpan(widget: Widget, text: string, part: 'overflow.leading' | 'overflow.trailing'): RenderSpan {
-  const style = widgetStyle(widget, 'placeholder');
+function tabOverflowSpan(widget: RenderNode, text: string, part: 'overflow.leading' | 'overflow.trailing'): RenderSpan {
+  const style = renderNodeStyle(widget, 'placeholder');
   return {
     text,
     ...(style === undefined ? {} : { style }),
-    source: widgetFrameSource(widget, {
+    source: renderNodeFrameSource(widget, {
       family: 'layout',
       role: 'decoration',
       part,

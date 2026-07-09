@@ -7,7 +7,7 @@ import {
   sameTerminalColor,
   sameTerminalLink,
   sameTerminalStyle
-} from '../../dist/tui/index.js';
+} from '../../dist/renderer/index.js';
 
 test('terminal color equality compares structured color fields', () => {
   assert.equal(sameTerminalColor(undefined, undefined), true);

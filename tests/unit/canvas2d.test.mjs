@@ -11,7 +11,7 @@ import {
   linePoints,
   renderFramePlain,
   tooltipLines
-} from '../../dist/tui/index.js';
+} from '../../dist/renderer/index.js';
 
 test('Canvas2D draws points lines rectangles text and block spans through FrameBuffer', () => {
   const buffer = createFrameBuffer(14, 6);

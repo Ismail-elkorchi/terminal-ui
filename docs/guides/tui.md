@@ -1,26 +1,28 @@
 # TUI Rendering
 
-TUI apps use state, messages, update functions, subscriptions, widget views,
+TUI apps use state, messages, update functions, subscriptions, element views,
 layout, frames, render diffs, and accessible snapshots.
 
 The core vertical path is:
 
-1. Define a widget tree with `widgets`.
-2. Lay the tree out with `layoutWidget()`.
-3. Render a `Frame`.
-4. Serialize a full frame or incremental `RenderDiff`.
-5. Test the result with the memory harness.
+1. Define an element tree with component factories.
+2. Normalize it to the internal render-node tree.
+3. Lay the tree out with `layoutElement()`.
+4. Render a `Frame`.
+5. Serialize a full frame or incremental `RenderDiff`.
+6. Test the result with the memory harness.
 
 For the renderer data model behind that path, see
-[Rendering internals](./rendering-internals.md). For widget authoring
-guidance, see [Building polished widgets](./building-polished-widgets.md).
+[Rendering internals](./rendering-internals.md). For component authoring
+guidance, see [UI authoring](./ui-authoring.md) and
+[Building polished components](./building-polished-components.md).
 
 Full-screen TUI runs enter terminal protocols through the session manager and a
 `SessionProtocolPolicy`. The default policy requires alternate screen and raw
 input, requests bracketed paste, drag mouse reporting, focus reporting, and a
 hidden cursor as optional protocol operations, and records diagnostics for
 skipped or failed setup. Callers can explicitly disable protocols, require
-them, or request other mouse reporting modes without changing widget code.
+them, or request other mouse reporting modes without changing component code.
 Restoration still runs through the same session path and restores only state
 that was actually changed.
 
@@ -81,7 +83,7 @@ Scrollable widgets share the same `ScrollState`, `scrollReducer()`, and
 application actions such as line/page/top/bottom movement, item-into-view
 behavior, horizontal offsets, and follow-tail log views. Use
 `applyScrollEvent(currentScroll, event)` for routed wheel, scrollbar, or drag
-messages produced by `toScrollMessage`; the event carries the normalized
+messages produced by `onScroll`; the event carries the normalized
 rendered content and viewport metrics, so controlled scroll state stays aligned
 with the region the user actually sees. Use `scrollPolicy` on scrollable
 widgets to tune discrete wheel behavior, such as denser line steps for an
@@ -102,7 +104,7 @@ and `treeDisclosureAction()` to turn disclosure intents into meaningful expand,
 collapse, or toggle actions. These helpers do not load files or infer app
 activation policy; they only describe generic hierarchical records. Pointer
 routing keeps disclosure and row-body regions separate when
-`toDisclosureMessage` is provided, so apps can distinguish selection, primary
+`onDisclosure` is provided, so apps can distinguish selection, primary
 activation, and hierarchy expansion without hand-building tree hit targets.
 Tree row rendering uses existing style slots: `border` for indentation and
 disclosure glyphs, `label` for icons, `value` for labels, `placeholder` for
@@ -111,7 +113,7 @@ marks disclosure, indent, icon, label, match, and selection-marker parts
 separately for snapshots and debug projections.
 
 Command surfaces are ordinary widgets. Apps decide which normalized key names
-map to palette, accept, cancel, or history messages through widget `keyMap`
+map to palette, accept, cancel, or history messages through widget `keys`
 values; `terminal-ui` does not reserve a global command-palette shortcut,
 Escape key, or Ctrl-C key event. Host signals such as `SIGINT` and `SIGTERM`
 still interrupt the full-screen run through the terminal host signal path.
@@ -121,7 +123,7 @@ particular focused widget. Bindings run in two explicit phases:
 
 1. `beforeFocus` bindings run before focused widget input and should be used
    only for deliberate priority shortcuts.
-2. Focused widget `inputMap` and `keyMap` handle local control behavior.
+2. Focused widget `onInput/onPaste` and `keys` handle local control behavior.
 3. `afterFocus` bindings, the default phase, run only when the focused widget
    did not handle the input.
 4. Built-in Tab focus traversal runs last.
@@ -152,7 +154,7 @@ button/modifier state, vertical and horizontal scroll deltas, captured target
 ids, and the raw terminal mouse event for tests and richer widgets.
 
 Application text selection is caller-owned state. Editable widgets can opt into
-pointer-to-text messages with `toTextPointerMessage`; the widget maps press,
+pointer-to-text messages with `onTextPointer`; the widget maps press,
 drag, and release gestures to text offsets, while the app owns cursor and
 selection state. Use `resolveSelectedText()` to turn explicit selectable text
 sources and ranges into copyable text, or `copySelectedTextToClipboard()` to
@@ -177,7 +179,7 @@ track count must match the child count.
 ```ts
 surface(stack([
   text('Explorer', { textRole: 'heading' }),
-  tree({ nodes, scroll, toScrollMessage }),
+  tree({ nodes, scroll, onScroll }),
   helpBar({ bindings })
 ], {
   sizes: [

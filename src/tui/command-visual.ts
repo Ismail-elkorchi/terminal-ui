@@ -1,13 +1,14 @@
 import { highlightRenderSpans } from './text-highlight.ts';
-import { mergeStyles, themeStyle, widgetStyle } from './widget-style.ts';
+import { mergeStyles, themeStyle, renderNodeStyle } from './render-node-style.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { Widget, WidgetTone } from '../widgets/index.ts';
+import type { RenderNode } from '../render-node/index.ts';
+import type { ComponentTone } from '../components/contracts.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from './render-primitives.ts';
 
-export type CommandSurfaceTone = Extract<WidgetTone, 'info' | 'warning' | 'error' | 'success' | 'muted'>;
+export type CommandSurfaceTone = Extract<ComponentTone, 'info' | 'warning' | 'error' | 'success' | 'muted'>;
 
 export function commandStatusSpans(
-  widget: Widget,
+  widget: RenderNode,
   theme: TerminalTheme,
   tone: CommandSurfaceTone,
   text: string,
@@ -19,7 +20,7 @@ export function commandStatusSpans(
   } = {}
 ): readonly RenderSpan[] {
   const markerStyle = options.markerStyle ?? commandToneStyle(widget, tone);
-  const textStyle = options.textStyle ?? (tone === 'muted' ? widgetStyle(widget, 'value', 'disabled') : markerStyle);
+  const textStyle = options.textStyle ?? (tone === 'muted' ? renderNodeStyle(widget, 'value', 'disabled') : markerStyle);
   return [
     styledSpan(`${commandToneSymbol(theme, tone)} `, markerStyle, options.markerSource),
     styledSpan(text, textStyle, options.textSource)
@@ -48,33 +49,33 @@ export function commandMatchSpans(
   }));
 }
 
-export function commandRowStyle(widget: Widget, selected: boolean, disabled = false): TerminalStyle | undefined {
-  if (selected && disabled) return mergeStyles(widgetStyle(widget, 'value', 'selected'), widgetStyle(widget, 'value', 'disabled'));
-  if (selected) return widgetStyle(widget, 'value', 'selected');
-  if (disabled) return widgetStyle(widget, 'value', 'disabled');
-  return widgetStyle(widget, 'value');
+export function commandRowStyle(widget: RenderNode, selected: boolean, disabled = false): TerminalStyle | undefined {
+  if (selected && disabled) return mergeStyles(renderNodeStyle(widget, 'value', 'selected'), renderNodeStyle(widget, 'value', 'disabled'));
+  if (selected) return renderNodeStyle(widget, 'value', 'selected');
+  if (disabled) return renderNodeStyle(widget, 'value', 'disabled');
+  return renderNodeStyle(widget, 'value');
 }
 
-export function commandMetadataStyle(widget: Widget, selected: boolean, disabled = false): TerminalStyle | undefined {
+export function commandMetadataStyle(widget: RenderNode, selected: boolean, disabled = false): TerminalStyle | undefined {
   return mergeStyles(
-    selected ? widgetStyle(widget, 'value', 'selected') : undefined,
-    widgetStyle(widget, 'value', disabled ? 'disabled' : undefined)
+    selected ? renderNodeStyle(widget, 'value', 'selected') : undefined,
+    renderNodeStyle(widget, 'value', disabled ? 'disabled' : undefined)
   );
 }
 
 export function commandSelectionMarkerSpans(
-  widget: Widget,
+  widget: RenderNode,
   theme: TerminalTheme,
   selected: boolean,
   source?: FrameCellSource
 ): readonly RenderSpan[] {
-  const style = selected ? widgetStyle(widget, 'value', 'selected') : undefined;
+  const style = selected ? renderNodeStyle(widget, 'value', 'selected') : undefined;
   return [
     styledSpan(`${selected ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected} `, style, source)
   ];
 }
 
-export function commandGroupSpans(widget: Widget, group: string | undefined, selected: boolean, source?: FrameCellSource): readonly RenderSpan[] {
+export function commandGroupSpans(widget: RenderNode, group: string | undefined, selected: boolean, source?: FrameCellSource): readonly RenderSpan[] {
   if (group === undefined || group.length === 0) return [];
   const style = commandMetadataStyle(widget, selected);
   return [
@@ -90,18 +91,18 @@ export function styledSpan(text: string, style: TerminalStyle | undefined, sourc
   };
 }
 
-function commandToneStyle(widget: Widget, tone: CommandSurfaceTone): TerminalStyle | undefined {
+function commandToneStyle(widget: RenderNode, tone: CommandSurfaceTone): TerminalStyle | undefined {
   switch (tone) {
     case 'info':
-      return widgetStyle(widget, 'value', 'focused');
+      return renderNodeStyle(widget, 'value', 'focused');
     case 'warning':
-      return widgetStyle(widget, 'warning', 'warning');
+      return renderNodeStyle(widget, 'warning', 'warning');
     case 'error':
-      return widgetStyle(widget, 'error', 'error');
+      return renderNodeStyle(widget, 'error', 'error');
     case 'success':
-      return widgetStyle(widget, 'success', 'success');
+      return renderNodeStyle(widget, 'success', 'success');
     case 'muted':
-      return widgetStyle(widget, 'value', 'disabled');
+      return renderNodeStyle(widget, 'value', 'disabled');
   }
 }
 

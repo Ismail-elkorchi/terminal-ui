@@ -1,10 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { findAccessibleNode } from '../../dist/accessibility/index.js';
+import {
+  defineTui,
+  runTui
+} from '../../dist/tui/index.js';
+import {
+  findAccessibleNode } from '../../dist/accessibility/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { defineTui, renderFramePlain, runTui } from '../../dist/tui/index.js';
-import { activityFeed, stack, statusBar, surface } from '../../dist/widgets/index.js';
+import { renderFramePlain } from '../../dist/renderer/index.js';
+import {
+  activityFeed,
+  statusBar
+} from '../../dist/components/index.js';
+import {
+  stack,
+  surface
+} from '../../dist/layout/index.js';
 
 function view(state) {
   return surface(stack([
@@ -12,7 +24,7 @@ function view(state) {
       id: 'activity',
       selected: state.selected,
       blocks: state.blocks,
-      keyMap: { enter: { kind: 'advance' } }
+      keys: { enter: { kind: 'advance' } }
     }),
     statusBar({ id: 'status', text: `Selected ${state.selected}` })
   ]), { id: 'root', border: { kind: 'single' } });

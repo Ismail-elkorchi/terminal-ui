@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import {
+  defineTui,
+  runTui
+} from '../../dist/tui/index.js';
 import { createPtyTerminalHarness } from '../../dist/testing/index.js';
-import { defineTui, runTui } from '../../dist/tui/index.js';
-import { textInput, text } from '../../dist/widgets/index.js';
+import {
+  textInput,
+  text
+} from '../../dist/components/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
 const enterKey = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
@@ -22,7 +28,7 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
     view: (state) => textInput({
       id: 'submit',
       value: state.submitted ? 'submitted' : 'waiting',
-      message: { submitted: true }
+      onSubmit: { submitted: true }
     })
   });
 

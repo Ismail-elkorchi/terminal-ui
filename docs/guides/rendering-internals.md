@@ -1,14 +1,15 @@
 # Rendering Internals
 
 `terminal-ui` renders through data structures, not terminal side effects.
-Widgets describe intent, layout assigns rectangles, renderers write styled
-cells into frame buffers, and serializers turn frames or diffs into terminal
-output only at the boundary.
+Public elements describe intent, layout assigns rectangles, renderers write
+styled cells into frame buffers, and serializers turn frames or diffs into
+terminal output only at the boundary.
 
 The rendering path is:
 
-1. A widget tree is measured and laid out into layout nodes.
-2. Widget renderers write `RenderSpan` data into a `FrameBuffer`.
+1. An element tree is normalized to render nodes, then measured and laid out
+   into layout nodes.
+2. Renderers write `RenderSpan` data into a `FrameBuffer`.
 3. The buffer produces a `Frame` with styled cells, source metadata, focus
    targets, hit targets, and an accessible snapshot.
 4. `diffFrames()` compares cells and emits changed runs.
@@ -30,20 +31,21 @@ changes shape.
 ## Source Metadata
 
 `FrameCellSource` is the renderer-owned provenance contract for visible
-cells. It identifies the owning widget or renderer (`ownerId`, `ownerKind`),
-the widget family, semantic role, visual part, optional item identity or index,
-visual state, and a human-readable label when that information is available.
+cells. It identifies the owning component or renderer (`ownerId`, `ownerKind`),
+the component family, semantic role, visual part, optional item identity or
+index, visual state, and a human-readable label when that information is
+available.
 
 Source metadata is JSON-serializable, sanitized before it enters a frame,
 included in frame equality and fingerprinting, and exposed in frame schemas.
-Use `widgetFrameSource()` for widget-owned cells, `frameCellSource()` for
-non-widget renderer cells, and `frameSourcePart()` when deriving a more specific
-part from an existing source.
+Use `renderNodeFrameSource()` for render-node-owned cells, `frameCellSource()` for
+renderer-owned cells without a render node, and `frameSourcePart()` when
+deriving a more specific part from an existing source.
 
 ## Render Spans And Blocks
 
 `RenderSpan` is the smallest styled text unit. `RenderLine` and `RenderBlock`
-group spans into terminal-visible rows and blocks. Widgets such as rich text,
+group spans into terminal-visible rows and blocks. Renderers for rich text,
 tables, scrollback, structured blocks, charts, and command bars use spans so
 style survives clipping, wrapping, scrolling, and snapshot generation.
 
@@ -56,20 +58,20 @@ useful; use wrapping for prose.
 
 ## Measurement
 
-`Measurement` is the canonical measurement shape for widgets. The
+`Measurement` is the canonical measurement shape for renderers. The
 measurement helpers normalize, clamp, and combine minimum, preferred, and
 optional maximum sizes for vertical, horizontal, overlay, and bounded layout
 pressure. Text, span, line, and block measurement use the same terminal cell
 rules as rendering.
 
-Use render blocks when the artifact is already structured as rows. Use widgets
-when the artifact participates in layout, focus, hit targets, accessibility, or
-application messages.
+Use render blocks when the artifact is already structured as rows. Use
+components when the artifact participates in layout, focus, hit targets,
+accessibility, or application messages.
 
 ## Frame Buffer
 
-`FrameBuffer` is the only supported drawing target for widgets and custom
-renderers. It owns clipping, overwrite behavior, wide-cell topology,
+`FrameBuffer` is the only supported drawing target for built-in renderers and
+custom renderers. It owns clipping, overwrite behavior, wide-cell topology,
 sanitization, style preservation, source metadata, and final frame creation.
 
 Built-in renderers, `custom()` renderers, and `canvas()` painters all use the
@@ -79,7 +81,7 @@ bypass the frame.
 ## Diff And ANSI Serialization
 
 `diffFrames()` compares frame cells and groups adjacent changes into render
-operations. It does not treat a widget tree as the diff unit. Small visual
+operations. It does not treat an element tree as the diff unit. Small visual
 changes should produce small diff operations.
 
 ANSI serialization is stateful. `renderFrameAnsi()` and `renderDiffAnsi()`
@@ -91,23 +93,24 @@ snapshot text, and diagnostic control-sequence views do not share hidden flags.
 ## Themes, Symbols, Layout, Focus, And Hit Targets
 
 Themes resolve semantic tokens to terminal styles. Theme symbols provide
-terminal glyph choices for borders, progress, status, and scrollbars. Widgets
-may accept local style slots, but renderers decide which slots affect which
+terminal glyph choices for borders, progress, status, and scrollbars.
+Components may accept local style slots through `meta.styles`, but renderers
+decide which slots affect which
 parts. Scrollbar renderers use one shared grammar: track cells, thumb cells,
-axis, owner widget, and visual state are source-marked in the frame, while the
+axis, owner component, and visual state are source-marked in the frame, while the
 theme supplies only the generic track/thumb symbols and tokens.
 
 Layout assigns bounds before rendering. Focus targets and hit targets are
 renderer-owned data projected from those bounds. The runtime routes keyboard
-and mouse input through these targets after rendering; widgets do not inspect
+and mouse input through these targets after rendering; renderers do not inspect
 terminal input during render.
 
 ## Accessibility And Snapshots
 
 Rendering produces an accessible snapshot beside the visual frame. Built-in
-widgets expose roles, labels, values, state, progress, selected rows, and
-focused nodes. Custom widgets must expose accessibility or explicitly declare
-decorative output.
+components expose roles, labels, values, state, progress, selected rows, and
+focused nodes. Custom renderers must expose accessibility or explicitly
+declare decorative output.
 
 The testing harness records frames, diffs, focus targets, hit targets, ANSI,
 plain text, accessibility JSON, and deterministic preview artifacts. Use these

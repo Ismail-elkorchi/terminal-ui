@@ -1,15 +1,15 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
-  animationSource,
   createTuiRuntime,
   defineTui,
+  animationSource,
   intervalSource,
   timeoutSource
 } from '../../dist/tui/index.js';
-import { text } from '../../dist/widgets/index.js';
+import { createTerminalHarness } from '../../dist/testing/index.js';
+import { text } from '../../dist/components/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
 test('intervalSource emits deterministic ticks through the terminal clock', async () => {

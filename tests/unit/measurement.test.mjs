@@ -14,7 +14,7 @@ import {
   measureText,
   normalizeMeasurement,
   zeroMeasurement
-} from '../../dist/tui/index.js';
+} from '../../dist/renderer/index.js';
 
 test('measurement helpers normalize clamp and combine widget measurements', () => {
   assert.deepEqual(zeroMeasurement(), { minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 });

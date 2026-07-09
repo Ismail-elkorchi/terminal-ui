@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveTerminalCapabilities } from '../../dist/host/index.js';
+import {
+  resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
-import { placeTooltip, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
-import { tooltip } from '../../dist/widgets/index.js';
+import { placeTooltip,
+  renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import { tooltip } from '../../dist/components/index.js';
 
 test('tooltip renders bounded popover content with semantic surface tokens', () => {
-  const frame = renderWidgetFrame(tooltip({
+  const frame = renderElementFrame(tooltip({
     id: 'tip',
     title: 'Hint',
     content: ['Use Enter', 'Press Esc'],
@@ -19,7 +23,7 @@ test('tooltip renders bounded popover content with semantic surface tokens', () 
   const content = frame.cells.find((cell) => cell.text === 'U');
   const background = frame.cells.find((cell) => cell.source?.ownerKind === 'tooltip' && cell.source.part === 'background');
   const shadow = frame.cells.find((cell) => cell.source?.ownerKind === 'tooltip' && cell.source.part === 'shadow');
-  const highContrastFrame = renderWidgetFrame(tooltip({
+  const highContrastFrame = renderElementFrame(tooltip({
     id: 'tip-hc',
     title: 'Hint',
     content: ['Use Enter', 'Press Esc'],

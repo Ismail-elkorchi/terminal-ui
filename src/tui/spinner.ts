@@ -1,14 +1,14 @@
-import type { WidgetProcessStatus } from '../widgets/contracts.ts';
+import type { ProcessStatus } from '../components/contracts.ts';
 
 export interface SpinnerState {
   readonly frameIndex: number;
-  readonly status?: WidgetProcessStatus;
+  readonly status?: ProcessStatus;
 }
 
 export type SpinnerAction =
   | { readonly kind: 'advance' }
-  | { readonly kind: 'reset'; readonly frameIndex?: number; readonly status?: WidgetProcessStatus }
-  | { readonly kind: 'status'; readonly status: WidgetProcessStatus };
+  | { readonly kind: 'reset'; readonly frameIndex?: number; readonly status?: ProcessStatus }
+  | { readonly kind: 'status'; readonly status: ProcessStatus };
 
 export interface SpinnerReducerOptions {
   readonly frameCount?: number;

@@ -1,8 +1,8 @@
 # @ismail-elkorchi/terminal-ui
 
 General-purpose TypeScript primitives for building terminal user interfaces:
-runtime hosts, input, layout, rendering, widgets, prompts, accessibility,
-transcripts, and deterministic testing.
+runtime hosts, input, layout, rendering, typed components, controlled behavior
+helpers, prompts, accessibility, transcripts, and deterministic testing.
 
 This repository implements the canonical product contract for the package.
 
@@ -19,10 +19,10 @@ npm install @ismail-elkorchi/terminal-ui
 import { runPrompt } from '@ismail-elkorchi/terminal-ui';
 ```
 
-The root entrypoint also exposes the primary TUI path:
-`defineTui`, `layoutWidget`, `renderWidgetFrame`, `diffFrames`,
-`renderFramePlain`, `renderFrameAnsi`, `renderFrameDebug`, `renderDiffAnsi`,
-widgets, themes, and `createTerminalHarness`.
+The root entrypoint exposes the primary app-authoring path:
+`defineTui`, `runTui`, common typed components, layout factories, themes,
+prompts, accessibility helpers, and `createTerminalHarness`. Low-level frame
+and renderer contracts live under `@ismail-elkorchi/terminal-ui/renderer`.
 
 Host adapters cover Node, Deno, Bun, memory-backed tests, and explicit
 caller-managed PTY-style streams.
@@ -48,7 +48,7 @@ Basic full-screen app:
 
 ```ts
 import { defineTui, runTui } from '@ismail-elkorchi/terminal-ui';
-import { textInput } from '@ismail-elkorchi/terminal-ui/widgets';
+import { textInput } from '@ismail-elkorchi/terminal-ui/components';
 
 const app = defineTui({
   id: 'example',
@@ -60,13 +60,14 @@ const app = defineTui({
 await runTui(app);
 ```
 
-Layout and styled widgets:
+Layout and styled components:
 
 ```ts
-import { renderFramePlain, renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
-import { row, richText, stack, statusBar } from '@ismail-elkorchi/terminal-ui/widgets';
+import { renderFramePlain, renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
+import { richText, statusBar } from '@ismail-elkorchi/terminal-ui/components';
+import { row, stack } from '@ismail-elkorchi/terminal-ui/layout';
 
-const frame = renderWidgetFrame(stack([
+const frame = renderElementFrame(stack([
   statusBar({ id: 'status', text: 'Ready' }),
   row([
     richText({ segments: [{ text: 'Primary', style: { fg: { kind: 'theme', token: 'accent.primary' } } }] }),
@@ -77,11 +78,10 @@ const frame = renderWidgetFrame(stack([
 console.log(renderFramePlain(frame));
 ```
 
-Custom widget:
+Custom renderer:
 
 ```ts
-import { renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
-import { custom } from '@ismail-elkorchi/terminal-ui/widgets';
+import { custom, renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
 
 const meter = custom({
   id: 'meter',
@@ -95,7 +95,7 @@ const meter = custom({
   }
 });
 
-renderWidgetFrame(meter, { columns: 20, rows: 2 });
+renderElementFrame(meter, { columns: 20, rows: 2 });
 ```
 
 Testing and accessibility:
@@ -117,3 +117,5 @@ Executable examples:
 - `examples/prompts/non-tty-input.mjs`
 - `examples/testing/harness.mjs`
 - `examples/tui/interactive-workspace.mjs`
+- `examples/tui/ide-editor.mjs`
+- `examples/tui/btop-monitor.mjs`

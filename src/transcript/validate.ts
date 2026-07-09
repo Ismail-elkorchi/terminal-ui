@@ -4,7 +4,7 @@ import { err, ok } from '../result.ts';
 import type { TerminalStateSnapshot, TerminalViewport } from '../host/index.ts';
 import type { KeyName, MouseAction, MouseButton, MouseEncoding } from '../input/index.ts';
 import type { Result } from '../result.ts';
-import type { CursorPosition } from '../tui/index.ts';
+import type { CursorPosition } from '../renderer/index.ts';
 import type { TuiMessageSource } from '../tui/types.ts';
 import type { InteractionTranscript, TranscriptSource } from './types.ts';
 

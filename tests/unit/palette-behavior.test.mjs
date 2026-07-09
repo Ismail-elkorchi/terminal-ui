@@ -6,7 +6,7 @@ import {
   paletteReducer,
   selectedPaletteEntry,
   paletteStatus
-} from '../../dist/widgets/index.js';
+} from '../../dist/behavior/index.js';
 
 const entries = [
   { id: 'open', label: 'Open file', value: 'open', keywords: ['file'] },

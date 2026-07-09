@@ -1,9 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveTerminalCapabilities } from '../../dist/host/index.js';
-import { createFrameBuffer, diffFrames, renderDiffAnsi, renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
-import { richText, text } from '../../dist/widgets/index.js';
+import {
+  resolveTerminalCapabilities } from '../../dist/host/index.js';
+import { createFrameBuffer,
+  diffFrames,
+  renderDiffAnsi,
+  renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import {
+  richText,
+  text
+} from '../../dist/components/index.js';
 import { textSamples } from '../support/text-samples.mjs';
 
 const colorCapabilities = resolveTerminalCapabilities({
@@ -23,9 +32,9 @@ const colorCapabilities = resolveTerminalCapabilities({
 
 test('render diff property checks keep unchanged frames empty and local changes incremental', () => {
   for (const value of textSamples) {
-    const before = renderWidgetFrame(text(value), { columns: 20, rows: 3 });
+    const before = renderElementFrame(text(value), { columns: 20, rows: 3 });
     const same = diffFrames(before, before);
-    const after = renderWidgetFrame(text(`${value} changed`), { columns: 20, rows: 3 });
+    const after = renderElementFrame(text(`${value} changed`), { columns: 20, rows: 3 });
     const changed = diffFrames(before, after);
     const detail = `value=${JSON.stringify(value)}`;
 
@@ -39,8 +48,8 @@ test('render diff property checks keep unchanged frames empty and local changes 
 
 test('diff round-trips reproduce the next frame text and keep ANSI serialization safe', () => {
   for (const { index, seed, value } of generatedTexts(32)) {
-    const before = renderWidgetFrame(text(value), { columns: 18, rows: 4 });
-    const next = renderWidgetFrame(text(`unsafe ${index} ${value} \u001B[31mred`), { columns: 18, rows: 4 });
+    const before = renderElementFrame(text(value), { columns: 18, rows: 4 });
+    const next = renderElementFrame(text(`unsafe ${index} ${value} \u001B[31mred`), { columns: 18, rows: 4 });
     const diff = diffFrames(before, next);
     const applied = applyDiffToFrame(before, diff);
     const serialized = renderDiffAnsi(diff, { capabilities: colorCapabilities });
@@ -53,11 +62,11 @@ test('diff round-trips reproduce the next frame text and keep ANSI serialization
 });
 
 test('style-only diffs are incremental and preserve visual dimensions', () => {
-  const previous = renderWidgetFrame(richText({
+  const previous = renderElementFrame(richText({
     id: 'status',
     segments: [{ text: 'same text', style: { fg: { kind: 'theme', token: 'status.info' } } }]
   }), { columns: 24, rows: 2 });
-  const next = renderWidgetFrame(richText({
+  const next = renderElementFrame(richText({
     id: 'status',
     segments: [{ text: 'same text', style: { fg: { kind: 'theme', token: 'status.error' } } }]
   }), { columns: 24, rows: 2 });

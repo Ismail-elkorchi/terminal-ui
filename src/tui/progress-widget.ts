@@ -1,13 +1,15 @@
+import type { RenderNode } from '../render-node/index.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
-import type { WidgetProcessStatus, ProgressBarLabelPosition, ProgressBarDisplay, Widget } from '../widgets/index.ts';
-import { indeterminateProgressFrame } from '../widgets/index.ts';
-import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
+import { indeterminateProgressFrame } from '../behavior/feedback.ts';
+import type { ProcessStatus } from '../components/contracts.ts';
+import { normalizeProcessStatus } from '../components/status.ts';
+import type { ProgressBarLabelPosition, ProgressBarDisplay } from '../components/types.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
 import { block, line } from './frame.ts';
 import { feedbackStatusMarkerSpan, feedbackStructureSpan, feedbackTextSpan } from './feedback-visual.ts';
-import { numberProp, stringify } from './widget-props.ts';
+import { numberProp, stringify } from './render-node-props.ts';
 import { measureRenderSpans } from './render-primitives.ts';
 import { normalizeValueScale, valueScaleStyle } from './value-scale.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from './frame.ts';
@@ -17,7 +19,7 @@ interface ProgressModel {
   readonly label: string;
   readonly display: ProgressBarDisplay;
   readonly labelPosition: ProgressBarLabelPosition;
-  readonly status: WidgetProcessStatus;
+  readonly status: ProcessStatus;
   readonly indeterminate: boolean;
   readonly value: number;
   readonly max: number;
@@ -36,16 +38,16 @@ interface ProgressParts {
   readonly timing: boolean;
 }
 
-export function progressBlock(widget: Widget, theme: TerminalTheme, maxCells?: number): RenderBlock {
+export function progressBlock(widget: RenderNode, theme: TerminalTheme, maxCells?: number): RenderBlock {
   const model = progressModel(widget);
   return block([line(fitProgressSpans(widget, model, theme, maxCells))]);
 }
 
-export function progressText(widget: Widget, theme: TerminalTheme): string {
+export function progressText(widget: RenderNode, theme: TerminalTheme): string {
   return progressBlock(widget, theme).lines.map((currentLine) => currentLine.spans.map((currentSpan) => currentSpan.text).join('')).join('\n');
 }
 
-export function progressAccessibleBase(widget: Widget, id: string): AccessibleNode {
+export function progressAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
   const model = progressModel(widget);
   if (model.indeterminate) {
     return {
@@ -67,7 +69,7 @@ export function progressAccessibleBase(widget: Widget, id: string): AccessibleNo
   };
 }
 
-function fitProgressSpans(widget: Widget, model: ProgressModel, theme: TerminalTheme, maxCells: number | undefined): readonly RenderSpan[] {
+function fitProgressSpans(widget: RenderNode, model: ProgressModel, theme: TerminalTheme, maxCells: number | undefined): readonly RenderSpan[] {
   if (maxCells !== undefined && maxCells <= 0) return [];
   const initialParts = progressParts(model);
   const candidates: readonly ProgressParts[] = [
@@ -85,7 +87,7 @@ function fitProgressSpans(widget: Widget, model: ProgressModel, theme: TerminalT
 }
 
 function progressSpans(
-  widget: Widget,
+  widget: RenderNode,
   model: ProgressModel,
   theme: TerminalTheme,
   parts: ProgressParts,
@@ -104,7 +106,7 @@ function progressSpans(
 }
 
 function fittedBarWidth(
-  widget: Widget,
+  widget: RenderNode,
   model: ProgressModel,
   theme: TerminalTheme,
   parts: ProgressParts,
@@ -131,7 +133,7 @@ function progressParts(model: ProgressModel): ProgressParts {
   };
 }
 
-function progressBarSpans(widget: Widget, model: ProgressModel, theme: TerminalTheme, barWidth: number) {
+function progressBarSpans(widget: RenderNode, model: ProgressModel, theme: TerminalTheme, barWidth: number) {
   if (model.indeterminate) {
     return indeterminateProgressFrame(model.frame, barWidth).cells.map((cell) =>
       cell.active
@@ -161,7 +163,7 @@ function progressBarSpans(widget: Widget, model: ProgressModel, theme: TerminalT
   ];
 }
 
-function progressStatusSpans(widget: Widget, model: ProgressModel, theme: TerminalTheme) {
+function progressStatusSpans(widget: RenderNode, model: ProgressModel, theme: TerminalTheme) {
   if (model.status === 'running') return [];
   return [
     feedbackStatusMarkerSpan(widget, 'progressBar', 'status.marker', model.status, statusMarker(model.status, theme)),
@@ -169,7 +171,7 @@ function progressStatusSpans(widget: Widget, model: ProgressModel, theme: Termin
   ];
 }
 
-function progressMetricSpans(widget: Widget, model: ProgressModel, parts: ProgressParts) {
+function progressMetricSpans(widget: RenderNode, model: ProgressModel, parts: ProgressParts) {
   if (model.indeterminate) return parts.timing ? timingSpans(widget, model) : [];
   return [
     ...(parts.value ? [feedbackTextSpan(widget, ` ${String(model.value)}/${String(model.max)}`, 'progressBar', 'value')] : []),
@@ -178,7 +180,7 @@ function progressMetricSpans(widget: Widget, model: ProgressModel, parts: Progre
   ];
 }
 
-function progressFillStyle(status: WidgetProcessStatus): TerminalStyle {
+function progressFillStyle(status: ProcessStatus): TerminalStyle {
   if (status === 'error' || status === 'warning' || status === 'success') return statusStyle(status);
   return {
     fg: { kind: 'theme', token: 'control.track.filled' },
@@ -193,7 +195,7 @@ function progressTrackStyle(): TerminalStyle {
   };
 }
 
-function progressModel(widget: Widget): ProgressModel {
+function progressModel(widget: RenderNode): ProgressModel {
   const rawMax = numberProp(widget, 'max') ?? 100;
   const max = rawMax > 0 ? rawMax : 100;
   const rawValue = numberProp(widget, 'value');
@@ -205,7 +207,7 @@ function progressModel(widget: Widget): ProgressModel {
     label: sanitizeTerminalText(stringify(widget.props['label'])).text,
     display: progressDisplay(widget.props['display']),
     labelPosition: progressLabelPosition(widget.props['labelPosition']),
-    status: normalizeWidgetProcessStatus(widget.props['status'], 'running'),
+    status: normalizeProcessStatus(widget.props['status'], 'running'),
     indeterminate,
     value,
     max,
@@ -218,7 +220,7 @@ function progressModel(widget: Widget): ProgressModel {
   };
 }
 
-function timingSpans(widget: Widget, model: ProgressModel) {
+function timingSpans(widget: RenderNode, model: ProgressModel) {
   const text = timingText(model);
   return text.length === 0 ? [] : [feedbackTextSpan(widget, ` ${text}`, 'progressBar', 'timing')];
 }

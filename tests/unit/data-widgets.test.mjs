@@ -1,11 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
-import { paginator, tree } from '../../dist/widgets/index.js';
+import {
+  renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import {
+  paginator,
+  tree
+} from '../../dist/components/index.js';
 
 test('tree renders expanded visible nodes and accessible selection state', () => {
-  const frame = renderWidgetFrame(tree({
+  const frame = renderElementFrame(tree({
     id: 'tree',
     selected: 'child',
     nodes: [
@@ -31,7 +37,7 @@ test('tree renders expanded visible nodes and accessible selection state', () =>
 });
 
 test('paginator normalizes page bounds and renders compact status', () => {
-  const frame = renderWidgetFrame(paginator({
+  const frame = renderElementFrame(paginator({
     id: 'pages',
     label: 'Results',
     page: 20,

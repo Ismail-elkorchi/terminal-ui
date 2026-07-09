@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { hoverableActive, hoverableReducer } from '../../dist/widgets/index.js';
+import {
+  hoverableActive,
+  hoverableReducer
+} from '../../dist/behavior/index.js';
 
 test('hoverableReducer keeps hover and focus state caller-owned and explicit', () => {
   const hovered = hoverableReducer({}, { kind: 'enter', id: 'button-a' });

@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createMemoryTerminalHost } from '../../dist/host/index.js';
+import {
+  createMemoryTerminalHost } from '../../dist/host/index.js';
 import {
   copySelectedTextToClipboard,
   resolveSelectedText
-} from '../../dist/tui/index.js';
+} from '../../dist/renderer/index.js';
 
 test('selection interaction resolves the active application-owned source', () => {
   const result = resolveSelectedText({

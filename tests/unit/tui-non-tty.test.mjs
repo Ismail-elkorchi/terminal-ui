@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { runTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { defineTui, runTui } from '../../dist/tui/index.js';
-import { statusBar, text } from '../../dist/widgets/index.js';
+import { defineTui } from '../../dist/tui/index.js';
+import {
+  statusBar,
+  text
+} from '../../dist/components/index.js';
 
 test('TUI non-TTY reject mode returns a typed diagnostic without control sequences', async () => {
   const host = createMemoryTerminalHost({ isTty: false });

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { findTextHighlightMatches } from '../../dist/text/index.js';
-import { highlightRenderSpans } from '../../dist/tui/index.js';
+import { highlightRenderSpans } from '../../dist/renderer/index.js';
 
 test('highlight matching uses grapheme ranges without splitting combining marks', () => {
   const spans = highlightRenderSpans('cafe\u0301 noir', 'é', {

@@ -1,18 +1,18 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
-import type { Widget } from '../../../widgets/index.ts';
+import type { RenderNode } from '../../../render-node/index.ts';
 import type { CursorPosition } from '../../cursor.ts';
 import type { FrameCell } from '../../frame.ts';
 import type { Rect } from '../../layout.ts';
-import type { FocusTarget, HitTarget } from '../../widget-renderer.ts';
+import type { FocusTarget, HitTarget } from '../../render-node-renderer.ts';
 
-export function hasKeyboardOrInputMap(widget: Widget): boolean {
+export function hasKeyboardOrInputMap(widget: RenderNode): boolean {
   return (widget.keyMap !== undefined && Object.keys(widget.keyMap).length > 0)
     || widget.inputMap?.text !== undefined
     || widget.inputMap?.paste !== undefined;
 }
 
 export function widgetMessageHitTargets<TMessage>(
-  widget: Widget<TMessage>,
+  widget: RenderNode<TMessage>,
   bounds: Rect,
   suffix: string
 ): readonly HitTarget<TMessage>[] {

@@ -1,16 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveTerminalCapabilities } from '../../dist/host/index.js';
+import {
+  resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
-import { renderFramePlain, renderWidgetFrame } from '../../dist/tui/index.js';
+import { renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
 import {
   activityFeed,
+  structuredBlock
+} from '../../dist/components/index.js';
+import {
   activityFeedReducer,
-  structuredBlock,
   visibleActivityFeedBlocks
-} from '../../dist/widgets/index.js';
+} from '../../dist/behavior/index.js';
 
 const blocks = [
   {
@@ -40,8 +45,8 @@ const blocks = [
 ];
 
 test('structuredBlock renders collapsed and expanded block data', () => {
-  const collapsed = renderWidgetFrame(structuredBlock(blocks[0]), { columns: 32, rows: 6 });
-  const expanded = renderWidgetFrame(structuredBlock(blocks[1]), { columns: 32, rows: 8 });
+  const collapsed = renderElementFrame(structuredBlock(blocks[0]), { columns: 32, rows: 6 });
+  const expanded = renderElementFrame(structuredBlock(blocks[1]), { columns: 32, rows: 8 });
 
   assert.equal(renderFramePlain(collapsed), '[+] [pending] Queued task\nWaiting for a worker\nowner: scheduler');
   assert.equal(
@@ -62,7 +67,7 @@ test('structuredBlock renders collapsed and expanded block data', () => {
 });
 
 test('structuredBlock sanitizes terminal control sequences', () => {
-  const frame = renderWidgetFrame(structuredBlock({
+  const frame = renderElementFrame(structuredBlock({
     id: 'unsafe',
     title: 'Title \u001B[31mred\u001B[0m',
     body: 'Body \u001B[32mgreen\u001B[0m'
@@ -75,7 +80,7 @@ test('structuredBlock sanitizes terminal control sequences', () => {
 test('structuredBlock supports required status states with themed status cells', () => {
   const statuses = ['pending', 'running', 'success', 'warning', 'error', 'failed', 'cancelled', 'skipped', 'info'];
   for (const status of statuses) {
-    const frame = renderWidgetFrame(structuredBlock({
+    const frame = renderElementFrame(structuredBlock({
       id: `status-${status}`,
       title: `Status ${status}`,
       status
@@ -89,7 +94,7 @@ test('structuredBlock supports required status states with themed status cells',
 });
 
 test('structuredBlock aligns fields and wraps long body text predictably', () => {
-  const frame = renderWidgetFrame(structuredBlock({
+  const frame = renderElementFrame(structuredBlock({
     id: 'details',
     title: 'Details',
     fields: [
@@ -106,7 +111,7 @@ test('structuredBlock aligns fields and wraps long body text predictably', () =>
 });
 
 test('structuredBlock middle-clips compact summaries and fields', () => {
-  const frame = renderWidgetFrame(structuredBlock({
+  const frame = renderElementFrame(structuredBlock({
     id: 'path-card',
     title: 'Selected file',
     summary: '/home/ismail-el-korchi/Documents/Projects/terminal-ui/src/accessibility/snapshot.ts',
@@ -123,7 +128,7 @@ test('structuredBlock middle-clips compact summaries and fields', () => {
 });
 
 test('activityFeed renders selected visible blocks and accessible options', () => {
-  const frame = renderWidgetFrame(activityFeed({
+  const frame = renderElementFrame(activityFeed({
     id: 'feed',
     blocks,
     selected: 1
@@ -172,7 +177,7 @@ test('activityFeed renders caller-owned reducer expansion state', () => {
     collapsedIds: []
   }, { kind: 'expandBlock', id: 'collapsed' }, { blocks: reducerBlocks });
   const visibleBlocks = visibleActivityFeedBlocks(reducerBlocks, state).map((entry) => entry.block);
-  const frame = renderWidgetFrame(activityFeed({
+  const frame = renderElementFrame(activityFeed({
     id: 'feed-from-state',
     blocks: visibleBlocks,
     selected: state.selected
@@ -184,7 +189,7 @@ test('activityFeed renders caller-owned reducer expansion state', () => {
 });
 
 test('structuredBlock and activityFeed preserve document state in high contrast and no color output', () => {
-  const blockFrame = renderWidgetFrame(structuredBlock({
+  const blockFrame = renderElementFrame(structuredBlock({
     id: 'error-record',
     title: 'Import',
     status: 'error',
@@ -193,7 +198,7 @@ test('structuredBlock and activityFeed preserve document state in high contrast 
     body: 'Line one',
     details: 'Trace id 42'
   }), { columns: 44, rows: 8 }, { theme: highContrastTheme });
-  const feedFrame = renderWidgetFrame(activityFeed({
+  const feedFrame = renderElementFrame(activityFeed({
     id: 'state-feed',
     blocks,
     selected: 1
@@ -224,7 +229,7 @@ test('activityFeed bounds rendered rows to the viewport', () => {
     status: 'running',
     collapsed: true
   }));
-  const frame = renderWidgetFrame(activityFeed({
+  const frame = renderElementFrame(activityFeed({
     id: 'large-feed',
     blocks: manyBlocks,
     selected: 990

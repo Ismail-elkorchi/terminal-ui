@@ -1,17 +1,29 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createTerminalHarness } from '../../dist/testing/index.js';
 import {
   defineTui,
-  diffFrames,
-  layoutWidget,
-  renderDiffAnsi,
-  renderFramePlain,
-  renderWidgetFrame,
   runTui
 } from '../../dist/tui/index.js';
-import { row, stack, statusBar, surface, text, textInput } from '../../dist/widgets/index.js';
+import {
+  createTerminalHarness } from '../../dist/testing/index.js';
+import {
+  diffFrames,
+  layoutElement,
+  renderDiffAnsi,
+  renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import {
+  row,
+  stack,
+  surface
+} from '../../dist/layout/index.js';
+import {
+  statusBar,
+  text,
+  textInput
+} from '../../dist/components/index.js';
 
 function dashboardWidget(state) {
   return surface(
@@ -22,7 +34,7 @@ function dashboardWidget(state) {
         textInput({
           id: 'action-field',
           value: state.submitted ? 'Submitted' : 'Press enter',
-          message: { type: 'submit' }
+          onSubmit: { type: 'submit' }
         })
       ], { id: 'panes' }),
       statusBar({
@@ -38,7 +50,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   const initialWidget = dashboardWidget({ submitted: false });
 
   const viewport = { columns: 30, rows: 6 };
-  const layout = layoutWidget(initialWidget, viewport);
+  const layout = layoutElement(initialWidget, viewport);
   assert.equal(layout.kind, 'surface');
   assert.equal(layout.id, 'root-surface');
   assert.deepEqual(layout.bounds, { row: 1, column: 1, width: 30, height: 6 });
@@ -46,7 +58,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.equal(layout.children[0]?.children[1]?.kind, 'row');
   assert.equal(layout.children[0]?.children[1]?.children[1]?.id, 'action-field');
 
-  const frame = renderWidgetFrame(initialWidget, viewport);
+  const frame = renderElementFrame(initialWidget, viewport);
   assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v1');
   assert.equal(frame.width, 30);
   assert.equal(frame.height, 6);
@@ -59,7 +71,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.match(rendered, /Left pane/u);
   assert.match(rendered, /Press en…/u);
 
-  const submittedFrame = renderWidgetFrame(dashboardWidget({ submitted: true }), viewport, {
+  const submittedFrame = renderElementFrame(dashboardWidget({ submitted: true }), viewport, {
     focusPath: frame.focusPath
   });
   const diff = diffFrames(frame, submittedFrame);

@@ -4,7 +4,7 @@ import type { TerminalCapabilityProfile, TerminalClock, TerminalHost, TerminalIn
 import type { InputDecodeOptions, InputEvent, InputPipelineOptions } from '../input/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { InteractionTranscript, TranscriptPolicy, TranscriptRecorder } from '../transcript/index.ts';
-import type { Widget } from '../widgets/index.ts';
+import type { Element } from '../components/element.ts';
 import type { Frame } from './frame.ts';
 import type { FocusPath } from './focus.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
@@ -33,7 +33,7 @@ export type TuiUpdate<TState, TMessage> = (
   message: TMessage,
   context: TuiContext<TMessage>
 ) => TuiUpdateResult<TState, TMessage> | Promise<TuiUpdateResult<TState, TMessage>>;
-export type TuiView<TState, TMessage> = (state: TState, context: TuiContext<TMessage>) => Widget<TMessage>;
+export type TuiView<TState, TMessage> = (state: TState, context: TuiContext<TMessage>) => Element<TMessage>;
 
 export type TuiKeyBindingPhase = 'beforeFocus' | 'afterFocus';
 

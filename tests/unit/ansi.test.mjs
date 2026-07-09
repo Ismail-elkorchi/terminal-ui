@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { serializeRenderSpansStateful } from '../../dist/tui/index.js';
+import { serializeRenderSpansStateful } from '../../dist/renderer/index.js';
 
 test('stateful ANSI serialization keeps adjacent same-style spans open once', () => {
   const output = serializeRenderSpansStateful([

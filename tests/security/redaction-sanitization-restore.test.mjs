@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { password, runPrompt } from '../../dist/prompts/index.js';
-import { sanitizeTerminalText } from '../../dist/text/index.js';
 import { defineTui, runTui } from '../../dist/tui/index.js';
-import { text } from '../../dist/widgets/index.js';
+import {
+  createMemoryTerminalHost } from '../../dist/host/index.js';
+import { password,
+  runPrompt } from '../../dist/prompts/index.js';
+import { sanitizeTerminalText } from '../../dist/text/index.js';
+import { text } from '../../dist/components/index.js';
 
 test('security lane proves password redaction and control-sequence sanitization', async () => {
   const secret = 'super-secret-token';

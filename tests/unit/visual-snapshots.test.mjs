@@ -2,14 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createVisualSnapshot } from '../../dist/testing/index.js';
-import { renderWidgetFrame } from '../../dist/tui/index.js';
-import { button, richText, text } from '../../dist/widgets/index.js';
+import { renderElementFrame } from '../../dist/renderer/index.js';
+import {
+  button,
+  richText,
+  text
+} from '../../dist/components/index.js';
 
 test('visual snapshots produce deterministic plain ANSI frame accessibility diff hit and focus artifacts', () => {
-  const frame = renderWidgetFrame(button({
+  const frame = renderElementFrame(button({
     id: 'run',
     label: 'Run',
-    message: { kind: 'run' }
+    onPress: { kind: 'run' }
   }), { columns: 12, rows: 2 });
 
   const first = createVisualSnapshot({ frame, previousFrame: frame });
@@ -31,11 +35,11 @@ test('visual snapshots produce deterministic plain ANSI frame accessibility diff
 });
 
 test('visual snapshots fail on uncontrolled style changes through structured frame JSON', () => {
-  const base = renderWidgetFrame(richText({
+  const base = renderElementFrame(richText({
     id: 'style',
     segments: [{ text: 'Styled', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]
   }), { columns: 12, rows: 1 });
-  const changed = renderWidgetFrame(richText({
+  const changed = renderElementFrame(richText({
     id: 'style',
     segments: [{ text: 'Styled', style: { fg: { kind: 'theme', token: 'status.error' } } }]
   }), { columns: 12, rows: 1 });
@@ -44,7 +48,7 @@ test('visual snapshots fail on uncontrolled style changes through structured fra
 });
 
 test('visual snapshots preserve wide Unicode deterministically and keep raw control sequences out of plain artifacts', () => {
-  const frame = renderWidgetFrame(text('A界🙂é \u001B[31mred'), { columns: 16, rows: 2 });
+  const frame = renderElementFrame(text('A界🙂é \u001B[31mred'), { columns: 16, rows: 2 });
   const snapshot = createVisualSnapshot({ frame });
 
   assert.match(snapshot.plainTextFrame, /A界🙂é red/u);

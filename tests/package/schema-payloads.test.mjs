@@ -1,15 +1,26 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import {
+  readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 import Ajv2020 from 'ajv/dist/2020.js';
 
-import { accessibleRoles, accessibleSources } from '../../dist/accessibility/index.js';
-import { diagnostic, terminalDiagnosticCodes } from '../../dist/diagnostics.js';
-import { input, runPrompt } from '../../dist/prompts/index.js';
+import { accessibleRoles,
+  accessibleSources } from '../../dist/accessibility/index.js';
+import { diagnostic,
+  terminalDiagnosticCodes } from '../../dist/diagnostics.js';
+import { input,
+  runPrompt } from '../../dist/prompts/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { defineTui, diffFrames, renderWidgetFrame } from '../../dist/tui/index.js';
-import { textInput, text } from '../../dist/widgets/index.js';
+import { defineTui } from '../../dist/tui/index.js';
+import {
+  diffFrames,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import {
+  textInput,
+  text
+} from '../../dist/components/index.js';
 
 const schemaFiles = [
   'accessible-snapshot.schema.json',
@@ -31,14 +42,14 @@ test('schemas validate payloads emitted by public runtime APIs', async () => {
     update: (state) => ({ state }),
     view: () => textInput({ id: 'schema-field', value: 'ready' })
   });
-  const frame = renderWidgetFrame(app.definition.view({ ready: true }, {
+  const frame = renderElementFrame(app.definition.view({ ready: true }, {
     host: harness.host,
     viewport: harness.host.getViewport(),
     capabilities: await harness.host.getCapabilities(),
     clock: harness.clock,
     dispatch: () => {}
   }), harness.host.getViewport());
-  const nextFrame = renderWidgetFrame(text('changed', { id: 'changed' }), harness.host.getViewport());
+  const nextFrame = renderElementFrame(text('changed', { id: 'changed' }), harness.host.getViewport());
   const diff = diffFrames(frame, nextFrame);
   harness.host.recordFrame(frame);
   harness.host.recordDiff(diff);

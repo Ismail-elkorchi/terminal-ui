@@ -7,7 +7,7 @@ import {
   normalizeScrollState,
   scrollReducer,
   visibleWindowFromScroll
-} from '../../dist/tui/index.js';
+} from '../../dist/behavior/index.js';
 
 test('scroll state normalizes offsets and visible windows', () => {
   const state = createScrollState({

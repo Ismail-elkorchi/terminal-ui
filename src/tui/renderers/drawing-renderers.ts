@@ -19,41 +19,41 @@ export const drawingRenderers = {
     render: (input) => {
       renderCanvas(input);
     },
-    accessibility: ({ widget, id, focused }) => canvasAccessibleBase(widget, id, focused),
-    focusTargets: ({ widget, bounds }) => hasKeyboardOrInputMap(widget) ? [focusTarget(bounds)] : []
+    accessibility: ({ renderNode, id, focused }) => canvasAccessibleBase(renderNode, id, focused),
+    focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : []
   },
   surface: {
-    layout: ({ widget, bounds }) => surfaceChildBounds(widget, bounds),
+    layout: ({ renderNode, bounds }) => surfaceChildBounds(renderNode, bounds),
     render: (input) => {
-      drawSurfaceChrome(input.buffer, input.node.bounds, input.widget, input.theme, input.focused);
+      drawSurfaceChrome(input.buffer, input.layoutNode.bounds, input.renderNode, input.theme, input.focused);
       input.renderChildren();
     },
-    accessibility: ({ widget, id, focused }) => surfaceAccessibleBase(widget, id, focused)
+    accessibility: ({ renderNode, id, focused }) => surfaceAccessibleBase(renderNode, id, focused)
   },
   absolute: {
-    layout: ({ widget, bounds }) => absoluteChildBounds(widget, bounds),
+    layout: ({ renderNode, bounds }) => absoluteChildBounds(renderNode, bounds),
     render: (input) => {
       input.renderChildren();
     },
     accessibility: ({ id, focused }) => absoluteAccessibleBase(id, focused)
   },
   overlay: {
-    layout: ({ widget, bounds }) => overlayChildBounds(widget, bounds),
+    layout: ({ renderNode, bounds }) => overlayChildBounds(renderNode, bounds),
     render: (input) => {
       input.renderChildren();
     },
     accessibility: ({ id, focused }) => overlayAccessibleBase(id, focused)
   },
   divider: {
-    render: ({ widget, node, buffer, theme }) => {
-      renderDivider(widget, buffer, node.bounds, theme);
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      renderDivider(renderNode, buffer, layoutNode.bounds, theme);
     },
-    accessibility: ({ widget, id, focused }) => dividerAccessibleBase(widget, id, focused)
+    accessibility: ({ renderNode, id, focused }) => dividerAccessibleBase(renderNode, id, focused)
   },
   tooltip: {
-    render: ({ widget, node, buffer, theme }) => {
-      renderTooltip(widget, buffer, node.bounds, theme);
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      renderTooltip(renderNode, buffer, layoutNode.bounds, theme);
     },
-    accessibility: ({ widget, id, focused }) => tooltipAccessibleBase(widget, id, focused)
+    accessibility: ({ renderNode, id, focused }) => tooltipAccessibleBase(renderNode, id, focused)
   }
 } satisfies RendererMap<'canvas' | 'surface' | 'absolute' | 'overlay' | 'divider' | 'tooltip'>;

@@ -16,46 +16,46 @@ import {
   notificationStackHitTargets,
   renderNotificationStack
 } from '../notifications.ts';
-import { stringify } from '../widget-props.ts';
+import { stringify } from '../render-node-props.ts';
 import { writeRenderBlock } from './support/block.ts';
 import type { RendererMap } from './types.ts';
 
 export const feedbackRenderers = {
   statusBar: {
-    render: ({ widget, node, buffer }) => {
-      writeRenderBlock(buffer, node.bounds, statusBarBlock(widget));
+    render: ({ renderNode, layoutNode, buffer }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, statusBarBlock(renderNode));
     },
-    accessibility: ({ widget, id }) => ({
+    accessibility: ({ renderNode, id }) => ({
       id,
       role: 'status',
       label: id,
-      value: stringify(widget.props['text']),
+      value: stringify(renderNode.props['text']),
       live: 'polite'
     })
   },
   helpBar: {
-    render: ({ widget, node, buffer }) => {
-      writeRenderBlock(buffer, node.bounds, helpBarBlock(widget, node.bounds.width));
+    render: ({ renderNode, layoutNode, buffer }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, helpBarBlock(renderNode, layoutNode.bounds.width));
     },
-    accessibility: ({ widget, id }) => helpBarAccessibleBase(widget, id)
+    accessibility: ({ renderNode, id }) => helpBarAccessibleBase(renderNode, id)
   },
   spinner: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, spinnerBlock(widget, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, spinnerBlock(renderNode, theme));
     },
-    accessibility: ({ widget, id }) => spinnerAccessibleBase(widget, id)
+    accessibility: ({ renderNode, id }) => spinnerAccessibleBase(renderNode, id)
   },
   progressBar: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, progressBlock(widget, theme, node.bounds.width));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, progressBlock(renderNode, theme, layoutNode.bounds.width));
     },
-    accessibility: ({ widget, id }) => progressAccessibleBase(widget, id)
+    accessibility: ({ renderNode, id }) => progressAccessibleBase(renderNode, id)
   },
   notificationStack: {
-    render: ({ widget, node, buffer, theme }) => {
-      renderNotificationStack(widget, buffer, node.bounds, theme);
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      renderNotificationStack(renderNode, buffer, layoutNode.bounds, theme);
     },
-    accessibility: ({ widget, id, focused }) => notificationStackAccessibleBase(widget, id, focused),
-    hitTargets: ({ widget, bounds }) => notificationStackHitTargets(widget, bounds)
+    accessibility: ({ renderNode, id, focused }) => notificationStackAccessibleBase(renderNode, id, focused),
+    hitTargets: ({ renderNode, bounds }) => notificationStackHitTargets(renderNode, bounds)
   }
 } satisfies RendererMap<'statusBar' | 'helpBar' | 'spinner' | 'progressBar' | 'notificationStack'>;

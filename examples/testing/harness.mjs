@@ -1,9 +1,9 @@
 import { createTerminalHarness, runInteractionScript } from '@ismail-elkorchi/terminal-ui/testing';
-import { renderWidgetFrame } from '@ismail-elkorchi/terminal-ui/tui';
-import { text } from '@ismail-elkorchi/terminal-ui/widgets';
+import { renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
+import { text } from '@ismail-elkorchi/terminal-ui/components';
 
 const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
-harness.recordFrame(renderWidgetFrame(text('Harness ready', { id: 'ready' }), { columns: 20, rows: 4 }));
+harness.recordFrame(renderElementFrame(text('Harness ready', { id: 'ready' }), { columns: 20, rows: 4 }));
 
 const result = await runInteractionScript(harness, {
   id: 'example-script',

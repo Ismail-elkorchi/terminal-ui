@@ -1,16 +1,16 @@
 import type { TerminalTheme } from '../../../theme/index.ts';
-import type { Widget } from '../../../widgets/index.ts';
+import type { RenderNode } from '../../../render-node/index.ts';
 import type { BorderStyle } from '../../border.ts';
 import type { FrameBuffer } from '../../frame.ts';
 import { frameCellSource } from '../../frame-source.ts';
 import type { LayoutNode, Rect } from '../../layout.ts';
 import type { Measurement } from '../../measurement.ts';
 import type { TerminalStyle } from '../../render-primitives.ts';
-import { numberProp } from '../../widget-props.ts';
+import { numberProp } from '../../render-node-props.ts';
 import { borderContentBounds } from './border.ts';
 import { clampRect, nonNegativeInteger } from './common.ts';
 
-export function modalDialogBounds(widget: Widget, bounds: Rect): Rect {
+export function modalDialogBounds(widget: RenderNode, bounds: Rect): Rect {
   const width = Math.min(bounds.width, Math.max(4, Math.floor(numberProp(widget, 'width') ?? Math.min(bounds.width, 60))));
   const height = Math.min(bounds.height, Math.max(3, Math.floor(numberProp(widget, 'height') ?? Math.min(bounds.height, 20))));
   return clampRect({
@@ -22,7 +22,7 @@ export function modalDialogBounds(widget: Widget, bounds: Rect): Rect {
 }
 
 export function modalChildBounds(
-  widget: Widget,
+  widget: RenderNode,
   bounds: Rect,
   border: BorderStyle,
   childMeasures: readonly Measurement[]
@@ -77,7 +77,7 @@ function modalActionSeparatorBounds(node: LayoutNode): Rect | undefined {
   };
 }
 
-function modalHasActions(widget: Widget): boolean {
+function modalHasActions(widget: RenderNode): boolean {
   return (widget.children?.length ?? 0) > 1;
 }
 

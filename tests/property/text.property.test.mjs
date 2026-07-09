@@ -1,16 +1,24 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { clipTextCells, measureTextCells, sanitizeTerminalText, segmentGraphemes, wrapTextCells } from '../../dist/text/index.js';
+import {
+  createTuiRuntime,
+  defineTui
+} from '../../dist/tui/index.js';
 import {
   createScrollState,
-  createTuiRuntime,
-  defineTui,
   scrollReducer,
   visibleWindowFromScroll
-} from '../../dist/tui/index.js';
-import { textInput, stack } from '../../dist/widgets/index.js';
+} from '../../dist/behavior/index.js';
+import {
+  createMemoryTerminalHost } from '../../dist/host/index.js';
+import { clipTextCells,
+  measureTextCells,
+  sanitizeTerminalText,
+  segmentGraphemes,
+  wrapTextCells } from '../../dist/text/index.js';
+import { textInput } from '../../dist/components/index.js';
+import { stack } from '../../dist/layout/index.js';
 import { textSamples } from '../support/text-samples.mjs';
 
 test('text property checks keep sanitization segmentation clipping and wrapping bounded', () => {
@@ -70,18 +78,20 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
       textInput({
         id: 'first',
         value: state.active,
-        keyMap: { enter: { kind: 'first' } }
+        keys: { enter: { kind: 'first' } }
       }),
       textInput({
-        id: 'disabled',
-        value: state.active,
-        focus: { disabled: true },
-        keyMap: { enter: { kind: 'disabled' } }
-      }),
+    id: 'disabled',
+    value: state.active,
+    keys: { enter: { kind: 'disabled' } },
+    meta: {
+        focus: { disabled: true }
+    }
+}),
       textInput({
         id: 'second',
         value: state.active,
-        keyMap: { enter: { kind: 'second' } }
+        keys: { enter: { kind: 'second' } }
       })
     ], { id: 'focus-root' })
   });

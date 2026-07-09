@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
+import {
+  validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import {
   catppuccinTheme,
@@ -20,7 +21,8 @@ import {
   themePacks,
   tokyoNightTheme
 } from '../../dist/theme/index.js';
-import { renderWidgetFrame } from '../../dist/tui/index.js';
+import { renderElementFrame
+} from '../../dist/renderer/index.js';
 import {
   barChart,
   button,
@@ -30,12 +32,14 @@ import {
   progressBar,
   richText,
   scrollback,
-  stack,
-  surface,
-  tabs,
   table,
   text
-} from '../../dist/widgets/index.js';
+} from '../../dist/components/index.js';
+import {
+  stack,
+  surface,
+  tabs
+} from '../../dist/layout/index.js';
 
 const packedThemes = [
   catppuccinTheme,
@@ -105,7 +109,7 @@ test('high contrast theme keeps semantic status chart and diff tokens distinct',
 test('theme matrix snapshots cover core widgets with packs high contrast and no color', () => {
   const themes = [...packedThemes, highContrastTheme, noColorTheme];
   for (const theme of themes) {
-    const frame = renderWidgetFrame(stack([
+    const frame = renderElementFrame(stack([
       surface(text(`Theme ${theme.name}`, { id: `title-${theme.name}` }), {
         id: `surface-${theme.name}`,
         border: { kind: 'rounded', title: theme.name },
@@ -135,7 +139,7 @@ test('theme matrix snapshots cover core widgets with packs high contrast and no 
 });
 
 test('default theme specimen composes surface control text command log and data tokens', () => {
-  const frame = renderWidgetFrame(surface(stack([
+  const frame = renderElementFrame(surface(stack([
     richText({
       id: 'specimen-title',
       segments: [

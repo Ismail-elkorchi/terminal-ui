@@ -26,11 +26,11 @@ Executable examples are tested directly by the package suite. The tests run
 each public example and assert successful process output. This keeps examples
 reviewable without maintaining generated stdout snapshots.
 
-Renderer and widget regression tests should prove current public behavior:
+Renderer and component regression tests should prove current public behavior:
 styled cells, spans, blocks, frame JSON, diffs, ANSI, focus targets, hit
 targets, accessibility, and bounded viewport cost. See
 [Rendering internals](./rendering-internals.md) and
-[Building polished widgets](./building-polished-widgets.md).
+[Building polished components](./building-polished-components.md).
 
 Executable example:
 

@@ -1,5 +1,5 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { Frame, FrameCell, FrameHitTarget, TerminalStyle } from '../tui/index.ts';
+import type { Frame, FrameCell, FrameHitTarget, TerminalStyle } from '../renderer/index.ts';
 import type {
   FocusAssertion,
   HitTargetAssertion,

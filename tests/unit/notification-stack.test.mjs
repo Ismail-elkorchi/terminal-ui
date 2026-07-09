@@ -1,19 +1,24 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { resolveTerminalCapabilities } from '../../dist/host/index.js';
+import {
+  resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import {
   placeNotificationStack,
   renderFramePlain,
-  renderWidgetRegions,
-  renderWidgetFrame
-} from '../../dist/tui/index.js';
-import { grid, notificationStack, text } from '../../dist/widgets/index.js';
+  renderElementRegions,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import { grid } from '../../dist/layout/index.js';
+import {
+  notificationStack,
+  text
+} from '../../dist/components/index.js';
 
 test('notificationStack renders stacked status cards with semantic styles and accessibility', () => {
-  const frame = renderWidgetFrame(notificationStack({
+  const frame = renderElementFrame(notificationStack({
     id: 'notices',
     items: [
       {
@@ -65,7 +70,7 @@ test('notificationStack renders stacked status cards with semantic styles and ac
 });
 
 test('notificationStack middle-clips compact title and message lines', () => {
-  const frame = renderWidgetFrame(notificationStack({
+  const frame = renderElementFrame(notificationStack({
     id: 'notices',
     items: [{
       id: 'long-path',
@@ -81,29 +86,15 @@ test('notificationStack middle-clips compact title and message lines', () => {
   assert.match(output, /Stored \/home\/is…ty\/snapshot\.ts/u);
 });
 
-test('notificationStack creates keyboard dismiss mappings for the selected visible item', () => {
-  const widget = notificationStack({
-    items: [
-      { id: 'a', title: 'First' },
-      { id: 'b', title: 'Second' }
-    ],
-    selected: 1,
-    toDismissMessage: (item) => ({ kind: 'dismiss', id: item.id })
-  });
-
-  assert.deepEqual(widget.keyMap?.escape, { kind: 'dismiss', id: 'b' });
-  assert.deepEqual(widget.keyMap?.delete, { kind: 'dismiss', id: 'b' });
-  assert.deepEqual(widget.keyMap?.backspace, { kind: 'dismiss', id: 'b' });
-  assert.equal(renderWidgetFrame(widget, { columns: 32, rows: 8 }).focusPath, undefined);
-});
-
 test('notificationStack can opt into focus explicitly', () => {
-  const frame = renderWidgetFrame(notificationStack({
+  const frame = renderElementFrame(notificationStack({
     id: 'focusable-notices',
     items: [{ id: 'a', title: 'Focusable' }],
-    focus: { disabled: false },
-    keyMap: { enter: { kind: 'open' } }
-  }), { columns: 32, rows: 8 });
+    keys: { enter: { kind: 'open' } },
+    meta: {
+        focus: { disabled: false }
+    }
+}), { columns: 32, rows: 8 });
 
   assert.deepEqual(frame.focusPath, ['focusable-notices']);
 });
@@ -133,7 +124,7 @@ test('placeNotificationStack supports top, bottom, and centered placement preset
 });
 
 test('notificationStack is constrained by its layout bounds', () => {
-  const frame = renderWidgetFrame(grid({
+  const frame = renderElementFrame(grid({
     areas: `
       main notices
     `,
@@ -157,7 +148,7 @@ test('notificationStack is constrained by its layout bounds', () => {
 });
 
 test('notificationStack skips cards when bounds cannot fit a viable card', () => {
-  const frame = renderWidgetFrame(notificationStack({
+  const frame = renderElementFrame(notificationStack({
     id: 'notices',
     items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
     maxVisible: 1,
@@ -175,10 +166,10 @@ test('notificationStack exposes dismiss hit targets for placed cards', () => {
     items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
     maxVisible: 1,
     maxWidth: 24,
-    toDismissMessage: (item) => ({ kind: 'dismiss', id: item.id })
+    onDismiss: (item) => ({ kind: 'dismiss', id: item.id })
   });
-  const frame = renderWidgetFrame(widget, { columns: 36, rows: 8 });
-  const regions = renderWidgetRegions(widget, { columns: 36, rows: 8 });
+  const frame = renderElementFrame(widget, { columns: 36, rows: 8 });
+  const regions = renderElementRegions(widget, { columns: 36, rows: 8 });
 
   const target = frame.hitTargets.find((candidate) => candidate.id === 'notices:notification:saved');
   const routedTarget = regions.flatMap((region) => region.hitTargets).find((candidate) => candidate.id === 'notices:notification:saved');
@@ -192,7 +183,7 @@ test('notificationStack exposes dismiss hit targets for placed cards', () => {
 });
 
 test('notificationStack keeps tone progress and selection meaningful in no color output', () => {
-  const frame = renderWidgetFrame(notificationStack({
+  const frame = renderElementFrame(notificationStack({
     id: 'notices',
     items: [{
       id: 'failure',

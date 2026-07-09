@@ -1,9 +1,9 @@
-import type { Widget } from '../widgets/index.ts';
+import type { RenderNode } from '../render-node/index.ts';
 import { span } from './frame.ts';
-import { widgetFrameSource } from './frame-source.ts';
+import { renderNodeFrameSource } from './frame-source.ts';
 import type { FrameCellSource, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import { line } from './render-primitives.ts';
-import { mergeStyles, widgetStyle } from './widget-style.ts';
+import { mergeStyles, renderNodeStyle } from './render-node-style.ts';
 
 export type FormControlState =
   | 'default'
@@ -43,7 +43,7 @@ export type FormVisualKind =
   | 'weekday';
 
 export function formSpan(
-  widget: Widget,
+  widget: RenderNode,
   visual: FormVisualKind,
   label: string,
   text: string,
@@ -55,8 +55,8 @@ export function formSpan(
   });
 }
 
-export function formSource(widget: Widget, visual: FormVisualKind, label: string): FrameCellSource {
-  return widgetFrameSource(widget, {
+export function formSource(widget: RenderNode, visual: FormVisualKind, label: string): FrameCellSource {
+  return renderNodeFrameSource(widget, {
     family: 'form',
     role: roleForVisual(visual),
     part: label,
@@ -69,34 +69,34 @@ export function formLine(spans: readonly RenderSpan[]): RenderLine {
   return line(spans);
 }
 
-export function formLabelStyle(widget: Widget, state?: FormControlState): TerminalStyle | undefined {
-  return widgetStyle(widget, 'label', state);
+export function formLabelStyle(widget: RenderNode, state?: FormControlState): TerminalStyle | undefined {
+  return renderNodeStyle(widget, 'label', state);
 }
 
-export function formValueStyle(widget: Widget, state?: FormControlState): TerminalStyle | undefined {
-  return widgetStyle(widget, 'value', state);
+export function formValueStyle(widget: RenderNode, state?: FormControlState): TerminalStyle | undefined {
+  return renderNodeStyle(widget, 'value', state);
 }
 
-export function formPlaceholderStyle(widget: Widget): TerminalStyle | undefined {
-  return widgetStyle(widget, 'placeholder');
+export function formPlaceholderStyle(widget: RenderNode): TerminalStyle | undefined {
+  return renderNodeStyle(widget, 'placeholder');
 }
 
-export function formMarkerStyle(widget: Widget, state?: FormControlState): TerminalStyle | undefined {
-  return mergeStyles(widgetStyle(widget, 'value'), state === undefined ? undefined : widgetStyle(widget, 'value', state));
+export function formMarkerStyle(widget: RenderNode, state?: FormControlState): TerminalStyle | undefined {
+  return mergeStyles(renderNodeStyle(widget, 'value'), state === undefined ? undefined : renderNodeStyle(widget, 'value', state));
 }
 
-export function formErrorStyle(widget: Widget): TerminalStyle | undefined {
-  return widgetStyle(widget, 'error', 'error');
+export function formErrorStyle(widget: RenderNode): TerminalStyle | undefined {
+  return renderNodeStyle(widget, 'error', 'error');
 }
 
-export function formControlState(widget: Widget, selected = false): FormControlState | undefined {
+export function formControlState(widget: RenderNode, selected = false): FormControlState | undefined {
   if (widget.props['disabled'] === true) return 'disabled';
   if (typeof widget.props['error'] === 'string' && widget.props['error'].length > 0) return 'error';
   return selected ? 'selected' : undefined;
 }
 
 export function optionControlState(
-  widget: Widget,
+  widget: RenderNode,
   input: {
     readonly selected: boolean;
     readonly disabled?: boolean;
@@ -108,12 +108,12 @@ export function optionControlState(
   return input.selected ? 'selected' : undefined;
 }
 
-export function separatorSpan(widget: Widget, text = ' '): RenderSpan {
+export function separatorSpan(widget: RenderNode, text = ' '): RenderSpan {
   return formSpan(widget, 'separator', 'separator', text);
 }
 
 export function controlLabelSpans(
-  widget: Widget,
+  widget: RenderNode,
   text: string,
   state?: FormControlState,
   options: { readonly required?: boolean; readonly label?: string } = {}
@@ -122,7 +122,7 @@ export function controlLabelSpans(
 }
 
 export function controlPrefixSpans(
-  widget: Widget,
+  widget: RenderNode,
   text: string,
   state?: FormControlState,
   options: { readonly required?: boolean; readonly label?: string } = {}
@@ -136,7 +136,7 @@ export function controlPrefixSpans(
 }
 
 export function labelSpans(
-  widget: Widget,
+  widget: RenderNode,
   label: string,
   text: string,
   state?: FormControlState,

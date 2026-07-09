@@ -1,19 +1,19 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
-import type { Widget } from '../../../widgets/index.ts';
+import type { RenderNode } from '../../../render-node/index.ts';
 import { rowWindow, scrollStateFromUnknown } from '../../data-window.ts';
 import { createScrollState, normalizeScrollState } from '../../scroll.ts';
 import { dataSource, dataSpan, dataValueSpans, selectionMarkerSpans } from '../../data-visual.ts';
 import type { ScrollState } from '../../scroll.ts';
 import { sanitizeTerminalText } from '../../../text/index.ts';
 import { windowDescription } from '../../visible-window.ts';
-import { numberProp, stringify } from '../../widget-props.ts';
-import { widgetStyle } from '../../widget-style.ts';
+import { numberProp, stringify } from '../../render-node-props.ts';
+import { renderNodeStyle } from '../../render-node-style.ts';
 import type { LayoutNode, Rect } from '../../layout.ts';
 import type { RenderBlock, RenderLine } from '../../render-primitives.ts';
-import type { HitTarget } from '../../widget-renderer.ts';
+import type { HitTarget } from '../../render-node-renderer.ts';
 
-export function listScrollbarState(widget: Widget, bounds: Rect): ScrollState {
+export function listScrollbarState(widget: RenderNode, bounds: Rect): ScrollState {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
   const explicitScroll = scrollStateFromUnknown(widget.props['scroll']);
@@ -38,7 +38,7 @@ export function listScrollbarState(widget: Widget, bounds: Rect): ScrollState {
   });
 }
 
-export function listBlock(widget: Widget, height: number, theme: TerminalTheme): RenderBlock {
+export function listBlock(widget: RenderNode, height: number, theme: TerminalTheme): RenderBlock {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
   const window = listWindow(widget, items, height, selected);
@@ -48,7 +48,7 @@ export function listBlock(widget: Widget, height: number, theme: TerminalTheme):
       lines: [{
         spans: [dataSpan(
           query.length === 0 ? 'No items' : 'No matching items',
-          widgetStyle(widget, 'placeholder'),
+          renderNodeStyle(widget, 'placeholder'),
           dataSource(widget, query.length === 0 ? 'empty' : 'filter.empty', { role: 'text' })
         )]
       }]
@@ -58,7 +58,7 @@ export function listBlock(widget: Widget, height: number, theme: TerminalTheme):
     lines: window.rows.map((item, index): RenderLine => {
       const itemIndex = window.start + index;
       const isSelected = itemIndex === selected;
-      const style = isSelected ? widgetStyle(widget, 'value', 'selected') : widgetStyle(widget, 'value');
+      const style = isSelected ? renderNodeStyle(widget, 'value', 'selected') : renderNodeStyle(widget, 'value');
       const itemSourceId = `${widget.id ?? 'list'}:option:${String(itemIndex)}`;
       return {
         spans: [
@@ -79,7 +79,7 @@ export function listBlock(widget: Widget, height: number, theme: TerminalTheme):
   };
 }
 
-export function listAccessibleNode(widget: Widget, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
+export function listAccessibleNode(widget: RenderNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
   const window = listWindow(widget, items, node.bounds.height, selected, node.bounds.width);
@@ -92,7 +92,7 @@ export function listAccessibleNode(widget: Widget, node: LayoutNode, id: string,
   };
 }
 
-export function listAccessibleChildren(widget: Widget, node: LayoutNode): readonly AccessibleNode[] {
+export function listAccessibleChildren(widget: RenderNode, node: LayoutNode): readonly AccessibleNode[] {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
   const window = listWindow(widget, items, node.bounds.height, selected, node.bounds.width);
@@ -107,7 +107,7 @@ export function listAccessibleChildren(widget: Widget, node: LayoutNode): readon
   });
 }
 
-export function listCursor(widget: Widget, bounds: Rect): { readonly row: number; readonly column: number } {
+export function listCursor(widget: RenderNode, bounds: Rect): { readonly row: number; readonly column: number } {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected');
   if (selected === undefined || items.length === 0 || bounds.height <= 0) {
@@ -120,7 +120,7 @@ export function listCursor(widget: Widget, bounds: Rect): { readonly row: number
   return { row: selectedRow, column: bounds.column };
 }
 
-export function listHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function listHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = toMessageProp(widget);
   if (toMessage === undefined) return [];
   const items = filteredListItems(widget);
@@ -142,18 +142,18 @@ export function listHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect)
   });
 }
 
-function filteredListItems(widget: Widget): readonly unknown[] {
+function filteredListItems(widget: RenderNode): readonly unknown[] {
   const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
   const query = filterQuery(widget).toLocaleLowerCase();
   if (query.length === 0) return items;
   return items.filter((item) => String(item).toLocaleLowerCase().includes(query));
 }
 
-function filterQuery(widget: Widget): string {
+function filterQuery(widget: RenderNode): string {
   return clean(stringify(widget.props['filterQuery'])).trim();
 }
 
-function listWindow(widget: Widget, items: readonly unknown[], height: number, selected: number, width = 0) {
+function listWindow(widget: RenderNode, items: readonly unknown[], height: number, selected: number, width = 0) {
   return rowWindow(items, {
     viewportRows: height,
     viewportColumns: width,
@@ -163,12 +163,12 @@ function listWindow(widget: Widget, items: readonly unknown[], height: number, s
   });
 }
 
-function scrollInput(widget: Widget): { readonly scroll?: ScrollState } {
+function scrollInput(widget: RenderNode): { readonly scroll?: ScrollState } {
   const scroll = scrollStateFromUnknown(widget.props['scroll']);
   return scroll === undefined ? {} : { scroll };
 }
 
-function toMessageProp<TMessage>(widget: Widget<TMessage>): ((value: unknown) => TMessage) | undefined {
+function toMessageProp<TMessage>(widget: RenderNode<TMessage>): ((value: unknown) => TMessage) | undefined {
   const toMessage = widget.props['toMessage'];
   return isListMessageFactory(toMessage) ? (value) => toMessage(value) as TMessage : undefined;
 }

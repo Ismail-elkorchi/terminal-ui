@@ -1,38 +1,31 @@
+import type { RenderNodeTextRole } from '../render-node/index.ts';
 import { createTerminalTextIndex, normalizeTextCursor, sanitizeTerminalText } from '../text/index.ts';
 import { block, blockFromText, line, span, wrapRenderSpans } from './frame.ts';
-import { widgetFrameSource } from './frame-source.ts';
+import { renderNodeFrameSource } from './frame-source.ts';
 import { normalizeScrollState } from './scroll.ts';
 import {
-  selectionFromUnknown,
-  textCursorLineMetrics,
-  textDisplayWidth
+  selectionFromUnknown, textCursorLineMetrics, textDisplayWidth
 } from './text-display.ts';
 import {
-  textAreaInputContentBounds,
-  textAreaInputCursor,
-  textAreaInputLine,
-  type TextAreaVisualLine
+  textAreaInputContentBounds, textAreaInputCursor, textAreaInputLine, type TextAreaVisualLine
 } from './input-visual.ts';
 import {
-  activityIndicatorText as feedbackActivityIndicatorText,
-  helpBarText as feedbackHelpBarText,
-  spinnerBlock as feedbackSpinnerBlock,
-  spinnerText as feedbackSpinnerText
+  activityIndicatorText as feedbackActivityIndicatorText, helpBarText as feedbackHelpBarText, spinnerBlock as feedbackSpinnerBlock, spinnerText as feedbackSpinnerText
 } from './feedback-visual.ts';
 import { clampedTextOffset, textOffsetAtVisualColumn } from './text-pointer.ts';
-import { defaultStyleForTextRole, mergeStyles, resolveWidgetStyle, themeStyle } from './widget-style.ts';
-import { numberProp, stringify } from './widget-props.ts';
+import { defaultStyleForTextRole, mergeStyles, resolveRenderNodeStyle, themeStyle } from './render-node-style.ts';
+import { numberProp, stringify } from './render-node-props.ts';
 import { defaultTheme } from '../theme/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { Widget, WidgetTextRole } from '../widgets/index.ts';
-import { normalizeWidgetProcessStatus } from '../widgets/index.ts';
+import type { RenderNode } from '../render-node/index.ts';
+import { normalizeProcessStatus } from '../components/status.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from './layout.ts';
 import type { RoutedPointerEvent } from './pointer-types.ts';
 
-export function textBlock(widget: Widget): RenderBlock {
+export function textBlock(widget: RenderNode): RenderBlock {
   const content = sanitizeTerminalText(stringify(widget.props['content'])).text;
   return blockFromText(content, {
     ...styleOption(textStyle(widget)),
@@ -40,7 +33,7 @@ export function textBlock(widget: Widget): RenderBlock {
   });
 }
 
-export function textAccessibleBase(widget: Widget, id: string): AccessibleNode {
+export function textAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
   return {
     id,
     role: 'text',
@@ -49,7 +42,7 @@ export function textAccessibleBase(widget: Widget, id: string): AccessibleNode {
   };
 }
 
-export function richTextBlock(widget: Widget, bounds: Rect): RenderBlock {
+export function richTextBlock(widget: RenderNode, bounds: Rect): RenderBlock {
   const segments = richTextSegments(widget);
   if (widget.props['wrap'] === true && bounds.width > 0) {
     return block(wrapRenderSpans(segments, bounds.width));
@@ -57,7 +50,7 @@ export function richTextBlock(widget: Widget, bounds: Rect): RenderBlock {
   return block([line(segments)]);
 }
 
-export function richTextText(widget: Widget, bounds: Rect): string {
+export function richTextText(widget: RenderNode, bounds: Rect): string {
   const segments = richTextSegments(widget);
   const lines = widget.props['wrap'] === true && bounds.width > 0
     ? wrapRenderSpans(segments, bounds.width)
@@ -65,7 +58,7 @@ export function richTextText(widget: Widget, bounds: Rect): string {
   return lines.map(lineText).join('\n');
 }
 
-export function richTextAccessibleBase(widget: Widget, id: string): AccessibleNode {
+export function richTextAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
   return {
     id,
     role: 'text',
@@ -74,13 +67,13 @@ export function richTextAccessibleBase(widget: Widget, id: string): AccessibleNo
   };
 }
 
-export function textAreaText(widget: Widget, bounds: Rect): string {
+export function textAreaText(widget: RenderNode, bounds: Rect): string {
   return textAreaBlock(widget, bounds, defaultTheme).lines.map((currentLine) =>
     currentLine.spans.map((currentSpan) => currentSpan.text).join('')
   ).join('\n');
 }
 
-export function textAreaBlock(widget: Widget, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
+export function textAreaBlock(widget: RenderNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
   const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
   const placeholder = sanitizeTerminalText(stringify(widget.props['placeholder'])).text;
   const usesPlaceholder = value.length === 0 && placeholder.length > 0;
@@ -110,7 +103,7 @@ export function textAreaBlock(widget: Widget, bounds: Rect, theme: TerminalTheme
 }
 
 export function textAreaAccessibleBase(
-  widget: Widget,
+  widget: RenderNode,
   id: string,
   focused: boolean,
   bounds?: Rect,
@@ -128,7 +121,7 @@ export function textAreaAccessibleBase(
   };
 }
 
-export function textAreaCursor(widget: Widget, bounds: Rect, theme: TerminalTheme = defaultTheme): CursorPosition {
+export function textAreaCursor(widget: RenderNode, bounds: Rect, theme: TerminalTheme = defaultTheme): CursorPosition {
   const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
   const lineCount = textAreaLines(widget).length;
   const contentBounds = textAreaInputContentBounds(bounds, theme, widget, lineCount);
@@ -148,7 +141,7 @@ export function textAreaCursor(widget: Widget, bounds: Rect, theme: TerminalThem
 }
 
 export function textAreaPointerOffset(
-  widget: Widget,
+  widget: RenderNode,
   bounds: Rect,
   theme: TerminalTheme,
   pointer: RoutedPointerEvent
@@ -170,11 +163,11 @@ export function textAreaPointerOffset(
   return clampedTextOffset(value, record.start + textOffsetAtVisualColumn(record.text, visualColumn));
 }
 
-export function helpBarText(widget: Widget): string {
+export function helpBarText(widget: RenderNode): string {
   return feedbackHelpBarText(widget);
 }
 
-export function helpBarAccessibleBase(widget: Widget, id: string): AccessibleNode {
+export function helpBarAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
   return {
     id,
     role: 'status',
@@ -184,11 +177,11 @@ export function helpBarAccessibleBase(widget: Widget, id: string): AccessibleNod
   };
 }
 
-export function activityIndicatorText(widget: Widget, theme: TerminalTheme): string {
+export function activityIndicatorText(widget: RenderNode, theme: TerminalTheme): string {
   return feedbackActivityIndicatorText(widget, theme);
 }
 
-export function activityIndicatorAccessibleBase(widget: Widget, id: string): AccessibleNode {
+export function activityIndicatorAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
   return {
     id,
     role: 'status',
@@ -198,16 +191,16 @@ export function activityIndicatorAccessibleBase(widget: Widget, id: string): Acc
   };
 }
 
-export function spinnerBlock(widget: Widget, theme: TerminalTheme): RenderBlock {
+export function spinnerBlock(widget: RenderNode, theme: TerminalTheme): RenderBlock {
   return feedbackSpinnerBlock(widget, theme);
 }
 
-export function spinnerText(widget: Widget, theme: TerminalTheme): string {
+export function spinnerText(widget: RenderNode, theme: TerminalTheme): string {
   return feedbackSpinnerText(widget, theme);
 }
 
-export function spinnerAccessibleBase(widget: Widget, id: string): AccessibleNode {
-  const status = normalizeWidgetProcessStatus(widget.props['status'], 'running');
+export function spinnerAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
+  const status = normalizeProcessStatus(widget.props['status'], 'running');
   const label = stringify(widget.props['label']) || 'Loading';
   return {
     id,
@@ -218,7 +211,7 @@ export function spinnerAccessibleBase(widget: Widget, id: string): AccessibleNod
   };
 }
 
-function styledSegments(widget: Widget): readonly RenderSpan[] {
+function styledSegments(widget: RenderNode): readonly RenderSpan[] {
   if (!Array.isArray(widget.props['segments'])) return [];
   return widget.props['segments'].filter((segment): segment is RenderSpan =>
     typeof segment === 'object'
@@ -227,13 +220,13 @@ function styledSegments(widget: Widget): readonly RenderSpan[] {
   );
 }
 
-function richTextSegments(widget: Widget): readonly RenderSpan[] {
-  const rootStyle = resolveWidgetStyle(widget, { slot: 'root' });
+function richTextSegments(widget: RenderNode): readonly RenderSpan[] {
+  const rootStyle = resolveRenderNodeStyle(widget, { slot: 'root' });
   return styledSegments(widget).map((segment, index) => cleanSpan(widget, segment, index, rootStyle));
 }
 
 function cleanSpan(
-  widget: Widget,
+  widget: RenderNode,
   segment: RenderSpan,
   index: number,
   rootStyle: RenderSpan['style']
@@ -249,11 +242,11 @@ function linkStyle(segment: RenderSpan): RenderSpan['style'] {
   return segment.link === undefined ? undefined : themeStyle('link.foreground', { underline: true });
 }
 
-function textStyle(widget: Widget): TerminalStyle | undefined {
+function textStyle(widget: RenderNode): TerminalStyle | undefined {
   const role = widgetTextRole(widget.props['textRole']);
   const base = role === undefined ? undefined : defaultStyleForTextRole(role);
-  if (base === undefined) return resolveWidgetStyle(widget, { slot: 'root' });
-  return resolveWidgetStyle(widget, {
+  if (base === undefined) return resolveRenderNodeStyle(widget, { slot: 'root' });
+  return resolveRenderNodeStyle(widget, {
     slot: 'root',
     base
   });
@@ -263,9 +256,9 @@ function styleOption(style: TerminalStyle | undefined): { readonly style?: Termi
   return style === undefined ? {} : { style };
 }
 
-function textSource(widget: Widget): FrameCellSource {
+function textSource(widget: RenderNode): FrameCellSource {
   const role = widgetTextRole(widget.props['textRole']);
-  return widgetFrameSource(widget, {
+  return renderNodeFrameSource(widget, {
     family: 'text',
     role: 'text',
     part: role === undefined ? 'content' : `role.${role}`,
@@ -273,8 +266,8 @@ function textSource(widget: Widget): FrameCellSource {
   });
 }
 
-function richTextSource(widget: Widget, index: number): FrameCellSource {
-  return widgetFrameSource(widget, {
+function richTextSource(widget: RenderNode, index: number): FrameCellSource {
+  return renderNodeFrameSource(widget, {
     family: 'text',
     role: 'text',
     part: 'segment',
@@ -283,7 +276,7 @@ function richTextSource(widget: Widget, index: number): FrameCellSource {
   });
 }
 
-function widgetTextRole(value: unknown): WidgetTextRole | undefined {
+function widgetTextRole(value: unknown): RenderNodeTextRole | undefined {
   switch (value) {
     case 'title':
     case 'subtitle':
@@ -306,7 +299,7 @@ function lineText(renderLine: RenderLine): string {
   return renderLine.spans.map((currentSpan) => currentSpan.text).join('');
 }
 
-function textAreaDescription(widget: Widget, value: string, bounds: Rect | undefined, theme: TerminalTheme): string {
+function textAreaDescription(widget: RenderNode, value: string, bounds: Rect | undefined, theme: TerminalTheme): string {
   const lines = value.length === 0 ? 0 : value.split('\n').length;
   const scrollText = bounds === undefined ? '' : textAreaScrollDescription(widget, bounds, theme);
   const selection = widget.props['selection'];
@@ -317,7 +310,7 @@ function textAreaDescription(widget: Widget, value: string, bounds: Rect | undef
   return `${String(lines)} lines.${scrollText}${selectionText}${requiredText}${errorText}`;
 }
 
-function textAreaScrollDescription(widget: Widget, bounds: Rect, theme: TerminalTheme): string {
+function textAreaScrollDescription(widget: RenderNode, bounds: Rect, theme: TerminalTheme): string {
   const lines = textAreaLines(widget);
   const contentBounds = textAreaInputContentBounds(bounds, theme, widget, lines.length);
   const lineRecords = textAreaVisualLineRecords(widget, textAreaDisplayValue(widget), contentBounds.width);
@@ -330,12 +323,12 @@ function textAreaScrollDescription(widget: Widget, bounds: Rect, theme: Terminal
   return ` Showing ${String(start)}-${String(end)} of ${String(totalRows)} rows. Omitted before: ${String(scroll.offsetRow)}. Omitted after: ${String(omittedAfter)}. Horizontal offset: ${String(scroll.offsetColumn)}.`;
 }
 
-function textAreaLines(widget: Widget): readonly string[] {
+function textAreaLines(widget: RenderNode): readonly string[] {
   const display = textAreaDisplayValue(widget);
   return display.length === 0 ? [''] : display.split('\n');
 }
 
-function textAreaDisplayValue(widget: Widget): string {
+function textAreaDisplayValue(widget: RenderNode): string {
   const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
   const placeholder = sanitizeTerminalText(stringify(widget.props['placeholder'])).text;
   return value.length === 0 && placeholder.length > 0 ? placeholder : value;
@@ -356,7 +349,7 @@ function textAreaLogicalLineRecords(value: string): readonly TextAreaVisualLine[
   });
 }
 
-function textAreaVisualLineRecords(widget: Widget, value: string, contentWidth: number): readonly TextAreaVisualLine[] {
+function textAreaVisualLineRecords(widget: RenderNode, value: string, contentWidth: number): readonly TextAreaVisualLine[] {
   const logical = textAreaLogicalLineRecords(value);
   if (!textAreaWrapEnabled(widget) || contentWidth <= 0) return logical;
   return logical.flatMap((record) => wrapTextAreaLineRecord(record, contentWidth));
@@ -404,7 +397,7 @@ function textAreaVisualCursor(
 }
 
 function textAreaScroll(
-  widget: Widget,
+  widget: RenderNode,
   lines: readonly TextAreaVisualLine[],
   bounds: Rect
 ): ReturnType<typeof normalizeScrollState> {
@@ -424,7 +417,7 @@ function textAreaScroll(
   });
 }
 
-function textAreaWrapEnabled(widget: Widget): boolean {
+function textAreaWrapEnabled(widget: RenderNode): boolean {
   const raw = widget.props['wrap'];
   if (raw === true) return true;
   if (!isRecord(raw)) return false;

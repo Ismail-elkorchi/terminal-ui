@@ -1,15 +1,16 @@
+import type { RenderNode } from '../render-node/index.ts';
 import { clipTextCells, measureTextCells } from '../text/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import { borderStyleFromValue, drawBorder } from './border.ts';
 import type { BorderStyle } from './border.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
-import { widgetFrameSource } from './frame-source.ts';
+import { renderNodeFrameSource } from './frame-source.ts';
 import type { Rect } from './layout.ts';
 import type { FrameCellSource, TerminalStyle } from './render-primitives.ts';
 import { drawSurfaceShadow } from './surface.ts';
-import { stringify } from './widget-props.ts';
+import { stringify } from './render-node-props.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { TooltipPlacement, TooltipTone, Widget } from '../widgets/index.ts';
+import type { TooltipPlacement, TooltipTone } from '../components/types.ts';
 
 export interface TooltipSize {
   readonly width: number;
@@ -27,7 +28,7 @@ export interface TooltipPlacementInput {
 
 export type TooltipVisualKind = 'background' | 'content' | 'shadow';
 
-export function renderTooltip(widget: Widget, buffer: FrameBuffer, bounds: Rect, theme: TerminalTheme): void {
+export function renderTooltip(widget: RenderNode, buffer: FrameBuffer, bounds: Rect, theme: TerminalTheme): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const tone = tooltipTone(widget);
   const border = tooltipBorder(widget, tone);
@@ -51,7 +52,7 @@ export function renderTooltip(widget: Widget, buffer: FrameBuffer, bounds: Rect,
   }
 }
 
-export function tooltipPreferredSize(widget: Widget): TooltipSize {
+export function tooltipPreferredSize(widget: RenderNode): TooltipSize {
   const maxWidth = tooltipMaxWidth(widget);
   const title = tooltipTitle(widget);
   const lines = tooltipContentLines(widget);
@@ -63,7 +64,7 @@ export function tooltipPreferredSize(widget: Widget): TooltipSize {
   };
 }
 
-export function tooltipAccessibleBase(widget: Widget, id: string, focused: boolean): AccessibleNode {
+export function tooltipAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
   const title = tooltipTitle(widget);
   const content = tooltipContentLines(widget).join(' ');
   return {
@@ -91,7 +92,7 @@ export function placeTooltip(input: TooltipPlacementInput): Rect {
   return clampTooltipRect(tooltipRectForPlacement(target, input.size, ordered[0] ?? 'below', margin), input.viewport);
 }
 
-function tooltipContentLines(widget: Widget): readonly string[] {
+function tooltipContentLines(widget: RenderNode): readonly string[] {
   const content = widget.props['content'];
   if (Array.isArray(content)) {
     const cleaned = content.map((line) => stringify(line)).filter((line) => line.length > 0);
@@ -101,18 +102,18 @@ function tooltipContentLines(widget: Widget): readonly string[] {
   return text.length === 0 ? [''] : text.split('\n');
 }
 
-function tooltipTitle(widget: Widget): string {
+function tooltipTitle(widget: RenderNode): string {
   return stringify(widget.props['title']);
 }
 
-function tooltipMaxWidth(widget: Widget): number {
+function tooltipMaxWidth(widget: RenderNode): number {
   const value = widget.props['maxWidth'];
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.max(4, Math.floor(value))
     : 48;
 }
 
-function tooltipTone(widget: Widget): TooltipTone {
+function tooltipTone(widget: RenderNode): TooltipTone {
   const value = widget.props['tone'];
   return value === 'info'
     || value === 'success'
@@ -122,7 +123,7 @@ function tooltipTone(widget: Widget): TooltipTone {
     : 'default';
 }
 
-function tooltipBorder(widget: Widget, tone: TooltipTone): BorderStyle {
+function tooltipBorder(widget: RenderNode, tone: TooltipTone): BorderStyle {
   const explicit = borderStyleFromValue(widget.props['border']);
   if (explicit !== undefined) return explicit;
   return {
@@ -132,7 +133,7 @@ function tooltipBorder(widget: Widget, tone: TooltipTone): BorderStyle {
   };
 }
 
-function fillTooltipBackground(widget: Widget, buffer: FrameBuffer, bounds: Rect, style: TerminalStyle): void {
+function fillTooltipBackground(widget: RenderNode, buffer: FrameBuffer, bounds: Rect, style: TerminalStyle): void {
   const text = ' '.repeat(bounds.width);
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
     buffer.write(row, bounds.column, [{
@@ -143,8 +144,8 @@ function fillTooltipBackground(widget: Widget, buffer: FrameBuffer, bounds: Rect
   }
 }
 
-function tooltipSource(widget: Widget, visual: TooltipVisualKind, label: string): FrameCellSource {
-  return widgetFrameSource(widget, {
+function tooltipSource(widget: RenderNode, visual: TooltipVisualKind, label: string): FrameCellSource {
+  return renderNodeFrameSource(widget, {
     family: 'drawing',
     role: visual === 'content' ? 'text' : 'decoration',
     part: label,

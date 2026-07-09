@@ -43,8 +43,8 @@ import {
 import {
   drawScrollbars,
   scrollbackScrollbarState,
-  scrollbarHitTargetsForWidget,
-  scrollbarsForWidget,
+  scrollbarHitTargetsForRenderNode,
+  scrollbarsForRenderNode,
   tableScrollbarState,
   treeScrollbarState
 } from './support/scroll.ts';
@@ -52,139 +52,139 @@ import type { RendererMap } from './types.ts';
 
 export const dataRenderers = {
   sparkline: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, sparklineBlock(widget, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, sparklineBlock(renderNode, theme));
     },
-    accessibility: ({ widget, id }) => sparklineAccessibleBase(widget, id)
+    accessibility: ({ renderNode, id }) => sparklineAccessibleBase(renderNode, id)
   },
   barChart: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, barChartBlock(widget, node, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, barChartBlock(renderNode, layoutNode, theme));
     },
-    accessibility: ({ widget, node, id, focused }) => ({
-      ...barChartAccessibleBase(widget, node, id, focused),
-      children: barChartAccessibleChildren(widget, node)
+    accessibility: ({ renderNode, layoutNode, id, focused }) => ({
+      ...barChartAccessibleBase(renderNode, layoutNode, id, focused),
+      children: barChartAccessibleChildren(renderNode, layoutNode)
     }),
-    focusTargets: ({ widget, bounds }) => hasKeyboardOrInputMap(widget) ? [focusTarget(bounds)] : []
+    focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : []
   },
   chart: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, chartBlock(widget, node, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, chartBlock(renderNode, layoutNode, theme));
     },
-    accessibility: ({ widget, id }) => ({
-      ...chartAccessibleBase(widget, id),
-      children: chartAccessibleChildren(widget)
+    accessibility: ({ renderNode, id }) => ({
+      ...chartAccessibleBase(renderNode, id),
+      children: chartAccessibleChildren(renderNode)
     }),
-    focusTargets: ({ widget, bounds }) => hasKeyboardOrInputMap(widget) ? [focusTarget(bounds)] : [],
-    hitTargets: ({ widget, bounds }) => chartHitTargets(widget, bounds)
+    focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : [],
+    hitTargets: ({ renderNode, bounds }) => chartHitTargets(renderNode, bounds)
   },
   gauge: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, gaugeBlock(widget, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, gaugeBlock(renderNode, theme));
     },
-    accessibility: ({ widget, id }) => gaugeAccessibleBase(widget, id)
+    accessibility: ({ renderNode, id }) => gaugeAccessibleBase(renderNode, id)
   },
   heatmap: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, heatmapBlock(widget, node, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, heatmapBlock(renderNode, layoutNode, theme));
     },
-    accessibility: ({ widget, node, id, focused }) => ({
-      ...heatmapAccessibleBase(widget, node, id, focused),
-      children: heatmapAccessibleChildren(widget, node)
+    accessibility: ({ renderNode, layoutNode, id, focused }) => ({
+      ...heatmapAccessibleBase(renderNode, layoutNode, id, focused),
+      children: heatmapAccessibleChildren(renderNode, layoutNode)
     }),
-    focusTargets: ({ widget, bounds }) => hasKeyboardOrInputMap(widget) ? [focusTarget(bounds)] : [],
-    hitTargets: ({ widget, bounds }) => heatmapHitTargets(widget, bounds)
+    focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : [],
+    hitTargets: ({ renderNode, bounds }) => heatmapHitTargets(renderNode, bounds)
   },
   list: {
-    render: ({ widget, node, buffer, theme }) => {
-      const scrollbars = scrollbarsForWidget(widget, node.bounds, (contentBounds) => listScrollbarState(widget, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, listBlock(widget, scrollbars.contentBounds.height, theme));
-      drawScrollbars(buffer, widget, scrollbars, theme);
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => listScrollbarState(renderNode, contentBounds), 'vertical');
+      writeRenderBlock(buffer, scrollbars.contentBounds, listBlock(renderNode, scrollbars.contentBounds.height, theme));
+      drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
-    accessibility: ({ widget, node, id, focused }) => ({
-      ...listAccessibleNode(widget, node, id, focused),
-      children: listAccessibleChildren(widget, node)
+    accessibility: ({ renderNode, layoutNode, id, focused }) => ({
+      ...listAccessibleNode(renderNode, layoutNode, id, focused),
+      children: listAccessibleChildren(renderNode, layoutNode)
     }),
-    focusTargets: ({ widget, bounds }) => [focusTarget(bounds, listCursor(widget, bounds))],
-    hitTargets: ({ widget, bounds }) => {
-      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => listScrollbarState(widget, contentBounds), 'vertical');
+    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, listCursor(renderNode, bounds))],
+    hitTargets: ({ renderNode, bounds }) => {
+      const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => listScrollbarState(renderNode, contentBounds), 'vertical');
       return [
-        ...listHitTargets(widget, scrollbars.contentBounds),
-        ...scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state)
+        ...listHitTargets(renderNode, scrollbars.contentBounds),
+        ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)
       ];
     }
   },
   table: {
-    render: ({ widget, node, buffer, theme }) => {
-      const scrollbars = scrollbarsForWidget(widget, node.bounds, (contentBounds) => tableScrollbarState(widget, contentBounds), 'both');
-      writeRenderBlock(buffer, scrollbars.contentBounds, tableBlock(widget, scrollbars.contentBounds, theme));
-      drawScrollbars(buffer, widget, scrollbars, theme);
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => tableScrollbarState(renderNode, contentBounds), 'both');
+      writeRenderBlock(buffer, scrollbars.contentBounds, tableBlock(renderNode, scrollbars.contentBounds, theme));
+      drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
-    accessibility: ({ widget, node, id, focused }) => ({
-      ...tableAccessibleBase(widget, node.bounds, id, focused),
-      children: tableAccessibleChildren(widget, node.bounds)
+    accessibility: ({ renderNode, layoutNode, id, focused }) => ({
+      ...tableAccessibleBase(renderNode, layoutNode.bounds, id, focused),
+      children: tableAccessibleChildren(renderNode, layoutNode.bounds)
     }),
-    hitTargets: ({ widget, bounds }) => {
-      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => tableScrollbarState(widget, contentBounds), 'both');
+    hitTargets: ({ renderNode, bounds }) => {
+      const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => tableScrollbarState(renderNode, contentBounds), 'both');
       return [
-        ...tableHitTargets(widget, scrollbars.contentBounds),
-        ...scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state)
+        ...tableHitTargets(renderNode, scrollbars.contentBounds),
+        ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)
       ];
     }
   },
   tree: {
-    render: ({ widget, node, buffer, theme }) => {
-      const scrollbars = scrollbarsForWidget(widget, node.bounds, (contentBounds) => treeScrollbarState(widget, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, treeBlock(widget, scrollbars.contentBounds, theme));
-      drawScrollbars(buffer, widget, scrollbars, theme);
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => treeScrollbarState(renderNode, contentBounds), 'vertical');
+      writeRenderBlock(buffer, scrollbars.contentBounds, treeBlock(renderNode, scrollbars.contentBounds, theme));
+      drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
-    accessibility: ({ widget, node, id, focused }) => ({
-      ...treeAccessibleBase(widget, node.bounds, id, focused),
-      children: treeAccessibleChildren(widget, node.bounds)
+    accessibility: ({ renderNode, layoutNode, id, focused }) => ({
+      ...treeAccessibleBase(renderNode, layoutNode.bounds, id, focused),
+      children: treeAccessibleChildren(renderNode, layoutNode.bounds)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ widget, bounds }) => {
-      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => treeScrollbarState(widget, contentBounds), 'vertical');
+    hitTargets: ({ renderNode, bounds }) => {
+      const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => treeScrollbarState(renderNode, contentBounds), 'vertical');
       return [
-        ...treeHitTargets(widget, scrollbars.contentBounds),
-        ...scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state)
+        ...treeHitTargets(renderNode, scrollbars.contentBounds),
+        ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)
       ];
     }
   },
   paginator: {
-    render: ({ widget, node, buffer }) => {
-      writeRenderBlock(buffer, node.bounds, paginatorBlock(widget));
+    render: ({ renderNode, layoutNode, buffer }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, paginatorBlock(renderNode));
     },
-    accessibility: ({ widget, id }) => paginatorAccessibleBase(widget, id)
+    accessibility: ({ renderNode, id }) => paginatorAccessibleBase(renderNode, id)
   },
   scrollback: {
-    render: ({ widget, node, buffer, theme }) => {
-      const scrollbars = scrollbarsForWidget(widget, node.bounds, (contentBounds) => scrollbackScrollbarState(widget, { bounds: contentBounds }), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, scrollbackBlock(widget, { ...node, bounds: scrollbars.contentBounds }));
-      drawScrollbars(buffer, widget, scrollbars, theme);
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => scrollbackScrollbarState(renderNode, { bounds: contentBounds }), 'vertical');
+      writeRenderBlock(buffer, scrollbars.contentBounds, scrollbackBlock(renderNode, { ...layoutNode, bounds: scrollbars.contentBounds }));
+      drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
-    accessibility: ({ widget, node, id }) => ({
-      ...scrollbackAccessibleBase(widget, node, id),
-      children: scrollbackAccessibleChildren(widget, node)
+    accessibility: ({ renderNode, layoutNode, id }) => ({
+      ...scrollbackAccessibleBase(renderNode, layoutNode, id),
+      children: scrollbackAccessibleChildren(renderNode, layoutNode)
     }),
-    hitTargets: ({ widget, bounds }) => {
-      const scrollbars = scrollbarsForWidget(widget, bounds, (contentBounds) => scrollbackScrollbarState(widget, { bounds: contentBounds }), 'vertical');
-      return scrollbarHitTargetsForWidget(widget, scrollbars, scrollbars.state);
+    hitTargets: ({ renderNode, bounds }) => {
+      const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => scrollbackScrollbarState(renderNode, { bounds: contentBounds }), 'vertical');
+      return scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state);
     }
   },
   structuredBlock: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, structuredBlockBlock(widget, node, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, structuredBlockBlock(renderNode, layoutNode, theme));
     },
-    accessibility: ({ widget, id }) => structuredBlockAccessibleBase(widget, id)
+    accessibility: ({ renderNode, id }) => structuredBlockAccessibleBase(renderNode, id)
   },
   activityFeed: {
-    render: ({ widget, node, buffer, theme }) => {
-      writeRenderBlock(buffer, node.bounds, activityFeedBlock(widget, node, theme));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, activityFeedBlock(renderNode, layoutNode, theme));
     },
-    accessibility: ({ widget, node, id, focused }) => ({
-      ...activityFeedAccessibleBase(widget, node, id, focused),
-      children: activityFeedAccessibleChildren(widget, node)
+    accessibility: ({ renderNode, layoutNode, id, focused }) => ({
+      ...activityFeedAccessibleBase(renderNode, layoutNode, id, focused),
+      children: activityFeedAccessibleChildren(renderNode, layoutNode)
     })
   }
 } satisfies RendererMap<'sparkline' | 'barChart' | 'chart' | 'gauge' | 'heatmap' | 'list' | 'table' | 'tree' | 'paginator' | 'scrollback' | 'structuredBlock' | 'activityFeed'>;

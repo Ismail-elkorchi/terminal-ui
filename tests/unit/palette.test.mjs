@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { filterPaletteEntries, paletteWindow, renderWidgetFrame } from '../../dist/tui/index.js';
-import { palette } from '../../dist/widgets/index.js';
+import {
+  filterPaletteEntries,
+  paletteWindow
+} from '../../dist/behavior/index.js';
+import { renderElementFrame } from '../../dist/renderer/index.js';
+import { palette } from '../../dist/components/index.js';
 
 const entries = [
   { id: 'open-file', label: 'Open File', group: 'Files', value: { kind: 'file' }, description: 'Open a file', keywords: ['file'], preview: 'src/index.ts' },
@@ -48,7 +52,7 @@ test('paletteWindow bounds visible entries around stable id selection and scroll
 });
 
 test('palette widget renders query matches disabled entries preview help empty state and accessibility', () => {
-  const frame = renderWidgetFrame(
+  const frame = renderElementFrame(
     palette({
       id: 'palette',
       title: 'Things',
@@ -95,7 +99,7 @@ test('palette widget renders query matches disabled entries preview help empty s
 });
 
 test('palette widget renders empty states for unrelated queries', () => {
-  const frame = renderWidgetFrame(
+  const frame = renderElementFrame(
     palette({
       id: 'palette',
       query: 'zz',
@@ -111,13 +115,13 @@ test('palette widget renders empty states for unrelated queries', () => {
 });
 
 test('palette exposes enabled visible entry hit targets when toMessage is provided', () => {
-  const frame = renderWidgetFrame(
+  const frame = renderElementFrame(
     palette({
       id: 'commands',
       query: '',
       entries,
       maxVisible: 3,
-      toMessage: (entry) => ({ kind: 'select', id: entry.id })
+      onSelect: (entry) => ({ kind: 'select', id: entry.id })
     }),
     { columns: 48, rows: 6 }
   );

@@ -1,16 +1,12 @@
+import type { RenderNode } from '../render-node/index.ts';
 import { highlightRenderSpans } from './text-highlight.ts';
-import type {
-  WidgetFieldItem,
-  WidgetLogLevel,
-  WidgetRecordStatus,
-  Widget
-} from '../widgets/index.ts';
-import { baseStatusForRecordStatus } from '../widgets/index.ts';
-import { widgetFrameSource } from './frame-source.ts';
+import type { FieldItem, LogLevel, RecordStatus } from '../components/contracts.ts';
+import { baseStatusForRecordStatus } from '../components/status.ts';
+import { renderNodeFrameSource } from './frame-source.ts';
 import { span } from './render-primitives.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import { statusStyle } from './status-visual.ts';
-import { mergeStyles, themeStyle, widgetStyle } from './widget-style.ts';
+import { mergeStyles, themeStyle, renderNodeStyle } from './render-node-style.ts';
 
 export type DocumentSurfaceKind = 'scrollback' | 'structuredBlock' | 'activityFeed';
 export type DocumentVisualKind =
@@ -39,7 +35,7 @@ export interface DocumentSourceOptions {
 }
 
 export function documentSpan(
-  widget: Widget,
+  widget: RenderNode,
   kind: DocumentSurfaceKind,
   visual: DocumentVisualKind,
   label: string,
@@ -54,7 +50,7 @@ export function documentSpan(
 }
 
 export function documentHighlightSpans(input: {
-  readonly widget: Widget;
+  readonly widget: RenderNode;
   readonly kind: DocumentSurfaceKind;
   readonly visual: Extract<DocumentVisualKind, 'body' | 'metadata' | 'summary' | 'title' | 'detail'>;
   readonly label: string;
@@ -79,13 +75,13 @@ export function documentHighlightSpans(input: {
 }
 
 export function documentSource(
-  widget: Widget,
+  widget: RenderNode,
   kind: DocumentSurfaceKind,
   visual: DocumentVisualKind,
   label: string,
   sourceOptions: DocumentSourceOptions = {}
 ): FrameCellSource {
-  return widgetFrameSource(widget, {
+  return renderNodeFrameSource(widget, {
     family: kind,
     role: roleForVisual(visual),
     part: label,
@@ -95,76 +91,76 @@ export function documentSource(
   });
 }
 
-export function documentStatusStyle(status: WidgetRecordStatus): TerminalStyle {
+export function documentStatusStyle(status: RecordStatus): TerminalStyle {
   return mergeStyles(statusStyle(baseStatusForRecordStatus(status)), { bold: true }) ?? { bold: true };
 }
 
-export function documentMarkerStyle(widget: Widget, selected = false): TerminalStyle | undefined {
+export function documentMarkerStyle(widget: RenderNode, selected = false): TerminalStyle | undefined {
   return selected
-    ? widgetStyle(widget, 'value', 'selected')
-    : widgetStyle(widget, 'placeholder');
+    ? renderNodeStyle(widget, 'value', 'selected')
+    : renderNodeStyle(widget, 'placeholder');
 }
 
 export function documentTitleStyle(
-  widget: Widget,
+  widget: RenderNode,
   baseStyle: TerminalStyle | undefined,
   selected = false
 ): TerminalStyle | undefined {
   return mergeStyles(
-    widgetStyle(widget, 'title'),
+    renderNodeStyle(widget, 'title'),
     baseStyle,
-    selected ? widgetStyle(widget, 'value', 'selected') : undefined
+    selected ? renderNodeStyle(widget, 'value', 'selected') : undefined
   );
 }
 
-export function documentSummaryStyle(widget: Widget, selected = false): TerminalStyle | undefined {
+export function documentSummaryStyle(widget: RenderNode, selected = false): TerminalStyle | undefined {
   return selected
-    ? mergeStyles(widgetStyle(widget, 'value'), widgetStyle(widget, 'value', 'selected'))
-    : widgetStyle(widget, 'value');
+    ? mergeStyles(renderNodeStyle(widget, 'value'), renderNodeStyle(widget, 'value', 'selected'))
+    : renderNodeStyle(widget, 'value');
 }
 
 export function documentBodyStyle(
-  widget: Widget,
+  widget: RenderNode,
   baseStyle: TerminalStyle | undefined,
   selected = false
 ): TerminalStyle | undefined {
   return mergeStyles(
-    widgetStyle(widget, 'value'),
+    renderNodeStyle(widget, 'value'),
     baseStyle,
-    selected ? widgetStyle(widget, 'value', 'selected') : undefined
+    selected ? renderNodeStyle(widget, 'value', 'selected') : undefined
   );
 }
 
 export function documentDetailStyle(
-  widget: Widget,
+  widget: RenderNode,
   baseStyle: TerminalStyle | undefined,
   selected = false
 ): TerminalStyle | undefined {
   return mergeStyles(
-    widgetStyle(widget, 'placeholder'),
+    renderNodeStyle(widget, 'placeholder'),
     baseStyle,
-    selected ? widgetStyle(widget, 'value', 'selected') : undefined
+    selected ? renderNodeStyle(widget, 'value', 'selected') : undefined
   );
 }
 
 export function documentFieldSpans(
-  widget: Widget,
-  field: WidgetFieldItem,
+  widget: RenderNode,
+  field: FieldItem,
   labelWidth: number,
   selected = false,
   kind: DocumentSurfaceKind = 'structuredBlock',
   sourceOptions: DocumentSourceOptions = {}
 ): readonly RenderSpan[] {
   const labelStyle = mergeStyles(
-    widgetStyle(widget, 'label', selected ? 'selected' : undefined),
-    selected ? widgetStyle(widget, 'value', 'selected') : undefined
+    renderNodeStyle(widget, 'label', selected ? 'selected' : undefined),
+    selected ? renderNodeStyle(widget, 'value', 'selected') : undefined
   );
   const valueStyle = selected
-    ? widgetStyle(widget, 'value', 'selected')
-    : widgetStyle(widget, 'value');
+    ? renderNodeStyle(widget, 'value', 'selected')
+    : renderNodeStyle(widget, 'value');
   const separatorStyle = selected
-    ? widgetStyle(widget, 'value', 'selected')
-    : widgetStyle(widget, 'placeholder');
+    ? renderNodeStyle(widget, 'value', 'selected')
+    : renderNodeStyle(widget, 'placeholder');
   const key = sourceToken(field.label);
   return [
     documentSpan(widget, kind, 'field', `field.${key}.label`, field.label.padEnd(labelWidth), labelStyle, sourceOptions),
@@ -173,32 +169,32 @@ export function documentFieldSpans(
   ];
 }
 
-export function scrollbackTimestampStyle(widget: Widget): TerminalStyle | undefined {
-  return mergeStyles(widgetStyle(widget, 'placeholder'), themeStyle('log.timestamp'));
+export function scrollbackTimestampStyle(widget: RenderNode): TerminalStyle | undefined {
+  return mergeStyles(renderNodeStyle(widget, 'placeholder'), themeStyle('log.timestamp'));
 }
 
-export function scrollbackMetadataStyle(widget: Widget): TerminalStyle | undefined {
-  return mergeStyles(widgetStyle(widget, 'placeholder'), themeStyle('log.metadata'));
+export function scrollbackMetadataStyle(widget: RenderNode): TerminalStyle | undefined {
+  return mergeStyles(renderNodeStyle(widget, 'placeholder'), themeStyle('log.metadata'));
 }
 
-export function scrollbackMetadataSeparatorStyle(widget: Widget): TerminalStyle | undefined {
-  return widgetStyle(widget, 'placeholder');
+export function scrollbackMetadataSeparatorStyle(widget: RenderNode): TerminalStyle | undefined {
+  return renderNodeStyle(widget, 'placeholder');
 }
 
-export function scrollbackSelectedStyle(widget: Widget): TerminalStyle | undefined {
-  return widgetStyle(widget, 'value', 'selected');
+export function scrollbackSelectedStyle(widget: RenderNode): TerminalStyle | undefined {
+  return renderNodeStyle(widget, 'value', 'selected');
 }
 
 export function scrollbackBodyStyle(
-  widget: Widget,
+  widget: RenderNode,
   itemStyle: TerminalStyle | undefined,
-  level: WidgetLogLevel | undefined,
+  level: LogLevel | undefined,
   selected = false
 ): TerminalStyle | undefined {
   return documentBodyStyle(widget, mergeStyles(scrollbackLogLevelStyle(level), itemStyle), selected);
 }
 
-export function scrollbackLogLevelStyle(level: WidgetLogLevel | undefined): TerminalStyle | undefined {
+export function scrollbackLogLevelStyle(level: LogLevel | undefined): TerminalStyle | undefined {
   switch (level) {
     case 'info':
       return themeStyle('log.info');
@@ -211,12 +207,12 @@ export function scrollbackLogLevelStyle(level: WidgetLogLevel | undefined): Term
   }
 }
 
-export function scrollbackOmissionStyle(widget: Widget): TerminalStyle | undefined {
-  return widgetStyle(widget, 'placeholder');
+export function scrollbackOmissionStyle(widget: RenderNode): TerminalStyle | undefined {
+  return renderNodeStyle(widget, 'placeholder');
 }
 
-export function documentEmptyStyle(widget: Widget): TerminalStyle | undefined {
-  return widgetStyle(widget, 'placeholder');
+export function documentEmptyStyle(widget: RenderNode): TerminalStyle | undefined {
+  return renderNodeStyle(widget, 'placeholder');
 }
 
 export function sourceToken(value: string): string {

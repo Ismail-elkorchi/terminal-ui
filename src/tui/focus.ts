@@ -1,4 +1,4 @@
-import type { Widget } from '../widgets/index.ts';
+import type { RenderNode } from '../render-node/index.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { Layer, LayoutNode, Rect } from './layout.ts';
 
@@ -16,30 +16,30 @@ export interface LayoutFocusTarget {
   readonly cursor?: CursorPosition;
 }
 
-export interface WidgetFocusTarget<TMessage> extends LayoutFocusTarget {
-  readonly widget: Widget<TMessage>;
+export interface RenderNodeFocusTarget<TMessage> extends LayoutFocusTarget {
+  readonly renderNode: RenderNode<TMessage>;
 }
 
-export interface WidgetLayoutTarget<TMessage> extends LayoutFocusTarget {
-  readonly widget: Widget<TMessage>;
+export interface RenderNodeLayoutTarget<TMessage> extends LayoutFocusTarget {
+  readonly renderNode: RenderNode<TMessage>;
 }
 
 export function collectLayoutFocusTargets(layout: LayoutNode): readonly LayoutFocusTarget[] {
   return collectLayoutTargets(layout, []);
 }
 
-export function collectWidgetFocusTargets<TMessage>(
-  widget: Widget<TMessage>,
+export function collectRenderNodeFocusTargets<TMessage>(
+  widget: RenderNode<TMessage>,
   layout: LayoutNode
-): readonly WidgetFocusTarget<TMessage>[] {
-  return collectWidgetFocusRegionTargets(widget, layout, []).filter((target) => target.focusable);
+): readonly RenderNodeFocusTarget<TMessage>[] {
+  return collectRenderNodeFocusRegionTargets(widget, layout, []).filter((target) => target.focusable);
 }
 
-export function collectWidgetLayoutTargets<TMessage>(
-  widget: Widget<TMessage>,
+export function collectRenderNodeLayoutTargets<TMessage>(
+  renderNode: RenderNode<TMessage>,
   layout: LayoutNode
-): readonly WidgetLayoutTarget<TMessage>[] {
-  return collectWidgetLayoutNodeTargets(widget, layout, []);
+): readonly RenderNodeLayoutTarget<TMessage>[] {
+  return collectRenderNodeLayoutTargetsRecursive(renderNode, layout, []);
 }
 
 export function resolveFocusPath(layout: LayoutNode, requested: FocusPath | undefined): FocusPath | undefined {
@@ -83,13 +83,13 @@ export function findAnyLayoutFocusTarget(
   return collectLayoutFocusTargets(layout).find((target) => target.focusable && samePath(target.path, path));
 }
 
-export function findWidgetFocusTarget<TMessage>(
-  widget: Widget<TMessage>,
+export function findRenderNodeFocusTarget<TMessage>(
+  widget: RenderNode<TMessage>,
   layout: LayoutNode,
   path: FocusPath | undefined
-): WidgetFocusTarget<TMessage> | undefined {
+): RenderNodeFocusTarget<TMessage> | undefined {
   if (path === undefined) return undefined;
-  return scopedFocusTargets(layout, collectWidgetFocusTargets(widget, layout)).find((target) => samePath(target.path, path));
+  return scopedFocusTargets(layout, collectRenderNodeFocusTargets(widget, layout)).find((target) => samePath(target.path, path));
 }
 
 export function focusPathIncludes(left: FocusPath | undefined, right: FocusPath): boolean {
@@ -119,14 +119,14 @@ function collectLayoutTargets(layout: LayoutNode, parentPath: FocusPath): readon
   ];
 }
 
-function collectWidgetFocusRegionTargets<TMessage>(
-  widget: Widget<TMessage>,
+function collectRenderNodeFocusRegionTargets<TMessage>(
+  widget: RenderNode<TMessage>,
   layout: LayoutNode,
   parentPath: FocusPath
-): readonly WidgetLayoutTarget<TMessage>[] {
+): readonly RenderNodeLayoutTarget<TMessage>[] {
   if (!layout.visible) return [];
   const path = [...parentPath, focusSegment(layout)];
-  const current = layout.focusTargets.map((target, index): WidgetLayoutTarget<TMessage> => {
+  const current = layout.focusTargets.map((target, index): RenderNodeLayoutTarget<TMessage> => {
     const focusable = !target.disabled && target.bounds.width > 0 && target.bounds.height > 0;
     return {
       path: targetPath(path, target.id, index, layout.focusTargets.length),
@@ -138,40 +138,40 @@ function collectWidgetFocusRegionTargets<TMessage>(
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
       ...(target.order === undefined ? {} : { order: target.order }),
       ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId }),
-      widget
+      renderNode: widget
     };
   });
   const children = widget.children ?? [];
   return [
     ...current,
-    ...orderedWidgetFocusChildren(children, layout).flatMap(({ child, childLayout }) =>
-      collectWidgetFocusRegionTargets(child, childLayout, path)
+    ...orderedRenderNodeFocusChildren(children, layout).flatMap(({ child, childLayout }) =>
+      collectRenderNodeFocusRegionTargets(child, childLayout, path)
     )
   ];
 }
 
-function collectWidgetLayoutNodeTargets<TMessage>(
-  widget: Widget<TMessage>,
+function collectRenderNodeLayoutTargetsRecursive<TMessage>(
+  renderNode: RenderNode<TMessage>,
   layout: LayoutNode,
   parentPath: FocusPath
-): readonly WidgetLayoutTarget<TMessage>[] {
+): readonly RenderNodeLayoutTarget<TMessage>[] {
   if (!layout.visible) return [];
   const path = [...parentPath, focusSegment(layout)];
-  const current: WidgetLayoutTarget<TMessage> = {
+  const current: RenderNodeLayoutTarget<TMessage> = {
     path,
     bounds: layout.bounds,
     layer: layout.layer,
     kind: layout.kind,
     focusable: layout.focusable,
     disabled: false,
-    widget
+    renderNode
   };
-  const children = widget.children ?? [];
+  const children = renderNode.children ?? [];
   return [
     current,
     ...children.flatMap((child, index) => {
       const childLayout = layout.children[index];
-      return childLayout === undefined ? [] : collectWidgetLayoutNodeTargets(child, childLayout, path);
+      return childLayout === undefined ? [] : collectRenderNodeLayoutTargetsRecursive(child, childLayout, path);
     })
   ];
 }
@@ -187,13 +187,13 @@ function orderedFocusChildren(layout: LayoutNode): readonly LayoutNode[] {
     .map((item) => item.child);
 }
 
-function orderedWidgetFocusChildren<TMessage>(
-  children: readonly Widget<TMessage>[],
+function orderedRenderNodeFocusChildren<TMessage>(
+  children: readonly RenderNode<TMessage>[],
   layout: LayoutNode
-): readonly { readonly child: Widget<TMessage>; readonly childLayout: LayoutNode }[] {
+): readonly { readonly child: RenderNode<TMessage>; readonly childLayout: LayoutNode }[] {
   const pairs = children
     .map((child, index) => ({ child, childLayout: layout.children[index], index }))
-    .filter((item): item is { readonly child: Widget<TMessage>; readonly childLayout: LayoutNode; readonly index: number } =>
+    .filter((item): item is { readonly child: RenderNode<TMessage>; readonly childLayout: LayoutNode; readonly index: number } =>
       item.childLayout !== undefined
     );
   if (layout.kind !== 'overlay') return pairs;

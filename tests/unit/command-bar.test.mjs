@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { commandBarReducer, renderWidgetFrame, renderWidgetRegions } from '../../dist/tui/index.js';
-import { commandBar } from '../../dist/widgets/index.js';
+import { commandBarReducer } from '../../dist/behavior/index.js';
+import {
+  renderElementFrame,
+  renderElementRegions
+} from '../../dist/renderer/index.js';
+import { commandBar } from '../../dist/components/index.js';
 
 test('commandBarReducer edits, navigates history, and accepts suggestions', () => {
   const initial = {
@@ -72,7 +76,7 @@ test('commandBarReducer ignores accept when every suggestion is disabled', () =>
 });
 
 test('commandBar widget renders prompt, suggestions, cursor, and accessibility', () => {
-  const frame = renderWidgetFrame(
+  const frame = renderElementFrame(
     commandBar({
       id: 'command',
       prompt: '/',
@@ -99,7 +103,7 @@ test('commandBar widget renders prompt, suggestions, cursor, and accessibility',
 });
 
 test('commandBar renders completion preview validation footer match styles and wide cursor position', () => {
-  const frame = renderWidgetFrame(
+  const frame = renderElementFrame(
     commandBar({
       id: 'launcher',
       prompt: '?',
@@ -139,7 +143,7 @@ test('commandBar renders completion preview validation footer match styles and w
 });
 
 test('commandBar stays compact by default even when suggestions are provided', () => {
-  const frame = renderWidgetFrame(
+  const frame = renderElementFrame(
     commandBar({
       id: 'compact-command',
       prompt: '/',
@@ -163,7 +167,7 @@ test('commandBar stays compact by default even when suggestions are provided', (
 
 test('commandBar windows long input around the cursor', () => {
   const value = '/open /very/long/path/to/file.txt';
-  const frame = renderWidgetFrame(
+  const frame = renderElementFrame(
     commandBar({
       id: 'long-command',
       prompt: '>',
@@ -186,13 +190,13 @@ test('commandBar windows long input around the cursor', () => {
 });
 
 test('commandBar maps pointer positions through the cursor-relative input window', () => {
-  const regions = renderWidgetRegions(
+  const regions = renderElementRegions(
     commandBar({
       id: 'windowed-command',
       prompt: '>',
       value: 'abcdef',
       cursor: 6,
-      toTextPointerMessage: (event) => ({ event })
+      onTextPointer: (event) => ({ event })
     }),
     { columns: 5, rows: 1 }
   );
@@ -251,7 +255,7 @@ function pointerEvent({
 }
 
 test('commandBar exposes prompt value selection suggestion validation and footer source metadata', () => {
-  const frame = renderWidgetFrame(
+  const frame = renderElementFrame(
     commandBar({
       id: 'cmd-source',
       prompt: ':',

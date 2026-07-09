@@ -1,24 +1,19 @@
+import type { RenderNode } from '../render-node/index.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import {
-  commandGroupSpans,
-  commandMatchSpans,
-  commandMetadataStyle,
-  commandRowStyle,
-  commandSelectionMarkerSpans,
-  commandStatusSpans,
-  styledSpan
+  commandGroupSpans, commandMatchSpans, commandMetadataStyle, commandRowStyle, commandSelectionMarkerSpans, commandStatusSpans, styledSpan
 } from './command-visual.ts';
-import { widgetFrameSource } from './frame-source.ts';
-import { numberProp, stringify } from './widget-props.ts';
-import { widgetStyle } from './widget-style.ts';
+import { renderNodeFrameSource } from './frame-source.ts';
+import { numberProp, stringify } from './render-node-props.ts';
+import { renderNodeStyle } from './render-node-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { WidgetSearchEntry, Widget } from '../widgets/index.ts';
-import { paletteWindow } from '../widgets/index.ts';
-import type { PaletteFilterResult, PaletteWindowInput } from '../widgets/index.ts';
+import type { SearchEntry } from '../components/contracts.ts';
+import { paletteWindow } from '../behavior/palette.ts';
+import type { PaletteFilterResult, PaletteWindowInput } from '../behavior/palette.ts';
 import type { Rect } from './layout.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
-import type { HitTarget } from './widget-renderer.ts';
+import type { HitTarget } from './render-node-renderer.ts';
 
 interface PaletteRenderModel {
   readonly title: string;
@@ -30,28 +25,28 @@ interface PaletteRenderModel {
   readonly availableEntries: number;
 }
 
-export function paletteBlock(widget: Widget, height: number, theme: TerminalTheme): RenderBlock {
+export function paletteBlock(widget: RenderNode, height: number, theme: TerminalTheme): RenderBlock {
   const model = paletteRenderModel(widget, height);
   const lines: RenderLine[] = [
     {
       spans: [
-        styledSpan(model.title.length === 0 ? 'Palette' : model.title, widgetStyle(widget, 'title'), paletteSource(widget, 'title')),
+        styledSpan(model.title.length === 0 ? 'Palette' : model.title, renderNodeStyle(widget, 'title'), paletteSource(widget, 'title')),
         ...(model.resultSummary.length === 0 ? [] : [styledSpan(
           `  ${model.resultSummary}`,
-          widgetStyle(widget, 'value', 'disabled'),
+          renderNodeStyle(widget, 'value', 'disabled'),
           paletteSource(widget, 'result.summary')
         )])
       ]
     },
     {
       spans: [
-        styledSpan(`${theme.tokens.symbols.pointer} `, widgetStyle(widget, 'placeholder'), paletteSource(widget, 'query.marker', 'decoration')),
-        styledSpan(model.query, widgetStyle(widget, 'value'), paletteSource(widget, 'query'))
+        styledSpan(`${theme.tokens.symbols.pointer} `, renderNodeStyle(widget, 'placeholder'), paletteSource(widget, 'query.marker', 'decoration')),
+        styledSpan(model.query, renderNodeStyle(widget, 'value'), paletteSource(widget, 'query'))
       ]
     }
   ];
   if (model.window.total === 0 && model.availableEntries > 0) {
-    const emptyStyle = widgetStyle(widget, 'placeholder');
+    const emptyStyle = renderNodeStyle(widget, 'placeholder');
     lines.push({
       spans: commandStatusSpans(widget, theme, 'muted', emptyText(widget), {
         ...(emptyStyle === undefined ? {} : { textStyle: emptyStyle }),
@@ -87,7 +82,7 @@ export function paletteBlock(widget: Widget, height: number, theme: TerminalThem
   return { lines: lines.slice(0, height) };
 }
 
-export function paletteHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function paletteHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = paletteMessageFactory(widget);
   if (toMessage === undefined) return [];
   const model = paletteRenderModel(widget, bounds.height);
@@ -107,7 +102,7 @@ export function paletteHitTargets<TMessage>(widget: Widget<TMessage>, bounds: Re
   });
 }
 
-export function paletteAccessibleChildren(widget: Widget, height: number): readonly AccessibleNode[] {
+export function paletteAccessibleChildren(widget: RenderNode, height: number): readonly AccessibleNode[] {
   const window = paletteWindow({
     entries: paletteEntries(widget),
     query: queryText(widget),
@@ -132,8 +127,8 @@ export function paletteAccessibleChildren(widget: Widget, height: number): reado
 }
 
 function entryLine<TValue>(
-  widget: Widget,
-  entry: WidgetSearchEntry<TValue>,
+  widget: RenderNode,
+  entry: SearchEntry<TValue>,
   selected: boolean,
   query: string,
   theme: TerminalTheme
@@ -157,7 +152,7 @@ function entryLine<TValue>(
   return { spans };
 }
 
-function paletteRenderModel(widget: Widget, height: number): PaletteRenderModel {
+function paletteRenderModel(widget: RenderNode, height: number): PaletteRenderModel {
   const title = titleText(widget);
   const query = queryText(widget);
   const helpText = helpTextProp(widget);
@@ -184,10 +179,10 @@ function paletteRenderModel(widget: Widget, height: number): PaletteRenderModel 
   };
 }
 
-function paletteEntries(widget: Widget): readonly WidgetSearchEntry<unknown>[] {
+function paletteEntries(widget: RenderNode): readonly SearchEntry<unknown>[] {
   const entries = widget.props['entries'];
   if (!Array.isArray(entries)) return [];
-  return entries.flatMap((entry): WidgetSearchEntry<unknown>[] => {
+  return entries.flatMap((entry): SearchEntry<unknown>[] => {
     if (!isRecord(entry)) return [];
     const id = entry['id'];
     const label = entry['label'];
@@ -215,7 +210,7 @@ function keywordsProp(entry: Readonly<Record<string, unknown>>): { readonly keyw
   return cleaned.length === 0 ? {} : { keywords: cleaned };
 }
 
-function selectedInput(widget: Widget): Pick<PaletteWindowInput<unknown>, 'selected' | 'selectedId'> {
+function selectedInput(widget: RenderNode): Partial<Pick<PaletteWindowInput<unknown>, 'selected' | 'selectedId'>> {
   const selected = numberProp(widget, 'selected');
   const selectedId = selectedIdText(widget);
   return {
@@ -224,13 +219,13 @@ function selectedInput(widget: Widget): Pick<PaletteWindowInput<unknown>, 'selec
   };
 }
 
-function paletteMessageFactory<TMessage>(widget: Widget<TMessage>): ((entry: WidgetSearchEntry<unknown>) => TMessage) | undefined {
+function paletteMessageFactory<TMessage>(widget: RenderNode<TMessage>): ((entry: SearchEntry<unknown>) => TMessage) | undefined {
   const toMessage = widget.props['toMessage'];
   if (!isPaletteMessageFactory(toMessage)) return undefined;
   return (entry) => toMessage(entry) as TMessage;
 }
 
-function scrollInput(widget: Widget): Pick<PaletteWindowInput<unknown>, 'scroll'> {
+function scrollInput(widget: RenderNode): Partial<Pick<PaletteWindowInput<unknown>, 'scroll'>> {
   const scroll = widget.props['scroll'];
   if (!isRecord(scroll)) return {};
   const offsetRow = scroll['offsetRow'];
@@ -262,28 +257,28 @@ function scrollInput(widget: Widget): Pick<PaletteWindowInput<unknown>, 'scroll'
   };
 }
 
-function entryLimit(widget: Widget, height: number): number {
+function entryLimit(widget: RenderNode, height: number): number {
   const maxVisible = numberProp(widget, 'maxVisible');
   return Math.max(1, Math.min(Math.floor(maxVisible ?? Math.max(1, height - 2)), Math.max(1, height - 2)));
 }
 
-function titleText(widget: Widget): string {
+function titleText(widget: RenderNode): string {
   return clean(stringify(widget.props['title']));
 }
 
-function queryText(widget: Widget): string {
+function queryText(widget: RenderNode): string {
   return clean(stringify(widget.props['query']));
 }
 
-function selectedIdText(widget: Widget): string {
+function selectedIdText(widget: RenderNode): string {
   return clean(stringify(widget.props['selectedId']));
 }
 
-function helpTextProp(widget: Widget): string {
+function helpTextProp(widget: RenderNode): string {
   return clean(stringify(widget.props['helpText']));
 }
 
-function emptyText(widget: Widget): string {
+function emptyText(widget: RenderNode): string {
   const text = clean(stringify(widget.props['emptyText']));
   return text.length === 0 ? 'No matches' : text;
 }
@@ -299,12 +294,12 @@ function clean(value: string): string {
 }
 
 function paletteSource(
-  widget: Widget,
+  widget: RenderNode,
   label: string,
   role: FrameCellSource['role'] = 'text',
   id = widget.id
 ): FrameCellSource {
-  return widgetFrameSource(widget, {
+  return renderNodeFrameSource(widget, {
     family: 'command',
     role,
     part: label,
@@ -317,6 +312,6 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function isPaletteMessageFactory(value: unknown): value is (entry: WidgetSearchEntry<unknown>) => unknown {
+function isPaletteMessageFactory(value: unknown): value is (entry: SearchEntry<unknown>) => unknown {
   return typeof value === 'function';
 }

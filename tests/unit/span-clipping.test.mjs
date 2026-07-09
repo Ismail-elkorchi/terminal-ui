@@ -1,21 +1,21 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { createScrollState } from '../../dist/behavior/index.js';
 import {
   alignRenderLine,
   clipRenderLine,
   clipRenderSpans,
   compactRenderSpans,
-  createScrollState,
   measureRenderBlock,
   measureRenderLine,
   measureRenderSpans,
   padRenderLine,
   renderFramePlain,
-  renderWidgetFrame,
+  renderElementFrame,
   wrapRenderSpans
-} from '../../dist/tui/index.js';
-import { table } from '../../dist/widgets/index.js';
+} from '../../dist/renderer/index.js';
+import { table } from '../../dist/components/index.js';
 
 const red = { fg: { kind: 'ansi', value: 1 } };
 const blue = { fg: { kind: 'ansi', value: 4 } };
@@ -105,7 +105,7 @@ test('render span utilities measure compact pad clip and align while preserving 
 });
 
 test('table clipping keeps multi-span cell styles instead of flattening to plain text', () => {
-  const frame = renderWidgetFrame(table({
+  const frame = renderElementFrame(table({
     id: 'styled-table',
     rows: [{ value: 'unused' }],
     columns: [{
@@ -135,7 +135,7 @@ test('table clipping keeps multi-span cell styles instead of flattening to plain
 });
 
 test('table horizontal scrolling keeps span styles after clipped cells are shifted', () => {
-  const frame = renderWidgetFrame(table({
+  const frame = renderElementFrame(table({
     id: 'scrolled-styled-table',
     rows: [{ value: 'unused' }],
     scroll: createScrollState({ offsetColumn: 6, contentRows: 1, viewportRows: 1, contentColumns: 12, viewportColumns: 6 }),

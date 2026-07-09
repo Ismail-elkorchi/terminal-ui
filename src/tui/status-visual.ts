@@ -1,8 +1,8 @@
 import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
-import type { WidgetStatus } from '../widgets/index.ts';
+import type { ComponentStatus } from '../components/contracts.ts';
 import type { TerminalStyle } from './frame.ts';
 
-export function statusMarker(status: WidgetStatus, theme: TerminalTheme): string {
+export function statusMarker(status: ComponentStatus, theme: TerminalTheme): string {
   switch (status) {
     case 'running':
     case 'info':
@@ -19,14 +19,14 @@ export function statusMarker(status: WidgetStatus, theme: TerminalTheme): string
   }
 }
 
-export function statusStyle(status: WidgetStatus): TerminalStyle {
+export function statusStyle(status: ComponentStatus): TerminalStyle {
   return {
     fg: { kind: 'theme', token: statusToken(status) },
     bold: status === 'error' || status === 'success'
   };
 }
 
-export function statusToken(status: WidgetStatus): ThemeColorToken {
+export function statusToken(status: ComponentStatus): ThemeColorToken {
   switch (status) {
     case 'running':
       return 'status.running';

@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import {
+  defineTui,
+  runTui
+} from '../../dist/tui/index.js';
 import { createPtyTerminalHarness } from '../../dist/testing/index.js';
-import { defineTui, runTui } from '../../dist/tui/index.js';
 
 test('PTY harness restores terminal protocols when a TUI throws during rendering', async () => {
   const result = createPtyTerminalHarness({ viewport: { columns: 24, rows: 4 } });
