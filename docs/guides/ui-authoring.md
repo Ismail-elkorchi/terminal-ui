@@ -33,7 +33,7 @@ const app = defineTui<State, Message>({
     if (message.kind === 'save') return { state: { saved: true } };
     return { state, exit: { reason: 'quit' } };
   },
-  view: (state) => stack([
+  view: (state) => stack<Message>([
     text(state.saved ? 'Saved' : 'Unsaved'),
     button({ id: 'save', label: 'Save', onPress: { kind: 'save' } }),
     button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit' } })
@@ -48,7 +48,11 @@ await runTui(app);
 Component options put domain state first and system metadata second.
 
 ```ts
-button({
+import { button } from '@ismail-elkorchi/terminal-ui/components';
+
+type Message = { readonly kind: 'save' };
+
+button<Message>({
   id: 'save',
   label: 'Save',
   disabled: false,

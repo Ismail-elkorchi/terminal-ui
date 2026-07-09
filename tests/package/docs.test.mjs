@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { access, readFile } from 'node:fs/promises';
+import { access, glob, readFile } from 'node:fs/promises';
 import test from 'node:test';
-import ts from 'typescript';
+import { formatTypeDiagnostic, typecheckSources } from './support/typecheck.mjs';
 
 const requiredDocs = [
   'docs/index.md',
@@ -34,6 +34,10 @@ const executableExampleLinks = [
   'examples/tui/ide-editor.mjs',
   'examples/tui/btop-monitor.mjs'
 ];
+
+const documentationPaths = ['README.md'];
+for await (const path of glob('docs/**/*.md')) documentationPaths.push(path);
+documentationPaths.sort((left, right) => left.localeCompare(right));
 
 test('documentation covers required product guide families', async () => {
   for (const path of requiredDocs) {
@@ -123,30 +127,25 @@ test('rendering documentation describes current architecture without deferred AP
   assert.equal(combined.includes('P0.5'), false);
 });
 
-test('documentation TypeScript and JavaScript snippets transpile without syntax errors', async () => {
-  const docs = [
-    'README.md',
-    ...requiredDocs
-  ];
-  for (const path of docs) {
+test('documentation TypeScript and JavaScript snippets typecheck against the built package', async () => {
+  const snippets = [];
+  for (const path of documentationPaths) {
     const source = await readFile(new URL(`../../${path}`, import.meta.url), 'utf8');
+    let index = 0;
     for (const snippet of codeSnippets(source)) {
-      const result = ts.transpileModule(snippet.code, {
-        compilerOptions: {
-          allowJs: snippet.language === 'js' || snippet.language === 'javascript',
-          isolatedModules: true,
-          module: ts.ModuleKind.ESNext,
-          moduleResolution: ts.ModuleResolutionKind.Bundler,
-          noEmitOnError: true,
-          strict: true,
-          target: ts.ScriptTarget.ES2024
-        },
-        fileName: `${path}.${snippet.language === 'ts' || snippet.language === 'typescript' ? 'ts' : 'js'}`,
-        reportDiagnostics: true
+      index += 1;
+      snippets.push({
+        source: snippet.code,
+        language: snippet.language,
+        name: `${path}-${String(index)}`
       });
-      assert.deepEqual(result.diagnostics ?? [], [], `${path} ${snippet.language} snippet:\n${snippet.code}`);
     }
   }
+  const diagnostics = typecheckSources(snippets);
+  assert.deepEqual(
+    diagnostics.map((diagnostic) => formatTypeDiagnostic(diagnostic)),
+    []
+  );
 });
 
 function codeSnippets(source) {

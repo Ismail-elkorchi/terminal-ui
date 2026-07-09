@@ -1,0 +1,8 @@
+{
+  "name": "terminal-ui-packed-consumer",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@ismail-elkorchi/terminal-ui": "file:__TERMINAL_UI_TARBALL__"
+  }
+}

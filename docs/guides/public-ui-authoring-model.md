@@ -39,7 +39,12 @@ children, input maps, renderer hooks, or other node internals.
 Component options put stable identity and domain state first:
 
 ```ts
-button({
+import { button } from '@ismail-elkorchi/terminal-ui/components';
+
+type Message = { readonly kind: 'save' };
+const state = { saving: false };
+
+button<Message>({
   id: 'save',
   label: 'Save',
   disabled: state.saving,
@@ -48,7 +53,7 @@ button({
     accessibility: { description: 'Save the current document' },
     styles: { focused: { bold: true } }
   }
-})
+}) satisfies import('@ismail-elkorchi/terminal-ui/components').Element<Message>;
 ```
 
 Rules:
@@ -101,8 +106,6 @@ targets, and hit targets. Those mechanisms are not public component state.
 
 The root entrypoint exposes the primary app-authoring path. It does not expose
 renderer internals or behavior reducers as ordinary component authoring.
-
-There is no `./widgets` compatibility entrypoint.
 
 ## Internal Representation
 
@@ -159,4 +162,4 @@ They do not inspect private render-node fields through authored elements.
 - Component option and event names describe authoring intent, not renderer
   machinery.
 - Component state remains caller-owned and message types remain generic.
-- No compatibility alias preserves the removed structural widget API.
+- No compatibility alias preserves the removed structural authoring API.

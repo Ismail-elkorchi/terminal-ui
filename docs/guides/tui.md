@@ -57,7 +57,7 @@ that reason after terminal-text sanitization.
 `Frame.focusPath` is serializable. Pass a previously captured path to
 `createTuiRuntime({ initialFocusPath })` to restore focus when the current
 layout still contains that target; otherwise the runtime falls back to the first
-focusable widget.
+focusable component.
 
 `runTui(app, host, { theme })` and `createTuiRuntime({ theme })` accept either a
 theme object or a `(state) => theme` function. Use the function form when a
@@ -78,7 +78,7 @@ leave the subscription set or when the TUI exits.
 custom event loops. Dispatches are serialized, so stream events, timers, input,
 signals, and app-triggered messages cannot overlap render commits.
 
-Scrollable widgets share the same `ScrollState`, `scrollReducer()`, and
+Scrollable components share the same `ScrollState`, `scrollReducer()`, and
 `applyScrollEvent()` primitives. Use `scrollReducer()` for direct keyboard or
 application actions such as line/page/top/bottom movement, item-into-view
 behavior, horizontal offsets, and follow-tail log views. Use
@@ -86,18 +86,18 @@ behavior, horizontal offsets, and follow-tail log views. Use
 messages produced by `onScroll`; the event carries the normalized
 rendered content and viewport metrics, so controlled scroll state stays aligned
 with the region the user actually sees. Use `scrollPolicy` on scrollable
-widgets to tune discrete wheel behavior, such as denser line steps for an
+components to tune discrete wheel behavior, such as denser line steps for an
 editor-like text area or page-based wheel movement for a large viewport.
 Existing visible-window helpers route through this reducer family so list,
-table, tree, text-area, viewport, palette, menu, and scrollback widgets use one
-scroll model instead of per-widget arithmetic.
+table, tree, text-area, viewport, palette, menu, and scrollback components use
+one scroll model instead of per-component arithmetic.
 
 Scrollbar options are intentionally generic. Use `visible` and `axis` to control
 geometry, and `visualState: 'active' | 'hover' | 'disabled' | 'inactive' |
 'idle'` only when the application owns that state. Otherwise renderers derive
 stable `idle` or `inactive` states from scrollability.
 
-Tree widgets keep hierarchy state caller-owned. Use `treeReducer()` for
+Tree components keep hierarchy state caller-owned. Use `treeReducer()` for
 expansion and lazy-loading transitions, `visibleTreeRows()` when an app needs
 the rendered row order, `nextTreeRowId()` for selectable keyboard navigation,
 and `treeDisclosureAction()` to turn disclosure intents into meaningful expand,
@@ -112,19 +112,19 @@ lazy/empty rows, and `selected`/`disabled` for row states. Frame source metadata
 marks disclosure, indent, icon, label, match, and selection-marker parts
 separately for snapshots and debug projections.
 
-Command surfaces are ordinary widgets. Apps decide which normalized key names
-map to palette, accept, cancel, or history messages through widget `keys`
+Command surfaces are ordinary components. Apps decide which normalized key
+names map to palette, accept, cancel, or history messages through component `keys`
 values; `terminal-ui` does not reserve a global command-palette shortcut,
 Escape key, or Ctrl-C key event. Host signals such as `SIGINT` and `SIGTERM`
 still interrupt the full-screen run through the terminal host signal path.
 
 Use app-level `keyBindings` for application policy that should not belong to a
-particular focused widget. Bindings run in two explicit phases:
+particular focused component. Bindings run in two explicit phases:
 
-1. `beforeFocus` bindings run before focused widget input and should be used
+1. `beforeFocus` bindings run before focused component input and should be used
    only for deliberate priority shortcuts.
-2. Focused widget `onInput/onPaste` and `keys` handle local control behavior.
-3. `afterFocus` bindings, the default phase, run only when the focused widget
+2. Focused component `onInput/onPaste` and `keys` handle local control behavior.
+3. `afterFocus` bindings, the default phase, run only when the focused component
    did not handle the input.
 4. Built-in Tab focus traversal runs last.
 
@@ -141,7 +141,7 @@ keyboard focus, and a pointer hit target does not imply keyboard focus. When a
 focus-contained overlay closes, the runtime restores the displaced focus path
 when it still exists, including through nested contained overlays.
 
-Mouse input is normalized through the TUI pointer router before widget messages
+Mouse input is normalized through the TUI pointer router before component messages
 are dispatched. Routed pointer events represent terminal mouse reports; they do
 not claim touch or pen input unless a future host adapter can really emit those
 sources. Hit targets are event-aware: each target can accept pointer event kinds
@@ -151,10 +151,10 @@ input, wheel scroll input, and drag/capture input do not reuse the same static
 activation message. Routed pointer events preserve viewport coordinates,
 target-local coordinates, press-origin coordinates for captured drags,
 button/modifier state, vertical and horizontal scroll deltas, captured target
-ids, and the raw terminal mouse event for tests and richer widgets.
+ids, and the raw terminal mouse event for tests and richer components.
 
-Application text selection is caller-owned state. Editable widgets can opt into
-pointer-to-text messages with `onTextPointer`; the widget maps press,
+Application text selection is caller-owned state. Editable components can opt
+into pointer-to-text messages with `onTextPointer`; the renderer maps press,
 drag, and release gestures to text offsets, while the app owns cursor and
 selection state. Use `resolveSelectedText()` to turn explicit selectable text
 sources and ranges into copyable text, or `copySelectedTextToClipboard()` to
@@ -163,7 +163,7 @@ clipboard protocol. Terminal-native selection remains a separate mode: the app
 can delegate to it, but the runtime does not invent selected text from terminal
 emulator state.
 
-Layout regions are structural widget data. `grid()`, `splitPane()`, `tabs()`,
+Layout regions are structural element data. `grid()`, `splitPane()`, `tabs()`,
 and `modal()` produce regular layout nodes, frames, diffs, and accessible
 snapshots. For application navigation, use the pure `screenStackReducer()` and
 `activeScreen()` helpers; a screen stack is serializable state, not a hidden
@@ -177,9 +177,17 @@ labels or compact controls. When `stack()` or `row()` receives `sizes`, the
 track count must match the child count.
 
 ```ts
+import { helpBar, text, tree, type TreeNode } from '@ismail-elkorchi/terminal-ui/components';
+import { stack, surface } from '@ismail-elkorchi/terminal-ui/layout';
+
+const nodes: readonly TreeNode[] = [
+  { id: 'src', label: 'src', expanded: true, children: [{ id: 'index', label: 'index.ts' }] }
+];
+const bindings = [{ key: 'Enter', label: 'Open' }];
+
 surface(stack([
   text('Explorer', { textRole: 'heading' }),
-  tree({ nodes, scroll, onScroll }),
+  tree({ nodes }),
   helpBar({ bindings })
 ], {
   sizes: [
@@ -204,14 +212,14 @@ runtime focus and `disabled` still take precedence.
 
 Use `textArea({ lineNumbers: true })` or
 `textArea({ lineNumbers: { start, minWidth }, activeLine: true })` when a
-multi-line text region needs editor-like anatomy. The widget renders the gutter,
+multi-line text region needs editor-like anatomy. The renderer emits the gutter,
 line-number, active-line, value, placeholder, selection, caller-owned highlight,
 cursor, and chrome parts with structured source metadata and ordinary style
 slots. `highlights: [{ start, end, label, style }]` is for generic text ranges
 such as search matches; selection remains visually stronger. `wrap: true` or
 `wrap: { mode: 'soft' }` turns long logical lines into visual rows and composes
 with the same scroll state, scrollbar, cursor, and accessibility contracts. The
-cursor uses the generic `input.cursor` token in frame metadata. The widget does
+cursor uses the generic `input.cursor` token in frame metadata. The component does
 not own editing policy, syntax highlighting, file paths, or language semantics.
 
 Executable example:

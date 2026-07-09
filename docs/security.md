@@ -20,7 +20,7 @@ timeout, and thrown failures. Required setup failures stop the full-screen run
 before application rendering starts; optional or disabled operations are
 recorded as diagnostics.
 
-Clipboard mutation is not a widget side effect. Selection helpers return text,
+Clipboard mutation is not a component side effect. Selection helpers return text,
 and OSC 52 clipboard writes are exposed through explicit protocol helpers that
 require caller policy and host capability support before emitting a sequence.
 `resolveSelectedText()` works only from caller-owned selectable sources and

@@ -11,8 +11,8 @@ Node and Bun consumers usually install from npm. Deno and source-first
 TypeScript consumers can import from JSR.
 
 Runtime-specific behavior lives in thin host adapters. Core text, input,
-prompt, widget, TUI, accessibility, transcript, and testing logic stays
-runtime-agnostic.
+prompt, component, layout, TUI, accessibility, transcript, and testing logic
+stays runtime-agnostic.
 
 The PTY-style host adapter is explicit: callers provide already-managed
 pseudo-terminal streams and resize hooks. The package wraps those streams as a

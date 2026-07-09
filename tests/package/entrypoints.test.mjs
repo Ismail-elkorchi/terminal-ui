@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
-import ts from 'typescript';
+import { formatTypeDiagnostic, typecheckSource } from './support/typecheck.mjs';
 
 const packageJson = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
 
@@ -356,47 +355,11 @@ function declaredValueExports(declaration) {
 }
 
 function assertNoTypeDiagnostics(source) {
-  const diagnostics = typecheckVirtualSource(source);
+  const diagnostics = typecheckSource(source);
   assert.deepEqual(
-    diagnostics.map((diagnostic) => formatDiagnostic(diagnostic)),
+    diagnostics.map((diagnostic) => formatTypeDiagnostic(diagnostic)),
     []
   );
-}
-
-function typecheckVirtualSource(source) {
-  const fileName = fileURLToPath(new URL('__terminal_ui_public_typecheck__.ts', import.meta.url));
-  const options = {
-    target: ts.ScriptTarget.ES2024,
-    module: ts.ModuleKind.NodeNext,
-    moduleResolution: ts.ModuleResolutionKind.NodeNext,
-    strict: true,
-    exactOptionalPropertyTypes: true,
-    noUncheckedIndexedAccess: true,
-    noEmit: true,
-    skipLibCheck: true,
-    types: ['node']
-  };
-  const host = ts.createCompilerHost(options);
-  const getSourceFile = host.getSourceFile.bind(host);
-  const fileExists = host.fileExists.bind(host);
-  const readFile = host.readFile.bind(host);
-
-  host.getSourceFile = (name, languageVersion, onError, shouldCreateNewSourceFile) =>
-    name === fileName
-      ? ts.createSourceFile(name, source, languageVersion, true)
-      : getSourceFile(name, languageVersion, onError, shouldCreateNewSourceFile);
-  host.fileExists = (name) => name === fileName || fileExists(name);
-  host.readFile = (name) => (name === fileName ? source : readFile(name));
-
-  const program = ts.createProgram([fileName], options, host);
-  return ts.getPreEmitDiagnostics(program);
-}
-
-function formatDiagnostic(diagnostic) {
-  const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n');
-  if (diagnostic.file === undefined || diagnostic.start === undefined) return message;
-  const position = diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start);
-  return `${diagnostic.file.fileName}:${String(position.line + 1)}:${String(position.character + 1)} ${message}`;
 }
 
 function exportedNames(source) {

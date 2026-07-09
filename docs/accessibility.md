@@ -1,6 +1,6 @@
 # Accessibility
 
-Every prompt, widget tree, and TUI frame has an accessible snapshot path.
+Every prompt, authored element tree, and TUI frame has an accessible snapshot path.
 Snapshots are machine-readable data with roles, labels, values, focus state,
 selection state, disabled state, expanded state, checked state, progress state,
 diagnostics, and source metadata where the surface can provide them.

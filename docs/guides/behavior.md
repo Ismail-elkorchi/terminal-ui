@@ -24,24 +24,36 @@ The pattern is:
 
 ```ts
 import {
-  commandBar,
-  type CommandBarState
+  commandBar
 } from '@ismail-elkorchi/terminal-ui/components';
-import { commandBarReducer } from '@ismail-elkorchi/terminal-ui/behavior';
+import {
+  commandBarReducer,
+  type CommandBarAction,
+  type CommandBarState
+} from '@ismail-elkorchi/terminal-ui/behavior';
 
 type Message =
-  | { kind: 'command'; action: Parameters<typeof commandBarReducer>[1] };
+  | { kind: 'command'; action: CommandBarAction }
+  | { kind: 'submit' };
 
 interface State {
   readonly command: CommandBarState;
 }
 
 function view(state: State) {
-  return commandBar({
+  return commandBar<Message>({
     id: 'command',
-    state: state.command,
-    onInput: (text) => ({ kind: 'command', action: { kind: 'input', text } }),
-    onSubmit: () => ({ kind: 'command', action: { kind: 'submit' } })
+    value: state.command.input.text,
+    cursor: state.command.input.cursor,
+    suggestions: state.command.suggestions,
+    ...(state.command.selectedSuggestion === undefined
+      ? {}
+      : { selectedSuggestion: state.command.selectedSuggestion }),
+    ...(state.command.historyIndex === undefined
+      ? {}
+      : { historyIndex: state.command.historyIndex }),
+    onInput: (text) => ({ kind: 'command', action: { kind: 'insert', text } }),
+    keys: { enter: { kind: 'submit' } }
   });
 }
 ```

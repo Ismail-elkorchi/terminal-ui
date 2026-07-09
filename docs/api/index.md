@@ -38,7 +38,7 @@ failure, non-TTY denial, transcript replay mismatch, and terminal capability
 problems.
 
 Clipboard helpers live under the protocol entrypoint. They are capability and
-policy gated; widgets never write to the clipboard directly.
+policy gated; components never write to the clipboard directly.
 TUI selection helpers resolve selected text from caller-owned source state and
 then delegate clipboard mutation to the same explicit protocol policy.
 

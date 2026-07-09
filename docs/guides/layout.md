@@ -3,7 +3,7 @@
 Layout turns a pure element tree into deterministic rectangles, layers, focus
 targets, hit targets, and accessible structure.
 
-Use the shared layout primitives instead of per-widget geometry:
+Use the shared layout primitives instead of per-component geometry:
 
 - `stack()` for vertical tracks;
 - `row()` for horizontal tracks;

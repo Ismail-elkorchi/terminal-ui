@@ -1,6 +1,8 @@
 # @ismail-elkorchi/terminal-ui
 
-`terminal-ui` provides general-purpose TypeScript primitives for terminal user interfaces: runtime hosts, input, layout, rendering, widgets, prompts, accessibility, transcripts, and deterministic testing.
+`terminal-ui` provides a typed element authoring model for terminal user
+interfaces, with runtime hosts, input, components, layout, controlled behavior,
+rendering, prompts, accessibility, transcripts, and deterministic testing.
 
 The package is ESM-only and targets Node, Deno, Bun, and memory-backed tests. Public examples live under `examples/` and are executed by the package test suite against the built package exports.
 
@@ -37,7 +39,7 @@ import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/termin
 - [UI authoring](./guides/ui-authoring.md)
 - [Components](./guides/components.md)
 - [Behavior helpers](./guides/behavior.md)
-- [Public UI authoring model strategy](./guides/public-ui-authoring-model.md)
+- [Public UI authoring model](./guides/public-ui-authoring-model.md)
 - [Rendering internals](./guides/rendering-internals.md)
 - [Building polished components](./guides/building-polished-components.md)
 - [Themes](./guides/themes.md)

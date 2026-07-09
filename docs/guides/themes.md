@@ -18,14 +18,16 @@ Night, Solarized, Gruvbox, Dracula, and Monochrome. They are ordinary
 runtime hardwiring a product identity.
 
 Use `defineTheme()` to start from a preset-like shape and override only the
-tokens your UI needs through the `tokens` field. Built-in widgets use core
+tokens your UI needs through the `tokens` field. Built-in components use core
 semantic color tokens such as
 `text.default`, `accent.primary`, `status.error`, `selection.background`,
 `table.header`, and `chart.series.1`. Applications may add custom namespaced
 tokens; missing custom tokens fall back through `text.default` when styles are
 resolved.
 
-```js
+```ts
+import { defineTheme } from '@ismail-elkorchi/terminal-ui/theme';
+
 const theme = defineTheme({
   name: 'workspace',
   tokens: {
@@ -42,6 +44,8 @@ const theme = defineTheme({
     }
   }
 });
+
+void theme;
 ```
 
 Symbols are separate from colors. Use `asciiSymbols` for ASCII-only terminals
