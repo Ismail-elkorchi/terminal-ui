@@ -67,6 +67,8 @@ import { assertCanvasPainter } from './extension-validation.ts';
 import type { Element, ElementChildren } from './element.ts';
 import { elementFromRenderNode, toRenderNode, toRenderNodes } from '../render-node/element.ts';
 import type { RenderNode } from '../render-node/index.ts';
+import type { CommandBarAction } from './command-bar.ts';
+import type { PaletteAction } from './palette.ts';
 
 export function text(content: string, options: TextOptions = {}): Element<never> {
   return elementFromRenderNode({
@@ -923,13 +925,23 @@ export function activityFeed<TMessage>(options: ActivityFeedOptions<TMessage>): 
     kind: 'activityFeed',
     props: {
       blocks: options.blocks,
-      ...(options.selected === undefined ? {} : { selected: options.selected })
+      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.onSelect === undefined ? {} : {
+        toSelectMessage: (index: number) => {
+          const block = options.blocks[index];
+          return block === undefined ? undefined : options.onSelect?.(block, index);
+        }
+      })
     },
     ...interactionOptions(options)
   });
 }
 
 export function commandBar<TMessage>(options: CommandBarOptions<TMessage> = {}): Element<TMessage> {
+  const action = options.onAction;
+  const generatedKeys = action === undefined ? undefined : commandBarActionKeyMap(action);
+  const submitKeys = options.onSubmit === undefined ? undefined : { enter: options.onSubmit };
+  const keyMap = mergeKeyMaps(mergeKeyMaps(generatedKeys, submitKeys), options.keys);
   return elementFromRenderNode({
     ...optionalId(options.id),
     kind: 'commandBar',
@@ -949,11 +961,21 @@ export function commandBar<TMessage>(options: CommandBarOptions<TMessage> = {}):
       ...(options.display === undefined ? {} : { display: options.display }),
       ...(options.onTextPointer === undefined ? {} : { toTextPointerMessage: options.onTextPointer })
     },
-    ...interactionOptions(options)
+    ...interactionOptions({
+      ...(action === undefined ? {} : {
+        onInput: (text) => action({ kind: 'insert', text }),
+        onPaste: (text) => action({ kind: 'insert', text })
+      }),
+      ...(keyMap === undefined ? {} : { keys: keyMap }),
+      meta: options.meta
+    })
   });
 }
 
 export function palette<TValue, TMessage>(options: PaletteOptions<TValue, TMessage>): Element<TMessage> {
+  const action = options.onAction;
+  const generatedKeys = action === undefined ? undefined : paletteActionKeyMap(action);
+  const keyMap = mergeKeyMaps(generatedKeys, options.keys);
   return elementFromRenderNode({
     ...optionalId(options.id),
     kind: 'palette',
@@ -972,7 +994,14 @@ export function palette<TValue, TMessage>(options: PaletteOptions<TValue, TMessa
       ...(options.helpText === undefined ? {} : { helpText: options.helpText }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText })
     },
-    ...interactionOptions(options)
+    ...interactionOptions({
+      ...(action === undefined ? {} : {
+        onInput: (text) => action({ kind: 'insertQuery', text }),
+        onPaste: (text) => action({ kind: 'insertQuery', text })
+      }),
+      ...(keyMap === undefined ? {} : { keys: keyMap }),
+      meta: options.meta
+    })
   });
 }
 
@@ -1286,6 +1315,29 @@ function messageKeyMap<TMessage>(
   explicit: ComponentKeyBindings<TMessage> | undefined
 ): ComponentKeyBindings<TMessage> | undefined {
   return mergeKeyMaps(message === undefined ? undefined : { enter: message }, explicit);
+}
+
+function commandBarActionKeyMap<TMessage>(
+  onAction: (action: CommandBarAction) => TMessage
+): ComponentKeyBindings<TMessage> {
+  return {
+    backspace: onAction({ kind: 'deleteBackward' }),
+    delete: onAction({ kind: 'deleteForward' }),
+    arrowLeft: onAction({ kind: 'moveLeft' }),
+    arrowRight: onAction({ kind: 'moveRight' }),
+    home: onAction({ kind: 'moveHome' }),
+    end: onAction({ kind: 'moveEnd' })
+  };
+}
+
+function paletteActionKeyMap<TMessage>(
+  onAction: (action: PaletteAction) => TMessage
+): ComponentKeyBindings<TMessage> {
+  return {
+    backspace: onAction({ kind: 'deleteQueryBackward' }),
+    arrowUp: onAction({ kind: 'moveSelection', delta: -1 }),
+    arrowDown: onAction({ kind: 'moveSelection', delta: 1 })
+  };
 }
 
 function sliderKeyMap<TMessage>(

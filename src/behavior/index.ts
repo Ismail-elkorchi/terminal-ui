@@ -11,12 +11,18 @@ export type {
   ActivityFeedVisibleBlock
 } from './activity-feed.ts';
 export {
+  commandBarPresentation
+} from './command-bar.ts';
+export type {
+  CommandBarPresentation
+} from './command-bar.ts';
+export {
   commandBarReducer
 } from '../tui/command-surface.ts';
 export type {
-  CommandBarAction,
   CommandBarState
 } from '../tui/command-surface.ts';
+export type { CommandBarAction } from '../components/command-bar.ts';
 export {
   indeterminateProgressFrame,
   progressCompletionState
@@ -47,21 +53,24 @@ export type {
 export {
   filterPaletteEntries,
   groupPaletteEntries,
+  palettePresentation,
   paletteReducer,
   paletteStatus,
   paletteWindow,
   selectedPaletteEntry
 } from './palette.ts';
 export type {
-  PaletteAction,
   PaletteAsyncState,
   PaletteFilterResult,
   PaletteGroup,
   PaletteGroupSelector,
+  PalettePresentation,
+  PaletteReducerOptions,
   PaletteSelectionInput,
   PaletteState,
   PaletteWindowInput
 } from './palette.ts';
+export type { PaletteAction } from '../components/palette.ts';
 export {
   applyScrollEvent,
   createScrollState,

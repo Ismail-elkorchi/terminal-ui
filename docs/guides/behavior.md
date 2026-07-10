@@ -27,10 +27,11 @@ import {
   commandBar
 } from '@ismail-elkorchi/terminal-ui/components';
 import {
+  commandBarPresentation,
   commandBarReducer,
-  type CommandBarAction,
   type CommandBarState
 } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { CommandBarAction } from '@ismail-elkorchi/terminal-ui/components';
 
 type Message =
   | { kind: 'command'; action: CommandBarAction }
@@ -40,23 +41,67 @@ interface State {
   readonly command: CommandBarState;
 }
 
+function update(state: State, message: Message): State {
+  if (message.kind === 'submit') return state;
+  return { ...state, command: commandBarReducer(state.command, message.action) };
+}
+
 function view(state: State) {
   return commandBar<Message>({
     id: 'command',
-    value: state.command.input.text,
-    cursor: state.command.input.cursor,
-    suggestions: state.command.suggestions,
-    ...(state.command.selectedSuggestion === undefined
-      ? {}
-      : { selectedSuggestion: state.command.selectedSuggestion }),
-    ...(state.command.historyIndex === undefined
-      ? {}
-      : { historyIndex: state.command.historyIndex }),
-    onInput: (text) => ({ kind: 'command', action: { kind: 'insert', text } }),
-    keys: { enter: { kind: 'submit' } }
+    ...commandBarPresentation(state.command),
+    onAction: (action) => ({ kind: 'command', action }),
+    onSubmit: { kind: 'submit' }
   });
 }
 ```
+
+Collection-dependent reducers receive their current data as reducer options;
+the routed action remains a compact user intent. A controlled palette follows
+the same pattern:
+
+```ts
+import {
+  palette,
+  type PaletteAction,
+  type SearchEntry
+} from '@ismail-elkorchi/terminal-ui/components';
+import {
+  palettePresentation,
+  paletteReducer,
+  type PaletteState
+} from '@ismail-elkorchi/terminal-ui/behavior';
+
+const entries = [
+  { id: 'open', label: 'Open', value: 'open' }
+] satisfies readonly SearchEntry<string>[];
+
+type PaletteMessage =
+  | { kind: 'palette'; action: PaletteAction }
+  | { kind: 'acceptPalette' }
+  | { kind: 'closePalette' };
+
+function updatePalette(state: PaletteState, action: PaletteAction): PaletteState {
+  return paletteReducer(state, action, { entries });
+}
+
+function paletteView(state: PaletteState) {
+  return palette<string, PaletteMessage>({
+    id: 'commands',
+    entries,
+    ...palettePresentation(state),
+    onAction: (action) => ({ kind: 'palette', action }),
+    keys: {
+      enter: { kind: 'acceptPalette' },
+      escape: { kind: 'closePalette' }
+    }
+  });
+}
+```
+
+Text editing and selection movement produce `PaletteAction` messages. Accept
+and close remain application decisions because they change application state,
+not palette state.
 
 Behavior helpers may return the same state object for no-op transitions. That
 lets applications avoid unnecessary rerenders while keeping update logic

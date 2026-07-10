@@ -85,6 +85,7 @@ Public event props describe user intent and return caller-owned messages:
 | `onStep` | Step controls where the caller handles a structured step action. |
 | `onInput` | Text editing. |
 | `onPaste` | Paste input when handled separately from ordinary text. |
+| `onAction` | Structured controlled-component actions such as command-bar editing and navigation. |
 | `onScroll` | Structured scrolling. |
 | `onTextPointer` | Pointer-to-text position and selection events. |
 | `onContextMenu` | Context-menu activation. |

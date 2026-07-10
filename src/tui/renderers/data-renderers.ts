@@ -20,6 +20,7 @@ import {
   activityFeedAccessibleBase,
   activityFeedAccessibleChildren,
   activityFeedBlock,
+  activityFeedHitTargets,
   structuredBlockAccessibleBase,
   structuredBlockBlock
 } from '../structured-block.ts';
@@ -185,6 +186,8 @@ export const dataRenderers = {
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
       ...activityFeedAccessibleBase(renderNode, layoutNode, id, focused),
       children: activityFeedAccessibleChildren(renderNode, layoutNode)
-    })
+    }),
+    focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : [],
+    hitTargets: ({ renderNode, bounds, theme }) => activityFeedHitTargets(renderNode, bounds, theme)
   }
 } satisfies RendererMap<'sparkline' | 'barChart' | 'chart' | 'gauge' | 'heatmap' | 'list' | 'table' | 'tree' | 'paginator' | 'scrollback' | 'structuredBlock' | 'activityFeed'>;

@@ -12,9 +12,11 @@ import {
 } from '@ismail-elkorchi/terminal-ui/tui';
 import {
   applyScrollEvent,
+  commandBarPresentation,
   commandBarReducer,
   createScrollState,
   nextTreeRowId,
+  palettePresentation,
   paletteReducer,
   scrollReducer,
   selectedPaletteEntry,
@@ -201,7 +203,7 @@ async function updateIde(state, message) {
         ...state,
         palette: {
           ...state.palette,
-          ...paletteReducer(state.palette, message.action)
+          ...paletteReducer(state.palette, message.action, { entries: commandEntries })
         }
       });
     case 'paletteAcceptSelected': {
@@ -559,23 +561,17 @@ function commandPane(state) {
   return surface(commandBar({
     id: 'ide-command',
     prompt: '› ',
-    value: state.command.input.text,
-    cursor: state.command.input.cursor,
+    ...commandBarPresentation(state.command),
     placeholder: 'Type /open, /folder, /save, /palette',
     suggestions: expanded ? state.command.suggestions : [],
-    selectedSuggestion: state.command.selectedSuggestion,
     completionPreview: expanded ? completionPreview(state.command.input.text) : undefined,
     footer: expanded ? 'Enter run | arrows suggestions | Esc clear | Tab focus | Ctrl+C/Ctrl+Q exit' : undefined,
     display: expanded ? 'expanded' : 'compact',
-    onInput: (value) => ({ kind: 'commandEdit', action: { kind: 'insert', text: value } }),
+    onAction: (action) => ({ kind: 'commandEdit', action }),
+    onSubmit: { kind: 'submitCommand' },
     keys: {
-      backspace: { kind: 'commandEdit', action: { kind: 'deleteBackward' } },
-      delete: { kind: 'commandEdit', action: { kind: 'deleteForward' } },
-      arrowLeft: { kind: 'commandEdit', action: { kind: 'moveLeft' } },
-      arrowRight: { kind: 'commandEdit', action: { kind: 'moveRight' } },
       arrowUp: { kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: -1 } },
       arrowDown: { kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: 1 } },
-      enter: { kind: 'submitCommand' },
       escape: { kind: 'commandEdit', action: { kind: 'setValue', value: '' } }
     }
   }), {
@@ -591,16 +587,12 @@ function paletteOverlay(state) {
     id: 'ide-palette',
     title: 'Editor commands',
     entries: commandEntries,
-    query: state.palette.query,
-    selected: state.palette.selectedIndex,
+    ...palettePresentation(state.palette),
     maxVisible: 7,
     helpText: 'Type to filter. Enter accepts. Esc closes.',
     onSelect: (entry) => ({ kind: 'paletteAccept', command: entry.value }),
-    onInput: (value) => ({ kind: 'paletteEdit', action: { kind: 'insertQuery', text: value } }),
+    onAction: (action) => ({ kind: 'paletteEdit', action }),
     keys: {
-      backspace: { kind: 'paletteEdit', action: { kind: 'deleteQueryBackward' } },
-      arrowDown: { kind: 'paletteEdit', action: { kind: 'moveFilteredSelection', delta: 1, entries: commandEntries } },
-      arrowUp: { kind: 'paletteEdit', action: { kind: 'moveFilteredSelection', delta: -1, entries: commandEntries } },
       enter: { kind: 'paletteAcceptSelected' },
       escape: { kind: 'closePalette' }
     }

@@ -7,6 +7,8 @@ import {
 } from '../../dist/behavior/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 import { palette } from '../../dist/components/index.js';
+import { createMemoryTerminalHost } from '../../dist/host/index.js';
+import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
 const entries = [
   { id: 'open-file', label: 'Open File', group: 'Files', value: { kind: 'file' }, description: 'Open a file', keywords: ['file'], preview: 'src/index.ts' },
@@ -129,5 +131,41 @@ test('palette exposes enabled visible entry hit targets when toMessage is provid
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), [
     'commands:open-file',
     'commands:toggle-terminal'
+  ]);
+});
+
+test('palette emits compact controlled actions while acceptance remains app-owned', async () => {
+  const app = defineTui({
+    id: 'palette-actions',
+    init: () => ({ messages: [] }),
+    update: (state, message) => ({ state: { messages: [...state.messages, message] } }),
+    view: () => palette({
+      id: 'commands',
+      query: '',
+      entries,
+      onAction: (action) => ({ kind: 'action', action }),
+      keys: {
+        enter: { kind: 'accept' },
+        escape: { kind: 'close' }
+      }
+    })
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+
+  await runtime.start();
+  await runtime.handleInput({ kind: 'text', text: 'o', paste: false });
+  await runtime.handleInput({ kind: 'paste', text: 'pen', bracketed: true });
+  await runtime.handleInput({ kind: 'key', key: 'backspace', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'arrowDown', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'escape', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.deepEqual(runtime.getState().messages, [
+    { kind: 'action', action: { kind: 'insertQuery', text: 'o' } },
+    { kind: 'action', action: { kind: 'insertQuery', text: 'pen' } },
+    { kind: 'action', action: { kind: 'deleteQueryBackward' } },
+    { kind: 'action', action: { kind: 'moveSelection', delta: 1 } },
+    { kind: 'accept' },
+    { kind: 'close' }
   ]);
 });

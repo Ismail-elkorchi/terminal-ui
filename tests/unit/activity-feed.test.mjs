@@ -8,6 +8,7 @@ import { highContrastTheme } from '../../dist/theme/index.js';
 import { renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
+import { renderElementProjection } from '../../dist/tui/render.js';
 import {
   activityFeed,
   structuredBlock
@@ -152,6 +153,30 @@ test('activityFeed renders selected visible blocks and accessible options', () =
     ['feed:block:running', true],
     ['feed:block:done', false]
   ]);
+});
+
+test('activityFeed exposes block hit targets and keyboard focus when interactive', () => {
+  const projection = renderElementProjection(activityFeed({
+    id: 'interactive-feed',
+    blocks,
+    selected: 1,
+    onSelect: (block, index) => ({ kind: 'select', id: block.id, index }),
+    keys: { arrowDown: { kind: 'next' } }
+  }), { columns: 36, rows: 10 });
+  const frame = projection.frame;
+  const routedTargets = projection.regions.flatMap((region) => region.hitTargets);
+
+  assert.deepEqual(frame.hitTargets?.map((target) => [target.id, target.bounds.height]), [
+    ['interactive-feed:block:queued', 3],
+    ['interactive-feed:block:running', 6],
+    ['interactive-feed:block:done', 1]
+  ]);
+  assert.deepEqual(frame.focusPath, ['interactive-feed']);
+  assert.deepEqual(routedTargets[1]?.message({}), {
+    kind: 'select',
+    id: 'running',
+    index: 1
+  });
 });
 
 test('activityFeed renders caller-owned reducer expansion state', () => {

@@ -193,8 +193,10 @@ test('root declaration exposes primary public type contracts', async () => {
     'ComponentMeta',
     'ComponentOptions',
     'ButtonOptions',
+    'CommandBarAction',
     'CommandBarOptions',
     'MenuItem',
+    'PaletteAction',
     'TableColumn',
     'TreeNode'
   ]) {

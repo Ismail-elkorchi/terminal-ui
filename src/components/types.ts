@@ -20,6 +20,8 @@ import type { Rect, RegionOpacity } from '../tui/layout.ts';
 import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
 import type { SurfaceVariant } from '../tui/surface.ts';
 import type { Element } from './element.ts';
+import type { CommandBarAction } from './command-bar.ts';
+import type { PaletteAction } from './palette.ts';
 import type {
   ActionItem,
   ChoiceItem,
@@ -829,6 +831,7 @@ export interface StructuredBlockOptions<TMessage = never> extends ComponentOptio
 export interface ActivityFeedOptions<TMessage = never> extends ComponentOptions {
   readonly blocks: readonly StructuredBlock[];
   readonly selected?: number;
+  readonly onSelect?: (block: StructuredBlock, index: number) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
@@ -853,10 +856,10 @@ export interface CommandBarOptions<TMessage = never> extends ComponentOptions {
   readonly selectedSuggestion?: number;
   readonly historyIndex?: number;
   readonly display?: CommandBarDisplay;
+  readonly onAction?: (action: CommandBarAction) => TMessage;
+  readonly onSubmit?: TMessage;
   readonly onTextPointer?: (event: TextPointerEvent) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
-  readonly onInput?: (text: string) => TMessage;
-  readonly onPaste?: (text: string) => TMessage;
 }
 
 export interface PaletteOptions<TValue = string, TMessage = never> extends ComponentOptions {
@@ -873,9 +876,8 @@ export interface PaletteOptions<TValue = string, TMessage = never> extends Compo
   readonly maxVisible?: number;
   readonly helpText?: string;
   readonly emptyText?: string;
+  readonly onAction?: (action: PaletteAction) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
-  readonly onInput?: (text: string) => TMessage;
-  readonly onPaste?: (text: string) => TMessage;
 }
 
 export interface GridOptions<TMessage = never> extends ComponentOptions, GridLayoutOptions {

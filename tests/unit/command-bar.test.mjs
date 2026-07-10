@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { commandBarReducer } from '../../dist/behavior/index.js';
+import { commandBarPresentation, commandBarReducer } from '../../dist/behavior/index.js';
+import { createMemoryTerminalHost } from '../../dist/host/index.js';
+import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
   renderElementFrame,
   renderElementRegions
@@ -73,6 +75,60 @@ test('commandBarReducer ignores accept when every suggestion is disabled', () =>
 
   const accepted = commandBarReducer(selected, { kind: 'acceptSuggestion' });
   assert.deepEqual(accepted.input, { text: 'd', cursor: 1 });
+});
+
+test('commandBar projects controlled state and emits semantic actions', async () => {
+  const command = {
+    input: { text: 'te', cursor: 2, selection: { start: 0, end: 1 } },
+    history: ['build'],
+    historyIndex: 0,
+    suggestions: [{ value: 'test', label: 'test' }],
+    selectedSuggestion: 0
+  };
+  const app = defineTui({
+    id: 'command-actions',
+    init: () => ({ command, messages: [] }),
+    update: (state, message) => ({ state: { ...state, messages: [...state.messages, message] } }),
+    view: (state) => commandBar({
+      id: 'command',
+      ...commandBarPresentation(state.command),
+      onAction: (action) => ({ kind: 'action', action }),
+      onSubmit: { kind: 'submit' },
+      keys: {
+        arrowUp: { kind: 'history' },
+        tab: { kind: 'suggestion' },
+        escape: { kind: 'escape' }
+      }
+    })
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+
+  await runtime.start();
+  await runtime.handleInput({ kind: 'text', text: 'x', paste: false });
+  await runtime.handleInput({ kind: 'paste', text: 'clip', bracketed: true });
+  await runtime.handleInput({ kind: 'key', key: 'backspace', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'arrowUp', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'escape', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.deepEqual(commandBarPresentation(command), {
+    value: 'te',
+    cursor: 2,
+    selection: { start: 0, end: 1 },
+    suggestions: [{ value: 'test', label: 'test' }],
+    selectedSuggestion: 0,
+    historyIndex: 0
+  });
+  assert.deepEqual(runtime.getState().messages, [
+    { kind: 'action', action: { kind: 'insert', text: 'x' } },
+    { kind: 'action', action: { kind: 'insert', text: 'clip' } },
+    { kind: 'action', action: { kind: 'deleteBackward' } },
+    { kind: 'history' },
+    { kind: 'suggestion' },
+    { kind: 'submit' },
+    { kind: 'escape' }
+  ]);
 });
 
 test('commandBar widget renders prompt, suggestions, cursor, and accessibility', () => {

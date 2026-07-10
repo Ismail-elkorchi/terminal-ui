@@ -2,6 +2,8 @@ import { editTextBuffer } from '../text/index.ts';
 import { rowWindow } from '../tui/data-window.ts';
 import type { ScrollState } from '../tui/scroll.ts';
 import type { SearchEntry } from '../components/contracts.ts';
+import type { PaletteOptions } from '../components/types.ts';
+import type { PaletteAction } from '../components/palette.ts';
 
 export type PaletteAsyncState<TValue = string> =
   | { readonly status: 'idle'; readonly entries: readonly SearchEntry<TValue>[] }
@@ -13,6 +15,12 @@ export interface PaletteState {
   readonly selectedIndex: number;
   readonly selectedIds: readonly string[];
   readonly previewId?: string;
+}
+
+export type PalettePresentation = Required<Pick<PaletteOptions<never>, 'query' | 'selected'>>;
+
+export interface PaletteReducerOptions<TValue = string> {
+  readonly entries: readonly SearchEntry<TValue>[];
 }
 
 export interface PaletteWindowInput<TValue = string> {
@@ -42,17 +50,6 @@ export interface PaletteSelectionInput<TValue = string> {
   readonly limit?: number;
 }
 
-export type PaletteAction =
-  | { readonly kind: 'setQuery'; readonly query: string }
-  | { readonly kind: 'insertQuery'; readonly text: string }
-  | { readonly kind: 'deleteQueryBackward' }
-  | { readonly kind: 'moveSelection'; readonly delta: number; readonly entryCount: number }
-  | { readonly kind: 'moveFilteredSelection'; readonly delta: number; readonly entries: readonly SearchEntry[] }
-  | { readonly kind: 'selectIndex'; readonly index: number; readonly entryCount: number }
-  | { readonly kind: 'toggleSelected'; readonly id: string }
-  | { readonly kind: 'clearSelected' }
-  | { readonly kind: 'preview'; readonly id?: string };
-
 export interface PaletteGroup<TValue = string> {
   readonly id: string;
   readonly label: string;
@@ -64,7 +61,18 @@ export type PaletteGroupSelector<TValue> = (entry: SearchEntry<TValue>) => {
   readonly label?: string;
 };
 
-export function paletteReducer(state: PaletteState, action: PaletteAction): PaletteState {
+export function palettePresentation(state: PaletteState): PalettePresentation {
+  return {
+    query: state.query,
+    selected: state.selectedIndex
+  };
+}
+
+export function paletteReducer<TValue>(
+  state: PaletteState,
+  action: PaletteAction,
+  options: PaletteReducerOptions<TValue>
+): PaletteState {
   switch (action.kind) {
     case 'setQuery':
       return {
@@ -91,17 +99,12 @@ export function paletteReducer(state: PaletteState, action: PaletteAction): Pale
     case 'moveSelection':
       return {
         ...state,
-        selectedIndex: wrapIndex(state.selectedIndex + action.delta, action.entryCount)
-      };
-    case 'moveFilteredSelection':
-      return {
-        ...state,
-        selectedIndex: wrapIndex(state.selectedIndex + action.delta, filterPaletteEntries(action.entries, state.query).length)
+        selectedIndex: wrapIndex(state.selectedIndex + action.delta, filterPaletteEntries(options.entries, state.query).length)
       };
     case 'selectIndex':
       return {
         ...state,
-        selectedIndex: clampIndex(action.index, action.entryCount)
+        selectedIndex: clampIndex(action.index, filterPaletteEntries(options.entries, state.query).length)
       };
     case 'toggleSelected':
       return {

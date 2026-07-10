@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   groupPaletteEntries,
+  palettePresentation,
   paletteReducer,
   selectedPaletteEntry,
   paletteStatus
@@ -16,14 +17,14 @@ const entries = [
 
 test('paletteReducer owns query selection preview and multi-select state', () => {
   const initial = { query: '', selectedIndex: 0, selectedIds: [] };
-  const queried = paletteReducer(initial, { kind: 'setQuery', query: 'file' });
-  const moved = paletteReducer(queried, { kind: 'moveSelection', delta: -1, entryCount: 3 });
-  const selected = paletteReducer(moved, { kind: 'toggleSelected', id: 'close' });
-  const preview = paletteReducer(selected, { kind: 'preview', id: 'close' });
-  const cleared = paletteReducer(preview, { kind: 'clearSelected' });
+  const queried = paletteReducer(initial, { kind: 'setQuery', query: 'file' }, { entries });
+  const moved = paletteReducer(queried, { kind: 'moveSelection', delta: -1 }, { entries });
+  const selected = paletteReducer(moved, { kind: 'toggleSelected', id: 'close' }, { entries });
+  const preview = paletteReducer(selected, { kind: 'preview', id: 'close' }, { entries });
+  const cleared = paletteReducer(preview, { kind: 'clearSelected' }, { entries });
 
   assert.deepEqual(queried, { query: 'file', selectedIndex: 0, selectedIds: [] });
-  assert.equal(moved.selectedIndex, 2);
+  assert.equal(moved.selectedIndex, 1);
   assert.deepEqual(selected.selectedIds, ['close']);
   assert.equal(preview.previewId, 'close');
   assert.deepEqual(cleared.selectedIds, []);
@@ -31,13 +32,14 @@ test('paletteReducer owns query selection preview and multi-select state', () =>
 
 test('paletteReducer can edit query and move within filtered entries', () => {
   const initial = { query: '', selectedIndex: 0, selectedIds: [] };
-  const typed = paletteReducer(initial, { kind: 'insertQuery', text: 'file🙂' });
-  const shortened = paletteReducer(typed, { kind: 'deleteQueryBackward' });
-  const moved = paletteReducer(shortened, { kind: 'moveFilteredSelection', delta: -1, entries });
+  const typed = paletteReducer(initial, { kind: 'insertQuery', text: 'file🙂' }, { entries });
+  const shortened = paletteReducer(typed, { kind: 'deleteQueryBackward' }, { entries });
+  const moved = paletteReducer(shortened, { kind: 'moveSelection', delta: -1 }, { entries });
 
   assert.deepEqual(typed, { query: 'file🙂', selectedIndex: 0, selectedIds: [] });
   assert.deepEqual(shortened, { query: 'file', selectedIndex: 0, selectedIds: [] });
   assert.equal(moved.selectedIndex, 1);
+  assert.deepEqual(palettePresentation(moved), { query: 'file', selected: 1 });
 });
 
 test('selectedPaletteEntry returns the filtered selected entry from palette state', () => {

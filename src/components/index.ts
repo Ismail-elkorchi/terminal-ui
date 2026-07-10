@@ -46,6 +46,8 @@ export {
   toggleSwitch
 } from './factories.ts';
 export type * from './contracts.ts';
+export type { CommandBarAction } from './command-bar.ts';
+export type { PaletteAction } from './palette.ts';
 export type { Element, ElementChildren } from './element.ts';
 export type * from './types.ts';
 export {

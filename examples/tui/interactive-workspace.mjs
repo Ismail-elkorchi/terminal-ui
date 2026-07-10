@@ -7,7 +7,9 @@ import {
   runTui
 } from '@ismail-elkorchi/terminal-ui/tui';
 import {
+  commandBarPresentation,
   commandBarReducer,
+  palettePresentation,
   paletteReducer,
   selectedPaletteEntry,
   tableReducer,
@@ -439,24 +441,18 @@ function commandSurface(state) {
   return surface(commandBar({
     id: 'workspace-command',
     prompt: '› ',
-    value: state.command.input.text,
-    cursor: state.command.input.cursor,
+    ...commandBarPresentation(state.command),
     placeholder: 'Type /command',
     suggestions: expanded ? state.command.suggestions : [],
-    selectedSuggestion: state.command.selectedSuggestion,
     completionPreview: expanded ? completionPreview(state.command.input.text) : undefined,
     footer: expanded ? 'Enter run | arrows suggestions | Esc clear | Tab focus | Ctrl+C/Ctrl+Q exit' : undefined,
     display: expanded ? 'expanded' : 'compact',
-    onInput: (value) => ({ kind: 'commandEdit', action: { kind: 'insert', text: value } }),
+    onAction: (action) => ({ kind: 'commandEdit', action }),
+    onSubmit: { kind: 'submitCommand' },
     keys: {
-      backspace: { kind: 'commandEdit', action: { kind: 'deleteBackward' } },
-      delete: { kind: 'commandEdit', action: { kind: 'deleteForward' } },
-      arrowLeft: { kind: 'commandEdit', action: { kind: 'moveLeft' } },
-      arrowRight: { kind: 'commandEdit', action: { kind: 'moveRight' } },
       arrowUp: { kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: -1 } },
       arrowDown: { kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: 1 } },
       tab: { kind: 'commandEdit', action: { kind: 'acceptSuggestion' } },
-      enter: { kind: 'submitCommand' },
       escape: { kind: 'commandEdit', action: { kind: 'setValue', value: '' } },
       '/': { kind: 'openPalette' }
     }
@@ -473,16 +469,12 @@ function paletteOverlay(state) {
     id: 'workspace-palette',
     title: 'Commands',
     entries: paletteEntries,
-    query: state.palette.query,
-    selected: state.palette.selectedIndex,
+    ...palettePresentation(state.palette),
     onSelect: (entry) => ({ kind: 'paletteAccept', command: entry.value, source: 'pointer' }),
     helpText: 'Type to filter. Enter accepts selected. Esc closes.',
     maxVisible: 6,
-    onInput: (value) => ({ kind: 'paletteEdit', action: { kind: 'insertQuery', text: value } }),
+    onAction: (action) => ({ kind: 'paletteEdit', action }),
     keys: {
-      backspace: { kind: 'paletteEdit', action: { kind: 'deleteQueryBackward' } },
-      arrowDown: { kind: 'paletteEdit', action: { kind: 'moveFilteredSelection', delta: 1, entries: paletteEntries } },
-      arrowUp: { kind: 'paletteEdit', action: { kind: 'moveFilteredSelection', delta: -1, entries: paletteEntries } },
       enter: { kind: 'paletteAcceptSelected' },
       escape: { kind: 'closePalette' }
     }
@@ -601,7 +593,7 @@ function markPaletteUsed(state) {
 function reducePaletteState(state, action) {
   return {
     ...state,
-    ...paletteReducer(state, action)
+    ...paletteReducer(state, action, { entries: paletteEntries })
   };
 }
 
