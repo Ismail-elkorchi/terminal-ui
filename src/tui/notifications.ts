@@ -12,7 +12,7 @@ import { numberProp } from './render-node-props.ts';
 import type { HitTarget } from './render-node-renderer.ts';
 import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
 import { normalizeNotificationTone, statusFromTone } from '../components/status.ts';
-import type { NotificationItem, NotificationPlacement, NotificationTone } from '../components/types.ts';
+import type { NotificationItem, NotificationPlacement, NotificationTone } from '../components/options/feedback.ts';
 import { feedbackSpan } from './feedback-visual.ts';
 import { statusToken } from './status-visual.ts';
 

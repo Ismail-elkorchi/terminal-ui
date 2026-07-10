@@ -7,7 +7,7 @@ import { mergeStyles, themeStyle, renderNodeStyle } from './render-node-style.ts
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type {
-  TableCellRenderInput, TableColumn, TableColumnAlignment, TableColumnSemantic, TablePointerSelection, TableColumnWidth, TableDensity } from '../components/types.ts';
+  TableCellRenderInput, TableColumn, TableColumnAlignment, TableColumnSemantic, TablePointerSelection, TableColumnWidth, TableDensity } from '../components/options/content.ts';
 import type { Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';

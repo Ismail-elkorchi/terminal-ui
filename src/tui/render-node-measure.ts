@@ -1,7 +1,7 @@
 import { measureTextCells } from '../text/index.ts';
 import { borderStyleFromValue } from './border.ts';
 import { commandBarBlock } from './command-bar.ts';
-import { barChartText, chartText, gaugeText, heatmapText, sparklineText } from './chart-widgets.ts';
+import { barChartText, chartText, gaugeText, heatmapText, sparklineText } from './charts/index.ts';
 import { dividerPreferredSize } from './divider.ts';
 import { paginatorText } from './data-widgets.ts';
 import {
@@ -18,7 +18,7 @@ import {
   sliderBlock,
   textInputBlock,
   toggleSwitchBlock
-} from './form-widgets.ts';
+} from './forms/index.ts';
 import { contextMenuBlock, dropdownBlock, menuBarBlock, menuBlock } from './menu-widgets.ts';
 import {
   combineMeasurementsHorizontally,

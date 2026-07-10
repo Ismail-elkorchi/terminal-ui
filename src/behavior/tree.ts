@@ -1,4 +1,4 @@
-import type { TreeDisclosureAction, TreeNode } from '../components/types.ts';
+import type { TreeDisclosureAction, TreeNode } from '../components/options/content.ts';
 
 export type TreeAction =
   | TreeDisclosureAction

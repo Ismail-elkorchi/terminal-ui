@@ -3,7 +3,7 @@ import type {
   ComponentKeyBindings,
   ComponentOptions,
   ComponentTextInputHandlers
-} from '../components/types.ts';
+} from '../components/options/base.ts';
 import type { Element } from '../components/element.ts';
 import { elementFromRenderNode } from '../render-node/element.ts';
 import type { RenderNodeInputMap, RenderNodeKeyMap } from '../render-node/index.ts';

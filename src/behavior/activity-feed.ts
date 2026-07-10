@@ -1,6 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { RecordStatus } from '../components/contracts.ts';
-import type { StructuredBlock } from '../components/types.ts';
+import type { StructuredBlock } from '../components/options/documents.ts';
 
 export interface ActivityFeedState {
   readonly selected?: number;

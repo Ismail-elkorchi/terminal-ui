@@ -1,6 +1,7 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { RecordStatus } from '../components/contracts.ts';
-import type { NotificationItem, StructuredBlock } from '../components/types.ts';
+import type { NotificationItem } from '../components/options/feedback.ts';
+import type { StructuredBlock } from '../components/options/documents.ts';
 import { normalizeNotificationTone, recordStatusFromTone } from '../components/status.ts';
 
 export interface NotificationState {

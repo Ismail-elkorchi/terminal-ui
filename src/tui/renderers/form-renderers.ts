@@ -44,7 +44,7 @@ import {
   textInputCursor,
   toggleSwitchAccessibleBase,
   toggleSwitchBlock
-} from '../form-widgets.ts';
+} from '../forms/index.ts';
 import { singleLineInputPointerOffset } from '../input-visual.ts';
 import { splitTracks } from '../regions.ts';
 import { textPointerHitTargets, textPointerMessageFactory } from '../text-pointer.ts';

@@ -14,7 +14,7 @@ import {
   heatmapHitTargets,
   sparklineAccessibleBase,
   sparklineBlock
-} from '../chart-widgets.ts';
+} from '../charts/index.ts';
 import { paginatorAccessibleBase, paginatorBlock } from '../data-widgets.ts';
 import {
   activityFeedAccessibleBase,

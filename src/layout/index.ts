@@ -22,7 +22,7 @@ export type {
   SurfaceOptions,
   TabsOptions,
   ViewportOptions
-} from '../components/types.ts';
+} from '../components/options/index.ts';
 export {
   defineBreakpoints,
   responsive,

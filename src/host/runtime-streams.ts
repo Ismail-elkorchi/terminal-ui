@@ -189,7 +189,6 @@ async function* inputSourceToAsyncIterable(
     } finally {
       reader.releaseLock();
     }
-    return;
   }
   yield* source;
 }

@@ -10,7 +10,7 @@ import { resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-no
 import { windowDescription } from './visible-window.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { TreeDisclosureAction, TreeNode } from '../components/types.ts';
+import type { TreeDisclosureAction, TreeNode } from '../components/options/content.ts';
 import type { Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';

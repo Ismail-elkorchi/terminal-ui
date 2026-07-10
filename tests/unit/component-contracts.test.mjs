@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 test('public item contracts stay narrow instead of collapsing into one universal item', async () => {
   const contracts = await readFile(new URL('../../src/components/contracts.ts', import.meta.url), 'utf8');
-  const types = await readFile(new URL('../../src/components/types.ts', import.meta.url), 'utf8');
+  const types = await readSourceTree(new URL('../../src/components/options/', import.meta.url));
 
   assert.match(contracts, /export interface ItemBase[\s\S]*readonly id: string;[\s\S]*readonly label: string;[\s\S]*readonly description\?: string;[\s\S]*readonly disabled\?: boolean;/u);
   assert.match(contracts, /export interface ChoiceItem<TValue = string> extends ItemBase[\s\S]*readonly value: TValue;/u);
@@ -42,4 +42,13 @@ function sliceBetween(source, start, end) {
   assert.notEqual(startIndex, -1, start);
   assert.notEqual(endIndex, -1, end);
   return source.slice(startIndex, endIndex);
+}
+
+async function readSourceTree(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = entries
+    .filter((entry) => entry.isFile() && entry.name.endsWith('.ts'))
+    .map((entry) => new URL(entry.name, directory))
+    .sort((left, right) => left.pathname.localeCompare(right.pathname));
+  return (await Promise.all(files.map((file) => readFile(file, 'utf8')))).join('\n');
 }

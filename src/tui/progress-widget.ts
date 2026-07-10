@@ -4,7 +4,7 @@ import type { AccessibleNode } from '../accessibility/index.ts';
 import { indeterminateProgressFrame } from '../behavior/feedback.ts';
 import type { ProcessStatus } from '../components/contracts.ts';
 import { normalizeProcessStatus } from '../components/status.ts';
-import type { ProgressBarLabelPosition, ProgressBarDisplay } from '../components/types.ts';
+import type { ProgressBarLabelPosition, ProgressBarDisplay } from '../components/options/feedback.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
 import { block, line } from './frame.ts';

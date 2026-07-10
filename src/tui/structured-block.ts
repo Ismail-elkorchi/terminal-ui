@@ -9,7 +9,7 @@ import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { FieldItem } from '../components/contracts.ts';
 import { optionalRecordStatus } from '../components/status.ts';
-import type { StructuredBlock } from '../components/types.ts';
+import type { StructuredBlock } from '../components/options/documents.ts';
 import type { LayoutNode } from './layout.ts';
 import type { Rect } from './layout.ts';
 import type { HitTarget } from './render-node-renderer.ts';

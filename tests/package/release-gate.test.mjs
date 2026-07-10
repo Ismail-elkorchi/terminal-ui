@@ -86,7 +86,7 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
   assert.match(behavior, /builtinRenderNodeRenderers\[widget\.kind\]/u);
   assert.doesNotMatch(behavior, /const\s+widgetRenderers\s*=/u);
   assert.doesNotMatch(behavior, /satisfies Record<BuiltinRenderNodeKind, RenderNodeRenderer>/u);
-  assert.doesNotMatch(behavior, /from\s+['"]\.\/(?:form-widgets|menu-widgets|drawing-widgets|table|chart-widgets|data-widgets|palette|command-bar|progress-widget|structured-block)['"]/u);
+  assert.doesNotMatch(behavior, /from\s+['"]\.\/(?:forms|charts|menu-widgets|drawing-widgets|table|data-widgets|palette|command-bar|progress-widget|structured-block)(?:\/index)?['"]/u);
   assert.match(registry, /satisfies Record<BuiltinRenderNodeKind, RenderNodeRenderer>/u);
   assert.doesNotMatch(registry, /custom:\s*\{\s*\}/u);
   assert.doesNotMatch(registry, /\?\.\(widget,\s*node,\s*id,\s*focused\)/u);
@@ -259,13 +259,13 @@ test('frame contract remains styled source-aware cells, spans, blocks, and buffe
 test('widget rendering layer has no command, clipboard, host-output, or raw ANSI side effects', async () => {
   const files = [
     ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
+    ...await sourceFiles(new URL('../../src/tui/charts/', import.meta.url)),
+    ...await sourceFiles(new URL('../../src/tui/forms/', import.meta.url)),
     ...await namedTuiSourceFiles([
       'border.ts',
-      'chart-widgets.ts',
       'command-bar.ts',
       'data-widgets.ts',
       'drawing-widgets.ts',
-      'form-widgets.ts',
       'menu-widgets.ts',
       'palette.ts',
       'scrollback.ts',
@@ -385,7 +385,7 @@ test('terminal text indexing and editing stay centralized', async () => {
   const commandBar = await readFile(new URL('../../src/tui/command-bar.ts', import.meta.url), 'utf8');
   const commandSurface = await readFile(new URL('../../src/tui/command-surface.ts', import.meta.url), 'utf8');
   const commandVisual = await readFile(new URL('../../src/tui/command-visual.ts', import.meta.url), 'utf8');
-  const formWidgets = await readFile(new URL('../../src/tui/form-widgets.ts', import.meta.url), 'utf8');
+  const formWidgets = await readSourceTree(new URL('../../src/tui/forms/', import.meta.url));
   const formVisual = await readFile(new URL('../../src/tui/form-visual.ts', import.meta.url), 'utf8');
   const formRenderers = await readFile(new URL('../../src/tui/renderers/form-renderers.ts', import.meta.url), 'utf8');
   const inputVisual = await readFile(new URL('../../src/tui/input-visual.ts', import.meta.url), 'utf8');
@@ -394,7 +394,7 @@ test('terminal text indexing and editing stay centralized', async () => {
   const feedbackRenderers = await readFile(new URL('../../src/tui/renderers/feedback-renderers.ts', import.meta.url), 'utf8');
   const feedbackVisual = await readFile(new URL('../../src/tui/feedback-visual.ts', import.meta.url), 'utf8');
   const documentVisual = await readFile(new URL('../../src/tui/document-visual.ts', import.meta.url), 'utf8');
-  const chartWidgets = await readFile(new URL('../../src/tui/chart-widgets.ts', import.meta.url), 'utf8');
+  const chartWidgets = await readSourceTree(new URL('../../src/tui/charts/', import.meta.url));
   const chartVisual = await readFile(new URL('../../src/tui/chart-visual.ts', import.meta.url), 'utf8');
   const dataRenderers = await readFile(new URL('../../src/tui/renderers/data-renderers.ts', import.meta.url), 'utf8');
   const textWidgets = await readFile(new URL('../../src/tui/text-widgets.ts', import.meta.url), 'utf8');
@@ -408,9 +408,9 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(commandVisual, /from '\.\/text-highlight\.ts'/u);
   assert.match(commandSurface, /\bmoveWordLeft\b/u);
   assert.match(commandSurface, /\bselectAll\b/u);
-  assert.match(formWidgets, /from '\.\/text-display\.ts'/u);
-  assert.match(formWidgets, /from '\.\/input-visual\.ts'/u);
-  assert.match(formWidgets, /from '\.\/form-visual\.ts'/u);
+  assert.match(formWidgets, /from '\.\.\/text-display\.ts'/u);
+  assert.match(formWidgets, /from '\.\.\/input-visual\.ts'/u);
+  assert.match(formWidgets, /from '\.\.\/form-visual\.ts'/u);
   assert.match(formVisual, /\bformSpan\b/u);
   assert.match(formVisual, /\boptionControlState\b/u);
   assert.match(inputVisual, /from '\.\/text-display\.ts'/u);
@@ -422,7 +422,7 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(feedbackVisual, /\bactivityIndicatorBlock\b/u);
   assert.match(documentVisual, /\bdocumentHighlightSpans\b/u);
   assert.match(documentVisual, /\bdocumentFieldSpans\b/u);
-  assert.match(chartWidgets, /from '\.\/chart-visual\.ts'/u);
+  assert.match(chartWidgets, /from '\.\.\/chart-visual\.ts'/u);
   assert.match(chartVisual, /\bchartStateBlock\b/u);
   assert.match(dataRenderers, /\bsparklineBlock\b/u);
   assert.match(dataRenderers, /\bbarChartBlock\b/u);
@@ -576,9 +576,9 @@ test('box drawing joins are source-role gated frame passes', async () => {
 
 test('custom renderers can render only through buffer-scoped renderer inputs', async () => {
   const rendererTypes = await readFile(new URL('../../src/tui/render-node-renderer.ts', import.meta.url), 'utf8');
-  const widgetTypes = await readFile(new URL('../../src/components/types.ts', import.meta.url), 'utf8');
+  const widgetTypes = await readSourceTree(new URL('../../src/components/options/', import.meta.url));
   const customWidgetTypes = await readFile(new URL('../../src/renderer/custom-element.ts', import.meta.url), 'utf8');
-  const factories = await readFile(new URL('../../src/components/factories.ts', import.meta.url), 'utf8');
+  const factories = await readSourceTree(new URL('../../src/components/factories/', import.meta.url));
   const validation = await readFile(new URL('../../src/components/extension-validation.ts', import.meta.url), 'utf8');
 
   assert.match(rendererTypes, /interface RenderNodeRenderInput/u);
@@ -621,7 +621,7 @@ test('Canvas2D is a FrameBuffer-backed helper without host or ANSI escapes', asy
     }))
   );
   const drawingSource = await readFile(new URL('../../src/tui/drawing-widgets.ts', import.meta.url), 'utf8');
-  const widgetTypes = await readFile(new URL('../../src/components/types.ts', import.meta.url), 'utf8');
+  const widgetTypes = await readSourceTree(new URL('../../src/components/options/', import.meta.url));
 
   assert.match(drawingSource, /createCanvas2D\(input\.buffer,\s*input\.layoutNode\.bounds\)/u);
   assert.match(widgetTypes, /readonly canvas: Canvas2D;/u);
@@ -647,6 +647,10 @@ async function sourceFiles(directory, extension = '.ts') {
 
 async function namedTuiSourceFiles(names) {
   return names.map((name) => new URL(`../../src/tui/${name}`, import.meta.url));
+}
+
+async function readSourceTree(directory) {
+  return (await Promise.all((await sourceFiles(directory)).map((file) => readFile(file, 'utf8')))).join('\n');
 }
 
 function markdownLinks(source) {

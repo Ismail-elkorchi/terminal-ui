@@ -1,7 +1,7 @@
 import { numberProp, stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { RenderNode } from '../render-node/index.ts';
-import type { CanvasPainterInput } from '../components/types.ts';
+import type { CanvasPainterInput } from '../components/options/surfaces.ts';
 import type { Rect } from './layout.ts';
 import type { RenderNodeRenderInput } from './render-node-renderer.ts';
 import { createCanvas2D } from './canvas2d/index.ts';

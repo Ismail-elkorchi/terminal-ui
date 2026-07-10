@@ -2,7 +2,7 @@ import { editTextBuffer } from '../text/index.ts';
 import { rowWindow } from '../tui/data-window.ts';
 import type { ScrollState } from '../tui/scroll.ts';
 import type { SearchEntry } from '../components/contracts.ts';
-import type { PaletteOptions } from '../components/types.ts';
+import type { PaletteOptions } from '../components/options/documents.ts';
 import type { PaletteAction } from '../components/palette.ts';
 
 export type PaletteAsyncState<TValue = string> =

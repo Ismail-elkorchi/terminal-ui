@@ -150,7 +150,16 @@ test('root declaration exposes primary public type contracts', async () => {
   const componentsDeclaration = await readFile(new URL('../../dist/components/index.d.ts', import.meta.url), 'utf8');
   const componentContractsDeclaration = await readFile(new URL('../../dist/components/contracts.d.ts', import.meta.url), 'utf8');
   const componentElementDeclaration = await readFile(new URL('../../dist/components/element.d.ts', import.meta.url), 'utf8');
-  const componentTypesDeclaration = await readFile(new URL('../../dist/components/types.d.ts', import.meta.url), 'utf8');
+  const componentOptionDeclarations = (await Promise.all([
+    'base',
+    'content',
+    'documents',
+    'feedback',
+    'forms',
+    'layout',
+    'menus',
+    'surfaces'
+  ].map((name) => readFile(new URL(`../../dist/components/options/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
   const layoutDeclaration = await readFile(new URL('../../dist/layout/index.d.ts', import.meta.url), 'utf8');
   const behaviorDeclaration = await readFile(new URL('../../dist/behavior/index.d.ts', import.meta.url), 'utf8');
   const rendererDeclaration = await readFile(new URL('../../dist/renderer/index.d.ts', import.meta.url), 'utf8');
@@ -200,15 +209,15 @@ test('root declaration exposes primary public type contracts', async () => {
     'TableColumn',
     'TreeNode'
   ]) {
-    assert.match(componentTypesDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
+    assert.match(componentOptionDeclarations, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
   }
-  assert.doesNotMatch(componentTypesDeclaration, /\bTableAction\b/u);
-  assert.doesNotMatch(componentTypesDeclaration, /\bFrameBuffer\b/u);
+  assert.doesNotMatch(componentOptionDeclarations, /\bTableAction\b/u);
+  assert.doesNotMatch(componentOptionDeclarations, /\bFrameBuffer\b/u);
   for (const authoredDeclaration of [
     declaration,
     componentsDeclaration,
     componentContractsDeclaration,
-    componentTypesDeclaration,
+    componentOptionDeclarations,
     layoutDeclaration,
     behaviorDeclaration
   ]) {

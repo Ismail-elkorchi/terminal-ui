@@ -13,7 +13,7 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { TextSelection } from '../text/index.ts';
 import type { SuggestionItem, ComponentValidationTone } from '../components/contracts.ts';
 import { optionalValidationTone } from '../components/status.ts';
-import type { CommandBarDisplay, CommandBarValidation } from '../components/types.ts';
+import type { CommandBarDisplay, CommandBarValidation } from '../components/options/documents.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { Rect } from './layout.ts';
 import type { RoutedPointerEvent } from './pointer-types.ts';
