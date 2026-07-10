@@ -12,8 +12,8 @@ export interface PromptSnapshotState {
   readonly confirmValue?: boolean;
 }
 
-export function createPromptSnapshot<TValue>(
-  prompt: PromptDefinition<TValue>,
+export function createPromptSnapshot<TChoice>(
+  prompt: PromptDefinition<TChoice>,
   value?: AccessibleValue,
   state?: PromptSnapshotState
 ): AccessibleSnapshot {
@@ -33,11 +33,13 @@ export function createPromptSnapshot<TValue>(
   });
 }
 
-function createProgressPromptSnapshot<TValue>(prompt: PromptDefinition<TValue>): AccessibleSnapshot {
+function createProgressPromptSnapshot(
+  prompt: Extract<PromptDefinition, { readonly kind: 'progress' }>
+): AccessibleSnapshot {
   const snapshot = createProgress({
     id: prompt.accessibility?.id ?? prompt.id ?? 'prompt-progress',
     label: prompt.label,
-    ...(prompt.progress ?? {})
+    ...prompt.progress
   }).snapshot();
   return toAccessibleSnapshot({
     source: snapshot.source,
@@ -45,10 +47,10 @@ function createProgressPromptSnapshot<TValue>(prompt: PromptDefinition<TValue>):
   });
 }
 
-export function promptValueForSnapshot<TValue>(
-  prompt: PromptDefinition<TValue>,
+export function promptValueForSnapshot<TChoice>(
+  prompt: PromptDefinition<TChoice>,
   state: PromptSnapshotState,
-  submittedValue?: TValue
+  submittedValue?: unknown
 ): AccessibleValue {
   if (prompt.kind === 'password') return null;
   if (prompt.kind === 'confirm') {
@@ -83,8 +85,8 @@ function accessibleValueFromUnknown(value: unknown): AccessibleValue {
   return JSON.stringify(value);
 }
 
-function choiceSnapshotNodes<TValue>(
-  prompt: PromptDefinition<TValue>,
+function choiceSnapshotNodes<TChoice>(
+  prompt: PromptDefinition<TChoice>,
   state: PromptSnapshotState
 ): readonly AccessibleNode[] {
   return state.choices.map((choice, index) => ({
@@ -116,14 +118,14 @@ function promptRole(kind: PromptKind): AccessibleRole {
   }
 }
 
-function confirmCheckedState<TValue>(
-  prompt: PromptDefinition<TValue>,
+function confirmCheckedState<TChoice>(
+  prompt: PromptDefinition<TChoice>,
   value: AccessibleValue
 ): { readonly checked?: boolean } {
   return prompt.kind === 'confirm' && typeof value === 'boolean' ? { checked: value } : {};
 }
 
-function promptSnapshotValue<TValue>(prompt: PromptDefinition<TValue>): AccessibleValue {
+function promptSnapshotValue<TChoice>(prompt: PromptDefinition<TChoice>): AccessibleValue {
   if (prompt.defaultValue === undefined || prompt.kind === 'password') return null;
   if (prompt.kind === 'confirm' && typeof prompt.defaultValue === 'boolean') return prompt.defaultValue;
   return typeof prompt.defaultValue === 'object'

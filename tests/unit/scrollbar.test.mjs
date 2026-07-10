@@ -265,8 +265,10 @@ test('table scrollbar can expose vertical and horizontal scroll scope together',
       ['charlie-column', 'three']
     ],
     columns: [
-      { header: 'Name', width: { kind: 'fixed', cells: 14 } },
-      { header: 'Value', width: { kind: 'fixed', cells: 10 } }
+      {
+        id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 14 } },
+      {
+        id: 'value-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Value', width: { kind: 'fixed', cells: 10 } }
     ],
     scroll: createScrollState({
       offsetRow: 1,

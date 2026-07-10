@@ -109,10 +109,10 @@ test('button states use shared styles and structural markers', () => {
     disabled: true
   }), { columns: 20, rows: 1 });
 
-  assert.equal(renderFramePlain(focusedFrame).trimEnd(), '›[ Focus ]');
-  assert.equal(renderFramePlain(pendingFrame).trimEnd(), '[ i Sync ]');
-  assert.equal(renderFramePlain(destructiveFrame).trimEnd(), '[ × Delete ]');
-  assert.equal(renderFramePlain(pressedFrame).trimEnd(), '[ ● Pinned ]');
+  assert.equal(renderFramePlain(focusedFrame).trimEnd(), '[›Focus ]');
+  assert.equal(renderFramePlain(pendingFrame).trimEnd(), '[›i Sync ]');
+  assert.equal(renderFramePlain(destructiveFrame).trimEnd(), '[›× Delete ]');
+  assert.equal(renderFramePlain(pressedFrame).trimEnd(), '[›● Pinned ]');
   assert.equal(renderFramePlain(disabledFrame).trimEnd(), '[ - Disabled ]');
   assert.equal(styleFor(pendingFrame, 'S')?.fg?.token, 'status.pending');
   assert.equal(styleFor(destructiveFrame, 'D')?.fg?.token, 'status.error');
@@ -180,7 +180,8 @@ test('menu palette table and tree use selected placeholder and title slots', () 
 }), { columns: 24, rows: 3 });
   const tableFrame = renderElementFrame(table({
     rows: [],
-    columns: [{ header: 'Name' }],
+    columns: [{
+      id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }],
     emptyText: 'No data',
     meta: {
         styles: {
@@ -213,12 +214,14 @@ test('list table and tree share data navigation selection and match styles', () 
   }), { columns: 18, rows: 2 });
   const tableFrame = renderElementFrame(table({
     selected: 0,
-    columns: [{ header: 'Name', width: 8 }],
+    columns: [{
+      id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [['Atlas'], ['Pulse']]
   }), { columns: 18, rows: 3 });
   const activeTableFrame = renderElementFrame(table({
     selectedCell: { row: 0, column: 0 },
-    columns: [{ header: 'Name', width: 8 }],
+    columns: [{
+      id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [['Atlas'], ['Pulse']]
   }), { columns: 18, rows: 3 });
   const treeFrame = renderElementFrame(tree({
@@ -305,7 +308,8 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
   }), { columns: 28, rows: 2 });
   const tableFrame = renderElementFrame(table({
     id: 'table',
-    columns: [{ header: 'Name' }],
+    columns: [{
+      id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }],
     rows: [['Atlas'], ['Pulse']]
   }), { columns: 18, rows: 3 });
   const treeFrame = renderElementFrame(tree({

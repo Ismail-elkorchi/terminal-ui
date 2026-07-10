@@ -1,6 +1,6 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
-import type { RenderNode } from '../../../render-node/index.ts';
+import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import { rowWindow, scrollStateFromUnknown } from '../../data-window.ts';
 import { createScrollState, normalizeScrollState } from '../../scroll.ts';
 import { dataSource, dataSpan, dataValueSpans, selectionMarkerSpans } from '../../data-visual.ts';
@@ -13,10 +13,12 @@ import type { LayoutNode, Rect } from '../../layout.ts';
 import type { RenderBlock, RenderLine } from '../../render-primitives.ts';
 import type { HitTarget } from '../../render-node-renderer.ts';
 
-export function listScrollbarState(widget: RenderNode, bounds: Rect): ScrollState {
+type ListNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'list'>;
+
+export function listScrollbarState(widget: ListNode, bounds: Rect): ScrollState {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
-  const explicitScroll = scrollStateFromUnknown(widget.props['scroll']);
+  const explicitScroll = scrollStateFromUnknown(widget.props.scroll);
   if (explicitScroll !== undefined) {
     return normalizeScrollState({
       ...explicitScroll,
@@ -38,7 +40,7 @@ export function listScrollbarState(widget: RenderNode, bounds: Rect): ScrollStat
   });
 }
 
-export function listBlock(widget: RenderNode, height: number, theme: TerminalTheme): RenderBlock {
+export function listBlock(widget: ListNode, height: number, theme: TerminalTheme): RenderBlock {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
   const window = listWindow(widget, items, height, selected);
@@ -79,7 +81,7 @@ export function listBlock(widget: RenderNode, height: number, theme: TerminalThe
   };
 }
 
-export function listAccessibleNode(widget: RenderNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
+export function listAccessibleNode(widget: ListNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
   const window = listWindow(widget, items, node.bounds.height, selected, node.bounds.width);
@@ -92,7 +94,7 @@ export function listAccessibleNode(widget: RenderNode, node: LayoutNode, id: str
   };
 }
 
-export function listAccessibleChildren(widget: RenderNode, node: LayoutNode): readonly AccessibleNode[] {
+export function listAccessibleChildren(widget: ListNode, node: LayoutNode): readonly AccessibleNode[] {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected') ?? -1;
   const window = listWindow(widget, items, node.bounds.height, selected, node.bounds.width);
@@ -107,7 +109,7 @@ export function listAccessibleChildren(widget: RenderNode, node: LayoutNode): re
   });
 }
 
-export function listCursor(widget: RenderNode, bounds: Rect): { readonly row: number; readonly column: number } {
+export function listCursor(widget: ListNode, bounds: Rect): { readonly row: number; readonly column: number } {
   const items = filteredListItems(widget);
   const selected = numberProp(widget, 'selected');
   if (selected === undefined || items.length === 0 || bounds.height <= 0) {
@@ -120,7 +122,7 @@ export function listCursor(widget: RenderNode, bounds: Rect): { readonly row: nu
   return { row: selectedRow, column: bounds.column };
 }
 
-export function listHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function listHitTargets<TMessage>(widget: ListNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = toMessageProp(widget);
   if (toMessage === undefined) return [];
   const items = filteredListItems(widget);
@@ -142,18 +144,18 @@ export function listHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: R
   });
 }
 
-function filteredListItems(widget: RenderNode): readonly unknown[] {
-  const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
+function filteredListItems(widget: ListNode): readonly unknown[] {
+  const items = Array.isArray(widget.props.items) ? widget.props.items : [];
   const query = filterQuery(widget).toLocaleLowerCase();
   if (query.length === 0) return items;
   return items.filter((item) => String(item).toLocaleLowerCase().includes(query));
 }
 
-function filterQuery(widget: RenderNode): string {
-  return clean(stringify(widget.props['filterQuery'])).trim();
+function filterQuery(widget: ListNode): string {
+  return clean(stringify(widget.props.filterQuery)).trim();
 }
 
-function listWindow(widget: RenderNode, items: readonly unknown[], height: number, selected: number, width = 0) {
+function listWindow(widget: ListNode, items: readonly unknown[], height: number, selected: number, width = 0) {
   return rowWindow(items, {
     viewportRows: height,
     viewportColumns: width,
@@ -163,14 +165,14 @@ function listWindow(widget: RenderNode, items: readonly unknown[], height: numbe
   });
 }
 
-function scrollInput(widget: RenderNode): { readonly scroll?: ScrollState } {
-  const scroll = scrollStateFromUnknown(widget.props['scroll']);
+function scrollInput(widget: ListNode): { readonly scroll?: ScrollState } {
+  const scroll = scrollStateFromUnknown(widget.props.scroll);
   return scroll === undefined ? {} : { scroll };
 }
 
-function toMessageProp<TMessage>(widget: RenderNode<TMessage>): ((value: unknown) => TMessage) | undefined {
-  const toMessage = widget.props['toMessage'];
-  return isListMessageFactory(toMessage) ? (value) => toMessage(value) as TMessage : undefined;
+function toMessageProp<TMessage>(widget: ListNode<TMessage>): ((value: unknown) => TMessage) | undefined {
+  const toMessage = widget.props.toMessage;
+  return isListMessageFactory(toMessage) ? (value) => toMessage(value) : undefined;
 }
 
 function isListMessageFactory(value: unknown): value is (item: unknown) => unknown {

@@ -18,6 +18,8 @@ import {
   slider,
   toggleSwitch
 } from '../../dist/components/index.js';
+import { createMemoryTerminalHost } from '../../dist/host/index.js';
+import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { stack } from '../../dist/layout/index.js';
 
 test('toggleSwitch slider and rangeSlider render caller-owned values with keyboard and mouse affordances', () => {
@@ -65,6 +67,31 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'slider' && cell.text === '●')?.source?.label, 'track.handle');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'range' && cell.source?.label === 'track.startHandle')?.text, '●');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'range' && cell.source?.label === 'track.endHandle')?.text, '●');
+});
+
+test('slider generated bindings use normalized arrow-key identities', async () => {
+  const app = defineTui({
+    id: 'slider-arrow-identity',
+    init: () => ({ value: 5 }),
+    update: (_state, message) => ({ state: { value: message.value } }),
+    view: (state) => slider({
+      id: 'volume',
+      value: state.value,
+      min: 0,
+      max: 10,
+      onChange: (value) => ({ value })
+    })
+  });
+  const host = createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host, initialFocusPath: ['volume'] });
+
+  await runtime.start();
+  await runtime.handleInput({ kind: 'key', key: 'arrowLeft' });
+  assert.equal(runtime.getState()?.value, 4);
+  await runtime.handleInput({ kind: 'key', key: 'arrowRight' });
+  assert.equal(runtime.getState()?.value, 5);
+
+  await runtime.dispose();
 });
 
 test('checkboxList colorPicker and datePicker expose selectable item hit targets and accessibility', () => {

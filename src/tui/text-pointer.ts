@@ -1,9 +1,11 @@
 import { createTerminalTextIndex, normalizeTextCursor } from '../text/index.ts';
 import type { TextMeasurementOptions, TextSelection } from '../text/index.ts';
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNodesOfKind } from '../render-node/index.ts';
 import type { Rect } from './layout.ts';
 import type { RoutedPointerEvent } from './pointer-types.ts';
 import type { HitTarget } from './render-node-renderer.ts';
+
+type TextPointerNode<TMessage> = RenderNodesOfKind<TMessage, 'commandBar' | 'textArea' | 'textInput'>;
 
 export type TextPointerAction = 'placeCursor' | 'extendSelection' | 'endSelection';
 
@@ -44,11 +46,11 @@ export function textPointerHitTargets<TMessage>(
 }
 
 export function textPointerMessageFactory<TMessage>(
-  widget: RenderNode<TMessage>
+  widget: TextPointerNode<TMessage>
 ): ((event: TextPointerEvent) => TMessage) | undefined {
-  const raw = widget.props['toTextPointerMessage'];
+  const raw = widget.props.toTextPointerMessage;
   return typeof raw === 'function'
-    ? (event) => (raw as (event: TextPointerEvent) => TMessage)(event)
+    ? (event) => (raw)(event)
     : undefined;
 }
 

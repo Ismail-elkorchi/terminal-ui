@@ -36,12 +36,12 @@ export async function runTuiNonTty<TState, TMessage>(
   }
 
   try {
-    const context = await createTuiContext<TMessage>(host, () => undefined);
-    let state = await app.definition.init(context) as TState;
+    const context = await createTuiContext(host);
+    let state = app.definition.init(context);
     if (policy.mode === 'line_fallback') {
       const line = await readLine(host);
       if (line !== undefined) {
-        const result = await app.definition.update(state, policy.message(line), context);
+        const result = app.definition.update(state, policy.message(line), context);
         state = result.state;
       }
     }

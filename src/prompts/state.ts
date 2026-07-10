@@ -4,9 +4,9 @@ import type { TextEditBuffer } from '../text/index.ts';
 import type { ChoiceResolution } from './choices.ts';
 import type { PromptChoice, PromptDataSourceResult, PromptDefinition } from './types.ts';
 
-export interface PromptRuntimeState {
+export interface PromptRuntimeState<TChoice = never> {
   buffer: TextEditBuffer;
-  choices: readonly PromptChoice<unknown>[];
+  choices: readonly PromptChoice<TChoice>[];
   focusedChoiceIndex: number;
   selectedChoiceIndexes: Set<number>;
   choiceRangeAnchorIndex?: number;
@@ -25,10 +25,10 @@ export interface PromptRuntimeState {
   confirmValue?: boolean;
 }
 
-export function initialPromptState<TValue>(
-  prompt: PromptDefinition<TValue>,
-  resolution: ChoiceResolution = { ok: true, choices: [], diagnostics: [], hasMore: false }
-): PromptRuntimeState {
+export function initialPromptState<TChoice>(
+  prompt: PromptDefinition<TChoice>,
+  resolution: ChoiceResolution<TChoice> = { ok: true, choices: [], diagnostics: [], hasMore: false }
+): PromptRuntimeState<TChoice> {
   const choices = resolution.ok ? resolution.choices : [];
   const selectedChoiceIndexes = initialSelectedChoiceIndexes(prompt, choices);
   const selectedChoiceIndex = selectedChoiceIndexes.values().next().value;
@@ -51,8 +51,8 @@ export function initialPromptState<TValue>(
   };
 }
 
-export function setChoiceTotal(
-  state: PromptRuntimeState,
+export function setChoiceTotal<TChoice>(
+  state: PromptRuntimeState<TChoice>,
   total: PromptDataSourceResult<unknown>['total']
 ): void {
   if (total === undefined) {
@@ -62,20 +62,20 @@ export function setChoiceTotal(
   state.choiceTotal = total;
 }
 
-export function completePromptState(state: PromptRuntimeState): void {
+export function completePromptState<TChoice>(state: PromptRuntimeState<TChoice>): void {
   state.completed = true;
   state.choiceDebounceController?.abort();
   state.choiceController?.abort();
   state.validationController?.abort();
 }
 
-function basePromptState(
-  resolution: ChoiceResolution,
-  choices: readonly PromptChoice<unknown>[],
+function basePromptState<TChoice>(
+  resolution: ChoiceResolution<TChoice>,
+  choices: readonly PromptChoice<TChoice>[],
   focusedChoiceIndex: number,
   selectedChoiceIndexes: Set<number>,
   choiceRangeAnchorIndex: number | undefined
-): PromptRuntimeState {
+): PromptRuntimeState<TChoice> {
   return {
     buffer: { text: '', cursor: 0 },
     choices,

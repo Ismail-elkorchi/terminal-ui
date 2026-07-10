@@ -190,7 +190,7 @@ export const formRenderers = {
     focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, textInputCursor(renderNode, bounds))],
     hitTargets: ({ renderNode, bounds, theme }) => [
       ...widgetMessageHitTargets(renderNode, bounds, 'input'),
-      ...(renderNode.props['disabled'] === true
+      ...(renderNode.props.disabled === true
         ? []
         : textPointerHitTargets({
             id: `${renderNode.id ?? renderNode.kind}:text`,
@@ -200,8 +200,8 @@ export const formRenderers = {
               widget: renderNode,
               bounds,
               theme,
-              value: stringify(renderNode.props['value']),
-              placeholder: stringify(renderNode.props['placeholder'])
+              value: stringify(renderNode.props.value),
+              placeholder: stringify(renderNode.props.placeholder)
             }, event)
           }))
     ]

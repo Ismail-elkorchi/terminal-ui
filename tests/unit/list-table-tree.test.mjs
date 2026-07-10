@@ -158,8 +158,10 @@ test('table widget renders constrained columns and selected rows', () => {
     id: 'table',
     selectedCell: { row: 1, column: 1 },
     columns: [
-      { header: 'Name', width: 5 },
-      { header: 'Value', width: 4 }
+      {
+        id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 5 },
+      {
+        id: 'value-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Value', width: 4 }
     ],
     rows: [
       ['alpha', '100'],
@@ -219,8 +221,10 @@ test('table exposes visible cell hit targets when cell selection is active', asy
     id: 'cell-table',
     selectedCell: { row: 0, column: 1 },
     columns: [
-      { header: 'Name', width: 6 },
-      { header: 'Score', width: 5 }
+      {
+        id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 6 },
+      {
+        id: 'score-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Score', width: 5 }
     ],
     rows: [
       ['Atlas', 89],
@@ -244,8 +248,10 @@ test('table exposes visible cell hit targets when cell selection is active', asy
       id: 'cell-table',
       selectedCell: { row: 0, column: 1 },
       columns: [
-        { header: 'Name', width: 6 },
-        { header: 'Score', width: 5 }
+        {
+          id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 6 },
+        {
+          id: 'score-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Score', width: 5 }
       ],
       rows: [
         ['Atlas', 89],
@@ -270,9 +276,12 @@ test('table supports scroll state column sizing styled renderers sort markers em
     scroll: createScrollState({ offsetRow: 1, offsetColumn: 0, contentRows: 3, viewportRows: 2 }),
     stickyHeader: true,
     columns: [
-      { header: 'Hidden', hidden: true },
-      { header: 'Name', width: { kind: 'content', max: 8 }, sort: 'ascending' },
       {
+        id: 'hidden-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Hidden', hidden: true },
+      {
+        id: 'name-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Name', width: { kind: 'content', max: 8 }, sort: 'ascending' },
+      {
+        id: 'score-2', value: (row) => Array.isArray(row) ? row[2] : undefined,
         header: 'Score',
         width: { kind: 'fixed', cells: 5 },
         align: 'end',
@@ -281,7 +290,8 @@ test('table supports scroll state column sizing styled renderers sort markers em
           source: { ownerId: 'score-renderer', ownerKind: 'external', role: 'text', label: 'score.value' }
         })
       },
-      { header: 'Notes', width: { kind: 'fill' } }
+      {
+        id: 'notes-3', value: (row) => Array.isArray(row) ? row[3] : undefined, header: 'Notes', width: { kind: 'fill' } }
     ],
     rows: [
       ['secret', 'alpha', 10, 'short'],
@@ -314,8 +324,10 @@ test('table source metadata describes headers rows cells separators and empty st
     id: 'fleet-table',
     selectedCell: { row: 1, column: 1 },
     columns: [
-      { header: 'Name', width: 6, resizable: true },
-      { header: 'Score', width: 5 }
+      {
+        id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 6, resizable: true },
+      {
+        id: 'score-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Score', width: 5 }
     ],
     rows: [
       ['Atlas', 89],
@@ -324,7 +336,8 @@ test('table source metadata describes headers rows cells separators and empty st
   }), { columns: 28, rows: 3 });
   const emptyFrame = renderElementFrame(table({
     id: 'empty-table',
-    columns: [{ header: 'Name', width: 8 }],
+    columns: [{
+      id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [],
     emptyText: 'No rows'
   }), { columns: 24, rows: 3 });
@@ -345,10 +358,14 @@ test('table dense metric semantics tighten spacing and expose metric metadata', 
     stickyHeader: true,
     rows: [[18, 'node', '188M', 4.2]],
     columns: [
-      { header: 'PID', width: { kind: 'fixed', cells: 3 }, semantic: 'metadata', render: ({ row }) => String(row[0]) },
-      { header: 'Name', width: { kind: 'fixed', cells: 6 }, render: ({ row }) => row[1] },
-      { header: 'Mem', width: { kind: 'fixed', cells: 5 }, align: 'end', semantic: 'metric', render: ({ row }) => row[2] },
-      { header: 'CPU', width: { kind: 'fixed', cells: 4 }, align: 'end', semantic: 'metric', render: ({ row }) => row[3].toFixed(1) }
+      {
+        id: 'pid-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'PID', width: { kind: 'fixed', cells: 3 }, semantic: 'metadata', render: ({ row }) => String(row[0]) },
+      {
+        id: 'name-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Name', width: { kind: 'fixed', cells: 6 }, render: ({ row }) => row[1] },
+      {
+        id: 'mem-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Mem', width: { kind: 'fixed', cells: 5 }, align: 'end', semantic: 'metric', render: ({ row }) => row[2] },
+      {
+        id: 'cpu-3', value: (row) => Array.isArray(row) ? row[3] : undefined, header: 'CPU', width: { kind: 'fixed', cells: 4 }, align: 'end', semantic: 'metric', render: ({ row }) => row[3].toFixed(1) }
     ]
   }), { columns: 24, rows: 2 });
   const metricCell = frame.cells.find((cell) => cell.text === '4' && cell.source?.label === 'row.0.cell.3');
@@ -374,9 +391,12 @@ test('table dense fill columns keep marker width aligned with cell hit targets',
     stickyHeader: true,
     rows: [[18, 'node', 4.2]],
     columns: [
-      { header: 'PID', width: { kind: 'fixed', cells: 3 }, render: ({ row }) => String(row[0]) },
-      { header: 'Name', width: { kind: 'fill' }, render: ({ row }) => row[1] },
-      { header: 'CPU', width: { kind: 'fixed', cells: 4 }, align: 'end', render: ({ row }) => row[2].toFixed(1) }
+      {
+        id: 'pid-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'PID', width: { kind: 'fixed', cells: 3 }, render: ({ row }) => String(row[0]) },
+      {
+        id: 'name-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Name', width: { kind: 'fill' }, render: ({ row }) => row[1] },
+      {
+        id: 'cpu-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'CPU', width: { kind: 'fixed', cells: 4 }, align: 'end', render: ({ row }) => row[2].toFixed(1) }
     ],
     onSelect: ({ rowIndex, cell }) => ({ kind: 'cell', rowIndex, cell })
   }), { columns: 14, rows: 2 });
@@ -393,8 +413,10 @@ test('table headers can expose a visible resize affordance without changing redu
   const frame = renderElementFrame(table({
     id: 'resizable-table',
     columns: [
-      { header: 'Name', width: 8, resizable: true },
-      { header: 'Score', width: 6 }
+      {
+        id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8, resizable: true },
+      {
+        id: 'score-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Score', width: 6 }
     ],
     rows: [['Atlas', 89]]
   }), { columns: 24, rows: 2 });
@@ -409,7 +431,8 @@ test('table and paginator compose explicitly over a bounded page', () => {
     table({
       id: 'fleet-pages-table',
       selected: 0,
-      columns: [{ header: 'Name', width: 8 }],
+      columns: [{
+        id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
       rows: rows.slice(page.start, page.end)
     }),
     paginator({
@@ -443,7 +466,9 @@ test('table supports sticky headers and both-axis scrollbars directly', () => {
     scroll,
     scrollbar: { axis: 'both' },
     stickyHeader: true,
-    columns: [{ header: 'Name', width: 12 }, { header: 'Score', width: 8 }],
+    columns: [{
+      id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 12 }, {
+      id: 'score-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Score', width: 8 }],
     rows: Array.from({ length: 8 }, (_value, index) => [`Vessel ${String(index)}`, index * 10])
   }), { columns: 18, rows: 4 });
 
@@ -459,7 +484,8 @@ test('table renders a styled empty state', () => {
   const frame = renderElementFrame(table({
     id: 'empty',
     rows: [],
-    columns: [{ header: 'Name', width: 10 }],
+    columns: [{
+      id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 10 }],
     emptyText: 'No data'
   }), { columns: 24, rows: 3 });
 
@@ -479,8 +505,10 @@ test('table uses shared horizontal scroll state', () => {
       viewportColumns: 16
     }),
     columns: [
-      { header: 'First', width: { kind: 'fixed', cells: 12 } },
-      { header: 'Second', width: { kind: 'fixed', cells: 12 } }
+      {
+        id: 'first-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'First', width: { kind: 'fixed', cells: 12 } },
+      {
+        id: 'second-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Second', width: { kind: 'fixed', cells: 12 } }
     ],
     rows: [
       ['alpha-column', 'beta-column']
@@ -498,7 +526,8 @@ test('table selected cell row drives the shared vertical window and scrollbar sc
     id: 'selected-cell-window',
     selectedCell: { row: 4, column: 0 },
     scrollbar: { visible: 'always' },
-    columns: [{ header: 'Name', width: 12 }],
+    columns: [{
+      id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 12 }],
     rows: [
       ['alpha'],
       ['bravo'],

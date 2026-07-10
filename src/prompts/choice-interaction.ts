@@ -14,20 +14,24 @@ import {
 import type { PromptInteractionHooks } from './interaction-hooks.ts';
 import { createPromptSnapshot, promptValueForSnapshot } from './snapshot.ts';
 import { completePromptState, type PromptRuntimeState } from './state.ts';
-import { promptValueView } from './value-view.ts';
-import type { PromptDefinition, PromptResult } from './types.ts';
+import type {
+  AutocompletePromptDefinition,
+  MultiSelectPromptDefinition,
+  PromptResult,
+  SelectPromptDefinition
+} from './types.ts';
 
 export async function applySelectEvent<TValue>(
-  prompt: PromptDefinition<TValue>,
+  prompt: SelectPromptDefinition<TValue>,
   host: TerminalHost,
-  state: PromptRuntimeState,
+  state: PromptRuntimeState<TValue>,
   event: InputEvent,
-  hooks: PromptInteractionHooks
+  hooks: PromptInteractionHooks<TValue, SelectPromptDefinition<TValue>, TValue>
 ): Promise<PromptResult<TValue> | undefined> {
   if (event.kind === 'key' && event.key === 'enter') {
     const choice = enabledChoiceAt(state.choices, state.focusedChoiceIndex);
     if (choice === undefined) return undefined;
-    return hooks.submit(prompt, choice.value as TValue, host, state);
+    return hooks.submit(prompt, choice.value, host, state);
   }
   const moved = moveChoiceFocusFromEvent(state, event);
   if (moved) {
@@ -46,21 +50,21 @@ export async function applySelectEvent<TValue>(
 }
 
 export async function applyMultiSelectEvent<TValue>(
-  prompt: PromptDefinition<TValue>,
+  prompt: MultiSelectPromptDefinition<TValue>,
   host: TerminalHost,
-  state: PromptRuntimeState,
+  state: PromptRuntimeState<TValue>,
   event: InputEvent,
-  hooks: PromptInteractionHooks
+  hooks: PromptInteractionHooks<TValue, MultiSelectPromptDefinition<TValue>, readonly TValue[]>
 ): Promise<PromptResult<readonly TValue[]> | undefined> {
   if (event.kind === 'key' && event.key === 'enter') {
     const values = [...state.selectedChoiceIndexes]
       .sort((left, right) => left - right)
-      .map((index) => state.choices[index]?.value as TValue)
+      .map((index) => state.choices[index]?.value)
       .filter((value): value is TValue => value !== undefined);
     const bounds = validateMultiSelectBounds(prompt, state, values.length);
     if (bounds !== undefined) return bounds;
     return hooks.submit(
-      promptValueView(prompt),
+      prompt,
       values,
       host,
       state
@@ -98,11 +102,11 @@ export async function applyMultiSelectEvent<TValue>(
 }
 
 export async function applyAutocompleteEvent<TValue>(
-  prompt: PromptDefinition<TValue>,
+  prompt: AutocompletePromptDefinition<TValue>,
   host: TerminalHost,
-  state: PromptRuntimeState,
+  state: PromptRuntimeState<TValue>,
   event: InputEvent,
-  hooks: PromptInteractionHooks
+  hooks: PromptInteractionHooks<TValue, AutocompletePromptDefinition<TValue>, TValue>
 ): Promise<PromptResult<TValue> | undefined> {
   if (event.kind === 'key' && event.key === 'enter') {
     const choice = enabledChoiceAt(state.choices, state.focusedChoiceIndex);
@@ -110,7 +114,7 @@ export async function applyAutocompleteEvent<TValue>(
     state.completed = true;
     state.choiceDebounceController?.abort();
     state.choiceController?.abort();
-    return hooks.submit(prompt, choice.value as TValue, host, state);
+    return hooks.submit(prompt, choice.value, host, state);
   }
   const moved = moveChoiceFocusFromEvent(state, event);
   if (moved) {
@@ -125,11 +129,11 @@ export async function applyAutocompleteEvent<TValue>(
   return undefined;
 }
 
-function applyAutocompleteTextEvent(state: PromptRuntimeState, event: InputEvent): boolean {
+function applyAutocompleteTextEvent<TValue>(state: PromptRuntimeState<TValue>, event: InputEvent): boolean {
   return editPromptBufferForEvent(state, event);
 }
 
-function moveChoiceFocusFromEvent(state: PromptRuntimeState, event: InputEvent): boolean {
+function moveChoiceFocusFromEvent<TValue>(state: PromptRuntimeState<TValue>, event: InputEvent): boolean {
   if (event.kind !== 'key') return false;
   const nextIndex = nextChoiceFocusIndexFromEvent(state, event);
   if (nextIndex === undefined || nextIndex === state.focusedChoiceIndex) return false;
@@ -137,7 +141,7 @@ function moveChoiceFocusFromEvent(state: PromptRuntimeState, event: InputEvent):
   return true;
 }
 
-function nextChoiceFocusIndexFromEvent(state: PromptRuntimeState, event: KeyEvent): number | undefined {
+function nextChoiceFocusIndexFromEvent<TValue>(state: PromptRuntimeState<TValue>, event: KeyEvent): number | undefined {
   switch (event.key) {
     case 'arrowDown':
       return nextEnabledChoiceIndex(state.choices, state.focusedChoiceIndex, 1)
@@ -154,7 +158,10 @@ function nextChoiceFocusIndexFromEvent(state: PromptRuntimeState, event: KeyEven
   }
 }
 
-function toggleFocusedChoice<TValue>(prompt: PromptDefinition<TValue>, state: PromptRuntimeState): void {
+function toggleFocusedChoice<TValue>(
+  prompt: MultiSelectPromptDefinition<TValue>,
+  state: PromptRuntimeState<TValue>
+): void {
   const choice = enabledChoiceAt(state.choices, state.focusedChoiceIndex);
   if (choice === undefined) return;
   if (state.selectedChoiceIndexes.has(state.focusedChoiceIndex)) {
@@ -167,17 +174,16 @@ function toggleFocusedChoice<TValue>(prompt: PromptDefinition<TValue>, state: Pr
   state.choiceRangeAnchorIndex = state.focusedChoiceIndex;
 }
 
-function isMultiSelectRangeEvent<TValue>(prompt: PromptDefinition<TValue>, event: InputEvent): boolean {
-  return prompt.kind === 'multiselect'
-    && prompt.rangeSelection === true
+function isMultiSelectRangeEvent<TValue>(prompt: MultiSelectPromptDefinition<TValue>, event: InputEvent): boolean {
+  return prompt.rangeSelection === true
     && event.kind === 'key'
     && event.shift
     && (event.key === 'arrowDown' || event.key === 'arrowUp' || event.key === 'home' || event.key === 'end');
 }
 
 function selectChoiceRange<TValue>(
-  prompt: PromptDefinition<TValue>,
-  state: PromptRuntimeState,
+  prompt: MultiSelectPromptDefinition<TValue>,
+  state: PromptRuntimeState<TValue>,
   anchorIndex: number,
   focusIndex: number
 ): void {
@@ -193,8 +199,8 @@ function selectChoiceRange<TValue>(
 }
 
 function validateMultiSelectBounds<TValue>(
-  prompt: PromptDefinition<TValue>,
-  state: PromptRuntimeState,
+  prompt: MultiSelectPromptDefinition<TValue>,
+  state: PromptRuntimeState<TValue>,
   count: number
 ): PromptResult<readonly TValue[]> | undefined {
   if (prompt.minSelected !== undefined && count < prompt.minSelected) {
@@ -207,8 +213,8 @@ function validateMultiSelectBounds<TValue>(
 }
 
 function multiSelectValidationFailure<TValue>(
-  prompt: PromptDefinition<TValue>,
-  state: PromptRuntimeState,
+  prompt: MultiSelectPromptDefinition<TValue>,
+  state: PromptRuntimeState<TValue>,
   message: string
 ): PromptResult<readonly TValue[]> {
   completePromptState(state);

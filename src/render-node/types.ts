@@ -2,11 +2,13 @@ import type { AccessibilityOptions, AccessibleNode } from '../accessibility/inde
 import type { RegionOpacity } from '../tui/layout.ts';
 import type { TerminalStyle } from '../tui/render-primitives.ts';
 import type { RenderNodeRenderer } from '../tui/render-node-renderer.ts';
+import type { BindableKeyName } from '../input/index.ts';
+import type { RenderNodePropsByKind } from './props/index.ts';
 
-export interface RenderNode<TMessage = unknown> {
+interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   readonly id?: string;
-  readonly kind: RenderNodeKind;
-  readonly props: RenderNodeProps;
+  readonly kind: TKind;
+  readonly props: RenderNodePropsByKind<TMessage>[TKind];
   readonly layer?: RenderNodeLayerOptions;
   readonly focus?: RenderNodeFocusOptions;
   readonly styles?: RenderNodeStyleSlots;
@@ -14,8 +16,24 @@ export interface RenderNode<TMessage = unknown> {
   readonly keyMap?: RenderNodeKeyMap<TMessage>;
   readonly inputMap?: RenderNodeInputMap<TMessage>;
   readonly accessibility?: RenderNodeAccessibleDefinition;
-  readonly custom?: CustomRenderNodeRuntime<TMessage>;
 }
+
+export type RenderNodeOfKind<
+  TMessage,
+  TKind extends RenderNodeKind
+> = RenderNodeBase<TMessage, TKind> & (
+  TKind extends 'custom'
+    ? { readonly custom: CustomRenderNodeRuntime<TMessage> }
+    : { readonly custom?: never }
+);
+
+export type RenderNode<TMessage = unknown> = {
+  readonly [TKind in RenderNodeKind]: RenderNodeOfKind<TMessage, TKind>;
+}[RenderNodeKind];
+
+export type RenderNodesOfKind<TMessage, TKind extends RenderNodeKind> = {
+  readonly [TCurrentKind in TKind]: RenderNodeOfKind<TMessage, TCurrentKind>;
+}[TKind];
 
 export type RenderNodeKind =
   | 'text'
@@ -75,9 +93,10 @@ export type RenderNodeKind =
   | 'modal'
   | 'custom';
 
-export type RenderNodeProps = Record<string, unknown>;
 export type RenderNodeChildren<TMessage> = readonly RenderNode<TMessage>[] | RenderNode<TMessage>;
-export type RenderNodeKeyMap<TMessage> = Record<string, TMessage>;
+export type RenderNodeKeyMap<TMessage> = Readonly<Partial<Record<BindableKeyName, TMessage>>> & {
+  readonly text?: Readonly<Record<string, TMessage>>;
+};
 export type RenderNodeOverflowPriority = 'required' | 'important' | 'secondary' | 'decorative';
 
 export interface RenderNodeLayerOptions {
@@ -141,6 +160,5 @@ export interface RenderNodeInputMap<TMessage> {
 export type RenderNodeAccessibleDefinition = AccessibleNode | AccessibilityOptions;
 
 export interface CustomRenderNodeRuntime<TMessage = unknown> {
-  readonly renderer: RenderNodeRenderer<TMessage>;
-  readonly state?: unknown;
+  readonly renderer: RenderNodeRenderer<TMessage, 'custom'>;
 }

@@ -1,21 +1,21 @@
 import { diagnostic } from '../diagnostics.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { PromptChoice, PromptDefinition } from './types.ts';
+import type { ChoicePromptDefinition, PromptChoice, PromptDefinition } from './types.ts';
 
-export function isChoiceDisabled(choice: PromptChoice<unknown>): boolean {
+export function isChoiceDisabled<TValue>(choice: PromptChoice<TValue>): boolean {
   return choice.disabled !== undefined && choice.disabled !== false;
 }
 
-export function enabledChoiceAt(
-  choices: readonly PromptChoice<unknown>[],
+export function enabledChoiceAt<TValue>(
+  choices: readonly PromptChoice<TValue>[],
   index: number
-): PromptChoice<unknown> | undefined {
+): PromptChoice<TValue> | undefined {
   const choice = choices[index];
   return choice !== undefined && !isChoiceDisabled(choice) ? choice : undefined;
 }
 
-export function nextEnabledChoiceIndex(
-  choices: readonly PromptChoice<unknown>[],
+export function nextEnabledChoiceIndex<TValue>(
+  choices: readonly PromptChoice<TValue>[],
   current: number,
   direction: 1 | -1
 ): number | undefined {
@@ -28,12 +28,12 @@ export function nextEnabledChoiceIndex(
   return undefined;
 }
 
-export function firstEnabledChoiceIndex(choices: readonly PromptChoice<unknown>[]): number | undefined {
+export function firstEnabledChoiceIndex<TValue>(choices: readonly PromptChoice<TValue>[]): number | undefined {
   const index = choices.findIndex((choice) => !isChoiceDisabled(choice));
   return index === -1 ? undefined : index;
 }
 
-export function lastEnabledChoiceIndex(choices: readonly PromptChoice<unknown>[]): number | undefined {
+export function lastEnabledChoiceIndex<TValue>(choices: readonly PromptChoice<TValue>[]): number | undefined {
   for (let index = choices.length - 1; index >= 0; index -= 1) {
     const choice = choices[index];
     if (choice !== undefined && !isChoiceDisabled(choice)) return index;
@@ -41,8 +41,8 @@ export function lastEnabledChoiceIndex(choices: readonly PromptChoice<unknown>[]
   return undefined;
 }
 
-export function findChoiceBySearch(
-  choices: readonly PromptChoice<unknown>[],
+export function findChoiceBySearch<TValue>(
+  choices: readonly PromptChoice<TValue>[],
   query: string,
   startIndex: number
 ): number | undefined {
@@ -58,18 +58,19 @@ export function findChoiceBySearch(
   return undefined;
 }
 
-export function filterStaticChoices(
-  choices: readonly PromptChoice<unknown>[],
+export function filterStaticChoices<TValue>(
+  choices: readonly PromptChoice<TValue>[],
   query: string
-): readonly PromptChoice<unknown>[] {
+): readonly PromptChoice<TValue>[] {
   const normalized = query.trim().toLowerCase();
   if (normalized.length === 0) return choices;
   return choices.filter((choice) => choiceMatchesQuery(choice, normalized));
 }
 
-export async function resolvePromptChoices<TValue>(prompt: PromptDefinition<TValue>): Promise<ChoiceResolution> {
+export async function resolvePromptChoices<TValue>(
+  prompt: ChoicePromptDefinition<TValue>
+): Promise<ChoiceResolution<TValue>> {
   const source = prompt.choices;
-  if (source === undefined) return { ok: true, choices: [], diagnostics: [], hasMore: false };
   try {
     if (typeof source !== 'function') return { ok: true, choices: source, diagnostics: [], hasMore: false };
     const controller = new AbortController();
@@ -101,13 +102,13 @@ export async function resolvePromptChoices<TValue>(prompt: PromptDefinition<TVal
 
 export function initialSelectedChoiceIndexes<TValue>(
   prompt: PromptDefinition<TValue>,
-  choices: readonly PromptChoice<unknown>[]
+  choices: readonly PromptChoice<TValue>[]
 ): Set<number> {
   const selected = new Set<number>();
   if (prompt.defaultValue === undefined) return selected;
   if (prompt.kind === 'multiselect' && Array.isArray(prompt.defaultValue)) {
     for (const [index, choice] of choices.entries()) {
-      if (prompt.defaultValue.some((value) => Object.is(value, choice.value))) selected.add(index);
+      if (prompt.defaultValue.some((value: unknown) => Object.is(value, choice.value))) selected.add(index);
     }
     return selected;
   }
@@ -116,10 +117,10 @@ export function initialSelectedChoiceIndexes<TValue>(
   return selected;
 }
 
-export type ChoiceResolution =
+export type ChoiceResolution<TValue> =
   | {
       readonly ok: true;
-      readonly choices: readonly PromptChoice<unknown>[];
+      readonly choices: readonly PromptChoice<TValue>[];
       readonly diagnostics: readonly TerminalDiagnostic[];
       readonly hasMore: boolean;
       readonly total?: number;
@@ -129,16 +130,16 @@ export type ChoiceResolution =
       readonly diagnostics: readonly TerminalDiagnostic[];
     };
 
-function choiceMatchesQuery(choice: PromptChoice<unknown>, normalizedQuery: string): boolean {
+function choiceMatchesQuery<TValue>(choice: PromptChoice<TValue>, normalizedQuery: string): boolean {
   return choiceIncludesQuery(choice, normalizedQuery);
 }
 
-function choiceStartsWithQuery(choice: PromptChoice<unknown>, normalizedQuery: string): boolean {
+function choiceStartsWithQuery<TValue>(choice: PromptChoice<TValue>, normalizedQuery: string): boolean {
   return choice.label.toLowerCase().startsWith(normalizedQuery)
     || choice.keywords?.some((keyword) => keyword.toLowerCase().startsWith(normalizedQuery)) === true;
 }
 
-function choiceIncludesQuery(choice: PromptChoice<unknown>, normalizedQuery: string): boolean {
+function choiceIncludesQuery<TValue>(choice: PromptChoice<TValue>, normalizedQuery: string): boolean {
   return choice.label.toLowerCase().includes(normalizedQuery)
     || choice.description?.toLowerCase().includes(normalizedQuery) === true
     || choice.keywords?.some((keyword) => keyword.toLowerCase().includes(normalizedQuery)) === true;

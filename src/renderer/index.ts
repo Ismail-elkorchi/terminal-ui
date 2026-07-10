@@ -261,8 +261,18 @@ export {
   custom
 } from './custom-element.ts';
 export type {
-  CustomElementOptions
+  CustomElementOptions,
+  StatefulCustomElementOptions,
+  StatelessCustomElementOptions
 } from './custom-element.ts';
+export type {
+  CustomRenderer,
+  CustomRendererAccessibilityInput,
+  CustomRendererFocusInput,
+  CustomRendererHitInput,
+  CustomRendererMeasureInput,
+  CustomRendererRenderInput
+} from './custom-renderer.ts';
 export {
   gridCellRects,
   splitTracks
@@ -275,28 +285,5 @@ export type {
 } from '../tui/layout.ts';
 export type {
   FocusTarget,
-  HitTarget,
-  RenderNodeAccessibilityInput,
-  RenderNodeFocusInput,
-  RenderNodeHitInput,
-  RenderNodeLayoutInput,
-  RenderNodeMeasureInput,
-  RenderNodeRenderer,
-  RenderNodeRenderInput
+  HitTarget
 } from '../tui/render-node-renderer.ts';
-export type {
-  RenderNode,
-  RenderNodeAccessibleDefinition,
-  RenderNodeChildren,
-  RenderNodeFocusOptions,
-  RenderNodeFocusScope,
-  RenderNodeInputMap,
-  RenderNodeKeyMap,
-  RenderNodeKind,
-  RenderNodeLayerOptions,
-  RenderNodeOverflowPriority,
-  RenderNodeProps,
-  RenderNodeStyleSlots,
-  RenderNodeTextRole,
-  RenderNodeVisualState
-} from '../render-node/index.ts';

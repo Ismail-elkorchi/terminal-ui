@@ -264,8 +264,7 @@ test('root declaration exposes primary public type contracts', async () => {
     'Rect',
     'RenderDiff',
     'RenderSpan',
-    'RenderNodeRenderer',
-    'RenderNode'
+    'CustomRenderer'
   ]) {
     assert.match(rendererDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `renderer:${typeName}`);
   }

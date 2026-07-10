@@ -1,4 +1,4 @@
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNodeOfKind } from '../render-node/index.ts';
 import { sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
 import { dataWindow, rowWindow } from './data-window.ts';
 import {
@@ -16,19 +16,23 @@ import type { HitTarget } from './render-node-renderer.ts';
 import { clipRenderLine, clipRenderSpans } from './render-primitives.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 
+type StructuredBlockNode = RenderNodeOfKind<unknown, 'structuredBlock'>;
+type ActivityFeedNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'activityFeed'>;
+type DocumentNode = StructuredBlockNode | ActivityFeedNode;
+
 interface StructuredBlockRenderOptions {
-  readonly widget: RenderNode;
+  readonly widget: DocumentNode;
   readonly kind: 'structuredBlock' | 'activityFeed';
   readonly selected: boolean;
   readonly itemId?: string;
   readonly itemIndex?: number;
 }
 
-export function structuredBlockText(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): string {
+export function structuredBlockText(widget: StructuredBlockNode, node: LayoutNode, theme: TerminalTheme): string {
   return renderBlockText(structuredBlockBlock(widget, node, theme));
 }
 
-export function structuredBlockBlock(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+export function structuredBlockBlock(widget: StructuredBlockNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
   const block = blockFromRenderNode(widget);
   return {
     lines: structuredBlockLines(block, theme, node.bounds.width, {
@@ -40,7 +44,7 @@ export function structuredBlockBlock(widget: RenderNode, node: LayoutNode, theme
   };
 }
 
-export function structuredBlockAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
+export function structuredBlockAccessibleBase(widget: StructuredBlockNode, id: string): AccessibleNode {
   const block = blockFromRenderNode(widget);
   const children = structuredBlockAccessibleChildren(block, id);
   return {
@@ -53,17 +57,17 @@ export function structuredBlockAccessibleBase(widget: RenderNode, id: string): A
   };
 }
 
-export function activityFeedText(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): string {
+export function activityFeedText(widget: ActivityFeedNode, node: LayoutNode, theme: TerminalTheme): string {
   return renderBlockText(activityFeedBlock(widget, node, theme));
 }
 
-export function activityFeedBlock(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+export function activityFeedBlock(widget: ActivityFeedNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
   return {
     lines: activityFeedRows(widget, node, theme)
   };
 }
 
-export function activityFeedAccessibleBase(widget: RenderNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
+export function activityFeedAccessibleBase(widget: ActivityFeedNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
   const blocks = activityFeedBlocks(widget);
   const selected = selectedBlockIndex(widget, blocks.length);
   const window = dataWindow({
@@ -82,7 +86,7 @@ export function activityFeedAccessibleBase(widget: RenderNode, node: LayoutNode,
   };
 }
 
-export function activityFeedAccessibleChildren(widget: RenderNode, node: LayoutNode): readonly AccessibleNode[] {
+export function activityFeedAccessibleChildren(widget: ActivityFeedNode, node: LayoutNode): readonly AccessibleNode[] {
   const blocks = visibleActivityBlocks(widget, node.bounds);
   const selected = selectedBlockIndex(widget, activityFeedBlocks(widget).length);
   return blocks.map(({ block, index }) => ({
@@ -96,7 +100,7 @@ export function activityFeedAccessibleChildren(widget: RenderNode, node: LayoutN
 }
 
 export function activityFeedHitTargets<TMessage>(
-  widget: RenderNode<TMessage>,
+  widget: ActivityFeedNode<TMessage>,
   bounds: Rect,
   theme: TerminalTheme
 ): readonly HitTarget<TMessage>[] {
@@ -129,7 +133,7 @@ export function activityFeedHitTargets<TMessage>(
   return targets;
 }
 
-function activityFeedRows(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): readonly RenderLine[] {
+function activityFeedRows(widget: ActivityFeedNode, node: LayoutNode, theme: TerminalTheme): readonly RenderLine[] {
   const selected = selectedBlockIndex(widget, activityFeedBlocks(widget).length);
   const rows: RenderLine[] = [];
   for (const { block, index } of visibleActivityBlocks(widget, node.bounds)) {
@@ -159,7 +163,7 @@ function activityFeedRows(widget: RenderNode, node: LayoutNode, theme: TerminalT
 }
 
 function visibleActivityBlocks(
-  widget: RenderNode,
+  widget: ActivityFeedNode,
   bounds: Rect
 ): readonly { readonly block: StructuredBlock; readonly index: number }[] {
   const blocks = activityFeedBlocks(widget);
@@ -175,7 +179,7 @@ function visibleActivityBlocks(
 }
 
 function activityFeedItemLines(
-  widget: RenderNode,
+  widget: ActivityFeedNode,
   block: StructuredBlock,
   index: number,
   selected: boolean,
@@ -257,40 +261,40 @@ function structuredBlockAccessibleChildren(block: StructuredBlock, id: string): 
   return children;
 }
 
-function blockFromRenderNode(widget: RenderNode): StructuredBlock {
-  const title = stringify(widget.props['title']);
+function blockFromRenderNode(widget: StructuredBlockNode): StructuredBlock {
+  const title = stringify(widget.props.title);
   return {
     id: widget.id ?? 'structured-block',
     title: title.length === 0 ? widget.id ?? 'Block' : title,
-    ...optionalString('summary', widget.props['summary']),
-    ...optionalStyle(widget.props['style']),
-    ...optionalStatus(widget.props['status']),
-    ...optionalFields(widget.props['fields']),
-    ...optionalString('body', widget.props['body']),
-    ...optionalString('details', widget.props['details']),
-    ...(widget.props['collapsed'] === true ? { collapsed: true } : {})
+    ...optionalString('summary', widget.props.summary),
+    ...optionalStyle(widget.props.style),
+    ...optionalStatus(widget.props.status),
+    ...optionalFields(widget.props.fields),
+    ...optionalString('body', widget.props.body),
+    ...optionalString('details', widget.props.details),
+    ...(widget.props.collapsed === true ? { collapsed: true } : {})
   };
 }
 
-function activityFeedBlocks(widget: RenderNode): readonly StructuredBlock[] {
-  return Array.isArray(widget.props['blocks'])
-    ? widget.props['blocks'].filter(isStructuredBlock).map(sanitizeBlock)
+function activityFeedBlocks(widget: ActivityFeedNode): readonly StructuredBlock[] {
+  return Array.isArray(widget.props.blocks)
+    ? widget.props.blocks.filter(isStructuredBlock).map(sanitizeBlock)
     : [];
 }
 
 function activityFeedSelectMessageFactory<TMessage>(
-  widget: RenderNode<TMessage>
+  widget: ActivityFeedNode<TMessage>
 ): ((index: number) => TMessage | undefined) | undefined {
-  const value = widget.props['toSelectMessage'];
+  const value = widget.props.toSelectMessage;
   if (!isActivityFeedSelectMessageFactory(value)) return undefined;
-  return (index) => value(index) as TMessage | undefined;
+  return (index) => value(index);
 }
 
 function isActivityFeedSelectMessageFactory(value: unknown): value is (index: number) => unknown {
   return typeof value === 'function';
 }
 
-function selectedBlockIndex(widget: RenderNode, length: number): number | undefined {
+function selectedBlockIndex(widget: ActivityFeedNode, length: number): number | undefined {
   const selected = numberProp(widget, 'selected');
   if (selected === undefined || length <= 0) return undefined;
   return Math.max(0, Math.min(length - 1, Math.floor(selected)));

@@ -1,4 +1,4 @@
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNodeOfKind } from '../render-node/index.ts';
 import { measureTextCells } from '../text/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import { drawBorder } from './border.ts';
@@ -44,7 +44,7 @@ interface NotificationCardLine {
 }
 
 export function renderNotificationStack(
-  widget: RenderNode,
+  widget: NotificationStackNode,
   buffer: FrameBuffer,
   bounds: Rect,
   theme: TerminalTheme
@@ -57,11 +57,11 @@ export function renderNotificationStack(
   }
 }
 
-export function notificationStackPreferredSize(widget: RenderNode): NotificationStackSize {
+export function notificationStackPreferredSize(widget: NotificationStackNode): NotificationStackSize {
   return notificationStackSizeFromCards(notificationCards(widget));
 }
 
-export function notificationStackAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
+export function notificationStackAccessibleBase(widget: NotificationStackNode, id: string, focused: boolean): AccessibleNode {
   const items = notificationItems(widget);
   const selected = notificationSelectedIndex(widget);
   return {
@@ -87,7 +87,7 @@ export function notificationStackAccessibleBase(widget: RenderNode, id: string, 
   };
 }
 
-export function notificationStackHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function notificationStackHitTargets<TMessage>(widget: NotificationStackNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toDismissMessage = notificationDismissMessageFactory(widget);
   if (toDismissMessage === undefined) return [];
   return notificationCardPlacements(widget, bounds).map((placement): HitTarget<TMessage> => ({
@@ -109,7 +109,7 @@ export function placeNotificationStack(input: NotificationStackPlacementInput): 
   return clampRect(base, input.viewport);
 }
 
-function notificationCardPlacements(widget: RenderNode, bounds: Rect, cards: readonly NotificationCard[] = notificationCards(widget)): readonly {
+function notificationCardPlacements(widget: NotificationStackNode, bounds: Rect, cards: readonly NotificationCard[] = notificationCards(widget)): readonly {
   readonly card: NotificationCard;
   readonly bounds: Rect;
 }[] {
@@ -142,7 +142,7 @@ function notificationCardPlacements(widget: RenderNode, bounds: Rect, cards: rea
 }
 
 function renderNotificationCard(
-  widget: RenderNode,
+  widget: NotificationStackNode,
   card: NotificationCard,
   buffer: FrameBuffer,
   bounds: Rect,
@@ -184,7 +184,7 @@ function renderNotificationCard(
   }
 }
 
-function notificationCards(widget: RenderNode): readonly NotificationCard[] {
+function notificationCards(widget: NotificationStackNode): readonly NotificationCard[] {
   const maxWidth = notificationMaxWidth(widget);
   const selected = notificationSelectedIndex(widget);
   return notificationItems(widget).map((item, index) => {
@@ -206,8 +206,8 @@ function notificationStackSizeFromCards(cards: readonly NotificationCard[]): Not
   };
 }
 
-function notificationItems(widget: RenderNode): readonly NotificationItem[] {
-  const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
+function notificationItems(widget: NotificationStackNode): readonly NotificationItem[] {
+  const items = Array.isArray(widget.props.items) ? widget.props.items : [];
   return items.filter(isNotificationItem).slice(0, notificationMaxVisible(widget));
 }
 
@@ -221,7 +221,7 @@ function cardContentLines(item: NotificationItem): readonly NotificationCardLine
 
 function fillCardBackground(
   buffer: FrameBuffer,
-  widget: RenderNode,
+  widget: NotificationStackNode,
   bounds: Rect,
   item: NotificationItem,
   tone: NotificationTone,
@@ -246,7 +246,7 @@ function fillCardBackground(
 }
 
 function progressSpans(
-  widget: RenderNode,
+  widget: NotificationStackNode,
   item: NotificationItem,
   width: number,
   tone: NotificationTone,
@@ -352,30 +352,30 @@ function foregroundToken(tone: NotificationTone): ThemeColorToken {
   return statusToken(statusFromTone(tone));
 }
 
-function notificationPlacement(widget: RenderNode): NotificationPlacement {
-  const placement = widget.props['placement'];
+function notificationPlacement(widget: NotificationStackNode): NotificationPlacement {
+  const placement = widget.props.placement;
   return placement === 'bottom-right' || placement === 'centered-stack' ? placement : 'top-right';
 }
 
-function notificationMaxVisible(widget: RenderNode): number {
+function notificationMaxVisible(widget: NotificationStackNode): number {
   const value = numberProp(widget, 'maxVisible');
   return value === undefined ? 4 : Math.max(1, Math.min(12, Math.floor(value)));
 }
 
-function notificationMaxWidth(widget: RenderNode): number {
+function notificationMaxWidth(widget: NotificationStackNode): number {
   const value = numberProp(widget, 'maxWidth');
   return value === undefined ? 44 : Math.max(20, Math.min(120, Math.floor(value)));
 }
 
-function notificationSelectedIndex(widget: RenderNode): number {
+function notificationSelectedIndex(widget: NotificationStackNode): number {
   const value = numberProp(widget, 'selected');
   if (value === undefined) return -1;
   return Math.max(0, Math.floor(value));
 }
 
-function notificationDismissMessageFactory<TMessage>(widget: RenderNode<TMessage>): ((item: NotificationItem) => TMessage) | undefined {
-  const candidate = widget.props['toDismissMessage'];
-  return typeof candidate === 'function' ? candidate as (item: NotificationItem) => TMessage : undefined;
+function notificationDismissMessageFactory<TMessage>(widget: NotificationStackNode<TMessage>): ((item: NotificationItem) => TMessage) | undefined {
+  const candidate = widget.props.toDismissMessage;
+  return typeof candidate === 'function' ? candidate : undefined;
 }
 
 function isNotificationItem(value: unknown): value is NotificationItem {
@@ -483,3 +483,4 @@ function normalizeRect(rect: Rect): Rect {
     height: Math.max(0, Math.floor(Number.isFinite(rect.height) ? rect.height : 0))
   };
 }
+type NotificationStackNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'notificationStack'>;

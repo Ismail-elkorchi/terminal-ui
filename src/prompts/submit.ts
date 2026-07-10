@@ -1,11 +1,11 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalHost } from '../host/index.ts';
-import type { PromptAbortResult, PromptDefinition, PromptSubmitResult } from './types.ts';
+import type { PromptAbortResult, PromptSubmitResult, PromptValueContract } from './types.ts';
 import { validatePromptValue } from './validation.ts';
 
 export async function submitPrompt<TValue>(
-  prompt: PromptDefinition<TValue>,
+  prompt: PromptValueContract<TValue>,
   value: TValue,
   snapshot: AccessibleSnapshot,
   host?: TerminalHost

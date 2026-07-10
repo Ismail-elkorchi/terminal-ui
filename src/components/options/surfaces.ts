@@ -19,14 +19,12 @@ export interface CanvasPainterInput {
   readonly canvas: Canvas2D;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
-  readonly state?: unknown;
 }
 
 export type CanvasPainter = (input: CanvasPainterInput) => void;
 
 export interface CanvasOptions<TMessage = never> extends ComponentOptions {
   readonly painter: CanvasPainter;
-  readonly state?: unknown;
   readonly label?: string;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }

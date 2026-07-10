@@ -1,6 +1,6 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { ChartSeries } from '../../components/options/feedback.ts';
-import type { RenderNode } from '../../render-node/index.ts';
+import type { RenderNodeOfKind } from '../../render-node/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import {
   chartBaselineStyle,
@@ -21,41 +21,44 @@ import type { HitTarget } from '../render-node-renderer.ts';
 import { normalizeValueScale } from '../value-scale.ts';
 import type { NormalizedValueScaleStop } from '../value-scale.ts';
 import {
-  type ProjectedChartPoint,
   chartChromeBlock,
   chartLayout,
+  polarityForValue,
+  seriesGlyph,
+  usesSignedDomain,
+  writeChartChrome
+} from './support/chrome.ts';
+import {
   chartMessageFactory,
   chartPointPosition,
+  selectedChartPoint,
+  yForValue
+} from './support/interaction.ts';
+import { frameBufferBlock } from './support/render-block.ts';
+import {
+  type ProjectedChartPoint,
   chartPointStyle,
   chartSeries,
   chartSeriesScale,
-  cleanLabel,
-  frameBufferBlock,
-  polarityForValue,
-  projectChartSeries,
-  rangeFor,
-  selectedChartPoint,
-  seriesGlyph,
-  usesSignedDomain,
-  writeChartChrome,
-  yForValue
-} from './support.ts';
+  projectChartSeries
+} from './support/series.ts';
+import { cleanLabel, rangeFor } from './support/values.ts';
 
-export function chartBlock(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
-  const series = chartSeries(widget.props['series']);
+export function chartBlock(widget: ChartNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+  const series = chartSeries(widget.props.series);
   const points = series.flatMap((item) => item.points);
   const state = chartStateBlock(widget, 'chart', theme, {
     empty: points.length === 0,
     emptyText: chartStateDescription(widget, 'No chart data'),
-    loadingText: cleanLabel(widget.props['loadingText']),
-    errorText: cleanLabel(widget.props['errorText'])
+    loadingText: cleanLabel(widget.props.loadingText),
+    errorText: cleanLabel(widget.props.errorText)
   });
   if (state !== undefined) return state;
   if (node.bounds.height <= 0 || node.bounds.width <= 0) return { lines: [] };
   const layout = chartLayout(widget, node.bounds);
   if (layout.plotHeight <= 0 || layout.plotWidth <= 0) return chartChromeBlock(widget, node.bounds.width);
   const range = rangeFor(points, numberProp(widget, 'min'), numberProp(widget, 'max'));
-  const widgetScale = normalizeValueScale(widget.props['valueScale']);
+  const widgetScale = normalizeValueScale(widget.props.valueScale);
   const buffer = createFrameBuffer(node.bounds.width, node.bounds.height);
   writeChartChrome(buffer, widget, node.bounds.width);
   const canvas = createCanvas2D(buffer, {
@@ -121,7 +124,7 @@ export function chartBlock(widget: RenderNode, node: LayoutNode, theme: Terminal
 
 function drawFilledChartSeries(
   canvas: ReturnType<typeof createCanvas2D>,
-  widget: RenderNode,
+  widget: ChartNode,
   item: ChartSeries,
   visible: readonly ProjectedChartPoint[],
   range: { readonly min: number; readonly max: number },
@@ -155,7 +158,7 @@ function drawFilledChartSeries(
 
 function drawSegmentedChartLine(
   canvas: ReturnType<typeof createCanvas2D>,
-  widget: RenderNode,
+  widget: ChartNode,
   item: ChartSeries,
   visible: readonly ProjectedChartPoint[],
   range: { readonly min: number; readonly max: number },
@@ -199,12 +202,12 @@ function drawSegmentedChartLine(
   }
 }
 
-export function chartText(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): string {
+export function chartText(widget: ChartNode, node: LayoutNode, theme: TerminalTheme): string {
   return chartTextFromBlock(chartBlock(widget, node, theme));
 }
 
-export function chartAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
-  const series = chartSeries(widget.props['series']);
+export function chartAccessibleBase(widget: ChartNode, id: string): AccessibleNode {
+  const series = chartSeries(widget.props.series);
   return {
     id,
     role: 'text',
@@ -213,8 +216,8 @@ export function chartAccessibleBase(widget: RenderNode, id: string): AccessibleN
   };
 }
 
-export function chartAccessibleChildren(widget: RenderNode): readonly AccessibleNode[] {
-  const series = chartSeries(widget.props['series']);
+export function chartAccessibleChildren(widget: ChartNode): readonly AccessibleNode[] {
+  const series = chartSeries(widget.props.series);
   const selected = selectedChartPoint(widget, series);
   return series.map((item) => ({
     id: `${widget.id ?? 'chart'}:${item.id}`,
@@ -225,10 +228,10 @@ export function chartAccessibleChildren(widget: RenderNode): readonly Accessible
   }));
 }
 
-export function chartHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function chartHitTargets<TMessage>(widget: ChartNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = chartMessageFactory(widget);
   if (toMessage === undefined) return [];
-  const series = chartSeries(widget.props['series']);
+  const series = chartSeries(widget.props.series);
   const points = series.flatMap((item) => item.points);
   if (points.length === 0) return [];
   const range = rangeFor(points, numberProp(widget, 'min'), numberProp(widget, 'max'));
@@ -250,3 +253,4 @@ export function chartHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: 
     }];
   }));
 }
+type ChartNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'chart'>;

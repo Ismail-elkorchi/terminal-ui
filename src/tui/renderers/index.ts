@@ -8,6 +8,10 @@ import { textRenderers } from './text-renderers.ts';
 import type { BuiltinRenderNodeKind } from './types.ts';
 import type { RenderNodeRenderer } from '../render-node-renderer.ts';
 
+type BuiltinRendererRegistry = {
+  readonly [TKind in BuiltinRenderNodeKind]: RenderNodeRenderer<unknown, TKind>;
+};
+
 export const builtinRenderNodeRenderers = {
   ...textRenderers,
   ...feedbackRenderers,
@@ -16,4 +20,4 @@ export const builtinRenderNodeRenderers = {
   ...drawingRenderers,
   ...dataRenderers,
   ...layoutRenderers
-} satisfies Record<BuiltinRenderNodeKind, RenderNodeRenderer>;
+} satisfies BuiltinRendererRegistry;

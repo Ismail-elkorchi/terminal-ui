@@ -87,8 +87,10 @@ test('full frame render stays bounded by viewport for mixed widget trees', () =>
     table({
       id: 'summary',
       columns: [
-        { header: 'Name', width: { kind: 'fixed', cells: 12 } },
-        { header: 'Value', width: { kind: 'fill' } }
+        {
+          id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 12 } },
+        {
+          id: 'value-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Value', width: { kind: 'fill' } }
       ],
       rows: Array.from({ length: 1_000 }, (_value, index) => [`Item ${index}`, index])
     }),
@@ -137,9 +139,12 @@ test('large table viewport is bounded independently from row count', () => {
     id: 'large-table',
     selectedCell: { row: 42_000, column: 1 },
     columns: [
-      { header: 'Name', width: { kind: 'fixed', cells: 16 } },
-      { header: 'Score', width: { kind: 'fixed', cells: 8 }, align: 'end' },
-      { header: 'Notes', width: { kind: 'fill' } }
+      {
+        id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
+      {
+        id: 'score-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Score', width: { kind: 'fixed', cells: 8 }, align: 'end' },
+      {
+        id: 'notes-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Notes', width: { kind: 'fill' } }
     ],
     rows: Array.from({ length: 50_000 }, (_value, index) => [`Row ${index}`, index, `metadata ${index}`])
   }), { columns: 64, rows: 12 });
@@ -150,6 +155,27 @@ test('large table viewport is bounded independently from row count', () => {
   assert.equal((frame.accessibility.root.children?.length ?? 0) <= 12, true);
 });
 
+test('fill-width tables do not scan offscreen row values for intrinsic measurement', () => {
+  let valueReads = 0;
+  const rows = Array.from({ length: 20_000 }, (_value, index) => ({ name: `Row ${String(index)}` }));
+  const frame = renderElementFrame(table({
+    id: 'fill-table-cost',
+    rows,
+    columns: [{
+      id: 'name',
+      width: { kind: 'fill' },
+      value(row) {
+        valueReads += 1;
+        return row.name;
+      }
+    }],
+    selected: 10_000
+  }), { columns: 80, rows: 20 });
+
+  assert.match(renderFramePlain(frame), /Row 10000/u);
+  assert.ok(valueReads <= 40, `expected viewport-bounded value reads, received ${String(valueReads)}`);
+});
+
 test('large table retained damage is narrowed to changed visible rows', () => {
   const viewport = { columns: 64, rows: 12 };
   const rows = Array.from({ length: 20_000 }, (_value, index) => [`Row ${index}`, index, `metadata ${index}`]);
@@ -157,9 +183,12 @@ test('large table retained damage is narrowed to changed visible rows', () => {
     id: 'large-table-damage',
     selectedCell: { row: 12_000, column: 1 },
     columns: [
-      { header: 'Name', width: { kind: 'fixed', cells: 16 } },
-      { header: 'Score', width: { kind: 'fixed', cells: 8 }, align: 'end' },
-      { header: 'Notes', width: { kind: 'fill' } }
+      {
+        id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
+      {
+        id: 'score-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Score', width: { kind: 'fixed', cells: 8 }, align: 'end' },
+      {
+        id: 'notes-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Notes', width: { kind: 'fill' } }
     ],
     rows
   });
@@ -167,9 +196,12 @@ test('large table retained damage is narrowed to changed visible rows', () => {
     id: 'large-table-damage',
     selectedCell: { row: 12_000, column: 2 },
     columns: [
-      { header: 'Name', width: { kind: 'fixed', cells: 16 } },
-      { header: 'Score', width: { kind: 'fixed', cells: 8 }, align: 'end' },
-      { header: 'Notes', width: { kind: 'fill' } }
+      {
+        id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
+      {
+        id: 'score-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Score', width: { kind: 'fixed', cells: 8 }, align: 'end' },
+      {
+        id: 'notes-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Notes', width: { kind: 'fill' } }
     ],
     rows
   });

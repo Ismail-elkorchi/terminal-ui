@@ -40,7 +40,7 @@ export function toRegionHitTarget<TMessage>(
 }
 
 export function regionIdForLayoutNode(node: LayoutNode, path: FocusPath): string {
-  const semanticPath = path.length === 0 ? [node.id ?? node.layer.id] : path;
+  const semanticPath = path.length === 0 ? [node.identity] : path;
   return `region:${semanticPath.map(regionIdSegment).join('/')}:z:${String(node.layer.zIndex)}`;
 }
 

@@ -25,11 +25,17 @@ test('prompt factories create typed prompt definitions', () => {
   assert.equal(multiselect({ label: 'Many', choices: [{ label: 'One', value: 1 }], defaultValue: [1] }).kind, 'multiselect');
   assert.equal(autocomplete({ label: 'Find', choices: [{ label: 'One', value: 1 }], defaultValue: 1 }).kind, 'autocomplete');
   assert.equal(editor({ label: 'Body', defaultValue: 'text' }).kind, 'editor');
-  assert.equal(progress({ label: 'Loading' }).kind, 'progress');
-  assert.deepEqual(progress({ label: 'Loading' }).nonTty, { mode: 'transcript_only' });
+  assert.equal(progress({ label: 'Loading', progress: { kind: 'indeterminate' } }).kind, 'progress');
   assert.deepEqual(
-    progress({ label: 'Loading', value: 2, max: 5, status: 'Downloading' }).progress,
-    { value: 2, max: 5, status: 'Downloading' }
+    progress({ label: 'Loading', progress: { kind: 'indeterminate' } }).nonTty,
+    { mode: 'transcript_only' }
+  );
+  assert.deepEqual(
+    progress({
+      label: 'Loading',
+      progress: { kind: 'determinate', value: 2, max: 5, status: 'Downloading' }
+    }).progress,
+    { kind: 'determinate', value: 2, max: 5, status: 'Downloading' }
   );
 });
 

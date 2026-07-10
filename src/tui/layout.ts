@@ -25,6 +25,7 @@ export interface Layer {
 
 export interface LayoutNode {
   readonly id?: string;
+  readonly identity: string;
   readonly kind: RenderNodeKind;
   readonly bounds: Rect;
   readonly layer: Layer;
@@ -61,16 +62,31 @@ export function layoutRenderNode(
   const bounds = 'columns' in viewport
     ? { row: 1, column: 1, width: viewport.columns, height: viewport.rows }
     : viewport;
-  return layoutNode(widget, clampRect(bounds), theme, 0, 0);
+  return layoutNode(widget, clampRect(bounds), theme, 0, 0, []);
 }
 
-function layoutNode(widget: RenderNode, bounds: Rect, theme: TerminalTheme, ordinal: number, parentZIndex: number): LayoutNode {
+function layoutNode(
+  widget: RenderNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  ordinal: number,
+  parentZIndex: number,
+  parentIdentity: readonly string[]
+): LayoutNode {
   const visible = widget.layer?.visible !== false;
   const zIndex = parentZIndex + zIndexForRenderNode(widget);
-  const layer = { id: layerId(widget, bounds, ordinal), zIndex, bounds, opacity: opacityForRenderNode(widget) };
+  const identity = widget.id ?? `${widget.kind}:${String(ordinal)}`;
+  const identityPath = [...parentIdentity, identity];
+  const layer = {
+    id: identityPath.join('/'),
+    zIndex,
+    bounds,
+    opacity: opacityForRenderNode(widget)
+  };
   if (!visible) {
     return {
       ...(widget.id === undefined ? {} : { id: widget.id }),
+      identity,
       kind: widget.kind,
       bounds,
       layer,
@@ -92,6 +108,7 @@ function layoutNode(widget: RenderNode, bounds: Rect, theme: TerminalTheme, ordi
   const focusScope = focusScopeForRenderNode(widget);
   return {
     ...(widget.id === undefined ? {} : { id: widget.id }),
+    identity,
     kind: widget.kind,
     bounds,
     layer,
@@ -100,7 +117,14 @@ function layoutNode(widget: RenderNode, bounds: Rect, theme: TerminalTheme, ordi
     ...(focusScope === undefined ? {} : { focusScope }),
     focusTargets,
     children: (widget.children ?? [])
-      .map((child, index) => layoutNode(child, childBounds[index] ?? emptyRect(bounds), theme, index, zIndex))
+      .map((child, index) => layoutNode(
+        child,
+        childBounds[index] ?? emptyRect(bounds),
+        theme,
+        index,
+        zIndex,
+        identityPath
+      ))
   };
 }
 
@@ -129,10 +153,6 @@ function zIndexForRenderNode(widget: RenderNode): number {
 
 function opacityForRenderNode(widget: RenderNode): RegionOpacity {
   return widget.layer?.opacity ?? 'transparent';
-}
-
-function layerId(widget: RenderNode, bounds: Rect, ordinal: number): string {
-  return widget.id ?? `${widget.kind}:${String(bounds.row)}:${String(bounds.column)}:${String(ordinal)}`;
 }
 
 function themeForLayout(theme: TerminalTheme | TerminalThemeDefinition | undefined): TerminalTheme {

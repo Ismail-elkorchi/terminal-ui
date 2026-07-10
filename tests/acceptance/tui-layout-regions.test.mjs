@@ -71,7 +71,7 @@ function workspaceView(state) {
     id: 'workspace',
     rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }],
     columns: [{ kind: 'fill' }],
-    keys: { p: { type: 'palette' }, enter: { type: 'exit' } }
+    keys: { enter: { type: 'exit' }, text: { p: { type: 'palette' } } }
   });
 }
 

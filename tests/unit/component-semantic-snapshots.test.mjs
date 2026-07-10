@@ -182,7 +182,9 @@ const cases = [
       id: 'table',
       rows: [{ name: unsafe, status: 'ok' }, { name: 'Second', status: 'idle' }],
       selected: 1,
-      columns: [{ header: 'Name' }, { header: 'Status' }]
+      columns: [{
+        id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }, {
+        id: 'status-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Status' }]
     }),
     expectText: /Name/u
   },

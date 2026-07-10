@@ -2,6 +2,7 @@ import { elementFromRenderNode, toRenderNode, toRenderNodes } from '../../render
 import type { Element, ElementChildren } from '../element.ts';
 import type { GridAreasOptions, GridOptions, ModalOptions, SplitPaneOptions, TabsOptions } from '../options/layout.ts';
 import { interactionProps, withMetaDefaults } from '../factory-internals/interaction.ts';
+import type { RenderTabItem } from '../../render-node/props/layout.ts';
 import {
   assertGridAreaChildren,
   gridAreaNames,
@@ -18,7 +19,7 @@ export function grid<TMessage>(
   options?: GridOptions<TMessage>
 ): Element<TMessage> {
   if (options !== undefined) {
-    return elementFromRenderNode({
+    return elementFromRenderNode<'grid', TMessage>({
       ...optionalId(options.id),
       kind: 'grid',
       props: {
@@ -44,7 +45,7 @@ export function grid<TMessage>(
   if (template[0] !== undefined && areaOptions.columns.length !== template[0].length) {
     throw new RangeError(`grid areas columns length ${String(areaOptions.columns.length)} must match template columns ${String(template[0].length)}.`);
   }
-  return elementFromRenderNode({
+  return elementFromRenderNode<'grid', TMessage>({
     ...optionalId(areaOptions.id),
     kind: 'grid',
     props: {
@@ -70,7 +71,7 @@ export function splitPane<TMessage>(
   children: ElementChildren<TMessage>,
   options: SplitPaneOptions<TMessage>
 ): Element<TMessage> {
-  return elementFromRenderNode({
+  return elementFromRenderNode<'splitPane', TMessage>({
     ...optionalId(options.id),
     kind: 'splitPane',
     props: {
@@ -84,19 +85,20 @@ export function splitPane<TMessage>(
 }
 
 export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage> {
-  return elementFromRenderNode({
+  const tabs: readonly RenderTabItem<TMessage>[] = options.tabs.map((tab) => ({
+    id: tab.id,
+    label: tab.label,
+    ...(tab.description === undefined ? {} : { description: tab.description }),
+    ...(tab.disabled === undefined ? {} : { disabled: tab.disabled }),
+    ...(tab.onSelect === undefined ? {} : { message: tab.onSelect }),
+    ...(tab.badge === undefined ? {} : { badge: tab.badge }),
+    ...(tab.onClose === undefined ? {} : { closeMessage: tab.onClose })
+  }));
+  return elementFromRenderNode<'tabs', TMessage>({
     ...optionalId(options.id),
     kind: 'tabs',
     props: {
-      tabs: options.tabs.map((tab) => ({
-        id: tab.id,
-        label: tab.label,
-        ...(tab.description === undefined ? {} : { description: tab.description }),
-        ...(tab.disabled === undefined ? {} : { disabled: tab.disabled }),
-        ...(tab.onSelect === undefined ? {} : { message: tab.onSelect }),
-        ...(tab.badge === undefined ? {} : { badge: tab.badge }),
-        ...(tab.onClose === undefined ? {} : { closeMessage: tab.onClose })
-      })),
+      tabs,
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...layoutProps(options)
     },
@@ -111,7 +113,7 @@ export function modal<TMessage>(child: Element<TMessage>, options: ModalOptions<
     layer: { opacity: 'opaque' }
   });
   const actionsNode = options.actions === undefined ? undefined : toRenderNode(options.actions);
-  return elementFromRenderNode({
+  return elementFromRenderNode<'modal', TMessage>({
     ...optionalId(options.id),
     kind: 'modal',
     props: {

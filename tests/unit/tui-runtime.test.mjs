@@ -140,8 +140,8 @@ test('TUI runtime routes mouse input through the committed render cache', async 
 test('TUI runtime uses committed hit targets without recomputing renderer hit targets', async () => {
   let hitTargetCalls = 0;
   const renderer = {
-    render({ layoutNode, buffer }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{ text: 'cached hit' }]);
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'cached hit' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'cached hit' };
@@ -504,6 +504,7 @@ test('TUI runtime exposes diagnostics to subscription sources', async () => {
     update: (_state, message) => ({ state: { label: message.label } }),
     subscriptions: () => [{
       id: 'diagnostic-source',
+      delivery: 'sequential',
       async *messages(context) {
         observed = `${context.diagnostics[0]?.code ?? 'none'}:${context.diagnostics[0]?.data?.operation ?? 'none'}`;
         yield { label: observed };
@@ -783,31 +784,6 @@ test('TUI runtime start returns the committed initial frame', async () => {
   assert.deepEqual(runtime.frame(), frame);
 });
 
-test('TUI runtime start preserves init-dispatched exits with the rendered snapshot', async () => {
-  const app = defineTui({
-    id: 'init-exit',
-    init: (context) => {
-      context.dispatch({ done: true });
-      return { done: false };
-    },
-    update: (_state, message) => ({
-      state: { done: message.done },
-      exit: { reason: 'initialized' }
-    }),
-    view: (state) => text(state.done ? 'done' : 'booting', { id: state.done ? 'done-label' : 'boot-label' })
-  });
-  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
-
-  const frame = await runtime.start();
-  const exit = runtime.exit();
-
-  assert.equal(frame.accessibility.root.id, 'done-label');
-  assert.equal(exit?.status, 'completed');
-  assert.equal(exit?.reason, 'initialized');
-  assert.equal(exit?.snapshot.root.id, 'done-label');
-});
-
 test('TUI runtime consumes async subscription sources without duplicate restarts', async () => {
   let starts = 0;
   const app = defineTui({
@@ -817,6 +793,7 @@ test('TUI runtime consumes async subscription sources without duplicate restarts
     subscriptions: () => [{
       id: 'timer-source',
       source: 'timer',
+      delivery: 'sequential',
       async *messages() {
         starts += 1;
         yield { delta: 1 };
@@ -836,6 +813,67 @@ test('TUI runtime consumes async subscription sources without duplicate restarts
   assert.match(renderFramePlain(runtime.frame()), /Count 2/);
 });
 
+test('TUI runtime records subscription source failures and stops the failed source', async () => {
+  let starts = 0;
+  const app = defineTui({
+    id: 'subscription-failure',
+    init: () => ({ count: 0, status: 'active' }),
+    update: (state, message) => message.kind === 'failed'
+      ? { state: { ...state, status: 'failed' } }
+      : { state: { ...state, count: state.count + message.delta } },
+    subscriptions: () => [{
+      id: 'failed-source',
+      source: 'external',
+      delivery: 'sequential',
+      async *messages() {
+        starts += 1;
+        throw new Error('source failed');
+      },
+      onLifecycle: (event) => event.kind === 'failed' ? { kind: 'failed' } : undefined
+    }],
+    view: (state) => text(`Count ${state.count}`, { id: 'subscription-count' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await waitUntil(() => runtime.diagnostics().some((item) => item.code === 'TUI_SOURCE_FAILED'));
+  await waitUntil(() => runtime.getState()?.status === 'failed');
+  await runtime.dispatch({ kind: 'increment', delta: 1 });
+
+  assert.equal(starts, 1);
+  assert.match(
+    runtime.diagnostics().find((item) => item.code === 'TUI_SOURCE_FAILED')?.message ?? '',
+    /failed-source/u
+  );
+});
+
+test('latest subscription delivery keeps one replaceable pending message', async () => {
+  const app = defineTui({
+    id: 'latest-subscription',
+    init: () => ({ values: [] }),
+    update: (state, message) => ({ state: { values: [...state.values, message.value] } }),
+    subscriptions: () => [{
+      id: 'samples',
+      delivery: 'latest',
+      async *messages() {
+        for (let value = 1; value <= 100; value += 1) yield { value };
+      }
+    }],
+    view: (state) => text(state.values.join(','), { id: 'latest-values' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await waitUntil(() => runtime.getState()?.values.at(-1) === 100);
+
+  const values = runtime.getState()?.values ?? [];
+  assert.equal(values[0], 1);
+  assert.equal(values.at(-1), 100);
+  assert.ok(values.length < 100);
+});
+
 test('TUI runtime cancels subscription sources when they leave the definition', async () => {
   let sourceSignal;
   let disposeCount = 0;
@@ -846,6 +884,7 @@ test('TUI runtime cancels subscription sources when they leave the definition', 
     subscriptions: (state) => state.enabled
       ? [{
           id: 'long-source',
+          delivery: 'sequential',
           async *messages(context) {
             sourceSignal = context.signal;
             await new Promise(() => undefined);
@@ -871,37 +910,45 @@ test('TUI runtime cancels subscription sources when they leave the definition', 
   assert.match(renderFramePlain(runtime.frame()), /disabled/);
 });
 
-test('TUI runtime serializes concurrent external dispatches', async () => {
-  let activeUpdates = 0;
-  let maxActiveUpdates = 0;
-  const order = [];
+test('TUI effects do not block later input or external dispatches', async () => {
+  let releaseEffect;
+  const gate = new Promise((resolve) => {
+    releaseEffect = resolve;
+  });
   const app = defineTui({
-    id: 'serialized-dispatch',
-    init: () => ({ count: 0 }),
-    update: async (state, message) => {
-      activeUpdates += 1;
-      maxActiveUpdates = Math.max(maxActiveUpdates, activeUpdates);
-      order.push(`start:${message.delta}`);
-      await Promise.resolve();
-      activeUpdates -= 1;
-      order.push(`end:${message.delta}`);
-      return { state: { count: state.count + message.delta } };
+    id: 'async-effect',
+    init: () => ({ count: 0, phase: 'idle' }),
+    update: (state, message) => {
+      if (message.kind === 'start') {
+        return {
+          state: { ...state, phase: 'loading' },
+          effects: [{
+            id: 'load',
+            async run() {
+              await gate;
+              return { kind: 'finish' };
+            }
+          }]
+        };
+      }
+      if (message.kind === 'finish') return { state: { ...state, phase: 'done' } };
+      return { state: { ...state, count: state.count + 1 } };
     },
-    view: (state) => text(`Count ${state.count}`, { id: 'serialized-count' })
+    view: (state) => text(`${state.phase}:${String(state.count)}`, { id: 'effect-state' })
   });
   const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  await Promise.all([
-    runtime.dispatch({ delta: 1 }),
-    runtime.dispatch({ delta: 2 }),
-    runtime.dispatch({ delta: 3 })
-  ]);
+  await runtime.dispatch({ kind: 'start' });
+  await runtime.dispatch({ kind: 'increment' });
 
-  assert.equal(maxActiveUpdates, 1);
-  assert.deepEqual(runtime.getState(), { count: 6 });
-  assert.deepEqual(order, ['start:1', 'end:1', 'start:2', 'end:2', 'start:3', 'end:3']);
+  assert.deepEqual(runtime.getState(), { count: 1, phase: 'loading' });
+  assert.match(renderFramePlain(runtime.frame()), /loading:1/u);
+
+  releaseEffect();
+  await waitUntil(() => runtime.getState()?.phase === 'done');
+  assert.deepEqual(runtime.getState(), { count: 1, phase: 'done' });
 });
 
 test('TUI runtime records external dispatch messages in transcripts', async () => {
@@ -987,69 +1034,33 @@ test('TUI runtime does not publish frames for identity no-op updates', async () 
   assert.match(renderFramePlain(change.frame), /Count 1/u);
 });
 
-test('TUI runtime queues context dispatch during initialization before first render', async () => {
+test('TUI runtime reports effect failures and can map them to application messages', async () => {
   const app = defineTui({
-    id: 'init-context-dispatch',
-    init: (context) => {
-      context.dispatch({ ready: true });
-      return { ready: false };
-    },
-    update: (_state, message) => ({ state: { ready: message.ready } }),
-    view: (state) => text(state.ready ? 'ready' : 'booting', { id: 'init-status' })
-  });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
-
-  await runtime.start();
-
-  assert.deepEqual(runtime.getState(), { ready: true });
-  assert.equal(harness.frames().length, 1);
-  assert.match(renderFramePlain(runtime.frame()), /ready/);
-});
-
-test('TUI runtime queues context dispatch during updates before commit', async () => {
-  const app = defineTui({
-    id: 'update-context-dispatch',
-    init: () => ({ step: 0 }),
-    update: (state, message, context) => {
-      if (message.kind === 'start') {
-        context.dispatch({ kind: 'finish' });
-        return { state: { step: state.step + 1 } };
-      }
-      return { state: { step: state.step + 1 } };
-    },
-    view: (state) => text(`Step ${state.step}`, { id: 'step-status' })
-  });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
-
-  await runtime.start();
-  await runtime.dispatch({ kind: 'start' });
-
-  assert.deepEqual(runtime.getState(), { step: 2 });
-  assert.equal(harness.frames().length, 2);
-  assert.match(renderFramePlain(runtime.frame()), /Step 2/);
-});
-
-test('TUI runtime settles update commands before committing the next frame', async () => {
-  const app = defineTui({
-    id: 'command-settle',
-    init: () => ({ count: 0 }),
-    update: (state, message) => ({
-      state: { count: state.count + message.delta },
-      commands: message.chain === true ? [{ kind: 'dispatch', message: { delta: 10 } }] : []
-    }),
-    view: (state) => text(`Count ${state.count}`, { id: 'command-count' })
+    id: 'effect-failure',
+    init: () => ({ status: 'idle' }),
+    update: (state, message) => message.kind === 'start'
+      ? {
+          state: { status: 'loading' },
+          effects: [{
+            id: 'broken-load',
+            async run() {
+              throw new Error('load failed');
+            },
+            onError: () => ({ kind: 'failed' })
+          }]
+        }
+      : { state: { ...state, status: 'failed' } },
+    view: (state) => text(state.status, { id: 'effect-status' })
   });
   const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  await runtime.dispatch({ delta: 1, chain: true });
+  await runtime.dispatch({ kind: 'start' });
+  await waitUntil(() => runtime.getState()?.status === 'failed');
 
-  assert.deepEqual(runtime.getState(), { count: 11 });
-  assert.equal(harness.frames().length, 2);
-  assert.match(renderFramePlain(runtime.frame()), /Count 11/);
+  assert.equal(runtime.diagnostics().some((item) => item.code === 'TUI_EFFECT_FAILED'), true);
+  assert.match(renderFramePlain(runtime.frame()), /failed/u);
 });
 
 test('TUI runtime resize re-renders against the memory host viewport', async () => {
@@ -1069,6 +1080,35 @@ test('TUI runtime resize re-renders against the memory host viewport', async () 
   assert.equal(harness.frames().length, 2);
   assert.equal(harness.diffs()[1].fullRewrite, true);
   assert.match(renderFramePlain(runtime.frame()), /Wide label/);
+});
+
+test('anonymous container focus identity survives terminal resize', async () => {
+  const app = defineTui({
+    id: 'structural-focus-resize',
+    init: () => ({ value: '' }),
+    update: (state) => ({ state }),
+    view: (state) => stack([
+      textInput({ id: 'first', value: state.value }),
+      textInput({ id: 'second', value: state.value })
+    ])
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 40, rows: 6 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'tab',
+    ctrl: false,
+    alt: false,
+    shift: false,
+    meta: false
+  });
+  const focusBeforeResize = runtime.frame().focusPath;
+  await runtime.resize({ columns: 18, rows: 4 });
+
+  assert.deepEqual(focusBeforeResize, ['stack:0', 'second']);
+  assert.deepEqual(runtime.frame().focusPath, focusBeforeResize);
 });
 
 test('TUI runtime routes key events through focused widget keymaps', async () => {
@@ -1093,7 +1133,7 @@ test('TUI runtime routes key events through focused widget keymaps', async () =>
   assert.equal(tab.handled, true);
   assert.equal(second.handled, true);
   assert.deepEqual(runtime.getState(), { active: 'second' });
-  assert.deepEqual(runtime.frame().focusPath, ['stack:1:1', 'second']);
+  assert.deepEqual(runtime.frame().focusPath, ['stack:0', 'second']);
   assert.equal(harness.frames().length, 4);
   assert.equal(harness.diffs()[0].fullRewrite, true);
   assert.match(renderFramePlain(runtime.frame()), /second/);
@@ -1127,7 +1167,7 @@ test('TUI runtime routes default app key bindings after focused widgets', async 
     id: 'app-key-binding-after-focus',
     init: () => ({ active: 'open' }),
     keyBindings: [
-      { id: 'close', keys: ['escape'], message: { active: 'closed' } }
+      { id: 'close', triggers: [{ kind: 'key', key: 'escape' }], message: { active: 'closed' } }
     ],
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => textInput({ id: 'field', value: state.active })
@@ -1156,7 +1196,7 @@ test('TUI runtime lets focused widgets override after-focus app bindings', async
     id: 'app-key-binding-focused-wins',
     init: () => ({ active: 'open' }),
     keyBindings: [
-      { id: 'global-close', keys: ['escape'], message: { active: 'global' } }
+      { id: 'global-close', triggers: [{ kind: 'key', key: 'escape' }], message: { active: 'global' } }
     ],
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => textInput({
@@ -1188,7 +1228,7 @@ test('TUI runtime lets before-focus app bindings intentionally preempt widgets',
     id: 'app-key-binding-before-focus',
     init: () => ({ active: 'open' }),
     keyBindings: [
-      { id: 'priority-enter', keys: ['enter'], phase: 'beforeFocus', message: { active: 'global' } }
+      { id: 'priority-enter', triggers: [{ kind: 'key', key: 'enter' }], phase: 'beforeFocus', message: { active: 'global' } }
     ],
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => textInput({
@@ -1212,7 +1252,7 @@ test('TUI runtime does not steal printable text for default app bindings', async
     id: 'app-key-binding-printable-after-focus',
     init: () => ({ value: '' }),
     keyBindings: [
-      { id: 'quit', keys: ['q'], message: { value: 'quit' } }
+      { id: 'quit', triggers: [{ kind: 'text', text: 'q' }], message: { value: 'quit' } }
     ],
     update: (state, message) => ({ state: { value: `${state.value}${message.value}` } }),
     view: (state) => textInput({
@@ -1238,7 +1278,7 @@ test('TUI runtime evaluates app key binding predicates and dynamic messages', as
     keyBindings: [
       {
         id: 'dynamic-help',
-        keys: ['f1'],
+        triggers: [{ kind: 'key', key: 'ctrlQ' }],
         enabled: ({ state }) => state.enabled,
         toMessage: ({ focusPath }) => ({ active: focusPath?.join('/') ?? 'none', enabled: true })
       }
@@ -1254,9 +1294,9 @@ test('TUI runtime evaluates app key binding predicates and dynamic messages', as
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const disabled = await runtime.handleInput({ kind: 'key', key: 'f1', ctrl: false, alt: false, shift: false, meta: false });
+  const disabled = await runtime.handleInput({ kind: 'key', key: 'ctrlQ', ctrl: true, alt: false, shift: false, meta: false });
   await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
-  const enabled = await runtime.handleInput({ kind: 'key', key: 'f1', ctrl: false, alt: false, shift: false, meta: false });
+  const enabled = await runtime.handleInput({ kind: 'key', key: 'ctrlQ', ctrl: true, alt: false, shift: false, meta: false });
 
   assert.equal(disabled.handled, false);
   assert.equal(enabled.handled, true);
@@ -1268,9 +1308,8 @@ test('TUI runtime keeps scanning app key bindings when earlier matches decline',
     id: 'app-key-binding-declined-fallback',
     init: () => ({ active: 'open' }),
     keyBindings: [
-      { id: 'metadata-only', keys: ['f1'], label: 'Help' },
-      { id: 'contextual-help', keys: ['f1'], toMessage: () => undefined },
-      { id: 'fallback-help', keys: ['f1'], message: { active: 'fallback' } }
+      { id: 'contextual-help', triggers: [{ kind: 'key', key: 'ctrlQ' }], toMessage: () => undefined },
+      { id: 'fallback-help', triggers: [{ kind: 'key', key: 'ctrlQ' }], message: { active: 'fallback' } }
     ],
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => textInput({ id: 'field', value: state.active })
@@ -1279,7 +1318,7 @@ test('TUI runtime keeps scanning app key bindings when earlier matches decline',
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const handled = await runtime.handleInput({ kind: 'key', key: 'f1', ctrl: false, alt: false, shift: false, meta: false });
+  const handled = await runtime.handleInput({ kind: 'key', key: 'ctrlQ', ctrl: true, alt: false, shift: false, meta: false });
 
   assert.equal(handled.handled, true);
   assert.deepEqual(runtime.getState(), { active: 'fallback' });
@@ -1428,7 +1467,7 @@ test('runTui accepts an initial focus path', async () => {
   const host = createMemoryTerminalHost({ viewport: { columns: 20, rows: 4 } });
   host.input('\r');
 
-  const exit = await runTui(app, host, { initialFocusPath: ['stack:1:1', 'second'] });
+  const exit = await runTui(app, host, { initialFocusPath: ['stack:0', 'second'] });
 
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state, { active: 'second' });
@@ -1497,7 +1536,7 @@ test('TUI runtime restores a serialized focus path when it still exists', async 
     meta: false
   });
 
-  assert.deepEqual(restoredPath, ['stack:1:1', 'second']);
+  assert.deepEqual(restoredPath, ['stack:0', 'second']);
   assert.deepEqual(restoredRuntime.frame().focusPath, restoredPath);
   assert.equal(committed.handled, true);
   assert.deepEqual(restoredRuntime.getState(), { active: 'second' });
@@ -1517,7 +1556,7 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
   const runtime = createTuiRuntime({
     app,
     host: harness.host,
-    initialFocusPath: ['stack:1:1', 'missing']
+    initialFocusPath: ['stack:0', 'missing']
   });
 
   await runtime.start();
@@ -1530,7 +1569,7 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
     meta: false
   });
 
-  assert.deepEqual(runtime.frame().focusPath, ['stack:1:1', 'first']);
+  assert.deepEqual(runtime.frame().focusPath, ['stack:0', 'first']);
   assert.equal(committed.handled, true);
   assert.deepEqual(runtime.getState(), { active: 'first' });
 });
@@ -1561,7 +1600,7 @@ test('TUI runtime treats keyed container widgets as focusable controls', async (
 
   assert.equal(committed.handled, true);
   assert.deepEqual(runtime.getState(), { active: 'action' });
-  assert.deepEqual(runtime.frame().focusPath, ['stack:1:1', 'action']);
+  assert.deepEqual(runtime.frame().focusPath, ['stack:0', 'action']);
   assert.equal(action?.role, 'button');
   assert.equal(action?.focused, true);
   assert.match(renderFramePlain(runtime.frame()), /Action action/);
@@ -1589,7 +1628,7 @@ test('TUI runtime traverses focus backward with shifted tab', async () => {
   assert.equal(backward.handled, true);
   assert.equal(committed.handled, true);
   assert.deepEqual(runtime.getState(), { active: 'first' });
-  assert.deepEqual(runtime.frame().focusPath, ['stack:1:1', 'first']);
+  assert.deepEqual(runtime.frame().focusPath, ['stack:0', 'first']);
 });
 
 test('TUI runtime respects explicit focus order and disabled focus targets', async () => {
@@ -1635,7 +1674,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
   assert.equal(first.handled, true);
   assert.equal(tab.handled, true);
   assert.equal(second.handled, true);
-  assert.deepEqual(runtime.frame().focusPath, ['stack:1:1', 'later']);
+  assert.deepEqual(runtime.frame().focusPath, ['stack:0', 'later']);
   assert.deepEqual(runtime.getState(), { active: 'later' });
 });
 
@@ -1662,7 +1701,7 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
 
   assert.equal(modalTab.handled, true);
   assert.equal(modalEnter.handled, true);
-  assert.deepEqual(modalRuntime.frame().focusPath, ['stack:1:1', 'dialog', 'dialog-field']);
+  assert.deepEqual(modalRuntime.frame().focusPath, ['stack:0', 'dialog', 'dialog-field']);
   assert.deepEqual(modalRuntime.frame().accessibility.root.children?.[1]?.scope, {
     kind: 'modal',
     trapsFocus: true,
@@ -1694,7 +1733,7 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
   const popoverEnter = await popoverRuntime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
 
   assert.equal(popoverEnter.handled, true);
-  assert.deepEqual(popoverRuntime.frame().focusPath, ['stack:1:1', 'popover', 'popover-field']);
+  assert.deepEqual(popoverRuntime.frame().focusPath, ['stack:0', 'popover', 'popover-field']);
   assert.deepEqual(popoverRuntime.frame().accessibility.root.children?.[1]?.scope, {
     kind: 'popover',
     trapsFocus: true
@@ -1779,8 +1818,8 @@ test('TUI runtime focuses top-layer context menus and open dropdowns', async () 
 
 test('TUI runtime traverses multiple custom focus targets within one widget', async () => {
   const renderer = {
-    render({ buffer, layoutNode }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{ text: 'AB' }]);
+    render({ buffer, bounds }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'AB' }]);
     },
     accessibility({ id, focused }) {
       return {
@@ -1860,7 +1899,7 @@ test('TUI frame accessibility uses widget metadata and marks only the active foc
   const tableNode = snapshot.root.children[2];
 
   assert.equal(snapshot.source, 'tui');
-  assert.deepEqual(snapshot.focusPath, ['stack:1:1', 'choices']);
+  assert.deepEqual(snapshot.focusPath, ['stack:0', 'choices']);
   assert.equal(first?.label, 'First field');
   assert.equal(first?.description, 'Primary input');
   assert.equal(first?.focused, undefined);
@@ -2202,8 +2241,8 @@ test('TUI pointer click activates once on left release and ignores right click o
 
 test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages', async () => {
   const renderer = {
-    render({ layoutNode, buffer }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{ text: 'pointer lifecycle' }]);
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'pointer lifecycle' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'pointer lifecycle' };
@@ -2261,8 +2300,8 @@ test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages',
 
 test('TUI pointer hover emits enter leave and hover when crossing targets', async () => {
   const renderer = {
-    render({ layoutNode, buffer }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{ text: 'left  right' }]);
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'left  right' }]);
     },
     accessibility({ id }) {
       return { id, role: 'group', label: 'hover lifecycle' };
@@ -2326,8 +2365,8 @@ test('TUI pointer hover emits enter leave and hover when crossing targets', asyn
 
 test('TUI pointer targets receive event-aware messages and horizontal wheel deltas', async () => {
   const renderer = {
-    render({ layoutNode, buffer }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{ text: 'pointer target' }]);
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'pointer target' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'pointer target' };
@@ -2374,8 +2413,8 @@ test('TUI pointer targets receive event-aware messages and horizontal wheel delt
 
 test('TUI wheel routing skips non-scroll child targets and reaches scroll owner', async () => {
   const renderer = {
-    render({ layoutNode, buffer }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{ text: 'child inside scroll owner' }]);
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'child inside scroll owner' }]);
     },
     accessibility({ id }) {
       return { id, role: 'group', label: 'scroll owner' };
@@ -3024,8 +3063,8 @@ test('TUI routed context menu scroll events use fixed title chrome and shared sc
 
 test('TUI pointer drag routes to the captured origin target', async () => {
   const renderer = {
-    render({ layoutNode, buffer }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{ text: 'drag target' }]);
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'drag target' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'drag target' };

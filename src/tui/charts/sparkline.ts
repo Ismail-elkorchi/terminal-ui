@@ -1,5 +1,5 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
-import type { RenderNode } from '../../render-node/index.ts';
+import type { RenderNodeOfKind } from '../../render-node/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import {
   chartSeriesStyle,
@@ -11,19 +11,19 @@ import {
 import { numberProp } from '../render-node-props.ts';
 import type { RenderBlock } from '../render-primitives.ts';
 import { normalizeValueScale, valueScaleStyle } from '../value-scale.ts';
-import { cleanLabel, numberArray, rangeFor, sparkGlyph } from './support.ts';
+import { cleanLabel, numberArray, rangeFor, sparkGlyph } from './support/values.ts';
 
-export function sparklineBlock(widget: RenderNode, theme: TerminalTheme): RenderBlock {
-  const values = numberArray(widget.props['values']);
+export function sparklineBlock(widget: SparklineNode, theme: TerminalTheme): RenderBlock {
+  const values = numberArray(widget.props.values);
   const state = chartStateBlock(widget, 'sparkline', theme, {
     empty: values.length === 0,
     emptyText: chartStateDescription(widget, 'No sparkline data'),
-    loadingText: cleanLabel(widget.props['loadingText']),
-    errorText: cleanLabel(widget.props['errorText'])
+    loadingText: cleanLabel(widget.props.loadingText),
+    errorText: cleanLabel(widget.props.errorText)
   });
   if (state !== undefined) return state;
   const range = rangeFor(values, numberProp(widget, 'min'), numberProp(widget, 'max'));
-  const scale = normalizeValueScale(widget.props['valueScale']);
+  const scale = normalizeValueScale(widget.props.valueScale);
   return {
     lines: [{
       spans: values.map((value, index) => chartSpan(
@@ -38,12 +38,12 @@ export function sparklineBlock(widget: RenderNode, theme: TerminalTheme): Render
   };
 }
 
-export function sparklineText(widget: RenderNode, theme: TerminalTheme): string {
+export function sparklineText(widget: SparklineNode, theme: TerminalTheme): string {
   return chartTextFromBlock(sparklineBlock(widget, theme));
 }
 
-export function sparklineAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
-  const values = numberArray(widget.props['values']);
+export function sparklineAccessibleBase(widget: SparklineNode, id: string): AccessibleNode {
+  const values = numberArray(widget.props.values);
   return {
     id,
     role: 'text',
@@ -52,3 +52,4 @@ export function sparklineAccessibleBase(widget: RenderNode, id: string): Accessi
     description: `${String(values.length)} sparkline points.`
   };
 }
+type SparklineNode = RenderNodeOfKind<unknown, 'sparkline'>;

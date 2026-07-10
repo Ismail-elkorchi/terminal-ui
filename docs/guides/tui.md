@@ -68,15 +68,30 @@ same reducer/render path directly. `runtime.start()` initializes the app and
 returns the committed initial `Frame`; completion remains available through
 `runtime.exit()` and `runTui()`.
 
-Subscriptions are async event sources, not one-shot dispatch commands. A
-subscription returns stable `id` values plus async `messages(context)` iterables.
-The runtime starts a source once for a stable id, serializes every emitted
-message through `runtime.dispatch()`, and aborts/disposes sources when they
-leave the subscription set or when the TUI exits.
+`init()` and `update()` are synchronous state transitions. Asynchronous work
+is returned as a typed effect; its result is dispatched later as an ordinary
+application message. Effects have stable ids, receive an abort signal, report
+failures as diagnostics, and may map failures back to a message through
+`onError`. Promises therefore stay outside the serialized state-transition
+critical section.
+
+Subscriptions are async event sources, not one-shot effects. A source returns a
+stable `id`, an explicit `delivery` policy, and an async
+`messages(context)` iterable. `sequential` preserves every message in order.
+`latest` bounds backlog by replacing a pending uncommitted message with the
+newest value while a render commit is in progress. Source failures become
+diagnostics and may produce a caller-owned lifecycle message through
+`onLifecycle`. The runtime starts a source once for a stable id and
+aborts/disposes it when it leaves the subscription set or when the TUI exits.
 
 `runtime.dispatch(message)` is also the canonical external entry point for
 custom event loops. Dispatches are serialized, so stream events, timers, input,
 signals, and app-triggered messages cannot overlap render commits.
+
+Anonymous layout nodes receive deterministic structural identities based on
+their parent path, kind, and sibling ordinal. That identity survives viewport
+resizes. Components whose focus or interaction state must survive sibling
+reordering still need an explicit top-level `id`.
 
 Scrollable components share the same `ScrollState`, `scrollReducer()`, and
 `applyScrollEvent()` primitives. Use `scrollReducer()` for direct keyboard or
@@ -221,6 +236,9 @@ such as search matches; selection remains visually stronger. `wrap: true` or
 with the same scroll state, scrollbar, cursor, and accessibility contracts. The
 cursor uses the generic `input.cursor` token in frame metadata. The component does
 not own editing policy, syntax highlighting, file paths, or language semantics.
+Use `onEdit` to map standard Enter, deletion, cursor-motion, Home, End,
+Page Up, and Page Down operations into application messages. Explicit local
+`keys` may override those generated bindings.
 
 Executable example:
 

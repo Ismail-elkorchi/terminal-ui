@@ -87,7 +87,8 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
   assert.doesNotMatch(behavior, /const\s+widgetRenderers\s*=/u);
   assert.doesNotMatch(behavior, /satisfies Record<BuiltinRenderNodeKind, RenderNodeRenderer>/u);
   assert.doesNotMatch(behavior, /from\s+['"]\.\/(?:forms|charts|menu-widgets|drawing-widgets|table|data-widgets|palette|command-bar|progress-widget|structured-block)(?:\/index)?['"]/u);
-  assert.match(registry, /satisfies Record<BuiltinRenderNodeKind, RenderNodeRenderer>/u);
+  assert.match(registry, /type BuiltinRendererRegistry = \{[\s\S]*RenderNodeRenderer<unknown, TKind>/u);
+  assert.match(registry, /satisfies BuiltinRendererRegistry/u);
   assert.doesNotMatch(registry, /custom:\s*\{\s*\}/u);
   assert.doesNotMatch(registry, /\?\.\(widget,\s*node,\s*id,\s*focused\)/u);
 
@@ -408,8 +409,8 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(commandVisual, /from '\.\/text-highlight\.ts'/u);
   assert.match(commandSurface, /\bmoveWordLeft\b/u);
   assert.match(commandSurface, /\bselectAll\b/u);
-  assert.match(formWidgets, /from '\.\.\/text-display\.ts'/u);
-  assert.match(formWidgets, /from '\.\.\/input-visual\.ts'/u);
+  assert.match(formWidgets, /from '\.\.\/\.\.\/text-display\.ts'/u);
+  assert.match(formWidgets, /from '\.\.\/\.\.\/input-visual\.ts'/u);
   assert.match(formWidgets, /from '\.\.\/form-visual\.ts'/u);
   assert.match(formVisual, /\bformSpan\b/u);
   assert.match(formVisual, /\boptionControlState\b/u);
@@ -592,7 +593,7 @@ test('custom renderers can render only through buffer-scoped renderer inputs', a
     widgetTypes.indexOf('export interface CanvasOptions'),
     widgetTypes.indexOf('export interface SurfaceOptions')
   );
-  assert.match(customWidgetTypes, /readonly renderer: RenderNodeRenderer<TMessage>;/u);
+  assert.match(customWidgetTypes, /readonly renderer: CustomRenderer<TState, TMessage>;/u);
   assert.doesNotMatch(customWidgetTypes, /\breadonly painter\b/u);
   assert.match(canvasOptionTypes, /readonly painter: CanvasPainter;/u);
   assert.doesNotMatch(canvasOptionTypes, /\breadonly renderer\b/u);

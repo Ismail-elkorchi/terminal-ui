@@ -51,10 +51,13 @@ export async function runTuiInputLoop<TState, TMessage>(
   if (explicitExit !== undefined) return explicitExit;
   const state = runtime.getState();
   const frame = runtime.frame();
-  if (state !== undefined && frame !== undefined) return completedExit(state, frame);
+  if (state !== undefined && frame !== undefined) {
+    return { ...completedExit(state, frame), diagnostics: runtime.diagnostics() };
+  }
   return {
     status: 'error',
     diagnostics: [
+      ...runtime.diagnostics(),
       diagnostic('TUI_RENDER_FAILED', 'TUI input loop ended before the runtime produced a frame.', {
         target: runtime.app.id
       })
@@ -84,7 +87,7 @@ async function handleTuiSignal<TState, TMessage>(
       snapshot: tuiSnapshot(runtime.app.id)
     };
   }
-  return exitWithStatus('interrupted', state, frame);
+  return { ...exitWithStatus('interrupted', state, frame), diagnostics: runtime.diagnostics() };
 }
 
 interface SignalQueue {

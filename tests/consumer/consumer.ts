@@ -1,25 +1,75 @@
-import { createScrollState, scrollReducer } from '@ismail-elkorchi/terminal-ui/behavior';
-import { button, text, type Element } from '@ismail-elkorchi/terminal-ui/components';
+import {
+  commandBarReducer,
+  createScrollState,
+  scrollReducer
+} from '@ismail-elkorchi/terminal-ui/behavior';
+import {
+  button,
+  commandBar,
+  table,
+  text,
+  tree,
+  type CommandBarAction,
+  type Element
+} from '@ismail-elkorchi/terminal-ui/components';
 import { stack, surface } from '@ismail-elkorchi/terminal-ui/layout';
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import { defineTui } from '@ismail-elkorchi/terminal-ui/tui';
 
 type Message =
   | { readonly kind: 'increment' }
-  | { readonly kind: 'scroll' };
+  | { readonly kind: 'selectRow'; readonly id: number }
+  | { readonly kind: 'selectNode'; readonly id: string }
+  | { readonly kind: 'command'; readonly action: CommandBarAction }
+  | { readonly kind: 'submit' };
 
 interface State {
   readonly count: number;
 }
 
 function view(state: State): Element<Message> {
-  return surface<Message>(stack<Message>([
+  const increment: Element<{ readonly kind: 'increment' }> = button({
+    id: 'increment',
+    label: 'Increment',
+    onPress: { kind: 'increment' } as const
+  });
+  const processes: Element<{ readonly kind: 'selectRow'; readonly id: number }> = table({
+    rows: [{ id: 7, name: 'worker' }],
+    columns: [
+      { id: 'id', header: 'ID', value: (row) => row.id },
+      { id: 'name', header: 'Name', value: (row) => row.name }
+    ],
+    onSelect: ({ row }) => ({ kind: 'selectRow' as const, id: row.id })
+  });
+  const files: Element<{ readonly kind: 'selectNode'; readonly id: string }> = tree({
+    nodes: [{ id: 'src', label: 'src' }],
+    onSelect: (node) => ({ kind: 'selectNode' as const, id: node.id })
+  });
+  const commands: Element<
+    | { readonly kind: 'command'; readonly action: CommandBarAction }
+    | { readonly kind: 'submit' }
+  > = commandBar({
+    value: '',
+    onAction: (action) => ({ kind: 'command' as const, action }),
+    onSubmit: { kind: 'submit' as const }
+  });
+  const content: Element<Message> = stack([
     text(`Count: ${String(state.count)}`, { id: 'count', textRole: 'metric' }),
-    button<Message>({ id: 'increment', label: 'Increment', onPress: { kind: 'increment' } })
+    increment,
+    processes,
+    files,
+    commands
   ], {
     id: 'content',
-    sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }]
-  }), { id: 'root', variant: 'raised' });
+    sizes: [
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 2 },
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: 1 }
+    ]
+  });
+  return surface(content, { id: 'root', variant: 'raised' });
 }
 
 const app = defineTui<State, Message>({
@@ -35,13 +85,19 @@ const scroll = scrollReducer(createScrollState({
   contentRows: 20,
   viewportRows: 5
 }), { kind: 'scrollLines', rows: 2 });
+const command = commandBarReducer({
+  input: { text: '', cursor: 0 },
+  history: [],
+  suggestions: []
+}, { kind: 'insert', text: 'open' });
 const output = renderFramePlain(renderElementFrame(view({ count: 1 }), {
-  columns: 24,
-  rows: 4
+  columns: 40,
+  rows: 8
 }));
 
 if (app.id !== 'packed-consumer') throw new Error('The TUI entrypoint did not create the app.');
 if (scroll.offsetRow !== 2) throw new Error('The behavior entrypoint did not update controlled state.');
+if (command.input.text !== 'open') throw new Error('The behavior entrypoint did not update command state.');
 if (!output.includes('Count: 1') || !output.includes('Increment')) {
   throw new Error(`The packed renderer output was incomplete: ${JSON.stringify(output)}`);
 }

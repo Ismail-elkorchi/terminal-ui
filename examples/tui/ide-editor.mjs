@@ -118,8 +118,19 @@ export function defineIdeEditorApp(options = {}) {
     id: 'ide-editor',
     init: () => initialState(defaultRoot),
     keyBindings: [
-      { id: 'exit', keys: ['ctrlC', 'ctrlQ'], label: 'Exit', message: { kind: 'exit' } },
-      { id: 'escape-palette', keys: ['escape'], phase: 'beforeFocus', enabled: ({ state }) => state.palette.open, message: { kind: 'closePalette' } }
+      {
+        id: 'exit',
+        triggers: [{ kind: 'key', key: 'ctrlC' }, { kind: 'key', key: 'ctrlQ' }],
+        label: 'Exit',
+        message: { kind: 'exit' }
+      },
+      {
+        id: 'escape-palette',
+        triggers: [{ kind: 'key', key: 'escape' }],
+        phase: 'beforeFocus',
+        enabled: ({ state }) => state.palette.open,
+        message: { kind: 'closePalette' }
+      }
     ],
     update: updateIde,
     view: ideView,
@@ -156,7 +167,7 @@ function initialState(rootPath) {
   };
 }
 
-async function updateIde(state, message) {
+function updateIde(state, message) {
   switch (message.kind) {
     case 'tick':
       return withState({ ...state, ticks: state.ticks + 1 });
@@ -220,6 +231,7 @@ async function updateIde(state, message) {
     case 'exit':
       return { state, exit: { reason: 'user requested exit' } };
   }
+  throw new Error(`Unsupported IDE message: ${String(message?.kind)}`);
 }
 
 function withState(state) {
@@ -454,7 +466,7 @@ function editorPanel(state, buffer) {
         placeholder: 'Write here...',
         onScroll: (event) => ({ kind: 'scrollActive', event }),
         onInput: (value) => ({ kind: 'editActive', action: { kind: 'insert', text: value } }),
-        keys: textAreaKeyMap()
+        onEdit: (action) => ({ kind: 'editActive', action })
       })),
       footer: helpBar({
         id: 'editor-help',
@@ -514,9 +526,12 @@ function inspectorPane(state, context) {
       emptyText: 'No open buffers',
       stickyHeader: true,
       columns: [
-        { header: '', width: { kind: 'fixed', cells: 2 } },
-        { header: 'Buffer', width: { kind: 'fill' } },
-        { header: 'Size', width: { kind: 'fixed', cells: 10 } }
+        {
+          id: 'column-0', value: (row) => Array.isArray(row) ? row[0] : row, header: '', width: { kind: 'fixed', cells: 2 } },
+        {
+          id: 'buffer-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Buffer', width: { kind: 'fill' } },
+        {
+          id: 'size-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Size', width: { kind: 'fixed', cells: 10 } }
       ],
       onSelect: ({ rowIndex }) => ({ kind: 'setActiveBuffer', path: state.openOrder[rowIndex] ?? state.activePath ?? '', source: 'pointer' })
     }),
@@ -608,22 +623,6 @@ function paletteOverlay(state) {
       focus: { scope: 'contain' }
     }
   });
-}
-
-function textAreaKeyMap() {
-  return {
-    enter: { kind: 'editActive', action: { kind: 'insert', text: '\n' } },
-    backspace: { kind: 'editActive', action: { kind: 'deleteBackward' } },
-    delete: { kind: 'editActive', action: { kind: 'deleteForward' } },
-    arrowLeft: { kind: 'editActive', action: { kind: 'moveLeft' } },
-    arrowRight: { kind: 'editActive', action: { kind: 'moveRight' } },
-    arrowUp: { kind: 'editActive', action: { kind: 'moveLineUp' } },
-    arrowDown: { kind: 'editActive', action: { kind: 'moveLineDown' } },
-    home: { kind: 'editActive', action: { kind: 'moveHome' } },
-    end: { kind: 'editActive', action: { kind: 'moveEnd' } },
-    pageUp: { kind: 'editActive', action: { kind: 'movePageUp' } },
-    pageDown: { kind: 'editActive', action: { kind: 'movePageDown' } }
-  };
 }
 
 function handleMenu(state, action) {
@@ -949,6 +948,9 @@ function loadWorkspace(inputPath) {
   };
 }
 
+/**
+ * @returns {import('@ismail-elkorchi/terminal-ui/components').TreeNode}
+ */
 function directoryNode(rootPath, directoryPath, expanded = false, children) {
   return {
     id: nodeId('dir', directoryPath),
@@ -962,6 +964,9 @@ function directoryNode(rootPath, directoryPath, expanded = false, children) {
   };
 }
 
+/**
+ * @returns {{ readonly nodes: readonly import('@ismail-elkorchi/terminal-ui/components').TreeNode[]; readonly omitted: number }}
+ */
 function directoryChildren(rootPath, directoryPath) {
   let entries;
   try {
@@ -1146,12 +1151,12 @@ export async function runScriptedIdeEditor() {
 
   try {
     await runtime.start();
-    await runtime.handleInput({ kind: 'text', text: '/open notes/readme.txt' });
+    await runtime.handleInput({ kind: 'text', text: '/open notes/readme.txt', paste: false });
     await runtime.handleInput(keyEvent('enter'));
     await focusUntil(runtime, 'ide-editor-text');
     await runtime.handleInput(keyEvent('end'));
     await runtime.handleInput(keyEvent('enter'));
-    await runtime.handleInput({ kind: 'text', text: 'Edited from scripted IDE.' });
+    await runtime.handleInput({ kind: 'text', text: 'Edited from scripted IDE.', paste: false });
 
     const saveTarget = targetById(runtime, 'ide-menu:save');
     await click(runtime, saveTarget);
@@ -1168,10 +1173,11 @@ export async function runScriptedIdeEditor() {
 
     const paletteTarget = targetById(runtime, 'ide-menu:palette');
     await click(runtime, paletteTarget);
-    await runtime.handleInput({ kind: 'text', text: 'save' });
+    await runtime.handleInput({ kind: 'text', text: 'save', paste: false });
     const paletteQuery = runtime.getState().palette.query;
 
     const frame = runtime.frame();
+    if (frame === undefined) throw new Error('The scripted IDE did not render a frame.');
     const state = runtime.getState();
     return {
       status: 'ok',
@@ -1231,12 +1237,19 @@ function mouseEvent(action, target, button) {
   };
 }
 
+/**
+ * @param {import('@ismail-elkorchi/terminal-ui/input').KeyName} key
+ * @returns {import('@ismail-elkorchi/terminal-ui/input').KeyEvent}
+ */
 function keyEvent(key) {
   return {
     kind: 'key',
     key,
     sequence: '',
-    modifiers: { shift: false, alt: false, ctrl: false }
+    shift: false,
+    alt: false,
+    ctrl: false,
+    meta: false
   };
 }
 

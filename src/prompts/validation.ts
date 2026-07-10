@@ -1,14 +1,14 @@
 import { diagnostic } from '../diagnostics.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalHost } from '../host/index.ts';
-import type { PromptDefinition } from './types.ts';
+import type { PromptValueContract } from './types.ts';
 
 export type PromptValidationOutcome =
   | { readonly ok: true }
   | { readonly ok: false; readonly diagnostic: TerminalDiagnostic };
 
 export interface PromptValidationRequest<TValue> {
-  readonly prompt: PromptDefinition<TValue>;
+  readonly prompt: PromptValueContract<TValue>;
   readonly value: TValue;
   readonly host?: TerminalHost;
   readonly signal?: AbortSignal;
@@ -60,7 +60,7 @@ function isEmptyRequiredValue(value: unknown): boolean {
 }
 
 function redactPromptSecret<TValue>(
-  prompt: PromptDefinition<TValue>,
+  prompt: PromptValueContract<TValue>,
   value: TValue,
   text: string
 ): string {

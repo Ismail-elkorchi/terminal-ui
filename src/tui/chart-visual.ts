@@ -1,4 +1,4 @@
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNodeOfKind } from '../render-node/index.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { ProcessStatus } from '../components/contracts.ts';
@@ -12,6 +12,10 @@ import { mergeStyles, themeStyle } from './render-node-style.ts';
 
 export type ChartSurfaceKind = 'sparkline' | 'barChart' | 'chart' | 'gauge' | 'heatmap';
 export type ChartStateKind = 'empty' | 'loading' | 'error';
+type ChartVisualNode = {
+  readonly [TKind in ChartSurfaceKind]: RenderNodeOfKind<unknown, TKind>;
+}[ChartSurfaceKind];
+type ChartDataNode = Exclude<ChartVisualNode, RenderNodeOfKind<unknown, 'gauge'>>;
 export type ChartVisualKind =
   | 'area'
   | 'axis'
@@ -41,7 +45,7 @@ export function chartStatus(value: unknown): ProcessStatus | undefined {
 }
 
 export function chartStateBlock(
-  widget: RenderNode,
+  widget: ChartDataNode,
   kind: ChartSurfaceKind,
   theme: TerminalTheme,
   input: {
@@ -51,7 +55,7 @@ export function chartStateBlock(
     readonly errorText?: string;
   }
 ): RenderBlock | undefined {
-  const status = chartStatus(widget.props['status']);
+  const status = chartStatus(widget.props.status);
   if (status === 'running') {
     return chartMessageBlock(widget, kind, 'loading', theme, input.loadingText, 'Loading data');
   }
@@ -71,7 +75,7 @@ export function chartTextFromBlock(currentBlock: RenderBlock): string {
 }
 
 export function chartSpan(
-  widget: RenderNode,
+  widget: ChartVisualNode,
   kind: ChartSurfaceKind,
   visual: ChartVisualKind,
   label: string,
@@ -85,7 +89,7 @@ export function chartSpan(
 }
 
 export function chartSource(
-  widget: RenderNode,
+  widget: ChartVisualNode,
   kind: ChartSurfaceKind,
   visual: ChartVisualKind,
   label: string
@@ -99,15 +103,15 @@ export function chartSource(
   });
 }
 
-export function chartLabelStyle(widget: RenderNode): TerminalStyle | undefined {
+export function chartLabelStyle(widget: ChartVisualNode): TerminalStyle | undefined {
   return mergeStyles(themeStyle('chart.label'), widget.styles?.label);
 }
 
-export function chartValueStyle(widget: RenderNode): TerminalStyle | undefined {
+export function chartValueStyle(widget: ChartVisualNode): TerminalStyle | undefined {
   return mergeStyles(themeStyle('chart.value'), widget.styles?.value);
 }
 
-export function chartSelectedStyle(widget: RenderNode): TerminalStyle | undefined {
+export function chartSelectedStyle(widget: ChartVisualNode): TerminalStyle | undefined {
   return mergeStyles(
     {
       fg: { kind: 'theme', token: 'selection.foreground' },
@@ -118,30 +122,30 @@ export function chartSelectedStyle(widget: RenderNode): TerminalStyle | undefine
   );
 }
 
-export function chartPlaceholderStyle(widget: RenderNode): TerminalStyle | undefined {
+export function chartPlaceholderStyle(widget: ChartVisualNode): TerminalStyle | undefined {
   return mergeStyles(themeStyle('chart.muted', { dim: true }), widget.styles?.placeholder);
 }
 
-export function chartAxisStyle(widget: RenderNode): TerminalStyle | undefined {
+export function chartAxisStyle(widget: ChartVisualNode): TerminalStyle | undefined {
   return mergeStyles(themeStyle('chart.axis', { dim: true }), widget.styles?.border);
 }
 
-export function chartBaselineStyle(widget: RenderNode): TerminalStyle | undefined {
+export function chartBaselineStyle(widget: ChartVisualNode): TerminalStyle | undefined {
   return mergeStyles(themeStyle('chart.baseline', { dim: true }), widget.styles?.border);
 }
 
-export function chartPolarityStyle(widget: RenderNode, polarity: 'positive' | 'negative'): TerminalStyle | undefined {
+export function chartPolarityStyle(widget: ChartVisualNode, polarity: 'positive' | 'negative'): TerminalStyle | undefined {
   return mergeStyles(
     themeStyle(polarity === 'positive' ? 'chart.positive' : 'chart.negative', { bold: true }),
     widget.styles?.value
   );
 }
 
-export function chartSeriesStyle(widget: RenderNode, index: number): TerminalStyle | undefined {
+export function chartSeriesStyle(widget: ChartVisualNode, index: number): TerminalStyle | undefined {
   return mergeStyles(themeStyle(chartSeriesToken(index), { bold: true }), widget.styles?.value);
 }
 
-export function chartHeatmapStyle(widget: RenderNode, intensity: number, selected: boolean): TerminalStyle | undefined {
+export function chartHeatmapStyle(widget: ChartVisualNode, intensity: number, selected: boolean): TerminalStyle | undefined {
   if (selected) return chartSelectedStyle(widget);
   if (intensity <= 0) return chartPlaceholderStyle(widget);
   return mergeStyles(
@@ -152,7 +156,7 @@ export function chartHeatmapStyle(widget: RenderNode, intensity: number, selecte
   );
 }
 
-export function chartMetricStyle(widget: RenderNode, status?: ProcessStatus): TerminalStyle | undefined {
+export function chartMetricStyle(widget: ChartVisualNode, status?: ProcessStatus): TerminalStyle | undefined {
   if (status === undefined || status === 'idle' || status === 'running') {
     return chartSeriesStyle(widget, 0);
   }
@@ -169,12 +173,12 @@ function chartSeriesToken(index: number): 'chart.series.1' | 'chart.series.2' | 
   return 'chart.series.1';
 }
 
-export function chartStateDescription(widget: RenderNode, fallback: string): string {
-  return cleanStateText(widget.props['emptyText'], fallback);
+export function chartStateDescription(widget: ChartDataNode, fallback: string): string {
+  return cleanStateText(widget.props.emptyText, fallback);
 }
 
 function chartMessageBlock(
-  widget: RenderNode,
+  widget: ChartVisualNode,
   kind: ChartSurfaceKind,
   state: ChartStateKind,
   theme: TerminalTheme,

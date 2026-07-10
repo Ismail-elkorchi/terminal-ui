@@ -21,17 +21,17 @@ import {
 
 test('custom renderers render through required renderer contract', () => {
   const renderer = {
-    render({ renderNode, layoutNode, buffer }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{
-        text: stateLabel(renderNode.custom?.state),
+    render({ state, bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{
+        text: state.label,
         style: { bold: true }
       }]);
     },
-    accessibility({ renderNode, id, focused }) {
+    accessibility({ state, id, focused }) {
       return {
         id,
         role: 'button',
-        label: stateLabel(renderNode.custom?.state),
+        label: state.label,
         ...(focused ? { focused } : {})
       };
     },
@@ -58,8 +58,8 @@ test('custom renderers render through required renderer contract', () => {
 
 test('custom renderer output preserves metadata and sanitizes terminal controls', () => {
   const renderer = {
-    render({ layoutNode, buffer }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{
         text: '\u001B[31mUnsafe\u001B[0m red \u0007text',
         link: { href: 'https://example.test/\u001B[31mred', id: '\u001B[31mlink' },
         source: {
@@ -100,8 +100,8 @@ test('custom renderer output preserves metadata and sanitizes terminal controls'
 
 test('custom renderer hit targets route mouse messages', async () => {
   const renderer = {
-    render({ layoutNode, buffer }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{ text: 'hit' }]);
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'hit' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'hit' };
@@ -151,8 +151,8 @@ test('custom renderer measurement participates in content track layout', () => {
           preferredHeight: 2
         };
       },
-      render({ layoutNode, buffer }) {
-        buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{ text: 'custom' }]);
+      render({ bounds, buffer }) {
+        buffer.write(bounds.row, bounds.column, [{ text: 'custom' }]);
       },
       accessibility({ id }) {
         return { id, role: 'text', label: 'custom' };
@@ -195,8 +195,8 @@ test('malformed custom renderers fail as programmer errors', () => {
 
 test('custom renderer focus targets require stable ids', () => {
   const renderer = {
-    render({ layoutNode, buffer }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{ text: 'focus' }]);
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'focus' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'focus' };
@@ -214,8 +214,8 @@ test('custom renderer focus targets require stable ids', () => {
 
 test('custom renderers must provide accessibility unless explicitly decorative', () => {
   const visualRenderer = {
-    render({ layoutNode, buffer }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{ text: 'decor' }]);
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'decor' }]);
     }
   };
   const accessibleFrame = renderElementFrame(stack([
@@ -237,8 +237,8 @@ test('custom renderers must provide accessibility unless explicitly decorative',
 
 test('decorative custom renderers cannot expose interaction targets', () => {
   const interactiveRenderer = {
-    render({ layoutNode, buffer }) {
-      buffer.write(layoutNode.bounds.row, layoutNode.bounds.column, [{ text: 'button' }]);
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'button' }]);
     },
     hitTargets({ bounds }) {
       return [{ id: 'press', bounds, message: () => ({ pressed: true }) }];
@@ -254,11 +254,6 @@ test('decorative custom renderers cannot expose interaction targets', () => {
     /Decorative custom renderers cannot expose focus or hit targets/u
   );
 });
-
-function stateLabel(state) {
-  if (state === null || typeof state !== 'object' || !('label' in state)) return '';
-  return typeof state.label === 'string' ? state.label : '';
-}
 
 function assertNoTerminalControls(value) {
   if (typeof value === 'string') {

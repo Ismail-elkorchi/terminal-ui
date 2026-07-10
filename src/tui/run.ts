@@ -77,7 +77,7 @@ export async function runTui<TState, TMessage>(
     }
     const restoreDiagnostics = await restoreTuiSession(session, restoreReasonForExit(exit.status));
     recordTuiRestore(transcript, session.initialState);
-    return withTuiTranscript(withDiagnostics(exit, [...setupDiagnostics, ...restoreDiagnostics]), transcript);
+    return withTuiTranscript(withDiagnostics(exit, restoreDiagnostics), transcript);
   } catch (cause) {
     await runtime?.dispose();
     const restoreDiagnostics = await restoreTuiSession(session, 'error');

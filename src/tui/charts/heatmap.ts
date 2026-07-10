@@ -1,5 +1,5 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
-import type { RenderNode } from '../../render-node/index.ts';
+import type { RenderNodeOfKind } from '../../render-node/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import {
   chartPlaceholderStyle,
@@ -15,8 +15,6 @@ import type { HitTarget } from '../render-node-renderer.ts';
 import { normalizeValueScale } from '../value-scale.ts';
 import { visibleWindow } from '../visible-window.ts';
 import {
-  cleanLabel,
-  clipLineSpans,
   heatmapCellSpans,
   heatmapCellWidth,
   heatmapGap,
@@ -26,22 +24,24 @@ import {
   heatmapRows,
   heatmapSelected,
   normalizedIndex
-} from './support.ts';
+} from './support/heatmap.ts';
+import { clipLineSpans } from './support/render-block.ts';
+import { cleanLabel } from './support/values.ts';
 
-export function heatmapBlock(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
-  const rows = heatmapRows(widget.props['rows']);
+export function heatmapBlock(widget: HeatmapNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+  const rows = heatmapRows(widget.props.rows);
   const state = chartStateBlock(widget, 'heatmap', theme, {
     empty: rows.length === 0,
     emptyText: chartStateDescription(widget, 'No heatmap data'),
-    loadingText: cleanLabel(widget.props['loadingText']),
-    errorText: cleanLabel(widget.props['errorText'])
+    loadingText: cleanLabel(widget.props.loadingText),
+    errorText: cleanLabel(widget.props.errorText)
   });
   if (state !== undefined) return state;
   const cellWidth = heatmapCellWidth(widget);
   const gap = heatmapGap(widget);
   const range = heatmapRange(rows, numberProp(widget, 'min'), numberProp(widget, 'max'));
   const selected = heatmapSelected(widget);
-  const scale = normalizeValueScale(widget.props['valueScale']);
+  const scale = normalizeValueScale(widget.props.valueScale);
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
   return {
     lines: rows.slice(rowWindow.start, rowWindow.end).map((row, rowOffset): RenderLine => {
@@ -64,12 +64,12 @@ export function heatmapBlock(widget: RenderNode, node: LayoutNode, theme: Termin
   };
 }
 
-export function heatmapText(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): string {
+export function heatmapText(widget: HeatmapNode, node: LayoutNode, theme: TerminalTheme): string {
   return chartTextFromBlock(heatmapBlock(widget, node, theme));
 }
 
-export function heatmapAccessibleBase(widget: RenderNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
-  const rows = heatmapRows(widget.props['rows']);
+export function heatmapAccessibleBase(widget: HeatmapNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
+  const rows = heatmapRows(widget.props.rows);
   const selected = heatmapSelected(widget);
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
   return {
@@ -81,8 +81,8 @@ export function heatmapAccessibleBase(widget: RenderNode, node: LayoutNode, id: 
   };
 }
 
-export function heatmapAccessibleChildren(widget: RenderNode, node: LayoutNode): readonly AccessibleNode[] {
-  const rows = heatmapRows(widget.props['rows']);
+export function heatmapAccessibleChildren(widget: HeatmapNode, node: LayoutNode): readonly AccessibleNode[] {
+  const rows = heatmapRows(widget.props.rows);
   const selected = heatmapSelected(widget);
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
   return rows.slice(rowWindow.start, rowWindow.end).flatMap((row, rowOffset) => {
@@ -97,10 +97,10 @@ export function heatmapAccessibleChildren(widget: RenderNode, node: LayoutNode):
   });
 }
 
-export function heatmapHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function heatmapHitTargets<TMessage>(widget: HeatmapNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = heatmapMessageFactory(widget);
   if (toMessage === undefined) return [];
-  const rows = heatmapRows(widget.props['rows']);
+  const rows = heatmapRows(widget.props.rows);
   const selected = heatmapSelected(widget);
   const rowWindow = visibleWindow(rows.length, bounds.height, selected?.row ?? 0);
   const cellWidth = heatmapCellWidth(widget);
@@ -125,3 +125,4 @@ export function heatmapHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds
     });
   });
 }
+type HeatmapNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'heatmap'>;

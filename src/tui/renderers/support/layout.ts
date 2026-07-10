@@ -1,4 +1,9 @@
-import type { RenderNode, RenderNodeOverflowPriority } from '../../../render-node/index.ts';
+import type {
+  RenderNode,
+  RenderNodeOfKind,
+  RenderNodesOfKind,
+  RenderNodeOverflowPriority
+} from '../../../render-node/index.ts';
 import { layoutContentBounds, splitTracks } from '../../regions.ts';
 import { emptyRect, isRecord } from './common.ts';
 import type { Rect } from '../../layout.ts';
@@ -13,12 +18,20 @@ import type {
 } from '../../regions.ts';
 import type { Measurement } from '../../measurement.ts';
 
-export function gridChildBounds(widget: RenderNode, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {
-  if (Array.isArray(widget.props['areas'])) {
+type GridNode = RenderNodeOfKind<unknown, 'grid'>;
+type SplitPaneNode = RenderNodeOfKind<unknown, 'splitPane'>;
+type SizedFlowNode = RenderNodesOfKind<unknown, 'row' | 'stack'>;
+type LayoutFlowNode = RenderNodesOfKind<
+  unknown,
+  'field' | 'form' | 'grid' | 'modal' | 'row' | 'splitPane' | 'stack' | 'surface' | 'tabs' | 'viewport'
+>;
+
+export function gridChildBounds(widget: GridNode, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {
+  if (Array.isArray(widget.props.areas)) {
     return gridAreaChildBounds(widget, bounds, childMeasures);
   }
-  const rows = layoutSizes(widget.props['rows']);
-  const columns = layoutSizes(widget.props['columns']);
+  const rows = layoutSizes(widget.props.rows);
+  const columns = layoutSizes(widget.props.columns);
   const resolvedRows = rows.length === 0 ? [{ kind: 'fill' as const }] : rows;
   const resolvedColumns = columns.length === 0 ? [{ kind: 'fill' as const }] : columns;
   const options = gridLayoutOptions(widget);
@@ -46,12 +59,12 @@ export function gridChildBounds(widget: RenderNode, bounds: Rect, childMeasures:
   return (widget.children ?? []).map((_child, index) => cells[index] ?? emptyRect(bounds));
 }
 
-function gridAreaChildBounds(widget: RenderNode, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {
-  const template = gridAreasTemplate(widget.props['areas']);
-  const areaNames = gridAreaNames(widget.props['areaNames']);
+function gridAreaChildBounds(widget: GridNode, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {
+  const template = gridAreasTemplate(widget.props.areas);
+  const areaNames = gridAreaNames(widget.props.areaNames);
   if (template.length === 0 || areaNames.length === 0) return [];
-  const rows = layoutSizes(widget.props['rows']);
-  const columns = layoutSizes(widget.props['columns']);
+  const rows = layoutSizes(widget.props.rows);
+  const columns = layoutSizes(widget.props.columns);
   const options = gridLayoutOptions(widget);
   const contentBounds = layoutContentBounds(bounds, options);
   const rowRects = splitTracks(
@@ -71,11 +84,11 @@ function gridAreaChildBounds(widget: RenderNode, bounds: Rect, childMeasures: re
   return areaNames.map((name) => areaBounds(template, name, rowRects, columnRects) ?? emptyRect(bounds));
 }
 
-export function splitPaneChildBounds(widget: RenderNode, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {
+export function splitPaneChildBounds(widget: SplitPaneNode, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {
   const children = widget.children ?? [];
-  const explicit = layoutSizes(widget.props['sizes']);
+  const explicit = layoutSizes(widget.props.sizes);
   const tracks = explicit.length === children.length ? explicit : children.map(() => ({ kind: 'fill' as const }));
-  const direction = widget.props['direction'] === 'horizontal' ? 'horizontal' : 'vertical';
+  const direction = widget.props.direction === 'horizontal' ? 'horizontal' : 'vertical';
   return splitTracks(bounds, direction, tracks, layoutFlowOptions(widget), childMeasures.map((measure) =>
     direction === 'horizontal' ? measure.preferredWidth : measure.preferredHeight
   ));
@@ -161,9 +174,9 @@ export function fillLayoutSizes(count: number): readonly LayoutSize[] {
   return Array.from({ length: Math.max(0, count) }, () => ({ kind: 'fill' }));
 }
 
-export function childLayoutSizes(widget: RenderNode, fallback?: readonly LayoutSize[]): readonly LayoutSize[] {
+export function childLayoutSizes(widget: SizedFlowNode, fallback?: readonly LayoutSize[]): readonly LayoutSize[] {
   const children = widget.children ?? [];
-  const explicit = layoutSizes(widget.props['sizes']);
+  const explicit = layoutSizes(widget.props.sizes);
   return explicit.length === children.length ? explicit : fallback ?? fillLayoutSizes(children.length);
 }
 
@@ -188,7 +201,7 @@ function overflowPriorityWeight(priority: RenderNodeOverflowPriority | undefined
   }
 }
 
-export function gridLayoutOptions(widget: RenderNode): GridLayoutOptions {
+export function gridLayoutOptions(widget: GridNode): GridLayoutOptions {
   return {
     ...layoutFlowOptions(widget),
     ...optionalNumberProp(widget, 'rowGap'),
@@ -243,7 +256,7 @@ function areaSpan(
   };
 }
 
-export function layoutFlowOptions(widget: RenderNode): LayoutFlowOptions {
+export function layoutFlowOptions(widget: LayoutFlowNode): LayoutFlowOptions {
   return {
     ...optionalNumberProp(widget, 'gap'),
     ...optionalInsetProp(widget, 'padding'),
@@ -258,30 +271,33 @@ export function layoutFlowOptions(widget: RenderNode): LayoutFlowOptions {
   };
 }
 
-function optionalNumberProp(widget: RenderNode, key: string): Record<string, number> {
-  const value = widget.props[key];
+function optionalNumberProp(
+  widget: LayoutFlowNode,
+  key: keyof LayoutFlowOptions | 'columnGap' | 'rowGap'
+): Record<string, number> {
+  const value = Reflect.get(widget.props, key) as unknown;
   return typeof value === 'number' && Number.isFinite(value) ? { [key]: value } : {};
 }
 
-function optionalInsetProp(widget: RenderNode, key: string): Record<string, LayoutInsetInput> {
+function optionalInsetProp(widget: LayoutFlowNode, key: 'padding' | 'margin'): Record<string, LayoutInsetInput> {
   const value = widget.props[key];
   if (typeof value === 'number' && Number.isFinite(value)) return { [key]: value };
   if (!isInsetObject(value)) return {};
   return { [key]: value };
 }
 
-function optionalAlignmentProp(widget: RenderNode): { readonly align?: LayoutAlignment } {
-  const value = widget.props['align'];
+function optionalAlignmentProp(widget: LayoutFlowNode): { readonly align?: LayoutAlignment } {
+  const value = widget.props.align;
   return isLayoutAlignment(value) ? { align: value } : {};
 }
 
-function optionalJustificationProp(widget: RenderNode): { readonly justify?: LayoutJustification } {
-  const value = widget.props['justify'];
+function optionalJustificationProp(widget: LayoutFlowNode): { readonly justify?: LayoutJustification } {
+  const value = widget.props.justify;
   return isLayoutJustification(value) ? { justify: value } : {};
 }
 
-function optionalOverflowProp(widget: RenderNode): { readonly overflow?: LayoutOverflow } {
-  const value = widget.props['overflow'];
+function optionalOverflowProp(widget: LayoutFlowNode): { readonly overflow?: LayoutOverflow } {
+  const value = widget.props.overflow;
   return isLayoutOverflow(value) ? { overflow: value } : {};
 }
 

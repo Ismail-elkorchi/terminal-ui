@@ -20,7 +20,7 @@ export function accessibleNode(
       label: widget.id ?? widget.kind
     };
   }
-  const path = [...parentPath, node.id ?? `${node.kind}:${String(node.bounds.row)}:${String(node.bounds.column)}`];
+  const path = [...parentPath, node.identity];
   const id = widget.id ?? `${widget.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`;
   if (isDecorative(widget.accessibility)) {
     assertDecorativeRenderNodeIsNotInteractive(widget, node, theme);

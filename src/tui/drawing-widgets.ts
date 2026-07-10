@@ -1,6 +1,6 @@
 import { numberProp, stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNodeOfKind } from '../render-node/index.ts';
 import type { CanvasPainterInput } from '../components/options/surfaces.ts';
 import type { Rect } from './layout.ts';
 import type { RenderNodeRenderInput } from './render-node-renderer.ts';
@@ -9,25 +9,29 @@ import { layoutContentBounds } from './regions.ts';
 import { layoutFlowOptions } from './renderers/support/layout.ts';
 import { surfaceChildContentBounds } from './surface.ts';
 
-export function renderCanvas(input: RenderNodeRenderInput): void {
-  const painter = canvasPainter(input.renderNode.props['painter']);
+type CanvasNode = RenderNodeOfKind<unknown, 'canvas'>;
+type SurfaceNode = RenderNodeOfKind<unknown, 'surface'>;
+type AbsoluteNode = RenderNodeOfKind<unknown, 'absolute'>;
+type OverlayNode = RenderNodeOfKind<unknown, 'overlay'>;
+
+export function renderCanvas(input: RenderNodeRenderInput<unknown, 'canvas'>): void {
+  const painter = canvasPainter(input.renderNode.props.painter);
   if (painter === undefined) {
     throw new Error('Canvas widgets must provide a painter.');
   }
   painter({
     canvas: createCanvas2D(input.buffer, input.layoutNode.bounds),
     bounds: input.layoutNode.bounds,
-    theme: input.theme,
-    ...(input.renderNode.props['state'] === undefined ? {} : { state: input.renderNode.props['state'] })
+    theme: input.theme
   });
 }
 
-export function surfaceChildBounds(widget: RenderNode, bounds: Rect): readonly Rect[] {
+export function surfaceChildBounds(widget: SurfaceNode, bounds: Rect): readonly Rect[] {
   const contentBounds = layoutContentBounds(surfaceChildContentBounds(widget, bounds), layoutFlowOptions(widget));
   return (widget.children ?? []).map(() => contentBounds);
 }
 
-export function absoluteChildBounds(widget: RenderNode, bounds: Rect): readonly Rect[] {
+export function absoluteChildBounds(widget: AbsoluteNode, bounds: Rect): readonly Rect[] {
   if ((widget.children ?? []).length === 0) return [];
   const rowOffset = Math.floor(numberProp(widget, 'row') ?? 1);
   const columnOffset = Math.floor(numberProp(widget, 'column') ?? 1);
@@ -44,26 +48,26 @@ export function absoluteChildBounds(widget: RenderNode, bounds: Rect): readonly 
   return [childBounds ?? { row: bounds.row, column: bounds.column, width: 0, height: 0 }];
 }
 
-export function overlayChildBounds(widget: RenderNode, bounds: Rect): readonly Rect[] {
+export function overlayChildBounds(widget: OverlayNode, bounds: Rect): readonly Rect[] {
   return (widget.children ?? []).map(() => bounds);
 }
 
-export function canvasAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
+export function canvasAccessibleBase(widget: CanvasNode, id: string, focused: boolean): AccessibleNode {
   return {
     id,
     role: 'application',
-    label: stringify(widget.props['label']) || id,
+    label: stringify(widget.props.label) || id,
     scope: { kind: 'document' },
     ...(focused ? { focused } : {})
   };
 }
 
-export function surfaceAccessibleBase(widget: RenderNode, id: string, focused: boolean): AccessibleNode {
+export function surfaceAccessibleBase(widget: SurfaceNode, id: string, focused: boolean): AccessibleNode {
   return {
     id,
     role: 'text',
-    label: stringify(widget.props['label']) || id,
-    ...(widget.props['disabled'] === true ? { disabled: true } : {}),
+    label: stringify(widget.props.label) || id,
+    ...(widget.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }

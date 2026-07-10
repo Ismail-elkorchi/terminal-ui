@@ -1,5 +1,5 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
-import type { RenderNode } from '../../render-node/index.ts';
+import type { RenderNodeOfKind } from '../../render-node/index.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import {
@@ -17,15 +17,15 @@ import type { LayoutNode } from '../layout.ts';
 import { numberProp } from '../render-node-props.ts';
 import type { RenderBlock } from '../render-primitives.ts';
 import { visibleWindow } from '../visible-window.ts';
-import { barItems, cleanLabel } from './support.ts';
+import { barItems, cleanLabel } from './support/values.ts';
 
-export function barChartBlock(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
-  const items = barItems(widget.props['items']);
+export function barChartBlock(widget: BarChartNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+  const items = barItems(widget.props.items);
   const state = chartStateBlock(widget, 'barChart', theme, {
     empty: items.length === 0,
     emptyText: chartStateDescription(widget, 'No bars'),
-    loadingText: cleanLabel(widget.props['loadingText']),
-    errorText: cleanLabel(widget.props['errorText'])
+    loadingText: cleanLabel(widget.props.loadingText),
+    errorText: cleanLabel(widget.props.errorText)
   });
   if (state !== undefined) return state;
   const selected = numberProp(widget, 'selected') ?? -1;
@@ -55,12 +55,12 @@ export function barChartBlock(widget: RenderNode, node: LayoutNode, theme: Termi
   };
 }
 
-export function barChartText(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): string {
+export function barChartText(widget: BarChartNode, node: LayoutNode, theme: TerminalTheme): string {
   return chartTextFromBlock(barChartBlock(widget, node, theme));
 }
 
-export function barChartAccessibleBase(widget: RenderNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
-  const items = barItems(widget.props['items']);
+export function barChartAccessibleBase(widget: BarChartNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
+  const items = barItems(widget.props.items);
   const selected = numberProp(widget, 'selected') ?? 0;
   const window = visibleWindow(items.length, node.bounds.height, selected);
   return {
@@ -72,8 +72,8 @@ export function barChartAccessibleBase(widget: RenderNode, node: LayoutNode, id:
   };
 }
 
-export function barChartAccessibleChildren(widget: RenderNode, node: LayoutNode): readonly AccessibleNode[] {
-  const items = barItems(widget.props['items']);
+export function barChartAccessibleChildren(widget: BarChartNode, node: LayoutNode): readonly AccessibleNode[] {
+  const items = barItems(widget.props.items);
   const selected = numberProp(widget, 'selected') ?? -1;
   const window = visibleWindow(items.length, node.bounds.height, selected);
   return items.slice(window.start, window.end).map((item, offset) => {
@@ -87,3 +87,4 @@ export function barChartAccessibleChildren(widget: RenderNode, node: LayoutNode)
     };
   });
 }
+type BarChartNode = RenderNodeOfKind<unknown, 'barChart'>;

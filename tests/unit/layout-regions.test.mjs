@@ -699,7 +699,7 @@ test('focused bordered widgets use focus border style without changing layout', 
   const frame = renderElementFrame(surface(text('inside', { id: 'inside' }), {
     id: 'focus-panel',
     border: { kind: 'single', title: 'Panel' },
-    keys: { Enter: { kind: 'submit' } }
+    keys: { enter: { kind: 'submit' } }
   }), { columns: 12, rows: 3 });
   const topLeft = frame.cells.find((cell) => cell.row === 1 && cell.column === 1);
 
@@ -715,7 +715,7 @@ test('focused bordered widgets respect explicit focus style override', () => {
       title: 'Panel',
       focusStyle: { fg: { kind: 'theme', token: 'status.warning' }, bold: true }
     },
-    keys: { Enter: { kind: 'submit' } }
+    keys: { enter: { kind: 'submit' } }
   }), { columns: 12, rows: 3 });
   const topLeft = frame.cells.find((cell) => cell.row === 1 && cell.column === 1);
 
@@ -856,8 +856,10 @@ test('dropdown renders above table content in a higher region', () => {
     table({
     id: 'settings-table',
     columns: [
-        { header: 'Name', width: 8 },
-        { header: 'Value', width: 8 }
+        {
+          id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 },
+        {
+          id: 'value-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Value', width: 8 }
     ],
     rows: [
         ['Theme', 'System'],

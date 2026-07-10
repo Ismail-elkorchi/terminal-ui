@@ -2,19 +2,18 @@ import { diagnostic } from '../diagnostics.ts';
 import type { TerminalHost } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import { editPromptBufferForEvent, isMultilineText } from './buffer-edit.ts';
-import type { PromptInteractionHooks } from './interaction-hooks.ts';
+import type { PromptInteractionHooks, PromptRenderHook } from './interaction-hooks.ts';
 import { createPromptSnapshot, promptValueForSnapshot } from './snapshot.ts';
 import { completePromptState, type PromptRuntimeState } from './state.ts';
-import { promptValueView } from './value-view.ts';
-import type { PromptDefinition, PromptResult } from './types.ts';
+import type { PromptDefinition, PromptResult, TextPromptDefinition } from './types.ts';
 import { validatePromptValue } from './validation.ts';
 
-export async function applyTextPromptEvent(
-  prompt: PromptDefinition<string>,
+export async function applyTextPromptEvent<TChoice>(
+  prompt: TextPromptDefinition,
   host: TerminalHost,
-  state: PromptRuntimeState,
+  state: PromptRuntimeState<TChoice>,
   event: InputEvent,
-  hooks: PromptInteractionHooks
+  hooks: PromptInteractionHooks<TChoice, TextPromptDefinition, string>
 ): Promise<PromptResult<string> | undefined> {
   if (event.kind === 'key' && event.key === 'enter') {
     return hooks.submit(prompt, state.buffer.text, host, state);
@@ -26,21 +25,21 @@ export async function applyTextPromptEvent(
   return undefined;
 }
 
-export function scheduleInitialValidation<TValue>(
-  prompt: PromptDefinition<TValue>,
+export function scheduleInitialValidation<TChoice>(
+  prompt: PromptDefinition<TChoice>,
   host: TerminalHost,
-  state: PromptRuntimeState,
-  hooks: PromptInteractionHooks
+  state: PromptRuntimeState<TChoice>,
+  hooks: PromptRenderHook<TChoice, PromptDefinition<TChoice>>
 ): void {
   if (prompt.kind !== 'input' && prompt.kind !== 'password') return;
-  scheduleTextValidation(promptValueView(prompt), host, state, hooks);
+  scheduleTextValidation(prompt, host, state, hooks);
 }
 
-function scheduleTextValidation(
-  prompt: PromptDefinition<string>,
+function scheduleTextValidation<TChoice>(
+  prompt: TextPromptDefinition,
   host: TerminalHost,
-  state: PromptRuntimeState,
-  hooks: PromptInteractionHooks
+  state: PromptRuntimeState<TChoice>,
+  hooks: PromptRenderHook<TChoice, TextPromptDefinition>
 ): void {
   if (prompt.validate === undefined && prompt.required !== true) {
     clearValidationState(state);
@@ -73,15 +72,15 @@ function scheduleTextValidation(
   })();
 }
 
-function clearValidationState(state: PromptRuntimeState): void {
+function clearValidationState<TChoice>(state: PromptRuntimeState<TChoice>): void {
   state.validationController?.abort();
   state.validationStatus = 'idle';
   delete state.validationDiagnostic;
 }
 
-function multilinePasteFailure(
-  prompt: PromptDefinition<string>,
-  state: PromptRuntimeState
+function multilinePasteFailure<TChoice>(
+  prompt: TextPromptDefinition,
+  state: PromptRuntimeState<TChoice>
 ): PromptResult<string> {
   completePromptState(state);
   return {

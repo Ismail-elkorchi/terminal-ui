@@ -3,12 +3,12 @@ import type { ProgressState } from './types.ts';
 
 export function progressDisplayLine(progress: ProgressState): string {
   const label = progress.label.length === 0 ? 'Progress' : progress.label;
-  const bar = progress.indeterminate || progress.value === undefined
+  const bar = progress.kind === 'indeterminate'
     ? '[----------]'
-    : progressBar(progress.value, progress.max ?? 100);
-  const value = progress.indeterminate || progress.value === undefined
+    : progressBar(progress.value, progress.max);
+  const value = progress.kind === 'indeterminate'
     ? ''
-    : ` ${String(progress.value)}/${String(progress.max ?? 100)}`;
+    : ` ${String(progress.value)}/${String(progress.max)}`;
   const status = progress.status === undefined ? '' : ` ${progress.status}`;
   return sanitizeTerminalText(`${label} ${bar}${value}${status}`).text;
 }

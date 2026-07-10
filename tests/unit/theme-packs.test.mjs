@@ -126,7 +126,9 @@ test('theme matrix snapshots cover core widgets with packs high contrast and no 
       }),
       table({
         id: `table-${theme.name}`,
-        columns: [{ id: 'key', header: 'Key' }, { id: 'value', header: 'Value' }],
+        columns: [{
+          value: (row) => Array.isArray(row) ? row[0] : row, id: 'key', header: 'Key' }, {
+          value: (row) => Array.isArray(row) ? row[1] : undefined, id: 'value', header: 'Value' }],
         rows: [{ key: 'focus', value: 'visible' }],
         selected: 0
       })
@@ -186,7 +188,9 @@ test('default theme specimen composes surface control text command log and data 
     table({
       id: 'specimen-table',
       selected: 0,
-      columns: [{ id: 'name', header: 'Name' }, { id: 'status', header: 'Status' }],
+      columns: [{
+        value: (row) => Array.isArray(row) ? row[0] : row, id: 'name', header: 'Name' }, {
+        value: (row) => Array.isArray(row) ? row[1] : undefined, id: 'status', header: 'Status' }],
       rows: [{ name: 'Atlas', status: 'Active' }]
     }),
     helpBar({

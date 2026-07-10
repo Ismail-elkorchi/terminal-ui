@@ -204,7 +204,7 @@ function orderedRenderNodeFocusChildren<TMessage>(
 }
 
 function focusSegment(layout: LayoutNode): string {
-  return layout.id ?? `${layout.kind}:${String(layout.bounds.row)}:${String(layout.bounds.column)}`;
+  return layout.identity;
 }
 
 function targetPath(basePath: FocusPath, id: string, index: number, count: number): FocusPath {

@@ -1,7 +1,7 @@
 import { numberProp, stringify } from './render-node-props.ts';
 import { renderNodeStyle } from './render-node-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNodeOfKind } from '../render-node/index.ts';
 import { dataSource, dataSpan } from './data-visual.ts';
 import type { RenderBlock, RenderSpan } from './render-primitives.ts';
 
@@ -11,13 +11,15 @@ interface PaginatorParts {
   readonly pageCount: number;
 }
 
-export function paginatorText(widget: RenderNode): string {
+type PaginatorNode = RenderNodeOfKind<unknown, 'paginator'>;
+
+export function paginatorText(widget: PaginatorNode): string {
   const parts = paginatorParts(widget);
   const prefix = parts.label.length === 0 ? '' : `${parts.label} `;
   return `${prefix}Page ${String(parts.page)} of ${String(parts.pageCount)}`;
 }
 
-export function paginatorBlock(widget: RenderNode): RenderBlock {
+export function paginatorBlock(widget: PaginatorNode): RenderBlock {
   const parts = paginatorParts(widget);
   const spans: RenderSpan[] = [];
   if (parts.label.length > 0) {
@@ -35,7 +37,7 @@ export function paginatorBlock(widget: RenderNode): RenderBlock {
   return { lines: [{ spans }] };
 }
 
-export function paginatorAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
+export function paginatorAccessibleBase(widget: PaginatorNode, id: string): AccessibleNode {
   return {
     id,
     role: 'status',
@@ -44,10 +46,10 @@ export function paginatorAccessibleBase(widget: RenderNode, id: string): Accessi
   };
 }
 
-function paginatorParts(widget: RenderNode): PaginatorParts {
+function paginatorParts(widget: PaginatorNode): PaginatorParts {
   const pageCount = normalizedCount(numberProp(widget, 'pageCount') ?? 1);
   return {
-    label: stringify(widget.props['label']),
+    label: stringify(widget.props.label),
     page: Math.max(1, Math.min(pageCount, Math.floor(numberProp(widget, 'page') ?? 1))),
     pageCount
   };

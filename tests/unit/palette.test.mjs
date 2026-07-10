@@ -100,6 +100,27 @@ test('palette widget renders query matches disabled entries preview help empty s
   assert.equal(frame.accessibility.root.children?.[0]?.value, undefined);
 });
 
+test('one frame projection prepares palette entries once', () => {
+  let labelReads = 0;
+  const measuredEntries = Array.from({ length: 100 }, (_, index) => ({
+    id: `entry-${String(index)}`,
+    get label() {
+      labelReads += 1;
+      return `Entry ${String(index)}`;
+    },
+    value: index
+  }));
+  const element = palette({
+    id: 'measured-palette',
+    entries: measuredEntries,
+    onSelect: (entry) => entry.value
+  });
+
+  renderElementFrame(element, { columns: 60, rows: 12 });
+
+  assert.equal(labelReads, measuredEntries.length);
+});
+
 test('palette widget renders empty states for unrelated queries', () => {
   const frame = renderElementFrame(
     palette({

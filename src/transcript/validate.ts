@@ -9,7 +9,7 @@ import type { TuiMessageSource } from '../tui/types.ts';
 import type { InteractionTranscript, TranscriptSource } from './types.ts';
 
 const transcriptSources = ['prompt', 'tui', 'test', 'replay'] as const satisfies readonly TranscriptSource[];
-const messageSources = ['input', 'signal', 'timer', 'external', 'internal'] as const satisfies readonly TuiMessageSource[];
+const messageSources = ['input', 'signal', 'timer', 'external', 'effect'] as const satisfies readonly TuiMessageSource[];
 const keyNames = [
   'enter',
   'escape',

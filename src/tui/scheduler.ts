@@ -9,6 +9,7 @@ export function intervalSource<TMessage>(
   return {
     id,
     source: 'timer',
+    delivery: 'sequential',
     async *messages(context) {
       let tick = 0;
       while (await sleepForTick(context, ms)) {
@@ -28,6 +29,7 @@ export function timeoutSource<TMessage>(
   return {
     id,
     source: 'timer',
+    delivery: 'sequential',
     async *messages(context) {
       await context.clock.sleep(ms, context.signal);
       if (!context.signal.aborted) yield message;
@@ -44,8 +46,8 @@ export function animationSource<TMessage>(
   return intervalSource(id, Math.max(1, Math.round(1000 / fps)), message);
 }
 
-async function sleepForTick<TMessage>(
-  context: TuiSubscriptionContext<TMessage>,
+async function sleepForTick(
+  context: TuiSubscriptionContext,
   ms: number
 ): Promise<boolean> {
   if (context.signal.aborted) return false;

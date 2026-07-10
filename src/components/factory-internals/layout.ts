@@ -1,9 +1,12 @@
-import type { Element, ElementChildren } from '../element.ts';
+import type { Element, ElementChildren, ElementChildrenMessage } from '../element.ts';
 import { toRenderNode, toRenderNodes } from '../../render-node/element.ts';
 import type { RenderNode } from '../../render-node/index.ts';
+import type { RenderNodeLayoutProps } from '../../render-node/props/shared-layout.ts';
 import type { LayoutFlowOptions } from '../../tui/regions.ts';
 
-export function renderNodeChildren<TMessage>(children: ElementChildren<TMessage>): readonly RenderNode<TMessage>[] {
+export function renderNodeChildren<const TChildren extends ElementChildren>(
+  children: TChildren
+): readonly RenderNode<ElementChildrenMessage<TChildren>>[] {
   return toRenderNodes(children);
 }
 
@@ -17,7 +20,7 @@ export function assertTrackCount(
   }
 }
 
-export function layoutProps(options: LayoutFlowOptions): RenderNode['props'] {
+export function layoutProps(options: LayoutFlowOptions): RenderNodeLayoutProps & { readonly gap?: number } {
   return {
     ...(options.gap === undefined ? {} : { gap: options.gap }),
     ...(options.padding === undefined ? {} : { padding: options.padding }),
@@ -32,7 +35,7 @@ export function layoutProps(options: LayoutFlowOptions): RenderNode['props'] {
   };
 }
 
-export function surfaceLayoutProps(options: Omit<LayoutFlowOptions, 'gap'>): RenderNode['props'] {
+export function surfaceLayoutProps(options: Omit<LayoutFlowOptions, 'gap'>): RenderNodeLayoutProps {
   return {
     ...(options.padding === undefined ? {} : { padding: options.padding }),
     ...(options.margin === undefined ? {} : { margin: options.margin }),
@@ -95,7 +98,7 @@ export function gridAreaNames(template: readonly (readonly string[])[]): readonl
 
 export function assertGridAreaChildren(
   areaNames: readonly string[],
-  children: Readonly<Record<string, Element>>
+  children: Readonly<Record<string, Element<unknown>>>
 ): void {
   const names = new Set(areaNames);
   for (const name of areaNames) {

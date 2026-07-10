@@ -45,7 +45,7 @@ export const textRenderers = {
     hitTargets: ({ renderNode, bounds, theme }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => textAreaScrollbarState(renderNode, contentBounds), 'both');
       return [
-        ...(renderNode.props['disabled'] === true
+        ...(renderNode.props.disabled === true
           ? []
           : textPointerHitTargets({
               id: `${renderNode.id ?? renderNode.kind}:text`,

@@ -44,7 +44,7 @@ import { button } from '@ismail-elkorchi/terminal-ui/components';
 type Message = { readonly kind: 'save' };
 const state = { saving: false };
 
-button<Message>({
+button({
   id: 'save',
   label: 'Save',
   disabled: state.saving,
@@ -163,4 +163,7 @@ They do not inspect private render-node fields through authored elements.
 - Component option and event names describe authoring intent, not renderer
   machinery.
 - Component state remains caller-owned and message types remain generic.
+- Factories infer a union across independent callbacks, direct messages, local
+  key bindings, and child elements; ordinary heterogeneous composition does
+  not require a factory message type argument.
 - No compatibility alias preserves the removed structural authoring API.

@@ -3,15 +3,15 @@ import { filterStaticChoices, firstEnabledChoiceIndex } from './choices.ts';
 import { setChoiceTotal } from './state.ts';
 import type { TerminalHost } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
-import type { PromptInteractionHooks } from './interaction-hooks.ts';
+import type { PromptRenderHook } from './interaction-hooks.ts';
 import type { PromptRuntimeState } from './state.ts';
-import type { PromptChoice, PromptDefinition } from './types.ts';
+import type { AutocompletePromptDefinition, ChoicePromptDefinition, PromptChoice } from './types.ts';
 
 export function scheduleAutocompleteChoiceRefresh<TValue>(
-  prompt: PromptDefinition<TValue>,
+  prompt: AutocompletePromptDefinition<TValue>,
   host: TerminalHost,
-  state: PromptRuntimeState,
-  hooks: PromptInteractionHooks
+  state: PromptRuntimeState<TValue>,
+  hooks: PromptRenderHook<TValue, AutocompletePromptDefinition<TValue>>
 ): void {
   state.choiceDebounceController?.abort();
   const delayMs = Math.max(0, prompt.debounceMs ?? 0);
@@ -29,11 +29,11 @@ export function scheduleAutocompleteChoiceRefresh<TValue>(
 }
 
 export async function maybeLoadNextChoicePage<TValue>(
-  prompt: PromptDefinition<TValue>,
+  prompt: ChoicePromptDefinition<TValue>,
   host: TerminalHost,
-  state: PromptRuntimeState,
+  state: PromptRuntimeState<TValue>,
   event: InputEvent,
-  hooks: PromptInteractionHooks
+  hooks: PromptRenderHook<TValue, ChoicePromptDefinition<TValue>>
 ): Promise<boolean> {
   if (event.kind !== 'key' || event.key !== 'pageDown') return false;
   if (typeof prompt.choices !== 'function' || !state.choiceHasMore || state.choiceLoading) return true;
@@ -79,13 +79,13 @@ export async function maybeLoadNextChoicePage<TValue>(
 }
 
 async function refreshAutocompleteChoices<TValue>(
-  prompt: PromptDefinition<TValue>,
+  prompt: AutocompletePromptDefinition<TValue>,
   host: TerminalHost,
-  state: PromptRuntimeState,
-  hooks: PromptInteractionHooks
+  state: PromptRuntimeState<TValue>,
+  hooks: PromptRenderHook<TValue, AutocompletePromptDefinition<TValue>>
 ): Promise<void> {
   if (typeof prompt.choices !== 'function') {
-    state.choices = filterStaticChoices(prompt.choices ?? [], state.buffer.text);
+    state.choices = filterStaticChoices(prompt.choices, state.buffer.text);
     state.choiceDiagnostics = [];
     state.choiceHasMore = false;
     setChoiceTotal(state, undefined);
@@ -132,7 +132,10 @@ async function refreshAutocompleteChoices<TValue>(
   }
 }
 
-function firstEnabledChoiceIndexFrom(choices: readonly PromptChoice<unknown>[], start: number): number | undefined {
+function firstEnabledChoiceIndexFrom<TValue>(
+  choices: readonly PromptChoice<TValue>[],
+  start: number
+): number | undefined {
   for (let index = start; index < choices.length; index += 1) {
     const choice = choices[index];
     if (choice !== undefined && !choice.disabled) return index;

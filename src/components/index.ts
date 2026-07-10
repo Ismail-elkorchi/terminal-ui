@@ -48,7 +48,7 @@ export {
 export type * from './contracts.ts';
 export type { CommandBarAction } from './command-bar.ts';
 export type { PaletteAction } from './palette.ts';
-export type { Element, ElementChildren } from './element.ts';
+export type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from './element.ts';
 export type * from './options/index.ts';
 export {
   baseStatusForRecordStatus,

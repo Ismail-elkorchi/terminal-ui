@@ -1,8 +1,11 @@
 import type { AccessibilityOptions, AccessibleNode } from '../../accessibility/index.ts';
 import type { RegionOpacity } from '../../tui/layout.ts';
 import type { TerminalStyle } from '../../tui/render-primitives.ts';
+import type { BindableKeyName } from '../../input/index.ts';
 
-export type ComponentKeyBindings<TMessage> = Record<string, TMessage>;
+export type ComponentKeyBindings<TMessage> = Readonly<Partial<Record<BindableKeyName, TMessage>>> & {
+  readonly text?: Readonly<Record<string, TMessage>>;
+};
 export type ComponentOverflowPriority = 'required' | 'important' | 'secondary' | 'decorative';
 
 export interface ComponentLayerOptions {

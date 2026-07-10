@@ -1,31 +1,44 @@
-import type { RenderNode } from '../../render-node/index.ts';
+import type { RenderNodeOfKind, RenderNodesOfKind } from '../../render-node/index.ts';
 import { stringify } from '../render-node-props.ts';
 import type { Rect } from '../layout.ts';
 import type { HitTarget } from '../render-node-renderer.ts';
+
+type ActivationControlNode<TMessage> = RenderNodesOfKind<TMessage, 'button' | 'checkbox' | 'toggleSwitch'>;
+type OptionControlNode<TMessage> = RenderNodesOfKind<TMessage, 'radioGroup' | 'selectBox'>;
+type CheckboxListNode<TMessage> = RenderNodeOfKind<TMessage, 'checkboxList'>;
+type SliderNode<TMessage> = RenderNodeOfKind<TMessage, 'slider'>;
+type RangeSliderNode<TMessage> = RenderNodeOfKind<TMessage, 'rangeSlider'>;
+type PickerNode<TMessage> = RenderNodesOfKind<TMessage, 'colorPicker' | 'datePicker'>;
 import {
   checkboxListMessageFactory,
-  clean,
+  formOptions,
+  optionMessageFactory,
+  selectedIds
+} from './support/choices.ts';
+import {
   colorOptions,
   datePickerDays,
-  formOptions,
-  labelPrefix,
-  optionMessageFactory,
   pickerCellWidth,
   pickerColumns,
   pickerMessageFactory,
-  pickerOptionRowOffset,
+  pickerOptionRowOffset
+} from './support/pickers.ts';
+import {
   rangeForClick,
   rangeSliderMessageFactory,
   rangeSliderModel,
-  selectedIds,
   sliderMessageFactory,
   sliderModel,
   sliderValues
-} from './support.ts';
+} from './support/sliders.ts';
+import {
+  clean,
+  labelPrefix,
+} from './support/shared.ts';
 
-export function controlHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function controlHitTargets<TMessage>(widget: ActivationControlNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   if (!('message' in widget.props)) return [];
-  const message = widget.props['message'] as TMessage;
+  const message = widget.props.message;
   return [{
     id: `${widget.id ?? widget.kind}:control`,
     bounds,
@@ -34,10 +47,10 @@ export function controlHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds
   }];
 }
 
-export function optionHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function optionHitTargets<TMessage>(widget: OptionControlNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = optionMessageFactory(widget);
   if (toMessage === undefined) return [];
-  const labelOffset = clean(stringify(widget.props['label'])).length > 0 ? 1 : 0;
+  const labelOffset = clean(stringify(widget.props.label)).length > 0 ? 1 : 0;
   return formOptions(widget).flatMap((option, index): HitTarget<TMessage>[] => {
     if (option.disabled === true) return [];
     return [{
@@ -54,11 +67,11 @@ export function optionHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds:
   });
 }
 
-export function checkboxListHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function checkboxListHitTargets<TMessage>(widget: CheckboxListNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = checkboxListMessageFactory(widget);
   if (toMessage === undefined) return [];
   const selected = selectedIds(widget);
-  const labelOffset = clean(stringify(widget.props['label'])).length > 0 ? 1 : 0;
+  const labelOffset = clean(stringify(widget.props.label)).length > 0 ? 1 : 0;
   return formOptions(widget).flatMap((option, index): HitTarget<TMessage>[] => {
     if (option.disabled === true) return [];
     return [{
@@ -75,7 +88,7 @@ export function checkboxListHitTargets<TMessage>(widget: RenderNode<TMessage>, b
   });
 }
 
-export function sliderHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function sliderHitTargets<TMessage>(widget: SliderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = sliderMessageFactory(widget);
   if (toMessage === undefined) return [];
   const model = sliderModel(widget);
@@ -83,7 +96,7 @@ export function sliderHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds:
     id: `${widget.id ?? widget.kind}:value:${String(index)}`,
     bounds: {
       row: bounds.row,
-      column: bounds.column + labelPrefix(clean(stringify(widget.props['label']))).length + index,
+      column: bounds.column + labelPrefix(clean(stringify(widget.props.label))).length + index,
       width: 1,
       height: 1
     },
@@ -92,7 +105,7 @@ export function sliderHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds:
   }));
 }
 
-export function rangeSliderHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function rangeSliderHitTargets<TMessage>(widget: RangeSliderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = rangeSliderMessageFactory(widget);
   if (toMessage === undefined) return [];
   const model = rangeSliderModel(widget);
@@ -100,7 +113,7 @@ export function rangeSliderHitTargets<TMessage>(widget: RenderNode<TMessage>, bo
     id: `${widget.id ?? widget.kind}:value:${String(index)}`,
     bounds: {
       row: bounds.row,
-      column: bounds.column + labelPrefix(clean(stringify(widget.props['label']))).length + index,
+      column: bounds.column + labelPrefix(clean(stringify(widget.props.label))).length + index,
       width: 1,
       height: 1
     },
@@ -109,7 +122,7 @@ export function rangeSliderHitTargets<TMessage>(widget: RenderNode<TMessage>, bo
   }));
 }
 
-export function pickerHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function pickerHitTargets<TMessage>(widget: PickerNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = pickerMessageFactory(widget);
   if (toMessage === undefined) return [];
   const columns = pickerColumns(widget, widget.kind === 'datePicker' ? 7 : 4);

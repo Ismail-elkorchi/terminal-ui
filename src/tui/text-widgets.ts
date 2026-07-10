@@ -18,47 +18,54 @@ import { numberProp, stringify } from './render-node-props.ts';
 import { defaultTheme } from '../theme/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNodeOfKind } from '../render-node/index.ts';
 import { normalizeProcessStatus } from '../components/status.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from './layout.ts';
 import type { RoutedPointerEvent } from './pointer-types.ts';
 
-export function textBlock(widget: RenderNode): RenderBlock {
-  const content = sanitizeTerminalText(stringify(widget.props['content'])).text;
+type TextNode = RenderNodeOfKind<unknown, 'text'>;
+type RichTextNode = RenderNodeOfKind<unknown, 'richText'>;
+type TextAreaNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'textArea'>;
+type HelpBarNode = RenderNodeOfKind<unknown, 'helpBar'>;
+type ActivityIndicatorNode = RenderNodeOfKind<unknown, 'activityIndicator'>;
+type SpinnerNode = RenderNodeOfKind<unknown, 'spinner'>;
+
+export function textBlock(widget: TextNode): RenderBlock {
+  const content = sanitizeTerminalText(stringify(widget.props.content)).text;
   return blockFromText(content, {
     ...styleOption(textStyle(widget)),
     source: textSource(widget)
   });
 }
 
-export function textAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
+export function textAccessibleBase(widget: TextNode, id: string): AccessibleNode {
   return {
     id,
     role: 'text',
     label: id,
-    value: sanitizeTerminalText(stringify(widget.props['content'])).text
+    value: sanitizeTerminalText(stringify(widget.props.content)).text
   };
 }
 
-export function richTextBlock(widget: RenderNode, bounds: Rect): RenderBlock {
+export function richTextBlock(widget: RichTextNode, bounds: Rect): RenderBlock {
   const segments = richTextSegments(widget);
-  if (widget.props['wrap'] === true && bounds.width > 0) {
+  if (widget.props.wrap === true && bounds.width > 0) {
     return block(wrapRenderSpans(segments, bounds.width));
   }
   return block([line(segments)]);
 }
 
-export function richTextText(widget: RenderNode, bounds: Rect): string {
+export function richTextText(widget: RichTextNode, bounds: Rect): string {
   const segments = richTextSegments(widget);
-  const lines = widget.props['wrap'] === true && bounds.width > 0
+  const lines = widget.props.wrap === true && bounds.width > 0
     ? wrapRenderSpans(segments, bounds.width)
     : [line(segments)];
   return lines.map(lineText).join('\n');
 }
 
-export function richTextAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
+export function richTextAccessibleBase(widget: RichTextNode, id: string): AccessibleNode {
   return {
     id,
     role: 'text',
@@ -67,22 +74,22 @@ export function richTextAccessibleBase(widget: RenderNode, id: string): Accessib
   };
 }
 
-export function textAreaText(widget: RenderNode, bounds: Rect): string {
+export function textAreaText(widget: TextAreaNode, bounds: Rect): string {
   return textAreaBlock(widget, bounds, defaultTheme).lines.map((currentLine) =>
     currentLine.spans.map((currentSpan) => currentSpan.text).join('')
   ).join('\n');
 }
 
-export function textAreaBlock(widget: RenderNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
-  const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
-  const placeholder = sanitizeTerminalText(stringify(widget.props['placeholder'])).text;
+export function textAreaBlock(widget: TextAreaNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
+  const value = sanitizeTerminalText(stringify(widget.props.value)).text;
+  const placeholder = sanitizeTerminalText(stringify(widget.props.placeholder)).text;
   const usesPlaceholder = value.length === 0 && placeholder.length > 0;
   const lines = textAreaLines(widget);
   const contentBounds = textAreaInputContentBounds(bounds, theme, widget, lines.length);
   const lineRecords = textAreaVisualLineRecords(widget, usesPlaceholder ? placeholder : value, contentBounds.width);
   const scroll = textAreaScroll(widget, lineRecords, contentBounds);
   const activeLineIndex = usesPlaceholder ? undefined : textCursorLineMetrics(value, numberProp(widget, 'cursor')).lineIndex;
-  const selection = usesPlaceholder ? undefined : selectionFromUnknown(value, widget.props['selection']);
+  const selection = usesPlaceholder ? undefined : selectionFromUnknown(value, widget.props.selection);
   return block(lineRecords
     .slice(scroll.offsetRow, scroll.offsetRow + Math.max(0, bounds.height))
     .map((record, index): RenderLine => textAreaInputLine({
@@ -103,26 +110,26 @@ export function textAreaBlock(widget: RenderNode, bounds: Rect, theme: TerminalT
 }
 
 export function textAreaAccessibleBase(
-  widget: RenderNode,
+  widget: TextAreaNode,
   id: string,
   focused: boolean,
   bounds?: Rect,
   theme: TerminalTheme = defaultTheme
 ): AccessibleNode {
-  const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
+  const value = sanitizeTerminalText(stringify(widget.props.value)).text;
   return {
     id,
     role: 'textbox',
     label: id,
     value,
     description: textAreaDescription(widget, value, bounds, theme),
-    ...(widget.props['disabled'] === true ? { disabled: true } : {}),
+    ...(widget.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
 
-export function textAreaCursor(widget: RenderNode, bounds: Rect, theme: TerminalTheme = defaultTheme): CursorPosition {
-  const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
+export function textAreaCursor(widget: TextAreaNode, bounds: Rect, theme: TerminalTheme = defaultTheme): CursorPosition {
+  const value = sanitizeTerminalText(stringify(widget.props.value)).text;
   const lineCount = textAreaLines(widget).length;
   const contentBounds = textAreaInputContentBounds(bounds, theme, widget, lineCount);
   const lineRecords = textAreaVisualLineRecords(widget, value, contentBounds.width);
@@ -141,13 +148,13 @@ export function textAreaCursor(widget: RenderNode, bounds: Rect, theme: Terminal
 }
 
 export function textAreaPointerOffset(
-  widget: RenderNode,
+  widget: TextAreaNode,
   bounds: Rect,
   theme: TerminalTheme,
   pointer: RoutedPointerEvent
 ): number | undefined {
   if (pointer.localRow === undefined || pointer.localColumn === undefined) return undefined;
-  const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
+  const value = sanitizeTerminalText(stringify(widget.props.value)).text;
   const lineCount = textAreaLines(widget).length;
   const contentBounds = textAreaInputContentBounds(bounds, theme, widget, lineCount);
   const lineRecords = textAreaVisualLineRecords(widget, value, contentBounds.width);
@@ -163,11 +170,11 @@ export function textAreaPointerOffset(
   return clampedTextOffset(value, record.start + textOffsetAtVisualColumn(record.text, visualColumn));
 }
 
-export function helpBarText(widget: RenderNode): string {
+export function helpBarText(widget: HelpBarNode): string {
   return feedbackHelpBarText(widget);
 }
 
-export function helpBarAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
+export function helpBarAccessibleBase(widget: HelpBarNode, id: string): AccessibleNode {
   return {
     id,
     role: 'status',
@@ -177,11 +184,11 @@ export function helpBarAccessibleBase(widget: RenderNode, id: string): Accessibl
   };
 }
 
-export function activityIndicatorText(widget: RenderNode, theme: TerminalTheme): string {
+export function activityIndicatorText(widget: ActivityIndicatorNode, theme: TerminalTheme): string {
   return feedbackActivityIndicatorText(widget, theme);
 }
 
-export function activityIndicatorAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
+export function activityIndicatorAccessibleBase(widget: ActivityIndicatorNode, id: string): AccessibleNode {
   return {
     id,
     role: 'status',
@@ -191,17 +198,17 @@ export function activityIndicatorAccessibleBase(widget: RenderNode, id: string):
   };
 }
 
-export function spinnerBlock(widget: RenderNode, theme: TerminalTheme): RenderBlock {
+export function spinnerBlock(widget: SpinnerNode, theme: TerminalTheme): RenderBlock {
   return feedbackSpinnerBlock(widget, theme);
 }
 
-export function spinnerText(widget: RenderNode, theme: TerminalTheme): string {
+export function spinnerText(widget: SpinnerNode, theme: TerminalTheme): string {
   return feedbackSpinnerText(widget, theme);
 }
 
-export function spinnerAccessibleBase(widget: RenderNode, id: string): AccessibleNode {
-  const status = normalizeProcessStatus(widget.props['status'], 'running');
-  const label = stringify(widget.props['label']) || 'Loading';
+export function spinnerAccessibleBase(widget: SpinnerNode, id: string): AccessibleNode {
+  const status = normalizeProcessStatus(widget.props.status, 'running');
+  const label = stringify(widget.props.label) || 'Loading';
   return {
     id,
     role: 'status',
@@ -211,22 +218,22 @@ export function spinnerAccessibleBase(widget: RenderNode, id: string): Accessibl
   };
 }
 
-function styledSegments(widget: RenderNode): readonly RenderSpan[] {
-  if (!Array.isArray(widget.props['segments'])) return [];
-  return widget.props['segments'].filter((segment): segment is RenderSpan =>
+function styledSegments(widget: RichTextNode): readonly RenderSpan[] {
+  if (!Array.isArray(widget.props.segments)) return [];
+  return widget.props.segments.filter((segment): segment is RenderSpan =>
     typeof segment === 'object'
     && segment !== null
     && typeof (segment as { readonly text?: unknown }).text === 'string'
   );
 }
 
-function richTextSegments(widget: RenderNode): readonly RenderSpan[] {
+function richTextSegments(widget: RichTextNode): readonly RenderSpan[] {
   const rootStyle = resolveRenderNodeStyle(widget, { slot: 'root' });
   return styledSegments(widget).map((segment, index) => cleanSpan(widget, segment, index, rootStyle));
 }
 
 function cleanSpan(
-  widget: RenderNode,
+  widget: RichTextNode,
   segment: RenderSpan,
   index: number,
   rootStyle: RenderSpan['style']
@@ -242,8 +249,8 @@ function linkStyle(segment: RenderSpan): RenderSpan['style'] {
   return segment.link === undefined ? undefined : themeStyle('link.foreground', { underline: true });
 }
 
-function textStyle(widget: RenderNode): TerminalStyle | undefined {
-  const role = widgetTextRole(widget.props['textRole']);
+function textStyle(widget: TextNode): TerminalStyle | undefined {
+  const role = widgetTextRole(widget.props.textRole);
   const base = role === undefined ? undefined : defaultStyleForTextRole(role);
   if (base === undefined) return resolveRenderNodeStyle(widget, { slot: 'root' });
   return resolveRenderNodeStyle(widget, {
@@ -256,8 +263,8 @@ function styleOption(style: TerminalStyle | undefined): { readonly style?: Termi
   return style === undefined ? {} : { style };
 }
 
-function textSource(widget: RenderNode): FrameCellSource {
-  const role = widgetTextRole(widget.props['textRole']);
+function textSource(widget: TextNode): FrameCellSource {
+  const role = widgetTextRole(widget.props.textRole);
   return renderNodeFrameSource(widget, {
     family: 'text',
     role: 'text',
@@ -266,7 +273,7 @@ function textSource(widget: RenderNode): FrameCellSource {
   });
 }
 
-function richTextSource(widget: RenderNode, index: number): FrameCellSource {
+function richTextSource(widget: RichTextNode, index: number): FrameCellSource {
   return renderNodeFrameSource(widget, {
     family: 'text',
     role: 'text',
@@ -299,18 +306,18 @@ function lineText(renderLine: RenderLine): string {
   return renderLine.spans.map((currentSpan) => currentSpan.text).join('');
 }
 
-function textAreaDescription(widget: RenderNode, value: string, bounds: Rect | undefined, theme: TerminalTheme): string {
+function textAreaDescription(widget: TextAreaNode, value: string, bounds: Rect | undefined, theme: TerminalTheme): string {
   const lines = value.length === 0 ? 0 : value.split('\n').length;
   const scrollText = bounds === undefined ? '' : textAreaScrollDescription(widget, bounds, theme);
-  const selection = widget.props['selection'];
-  const selectionText = typeof selection === 'object' && selection !== null ? ' Selection active.' : '';
-  const requiredText = widget.props['required'] === true ? ' Required.' : '';
-  const error = sanitizeTerminalText(stringify(widget.props['error'])).text;
+  const selection = widget.props.selection;
+  const selectionText = selection === undefined ? '' : ' Selection active.';
+  const requiredText = widget.props.required === true ? ' Required.' : '';
+  const error = sanitizeTerminalText(stringify(widget.props.error)).text;
   const errorText = error.length === 0 ? '' : ` ${error}`;
   return `${String(lines)} lines.${scrollText}${selectionText}${requiredText}${errorText}`;
 }
 
-function textAreaScrollDescription(widget: RenderNode, bounds: Rect, theme: TerminalTheme): string {
+function textAreaScrollDescription(widget: TextAreaNode, bounds: Rect, theme: TerminalTheme): string {
   const lines = textAreaLines(widget);
   const contentBounds = textAreaInputContentBounds(bounds, theme, widget, lines.length);
   const lineRecords = textAreaVisualLineRecords(widget, textAreaDisplayValue(widget), contentBounds.width);
@@ -323,14 +330,14 @@ function textAreaScrollDescription(widget: RenderNode, bounds: Rect, theme: Term
   return ` Showing ${String(start)}-${String(end)} of ${String(totalRows)} rows. Omitted before: ${String(scroll.offsetRow)}. Omitted after: ${String(omittedAfter)}. Horizontal offset: ${String(scroll.offsetColumn)}.`;
 }
 
-function textAreaLines(widget: RenderNode): readonly string[] {
+function textAreaLines(widget: TextAreaNode): readonly string[] {
   const display = textAreaDisplayValue(widget);
   return display.length === 0 ? [''] : display.split('\n');
 }
 
-function textAreaDisplayValue(widget: RenderNode): string {
-  const value = sanitizeTerminalText(stringify(widget.props['value'])).text;
-  const placeholder = sanitizeTerminalText(stringify(widget.props['placeholder'])).text;
+function textAreaDisplayValue(widget: TextAreaNode): string {
+  const value = sanitizeTerminalText(stringify(widget.props.value)).text;
+  const placeholder = sanitizeTerminalText(stringify(widget.props.placeholder)).text;
   return value.length === 0 && placeholder.length > 0 ? placeholder : value;
 }
 
@@ -349,7 +356,7 @@ function textAreaLogicalLineRecords(value: string): readonly TextAreaVisualLine[
   });
 }
 
-function textAreaVisualLineRecords(widget: RenderNode, value: string, contentWidth: number): readonly TextAreaVisualLine[] {
+function textAreaVisualLineRecords(widget: TextAreaNode, value: string, contentWidth: number): readonly TextAreaVisualLine[] {
   const logical = textAreaLogicalLineRecords(value);
   if (!textAreaWrapEnabled(widget) || contentWidth <= 0) return logical;
   return logical.flatMap((record) => wrapTextAreaLineRecord(record, contentWidth));
@@ -397,12 +404,12 @@ function textAreaVisualCursor(
 }
 
 function textAreaScroll(
-  widget: RenderNode,
+  widget: TextAreaNode,
   lines: readonly TextAreaVisualLine[],
   bounds: Rect
 ): ReturnType<typeof normalizeScrollState> {
-  const raw = widget.props['scroll'];
-  const rawRecord = isRecord(raw) ? raw : {};
+  const raw = widget.props.scroll;
+  const rawRecord: Readonly<Record<string, unknown>> = isRecord(raw) ? raw : {};
   const contentColumns = textAreaWrapEnabled(widget)
     ? bounds.width
     : lines.reduce<number>((max, lineText) => Math.max(max, textDisplayWidth(lineText.text)), 0);
@@ -417,8 +424,8 @@ function textAreaScroll(
   });
 }
 
-function textAreaWrapEnabled(widget: RenderNode): boolean {
-  const raw = widget.props['wrap'];
+function textAreaWrapEnabled(widget: TextAreaNode): boolean {
+  const raw = widget.props.wrap;
   if (raw === true) return true;
   if (!isRecord(raw)) return false;
   const mode = raw['mode'];

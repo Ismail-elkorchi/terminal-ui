@@ -1,12 +1,12 @@
 import { segmentGraphemes } from '../text/index.ts';
 import { defaultTheme } from '../theme/index.ts';
 import type { PromptRuntimeState } from './state.ts';
-import type { PromptChoice, PromptDefinition } from './types.ts';
+import type { ChoicePromptDefinition, ConfirmPromptDefinition, PasswordPromptDefinition, PromptChoice, PromptDefinition } from './types.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 
-export function promptLine<TValue>(
-  prompt: PromptDefinition<TValue>,
-  state: PromptRuntimeState,
+export function promptLine<TChoice>(
+  prompt: PromptDefinition<TChoice>,
+  state: PromptRuntimeState<TChoice>,
   theme: TerminalTheme = defaultTheme
 ): string {
   if (prompt.render !== undefined) return prompt.render.render(prompt);
@@ -24,7 +24,7 @@ export function promptLine<TValue>(
   return promptWithValidationStatus(`${prompt.label}: ${state.buffer.text}`, state);
 }
 
-function promptWithValidationStatus(line: string, state: PromptRuntimeState): string {
+function promptWithValidationStatus<TChoice>(line: string, state: PromptRuntimeState<TChoice>): string {
   if (state.validationStatus === 'running') return `${line}\n  Validating...`;
   if (state.validationStatus === 'invalid' && state.validationDiagnostic !== undefined) {
     return `${line}\n! ${state.validationDiagnostic.message}`;
@@ -32,20 +32,20 @@ function promptWithValidationStatus(line: string, state: PromptRuntimeState): st
   return line;
 }
 
-function passwordMask<TValue>(prompt: PromptDefinition<TValue>, value: string): string {
+function passwordMask(prompt: PasswordPromptDefinition, value: string): string {
   return (prompt.mask ?? '*').repeat(segmentGraphemes(value).length);
 }
 
-function confirmHint<TValue>(prompt: PromptDefinition<TValue>): string {
+function confirmHint(prompt: ConfirmPromptDefinition): string {
   if (prompt.defaultValue === true) return ' [Y/n]';
   if (prompt.defaultValue === false) return ' [y/N]';
   return ' [y/n]';
 }
 
 function choiceLine<TValue>(
-  prompt: PromptDefinition<TValue>,
-  state: PromptRuntimeState,
-  choice: PromptChoice<unknown>,
+  prompt: ChoicePromptDefinition<TValue>,
+  state: PromptRuntimeState<TValue>,
+  choice: PromptChoice<TValue>,
   index: number,
   theme: TerminalTheme
 ): string {
@@ -60,9 +60,9 @@ function choiceLine<TValue>(
   return `${pointer} ${marker} ${choice.label}${description}${suffix}`;
 }
 
-export function choiceStatusLines<TValue>(
-  prompt: PromptDefinition<TValue>,
-  state: PromptRuntimeState,
+export function choiceStatusLines<TChoice>(
+  prompt: PromptDefinition<TChoice>,
+  state: PromptRuntimeState<TChoice>,
   theme: TerminalTheme
 ): readonly string[] {
   if (prompt.kind !== 'select' && prompt.kind !== 'multiselect' && prompt.kind !== 'autocomplete') return [];
@@ -75,7 +75,7 @@ export function choiceStatusLines<TValue>(
   return [];
 }
 
-function choiceTotalSuffix(state: PromptRuntimeState): string {
+function choiceTotalSuffix<TChoice>(state: PromptRuntimeState<TChoice>): string {
   if (state.choiceTotal === undefined) return '';
   return ` (${String(state.choices.length)}/${String(state.choiceTotal)})`;
 }

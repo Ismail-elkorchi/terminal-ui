@@ -1,4 +1,4 @@
-import type { TextSelection } from '../../text/index.ts';
+import type { TextEditOperation, TextSelection } from '../../text/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../tui/render-primitives.ts';
 import type { LayoutFlowOptions, LayoutSize } from '../../tui/regions.ts';
 import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../tui/scroll.ts';
@@ -40,9 +40,9 @@ export interface ListOptions<TValue, TMessage> extends ComponentOptions {
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
-export interface TableOptions<TMessage> extends ComponentOptions {
-  readonly rows: readonly unknown[];
-  readonly columns?: readonly TableColumn[];
+export interface TableOptions<TRow, TMessage = never> extends ComponentOptions {
+  readonly rows: readonly TRow[];
+  readonly columns?: readonly TableColumn<TRow>[];
   readonly selected?: number;
   readonly selectedCell?: TableCellSelection;
   readonly density?: TableDensity;
@@ -52,12 +52,12 @@ export interface TableOptions<TMessage> extends ComponentOptions {
   readonly onScroll?: (event: ScrollEvent) => TMessage;
   readonly stickyHeader?: boolean;
   readonly emptyText?: string;
-  readonly onSelect?: (selection: TablePointerSelection) => TMessage;
+  readonly onSelect?: (selection: TablePointerSelection<TRow>) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
-export interface TablePointerSelection {
-  readonly row: unknown;
+export interface TablePointerSelection<TRow = unknown> {
+  readonly row: TRow;
   readonly rowIndex: number;
   readonly cell?: TableCellPointerSelection;
 }
@@ -75,15 +75,17 @@ export type TableSortDirection = 'ascending' | 'descending';
 export type TableDensity = 'normal' | 'dense';
 export type TableColumnSemantic = 'text' | 'metric' | 'metadata';
 
-export interface TableCellRenderInput {
+export interface TableCellRenderInput<TRow = unknown> {
   readonly value: unknown;
-  readonly row: unknown;
+  readonly row: TRow;
   readonly rowIndex: number;
   readonly columnIndex: number;
 }
 
-export interface TableColumn {
+export interface TableColumn<TRow = unknown> {
+  readonly id: string;
   readonly header?: string;
+  readonly value: (row: TRow, rowIndex: number) => unknown;
   readonly width?: TableColumnWidth;
   readonly align?: TableColumnAlignment;
   readonly semantic?: TableColumnSemantic;
@@ -91,7 +93,7 @@ export interface TableColumn {
   readonly resizable?: boolean;
   readonly style?: TerminalStyle;
   readonly headerStyle?: TerminalStyle;
-  readonly render?: (input: TableCellRenderInput) => string | RenderSpan | readonly RenderSpan[];
+  readonly render?: (input: TableCellRenderInput<TRow>) => string | RenderSpan | readonly RenderSpan[];
   readonly sort?: TableSortDirection;
 }
 
@@ -100,12 +102,14 @@ export interface TableCellSelection {
   readonly column?: number;
 }
 
-export interface TreeNode extends TreeItemBase<TreeNode> {
+export interface TreeNode<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> extends TreeItemBase<TreeNode<TMetadata>> {
   readonly lazy?: boolean;
   readonly lazyStatus?: 'pending' | 'error' | 'empty';
   readonly lazyMessage?: string;
   readonly icon?: string;
-  readonly metadata?: Readonly<Record<string, unknown>>;
+  readonly metadata?: TMetadata;
 }
 
 export type TreeDisclosureAction =
@@ -113,8 +117,11 @@ export type TreeDisclosureAction =
   | { readonly kind: 'expand'; readonly id: string }
   | { readonly kind: 'collapse'; readonly id: string };
 
-export interface TreeOptions<TMessage = never> extends ComponentOptions {
-  readonly nodes: readonly TreeNode[];
+export interface TreeOptions<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
+  TMessage = never
+> extends ComponentOptions {
+  readonly nodes: readonly TreeNode<TMetadata>[];
   readonly selected?: string;
   readonly filterQuery?: string;
   readonly scroll?: ScrollState;
@@ -122,8 +129,8 @@ export interface TreeOptions<TMessage = never> extends ComponentOptions {
   readonly scrollPolicy?: ScrollPolicy;
   readonly onScroll?: (event: ScrollEvent) => TMessage;
   readonly emptyText?: string;
-  readonly onSelect?: (node: TreeNode) => TMessage;
-  readonly onDisclosure?: (node: TreeNode, action: TreeDisclosureAction, event: RoutedPointerEvent) => TMessage;
+  readonly onSelect?: (node: TreeNode<TMetadata>) => TMessage;
+  readonly onDisclosure?: (node: TreeNode<TMetadata>, action: TreeDisclosureAction, event: RoutedPointerEvent) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
@@ -151,6 +158,7 @@ export interface TextAreaOptions<TMessage = never> extends ComponentOptions {
   readonly error?: string;
   readonly onScroll?: (event: ScrollEvent) => TMessage;
   readonly onTextPointer?: (event: TextPointerEvent) => TMessage;
+  readonly onEdit?: (operation: TextEditOperation) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
   readonly onInput?: (text: string) => TMessage;
   readonly onPaste?: (text: string) => TMessage;

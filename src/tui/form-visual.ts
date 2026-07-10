@@ -1,4 +1,4 @@
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNode, RenderNodesOfKind } from '../render-node/index.ts';
 import { span } from './frame.ts';
 import { renderNodeFrameSource } from './frame-source.ts';
 import type { FrameCellSource, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
@@ -41,6 +41,21 @@ export type FormVisualKind =
   | 'track'
   | 'value'
   | 'weekday';
+
+type FormStateNode = RenderNodesOfKind<
+  unknown,
+  | 'checkbox'
+  | 'checkboxList'
+  | 'colorPicker'
+  | 'datePicker'
+  | 'numberInput'
+  | 'radioGroup'
+  | 'rangeSlider'
+  | 'selectBox'
+  | 'slider'
+  | 'textInput'
+  | 'toggleSwitch'
+>;
 
 export function formSpan(
   widget: RenderNode,
@@ -89,21 +104,21 @@ export function formErrorStyle(widget: RenderNode): TerminalStyle | undefined {
   return renderNodeStyle(widget, 'error', 'error');
 }
 
-export function formControlState(widget: RenderNode, selected = false): FormControlState | undefined {
-  if (widget.props['disabled'] === true) return 'disabled';
-  if (typeof widget.props['error'] === 'string' && widget.props['error'].length > 0) return 'error';
+export function formControlState(widget: FormStateNode, selected = false): FormControlState | undefined {
+  if (widget.props.disabled === true) return 'disabled';
+  if (typeof widget.props.error === 'string' && widget.props.error.length > 0) return 'error';
   return selected ? 'selected' : undefined;
 }
 
 export function optionControlState(
-  widget: RenderNode,
+  widget: FormStateNode,
   input: {
     readonly selected: boolean;
     readonly disabled?: boolean;
     readonly active?: boolean;
   }
 ): FormControlState | undefined {
-  if (input.disabled === true || widget.props['disabled'] === true) return 'disabled';
+  if (input.disabled === true || widget.props.disabled === true) return 'disabled';
   if (input.active === true) return 'focused';
   return input.selected ? 'selected' : undefined;
 }

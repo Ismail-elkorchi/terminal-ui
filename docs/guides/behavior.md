@@ -47,7 +47,7 @@ function update(state: State, message: Message): State {
 }
 
 function view(state: State) {
-  return commandBar<Message>({
+  return commandBar({
     id: 'command',
     ...commandBarPresentation(state.command),
     onAction: (action) => ({ kind: 'command', action }),
@@ -86,7 +86,7 @@ function updatePalette(state: PaletteState, action: PaletteAction): PaletteState
 }
 
 function paletteView(state: PaletteState) {
-  return palette<string, PaletteMessage>({
+  return palette({
     id: 'commands',
     entries,
     ...palettePresentation(state),

@@ -1,5 +1,5 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
-import type { RenderNode } from '../../../render-node/index.ts';
+import type { RenderNode, RenderNodeOfKind } from '../../../render-node/index.ts';
 import type { CursorPosition } from '../../cursor.ts';
 import type { FrameCell } from '../../frame.ts';
 import type { Rect } from '../../layout.ts';
@@ -12,17 +12,17 @@ export function hasKeyboardOrInputMap(widget: RenderNode): boolean {
 }
 
 export function widgetMessageHitTargets<TMessage>(
-  widget: RenderNode<TMessage>,
+  widget: RenderNodeOfKind<TMessage, 'textInput'>,
   bounds: Rect,
   suffix: string
 ): readonly HitTarget<TMessage>[] {
   if (bounds.width <= 0 || bounds.height <= 0) return [];
-  if (widget.props['disabled'] === true) return [];
-  if (widget.props['message'] === undefined) return [];
+  if (widget.props.disabled === true) return [];
+  if (widget.props.message === undefined) return [];
   return [{
     id: `${widget.id ?? widget.kind}:${suffix}`,
     bounds,
-    message: () => widget.props['message'] as TMessage,
+    message: () => widget.props.message,
     cursor: 'pointer'
   }];
 }

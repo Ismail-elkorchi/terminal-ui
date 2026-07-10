@@ -1,8 +1,12 @@
 import { editTextBuffer } from '../text/index.ts';
 import type { InputEvent } from '../input/index.ts';
-import type { PromptRuntimeState } from './state.ts';
+import type { TextEditBuffer } from '../text/index.ts';
 
-export function editPromptBufferForEvent(state: PromptRuntimeState, event: InputEvent): boolean {
+interface PromptTextBufferState {
+  buffer: TextEditBuffer;
+}
+
+export function editPromptBufferForEvent(state: PromptTextBufferState, event: InputEvent): boolean {
   if (event.kind === 'text') {
     state.buffer = editTextBuffer(state.buffer, { kind: 'insert', text: event.text });
     return true;

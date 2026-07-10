@@ -5,14 +5,14 @@ import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalHost } from '../host/index.ts';
 import type {
-  PromptDefinition,
+  EditorPromptDefinition,
   PromptEditorCommand,
   PromptEditorResult,
   PromptResult
 } from './types.ts';
 
 export async function runEditorPrompt(
-  prompt: PromptDefinition<string>,
+  prompt: EditorPromptDefinition,
   snapshot: AccessibleSnapshot,
   host: TerminalHost | undefined
 ): Promise<PromptResult<string>> {
@@ -47,7 +47,7 @@ export async function runEditorPrompt(
 }
 
 function resolveEditorCommand(
-  prompt: PromptDefinition<string>,
+  prompt: EditorPromptDefinition,
   host: TerminalHost | undefined
 ): PromptEditorCommand | undefined {
   if (prompt.editorCommand !== undefined && prompt.editorCommand.length > 0) {
@@ -61,7 +61,7 @@ function resolveEditorCommand(
 }
 
 async function raceEditorResult(
-  prompt: PromptDefinition<string>,
+  prompt: EditorPromptDefinition,
   host: TerminalHost | undefined,
   editorRun: Promise<PromptEditorResult>,
   controller: AbortController
@@ -85,7 +85,7 @@ async function raceEditorResult(
 }
 
 async function editorResultToPromptResult(
-  prompt: PromptDefinition<string>,
+  prompt: EditorPromptDefinition,
   snapshot: AccessibleSnapshot,
   host: TerminalHost | undefined,
   result: PromptEditorResult
@@ -107,7 +107,7 @@ async function editorResultToPromptResult(
 }
 
 function editorAbort(
-  prompt: PromptDefinition<string>,
+  prompt: EditorPromptDefinition,
   snapshot: AccessibleSnapshot,
   message: string,
   diagnostics: readonly TerminalDiagnostic[] = [],
@@ -133,7 +133,7 @@ function withDiagnostics(
   return { ...result, diagnostics: [...result.diagnostics, ...diagnostics] };
 }
 
-function editorUnavailableMessage(prompt: PromptDefinition<string>): string {
+function editorUnavailableMessage(prompt: EditorPromptDefinition): string {
   if (prompt.editorCommand !== undefined && prompt.editorCommand.length > 0) {
     return 'Editor prompt has an editor command, but no editor adapter is available.';
   }

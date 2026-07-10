@@ -80,7 +80,7 @@ export const menuRenderers = {
       scope: { kind: 'popover' },
       children: menuAccessibleChildren(renderNode)
     }),
-    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, menuCursor(renderNode, bounds, renderNode.props['title'] === undefined ? 0 : 1))],
+    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, menuCursor(renderNode, bounds, renderNode.props.title === undefined ? 0 : 1))],
     hitTargets: ({ renderNode, bounds }) => {
       const bodyBounds = contextMenuBodyBounds(bounds, contextMenuTitleRows(renderNode));
       const scrollbars = scrollbarsForRenderNode(renderNode, bodyBounds, (contentBounds) => menuScrollbarState(renderNode, contentBounds), 'vertical');
@@ -98,11 +98,11 @@ export const menuRenderers = {
       const children = dropdownAccessibleChildren(renderNode);
       return {
         ...dropdownAccessibleBase(renderNode, id, focused),
-        ...(renderNode.props['open'] === true ? { scope: { kind: 'menu' as const } } : {}),
+        ...(renderNode.props.open === true ? { scope: { kind: 'menu' as const } } : {}),
         ...(children === undefined ? {} : { children })
       };
     },
-    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, menuCursor(renderNode, bounds, renderNode.props['open'] === true ? 1 : 0))],
+    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, menuCursor(renderNode, bounds, renderNode.props.open === true ? 1 : 0))],
     hitTargets: ({ renderNode, bounds }) => dropdownHitTargets(renderNode, bounds)
   },
   commandBar: {
@@ -114,8 +114,8 @@ export const menuRenderers = {
       return {
         id,
         role: 'textbox',
-        label: stringify(renderNode.props['prompt']) || id,
-        value: stringify(renderNode.props['value']),
+        label: stringify(renderNode.props.prompt) || id,
+        value: stringify(renderNode.props.value),
         ...(focused ? { focused } : {}),
         ...(children === undefined ? {} : { children })
       };
@@ -137,8 +137,8 @@ export const menuRenderers = {
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
       id,
       role: 'menu',
-      label: stringify(renderNode.props['title']) || id,
-      value: stringify(renderNode.props['query']),
+      label: stringify(renderNode.props.title) || id,
+      value: stringify(renderNode.props.query),
       ...(focused ? { focused } : {}),
       scope: { kind: 'menu' },
       children: paletteAccessibleChildren(renderNode, layoutNode.bounds.height)

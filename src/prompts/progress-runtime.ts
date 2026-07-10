@@ -22,7 +22,7 @@ import type {
   ProgressController,
   ProgressResult,
   ProgressState,
-  PromptDefinition,
+  ProgressPromptDefinition,
   PromptResult
 } from './types.ts';
 
@@ -34,14 +34,14 @@ type ProgressOutcome =
   | { readonly kind: 'failed'; readonly cause: unknown };
 
 export async function runProgressPrompt(
-  prompt: PromptDefinition<ProgressResult>,
+  prompt: ProgressPromptDefinition,
   host: TerminalHost | undefined
 ): Promise<PromptResult<ProgressResult>> {
-  if (host?.stdin.isTty() !== true && prompt.nonTty?.mode === 'provided_value' && prompt.nonTty.value !== undefined) {
+  if (host?.stdin.isTty() !== true && prompt.nonTty?.mode === 'provided_value') {
     return submitPrompt(prompt, prompt.nonTty.value, progressSnapshot(createProgress({
       id: prompt.accessibility?.id ?? prompt.id ?? 'prompt-progress',
       label: prompt.label,
-      ...(prompt.progress ?? {})
+      ...prompt.progress
     })), host);
   }
   if (prompt.nonTty?.mode === 'reject' && host?.stdin.isTty() !== true) {
@@ -78,7 +78,7 @@ export async function runProgressPrompt(
 }
 
 function createProgressRuntime(
-  prompt: PromptDefinition<ProgressResult>,
+  prompt: ProgressPromptDefinition,
   host: TerminalHost | undefined,
   transcript: TranscriptRecorder | undefined,
   signal: AbortSignal
@@ -91,7 +91,7 @@ function createProgressRuntime(
   let progress = createProgress({
     id: prompt.accessibility?.id ?? prompt.id ?? 'prompt-progress',
     label: prompt.label,
-    ...(prompt.progress ?? {})
+    ...prompt.progress
   });
   let closed = false;
   let publishQueue = Promise.resolve();
@@ -139,7 +139,7 @@ function createProgressRuntime(
 }
 
 async function progressTaskOutcome(
-  prompt: PromptDefinition<ProgressResult>,
+  prompt: ProgressPromptDefinition,
   controller: ProgressController
 ): Promise<ProgressOutcome> {
   try {
@@ -151,7 +151,7 @@ async function progressTaskOutcome(
 }
 
 async function progressInputOutcome(
-  prompt: PromptDefinition<ProgressResult>,
+  prompt: ProgressPromptDefinition,
   host: TerminalHost | undefined,
   transcript: TranscriptRecorder | undefined
 ): Promise<ProgressOutcome> {
@@ -168,7 +168,7 @@ async function progressInputOutcome(
 }
 
 async function progressTimeoutOutcome(
-  prompt: PromptDefinition<ProgressResult>,
+  prompt: ProgressPromptDefinition,
   host: TerminalHost | undefined,
   signal: AbortSignal
 ): Promise<ProgressOutcome> {
@@ -184,7 +184,7 @@ function outcomeFromInputEvent(event: InputEvent): ProgressOutcome | undefined {
 }
 
 async function progressResultFromOutcome(
-  prompt: PromptDefinition<ProgressResult>,
+  prompt: ProgressPromptDefinition,
   host: TerminalHost | undefined,
   progress: ProgressState,
   outcome: ProgressOutcome
@@ -213,7 +213,7 @@ function progressSnapshot(progress: ProgressState): AccessibleSnapshot {
   });
 }
 
-function rejectedProgress(prompt: PromptDefinition<ProgressResult>): PromptResult<ProgressResult> {
+function rejectedProgress(prompt: ProgressPromptDefinition): PromptResult<ProgressResult> {
   return {
     schemaVersion: 'terminal-ui.prompt-result.v1',
     status: 'aborted',
@@ -227,7 +227,7 @@ function rejectedProgress(prompt: PromptDefinition<ProgressResult>): PromptResul
     snapshot: progressSnapshot(createProgress({
       id: prompt.accessibility?.id ?? prompt.id ?? 'prompt-progress',
       label: prompt.label,
-      ...(prompt.progress ?? {})
+      ...prompt.progress
     }))
   };
 }
@@ -248,7 +248,7 @@ function abortedProgress(
 }
 
 function failedProgress(
-  prompt: PromptDefinition<ProgressResult>,
+  prompt: ProgressPromptDefinition,
   snapshot: AccessibleSnapshot,
   cause: unknown
 ): PromptResult<ProgressResult> {

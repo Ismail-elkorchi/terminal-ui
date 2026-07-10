@@ -1,7 +1,7 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalCapabilityProfile, TerminalClock, TerminalHost, TerminalInputChunk, TerminalViewport } from '../host/index.ts';
-import type { InputDecodeOptions, InputEvent, InputPipelineOptions } from '../input/index.ts';
+import type { InputDecodeOptions, InputEvent, InputPipelineOptions, InputTrigger } from '../input/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { InteractionTranscript, TranscriptPolicy, TranscriptRecorder } from '../transcript/index.ts';
 import type { Element } from '../components/element.ts';
@@ -11,7 +11,7 @@ import type { SessionProtocolPolicy } from './session-policy.ts';
 
 export interface TuiDefinition<TState, TMessage> {
   readonly id?: string;
-  readonly init: TuiInit<TState, TMessage>;
+  readonly init: TuiInit<TState>;
   readonly update: TuiUpdate<TState, TMessage>;
   readonly view: TuiView<TState, TMessage>;
   readonly keyBindings?: readonly TuiKeyBinding<TState, TMessage>[];
@@ -27,49 +27,56 @@ export interface TuiApp<TState, TMessage> {
   readonly definition: TuiDefinition<TState, TMessage>;
 }
 
-export type TuiInit<TState, TMessage> = (context: TuiContext<TMessage>) => TState | Promise<TState>;
+export type TuiInit<TState> = (context: TuiContext) => TState;
 export type TuiUpdate<TState, TMessage> = (
   state: TState,
   message: TMessage,
-  context: TuiContext<TMessage>
-) => TuiUpdateResult<TState, TMessage> | Promise<TuiUpdateResult<TState, TMessage>>;
-export type TuiView<TState, TMessage> = (state: TState, context: TuiContext<TMessage>) => Element<TMessage>;
+  context: TuiContext
+) => TuiUpdateResult<TState, TMessage>;
+export type TuiView<TState, TMessage> = (state: TState, context: TuiContext) => Element<TMessage>;
 
 export type TuiKeyBindingPhase = 'beforeFocus' | 'afterFocus';
 
 export interface TuiKeyBindingContext<TState> {
   readonly state: TState;
   readonly event: InputEvent;
-  readonly key: string;
+  readonly trigger: InputTrigger;
   readonly focusPath?: FocusPath;
 }
 
-export interface TuiKeyBinding<TState, TMessage> {
+interface TuiKeyBindingBase<TState> {
   readonly id: string;
-  readonly keys: readonly string[];
+  readonly triggers: readonly InputTrigger[];
   readonly phase?: TuiKeyBindingPhase;
   readonly label?: string;
   readonly enabled?: boolean | ((context: TuiKeyBindingContext<TState>) => boolean);
-  readonly message?: TMessage;
-  readonly toMessage?: (context: TuiKeyBindingContext<TState>) => TMessage | undefined;
 }
+
+export type TuiKeyBinding<TState, TMessage> =
+  | TuiKeyBindingBase<TState> & {
+      readonly message: TMessage;
+      readonly toMessage?: never;
+    }
+  | TuiKeyBindingBase<TState> & {
+      readonly message?: never;
+      readonly toMessage: (context: TuiKeyBindingContext<TState>) => TMessage | undefined;
+    };
 
 export interface TuiUpdateResult<TState, TMessage> {
   readonly state: TState;
-  readonly commands?: readonly TuiCommand<TMessage>[];
+  readonly effects?: readonly TuiEffect<TMessage>[];
   readonly exit?: TuiExitRequest;
 }
 
-export interface TuiContext<TMessage> {
+export interface TuiContext {
   readonly host: TerminalHost;
   readonly viewport: TerminalViewport;
   readonly capabilities: TerminalCapabilityProfile;
   readonly diagnostics: readonly TerminalDiagnostic[];
   readonly clock: TerminalClock;
-  dispatch(message: TMessage): void;
 }
 
-export type TuiMessageSource = 'input' | 'signal' | 'timer' | 'external' | 'internal';
+export type TuiMessageSource = 'input' | 'signal' | 'timer' | 'external' | 'effect';
 
 export type TuiNonTtyMode = 'reject' | 'transcript_only' | 'line_fallback' | 'last_frame';
 
@@ -84,19 +91,37 @@ export type TuiNonTtyPolicy<TMessage> =
       message(line: string): TMessage;
     };
 
-export interface TuiCommand<TMessage> {
-  readonly kind: 'dispatch';
-  readonly message: TMessage;
+export interface TuiEffectContext extends TuiContext {
+  readonly signal: AbortSignal;
 }
+
+export interface TuiEffectFailure {
+  readonly id: string;
+  readonly diagnostic: TerminalDiagnostic;
+}
+
+export interface TuiEffect<TMessage> {
+  readonly id: string;
+  run(context: TuiEffectContext): Promise<TMessage | readonly TMessage[] | undefined>;
+  onError?(failure: TuiEffectFailure): TMessage | undefined;
+}
+
+export type TuiEventDelivery = 'sequential' | 'latest';
+
+export type TuiSourceLifecycle =
+  | { readonly kind: 'completed'; readonly id: string }
+  | { readonly kind: 'failed'; readonly id: string; readonly diagnostic: TerminalDiagnostic };
 
 export interface TuiEventSource<TMessage> {
   readonly id: string;
-  readonly source?: Exclude<TuiMessageSource, 'input' | 'internal'>;
-  messages(context: TuiSubscriptionContext<TMessage>): AsyncIterable<TMessage>;
+  readonly source?: Exclude<TuiMessageSource, 'input' | 'effect'>;
+  readonly delivery: TuiEventDelivery;
+  messages(context: TuiSubscriptionContext): AsyncIterable<TMessage>;
+  onLifecycle?(event: TuiSourceLifecycle): TMessage | undefined;
   dispose?(): void | Promise<void>;
 }
 
-export interface TuiSubscriptionContext<TMessage> extends TuiContext<TMessage> {
+export interface TuiSubscriptionContext extends TuiContext {
   readonly signal: AbortSignal;
 }
 
@@ -106,7 +131,7 @@ export interface TuiExitRequest {
 
 export type TuiSubscriptions<TState, TMessage> = (
   state: TState,
-  context: TuiContext<TMessage>
+  context: TuiContext
 ) => readonly TuiEventSource<TMessage>[];
 export type TuiExitHandler<TState> = (state: TState) => void | Promise<void>;
 
@@ -170,6 +195,7 @@ export interface TuiRuntime<TState, TMessage> {
   getState(): TState | undefined;
   frame(): Frame | undefined;
   exit(): TuiExit<TState> | undefined;
+  diagnostics(): readonly TerminalDiagnostic[];
 }
 
 export type TuiRuntimeChange<TState> =

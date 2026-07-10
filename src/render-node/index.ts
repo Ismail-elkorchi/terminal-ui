@@ -1,6 +1,8 @@
 export type {
   CustomRenderNodeRuntime,
   RenderNode,
+  RenderNodeOfKind,
+  RenderNodesOfKind,
   RenderNodeAccessibleDefinition,
   RenderNodeChildren,
   RenderNodeFocusOptions,
@@ -10,7 +12,6 @@ export type {
   RenderNodeKind,
   RenderNodeLayerOptions,
   RenderNodeOverflowPriority,
-  RenderNodeProps,
   RenderNodeStyleSlots,
   RenderNodeTextRole,
   RenderNodeVisualState

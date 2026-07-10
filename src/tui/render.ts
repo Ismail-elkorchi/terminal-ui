@@ -87,7 +87,7 @@ export interface RenderElementProjection<TMessage = unknown> {
 }
 
 export function renderElementFrame(
-  element: Element,
+  element: Element<unknown>,
   viewport: TerminalViewport,
   options: RenderElementOptions = {}
 ): Frame {
@@ -210,7 +210,9 @@ function renderRenderNodeChildrenToRegions<TMessage>(
       renderRenderNodeToBuffer(child, childNode, path, buffer, theme, focusPath);
       continue;
     }
-    const childRegion = childNode.layer.zIndex === region.zIndex ? region : composer.regionFor(childNode, [...path, childNode.id ?? childNode.layer.id]);
+    const childRegion = childNode.layer.zIndex === region.zIndex
+      ? region
+      : composer.regionFor(childNode, [...path, childNode.identity]);
     renderRenderNodeToRegion(child, childNode, path, childRegion, composer, theme, focusPath);
   }
 }
@@ -239,7 +241,7 @@ function renderRenderNodeToBuffer<TMessage>(
 }
 
 function nodePath(node: LayoutNode, parentPath: FocusPath): FocusPath {
-  return [...parentPath, node.id ?? node.layer.id];
+  return [...parentPath, node.identity];
 }
 
 function orderedChildren(

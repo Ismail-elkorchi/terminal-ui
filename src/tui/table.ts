@@ -1,4 +1,4 @@
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNodeOfKind } from '../render-node/index.ts';
 import { measureTextCells, sanitizeTerminalText } from '../text/index.ts';
 import { dataSource, dataSpan, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
 import { rowWindow, scrollStateFromUnknown } from './data-window.ts';
@@ -15,6 +15,7 @@ import type { ScrollState } from './scroll.ts';
 import type { HitTarget } from './render-node-renderer.ts';
 
 interface NormalizedColumn {
+  readonly id: string;
   readonly index: number;
   readonly header?: string;
   readonly width?: TableColumnWidth;
@@ -23,6 +24,7 @@ interface NormalizedColumn {
   readonly style?: TerminalStyle;
   readonly headerStyle?: TerminalStyle;
   readonly render?: (input: TableCellRenderInput) => string | RenderSpan | readonly RenderSpan[];
+  readonly value: (row: unknown, rowIndex: number) => unknown;
   readonly sort?: TableColumn['sort'];
   readonly resizable?: boolean;
 }
@@ -42,16 +44,37 @@ interface TableSpacing {
   readonly separator: number;
 }
 
-export function tableBlock(widget: RenderNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
-  const rows = tableRows(widget);
-  const columns = tableColumns(widget, rows);
-  const spacing = tableSpacing(widget);
-  const hasHeader = columns.some((column) => column.header !== undefined);
-  const headerHeight = hasHeader && widget.props['stickyHeader'] !== false ? 1 : 0;
-  const bodyHeight = Math.max(0, bounds.height - headerHeight);
-  const selected = selectedTableRow(widget);
-  const window = tableWindow(widget, rows, bodyHeight, selected);
-  const widths = columnWidths(columns, rows, Math.max(1, bounds.width - spacing.marker), spacing);
+interface TableProjection {
+  readonly rows: readonly unknown[];
+  readonly columns: readonly NormalizedColumn[];
+  readonly spacing: TableSpacing;
+  readonly hasHeader: boolean;
+  readonly headerHeight: number;
+  readonly bodyHeight: number;
+  readonly selected: number;
+  readonly selectedCell: { readonly row: number; readonly column: number } | undefined;
+  readonly window: TableWindow;
+  readonly widths: readonly number[];
+}
+
+const tableProjectionCache = new WeakMap<object, {
+  readonly width: number;
+  readonly height: number;
+  readonly projection: TableProjection;
+}>();
+
+export function tableBlock(widget: TableNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+  const {
+    rows,
+    columns,
+    spacing,
+    hasHeader,
+    headerHeight,
+    bodyHeight,
+    selectedCell,
+    window,
+    widths
+  } = tableProjection(widget, bounds);
   const lines: RenderLine[] = [];
   if (hasHeader && headerHeight > 0) {
     lines.push(scrolledLine(headerLine(widget, columns, widths, spacing), window.horizontalOffset, bounds.width));
@@ -61,19 +84,14 @@ export function tableBlock(widget: RenderNode, bounds: Rect, theme: TerminalThem
   } else {
     lines.push(...window.rows.map((row, visibleIndex) => {
       const rowIndex = window.start + visibleIndex;
-      return scrolledLine(rowLine(widget, row, rowIndex, columns, widths, rowIndex === window.selected, selectedTableCell(widget), theme, spacing), window.horizontalOffset, bounds.width);
+      return scrolledLine(rowLine(widget, row, rowIndex, columns, widths, rowIndex === window.selected, selectedCell, theme, spacing), window.horizontalOffset, bounds.width);
     }));
   }
   return { lines: lines.slice(0, bounds.height) };
 }
 
-export function tableAccessibleBase(widget: RenderNode, bounds: Rect, id: string, focused: boolean): AccessibleNode {
-  const rows = tableRows(widget);
-  const columns = tableColumns(widget, rows);
-  const hasHeader = columns.some((column) => column.header !== undefined);
-  const headerHeight = hasHeader && widget.props['stickyHeader'] !== false ? 1 : 0;
-  const bodyHeight = Math.max(0, bounds.height - headerHeight);
-  const window = tableWindow(widget, rows, bodyHeight, selectedTableRow(widget));
+export function tableAccessibleBase(widget: TableNode, bounds: Rect, id: string, focused: boolean): AccessibleNode {
+  const { rows, columns, window } = tableProjection(widget, bounds);
   return {
     id,
     role: 'table',
@@ -94,13 +112,8 @@ export function tableAccessibleBase(widget: RenderNode, bounds: Rect, id: string
   };
 }
 
-export function tableAccessibleChildren(widget: RenderNode, bounds: Rect): readonly AccessibleNode[] {
-  const rows = tableRows(widget);
-  const columns = tableColumns(widget, rows);
-  const hasHeader = columns.some((column) => column.header !== undefined);
-  const headerHeight = hasHeader && widget.props['stickyHeader'] !== false ? 1 : 0;
-  const window = tableWindow(widget, rows, Math.max(0, bounds.height - headerHeight), selectedTableRow(widget));
-  const selectedCell = selectedTableCell(widget);
+export function tableAccessibleChildren(widget: TableNode, bounds: Rect): readonly AccessibleNode[] {
+  const { rows, columns, hasHeader, window, selectedCell } = tableProjection(widget, bounds);
   const headerRow: AccessibleNode[] = hasHeader
     ? [{
         id: `${widget.id ?? 'table'}:headers`,
@@ -139,7 +152,7 @@ export function tableAccessibleChildren(widget: RenderNode, bounds: Rect): reado
         columnCount: columns.length
       },
       children: columns.map((column, columnIndex) => {
-        const value = rowCell(row, column.index);
+        const value = column.value(row, rowIndex);
         const label = columnLabel(column, columnIndex);
         return {
           id: `${widget.id ?? 'table'}:row:${String(rowIndex)}:cell:${String(column.index)}`,
@@ -161,19 +174,10 @@ export function tableAccessibleChildren(widget: RenderNode, bounds: Rect): reado
   return [...headerRow, ...bodyRows];
 }
 
-export function tableHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function tableHitTargets<TMessage>(widget: TableNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = tableMessageFactory(widget);
   if (toMessage === undefined) return [];
-  const rows = tableRows(widget);
-  const columns = tableColumns(widget, rows);
-  const spacing = tableSpacing(widget);
-  const hasHeader = columns.some((column) => column.header !== undefined);
-  const headerHeight = hasHeader && widget.props['stickyHeader'] !== false ? 1 : 0;
-  const bodyHeight = Math.max(0, bounds.height - headerHeight);
-  const selected = selectedTableRow(widget);
-  const window = tableWindow(widget, rows, bodyHeight, selected);
-  const widths = columnWidths(columns, rows, Math.max(1, bounds.width - spacing.marker), spacing);
-  const selectedCell = selectedTableCell(widget);
+  const { columns, spacing, headerHeight, window, widths, selectedCell } = tableProjection(widget, bounds);
   return window.rows.flatMap((row, visibleIndex): HitTarget<TMessage>[] => {
     const rowIndex = window.start + visibleIndex;
     const rowBounds = {
@@ -195,7 +199,7 @@ export function tableHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: 
 }
 
 function tableCellHitTargets<TMessage>(
-  widget: RenderNode<TMessage>,
+  widget: TableNode<TMessage>,
   row: unknown,
   rowIndex: number,
   columns: readonly NormalizedColumn[],
@@ -226,7 +230,7 @@ function tableCellHitTargets<TMessage>(
         row,
         rowIndex,
         cell: {
-          value: rowCell(row, column.index),
+          value: column.value(row, rowIndex),
           columnIndex: visibleColumnIndex,
           sourceColumnIndex: column.index,
           columnLabel: columnLabel(column, visibleColumnIndex)
@@ -241,7 +245,7 @@ function columnLabel(column: NormalizedColumn, index: number): string {
   return column.header ?? `Column ${String(index + 1)}`;
 }
 
-function tableWindow(widget: RenderNode, rows: readonly unknown[], bodyHeight: number, selected: number): TableWindow {
+function tableWindow(widget: TableNode, rows: readonly unknown[], bodyHeight: number, selected: number): TableWindow {
   const window = rowWindow(rows, {
     viewportRows: bodyHeight,
     selectedIndex: selected,
@@ -258,7 +262,34 @@ function tableWindow(widget: RenderNode, rows: readonly unknown[], bodyHeight: n
   };
 }
 
-function headerLine(widget: RenderNode, columns: readonly NormalizedColumn[], widths: readonly number[], spacing: TableSpacing): RenderLine {
+function tableProjection(widget: TableNode, bounds: Rect): TableProjection {
+  const cached = tableProjectionCache.get(widget);
+  if (cached?.width === bounds.width && cached.height === bounds.height) return cached.projection;
+  const rows = tableRows(widget);
+  const columns = tableColumns(widget, rows);
+  const spacing = tableSpacing(widget);
+  const hasHeader = columns.some((column) => column.header !== undefined);
+  const headerHeight = hasHeader && widget.props.stickyHeader !== false ? 1 : 0;
+  const bodyHeight = Math.max(0, bounds.height - headerHeight);
+  const selected = selectedTableRow(widget);
+  const selectedCell = selectedTableCell(widget);
+  const projection: TableProjection = {
+    rows,
+    columns,
+    spacing,
+    hasHeader,
+    headerHeight,
+    bodyHeight,
+    selected,
+    selectedCell,
+    window: tableWindow(widget, rows, bodyHeight, selected),
+    widths: columnWidths(columns, rows, Math.max(1, bounds.width - spacing.marker), spacing)
+  };
+  tableProjectionCache.set(widget, { width: bounds.width, height: bounds.height, projection });
+  return projection;
+}
+
+function headerLine(widget: TableNode, columns: readonly NormalizedColumn[], widths: readonly number[], spacing: TableSpacing): RenderLine {
   const decorationStyle = renderNodeStyle(widget, 'placeholder');
   const spans: RenderSpan[] = [dataSpan(' '.repeat(spacing.marker), decorationStyle, tableSource(widget, 'header.marker', undefined, 'decoration'))];
   columns.forEach((column, index) => {
@@ -296,7 +327,7 @@ function headerLine(widget: RenderNode, columns: readonly NormalizedColumn[], wi
 }
 
 function rowLine(
-  widget: RenderNode,
+  widget: TableNode,
   row: unknown,
   rowIndex: number,
   columns: readonly NormalizedColumn[],
@@ -351,8 +382,8 @@ function rowLine(
   return { spans };
 }
 
-function emptyLine(widget: RenderNode, spacing: TableSpacing): RenderLine {
-  const emptyText = clean(stringify(widget.props['emptyText'])) || 'No rows';
+function emptyLine(widget: TableNode, spacing: TableSpacing): RenderLine {
+  const emptyText = clean(stringify(widget.props.emptyText)) || 'No rows';
   return {
     spans: [
       dataSpan(' '.repeat(spacing.marker), renderNodeStyle(widget, 'placeholder'), tableSource(widget, 'empty.marker', undefined, 'decoration')),
@@ -362,14 +393,14 @@ function emptyLine(widget: RenderNode, spacing: TableSpacing): RenderLine {
 }
 
 function renderCell(
-  widget: RenderNode,
+  widget: TableNode,
   row: unknown,
   rowIndex: number,
   column: NormalizedColumn,
   columnIndex: number,
   fallbackSource: FrameCellSource
 ): readonly RenderSpan[] {
-  const value = rowCell(row, column.index);
+  const value = column.value(row, rowIndex);
   const fallbackStyle = mergeDataStyles(tableSemanticStyle(widget, column.semantic), column.style);
   if (column.render !== undefined) {
     return renderResultToSpans(column.render({ value, row, rowIndex, columnIndex }), fallbackStyle, fallbackSource);
@@ -377,7 +408,7 @@ function renderCell(
   return [dataSpan(displayValue(value), fallbackStyle, fallbackSource)];
 }
 
-function tableSemanticStyle(widget: RenderNode, semantic: TableColumnSemantic): TerminalStyle | undefined {
+function tableSemanticStyle(widget: TableNode, semantic: TableColumnSemantic): TerminalStyle | undefined {
   if (semantic === 'metric') return mergeDataStyles(renderNodeStyle(widget, 'value'), themeStyle('table.metric'));
   if (semantic === 'metadata') return mergeDataStyles(renderNodeStyle(widget, 'placeholder'), themeStyle('table.metadata', { dim: true }));
   return renderNodeStyle(widget, 'value');
@@ -477,7 +508,10 @@ function columnWidths(columns: readonly NormalizedColumn[], rows: readonly unkno
   if (columns.length === 0) return [];
   const separators = Math.max(0, columns.length - 1) * spacing.separator;
   const widthBudget = Math.max(columns.length, availableWidth - separators);
-  const base = columns.map((column) => intrinsicColumnWidth(column, rows));
+  const base = columns.map((column) => requiresIntrinsicWidth(column.width)
+    ? intrinsicColumnWidth(column, rows)
+    : 1
+  );
   const fixed = columns.map((column, index) => explicitWidth(column.width, widthBudget, base[index] ?? 1));
   const used = fixed.reduce<number>((sum, width) => sum + (width ?? 0), 0);
   const fillColumns = columns.flatMap((column, index) => fixed[index] === undefined ? [{ column, index }] : []);
@@ -489,6 +523,10 @@ function columnWidths(columns: readonly NormalizedColumn[], rows: readonly unkno
     const weight = fillWeightFor(column.width);
     return Math.max(1, Math.floor(remaining * (weight / Math.max(1, fillWeight))));
   });
+}
+
+function requiresIntrinsicWidth(width: TableColumnWidth | undefined): boolean {
+  return width === undefined || (typeof width === 'object' && width.kind === 'content');
 }
 
 function explicitWidth(width: TableColumnWidth | undefined, availableWidth: number, intrinsic: number): number | undefined {
@@ -513,24 +551,41 @@ function fillWeightFor(width: TableColumnWidth | undefined): number {
 function intrinsicColumnWidth(column: NormalizedColumn, rows: readonly unknown[]): number {
   const header = `${column.header ?? ''}${sortMarker(column.sort)}`;
   const headerWidth = measureTextCells(header).cells;
-  const cellWidth = rows.reduce<number>((max, row) => Math.max(max, measureTextCells(displayValue(rowCell(row, column.index))).cells), 1);
+  const cellWidth = rows.reduce<number>((max, row, rowIndex) => Math.max(
+    max,
+    measureTextCells(displayValue(column.value(row, rowIndex))).cells
+  ), 1);
   return Math.max(1, headerWidth, Math.min(cellWidth, 24));
 }
 
-function tableRows(widget: RenderNode): readonly unknown[] {
-  return Array.isArray(widget.props['rows']) ? widget.props['rows'] : [];
+function tableRows(widget: TableNode): readonly unknown[] {
+  return Array.isArray(widget.props.rows) ? widget.props.rows : [];
 }
 
-function tableColumns(widget: RenderNode, rows: readonly unknown[]): readonly NormalizedColumn[] {
-  const raw = widget.props['columns'];
+function tableColumns(widget: TableNode, rows: readonly unknown[]): readonly NormalizedColumn[] {
+  const raw = widget.props.columns;
   const configured = Array.isArray(raw) ? raw.flatMap((column, index) => normalizeColumn(column, index)) : [];
   if (configured.length > 0) return configured;
   const count = rows.reduce<number>((max, row) => Math.max(max, rowCells(row).length), 0);
-  return Array.from({ length: count }, (_value, index) => ({ index, align: 'start', semantic: 'text' }));
+  return Array.from({ length: count }, (_value, index) => ({
+    id: `column-${String(index)}`,
+    index,
+    align: 'start',
+    semantic: 'text',
+    value: (row: unknown) => rowCells(row)[index]
+  }));
 }
 
 function normalizeColumn(column: unknown, index: number): readonly NormalizedColumn[] {
   if (!isRecord(column) || column['hidden'] === true) return [];
+  const id = column['id'];
+  const value = column['value'];
+  if (typeof id !== 'string' || id.trim().length === 0) {
+    throw new TypeError(`Table column ${String(index)} must define a non-empty id.`);
+  }
+  if (typeof value !== 'function') {
+    throw new TypeError(`Table column "${id}" must define a value(row, rowIndex) accessor.`);
+  }
   const header = column['header'];
   const align = column['align'];
   const style = column['style'];
@@ -541,11 +596,13 @@ function normalizeColumn(column: unknown, index: number): readonly NormalizedCol
   const normalizedAlign: TableColumnAlignment = align === 'center' || align === 'end' ? align : 'start';
   const semantic = normalizeColumnSemantic(column['semantic'], normalizedAlign);
   return [{
+    id: clean(id),
     index,
     ...(typeof header === 'string' ? { header: clean(header) } : {}),
     ...(width === undefined ? {} : { width }),
     align: normalizedAlign,
     semantic,
+    value: value as (row: unknown, rowIndex: number) => unknown,
     ...(isTerminalStyle(style) ? { style } : {}),
     ...(isTerminalStyle(headerStyle) ? { headerStyle } : {}),
     ...(isCellRenderer(render) ? { render } : {}),
@@ -554,8 +611,8 @@ function normalizeColumn(column: unknown, index: number): readonly NormalizedCol
   }];
 }
 
-function tableSpacing(widget: RenderNode): TableSpacing {
-  return tableDensity(widget.props['density']) === 'dense'
+function tableSpacing(widget: TableNode): TableSpacing {
+  return tableDensity(widget.props.density) === 'dense'
     ? { marker: 2, separator: 1 }
     : { marker: 2, separator: 2 };
 }
@@ -590,19 +647,15 @@ function rowCells(row: unknown): readonly unknown[] {
   return Array.isArray(row) ? row : [row];
 }
 
-function rowCell(row: unknown, index: number): unknown {
-  return rowCells(row)[index];
-}
-
-function selectedTableRow(widget: RenderNode): number {
+function selectedTableRow(widget: TableNode): number {
   return selectedTableCell(widget)?.row ?? Math.max(0, Math.floor(numberProp(widget, 'selected') ?? 0));
 }
 
-function selectedTableCell(widget: RenderNode): { readonly row: number; readonly column: number } | undefined {
-  const selectedCell = widget.props['selectedCell'];
+function selectedTableCell(widget: TableNode): { readonly row: number; readonly column: number } | undefined {
+  const selectedCell = widget.props.selectedCell;
   if (!isRecord(selectedCell)) return undefined;
-  const row = selectedCell['row'];
-  const column = selectedCell['column'];
+  const row = selectedCell.row;
+  const column = selectedCell.column;
   if (typeof row !== 'number') return undefined;
   return {
     row: Math.max(0, Math.floor(row)),
@@ -610,15 +663,15 @@ function selectedTableCell(widget: RenderNode): { readonly row: number; readonly
   };
 }
 
-function scrollInput(widget: RenderNode): { readonly scroll?: ScrollState } {
-  const scroll = scrollStateFromUnknown(widget.props['scroll']);
+function scrollInput(widget: TableNode): { readonly scroll?: ScrollState } {
+  const scroll = scrollStateFromUnknown(widget.props.scroll);
   return scroll === undefined ? {} : { scroll };
 }
 
-function tableMessageFactory<TMessage>(widget: RenderNode<TMessage>): ((selection: TablePointerSelection) => TMessage) | undefined {
-  const toMessage = widget.props['toMessage'];
+function tableMessageFactory<TMessage>(widget: TableNode<TMessage>): ((selection: TablePointerSelection) => TMessage) | undefined {
+  const toMessage = widget.props.toMessage;
   return typeof toMessage === 'function'
-    ? (selection) => (toMessage as (selection: TablePointerSelection) => TMessage)(selection)
+    ? (selection) => (toMessage)(selection)
     : undefined;
 }
 
@@ -662,7 +715,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function tableSource(
-  widget: RenderNode,
+  widget: TableNode,
   label: string,
   id?: string,
   role: FrameCellSource['role'] = 'text',
@@ -677,3 +730,4 @@ function tableSource(
     ...options
   });
 }
+type TableNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'table'>;

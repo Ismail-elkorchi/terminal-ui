@@ -42,10 +42,21 @@ import { tooltipPreferredSize } from './tooltip.ts';
 import { treeBlock } from './tree.ts';
 import { numberProp, stringify } from './render-node-props.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNode, RenderNodeOfKind } from '../render-node/index.ts';
 import type { BorderStyle } from './border.ts';
 import type { LayoutNode, Rect } from './layout.ts';
 import type { Measurement } from './measurement.ts';
+
+type ListNode = RenderNodeOfKind<unknown, 'list'>;
+type TableNode = RenderNodeOfKind<unknown, 'table'>;
+type SurfaceNode = RenderNodeOfKind<unknown, 'surface'>;
+type AbsoluteNode = RenderNodeOfKind<unknown, 'absolute'>;
+type CanvasNode = RenderNodeOfKind<unknown, 'canvas'>;
+type ViewportNode = RenderNodeOfKind<unknown, 'viewport'>;
+type TabsNode = RenderNodeOfKind<unknown, 'tabs'>;
+type ModalNode = RenderNodeOfKind<unknown, 'modal'>;
+type ScrollbackNode = RenderNodeOfKind<unknown, 'scrollback'>;
+type TextAreaNode = RenderNodeOfKind<unknown, 'textArea'>;
 
 export type RenderNodeMeasureFunction = (widget: RenderNode, bounds: Rect, theme: TerminalTheme) => Measurement;
 
@@ -57,7 +68,7 @@ export function measureBuiltinRenderNode(
 ): Measurement {
   switch (widget.kind) {
     case 'text':
-      return measureText(stringify(widget.props['content']));
+      return measureText(stringify(widget.props.content));
     case 'richText':
       return measureBlock(richTextBlock(widget, intrinsicBounds(bounds)));
     case 'statusBar':
@@ -173,8 +184,8 @@ export function measureBuiltinRenderNode(
   }
 }
 
-function measureList(widget: RenderNode, theme: TerminalTheme): Measurement {
-  const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
+function measureList(widget: ListNode, theme: TerminalTheme): Measurement {
+  const items = Array.isArray(widget.props.items) ? widget.props.items : [];
   const lines = items.map((item, index) => {
     const marker = index === numberProp(widget, 'selected') ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected;
     return `${marker} ${String(item)}`;
@@ -182,8 +193,8 @@ function measureList(widget: RenderNode, theme: TerminalTheme): Measurement {
   return measureLines(lines);
 }
 
-function measureTable(widget: RenderNode): Measurement {
-  const rows = Array.isArray(widget.props['rows']) ? widget.props['rows'] : [];
+function measureTable(widget: TableNode): Measurement {
+  const rows = Array.isArray(widget.props.rows) ? widget.props.rows : [];
   const columns = tableColumnMeasureInputs(widget, rows);
   const width = columns.reduce((sum, column, index) => sum + column.width + (index === 0 ? 2 : 4), 0);
   const hasHeader = columns.some((column) => column.header.length > 0);
@@ -191,7 +202,7 @@ function measureTable(widget: RenderNode): Measurement {
 }
 
 function measureSurface(
-  widget: RenderNode,
+  widget: SurfaceNode,
   bounds: Rect,
   theme: TerminalTheme,
   measureNode: RenderNodeMeasureFunction
@@ -202,10 +213,10 @@ function measureSurface(
   return measureSize(content.preferredWidth + insetCells, content.preferredHeight + insetCells);
 }
 
-function borderFromRenderNode(widget: RenderNode): BorderStyle {
-  const explicit = borderStyleFromValue(widget.props['border']);
+function borderFromRenderNode(widget: SurfaceNode): BorderStyle {
+  const explicit = borderStyleFromValue(widget.props.border);
   if (explicit !== undefined) return explicit;
-  const variant = widget.props['variant'];
+  const variant = widget.props.variant;
   return variant === undefined || variant === 'neutral' ? { kind: 'none' } : { kind: 'single' };
 }
 
@@ -243,7 +254,7 @@ function measureChildrenOverlay(
 }
 
 function measureAbsolute(
-  widget: RenderNode,
+  widget: AbsoluteNode,
   bounds: Rect,
   theme: TerminalTheme,
   measureNode: RenderNodeMeasureFunction
@@ -255,13 +266,13 @@ function measureAbsolute(
   return measureSize(width || content.preferredWidth, height || content.preferredHeight);
 }
 
-function measureCanvas(widget: RenderNode): Measurement {
-  const label = stringify(widget.props['label']);
+function measureCanvas(widget: CanvasNode): Measurement {
+  const label = stringify(widget.props.label);
   return label.length === 0 ? zeroMeasurement() : measureText(label);
 }
 
 function measureViewport(
-  widget: RenderNode,
+  widget: ViewportNode,
   bounds: Rect,
   theme: TerminalTheme,
   measureNode: RenderNodeMeasureFunction
@@ -274,7 +285,7 @@ function measureViewport(
 }
 
 function measureTabs(
-  widget: RenderNode,
+  widget: TabsNode,
   bounds: Rect,
   theme: TerminalTheme,
   measureNode: RenderNodeMeasureFunction
@@ -285,7 +296,7 @@ function measureTabs(
 }
 
 function measureModal(
-  widget: RenderNode,
+  widget: ModalNode,
   bounds: Rect,
   theme: TerminalTheme,
   measureNode: RenderNodeMeasureFunction
@@ -296,7 +307,7 @@ function measureModal(
     return measureSize(explicitWidth, explicitHeight, Math.min(4, explicitWidth), Math.min(3, explicitHeight));
   }
   const content = measureModalContent(widget, bounds, theme, measureNode);
-  const border = borderStyleFromValue(widget.props['border']) ?? { kind: 'single' };
+  const border = borderStyleFromValue(widget.props.border) ?? { kind: 'single' };
   const insetCells = border.kind === 'none' ? 0 : 2;
   return measureSize(
     explicitWidth ?? Math.max(4, content.preferredWidth + insetCells),
@@ -305,7 +316,7 @@ function measureModal(
 }
 
 function measureModalContent(
-  widget: RenderNode,
+  widget: ModalNode,
   bounds: Rect,
   theme: TerminalTheme,
   measureNode: RenderNodeMeasureFunction
@@ -328,19 +339,19 @@ function childMeasuresFor(
   return (widget.children ?? []).map((child) => measureNode(child, bounds, theme));
 }
 
-function scrollbackMeasureText(widget: RenderNode): string {
-  const items = Array.isArray(widget.props['items']) ? widget.props['items'] : [];
+function scrollbackMeasureText(widget: ScrollbackNode): string {
+  const items = Array.isArray(widget.props.items) ? widget.props.items : [];
   return items.map((item) => isRecord(item) ? stringify(item['text']) : '').join('\n');
 }
 
-function textAreaMeasureText(widget: RenderNode): string {
-  const value = stringify(widget.props['value']);
-  const placeholder = stringify(widget.props['placeholder']);
+function textAreaMeasureText(widget: TextAreaNode): string {
+  const value = stringify(widget.props.value);
+  const placeholder = stringify(widget.props.placeholder);
   return value.length === 0 && placeholder.length > 0 ? placeholder : value;
 }
 
-function tableColumnMeasureInputs(widget: RenderNode, rows: readonly unknown[]): readonly { readonly header: string; readonly width: number }[] {
-  const columns = Array.isArray(widget.props['columns']) ? widget.props['columns'] : [];
+function tableColumnMeasureInputs(widget: TableNode, rows: readonly unknown[]): readonly { readonly header: string; readonly width: number }[] {
+  const columns = Array.isArray(widget.props.columns) ? widget.props.columns : [];
   if (columns.length === 0) {
     const keys = rows.flatMap((row): string[] => isRecord(row) ? Object.keys(row) : []);
     return [...new Set(keys)].map((key) => ({ header: key, width: measureTextCells(key).cells }));
@@ -386,7 +397,8 @@ function fakeLayoutNode(widget: RenderNode, bounds: Rect): LayoutNode {
     ...(widget.id === undefined ? {} : { id: widget.id }),
     kind: widget.kind,
     bounds,
-    layer: { id: widget.id ?? widget.kind, zIndex: 0, bounds, opacity: widget.layer?.opacity ?? 'transparent' },
+    identity: widget.id ?? `${widget.kind}:0`,
+    layer: { id: widget.id ?? `${widget.kind}:0`, zIndex: 0, bounds, opacity: widget.layer?.opacity ?? 'transparent' },
     visible: true,
     focusable: false,
     focusTargets: [],

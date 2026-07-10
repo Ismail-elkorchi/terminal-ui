@@ -8,20 +8,32 @@ import type { Element } from '../components/element.ts';
 import { elementFromRenderNode } from '../render-node/element.ts';
 import type { RenderNodeInputMap, RenderNodeKeyMap } from '../render-node/index.ts';
 import type { RenderNodeRenderer } from '../tui/render-node-renderer.ts';
+import type { CustomRenderer } from './custom-renderer.ts';
 
 const rendererHookNames = [
   'measure',
-  'layout',
   'accessibility',
   'focusTargets',
   'hitTargets'
-] as const satisfies readonly (keyof RenderNodeRenderer)[];
+] as const satisfies readonly (keyof CustomRenderer)[];
 
-export interface CustomElementOptions<TMessage> extends ComponentOptions, ComponentTextInputHandlers<TMessage> {
-  readonly renderer: RenderNodeRenderer<TMessage>;
-  readonly state?: unknown;
+interface CustomElementOptionsBase<TMessage> extends ComponentOptions, ComponentTextInputHandlers<TMessage> {
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
+
+export interface StatefulCustomElementOptions<TState, TMessage = never> extends CustomElementOptionsBase<TMessage> {
+  readonly renderer: CustomRenderer<TState, TMessage>;
+  readonly state: TState;
+}
+
+export interface StatelessCustomElementOptions<TMessage = never> extends CustomElementOptionsBase<TMessage> {
+  readonly renderer: CustomRenderer<undefined, TMessage>;
+  readonly state?: never;
+}
+
+export type CustomElementOptions<TState = undefined, TMessage = never> =
+  | StatefulCustomElementOptions<TState, TMessage>
+  | StatelessCustomElementOptions<TMessage>;
 
 interface CustomRendererValidationOptions<TMessage> {
   readonly accessibility?: AccessibleNodeDefinition;
@@ -29,21 +41,27 @@ interface CustomRendererValidationOptions<TMessage> {
   readonly inputMap?: RenderNodeInputMap<TMessage>;
 }
 
-export function custom<TMessage>(options: CustomElementOptions<TMessage>): Element<TMessage> {
+export function custom<TState, const TMessage = never>(
+  options: StatefulCustomElementOptions<TState, TMessage>
+): Element<TMessage>;
+export function custom<const TMessage = never>(
+  options: StatelessCustomElementOptions<TMessage>
+): Element<TMessage>;
+export function custom<TState, const TMessage = never>(
+  options: CustomElementOptions<TState, TMessage>
+): Element<TMessage> {
   const inputMap = inputMapFromHandlers(options);
   assertCustomRenderer(options.renderer, {
     ...(options.meta?.accessibility === undefined ? {} : { accessibility: options.meta.accessibility }),
     ...(options.keys === undefined ? {} : { keyMap: options.keys }),
     ...(inputMap === undefined ? {} : { inputMap })
   });
-  return elementFromRenderNode({
+  const renderer = adaptCustomRenderer(options.renderer, 'state' in options ? options.state : undefined);
+  return elementFromRenderNode<'custom', TMessage>({
     ...(options.id === undefined ? {} : { id: options.id }),
     kind: 'custom',
     props: {},
-    custom: {
-      renderer: options.renderer,
-      ...(options.state === undefined ? {} : { state: options.state })
-    },
+    custom: { renderer },
     ...(options.keys === undefined || Object.keys(options.keys).length === 0 ? {} : { keyMap: options.keys }),
     ...(inputMap === undefined ? {} : { inputMap }),
     ...(options.meta?.layer === undefined ? {} : { layer: options.meta.layer }),
@@ -53,10 +71,10 @@ export function custom<TMessage>(options: CustomElementOptions<TMessage>): Eleme
   });
 }
 
-export function assertCustomRenderer<TMessage>(
+export function assertCustomRenderer(
   value: unknown,
-  options: CustomRendererValidationOptions<TMessage>
-): asserts value is RenderNodeRenderer<TMessage> {
+  options: CustomRendererValidationOptions<unknown>
+): asserts value is CustomRenderer<unknown, unknown> {
   if (!isRecord(value) || typeof value['render'] !== 'function') {
     throw new Error('Custom renderers must provide a renderer with a render function.');
   }
@@ -73,6 +91,40 @@ export function assertCustomRenderer<TMessage>(
   if (value['accessibility'] === undefined) {
     throw new Error('Custom renderers must provide accessibility or be marked decorative.');
   }
+}
+
+function adaptCustomRenderer<TState, TMessage>(
+  renderer: CustomRenderer<TState, TMessage>,
+  state: TState
+): RenderNodeRenderer<TMessage, 'custom'> {
+  return {
+    ...(renderer.measure === undefined ? {} : {
+      measure: ({ bounds, theme }) => renderer.measure?.({ state, bounds, theme }) ?? {
+        minWidth: 0,
+        minHeight: 0,
+        preferredWidth: 0,
+        preferredHeight: 0
+      }
+    }),
+    render: ({ layoutNode, buffer, theme, focused }) => {
+      renderer.render({ state, bounds: layoutNode.bounds, buffer, theme, focused });
+    },
+    ...(renderer.accessibility === undefined ? {} : {
+      accessibility: ({ layoutNode, id, focused, theme }) => renderer.accessibility?.({
+        state,
+        bounds: layoutNode.bounds,
+        id,
+        focused,
+        theme
+      }) ?? { id, role: 'text', label: id }
+    }),
+    ...(renderer.focusTargets === undefined ? {} : {
+      focusTargets: ({ bounds, theme }) => renderer.focusTargets?.({ state, bounds, theme }) ?? []
+    }),
+    ...(renderer.hitTargets === undefined ? {} : {
+      hitTargets: ({ bounds, theme }) => renderer.hitTargets?.({ state, bounds, theme }) ?? []
+    })
+  };
 }
 
 function inputMapFromHandlers<TMessage>(

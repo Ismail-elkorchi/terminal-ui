@@ -8,9 +8,9 @@ import type { PromptDefinition } from './types.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { RenderSpan } from '../tui/render-primitives.ts';
 
-export function renderPromptText<TValue>(
-  prompt: PromptDefinition<TValue>,
-  state: PromptRuntimeState,
+export function renderPromptText<TChoice>(
+  prompt: PromptDefinition<TChoice>,
+  state: PromptRuntimeState<TChoice>,
   capabilities: TerminalCapabilityProfile
 ): string {
   const hasThemeOverride = prompt.theme !== undefined;
@@ -20,8 +20,8 @@ export function renderPromptText<TValue>(
 }
 
 function renderAutocompletePrompt<TValue>(
-  prompt: PromptDefinition<TValue>,
-  state: PromptRuntimeState,
+  prompt: Extract<PromptDefinition<TValue>, { readonly kind: 'autocomplete' }>,
+  state: PromptRuntimeState<TValue>,
   theme: TerminalTheme,
   capabilities: TerminalCapabilityProfile,
   useDefaultTextStyle: boolean
@@ -33,10 +33,10 @@ function renderAutocompletePrompt<TValue>(
   ].join('\n');
 }
 
-function renderAutocompleteChoiceLine(
-  choice: PromptChoice<unknown>,
+function renderAutocompleteChoiceLine<TValue>(
+  choice: PromptChoice<TValue>,
   index: number,
-  state: PromptRuntimeState,
+  state: PromptRuntimeState<TValue>,
   theme: TerminalTheme,
   capabilities: TerminalCapabilityProfile,
   useDefaultTextStyle: boolean

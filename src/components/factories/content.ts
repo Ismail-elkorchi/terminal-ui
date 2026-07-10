@@ -1,11 +1,12 @@
 import { elementFromRenderNode } from '../../render-node/element.ts';
 import type { Element } from '../element.ts';
 import type { RichTextOptions, TextAreaOptions, TextOptions } from '../options/content.ts';
-import { interactionProps } from '../factory-internals/interaction.ts';
+import { interactionProps, textAreaKeyBindings } from '../factory-internals/interaction.ts';
 import { optionalId } from '../factory-internals/layout.ts';
+import type { IndependentInteractionOptions } from '../factory-internals/messages.ts';
 
-export function text(content: string, options: TextOptions = {}): Element<never> {
-  return elementFromRenderNode({
+export function text(content: string, options: TextOptions = {}): Element {
+  return elementFromRenderNode<'text'>({
     ...optionalId(options.id),
     kind: 'text',
     props: {
@@ -16,8 +17,8 @@ export function text(content: string, options: TextOptions = {}): Element<never>
   });
 }
 
-export function richText<TMessage>(options: RichTextOptions<TMessage>): Element<TMessage> {
-  return elementFromRenderNode({
+export function richText<const TMessage = never>(options: RichTextOptions<TMessage>): Element<TMessage> {
+  return elementFromRenderNode<'richText', TMessage>({
     ...optionalId(options.id),
     kind: 'richText',
     props: {
@@ -28,8 +29,38 @@ export function richText<TMessage>(options: RichTextOptions<TMessage>): Element<
   });
 }
 
-export function textArea<TMessage>(options: TextAreaOptions<TMessage> = {}): Element<TMessage> {
-  return elementFromRenderNode({
+export function textArea(): Element;
+export function textArea<
+  const TScrollMessage = never,
+  const TTextPointerMessage = never,
+  const TEditMessage = never,
+  const TInputMessage = never,
+  const TPasteMessage = never,
+  const TKeyMessage = never
+>(
+  options: IndependentInteractionOptions<
+    TextAreaOptions,
+    {
+      readonly onScroll: TScrollMessage;
+      readonly onTextPointer: TTextPointerMessage;
+      readonly onEdit: TEditMessage;
+      readonly onInput: TInputMessage;
+      readonly onPaste: TPasteMessage;
+    },
+    Record<never, never>,
+    TKeyMessage
+  >
+): Element<
+  | TScrollMessage
+  | TTextPointerMessage
+  | TEditMessage
+  | TInputMessage
+  | TPasteMessage
+  | TKeyMessage
+>;
+export function textArea(options: TextAreaOptions<unknown> = {}): Element<unknown> {
+  const keys = textAreaKeyBindings(options.onEdit, options.keys);
+  return elementFromRenderNode<'textArea', unknown>({
     ...optionalId(options.id),
     kind: 'textArea',
     props: {
@@ -50,6 +81,6 @@ export function textArea<TMessage>(options: TextAreaOptions<TMessage> = {}): Ele
       ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll }),
       ...(options.onTextPointer === undefined ? {} : { toTextPointerMessage: options.onTextPointer })
     },
-    ...interactionProps(options)
+    ...interactionProps({ ...options, keys })
   });
 }

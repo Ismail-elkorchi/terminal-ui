@@ -1,5 +1,5 @@
 import { elementFromRenderNode } from '../../render-node/element.ts';
-import type { Element, ElementChildren } from '../element.ts';
+import type { Element, ElementChildren, ElementChildrenMessage } from '../element.ts';
 import type {
   ButtonOptions,
   CheckboxListOptions,
@@ -28,9 +28,22 @@ import {
   optionalId,
   renderNodeChildren
 } from '../factory-internals/layout.ts';
+import {
+  checkboxChoiceHandler,
+  choiceHandler,
+  choiceItemsForRenderer,
+  colorOptionsForRenderer,
+  colorSelectionHandler,
+  dateDaysForRenderer,
+  dateSelectionHandler
+} from '../factory-internals/domain.ts';
 
-export function form<TMessage>(children: ElementChildren<TMessage>, options: FormOptions<TMessage> = {}): Element<TMessage> {
-  return elementFromRenderNode({
+export function form<const TChildren extends ElementChildren, const TMessage = never>(
+  children: TChildren,
+  options: FormOptions<TMessage> = {}
+): Element<ElementChildrenMessage<TChildren> | TMessage> {
+  type Message = ElementChildrenMessage<TChildren> | TMessage;
+  return elementFromRenderNode<'form', Message>({
     ...optionalId(options.id),
     kind: 'form',
     props: {
@@ -42,8 +55,12 @@ export function form<TMessage>(children: ElementChildren<TMessage>, options: For
   });
 }
 
-export function field<TMessage>(children: ElementChildren<TMessage>, options: FieldOptions<TMessage>): Element<TMessage> {
-  return elementFromRenderNode({
+export function field<const TChildren extends ElementChildren, const TMessage = never>(
+  children: TChildren,
+  options: FieldOptions<TMessage>
+): Element<ElementChildrenMessage<TChildren> | TMessage> {
+  type Message = ElementChildrenMessage<TChildren> | TMessage;
+  return elementFromRenderNode<'field', Message>({
     ...optionalId(options.id),
     kind: 'field',
     props: {
@@ -59,8 +76,8 @@ export function field<TMessage>(children: ElementChildren<TMessage>, options: Fi
   });
 }
 
-export function label<TMessage>(options: LabelOptions<TMessage>): Element<TMessage> {
-  return elementFromRenderNode({
+export function label<const TMessage = never>(options: LabelOptions<TMessage>): Element<TMessage> {
+  return elementFromRenderNode<'label', TMessage>({
     ...optionalId(options.id),
     kind: 'label',
     props: {
@@ -73,9 +90,9 @@ export function label<TMessage>(options: LabelOptions<TMessage>): Element<TMessa
   });
 }
 
-export function button<TMessage>(options: ButtonOptions<TMessage>): Element<TMessage> {
+export function button<const TMessage = never>(options: ButtonOptions<TMessage>): Element<TMessage> {
   const keyMap = activationKeyBindings(options.onPress, options.keys);
-  return elementFromRenderNode({
+  return elementFromRenderNode<'button', TMessage>({
     ...optionalId(options.id),
     kind: 'button',
     props: {
@@ -91,10 +108,10 @@ export function button<TMessage>(options: ButtonOptions<TMessage>): Element<TMes
   });
 }
 
-export function checkbox<TMessage>(options: CheckboxOptions<TMessage>): Element<TMessage> {
+export function checkbox<const TMessage = never>(options: CheckboxOptions<TMessage>): Element<TMessage> {
   const changeMessage = options.onChange?.(!options.checked);
   const keyMap = activationKeyBindings(changeMessage, options.keys);
-  return elementFromRenderNode({
+  return elementFromRenderNode<'checkbox', TMessage>({
     ...optionalId(options.id),
     kind: 'checkbox',
     props: {
@@ -111,10 +128,10 @@ export function checkbox<TMessage>(options: CheckboxOptions<TMessage>): Element<
   });
 }
 
-export function toggleSwitch<TMessage>(options: ToggleSwitchOptions<TMessage>): Element<TMessage> {
+export function toggleSwitch<const TMessage = never>(options: ToggleSwitchOptions<TMessage>): Element<TMessage> {
   const changeMessage = options.onChange?.(!options.checked);
   const keyMap = activationKeyBindings(changeMessage, options.keys);
-  return elementFromRenderNode({
+  return elementFromRenderNode<'toggleSwitch', TMessage>({
     ...optionalId(options.id),
     kind: 'toggleSwitch',
     props: {
@@ -131,9 +148,9 @@ export function toggleSwitch<TMessage>(options: ToggleSwitchOptions<TMessage>): 
   });
 }
 
-export function slider<TMessage>(options: SliderOptions<TMessage>): Element<TMessage> {
+export function slider<const TMessage = never>(options: SliderOptions<TMessage>): Element<TMessage> {
   const keyMap = sliderKeyBindings(options);
-  return elementFromRenderNode({
+  return elementFromRenderNode<'slider', TMessage>({
     ...optionalId(options.id),
     kind: 'slider',
     props: {
@@ -152,9 +169,9 @@ export function slider<TMessage>(options: SliderOptions<TMessage>): Element<TMes
   });
 }
 
-export function rangeSlider<TMessage>(options: RangeSliderOptions<TMessage>): Element<TMessage> {
+export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<TMessage>): Element<TMessage> {
   const keyMap = rangeSliderKeyBindings(options);
-  return elementFromRenderNode({
+  return elementFromRenderNode<'rangeSlider', TMessage>({
     ...optionalId(options.id),
     kind: 'rangeSlider',
     props: {
@@ -174,15 +191,16 @@ export function rangeSlider<TMessage>(options: RangeSliderOptions<TMessage>): El
   });
 }
 
-export function checkboxList<TValue, TMessage>(options: CheckboxListOptions<TValue, TMessage>): Element<TMessage> {
-  return elementFromRenderNode({
+export function checkboxList<TValue, const TMessage = never>(options: CheckboxListOptions<TValue, TMessage>): Element<TMessage> {
+  const toMessage = checkboxChoiceHandler(options.onChange);
+  return elementFromRenderNode<'checkboxList', TMessage>({
     ...optionalId(options.id),
     kind: 'checkboxList',
     props: {
-      options: options.options,
+      options: choiceItemsForRenderer(options.options),
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
-      ...(options.onChange === undefined ? {} : { toMessage: options.onChange }),
+      ...(toMessage === undefined ? {} : { toMessage }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
@@ -191,15 +209,16 @@ export function checkboxList<TValue, TMessage>(options: CheckboxListOptions<TVal
   });
 }
 
-export function radioGroup<TValue, TMessage>(options: RadioGroupOptions<TValue, TMessage>): Element<TMessage> {
-  return elementFromRenderNode({
+export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOptions<TValue, TMessage>): Element<TMessage> {
+  const toMessage = choiceHandler(options.onChange);
+  return elementFromRenderNode<'radioGroup', TMessage>({
     ...optionalId(options.id),
     kind: 'radioGroup',
     props: {
-      options: options.options,
+      options: choiceItemsForRenderer(options.options),
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
-      ...(options.onChange === undefined ? {} : { toMessage: options.onChange }),
+      ...(toMessage === undefined ? {} : { toMessage }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
@@ -208,16 +227,17 @@ export function radioGroup<TValue, TMessage>(options: RadioGroupOptions<TValue, 
   });
 }
 
-export function colorPicker<TValue, TMessage>(options: ColorPickerOptions<TValue, TMessage>): Element<TMessage> {
-  return elementFromRenderNode({
+export function colorPicker<TValue, const TMessage = never>(options: ColorPickerOptions<TValue, TMessage>): Element<TMessage> {
+  const toMessage = colorSelectionHandler(options.onChange);
+  return elementFromRenderNode<'colorPicker', TMessage>({
     ...optionalId(options.id),
     kind: 'colorPicker',
     props: {
-      options: options.options,
+      options: colorOptionsForRenderer(options.options),
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.columns === undefined ? {} : { columns: options.columns }),
-      ...(options.onChange === undefined ? {} : { toMessage: options.onChange }),
+      ...(toMessage === undefined ? {} : { toMessage }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
@@ -225,16 +245,17 @@ export function colorPicker<TValue, TMessage>(options: ColorPickerOptions<TValue
   });
 }
 
-export function datePicker<TValue, TMessage>(options: DatePickerOptions<TValue, TMessage>): Element<TMessage> {
-  return elementFromRenderNode({
+export function datePicker<TValue, const TMessage = never>(options: DatePickerOptions<TValue, TMessage>): Element<TMessage> {
+  const toMessage = dateSelectionHandler(options.onChange);
+  return elementFromRenderNode<'datePicker', TMessage>({
     ...optionalId(options.id),
     kind: 'datePicker',
     props: {
-      days: options.days,
+      days: dateDaysForRenderer(options.days),
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.columns === undefined ? {} : { columns: options.columns }),
-      ...(options.onChange === undefined ? {} : { toMessage: options.onChange }),
+      ...(toMessage === undefined ? {} : { toMessage }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
@@ -242,16 +263,17 @@ export function datePicker<TValue, TMessage>(options: DatePickerOptions<TValue, 
   });
 }
 
-export function selectBox<TValue, TMessage>(options: SelectBoxOptions<TValue, TMessage>): Element<TMessage> {
-  return elementFromRenderNode({
+export function selectBox<TValue, const TMessage = never>(options: SelectBoxOptions<TValue, TMessage>): Element<TMessage> {
+  const toMessage = choiceHandler(options.onChange);
+  return elementFromRenderNode<'selectBox', TMessage>({
     ...optionalId(options.id),
     kind: 'selectBox',
     props: {
-      options: options.options,
+      options: choiceItemsForRenderer(options.options),
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
-      ...(options.onChange === undefined ? {} : { toMessage: options.onChange }),
+      ...(toMessage === undefined ? {} : { toMessage }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
@@ -260,9 +282,9 @@ export function selectBox<TValue, TMessage>(options: SelectBoxOptions<TValue, TM
   });
 }
 
-export function textInput<TMessage>(options: TextInputOptions<TMessage> = {}): Element<TMessage> {
+export function textInput<const TMessage = never>(options: TextInputOptions<TMessage> = {}): Element<TMessage> {
   const keyMap = activationKeyBindings(options.onSubmit, options.keys);
-  return elementFromRenderNode({
+  return elementFromRenderNode<'textInput', TMessage>({
     ...optionalId(options.id),
     kind: 'textInput',
     props: {
@@ -285,8 +307,8 @@ export function textInput<TMessage>(options: TextInputOptions<TMessage> = {}): E
   });
 }
 
-export function numberInput<TMessage>(options: NumberInputOptions<TMessage> = {}): Element<TMessage> {
-  return elementFromRenderNode({
+export function numberInput<const TMessage = never>(options: NumberInputOptions<TMessage> = {}): Element<TMessage> {
+  return elementFromRenderNode<'numberInput', TMessage>({
     ...optionalId(options.id),
     kind: 'numberInput',
     props: {

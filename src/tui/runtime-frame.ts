@@ -28,7 +28,7 @@ export interface RenderCommitCandidate<TMessage> {
 export function renderCurrentFrame<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
   state: TState,
-  context: TuiContext<TMessage>,
+  context: TuiContext,
   focusPath: FocusPath | undefined,
   options: TuiRuntimeOptions<TState, TMessage>,
   stateVersion: number

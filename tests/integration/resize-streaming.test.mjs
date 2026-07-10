@@ -29,6 +29,7 @@ test('PTY harness handles resize while async stream messages are rendering', asy
     subscriptions: () => [{
       id: 'stream',
       source: 'external',
+      delivery: 'latest',
       async *messages(context) {
         for (let index = 1; index <= 8; index += 1) {
           await new Promise((resolve) => { setImmediate(resolve); });

@@ -7,7 +7,7 @@ import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
 test('progress primitive exposes accessible progress state', () => {
-  const progressState = createProgress({ label: 'Loading', value: 2, max: 5 });
+  const progressState = createProgress({ label: 'Loading', kind: 'determinate', value: 2, max: 5 });
   const snapshot = progressState.snapshot();
 
   assert.equal(snapshot.source, 'progress');
@@ -16,8 +16,8 @@ test('progress primitive exposes accessible progress state', () => {
 });
 
 test('progress primitive normalizes accessible progress values across updates', () => {
-  const progressState = createProgress({ label: 'Sync', value: 20, max: 10 });
-  const updated = progressState.update({ value: -5, max: 0, status: 'retrying' });
+  const progressState = createProgress({ label: 'Sync', kind: 'determinate', value: 20, max: 10 });
+  const updated = progressState.update({ kind: 'determinate', value: -5, max: 0, status: 'retrying' });
 
   assert.deepEqual(progressState.snapshot().root.progress, { value: 10, max: 10, indeterminate: false });
   assert.deepEqual(updated.snapshot().root.progress, { value: 0, max: 100, indeterminate: false });
@@ -29,7 +29,10 @@ test('progress primitive normalizes accessible progress values across updates', 
 test('runPrompt supports transcript-only non-TTY progress results', async () => {
   const host = createMemoryTerminalHost({ isTty: false });
 
-  const result = await runPrompt(progress({ label: 'Loading', value: 2, max: 5, status: 'Downloading' }), host);
+  const result = await runPrompt(progress({
+    label: 'Loading',
+    progress: { kind: 'determinate', value: 2, max: 5, status: 'Downloading' }
+  }), host);
 
   assert.equal(result.status, 'submitted');
   assert.deepEqual(result.value, { completed: false });
@@ -48,6 +51,7 @@ test('runPrompt includes non-TTY hints when progress prompts are rejected', asyn
 
   const result = await runPrompt(progress({
     label: 'Loading',
+    progress: { kind: 'indeterminate' },
     nonTty: { mode: 'reject', diagnosticHint: 'Run with --no-progress in CI.' }
   }), host);
 
@@ -62,12 +66,11 @@ test('runPrompt renders progress task updates and submits completion', async () 
 
   const result = await runPrompt(progress({
     label: 'Build',
-    value: 0,
-    max: 2,
+    progress: { kind: 'determinate', value: 0, max: 2 },
     transcript: { enabled: true },
     task: async (controller) => {
-      await controller.update({ value: 1, status: 'Compiling' });
-      await controller.update({ value: 2, status: 'Done' });
+      await controller.update({ kind: 'determinate', value: 1, max: 2, status: 'Compiling' });
+      await controller.update({ kind: 'determinate', value: 2, max: 2, status: 'Done' });
       return { completed: true };
     }
   }), host);
@@ -90,10 +93,9 @@ test('runPrompt cancels progress tasks and aborts the task signal', async () => 
 
   const running = runPrompt(progress({
     label: 'Sync',
-    value: 0,
-    max: 10,
+    progress: { kind: 'determinate', value: 0, max: 10 },
     task: async (controller) => {
-      await controller.update({ value: 1, status: 'Running' });
+      await controller.update({ kind: 'determinate', value: 1, max: 10, status: 'Running' });
       await new Promise((resolve) => {
         controller.signal.addEventListener('abort', () => {
           signalAborted = controller.signal.aborted;
@@ -120,11 +122,10 @@ test('runPrompt executes progress tasks in non-TTY transcript-only mode', async 
 
   const result = await runPrompt(progress({
     label: 'Package',
-    value: 0,
-    max: 1,
+    progress: { kind: 'determinate', value: 0, max: 1 },
     task: async (controller) => {
       ran = true;
-      await controller.update({ value: 1, status: 'Packed' });
+      await controller.update({ kind: 'determinate', value: 1, max: 1, status: 'Packed' });
     }
   }), host);
 

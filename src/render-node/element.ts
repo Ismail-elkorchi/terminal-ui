@@ -1,9 +1,12 @@
-import type { Element, ElementChildren } from '../components/element.ts';
-import type { RenderNode } from './types.ts';
+import type { Element, ElementChildren, ElementChildrenMessage } from '../components/element.ts';
+import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
 
 const renderNodes = new WeakMap<object, unknown>();
 
-export function elementFromRenderNode<TMessage = never>(node: RenderNode<TMessage>): Element<TMessage> {
+export function elementFromRenderNode<
+  const TKind extends RenderNodeKind,
+  TMessage = never
+>(node: RenderNodeOfKind<TMessage, TKind>): Element<TMessage> {
   const element = Object.freeze({}) as Element<TMessage>;
   renderNodes.set(element, node);
   return element;
@@ -17,11 +20,13 @@ export function toRenderNode<TMessage>(element: Element<TMessage>): RenderNode<T
   return node as RenderNode<TMessage>;
 }
 
-export function toRenderNodes<TMessage>(children: ElementChildren<TMessage>): readonly RenderNode<TMessage>[] {
-  const values: readonly Element<TMessage>[] = Array.isArray(children)
+export function toRenderNodes<const TChildren extends ElementChildren>(
+  children: TChildren
+): readonly RenderNode<ElementChildrenMessage<TChildren>>[] {
+  const values: readonly Element<unknown>[] = Array.isArray(children)
     ? children
     : [children];
-  return values.map(toRenderNode);
+  return values.map((element) => toRenderNode(element)) as readonly RenderNode<ElementChildrenMessage<TChildren>>[];
 }
 
 function isObject(value: unknown): value is object {

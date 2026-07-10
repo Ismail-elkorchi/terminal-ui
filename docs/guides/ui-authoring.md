@@ -6,7 +6,7 @@ targets, hit targets, accessibility snapshots, and terminal output.
 
 Normal application code should think in layers:
 
-- app runtime: `defineTui()`, `runTui()`, subscriptions, commands;
+- app runtime: `defineTui()`, `runTui()`, subscriptions, and effects;
 - layout: `stack()`, `row()`, `grid()`, `splitPane()`, `overlay()`, `modal()`;
 - components: controls, data views, text surfaces, feedback, visualization;
 - behavior: pure reducers and state helpers for controlled components;
@@ -33,7 +33,7 @@ const app = defineTui<State, Message>({
     if (message.kind === 'save') return { state: { saved: true } };
     return { state, exit: { reason: 'quit' } };
   },
-  view: (state) => stack<Message>([
+  view: (state) => stack([
     text(state.saved ? 'Saved' : 'Unsaved'),
     button({ id: 'save', label: 'Save', onPress: { kind: 'save' } }),
     button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit' } })
@@ -52,7 +52,7 @@ import { button } from '@ismail-elkorchi/terminal-ui/components';
 
 type Message = { readonly kind: 'save' };
 
-button<Message>({
+button({
   id: 'save',
   label: 'Save',
   disabled: false,

@@ -1,3 +1,4 @@
+import { diagnostic } from '../diagnostics.ts';
 import { createTuiContext } from './context.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalHost } from '../host/index.ts';
@@ -5,6 +6,7 @@ import type {
   TuiContext,
   TuiEventSource,
   TuiMessageSource,
+  TuiSourceLifecycle,
   TuiSubscriptionContext,
   TuiSubscriptions
 } from './types.ts';
@@ -13,6 +15,7 @@ interface ActiveTuiEventSource<TMessage> {
   readonly id: string;
   readonly controller: AbortController;
   readonly source: TuiEventSource<TMessage>;
+  settled: boolean;
 }
 
 export interface TuiSubscriptionManager<TState> {
@@ -23,8 +26,9 @@ export interface TuiSubscriptionManager<TState> {
 export interface TuiSubscriptionManagerOptions<TState, TMessage> {
   readonly host: TerminalHost;
   readonly subscriptions?: TuiSubscriptions<TState, TMessage>;
-  readonly dispatch: (message: TMessage, source: TuiMessageSource) => void;
-  readonly diagnostics?: readonly TerminalDiagnostic[];
+  readonly dispatch: (message: TMessage, source: TuiMessageSource) => Promise<void>;
+  readonly diagnostics: () => readonly TerminalDiagnostic[];
+  readonly reportDiagnostic: (item: TerminalDiagnostic) => void;
 }
 
 export function createTuiSubscriptionManager<TState, TMessage>(
@@ -38,13 +42,7 @@ export function createTuiSubscriptionManager<TState, TMessage>(
         await stopAll(active);
         return;
       }
-      const context = await createTuiContext<TMessage>(
-        options.host,
-        (message) => {
-          options.dispatch(message, 'internal');
-        },
-        options.diagnostics ?? []
-      );
+      const context = await createTuiContext(options.host, options.diagnostics());
       const requested = options.subscriptions(state, context);
       const requestedIds = new Set(requested.map((source) => source.id));
       for (const [id, activeSource] of active) {
@@ -55,7 +53,7 @@ export function createTuiSubscriptionManager<TState, TMessage>(
       }
       for (const source of requested) {
         if (active.has(source.id)) continue;
-        const activeSource = startSource(source, context, options.dispatch);
+        const activeSource = startSource(source, context, options);
         active.set(source.id, activeSource);
       }
     },
@@ -65,38 +63,86 @@ export function createTuiSubscriptionManager<TState, TMessage>(
   };
 }
 
-function startSource<TMessage>(
+function startSource<TState, TMessage>(
   source: TuiEventSource<TMessage>,
-  baseContext: TuiContext<TMessage>,
-  dispatch: (message: TMessage, source: TuiMessageSource) => void
+  baseContext: TuiContext,
+  options: TuiSubscriptionManagerOptions<TState, TMessage>
 ): ActiveTuiEventSource<TMessage> {
   const controller = new AbortController();
-  const sourceName = source.source ?? 'external';
-  const context: TuiSubscriptionContext<TMessage> = {
-    ...baseContext,
-    signal: controller.signal,
-    dispatch(message) {
-      dispatch(message, sourceName);
-    }
-  };
-  void pumpSource(source, context);
-  return { id: source.id, controller, source };
+  const active: ActiveTuiEventSource<TMessage> = { id: source.id, controller, source, settled: false };
+  const context: TuiSubscriptionContext = { ...baseContext, signal: controller.signal };
+  void pumpSource(active, context, options).finally(() => {
+    active.settled = true;
+  });
+  return active;
 }
 
-async function pumpSource<TMessage>(
-  source: TuiEventSource<TMessage>,
-  context: TuiSubscriptionContext<TMessage>
+async function pumpSource<TState, TMessage>(
+  active: ActiveTuiEventSource<TMessage>,
+  context: TuiSubscriptionContext,
+  options: TuiSubscriptionManagerOptions<TState, TMessage>
 ): Promise<void> {
+  const sourceName = active.source.source ?? 'external';
   try {
-    for await (const message of source.messages(context)) {
-      if (context.signal.aborted) break;
-      context.dispatch(message);
+    const messages = active.source.messages(context);
+    if (active.source.delivery === 'latest') {
+      await pumpLatest(messages, context.signal, (message) => options.dispatch(message, sourceName));
+    } else {
+      for await (const message of messages) {
+        if (context.signal.aborted) break;
+        await options.dispatch(message, sourceName);
+      }
     }
-  } catch {
-    // Runtime diagnostics for failed async sources need a broader diagnostic
-    // channel. For now cancellation and explicit app messages remain the
-    // supported source lifecycle surface.
+    if (!context.signal.aborted) await dispatchLifecycle(active.source, { kind: 'completed', id: active.id }, sourceName, options);
+  } catch (cause) {
+    if (context.signal.aborted) return;
+    const item = diagnostic('TUI_SOURCE_FAILED', `TUI event source ${active.id} failed.`, {
+      target: active.id,
+      cause,
+      data: { delivery: active.source.delivery }
+    });
+    options.reportDiagnostic(item);
+    await dispatchLifecycle(active.source, { kind: 'failed', id: active.id, diagnostic: item }, sourceName, options);
   }
+}
+
+async function pumpLatest<TMessage>(
+  messages: AsyncIterable<TMessage>,
+  signal: AbortSignal,
+  dispatch: (message: TMessage) => Promise<void>
+): Promise<void> {
+  let pending: { readonly message: TMessage } | undefined;
+  let drain: Promise<void> | undefined;
+  const ensureDrain = (): void => {
+    if (drain !== undefined) return;
+    drain = (async () => {
+      while (!signal.aborted && pending !== undefined) {
+        const next = pending;
+        pending = undefined;
+        await dispatch(next.message);
+      }
+    })().finally(() => {
+      drain = undefined;
+      if (!signal.aborted && pending !== undefined) ensureDrain();
+    });
+  };
+
+  for await (const message of messages) {
+    if (signal.aborted) break;
+    pending = { message };
+    ensureDrain();
+  }
+  while (drain !== undefined) await drain;
+}
+
+async function dispatchLifecycle<TState, TMessage>(
+  source: TuiEventSource<TMessage>,
+  event: TuiSourceLifecycle,
+  sourceName: TuiMessageSource,
+  options: TuiSubscriptionManagerOptions<TState, TMessage>
+): Promise<void> {
+  const message = source.onLifecycle?.(event);
+  if (message !== undefined) await options.dispatch(message, sourceName);
 }
 
 async function stopAll<TMessage>(active: Map<string, ActiveTuiEventSource<TMessage>>): Promise<void> {

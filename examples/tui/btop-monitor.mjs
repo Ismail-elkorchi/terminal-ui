@@ -83,10 +83,10 @@ export const btopMonitorApp = defineTui({
   init: () => initialState(),
   subscriptions: () => [intervalSource('btop-tick', 1000, (tick) => ({ kind: 'tick', tick }))],
   keyBindings: [
-    { id: 'exit', keys: ['q', 'ctrlC'], label: 'Quit', message: { kind: 'exit' } },
-    { id: 'next-sort', keys: ['s'], label: 'Sort', message: { kind: 'sort' } },
-    { id: 'next-process', keys: ['arrowDown', 'j'], label: 'Next process', message: { kind: 'selectProcess', delta: 1 } },
-    { id: 'previous-process', keys: ['arrowUp', 'k'], label: 'Previous process', message: { kind: 'selectProcess', delta: -1 } }
+    { id: 'exit', triggers: [{ kind: 'text', text: 'q' }, { kind: 'key', key: 'ctrlC' }], label: 'Quit', message: { kind: 'exit' } },
+    { id: 'next-sort', triggers: [{ kind: 'text', text: 's' }], label: 'Sort', message: { kind: 'sort' } },
+    { id: 'next-process', triggers: [{ kind: 'key', key: 'arrowDown' }, { kind: 'text', text: 'j' }], label: 'Next process', message: { kind: 'selectProcess', delta: 1 } },
+    { id: 'previous-process', triggers: [{ kind: 'key', key: 'arrowUp' }, { kind: 'text', text: 'k' }], label: 'Previous process', message: { kind: 'selectProcess', delta: -1 } }
   ],
   update: updateMonitor,
   view: monitorView,
@@ -126,6 +126,7 @@ function updateMonitor(state, message) {
     case 'exit':
       return { state, exit: { reason: 'user requested exit' } };
   }
+  throw new Error(`Unsupported monitor message: ${String(message?.kind)}`);
 }
 
 function monitorView(state, context) {
@@ -193,7 +194,7 @@ function topBar(state) {
     id: 'btop-top',
     title: {
       start: panelTitle('cpu', 'mem', `preset *  ${formatClock(state.tick)}`),
-      center: [{ text: 'btop', style: { fg: { kind: 'theme', token: 'surface.title' }, bold: true } }],
+      center: [themeSpan('btop', 'surface.title', { bold: true })],
       end: panelTitle('BAT', '84%', `${String(4.14 + state.tick / 200).slice(0, 4)}W  2000ms`)
     },
     border: { kind: 'single' },
@@ -430,18 +431,25 @@ function processPanel(state) {
       stickyHeader: true,
       scrollbar: { visible: 'auto' },
       columns: [
-        { header: 'Pid', width: { kind: 'fixed', cells: 5 }, semantic: 'metadata', render: ({ row }) => String(row.pid) },
-        { header: 'Program', width: { kind: 'fixed', cells: 18 }, render: ({ row }) => row.program },
-        { header: 'Command', width: { kind: 'fill' }, semantic: 'metadata', render: ({ row }) => row.command },
-        { header: 'Threads', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ row }) => String(row.threads) },
-        { header: 'User', width: { kind: 'fixed', cells: 8 }, semantic: 'metadata', render: ({ row }) => row.user },
-        { header: 'MemB', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ row }) => row.memory },
-        { header: 'Cpu%', width: { kind: 'fixed', cells: 6 }, align: 'end', semantic: 'metric', render: ({ row }) => row.cpu.toFixed(1) }
+        {
+          id: 'pid-0', value: (row) => row.pid, header: 'Pid', width: { kind: 'fixed', cells: 5 }, semantic: 'metadata', render: ({ row }) => String(row.pid) },
+        {
+          id: 'program-1', value: (row) => row.program, header: 'Program', width: { kind: 'fixed', cells: 18 }, render: ({ row }) => row.program },
+        {
+          id: 'command-2', value: (row) => row.command, header: 'Command', width: { kind: 'fill' }, semantic: 'metadata', render: ({ row }) => row.command },
+        {
+          id: 'threads-3', value: (row) => row.threads, header: 'Threads', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ row }) => String(row.threads) },
+        {
+          id: 'user-4', value: (row) => row.user, header: 'User', width: { kind: 'fixed', cells: 8 }, semantic: 'metadata', render: ({ row }) => row.user },
+        {
+          id: 'memb-5', value: (row) => row.memory, header: 'MemB', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ row }) => row.memory },
+        {
+          id: 'cpu-6', value: (row) => row.cpu, header: 'Cpu%', width: { kind: 'fixed', cells: 6 }, align: 'end', semantic: 'metric', render: ({ row }) => row.cpu.toFixed(1) }
       ],
       keys: {
         arrowDown: { kind: 'selectProcess', delta: 1 },
         arrowUp: { kind: 'selectProcess', delta: -1 },
-        s: { kind: 'sort' }
+        text: { s: { kind: 'sort' } }
       }
     })
   ], { id: 'proc-stack', gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }] }), {
@@ -499,10 +507,20 @@ function meterStatus(status) {
 
 function panelTitle(title, detail, metric) {
   return [
-    { text: title, style: { fg: { kind: 'theme', token: 'surface.title' }, bold: true } },
-    { text: ` ${detail}`, style: { fg: { kind: 'theme', token: 'text.muted' }, dim: true } },
-    { text: ` ${metric}`, style: { fg: { kind: 'theme', token: 'chart.value' } } }
+    themeSpan(title, 'surface.title', { bold: true }),
+    themeSpan(` ${detail}`, 'text.muted', { dim: true }),
+    themeSpan(` ${metric}`, 'chart.value')
   ];
+}
+
+/**
+ * @param {string} content
+ * @param {import('@ismail-elkorchi/terminal-ui/theme').ThemeColorToken} token
+ * @param {import('@ismail-elkorchi/terminal-ui/renderer').TerminalStyle} [style]
+ * @returns {import('@ismail-elkorchi/terminal-ui/renderer').RenderSpan}
+ */
+function themeSpan(content, token, style = {}) {
+  return { text: content, style: { ...style, fg: { kind: 'theme', token } } };
 }
 
 export async function runScriptedBtopMonitor() {
@@ -514,6 +532,7 @@ export async function runScriptedBtopMonitor() {
     await runtime.dispatch({ kind: 'selectProcess', delta: 2 });
     await runtime.dispatch({ kind: 'sort' });
     const frame = runtime.frame();
+    if (frame === undefined) throw new Error('The scripted monitor did not render a frame.');
     const output = renderFramePlain(frame);
     return {
       status: 'ok',

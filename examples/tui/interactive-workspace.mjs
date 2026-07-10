@@ -123,7 +123,12 @@ function defineWorkspaceApp() {
     id: 'interactive-workspace',
     init: () => initialState(),
     keyBindings: [
-      { id: 'exit', keys: ['ctrlC', 'ctrlQ'], label: 'Exit', message: { kind: 'exit' } }
+      {
+        id: 'exit',
+        triggers: [{ kind: 'key', key: 'ctrlC' }, { kind: 'key', key: 'ctrlQ' }],
+        label: 'Exit',
+        message: { kind: 'exit' }
+      }
     ],
     update: updateWorkspace,
     view: workspaceView,
@@ -199,6 +204,7 @@ function updateWorkspace(state, message) {
     case 'exit':
       return { state, exit: { reason: 'user requested exit' } };
   }
+  throw new Error(`Unsupported workspace message: ${String(message?.kind)}`);
 }
 
 function withState(state) {
@@ -333,11 +339,16 @@ function issueTablePanel(state) {
       scrollbar: { visible: 'auto' },
       onSelect: ({ rowIndex }) => ({ kind: 'selectTableRow', row: rowIndex, source: 'pointer' }),
       columns: [
-        { header: 'ID', width: { kind: 'fixed', cells: 7 } },
-        { header: 'Title', width: { kind: 'fill' } },
-        { header: 'Owner', width: { kind: 'fixed', cells: 8 } },
-        { header: 'Severity', width: { kind: 'fixed', cells: 10 } },
-        { header: 'State', width: { kind: 'fixed', cells: 10 } }
+        {
+          id: 'id-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'ID', width: { kind: 'fixed', cells: 7 } },
+        {
+          id: 'title-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Title', width: { kind: 'fill' } },
+        {
+          id: 'owner-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Owner', width: { kind: 'fixed', cells: 8 } },
+        {
+          id: 'severity-3', value: (row) => Array.isArray(row) ? row[3] : undefined, header: 'Severity', width: { kind: 'fixed', cells: 10 } },
+        {
+          id: 'state-4', value: (row) => Array.isArray(row) ? row[4] : undefined, header: 'State', width: { kind: 'fixed', cells: 10 } }
       ],
       keys: {
         arrowDown: { kind: 'table', action: { kind: 'selectRow', row: selected + 1 } },
@@ -454,7 +465,7 @@ function commandSurface(state) {
       arrowDown: { kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: 1 } },
       tab: { kind: 'commandEdit', action: { kind: 'acceptSuggestion' } },
       escape: { kind: 'commandEdit', action: { kind: 'setValue', value: '' } },
-      '/': { kind: 'openPalette' }
+      text: { '/': { kind: 'openPalette' } }
     }
   }), {
     id: 'workspace-command-surface',
@@ -671,12 +682,12 @@ export async function runScriptedWorkspace() {
   const runtime = createTuiRuntime({ app: interactiveWorkspaceApp, host, initialFocusPath: commandFocusPath });
   try {
     await runtime.start();
-    await runtime.handleInput({ kind: 'text', text: '/palette' });
+    await runtime.handleInput({ kind: 'text', text: '/palette', paste: false });
     await runtime.handleInput(keyEvent('enter'));
-    await runtime.handleInput({ kind: 'text', text: 'resolve' });
+    await runtime.handleInput({ kind: 'text', text: 'resolve', paste: false });
     const keyboardPaletteQuery = runtime.getState().palette.query;
     await runtime.handleInput(keyEvent('enter'));
-    await runtime.handleInput({ kind: 'text', text: '/issues' });
+    await runtime.handleInput({ kind: 'text', text: '/issues', paste: false });
     const commandAfterPaletteAccept = runtime.getState().command.input.text;
     await runtime.handleInput(keyEvent('enter'));
 
@@ -690,6 +701,7 @@ export async function runScriptedWorkspace() {
     await click(runtime, paletteTarget);
 
     const frame = runtime.frame();
+    if (frame === undefined) throw new Error('The scripted workspace did not render a frame.');
     const state = runtime.getState();
     return {
       status: 'ok',
@@ -743,12 +755,19 @@ function mouseEvent(action, target, button) {
   };
 }
 
+/**
+ * @param {import('@ismail-elkorchi/terminal-ui/input').KeyName} key
+ * @returns {import('@ismail-elkorchi/terminal-ui/input').KeyEvent}
+ */
 function keyEvent(key) {
   return {
     kind: 'key',
     key,
     sequence: '',
-    modifiers: { shift: false, alt: false, ctrl: false }
+    shift: false,
+    alt: false,
+    ctrl: false,
+    meta: false
   };
 }
 

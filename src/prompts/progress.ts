@@ -1,61 +1,53 @@
 import { toAccessibleSnapshot } from '../accessibility/index.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { ProgressOptions, ProgressState } from './types.ts';
+import type { ProgressOptions, ProgressSnapshot, ProgressState, ProgressUpdate } from './types.ts';
 
 export function createProgress(options: ProgressOptions): ProgressState {
-  return makeProgressState({
-    id: options.id ?? 'progress',
-    label: options.label,
-    ...normalizedProgress(options.value, options.max),
-    ...(options.status === undefined ? {} : { status: options.status }),
-    indeterminate: options.indeterminate ?? options.value === undefined
-  });
+  return makeProgressState(options.id ?? 'progress', options.label, normalizeProgress(options));
 }
 
 function makeProgressState(
-  state: Omit<ProgressState, 'update' | 'snapshot'>
+  id: string,
+  label: string,
+  progress: ProgressSnapshot
 ): ProgressState {
-  return {
-    ...state,
-    update(next) {
-      const value = next.value ?? state.value;
-      const max = next.max ?? state.max;
-      return makeProgressState({
-        id: state.id,
-        label: state.label,
-        ...normalizedProgress(value, max),
-        ...(next.status === undefined ? ('status' in state ? { status: state.status } : {}) : { status: next.status }),
-        indeterminate: next.indeterminate ?? state.indeterminate
-      });
+  const methods = {
+    update(next: ProgressUpdate) {
+      return makeProgressState(id, label, normalizeProgress(next));
     },
     snapshot(): AccessibleSnapshot {
       return toAccessibleSnapshot({
         source: 'progress',
         root: {
-          id: state.id,
+          id,
           role: 'progressbar',
-          label: state.label,
-          ...(state.status === undefined ? {} : { description: state.status }),
-          progress: {
-            ...(state.value === undefined ? {} : { value: state.value }),
-            ...(state.max === undefined ? {} : { max: state.max }),
-            indeterminate: state.indeterminate
-          }
+          label,
+          ...(progress.status === undefined ? {} : { description: progress.status }),
+          progress: progress.kind === 'determinate'
+            ? { value: progress.value, max: progress.max, indeterminate: false }
+            : { indeterminate: true }
         }
       });
     }
   };
+  return progress.kind === 'determinate'
+    ? { id, label, ...progress, ...methods }
+    : { id, label, ...progress, ...methods };
 }
 
-function normalizedProgress(
-  value: number | undefined,
-  max: number | undefined
-): Pick<ProgressState, 'value' | 'max'> {
-  const normalizedMax = max === undefined ? undefined : max > 0 ? max : 100;
-  if (value === undefined) return normalizedMax === undefined ? {} : { max: normalizedMax };
-  const effectiveMax = normalizedMax ?? 100;
+function normalizeProgress(progress: ProgressSnapshot): ProgressSnapshot {
+  if (progress.kind === 'indeterminate') {
+    return {
+      kind: 'indeterminate',
+      ...(progress.frame === undefined ? {} : { frame: Math.max(0, Math.floor(progress.frame)) }),
+      ...(progress.status === undefined ? {} : { status: progress.status })
+    };
+  }
+  const max = progress.max > 0 ? progress.max : 100;
   return {
-    value: Math.max(0, Math.min(effectiveMax, value)),
-    max: effectiveMax
+    kind: 'determinate',
+    value: Math.max(0, Math.min(max, progress.value)),
+    max,
+    ...(progress.status === undefined ? {} : { status: progress.status })
   };
 }

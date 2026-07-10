@@ -16,9 +16,9 @@ import {
 } from '../factory-internals/interaction.ts';
 import { optionalId } from '../factory-internals/layout.ts';
 
-export function menu<TMessage>(options: MenuOptions<TMessage>): Element<TMessage> {
+export function menu<const TMessage = never>(options: MenuOptions<TMessage>): Element<TMessage> {
   const keyMap = menuKeyBindings(options.items, options.selected, options.keys);
-  return elementFromRenderNode({
+  return elementFromRenderNode<'menu', TMessage>({
     ...optionalId(options.id),
     kind: 'menu',
     props: {
@@ -35,9 +35,9 @@ export function menu<TMessage>(options: MenuOptions<TMessage>): Element<TMessage
   });
 }
 
-export function menuBar<TMessage>(options: MenuBarOptions<TMessage>): Element<TMessage> {
+export function menuBar<const TMessage = never>(options: MenuBarOptions<TMessage>): Element<TMessage> {
   const keyMap = menuKeyBindings(options.items, options.selected, options.keys);
-  return elementFromRenderNode({
+  return elementFromRenderNode<'menuBar', TMessage>({
     ...optionalId(options.id),
     kind: 'menuBar',
     props: {
@@ -49,10 +49,10 @@ export function menuBar<TMessage>(options: MenuBarOptions<TMessage>): Element<TM
   });
 }
 
-export function contextMenu<TMessage>(options: ContextMenuOptions<TMessage>): Element<TMessage> {
+export function contextMenu<const TMessage = never>(options: ContextMenuOptions<TMessage>): Element<TMessage> {
   const keyMap = menuKeyBindings(options.items, options.selected, options.keys);
   const meta = withMetaDefaults(options.meta, { layer: { opacity: 'opaque' } });
-  return elementFromRenderNode({
+  return elementFromRenderNode<'contextMenu', TMessage>({
     ...optionalId(options.id),
     kind: 'contextMenu',
     props: {
@@ -70,12 +70,12 @@ export function contextMenu<TMessage>(options: ContextMenuOptions<TMessage>): El
   });
 }
 
-export function dropdown<TMessage>(options: DropdownOptions<TMessage>): Element<TMessage> {
+export function dropdown<const TMessage = never>(options: DropdownOptions<TMessage>): Element<TMessage> {
   const keyMap = menuKeyBindings(options.items, options.selected, options.keys);
   const meta = options.open === true
     ? withMetaDefaults(options.meta, { layer: { opacity: 'opaque' } })
     : options.meta;
-  return elementFromRenderNode({
+  return elementFromRenderNode<'dropdown', TMessage>({
     ...optionalId(options.id),
     kind: 'dropdown',
     props: {
@@ -90,8 +90,8 @@ export function dropdown<TMessage>(options: DropdownOptions<TMessage>): Element<
   });
 }
 
-export function divider<TMessage>(options: DividerOptions<TMessage> = {}): Element<TMessage> {
-  return elementFromRenderNode({
+export function divider<const TMessage = never>(options: DividerOptions<TMessage> = {}): Element<TMessage> {
+  return elementFromRenderNode<'divider', TMessage>({
     ...optionalId(options.id),
     kind: 'divider',
     props: {
@@ -104,8 +104,8 @@ export function divider<TMessage>(options: DividerOptions<TMessage> = {}): Eleme
   });
 }
 
-export function tooltip<TMessage>(options: TooltipOptions<TMessage>): Element<TMessage> {
-  return elementFromRenderNode({
+export function tooltip<const TMessage = never>(options: TooltipOptions<TMessage>): Element<TMessage> {
+  return elementFromRenderNode<'tooltip', TMessage>({
     ...optionalId(options.id),
     kind: 'tooltip',
     props: {

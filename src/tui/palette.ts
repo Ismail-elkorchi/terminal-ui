@@ -1,10 +1,10 @@
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNodeOfKind } from '../render-node/index.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import {
   commandGroupSpans, commandMatchSpans, commandMetadataStyle, commandRowStyle, commandSelectionMarkerSpans, commandStatusSpans, styledSpan
 } from './command-visual.ts';
 import { renderNodeFrameSource } from './frame-source.ts';
-import { numberProp, stringify } from './render-node-props.ts';
+import { stringify } from './render-node-props.ts';
 import { renderNodeStyle } from './render-node-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -14,6 +14,11 @@ import type { PaletteFilterResult, PaletteWindowInput } from '../behavior/palett
 import type { Rect } from './layout.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
 import type { HitTarget } from './render-node-renderer.ts';
+
+const renderModelCache = new WeakMap<object, {
+  readonly height: number;
+  readonly model: PaletteRenderModel;
+}>();
 
 interface PaletteRenderModel {
   readonly title: string;
@@ -25,7 +30,7 @@ interface PaletteRenderModel {
   readonly availableEntries: number;
 }
 
-export function paletteBlock(widget: RenderNode, height: number, theme: TerminalTheme): RenderBlock {
+export function paletteBlock(widget: PaletteNode, height: number, theme: TerminalTheme): RenderBlock {
   const model = paletteRenderModel(widget, height);
   const lines: RenderLine[] = [
     {
@@ -82,7 +87,7 @@ export function paletteBlock(widget: RenderNode, height: number, theme: Terminal
   return { lines: lines.slice(0, height) };
 }
 
-export function paletteHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function paletteHitTargets<TMessage>(widget: PaletteNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = paletteMessageFactory(widget);
   if (toMessage === undefined) return [];
   const model = paletteRenderModel(widget, bounds.height);
@@ -102,14 +107,8 @@ export function paletteHitTargets<TMessage>(widget: RenderNode<TMessage>, bounds
   });
 }
 
-export function paletteAccessibleChildren(widget: RenderNode, height: number): readonly AccessibleNode[] {
-  const window = paletteWindow({
-    entries: paletteEntries(widget),
-    query: queryText(widget),
-    ...selectedInput(widget),
-    ...scrollInput(widget),
-    limit: entryLimit(widget, height)
-  });
+export function paletteAccessibleChildren(widget: PaletteNode, height: number): readonly AccessibleNode[] {
+  const { window } = paletteRenderModel(widget, height);
   return window.entries.map((entry, index) => ({
     id: `${widget.id ?? 'palette'}:${entry.id}`,
     role: 'option',
@@ -127,7 +126,7 @@ export function paletteAccessibleChildren(widget: RenderNode, height: number): r
 }
 
 function entryLine<TValue>(
-  widget: RenderNode,
+  widget: PaletteNode,
   entry: SearchEntry<TValue>,
   selected: boolean,
   query: string,
@@ -152,7 +151,9 @@ function entryLine<TValue>(
   return { spans };
 }
 
-function paletteRenderModel(widget: RenderNode, height: number): PaletteRenderModel {
+function paletteRenderModel(widget: PaletteNode, height: number): PaletteRenderModel {
+  const cached = renderModelCache.get(widget);
+  if (cached?.height === height) return cached.model;
   const title = titleText(widget);
   const query = queryText(widget);
   const helpText = helpTextProp(widget);
@@ -168,7 +169,7 @@ function paletteRenderModel(widget: RenderNode, height: number): PaletteRenderMo
   const resultSummary = paletteResultSummary(window.total, entries.length, query);
   const reserve = (selectedPreview === undefined || selectedPreview.length === 0 ? 0 : 1)
     + (helpText.length === 0 ? 0 : 1);
-  return {
+  const model = {
     title,
     query,
     helpText,
@@ -177,41 +178,25 @@ function paletteRenderModel(widget: RenderNode, height: number): PaletteRenderMo
     resultSummary,
     availableEntries: Math.max(0, height - 2 - reserve)
   };
+  renderModelCache.set(widget, { height, model });
+  return model;
 }
 
-function paletteEntries(widget: RenderNode): readonly SearchEntry<unknown>[] {
-  const entries = widget.props['entries'];
-  if (!Array.isArray(entries)) return [];
-  return entries.flatMap((entry): SearchEntry<unknown>[] => {
-    if (!isRecord(entry)) return [];
-    const id = entry['id'];
-    const label = entry['label'];
-    if (typeof id !== 'string' || typeof label !== 'string') return [];
-    const description = entry['description'];
-    const preview = entry['preview'];
-    const group = entry['group'];
-    return [{
-      id: clean(id),
-      label: clean(label),
-      value: entry['value'] ?? id,
-      ...(typeof group === 'string' ? { group: clean(group) } : {}),
-      ...(typeof description === 'string' ? { description: clean(description) } : {}),
-      ...(typeof preview === 'string' ? { preview: clean(preview) } : {}),
-      ...(entry['disabled'] === true ? { disabled: true } : {}),
-      ...keywordsProp(entry)
-    }];
-  });
+function paletteEntries(widget: PaletteNode): readonly SearchEntry<unknown>[] {
+  return widget.props.entries.map((entry) => ({
+    id: clean(entry.id),
+    label: clean(entry.label),
+    value: entry.value,
+    ...(entry.group === undefined ? {} : { group: clean(entry.group) }),
+    ...(entry.description === undefined ? {} : { description: clean(entry.description) }),
+    ...(entry.preview === undefined ? {} : { preview: clean(entry.preview) }),
+    ...(entry.disabled === true ? { disabled: true } : {}),
+    ...(entry.keywords === undefined ? {} : { keywords: entry.keywords.map(clean) })
+  }));
 }
 
-function keywordsProp(entry: Readonly<Record<string, unknown>>): { readonly keywords?: readonly string[] } {
-  const keywords = entry['keywords'];
-  if (!Array.isArray(keywords)) return {};
-  const cleaned = keywords.filter((keyword): keyword is string => typeof keyword === 'string').map(clean);
-  return cleaned.length === 0 ? {} : { keywords: cleaned };
-}
-
-function selectedInput(widget: RenderNode): Partial<Pick<PaletteWindowInput<unknown>, 'selected' | 'selectedId'>> {
-  const selected = numberProp(widget, 'selected');
+function selectedInput(widget: PaletteNode): Partial<Pick<PaletteWindowInput<unknown>, 'selected' | 'selectedId'>> {
+  const selected = widget.props.selected;
   const selectedId = selectedIdText(widget);
   return {
     ...(selected === undefined ? {} : { selected }),
@@ -219,67 +204,37 @@ function selectedInput(widget: RenderNode): Partial<Pick<PaletteWindowInput<unkn
   };
 }
 
-function paletteMessageFactory<TMessage>(widget: RenderNode<TMessage>): ((entry: SearchEntry<unknown>) => TMessage) | undefined {
-  const toMessage = widget.props['toMessage'];
-  if (!isPaletteMessageFactory(toMessage)) return undefined;
-  return (entry) => toMessage(entry) as TMessage;
+function paletteMessageFactory<TMessage>(widget: PaletteNode<TMessage>): ((entry: SearchEntry<unknown>) => TMessage) | undefined {
+  return widget.props.toMessage;
 }
 
-function scrollInput(widget: RenderNode): Partial<Pick<PaletteWindowInput<unknown>, 'scroll'>> {
-  const scroll = widget.props['scroll'];
-  if (!isRecord(scroll)) return {};
-  const offsetRow = scroll['offsetRow'];
-  const offsetColumn = scroll['offsetColumn'];
-  const contentRows = scroll['contentRows'];
-  const contentColumns = scroll['contentColumns'];
-  const viewportRows = scroll['viewportRows'];
-  const viewportColumns = scroll['viewportColumns'];
-  const followTail = scroll['followTail'];
-  if (
-    typeof offsetRow !== 'number'
-    || typeof offsetColumn !== 'number'
-    || typeof contentRows !== 'number'
-    || typeof contentColumns !== 'number'
-    || typeof viewportRows !== 'number'
-    || typeof viewportColumns !== 'number'
-    || typeof followTail !== 'boolean'
-  ) return {};
-  return {
-    scroll: {
-      offsetRow,
-      offsetColumn,
-      contentRows,
-      contentColumns,
-      viewportRows,
-      viewportColumns,
-      followTail
-    }
-  };
+function scrollInput(widget: PaletteNode): Partial<Pick<PaletteWindowInput<unknown>, 'scroll'>> {
+  return widget.props.scroll === undefined ? {} : { scroll: widget.props.scroll };
 }
 
-function entryLimit(widget: RenderNode, height: number): number {
-  const maxVisible = numberProp(widget, 'maxVisible');
+function entryLimit(widget: PaletteNode, height: number): number {
+  const maxVisible = widget.props.maxVisible;
   return Math.max(1, Math.min(Math.floor(maxVisible ?? Math.max(1, height - 2)), Math.max(1, height - 2)));
 }
 
-function titleText(widget: RenderNode): string {
-  return clean(stringify(widget.props['title']));
+function titleText(widget: PaletteNode): string {
+  return clean(stringify(widget.props.title));
 }
 
-function queryText(widget: RenderNode): string {
-  return clean(stringify(widget.props['query']));
+function queryText(widget: PaletteNode): string {
+  return clean(stringify(widget.props.query));
 }
 
-function selectedIdText(widget: RenderNode): string {
-  return clean(stringify(widget.props['selectedId']));
+function selectedIdText(widget: PaletteNode): string {
+  return clean(stringify(widget.props.selectedId));
 }
 
-function helpTextProp(widget: RenderNode): string {
-  return clean(stringify(widget.props['helpText']));
+function helpTextProp(widget: PaletteNode): string {
+  return clean(stringify(widget.props.helpText));
 }
 
-function emptyText(widget: RenderNode): string {
-  const text = clean(stringify(widget.props['emptyText']));
+function emptyText(widget: PaletteNode): string {
+  const text = clean(stringify(widget.props.emptyText));
   return text.length === 0 ? 'No matches' : text;
 }
 
@@ -294,7 +249,7 @@ function clean(value: string): string {
 }
 
 function paletteSource(
-  widget: RenderNode,
+  widget: PaletteNode,
   label: string,
   role: FrameCellSource['role'] = 'text',
   id = widget.id
@@ -308,10 +263,4 @@ function paletteSource(
   });
 }
 
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function isPaletteMessageFactory(value: unknown): value is (entry: SearchEntry<unknown>) => unknown {
-  return typeof value === 'function';
-}
+type PaletteNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'palette'>;

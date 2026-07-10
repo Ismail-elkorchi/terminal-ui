@@ -1,4 +1,4 @@
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNodeOfKind } from '../render-node/index.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import {
   commandMatchSpans, commandMetadataStyle, commandRowStyle, commandSelectionMarkerSpans, commandStatusSpans, styledSpan
@@ -36,7 +36,7 @@ type CommandPartKind =
   | 'value'
   | 'window';
 
-export function commandBarBlock(widget: RenderNode, bounds: Pick<Rect, 'width' | 'height'>, theme: TerminalTheme): RenderBlock {
+export function commandBarBlock(widget: CommandBarNode, bounds: Pick<Rect, 'width' | 'height'>, theme: TerminalTheme): RenderBlock {
   const display = commandBarDisplay(widget);
   const lines: RenderLine[] = [inputLine(widget, bounds.width)];
   const validation = validationProp(widget);
@@ -59,11 +59,11 @@ export function commandBarBlock(widget: RenderNode, bounds: Pick<Rect, 'width' |
   return { lines: lines.slice(0, bounds.height) };
 }
 
-export function commandBarText(widget: RenderNode, height: number, theme: TerminalTheme): string {
+export function commandBarText(widget: CommandBarNode, height: number, theme: TerminalTheme): string {
   return commandBarBlock(widget, { width: 1_000, height }, theme).lines.map((line) => line.spans.map((span) => span.text).join('')).join('\n');
 }
 
-export function commandBarAccessibleChildren(widget: RenderNode): readonly AccessibleNode[] | undefined {
+export function commandBarAccessibleChildren(widget: CommandBarNode): readonly AccessibleNode[] | undefined {
   const suggestions = commandBarDisplay(widget) === 'expanded' ? commandBarSuggestions(widget) : [];
   const validation = validationProp(widget);
   const children: AccessibleNode[] = [];
@@ -87,7 +87,7 @@ export function commandBarAccessibleChildren(widget: RenderNode): readonly Acces
   return children.length === 0 ? undefined : children;
 }
 
-export function commandBarCursor(widget: RenderNode, bounds: Rect): CursorPosition {
+export function commandBarCursor(widget: CommandBarNode, bounds: Rect): CursorPosition {
   const model = commandInputModel(widget, bounds.width);
   return {
     row: bounds.row,
@@ -98,7 +98,7 @@ export function commandBarCursor(widget: RenderNode, bounds: Rect): CursorPositi
 }
 
 export function commandBarPointerOffset(
-  widget: RenderNode,
+  widget: CommandBarNode,
   bounds: Pick<Rect, 'width'>,
   pointer: RoutedPointerEvent
 ): number | undefined {
@@ -108,7 +108,7 @@ export function commandBarPointerOffset(
   return textOffsetAtVisualColumn(model.value, model.offsetCells + Math.max(0, contentColumn));
 }
 
-function inputLine(widget: RenderNode, width: number): RenderLine {
+function inputLine(widget: CommandBarNode, width: number): RenderLine {
   const model = commandInputModel(widget, width);
   const placeholder = placeholderText(widget);
   const completion = completionText(widget);
@@ -138,7 +138,7 @@ function inputLine(widget: RenderNode, width: number): RenderLine {
   };
 }
 
-function commandPromptStyle(widget: RenderNode): ReturnType<typeof renderNodeStyle> {
+function commandPromptStyle(widget: CommandBarNode): ReturnType<typeof renderNodeStyle> {
   return mergeStyles(themeStyle('command.prompt'), widget.styles?.label);
 }
 
@@ -152,7 +152,7 @@ interface CommandInputModel {
   readonly window: ReturnType<typeof visibleLineWindow>;
 }
 
-function commandInputModel(widget: RenderNode, width: number): CommandInputModel {
+function commandInputModel(widget: CommandBarNode, width: number): CommandInputModel {
   const prompt = promptText(widget);
   const value = valueText(widget);
   const promptCells = singleLineCursorColumn(prompt, prompt.length);
@@ -171,7 +171,7 @@ function commandInputModel(widget: RenderNode, width: number): CommandInputModel
   };
 }
 
-function validationLine(widget: RenderNode, validation: CommandBarValidation, theme: TerminalTheme): RenderLine {
+function validationLine(widget: CommandBarNode, validation: CommandBarValidation, theme: TerminalTheme): RenderLine {
   return {
     spans: commandStatusSpans(widget, theme, validationToneForSurface(validation.tone ?? 'error'), validation.message, {
       markerSource: commandSource(widget, 'validation.marker', { role: 'decoration', partKind: 'marker', state: validation.tone ?? 'error' }),
@@ -181,7 +181,7 @@ function validationLine(widget: RenderNode, validation: CommandBarValidation, th
 }
 
 function suggestionLine(
-  widget: RenderNode,
+  widget: CommandBarNode,
   suggestion: SuggestionItem,
   index: number,
   selected: boolean,
@@ -212,7 +212,7 @@ function suggestionLine(
   };
 }
 
-function mutedLine(widget: RenderNode, text: string, theme: TerminalTheme): RenderLine {
+function mutedLine(widget: CommandBarNode, text: string, theme: TerminalTheme): RenderLine {
   return {
     spans: commandStatusSpans(widget, theme, 'muted', text, {
       markerSource: commandSource(widget, 'footer.marker', { role: 'decoration', partKind: 'marker', state: 'muted' }),
@@ -221,8 +221,8 @@ function mutedLine(widget: RenderNode, text: string, theme: TerminalTheme): Rend
   };
 }
 
-function commandBarSuggestions(widget: RenderNode): readonly SuggestionItem[] {
-  const suggestions = widget.props['suggestions'];
+function commandBarSuggestions(widget: CommandBarNode): readonly SuggestionItem[] {
+  const suggestions = widget.props.suggestions;
   return Array.isArray(suggestions)
     ? suggestions.flatMap((suggestion): SuggestionItem[] => {
         if (!isRecord(suggestion)) return [];
@@ -241,12 +241,12 @@ function commandBarSuggestions(widget: RenderNode): readonly SuggestionItem[] {
     : [];
 }
 
-function validationProp(widget: RenderNode): CommandBarValidation | undefined {
-  const validation = widget.props['validation'];
+function validationProp(widget: CommandBarNode): CommandBarValidation | undefined {
+  const validation = widget.props.validation;
   if (!isRecord(validation)) return undefined;
-  const message = validation['message'];
+  const message = validation.message;
   if (typeof message !== 'string' || message.length === 0) return undefined;
-  const tone = optionalValidationTone(validation['tone']);
+  const tone = optionalValidationTone(validation.tone);
   return {
     message: clean(message),
     ...(tone === undefined ? {} : { tone })
@@ -257,8 +257,8 @@ function validationToneForSurface(tone: ComponentValidationTone): 'info' | 'warn
   return tone;
 }
 
-function valueWindowSpans(widget: RenderNode, model: CommandInputModel): readonly RenderSpan[] {
-  const selection = windowSelection(selectionFromUnknown(model.value, widget.props['selection']), model.window.startOffset, model.window.endOffset);
+function valueWindowSpans(widget: CommandBarNode, model: CommandInputModel): readonly RenderSpan[] {
+  const selection = windowSelection(selectionFromUnknown(model.value, widget.props.selection), model.window.startOffset, model.window.endOffset);
   const spans = selectedTextSpans(
     model.window.text,
     selection,
@@ -288,7 +288,7 @@ function windowSelection(selection: TextSelection | undefined, start: number, en
 }
 
 function commandSource(
-  widget: RenderNode,
+  widget: CommandBarNode,
   label: string,
   options: {
     readonly role?: FrameCellSource['role'];
@@ -322,37 +322,37 @@ function commandSourceOptions(
   };
 }
 
-function footerReserve(widget: RenderNode): number {
+function footerReserve(widget: CommandBarNode): number {
   return footerText(widget).length === 0 ? 0 : 1;
 }
 
-function commandBarDisplay(widget: RenderNode): CommandBarDisplay {
-  return widget.props['display'] === 'expanded' ? 'expanded' : 'compact';
+function commandBarDisplay(widget: CommandBarNode): CommandBarDisplay {
+  return widget.props.display === 'expanded' ? 'expanded' : 'compact';
 }
 
-function matchQuery(widget: RenderNode): string {
-  const explicit = clean(stringify(widget.props['matchQuery'])).trim();
+function matchQuery(widget: CommandBarNode): string {
+  const explicit = clean(stringify(widget.props.matchQuery)).trim();
   return explicit.length === 0 ? valueText(widget).trim() : explicit;
 }
 
-function promptText(widget: RenderNode): string {
-  return clean(stringify(widget.props['prompt']) || '> ');
+function promptText(widget: CommandBarNode): string {
+  return clean(stringify(widget.props.prompt) || '> ');
 }
 
-function valueText(widget: RenderNode): string {
-  return clean(stringify(widget.props['value']));
+function valueText(widget: CommandBarNode): string {
+  return clean(stringify(widget.props.value));
 }
 
-function placeholderText(widget: RenderNode): string {
-  return clean(stringify(widget.props['placeholder']));
+function placeholderText(widget: CommandBarNode): string {
+  return clean(stringify(widget.props.placeholder));
 }
 
-function completionText(widget: RenderNode): string {
-  return clean(stringify(widget.props['completionPreview']));
+function completionText(widget: CommandBarNode): string {
+  return clean(stringify(widget.props.completionPreview));
 }
 
-function footerText(widget: RenderNode): string {
-  return clean(stringify(widget.props['footer']));
+function footerText(widget: CommandBarNode): string {
+  return clean(stringify(widget.props.footer));
 }
 
 function clean(value: string): string {
@@ -367,3 +367,4 @@ function nonNegativeInteger(value: number | undefined): number {
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
+type CommandBarNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'commandBar'>;

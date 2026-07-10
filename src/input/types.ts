@@ -109,6 +109,22 @@ export type KeyName =
   | 'ctrlQ'
   | 'unknown';
 
+export type BindableKeyName = Exclude<KeyName, 'unknown'>;
+
+export type InputTrigger =
+  | {
+      readonly kind: 'key';
+      readonly key: BindableKeyName;
+      readonly ctrl?: boolean;
+      readonly alt?: boolean;
+      readonly shift?: boolean;
+      readonly meta?: boolean;
+    }
+  | {
+      readonly kind: 'text';
+      readonly text: string;
+    };
+
 export interface InputDecodeOptions {
   readonly bracketedPaste?: boolean;
 }

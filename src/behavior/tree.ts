@@ -1,11 +1,11 @@
 import type { TreeDisclosureAction, TreeNode } from '../components/options/content.ts';
 
-export type TreeAction =
+export type TreeAction<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> =
   | TreeDisclosureAction
   | { readonly kind: 'expandAll' }
   | { readonly kind: 'collapseAll' }
   | { readonly kind: 'lazyPending'; readonly id: string; readonly message?: string }
-  | { readonly kind: 'lazySuccess'; readonly id: string; readonly children: readonly TreeNode[] }
+  | { readonly kind: 'lazySuccess'; readonly id: string; readonly children: readonly TreeNode<TMetadata>[] }
   | { readonly kind: 'lazyError'; readonly id: string; readonly message: string }
   | { readonly kind: 'rename'; readonly id: string; readonly label: string };
 
@@ -20,8 +20,8 @@ export interface TreeRenameState {
   readonly value: string;
 }
 
-export interface TreeVisibleRow {
-  readonly node: TreeNode;
+export interface TreeVisibleRow<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> {
+  readonly node: TreeNode<TMetadata>;
   readonly depth: number;
   readonly path: readonly string[];
   readonly lazyPlaceholder?: boolean;
@@ -39,7 +39,10 @@ export type TreeStateAction =
   | { readonly kind: 'commitRename' }
   | { readonly kind: 'cancelRename' };
 
-export function treeReducer(nodes: readonly TreeNode[], action: TreeAction): readonly TreeNode[] {
+export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
+  nodes: readonly TreeNode<TMetadata>[],
+  action: TreeAction<TMetadata>
+): readonly TreeNode<TMetadata>[] {
   return nodes.map((node) => reduceNode(node, action));
 }
 
@@ -59,7 +62,10 @@ export function treeStateReducer(state: TreeState, action: TreeStateAction): Tre
   }
 }
 
-export function treeNodeMatches(node: TreeNode, query: string): boolean {
+export function treeNodeMatches<TMetadata extends Readonly<Record<string, unknown>>>(
+  node: TreeNode<TMetadata>,
+  query: string
+): boolean {
   const normalized = query.trim().toLocaleLowerCase();
   if (normalized.length === 0) return true;
   return [
@@ -75,14 +81,19 @@ export function treeNodeMatches(node: TreeNode, query: string): boolean {
     .some((value) => value.toLocaleLowerCase().includes(normalized));
 }
 
-export function visibleTreeRows(nodes: readonly TreeNode[], options: TreeVisibleRowsOptions = {}): readonly TreeVisibleRow[] {
+export function visibleTreeRows<TMetadata extends Readonly<Record<string, unknown>>>(
+  nodes: readonly TreeNode<TMetadata>[],
+  options: TreeVisibleRowsOptions = {}
+): readonly TreeVisibleRow<TMetadata>[] {
   const query = (options.filterQuery ?? '').trim().toLocaleLowerCase();
-  const rows: TreeVisibleRow[] = [];
+  const rows: TreeVisibleRow<TMetadata>[] = [];
   for (const node of nodes) collectVisibleTreeRow(rows, node, 0, [], query);
   return rows;
 }
 
-export function selectableTreeRows(rows: readonly TreeVisibleRow[]): readonly TreeVisibleRow[] {
+export function selectableTreeRows<TMetadata extends Readonly<Record<string, unknown>>>(
+  rows: readonly TreeVisibleRow<TMetadata>[]
+): readonly TreeVisibleRow<TMetadata>[] {
   return rows.filter((row) => row.node.disabled !== true && row.lazyPlaceholder !== true);
 }
 
@@ -97,8 +108,8 @@ export function nextTreeRowId(
   return selectable[wrapIndex(current + delta, selectable.length)]?.node.id;
 }
 
-export function treeDisclosureAction(
-  node: TreeNode,
+export function treeDisclosureAction<TMetadata extends Readonly<Record<string, unknown>>>(
+  node: TreeNode<TMetadata>,
   intent: 'toggle' | 'expand' | 'collapse'
 ): TreeDisclosureAction | undefined {
   if (!treeNodeCanDisclose(node)) return undefined;
@@ -107,11 +118,14 @@ export function treeDisclosureAction(
   return { kind: intent, id: node.id };
 }
 
-export function treeNodeCanDisclose(node: TreeNode): boolean {
+export function treeNodeCanDisclose<TMetadata extends Readonly<Record<string, unknown>>>(node: TreeNode<TMetadata>): boolean {
   return node.lazy === true || (node.children?.length ?? 0) > 0;
 }
 
-function reduceNode(node: TreeNode, action: TreeAction): TreeNode {
+function reduceNode<TMetadata extends Readonly<Record<string, unknown>>>(
+  node: TreeNode<TMetadata>,
+  action: TreeAction<TMetadata>
+): TreeNode<TMetadata> {
   const children = node.children?.map((child) => reduceNode(child, action));
   const base = children === undefined ? node : { ...node, children };
   if (action.kind === 'expandAll') return { ...base, expanded: true };
@@ -150,16 +164,16 @@ function reduceNode(node: TreeNode, action: TreeAction): TreeNode {
   }
 }
 
-function collectVisibleTreeRow(
-  rows: TreeVisibleRow[],
-  node: TreeNode,
+function collectVisibleTreeRow<TMetadata extends Readonly<Record<string, unknown>>>(
+  rows: TreeVisibleRow<TMetadata>[],
+  node: TreeNode<TMetadata>,
   depth: number,
   parentPath: readonly string[],
   query: string
 ): boolean {
   const path = [...parentPath, node.id];
   const selfMatches = query.length === 0 || treeNodeMatches(node, query);
-  const descendantRows: TreeVisibleRow[] = [];
+  const descendantRows: TreeVisibleRow<TMetadata>[] = [];
   let descendantMatches = false;
   for (const child of node.children ?? []) {
     descendantMatches = collectVisibleTreeRow(descendantRows, child, depth + 1, path, query) || descendantMatches;
@@ -198,7 +212,10 @@ function wrapIndex(index: number, length: number): number {
   return ((index % length) + length) % length;
 }
 
-function lazySuccessNode(node: TreeNode, children: readonly TreeNode[]): TreeNode {
+function lazySuccessNode<TMetadata extends Readonly<Record<string, unknown>>>(
+  node: TreeNode<TMetadata>,
+  children: readonly TreeNode<TMetadata>[]
+): TreeNode<TMetadata> {
   return {
     id: node.id,
     label: node.label,

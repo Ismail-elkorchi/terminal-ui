@@ -6,12 +6,14 @@ import type {
   ComponentMeta,
   ComponentStyleSlots
 } from '../options/base.ts';
-import type { ListOptions, TableOptions } from '../options/content.ts';
+import type { ListOptions, TableColumn, TableOptions } from '../options/content.ts';
 import type { RangeSliderOptions, SliderOptions } from '../options/forms.ts';
 import type { MenuItem } from '../options/menus.ts';
 import type { CommandBarAction } from '../command-bar.ts';
 import type { PaletteAction } from '../palette.ts';
+import type { TextEditOperation } from '../../text/index.ts';
 import type { RenderNode } from '../../render-node/index.ts';
+import type { RenderMenuItem } from '../../render-node/props/menus.ts';
 
 export function listKeyBindings<TValue, TMessage>(
   options: ListOptions<TValue, TMessage>
@@ -26,8 +28,8 @@ export function listKeyBindings<TValue, TMessage>(
   );
 }
 
-export function tableKeyBindings<TMessage>(
-  options: TableOptions<TMessage>
+export function tableKeyBindings<TRow, TMessage>(
+  options: TableOptions<TRow, TMessage>
 ): ComponentKeyBindings<TMessage> | undefined {
   const selectedRow = options.selected === undefined ? undefined : options.rows[options.selected];
   const enterMessage = selectedRow === undefined || options.selected === undefined || options.onSelect === undefined
@@ -39,7 +41,7 @@ export function tableKeyBindings<TMessage>(
           ? {}
           : {
               cell: {
-                value: rowCellValue(selectedRow, options.columns?.[options.selectedCell.column], options.selectedCell.column),
+                value: columnValue(selectedRow, options.selected, options.columns?.[options.selectedCell.column]),
                 columnIndex: options.selectedCell.column,
                 sourceColumnIndex: options.selectedCell.column,
                 columnLabel: options.columns?.[options.selectedCell.column]?.header ?? `Column ${String(options.selectedCell.column + 1)}`
@@ -79,6 +81,28 @@ export function paletteKeyBindings<TMessage>(
   };
 }
 
+export function textAreaKeyBindings<TMessage>(
+  onEdit: ((operation: TextEditOperation) => TMessage) | undefined,
+  explicit: ComponentKeyBindings<TMessage> | undefined
+): ComponentKeyBindings<TMessage> | undefined {
+  const generated = onEdit === undefined
+    ? undefined
+    : {
+        enter: onEdit({ kind: 'insert', text: '\n' }),
+        backspace: onEdit({ kind: 'deleteBackward' }),
+        delete: onEdit({ kind: 'deleteForward' }),
+        arrowLeft: onEdit({ kind: 'moveLeft' }),
+        arrowRight: onEdit({ kind: 'moveRight' }),
+        arrowUp: onEdit({ kind: 'moveLineUp' }),
+        arrowDown: onEdit({ kind: 'moveLineDown' }),
+        home: onEdit({ kind: 'moveHome' }),
+        end: onEdit({ kind: 'moveEnd' }),
+        pageUp: onEdit({ kind: 'movePageUp' }),
+        pageDown: onEdit({ kind: 'movePageDown' })
+      } satisfies ComponentKeyBindings<TMessage>;
+  return mergeKeyBindings(generated, explicit);
+}
+
 export function sliderKeyBindings<TMessage>(
   options: SliderOptions<TMessage>
 ): ComponentKeyBindings<TMessage> | undefined {
@@ -90,8 +114,8 @@ export function sliderKeyBindings<TMessage>(
   const increment = options.onStep?.({ direction: 'increment' })
     ?? options.onChange?.(Math.min(max, options.value + step));
   return mergeKeyBindings({
-    ...(decrement === undefined ? {} : { left: decrement, down: decrement }),
-    ...(increment === undefined ? {} : { right: increment, up: increment })
+    ...(decrement === undefined ? {} : { arrowLeft: decrement, arrowDown: decrement }),
+    ...(increment === undefined ? {} : { arrowRight: increment, arrowUp: increment })
   }, options.keys);
 }
 
@@ -110,10 +134,10 @@ export function rangeSliderKeyBindings<TMessage>(
   const incrementEnd = options.onStep?.({ handle: 'end', direction: 'increment' })
     ?? options.onChange?.({ start: options.start, end: Math.min(max, options.end + step) });
   return mergeKeyBindings({
-    ...(decrementStart === undefined ? {} : { left: decrementStart }),
-    ...(incrementStart === undefined ? {} : { right: incrementStart }),
-    ...(decrementEnd === undefined ? {} : { down: decrementEnd }),
-    ...(incrementEnd === undefined ? {} : { up: incrementEnd })
+    ...(decrementStart === undefined ? {} : { arrowLeft: decrementStart }),
+    ...(incrementStart === undefined ? {} : { arrowRight: incrementStart }),
+    ...(decrementEnd === undefined ? {} : { arrowDown: decrementEnd }),
+    ...(incrementEnd === undefined ? {} : { arrowUp: incrementEnd })
   }, options.keys);
 }
 
@@ -130,7 +154,7 @@ export function menuKeyBindings<TMessage>(
   return activationKeyBindings(message, explicit);
 }
 
-export function menuItemsForRenderer<TMessage>(items: readonly MenuItem<TMessage>[]): readonly Record<string, unknown>[] {
+export function menuItemsForRenderer<TMessage>(items: readonly MenuItem<TMessage>[]): readonly RenderMenuItem<TMessage>[] {
   return items.map((item) => ({
     id: item.id,
     label: item.label,
@@ -149,7 +173,14 @@ export function mergeKeyBindings<TMessage>(
   generated: ComponentKeyBindings<TMessage> | undefined,
   explicit: ComponentKeyBindings<TMessage> | undefined
 ): ComponentKeyBindings<TMessage> | undefined {
-  const merged = { ...(generated ?? {}), ...(explicit ?? {}) };
+  const generatedText = generated?.text;
+  const explicitText = explicit?.text;
+  const mergedText = { ...(generatedText ?? {}), ...(explicitText ?? {}) };
+  const merged: ComponentKeyBindings<TMessage> = {
+    ...(generated ?? {}),
+    ...(explicit ?? {}),
+    ...(Object.keys(mergedText).length === 0 ? {} : { text: mergedText })
+  };
   return Object.keys(merged).length === 0 ? undefined : merged;
 }
 
@@ -191,11 +222,8 @@ export function withMetaDefaults(meta: ComponentMeta | undefined, defaults: Comp
   }) ?? {};
 }
 
-function rowCellValue(row: unknown, column: { readonly header?: string } | undefined, columnIndex: number): unknown {
-  if (row === null || typeof row !== 'object') return row;
-  if (column?.header !== undefined && column.header in row) return (row as Record<string, unknown>)[column.header];
-  const values = Array.isArray(row) ? row : Object.values(row);
-  return values[columnIndex];
+function columnValue<TRow>(row: TRow, rowIndex: number, column: TableColumn<TRow> | undefined): unknown {
+  return column?.value(row, rowIndex);
 }
 
 function visibleMenuItems<TMessage>(items: readonly MenuItem<TMessage>[]): readonly MenuItem<TMessage>[] {

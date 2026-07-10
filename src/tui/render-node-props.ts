@@ -1,4 +1,3 @@
-import type { RenderNode } from '../render-node/index.ts';
 export function stringify(value: unknown): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'object' && value !== null && 'text' in value) {
@@ -17,7 +16,7 @@ export function stringify(value: unknown): string {
   }
 }
 
-export function numberProp(widget: RenderNode, key: string): number | undefined {
-  const value = widget.props[key];
+export function numberProp(widget: { readonly props: object }, key: PropertyKey): number | undefined {
+  const value = Reflect.get(widget.props, key) as unknown;
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }

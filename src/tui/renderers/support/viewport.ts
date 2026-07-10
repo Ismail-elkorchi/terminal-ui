@@ -5,8 +5,10 @@ import { renderNodeFrameSource } from '../../frame-source.ts';
 import { nonNegativeInteger } from './common.ts';
 import type { FrameBuffer } from '../../frame.ts';
 import type { LayoutNode, Rect } from '../../layout.ts';
-import type { RenderNode } from '../../../render-node/index.ts';
+import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
+
+type ViewportNode = RenderNodeOfKind<unknown, 'viewport'>;
 
 interface ViewportVisualState {
   readonly offsetRow: number;
@@ -20,7 +22,7 @@ interface ViewportVisualState {
   readonly clippedRight: boolean;
 }
 
-export function viewportAccessibleDescription(widget: RenderNode, node: LayoutNode): string {
+export function viewportAccessibleDescription(widget: ViewportNode, node: LayoutNode): string {
   const state = viewportVisualState(widget, node.bounds);
   if (state.empty) return 'Empty viewport content.';
   const rowEnd = Math.min(state.contentRows, state.offsetRow + node.bounds.height);
@@ -28,7 +30,7 @@ export function viewportAccessibleDescription(widget: RenderNode, node: LayoutNo
   return `Showing rows ${String(state.offsetRow + 1)}-${String(rowEnd)} of ${String(state.contentRows)}, columns ${String(state.offsetColumn + 1)}-${String(columnEnd)} of ${String(state.contentColumns)}.`;
 }
 
-export function viewportChildBounds(widget: RenderNode, bounds: Rect): Rect {
+export function viewportChildBounds(widget: ViewportNode, bounds: Rect): Rect {
   const state = viewportVisualState(widget, bounds);
   if (state.empty) return { row: bounds.row, column: bounds.column, width: 0, height: 0 };
   return {
@@ -39,7 +41,7 @@ export function viewportChildBounds(widget: RenderNode, bounds: Rect): Rect {
   };
 }
 
-export function viewportVisualState(widget: RenderNode, bounds: Rect): ViewportVisualState {
+export function viewportVisualState(widget: ViewportNode, bounds: Rect): ViewportVisualState {
   const contentRows = contentSize(widget, 'contentRows', bounds.height);
   const contentColumns = contentSize(widget, 'contentColumns', bounds.width);
   const empty = contentRows === 0 || contentColumns === 0;
@@ -67,7 +69,7 @@ export function viewportVisualState(widget: RenderNode, bounds: Rect): ViewportV
 
 export function drawViewportIndicators(
   buffer: FrameBuffer,
-  widget: RenderNode,
+  widget: ViewportNode,
   bounds: Rect,
   theme: TerminalTheme,
   occupiedCells: ReadonlySet<string> = new Set()
@@ -95,7 +97,7 @@ export function drawViewportIndicators(
 
 function writeViewportIndicator(
   buffer: FrameBuffer,
-  widget: RenderNode,
+  widget: ViewportNode,
   position: { readonly row: number; readonly column: number },
   text: string,
   label: string,
@@ -114,7 +116,7 @@ export function viewportIndicatorCellKey(row: number, column: number): string {
   return cellKey(row, column);
 }
 
-function contentSize(widget: RenderNode, key: 'contentRows' | 'contentColumns', fallback: number): number {
+function contentSize(widget: ViewportNode, key: 'contentRows' | 'contentColumns', fallback: number): number {
   return widget.props[key] === undefined
     ? Math.max(0, fallback + nonNegativeInteger(numberProp(widget, key === 'contentRows' ? 'scrollRow' : 'scrollColumn')))
     : nonNegativeInteger(numberProp(widget, key));

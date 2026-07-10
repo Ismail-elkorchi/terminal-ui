@@ -1,4 +1,4 @@
-import type { RenderNode } from '../../../render-node/index.ts';
+import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import { borderStyleFromValue, borderTitleText } from '../../border.ts';
 import { stringify } from '../../render-node-props.ts';
 import { mergeStyles, renderNodeStyle } from '../../render-node-style.ts';
@@ -6,14 +6,12 @@ import type { BorderStyle } from '../../border.ts';
 import type { Rect } from '../../layout.ts';
 import type { TerminalStyle } from '../../render-primitives.ts';
 
-export function borderForRenderNode(widget: RenderNode, focused = false): BorderStyle {
-  return focusBorder(defaultBorderStyle(widget, borderStyleFromValue(widget.props['border']) ?? { kind: 'single' }), focused);
-}
+type ModalNode = RenderNodeOfKind<unknown, 'modal'>;
 
-export function borderForModal(widget: RenderNode, focused = false): BorderStyle {
+export function borderForModal(widget: ModalNode, focused = false): BorderStyle {
   const border = defaultBorderStyle(
     widget,
-    borderStyleFromValue(widget.props['border']) ?? { kind: 'single' },
+    borderStyleFromValue(widget.props.border) ?? { kind: 'single' },
     modalBorderStyle(widget)
   );
   if (border.title !== undefined || border.kind === 'none') return focusBorder(border, focused);
@@ -21,23 +19,23 @@ export function borderForModal(widget: RenderNode, focused = false): BorderStyle
   return focusBorder(title.length === 0 ? border : { ...border, title }, focused);
 }
 
-function defaultBorderStyle(widget: RenderNode, border: BorderStyle, baseStyle = renderNodeStyle(widget, 'border')): BorderStyle {
+function defaultBorderStyle(widget: ModalNode, border: BorderStyle, baseStyle = renderNodeStyle(widget, 'border')): BorderStyle {
   if (border.kind === 'none') return border;
   const style = mergeStyles(baseStyle, border.style);
   return style === undefined ? border : { ...border, style };
 }
 
-function modalBorderStyle(widget: RenderNode): TerminalStyle | undefined {
+function modalBorderStyle(widget: ModalNode): TerminalStyle | undefined {
   return mergeStyles(
     { fg: { kind: 'theme', token: 'surface.raised.border' } },
     widget.styles?.border
   );
 }
 
-export function modalLabel(widget: RenderNode): string {
-  const title = stringify(widget.props['title']);
+export function modalLabel(widget: ModalNode): string {
+  const title = stringify(widget.props.title);
   if (title.length > 0) return title;
-  const borderTitle = borderStyleFromValue(widget.props['border'])?.title;
+  const borderTitle = borderStyleFromValue(widget.props.border)?.title;
   return borderTitleText(borderTitle);
 }
 

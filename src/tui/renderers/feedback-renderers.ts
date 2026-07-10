@@ -29,7 +29,7 @@ export const feedbackRenderers = {
       id,
       role: 'status',
       label: id,
-      value: stringify(renderNode.props['text']),
+      value: stringify(renderNode.props.text),
       live: 'polite'
     })
   },
