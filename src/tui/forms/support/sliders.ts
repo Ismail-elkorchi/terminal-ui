@@ -95,9 +95,9 @@ export function toggleValueStyle(
   widget: ToggleSwitchNode,
   checked: boolean
 ): TerminalStyle | undefined {
-  if (widget.props.disabled === true) return renderNodeStyle(widget, 'value', 'disabled');
+  if (widget.props.disabled === true) return renderNodeStyle(widget, checked ? 'onLabel' : 'offLabel', 'disabled');
   return resolveRenderNodeStyle(widget, {
-    slot: 'value',
+    part: checked ? 'onLabel' : 'offLabel',
     base: {
       fg: { kind: 'theme', token: checked ? 'control.primary.foreground' : 'control.foreground' },
       bg: { kind: 'theme', token: checked ? 'control.toggle.on.background' : 'control.toggle.off.background' },
@@ -165,7 +165,7 @@ function sliderPartStyle(
       ? { fg: { kind: 'theme', token: 'control.track.filled' } }
       : { fg: { kind: 'theme', token: 'control.track' } };
   return resolveRenderNodeStyle(widget, {
-    slot: 'value',
+    part: 'value',
     base,
     ...(disabled ? { state: 'disabled' } : {})
   });

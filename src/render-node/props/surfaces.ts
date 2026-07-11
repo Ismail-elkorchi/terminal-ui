@@ -1,4 +1,4 @@
-import type { CanvasPainter } from '../../components/options/surfaces.ts';
+import type { CanvasPainter } from '../../components/options/drawing.ts';
 import type { BorderStyle, BorderTitle } from '../../tui/border.ts';
 import type { SurfaceVariant } from '../../tui/surface.ts';
 import type { SurfaceVisualState } from '../../components/options/base.ts';

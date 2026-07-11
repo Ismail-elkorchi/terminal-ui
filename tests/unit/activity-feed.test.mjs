@@ -161,7 +161,7 @@ test('activityFeed exposes block hit targets and keyboard focus when interactive
     blocks,
     selected: 1,
     onSelect: (block, index) => ({ kind: 'select', id: block.id, index }),
-    keys: { arrowDown: { kind: 'next' } }
+    keys: { arrowDown: () => ({ kind: 'next' }) }
   }), { columns: 36, rows: 10 });
   const frame = projection.frame;
   const routedTargets = projection.regions.flatMap((region) => region.hitTargets);

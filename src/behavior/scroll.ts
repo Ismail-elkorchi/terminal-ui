@@ -1,4 +1,4 @@
-import type { RoutedPointerEvent } from './pointer-types.ts';
+import type { RoutedPointerEvent } from '../input/pointer.ts';
 
 export interface ScrollState {
   readonly offsetRow: number;

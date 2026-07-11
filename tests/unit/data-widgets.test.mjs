@@ -45,5 +45,6 @@ test('paginator normalizes page bounds and renders compact status', () => {
   }), { columns: 24, rows: 1 });
 
   assert.equal(renderFramePlain(frame), 'Results Page 4 of 4');
-  assert.equal(frame.accessibility.root.value, 'Results Page 4 of 4');
+  assert.equal(frame.accessibility.root.label, 'Results');
+  assert.equal(frame.accessibility.root.value, 'Page 4 of 4');
 });

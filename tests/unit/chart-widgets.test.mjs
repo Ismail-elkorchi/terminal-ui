@@ -247,7 +247,7 @@ test('chart renders scatter points legends axis labels and selectable point hit 
       { id: 'line', label: 'Line', points: [1, 3, 2, 4], kind: 'line', glyph: '+' },
       { id: 'scatter', label: 'Scatter', points: [4, 1, 3, 2], kind: 'scatter', glyph: 'o' }
     ],
-    keys: { enter: { kind: 'chart-enter' } },
+    keys: { enter: () => ({ kind: 'chart-enter' }) },
     onSelect: (point) => ({ kind: 'chart-point', ...point })
   }), { columns: 32, rows: 7 });
 
@@ -381,7 +381,7 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
     min: 0,
     max: 5,
     selected: { row: 0, column: 1 },
-    keys: { enter: { kind: 'select-current' } },
+    keys: { enter: () => ({ kind: 'select-current' }) },
     onSelect: (cell, row, column) => ({ kind: 'heatmap-select', id: cell.id, row, column })
   }), { columns: 12, rows: 3 });
 

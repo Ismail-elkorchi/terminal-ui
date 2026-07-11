@@ -1,7 +1,6 @@
 import type { TextSelection } from '../../text/index.ts';
 import type { TerminalStyle } from '../../tui/render-primitives.ts';
-import type { LayoutFlowOptions } from '../../tui/regions.ts';
-import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../tui/scroll.ts';
+import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../behavior/scroll.ts';
 import type { ScrollbarOptions } from '../../tui/scrollbar.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
 import type {
@@ -15,18 +14,13 @@ import type {
 } from '../contracts.ts';
 import type { CommandBarAction } from '../command-bar.ts';
 import type { PaletteAction } from '../palette.ts';
-import type { ComponentKeyBindings, ComponentOptions } from './base.ts';
-
-export interface ViewportOptions<TMessage = never> extends ComponentOptions, LayoutFlowOptions {
-  readonly scrollRow?: number;
-  readonly scrollColumn?: number;
-  readonly contentRows?: number;
-  readonly contentColumns?: number;
-  readonly scrollbar?: ScrollbarOptions;
-  readonly scrollPolicy?: ScrollPolicy;
-  readonly onScroll?: (event: ScrollEvent) => TMessage;
-  readonly keys?: ComponentKeyBindings<TMessage>;
-}
+import type { ComponentKeyBindings, ComponentOptions, InteractiveComponentOptions } from './base.ts';
+import type {
+  CommandBarStylePart,
+  DocumentStylePart,
+  PaletteStylePart,
+  TextAreaStylePart
+} from '../style-parts.ts';
 
 export interface ScrollbackItem {
   readonly id: string;
@@ -37,7 +31,7 @@ export interface ScrollbackItem {
   readonly metadata?: Record<string, string>;
 }
 
-export interface ScrollbackOptions<TMessage = never> extends ComponentOptions {
+export interface ScrollbackOptions<TMessage = never> extends InteractiveComponentOptions<TextAreaStylePart> {
   readonly items: readonly ScrollbackItem[];
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
@@ -59,7 +53,7 @@ export interface StructuredBlock extends TitledItem {
   readonly collapsed?: boolean;
 }
 
-export interface StructuredBlockOptions<TMessage = never> extends ComponentOptions {
+export interface StructuredBlockOptions extends ComponentOptions<DocumentStylePart> {
   readonly title: string;
   readonly summary?: string;
   readonly style?: TerminalStyle;
@@ -68,10 +62,9 @@ export interface StructuredBlockOptions<TMessage = never> extends ComponentOptio
   readonly body?: string;
   readonly details?: string;
   readonly collapsed?: boolean;
-  readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
-export interface ActivityFeedOptions<TMessage = never> extends ComponentOptions {
+export interface ActivityFeedOptions<TMessage = never> extends InteractiveComponentOptions<DocumentStylePart> {
   readonly blocks: readonly StructuredBlock[];
   readonly selected?: number;
   readonly onSelect?: (block: StructuredBlock, index: number) => TMessage;
@@ -85,7 +78,7 @@ export interface CommandBarValidation {
 
 export type CommandBarDisplay = 'compact' | 'expanded';
 
-export interface CommandBarOptions<TMessage = never> extends ComponentOptions {
+export interface CommandBarOptions<TMessage = never> extends InteractiveComponentOptions<CommandBarStylePart> {
   readonly value?: string;
   readonly cursor?: number;
   readonly selection?: TextSelection;
@@ -105,7 +98,7 @@ export interface CommandBarOptions<TMessage = never> extends ComponentOptions {
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
-export interface PaletteOptions<TValue = string, TMessage = never> extends ComponentOptions {
+export interface PaletteOptions<TValue = string, TMessage = never> extends InteractiveComponentOptions<PaletteStylePart> {
   readonly title?: string;
   readonly query?: string;
   readonly entries: readonly SearchEntry<TValue>[];

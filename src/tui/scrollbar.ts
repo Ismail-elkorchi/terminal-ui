@@ -5,7 +5,7 @@ import type { FrameBuffer } from './frame.ts';
 import type { Rect } from './layout.ts';
 import type { FrameCellSource } from './render-primitives.ts';
 import type { TerminalStyle } from './render-primitives.ts';
-import type { RoutedPointerEvent } from './pointer-types.ts';
+import type { RoutedPointerEvent } from '../input/pointer.ts';
 
 export type ScrollbarVisualState = 'idle' | 'active' | 'hover' | 'disabled' | 'inactive';
 

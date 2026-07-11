@@ -1,11 +1,11 @@
 import { numberProp, stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { RenderNodeOfKind } from '../render-node/index.ts';
-import type { CanvasPainterInput } from '../components/options/surfaces.ts';
+import type { CanvasPainterInput } from '../components/options/drawing.ts';
 import type { Rect } from './layout.ts';
 import type { RenderNodeRenderInput } from './render-node-renderer.ts';
 import { createCanvas2D } from './canvas2d/index.ts';
-import { layoutContentBounds } from './regions.ts';
+import { layoutContentBounds } from '../layout/geometry.ts';
 import { layoutFlowOptions } from './renderers/support/layout.ts';
 import { surfaceChildContentBounds } from './surface.ts';
 

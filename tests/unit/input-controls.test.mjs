@@ -21,6 +21,7 @@ import {
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { stack } from '../../dist/layout/index.js';
+import { datePickerFixture } from '../helpers/date-picker.mjs';
 
 test('toggleSwitch slider and rangeSlider render caller-owned values with keyboard and mouse affordances', () => {
   const widget = stack([
@@ -120,17 +121,12 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
     datePicker({
       id: 'dates',
       label: 'June',
-      selected: '2026-06-15',
-      days: Array.from({ length: 21 }, (_, index) => {
-        const day = index + 1;
-        return {
-          id: `2026-06-${String(day).padStart(2, '0')}`,
-          label: String(day),
-          value: `2026-06-${String(day).padStart(2, '0')}`,
-          today: day === 10
-        };
+      ...datePickerFixture({
+        selected: { year: 2026, month: 6, day: 15 },
+        focused: { year: 2026, month: 6, day: 15 },
+        today: { year: 2026, month: 6, day: 10 }
       }),
-      onChange: (day) => ({ kind: 'date', id: day.id })
+      onAction: (action) => ({ kind: 'date', action })
     })
   ], { gap: 1 });
   const frame = renderElementFrame(widget, { columns: 72, rows: 18 });
@@ -155,7 +151,7 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
     height: 1
   });
   assert.deepEqual(frame.hitTargets?.find((target) => target.id === 'dates:2026-06-10')?.bounds, {
-    row: 16,
+    row: 17,
     column: 9,
     width: 4,
     height: 1
@@ -169,8 +165,8 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.source?.label === 'summary.swatch')?.style?.bg?.token, 'control.primary.background');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.source?.label === 'summary.swatch')?.source?.role, 'decoration');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.source?.label === 'option.green.swatch')?.text, '■');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.source?.label === 'weekday.mo')?.style?.fg?.token, 'text.disabled');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.text === '[')?.source?.label, 'day.2026-06-15.open');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.source?.label === 'weekday.0')?.style?.fg?.token, 'text.disabled');
+  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.source?.label === 'day.2026-06-15.open')?.text, '[');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.text === '1')?.source?.role, 'text');
 });
 
@@ -198,11 +194,13 @@ test('form controls keep state visible in high contrast and no-color projections
     }),
     datePicker({
       id: 'calendar',
-      selected: 'today',
-      days: [{ id: 'today', label: '2', value: 'today', today: true }]
+      ...datePickerFixture({
+        selected: { year: 2026, month: 6, day: 2 },
+        today: { year: 2026, month: 6, day: 2 }
+      })
     })
   ], { gap: 1 });
-  const frame = renderElementFrame(widget, { columns: 32, rows: 8 }, { theme: highContrastTheme });
+  const frame = renderElementFrame(widget, { columns: 32, rows: 14 }, { theme: highContrastTheme });
   const highContrast = createVisualSnapshot({
     frame,
     ansi: { capabilities: colorCapabilities(), theme: highContrastTheme }

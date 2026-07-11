@@ -20,7 +20,7 @@ export function selectionMarkerSpans(
   style?: TerminalStyle,
   source?: FrameCellSource
 ): readonly RenderSpan[] {
-  const markerStyle = selected ? (style ?? renderNodeStyle(widget, 'value', 'selected')) : renderNodeStyle(widget, 'placeholder');
+  const markerStyle = selected ? (style ?? renderNodeStyle(widget, 'marker', 'selected')) : renderNodeStyle(widget, 'marker');
   const gapSource = frameSourcePart(source, {
     ...(source?.part === undefined ? {} : { part: `${source.part}.gap` }),
     ...(source?.label === undefined ? {} : { label: `${source.label}.gap` })
@@ -38,13 +38,14 @@ export function dataValueSpans(
   options: {
     readonly source?: FrameCellSource;
     readonly matchSource?: FrameCellSource;
+    readonly matchStyle?: TerminalStyle;
   } = {}
 ): readonly RenderSpan[] {
   const normalizedQuery = query.trim();
   if (normalizedQuery.length === 0) return [dataSpan(text, baseStyle, options.source)];
   return highlightRenderSpans(text, normalizedQuery, {
     ...(baseStyle === undefined ? {} : { baseStyle }),
-    matchStyle: themeStyle('menu.match', { underline: true })
+    matchStyle: options.matchStyle ?? themeStyle('menu.match', { underline: true })
   }).map((span) => dataSpan(
     span.text,
     span.style,

@@ -56,22 +56,21 @@ test('canvas painters receive Canvas2D helpers without raw frame-buffer access',
   assert.equal(renderFramePlain(frame), '████ ok\n████\nraw');
 });
 
-test('canvas painters can provide source metadata while focus stays widget-owned', () => {
+test('canvas painters can provide source metadata without becoming pseudo-controls', () => {
   const frame = renderElementFrame(canvas({
     id: 'inspectable-canvas',
     label: 'Inspectable canvas',
-    keys: { enter: { kind: 'activate-canvas' } },
     painter({ canvas }) {
       canvas.text(0, 0, [{
         text: 'node',
         source: { ownerId: 'node-a', ownerKind: 'diagram', role: 'custom', label: 'node.label' }
       }]);
     }
-  }), { columns: 12, rows: 2 }, { focusPath: ['inspectable-canvas'] });
+  }), { columns: 12, rows: 2 });
 
   assert.equal(renderFramePlain(frame), 'node');
-  assert.deepEqual(frame.focusPath, ['inspectable-canvas']);
-  assert.equal(frame.accessibility.root.focused, true);
+  assert.equal(frame.focusPath, undefined);
+  assert.equal(frame.accessibility.root.focused, undefined);
   assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.label, 'node.label');
   assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.role, 'custom');
 });
@@ -258,7 +257,7 @@ test('surface labels disabled state and theme variants stay structural', () => {
     label: 'Locked',
     variant: 'raised',
     disabled: true,
-    keys: { enter: { kind: 'locked' } }
+    keys: { enter: () => ({ kind: 'locked' }) }
   }), { columns: 14, rows: 3 }, { focusPath: ['locked-surface'] });
   const highContrast = renderElementFrame(surface(text('selected', { id: 'selected-body' }), {
     id: 'selected-surface',

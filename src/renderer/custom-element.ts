@@ -1,7 +1,7 @@
 import type {
   AccessibleNodeDefinition,
   ComponentKeyBindings,
-  ComponentOptions,
+  InteractiveComponentOptions,
   ComponentTextInputHandlers
 } from '../components/options/base.ts';
 import type { Element } from '../components/element.ts';
@@ -9,6 +9,7 @@ import { elementFromRenderNode } from '../render-node/element.ts';
 import type { RenderNodeInputMap, RenderNodeKeyMap } from '../render-node/index.ts';
 import type { RenderNodeRenderer } from '../tui/render-node-renderer.ts';
 import type { CustomRenderer } from './custom-renderer.ts';
+import { renderNodeId } from '../internal/identity.ts';
 
 const rendererHookNames = [
   'measure',
@@ -17,7 +18,7 @@ const rendererHookNames = [
   'hitTargets'
 ] as const satisfies readonly (keyof CustomRenderer)[];
 
-interface CustomElementOptionsBase<TMessage> extends ComponentOptions, ComponentTextInputHandlers<TMessage> {
+interface CustomElementOptionsBase<TMessage> extends InteractiveComponentOptions, ComponentTextInputHandlers<TMessage> {
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
@@ -58,14 +59,14 @@ export function custom<TState, const TMessage = never>(
   });
   const renderer = adaptCustomRenderer(options.renderer, 'state' in options ? options.state : undefined);
   return elementFromRenderNode<'custom', TMessage>({
-    ...(options.id === undefined ? {} : { id: options.id }),
+    id: renderNodeId(options.id),
     kind: 'custom',
     props: {},
     custom: { renderer },
     ...(options.keys === undefined || Object.keys(options.keys).length === 0 ? {} : { keyMap: options.keys }),
     ...(inputMap === undefined ? {} : { inputMap }),
     ...(options.meta?.layer === undefined ? {} : { layer: options.meta.layer }),
-    ...(options.meta?.focus === undefined ? {} : { focus: options.meta.focus }),
+    focus: options.meta?.focus ?? {},
     ...(options.meta?.styles === undefined ? {} : { styles: options.meta.styles }),
     ...(options.meta?.accessibility === undefined ? {} : { accessibility: options.meta.accessibility })
   });

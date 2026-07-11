@@ -3,9 +3,13 @@ import { createTuiContext } from './context.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalHost } from '../host/index.ts';
 import type { TuiEffect, TuiEffectContext } from './types.ts';
+import { effectExecutionId } from '../internal/identity.ts';
+import type { EffectExecutionId } from '../internal/identity.ts';
 
 interface ActiveEffect {
+  readonly id: EffectExecutionId;
   readonly controller: AbortController;
+  readonly completion: Promise<void>;
 }
 
 export interface TuiEffectManager<TMessage> {
@@ -23,24 +27,84 @@ export interface TuiEffectManagerOptions<TMessage> {
 export function createTuiEffectManager<TMessage>(
   options: TuiEffectManagerOptions<TMessage>
 ): TuiEffectManager<TMessage> {
-  const active = new Map<string, ActiveEffect>();
+  const active = new Set<ActiveEffect>();
+  const activeById = new Map<EffectExecutionId, Set<ActiveEffect>>();
+  const queues = new Map<EffectExecutionId, TuiEffect<TMessage>[]>();
+  let disposed = false;
+
+  function launch(effect: TuiEffect<TMessage>): void {
+    const id = effectExecutionId(effect.id);
+    const controller = new AbortController();
+    const execution: ActiveEffect = {
+      id,
+      controller,
+      completion: runEffect(effect, controller, options).finally(() => {
+        active.delete(execution);
+        const group = activeById.get(id);
+        group?.delete(execution);
+        if (group?.size === 0) activeById.delete(id);
+        launchNextQueued(id);
+      })
+    };
+    active.add(execution);
+    const group = activeById.get(id) ?? new Set<ActiveEffect>();
+    group.add(execution);
+    activeById.set(id, group);
+  }
+
+  function launchNextQueued(id: EffectExecutionId): void {
+    if (disposed || activeById.has(id)) return;
+    const queue = queues.get(id);
+    const next = queue?.shift();
+    if (queue?.length === 0) queues.delete(id);
+    if (next !== undefined) launch(next);
+  }
+
+  function abortGroup(id: EffectExecutionId): void {
+    for (const execution of activeById.get(id) ?? []) execution.controller.abort();
+    queues.delete(id);
+  }
+
+  function schedule(effect: TuiEffect<TMessage>): void {
+    const id = effectExecutionId(effect.id);
+    const hasActive = activeById.has(id);
+    if (effect.concurrency === 'parallel') {
+      launch(effect);
+      return;
+    }
+    if (effect.concurrency === 'keep-first') {
+      if (!hasActive && (queues.get(id)?.length ?? 0) === 0) launch(effect);
+      return;
+    }
+    if (effect.concurrency === 'replace') {
+      abortGroup(id);
+      launch(effect);
+      return;
+    }
+    if (hasActive) {
+      const queue = queues.get(id) ?? [];
+      queue.push(effect);
+      queues.set(id, queue);
+      return;
+    }
+    launch(effect);
+  }
 
   return {
     start(effects) {
-      for (const effect of effects) {
-        if (active.has(effect.id)) continue;
-        const controller = new AbortController();
-        active.set(effect.id, { controller });
-        void runEffect(effect, controller, options).finally(() => {
-          const current = active.get(effect.id);
-          if (current?.controller === controller) active.delete(effect.id);
-        });
-      }
+      if (disposed) return;
+      for (const effect of effects) schedule(effect);
     },
     async dispose() {
-      for (const item of active.values()) item.controller.abort();
+      disposed = true;
+      queues.clear();
+      const completions = [...active].map((item) => {
+        item.controller.abort();
+        return item.completion;
+      });
+      await Promise.allSettled(completions);
       active.clear();
-      await Promise.resolve();
+      activeById.clear();
     }
   };
 }

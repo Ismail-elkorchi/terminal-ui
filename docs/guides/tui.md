@@ -112,18 +112,18 @@ geometry, and `visualState: 'active' | 'hover' | 'disabled' | 'inactive' |
 'idle'` only when the application owns that state. Otherwise renderers derive
 stable `idle` or `inactive` states from scrollability.
 
-Tree components keep hierarchy state caller-owned. Use `treeReducer()` for
-expansion and lazy-loading transitions, `visibleTreeRows()` when an app needs
-the rendered row order, `nextTreeRowId()` for selectable keyboard navigation,
-and `treeDisclosureAction()` to turn disclosure intents into meaningful expand,
-collapse, or toggle actions. These helpers do not load files or infer app
+Tree components keep hierarchy state caller-owned. Send the component's single
+`onAction` stream through `treeReducer()` and render the result with
+`treePresentation()`. The action stream covers selection, navigation,
+activation, disclosure, filtering, rename, lazy transitions, and scrolling.
+`visibleTreeRows()` remains available when application effects need the exact
+rendered row order. These helpers do not load files or infer application
 activation policy; they only describe generic hierarchical records. Pointer
-routing keeps disclosure and row-body regions separate when
-`onDisclosure` is provided, so apps can distinguish selection, primary
-activation, and hierarchy expansion without hand-building tree hit targets.
-Tree row rendering uses existing style slots: `border` for indentation and
-disclosure glyphs, `label` for icons, `value` for labels, `placeholder` for
-lazy/empty rows, and `selected`/`disabled` for row states. Frame source metadata
+routing keeps disclosure and row-body regions separate while both produce the
+same `TreeAction` vocabulary, so keyboard and pointer paths cannot drift.
+Tree row rendering uses typed style parts for `indent`, `disclosure`, `icon`,
+`label`, `metadata`, `match`, `placeholder`, `empty`, and `scrollbar` anatomy;
+selected and disabled presentation use visual-state styles. Frame source metadata
 marks disclosure, indent, icon, label, match, and selection-marker parts
 separately for snapshots and debug projections.
 
@@ -202,7 +202,7 @@ const bindings = [{ key: 'Enter', label: 'Open' }];
 
 surface(stack([
   text('Explorer', { textRole: 'heading' }),
-  tree({ nodes }),
+  tree({ id: 'explorer-tree', nodes }),
   helpBar({ bindings })
 ], {
   sizes: [
@@ -219,7 +219,7 @@ default. `neutral` is an unframed content background. `raised`, `inset`,
 `selected`, `warning`, `danger`, and `success` are framed panel/dialog states.
 When a framed surface is too small to leave an interior, the border is skipped
 for that frame so child content remains visible. A focusable borderless surface
-uses the root `focused` style slot, defaulting to `focus.background`, so active
+uses the root focused state style, defaulting to `focus.background`, so active
 panes can be visible without a global style cascade. Use
 `visualState: 'selected' | 'active' | 'warning' | 'error' | 'success'` when the
 application wants a surface to show caller-owned state while it is not focused;

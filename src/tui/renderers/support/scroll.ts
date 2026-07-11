@@ -5,8 +5,8 @@ import type {
   RenderNodeOfKind,
   RenderNodesOfKind
 } from '../../../render-node/index.ts';
-import { dataWindow } from '../../data-window.ts';
-import { createScrollState, normalizeScrollState } from '../../scroll.ts';
+import { dataWindow } from '../../../behavior/data-window.ts';
+import { createScrollState, normalizeScrollState } from '../../../behavior/scroll.ts';
 import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
 import { scrollbackWindow } from '../../scrollback.ts';
 import { treeVisibleRows } from '../../tree.ts';
@@ -15,14 +15,14 @@ import { isRecord } from './common.ts';
 import { viewportVisualState } from './viewport.ts';
 import type { FrameBuffer } from '../../frame.ts';
 import type { LayoutNode, Rect } from '../../layout.ts';
-import type { RoutedPointerEvent } from '../../pointer-types.ts';
+import type { RoutedPointerEvent } from '../../../input/pointer.ts';
 import type {
   ScrollAction,
   ScrollState,
   ScrollEvent,
   ScrollEventSource,
   ScrollEventTarget
-} from '../../scroll.ts';
+} from '../../../behavior/scroll.ts';
 import type {
   ScrollbarLayout,
   ScrollbarOptions,

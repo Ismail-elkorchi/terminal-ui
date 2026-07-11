@@ -2,7 +2,7 @@ import type { RenderNodeOfKind } from '../render-node/index.ts';
 import { extractTextSelection, sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
 import {
   createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll
-} from './scroll.ts';
+} from '../behavior/scroll.ts';
 import {
   documentEmptyStyle, documentHighlightSpans, documentSpan, scrollbackSelectedStyle, scrollbackBodyStyle, scrollbackMetadataStyle, scrollbackMetadataSeparatorStyle, scrollbackOmissionStyle, scrollbackTimestampStyle, sourceToken
 } from './document-visual.ts';

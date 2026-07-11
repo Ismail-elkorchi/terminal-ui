@@ -1,5 +1,6 @@
-import { scrollReducer } from '../tui/scroll.ts';
-import type { ScrollAction, ScrollState } from '../tui/scroll.ts';
+import type { TableAction } from '../components/table.ts';
+import { applyScrollEvent, scrollReducer } from './scroll.ts';
+import type { ScrollState } from './scroll.ts';
 
 export interface TableSortState {
   readonly column: string;
@@ -13,13 +14,6 @@ export interface TableState {
   readonly columnWidths?: Readonly<Record<string, number>>;
   readonly scroll?: ScrollState;
 }
-
-export type TableAction =
-  | { readonly kind: 'selectRow'; readonly row: number }
-  | { readonly kind: 'selectCell'; readonly row: number; readonly column: number }
-  | { readonly kind: 'sortBy'; readonly column: string }
-  | { readonly kind: 'resizeColumn'; readonly column: string; readonly delta: number }
-  | { readonly kind: 'scroll'; readonly action: ScrollAction };
 
 export interface TableReducerOptions {
   readonly rowCount?: number;
@@ -46,6 +40,22 @@ export function tableReducer(
         selectedRow: boundedIndex(action.row, options.rowCount),
         selectedColumn: boundedIndex(action.column, options.columnCount)
       };
+    case 'moveRow':
+      return selectRow(state, (state.selectedRow ?? 0) + action.delta, options);
+    case 'moveColumn':
+      return selectCell(state, state.selectedRow ?? 0, (state.selectedColumn ?? 0) + action.delta, options);
+    case 'page':
+      return selectRow(
+        state,
+        (state.selectedRow ?? 0) + action.delta * Math.max(1, state.scroll?.viewportRows ?? 1),
+        options
+      );
+    case 'firstRow':
+      return selectRow(state, 0, options);
+    case 'lastRow':
+      return selectRow(state, Math.max(0, (options.rowCount ?? 1) - 1), options);
+    case 'activate':
+      return state;
     case 'sortBy':
       return {
         ...state,
@@ -61,9 +71,56 @@ export function tableReducer(
         ? state
         : {
             ...state,
-            scroll: scrollReducer(state.scroll, action.action)
+            scroll: applyScrollEvent(state.scroll, action.event)
           };
   }
+}
+
+export function tablePresentation(state: TableState): {
+  readonly selected?: number;
+  readonly selectedCell?: { readonly row: number; readonly column: number };
+  readonly scroll?: ScrollState;
+} {
+  return {
+    ...(state.selectedRow === undefined ? {} : { selected: state.selectedRow }),
+    ...(state.selectedRow === undefined || state.selectedColumn === undefined
+      ? {}
+      : { selectedCell: { row: state.selectedRow, column: state.selectedColumn } }),
+    ...(state.scroll === undefined ? {} : { scroll: state.scroll })
+  };
+}
+
+function selectRow(state: TableState, row: number, options: TableReducerOptions): TableState {
+  const selectedRow = boundedIndex(row, options.rowCount);
+  const scroll = state.scroll === undefined
+    ? undefined
+    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: selectedRow });
+  if (state.selectedRow === selectedRow && state.scroll === scroll) return state;
+  return {
+    ...state,
+    selectedRow,
+    ...(scroll === undefined ? {} : { scroll })
+  };
+}
+
+function selectCell(
+  state: TableState,
+  row: number,
+  column: number,
+  options: TableReducerOptions
+): TableState {
+  const selectedRow = boundedIndex(row, options.rowCount);
+  const selectedColumn = boundedIndex(column, options.columnCount);
+  const scroll = state.scroll === undefined
+    ? undefined
+    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: selectedRow });
+  if (state.selectedRow === selectedRow && state.selectedColumn === selectedColumn && state.scroll === scroll) return state;
+  return {
+    ...state,
+    selectedRow,
+    selectedColumn,
+    ...(scroll === undefined ? {} : { scroll })
+  };
 }
 
 export function sortTableRows<TRow>(

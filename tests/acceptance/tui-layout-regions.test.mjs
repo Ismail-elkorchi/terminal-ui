@@ -70,8 +70,7 @@ function workspaceView(state) {
   ], {
     id: 'workspace',
     rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }],
-    columns: [{ kind: 'fill' }],
-    keys: { enter: { type: 'exit' }, text: { p: { type: 'palette' } } }
+    columns: [{ kind: 'fill' }]
   });
 }
 
@@ -79,6 +78,10 @@ test('layout regions compose scrollback, activity, tabs, palette, status, and co
   const app = defineTui({
     id: 'layout-regions',
     init: () => ({ palette: false, query: '', items: ['one', 'two'] }),
+    keyBindings: [
+      { id: 'open-palette', triggers: [{ kind: 'text', text: 'p' }], message: { type: 'palette' } },
+      { id: 'exit', triggers: [{ kind: 'key', key: 'enter' }], message: { type: 'exit' } }
+    ],
     update: (state, message) => {
       if (message.type === 'palette') return { state: { ...state, palette: true, query: 'o' } };
       return { state, exit: {} };

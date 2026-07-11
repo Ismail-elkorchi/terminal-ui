@@ -4,43 +4,50 @@ import type {
   ListOptions,
   PaginatorOptions,
   TableOptions,
-  TablePointerSelection,
   TreeOptions
 } from '../options/content.ts';
-import type { ComponentKeyBindings } from '../options/base.ts';
-import type { ScrollEvent } from '../../tui/scroll.ts';
-import { interactionProps, listKeyBindings, tableKeyBindings } from '../factory-internals/interaction.ts';
+import type { ScrollEvent } from '../../behavior/scroll.ts';
+import type { ListAction } from '../list.ts';
+import type { TableAction } from '../table.ts';
+import {
+  interactionProps,
+  listKeyBindings,
+  paginatorKeyBindings,
+  tableKeyBindings,
+  treeKeyBindings
+} from '../factory-internals/interaction.ts';
 import {
   domainValues,
   tableColumnsForRenderer,
-  tableSelectionHandler,
-  treeDisclosureHandler,
-  treeNodesForRenderer,
-  treeSelectionHandler
+  treeNodesForRenderer
 } from '../factory-internals/domain.ts';
-import { optionalId } from '../factory-internals/layout.ts';
-import type { IndependentInteractionOptions } from '../factory-internals/messages.ts';
+import { requiredId } from '../factory-internals/render-node.ts';
+import type {
+  ComponentKeyBindingMessages,
+  IndependentInteractionOptions,
+  InferredComponentKeyBindings
+} from '../factory-internals/messages.ts';
 
 export function list<
   TValue,
-  const TScrollMessage = never,
-  const TSelectMessage = never,
-  const TKeyMessage = never
+  const TActionMessage = never,
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     ListOptions<TValue, never>,
-    { readonly onScroll: TScrollMessage; readonly onSelect: TSelectMessage },
+    { readonly onAction: TActionMessage },
     Record<never, never>,
-    TKeyMessage
+    TKeys
   >
-): Element<TScrollMessage | TSelectMessage | TKeyMessage>;
+): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
 export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unknown> {
   const keyMap = listKeyBindings(options);
-  const toMessage = options.onSelect === undefined
+  const toActionMessage = options.onAction;
+  const disabledIndices = options.isDisabled === undefined
     ? undefined
-    : (value: unknown) => options.onSelect?.(value as TValue);
+    : options.items.flatMap((item, index) => options.isDisabled?.(item, index) === true ? [index] : []);
   return elementFromRenderNode<'list', unknown>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'list'),
     kind: 'list',
     props: {
       items: domainValues(options.items),
@@ -49,35 +56,37 @@ export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unk
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll }),
-      ...(toMessage === undefined ? {} : { toMessage })
+      ...(disabledIndices === undefined || disabledIndices.length === 0 ? {} : { disabledIndices }),
+      ...(toActionMessage === undefined ? {} : {
+        ...(options.scroll === undefined ? {} : {
+          toScrollMessage: (event: ScrollEvent) => toActionMessage({ kind: 'scroll', event })
+        }),
+        toActionMessage: (action: ListAction) => toActionMessage(action)
+      })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ meta: options.meta })
   });
 }
 
-type TableFactoryOptions<TRow, TScrollMessage, TSelectMessage, TKeyMessage> =
-  Omit<TableOptions<TRow>, 'onScroll' | 'onSelect' | 'keys'> & {
-    readonly onScroll?: (event: ScrollEvent) => TScrollMessage;
-    readonly onSelect?: (selection: TablePointerSelection<TRow>) => TSelectMessage;
-    readonly keys?: ComponentKeyBindings<TKeyMessage>;
-  };
-
 export function table<
   TRow,
-  const TScrollMessage = never,
-  const TSelectMessage = never,
-  const TKeyMessage = never
+  const TActionMessage = never,
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
 >(
-  options: TableFactoryOptions<TRow, TScrollMessage, TSelectMessage, TKeyMessage>
-): Element<TScrollMessage | TSelectMessage | TKeyMessage>;
+  options: IndependentInteractionOptions<
+    TableOptions<TRow>,
+    { readonly onAction: TActionMessage },
+    Record<never, never>,
+    TKeys
+  >
+): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
 export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unknown> {
   const keyMap = tableKeyBindings(options);
   const columns = tableColumnsForRenderer(options.columns);
-  const toMessage = tableSelectionHandler(options.onSelect);
+  const toActionMessage = options.onAction;
   return elementFromRenderNode<'table', unknown>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'table'),
     kind: 'table',
     props: {
       rows: domainValues(options.rows),
@@ -88,10 +97,14 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll }),
+      ...(toActionMessage === undefined ? {} : {
+        ...(options.scroll === undefined ? {} : {
+          toScrollMessage: (event: ScrollEvent) => toActionMessage({ kind: 'scroll', event })
+        }),
+        toActionMessage: (action: TableAction) => toActionMessage(action)
+      }),
       ...(options.stickyHeader === undefined ? {} : { stickyHeader: options.stickyHeader }),
-      ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
-      ...(toMessage === undefined ? {} : { toMessage })
+      ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ meta: options.meta })
@@ -100,29 +113,23 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
 
 export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
-  const TScrollMessage = never,
-  const TSelectMessage = never,
-  const TDisclosureMessage = never,
-  const TKeyMessage = never
+  const TActionMessage = never,
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     TreeOptions<TMetadata>,
-    {
-      readonly onScroll: TScrollMessage;
-      readonly onSelect: TSelectMessage;
-      readonly onDisclosure: TDisclosureMessage;
-    },
+    { readonly onAction: TActionMessage },
     Record<never, never>,
-    TKeyMessage
+    TKeys
   >
-): Element<TScrollMessage | TSelectMessage | TDisclosureMessage | TKeyMessage>;
+): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
 export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
   options: TreeOptions<TMetadata, unknown>
 ): Element<unknown> {
-  const toMessage = treeSelectionHandler(options.onSelect);
-  const toDisclosureMessage = treeDisclosureHandler(options.onDisclosure);
+  const onAction = options.onAction;
+  const keyMap = treeKeyBindings(options);
   return elementFromRenderNode<'tree', unknown>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'tree'),
     kind: 'tree',
     props: {
       nodes: treeNodesForRenderer(options.nodes),
@@ -131,24 +138,41 @@ export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll }),
+      ...(onAction === undefined || options.scroll === undefined ? {} : {
+        toScrollMessage: (event: ScrollEvent) => onAction({ kind: 'scroll', event })
+      }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
-      ...(toMessage === undefined ? {} : { toMessage }),
-      ...(toDisclosureMessage === undefined ? {} : { toDisclosureMessage })
+      ...(onAction === undefined ? {} : {
+        toMessage: (node) => onAction({ kind: 'select', id: node.id }),
+        toDisclosureMessage: (_node, action) => onAction(action)
+      })
     },
-    ...interactionProps(options)
+    ...(keyMap === undefined ? {} : { keyMap }),
+    ...interactionProps({ meta: options.meta })
   });
 }
 
-export function paginator<const TMessage = never>(options: PaginatorOptions<TMessage>): Element<TMessage> {
-  return elementFromRenderNode<'paginator', TMessage>({
-    ...optionalId(options.id),
+export function paginator<
+  const TActionMessage = never,
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+>(options: IndependentInteractionOptions<
+  PaginatorOptions,
+  { readonly onAction: TActionMessage },
+  Record<never, never>,
+  TKeys
+>): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+export function paginator(options: PaginatorOptions<unknown>): Element<unknown> {
+  const keyMap = paginatorKeyBindings(options);
+  return elementFromRenderNode<'paginator', unknown>({
+    ...requiredId(options.id, 'paginator'),
     kind: 'paginator',
     props: {
       page: options.page,
       pageCount: options.pageCount,
-      ...(options.label === undefined ? {} : { label: options.label })
+      ...(options.label === undefined ? {} : { label: options.label }),
+      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })
     },
-    ...interactionProps(options)
+    ...(keyMap === undefined ? {} : { keyMap }),
+    ...interactionProps({ meta: options.meta })
   });
 }

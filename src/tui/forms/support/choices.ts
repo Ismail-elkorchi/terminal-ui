@@ -1,7 +1,7 @@
 import type { ChoiceItem } from '../../../components/contracts.ts';
 import type { RenderNodeOfKind, RenderNodesOfKind } from '../../../render-node/index.ts';
 import type { TerminalStyle } from '../../frame.ts';
-import { renderNodeStyle } from '../../render-node-style.ts';
+import { resolveRenderNodeStyle } from '../../render-node-style.ts';
 import { clean, isRecord } from './shared.ts';
 
 type CheckboxListNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'checkboxList'>;
@@ -58,10 +58,12 @@ export function optionStyle(
   widget: OptionStateNode
 ): TerminalStyle | undefined {
   if (option.disabled === true || widget.props.disabled === true) {
-    return renderNodeStyle(widget, 'value', 'disabled');
+    return resolveRenderNodeStyle(widget, { part: 'option', state: 'disabled' });
   }
-  if (option.id === selectedId(widget)) return renderNodeStyle(widget, 'value', 'selected');
-  return undefined;
+  return resolveRenderNodeStyle(widget, {
+    part: 'option',
+    ...(option.id === selectedId(widget) ? { state: 'selected' } : {})
+  });
 }
 
 export function selectedIds(widget: CheckboxListNode): ReadonlySet<string> {

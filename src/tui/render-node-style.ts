@@ -1,32 +1,30 @@
-import type { RenderNodeStyleSlots } from '../render-node/index.ts';
 import type { RenderNodeTextRole } from '../render-node/index.ts';
 import type { RenderNodeVisualState } from '../render-node/index.ts';
 import type { ThemeColorToken } from '../theme/index.ts';
 import type { RenderNode } from '../render-node/index.ts';
 import type { TerminalStyle } from './render-primitives.ts';
 
-export type RenderNodeStyleSlot = keyof RenderNodeStyleSlots;
+export type RenderNodeStylePart = string;
 
 export interface RenderNodeStyleInput {
-  readonly slot: RenderNodeStyleSlot;
+  readonly part: RenderNodeStylePart;
   readonly state?: RenderNodeVisualState;
   readonly base?: TerminalStyle;
 }
 
 export function resolveRenderNodeStyle(widget: RenderNode, input: RenderNodeStyleInput): TerminalStyle | undefined {
-  const stateSlot = input.state === undefined || input.state === 'default' ? undefined : styleSlotForState(input.state);
   return mergeStyles(
-    defaultStyleForSlot(input.slot),
+    defaultStyleForPart(input.part),
     input.base,
-    widget.styles?.[input.slot],
+    input.part === 'root' ? widget.styles?.root : widget.styles?.parts?.[input.part],
     input.state === undefined || input.state === 'default' ? undefined : defaultStyleForState(input.state),
-    stateSlot === undefined ? undefined : widget.styles?.[stateSlot]
+    input.state === undefined || input.state === 'default' ? undefined : widget.styles?.states?.[input.state]
   );
 }
 
-export function renderNodeStyle(widget: RenderNode, slot: RenderNodeStyleSlot, state?: RenderNodeVisualState): TerminalStyle | undefined {
+export function renderNodeStyle(widget: RenderNode, part: RenderNodeStylePart, state?: RenderNodeVisualState): TerminalStyle | undefined {
   return resolveRenderNodeStyle(widget, {
-    slot,
+    part,
     ...(state === undefined ? {} : { state })
   });
 }
@@ -60,9 +58,10 @@ export function defaultStyleForTextRole(role: RenderNodeTextRole): TerminalStyle
   }
 }
 
-export function defaultStyleForSlot(slot: RenderNodeStyleSlot): TerminalStyle | undefined {
-  switch (slot) {
+export function defaultStyleForPart(part: RenderNodeStylePart): TerminalStyle | undefined {
+  switch (part) {
     case 'root':
+    case 'content':
     case 'value':
       return themeStyle('text.default');
     case 'border':
@@ -79,7 +78,9 @@ export function defaultStyleForSlot(slot: RenderNodeStyleSlot): TerminalStyle | 
     case 'error':
     case 'warning':
     case 'success':
-      return defaultStyleForState(slot);
+      return defaultStyleForState(part);
+    default:
+      return undefined;
   }
 }
 
@@ -125,19 +126,4 @@ export function inputCursorStyle(): TerminalStyle {
 export function mergeStyles(...styles: readonly (TerminalStyle | undefined)[]): TerminalStyle | undefined {
   const merged = styles.reduce<TerminalStyle>((current, style) => style === undefined ? current : { ...current, ...style }, {});
   return Object.keys(merged).length === 0 ? undefined : merged;
-}
-
-function styleSlotForState(state: RenderNodeVisualState): RenderNodeStyleSlot | undefined {
-  switch (state) {
-    case 'default':
-    case 'active':
-      return undefined;
-    case 'focused':
-    case 'selected':
-    case 'disabled':
-    case 'error':
-    case 'warning':
-    case 'success':
-      return state;
-  }
 }

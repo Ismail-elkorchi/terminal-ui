@@ -203,7 +203,7 @@ function tabHeaderLayout(widget: TabsNode, width: number, focused: boolean): Tab
   for (let index = start; index <= end; index += 1) {
     const entry = tabHeaderEntry(entries, index);
     if (index > start) {
-      spans.push(tabSpan(widget, ' ', renderNodeStyle(widget, 'value', 'disabled'), entry.tab.id, 'separator', 'separator'));
+      spans.push(tabSpan(widget, ' ', renderNodeStyle(widget, 'label', 'disabled'), entry.tab.id, 'separator', 'separator'));
       offset += 1;
     }
     visibleTabs.push({ ...entry, offset });
@@ -248,40 +248,40 @@ function tabHeaderStyle(
   widget: TabsNode,
   state: { readonly selected: boolean; readonly focused: boolean; readonly disabled: boolean }
 ): TerminalStyle | undefined {
-  if (state.disabled) return renderNodeStyle(widget, 'value', 'disabled');
+  if (state.disabled) return renderNodeStyle(widget, 'label', 'disabled');
   if (state.selected && state.focused) {
     return mergeStyles(
-      renderNodeStyle(widget, 'value', 'selected'),
+      renderNodeStyle(widget, 'label', 'selected'),
       themeStyle('tab.active.foreground', { underline: true }),
-      widget.styles?.selected,
-      renderNodeStyle(widget, 'value', 'focused'),
-      widget.styles?.focused
+      widget.styles?.states?.selected,
+      renderNodeStyle(widget, 'label', 'focused'),
+      widget.styles?.states?.focused
     );
   }
-  if (state.selected) return mergeStyles(renderNodeStyle(widget, 'value', 'selected'), themeStyle('tab.active.foreground', { underline: true }), widget.styles?.selected);
-  if (state.focused) return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.value, renderNodeStyle(widget, 'value', 'focused'));
-  return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.value);
+  if (state.selected) return mergeStyles(renderNodeStyle(widget, 'label', 'selected'), themeStyle('tab.active.foreground', { underline: true }), widget.styles?.states?.selected);
+  if (state.focused) return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.parts?.['label'], renderNodeStyle(widget, 'label', 'focused'));
+  return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.parts?.['label']);
 }
 
 function tabBadgeStyle(widget: TabsNode, selected: boolean, disabled: boolean, focused: boolean): TerminalStyle | undefined {
   return mergeStyles(
-    selected ? renderNodeStyle(widget, 'value', 'selected') : undefined,
+    renderNodeStyle(widget, 'badge', selected ? 'selected' : undefined),
     {
       fg: { kind: 'theme', token: 'badge.foreground' },
       bg: { kind: 'theme', token: 'badge.background' },
       bold: true
     },
-    disabled ? renderNodeStyle(widget, 'value', 'disabled') : undefined,
-    focused ? renderNodeStyle(widget, 'value', 'focused') : undefined
+    disabled ? renderNodeStyle(widget, 'badge', 'disabled') : undefined,
+    focused ? renderNodeStyle(widget, 'badge', 'focused') : undefined
   );
 }
 
 function tabCloseStyle(widget: TabsNode, selected: boolean, disabled: boolean, focused: boolean): TerminalStyle | undefined {
   return mergeStyles(
-    renderNodeStyle(widget, 'placeholder'),
-    selected ? renderNodeStyle(widget, 'value', 'selected') : undefined,
-    disabled ? renderNodeStyle(widget, 'value', 'disabled') : undefined,
-    focused ? renderNodeStyle(widget, 'value', 'focused') : undefined
+    renderNodeStyle(widget, 'close'),
+    selected ? renderNodeStyle(widget, 'close', 'selected') : undefined,
+    disabled ? renderNodeStyle(widget, 'close', 'disabled') : undefined,
+    focused ? renderNodeStyle(widget, 'close', 'focused') : undefined
   );
 }
 
@@ -337,7 +337,7 @@ function tabHeaderSpans(
 }
 
 function tabIndicatorStyle(widget: TabsNode, focused: boolean): TerminalStyle | undefined {
-  return mergeStyles(themeStyle('tab.indicator', { bold: true }), widget.styles?.selected, focused ? widget.styles?.focused : undefined);
+  return mergeStyles(themeStyle('tab.indicator', { bold: true }), widget.styles?.parts?.['indicator'], focused ? widget.styles?.states?.focused : undefined);
 }
 
 function stateForTab(selected: boolean, disabled: boolean, focused: boolean): string | undefined {
@@ -373,7 +373,7 @@ function tabSpan(
 }
 
 function tabOverflowSpan(widget: TabsNode, text: string, part: 'overflow.leading' | 'overflow.trailing'): RenderSpan {
-  const style = renderNodeStyle(widget, 'placeholder');
+  const style = renderNodeStyle(widget, 'overflow');
   return {
     text,
     ...(style === undefined ? {} : { style }),

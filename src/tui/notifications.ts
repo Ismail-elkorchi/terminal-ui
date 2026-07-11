@@ -13,8 +13,10 @@ import type { HitTarget } from './render-node-renderer.ts';
 import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
 import { normalizeNotificationTone, statusFromTone } from '../components/status.ts';
 import type { NotificationItem, NotificationPlacement, NotificationTone } from '../components/options/feedback.ts';
+import type { NotificationStackAction } from '../components/notification-stack.ts';
 import { feedbackSpan } from './feedback-visual.ts';
 import { statusToken } from './status-visual.ts';
+import { mergeStyles } from './render-node-style.ts';
 
 const MIN_NOTIFICATION_CARD_HEIGHT = 3;
 
@@ -63,7 +65,7 @@ export function notificationStackPreferredSize(widget: NotificationStackNode): N
 
 export function notificationStackAccessibleBase(widget: NotificationStackNode, id: string, focused: boolean): AccessibleNode {
   const items = notificationItems(widget);
-  const selected = notificationSelectedIndex(widget);
+  const selected = notificationSelectedId(widget);
   return {
     id,
     role: 'status',
@@ -72,13 +74,13 @@ export function notificationStackAccessibleBase(widget: NotificationStackNode, i
     live: items.some((item) => item.tone === 'error') ? 'assertive' : 'polite',
     scope: { kind: 'popover' },
     ...(focused ? { focused } : {}),
-    children: items.map((item, index): AccessibleNode => {
+    children: items.map((item): AccessibleNode => {
       const description = notificationDescription(item);
       return {
         id: `${id}:notification:${item.id}`,
         role: 'status',
         label: item.title,
-        selected: index === selected,
+        selected: item.id === selected,
         ...(description === undefined ? {} : { description }),
         ...(item.progress === undefined ? {} : { progress: { value: clampProgress(item.progress), max: 100 } }),
         live: item.tone === 'error' ? 'assertive' : 'polite'
@@ -88,15 +90,31 @@ export function notificationStackAccessibleBase(widget: NotificationStackNode, i
 }
 
 export function notificationStackHitTargets<TMessage>(widget: NotificationStackNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  const toDismissMessage = notificationDismissMessageFactory(widget);
-  if (toDismissMessage === undefined) return [];
-  return notificationCardPlacements(widget, bounds).map((placement): HitTarget<TMessage> => ({
-    id: `${widget.id ?? 'notificationStack'}:notification:${placement.card.item.id}`,
-    bounds: placement.bounds,
-    accepts: ['click'],
-    cursor: 'pointer',
-    message: () => toDismissMessage(placement.card.item)
-  }));
+  const toActionMessage = notificationActionMessageFactory(widget);
+  if (toActionMessage === undefined) return [];
+  return notificationCardPlacements(widget, bounds).flatMap((placement): readonly HitTarget<TMessage>[] => {
+    const id = `${widget.id ?? 'notificationStack'}:notification:${placement.card.item.id}`;
+    const select: HitTarget<TMessage> = {
+      id,
+      bounds: placement.bounds,
+      accepts: ['click'],
+      cursor: 'pointer',
+      message: () => toActionMessage({ kind: 'select', id: placement.card.item.id })
+    };
+    if (placement.card.item.dismissible === false || placement.bounds.width < 3) return [select];
+    return [select, {
+      id: `${id}:dismiss`,
+      bounds: {
+        row: placement.bounds.row,
+        column: placement.bounds.column + placement.bounds.width - 2,
+        width: 1,
+        height: 1
+      },
+      accepts: ['click'],
+      cursor: 'pointer',
+      message: () => toActionMessage({ kind: 'dismiss', id: placement.card.item.id })
+    }];
+  });
 }
 
 export function placeNotificationStack(input: NotificationStackPlacementInput): Rect {
@@ -151,7 +169,22 @@ function renderNotificationCard(
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const tone = normalizeNotificationTone(card.item.tone);
   fillCardBackground(buffer, widget, bounds, card.item, tone, card.selected);
-  drawBorder(buffer, bounds, notificationBorder(card, tone, theme), theme);
+  drawBorder(buffer, bounds, notificationBorder(widget, card, tone, theme), theme);
+  if (card.item.dismissible !== false && bounds.width >= 3) {
+    buffer.write(bounds.row, bounds.column + bounds.width - 2, [{
+      text: '×',
+      style: notificationPartStyle(widget, 'dismiss', tone, false, card.selected),
+      source: renderNodeFrameSource(widget, {
+        family: 'feedback',
+        role: 'text',
+        part: 'dismiss',
+        partKind: 'notification',
+        itemId: card.item.id,
+        state: card.selected ? `selected.${tone}` : tone,
+        label: 'dismiss'
+      })
+    }]);
+  }
   const contentBounds = {
     row: bounds.row + 1,
     column: bounds.column + 1,
@@ -171,7 +204,7 @@ function renderNotificationCard(
     });
     buffer.write(contentBounds.row + index, contentBounds.column, clipRenderSpans([{
       text: cardLine.text,
-      style: cardTextStyle(tone, index === 0, card.selected),
+      style: notificationPartStyle(widget, cardLine.kind === 'meta' ? 'detail' : cardLine.kind, tone, index === 0, card.selected),
       source
     }], contentBounds.width, {
       ellipsis: '…',
@@ -186,15 +219,15 @@ function renderNotificationCard(
 
 function notificationCards(widget: NotificationStackNode): readonly NotificationCard[] {
   const maxWidth = notificationMaxWidth(widget);
-  const selected = notificationSelectedIndex(widget);
-  return notificationItems(widget).map((item, index) => {
+  const selected = notificationSelectedId(widget);
+  return notificationItems(widget).map((item) => {
     const lines = cardContentLines(item);
     const contentWidth = lines.reduce((max, line) => Math.max(max, measureTextCells(line.text).cells), 0);
     const titleWidth = measureTextCells(` ${item.title} `).cells;
     const progressWidth = item.progress === undefined ? 0 : Math.min(maxWidth - 2, 22);
     const width = Math.max(20, Math.min(maxWidth, Math.max(contentWidth, titleWidth, progressWidth) + 2));
     const height = Math.max(3, lines.length + 2 + (item.progress === undefined ? 0 : 1));
-    return { item, selected: index === selected, width, height, lines };
+    return { item, selected: item.id === selected, width, height, lines };
   });
 }
 
@@ -208,7 +241,7 @@ function notificationStackSizeFromCards(cards: readonly NotificationCard[]): Not
 
 function notificationItems(widget: NotificationStackNode): readonly NotificationItem[] {
   const items = Array.isArray(widget.props.items) ? widget.props.items : [];
-  return items.filter(isNotificationItem).slice(0, notificationMaxVisible(widget));
+  return items.filter(isNotificationItem);
 }
 
 function cardContentLines(item: NotificationItem): readonly NotificationCardLine[] {
@@ -227,7 +260,9 @@ function fillCardBackground(
   tone: NotificationTone,
   selected: boolean
 ): void {
-  const style: TerminalStyle = { bg: { kind: 'theme', token: selected ? 'selection.background' : backgroundToken(tone) } };
+  const style = notificationPartStyle(widget, 'background', tone, false, selected, {
+    bg: { kind: 'theme', token: selected ? 'selection.background' : backgroundToken(tone) }
+  });
   const line = ' '.repeat(bounds.width);
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
     buffer.write(row, bounds.column, [{
@@ -262,7 +297,10 @@ function progressSpans(
       label: 'progress.filled',
       sourceId: item.id,
       role: 'decoration',
-      style: { fg: { kind: 'theme', token: foregroundToken(tone) }, bold: true },
+      style: notificationPartStyle(widget, 'progress', tone, true, selected, {
+        fg: { kind: 'theme', token: foregroundToken(tone) },
+        bold: true
+      }),
       state: tone
     }),
     feedbackSpan(widget, theme.tokens.symbols.progressEmpty.repeat(barWidth - filled), {
@@ -270,31 +308,39 @@ function progressSpans(
       label: 'progress.empty',
       sourceId: item.id,
       role: 'decoration',
-      style: { fg: { kind: 'theme', token: 'text.muted' } },
+      style: notificationPartStyle(widget, 'progress', tone, false, selected, {
+        fg: { kind: 'theme', token: 'text.muted' }
+      }),
       state: tone
     }),
     feedbackSpan(widget, ` ${String(progress)}%`, {
       kind: 'notification',
       label: 'progress.value',
       sourceId: item.id,
-      style: cardTextStyle(tone, false, selected),
+      style: notificationPartStyle(widget, 'progress', tone, false, selected),
       state: selected ? `selected.${tone}` : tone
     })
   ];
 }
 
-function notificationBorder(card: NotificationCard, tone: NotificationTone, theme: TerminalTheme): BorderStyle {
+function notificationBorder(
+  widget: NotificationStackNode,
+  card: NotificationCard,
+  tone: NotificationTone,
+  theme: TerminalTheme
+): BorderStyle {
   return {
     kind: 'rounded',
     title: notificationTitle(card, tone, theme),
-    style: { fg: { kind: 'theme', token: card.selected ? 'selection.foreground' : borderToken(tone) } }
+    style: notificationPartStyle(widget, 'border', tone, false, card.selected, {
+      fg: { kind: 'theme', token: card.selected ? 'selection.foreground' : borderToken(tone) }
+    })
   };
 }
 
 function notificationTitle(card: NotificationCard, tone: NotificationTone, theme: TerminalTheme): string {
   const marker = card.selected ? `${theme.tokens.symbols.pointer} ` : '';
-  const paused = card.item.paused === true ? ' paused' : '';
-  return `${marker}${toneLabel(tone)}${paused}`;
+  return `${marker}${toneLabel(tone)}`;
 }
 
 function toneLabel(tone: NotificationTone): string {
@@ -312,12 +358,20 @@ function toneLabel(tone: NotificationTone): string {
   }
 }
 
-function cardTextStyle(tone: NotificationTone, title: boolean, selected: boolean): TerminalStyle {
-  return {
-    fg: { kind: 'theme', token: title ? foregroundToken(tone) : 'text.default' },
+function notificationPartStyle(
+  widget: NotificationStackNode,
+  part: 'background' | 'border' | 'detail' | 'dismiss' | 'message' | 'progress' | 'title',
+  tone: NotificationTone,
+  emphasized: boolean,
+  selected: boolean,
+  base?: TerminalStyle
+): TerminalStyle {
+  const toneState = tone === 'progress' ? 'active' : tone === 'info' ? undefined : tone;
+  return mergeStyles({
+    fg: { kind: 'theme', token: emphasized ? foregroundToken(tone) : 'text.default' },
     ...(selected ? { bg: { kind: 'theme', token: 'selection.background' } } : {}),
-    bold: title || tone === 'error' || tone === 'success'
-  };
+    bold: emphasized || tone === 'error' || tone === 'success'
+  }, base, widget.styles?.parts?.[part], toneState === undefined ? undefined : widget.styles?.states?.[toneState], selected ? widget.styles?.states?.selected : undefined) ?? {};
 }
 
 function backgroundToken(tone: NotificationTone): ThemeColorToken {
@@ -357,24 +411,17 @@ function notificationPlacement(widget: NotificationStackNode): NotificationPlace
   return placement === 'bottom-right' || placement === 'centered-stack' ? placement : 'top-right';
 }
 
-function notificationMaxVisible(widget: NotificationStackNode): number {
-  const value = numberProp(widget, 'maxVisible');
-  return value === undefined ? 4 : Math.max(1, Math.min(12, Math.floor(value)));
-}
-
 function notificationMaxWidth(widget: NotificationStackNode): number {
   const value = numberProp(widget, 'maxWidth');
   return value === undefined ? 44 : Math.max(20, Math.min(120, Math.floor(value)));
 }
 
-function notificationSelectedIndex(widget: NotificationStackNode): number {
-  const value = numberProp(widget, 'selected');
-  if (value === undefined) return -1;
-  return Math.max(0, Math.floor(value));
+function notificationSelectedId(widget: NotificationStackNode): string | undefined {
+  return typeof widget.props.selected === 'string' ? widget.props.selected : undefined;
 }
 
-function notificationDismissMessageFactory<TMessage>(widget: NotificationStackNode<TMessage>): ((item: NotificationItem) => TMessage) | undefined {
-  const candidate = widget.props.toDismissMessage;
+function notificationActionMessageFactory<TMessage>(widget: NotificationStackNode<TMessage>): ((action: NotificationStackAction) => TMessage) | undefined {
+  const candidate = widget.props.toActionMessage;
   return typeof candidate === 'function' ? candidate : undefined;
 }
 
@@ -389,11 +436,7 @@ function clampProgress(value: number): number {
 }
 
 function notificationMetaLines(item: NotificationItem): readonly string[] {
-  const parts = [
-    item.paused === true ? 'paused' : undefined,
-    ttlText(item)
-  ].filter((part): part is string => part !== undefined && part.length > 0);
-  return parts.length === 0 ? [] : [parts.join(' · ')];
+  return item.detail === undefined || item.detail.length === 0 ? [] : [item.detail];
 }
 
 function notificationDescription(item: NotificationItem): string | undefined {
@@ -402,34 +445,6 @@ function notificationDescription(item: NotificationItem): string | undefined {
     ...notificationMetaLines(item)
   ].filter((part): part is string => part !== undefined && part.length > 0);
   return parts.length === 0 ? undefined : parts.join(' ');
-}
-
-function ttlText(item: NotificationItem): string | undefined {
-  if (
-    typeof item.createdAt !== 'number'
-    || typeof item.expiresAt !== 'number'
-    || !Number.isFinite(item.createdAt)
-    || !Number.isFinite(item.expiresAt)
-    || item.expiresAt <= item.createdAt
-  ) {
-    return undefined;
-  }
-  return `ttl ${formatDuration(item.expiresAt - item.createdAt)}`;
-}
-
-function formatDuration(milliseconds: number): string {
-  const seconds = Math.max(0, Math.round(milliseconds / 1000));
-  if (seconds < 60) return `${String(seconds)}s`;
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  if (minutes < 60) return remainingSeconds === 0
-    ? `${String(minutes)}m`
-    : `${String(minutes)}m${String(remainingSeconds).padStart(2, '0')}s`;
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return remainingMinutes === 0
-    ? `${String(hours)}h`
-    : `${String(hours)}h${String(remainingMinutes).padStart(2, '0')}m`;
 }
 
 function clampRect(rect: Rect, viewport: Rect): Rect {

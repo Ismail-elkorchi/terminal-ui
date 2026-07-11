@@ -10,9 +10,11 @@ import type {
   TuiSubscriptionContext,
   TuiSubscriptions
 } from './types.ts';
+import { subscriptionExecutionId } from '../internal/identity.ts';
+import type { SubscriptionExecutionId } from '../internal/identity.ts';
 
 interface ActiveTuiEventSource<TMessage> {
-  readonly id: string;
+  readonly id: SubscriptionExecutionId;
   readonly controller: AbortController;
   readonly source: TuiEventSource<TMessage>;
   settled: boolean;
@@ -34,7 +36,7 @@ export interface TuiSubscriptionManagerOptions<TState, TMessage> {
 export function createTuiSubscriptionManager<TState, TMessage>(
   options: TuiSubscriptionManagerOptions<TState, TMessage>
 ): TuiSubscriptionManager<TState> {
-  const active = new Map<string, ActiveTuiEventSource<TMessage>>();
+  const active = new Map<SubscriptionExecutionId, ActiveTuiEventSource<TMessage>>();
 
   return {
     async reconcile(state) {
@@ -44,7 +46,7 @@ export function createTuiSubscriptionManager<TState, TMessage>(
       }
       const context = await createTuiContext(options.host, options.diagnostics());
       const requested = options.subscriptions(state, context);
-      const requestedIds = new Set(requested.map((source) => source.id));
+      const requestedIds = new Set(requested.map((source) => subscriptionExecutionId(source.id)));
       for (const [id, activeSource] of active) {
         if (!requestedIds.has(id)) {
           active.delete(id);
@@ -52,9 +54,10 @@ export function createTuiSubscriptionManager<TState, TMessage>(
         }
       }
       for (const source of requested) {
-        if (active.has(source.id)) continue;
+        const id = subscriptionExecutionId(source.id);
+        if (active.has(id)) continue;
         const activeSource = startSource(source, context, options);
-        active.set(source.id, activeSource);
+        active.set(id, activeSource);
       }
     },
     async dispose() {
@@ -69,7 +72,12 @@ function startSource<TState, TMessage>(
   options: TuiSubscriptionManagerOptions<TState, TMessage>
 ): ActiveTuiEventSource<TMessage> {
   const controller = new AbortController();
-  const active: ActiveTuiEventSource<TMessage> = { id: source.id, controller, source, settled: false };
+  const active: ActiveTuiEventSource<TMessage> = {
+    id: subscriptionExecutionId(source.id),
+    controller,
+    source,
+    settled: false
+  };
   const context: TuiSubscriptionContext = { ...baseContext, signal: controller.signal };
   void pumpSource(active, context, options).finally(() => {
     active.settled = true;
@@ -145,7 +153,7 @@ async function dispatchLifecycle<TState, TMessage>(
   if (message !== undefined) await options.dispatch(message, sourceName);
 }
 
-async function stopAll<TMessage>(active: Map<string, ActiveTuiEventSource<TMessage>>): Promise<void> {
+async function stopAll<TMessage>(active: Map<SubscriptionExecutionId, ActiveTuiEventSource<TMessage>>): Promise<void> {
   const sources = [...active.values()];
   active.clear();
   await Promise.all(sources.map(stopSource));

@@ -5,42 +5,41 @@ import type {
   TitledItem,
   ComponentTone
 } from '../contracts.ts';
-import type { ComponentKeyBindings, ComponentOptions } from './base.ts';
+import type { ComponentKeyBindings, ComponentOptions, InteractiveComponentOptions } from './base.ts';
+import type { NotificationStackAction } from '../notification-stack.ts';
+import type { ChartStylePart, NotificationStylePart, StatusStylePart } from '../style-parts.ts';
 
 export interface NotificationItem extends TitledItem {
   readonly message?: string;
   readonly tone?: NotificationTone;
   readonly progress?: number;
-  readonly createdAt?: number;
-  readonly expiresAt?: number;
-  readonly paused?: boolean;
+  readonly detail?: string;
+  readonly dismissible?: boolean;
 }
 
 export type NotificationTone = Extract<ComponentTone, 'info' | 'success' | 'warning' | 'error' | 'progress'>;
 export type NotificationPlacement = 'top-right' | 'bottom-right' | 'centered-stack';
 
-export interface NotificationStackOptions<TMessage = never> extends ComponentOptions {
+export interface NotificationStackOptions<TMessage = never> extends InteractiveComponentOptions<NotificationStylePart> {
   readonly items: readonly NotificationItem[];
-  readonly selected?: number;
+  readonly selected?: string;
   readonly placement?: NotificationPlacement;
-  readonly maxVisible?: number;
   readonly maxWidth?: number;
-  readonly onDismiss?: (item: NotificationItem) => TMessage;
+  readonly onAction?: (action: NotificationStackAction) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
-export interface StatusBarOptions<TMessage> extends ComponentOptions {
+export interface StatusBarOptions<TMessage> extends InteractiveComponentOptions<StatusStylePart> {
   readonly text: string;
   readonly onPress?: TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
-export interface HelpBarOptions<TMessage = never> extends ComponentOptions {
+export interface HelpBarOptions extends ComponentOptions<StatusStylePart> {
   readonly bindings: readonly HelpBinding[];
-  readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
-export interface ActivityIndicatorOptions extends ComponentOptions {
+export interface ActivityIndicatorOptions extends ComponentOptions<StatusStylePart> {
   readonly label?: string;
   readonly status?: ProcessStatus;
 }
@@ -56,7 +55,7 @@ export interface ValueScaleStop {
 
 export type ValueScale = readonly ValueScaleStop[];
 
-export interface ProgressBarOptions extends ComponentOptions {
+export interface ProgressBarOptions extends ComponentOptions<StatusStylePart> {
   readonly label?: string;
   readonly value?: number;
   readonly max?: number;
@@ -71,7 +70,7 @@ export interface ProgressBarOptions extends ComponentOptions {
   readonly valueScale?: ValueScale;
 }
 
-export interface SparklineOptions extends ComponentOptions {
+export interface SparklineOptions extends ComponentOptions<ChartStylePart> {
   readonly values: readonly number[];
   readonly min?: number;
   readonly max?: number;
@@ -87,7 +86,7 @@ export interface BarChartItem {
   readonly value: number;
 }
 
-export interface BarChartOptions<TMessage = never> extends ComponentOptions {
+export interface BarChartOptions extends ComponentOptions<ChartStylePart> {
   readonly items: readonly BarChartItem[];
   readonly max?: number;
   readonly selected?: number;
@@ -95,7 +94,6 @@ export interface BarChartOptions<TMessage = never> extends ComponentOptions {
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
-  readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
 export interface ChartSeries {
@@ -127,7 +125,7 @@ export interface ChartPointEvent {
   readonly value: number;
 }
 
-export interface ChartOptions<TMessage = never> extends ComponentOptions {
+export interface ChartOptions<TMessage = never> extends InteractiveComponentOptions<ChartStylePart> {
   readonly series: readonly ChartSeries[];
   readonly min?: number;
   readonly max?: number;
@@ -150,7 +148,7 @@ export interface ChartOptions<TMessage = never> extends ComponentOptions {
 
 export type GaugeVariant = 'linear' | 'dial';
 
-export interface GaugeOptions extends ComponentOptions {
+export interface GaugeOptions extends ComponentOptions<StatusStylePart> {
   readonly label?: string;
   readonly value: number;
   readonly min?: number;
@@ -173,7 +171,7 @@ export interface HeatmapSelection {
   readonly column: number;
 }
 
-export interface HeatmapOptions<TValue = unknown, TMessage = never> extends ComponentOptions {
+export interface HeatmapOptions<TValue = unknown, TMessage = never> extends InteractiveComponentOptions<ChartStylePart> {
   readonly rows: readonly (readonly HeatmapCell<TValue>[])[];
   readonly min?: number;
   readonly max?: number;
@@ -189,7 +187,7 @@ export interface HeatmapOptions<TValue = unknown, TMessage = never> extends Comp
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
-export interface SpinnerOptions extends ComponentOptions {
+export interface SpinnerOptions extends ComponentOptions<StatusStylePart> {
   readonly frames?: readonly string[];
   readonly frameIndex?: number;
   readonly label?: string;

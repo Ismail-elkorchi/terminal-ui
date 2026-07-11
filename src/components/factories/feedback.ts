@@ -15,60 +15,80 @@ import type {
 } from '../options/feedback.ts';
 import {
   activationKeyBindings,
+  componentMetaProps,
   interactionProps,
+  mergeKeyBindings,
   withMetaDefaults
 } from '../factory-internals/interaction.ts';
-import { optionalId } from '../factory-internals/layout.ts';
+import { optionalId, requiredId } from '../factory-internals/render-node.ts';
 import {
   heatmapRowsForRenderer,
   heatmapSelectionHandler
 } from '../factory-internals/domain.ts';
-import type { IndependentInteractionOptions } from '../factory-internals/messages.ts';
+import type {
+  ComponentKeyBindingMessages,
+  IndependentInteractionOptions,
+  InferredComponentKeyBindings
+} from '../factory-internals/messages.ts';
+import type { NotificationStackAction } from '../notification-stack.ts';
 
 export function notificationStack<
-  const TDismissMessage = never,
-  const TKeyMessage = never
+  const TActionMessage = never,
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     NotificationStackOptions,
-    { readonly onDismiss: TDismissMessage },
+    { readonly onAction: TActionMessage },
     Record<never, never>,
-    TKeyMessage
+    TKeys
   >
-): Element<TDismissMessage | TKeyMessage>;
+): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
 export function notificationStack(options: NotificationStackOptions<unknown>): Element<unknown> {
   const meta = withMetaDefaults(options.meta, { focus: { disabled: true } });
+  const onAction = options.onAction;
+  const generated = onAction === undefined ? undefined : {
+    arrowUp: () => onAction({ kind: 'move', delta: -1 }),
+    arrowDown: () => onAction({ kind: 'move', delta: 1 }),
+    delete: () => options.selected === undefined
+      ? undefined
+      : onAction({ kind: 'dismiss', id: options.selected })
+  } satisfies import('../options/base.ts').ComponentKeyBindings<unknown>;
+  const keyMap = mergeKeyBindings(generated, options.keys);
   return elementFromRenderNode<'notificationStack', unknown>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'notificationStack'),
     kind: 'notificationStack',
     props: {
       items: options.items,
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.placement === undefined ? {} : { placement: options.placement }),
-      ...(options.maxVisible === undefined ? {} : { maxVisible: options.maxVisible }),
       ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
-      ...(options.onDismiss === undefined ? {} : { toDismissMessage: options.onDismiss })
+      ...(onAction === undefined ? {} : {
+        toActionMessage: (action: NotificationStackAction) => onAction(action)
+      })
     },
-    ...interactionProps({ keys: options.keys, meta })
+    ...interactionProps({ keys: keyMap, meta })
   });
 }
 
 export function statusBar(options: StatusBarOptions<never>): Element;
 export function statusBar<
   const TPressMessage = never,
-  const TKeyMessage = never
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     StatusBarOptions<never>,
     Record<never, never>,
     { readonly onPress: TPressMessage },
-    TKeyMessage
+    TKeys
   >
-): Element<TPressMessage | TKeyMessage>;
+): Element<TPressMessage | ComponentKeyBindingMessages<TKeys>>;
 export function statusBar(options: StatusBarOptions<unknown>): Element<unknown> {
-  const keyMap = activationKeyBindings(options.onPress, options.keys);
+  const keyMap = activationKeyBindings(
+    options.onPress === undefined ? undefined : () => options.onPress,
+    options.keys
+  );
   return elementFromRenderNode<'statusBar', unknown>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'statusBar'),
     kind: 'statusBar',
     props: { text: options.text },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -76,12 +96,12 @@ export function statusBar(options: StatusBarOptions<unknown>): Element<unknown> 
   });
 }
 
-export function helpBar<const TMessage = never>(options: HelpBarOptions<TMessage>): Element<TMessage> {
-  return elementFromRenderNode<'helpBar', TMessage>({
+export function helpBar(options: HelpBarOptions): Element {
+  return elementFromRenderNode<'helpBar'>({
     ...optionalId(options.id),
     kind: 'helpBar',
     props: { bindings: options.bindings },
-    ...interactionProps(options)
+    ...componentMetaProps(options.meta)
   });
 }
 
@@ -93,7 +113,7 @@ export function activityIndicator(options: ActivityIndicatorOptions = {}): Eleme
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.status === undefined ? {} : { status: options.status })
     },
-    ...interactionProps(options)
+    ...componentMetaProps(options.meta)
   });
 }
 
@@ -115,7 +135,7 @@ export function progressBar(options: ProgressBarOptions): Element {
       ...(options.status === undefined ? {} : { status: options.status }),
       ...(options.valueScale === undefined ? {} : { valueScale: options.valueScale })
     },
-    ...interactionProps(options)
+    ...componentMetaProps(options.meta)
   });
 }
 
@@ -133,12 +153,12 @@ export function sparkline(options: SparklineOptions): Element {
       ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
       ...(options.errorText === undefined ? {} : { errorText: options.errorText })
     },
-    ...interactionProps(options)
+    ...componentMetaProps(options.meta)
   });
 }
 
-export function barChart<const TMessage = never>(options: BarChartOptions<TMessage>): Element<TMessage> {
-  return elementFromRenderNode<'barChart', TMessage>({
+export function barChart(options: BarChartOptions): Element {
+  return elementFromRenderNode<'barChart'>({
     ...optionalId(options.id),
     kind: 'barChart',
     props: {
@@ -150,13 +170,13 @@ export function barChart<const TMessage = never>(options: BarChartOptions<TMessa
       ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
       ...(options.errorText === undefined ? {} : { errorText: options.errorText })
     },
-    ...interactionProps(options)
+    ...componentMetaProps(options.meta)
   });
 }
 
 export function chart<const TMessage = never>(options: ChartOptions<TMessage>): Element<TMessage> {
   return elementFromRenderNode<'chart', TMessage>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'chart'),
     kind: 'chart',
     props: {
       series: options.series,
@@ -194,14 +214,14 @@ export function gauge(options: GaugeOptions): Element {
       ...(options.variant === undefined ? {} : { variant: options.variant }),
       ...(options.status === undefined ? {} : { status: options.status })
     },
-    ...interactionProps(options)
+    ...componentMetaProps(options.meta)
   });
 }
 
 export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<TValue, TMessage>): Element<TMessage> {
   const toMessage = heatmapSelectionHandler(options.onSelect);
   return elementFromRenderNode<'heatmap', TMessage>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'heatmap'),
     kind: 'heatmap',
     props: {
       rows: heatmapRowsForRenderer(options.rows),
@@ -231,6 +251,6 @@ export function spinner(options: SpinnerOptions = {}): Element {
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.status === undefined ? {} : { status: options.status })
     },
-    ...interactionProps(options)
+    ...componentMetaProps(options.meta)
   });
 }

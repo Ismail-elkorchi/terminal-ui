@@ -15,7 +15,7 @@ import {
   sparklineAccessibleBase,
   sparklineBlock
 } from '../charts/index.ts';
-import { paginatorAccessibleBase, paginatorBlock } from '../data-widgets.ts';
+import { paginatorAccessibleBase, paginatorBlock, paginatorHitTargets } from '../data-widgets.ts';
 import {
   activityFeedAccessibleBase,
   activityFeedAccessibleChildren,
@@ -156,7 +156,9 @@ export const dataRenderers = {
     render: ({ renderNode, layoutNode, buffer }) => {
       writeRenderBlock(buffer, layoutNode.bounds, paginatorBlock(renderNode));
     },
-    accessibility: ({ renderNode, id }) => paginatorAccessibleBase(renderNode, id)
+    accessibility: ({ renderNode, id, focused }) => paginatorAccessibleBase(renderNode, id, focused),
+    focusTargets: ({ renderNode, bounds }) => renderNode.props.toActionMessage === undefined ? [] : [focusTarget(bounds)],
+    hitTargets: ({ renderNode, bounds }) => paginatorHitTargets(renderNode, bounds)
   },
   scrollback: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {

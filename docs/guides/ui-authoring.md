@@ -62,7 +62,7 @@ button({
     focus: { order: 10 },
     layer: { overflowPriority: 'important' },
     styles: {
-      focused: { bold: true }
+      states: { focused: { bold: true } }
     }
   }
 });
@@ -76,7 +76,7 @@ Rules:
   `required`, and values on the component itself;
 - put cross-cutting system metadata under `meta`;
 - use semantic event props such as `onPress`, `onSelect`, `onChange`,
-  `onInput`, `onScroll`, `onDismiss`, and `onClose`;
+  `onInput`, `onScroll`, `onAction`, and `onClose`;
 - use `keys` only for component-local keyboard behavior that cannot be
   expressed by semantic event props;
 - keep state caller-owned.

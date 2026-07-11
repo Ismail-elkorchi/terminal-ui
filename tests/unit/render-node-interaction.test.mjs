@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { datePickerFixture } from '../helpers/date-picker.mjs';
 
 import { defineTui } from '../../dist/tui/index.js';
 import {
@@ -105,8 +106,8 @@ const disabledWidgetCases = [
     element: () => datePicker({
       id: 'disabled-date',
       label: 'Date',
-      days: formOptions,
-      onChange: () => message,
+      ...datePickerFixture(),
+      onAction: () => message,
       disabled: true
     })
   },
@@ -116,7 +117,7 @@ const disabledWidgetCases = [
   },
   {
     name: 'numberInput',
-    element: () => numberInput({ id: 'disabled-number-input', value: 4, disabled: true })
+    element: () => numberInput({ id: 'disabled-number-input', value: '4', disabled: true })
   },
   {
     name: 'textArea',
@@ -143,7 +144,7 @@ test('disabled widget props block generated keyboard and mouse dispatch', async 
       id: 'disabled-action',
       label: state.active,
       onPress: { active: 'mouse' },
-      keys: { enter: { active: 'key' } },
+      keys: { enter: () => ({ active: 'key' }) },
       disabled: true
     })
   });

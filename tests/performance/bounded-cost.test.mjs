@@ -287,7 +287,7 @@ test('form navigation over many controls records one bounded frame per input', a
       ...Array.from({ length: 25 }, (_value, index) => textInput({
         id: `field-${index}`,
         value: state.active,
-        keys: { enter: { kind: `field-${index}` } }
+        keys: { enter: () => ({ kind: `field-${index}` }) }
       })),
       button({ id: 'done', label: 'Done', onPress: { kind: 'done' } })
     ], { id: 'many-fields', title: 'Many fields' })

@@ -15,14 +15,14 @@ import type {
   StatusBarOptions
 } from '../../components/options/feedback.ts';
 import type { AuthoredProps, ReplaceProps } from './shared.ts';
+import type { NotificationStackAction } from '../../components/notification-stack.ts';
 
 export interface NotificationStackRenderProps<TMessage> {
   readonly items: readonly NotificationItem[];
-  readonly selected?: number;
+  readonly selected?: string;
   readonly placement?: AuthoredProps<NotificationStackOptions>['placement'];
-  readonly maxVisible?: number;
   readonly maxWidth?: number;
-  readonly toDismissMessage?: (item: NotificationItem) => TMessage;
+  readonly toActionMessage?: (action: NotificationStackAction) => TMessage;
 }
 
 export type StatusBarRenderProps = Omit<AuthoredProps<StatusBarOptions<never>>, 'onPress'>;

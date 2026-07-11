@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { datePickerFixture } from '../helpers/date-picker.mjs';
 
 import {
   validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
@@ -194,7 +195,7 @@ const cases = [
       id: 'tree',
       nodes: treeNodes,
       selected: 'child',
-      onSelect: (node) => ({ kind: 'tree', id: node.id })
+      onAction: (action) => ({ kind: 'tree', action })
     }),
     expectText: /Child/u,
     expectFocus: true,
@@ -345,13 +346,11 @@ const cases = [
     element: () => datePicker({
       id: 'date-picker',
       label: unsafe,
-      selected: '2026-06-03',
-      days: [
-        { id: '2026-06-01', label: '1', value: '2026-06-01' },
-        { id: '2026-06-02', label: '2', value: '2026-06-02', today: true },
-        { id: '2026-06-03', label: '3', value: '2026-06-03' }
-      ],
-      onChange: (day) => ({ kind: 'date', value: day.value })
+      ...datePickerFixture({
+        selected: { year: 2026, month: 6, day: 3 },
+        today: { year: 2026, month: 6, day: 2 }
+      }),
+      onAction: (action) => ({ kind: 'date', action })
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
@@ -365,7 +364,7 @@ const cases = [
   },
   {
     name: 'numberInput',
-    element: () => numberInput({ id: 'number-input', value: 42, min: 1, max: 99 }),
+    element: () => numberInput({ id: 'number-input', value: '42', min: 1, max: 99 }),
     expectText: /42/u,
     expectFocus: true
   },
@@ -414,13 +413,11 @@ const cases = [
     element: () => canvas({
       id: 'canvas',
       label: unsafe,
-      keys: { enter: { kind: 'enter' } },
       painter({ canvas }) {
         canvas.text(0, 0, [renderSpan(unsafe, { style: { fg: { kind: 'theme', token: 'accent.primary' } } })]);
       }
     }),
     expectText: /Unsafe red text/u,
-    expectFocus: true,
     expectStyledCells: true
   },
   {
@@ -494,11 +491,9 @@ const cases = [
     element: () => barChart({
       id: 'bar-chart',
       selected: 1,
-      keys: { enter: { kind: 'bar' } },
       items: [{ label: unsafe, value: 2 }, { label: 'Second', value: 4 }]
     }),
-    expectText: /Second/u,
-    expectFocus: true
+    expectText: /Second/u
   },
   {
     name: 'chart',
@@ -519,7 +514,7 @@ const cases = [
         [{ id: 'c', label: 'Gamma', value: 5 }]
       ],
       selected: { row: 0, column: 1 },
-      keys: { enter: { kind: 'heatmap-enter' } },
+      keys: { enter: () => ({ kind: 'heatmap-enter' }) },
       onSelect: (cell, row, column) => ({ kind: 'heatmap', id: cell.id, row, column })
     }),
     expectText: /[░▒▓█◆]/u,

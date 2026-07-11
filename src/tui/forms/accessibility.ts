@@ -51,6 +51,7 @@ import {
   numberInputValue,
   singleLineCursor,
 } from './support/shared.ts';
+import { numberInputLayout } from './support/number-input.ts';
 
 export function formAccessibleBase(widget: FormNode, id: string, focused: boolean): AccessibleNode {
   return {
@@ -230,8 +231,8 @@ export function datePickerAccessibleBase(widget: DatePickerNode, id: string, foc
   return {
     id,
     role: 'table',
-    label: clean(stringify(widget.props.label)) || id,
-    ...(selected === undefined ? {} : { value: selected.label }),
+    label: clean(stringify(widget.props.label)) || clean(stringify(widget.props.monthLabel)) || id,
+    ...(selected === undefined ? {} : { value: selected.id }),
     ...(widget.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
@@ -239,10 +240,10 @@ export function datePickerAccessibleBase(widget: DatePickerNode, id: string, foc
 
 export function datePickerAccessibleChildren(widget: DatePickerNode): readonly AccessibleNode[] {
   const selected = selectedId(widget);
-  return datePickerDays(widget).map((day) => ({
+  return datePickerDays(widget).filter((day) => day.hidden !== true).map((day) => ({
     id: `${widget.id ?? 'datePicker'}:${day.id}`,
     role: 'option',
-    label: day.label,
+    label: day.id,
     selected: day.id === selected,
     ...(day.disabled === true || widget.props.disabled === true ? { disabled: true } : {})
   }));
@@ -279,7 +280,15 @@ export function textInputAccessibleBase(widget: TextInputNode, id: string, focus
 }
 
 export function numberInputAccessibleBase(widget: NumberInputNode, id: string, focused: boolean): AccessibleNode {
-  return inputAccessibleBase(widget, id, focused, numberInputValue(widget));
+  const base = inputAccessibleBase(widget, id, focused, numberInputValue(widget));
+  const validity = clean(stringify(widget.props.validity));
+  const committed = widget.props.committedValue;
+  const description = [
+    base.description,
+    validity.length === 0 ? undefined : `Numeric input is ${validity}.`,
+    typeof committed === 'number' && Number.isFinite(committed) ? `Committed value: ${formatNumber(committed)}.` : undefined
+  ].filter((part): part is string => part !== undefined).join(' ');
+  return { ...base, ...(description.length === 0 ? {} : { description }) };
 }
 
 export function textInputCursor(widget: TextInputNode, bounds: Rect): CursorPosition {
@@ -287,5 +296,9 @@ export function textInputCursor(widget: TextInputNode, bounds: Rect): CursorPosi
 }
 
 export function numberInputCursor(widget: NumberInputNode, bounds: Rect): CursorPosition {
-  return singleLineCursor(widget, numberInputValue(widget), numberProp(widget, 'cursor'), bounds, defaultTheme);
+  const layout = numberInputLayout(bounds);
+  const inputBounds = widget.props.toActionMessage === undefined || widget.props.disabled === true || layout === undefined
+    ? bounds
+    : layout.input;
+  return singleLineCursor(widget, numberInputValue(widget), numberProp(widget, 'cursor'), inputBounds, defaultTheme);
 }

@@ -16,7 +16,8 @@ type DatePickerNode = RenderNodeOfKind<unknown, 'datePicker'>;
 type SelectBoxNode = RenderNodeOfKind<unknown, 'selectBox'>;
 type TextInputNode = RenderNodeOfKind<unknown, 'textInput'>;
 type NumberInputNode = RenderNodeOfKind<unknown, 'numberInput'>;
-import { block } from '../frame.ts';
+import { block, padRenderLine } from '../frame.ts';
+import { line } from '../render-primitives.ts';
 import {
   controlLabelSpans,
   controlPrefixSpans,
@@ -49,6 +50,7 @@ import {
   colorPickerSummarySpans,
   datePickerCellSpans,
   datePickerDays,
+  datePickerMonthHeaderSpans,
   datePickerWeekdayHeaderSpans,
   pickerColumns,
   selectedColorOption
@@ -71,6 +73,7 @@ import {
   inputValue,
   numberInputValue,
 } from './support/shared.ts';
+import { numberInputLayout } from './support/number-input.ts';
 
 export function formContentBounds(widget: FormNode, bounds: Rect): Rect {
   const titleRows = formTitle(widget).length === 0 ? 0 : 1;
@@ -274,8 +277,9 @@ export function datePickerBlock(widget: DatePickerNode, bounds: Rect): RenderBlo
   const rows: RenderLine[] = [];
   const label = clean(stringify(widget.props.label));
   if (label.length > 0) rows.push(clippedFormLine(controlLabelSpans(widget, label, formControlState(widget)), bounds.width));
-  const columns = pickerColumns(widget, 7);
-  if (columns === 7) rows.push(clippedFormLine(datePickerWeekdayHeaderSpans(widget), bounds.width));
+  const columns = 7;
+  rows.push(clippedFormLine(datePickerMonthHeaderSpans(widget), bounds.width));
+  rows.push(clippedFormLine(datePickerWeekdayHeaderSpans(widget), bounds.width));
   const days = datePickerDays(widget);
   for (let index = 0; index < days.length; index += columns) {
     rows.push(clippedFormLine(days.slice(index, index + columns).flatMap((day) => datePickerCellSpans(day, widget)), bounds.width));
@@ -290,10 +294,10 @@ export function selectBoxBlock(widget: SelectBoxNode, bounds: Rect, theme: Termi
   const placeholder = clean(stringify(widget.props.placeholder)) || 'Select…';
   const value = selected?.label ?? placeholder;
   const style = widget.props.disabled === true
-    ? renderNodeStyle(widget, 'value', 'disabled')
+    ? renderNodeStyle(widget, 'option', 'disabled')
     : selected === undefined
-      ? renderNodeStyle(widget, 'placeholder')
-      : renderNodeStyle(widget, 'value');
+      ? renderNodeStyle(widget, 'description')
+      : renderNodeStyle(widget, 'option');
   const rows = [
     clippedFormLine([
       ...controlPrefixSpans(widget, label, formControlState(widget), {
@@ -301,7 +305,7 @@ export function selectBoxBlock(widget: SelectBoxNode, bounds: Rect, theme: Termi
       }),
       formSpan(widget, selected === undefined ? 'placeholder' : 'value', selected === undefined ? 'value.placeholder' : 'value.selected', value, style),
       separatorSpan(widget),
-      formSpan(widget, 'chrome', 'chrome.dropdown', theme.tokens.symbols.treeCollapsed, formMarkerStyle(widget))
+      formSpan(widget, 'chrome', 'chrome.dropdown', theme.tokens.symbols.treeCollapsed, renderNodeStyle(widget, 'marker'))
     ], bounds.width),
     ...errorLines(widget, bounds.width)
   ];
@@ -313,5 +317,20 @@ export function textInputBlock(widget: TextInputNode, bounds: Rect, focused = fa
 }
 
 export function numberInputBlock(widget: NumberInputNode, bounds: Rect, focused = false, theme: TerminalTheme): RenderBlock {
-  return controlInputBlock(numberInputValue(widget), widget, bounds, focused, theme);
+  const layout = widget.props.toActionMessage === undefined || widget.props.disabled === true
+    ? undefined
+    : numberInputLayout(bounds);
+  if (layout === undefined) return controlInputBlock(numberInputValue(widget), widget, bounds, focused, theme);
+  const controls = [
+    separatorSpan(widget),
+    formSpan(widget, 'handle', 'step.decrement', '[-]', formMarkerStyle(widget)),
+    separatorSpan(widget),
+    formSpan(widget, 'handle', 'step.increment', '[+]', formMarkerStyle(widget))
+  ];
+  const input = controlInputBlock(numberInputValue(widget), widget, layout.input, focused, theme);
+  const first = input.lines[0];
+  return block([
+    line([...(first === undefined ? [] : padRenderLine(first, layout.input.width).spans), ...controls]),
+    ...input.lines.slice(1)
+  ]);
 }

@@ -134,20 +134,6 @@ export type {
   MeasurementInput
 } from '../tui/measurement.ts';
 export {
-  dataWindow,
-  rowWindow,
-  scrollStateFromUnknown
-} from '../tui/data-window.ts';
-export type {
-  DataWindow,
-  DataWindowInput
-} from '../tui/data-window.ts';
-export { paginationWindow } from '../tui/pagination.ts';
-export type {
-  PaginationInput,
-  PaginationWindow
-} from '../tui/pagination.ts';
-export {
   copySelectedTextToClipboard,
   resolveSelectedText
 } from '../tui/selection-interaction.ts';
@@ -231,7 +217,7 @@ export type {
 export type {
   PointerEventKind,
   RoutedPointerEvent
-} from '../tui/pointer-types.ts';
+} from '../input/pointer.ts';
 export {
   projectTuiOutput,
   renderAccessibleSnapshot
@@ -276,7 +262,7 @@ export type {
 export {
   gridCellRects,
   splitTracks
-} from '../tui/regions.ts';
+} from '../layout/geometry.ts';
 export type {
   Layer,
   LayoutNode,

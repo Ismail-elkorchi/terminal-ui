@@ -9,7 +9,7 @@ export {
   surface,
   tabs,
   viewport
-} from '../components/factories.ts';
+} from './factories/index.ts';
 export type {
   AbsoluteOptions,
   GridAreasOptions,
@@ -20,9 +20,10 @@ export type {
   SplitPaneOptions,
   StackOptions,
   SurfaceOptions,
+  TabItem,
   TabsOptions,
   ViewportOptions
-} from '../components/options/index.ts';
+} from './options.ts';
 export {
   defineBreakpoints,
   responsive,
@@ -43,4 +44,4 @@ export type {
   LayoutJustification,
   LayoutOverflow,
   LayoutSize
-} from '../tui/regions.ts';
+} from './geometry.ts';

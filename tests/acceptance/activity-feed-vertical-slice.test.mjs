@@ -24,7 +24,7 @@ function view(state) {
       id: 'activity',
       selected: state.selected,
       blocks: state.blocks,
-      keys: { enter: { kind: 'advance' } }
+      keys: { enter: () => ({ kind: 'advance' }) }
     }),
     statusBar({ id: 'status', text: `Selected ${state.selected}` })
   ]), { id: 'root', border: { kind: 'single' } });

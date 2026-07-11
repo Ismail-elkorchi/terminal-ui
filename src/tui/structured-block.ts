@@ -1,6 +1,6 @@
 import type { RenderNodeOfKind } from '../render-node/index.ts';
 import { sanitizeTerminalText, wrapTextCells } from '../text/index.ts';
-import { dataWindow, rowWindow } from './data-window.ts';
+import { dataWindow, rowWindow } from '../behavior/data-window.ts';
 import {
   type DocumentSourceOptions, documentBodyStyle, documentDetailStyle, documentFieldSpans, documentMarkerStyle, documentSpan, documentStatusStyle, documentSummaryStyle, documentTitleStyle, sourceToken
 } from './document-visual.ts';

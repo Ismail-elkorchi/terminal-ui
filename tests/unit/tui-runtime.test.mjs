@@ -9,7 +9,9 @@ import {
 import {
   createScrollState,
   applyScrollEvent,
-  scrollReducer
+  scrollReducer,
+  treePresentation,
+  treeReducer
 } from '../../dist/behavior/index.js';
 import {
   diagnostic } from '../../dist/diagnostics.js';
@@ -202,8 +204,11 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
         textInput({
           id: 'command',
           value: state.command,
-          keys: { enter: { kind: 'open' } },
-          onInput: (currentText) => ({ kind: 'text', text: currentText })
+          keys: { enter: () => ({ kind: 'open' }) },
+          onEdit: (operation) => ({
+            kind: 'text',
+            text: operation.kind === 'insert' ? operation.text : ''
+          })
         })
       ], { id: 'base' }),
       ...(state.paletteOpen
@@ -226,7 +231,6 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
       notificationStack({
     id: 'notices',
     items: state.notifications,
-    onDismiss: (item) => ({ kind: 'dismiss', id: item.id }),
     meta: {
         layer: {
             zIndex: 30
@@ -275,8 +279,11 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
         textInput({
           id: 'command',
           value: state.command,
-          keys: { enter: { kind: 'openA' } },
-          onInput: (currentText) => ({ kind: 'text', text: currentText })
+          keys: { enter: () => ({ kind: 'openA' }) },
+          onEdit: (operation) => ({
+            kind: 'text',
+            text: operation.kind === 'insert' ? operation.text : ''
+          })
         })
       ], { id: 'base' }),
       ...(state.modal === 'a' || state.modal === 'b'
@@ -654,8 +661,8 @@ test('runTui lets apps own escape and ctrlC key bindings', async () => {
       id: 'exit-field',
       value: state.active,
       keys: {
-        escape: { active: 'escape' },
-        ctrlC: { active: 'ctrlC' }
+        escape: () => ({ active: 'escape' }),
+        ctrlC: () => ({ active: 'ctrlC' })
       }
     })
   });
@@ -924,6 +931,7 @@ test('TUI effects do not block later input or external dispatches', async () => 
           state: { ...state, phase: 'loading' },
           effects: [{
             id: 'load',
+            concurrency: 'replace',
             async run() {
               await gate;
               return { kind: 'finish' };
@@ -1043,6 +1051,7 @@ test('TUI runtime reports effect failures and can map them to application messag
           state: { status: 'loading' },
           effects: [{
             id: 'broken-load',
+            concurrency: 'replace',
             async run() {
               throw new Error('load failed');
             },
@@ -1117,8 +1126,8 @@ test('TUI runtime routes key events through focused widget keymaps', async () =>
     init: () => ({ active: 'none' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => stack([
-      textInput({ id: 'first', value: state.active, keys: { enter: { active: 'first' } } }),
-      textInput({ id: 'second', value: state.active, keys: { enter: { active: 'second' } } })
+      textInput({ id: 'first', value: state.active, keys: { enter: () => ({ active: 'first' }) } }),
+      textInput({ id: 'second', value: state.active, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
@@ -1145,8 +1154,8 @@ test('TUI runtime lets focused widgets handle tab before focus traversal', async
     init: () => ({ active: 'none' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => stack([
-      textInput({ id: 'first', value: state.active, keys: { tab: { active: 'accepted' } } }),
-      textInput({ id: 'second', value: state.active, keys: { enter: { active: 'second' } } })
+      textInput({ id: 'first', value: state.active, keys: { tab: () => ({ active: 'accepted' }) } }),
+      textInput({ id: 'second', value: state.active, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const harness = createTerminalHarness({ viewport: { columns: 24, rows: 4 } });
@@ -1202,7 +1211,7 @@ test('TUI runtime lets focused widgets override after-focus app bindings', async
     view: (state) => textInput({
       id: 'field',
       value: state.active,
-      keys: { escape: { active: 'local' } }
+      keys: { escape: () => ({ active: 'local' }) }
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
@@ -1234,7 +1243,7 @@ test('TUI runtime lets before-focus app bindings intentionally preempt widgets',
     view: (state) => textInput({
       id: 'field',
       value: state.active,
-      keys: { enter: { active: 'local' } }
+      keys: { enter: () => ({ active: 'local' }) }
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
@@ -1258,7 +1267,7 @@ test('TUI runtime does not steal printable text for default app bindings', async
     view: (state) => textInput({
       id: 'field',
           value: state.value,
-          onInput: (value) => ({ value })
+          onEdit: (operation) => ({ value: operation.kind === 'insert' ? operation.text : '' })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
@@ -1287,7 +1296,7 @@ test('TUI runtime evaluates app key binding predicates and dynamic messages', as
     view: (state) => textInput({
       id: 'field',
       value: state.active,
-      keys: { enter: { active: 'ready', enabled: true } }
+      keys: { enter: () => ({ active: 'ready', enabled: true }) }
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 32, rows: 3 } });
@@ -1332,7 +1341,7 @@ test('TUI runtime routes escape through focused widget keymaps', async () => {
     view: (state) => textInput({
       id: 'dialog-field',
       value: state.active,
-      keys: { escape: { active: 'closed' } }
+      keys: { escape: () => ({ active: 'closed' }) }
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
@@ -1356,16 +1365,21 @@ test('TUI runtime routes escape through focused widget keymaps', async () => {
   assert.match(renderFramePlain(runtime.frame()), /closed/);
 });
 
-test('TUI runtime routes focused text and paste input through widget input maps', async () => {
+test('TUI runtime routes focused text and paste through one edit-operation channel', async () => {
   const app = defineTui({
     id: 'input-map-routing',
     init: () => ({ value: '' }),
-    update: (state, message) => ({ state: { value: `${state.value}${message.text}` } }),
+    update: (state, message) => ({
+      state: {
+        value: message.operation.kind === 'insert'
+          ? `${state.value}${message.operation.text}`
+          : state.value
+      }
+    }),
     view: (state) => textInput({
       id: 'field',
       value: state.value,
-      onInput: (textValue) => ({ text: textValue }),
-      onPaste: (textValue) => ({ text: `[${textValue}]` })
+      onEdit: (operation) => ({ operation })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 30, rows: 3 } });
@@ -1377,8 +1391,8 @@ test('TUI runtime routes focused text and paste input through widget input maps'
 
   assert.equal(typed.handled, true);
   assert.equal(pasted.handled, true);
-  assert.deepEqual(runtime.getState(), { value: 'a[bc]' });
-  assert.match(renderFramePlain(runtime.frame()), /a\[bc\]/);
+  assert.deepEqual(runtime.getState(), { value: 'abc' });
+  assert.match(renderFramePlain(runtime.frame()), /abc/);
 });
 
 test('TUI runtime routes single-space input chunks as text for editable focused widgets', async () => {
@@ -1389,7 +1403,7 @@ test('TUI runtime routes single-space input chunks as text for editable focused 
     view: (state) => textInput({
       id: 'field',
       value: state.value,
-      onInput: (textValue) => ({ text: textValue })
+      onEdit: (operation) => ({ text: operation.kind === 'insert' ? operation.text : '' })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 30, rows: 3 } });
@@ -1413,8 +1427,8 @@ test('TUI runtime lets focused space key bindings override text insertion', asyn
     view: (state) => textInput({
       id: 'field',
       value: state.value,
-      keys: { space: { text: 'space-key' } },
-      onInput: (textValue) => ({ text: textValue })
+      keys: { space: () => ({ text: 'space-key' }) },
+      onEdit: (operation) => ({ text: operation.kind === 'insert' ? operation.text : '' })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 30, rows: 3 } });
@@ -1435,8 +1449,7 @@ test('TUI runtime decodes input chunks through the configured input pipeline', a
     view: (state) => textInput({
       id: 'pipeline-field',
       value: state.value,
-      onInput: (textValue) => ({ text: textValue }),
-      onPaste: (textValue) => ({ text: `[${textValue}]` })
+      onEdit: (operation) => ({ text: operation.kind === 'insert' ? operation.text : '' })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 30, rows: 3 } });
@@ -1460,8 +1473,8 @@ test('runTui accepts an initial focus path', async () => {
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active }, exit: {} }),
     view: (state) => stack([
-      textInput({ id: 'first', value: state.active, keys: { enter: { active: 'first' } } }),
-      textInput({ id: 'second', value: state.active, keys: { enter: { active: 'second' } } })
+      textInput({ id: 'first', value: state.active, keys: { enter: () => ({ active: 'first' }) } }),
+      textInput({ id: 'second', value: state.active, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const host = createMemoryTerminalHost({ viewport: { columns: 20, rows: 4 } });
@@ -1477,27 +1490,27 @@ test('runTui accepts a state-derived theme', async () => {
   const app = defineTui({
     id: 'run-state-theme',
     init: () => ({ active: false }),
+    keyBindings: [{ id: 'activate-theme', triggers: [{ kind: 'key', key: 'enter' }], message: { active: true } }],
     update: () => ({ state: { active: true }, exit: {} }),
     view: () => richText({
       id: 'theme-label',
-      segments: [{ text: 'theme', style: { fg: { kind: 'theme', token: 'accent.primary' } } }],
-      keys: { enter: { active: true } }
+      segments: [{ text: 'theme', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]
     })
   });
   const host = createMemoryTerminalHost({ viewport: { columns: 12, rows: 2 } });
   host.input('\r');
 
-	  const exit = await runTui(app, host, {
-	    theme: (state) => ({
-	      tokens: {
-	        colors: {
-	          'accent.primary': state.active
-	            ? { kind: 'ansi', value: 2 }
-	            : { kind: 'ansi', value: 1 }
-	        }
-	      }
-	    })
-	  });
+  const exit = await runTui(app, host, {
+    theme: (state) => ({
+      tokens: {
+        colors: {
+          'accent.primary': state.active
+            ? { kind: 'ansi', value: 2 }
+            : { kind: 'ansi', value: 1 }
+        }
+      }
+    })
+  });
 
   assert.equal(exit.status, 'completed');
   assert.match(host.output(), /\u001B\[38;5;1m/u);
@@ -1510,8 +1523,8 @@ test('TUI runtime restores a serialized focus path when it still exists', async 
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => stack([
-      textInput({ id: 'first', value: state.active, keys: { enter: { active: 'first' } } }),
-      textInput({ id: 'second', value: state.active, keys: { enter: { active: 'second' } } })
+      textInput({ id: 'first', value: state.active, keys: { enter: () => ({ active: 'first' }) } }),
+      textInput({ id: 'second', value: state.active, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const firstHarness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
@@ -1548,8 +1561,8 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => stack([
-      textInput({ id: 'first', value: state.active, keys: { enter: { active: 'first' } } }),
-      textInput({ id: 'second', value: state.active, keys: { enter: { active: 'second' } } })
+      textInput({ id: 'first', value: state.active, keys: { enter: () => ({ active: 'first' }) } }),
+      textInput({ id: 'second', value: state.active, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
@@ -1574,46 +1587,14 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
   assert.deepEqual(runtime.getState(), { active: 'first' });
 });
 
-test('TUI runtime treats keyed container widgets as focusable controls', async () => {
-  const app = defineTui({
-    id: 'container-keymap-routing',
-    init: () => ({ active: 'idle' }),
-    update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => stack([
-      surface(text(`Action ${state.active}`, { id: 'action-label' }), {
-    id: 'action',
-    keys: { enter: { active: 'action' } },
-    meta: {
-        accessibility: { id: 'action', role: 'button', label: 'Run action' }
-    }
-}),
-      textInput({ id: 'field', value: state.active, keys: { enter: { active: 'field' } } })
-    ])
-  });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 6 } });
-  const runtime = createTuiRuntime({ app, host: harness.host });
-
-  await runtime.start();
-  const committed = await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
-  const snapshot = runtime.frame().accessibility;
-  const action = snapshot.root.children[0];
-
-  assert.equal(committed.handled, true);
-  assert.deepEqual(runtime.getState(), { active: 'action' });
-  assert.deepEqual(runtime.frame().focusPath, ['stack:0', 'action']);
-  assert.equal(action?.role, 'button');
-  assert.equal(action?.focused, true);
-  assert.match(renderFramePlain(runtime.frame()), /Action action/);
-});
-
 test('TUI runtime traverses focus backward with shifted tab', async () => {
   const app = defineTui({
     id: 'reverse-focus',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => stack([
-      textInput({ id: 'first', value: state.active, keys: { enter: { active: 'first' } } }),
-      textInput({ id: 'second', value: state.active, keys: { enter: { active: 'second' } } })
+      textInput({ id: 'first', value: state.active, keys: { enter: () => ({ active: 'first' }) } }),
+      textInput({ id: 'second', value: state.active, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
@@ -1640,7 +1621,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
       textInput({
     id: 'disabled',
     value: state.active,
-    keys: { enter: { active: 'disabled' } },
+    keys: { enter: () => ({ active: 'disabled' }) },
     meta: {
         focus: { disabled: true, order: 0 }
     }
@@ -1648,7 +1629,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
       textInput({
     id: 'later',
     value: state.active,
-    keys: { enter: { active: 'later' } },
+    keys: { enter: () => ({ active: 'later' }) },
     meta: {
         focus: { order: 2 }
     }
@@ -1656,7 +1637,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
       textInput({
     id: 'first',
     value: state.active,
-    keys: { enter: { active: 'first' } },
+    keys: { enter: () => ({ active: 'first' }) },
     meta: {
         focus: { order: 1 }
     }
@@ -1684,8 +1665,8 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => stack([
-      textInput({ id: 'background', value: state.active, keys: { enter: { active: 'background' } } }),
-      modal(textInput({ id: 'dialog-field', value: state.active, keys: { enter: { active: 'dialog' } } }), {
+      textInput({ id: 'background', value: state.active, keys: { enter: () => ({ active: 'background' }) } }),
+      modal(textInput({ id: 'dialog-field', value: state.active, keys: { enter: () => ({ active: 'dialog' }) } }), {
         id: 'dialog',
         width: 20,
         height: 4
@@ -1714,8 +1695,8 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => stack([
-      textInput({ id: 'page-field', value: state.active, keys: { enter: { active: 'page' } } }),
-      surface(textInput({ id: 'popover-field', value: state.active, keys: { enter: { active: 'popover' } } }), {
+      textInput({ id: 'page-field', value: state.active, keys: { enter: () => ({ active: 'page' }) } }),
+      surface(textInput({ id: 'popover-field', value: state.active, keys: { enter: () => ({ active: 'popover' }) } }), {
     id: 'popover',
     meta: {
         layer: {
@@ -1747,7 +1728,7 @@ test('TUI runtime focuses top-layer context menus and open dropdowns', async () 
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => overlay([
-      textInput({ id: 'page-field', value: state.active, keys: { enter: { active: 'page' } } }),
+      textInput({ id: 'page-field', value: state.active, keys: { enter: () => ({ active: 'page' }) } }),
       contextMenu({
     id: 'actions-menu',
     title: 'Actions',
@@ -1783,7 +1764,7 @@ test('TUI runtime focuses top-layer context menus and open dropdowns', async () 
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => overlay([
-      textInput({ id: 'page-field', value: state.active, keys: { enter: { active: 'page' } } }),
+      textInput({ id: 'page-field', value: state.active, keys: { enter: () => ({ active: 'page' }) } }),
       dropdown({
     id: 'theme-dropdown',
     label: 'Theme',
@@ -1883,7 +1864,7 @@ test('TUI frame accessibility uses widget metadata and marks only the active foc
         id: 'choices',
         items: ['Alpha', 'Beta'],
         selected: 1,
-        onSelect: (value) => ({ active: value.toLowerCase() })
+        onAction: (action) => ({ active: ['alpha', 'beta'][action.index] ?? 'none' })
       }),
       table({ id: 'grid', rows: [['A1', 'B1']] })
     ])
@@ -2967,21 +2948,20 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
   const app = defineTui({
     id: 'tree-scroll-pointer-tui',
     init: () => ({
-      scroll: createScrollState({}),
+      tree: { nodes, scroll: createScrollState({}) },
       event: undefined
     }),
     update: (state, message) => ({
       state: {
-        scroll: applyScrollEvent(state.scroll, message.event),
-        event: message.event
+        tree: treeReducer(state.tree, message.action),
+        event: message.action.kind === 'scroll' ? message.action.event : state.event
       }
     }),
     view: (state) => tree({
       id: 'tree-scroll',
-      nodes,
-      scroll: state.scroll,
+      ...treePresentation(state.tree),
       scrollbar: { visible: 'always' },
-      onScroll: (event) => ({ event })
+      onAction: (action) => ({ action })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
@@ -3004,7 +2984,7 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
   assert.equal(result.handled, true);
   assert.equal(runtime.getState().event.scroll.contentRows, nodes.length);
   assert.equal(runtime.getState().event.scroll.viewportRows, 3);
-  assert.equal(runtime.getState().scroll.offsetRow, 3);
+  assert.equal(runtime.getState().tree.scroll.offsetRow, 3);
   assert.match(renderFramePlain(runtime.frame()), /Node 4/u);
 });
 
@@ -3120,7 +3100,7 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
       nodes: [
         { id: 'root', label: 'Root', expanded: true, children: [{ id: 'child', label: 'Child' }] }
       ],
-      onSelect: (node) => ({ id: node.id })
+      onAction: (action) => action.kind === 'select' ? { id: action.id } : undefined
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
@@ -3147,13 +3127,7 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
       nodes: [
         { id: 'root', label: 'Root', expanded: true, children: [{ id: 'child', label: 'Child' }] }
       ],
-      onSelect: (node) => ({ kind: 'body', id: node.id }),
-      onDisclosure: (node, action, event) => ({
-        kind: 'disclosure',
-        id: node.id,
-        action: action.kind,
-        localColumn: event.localColumn
-      })
+      onAction: (action) => ({ kind: 'tree', action })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
@@ -3169,8 +3143,8 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
   assert.equal(bodyRelease[0]?.handled, true);
   assert.deepEqual(runtime.getState(), {
     events: [
-      { kind: 'disclosure', id: 'root', action: 'toggle', localColumn: 1 },
-      { kind: 'body', id: 'root' }
+      { kind: 'tree', action: { kind: 'toggle', id: 'root' } },
+      { kind: 'tree', action: { kind: 'select', id: 'root' } }
     ]
   });
 });

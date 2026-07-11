@@ -10,7 +10,7 @@ import type { FrameSemanticRole } from './frame-passes/index.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
 import { numberProp, stringify } from './render-node-props.ts';
 import { mergeStyles, renderNodeStyle } from './render-node-style.ts';
-import { normalizeSpinnerFrameIndex } from './spinner.ts';
+import { normalizeSpinnerFrameIndex } from '../behavior/spinner.ts';
 
 export type FeedbackVisualKind =
   | 'statusBar'
@@ -133,7 +133,7 @@ function appendHelpOverflow(widget: HelpBarNode, fitted: RenderSpan[], maxCells:
     kind: 'helpBar',
     label: 'overflow',
     role: 'decoration',
-    style: renderNodeStyle(widget, 'placeholder')
+    style: renderNodeStyle(widget, 'marker')
   });
   const separatedMarker = fitted.length === 0
     ? [marker]
@@ -220,7 +220,7 @@ export function feedbackStructureSpan(
   text: string,
   kind: FeedbackVisualKind,
   label: string,
-  style: TerminalStyle | undefined = renderNodeStyle(widget, 'placeholder')
+  style: TerminalStyle | undefined = renderNodeStyle(widget, 'marker')
 ): RenderSpan {
   return feedbackSpan(widget, text, { kind, label, role: 'decoration', style });
 }
@@ -339,6 +339,6 @@ function feedbackBarSeparatorStyle(widget: FeedbackNode): TerminalStyle | undefi
     {
       bg: { kind: 'theme', token: 'surface.chrome.background' }
     },
-    renderNodeStyle(widget, 'placeholder')
+    renderNodeStyle(widget, 'marker')
   );
 }

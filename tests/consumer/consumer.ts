@@ -10,7 +10,9 @@ import {
   text,
   tree,
   type CommandBarAction,
-  type Element
+  type Element,
+  type TableAction,
+  type TreeAction
 } from '@ismail-elkorchi/terminal-ui/components';
 import { stack, surface } from '@ismail-elkorchi/terminal-ui/layout';
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
@@ -18,8 +20,8 @@ import { defineTui } from '@ismail-elkorchi/terminal-ui/tui';
 
 type Message =
   | { readonly kind: 'increment' }
-  | { readonly kind: 'selectRow'; readonly id: number }
-  | { readonly kind: 'selectNode'; readonly id: string }
+  | { readonly kind: 'selectRow'; readonly action: TableAction }
+  | { readonly kind: 'tree'; readonly action: TreeAction }
   | { readonly kind: 'command'; readonly action: CommandBarAction }
   | { readonly kind: 'submit' };
 
@@ -33,22 +35,25 @@ function view(state: State): Element<Message> {
     label: 'Increment',
     onPress: { kind: 'increment' } as const
   });
-  const processes: Element<{ readonly kind: 'selectRow'; readonly id: number }> = table({
+  const processes: Element<{ readonly kind: 'selectRow'; readonly action: TableAction }> = table({
+    id: 'processes',
     rows: [{ id: 7, name: 'worker' }],
     columns: [
       { id: 'id', header: 'ID', value: (row) => row.id },
       { id: 'name', header: 'Name', value: (row) => row.name }
     ],
-    onSelect: ({ row }) => ({ kind: 'selectRow' as const, id: row.id })
+    onAction: (action) => ({ kind: 'selectRow' as const, action })
   });
-  const files: Element<{ readonly kind: 'selectNode'; readonly id: string }> = tree({
+  const files: Element<{ readonly kind: 'tree'; readonly action: TreeAction }> = tree({
+    id: 'files',
     nodes: [{ id: 'src', label: 'src' }],
-    onSelect: (node) => ({ kind: 'selectNode' as const, id: node.id })
+    onAction: (action) => ({ kind: 'tree' as const, action })
   });
   const commands: Element<
     | { readonly kind: 'command'; readonly action: CommandBarAction }
     | { readonly kind: 'submit' }
   > = commandBar({
+    id: 'commands',
     value: '',
     onAction: (action) => ({ kind: 'command' as const, action }),
     onSubmit: { kind: 'submit' as const }

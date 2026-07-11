@@ -78,12 +78,12 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
       textInput({
         id: 'first',
         value: state.active,
-        keys: { enter: { kind: 'first' } }
+        keys: { enter: () => ({ kind: 'first' }) }
       }),
       textInput({
     id: 'disabled',
     value: state.active,
-    keys: { enter: { kind: 'disabled' } },
+    keys: { enter: () => ({ kind: 'disabled' }) },
     meta: {
         focus: { disabled: true }
     }
@@ -91,7 +91,7 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
       textInput({
         id: 'second',
         value: state.active,
-        keys: { enter: { kind: 'second' } }
+        keys: { enter: () => ({ kind: 'second' }) }
       })
     ], { id: 'focus-root' })
   });

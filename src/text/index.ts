@@ -17,7 +17,6 @@ export {
 export { createTerminalTextIndex } from './terminal-text-index.ts';
 export { terminalTextWidth } from './terminal-width.ts';
 export { extractTextSelection } from './selection.ts';
-export { editTextAreaBuffer } from './text-area-edit.ts';
 export {
   lineEndOffset,
   lineOffsetByDelta,

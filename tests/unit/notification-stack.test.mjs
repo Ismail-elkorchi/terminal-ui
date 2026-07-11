@@ -27,15 +27,12 @@ test('notificationStack renders stacked status cards with semantic styles and ac
         message: 'Harbor route update',
         tone: 'progress',
         progress: 42,
-        paused: true,
-        createdAt: 0,
-        expiresAt: 5_000
+        detail: 'paused · ttl 5s'
       },
       { id: 'done', title: 'Saved', message: 'State stored', tone: 'success' }
     ],
-    selected: 0,
+    selected: 'deploy',
     placement: 'top-right',
-    maxVisible: 2,
     maxWidth: 28
   }), { columns: 48, rows: 14 });
   const output = renderFramePlain(frame);
@@ -50,7 +47,7 @@ test('notificationStack renders stacked status cards with semantic styles and ac
   assert.match(output, /Deploying/u);
   assert.match(output, /Harbor route update/u);
   assert.match(output, /paused · ttl 5s/u);
-  assert.match(output, /› progress paused/u);
+  assert.match(output, /› progress/u);
   assert.match(output, /Saved/u);
   assert.deepEqual(border?.style?.fg, { kind: 'theme', token: 'selection.foreground' });
   assert.equal(progressCell?.source?.ownerKind, 'notificationStack');
@@ -90,7 +87,7 @@ test('notificationStack can opt into focus explicitly', () => {
   const frame = renderElementFrame(notificationStack({
     id: 'focusable-notices',
     items: [{ id: 'a', title: 'Focusable' }],
-    keys: { enter: { kind: 'open' } },
+    keys: { enter: () => ({ kind: 'open' }) },
     meta: {
         focus: { disabled: false }
     }
@@ -135,7 +132,6 @@ test('notificationStack is constrained by its layout bounds', () => {
       notices: notificationStack({
         id: 'notices',
         items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
-        maxVisible: 1,
         maxWidth: 22
       })
     }
@@ -151,7 +147,6 @@ test('notificationStack skips cards when bounds cannot fit a viable card', () =>
   const frame = renderElementFrame(notificationStack({
     id: 'notices',
     items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
-    maxVisible: 1,
     maxWidth: 24
   }), { columns: 28, rows: 2 });
   const notificationCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'notificationStack');
@@ -164,15 +159,14 @@ test('notificationStack exposes dismiss hit targets for placed cards', () => {
   const widget = notificationStack({
     id: 'notices',
     items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
-    maxVisible: 1,
     maxWidth: 24,
-    onDismiss: (item) => ({ kind: 'dismiss', id: item.id })
+    onAction: (action) => action
   });
   const frame = renderElementFrame(widget, { columns: 36, rows: 8 });
   const regions = renderElementRegions(widget, { columns: 36, rows: 8 });
 
-  const target = frame.hitTargets.find((candidate) => candidate.id === 'notices:notification:saved');
-  const routedTarget = regions.flatMap((region) => region.hitTargets).find((candidate) => candidate.id === 'notices:notification:saved');
+  const target = frame.hitTargets.find((candidate) => candidate.id === 'notices:notification:saved:dismiss');
+  const routedTarget = regions.flatMap((region) => region.hitTargets).find((candidate) => candidate.id === 'notices:notification:saved:dismiss');
 
   assert.ok(target);
   assert.ok(routedTarget);
@@ -192,8 +186,7 @@ test('notificationStack keeps tone progress and selection meaningful in no color
       tone: 'error',
       progress: 75
     }],
-    selected: 0,
-    maxVisible: 1,
+    selected: 'failure',
     maxWidth: 28
   }), { columns: 40, rows: 8 }, { theme: highContrastTheme });
   const highContrast = createVisualSnapshot({

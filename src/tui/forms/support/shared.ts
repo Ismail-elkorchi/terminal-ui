@@ -52,9 +52,7 @@ export function controlInputBlock(
 ): RenderBlock {
   const placeholder = clean(stringify(widget.props.placeholder));
   const cursor = numberProp(widget, 'cursor');
-  const selection = widget.kind === 'textInput'
-    ? selectionFromUnknown(value, widget.props.selection)
-    : undefined;
+  const selection = selectionFromUnknown(value, widget.props.selection);
   const rows = [
     ...singleLineInputBlock({
       widget,
@@ -151,8 +149,7 @@ export function inputValue(widget: TextInputNode): string {
 }
 
 export function numberInputValue(widget: NumberInputNode): string {
-  const value = widget.props.value;
-  return typeof value === 'number' && Number.isFinite(value) ? String(value) : '';
+  return clean(stringify(widget.props.value));
 }
 
 export function singleLineCursor(

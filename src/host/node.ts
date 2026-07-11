@@ -1,17 +1,15 @@
 import process from 'node:process';
 import { resolveTerminalCapabilities } from './capabilities.ts';
+import { NodeInput } from './node-input.ts';
 import { BasicTerminalSession } from './session.ts';
 import { restoreActiveTerminalSessions } from './session-registry.ts';
 import type {
   NodeTerminalHostOptions,
-  NodeReadableTerminalStream,
   NodeTerminalSignal,
   NodeWritableTerminalStream,
   TerminalClock,
   TerminalEnvironment,
   TerminalHost,
-  TerminalInput,
-  TerminalInputChunk,
   TerminalOutput,
   TerminalOutputChunk,
   TerminalSession,
@@ -20,33 +18,6 @@ import type {
   TerminalViewport,
   Unsubscribe
 } from './types.ts';
-
-class NodeInput implements TerminalInput {
-  #rawMode = false;
-
-  constructor(private readonly stream: NodeReadableTerminalStream) {}
-
-  async *read(): AsyncIterable<TerminalInputChunk> {
-    for await (const chunk of this.stream) {
-      yield { data: typeof chunk === 'string' ? chunk : chunk };
-    }
-  }
-
-  setRawMode(enabled: boolean): void {
-    if (typeof this.stream.setRawMode === 'function' && this.stream.isTTY === true) {
-      this.stream.setRawMode(enabled);
-      this.#rawMode = enabled;
-    }
-  }
-
-  isRawModeEnabled(): boolean {
-    return this.#rawMode;
-  }
-
-  isTty(): boolean {
-    return this.stream.isTTY === true;
-  }
-}
 
 class NodeOutput implements TerminalOutput {
   constructor(private readonly stream: NodeWritableTerminalStream) {}
@@ -178,6 +149,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     flush: () => Promise.resolve(),
     dispose: async () => {
       await restoreActiveTerminalSessions(host, 'disposed');
+      await stdin.dispose();
     }
   };
   return host;

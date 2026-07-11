@@ -144,7 +144,7 @@ function surfaceBorderStyle(widget: SurfaceNode, border: BorderStyle, variant: S
   const variantStyle = variant === undefined ? undefined : surfaceBorderTokenStyle(variant);
   const style = mergeStyles(
     resolveRenderNodeStyle(widget, {
-      slot: 'border',
+      part: 'border',
       ...(surfaceDisabled(widget) ? { state: 'disabled' } : {}),
       ...(variantStyle === undefined ? {} : { base: variantStyle })
     }),
@@ -170,7 +170,7 @@ export function surfaceBackgroundStyle(
       ? 'focused'
       : state.visualState;
   return resolveRenderNodeStyle(widget, {
-    slot: 'root',
+    part: 'root',
     base: focusedBase,
     ...(visualState === undefined ? {} : { state: visualState })
   }) ?? focusedBase;
@@ -243,7 +243,7 @@ function isBorderTitleRailInput(value: unknown): value is Record<string, unknown
 
 function surfaceTitleStyle(widget: SurfaceNode): TerminalStyle | undefined {
   return resolveRenderNodeStyle(widget, {
-    slot: 'title',
+    part: 'title',
     base: { fg: { kind: 'theme', token: 'surface.title' }, bold: true }
   });
 }

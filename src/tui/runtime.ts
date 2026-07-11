@@ -463,7 +463,7 @@ export function createTuiRuntime<TState, TMessage>(
       if (mapped !== undefined) return mapped;
     }
     if (event.kind === 'paste') return focused?.renderNode.inputMap?.paste?.(event.text);
-    const focusedMessage = componentKeyMessage(focused?.renderNode.keyMap, event);
+    const focusedMessage = componentKeyMessage(focused?.renderNode.keyMap, event, currentFocusPath);
     if (focusedMessage !== undefined) return focusedMessage;
     const keyText = textFromUnmappedKey(event);
     if (keyText !== undefined) {
@@ -501,11 +501,15 @@ export function createTuiRuntime<TState, TMessage>(
 
 function componentKeyMessage<TMessage>(
   keyMap: RenderNode<TMessage>['keyMap'] | undefined,
-  event: InputEvent
+  event: InputEvent,
+  focusPath: FocusPath | undefined
 ): TMessage | undefined {
-  if (event.kind === 'key' && event.key !== 'unknown') return keyMap?.[event.key];
-  if (event.kind === 'text') return keyMap?.text?.[event.text];
-  return undefined;
+  const handler = event.kind === 'key' && event.key !== 'unknown'
+    ? keyMap?.[event.key]
+    : event.kind === 'text'
+      ? keyMap?.text?.[event.text]
+      : undefined;
+  return handler?.({ input: event, focusPath: focusPath ?? [] });
 }
 
 function isWheelInputEvent(event: InputEvent | undefined): event is TerminalMouseEvent {

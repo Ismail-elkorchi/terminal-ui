@@ -3,7 +3,7 @@ import { span } from './frame.ts';
 import { renderNodeFrameSource } from './frame-source.ts';
 import type { FrameCellSource, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import { line } from './render-primitives.ts';
-import { mergeStyles, renderNodeStyle } from './render-node-style.ts';
+import { mergeStyles, resolveRenderNodeStyle, renderNodeStyle, themeStyle } from './render-node-style.ts';
 
 export type FormControlState =
   | 'default'
@@ -89,15 +89,50 @@ export function formLabelStyle(widget: RenderNode, state?: FormControlState): Te
 }
 
 export function formValueStyle(widget: RenderNode, state?: FormControlState): TerminalStyle | undefined {
-  return renderNodeStyle(widget, 'value', state);
+  return renderNodeStyle(widget, formValuePart(widget), state);
 }
 
 export function formPlaceholderStyle(widget: RenderNode): TerminalStyle | undefined {
-  return renderNodeStyle(widget, 'placeholder');
+  return resolveRenderNodeStyle(widget, {
+    part: widget.kind === 'toggleSwitch' ? 'offLabel' : 'description',
+    base: themeStyle('input.placeholder', { dim: true })
+  });
 }
 
 export function formMarkerStyle(widget: RenderNode, state?: FormControlState): TerminalStyle | undefined {
-  return mergeStyles(renderNodeStyle(widget, 'value'), state === undefined ? undefined : renderNodeStyle(widget, 'value', state));
+  const part = formMarkerPart(widget);
+  return mergeStyles(renderNodeStyle(widget, part), state === undefined ? undefined : renderNodeStyle(widget, part, state));
+}
+
+function formValuePart(widget: RenderNode): string {
+  switch (widget.kind) {
+    case 'checkbox':
+    case 'checkboxList':
+    case 'radioGroup':
+    case 'selectBox':
+      return 'option';
+    case 'field':
+      return 'description';
+    default:
+      return 'value';
+  }
+}
+
+function formMarkerPart(widget: RenderNode): string {
+  switch (widget.kind) {
+    case 'colorPicker':
+    case 'datePicker':
+      return 'navigation';
+    case 'numberInput':
+      return 'stepper';
+    case 'slider':
+    case 'rangeSlider':
+      return 'handle';
+    case 'toggleSwitch':
+      return 'track';
+    default:
+      return 'marker';
+  }
 }
 
 export function formErrorStyle(widget: RenderNode): TerminalStyle | undefined {

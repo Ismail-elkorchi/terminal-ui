@@ -1,6 +1,6 @@
 import type { MouseEvent as TerminalMouseEvent } from '../input/index.ts';
 import type { Rect } from './layout.ts';
-import type { PointerEventKind, RoutedPointerEvent } from './pointer-types.ts';
+import type { PointerEventKind, RoutedPointerEvent } from '../input/pointer.ts';
 import type { RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
 
 export interface PointerRouteResult<TMessage> {

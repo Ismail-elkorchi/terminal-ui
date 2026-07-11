@@ -1,4 +1,4 @@
-import { createScrollState, scrollReducer, visibleWindowFromScroll } from './scroll.ts';
+import { createScrollState, scrollReducer, visibleWindowFromScroll } from '../behavior/scroll.ts';
 
 export interface VisibleWindow {
   readonly start: number;

@@ -198,7 +198,7 @@ test('interaction scripts assert styled text focus selection and hit targets aga
     tree({
       id: 'tree',
       selected: 'child',
-      keys: { enter: { kind: 'confirm' } },
+      keys: { enter: () => ({ kind: 'confirm' }) },
       nodes: [
         {
           id: 'root',
@@ -207,7 +207,7 @@ test('interaction scripts assert styled text focus selection and hit targets aga
           children: [{ id: 'child', label: 'Child' }]
         }
       ],
-      onSelect: (node) => ({ kind: 'select', id: node.id })
+      onAction: (action) => ({ kind: 'tree', action })
     }),
     button({
       id: 'confirm',

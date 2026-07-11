@@ -104,11 +104,11 @@ export function chartSource(
 }
 
 export function chartLabelStyle(widget: ChartVisualNode): TerminalStyle | undefined {
-  return mergeStyles(themeStyle('chart.label'), widget.styles?.label);
+  return mergeStyles(themeStyle('chart.label'), widget.styles?.parts?.['label']);
 }
 
 export function chartValueStyle(widget: ChartVisualNode): TerminalStyle | undefined {
-  return mergeStyles(themeStyle('chart.value'), widget.styles?.value);
+  return mergeStyles(themeStyle('chart.value'), widget.styles?.parts?.['value']);
 }
 
 export function chartSelectedStyle(widget: ChartVisualNode): TerminalStyle | undefined {
@@ -118,31 +118,31 @@ export function chartSelectedStyle(widget: ChartVisualNode): TerminalStyle | und
       bg: { kind: 'theme', token: 'selection.background' },
       bold: true
     },
-    widget.styles?.selected
+    widget.styles?.states?.selected
   );
 }
 
 export function chartPlaceholderStyle(widget: ChartVisualNode): TerminalStyle | undefined {
-  return mergeStyles(themeStyle('chart.muted', { dim: true }), widget.styles?.placeholder);
+  return mergeStyles(themeStyle('chart.muted', { dim: true }), widget.styles?.parts?.['muted']);
 }
 
 export function chartAxisStyle(widget: ChartVisualNode): TerminalStyle | undefined {
-  return mergeStyles(themeStyle('chart.axis', { dim: true }), widget.styles?.border);
+  return mergeStyles(themeStyle('chart.axis', { dim: true }), widget.styles?.parts?.['axis']);
 }
 
 export function chartBaselineStyle(widget: ChartVisualNode): TerminalStyle | undefined {
-  return mergeStyles(themeStyle('chart.baseline', { dim: true }), widget.styles?.border);
+  return mergeStyles(themeStyle('chart.baseline', { dim: true }), widget.styles?.parts?.['baseline']);
 }
 
 export function chartPolarityStyle(widget: ChartVisualNode, polarity: 'positive' | 'negative'): TerminalStyle | undefined {
   return mergeStyles(
     themeStyle(polarity === 'positive' ? 'chart.positive' : 'chart.negative', { bold: true }),
-    widget.styles?.value
+    widget.styles?.parts?.['series']
   );
 }
 
 export function chartSeriesStyle(widget: ChartVisualNode, index: number): TerminalStyle | undefined {
-  return mergeStyles(themeStyle(chartSeriesToken(index), { bold: true }), widget.styles?.value);
+  return mergeStyles(themeStyle(chartSeriesToken(index), { bold: true }), widget.styles?.parts?.['series']);
 }
 
 export function chartHeatmapStyle(widget: ChartVisualNode, intensity: number, selected: boolean): TerminalStyle | undefined {
@@ -150,7 +150,7 @@ export function chartHeatmapStyle(widget: ChartVisualNode, intensity: number, se
   if (intensity <= 0) return chartPlaceholderStyle(widget);
   return mergeStyles(
     themeStyle('chart.series.1'),
-    widget.styles?.value,
+    widget.styles?.parts?.['series'],
     intensity === 1 ? { dim: true, bold: false } : undefined,
     intensity >= 3 ? { bold: true } : undefined
   );

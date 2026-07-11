@@ -71,7 +71,7 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
     }),
     numberInput({
       id: 'workers',
-      value: 4,
+      value: '4',
       min: 1,
       max: 8
     }),
@@ -196,7 +196,9 @@ test('form controls emit submit and cancel messages while app state owns values'
       textInput({
         id: 'query',
         value: state.result,
-        onInput: (text) => ({ kind: `typed:${text}` })
+        onEdit: (operation) => ({
+          kind: operation.kind === 'insert' ? `typed:${operation.text}` : operation.kind
+        })
       }),
       row([
         button({ id: 'submit', label: 'Submit', onPress: { kind: 'submit' } }),

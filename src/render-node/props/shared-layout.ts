@@ -3,7 +3,7 @@ import type {
   LayoutInsetInput,
   LayoutJustification,
   LayoutOverflow
-} from '../../tui/regions.ts';
+} from '../../layout/geometry.ts';
 
 export interface RenderNodeLayoutProps {
   readonly gap?: number;

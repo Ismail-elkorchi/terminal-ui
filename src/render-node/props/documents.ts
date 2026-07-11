@@ -3,12 +3,12 @@ import type {
   PaletteOptions,
   ScrollbackOptions,
   StructuredBlock,
-  StructuredBlockOptions,
-  ViewportOptions
+  StructuredBlockOptions
 } from '../../components/options/documents.ts';
+import type { ViewportOptions } from '../../layout/options.ts';
 import type { SearchEntry } from '../../components/contracts.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
-import type { ScrollEvent } from '../../tui/scroll.ts';
+import type { ScrollEvent } from '../../behavior/scroll.ts';
 import type { AuthoredProps, ReplaceProps } from './shared.ts';
 
 export type ViewportRenderProps<TMessage> = ReplaceProps<

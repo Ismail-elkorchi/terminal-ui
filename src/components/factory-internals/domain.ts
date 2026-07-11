@@ -1,13 +1,10 @@
 import type { ChoiceItem, SearchEntry } from '../contracts.ts';
 import type {
   TableColumn,
-  TablePointerSelection,
-  TreeDisclosureAction,
-  TreeNode
 } from '../options/content.ts';
-import type { ColorPickerOption, DatePickerDay } from '../options/forms.ts';
+import type { TreeNode } from '../tree.ts';
+import type { ColorPickerOption } from '../options/forms.ts';
 import type { HeatmapCell } from '../options/feedback.ts';
-import type { RoutedPointerEvent } from '../../tui/pointer-types.ts';
 
 export function domainValues(values: readonly unknown[]): readonly unknown[] {
   return values;
@@ -31,32 +28,10 @@ export function tableColumnsForRenderer<TRow>(
   });
 }
 
-export function tableSelectionHandler<TRow, TMessage>(
-  handler: ((selection: TablePointerSelection<TRow>) => TMessage) | undefined
-): ((selection: TablePointerSelection) => TMessage) | undefined {
-  return handler === undefined
-    ? undefined
-    : (selection) => handler(selection as TablePointerSelection<TRow>);
-}
-
 export function treeNodesForRenderer<TMetadata extends Readonly<Record<string, unknown>>>(
   nodes: readonly TreeNode<TMetadata>[]
 ): readonly TreeNode[] {
   return nodes;
-}
-
-export function treeSelectionHandler<TMetadata extends Readonly<Record<string, unknown>>, TMessage>(
-  handler: ((node: TreeNode<TMetadata>) => TMessage) | undefined
-): ((node: TreeNode) => TMessage) | undefined {
-  return handler === undefined ? undefined : (node) => handler(node as TreeNode<TMetadata>);
-}
-
-export function treeDisclosureHandler<TMetadata extends Readonly<Record<string, unknown>>, TMessage>(
-  handler: ((node: TreeNode<TMetadata>, action: TreeDisclosureAction, event: RoutedPointerEvent) => TMessage) | undefined
-): ((node: TreeNode, action: TreeDisclosureAction, event: RoutedPointerEvent) => TMessage) | undefined {
-  return handler === undefined
-    ? undefined
-    : (node, action, event) => handler(node as TreeNode<TMetadata>, action, event);
 }
 
 export function choiceItemsForRenderer<TValue>(items: readonly ChoiceItem<TValue>[]): readonly ChoiceItem<unknown>[] {
@@ -87,16 +62,6 @@ export function colorSelectionHandler<TValue, TMessage>(
   handler: ((option: ColorPickerOption<TValue>) => TMessage) | undefined
 ): ((option: ColorPickerOption<unknown>) => TMessage) | undefined {
   return handler === undefined ? undefined : (option) => handler(option as ColorPickerOption<TValue>);
-}
-
-export function dateDaysForRenderer<TValue>(days: readonly DatePickerDay<TValue>[]): readonly DatePickerDay<unknown>[] {
-  return days;
-}
-
-export function dateSelectionHandler<TValue, TMessage>(
-  handler: ((day: DatePickerDay<TValue>) => TMessage) | undefined
-): ((day: DatePickerDay<unknown>) => TMessage) | undefined {
-  return handler === undefined ? undefined : (day) => handler(day as DatePickerDay<TValue>);
 }
 
 export function searchEntriesForRenderer<TValue>(entries: readonly SearchEntry<TValue>[]): readonly SearchEntry<unknown>[] {

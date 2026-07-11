@@ -94,9 +94,9 @@ snapshot text, and diagnostic control-sequence views do not share hidden flags.
 
 Themes resolve semantic tokens to terminal styles. Theme symbols provide
 terminal glyph choices for borders, progress, status, and scrollbars.
-Components may accept local style slots through `meta.styles`, but renderers
-decide which slots affect which
-parts. Scrollbar renderers use one shared grammar: track cells, thumb cells,
+Components may accept typed root, part, and visual-state styles through
+`meta.styles`; each component contract defines its available part names.
+Scrollbar renderers use one shared grammar: track cells, thumb cells,
 axis, owner component, and visual state are source-marked in the frame, while the
 theme supplies only the generic track/thumb symbols and tokens.
 

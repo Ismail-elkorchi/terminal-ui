@@ -154,11 +154,10 @@ test('root declaration exposes primary public type contracts', async () => {
     'base',
     'content',
     'documents',
+    'drawing',
     'feedback',
     'forms',
-    'layout',
-    'menus',
-    'surfaces'
+    'menus'
   ].map((name) => readFile(new URL(`../../dist/components/options/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
   const layoutDeclaration = await readFile(new URL('../../dist/layout/index.d.ts', import.meta.url), 'utf8');
   const behaviorDeclaration = await readFile(new URL('../../dist/behavior/index.d.ts', import.meta.url), 'utf8');
@@ -206,12 +205,12 @@ test('root declaration exposes primary public type contracts', async () => {
     'CommandBarOptions',
     'MenuItem',
     'PaletteAction',
+    'TableAction',
     'TableColumn',
     'TreeNode'
   ]) {
     assert.match(componentOptionDeclarations, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
   }
-  assert.doesNotMatch(componentOptionDeclarations, /\bTableAction\b/u);
   assert.doesNotMatch(componentOptionDeclarations, /\bFrameBuffer\b/u);
   for (const authoredDeclaration of [
     declaration,

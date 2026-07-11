@@ -2,7 +2,7 @@ import { createTerminalTextIndex, normalizeTextCursor } from '../text/index.ts';
 import type { TextMeasurementOptions, TextSelection } from '../text/index.ts';
 import type { RenderNodesOfKind } from '../render-node/index.ts';
 import type { Rect } from './layout.ts';
-import type { RoutedPointerEvent } from './pointer-types.ts';
+import type { RoutedPointerEvent } from '../input/pointer.ts';
 import type { HitTarget } from './render-node-renderer.ts';
 
 type TextPointerNode<TMessage> = RenderNodesOfKind<TMessage, 'commandBar' | 'textArea' | 'textInput'>;

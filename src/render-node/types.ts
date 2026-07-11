@@ -3,15 +3,18 @@ import type { RegionOpacity } from '../tui/layout.ts';
 import type { TerminalStyle } from '../tui/render-primitives.ts';
 import type { RenderNodeRenderer } from '../tui/render-node-renderer.ts';
 import type { BindableKeyName } from '../input/index.ts';
+import type { InputEvent } from '../input/index.ts';
+import type { FocusPath } from '../tui/focus.ts';
 import type { RenderNodePropsByKind } from './props/index.ts';
+import type { RenderNodeId } from '../internal/identity.ts';
 
 interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
-  readonly id?: string;
+  readonly id?: RenderNodeId;
   readonly kind: TKind;
   readonly props: RenderNodePropsByKind<TMessage>[TKind];
   readonly layer?: RenderNodeLayerOptions;
   readonly focus?: RenderNodeFocusOptions;
-  readonly styles?: RenderNodeStyleSlots;
+  readonly styles?: RenderNodeStyles;
   readonly children?: readonly RenderNode<TMessage>[];
   readonly keyMap?: RenderNodeKeyMap<TMessage>;
   readonly inputMap?: RenderNodeInputMap<TMessage>;
@@ -94,8 +97,15 @@ export type RenderNodeKind =
   | 'custom';
 
 export type RenderNodeChildren<TMessage> = readonly RenderNode<TMessage>[] | RenderNode<TMessage>;
-export type RenderNodeKeyMap<TMessage> = Readonly<Partial<Record<BindableKeyName, TMessage>>> & {
-  readonly text?: Readonly<Record<string, TMessage>>;
+export interface RenderNodeKeyEvent {
+  readonly input: InputEvent;
+  readonly focusPath: FocusPath;
+}
+
+export type RenderNodeKeyHandler<TMessage> = (event: RenderNodeKeyEvent) => TMessage | undefined;
+
+export type RenderNodeKeyMap<TMessage> = Readonly<Partial<Record<BindableKeyName, RenderNodeKeyHandler<TMessage>>>> & {
+  readonly text?: Readonly<Record<string, RenderNodeKeyHandler<TMessage>>>;
 };
 export type RenderNodeOverflowPriority = 'required' | 'important' | 'secondary' | 'decorative';
 
@@ -129,19 +139,10 @@ export type RenderNodeTextRole =
   | 'warning'
   | 'success';
 
-export interface RenderNodeStyleSlots {
+export interface RenderNodeStyles {
   readonly root?: TerminalStyle;
-  readonly border?: TerminalStyle;
-  readonly title?: TerminalStyle;
-  readonly label?: TerminalStyle;
-  readonly value?: TerminalStyle;
-  readonly placeholder?: TerminalStyle;
-  readonly selected?: TerminalStyle;
-  readonly focused?: TerminalStyle;
-  readonly disabled?: TerminalStyle;
-  readonly error?: TerminalStyle;
-  readonly warning?: TerminalStyle;
-  readonly success?: TerminalStyle;
+  readonly parts?: Readonly<Record<string, TerminalStyle | undefined>>;
+  readonly states?: Readonly<Partial<Record<Exclude<RenderNodeVisualState, 'default'>, TerminalStyle>>>;
 }
 
 export type RenderNodeFocusScope = 'none' | 'contain';

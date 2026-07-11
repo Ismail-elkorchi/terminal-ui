@@ -11,6 +11,27 @@ export type {
   ActivityFeedVisibleBlock
 } from './activity-feed.ts';
 export {
+  addDays,
+  addMonths,
+  calendarDateId,
+  compareDates,
+  datePickerPresentation,
+  datePickerReducer
+} from './date-picker.ts';
+export type {
+  DatePickerBehaviorOptions,
+  DatePickerPresentation,
+  DatePickerState
+} from './date-picker.ts';
+export type {
+  CalendarDate,
+  CalendarMonth,
+  DatePickerAction,
+  DatePickerDay
+} from '../components/date-picker.ts';
+export { dataWindow, rowWindow } from './data-window.ts';
+export type { DataWindow, DataWindowInput } from './data-window.ts';
+export {
   commandBarPresentation
 } from './command-bar.ts';
 export type {
@@ -18,10 +39,10 @@ export type {
 } from './command-bar.ts';
 export {
   commandBarReducer
-} from '../tui/command-surface.ts';
+} from './command-bar-state.ts';
 export type {
   CommandBarState
-} from '../tui/command-surface.ts';
+} from './command-bar-state.ts';
 export type { CommandBarAction } from '../components/command-bar.ts';
 export {
   indeterminateProgressFrame,
@@ -41,13 +62,61 @@ export type {
   HoverableState
 } from './hoverable.ts';
 export {
+  listPresentation,
+  listReducer,
+  visibleListEntries
+} from './list.ts';
+export type {
+  ListPresentation,
+  ListReducerOptions,
+  ListState,
+  ListVisibleEntry
+} from './list.ts';
+export type { ListAction } from '../components/list.ts';
+export {
+  createNumberInputState,
+  numberInputAnalysis,
+  numberInputPresentation,
+  numberInputReducer
+} from './number-input.ts';
+export type {
+  NumberInputAnalysis,
+  NumberInputBehaviorOptions,
+  NumberInputGrammar,
+  NumberInputPresentation,
+  NumberInputState
+} from './number-input.ts';
+export type { NumberInputAction, NumberInputValidity } from '../components/number-input.ts';
+export {
+  paginationWindow,
+  paginatorPresentation,
+  paginatorReducer
+} from './paginator.ts';
+export type {
+  PaginationInput,
+  PaginationWindow,
+  PaginatorPresentation,
+  PaginatorReducerOptions,
+  PaginatorState
+} from './paginator.ts';
+export type { PaginatorAction } from '../components/paginator.ts';
+export {
+  createNotificationState,
+  nextNotificationExpiry,
+  notificationActionFromStack,
+  notificationPresentation,
   notificationReducer,
-  notificationsToActivityBlocks,
-  visibleNotifications
 } from './notifications.ts';
 export type {
   NotificationAction,
-  NotificationReducerOptions,
+  NotificationConflictPolicy,
+  NotificationHistoryEntry,
+  NotificationHistoryReason,
+  NotificationInput,
+  NotificationPolicy,
+  NotificationPresentation,
+  NotificationPresentationOptions,
+  NotificationRecord,
   NotificationState
 } from './notifications.ts';
 export {
@@ -77,7 +146,7 @@ export {
   normalizeScrollState,
   scrollReducer,
   visibleWindowFromScroll
-} from '../tui/scroll.ts';
+} from './scroll.ts';
 export type {
   CreateScrollStateInput,
   ScrollAction,
@@ -89,16 +158,16 @@ export type {
   ScrollEvent,
   ScrollEventSource,
   ScrollEventTarget
-} from '../tui/scroll.ts';
+} from './scroll.ts';
 export {
   activeScreen,
   screenStackReducer
-} from '../tui/regions.ts';
+} from './screen-stack.ts';
 export type {
   Screen,
   ScreenStack,
   ScreenStackAction
-} from '../tui/regions.ts';
+} from './screen-stack.ts';
 export {
   followTailScrollState,
   nextScrollbackMatch,
@@ -115,38 +184,39 @@ export {
   nextSpinnerFrameIndex,
   normalizeSpinnerFrameIndex,
   spinnerReducer
-} from '../tui/spinner.ts';
+} from './spinner.ts';
 export type {
   SpinnerAction,
   SpinnerReducerOptions,
   SpinnerState
-} from '../tui/spinner.ts';
+} from './spinner.ts';
 export {
   sortTableRows,
+  tablePresentation,
   tableReducer
 } from './table.ts';
 export type {
-  TableAction,
   TableCellValueGetter,
   TableReducerOptions,
   TableSortState,
   TableState
 } from './table.ts';
+export type { TableAction } from '../components/table.ts';
 export {
   nextTreeRowId,
   selectableTreeRows,
   treeDisclosureAction,
   treeNodeCanDisclose,
   treeNodeMatches,
+  treePresentation,
   treeReducer,
-  treeStateReducer,
   visibleTreeRows
 } from './tree.ts';
 export type {
-  TreeAction,
+  TreePresentation,
   TreeRenameState,
   TreeState,
-  TreeStateAction,
   TreeVisibleRow,
   TreeVisibleRowsOptions
 } from './tree.ts';
+export type { TreeAction } from '../components/tree.ts';

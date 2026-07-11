@@ -16,7 +16,7 @@ test('divider renders labelled horizontal separators with semantic source roles'
     labelAlign: 'center',
     meta: {
         styles: {
-            label: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true }
+            parts: { label: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }
         }
     }
 }), { columns: 24, rows: 1 });

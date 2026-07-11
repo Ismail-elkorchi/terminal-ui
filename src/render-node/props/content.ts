@@ -5,16 +5,17 @@ import type {
   TableCellSelection,
   TableColumn,
   TableDensity,
-  TablePointerSelection,
   TextAreaOptions,
   TextOptions,
-  TreeDisclosureAction,
-  TreeNode,
   TreeOptions
 } from '../../components/options/content.ts';
+import type { ListAction } from '../../components/list.ts';
+import type { TableAction } from '../../components/table.ts';
+import type { TreeDisclosureAction, TreeNode } from '../../components/tree.ts';
+import type { PaginatorAction } from '../../components/paginator.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
-import type { ScrollEvent } from '../../tui/scroll.ts';
-import type { RoutedPointerEvent } from '../../tui/pointer-types.ts';
+import type { ScrollEvent } from '../../behavior/scroll.ts';
+import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { AuthoredProps, ReplaceProps } from './shared.ts';
 
 export type TextRenderProps = AuthoredProps<TextOptions> & { readonly content: string };
@@ -23,7 +24,7 @@ export type RichTextRenderProps = AuthoredProps<RichTextOptions>;
 type TextAreaAuthoredProps = AuthoredProps<TextAreaOptions>;
 export type TextAreaRenderProps<TMessage> = ReplaceProps<
   TextAreaAuthoredProps,
-  'onScroll' | 'onTextPointer' | 'onEdit' | 'onInput' | 'onPaste',
+  'onScroll' | 'onTextPointer' | 'onEdit',
   {
     readonly toScrollMessage?: (event: ScrollEvent) => TMessage;
     readonly toTextPointerMessage?: (event: TextPointerEvent) => TMessage;
@@ -33,10 +34,11 @@ export type TextAreaRenderProps<TMessage> = ReplaceProps<
 type ListAuthoredProps = AuthoredProps<ListOptions<unknown, never>>;
 export type ListRenderProps<TMessage> = ReplaceProps<
   ListAuthoredProps,
-  'onScroll' | 'onSelect',
+  'onAction' | 'isDisabled',
   {
+    readonly disabledIndices?: readonly number[];
     readonly toScrollMessage?: (event: ScrollEvent) => TMessage;
-    readonly toMessage?: (value: unknown) => TMessage;
+    readonly toActionMessage?: (action: ListAction) => TMessage;
   }
 >;
 
@@ -52,13 +54,13 @@ export interface TableRenderProps<TMessage> {
   readonly toScrollMessage?: (event: ScrollEvent) => TMessage;
   readonly stickyHeader?: boolean;
   readonly emptyText?: string;
-  readonly toMessage?: (selection: TablePointerSelection) => TMessage;
+  readonly toActionMessage?: (action: TableAction) => TMessage;
 }
 
 type TreeAuthoredProps = AuthoredProps<TreeOptions>;
 export type TreeRenderProps<TMessage> = ReplaceProps<
   TreeAuthoredProps,
-  'onScroll' | 'onSelect' | 'onDisclosure',
+  'onAction',
   {
     readonly toScrollMessage?: (event: ScrollEvent) => TMessage;
     readonly toMessage?: (node: TreeNode) => TMessage;
@@ -70,4 +72,8 @@ export type TreeRenderProps<TMessage> = ReplaceProps<
   }
 >;
 
-export type PaginatorRenderProps = AuthoredProps<PaginatorOptions>;
+export type PaginatorRenderProps<TMessage> = ReplaceProps<
+  AuthoredProps<PaginatorOptions>,
+  'onAction',
+  { readonly toActionMessage?: (action: PaginatorAction) => TMessage }
+>;

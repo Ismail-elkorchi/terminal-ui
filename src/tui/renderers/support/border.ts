@@ -28,7 +28,7 @@ function defaultBorderStyle(widget: ModalNode, border: BorderStyle, baseStyle = 
 function modalBorderStyle(widget: ModalNode): TerminalStyle | undefined {
   return mergeStyles(
     { fg: { kind: 'theme', token: 'surface.raised.border' } },
-    widget.styles?.border
+    widget.styles?.parts?.['border']
   );
 }
 

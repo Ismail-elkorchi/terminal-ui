@@ -34,7 +34,36 @@ test('tableReducer forwards scroll actions without creating hidden table state',
     contentColumns: 20,
     viewportColumns: 10
   });
-  const state = tableReducer({ scroll }, { kind: 'scroll', action: { kind: 'scrollLines', rows: 4, columns: 2 } });
+  const state = tableReducer({ scroll }, {
+    kind: 'scroll',
+    event: {
+      action: { kind: 'scrollLines', rows: 4, columns: 2 },
+      scroll,
+      source: 'wheel',
+      target: 'content',
+      pointer: {
+        kind: 'scroll',
+        source: 'mouse',
+        row: 1,
+        column: 1,
+        button: 'wheelDown',
+        modifiers: { shift: false, alt: false, ctrl: false },
+        deltaRows: 4,
+        deltaColumns: 2,
+        raw: {
+          kind: 'mouse',
+          sequence: '',
+          encoding: 'sgr',
+          action: 'wheel',
+          button: 'wheelDown',
+          row: 1,
+          column: 1,
+          rawCode: 0,
+          modifiers: { shift: false, alt: false, ctrl: false }
+        }
+      }
+    }
+  });
 
   assert.equal(state.scroll?.offsetRow, 4);
   assert.equal(state.scroll?.offsetColumn, 2);

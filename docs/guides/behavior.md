@@ -90,10 +90,10 @@ function paletteView(state: PaletteState) {
     id: 'commands',
     entries,
     ...palettePresentation(state),
-    onAction: (action) => ({ kind: 'palette', action }),
+    onAction: (action): PaletteMessage => ({ kind: 'palette', action }),
     keys: {
-      enter: { kind: 'acceptPalette' },
-      escape: { kind: 'closePalette' }
+      enter: (): PaletteMessage => ({ kind: 'acceptPalette' }),
+      escape: (): PaletteMessage => ({ kind: 'closePalette' })
     }
   });
 }
@@ -102,6 +102,35 @@ function paletteView(state: PaletteState) {
 Text editing and selection movement produce `PaletteAction` messages. Accept
 and close remain application decisions because they change application state,
 not palette state.
+
+Hierarchical data uses the same controlled shape without moving application
+effects into the component:
+
+```ts
+import { tree, type TreeAction, type TreeNode } from '@ismail-elkorchi/terminal-ui/components';
+import {
+  treePresentation,
+  treeReducer,
+  type TreeState
+} from '@ismail-elkorchi/terminal-ui/behavior';
+
+type Message = { kind: 'tree'; action: TreeAction };
+
+function updateTree(state: TreeState, message: Message): TreeState {
+  return treeReducer(state, message.action);
+}
+
+function treeView(state: TreeState) {
+  return tree({
+    id: 'navigation',
+    ...treePresentation(state),
+    onAction: (action) => ({ kind: 'tree', action })
+  });
+}
+```
+
+Loading children, opening a selected resource, and persistence remain
+application effects. The reducer owns only deterministic hierarchy state.
 
 Behavior helpers may return the same state object for no-op transitions. That
 lets applications avoid unnecessary rerenders while keeping update logic

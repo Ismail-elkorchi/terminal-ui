@@ -310,9 +310,9 @@ test('rendering and layout code do not read runtime globals', async () => {
   ]);
   const layoutFiles = await namedTuiSourceFiles([
     'focus.ts',
-    'layout.ts',
-    'regions.ts'
+    'layout.ts'
   ]);
+  layoutFiles.push(new URL('../../src/layout/geometry.ts', import.meta.url));
 
   for (const file of [...renderFiles, ...layoutFiles]) {
     const source = runtimeSource(await readFile(file, 'utf8'));
@@ -384,7 +384,7 @@ test('terminal text indexing and editing stay centralized', async () => {
   }
 
   const commandBar = await readFile(new URL('../../src/tui/command-bar.ts', import.meta.url), 'utf8');
-  const commandSurface = await readFile(new URL('../../src/tui/command-surface.ts', import.meta.url), 'utf8');
+  const commandSurface = await readFile(new URL('../../src/behavior/command-bar-state.ts', import.meta.url), 'utf8');
   const commandVisual = await readFile(new URL('../../src/tui/command-visual.ts', import.meta.url), 'utf8');
   const formWidgets = await readSourceTree(new URL('../../src/tui/forms/', import.meta.url));
   const formVisual = await readFile(new URL('../../src/tui/form-visual.ts', import.meta.url), 'utf8');
@@ -402,7 +402,6 @@ test('terminal text indexing and editing stay centralized', async () => {
   const textRenderers = await readFile(new URL('../../src/tui/renderers/text-renderers.ts', import.meta.url), 'utf8');
   const structuredBlock = await readFile(new URL('../../src/tui/structured-block.ts', import.meta.url), 'utf8');
   const textTypes = await readFile(new URL('../../src/text/types.ts', import.meta.url), 'utf8');
-  const textAreaEdit = await readFile(new URL('../../src/text/text-area-edit.ts', import.meta.url), 'utf8');
 
   assert.match(commandBar, /from '\.\/text-display\.ts'/u);
   assert.match(commandBar, /from '\.\/command-visual\.ts'/u);
@@ -437,8 +436,6 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(formRenderers, /\btextInputBlock\b/u);
   assert.doesNotMatch(textTypes, /\bmoveLineStart\b/u);
   assert.doesNotMatch(textTypes, /\bmoveLineEnd\b/u);
-  assert.doesNotMatch(textAreaEdit, /\bmoveLineStart\b/u);
-  assert.doesNotMatch(textAreaEdit, /\bmoveLineEnd\b/u);
   assert.doesNotMatch(commandBar, /function matchSpans/u);
   assert.doesNotMatch(commandBar, /lowerText\.indexOf/u);
   assert.doesNotMatch(menuWidgets, /function menuItemStyle/u);
@@ -589,10 +586,7 @@ test('custom renderers can render only through buffer-scoped renderer inputs', a
   assert.doesNotMatch(rendererTypes, /\bhost\b/u);
   assert.doesNotMatch(rendererTypes, /\bwrite\s*\(/u);
 
-  const canvasOptionTypes = widgetTypes.slice(
-    widgetTypes.indexOf('export interface CanvasOptions'),
-    widgetTypes.indexOf('export interface SurfaceOptions')
-  );
+  const canvasOptionTypes = widgetTypes.slice(widgetTypes.indexOf('export interface CanvasOptions'));
   assert.match(customWidgetTypes, /readonly renderer: CustomRenderer<TState, TMessage>;/u);
   assert.doesNotMatch(customWidgetTypes, /\breadonly painter\b/u);
   assert.match(canvasOptionTypes, /readonly painter: CanvasPainter;/u);

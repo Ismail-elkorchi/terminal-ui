@@ -5,7 +5,7 @@ import type { CursorPosition } from './cursor.ts';
 import type { FrameBuffer } from './frame.ts';
 import type { LayoutNode, Rect } from './layout.ts';
 import type { Measurement } from './measurement.ts';
-import type { PointerEventKind, RoutedPointerEvent } from './pointer-types.ts';
+import type { PointerEventKind, RoutedPointerEvent } from '../input/pointer.ts';
 
 type RendererNode<TMessage, TKind extends RenderNodeKind> =
   RenderNodeKind extends TKind

@@ -1,9 +1,18 @@
 import { elementFromRenderNode } from '../../render-node/element.ts';
 import type { Element } from '../element.ts';
 import type { RichTextOptions, TextAreaOptions, TextOptions } from '../options/content.ts';
-import { interactionProps, textAreaKeyBindings } from '../factory-internals/interaction.ts';
-import { optionalId } from '../factory-internals/layout.ts';
-import type { IndependentInteractionOptions } from '../factory-internals/messages.ts';
+import {
+  componentMetaProps,
+  interactionProps,
+  textAreaKeyBindings,
+  textEditInputHandlers
+} from '../factory-internals/interaction.ts';
+import { optionalId, requiredId } from '../factory-internals/render-node.ts';
+import type {
+  ComponentKeyBindingMessages,
+  IndependentInteractionOptions,
+  InferredComponentKeyBindings
+} from '../factory-internals/messages.ts';
 
 export function text(content: string, options: TextOptions = {}): Element {
   return elementFromRenderNode<'text'>({
@@ -13,30 +22,27 @@ export function text(content: string, options: TextOptions = {}): Element {
       content,
       ...(options.textRole === undefined ? {} : { textRole: options.textRole })
     },
-    ...interactionProps(options)
+    ...componentMetaProps(options.meta)
   });
 }
 
-export function richText<const TMessage = never>(options: RichTextOptions<TMessage>): Element<TMessage> {
-  return elementFromRenderNode<'richText', TMessage>({
+export function richText(options: RichTextOptions): Element {
+  return elementFromRenderNode<'richText'>({
     ...optionalId(options.id),
     kind: 'richText',
     props: {
       segments: options.segments,
       ...(options.wrap === undefined ? {} : { wrap: options.wrap })
     },
-    ...interactionProps(options)
+    ...componentMetaProps(options.meta)
   });
 }
 
-export function textArea(): Element;
 export function textArea<
   const TScrollMessage = never,
   const TTextPointerMessage = never,
   const TEditMessage = never,
-  const TInputMessage = never,
-  const TPasteMessage = never,
-  const TKeyMessage = never
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     TextAreaOptions,
@@ -44,24 +50,20 @@ export function textArea<
       readonly onScroll: TScrollMessage;
       readonly onTextPointer: TTextPointerMessage;
       readonly onEdit: TEditMessage;
-      readonly onInput: TInputMessage;
-      readonly onPaste: TPasteMessage;
     },
     Record<never, never>,
-    TKeyMessage
+    TKeys
   >
 ): Element<
   | TScrollMessage
   | TTextPointerMessage
   | TEditMessage
-  | TInputMessage
-  | TPasteMessage
-  | TKeyMessage
+  | ComponentKeyBindingMessages<TKeys>
 >;
-export function textArea(options: TextAreaOptions<unknown> = {}): Element<unknown> {
+export function textArea(options: TextAreaOptions<unknown>): Element<unknown> {
   const keys = textAreaKeyBindings(options.onEdit, options.keys);
   return elementFromRenderNode<'textArea', unknown>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'textArea'),
     kind: 'textArea',
     props: {
       value: options.value ?? '',
@@ -81,6 +83,10 @@ export function textArea(options: TextAreaOptions<unknown> = {}): Element<unknow
       ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll }),
       ...(options.onTextPointer === undefined ? {} : { toTextPointerMessage: options.onTextPointer })
     },
-    ...interactionProps({ ...options, keys })
+    ...interactionProps({
+      ...textEditInputHandlers(options.onEdit),
+      keys,
+      meta: options.meta
+    })
   });
 }

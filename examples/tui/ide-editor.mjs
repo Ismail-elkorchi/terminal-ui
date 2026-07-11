@@ -4,7 +4,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 import { createMemoryTerminalHost, createTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
-import { editTextAreaBuffer } from '@ismail-elkorchi/terminal-ui/text';
+import { editTextBuffer } from '@ismail-elkorchi/terminal-ui/text';
 import {
   createTuiRuntime,
   defineTui,
@@ -14,12 +14,17 @@ import {
   applyScrollEvent,
   commandBarPresentation,
   commandBarReducer,
+  createNotificationState,
+  notificationActionFromStack,
+  notificationPresentation,
+  notificationReducer,
   createScrollState,
-  nextTreeRowId,
   palettePresentation,
   paletteReducer,
   scrollReducer,
   selectedPaletteEntry,
+  tableReducer,
+  treePresentation,
   treeReducer,
   visibleTreeRows
 } from '@ismail-elkorchi/terminal-ui/behavior';
@@ -156,7 +161,7 @@ function initialState(rootPath) {
       suggestions: commandSuggestions
     },
     palette: { open: false, query: '', selectedIndex: 0, used: false },
-    notifications: [],
+    notifications: createNotificationState(),
     nextNotificationId: 1,
     log: [
       `Workspace opened: ${workspace.rootPath}`,
@@ -173,18 +178,10 @@ function updateIde(state, message) {
       return withState({ ...state, ticks: state.ticks + 1 });
     case 'menu':
       return withState(handleMenu(state, message.action));
-    case 'selectTreeNode':
-      return withState(selectTreeNode(state, message.id, message.source));
-    case 'treeDisclosure':
-      return withState(discloseTreeNode(state, message.id, message.source));
-    case 'treeMove':
-      return withState({ ...state, tree: { ...state.tree, selected: nextVisibleTreeId(state, message.delta) } });
-    case 'activateTree':
-      return withState(activateSelectedTreeNode(state));
-    case 'expandTree':
-      return withState(expandSelectedTreeNode(state));
-    case 'collapseTree':
-      return withState(collapseSelectedTreeNode(state));
+    case 'tree':
+      return withState(handleTreeAction(state, message.action));
+    case 'bufferTable':
+      return withState(handleBufferTableAction(state, message.action));
     case 'setActiveBuffer':
       return withState(setActiveBuffer({ ...state, pointer: { ...state.pointer, bufferTable: message.source === 'pointer' || state.pointer.bufferTable } }, message.path));
     case 'closeActive':
@@ -223,10 +220,14 @@ function updateIde(state, message) {
     }
     case 'paletteAccept':
       return withState(applyCommand(markPaletteUsed(state), message.command));
-    case 'dismissNotification':
+    case 'notification':
       return withState({
         ...state,
-        notifications: state.notifications.filter((item) => item.id !== message.id)
+        notifications: notificationReducer(
+          state.notifications,
+          notificationActionFromStack(message.action, Date.now()),
+          { maxVisible: 3 }
+        )
       });
     case 'exit':
       return { state, exit: { reason: 'user requested exit' } };
@@ -317,13 +318,13 @@ function topChrome(state) {
 }
 
 function notificationStackWidget(state) {
+  const presentation = notificationPresentation(state.notifications, { now: Date.now() });
   return notificationStack({
     id: 'ide-notifications',
-    items: state.notifications,
+    ...presentation,
     placement: 'bottom-right',
-    maxVisible: 3,
     maxWidth: 36,
-    onDismiss: (item) => ({ kind: 'dismissNotification', id: item.id })
+    onAction: (action) => ({ kind: 'notification', action })
   });
 }
 
@@ -333,18 +334,9 @@ function explorerPane(state) {
     text(shortPath(state.rootPath, state.rootPath), { id: 'explorer-root', textRole: 'metadata' }),
     tree({
       id: 'ide-tree',
-      nodes: state.tree.nodes,
-      selected: state.tree.selected,
+      ...treePresentation(state.tree),
       scrollbar: { visible: 'auto' },
-      onSelect: (node) => ({ kind: 'selectTreeNode', id: node.id, source: 'pointer' }),
-      onDisclosure: (node) => ({ kind: 'treeDisclosure', id: node.id, source: 'pointer' }),
-      keys: {
-        arrowDown: { kind: 'treeMove', delta: 1 },
-        arrowUp: { kind: 'treeMove', delta: -1 },
-        arrowRight: { kind: 'expandTree' },
-        arrowLeft: { kind: 'collapseTree' },
-        enter: { kind: 'activateTree' }
-      }
+      onAction: (action) => ({ kind: 'tree', action })
     }),
     helpBar({
       id: 'explorer-help',
@@ -396,8 +388,8 @@ function editorWorkspace(state) {
       panel: editorPanel(state, buffer)
     })),
     keys: {
-      arrowLeft: { kind: 'setActiveBuffer', path: adjacentBufferPath(state, -1), source: 'keyboard' },
-      arrowRight: { kind: 'setActiveBuffer', path: adjacentBufferPath(state, 1), source: 'keyboard' }
+      arrowLeft: () => ({ kind: 'setActiveBuffer', path: adjacentBufferPath(state, -1), source: 'keyboard' }),
+      arrowRight: () => ({ kind: 'setActiveBuffer', path: adjacentBufferPath(state, 1), source: 'keyboard' })
     }
   });
 }
@@ -465,7 +457,6 @@ function editorPanel(state, buffer) {
         scrollPolicy: { wheel: { rows: 6, columns: 8 } },
         placeholder: 'Write here...',
         onScroll: (event) => ({ kind: 'scrollActive', event }),
-        onInput: (value) => ({ kind: 'editActive', action: { kind: 'insert', text: value } }),
         onEdit: (action) => ({ kind: 'editActive', action })
       })),
       footer: helpBar({
@@ -487,7 +478,7 @@ function editorPanel(state, buffer) {
 }
 
 function notificationLayer(state, child) {
-  const notifications = state.notifications.length === 0
+  const notifications = state.notifications.active.length === 0
     ? []
     : [notificationStackWidget(state)];
   return overlay([child, ...notifications], { id: `${child.id ?? 'content'}-notifications` });
@@ -533,7 +524,7 @@ function inspectorPane(state, context) {
         {
           id: 'size-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Size', width: { kind: 'fixed', cells: 10 } }
       ],
-      onSelect: ({ rowIndex }) => ({ kind: 'setActiveBuffer', path: state.openOrder[rowIndex] ?? state.activePath ?? '', source: 'pointer' })
+      onAction: (action) => ({ kind: 'bufferTable', action })
     }),
     viewport(stack(state.log.map((line, index) => text(`${String(index + 1).padStart(2, '0')} ${line}`, {
       id: `ide-log-${String(index)}`
@@ -556,6 +547,25 @@ function inspectorPane(state, context) {
     variant: 'inset',
     padding: 1
   });
+}
+
+function handleBufferTableAction(state, action) {
+  const currentRow = Math.max(0, state.openOrder.indexOf(state.activePath ?? ''));
+  const nextRow = action.kind === 'activate'
+    ? action.row
+    : tableReducer(
+        { selectedRow: currentRow },
+        action,
+        { rowCount: state.openOrder.length, columnCount: 3 }
+      ).selectedRow;
+  if (nextRow === undefined) return state;
+  const filePath = state.openOrder[nextRow];
+  if (filePath === undefined) return state;
+  const source = action.kind === 'selectRow' || action.kind === 'selectCell' ? 'pointer' : 'keyboard';
+  return setActiveBuffer({
+    ...state,
+    pointer: { ...state.pointer, bufferTable: source === 'pointer' || state.pointer.bufferTable }
+  }, filePath);
 }
 
 function hostInputDiagnostic(diagnostics) {
@@ -585,9 +595,9 @@ function commandPane(state) {
     onAction: (action) => ({ kind: 'commandEdit', action }),
     onSubmit: { kind: 'submitCommand' },
     keys: {
-      arrowUp: { kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: -1 } },
-      arrowDown: { kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: 1 } },
-      escape: { kind: 'commandEdit', action: { kind: 'setValue', value: '' } }
+      arrowUp: () => ({ kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: -1 } }),
+      arrowDown: () => ({ kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: 1 } }),
+      escape: () => ({ kind: 'commandEdit', action: { kind: 'setValue', value: '' } })
     }
   }), {
     id: 'ide-command-surface',
@@ -608,8 +618,8 @@ function paletteOverlay(state) {
     onSelect: (entry) => ({ kind: 'paletteAccept', command: entry.value }),
     onAction: (action) => ({ kind: 'paletteEdit', action }),
     keys: {
-      enter: { kind: 'paletteAcceptSelected' },
-      escape: { kind: 'closePalette' }
+      enter: () => ({ kind: 'paletteAcceptSelected' }),
+      escape: () => ({ kind: 'closePalette' })
     }
   }), {
     id: 'ide-palette-surface',
@@ -632,81 +642,63 @@ function handleMenu(state, action) {
   }
 }
 
-function selectTreeNode(state, id, source) {
-  const node = findTreeNode(state.tree.nodes, id);
-  const selectedState = {
-    ...state,
-    tree: { ...state.tree, selected: id },
-    pointer: { ...state.pointer, tree: source === 'pointer' || state.pointer.tree }
-  };
-  if (node?.metadata?.kind === 'file' && typeof node.metadata.path === 'string') {
-    return openFile(selectedState, node.metadata.path, source);
-  }
-  return {
-    ...selectedState,
-    log: appendLog(selectedState, `Selected ${node?.label ?? id}.`)
-  };
-}
-
-function discloseTreeNode(state, id, source) {
-  const node = findTreeNode(state.tree.nodes, id);
-  const selectedState = {
-    ...state,
-    tree: { ...state.tree, selected: id },
-    pointer: { ...state.pointer, tree: source === 'pointer' || state.pointer.tree }
-  };
-  if (node?.metadata?.kind !== 'directory' || typeof node.metadata.path !== 'string') return selectedState;
-  return toggleDirectoryNode(selectedState, node, source);
-}
-
-function activateSelectedTreeNode(state) {
-  const id = state.tree.selected;
-  if (id === undefined) return state;
-  const node = findTreeNode(state.tree.nodes, id);
-  if (node?.metadata?.kind === 'directory' && typeof node.metadata.path === 'string') {
-    return toggleDirectoryNode(state, node, 'tree');
-  }
-  if (node?.metadata?.kind === 'file' && typeof node.metadata.path === 'string') {
-    return openFile(state, node.metadata.path, 'tree');
-  }
-  return state;
-}
-
-function expandSelectedTreeNode(state) {
-  const id = state.tree.selected;
-  if (id === undefined) return state;
-  const node = findTreeNode(state.tree.nodes, id);
-  return node === undefined || node.expanded === true ? state : expandDirectoryNode(state, node, 'keyboard');
-}
-
-function collapseSelectedTreeNode(state) {
-  const id = state.tree.selected;
-  if (id === undefined) return state;
-  const node = findTreeNode(state.tree.nodes, id);
-  if (node?.metadata?.kind !== 'directory') return state;
-  if (node.expanded !== true) return state;
-  return {
-    ...state,
-    tree: {
-      ...state.tree,
-      nodes: treeReducer(state.tree.nodes, { kind: 'collapse', id: node.id })
-    },
-    log: appendLog(state, `Collapsed folder: ${shortPath(state.rootPath, String(node.metadata.path ?? node.label))}`)
-  };
-}
-
-function toggleDirectoryNode(state, node, source) {
-  if (node.expanded === true) {
-    return {
+function handleTreeAction(state, action) {
+  if (action.kind === 'select') {
+    const node = action.id === undefined ? undefined : findTreeNode(state.tree.nodes, action.id);
+    const selectedState = {
       ...state,
-      tree: {
-        ...state.tree,
-        nodes: treeReducer(state.tree.nodes, { kind: 'collapse', id: node.id })
-      },
-      log: appendLog(state, `Collapsed folder from ${source}: ${shortPath(state.rootPath, String(node.metadata.path ?? node.label))}`)
+      tree: treeReducer(state.tree, action),
+      pointer: { ...state.pointer, tree: true }
+    };
+    if (node?.metadata?.kind === 'file' && typeof node.metadata.path === 'string') {
+      return openFile(selectedState, node.metadata.path, 'pointer');
+    }
+    return {
+      ...selectedState,
+      log: appendLog(selectedState, `Selected ${node?.label ?? action.id ?? 'no tree item'}.`)
     };
   }
-  return expandDirectoryNode(state, node, source);
+  if (action.kind === 'activate') return activateTreeNode(state, action.id);
+  if (action.kind === 'toggle' || action.kind === 'expand' || action.kind === 'collapse') {
+    const node = findTreeNode(state.tree.nodes, action.id);
+    if (node?.metadata?.kind !== 'directory' || typeof node.metadata.path !== 'string') {
+      return { ...state, tree: treeReducer(state.tree, action) };
+    }
+    if (action.kind === 'collapse' || (action.kind === 'toggle' && node.expanded === true)) {
+      return collapseDirectoryNode(state, node, action.kind === 'toggle' ? 'pointer' : 'keyboard');
+    }
+    return expandDirectoryNode(state, node, action.kind === 'toggle' ? 'pointer' : 'keyboard');
+  }
+  return { ...state, tree: treeReducer(state.tree, action) };
+}
+
+function activateTreeNode(state, id) {
+  const node = findTreeNode(state.tree.nodes, id);
+  const selectedState = {
+    ...state,
+    tree: treeReducer(state.tree, { kind: 'select', id })
+  };
+  if (node?.metadata?.kind === 'directory' && typeof node.metadata.path === 'string') {
+    return node.expanded === true
+      ? collapseDirectoryNode(selectedState, node, 'keyboard')
+      : expandDirectoryNode(selectedState, node, 'keyboard');
+  }
+  if (node?.metadata?.kind === 'file' && typeof node.metadata.path === 'string') {
+    return openFile(selectedState, node.metadata.path, 'keyboard');
+  }
+  return selectedState;
+}
+
+function collapseDirectoryNode(state, node, source) {
+  const selectedState = {
+    ...state,
+    tree: treeReducer(state.tree, { kind: 'collapse', id: node.id }),
+    pointer: { ...state.pointer, tree: source === 'pointer' || state.pointer.tree }
+  };
+  return {
+    ...selectedState,
+    log: appendLog(selectedState, `Collapsed folder from ${source}: ${shortPath(state.rootPath, node.metadata.path)}`)
+  };
 }
 
 function expandDirectoryNode(state, node, source) {
@@ -714,10 +706,7 @@ function expandDirectoryNode(state, node, source) {
   if (node.children !== undefined && node.lazy !== true) {
     return {
       ...state,
-      tree: {
-        ...state.tree,
-        nodes: treeReducer(state.tree.nodes, { kind: 'expand', id: node.id })
-      },
+      tree: treeReducer(state.tree, { kind: 'expand', id: node.id }),
       log: appendLog(state, `Expanded folder from ${source}: ${shortPath(state.rootPath, node.metadata.path)}`)
     };
   }
@@ -726,8 +715,7 @@ function expandDirectoryNode(state, node, source) {
     return {
       ...state,
       tree: {
-        ...state.tree,
-        nodes: treeReducer(state.tree.nodes, { kind: 'lazySuccess', id: node.id, children: loaded.nodes }),
+        ...treeReducer(state.tree, { kind: 'lazySuccess', id: node.id, children: loaded.nodes }),
         omitted: state.tree.omitted + loaded.omitted
       },
       log: appendLog(state, `Loaded folder from ${source}: ${shortPath(state.rootPath, node.metadata.path)}`)
@@ -736,8 +724,7 @@ function expandDirectoryNode(state, node, source) {
     return {
       ...state,
       tree: {
-        ...state.tree,
-        nodes: treeReducer(state.tree.nodes, { kind: 'lazyError', id: node.id, message: errorMessage(error) }),
+        ...treeReducer(state.tree, { kind: 'lazyError', id: node.id, message: errorMessage(error) }),
         omitted: state.tree.omitted + 1
       },
       ...notificationPatch(state, 'Folder load failed', errorMessage(error), 'error'),
@@ -839,7 +826,7 @@ function openFile(state, filePath, source) {
 function editActiveBuffer(state, action) {
   const active = activeBuffer(state);
   if (active === undefined) return state;
-  const next = editTextAreaBuffer({
+  const next = editTextBuffer({
     text: active.text,
     cursor: active.cursor,
     ...(active.selection === undefined ? {} : { selection: active.selection })
@@ -1013,10 +1000,6 @@ function findTreeNode(nodes, id) {
   return undefined;
 }
 
-function nextVisibleTreeId(state, delta) {
-  return nextTreeRowId(visibleTreeRows(state.tree.nodes), state.tree.selected, delta);
-}
-
 function nodeId(kind, absolutePath) {
   return `${kind}:${absolutePath}`;
 }
@@ -1074,17 +1057,14 @@ function notifyState(state, title, message, tone) {
 }
 
 function notificationPatch(state, title, message, tone) {
+  const id = `ide-notice-${String(state.nextNotificationId)}`;
   return {
     nextNotificationId: state.nextNotificationId + 1,
-    notifications: [
-      ...state.notifications,
-      {
-        id: `ide-notice-${String(state.nextNotificationId)}`,
-        title,
-        message,
-        tone
-      }
-    ]
+    notifications: notificationReducer(state.notifications, {
+      kind: 'enqueue',
+      notification: { id, title, message, tone },
+      now: Date.now()
+    }, { maxVisible: 3 })
   };
 }
 

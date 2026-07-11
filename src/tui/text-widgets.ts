@@ -2,7 +2,7 @@ import type { RenderNodeTextRole } from '../render-node/index.ts';
 import { createTerminalTextIndex, normalizeTextCursor, sanitizeTerminalText } from '../text/index.ts';
 import { block, blockFromText, line, span, wrapRenderSpans } from './frame.ts';
 import { renderNodeFrameSource } from './frame-source.ts';
-import { normalizeScrollState } from './scroll.ts';
+import { normalizeScrollState } from '../behavior/scroll.ts';
 import {
   selectionFromUnknown, textCursorLineMetrics, textDisplayWidth
 } from './text-display.ts';
@@ -23,7 +23,7 @@ import { normalizeProcessStatus } from '../components/status.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from './layout.ts';
-import type { RoutedPointerEvent } from './pointer-types.ts';
+import type { RoutedPointerEvent } from '../input/pointer.ts';
 
 type TextNode = RenderNodeOfKind<unknown, 'text'>;
 type RichTextNode = RenderNodeOfKind<unknown, 'richText'>;
@@ -228,7 +228,7 @@ function styledSegments(widget: RichTextNode): readonly RenderSpan[] {
 }
 
 function richTextSegments(widget: RichTextNode): readonly RenderSpan[] {
-  const rootStyle = resolveRenderNodeStyle(widget, { slot: 'root' });
+  const rootStyle = resolveRenderNodeStyle(widget, { part: 'root' });
   return styledSegments(widget).map((segment, index) => cleanSpan(widget, segment, index, rootStyle));
 }
 
@@ -252,9 +252,9 @@ function linkStyle(segment: RenderSpan): RenderSpan['style'] {
 function textStyle(widget: TextNode): TerminalStyle | undefined {
   const role = widgetTextRole(widget.props.textRole);
   const base = role === undefined ? undefined : defaultStyleForTextRole(role);
-  if (base === undefined) return resolveRenderNodeStyle(widget, { slot: 'root' });
+  if (base === undefined) return resolveRenderNodeStyle(widget, { part: 'root' });
   return resolveRenderNodeStyle(widget, {
-    slot: 'root',
+    part: 'root',
     base
   });
 }

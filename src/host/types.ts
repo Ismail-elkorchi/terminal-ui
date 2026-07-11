@@ -129,6 +129,11 @@ export type MouseReportingMode = 'none' | 'click' | 'drag' | 'all';
 export interface NodeReadableTerminalStream extends AsyncIterable<string | Uint8Array> {
   readonly isTTY?: boolean;
   setRawMode?(enabled: boolean): void;
+  pause?(): void;
+  resume?(): void;
+  unref?(): void;
+  on?(event: string, listener: (...args: unknown[]) => void): void;
+  off?(event: string, listener: (...args: unknown[]) => void): void;
 }
 
 export interface NodeWritableTerminalStream {

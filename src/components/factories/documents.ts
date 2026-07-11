@@ -1,54 +1,33 @@
-import { elementFromRenderNode, toRenderNode } from '../../render-node/element.ts';
-import type { RenderNode } from '../../render-node/index.ts';
-import type { Element, ElementMessage } from '../element.ts';
+import { elementFromRenderNode } from '../../render-node/element.ts';
+import type { Element } from '../element.ts';
 import type {
   ActivityFeedOptions,
   CommandBarOptions,
   PaletteOptions,
   ScrollbackOptions,
-  StructuredBlockOptions,
-  ViewportOptions
+  StructuredBlockOptions
 } from '../options/documents.ts';
 import {
   commandBarKeyBindings,
+  componentMetaProps,
   interactionProps,
   mergeKeyBindings,
   paletteKeyBindings
 } from '../factory-internals/interaction.ts';
-import { layoutProps, optionalId } from '../factory-internals/layout.ts';
+import { optionalId, requiredId } from '../factory-internals/render-node.ts';
 import {
   searchEntriesForRenderer,
   searchSelectionHandler
 } from '../factory-internals/domain.ts';
-import type { IndependentInteractionOptions } from '../factory-internals/messages.ts';
-
-export function viewport<const TChild extends Element<unknown>, const TMessage = never>(
-  child: TChild,
-  options: ViewportOptions<TMessage> = {}
-): Element<ElementMessage<TChild> | TMessage> {
-  type Message = ElementMessage<TChild> | TMessage;
-  const childNode = toRenderNode(child);
-  return elementFromRenderNode<'viewport', Message>({
-    ...optionalId(options.id),
-    kind: 'viewport',
-    props: {
-      ...(options.scrollRow === undefined ? {} : { scrollRow: options.scrollRow }),
-      ...(options.scrollColumn === undefined ? {} : { scrollColumn: options.scrollColumn }),
-      ...(options.contentRows === undefined ? {} : { contentRows: options.contentRows }),
-      ...(options.contentColumns === undefined ? {} : { contentColumns: options.contentColumns }),
-      ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
-      ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll }),
-      ...layoutProps(options)
-    },
-    children: [childNode] as readonly RenderNode<Message>[],
-    ...interactionProps(options)
-  });
-}
+import type {
+  ComponentKeyBindingMessages,
+  IndependentInteractionOptions,
+  InferredComponentKeyBindings
+} from '../factory-internals/messages.ts';
 
 export function scrollback<const TMessage = never>(options: ScrollbackOptions<TMessage>): Element<TMessage> {
   return elementFromRenderNode<'scrollback', TMessage>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'scrollback'),
     kind: 'scrollback',
     props: {
       items: options.items,
@@ -64,8 +43,8 @@ export function scrollback<const TMessage = never>(options: ScrollbackOptions<TM
   });
 }
 
-export function structuredBlock<const TMessage = never>(options: StructuredBlockOptions<TMessage>): Element<TMessage> {
-  return elementFromRenderNode<'structuredBlock', TMessage>({
+export function structuredBlock(options: StructuredBlockOptions): Element {
+  return elementFromRenderNode<'structuredBlock'>({
     ...optionalId(options.id),
     kind: 'structuredBlock',
     props: {
@@ -78,13 +57,13 @@ export function structuredBlock<const TMessage = never>(options: StructuredBlock
       ...(options.details === undefined ? {} : { details: options.details }),
       ...(options.collapsed === undefined ? {} : { collapsed: options.collapsed })
     },
-    ...interactionProps(options)
+    ...componentMetaProps(options.meta)
   });
 }
 
 export function activityFeed<const TMessage = never>(options: ActivityFeedOptions<TMessage>): Element<TMessage> {
   return elementFromRenderNode<'activityFeed', TMessage>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'activityFeed'),
     kind: 'activityFeed',
     props: {
       blocks: options.blocks,
@@ -100,12 +79,11 @@ export function activityFeed<const TMessage = never>(options: ActivityFeedOption
   });
 }
 
-export function commandBar(): Element;
 export function commandBar<
   const TActionMessage = never,
   const TTextPointerMessage = never,
   const TSubmitMessage = never,
-  const TKeyMessage = never
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     CommandBarOptions,
@@ -114,16 +92,16 @@ export function commandBar<
       readonly onTextPointer: TTextPointerMessage;
     },
     { readonly onSubmit: TSubmitMessage },
-    TKeyMessage
+    TKeys
   >
-): Element<TActionMessage | TTextPointerMessage | TSubmitMessage | TKeyMessage>;
-export function commandBar(options: CommandBarOptions<unknown> = {}): Element<unknown> {
+): Element<TActionMessage | TTextPointerMessage | TSubmitMessage | ComponentKeyBindingMessages<TKeys>>;
+export function commandBar(options: CommandBarOptions<unknown>): Element<unknown> {
   const action = options.onAction;
   const generatedKeys = action === undefined ? undefined : commandBarKeyBindings(action);
-  const submitKeys = options.onSubmit === undefined ? undefined : { enter: options.onSubmit };
+  const submitKeys = options.onSubmit === undefined ? undefined : { enter: () => options.onSubmit };
   const keyMap = mergeKeyBindings(mergeKeyBindings(generatedKeys, submitKeys), options.keys);
   return elementFromRenderNode<'commandBar', unknown>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'commandBar'),
     kind: 'commandBar',
     props: {
       value: options.value ?? '',
@@ -157,7 +135,7 @@ export function palette<
   const TSelectMessage = never,
   const TScrollMessage = never,
   const TActionMessage = never,
-  const TKeyMessage = never
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     PaletteOptions<TValue>,
@@ -167,16 +145,16 @@ export function palette<
       readonly onAction: TActionMessage;
     },
     Record<never, never>,
-    TKeyMessage
+    TKeys
   >
-): Element<TSelectMessage | TScrollMessage | TActionMessage | TKeyMessage>;
+): Element<TSelectMessage | TScrollMessage | TActionMessage | ComponentKeyBindingMessages<TKeys>>;
 export function palette<TValue>(options: PaletteOptions<TValue, unknown>): Element<unknown> {
   const action = options.onAction;
   const generatedKeys = action === undefined ? undefined : paletteKeyBindings(action);
   const keyMap = mergeKeyBindings(generatedKeys, options.keys);
   const toMessage = searchSelectionHandler(options.onSelect);
   return elementFromRenderNode<'palette', unknown>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'palette'),
     kind: 'palette',
     props: {
       entries: searchEntriesForRenderer(options.entries),

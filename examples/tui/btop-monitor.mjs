@@ -447,9 +447,9 @@ function processPanel(state) {
           id: 'cpu-6', value: (row) => row.cpu, header: 'Cpu%', width: { kind: 'fixed', cells: 6 }, align: 'end', semantic: 'metric', render: ({ row }) => row.cpu.toFixed(1) }
       ],
       keys: {
-        arrowDown: { kind: 'selectProcess', delta: 1 },
-        arrowUp: { kind: 'selectProcess', delta: -1 },
-        text: { s: { kind: 'sort' } }
+        arrowDown: () => ({ kind: 'selectProcess', delta: 1 }),
+        arrowUp: () => ({ kind: 'selectProcess', delta: -1 }),
+        text: { s: () => ({ kind: 'sort' }) }
       }
     })
   ], { id: 'proc-stack', gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }] }), {

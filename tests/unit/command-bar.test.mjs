@@ -95,9 +95,9 @@ test('commandBar projects controlled state and emits semantic actions', async ()
       onAction: (action) => ({ kind: 'action', action }),
       onSubmit: { kind: 'submit' },
       keys: {
-        arrowUp: { kind: 'history' },
-        tab: { kind: 'suggestion' },
-        escape: { kind: 'escape' }
+        arrowUp: () => ({ kind: 'history' }),
+        tab: () => ({ kind: 'suggestion' }),
+        escape: () => ({ kind: 'escape' })
       }
     })
   });

@@ -1,5 +1,5 @@
 import { numberProp } from '../../render-node-props.ts';
-import { normalizeScrollState } from '../../scroll.ts';
+import { normalizeScrollState } from '../../../behavior/scroll.ts';
 import { renderNodeStyle } from '../../render-node-style.ts';
 import { renderNodeFrameSource } from '../../frame-source.ts';
 import { nonNegativeInteger } from './common.ts';
@@ -76,7 +76,7 @@ export function drawViewportIndicators(
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const state = viewportVisualState(widget, bounds);
-  const style = renderNodeStyle(widget, 'placeholder');
+  const style = renderNodeStyle(widget, 'empty');
   if (state.empty) {
     writeViewportIndicator(buffer, widget, centered(bounds), theme.tokens.symbols.viewportEmpty, 'empty', style, occupiedCells);
     return;

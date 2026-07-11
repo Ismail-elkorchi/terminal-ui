@@ -1,14 +1,7 @@
-import type { Element, ElementChildren, ElementChildrenMessage } from '../element.ts';
-import { toRenderNode, toRenderNodes } from '../../render-node/element.ts';
-import type { RenderNode } from '../../render-node/index.ts';
+import type { Element } from '../../components/element.ts';
+import { toRenderNode } from '../../render-node/element.ts';
 import type { RenderNodeLayoutProps } from '../../render-node/props/shared-layout.ts';
-import type { LayoutFlowOptions } from '../../tui/regions.ts';
-
-export function renderNodeChildren<const TChildren extends ElementChildren>(
-  children: TChildren
-): readonly RenderNode<ElementChildrenMessage<TChildren>>[] {
-  return toRenderNodes(children);
-}
+import type { LayoutFlowOptions } from '../geometry.ts';
 
 export function assertTrackCount(
   kind: 'row' | 'stack',
@@ -18,21 +11,6 @@ export function assertTrackCount(
   if (sizes !== undefined && sizes.length !== childCount) {
     throw new RangeError(`${kind} sizes length ${String(sizes.length)} must match child count ${String(childCount)}.`);
   }
-}
-
-export function layoutProps(options: LayoutFlowOptions): RenderNodeLayoutProps & { readonly gap?: number } {
-  return {
-    ...(options.gap === undefined ? {} : { gap: options.gap }),
-    ...(options.padding === undefined ? {} : { padding: options.padding }),
-    ...(options.margin === undefined ? {} : { margin: options.margin }),
-    ...(options.minWidth === undefined ? {} : { minWidth: options.minWidth }),
-    ...(options.minHeight === undefined ? {} : { minHeight: options.minHeight }),
-    ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
-    ...(options.maxHeight === undefined ? {} : { maxHeight: options.maxHeight }),
-    ...(options.align === undefined ? {} : { align: options.align }),
-    ...(options.justify === undefined ? {} : { justify: options.justify }),
-    ...(options.overflow === undefined ? {} : { overflow: options.overflow })
-  };
 }
 
 export function surfaceLayoutProps(options: Omit<LayoutFlowOptions, 'gap'>): RenderNodeLayoutProps {
@@ -49,16 +27,8 @@ export function surfaceLayoutProps(options: Omit<LayoutFlowOptions, 'gap'>): Ren
   };
 }
 
-export function optionalId(id: string | undefined): { readonly id?: string } {
-  return id === undefined ? {} : { id };
-}
-
 export function assertSurfaceChild<TMessage>(child: Element<TMessage>): void {
-  if (Array.isArray(child)) {
-    throw new Error('surface() expects exactly one non-surface child. Compose child content with stack(), row(), grid(), or tabs() before wrapping it in surface().');
-  }
-  const childNode = toRenderNode(child);
-  if (childNode.kind === 'surface') {
+  if (Array.isArray(child) || toRenderNode(child).kind === 'surface') {
     throw new Error('surface() expects exactly one non-surface child. Compose child content with stack(), row(), grid(), or tabs() before wrapping it in surface().');
   }
 }

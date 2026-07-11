@@ -7,7 +7,7 @@ import { numberProp, stringify } from './render-node-props.ts';
 import { renderNodeFrameSource } from './frame-source.ts';
 import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn, visibleLineWindow } from './text-display.ts';
 import { textOffsetAtVisualColumn } from './text-pointer.ts';
-import { inputCursorStyle, mergeStyles, themeStyle, renderNodeStyle } from './render-node-style.ts';
+import { inputCursorStyle, mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TextSelection } from '../text/index.ts';
@@ -16,7 +16,7 @@ import { optionalValidationTone } from '../components/status.ts';
 import type { CommandBarDisplay, CommandBarValidation } from '../components/options/documents.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { Rect } from './layout.ts';
-import type { RoutedPointerEvent } from './pointer-types.ts';
+import type { RoutedPointerEvent } from '../input/pointer.ts';
 import { clipRenderSpans, measureRenderSpans } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from './render-primitives.ts';
 
@@ -122,7 +122,10 @@ function inputLine(widget: CommandBarNode, width: number): RenderLine {
   const completionWidth = Math.max(0, model.contentWidth - visibleCells);
   if (model.value.length > 0 && completion.length > 0 && model.window.endOffset >= model.value.length && completionWidth > 0) {
     spans.push(...clipRenderSpans([
-      styledSpan(completion, renderNodeStyle(widget, 'placeholder'), commandSource(widget, 'completion', { partKind: 'completion', state: 'preview' }))
+      styledSpan(completion, resolveRenderNodeStyle(widget, {
+        part: 'completion',
+        base: themeStyle('input.placeholder', { dim: true })
+      }), commandSource(widget, 'completion', { partKind: 'completion', state: 'preview' }))
     ], completionWidth));
   }
   const historyIndex = numberProp(widget, 'historyIndex');
@@ -139,7 +142,7 @@ function inputLine(widget: CommandBarNode, width: number): RenderLine {
 }
 
 function commandPromptStyle(widget: CommandBarNode): ReturnType<typeof renderNodeStyle> {
-  return mergeStyles(themeStyle('command.prompt'), widget.styles?.label);
+  return mergeStyles(themeStyle('command.prompt'), widget.styles?.parts?.['prompt']);
 }
 
 interface CommandInputModel {

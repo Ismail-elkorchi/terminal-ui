@@ -4,7 +4,7 @@ import type {
   MenuOptions,
   TooltipOptions
 } from '../../components/options/menus.ts';
-import type { ScrollEvent } from '../../tui/scroll.ts';
+import type { ScrollEvent } from '../../behavior/scroll.ts';
 import type { AuthoredProps } from './shared.ts';
 
 export interface RenderMenuItem<TMessage> extends Omit<MenuItem, 'onPress' | 'children'> {

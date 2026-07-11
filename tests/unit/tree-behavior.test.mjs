@@ -11,8 +11,8 @@ import {
   treeDisclosureAction,
   treeNodeCanDisclose,
   treeNodeMatches,
+  treePresentation,
   treeReducer,
-  treeStateReducer,
   visibleTreeRows
 } from '../../dist/behavior/index.js';
 import { tree } from '../../dist/components/index.js';
@@ -25,41 +25,46 @@ test('treeReducer models lazy pending success error and empty states', () => {
     lazy: true,
     metadata: { path: '/workspace/root' }
   }];
-  const pending = treeReducer(nodes, { kind: 'lazyPending', id: 'root', message: 'Loading children' });
+  const pending = treeReducer({ nodes }, { kind: 'lazyPending', id: 'root', message: 'Loading children' });
   const failed = treeReducer(pending, { kind: 'lazyError', id: 'root', message: 'Network failed' });
   const loaded = treeReducer(failed, { kind: 'lazySuccess', id: 'root', children: [{ id: 'child', label: 'Child' }] });
   const empty = treeReducer(loaded, { kind: 'lazySuccess', id: 'root', children: [] });
 
-  assert.deepEqual(pending[0]?.lazyStatus, 'pending');
-  assert.deepEqual(failed[0]?.lazyStatus, 'error');
-  assert.equal(loaded[0]?.children?.[0]?.label, 'Child');
-  assert.equal(loaded[0]?.description, 'workspace/root');
-  assert.deepEqual(loaded[0]?.metadata, { path: '/workspace/root' });
-  assert.equal(empty[0]?.lazyStatus, 'empty');
+  assert.deepEqual(pending.nodes[0]?.lazyStatus, 'pending');
+  assert.deepEqual(failed.nodes[0]?.lazyStatus, 'error');
+  assert.equal(loaded.nodes[0]?.children?.[0]?.label, 'Child');
+  assert.equal(loaded.nodes[0]?.description, 'workspace/root');
+  assert.deepEqual(loaded.nodes[0]?.metadata, { path: '/workspace/root' });
+  assert.equal(empty.nodes[0]?.lazyStatus, 'empty');
 
-  const failedFrame = renderElementFrame(tree({ id: 'lazy-error', nodes: failed }), { columns: 24, rows: 3 });
+  const failedFrame = renderElementFrame(tree({ id: 'lazy-error', ...treePresentation(failed) }), { columns: 24, rows: 3 });
   assert.match(renderFramePlain(failedFrame), /Network failed/u);
 });
 
 test('treeReducer renames nodes without mutating input', () => {
   const nodes = [{ id: 'root', label: 'Root' }];
-  const renamed = treeReducer(nodes, { kind: 'rename', id: 'root', label: 'Workspace' });
+  const started = treeReducer({ nodes }, { kind: 'startRename', id: 'root', value: 'Root' });
+  const updated = treeReducer(started, { kind: 'updateRename', value: 'Workspace' });
+  const renamed = treeReducer(updated, { kind: 'commitRename' });
 
   assert.equal(nodes[0]?.label, 'Root');
-  assert.equal(renamed[0]?.label, 'Workspace');
+  assert.equal(renamed.nodes[0]?.label, 'Workspace');
+  assert.equal(renamed.rename, undefined);
 });
 
-test('treeStateReducer owns selection filter and rename interaction state', () => {
-  const selected = treeStateReducer({}, { kind: 'select', id: 'node-a' });
-  const filtered = treeStateReducer(selected, { kind: 'filter', query: 'term' });
-  const renaming = treeStateReducer(filtered, { kind: 'startRename', id: 'node-a', value: 'Node A' });
-  const updated = treeStateReducer(renaming, { kind: 'updateRename', value: 'Node Alpha' });
-  const committed = treeStateReducer(updated, { kind: 'commitRename' });
-  const cleared = treeStateReducer(committed, { kind: 'filter', query: '' });
+test('treeReducer owns hierarchy selection filter and rename state together', () => {
+  const initial = { nodes: [{ id: 'node-a', label: 'Node A' }] };
+  const selected = treeReducer(initial, { kind: 'select', id: 'node-a' });
+  const filtered = treeReducer(selected, { kind: 'filter', query: 'term' });
+  const renaming = treeReducer(filtered, { kind: 'startRename', id: 'node-a', value: 'Node A' });
+  const updated = treeReducer(renaming, { kind: 'updateRename', value: 'Node Alpha' });
+  const committed = treeReducer(updated, { kind: 'commitRename' });
+  const cleared = treeReducer(committed, { kind: 'filter', query: '' });
 
-  assert.deepEqual(selected, { selected: 'node-a' });
-  assert.deepEqual(filtered, { selected: 'node-a', filterQuery: 'term' });
+  assert.equal(selected.selected, 'node-a');
+  assert.equal(filtered.filterQuery, 'term');
   assert.deepEqual(updated.rename, { id: 'node-a', value: 'Node Alpha' });
+  assert.equal(committed.nodes[0]?.label, 'Node Alpha');
   assert.equal(committed.rename, undefined);
   assert.equal(cleared.filterQuery, undefined);
 });

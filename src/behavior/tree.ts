@@ -1,18 +1,15 @@
-import type { TreeDisclosureAction, TreeNode } from '../components/options/content.ts';
+import type { TreeAction, TreeDisclosureAction, TreeNode } from '../components/tree.ts';
+import { applyScrollEvent, scrollReducer } from './scroll.ts';
+import type { ScrollState } from './scroll.ts';
 
-export type TreeAction<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> =
-  | TreeDisclosureAction
-  | { readonly kind: 'expandAll' }
-  | { readonly kind: 'collapseAll' }
-  | { readonly kind: 'lazyPending'; readonly id: string; readonly message?: string }
-  | { readonly kind: 'lazySuccess'; readonly id: string; readonly children: readonly TreeNode<TMetadata>[] }
-  | { readonly kind: 'lazyError'; readonly id: string; readonly message: string }
-  | { readonly kind: 'rename'; readonly id: string; readonly label: string };
-
-export interface TreeState {
+export interface TreeState<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> {
+  readonly nodes: readonly TreeNode<TMetadata>[];
   readonly selected?: string;
   readonly filterQuery?: string;
   readonly rename?: TreeRenameState;
+  readonly scroll?: ScrollState;
 }
 
 export interface TreeRenameState {
@@ -20,7 +17,9 @@ export interface TreeRenameState {
   readonly value: string;
 }
 
-export interface TreeVisibleRow<TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>> {
+export interface TreeVisibleRow<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> {
   readonly node: TreeNode<TMetadata>;
   readonly depth: number;
   readonly path: readonly string[];
@@ -31,35 +30,58 @@ export interface TreeVisibleRowsOptions {
   readonly filterQuery?: string;
 }
 
-export type TreeStateAction =
-  | { readonly kind: 'select'; readonly id?: string }
-  | { readonly kind: 'filter'; readonly query: string }
-  | { readonly kind: 'startRename'; readonly id: string; readonly value: string }
-  | { readonly kind: 'updateRename'; readonly value: string }
-  | { readonly kind: 'commitRename' }
-  | { readonly kind: 'cancelRename' };
-
-export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
-  nodes: readonly TreeNode<TMetadata>[],
-  action: TreeAction<TMetadata>
-): readonly TreeNode<TMetadata>[] {
-  return nodes.map((node) => reduceNode(node, action));
+export interface TreePresentation<TMetadata extends Readonly<Record<string, unknown>>> {
+  readonly nodes: readonly TreeNode<TMetadata>[];
+  readonly selected?: string;
+  readonly filterQuery?: string;
+  readonly scroll?: ScrollState;
 }
 
-export function treeStateReducer(state: TreeState, action: TreeStateAction): TreeState {
+export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: TreeState<TMetadata>,
+  action: TreeAction<TMetadata>
+): TreeState<TMetadata> {
   switch (action.kind) {
     case 'select':
-      return action.id === undefined ? withoutSelected(state) : { ...state, selected: action.id };
+      return selectTreeNode(state, action.id);
+    case 'move':
+      return moveTreeSelection(state, action.delta);
+    case 'activate':
+      return state;
     case 'filter':
-      return action.query.length === 0 ? withoutFilter(state) : { ...state, filterQuery: action.query };
+      return action.query.length === 0
+        ? withoutFilter(state)
+        : { ...state, filterQuery: action.query };
     case 'startRename':
       return { ...state, rename: { id: action.id, value: action.value } };
     case 'updateRename':
-      return state.rename === undefined ? state : { ...state, rename: { ...state.rename, value: action.value } };
+      return state.rename === undefined
+        ? state
+        : { ...state, rename: { ...state.rename, value: action.value } };
     case 'commitRename':
+      return commitTreeRename(state);
     case 'cancelRename':
       return withoutRename(state);
+    case 'scroll':
+      return state.scroll === undefined
+        ? state
+        : { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
+    default: {
+      const nodes = reduceTreeNodes(state.nodes, action);
+      return nodes === state.nodes ? state : { ...state, nodes };
+    }
   }
+}
+
+export function treePresentation<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: TreeState<TMetadata>
+): TreePresentation<TMetadata> {
+  return {
+    nodes: state.nodes,
+    ...(state.selected === undefined ? {} : { selected: state.selected }),
+    ...(state.filterQuery === undefined ? {} : { filterQuery: state.filterQuery }),
+    ...(state.scroll === undefined ? {} : { scroll: state.scroll })
+  };
 }
 
 export function treeNodeMatches<TMetadata extends Readonly<Record<string, unknown>>>(
@@ -104,7 +126,8 @@ export function nextTreeRowId(
 ): string | undefined {
   const selectable = selectableTreeRows(rows);
   if (selectable.length === 0) return undefined;
-  const current = Math.max(0, selectable.findIndex((row) => row.node.id === selected));
+  const selectedIndex = selectable.findIndex((row) => row.node.id === selected);
+  const current = selectedIndex < 0 ? 0 : selectedIndex;
   return selectable[wrapIndex(current + delta, selectable.length)]?.node.id;
 }
 
@@ -122,22 +145,73 @@ export function treeNodeCanDisclose<TMetadata extends Readonly<Record<string, un
   return node.lazy === true || (node.children?.length ?? 0) > 0;
 }
 
-function reduceNode<TMetadata extends Readonly<Record<string, unknown>>>(
+function selectTreeNode<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: TreeState<TMetadata>,
+  id: string | undefined
+): TreeState<TMetadata> {
+  if (id === undefined) return withoutSelection(state);
+  if (state.selected === id) return state;
+  const rows = visibleTreeRows(state.nodes, state.filterQuery === undefined ? {} : { filterQuery: state.filterQuery });
+  const rowIndex = rows.findIndex((row) => row.node.id === id && row.node.disabled !== true && row.lazyPlaceholder !== true);
+  if (rowIndex < 0) return state;
+  const scroll = state.scroll === undefined
+    ? undefined
+    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: rowIndex });
+  return { ...state, selected: id, ...(scroll === undefined ? {} : { scroll }) };
+}
+
+function moveTreeSelection<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: TreeState<TMetadata>,
+  delta: number
+): TreeState<TMetadata> {
+  const rows = visibleTreeRows(state.nodes, state.filterQuery === undefined ? {} : { filterQuery: state.filterQuery });
+  return selectTreeNode(state, nextTreeRowId(rows, state.selected, delta));
+}
+
+function commitTreeRename<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: TreeState<TMetadata>
+): TreeState<TMetadata> {
+  if (state.rename === undefined) return state;
+  const nodes = renameTreeNode(state.nodes, state.rename.id, state.rename.value);
+  const withoutRename = withoutRenameState(state);
+  return nodes === state.nodes ? withoutRename : { ...withoutRename, nodes };
+}
+
+function reduceTreeNodes<TMetadata extends Readonly<Record<string, unknown>>>(
+  nodes: readonly TreeNode<TMetadata>[],
+  action: Exclude<TreeAction<TMetadata>,
+    | { readonly kind: 'select' | 'move' | 'activate' | 'filter' | 'startRename' | 'updateRename' | 'commitRename' | 'cancelRename' | 'scroll' }
+  >
+): readonly TreeNode<TMetadata>[] {
+  const next = nodes.map((node) => {
+    const reduced = reduceTreeNode(node, action);
+    return reduced;
+  });
+  return next.some((node, index) => node !== nodes[index]) ? next : nodes;
+}
+
+function reduceTreeNode<TMetadata extends Readonly<Record<string, unknown>>>(
   node: TreeNode<TMetadata>,
-  action: TreeAction<TMetadata>
+  action: Exclude<TreeAction<TMetadata>,
+    | { readonly kind: 'select' | 'move' | 'activate' | 'filter' | 'startRename' | 'updateRename' | 'commitRename' | 'cancelRename' | 'scroll' }
+  >
 ): TreeNode<TMetadata> {
-  const children = node.children?.map((child) => reduceNode(child, action));
-  const base = children === undefined ? node : { ...node, children };
-  if (action.kind === 'expandAll') return { ...base, expanded: true };
-  if (action.kind === 'collapseAll') return { ...base, expanded: false };
+  const base: TreeNode<TMetadata> = node.children === undefined
+    ? node
+    : (() => {
+        const children = reduceTreeNodes(node.children, action);
+        return children === node.children ? node : { ...node, children };
+      })();
+  if (action.kind === 'expandAll') return base.expanded === true ? base : { ...base, expanded: true };
+  if (action.kind === 'collapseAll') return base.expanded === false ? base : { ...base, expanded: false };
   if (node.id !== action.id) return base;
   switch (action.kind) {
     case 'toggle':
       return { ...base, expanded: node.expanded !== true };
     case 'expand':
-      return { ...base, expanded: true };
+      return node.expanded === true ? base : { ...base, expanded: true };
     case 'collapse':
-      return { ...base, expanded: false };
+      return node.expanded === false ? base : { ...base, expanded: false };
     case 'lazyPending':
       return {
         ...base,
@@ -149,19 +223,22 @@ function reduceNode<TMetadata extends Readonly<Record<string, unknown>>>(
     case 'lazySuccess':
       return lazySuccessNode(base, action.children);
     case 'lazyError':
-      return {
-        ...base,
-        lazy: true,
-        expanded: true,
-        lazyStatus: 'error',
-        lazyMessage: action.message
-      };
-    case 'rename':
-      return {
-        ...base,
-        label: action.label
-      };
+      return { ...base, lazy: true, expanded: true, lazyStatus: 'error', lazyMessage: action.message };
   }
+}
+
+function renameTreeNode<TMetadata extends Readonly<Record<string, unknown>>>(
+  nodes: readonly TreeNode<TMetadata>[],
+  id: string,
+  label: string
+): readonly TreeNode<TMetadata>[] {
+  const next = nodes.map((node): TreeNode<TMetadata> => {
+    const children = node.children === undefined ? undefined : renameTreeNode(node.children, id, label);
+    const renamed = node.id === id && node.label !== label ? { ...node, label } : node;
+    const result = children === undefined || children === node.children ? renamed : { ...renamed, children };
+    return result;
+  });
+  return next.some((node, index) => node !== nodes[index]) ? next : nodes;
 }
 
 function collectVisibleTreeRow<TMetadata extends Readonly<Record<string, unknown>>>(
@@ -208,10 +285,6 @@ function lazyPlaceholderLabel(node: TreeNode): string {
   return node.lazyMessage ?? 'Loading…';
 }
 
-function wrapIndex(index: number, length: number): number {
-  return ((index % length) + length) % length;
-}
-
 function lazySuccessNode<TMetadata extends Readonly<Record<string, unknown>>>(
   node: TreeNode<TMetadata>,
   children: readonly TreeNode<TMetadata>[]
@@ -230,23 +303,46 @@ function lazySuccessNode<TMetadata extends Readonly<Record<string, unknown>>>(
   };
 }
 
-function withoutSelected(state: TreeState): TreeState {
+function withoutSelection<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: TreeState<TMetadata>
+): TreeState<TMetadata> {
+  if (state.selected === undefined) return state;
+  return treeStateWithout(state, 'selected');
+}
+
+function withoutFilter<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: TreeState<TMetadata>
+): TreeState<TMetadata> {
+  if (state.filterQuery === undefined) return state;
+  return treeStateWithout(state, 'filterQuery');
+}
+
+function withoutRename<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: TreeState<TMetadata>
+): TreeState<TMetadata> {
+  return withoutRenameState(state);
+}
+
+function withoutRenameState<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: TreeState<TMetadata>
+): TreeState<TMetadata> {
+  if (state.rename === undefined) return state;
+  return treeStateWithout(state, 'rename');
+}
+
+function treeStateWithout<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: TreeState<TMetadata>,
+  field: 'selected' | 'filterQuery' | 'rename'
+): TreeState<TMetadata> {
   return {
-    ...(state.filterQuery === undefined ? {} : { filterQuery: state.filterQuery }),
-    ...(state.rename === undefined ? {} : { rename: state.rename })
+    nodes: state.nodes,
+    ...(field === 'selected' || state.selected === undefined ? {} : { selected: state.selected }),
+    ...(field === 'filterQuery' || state.filterQuery === undefined ? {} : { filterQuery: state.filterQuery }),
+    ...(field === 'rename' || state.rename === undefined ? {} : { rename: state.rename }),
+    ...(state.scroll === undefined ? {} : { scroll: state.scroll })
   };
 }
 
-function withoutFilter(state: TreeState): TreeState {
-  return {
-    ...(state.selected === undefined ? {} : { selected: state.selected }),
-    ...(state.rename === undefined ? {} : { rename: state.rename })
-  };
-}
-
-function withoutRename(state: TreeState): TreeState {
-  return {
-    ...(state.selected === undefined ? {} : { selected: state.selected }),
-    ...(state.filterQuery === undefined ? {} : { filterQuery: state.filterQuery })
-  };
+function wrapIndex(index: number, length: number): number {
+  return ((index % length) + length) % length;
 }

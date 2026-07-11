@@ -102,9 +102,12 @@ export interface TuiEffectFailure {
 
 export interface TuiEffect<TMessage> {
   readonly id: string;
+  readonly concurrency: TuiEffectConcurrency;
   run(context: TuiEffectContext): Promise<TMessage | readonly TMessage[] | undefined>;
   onError?(failure: TuiEffectFailure): TMessage | undefined;
 }
+
+export type TuiEffectConcurrency = 'parallel' | 'keep-first' | 'replace' | 'enqueue';
 
 export type TuiEventDelivery = 'sequential' | 'latest';
 

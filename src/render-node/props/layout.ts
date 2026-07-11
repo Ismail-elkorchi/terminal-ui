@@ -1,5 +1,5 @@
 import type { BorderStyle } from '../../tui/border.ts';
-import type { LayoutSize } from '../../tui/regions.ts';
+import type { LayoutSize } from '../../layout/geometry.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 
 export type StackRenderProps = RenderNodeLayoutProps & { readonly sizes?: readonly LayoutSize[] };

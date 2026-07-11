@@ -76,7 +76,7 @@ export interface RenderNodePropsByKind<TMessage> {
   readonly list: ListRenderProps<TMessage>;
   readonly table: TableRenderProps<TMessage>;
   readonly tree: TreeRenderProps<TMessage>;
-  readonly paginator: PaginatorRenderProps;
+  readonly paginator: PaginatorRenderProps<TMessage>;
   readonly textArea: TextAreaRenderProps<TMessage>;
   readonly form: FormRenderProps;
   readonly field: FieldRenderProps;
@@ -92,7 +92,7 @@ export interface RenderNodePropsByKind<TMessage> {
   readonly radioGroup: RadioGroupRenderProps<TMessage>;
   readonly selectBox: SelectBoxRenderProps<TMessage>;
   readonly textInput: TextInputRenderProps<TMessage>;
-  readonly numberInput: NumberInputRenderProps;
+  readonly numberInput: NumberInputRenderProps<TMessage>;
   readonly menu: MenuRenderProps<TMessage>;
   readonly menuBar: MenuBarRenderProps<TMessage>;
   readonly contextMenu: ContextMenuRenderProps<TMessage>;

@@ -1,5 +1,5 @@
 import { createFrameBuffer } from '../frame.ts';
-import { splitTracks } from '../regions.ts';
+import { splitTracks } from '../../layout/geometry.ts';
 import { writeRenderBlock } from './support/block.ts';
 import { borderForModal, modalLabel } from './support/border.ts';
 import { cellInside, groupAccessibleNode } from './support/common.ts';

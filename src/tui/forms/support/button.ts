@@ -56,7 +56,7 @@ function buttonStyle(widget: ButtonNode, focused: boolean): TerminalStyle | unde
   const state = buttonState(widget, focused);
   const base = buttonBaseStyle(widget);
   return resolveRenderNodeStyle(widget, {
-    slot: 'label',
+    part: 'label',
     ...(base === undefined ? {} : { base }),
     ...(state === undefined ? {} : { state })
   });
@@ -66,7 +66,7 @@ function buttonChromeStyle(widget: ButtonNode, focused: boolean): TerminalStyle 
   const state = buttonState(widget, focused);
   const base = buttonChromeBaseStyle(widget);
   return resolveRenderNodeStyle(widget, {
-    slot: 'border',
+    part: 'chrome',
     ...(base === undefined ? {} : { base }),
     ...(state === undefined ? {} : { state })
   });

@@ -695,34 +695,6 @@ test('shared border renderer aligns titles and clips wide unicode safely', () =>
   assert.equal(renderFramePlain(wide.snapshot()), '╭ 界─╮');
 });
 
-test('focused bordered widgets use focus border style without changing layout', () => {
-  const frame = renderElementFrame(surface(text('inside', { id: 'inside' }), {
-    id: 'focus-panel',
-    border: { kind: 'single', title: 'Panel' },
-    keys: { enter: { kind: 'submit' } }
-  }), { columns: 12, rows: 3 });
-  const topLeft = frame.cells.find((cell) => cell.row === 1 && cell.column === 1);
-
-  assert.equal(renderFramePlain(frame).split('\n')[0], '┌ Panel ───┐');
-  assert.deepEqual(topLeft?.style?.fg, { kind: 'theme', token: 'focus.border' });
-});
-
-test('focused bordered widgets respect explicit focus style override', () => {
-  const frame = renderElementFrame(surface(text('inside', { id: 'inside' }), {
-    id: 'focus-panel-custom',
-    border: {
-      kind: 'heavy',
-      title: 'Panel',
-      focusStyle: { fg: { kind: 'theme', token: 'status.warning' }, bold: true }
-    },
-    keys: { enter: { kind: 'submit' } }
-  }), { columns: 12, rows: 3 });
-  const topLeft = frame.cells.find((cell) => cell.row === 1 && cell.column === 1);
-
-  assert.deepEqual(topLeft?.style?.fg, { kind: 'theme', token: 'status.warning' });
-  assert.equal(topLeft?.style?.bold, true);
-});
-
 test('layers render top z-index content last and hide invisible widgets', () => {
   const widget = overlay([
     text('lower', {

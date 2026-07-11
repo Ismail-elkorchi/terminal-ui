@@ -5,7 +5,7 @@ import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotMetadata, FrameBufferSnapshotOptions, FrameCell, FrameHitTarget } from './frame.ts';
 import type { FocusPath, LayoutFocusTarget } from './focus.ts';
 import type { LayoutNode, Rect, RegionOpacity } from './layout.ts';
-import type { PointerEventKind, RoutedPointerEvent } from './pointer-types.ts';
+import type { PointerEventKind, RoutedPointerEvent } from '../input/pointer.ts';
 import type { HitTarget } from './render-node-renderer.ts';
 
 export interface RenderRegionHitTarget<TMessage = unknown> extends FrameHitTarget {

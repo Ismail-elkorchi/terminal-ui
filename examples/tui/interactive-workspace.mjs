@@ -9,11 +9,16 @@ import {
 import {
   commandBarPresentation,
   commandBarReducer,
+  createNotificationState,
+  notificationActionFromStack,
+  notificationPresentation,
+  notificationReducer,
   palettePresentation,
   paletteReducer,
   selectedPaletteEntry,
   tableReducer,
-  treeStateReducer
+  treePresentation,
+  treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import {
@@ -96,7 +101,7 @@ const commandSuggestions = Object.freeze(paletteEntries.map((entry) => ({ value:
 function initialState() {
   return {
     tab: 'issues',
-    tree: { selected: 'queue:triage' },
+    tree: { nodes: navigationNodes(), selected: 'queue:triage' },
     table: { selectedRow: 0 },
     command: {
       input: { text: '', cursor: 0 },
@@ -104,7 +109,7 @@ function initialState() {
       suggestions: commandSuggestions
     },
     palette: { open: false, query: '', selectedIndex: 0, selectedIds: [], used: false },
-    notifications: [],
+    notifications: createNotificationState(),
     nextNotificationId: 1,
     log: [
       'Workspace started.',
@@ -138,13 +143,18 @@ function defineWorkspaceApp() {
 
 function updateWorkspace(state, message) {
   switch (message.kind) {
-    case 'selectNode': {
-      const nextTree = treeStateReducer(state.tree, { kind: 'select', id: message.id });
+    case 'tree': {
+      const nextTree = treeReducer(state.tree, message.action);
       return withState({
         ...state,
         tree: nextTree,
-        pointer: { ...state.pointer, tree: message.source === 'pointer' || state.pointer.tree },
-        log: appendLog(state, `Selected ${message.id}.`)
+        pointer: {
+          ...state.pointer,
+          tree: message.action.kind === 'select' || message.action.kind === 'toggle' || state.pointer.tree
+        },
+        log: message.action.kind === 'select'
+          ? appendLog(state, `Selected ${message.action.id ?? 'no tree item'}.`)
+          : state.log
       });
     }
     case 'setTab':
@@ -165,7 +175,8 @@ function updateWorkspace(state, message) {
     case 'table':
       return withState({
         ...state,
-        table: tableReducer(state.table, message.action, { rowCount: visibleTickets(state).length, columnCount: 5 })
+        table: tableReducer(state.table, message.action, { rowCount: visibleTickets(state).length, columnCount: 5 }),
+        pointer: { ...state.pointer, table: true }
       });
     case 'selectTableRow':
       return withState({
@@ -196,10 +207,14 @@ function updateWorkspace(state, message) {
         ...state,
         pointer: { ...state.pointer, palette: message.source === 'pointer' || state.pointer.palette }
       }), message.command));
-    case 'dismissNotification':
+    case 'notification':
       return withState({
         ...state,
-        notifications: state.notifications.filter((item) => item.id !== message.id)
+        notifications: notificationReducer(
+          state.notifications,
+          notificationActionFromStack(message.action, Date.now()),
+          { maxVisible: 2 }
+        )
       });
     case 'exit':
       return { state, exit: { reason: 'user requested exit' } };
@@ -283,13 +298,8 @@ function navigationSurface(state) {
   return surface(stack([
     tree({
       id: 'workspace-tree',
-      nodes: navigationNodes(),
-      selected: state.tree.selected,
-      onSelect: (node) => ({ kind: 'selectNode', id: node.id, source: 'pointer' }),
-      keys: {
-        arrowDown: { kind: 'selectNode', id: nextNodeId(state.tree.selected), source: 'keyboard' },
-        arrowUp: { kind: 'selectNode', id: previousNodeId(state.tree.selected), source: 'keyboard' }
-      },
+      ...treePresentation(state.tree),
+      onAction: (action) => ({ kind: 'tree', action }),
       scrollbar: { visible: 'auto' }
     }),
     helpBar({
@@ -321,8 +331,8 @@ function mainSurface(state) {
       { id: 'notes', label: 'Notes', description: 'Command guide', onSelect: { kind: 'setTab', tab: 'notes' }, panel: notesPanel(state) }
     ],
     keys: {
-      arrowLeft: { kind: 'setTab', tab: previousTab(state.tab) },
-      arrowRight: { kind: 'setTab', tab: nextTab(state.tab) }
+      arrowLeft: () => ({ kind: 'setTab', tab: previousTab(state.tab) }),
+      arrowRight: () => ({ kind: 'setTab', tab: nextTab(state.tab) })
     }
   });
 }
@@ -337,7 +347,7 @@ function issueTablePanel(state) {
       selected,
       stickyHeader: true,
       scrollbar: { visible: 'auto' },
-      onSelect: ({ rowIndex }) => ({ kind: 'selectTableRow', row: rowIndex, source: 'pointer' }),
+      onAction: (action) => ({ kind: 'table', action }),
       columns: [
         {
           id: 'id-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'ID', width: { kind: 'fixed', cells: 7 } },
@@ -351,9 +361,9 @@ function issueTablePanel(state) {
           id: 'state-4', value: (row) => Array.isArray(row) ? row[4] : undefined, header: 'State', width: { kind: 'fixed', cells: 10 } }
       ],
       keys: {
-        arrowDown: { kind: 'table', action: { kind: 'selectRow', row: selected + 1 } },
-        arrowUp: { kind: 'table', action: { kind: 'selectRow', row: selected - 1 } },
-        enter: { kind: 'submitCommand' }
+        arrowDown: () => ({ kind: 'table', action: { kind: 'selectRow', row: selected + 1 } }),
+        arrowUp: () => ({ kind: 'table', action: { kind: 'selectRow', row: selected - 1 } }),
+        enter: () => ({ kind: 'submitCommand' })
       }
     })),
     helpBar({
@@ -461,11 +471,11 @@ function commandSurface(state) {
     onAction: (action) => ({ kind: 'commandEdit', action }),
     onSubmit: { kind: 'submitCommand' },
     keys: {
-      arrowUp: { kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: -1 } },
-      arrowDown: { kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: 1 } },
-      tab: { kind: 'commandEdit', action: { kind: 'acceptSuggestion' } },
-      escape: { kind: 'commandEdit', action: { kind: 'setValue', value: '' } },
-      text: { '/': { kind: 'openPalette' } }
+      arrowUp: () => ({ kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: -1 } }),
+      arrowDown: () => ({ kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: 1 } }),
+      tab: () => ({ kind: 'commandEdit', action: { kind: 'acceptSuggestion' } }),
+      escape: () => ({ kind: 'commandEdit', action: { kind: 'setValue', value: '' } }),
+      text: { '/': () => ({ kind: 'openPalette' }) }
     }
   }), {
     id: 'workspace-command-surface',
@@ -486,8 +496,8 @@ function paletteOverlay(state) {
     maxVisible: 6,
     onAction: (action) => ({ kind: 'paletteEdit', action }),
     keys: {
-      enter: { kind: 'paletteAcceptSelected' },
-      escape: { kind: 'closePalette' }
+      enter: () => ({ kind: 'paletteAcceptSelected' }),
+      escape: () => ({ kind: 'closePalette' })
     }
   }), {
     id: 'workspace-palette-surface',
@@ -504,17 +514,17 @@ function paletteOverlay(state) {
 }
 
 function notificationStackForState(state) {
+  const presentation = notificationPresentation(state.notifications, { now: Date.now() });
   return notificationStack({
     id: 'workspace-notifications',
-    items: state.notifications,
+    ...presentation,
     placement: 'bottom-right',
-    maxVisible: 2,
-    onDismiss: (item) => ({ kind: 'dismissNotification', id: item.id })
+    onAction: (action) => ({ kind: 'notification', action })
   });
 }
 
 function notificationLayer(state, child) {
-  const notifications = state === undefined || state.notifications.length === 0
+  const notifications = state === undefined || state.notifications.active.length === 0
     ? []
     : [notificationStackForState(state)];
   return overlay([child, ...notifications], { id: `${child.id ?? 'content'}-notifications` });
@@ -609,17 +619,14 @@ function reducePaletteState(state, action) {
 }
 
 function notificationPatch(state, title, message, tone) {
+  const id = `notice-${String(state.nextNotificationId)}`;
   return {
     nextNotificationId: state.nextNotificationId + 1,
-    notifications: [
-      ...state.notifications,
-      {
-        id: `notice-${String(state.nextNotificationId)}`,
-        title,
-        message,
-        tone
-      }
-    ]
+    notifications: notificationReducer(state.notifications, {
+      kind: 'enqueue',
+      notification: { id, title, message, tone },
+      now: Date.now()
+    }, { maxVisible: 2 })
   };
 }
 
@@ -650,16 +657,6 @@ function ticketStatus(ticket) {
 
 function resolvedCount() {
   return tickets.filter((ticket) => ticket.state === 'success').length;
-}
-
-const nodeOrder = Object.freeze(['workspace', 'queue:triage', 'queue:review', 'queue:done', 'team', 'team:ops', 'team:design']);
-
-function nextNodeId(current) {
-  return nodeOrder[wrapIndex(nodeOrder.indexOf(current ?? 'workspace') + 1, nodeOrder.length)] ?? 'workspace';
-}
-
-function previousNodeId(current) {
-  return nodeOrder[wrapIndex(nodeOrder.indexOf(current ?? 'workspace') - 1, nodeOrder.length)] ?? 'workspace';
 }
 
 const tabOrder = Object.freeze(['issues', 'activity', 'notes']);

@@ -11,7 +11,7 @@ import type { RenderNodeOfKind, RenderNodesOfKind } from '../render-node/index.t
 import type { CursorPosition } from './cursor.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from './layout.ts';
-import type { RoutedPointerEvent } from './pointer-types.ts';
+import type { RoutedPointerEvent } from '../input/pointer.ts';
 
 type SingleLineInputNode = RenderNodesOfKind<unknown, 'numberInput' | 'textInput'>;
 type TextAreaNode = RenderNodeOfKind<unknown, 'textArea'>;
@@ -59,7 +59,7 @@ export function singleLineInputBlock(input: SingleLineInputBlockInput): RenderBl
     model.display,
     model.usesPlaceholder ? undefined : input.selection,
     model.contentStyle,
-    renderNodeStyle(input.widget, 'value', 'selected'),
+    renderNodeStyle(input.widget, 'selection', 'selected'),
     {
       normalSource: inputSource(input.widget, model.usesPlaceholder ? 'placeholder' : 'value'),
       selectedSource: inputSource(input.widget, 'selection')
@@ -75,10 +75,11 @@ export function singleLineInputBlock(input: SingleLineInputBlockInput): RenderBl
 export function singleLineInputCursor(input: SingleLineInputBlockInput): CursorPosition {
   const model = singleLineInputModel({ ...input, focused: true });
   const contentWidth = Math.max(0, input.bounds.width - model.prefixWidth - model.suffixWidth);
+  const style = cursorVisualStyle(input.widget);
   return {
     row: input.bounds.row,
     column: input.bounds.column + model.prefixWidth + singleLineCursorColumn(input.value, input.cursor, Math.max(0, contentWidth - 1)),
-    style: inputCursorStyle(),
+    ...(style === undefined ? {} : { style }),
     source: inputSource(input.widget, 'cursor')
   };
 }
@@ -123,7 +124,7 @@ export function textAreaInputLine(input: TextAreaInputBlockInput, lineInput: {
     usesPlaceholder: input.usesPlaceholder === true,
     active,
     contentStyle,
-    selectedStyle: renderNodeStyle(input.widget, 'value', 'selected'),
+    selectedStyle: renderNodeStyle(input.widget, 'selection', 'selected'),
     ...(selectionInWindow === undefined
       ? {}
       : {
@@ -150,13 +151,14 @@ export function textAreaInputCursor(input: {
   readonly lineCount: number;
 }): CursorPosition {
   const prefixWidth = textAreaInputPrefixWidth(input.widget, input.theme, input.lineCount);
+  const style = cursorVisualStyle(input.widget);
   return {
     row: input.bounds.row + input.rowOffset,
     column: input.bounds.column + prefixWidth + Math.max(0, Math.min(
       Math.max(0, input.bounds.width - prefixWidth - 1),
       Math.max(0, input.columnCells - input.offsetColumn)
     )),
-    style: inputCursorStyle(),
+    ...(style === undefined ? {} : { style }),
     source: inputSource(input.widget, 'cursor')
   };
 }
@@ -247,10 +249,18 @@ function inputChromeStyle(widget: InputNode, focused: boolean): TerminalStyle | 
         ? 'focused'
         : undefined;
   return resolveRenderNodeStyle(widget, {
-    slot: 'border',
+    part: 'border',
     base: { fg: { kind: 'theme', token: 'control.border' } },
     ...(state === undefined ? {} : { state })
   });
+}
+
+function cursorVisualStyle(widget: InputNode): TerminalStyle | undefined {
+  return mergeStyles(
+    inputCursorStyle(),
+    widget.styles?.parts?.['cursor'],
+    widget.styles?.states?.focused
+  );
 }
 
 function textAreaMarkerStyle(widget: TextAreaNode, focused: boolean, active: boolean, rowIndex: number): TerminalStyle | undefined {
@@ -267,7 +277,7 @@ function textAreaGutterStyle(widget: TextAreaNode, active: boolean): TerminalSty
           fg: { kind: 'theme', token: 'editor.gutter.foreground' },
           bg: { kind: 'theme', token: 'editor.gutter.background' }
         },
-        widget.styles?.border
+        widget.styles?.parts?.['gutter']
       );
 }
 
@@ -278,7 +288,7 @@ function textAreaActiveGutterStyle(widget: TextAreaNode): TerminalStyle | undefi
       bg: { kind: 'theme', token: 'editor.activeLine.background' },
       bold: true
     },
-    widget.styles?.border
+    widget.styles?.parts?.['gutter']
   );
 }
 
@@ -290,14 +300,14 @@ function textAreaLineNumberStyle(widget: TextAreaNode, active: boolean): Termina
           bg: { kind: 'theme', token: 'editor.activeLine.background' },
           bold: true
         },
-        widget.styles?.label
+        widget.styles?.parts?.['lineNumber']
       )
     : mergeStyles(
         {
           fg: { kind: 'theme', token: 'editor.gutter.foreground' },
           bg: { kind: 'theme', token: 'editor.gutter.background' }
         },
-        widget.styles?.label
+        widget.styles?.parts?.['lineNumber']
       );
 }
 
@@ -306,7 +316,7 @@ function inputContentStyle(widget: InputNode, focused: boolean, active = false):
   if (typeof widget.props.error === 'string' && widget.props.error.length > 0) return renderNodeStyle(widget, 'value', 'error');
   return mergeStyles(
     renderNodeStyle(widget, 'value'),
-    focused ? widget.styles?.focused : undefined,
+    focused ? widget.styles?.states?.focused : undefined,
     active && widget.kind === 'textArea' ? textAreaActiveLineTextStyle(widget) : undefined
   );
 }
@@ -314,7 +324,7 @@ function inputContentStyle(widget: InputNode, focused: boolean, active = false):
 function textAreaActiveLineTextStyle(widget: TextAreaNode): TerminalStyle | undefined {
   return mergeStyles(
     { bg: { kind: 'theme', token: 'editor.activeLine.background' } },
-    widget.styles?.value
+    widget.styles?.parts?.['activeLine']
   );
 }
 

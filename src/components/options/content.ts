@@ -1,46 +1,45 @@
 import type { TextEditOperation, TextSelection } from '../../text/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../tui/render-primitives.ts';
-import type { LayoutFlowOptions, LayoutSize } from '../../tui/regions.ts';
-import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../tui/scroll.ts';
+import type { LayoutSize } from '../../layout/geometry.ts';
+import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../behavior/scroll.ts';
 import type { ScrollbarOptions } from '../../tui/scrollbar.ts';
-import type { RoutedPointerEvent } from '../../tui/pointer-types.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
-import type { TreeItemBase } from '../contracts.ts';
-import type { ComponentKeyBindings, ComponentOptions, TextRole } from './base.ts';
+import type { ListAction } from '../list.ts';
+import type { TableAction } from '../table.ts';
+import type { TreeAction, TreeNode } from '../tree.ts';
+import type { PaginatorAction } from '../paginator.ts';
+import type { ComponentKeyBindings, ComponentOptions, InteractiveComponentOptions, TextRole } from './base.ts';
+import type {
+  DataListStylePart,
+  PaginatorStylePart,
+  TableStylePart,
+  TextAreaStylePart,
+  TextStylePart,
+  TreeStylePart
+} from '../style-parts.ts';
 
-export interface TextOptions extends ComponentOptions {
+export interface TextOptions extends ComponentOptions<TextStylePart> {
   readonly textRole?: TextRole;
 }
 
-export interface RichTextOptions<TMessage = never> extends ComponentOptions {
+export interface RichTextOptions extends ComponentOptions<TextStylePart> {
   readonly segments: readonly RenderSpan[];
   readonly wrap?: boolean;
-  readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
-export interface StackOptions<TMessage = never> extends ComponentOptions, LayoutFlowOptions {
-  readonly sizes?: readonly LayoutSize[];
-  readonly keys?: ComponentKeyBindings<TMessage>;
-}
-
-export interface RowOptions<TMessage = never> extends ComponentOptions, LayoutFlowOptions {
-  readonly sizes?: readonly LayoutSize[];
-  readonly keys?: ComponentKeyBindings<TMessage>;
-}
-
-export interface ListOptions<TValue, TMessage> extends ComponentOptions {
+export interface ListOptions<TValue, TMessage> extends InteractiveComponentOptions<DataListStylePart> {
   readonly items: readonly TValue[];
   readonly selected?: number;
   readonly filterQuery?: string;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onScroll?: (event: ScrollEvent) => TMessage;
-  readonly onSelect?: (value: TValue) => TMessage;
+  readonly isDisabled?: (value: TValue, index: number) => boolean;
+  readonly onAction?: (action: ListAction) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
-export interface TableOptions<TRow, TMessage = never> extends ComponentOptions {
+export interface TableOptions<TRow, TMessage = never> extends InteractiveComponentOptions<TableStylePart> {
   readonly rows: readonly TRow[];
   readonly columns?: readonly TableColumn<TRow>[];
   readonly selected?: number;
@@ -49,24 +48,10 @@ export interface TableOptions<TRow, TMessage = never> extends ComponentOptions {
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onScroll?: (event: ScrollEvent) => TMessage;
   readonly stickyHeader?: boolean;
   readonly emptyText?: string;
-  readonly onSelect?: (selection: TablePointerSelection<TRow>) => TMessage;
+  readonly onAction?: (action: TableAction) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
-}
-
-export interface TablePointerSelection<TRow = unknown> {
-  readonly row: TRow;
-  readonly rowIndex: number;
-  readonly cell?: TableCellPointerSelection;
-}
-
-export interface TableCellPointerSelection {
-  readonly value: unknown;
-  readonly columnIndex: number;
-  readonly sourceColumnIndex: number;
-  readonly columnLabel: string;
 }
 
 export type TableColumnWidth = number | LayoutSize;
@@ -102,46 +87,30 @@ export interface TableCellSelection {
   readonly column?: number;
 }
 
-export interface TreeNode<
-  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
-> extends TreeItemBase<TreeNode<TMetadata>> {
-  readonly lazy?: boolean;
-  readonly lazyStatus?: 'pending' | 'error' | 'empty';
-  readonly lazyMessage?: string;
-  readonly icon?: string;
-  readonly metadata?: TMetadata;
-}
-
-export type TreeDisclosureAction =
-  | { readonly kind: 'toggle'; readonly id: string }
-  | { readonly kind: 'expand'; readonly id: string }
-  | { readonly kind: 'collapse'; readonly id: string };
-
 export interface TreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
   TMessage = never
-> extends ComponentOptions {
+> extends InteractiveComponentOptions<TreeStylePart> {
   readonly nodes: readonly TreeNode<TMetadata>[];
   readonly selected?: string;
   readonly filterQuery?: string;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onScroll?: (event: ScrollEvent) => TMessage;
   readonly emptyText?: string;
-  readonly onSelect?: (node: TreeNode<TMetadata>) => TMessage;
-  readonly onDisclosure?: (node: TreeNode<TMetadata>, action: TreeDisclosureAction, event: RoutedPointerEvent) => TMessage;
+  readonly onAction?: (action: TreeAction<TMetadata>) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
-export interface PaginatorOptions<TMessage = never> extends ComponentOptions {
+export interface PaginatorOptions<TMessage = never> extends InteractiveComponentOptions<PaginatorStylePart> {
   readonly page: number;
   readonly pageCount: number;
   readonly label?: string;
+  readonly onAction?: (action: PaginatorAction) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
-export interface TextAreaOptions<TMessage = never> extends ComponentOptions {
+export interface TextAreaOptions<TMessage = never> extends InteractiveComponentOptions<TextAreaStylePart> {
   readonly value?: string;
   readonly cursor?: number;
   readonly selection?: TextSelection;
@@ -160,8 +129,6 @@ export interface TextAreaOptions<TMessage = never> extends ComponentOptions {
   readonly onTextPointer?: (event: TextPointerEvent) => TMessage;
   readonly onEdit?: (operation: TextEditOperation) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
-  readonly onInput?: (text: string) => TMessage;
-  readonly onPaste?: (text: string) => TMessage;
 }
 
 export interface TextAreaHighlight {

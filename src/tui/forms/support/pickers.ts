@@ -1,7 +1,7 @@
 import type {
-  ColorPickerOption,
-  DatePickerDay
+  ColorPickerOption
 } from '../../../components/options/forms.ts';
+import type { CalendarDate, DatePickerDay } from '../../../components/date-picker.ts';
 import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../frame.ts';
 import {
@@ -27,13 +27,13 @@ type PickerNode<TMessage = unknown> = ColorPickerNode<TMessage> | DatePickerNode
 
 export function pickerMessageFactory<TMessage>(
   widget: PickerNode<TMessage>
-): ((option: ColorPickerOption<unknown> | DatePickerDay<unknown>) => TMessage) | undefined {
+): ((option: ColorPickerOption<unknown> | DatePickerDay) => TMessage) | undefined {
   if (widget.kind === 'colorPicker') {
     const toMessage = widget.props.toMessage;
-    return toMessage === undefined ? undefined : (option) => toMessage(option);
+    return toMessage === undefined ? undefined : (option) => toMessage(option as ColorPickerOption<unknown>);
   }
   const toMessage = widget.props.toMessage;
-  return toMessage === undefined ? undefined : (option) => toMessage(option);
+  return toMessage === undefined ? undefined : (option) => toMessage(option as DatePickerDay);
 }
 
 export function colorOptions(widget: ColorPickerNode): readonly ColorPickerOption<unknown>[] {
@@ -47,17 +47,19 @@ export function selectedColorOption(widget: ColorPickerNode): ColorPickerOption<
   return selected === undefined ? undefined : colorOptions(widget).find((option) => option.id === selected);
 }
 
-export function datePickerDays(widget: DatePickerNode): readonly DatePickerDay<unknown>[] {
-  return widget.props.days.flatMap((day): readonly DatePickerDay<unknown>[] => sanitizeDatePickerDay(day));
+export function datePickerDays(widget: DatePickerNode): readonly DatePickerDay[] {
+  return widget.props.days.flatMap((day): readonly DatePickerDay[] => sanitizeDatePickerDay(day));
 }
 
-export function selectedDatePickerDay(widget: DatePickerNode): DatePickerDay<unknown> | undefined {
+export function selectedDatePickerDay(widget: DatePickerNode): DatePickerDay | undefined {
   const selected = selectedId(widget);
   return selected === undefined ? undefined : datePickerDays(widget).find((day) => day.id === selected);
 }
 
 export function pickerColumns(widget: PickerNode, fallback: number): number {
-  return Math.max(1, Math.floor(finiteNumber(widget.props.columns, fallback)));
+  return widget.kind === 'datePicker'
+    ? 7
+    : Math.max(1, Math.floor(finiteNumber(widget.props.columns, fallback)));
 }
 
 export function pickerCellWidth(widget: PickerNode): number {
@@ -67,8 +69,22 @@ export function pickerCellWidth(widget: PickerNode): number {
 export function pickerOptionRowOffset(widget: PickerNode, columns: number): number {
   let offset = clean(widget.props.label ?? '').length > 0 ? 1 : 0;
   if (widget.kind === 'colorPicker' && selectedColorOption(widget) !== undefined) offset += 1;
-  if (widget.kind === 'datePicker' && columns === 7) offset += 1;
+  if (widget.kind === 'datePicker' && columns === 7) offset += 2;
   return offset;
+}
+
+export function datePickerMonthHeaderSpans(widget: DatePickerNode): readonly RenderSpan[] {
+  const label = clean(widget.props.monthLabel);
+  if (widget.props.toActionMessage === undefined || widget.props.disabled === true) {
+    return [formSpan(widget, 'title', 'month.label', label, formLabelStyle(widget))];
+  }
+  return [
+    formSpan(widget, 'marker', 'month.previous', '[‹]', formMarkerStyle(widget)),
+    separatorSpan(widget),
+    formSpan(widget, 'title', 'month.label', label, formLabelStyle(widget)),
+    separatorSpan(widget),
+    formSpan(widget, 'marker', 'month.next', '[›]', formMarkerStyle(widget))
+  ];
 }
 
 export function colorPickerSummarySpans(
@@ -77,7 +93,7 @@ export function colorPickerSummarySpans(
 ): readonly RenderSpan[] {
   const disabled = option.disabled === true || widget.props.disabled === true;
   const style = disabled
-    ? renderNodeStyle(widget, 'value', 'disabled')
+    ? renderNodeStyle(widget, 'summary', 'disabled')
     : option.style ?? colorSwatchStyle(widget);
   return [
     formSpan(widget, 'summary', 'summary.label', 'Selected', formLabelStyle(widget, disabled ? 'disabled' : undefined)),
@@ -97,7 +113,7 @@ export function colorPickerSpans(
   const label = clip(option.label, 8).padEnd(8, ' ');
   const state = optionControlState(widget, { selected, disabled });
   const style = disabled
-    ? renderNodeStyle(widget, 'value', 'disabled')
+    ? renderNodeStyle(widget, 'option', 'disabled')
     : option.style ?? colorOptionStyle(option, widget) ?? colorSwatchStyle(widget);
   return [
     formSpan(widget, 'marker', `option.${option.id}.open`, selected ? '[' : ' ', formMarkerStyle(widget, state)),
@@ -110,13 +126,13 @@ export function colorPickerSpans(
 }
 
 export function datePickerWeekdayHeaderSpans(widget: DatePickerNode): readonly RenderSpan[] {
-  return ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'].map((label) =>
-    formSpan(widget, 'weekday', `weekday.${label.toLowerCase()}`, ` ${label} `, formLabelStyle(widget, 'disabled'))
+  return widget.props.weekdays.slice(0, 7).map((label, index) =>
+    formSpan(widget, 'weekday', `weekday.${String(index)}`, ` ${clipNoEllipsis(clean(label), 2).padEnd(2, ' ')} `, formLabelStyle(widget, 'disabled'))
   );
 }
 
 export function datePickerCellSpans(
-  day: DatePickerDay<unknown>,
+  day: DatePickerDay,
   widget: DatePickerNode
 ): readonly RenderSpan[] {
   const label = clipNoEllipsis(day.label, 2).padStart(2, ' ');
@@ -161,24 +177,26 @@ function sanitizeColorOption(value: unknown): readonly ColorPickerOption<unknown
   }];
 }
 
-function sanitizeDatePickerDay(value: unknown): readonly DatePickerDay<unknown>[] {
+function sanitizeDatePickerDay(value: unknown): readonly DatePickerDay[] {
   if (!isRecord(value)) return [];
   const id = value['id'];
   const label = value['label'];
-  if (typeof id !== 'string' || typeof label !== 'string') return [];
+  const date = sanitizeCalendarDate(value['date']);
+  if (typeof id !== 'string' || typeof label !== 'string' || date === undefined) return [];
   return [{
     id: clean(id),
     label: clean(label),
-    value: value['value'],
+    date,
     ...(value['disabled'] === true ? { disabled: true } : {}),
     ...(value['today'] === true ? { today: true } : {}),
-    ...(value['outsideMonth'] === true ? { outsideMonth: true } : {})
+    ...(value['outsideMonth'] === true ? { outsideMonth: true } : {}),
+    ...(value['hidden'] === true ? { hidden: true } : {})
   }];
 }
 
 function colorSwatchStyle(widget: ColorPickerNode): TerminalStyle | undefined {
   return resolveRenderNodeStyle(widget, {
-    slot: 'value',
+    part: 'swatch',
     base: {
       fg: { kind: 'theme', token: 'control.primary.foreground' },
       bg: { kind: 'theme', token: 'control.primary.background' }
@@ -191,30 +209,40 @@ function colorOptionStyle(
   widget: ColorPickerNode
 ): TerminalStyle | undefined {
   if (option.disabled === true || widget.props.disabled === true) {
-    return renderNodeStyle(widget, 'value', 'disabled');
+    return renderNodeStyle(widget, 'option', 'disabled');
   }
-  if (option.id === selectedId(widget)) return renderNodeStyle(widget, 'value', 'selected');
-  return undefined;
+  return renderNodeStyle(widget, 'option', option.id === selectedId(widget) ? 'selected' : undefined);
 }
 
 function datePickerDayStyle(
-  day: DatePickerDay<unknown>,
+  day: DatePickerDay,
   widget: DatePickerNode
 ): TerminalStyle | undefined {
   if (day.disabled === true || widget.props.disabled === true) {
-    return renderNodeStyle(widget, 'value', 'disabled');
+    return renderNodeStyle(widget, 'option', 'disabled');
   }
-  if (day.id === selectedId(widget)) return renderNodeStyle(widget, 'value', 'selected');
-  if (day.today === true) return renderNodeStyle(widget, 'value', 'focused');
-  if (day.outsideMonth === true) return renderNodeStyle(widget, 'value', 'disabled');
-  return undefined;
+  if (day.id === selectedId(widget)) return renderNodeStyle(widget, 'option', 'selected');
+  if (day.id === widget.props.focused) return renderNodeStyle(widget, 'option', 'focused');
+  if (day.today === true) return renderNodeStyle(widget, 'option', 'focused');
+  return renderNodeStyle(widget, 'option', day.outsideMonth === true ? 'disabled' : undefined);
 }
 
 function datePickerDayState(
-  day: DatePickerDay<unknown>,
+  day: DatePickerDay,
   widget: DatePickerNode
 ): 'selected' | 'disabled' | 'focused' | undefined {
-  if (day.disabled === true || widget.props.disabled === true || day.outsideMonth === true) return 'disabled';
+  if (day.disabled === true || widget.props.disabled === true) return 'disabled';
   if (day.id === selectedId(widget)) return 'selected';
+  if (day.id === widget.props.focused) return 'focused';
   return day.today === true ? 'focused' : undefined;
+}
+
+function sanitizeCalendarDate(value: unknown): CalendarDate | undefined {
+  if (!isRecord(value)) return undefined;
+  const year = value['year'];
+  const month = value['month'];
+  const day = value['day'];
+  return Number.isInteger(year) && Number.isInteger(month) && Number.isInteger(day)
+    ? { year: year as number, month: month as number, day: day as number }
+    : undefined;
 }

@@ -166,8 +166,8 @@ test('palette emits compact controlled actions while acceptance remains app-owne
       entries,
       onAction: (action) => ({ kind: 'action', action }),
       keys: {
-        enter: { kind: 'accept' },
-        escape: { kind: 'close' }
+        enter: () => ({ kind: 'accept' }),
+        escape: () => ({ kind: 'close' })
       }
     })
   });

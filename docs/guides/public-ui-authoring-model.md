@@ -51,7 +51,7 @@ button({
   onPress: { kind: 'save' },
   meta: {
     accessibility: { description: 'Save the current document' },
-    styles: { focused: { bold: true } }
+    styles: { states: { focused: { bold: true } } }
   }
 }) satisfies import('@ismail-elkorchi/terminal-ui/components').Element<Message>;
 ```
@@ -62,7 +62,7 @@ Rules:
   accessibility, state association, and event routing.
 - Semantic state such as `disabled`, `selected`, `required`, and `error`
   belongs to the component.
-- Accessibility overrides, focus policy, layering, and local style slots live
+- Accessibility overrides, focus policy, layering, and typed local style anatomy live
   under `meta`.
 - Controlled state remains caller-owned.
 - Component-local `keys` are an escape hatch, not the primary interaction API.
@@ -77,15 +77,13 @@ Public event props describe user intent and return caller-owned messages:
 | --- | --- |
 | `onPress` | Buttons, menu actions, and direct activation. |
 | `onSubmit` | Text controls that commit their current value. |
-| `onSelect` | Lists, tables, trees, tabs, palettes, charts, and heatmaps. |
-| `onClose` | Closeable tabs and surfaces. |
-| `onDismiss` | Dismissible notifications and transient UI. |
-| `onDisclosure` | Tree expansion and collapse. |
+| `onSelect` | Activity feeds, palettes, charts, and heatmaps. |
+| `onClose` | Closeable tab items. |
 | `onChange` | Form controls whose next value is computed by the component. |
 | `onStep` | Step controls where the caller handles a structured step action. |
 | `onInput` | Text editing. |
 | `onPaste` | Paste input when handled separately from ordinary text. |
-| `onAction` | Structured controlled-component actions such as command-bar editing and navigation. |
+| `onAction` | Structured controlled-component actions for lists, tables, trees, paginators, date and number inputs, notifications, command bars, and palettes. |
 | `onScroll` | Structured scrolling. |
 | `onTextPointer` | Pointer-to-text position and selection events. |
 | `onContextMenu` | Context-menu activation. |
@@ -121,7 +119,7 @@ kind
 props
 children
 layer and focus metadata
-style slots
+typed root, part, and visual-state styles
 key and input maps
 accessibility definitions
 custom renderer state
@@ -151,6 +149,11 @@ Application tests inspect public projections:
 - hit targets and interaction transcripts.
 
 They do not inspect private render-node fields through authored elements.
+
+Use `inspectElement(element)` when authoring tools or diagnostics need a stable,
+read-only description before rendering. The projection includes authored
+identity, input capabilities, focus policy, visual state, and child structure;
+it does not expose renderer props, callback values, or render-node hooks.
 
 ## Invariants
 

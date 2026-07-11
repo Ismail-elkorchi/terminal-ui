@@ -5,7 +5,7 @@ import {
 } from './command-visual.ts';
 import { renderNodeFrameSource } from './frame-source.ts';
 import { stringify } from './render-node-props.ts';
-import { renderNodeStyle } from './render-node-style.ts';
+import { resolveRenderNodeStyle, renderNodeStyle, themeStyle } from './render-node-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { SearchEntry } from '../components/contracts.ts';
@@ -38,7 +38,7 @@ export function paletteBlock(widget: PaletteNode, height: number, theme: Termina
         styledSpan(model.title.length === 0 ? 'Palette' : model.title, renderNodeStyle(widget, 'title'), paletteSource(widget, 'title')),
         ...(model.resultSummary.length === 0 ? [] : [styledSpan(
           `  ${model.resultSummary}`,
-          renderNodeStyle(widget, 'value', 'disabled'),
+          renderNodeStyle(widget, 'help', 'disabled'),
           paletteSource(widget, 'result.summary')
         )])
       ]
@@ -51,7 +51,10 @@ export function paletteBlock(widget: PaletteNode, height: number, theme: Termina
     }
   ];
   if (model.window.total === 0 && model.availableEntries > 0) {
-    const emptyStyle = renderNodeStyle(widget, 'placeholder');
+    const emptyStyle = resolveRenderNodeStyle(widget, {
+      part: 'empty',
+      base: themeStyle('input.placeholder', { dim: true })
+    });
     lines.push({
       spans: commandStatusSpans(widget, theme, 'muted', emptyText(widget), {
         ...(emptyStyle === undefined ? {} : { textStyle: emptyStyle }),
@@ -252,7 +255,7 @@ function paletteSource(
   widget: PaletteNode,
   label: string,
   role: FrameCellSource['role'] = 'text',
-  id = widget.id
+  id: string | undefined = widget.id
 ): FrameCellSource {
   return renderNodeFrameSource(widget, {
     family: 'command',

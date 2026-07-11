@@ -15,8 +15,8 @@ test('public component factories preserve exact and heterogeneous message types'
     type Assert<TValue extends true> = TValue;
 
     const passive = richText({ segments: [] });
-    const save = button({ label: 'Save', onPress: { kind: 'save' } as const });
-    const quit = button({ label: 'Quit', onPress: { kind: 'quit', force: true } as const });
+    const save = button({ id: 'save', label: 'Save', onPress: { kind: 'save' } as const });
+    const quit = button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit', force: true } as const });
     const toolbar = row([passive, save, quit] as const);
 
     type _Passive = Assert<Equal<MessageOf<typeof passive>, never>>;
@@ -30,6 +30,74 @@ test('public component factories preserve exact and heterogeneous message types'
   assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
 });
 
+test('interactive identity, passive inputs, and component anatomy are enforced by public types', () => {
+  const diagnostics = typecheckSource(`
+    import { button, text, textInput } from '@ismail-elkorchi/terminal-ui/components';
+
+    button({ id: 'save', label: 'Save' });
+    textInput({
+      id: 'query',
+      value: 'term',
+      meta: {
+        styles: {
+          parts: { value: { bold: true }, cursor: { underline: true } },
+          states: { focused: { bold: true } }
+        }
+      }
+    });
+
+    // @ts-expect-error interactive components require authored identity
+    button({ label: 'Save' });
+    // @ts-expect-error passive text cannot own local input bindings
+    text('Passive', { keys: { enter: () => ({ kind: 'invalid' }) } });
+    textInput({
+      id: 'invalid-style',
+      value: '',
+      meta: {
+        styles: {
+          // @ts-expect-error text inputs do not expose table anatomy
+          parts: { headerCell: { bold: true } }
+        }
+      }
+    });
+  `, { name: 'component-capability-contracts' });
+
+  assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
+});
+
+test('item domains share only valid foundations', () => {
+  const diagnostics = typecheckSource(`
+    import type {
+      ActionItem,
+      ChoiceItem,
+      NavigationItem,
+      SearchEntry,
+      SuggestionItem,
+      TreeNode
+    } from '@ismail-elkorchi/terminal-ui/components';
+
+    const choice: ChoiceItem<number> = { id: 'one', label: 'One', value: 1 };
+    const action: ActionItem<{ readonly kind: 'open' }> = {
+      id: 'open', label: 'Open', onPress: { kind: 'open' }
+    };
+    const navigation: NavigationItem<{ readonly kind: 'select' }> = {
+      id: 'home', label: 'Home', onSelect: { kind: 'select' }
+    };
+    const suggestion: SuggestionItem = { value: '/open', label: 'Open' };
+    const search: SearchEntry<number> = {
+      id: 'file', label: 'File', value: 1, keywords: ['open']
+    };
+    const tree: TreeNode = { id: 'src', label: 'src', expanded: true, children: [] };
+    void [choice, action, navigation, suggestion, search, tree];
+
+    // @ts-expect-error action items do not become values implicitly
+    const invalidChoice: ChoiceItem<number> = action;
+    void invalidChoice;
+  `, { name: 'item-domain-contracts' });
+
+  assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
+});
+
 test('frame-only renderer helpers accept heterogeneous authored elements', () => {
   const diagnostics = typecheckSource(`
     import { button, text } from '@ismail-elkorchi/terminal-ui/components';
@@ -38,8 +106,8 @@ test('frame-only renderer helpers accept heterogeneous authored elements', () =>
 
     const content = stack([
       text('Actions'),
-      button({ label: 'Save', onPress: { kind: 'save' } as const }),
-      button({ label: 'Quit', onPress: { kind: 'quit' } as const })
+      button({ id: 'save', label: 'Save', onPress: { kind: 'save' } as const }),
+      button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit' } as const })
     ] as const);
 
     renderElementFrame(content, { columns: 20, rows: 4 });
@@ -58,8 +126,8 @@ test('passive container options preserve child message unions', () => {
       | { readonly kind: 'quit' };
 
     const actions = row([
-      button({ label: 'Save', onPress: { kind: 'save' } as const }),
-      button({ label: 'Quit', onPress: { kind: 'quit' } as const })
+      button({ id: 'save', label: 'Save', onPress: { kind: 'save' } as const }),
+      button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit' } as const })
     ] as const, { id: 'actions', gap: 1 });
     const panel = surface(stack([actions], { id: 'content' }), {
       id: 'panel',
@@ -84,6 +152,7 @@ test('table rows and explicit cell accessors retain their domain types', () => {
 
     const rows: readonly ProcessRow[] = [{ pid: 42, name: 'worker' }];
     const processes = table({
+      id: 'processes',
       rows,
       columns: [
         { id: 'pid', header: 'PID', value: (row) => row.pid },
@@ -91,17 +160,15 @@ test('table rows and explicit cell accessors retain their domain types', () => {
       ],
       selected: 0,
       selectedCell: { row: 0, column: 1 },
-      onSelect: (selection) => ({
+      onAction: (action) => ({
         kind: 'selected' as const,
-        pid: selection.row.pid,
-        value: selection.cell?.value
+        action
       })
     });
 
     const accepted: Element<{
       readonly kind: 'selected';
-      readonly pid: number;
-      readonly value: unknown;
+      readonly action: import('@ismail-elkorchi/terminal-ui/components').TableAction;
     }> = processes;
     void accepted;
   `, { name: 'typed-table-contract' });
@@ -119,7 +186,7 @@ test('multi-channel components infer unions without explicit message arguments',
       type CommandBarAction,
       type Element,
       type PaletteAction,
-      type TreeDisclosureAction
+      type TreeAction
     } from '@ismail-elkorchi/terminal-ui/components';
     import type { ScrollEvent } from '@ismail-elkorchi/terminal-ui/behavior';
     import type { TextEditOperation } from '@ismail-elkorchi/terminal-ui/text';
@@ -131,50 +198,58 @@ test('multi-channel components infer unions without explicit message arguments',
     type Assert<TValue extends true> = TValue;
 
     const explorer = tree({
+      id: 'explorer',
       nodes: [{ id: 'src', label: 'src' }],
-      onSelect: (node) => ({ kind: 'select' as const, id: node.id }),
-      onDisclosure: (_node, action: TreeDisclosureAction) => ({
-        kind: 'disclose' as const,
+      onAction: (action: TreeAction) => ({
+        kind: 'tree' as const,
         action
       }),
-      keys: { enter: { kind: 'activate' as const } }
+      keys: { enter: () => ({ kind: 'activate' as const }) }
     });
 
     const editor = textArea({
+      id: 'editor',
       value: 'hello',
       onScroll: (event: ScrollEvent) => ({ kind: 'scroll' as const, event }),
-      onEdit: (operation: TextEditOperation) => ({ kind: 'edit' as const, operation }),
-      onInput: (text) => ({ kind: 'input' as const, text })
+      onEdit: (operation: TextEditOperation) => ({ kind: 'edit' as const, operation })
     });
 
     const commands = commandBar({
+      id: 'commands',
       onAction: (action: CommandBarAction) => ({ kind: 'command' as const, action }),
       onSubmit: { kind: 'submit' as const },
-      keys: { escape: { kind: 'close' as const } }
+      keys: {
+        arrowUp: () => ({ kind: 'history' as const, delta: -1 as const }),
+        escape: () => ({ kind: 'close' as const })
+      }
     });
 
     const search = palette({
+      id: 'search',
       entries: [{ id: 'open', label: 'Open', value: 1 }],
       onSelect: (entry) => ({ kind: 'selectEntry' as const, value: entry.value }),
       onAction: (action: PaletteAction) => ({ kind: 'palette' as const, action }),
-      keys: { escape: { kind: 'closePalette' as const } }
+      keys: {
+        enter: () => ({ kind: 'acceptPalette' as const }),
+        escape: () => ({ kind: 'closePalette' as const })
+      }
     });
 
     type TreeMessage =
-      | { readonly kind: 'select'; readonly id: string }
-      | { readonly kind: 'disclose'; readonly action: TreeDisclosureAction }
+      | { readonly kind: 'tree'; readonly action: TreeAction }
       | { readonly kind: 'activate' };
     type EditorMessage =
       | { readonly kind: 'scroll'; readonly event: ScrollEvent }
-      | { readonly kind: 'edit'; readonly operation: TextEditOperation }
-      | { readonly kind: 'input'; readonly text: string };
+      | { readonly kind: 'edit'; readonly operation: TextEditOperation };
     type CommandMessage =
       | { readonly kind: 'command'; readonly action: CommandBarAction }
       | { readonly kind: 'submit' }
+      | { readonly kind: 'history'; readonly delta: -1 }
       | { readonly kind: 'close' };
     type PaletteMessage =
       | { readonly kind: 'selectEntry'; readonly value: number }
       | { readonly kind: 'palette'; readonly action: PaletteAction }
+      | { readonly kind: 'acceptPalette' }
       | { readonly kind: 'closePalette' };
 
     type _TreeActual = Assert<MessageOf<typeof explorer> extends TreeMessage ? true : false>;
@@ -248,6 +323,7 @@ test('TUI transitions are synchronous and asynchronous work uses typed effects a
             state,
             effects: [{
               id: 'load-value',
+              concurrency: 'replace',
               async run() {
                 return { kind: 'loaded' as const, value: 'ready' };
               }

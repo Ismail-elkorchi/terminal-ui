@@ -47,8 +47,28 @@ export {
 } from './factories.ts';
 export type * from './contracts.ts';
 export type { CommandBarAction } from './command-bar.ts';
+export type { ListAction } from './list.ts';
+export type { TableAction } from './table.ts';
+export type { TreeAction, TreeDisclosureAction, TreeNode } from './tree.ts';
+export type { NumberInputAction, NumberInputValidity } from './number-input.ts';
+export type { PaginatorAction } from './paginator.ts';
+export type { NotificationStackAction } from './notification-stack.ts';
+export type {
+  CalendarDate,
+  CalendarMonth,
+  DatePickerAction,
+  DatePickerDay
+} from './date-picker.ts';
 export type { PaletteAction } from './palette.ts';
 export type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from './element.ts';
+export { inspectElement } from './inspection.ts';
+export type {
+  ElementFocusCapability,
+  ElementInputInspection,
+  ElementInspection,
+  ElementMetaInspection
+} from './inspection.ts';
+export type * from './style-parts.ts';
 export type * from './options/index.ts';
 export {
   baseStatusForRecordStatus,

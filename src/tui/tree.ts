@@ -3,19 +3,19 @@ import type { RenderNodeVisualState } from '../render-node/index.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import { treeDisclosureAction, treeNodeCanDisclose, visibleTreeRows } from '../behavior/tree.ts';
 import type { TreeVisibleRow } from '../behavior/tree.ts';
-import { dataSource, dataSpan, dataValueSpans, selectionMarkerSpans } from './data-visual.ts';
-import { rowWindow, scrollStateFromUnknown } from './data-window.ts';
+import { dataSource, dataSpan, dataValueSpans, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
+import { rowWindow, scrollStateFromUnknown } from '../behavior/data-window.ts';
 import { stringify } from './render-node-props.ts';
 import { resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
 import { windowDescription } from './visible-window.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { TreeDisclosureAction, TreeNode } from '../components/options/content.ts';
+import type { TreeDisclosureAction, TreeNode } from '../components/tree.ts';
 import type { Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
-import type { RoutedPointerEvent } from './pointer-types.ts';
-import type { ScrollState } from './scroll.ts';
+import type { RoutedPointerEvent } from '../input/pointer.ts';
+import type { ScrollState } from '../behavior/scroll.ts';
 import type { HitTarget } from './render-node-renderer.ts';
 
 interface TreeWindow {
@@ -41,7 +41,10 @@ export function treeBlock(widget: TreeRenderNode, bounds: Rect, theme: TerminalT
   if (rows.length === 0 && bounds.height > 0) {
     return {
       lines: [{
-        spans: [dataSpan(emptyText(widget), renderNodeStyle(widget, 'placeholder'), treeSource(widget, 'empty'))]
+        spans: [dataSpan(emptyText(widget), resolveRenderNodeStyle(widget, {
+          part: 'empty',
+          base: themeStyle('text.muted', { dim: true })
+        }), treeSource(widget, 'empty'))]
       }]
     };
   }
@@ -131,9 +134,11 @@ function treeLine(widget: TreeRenderNode, row: TreeVisibleRow, selected: string 
   const icon = row.node.icon === undefined ? '' : `${row.node.icon} `;
   const label = row.node.label;
   const labelStyle = treeLabelStyle(widget, row, isSelected);
-  const branchStyle = treeBranchStyle(widget, row, isSelected);
+  const disclosureStyle = treeDisclosureStyle(widget, row, isSelected);
+  const indentStyle = treeIndentStyle(widget, row, isSelected);
   const iconStyle = treeIconStyle(widget, row, isSelected);
   const markerStyle = treeMarkerStyle(widget, row, isSelected);
+  const matchStyle = mergeDataStyles(labelStyle, themeStyle('menu.match', { underline: true }), widget.styles?.parts?.['match']);
   const query = filterQuery(widget);
   const nodeSourceId = `${widget.id ?? 'tree'}:${row.node.id}`;
   const spans: RenderSpan[] = [
@@ -149,19 +154,19 @@ function treeLine(widget: TreeRenderNode, row: TreeVisibleRow, selected: string 
         ...treeSourceState(treeRowState(row, isSelected))
       })
     ),
-    ...(row.depth === 0 ? [] : [dataSpan('  '.repeat(row.depth), branchStyle, treeSource(widget, `node.${row.node.id}.indent`, {
+    ...(row.depth === 0 ? [] : [dataSpan('  '.repeat(row.depth), indentStyle, treeSource(widget, `node.${row.node.id}.indent`, {
       itemId: nodeSourceId,
       partKind: 'indent',
       role: 'decoration',
       ...treeSourceState(treeRowState(row, isSelected))
     }))]),
-    dataSpan(branch, branchStyle, treeSource(widget, `node.${row.node.id}.disclosure`, {
+    dataSpan(branch, disclosureStyle, treeSource(widget, `node.${row.node.id}.disclosure`, {
       itemId: nodeSourceId,
       partKind: 'disclosure',
       role: 'decoration',
       ...treeSourceState(treeDisclosureState(row, isSelected))
     })),
-    dataSpan(' ', branchStyle, treeSource(widget, `node.${row.node.id}.disclosure.gap`, {
+    dataSpan(' ', disclosureStyle, treeSource(widget, `node.${row.node.id}.disclosure.gap`, {
       itemId: nodeSourceId,
       partKind: 'gap',
       role: 'decoration',
@@ -183,7 +188,8 @@ function treeLine(widget: TreeRenderNode, row: TreeVisibleRow, selected: string 
         itemId: nodeSourceId,
         partKind: 'match',
         state: 'match'
-      })
+      }),
+      ...(matchStyle === undefined ? {} : { matchStyle })
     })
   ];
   return {
@@ -201,16 +207,27 @@ function treeLabelStyle(widget: TreeRenderNode, row: TreeVisibleRow, selected: b
   if (row.lazyPlaceholder === true) return renderNodeStyle(widget, 'placeholder');
   const state = treeVisualState(row, selected);
   return resolveRenderNodeStyle(widget, {
-    slot: 'value',
+    part: 'label',
+    base: themeStyle('text.default'),
     ...(state === undefined ? {} : { state })
   });
 }
 
-function treeBranchStyle(widget: TreeRenderNode, row: TreeVisibleRow, selected: boolean): TerminalStyle | undefined {
+function treeDisclosureStyle(widget: TreeRenderNode, row: TreeVisibleRow, selected: boolean): TerminalStyle | undefined {
   if (row.lazyPlaceholder === true) return renderNodeStyle(widget, 'placeholder');
   const state = treeVisualState(row, selected);
   return resolveRenderNodeStyle(widget, {
-    slot: 'border',
+    part: 'disclosure',
+    base: themeStyle('tree.branch'),
+    ...(state === undefined ? {} : { state })
+  });
+}
+
+function treeIndentStyle(widget: TreeRenderNode, row: TreeVisibleRow, selected: boolean): TerminalStyle | undefined {
+  if (row.lazyPlaceholder === true) return renderNodeStyle(widget, 'placeholder');
+  const state = treeVisualState(row, selected);
+  return resolveRenderNodeStyle(widget, {
+    part: 'indent',
     base: themeStyle('tree.branch'),
     ...(state === undefined ? {} : { state })
   });
@@ -220,7 +237,7 @@ function treeIconStyle(widget: TreeRenderNode, row: TreeVisibleRow, selected: bo
   if (row.lazyPlaceholder === true) return renderNodeStyle(widget, 'placeholder');
   const state = treeVisualState(row, selected);
   return resolveRenderNodeStyle(widget, {
-    slot: 'label',
+    part: 'icon',
     ...(state === undefined ? {} : { state })
   });
 }
@@ -228,7 +245,7 @@ function treeIconStyle(widget: TreeRenderNode, row: TreeVisibleRow, selected: bo
 function treeMarkerStyle(widget: TreeRenderNode, row: TreeVisibleRow, selected: boolean): TerminalStyle | undefined {
   if (row.lazyPlaceholder === true) return renderNodeStyle(widget, 'placeholder');
   const state = treeVisualState(row, selected);
-  return state === undefined ? undefined : renderNodeStyle(widget, 'value', state);
+  return renderNodeStyle(widget, 'marker', state);
 }
 
 function treeVisualState(row: TreeVisibleRow, selected: boolean): RenderNodeVisualState | undefined {

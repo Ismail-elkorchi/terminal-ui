@@ -66,10 +66,7 @@ export function rowWindow<TValue>(
   input: Omit<DataWindowInput, 'totalRows'>
 ): DataWindow & { readonly rows: readonly TValue[] } {
   const window = dataWindow({ ...input, totalRows: rows.length });
-  return {
-    ...window,
-    rows: rows.slice(window.start, window.end)
-  };
+  return { ...window, rows: rows.slice(window.start, window.end) };
 }
 
 export function scrollStateFromUnknown(value: unknown): ScrollState | undefined {

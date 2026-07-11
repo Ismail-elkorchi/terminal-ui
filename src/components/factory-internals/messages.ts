@@ -1,4 +1,20 @@
-import type { ComponentKeyBindings } from '../options/base.ts';
+import type { BindableKeyName } from '../../input/index.ts';
+import type { ComponentKeyEvent } from '../options/base.ts';
+
+type InferredKeyHandler = (event: ComponentKeyEvent) => unknown;
+
+export type InferredComponentKeyBindings =
+  & Readonly<Partial<Record<BindableKeyName, InferredKeyHandler>>>
+  & { readonly text?: Readonly<Record<string, InferredKeyHandler>> };
+
+type MessageFromBinding<TBinding> =
+  TBinding extends (...arguments_: infer _TArguments) => infer TResult
+    ? Exclude<TResult, undefined>
+    : TBinding extends Readonly<Record<PropertyKey, infer TValue>>
+      ? MessageFromBinding<TValue>
+      : never;
+
+export type ComponentKeyBindingMessages<TBindings> = MessageFromBinding<TBindings>;
 
 type CallbackWithResult<TCallback, TResult> =
   Exclude<TCallback, undefined> extends (...arguments_: infer TArguments) => unknown
@@ -32,9 +48,9 @@ export type IndependentInteractionOptions<
   TOptions,
   TCallbackMessages extends Partial<Record<keyof TOptions, unknown>> = Record<never, never>,
   TDirectMessages extends Partial<Record<keyof TOptions, unknown>> = Record<never, never>,
-  TKeyMessage = never
+  TKeyBindings extends InferredComponentKeyBindings | undefined = undefined
 > =
   & Omit<TOptions, keyof TCallbackMessages | keyof TDirectMessages | 'keys'>
   & CallbackOverrides<TOptions, TCallbackMessages>
   & DirectMessageOverrides<TOptions, TDirectMessages>
-  & { readonly keys?: ComponentKeyBindings<TKeyMessage> };
+  & { readonly keys?: TKeyBindings };

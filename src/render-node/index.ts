@@ -8,11 +8,13 @@ export type {
   RenderNodeFocusOptions,
   RenderNodeFocusScope,
   RenderNodeInputMap,
+  RenderNodeKeyEvent,
+  RenderNodeKeyHandler,
   RenderNodeKeyMap,
   RenderNodeKind,
   RenderNodeLayerOptions,
   RenderNodeOverflowPriority,
-  RenderNodeStyleSlots,
+  RenderNodeStyles,
   RenderNodeTextRole,
   RenderNodeVisualState
 } from './types.ts';

@@ -345,6 +345,7 @@ test('palette scrollbar renders beside the filtered result window', () => {
 
 test('viewport scrollbar clips child rendering to content bounds', () => {
   const frame = renderElementFrame(viewport(text('abcdef'), {
+    id: 'clipped-viewport',
     contentColumns: 6,
     scrollbar: { axis: 'horizontal' }
   }), { columns: 4, rows: 2 });

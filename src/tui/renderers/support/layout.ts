@@ -4,7 +4,7 @@ import type {
   RenderNodesOfKind,
   RenderNodeOverflowPriority
 } from '../../../render-node/index.ts';
-import { layoutContentBounds, splitTracks } from '../../regions.ts';
+import { layoutContentBounds, splitTracks } from '../../../layout/geometry.ts';
 import { emptyRect, isRecord } from './common.ts';
 import type { Rect } from '../../layout.ts';
 import type {
@@ -15,7 +15,7 @@ import type {
   LayoutJustification,
   LayoutOverflow,
   LayoutSize
-} from '../../regions.ts';
+} from '../../../layout/geometry.ts';
 import type { Measurement } from '../../measurement.ts';
 
 type GridNode = RenderNodeOfKind<unknown, 'grid'>;

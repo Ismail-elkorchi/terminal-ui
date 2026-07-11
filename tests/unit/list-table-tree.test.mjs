@@ -7,10 +7,13 @@ import {
 } from '../../dist/tui/index.js';
 import {
   createMemoryTerminalHost } from '../../dist/host/index.js';
-import { createScrollState } from '../../dist/behavior/index.js';
 import {
+  createScrollState,
   dataWindow,
   paginationWindow,
+  treeReducer
+} from '../../dist/behavior/index.js';
+import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
@@ -22,7 +25,6 @@ import {
   tree
 } from '../../dist/components/index.js';
 import { stack } from '../../dist/layout/index.js';
-import { treeReducer } from '../../dist/behavior/index.js';
 
 const mousePress = (row, column) => ({
   kind: 'mouse',
@@ -127,20 +129,25 @@ test('list cursor and mouse hit targets use the filtered visible rows', async ()
     items: ['alpha', 'bravo', 'charlie', 'delta'],
     filterQuery: 'br',
     selected: 0,
-    onSelect: (value) => ({ kind: 'chosen', value })
+    onAction: (action) => ({ kind: 'chosen', action })
   }), { columns: 24, rows: 2 });
 
   assert.deepEqual(frame.cursor, { row: 1, column: 1 });
-  assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['clickable-list:option:0']);
+  assert.deepEqual(
+    frame.hitTargets?.filter((target) => target.id.includes(':option:')).map((target) => target.id),
+    ['clickable-list:option:1']
+  );
 
   const app = defineTui({
     id: 'list-click-flow',
     init: () => ({ selected: 'none' }),
-    update: (_state, message) => ({ state: { selected: String(message.value) } }),
+    update: (_state, message) => ({
+      state: { selected: ['alpha', 'bravo'][message.action.index] ?? 'none' }
+    }),
     view: () => list({
       id: 'clickable-list',
       items: ['alpha', 'bravo'],
-      onSelect: (value) => ({ kind: 'chosen', value })
+      onAction: (action) => ({ kind: 'chosen', action })
     })
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 2 } }) });
@@ -184,7 +191,7 @@ test('table exposes row hit targets and routes row messages', async () => {
       ['alpha', '100'],
       ['bravo', '200']
     ],
-    onSelect: ({ row, rowIndex }) => ({ kind: 'row', row, rowIndex })
+    onAction: (action) => ({ kind: 'row', action })
   }), { columns: 24, rows: 2 });
 
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), [
@@ -196,14 +203,16 @@ test('table exposes row hit targets and routes row messages', async () => {
   const app = defineTui({
     id: 'table-click-flow',
     init: () => ({ selected: 'none' }),
-    update: (_state, message) => ({ state: { selected: `${String(message.rowIndex)}:${String(message.row[0])}` } }),
+    update: (_state, message) => ({
+      state: { selected: `${String(message.action.row)}:${['alpha', 'bravo'][message.action.row] ?? 'none'}` }
+    }),
     view: () => table({
       id: 'clickable-table',
       rows: [
         ['alpha', '100'],
         ['bravo', '200']
       ],
-      onSelect: ({ row, rowIndex }) => ({ kind: 'row', row, rowIndex })
+      onAction: (action) => ({ kind: 'row', action })
     })
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 2 } }) });
@@ -230,7 +239,7 @@ test('table exposes visible cell hit targets when cell selection is active', asy
       ['Atlas', 89],
       ['Pulse', 92]
     ],
-    onSelect: ({ rowIndex, cell }) => ({ kind: 'cell', rowIndex, cell })
+    onAction: (action) => ({ kind: 'cell', action })
   }), { columns: 24, rows: 3 });
 
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), [
@@ -243,7 +252,11 @@ test('table exposes visible cell hit targets when cell selection is active', asy
   const app = defineTui({
     id: 'table-cell-click-flow',
     init: () => ({ selected: 'none' }),
-    update: (_state, message) => ({ state: { selected: `${String(message.rowIndex)}:${String(message.cell.value)}:${message.cell.columnLabel}` } }),
+    update: (_state, message) => ({
+      state: {
+        selected: `${String(message.action.row)}:${String([['Atlas', 89], ['Pulse', 92]][message.action.row]?.[message.action.column])}:${['Name', 'Score'][message.action.column]}`
+      }
+    }),
     view: () => table({
       id: 'cell-table',
       selectedCell: { row: 0, column: 1 },
@@ -257,7 +270,7 @@ test('table exposes visible cell hit targets when cell selection is active', asy
         ['Atlas', 89],
         ['Pulse', 92]
       ],
-      onSelect: ({ rowIndex, cell }) => ({ kind: 'cell', rowIndex, cell })
+      onAction: (action) => ({ kind: 'cell', action })
     })
   });
   const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } }) });
@@ -398,7 +411,7 @@ test('table dense fill columns keep marker width aligned with cell hit targets',
       {
         id: 'cpu-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'CPU', width: { kind: 'fixed', cells: 4 }, align: 'end', render: ({ row }) => row[2].toFixed(1) }
     ],
-    onSelect: ({ rowIndex, cell }) => ({ kind: 'cell', rowIndex, cell })
+    onAction: (action) => ({ kind: 'cell', action })
   }), { columns: 14, rows: 2 });
 
   assert.equal(renderFramePlain(frame), '  PID Na…  CPU\n› 18  no…  4.2');
@@ -490,7 +503,7 @@ test('table renders a styled empty state', () => {
   }), { columns: 24, rows: 3 });
 
   assert.match(renderFramePlain(frame), /No data/u);
-  assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === 'N')?.style?.fg?.token, 'input.placeholder');
+  assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === 'N')?.style?.fg?.token, 'text.muted');
 });
 
 test('table uses shared horizontal scroll state', () => {
@@ -552,11 +565,11 @@ test('treeReducer toggles nested expansion without mutating input nodes', () => 
     label: 'Root',
     children: [{ id: 'child', label: 'Child' }]
   }];
-  const expanded = treeReducer(nodes, { kind: 'toggle', id: 'root' });
-  const frame = renderElementFrame(tree({ id: 'tree', nodes: expanded }), { columns: 24, rows: 3 });
+  const expanded = treeReducer({ nodes }, { kind: 'toggle', id: 'root' });
+  const frame = renderElementFrame(tree({ id: 'tree', nodes: expanded.nodes }), { columns: 24, rows: 3 });
 
   assert.equal(nodes[0]?.expanded, undefined);
-  assert.equal(expanded[0]?.expanded, true);
+  assert.equal(expanded.nodes[0]?.expanded, true);
   assert.match(renderFramePlain(frame), /Child/u);
 });
 

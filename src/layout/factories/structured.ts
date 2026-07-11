@@ -1,22 +1,21 @@
 import { elementFromRenderNode, toRenderNode, toRenderNodes } from '../../render-node/element.ts';
-import type { Element, ElementChildren } from '../element.ts';
-import type { GridAreasOptions, GridOptions, ModalOptions, SplitPaneOptions, TabsOptions } from '../options/layout.ts';
-import { interactionProps, withMetaDefaults } from '../factory-internals/interaction.ts';
+import type { Element, ElementChildren } from '../../components/element.ts';
+import type { GridAreasOptions, GridOptions, ModalOptions, SplitPaneOptions, TabsOptions } from '../options.ts';
+import { componentMetaProps, interactionProps, withMetaDefaults } from '../../components/factory-internals/interaction.ts';
 import type { RenderTabItem } from '../../render-node/props/layout.ts';
 import {
-  assertGridAreaChildren,
-  gridAreaNames,
   layoutProps,
   optionalId,
-  parseGridAreas,
+  requiredId,
   renderNodeChildren
-} from '../factory-internals/layout.ts';
+} from '../../components/factory-internals/render-node.ts';
+import { assertGridAreaChildren, gridAreaNames, parseGridAreas } from './internals.ts';
 
-export function grid<TMessage>(children: ElementChildren<TMessage>, options: GridOptions<TMessage>): Element<TMessage>;
+export function grid<TMessage>(children: ElementChildren<TMessage>, options: GridOptions): Element<TMessage>;
 export function grid<TMessage>(options: GridAreasOptions<TMessage>): Element<TMessage>;
 export function grid<TMessage>(
   childrenOrOptions: ElementChildren<TMessage> | GridAreasOptions<TMessage>,
-  options?: GridOptions<TMessage>
+  options?: GridOptions
 ): Element<TMessage> {
   if (options !== undefined) {
     return elementFromRenderNode<'grid', TMessage>({
@@ -31,7 +30,7 @@ export function grid<TMessage>(
         ...layoutProps(options)
       },
       children: renderNodeChildren(childrenOrOptions as ElementChildren<TMessage>),
-      ...interactionProps(options)
+      ...componentMetaProps(options.meta)
     });
   }
 
@@ -63,13 +62,13 @@ export function grid<TMessage>(
         .map((name) => areaOptions.children[name])
         .filter((child): child is Element<TMessage> => child !== undefined)
     ),
-    ...interactionProps(areaOptions)
+    ...componentMetaProps(areaOptions.meta)
   });
 }
 
 export function splitPane<TMessage>(
   children: ElementChildren<TMessage>,
-  options: SplitPaneOptions<TMessage>
+  options: SplitPaneOptions
 ): Element<TMessage> {
   return elementFromRenderNode<'splitPane', TMessage>({
     ...optionalId(options.id),
@@ -80,7 +79,7 @@ export function splitPane<TMessage>(
       ...layoutProps(options)
     },
     children: renderNodeChildren(children),
-    ...interactionProps(options)
+    ...componentMetaProps(options.meta)
   });
 }
 
@@ -95,7 +94,7 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
     ...(tab.onClose === undefined ? {} : { closeMessage: tab.onClose })
   }));
   return elementFromRenderNode<'tabs', TMessage>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'tabs'),
     kind: 'tabs',
     props: {
       tabs,
@@ -107,14 +106,14 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
   });
 }
 
-export function modal<TMessage>(child: Element<TMessage>, options: ModalOptions<TMessage> = {}): Element<TMessage> {
+export function modal<TMessage>(child: Element<TMessage>, options: ModalOptions<TMessage>): Element<TMessage> {
   const meta = withMetaDefaults(options.meta, {
     focus: { scope: 'contain' },
     layer: { opacity: 'opaque' }
   });
   const actionsNode = options.actions === undefined ? undefined : toRenderNode(options.actions);
   return elementFromRenderNode<'modal', TMessage>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'modal'),
     kind: 'modal',
     props: {
       ...(options.title === undefined ? {} : { title: options.title }),

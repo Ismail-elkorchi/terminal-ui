@@ -4,7 +4,6 @@ import test from 'node:test';
 import {
   clipTextCells,
   createTerminalTextIndex,
-  editTextAreaBuffer,
   editTextBuffer,
   lineSelectionAt,
   measureTextCells,
@@ -181,18 +180,18 @@ test('text editing supports word operations and selection movement', () => {
 });
 
 test('text area editing handles multiline inserts and line/page movement', () => {
-  const pasted = editTextAreaBuffer({ text: 'alpha', cursor: 5 }, { kind: 'insert', text: '\nbravo\ncharlie' });
+  const pasted = editTextBuffer({ text: 'alpha', cursor: 5 }, { kind: 'insert', text: '\nbravo\ncharlie' });
   assert.deepEqual(pasted, { text: 'alpha\nbravo\ncharlie', cursor: 'alpha\nbravo\ncharlie'.length });
   assert.deepEqual(
-    editTextAreaBuffer({ text: pasted.text, cursor: 'alpha\nbr'.length }, { kind: 'moveHome' }),
+    editTextBuffer({ text: pasted.text, cursor: 'alpha\nbr'.length }, { kind: 'moveHome' }),
     { text: pasted.text, cursor: 'alpha\n'.length }
   );
   assert.deepEqual(
-    editTextAreaBuffer({ text: pasted.text, cursor: 'alpha\nbr'.length }, { kind: 'moveEnd' }),
+    editTextBuffer({ text: pasted.text, cursor: 'alpha\nbr'.length }, { kind: 'moveEnd' }),
     { text: pasted.text, cursor: 'alpha\nbravo'.length }
   );
   assert.deepEqual(
-    editTextAreaBuffer({ text: pasted.text, cursor: 'alpha\nbra'.length }, { kind: 'moveLineDown', select: true }),
+    editTextBuffer({ text: pasted.text, cursor: 'alpha\nbra'.length }, { kind: 'moveLineDown', select: true }),
     {
       text: pasted.text,
       cursor: 'alpha\nbravo\ncha'.length,

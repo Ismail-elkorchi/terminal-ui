@@ -2,7 +2,6 @@ import type {
   ButtonOptions,
   CheckboxOptions,
   ColorPickerOption,
-  DatePickerDay,
   FieldOptions,
   FormOptions,
   LabelOptions,
@@ -14,6 +13,8 @@ import type {
   ToggleSwitchOptions
 } from '../../components/options/forms.ts';
 import type { ChoiceItem } from '../../components/contracts.ts';
+import type { NumberInputAction } from '../../components/number-input.ts';
+import type { DatePickerAction, DatePickerDay } from '../../components/date-picker.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
 import type { AuthoredProps, ReplaceProps } from './shared.ts';
 
@@ -31,7 +32,7 @@ export type CheckboxRenderProps<TMessage> = ReplaceProps<
   AuthoredProps<CheckboxOptions>,
   'onChange' | 'onTextPointer',
   {
-    readonly message?: TMessage;
+    readonly toMessage?: (checked: boolean) => TMessage;
     readonly toTextPointerMessage?: (event: TextPointerEvent) => TMessage;
   }
 >;
@@ -39,7 +40,7 @@ export type CheckboxRenderProps<TMessage> = ReplaceProps<
 export type ToggleSwitchRenderProps<TMessage> = ReplaceProps<
   AuthoredProps<ToggleSwitchOptions>,
   'onChange',
-  { readonly message?: TMessage }
+  { readonly toMessage?: (checked: boolean) => TMessage }
 >;
 
 export type SliderRenderProps<TMessage> = ReplaceProps<
@@ -90,24 +91,28 @@ export interface ColorPickerRenderProps<TMessage> {
 
 export interface DatePickerRenderProps<TMessage> {
   readonly label?: string;
-  readonly days: readonly DatePickerDay<unknown>[];
+  readonly monthLabel: string;
+  readonly weekdays: readonly string[];
+  readonly days: readonly DatePickerDay[];
   readonly selected?: string;
-  readonly columns?: number;
+  readonly focused?: string;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly toMessage?: (day: DatePickerDay<unknown>) => TMessage;
+  readonly toMessage?: (day: DatePickerDay) => TMessage;
+  readonly toActionMessage?: (action: DatePickerAction) => TMessage;
 }
 
 export type TextInputRenderProps<TMessage> = ReplaceProps<
   AuthoredProps<TextInputOptions>,
-  'onSubmit' | 'onTextPointer' | 'onInput' | 'onPaste',
+  'onSubmit' | 'onTextPointer' | 'onEdit',
   {
     readonly message?: TMessage;
     readonly toTextPointerMessage?: (event: TextPointerEvent) => TMessage;
   }
 > & { readonly value: string };
 
-export type NumberInputRenderProps = Omit<
+export type NumberInputRenderProps<TMessage> = ReplaceProps<
   AuthoredProps<NumberInputOptions>,
-  'onInput' | 'onPaste'
->;
+  'onAction',
+  { readonly toActionMessage?: (action: NumberInputAction) => TMessage }
+> & { readonly value: string };

@@ -14,6 +14,7 @@ import {
   datePickerAccessibleBase,
   datePickerAccessibleChildren,
   datePickerBlock,
+  datePickerNavigationHitTargets,
   fieldAccessibleBase,
   fieldBlock,
   fieldContentBounds,
@@ -25,6 +26,7 @@ import {
   numberInputAccessibleBase,
   numberInputBlock,
   numberInputCursor,
+  numberInputHitTargets,
   optionHitTargets,
   pickerHitTargets,
   radioGroupAccessibleBase,
@@ -46,7 +48,7 @@ import {
   toggleSwitchBlock
 } from '../forms/index.ts';
 import { singleLineInputPointerOffset } from '../input-visual.ts';
-import { splitTracks } from '../regions.ts';
+import { splitTracks } from '../../layout/geometry.ts';
 import { textPointerHitTargets, textPointerMessageFactory } from '../text-pointer.ts';
 import { stringify } from '../render-node-props.ts';
 import { writeRenderBlock } from './support/block.ts';
@@ -180,7 +182,10 @@ export const formRenderers = {
       children: datePickerAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ renderNode, bounds }) => pickerHitTargets(renderNode, bounds)
+    hitTargets: ({ renderNode, bounds }) => [
+      ...datePickerNavigationHitTargets(renderNode, bounds),
+      ...pickerHitTargets(renderNode, bounds)
+    ]
   },
   textInput: {
     render: ({ renderNode, layoutNode, buffer, focused, theme }) => {
@@ -211,7 +216,8 @@ export const formRenderers = {
       writeRenderBlock(buffer, layoutNode.bounds, numberInputBlock(renderNode, layoutNode.bounds, focused, theme));
     },
     accessibility: ({ renderNode, id, focused }) => numberInputAccessibleBase(renderNode, id, focused),
-    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, numberInputCursor(renderNode, bounds))]
+    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, numberInputCursor(renderNode, bounds))],
+    hitTargets: ({ renderNode, bounds }) => numberInputHitTargets(renderNode, bounds)
   }
 } satisfies RendererMap<
   | 'form'

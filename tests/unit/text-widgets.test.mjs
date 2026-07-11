@@ -148,7 +148,7 @@ test('editable text controls expose source metadata for chrome value placeholder
   }), { columns: 12, rows: 1 });
   const numberFrame = renderElementFrame(numberInput({
     id: 'qty',
-    value: 42
+    value: '42'
   }), { columns: 12, rows: 1 });
 
   assert.equal(inputFrame.cells.find((cell) => cell.text === '[')?.source?.label, 'chrome.prefix');
