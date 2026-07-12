@@ -51,8 +51,8 @@ test('schemas validate payloads emitted by public runtime APIs', async () => {
   }), harness.host.getViewport());
   const nextFrame = renderElementFrame(text('changed', { id: 'changed' }), harness.host.getViewport());
   const diff = diffFrames(frame, nextFrame);
-  harness.host.recordFrame(frame);
-  harness.host.recordDiff(diff);
+  harness.host.observer?.recordFrame?.(frame);
+  harness.host.observer?.recordDiff?.(diff);
 
   const promptResult = await runPrompt(input({
     label: 'Name',

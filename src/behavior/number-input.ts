@@ -1,6 +1,8 @@
-import type { NumberInputAction, NumberInputValidity } from '../components/number-input.ts';
+import type { NumberInputAction, NumberInputPresentation, NumberInputValidity } from '../ui-model/number-input.ts';
 import { editTextBuffer } from '../text/index.ts';
-import type { TextEditBuffer, TextEditOperation, TextSelection } from '../text/index.ts';
+import type { TextEditBuffer, TextEditOperation } from '../text/index.ts';
+
+export type { NumberInputPresentation } from '../ui-model/number-input.ts';
 
 export interface NumberInputGrammar {
   readonly notation?: 'integer' | 'decimal' | 'scientific';
@@ -24,18 +26,6 @@ export interface NumberInputState {
 export interface NumberInputAnalysis {
   readonly validity: NumberInputValidity;
   readonly value?: number;
-}
-
-export interface NumberInputPresentation {
-  readonly value: string;
-  readonly cursor: number;
-  readonly selection?: TextSelection;
-  readonly committedValue?: number;
-  readonly parsedValue?: number;
-  readonly validity: NumberInputValidity;
-  readonly min?: number;
-  readonly max?: number;
-  readonly step?: number;
 }
 
 export function createNumberInputState(value?: number): NumberInputState {

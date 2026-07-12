@@ -2,7 +2,7 @@ import { highlightRenderSpans } from './text-highlight.ts';
 import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { RenderNode } from '../render-node/index.ts';
-import type { ComponentTone } from '../components/contracts.ts';
+import type { ComponentTone } from '../ui-model/contracts.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from './render-primitives.ts';
 
 export type CommandSurfaceTone = Extract<ComponentTone, 'info' | 'warning' | 'error' | 'success' | 'muted'>;

@@ -11,10 +11,10 @@ import type {
   SparklineOptions,
   SpinnerOptions,
   StatusBarOptions
-} from '../../components/options/feedback.ts';
+} from '../../ui-model/options/feedback.ts';
 import type { AuthoredProps, ReplaceProps } from './shared.ts';
-import type { NotificationStackAction } from '../../components/notification-stack.ts';
-import type { ChartAction, HeatmapAction } from '../../components/visualization.ts';
+import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
+import type { ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
 
 export interface NotificationStackRenderProps<TMessage> {
   readonly items: readonly NotificationItem[];

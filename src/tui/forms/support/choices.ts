@@ -1,4 +1,4 @@
-import type { ChoiceItem } from '../../../components/contracts.ts';
+import type { ChoiceItem } from '../../../ui-model/contracts.ts';
 import type { RenderNodeOfKind, RenderNodesOfKind } from '../../../render-node/index.ts';
 import type { TerminalStyle } from '../../frame.ts';
 import { resolveRenderNodeStyle } from '../../render-node-style.ts';

@@ -1,4 +1,4 @@
-import type { Element, ElementChildren, ElementChildrenMessage } from '../components/element.ts';
+import type { Element, ElementChildren, ElementChildrenMessage } from '../element/index.ts';
 import type { ElementInspection } from '../components/inspection.ts';
 import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
 

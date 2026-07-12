@@ -11,23 +11,25 @@ import type { InteractionTranscriptStep } from '../transcript/index.ts';
 import type { TerminalHarness, TerminalHarnessOptions } from './types.ts';
 
 export function createTerminalHarness(options: TerminalHarnessOptions = {}): TerminalHarness {
-  const host = createMemoryTerminalHost(options.viewport === undefined ? {} : { viewport: options.viewport });
   const transcript = createTranscriptRecorder({ source: 'test' });
-  const recordFrame = host.recordFrame.bind(host);
-  host.recordFrame = (frame: unknown) => {
-    recordFrame(frame);
-    transcript.record({ kind: 'frame', frame: frame as Frame });
-  };
-  const recordDiff = host.recordDiff.bind(host);
-  host.recordDiff = (diff: unknown) => {
-    recordDiff(diff);
-    transcript.record({ kind: 'diff', diff: diff as RenderDiff });
-  };
-  const recordRestore = host.recordRestore.bind(host);
-  host.recordRestore = (checkpoint) => {
-    recordRestore(checkpoint);
-    transcript.record({ kind: 'restore', checkpoint });
-  };
+  const frames: Frame[] = [];
+  const diffs: RenderDiff[] = [];
+  const host = createMemoryTerminalHost({
+    ...(options.viewport === undefined ? {} : { viewport: options.viewport }),
+    observer: {
+      recordFrame(frame) {
+        frames.push(frame as Frame);
+        transcript.record({ kind: 'frame', frame: frame as Frame });
+      },
+      recordDiff(diff) {
+        diffs.push(diff as RenderDiff);
+        transcript.record({ kind: 'diff', diff: diff as RenderDiff });
+      },
+      recordRestore(checkpoint) {
+        transcript.record({ kind: 'restore', checkpoint });
+      }
+    }
+  });
   return {
     host,
     clock: host.clock,
@@ -54,14 +56,14 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
       return operation(host);
     },
     snapshot() {
-      return latestHarnessSnapshot(transcript.snapshot().steps, host.frames() as readonly Frame[]);
+      return latestHarnessSnapshot(transcript.snapshot().steps, frames);
     },
-    frames: () => host.frames() as readonly Frame[],
-    diffs: () => host.diffs() as readonly RenderDiff[],
+    frames: () => [...frames],
+    diffs: () => [...diffs],
     restores: () => host.restores(),
-    recordFrame: (frame) => { host.recordFrame(frame); },
-    recordDiff: (diff) => { host.recordDiff(diff); },
-    recordRestore: (checkpoint) => { host.recordRestore(checkpoint); },
+    recordFrame: (frame) => { host.observer?.recordFrame?.(frame); },
+    recordDiff: (diff) => { host.observer?.recordDiff?.(diff); },
+    recordRestore: (checkpoint) => { host.observer?.recordRestore?.(checkpoint); },
     output: () => host.output()
   };
 }
@@ -84,7 +86,7 @@ function deliverHarnessInputEvent(host: MemoryTerminalHost, event: InputEvent): 
 }
 
 function deliverHarnessResize(host: MemoryTerminalHost, viewport: { readonly columns: number; readonly rows: number }): void {
-  host.setViewport(viewport);
+  void host.viewportControl?.setViewport(viewport);
   host.signals.emit('resize');
 }
 

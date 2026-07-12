@@ -847,8 +847,7 @@ test('dropdown renders above table content in a higher region', () => {
     dropdown({
     id: 'theme-dropdown-layer',
     label: 'Theme',
-    selected: 'dark',
-    open: true,
+    presentation: { kind: 'open', selected: 'dark', highlighted: 'dark' },
     items: [
         { id: 'light', label: 'Light' },
         { id: 'dark', label: 'Dark' }

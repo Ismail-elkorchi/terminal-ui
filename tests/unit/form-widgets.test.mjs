@@ -71,9 +71,7 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
     }),
     numberInput({
       id: 'workers',
-      value: '4',
-      min: 1,
-      max: 8
+      presentation: { value: '4', cursor: 1, validity: 'valid', parsedValue: 4, min: 1, max: 8 }
     }),
     row([
       button({ id: 'submit', label: 'Continue', onPress: { kind: 'submit' } }),

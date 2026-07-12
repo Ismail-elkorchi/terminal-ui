@@ -1,7 +1,7 @@
-import type { Element } from '../../components/element.ts';
+import type { Element } from '../../element/index.ts';
 import { toRenderNode } from '../../render-node/element.ts';
 import type { RenderNodeLayoutProps } from '../../render-node/props/shared-layout.ts';
-import type { LayoutFlowOptions } from '../geometry.ts';
+import type { LayoutFlowOptions } from '../../geometry/types.ts';
 
 export function assertTrackCount(
   kind: 'row' | 'stack',

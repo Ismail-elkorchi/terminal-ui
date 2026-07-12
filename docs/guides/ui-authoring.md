@@ -55,7 +55,7 @@ type Message = { readonly kind: 'save' };
 button({
   id: 'save',
   label: 'Save',
-  disabled: false,
+  state: 'idle',
   onPress: { kind: 'save' },
   meta: {
     accessibility: { description: 'Persist the current document' },
@@ -72,7 +72,7 @@ Rules:
 
 - keep `id` top-level; it is authored identity for focus, tests,
   accessibility, state association, routing, and examples;
-- keep semantic component state such as `disabled`, `selected`, `error`,
+- keep semantic component state such as button `state`, selection, validation errors,
   `required`, and values on the component itself;
 - put cross-cutting system metadata under `meta`;
 - use direct event props for scalar values and structured `onAction` contracts

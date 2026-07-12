@@ -1,5 +1,5 @@
 import type { BorderStyle } from '../../tui/border.ts';
-import type { LayoutSize } from '../../layout/geometry.ts';
+import type { LayoutSize } from '../../geometry/types.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 
 export type StackRenderProps = RenderNodeLayoutProps & { readonly sizes?: readonly LayoutSize[] };
@@ -32,7 +32,7 @@ export interface RenderTabItem {
 export type TabsRenderProps<TMessage> = RenderNodeLayoutProps & {
   readonly tabs: readonly RenderTabItem[];
   readonly selected?: string;
-  readonly toActionMessage?: (action: import('../../components/tabs.ts').TabAction) => TMessage;
+  readonly toActionMessage?: (action: import('../../ui-model/tabs.ts').TabAction) => TMessage;
 };
 
 export type ModalRenderProps = RenderNodeLayoutProps & {

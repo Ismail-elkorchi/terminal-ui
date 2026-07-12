@@ -1,9 +1,9 @@
 import { elementFromRenderNode, toRenderNode, toRenderNodes } from '../../render-node/element.ts';
-import type { Element, ElementChildren } from '../../components/element.ts';
+import type { Element, ElementChildren } from '../../element/index.ts';
 import type { GridAreasOptions, GridOptions, ModalOptions, SplitPaneOptions, TabsOptions } from '../options.ts';
 import { componentMetaProps, interactionProps, mergeKeyBindings, withMetaDefaults } from '../../components/factory-internals/interaction.ts';
 import type { RenderTabItem } from '../../render-node/props/layout.ts';
-import type { TabAction } from '../../components/tabs.ts';
+import type { TabAction } from '../../ui-model/tabs.ts';
 import {
   layoutProps,
   optionalId,
@@ -101,7 +101,7 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
     home: () => onAction({ kind: 'first' }),
     end: () => onAction({ kind: 'last' }),
     enter: () => selected === undefined ? undefined : onAction({ kind: 'select', id: selected })
-  } satisfies import('../../components/options/base.ts').ComponentKeyBindings<TMessage>;
+  } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   const keys = mergeKeyBindings(generated, options.keys);
   return elementFromRenderNode<'tabs', TMessage>({
     ...requiredId(options.id, 'tabs'),

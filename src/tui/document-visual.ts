@@ -1,7 +1,7 @@
 import type { RenderNode } from '../render-node/index.ts';
 import { highlightRenderSpans } from './text-highlight.ts';
-import type { FieldItem, LogLevel, RecordStatus } from '../components/contracts.ts';
-import { baseStatusForRecordStatus } from '../components/status.ts';
+import type { FieldItem, LogLevel, RecordStatus } from '../ui-model/contracts.ts';
+import { baseStatusForRecordStatus } from '../ui-model/status.ts';
 import { renderNodeFrameSource } from './frame-source.ts';
 import { span } from './render-primitives.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from './render-primitives.ts';

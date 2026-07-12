@@ -1,14 +1,14 @@
 import { elementFromRenderNode } from '../../render-node/element.ts';
-import type { Element } from '../element.ts';
+import type { Element } from '../../element/index.ts';
 import type {
   ListOptions,
   PaginatorOptions,
   TableOptions,
   TreeOptions
-} from '../options/content.ts';
-import type { ScrollEvent } from '../../behavior/scroll.ts';
-import type { ListAction } from '../list.ts';
-import type { TableAction } from '../table.ts';
+} from '../../ui-model/options/content.ts';
+import type { ScrollEvent } from '../../interaction/scroll.ts';
+import type { ListAction } from '../../ui-model/list.ts';
+import type { TableAction } from '../../ui-model/table.ts';
 import {
   interactionProps,
   listKeyBindings,
@@ -25,13 +25,13 @@ import { requiredId } from '../factory-internals/render-node.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
-  InferredComponentKeyBindings
+  InferredElementKeyBindings
 } from '../factory-internals/messages.ts';
 
 export function list<
   TValue,
   const TActionMessage = never,
-  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     ListOptions<TValue, never>,
@@ -72,7 +72,7 @@ export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unk
 export function table<
   TRow,
   const TActionMessage = never,
-  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     TableOptions<TRow>,
@@ -116,7 +116,7 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
 export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
   const TActionMessage = never,
-  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     TreeOptions<TMetadata>,
@@ -156,7 +156,7 @@ export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
 
 export function paginator<
   const TActionMessage = never,
-  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   PaginatorOptions,
   { readonly onAction: TActionMessage },

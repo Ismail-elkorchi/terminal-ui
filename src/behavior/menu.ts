@@ -1,7 +1,10 @@
-import type { DropdownAction, MenuAction } from '../components/menu.ts';
-import type { MenuItem } from '../components/options/menus.ts';
+import type { DropdownAction, DropdownPresentation, MenuAction } from '../ui-model/menu.ts';
+import type { MenuItem } from '../ui-model/options/menus.ts';
+import { adjacentItemId } from './navigation.ts';
 import { applyScrollEvent } from './scroll.ts';
-import type { ScrollState } from './scroll.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
+
+export type { DropdownPresentation } from '../ui-model/menu.ts';
 
 export interface MenuState {
   readonly selected?: string;
@@ -58,17 +61,7 @@ export function menuPresentation(items: readonly MenuItem[], state: MenuState): 
   };
 }
 
-export interface DropdownState {
-  readonly open: boolean;
-  readonly selected?: string;
-  readonly highlighted?: string;
-}
-
-export interface DropdownPresentation {
-  readonly open: boolean;
-  readonly selected?: string;
-  readonly highlighted?: string;
-}
+export type DropdownState = DropdownPresentation;
 
 export function dropdownReducer(
   state: DropdownState,
@@ -78,36 +71,34 @@ export function dropdownReducer(
   const enabled = visibleMenuItems(items, []).filter((item) => item.disabled !== true);
   switch (action.kind) {
     case 'open':
-      return state.open ? state : withHighlight({ ...state, open: true }, validHighlight(state, enabled));
+      return state.kind === 'open' ? state : openDropdown(state, validHighlight(state, enabled));
     case 'close':
-      return state.open ? withoutHighlight({ ...state, open: false }) : state;
+      return state.kind === 'open' ? closeDropdown(state) : state;
     case 'toggle':
-      return state.open
-        ? withoutHighlight({ ...state, open: false })
-        : withHighlight({ ...state, open: true }, validHighlight(state, enabled));
+      return state.kind === 'open'
+        ? closeDropdown(state)
+        : openDropdown(state, validHighlight(state, enabled));
     case 'highlight':
-      return enabled.some((item) => item.id === action.id) ? { ...state, highlighted: action.id } : state;
+      return state.kind === 'open' && enabled.some((item) => item.id === action.id)
+        ? { ...state, highlighted: action.id }
+        : state;
     case 'move':
       return withAdjacentHighlight(state, enabled, action.delta);
     case 'first':
-      return enabled[0] === undefined ? state : { ...state, highlighted: enabled[0].id };
+      return state.kind !== 'open' || enabled[0] === undefined ? state : { ...state, highlighted: enabled[0].id };
     case 'last': {
       const item = enabled.at(-1);
-      return item === undefined ? state : { ...state, highlighted: item.id };
+      return state.kind !== 'open' || item === undefined ? state : { ...state, highlighted: item.id };
     }
     case 'activate': {
       const item = enabled.find((candidate) => candidate.id === action.id);
-      return item === undefined ? state : { open: false, selected: item.id };
+      return item === undefined ? state : { kind: 'closed', selected: item.id };
     }
   }
 }
 
 export function dropdownPresentation(state: DropdownState): DropdownPresentation {
-  return {
-    open: state.open,
-    ...(state.selected === undefined ? {} : { selected: state.selected }),
-    ...(state.highlighted === undefined ? {} : { highlighted: state.highlighted })
-  };
+  return state;
 }
 
 function visibleMenuItems(items: readonly MenuItem[], expandedIds: readonly string[]): readonly MenuItem[] {
@@ -139,18 +130,15 @@ function projectExpandedItems(items: readonly MenuItem[], expandedIds: readonly 
 }
 
 function withAdjacentSelection(state: MenuState, items: readonly MenuItem[], delta: number): MenuState {
-  if (items.length === 0) return state;
-  const current = Math.max(0, items.findIndex((item) => item.id === state.selected));
-  const item = items[wrapIndex(current + delta, items.length)];
-  return item === undefined ? state : { ...state, selected: item.id };
+  const selected = adjacentItemId(items.map((item) => item.id), state.selected, delta);
+  return selected === undefined ? state : { ...state, selected };
 }
 
 function withAdjacentHighlight(state: DropdownState, items: readonly MenuItem[], delta: number): DropdownState {
-  if (items.length === 0) return state;
+  if (state.kind !== 'open') return state;
   const currentId = state.highlighted ?? state.selected;
-  const current = Math.max(0, items.findIndex((item) => item.id === currentId));
-  const item = items[wrapIndex(current + delta, items.length)];
-  return item === undefined ? state : { ...state, highlighted: item.id };
+  const highlighted = adjacentItemId(items.map((item) => item.id), currentId, delta);
+  return highlighted === undefined ? state : { ...state, highlighted };
 }
 
 function toggleExpanded(state: MenuState, id: string): MenuState {
@@ -165,18 +153,18 @@ function setExpanded(state: MenuState, id: string, expanded: boolean): MenuState
 }
 
 function validHighlight(state: DropdownState, items: readonly MenuItem[]): string | undefined {
-  const candidate = state.highlighted ?? state.selected;
+  const candidate = state.kind === 'open' ? state.highlighted ?? state.selected : state.selected;
   return items.some((item) => item.id === candidate) ? candidate : items[0]?.id;
 }
 
-function withoutHighlight(state: DropdownState): DropdownState {
-  return state.selected === undefined ? { open: state.open } : { open: state.open, selected: state.selected };
+function closeDropdown(state: DropdownState): DropdownState {
+  return state.selected === undefined ? { kind: 'closed' } : { kind: 'closed', selected: state.selected };
 }
 
-function withHighlight(state: DropdownState, highlighted: string | undefined): DropdownState {
-  return highlighted === undefined ? withoutHighlight(state) : { ...state, highlighted };
-}
-
-function wrapIndex(index: number, count: number): number {
-  return ((index % count) + count) % count;
+function openDropdown(state: DropdownState, highlighted: string | undefined): DropdownState {
+  return {
+    kind: 'open',
+    ...(state.selected === undefined ? {} : { selected: state.selected }),
+    ...(highlighted === undefined ? {} : { highlighted })
+  };
 }

@@ -1,5 +1,5 @@
 import type { TerminalTheme, ThemeColorToken } from '../theme/index.ts';
-import type { ComponentStatus } from '../components/contracts.ts';
+import type { ComponentStatus } from '../ui-model/contracts.ts';
 import type { TerminalStyle } from './frame.ts';
 
 export function statusMarker(status: ComponentStatus, theme: TerminalTheme): string {

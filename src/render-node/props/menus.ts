@@ -3,9 +3,9 @@ import type {
   MenuItem,
   MenuOptions,
   TooltipOptions
-} from '../../components/options/menus.ts';
-import type { ScrollEvent } from '../../behavior/scroll.ts';
-import type { DropdownAction, MenuAction } from '../../components/menu.ts';
+} from '../../ui-model/options/menus.ts';
+import type { ScrollEvent } from '../../interaction/scroll.ts';
+import type { DropdownAction, DropdownPresentation, MenuAction } from '../../ui-model/menu.ts';
 import type { AuthoredProps } from './shared.ts';
 
 export interface RenderMenuItem extends Omit<MenuItem, 'children'> {
@@ -39,8 +39,7 @@ export interface ContextMenuRenderProps<TMessage> extends MenuCollectionRenderPr
 
 export interface DropdownRenderProps<TMessage> extends MenuCollectionRenderProps<TMessage> {
   readonly label?: string;
-  readonly open?: boolean;
-  readonly highlighted?: string;
+  readonly presentation: DropdownPresentation;
   readonly placeholder?: string;
   readonly toDropdownActionMessage?: (action: DropdownAction) => TMessage;
 }

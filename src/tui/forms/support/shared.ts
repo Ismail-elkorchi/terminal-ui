@@ -51,8 +51,11 @@ export function controlInputBlock(
   theme: TerminalTheme
 ): RenderBlock {
   const placeholder = clean(stringify(widget.props.placeholder));
-  const cursor = numberProp(widget, 'cursor');
-  const selection = selectionFromUnknown(value, widget.props.selection);
+  const cursor = widget.kind === 'numberInput' ? widget.props.presentation.cursor : numberProp(widget, 'cursor');
+  const selection = selectionFromUnknown(
+    value,
+    widget.kind === 'numberInput' ? widget.props.presentation.selection : widget.props.selection
+  );
   const rows = [
     ...singleLineInputBlock({
       widget,
@@ -149,7 +152,7 @@ export function inputValue(widget: TextInputNode): string {
 }
 
 export function numberInputValue(widget: NumberInputNode): string {
-  return clean(stringify(widget.props.value));
+  return clean(stringify(widget.props.presentation.value));
 }
 
 export function singleLineCursor(

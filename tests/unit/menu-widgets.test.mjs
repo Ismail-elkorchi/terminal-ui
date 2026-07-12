@@ -100,8 +100,7 @@ test('menuBar contextMenu and dropdown render reusable menu surfaces', () => {
     dropdown({
       id: 'theme-dropdown',
       label: 'Theme',
-      selected: 'dark',
-      open: true,
+      presentation: { kind: 'open', selected: 'dark', highlighted: 'dark' },
       items: [
         { id: 'light', label: 'Light' },
         { id: 'dark', label: 'Dark' }

@@ -1,5 +1,5 @@
 import type { AccessibleNode } from '../accessibility/index.ts';
-import type { PaginatorAction } from '../components/paginator.ts';
+import type { PaginatorAction } from '../ui-model/paginator.ts';
 import type { RenderNodeOfKind } from '../render-node/index.ts';
 import { terminalTextWidth } from '../text/index.ts';
 import { dataSource, dataSpan } from './data-visual.ts';

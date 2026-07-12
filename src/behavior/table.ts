@@ -1,6 +1,6 @@
-import type { TableAction, TablePresentation, TableSortState } from '../components/table.ts';
+import type { TableAction, TablePresentation, TableSortState } from '../ui-model/table.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
-import type { ScrollState } from './scroll.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
 
 export interface TableState {
   readonly selectedRow?: number;

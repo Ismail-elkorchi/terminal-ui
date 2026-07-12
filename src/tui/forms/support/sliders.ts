@@ -1,4 +1,4 @@
-import type { RangeSliderValue } from '../../../components/options/forms.ts';
+import type { RangeSliderValue } from '../../../ui-model/options/forms.ts';
 import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../frame.ts';
 import { formSpan } from '../../form-visual.ts';
@@ -39,9 +39,16 @@ export function sliderModel(widget: SliderNode): SliderModel {
 }
 
 export function rangeSliderModel(widget: RangeSliderNode): RangeSliderModel {
-  const base = numericSliderModel({ ...widget.props, value: widget.props.start });
-  const start = clampNumber(finiteNumber(widget.props.start, base.min), base.min, base.max);
-  const end = clampNumber(finiteNumber(widget.props.end, base.max), base.min, base.max);
+  const base = numericSliderModel({
+    ...widget.props,
+    ...(widget.props.range === undefined ? {} : {
+      min: widget.props.range.min,
+      max: widget.props.range.max
+    }),
+    value: widget.props.value.start
+  });
+  const start = clampNumber(finiteNumber(widget.props.value.start, base.min), base.min, base.max);
+  const end = clampNumber(finiteNumber(widget.props.value.end, base.max), base.min, base.max);
   return {
     ...base,
     start: Math.min(start, end),

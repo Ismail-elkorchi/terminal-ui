@@ -47,7 +47,7 @@ const state = { saving: false };
 button({
   id: 'save',
   label: 'Save',
-  disabled: state.saving,
+  state: state.saving ? 'pending' : 'idle',
   onPress: { kind: 'save' },
   meta: {
     accessibility: { description: 'Save the current document' },
@@ -60,7 +60,7 @@ Rules:
 
 - `id` remains top-level because it is authored identity for focus, tests,
   accessibility, state association, and event routing.
-- Semantic state such as `disabled`, `selected`, `required`, and `error`
+- Semantic state such as button `state`, selection, required state, and validation errors
   belongs to the component.
 - Accessibility overrides, focus policy, layering, and typed local style anatomy live
   under `meta`.

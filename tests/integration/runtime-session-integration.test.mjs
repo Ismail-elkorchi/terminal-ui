@@ -88,7 +88,7 @@ function explicitStreamHost(runtime) {
   const host = factory({
     id: `${runtime}-integration`,
     stdin: {
-      source: asyncIterable([]),
+      source: runtimeInput([]),
       isTty: true,
       setRawMode: (enabled) => {
         rawModes.push(enabled);
@@ -119,4 +119,8 @@ function memoryHost() {
 
 async function* asyncIterable(values) {
   for (const value of values) yield value;
+}
+
+function runtimeInput(values) {
+  return { read: () => asyncIterable(values) };
 }

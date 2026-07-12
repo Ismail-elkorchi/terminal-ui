@@ -1,5 +1,5 @@
 import { elementFromRenderNode } from '../../render-node/element.ts';
-import type { Element, ElementChildren, ElementChildrenMessage } from '../element.ts';
+import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type {
   ButtonOptions,
   CheckboxListOptions,
@@ -16,11 +16,11 @@ import type {
   SliderOptions,
   TextInputOptions,
   ToggleSwitchOptions
-} from '../options/forms.ts';
+} from '../../ui-model/options/forms.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
-  InferredComponentKeyBindings
+  InferredElementKeyBindings
 } from '../factory-internals/messages.ts';
 import {
   activationKeyBindings,
@@ -98,8 +98,9 @@ export function label(options: LabelOptions): Element {
 }
 
 export function button<const TMessage = never>(options: ButtonOptions<TMessage>): Element<TMessage> {
+  const state = options.state ?? 'idle';
   const keyMap = activationKeyBindings(
-    options.onPress === undefined ? undefined : () => options.onPress,
+    options.onPress === undefined || state === 'disabled' || state === 'pending' ? undefined : () => options.onPress,
     options.keys
   );
   return elementFromRenderNode<'button', TMessage>({
@@ -108,10 +109,8 @@ export function button<const TMessage = never>(options: ButtonOptions<TMessage>)
     props: {
       label: options.label,
       ...(options.onPress === undefined ? {} : { message: options.onPress }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      state,
       ...(options.tone === undefined ? {} : { tone: options.tone }),
-      ...(options.pressed === undefined ? {} : { pressed: options.pressed }),
-      ...(options.pending === undefined ? {} : { pending: options.pending })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ meta: options.meta })
@@ -186,16 +185,15 @@ export function slider<const TMessage = never>(options: SliderOptions<TMessage>)
 }
 
 export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<TMessage>): Element<TMessage> {
+  assertRangeSliderOptions(options);
   const keyMap = rangeSliderKeyBindings(options);
   return elementFromRenderNode<'rangeSlider', TMessage>({
     ...requiredId(options.id, 'rangeSlider'),
     kind: 'rangeSlider',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
-      start: options.start,
-      end: options.end,
-      ...(options.min === undefined ? {} : { min: options.min }),
-      ...(options.max === undefined ? {} : { max: options.max }),
+      value: options.value,
+      ...(options.range === undefined ? {} : { range: options.range }),
       ...(options.step === undefined ? {} : { step: options.step }),
       ...(options.width === undefined ? {} : { width: options.width }),
       ...(options.onChange === undefined ? {} : { toMessage: options.onChange }),
@@ -269,7 +267,7 @@ export function colorPicker<TValue, const TMessage = never>(options: ColorPicker
 
 export function datePicker<
   const TActionMessage = never,
-  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   DatePickerOptions,
   { readonly onAction: TActionMessage },
@@ -326,7 +324,7 @@ export function textInput<
   const TSubmitMessage = never,
   const TTextPointerMessage = never,
   const TEditMessage = never,
-  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   TextInputOptions,
   {
@@ -362,7 +360,7 @@ export function textInput(options: TextInputOptions<unknown>): Element<unknown> 
 
 export function numberInput<
   const TActionMessage = never,
-  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   NumberInputOptions,
   { readonly onAction: TActionMessage },
@@ -380,16 +378,8 @@ export function numberInput(options: NumberInputOptions<unknown>): Element<unkno
     ...requiredId(options.id, 'numberInput'),
     kind: 'numberInput',
     props: {
-      value: options.value ?? '',
-      ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
-      ...(options.selection === undefined ? {} : { selection: options.selection }),
-      ...(options.committedValue === undefined ? {} : { committedValue: options.committedValue }),
-      ...(options.parsedValue === undefined ? {} : { parsedValue: options.parsedValue }),
-      ...(options.validity === undefined ? {} : { validity: options.validity }),
+      presentation: options.presentation,
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
-      ...(options.min === undefined ? {} : { min: options.min }),
-      ...(options.max === undefined ? {} : { max: options.max }),
-      ...(options.step === undefined ? {} : { step: options.step }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error }),
@@ -398,4 +388,18 @@ export function numberInput(options: NumberInputOptions<unknown>): Element<unkno
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ ...editHandlers, meta: options.meta })
   });
+}
+
+function assertRangeSliderOptions<TMessage>(options: RangeSliderOptions<TMessage>): void {
+  const min = options.range?.min ?? 0;
+  const max = options.range?.max ?? 100;
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
+    throw new RangeError('rangeSlider range must have finite ordered bounds.');
+  }
+  if (options.value.start < min || options.value.end > max || options.value.start > options.value.end) {
+    throw new RangeError('rangeSlider value must be ordered and contained by range.');
+  }
+  if (options.step !== undefined && (!Number.isFinite(options.step) || options.step <= 0)) {
+    throw new RangeError('rangeSlider step must be finite and greater than zero.');
+  }
 }

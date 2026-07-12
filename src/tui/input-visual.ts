@@ -4,7 +4,7 @@ import { formSource, type FormVisualKind } from './form-visual.ts';
 import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn, visibleLineWindow } from './text-display.ts';
 import { textOffsetAtVisualColumn } from './text-pointer.ts';
 import { inputCursorStyle, mergeStyles, resolveRenderNodeStyle, renderNodeStyle } from './render-node-style.ts';
-import type { TextAreaHighlight } from '../components/options/content.ts';
+import type { TextAreaHighlight } from '../ui-model/options/content.ts';
 import type { TextSelection } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { RenderNodeOfKind, RenderNodesOfKind } from '../render-node/index.ts';

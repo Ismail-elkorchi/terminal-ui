@@ -1,6 +1,6 @@
 import type { TextSelection } from '../../text/index.ts';
 import type { TerminalStyle } from '../../tui/render-primitives.ts';
-import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../behavior/scroll.ts';
+import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../tui/scrollbar.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
 import type {
@@ -16,7 +16,7 @@ import type { CommandBarAction } from '../command-bar.ts';
 import type { PaletteAction } from '../palette.ts';
 import type { ActivityFeedAction } from '../activity-feed.ts';
 import type { ScrollbackAction } from '../scrollback.ts';
-import type { ComponentKeyBindings, ComponentOptions, InteractiveComponentOptions } from './base.ts';
+import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type {
   CommandBarStylePart,
   DocumentStylePart,
@@ -33,7 +33,7 @@ export interface ScrollbackItem {
   readonly metadata?: Record<string, string>;
 }
 
-export interface ScrollbackOptions<TMessage = never> extends InteractiveComponentOptions<TextAreaStylePart> {
+export interface ScrollbackOptions<TMessage = never> extends InteractiveElementOptions<TextAreaStylePart> {
   readonly items: readonly ScrollbackItem[];
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
@@ -42,7 +42,7 @@ export interface ScrollbackOptions<TMessage = never> extends InteractiveComponen
   readonly wrap?: boolean;
   readonly searchQuery?: string;
   readonly selectedRange?: TextSelection;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
 export interface StructuredBlock extends TitledItem {
@@ -55,7 +55,7 @@ export interface StructuredBlock extends TitledItem {
   readonly collapsed?: boolean;
 }
 
-export interface StructuredBlockOptions extends ComponentOptions<DocumentStylePart> {
+export interface StructuredBlockOptions extends ElementOptions<DocumentStylePart> {
   readonly title: string;
   readonly summary?: string;
   readonly style?: TerminalStyle;
@@ -66,11 +66,11 @@ export interface StructuredBlockOptions extends ComponentOptions<DocumentStylePa
   readonly collapsed?: boolean;
 }
 
-export interface ActivityFeedOptions<TMessage = never> extends InteractiveComponentOptions<DocumentStylePart> {
+export interface ActivityFeedOptions<TMessage = never> extends InteractiveElementOptions<DocumentStylePart> {
   readonly blocks: readonly StructuredBlock[];
   readonly selected?: number;
   readonly onAction?: (action: ActivityFeedAction) => TMessage;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
 export interface CommandBarValidation {
@@ -80,7 +80,7 @@ export interface CommandBarValidation {
 
 export type CommandBarDisplay = 'compact' | 'expanded';
 
-export interface CommandBarOptions<TMessage = never> extends InteractiveComponentOptions<CommandBarStylePart> {
+export interface CommandBarOptions<TMessage = never> extends InteractiveElementOptions<CommandBarStylePart> {
   readonly value?: string;
   readonly cursor?: number;
   readonly selection?: TextSelection;
@@ -97,10 +97,10 @@ export interface CommandBarOptions<TMessage = never> extends InteractiveComponen
   readonly onAction?: (action: CommandBarAction) => TMessage;
   readonly onSubmit?: TMessage;
   readonly onTextPointer?: (event: TextPointerEvent) => TMessage;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface PaletteOptions<TValue = string, TMessage = never> extends InteractiveComponentOptions<PaletteStylePart> {
+export interface PaletteOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<PaletteStylePart> {
   readonly title?: string;
   readonly query?: string;
   readonly entries: readonly SearchEntry<TValue>[];
@@ -115,5 +115,5 @@ export interface PaletteOptions<TValue = string, TMessage = never> extends Inter
   readonly helpText?: string;
   readonly emptyText?: string;
   readonly onAction?: (action: PaletteAction) => TMessage;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }

@@ -1,8 +1,6 @@
 import { diagnostic } from '../diagnostics.ts';
-import { createTuiContext } from './context.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalHost } from '../host/index.ts';
-import type { TuiEffect, TuiEffectContext } from './types.ts';
+import type { TuiContext, TuiEffect, TuiEffectContext } from './types.ts';
 import { effectExecutionId } from '../internal/identity.ts';
 import type { EffectExecutionId } from '../internal/identity.ts';
 
@@ -19,8 +17,7 @@ export interface TuiEffectManager<TMessage> {
 }
 
 export interface TuiEffectManagerOptions<TMessage> {
-  readonly host: TerminalHost;
-  readonly diagnostics: () => readonly TerminalDiagnostic[];
+  readonly context: () => Promise<TuiContext>;
   readonly dispatch: (message: TMessage) => Promise<void>;
   readonly reportDiagnostic: (item: TerminalDiagnostic) => void;
 }
@@ -122,12 +119,12 @@ async function runEffect<TMessage>(
   controller: AbortController,
   options: TuiEffectManagerOptions<TMessage>
 ): Promise<void> {
-  const base = await createTuiContext(options.host, options.diagnostics());
+  const base = await options.context();
   const context: TuiEffectContext = { ...base, signal: controller.signal };
   try {
     const output = await effect.run(context);
-    if (controller.signal.aborted || output === undefined) return;
-    const messages = isMessageArray<TMessage>(output) ? output : [output];
+    if (controller.signal.aborted || output.kind === 'none') return;
+    const messages = output.kind === 'message' ? [output.message] : output.messages;
     for (const message of messages) {
       await options.dispatch(message);
       if (abortRequested(controller.signal)) break;
@@ -139,15 +136,11 @@ async function runEffect<TMessage>(
       cause
     });
     options.reportDiagnostic(item);
-    const message = effect.onError?.({ id: effect.id, diagnostic: item });
-    if (message !== undefined) await options.dispatch(message);
+    const output = effect.onError?.({ id: effect.id, diagnostic: item });
+    if (output === undefined || output.kind === 'none') return;
+    const messages = output.kind === 'message' ? [output.message] : output.messages;
+    for (const message of messages) await options.dispatch(message);
   }
-}
-
-function isMessageArray<TMessage>(
-  value: TMessage | readonly TMessage[]
-): value is readonly TMessage[] {
-  return Array.isArray(value);
 }
 
 function abortRequested(signal: AbortSignal): boolean {

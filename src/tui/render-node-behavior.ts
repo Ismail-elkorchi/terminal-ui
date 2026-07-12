@@ -1,4 +1,4 @@
-import type { RenderNodeFocusScope } from '../render-node/index.ts';
+import type { ElementFocusScope } from '../element/metadata.ts';
 import { builtinRenderNodeRenderers } from './renderers/index.ts';
 import { normalizeMeasurement, zeroMeasurement } from './measurement.ts';
 import { measureBuiltinRenderNode } from './render-node-measure.ts';
@@ -81,7 +81,7 @@ export function focusTargetsForRenderNode(widget: RenderNode, bounds: Rect, them
   });
 }
 
-export function focusScopeForRenderNode(widget: RenderNode): RenderNodeFocusScope | undefined {
+export function focusScopeForRenderNode(widget: RenderNode): ElementFocusScope | undefined {
   const scope = widget.focus?.scope ?? (widget.kind === 'modal' ? 'contain' : undefined);
   return scope === 'none' ? undefined : scope;
 }

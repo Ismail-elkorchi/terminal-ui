@@ -1,6 +1,6 @@
-import type { ListAction } from '../components/list.ts';
+import type { ListAction } from '../ui-model/list.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
-import type { ScrollState } from './scroll.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
 
 export interface ListState {
   readonly selected?: number;

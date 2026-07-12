@@ -1,4 +1,4 @@
-import type { TabAction } from '../components/tabs.ts';
+import type { TabAction } from '../ui-model/tabs.ts';
 
 export interface TabBehaviorItem {
   readonly id: string;

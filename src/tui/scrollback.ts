@@ -9,7 +9,7 @@ import {
 import { stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TextSelection } from '../text/index.ts';
-import type { ScrollbackItem } from '../components/options/documents.ts';
+import type { ScrollbackItem } from '../ui-model/options/documents.ts';
 import type { LayoutNode } from './layout.ts';
 import type { RenderBlock, RenderSpan } from './render-primitives.ts';
 

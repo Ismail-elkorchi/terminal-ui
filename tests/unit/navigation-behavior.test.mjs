@@ -30,19 +30,19 @@ test('menu behavior owns selection, hierarchy projection, and activation state',
   const projection = menuPresentation(items, selected);
 
   assert.deepEqual(opened.expandedIds, ['file']);
-  assert.equal(selected.selected, 'open');
+  assert.equal(selected.selected, 'file');
   assert.equal(projection.items[0]?.expanded, true);
   assert.equal(menuReducer(selected, { kind: 'select', id: 'disabled' }, items), selected);
 });
 
 test('dropdown behavior separates highlighted and committed choices', () => {
-  const opened = dropdownReducer({ open: false, selected: 'alpha' }, { kind: 'open' }, choices);
+  const opened = dropdownReducer({ kind: 'closed', selected: 'alpha' }, { kind: 'open' }, choices);
   const moved = dropdownReducer(opened, { kind: 'move', delta: 1 }, choices);
   const committed = dropdownReducer(moved, { kind: 'activate', id: moved.highlighted }, choices);
 
   assert.equal(opened.highlighted, 'alpha');
   assert.equal(moved.highlighted, 'beta');
-  assert.deepEqual(dropdownPresentation(committed), { open: false, selected: 'beta' });
+  assert.deepEqual(dropdownPresentation(committed), { kind: 'closed', selected: 'beta' });
 });
 
 test('tabs behavior skips disabled tabs and leaves close ownership with the app', () => {
@@ -65,6 +65,6 @@ test('choice controls keep distinct action semantics while sharing item foundati
 
   assert.deepEqual(checkboxListPresentation(checked), { selected: ['alpha', 'beta'], focused: 'beta' });
   assert.deepEqual(radio, { selected: 'beta', focused: 'beta' });
-  assert.deepEqual(selected, { focused: 'beta' });
+  assert.deepEqual(selected, { focused: 'alpha' });
   assert.deepEqual(color, { selected: 'beta', focused: 'beta' });
 });

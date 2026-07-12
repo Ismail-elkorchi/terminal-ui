@@ -29,7 +29,7 @@ export type {
   CalendarMonth,
   DatePickerAction,
   DatePickerDay
-} from '../components/date-picker.ts';
+} from '../ui-model/date-picker.ts';
 export { dataWindow, rowWindow } from './data-window.ts';
 export type { DataWindow, DataWindowInput } from './data-window.ts';
 export {
@@ -44,7 +44,7 @@ export {
 export type {
   CommandBarState
 } from './command-bar-state.ts';
-export type { CommandBarAction } from '../components/command-bar.ts';
+export type { CommandBarAction } from '../ui-model/command-bar.ts';
 export {
   indeterminateProgressFrame,
   progressCompletionState
@@ -73,7 +73,7 @@ export type {
   ListState,
   ListVisibleEntry
 } from './list.ts';
-export type { ListAction } from '../components/list.ts';
+export type { ListAction } from '../ui-model/list.ts';
 export {
   createNumberInputState,
   numberInputAnalysis,
@@ -87,7 +87,7 @@ export type {
   NumberInputPresentation,
   NumberInputState
 } from './number-input.ts';
-export type { NumberInputAction, NumberInputValidity } from '../components/number-input.ts';
+export type { NumberInputAction, NumberInputValidity } from '../ui-model/number-input.ts';
 export {
   paginationWindow,
   paginatorPresentation,
@@ -100,7 +100,7 @@ export type {
   PaginatorReducerOptions,
   PaginatorState
 } from './paginator.ts';
-export type { PaginatorAction } from '../components/paginator.ts';
+export type { PaginatorAction } from '../ui-model/paginator.ts';
 export {
   createNotificationState,
   nextNotificationExpiry,
@@ -140,7 +140,7 @@ export type {
   PaletteState,
   PaletteWindowInput
 } from './palette.ts';
-export type { PaletteAction } from '../components/palette.ts';
+export type { PaletteAction } from '../ui-model/palette.ts';
 export {
   dropdownPresentation,
   dropdownReducer,
@@ -153,12 +153,12 @@ export type {
   MenuPresentation,
   MenuState
 } from './menu.ts';
-export type { DropdownAction, MenuAction } from '../components/menu.ts';
+export type { DropdownAction, MenuAction } from '../ui-model/menu.ts';
 export { tabsPresentation, tabsReducer } from './tabs.ts';
 export type { TabsPresentation, TabsState } from './tabs.ts';
-export type { TabAction } from '../components/tabs.ts';
-export type { ActivityFeedAction } from '../components/activity-feed.ts';
-export type { ScrollbackAction } from '../components/scrollback.ts';
+export type { TabAction } from '../ui-model/tabs.ts';
+export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
+export type { ScrollbackAction } from '../ui-model/scrollback.ts';
 export { chartPresentation, chartReducer, heatmapPresentation, heatmapReducer } from './visualization.ts';
 export type {
   ChartPresentation,
@@ -168,7 +168,7 @@ export type {
   HeatmapReducerOptions,
   HeatmapState
 } from './visualization.ts';
-export type { ChartAction, HeatmapAction } from '../components/visualization.ts';
+export type { ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
 export {
   checkboxListPresentation,
   checkboxListReducer,
@@ -194,7 +194,7 @@ export type {
   ColorPickerAction,
   RadioGroupAction,
   SelectBoxAction
-} from '../components/choice-controls.ts';
+} from '../ui-model/choice-controls.ts';
 export {
   applyScrollEvent,
   createScrollState,
@@ -213,7 +213,7 @@ export type {
   ScrollEvent,
   ScrollEventSource,
   ScrollEventTarget
-} from './scroll.ts';
+} from '../interaction/scroll.ts';
 export {
   activeScreen,
   screenStackReducer
@@ -237,6 +237,15 @@ export type {
   ScrollbackState
 } from './scrollback.ts';
 export {
+  adjacentItemId,
+  defaultNavigationPolicy
+} from './navigation.ts';
+export type {
+  InitialNavigation,
+  NavigationBoundary,
+  NavigationPolicy
+} from './navigation.ts';
+export {
   nextSpinnerFrameIndex,
   normalizeSpinnerFrameIndex,
   spinnerReducer
@@ -256,7 +265,7 @@ export type {
   TableReducerOptions,
   TableState
 } from './table.ts';
-export type { TableAction, TablePresentation, TableSortState } from '../components/table.ts';
+export type { TableAction, TablePresentation, TableSortState } from '../ui-model/table.ts';
 export {
   nextTreeRowId,
   selectableTreeRows,
@@ -274,4 +283,4 @@ export type {
   TreeVisibleRow,
   TreeVisibleRowsOptions
 } from './tree.ts';
-export type { TreeAction } from '../components/tree.ts';
+export type { TreeAction } from '../ui-model/tree.ts';

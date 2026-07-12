@@ -700,7 +700,7 @@ test('runTui re-renders when the host emits resize signals', async () => {
   const running = runTui(app, harness.host);
 
   await waitUntil(() => harness.frames().length === 1);
-  harness.host.setViewport({ columns: 12, rows: 3 });
+  harness.host.viewportControl?.setViewport({ columns: 12, rows: 3 });
   harness.host.signals.emit('resize');
   await waitUntil(() => harness.frames().length === 2);
   harness.host.input('\r');
@@ -746,7 +746,7 @@ test('runTui restores terminal protocols after initialization failure', async ()
   const exit = await runTui(app, harness.host);
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics[0]?.code, 'TUI_RENDER_FAILED');
+  assert.equal(exit.diagnostics[0]?.code, 'TUI_RUN_FAILED');
   assert.equal(harness.host.stdin.isRawModeEnabled(), false);
   assert.equal(harness.restores().length, 1);
   assert.match(harness.output(), /\u001B\[\?1049h/);
@@ -935,7 +935,7 @@ test('TUI effects do not block later input or external dispatches', async () => 
             concurrency: 'replace',
             async run() {
               await gate;
-              return { kind: 'finish' };
+              return { kind: 'message', message: { kind: 'finish' } };
             }
           }]
         };
@@ -972,7 +972,7 @@ test('TUI effects may dispatch terminal exit without deadlocking disposal', asyn
             id: 'complete-run',
             concurrency: 'parallel',
             async run() {
-              return { kind: 'finish' };
+              return { kind: 'message', message: { kind: 'finish' } };
             }
           }]
         };
@@ -1136,7 +1136,7 @@ test('TUI runtime reports effect failures and can map them to application messag
             async run() {
               throw new Error('load failed');
             },
-            onError: () => ({ kind: 'failed' })
+            onError: () => ({ kind: 'message', message: { kind: 'failed' } })
           }]
         }
       : { state: { ...state, status: 'failed' } },
@@ -1850,8 +1850,7 @@ test('TUI runtime focuses top-layer context menus and open dropdowns', async () 
       dropdown({
     id: 'theme-dropdown',
     label: 'Theme',
-    selected: 'dark',
-    open: true,
+    presentation: { kind: 'open', selected: 'dark', highlighted: 'dark' },
     items: [
         { id: 'light', label: 'Light' },
         { id: 'dark', label: 'Dark' }
@@ -3026,7 +3025,8 @@ test('TUI routed wheel events support page-based widget scroll policy', async ()
 test('TUI routed tree scroll events carry normalized rendered viewport metrics', async () => {
   const nodes = Array.from({ length: 6 }, (_value, index) => ({
     id: `node-${String(index)}`,
-    label: `Node ${String(index + 1)}`
+    label: `Node ${String(index + 1)}`,
+    kind: 'leaf'
   }));
   const app = defineTui({
     id: 'tree-scroll-pointer-tui',
@@ -3180,7 +3180,7 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
       id: 'tree',
       selected: state.selected,
       nodes: [
-        { id: 'root', label: 'Root', expanded: true, children: [{ id: 'child', label: 'Child' }] }
+        { id: 'root', label: 'Root', kind: 'branch', expanded: true, children: [{ id: 'child', label: 'Child', kind: 'leaf' }] }
       ],
       onAction: (action) => action.kind === 'select' ? { id: action.id } : undefined
     })
@@ -3207,7 +3207,7 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
       id: 'tree',
       selected: 'root',
       nodes: [
-        { id: 'root', label: 'Root', expanded: true, children: [{ id: 'child', label: 'Child' }] }
+        { id: 'root', label: 'Root', kind: 'branch', expanded: true, children: [{ id: 'child', label: 'Child', kind: 'leaf' }] }
       ],
       onAction: (action) => ({ kind: 'tree', action })
     })
@@ -3309,6 +3309,99 @@ test('TUI runtime routes same-layer overlay mouse events to the last visible chi
   assert.equal(press[0]?.handled, false);
   assert.equal(release[0]?.handled, true);
   assert.deepEqual(runtime.getState(), { clicked: 'upper' });
+});
+
+test('TUI runtime rejects operations after disposal and keeps disposal idempotent', async () => {
+  const app = defineTui({
+    id: 'disposed-runtime',
+    init: () => ({ count: 0 }),
+    update: (state, message) => ({ state: { count: state.count + message.delta } }),
+    view: (state) => text(String(state.count), { id: 'disposed-count' })
+  });
+  const host = createMemoryTerminalHost();
+  const runtime = createTuiRuntime({ app, host });
+  await runtime.start();
+
+  const firstDisposal = runtime.dispose();
+  assert.equal(runtime.dispose(), firstDisposal);
+  await firstDisposal;
+
+  await assert.rejects(runtime.start(), /runtime is disposed/u);
+  await assert.rejects(runtime.dispatch({ delta: 1 }), /runtime is disposed/u);
+  await assert.rejects(runtime.resize({ columns: 30, rows: 6 }), /runtime is disposed/u);
+  await assert.rejects(runtime.handleInput({ kind: 'key', key: 'enter' }), /runtime is disposed/u);
+  await assert.rejects(runtime.handleInputChunk({ data: 'x' }), /runtime is disposed/u);
+  await assert.rejects(runtime.flushInput(), /runtime is disposed/u);
+  assert.throws(() => runtime.resetInput(), /runtime is disposed/u);
+  assert.throws(() => runtime.nextChange(), /runtime is disposed/u);
+});
+
+test('TUI runtime disposal awaits aborted subscription pumps and source cleanup', async () => {
+  let releasePump;
+  const pumpCleanup = new Promise((resolve) => { releasePump = resolve; });
+  let pumpAborted = false;
+  let sourceDisposed = false;
+  const app = defineTui({
+    id: 'subscription-disposal-barrier',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    subscriptions: () => [{
+      id: 'blocking-source',
+      delivery: 'sequential',
+      async *messages(context) {
+        await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
+        pumpAborted = true;
+        await pumpCleanup;
+      },
+      dispose() {
+        sourceDisposed = true;
+      }
+    }],
+    view: () => text('ready')
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+  await runtime.start();
+
+  let disposed = false;
+  const disposal = runtime.dispose().then(() => { disposed = true; });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(pumpAborted, true);
+  assert.equal(sourceDisposed, true);
+  assert.equal(disposed, false);
+
+  releasePump();
+  await disposal;
+  assert.equal(disposed, true);
+});
+
+test('runTui restores terminal state after runtime and exit-handler cleanup failures', async () => {
+  const app = defineTui({
+    id: 'cleanup-failure-restore',
+    init: () => ({ done: false }),
+    update: () => ({ state: { done: true }, exit: { reason: 'done' } }),
+    subscriptions: () => [{
+      id: 'cleanup-failure-source',
+      delivery: 'sequential',
+      async *messages() {},
+      dispose() {
+        throw new Error('source cleanup failed');
+      }
+    }],
+    onExit() {
+      throw new Error('exit cleanup failed');
+    },
+    view: () => textInput({ id: 'cleanup-submit', value: '', onSubmit: { kind: 'submit' } })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  harness.input('\r');
+
+  const exit = await runTui(app, harness.host);
+
+  assert.equal(exit.status, 'error');
+  assert.deepEqual(exit.state, { done: true });
+  assert.equal(exit.diagnostics.filter((item) => item.code === 'TUI_CLEANUP_FAILED').length, 2);
+  assert.equal(harness.restores().length, 1);
+  assert.equal(harness.host.stdin.isRawModeEnabled(), false);
 });
 
 function targetById(runtime, id) {

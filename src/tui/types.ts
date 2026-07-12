@@ -4,7 +4,7 @@ import type { TerminalCapabilityProfile, TerminalClock, TerminalHost, TerminalIn
 import type { InputDecodeOptions, InputEvent, InputPipelineOptions, InputTrigger } from '../input/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { InteractionTranscript, TranscriptPolicy, TranscriptRecorder } from '../transcript/index.ts';
-import type { Element } from '../components/element.ts';
+import type { Element } from '../element/index.ts';
 import type { Frame } from './frame.ts';
 import type { FocusPath } from './focus.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
@@ -100,11 +100,16 @@ export interface TuiEffectFailure {
   readonly diagnostic: TerminalDiagnostic;
 }
 
+export type TuiEffectOutput<TMessage> =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'message'; readonly message: TMessage }
+  | { readonly kind: 'messages'; readonly messages: readonly TMessage[] };
+
 export interface TuiEffect<TMessage> {
   readonly id: string;
   readonly concurrency: TuiEffectConcurrency;
-  run(context: TuiEffectContext): Promise<TMessage | readonly TMessage[] | undefined>;
-  onError?(failure: TuiEffectFailure): TMessage | undefined;
+  run(context: TuiEffectContext): Promise<TuiEffectOutput<TMessage>>;
+  onError?(failure: TuiEffectFailure): TuiEffectOutput<TMessage>;
 }
 
 export type TuiEffectConcurrency = 'parallel' | 'keep-first' | 'replace' | 'enqueue';
@@ -193,7 +198,7 @@ export interface TuiRuntime<TState, TMessage> {
   ): Promise<readonly TuiInputResult<TState>[]>;
   flushInput(): Promise<readonly TuiInputResult<TState>[]>;
   resetInput(): void;
-  nextChange(): Promise<TuiRuntimeChange<TState>>;
+  nextChange(signal?: AbortSignal): Promise<TuiRuntimeChange<TState>>;
   dispose(): Promise<void>;
   getState(): TState | undefined;
   frame(): Frame | undefined;

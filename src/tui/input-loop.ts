@@ -9,11 +9,13 @@ export async function runTuiInputLoop<TState, TMessage>(
   runtime: TuiRuntime<TState, TMessage>,
   transcript?: TranscriptRecorder
 ): Promise<TuiExit<TState>> {
-  const input = runtime.host.stdin.read()[Symbol.asyncIterator]();
+  const inputController = new AbortController();
+  const changeController = new AbortController();
+  const input = runtime.host.stdin.read({ signal: inputController.signal })[Symbol.asyncIterator]();
   const signals = createSignalQueue(runtime.host.signals.subscribe.bind(runtime.host.signals));
   let inputNext = input.next();
   let signalNext = signals.next();
-  let runtimeChangeNext = runtime.nextChange();
+  let runtimeChangeNext = runtime.nextChange(changeController.signal);
   try {
     for (;;) {
       const event = await Promise.race([
@@ -22,8 +24,8 @@ export async function runTuiInputLoop<TState, TMessage>(
         runtimeChangeNext.then((change) => ({ kind: 'runtime' as const, change }))
       ]);
       if (event.kind === 'runtime') {
-        runtimeChangeNext = runtime.nextChange();
         if (event.change.kind === 'exit') return event.change.exit;
+        runtimeChangeNext = runtime.nextChange(changeController.signal);
         continue;
       }
       if (event.kind === 'signal') {
@@ -45,7 +47,10 @@ export async function runTuiInputLoop<TState, TMessage>(
       if (exit !== undefined) return exit;
     }
   } finally {
+    inputController.abort();
+    changeController.abort();
     signals.dispose();
+    await input.return?.();
   }
   const explicitExit = runtime.exit();
   if (explicitExit !== undefined) return explicitExit;
@@ -58,7 +63,7 @@ export async function runTuiInputLoop<TState, TMessage>(
     status: 'error',
     diagnostics: [
       ...runtime.diagnostics(),
-      diagnostic('TUI_RENDER_FAILED', 'TUI input loop ended before the runtime produced a frame.', {
+      diagnostic('TUI_RUN_FAILED', 'TUI input loop ended before the runtime produced a frame.', {
         target: runtime.app.id
       })
     ],

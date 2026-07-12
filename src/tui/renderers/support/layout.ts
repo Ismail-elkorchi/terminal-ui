@@ -1,9 +1,5 @@
-import type {
-  RenderNode,
-  RenderNodeOfKind,
-  RenderNodesOfKind,
-  RenderNodeOverflowPriority
-} from '../../../render-node/index.ts';
+import type { ElementOverflowPriority } from '../../../element/metadata.ts';
+import type { RenderNode, RenderNodeOfKind, RenderNodesOfKind } from '../../../render-node/index.ts';
 import { layoutContentBounds, splitTracks } from '../../../layout/geometry.ts';
 import { emptyRect, isRecord } from './common.ts';
 import type { Rect } from '../../layout.ts';
@@ -15,7 +11,7 @@ import type {
   LayoutJustification,
   LayoutOverflow,
   LayoutSize
-} from '../../../layout/geometry.ts';
+} from '../../../geometry/types.ts';
 import type { Measurement } from '../../measurement.ts';
 
 type GridNode = RenderNodeOfKind<unknown, 'grid'>;
@@ -187,7 +183,7 @@ export function priorityFillLayoutSizes(children: readonly RenderNode[]): readon
   }));
 }
 
-function overflowPriorityWeight(priority: RenderNodeOverflowPriority | undefined): number {
+function overflowPriorityWeight(priority: ElementOverflowPriority | undefined): number {
   switch (priority) {
     case 'required':
       return 8;

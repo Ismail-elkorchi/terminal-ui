@@ -1,4 +1,4 @@
-import type { ScrollEvent } from '../behavior/scroll.ts';
+import type { ScrollEvent } from '../interaction/scroll.ts';
 
 export type ScrollbackAction =
   | { readonly kind: 'scroll'; readonly event: ScrollEvent }

@@ -24,6 +24,11 @@ test('runtime host constructors expose stable runtime identities with explicit s
   assert.equal(createTerminalHost({ runtime: 'memory' }).runtime, 'memory');
 });
 
+test('generic host factory rejects untyped invalid selector objects', () => {
+  assert.throws(() => createTerminalHost({}), /must select a runtime or PTY adapter/u);
+  assert.throws(() => createTerminalHost({ adapter: 'unknown' }), /Unsupported terminal host adapter/u);
+});
+
 test('generic host factory forwards adapter-specific explicit host options', async () => {
   const memory = createTerminalHost({
     runtime: 'memory',
@@ -74,7 +79,7 @@ test('PTY-style host wraps caller-supplied terminal streams without owning proce
     id: 'integration-pty',
     runtime: 'node',
     viewport: { columns: 72, rows: 18 },
-    stdin: { source: input },
+    stdin: { source: { read: () => input } },
     stdout: { write: (chunk) => writes.push(String(chunk)) },
     resize: (viewport) => {
       resizes.push(viewport);
@@ -96,7 +101,7 @@ test('PTY-style host wraps caller-supplied terminal streams without owning proce
   for await (const chunk of pty.stdin.read()) chunks.push(chunk.data);
   assert.deepEqual(chunks, ['typed']);
 
-  await pty.resize({ columns: 100, rows: 30 });
+  await pty.viewportControl.setViewport({ columns: 100, rows: 30 });
   assert.deepEqual(pty.getViewport(), { columns: 100, rows: 30 });
   assert.equal(pty.stdout.columns, 100);
   assert.deepEqual(resizes, [{ columns: 100, rows: 30 }]);

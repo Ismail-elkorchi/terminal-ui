@@ -1,9 +1,9 @@
 import { editTextBuffer } from '../text/index.ts';
 import { rowWindow } from './data-window.ts';
-import type { ScrollState } from './scroll.ts';
-import type { SearchEntry } from '../components/contracts.ts';
-import type { PaletteOptions } from '../components/options/documents.ts';
-import type { PaletteAction } from '../components/palette.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
+import type { SearchEntry } from '../ui-model/contracts.ts';
+import type { PaletteOptions } from '../ui-model/options/documents.ts';
+import type { PaletteAction } from '../ui-model/palette.ts';
 
 export type PaletteAsyncState<TValue = string> =
   | { readonly status: 'idle'; readonly entries: readonly SearchEntry<TValue>[] }

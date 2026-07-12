@@ -1,4 +1,4 @@
-import type { RenderNodeTextRole } from '../render-node/index.ts';
+import type { ElementTextRole } from '../element/metadata.ts';
 import { createTerminalTextIndex, normalizeTextCursor, sanitizeTerminalText } from '../text/index.ts';
 import { block, blockFromText, line, span, wrapRenderSpans } from './frame.ts';
 import { renderNodeFrameSource } from './frame-source.ts';
@@ -19,7 +19,7 @@ import { defaultTheme } from '../theme/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { RenderNodeOfKind } from '../render-node/index.ts';
-import { normalizeProcessStatus } from '../components/status.ts';
+import { normalizeProcessStatus } from '../ui-model/status.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from './layout.ts';
@@ -283,7 +283,7 @@ function richTextSource(widget: RichTextNode, index: number): FrameCellSource {
   });
 }
 
-function widgetTextRole(value: unknown): RenderNodeTextRole | undefined {
+function widgetTextRole(value: unknown): ElementTextRole | undefined {
   switch (value) {
     case 'title':
     case 'subtitle':

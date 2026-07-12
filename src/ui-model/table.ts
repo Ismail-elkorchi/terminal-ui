@@ -1,5 +1,5 @@
-import type { ScrollEvent } from '../behavior/scroll.ts';
-import type { ScrollState } from '../behavior/scroll.ts';
+import type { ScrollEvent } from '../interaction/scroll.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
 
 export type TableSortDirection = 'ascending' | 'descending';
 

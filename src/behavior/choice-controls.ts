@@ -1,11 +1,12 @@
-import type { ChoiceItem } from '../components/contracts.ts';
+import type { ChoiceItem } from '../ui-model/contracts.ts';
 import type {
   CheckboxListAction,
   ColorPickerAction,
   RadioGroupAction,
   SelectBoxAction
-} from '../components/choice-controls.ts';
-import type { ColorPickerOption } from '../components/options/forms.ts';
+} from '../ui-model/choice-controls.ts';
+import type { ColorPickerOption } from '../ui-model/options/forms.ts';
+import { adjacentItemId } from './navigation.ts';
 
 export interface CheckboxListState {
   readonly selected: readonly string[];
@@ -134,9 +135,7 @@ function enabledIds<TValue>(items: readonly ChoiceItem<TValue>[]): readonly stri
 }
 
 function adjacentId(ids: readonly string[], current: string | undefined, delta: number): string | undefined {
-  if (ids.length === 0) return undefined;
-  const index = Math.max(0, ids.indexOf(current ?? ''));
-  return ids[wrapIndex(index + delta, ids.length)];
+  return adjacentItemId(ids, current, delta);
 }
 
 function withFocused<TState extends { readonly focused?: string }>(state: TState, focused: string | undefined): TState | TState & { readonly focused: string } {
@@ -148,8 +147,4 @@ function compactSingleChoice(state: SingleChoiceState): SingleChoiceState {
     ...(state.selected === undefined ? {} : { selected: state.selected }),
     ...(state.focused === undefined ? {} : { focused: state.focused })
   };
-}
-
-function wrapIndex(index: number, count: number): number {
-  return ((index % count) + count) % count;
 }

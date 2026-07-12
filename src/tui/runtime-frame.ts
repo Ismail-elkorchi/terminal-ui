@@ -81,11 +81,6 @@ export function resolveTuiTheme<TState>(theme: TuiTheme<TState> | undefined, sta
   return isTerminalTheme(resolved) ? resolved : defineTheme(resolved);
 }
 
-export function setHostViewport(host: TerminalHost, viewport: TerminalViewport): void {
-  const resizable = host as TerminalHost & { setViewport?: (viewport: TerminalViewport) => void };
-  resizable.setViewport?.(viewport);
-}
-
 function appAccessibility<TState, TMessage>(
   app: TuiApp<TState, TMessage>,
   state: TState,
@@ -103,10 +98,6 @@ function appAccessibility<TState, TMessage>(
 }
 
 function recordHostFrame(host: TerminalHost, frame: Frame, diff: RenderDiff): void {
-  const recorder = host as TerminalHost & {
-    recordFrame?: (frame: Frame) => void;
-    recordDiff?: (diff: RenderDiff) => void;
-  };
-  recorder.recordFrame?.(frame);
-  recorder.recordDiff?.(diff);
+  host.observer?.recordFrame?.(frame);
+  host.observer?.recordDiff?.(diff);
 }

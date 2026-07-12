@@ -66,6 +66,10 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     environment: { variables: options.env ?? {} }
   });
   const env = new ObjectEnvironment(options.env ?? {});
+  const setViewport = async (nextViewport: TerminalViewport): Promise<void> => {
+    viewport = nextViewport;
+    await options.resize?.(nextViewport);
+  };
 
   const host: PtyTerminalHost = {
     id: options.id ?? 'pty',
@@ -76,6 +80,8 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     signals: new RuntimeSignals(options.subscribeSignals),
     clock,
     env,
+    viewportControl: { setViewport },
+    ...(options.observer === undefined ? {} : { observer: options.observer }),
     getViewport: () => viewport,
     getCapabilities: () => Promise.resolve(capabilities),
     beginSession: (sessionOptions): Promise<TerminalSession> =>
@@ -87,10 +93,6 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     flush: () => Promise.resolve(),
     dispose: async () => {
       await restoreActiveTerminalSessions(host, 'disposed');
-    },
-    async resize(nextViewport) {
-      viewport = nextViewport;
-      await options.resize?.(nextViewport);
     }
   };
   return host;

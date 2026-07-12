@@ -1,10 +1,10 @@
-import type { ChoiceItem, SearchEntry } from '../contracts.ts';
+import type { ChoiceItem, SearchEntry } from '../../ui-model/contracts.ts';
 import type {
   TableColumn,
-} from '../options/content.ts';
-import type { TreeNode } from '../tree.ts';
-import type { ColorPickerOption } from '../options/forms.ts';
-import type { HeatmapCell } from '../options/feedback.ts';
+} from '../../ui-model/options/content.ts';
+import type { TreeNode } from '../../ui-model/tree.ts';
+import type { ColorPickerOption } from '../../ui-model/options/forms.ts';
+import type { HeatmapCell } from '../../ui-model/options/feedback.ts';
 
 export function domainValues(values: readonly unknown[]): readonly unknown[] {
   return values;

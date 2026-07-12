@@ -25,18 +25,20 @@ for (const [name, path] of entrypoints) {
 }
 
 const root = await import(new URL('../dist/index.js', import.meta.url).href);
+const hostModule = await import(new URL('../dist/host/index.js', import.meta.url).href);
+const promptsModule = await import(new URL('../dist/prompts/index.js', import.meta.url).href);
 assertFunction(root.createTerminalHost, `${runtime}:createTerminalHost`);
-assertFunction(root.createDenoTerminalHost, `${runtime}:createDenoTerminalHost`);
-assertFunction(root.createBunTerminalHost, `${runtime}:createBunTerminalHost`);
-assertFunction(root.runPrompt, `${runtime}:runPrompt`);
 assertFunction(root.defineTui, `${runtime}:defineTui`);
+assertFunction(hostModule.createDenoTerminalHost, `${runtime}:createDenoTerminalHost`);
+assertFunction(hostModule.createBunTerminalHost, `${runtime}:createBunTerminalHost`);
+assertFunction(promptsModule.runPrompt, `${runtime}:runPrompt`);
 assertArray(root.terminalUiPackage.runtimeTargets, `${runtime}:runtimeTargets`);
 
 const host = root.createTerminalHost({ runtime: 'memory', id: `${runtime}-smoke` });
 assertEqual(host.runtime, 'memory', `${runtime}:memoryHostRuntime`);
 assertEqual((await host.getCapabilities()).schemaVersion, 'terminal-ui.terminal-capabilities.v1', `${runtime}:capabilitiesSchema`);
 
-const defaultHost = root.createTerminalHost({ id: `${runtime}-default-smoke` });
+const defaultHost = root.createTerminalHost();
 assertEqual(defaultHost.runtime, runtime, `${runtime}:defaultHostRuntime`);
 
 console.log(`terminal-ui runtime smoke passed: ${runtime}`);

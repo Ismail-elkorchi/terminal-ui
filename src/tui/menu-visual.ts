@@ -1,6 +1,6 @@
 import type { RenderNode } from '../render-node/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { ComponentActionTone } from '../components/contracts.ts';
+import type { ComponentActionTone } from '../ui-model/contracts.ts';
 import { renderNodeFrameSource } from './frame-source.ts';
 import { clipRenderSpans, span } from './render-primitives.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';

@@ -18,7 +18,8 @@ Deno and source-first TypeScript consumers can import the equivalent JSR source
 entrypoints:
 
 ```ts
-import { createMemoryTerminalHost, runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui';
+import { createMemoryTerminalHost } from 'jsr:@ismail-elkorchi/terminal-ui/host';
+import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui/prompts';
 ```
 
 ## Examples

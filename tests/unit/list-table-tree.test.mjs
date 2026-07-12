@@ -564,12 +564,14 @@ test('treeReducer toggles nested expansion without mutating input nodes', () => 
   const nodes = [{
     id: 'root',
     label: 'Root',
-    children: [{ id: 'child', label: 'Child' }]
+    kind: 'branch',
+    expanded: false,
+    children: [{ id: 'child', label: 'Child', kind: 'leaf' }]
   }];
   const expanded = treeReducer({ nodes }, { kind: 'toggle', id: 'root' });
   const frame = renderElementFrame(tree({ id: 'tree', nodes: expanded.nodes }), { columns: 24, rows: 3 });
 
-  assert.equal(nodes[0]?.expanded, undefined);
+  assert.equal(nodes[0]?.expanded, false);
   assert.equal(expanded.nodes[0]?.expanded, true);
   assert.match(renderFramePlain(frame), /Child/u);
 });
@@ -583,9 +585,11 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
       id: 'root',
       label: 'Workspace',
       icon: '▣',
+      kind: 'branch',
+      expanded: false,
       children: [
-        { id: 'ui', label: 'Terminal UI', metadata: { domain: 'widgets' } },
-        { id: 'api', label: 'API Layer', description: 'Server request boundary', disabled: true, metadata: { domain: 'server' } }
+        { id: 'ui', label: 'Terminal UI', kind: 'leaf', metadata: { domain: 'widgets' } },
+        { id: 'api', label: 'API Layer', kind: 'leaf', description: 'Server request boundary', disabled: true, metadata: { domain: 'server' } }
       ]
     }]
   }), { columns: 32, rows: 4 });
@@ -612,8 +616,9 @@ test('tree renders lazy placeholders and clips tiny viewports safely', () => {
     nodes: [{
       id: 'root',
       label: 'Very long root label for clipping',
+      kind: 'lazy',
       expanded: true,
-      lazy: true
+      loading: { kind: 'pending' }
     }]
   }), { columns: 14, rows: 2 });
 

@@ -196,7 +196,13 @@ import { helpBar, text, tree, type TreeNode } from '@ismail-elkorchi/terminal-ui
 import { stack, surface } from '@ismail-elkorchi/terminal-ui/layout';
 
 const nodes: readonly TreeNode[] = [
-  { id: 'src', label: 'src', expanded: true, children: [{ id: 'index', label: 'index.ts' }] }
+  {
+    id: 'src',
+    label: 'src',
+    kind: 'branch',
+    expanded: true,
+    children: [{ id: 'index', label: 'index.ts', kind: 'leaf' }]
+  }
 ];
 const bindings = [{ key: 'Enter', label: 'Open' }];
 

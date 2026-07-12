@@ -1,4 +1,4 @@
-import type { ChartSeries } from '../../../components/options/feedback.ts';
+import type { ChartSeries } from '../../../ui-model/options/feedback.ts';
 import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import {
   chartAxisStyle,

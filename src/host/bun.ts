@@ -1,4 +1,4 @@
-import { createStreamTerminalHost } from './runtime-streams.ts';
+import { createStreamTerminalHost, runtimeInputSourceFromAsyncIterable } from './runtime-streams.ts';
 import type { BunTerminalHostOptions, RuntimeTerminalInputOptions, RuntimeTerminalOutputOptions, TerminalHost } from './types.ts';
 
 interface BunLike {
@@ -28,7 +28,7 @@ function bunInputOptions(
   const setRawMode = bun?.stdin?.setRawMode ?? processLike?.stdin?.setRawMode;
   return {
     isTty: bun?.stdin?.isTTY ?? processLike?.stdin?.isTTY ?? false,
-    ...(source === undefined ? {} : { source }),
+    ...(source === undefined ? {} : { source: runtimeInputSourceFromAsyncIterable(source) }),
     ...(setRawMode === undefined ? {} : { setRawMode })
   };
 }

@@ -44,10 +44,8 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
     rangeSlider({
       id: 'range',
       label: 'Window',
-      start: 20,
-      end: 80,
-      min: 0,
-      max: 100,
+      value: { start: 20, end: 80 },
+      range: { min: 0, max: 100 },
       width: 11,
       onChange: (value) => ({ kind: 'range', value })
     })

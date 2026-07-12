@@ -1,9 +1,9 @@
 import type { BindableKeyName } from '../../input/index.ts';
-import type { ComponentKeyEvent } from '../options/base.ts';
+import type { ElementKeyEvent } from '../../element/metadata.ts';
 
-type InferredKeyHandler = (event: ComponentKeyEvent) => unknown;
+type InferredKeyHandler = (event: ElementKeyEvent) => unknown;
 
-export type InferredComponentKeyBindings =
+export type InferredElementKeyBindings =
   & Readonly<Partial<Record<BindableKeyName, InferredKeyHandler>>>
   & { readonly text?: Readonly<Record<string, InferredKeyHandler>> };
 
@@ -48,7 +48,7 @@ export type IndependentInteractionOptions<
   TOptions,
   TCallbackMessages extends Partial<Record<keyof TOptions, unknown>> = Record<never, never>,
   TDirectMessages extends Partial<Record<keyof TOptions, unknown>> = Record<never, never>,
-  TKeyBindings extends InferredComponentKeyBindings | undefined = undefined
+  TKeyBindings extends InferredElementKeyBindings | undefined = undefined
 > =
   & Omit<TOptions, keyof TCallbackMessages | keyof TDirectMessages | 'keys'>
   & CallbackOverrides<TOptions, TCallbackMessages>

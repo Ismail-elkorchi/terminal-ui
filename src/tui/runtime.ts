@@ -1,4 +1,5 @@
 import { createInputPipeline } from '../input/index.ts';
+import { TerminalUiError } from '../errors.ts';
 import { createTuiContext } from './context.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
 import { createTuiEffectManager } from './effects.ts';
@@ -7,7 +8,13 @@ import { findAnyLayoutFocusTarget, findRenderNodeFocusTarget, nextFocusPath, pre
 import { resolveTuiKeyBinding } from './key-bindings.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { createPointerRouter } from './pointer-router.ts';
-import { commitFrame, dirtyRegionsForRenderCommit, renderCurrentFrame, resolveTuiTheme, setHostViewport } from './runtime-frame.ts';
+import {
+  assertRuntimeCanStart,
+  assertRuntimeOperational,
+  assertRuntimeWaitable,
+  runtimePhaseError
+} from './runtime-lifecycle.ts';
+import { commitFrame, dirtyRegionsForRenderCommit, renderCurrentFrame, resolveTuiTheme } from './runtime-frame.ts';
 import { createTuiSubscriptionManager } from './subscriptions.ts';
 import type { InputEvent, MouseEvent as TerminalMouseEvent } from '../input/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
@@ -17,6 +24,7 @@ import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { Frame } from './frame.ts';
 import type { FocusPath } from './focus.ts';
 import type { RenderCommitCandidate } from './runtime-frame.ts';
+import type { TuiRuntimePhase } from './runtime-lifecycle.ts';
 import type {
   TuiContext,
   TuiEffect,
@@ -33,39 +41,44 @@ interface PendingTuiMessage<TMessage> {
   readonly source: TuiMessageSource;
 }
 
+interface ChangeWaiter<TState> {
+  readonly resolve: (change: TuiRuntimeChange<TState>) => void;
+  readonly reject: (cause: unknown) => void;
+  readonly detach: () => void;
+}
+
 export function createTuiRuntime<TState, TMessage>(
   options: TuiRuntimeOptions<TState, TMessage>
 ): TuiRuntime<TState, TMessage> {
   let currentState: TState | undefined;
+  let currentViewport = options.host.getViewport();
   let currentRender: RenderCommitCandidate<TMessage> | undefined;
   let stateVersion = 0;
   let currentFocusPath: FocusPath | undefined = options.initialFocusPath;
   let focusReturnPaths: FocusPath[] = [];
   let terminalExit: TuiExit<TState> | undefined;
-  let started = false;
-  let disposed = false;
+  let phase: TuiRuntimePhase = 'created';
+  let disposal: Promise<void> | undefined;
   const runtimeDiagnostics = [...(options.diagnostics ?? [])];
   let diagnosticRefreshQueued = false;
   let pendingFrameChange: Extract<TuiRuntimeChange<TState>, { readonly kind: 'frame' }> | undefined;
   let pendingExitChange: Extract<TuiRuntimeChange<TState>, { readonly kind: 'exit' }> | undefined;
-  const changeWaiters: ((change: TuiRuntimeChange<TState>) => void)[] = [];
+  const changeWaiters: ChangeWaiter<TState>[] = [];
   const inputPipeline = createInputPipeline(options.input);
   const pointerRouter = createPointerRouter<TMessage>();
   const dispatchQueue = createSerializedDispatchQueue();
   const subscriptions = createTuiSubscriptionManager<TState, TMessage>({
-    host: options.host,
     ...(options.app.definition.subscriptions === undefined
       ? {}
       : { subscriptions: options.app.definition.subscriptions }),
-    diagnostics: () => runtimeDiagnostics,
+    context: createRuntimeContext,
     reportDiagnostic,
     dispatch(message, source) {
       return dispatchQueue.run(() => dispatchInternal(message, source)).then(() => undefined);
     }
   });
   const effects = createTuiEffectManager<TMessage>({
-    host: options.host,
-    diagnostics: () => runtimeDiagnostics,
+    context: createRuntimeContext,
     reportDiagnostic,
     dispatch(message) {
       return dispatchQueue.run(() => dispatchInternal(message, 'effect')).then(() => undefined);
@@ -123,21 +136,18 @@ export function createTuiRuntime<TState, TMessage>(
       return processInputEvents(inputPipeline.flush());
     },
     resetInput() {
+      assertRuntimeOperational(phase);
       inputPipeline.reset();
       pointerRouter.reset();
     },
-    nextChange() {
+    nextChange(signal) {
+      assertRuntimeWaitable(phase);
       const next = consumePendingChange();
       if (next !== undefined) return Promise.resolve(next);
-      return new Promise((resolve) => changeWaiters.push(resolve));
+      return waitForChange(signal);
     },
-    async dispose() {
-      subscriptions.cancel();
-      effects.cancel();
-      await dispatchQueue.drain();
-      await subscriptions.dispose();
-      await effects.dispose();
-      disposed = true;
+    dispose() {
+      return disposeRuntime();
     },
     getState() {
       return currentState;
@@ -155,11 +165,9 @@ export function createTuiRuntime<TState, TMessage>(
   return runtime;
 
   async function startInternal(): Promise<Frame> {
-    if (started) {
-      if (currentRender !== undefined) return currentRender.frame;
-    }
-    if (disposed) throw new Error('TUI runtime has been disposed.');
-    started = true;
+    assertRuntimeCanStart(phase);
+    if (phase === 'active' && currentRender !== undefined) return currentRender.frame;
+    phase = 'active';
     const context = await createRuntimeContext();
     currentState = options.app.definition.init(context);
     await subscriptions.reconcile(ensureState());
@@ -215,7 +223,7 @@ export function createTuiRuntime<TState, TMessage>(
   async function resizeInternal(viewport: Parameters<TuiRuntime<TState, TMessage>['resize']>[0]): Promise<Frame> {
     const state = await ensureStarted();
     options.transcript?.record({ kind: 'input', event: { kind: 'resize', viewport } });
-    setHostViewport(options.host, viewport);
+    currentViewport = viewport;
     const context = await createRuntimeContext();
     const theme = resolveTuiTheme(options.theme, state);
     const previousFrame = frameDiffBase(theme);
@@ -227,13 +235,14 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   async function createRuntimeContext(): Promise<TuiContext> {
-    return createTuiContext(options.host, runtimeDiagnostics);
+    const context = await createTuiContext(options.host, runtimeDiagnostics);
+    return { ...context, viewport: currentViewport };
   }
 
   function reportDiagnostic(item: TerminalDiagnostic): void {
     runtimeDiagnostics.push(item);
     options.transcript?.recordDiagnostic(item);
-    if (!started || disposed || currentState === undefined || currentRender === undefined || diagnosticRefreshQueued) return;
+    if (phase !== 'active' || currentState === undefined || currentRender === undefined || diagnosticRefreshQueued) return;
     diagnosticRefreshQueued = true;
     void dispatchQueue.run(refreshAfterDiagnostic).finally(() => {
       diagnosticRefreshQueued = false;
@@ -241,7 +250,7 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   async function refreshAfterDiagnostic(): Promise<void> {
-    if (disposed || currentState === undefined || currentRender === undefined) return;
+    if (phase !== 'active' || currentState === undefined || currentRender === undefined) return;
     const state = currentState;
     const context = await createRuntimeContext();
     const theme = resolveTuiTheme(options.theme, state);
@@ -263,7 +272,8 @@ export function createTuiRuntime<TState, TMessage>(
   function publishChange(change: TuiRuntimeChange<TState>): void {
     const waiter = changeWaiters.shift();
     if (waiter !== undefined) {
-      waiter(change);
+      waiter.detach();
+      waiter.resolve(change);
       return;
     }
     if (change.kind === 'frame') {
@@ -288,6 +298,7 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   async function processInputEvents(events: readonly InputEvent[]): Promise<readonly TuiInputResult<TState>[]> {
+    assertRuntimeOperational(phase);
     const results: TuiInputResult<TState>[] = [];
     for (let index = 0; index < events.length; index += 1) {
       const event = events[index];
@@ -338,6 +349,7 @@ export function createTuiRuntime<TState, TMessage>(
     currentState = result.state;
     if (result.state !== state) stateVersion += 1;
     if (result.exit !== undefined) {
+      phase = 'exiting';
       terminalExit = {
         ...completedExitFromSnapshot(
           ensureState(),
@@ -362,13 +374,66 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   async function ensureStarted(): Promise<TState> {
-    if (!started || currentState === undefined) {
+    assertRuntimeOperational(phase);
+    if (phase === 'created' || currentState === undefined) {
       await startInternal();
     }
     if (currentState === undefined) {
       throw new Error('TUI runtime did not initialize state.');
     }
     return currentState;
+  }
+
+  function waitForChange(signal: AbortSignal | undefined): Promise<TuiRuntimeChange<TState>> {
+    return new Promise((resolve, reject) => {
+      let abort = (): void => undefined;
+      const waiter: ChangeWaiter<TState> = {
+        resolve,
+        reject,
+        detach: () => signal?.removeEventListener('abort', abort)
+      };
+      abort = (): void => {
+        const index = changeWaiters.indexOf(waiter);
+        if (index >= 0) changeWaiters.splice(index, 1);
+        waiter.detach();
+        reject(new TerminalUiError('TUI runtime change wait was cancelled.'));
+      };
+      if (signal?.aborted === true) {
+        abort();
+        return;
+      }
+      signal?.addEventListener('abort', abort, { once: true });
+      changeWaiters.push(waiter);
+    });
+  }
+
+  function disposeRuntime(): Promise<void> {
+    if (disposal !== undefined) return disposal;
+    phase = 'disposing';
+    const unavailable = runtimePhaseError(phase);
+    for (const waiter of changeWaiters.splice(0)) {
+      waiter.detach();
+      waiter.reject(unavailable);
+    }
+    pendingFrameChange = undefined;
+    pendingExitChange = undefined;
+    subscriptions.cancel();
+    effects.cancel();
+    disposal = (async () => {
+      const failures: unknown[] = [];
+      try {
+        await dispatchQueue.drain();
+      } catch (cause) {
+        failures.push(cause);
+      }
+      const cleanups = await Promise.allSettled([subscriptions.dispose(), effects.dispose()]);
+      for (const cleanup of cleanups) {
+        if (cleanup.status === 'rejected') failures.push(cleanup.reason);
+      }
+      phase = 'disposed';
+      if (failures.length > 0) throw new AggregateError(failures, 'TUI runtime disposal failed.');
+    })();
+    return disposal;
   }
 
   function ensureState(): TState {

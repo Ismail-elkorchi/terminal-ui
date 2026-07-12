@@ -1,152 +1,142 @@
-import type { AccessibleNodeDefinition } from '../options/base.ts';
+import type { ElementAccessibility } from '../../element/metadata.ts';
 import type {
-  ComponentFocusOptions,
-  ComponentKeyBindings,
-  ComponentLayerOptions,
-  ComponentMeta,
-  ComponentStyles
-} from '../options/base.ts';
-import type { ListOptions, PaginatorOptions, TableOptions, TreeOptions } from '../options/content.ts';
-import type { ListAction } from '../list.ts';
-import type { TableAction } from '../table.ts';
-import type { TreeAction } from '../tree.ts';
-import type { NumberInputAction } from '../number-input.ts';
-import type { PaginatorAction } from '../paginator.ts';
-import type { DatePickerAction } from '../date-picker.ts';
-import type { RangeSliderOptions, SliderOptions } from '../options/forms.ts';
+  ElementFocus,
+  ElementKeyBindings,
+  ElementLayer,
+  ElementMeta,
+  ElementStyles
+} from '../../element/metadata.ts';
+import type { ListOptions, PaginatorOptions, TableOptions, TreeOptions } from '../../ui-model/options/content.ts';
+import type { NumberInputAction } from '../../ui-model/number-input.ts';
+import type { RangeSliderOptions, SliderOptions } from '../../ui-model/options/forms.ts';
 import type {
   CheckboxListOptions,
   ColorPickerOptions,
   RadioGroupOptions,
   SelectBoxOptions
-} from '../options/forms.ts';
-import type { MenuItem } from '../options/menus.ts';
-import type { DropdownAction, MenuAction } from '../menu.ts';
-import type { CommandBarAction } from '../command-bar.ts';
-import type { PaletteAction } from '../palette.ts';
+} from '../../ui-model/options/forms.ts';
+import type { MenuItem } from '../../ui-model/options/menus.ts';
+import type { DropdownAction, MenuAction } from '../../ui-model/menu.ts';
+import type { CommandBarAction } from '../../ui-model/command-bar.ts';
+import type { PaletteAction } from '../../ui-model/palette.ts';
 import type { TextEditOperation } from '../../text/index.ts';
-import type { RenderNode, RenderNodeStyles } from '../../render-node/index.ts';
+import type { RenderNode } from '../../render-node/index.ts';
 import type { RenderMenuItem } from '../../render-node/props/menus.ts';
 
 export function listKeyBindings<TValue, TMessage>(
   options: ListOptions<TValue, TMessage>
-): ComponentKeyBindings<TMessage> | undefined {
+): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
-  const action = (value: ListAction) => onAction?.(value);
-  const generated = onAction === undefined
-    ? undefined
-    : {
-        arrowUp: () => action({ kind: 'move', delta: -1 }),
-        arrowDown: () => action({ kind: 'move', delta: 1 }),
-        pageUp: () => action({ kind: 'page', delta: -1 }),
-        pageDown: () => action({ kind: 'page', delta: 1 }),
-        home: () => action({ kind: 'first' }),
-        end: () => action({ kind: 'last' }),
-        enter: () => options.selected === undefined
-          ? undefined
-          : action({ kind: 'activate', index: options.selected })
-      } satisfies ComponentKeyBindings<TMessage>;
+  if (onAction === undefined) return options.keys;
+  const selected = options.selected;
+  const generated = {
+    arrowUp: () => onAction({ kind: 'move', delta: -1 }),
+    arrowDown: () => onAction({ kind: 'move', delta: 1 }),
+    pageUp: () => onAction({ kind: 'page', delta: -1 }),
+    pageDown: () => onAction({ kind: 'page', delta: 1 }),
+    home: () => onAction({ kind: 'first' }),
+    end: () => onAction({ kind: 'last' }),
+    ...(selected === undefined ? {} : {
+      enter: () => onAction({ kind: 'activate', index: selected })
+    })
+  } satisfies ElementKeyBindings<TMessage>;
   return mergeKeyBindings(generated, options.keys);
 }
 
 export function tableKeyBindings<TRow, TMessage>(
   options: TableOptions<TRow, TMessage>
-): ComponentKeyBindings<TMessage> | undefined {
+): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
-  const action = (value: TableAction) => onAction?.(value);
-  const generated = onAction === undefined
-    ? undefined
-    : {
-        arrowUp: () => action({ kind: 'moveRow', delta: -1 }),
-        arrowDown: () => action({ kind: 'moveRow', delta: 1 }),
-        arrowLeft: () => action({ kind: 'moveColumn', delta: -1 }),
-        arrowRight: () => action({ kind: 'moveColumn', delta: 1 }),
-        pageUp: () => action({ kind: 'page', delta: -1 }),
-        pageDown: () => action({ kind: 'page', delta: 1 }),
-        home: () => action({ kind: 'firstRow' }),
-        end: () => action({ kind: 'lastRow' }),
-        enter: () => options.selected === undefined
-          ? undefined
-          : action({
-              kind: 'activate',
-              row: options.selected,
-              ...(options.selectedCell?.column === undefined ? {} : { column: options.selectedCell.column })
-            })
-      } satisfies ComponentKeyBindings<TMessage>;
+  if (onAction === undefined) return options.keys;
+  const selected = options.selected;
+  const generated = {
+    arrowUp: () => onAction({ kind: 'moveRow', delta: -1 }),
+    arrowDown: () => onAction({ kind: 'moveRow', delta: 1 }),
+    arrowLeft: () => onAction({ kind: 'moveColumn', delta: -1 }),
+    arrowRight: () => onAction({ kind: 'moveColumn', delta: 1 }),
+    pageUp: () => onAction({ kind: 'page', delta: -1 }),
+    pageDown: () => onAction({ kind: 'page', delta: 1 }),
+    home: () => onAction({ kind: 'firstRow' }),
+    end: () => onAction({ kind: 'lastRow' }),
+    ...(selected === undefined ? {} : {
+      enter: () => onAction({
+        kind: 'activate',
+        row: selected,
+        ...(options.selectedCell?.column === undefined ? {} : { column: options.selectedCell.column })
+      })
+    })
+  } satisfies ElementKeyBindings<TMessage>;
   return mergeKeyBindings(generated, options.keys);
 }
 
 export function treeKeyBindings<TMetadata extends Readonly<Record<string, unknown>>, TMessage>(
   options: TreeOptions<TMetadata, TMessage>
-): ComponentKeyBindings<TMessage> | undefined {
+): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
-  const action = (value: TreeAction<TMetadata>) => onAction?.(value);
-  const generated = onAction === undefined
-    ? undefined
-    : {
-        arrowUp: () => action({ kind: 'move', delta: -1 }),
-        arrowDown: () => action({ kind: 'move', delta: 1 }),
-        arrowRight: () => options.selected === undefined ? undefined : action({ kind: 'expand', id: options.selected }),
-        arrowLeft: () => options.selected === undefined ? undefined : action({ kind: 'collapse', id: options.selected }),
-        enter: () => options.selected === undefined ? undefined : action({ kind: 'activate', id: options.selected })
-      } satisfies ComponentKeyBindings<TMessage>;
+  if (onAction === undefined) return options.keys;
+  const selected = options.selected;
+  const generated = {
+    arrowUp: () => onAction({ kind: 'move', delta: -1 }),
+    arrowDown: () => onAction({ kind: 'move', delta: 1 }),
+    ...(selected === undefined ? {} : {
+      arrowRight: () => onAction({ kind: 'expand', id: selected }),
+      arrowLeft: () => onAction({ kind: 'collapse', id: selected }),
+      enter: () => onAction({ kind: 'activate', id: selected })
+    })
+  } satisfies ElementKeyBindings<TMessage>;
   return mergeKeyBindings(generated, options.keys);
 }
 
 export function paginatorKeyBindings<TMessage>(
   options: PaginatorOptions<TMessage>
-): ComponentKeyBindings<TMessage> | undefined {
+): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
-  const action = (value: PaginatorAction) => onAction?.(value);
-  const generated = onAction === undefined
-    ? undefined
-    : {
-        home: () => action({ kind: 'first' }),
-        arrowLeft: () => action({ kind: 'previous' }),
-        arrowUp: () => action({ kind: 'previous' }),
-        pageUp: () => action({ kind: 'previous' }),
-        arrowRight: () => action({ kind: 'next' }),
-        arrowDown: () => action({ kind: 'next' }),
-        pageDown: () => action({ kind: 'next' }),
-        end: () => action({ kind: 'last' })
-      } satisfies ComponentKeyBindings<TMessage>;
+  if (onAction === undefined) return options.keys;
+  const generated = {
+    home: () => onAction({ kind: 'first' }),
+    arrowLeft: () => onAction({ kind: 'previous' }),
+    arrowUp: () => onAction({ kind: 'previous' }),
+    pageUp: () => onAction({ kind: 'previous' }),
+    arrowRight: () => onAction({ kind: 'next' }),
+    arrowDown: () => onAction({ kind: 'next' }),
+    pageDown: () => onAction({ kind: 'next' }),
+    end: () => onAction({ kind: 'last' })
+  } satisfies ElementKeyBindings<TMessage>;
   return mergeKeyBindings(generated, options.keys);
 }
 
 export function datePickerKeyBindings<TMessage>(
-  options: import('../options/forms.ts').DatePickerOptions<TMessage>
-): ComponentKeyBindings<TMessage> | undefined {
+  options: import('../../ui-model/options/forms.ts').DatePickerOptions<TMessage>
+): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
-  const action = (value: DatePickerAction) => onAction?.(value);
+  if (onAction === undefined) return options.keys;
   const focused = options.focused === undefined
     ? undefined
     : options.days.find((day) => day.id === options.focused && day.disabled !== true && day.hidden !== true);
-  const generated = onAction === undefined
-    ? undefined
-    : {
-        arrowLeft: () => action({ kind: 'moveFocus', days: -1 }),
-        arrowRight: () => action({ kind: 'moveFocus', days: 1 }),
-        arrowUp: () => action({ kind: 'moveFocus', days: -7 }),
-        arrowDown: () => action({ kind: 'moveFocus', days: 7 }),
-        pageUp: () => action({ kind: 'moveMonth', months: -1 }),
-        pageDown: () => action({ kind: 'moveMonth', months: 1 }),
-        home: () => action({ kind: 'startOfWeek' }),
-        end: () => action({ kind: 'endOfWeek' }),
-        enter: () => focused === undefined ? undefined : action({ kind: 'select', date: focused.date })
-      } satisfies ComponentKeyBindings<TMessage>;
+  const generated = {
+    arrowLeft: () => onAction({ kind: 'moveFocus', days: -1 }),
+    arrowRight: () => onAction({ kind: 'moveFocus', days: 1 }),
+    arrowUp: () => onAction({ kind: 'moveFocus', days: -7 }),
+    arrowDown: () => onAction({ kind: 'moveFocus', days: 7 }),
+    pageUp: () => onAction({ kind: 'moveMonth', months: -1 }),
+    pageDown: () => onAction({ kind: 'moveMonth', months: 1 }),
+    home: () => onAction({ kind: 'startOfWeek' }),
+    end: () => onAction({ kind: 'endOfWeek' }),
+    ...(focused === undefined ? {} : { enter: () => onAction({ kind: 'select', date: focused.date }) })
+  } satisfies ElementKeyBindings<TMessage>;
   return mergeKeyBindings(generated, options.keys);
 }
 
 export function activationKeyBindings<TMessage>(
   handler: (() => TMessage | undefined) | undefined,
-  explicit: ComponentKeyBindings<TMessage> | undefined
-): ComponentKeyBindings<TMessage> | undefined {
+  explicit: ElementKeyBindings<TMessage> | undefined
+): ElementKeyBindings<TMessage> | undefined {
   return mergeKeyBindings(handler === undefined ? undefined : { enter: handler }, explicit);
 }
 
 export function commandBarKeyBindings<TMessage>(
   onAction: (action: CommandBarAction) => TMessage
-): ComponentKeyBindings<TMessage> {
+): ElementKeyBindings<TMessage> {
   return {
     backspace: () => onAction({ kind: 'deleteBackward' }),
     delete: () => onAction({ kind: 'deleteForward' }),
@@ -159,7 +149,7 @@ export function commandBarKeyBindings<TMessage>(
 
 export function paletteKeyBindings<TMessage>(
   onAction: (action: PaletteAction) => TMessage
-): ComponentKeyBindings<TMessage> {
+): ElementKeyBindings<TMessage> {
   return {
     backspace: () => onAction({ kind: 'deleteQueryBackward' }),
     arrowUp: () => onAction({ kind: 'moveSelection', delta: -1 }),
@@ -170,8 +160,8 @@ export function paletteKeyBindings<TMessage>(
 export function textInputKeyBindings<TMessage>(
   onEdit: ((operation: TextEditOperation) => TMessage) | undefined,
   onSubmit: TMessage | undefined,
-  explicit: ComponentKeyBindings<TMessage> | undefined
-): ComponentKeyBindings<TMessage> | undefined {
+  explicit: ElementKeyBindings<TMessage> | undefined
+): ElementKeyBindings<TMessage> | undefined {
   const generated = editKeyBindings(onEdit, false);
   return mergeKeyBindings(
     mergeKeyBindings(generated, onSubmit === undefined ? undefined : { enter: () => onSubmit }),
@@ -181,8 +171,8 @@ export function textInputKeyBindings<TMessage>(
 
 export function textAreaKeyBindings<TMessage>(
   onEdit: ((operation: TextEditOperation) => TMessage) | undefined,
-  explicit: ComponentKeyBindings<TMessage> | undefined
-): ComponentKeyBindings<TMessage> | undefined {
+  explicit: ElementKeyBindings<TMessage> | undefined
+): ElementKeyBindings<TMessage> | undefined {
   return mergeKeyBindings(editKeyBindings(onEdit, true), explicit);
 }
 
@@ -202,8 +192,8 @@ export function textEditInputHandlers<TMessage>(
 
 export function numberInputKeyBindings<TMessage>(
   onAction: ((action: NumberInputAction) => TMessage) | undefined,
-  explicit: ComponentKeyBindings<TMessage> | undefined
-): ComponentKeyBindings<TMessage> | undefined {
+  explicit: ElementKeyBindings<TMessage> | undefined
+): ElementKeyBindings<TMessage> | undefined {
   if (onAction === undefined) return explicit;
   const edits = editKeyBindings((operation) => onAction({ kind: 'edit', operation }), false);
   return mergeKeyBindings(mergeKeyBindings(edits, {
@@ -215,7 +205,7 @@ export function numberInputKeyBindings<TMessage>(
 
 export function sliderKeyBindings<TMessage>(
   options: SliderOptions<TMessage>
-): ComponentKeyBindings<TMessage> | undefined {
+): ElementKeyBindings<TMessage> | undefined {
   const step = options.step ?? 1;
   const min = options.min ?? 0;
   const max = options.max ?? 100;
@@ -235,19 +225,20 @@ export function sliderKeyBindings<TMessage>(
 
 export function rangeSliderKeyBindings<TMessage>(
   options: RangeSliderOptions<TMessage>
-): ComponentKeyBindings<TMessage> | undefined {
+): ElementKeyBindings<TMessage> | undefined {
   const step = options.step ?? 1;
-  const min = options.min ?? 0;
-  const max = options.max ?? 100;
+  const min = options.range?.min ?? 0;
+  const max = options.range?.max ?? 100;
+  const { start, end } = options.value;
   const hasHandler = options.onStep !== undefined || options.onChange !== undefined;
   const decrementStart = hasHandler ? () => options.onStep?.({ handle: 'start', direction: 'decrement' })
-    ?? options.onChange?.({ start: Math.max(min, options.start - step), end: options.end }) : undefined;
+    ?? options.onChange?.({ start: Math.max(min, start - step), end }) : undefined;
   const incrementStart = hasHandler ? () => options.onStep?.({ handle: 'start', direction: 'increment' })
-    ?? options.onChange?.({ start: Math.min(options.end, options.start + step), end: options.end }) : undefined;
+    ?? options.onChange?.({ start: Math.min(end, start + step), end }) : undefined;
   const decrementEnd = hasHandler ? () => options.onStep?.({ handle: 'end', direction: 'decrement' })
-    ?? options.onChange?.({ start: options.start, end: Math.max(options.start, options.end - step) }) : undefined;
+    ?? options.onChange?.({ start, end: Math.max(start, end - step) }) : undefined;
   const incrementEnd = hasHandler ? () => options.onStep?.({ handle: 'end', direction: 'increment' })
-    ?? options.onChange?.({ start: options.start, end: Math.min(max, options.end + step) }) : undefined;
+    ?? options.onChange?.({ start, end: Math.min(max, end + step) }) : undefined;
   return mergeKeyBindings({
     ...(decrementStart === undefined ? {} : { arrowLeft: decrementStart }),
     ...(incrementStart === undefined ? {} : { arrowRight: incrementStart }),
@@ -258,7 +249,7 @@ export function rangeSliderKeyBindings<TMessage>(
 
 export function checkboxListKeyBindings<TValue, TMessage>(
   options: CheckboxListOptions<TValue, TMessage>
-): ComponentKeyBindings<TMessage> | undefined {
+): ElementKeyBindings<TMessage> | undefined {
   const action = options.onAction;
   const active = choiceFocus(options.options, options.focused, options.selected?.[0]);
   return mergeKeyBindings(action === undefined ? undefined : {
@@ -266,13 +257,13 @@ export function checkboxListKeyBindings<TValue, TMessage>(
     arrowDown: () => action({ kind: 'move', delta: 1 }),
     home: () => action({ kind: 'first' }),
     end: () => action({ kind: 'last' }),
-    enter: () => active === undefined ? undefined : action({ kind: 'toggle', id: active })
-  } satisfies ComponentKeyBindings<TMessage>, options.keys);
+    ...(active === undefined ? {} : { enter: () => action({ kind: 'toggle', id: active }) })
+  } satisfies ElementKeyBindings<TMessage>, options.keys);
 }
 
 export function radioGroupKeyBindings<TValue, TMessage>(
   options: RadioGroupOptions<TValue, TMessage>
-): ComponentKeyBindings<TMessage> | undefined {
+): ElementKeyBindings<TMessage> | undefined {
   const action = options.onAction;
   const active = choiceFocus(options.options, options.focused, options.selected);
   return mergeKeyBindings(action === undefined ? undefined : {
@@ -280,13 +271,13 @@ export function radioGroupKeyBindings<TValue, TMessage>(
     arrowDown: () => action({ kind: 'move', delta: 1 }),
     home: () => action({ kind: 'first' }),
     end: () => action({ kind: 'last' }),
-    enter: () => active === undefined ? undefined : action({ kind: 'select', id: active })
-  } satisfies ComponentKeyBindings<TMessage>, options.keys);
+    ...(active === undefined ? {} : { enter: () => action({ kind: 'select', id: active }) })
+  } satisfies ElementKeyBindings<TMessage>, options.keys);
 }
 
 export function selectBoxKeyBindings<TValue, TMessage>(
   options: SelectBoxOptions<TValue, TMessage>
-): ComponentKeyBindings<TMessage> | undefined {
+): ElementKeyBindings<TMessage> | undefined {
   const action = options.onAction;
   const active = choiceFocus(options.options, options.focused, options.selected);
   return mergeKeyBindings(action === undefined ? undefined : {
@@ -294,13 +285,13 @@ export function selectBoxKeyBindings<TValue, TMessage>(
     arrowDown: () => action({ kind: 'move', delta: 1 }),
     home: () => action({ kind: 'first' }),
     end: () => action({ kind: 'last' }),
-    enter: () => active === undefined ? undefined : action({ kind: 'select', id: active })
-  } satisfies ComponentKeyBindings<TMessage>, options.keys);
+    ...(active === undefined ? {} : { enter: () => action({ kind: 'select', id: active }) })
+  } satisfies ElementKeyBindings<TMessage>, options.keys);
 }
 
 export function colorPickerKeyBindings<TValue, TMessage>(
   options: ColorPickerOptions<TValue, TMessage>
-): ComponentKeyBindings<TMessage> | undefined {
+): ElementKeyBindings<TMessage> | undefined {
   const action = options.onAction;
   const active = choiceFocus(options.options, options.focused, options.selected);
   const columns = Math.max(1, Math.floor(options.columns ?? 4));
@@ -311,26 +302,28 @@ export function colorPickerKeyBindings<TValue, TMessage>(
     arrowDown: () => action({ kind: 'move', delta: columns }),
     home: () => action({ kind: 'first' }),
     end: () => action({ kind: 'last' }),
-    enter: () => active === undefined ? undefined : action({ kind: 'select', id: active })
-  } satisfies ComponentKeyBindings<TMessage>, options.keys);
+    ...(active === undefined ? {} : { enter: () => action({ kind: 'select', id: active }) })
+  } satisfies ElementKeyBindings<TMessage>, options.keys);
 }
 
 export function menuKeyBindings<TMessage>(
   items: readonly MenuItem[],
   selected: string | undefined,
   onAction: ((action: MenuAction) => TMessage) | undefined,
-  explicit: ComponentKeyBindings<TMessage> | undefined
-): ComponentKeyBindings<TMessage> | undefined {
+  explicit: ElementKeyBindings<TMessage> | undefined
+): ElementKeyBindings<TMessage> | undefined {
   if (onAction === undefined) return explicit;
   const active = selected ?? visibleMenuItems(items).find((item) => item.disabled !== true)?.id;
   return mergeKeyBindings({
     arrowUp: () => onAction({ kind: 'move', delta: -1 }),
     arrowDown: () => onAction({ kind: 'move', delta: 1 }),
-    arrowLeft: () => active === undefined ? undefined : onAction({ kind: 'collapse', id: active }),
-    arrowRight: () => active === undefined ? undefined : onAction({ kind: 'expand', id: active }),
+    ...(active === undefined ? {} : {
+      arrowLeft: () => onAction({ kind: 'collapse', id: active }),
+      arrowRight: () => onAction({ kind: 'expand', id: active })
+    }),
     home: () => onAction({ kind: 'first' }),
     end: () => onAction({ kind: 'last' }),
-    enter: () => active === undefined ? undefined : onAction({ kind: 'activate', id: active })
+    ...(active === undefined ? {} : { enter: () => onAction({ kind: 'activate', id: active }) })
   }, explicit);
 }
 
@@ -340,8 +333,8 @@ export function dropdownKeyBindings<TMessage>(
   highlighted: string | undefined,
   open: boolean,
   onAction: ((action: DropdownAction) => TMessage) | undefined,
-  explicit: ComponentKeyBindings<TMessage> | undefined
-): ComponentKeyBindings<TMessage> | undefined {
+  explicit: ElementKeyBindings<TMessage> | undefined
+): ElementKeyBindings<TMessage> | undefined {
   if (onAction === undefined) return explicit;
   const active = highlighted ?? selected ?? visibleMenuItems(items).find((item) => item.disabled !== true)?.id;
   return mergeKeyBindings({
@@ -352,7 +345,7 @@ export function dropdownKeyBindings<TMessage>(
     enter: () => open && active !== undefined
       ? onAction({ kind: 'activate', id: active })
       : onAction({ kind: 'open' }),
-    escape: () => open ? onAction({ kind: 'close' }) : undefined
+    ...(open ? { escape: () => onAction({ kind: 'close' }) } : {})
   }, explicit);
 }
 
@@ -371,13 +364,13 @@ export function menuItemsForRenderer(items: readonly MenuItem[]): readonly Rende
 }
 
 export function mergeKeyBindings<TMessage>(
-  generated: ComponentKeyBindings<TMessage> | undefined,
-  explicit: ComponentKeyBindings<TMessage> | undefined
-): ComponentKeyBindings<TMessage> | undefined {
+  generated: ElementKeyBindings<TMessage> | undefined,
+  explicit: ElementKeyBindings<TMessage> | undefined
+): ElementKeyBindings<TMessage> | undefined {
   const generatedText = generated?.text;
   const explicitText = explicit?.text;
   const mergedText = { ...(generatedText ?? {}), ...(explicitText ?? {}) };
-  const merged: ComponentKeyBindings<TMessage> = {
+  const merged: ElementKeyBindings<TMessage> = {
     ...(generated ?? {}),
     ...(explicit ?? {}),
     ...(Object.keys(mergedText).length === 0 ? {} : { text: mergedText })
@@ -386,17 +379,17 @@ export function mergeKeyBindings<TMessage>(
 }
 
 export function interactionProps<TMessage, TPart extends string = never>(options: {
-  readonly keys?: ComponentKeyBindings<TMessage> | undefined;
+  readonly keys?: ElementKeyBindings<TMessage> | undefined;
   readonly onInput?: ((text: string) => TMessage) | undefined;
   readonly onPaste?: ((text: string) => TMessage) | undefined;
-  readonly meta?: ComponentMeta<TPart> | undefined;
+  readonly meta?: ElementMeta<TPart> | undefined;
 }): {
-  readonly layer?: ComponentLayerOptions;
-  readonly focus?: ComponentFocusOptions;
-  readonly styles?: RenderNodeStyles;
-  readonly keyMap?: ComponentKeyBindings<TMessage>;
+  readonly layer?: ElementLayer;
+  readonly focus?: ElementFocus;
+  readonly styles?: ElementStyles;
+  readonly keyMap?: ElementKeyBindings<TMessage>;
   readonly inputMap?: NonNullable<RenderNode<TMessage>['inputMap']>;
-  readonly accessibility?: AccessibleNodeDefinition;
+  readonly accessibility?: ElementAccessibility;
 } {
   const keyMap = normalizeKeyBindings(options.keys);
   const inputMap = inputMapFromHandlers(options);
@@ -408,11 +401,11 @@ export function interactionProps<TMessage, TPart extends string = never>(options
   };
 }
 
-export function componentMetaProps<TPart extends string>(meta: ComponentMeta<TPart> | undefined): {
-  readonly layer?: ComponentLayerOptions;
-  readonly focus?: ComponentFocusOptions;
-  readonly styles?: RenderNodeStyles;
-  readonly accessibility?: AccessibleNodeDefinition;
+export function componentMetaProps<TPart extends string>(meta: ElementMeta<TPart> | undefined): {
+  readonly layer?: ElementLayer;
+  readonly focus?: ElementFocus;
+  readonly styles?: ElementStyles;
+  readonly accessibility?: ElementAccessibility;
 } {
   return {
     ...(meta?.layer === undefined ? {} : { layer: meta.layer }),
@@ -423,13 +416,13 @@ export function componentMetaProps<TPart extends string>(meta: ComponentMeta<TPa
 }
 
 export function withMetaDefaults<TPart extends string>(
-  meta: ComponentMeta<TPart> | undefined,
-  defaults: ComponentMeta<TPart>
-): ComponentMeta<TPart> {
+  meta: ElementMeta<TPart> | undefined,
+  defaults: ElementMeta<TPart>
+): ElementMeta<TPart> {
   const accessibility = meta?.accessibility ?? defaults.accessibility;
   const focus = mergeObject(defaults.focus, meta?.focus);
   const layer = mergeObject(defaults.layer, meta?.layer);
-  const styles = mergeComponentStyles(defaults.styles, meta?.styles);
+  const styles = mergeElementStyles(defaults.styles, meta?.styles);
   return compactMeta({
     ...(accessibility === undefined ? {} : { accessibility }),
     ...(focus === undefined ? {} : { focus }),
@@ -438,7 +431,7 @@ export function withMetaDefaults<TPart extends string>(
   }) ?? {};
 }
 
-function renderNodeStyles<TPart extends string>(styles: ComponentStyles<TPart>): RenderNodeStyles {
+function renderNodeStyles<TPart extends string>(styles: ElementStyles<TPart>): ElementStyles {
   return {
     ...(styles.root === undefined ? {} : { root: styles.root }),
     ...(styles.parts === undefined ? {} : { parts: { ...styles.parts } }),
@@ -446,17 +439,17 @@ function renderNodeStyles<TPart extends string>(styles: ComponentStyles<TPart>):
   };
 }
 
-function mergeComponentStyles<TPart extends string>(
-  defaults: ComponentStyles<TPart> | undefined,
-  explicit: ComponentStyles<TPart> | undefined
-): ComponentStyles<TPart> | undefined {
+function mergeElementStyles<TPart extends string>(
+  defaults: ElementStyles<TPart> | undefined,
+  explicit: ElementStyles<TPart> | undefined
+): ElementStyles<TPart> | undefined {
   if (defaults === undefined) return explicit;
   if (explicit === undefined) return defaults;
   const root = explicit.root ?? defaults.root;
-  const parts: ComponentStyles<TPart>['parts'] = defaults.parts === undefined && explicit.parts === undefined
+  const parts: ElementStyles<TPart>['parts'] = defaults.parts === undefined && explicit.parts === undefined
     ? undefined
-    : { ...(defaults.parts ?? {}), ...(explicit.parts ?? {}) } as NonNullable<ComponentStyles<TPart>['parts']>;
-  const states: ComponentStyles<TPart>['states'] = defaults.states === undefined && explicit.states === undefined
+    : { ...(defaults.parts ?? {}), ...(explicit.parts ?? {}) } as NonNullable<ElementStyles<TPart>['parts']>;
+  const states: ElementStyles<TPart>['states'] = defaults.states === undefined && explicit.states === undefined
     ? undefined
     : { ...(defaults.states ?? {}), ...(explicit.states ?? {}) };
   return {
@@ -474,7 +467,7 @@ function visibleMenuItems(items: readonly MenuItem[]): readonly MenuItem[] {
 }
 
 function choiceFocus<TValue>(
-  options: readonly import('../contracts.ts').ChoiceItem<TValue>[],
+  options: readonly import('../../ui-model/contracts.ts').ChoiceItem<TValue>[],
   focused: string | undefined,
   selected: string | undefined
 ): string | undefined {
@@ -495,15 +488,15 @@ function inputMapFromHandlers<TMessage>(options: {
 }
 
 function normalizeKeyBindings<TMessage>(
-  keyMap: ComponentKeyBindings<TMessage> | undefined
-): ComponentKeyBindings<TMessage> | undefined {
+  keyMap: ElementKeyBindings<TMessage> | undefined
+): ElementKeyBindings<TMessage> | undefined {
   return keyMap === undefined || Object.keys(keyMap).length === 0 ? undefined : keyMap;
 }
 
 function editKeyBindings<TMessage>(
   onEdit: ((operation: TextEditOperation) => TMessage) | undefined,
   multiline: boolean
-): ComponentKeyBindings<TMessage> | undefined {
+): ElementKeyBindings<TMessage> | undefined {
   if (onEdit === undefined) return undefined;
   return {
     ...(multiline ? { enter: () => onEdit({ kind: 'insert', text: '\n' }) } : {}),
@@ -540,8 +533,8 @@ function editKeyBindings<TMessage>(
   };
 }
 
-function compactMeta<TPart extends string>(meta: ComponentMeta<TPart>): ComponentMeta<TPart> | undefined {
-  const value: ComponentMeta<TPart> = {
+function compactMeta<TPart extends string>(meta: ElementMeta<TPart>): ElementMeta<TPart> | undefined {
+  const value: ElementMeta<TPart> = {
     ...(meta.accessibility === undefined ? {} : { accessibility: meta.accessibility }),
     ...(meta.focus === undefined ? {} : { focus: meta.focus }),
     ...(meta.layer === undefined ? {} : { layer: meta.layer }),

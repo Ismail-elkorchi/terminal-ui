@@ -1,5 +1,6 @@
-import type { ButtonTone } from '../../../components/options/forms.ts';
-import type { RenderNodeOfKind, RenderNodeVisualState } from '../../../render-node/index.ts';
+import type { ButtonTone } from '../../../ui-model/options/forms.ts';
+import type { ElementVisualState } from '../../../element/metadata.ts';
+import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../frame.ts';
 import { formSpan, separatorSpan } from '../../form-visual.ts';
@@ -21,7 +22,7 @@ export function buttonSpans(
   const spans: RenderSpan[] = [];
   const style = buttonStyle(widget, focused);
   const chromeStyle = buttonChromeStyle(widget, focused);
-  if (focused && widget.props.disabled !== true) {
+  if (focused && widget.props.state !== 'disabled') {
     spans.push(formSpan(widget, 'chrome', 'chrome.open', '[', chromeStyle));
     spans.push(formSpan(widget, 'chrome', 'chrome.focus', theme.tokens.symbols.pointer, chromeStyle));
   } else {
@@ -39,16 +40,16 @@ export function buttonSpans(
 
 export function buttonDescription(widget: ButtonNode): string {
   return [
-    widget.props.pending === true ? 'Pending.' : '',
-    widget.props.pressed === true ? 'Pressed.' : '',
+    widget.props.state === 'pending' ? 'Pending.' : '',
+    widget.props.state === 'pressed' ? 'Pressed.' : '',
     buttonTone(widget) === 'destructive' ? 'Destructive action.' : ''
   ].filter((part) => part.length > 0).join(' ');
 }
 
 function buttonStateMarker(widget: ButtonNode, theme: TerminalTheme): string {
-  if (widget.props.disabled === true) return '-';
-  if (widget.props.pending === true) return theme.tokens.symbols.statusInfo;
-  if (widget.props.pressed === true) return theme.tokens.symbols.selected;
+  if (widget.props.state === 'disabled') return '-';
+  if (widget.props.state === 'pending') return theme.tokens.symbols.statusInfo;
+  if (widget.props.state === 'pressed') return theme.tokens.symbols.selected;
   return buttonTone(widget) === 'destructive' ? theme.tokens.symbols.statusError : '';
 }
 
@@ -73,8 +74,8 @@ function buttonChromeStyle(widget: ButtonNode, focused: boolean): TerminalStyle 
 }
 
 function buttonBaseStyle(widget: ButtonNode): TerminalStyle | undefined {
-  if (widget.props.pending === true) return themeStyle('status.pending', { bold: true });
-  if (widget.props.pressed === true) return controlToneStyle('primary');
+  if (widget.props.state === 'pending') return themeStyle('status.pending', { bold: true });
+  if (widget.props.state === 'pressed') return controlToneStyle('primary');
   switch (buttonTone(widget)) {
     case 'default':
       return controlToneStyle('default');
@@ -88,8 +89,8 @@ function buttonBaseStyle(widget: ButtonNode): TerminalStyle | undefined {
 }
 
 function buttonChromeBaseStyle(widget: ButtonNode): TerminalStyle | undefined {
-  if (widget.props.pending === true) return themeStyle('status.pending', { bold: true });
-  if (widget.props.pressed === true) return controlToneBorderStyle('primary');
+  if (widget.props.state === 'pending') return themeStyle('status.pending', { bold: true });
+  if (widget.props.state === 'pressed') return controlToneBorderStyle('primary');
   switch (buttonTone(widget)) {
     case 'default':
       return controlToneBorderStyle('default');
@@ -144,10 +145,10 @@ function controlToneBorderStyle(tone: 'default' | 'primary' | 'secondary'): Term
   }
 }
 
-function buttonState(widget: ButtonNode, focused: boolean): RenderNodeVisualState | undefined {
-  if (widget.props.disabled === true) return 'disabled';
+function buttonState(widget: ButtonNode, focused: boolean): ElementVisualState | undefined {
+  if (widget.props.state === 'disabled') return 'disabled';
   if (buttonTone(widget) === 'destructive') return 'error';
-  if (widget.props.pending === true || widget.props.pressed === true) return undefined;
+  if (widget.props.state === 'pending' || widget.props.state === 'pressed') return undefined;
   return focused ? 'focused' : undefined;
 }
 

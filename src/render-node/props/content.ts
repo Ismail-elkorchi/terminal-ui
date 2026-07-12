@@ -8,14 +8,14 @@ import type {
   TextAreaOptions,
   TextOptions,
   TreeOptions
-} from '../../components/options/content.ts';
-import type { ListAction } from '../../components/list.ts';
-import type { TableAction } from '../../components/table.ts';
-import type { TableSortState } from '../../components/table.ts';
-import type { TreeDisclosureAction, TreeNode } from '../../components/tree.ts';
-import type { PaginatorAction } from '../../components/paginator.ts';
+} from '../../ui-model/options/content.ts';
+import type { ListAction } from '../../ui-model/list.ts';
+import type { TableAction } from '../../ui-model/table.ts';
+import type { TableSortState } from '../../ui-model/table.ts';
+import type { TreeDisclosureAction, TreeNode } from '../../ui-model/tree.ts';
+import type { PaginatorAction } from '../../ui-model/paginator.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
-import type { ScrollEvent } from '../../behavior/scroll.ts';
+import type { ScrollEvent } from '../../interaction/scroll.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { AuthoredProps, ReplaceProps } from './shared.ts';
 

@@ -17,8 +17,12 @@ export interface TerminalInputChunk {
   readonly data: string | Uint8Array;
 }
 
+export interface TerminalInputReadOptions {
+  readonly signal?: AbortSignal;
+}
+
 export interface TerminalInput {
-  read(): AsyncIterable<TerminalInputChunk>;
+  read(options?: TerminalInputReadOptions): AsyncIterable<TerminalInputChunk>;
   setRawMode?(enabled: boolean): Promise<void> | void;
   isRawModeEnabled?(): boolean;
   isTty(): boolean;
@@ -53,6 +57,16 @@ export interface TerminalEnvironment {
   entries(): Iterable<readonly [string, string]>;
 }
 
+export interface TerminalViewportControl {
+  setViewport(viewport: TerminalViewport): void | Promise<void>;
+}
+
+export interface TerminalHostObserver {
+  recordFrame?(frame: unknown): void;
+  recordDiff?(diff: unknown): void;
+  recordRestore?(checkpoint: TerminalStateSnapshot): void;
+}
+
 export interface TerminalHost {
   readonly id: string;
   readonly runtime: RuntimeTarget;
@@ -62,6 +76,8 @@ export interface TerminalHost {
   readonly signals: TerminalSignalSource;
   readonly clock: TerminalClock;
   readonly env: TerminalEnvironment;
+  readonly viewportControl?: TerminalViewportControl;
+  readonly observer?: TerminalHostObserver;
 
   getViewport(): TerminalViewport;
   getCapabilities(): Promise<TerminalCapabilityProfile>;
@@ -169,11 +185,12 @@ export interface MemoryTerminalHostOptions {
   readonly isTty?: boolean;
   readonly clipboard?: boolean;
   readonly env?: Record<string, string>;
+  readonly observer?: TerminalHostObserver;
 }
 
-export type RuntimeInputSource =
-  | AsyncIterable<string | Uint8Array>
-  | ReadableStream<string | Uint8Array>;
+export interface RuntimeInputSource {
+  read(options?: TerminalInputReadOptions): AsyncIterable<string | Uint8Array>;
+}
 
 export interface RuntimeTerminalInputOptions {
   readonly source?: RuntimeInputSource;
@@ -215,15 +232,16 @@ export interface PtyTerminalHostOptions {
   readonly env?: Record<string, string>;
   readonly viewport?: TerminalViewport;
   readonly resize?: (viewport: TerminalViewport) => void | Promise<void>;
+  readonly observer?: TerminalHostObserver;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
 }
 
 export interface PtyTerminalHost extends TerminalHost {
-  resize(viewport: TerminalViewport): Promise<void>;
+  readonly viewportControl: TerminalViewportControl;
 }
 
 export type CreateTerminalHostOptions =
-  | (NodeTerminalHostOptions & { readonly runtime?: 'node' })
+  | (NodeTerminalHostOptions & { readonly runtime: 'node' })
   | (DenoTerminalHostOptions & { readonly runtime: 'deno' })
   | (BunTerminalHostOptions & { readonly runtime: 'bun' })
   | (MemoryTerminalHostOptions & { readonly runtime: 'memory' })

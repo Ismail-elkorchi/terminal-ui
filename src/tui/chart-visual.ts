@@ -1,8 +1,8 @@
 import type { RenderNodeOfKind } from '../render-node/index.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { ProcessStatus } from '../components/contracts.ts';
-import { normalizeProcessStatus } from '../components/status.ts';
+import type { ProcessStatus } from '../ui-model/contracts.ts';
+import { normalizeProcessStatus } from '../ui-model/status.ts';
 import { renderNodeFrameSource } from './frame-source.ts';
 import { block, line, span } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderSpan, TerminalStyle } from './render-primitives.ts';

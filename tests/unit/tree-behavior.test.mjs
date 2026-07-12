@@ -22,27 +22,29 @@ test('treeReducer models lazy pending success error and empty states', () => {
     id: 'root',
     label: 'Root',
     description: 'workspace/root',
-    lazy: true,
+    kind: 'lazy',
+    expanded: false,
+    loading: { kind: 'idle' },
     metadata: { path: '/workspace/root' }
   }];
   const pending = treeReducer({ nodes }, { kind: 'lazyPending', id: 'root', message: 'Loading children' });
   const failed = treeReducer(pending, { kind: 'lazyError', id: 'root', message: 'Network failed' });
-  const loaded = treeReducer(failed, { kind: 'lazySuccess', id: 'root', children: [{ id: 'child', label: 'Child' }] });
+  const loaded = treeReducer(failed, { kind: 'lazySuccess', id: 'root', children: [{ id: 'child', label: 'Child', kind: 'leaf' }] });
   const empty = treeReducer(loaded, { kind: 'lazySuccess', id: 'root', children: [] });
 
-  assert.deepEqual(pending.nodes[0]?.lazyStatus, 'pending');
-  assert.deepEqual(failed.nodes[0]?.lazyStatus, 'error');
+  assert.deepEqual(pending.nodes[0]?.loading?.kind, 'pending');
+  assert.deepEqual(failed.nodes[0]?.loading?.kind, 'error');
   assert.equal(loaded.nodes[0]?.children?.[0]?.label, 'Child');
   assert.equal(loaded.nodes[0]?.description, 'workspace/root');
   assert.deepEqual(loaded.nodes[0]?.metadata, { path: '/workspace/root' });
-  assert.equal(empty.nodes[0]?.lazyStatus, 'empty');
+  assert.equal(empty.nodes[0]?.loading?.kind, 'empty');
 
   const failedFrame = renderElementFrame(tree({ id: 'lazy-error', ...treePresentation(failed) }), { columns: 24, rows: 3 });
   assert.match(renderFramePlain(failedFrame), /Network failed/u);
 });
 
 test('treeReducer renames nodes without mutating input', () => {
-  const nodes = [{ id: 'root', label: 'Root' }];
+  const nodes = [{ id: 'root', label: 'Root', kind: 'leaf' }];
   const started = treeReducer({ nodes }, { kind: 'startRename', id: 'root', value: 'Root' });
   const updated = treeReducer(started, { kind: 'updateRename', value: 'Workspace' });
   const renamed = treeReducer(updated, { kind: 'commitRename' });
@@ -53,7 +55,7 @@ test('treeReducer renames nodes without mutating input', () => {
 });
 
 test('treeReducer owns hierarchy selection filter and rename state together', () => {
-  const initial = { nodes: [{ id: 'node-a', label: 'Node A' }] };
+  const initial = { nodes: [{ id: 'node-a', label: 'Node A', kind: 'leaf' }] };
   const selected = treeReducer(initial, { kind: 'select', id: 'node-a' });
   const filtered = treeReducer(selected, { kind: 'filter', query: 'term' });
   const renaming = treeReducer(filtered, { kind: 'startRename', id: 'node-a', value: 'Node A' });
@@ -75,7 +77,9 @@ test('treeNodeMatches searches label id description icon lazy message and metada
     label: 'Service',
     description: 'Request handlers',
     icon: 'S',
-    lazyMessage: 'Network pending',
+    kind: 'lazy',
+    expanded: true,
+    loading: { kind: 'pending', message: 'Network pending' },
     metadata: { domain: 'server' }
   };
 
@@ -90,20 +94,22 @@ test('visibleTreeRows exposes depth paths expanded children and lazy placeholder
   const nodes = [{
     id: 'root',
     label: 'Root',
+    kind: 'branch',
     expanded: true,
     children: [
       {
         id: 'src',
         label: 'Source',
+        kind: 'branch',
         expanded: true,
-        children: [{ id: 'src/index.ts', label: 'index.ts' }]
+        children: [{ id: 'src/index.ts', label: 'index.ts', kind: 'leaf' }]
       },
       {
         id: 'lazy',
         label: 'Lazy',
-        lazy: true,
+        kind: 'lazy',
         expanded: true,
-        lazyStatus: 'pending'
+        loading: { kind: 'pending' }
       }
     ]
   }];
@@ -122,16 +128,18 @@ test('visibleTreeRows keeps matching descendants and their ancestors while filte
   const nodes = [{
     id: 'root',
     label: 'Root',
+    kind: 'branch',
+    expanded: false,
     children: [
       {
         id: 'src',
         label: 'Source',
-        children: [{ id: 'src/index.ts', label: 'index.ts' }]
+        kind: 'branch', expanded: false, children: [{ id: 'src/index.ts', label: 'index.ts', kind: 'leaf' }]
       },
       {
         id: 'docs',
         label: 'Docs',
-        children: [{ id: 'readme', label: 'README.md' }]
+        kind: 'branch', expanded: false, children: [{ id: 'readme', label: 'README.md', kind: 'leaf' }]
       }
     ]
   }];
@@ -146,12 +154,13 @@ test('nextTreeRowId skips disabled and lazy placeholder rows and wraps', () => {
   const rows = visibleTreeRows([{
     id: 'root',
     label: 'Root',
+    kind: 'branch',
     expanded: true,
     children: [
-      { id: 'disabled', label: 'Disabled', disabled: true },
-      { id: 'file-a', label: 'A' },
-      { id: 'lazy', label: 'Lazy', lazy: true, expanded: true },
-      { id: 'file-b', label: 'B' }
+      { id: 'disabled', label: 'Disabled', disabled: true, kind: 'leaf' },
+      { id: 'file-a', label: 'A', kind: 'leaf' },
+      { id: 'lazy', label: 'Lazy', kind: 'lazy', expanded: true, loading: { kind: 'pending' } },
+      { id: 'file-b', label: 'B', kind: 'leaf' }
     ]
   }]);
 
@@ -162,10 +171,10 @@ test('nextTreeRowId skips disabled and lazy placeholder rows and wraps', () => {
 });
 
 test('treeDisclosureAction returns only meaningful disclosure actions', () => {
-  const leaf = { id: 'leaf', label: 'Leaf' };
-  const collapsed = { id: 'folder', label: 'Folder', children: [{ id: 'child', label: 'Child' }] };
+  const leaf = { id: 'leaf', label: 'Leaf', kind: 'leaf' };
+  const collapsed = { id: 'folder', label: 'Folder', kind: 'branch', expanded: false, children: [{ id: 'child', label: 'Child', kind: 'leaf' }] };
   const expanded = { ...collapsed, expanded: true };
-  const lazy = { id: 'lazy', label: 'Lazy', lazy: true };
+  const lazy = { id: 'lazy', label: 'Lazy', kind: 'lazy', expanded: false, loading: { kind: 'idle' } };
 
   assert.equal(treeNodeCanDisclose(leaf), false);
   assert.equal(treeDisclosureAction(leaf, 'toggle'), undefined);

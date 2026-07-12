@@ -536,20 +536,22 @@ function navigationNodes() {
     {
       id: 'workspace',
       label: 'Workspace',
+      kind: 'branch',
       expanded: true,
       children: [
-        { id: 'queue:triage', label: 'Triage', description: 'Open triage queue' },
-        { id: 'queue:review', label: 'Review', description: 'Items under review' },
-        { id: 'queue:done', label: 'Done', description: 'Completed items' }
+        { id: 'queue:triage', label: 'Triage', kind: 'leaf', description: 'Open triage queue' },
+        { id: 'queue:review', label: 'Review', kind: 'leaf', description: 'Items under review' },
+        { id: 'queue:done', label: 'Done', kind: 'leaf', description: 'Completed items' }
       ]
     },
     {
       id: 'team',
       label: 'Team',
+      kind: 'branch',
       expanded: true,
       children: [
-        { id: 'team:ops', label: 'Ops' },
-        { id: 'team:design', label: 'Design' }
+        { id: 'team:ops', label: 'Ops', kind: 'leaf' },
+        { id: 'team:design', label: 'Design', kind: 'leaf' }
       ]
     }
   ];

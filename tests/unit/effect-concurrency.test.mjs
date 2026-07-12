@@ -5,9 +5,15 @@ import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiEffectManager } from '../../dist/tui/effects.js';
 
 function manager(dispatch = async () => {}) {
+  const host = createMemoryTerminalHost();
   return createTuiEffectManager({
-    host: createMemoryTerminalHost(),
-    diagnostics: () => [],
+    context: async () => ({
+      host,
+      viewport: host.getViewport(),
+      capabilities: await host.getCapabilities(),
+      diagnostics: [],
+      clock: host.clock
+    }),
     dispatch,
     reportDiagnostic: () => {}
   });
@@ -27,8 +33,8 @@ test('parallel effects with one id both run', async () => {
   const second = gate();
   const effects = manager();
   effects.start([
-    { id: 'load', concurrency: 'parallel', run: async () => { started.push('first'); await first.promise; } },
-    { id: 'load', concurrency: 'parallel', run: async () => { started.push('second'); await second.promise; } }
+    { id: 'load', concurrency: 'parallel', run: async () => { started.push('first'); await first.promise; return { kind: 'none' }; } },
+    { id: 'load', concurrency: 'parallel', run: async () => { started.push('second'); await second.promise; return { kind: 'none' }; } }
   ]);
   try {
     await waitUntil(() => started.length === 2);
@@ -50,13 +56,14 @@ test('replace effects abort prior work with the same id', async () => {
     run: async ({ signal }) => {
       firstSignal = signal;
       await new Promise((resolve) => signal.addEventListener('abort', resolve, { once: true }));
+      return { kind: 'none' };
     }
   }]);
   await waitUntil(() => firstSignal !== undefined);
   effects.start([{
     id: 'load',
     concurrency: 'replace',
-    run: async () => replacement.promise
+    run: async () => { await replacement.promise; return { kind: 'none' }; }
   }]);
   try {
     await waitUntil(() => firstSignal?.aborted === true);
@@ -75,17 +82,17 @@ test('enqueue effects run in order while keep-first ignores later starts explici
   effects.start([{
     id: 'save',
     concurrency: 'enqueue',
-    run: async () => { started.push('first'); await first.promise; }
+    run: async () => { started.push('first'); await first.promise; return { kind: 'none' }; }
   }]);
   effects.start([{
     id: 'save',
     concurrency: 'enqueue',
-    run: async () => { started.push('second'); await second.promise; }
+    run: async () => { started.push('second'); await second.promise; return { kind: 'none' }; }
   }]);
   effects.start([{
     id: 'save',
     concurrency: 'keep-first',
-    run: async () => { started.push('ignored'); }
+    run: async () => { started.push('ignored'); return { kind: 'none' }; }
   }]);
   try {
     await waitUntil(() => started.length === 1);
@@ -98,6 +105,21 @@ test('enqueue effects run in order while keep-first ignores later starts explici
     second.release();
     await effects.dispose();
   }
+});
+
+test('tagged effect output preserves array-shaped messages as one message', async () => {
+  const dispatched = [];
+  const effects = manager(async (message) => { dispatched.push(message); });
+  effects.start([{
+    id: 'array-message',
+    concurrency: 'parallel',
+    run: async () => ({ kind: 'message', message: ['left', 'right'] })
+  }]);
+
+  await waitUntil(() => dispatched.length === 1);
+  await effects.dispose();
+
+  assert.deepEqual(dispatched, [['left', 'right']]);
 });
 
 async function waitUntil(predicate) {

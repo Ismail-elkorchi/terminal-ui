@@ -11,16 +11,16 @@ import type {
   SliderOptions,
   TextInputOptions,
   ToggleSwitchOptions
-} from '../../components/options/forms.ts';
-import type { ChoiceItem } from '../../components/contracts.ts';
-import type { NumberInputAction } from '../../components/number-input.ts';
-import type { DatePickerAction, DatePickerDay } from '../../components/date-picker.ts';
+} from '../../ui-model/options/forms.ts';
+import type { ChoiceItem } from '../../ui-model/contracts.ts';
+import type { NumberInputAction } from '../../ui-model/number-input.ts';
+import type { DatePickerAction, DatePickerDay } from '../../ui-model/date-picker.ts';
 import type {
   CheckboxListAction,
   ColorPickerAction,
   RadioGroupAction,
   SelectBoxAction
-} from '../../components/choice-controls.ts';
+} from '../../ui-model/choice-controls.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
 import type { AuthoredProps, ReplaceProps } from './shared.ts';
 
@@ -125,4 +125,4 @@ export type NumberInputRenderProps<TMessage> = ReplaceProps<
   AuthoredProps<NumberInputOptions>,
   'onAction',
   { readonly toActionMessage?: (action: NumberInputAction) => TMessage }
-> & { readonly value: string };
+>;

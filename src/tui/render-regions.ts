@@ -4,7 +4,8 @@ import type { TerminalViewport } from '../host/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotMetadata, FrameBufferSnapshotOptions, FrameCell, FrameHitTarget } from './frame.ts';
 import type { FocusPath, LayoutFocusTarget } from './focus.ts';
-import type { LayoutNode, Rect, RegionOpacity } from './layout.ts';
+import type { ElementLayerOpacity } from '../element/metadata.ts';
+import type { LayoutNode, Rect } from './layout.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../input/pointer.ts';
 import type { HitTarget } from './render-node-renderer.ts';
 
@@ -18,7 +19,7 @@ export interface RenderRegion<TMessage = unknown> {
   readonly zIndex: number;
   readonly order: number;
   readonly bounds: Rect;
-  readonly opacity: RegionOpacity;
+  readonly opacity: ElementLayerOpacity;
   readonly cells: readonly FrameCell[];
   readonly metadata: FrameBufferSnapshotMetadata;
   readonly hitTargets: readonly RenderRegionHitTarget<TMessage>[];
@@ -49,7 +50,7 @@ export interface DraftRenderRegion {
   readonly zIndex: number;
   readonly order: number;
   readonly bounds: Rect;
-  readonly opacity: RegionOpacity;
+  readonly opacity: ElementLayerOpacity;
   readonly buffer: FrameBuffer;
 }
 
@@ -67,7 +68,7 @@ export function createDraftRenderRegion(
     readonly order: number;
     readonly viewport: TerminalViewport;
     readonly bounds: Rect;
-    readonly opacity: RegionOpacity;
+    readonly opacity: ElementLayerOpacity;
   }
 ): DraftRenderRegion {
   const { id, zIndex, order, viewport, bounds, opacity } = input;

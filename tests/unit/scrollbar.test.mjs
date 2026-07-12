@@ -309,10 +309,10 @@ test('tree scrollbar follows explicit tree scroll state', () => {
   const frame = renderElementFrame(tree({
     id: 'tree',
     nodes: [
-      { id: 'a', label: 'Alpha' },
-      { id: 'b', label: 'Bravo' },
-      { id: 'c', label: 'Charlie' },
-      { id: 'd', label: 'Delta' }
+      { id: 'a', label: 'Alpha', kind: 'leaf' },
+      { id: 'b', label: 'Bravo', kind: 'leaf' },
+      { id: 'c', label: 'Charlie', kind: 'leaf' },
+      { id: 'd', label: 'Delta', kind: 'leaf' }
     ],
     scroll: createScrollState({ offsetRow: 1, contentRows: 4, viewportRows: 2 }),
     scrollbar: {}

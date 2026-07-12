@@ -960,16 +960,16 @@ function loadWorkspace(inputPath) {
  * @returns {import('@ismail-elkorchi/terminal-ui/components').TreeNode}
  */
 function directoryNode(rootPath, directoryPath, expanded = false, children) {
-  return {
+  const identity = {
     id: nodeId('dir', directoryPath),
     label: path.basename(directoryPath) || directoryPath,
     description: shortPath(rootPath, directoryPath),
     icon: '▣',
-    expanded,
-    lazy: expanded !== true,
-    metadata: { kind: 'directory', path: directoryPath },
-    ...(children === undefined ? {} : { children })
+    metadata: { kind: 'directory', path: directoryPath }
   };
+  return children === undefined
+    ? { ...identity, kind: 'lazy', expanded, loading: { kind: 'idle' } }
+    : { ...identity, kind: 'branch', expanded, children };
 }
 
 /**
@@ -985,6 +985,7 @@ function directoryChildren(rootPath, directoryPath) {
       nodes: [{
         id: `${nodeId('dir', directoryPath)}:unreadable`,
         label: 'unreadable',
+        kind: 'leaf',
         disabled: true,
         metadata: { kind: 'status', path: directoryPath }
       }]
@@ -998,13 +999,16 @@ function directoryChildren(rootPath, directoryPath) {
     const absolutePath = path.join(directoryPath, entry.name);
     if (entry.isDirectory()) return [directoryNode(rootPath, absolutePath)];
     if (entry.isFile()) {
-      return [{
+      /** @type {import('@ismail-elkorchi/terminal-ui/components').TreeNode} */
+      const fileNode = {
         id: nodeId('file', absolutePath),
         label: entry.name,
+        kind: 'leaf',
         icon: '•',
         description: shortPath(rootPath, absolutePath),
         metadata: { kind: 'file', path: absolutePath }
-      }];
+      };
+      return [fileNode];
     }
     omitted += 1;
     return [];
@@ -1015,7 +1019,7 @@ function directoryChildren(rootPath, directoryPath) {
 function findTreeNode(nodes, id) {
   for (const node of nodes) {
     if (node.id === id) return node;
-    const child = findTreeNode(node.children ?? [], id);
+    const child = node.kind === 'branch' ? findTreeNode(node.children, id) : undefined;
     if (child !== undefined) return child;
   }
   return undefined;

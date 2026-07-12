@@ -23,7 +23,7 @@ test('PTY harness restores terminal protocols when a TUI throws during rendering
   const exit = await runTui(app, harness.host);
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics[0]?.code, 'TUI_RENDER_FAILED');
+  assert.equal(exit.diagnostics[0]?.code, 'TUI_RUN_FAILED');
   assert.equal(harness.host.stdin.isRawModeEnabled?.(), false);
   assert.equal(harness.restores().length, 1);
   assert.match(harness.output(), /\u001B\[\?1049h/u);

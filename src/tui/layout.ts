@@ -1,26 +1,21 @@
 import type { TerminalViewport } from '../host/index.ts';
-import type { RenderNode, RenderNodeFocusScope, RenderNodeKind } from '../render-node/index.ts';
-import type { Element } from '../components/element.ts';
+import type { ElementFocusScope } from '../element/metadata.ts';
+import type { ElementLayerOpacity } from '../element/metadata.ts';
+import type { Rect } from '../geometry/types.ts';
+export type { Rect } from '../geometry/types.ts';
+import type { RenderNode, RenderNodeKind } from '../render-node/index.ts';
+import type { Element } from '../element/index.ts';
 import { toRenderNode } from '../render-node/element.ts';
 import { defineTheme, isTerminalTheme } from '../theme/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { CursorPosition } from './cursor.ts';
 import { layoutChildBounds, focusScopeForRenderNode, focusTargetsForRenderNode } from './render-node-behavior.ts';
 
-export interface Rect {
-  readonly row: number;
-  readonly column: number;
-  readonly width: number;
-  readonly height: number;
-}
-
-export type RegionOpacity = 'opaque' | 'transparent' | 'inheritBackground';
-
 export interface Layer {
   readonly id: string;
   readonly zIndex: number;
   readonly bounds: Rect;
-  readonly opacity: RegionOpacity;
+  readonly opacity: ElementLayerOpacity;
 }
 
 export interface LayoutNode {
@@ -31,7 +26,7 @@ export interface LayoutNode {
   readonly layer: Layer;
   readonly visible: boolean;
   readonly focusable: boolean;
-  readonly focusScope?: RenderNodeFocusScope;
+  readonly focusScope?: ElementFocusScope;
   readonly focusTargets: readonly LayoutFocusRegion[];
   readonly children: readonly LayoutNode[];
 }
@@ -151,7 +146,7 @@ function zIndexForRenderNode(widget: RenderNode): number {
   return zIndex === undefined || !Number.isFinite(zIndex) ? 0 : zIndex;
 }
 
-function opacityForRenderNode(widget: RenderNode): RegionOpacity {
+function opacityForRenderNode(widget: RenderNode): ElementLayerOpacity {
   return widget.layer?.opacity ?? 'transparent';
 }
 

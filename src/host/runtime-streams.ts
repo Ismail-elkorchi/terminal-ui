@@ -11,6 +11,7 @@ import type {
   TerminalHost,
   TerminalInput,
   TerminalInputChunk,
+  TerminalInputReadOptions,
   TerminalOutput,
   TerminalOutputChunk,
   TerminalSession,
@@ -81,8 +82,10 @@ export class RuntimeInput implements TerminalInput {
 
   constructor(private readonly options: RuntimeTerminalInputOptions = {}) {}
 
-  async *read(): AsyncIterable<TerminalInputChunk> {
-    for await (const chunk of inputSourceToAsyncIterable(this.options.source)) {
+  async *read(options: TerminalInputReadOptions = {}): AsyncIterable<TerminalInputChunk> {
+    if (this.options.source === undefined) return;
+    for await (const chunk of this.options.source.read(options)) {
+      if (options.signal?.aborted === true) return;
       yield { data: chunk };
     }
   }
@@ -174,25 +177,65 @@ export class ObjectEnvironment implements TerminalEnvironment {
   }
 }
 
-async function* inputSourceToAsyncIterable(
-  source: RuntimeInputSource | undefined
-): AsyncIterable<string | Uint8Array> {
-  if (source === undefined) return;
-  if (isWebReadableStream(source)) {
-    const reader = source.getReader();
-    try {
-      for (;;) {
-        const next = await reader.read();
-        if (next.done) return;
-        yield next.value;
+export function runtimeInputSourceFromReadableStream(
+  source: ReadableStream<string | Uint8Array>
+): RuntimeInputSource {
+  return {
+    async *read(options = {}) {
+      const signal = options.signal;
+      if (isAborted(signal)) return;
+      const reader = source.getReader();
+      const abort = (): void => { void reader.cancel(); };
+      signal?.addEventListener('abort', abort, { once: true });
+      try {
+        for (;;) {
+          const next = await reader.read();
+          if (next.done || isAborted(signal)) return;
+          yield next.value;
+        }
+      } catch (cause) {
+        if (!isAborted(signal)) throw cause;
+      } finally {
+        signal?.removeEventListener('abort', abort);
+        reader.releaseLock();
       }
-    } finally {
-      reader.releaseLock();
     }
-  }
-  yield* source;
+  };
 }
 
-function isWebReadableStream(value: RuntimeInputSource): value is ReadableStream<string | Uint8Array> {
-  return typeof (value as ReadableStream<string | Uint8Array>).getReader === 'function';
+export function runtimeInputSourceFromAsyncIterable(
+  source: AsyncIterable<string | Uint8Array>
+): RuntimeInputSource {
+  return {
+    async *read(options = {}) {
+      const signal = options.signal;
+      if (isAborted(signal)) return;
+      const iterator = source[Symbol.asyncIterator]();
+      let resolveAbort = (): void => undefined;
+      const abort = (): void => {
+        resolveAbort();
+      };
+      const aborted = new Promise<IteratorResult<string | Uint8Array>>((resolve) => {
+        resolveAbort = () => {
+          resolve({ done: true, value: undefined });
+        };
+      });
+      signal?.addEventListener('abort', abort, { once: true });
+      try {
+        for (;;) {
+          const next = signal === undefined ? await iterator.next() : await Promise.race([iterator.next(), aborted]);
+          if (next.done === true || isAborted(signal)) return;
+          yield next.value;
+        }
+      } finally {
+        signal?.removeEventListener('abort', abort);
+        const completion = iterator.return?.();
+        if (!isAborted(signal)) await completion;
+      }
+    }
+  };
+}
+
+function isAborted(signal: AbortSignal | undefined): boolean {
+  return signal?.aborted ?? false;
 }

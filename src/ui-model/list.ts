@@ -1,4 +1,4 @@
-import type { ScrollEvent } from '../behavior/scroll.ts';
+import type { ScrollEvent } from '../interaction/scroll.ts';
 
 export type ListAction =
   | { readonly kind: 'select'; readonly index: number }

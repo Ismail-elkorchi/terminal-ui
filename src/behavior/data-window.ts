@@ -4,7 +4,7 @@ import {
   scrollReducer,
   visibleWindowFromScroll
 } from './scroll.ts';
-import type { ScrollState, ScrollVisibleWindow } from './scroll.ts';
+import type { ScrollState, ScrollVisibleWindow } from '../interaction/scroll.ts';
 
 export interface DataWindowInput {
   readonly totalRows: number;

@@ -1,4 +1,4 @@
-import type { Element } from './element.ts';
+import type { Element } from '../element/index.ts';
 import { inspectElementInternal } from '../render-node/element.ts';
 
 export type ElementFocusCapability = 'none' | 'item' | 'scope';

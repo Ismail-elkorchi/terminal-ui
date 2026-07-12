@@ -1,7 +1,5 @@
 import { diagnostic } from '../diagnostics.ts';
-import { createTuiContext } from './context.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalHost } from '../host/index.ts';
 import type {
   TuiContext,
   TuiEventSource,
@@ -17,8 +15,10 @@ interface ActiveTuiEventSource<TMessage> {
   readonly id: SubscriptionExecutionId;
   readonly controller: AbortController;
   readonly source: TuiEventSource<TMessage>;
-  settled: boolean;
+  readonly completion: Promise<void>;
 }
+
+type StartingTuiEventSource<TMessage> = Omit<ActiveTuiEventSource<TMessage>, 'completion'>;
 
 export interface TuiSubscriptionManager<TState> {
   reconcile(state: TState): Promise<void>;
@@ -27,10 +27,9 @@ export interface TuiSubscriptionManager<TState> {
 }
 
 export interface TuiSubscriptionManagerOptions<TState, TMessage> {
-  readonly host: TerminalHost;
   readonly subscriptions?: TuiSubscriptions<TState, TMessage>;
   readonly dispatch: (message: TMessage, source: TuiMessageSource) => Promise<void>;
-  readonly diagnostics: () => readonly TerminalDiagnostic[];
+  readonly context: () => Promise<TuiContext>;
   readonly reportDiagnostic: (item: TerminalDiagnostic) => void;
 }
 
@@ -38,20 +37,22 @@ export function createTuiSubscriptionManager<TState, TMessage>(
   options: TuiSubscriptionManagerOptions<TState, TMessage>
 ): TuiSubscriptionManager<TState> {
   const active = new Map<SubscriptionExecutionId, ActiveTuiEventSource<TMessage>>();
+  const retiring = new Set<Promise<void>>();
+  const retirementFailures: unknown[] = [];
 
   return {
     async reconcile(state) {
       if (options.subscriptions === undefined) {
-        await stopAll(active);
+        retireAll(active, retiring, retirementFailures);
         return;
       }
-      const context = await createTuiContext(options.host, options.diagnostics());
+      const context = await options.context();
       const requested = options.subscriptions(state, context);
       const requestedIds = new Set(requested.map((source) => subscriptionExecutionId(source.id)));
       for (const [id, activeSource] of active) {
         if (!requestedIds.has(id)) {
           active.delete(id);
-          await stopSource(activeSource);
+          retireSource(activeSource, retiring, retirementFailures);
         }
       }
       for (const source of requested) {
@@ -65,7 +66,10 @@ export function createTuiSubscriptionManager<TState, TMessage>(
       cancelAll(active);
     },
     async dispose() {
-      await stopAll(active);
+      retireAll(active, retiring, retirementFailures);
+      await Promise.all([...retiring]);
+      const failures = retirementFailures.splice(0);
+      if (failures.length > 0) throw new AggregateError(failures, 'TUI subscription disposal failed.');
     }
   };
 }
@@ -80,21 +84,20 @@ function startSource<TState, TMessage>(
   options: TuiSubscriptionManagerOptions<TState, TMessage>
 ): ActiveTuiEventSource<TMessage> {
   const controller = new AbortController();
-  const active: ActiveTuiEventSource<TMessage> = {
+  const sourceIdentity: StartingTuiEventSource<TMessage> = {
     id: subscriptionExecutionId(source.id),
     controller,
-    source,
-    settled: false
+    source
   };
   const context: TuiSubscriptionContext = { ...baseContext, signal: controller.signal };
-  void pumpSource(active, context, options).finally(() => {
-    active.settled = true;
-  });
-  return active;
+  return {
+    ...sourceIdentity,
+    completion: pumpSource(sourceIdentity, context, options)
+  };
 }
 
 async function pumpSource<TState, TMessage>(
-  active: ActiveTuiEventSource<TMessage>,
+  active: StartingTuiEventSource<TMessage>,
   context: TuiSubscriptionContext,
   options: TuiSubscriptionManagerOptions<TState, TMessage>
 ): Promise<void> {
@@ -161,13 +164,40 @@ async function dispatchLifecycle<TState, TMessage>(
   if (message !== undefined) await options.dispatch(message, sourceName);
 }
 
-async function stopAll<TMessage>(active: Map<SubscriptionExecutionId, ActiveTuiEventSource<TMessage>>): Promise<void> {
+function retireAll<TMessage>(
+  active: Map<SubscriptionExecutionId, ActiveTuiEventSource<TMessage>>,
+  retiring: Set<Promise<void>>,
+  failures: unknown[]
+): void {
   const sources = [...active.values()];
   active.clear();
-  await Promise.all(sources.map(stopSource));
+  for (const source of sources) retireSource(source, retiring, failures);
 }
 
-async function stopSource<TMessage>(active: ActiveTuiEventSource<TMessage>): Promise<void> {
+function retireSource<TMessage>(
+  active: ActiveTuiEventSource<TMessage>,
+  retiring: Set<Promise<void>>,
+  failures: unknown[]
+): void {
   active.controller.abort();
-  await active.source.dispose?.();
+  const cleanup = settleSource(active).catch((cause: unknown) => {
+    failures.push(cause);
+  });
+  retiring.add(cleanup);
+  void cleanup.then(() => {
+    retiring.delete(cleanup);
+  });
+}
+
+async function settleSource<TMessage>(active: ActiveTuiEventSource<TMessage>): Promise<void> {
+  const outcomes = await Promise.allSettled([
+    active.completion,
+    Promise.resolve().then(() => active.source.dispose?.())
+  ]);
+  const failures = outcomes.flatMap((outcome): readonly unknown[] => (
+    outcome.status === 'rejected' ? [outcome.reason] : []
+  ));
+  if (failures.length > 0) {
+    throw new AggregateError(failures, `TUI source ${active.id} cleanup failed.`);
+  }
 }

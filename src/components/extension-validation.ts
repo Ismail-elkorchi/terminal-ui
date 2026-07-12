@@ -1,4 +1,4 @@
-import type { CanvasPainter } from './options/drawing.ts';
+import type { CanvasPainter } from '../ui-model/options/drawing.ts';
 
 export function assertCanvasPainter(value: unknown): asserts value is CanvasPainter {
   if (typeof value !== 'function') {

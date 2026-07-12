@@ -4,7 +4,7 @@ import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import { rowWindow, scrollStateFromUnknown } from '../../../behavior/data-window.ts';
 import { createScrollState, normalizeScrollState } from '../../../behavior/scroll.ts';
 import { dataSource, dataSpan, dataValueSpans, mergeDataStyles, selectionMarkerSpans } from '../../data-visual.ts';
-import type { ScrollState } from '../../../behavior/scroll.ts';
+import type { ScrollState } from '../../../interaction/scroll.ts';
 import { sanitizeTerminalText } from '../../../text/index.ts';
 import { windowDescription } from '../../visible-window.ts';
 import { numberProp, stringify } from '../../render-node-props.ts';
@@ -12,7 +12,7 @@ import { resolveRenderNodeStyle, themeStyle } from '../../render-node-style.ts';
 import type { LayoutNode, Rect } from '../../layout.ts';
 import type { RenderBlock, RenderLine } from '../../render-primitives.ts';
 import type { HitTarget } from '../../render-node-renderer.ts';
-import type { ListAction } from '../../../components/list.ts';
+import type { ListAction } from '../../../ui-model/list.ts';
 
 type ListNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'list'>;
 

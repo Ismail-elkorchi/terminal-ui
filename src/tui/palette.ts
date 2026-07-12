@@ -8,7 +8,7 @@ import { stringify } from './render-node-props.ts';
 import { resolveRenderNodeStyle, renderNodeStyle, themeStyle } from './render-node-style.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { SearchEntry } from '../components/contracts.ts';
+import type { SearchEntry } from '../ui-model/contracts.ts';
 import { paletteWindow } from '../behavior/palette.ts';
 import type { PaletteFilterResult, PaletteWindowInput } from '../behavior/palette.ts';
 import type { Rect } from './layout.ts';

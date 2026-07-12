@@ -1,4 +1,4 @@
-import type { ProcessStatus } from '../components/contracts.ts';
+import type { ProcessStatus } from '../ui-model/contracts.ts';
 
 export interface SpinnerState {
   readonly frameIndex: number;

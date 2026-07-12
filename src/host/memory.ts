@@ -8,6 +8,7 @@ import type {
   TerminalHost,
   TerminalInput,
   TerminalInputChunk,
+  TerminalInputReadOptions,
   TerminalOutput,
   TerminalOutputChunk,
   TerminalSession,
@@ -20,7 +21,7 @@ import type {
 
 class QueueInput implements TerminalInput {
   #queue: TerminalInputChunk[] = [];
-  #waiters: ((value: IteratorResult<TerminalInputChunk>) => void)[] = [];
+  #waiters: QueueInputWaiter[] = [];
   #closed = false;
   #rawMode = false;
 
@@ -31,7 +32,8 @@ class QueueInput implements TerminalInput {
     const chunk = { data };
     const waiter = this.#waiters.shift();
     if (waiter !== undefined) {
-      waiter({ value: chunk, done: false });
+      waiter.detach();
+      waiter.resolve({ value: chunk, done: false });
       return;
     }
     this.#queue.push(chunk);
@@ -40,19 +42,33 @@ class QueueInput implements TerminalInput {
   close(): void {
     this.#closed = true;
     for (const waiter of this.#waiters.splice(0)) {
-      waiter({ value: undefined, done: true });
+      waiter.detach();
+      waiter.resolve({ value: undefined, done: true });
     }
   }
 
-  async *read(): AsyncIterable<TerminalInputChunk> {
+  async *read(options: TerminalInputReadOptions = {}): AsyncIterable<TerminalInputChunk> {
     while (!this.#closed || this.#queue.length > 0) {
+      if (options.signal?.aborted === true) return;
       const next = this.#queue.shift();
       if (next !== undefined) {
         yield next;
         continue;
       }
       const result = await new Promise<IteratorResult<TerminalInputChunk>>((resolve) => {
-        this.#waiters.push(resolve);
+        const abort = (): void => {
+          const index = this.#waiters.indexOf(waiter);
+          if (index >= 0) this.#waiters.splice(index, 1);
+          waiter.detach();
+          resolve({ value: undefined, done: true });
+        };
+        const waiter: QueueInputWaiter = {
+          resolve,
+          detach: () => options.signal?.removeEventListener('abort', abort)
+        };
+        options.signal?.addEventListener('abort', abort, { once: true });
+        if (options.signal?.aborted === true) abort();
+        else this.#waiters.push(waiter);
       });
       if (result.done === true) return;
       yield result.value;
@@ -70,6 +86,11 @@ class QueueInput implements TerminalInput {
   isTty(): boolean {
     return this.tty;
   }
+}
+
+interface QueueInputWaiter {
+  readonly resolve: (value: IteratorResult<TerminalInputChunk>) => void;
+  readonly detach: () => void;
 }
 
 class BufferOutput implements TerminalOutput {
@@ -115,6 +136,7 @@ interface MemorySleep {
   readonly target: number;
   readonly signal?: AbortSignal;
   readonly resolve: () => void;
+  readonly detach: () => void;
 }
 
 class MemoryClock implements ControlledTerminalClock {
@@ -136,14 +158,16 @@ class MemoryClock implements ControlledTerminalClock {
     if (signal?.aborted === true || ms === 0) return Promise.resolve();
     const target = this.#now + ms;
     return new Promise((resolve) => {
+      const abort = (): void => {
+        this.#sleepers = this.#sleepers.filter((item) => item !== sleeper);
+        sleeper.detach();
+        sleeper.resolve();
+      };
       const sleeper: MemorySleep = {
         target,
         resolve,
+        detach: () => signal?.removeEventListener('abort', abort),
         ...(signal === undefined ? {} : { signal })
-      };
-      const abort = (): void => {
-        this.#sleepers = this.#sleepers.filter((item) => item !== sleeper);
-        resolve();
       };
       signal?.addEventListener('abort', abort, { once: true });
       this.#sleepers.push(sleeper);
@@ -154,11 +178,15 @@ class MemoryClock implements ControlledTerminalClock {
     const pending = this.#sleepers;
     this.#sleepers = [];
     for (const sleeper of pending) {
-      if (sleeper.signal?.aborted === true) continue;
+      if (sleeper.signal?.aborted === true) {
+        sleeper.detach();
+        continue;
+      }
       if (sleeper.target > this.#now) {
         this.#sleepers.push(sleeper);
         continue;
       }
+      sleeper.detach();
       sleeper.resolve();
     }
   }
@@ -184,10 +212,6 @@ export interface MemoryTerminalHost extends TerminalHost {
   readonly clock: ControlledTerminalClock;
   input(data: string | Uint8Array): void;
   output(): string;
-  setViewport(viewport: TerminalViewport): void;
-  recordFrame(frame: unknown): void;
-  recordDiff(diff: unknown): void;
-  recordRestore(checkpoint: TerminalStateSnapshot): void;
   frames(): readonly unknown[];
   diffs(): readonly unknown[];
   restores(): readonly TerminalStateSnapshot[];
@@ -227,6 +251,25 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     signals,
     clock,
     env,
+    viewportControl: {
+      setViewport(nextViewport: TerminalViewport) {
+        viewport = nextViewport;
+      }
+    },
+    observer: {
+      recordFrame(frame: unknown) {
+        frames.push(frame);
+        options.observer?.recordFrame?.(frame);
+      },
+      recordDiff(diff: unknown) {
+        diffs.push(diff);
+        options.observer?.recordDiff?.(diff);
+      },
+      recordRestore(checkpoint: TerminalStateSnapshot) {
+        restores.push(checkpoint);
+        options.observer?.recordRestore?.(checkpoint);
+      }
+    },
     getViewport: () => viewport,
     getCapabilities: () => Promise.resolve(capabilities),
     beginSession: (sessionOptions): Promise<TerminalSession> =>
@@ -238,18 +281,6 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     },
     input: (data: string | Uint8Array) => { stdin.push(data); },
     output: () => stdout.text(),
-    setViewport: (nextViewport: TerminalViewport) => {
-      viewport = nextViewport;
-    },
-    recordFrame: (frame: unknown) => {
-      frames.push(frame);
-    },
-    recordDiff: (diff: unknown) => {
-      diffs.push(diff);
-    },
-    recordRestore: (checkpoint: TerminalStateSnapshot) => {
-      restores.push(checkpoint);
-    },
     frames: () => [...frames],
     diffs: () => [...diffs],
     restores: () => [...restores],

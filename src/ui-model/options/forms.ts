@@ -1,9 +1,9 @@
 import type { TextEditOperation, TextSelection } from '../../text/index.ts';
 import type { TerminalStyle } from '../../tui/render-primitives.ts';
-import type { LayoutFlowOptions } from '../../layout/geometry.ts';
+import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
 import type { ChoiceItem, ComponentTone } from '../contracts.ts';
-import type { NumberInputAction, NumberInputValidity } from '../number-input.ts';
+import type { NumberInputAction, NumberInputPresentation } from '../number-input.ts';
 import type { DatePickerAction, DatePickerDay } from '../date-picker.ts';
 import type {
   CheckboxListAction,
@@ -11,7 +11,7 @@ import type {
   RadioGroupAction,
   SelectBoxAction
 } from '../choice-controls.ts';
-import type { ComponentKeyBindings, ComponentOptions, InteractiveComponentOptions } from './base.ts';
+import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type {
   ButtonStylePart,
   ChoiceStylePart,
@@ -23,11 +23,11 @@ import type {
   ToggleStylePart
 } from '../style-parts.ts';
 
-export interface FormOptions extends ComponentOptions<FormGroupStylePart>, LayoutFlowOptions {
+export interface FormOptions extends ElementOptions<FormGroupStylePart>, LayoutFlowOptions {
   readonly title?: string;
 }
 
-export interface FieldOptions extends ComponentOptions<FormGroupStylePart>, LayoutFlowOptions {
+export interface FieldOptions extends ElementOptions<FormGroupStylePart>, LayoutFlowOptions {
   readonly label: string;
   readonly description?: string;
   readonly error?: string;
@@ -35,7 +35,7 @@ export interface FieldOptions extends ComponentOptions<FormGroupStylePart>, Layo
   readonly disabled?: boolean;
 }
 
-export interface LabelOptions extends ComponentOptions<FormGroupStylePart> {
+export interface LabelOptions extends ElementOptions<FormGroupStylePart> {
   readonly text: string;
   readonly forId?: string;
   readonly required?: boolean;
@@ -43,18 +43,17 @@ export interface LabelOptions extends ComponentOptions<FormGroupStylePart> {
 }
 
 export type ButtonTone = Extract<ComponentTone, 'default' | 'primary' | 'secondary' | 'destructive'>;
+export type ButtonState = 'idle' | 'pressed' | 'pending' | 'disabled';
 
-export interface ButtonOptions<TMessage = never> extends InteractiveComponentOptions<ButtonStylePart> {
+export interface ButtonOptions<TMessage = never> extends InteractiveElementOptions<ButtonStylePart> {
   readonly label: string;
   readonly onPress?: TMessage;
-  readonly disabled?: boolean;
+  readonly state?: ButtonState;
   readonly tone?: ButtonTone;
-  readonly pressed?: boolean;
-  readonly pending?: boolean;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface CheckboxOptions<TMessage = never> extends InteractiveComponentOptions<ChoiceStylePart> {
+export interface CheckboxOptions<TMessage = never> extends InteractiveElementOptions<ChoiceStylePart> {
   readonly label: string;
   readonly checked: boolean;
   readonly onChange?: (checked: boolean) => TMessage;
@@ -62,10 +61,10 @@ export interface CheckboxOptions<TMessage = never> extends InteractiveComponentO
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface ToggleSwitchOptions<TMessage = never> extends InteractiveComponentOptions<ToggleStylePart> {
+export interface ToggleSwitchOptions<TMessage = never> extends InteractiveElementOptions<ToggleStylePart> {
   readonly label: string;
   readonly checked: boolean;
   readonly onLabel?: string;
@@ -73,10 +72,10 @@ export interface ToggleSwitchOptions<TMessage = never> extends InteractiveCompon
   readonly onChange?: (checked: boolean) => TMessage;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface SliderOptions<TMessage = never> extends InteractiveComponentOptions<SliderStylePart> {
+export interface SliderOptions<TMessage = never> extends InteractiveElementOptions<SliderStylePart> {
   readonly label?: string;
   readonly value: number;
   readonly min?: number;
@@ -87,7 +86,7 @@ export interface SliderOptions<TMessage = never> extends InteractiveComponentOpt
   readonly onStep?: (event: SliderStepEvent) => TMessage;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
 export type SliderStepDirection = 'decrement' | 'increment';
@@ -101,19 +100,22 @@ export interface RangeSliderValue {
   readonly end: number;
 }
 
-export interface RangeSliderOptions<TMessage = never> extends InteractiveComponentOptions<SliderStylePart> {
+export interface NumericRange {
+  readonly min: number;
+  readonly max: number;
+}
+
+export interface RangeSliderOptions<TMessage = never> extends InteractiveElementOptions<SliderStylePart> {
   readonly label?: string;
-  readonly start: number;
-  readonly end: number;
-  readonly min?: number;
-  readonly max?: number;
+  readonly value: RangeSliderValue;
+  readonly range?: NumericRange;
   readonly step?: number;
   readonly width?: number;
   readonly onChange?: (value: RangeSliderValue) => TMessage;
   readonly onStep?: (event: RangeSliderStepEvent) => TMessage;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
 export interface RangeSliderStepEvent {
@@ -121,7 +123,7 @@ export interface RangeSliderStepEvent {
   readonly direction: SliderStepDirection;
 }
 
-export interface CheckboxListOptions<TValue = string, TMessage = never> extends InteractiveComponentOptions<ChoiceStylePart> {
+export interface CheckboxListOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<ChoiceStylePart> {
   readonly label?: string;
   readonly options: readonly ChoiceItem<TValue>[];
   readonly selected?: readonly string[];
@@ -130,7 +132,7 @@ export interface CheckboxListOptions<TValue = string, TMessage = never> extends 
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
 export interface ColorPickerOption<TValue = string> extends ChoiceItem<TValue> {
@@ -138,7 +140,7 @@ export interface ColorPickerOption<TValue = string> extends ChoiceItem<TValue> {
   readonly style?: TerminalStyle;
 }
 
-export interface ColorPickerOptions<TValue = string, TMessage = never> extends InteractiveComponentOptions<PickerStylePart> {
+export interface ColorPickerOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<PickerStylePart> {
   readonly label?: string;
   readonly options: readonly ColorPickerOption<TValue>[];
   readonly selected?: string;
@@ -147,10 +149,10 @@ export interface ColorPickerOptions<TValue = string, TMessage = never> extends I
   readonly onAction?: (action: ColorPickerAction) => TMessage;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface DatePickerOptions<TMessage = never> extends InteractiveComponentOptions<PickerStylePart> {
+export interface DatePickerOptions<TMessage = never> extends InteractiveElementOptions<PickerStylePart> {
   readonly label?: string;
   readonly monthLabel: string;
   readonly weekdays: readonly string[];
@@ -160,10 +162,10 @@ export interface DatePickerOptions<TMessage = never> extends InteractiveComponen
   readonly onAction?: (action: DatePickerAction) => TMessage;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface RadioGroupOptions<TValue = string, TMessage = never> extends InteractiveComponentOptions<ChoiceStylePart> {
+export interface RadioGroupOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<ChoiceStylePart> {
   readonly label?: string;
   readonly options: readonly ChoiceItem<TValue>[];
   readonly selected?: string;
@@ -172,10 +174,10 @@ export interface RadioGroupOptions<TValue = string, TMessage = never> extends In
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface SelectBoxOptions<TValue = string, TMessage = never> extends InteractiveComponentOptions<ChoiceStylePart> {
+export interface SelectBoxOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<ChoiceStylePart> {
   readonly label?: string;
   readonly options: readonly ChoiceItem<TValue>[];
   readonly selected?: string;
@@ -185,10 +187,10 @@ export interface SelectBoxOptions<TValue = string, TMessage = never> extends Int
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface TextInputOptions<TMessage = never> extends InteractiveComponentOptions<TextEntryStylePart> {
+export interface TextInputOptions<TMessage = never> extends InteractiveElementOptions<TextEntryStylePart> {
   readonly value?: string;
   readonly cursor?: number;
   readonly selection?: TextSelection;
@@ -198,24 +200,16 @@ export interface TextInputOptions<TMessage = never> extends InteractiveComponent
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
   readonly onEdit?: (operation: TextEditOperation) => TMessage;
 }
 
-export interface NumberInputOptions<TMessage = never> extends InteractiveComponentOptions<NumberInputStylePart> {
-  readonly value?: string;
-  readonly cursor?: number;
-  readonly selection?: TextSelection;
-  readonly committedValue?: number;
-  readonly parsedValue?: number;
-  readonly validity?: NumberInputValidity;
+export interface NumberInputOptions<TMessage = never> extends InteractiveElementOptions<NumberInputStylePart> {
+  readonly presentation: NumberInputPresentation;
   readonly placeholder?: string;
-  readonly min?: number;
-  readonly max?: number;
-  readonly step?: number;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
   readonly onAction?: (action: NumberInputAction) => TMessage;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }

@@ -11,6 +11,7 @@ import { runTuiNonTty } from './non-tty.ts';
 import { createTuiRuntime } from './runtime.ts';
 import { createTuiTranscript, recordTuiRestore, withTuiTranscript } from './transcript.ts';
 import type { TerminalHost } from '../host/index.ts';
+import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TuiApp, TuiExit, TuiRunOptions } from './types.ts';
 
 export async function runTui<TState, TMessage>(
@@ -56,6 +57,8 @@ export async function runTui<TState, TMessage>(
     }, transcript);
   }
   let runtime: ReturnType<typeof createTuiRuntime<TState, TMessage>> | undefined;
+  let exit: TuiExit<TState> | undefined;
+  let failure: unknown;
   try {
     runtime = createTuiRuntime({
       app,
@@ -70,29 +73,91 @@ export async function runTui<TState, TMessage>(
       ...(transcript === undefined ? {} : { transcript })
     });
     await runtime.start();
-    const exit = await runTuiInputLoop(runtime, transcript);
-    await runtime.dispose();
-    if ('state' in exit && exit.state !== undefined) {
-      await app.definition.onExit?.(exit.state);
-    }
-    const restoreDiagnostics = await restoreTuiSession(session, restoreReasonForExit(exit.status));
-    recordTuiRestore(transcript, session.initialState);
-    return withTuiTranscript(withDiagnostics(exit, restoreDiagnostics), transcript);
+    exit = await runTuiInputLoop(runtime, transcript);
   } catch (cause) {
-    await runtime?.dispose();
-    const restoreDiagnostics = await restoreTuiSession(session, 'error');
-    recordTuiRestore(transcript, session.initialState);
+    failure = cause;
+  }
+
+  const cleanupDiagnostics = await cleanupTuiRun(app, runtime, exit);
+  const cleanupFailed = cleanupDiagnostics.some(isFailureDiagnostic);
+  const restoreDiagnostics = await restoreTuiSession(
+    session,
+    failure === undefined && exit !== undefined && !cleanupFailed ? restoreReasonForExit(exit.status) : 'error'
+  );
+  recordTuiRestore(transcript, session.initialState);
+
+  if (failure !== undefined) {
     return withTuiTranscript({
       status: 'error',
       diagnostics: [
         ...setupDiagnostics,
-        diagnostic('TUI_RENDER_FAILED', 'TUI run failed before completion.', {
-          cause,
+        diagnostic('TUI_RUN_FAILED', 'TUI run failed before completion.', {
+          cause: failure,
           target: app.id
         }),
+        ...cleanupDiagnostics,
         ...restoreDiagnostics
       ],
       snapshot: tuiSnapshot(app.id)
     }, transcript);
   }
+
+  if (exit === undefined) {
+    return withTuiTranscript({
+      status: 'error',
+      diagnostics: [
+        ...setupDiagnostics,
+        diagnostic('TUI_RUN_FAILED', 'TUI run ended without an exit result.', { target: app.id }),
+        ...cleanupDiagnostics,
+        ...restoreDiagnostics
+      ],
+      snapshot: tuiSnapshot(app.id)
+    }, transcript);
+  }
+
+  if (cleanupFailed) {
+    return withTuiTranscript({
+      status: 'error',
+      ...('state' in exit && exit.state !== undefined ? { state: exit.state } : {}),
+      diagnostics: [...exit.diagnostics, ...cleanupDiagnostics, ...restoreDiagnostics],
+      snapshot: exit.snapshot
+    }, transcript);
+  }
+
+  return withTuiTranscript(withDiagnostics(exit, [...cleanupDiagnostics, ...restoreDiagnostics]), transcript);
+}
+
+function isFailureDiagnostic(item: TerminalDiagnostic): boolean {
+  return item.severity === 'error' || item.severity === 'fatal';
+}
+
+async function cleanupTuiRun<TState, TMessage>(
+  app: TuiApp<TState, TMessage>,
+  runtime: ReturnType<typeof createTuiRuntime<TState, TMessage>> | undefined,
+  exit: TuiExit<TState> | undefined
+): Promise<readonly TerminalDiagnostic[]> {
+  const diagnostics: TerminalDiagnostic[] = [];
+  if (runtime !== undefined) {
+    try {
+      await runtime.dispose();
+    } catch (cause) {
+      diagnostics.push(diagnostic('TUI_CLEANUP_FAILED', 'TUI runtime disposal failed.', {
+        cause,
+        target: app.id,
+        data: { phase: 'runtime' }
+      }));
+    }
+  }
+  if (exit !== undefined && 'state' in exit && exit.state !== undefined && app.definition.onExit !== undefined) {
+    try {
+      await app.definition.onExit(exit.state);
+    } catch (cause) {
+      diagnostics.push(diagnostic('TUI_CLEANUP_FAILED', 'TUI exit handler failed.', {
+        cause,
+        target: app.id,
+        data: { phase: 'onExit' }
+      }));
+    }
+  }
+  return diagnostics;
 }

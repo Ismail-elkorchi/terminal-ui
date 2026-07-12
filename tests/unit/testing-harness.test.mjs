@@ -203,8 +203,9 @@ test('interaction scripts assert styled text focus selection and hit targets aga
         {
           id: 'root',
           label: 'Root',
+          kind: 'branch',
           expanded: true,
-          children: [{ id: 'child', label: 'Child' }]
+          children: [{ id: 'child', label: 'Child', kind: 'leaf' }]
         }
       ],
       onAction: (action) => ({ kind: 'tree', action })

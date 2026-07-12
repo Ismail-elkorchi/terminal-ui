@@ -1,7 +1,7 @@
-import type { CanvasPainter } from '../../components/options/drawing.ts';
+import type { CanvasPainter } from '../../ui-model/options/drawing.ts';
 import type { BorderStyle, BorderTitle } from '../../tui/border.ts';
 import type { SurfaceVariant } from '../../tui/surface.ts';
-import type { SurfaceVisualState } from '../../components/options/base.ts';
+import type { SurfaceVisualState } from '../../element/metadata.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 
 export interface CanvasRenderProps {

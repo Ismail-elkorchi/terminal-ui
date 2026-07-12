@@ -2,7 +2,7 @@ import { clipTextCells, measureTextCells } from '../text/index.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { RenderNodeOfKind } from '../render-node/index.ts';
-import type { DividerLineKind, DividerOrientation } from '../components/options/menus.ts';
+import type { DividerLineKind, DividerOrientation } from '../ui-model/options/menus.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
 import { renderNodeFrameSource } from './frame-source.ts';
 import type { Rect } from './layout.ts';

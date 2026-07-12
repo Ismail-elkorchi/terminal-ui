@@ -1,5 +1,5 @@
-import type { HeatmapCell } from '../../../components/options/feedback.ts';
-import type { HeatmapAction } from '../../../components/visualization.ts';
+import type { HeatmapCell } from '../../../ui-model/options/feedback.ts';
+import type { HeatmapAction } from '../../../ui-model/visualization.ts';
 import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import { sanitizeTerminalText } from '../../../text/index.ts';
 import { chartHeatmapStyle, chartSpan } from '../../chart-visual.ts';

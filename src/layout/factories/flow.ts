@@ -1,5 +1,5 @@
 import { elementFromRenderNode } from '../../render-node/element.ts';
-import type { Element, ElementChildren, ElementChildrenMessage } from '../../components/element.ts';
+import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type { RowOptions, StackOptions } from '../options.ts';
 import { componentMetaProps } from '../../components/factory-internals/interaction.ts';
 import { layoutProps, optionalId, renderNodeChildren } from '../../components/factory-internals/render-node.ts';

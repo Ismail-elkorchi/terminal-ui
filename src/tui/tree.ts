@@ -1,7 +1,8 @@
 import type { RenderNodeOfKind } from '../render-node/index.ts';
-import type { RenderNodeVisualState } from '../render-node/index.ts';
+import type { ElementVisualState } from '../element/metadata.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import { treeDisclosureAction, treeNodeCanDisclose, visibleTreeRows } from '../behavior/tree.ts';
+import { treeNodeExpanded } from '../ui-model/tree.ts';
 import type { TreeVisibleRow } from '../behavior/tree.ts';
 import { dataSource, dataSpan, dataValueSpans, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
 import { rowWindow, scrollStateFromUnknown } from '../behavior/data-window.ts';
@@ -10,12 +11,12 @@ import { resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-no
 import { windowDescription } from './visible-window.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { TreeDisclosureAction, TreeNode } from '../components/tree.ts';
+import type { TreeDisclosureAction, TreeNode } from '../ui-model/tree.ts';
 import type { Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
 import type { RoutedPointerEvent } from '../input/pointer.ts';
-import type { ScrollState } from '../behavior/scroll.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
 import type { HitTarget } from './render-node-renderer.ts';
 
 interface TreeWindow {
@@ -80,7 +81,7 @@ export function treeAccessibleChildren(widget: TreeRenderNode, bounds: Rect): re
     ...(row.node.description === undefined ? {} : { description: row.node.description }),
     selected: row.node.id === selected,
     disabled: row.node.disabled === true || row.lazyPlaceholder === true,
-    ...(row.node.children === undefined && row.node.lazy !== true ? {} : { expanded: row.node.expanded === true }),
+    ...(row.node.kind === 'leaf' ? {} : { expanded: treeNodeExpanded(row.node) }),
     position: {
       index: window.start + index,
       count: rows.length,
@@ -199,8 +200,8 @@ function treeLine(widget: TreeRenderNode, row: TreeVisibleRow, selected: string 
 
 function branchSymbol(node: TreeNode, lazyPlaceholder: boolean, theme: TerminalTheme): string {
   if (lazyPlaceholder) return theme.tokens.symbols.unselected;
-  if ((node.children === undefined || node.children.length === 0) && node.lazy !== true) return theme.tokens.symbols.unselected;
-  return node.expanded === true ? theme.tokens.symbols.treeExpanded : theme.tokens.symbols.treeCollapsed;
+  if (node.kind === 'leaf') return theme.tokens.symbols.unselected;
+  return treeNodeExpanded(node) ? theme.tokens.symbols.treeExpanded : theme.tokens.symbols.treeCollapsed;
 }
 
 function treeLabelStyle(widget: TreeRenderNode, row: TreeVisibleRow, selected: boolean): TerminalStyle | undefined {
@@ -248,7 +249,7 @@ function treeMarkerStyle(widget: TreeRenderNode, row: TreeVisibleRow, selected: 
   return renderNodeStyle(widget, 'marker', state);
 }
 
-function treeVisualState(row: TreeVisibleRow, selected: boolean): RenderNodeVisualState | undefined {
+function treeVisualState(row: TreeVisibleRow, selected: boolean): ElementVisualState | undefined {
   if (row.node.disabled === true) return 'disabled';
   return selected ? 'selected' : undefined;
 }

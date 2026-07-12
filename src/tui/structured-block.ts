@@ -7,9 +7,9 @@ import {
 import { numberProp, stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { FieldItem } from '../components/contracts.ts';
-import { optionalRecordStatus } from '../components/status.ts';
-import type { StructuredBlock } from '../components/options/documents.ts';
+import type { FieldItem } from '../ui-model/contracts.ts';
+import { optionalRecordStatus } from '../ui-model/status.ts';
+import type { StructuredBlock } from '../ui-model/options/documents.ts';
 import type { LayoutNode } from './layout.ts';
 import type { Rect } from './layout.ts';
 import type { HitTarget } from './render-node-renderer.ts';
@@ -284,7 +284,7 @@ function activityFeedBlocks(widget: ActivityFeedNode): readonly StructuredBlock[
 
 function activityFeedActionMessageFactory<TMessage>(
   widget: ActivityFeedNode<TMessage>
-): ((action: import('../components/activity-feed.ts').ActivityFeedAction) => TMessage) | undefined {
+): ((action: import('../ui-model/activity-feed.ts').ActivityFeedAction) => TMessage) | undefined {
   return widget.props.toActionMessage;
 }
 

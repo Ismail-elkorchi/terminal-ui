@@ -98,7 +98,7 @@ test('button states use shared styles and structural markers', () => {
   const pendingFrame = renderElementFrame(button({
     id: 'pending',
     label: 'Sync',
-    pending: true
+    state: 'pending'
   }), { columns: 16, rows: 1 });
   const destructiveFrame = renderElementFrame(button({
     id: 'destructive',
@@ -108,16 +108,16 @@ test('button states use shared styles and structural markers', () => {
   const pressedFrame = renderElementFrame(button({
     id: 'pressed',
     label: 'Pinned',
-    pressed: true
+    state: 'pressed'
   }), { columns: 18, rows: 1 });
   const disabledFrame = renderElementFrame(button({
     id: 'disabled',
     label: 'Disabled',
-    disabled: true
+    state: 'disabled'
   }), { columns: 20, rows: 1 });
 
   assert.equal(renderFramePlain(focusedFrame).trimEnd(), '[›Focus ]');
-  assert.equal(renderFramePlain(pendingFrame).trimEnd(), '[›i Sync ]');
+  assert.equal(renderFramePlain(pendingFrame).trimEnd(), '[ i Sync ]');
   assert.equal(renderFramePlain(destructiveFrame).trimEnd(), '[›× Delete ]');
   assert.equal(renderFramePlain(pressedFrame).trimEnd(), '[›● Pinned ]');
   assert.equal(renderFramePlain(disabledFrame).trimEnd(), '[ - Disabled ]');
@@ -204,7 +204,7 @@ test('menu palette table and tree use selected placeholder and title slots', () 
   const treeFrame = renderElementFrame(tree({
     id: 'selected-tree',
     selected: 'api',
-    nodes: [{ id: 'api', label: 'API' }],
+    nodes: [{ id: 'api', label: 'API', kind: 'leaf' }],
     meta: {
         styles: {
             states: { selected: tokenStyle('status.success') }
@@ -246,8 +246,9 @@ test('list table and tree share data navigation selection and match styles', () 
     nodes: [{
       id: 'root',
       label: 'Workspace',
+      kind: 'branch',
       expanded: true,
-      children: [{ id: 'api', label: 'API Layer' }]
+      children: [{ id: 'api', label: 'API Layer', kind: 'leaf' }]
     }]
   }), { columns: 24, rows: 3 });
 
@@ -301,7 +302,7 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
   const dropdownFrame = renderElementFrame(dropdown({
     id: 'region',
     label: 'Region',
-    selected: 'us',
+    presentation: { kind: 'closed', selected: 'us' },
     items: [
       { id: 'us', label: 'United States' }
     ]
@@ -334,8 +335,9 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
     nodes: [{
       id: 'root',
       label: 'Workspace',
+      kind: 'branch',
       expanded: true,
-      children: [{ id: 'api', label: 'API' }]
+      children: [{ id: 'api', label: 'API', kind: 'leaf' }]
     }]
   }), { columns: 24, rows: 2 });
   const noticeFrame = renderElementFrame(notificationStack({
@@ -368,8 +370,9 @@ test('tree rows expose styled disclosure icon and label anatomy', () => {
             id: 'root',
             label: 'Root',
             icon: '◆',
+            kind: 'branch',
             expanded: true,
-            children: [{ id: 'child', label: 'Child' }]
+            children: [{ id: 'child', label: 'Child', kind: 'leaf' }]
         }],
     meta: {
         styles: {

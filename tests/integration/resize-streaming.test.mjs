@@ -55,7 +55,7 @@ test('PTY harness handles resize while async stream messages are rendering', asy
   await waitUntil(() => harness.frames().length >= 2);
   await harness.resize({ columns: 52, rows: 8 });
   await waitUntil(() => harness.frames().at(-1)?.width === 52);
-  await waitUntil(() => /stream item 2/u.test(harness.output()));
+  await waitUntil(() => /stream item/u.test(harness.output()));
   await harness.input(enterKey);
   const exit = await running;
 

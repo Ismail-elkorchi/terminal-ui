@@ -31,6 +31,7 @@ export type {
   TerminalHost,
   TerminalInput,
   TerminalInputChunk,
+  TerminalInputReadOptions,
   TerminalOutput,
   TerminalOutputChunk,
   TerminalRestoreReason,
@@ -67,51 +68,51 @@ import { createNodeTerminalHost } from './node.ts';
 import { createPtyTerminalHost } from './pty.ts';
 import { restoreActiveTerminalSessions } from './session-registry.ts';
 import type {
-  BunTerminalHostOptions,
   CreateTerminalHostOptions,
-  DenoTerminalHostOptions,
-  MemoryTerminalHostOptions,
-  PtyTerminalHostOptions,
   TerminalHost,
   TerminalRestoreResult
 } from './types.ts';
 import type { TerminalCapabilityProfile } from './capability-types.ts';
 
-type Mutable<T> = { -readonly [K in keyof T]: T[K] };
-
-export function createTerminalHost(options: CreateTerminalHostOptions = {}): TerminalHost {
+export function createTerminalHost(options?: CreateTerminalHostOptions): TerminalHost {
+  if (options === undefined) return createDefaultTerminalHost();
+  validateTerminalHostSelector(options);
   if ('adapter' in options) {
-    return createPtyTerminalHost(withoutAdapter(options));
+    return createPtyTerminalHost(options);
   }
-  const runtime = options.runtime ?? defaultRuntimeTarget();
-  if (runtime === 'node') {
-    return createNodeTerminalHost(withoutRuntime(options));
+  switch (options.runtime) {
+    case 'node': return createNodeTerminalHost(options);
+    case 'deno': return createDenoTerminalHost(options);
+    case 'bun': return createBunTerminalHost(options);
+    case 'memory': return createMemoryTerminalHost(options);
   }
-  if (runtime === 'deno') {
-    return createDenoTerminalHost(withoutRuntime(options) as DenoTerminalHostOptions);
-  }
-  if (runtime === 'bun') {
-    return createBunTerminalHost(withoutRuntime(options) as BunTerminalHostOptions);
-  }
-  return createMemoryTerminalHost(withoutRuntime(options) as MemoryTerminalHostOptions);
 }
 
-function withoutRuntime(options: CreateTerminalHostOptions): Omit<CreateTerminalHostOptions, 'runtime'> {
-  const rest: Mutable<Partial<CreateTerminalHostOptions>> = { ...options };
-  delete rest.runtime;
-  return rest;
+function validateTerminalHostSelector(options: object): void {
+  const adapter: unknown = Reflect.get(options, 'adapter');
+  if (adapter !== undefined) {
+    if (adapter !== 'pty') throw new TypeError('Unsupported terminal host adapter.');
+    return;
+  }
+  const runtime: unknown = Reflect.get(options, 'runtime');
+  if (runtime !== 'node' && runtime !== 'deno' && runtime !== 'bun' && runtime !== 'memory') {
+    throw new TypeError('Terminal host options must select a runtime or PTY adapter.');
+  }
 }
 
-function withoutAdapter(options: PtyTerminalHostOptions & { readonly adapter: 'pty' }): PtyTerminalHostOptions {
-  const rest: Mutable<Partial<PtyTerminalHostOptions & { readonly adapter: 'pty' }>> = { ...options };
-  delete rest.adapter;
-  return rest;
+function createDefaultTerminalHost(): TerminalHost {
+  switch (defaultRuntimeTarget()) {
+    case 'node': return createNodeTerminalHost();
+    case 'deno': return createDenoTerminalHost();
+    case 'bun': return createBunTerminalHost();
+    case 'memory': return createMemoryTerminalHost();
+  }
 }
 
 function defaultRuntimeTarget(): 'node' | 'deno' | 'bun' | 'memory' {
   if ('Deno' in globalThis) return 'deno';
   if ('Bun' in globalThis) return 'bun';
-  return 'node';
+  return 'process' in globalThis ? 'node' : 'memory';
 }
 
 export async function detectTerminalCapabilities(host: TerminalHost): Promise<TerminalCapabilityProfile> {

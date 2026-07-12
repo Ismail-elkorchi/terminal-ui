@@ -1,6 +1,6 @@
 import { elementFromRenderNode, toRenderNode } from '../../render-node/element.ts';
 import type { RenderNode } from '../../render-node/index.ts';
-import type { Element, ElementMessage } from '../../components/element.ts';
+import type { Element, ElementMessage } from '../../element/index.ts';
 import type { ViewportOptions } from '../options.ts';
 import { interactionProps } from '../../components/factory-internals/interaction.ts';
 import { layoutProps, requiredId } from '../../components/factory-internals/render-node.ts';

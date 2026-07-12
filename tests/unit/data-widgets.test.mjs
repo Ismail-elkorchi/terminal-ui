@@ -18,10 +18,11 @@ test('tree renders expanded visible nodes and accessible selection state', () =>
       {
         id: 'root',
         label: 'Root',
+        kind: 'branch',
         expanded: true,
         children: [
-          { id: 'child', label: 'Child' },
-          { id: 'hidden-parent', label: 'Hidden parent', children: [{ id: 'hidden', label: 'Hidden' }] }
+          { id: 'child', label: 'Child', kind: 'leaf' },
+          { id: 'hidden-parent', label: 'Hidden parent', kind: 'branch', expanded: false, children: [{ id: 'hidden', label: 'Hidden', kind: 'leaf' }] }
         ]
       }
     ]

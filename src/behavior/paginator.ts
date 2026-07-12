@@ -1,4 +1,4 @@
-import type { PaginatorAction } from '../components/paginator.ts';
+import type { PaginatorAction } from '../ui-model/paginator.ts';
 
 export interface PaginatorState {
   readonly page: number;

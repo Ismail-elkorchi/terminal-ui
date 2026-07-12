@@ -114,10 +114,7 @@ export class BasicTerminalSession implements TerminalSession {
       this.#changes = [];
       unregisterTerminalSession(this);
     }
-    const recorder = this.host as TerminalHost & {
-      recordRestore?: (checkpoint: TerminalStateSnapshot) => void;
-    };
-    recorder.recordRestore?.(this.#state);
+    this.host.observer?.recordRestore?.(this.#state);
     return { ok: diagnostics.length === 0, reason, restored, diagnostics };
   }
 

@@ -10,7 +10,7 @@ import type { FrameCellSource, TerminalStyle } from './render-primitives.ts';
 import { drawSurfaceShadow } from './surface.ts';
 import { stringify } from './render-node-props.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { TooltipPlacement, TooltipTone } from '../components/options/menus.ts';
+import type { TooltipPlacement, TooltipTone } from '../ui-model/options/menus.ts';
 
 export interface TooltipSize {
   readonly width: number;

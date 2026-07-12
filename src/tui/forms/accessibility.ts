@@ -91,9 +91,9 @@ export function buttonAccessibleBase(widget: ButtonNode, id: string, focused: bo
     id,
     role: 'button',
     label: clean(stringify(widget.props.label)) || id,
-    ...(widget.props.pending === true ? { value: 'pending' } : widget.props.pressed === true ? { value: 'pressed' } : {}),
+    ...(widget.props.state === 'pending' ? { value: 'pending' } : widget.props.state === 'pressed' ? { value: 'pressed' } : {}),
     ...(description.length === 0 ? {} : { description }),
-    ...(widget.props.disabled === true ? { disabled: true } : {}),
+    ...(widget.props.state === 'disabled' ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
@@ -281,8 +281,8 @@ export function textInputAccessibleBase(widget: TextInputNode, id: string, focus
 
 export function numberInputAccessibleBase(widget: NumberInputNode, id: string, focused: boolean): AccessibleNode {
   const base = inputAccessibleBase(widget, id, focused, numberInputValue(widget));
-  const validity = clean(stringify(widget.props.validity));
-  const committed = widget.props.committedValue;
+  const validity = clean(stringify(widget.props.presentation.validity));
+  const committed = widget.props.presentation.committedValue;
   const description = [
     base.description,
     validity.length === 0 ? undefined : `Numeric input is ${validity}.`,
@@ -300,5 +300,5 @@ export function numberInputCursor(widget: NumberInputNode, bounds: Rect): Cursor
   const inputBounds = widget.props.toActionMessage === undefined || widget.props.disabled === true || layout === undefined
     ? bounds
     : layout.input;
-  return singleLineCursor(widget, numberInputValue(widget), numberProp(widget, 'cursor'), inputBounds, defaultTheme);
+  return singleLineCursor(widget, numberInputValue(widget), widget.props.presentation.cursor, inputBounds, defaultTheme);
 }

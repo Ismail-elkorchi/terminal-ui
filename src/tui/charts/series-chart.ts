@@ -1,5 +1,5 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
-import type { ChartSeries } from '../../components/options/feedback.ts';
+import type { ChartSeries } from '../../ui-model/options/feedback.ts';
 import type { RenderNodeOfKind } from '../../render-node/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import {

@@ -1,6 +1,10 @@
-import type { TreeAction, TreeDisclosureAction, TreeNode } from '../components/tree.ts';
+import {
+  treeNodeChildren,
+  treeNodeExpanded
+} from '../ui-model/tree.ts';
+import type { TreeAction, TreeDisclosureAction, TreeNode } from '../ui-model/tree.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
-import type { ScrollState } from './scroll.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
 
 export interface TreeState<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
@@ -95,7 +99,7 @@ export function treeNodeMatches<TMetadata extends Readonly<Record<string, unknow
     node.label,
     node.description,
     node.icon,
-    node.lazyMessage,
+    node.kind === 'lazy' && node.loading.kind !== 'idle' ? node.loading.message : undefined,
     ...(node.metadata === undefined
       ? []
       : Object.values(node.metadata).flatMap((value): string[] => typeof value === 'string' ? [value] : []))
@@ -136,13 +140,13 @@ export function treeDisclosureAction<TMetadata extends Readonly<Record<string, u
   intent: 'toggle' | 'expand' | 'collapse'
 ): TreeDisclosureAction | undefined {
   if (!treeNodeCanDisclose(node)) return undefined;
-  if (intent === 'expand' && node.expanded === true) return undefined;
-  if (intent === 'collapse' && node.expanded !== true) return undefined;
+  if (intent === 'expand' && treeNodeExpanded(node)) return undefined;
+  if (intent === 'collapse' && !treeNodeExpanded(node)) return undefined;
   return { kind: intent, id: node.id };
 }
 
 export function treeNodeCanDisclose<TMetadata extends Readonly<Record<string, unknown>>>(node: TreeNode<TMetadata>): boolean {
-  return node.lazy === true || (node.children?.length ?? 0) > 0;
+  return node.kind !== 'leaf';
 }
 
 function selectTreeNode<TMetadata extends Readonly<Record<string, unknown>>>(
@@ -196,34 +200,36 @@ function reduceTreeNode<TMetadata extends Readonly<Record<string, unknown>>>(
     | { readonly kind: 'select' | 'move' | 'activate' | 'filter' | 'startRename' | 'updateRename' | 'commitRename' | 'cancelRename' | 'scroll' }
   >
 ): TreeNode<TMetadata> {
-  const base: TreeNode<TMetadata> = node.children === undefined
+  const base: TreeNode<TMetadata> = node.kind !== 'branch'
     ? node
     : (() => {
         const children = reduceTreeNodes(node.children, action);
         return children === node.children ? node : { ...node, children };
       })();
-  if (action.kind === 'expandAll') return base.expanded === true ? base : { ...base, expanded: true };
-  if (action.kind === 'collapseAll') return base.expanded === false ? base : { ...base, expanded: false };
+  if (action.kind === 'expandAll') return setTreeNodeExpanded(base, true);
+  if (action.kind === 'collapseAll') return setTreeNodeExpanded(base, false);
   if (node.id !== action.id) return base;
   switch (action.kind) {
     case 'toggle':
-      return { ...base, expanded: node.expanded !== true };
+      return setTreeNodeExpanded(base, !treeNodeExpanded(base));
     case 'expand':
-      return node.expanded === true ? base : { ...base, expanded: true };
+      return setTreeNodeExpanded(base, true);
     case 'collapse':
-      return node.expanded === false ? base : { ...base, expanded: false };
+      return setTreeNodeExpanded(base, false);
     case 'lazyPending':
-      return {
+      return base.kind !== 'lazy' ? base : {
         ...base,
-        lazy: true,
         expanded: true,
-        lazyStatus: 'pending',
-        ...(action.message === undefined ? {} : { lazyMessage: action.message })
+        loading: { kind: 'pending', ...(action.message === undefined ? {} : { message: action.message }) }
       };
     case 'lazySuccess':
       return lazySuccessNode(base, action.children);
     case 'lazyError':
-      return { ...base, lazy: true, expanded: true, lazyStatus: 'error', lazyMessage: action.message };
+      return base.kind !== 'lazy' ? base : {
+        ...base,
+        expanded: true,
+        loading: { kind: 'error', message: action.message }
+      };
   }
 }
 
@@ -233,9 +239,11 @@ function renameTreeNode<TMetadata extends Readonly<Record<string, unknown>>>(
   label: string
 ): readonly TreeNode<TMetadata>[] {
   const next = nodes.map((node): TreeNode<TMetadata> => {
-    const children = node.children === undefined ? undefined : renameTreeNode(node.children, id, label);
+    const children = node.kind === 'branch' ? renameTreeNode(node.children, id, label) : undefined;
     const renamed = node.id === id && node.label !== label ? { ...node, label } : node;
-    const result = children === undefined || children === node.children ? renamed : { ...renamed, children };
+    const result = node.kind !== 'branch' || children === undefined || children === node.children
+      ? renamed
+      : { ...renamed, children };
     return result;
   });
   return next.some((node, index) => node !== nodes[index]) ? next : nodes;
@@ -252,21 +260,21 @@ function collectVisibleTreeRow<TMetadata extends Readonly<Record<string, unknown
   const selfMatches = query.length === 0 || treeNodeMatches(node, query);
   const descendantRows: TreeVisibleRow<TMetadata>[] = [];
   let descendantMatches = false;
-  for (const child of node.children ?? []) {
+  for (const child of treeNodeChildren(node)) {
     descendantMatches = collectVisibleTreeRow(descendantRows, child, depth + 1, path, query) || descendantMatches;
   }
   if (!selfMatches && !descendantMatches) return false;
   rows.push({ node, depth, path });
   if (query.length > 0) {
     rows.push(...descendantRows);
-  } else if (node.expanded === true) {
-    if (node.lazy === true && (node.children === undefined || node.children.length === 0)) {
+  } else if (treeNodeExpanded(node)) {
+    if (node.kind === 'lazy') {
       rows.push({
         node: {
           id: `${node.id}:lazy`,
           label: lazyPlaceholderLabel(node),
           disabled: true,
-          ...(node.lazyStatus === undefined ? {} : { lazyStatus: node.lazyStatus })
+          kind: 'leaf'
         },
         depth: depth + 1,
         path: [...path, 'lazy'],
@@ -279,27 +287,38 @@ function collectVisibleTreeRow<TMetadata extends Readonly<Record<string, unknown
   return true;
 }
 
-function lazyPlaceholderLabel(node: TreeNode): string {
-  if (node.lazyStatus === 'error') return node.lazyMessage ?? 'Load failed';
-  if (node.lazyStatus === 'empty') return node.lazyMessage ?? 'No children';
-  return node.lazyMessage ?? 'Loading…';
+function lazyPlaceholderLabel(node: Extract<TreeNode, { readonly kind: 'lazy' }>): string {
+  if (node.loading.kind === 'error') return node.loading.message;
+  if (node.loading.kind === 'empty') return node.loading.message ?? 'No children';
+  if (node.loading.kind === 'pending') return node.loading.message ?? 'Loading…';
+  return 'Not loaded';
 }
 
 function lazySuccessNode<TMetadata extends Readonly<Record<string, unknown>>>(
   node: TreeNode<TMetadata>,
   children: readonly TreeNode<TMetadata>[]
 ): TreeNode<TMetadata> {
+  const identity = treeNodeIdentity(node);
+  return children.length === 0
+    ? { ...identity, kind: 'lazy', expanded: true, loading: { kind: 'empty' } }
+    : { ...identity, kind: 'branch', expanded: true, children };
+}
+
+function setTreeNodeExpanded<TMetadata extends Readonly<Record<string, unknown>>>(
+  node: TreeNode<TMetadata>,
+  expanded: boolean
+): TreeNode<TMetadata> {
+  return node.kind === 'leaf' || node.expanded === expanded ? node : { ...node, expanded };
+}
+
+function treeNodeIdentity<TMetadata extends Readonly<Record<string, unknown>>>(node: TreeNode<TMetadata>) {
   return {
     id: node.id,
     label: node.label,
     ...(node.description === undefined ? {} : { description: node.description }),
     ...(node.disabled === undefined ? {} : { disabled: node.disabled }),
     ...(node.icon === undefined ? {} : { icon: node.icon }),
-    ...(node.metadata === undefined ? {} : { metadata: node.metadata }),
-    lazy: false,
-    expanded: true,
-    ...(children.length === 0 ? { lazyStatus: 'empty' as const } : {}),
-    children
+    ...(node.metadata === undefined ? {} : { metadata: node.metadata })
   };
 }
 

@@ -2,9 +2,9 @@ import { renderNodeId } from '../../internal/identity.ts';
 import { toRenderNodes } from '../../render-node/element.ts';
 import type { RenderNode } from '../../render-node/index.ts';
 import type { RenderNodeLayoutProps } from '../../render-node/props/shared-layout.ts';
-import type { LayoutFlowOptions } from '../../layout/geometry.ts';
+import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import type { RenderNodeId } from '../../internal/identity.ts';
-import type { ElementChildren, ElementChildrenMessage } from '../element.ts';
+import type { ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 
 export function renderNodeChildren<const TChildren extends ElementChildren>(
   children: TChildren

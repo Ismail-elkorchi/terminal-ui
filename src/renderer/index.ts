@@ -265,10 +265,9 @@ export {
 } from '../layout/geometry.ts';
 export type {
   Layer,
-  LayoutNode,
-  Rect,
-  RegionOpacity
+  LayoutNode
 } from '../tui/layout.ts';
+export type { Rect } from '../geometry/types.ts';
 export type {
   FocusTarget,
   HitTarget

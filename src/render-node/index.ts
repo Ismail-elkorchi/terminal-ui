@@ -3,18 +3,7 @@ export type {
   RenderNode,
   RenderNodeOfKind,
   RenderNodesOfKind,
-  RenderNodeAccessibleDefinition,
   RenderNodeChildren,
-  RenderNodeFocusOptions,
-  RenderNodeFocusScope,
   RenderNodeInputMap,
-  RenderNodeKeyEvent,
-  RenderNodeKeyHandler,
-  RenderNodeKeyMap,
-  RenderNodeKind,
-  RenderNodeLayerOptions,
-  RenderNodeOverflowPriority,
-  RenderNodeStyles,
-  RenderNodeTextRole,
-  RenderNodeVisualState
+  RenderNodeKind
 } from './types.ts';

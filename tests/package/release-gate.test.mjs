@@ -502,7 +502,7 @@ test('RenderRegion replaces the obsolete render layer model', async () => {
 
   assert.match(regionSource, /interface RenderRegion/u);
   assert.match(regionSource, /regionIdForLayoutNode/u);
-  assert.match(regionSource, /readonly opacity: RegionOpacity;/u);
+  assert.match(regionSource, /readonly opacity: ElementLayerOpacity;/u);
   assert.match(regionSource, /readonly metadata: FrameBufferSnapshotMetadata;/u);
   assert.match(regionSource, /translateSnapshotMetadata/u);
   assert.match(regionSource, /createRegionFrameBuffer/u);
@@ -574,7 +574,7 @@ test('box drawing joins are source-role gated frame passes', async () => {
 
 test('custom renderers can render only through buffer-scoped renderer inputs', async () => {
   const rendererTypes = await readFile(new URL('../../src/tui/render-node-renderer.ts', import.meta.url), 'utf8');
-  const widgetTypes = await readSourceTree(new URL('../../src/components/options/', import.meta.url));
+  const widgetTypes = await readSourceTree(new URL('../../src/ui-model/options/', import.meta.url));
   const customWidgetTypes = await readFile(new URL('../../src/renderer/custom-element.ts', import.meta.url), 'utf8');
   const factories = await readSourceTree(new URL('../../src/components/factories/', import.meta.url));
   const validation = await readFile(new URL('../../src/components/extension-validation.ts', import.meta.url), 'utf8');
@@ -616,7 +616,7 @@ test('Canvas2D is a FrameBuffer-backed helper without host or ANSI escapes', asy
     }))
   );
   const drawingSource = await readFile(new URL('../../src/tui/drawing-widgets.ts', import.meta.url), 'utf8');
-  const widgetTypes = await readSourceTree(new URL('../../src/components/options/', import.meta.url));
+  const widgetTypes = await readSourceTree(new URL('../../src/ui-model/options/', import.meta.url));
 
   assert.match(drawingSource, /createCanvas2D\(input\.buffer,\s*input\.layoutNode\.bounds\)/u);
   assert.match(widgetTypes, /readonly canvas: Canvas2D;/u);

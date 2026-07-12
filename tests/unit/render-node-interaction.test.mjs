@@ -36,7 +36,7 @@ const formOptions = [
 const disabledWidgetCases = [
   {
     name: 'button',
-    element: () => button({ id: 'disabled-button', label: 'Submit', onPress: message, disabled: true })
+    element: () => button({ id: 'disabled-button', label: 'Submit', onPress: message, state: 'disabled' })
   },
   {
     name: 'checkbox',
@@ -55,9 +55,8 @@ const disabledWidgetCases = [
     element: () => rangeSlider({
       id: 'disabled-range',
       label: 'Window',
-      start: 2,
-      end: 8,
-      onAction: () => message,
+      value: { start: 2, end: 8 },
+      onChange: () => message,
       disabled: true
     })
   },
@@ -117,7 +116,11 @@ const disabledWidgetCases = [
   },
   {
     name: 'numberInput',
-    element: () => numberInput({ id: 'disabled-number-input', value: '4', disabled: true })
+    element: () => numberInput({
+      id: 'disabled-number-input',
+      presentation: { value: '4', cursor: 1, validity: 'valid', parsedValue: 4 },
+      disabled: true
+    })
   },
   {
     name: 'textArea',
@@ -145,7 +148,7 @@ test('disabled widget props block generated keyboard and mouse dispatch', async 
       label: state.active,
       onPress: { active: 'mouse' },
       keys: { enter: () => ({ active: 'key' }) },
-      disabled: true
+      state: 'disabled'
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });

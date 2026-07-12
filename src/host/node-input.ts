@@ -1,7 +1,8 @@
 import type {
   NodeReadableTerminalStream,
   TerminalInput,
-  TerminalInputChunk
+  TerminalInputChunk,
+  TerminalInputReadOptions
 } from './types.ts';
 
 export class NodeInput implements TerminalInput {
@@ -10,9 +11,9 @@ export class NodeInput implements TerminalInput {
 
   constructor(private readonly stream: NodeReadableTerminalStream) {}
 
-  read(): AsyncIterable<TerminalInputChunk> {
+  read(options: TerminalInputReadOptions = {}): AsyncIterable<TerminalInputChunk> {
     return {
-      [Symbol.asyncIterator]: () => this.createIterator()
+      [Symbol.asyncIterator]: () => this.createIterator(options.signal)
     };
   }
 
@@ -39,12 +40,20 @@ export class NodeInput implements TerminalInput {
     return this.stream.isTTY === true;
   }
 
-  private createIterator(): ClosableNodeInputIterator {
+  private createIterator(signal: AbortSignal | undefined): ClosableNodeInputIterator {
     const reader = hasEventReader(this.stream)
       ? new EventNodeInputIterator(this.stream)
       : new IterableNodeInputIterator(this.stream[Symbol.asyncIterator]());
     this.#activeReaders.add(reader);
     reader.onClose(() => this.#activeReaders.delete(reader));
+    if (signal !== undefined) {
+      const abort = (): void => { void reader.close(); };
+      signal.addEventListener('abort', abort, { once: true });
+      reader.onClose(() => {
+        signal.removeEventListener('abort', abort);
+      });
+      if (signal.aborted) void reader.close();
+    }
     return reader;
   }
 }

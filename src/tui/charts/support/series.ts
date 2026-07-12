@@ -3,7 +3,7 @@ import type {
   ChartSampleAlign,
   ChartSampleMode,
   ChartSeries
-} from '../../../components/options/feedback.ts';
+} from '../../../ui-model/options/feedback.ts';
 import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import { sanitizeTerminalText } from '../../../text/index.ts';
 import { chartSeriesStyle } from '../../chart-visual.ts';

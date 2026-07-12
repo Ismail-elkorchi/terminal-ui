@@ -1,6 +1,6 @@
 import { elementFromRenderNode } from '../../render-node/element.ts';
-import type { Element } from '../element.ts';
-import type { RichTextOptions, TextAreaOptions, TextOptions } from '../options/content.ts';
+import type { Element } from '../../element/index.ts';
+import type { RichTextOptions, TextAreaOptions, TextOptions } from '../../ui-model/options/content.ts';
 import {
   componentMetaProps,
   interactionProps,
@@ -11,7 +11,7 @@ import { optionalId, requiredId } from '../factory-internals/render-node.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
-  InferredComponentKeyBindings
+  InferredElementKeyBindings
 } from '../factory-internals/messages.ts';
 
 export function text(content: string, options: TextOptions = {}): Element {
@@ -42,7 +42,7 @@ export function textArea<
   const TScrollMessage = never,
   const TTextPointerMessage = never,
   const TEditMessage = never,
-  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     TextAreaOptions,

@@ -1,4 +1,4 @@
-import { createStreamTerminalHost } from './runtime-streams.ts';
+import { createStreamTerminalHost, runtimeInputSourceFromReadableStream } from './runtime-streams.ts';
 import type { DenoTerminalHostOptions, RuntimeTerminalInputOptions, RuntimeTerminalOutputOptions, TerminalHost } from './types.ts';
 
 interface DenoLike {
@@ -23,7 +23,7 @@ export function createDenoTerminalHost(options: DenoTerminalHostOptions = {}): T
 function denoInputOptions(deno: DenoLike | undefined): RuntimeTerminalInputOptions {
   return {
     isTty: deno?.stdin?.isTerminal?.() ?? false,
-    ...(deno?.stdin?.readable === undefined ? {} : { source: deno.stdin.readable }),
+    ...(deno?.stdin?.readable === undefined ? {} : { source: runtimeInputSourceFromReadableStream(deno.stdin.readable) }),
     ...(deno?.stdin?.setRaw === undefined ? {} : { setRawMode: (enabled: boolean) => deno.stdin?.setRaw?.(enabled) })
   };
 }

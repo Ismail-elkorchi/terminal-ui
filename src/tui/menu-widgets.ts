@@ -3,7 +3,7 @@ import { sanitizeTerminalText } from '../text/index.ts';
 import { stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { ComponentActionTone } from '../components/contracts.ts';
+import type { ComponentActionTone } from '../ui-model/contracts.ts';
 import {
   dropdownControlLine,
   menuBarLine,
@@ -15,7 +15,7 @@ import type { MenuVisualItem } from './menu-visual.ts';
 import type { RenderBlock, RenderLine } from './render-primitives.ts';
 import type { Rect } from './layout.ts';
 import type { HitTarget } from './render-node-renderer.ts';
-import type { DropdownAction, MenuAction } from '../components/menu.ts';
+import type { DropdownAction, MenuAction } from '../ui-model/menu.ts';
 
 type MenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'menu'>;
 type ContextMenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'contextMenu'>;
@@ -84,7 +84,7 @@ export function dropdownBlock(widget: DropdownNode, bounds: Rect, theme: Termina
   const label = clean(stringify(widget.props.label));
   const placeholder = clean(stringify(widget.props.placeholder)) || 'Select…';
   const value = selected?.label ?? placeholder;
-  const open = widget.props.open === true;
+  const open = widget.props.presentation.kind === 'open';
   const lines: RenderLine[] = [{
     spans: dropdownControlLine({
       widget,
@@ -124,7 +124,7 @@ export function dropdownAccessibleBase(widget: DropdownNode, id: string, focused
     role: 'menu',
     label: clean(stringify(widget.props.label)) || id,
     ...(selected === undefined ? {} : { value: selected.label }),
-    expanded: widget.props.open === true,
+    expanded: widget.props.presentation.kind === 'open',
     ...(focused ? { focused } : {})
   };
 }
@@ -146,7 +146,7 @@ export function menuAccessibleChildren(widget: AnyMenuNode): readonly Accessible
 }
 
 export function dropdownAccessibleChildren(widget: DropdownNode): readonly AccessibleNode[] | undefined {
-  return widget.props.open === true ? menuAccessibleChildren(widget) : undefined;
+  return widget.props.presentation.kind === 'open' ? menuAccessibleChildren(widget) : undefined;
 }
 
 export function menuHitTargets<TMessage>(widget: MenuNode<TMessage> | ContextMenuNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
@@ -177,7 +177,7 @@ export function menuBarHitTargets<TMessage>(widget: MenuBarNode<TMessage>, bound
 export function dropdownHitTargets<TMessage>(widget: DropdownNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = dropdownActionMessageFactory(widget);
   if (toMessage === undefined) return [];
-  if (widget.props.open !== true) {
+  if (widget.props.presentation.kind !== 'open') {
     return [{
       id: `${widget.id ?? widget.kind}:control`,
       bounds: { ...bounds, height: Math.min(1, bounds.height) },
@@ -258,13 +258,13 @@ function topLevelMenuItems(widget: AnyMenuNode): readonly VisibleMenuItem[] {
 }
 
 function selectedId(widget: AnyMenuNode): string | undefined {
-  const selected = widget.props.selected;
+  const selected = widget.kind === 'dropdown' ? widget.props.presentation.selected : widget.props.selected;
   return typeof selected === 'string' ? clean(selected) : firstEnabledItem(widget)?.id;
 }
 
 function activeId(widget: AnyMenuNode): string | undefined {
-  if (widget.kind === 'dropdown' && widget.props.open === true && typeof widget.props.highlighted === 'string') {
-    return clean(widget.props.highlighted);
+  if (widget.kind === 'dropdown' && widget.props.presentation.kind === 'open' && typeof widget.props.presentation.highlighted === 'string') {
+    return clean(widget.props.presentation.highlighted);
   }
   return selectedId(widget);
 }

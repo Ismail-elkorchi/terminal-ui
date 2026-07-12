@@ -1,4 +1,4 @@
-import type { BarChartItem } from '../../../components/options/feedback.ts';
+import type { BarChartItem } from '../../../ui-model/options/feedback.ts';
 import { sanitizeTerminalText } from '../../../text/index.ts';
 
 const sparkGlyphs = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'] as const;

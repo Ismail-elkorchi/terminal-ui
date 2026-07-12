@@ -1,12 +1,12 @@
 import { elementFromRenderNode } from '../../render-node/element.ts';
-import type { Element } from '../element.ts';
+import type { Element } from '../../element/index.ts';
 import type {
   ActivityFeedOptions,
   CommandBarOptions,
   PaletteOptions,
   ScrollbackOptions,
   StructuredBlockOptions
-} from '../options/documents.ts';
+} from '../../ui-model/options/documents.ts';
 import {
   commandBarKeyBindings,
   componentMetaProps,
@@ -22,7 +22,7 @@ import {
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
-  InferredComponentKeyBindings
+  InferredElementKeyBindings
 } from '../factory-internals/messages.ts';
 
 export function scrollback<const TMessage = never>(options: ScrollbackOptions<TMessage>): Element<TMessage> {
@@ -73,7 +73,7 @@ export function activityFeed<const TMessage = never>(options: ActivityFeedOption
     home: () => onAction({ kind: 'select', index: 0 }),
     end: () => onAction({ kind: 'select', index: Math.max(0, options.blocks.length - 1) }),
     enter: () => selectedBlock === undefined ? undefined : onAction({ kind: 'toggleBlock', id: selectedBlock.id })
-  } satisfies import('../options/base.ts').ComponentKeyBindings<TMessage>;
+  } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   const keyMap = mergeKeyBindings(generatedKeys, options.keys);
   return elementFromRenderNode<'activityFeed', TMessage>({
     ...requiredId(options.id, 'activityFeed'),
@@ -92,7 +92,7 @@ export function commandBar<
   const TActionMessage = never,
   const TTextPointerMessage = never,
   const TSubmitMessage = never,
-  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     CommandBarOptions,
@@ -144,7 +144,7 @@ export function palette<
   const TSelectMessage = never,
   const TScrollMessage = never,
   const TActionMessage = never,
-  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     PaletteOptions<TValue>,

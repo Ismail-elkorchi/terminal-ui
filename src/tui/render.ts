@@ -1,5 +1,5 @@
 import { toAccessibleSnapshot } from '../accessibility/index.ts';
-import type { Element } from '../components/element.ts';
+import type { Element } from '../element/index.ts';
 import { toRenderNode } from '../render-node/element.ts';
 import type { RenderNode } from '../render-node/index.ts';
 import { defineTheme, isTerminalTheme } from '../theme/index.ts';

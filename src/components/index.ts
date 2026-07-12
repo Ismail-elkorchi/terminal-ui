@@ -45,33 +45,33 @@ export {
   tree,
   toggleSwitch
 } from './factories.ts';
-export type * from './contracts.ts';
-export type { CommandBarAction } from './command-bar.ts';
-export type { ListAction } from './list.ts';
-export type { TableAction, TablePresentation, TableSortDirection, TableSortState } from './table.ts';
-export type { TreeAction, TreeDisclosureAction, TreeNode } from './tree.ts';
-export type { NumberInputAction, NumberInputValidity } from './number-input.ts';
-export type { PaginatorAction } from './paginator.ts';
-export type { NotificationStackAction } from './notification-stack.ts';
+export type * from '../ui-model/contracts.ts';
+export type { CommandBarAction } from '../ui-model/command-bar.ts';
+export type { ListAction } from '../ui-model/list.ts';
+export type { TableAction, TablePresentation, TableSortDirection, TableSortState } from '../ui-model/table.ts';
+export type { TreeAction, TreeDisclosureAction, TreeNode } from '../ui-model/tree.ts';
+export type { NumberInputAction, NumberInputValidity } from '../ui-model/number-input.ts';
+export type { PaginatorAction } from '../ui-model/paginator.ts';
+export type { NotificationStackAction } from '../ui-model/notification-stack.ts';
 export type {
   CalendarDate,
   CalendarMonth,
   DatePickerAction,
   DatePickerDay
-} from './date-picker.ts';
-export type { PaletteAction } from './palette.ts';
-export type { DropdownAction, MenuAction } from './menu.ts';
-export type { TabAction } from './tabs.ts';
-export type { ActivityFeedAction } from './activity-feed.ts';
-export type { ScrollbackAction } from './scrollback.ts';
-export type { ChartAction, HeatmapAction } from './visualization.ts';
+} from '../ui-model/date-picker.ts';
+export type { PaletteAction } from '../ui-model/palette.ts';
+export type { DropdownAction, MenuAction } from '../ui-model/menu.ts';
+export type { TabAction } from '../ui-model/tabs.ts';
+export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
+export type { ScrollbackAction } from '../ui-model/scrollback.ts';
+export type { ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
 export type {
   CheckboxListAction,
   ColorPickerAction,
   RadioGroupAction,
   SelectBoxAction
-} from './choice-controls.ts';
-export type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from './element.ts';
+} from '../ui-model/choice-controls.ts';
+export type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from '../element/index.ts';
 export { inspectElement } from './inspection.ts';
 export type {
   ElementFocusCapability,
@@ -79,8 +79,8 @@ export type {
   ElementInspection,
   ElementMetaInspection
 } from './inspection.ts';
-export type * from './style-parts.ts';
-export type * from './options/index.ts';
+export type * from '../ui-model/style-parts.ts';
+export type * from '../ui-model/options/index.ts';
 export {
   baseStatusForRecordStatus,
   isNotificationTone,
@@ -99,4 +99,4 @@ export {
   optionalValidationTone,
   recordStatusFromTone,
   statusFromTone
-} from './status.ts';
+} from '../ui-model/status.ts';

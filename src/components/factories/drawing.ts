@@ -1,7 +1,7 @@
 import { elementFromRenderNode } from '../../render-node/element.ts';
-import type { Element } from '../element.ts';
+import type { Element } from '../../element/index.ts';
 import { assertCanvasPainter } from '../extension-validation.ts';
-import type { CanvasOptions } from '../options/drawing.ts';
+import type { CanvasOptions } from '../../ui-model/options/drawing.ts';
 import { componentMetaProps } from '../factory-internals/interaction.ts';
 import { optionalId } from '../factory-internals/render-node.ts';
 

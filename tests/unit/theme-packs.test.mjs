@@ -157,7 +157,7 @@ test('default theme specimen composes surface control text command log and data 
         { id: 'two', label: 'tab two', panel: text('Second panel') }
       ]
     }),
-    button({ id: 'specimen-button', label: 'Primary', tone: 'primary', pressed: true }),
+    button({ id: 'specimen-button', label: 'Primary', tone: 'primary', state: 'pressed' }),
     commandBar({
       id: 'specimen-command',
       value: '/open readme',

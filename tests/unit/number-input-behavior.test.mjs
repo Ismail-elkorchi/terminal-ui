@@ -59,7 +59,7 @@ test('number input renders controlled text validity and pointer step controls', 
   const messages = [];
   const element = numberInput({
     id: 'workers',
-    ...numberInputPresentation({ input: { text: '-.', cursor: 2 }, committed: 4 }),
+    presentation: numberInputPresentation({ input: { text: '-.', cursor: 2 }, committed: 4 }),
     onAction: (action) => {
       messages.push(action);
       return action;

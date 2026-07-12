@@ -22,7 +22,7 @@ import type {
   ScrollEvent,
   ScrollEventSource,
   ScrollEventTarget
-} from '../../../behavior/scroll.ts';
+} from '../../../interaction/scroll.ts';
 import type {
   ScrollbarLayout,
   ScrollbarOptions,

@@ -16,13 +16,12 @@ npm install @ismail-elkorchi/terminal-ui
 ```
 
 ```ts
-import { runPrompt } from '@ismail-elkorchi/terminal-ui';
+import { runPrompt } from '@ismail-elkorchi/terminal-ui/prompts';
 ```
 
-The root entrypoint exposes the primary app-authoring path:
-`defineTui`, `runTui`, common typed components, layout factories, themes,
-prompts, accessibility helpers, and `createTerminalHarness`. Low-level frame
-and renderer contracts live under `@ismail-elkorchi/terminal-ui/renderer`.
+The root entrypoint exposes the primary runtime path: `createTerminalHost`,
+`defineTui`, `runTui`, results, and diagnostics. Components, layout, behavior,
+prompts, themes, hosts, rendering, and testing use explicit package subpaths.
 
 Host adapters cover Node, Deno, Bun, memory-backed tests, and explicit
 caller-managed PTY-style streams.
@@ -31,7 +30,7 @@ For Deno or source-first TypeScript consumers, the package is published through
 JSR with equivalent source entrypoints:
 
 ```ts
-import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui';
+import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui/prompts';
 ```
 
 ## Short Examples
@@ -39,7 +38,7 @@ import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui';
 Basic prompt:
 
 ```ts
-import { input, runPrompt } from '@ismail-elkorchi/terminal-ui';
+import { input, runPrompt } from '@ismail-elkorchi/terminal-ui/prompts';
 
 const result = await runPrompt(input({ label: 'Name' }));
 ```

@@ -7,12 +7,12 @@ import { mergeStyles, resolveRenderNodeStyle, themeStyle } from './render-node-s
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type {
-  TableCellRenderInput, TableColumnAlignment, TableColumnSemantic, TableColumnWidth, TableDensity } from '../components/options/content.ts';
-import type { TableAction, TableSortDirection, TableSortState } from '../components/table.ts';
+  TableCellRenderInput, TableColumnAlignment, TableColumnSemantic, TableColumnWidth, TableDensity } from '../ui-model/options/content.ts';
+import type { TableAction, TableSortDirection, TableSortState } from '../ui-model/table.ts';
 import type { Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
-import type { ScrollState } from '../behavior/scroll.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
 import type { HitTarget } from './render-node-renderer.ts';
 
 interface NormalizedColumn {

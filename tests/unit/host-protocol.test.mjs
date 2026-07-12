@@ -136,7 +136,7 @@ test('session protocol policies plan and apply only requested operations', async
 
 test('session protocol policies fail only required unavailable operations', async () => {
   const host = createDenoTerminalHost({
-    stdin: { source: asyncIterable([]), isTty: true },
+    stdin: { source: runtimeInput([]), isTty: true },
     stdout: { write: () => {}, isTty: true }
   });
   const session = await host.beginSession({ id: 'policy-required-unavailable' });
@@ -164,7 +164,7 @@ test('session protocol policies fail only required unavailable operations', asyn
 
 test('session protocol diagnostics preserve requested operation and mouse mode', async () => {
   const host = createDenoTerminalHost({
-    stdin: { source: asyncIterable([]), isTty: true },
+    stdin: { source: runtimeInput([]), isTty: true },
     stdout: { write: () => {}, isTty: false }
   });
   const session = await host.beginSession({ id: 'policy-mouse-unavailable' });
@@ -290,7 +290,7 @@ test('stream host disposal restores active terminal sessions', async () => {
   const host = createDenoTerminalHost({
     id: 'stream-dispose-restore',
     stdin: {
-      source: asyncIterable([]),
+      source: runtimeInput([]),
       isTty: true,
       setRawMode: (enabled) => rawModes.push(enabled)
     },
@@ -319,7 +319,7 @@ test('Deno and Bun host adapters work with explicit runtime streams', async () =
   const denoOutput = [];
   const deno = createDenoTerminalHost({
     id: 'deno-test',
-    stdin: { source: asyncIterable(['deno-input']), isTty: true },
+    stdin: { source: runtimeInput(['deno-input']), isTty: true },
     stdout: {
       write: (chunk) => denoOutput.push(String(chunk)),
       isTty: true,
@@ -341,7 +341,7 @@ test('Deno and Bun host adapters work with explicit runtime streams', async () =
   const bunOutput = [];
   const bun = createBunTerminalHost({
     id: 'bun-test',
-    stdin: { source: asyncIterable(['bun-input']), isTty: false },
+    stdin: { source: runtimeInput(['bun-input']), isTty: false },
     stdout: {
       write: (chunk) => bunOutput.push(String(chunk)),
       isTty: false,
@@ -361,7 +361,7 @@ test('Deno and Bun host adapters work with explicit runtime streams', async () =
 
 test('runtime stream hosts only advertise raw input when a raw-mode setter exists', async () => {
   const withoutRawSetter = createDenoTerminalHost({
-    stdin: { source: asyncIterable([]), isTty: true },
+    stdin: { source: runtimeInput([]), isTty: true },
     stdout: { write: () => {}, isTty: true }
   });
   const unsupportedCapabilities = await withoutRawSetter.getCapabilities();
@@ -376,7 +376,7 @@ test('runtime stream hosts only advertise raw input when a raw-mode setter exist
   const rawModes = [];
   const withRawSetter = createBunTerminalHost({
     stdin: {
-      source: asyncIterable([]),
+      source: runtimeInput([]),
       isTty: true,
       setRawMode: (enabled) => rawModes.push(enabled)
     },
@@ -394,6 +394,10 @@ test('runtime stream hosts only advertise raw input when a raw-mode setter exist
 
 async function* asyncIterable(values) {
   for (const value of values) yield value;
+}
+
+function runtimeInput(values) {
+  return { read: () => asyncIterable(values) };
 }
 
 async function readInputChunks(host) {

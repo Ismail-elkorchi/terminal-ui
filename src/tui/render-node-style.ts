@@ -1,5 +1,4 @@
-import type { RenderNodeTextRole } from '../render-node/index.ts';
-import type { RenderNodeVisualState } from '../render-node/index.ts';
+import type { ElementTextRole, ElementVisualState } from '../element/metadata.ts';
 import type { ThemeColorToken } from '../theme/index.ts';
 import type { RenderNode } from '../render-node/index.ts';
 import type { TerminalStyle } from './render-primitives.ts';
@@ -8,7 +7,7 @@ export type RenderNodeStylePart = string;
 
 export interface RenderNodeStyleInput {
   readonly part: RenderNodeStylePart;
-  readonly state?: RenderNodeVisualState;
+  readonly state?: ElementVisualState;
   readonly base?: TerminalStyle;
 }
 
@@ -22,14 +21,14 @@ export function resolveRenderNodeStyle(widget: RenderNode, input: RenderNodeStyl
   );
 }
 
-export function renderNodeStyle(widget: RenderNode, part: RenderNodeStylePart, state?: RenderNodeVisualState): TerminalStyle | undefined {
+export function renderNodeStyle(widget: RenderNode, part: RenderNodeStylePart, state?: ElementVisualState): TerminalStyle | undefined {
   return resolveRenderNodeStyle(widget, {
     part,
     ...(state === undefined ? {} : { state })
   });
 }
 
-export function defaultStyleForTextRole(role: RenderNodeTextRole): TerminalStyle | undefined {
+export function defaultStyleForTextRole(role: ElementTextRole): TerminalStyle | undefined {
   switch (role) {
     case 'title':
       return themeStyle('surface.title', { bold: true });
@@ -84,7 +83,7 @@ export function defaultStyleForPart(part: RenderNodeStylePart): TerminalStyle | 
   }
 }
 
-export function defaultStyleForState(state: RenderNodeVisualState): TerminalStyle | undefined {
+export function defaultStyleForState(state: ElementVisualState): TerminalStyle | undefined {
   switch (state) {
     case 'default':
       return undefined;

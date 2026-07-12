@@ -1,12 +1,12 @@
 import type {
-  AccessibleNodeDefinition,
-  ComponentKeyBindings,
-  InteractiveComponentOptions,
-  ComponentTextInputHandlers
-} from '../components/options/base.ts';
-import type { Element } from '../components/element.ts';
+  ElementAccessibility,
+  ElementKeyBindings,
+  InteractiveElementOptions,
+  ElementTextInputHandlers
+} from '../element/metadata.ts';
+import type { Element } from '../element/index.ts';
 import { elementFromRenderNode } from '../render-node/element.ts';
-import type { RenderNodeInputMap, RenderNodeKeyMap } from '../render-node/index.ts';
+import type { RenderNodeInputMap } from '../render-node/index.ts';
 import type { RenderNodeRenderer } from '../tui/render-node-renderer.ts';
 import type { CustomRenderer } from './custom-renderer.ts';
 import { renderNodeId } from '../internal/identity.ts';
@@ -18,8 +18,8 @@ const rendererHookNames = [
   'hitTargets'
 ] as const satisfies readonly (keyof CustomRenderer)[];
 
-interface CustomElementOptionsBase<TMessage> extends InteractiveComponentOptions, ComponentTextInputHandlers<TMessage> {
-  readonly keys?: ComponentKeyBindings<TMessage>;
+interface CustomElementOptionsBase<TMessage> extends InteractiveElementOptions, ElementTextInputHandlers<TMessage> {
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
 export interface StatefulCustomElementOptions<TState, TMessage = never> extends CustomElementOptionsBase<TMessage> {
@@ -37,8 +37,8 @@ export type CustomElementOptions<TState = undefined, TMessage = never> =
   | StatelessCustomElementOptions<TMessage>;
 
 interface CustomRendererValidationOptions<TMessage> {
-  readonly accessibility?: AccessibleNodeDefinition;
-  readonly keyMap?: RenderNodeKeyMap<TMessage>;
+  readonly accessibility?: ElementAccessibility;
+  readonly keyMap?: ElementKeyBindings<TMessage>;
   readonly inputMap?: RenderNodeInputMap<TMessage>;
 }
 
@@ -129,7 +129,7 @@ function adaptCustomRenderer<TState, TMessage>(
 }
 
 function inputMapFromHandlers<TMessage>(
-  options: ComponentTextInputHandlers<TMessage>
+  options: ElementTextInputHandlers<TMessage>
 ): RenderNodeInputMap<TMessage> | undefined {
   const text = options.onInput;
   const paste = options.onPaste;
@@ -143,7 +143,7 @@ function inputMapFromHandlers<TMessage>(
 function assertDecorativeCustomRendererIsNotInteractive<TMessage>(
   renderer: Record<string, unknown>,
   options: {
-    readonly keyMap?: RenderNodeKeyMap<TMessage>;
+    readonly keyMap?: ElementKeyBindings<TMessage>;
     readonly inputMap?: RenderNodeInputMap<TMessage>;
   }
 ): void {
@@ -158,7 +158,7 @@ function assertDecorativeCustomRendererIsNotInteractive<TMessage>(
   }
 }
 
-function isDecorativeAccessibility(value: AccessibleNodeDefinition | undefined): boolean {
+function isDecorativeAccessibility(value: ElementAccessibility | undefined): boolean {
   return isRecord(value) && value['decorative'] === true && !('role' in value);
 }
 

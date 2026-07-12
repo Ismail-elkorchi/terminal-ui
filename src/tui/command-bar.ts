@@ -11,9 +11,9 @@ import { inputCursorStyle, mergeStyles, resolveRenderNodeStyle, themeStyle, rend
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { TextSelection } from '../text/index.ts';
-import type { SuggestionItem, ComponentValidationTone } from '../components/contracts.ts';
-import { optionalValidationTone } from '../components/status.ts';
-import type { CommandBarDisplay, CommandBarValidation } from '../components/options/documents.ts';
+import type { SuggestionItem, ComponentValidationTone } from '../ui-model/contracts.ts';
+import { optionalValidationTone } from '../ui-model/status.ts';
+import type { CommandBarDisplay, CommandBarValidation } from '../ui-model/options/documents.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { Rect } from './layout.ts';
 import type { RoutedPointerEvent } from '../input/pointer.ts';

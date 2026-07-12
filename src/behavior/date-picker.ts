@@ -3,7 +3,7 @@ import type {
   CalendarMonth,
   DatePickerAction,
   DatePickerDay
-} from '../components/date-picker.ts';
+} from '../ui-model/date-picker.ts';
 
 export interface DatePickerState {
   readonly visibleMonth: CalendarMonth;

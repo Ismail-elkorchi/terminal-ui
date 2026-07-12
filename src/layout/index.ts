@@ -44,4 +44,4 @@ export type {
   LayoutJustification,
   LayoutOverflow,
   LayoutSize
-} from './geometry.ts';
+} from '../geometry/types.ts';

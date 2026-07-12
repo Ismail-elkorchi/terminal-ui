@@ -1,14 +1,42 @@
-import type { ScrollEvent } from '../behavior/scroll.ts';
-import type { TreeItemBase } from './contracts.ts';
+import type { ScrollEvent } from '../interaction/scroll.ts';
+import type { ItemBase } from './contracts.ts';
 
-export interface TreeNode<
+interface TreeNodeBase<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
-> extends TreeItemBase<TreeNode<TMetadata>> {
-  readonly lazy?: boolean;
-  readonly lazyStatus?: 'pending' | 'error' | 'empty';
-  readonly lazyMessage?: string;
+> extends ItemBase {
   readonly icon?: string;
   readonly metadata?: TMetadata;
+}
+
+export type TreeLazyState =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'pending'; readonly message?: string }
+  | { readonly kind: 'error'; readonly message: string }
+  | { readonly kind: 'empty'; readonly message?: string };
+
+export type TreeNode<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> =
+  | TreeNodeBase<TMetadata> & { readonly kind: 'leaf' }
+  | TreeNodeBase<TMetadata> & {
+      readonly kind: 'branch';
+      readonly expanded: boolean;
+      readonly children: readonly TreeNode<TMetadata>[];
+    }
+  | TreeNodeBase<TMetadata> & {
+      readonly kind: 'lazy';
+      readonly expanded: boolean;
+      readonly loading: TreeLazyState;
+    };
+
+export function treeNodeChildren<TMetadata extends Readonly<Record<string, unknown>>>(
+  node: TreeNode<TMetadata>
+): readonly TreeNode<TMetadata>[] {
+  return node.kind === 'branch' ? node.children : [];
+}
+
+export function treeNodeExpanded(node: TreeNode): boolean {
+  return node.kind !== 'leaf' && node.expanded;
 }
 
 export type TreeDisclosureAction =

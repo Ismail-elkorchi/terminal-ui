@@ -1,40 +1,40 @@
-import type { ScrollEvent, ScrollPolicy } from '../behavior/scroll.ts';
-import type { ItemBase } from '../components/contracts.ts';
-import type { TabAction } from '../components/tabs.ts';
-import type { Element } from '../components/element.ts';
+import type { ScrollEvent, ScrollPolicy } from '../interaction/scroll.ts';
+import type { ItemBase } from '../ui-model/contracts.ts';
+import type { TabAction } from '../ui-model/tabs.ts';
+import type { Element } from '../element/index.ts';
 import type {
-  ComponentKeyBindings,
-  ComponentOptions,
-  InteractiveComponentOptions,
+  ElementKeyBindings,
+  ElementOptions,
+  InteractiveElementOptions,
   SurfaceVisualState
-} from '../components/options/base.ts';
-import type { DataListStylePart, ModalStylePart, SurfaceStylePart, TabsStylePart } from '../components/style-parts.ts';
+} from '../element/metadata.ts';
+import type { DataListStylePart, ModalStylePart, SurfaceStylePart, TabsStylePart } from '../ui-model/style-parts.ts';
 import type { BorderStyle, BorderTitle } from '../tui/border.ts';
 import type { ScrollbarOptions } from '../tui/scrollbar.ts';
 import type { SurfaceVariant } from '../tui/surface.ts';
-import type { GridLayoutOptions, LayoutFlowOptions, LayoutSize } from './geometry.ts';
+import type { GridLayoutOptions, LayoutFlowOptions, LayoutSize } from '../geometry/types.ts';
 
-export interface StackOptions extends ComponentOptions, LayoutFlowOptions {
+export interface StackOptions extends ElementOptions, LayoutFlowOptions {
   readonly sizes?: readonly LayoutSize[];
 }
 
-export interface RowOptions extends ComponentOptions, LayoutFlowOptions {
+export interface RowOptions extends ElementOptions, LayoutFlowOptions {
   readonly sizes?: readonly LayoutSize[];
 }
 
-export interface GridOptions extends ComponentOptions, GridLayoutOptions {
+export interface GridOptions extends ElementOptions, GridLayoutOptions {
   readonly rows: readonly LayoutSize[];
   readonly columns: readonly LayoutSize[];
 }
 
-export interface GridAreasOptions<TMessage = never> extends ComponentOptions, GridLayoutOptions {
+export interface GridAreasOptions<TMessage = never> extends ElementOptions, GridLayoutOptions {
   readonly areas: string;
   readonly children: Readonly<Record<string, Element<TMessage>>>;
   readonly rows: readonly LayoutSize[];
   readonly columns: readonly LayoutSize[];
 }
 
-export interface SplitPaneOptions extends ComponentOptions, LayoutFlowOptions {
+export interface SplitPaneOptions extends ElementOptions, LayoutFlowOptions {
   readonly direction: 'horizontal' | 'vertical';
   readonly sizes?: readonly LayoutSize[];
 }
@@ -45,23 +45,23 @@ export interface TabItem<TMessage = never> extends ItemBase {
   readonly panel: Element<TMessage>;
 }
 
-export interface TabsOptions<TMessage = never> extends InteractiveComponentOptions<TabsStylePart>, LayoutFlowOptions {
+export interface TabsOptions<TMessage = never> extends InteractiveElementOptions<TabsStylePart>, LayoutFlowOptions {
   readonly tabs: readonly TabItem<TMessage>[];
   readonly selected?: string;
   readonly onAction?: (action: TabAction) => TMessage;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface ModalOptions<TMessage = never> extends InteractiveComponentOptions<ModalStylePart>, LayoutFlowOptions {
+export interface ModalOptions<TMessage = never> extends InteractiveElementOptions<ModalStylePart>, LayoutFlowOptions {
   readonly title?: string;
   readonly border?: BorderStyle;
   readonly width?: number;
   readonly height?: number;
   readonly actions?: Element<TMessage>;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface ViewportOptions<TMessage = never> extends InteractiveComponentOptions<DataListStylePart>, LayoutFlowOptions {
+export interface ViewportOptions<TMessage = never> extends InteractiveElementOptions<DataListStylePart>, LayoutFlowOptions {
   readonly scrollRow?: number;
   readonly scrollColumn?: number;
   readonly contentRows?: number;
@@ -69,10 +69,10 @@ export interface ViewportOptions<TMessage = never> extends InteractiveComponentO
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
   readonly onScroll?: (event: ScrollEvent) => TMessage;
-  readonly keys?: ComponentKeyBindings<TMessage>;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface SurfaceOptions extends ComponentOptions<SurfaceStylePart>, Omit<LayoutFlowOptions, 'gap'> {
+export interface SurfaceOptions extends ElementOptions<SurfaceStylePart>, Omit<LayoutFlowOptions, 'gap'> {
   readonly label?: string;
   readonly title?: BorderTitle;
   readonly variant?: SurfaceVariant;
@@ -82,11 +82,11 @@ export interface SurfaceOptions extends ComponentOptions<SurfaceStylePart>, Omit
   readonly disabled?: boolean;
 }
 
-export interface AbsoluteOptions extends ComponentOptions {
+export interface AbsoluteOptions extends ElementOptions {
   readonly row: number;
   readonly column: number;
   readonly width?: number;
   readonly height?: number;
 }
 
-export type OverlayOptions = ComponentOptions;
+export type OverlayOptions = ElementOptions;

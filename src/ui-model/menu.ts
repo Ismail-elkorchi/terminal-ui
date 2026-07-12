@@ -1,4 +1,4 @@
-import type { ScrollEvent } from '../behavior/scroll.ts';
+import type { ScrollEvent } from '../interaction/scroll.ts';
 
 export type MenuAction =
   | { readonly kind: 'select'; readonly id: string }
@@ -19,3 +19,7 @@ export type DropdownAction =
   | { readonly kind: 'first' }
   | { readonly kind: 'last' }
   | { readonly kind: 'activate'; readonly id: string };
+
+export type DropdownPresentation =
+  | { readonly kind: 'closed'; readonly selected?: string }
+  | { readonly kind: 'open'; readonly selected?: string; readonly highlighted?: string };

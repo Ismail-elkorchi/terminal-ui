@@ -247,8 +247,9 @@ test('large tree viewport is bounded independently from node count', () => {
     nodes: [{
       id: 'root',
       label: 'Root',
+      kind: 'branch',
       expanded: true,
-      children: Array.from({ length: 50_000 }, (_value, index) => ({ id: `node-${index}`, label: `Node ${index}` }))
+      children: Array.from({ length: 50_000 }, (_value, index) => ({ id: `node-${index}`, label: `Node ${index}`, kind: 'leaf' }))
     }]
   }), { columns: 40, rows: 10 });
 

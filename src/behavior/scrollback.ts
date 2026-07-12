@@ -1,8 +1,8 @@
 import { findTextHighlightMatches, sanitizeTerminalText } from '../text/index.ts';
 import { applyScrollEvent, createScrollState, scrollReducer } from './scroll.ts';
-import type { ScrollState } from './scroll.ts';
-import type { ScrollbackItem } from '../components/options/documents.ts';
-import type { ScrollbackAction } from '../components/scrollback.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
+import type { ScrollbackItem } from '../ui-model/options/documents.ts';
+import type { ScrollbackAction } from '../ui-model/scrollback.ts';
 
 export interface ScrollbackState {
   readonly searchQuery?: string;

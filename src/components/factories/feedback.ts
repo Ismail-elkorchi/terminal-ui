@@ -1,5 +1,5 @@
 import { elementFromRenderNode } from '../../render-node/element.ts';
-import type { Element } from '../element.ts';
+import type { Element } from '../../element/index.ts';
 import type {
   ActivityIndicatorOptions,
   BarChartOptions,
@@ -12,7 +12,7 @@ import type {
   SparklineOptions,
   SpinnerOptions,
   StatusBarOptions
-} from '../options/feedback.ts';
+} from '../../ui-model/options/feedback.ts';
 import {
   activationKeyBindings,
   componentMetaProps,
@@ -25,14 +25,14 @@ import { heatmapRowsForRenderer } from '../factory-internals/domain.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
-  InferredComponentKeyBindings
+  InferredElementKeyBindings
 } from '../factory-internals/messages.ts';
-import type { NotificationStackAction } from '../notification-stack.ts';
-import type { ChartAction, HeatmapAction } from '../visualization.ts';
+import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
+import type { ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
 
 export function notificationStack<
   const TActionMessage = never,
-  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     NotificationStackOptions,
@@ -50,7 +50,7 @@ export function notificationStack(options: NotificationStackOptions<unknown>): E
     delete: () => options.selected === undefined
       ? undefined
       : onAction({ kind: 'dismiss', id: options.selected })
-  } satisfies import('../options/base.ts').ComponentKeyBindings<unknown>;
+  } satisfies import('../../element/metadata.ts').ElementKeyBindings<unknown>;
   const keyMap = mergeKeyBindings(generated, options.keys);
   return elementFromRenderNode<'notificationStack', unknown>({
     ...requiredId(options.id, 'notificationStack'),
@@ -71,7 +71,7 @@ export function notificationStack(options: NotificationStackOptions<unknown>): E
 export function statusBar(options: StatusBarOptions<never>): Element;
 export function statusBar<
   const TPressMessage = never,
-  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     StatusBarOptions<never>,
@@ -187,7 +187,7 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
     enter: () => selected === undefined
       ? undefined
       : onAction({ kind: 'select', series: selected.series, point: selected.point })
-  } satisfies import('../options/base.ts').ComponentKeyBindings<TMessage>;
+  } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   return elementFromRenderNode<'chart', TMessage>({
     ...requiredId(options.id, 'chart'),
     kind: 'chart',
@@ -248,7 +248,7 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
     enter: () => selected === undefined
       ? undefined
       : onAction({ kind: 'select', row: selected.row, column: selected.column })
-  } satisfies import('../options/base.ts').ComponentKeyBindings<TMessage>;
+  } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   return elementFromRenderNode<'heatmap', TMessage>({
     ...requiredId(options.id, 'heatmap'),
     kind: 'heatmap',

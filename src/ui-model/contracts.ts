@@ -69,5 +69,3 @@ export interface HelpBinding {
   readonly key: string;
   readonly label: string;
 }
-
-export interface TreeItemBase<TNode> extends ItemBase, HierarchyItem<TNode> {}

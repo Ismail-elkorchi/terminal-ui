@@ -1,7 +1,7 @@
 import { editTextBuffer } from '../text/index.ts';
 import type { TextEditBuffer } from '../text/index.ts';
-import type { CommandBarAction } from '../components/command-bar.ts';
-import type { SuggestionItem } from '../components/contracts.ts';
+import type { CommandBarAction } from '../ui-model/command-bar.ts';
+import type { SuggestionItem } from '../ui-model/contracts.ts';
 
 export interface CommandBarState {
   readonly input: TextEditBuffer;

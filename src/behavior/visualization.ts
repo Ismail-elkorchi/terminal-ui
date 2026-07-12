@@ -1,10 +1,10 @@
-import type { ChartAction, HeatmapAction } from '../components/visualization.ts';
+import type { ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
 import type {
   ChartPointSelection,
   ChartSeries,
   HeatmapCell,
   HeatmapSelection
-} from '../components/options/feedback.ts';
+} from '../ui-model/options/feedback.ts';
 
 export interface ChartState {
   readonly selected?: ChartPointSelection;

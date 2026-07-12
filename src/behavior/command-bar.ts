@@ -1,4 +1,4 @@
-import type { CommandBarOptions } from '../components/options/documents.ts';
+import type { CommandBarOptions } from '../ui-model/options/documents.ts';
 import type { CommandBarState } from './command-bar-state.ts';
 
 export type CommandBarPresentation = Required<Pick<

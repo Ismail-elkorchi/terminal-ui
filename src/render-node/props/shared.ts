@@ -1,8 +1,8 @@
-import type { ComponentOptions } from '../../components/options/base.ts';
+import type { ElementOptions } from '../../element/metadata.ts';
 
-export type AuthoredProps<TOptions extends ComponentOptions> = Omit<
+export type AuthoredProps<TOptions extends ElementOptions> = Omit<
   TOptions,
-  keyof ComponentOptions | 'keys'
+  keyof ElementOptions | 'keys'
 >;
 
 export type ReplaceProps<TProps, TKeys extends keyof TProps, TReplacement> =

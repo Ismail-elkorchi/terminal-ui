@@ -32,7 +32,7 @@ test('public component factories preserve exact and heterogeneous message types'
 
 test('interactive identity, passive inputs, and component anatomy are enforced by public types', () => {
   const diagnostics = typecheckSource(`
-    import { button, text, textInput } from '@ismail-elkorchi/terminal-ui/components';
+    import { button, rangeSlider, text, textInput } from '@ismail-elkorchi/terminal-ui/components';
 
     button({ id: 'save', label: 'Save' });
     textInput({
@@ -48,6 +48,10 @@ test('interactive identity, passive inputs, and component anatomy are enforced b
 
     // @ts-expect-error interactive components require authored identity
     button({ label: 'Save' });
+    // @ts-expect-error button interaction state is one discriminated field
+    button({ id: 'legacy-button-state', label: 'Save', disabled: true });
+    // @ts-expect-error range sliders retain the shared disabled control contract
+    rangeSlider({ id: 'invalid-range-state', value: { start: 1, end: 2 }, state: 'disabled' });
     // @ts-expect-error passive text cannot own local input bindings
     text('Passive', { keys: { enter: () => ({ kind: 'invalid' }) } });
     textInput({
@@ -81,7 +85,7 @@ test('item domains share only valid foundations', () => {
     const search: SearchEntry<number> = {
       id: 'file', label: 'File', value: 1, keywords: ['open']
     };
-    const tree: TreeNode = { id: 'src', label: 'src', expanded: true, children: [] };
+    const tree: TreeNode = { id: 'src', label: 'src', kind: 'branch', expanded: true, children: [] };
     void [choice, action, suggestion, search, tree];
 
     // @ts-expect-error action items do not become values implicitly
@@ -193,7 +197,7 @@ test('multi-channel components infer unions without explicit message arguments',
 
     const explorer = tree({
       id: 'explorer',
-      nodes: [{ id: 'src', label: 'src' }],
+      nodes: [{ id: 'src', label: 'src', kind: 'leaf' }],
       onAction: (action: TreeAction) => ({
         kind: 'tree' as const,
         action
@@ -319,7 +323,10 @@ test('TUI transitions are synchronous and asynchronous work uses typed effects a
               id: 'load-value',
               concurrency: 'replace',
               async run() {
-                return { kind: 'loaded' as const, value: 'ready' };
+                return {
+                  kind: 'message' as const,
+                  message: { kind: 'loaded' as const, value: 'ready' }
+                };
               }
             }]
           }

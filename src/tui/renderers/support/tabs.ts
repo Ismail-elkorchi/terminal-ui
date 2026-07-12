@@ -8,7 +8,7 @@ import { mergeStyles, themeStyle, renderNodeStyle } from '../../render-node-styl
 import { clampRect, emptyRect } from './common.ts';
 import type { Rect } from '../../layout.ts';
 import type { HitTarget } from '../../render-node-renderer.ts';
-import type { TabAction } from '../../../components/tabs.ts';
+import type { TabAction } from '../../../ui-model/tabs.ts';
 
 type TabsNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'tabs'>;
 

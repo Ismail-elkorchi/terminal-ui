@@ -98,11 +98,11 @@ export const menuRenderers = {
       const children = dropdownAccessibleChildren(renderNode);
       return {
         ...dropdownAccessibleBase(renderNode, id, focused),
-        ...(renderNode.props.open === true ? { scope: { kind: 'menu' as const } } : {}),
+        ...(renderNode.props.presentation.kind === 'open' ? { scope: { kind: 'menu' as const } } : {}),
         ...(children === undefined ? {} : { children })
       };
     },
-    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, menuCursor(renderNode, bounds, renderNode.props.open === true ? 1 : 0))],
+    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, menuCursor(renderNode, bounds, renderNode.props.presentation.kind === 'open' ? 1 : 0))],
     hitTargets: ({ renderNode, bounds }) => dropdownHitTargets(renderNode, bounds)
   },
   commandBar: {

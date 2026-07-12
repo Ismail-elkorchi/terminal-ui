@@ -47,75 +47,13 @@ test('root exposes the primary vertical path', async () => {
   const terminalUi = await import('@ismail-elkorchi/terminal-ui');
   assert.equal(terminalUi.terminalUiPackage.schemaVersion, 'terminal-ui.v1');
   assert.deepEqual(terminalUi.terminalUiPackage.runtimeTargets, ['node', 'deno', 'bun', 'memory']);
-  assert.ok(terminalUi.terminalUiPackage.entrypoints.includes('components'));
-  assert.ok(terminalUi.terminalUiPackage.entrypoints.includes('layout'));
-  assert.ok(terminalUi.terminalUiPackage.entrypoints.includes('behavior'));
-  assert.ok(terminalUi.terminalUiPackage.entrypoints.includes('renderer'));
   assert.ok(terminalUi.terminalDiagnosticCodes.includes('INPUT_CANCELLED'));
-  assert.ok(terminalUi.accessibleRoles.includes('application'));
-  assert.ok(terminalUi.accessibleSources.includes('tui'));
-  assert.equal(typeof terminalUi.createDenoTerminalHost, 'function');
-  assert.equal(typeof terminalUi.createBunTerminalHost, 'function');
-  assert.equal(typeof terminalUi.createMemoryTerminalHost, 'function');
-  assert.equal(typeof terminalUi.createPtyTerminalHost, 'function');
-  assert.equal(typeof terminalUi.runPrompt, 'function');
-  assert.equal(typeof terminalUi.createProgress, 'function');
-  assert.equal(typeof terminalUi.confirm, 'function');
-  assert.equal(typeof terminalUi.input, 'function');
-  assert.equal(typeof terminalUi.password, 'function');
-  assert.equal(typeof terminalUi.select, 'function');
+  assert.equal(typeof terminalUi.createTerminalHost, 'function');
   assert.equal(typeof terminalUi.defineTui, 'function');
-  assert.equal(typeof terminalUi.createTuiRuntime, 'function');
-  assert.equal(typeof terminalUi.intervalSource, 'function');
-  assert.equal(typeof terminalUi.timeoutSource, 'function');
-  assert.equal(typeof terminalUi.animationSource, 'function');
-  assert.equal(typeof terminalUi.contrastColor, 'function');
-  assert.equal(typeof terminalUi.ensureContrast, 'function');
-  assert.equal(typeof terminalUi.deriveSurface, 'function');
-  assert.equal(typeof terminalUi.themePacks, 'object');
-  assert.equal(typeof terminalUi.components.notificationStack, 'function');
-  assert.equal(typeof terminalUi.components.gauge, 'function');
-  assert.equal(typeof terminalUi.components.heatmap, 'function');
-  assert.equal(typeof terminalUi.components.toggleSwitch, 'function');
-  assert.equal(typeof terminalUi.components.slider, 'function');
-  assert.equal(typeof terminalUi.components.rangeSlider, 'function');
-  assert.equal(typeof terminalUi.components.checkboxList, 'function');
-  assert.equal(typeof terminalUi.components.colorPicker, 'function');
-  assert.equal(typeof terminalUi.components.datePicker, 'function');
-  assert.equal(typeof terminalUi.components.normalizeProcessStatus, 'function');
-  assert.equal(typeof terminalUi.components.optionalRecordStatus, 'function');
-  assert.equal(typeof terminalUi.components.normalizeNotificationTone, 'function');
-  assert.equal(typeof terminalUi.components.recordStatusFromTone, 'function');
-
-  assert.equal(typeof terminalUi.layout.grid, 'function');
-  assert.equal(typeof terminalUi.layout.responsive, 'function');
-  assert.equal('splitTracks' in terminalUi.layout, false);
-  assert.equal(typeof terminalUi.behavior.commandBarReducer, 'function');
-  assert.equal(typeof terminalUi.behavior.paletteReducer, 'function');
-  assert.equal(typeof terminalUi.behavior.screenStackReducer, 'function');
-  assert.equal(typeof terminalUi.renderer.renderElementFrame, 'function');
-  assert.equal(typeof terminalUi.renderer.renderFramePlain, 'function');
-  assert.equal(typeof terminalUi.renderer.drawAreaSeries, 'function');
-  assert.equal(typeof terminalUi.renderer.splitTracks, 'function');
-  assert.equal(typeof terminalUi.createPtyTerminalHarness, 'function');
-  assert.equal(typeof terminalUi.createTerminalHarness, 'function');
-  assert.equal(typeof terminalUi.createVisualSnapshot, 'function');
-  assert.equal(typeof terminalUi.runInteractionScript, 'function');
-  assert.equal(typeof terminalUi.assertVisibleText, 'function');
-  assert.equal(typeof terminalUi.assertSelected, 'function');
-  assert.equal(typeof terminalUi.assertHitTarget, 'function');
-  assert.equal(typeof terminalUi.findAccessibleNode, 'function');
-  assert.equal(typeof terminalUi.validateAccessibleSnapshot, 'function');
-  assert.equal(typeof terminalUi.validateTranscript, 'function');
-
-  assert.equal('commandBarReducer' in terminalUi, false);
-  assert.equal('renderElementFrame' in terminalUi, false);
-  assert.equal('layoutElement' in terminalUi, false);
-  assert.equal('tableReducer' in terminalUi.components, false);
-  assert.equal('grid' in terminalUi.components, false);
-  assert.equal('custom' in terminalUi.components, false);
-  assert.equal('renderElementFrame' in terminalUi.tui, false);
-  assert.equal('layoutElement' in terminalUi.tui, false);
+  assert.equal(typeof terminalUi.runTui, 'function');
+  for (const advancedExport of ['button', 'grid', 'renderElementFrame', 'tableReducer', 'createTerminalHarness', 'confirm']) {
+    assert.equal(advancedExport in terminalUi, false, advancedExport);
+  }
 });
 
 test('transcript entrypoint exposes replay against a structural harness target', async () => {
@@ -145,11 +83,11 @@ test('testing harness declaration exposes captured output', async () => {
   assert.match(declaration, /closeInput\(\): void;/u);
 });
 
-test('root declaration exposes primary public type contracts', async () => {
+test('entrypoint declarations expose layered public type contracts', async () => {
   const declaration = await readFile(new URL('../../dist/index.d.ts', import.meta.url), 'utf8');
   const componentsDeclaration = await readFile(new URL('../../dist/components/index.d.ts', import.meta.url), 'utf8');
-  const componentContractsDeclaration = await readFile(new URL('../../dist/components/contracts.d.ts', import.meta.url), 'utf8');
-  const componentElementDeclaration = await readFile(new URL('../../dist/components/element.d.ts', import.meta.url), 'utf8');
+  const componentContractsDeclaration = await readFile(new URL('../../dist/ui-model/contracts.d.ts', import.meta.url), 'utf8');
+  const componentElementDeclaration = await readFile(new URL('../../dist/element/types.d.ts', import.meta.url), 'utf8');
   const componentOptionDeclarations = (await Promise.all([
     'base',
     'content',
@@ -158,7 +96,9 @@ test('root declaration exposes primary public type contracts', async () => {
     'feedback',
     'forms',
     'menus'
-  ].map((name) => readFile(new URL(`../../dist/components/options/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
+  ].map((name) => name === 'base'
+    ? readFile(new URL('../../dist/element/metadata.d.ts', import.meta.url), 'utf8')
+    : readFile(new URL(`../../dist/ui-model/options/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
   const layoutDeclaration = await readFile(new URL('../../dist/layout/index.d.ts', import.meta.url), 'utf8');
   const behaviorDeclaration = await readFile(new URL('../../dist/behavior/index.d.ts', import.meta.url), 'utf8');
   const rendererDeclaration = await readFile(new URL('../../dist/renderer/index.d.ts', import.meta.url), 'utf8');
@@ -168,17 +108,10 @@ test('root declaration exposes primary public type contracts', async () => {
   const borderDeclaration = await readFile(new URL('../../dist/tui/border.d.ts', import.meta.url), 'utf8');
 
   for (const typeName of [
-    'InputEvent',
-    'KeyEvent',
-    'TextEditBuffer',
-    'TerminalTheme',
-    'TerminalDesignTokens',
     'TuiDefinition',
-    'Element',
-    'ButtonOptions',
-    'CommandBarOptions',
-    'GridOptions',
-    'VisualSnapshotInput'
+    'TuiUpdateResult',
+    'TerminalHost',
+    'Result'
   ]) {
     assert.match(declaration, new RegExp(`\\b${typeName}\\b`, 'u'), typeName);
   }
@@ -197,8 +130,8 @@ test('root declaration exposes primary public type contracts', async () => {
     assert.match(componentContractsDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
   }
   for (const typeName of [
-    'ComponentMeta',
-    'ComponentOptions',
+    'ElementMeta',
+    'ElementOptions',
     'ButtonOptions',
     'CommandBarAction',
     'CommandBarOptions',

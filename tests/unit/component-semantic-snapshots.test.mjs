@@ -107,10 +107,11 @@ const treeNodes = [
   {
     id: 'root',
     label: unsafe,
+    kind: 'branch',
     expanded: true,
     children: [
-      { id: 'child', label: 'Child' },
-      { id: 'disabled', label: 'Disabled', disabled: true }
+      { id: 'child', label: 'Child', kind: 'leaf' },
+      { id: 'disabled', label: 'Disabled', kind: 'leaf', disabled: true }
     ]
   }
 ];
@@ -277,9 +278,8 @@ const cases = [
     element: () => rangeSlider({
       id: 'range-slider',
       label: unsafe,
-      start: 2,
-      end: 8,
-      max: 10,
+      value: { start: 2, end: 8 },
+      range: { min: 0, max: 10 },
       onChange: (value) => ({ kind: 'range', value })
     }),
     expectText: /Unsafe red text/u,
@@ -364,7 +364,10 @@ const cases = [
   },
   {
     name: 'numberInput',
-    element: () => numberInput({ id: 'number-input', value: '42', min: 1, max: 99 }),
+    element: () => numberInput({
+      id: 'number-input',
+      presentation: { value: '42', cursor: 2, validity: 'valid', parsedValue: 42, min: 1, max: 99 }
+    }),
     expectText: /42/u,
     expectFocus: true
   },
@@ -391,7 +394,13 @@ const cases = [
   },
   {
     name: 'dropdown',
-    element: () => dropdown({ id: 'dropdown', label: unsafe, items: menuItems, selected: 'save', open: true, onAction: (action) => ({ kind: 'dropdown', action }) }),
+    element: () => dropdown({
+      id: 'dropdown',
+      label: unsafe,
+      items: menuItems,
+      presentation: { kind: 'open', selected: 'save', highlighted: 'save' },
+      onAction: (action) => ({ kind: 'dropdown', action })
+    }),
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true

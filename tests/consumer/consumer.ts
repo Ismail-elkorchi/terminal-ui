@@ -46,7 +46,7 @@ function view(state: State): Element<Message> {
   });
   const files: Element<{ readonly kind: 'tree'; readonly action: TreeAction }> = tree({
     id: 'files',
-    nodes: [{ id: 'src', label: 'src' }],
+    nodes: [{ id: 'src', label: 'src', kind: 'leaf' }],
     onAction: (action) => ({ kind: 'tree' as const, action })
   });
   const commands: Element<

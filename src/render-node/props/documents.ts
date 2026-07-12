@@ -4,13 +4,13 @@ import type {
   ScrollbackOptions,
   StructuredBlock,
   StructuredBlockOptions
-} from '../../components/options/documents.ts';
+} from '../../ui-model/options/documents.ts';
 import type { ViewportOptions } from '../../layout/options.ts';
-import type { SearchEntry } from '../../components/contracts.ts';
+import type { SearchEntry } from '../../ui-model/contracts.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
-import type { ScrollEvent } from '../../behavior/scroll.ts';
+import type { ScrollEvent } from '../../interaction/scroll.ts';
 import type { AuthoredProps, ReplaceProps } from './shared.ts';
-import type { ActivityFeedAction } from '../../components/activity-feed.ts';
+import type { ActivityFeedAction } from '../../ui-model/activity-feed.ts';
 
 export type ViewportRenderProps<TMessage> = ReplaceProps<
   AuthoredProps<ViewportOptions>,

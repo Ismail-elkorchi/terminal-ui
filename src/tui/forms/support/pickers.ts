@@ -1,7 +1,7 @@
 import type {
   ColorPickerOption
-} from '../../../components/options/forms.ts';
-import type { CalendarDate, DatePickerDay } from '../../../components/date-picker.ts';
+} from '../../../ui-model/options/forms.ts';
+import type { CalendarDate, DatePickerDay } from '../../../ui-model/date-picker.ts';
 import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../frame.ts';
 import {

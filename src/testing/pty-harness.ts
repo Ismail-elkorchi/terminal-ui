@@ -7,18 +7,19 @@ import { encodeHarnessInputEvent } from './input-events.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type {
-  PtyTerminalHost,
   TerminalSignal,
   TerminalStateSnapshot,
+  RuntimeInputSource,
+  TerminalInputReadOptions,
 } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { InteractionTranscriptStep } from '../transcript/index.ts';
 import type { PtyTerminalHarness, PtyTerminalHarnessOptions, PtyTerminalHarnessResult } from './types.ts';
 
-class QueuedPtyInput implements AsyncIterable<string | Uint8Array> {
+class QueuedPtyInput implements RuntimeInputSource {
   #queue: (string | Uint8Array)[] = [];
-  #waiters: ((result: IteratorResult<string | Uint8Array>) => void)[] = [];
+  #waiters: QueuedPtyInputWaiter[] = [];
   #closed = false;
   #rawMode = false;
 
@@ -26,7 +27,8 @@ class QueuedPtyInput implements AsyncIterable<string | Uint8Array> {
     if (this.#closed) return;
     const waiter = this.#waiters.shift();
     if (waiter !== undefined) {
-      waiter({ value: data, done: false });
+      waiter.detach();
+      waiter.resolve({ value: data, done: false });
       return;
     }
     this.#queue.push(data);
@@ -35,7 +37,8 @@ class QueuedPtyInput implements AsyncIterable<string | Uint8Array> {
   close(): void {
     this.#closed = true;
     for (const waiter of this.#waiters.splice(0)) {
-      waiter({ value: undefined, done: true });
+      waiter.detach();
+      waiter.resolve({ value: undefined, done: true });
     }
   }
 
@@ -47,20 +50,43 @@ class QueuedPtyInput implements AsyncIterable<string | Uint8Array> {
     return this.#rawMode;
   }
 
-  async *[Symbol.asyncIterator](): AsyncIterator<string | Uint8Array> {
+  async *read(options: TerminalInputReadOptions = {}): AsyncIterable<string | Uint8Array> {
     while (!this.#closed || this.#queue.length > 0) {
+      if (options.signal?.aborted === true) return;
       const next = this.#queue.shift();
       if (next !== undefined) {
         yield next;
         continue;
       }
-      const result = await new Promise<IteratorResult<string | Uint8Array>>((resolve) => {
-        this.#waiters.push(resolve);
-      });
+      const result = await this.#next(options.signal);
       if (result.done === true) return;
       yield result.value;
     }
   }
+
+  #next(signal: AbortSignal | undefined): Promise<IteratorResult<string | Uint8Array>> {
+    if (signal?.aborted === true) return Promise.resolve({ value: undefined, done: true });
+    return new Promise((resolve) => {
+      const abort = (): void => {
+        const index = this.#waiters.indexOf(waiter);
+        if (index >= 0) this.#waiters.splice(index, 1);
+        resolve({ value: undefined, done: true });
+      };
+      const waiter: QueuedPtyInputWaiter = {
+        resolve,
+        detach: () => {
+          signal?.removeEventListener('abort', abort);
+        }
+      };
+      this.#waiters.push(waiter);
+      signal?.addEventListener('abort', abort, { once: true });
+    });
+  }
+}
+
+interface QueuedPtyInputWaiter {
+  readonly resolve: (result: IteratorResult<string | Uint8Array>) => void;
+  readonly detach: () => void;
 }
 
 class PtySignalBus {
@@ -116,25 +142,22 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
       write: (chunk) => { output.push(chunkText(chunk)); }
     },
     subscribeSignals: (listener) => signals.subscribe(listener),
-    resize: () => { signals.emit('resize'); }
-  }) as PtyTerminalHost & {
-    recordFrame?: (frame: Frame) => void;
-    recordDiff?: (diff: RenderDiff) => void;
-    recordRestore?: (checkpoint: TerminalStateSnapshot) => void;
-  };
-
-  host.recordFrame = (frame) => {
-    frames.push(frame);
-    transcript.record({ kind: 'frame', frame });
-  };
-  host.recordDiff = (diff) => {
-    diffs.push(diff);
-    transcript.record({ kind: 'diff', diff });
-  };
-  host.recordRestore = (checkpoint) => {
-    restores.push(checkpoint);
-    transcript.record({ kind: 'restore', checkpoint });
-  };
+    resize: () => { signals.emit('resize'); },
+    observer: {
+      recordFrame(frame) {
+        frames.push(frame as Frame);
+        transcript.record({ kind: 'frame', frame: frame as Frame });
+      },
+      recordDiff(diff) {
+        diffs.push(diff as RenderDiff);
+        transcript.record({ kind: 'diff', diff: diff as RenderDiff });
+      },
+      recordRestore(checkpoint) {
+        restores.push(checkpoint);
+        transcript.record({ kind: 'restore', checkpoint });
+      }
+    }
+  });
 
   const harness: PtyTerminalHarness = {
     host,
@@ -151,7 +174,7 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
       return Promise.resolve();
     },
     async resize(viewport) {
-      await host.resize(viewport);
+      await host.viewportControl.setViewport(viewport);
       transcript.record({ kind: 'input', event: { kind: 'resize', viewport } });
     },
     closeInput() {
@@ -165,13 +188,13 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
     restores: () => [...restores],
     output: () => output.join(''),
     recordFrame(frame) {
-      host.recordFrame?.(frame);
+      host.observer?.recordFrame?.(frame);
     },
     recordDiff(diff) {
-      host.recordDiff?.(diff);
+      host.observer?.recordDiff?.(diff);
     },
     recordRestore(checkpoint) {
-      host.recordRestore?.(checkpoint);
+      host.observer?.recordRestore?.(checkpoint);
     },
     async dispose() {
       input.close();
