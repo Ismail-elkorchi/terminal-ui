@@ -1,5 +1,6 @@
 import type { ScrollEvent, ScrollPolicy } from '../behavior/scroll.ts';
-import type { NavigationItem } from '../components/contracts.ts';
+import type { ItemBase } from '../components/contracts.ts';
+import type { TabAction } from '../components/tabs.ts';
 import type { Element } from '../components/element.ts';
 import type {
   ComponentKeyBindings,
@@ -38,15 +39,16 @@ export interface SplitPaneOptions extends ComponentOptions, LayoutFlowOptions {
   readonly sizes?: readonly LayoutSize[];
 }
 
-export interface TabItem<TMessage = never> extends NavigationItem<TMessage> {
+export interface TabItem<TMessage = never> extends ItemBase {
   readonly badge?: string;
-  readonly onClose?: TMessage;
+  readonly closable?: boolean;
   readonly panel: Element<TMessage>;
 }
 
 export interface TabsOptions<TMessage = never> extends InteractiveComponentOptions<TabsStylePart>, LayoutFlowOptions {
   readonly tabs: readonly TabItem<TMessage>[];
   readonly selected?: string;
+  readonly onAction?: (action: TabAction) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 

@@ -11,6 +11,7 @@ import type {
 } from '../../components/options/content.ts';
 import type { ListAction } from '../../components/list.ts';
 import type { TableAction } from '../../components/table.ts';
+import type { TableSortState } from '../../components/table.ts';
 import type { TreeDisclosureAction, TreeNode } from '../../components/tree.ts';
 import type { PaginatorAction } from '../../components/paginator.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
@@ -47,6 +48,8 @@ export interface TableRenderProps<TMessage> {
   readonly columns?: readonly TableColumn[];
   readonly selected?: number;
   readonly selectedCell?: TableCellSelection;
+  readonly sort?: TableSortState;
+  readonly columnWidths?: Readonly<Record<string, number>>;
   readonly density?: TableDensity;
   readonly scroll?: ListAuthoredProps['scroll'];
   readonly scrollbar?: ListAuthoredProps['scrollbar'];

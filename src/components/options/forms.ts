@@ -5,6 +5,12 @@ import type { TextPointerEvent } from '../../tui/text-pointer.ts';
 import type { ChoiceItem, ComponentTone } from '../contracts.ts';
 import type { NumberInputAction, NumberInputValidity } from '../number-input.ts';
 import type { DatePickerAction, DatePickerDay } from '../date-picker.ts';
+import type {
+  CheckboxListAction,
+  ColorPickerAction,
+  RadioGroupAction,
+  SelectBoxAction
+} from '../choice-controls.ts';
 import type { ComponentKeyBindings, ComponentOptions, InteractiveComponentOptions } from './base.ts';
 import type {
   ButtonStylePart,
@@ -119,7 +125,8 @@ export interface CheckboxListOptions<TValue = string, TMessage = never> extends 
   readonly label?: string;
   readonly options: readonly ChoiceItem<TValue>[];
   readonly selected?: readonly string[];
-  readonly onChange?: (option: ChoiceItem<TValue>, checked: boolean) => TMessage;
+  readonly focused?: string;
+  readonly onAction?: (action: CheckboxListAction) => TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
@@ -135,8 +142,9 @@ export interface ColorPickerOptions<TValue = string, TMessage = never> extends I
   readonly label?: string;
   readonly options: readonly ColorPickerOption<TValue>[];
   readonly selected?: string;
+  readonly focused?: string;
   readonly columns?: number;
-  readonly onChange?: (option: ColorPickerOption<TValue>) => TMessage;
+  readonly onAction?: (action: ColorPickerAction) => TMessage;
   readonly disabled?: boolean;
   readonly error?: string;
   readonly keys?: ComponentKeyBindings<TMessage>;
@@ -159,7 +167,8 @@ export interface RadioGroupOptions<TValue = string, TMessage = never> extends In
   readonly label?: string;
   readonly options: readonly ChoiceItem<TValue>[];
   readonly selected?: string;
-  readonly onChange?: (option: ChoiceItem<TValue>) => TMessage;
+  readonly focused?: string;
+  readonly onAction?: (action: RadioGroupAction) => TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
@@ -170,8 +179,9 @@ export interface SelectBoxOptions<TValue = string, TMessage = never> extends Int
   readonly label?: string;
   readonly options: readonly ChoiceItem<TValue>[];
   readonly selected?: string;
+  readonly focused?: string;
   readonly placeholder?: string;
-  readonly onChange?: (option: ChoiceItem<TValue>) => TMessage;
+  readonly onAction?: (action: SelectBoxAction) => TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;

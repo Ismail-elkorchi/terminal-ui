@@ -98,7 +98,7 @@ Scrollable components share the same `ScrollState`, `scrollReducer()`, and
 application actions such as line/page/top/bottom movement, item-into-view
 behavior, horizontal offsets, and follow-tail log views. Use
 `applyScrollEvent(currentScroll, event)` for routed wheel, scrollbar, or drag
-messages produced by `onScroll`; the event carries the normalized
+messages produced by `onScroll` or a component's semantic `onAction`; the event carries the normalized
 rendered content and viewport metrics, so controlled scroll state stays aligned
 with the region the user actually sees. Use `scrollPolicy` on scrollable
 components to tune discrete wheel behavior, such as denser line steps for an

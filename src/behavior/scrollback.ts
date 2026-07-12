@@ -1,22 +1,23 @@
 import { findTextHighlightMatches, sanitizeTerminalText } from '../text/index.ts';
-import { createScrollState, scrollReducer } from './scroll.ts';
+import { applyScrollEvent, createScrollState, scrollReducer } from './scroll.ts';
 import type { ScrollState } from './scroll.ts';
 import type { ScrollbackItem } from '../components/options/documents.ts';
+import type { ScrollbackAction } from '../components/scrollback.ts';
 
 export interface ScrollbackState {
   readonly searchQuery?: string;
   readonly selectedMatchIndex?: number;
   readonly foldedIds: readonly string[];
   readonly followTail: boolean;
+  readonly scroll?: ScrollState;
 }
 
-export type ScrollbackAction =
-  | { readonly kind: 'setSearchQuery'; readonly query?: string }
-  | { readonly kind: 'jumpMatch'; readonly direction: 1 | -1; readonly matchCount: number }
-  | { readonly kind: 'toggleFold'; readonly id: string }
-  | { readonly kind: 'fold'; readonly id: string }
-  | { readonly kind: 'unfold'; readonly id: string }
-  | { readonly kind: 'setFollowTail'; readonly followTail: boolean };
+export interface ScrollbackPresentation {
+  readonly items: readonly ScrollbackItem[];
+  readonly followTail: boolean;
+  readonly searchQuery?: string;
+  readonly scroll?: ScrollState;
+}
 
 export interface ScrollbackSearchMark {
   readonly itemId: string;
@@ -26,6 +27,10 @@ export interface ScrollbackSearchMark {
 
 export function scrollbackReducer(state: ScrollbackState, action: ScrollbackAction): ScrollbackState {
   switch (action.kind) {
+    case 'scroll':
+      return state.scroll === undefined
+        ? state
+        : { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
     case 'setSearchQuery':
       return action.query === undefined || action.query.length === 0
         ? withoutSearch(state)
@@ -55,6 +60,18 @@ export function scrollbackReducer(state: ScrollbackState, action: ScrollbackActi
         followTail: action.followTail
       };
   }
+}
+
+export function scrollbackPresentation(
+  items: readonly ScrollbackItem[],
+  state: ScrollbackState
+): ScrollbackPresentation {
+  return {
+    items: visibleScrollbackItems(items, state),
+    followTail: state.followTail,
+    ...(state.searchQuery === undefined ? {} : { searchQuery: state.searchQuery }),
+    ...(state.scroll === undefined ? {} : { scroll: state.scroll })
+  };
 }
 
 export function scrollbackSearchMarks(
@@ -134,6 +151,7 @@ function wrapIndex(index: number, count: number): number {
 function withoutSearch(state: ScrollbackState): ScrollbackState {
   return {
     foldedIds: state.foldedIds,
-    followTail: state.followTail
+    followTail: state.followTail,
+    ...(state.scroll === undefined ? {} : { scroll: state.scroll })
   };
 }

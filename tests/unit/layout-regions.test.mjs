@@ -375,10 +375,11 @@ test('tabs keep active markers disabled targets and overflow visible without col
     id: 'tabs',
     selected: 'alpha',
     tabs: [
-      { id: 'alpha', label: 'Alpha', onSelect: { kind: 'alpha' }, panel: text('Alpha panel') },
-      { id: 'beta', label: 'Beta', disabled: true, onSelect: { kind: 'beta' }, panel: text('Beta panel') },
-      { id: 'gamma', label: 'Gamma', onSelect: { kind: 'gamma' }, panel: text('Gamma panel') }
-    ]
+      { id: 'alpha', label: 'Alpha', panel: text('Alpha panel') },
+      { id: 'beta', label: 'Beta', disabled: true, panel: text('Beta panel') },
+      { id: 'gamma', label: 'Gamma', panel: text('Gamma panel') }
+    ],
+    onAction: (action) => ({ kind: 'tabs', action })
   }), { columns: 14, rows: 3 }, { theme: noColorTheme });
   const header = renderFramePlain(frame).split('\n')[0] ?? '';
 
@@ -394,18 +395,18 @@ test('tabs keep the selected tab visible when headers overflow', () => {
     id: 'tabs',
     selected: 'gamma',
     tabs: [
-      { id: 'alpha', label: 'Alpha', onSelect: { kind: 'alpha' }, panel: text('Alpha panel') },
-      { id: 'beta', label: 'Beta', onSelect: { kind: 'beta' }, panel: text('Beta panel') },
+      { id: 'alpha', label: 'Alpha', panel: text('Alpha panel') },
+      { id: 'beta', label: 'Beta', panel: text('Beta panel') },
       {
         id: 'gamma',
         label: 'Gamma',
         badge: '2',
-        onSelect: { kind: 'gamma' },
-        onClose: { kind: 'close-gamma' },
+        closable: true,
         panel: text('Gamma panel')
       },
-      { id: 'delta', label: 'Delta', onSelect: { kind: 'delta' }, panel: text('Delta panel') }
-    ]
+      { id: 'delta', label: 'Delta', panel: text('Delta panel') }
+    ],
+    onAction: (action) => ({ kind: 'tabs', action })
   }), { columns: 15, rows: 3 }, { theme: noColorTheme });
   const header = renderFramePlain(frame).split('\n')[0] ?? '';
 
@@ -849,9 +850,10 @@ test('dropdown renders above table content in a higher region', () => {
     selected: 'dark',
     open: true,
     items: [
-        { id: 'light', label: 'Light', onPress: { kind: 'theme', value: 'light' } },
-        { id: 'dark', label: 'Dark', onPress: { kind: 'theme', value: 'dark' } }
+        { id: 'light', label: 'Light' },
+        { id: 'dark', label: 'Dark' }
     ],
+    onAction: (action) => ({ kind: 'theme', action }),
     meta: {
         layer: {
             zIndex: 15
@@ -895,9 +897,10 @@ test('context menu renders above canvas content in a higher region', () => {
     title: 'Actions',
     selected: 'copy',
     items: [
-        { id: 'copy', label: 'Copy', onPress: { kind: 'copy' } },
-        { id: 'paste', label: 'Paste', onPress: { kind: 'paste' } }
+        { id: 'copy', label: 'Copy' },
+        { id: 'paste', label: 'Paste' }
     ],
+    onAction: (action) => ({ kind: 'context', action }),
     meta: {
         layer: {
             zIndex: 12

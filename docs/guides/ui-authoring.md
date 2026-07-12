@@ -75,8 +75,8 @@ Rules:
 - keep semantic component state such as `disabled`, `selected`, `error`,
   `required`, and values on the component itself;
 - put cross-cutting system metadata under `meta`;
-- use semantic event props such as `onPress`, `onSelect`, `onChange`,
-  `onInput`, `onScroll`, `onAction`, and `onClose`;
+- use direct event props for scalar values and structured `onAction` contracts
+  for navigation, data, document, and interactive visualization components;
 - use `keys` only for component-local keyboard behavior that cannot be
   expressed by semantic event props;
 - keep state caller-owned.

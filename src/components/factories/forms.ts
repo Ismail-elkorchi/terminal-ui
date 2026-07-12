@@ -24,12 +24,16 @@ import type {
 } from '../factory-internals/messages.ts';
 import {
   activationKeyBindings,
+  checkboxListKeyBindings,
+  colorPickerKeyBindings,
   componentMetaProps,
   datePickerKeyBindings,
   interactionProps,
   numberInputKeyBindings,
+  radioGroupKeyBindings,
   rangeSliderKeyBindings,
   sliderKeyBindings,
+  selectBoxKeyBindings,
   textEditInputHandlers,
   textInputKeyBindings
 } from '../factory-internals/interaction.ts';
@@ -39,13 +43,7 @@ import {
   requiredId,
   renderNodeChildren
 } from '../factory-internals/render-node.ts';
-import {
-  checkboxChoiceHandler,
-  choiceHandler,
-  choiceItemsForRenderer,
-  colorOptionsForRenderer,
-  colorSelectionHandler
-} from '../factory-internals/domain.ts';
+import { choiceItemsForRenderer, colorOptionsForRenderer } from '../factory-internals/domain.ts';
 
 export function form<const TChildren extends ElementChildren>(
   children: TChildren,
@@ -210,7 +208,7 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
 }
 
 export function checkboxList<TValue, const TMessage = never>(options: CheckboxListOptions<TValue, TMessage>): Element<TMessage> {
-  const toMessage = checkboxChoiceHandler(options.onChange);
+  const keyMap = checkboxListKeyBindings(options);
   return elementFromRenderNode<'checkboxList', TMessage>({
     ...requiredId(options.id, 'checkboxList'),
     kind: 'checkboxList',
@@ -218,17 +216,19 @@ export function checkboxList<TValue, const TMessage = never>(options: CheckboxLi
       options: choiceItemsForRenderer(options.options),
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
-      ...(toMessage === undefined ? {} : { toMessage }),
+      ...(options.focused === undefined ? {} : { focused: options.focused }),
+      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
-    ...interactionProps(options)
+    ...(keyMap === undefined ? {} : { keyMap }),
+    ...interactionProps({ meta: options.meta })
   });
 }
 
 export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOptions<TValue, TMessage>): Element<TMessage> {
-  const toMessage = choiceHandler(options.onChange);
+  const keyMap = radioGroupKeyBindings(options);
   return elementFromRenderNode<'radioGroup', TMessage>({
     ...requiredId(options.id, 'radioGroup'),
     kind: 'radioGroup',
@@ -236,17 +236,19 @@ export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOp
       options: choiceItemsForRenderer(options.options),
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
-      ...(toMessage === undefined ? {} : { toMessage }),
+      ...(options.focused === undefined ? {} : { focused: options.focused }),
+      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
-    ...interactionProps(options)
+    ...(keyMap === undefined ? {} : { keyMap }),
+    ...interactionProps({ meta: options.meta })
   });
 }
 
 export function colorPicker<TValue, const TMessage = never>(options: ColorPickerOptions<TValue, TMessage>): Element<TMessage> {
-  const toMessage = colorSelectionHandler(options.onChange);
+  const keyMap = colorPickerKeyBindings(options);
   return elementFromRenderNode<'colorPicker', TMessage>({
     ...requiredId(options.id, 'colorPicker'),
     kind: 'colorPicker',
@@ -254,12 +256,14 @@ export function colorPicker<TValue, const TMessage = never>(options: ColorPicker
       options: colorOptionsForRenderer(options.options),
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.focused === undefined ? {} : { focused: options.focused }),
       ...(options.columns === undefined ? {} : { columns: options.columns }),
-      ...(toMessage === undefined ? {} : { toMessage }),
+      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
-    ...interactionProps(options)
+    ...(keyMap === undefined ? {} : { keyMap }),
+    ...interactionProps({ meta: options.meta })
   });
 }
 
@@ -298,7 +302,7 @@ export function datePicker(options: DatePickerOptions<unknown>): Element<unknown
 }
 
 export function selectBox<TValue, const TMessage = never>(options: SelectBoxOptions<TValue, TMessage>): Element<TMessage> {
-  const toMessage = choiceHandler(options.onChange);
+  const keyMap = selectBoxKeyBindings(options);
   return elementFromRenderNode<'selectBox', TMessage>({
     ...requiredId(options.id, 'selectBox'),
     kind: 'selectBox',
@@ -306,13 +310,15 @@ export function selectBox<TValue, const TMessage = never>(options: SelectBoxOpti
       options: choiceItemsForRenderer(options.options),
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.focused === undefined ? {} : { focused: options.focused }),
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
-      ...(toMessage === undefined ? {} : { toMessage }),
+      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
-    ...interactionProps(options)
+    ...(keyMap === undefined ? {} : { keyMap }),
+    ...interactionProps({ meta: options.meta })
   });
 }
 

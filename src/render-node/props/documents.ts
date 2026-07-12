@@ -10,6 +10,7 @@ import type { SearchEntry } from '../../components/contracts.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
 import type { ScrollEvent } from '../../behavior/scroll.ts';
 import type { AuthoredProps, ReplaceProps } from './shared.ts';
+import type { ActivityFeedAction } from '../../components/activity-feed.ts';
 
 export type ViewportRenderProps<TMessage> = ReplaceProps<
   AuthoredProps<ViewportOptions>,
@@ -19,7 +20,7 @@ export type ViewportRenderProps<TMessage> = ReplaceProps<
 
 export type ScrollbackRenderProps<TMessage> = ReplaceProps<
   AuthoredProps<ScrollbackOptions>,
-  'onScroll',
+  'onAction',
   { readonly toScrollMessage?: (event: ScrollEvent) => TMessage }
 >;
 
@@ -28,7 +29,7 @@ export type StructuredBlockRenderProps = AuthoredProps<StructuredBlockOptions>;
 export interface ActivityFeedRenderProps<TMessage> {
   readonly blocks: readonly StructuredBlock[];
   readonly selected?: number;
-  readonly toSelectMessage?: (index: number) => TMessage | undefined;
+  readonly toActionMessage?: (action: ActivityFeedAction) => TMessage;
 }
 
 export type CommandBarRenderProps<TMessage> = ReplaceProps<

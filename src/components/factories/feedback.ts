@@ -21,16 +21,14 @@ import {
   withMetaDefaults
 } from '../factory-internals/interaction.ts';
 import { optionalId, requiredId } from '../factory-internals/render-node.ts';
-import {
-  heatmapRowsForRenderer,
-  heatmapSelectionHandler
-} from '../factory-internals/domain.ts';
+import { heatmapRowsForRenderer } from '../factory-internals/domain.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
   InferredComponentKeyBindings
 } from '../factory-internals/messages.ts';
 import type { NotificationStackAction } from '../notification-stack.ts';
+import type { ChartAction, HeatmapAction } from '../visualization.ts';
 
 export function notificationStack<
   const TActionMessage = never,
@@ -175,6 +173,21 @@ export function barChart(options: BarChartOptions): Element {
 }
 
 export function chart<const TMessage = never>(options: ChartOptions<TMessage>): Element<TMessage> {
+  const onAction = options.onAction;
+  const selected = options.selected;
+  const generated = onAction === undefined ? undefined : {
+    arrowLeft: () => onAction({ kind: 'movePoint', delta: -1 }),
+    arrowRight: () => onAction({ kind: 'movePoint', delta: 1 }),
+    arrowUp: () => onAction({ kind: 'moveSeries', delta: -1 }),
+    arrowDown: () => onAction({ kind: 'moveSeries', delta: 1 }),
+    pageUp: () => onAction({ kind: 'pagePoints', delta: -1 }),
+    pageDown: () => onAction({ kind: 'pagePoints', delta: 1 }),
+    home: () => onAction({ kind: 'firstPoint' }),
+    end: () => onAction({ kind: 'lastPoint' }),
+    enter: () => selected === undefined
+      ? undefined
+      : onAction({ kind: 'select', series: selected.series, point: selected.point })
+  } satisfies import('../options/base.ts').ComponentKeyBindings<TMessage>;
   return elementFromRenderNode<'chart', TMessage>({
     ...requiredId(options.id, 'chart'),
     kind: 'chart',
@@ -195,9 +208,11 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
       ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
       ...(options.errorText === undefined ? {} : { errorText: options.errorText }),
-      ...(options.onSelect === undefined ? {} : { toMessage: options.onSelect })
+      ...(onAction === undefined ? {} : {
+        toActionMessage: (action: ChartAction) => onAction(action)
+      })
     },
-    ...interactionProps(options)
+    ...interactionProps({ ...options, keys: mergeKeyBindings(generated, options.keys) })
   });
 }
 
@@ -219,7 +234,21 @@ export function gauge(options: GaugeOptions): Element {
 }
 
 export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<TValue, TMessage>): Element<TMessage> {
-  const toMessage = heatmapSelectionHandler(options.onSelect);
+  const onAction = options.onAction;
+  const selected = options.selected;
+  const generated = onAction === undefined ? undefined : {
+    arrowUp: () => onAction({ kind: 'move', rows: -1, columns: 0 }),
+    arrowDown: () => onAction({ kind: 'move', rows: 1, columns: 0 }),
+    arrowLeft: () => onAction({ kind: 'move', rows: 0, columns: -1 }),
+    arrowRight: () => onAction({ kind: 'move', rows: 0, columns: 1 }),
+    pageUp: () => onAction({ kind: 'pageRows', delta: -1 }),
+    pageDown: () => onAction({ kind: 'pageRows', delta: 1 }),
+    home: () => onAction({ kind: 'first' }),
+    end: () => onAction({ kind: 'last' }),
+    enter: () => selected === undefined
+      ? undefined
+      : onAction({ kind: 'select', row: selected.row, column: selected.column })
+  } satisfies import('../options/base.ts').ComponentKeyBindings<TMessage>;
   return elementFromRenderNode<'heatmap', TMessage>({
     ...requiredId(options.id, 'heatmap'),
     kind: 'heatmap',
@@ -235,9 +264,11 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
       ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
       ...(options.errorText === undefined ? {} : { errorText: options.errorText }),
-      ...(toMessage === undefined ? {} : { toMessage })
+      ...(onAction === undefined ? {} : {
+        toActionMessage: (action: HeatmapAction) => onAction(action)
+      })
     },
-    ...interactionProps(options)
+    ...interactionProps({ ...options, keys: mergeKeyBindings(generated, options.keys) })
   });
 }
 

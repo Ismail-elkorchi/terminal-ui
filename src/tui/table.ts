@@ -7,8 +7,8 @@ import { mergeStyles, resolveRenderNodeStyle, themeStyle } from './render-node-s
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type {
-  TableCellRenderInput, TableColumn, TableColumnAlignment, TableColumnSemantic, TableColumnWidth, TableDensity } from '../components/options/content.ts';
-import type { TableAction } from '../components/table.ts';
+  TableCellRenderInput, TableColumnAlignment, TableColumnSemantic, TableColumnWidth, TableDensity } from '../components/options/content.ts';
+import type { TableAction, TableSortDirection, TableSortState } from '../components/table.ts';
 import type { Rect } from './layout.ts';
 import { clipRenderSpans } from './render-primitives.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './render-primitives.ts';
@@ -26,7 +26,7 @@ interface NormalizedColumn {
   readonly headerStyle?: TerminalStyle;
   readonly render?: (input: TableCellRenderInput) => string | RenderSpan | readonly RenderSpan[];
   readonly value: (row: unknown, rowIndex: number) => unknown;
-  readonly sort?: TableColumn['sort'];
+  readonly sort?: TableSortDirection;
   readonly resizable?: boolean;
 }
 
@@ -563,14 +563,21 @@ function tableRows(widget: TableNode): readonly unknown[] {
 function tableColumns(widget: TableNode, rows: readonly unknown[]): readonly NormalizedColumn[] {
   const raw = widget.props.columns;
   const configured = Array.isArray(raw) ? raw.flatMap((column, index) => normalizeColumn(column, index)) : [];
-  if (configured.length > 0) return configured;
-  const count = rows.reduce<number>((max, row) => Math.max(max, rowCells(row).length), 0);
-  return Array.from({ length: count }, (_value, index) => ({
+  const columns = configured.length > 0 ? configured : Array.from({
+    length: rows.reduce<number>((max, row) => Math.max(max, rowCells(row).length), 0)
+  }, (_value, index): NormalizedColumn => ({
     id: `column-${String(index)}`,
     index,
     align: 'start',
     semantic: 'text',
     value: (row: unknown) => rowCells(row)[index]
+  }));
+  const sort = tableSort(widget.props.sort);
+  const widths = tableColumnWidthOverrides(widget.props.columnWidths);
+  return columns.map((column) => ({
+    ...column,
+    ...(widths[column.id] === undefined ? {} : { width: widths[column.id] }),
+    ...(sort?.column === column.id ? { sort: sort.direction } : {})
   }));
 }
 
@@ -589,7 +596,6 @@ function normalizeColumn(column: unknown, index: number): readonly NormalizedCol
   const style = column['style'];
   const headerStyle = column['headerStyle'];
   const render = column['render'];
-  const sort = column['sort'];
   const width = normalizeWidth(column['width']);
   const normalizedAlign: TableColumnAlignment = align === 'center' || align === 'end' ? align : 'start';
   const semantic = normalizeColumnSemantic(column['semantic'], normalizedAlign);
@@ -604,9 +610,26 @@ function normalizeColumn(column: unknown, index: number): readonly NormalizedCol
     ...(isTerminalStyle(style) ? { style } : {}),
     ...(isTerminalStyle(headerStyle) ? { headerStyle } : {}),
     ...(isCellRenderer(render) ? { render } : {}),
-    ...(sort === 'ascending' || sort === 'descending' ? { sort } : {}),
     ...(column['resizable'] === true ? { resizable: true } : {})
   }];
+}
+
+function tableSort(value: unknown): TableSortState | undefined {
+  if (!isRecord(value)) return undefined;
+  const column = value['column'];
+  const direction = value['direction'];
+  return typeof column === 'string' && (direction === 'ascending' || direction === 'descending')
+    ? { column, direction }
+    : undefined;
+}
+
+function tableColumnWidthOverrides(value: unknown): Readonly<Record<string, number>> {
+  if (!isRecord(value)) return {};
+  return Object.fromEntries(Object.entries(value).flatMap(([id, width]) =>
+    typeof width === 'number' && Number.isFinite(width)
+      ? [[id, Math.max(1, Math.floor(width))] as const]
+      : []
+  ));
 }
 
 function tableSpacing(widget: TableNode): TableSpacing {
@@ -670,7 +693,7 @@ function tableActionMessageFactory<TMessage>(widget: TableNode<TMessage>): ((act
   return widget.props.toActionMessage;
 }
 
-function sortMarker(sort: TableColumn['sort']): string {
+function sortMarker(sort: TableSortDirection | undefined): string {
   if (sort === 'ascending') return ' ↑';
   if (sort === 'descending') return ' ↓';
   return '';

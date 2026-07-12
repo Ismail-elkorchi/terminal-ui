@@ -49,7 +49,7 @@ a message function that receives the normalized pointer event. The runtime
 routes input to the topmost matching target after each committed render.
 
 Hit targets are renderer metadata. Normal application code should use
-component event props such as `onPress`, `onSelect`, `onScroll`, and
+component event props such as `onPress`, `onAction`, `onScroll`, and
 `onTextPointer`.
 
 ## Evidence To Test

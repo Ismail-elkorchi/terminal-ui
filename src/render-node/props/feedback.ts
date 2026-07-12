@@ -2,9 +2,7 @@ import type {
   ActivityIndicatorOptions,
   BarChartOptions,
   ChartOptions,
-  ChartPointEvent,
   GaugeOptions,
-  HeatmapCell,
   HeatmapOptions,
   HelpBarOptions,
   NotificationItem,
@@ -16,6 +14,7 @@ import type {
 } from '../../components/options/feedback.ts';
 import type { AuthoredProps, ReplaceProps } from './shared.ts';
 import type { NotificationStackAction } from '../../components/notification-stack.ts';
+import type { ChartAction, HeatmapAction } from '../../components/visualization.ts';
 
 export interface NotificationStackRenderProps<TMessage> {
   readonly items: readonly NotificationItem[];
@@ -33,16 +32,16 @@ export type SparklineRenderProps = AuthoredProps<SparklineOptions>;
 export type BarChartRenderProps = AuthoredProps<BarChartOptions>;
 export type ChartRenderProps<TMessage> = ReplaceProps<
   AuthoredProps<ChartOptions>,
-  'onSelect',
-  { readonly toMessage?: (point: ChartPointEvent) => TMessage }
+  'onAction',
+  { readonly toActionMessage?: (action: ChartAction) => TMessage }
 >;
 export type GaugeRenderProps = AuthoredProps<GaugeOptions>;
 
 export interface HeatmapRenderProps<TMessage> extends Omit<
   AuthoredProps<HeatmapOptions>,
-  'onSelect'
+  'onAction'
 > {
-  readonly toMessage?: (cell: HeatmapCell, row: number, column: number) => TMessage;
+  readonly toActionMessage?: (action: HeatmapAction) => TMessage;
 }
 
 export type SpinnerRenderProps = AuthoredProps<SpinnerOptions>;

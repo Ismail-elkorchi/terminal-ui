@@ -5,7 +5,7 @@ import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../behavior/scro
 import type { ScrollbarOptions } from '../../tui/scrollbar.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
 import type { ListAction } from '../list.ts';
-import type { TableAction } from '../table.ts';
+import type { TableAction, TableSortState } from '../table.ts';
 import type { TreeAction, TreeNode } from '../tree.ts';
 import type { PaginatorAction } from '../paginator.ts';
 import type { ComponentKeyBindings, ComponentOptions, InteractiveComponentOptions, TextRole } from './base.ts';
@@ -44,6 +44,8 @@ export interface TableOptions<TRow, TMessage = never> extends InteractiveCompone
   readonly columns?: readonly TableColumn<TRow>[];
   readonly selected?: number;
   readonly selectedCell?: TableCellSelection;
+  readonly sort?: TableSortState;
+  readonly columnWidths?: Readonly<Record<string, number>>;
   readonly density?: TableDensity;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
@@ -56,7 +58,6 @@ export interface TableOptions<TRow, TMessage = never> extends InteractiveCompone
 
 export type TableColumnWidth = number | LayoutSize;
 export type TableColumnAlignment = 'start' | 'center' | 'end';
-export type TableSortDirection = 'ascending' | 'descending';
 export type TableDensity = 'normal' | 'dense';
 export type TableColumnSemantic = 'text' | 'metric' | 'metadata';
 
@@ -79,7 +80,6 @@ export interface TableColumn<TRow = unknown> {
   readonly style?: TerminalStyle;
   readonly headerStyle?: TerminalStyle;
   readonly render?: (input: TableCellRenderInput<TRow>) => string | RenderSpan | readonly RenderSpan[];
-  readonly sort?: TableSortDirection;
 }
 
 export interface TableCellSelection {

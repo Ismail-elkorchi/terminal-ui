@@ -41,18 +41,6 @@ export function sanitizeOption(value: unknown): readonly ChoiceItem<unknown>[] {
   }];
 }
 
-export function optionMessageFactory<TMessage>(
-  widget: ChoiceNode<TMessage>
-): ((option: ChoiceItem<unknown>) => TMessage) | undefined {
-  return widget.props.toMessage;
-}
-
-export function checkboxListMessageFactory<TMessage>(
-  widget: CheckboxListNode<TMessage>
-): ((option: ChoiceItem<unknown>, checked: boolean) => TMessage) | undefined {
-  return widget.props.toMessage;
-}
-
 export function optionStyle(
   option: ChoiceItem<unknown>,
   widget: OptionStateNode
@@ -62,10 +50,19 @@ export function optionStyle(
   }
   return resolveRenderNodeStyle(widget, {
     part: 'option',
-    ...(option.id === selectedId(widget) ? { state: 'selected' } : {})
+    ...(option.id === focusedId(widget)
+      ? { state: 'focused' }
+      : option.id === selectedId(widget)
+        ? { state: 'selected' }
+        : {})
   });
 }
 
 export function selectedIds(widget: CheckboxListNode): ReadonlySet<string> {
   return new Set(widget.props.selected?.map(clean) ?? []);
+}
+
+export function focusedId(widget: OptionStateNode): string | undefined {
+  const focused = widget.props.focused;
+  return typeof focused === 'string' ? clean(focused) : undefined;
 }

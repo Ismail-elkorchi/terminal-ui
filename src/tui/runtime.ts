@@ -132,7 +132,10 @@ export function createTuiRuntime<TState, TMessage>(
       return new Promise((resolve) => changeWaiters.push(resolve));
     },
     async dispose() {
-      await disposeSubscriptions();
+      subscriptions.cancel();
+      effects.cancel();
+      await dispatchQueue.drain();
+      await subscriptions.dispose();
       await effects.dispose();
       disposed = true;
     },
@@ -187,8 +190,8 @@ export function createTuiRuntime<TState, TMessage>(
     }
     if (terminalExit === undefined) await subscriptions.reconcile(ensureState());
     if (terminalExit !== undefined) {
-      await disposeSubscriptions();
-      await effects.dispose();
+      subscriptions.cancel();
+      effects.cancel();
     }
     const exitChanged = terminalExit !== previousExit;
     if (stateVersion === previousStateVersion) {
@@ -225,10 +228,6 @@ export function createTuiRuntime<TState, TMessage>(
 
   async function createRuntimeContext(): Promise<TuiContext> {
     return createTuiContext(options.host, runtimeDiagnostics);
-  }
-
-  async function disposeSubscriptions(): Promise<void> {
-    await subscriptions.dispose();
   }
 
   function reportDiagnostic(item: TerminalDiagnostic): void {

@@ -14,6 +14,8 @@ import type {
 } from '../contracts.ts';
 import type { CommandBarAction } from '../command-bar.ts';
 import type { PaletteAction } from '../palette.ts';
+import type { ActivityFeedAction } from '../activity-feed.ts';
+import type { ScrollbackAction } from '../scrollback.ts';
 import type { ComponentKeyBindings, ComponentOptions, InteractiveComponentOptions } from './base.ts';
 import type {
   CommandBarStylePart,
@@ -36,7 +38,7 @@ export interface ScrollbackOptions<TMessage = never> extends InteractiveComponen
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onScroll?: (event: ScrollEvent) => TMessage;
+  readonly onAction?: (action: ScrollbackAction) => TMessage;
   readonly wrap?: boolean;
   readonly searchQuery?: string;
   readonly selectedRange?: TextSelection;
@@ -67,7 +69,7 @@ export interface StructuredBlockOptions extends ComponentOptions<DocumentStylePa
 export interface ActivityFeedOptions<TMessage = never> extends InteractiveComponentOptions<DocumentStylePart> {
   readonly blocks: readonly StructuredBlock[];
   readonly selected?: number;
-  readonly onSelect?: (block: StructuredBlock, index: number) => TMessage;
+  readonly onAction?: (action: ActivityFeedAction) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 

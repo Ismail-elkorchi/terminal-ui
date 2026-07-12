@@ -38,30 +38,10 @@ export function choiceItemsForRenderer<TValue>(items: readonly ChoiceItem<TValue
   return items;
 }
 
-export function choiceHandler<TValue, TMessage>(
-  handler: ((option: ChoiceItem<TValue>) => TMessage) | undefined
-): ((option: ChoiceItem<unknown>) => TMessage) | undefined {
-  return handler === undefined ? undefined : (option) => handler(option as ChoiceItem<TValue>);
-}
-
-export function checkboxChoiceHandler<TValue, TMessage>(
-  handler: ((option: ChoiceItem<TValue>, checked: boolean) => TMessage) | undefined
-): ((option: ChoiceItem<unknown>, checked: boolean) => TMessage) | undefined {
-  return handler === undefined
-    ? undefined
-    : (option, checked) => handler(option as ChoiceItem<TValue>, checked);
-}
-
 export function colorOptionsForRenderer<TValue>(
   options: readonly ColorPickerOption<TValue>[]
 ): readonly ColorPickerOption<unknown>[] {
   return options;
-}
-
-export function colorSelectionHandler<TValue, TMessage>(
-  handler: ((option: ColorPickerOption<TValue>) => TMessage) | undefined
-): ((option: ColorPickerOption<unknown>) => TMessage) | undefined {
-  return handler === undefined ? undefined : (option) => handler(option as ColorPickerOption<TValue>);
 }
 
 export function searchEntriesForRenderer<TValue>(entries: readonly SearchEntry<TValue>[]): readonly SearchEntry<unknown>[] {
@@ -78,12 +58,4 @@ export function heatmapRowsForRenderer<TValue>(
   rows: readonly (readonly HeatmapCell<TValue>[])[]
 ): readonly (readonly HeatmapCell[])[] {
   return rows;
-}
-
-export function heatmapSelectionHandler<TValue, TMessage>(
-  handler: ((cell: HeatmapCell<TValue>, row: number, column: number) => TMessage) | undefined
-): ((cell: HeatmapCell, row: number, column: number) => TMessage) | undefined {
-  return handler === undefined
-    ? undefined
-    : (cell, row, column) => handler(cell as HeatmapCell<TValue>, row, column);
 }

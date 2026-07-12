@@ -57,7 +57,7 @@ const disabledWidgetCases = [
       label: 'Window',
       start: 2,
       end: 8,
-      onChange: () => message,
+      onAction: () => message,
       disabled: true
     })
   },
@@ -67,7 +67,7 @@ const disabledWidgetCases = [
       id: 'disabled-checkbox-list',
       label: 'Channels',
       options: formOptions,
-      onChange: () => message,
+      onAction: () => message,
       disabled: true
     })
   },
@@ -77,7 +77,7 @@ const disabledWidgetCases = [
       id: 'disabled-radio',
       label: 'Tier',
       options: formOptions,
-      onChange: () => message,
+      onAction: () => message,
       disabled: true
     })
   },
@@ -87,7 +87,7 @@ const disabledWidgetCases = [
       id: 'disabled-select',
       label: 'Tier',
       options: formOptions,
-      onChange: () => message,
+      onAction: () => message,
       disabled: true
     })
   },

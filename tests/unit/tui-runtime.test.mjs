@@ -95,9 +95,10 @@ test('TUI tabs expose clickable tab hit targets', async () => {
       id: 'click-tabs',
       selected: state.selected,
       tabs: [
-        { id: 'left', label: 'Left', onSelect: { selected: 'left' }, panel: text('left panel') },
-        { id: 'right', label: 'Right', onSelect: { selected: 'right' }, panel: text('right panel') }
-      ]
+        { id: 'left', label: 'Left', panel: text('left panel') },
+        { id: 'right', label: 'Right', panel: text('right panel') }
+      ],
+      onAction: (action) => action.kind === 'select' ? { selected: action.id } : { selected: state.selected }
     })
   });
   const host = createMemoryTerminalHost({ viewport: { columns: 32, rows: 4 } });
@@ -959,6 +960,86 @@ test('TUI effects do not block later input or external dispatches', async () => 
   assert.deepEqual(runtime.getState(), { count: 1, phase: 'done' });
 });
 
+test('TUI effects may dispatch terminal exit without deadlocking disposal', async () => {
+  const app = defineTui({
+    id: 'effect-exit',
+    init: () => ({ phase: 'idle' }),
+    update: (state, message) => {
+      if (message.kind === 'start') {
+        return {
+          state: { phase: 'running' },
+          effects: [{
+            id: 'complete-run',
+            concurrency: 'parallel',
+            async run() {
+              return { kind: 'finish' };
+            }
+          }]
+        };
+      }
+      if (message.kind === 'finish') {
+        return { state: { phase: 'done' }, exit: { reason: 'effect completed' } };
+      }
+      return { state };
+    },
+    view: (state) => text(state.phase, { id: 'effect-exit-state' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.dispatch({ kind: 'start' });
+  await waitUntil(() => runtime.exit() !== undefined);
+  await Promise.race([
+    runtime.dispose(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('effect disposal timed out')), 250))
+  ]);
+
+  assert.equal(runtime.exit()?.status, 'completed');
+  assert.equal(runtime.exit()?.reason, 'effect completed');
+});
+
+test('TUI subscriptions may dispatch terminal exit without deadlocking disposal', async () => {
+  let sourceCompleted;
+  const sourceCompletion = new Promise((resolve) => {
+    sourceCompleted = resolve;
+  });
+  const app = defineTui({
+    id: 'subscription-exit',
+    init: () => ({ phase: 'waiting' }),
+    update: (_state, message) => message.kind === 'finish'
+      ? { state: { phase: 'done' }, exit: { reason: 'subscription completed' } }
+      : { state: { phase: 'waiting' } },
+    subscriptions: () => [{
+      id: 'exit-source',
+      delivery: 'sequential',
+      async *messages() {
+        try {
+          yield { kind: 'finish' };
+        } finally {
+          sourceCompleted();
+        }
+      },
+      async dispose() {
+        await sourceCompletion;
+      }
+    }],
+    view: (state) => text(state.phase, { id: 'subscription-exit-state' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await waitUntil(() => runtime.exit() !== undefined);
+  await Promise.race([
+    runtime.dispose(),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('subscription disposal timed out')), 250))
+  ]);
+
+  assert.equal(runtime.exit()?.status, 'completed');
+  assert.equal(runtime.exit()?.reason, 'subscription completed');
+});
+
 test('TUI runtime records external dispatch messages in transcripts', async () => {
   const transcript = createTranscriptRecorder({ id: 'external-message-transcript', source: 'tui' });
   const app = defineTui({
@@ -1734,9 +1815,10 @@ test('TUI runtime focuses top-layer context menus and open dropdowns', async () 
     title: 'Actions',
     selected: 'copy',
     items: [
-        { id: 'copy', label: 'Copy', onPress: { active: 'context-menu' } },
-        { id: 'paste', label: 'Paste', onPress: { active: 'paste' } }
+        { id: 'copy', label: 'Copy' },
+        { id: 'paste', label: 'Paste' }
     ],
+    onAction: (action) => ({ active: action.kind === 'activate' && action.id === 'copy' ? 'context-menu' : action.kind }),
     meta: {
         layer: {
             zIndex: 10
@@ -1771,9 +1853,10 @@ test('TUI runtime focuses top-layer context menus and open dropdowns', async () 
     selected: 'dark',
     open: true,
     items: [
-        { id: 'light', label: 'Light', onPress: { active: 'light' } },
-        { id: 'dark', label: 'Dark', onPress: { active: 'dropdown' } }
+        { id: 'light', label: 'Light' },
+        { id: 'dark', label: 'Dark' }
     ],
+    onAction: (action) => ({ active: action.kind === 'activate' && action.id === 'dark' ? 'dropdown' : action.kind }),
     meta: {
         layer: {
             zIndex: 10
@@ -2991,8 +3074,7 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
 test('TUI routed context menu scroll events use fixed title chrome and shared scroll policy', async () => {
   const items = Array.from({ length: 8 }, (_value, index) => ({
     id: `item-${String(index + 1)}`,
-    label: `Item ${String(index + 1)}`,
-    onPress: { kind: 'select', index }
+    label: `Item ${String(index + 1)}`
   }));
   const app = defineTui({
     id: 'context-menu-scroll-pointer-tui',
@@ -3002,8 +3084,8 @@ test('TUI routed context menu scroll events use fixed title chrome and shared sc
     }),
     update: (state, message) => ({
       state: {
-        scroll: applyScrollEvent(state.scroll, message.event),
-        event: message.event
+        scroll: message.action.kind === 'scroll' ? applyScrollEvent(state.scroll, message.action.event) : state.scroll,
+        event: message.action.kind === 'scroll' ? message.action.event : state.event
       }
     }),
     view: (state) => contextMenu({
@@ -3013,7 +3095,7 @@ test('TUI routed context menu scroll events use fixed title chrome and shared sc
       scroll: state.scroll,
       scrollbar: { visible: 'always' },
       scrollPolicy: { wheel: { rows: 2 } },
-      onScroll: (event) => ({ event })
+      onAction: (action) => ({ action })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });

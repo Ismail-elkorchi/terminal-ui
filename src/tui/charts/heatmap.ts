@@ -119,7 +119,7 @@ export function heatmapHitTargets<TMessage>(widget: HeatmapNode<TMessage>, bound
           width: Math.min(cellWidth, bounds.column + bounds.width - column),
           height: 1
         },
-        message: () => toMessage(cell, rowIndex, columnIndex),
+        message: () => toMessage({ kind: 'select', row: rowIndex, column: columnIndex }),
         cursor: 'pointer'
       }];
     });

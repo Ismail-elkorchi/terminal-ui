@@ -295,13 +295,14 @@ function topChrome(state) {
     menuBar({
       id: 'ide-menu',
       items: [
-        { id: 'open-root', label: 'Open Cwd', onPress: { kind: 'menu', action: 'openCwd' } },
-        { id: 'save', label: 'Save', disabled: active === undefined || active.dirty !== true, onPress: { kind: 'saveActive', source: 'menu' } },
-        { id: 'close', label: 'Close', disabled: active === undefined, onPress: { kind: 'closeActive' } },
-        { id: 'palette', label: 'Palette', onPress: { kind: 'openPalette', source: 'menu' } },
-        { id: 'quit', label: 'Quit', onPress: { kind: 'exit' } }
+        { id: 'open-root', label: 'Open Cwd' },
+        { id: 'save', label: 'Save', disabled: active === undefined || active.dirty !== true },
+        { id: 'close', label: 'Close', disabled: active === undefined },
+        { id: 'palette', label: 'Palette' },
+        { id: 'quit', label: 'Quit' }
       ],
-      selected: 'save'
+      selected: 'save',
+      onAction: ideMenuMessage
     }),
     statusBar({
       id: 'ide-status',
@@ -382,16 +383,24 @@ function editorWorkspace(state) {
       id: buffer.path,
       label: buffer.label,
       ...(buffer.dirty ? { badge: '*' } : {}),
-      onClose: { kind: 'closeBuffer', path: buffer.path },
+      closable: true,
       description: buffer.path,
-      onSelect: { kind: 'setActiveBuffer', path: buffer.path, source: 'tab' },
       panel: editorPanel(state, buffer)
     })),
+    onAction: (action) => ideTabActionMessage(state, action),
     keys: {
       arrowLeft: () => ({ kind: 'setActiveBuffer', path: adjacentBufferPath(state, -1), source: 'keyboard' }),
       arrowRight: () => ({ kind: 'setActiveBuffer', path: adjacentBufferPath(state, 1), source: 'keyboard' })
     }
   });
+}
+
+function ideTabActionMessage(state, action) {
+  if (action.kind === 'close') return { kind: 'closeBuffer', path: action.id };
+  if (action.kind === 'select') return { kind: 'setActiveBuffer', path: action.id, source: 'tab' };
+  if (action.kind === 'first') return { kind: 'setActiveBuffer', path: state.openOrder[0], source: 'keyboard' };
+  if (action.kind === 'last') return { kind: 'setActiveBuffer', path: state.openOrder.at(-1), source: 'keyboard' };
+  return { kind: 'setActiveBuffer', path: adjacentBufferPath(state, action.delta), source: 'keyboard' };
 }
 
 function welcomePanel(state) {
@@ -639,6 +648,18 @@ function handleMenu(state, action) {
   switch (action) {
     case 'openCwd':
       return openFolder(state, process.cwd(), 'menu');
+  }
+}
+
+function ideMenuMessage(action) {
+  if (action.kind !== 'activate') return undefined;
+  switch (action.id) {
+    case 'open-root': return { kind: 'menu', action: 'openCwd' };
+    case 'save': return { kind: 'saveActive', source: 'menu' };
+    case 'close': return { kind: 'closeActive' };
+    case 'palette': return { kind: 'openPalette', source: 'menu' };
+    case 'quit': return { kind: 'exit' };
+    default: return undefined;
   }
 }
 

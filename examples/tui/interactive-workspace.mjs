@@ -326,14 +326,15 @@ function mainSurface(state) {
     id: 'workspace-tabs',
     selected: state.tab,
     tabs: [
-      { id: 'issues', label: 'Issues', description: 'Ticket table', onSelect: { kind: 'setTab', tab: 'issues' }, panel: issueTablePanel(state) },
-      { id: 'activity', label: 'Activity', description: 'Scrollable log', onSelect: { kind: 'setTab', tab: 'activity' }, panel: activityPanel(state) },
-      { id: 'notes', label: 'Notes', description: 'Command guide', onSelect: { kind: 'setTab', tab: 'notes' }, panel: notesPanel(state) }
+      { id: 'issues', label: 'Issues', description: 'Ticket table', panel: issueTablePanel(state) },
+      { id: 'activity', label: 'Activity', description: 'Scrollable log', panel: activityPanel(state) },
+      { id: 'notes', label: 'Notes', description: 'Command guide', panel: notesPanel(state) }
     ],
-    keys: {
-      arrowLeft: () => ({ kind: 'setTab', tab: previousTab(state.tab) }),
-      arrowRight: () => ({ kind: 'setTab', tab: nextTab(state.tab) })
-    }
+    onAction: (action) => action.kind === 'select'
+      ? { kind: 'setTab', tab: action.id }
+      : action.kind === 'move'
+        ? { kind: 'setTab', tab: action.delta < 0 ? previousTab(state.tab) : nextTab(state.tab) }
+        : { kind: 'setTab', tab: state.tab }
   });
 }
 

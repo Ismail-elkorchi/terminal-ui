@@ -14,6 +14,7 @@ interface ActiveEffect {
 
 export interface TuiEffectManager<TMessage> {
   start(effects: readonly TuiEffect<TMessage>[]): void;
+  cancel(): void;
   dispose(): Promise<void>;
 }
 
@@ -95,11 +96,12 @@ export function createTuiEffectManager<TMessage>(
       if (disposed) return;
       for (const effect of effects) schedule(effect);
     },
+    cancel() {
+      cancelAll();
+    },
     async dispose() {
-      disposed = true;
-      queues.clear();
+      cancelAll();
       const completions = [...active].map((item) => {
-        item.controller.abort();
         return item.completion;
       });
       await Promise.allSettled(completions);
@@ -107,6 +109,12 @@ export function createTuiEffectManager<TMessage>(
       activeById.clear();
     }
   };
+
+  function cancelAll(): void {
+    disposed = true;
+    queues.clear();
+    for (const execution of active) execution.controller.abort();
+  }
 }
 
 async function runEffect<TMessage>(

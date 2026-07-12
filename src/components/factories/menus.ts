@@ -10,16 +10,32 @@ import type {
 } from '../options/menus.ts';
 import {
   componentMetaProps,
+  dropdownKeyBindings,
   interactionProps,
   menuItemsForRenderer,
   menuKeyBindings,
   withMetaDefaults
 } from '../factory-internals/interaction.ts';
 import { optionalId, requiredId } from '../factory-internals/render-node.ts';
+import type {
+  ComponentKeyBindingMessages,
+  IndependentInteractionOptions,
+  InferredComponentKeyBindings
+} from '../factory-internals/messages.ts';
 
-export function menu<const TMessage = never>(options: MenuOptions<TMessage>): Element<TMessage> {
-  const keyMap = menuKeyBindings(options.items, options.selected, options.keys);
-  return elementFromRenderNode<'menu', TMessage>({
+export function menu<
+  const TActionMessage = never,
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+>(options: IndependentInteractionOptions<
+  MenuOptions,
+  { readonly onAction: TActionMessage },
+  Record<never, never>,
+  TKeys
+>): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+export function menu(options: MenuOptions<unknown>): Element<unknown> {
+  const onAction = options.onAction;
+  const keyMap = menuKeyBindings(options.items, options.selected, onAction, options.keys);
+  return elementFromRenderNode<'menu', unknown>({
     ...requiredId(options.id, 'menu'),
     kind: 'menu',
     props: {
@@ -29,31 +45,54 @@ export function menu<const TMessage = never>(options: MenuOptions<TMessage>): El
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll })
+      ...(onAction === undefined ? {} : {
+        toScrollMessage: (event: import('../../behavior/scroll.ts').ScrollEvent) => onAction({ kind: 'scroll', event })
+      }),
+      ...(onAction === undefined ? {} : { toActionMessage: onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ meta: options.meta })
   });
 }
 
-export function menuBar<const TMessage = never>(options: MenuBarOptions<TMessage>): Element<TMessage> {
-  const keyMap = menuKeyBindings(options.items, options.selected, options.keys);
-  return elementFromRenderNode<'menuBar', TMessage>({
+export function menuBar<
+  const TActionMessage = never,
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+>(options: IndependentInteractionOptions<
+  MenuBarOptions,
+  { readonly onAction: TActionMessage },
+  Record<never, never>,
+  TKeys
+>): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+export function menuBar(options: MenuBarOptions<unknown>): Element<unknown> {
+  const keyMap = menuKeyBindings(options.items, options.selected, options.onAction, options.keys);
+  return elementFromRenderNode<'menuBar', unknown>({
     ...requiredId(options.id, 'menuBar'),
     kind: 'menuBar',
     props: {
       items: menuItemsForRenderer(options.items),
-      ...(options.selected === undefined ? {} : { selected: options.selected })
+      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ meta: options.meta })
   });
 }
 
-export function contextMenu<const TMessage = never>(options: ContextMenuOptions<TMessage>): Element<TMessage> {
-  const keyMap = menuKeyBindings(options.items, options.selected, options.keys);
+export function contextMenu<
+  const TActionMessage = never,
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+>(options: IndependentInteractionOptions<
+  ContextMenuOptions,
+  { readonly onAction: TActionMessage },
+  Record<never, never>,
+  TKeys
+>): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+export function contextMenu(options: ContextMenuOptions<unknown>): Element<unknown> {
+  const onAction = options.onAction;
+  const keyMap = menuKeyBindings(options.items, options.selected, onAction, options.keys);
   const meta = withMetaDefaults(options.meta, { layer: { opacity: 'opaque' } });
-  return elementFromRenderNode<'contextMenu', TMessage>({
+  return elementFromRenderNode<'contextMenu', unknown>({
     ...requiredId(options.id, 'contextMenu'),
     kind: 'contextMenu',
     props: {
@@ -64,27 +103,48 @@ export function contextMenu<const TMessage = never>(options: ContextMenuOptions<
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll })
+      ...(onAction === undefined ? {} : {
+        toScrollMessage: (event: import('../../behavior/scroll.ts').ScrollEvent) => onAction({ kind: 'scroll', event })
+      }),
+      ...(onAction === undefined ? {} : { toActionMessage: onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ meta })
   });
 }
 
-export function dropdown<const TMessage = never>(options: DropdownOptions<TMessage>): Element<TMessage> {
-  const keyMap = menuKeyBindings(options.items, options.selected, options.keys);
+export function dropdown<
+  const TActionMessage = never,
+  const TKeys extends InferredComponentKeyBindings | undefined = undefined
+>(options: IndependentInteractionOptions<
+  DropdownOptions,
+  { readonly onAction: TActionMessage },
+  Record<never, never>,
+  TKeys
+>): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+export function dropdown(options: DropdownOptions<unknown>): Element<unknown> {
+  const keyMap = dropdownKeyBindings(
+    options.items,
+    options.selected,
+    options.highlighted,
+    options.open === true,
+    options.onAction,
+    options.keys
+  );
   const meta = options.open === true
     ? withMetaDefaults(options.meta, { layer: { opacity: 'opaque' } })
     : options.meta;
-  return elementFromRenderNode<'dropdown', TMessage>({
+  return elementFromRenderNode<'dropdown', unknown>({
     ...requiredId(options.id, 'dropdown'),
     kind: 'dropdown',
     props: {
       items: menuItemsForRenderer(options.items),
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.highlighted === undefined ? {} : { highlighted: options.highlighted }),
       ...(options.open === undefined ? {} : { open: options.open }),
-      ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder })
+      ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
+      ...(options.onAction === undefined ? {} : { toDropdownActionMessage: options.onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ meta })

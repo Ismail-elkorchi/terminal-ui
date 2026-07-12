@@ -93,9 +93,9 @@ const themed = defineTheme({
 });
 
 const menuItems = [
-  { id: 'open', label: unsafe, onPress: { kind: 'open' }, shortcut: 'O' },
-  { id: 'save', label: 'Save', onPress: { kind: 'save' }, checked: true },
-  { id: 'disabled', label: 'Disabled', onPress: { kind: 'disabled' }, disabled: true }
+  { id: 'open', label: unsafe, shortcut: 'O' },
+  { id: 'save', label: 'Save', checked: true },
+  { id: 'disabled', label: 'Disabled', disabled: true }
 ];
 
 const optionItems = [
@@ -293,7 +293,7 @@ const cases = [
       label: unsafe,
       options: optionItems,
       selected: ['alpha'],
-      onChange: (option, checked) => ({ kind: 'checkboxList', value: option.value, checked })
+      onAction: (action) => ({ kind: 'checkboxList', action })
     }),
     expectText: /Beta/u,
     expectFocus: true,
@@ -306,7 +306,7 @@ const cases = [
       label: 'Mode',
       options: optionItems,
       selected: 'alpha',
-      onChange: (option) => ({ kind: 'radio', value: option.value })
+      onAction: (action) => ({ kind: 'radio', action })
     }),
     expectText: /Mode/u,
     expectFocus: true,
@@ -319,7 +319,7 @@ const cases = [
       label: 'Choice',
       options: optionItems,
       selected: 'alpha',
-      onChange: (option) => ({ kind: 'select', value: option.value })
+      onAction: (action) => ({ kind: 'select', action })
     }),
     expectText: /Choice/u,
     expectFocus: true,
@@ -335,7 +335,7 @@ const cases = [
         { id: 'beta', label: 'Beta', value: 'beta', swatch: '◆' }
       ],
       selected: 'alpha',
-      onChange: (option) => ({ kind: 'color', value: option.value })
+      onAction: (action) => ({ kind: 'color', action })
     }),
     expectText: /Beta/u,
     expectFocus: true,
@@ -370,28 +370,28 @@ const cases = [
   },
   {
     name: 'menu',
-    element: () => menu({ id: 'menu', items: menuItems, selected: 'open' }),
+    element: () => menu({ id: 'menu', items: menuItems, selected: 'open', onAction: (action) => ({ kind: 'menu', action }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'menuBar',
-    element: () => menuBar({ id: 'menu-bar', items: menuItems, selected: 'open' }),
+    element: () => menuBar({ id: 'menu-bar', items: menuItems, selected: 'open', onAction: (action) => ({ kind: 'menu', action }) }),
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'contextMenu',
-    element: () => contextMenu({ id: 'context-menu', title: unsafe, items: menuItems, selected: 'save' }),
+    element: () => contextMenu({ id: 'context-menu', title: unsafe, items: menuItems, selected: 'save', onAction: (action) => ({ kind: 'menu', action }) }),
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'dropdown',
-    element: () => dropdown({ id: 'dropdown', label: unsafe, items: menuItems, selected: 'save', open: true }),
+    element: () => dropdown({ id: 'dropdown', label: unsafe, items: menuItems, selected: 'save', open: true, onAction: (action) => ({ kind: 'dropdown', action }) }),
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true
@@ -515,7 +515,7 @@ const cases = [
       ],
       selected: { row: 0, column: 1 },
       keys: { enter: () => ({ kind: 'heatmap-enter' }) },
-      onSelect: (cell, row, column) => ({ kind: 'heatmap', id: cell.id, row, column })
+      onAction: (action) => ({ kind: 'heatmap', action })
     }),
     expectText: /[░▒▓█◆]/u,
     expectFocus: true,

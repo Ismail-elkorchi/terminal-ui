@@ -190,7 +190,6 @@ test('root declaration exposes primary public type contracts', async () => {
     assert.match(componentElementDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);
   }
   for (const typeName of [
-    'ActionItem',
     'ChoiceItem',
     'ComponentStatus',
     'ComponentTone'

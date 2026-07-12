@@ -104,8 +104,8 @@ export function activityFeedHitTargets<TMessage>(
   bounds: Rect,
   theme: TerminalTheme
 ): readonly HitTarget<TMessage>[] {
-  const toSelectMessage = activityFeedSelectMessageFactory(widget);
-  if (toSelectMessage === undefined) return [];
+  const toActionMessage = activityFeedActionMessageFactory(widget);
+  if (toActionMessage === undefined) return [];
   const selected = selectedBlockIndex(widget, activityFeedBlocks(widget).length);
   const targets: HitTarget<TMessage>[] = [];
   let rowOffset = 0;
@@ -125,7 +125,7 @@ export function activityFeedHitTargets<TMessage>(
         height
       },
       accepts: ['click'],
-      message: () => toSelectMessage(index),
+      message: () => toActionMessage({ kind: 'select', index }),
       cursor: 'pointer'
     });
     rowOffset += height;
@@ -282,16 +282,10 @@ function activityFeedBlocks(widget: ActivityFeedNode): readonly StructuredBlock[
     : [];
 }
 
-function activityFeedSelectMessageFactory<TMessage>(
+function activityFeedActionMessageFactory<TMessage>(
   widget: ActivityFeedNode<TMessage>
-): ((index: number) => TMessage | undefined) | undefined {
-  const value = widget.props.toSelectMessage;
-  if (!isActivityFeedSelectMessageFactory(value)) return undefined;
-  return (index) => value(index);
-}
-
-function isActivityFeedSelectMessageFactory(value: unknown): value is (index: number) => unknown {
-  return typeof value === 'function';
+): ((action: import('../components/activity-feed.ts').ActivityFeedAction) => TMessage) | undefined {
+  return widget.props.toActionMessage;
 }
 
 function selectedBlockIndex(widget: ActivityFeedNode, length: number): number | undefined {

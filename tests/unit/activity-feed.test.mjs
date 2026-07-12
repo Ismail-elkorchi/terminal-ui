@@ -14,6 +14,7 @@ import {
   structuredBlock
 } from '../../dist/components/index.js';
 import {
+  activityFeedPresentation,
   activityFeedReducer,
   visibleActivityFeedBlocks
 } from '../../dist/behavior/index.js';
@@ -160,7 +161,7 @@ test('activityFeed exposes block hit targets and keyboard focus when interactive
     id: 'interactive-feed',
     blocks,
     selected: 1,
-    onSelect: (block, index) => ({ kind: 'select', id: block.id, index }),
+    onAction: (action) => ({ kind: 'activity', action }),
     keys: { arrowDown: () => ({ kind: 'next' }) }
   }), { columns: 36, rows: 10 });
   const frame = projection.frame;
@@ -173,9 +174,8 @@ test('activityFeed exposes block hit targets and keyboard focus when interactive
   ]);
   assert.deepEqual(frame.focusPath, ['interactive-feed']);
   assert.deepEqual(routedTargets[1]?.message({}), {
-    kind: 'select',
-    id: 'running',
-    index: 1
+    kind: 'activity',
+    action: { kind: 'select', index: 1 }
   });
 });
 
@@ -211,6 +211,21 @@ test('activityFeed renders caller-owned reducer expansion state', () => {
   assert.match(renderFramePlain(frame), /body from reducer/u);
   assert.equal(frame.cells.find((cell) => cell.source?.label === 'toggle.expanded' && cell.text === '-')?.text, '-');
   assert.equal(reducerBlocks[0]?.collapsed, true);
+});
+
+test('activityFeed toggle uses the block effective collapsed state', () => {
+  const collapsed = [{ id: 'collapsed', title: 'Collapsed', collapsed: true }];
+  const expanded = activityFeedReducer({
+    selected: 0,
+    expandedIds: [],
+    collapsedIds: []
+  }, { kind: 'toggleBlock' }, { blocks: collapsed });
+  const restored = activityFeedReducer(expanded, { kind: 'toggleBlock' }, { blocks: collapsed });
+
+  assert.deepEqual(expanded.expandedIds, ['collapsed']);
+  assert.deepEqual(expanded.collapsedIds, []);
+  assert.deepEqual(restored.expandedIds, []);
+  assert.deepEqual(restored.collapsedIds, ['collapsed']);
 });
 
 test('structuredBlock and activityFeed preserve document state in high contrast and no color output', () => {
@@ -277,6 +292,19 @@ function colorCapabilities() {
     }
   });
 }
+
+test('activityFeedPresentation maps filtered source indices to rendered selection', () => {
+  const projection = activityFeedPresentation(blocks, {
+    selected: 2,
+    expandedIds: [],
+    collapsedIds: [],
+    statusFilter: ['success']
+  });
+
+  assert.equal(projection.blocks.length, 1);
+  assert.equal(projection.blocks[0]?.id, 'done');
+  assert.equal(projection.selected, 0);
+});
 
 function noColorCapabilities() {
   return {

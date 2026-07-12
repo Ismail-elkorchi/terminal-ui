@@ -286,13 +286,14 @@ test('table supports scroll state column sizing styled renderers sort markers em
   const frame = renderElementFrame(table({
     id: 'table',
     selectedCell: { row: 2, column: 1 },
+    sort: { column: 'name-1', direction: 'ascending' },
     scroll: createScrollState({ offsetRow: 1, offsetColumn: 0, contentRows: 3, viewportRows: 2 }),
     stickyHeader: true,
     columns: [
       {
         id: 'hidden-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Hidden', hidden: true },
       {
-        id: 'name-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Name', width: { kind: 'content', max: 8 }, sort: 'ascending' },
+        id: 'name-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Name', width: { kind: 'content', max: 8 } },
       {
         id: 'score-2', value: (row) => Array.isArray(row) ? row[2] : undefined,
         header: 'Score',

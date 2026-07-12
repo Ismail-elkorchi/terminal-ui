@@ -43,19 +43,19 @@ const mouseRelease = (row, column) => ({
 });
 
 const items = [
-  { id: 'new', label: 'New', onPress: { kind: 'new' }, description: 'Create item', shortcut: 'N' },
+  { id: 'new', label: 'New', description: 'Create item', shortcut: 'N' },
   {
     id: 'open',
     label: 'Open',
     expanded: true,
     children: [
-      { id: 'recent', label: 'Recent', onPress: { kind: 'recent' } },
-      { id: 'disabled-recent', label: 'Disabled Recent', disabled: true, onPress: { kind: 'disabled' } }
+      { id: 'recent', label: 'Recent' },
+      { id: 'disabled-recent', label: 'Disabled Recent', disabled: true }
     ]
   },
-  { id: 'autosave', label: 'Autosave', checked: true, onPress: { kind: 'autosave' } },
-  { id: 'delete', label: 'Delete', tone: 'destructive', onPress: { kind: 'delete' } },
-  { id: 'disabled', label: 'Disabled', disabled: true, onPress: { kind: 'disabled' } }
+  { id: 'autosave', label: 'Autosave', checked: true },
+  { id: 'delete', label: 'Delete', tone: 'destructive' },
+  { id: 'disabled', label: 'Disabled', disabled: true }
 ];
 
 test('menu renders nested checked disabled items with menu accessibility', () => {
@@ -86,8 +86,8 @@ test('menuBar contextMenu and dropdown render reusable menu surfaces', () => {
     menuBar({
       id: 'main-menu',
       items: [
-        { id: 'file', label: 'File', onPress: { kind: 'file' } },
-        { id: 'edit', label: 'Edit', onPress: { kind: 'edit' }, disabled: true }
+        { id: 'file', label: 'File' },
+        { id: 'edit', label: 'Edit', disabled: true }
       ],
       selected: 'file'
     }),
@@ -103,8 +103,8 @@ test('menuBar contextMenu and dropdown render reusable menu surfaces', () => {
       selected: 'dark',
       open: true,
       items: [
-        { id: 'light', label: 'Light', onPress: { kind: 'theme', value: 'light' } },
-        { id: 'dark', label: 'Dark', onPress: { kind: 'theme', value: 'dark' } }
+        { id: 'light', label: 'Light' },
+        { id: 'dark', label: 'Dark' }
       ]
     })
   ]);
@@ -129,18 +129,20 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
   const app = defineTui({
     id: 'menu-flow',
     init: () => ({ action: 'idle' }),
-    update: (_state, message) => ({ state: { action: message.kind } }),
+    update: (_state, message) => ({ state: { action: message.id ?? message.kind } }),
     view: (state) => stack([
       menu({
         id: 'actions',
         items,
-        selected: state.action === 'recent' ? 'autosave' : 'recent'
+        selected: state.action === 'recent' ? 'autosave' : 'recent',
+        onAction: (action) => action
       }),
       menuBar({
         id: 'bar',
         items: [
-          { id: 'help', label: 'Help', onPress: { kind: 'help' } }
-        ]
+          { id: 'help', label: 'Help' }
+        ],
+        onAction: (action) => action
       })
     ])
   });

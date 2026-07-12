@@ -68,27 +68,21 @@ test('interactive identity, passive inputs, and component anatomy are enforced b
 test('item domains share only valid foundations', () => {
   const diagnostics = typecheckSource(`
     import type {
-      ActionItem,
       ChoiceItem,
-      NavigationItem,
+      MenuItem,
       SearchEntry,
       SuggestionItem,
       TreeNode
     } from '@ismail-elkorchi/terminal-ui/components';
 
     const choice: ChoiceItem<number> = { id: 'one', label: 'One', value: 1 };
-    const action: ActionItem<{ readonly kind: 'open' }> = {
-      id: 'open', label: 'Open', onPress: { kind: 'open' }
-    };
-    const navigation: NavigationItem<{ readonly kind: 'select' }> = {
-      id: 'home', label: 'Home', onSelect: { kind: 'select' }
-    };
+    const action: MenuItem = { id: 'open', label: 'Open' };
     const suggestion: SuggestionItem = { value: '/open', label: 'Open' };
     const search: SearchEntry<number> = {
       id: 'file', label: 'File', value: 1, keywords: ['open']
     };
     const tree: TreeNode = { id: 'src', label: 'src', expanded: true, children: [] };
-    void [choice, action, navigation, suggestion, search, tree];
+    void [choice, action, suggestion, search, tree];
 
     // @ts-expect-error action items do not become values implicitly
     const invalidChoice: ChoiceItem<number> = action;

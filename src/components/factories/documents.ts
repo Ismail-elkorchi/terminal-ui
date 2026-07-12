@@ -26,6 +26,7 @@ import type {
 } from '../factory-internals/messages.ts';
 
 export function scrollback<const TMessage = never>(options: ScrollbackOptions<TMessage>): Element<TMessage> {
+  const onAction = options.onAction;
   return elementFromRenderNode<'scrollback', TMessage>({
     ...requiredId(options.id, 'scrollback'),
     kind: 'scrollback',
@@ -34,7 +35,9 @@ export function scrollback<const TMessage = never>(options: ScrollbackOptions<TM
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(options.onScroll === undefined ? {} : { toScrollMessage: options.onScroll }),
+      ...(onAction === undefined ? {} : {
+        toScrollMessage: (event) => onAction({ kind: 'scroll', event })
+      }),
       ...(options.wrap === undefined ? {} : { wrap: options.wrap }),
       ...(options.searchQuery === undefined ? {} : { searchQuery: options.searchQuery }),
       ...(options.selectedRange === undefined ? {} : { selectedRange: options.selectedRange })
@@ -62,20 +65,26 @@ export function structuredBlock(options: StructuredBlockOptions): Element {
 }
 
 export function activityFeed<const TMessage = never>(options: ActivityFeedOptions<TMessage>): Element<TMessage> {
+  const onAction = options.onAction;
+  const selectedBlock = options.selected === undefined ? undefined : options.blocks[options.selected];
+  const generatedKeys = onAction === undefined ? undefined : {
+    arrowUp: () => onAction({ kind: 'selectPrevious' }),
+    arrowDown: () => onAction({ kind: 'selectNext' }),
+    home: () => onAction({ kind: 'select', index: 0 }),
+    end: () => onAction({ kind: 'select', index: Math.max(0, options.blocks.length - 1) }),
+    enter: () => selectedBlock === undefined ? undefined : onAction({ kind: 'toggleBlock', id: selectedBlock.id })
+  } satisfies import('../options/base.ts').ComponentKeyBindings<TMessage>;
+  const keyMap = mergeKeyBindings(generatedKeys, options.keys);
   return elementFromRenderNode<'activityFeed', TMessage>({
     ...requiredId(options.id, 'activityFeed'),
     kind: 'activityFeed',
     props: {
       blocks: options.blocks,
       ...(options.selected === undefined ? {} : { selected: options.selected }),
-      ...(options.onSelect === undefined ? {} : {
-        toSelectMessage: (index: number) => {
-          const block = options.blocks[index];
-          return block === undefined ? undefined : options.onSelect?.(block, index);
-        }
-      })
+      ...(onAction === undefined ? {} : { toActionMessage: onAction })
     },
-    ...interactionProps(options)
+    ...(keyMap === undefined ? {} : { keyMap }),
+    ...interactionProps({ meta: options.meta })
   });
 }
 

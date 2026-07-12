@@ -244,10 +244,9 @@ export function chartHitTargets<TMessage>(widget: ChartNode<TMessage>, bounds: R
       id: `${widget.id ?? 'chart'}:${item.id}:${String(projected.column)}`,
       bounds: { row, column, width: 1, height: 1 },
       message: () => toMessage({
+        kind: 'select',
         series: item.id,
-        ...(item.label === undefined ? {} : { seriesLabel: item.label }),
-        point: projected.point,
-        value: projected.value
+        point: projected.point
       }),
       cursor: 'pointer'
     }];

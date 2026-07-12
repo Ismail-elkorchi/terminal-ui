@@ -42,16 +42,6 @@ export interface ChoiceItem<TValue = string> extends ItemBase {
   readonly value: TValue;
 }
 
-export interface ActionItem<TMessage = never> extends ItemBase {
-  readonly onPress?: TMessage;
-  readonly shortcut?: string;
-  readonly tone?: ComponentActionTone;
-}
-
-export interface NavigationItem<TMessage = never> extends ItemBase {
-  readonly onSelect?: TMessage;
-}
-
 export interface HierarchyItem<TNode> {
   readonly children?: readonly TNode[];
   readonly expanded?: boolean;

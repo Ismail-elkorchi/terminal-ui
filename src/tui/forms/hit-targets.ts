@@ -11,12 +11,7 @@ type SliderNode<TMessage> = RenderNodeOfKind<TMessage, 'slider'>;
 type RangeSliderNode<TMessage> = RenderNodeOfKind<TMessage, 'rangeSlider'>;
 type PickerNode<TMessage> = RenderNodesOfKind<TMessage, 'colorPicker' | 'datePicker'>;
 type NumberInputNode<TMessage> = RenderNodeOfKind<TMessage, 'numberInput'>;
-import {
-  checkboxListMessageFactory,
-  formOptions,
-  optionMessageFactory,
-  selectedIds
-} from './support/choices.ts';
+import { formOptions } from './support/choices.ts';
 import {
   colorOptions,
   datePickerDays,
@@ -53,7 +48,7 @@ export function controlHitTargets<TMessage>(widget: ActivationControlNode<TMessa
 }
 
 export function optionHitTargets<TMessage>(widget: OptionControlNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  const toMessage = optionMessageFactory(widget);
+  const toMessage = widget.props.toActionMessage;
   if (toMessage === undefined) return [];
   const labelOffset = clean(stringify(widget.props.label)).length > 0 ? 1 : 0;
   return formOptions(widget).flatMap((option, index): HitTarget<TMessage>[] => {
@@ -66,16 +61,15 @@ export function optionHitTargets<TMessage>(widget: OptionControlNode<TMessage>, 
         width: bounds.width,
         height: 1
       },
-      message: () => toMessage(option),
+      message: () => toMessage({ kind: 'select', id: option.id }),
       cursor: 'pointer'
     }];
   });
 }
 
 export function checkboxListHitTargets<TMessage>(widget: CheckboxListNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  const toMessage = checkboxListMessageFactory(widget);
+  const toMessage = widget.props.toActionMessage;
   if (toMessage === undefined) return [];
-  const selected = selectedIds(widget);
   const labelOffset = clean(stringify(widget.props.label)).length > 0 ? 1 : 0;
   return formOptions(widget).flatMap((option, index): HitTarget<TMessage>[] => {
     if (option.disabled === true) return [];
@@ -87,7 +81,7 @@ export function checkboxListHitTargets<TMessage>(widget: CheckboxListNode<TMessa
         width: bounds.width,
         height: 1
       },
-      message: () => toMessage(option, !selected.has(option.id)),
+      message: () => toMessage({ kind: 'toggle', id: option.id }),
       cursor: 'pointer'
     }];
   });

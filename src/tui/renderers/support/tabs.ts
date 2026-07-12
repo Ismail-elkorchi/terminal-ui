@@ -8,6 +8,7 @@ import { mergeStyles, themeStyle, renderNodeStyle } from '../../render-node-styl
 import { clampRect, emptyRect } from './common.ts';
 import type { Rect } from '../../layout.ts';
 import type { HitTarget } from '../../render-node-renderer.ts';
+import type { TabAction } from '../../../components/tabs.ts';
 
 type TabsNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'tabs'>;
 
@@ -17,8 +18,7 @@ interface TabItemView {
   readonly badge?: string;
   readonly description?: string;
   readonly disabled?: boolean;
-  readonly message?: unknown;
-  readonly closeMessage?: unknown;
+  readonly closable?: boolean;
 }
 
 interface TabHeaderMetrics {
@@ -82,12 +82,14 @@ export function tabsAccessibleChildren(widget: TabsNode): readonly AccessibleNod
 
 export function tabsHitTargets<TMessage>(widget: TabsNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   if (bounds.height <= 0 || bounds.width <= 0) return [];
+  const toMessage = tabActionMessageFactory(widget);
+  if (toMessage === undefined) return [];
   const layout = tabHeaderLayout(widget, bounds.width, false);
   const targets: HitTarget<TMessage>[] = [];
   for (const metrics of layout.visibleTabs) {
     const tab = metrics.tab;
     const column = bounds.column + metrics.offset;
-    if (tab.disabled !== true && tab.message !== undefined) {
+    if (tab.disabled !== true) {
       const width = Math.min(metrics.bodyWidth, Math.max(0, bounds.column + bounds.width - column));
       if (width <= 0) continue;
       targets.push({
@@ -98,11 +100,11 @@ export function tabsHitTargets<TMessage>(widget: TabsNode<TMessage>, bounds: Rec
           width,
           height: 1
         },
-        message: () => tab.message as TMessage,
+        message: () => toMessage({ kind: 'select', id: tab.id }),
         cursor: 'pointer'
       });
     }
-    if (tab.disabled !== true && tab.closeMessage !== undefined && metrics.closeOffset !== undefined) {
+    if (tab.disabled !== true && tab.closable === true && metrics.closeOffset !== undefined) {
       const closeColumn = column + metrics.closeOffset;
       const width = Math.min(metrics.width - metrics.closeOffset, Math.max(0, bounds.column + bounds.width - closeColumn));
       if (width <= 0) continue;
@@ -114,7 +116,7 @@ export function tabsHitTargets<TMessage>(widget: TabsNode<TMessage>, bounds: Rec
           width,
           height: 1
         },
-        message: () => tab.closeMessage as TMessage,
+        message: () => toMessage({ kind: 'close', id: tab.id }),
         cursor: 'pointer'
       });
     }
@@ -130,8 +132,7 @@ function tabItems(widget: TabsNode): readonly TabItemView[] {
     readonly badge?: string;
     readonly description?: string;
     readonly disabled?: boolean;
-    readonly message?: unknown;
-    readonly closeMessage?: unknown;
+    readonly closable?: boolean;
   } =>
     typeof tab === 'object'
     && tab !== null
@@ -151,9 +152,12 @@ function tabItems(widget: TabsNode): readonly TabItemView[] {
         : {}
     ),
     ...(tab.disabled === undefined ? {} : { disabled: tab.disabled }),
-    ...(tab.message === undefined ? {} : { message: tab.message }),
-    ...(tab.closeMessage === undefined ? {} : { closeMessage: tab.closeMessage })
+    ...(tab.closable === undefined ? {} : { closable: tab.closable })
   }));
+}
+
+function tabActionMessageFactory<TMessage>(widget: TabsNode<TMessage>): ((action: TabAction) => TMessage) | undefined {
+  return widget.props.toActionMessage;
 }
 
 function tabHeaderLayout(widget: TabsNode, width: number, focused: boolean): TabHeaderLayout {
@@ -292,7 +296,7 @@ function tabHeaderSpans(
     readonly label: string;
     readonly badge?: string;
     readonly disabled?: boolean;
-    readonly closeMessage?: unknown;
+    readonly closable?: boolean;
   },
   selected: boolean,
   focused: boolean
@@ -311,14 +315,14 @@ function tabHeaderSpans(
           tabSpan(widget, ' ', style, tab.id, 'badge.separator', 'separator', 'separator', stateForTab(selected, disabled, focused)),
           tabSpan(widget, badge, tabBadgeStyle(widget, selected, disabled, focused), tab.id, 'badge', 'text', 'badge', stateForTab(selected, disabled, focused))
         ]),
-    ...(tab.closeMessage === undefined
+    ...(tab.closable !== true
       ? []
       : [
           tabSpan(widget, ' ', closeStyle, tab.id, 'close.separator', 'separator', 'separator', stateForTab(selected, disabled, focused))
         ])
   ];
-  const closeOffset = tab.closeMessage === undefined ? undefined : measureRenderSpans(baseSpans);
-  const closeSpans = tab.closeMessage === undefined
+  const closeOffset = tab.closable !== true ? undefined : measureRenderSpans(baseSpans);
+  const closeSpans = tab.closable !== true
     ? []
     : [
         tabSpan(widget, '×', closeStyle, tab.id, 'close', 'text', 'close', stateForTab(selected, disabled, focused))

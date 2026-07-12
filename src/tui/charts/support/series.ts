@@ -50,7 +50,9 @@ export function projectChartSeries(
   if (mode === 'fit') return fitChartSeries(widget, item, plotWidth);
   const count = Math.min(item.points.length, plotWidth);
   const align = mode === 'window' ? chartSeriesSampleAlign(widget, item) : 'start';
-  const pointStart = align === 'end' ? Math.max(0, item.points.length - count) : 0;
+  const pointStart = mode === 'window'
+    ? selectedWindowStart(widget, item.points.length, count, align)
+    : 0;
   const columnStart = align === 'end' ? Math.max(0, plotWidth - count) : 0;
   return Array.from({ length: count }, (_, index) => {
     const point = pointStart + index;
@@ -61,6 +63,20 @@ export function projectChartSeries(
       value: item.points[point] ?? 0
     };
   });
+}
+
+function selectedWindowStart(
+  widget: ChartNode,
+  pointCount: number,
+  windowSize: number,
+  align: ChartSampleAlign
+): number {
+  const selected = widget.props.selected;
+  if (selected !== undefined) {
+    const point = Math.max(0, Math.min(pointCount - 1, Math.floor(selected.point)));
+    return Math.max(0, Math.min(pointCount - windowSize, point - Math.floor(windowSize / 2)));
+  }
+  return align === 'end' ? Math.max(0, pointCount - windowSize) : 0;
 }
 
 export function chartSeriesSampleMode(widget: ChartNode, item: ChartSeries): ChartSampleMode {

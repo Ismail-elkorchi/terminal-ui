@@ -29,8 +29,8 @@ export function pickerMessageFactory<TMessage>(
   widget: PickerNode<TMessage>
 ): ((option: ColorPickerOption<unknown> | DatePickerDay) => TMessage) | undefined {
   if (widget.kind === 'colorPicker') {
-    const toMessage = widget.props.toMessage;
-    return toMessage === undefined ? undefined : (option) => toMessage(option as ColorPickerOption<unknown>);
+    const toMessage = widget.props.toActionMessage;
+    return toMessage === undefined ? undefined : (option) => toMessage({ kind: 'select', id: option.id });
   }
   const toMessage = widget.props.toMessage;
   return toMessage === undefined ? undefined : (option) => toMessage(option as DatePickerDay);

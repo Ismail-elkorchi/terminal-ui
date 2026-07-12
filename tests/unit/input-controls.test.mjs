@@ -105,7 +105,7 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
         { id: 'sms', label: 'SMS', value: 'sms' }
       ],
       selected: ['email'],
-      onChange: (option, checked) => ({ kind: 'channel', id: option.id, checked })
+      onAction: (action) => ({ kind: 'channel', action })
     }),
     colorPicker({
       id: 'colors',
@@ -116,7 +116,7 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
         { id: 'green', label: 'Green', value: 'green', swatch: '■' },
         { id: 'blue', label: 'Blue', value: 'blue', swatch: '◆' }
       ],
-      onChange: (option) => ({ kind: 'color', id: option.id })
+      onAction: (action) => ({ kind: 'color', action })
     }),
     datePicker({
       id: 'dates',

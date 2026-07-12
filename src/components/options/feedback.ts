@@ -7,6 +7,7 @@ import type {
 } from '../contracts.ts';
 import type { ComponentKeyBindings, ComponentOptions, InteractiveComponentOptions } from './base.ts';
 import type { NotificationStackAction } from '../notification-stack.ts';
+import type { ChartAction, HeatmapAction } from '../visualization.ts';
 import type { ChartStylePart, NotificationStylePart, StatusStylePart } from '../style-parts.ts';
 
 export interface NotificationItem extends TitledItem {
@@ -118,13 +119,6 @@ export interface ChartPointSelection {
   readonly point: number;
 }
 
-export interface ChartPointEvent {
-  readonly series: string;
-  readonly seriesLabel?: string;
-  readonly point: number;
-  readonly value: number;
-}
-
 export interface ChartOptions<TMessage = never> extends InteractiveComponentOptions<ChartStylePart> {
   readonly series: readonly ChartSeries[];
   readonly min?: number;
@@ -142,7 +136,7 @@ export interface ChartOptions<TMessage = never> extends InteractiveComponentOpti
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
-  readonly onSelect?: (point: ChartPointEvent) => TMessage;
+  readonly onAction?: (action: ChartAction) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 
@@ -183,7 +177,7 @@ export interface HeatmapOptions<TValue = unknown, TMessage = never> extends Inte
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
-  readonly onSelect?: (cell: HeatmapCell<TValue>, row: number, column: number) => TMessage;
+  readonly onAction?: (action: HeatmapAction) => TMessage;
   readonly keys?: ComponentKeyBindings<TMessage>;
 }
 

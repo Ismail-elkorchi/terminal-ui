@@ -48,7 +48,7 @@ export {
 export type * from './contracts.ts';
 export type { CommandBarAction } from './command-bar.ts';
 export type { ListAction } from './list.ts';
-export type { TableAction } from './table.ts';
+export type { TableAction, TablePresentation, TableSortDirection, TableSortState } from './table.ts';
 export type { TreeAction, TreeDisclosureAction, TreeNode } from './tree.ts';
 export type { NumberInputAction, NumberInputValidity } from './number-input.ts';
 export type { PaginatorAction } from './paginator.ts';
@@ -60,6 +60,17 @@ export type {
   DatePickerDay
 } from './date-picker.ts';
 export type { PaletteAction } from './palette.ts';
+export type { DropdownAction, MenuAction } from './menu.ts';
+export type { TabAction } from './tabs.ts';
+export type { ActivityFeedAction } from './activity-feed.ts';
+export type { ScrollbackAction } from './scrollback.ts';
+export type { ChartAction, HeatmapAction } from './visualization.ts';
+export type {
+  CheckboxListAction,
+  ColorPickerAction,
+  RadioGroupAction,
+  SelectBoxAction
+} from './choice-controls.ts';
 export type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from './element.ts';
 export { inspectElement } from './inspection.ts';
 export type {

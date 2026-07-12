@@ -1,8 +1,9 @@
 import { elementFromRenderNode, toRenderNode, toRenderNodes } from '../../render-node/element.ts';
 import type { Element, ElementChildren } from '../../components/element.ts';
 import type { GridAreasOptions, GridOptions, ModalOptions, SplitPaneOptions, TabsOptions } from '../options.ts';
-import { componentMetaProps, interactionProps, withMetaDefaults } from '../../components/factory-internals/interaction.ts';
+import { componentMetaProps, interactionProps, mergeKeyBindings, withMetaDefaults } from '../../components/factory-internals/interaction.ts';
 import type { RenderTabItem } from '../../render-node/props/layout.ts';
+import type { TabAction } from '../../components/tabs.ts';
 import {
   layoutProps,
   optionalId,
@@ -84,25 +85,35 @@ export function splitPane<TMessage>(
 }
 
 export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage> {
-  const tabs: readonly RenderTabItem<TMessage>[] = options.tabs.map((tab) => ({
+  const tabs: readonly RenderTabItem[] = options.tabs.map((tab) => ({
     id: tab.id,
     label: tab.label,
     ...(tab.description === undefined ? {} : { description: tab.description }),
     ...(tab.disabled === undefined ? {} : { disabled: tab.disabled }),
-    ...(tab.onSelect === undefined ? {} : { message: tab.onSelect }),
     ...(tab.badge === undefined ? {} : { badge: tab.badge }),
-    ...(tab.onClose === undefined ? {} : { closeMessage: tab.onClose })
+    ...(tab.closable === undefined ? {} : { closable: tab.closable })
   }));
+  const onAction = options.onAction;
+  const selected = options.selected ?? options.tabs.find((tab) => tab.disabled !== true)?.id;
+  const generated = onAction === undefined ? undefined : {
+    arrowLeft: () => onAction({ kind: 'move', delta: -1 }),
+    arrowRight: () => onAction({ kind: 'move', delta: 1 }),
+    home: () => onAction({ kind: 'first' }),
+    end: () => onAction({ kind: 'last' }),
+    enter: () => selected === undefined ? undefined : onAction({ kind: 'select', id: selected })
+  } satisfies import('../../components/options/base.ts').ComponentKeyBindings<TMessage>;
+  const keys = mergeKeyBindings(generated, options.keys);
   return elementFromRenderNode<'tabs', TMessage>({
     ...requiredId(options.id, 'tabs'),
     kind: 'tabs',
     props: {
       tabs,
       ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(onAction === undefined ? {} : { toActionMessage: (action: TabAction) => onAction(action) }),
       ...layoutProps(options)
     },
     children: options.tabs.map((tab) => toRenderNode(tab.panel)),
-    ...interactionProps(options)
+    ...interactionProps({ keys, meta: options.meta })
   });
 }
 

@@ -1,6 +1,7 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { RecordStatus } from '../components/contracts.ts';
 import type { StructuredBlock } from '../components/options/documents.ts';
+import type { ActivityFeedAction } from '../components/activity-feed.ts';
 
 export interface ActivityFeedState {
   readonly selected?: number;
@@ -9,16 +10,6 @@ export interface ActivityFeedState {
   readonly statusFilter?: readonly RecordStatus[];
 }
 
-export type ActivityFeedAction =
-  | { readonly kind: 'select'; readonly index: number }
-  | { readonly kind: 'selectNext' }
-  | { readonly kind: 'selectPrevious' }
-  | { readonly kind: 'toggleBlock'; readonly id?: string }
-  | { readonly kind: 'expandBlock'; readonly id?: string }
-  | { readonly kind: 'collapseBlock'; readonly id?: string }
-  | { readonly kind: 'setStatusFilter'; readonly statuses?: readonly RecordStatus[] }
-  | { readonly kind: 'jumpToFirstProblem' };
-
 export interface ActivityFeedReducerOptions {
   readonly blocks?: readonly StructuredBlock[];
 }
@@ -26,6 +17,11 @@ export interface ActivityFeedReducerOptions {
 export interface ActivityFeedVisibleBlock {
   readonly block: StructuredBlock;
   readonly index: number;
+}
+
+export interface ActivityFeedPresentation {
+  readonly blocks: readonly StructuredBlock[];
+  readonly selected?: number;
 }
 
 const problemStatuses: readonly RecordStatus[] = ['error', 'failed', 'warning'];
@@ -45,15 +41,22 @@ export function activityFeedReducer(
       return withSelected(state, adjacentVisibleIndex(state, blocks, -1));
     case 'toggleBlock': {
       const id = action.id ?? selectedBlockId(state, blocks);
-      return id === undefined ? state : toggleBlock(state, id);
+      const block = id === undefined ? undefined : blocks.find((item) => item.id === id);
+      return block === undefined
+        ? state
+        : setBlockCollapsed(state, block.id, !activityBlockCollapsed(block, state));
     }
     case 'expandBlock': {
       const id = action.id ?? selectedBlockId(state, blocks);
-      return id === undefined ? state : setBlockCollapsed(state, id, false);
+      return id === undefined || !blocks.some((block) => block.id === id)
+        ? state
+        : setBlockCollapsed(state, id, false);
     }
     case 'collapseBlock': {
       const id = action.id ?? selectedBlockId(state, blocks);
-      return id === undefined ? state : setBlockCollapsed(state, id, true);
+      return id === undefined || !blocks.some((block) => block.id === id)
+        ? state
+        : setBlockCollapsed(state, id, true);
     }
     case 'setStatusFilter':
       return withStatusFilter(state, action.statuses, blocks);
@@ -76,6 +79,20 @@ export function visibleActivityFeedBlocks(
       }
     }];
   });
+}
+
+export function activityFeedPresentation(
+  blocks: readonly StructuredBlock[],
+  state: ActivityFeedState
+): ActivityFeedPresentation {
+  const visible = visibleActivityFeedBlocks(blocks, state);
+  const selected = state.selected === undefined
+    ? undefined
+    : visible.findIndex((entry) => entry.index === state.selected);
+  return {
+    blocks: visible.map((entry) => entry.block),
+    ...(selected === undefined || selected < 0 ? {} : { selected })
+  };
 }
 
 export function activityBlockCollapsed(
@@ -121,12 +138,6 @@ function matchesStatusFilter(block: StructuredBlock, statuses: readonly RecordSt
 function selectedBlockId(state: ActivityFeedState, blocks: readonly StructuredBlock[]): string | undefined {
   const selected = state.selected === undefined ? undefined : blocks[boundedBlockIndex(state.selected, blocks.length)];
   return selected?.id;
-}
-
-function toggleBlock(state: ActivityFeedState, id: string): ActivityFeedState {
-  if (state.expandedIds.includes(id)) return setBlockCollapsed(state, id, true);
-  if (state.collapsedIds.includes(id)) return setBlockCollapsed(state, id, false);
-  return setBlockCollapsed(state, id, true);
 }
 
 function setBlockCollapsed(state: ActivityFeedState, id: string, collapsed: boolean): ActivityFeedState {

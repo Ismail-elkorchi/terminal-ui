@@ -1,5 +1,6 @@
 export interface SerializedDispatchQueue {
   run<TValue>(operation: () => Promise<TValue>): Promise<TValue>;
+  drain(): Promise<void>;
 }
 
 export function createSerializedDispatchQueue(): SerializedDispatchQueue {
@@ -13,6 +14,9 @@ export function createSerializedDispatchQueue(): SerializedDispatchQueue {
         () => undefined
       );
       return next;
+    },
+    drain() {
+      return tail;
     }
   };
 }

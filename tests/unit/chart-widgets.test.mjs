@@ -169,7 +169,7 @@ test('chart window sample mode renders a raw aligned window', () => {
     min: 0,
     max: 50,
     series: [{ id: 'load', points: [10, 20, 30, 40, 50], kind: 'scatter', sampleMode: 'window', sampleAlign: 'end' }],
-    onSelect: (point) => ({ kind: 'chart-point', ...point })
+    onAction: (action) => ({ kind: 'chart', action })
   }), { columns: 3, rows: 3 });
   const firstTarget = frame.hitTargets.find((target) => target.id === 'window-chart:load:0');
   const lastTarget = frame.hitTargets.find((target) => target.id === 'window-chart:load:2');
@@ -248,7 +248,7 @@ test('chart renders scatter points legends axis labels and selectable point hit 
       { id: 'scatter', label: 'Scatter', points: [4, 1, 3, 2], kind: 'scatter', glyph: 'o' }
     ],
     keys: { enter: () => ({ kind: 'chart-enter' }) },
-    onSelect: (point) => ({ kind: 'chart-point', ...point })
+    onAction: (action) => ({ kind: 'chart', action })
   }), { columns: 32, rows: 7 });
 
   const output = renderFramePlain(frame);
@@ -382,7 +382,7 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
     max: 5,
     selected: { row: 0, column: 1 },
     keys: { enter: () => ({ kind: 'select-current' }) },
-    onSelect: (cell, row, column) => ({ kind: 'heatmap-select', id: cell.id, row, column })
+    onAction: (action) => ({ kind: 'heatmap', action })
   }), { columns: 12, rows: 3 });
 
   const output = renderFramePlain(frame);

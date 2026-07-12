@@ -20,19 +20,19 @@ export type SplitPaneRenderProps = RenderNodeLayoutProps & {
   readonly sizes?: readonly LayoutSize[];
 };
 
-export interface RenderTabItem<TMessage> {
+export interface RenderTabItem {
   readonly id: string;
   readonly label: string;
   readonly description?: string;
   readonly disabled?: boolean;
-  readonly message?: TMessage;
   readonly badge?: string;
-  readonly closeMessage?: TMessage;
+  readonly closable?: boolean;
 }
 
 export type TabsRenderProps<TMessage> = RenderNodeLayoutProps & {
-  readonly tabs: readonly RenderTabItem<TMessage>[];
+  readonly tabs: readonly RenderTabItem[];
   readonly selected?: string;
+  readonly toActionMessage?: (action: import('../../components/tabs.ts').TabAction) => TMessage;
 };
 
 export type ModalRenderProps = RenderNodeLayoutProps & {

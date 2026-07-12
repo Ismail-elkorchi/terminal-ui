@@ -13,6 +13,10 @@ Use behavior helpers when component interaction has reusable rules:
 - command-bar editing, history, and suggestion navigation;
 - notification history, expiry, pause, resume, and dismissal;
 - activity-feed expansion and selection;
+- menu hierarchy, dropdown highlighting, and tab navigation;
+- checkbox-list, radio-group, select-box, and color-picker navigation;
+- scrollback search, folds, follow-tail, and scroll projection;
+- chart and heatmap keyboard and pointer selection;
 - hover, focus, and visual-state reducers.
 
 The pattern is:

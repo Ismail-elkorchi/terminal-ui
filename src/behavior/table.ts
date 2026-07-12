@@ -1,11 +1,6 @@
-import type { TableAction } from '../components/table.ts';
+import type { TableAction, TablePresentation, TableSortState } from '../components/table.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
 import type { ScrollState } from './scroll.ts';
-
-export interface TableSortState {
-  readonly column: string;
-  readonly direction: 'ascending' | 'descending';
-}
 
 export interface TableState {
   readonly selectedRow?: number;
@@ -76,16 +71,14 @@ export function tableReducer(
   }
 }
 
-export function tablePresentation(state: TableState): {
-  readonly selected?: number;
-  readonly selectedCell?: { readonly row: number; readonly column: number };
-  readonly scroll?: ScrollState;
-} {
+export function tablePresentation(state: TableState): TablePresentation {
   return {
     ...(state.selectedRow === undefined ? {} : { selected: state.selectedRow }),
     ...(state.selectedRow === undefined || state.selectedColumn === undefined
       ? {}
       : { selectedCell: { row: state.selectedRow, column: state.selectedColumn } }),
+    ...(state.sort === undefined ? {} : { sort: state.sort }),
+    ...(state.columnWidths === undefined ? {} : { columnWidths: state.columnWidths }),
     ...(state.scroll === undefined ? {} : { scroll: state.scroll })
   };
 }

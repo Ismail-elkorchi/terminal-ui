@@ -4,6 +4,7 @@ import test from 'node:test';
 import { createScrollState } from '../../dist/behavior/index.js';
 import {
   sortTableRows,
+  tablePresentation,
   tableReducer
 } from '../../dist/behavior/index.js';
 
@@ -25,6 +26,23 @@ test('tableReducer toggles sort state and resizes columns', () => {
   assert.deepEqual(second.sort, { column: 'name', direction: 'descending' });
   assert.equal(resized.columnWidths?.['name'], 7);
   assert.equal(shrunk.columnWidths?.['name'], 3);
+});
+
+test('tablePresentation projects every renderer-owned table state field', () => {
+  const scroll = createScrollState({ contentRows: 20, viewportRows: 5 });
+  assert.deepEqual(tablePresentation({
+    selectedRow: 3,
+    selectedColumn: 2,
+    sort: { column: 'name', direction: 'descending' },
+    columnWidths: { name: 18 },
+    scroll
+  }), {
+    selected: 3,
+    selectedCell: { row: 3, column: 2 },
+    sort: { column: 'name', direction: 'descending' },
+    columnWidths: { name: 18 },
+    scroll
+  });
 });
 
 test('tableReducer forwards scroll actions without creating hidden table state', () => {

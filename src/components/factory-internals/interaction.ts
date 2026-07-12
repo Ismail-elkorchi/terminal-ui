@@ -14,7 +14,14 @@ import type { NumberInputAction } from '../number-input.ts';
 import type { PaginatorAction } from '../paginator.ts';
 import type { DatePickerAction } from '../date-picker.ts';
 import type { RangeSliderOptions, SliderOptions } from '../options/forms.ts';
+import type {
+  CheckboxListOptions,
+  ColorPickerOptions,
+  RadioGroupOptions,
+  SelectBoxOptions
+} from '../options/forms.ts';
 import type { MenuItem } from '../options/menus.ts';
+import type { DropdownAction, MenuAction } from '../menu.ts';
 import type { CommandBarAction } from '../command-bar.ts';
 import type { PaletteAction } from '../palette.ts';
 import type { TextEditOperation } from '../../text/index.ts';
@@ -249,22 +256,107 @@ export function rangeSliderKeyBindings<TMessage>(
   }, options.keys);
 }
 
-export function menuKeyBindings<TMessage>(
-  items: readonly MenuItem<TMessage>[],
-  selected: string | undefined,
-  explicit: ComponentKeyBindings<TMessage> | undefined
+export function checkboxListKeyBindings<TValue, TMessage>(
+  options: CheckboxListOptions<TValue, TMessage>
 ): ComponentKeyBindings<TMessage> | undefined {
-  const visible = visibleMenuItems(items);
-  const item = selected === undefined
-    ? visible.find((candidate) => candidate.disabled !== true)
-    : visible.find((candidate) => candidate.id === selected);
-  const handler = item?.disabled === true || item?.onPress === undefined
-    ? undefined
-    : () => item.onPress;
-  return activationKeyBindings(handler, explicit);
+  const action = options.onAction;
+  const active = choiceFocus(options.options, options.focused, options.selected?.[0]);
+  return mergeKeyBindings(action === undefined ? undefined : {
+    arrowUp: () => action({ kind: 'move', delta: -1 }),
+    arrowDown: () => action({ kind: 'move', delta: 1 }),
+    home: () => action({ kind: 'first' }),
+    end: () => action({ kind: 'last' }),
+    enter: () => active === undefined ? undefined : action({ kind: 'toggle', id: active })
+  } satisfies ComponentKeyBindings<TMessage>, options.keys);
 }
 
-export function menuItemsForRenderer<TMessage>(items: readonly MenuItem<TMessage>[]): readonly RenderMenuItem<TMessage>[] {
+export function radioGroupKeyBindings<TValue, TMessage>(
+  options: RadioGroupOptions<TValue, TMessage>
+): ComponentKeyBindings<TMessage> | undefined {
+  const action = options.onAction;
+  const active = choiceFocus(options.options, options.focused, options.selected);
+  return mergeKeyBindings(action === undefined ? undefined : {
+    arrowUp: () => action({ kind: 'move', delta: -1 }),
+    arrowDown: () => action({ kind: 'move', delta: 1 }),
+    home: () => action({ kind: 'first' }),
+    end: () => action({ kind: 'last' }),
+    enter: () => active === undefined ? undefined : action({ kind: 'select', id: active })
+  } satisfies ComponentKeyBindings<TMessage>, options.keys);
+}
+
+export function selectBoxKeyBindings<TValue, TMessage>(
+  options: SelectBoxOptions<TValue, TMessage>
+): ComponentKeyBindings<TMessage> | undefined {
+  const action = options.onAction;
+  const active = choiceFocus(options.options, options.focused, options.selected);
+  return mergeKeyBindings(action === undefined ? undefined : {
+    arrowUp: () => action({ kind: 'move', delta: -1 }),
+    arrowDown: () => action({ kind: 'move', delta: 1 }),
+    home: () => action({ kind: 'first' }),
+    end: () => action({ kind: 'last' }),
+    enter: () => active === undefined ? undefined : action({ kind: 'select', id: active })
+  } satisfies ComponentKeyBindings<TMessage>, options.keys);
+}
+
+export function colorPickerKeyBindings<TValue, TMessage>(
+  options: ColorPickerOptions<TValue, TMessage>
+): ComponentKeyBindings<TMessage> | undefined {
+  const action = options.onAction;
+  const active = choiceFocus(options.options, options.focused, options.selected);
+  const columns = Math.max(1, Math.floor(options.columns ?? 4));
+  return mergeKeyBindings(action === undefined ? undefined : {
+    arrowLeft: () => action({ kind: 'move', delta: -1 }),
+    arrowRight: () => action({ kind: 'move', delta: 1 }),
+    arrowUp: () => action({ kind: 'move', delta: -columns }),
+    arrowDown: () => action({ kind: 'move', delta: columns }),
+    home: () => action({ kind: 'first' }),
+    end: () => action({ kind: 'last' }),
+    enter: () => active === undefined ? undefined : action({ kind: 'select', id: active })
+  } satisfies ComponentKeyBindings<TMessage>, options.keys);
+}
+
+export function menuKeyBindings<TMessage>(
+  items: readonly MenuItem[],
+  selected: string | undefined,
+  onAction: ((action: MenuAction) => TMessage) | undefined,
+  explicit: ComponentKeyBindings<TMessage> | undefined
+): ComponentKeyBindings<TMessage> | undefined {
+  if (onAction === undefined) return explicit;
+  const active = selected ?? visibleMenuItems(items).find((item) => item.disabled !== true)?.id;
+  return mergeKeyBindings({
+    arrowUp: () => onAction({ kind: 'move', delta: -1 }),
+    arrowDown: () => onAction({ kind: 'move', delta: 1 }),
+    arrowLeft: () => active === undefined ? undefined : onAction({ kind: 'collapse', id: active }),
+    arrowRight: () => active === undefined ? undefined : onAction({ kind: 'expand', id: active }),
+    home: () => onAction({ kind: 'first' }),
+    end: () => onAction({ kind: 'last' }),
+    enter: () => active === undefined ? undefined : onAction({ kind: 'activate', id: active })
+  }, explicit);
+}
+
+export function dropdownKeyBindings<TMessage>(
+  items: readonly MenuItem[],
+  selected: string | undefined,
+  highlighted: string | undefined,
+  open: boolean,
+  onAction: ((action: DropdownAction) => TMessage) | undefined,
+  explicit: ComponentKeyBindings<TMessage> | undefined
+): ComponentKeyBindings<TMessage> | undefined {
+  if (onAction === undefined) return explicit;
+  const active = highlighted ?? selected ?? visibleMenuItems(items).find((item) => item.disabled !== true)?.id;
+  return mergeKeyBindings({
+    arrowUp: () => onAction({ kind: 'move', delta: -1 }),
+    arrowDown: () => onAction({ kind: 'move', delta: 1 }),
+    home: () => onAction({ kind: 'first' }),
+    end: () => onAction({ kind: 'last' }),
+    enter: () => open && active !== undefined
+      ? onAction({ kind: 'activate', id: active })
+      : onAction({ kind: 'open' }),
+    escape: () => open ? onAction({ kind: 'close' }) : undefined
+  }, explicit);
+}
+
+export function menuItemsForRenderer(items: readonly MenuItem[]): readonly RenderMenuItem[] {
   return items.map((item) => ({
     id: item.id,
     label: item.label,
@@ -274,7 +366,6 @@ export function menuItemsForRenderer<TMessage>(items: readonly MenuItem<TMessage
     ...(item.tone === undefined ? {} : { tone: item.tone }),
     ...(item.checked === undefined ? {} : { checked: item.checked }),
     ...(item.expanded === undefined ? {} : { expanded: item.expanded }),
-    ...(item.onPress === undefined ? {} : { message: item.onPress }),
     ...(item.children === undefined ? {} : { children: menuItemsForRenderer(item.children) })
   }));
 }
@@ -375,11 +466,21 @@ function mergeComponentStyles<TPart extends string>(
   };
 }
 
-function visibleMenuItems<TMessage>(items: readonly MenuItem<TMessage>[]): readonly MenuItem<TMessage>[] {
-  return items.flatMap((item): readonly MenuItem<TMessage>[] => [
+function visibleMenuItems(items: readonly MenuItem[]): readonly MenuItem[] {
+  return items.flatMap((item): readonly MenuItem[] => [
     item,
     ...(item.expanded === true && item.children !== undefined ? visibleMenuItems(item.children) : [])
   ]);
+}
+
+function choiceFocus<TValue>(
+  options: readonly import('../contracts.ts').ChoiceItem<TValue>[],
+  focused: string | undefined,
+  selected: string | undefined
+): string | undefined {
+  const enabled = options.filter((option) => option.disabled !== true);
+  const candidate = focused ?? selected;
+  return enabled.find((option) => option.id === candidate)?.id ?? enabled[0]?.id;
 }
 
 function inputMapFromHandlers<TMessage>(options: {

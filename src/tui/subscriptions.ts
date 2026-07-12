@@ -22,6 +22,7 @@ interface ActiveTuiEventSource<TMessage> {
 
 export interface TuiSubscriptionManager<TState> {
   reconcile(state: TState): Promise<void>;
+  cancel(): void;
   dispose(): Promise<void>;
 }
 
@@ -60,10 +61,17 @@ export function createTuiSubscriptionManager<TState, TMessage>(
         active.set(id, activeSource);
       }
     },
+    cancel() {
+      cancelAll(active);
+    },
     async dispose() {
       await stopAll(active);
     }
   };
+}
+
+function cancelAll<TMessage>(active: Map<SubscriptionExecutionId, ActiveTuiEventSource<TMessage>>): void {
+  for (const source of active.values()) source.controller.abort();
 }
 
 function startSource<TState, TMessage>(

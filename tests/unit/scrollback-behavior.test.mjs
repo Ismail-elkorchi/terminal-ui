@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   followTailScrollState,
   nextScrollbackMatch,
+  scrollbackPresentation,
   scrollbackReducer,
   scrollbackSearchMarks,
   visibleScrollbackItems
@@ -48,6 +49,21 @@ test('visibleScrollbackItems folds records without mutating source items', () =>
   assert.equal(visible[0]?.text, 'alpha ...');
   assert.deepEqual(visible[0]?.metadata, { folded: 'true' });
   assert.equal(items[0]?.text, 'alpha\nmore alpha');
+});
+
+test('scrollbackPresentation projects fold, search, follow-tail, and scroll state', () => {
+  const scroll = followTailScrollState({ contentRows: 25, viewportRows: 5 });
+  const projection = scrollbackPresentation(items, {
+    foldedIds: ['a'],
+    followTail: true,
+    searchQuery: 'needle',
+    scroll
+  });
+
+  assert.equal(projection.items[0]?.text, 'alpha ...');
+  assert.equal(projection.searchQuery, 'needle');
+  assert.equal(projection.followTail, true);
+  assert.equal(projection.scroll, scroll);
 });
 
 test('followTailScrollState returns a bottom-pinned scroll state', () => {

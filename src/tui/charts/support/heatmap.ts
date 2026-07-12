@@ -1,4 +1,5 @@
 import type { HeatmapCell } from '../../../components/options/feedback.ts';
+import type { HeatmapAction } from '../../../components/visualization.ts';
 import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import { sanitizeTerminalText } from '../../../text/index.ts';
 import { chartHeatmapStyle, chartSpan } from '../../chart-visual.ts';
@@ -105,8 +106,8 @@ export function heatmapGap(widget: HeatmapNode): number {
 
 export function heatmapMessageFactory<TMessage>(
   widget: HeatmapNode<TMessage>
-): ((cell: HeatmapCell, row: number, column: number) => TMessage) | undefined {
-  return widget.props.toMessage;
+): ((action: HeatmapAction) => TMessage) | undefined {
+  return widget.props.toActionMessage;
 }
 
 export { normalizedIndex };

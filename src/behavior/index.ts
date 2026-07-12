@@ -1,12 +1,13 @@
 export {
   activityBlockCollapsed,
+  activityFeedPresentation,
   activityFeedReducer,
   copyActivityFeedVisibleText,
   visibleActivityFeedBlocks
 } from './activity-feed.ts';
 export type {
-  ActivityFeedAction,
   ActivityFeedReducerOptions,
+  ActivityFeedPresentation,
   ActivityFeedState,
   ActivityFeedVisibleBlock
 } from './activity-feed.ts';
@@ -141,6 +142,60 @@ export type {
 } from './palette.ts';
 export type { PaletteAction } from '../components/palette.ts';
 export {
+  dropdownPresentation,
+  dropdownReducer,
+  menuPresentation,
+  menuReducer
+} from './menu.ts';
+export type {
+  DropdownPresentation,
+  DropdownState,
+  MenuPresentation,
+  MenuState
+} from './menu.ts';
+export type { DropdownAction, MenuAction } from '../components/menu.ts';
+export { tabsPresentation, tabsReducer } from './tabs.ts';
+export type { TabsPresentation, TabsState } from './tabs.ts';
+export type { TabAction } from '../components/tabs.ts';
+export type { ActivityFeedAction } from '../components/activity-feed.ts';
+export type { ScrollbackAction } from '../components/scrollback.ts';
+export { chartPresentation, chartReducer, heatmapPresentation, heatmapReducer } from './visualization.ts';
+export type {
+  ChartPresentation,
+  ChartReducerOptions,
+  ChartState,
+  HeatmapPresentation,
+  HeatmapReducerOptions,
+  HeatmapState
+} from './visualization.ts';
+export type { ChartAction, HeatmapAction } from '../components/visualization.ts';
+export {
+  checkboxListPresentation,
+  checkboxListReducer,
+  colorPickerPresentation,
+  colorPickerReducer,
+  radioGroupPresentation,
+  radioGroupReducer,
+  selectBoxPresentation,
+  selectBoxReducer
+} from './choice-controls.ts';
+export type {
+  CheckboxListPresentation,
+  CheckboxListState,
+  ColorPickerPresentation,
+  ColorPickerState,
+  RadioGroupPresentation,
+  RadioGroupState,
+  SelectBoxPresentation,
+  SelectBoxState
+} from './choice-controls.ts';
+export type {
+  CheckboxListAction,
+  ColorPickerAction,
+  RadioGroupAction,
+  SelectBoxAction
+} from '../components/choice-controls.ts';
+export {
   applyScrollEvent,
   createScrollState,
   normalizeScrollState,
@@ -171,12 +226,13 @@ export type {
 export {
   followTailScrollState,
   nextScrollbackMatch,
+  scrollbackPresentation,
   scrollbackReducer,
   scrollbackSearchMarks,
   visibleScrollbackItems
 } from './scrollback.ts';
 export type {
-  ScrollbackAction,
+  ScrollbackPresentation,
   ScrollbackSearchMark,
   ScrollbackState
 } from './scrollback.ts';
@@ -198,10 +254,9 @@ export {
 export type {
   TableCellValueGetter,
   TableReducerOptions,
-  TableSortState,
   TableState
 } from './table.ts';
-export type { TableAction } from '../components/table.ts';
+export type { TableAction, TablePresentation, TableSortState } from '../components/table.ts';
 export {
   nextTreeRowId,
   selectableTreeRows,

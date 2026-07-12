@@ -93,6 +93,8 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
       ...(columns === undefined ? {} : { columns }),
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.selectedCell === undefined ? {} : { selectedCell: options.selectedCell }),
+      ...(options.sort === undefined ? {} : { sort: options.sort }),
+      ...(options.columnWidths === undefined ? {} : { columnWidths: options.columnWidths }),
       ...(options.density === undefined ? {} : { density: options.density }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),

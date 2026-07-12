@@ -1,4 +1,20 @@
 import type { ScrollEvent } from '../behavior/scroll.ts';
+import type { ScrollState } from '../behavior/scroll.ts';
+
+export type TableSortDirection = 'ascending' | 'descending';
+
+export interface TableSortState {
+  readonly column: string;
+  readonly direction: TableSortDirection;
+}
+
+export interface TablePresentation {
+  readonly selected?: number;
+  readonly selectedCell?: { readonly row: number; readonly column: number };
+  readonly sort?: TableSortState;
+  readonly columnWidths?: Readonly<Record<string, number>>;
+  readonly scroll?: ScrollState;
+}
 
 export type TableAction =
   | { readonly kind: 'selectRow'; readonly row: number }

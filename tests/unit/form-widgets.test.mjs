@@ -57,7 +57,7 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
         { id: 'safe', label: 'Safe', value: 'safe' },
         { id: 'fast', label: 'Fast', value: 'fast', disabled: true }
       ],
-      onChange: (option) => ({ kind: 'selectMode', value: option.value })
+      onAction: (action) => ({ kind: 'mode', action })
     }),
     selectBox({
       id: 'region',
@@ -67,7 +67,7 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
         { id: 'eu', label: 'Europe', value: 'eu' },
         { id: 'us', label: 'United States', value: 'us' }
       ],
-      onChange: (option) => ({ kind: 'selectRegion', value: option.value })
+      onAction: (action) => ({ kind: 'region', action })
     }),
     numberInput({
       id: 'workers',

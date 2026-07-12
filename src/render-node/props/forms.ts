@@ -15,6 +15,12 @@ import type {
 import type { ChoiceItem } from '../../components/contracts.ts';
 import type { NumberInputAction } from '../../components/number-input.ts';
 import type { DatePickerAction, DatePickerDay } from '../../components/date-picker.ts';
+import type {
+  CheckboxListAction,
+  ColorPickerAction,
+  RadioGroupAction,
+  SelectBoxAction
+} from '../../components/choice-controls.ts';
 import type { TextPointerEvent } from '../../tui/text-pointer.ts';
 import type { AuthoredProps, ReplaceProps } from './shared.ts';
 
@@ -66,27 +72,31 @@ interface ChoiceControlRenderProps {
 
 export interface CheckboxListRenderProps<TMessage> extends ChoiceControlRenderProps {
   readonly selected?: readonly string[];
-  readonly toMessage?: (option: ChoiceItem<unknown>, checked: boolean) => TMessage;
+  readonly focused?: string;
+  readonly toActionMessage?: (action: CheckboxListAction) => TMessage;
 }
 
 export interface RadioGroupRenderProps<TMessage> extends ChoiceControlRenderProps {
   readonly selected?: string;
-  readonly toMessage?: (option: ChoiceItem<unknown>) => TMessage;
+  readonly focused?: string;
+  readonly toActionMessage?: (action: RadioGroupAction) => TMessage;
 }
 
 export interface SelectBoxRenderProps<TMessage> extends ChoiceControlRenderProps {
   readonly selected?: string;
-  readonly toMessage?: (option: ChoiceItem<unknown>) => TMessage;
+  readonly focused?: string;
+  readonly toActionMessage?: (action: SelectBoxAction) => TMessage;
 }
 
 export interface ColorPickerRenderProps<TMessage> {
   readonly label?: string;
   readonly options: readonly ColorPickerOption<unknown>[];
   readonly selected?: string;
+  readonly focused?: string;
   readonly columns?: number;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly toMessage?: (option: ColorPickerOption<unknown>) => TMessage;
+  readonly toActionMessage?: (action: ColorPickerAction) => TMessage;
 }
 
 export interface DatePickerRenderProps<TMessage> {

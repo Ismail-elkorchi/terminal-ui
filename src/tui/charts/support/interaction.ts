@@ -1,4 +1,5 @@
-import type { ChartPointEvent, ChartSeries } from '../../../components/options/feedback.ts';
+import type { ChartSeries } from '../../../components/options/feedback.ts';
+import type { ChartAction } from '../../../components/visualization.ts';
 import type { RenderNodeOfKind } from '../../../render-node/index.ts';
 import type { Rect } from '../../layout.ts';
 import { chartLayout } from './chrome.ts';
@@ -56,8 +57,8 @@ export function yForValue(
 
 export function chartMessageFactory<TMessage>(
   widget: ChartNode<TMessage>
-): ((point: ChartPointEvent) => TMessage) | undefined {
-  return widget.props.toMessage;
+): ((action: ChartAction) => TMessage) | undefined {
+  return widget.props.toActionMessage;
 }
 
 function selectedProjectedPoint(

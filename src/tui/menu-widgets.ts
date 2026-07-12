@@ -15,18 +15,19 @@ import type { MenuVisualItem } from './menu-visual.ts';
 import type { RenderBlock, RenderLine } from './render-primitives.ts';
 import type { Rect } from './layout.ts';
 import type { HitTarget } from './render-node-renderer.ts';
+import type { DropdownAction, MenuAction } from '../components/menu.ts';
 
 type MenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'menu'>;
 type ContextMenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'contextMenu'>;
 type MenuBarNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'menuBar'>;
 type DropdownNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'dropdown'>;
 type MenuCollectionNode<TMessage = unknown> = MenuNode<TMessage> | ContextMenuNode<TMessage> | DropdownNode<TMessage>;
+type ActionMenuNode<TMessage = unknown> = MenuNode<TMessage> | ContextMenuNode<TMessage> | MenuBarNode<TMessage>;
 type AnyMenuNode<TMessage = unknown> = MenuCollectionNode<TMessage> | MenuBarNode<TMessage>;
 
 interface VisibleMenuItem extends MenuVisualItem {
   readonly id: string;
   readonly label: string;
-  readonly message?: unknown;
   readonly disabled?: boolean;
   readonly checked?: boolean;
   readonly tone?: ComponentActionTone;
@@ -48,7 +49,7 @@ export function menuBlock(widget: MenuCollectionNode, bounds: Rect, theme: Termi
   if (rows.length === 0 && bounds.height > 0) {
     return { lines: [menuEmptyLine(widget, emptyText(widget), bounds.width)] };
   }
-  return { lines: rows.map((row) => menuLine(widget, row.item, selectedId(widget), bounds.width, theme)) };
+  return { lines: rows.map((row) => menuLine(widget, row.item, activeId(widget), bounds.width, theme)) };
 }
 
 export function contextMenuBlock(widget: ContextMenuNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
@@ -129,7 +130,7 @@ export function dropdownAccessibleBase(widget: DropdownNode, id: string, focused
 }
 
 export function menuAccessibleChildren(widget: AnyMenuNode): readonly AccessibleNode[] {
-  const selected = selectedId(widget);
+  const selected = activeId(widget);
   return visibleMenuItems(widget).map((item) => ({
     id: `${widget.id ?? widget.kind}:${item.id}`,
     role: 'menuitem',
@@ -148,21 +149,23 @@ export function dropdownAccessibleChildren(widget: DropdownNode): readonly Acces
   return widget.props.open === true ? menuAccessibleChildren(widget) : undefined;
 }
 
-export function menuHitTargets<TMessage>(widget: MenuCollectionNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function menuHitTargets<TMessage>(widget: MenuNode<TMessage> | ContextMenuNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   return menuRows(widget, bounds, 0).flatMap((row) => hitTargetForRow(widget, bounds, row));
 }
 
 export function menuBarHitTargets<TMessage>(widget: MenuBarNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = menuActionMessageFactory(widget);
+  if (toMessage === undefined) return [];
   let column = bounds.column;
   const targets: HitTarget<TMessage>[] = [];
   const selected = selectedId(widget);
   for (const item of topLevelMenuItems(widget)) {
     const width = Math.min(bounds.width, menuBarItemWidth(item, item.id === selected));
-    if (item.disabled !== true && item.message !== undefined) {
+    if (item.disabled !== true) {
       targets.push({
         id: `${widget.id ?? widget.kind}:${item.id}`,
         bounds: { row: bounds.row, column, width, height: 1 },
-        message: () => item.message as TMessage,
+        message: () => toMessage({ kind: 'activate', id: item.id }),
         cursor: 'pointer'
       });
     }
@@ -172,21 +175,21 @@ export function menuBarHitTargets<TMessage>(widget: MenuBarNode<TMessage>, bound
 }
 
 export function dropdownHitTargets<TMessage>(widget: DropdownNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = dropdownActionMessageFactory(widget);
+  if (toMessage === undefined) return [];
   if (widget.props.open !== true) {
-    const item = selectedMenuItem(widget);
-    if (item?.disabled === true || item?.message === undefined) return [];
     return [{
       id: `${widget.id ?? widget.kind}:control`,
       bounds: { ...bounds, height: Math.min(1, bounds.height) },
-      message: () => item.message as TMessage,
+      message: () => toMessage({ kind: 'toggle' }),
       cursor: 'pointer'
     }];
   }
-  return menuRows(widget, bounds, 1).flatMap((row) => hitTargetForRow(widget, bounds, row));
+  return menuRows(widget, bounds, 1).flatMap((row) => dropdownHitTargetForRow(widget, bounds, row, toMessage));
 }
 
 export function menuCursor(widget: MenuCollectionNode, bounds: Rect, rowOffset = 0): { readonly row: number; readonly column: number } {
-  const selected = selectedId(widget);
+  const selected = activeId(widget);
   const row = selected === undefined ? 0 : menuRows(widget, bounds, rowOffset).find((item) => item.item.id === selected)?.row ?? rowOffset;
   return {
     row: bounds.row + Math.min(Math.max(0, row), Math.max(0, bounds.height - 1)),
@@ -195,20 +198,41 @@ export function menuCursor(widget: MenuCollectionNode, bounds: Rect, rowOffset =
 }
 
 function hitTargetForRow<TMessage>(
-  _widget: MenuCollectionNode<TMessage>,
+  widget: MenuNode<TMessage> | ContextMenuNode<TMessage>,
   bounds: Rect,
   row: MenuRow
 ): HitTarget<TMessage>[] {
-  if (row.item.disabled === true || row.item.message === undefined) return [];
+  const toMessage = menuActionMessageFactory(widget);
+  if (row.item.disabled === true || toMessage === undefined) return [];
   return [{
-    id: `${_widget.id ?? _widget.kind}:${row.item.id}`,
+    id: `${widget.id ?? widget.kind}:${row.item.id}`,
     bounds: {
       row: bounds.row + row.row,
       column: bounds.column,
       width: bounds.width,
       height: 1
     },
-    message: () => row.item.message as TMessage,
+    message: () => toMessage({ kind: 'activate', id: row.item.id }),
+    cursor: 'pointer'
+  }];
+}
+
+function dropdownHitTargetForRow<TMessage>(
+  widget: DropdownNode<TMessage>,
+  bounds: Rect,
+  row: MenuRow,
+  toMessage: (action: DropdownAction) => TMessage
+): HitTarget<TMessage>[] {
+  if (row.item.disabled === true) return [];
+  return [{
+    id: `${widget.id ?? widget.kind}:${row.item.id}`,
+    bounds: {
+      row: bounds.row + row.row,
+      column: bounds.column,
+      width: bounds.width,
+      height: 1
+    },
+    message: () => toMessage({ kind: 'activate', id: row.item.id }),
     cursor: 'pointer'
   }];
 }
@@ -238,9 +262,24 @@ function selectedId(widget: AnyMenuNode): string | undefined {
   return typeof selected === 'string' ? clean(selected) : firstEnabledItem(widget)?.id;
 }
 
+function activeId(widget: AnyMenuNode): string | undefined {
+  if (widget.kind === 'dropdown' && widget.props.open === true && typeof widget.props.highlighted === 'string') {
+    return clean(widget.props.highlighted);
+  }
+  return selectedId(widget);
+}
+
 function selectedMenuItem(widget: AnyMenuNode): VisibleMenuItem | undefined {
   const selected = selectedId(widget);
   return selected === undefined ? undefined : visibleMenuItems(widget).find((item) => item.id === selected);
+}
+
+function menuActionMessageFactory<TMessage>(widget: ActionMenuNode<TMessage>): ((action: MenuAction) => TMessage) | undefined {
+  return widget.props.toActionMessage;
+}
+
+function dropdownActionMessageFactory<TMessage>(widget: DropdownNode<TMessage>): ((action: DropdownAction) => TMessage) | undefined {
+  return widget.props.toDropdownActionMessage;
 }
 
 function firstEnabledItem(widget: AnyMenuNode): VisibleMenuItem | undefined {
@@ -269,7 +308,6 @@ function sanitizeMenuItem(value: unknown, depth: number): readonly VisibleMenuIt
   const normalized: VisibleMenuItem = {
     id: clean(id),
     label: clean(label),
-    ...(value['message'] === undefined ? {} : { message: value['message'] }),
     ...(value['disabled'] === true ? { disabled: true } : {}),
     ...(value['checked'] === true ? { checked: true } : {}),
     ...(tone === 'destructive' ? { tone } : {}),
