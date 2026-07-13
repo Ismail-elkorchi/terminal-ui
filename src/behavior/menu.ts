@@ -1,5 +1,5 @@
 import type { DropdownAction, DropdownPresentation, MenuAction } from '../ui-model/menu.ts';
-import type { MenuItem } from '../ui-model/options/menus.ts';
+import type { MenuItem } from '../ui-model/menu.ts';
 import { adjacentItemId } from './navigation.ts';
 import { applyScrollEvent } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';

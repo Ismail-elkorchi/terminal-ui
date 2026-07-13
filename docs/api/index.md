@@ -19,6 +19,7 @@ The subpath entrypoints are:
 
 - `@ismail-elkorchi/terminal-ui/host`
 - `@ismail-elkorchi/terminal-ui/input`
+- `@ismail-elkorchi/terminal-ui/interaction`
 - `@ismail-elkorchi/terminal-ui/protocol`
 - `@ismail-elkorchi/terminal-ui/text`
 - `@ismail-elkorchi/terminal-ui/theme`
@@ -37,10 +38,11 @@ All public results use typed data for ordinary cancellation, validation
 failure, non-TTY denial, transcript replay mismatch, and terminal capability
 problems.
 
-Clipboard helpers live under the protocol entrypoint. They are capability and
-policy gated; components never write to the clipboard directly.
-TUI selection helpers resolve selected text from caller-owned source state and
-then delegate clipboard mutation to the same explicit protocol policy.
+Clipboard sequence and sink helpers live under the protocol entrypoint and are
+gated by explicit caller policy; they do not import or inspect terminal hosts.
+TUI selection helpers resolve selected text from caller-owned source state,
+verify the host clipboard capability, and then delegate the protocol write.
+Components never write to the clipboard directly.
 
 Rendering APIs live under the renderer entrypoint and expose the current frame
 pipeline explicitly: `FrameBuffer`, `FrameCellSource`, `RenderSpan`,

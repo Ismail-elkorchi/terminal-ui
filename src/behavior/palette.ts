@@ -2,7 +2,6 @@ import { editTextBuffer } from '../text/index.ts';
 import { rowWindow } from './data-window.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type { SearchEntry } from '../ui-model/contracts.ts';
-import type { PaletteOptions } from '../ui-model/options/documents.ts';
 import type { PaletteAction } from '../ui-model/palette.ts';
 
 export type PaletteAsyncState<TValue = string> =
@@ -17,7 +16,10 @@ export interface PaletteState {
   readonly previewId?: string;
 }
 
-export type PalettePresentation = Required<Pick<PaletteOptions<never>, 'query' | 'selected'>>;
+export interface PalettePresentation {
+  readonly query: string;
+  readonly selected: number;
+}
 
 export interface PaletteReducerOptions<TValue = string> {
   readonly entries: readonly SearchEntry<TValue>[];

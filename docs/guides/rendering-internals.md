@@ -16,6 +16,12 @@ The rendering path is:
 5. `renderFramePlain()`, `renderFrameAnsi()`, `renderFrameDebug()`, and
    `renderDiffAnsi()` serialize the chosen frame representation.
 
+The renderer owns its private normalized node model and implementation kernel.
+Component and layout factories compile authored options through a shared
+private authoring boundary; renderer implementation modules never import those
+factories or the TUI runtime. The `tui` source directory owns application and
+terminal-session lifecycle rather than frame, layout, or widget rendering.
+
 ## Styled Cells
 
 A frame cell carries visible text, display width, continuation metadata for
@@ -70,11 +76,12 @@ accessibility, or application messages.
 
 ## Frame Buffer
 
-`FrameBuffer` is the only supported drawing target for built-in renderers and
-custom renderers. It owns clipping, overwrite behavior, wide-cell topology,
+`FrameBuffer` owns clipping, overwrite behavior, wide-cell topology,
 sanitization, style preservation, source metadata, and final frame creation.
+Built-in renderers and custom renderers receive its write-only `RenderTarget`
+contract; frame snapshotting remains inside the renderer kernel.
 
-Built-in renderers, `custom()` renderers, and `canvas()` painters all use the
+Built-in renderers, `custom()` renderers, and `canvas()` painters all use that
 same buffer path. They must not write to terminal hosts, emit raw ANSI, or
 bypass the frame.
 

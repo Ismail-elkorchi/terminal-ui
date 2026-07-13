@@ -1,4 +1,4 @@
-import { elementFromRenderNode } from '../../render-node/element.ts';
+import { elementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type {
   ButtonOptions,
@@ -16,12 +16,12 @@ import type {
   SliderOptions,
   TextInputOptions,
   ToggleSwitchOptions
-} from '../../ui-model/options/forms.ts';
+} from '../options/forms.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
   InferredElementKeyBindings
-} from '../factory-internals/messages.ts';
+} from '../internal/messages.ts';
 import {
   activationKeyBindings,
   checkboxListKeyBindings,
@@ -36,14 +36,14 @@ import {
   selectBoxKeyBindings,
   textEditInputHandlers,
   textInputKeyBindings
-} from '../factory-internals/interaction.ts';
+} from '../internal/interaction.ts';
 import {
   layoutProps,
   optionalId,
   requiredId,
   renderNodeChildren
-} from '../factory-internals/render-node.ts';
-import { choiceItemsForRenderer, colorOptionsForRenderer } from '../factory-internals/domain.ts';
+} from '../../authoring/render-node.ts';
+import { choiceItemsForRenderer, colorOptionsForRenderer } from '../internal/domain.ts';
 
 export function form<const TChildren extends ElementChildren>(
   children: TChildren,

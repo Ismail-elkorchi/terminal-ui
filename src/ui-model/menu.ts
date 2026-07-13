@@ -1,4 +1,16 @@
 import type { ScrollEvent } from '../interaction/scroll.ts';
+import type { ComponentActionTone, ComponentTone, HierarchyItem, ItemBase } from './contracts.ts';
+
+export interface MenuItem extends ItemBase, HierarchyItem<MenuItem> {
+  readonly checked?: boolean;
+  readonly shortcut?: string;
+  readonly tone?: ComponentActionTone;
+}
+
+export type DividerOrientation = 'horizontal' | 'vertical';
+export type DividerLineKind = 'single' | 'double' | 'heavy' | 'dashed' | 'dotted' | 'ascii' | 'empty';
+export type TooltipPlacement = 'auto' | 'above' | 'below' | 'left' | 'right' | 'cursor';
+export type TooltipTone = Extract<ComponentTone, 'default' | 'info' | 'success' | 'warning' | 'error'>;
 
 export type MenuAction =
   | { readonly kind: 'select'; readonly id: string }

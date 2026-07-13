@@ -1,0 +1,65 @@
+import type { ThemeColorToken } from '../visual/color.ts';
+import type { ComponentTone, TitledItem } from './contracts.ts';
+
+export interface NotificationItem extends TitledItem {
+  readonly message?: string;
+  readonly tone?: NotificationTone;
+  readonly progress?: number;
+  readonly detail?: string;
+  readonly dismissible?: boolean;
+}
+
+export type NotificationTone = Extract<ComponentTone, 'info' | 'success' | 'warning' | 'error' | 'progress'>;
+export type NotificationPlacement = 'top-right' | 'bottom-right' | 'centered-stack';
+export type ProgressBarDisplay = 'bar' | 'bar+percent' | 'bar+value' | 'bar+value+percent';
+export type ProgressBarLabelPosition = 'start' | 'end' | 'none';
+
+export interface ValueScaleStop {
+  readonly at: number;
+  readonly token: ThemeColorToken;
+  readonly label?: string;
+}
+
+export type ValueScale = readonly ValueScaleStop[];
+
+export interface BarChartItem {
+  readonly label: string;
+  readonly value: number;
+}
+
+export interface ChartSeries {
+  readonly id: string;
+  readonly label?: string;
+  readonly points: readonly number[];
+  readonly kind?: ChartSeriesKind;
+  readonly glyph?: string;
+  readonly valueScale?: ValueScale;
+  readonly sampleMode?: ChartSampleMode;
+  readonly sampleAlign?: ChartSampleAlign;
+  readonly interpolation?: ChartInterpolation;
+}
+
+export type ChartSeriesKind = 'line' | 'scatter' | 'area' | 'bar';
+export type ChartSampleMode = 'one-per-column' | 'fit' | 'window';
+export type ChartSampleAlign = 'start' | 'end';
+export type ChartInterpolation = 'nearest' | 'linear';
+
+export interface ChartPointSelection {
+  readonly series: string;
+  readonly point: number;
+}
+
+export type GaugeVariant = 'linear' | 'dial';
+
+export interface HeatmapCell<TValue = unknown> {
+  readonly id: string;
+  readonly label?: string;
+  readonly value: number;
+  readonly payload?: TValue;
+  readonly disabled?: boolean;
+}
+
+export interface HeatmapSelection {
+  readonly row: number;
+  readonly column: number;
+}

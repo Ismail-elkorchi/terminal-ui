@@ -9,7 +9,7 @@ export {
   padRenderLine,
   span,
   wrapRenderSpans
-} from '../tui/render-primitives.ts';
+} from '../visual/render.ts';
 export type {
   ClipRenderSpansOptions,
   PadRenderLineOptions,
@@ -22,7 +22,7 @@ export type {
   TerminalColor,
   TerminalLink,
   TerminalStyle
-} from '../tui/render-primitives.ts';
+} from '../visual/render.ts';
 export {
   blockGlyph,
   blockSpan,
@@ -50,7 +50,7 @@ export {
   transformCanvasPoint,
   transformCanvasRect,
   verticalAxis
-} from '../tui/canvas2d/index.ts';
+} from './internal/canvas2d/index.ts';
 export type {
   AreaSeriesOptions,
   AxisLine,
@@ -68,20 +68,20 @@ export type {
   SeriesOptions,
   StrokeFillOptions,
   TooltipLine
-} from '../tui/canvas2d/index.ts';
-export { drawBorder } from '../tui/border.ts';
+} from './internal/canvas2d/index.ts';
+export { drawBorder } from './internal/border.ts';
 export type {
   BorderKind,
   BorderStyle
-} from '../tui/border.ts';
+} from './internal/border.ts';
 export {
   createDirtyRegionSet,
   dirtyRegionsForRegionChanges
-} from '../tui/dirty-regions.ts';
-export type { DirtyRegionSet } from '../tui/dirty-regions.ts';
+} from './internal/dirty-regions.ts';
+export type { DirtyRegionSet } from './internal/dirty-regions.ts';
 export {
   createFrameBuffer
-} from '../tui/frame-buffer.ts';
+} from './internal/frame-buffer.ts';
 export type {
   AnsiStyleState,
   CursorPosition,
@@ -98,23 +98,23 @@ export type {
   RenderDiff,
   RenderOperation,
   RenderSerializeOptions
-} from '../tui/frame.ts';
+} from './internal/frame.ts';
 export {
   boxDrawingJoinPass
-} from '../tui/frame-passes/index.ts';
+} from './internal/frame-passes/index.ts';
 export type {
   FramePass,
   FramePassContext,
   FrameSemanticRole
-} from '../tui/frame-passes/index.ts';
+} from './internal/frame-passes/index.ts';
 export {
   frameCellSource,
   frameSourcePart,
   sameFrameCellSource,
   sanitizeFrameCellSource,
   renderNodeFrameSource
-} from '../tui/frame-source.ts';
-export type { FrameCellSource } from '../tui/frame-source.ts';
+} from '../visual/source.ts';
+export type { FrameCellSource } from '../visual/source.ts';
 export {
   clampMeasurement,
   combineMeasurementsHorizontally,
@@ -128,62 +128,50 @@ export {
   measureText,
   normalizeMeasurement,
   zeroMeasurement
-} from '../tui/measurement.ts';
+} from './internal/measurement.ts';
 export type {
   Measurement,
   MeasurementInput
-} from '../tui/measurement.ts';
-export {
-  copySelectedTextToClipboard,
-  resolveSelectedText
-} from '../tui/selection-interaction.ts';
-export type {
-  CopySelectedTextInput,
-  CopySelectedTextResult,
-  ResolveSelectedTextInput,
-  ResolveSelectedTextResult,
-  SelectableTextSource,
-  SelectionInteractionMode
-} from '../tui/selection-interaction.ts';
+} from './internal/measurement.ts';
 export {
   clampedTextOffset,
   textOffsetAtVisualColumn,
   textPointerHitTargets,
   textPointerMessageFactory,
   textSelectionBetween
-} from '../tui/text-pointer.ts';
+} from './internal/text-pointer.ts';
 export type {
   TextPointerAction,
   TextPointerEvent,
   TextPointerHitTargetInput
-} from '../tui/text-pointer.ts';
+} from './internal/text-pointer.ts';
 export {
   extractScrollbackSelectionText
-} from '../tui/scrollback.ts';
+} from './internal/scrollback.ts';
 export type {
   ExtractScrollbackSelectionTextInput
-} from '../tui/scrollback.ts';
+} from './internal/scrollback.ts';
 export {
   highlightRenderSpans
-} from '../tui/text-highlight.ts';
+} from './internal/text-highlight.ts';
 export type {
   HighlightRenderSpan,
   HighlightRenderSpansOptions
-} from '../tui/text-highlight.ts';
+} from './internal/text-highlight.ts';
 export {
   placeNotificationStack
-} from '../tui/notifications.ts';
+} from './internal/notifications.ts';
 export type {
   NotificationStackPlacementInput,
   NotificationStackSize
-} from '../tui/notifications.ts';
+} from './internal/notifications.ts';
 export {
   placeTooltip
-} from '../tui/tooltip.ts';
+} from './internal/tooltip.ts';
 export type {
   TooltipPlacementInput,
   TooltipSize
-} from '../tui/tooltip.ts';
+} from './internal/tooltip.ts';
 export {
   compositeRegions,
   diffFrames,
@@ -198,22 +186,22 @@ export {
   sameTerminalColor,
   sameTerminalLink,
   sameTerminalStyle
-} from '../tui/render.ts';
+} from './internal/render.ts';
 export {
   layoutElement
-} from '../tui/layout.ts';
+} from './internal/layout.ts';
 export type {
   RenderRegion,
   RenderRegionHitTarget,
   RenderElementProjection
-} from '../tui/render.ts';
+} from './internal/render.ts';
 export {
   createPointerRouter
-} from '../tui/pointer-router.ts';
+} from './internal/pointer-router.ts';
 export type {
   PointerRouteResult,
   PointerRouter
-} from '../tui/pointer-router.ts';
+} from './internal/pointer-router.ts';
 export type {
   PointerEventKind,
   RoutedPointerEvent
@@ -221,17 +209,17 @@ export type {
 export {
   projectTuiOutput,
   renderAccessibleSnapshot
-} from '../tui/output-projection.ts';
+} from './internal/output-projection.ts';
 export type {
   OutputProjection,
   OutputProjectionInput
-} from '../tui/output-projection.ts';
+} from './internal/output-projection.ts';
 export {
   renderScrollbars,
   scrollbarInteractionReducer,
   scrollbarLayout,
   scrollbarVisualStateForTarget
-} from '../tui/scrollbar.ts';
+} from './internal/scrollbar.ts';
 export type {
   ScrollbarLayout,
   ScrollbarInteractionAction,
@@ -242,7 +230,7 @@ export type {
   ScrollbarThumb,
   ScrollbarTrack,
   ScrollbarVisualState
-} from '../tui/scrollbar.ts';
+} from './internal/scrollbar.ts';
 export {
   custom
 } from './custom-element.ts';
@@ -262,13 +250,14 @@ export type {
 export {
   gridCellRects,
   splitTracks
-} from '../layout/geometry.ts';
+} from './internal/layout-geometry.ts';
 export type {
   Layer,
   LayoutNode
-} from '../tui/layout.ts';
+} from './internal/layout.ts';
 export type { Rect } from '../geometry/types.ts';
 export type {
   FocusTarget,
   HitTarget
-} from '../tui/render-node-renderer.ts';
+} from './model/renderer.ts';
+export type { RenderTarget, RenderTargetCell } from './model/render-target.ts';

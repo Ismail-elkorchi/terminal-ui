@@ -3,7 +3,7 @@ import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalStateSnapshot } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
-import type { TuiMessageSource } from '../tui/types.ts';
+import type { TuiMessageSource } from '../runtime-model/message-source.ts';
 
 export interface InteractionTranscript {
   readonly schemaVersion: 'terminal-ui.interaction-transcript.v1';

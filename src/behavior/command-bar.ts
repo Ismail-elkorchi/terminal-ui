@@ -1,13 +1,15 @@
-import type { CommandBarOptions } from '../ui-model/options/documents.ts';
+import type { TextSelection } from '../text/index.ts';
+import type { SuggestionItem } from '../ui-model/contracts.ts';
 import type { CommandBarState } from './command-bar-state.ts';
 
-export type CommandBarPresentation = Required<Pick<
-  CommandBarOptions,
-  'value' | 'cursor' | 'suggestions'
->> & Pick<
-  CommandBarOptions,
-  'selection' | 'selectedSuggestion' | 'historyIndex'
->;
+export interface CommandBarPresentation {
+  readonly value: string;
+  readonly cursor: number;
+  readonly suggestions: readonly SuggestionItem[];
+  readonly selection?: TextSelection;
+  readonly selectedSuggestion?: number;
+  readonly historyIndex?: number;
+}
 
 export function commandBarPresentation(state: CommandBarState): CommandBarPresentation {
   return {

@@ -5,10 +5,11 @@ import {
   resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
-import { renderFramePlain,
-  renderElementFrame
+import {
+  renderElementFrame,
+  renderElementRegions,
+  renderFramePlain
 } from '../../dist/renderer/index.js';
-import { renderElementProjection } from '../../dist/tui/render.js';
 import {
   activityFeed,
   structuredBlock
@@ -157,15 +158,16 @@ test('activityFeed renders selected visible blocks and accessible options', () =
 });
 
 test('activityFeed exposes block hit targets and keyboard focus when interactive', () => {
-  const projection = renderElementProjection(activityFeed({
+  const element = activityFeed({
     id: 'interactive-feed',
     blocks,
     selected: 1,
     onAction: (action) => ({ kind: 'activity', action }),
     keys: { arrowDown: () => ({ kind: 'next' }) }
-  }), { columns: 36, rows: 10 });
-  const frame = projection.frame;
-  const routedTargets = projection.regions.flatMap((region) => region.hitTargets);
+  });
+  const viewport = { columns: 36, rows: 10 };
+  const frame = renderElementFrame(element, viewport);
+  const routedTargets = renderElementRegions(element, viewport).flatMap((region) => region.hitTargets);
 
   assert.deepEqual(frame.hitTargets?.map((target) => [target.id, target.bounds.height]), [
     ['interactive-feed:block:queued', 3],

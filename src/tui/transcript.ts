@@ -2,7 +2,7 @@ import { createTranscriptRecorder } from '../transcript/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalStateSnapshot } from '../host/index.ts';
 import type { TranscriptRecorder } from '../transcript/index.ts';
-import type { Frame, RenderDiff } from './frame.ts';
+import type { Frame, RenderDiff } from '../renderer/internal/frame.ts';
 import type { TuiApp, TuiExit } from './types.ts';
 
 export function createTuiTranscript<TState, TMessage>(

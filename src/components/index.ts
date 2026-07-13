@@ -80,7 +80,7 @@ export type {
   ElementMetaInspection
 } from './inspection.ts';
 export type * from '../ui-model/style-parts.ts';
-export type * from '../ui-model/options/index.ts';
+export type * from './options/index.ts';
 export {
   baseStatusForRecordStatus,
   isNotificationTone,

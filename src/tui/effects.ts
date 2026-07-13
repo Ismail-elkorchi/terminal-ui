@@ -1,8 +1,8 @@
 import { diagnostic } from '../diagnostics.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TuiContext, TuiEffect, TuiEffectContext } from './types.ts';
-import { effectExecutionId } from '../internal/identity.ts';
-import type { EffectExecutionId } from '../internal/identity.ts';
+import { effectExecutionId } from '../foundation/identity.ts';
+import type { EffectExecutionId } from '../foundation/identity.ts';
 
 interface ActiveEffect {
   readonly id: EffectExecutionId;

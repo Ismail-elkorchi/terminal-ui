@@ -1,0 +1,158 @@
+import type {
+  HelpBinding,
+  ProcessStatus
+} from '../../ui-model/contracts.ts';
+import type {
+  BarChartItem,
+  ChartInterpolation,
+  ChartPointSelection,
+  ChartSampleAlign,
+  ChartSampleMode,
+  ChartSeries,
+  GaugeVariant,
+  HeatmapCell,
+  HeatmapSelection,
+  NotificationItem,
+  NotificationPlacement,
+  ProgressBarDisplay,
+  ProgressBarLabelPosition,
+  ValueScale
+} from '../../ui-model/feedback.ts';
+import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
+import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
+import type { ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
+import type { ChartStylePart, NotificationStylePart, StatusStylePart } from '../../ui-model/style-parts.ts';
+
+export interface NotificationStackOptions<TMessage = never> extends InteractiveElementOptions<NotificationStylePart> {
+  readonly items: readonly NotificationItem[];
+  readonly selected?: string;
+  readonly placement?: NotificationPlacement;
+  readonly maxWidth?: number;
+  readonly onAction?: (action: NotificationStackAction) => TMessage;
+  readonly keys?: ElementKeyBindings<TMessage>;
+}
+
+export interface StatusBarOptions<TMessage> extends InteractiveElementOptions<StatusStylePart> {
+  readonly text: string;
+  readonly onPress?: TMessage;
+  readonly keys?: ElementKeyBindings<TMessage>;
+}
+
+export interface HelpBarOptions extends ElementOptions<StatusStylePart> {
+  readonly bindings: readonly HelpBinding[];
+}
+
+export interface ActivityIndicatorOptions extends ElementOptions<StatusStylePart> {
+  readonly label?: string;
+  readonly status?: ProcessStatus;
+}
+
+export interface ProgressBarOptions extends ElementOptions<StatusStylePart> {
+  readonly label?: string;
+  readonly value?: number;
+  readonly max?: number;
+  readonly indeterminate?: boolean;
+  readonly barWidth?: number;
+  readonly display?: ProgressBarDisplay;
+  readonly labelPosition?: ProgressBarLabelPosition;
+  readonly elapsedMs?: number;
+  readonly remainingMs?: number;
+  readonly frame?: number;
+  readonly status?: ProcessStatus;
+  readonly valueScale?: ValueScale;
+}
+
+export interface SparklineOptions extends ElementOptions<ChartStylePart> {
+  readonly values: readonly number[];
+  readonly min?: number;
+  readonly max?: number;
+  readonly status?: ProcessStatus;
+  readonly valueScale?: ValueScale;
+  readonly emptyText?: string;
+  readonly loadingText?: string;
+  readonly errorText?: string;
+}
+
+export interface BarChartOptions extends ElementOptions<ChartStylePart> {
+  readonly items: readonly BarChartItem[];
+  readonly max?: number;
+  readonly selected?: number;
+  readonly status?: ProcessStatus;
+  readonly emptyText?: string;
+  readonly loadingText?: string;
+  readonly errorText?: string;
+}
+
+export interface ChartOptions<TMessage = never> extends InteractiveElementOptions<ChartStylePart> {
+  readonly series: readonly ChartSeries[];
+  readonly min?: number;
+  readonly max?: number;
+  readonly selected?: ChartPointSelection;
+  readonly legend?: boolean;
+  readonly signedDomain?: boolean;
+  readonly xLabel?: string;
+  readonly yLabel?: string;
+  readonly status?: ProcessStatus;
+  readonly valueScale?: ValueScale;
+  readonly sampleMode?: ChartSampleMode;
+  readonly sampleAlign?: ChartSampleAlign;
+  readonly interpolation?: ChartInterpolation;
+  readonly emptyText?: string;
+  readonly loadingText?: string;
+  readonly errorText?: string;
+  readonly onAction?: (action: ChartAction) => TMessage;
+  readonly keys?: ElementKeyBindings<TMessage>;
+}
+
+export interface GaugeOptions extends ElementOptions<StatusStylePart> {
+  readonly label?: string;
+  readonly value: number;
+  readonly min?: number;
+  readonly max?: number;
+  readonly width?: number;
+  readonly variant?: GaugeVariant;
+  readonly status?: ProcessStatus;
+}
+
+export interface HeatmapOptions<TValue = unknown, TMessage = never> extends InteractiveElementOptions<ChartStylePart> {
+  readonly rows: readonly (readonly HeatmapCell<TValue>[])[];
+  readonly min?: number;
+  readonly max?: number;
+  readonly selected?: HeatmapSelection;
+  readonly cellWidth?: number;
+  readonly gap?: number;
+  readonly status?: ProcessStatus;
+  readonly valueScale?: ValueScale;
+  readonly emptyText?: string;
+  readonly loadingText?: string;
+  readonly errorText?: string;
+  readonly onAction?: (action: HeatmapAction) => TMessage;
+  readonly keys?: ElementKeyBindings<TMessage>;
+}
+
+export interface SpinnerOptions extends ElementOptions<StatusStylePart> {
+  readonly frames?: readonly string[];
+  readonly frameIndex?: number;
+  readonly label?: string;
+  readonly status?: ProcessStatus;
+}
+
+export type {
+  BarChartItem,
+  ChartInterpolation,
+  ChartPointSelection,
+  ChartSampleAlign,
+  ChartSampleMode,
+  ChartSeries,
+  ChartSeriesKind,
+  GaugeVariant,
+  HeatmapCell,
+  HeatmapSelection,
+  NotificationItem,
+  NotificationPlacement,
+  NotificationTone,
+  ProgressBarDisplay,
+  ProgressBarLabelPosition,
+  ValueScale,
+  ValueScaleStop
+} from '../../ui-model/feedback.ts';

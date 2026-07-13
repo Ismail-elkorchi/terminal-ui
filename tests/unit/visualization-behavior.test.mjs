@@ -8,8 +8,7 @@ import {
   heatmapReducer
 } from '../../dist/behavior/index.js';
 import { chart, heatmap } from '../../dist/components/index.js';
-import { renderElementFrame } from '../../dist/renderer/index.js';
-import { renderElementProjection } from '../../dist/tui/render.js';
+import { renderElementFrame, renderElementRegions } from '../../dist/renderer/index.js';
 
 test('chart behavior navigates series, points, and pages without owning data', () => {
   const series = [
@@ -47,19 +46,19 @@ test('heatmap behavior navigates selectable cells by row and page', () => {
 });
 
 test('chart and heatmap pointer targets emit semantic select actions', () => {
-  const chartProjection = renderElementProjection(chart({
+  const chartRegions = renderElementRegions(chart({
     id: 'chart-actions',
     series: [{ id: 'cpu', points: [1, 2] }],
     onAction: (action) => action
   }), { columns: 4, rows: 2 });
-  const heatmapProjection = renderElementProjection(heatmap({
+  const heatmapRegions = renderElementRegions(heatmap({
     id: 'heatmap-actions',
     rows: [[{ id: 'one', value: 1 }]],
     onAction: (action) => action
   }), { columns: 4, rows: 1 });
 
-  const chartTarget = chartProjection.regions.flatMap((region) => region.hitTargets)[0];
-  const heatmapTarget = heatmapProjection.regions.flatMap((region) => region.hitTargets)[0];
+  const chartTarget = chartRegions.flatMap((region) => region.hitTargets)[0];
+  const heatmapTarget = heatmapRegions.flatMap((region) => region.hitTargets)[0];
   assert.deepEqual(chartTarget?.message({}), { kind: 'select', series: 'cpu', point: 0 });
   assert.deepEqual(heatmapTarget?.message({}), { kind: 'select', row: 0, column: 0 });
 });

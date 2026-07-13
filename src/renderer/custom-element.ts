@@ -5,11 +5,11 @@ import type {
   ElementTextInputHandlers
 } from '../element/metadata.ts';
 import type { Element } from '../element/index.ts';
-import { elementFromRenderNode } from '../render-node/element.ts';
-import type { RenderNodeInputMap } from '../render-node/index.ts';
-import type { RenderNodeRenderer } from '../tui/render-node-renderer.ts';
+import { elementFromRenderNode } from './model/element.ts';
+import type { RenderNodeInputMap } from './model/index.ts';
+import type { RenderNodeRenderer } from './model/renderer.ts';
 import type { CustomRenderer } from './custom-renderer.ts';
-import { renderNodeId } from '../internal/identity.ts';
+import { renderNodeId } from '../foundation/identity.ts';
 
 const rendererHookNames = [
   'measure',

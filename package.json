@@ -20,6 +20,10 @@
       "types": "./dist/input/index.d.ts",
       "default": "./dist/input/index.js"
     },
+    "./interaction": {
+      "types": "./dist/interaction/index.d.ts",
+      "default": "./dist/interaction/index.js"
+    },
     "./protocol": {
       "types": "./dist/protocol/index.d.ts",
       "default": "./dist/protocol/index.js"

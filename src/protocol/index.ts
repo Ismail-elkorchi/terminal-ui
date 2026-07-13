@@ -1,7 +1,8 @@
 import { sanitizeTerminalText } from '../text/index.ts';
-import type { TerminalHost, TerminalStateChange, TerminalStateSnapshot } from '../host/index.ts';
 export type { ClipboardWritePolicy, ClipboardWriteResult } from './clipboard.ts';
 export { createClipboardWriteSequence, writeClipboardText } from './clipboard.ts';
+export type { TerminalProtocolSink } from './types.ts';
+import type { TerminalProtocolSink } from './types.ts';
 
 export interface TerminalProtocolWriter {
   enableAlternateScreen(): Promise<void>;
@@ -23,28 +24,23 @@ export interface TerminalProtocolWriter {
 
 export type MouseReportingMode = 'none' | 'click' | 'drag' | 'all';
 
-export interface TerminalRestorePlan {
-  readonly snapshot: TerminalStateSnapshot;
-  readonly operations: readonly TerminalStateChange[];
-}
-
-export function createProtocolWriter(host: TerminalHost): TerminalProtocolWriter {
+export function createProtocolWriter(sink: TerminalProtocolSink): TerminalProtocolWriter {
   return {
-    enableAlternateScreen: async () => host.write({ text: '\u001B[?1049h' }),
-    disableAlternateScreen: async () => host.write({ text: '\u001B[?1049l' }),
-    enableBracketedPaste: async () => host.write({ text: '\u001B[?2004h' }),
-    disableBracketedPaste: async () => host.write({ text: '\u001B[?2004l' }),
-    enableMouseReporting: async (mode) => host.write({ text: mouseReportingEnableSequence(assertMouseReportingMode(mode)) }),
-    disableMouseReporting: async () => host.write({ text: mouseReportingDisableSequence() }),
-    enableFocusReporting: async () => host.write({ text: '\u001B[?1004h' }),
-    disableFocusReporting: async () => host.write({ text: '\u001B[?1004l' }),
-    hideCursor: async () => host.write({ text: '\u001B[?25l' }),
-    showCursor: async () => host.write({ text: '\u001B[?25h' }),
-    moveCursor: async (row, column) => host.write({ text: cursorMoveSequence(row, column) }),
-    clearScreen: async () => host.write({ text: '\u001B[2J' }),
-    clearLine: async () => host.write({ text: '\u001B[2K' }),
-    setTitle: async (title) => host.write({ text: `\u001B]0;${sanitizeControlSequence(title)}\u0007` }),
-    bell: async () => host.write({ text: '\u0007' })
+    enableAlternateScreen: async () => sink.write('\u001B[?1049h'),
+    disableAlternateScreen: async () => sink.write('\u001B[?1049l'),
+    enableBracketedPaste: async () => sink.write('\u001B[?2004h'),
+    disableBracketedPaste: async () => sink.write('\u001B[?2004l'),
+    enableMouseReporting: async (mode) => sink.write(mouseReportingEnableSequence(assertMouseReportingMode(mode))),
+    disableMouseReporting: async () => sink.write(mouseReportingDisableSequence()),
+    enableFocusReporting: async () => sink.write('\u001B[?1004h'),
+    disableFocusReporting: async () => sink.write('\u001B[?1004l'),
+    hideCursor: async () => sink.write('\u001B[?25l'),
+    showCursor: async () => sink.write('\u001B[?25h'),
+    moveCursor: async (row, column) => sink.write(cursorMoveSequence(row, column)),
+    clearScreen: async () => sink.write('\u001B[2J'),
+    clearLine: async () => sink.write('\u001B[2K'),
+    setTitle: async (title) => sink.write(`\u001B]0;${sanitizeControlSequence(title)}\u0007`),
+    bell: async () => sink.write('\u0007')
   };
 }
 
@@ -64,20 +60,6 @@ function mouseReportingEnableSequence(mode: MouseReportingMode): string {
 
 function mouseReportingDisableSequence(): string {
   return '\u001B[?1003l\u001B[?1002l\u001B[?1000l\u001B[?1006l';
-}
-
-export function createRestorePlan(snapshot: TerminalStateSnapshot): TerminalRestorePlan {
-  return {
-    snapshot,
-    operations: [
-      { kind: 'cursorVisible', enabled: snapshot.cursorVisible },
-      { kind: 'focusReporting', enabled: snapshot.focusReporting },
-      { kind: 'mouseReporting', enabled: snapshot.mouseReporting },
-      { kind: 'bracketedPaste', enabled: snapshot.bracketedPaste },
-      { kind: 'alternateScreen', enabled: snapshot.alternateScreen },
-      { kind: 'rawInput', enabled: snapshot.rawInput }
-    ]
-  };
 }
 
 export function sanitizeControlSequence(sequence: string): string {

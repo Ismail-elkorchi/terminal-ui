@@ -1,9 +1,9 @@
-import { elementFromRenderNode, toRenderNode } from '../../render-node/element.ts';
-import type { RenderNode } from '../../render-node/index.ts';
+import { elementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
+import type { RenderNode } from '../../renderer/model/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
 import type { ViewportOptions } from '../options.ts';
-import { interactionProps } from '../../components/factory-internals/interaction.ts';
-import { layoutProps, requiredId } from '../../components/factory-internals/render-node.ts';
+import { interactionProps } from '../../authoring/metadata.ts';
+import { layoutProps, requiredId } from '../../authoring/render-node.ts';
 
 export function viewport<const TChild extends Element<unknown>, const TMessage = never>(
   child: TChild,

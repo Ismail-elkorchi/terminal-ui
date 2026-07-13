@@ -1,5 +1,5 @@
 import type { NotificationStackAction } from '../ui-model/notification-stack.ts';
-import type { NotificationItem, NotificationTone } from '../ui-model/options/feedback.ts';
+import type { NotificationItem, NotificationTone } from '../ui-model/feedback.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 
 export interface NotificationInput extends NotificationItem {

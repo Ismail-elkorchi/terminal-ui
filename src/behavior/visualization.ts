@@ -4,7 +4,7 @@ import type {
   ChartSeries,
   HeatmapCell,
   HeatmapSelection
-} from '../ui-model/options/feedback.ts';
+} from '../ui-model/feedback.ts';
 
 export interface ChartState {
   readonly selected?: ChartPointSelection;

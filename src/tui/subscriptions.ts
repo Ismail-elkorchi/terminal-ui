@@ -8,8 +8,8 @@ import type {
   TuiSubscriptionContext,
   TuiSubscriptions
 } from './types.ts';
-import { subscriptionExecutionId } from '../internal/identity.ts';
-import type { SubscriptionExecutionId } from '../internal/identity.ts';
+import { subscriptionExecutionId } from '../foundation/identity.ts';
+import type { SubscriptionExecutionId } from '../foundation/identity.ts';
 
 interface ActiveTuiEventSource<TMessage> {
   readonly id: SubscriptionExecutionId;

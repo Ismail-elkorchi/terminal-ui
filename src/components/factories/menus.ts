@@ -1,4 +1,4 @@
-import { elementFromRenderNode } from '../../render-node/element.ts';
+import { elementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
   ContextMenuOptions,
@@ -7,7 +7,7 @@ import type {
   MenuBarOptions,
   MenuOptions,
   TooltipOptions
-} from '../../ui-model/options/menus.ts';
+} from '../options/menus.ts';
 import {
   componentMetaProps,
   dropdownKeyBindings,
@@ -15,13 +15,13 @@ import {
   menuItemsForRenderer,
   menuKeyBindings,
   withMetaDefaults
-} from '../factory-internals/interaction.ts';
-import { optionalId, requiredId } from '../factory-internals/render-node.ts';
+} from '../internal/interaction.ts';
+import { optionalId, requiredId } from '../../authoring/render-node.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
   InferredElementKeyBindings
-} from '../factory-internals/messages.ts';
+} from '../internal/messages.ts';
 
 export function menu<
   const TActionMessage = never,

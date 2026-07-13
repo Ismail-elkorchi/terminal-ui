@@ -1,11 +1,11 @@
-import { elementFromRenderNode } from '../../render-node/element.ts';
+import { elementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
   ListOptions,
   PaginatorOptions,
   TableOptions,
   TreeOptions
-} from '../../ui-model/options/content.ts';
+} from '../options/content.ts';
 import type { ScrollEvent } from '../../interaction/scroll.ts';
 import type { ListAction } from '../../ui-model/list.ts';
 import type { TableAction } from '../../ui-model/table.ts';
@@ -15,18 +15,18 @@ import {
   paginatorKeyBindings,
   tableKeyBindings,
   treeKeyBindings
-} from '../factory-internals/interaction.ts';
+} from '../internal/interaction.ts';
 import {
   domainValues,
   tableColumnsForRenderer,
   treeNodesForRenderer
-} from '../factory-internals/domain.ts';
-import { requiredId } from '../factory-internals/render-node.ts';
+} from '../internal/domain.ts';
+import { requiredId } from '../../authoring/render-node.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
   InferredElementKeyBindings
-} from '../factory-internals/messages.ts';
+} from '../internal/messages.ts';
 
 export function list<
   TValue,

@@ -27,19 +27,22 @@ test('clipboard OSC 52 sequence is gated by explicit policy', () => {
   assert.equal(oversized.diagnostic.data?.maxBytes, 2);
 });
 
-test('writeClipboardText requires host clipboard capability before emitting OSC 52', async () => {
+test('writeClipboardText writes through an explicit protocol sink', async () => {
   const host = createMemoryTerminalHost();
-  const blocked = await writeClipboardText(host, 'copy me', { allow: true });
-
-  assert.equal(blocked.ok, false);
-  assert.equal(blocked.diagnostic.code, 'HOST_PROTOCOL_UNSUPPORTED');
-  assert.equal(host.output(), '');
-});
-
-test('memory host can opt into clipboard capability for protocol tests', async () => {
-  const host = createMemoryTerminalHost({ clipboard: true });
-  const copied = await writeClipboardText(host, 'copy me', { allow: true });
+  const copied = await writeClipboardText(protocolSink(host), 'copy me', { allow: true });
 
   assert.equal(copied.ok, true);
   assert.match(host.output(), /^\u001B\]52;c;Y29weSBtZQ==\u0007$/u);
 });
+
+test('writeClipboardText preserves explicit caller policy at the protocol boundary', async () => {
+  const host = createMemoryTerminalHost();
+  const copied = await writeClipboardText(protocolSink(host), 'copy me', { allow: false });
+
+  assert.equal(copied.ok, false);
+  assert.equal(host.output(), '');
+});
+
+function protocolSink(host) {
+  return { write: (sequence) => host.write({ text: sequence }) };
+}

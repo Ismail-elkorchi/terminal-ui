@@ -9,6 +9,7 @@ const npmToSourceEntries = new Map([
   ['.', './src/index.ts'],
   ['./host', './src/host/index.ts'],
   ['./input', './src/input/index.ts'],
+  ['./interaction', './src/interaction/index.ts'],
   ['./protocol', './src/protocol/index.ts'],
   ['./text', './src/text/index.ts'],
   ['./theme', './src/theme/index.ts'],

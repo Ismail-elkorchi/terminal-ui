@@ -1,6 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { RecordStatus } from '../ui-model/contracts.ts';
-import type { StructuredBlock } from '../ui-model/options/documents.ts';
+import type { StructuredBlock } from '../ui-model/documents.ts';
 import type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
 
 export interface ActivityFeedState {

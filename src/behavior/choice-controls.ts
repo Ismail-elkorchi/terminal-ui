@@ -5,7 +5,7 @@ import type {
   RadioGroupAction,
   SelectBoxAction
 } from '../ui-model/choice-controls.ts';
-import type { ColorPickerOption } from '../ui-model/options/forms.ts';
+import type { ColorPickerOption } from '../ui-model/forms.ts';
 import { adjacentItemId } from './navigation.ts';
 
 export interface CheckboxListState {

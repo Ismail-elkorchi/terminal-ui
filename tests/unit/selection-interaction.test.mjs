@@ -4,9 +4,9 @@ import test from 'node:test';
 import {
   createMemoryTerminalHost } from '../../dist/host/index.js';
 import {
-  copySelectedTextToClipboard,
   resolveSelectedText
-} from '../../dist/renderer/index.js';
+} from '../../dist/interaction/index.js';
+import { copySelectedTextToClipboard } from '../../dist/tui/index.js';
 
 test('selection interaction resolves the active application-owned source', () => {
   const result = resolveSelectedText({
@@ -87,6 +87,19 @@ test('selection interaction writes clipboard text only through explicit policy a
   assert.equal(result.ok ? result.selection.text : undefined, 'copy');
   assert.equal(result.ok ? result.clipboard.byteLength : undefined, 4);
   assert.equal(host.output().includes('\u001B]52;c;Y29weQ==\u0007'), true);
+});
+
+test('selection interaction rejects clipboard writes when the host capability is unavailable', async () => {
+  const host = createMemoryTerminalHost();
+  const result = await copySelectedTextToClipboard({
+    host,
+    policy: { allow: true },
+    sources: [{ id: 'field', text: 'copy this', selection: { start: 0, end: 4 } }]
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.diagnostic.code, 'HOST_PROTOCOL_UNSUPPORTED');
+  assert.equal(host.output(), '');
 });
 
 test('selection interaction does not write clipboard output when selection is missing', async () => {

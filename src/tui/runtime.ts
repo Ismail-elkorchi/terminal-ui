@@ -4,10 +4,15 @@ import { createTuiContext } from './context.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
 import { createTuiEffectManager } from './effects.ts';
 import { completedExitFromSnapshot } from './exit.ts';
-import { findAnyLayoutFocusTarget, findRenderNodeFocusTarget, nextFocusPath, previousFocusPath } from './focus.ts';
+import {
+  findAnyLayoutFocusTarget,
+  findRenderNodeFocusTarget,
+  nextFocusPath,
+  previousFocusPath
+} from '../renderer/internal/focus.ts';
 import { resolveTuiKeyBinding } from './key-bindings.ts';
 import { tuiSnapshot } from './lifecycle.ts';
-import { createPointerRouter } from './pointer-router.ts';
+import { createPointerRouter } from '../renderer/internal/pointer-router.ts';
 import {
   assertRuntimeCanStart,
   assertRuntimeOperational,
@@ -19,10 +24,10 @@ import { createTuiSubscriptionManager } from './subscriptions.ts';
 import type { InputEvent, MouseEvent as TerminalMouseEvent } from '../input/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { RenderNode } from '../render-node/index.ts';
-import type { DirtyRegionSet } from './dirty-regions.ts';
-import type { Frame } from './frame.ts';
-import type { FocusPath } from './focus.ts';
+import type { RenderNode } from '../renderer/model/index.ts';
+import type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
+import type { Frame } from '../renderer/internal/frame.ts';
+import type { FocusPath } from '../interaction/focus.ts';
 import type { RenderCommitCandidate } from './runtime-frame.ts';
 import type { TuiRuntimePhase } from './runtime-lifecycle.ts';
 import type {

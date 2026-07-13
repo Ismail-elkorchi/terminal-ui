@@ -1,4 +1,4 @@
-import { elementFromRenderNode } from '../../render-node/element.ts';
+import { elementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
   ActivityIndicatorOptions,
@@ -12,21 +12,21 @@ import type {
   SparklineOptions,
   SpinnerOptions,
   StatusBarOptions
-} from '../../ui-model/options/feedback.ts';
+} from '../options/feedback.ts';
 import {
   activationKeyBindings,
   componentMetaProps,
   interactionProps,
   mergeKeyBindings,
   withMetaDefaults
-} from '../factory-internals/interaction.ts';
-import { optionalId, requiredId } from '../factory-internals/render-node.ts';
-import { heatmapRowsForRenderer } from '../factory-internals/domain.ts';
+} from '../internal/interaction.ts';
+import { optionalId, requiredId } from '../../authoring/render-node.ts';
+import { heatmapRowsForRenderer } from '../internal/domain.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
   InferredElementKeyBindings
-} from '../factory-internals/messages.ts';
+} from '../internal/messages.ts';
 import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
 import type { ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
 

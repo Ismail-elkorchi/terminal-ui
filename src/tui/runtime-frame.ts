@@ -1,17 +1,17 @@
 import { toAccessibleSnapshot, validateAccessibleSnapshot } from '../accessibility/index.ts';
-import type { RenderNode } from '../render-node/index.ts';
+import type { RenderNode } from '../renderer/model/index.ts';
 import { defineTheme, isTerminalTheme } from '../theme/index.ts';
-import { dirtyRegionsForRegionChanges } from './dirty-regions.ts';
-import { diffFrames, renderDiffAnsi, renderElementProjection } from './render.ts';
+import { dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions.ts';
+import { diffFrames, renderDiffAnsi, renderElementProjection } from '../renderer/internal/render.ts';
 import { recordTuiFrame } from './transcript.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalHost, TerminalViewport } from '../host/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { DirtyRegionSet } from './dirty-regions.ts';
-import type { FocusPath } from './focus.ts';
-import type { Frame, RenderDiff } from './frame.ts';
-import type { LayoutNode } from './layout.ts';
-import type { RenderRegion } from './render.ts';
+import type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
+import type { FocusPath } from '../interaction/focus.ts';
+import type { Frame, RenderDiff } from '../renderer/internal/frame.ts';
+import type { LayoutNode } from '../renderer/internal/layout.ts';
+import type { RenderRegion } from '../renderer/internal/render.ts';
 import type { TuiApp, TuiContext, TuiRuntimeOptions, TuiTheme } from './types.ts';
 
 export interface RenderCommitCandidate<TMessage> {

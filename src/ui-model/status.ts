@@ -1,4 +1,4 @@
-import type { NotificationTone } from './options/feedback.ts';
+import type { NotificationTone } from './feedback.ts';
 import type {
   ProcessStatus,
   RecordStatus,

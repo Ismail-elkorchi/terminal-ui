@@ -1,18 +1,18 @@
-import { elementFromRenderNode } from '../../render-node/element.ts';
+import { elementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
-import type { RichTextOptions, TextAreaOptions, TextOptions } from '../../ui-model/options/content.ts';
+import type { RichTextOptions, TextAreaOptions, TextOptions } from '../options/content.ts';
 import {
   componentMetaProps,
   interactionProps,
   textAreaKeyBindings,
   textEditInputHandlers
-} from '../factory-internals/interaction.ts';
-import { optionalId, requiredId } from '../factory-internals/render-node.ts';
+} from '../internal/interaction.ts';
+import { optionalId, requiredId } from '../../authoring/render-node.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
   InferredElementKeyBindings
-} from '../factory-internals/messages.ts';
+} from '../internal/messages.ts';
 
 export function text(content: string, options: TextOptions = {}): Element {
   return elementFromRenderNode<'text'>({

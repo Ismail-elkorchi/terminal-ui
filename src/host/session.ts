@@ -1,5 +1,5 @@
 import { diagnostic } from '../diagnostics.ts';
-import { createProtocolWriter, createRestorePlan } from '../protocol/index.ts';
+import { createProtocolWriter } from '../protocol/index.ts';
 import { err, ok } from '../result.ts';
 import { registerTerminalSession, unregisterTerminalSession } from './session-registry.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
@@ -14,6 +14,7 @@ import type {
   TerminalStateSnapshot
 } from './types.ts';
 import type { TerminalCapabilityProfile } from './capability-types.ts';
+import { createTerminalRestorePlan } from './session-restore.ts';
 
 export class BasicTerminalSession implements TerminalSession {
   readonly startedAt: number;
@@ -37,7 +38,9 @@ export class BasicTerminalSession implements TerminalSession {
       cursorVisible: true
     };
     this.#state = this.initialState;
-    this.#protocol = createProtocolWriter(host);
+    this.#protocol = createProtocolWriter({
+      write: async (sequence) => host.write({ text: sequence })
+    });
     registerTerminalSession(this);
   }
 
@@ -93,7 +96,7 @@ export class BasicTerminalSession implements TerminalSession {
   async restore(reason: TerminalRestoreReason = 'success'): Promise<TerminalRestoreResult> {
     const restored: TerminalStateChange[] = [];
     const diagnostics: TerminalDiagnostic[] = [];
-    const plan = createRestorePlan(this.initialState);
+    const plan = createTerminalRestorePlan(this.initialState);
     for (const operation of plan.operations) {
       if (this.#state[operation.kind] === operation.enabled) continue;
       try {

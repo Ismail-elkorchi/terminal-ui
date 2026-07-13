@@ -12,8 +12,7 @@ import {
   createMemoryTerminalHost,
   restoreTerminalState
 } from '../../dist/host/index.js';
-import { createProtocolWriter,
-  createRestorePlan } from '../../dist/protocol/index.js';
+import { createProtocolWriter } from '../../dist/protocol/index.js';
 import { applySessionProtocolPolicy } from '../../dist/tui/index.js';
 
 test('memory host captures output and exposes capabilities', async () => {
@@ -42,7 +41,7 @@ test('host capability helper distinguishes input and output protocol support', (
 
 test('protocol writer emits typed mouse mode and sanitized title sequences', async () => {
   const host = createMemoryTerminalHost();
-  const protocol = createProtocolWriter(host);
+  const protocol = createProtocolWriter(protocolSink(host));
 
   await protocol.enableMouseReporting('drag');
   await protocol.disableMouseReporting();
@@ -56,7 +55,7 @@ test('protocol writer emits typed mouse mode and sanitized title sequences', asy
 
 test('protocol writer rejects invalid typed protocol parameters', async () => {
   const host = createMemoryTerminalHost();
-  const protocol = createProtocolWriter(host);
+  const protocol = createProtocolWriter(protocolSink(host));
 
   await assert.rejects(() => protocol.moveCursor(0, 1), /row must be a positive integer/u);
   await assert.rejects(() => protocol.moveCursor(1, Number.NaN), /column must be a positive integer/u);
@@ -71,7 +70,7 @@ test('default session protocol requests drag mouse reporting for pointer capture
   });
 });
 
-test('restore plans expose ordered state operations consumed by terminal sessions', async () => {
+test('terminal sessions restore state in protocol-safe order', async () => {
   const snapshot = {
     rawInput: false,
     alternateScreen: false,
@@ -80,15 +79,14 @@ test('restore plans expose ordered state operations consumed by terminal session
     focusReporting: false,
     cursorVisible: true
   };
-  const plan = createRestorePlan(snapshot);
-  assert.deepEqual(plan.operations.map((operation) => operation.kind), [
+  const expectedOperations = [
     'cursorVisible',
     'focusReporting',
     'mouseReporting',
     'bracketedPaste',
     'alternateScreen',
     'rawInput'
-  ]);
+  ];
 
   const host = createMemoryTerminalHost();
   const session = await host.beginSession({ id: 'restore-plan-test' });
@@ -101,9 +99,13 @@ test('restore plans expose ordered state operations consumed by terminal session
   const result = await session.restore('success');
 
   assert.equal(result.ok, true);
-  assert.deepEqual(result.restored.map((operation) => operation.kind), plan.operations.map((operation) => operation.kind));
+  assert.deepEqual(result.restored.map((operation) => operation.kind), expectedOperations);
   assert.deepEqual(host.restores()[0], snapshot);
 });
+
+function protocolSink(host) {
+  return { write: (sequence) => host.write({ text: sequence }) };
+}
 
 test('session protocol policies plan and apply only requested operations', async () => {
   const host = createMemoryTerminalHost();

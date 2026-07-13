@@ -4,6 +4,7 @@ export type TerminalUiEntrypoint =
   | 'root'
   | 'host'
   | 'input'
+  | 'interaction'
   | 'protocol'
   | 'text'
   | 'theme'
@@ -35,6 +36,7 @@ export const terminalUiPackage: TerminalUiPackage = {
     'root',
     'host',
     'input',
+    'interaction',
     'protocol',
     'text',
     'theme',

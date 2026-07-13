@@ -1,9 +1,9 @@
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { FrameBuffer } from '../tui/frame.ts';
-import type { Rect } from '../tui/layout.ts';
-import type { Measurement } from '../tui/measurement.ts';
-import type { FocusTarget, HitTarget } from '../tui/render-node-renderer.ts';
+import type { RenderTarget } from './model/render-target.ts';
+import type { Rect } from '../geometry/types.ts';
+import type { Measurement } from './model/measurement.ts';
+import type { FocusTarget, HitTarget } from './model/renderer.ts';
 
 interface CustomRendererInput<TState> {
   readonly state: TState;
@@ -14,7 +14,7 @@ interface CustomRendererInput<TState> {
 export type CustomRendererMeasureInput<TState> = CustomRendererInput<TState>;
 
 export interface CustomRendererRenderInput<TState> extends CustomRendererInput<TState> {
-  readonly buffer: FrameBuffer;
+  readonly buffer: RenderTarget;
   readonly focused: boolean;
 }
 

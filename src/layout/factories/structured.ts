@@ -1,15 +1,15 @@
-import { elementFromRenderNode, toRenderNode, toRenderNodes } from '../../render-node/element.ts';
+import { elementFromRenderNode, toRenderNode, toRenderNodes } from '../../renderer/model/element.ts';
 import type { Element, ElementChildren } from '../../element/index.ts';
 import type { GridAreasOptions, GridOptions, ModalOptions, SplitPaneOptions, TabsOptions } from '../options.ts';
-import { componentMetaProps, interactionProps, mergeKeyBindings, withMetaDefaults } from '../../components/factory-internals/interaction.ts';
-import type { RenderTabItem } from '../../render-node/props/layout.ts';
+import { componentMetaProps, interactionProps, mergeKeyBindings, withMetaDefaults } from '../../authoring/metadata.ts';
+import type { RenderTabItem } from '../../renderer/model/props/layout.ts';
 import type { TabAction } from '../../ui-model/tabs.ts';
 import {
   layoutProps,
   optionalId,
   requiredId,
   renderNodeChildren
-} from '../../components/factory-internals/render-node.ts';
+} from '../../authoring/render-node.ts';
 import { assertGridAreaChildren, gridAreaNames, parseGridAreas } from './internals.ts';
 
 export function grid<TMessage>(children: ElementChildren<TMessage>, options: GridOptions): Element<TMessage>;

@@ -1,7 +1,7 @@
 import { diagnostic } from '../diagnostics.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalHost } from '../host/index.ts';
+import type { TerminalProtocolSink } from './types.ts';
 
 export interface ClipboardWritePolicy {
   readonly allow: boolean;
@@ -45,27 +45,13 @@ export function createClipboardWriteSequence(
 }
 
 export async function writeClipboardText(
-  host: TerminalHost,
+  sink: TerminalProtocolSink,
   text: string,
   policy: ClipboardWritePolicy
 ): Promise<ClipboardWriteResult> {
-  const capabilities = await host.getCapabilities();
-  if (capabilities.clipboard.status !== 'supported') {
-    return {
-      ok: false,
-      diagnostic: diagnostic('HOST_PROTOCOL_UNSUPPORTED', 'Terminal clipboard write is unavailable.', {
-        severity: 'warning',
-        target: 'clipboard',
-        data: {
-          confidence: capabilities.clipboard.confidence,
-          diagnostics: capabilities.clipboard.diagnostics.map((item) => item.message)
-        }
-      })
-    };
-  }
   const result = createClipboardWriteSequence(text, policy);
   if (!result.ok) return result;
-  await host.write({ text: result.sequence });
+  await sink.write(result.sequence);
   return result;
 }
 

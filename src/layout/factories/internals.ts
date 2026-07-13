@@ -1,6 +1,6 @@
 import type { Element } from '../../element/index.ts';
-import { toRenderNode } from '../../render-node/element.ts';
-import type { RenderNodeLayoutProps } from '../../render-node/props/shared-layout.ts';
+import { toRenderNode } from '../../renderer/model/element.ts';
+import type { RenderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
 
 export function assertTrackCount(

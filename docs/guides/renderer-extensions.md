@@ -27,14 +27,15 @@ Use it only when a built-in component is the wrong shape and the renderer needs
 to own one or more of:
 
 - measurement;
-- child layout;
 - styled frame rendering;
 - accessibility projection;
 - focus targets;
 - pointer hit targets.
 
-Custom renderers draw through the same `FrameBuffer` and span pipeline as the
-built-in renderers. They must not write raw ANSI, mutate terminal hosts, bypass
+Custom renderers draw through a write-only `RenderTarget` backed by the same
+frame-buffer and span pipeline as built-in renderers. The target exposes bounded
+cell, line, block, and clear operations but not frame snapshotting or terminal
+output. Custom renderers must not write raw ANSI, mutate terminal hosts, bypass
 clipping, bypass text sanitization, or create hidden application state.
 
 Interactive custom renderers must expose accessibility. Pure decoration may

@@ -1,4 +1,4 @@
-import { elementFromRenderNode } from '../../render-node/element.ts';
+import { elementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
   ActivityFeedOptions,
@@ -6,24 +6,24 @@ import type {
   PaletteOptions,
   ScrollbackOptions,
   StructuredBlockOptions
-} from '../../ui-model/options/documents.ts';
+} from '../options/documents.ts';
 import {
   commandBarKeyBindings,
   componentMetaProps,
   interactionProps,
   mergeKeyBindings,
   paletteKeyBindings
-} from '../factory-internals/interaction.ts';
-import { optionalId, requiredId } from '../factory-internals/render-node.ts';
+} from '../internal/interaction.ts';
+import { optionalId, requiredId } from '../../authoring/render-node.ts';
 import {
   searchEntriesForRenderer,
   searchSelectionHandler
-} from '../factory-internals/domain.ts';
+} from '../internal/domain.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
   InferredElementKeyBindings
-} from '../factory-internals/messages.ts';
+} from '../internal/messages.ts';
 
 export function scrollback<const TMessage = never>(options: ScrollbackOptions<TMessage>): Element<TMessage> {
   const onAction = options.onAction;

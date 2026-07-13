@@ -1,7 +1,7 @@
 import type { AccessibilityOptions, AccessibleNode } from '../accessibility/index.ts';
 import type { BindableKeyName, InputEvent } from '../input/index.ts';
-import type { FocusPath } from '../tui/focus.ts';
-import type { TerminalStyle } from '../tui/render-primitives.ts';
+import type { FocusPath } from '../interaction/focus.ts';
+import type { TerminalStyle } from '../visual/render.ts';
 
 export interface ElementKeyEvent {
   readonly input: InputEvent;

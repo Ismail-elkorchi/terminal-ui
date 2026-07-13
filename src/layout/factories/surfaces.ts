@@ -1,12 +1,12 @@
-import { elementFromRenderNode, toRenderNode } from '../../render-node/element.ts';
-import type { RenderNode } from '../../render-node/index.ts';
+import { elementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
+import type { RenderNode } from '../../renderer/model/index.ts';
 import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from '../../element/index.ts';
 import type { AbsoluteOptions, OverlayOptions, SurfaceOptions } from '../options.ts';
-import { componentMetaProps } from '../../components/factory-internals/interaction.ts';
+import { componentMetaProps } from '../../authoring/metadata.ts';
 import {
   optionalId,
   renderNodeChildren
-} from '../../components/factory-internals/render-node.ts';
+} from '../../authoring/render-node.ts';
 import { assertSurfaceChild, surfaceLayoutProps } from './internals.ts';
 
 export function surface<const TChild extends Element<unknown>>(

@@ -1,12 +1,12 @@
 import { defineTheme } from '../theme/index.ts';
-import { serializeRenderSpans } from '../tui/ansi.ts';
+import { serializeRenderSpans } from '../renderer/internal/ansi.ts';
 import { choiceStatusLines, promptLine } from './render-line.ts';
 import type { TerminalCapabilityProfile } from '../host/index.ts';
 import type { PromptRuntimeState } from './state.ts';
 import type { PromptChoice } from './types.ts';
 import type { PromptDefinition } from './types.ts';
 import type { TerminalTheme } from '../theme/index.ts';
-import type { RenderSpan } from '../tui/render-primitives.ts';
+import type { RenderSpan } from '../visual/render.ts';
 
 export function renderPromptText<TChoice>(
   prompt: PromptDefinition<TChoice>,

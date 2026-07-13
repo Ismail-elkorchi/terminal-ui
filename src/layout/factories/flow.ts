@@ -1,8 +1,8 @@
-import { elementFromRenderNode } from '../../render-node/element.ts';
+import { elementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type { RowOptions, StackOptions } from '../options.ts';
-import { componentMetaProps } from '../../components/factory-internals/interaction.ts';
-import { layoutProps, optionalId, renderNodeChildren } from '../../components/factory-internals/render-node.ts';
+import { componentMetaProps } from '../../authoring/metadata.ts';
+import { layoutProps, optionalId, renderNodeChildren } from '../../authoring/render-node.ts';
 import { assertTrackCount } from './internals.ts';
 
 export function stack<const TChildren extends ElementChildren>(

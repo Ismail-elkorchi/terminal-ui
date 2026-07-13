@@ -1,0 +1,562 @@
+import type { RenderNodeOfKind } from '../model/index.ts';
+import { measureTextCells } from '../../text/index.ts';
+import { dataSource, dataSpan, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
+import { rowWindow, scrollStateFromUnknown } from '../../behavior/data-window.ts';
+import { numberProp, stringify } from './render-node-props.ts';
+import { mergeStyles, resolveRenderNodeStyle, themeStyle } from './render-node-style.ts';
+import type { AccessibleNode } from '../../accessibility/index.ts';
+import type { TerminalTheme } from '../../theme/index.ts';
+import type { TableColumnAlignment, TableColumnSemantic, TableDensity } from '../../ui-model/content.ts';
+import type { TableAction } from '../../ui-model/table.ts';
+import type { Rect } from '../model/layout.ts';
+import { clipRenderSpans } from '../../visual/render.ts';
+import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
+import type { ScrollState } from '../../interaction/scroll.ts';
+import type { HitTarget } from '../model/renderer.ts';
+import {
+  displayTableValue,
+  sanitizeTableText,
+  tableColumns,
+  tableColumnWidths,
+  tableResizeMarker,
+  tableSortMarker,
+  type NormalizedTableColumn
+} from './table/columns.ts';
+
+interface TableWindow {
+  readonly rows: readonly unknown[];
+  readonly start: number;
+  readonly end: number;
+  readonly selected: number;
+  readonly horizontalOffset: number;
+  readonly omittedBefore: number;
+  readonly omittedAfter: number;
+}
+
+interface TableSpacing {
+  readonly marker: number;
+  readonly separator: number;
+}
+
+interface TableProjection {
+  readonly rows: readonly unknown[];
+  readonly columns: readonly NormalizedTableColumn[];
+  readonly spacing: TableSpacing;
+  readonly hasHeader: boolean;
+  readonly headerHeight: number;
+  readonly bodyHeight: number;
+  readonly selected: number;
+  readonly selectedCell: { readonly row: number; readonly column: number } | undefined;
+  readonly window: TableWindow;
+  readonly widths: readonly number[];
+}
+
+const tableProjectionCache = new WeakMap<object, {
+  readonly width: number;
+  readonly height: number;
+  readonly projection: TableProjection;
+}>();
+
+export function tableBlock(widget: TableNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+  const {
+    rows,
+    columns,
+    spacing,
+    hasHeader,
+    headerHeight,
+    bodyHeight,
+    selectedCell,
+    window,
+    widths
+  } = tableProjection(widget, bounds);
+  const lines: RenderLine[] = [];
+  if (hasHeader && headerHeight > 0) {
+    lines.push(scrolledLine(headerLine(widget, columns, widths, spacing), window.horizontalOffset, bounds.width));
+  }
+  if (rows.length === 0 && bodyHeight > 0) {
+    lines.push(scrolledLine(emptyLine(widget, spacing), window.horizontalOffset, bounds.width));
+  } else {
+    lines.push(...window.rows.map((row, visibleIndex) => {
+      const rowIndex = window.start + visibleIndex;
+      return scrolledLine(rowLine(widget, row, rowIndex, columns, widths, rowIndex === window.selected, selectedCell, theme, spacing), window.horizontalOffset, bounds.width);
+    }));
+  }
+  return { lines: lines.slice(0, bounds.height) };
+}
+
+export function tableAccessibleBase(widget: TableNode, bounds: Rect, id: string, focused: boolean): AccessibleNode {
+  const { rows, columns, window } = tableProjection(widget, bounds);
+  return {
+    id,
+    role: 'table',
+    label: id,
+    description: `Showing ${String(window.start + 1)}-${String(window.end)} of ${String(rows.length)} rows.`,
+    window: {
+      start: window.start,
+      end: window.end,
+      total: rows.length,
+      omittedBefore: window.omittedBefore,
+      omittedAfter: window.omittedAfter
+    },
+    position: {
+      rowCount: rows.length,
+      columnCount: columns.length
+    },
+    ...(focused ? { focused } : {})
+  };
+}
+
+export function tableAccessibleChildren(widget: TableNode, bounds: Rect): readonly AccessibleNode[] {
+  const { rows, columns, hasHeader, window, selectedCell } = tableProjection(widget, bounds);
+  const headerRow: AccessibleNode[] = hasHeader
+    ? [{
+        id: `${widget.id ?? 'table'}:headers`,
+        role: 'row',
+        position: {
+          rowIndex: 0,
+          rowCount: rows.length + 1,
+          columnCount: columns.length
+        },
+        children: columns.map((column, columnIndex) => ({
+          id: `${widget.id ?? 'table'}:header:${String(column.index)}`,
+          role: 'cell',
+          label: columnLabel(column, columnIndex),
+          value: columnLabel(column, columnIndex),
+          position: {
+            rowIndex: 0,
+            rowCount: rows.length + 1,
+            columnIndex,
+            columnCount: columns.length,
+            columnLabel: columnLabel(column, columnIndex)
+          }
+        }))
+      }]
+    : [];
+  const bodyRows: AccessibleNode[] = window.rows.map((row, visibleIndex) => {
+    const rowIndex = window.start + visibleIndex;
+    return {
+      id: `${widget.id ?? 'table'}:row:${String(rowIndex)}`,
+      role: 'row',
+      selected: rowIndex === window.selected,
+      position: {
+        index: rowIndex,
+        count: rows.length,
+        rowIndex: hasHeader ? rowIndex + 1 : rowIndex,
+        rowCount: hasHeader ? rows.length + 1 : rows.length,
+        columnCount: columns.length
+      },
+      children: columns.map((column, columnIndex) => {
+        const value = column.value(row, rowIndex);
+        const label = columnLabel(column, columnIndex);
+        return {
+          id: `${widget.id ?? 'table'}:row:${String(rowIndex)}:cell:${String(column.index)}`,
+          role: 'cell',
+          label: displayTableValue(value),
+          value: displayTableValue(value),
+          position: {
+            rowIndex: hasHeader ? rowIndex + 1 : rowIndex,
+            rowCount: hasHeader ? rows.length + 1 : rows.length,
+            columnIndex,
+            columnCount: columns.length,
+            columnLabel: label
+          },
+          selected: selectedCell?.row === rowIndex && selectedCell.column === columnIndex
+        };
+      })
+    };
+  });
+  return [...headerRow, ...bodyRows];
+}
+
+export function tableHitTargets<TMessage>(widget: TableNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = tableActionMessageFactory(widget);
+  if (toMessage === undefined) return [];
+  const { columns, spacing, headerHeight, window, widths, selectedCell } = tableProjection(widget, bounds);
+  return window.rows.flatMap((_row, visibleIndex): HitTarget<TMessage>[] => {
+    const rowIndex = window.start + visibleIndex;
+    const rowBounds = {
+      row: bounds.row + headerHeight + visibleIndex,
+      column: bounds.column,
+      width: bounds.width,
+      height: 1
+    };
+    if (selectedCell !== undefined) {
+      return tableCellHitTargets(widget, rowIndex, columns, widths, rowBounds, window.horizontalOffset, spacing, toMessage);
+    }
+    return [{
+      id: `${widget.id ?? 'table'}:row:${String(rowIndex)}`,
+      bounds: rowBounds,
+      message: () => toMessage({ kind: 'selectRow', row: rowIndex }),
+      cursor: 'pointer'
+    }];
+  });
+}
+
+function tableCellHitTargets<TMessage>(
+  widget: TableNode<TMessage>,
+  rowIndex: number,
+  columns: readonly NormalizedTableColumn[],
+  widths: readonly number[],
+  rowBounds: Rect,
+  horizontalOffset: number,
+  spacing: TableSpacing,
+  toMessage: (action: TableAction) => TMessage
+): HitTarget<TMessage>[] {
+  let lineColumn = spacing.marker;
+  return columns.flatMap((column, visibleColumnIndex): HitTarget<TMessage>[] => {
+    const separator = visibleColumnIndex === 0 ? 0 : spacing.separator;
+    const cellStart = lineColumn + separator;
+    const cellWidth = widths[visibleColumnIndex] ?? 1;
+    lineColumn = cellStart + cellWidth;
+    const visibleStart = Math.max(0, cellStart - horizontalOffset);
+    const visibleEnd = Math.min(rowBounds.width, cellStart + cellWidth - horizontalOffset);
+    if (visibleEnd <= visibleStart) return [];
+    return [{
+      id: `${widget.id ?? 'table'}:row:${String(rowIndex)}:cell:${String(column.index)}`,
+      bounds: {
+        row: rowBounds.row,
+        column: rowBounds.column + visibleStart,
+        width: visibleEnd - visibleStart,
+        height: 1
+      },
+      message: () => toMessage({ kind: 'selectCell', row: rowIndex, column: visibleColumnIndex }),
+      cursor: 'pointer'
+    }];
+  });
+}
+
+function columnLabel(column: NormalizedTableColumn, index: number): string {
+  return column.header ?? `Column ${String(index + 1)}`;
+}
+
+function tableWindow(widget: TableNode, rows: readonly unknown[], bodyHeight: number, selected: number): TableWindow {
+  const window = rowWindow(rows, {
+    viewportRows: bodyHeight,
+    selectedIndex: selected,
+    ...scrollInput(widget)
+  });
+  return {
+    rows: window.rows,
+    start: window.start,
+    end: window.end,
+    selected,
+    horizontalOffset: window.offsetColumn,
+    omittedBefore: window.omittedBefore,
+    omittedAfter: window.omittedAfter
+  };
+}
+
+function tableProjection(widget: TableNode, bounds: Rect): TableProjection {
+  const cached = tableProjectionCache.get(widget);
+  if (cached?.width === bounds.width && cached.height === bounds.height) return cached.projection;
+  const rows = tableRows(widget);
+  const columns = tableColumns(widget, rows);
+  const spacing = tableSpacing(widget);
+  const hasHeader = columns.some((column) => column.header !== undefined);
+  const headerHeight = hasHeader && widget.props.stickyHeader !== false ? 1 : 0;
+  const bodyHeight = Math.max(0, bounds.height - headerHeight);
+  const selected = selectedTableRow(widget);
+  const selectedCell = selectedTableCell(widget);
+  const projection: TableProjection = {
+    rows,
+    columns,
+    spacing,
+    hasHeader,
+    headerHeight,
+    bodyHeight,
+    selected,
+    selectedCell,
+    window: tableWindow(widget, rows, bodyHeight, selected),
+    widths: tableColumnWidths(columns, rows, Math.max(1, bounds.width - spacing.marker), spacing.separator)
+  };
+  tableProjectionCache.set(widget, { width: bounds.width, height: bounds.height, projection });
+  return projection;
+}
+
+function headerLine(widget: TableNode, columns: readonly NormalizedTableColumn[], widths: readonly number[], spacing: TableSpacing): RenderLine {
+  const decorationStyle = resolveRenderNodeStyle(widget, { part: 'header', base: themeStyle('table.header', { bold: true }) });
+  const spans: RenderSpan[] = [dataSpan(' '.repeat(spacing.marker), decorationStyle, tableSource(widget, 'header.marker', undefined, 'decoration'))];
+  columns.forEach((column, index) => {
+    if (index > 0) spans.push(dataSpan(' '.repeat(spacing.separator), decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
+    const headerStyle = mergeStyles(
+      resolveRenderNodeStyle(widget, { part: 'headerCell', base: themeStyle('table.header', { bold: true }) }),
+      column.headerStyle
+    );
+    const headerSourceId = `${widget.id ?? 'table'}:header:${String(column.index)}`;
+    const label = column.header ?? '';
+    const labelSpans: RenderSpan[] = [
+      ...(label.length === 0 ? [] : [dataSpan(label, headerStyle, tableSource(widget, `header.${String(column.index)}.label`, headerSourceId, 'text', {
+        partKind: 'header'
+      }))])
+    ];
+    const sort = tableSortMarker(column.sort);
+    if (sort.length > 0) {
+      labelSpans.push(dataSpan(sort, resolveRenderNodeStyle(widget, {
+        part: 'sortIndicator',
+        ...(headerStyle === undefined ? {} : { base: headerStyle })
+      }), tableSource(widget, `header.${String(column.index)}.sort`, headerSourceId, 'decoration', {
+        partKind: 'sort'
+      })));
+    }
+    const resize = tableResizeMarker(column);
+    if (resize.length > 0) {
+      labelSpans.push(dataSpan(resize, headerStyle, tableSource(widget, `header.${String(column.index)}.resize`, headerSourceId, 'decoration', {
+        partKind: 'resize'
+      })));
+    }
+    spans.push(...cellSpans(
+      labelSpans,
+      widths[index] ?? 1,
+      column.align,
+      undefined,
+      tableSource(widget, `header.${String(column.index)}.padding`, headerSourceId, 'decoration'),
+      decorationStyle
+    ));
+  });
+  return { spans };
+}
+
+function rowLine(
+  widget: TableNode,
+  row: unknown,
+  rowIndex: number,
+  columns: readonly NormalizedTableColumn[],
+  widths: readonly number[],
+  selected: boolean,
+  selectedCell: { readonly row: number; readonly column: number } | undefined,
+  theme: TerminalTheme,
+  spacing: TableSpacing
+): RenderLine {
+  const rowStyle = resolveRenderNodeStyle(widget, { part: 'row', ...(selected ? { state: 'selected' } : {}) });
+  const selectedStyle = selected ? rowStyle : undefined;
+  const decorationStyle = rowStyle;
+  const rowSourceId = `${widget.id ?? 'table'}:row:${String(rowIndex)}`;
+  const spans: RenderSpan[] = [...selectionMarkerSpans(
+    widget,
+    selected,
+    theme,
+    selectedStyle,
+    tableSource(widget, `row.${String(rowIndex)}.marker`, rowSourceId, 'decoration', {
+      partKind: 'marker',
+      ...(selected ? { state: 'selected' } : {})
+    })
+  )];
+  columns.forEach((column, columnIndex) => {
+    if (columnIndex > 0) spans.push(dataSpan(' '.repeat(spacing.separator), decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
+    const cellSourceId = `${widget.id ?? 'table'}:row:${String(rowIndex)}:cell:${String(column.index)}`;
+    const rendered = renderCell(
+      widget,
+      row,
+      rowIndex,
+      column,
+      columnIndex,
+      tableSource(widget, `row.${String(rowIndex)}.cell.${String(column.index)}`, cellSourceId, 'text', {
+        partKind: column.semantic,
+        ...(selected ? { state: 'selected' } : {})
+      })
+    );
+    const cellSelectedStyle = selectedCell?.row === rowIndex && selectedCell.column === columnIndex
+      ? mergeDataStyles(selectedStyle, resolveRenderNodeStyle(widget, { part: 'cell', state: 'active' }))
+      : selectedStyle;
+    spans.push(...cellSpans(
+      rendered,
+      widths[columnIndex] ?? 1,
+      column.align,
+      cellSelectedStyle,
+      tableSource(widget, `row.${String(rowIndex)}.cell.${String(column.index)}.padding`, cellSourceId, 'decoration', {
+        partKind: 'padding',
+        ...(selected ? { state: 'selected' } : {})
+      }),
+      cellSelectedStyle ?? resolveRenderNodeStyle(widget, { part: 'cell' })
+    ));
+  });
+  return { spans };
+}
+
+function emptyLine(widget: TableNode, spacing: TableSpacing): RenderLine {
+  const emptyText = sanitizeTableText(stringify(widget.props.emptyText)) || 'No rows';
+  return {
+    spans: [
+      dataSpan(' '.repeat(spacing.marker), resolveRenderNodeStyle(widget, { part: 'marker' }), tableSource(widget, 'empty.marker', undefined, 'decoration')),
+      dataSpan(emptyText, resolveRenderNodeStyle(widget, { part: 'empty', base: themeStyle('text.muted', { dim: true }) }), tableSource(widget, 'empty'))
+    ]
+  };
+}
+
+function renderCell(
+  widget: TableNode,
+  row: unknown,
+  rowIndex: number,
+  column: NormalizedTableColumn,
+  columnIndex: number,
+  fallbackSource: FrameCellSource
+): readonly RenderSpan[] {
+  const value = column.value(row, rowIndex);
+  const fallbackStyle = mergeDataStyles(tableSemanticStyle(widget, column.semantic), column.style);
+  if (column.render !== undefined) {
+    return renderResultToSpans(column.render({ value, row, rowIndex, columnIndex }), fallbackStyle, fallbackSource);
+  }
+  return [dataSpan(displayTableValue(value), fallbackStyle, fallbackSource)];
+}
+
+function tableSemanticStyle(widget: TableNode, semantic: TableColumnSemantic): TerminalStyle | undefined {
+  if (semantic === 'metric') return resolveRenderNodeStyle(widget, { part: 'metric', base: themeStyle('table.metric') });
+  if (semantic === 'metadata') return resolveRenderNodeStyle(widget, { part: 'metadata', base: themeStyle('table.metadata', { dim: true }) });
+  return resolveRenderNodeStyle(widget, { part: 'cell', base: themeStyle('text.default') });
+}
+
+function renderResultToSpans(
+  result: string | RenderSpan | readonly RenderSpan[],
+  style: TerminalStyle | undefined,
+  fallbackSource: FrameCellSource
+): readonly RenderSpan[] {
+  if (typeof result === 'string') return [dataSpan(sanitizeTableText(result), style, fallbackSource)];
+  if (isRenderSpanArray(result)) return result.map((span) => cleanSpan(span, style, fallbackSource));
+  return [cleanSpan(result, style, fallbackSource)];
+}
+
+function cleanSpan(span: RenderSpan, fallbackStyle: TerminalStyle | undefined, fallbackSource: FrameCellSource): RenderSpan {
+  return {
+    text: sanitizeTableText(span.text),
+    ...(span.style === undefined && fallbackStyle !== undefined ? { style: fallbackStyle } : {}),
+    ...(span.style === undefined ? {} : { style: span.style }),
+    ...(span.link === undefined ? {} : { link: span.link }),
+    source: span.source ?? fallbackSource
+  };
+}
+
+function cellSpans(
+  spans: readonly RenderSpan[],
+  width: number,
+  align: TableColumnAlignment,
+  overrideStyle?: TerminalStyle,
+  paddingSource?: FrameCellSource,
+  paddingStyle?: TerminalStyle
+): readonly RenderSpan[] {
+  const clipped = overrideStyle === undefined
+    ? clipRenderSpans(spans, width, { ellipsis: '…' })
+    : clipRenderSpans(spans, width, { ellipsis: '…' }).map((currentSpan) => {
+        const style = mergeCellOverrideStyle(currentSpan.style, overrideStyle);
+        return {
+          text: currentSpan.text,
+          ...(style === undefined ? {} : { style }),
+          ...(currentSpan.link === undefined ? {} : { link: currentSpan.link }),
+          ...(currentSpan.source === undefined ? {} : { source: currentSpan.source })
+        };
+      });
+  const cells = clipped.reduce((sum, currentSpan) => sum + measureTextCells(currentSpan.text).cells, 0);
+  const padding = Math.max(0, width - cells);
+  const before = align === 'end' ? padding : align === 'center' ? Math.floor(padding / 2) : 0;
+  const after = Math.max(0, padding - before);
+  const rendered: RenderSpan[] = [];
+  if (before > 0) rendered.push(dataSpan(' '.repeat(before), paddingStyle, paddingSource));
+  rendered.push(...clipped);
+  if (after > 0) rendered.push(dataSpan(' '.repeat(after), paddingStyle, paddingSource));
+  return rendered;
+}
+
+function mergeCellOverrideStyle(cellStyle: TerminalStyle | undefined, overrideStyle: TerminalStyle): TerminalStyle | undefined {
+  const style = mergeDataStyles(cellStyle, overrideStyle);
+  if (cellStyle?.fg !== undefined && !isNeutralForeground(cellStyle.fg)) {
+    return {
+      ...(style ?? {}),
+      fg: cellStyle.fg
+    };
+  }
+  return style;
+}
+
+function isNeutralForeground(color: NonNullable<TerminalStyle['fg']>): boolean {
+  return color.kind === 'theme' && color.token === 'text.default';
+}
+
+function scrolledLine(line: RenderLine, offsetCells: number, width: number): RenderLine {
+  if (offsetCells <= 0) return line;
+  const spans: RenderSpan[] = [];
+  let skipped = 0;
+  let written = 0;
+  for (const span of line.spans) {
+    for (const segment of measureTextCells(span.text).graphemes) {
+      if (skipped < offsetCells) {
+        skipped += segment.cells;
+        continue;
+      }
+      if (written >= width) break;
+      spans.push({
+        text: segment.text,
+        ...(span.style === undefined ? {} : { style: span.style }),
+        ...(span.link === undefined ? {} : { link: span.link }),
+        ...(span.source === undefined ? {} : { source: span.source })
+      });
+      written += segment.cells;
+    }
+    if (written >= width) break;
+  }
+  return { spans };
+}
+
+function tableRows(widget: TableNode): readonly unknown[] {
+  return Array.isArray(widget.props.rows) ? widget.props.rows : [];
+}
+
+function tableSpacing(widget: TableNode): TableSpacing {
+  return tableDensity(widget.props.density) === 'dense'
+    ? { marker: 2, separator: 1 }
+    : { marker: 2, separator: 2 };
+}
+
+function tableDensity(value: unknown): TableDensity {
+  return value === 'dense' ? 'dense' : 'normal';
+}
+
+
+function selectedTableRow(widget: TableNode): number {
+  return selectedTableCell(widget)?.row ?? Math.max(0, Math.floor(numberProp(widget, 'selected') ?? 0));
+}
+
+function selectedTableCell(widget: TableNode): { readonly row: number; readonly column: number } | undefined {
+  const selectedCell = widget.props.selectedCell;
+  if (!isRecord(selectedCell)) return undefined;
+  const row = selectedCell.row;
+  const column = selectedCell.column;
+  if (typeof row !== 'number') return undefined;
+  return {
+    row: Math.max(0, Math.floor(row)),
+    column: typeof column === 'number' ? Math.max(0, Math.floor(column)) : 0
+  };
+}
+
+function scrollInput(widget: TableNode): { readonly scroll?: ScrollState } {
+  const scroll = scrollStateFromUnknown(widget.props.scroll);
+  return scroll === undefined ? {} : { scroll };
+}
+
+function tableActionMessageFactory<TMessage>(widget: TableNode<TMessage>): ((action: TableAction) => TMessage) | undefined {
+  return widget.props.toActionMessage;
+}
+
+function isRenderSpanArray(value: RenderSpan | readonly RenderSpan[]): value is readonly RenderSpan[] {
+  return Array.isArray(value);
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function tableSource(
+  widget: TableNode,
+  label: string,
+  id?: string,
+  role: FrameCellSource['role'] = 'text',
+  options: {
+    readonly partKind?: string;
+    readonly state?: string;
+  } = {}
+): FrameCellSource {
+  return dataSource(widget, label, {
+    ...(id === undefined ? {} : { itemId: id }),
+    role,
+    ...options
+  });
+}
+type TableNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'table'>;

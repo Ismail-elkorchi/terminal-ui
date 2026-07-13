@@ -1,4 +1,4 @@
-import type { TerminalStyle } from '../tui/render-primitives.ts';
+import type { TerminalStyle } from '../visual/render.ts';
 import { mergeSymbols, sanitizeSymbols, symbolEntries } from './symbols.ts';
 import type { TerminalDesignTokenDefinition, TerminalDesignTokens, TerminalSpacingTokens, ThemeColor, ThemeColorToken } from './tokens.ts';
 

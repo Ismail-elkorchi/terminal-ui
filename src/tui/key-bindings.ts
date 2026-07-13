@@ -1,6 +1,6 @@
 import { matchesInputTrigger } from '../input/index.ts';
 import type { InputEvent } from '../input/index.ts';
-import type { FocusPath } from './focus.ts';
+import type { FocusPath } from '../interaction/focus.ts';
 import type { TuiKeyBinding, TuiKeyBindingPhase } from './types.ts';
 
 export interface ResolveTuiKeyBindingInput<TState, TMessage> {

@@ -15,7 +15,7 @@ mechanisms out of ordinary application code.
 | App API | `defineTui`, init/update/view, subscriptions, and runtime lifecycle. | Renderer packets, component prop bags, and frame internals. |
 | UI authoring API | Typed layout and component factories returning opaque elements. | Measurement, hit-target construction, accessibility tree construction, and renderer props. |
 | Behavior API | Pure reducers and state helpers for controlled components. | Rendering and runtime side effects. |
-| Renderer extension API | Render nodes, renderer hooks, measurement, layout, frames, focus targets, hit targets, and accessibility. | Product-specific concepts and application state. |
+| Renderer extension API | Custom renderer hooks, measurement, layout, frames, focus targets, hit targets, and accessibility. | Private render nodes, product-specific concepts, and application state. |
 
 The core flow is:
 
@@ -124,8 +124,29 @@ accessibility definitions
 custom renderer state
 ```
 
-`props: Record<string, unknown>` is acceptable inside the renderer kernel. It
-is not a public authoring contract.
+Each built-in render-node kind has explicit normalized render props. Renderer
+code may validate untrusted values at extension or serialization boundaries,
+but the internal model does not derive its prop shape from authored component
+options and does not use a generic authored-props alias.
+
+The physical dependency direction is enforced by package tests:
+
+```text
+foundation and neutral contracts
+  -> private renderer model
+  -> shared authoring compiler
+  -> component and layout factories
+
+foundation, neutral contracts, behavior, and private renderer model
+  -> renderer implementation
+  -> TUI runtime
+  -> testing
+```
+
+Component/layout authoring and renderer implementation are sibling consumers
+of the private renderer model. The renderer implementation does not import
+component factories, layout factories, the authoring compiler, or the TUI
+runtime. The TUI directory owns application/runtime lifecycle only.
 
 ## Canvas And Custom Rendering
 
@@ -133,9 +154,10 @@ is not a public authoring contract.
 bounds, theme data, source metadata, and caller-owned state. It does not receive
 direct frame-buffer or terminal-host access.
 
-`custom()` lives under `./renderer`. It exposes measurement, layout, rendering,
-accessibility, focus-target, and hit-target hooks over `RenderNode`; it is an
-advanced extension point, not part of the default component vocabulary.
+`custom()` lives under `./renderer`. It exposes bounded measurement, rendering,
+accessibility, focus-target, and hit-target inputs without exposing private
+render-node fields; it is an advanced extension point, not part of the default
+component vocabulary.
 
 ## Testing
 
@@ -160,8 +182,9 @@ it does not expose renderer props, callback values, or render-node hooks.
   `Element<TMessage>` handles.
 - Public declarations do not expose `RenderNode` or `props` through components
   and layout.
-- Only the renderer extension entrypoint exposes render nodes, frame buffers,
-  renderer hooks, focus targets, and hit targets.
+- Private render nodes are not exported by any public entrypoint. The renderer
+  extension entrypoint exposes frame buffers, bounded custom-renderer hooks,
+  focus targets, and hit targets.
 - Component option and event names describe authoring intent, not renderer
   machinery.
 - Component state remains caller-owned and message types remain generic.

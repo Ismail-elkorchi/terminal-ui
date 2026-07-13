@@ -98,14 +98,14 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'menus'
   ].map((name) => name === 'base'
     ? readFile(new URL('../../dist/element/metadata.d.ts', import.meta.url), 'utf8')
-    : readFile(new URL(`../../dist/ui-model/options/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
+    : readFile(new URL(`../../dist/components/options/${name}.d.ts`, import.meta.url), 'utf8')))).join('\n');
   const layoutDeclaration = await readFile(new URL('../../dist/layout/index.d.ts', import.meta.url), 'utf8');
   const behaviorDeclaration = await readFile(new URL('../../dist/behavior/index.d.ts', import.meta.url), 'utf8');
   const rendererDeclaration = await readFile(new URL('../../dist/renderer/index.d.ts', import.meta.url), 'utf8');
   const tuiDeclaration = await readFile(new URL('../../dist/tui/index.d.ts', import.meta.url), 'utf8');
   const tuiTypesDeclaration = await readFile(new URL('../../dist/tui/types.d.ts', import.meta.url), 'utf8');
-  const renderNodeRendererDeclaration = await readFile(new URL('../../dist/tui/render-node-renderer.d.ts', import.meta.url), 'utf8');
-  const borderDeclaration = await readFile(new URL('../../dist/tui/border.d.ts', import.meta.url), 'utf8');
+  const renderNodeRendererDeclaration = await readFile(new URL('../../dist/renderer/model/renderer.d.ts', import.meta.url), 'utf8');
+  const borderDeclaration = await readFile(new URL('../../dist/visual/border.d.ts', import.meta.url), 'utf8');
 
   for (const typeName of [
     'TuiDefinition',

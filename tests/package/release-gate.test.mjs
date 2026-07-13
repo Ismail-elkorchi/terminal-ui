@@ -69,9 +69,9 @@ test('terminal-ui source does not own low-level argv tokenization', async () => 
 
 test('TUI render, layout, and accessibility delegate widget behavior through the registry', async () => {
   const centralFiles = [
-    '../../src/tui/render.ts',
-    '../../src/tui/layout.ts',
-    '../../src/tui/render-accessibility.ts'
+    '../../src/renderer/internal/render.ts',
+    '../../src/renderer/internal/layout.ts',
+    '../../src/renderer/internal/render-accessibility.ts'
   ];
   for (const relativePath of centralFiles) {
     const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
@@ -79,8 +79,8 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
     assert.doesNotMatch(source, /case\s+['"`](?:text|surface|stack|row|list|table|textInput|statusBar|progressBar|spinner|viewport|custom)['"`]/u, relativePath);
   }
 
-  const behavior = await readFile(new URL('../../src/tui/render-node-behavior.ts', import.meta.url), 'utf8');
-  const registry = await readFile(new URL('../../src/tui/renderers/index.ts', import.meta.url), 'utf8');
+  const behavior = await readFile(new URL('../../src/renderer/internal/render-node-behavior.ts', import.meta.url), 'utf8');
+  const registry = await readFile(new URL('../../src/renderer/internal/renderers/index.ts', import.meta.url), 'utf8');
 
   await assert.rejects(access(new URL('../../src/tui/renderers/support.ts', import.meta.url)));
   assert.match(behavior, /builtinRenderNodeRenderers\[widget\.kind\]/u);
@@ -93,21 +93,21 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
   assert.doesNotMatch(registry, /\?\.\(widget,\s*node,\s*id,\s*focused\)/u);
 
   const rendererFiles = [
-    '../../src/tui/renderers/text-renderers.ts',
-    '../../src/tui/renderers/form-renderers.ts',
-    '../../src/tui/renderers/menu-renderers.ts',
-    '../../src/tui/renderers/data-renderers.ts',
-    '../../src/tui/renderers/layout-renderers.ts',
-    '../../src/tui/renderers/drawing-renderers.ts',
-    '../../src/tui/renderers/feedback-renderers.ts',
-    '../../src/tui/renderers/support/block.ts',
-    '../../src/tui/renderers/support/border.ts',
-    '../../src/tui/renderers/support/common.ts',
-    '../../src/tui/renderers/support/layout.ts',
-    '../../src/tui/renderers/support/list.ts',
-    '../../src/tui/renderers/support/scroll.ts',
-    '../../src/tui/renderers/support/tabs.ts',
-    '../../src/tui/renderers/support/viewport.ts'
+    '../../src/renderer/internal/renderers/text-renderers.ts',
+    '../../src/renderer/internal/renderers/form-renderers.ts',
+    '../../src/renderer/internal/renderers/menu-renderers.ts',
+    '../../src/renderer/internal/renderers/data-renderers.ts',
+    '../../src/renderer/internal/renderers/layout-renderers.ts',
+    '../../src/renderer/internal/renderers/drawing-renderers.ts',
+    '../../src/renderer/internal/renderers/feedback-renderers.ts',
+    '../../src/renderer/internal/renderers/support/block.ts',
+    '../../src/renderer/internal/renderers/support/border.ts',
+    '../../src/renderer/internal/renderers/support/common.ts',
+    '../../src/renderer/internal/renderers/support/layout.ts',
+    '../../src/renderer/internal/renderers/support/list.ts',
+    '../../src/renderer/internal/renderers/support/scroll.ts',
+    '../../src/renderer/internal/renderers/support/tabs.ts',
+    '../../src/renderer/internal/renderers/support/viewport.ts'
   ];
 
   for (const rendererFile of rendererFiles) {
@@ -121,7 +121,8 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
 test('widget modules do not write directly to terminal hosts', async () => {
   const widgetFiles = [
     ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
-    ...await sourceFiles(new URL('../../src/tui/', import.meta.url))
+    ...await sourceFiles(new URL('../../src/layout/', import.meta.url)),
+    ...await sourceFiles(new URL('../../src/renderer/', import.meta.url))
   ];
   const forbiddenPatterns = [
     /\bhost\.write\s*\(/u,
@@ -133,7 +134,6 @@ test('widget modules do not write directly to terminal hosts', async () => {
 
   for (const file of widgetFiles) {
     const source = await readFile(file, 'utf8');
-    if (file.pathname.endsWith('/src/tui/runtime-frame.ts') || file.pathname.endsWith('/src/tui/non-tty.ts')) continue;
     for (const pattern of forbiddenPatterns) {
       assert.doesNotMatch(source, pattern, file.pathname);
     }
@@ -143,12 +143,12 @@ test('widget modules do not write directly to terminal hosts', async () => {
 test('widget rendering code uses semantic styles instead of raw terminal colors', async () => {
   const files = [
     ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
-    ...await sourceFiles(new URL('../../src/tui/', import.meta.url))
+    ...await sourceFiles(new URL('../../src/layout/', import.meta.url)),
+    ...await sourceFiles(new URL('../../src/renderer/internal/', import.meta.url))
   ].filter((file) => ![
-    '/src/tui/ansi.ts',
-    '/src/tui/serialization-policy.ts',
-    '/src/tui/render-primitives.ts',
-    '/src/tui/frame.ts'
+    '/src/renderer/internal/ansi.ts',
+    '/src/renderer/internal/serialization-policy.ts',
+    '/src/renderer/internal/frame.ts'
   ].some((suffix) => file.pathname.endsWith(suffix)));
   const forbiddenPatterns = [
     /\bkind:\s*['"]ansi['"]/u,
@@ -228,8 +228,8 @@ test('removed mouse-map API names do not appear in active tests docs or examples
 });
 
 test('frame contract remains styled source-aware cells, spans, blocks, and buffer based', async () => {
-  const frameSource = await readFile(new URL('../../src/tui/frame.ts', import.meta.url), 'utf8');
-  const primitiveSource = await readFile(new URL('../../src/tui/render-primitives.ts', import.meta.url), 'utf8');
+  const frameSource = await readFile(new URL('../../src/renderer/model/frame.ts', import.meta.url), 'utf8');
+  const primitiveSource = await readFile(new URL('../../src/visual/render.ts', import.meta.url), 'utf8');
   const schema = await readFile(new URL('../../schemas/tui-frame.schema.json', import.meta.url), 'utf8');
 
   for (const required of [
@@ -260,9 +260,9 @@ test('frame contract remains styled source-aware cells, spans, blocks, and buffe
 test('widget rendering layer has no command, clipboard, host-output, or raw ANSI side effects', async () => {
   const files = [
     ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
-    ...await sourceFiles(new URL('../../src/tui/charts/', import.meta.url)),
-    ...await sourceFiles(new URL('../../src/tui/forms/', import.meta.url)),
-    ...await namedTuiSourceFiles([
+    ...await sourceFiles(new URL('../../src/renderer/internal/charts/', import.meta.url)),
+    ...await sourceFiles(new URL('../../src/renderer/internal/forms/', import.meta.url)),
+    ...await namedRendererSourceFiles([
       'border.ts',
       'command-bar.ts',
       'data-widgets.ts',
@@ -275,7 +275,7 @@ test('widget rendering layer has no command, clipboard, host-output, or raw ANSI
       'text-widgets.ts',
       'tree.ts',
       'render-node-behavior.ts',
-      'render-node-renderer.ts'
+      '../model/renderer.ts'
     ])
   ];
   const forbiddenPatterns = [
@@ -299,20 +299,19 @@ test('widget rendering layer has no command, clipboard, host-output, or raw ANSI
 });
 
 test('rendering and layout code do not read runtime globals', async () => {
-  const renderFiles = await namedTuiSourceFiles([
+  const renderFiles = await namedRendererSourceFiles([
     'ansi.ts',
     'frame-buffer.ts',
     'render.ts',
     'render-accessibility.ts',
-    'render-primitives.ts',
     'render-node-behavior.ts',
-    'render-node-renderer.ts'
+    '../model/renderer.ts'
   ]);
-  const layoutFiles = await namedTuiSourceFiles([
-    'focus.ts',
+  const layoutFiles = await namedRendererSourceFiles([
     'layout.ts'
   ]);
-  layoutFiles.push(new URL('../../src/layout/geometry.ts', import.meta.url));
+  layoutFiles.push(new URL('../../src/interaction/focus.ts', import.meta.url));
+  layoutFiles.push(new URL('../../src/renderer/internal/layout-geometry.ts', import.meta.url));
 
   for (const file of [...renderFiles, ...layoutFiles]) {
     const source = runtimeSource(await readFile(file, 'utf8'));
@@ -383,24 +382,24 @@ test('terminal text indexing and editing stay centralized', async () => {
     }
   }
 
-  const commandBar = await readFile(new URL('../../src/tui/command-bar.ts', import.meta.url), 'utf8');
+  const commandBar = await readFile(new URL('../../src/renderer/internal/command-bar.ts', import.meta.url), 'utf8');
   const commandSurface = await readFile(new URL('../../src/behavior/command-bar-state.ts', import.meta.url), 'utf8');
-  const commandVisual = await readFile(new URL('../../src/tui/command-visual.ts', import.meta.url), 'utf8');
-  const formWidgets = await readSourceTree(new URL('../../src/tui/forms/', import.meta.url));
-  const formVisual = await readFile(new URL('../../src/tui/form-visual.ts', import.meta.url), 'utf8');
-  const formRenderers = await readFile(new URL('../../src/tui/renderers/form-renderers.ts', import.meta.url), 'utf8');
-  const inputVisual = await readFile(new URL('../../src/tui/input-visual.ts', import.meta.url), 'utf8');
-  const menuWidgets = await readFile(new URL('../../src/tui/menu-widgets.ts', import.meta.url), 'utf8');
-  const menuVisual = await readFile(new URL('../../src/tui/menu-visual.ts', import.meta.url), 'utf8');
-  const feedbackRenderers = await readFile(new URL('../../src/tui/renderers/feedback-renderers.ts', import.meta.url), 'utf8');
-  const feedbackVisual = await readFile(new URL('../../src/tui/feedback-visual.ts', import.meta.url), 'utf8');
-  const documentVisual = await readFile(new URL('../../src/tui/document-visual.ts', import.meta.url), 'utf8');
-  const chartWidgets = await readSourceTree(new URL('../../src/tui/charts/', import.meta.url));
-  const chartVisual = await readFile(new URL('../../src/tui/chart-visual.ts', import.meta.url), 'utf8');
-  const dataRenderers = await readFile(new URL('../../src/tui/renderers/data-renderers.ts', import.meta.url), 'utf8');
-  const textWidgets = await readFile(new URL('../../src/tui/text-widgets.ts', import.meta.url), 'utf8');
-  const textRenderers = await readFile(new URL('../../src/tui/renderers/text-renderers.ts', import.meta.url), 'utf8');
-  const structuredBlock = await readFile(new URL('../../src/tui/structured-block.ts', import.meta.url), 'utf8');
+  const commandVisual = await readFile(new URL('../../src/renderer/internal/command-visual.ts', import.meta.url), 'utf8');
+  const formWidgets = await readSourceTree(new URL('../../src/renderer/internal/forms/', import.meta.url));
+  const formVisual = await readFile(new URL('../../src/renderer/internal/form-visual.ts', import.meta.url), 'utf8');
+  const formRenderers = await readFile(new URL('../../src/renderer/internal/renderers/form-renderers.ts', import.meta.url), 'utf8');
+  const inputVisual = await readFile(new URL('../../src/renderer/internal/input-visual.ts', import.meta.url), 'utf8');
+  const menuWidgets = await readFile(new URL('../../src/renderer/internal/menu-widgets.ts', import.meta.url), 'utf8');
+  const menuVisual = await readFile(new URL('../../src/renderer/internal/menu-visual.ts', import.meta.url), 'utf8');
+  const feedbackRenderers = await readFile(new URL('../../src/renderer/internal/renderers/feedback-renderers.ts', import.meta.url), 'utf8');
+  const feedbackVisual = await readFile(new URL('../../src/renderer/internal/feedback-visual.ts', import.meta.url), 'utf8');
+  const documentVisual = await readFile(new URL('../../src/renderer/internal/document-visual.ts', import.meta.url), 'utf8');
+  const chartWidgets = await readSourceTree(new URL('../../src/renderer/internal/charts/', import.meta.url));
+  const chartVisual = await readFile(new URL('../../src/renderer/internal/chart-visual.ts', import.meta.url), 'utf8');
+  const dataRenderers = await readFile(new URL('../../src/renderer/internal/renderers/data-renderers.ts', import.meta.url), 'utf8');
+  const textWidgets = await readFile(new URL('../../src/renderer/internal/text-widgets.ts', import.meta.url), 'utf8');
+  const textRenderers = await readFile(new URL('../../src/renderer/internal/renderers/text-renderers.ts', import.meta.url), 'utf8');
+  const structuredBlock = await readFile(new URL('../../src/renderer/internal/structured-block.ts', import.meta.url), 'utf8');
   const textTypes = await readFile(new URL('../../src/text/types.ts', import.meta.url), 'utf8');
 
   assert.match(commandBar, /from '\.\/text-display\.ts'/u);
@@ -441,8 +440,8 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.doesNotMatch(menuWidgets, /function menuItemStyle/u);
   assert.doesNotMatch(feedbackRenderers, /\bwriteBlock\b/u);
   assert.doesNotMatch(dataRenderers, /sparklineText|barChartText|chartText|gaugeText|heatmapText/u);
-  const palette = await readFile(new URL('../../src/tui/palette.ts', import.meta.url), 'utf8');
-  const scrollback = await readFile(new URL('../../src/tui/scrollback.ts', import.meta.url), 'utf8');
+  const palette = await readFile(new URL('../../src/renderer/internal/palette.ts', import.meta.url), 'utf8');
+  const scrollback = await readFile(new URL('../../src/renderer/internal/scrollback.ts', import.meta.url), 'utf8');
   assert.match(palette, /from '\.\/command-visual\.ts'/u);
   assert.match(scrollback, /from '\.\/document-visual\.ts'/u);
   assert.match(structuredBlock, /from '\.\/document-visual\.ts'/u);
@@ -452,9 +451,9 @@ test('terminal text indexing and editing stay centralized', async () => {
 });
 
 test('TUI ANSI serialization decisions are owned by the internal policy', async () => {
-  const policy = await readFile(new URL('../../src/tui/serialization-policy.ts', import.meta.url), 'utf8');
-  const ansi = await readFile(new URL('../../src/tui/ansi.ts', import.meta.url), 'utf8');
-  const frame = await readFile(new URL('../../src/tui/frame.ts', import.meta.url), 'utf8');
+  const policy = await readFile(new URL('../../src/renderer/internal/serialization-policy.ts', import.meta.url), 'utf8');
+  const ansi = await readFile(new URL('../../src/renderer/internal/ansi.ts', import.meta.url), 'utf8');
+  const frame = await readFile(new URL('../../src/renderer/internal/frame.ts', import.meta.url), 'utf8');
 
   assert.match(policy, /export interface TerminalSerializationPolicy/u);
   assert.match(policy, /readonly capabilities: TerminalCapabilityProfile;/u);
@@ -463,19 +462,20 @@ test('TUI ANSI serialization decisions are owned by the internal policy', async 
   assert.match(ansi, /createTerminalSerializationPolicy\(options\)/u);
   assert.match(frame, /createTerminalSerializationPolicy\(options\)/u);
 
-  for (const file of await sourceFiles(new URL('../../src/tui/', import.meta.url))) {
-    if (file.pathname.endsWith('/src/tui/serialization-policy.ts')) continue;
+  for (const file of await sourceFiles(new URL('../../src/renderer/internal/', import.meta.url))) {
+    if (file.pathname.endsWith('/src/renderer/internal/serialization-policy.ts')
+      || file.pathname.endsWith('/src/renderer/internal/ansi.ts')) continue;
     const source = await readFile(file, 'utf8');
     assert.doesNotMatch(source, /\\u001[Bb]|\\u0007|\\x1b|\\033/u, file.pathname);
   }
 });
 
 test('frame passes are applied before snapshots and remain serialization-free', async () => {
-  const renderSource = await readFile(new URL('../../src/tui/render.ts', import.meta.url), 'utf8');
+  const renderSource = await readFile(new URL('../../src/renderer/internal/render.ts', import.meta.url), 'utf8');
   assert.match(renderSource, /const buffer = compositeRegions\(viewport, regions\);[\s\S]*applyFramePasses\(buffer/u);
   assert.match(renderSource, /const frame = buffer\.snapshot/u);
 
-  for (const file of await sourceFiles(new URL('../../src/tui/frame-passes/', import.meta.url))) {
+  for (const file of await sourceFiles(new URL('../../src/renderer/internal/frame-passes/', import.meta.url))) {
     const source = await readFile(file, 'utf8');
     assert.doesNotMatch(source, /renderDiffAnsi|renderFrameAnsi|serializeRenderSpans|ansi|ANSI|\\u001[Bb]|\\x1b|\\033/u, file.pathname);
   }
@@ -495,8 +495,8 @@ test('runtime input routing uses the committed render cache', async () => {
 });
 
 test('RenderRegion replaces the obsolete render layer model', async () => {
-  const renderSource = await readFile(new URL('../../src/tui/render.ts', import.meta.url), 'utf8');
-  const regionSource = await readFile(new URL('../../src/tui/render-regions.ts', import.meta.url), 'utf8');
+  const renderSource = await readFile(new URL('../../src/renderer/internal/render.ts', import.meta.url), 'utf8');
+  const regionSource = await readFile(new URL('../../src/renderer/internal/render-regions.ts', import.meta.url), 'utf8');
   const tuiEntrypoint = await readFile(new URL('../../src/tui/index.ts', import.meta.url), 'utf8');
   const rootEntrypoint = await readFile(new URL('../../src/index.ts', import.meta.url), 'utf8');
 
@@ -522,9 +522,9 @@ test('RenderRegion replaces the obsolete render layer model', async () => {
 });
 
 test('dirty region narrowing is structural and render-diff visible', async () => {
-  const dirtySource = await readFile(new URL('../../src/tui/dirty-regions.ts', import.meta.url), 'utf8');
-  const frameBufferSource = await readFile(new URL('../../src/tui/frame-buffer.ts', import.meta.url), 'utf8');
-  const frameSource = await readFile(new URL('../../src/tui/frame.ts', import.meta.url), 'utf8');
+  const dirtySource = await readFile(new URL('../../src/renderer/internal/dirty-regions.ts', import.meta.url), 'utf8');
+  const frameBufferSource = await readFile(new URL('../../src/renderer/internal/frame-buffer.ts', import.meta.url), 'utf8');
+  const frameSource = await readFile(new URL('../../src/renderer/internal/frame.ts', import.meta.url), 'utf8');
   const runtimeFrameSource = await readFile(new URL('../../src/tui/runtime-frame.ts', import.meta.url), 'utf8');
 
   assert.match(dirtySource, /export interface DirtyRegionSet/u);
@@ -552,10 +552,10 @@ test('dirty region narrowing is structural and render-diff visible', async () =>
 });
 
 test('box drawing joins are source-role gated frame passes', async () => {
-  const borderSource = await readFile(new URL('../../src/tui/border.ts', import.meta.url), 'utf8');
-  const joinPass = await readFile(new URL('../../src/tui/frame-passes/box-drawing-join.ts', import.meta.url), 'utf8');
+  const borderSource = await readFile(new URL('../../src/renderer/internal/border.ts', import.meta.url), 'utf8');
+  const joinPass = await readFile(new URL('../../src/renderer/internal/frame-passes/box-drawing-join.ts', import.meta.url), 'utf8');
   const rendererSources = await Promise.all(
-    (await sourceFiles(new URL('../../src/tui/renderers/', import.meta.url))).map(async (file) => ({
+    (await sourceFiles(new URL('../../src/renderer/internal/renderers/', import.meta.url))).map(async (file) => ({
       file,
       source: await readFile(file, 'utf8')
     }))
@@ -572,16 +572,17 @@ test('box drawing joins are source-role gated frame passes', async () => {
   }
 });
 
-test('custom renderers can render only through buffer-scoped renderer inputs', async () => {
-  const rendererTypes = await readFile(new URL('../../src/tui/render-node-renderer.ts', import.meta.url), 'utf8');
-  const widgetTypes = await readSourceTree(new URL('../../src/ui-model/options/', import.meta.url));
+test('custom renderers can render only through write-scoped renderer inputs', async () => {
+  const rendererTypes = await readFile(new URL('../../src/renderer/model/renderer.ts', import.meta.url), 'utf8');
+  const widgetTypes = await readSourceTree(new URL('../../src/components/options/', import.meta.url));
+  const canvasContract = await readFile(new URL('../../src/renderer/model/canvas.ts', import.meta.url), 'utf8');
   const customWidgetTypes = await readFile(new URL('../../src/renderer/custom-element.ts', import.meta.url), 'utf8');
   const factories = await readSourceTree(new URL('../../src/components/factories/', import.meta.url));
   const validation = await readFile(new URL('../../src/components/extension-validation.ts', import.meta.url), 'utf8');
 
   assert.match(rendererTypes, /interface RenderNodeRenderInput/u);
-  assert.match(rendererTypes, /readonly buffer: FrameBuffer;/u);
-  assert.match(rendererTypes, /renderChildren\(target\?: FrameBuffer\): void;/u);
+  assert.match(rendererTypes, /readonly buffer: RenderTarget;/u);
+  assert.match(rendererTypes, /renderChildren\(target\?: RenderTarget\): void;/u);
   assert.doesNotMatch(rendererTypes, /\bTerminalHost\b/u);
   assert.doesNotMatch(rendererTypes, /\bhost\b/u);
   assert.doesNotMatch(rendererTypes, /\bwrite\s*\(/u);
@@ -591,8 +592,9 @@ test('custom renderers can render only through buffer-scoped renderer inputs', a
   assert.doesNotMatch(customWidgetTypes, /\breadonly painter\b/u);
   assert.match(canvasOptionTypes, /readonly painter: CanvasPainter;/u);
   assert.doesNotMatch(canvasOptionTypes, /\breadonly renderer\b/u);
-  assert.match(widgetTypes, /export interface CanvasPainterInput[\s\S]*readonly canvas: Canvas2D;[\s\S]*readonly bounds: Rect;/u);
-  assert.doesNotMatch(widgetTypes, /export interface CanvasPainterInput[\s\S]*readonly buffer: FrameBuffer/u);
+  assert.match(widgetTypes, /export type \{ CanvasPainter, CanvasPainterInput \} from '\.\.\/\.\.\/renderer\/model\/canvas\.ts';/u);
+  assert.match(canvasContract, /export interface CanvasPainterInput[\s\S]*readonly canvas: Canvas2D;[\s\S]*readonly bounds: Rect;/u);
+  assert.doesNotMatch(canvasContract, /readonly buffer: FrameBuffer/u);
   assert.doesNotMatch(widgetTypes, /\bWidgetRenderer\b/u);
   assert.doesNotMatch(customWidgetTypes, /\bTerminalHost\b/u);
   assert.doesNotMatch(customWidgetTypes, /\bclipboard\b/iu);
@@ -610,17 +612,19 @@ test('custom renderers can render only through buffer-scoped renderer inputs', a
 
 test('Canvas2D is a FrameBuffer-backed helper without host or ANSI escapes', async () => {
   const canvasSources = await Promise.all(
-    (await sourceFiles(new URL('../../src/tui/canvas2d/', import.meta.url))).map(async (file) => ({
+    (await sourceFiles(new URL('../../src/renderer/internal/canvas2d/', import.meta.url))).map(async (file) => ({
       file,
       source: await readFile(file, 'utf8')
     }))
   );
-  const drawingSource = await readFile(new URL('../../src/tui/drawing-widgets.ts', import.meta.url), 'utf8');
-  const widgetTypes = await readSourceTree(new URL('../../src/ui-model/options/', import.meta.url));
+  const drawingSource = await readFile(new URL('../../src/renderer/internal/drawing-widgets.ts', import.meta.url), 'utf8');
+  const widgetTypes = await readSourceTree(new URL('../../src/components/options/', import.meta.url));
+  const canvasContract = await readFile(new URL('../../src/renderer/model/canvas.ts', import.meta.url), 'utf8');
 
   assert.match(drawingSource, /createCanvas2D\(input\.buffer,\s*input\.layoutNode\.bounds\)/u);
-  assert.match(widgetTypes, /readonly canvas: Canvas2D;/u);
-  assert.doesNotMatch(widgetTypes, /readonly buffer: FrameBuffer;/u);
+  assert.match(widgetTypes, /readonly painter: CanvasPainter;/u);
+  assert.match(canvasContract, /readonly canvas: Canvas2D;/u);
+  assert.doesNotMatch(canvasContract, /readonly buffer: FrameBuffer/u);
   for (const { file, source } of canvasSources) {
     assert.doesNotMatch(source, /\bprocess\b|\bfs\b|\bTerminalHost\b|\x1B/u, file.pathname);
   }
@@ -642,6 +646,10 @@ async function sourceFiles(directory, extension = '.ts') {
 
 async function namedTuiSourceFiles(names) {
   return names.map((name) => new URL(`../../src/tui/${name}`, import.meta.url));
+}
+
+async function namedRendererSourceFiles(names) {
+  return names.map((name) => new URL(`../../src/renderer/internal/${name}`, import.meta.url));
 }
 
 async function readSourceTree(directory) {

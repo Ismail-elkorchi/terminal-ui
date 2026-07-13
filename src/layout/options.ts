@@ -9,9 +9,9 @@ import type {
   SurfaceVisualState
 } from '../element/metadata.ts';
 import type { DataListStylePart, ModalStylePart, SurfaceStylePart, TabsStylePart } from '../ui-model/style-parts.ts';
-import type { BorderStyle, BorderTitle } from '../tui/border.ts';
-import type { ScrollbarOptions } from '../tui/scrollbar.ts';
-import type { SurfaceVariant } from '../tui/surface.ts';
+import type { BorderStyle, BorderTitle } from '../visual/border.ts';
+import type { ScrollbarOptions } from '../interaction/scrollbar.ts';
+import type { SurfaceVariant } from '../visual/surface.ts';
 import type { GridLayoutOptions, LayoutFlowOptions, LayoutSize } from '../geometry/types.ts';
 
 export interface StackOptions extends ElementOptions, LayoutFlowOptions {
