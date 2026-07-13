@@ -27,6 +27,7 @@ import type {
   IndependentInteractionOptions,
   InferredElementKeyBindings
 } from '../internal/messages.ts';
+import { resolveStableIds } from '../internal/identity.ts';
 
 export function list<
   TValue,
@@ -43,20 +44,22 @@ export function list<
 export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unknown> {
   const keyMap = listKeyBindings(options);
   const toActionMessage = options.onAction;
-  const disabledIndices = options.isDisabled === undefined
-    ? undefined
-    : options.items.flatMap((item, index) => options.isDisabled?.(item, index) === true ? [index] : []);
+  const itemIds = resolveStableIds(options.items, options.getItemId, 'list');
+  const items = options.items.map((value, index) => ({
+    id: itemIds[index] ?? '',
+    value,
+    disabled: options.isDisabled?.(value, index) === true
+  }));
   return elementFromRenderNode<'list', unknown>({
     ...requiredId(options.id, 'list'),
     kind: 'list',
     props: {
-      items: domainValues(options.items),
-      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      items,
+      ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
       ...(options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(disabledIndices === undefined || disabledIndices.length === 0 ? {} : { disabledIndices }),
       ...(toActionMessage === undefined ? {} : {
         ...(options.scroll === undefined ? {} : {
           toScrollMessage: (event: ScrollEvent) => toActionMessage({ kind: 'scroll', event })
@@ -85,13 +88,15 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
   const keyMap = tableKeyBindings(options);
   const columns = tableColumnsForRenderer(options.columns);
   const toActionMessage = options.onAction;
+  const rowIds = resolveStableIds(options.rows, options.getRowId, 'table');
   return elementFromRenderNode<'table', unknown>({
     ...requiredId(options.id, 'table'),
     kind: 'table',
     props: {
       rows: domainValues(options.rows),
+      rowIds,
       ...(columns === undefined ? {} : { columns }),
-      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.selectedRowId === undefined ? {} : { selectedRowId: options.selectedRowId }),
       ...(options.selectedCell === undefined ? {} : { selectedCell: options.selectedCell }),
       ...(options.sort === undefined ? {} : { sort: options.sort }),
       ...(options.columnWidths === undefined ? {} : { columnWidths: options.columnWidths }),

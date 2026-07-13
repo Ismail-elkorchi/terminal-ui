@@ -10,16 +10,16 @@ import {
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import {
   activityFeed,
-  commandBar,
+  commandInput,
   palette,
   scrollback,
   statusBar,
+  tabs,
   text
 } from '../../dist/components/index.js';
 import {
   grid,
-  splitPane,
-  tabs
+  splitPane
 } from '../../dist/layout/index.js';
 
 function workspaceView(state) {
@@ -65,8 +65,8 @@ function workspaceView(state) {
       direction: 'horizontal',
       sizes: [{ kind: 'fixed', cells: 20 }, { kind: 'fill' }]
     }),
-    statusBar({ id: 'status', text: state.palette ? 'palette' : 'log' }),
-    commandBar({ id: 'command', prompt: '/', value: state.query })
+    statusBar({ id: 'status', leading: [{ id: 'view', kind: 'text', text: state.palette ? 'palette' : 'log' }] }),
+    commandInput({ id: 'command', prompt: '/', value: state.query })
   ], {
     id: 'workspace',
     rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }],

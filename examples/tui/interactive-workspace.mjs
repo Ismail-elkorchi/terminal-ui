@@ -7,8 +7,9 @@ import {
   runTui
 } from '@ismail-elkorchi/terminal-ui/tui';
 import {
-  commandBarPresentation,
-  commandBarReducer,
+  commandInputPresentation,
+  commandInputReducer,
+  createSplitPaneState,
   createNotificationState,
   notificationActionFromStack,
   notificationPresentation,
@@ -16,6 +17,8 @@ import {
   palettePresentation,
   paletteReducer,
   selectedPaletteEntry,
+  splitPanePresentation,
+  splitPaneReducer,
   tableReducer,
   treePresentation,
   treeReducer
@@ -24,15 +27,15 @@ import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import {
   grid,
   overlay,
-  stack,
+  splitPane,
+  column,
   surface,
-  tabs,
   viewport
 } from '@ismail-elkorchi/terminal-ui/layout';
 import {
-  activityIndicator,
+  statusIndicator,
   button,
-  commandBar,
+  commandInput,
   helpBar,
   notificationStack,
   palette,
@@ -40,6 +43,7 @@ import {
   statusBar,
   structuredBlock,
   table,
+  tabs,
   text,
   tree
 } from '@ismail-elkorchi/terminal-ui/components';
@@ -102,7 +106,8 @@ function initialState() {
   return {
     tab: 'issues',
     tree: { nodes: navigationNodes(), selected: 'queue:triage' },
-    table: { selectedRow: 0 },
+    table: { selectedRowId: 'T-101' },
+    split: createSplitPaneState(3, [0.18, 0.6, 0.22]),
     command: {
       input: { text: '', cursor: 0 },
       history: [],
@@ -145,9 +150,15 @@ function updateWorkspace(state, message) {
   switch (message.kind) {
     case 'tree': {
       const nextTree = treeReducer(state.tree, message.action);
+      const stateWithTree = { ...state, tree: nextTree };
+      const nextTickets = visibleTickets(stateWithTree);
+      const selectedRowId = nextTickets.some((ticket) => ticket.id === state.table.selectedRowId)
+        ? state.table.selectedRowId
+        : nextTickets[0]?.id;
       return withState({
         ...state,
         tree: nextTree,
+        table: { ...state.table, selectedRowId },
         pointer: {
           ...state.pointer,
           tree: message.action.kind === 'select' || message.action.kind === 'toggle' || state.pointer.tree
@@ -165,28 +176,42 @@ function updateWorkspace(state, message) {
         log: appendLog(state, `Opened ${message.tab} tab.`)
       });
     case 'scriptSetup':
+      {
+        const rows = visibleTickets(state);
       return withState({
         ...state,
         tab: 'activity',
-        table: tableReducer(state.table, { kind: 'selectRow', row: 1 }, { rowCount: visibleTickets(state).length, columnCount: 5 }),
+        table: tableReducer(
+          state.table,
+          { kind: 'selectRow', rowId: rows[1]?.id ?? rows[0]?.id ?? '', rowIndex: Math.min(1, Math.max(0, rows.length - 1)) },
+          { rows, getRowId: (ticket) => ticket.id, columnCount: 5 }
+        ),
         palette: { ...state.palette, open: true, query: 'resolve', selectedIndex: 0 },
         log: appendLog(state, 'Script opened activity and filtered command palette.')
       });
+      }
     case 'table':
+      {
+        const rows = visibleTickets(state);
       return withState({
         ...state,
-        table: tableReducer(state.table, message.action, { rowCount: visibleTickets(state).length, columnCount: 5 }),
+        table: tableReducer(state.table, message.action, { rows, getRowId: (ticket) => ticket.id, columnCount: 5 }),
         pointer: { ...state.pointer, table: true }
       });
-    case 'selectTableRow':
+      }
+    case 'split':
       return withState({
         ...state,
-        table: tableReducer(state.table, { kind: 'selectRow', row: message.row }, { rowCount: visibleTickets(state).length, columnCount: 5 }),
-        pointer: { ...state.pointer, table: message.source === 'pointer' || state.pointer.table },
-        log: appendLog(state, `Selected table row ${String(message.row + 1)}.`)
+        split: splitPaneReducer(state.split, message.action, {
+          constraints: [
+            { minShare: 0.12, maxShare: 0.32 },
+            { minShare: 0.4 },
+            { minShare: 0.16, maxShare: 0.34 }
+          ]
+        })
       });
     case 'commandEdit':
-      return withState({ ...state, command: commandBarReducer(state.command, message.action) });
+      return withState({ ...state, command: commandInputReducer(state.command, message.action) });
     case 'submitCommand':
       return withState(applyCommand(state, state.command.input.text));
     case 'openPalette':
@@ -241,18 +266,25 @@ function wideWorkspace(state) {
   return grid({
     id: 'workspace-grid',
     areas: `
-      header header header
-      nav    main   inspector
-      command command command
+      header
+      body
+      command
     `,
     rows: [{ kind: 'fixed', cells: 2 }, { kind: 'fill' }, { kind: 'fixed', cells: commandRows }],
-    columns: [{ kind: 'fixed', cells: 25 }, { kind: 'fill' }, { kind: 'fixed', cells: 32 }],
+    columns: [{ kind: 'fill' }],
     gap: 1,
     children: {
       header: headerSurface(state),
-      nav: navigationSurface(state),
-      main: mainSurface(state),
-      inspector: inspectorSurface(state),
+      body: splitPane([
+        navigationSurface(state),
+        mainSurface(state),
+        inspectorSurface(state)
+      ], {
+        id: 'workspace-panes',
+        direction: 'horizontal',
+        ...splitPanePresentation(state.split),
+        onAction: (action) => ({ kind: 'split', action })
+      }),
       command: commandSurface(state)
     }
   });
@@ -280,9 +312,14 @@ function narrowWorkspace(state) {
 
 function headerSurface(state) {
   const selected = selectedTicket(state);
-  return surface(stack([
+  return surface(column([
     text('Interactive Workspace', { id: 'workspace-title', textRole: 'title' }),
-    statusBar({ id: 'workspace-status', text: `${selected.id} ${selected.state} | ${state.tab} | ${state.tree.selected ?? 'all'}` })
+    statusBar({
+      id: 'workspace-status',
+      leading: [{ id: 'ticket', kind: 'status', text: `${selected.id} ${selected.state}`, status: ticketStatus(selected) }],
+      center: [{ id: 'tab', kind: 'text', text: state.tab }],
+      trailing: [{ id: 'scope', kind: 'text', text: state.tree.selected ?? 'all' }]
+    })
   ], {
     id: 'workspace-header-body',
     gap: 0,
@@ -295,7 +332,7 @@ function headerSurface(state) {
 }
 
 function navigationSurface(state) {
-  return surface(stack([
+  return surface(column([
     tree({
       id: 'workspace-tree',
       ...treePresentation(state.tree),
@@ -304,10 +341,13 @@ function navigationSurface(state) {
     }),
     helpBar({
       id: 'nav-help',
-      bindings: [
-        { key: 'click', label: 'select' },
-        { key: 'tab', label: 'focus' }
-      ]
+      groups: [{
+        id: 'navigation',
+        bindings: [
+          { key: 'click', label: 'select' },
+          { key: 'tab', label: 'focus' }
+        ]
+      }]
     })
   ], {
     id: 'workspace-navigation-body',
@@ -339,40 +379,38 @@ function mainSurface(state) {
 }
 
 function issueTablePanel(state) {
-  const rows = visibleTickets(state).map(ticketTableRow);
-  const selected = Math.min(state.table.selectedRow ?? 0, Math.max(0, rows.length - 1));
-  return surface(stack([
+  const rows = visibleTickets(state);
+  return surface(column([
     notificationLayer(state, table({
+      getRowId: (ticket) => ticket.id,
       id: 'ticket-table',
       rows,
-      selected,
+      selectedRowId: state.table.selectedRowId,
       stickyHeader: true,
       scrollbar: { visible: 'auto' },
       onAction: (action) => ({ kind: 'table', action }),
       columns: [
         {
-          id: 'id-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'ID', width: { kind: 'fixed', cells: 7 } },
+          id: 'id-0', value: (ticket) => ticket.id, header: 'ID', width: { kind: 'fixed', cells: 7 } },
         {
-          id: 'title-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Title', width: { kind: 'fill' } },
+          id: 'title-1', value: (ticket) => ticket.title, header: 'Title', width: { kind: 'fill' } },
         {
-          id: 'owner-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Owner', width: { kind: 'fixed', cells: 8 } },
+          id: 'owner-2', value: (ticket) => ticket.owner, header: 'Owner', width: { kind: 'fixed', cells: 8 } },
         {
-          id: 'severity-3', value: (row) => Array.isArray(row) ? row[3] : undefined, header: 'Severity', width: { kind: 'fixed', cells: 10 } },
+          id: 'severity-3', value: (ticket) => ticket.severity, header: 'Severity', width: { kind: 'fixed', cells: 10 } },
         {
-          id: 'state-4', value: (row) => Array.isArray(row) ? row[4] : undefined, header: 'State', width: { kind: 'fixed', cells: 10 } }
-      ],
-      keys: {
-        arrowDown: () => ({ kind: 'table', action: { kind: 'selectRow', row: selected + 1 } }),
-        arrowUp: () => ({ kind: 'table', action: { kind: 'selectRow', row: selected - 1 } }),
-        enter: () => ({ kind: 'submitCommand' })
-      }
+          id: 'state-4', value: (ticket) => ticket.state, header: 'State', width: { kind: 'fixed', cells: 10 } }
+      ]
     })),
     helpBar({
       id: 'table-help',
-      bindings: [
-        { key: 'up/down', label: 'select row' },
-        { key: '/palette', label: 'commands' }
-      ]
+      groups: [{
+        id: 'table',
+        bindings: [
+          { key: 'up/down', label: 'select row' },
+          { key: '/palette', label: 'commands' }
+        ]
+      }]
     })
   ], {
     id: 'issues-panel-body',
@@ -386,15 +424,11 @@ function issueTablePanel(state) {
   });
 }
 
-function ticketTableRow(ticket) {
-  return [ticket.id, ticket.title, ticket.owner, ticket.severity, ticket.state];
-}
-
 function activityPanel(state) {
   const lines = state.log.map((item, index) => text(`${String(index + 1).padStart(2, '0')} ${item}`, {
     id: `activity-line-${String(index)}`
   }));
-  return surface(notificationLayer(state, viewport(stack(lines, { id: 'activity-lines', gap: 0 }), {
+  return surface(notificationLayer(state, viewport(column(lines, { id: 'activity-lines', gap: 0 }), {
     id: 'activity-viewport',
     contentRows: lines.length,
     scrollbar: { visible: 'auto' }
@@ -407,7 +441,7 @@ function activityPanel(state) {
 }
 
 function notesPanel(state) {
-  return surface(notificationLayer(state, stack([
+  return surface(notificationLayer(state, column([
     text('This example is intentionally hand-written.', { id: 'note-purpose', textRole: 'body' }),
     text('It combines primitives without app-frame recipes or product composites.', { id: 'note-surface' }),
     text('Useful commands: /palette, /issues, /activity, /resolve, /assign ops.', { id: 'note-commands' })
@@ -421,7 +455,7 @@ function notesPanel(state) {
 
 function inspectorSurface(state) {
   const ticket = selectedTicket(state);
-  return surface(stack([
+  return surface(column([
     structuredBlock({
       id: 'ticket-inspector',
       title: ticket.title,
@@ -434,8 +468,8 @@ function inspectorSurface(state) {
       ],
       body: 'This panel updates when keyboard commands, palette choices, or tree clicks change app state.'
     }),
-    stack([
-      activityIndicator({ id: 'workspace-activity', label: 'runtime', status: ticket.state === 'running' ? 'running' : 'idle' }),
+    column([
+      statusIndicator({ id: 'workspace-activity', label: 'runtime', status: ticket.state === 'running' ? 'running' : 'idle' }),
       progressBar({
         id: 'queue-progress',
         label: 'resolved',
@@ -443,7 +477,7 @@ function inspectorSurface(state) {
         max: tickets.length,
         display: 'bar+percent'
       })
-    ], { id: 'inspector-status-stack', gap: 0 }),
+    ], { id: 'inspector-status-column', gap: 0 }),
     button({
       id: 'resolve-button',
       label: 'Resolve selected',
@@ -459,11 +493,11 @@ function inspectorSurface(state) {
 }
 
 function commandSurface(state) {
-  const expanded = commandBarExpanded(state);
-  return surface(commandBar({
+  const expanded = commandInputExpanded(state);
+  return surface(commandInput({
     id: 'workspace-command',
     prompt: '› ',
-    ...commandBarPresentation(state.command),
+    ...commandInputPresentation(state.command),
     placeholder: 'Type /command',
     suggestions: expanded ? state.command.suggestions : [],
     completionPreview: expanded ? completionPreview(state.command.input.text) : undefined,
@@ -569,7 +603,7 @@ function visibleTickets(state) {
 
 function selectedTicket(state) {
   const rows = visibleTickets(state);
-  return rows[Math.min(state.table.selectedRow ?? 0, Math.max(0, rows.length - 1))] ?? tickets[0];
+  return rows.find((ticket) => ticket.id === state.table.selectedRowId) ?? rows[0] ?? tickets[0];
 }
 
 function applyCommand(state, rawCommand) {
@@ -643,12 +677,12 @@ function completionPreview(value) {
   return suggestion === undefined ? undefined : suggestion.value.slice(value.length);
 }
 
-function commandBarExpanded(state) {
+function commandInputExpanded(state) {
   return state.command.input.text.length > 0 || state.command.selectedSuggestion !== undefined;
 }
 
 function commandRowCount(state) {
-  return commandBarExpanded(state) ? 6 : 3;
+  return commandInputExpanded(state) ? 6 : 3;
 }
 
 function ticketStatus(ticket) {
@@ -694,7 +728,7 @@ export async function runScriptedWorkspace() {
     const treeTarget = targetById(runtime, 'workspace-tree:queue:review:body');
     await click(runtime, treeTarget);
     const tableHitTargets = runtime.frame()?.hitTargets?.filter((target) => target.id.startsWith('ticket-table')).length ?? 0;
-    const tableTarget = targetByPrefix(runtime, 'ticket-table:row:0');
+    const tableTarget = targetByPrefix(runtime, 'ticket-table:row:T-103');
     await click(runtime, tableTarget);
     await runtime.dispatch({ kind: 'scriptSetup' });
     const paletteTarget = targetByPrefix(runtime, 'workspace-palette:resolve-ticket');

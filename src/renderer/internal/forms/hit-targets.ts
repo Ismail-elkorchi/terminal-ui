@@ -5,16 +5,16 @@ import type { Rect } from '../../model/layout.ts';
 import type { HitTarget } from '../../model/renderer.ts';
 
 type ActivationControlNode<TMessage> = RenderNodesOfKind<TMessage, 'button' | 'checkbox' | 'toggleSwitch'>;
-type OptionControlNode<TMessage> = RenderNodesOfKind<TMessage, 'radioGroup' | 'selectBox'>;
-type CheckboxListNode<TMessage> = RenderNodeOfKind<TMessage, 'checkboxList'>;
+type OptionControlNode<TMessage> = RenderNodesOfKind<TMessage, 'radioGroup' | 'select'>;
+type CheckboxGroupNode<TMessage> = RenderNodeOfKind<TMessage, 'checkboxGroup'>;
 type SliderNode<TMessage> = RenderNodeOfKind<TMessage, 'slider'>;
 type RangeSliderNode<TMessage> = RenderNodeOfKind<TMessage, 'rangeSlider'>;
-type PickerNode<TMessage> = RenderNodesOfKind<TMessage, 'colorPicker' | 'datePicker'>;
+type PickerNode<TMessage> = RenderNodesOfKind<TMessage, 'colorSwatchPicker' | 'calendar'>;
 type NumberInputNode<TMessage> = RenderNodeOfKind<TMessage, 'numberInput'>;
 import { formOptions } from './support/choices.ts';
 import {
   colorOptions,
-  datePickerDays,
+  calendarDays,
   pickerCellWidth,
   pickerColumns,
   pickerMessageFactory,
@@ -67,7 +67,7 @@ export function optionHitTargets<TMessage>(widget: OptionControlNode<TMessage>, 
   });
 }
 
-export function checkboxListHitTargets<TMessage>(widget: CheckboxListNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function checkboxGroupHitTargets<TMessage>(widget: CheckboxGroupNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = widget.props.toActionMessage;
   if (toMessage === undefined) return [];
   const labelOffset = clean(stringify(widget.props.label)).length > 0 ? 1 : 0;
@@ -147,8 +147,8 @@ export function numberInputHitTargets<TMessage>(
 export function pickerHitTargets<TMessage>(widget: PickerNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = pickerMessageFactory(widget);
   if (toMessage === undefined) return [];
-  const columns = pickerColumns(widget, widget.kind === 'datePicker' ? 7 : 4);
-  const options = widget.kind === 'datePicker' ? datePickerDays(widget) : colorOptions(widget);
+  const columns = pickerColumns(widget, widget.kind === 'calendar' ? 7 : 4);
+  const options = widget.kind === 'calendar' ? calendarDays(widget) : colorOptions(widget);
   const rowOffset = pickerOptionRowOffset(widget, columns);
   return options.flatMap((option, index): HitTarget<TMessage>[] => {
     if (option.disabled === true) return [];
@@ -166,8 +166,8 @@ export function pickerHitTargets<TMessage>(widget: PickerNode<TMessage>, bounds:
   });
 }
 
-export function datePickerNavigationHitTargets<TMessage>(
-  widget: RenderNodeOfKind<TMessage, 'datePicker'>,
+export function calendarNavigationHitTargets<TMessage>(
+  widget: RenderNodeOfKind<TMessage, 'calendar'>,
   bounds: Rect
 ): readonly HitTarget<TMessage>[] {
   const onAction = widget.props.toActionMessage;

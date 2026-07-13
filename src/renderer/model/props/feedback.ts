@@ -1,4 +1,4 @@
-import type { HelpBinding, ProcessStatus } from '../../../ui-model/contracts.ts';
+import type { HelpGroup, ProcessStatus } from '../../../ui-model/contracts.ts';
 import type {
   BarChartItem,
   ChartInterpolation,
@@ -6,17 +6,18 @@ import type {
   ChartSampleAlign,
   ChartSampleMode,
   ChartSeries,
-  GaugeVariant,
+  MeterVariant,
   HeatmapCell,
   HeatmapSelection,
   NotificationItem,
   NotificationPlacement,
   ProgressBarDisplay,
   ProgressBarLabelPosition,
+  StatusBarItem,
   ValueScale
 } from '../../../ui-model/feedback.ts';
 import type { NotificationStackAction } from '../../../ui-model/notification-stack.ts';
-import type { ChartAction, HeatmapAction } from '../../../ui-model/visualization.ts';
+import type { BarChartAction, ChartAction, HeatmapAction } from '../../../ui-model/visualization.ts';
 
 export interface NotificationStackRenderProps<TMessage> {
   readonly items: readonly NotificationItem[];
@@ -27,14 +28,16 @@ export interface NotificationStackRenderProps<TMessage> {
 }
 
 export interface StatusBarRenderProps {
-  readonly text: string;
+  readonly leading: readonly StatusBarItem[];
+  readonly center: readonly StatusBarItem[];
+  readonly trailing: readonly StatusBarItem[];
 }
 
 export interface HelpBarRenderProps {
-  readonly bindings: readonly HelpBinding[];
+  readonly groups: readonly HelpGroup[];
 }
 
-export interface ActivityIndicatorRenderProps {
+export interface StatusIndicatorRenderProps {
   readonly label?: string;
   readonly status?: ProcessStatus;
 }
@@ -65,14 +68,15 @@ export interface SparklineRenderProps {
   readonly errorText?: string;
 }
 
-export interface BarChartRenderProps {
+export interface BarChartRenderProps<TMessage> {
   readonly items: readonly BarChartItem[];
   readonly max?: number;
-  readonly selected?: number;
+  readonly selectedId?: string;
   readonly status?: ProcessStatus;
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
+  readonly toActionMessage?: (action: BarChartAction) => TMessage;
 }
 
 export interface ChartRenderProps<TMessage> {
@@ -95,13 +99,13 @@ export interface ChartRenderProps<TMessage> {
   readonly toActionMessage?: (action: ChartAction) => TMessage;
 }
 
-export interface GaugeRenderProps {
+export interface MeterRenderProps {
   readonly label?: string;
   readonly value: number;
   readonly min?: number;
   readonly max?: number;
   readonly width?: number;
-  readonly variant?: GaugeVariant;
+  readonly variant?: MeterVariant;
   readonly status?: ProcessStatus;
 }
 

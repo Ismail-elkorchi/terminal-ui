@@ -1,8 +1,8 @@
-import { datePickerPresentation } from '../../dist/behavior/index.js';
+import { calendarPresentation } from '../../dist/behavior/index.js';
 
-export function datePickerFixture(options = {}) {
+export function calendarFixture(options = {}) {
   const visibleMonth = options.visibleMonth ?? { year: 2026, month: 6 };
-  return datePickerPresentation({
+  return calendarPresentation({
     visibleMonth,
     ...(options.selected === undefined ? {} : { selected: options.selected }),
     ...(options.focused === undefined ? {} : { focused: options.focused })

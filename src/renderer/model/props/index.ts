@@ -9,17 +9,17 @@ import type {
 } from './content.ts';
 import type {
   ActivityFeedRenderProps,
-  CommandBarRenderProps,
+  CommandInputRenderProps,
   PaletteRenderProps,
   ScrollbackRenderProps,
   StructuredBlockRenderProps,
   ViewportRenderProps
 } from './documents.ts';
 import type {
-  ActivityIndicatorRenderProps,
+  StatusIndicatorRenderProps,
   BarChartRenderProps,
   ChartRenderProps,
-  GaugeRenderProps,
+  MeterRenderProps,
   HeatmapRenderProps,
   HelpBarRenderProps,
   NotificationStackRenderProps,
@@ -30,33 +30,33 @@ import type {
 } from './feedback.ts';
 import type {
   ButtonRenderProps,
-  CheckboxListRenderProps,
+  CheckboxGroupRenderProps,
   CheckboxRenderProps,
-  ColorPickerRenderProps,
-  DatePickerRenderProps,
+  ColorSwatchPickerRenderProps,
+  CalendarRenderProps,
   FieldRenderProps,
   FormRenderProps,
   LabelRenderProps,
   NumberInputRenderProps,
   RadioGroupRenderProps,
   RangeSliderRenderProps,
-  SelectBoxRenderProps,
+  SelectRenderProps,
   SliderRenderProps,
   TextInputRenderProps,
   ToggleSwitchRenderProps
 } from './forms.ts';
 import type {
   GridRenderProps,
-  ModalRenderProps,
+  ColumnRenderProps,
   RowRenderProps,
-  SplitPaneRenderProps,
-  StackRenderProps,
-  TabsRenderProps
+  SplitPaneRenderProps
 } from './layout.ts';
+import type { DialogRenderProps } from './dialog.ts';
+import type { TabsRenderProps } from './tabs.ts';
 import type {
   ContextMenuRenderProps,
   DividerRenderProps,
-  DropdownRenderProps,
+  DropdownMenuRenderProps,
   MenuBarRenderProps,
   MenuRenderProps,
   TooltipRenderProps
@@ -71,7 +71,7 @@ import type {
 export interface RenderNodePropsByKind<TMessage> {
   readonly text: TextRenderProps;
   readonly richText: RichTextRenderProps;
-  readonly stack: StackRenderProps;
+  readonly column: ColumnRenderProps;
   readonly row: RowRenderProps;
   readonly list: ListRenderProps<TMessage>;
   readonly table: TableRenderProps<TMessage>;
@@ -86,17 +86,17 @@ export interface RenderNodePropsByKind<TMessage> {
   readonly toggleSwitch: ToggleSwitchRenderProps<TMessage>;
   readonly slider: SliderRenderProps<TMessage>;
   readonly rangeSlider: RangeSliderRenderProps<TMessage>;
-  readonly checkboxList: CheckboxListRenderProps<TMessage>;
-  readonly colorPicker: ColorPickerRenderProps<TMessage>;
-  readonly datePicker: DatePickerRenderProps<TMessage>;
+  readonly checkboxGroup: CheckboxGroupRenderProps<TMessage>;
+  readonly colorSwatchPicker: ColorSwatchPickerRenderProps<TMessage>;
+  readonly calendar: CalendarRenderProps<TMessage>;
   readonly radioGroup: RadioGroupRenderProps<TMessage>;
-  readonly selectBox: SelectBoxRenderProps<TMessage>;
+  readonly select: SelectRenderProps<TMessage>;
   readonly textInput: TextInputRenderProps<TMessage>;
   readonly numberInput: NumberInputRenderProps<TMessage>;
   readonly menu: MenuRenderProps<TMessage>;
   readonly menuBar: MenuBarRenderProps<TMessage>;
   readonly contextMenu: ContextMenuRenderProps<TMessage>;
-  readonly dropdown: DropdownRenderProps<TMessage>;
+  readonly dropdownMenu: DropdownMenuRenderProps<TMessage>;
   readonly divider: DividerRenderProps;
   readonly tooltip: TooltipRenderProps;
   readonly notificationStack: NotificationStackRenderProps<TMessage>;
@@ -106,31 +106,33 @@ export interface RenderNodePropsByKind<TMessage> {
   readonly overlay: OverlayRenderProps;
   readonly statusBar: StatusBarRenderProps;
   readonly helpBar: HelpBarRenderProps;
-  readonly activityIndicator: ActivityIndicatorRenderProps;
+  readonly statusIndicator: StatusIndicatorRenderProps;
   readonly progressBar: ProgressBarRenderProps;
   readonly spinner: SpinnerRenderProps;
   readonly sparkline: SparklineRenderProps;
-  readonly barChart: BarChartRenderProps;
+  readonly barChart: BarChartRenderProps<TMessage>;
   readonly chart: ChartRenderProps<TMessage>;
-  readonly gauge: GaugeRenderProps;
+  readonly meter: MeterRenderProps;
   readonly heatmap: HeatmapRenderProps<TMessage>;
   readonly viewport: ViewportRenderProps<TMessage>;
   readonly scrollback: ScrollbackRenderProps<TMessage>;
   readonly structuredBlock: StructuredBlockRenderProps;
   readonly activityFeed: ActivityFeedRenderProps<TMessage>;
-  readonly commandBar: CommandBarRenderProps<TMessage>;
+  readonly commandInput: CommandInputRenderProps<TMessage>;
   readonly palette: PaletteRenderProps<TMessage>;
   readonly grid: GridRenderProps;
-  readonly splitPane: SplitPaneRenderProps;
+  readonly splitPane: SplitPaneRenderProps<TMessage>;
   readonly tabs: TabsRenderProps<TMessage>;
-  readonly modal: ModalRenderProps;
+  readonly dialog: DialogRenderProps;
   readonly custom: Record<never, never>;
 }
 
 export type * from './content.ts';
+export type * from './dialog.ts';
 export type * from './documents.ts';
 export type * from './feedback.ts';
 export type * from './forms.ts';
 export type * from './layout.ts';
 export type * from './menus.ts';
 export type * from './surfaces.ts';
+export type * from './tabs.ts';

@@ -1,25 +1,25 @@
 import { measureTextCells } from '../../text/index.ts';
 import { borderStyleFromValue } from './border.ts';
-import { commandBarBlock } from './command-bar.ts';
-import { barChartText, chartText, gaugeText, heatmapText, sparklineText } from './charts/index.ts';
+import { commandInputBlock } from './command-input.ts';
+import { barChartText, chartText, meterText, heatmapText, sparklineText } from './charts/index.ts';
 import { dividerPreferredSize } from './divider.ts';
 import { paginatorText } from './data-widgets.ts';
 import {
   buttonBlock,
   checkboxBlock,
-  checkboxListBlock,
-  colorPickerBlock,
-  datePickerBlock,
+  checkboxGroupBlock,
+  colorSwatchPickerBlock,
+  calendarBlock,
   labelBlock,
   numberInputBlock,
   radioGroupBlock,
   rangeSliderBlock,
-  selectBoxBlock,
+  selectBlock,
   sliderBlock,
   textInputBlock,
   toggleSwitchBlock
 } from './forms/index.ts';
-import { contextMenuBlock, dropdownBlock, menuBarBlock, menuBlock } from './menu-widgets.ts';
+import { contextMenuBlock, dropdownMenuBlock, menuBarBlock, menuBlock } from './menu-widgets.ts';
 import {
   combineMeasurementsHorizontally,
   combineMeasurementsOverlay,
@@ -37,7 +37,7 @@ import { statusBarText } from './feedback-visual.ts';
 import { isRecord, nonNegativeInteger } from './renderers/support/common.ts';
 import { tabsHeaderText } from './renderers/support/tabs.ts';
 import { activityFeedBlock, structuredBlockBlock } from './structured-block.ts';
-import { activityIndicatorText, helpBarText, richTextBlock, spinnerBlock } from './text-widgets.ts';
+import { statusIndicatorText, helpBarText, richTextBlock, spinnerBlock } from './text-widgets.ts';
 import { tooltipPreferredSize } from './tooltip.ts';
 import { treeBlock } from './tree.ts';
 import { numberProp, stringify } from './render-node-props.ts';
@@ -54,7 +54,7 @@ type AbsoluteNode = RenderNodeOfKind<unknown, 'absolute'>;
 type CanvasNode = RenderNodeOfKind<unknown, 'canvas'>;
 type ViewportNode = RenderNodeOfKind<unknown, 'viewport'>;
 type TabsNode = RenderNodeOfKind<unknown, 'tabs'>;
-type ModalNode = RenderNodeOfKind<unknown, 'modal'>;
+type DialogNode = RenderNodeOfKind<unknown, 'dialog'>;
 type ScrollbackNode = RenderNodeOfKind<unknown, 'scrollback'>;
 type TextAreaNode = RenderNodeOfKind<unknown, 'textArea'>;
 
@@ -72,7 +72,7 @@ export function measureBuiltinRenderNode(
     case 'richText':
       return measureBlock(richTextBlock(widget, intrinsicBounds(bounds)));
     case 'statusBar':
-      return measureText(statusBarText(widget));
+      return measureText(statusBarText(widget, theme));
     case 'textArea':
       return measureText(textAreaMeasureText(widget));
     case 'label':
@@ -87,16 +87,16 @@ export function measureBuiltinRenderNode(
       return measureBlock(sliderBlock(widget, intrinsicBounds(bounds)));
     case 'rangeSlider':
       return measureBlock(rangeSliderBlock(widget, intrinsicBounds(bounds)));
-    case 'checkboxList':
-      return measureBlock(checkboxListBlock(widget, intrinsicBounds(bounds), theme));
+    case 'checkboxGroup':
+      return measureBlock(checkboxGroupBlock(widget, intrinsicBounds(bounds), theme));
     case 'radioGroup':
       return measureBlock(radioGroupBlock(widget, intrinsicBounds(bounds), theme));
-    case 'selectBox':
-      return measureBlock(selectBoxBlock(widget, intrinsicBounds(bounds), theme));
-    case 'colorPicker':
-      return measureBlock(colorPickerBlock(widget, intrinsicBounds(bounds)));
-    case 'datePicker':
-      return measureBlock(datePickerBlock(widget, intrinsicBounds(bounds)));
+    case 'select':
+      return measureBlock(selectBlock(widget, intrinsicBounds(bounds), theme));
+    case 'colorSwatchPicker':
+      return measureBlock(colorSwatchPickerBlock(widget, intrinsicBounds(bounds)));
+    case 'calendar':
+      return measureBlock(calendarBlock(widget, intrinsicBounds(bounds)));
     case 'textInput':
       return measureBlock(textInputBlock(widget, intrinsicBounds(bounds), false, theme));
     case 'numberInput':
@@ -107,8 +107,8 @@ export function measureBuiltinRenderNode(
       return measureBlock(menuBarBlock(widget, intrinsicBounds(bounds), theme));
     case 'contextMenu':
       return measureBlock(contextMenuBlock(widget, intrinsicBounds(bounds), theme));
-    case 'dropdown':
-      return measureBlock(dropdownBlock(widget, intrinsicBounds(bounds), theme));
+    case 'dropdownMenu':
+      return measureBlock(dropdownMenuBlock(widget, intrinsicBounds(bounds), theme));
     case 'divider': {
       const preferred = dividerPreferredSize(widget);
       return measureSize(preferred.width, preferred.height);
@@ -119,8 +119,8 @@ export function measureBuiltinRenderNode(
     }
     case 'helpBar':
       return measureText(helpBarText(widget));
-    case 'activityIndicator':
-      return measureText(activityIndicatorText(widget, theme));
+    case 'statusIndicator':
+      return measureText(statusIndicatorText(widget, theme));
     case 'spinner':
       return measureBlock(spinnerBlock(widget, theme));
     case 'progressBar':
@@ -135,8 +135,8 @@ export function measureBuiltinRenderNode(
       return measureText(barChartText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
     case 'chart':
       return measureText(chartText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
-    case 'gauge':
-      return measureText(gaugeText(widget, theme));
+    case 'meter':
+      return measureText(meterText(widget, theme));
     case 'heatmap':
       return measureText(heatmapText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
     case 'list':
@@ -153,13 +153,13 @@ export function measureBuiltinRenderNode(
       return measureBlock(structuredBlockBlock(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
     case 'activityFeed':
       return measureBlock(activityFeedBlock(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
-    case 'commandBar':
-      return measureBlock(commandBarBlock(widget, intrinsicBounds(bounds), theme));
+    case 'commandInput':
+      return measureBlock(commandInputBlock(widget, intrinsicBounds(bounds), theme));
     case 'palette':
       return measureBlock(paletteBlock(widget, intrinsicBounds(bounds).height, theme));
     case 'form':
     case 'field':
-    case 'stack':
+    case 'column':
       return measureChildrenVertically(widget, bounds, theme, measureNode);
     case 'row':
       return measureChildrenHorizontally(widget, bounds, theme, measureNode);
@@ -177,8 +177,8 @@ export function measureBuiltinRenderNode(
       return measureViewport(widget, bounds, theme, measureNode);
     case 'tabs':
       return measureTabs(widget, bounds, theme, measureNode);
-    case 'modal':
-      return measureModal(widget, bounds, theme, measureNode);
+    case 'dialog':
+      return measureDialog(widget, bounds, theme, measureNode);
     case 'custom':
       return zeroMeasurement();
   }
@@ -295,8 +295,8 @@ function measureTabs(
   return measureSize(Math.max(header.preferredWidth, panel.preferredWidth), header.preferredHeight + panel.preferredHeight);
 }
 
-function measureModal(
-  widget: ModalNode,
+function measureDialog(
+  widget: DialogNode,
   bounds: Rect,
   theme: TerminalTheme,
   measureNode: RenderNodeMeasureFunction
@@ -306,7 +306,7 @@ function measureModal(
   if (explicitWidth !== undefined && explicitHeight !== undefined) {
     return measureSize(explicitWidth, explicitHeight, Math.min(4, explicitWidth), Math.min(3, explicitHeight));
   }
-  const content = measureModalContent(widget, bounds, theme, measureNode);
+  const content = measureDialogContent(widget, bounds, theme, measureNode);
   const border = borderStyleFromValue(widget.props.border) ?? { kind: 'single' };
   const insetCells = border.kind === 'none' ? 0 : 2;
   return measureSize(
@@ -315,8 +315,8 @@ function measureModal(
   );
 }
 
-function measureModalContent(
-  widget: ModalNode,
+function measureDialogContent(
+  widget: DialogNode,
   bounds: Rect,
   theme: TerminalTheme,
   measureNode: RenderNodeMeasureFunction

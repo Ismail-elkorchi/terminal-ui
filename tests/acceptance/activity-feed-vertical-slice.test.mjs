@@ -14,19 +14,19 @@ import {
   statusBar
 } from '../../dist/components/index.js';
 import {
-  stack,
+  column,
   surface
 } from '../../dist/layout/index.js';
 
 function view(state) {
-  return surface(stack([
+  return surface(column([
     activityFeed({
       id: 'activity',
-      selected: state.selected,
+      selectedId: state.selectedId,
       blocks: state.blocks,
       keys: { enter: () => ({ kind: 'advance' }) }
     }),
-    statusBar({ id: 'status', text: `Selected ${state.selected}` })
+    statusBar({ id: 'status', leading: [{ id: 'selection', kind: 'text', text: `Selected ${state.selectedId}` }] })
   ]), { id: 'root', border: { kind: 'single' } });
 }
 
@@ -38,9 +38,9 @@ test('activity feed vertical slice maps generic activity blocks through runtime 
   ];
   const app = defineTui({
     id: 'activity-feed-slice',
-    init: () => ({ blocks, selected: 0 }),
+    init: () => ({ blocks, selectedId: 'one' }),
     update: (state, message) => ({
-      state: { ...state, selected: message.kind === 'advance' ? 1 : state.selected },
+      state: { ...state, selectedId: message.kind === 'advance' ? 'two' : state.selectedId },
       ...(message.kind === 'advance' ? { exit: {} } : {})
     }),
     view
@@ -50,7 +50,7 @@ test('activity feed vertical slice maps generic activity blocks through runtime 
   const exit = await runTui(app, harness.host);
 
   assert.equal(exit.status, 'completed');
-  assert.deepEqual(exit.state?.selected, 1);
+  assert.deepEqual(exit.state?.selectedId, 'two');
   assert.equal(harness.frames().length, 2);
   assert.match(renderFramePlain(harness.frames()[0]), /› \[\+\] \[pending\] One/u);
   assert.match(renderFramePlain(harness.frames()[1]), /› \[\+\] \[running\] Two/u);

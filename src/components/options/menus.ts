@@ -4,8 +4,8 @@ import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type {
   DividerLineKind,
   DividerOrientation,
-  DropdownAction,
-  DropdownPresentation,
+  DropdownMenuAction,
+  DropdownMenuPresentation,
   MenuAction,
   MenuItem,
   TooltipPlacement,
@@ -44,12 +44,12 @@ export interface ContextMenuOptions<TMessage = never> extends InteractiveElement
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface DropdownOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart> {
+export interface DropdownMenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart> {
   readonly label?: string;
   readonly items: readonly MenuItem[];
-  readonly presentation: DropdownPresentation;
+  readonly presentation: DropdownMenuPresentation;
   readonly placeholder?: string;
-  readonly onAction?: (action: DropdownAction) => TMessage;
+  readonly onAction?: (action: DropdownMenuAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 

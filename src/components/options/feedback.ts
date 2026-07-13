@@ -1,5 +1,5 @@
 import type {
-  HelpBinding,
+  HelpGroup,
   ProcessStatus
 } from '../../ui-model/contracts.ts';
 import type {
@@ -9,18 +9,19 @@ import type {
   ChartSampleAlign,
   ChartSampleMode,
   ChartSeries,
-  GaugeVariant,
+  MeterVariant,
   HeatmapCell,
   HeatmapSelection,
   NotificationItem,
   NotificationPlacement,
   ProgressBarDisplay,
   ProgressBarLabelPosition,
+  StatusBarItem,
   ValueScale
 } from '../../ui-model/feedback.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
-import type { ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
+import type { BarChartAction, ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
 import type { ChartStylePart, NotificationStylePart, StatusStylePart } from '../../ui-model/style-parts.ts';
 
 export interface NotificationStackOptions<TMessage = never> extends InteractiveElementOptions<NotificationStylePart> {
@@ -32,17 +33,17 @@ export interface NotificationStackOptions<TMessage = never> extends InteractiveE
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface StatusBarOptions<TMessage> extends InteractiveElementOptions<StatusStylePart> {
-  readonly text: string;
-  readonly onPress?: TMessage;
-  readonly keys?: ElementKeyBindings<TMessage>;
+export interface StatusBarOptions extends ElementOptions<StatusStylePart> {
+  readonly leading?: readonly StatusBarItem[];
+  readonly center?: readonly StatusBarItem[];
+  readonly trailing?: readonly StatusBarItem[];
 }
 
 export interface HelpBarOptions extends ElementOptions<StatusStylePart> {
-  readonly bindings: readonly HelpBinding[];
+  readonly groups: readonly HelpGroup[];
 }
 
-export interface ActivityIndicatorOptions extends ElementOptions<StatusStylePart> {
+export interface StatusIndicatorOptions extends ElementOptions<StatusStylePart> {
   readonly label?: string;
   readonly status?: ProcessStatus;
 }
@@ -73,14 +74,16 @@ export interface SparklineOptions extends ElementOptions<ChartStylePart> {
   readonly errorText?: string;
 }
 
-export interface BarChartOptions extends ElementOptions<ChartStylePart> {
+export interface BarChartOptions<TMessage = never> extends InteractiveElementOptions<ChartStylePart> {
   readonly items: readonly BarChartItem[];
   readonly max?: number;
-  readonly selected?: number;
+  readonly selectedId?: string;
   readonly status?: ProcessStatus;
   readonly emptyText?: string;
   readonly loadingText?: string;
   readonly errorText?: string;
+  readonly onAction?: (action: BarChartAction) => TMessage;
+  readonly keys?: ElementKeyBindings<TMessage>;
 }
 
 export interface ChartOptions<TMessage = never> extends InteractiveElementOptions<ChartStylePart> {
@@ -104,13 +107,13 @@ export interface ChartOptions<TMessage = never> extends InteractiveElementOption
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface GaugeOptions extends ElementOptions<StatusStylePart> {
+export interface MeterOptions extends ElementOptions<StatusStylePart> {
   readonly label?: string;
   readonly value: number;
   readonly min?: number;
   readonly max?: number;
   readonly width?: number;
-  readonly variant?: GaugeVariant;
+  readonly variant?: MeterVariant;
   readonly status?: ProcessStatus;
 }
 
@@ -145,7 +148,7 @@ export type {
   ChartSampleMode,
   ChartSeries,
   ChartSeriesKind,
-  GaugeVariant,
+  MeterVariant,
   HeatmapCell,
   HeatmapSelection,
   NotificationItem,

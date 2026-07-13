@@ -1,5 +1,8 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
+import type { Rect } from '../../../geometry/types.ts';
+import type { BarChartAction } from '../../../ui-model/visualization.ts';
 import type { RenderNodeOfKind } from '../../model/index.ts';
+import type { HitTarget } from '../../model/renderer.ts';
 import { sanitizeTerminalText } from '../../../text/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import {
@@ -28,7 +31,7 @@ export function barChartBlock(widget: BarChartNode, node: LayoutNode, theme: Ter
     errorText: cleanLabel(widget.props.errorText)
   });
   if (state !== undefined) return state;
-  const selected = numberProp(widget, 'selected') ?? -1;
+  const selected = selectedBarIndex(widget, items);
   const max = Math.max(1, numberProp(widget, 'max') ?? Math.max(1, ...items.map((item) => item.value)));
   const window = visibleWindow(items.length, node.bounds.height, selected);
   return {
@@ -42,13 +45,13 @@ export function barChartBlock(widget: BarChartNode, node: LayoutNode, theme: Ter
       const selectionStyle = currentSelected ? chartSelectedStyle(widget) : undefined;
       return {
         spans: [
-          chartSpan(widget, 'barChart', 'marker', `bar.${String(index)}.marker`, prefix, selectionStyle ?? chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'barChart', 'separator', `bar.${String(index)}.separator.beforeLabel`, ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'barChart', 'label', `bar.${String(index)}.label`, label, selectionStyle ?? chartLabelStyle(widget)),
-          chartSpan(widget, 'barChart', 'separator', `bar.${String(index)}.separator.beforeFill`, ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'barChart', 'bar', `bar.${String(index)}.fill`, theme.tokens.symbols.progressFilled.repeat(filled), selectionStyle ?? chartSeriesStyle(widget, index)),
-          chartSpan(widget, 'barChart', 'separator', `bar.${String(index)}.separator.beforeValue`, ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'barChart', 'metric', `bar.${String(index)}.value`, String(item.value), selectionStyle ?? chartValueStyle(widget))
+          chartSpan(widget, 'barChart', 'marker', `bar.${item.id}.marker`, prefix, selectionStyle ?? chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'barChart', 'separator', `bar.${item.id}.separator.beforeLabel`, ' ', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'barChart', 'label', `bar.${item.id}.label`, label, selectionStyle ?? chartLabelStyle(widget)),
+          chartSpan(widget, 'barChart', 'separator', `bar.${item.id}.separator.beforeFill`, ' ', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'barChart', 'bar', `bar.${item.id}.fill`, theme.tokens.symbols.progressFilled.repeat(filled), selectionStyle ?? chartSeriesStyle(widget, index)),
+          chartSpan(widget, 'barChart', 'separator', `bar.${item.id}.separator.beforeValue`, ' ', chartPlaceholderStyle(widget)),
+          chartSpan(widget, 'barChart', 'metric', `bar.${item.id}.value`, String(item.value), selectionStyle ?? chartValueStyle(widget))
         ]
       };
     })
@@ -61,7 +64,7 @@ export function barChartText(widget: BarChartNode, node: LayoutNode, theme: Term
 
 export function barChartAccessibleBase(widget: BarChartNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
   const items = barItems(widget.props.items);
-  const selected = numberProp(widget, 'selected') ?? 0;
+  const selected = selectedBarIndex(widget, items);
   const window = visibleWindow(items.length, node.bounds.height, selected);
   return {
     id,
@@ -74,12 +77,12 @@ export function barChartAccessibleBase(widget: BarChartNode, node: LayoutNode, i
 
 export function barChartAccessibleChildren(widget: BarChartNode, node: LayoutNode): readonly AccessibleNode[] {
   const items = barItems(widget.props.items);
-  const selected = numberProp(widget, 'selected') ?? -1;
+  const selected = selectedBarIndex(widget, items);
   const window = visibleWindow(items.length, node.bounds.height, selected);
   return items.slice(window.start, window.end).map((item, offset) => {
     const index = window.start + offset;
     return {
-      id: `${widget.id ?? 'bar-chart'}:${String(index)}`,
+      id: `${widget.id ?? 'bar-chart'}:${item.id}`,
       role: 'option',
       label: sanitizeTerminalText(item.label).text,
       value: item.value,
@@ -87,4 +90,30 @@ export function barChartAccessibleChildren(widget: BarChartNode, node: LayoutNod
     };
   });
 }
-type BarChartNode = RenderNodeOfKind<unknown, 'barChart'>;
+
+export function barChartHitTargets<TMessage>(widget: BarChartNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = barChartActionMessageFactory(widget);
+  if (toMessage === undefined) return [];
+  const items = barItems(widget.props.items);
+  const selected = selectedBarIndex(widget, items);
+  const window = visibleWindow(items.length, bounds.height, selected);
+  return items.slice(window.start, window.end).map((item, visibleIndex) => {
+    const index = window.start + visibleIndex;
+    return {
+      id: `${widget.id ?? widget.kind}:bar:${item.id}`,
+      bounds: { row: bounds.row + visibleIndex, column: bounds.column, width: bounds.width, height: 1 },
+      cursor: 'pointer',
+      message: () => toMessage({ kind: 'select', id: item.id, index })
+    };
+  });
+}
+
+function selectedBarIndex(widget: BarChartNode, items: readonly { readonly id: string }[]): number {
+  return items.findIndex((item) => item.id === widget.props.selectedId);
+}
+
+function barChartActionMessageFactory<TMessage>(widget: BarChartNode<TMessage>): ((action: BarChartAction) => TMessage) | undefined {
+  return typeof widget.props.toActionMessage === 'function' ? widget.props.toActionMessage : undefined;
+}
+
+type BarChartNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'barChart'>;

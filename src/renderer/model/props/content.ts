@@ -48,21 +48,21 @@ export interface TextAreaRenderProps<TMessage> {
 }
 
 export interface ListRenderProps<TMessage> {
-  readonly items: readonly unknown[];
-  readonly selected?: number;
+  readonly items: readonly ListRenderItem[];
+  readonly selectedId?: string;
   readonly filterQuery?: string;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly disabledIndices?: readonly number[];
   readonly toScrollMessage?: (event: ScrollEvent) => TMessage;
   readonly toActionMessage?: (action: ListAction) => TMessage;
 }
 
 export interface TableRenderProps<TMessage> {
   readonly rows: readonly unknown[];
+  readonly rowIds: readonly string[];
   readonly columns?: readonly TableColumn[];
-  readonly selected?: number;
+  readonly selectedRowId?: string;
   readonly selectedCell?: TableCellSelection;
   readonly sort?: TableSortState;
   readonly columnWidths?: Readonly<Record<string, number>>;
@@ -74,6 +74,12 @@ export interface TableRenderProps<TMessage> {
   readonly stickyHeader?: boolean;
   readonly emptyText?: string;
   readonly toActionMessage?: (action: TableAction) => TMessage;
+}
+
+export interface ListRenderItem {
+  readonly id: string;
+  readonly value: unknown;
+  readonly disabled: boolean;
 }
 
 export interface TreeRenderProps<TMessage> {

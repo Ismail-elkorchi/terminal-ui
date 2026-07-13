@@ -27,18 +27,18 @@ import {
   barChart,
   button,
   chart,
-  commandBar,
+  commandInput,
   helpBar,
   progressBar,
   richText,
   scrollback,
   table,
+  tabs,
   text
 } from '../../dist/components/index.js';
 import {
-  stack,
-  surface,
-  tabs
+  column,
+  surface
 } from '../../dist/layout/index.js';
 
 const packedThemes = [
@@ -109,7 +109,7 @@ test('high contrast theme keeps semantic status chart and diff tokens distinct',
 test('theme matrix snapshots cover core widgets with packs high contrast and no color', () => {
   const themes = [...packedThemes, highContrastTheme, noColorTheme];
   for (const theme of themes) {
-    const frame = renderElementFrame(stack([
+    const frame = renderElementFrame(column([
       surface(text(`Theme ${theme.name}`, { id: `title-${theme.name}` }), {
         id: `surface-${theme.name}`,
         border: { kind: 'rounded', title: theme.name },
@@ -119,18 +119,19 @@ test('theme matrix snapshots cover core widgets with packs high contrast and no 
       barChart({
         id: `chart-${theme.name}`,
         items: [
-          { label: 'a', value: 20 },
-          { label: 'b', value: 45 },
-          { label: 'c', value: 80 }
+          { id: 'a', label: 'a', value: 20 },
+          { id: 'b', label: 'b', value: 45 },
+          { id: 'c', label: 'c', value: 80 }
         ]
       }),
       table({
-        id: `table-${theme.name}`,
+    getRowId: (_row, index) => String(index),
+    id: `table-${theme.name}`,
         columns: [{
           value: (row) => Array.isArray(row) ? row[0] : row, id: 'key', header: 'Key' }, {
           value: (row) => Array.isArray(row) ? row[1] : undefined, id: 'value', header: 'Value' }],
         rows: [{ key: 'focus', value: 'visible' }],
-        selected: 0
+        selectedRowId: '0'
       })
     ], { id: `matrix-${theme.name}`, gap: 1 }), { columns: 48, rows: 14 }, { theme });
 
@@ -141,7 +142,7 @@ test('theme matrix snapshots cover core widgets with packs high contrast and no 
 });
 
 test('default theme specimen composes surface control text command log and data tokens', () => {
-  const frame = renderElementFrame(surface(stack([
+  const frame = renderElementFrame(surface(column([
     richText({
       id: 'specimen-title',
       segments: [
@@ -158,7 +159,7 @@ test('default theme specimen composes surface control text command log and data 
       ]
     }),
     button({ id: 'specimen-button', label: 'Primary', tone: 'primary', state: 'pressed' }),
-    commandBar({
+    commandInput({
       id: 'specimen-command',
       value: '/open readme',
       suggestions: [{ value: '/open', label: 'Open File' }],
@@ -186,8 +187,9 @@ test('default theme specimen composes surface control text command log and data 
       ]
     }),
     table({
-      id: 'specimen-table',
-      selected: 0,
+    getRowId: (_row, index) => String(index),
+    id: 'specimen-table',
+      selectedRowId: '0',
       columns: [{
         value: (row) => Array.isArray(row) ? row[0] : row, id: 'name', header: 'Name' }, {
         value: (row) => Array.isArray(row) ? row[1] : undefined, id: 'status', header: 'Status' }],
@@ -195,7 +197,7 @@ test('default theme specimen composes surface control text command log and data 
     }),
     helpBar({
       id: 'specimen-help',
-      bindings: [{ key: '?', label: 'Help' }]
+      groups: [{ id: 'primary', bindings: [{ key: '?', label: 'Help' }] }]
     })
   ], {
     gap: 1,

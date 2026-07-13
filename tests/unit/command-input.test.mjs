@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { commandBarPresentation, commandBarReducer } from '../../dist/behavior/index.js';
+import { commandInputPresentation, commandInputReducer } from '../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
   renderElementFrame,
   renderElementRegions
 } from '../../dist/renderer/index.js';
-import { commandBar } from '../../dist/components/index.js';
+import { commandInput } from '../../dist/components/index.js';
 
-test('commandBarReducer edits, navigates history, and accepts suggestions', () => {
+test('commandInputReducer edits, navigates history, and accepts suggestions', () => {
   const initial = {
     input: { text: '', cursor: 0 },
     history: ['build', 'test'],
@@ -20,27 +20,27 @@ test('commandBarReducer edits, navigates history, and accepts suggestions', () =
     ]
   };
 
-  const typed = commandBarReducer(initial, { kind: 'insert', text: 't' });
+  const typed = commandInputReducer(initial, { kind: 'insert', text: 't' });
   assert.deepEqual(typed.input, { text: 't', cursor: 1 });
   assert.equal('historyIndex' in typed, false);
 
-  const previous = commandBarReducer(typed, { kind: 'historyPrevious' });
+  const previous = commandInputReducer(typed, { kind: 'historyPrevious' });
   assert.deepEqual(previous.input, { text: 'test', cursor: 4 });
   assert.equal(previous.historyIndex, 1);
 
-  const earlier = commandBarReducer(previous, { kind: 'historyPrevious' });
+  const earlier = commandInputReducer(previous, { kind: 'historyPrevious' });
   assert.deepEqual(earlier.input, { text: 'build', cursor: 5 });
   assert.equal(earlier.historyIndex, 0);
 
-  const selected = commandBarReducer(earlier, { kind: 'selectSuggestion', direction: 1 });
+  const selected = commandInputReducer(earlier, { kind: 'selectSuggestion', direction: 1 });
   assert.equal(selected.selectedSuggestion, 0);
 
-  const accepted = commandBarReducer(selected, { kind: 'acceptSuggestion' });
+  const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
   assert.deepEqual(accepted.input, { text: 'test --watch', cursor: 12 });
   assert.equal('selectedSuggestion' in accepted, false);
 });
 
-test('commandBarReducer skips disabled suggestions for selection and acceptance', () => {
+test('commandInputReducer skips disabled suggestions for selection and acceptance', () => {
   const initial = {
     input: { text: '', cursor: 0 },
     history: [],
@@ -51,17 +51,17 @@ test('commandBarReducer skips disabled suggestions for selection and acceptance'
     ]
   };
 
-  const selected = commandBarReducer(initial, { kind: 'selectSuggestion', direction: 1 });
+  const selected = commandInputReducer(initial, { kind: 'selectSuggestion', direction: 1 });
   assert.equal(selected.selectedSuggestion, 1);
 
-  const accepted = commandBarReducer(selected, { kind: 'acceptSuggestion' });
+  const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
   assert.deepEqual(accepted.input, { text: 'status', cursor: 6 });
 
-  const manuallyDisabled = commandBarReducer({ ...initial, selectedSuggestion: 0 }, { kind: 'acceptSuggestion' });
+  const manuallyDisabled = commandInputReducer({ ...initial, selectedSuggestion: 0 }, { kind: 'acceptSuggestion' });
   assert.deepEqual(manuallyDisabled.input, { text: '', cursor: 0 });
 });
 
-test('commandBarReducer ignores accept when every suggestion is disabled', () => {
+test('commandInputReducer ignores accept when every suggestion is disabled', () => {
   const initial = {
     input: { text: 'd', cursor: 1 },
     history: [],
@@ -70,14 +70,14 @@ test('commandBarReducer ignores accept when every suggestion is disabled', () =>
     ]
   };
 
-  const selected = commandBarReducer(initial, { kind: 'selectSuggestion', direction: 1 });
+  const selected = commandInputReducer(initial, { kind: 'selectSuggestion', direction: 1 });
   assert.equal('selectedSuggestion' in selected, false);
 
-  const accepted = commandBarReducer(selected, { kind: 'acceptSuggestion' });
+  const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
   assert.deepEqual(accepted.input, { text: 'd', cursor: 1 });
 });
 
-test('commandBar projects controlled state and emits semantic actions', async () => {
+test('commandInput projects controlled state and emits semantic actions', async () => {
   const command = {
     input: { text: 'te', cursor: 2, selection: { start: 0, end: 1 } },
     history: ['build'],
@@ -89,9 +89,9 @@ test('commandBar projects controlled state and emits semantic actions', async ()
     id: 'command-actions',
     init: () => ({ command, messages: [] }),
     update: (state, message) => ({ state: { ...state, messages: [...state.messages, message] } }),
-    view: (state) => commandBar({
+    view: (state) => commandInput({
       id: 'command',
-      ...commandBarPresentation(state.command),
+      ...commandInputPresentation(state.command),
       onAction: (action) => ({ kind: 'action', action }),
       onSubmit: { kind: 'submit' },
       keys: {
@@ -112,7 +112,7 @@ test('commandBar projects controlled state and emits semantic actions', async ()
   await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
   await runtime.handleInput({ kind: 'key', key: 'escape', ctrl: false, alt: false, shift: false, meta: false });
 
-  assert.deepEqual(commandBarPresentation(command), {
+  assert.deepEqual(commandInputPresentation(command), {
     value: 'te',
     cursor: 2,
     selection: { start: 0, end: 1 },
@@ -131,9 +131,9 @@ test('commandBar projects controlled state and emits semantic actions', async ()
   ]);
 });
 
-test('commandBar widget renders prompt, suggestions, cursor, and accessibility', () => {
+test('commandInput widget renders prompt, suggestions, cursor, and accessibility', () => {
   const frame = renderElementFrame(
-    commandBar({
+    commandInput({
       id: 'command',
       prompt: '/',
       value: 'op',
@@ -158,9 +158,9 @@ test('commandBar widget renders prompt, suggestions, cursor, and accessibility',
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
 });
 
-test('commandBar renders completion preview validation footer match styles and wide cursor position', () => {
+test('commandInput renders completion preview validation footer match styles and wide cursor position', () => {
   const frame = renderElementFrame(
-    commandBar({
+    commandInput({
       id: 'launcher',
       prompt: '?',
       value: 'a🙂',
@@ -198,9 +198,9 @@ test('commandBar renders completion preview validation footer match styles and w
   ]);
 });
 
-test('commandBar stays compact by default even when suggestions are provided', () => {
+test('commandInput stays compact by default even when suggestions are provided', () => {
   const frame = renderElementFrame(
-    commandBar({
+    commandInput({
       id: 'compact-command',
       prompt: '/',
       value: '',
@@ -221,10 +221,10 @@ test('commandBar stays compact by default even when suggestions are provided', (
   assert.equal(frame.accessibility.root.children, undefined);
 });
 
-test('commandBar windows long input around the cursor', () => {
+test('commandInput windows long input around the cursor', () => {
   const value = '/open /very/long/path/to/file.txt';
   const frame = renderElementFrame(
-    commandBar({
+    commandInput({
       id: 'long-command',
       prompt: '>',
       value,
@@ -245,9 +245,9 @@ test('commandBar windows long input around the cursor', () => {
   assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 18 });
 });
 
-test('commandBar maps pointer positions through the cursor-relative input window', () => {
+test('commandInput maps pointer positions through the cursor-relative input window', () => {
   const regions = renderElementRegions(
-    commandBar({
+    commandInput({
       id: 'windowed-command',
       prompt: '>',
       value: 'abcdef',
@@ -310,9 +310,9 @@ function pointerEvent({
   };
 }
 
-test('commandBar exposes prompt value selection suggestion validation and footer source metadata', () => {
+test('commandInput exposes prompt value selection suggestion validation and footer source metadata', () => {
   const frame = renderElementFrame(
-    commandBar({
+    commandInput({
       id: 'cmd-source',
       prompt: ':',
       value: 'open file',

@@ -1,13 +1,11 @@
 import { sanitizeTerminalText } from '../text/index.ts';
-import type { RecordStatus } from '../ui-model/contracts.ts';
 import type { StructuredBlock } from '../ui-model/documents.ts';
 import type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
 
 export interface ActivityFeedState {
-  readonly selected?: number;
+  readonly selectedId?: string;
   readonly expandedIds: readonly string[];
   readonly collapsedIds: readonly string[];
-  readonly statusFilter?: readonly RecordStatus[];
 }
 
 export interface ActivityFeedReducerOptions {
@@ -21,10 +19,8 @@ export interface ActivityFeedVisibleBlock {
 
 export interface ActivityFeedPresentation {
   readonly blocks: readonly StructuredBlock[];
-  readonly selected?: number;
+  readonly selectedId?: string;
 }
-
-const problemStatuses: readonly RecordStatus[] = ['error', 'failed', 'warning'];
 
 export function activityFeedReducer(
   state: ActivityFeedState,
@@ -34,11 +30,17 @@ export function activityFeedReducer(
   const blocks = options.blocks ?? [];
   switch (action.kind) {
     case 'select':
-      return withSelected(state, boundedBlockIndex(action.index, blocks.length));
+      return blocks.some((block) => block.id === action.id)
+        ? withSelectedId(state, action.id)
+        : state;
     case 'selectNext':
-      return withSelected(state, adjacentVisibleIndex(state, blocks, 1));
+      return withSelectedId(state, adjacentBlockId(state, blocks, 1));
     case 'selectPrevious':
-      return withSelected(state, adjacentVisibleIndex(state, blocks, -1));
+      return withSelectedId(state, adjacentBlockId(state, blocks, -1));
+    case 'selectFirst':
+      return withSelectedId(state, blocks[0]?.id);
+    case 'selectLast':
+      return withSelectedId(state, blocks.at(-1)?.id);
     case 'toggleBlock': {
       const id = action.id ?? selectedBlockId(state, blocks);
       const block = id === undefined ? undefined : blocks.find((item) => item.id === id);
@@ -58,40 +60,29 @@ export function activityFeedReducer(
         ? state
         : setBlockCollapsed(state, id, true);
     }
-    case 'setStatusFilter':
-      return withStatusFilter(state, action.statuses, blocks);
-    case 'jumpToFirstProblem':
-      return withSelected(state, firstStatusIndex(blocks, problemStatuses) ?? state.selected);
   }
 }
 
 export function visibleActivityFeedBlocks(
   blocks: readonly StructuredBlock[],
-  state: Pick<ActivityFeedState, 'expandedIds' | 'collapsedIds' | 'statusFilter'>
+  state: Pick<ActivityFeedState, 'expandedIds' | 'collapsedIds'>
 ): readonly ActivityFeedVisibleBlock[] {
-  return blocks.flatMap((block, index): readonly ActivityFeedVisibleBlock[] => {
-    if (!matchesStatusFilter(block, state.statusFilter)) return [];
-    return [{
-      index,
-      block: {
-        ...block,
-        collapsed: activityBlockCollapsed(block, state)
-      }
-    }];
-  });
+  return blocks.map((block, index) => ({
+    index,
+    block: {
+      ...block,
+      collapsed: activityBlockCollapsed(block, state)
+    }
+  }));
 }
 
 export function activityFeedPresentation(
   blocks: readonly StructuredBlock[],
   state: ActivityFeedState
 ): ActivityFeedPresentation {
-  const visible = visibleActivityFeedBlocks(blocks, state);
-  const selected = state.selected === undefined
-    ? undefined
-    : visible.findIndex((entry) => entry.index === state.selected);
   return {
-    blocks: visible.map((entry) => entry.block),
-    ...(selected === undefined || selected < 0 ? {} : { selected })
+    blocks: visibleActivityFeedBlocks(blocks, state).map((entry) => entry.block),
+    ...(state.selectedId === undefined ? {} : { selectedId: state.selectedId })
   };
 }
 
@@ -106,38 +97,23 @@ export function activityBlockCollapsed(
 
 export function copyActivityFeedVisibleText(
   blocks: readonly StructuredBlock[],
-  state: Pick<ActivityFeedState, 'expandedIds' | 'collapsedIds' | 'statusFilter'>
+  state: Pick<ActivityFeedState, 'expandedIds' | 'collapsedIds'>
 ): string {
   return visibleActivityFeedBlocks(blocks, state).flatMap(({ block }) => blockTextLines(block)).join('\n');
 }
 
-function adjacentVisibleIndex(state: ActivityFeedState, blocks: readonly StructuredBlock[], direction: 1 | -1): number | undefined {
-  const visible = visibleActivityFeedBlocks(blocks, state);
-  if (visible.length === 0) return undefined;
-  const selected = state.selected ?? visible[0]?.index ?? 0;
-  const visibleIndex = Math.max(0, visible.findIndex((entry) => entry.index === selected));
-  return visible[wrapIndex(visibleIndex + direction, visible.length)]?.index;
-}
-
-function firstVisibleIndex(blocks: readonly StructuredBlock[], state: ActivityFeedState): number | undefined {
-  return visibleActivityFeedBlocks(blocks, state)[0]?.index;
-}
-
-function firstStatusIndex(
-  blocks: readonly StructuredBlock[],
-  statuses: readonly RecordStatus[]
-): number | undefined {
-  const index = blocks.findIndex((block) => block.status !== undefined && statuses.includes(block.status));
-  return index === -1 ? undefined : index;
-}
-
-function matchesStatusFilter(block: StructuredBlock, statuses: readonly RecordStatus[] | undefined): boolean {
-  return statuses === undefined || statuses.length === 0 || (block.status !== undefined && statuses.includes(block.status));
+function adjacentBlockId(state: ActivityFeedState, blocks: readonly StructuredBlock[], direction: 1 | -1): string | undefined {
+  if (blocks.length === 0) return undefined;
+  const selectedIndex = state.selectedId === undefined
+    ? 0
+    : Math.max(0, blocks.findIndex((block) => block.id === state.selectedId));
+  return blocks[wrapIndex(selectedIndex + direction, blocks.length)]?.id;
 }
 
 function selectedBlockId(state: ActivityFeedState, blocks: readonly StructuredBlock[]): string | undefined {
-  const selected = state.selected === undefined ? undefined : blocks[boundedBlockIndex(state.selected, blocks.length)];
-  return selected?.id;
+  return state.selectedId === undefined || !blocks.some((block) => block.id === state.selectedId)
+    ? undefined
+    : state.selectedId;
 }
 
 function setBlockCollapsed(state: ActivityFeedState, id: string, collapsed: boolean): ActivityFeedState {
@@ -154,28 +130,12 @@ function setBlockCollapsed(state: ActivityFeedState, id: string, collapsed: bool
       };
 }
 
-function withStatusFilter(
-  state: ActivityFeedState,
-  statuses: readonly RecordStatus[] | undefined,
-  blocks: readonly StructuredBlock[]
-): ActivityFeedState {
-  if (statuses === undefined || statuses.length === 0) {
-    const rest = withSelected({
-      expandedIds: state.expandedIds,
-      collapsedIds: state.collapsedIds
-    }, state.selected);
-    return withSelected(rest, firstVisibleIndex(blocks, rest));
-  }
-  return withSelected({ ...state, statusFilter: statuses }, firstVisibleIndex(blocks, { ...state, statusFilter: statuses }));
-}
-
-function withSelected(state: ActivityFeedState | Omit<ActivityFeedState, 'selected'>, selected: number | undefined): ActivityFeedState {
+function withSelectedId(state: ActivityFeedState, selectedId: string | undefined): ActivityFeedState {
   const rest = {
     expandedIds: state.expandedIds,
-    collapsedIds: state.collapsedIds,
-    ...(state.statusFilter === undefined ? {} : { statusFilter: state.statusFilter })
+    collapsedIds: state.collapsedIds
   };
-  return selected === undefined ? rest : { ...rest, selected };
+  return selectedId === undefined ? rest : { ...rest, selectedId };
 }
 
 function blockTextLines(block: StructuredBlock): readonly string[] {
@@ -191,11 +151,6 @@ function blockTextLines(block: StructuredBlock): readonly string[] {
 
 function addUnique(values: readonly string[], value: string): readonly string[] {
   return values.includes(value) ? values : [...values, value];
-}
-
-function boundedBlockIndex(index: number, length: number): number {
-  const current = Math.max(0, Math.floor(Number.isFinite(index) ? index : 0));
-  return length <= 0 ? current : Math.min(length - 1, current);
 }
 
 function wrapIndex(index: number, length: number): number {

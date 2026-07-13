@@ -7,7 +7,7 @@ import { dataSource, dataSpan, dataValueSpans, mergeDataStyles, selectionMarkerS
 import type { ScrollState } from '../../../../interaction/scroll.ts';
 import { sanitizeTerminalText } from '../../../../text/index.ts';
 import { windowDescription } from '../../visible-window.ts';
-import { numberProp, stringify } from '../../render-node-props.ts';
+import { stringify } from '../../render-node-props.ts';
 import { resolveRenderNodeStyle, themeStyle } from '../../render-node-style.ts';
 import type { LayoutNode, Rect } from '../../../model/layout.ts';
 import type { RenderBlock, RenderLine } from '../../../../visual/render.ts';
@@ -18,7 +18,7 @@ type ListNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'list'>;
 
 export function listScrollbarState(widget: ListNode, bounds: Rect): ScrollState {
   const items = filteredListItems(widget);
-  const selected = selectedVisibleIndex(items, numberProp(widget, 'selected'));
+  const selected = selectedVisibleIndex(items, stringify(widget.props.selectedId));
   const explicitScroll = scrollStateFromUnknown(widget.props.scroll);
   if (explicitScroll !== undefined) {
     return normalizeScrollState({
@@ -43,8 +43,8 @@ export function listScrollbarState(widget: ListNode, bounds: Rect): ScrollState 
 
 export function listBlock(widget: ListNode, height: number, theme: TerminalTheme): RenderBlock {
   const items = filteredListItems(widget);
-  const selectedSourceIndex = numberProp(widget, 'selected');
-  const selected = selectedVisibleIndex(items, selectedSourceIndex);
+  const selectedId = stringify(widget.props.selectedId);
+  const selected = selectedVisibleIndex(items, selectedId);
   const window = listWindow(widget, items, height, selected);
   const query = filterQuery(widget);
   if (window.rows.length === 0 && height > 0) {
@@ -61,7 +61,7 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
   return {
     lines: window.rows.map((entry): RenderLine => {
       const itemIndex = entry.index;
-      const isSelected = itemIndex === selectedSourceIndex;
+      const isSelected = entry.id === selectedId;
       const style = resolveRenderNodeStyle(widget, {
         part: 'item',
         base: themeStyle('text.default'),
@@ -72,7 +72,6 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
         themeStyle('menu.match', { underline: true }),
         widget.styles?.parts?.['match']
       );
-      const itemSourceId = `${widget.id ?? 'list'}:option:${String(itemIndex)}`;
       return {
         spans: [
           ...selectionMarkerSpans(
@@ -80,11 +79,11 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
             isSelected,
             theme,
             style,
-            dataSource(widget, `item.${String(itemIndex)}.marker`, { itemId: itemSourceId, itemIndex, role: 'decoration' })
+            dataSource(widget, `item.${entry.id}.marker`, { itemId: entry.id, itemIndex, role: 'decoration' })
           ),
           ...dataValueSpans(clean(String(entry.value)), query, style, {
-            source: dataSource(widget, `item.${String(itemIndex)}.value`, { itemId: itemSourceId, itemIndex }),
-            matchSource: dataSource(widget, `item.${String(itemIndex)}.match`, { itemId: itemSourceId, itemIndex }),
+            source: dataSource(widget, `item.${entry.id}.value`, { itemId: entry.id, itemIndex }),
+            matchSource: dataSource(widget, `item.${entry.id}.match`, { itemId: entry.id, itemIndex }),
             ...(matchStyle === undefined ? {} : { matchStyle })
           })
         ]
@@ -95,7 +94,7 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
 
 export function listAccessibleNode(widget: ListNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
   const items = filteredListItems(widget);
-  const selected = selectedVisibleIndex(items, numberProp(widget, 'selected'));
+  const selected = selectedVisibleIndex(items, stringify(widget.props.selectedId));
   const window = listWindow(widget, items, node.bounds.height, selected, node.bounds.width);
   return {
     id,
@@ -108,24 +107,21 @@ export function listAccessibleNode(widget: ListNode, node: LayoutNode, id: strin
 
 export function listAccessibleChildren(widget: ListNode, node: LayoutNode): readonly AccessibleNode[] {
   const items = filteredListItems(widget);
-  const selectedSourceIndex = numberProp(widget, 'selected');
-  const selected = selectedVisibleIndex(items, selectedSourceIndex);
+  const selectedId = stringify(widget.props.selectedId);
+  const selected = selectedVisibleIndex(items, selectedId);
   const window = listWindow(widget, items, node.bounds.height, selected, node.bounds.width);
-  return window.rows.map((entry) => {
-    const itemIndex = entry.index;
-    return {
-      id: `${widget.id ?? 'list'}:option:${String(itemIndex)}`,
+  return window.rows.map((entry) => ({
+      id: `${widget.id ?? 'list'}:option:${entry.id}`,
       role: 'option',
       label: String(entry.value),
-      selected: itemIndex === selectedSourceIndex,
+      selected: entry.id === selectedId,
       disabled: entry.disabled
-    };
-  });
+    }));
 }
 
 export function listCursor(widget: ListNode, bounds: Rect): { readonly row: number; readonly column: number } {
   const items = filteredListItems(widget);
-  const selected = selectedVisibleIndex(items, numberProp(widget, 'selected'));
+  const selected = selectedVisibleIndex(items, stringify(widget.props.selectedId));
   if (selected < 0 || items.length === 0 || bounds.height <= 0) {
     return { row: bounds.row, column: bounds.column };
   }
@@ -140,26 +136,27 @@ export function listHitTargets<TMessage>(widget: ListNode<TMessage>, bounds: Rec
   const toMessage = toActionMessageProp(widget);
   if (toMessage === undefined) return [];
   const items = filteredListItems(widget);
-  const selected = selectedVisibleIndex(items, numberProp(widget, 'selected'));
+  const selected = selectedVisibleIndex(items, stringify(widget.props.selectedId));
   const window = listWindow(widget, items, bounds.height, selected, bounds.width);
   return window.rows.flatMap((entry, index): HitTarget<TMessage>[] => {
     if (entry.disabled) return [];
     const itemIndex = entry.index;
     return [{
-      id: `${widget.id ?? 'list'}:option:${String(itemIndex)}`,
+      id: `${widget.id ?? 'list'}:option:${entry.id}`,
       bounds: {
         row: bounds.row + index,
         column: bounds.column,
         width: bounds.width,
         height: 1
       },
-      message: () => toMessage({ kind: 'select', index: itemIndex }),
+      message: () => toMessage({ kind: 'select', id: entry.id, index: itemIndex }),
       cursor: 'pointer'
     }];
   });
 }
 
 interface ListEntry {
+  readonly id: string;
   readonly value: unknown;
   readonly index: number;
   readonly disabled: boolean;
@@ -167,12 +164,11 @@ interface ListEntry {
 
 function filteredListItems(widget: ListNode): readonly ListEntry[] {
   const items = Array.isArray(widget.props.items) ? widget.props.items : [];
-  const disabled = new Set(widget.props.disabledIndices ?? []);
   const query = filterQuery(widget).toLocaleLowerCase();
-  return items.flatMap((value, index): readonly ListEntry[] =>
-    query.length > 0 && !String(value).toLocaleLowerCase().includes(query)
+  return items.flatMap((item, index): readonly ListEntry[] =>
+    !isListRenderItem(item) || (query.length > 0 && !String(item.value).toLocaleLowerCase().includes(query))
       ? []
-      : [{ value, index, disabled: disabled.has(index) }]
+      : [{ id: item.id, value: item.value, index, disabled: item.disabled }]
   );
 }
 
@@ -199,8 +195,18 @@ function toActionMessageProp<TMessage>(widget: ListNode<TMessage>): ((action: Li
   return widget.props.toActionMessage;
 }
 
-function selectedVisibleIndex(items: readonly ListEntry[], selected: number | undefined): number {
-  return selected === undefined ? -1 : items.findIndex((entry) => entry.index === selected);
+function selectedVisibleIndex(items: readonly ListEntry[], selectedId: string): number {
+  return selectedId.length === 0 ? -1 : items.findIndex((entry) => entry.id === selectedId);
+}
+
+function isListRenderItem(value: unknown): value is import('../../../model/props/content.ts').ListRenderItem {
+  return typeof value === 'object'
+    && value !== null
+    && 'id' in value
+    && typeof value.id === 'string'
+    && 'value' in value
+    && 'disabled' in value
+    && typeof value.disabled === 'boolean';
 }
 
 function clean(value: string): string {

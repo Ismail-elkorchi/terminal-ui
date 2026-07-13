@@ -10,7 +10,7 @@ import { createScrollState, normalizeScrollState } from '../../../../behavior/sc
 import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
 import { scrollbackWindow } from '../../scrollback.ts';
 import { treeVisibleRows } from '../../tree.ts';
-import { numberProp, stringify } from '../../render-node-props.ts';
+import { stringify } from '../../render-node-props.ts';
 import { isRecord } from './common.ts';
 import { viewportVisualState } from './viewport.ts';
 import type { RenderTarget } from '../../../model/render-target.ts';
@@ -593,9 +593,11 @@ function wrappedTextAreaRows(lineText: string, width: number): number {
 
 function selectedTableRow(widget: TableNode): number {
   const selectedCell = widget.props.selectedCell;
-  if (isRecord(selectedCell)) {
-    const row = selectedCell.row;
-    if (typeof row === 'number' && Number.isFinite(row)) return Math.max(0, Math.floor(row));
-  }
-  return Math.max(0, Math.floor(numberProp(widget, 'selected') ?? 0));
+  const selectedCellId = isRecord(selectedCell) && typeof selectedCell.rowId === 'string'
+    ? selectedCell.rowId
+    : undefined;
+  const selectedRowId = selectedCellId ?? (typeof widget.props.selectedRowId === 'string' ? widget.props.selectedRowId : undefined);
+  const rowIds = Array.isArray(widget.props.rowIds) ? widget.props.rowIds : [];
+  const selected = selectedRowId === undefined ? -1 : rowIds.indexOf(selectedRowId);
+  return Math.max(0, selected);
 }

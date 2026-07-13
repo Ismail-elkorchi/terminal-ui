@@ -12,11 +12,11 @@ import {
 } from '../../dist/renderer/index.js';
 import {
   contextMenu,
-  dropdown,
+  dropdownMenu,
   menu,
   menuBar
 } from '../../dist/components/index.js';
-import { stack } from '../../dist/layout/index.js';
+import { column } from '../../dist/layout/index.js';
 
 const enter = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
 const mousePress = (row, column) => ({
@@ -81,8 +81,8 @@ test('menu renders nested checked disabled items with menu accessibility', () =>
   assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
 });
 
-test('menuBar contextMenu and dropdown render reusable menu surfaces', () => {
-  const widget = stack([
+test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () => {
+  const widget = column([
     menuBar({
       id: 'main-menu',
       items: [
@@ -97,8 +97,8 @@ test('menuBar contextMenu and dropdown render reusable menu surfaces', () => {
       items,
       selected: 'autosave'
     }),
-    dropdown({
-      id: 'theme-dropdown',
+    dropdownMenu({
+      id: 'theme-dropdownMenu',
       label: 'Theme',
       presentation: { kind: 'open', selected: 'dark', highlighted: 'dark' },
       items: [
@@ -117,8 +117,8 @@ test('menuBar contextMenu and dropdown render reusable menu surfaces', () => {
   assert.match(output, /Light/u);
   assert.equal(frame.cells.find((cell) => cell.text === 'F')?.source?.ownerKind, 'menuBar');
   assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.ownerKind, 'contextMenu');
-  assert.equal(frame.cells.find((cell) => cell.text === 'D')?.source?.ownerKind, 'dropdown');
-  assert.equal(frame.cells.find((cell) => cell.text === 'D')?.source?.label, 'dropdown-value');
+  assert.equal(frame.cells.find((cell) => cell.text === 'D')?.source?.ownerKind, 'dropdownMenu');
+  assert.equal(frame.cells.find((cell) => cell.text === 'D')?.source?.label, 'dropdownMenu-value');
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'menu');
   assert.equal(frame.accessibility.root.children?.[1]?.role, 'menu');
   assert.equal(frame.accessibility.root.children?.[2]?.expanded, true);
@@ -129,7 +129,7 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
     id: 'menu-flow',
     init: () => ({ action: 'idle' }),
     update: (_state, message) => ({ state: { action: message.id ?? message.kind } }),
-    view: (state) => stack([
+    view: (state) => column([
       menu({
         id: 'actions',
         items,

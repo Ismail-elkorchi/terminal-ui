@@ -1,4 +1,4 @@
-export type CommandBarAction =
+export type CommandInputAction =
   | { readonly kind: 'insert'; readonly text: string }
   | { readonly kind: 'deleteBackward' }
   | { readonly kind: 'deleteForward' }

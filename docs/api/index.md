@@ -7,9 +7,9 @@ The root entrypoint exposes the main vertical path:
 - `runPrompt()`
 - `defineTui()`, `runTui()`, `createTuiRuntime()`, and subscription sources
 - common typed component factories such as `textInput()`, `button()`,
-  `table()`, and `commandBar()`
-- layout factories such as `stack()`, `row()`, `grid()`, `surface()`,
-  `tabs()`, and `viewport()`
+  `table()`, `tabs()`, and `commandInput()`
+- layout factories such as `column()`, `row()`, `grid()`, `surface()`,
+  and `viewport()`
 - `resolveSelectedText()` and `copySelectedTextToClipboard()` for
   app-owned TUI text selection flows
 - `toAccessibleSnapshot()`, `findAccessibleNode()`, and

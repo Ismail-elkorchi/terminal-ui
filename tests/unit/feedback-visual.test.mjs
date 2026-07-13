@@ -6,19 +6,19 @@ import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 import {
-  activityIndicator,
+  statusIndicator,
   helpBar,
   progressBar,
   spinner,
   statusBar
 } from '../../dist/components/index.js';
-import { stack } from '../../dist/layout/index.js';
+import { column } from '../../dist/layout/index.js';
 
 test('feedback status widgets preserve state in high contrast and no color output', () => {
-  const frame = renderElementFrame(stack([
-    statusBar({ id: 'status', text: 'Ready' }),
-    helpBar({ id: 'help', bindings: [{ key: 'Enter', label: 'run' }] }),
-    activityIndicator({ id: 'activity', label: 'Indexing', status: 'warning' }),
+  const frame = renderElementFrame(column([
+    statusBar({ id: 'status', leading: [{ id: 'ready', kind: 'status', text: 'Ready', status: 'success' }] }),
+    helpBar({ id: 'help', groups: [{ id: 'primary', bindings: [{ key: 'Enter', label: 'run' }] }] }),
+    statusIndicator({ id: 'activity', label: 'Indexing', status: 'warning' }),
     spinner({ id: 'spinner', label: 'Done', status: 'success' }),
     progressBar({
       id: 'progress',
@@ -40,7 +40,7 @@ test('feedback status widgets preserve state in high contrast and no color outpu
   });
 
   assert.equal(highContrast.plainTextFrame, [
-    'Ready',
+    '+ Ready',
     'Enter run',
     '! Indexing (warning)',
     '+ Done (success)',

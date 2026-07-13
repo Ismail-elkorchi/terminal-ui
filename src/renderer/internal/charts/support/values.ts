@@ -41,6 +41,7 @@ export function barItems(value: unknown): readonly BarChartItem[] {
   return value.filter((item): item is BarChartItem =>
     typeof item === 'object'
     && item !== null
+    && typeof (item as { readonly id?: unknown }).id === 'string'
     && typeof (item as { readonly label?: unknown }).label === 'string'
     && typeof (item as { readonly value?: unknown }).value === 'number'
     && Number.isFinite((item as { readonly value: number }).value)

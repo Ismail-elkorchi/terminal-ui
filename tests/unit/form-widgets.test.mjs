@@ -17,12 +17,12 @@ import {
   form,
   numberInput,
   radioGroup,
-  selectBox,
+  select,
   textInput
 } from '../../dist/components/index.js';
 import {
   row,
-  stack
+  column
 } from '../../dist/layout/index.js';
 
 const enter = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
@@ -59,7 +59,7 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
       ],
       onAction: (action) => ({ kind: 'mode', action })
     }),
-    selectBox({
+    select({
       id: 'region',
       label: 'Region',
       selected: 'eu',

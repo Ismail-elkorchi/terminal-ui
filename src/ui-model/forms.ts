@@ -24,7 +24,7 @@ export interface RangeSliderStepEvent {
   readonly direction: SliderStepDirection;
 }
 
-export interface ColorPickerOption<TValue = string> extends ChoiceItem<TValue> {
+export interface ColorSwatchPickerOption<TValue = string> extends ChoiceItem<TValue> {
   readonly swatch?: string;
   readonly style?: TerminalStyle;
 }

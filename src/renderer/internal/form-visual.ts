@@ -45,13 +45,13 @@ export type FormVisualKind =
 type FormStateNode = RenderNodesOfKind<
   unknown,
   | 'checkbox'
-  | 'checkboxList'
-  | 'colorPicker'
-  | 'datePicker'
+  | 'checkboxGroup'
+  | 'colorSwatchPicker'
+  | 'calendar'
   | 'numberInput'
   | 'radioGroup'
   | 'rangeSlider'
-  | 'selectBox'
+  | 'select'
   | 'slider'
   | 'textInput'
   | 'toggleSwitch'
@@ -107,9 +107,9 @@ export function formMarkerStyle(widget: RenderNode, state?: FormControlState): T
 function formValuePart(widget: RenderNode): string {
   switch (widget.kind) {
     case 'checkbox':
-    case 'checkboxList':
+    case 'checkboxGroup':
     case 'radioGroup':
-    case 'selectBox':
+    case 'select':
       return 'option';
     case 'field':
       return 'description';
@@ -120,8 +120,8 @@ function formValuePart(widget: RenderNode): string {
 
 function formMarkerPart(widget: RenderNode): string {
   switch (widget.kind) {
-    case 'colorPicker':
-    case 'datePicker':
+    case 'colorSwatchPicker':
+    case 'calendar':
       return 'navigation';
     case 'numberInput':
       return 'stepper';

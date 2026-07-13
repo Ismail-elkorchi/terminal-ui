@@ -1,9 +1,9 @@
 import { editTextBuffer } from '../text/index.ts';
 import type { TextEditBuffer } from '../text/index.ts';
-import type { CommandBarAction } from '../ui-model/command-bar.ts';
+import type { CommandInputAction } from '../ui-model/command-input.ts';
 import type { SuggestionItem } from '../ui-model/contracts.ts';
 
-export interface CommandBarState {
+export interface CommandInputState {
   readonly input: TextEditBuffer;
   readonly history: readonly string[];
   readonly historyIndex?: number;
@@ -11,7 +11,7 @@ export interface CommandBarState {
   readonly selectedSuggestion?: number;
 }
 
-export function commandBarReducer(state: CommandBarState, action: CommandBarAction): CommandBarState {
+export function commandInputReducer(state: CommandInputState, action: CommandInputAction): CommandInputState {
   switch (action.kind) {
     case 'insert':
     case 'deleteBackward':
@@ -32,9 +32,9 @@ export function commandBarReducer(state: CommandBarState, action: CommandBarActi
     case 'setValue':
       return withClearedHistory({ ...state, input: { text: action.value, cursor: action.value.length } });
     case 'historyPrevious':
-      return commandBarHistory(state, -1);
+      return commandInputHistory(state, -1);
     case 'historyNext':
-      return commandBarHistory(state, 1);
+      return commandInputHistory(state, 1);
     case 'selectSuggestion':
       return selectSuggestion(state, action.direction);
     case 'acceptSuggestion': {
@@ -48,7 +48,7 @@ export function commandBarReducer(state: CommandBarState, action: CommandBarActi
 
 function actionToTextEdit(
   action: Extract<
-    CommandBarAction,
+    CommandInputAction,
     {
       readonly kind:
         | 'insert'
@@ -121,7 +121,7 @@ function optionalSelection(
   return select === undefined ? { kind } : { kind, select };
 }
 
-function commandBarHistory(state: CommandBarState, direction: 1 | -1): CommandBarState {
+function commandInputHistory(state: CommandInputState, direction: 1 | -1): CommandInputState {
   if (state.history.length === 0) return state;
   const current = state.historyIndex ?? state.history.length;
   const next = clampIndex(current + direction, state.history.length + 1);
@@ -132,7 +132,7 @@ function commandBarHistory(state: CommandBarState, direction: 1 | -1): CommandBa
   return { ...state, input: { text: value, cursor: value.length }, historyIndex: next };
 }
 
-function selectSuggestion(state: CommandBarState, direction: 1 | -1): CommandBarState {
+function selectSuggestion(state: CommandInputState, direction: 1 | -1): CommandInputState {
   if (state.suggestions.length === 0) return state;
   const current = state.selectedSuggestion ?? (direction === 1 ? -1 : 0);
   for (let offset = 1; offset <= state.suggestions.length; offset += 1) {
@@ -144,7 +144,7 @@ function selectSuggestion(state: CommandBarState, direction: 1 | -1): CommandBar
   return withClearedSuggestion(state);
 }
 
-function withClearedHistory(state: CommandBarState): CommandBarState {
+function withClearedHistory(state: CommandInputState): CommandInputState {
   return {
     input: state.input,
     history: state.history,
@@ -153,7 +153,7 @@ function withClearedHistory(state: CommandBarState): CommandBarState {
   };
 }
 
-function withClearedSuggestion(state: CommandBarState): CommandBarState {
+function withClearedSuggestion(state: CommandInputState): CommandInputState {
   return {
     input: state.input,
     history: state.history,
@@ -162,7 +162,7 @@ function withClearedSuggestion(state: CommandBarState): CommandBarState {
   };
 }
 
-function acceptedSuggestion(state: CommandBarState): SuggestionItem | undefined {
+function acceptedSuggestion(state: CommandInputState): SuggestionItem | undefined {
   return state.selectedSuggestion === undefined
     ? state.suggestions.find((suggestion) => suggestion.disabled !== true)
     : state.suggestions[state.selectedSuggestion];

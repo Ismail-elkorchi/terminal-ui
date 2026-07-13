@@ -26,9 +26,9 @@ export interface StructuredBlock extends TitledItem {
   readonly collapsed?: boolean;
 }
 
-export interface CommandBarValidation {
+export interface CommandInputValidation {
   readonly message: string;
   readonly tone?: ComponentValidationTone;
 }
 
-export type CommandBarDisplay = 'compact' | 'expanded';
+export type CommandInputDisplay = 'compact' | 'expanded';

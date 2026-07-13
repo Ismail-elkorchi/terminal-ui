@@ -133,8 +133,8 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'ElementMeta',
     'ElementOptions',
     'ButtonOptions',
-    'CommandBarAction',
-    'CommandBarOptions',
+    'CommandInputAction',
+    'CommandInputOptions',
     'MenuItem',
     'PaletteAction',
     'TableAction',
@@ -173,8 +173,8 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   assert.doesNotMatch(layoutDeclaration, /\b(?:gridCellRects|splitTracks)\b/u);
 
   for (const typeName of [
-    'CommandBarAction',
-    'CommandBarState',
+    'CommandInputAction',
+    'CommandInputState',
     'NotificationAction',
     'PaletteAction',
     'ScreenStack',
@@ -228,11 +228,17 @@ test('entrypoint declarations expose layered public type contracts', async () =>
 
 test('public renderer helpers accept authored component elements', () => {
   assertNoTypeDiagnostics(`
-    import { text } from '@ismail-elkorchi/terminal-ui/components';
-    import { stack } from '@ismail-elkorchi/terminal-ui/layout';
+    import { dialog, tabs, text } from '@ismail-elkorchi/terminal-ui/components';
+    import { column } from '@ismail-elkorchi/terminal-ui/layout';
     import { layoutElement, renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
 
-    const element = stack([text('x', { id: 'x' })], { id: 'root' });
+    const panels = tabs({
+      id: 'tabs',
+      tabs: [{ id: 'main', label: 'Main', panel: text('x', { id: 'x' }) }]
+    });
+    const element = column([
+      dialog(panels, { id: 'dialog', title: 'Example' })
+    ], { id: 'root' });
     const frame = renderElementFrame(element, { columns: 10, rows: 3 });
     const layout = layoutElement(element, { columns: 10, rows: 3 });
 
@@ -258,7 +264,7 @@ test('public authored Element rejects arbitrary objects', () => {
 
 test('renderer and layout boundaries reject unauthored JavaScript objects', async () => {
   const { text } = await import('@ismail-elkorchi/terminal-ui/components');
-  const { stack } = await import('@ismail-elkorchi/terminal-ui/layout');
+  const { column } = await import('@ismail-elkorchi/terminal-ui/layout');
   const { renderElementFrame, renderFramePlain } = await import('@ismail-elkorchi/terminal-ui/renderer');
   const invalid = { kind: 'text', props: { content: 'not authored' } };
   const element = text('authored');
@@ -274,7 +280,7 @@ test('renderer and layout boundaries reject unauthored JavaScript objects', asyn
     /Expected an Element created by a terminal-ui component or layout factory/u
   );
   assert.throws(
-    () => stack([invalid]),
+    () => column([invalid]),
     /Expected an Element created by a terminal-ui component or layout factory/u
   );
 });

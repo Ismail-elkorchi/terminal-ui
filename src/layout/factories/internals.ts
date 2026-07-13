@@ -4,7 +4,7 @@ import type { RenderNodeLayoutProps } from '../../renderer/model/props/shared-la
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
 
 export function assertTrackCount(
-  kind: 'row' | 'stack',
+  kind: 'column' | 'row',
   sizes: readonly unknown[] | undefined,
   childCount: number
 ): void {
@@ -29,7 +29,7 @@ export function surfaceLayoutProps(options: Omit<LayoutFlowOptions, 'gap'>): Ren
 
 export function assertSurfaceChild<TMessage>(child: Element<TMessage>): void {
   if (Array.isArray(child) || toRenderNode(child).kind === 'surface') {
-    throw new Error('surface() expects exactly one non-surface child. Compose child content with stack(), row(), grid(), or tabs() before wrapping it in surface().');
+    throw new Error('surface() expects exactly one non-surface child. Compose child content with column(), row(), grid(), or another layout element before wrapping it in surface().');
   }
 }
 

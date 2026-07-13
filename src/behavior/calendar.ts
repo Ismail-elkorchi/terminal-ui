@@ -1,17 +1,17 @@
 import type {
   CalendarDate,
   CalendarMonth,
-  DatePickerAction,
-  DatePickerDay
-} from '../ui-model/date-picker.ts';
+  CalendarAction,
+  CalendarDay
+} from '../ui-model/calendar.ts';
 
-export interface DatePickerState {
+export interface CalendarState {
   readonly visibleMonth: CalendarMonth;
   readonly selected?: CalendarDate;
   readonly focused?: CalendarDate;
 }
 
-export interface DatePickerBehaviorOptions {
+export interface CalendarBehaviorOptions {
   readonly locale: string;
   readonly weekStartsOn: 0 | 1 | 2 | 3 | 4 | 5 | 6;
   readonly min?: CalendarDate;
@@ -21,19 +21,19 @@ export interface DatePickerBehaviorOptions {
   isDisabled?(date: CalendarDate): boolean;
 }
 
-export interface DatePickerPresentation {
+export interface CalendarPresentation {
   readonly monthLabel: string;
   readonly weekdays: readonly string[];
-  readonly days: readonly DatePickerDay[];
+  readonly days: readonly CalendarDay[];
   readonly selected?: string;
   readonly focused?: string;
 }
 
-export function datePickerReducer(
-  state: DatePickerState,
-  action: DatePickerAction,
-  options: DatePickerBehaviorOptions
-): DatePickerState {
+export function calendarReducer(
+  state: CalendarState,
+  action: CalendarAction,
+  options: CalendarBehaviorOptions
+): CalendarState {
   assertOptions(options);
   switch (action.kind) {
     case 'select':
@@ -55,17 +55,17 @@ export function datePickerReducer(
   }
 }
 
-export function datePickerPresentation(
-  state: DatePickerState,
-  options: DatePickerBehaviorOptions
-): DatePickerPresentation {
+export function calendarPresentation(
+  state: CalendarState,
+  options: CalendarBehaviorOptions
+): CalendarPresentation {
   assertOptions(options);
   const first = { ...state.visibleMonth, day: 1 };
   assertCalendarDate(first);
   const start = addDays(first, -weekdayOffset(first, options.weekStartsOn));
   const weekdays = Array.from({ length: 7 }, (_value, index) => weekdayLabel(addDays(start, index), options.locale));
   const outsidePolicy = options.outsideMonth ?? 'visible';
-  const days = Array.from({ length: 42 }, (_value, index): DatePickerDay => {
+  const days = Array.from({ length: 42 }, (_value, index): CalendarDay => {
     const date = addDays(start, index);
     const outsideMonth = date.year !== state.visibleMonth.year || date.month !== state.visibleMonth.month;
     const hidden = outsideMonth && outsidePolicy === 'hidden';
@@ -111,10 +111,10 @@ export function addMonths(month: CalendarMonth, months: number): CalendarMonth {
 }
 
 function moveFocus(
-  state: DatePickerState,
+  state: CalendarState,
   days: number,
-  options: DatePickerBehaviorOptions
-): DatePickerState {
+  options: CalendarBehaviorOptions
+): CalendarState {
   const direction = Math.sign(days);
   let candidate = addDays(focusDate(state), days);
   for (let attempts = 0; attempts < 3660; attempts += 1) {
@@ -126,10 +126,10 @@ function moveFocus(
 }
 
 function moveVisibleMonth(
-  state: DatePickerState,
+  state: CalendarState,
   months: number,
-  options: DatePickerBehaviorOptions
-): DatePickerState {
+  options: CalendarBehaviorOptions
+): CalendarState {
   const visibleMonth = addMonths(state.visibleMonth, months);
   const day = Math.min(focusDate(state).day, daysInMonth(visibleMonth));
   const candidate = { ...visibleMonth, day };
@@ -137,18 +137,18 @@ function moveVisibleMonth(
   return { ...state, visibleMonth, ...(focused === undefined ? {} : { focused }) };
 }
 
-function focusDate(state: DatePickerState): CalendarDate {
+function focusDate(state: CalendarState): CalendarDate {
   return state.focused ?? state.selected ?? { ...state.visibleMonth, day: 1 };
 }
 
-function selectable(date: CalendarDate, options: DatePickerBehaviorOptions): boolean {
+function selectable(date: CalendarDate, options: CalendarBehaviorOptions): boolean {
   assertCalendarDate(date);
   if (options.min !== undefined && compareDates(date, options.min) < 0) return false;
   if (options.max !== undefined && compareDates(date, options.max) > 0) return false;
   return options.isDisabled?.(date) !== true;
 }
 
-function outsideBounds(date: CalendarDate, options: DatePickerBehaviorOptions, direction: number): boolean {
+function outsideBounds(date: CalendarDate, options: CalendarBehaviorOptions, direction: number): boolean {
   if (direction < 0 && options.min !== undefined) return compareDates(date, options.min) < 0;
   if (direction > 0 && options.max !== undefined) return compareDates(date, options.max) > 0;
   return false;
@@ -194,7 +194,7 @@ function dateFromUtc(value: Date): CalendarDate {
   return { year: value.getUTCFullYear(), month: value.getUTCMonth() + 1, day: value.getUTCDate() };
 }
 
-function assertOptions(options: DatePickerBehaviorOptions): void {
+function assertOptions(options: CalendarBehaviorOptions): void {
   if (options.locale.trim().length === 0) throw new RangeError('date picker locale must not be empty.');
   if (options.min !== undefined) assertCalendarDate(options.min);
   if (options.max !== undefined) assertCalendarDate(options.max);

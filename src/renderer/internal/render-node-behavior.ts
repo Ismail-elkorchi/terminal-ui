@@ -9,7 +9,7 @@ import {
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
-import type { RenderNodeLayoutTarget } from './focus.ts';
+import type { RenderNodeFocusTarget, RenderNodeLayoutTarget } from './focus.ts';
 import type { LayoutNode, Rect } from '../model/layout.ts';
 import type { Measurement } from './measurement.ts';
 import type { FocusTarget, HitTarget, RenderNodeRenderer, RenderNodeRenderInput } from '../model/renderer.ts';
@@ -82,13 +82,13 @@ export function focusTargetsForRenderNode(widget: RenderNode, bounds: Rect, them
 }
 
 export function focusScopeForRenderNode(widget: RenderNode): ElementFocusScope | undefined {
-  const scope = widget.focus?.scope ?? (widget.kind === 'modal' ? 'contain' : undefined);
+  const scope = widget.focus?.scope ?? (widget.kind === 'dialog' ? 'contain' : undefined);
   return scope === 'none' ? undefined : scope;
 }
 
 export function cursorForRenderNode(
   widget: RenderNode,
-  target: RenderNodeLayoutTarget<unknown>,
+  target: RenderNodeFocusTarget<unknown>,
   theme: TerminalTheme
 ): { readonly row: number; readonly column: number } | undefined {
   return target.cursor
@@ -101,7 +101,12 @@ export function hitTargetsForRenderNode<TMessage>(
   theme: TerminalTheme
 ): readonly HitTarget<TMessage>[] {
   if (renderNodeInteractionDisabled(widget)) return [];
-  return rendererForRenderNode(widget).hitTargets?.({ renderNode: widget, bounds: target.bounds, theme }) ?? [];
+  return rendererForRenderNode(widget).hitTargets?.({
+    renderNode: widget,
+    layoutNode: target.layoutNode,
+    bounds: target.bounds,
+    theme
+  }) ?? [];
 }
 
 function customRenderer<TMessage>(widget: RenderNode<TMessage>): RenderNodeRenderer<TMessage> {

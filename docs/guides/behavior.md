@@ -10,14 +10,15 @@ Use behavior helpers when component interaction has reusable rules:
 - table row, cell, sort, and resize behavior;
 - tree expansion, filtering, selection, and lazy state;
 - palette query, selection, preview, and grouping;
-- command-bar editing, history, and suggestion navigation;
+- command-input editing, history, and suggestion navigation;
 - notification history, expiry, pause, resume, and dismissal;
 - activity-feed expansion and selection;
-- menu hierarchy, dropdown highlighting, and tab navigation;
+- menu hierarchy, dropdownMenu highlighting, and tab navigation;
 - checkbox-list, radio-group, select-box, and color-picker navigation;
 - scrollback search, folds, follow-tail, and scroll projection;
 - chart and heatmap keyboard and pointer selection;
 - hover, focus, and visual-state reducers.
+- split-pane divider selection, constrained resizing, and pointer drag anchors.
 
 The pattern is:
 
@@ -28,32 +29,32 @@ The pattern is:
 
 ```ts
 import {
-  commandBar
+  commandInput
 } from '@ismail-elkorchi/terminal-ui/components';
 import {
-  commandBarPresentation,
-  commandBarReducer,
-  type CommandBarState
+  commandInputPresentation,
+  commandInputReducer,
+  type CommandInputState
 } from '@ismail-elkorchi/terminal-ui/behavior';
-import type { CommandBarAction } from '@ismail-elkorchi/terminal-ui/components';
+import type { CommandInputAction } from '@ismail-elkorchi/terminal-ui/components';
 
 type Message =
-  | { kind: 'command'; action: CommandBarAction }
+  | { kind: 'command'; action: CommandInputAction }
   | { kind: 'submit' };
 
 interface State {
-  readonly command: CommandBarState;
+  readonly command: CommandInputState;
 }
 
 function update(state: State, message: Message): State {
   if (message.kind === 'submit') return state;
-  return { ...state, command: commandBarReducer(state.command, message.action) };
+  return { ...state, command: commandInputReducer(state.command, message.action) };
 }
 
 function view(state: State) {
-  return commandBar({
+  return commandInput({
     id: 'command',
-    ...commandBarPresentation(state.command),
+    ...commandInputPresentation(state.command),
     onAction: (action) => ({ kind: 'command', action }),
     onSubmit: { kind: 'submit' }
   });
@@ -139,6 +140,14 @@ application effects. The reducer owns only deterministic hierarchy state.
 Behavior helpers may return the same state object for no-op transitions. That
 lets applications avoid unnecessary rerenders while keeping update logic
 explicit.
+
+Resizable panes use normalized shares so terminal resizing does not make the
+application persist stale cell coordinates. `createSplitPaneState()` owns the
+initial shares, `splitPaneReducer()` applies keyboard and captured-pointer
+actions with optional per-pane share constraints, and
+`splitPanePresentation()` produces the percentage tracks consumed by
+`splitPane()`. The caller stores the state and decides where pane sizes are
+persisted.
 
 ## Boundaries
 

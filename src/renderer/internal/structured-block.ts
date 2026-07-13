@@ -4,7 +4,7 @@ import { dataWindow, rowWindow } from '../../behavior/data-window.ts';
 import {
   type DocumentSourceOptions, documentBodyStyle, documentDetailStyle, documentFieldSpans, documentMarkerStyle, documentSpan, documentStatusStyle, documentSummaryStyle, documentTitleStyle, sourceToken
 } from './document-visual.ts';
-import { numberProp, stringify } from './render-node-props.ts';
+import { stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { FieldItem } from '../../ui-model/contracts.ts';
@@ -125,7 +125,7 @@ export function activityFeedHitTargets<TMessage>(
         height
       },
       accepts: ['click'],
-      message: () => toActionMessage({ kind: 'select', index }),
+      message: () => toActionMessage({ kind: 'select', id: block.id }),
       cursor: 'pointer'
     });
     rowOffset += height;
@@ -289,9 +289,10 @@ function activityFeedActionMessageFactory<TMessage>(
 }
 
 function selectedBlockIndex(widget: ActivityFeedNode, length: number): number | undefined {
-  const selected = numberProp(widget, 'selected');
-  if (selected === undefined || length <= 0) return undefined;
-  return Math.max(0, Math.min(length - 1, Math.floor(selected)));
+  const selectedId = stringify(widget.props.selectedId);
+  if (selectedId.length === 0 || length <= 0) return undefined;
+  const selected = activityFeedBlocks(widget).findIndex((block) => block.id === selectedId);
+  return selected < 0 ? undefined : selected;
 }
 
 function sanitizeBlock(block: StructuredBlock): StructuredBlock {

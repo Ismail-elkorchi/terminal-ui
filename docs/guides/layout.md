@@ -5,14 +5,16 @@ targets, hit targets, and accessible structure.
 
 Use the shared layout primitives instead of per-component geometry:
 
-- `stack()` for vertical tracks;
+- `column()` for vertical tracks;
 - `row()` for horizontal tracks;
 - `grid()` for row/column cells;
-- `splitPane()` for resizable-pane shapes;
-- `tabs()` for selected-panel layouts;
-- `modal()` for centered bounded dialogs;
+- `splitPane()` for static pane tracks or controlled divider resizing;
 - `viewport()` for clipped virtual content;
 - `surface()`, `absolute()`, and `overlay()` for coordinate-space composition.
+
+Interactive `tabs()` and `dialog()` surfaces are components. Their renderers
+participate in ordinary layout, but their public ownership follows their
+selection, focus, and action semantics.
 
 Layout options include gap, padding, margin, fixed/percent/fill/content sizing,
 min/max dimensions, alignment, justification, overflow, z-index, visibility,

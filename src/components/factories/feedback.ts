@@ -1,10 +1,10 @@
 import { elementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
-  ActivityIndicatorOptions,
+  StatusIndicatorOptions,
   BarChartOptions,
   ChartOptions,
-  GaugeOptions,
+  MeterOptions,
   HeatmapOptions,
   HelpBarOptions,
   NotificationStackOptions,
@@ -14,7 +14,6 @@ import type {
   StatusBarOptions
 } from '../options/feedback.ts';
 import {
-  activationKeyBindings,
   componentMetaProps,
   interactionProps,
   mergeKeyBindings,
@@ -28,7 +27,8 @@ import type {
   InferredElementKeyBindings
 } from '../internal/messages.ts';
 import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
-import type { ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
+import type { BarChartAction, ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
+import { resolveStableIds } from '../internal/identity.ts';
 
 export function notificationStack<
   const TActionMessage = never,
@@ -68,45 +68,33 @@ export function notificationStack(options: NotificationStackOptions<unknown>): E
   });
 }
 
-export function statusBar(options: StatusBarOptions<never>): Element;
-export function statusBar<
-  const TPressMessage = never,
-  const TKeys extends InferredElementKeyBindings | undefined = undefined
->(
-  options: IndependentInteractionOptions<
-    StatusBarOptions<never>,
-    Record<never, never>,
-    { readonly onPress: TPressMessage },
-    TKeys
-  >
-): Element<TPressMessage | ComponentKeyBindingMessages<TKeys>>;
-export function statusBar(options: StatusBarOptions<unknown>): Element<unknown> {
-  const keyMap = activationKeyBindings(
-    options.onPress === undefined ? undefined : () => options.onPress,
-    options.keys
-  );
-  return elementFromRenderNode<'statusBar', unknown>({
+export function statusBar(options: StatusBarOptions): Element {
+  const leading = options.leading ?? [];
+  const center = options.center ?? [];
+  const trailing = options.trailing ?? [];
+  resolveStableIds([...leading, ...center, ...trailing], (item) => item.id, 'statusBar');
+  return elementFromRenderNode<'statusBar'>({
     ...requiredId(options.id, 'statusBar'),
     kind: 'statusBar',
-    props: { text: options.text },
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
-  });
-}
-
-export function helpBar(options: HelpBarOptions): Element {
-  return elementFromRenderNode<'helpBar'>({
-    ...optionalId(options.id),
-    kind: 'helpBar',
-    props: { bindings: options.bindings },
+    props: { leading, center, trailing },
     ...componentMetaProps(options.meta)
   });
 }
 
-export function activityIndicator(options: ActivityIndicatorOptions = {}): Element {
-  return elementFromRenderNode<'activityIndicator'>({
+export function helpBar(options: HelpBarOptions): Element {
+  resolveStableIds(options.groups, (group) => group.id, 'helpBar');
+  return elementFromRenderNode<'helpBar'>({
     ...optionalId(options.id),
-    kind: 'activityIndicator',
+    kind: 'helpBar',
+    props: { groups: options.groups },
+    ...componentMetaProps(options.meta)
+  });
+}
+
+export function statusIndicator(options: StatusIndicatorOptions = {}): Element {
+  return elementFromRenderNode<'statusIndicator'>({
+    ...optionalId(options.id),
+    kind: 'statusIndicator',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.status === undefined ? {} : { status: options.status })
@@ -155,20 +143,44 @@ export function sparkline(options: SparklineOptions): Element {
   });
 }
 
-export function barChart(options: BarChartOptions): Element {
-  return elementFromRenderNode<'barChart'>({
-    ...optionalId(options.id),
+export function barChart<
+  const TActionMessage = never,
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
+>(
+  options: IndependentInteractionOptions<
+    BarChartOptions,
+    { readonly onAction: TActionMessage },
+    Record<never, never>,
+    TKeys
+  >
+): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
+  resolveStableIds(options.items, (item) => item.id, 'barChart');
+  const onAction = options.onAction;
+  const selectedIndex = options.items.findIndex((item) => item.id === options.selectedId);
+  const generated = onAction === undefined ? undefined : {
+    arrowUp: () => onAction({ kind: 'move', delta: -1 }),
+    arrowDown: () => onAction({ kind: 'move', delta: 1 }),
+    home: () => onAction({ kind: 'first' }),
+    end: () => onAction({ kind: 'last' }),
+    enter: () => selectedIndex < 0
+      ? undefined
+      : onAction({ kind: 'activate', id: options.items[selectedIndex]?.id ?? '', index: selectedIndex })
+  } satisfies import('../../element/metadata.ts').ElementKeyBindings<unknown>;
+  return elementFromRenderNode<'barChart', unknown>({
+    ...requiredId(options.id, 'barChart'),
     kind: 'barChart',
     props: {
       items: options.items,
       ...(options.max === undefined ? {} : { max: options.max }),
-      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
       ...(options.status === undefined ? {} : { status: options.status }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
       ...(options.loadingText === undefined ? {} : { loadingText: options.loadingText }),
-      ...(options.errorText === undefined ? {} : { errorText: options.errorText })
+      ...(options.errorText === undefined ? {} : { errorText: options.errorText }),
+      ...(onAction === undefined ? {} : { toActionMessage: (action: BarChartAction) => onAction(action) })
     },
-    ...componentMetaProps(options.meta)
+    ...interactionProps({ ...options, keys: mergeKeyBindings(generated, options.keys) })
   });
 }
 
@@ -216,10 +228,10 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
   });
 }
 
-export function gauge(options: GaugeOptions): Element {
-  return elementFromRenderNode<'gauge'>({
+export function meter(options: MeterOptions): Element {
+  return elementFromRenderNode<'meter'>({
     ...optionalId(options.id),
-    kind: 'gauge',
+    kind: 'meter',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
       value: options.value,

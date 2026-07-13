@@ -16,7 +16,7 @@ import { text } from '../../dist/components/index.js';
 import { custom } from '../../dist/renderer/index.js';
 import {
   splitPane,
-  stack
+  column
 } from '../../dist/layout/index.js';
 
 test('custom renderers render through required renderer contract', () => {
@@ -218,7 +218,7 @@ test('custom renderers must provide accessibility unless explicitly decorative',
       buffer.write(bounds.row, bounds.column, [{ text: 'decor' }]);
     }
   };
-  const accessibleFrame = renderElementFrame(stack([
+  const accessibleFrame = renderElementFrame(column([
     custom({
       id: 'decorative-custom',
       renderer: visualRenderer,

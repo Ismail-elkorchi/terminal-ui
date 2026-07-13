@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import {
   checkbox,
-  commandBar,
+  commandInput,
   list,
   palette,
   slider,
@@ -24,10 +24,10 @@ test('component construction and rendering do not execute event handlers', () =>
   const elements = [
     checkbox({ id: 'check', label: 'Check', checked: false, onChange: message }),
     slider({ id: 'slider', value: 4, onChange: message }),
-    list({ id: 'list', items: ['a'], selected: 0, onAction: message }),
-    table({ id: 'table', rows: ['a'], selected: 0, onAction: message }),
+    list({ id: 'list', items: ['a'], getItemId: (item) => item, selectedId: 'a', onAction: message }),
+    table({ id: 'table', rows: ['a'], getRowId: (row) => row, selectedRowId: 'a', onAction: message }),
     textArea({ id: 'area', value: 'a', onEdit: message }),
-    commandBar({ id: 'command', value: 'a', onAction: message }),
+    commandInput({ id: 'command', value: 'a', onAction: message }),
     palette({ id: 'palette', entries: [{ id: 'a', label: 'A', value: 'a' }], onAction: message })
   ];
 

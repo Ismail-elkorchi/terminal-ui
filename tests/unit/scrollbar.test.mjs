@@ -258,6 +258,7 @@ test('widget scrollbars expose owner source metadata and visual state', () => {
 
 test('table scrollbar can expose vertical and horizontal scroll scope together', () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'wide',
     rows: [
       ['alpha-column', 'one'],

@@ -2,13 +2,46 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  barChartPresentation,
+  barChartReducer,
   chartPresentation,
   chartReducer,
   heatmapPresentation,
   heatmapReducer
 } from '../../dist/behavior/index.js';
-import { chart, heatmap } from '../../dist/components/index.js';
+import { barChart, chart, heatmap } from '../../dist/components/index.js';
 import { renderElementFrame, renderElementRegions } from '../../dist/renderer/index.js';
+
+test('bar chart behavior keeps stable selection through reorder and deletion', () => {
+  const items = [
+    { id: 'cpu', label: 'CPU', value: 40 },
+    { id: 'memory', label: 'Memory', value: 70 },
+    { id: 'disk', label: 'Disk', value: 20 }
+  ];
+  const selected = barChartReducer({}, { kind: 'select', id: 'memory', index: 1 }, items);
+  const reordered = [items[2], items[1], items[0]];
+  const moved = barChartReducer(selected, { kind: 'move', delta: 1 }, reordered);
+  const recovered = barChartReducer(selected, { kind: 'move', delta: 1 }, [items[0], items[2]]);
+
+  assert.deepEqual(barChartPresentation(selected), { selectedId: 'memory' });
+  assert.deepEqual(moved, { selectedId: 'cpu' });
+  assert.deepEqual(recovered, { selectedId: 'cpu' });
+});
+
+test('bar chart pointer targets emit stable item actions', () => {
+  const regions = renderElementRegions(barChart({
+    id: 'bar-actions',
+    selectedId: 'memory',
+    items: [
+      { id: 'cpu', label: 'CPU', value: 40 },
+      { id: 'memory', label: 'Memory', value: 70 }
+    ],
+    onAction: (action) => action
+  }), { columns: 20, rows: 2 });
+  const targets = regions.flatMap((region) => region.hitTargets);
+
+  assert.deepEqual(targets[1]?.message({}), { kind: 'select', id: 'memory', index: 1 });
+});
 
 test('chart behavior navigates series, points, and pages without owning data', () => {
   const series = [

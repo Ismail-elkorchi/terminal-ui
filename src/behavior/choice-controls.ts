@@ -1,28 +1,28 @@
 import type { ChoiceItem } from '../ui-model/contracts.ts';
 import type {
-  CheckboxListAction,
-  ColorPickerAction,
+  CheckboxGroupAction,
+  ColorSwatchPickerAction,
   RadioGroupAction,
-  SelectBoxAction
+  SelectAction
 } from '../ui-model/choice-controls.ts';
-import type { ColorPickerOption } from '../ui-model/forms.ts';
+import type { ColorSwatchPickerOption } from '../ui-model/forms.ts';
 import { adjacentItemId } from './navigation.ts';
 
-export interface CheckboxListState {
+export interface CheckboxGroupState {
   readonly selected: readonly string[];
   readonly focused?: string;
 }
 
-export interface CheckboxListPresentation {
+export interface CheckboxGroupPresentation {
   readonly selected: readonly string[];
   readonly focused?: string;
 }
 
-export function checkboxListReducer<TValue>(
-  state: CheckboxListState,
-  action: CheckboxListAction,
+export function checkboxGroupReducer<TValue>(
+  state: CheckboxGroupState,
+  action: CheckboxGroupAction,
   options: readonly ChoiceItem<TValue>[]
-): CheckboxListState {
+): CheckboxGroupState {
   const enabled = enabledIds(options);
   switch (action.kind) {
     case 'focus': return enabled.includes(action.id) ? { ...state, focused: action.id } : state;
@@ -40,7 +40,7 @@ export function checkboxListReducer<TValue>(
   }
 }
 
-export function checkboxListPresentation(state: CheckboxListState): CheckboxListPresentation {
+export function checkboxGroupPresentation(state: CheckboxGroupState): CheckboxGroupPresentation {
   return {
     selected: state.selected,
     ...(state.focused === undefined ? {} : { focused: state.focused })
@@ -66,37 +66,37 @@ export function radioGroupPresentation(state: RadioGroupState): RadioGroupPresen
   return compactSingleChoice(state);
 }
 
-export interface SelectBoxState {
+export interface SelectState {
   readonly selected?: string;
   readonly focused?: string;
 }
 
-export type SelectBoxPresentation = SelectBoxState;
+export type SelectPresentation = SelectState;
 
-export function selectBoxReducer<TValue>(
-  state: SelectBoxState,
-  action: SelectBoxAction,
+export function selectReducer<TValue>(
+  state: SelectState,
+  action: SelectAction,
   options: readonly ChoiceItem<TValue>[]
-): SelectBoxState {
+): SelectState {
   return reduceSingleChoice(state, action, enabledIds(options));
 }
 
-export function selectBoxPresentation(state: SelectBoxState): SelectBoxPresentation {
+export function selectPresentation(state: SelectState): SelectPresentation {
   return compactSingleChoice(state);
 }
 
-export interface ColorPickerState {
+export interface ColorSwatchPickerState {
   readonly selected?: string;
   readonly focused?: string;
 }
 
-export type ColorPickerPresentation = ColorPickerState;
+export type ColorSwatchPickerPresentation = ColorSwatchPickerState;
 
-export function colorPickerReducer<TValue>(
-  state: ColorPickerState,
-  action: ColorPickerAction,
-  options: readonly ColorPickerOption<TValue>[]
-): ColorPickerState {
+export function colorSwatchPickerReducer<TValue>(
+  state: ColorSwatchPickerState,
+  action: ColorSwatchPickerAction,
+  options: readonly ColorSwatchPickerOption<TValue>[]
+): ColorSwatchPickerState {
   const enabled = enabledIds(options);
   switch (action.kind) {
     case 'focus': return enabled.includes(action.id) ? { ...state, focused: action.id } : state;
@@ -107,7 +107,7 @@ export function colorPickerReducer<TValue>(
   }
 }
 
-export function colorPickerPresentation(state: ColorPickerState): ColorPickerPresentation {
+export function colorSwatchPickerPresentation(state: ColorSwatchPickerState): ColorSwatchPickerPresentation {
   return compactSingleChoice(state);
 }
 
@@ -118,7 +118,7 @@ interface SingleChoiceState {
 
 function reduceSingleChoice(
   state: SingleChoiceState,
-  action: RadioGroupAction | SelectBoxAction,
+  action: RadioGroupAction | SelectAction,
   enabled: readonly string[]
 ): SingleChoiceState {
   switch (action.kind) {

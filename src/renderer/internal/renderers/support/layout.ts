@@ -16,10 +16,10 @@ import type { Measurement } from '../../measurement.ts';
 
 type GridNode = RenderNodeOfKind<unknown, 'grid'>;
 type SplitPaneNode = RenderNodeOfKind<unknown, 'splitPane'>;
-type SizedFlowNode = RenderNodesOfKind<unknown, 'row' | 'stack'>;
+type SizedFlowNode = RenderNodesOfKind<unknown, 'column' | 'row'>;
 type LayoutFlowNode = RenderNodesOfKind<
   unknown,
-  'field' | 'form' | 'grid' | 'modal' | 'row' | 'splitPane' | 'stack' | 'surface' | 'tabs' | 'viewport'
+  'column' | 'dialog' | 'field' | 'form' | 'grid' | 'row' | 'splitPane' | 'surface' | 'tabs' | 'viewport'
 >;
 
 export function gridChildBounds(widget: GridNode, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {

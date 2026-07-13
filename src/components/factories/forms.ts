@@ -2,17 +2,17 @@ import { elementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type {
   ButtonOptions,
-  CheckboxListOptions,
+  CheckboxGroupOptions,
   CheckboxOptions,
-  ColorPickerOptions,
-  DatePickerOptions,
+  ColorSwatchPickerOptions,
+  CalendarOptions,
   FieldOptions,
   FormOptions,
   LabelOptions,
   NumberInputOptions,
   RadioGroupOptions,
   RangeSliderOptions,
-  SelectBoxOptions,
+  SelectOptions,
   SliderOptions,
   TextInputOptions,
   ToggleSwitchOptions
@@ -24,16 +24,16 @@ import type {
 } from '../internal/messages.ts';
 import {
   activationKeyBindings,
-  checkboxListKeyBindings,
-  colorPickerKeyBindings,
+  checkboxGroupKeyBindings,
+  colorSwatchPickerKeyBindings,
   componentMetaProps,
-  datePickerKeyBindings,
+  calendarKeyBindings,
   interactionProps,
   numberInputKeyBindings,
   radioGroupKeyBindings,
   rangeSliderKeyBindings,
   sliderKeyBindings,
-  selectBoxKeyBindings,
+  selectKeyBindings,
   textEditInputHandlers,
   textInputKeyBindings
 } from '../internal/interaction.ts';
@@ -205,11 +205,11 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
   });
 }
 
-export function checkboxList<TValue, const TMessage = never>(options: CheckboxListOptions<TValue, TMessage>): Element<TMessage> {
-  const keyMap = checkboxListKeyBindings(options);
-  return elementFromRenderNode<'checkboxList', TMessage>({
-    ...requiredId(options.id, 'checkboxList'),
-    kind: 'checkboxList',
+export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxGroupOptions<TValue, TMessage>): Element<TMessage> {
+  const keyMap = checkboxGroupKeyBindings(options);
+  return elementFromRenderNode<'checkboxGroup', TMessage>({
+    ...requiredId(options.id, 'checkboxGroup'),
+    kind: 'checkboxGroup',
     props: {
       options: choiceItemsForRenderer(options.options),
       ...(options.label === undefined ? {} : { label: options.label }),
@@ -245,11 +245,11 @@ export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOp
   });
 }
 
-export function colorPicker<TValue, const TMessage = never>(options: ColorPickerOptions<TValue, TMessage>): Element<TMessage> {
-  const keyMap = colorPickerKeyBindings(options);
-  return elementFromRenderNode<'colorPicker', TMessage>({
-    ...requiredId(options.id, 'colorPicker'),
-    kind: 'colorPicker',
+export function colorSwatchPicker<TValue, const TMessage = never>(options: ColorSwatchPickerOptions<TValue, TMessage>): Element<TMessage> {
+  const keyMap = colorSwatchPickerKeyBindings(options);
+  return elementFromRenderNode<'colorSwatchPicker', TMessage>({
+    ...requiredId(options.id, 'colorSwatchPicker'),
+    kind: 'colorSwatchPicker',
     props: {
       options: colorOptionsForRenderer(options.options),
       ...(options.label === undefined ? {} : { label: options.label }),
@@ -265,21 +265,21 @@ export function colorPicker<TValue, const TMessage = never>(options: ColorPicker
   });
 }
 
-export function datePicker<
+export function calendar<
   const TActionMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
-  DatePickerOptions,
+  CalendarOptions,
   { readonly onAction: TActionMessage },
   Record<never, never>,
   TKeys
 >): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
-export function datePicker(options: DatePickerOptions<unknown>): Element<unknown> {
-  const keyMap = datePickerKeyBindings(options);
+export function calendar(options: CalendarOptions<unknown>): Element<unknown> {
+  const keyMap = calendarKeyBindings(options);
   const onAction = options.onAction;
-  return elementFromRenderNode<'datePicker', unknown>({
-    ...requiredId(options.id, 'datePicker'),
-    kind: 'datePicker',
+  return elementFromRenderNode<'calendar', unknown>({
+    ...requiredId(options.id, 'calendar'),
+    kind: 'calendar',
     props: {
       days: options.days,
       monthLabel: options.monthLabel,
@@ -299,11 +299,11 @@ export function datePicker(options: DatePickerOptions<unknown>): Element<unknown
   });
 }
 
-export function selectBox<TValue, const TMessage = never>(options: SelectBoxOptions<TValue, TMessage>): Element<TMessage> {
-  const keyMap = selectBoxKeyBindings(options);
-  return elementFromRenderNode<'selectBox', TMessage>({
-    ...requiredId(options.id, 'selectBox'),
-    kind: 'selectBox',
+export function select<TValue, const TMessage = never>(options: SelectOptions<TValue, TMessage>): Element<TMessage> {
+  const keyMap = selectKeyBindings(options);
+  return elementFromRenderNode<'select', TMessage>({
+    ...requiredId(options.id, 'select'),
+    kind: 'select',
     props: {
       options: choiceItemsForRenderer(options.options),
       ...(options.label === undefined ? {} : { label: options.label }),

@@ -28,7 +28,7 @@ export interface TableColumn<TRow = unknown> {
 }
 
 export interface TableCellSelection {
-  readonly row: number;
+  readonly rowId: string;
   readonly column?: number;
 }
 

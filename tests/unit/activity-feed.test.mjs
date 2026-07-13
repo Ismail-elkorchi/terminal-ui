@@ -134,7 +134,7 @@ test('activityFeed renders selected visible blocks and accessible options', () =
   const frame = renderElementFrame(activityFeed({
     id: 'feed',
     blocks,
-    selected: 1
+    selectedId: 'running'
   }), { columns: 36, rows: 10 });
   const output = renderFramePlain(frame);
 
@@ -161,7 +161,7 @@ test('activityFeed exposes block hit targets and keyboard focus when interactive
   const element = activityFeed({
     id: 'interactive-feed',
     blocks,
-    selected: 1,
+    selectedId: 'running',
     onAction: (action) => ({ kind: 'activity', action }),
     keys: { arrowDown: () => ({ kind: 'next' }) }
   });
@@ -177,7 +177,7 @@ test('activityFeed exposes block hit targets and keyboard focus when interactive
   assert.deepEqual(frame.focusPath, ['interactive-feed']);
   assert.deepEqual(routedTargets[1]?.message({}), {
     kind: 'activity',
-    action: { kind: 'select', index: 1 }
+    action: { kind: 'select', id: 'running' }
   });
 });
 
@@ -199,7 +199,7 @@ test('activityFeed renders caller-owned reducer expansion state', () => {
     }
   ];
   const state = activityFeedReducer({
-    selected: 0,
+    selectedId: 'collapsed',
     expandedIds: [],
     collapsedIds: []
   }, { kind: 'expandBlock', id: 'collapsed' }, { blocks: reducerBlocks });
@@ -207,7 +207,7 @@ test('activityFeed renders caller-owned reducer expansion state', () => {
   const frame = renderElementFrame(activityFeed({
     id: 'feed-from-state',
     blocks: visibleBlocks,
-    selected: state.selected
+    selectedId: state.selectedId
   }), { columns: 40, rows: 6 });
 
   assert.match(renderFramePlain(frame), /body from reducer/u);
@@ -218,7 +218,7 @@ test('activityFeed renders caller-owned reducer expansion state', () => {
 test('activityFeed toggle uses the block effective collapsed state', () => {
   const collapsed = [{ id: 'collapsed', title: 'Collapsed', collapsed: true }];
   const expanded = activityFeedReducer({
-    selected: 0,
+    selectedId: 'collapsed',
     expandedIds: [],
     collapsedIds: []
   }, { kind: 'toggleBlock' }, { blocks: collapsed });
@@ -243,7 +243,7 @@ test('structuredBlock and activityFeed preserve document state in high contrast 
   const feedFrame = renderElementFrame(activityFeed({
     id: 'state-feed',
     blocks,
-    selected: 1
+    selectedId: 'running'
   }), { columns: 44, rows: 8 }, { theme: highContrastTheme });
   const highContrast = createVisualSnapshot({
     frame: feedFrame,
@@ -274,7 +274,7 @@ test('activityFeed bounds rendered rows to the viewport', () => {
   const frame = renderElementFrame(activityFeed({
     id: 'large-feed',
     blocks: manyBlocks,
-    selected: 990
+    selectedId: 'block-990'
   }), { columns: 32, rows: 5 });
   const output = renderFramePlain(frame);
 
@@ -295,17 +295,17 @@ function colorCapabilities() {
   });
 }
 
-test('activityFeedPresentation maps filtered source indices to rendered selection', () => {
-  const projection = activityFeedPresentation(blocks, {
-    selected: 2,
+test('activityFeedPresentation preserves stable selection across reordered blocks', () => {
+  const reordered = [blocks[2], blocks[0], blocks[1]];
+  const projection = activityFeedPresentation(reordered, {
+    selectedId: 'done',
     expandedIds: [],
-    collapsedIds: [],
-    statusFilter: ['success']
+    collapsedIds: []
   });
 
-  assert.equal(projection.blocks.length, 1);
+  assert.equal(projection.blocks.length, 3);
   assert.equal(projection.blocks[0]?.id, 'done');
-  assert.equal(projection.selected, 0);
+  assert.equal(projection.selectedId, 'done');
 });
 
 function noColorCapabilities() {

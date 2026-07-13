@@ -9,7 +9,7 @@ export interface CalendarMonth {
   readonly month: number;
 }
 
-export interface DatePickerDay {
+export interface CalendarDay {
   readonly id: string;
   readonly label: string;
   readonly date: CalendarDate;
@@ -19,7 +19,7 @@ export interface DatePickerDay {
   readonly hidden?: boolean;
 }
 
-export type DatePickerAction =
+export type CalendarAction =
   | { readonly kind: 'select'; readonly date: CalendarDate }
   | { readonly kind: 'focus'; readonly date: CalendarDate }
   | { readonly kind: 'moveFocus'; readonly days: number }

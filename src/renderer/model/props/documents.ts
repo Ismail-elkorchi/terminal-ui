@@ -10,8 +10,8 @@ import type {
   SearchEntry
 } from '../../../ui-model/contracts.ts';
 import type {
-  CommandBarDisplay,
-  CommandBarValidation,
+  CommandInputDisplay,
+  CommandInputValidation,
   ScrollbackItem,
   StructuredBlock
 } from '../../../ui-model/documents.ts';
@@ -53,24 +53,24 @@ export interface StructuredBlockRenderProps {
 
 export interface ActivityFeedRenderProps<TMessage> {
   readonly blocks: readonly StructuredBlock[];
-  readonly selected?: number;
+  readonly selectedId?: string;
   readonly toActionMessage?: (action: ActivityFeedAction) => TMessage;
 }
 
-export interface CommandBarRenderProps<TMessage> {
+export interface CommandInputRenderProps<TMessage> {
   readonly value: string;
   readonly cursor?: number;
   readonly selection?: TextSelection;
   readonly prompt?: string;
   readonly placeholder?: string;
   readonly completionPreview?: string;
-  readonly validation?: CommandBarValidation;
+  readonly validation?: CommandInputValidation;
   readonly footer?: string;
   readonly matchQuery?: string;
   readonly suggestions?: readonly SuggestionItem[];
   readonly selectedSuggestion?: number;
   readonly historyIndex?: number;
-  readonly display?: CommandBarDisplay;
+  readonly display?: CommandInputDisplay;
   readonly message?: TMessage;
   readonly toTextPointerMessage?: (event: TextPointerEvent) => TMessage;
 }

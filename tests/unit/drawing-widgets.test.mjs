@@ -13,7 +13,7 @@ import { blockSpan,
 import {
   absolute,
   overlay,
-  stack,
+  column,
   surface
 } from '../../dist/layout/index.js';
 import {
@@ -152,7 +152,7 @@ test('surface is a single-child visual wrapper, not a layout container', () => {
     /surface\(\) expects exactly one non-surface child/u
   );
 
-  const widget = surface(stack([
+  const widget = surface(column([
     text('one'),
     text('two')
   ], {

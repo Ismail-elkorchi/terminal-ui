@@ -22,7 +22,7 @@ export type MenuAction =
   | { readonly kind: 'collapse'; readonly id: string }
   | { readonly kind: 'scroll'; readonly event: ScrollEvent };
 
-export type DropdownAction =
+export type DropdownMenuAction =
   | { readonly kind: 'open' }
   | { readonly kind: 'close' }
   | { readonly kind: 'toggle' }
@@ -32,6 +32,6 @@ export type DropdownAction =
   | { readonly kind: 'last' }
   | { readonly kind: 'activate'; readonly id: string };
 
-export type DropdownPresentation =
+export type DropdownMenuPresentation =
   | { readonly kind: 'closed'; readonly selected?: string }
   | { readonly kind: 'open'; readonly selected?: string; readonly highlighted?: string };

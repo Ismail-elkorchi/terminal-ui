@@ -5,19 +5,19 @@ import type { ChoiceItem } from '../../ui-model/contracts.ts';
 import type {
   ButtonState,
   ButtonTone,
-  ColorPickerOption,
+  ColorSwatchPickerOption,
   NumericRange,
   RangeSliderStepEvent,
   RangeSliderValue,
   SliderStepEvent
 } from '../../ui-model/forms.ts';
 import type { NumberInputAction, NumberInputPresentation } from '../../ui-model/number-input.ts';
-import type { DatePickerAction, DatePickerDay } from '../../ui-model/date-picker.ts';
+import type { CalendarAction, CalendarDay } from '../../ui-model/calendar.ts';
 import type {
-  CheckboxListAction,
-  ColorPickerAction,
+  CheckboxGroupAction,
+  ColorSwatchPickerAction,
   RadioGroupAction,
-  SelectBoxAction
+  SelectAction
 } from '../../ui-model/choice-controls.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type {
@@ -107,38 +107,38 @@ export interface RangeSliderOptions<TMessage = never> extends InteractiveElement
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface CheckboxListOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<ChoiceStylePart> {
+export interface CheckboxGroupOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<ChoiceStylePart> {
   readonly label?: string;
   readonly options: readonly ChoiceItem<TValue>[];
   readonly selected?: readonly string[];
   readonly focused?: string;
-  readonly onAction?: (action: CheckboxListAction) => TMessage;
+  readonly onAction?: (action: CheckboxGroupAction) => TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface ColorPickerOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<PickerStylePart> {
+export interface ColorSwatchPickerOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<PickerStylePart> {
   readonly label?: string;
-  readonly options: readonly ColorPickerOption<TValue>[];
+  readonly options: readonly ColorSwatchPickerOption<TValue>[];
   readonly selected?: string;
   readonly focused?: string;
   readonly columns?: number;
-  readonly onAction?: (action: ColorPickerAction) => TMessage;
+  readonly onAction?: (action: ColorSwatchPickerAction) => TMessage;
   readonly disabled?: boolean;
   readonly error?: string;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface DatePickerOptions<TMessage = never> extends InteractiveElementOptions<PickerStylePart> {
+export interface CalendarOptions<TMessage = never> extends InteractiveElementOptions<PickerStylePart> {
   readonly label?: string;
   readonly monthLabel: string;
   readonly weekdays: readonly string[];
-  readonly days: readonly DatePickerDay[];
+  readonly days: readonly CalendarDay[];
   readonly selected?: string;
   readonly focused?: string;
-  readonly onAction?: (action: DatePickerAction) => TMessage;
+  readonly onAction?: (action: CalendarAction) => TMessage;
   readonly disabled?: boolean;
   readonly error?: string;
   readonly keys?: ElementKeyBindings<TMessage>;
@@ -156,13 +156,13 @@ export interface RadioGroupOptions<TValue = string, TMessage = never> extends In
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface SelectBoxOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<ChoiceStylePart> {
+export interface SelectOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<ChoiceStylePart> {
   readonly label?: string;
   readonly options: readonly ChoiceItem<TValue>[];
   readonly selected?: string;
   readonly focused?: string;
   readonly placeholder?: string;
-  readonly onAction?: (action: SelectBoxAction) => TMessage;
+  readonly onAction?: (action: SelectAction) => TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
@@ -196,7 +196,7 @@ export interface NumberInputOptions<TMessage = never> extends InteractiveElement
 export type {
   ButtonState,
   ButtonTone,
-  ColorPickerOption,
+  ColorSwatchPickerOption,
   NumericRange,
   RangeSliderStepEvent,
   RangeSliderValue,

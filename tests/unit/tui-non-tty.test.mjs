@@ -35,7 +35,7 @@ test('TUI non-TTY transcript_only mode renders a snapshot without terminal outpu
     transcript: { enabled: true },
     init: () => ({ label: 'ready' }),
     update: (state) => ({ state }),
-    view: (state) => statusBar({ id: 'status', text: state.label }),
+    view: (state) => statusBar({ id: 'status', leading: [{ id: 'state', kind: 'text', text: state.label }] }),
     nonTty: { mode: 'transcript_only' }
   });
 
@@ -55,7 +55,7 @@ test('TUI non-TTY last_frame mode writes readable text without control sequences
     id: 'non-tty-last-frame',
     init: () => ({ label: 'ready' }),
     update: (state) => ({ state }),
-    view: (state) => statusBar({ id: 'status', text: state.label }),
+    view: (state) => statusBar({ id: 'status', leading: [{ id: 'state', kind: 'text', text: state.label }] }),
     nonTty: { mode: 'last_frame' }
   });
 

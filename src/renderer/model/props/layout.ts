@@ -1,9 +1,9 @@
-import type { BorderStyle } from '../../../visual/border.ts';
 import type { LayoutSize } from '../../../geometry/types.ts';
+import type { SplitPaneAction } from '../../../ui-model/split-pane.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 
-export type StackRenderProps = RenderNodeLayoutProps & { readonly sizes?: readonly LayoutSize[] };
-export type RowRenderProps = StackRenderProps;
+export type ColumnRenderProps = RenderNodeLayoutProps & { readonly sizes?: readonly LayoutSize[] };
+export type RowRenderProps = ColumnRenderProps;
 
 export interface GridRenderProps extends RenderNodeLayoutProps {
   readonly rows: readonly LayoutSize[];
@@ -15,29 +15,9 @@ export interface GridRenderProps extends RenderNodeLayoutProps {
   readonly columnGap?: number;
 }
 
-export type SplitPaneRenderProps = RenderNodeLayoutProps & {
+export type SplitPaneRenderProps<TMessage = never> = RenderNodeLayoutProps & {
   readonly direction: 'horizontal' | 'vertical';
   readonly sizes?: readonly LayoutSize[];
-};
-
-export interface RenderTabItem {
-  readonly id: string;
-  readonly label: string;
-  readonly description?: string;
-  readonly disabled?: boolean;
-  readonly badge?: string;
-  readonly closable?: boolean;
-}
-
-export type TabsRenderProps<TMessage> = RenderNodeLayoutProps & {
-  readonly tabs: readonly RenderTabItem[];
-  readonly selected?: string;
-  readonly toActionMessage?: (action: import('../../../ui-model/tabs.ts').TabAction) => TMessage;
-};
-
-export type ModalRenderProps = RenderNodeLayoutProps & {
-  readonly title?: string;
-  readonly border?: BorderStyle;
-  readonly width?: number;
-  readonly height?: number;
+  readonly selectedDivider?: number;
+  readonly toActionMessage?: (action: SplitPaneAction) => TMessage;
 };

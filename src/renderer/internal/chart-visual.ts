@@ -10,12 +10,12 @@ import { statusMarker, statusStyle } from './status-visual.ts';
 import { stringify } from './render-node-props.ts';
 import { mergeStyles, themeStyle } from './render-node-style.ts';
 
-export type ChartSurfaceKind = 'sparkline' | 'barChart' | 'chart' | 'gauge' | 'heatmap';
+export type ChartSurfaceKind = 'sparkline' | 'barChart' | 'chart' | 'meter' | 'heatmap';
 export type ChartStateKind = 'empty' | 'loading' | 'error';
 type ChartVisualNode = {
   readonly [TKind in ChartSurfaceKind]: RenderNodeOfKind<unknown, TKind>;
 }[ChartSurfaceKind];
-type ChartDataNode = Exclude<ChartVisualNode, RenderNodeOfKind<unknown, 'gauge'>>;
+type ChartDataNode = Exclude<ChartVisualNode, RenderNodeOfKind<unknown, 'meter'>>;
 export type ChartVisualKind =
   | 'area'
   | 'axis'

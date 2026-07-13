@@ -5,7 +5,7 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { ComponentActionTone } from '../../ui-model/contracts.ts';
 import {
-  dropdownControlLine,
+  dropdownMenuControlLine,
   menuBarLine,
   menuEmptyLine,
   menuItemLine,
@@ -15,13 +15,13 @@ import type { MenuVisualItem } from './menu-visual.ts';
 import type { RenderBlock, RenderLine } from '../../visual/render.ts';
 import type { Rect } from '../model/layout.ts';
 import type { HitTarget } from '../model/renderer.ts';
-import type { DropdownAction, MenuAction } from '../../ui-model/menu.ts';
+import type { DropdownMenuAction, MenuAction } from '../../ui-model/menu.ts';
 
 type MenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'menu'>;
 type ContextMenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'contextMenu'>;
 type MenuBarNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'menuBar'>;
-type DropdownNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'dropdown'>;
-type MenuCollectionNode<TMessage = unknown> = MenuNode<TMessage> | ContextMenuNode<TMessage> | DropdownNode<TMessage>;
+type DropdownMenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'dropdownMenu'>;
+type MenuCollectionNode<TMessage = unknown> = MenuNode<TMessage> | ContextMenuNode<TMessage> | DropdownMenuNode<TMessage>;
 type ActionMenuNode<TMessage = unknown> = MenuNode<TMessage> | ContextMenuNode<TMessage> | MenuBarNode<TMessage>;
 type AnyMenuNode<TMessage = unknown> = MenuCollectionNode<TMessage> | MenuBarNode<TMessage>;
 
@@ -79,14 +79,14 @@ export function menuBarBlock(widget: MenuBarNode, bounds: Rect, theme: TerminalT
   };
 }
 
-export function dropdownBlock(widget: DropdownNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function dropdownMenuBlock(widget: DropdownMenuNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const selected = selectedMenuItem(widget);
   const label = clean(stringify(widget.props.label));
   const placeholder = clean(stringify(widget.props.placeholder)) || 'Select…';
   const value = selected?.label ?? placeholder;
   const open = widget.props.presentation.kind === 'open';
   const lines: RenderLine[] = [{
-    spans: dropdownControlLine({
+    spans: dropdownMenuControlLine({
       widget,
       label,
       value,
@@ -117,7 +117,7 @@ export function menuAccessibleBase(widget: AnyMenuNode, id: string, focused: boo
   };
 }
 
-export function dropdownAccessibleBase(widget: DropdownNode, id: string, focused: boolean): AccessibleNode {
+export function dropdownMenuAccessibleBase(widget: DropdownMenuNode, id: string, focused: boolean): AccessibleNode {
   const selected = selectedMenuItem(widget);
   return {
     id,
@@ -145,7 +145,7 @@ export function menuAccessibleChildren(widget: AnyMenuNode): readonly Accessible
   }));
 }
 
-export function dropdownAccessibleChildren(widget: DropdownNode): readonly AccessibleNode[] | undefined {
+export function dropdownMenuAccessibleChildren(widget: DropdownMenuNode): readonly AccessibleNode[] | undefined {
   return widget.props.presentation.kind === 'open' ? menuAccessibleChildren(widget) : undefined;
 }
 
@@ -174,8 +174,8 @@ export function menuBarHitTargets<TMessage>(widget: MenuBarNode<TMessage>, bound
   return targets;
 }
 
-export function dropdownHitTargets<TMessage>(widget: DropdownNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  const toMessage = dropdownActionMessageFactory(widget);
+export function dropdownMenuHitTargets<TMessage>(widget: DropdownMenuNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = dropdownMenuActionMessageFactory(widget);
   if (toMessage === undefined) return [];
   if (widget.props.presentation.kind !== 'open') {
     return [{
@@ -185,7 +185,7 @@ export function dropdownHitTargets<TMessage>(widget: DropdownNode<TMessage>, bou
       cursor: 'pointer'
     }];
   }
-  return menuRows(widget, bounds, 1).flatMap((row) => dropdownHitTargetForRow(widget, bounds, row, toMessage));
+  return menuRows(widget, bounds, 1).flatMap((row) => dropdownMenuHitTargetForRow(widget, bounds, row, toMessage));
 }
 
 export function menuCursor(widget: MenuCollectionNode, bounds: Rect, rowOffset = 0): { readonly row: number; readonly column: number } {
@@ -217,11 +217,11 @@ function hitTargetForRow<TMessage>(
   }];
 }
 
-function dropdownHitTargetForRow<TMessage>(
-  widget: DropdownNode<TMessage>,
+function dropdownMenuHitTargetForRow<TMessage>(
+  widget: DropdownMenuNode<TMessage>,
   bounds: Rect,
   row: MenuRow,
-  toMessage: (action: DropdownAction) => TMessage
+  toMessage: (action: DropdownMenuAction) => TMessage
 ): HitTarget<TMessage>[] {
   if (row.item.disabled === true) return [];
   return [{
@@ -258,12 +258,12 @@ function topLevelMenuItems(widget: AnyMenuNode): readonly VisibleMenuItem[] {
 }
 
 function selectedId(widget: AnyMenuNode): string | undefined {
-  const selected = widget.kind === 'dropdown' ? widget.props.presentation.selected : widget.props.selected;
+  const selected = widget.kind === 'dropdownMenu' ? widget.props.presentation.selected : widget.props.selected;
   return typeof selected === 'string' ? clean(selected) : firstEnabledItem(widget)?.id;
 }
 
 function activeId(widget: AnyMenuNode): string | undefined {
-  if (widget.kind === 'dropdown' && widget.props.presentation.kind === 'open' && typeof widget.props.presentation.highlighted === 'string') {
+  if (widget.kind === 'dropdownMenu' && widget.props.presentation.kind === 'open' && typeof widget.props.presentation.highlighted === 'string') {
     return clean(widget.props.presentation.highlighted);
   }
   return selectedId(widget);
@@ -278,8 +278,8 @@ function menuActionMessageFactory<TMessage>(widget: ActionMenuNode<TMessage>): (
   return widget.props.toActionMessage;
 }
 
-function dropdownActionMessageFactory<TMessage>(widget: DropdownNode<TMessage>): ((action: DropdownAction) => TMessage) | undefined {
-  return widget.props.toDropdownActionMessage;
+function dropdownMenuActionMessageFactory<TMessage>(widget: DropdownMenuNode<TMessage>): ((action: DropdownMenuAction) => TMessage) | undefined {
+  return widget.props.toDropdownMenuActionMessage;
 }
 
 function firstEnabledItem(widget: AnyMenuNode): VisibleMenuItem | undefined {

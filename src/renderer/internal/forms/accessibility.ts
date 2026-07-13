@@ -12,11 +12,11 @@ type CheckboxNode = RenderNodeOfKind<unknown, 'checkbox'>;
 type ToggleSwitchNode = RenderNodeOfKind<unknown, 'toggleSwitch'>;
 type SliderNode = RenderNodeOfKind<unknown, 'slider'>;
 type RangeSliderNode = RenderNodeOfKind<unknown, 'rangeSlider'>;
-type CheckboxListNode = RenderNodeOfKind<unknown, 'checkboxList'>;
+type CheckboxGroupNode = RenderNodeOfKind<unknown, 'checkboxGroup'>;
 type RadioGroupNode = RenderNodeOfKind<unknown, 'radioGroup'>;
-type ColorPickerNode = RenderNodeOfKind<unknown, 'colorPicker'>;
-type DatePickerNode = RenderNodeOfKind<unknown, 'datePicker'>;
-type SelectBoxNode = RenderNodeOfKind<unknown, 'selectBox'>;
+type ColorSwatchPickerNode = RenderNodeOfKind<unknown, 'colorSwatchPicker'>;
+type CalendarNode = RenderNodeOfKind<unknown, 'calendar'>;
+type SelectNode = RenderNodeOfKind<unknown, 'select'>;
 type TextInputNode = RenderNodeOfKind<unknown, 'textInput'>;
 type NumberInputNode = RenderNodeOfKind<unknown, 'numberInput'>;
 import type { Rect } from '../../model/layout.ts';
@@ -31,9 +31,9 @@ import {
 } from './support/choices.ts';
 import {
   colorOptions,
-  datePickerDays,
+  calendarDays,
   selectedColorOption,
-  selectedDatePickerDay
+  selectedCalendarDay
 } from './support/pickers.ts';
 import {
   rangeSliderModel,
@@ -150,7 +150,7 @@ export function rangeSliderAccessibleBase(widget: RangeSliderNode, id: string, f
   };
 }
 
-export function checkboxListAccessibleBase(widget: CheckboxListNode, id: string, focused: boolean): AccessibleNode {
+export function checkboxGroupAccessibleBase(widget: CheckboxGroupNode, id: string, focused: boolean): AccessibleNode {
   const selected = selectedIds(widget);
   return {
     id,
@@ -162,10 +162,10 @@ export function checkboxListAccessibleBase(widget: CheckboxListNode, id: string,
   };
 }
 
-export function checkboxListAccessibleChildren(widget: CheckboxListNode): readonly AccessibleNode[] {
+export function checkboxGroupAccessibleChildren(widget: CheckboxGroupNode): readonly AccessibleNode[] {
   const selected = selectedIds(widget);
   return formOptions(widget).map((option) => ({
-    id: `${widget.id ?? 'checkboxList'}:${option.id}`,
+    id: `${widget.id ?? 'checkboxGroup'}:${option.id}`,
     role: 'checkbox',
     label: option.label,
     checked: selected.has(option.id),
@@ -202,7 +202,7 @@ export function radioGroupAccessibleChildren(widget: RadioGroupNode): readonly A
   }));
 }
 
-export function colorPickerAccessibleBase(widget: ColorPickerNode, id: string, focused: boolean): AccessibleNode {
+export function colorSwatchPickerAccessibleBase(widget: ColorSwatchPickerNode, id: string, focused: boolean): AccessibleNode {
   const selected = selectedColorOption(widget);
   return {
     id,
@@ -214,10 +214,10 @@ export function colorPickerAccessibleBase(widget: ColorPickerNode, id: string, f
   };
 }
 
-export function colorPickerAccessibleChildren(widget: ColorPickerNode): readonly AccessibleNode[] {
+export function colorSwatchPickerAccessibleChildren(widget: ColorSwatchPickerNode): readonly AccessibleNode[] {
   const selected = selectedId(widget);
   return colorOptions(widget).map((option) => ({
-    id: `${widget.id ?? 'colorPicker'}:${option.id}`,
+    id: `${widget.id ?? 'colorSwatchPicker'}:${option.id}`,
     role: 'option',
     label: option.label,
     selected: option.id === selected,
@@ -226,8 +226,8 @@ export function colorPickerAccessibleChildren(widget: ColorPickerNode): readonly
   }));
 }
 
-export function datePickerAccessibleBase(widget: DatePickerNode, id: string, focused: boolean): AccessibleNode {
-  const selected = selectedDatePickerDay(widget);
+export function calendarAccessibleBase(widget: CalendarNode, id: string, focused: boolean): AccessibleNode {
+  const selected = selectedCalendarDay(widget);
   return {
     id,
     role: 'table',
@@ -238,10 +238,10 @@ export function datePickerAccessibleBase(widget: DatePickerNode, id: string, foc
   };
 }
 
-export function datePickerAccessibleChildren(widget: DatePickerNode): readonly AccessibleNode[] {
+export function calendarAccessibleChildren(widget: CalendarNode): readonly AccessibleNode[] {
   const selected = selectedId(widget);
-  return datePickerDays(widget).filter((day) => day.hidden !== true).map((day) => ({
-    id: `${widget.id ?? 'datePicker'}:${day.id}`,
+  return calendarDays(widget).filter((day) => day.hidden !== true).map((day) => ({
+    id: `${widget.id ?? 'calendar'}:${day.id}`,
     role: 'option',
     label: day.id,
     selected: day.id === selected,
@@ -249,7 +249,7 @@ export function datePickerAccessibleChildren(widget: DatePickerNode): readonly A
   }));
 }
 
-export function selectBoxAccessibleBase(widget: SelectBoxNode, id: string, focused: boolean): AccessibleNode {
+export function selectAccessibleBase(widget: SelectNode, id: string, focused: boolean): AccessibleNode {
   const selected = selectedOption(widget);
   const description = fieldDescription(widget);
   return {
@@ -263,10 +263,10 @@ export function selectBoxAccessibleBase(widget: SelectBoxNode, id: string, focus
   };
 }
 
-export function selectBoxAccessibleChildren(widget: SelectBoxNode): readonly AccessibleNode[] {
+export function selectAccessibleChildren(widget: SelectNode): readonly AccessibleNode[] {
   const selected = selectedId(widget);
   return formOptions(widget).map((option) => ({
-    id: `${widget.id ?? 'selectBox'}:${option.id}`,
+    id: `${widget.id ?? 'select'}:${option.id}`,
     role: 'option',
     label: option.label,
     selected: option.id === selected,

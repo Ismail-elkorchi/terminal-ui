@@ -16,7 +16,7 @@ import {
 } from '../../dist/renderer/index.js';
 import {
   row,
-  stack,
+  column,
   surface
 } from '../../dist/layout/index.js';
 import {
@@ -27,7 +27,7 @@ import {
 
 function dashboardWidget(state) {
   return surface(
-    stack([
+    column([
       text('Terminal workbench', { id: 'title' }),
       row([
         text('Left pane', { id: 'left-pane' }),
@@ -39,7 +39,12 @@ function dashboardWidget(state) {
       ], { id: 'panes' }),
       statusBar({
         id: 'status',
-        text: state.submitted ? 'Status: done' : 'Status: waiting'
+        leading: [{
+          id: 'submission',
+          kind: 'status',
+          text: state.submitted ? 'Status: done' : 'Status: waiting',
+          status: state.submitted ? 'success' : 'pending'
+        }]
       })
     ], { id: 'body' }),
     { id: 'root-surface', border: { kind: 'single' } }
@@ -54,7 +59,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.equal(layout.kind, 'surface');
   assert.equal(layout.id, 'root-surface');
   assert.deepEqual(layout.bounds, { row: 1, column: 1, width: 30, height: 6 });
-  assert.equal(layout.children[0]?.kind, 'stack');
+  assert.equal(layout.children[0]?.kind, 'column');
   assert.equal(layout.children[0]?.children[1]?.kind, 'row');
   assert.equal(layout.children[0]?.children[1]?.children[1]?.id, 'action-field');
 
@@ -79,9 +84,8 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.equal(diff.fullRewrite, false);
   assert.ok(diff.operations.every((operation) => operation.kind !== 'clearLine'));
   assert.ok(diff.operations.some((operation) =>
-    operation.kind === 'clearRect'
-    && operation.bounds.column > 1
-    && operation.bounds.width > 0
+    operation.kind === 'write'
+    && operation.spans.some((span) => span.text === '   ')
   ));
   assert.ok(diff.operations.some((operation) =>
     operation.kind === 'write'

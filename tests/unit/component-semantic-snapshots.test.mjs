@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { datePickerFixture } from '../helpers/date-picker.mjs';
+import { calendarFixture } from '../helpers/calendar.mjs';
 
 import {
   validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
@@ -14,36 +14,36 @@ import { renderFramePlain,
 import {
   absolute,
   grid,
-  modal,
   overlay,
   row,
   splitPane,
-  stack,
+  column,
   surface,
-  tabs,
   viewport
 } from '../../dist/layout/index.js';
 import {
   activityFeed,
-  activityIndicator,
+  statusIndicator,
   barChart,
   button,
   canvas,
   chart,
   checkbox,
-  checkboxList,
-  commandBar,
+  checkboxGroup,
+  commandInput,
   contextMenu,
-  colorPicker,
-  datePicker,
+  colorSwatchPicker,
+  calendar,
+  dialog,
   divider,
-  dropdown,
+  dropdownMenu,
   field,
   form,
-  gauge,
+  meter,
   helpBar,
   heatmap,
   textInput,
+  tabs,
   label,
   list,
   menu,
@@ -57,7 +57,7 @@ import {
   rangeSlider,
   richText,
   scrollback,
-  selectBox,
+  select,
   sparkline,
   spinner,
   statusBar,
@@ -153,11 +153,11 @@ const cases = [
     expectStyledCells: true
   },
   {
-    name: 'stack',
-    element: () => stack([
-      text(unsafe, { id: 'stack-one' }),
-      text('Second', { id: 'stack-two' })
-    ], { id: 'stack' }),
+    name: 'column',
+    element: () => column([
+      text(unsafe, { id: 'column-one' }),
+      text('Second', { id: 'column-two' })
+    ], { id: 'column' }),
     expectText: /Second/u
   },
   {
@@ -171,9 +171,10 @@ const cases = [
   {
     name: 'list',
     element: () => list({
-      id: 'list',
+    getItemId: (item) => String(item),
+    id: 'list',
       items: [unsafe, 'Second', 'Third'],
-      selected: 1
+      selectedId: 'Second'
     }),
     expectText: /Second/u,
     expectFocus: true
@@ -181,9 +182,10 @@ const cases = [
   {
     name: 'table',
     element: () => table({
-      id: 'table',
+    getRowId: (_row, index) => String(index),
+    id: 'table',
       rows: [{ name: unsafe, status: 'ok' }, { name: 'Second', status: 'idle' }],
-      selected: 1,
+      selectedRowId: '1',
       columns: [{
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }, {
         id: 'status-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Status' }]
@@ -287,13 +289,13 @@ const cases = [
     expectHitTargets: true
   },
   {
-    name: 'checkboxList',
-    element: () => checkboxList({
+    name: 'checkboxGroup',
+    element: () => checkboxGroup({
       id: 'checkbox-list',
       label: unsafe,
       options: optionItems,
       selected: ['alpha'],
-      onAction: (action) => ({ kind: 'checkboxList', action })
+      onAction: (action) => ({ kind: 'checkboxGroup', action })
     }),
     expectText: /Beta/u,
     expectFocus: true,
@@ -313,8 +315,8 @@ const cases = [
     expectHitTargets: true
   },
   {
-    name: 'selectBox',
-    element: () => selectBox({
+    name: 'select',
+    element: () => select({
       id: 'select',
       label: 'Choice',
       options: optionItems,
@@ -326,8 +328,8 @@ const cases = [
     expectHitTargets: true
   },
   {
-    name: 'colorPicker',
-    element: () => colorPicker({
+    name: 'colorSwatchPicker',
+    element: () => colorSwatchPicker({
       id: 'color-picker',
       label: unsafe,
       options: [
@@ -342,11 +344,11 @@ const cases = [
     expectHitTargets: true
   },
   {
-    name: 'datePicker',
-    element: () => datePicker({
-      id: 'date-picker',
+    name: 'calendar',
+    element: () => calendar({
+      id: 'calendar',
       label: unsafe,
-      ...datePickerFixture({
+      ...calendarFixture({
         selected: { year: 2026, month: 6, day: 3 },
         today: { year: 2026, month: 6, day: 2 }
       }),
@@ -393,13 +395,13 @@ const cases = [
     expectHitTargets: true
   },
   {
-    name: 'dropdown',
-    element: () => dropdown({
-      id: 'dropdown',
+    name: 'dropdownMenu',
+    element: () => dropdownMenu({
+      id: 'dropdownMenu',
       label: unsafe,
       items: menuItems,
       presentation: { kind: 'open', selected: 'save', highlighted: 'save' },
-      onAction: (action) => ({ kind: 'dropdown', action })
+      onAction: (action) => ({ kind: 'dropdownMenu', action })
     }),
     expectText: /Save/u,
     expectFocus: true,
@@ -459,18 +461,17 @@ const cases = [
   },
   {
     name: 'statusBar',
-    element: () => statusBar({ id: 'status', text: unsafe, onPress: { kind: 'status' } }),
-    expectText: /Unsafe red text/u,
-    expectFocus: true
-  },
-  {
-    name: 'helpBar',
-    element: () => helpBar({ id: 'help', bindings: [{ key: 'Enter', label: unsafe }] }),
+    element: () => statusBar({ id: 'status', leading: [{ id: 'state', kind: 'text', text: unsafe }] }),
     expectText: /Unsafe red text/u
   },
   {
-    name: 'activityIndicator',
-    element: () => activityIndicator({ id: 'activity-indicator', label: unsafe, status: 'running' }),
+    name: 'helpBar',
+    element: () => helpBar({ id: 'help', groups: [{ id: 'primary', bindings: [{ key: 'Enter', label: unsafe }] }] }),
+    expectText: /Unsafe red text/u
+  },
+  {
+    name: 'statusIndicator',
+    element: () => statusIndicator({ id: 'activity-indicator', label: unsafe, status: 'running' }),
     expectText: /Unsafe red text/u
   },
   {
@@ -499,8 +500,8 @@ const cases = [
     name: 'barChart',
     element: () => barChart({
       id: 'bar-chart',
-      selected: 1,
-      items: [{ label: unsafe, value: 2 }, { label: 'Second', value: 4 }]
+      selectedId: 'second',
+      items: [{ id: 'unsafe', label: unsafe, value: 2 }, { id: 'second', label: 'Second', value: 4 }]
     }),
     expectText: /Second/u
   },
@@ -510,8 +511,8 @@ const cases = [
     expectText: /\*/u
   },
   {
-    name: 'gauge',
-    element: () => gauge({ id: 'gauge', label: unsafe, value: 7, max: 10 }),
+    name: 'meter',
+    element: () => meter({ id: 'meter', label: unsafe, value: 7, max: 10 }),
     expectText: /Unsafe red text/u
   },
   {
@@ -563,13 +564,13 @@ const cases = [
   },
   {
     name: 'activityFeed',
-    element: () => activityFeed({ id: 'activity-feed', blocks, selected: 1 }),
+    element: () => activityFeed({ id: 'activity-feed', blocks, selectedId: 'running' }),
     expectText: /Running/u
   },
   {
-    name: 'commandBar',
-    element: () => commandBar({
-      id: 'command-bar',
+    name: 'commandInput',
+    element: () => commandInput({
+      id: 'command-input',
       value: unsafe,
       prompt: '>',
       suggestions: [{ value: 'open', label: unsafe, description: 'Open action' }],
@@ -629,9 +630,9 @@ const cases = [
     expectText: /Panel one/u
   },
   {
-    name: 'modal',
-    element: () => modal(button({ id: 'modal-button', label: 'Confirm', onPress: { kind: 'confirm' } }), {
-      id: 'modal',
+    name: 'dialog',
+    element: () => dialog(button({ id: 'dialog-button', label: 'Confirm', onPress: { kind: 'confirm' } }), {
+      id: 'dialog',
       title: unsafe,
       width: 24,
       height: 5
@@ -647,22 +648,22 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
   assert.deepEqual(names, [
     'absolute',
     'activityFeed',
-    'activityIndicator',
     'barChart',
     'button',
+    'calendar',
     'canvas',
     'chart',
     'checkbox',
-    'checkboxList',
-    'colorPicker',
-    'commandBar',
+    'checkboxGroup',
+    'colorSwatchPicker',
+    'column',
+    'commandInput',
     'contextMenu',
-    'datePicker',
+    'dialog',
     'divider',
-    'dropdown',
+    'dropdownMenu',
     'field',
     'form',
-    'gauge',
     'grid',
     'heatmap',
     'helpBar',
@@ -670,7 +671,7 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
     'list',
     'menu',
     'menuBar',
-    'modal',
+    'meter',
     'notificationStack',
     'numberInput',
     'overlay',
@@ -682,13 +683,13 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
     'richText',
     'row',
     'scrollback',
-    'selectBox',
+    'select',
     'slider',
     'sparkline',
     'spinner',
     'splitPane',
-    'stack',
     'statusBar',
+    'statusIndicator',
     'structuredBlock',
     'surface',
     'table',

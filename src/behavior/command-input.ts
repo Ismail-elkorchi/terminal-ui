@@ -1,8 +1,8 @@
 import type { TextSelection } from '../text/index.ts';
 import type { SuggestionItem } from '../ui-model/contracts.ts';
-import type { CommandBarState } from './command-bar-state.ts';
+import type { CommandInputState } from './command-input-state.ts';
 
-export interface CommandBarPresentation {
+export interface CommandInputPresentation {
   readonly value: string;
   readonly cursor: number;
   readonly suggestions: readonly SuggestionItem[];
@@ -11,7 +11,7 @@ export interface CommandBarPresentation {
   readonly historyIndex?: number;
 }
 
-export function commandBarPresentation(state: CommandBarState): CommandBarPresentation {
+export function commandInputPresentation(state: CommandInputState): CommandInputPresentation {
   return {
     value: state.input.text,
     cursor: state.input.cursor,

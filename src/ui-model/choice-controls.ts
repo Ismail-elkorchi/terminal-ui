@@ -1,4 +1,4 @@
-export type CheckboxListAction =
+export type CheckboxGroupAction =
   | { readonly kind: 'focus'; readonly id: string }
   | { readonly kind: 'move'; readonly delta: number }
   | { readonly kind: 'first' }
@@ -12,14 +12,14 @@ export type RadioGroupAction =
   | { readonly kind: 'last' }
   | { readonly kind: 'select'; readonly id: string };
 
-export type SelectBoxAction =
+export type SelectAction =
   | { readonly kind: 'focus'; readonly id: string }
   | { readonly kind: 'move'; readonly delta: number }
   | { readonly kind: 'first' }
   | { readonly kind: 'last' }
   | { readonly kind: 'select'; readonly id: string };
 
-export type ColorPickerAction =
+export type ColorSwatchPickerAction =
   | { readonly kind: 'focus'; readonly id: string }
   | { readonly kind: 'move'; readonly delta: number }
   | { readonly kind: 'first' }

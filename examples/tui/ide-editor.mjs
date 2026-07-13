@@ -12,8 +12,8 @@ import {
 } from '@ismail-elkorchi/terminal-ui/tui';
 import {
   applyScrollEvent,
-  commandBarPresentation,
-  commandBarReducer,
+  commandInputPresentation,
+  commandInputReducer,
   createNotificationState,
   notificationActionFromStack,
   notificationPresentation,
@@ -33,14 +33,13 @@ import {
   grid,
   overlay,
   row,
-  stack,
+  column,
   surface,
-  tabs,
   viewport
 } from '@ismail-elkorchi/terminal-ui/layout';
 import {
-  activityIndicator,
-  commandBar,
+  statusIndicator,
+  commandInput,
   helpBar,
   menuBar,
   notificationStack,
@@ -49,6 +48,7 @@ import {
   statusBar,
   structuredBlock,
   table,
+  tabs,
   text,
   textArea,
   tree
@@ -195,7 +195,7 @@ function updateIde(state, message) {
     case 'scrollActive':
       return withState(scrollActiveBuffer(state, message.event));
     case 'commandEdit':
-      return withState({ ...state, command: commandBarReducer(state.command, message.action) });
+      return withState({ ...state, command: commandInputReducer(state.command, message.action) });
     case 'submitCommand':
       return withState(applyCommand(state, state.command.input.text));
     case 'openPalette':
@@ -291,7 +291,7 @@ function narrowIdeView(state, _context) {
 
 function topChrome(state) {
   const active = activeBuffer(state);
-  return surface(stack([
+  return surface(column([
     menuBar({
       id: 'ide-menu',
       items: [
@@ -306,7 +306,12 @@ function topChrome(state) {
     }),
     statusBar({
       id: 'ide-status',
-      text: `${path.basename(state.rootPath) || state.rootPath} | ${state.openOrder.length} buffer(s) | ${dirtyBuffers(state).length} unsaved | ${state.ticks} tick(s)`
+      leading: [{ id: 'workspace', kind: 'text', text: path.basename(state.rootPath) || state.rootPath }],
+      center: [{ id: 'buffers', kind: 'text', text: `${state.openOrder.length} buffer(s)` }],
+      trailing: [
+        { id: 'dirty', kind: 'status', text: `${dirtyBuffers(state).length} unsaved`, status: dirtyBuffers(state).length > 0 ? 'warning' : 'success' },
+        { id: 'ticks', kind: 'text', text: `${state.ticks} tick(s)` }
+      ]
     })
   ], {
     id: 'ide-top-body',
@@ -330,7 +335,7 @@ function notificationStackWidget(state) {
 }
 
 function explorerPane(state) {
-  return surface(stack([
+  return surface(column([
     text('Explorer', { id: 'explorer-title', textRole: 'heading' }),
     text(shortPath(state.rootPath, state.rootPath), { id: 'explorer-root', textRole: 'metadata' }),
     tree({
@@ -341,13 +346,16 @@ function explorerPane(state) {
     }),
     helpBar({
       id: 'explorer-help',
-      bindings: [
-        { key: 'click', label: 'select/open file' },
-        { key: 'disclosure', label: 'toggle folder' },
-        { key: 'enter', label: 'open/toggle' },
-        { key: 'left/right', label: 'collapse/expand' },
-        { key: 'up/down', label: 'move' }
-      ]
+      groups: [{
+        id: 'explorer',
+        bindings: [
+          { key: 'click', label: 'select/open file' },
+          { key: 'disclosure', label: 'toggle folder' },
+          { key: 'enter', label: 'open/toggle' },
+          { key: 'left/right', label: 'collapse/expand' },
+          { key: 'up/down', label: 'move' }
+        ]
+      }]
     })
   ], {
     id: 'explorer-body',
@@ -404,7 +412,7 @@ function ideTabActionMessage(state, action) {
 }
 
 function welcomePanel(state) {
-  return stack([
+  return column([
     text('Open a folder or file to start editing.', { id: 'welcome-title', textRole: 'heading' }),
     text('/open <path> opens files and folders relative to the current workspace.', { id: 'welcome-open' }),
     text('/save persists the active text buffer. File-tree clicks open text files.', { id: 'welcome-save' }),
@@ -441,7 +449,7 @@ function editorPanel(state, buffer) {
     columns: [{ kind: 'fill' }],
     children: {
       meta: row([
-        activityIndicator({
+        statusIndicator({
           id: 'editor-state',
           label: buffer.dirty ? 'modified' : 'saved',
           status: buffer.dirty ? 'running' : 'success'
@@ -470,11 +478,9 @@ function editorPanel(state, buffer) {
       })),
       footer: helpBar({
         id: 'editor-help',
-        bindings: [
-          { key: 'text', label: 'edit' },
-          { key: 'File Save', label: 'write file' },
-          { key: '/close', label: 'close tab' },
-          { key: 'Tab', label: 'move focus' }
+        groups: [
+          { id: 'editing', bindings: [{ key: 'text', label: 'edit' }, { key: 'File Save', label: 'write file' }] },
+          { id: 'navigation', bindings: [{ key: '/close', label: 'close tab' }, { key: 'Tab', label: 'move focus' }] }
         ]
       })
     }
@@ -496,7 +502,16 @@ function notificationLayer(state, child) {
 function inspectorPane(state, context) {
   const active = activeBuffer(state);
   const diagnosticItem = hostInputDiagnostic(context.diagnostics);
-  return surface(stack([
+  const bufferRows = state.openOrder.map((filePath) => {
+    const buffer = state.buffers[filePath];
+    return {
+      path: filePath,
+      dirty: buffer?.dirty === true,
+      label: buffer?.label ?? path.basename(filePath),
+      size: buffer === undefined ? 'missing' : `${String(lineCount(buffer.text))} lines`
+    };
+  });
+  return surface(column([
     structuredBlock({
       id: 'file-inspector',
       title: active?.label ?? 'No file selected',
@@ -513,29 +528,23 @@ function inspectorPane(state, context) {
       body: diagnosticItem?.message ?? latestLogLine(state)
     }),
     table({
+      getRowId: (row) => row.path,
       id: 'buffer-table',
-      rows: state.openOrder.map((filePath) => {
-        const buffer = state.buffers[filePath];
-        return [
-          buffer?.dirty === true ? '*' : ' ',
-          buffer?.label ?? path.basename(filePath),
-          buffer === undefined ? 'missing' : `${String(lineCount(buffer.text))} lines`
-        ];
-      }),
-      selected: Math.max(0, state.openOrder.indexOf(state.activePath ?? '')),
+      rows: bufferRows,
+      selectedRowId: state.activePath,
       emptyText: 'No open buffers',
       stickyHeader: true,
       columns: [
         {
-          id: 'column-0', value: (row) => Array.isArray(row) ? row[0] : row, header: '', width: { kind: 'fixed', cells: 2 } },
+          id: 'column-0', value: (row) => row.dirty ? '*' : ' ', header: '', width: { kind: 'fixed', cells: 2 } },
         {
-          id: 'buffer-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Buffer', width: { kind: 'fill' } },
+          id: 'buffer-1', value: (row) => row.label, header: 'Buffer', width: { kind: 'fill' } },
         {
-          id: 'size-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Size', width: { kind: 'fixed', cells: 10 } }
+          id: 'size-2', value: (row) => row.size, header: 'Size', width: { kind: 'fixed', cells: 10 } }
       ],
       onAction: (action) => ({ kind: 'bufferTable', action })
     }),
-    viewport(stack(state.log.map((line, index) => text(`${String(index + 1).padStart(2, '0')} ${line}`, {
+    viewport(column(state.log.map((line, index) => text(`${String(index + 1).padStart(2, '0')} ${line}`, {
       id: `ide-log-${String(index)}`
     })), { id: 'ide-log-lines', gap: 0 }), {
       id: 'ide-log',
@@ -559,22 +568,19 @@ function inspectorPane(state, context) {
 }
 
 function handleBufferTableAction(state, action) {
-  const currentRow = Math.max(0, state.openOrder.indexOf(state.activePath ?? ''));
-  const nextRow = action.kind === 'activate'
-    ? action.row
+  const nextPath = action.kind === 'activate'
+    ? action.rowId
     : tableReducer(
-        { selectedRow: currentRow },
+        { selectedRowId: state.activePath },
         action,
-        { rowCount: state.openOrder.length, columnCount: 3 }
-      ).selectedRow;
-  if (nextRow === undefined) return state;
-  const filePath = state.openOrder[nextRow];
-  if (filePath === undefined) return state;
+        { rows: state.openOrder, getRowId: (filePath) => filePath, columnCount: 3 }
+      ).selectedRowId;
+  if (nextPath === undefined || state.buffers[nextPath] === undefined) return state;
   const source = action.kind === 'selectRow' || action.kind === 'selectCell' ? 'pointer' : 'keyboard';
   return setActiveBuffer({
     ...state,
     pointer: { ...state.pointer, bufferTable: source === 'pointer' || state.pointer.bufferTable }
-  }, filePath);
+  }, nextPath);
 }
 
 function hostInputDiagnostic(diagnostics) {
@@ -591,11 +597,11 @@ function diagnosticLabel(item) {
 }
 
 function commandPane(state) {
-  const expanded = commandBarExpanded(state);
-  return surface(commandBar({
+  const expanded = commandInputExpanded(state);
+  return surface(commandInput({
     id: 'ide-command',
     prompt: '› ',
-    ...commandBarPresentation(state.command),
+    ...commandInputPresentation(state.command),
     placeholder: 'Type /open, /folder, /save, /palette',
     suggestions: expanded ? state.command.suggestions : [],
     completionPreview: expanded ? completionPreview(state.command.input.text) : undefined,
@@ -1103,12 +1109,12 @@ function completionPreview(value) {
   return suggestion === undefined ? undefined : suggestion.value.slice(value.length);
 }
 
-function commandBarExpanded(state) {
+function commandInputExpanded(state) {
   return state.command.input.text.length > 0 || state.command.selectedSuggestion !== undefined;
 }
 
 function commandRowCount(state) {
-  return commandBarExpanded(state) ? 6 : 3;
+  return commandInputExpanded(state) ? 6 : 3;
 }
 
 function markPaletteUsed(state) {

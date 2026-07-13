@@ -16,35 +16,35 @@ export {
   addMonths,
   calendarDateId,
   compareDates,
-  datePickerPresentation,
-  datePickerReducer
-} from './date-picker.ts';
+  calendarPresentation,
+  calendarReducer
+} from './calendar.ts';
 export type {
-  DatePickerBehaviorOptions,
-  DatePickerPresentation,
-  DatePickerState
-} from './date-picker.ts';
+  CalendarBehaviorOptions,
+  CalendarPresentation,
+  CalendarState
+} from './calendar.ts';
 export type {
   CalendarDate,
   CalendarMonth,
-  DatePickerAction,
-  DatePickerDay
-} from '../ui-model/date-picker.ts';
+  CalendarAction,
+  CalendarDay
+} from '../ui-model/calendar.ts';
 export { dataWindow, rowWindow } from './data-window.ts';
 export type { DataWindow, DataWindowInput } from './data-window.ts';
 export {
-  commandBarPresentation
-} from './command-bar.ts';
+  commandInputPresentation
+} from './command-input.ts';
 export type {
-  CommandBarPresentation
-} from './command-bar.ts';
+  CommandInputPresentation
+} from './command-input.ts';
 export {
-  commandBarReducer
-} from './command-bar-state.ts';
+  commandInputReducer
+} from './command-input-state.ts';
 export type {
-  CommandBarState
-} from './command-bar-state.ts';
-export type { CommandBarAction } from '../ui-model/command-bar.ts';
+  CommandInputState
+} from './command-input-state.ts';
+export type { CommandInputAction } from '../ui-model/command-input.ts';
 export {
   indeterminateProgressFrame,
   progressCompletionState
@@ -142,25 +142,34 @@ export type {
 } from './palette.ts';
 export type { PaletteAction } from '../ui-model/palette.ts';
 export {
-  dropdownPresentation,
-  dropdownReducer,
+  dropdownMenuPresentation,
+  dropdownMenuReducer,
   menuPresentation,
   menuReducer
 } from './menu.ts';
 export type {
-  DropdownPresentation,
-  DropdownState,
+  DropdownMenuPresentation,
+  DropdownMenuState,
   MenuPresentation,
   MenuState
 } from './menu.ts';
-export type { DropdownAction, MenuAction } from '../ui-model/menu.ts';
+export type { DropdownMenuAction, MenuAction } from '../ui-model/menu.ts';
 export { tabsPresentation, tabsReducer } from './tabs.ts';
 export type { TabsPresentation, TabsState } from './tabs.ts';
 export type { TabAction } from '../ui-model/tabs.ts';
 export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
 export type { ScrollbackAction } from '../ui-model/scrollback.ts';
-export { chartPresentation, chartReducer, heatmapPresentation, heatmapReducer } from './visualization.ts';
+export {
+  barChartPresentation,
+  barChartReducer,
+  chartPresentation,
+  chartReducer,
+  heatmapPresentation,
+  heatmapReducer
+} from './visualization.ts';
 export type {
+  BarChartPresentation,
+  BarChartState,
   ChartPresentation,
   ChartReducerOptions,
   ChartState,
@@ -168,32 +177,32 @@ export type {
   HeatmapReducerOptions,
   HeatmapState
 } from './visualization.ts';
-export type { ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
+export type { BarChartAction, ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
 export {
-  checkboxListPresentation,
-  checkboxListReducer,
-  colorPickerPresentation,
-  colorPickerReducer,
+  checkboxGroupPresentation,
+  checkboxGroupReducer,
+  colorSwatchPickerPresentation,
+  colorSwatchPickerReducer,
   radioGroupPresentation,
   radioGroupReducer,
-  selectBoxPresentation,
-  selectBoxReducer
+  selectPresentation,
+  selectReducer
 } from './choice-controls.ts';
 export type {
-  CheckboxListPresentation,
-  CheckboxListState,
-  ColorPickerPresentation,
-  ColorPickerState,
+  CheckboxGroupPresentation,
+  CheckboxGroupState,
+  ColorSwatchPickerPresentation,
+  ColorSwatchPickerState,
   RadioGroupPresentation,
   RadioGroupState,
-  SelectBoxPresentation,
-  SelectBoxState
+  SelectPresentation,
+  SelectState
 } from './choice-controls.ts';
 export type {
-  CheckboxListAction,
-  ColorPickerAction,
+  CheckboxGroupAction,
+  ColorSwatchPickerAction,
   RadioGroupAction,
-  SelectBoxAction
+  SelectAction
 } from '../ui-model/choice-controls.ts';
 export {
   applyScrollEvent,
@@ -255,6 +264,19 @@ export type {
   SpinnerReducerOptions,
   SpinnerState
 } from './spinner.ts';
+export {
+  createSplitPaneState,
+  splitPanePresentation,
+  splitPaneReducer
+} from './split-pane.ts';
+export type {
+  SplitPaneConstraint,
+  SplitPaneDragState,
+  SplitPanePresentation,
+  SplitPaneReducerOptions,
+  SplitPaneState
+} from './split-pane.ts';
+export type { SplitPaneAction } from '../ui-model/split-pane.ts';
 export {
   sortTableRows,
   tablePresentation,

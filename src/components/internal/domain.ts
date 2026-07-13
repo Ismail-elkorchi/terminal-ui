@@ -3,7 +3,7 @@ import type {
   TableColumn,
 } from '../options/content.ts';
 import type { TreeNode } from '../../ui-model/tree.ts';
-import type { ColorPickerOption } from '../options/forms.ts';
+import type { ColorSwatchPickerOption } from '../options/forms.ts';
 import type { HeatmapCell } from '../options/feedback.ts';
 
 export function domainValues(values: readonly unknown[]): readonly unknown[] {
@@ -39,8 +39,8 @@ export function choiceItemsForRenderer<TValue>(items: readonly ChoiceItem<TValue
 }
 
 export function colorOptionsForRenderer<TValue>(
-  options: readonly ColorPickerOption<TValue>[]
-): readonly ColorPickerOption<unknown>[] {
+  options: readonly ColorSwatchPickerOption<TValue>[]
+): readonly ColorSwatchPickerOption<unknown>[] {
   return options;
 }
 

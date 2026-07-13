@@ -1,29 +1,25 @@
 export {
   absolute,
+  column,
   grid,
-  modal,
   overlay,
   row,
   splitPane,
-  stack,
   surface,
-  tabs,
   viewport
 } from './factories/index.ts';
 export type {
   AbsoluteOptions,
+  ColumnOptions,
   GridAreasOptions,
   GridOptions,
-  ModalOptions,
   OverlayOptions,
   RowOptions,
   SplitPaneOptions,
-  StackOptions,
   SurfaceOptions,
-  TabItem,
-  TabsOptions,
   ViewportOptions
 } from './options.ts';
+export type { SplitPaneAction } from '../ui-model/split-pane.ts';
 export {
   defineBreakpoints,
   responsive,

@@ -2,15 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  checkboxListPresentation,
-  checkboxListReducer,
-  colorPickerReducer,
-  dropdownPresentation,
-  dropdownReducer,
+  checkboxGroupPresentation,
+  checkboxGroupReducer,
+  colorSwatchPickerReducer,
+  dropdownMenuPresentation,
+  dropdownMenuReducer,
   menuPresentation,
   menuReducer,
   radioGroupReducer,
-  selectBoxReducer,
+  selectReducer,
   tabsPresentation,
   tabsReducer
 } from '../../dist/behavior/index.js';
@@ -35,14 +35,14 @@ test('menu behavior owns selection, hierarchy projection, and activation state',
   assert.equal(menuReducer(selected, { kind: 'select', id: 'disabled' }, items), selected);
 });
 
-test('dropdown behavior separates highlighted and committed choices', () => {
-  const opened = dropdownReducer({ kind: 'closed', selected: 'alpha' }, { kind: 'open' }, choices);
-  const moved = dropdownReducer(opened, { kind: 'move', delta: 1 }, choices);
-  const committed = dropdownReducer(moved, { kind: 'activate', id: moved.highlighted }, choices);
+test('dropdownMenu behavior separates highlighted and committed choices', () => {
+  const opened = dropdownMenuReducer({ kind: 'closed', selected: 'alpha' }, { kind: 'open' }, choices);
+  const moved = dropdownMenuReducer(opened, { kind: 'move', delta: 1 }, choices);
+  const committed = dropdownMenuReducer(moved, { kind: 'activate', id: moved.highlighted }, choices);
 
   assert.equal(opened.highlighted, 'alpha');
   assert.equal(moved.highlighted, 'beta');
-  assert.deepEqual(dropdownPresentation(committed), { kind: 'closed', selected: 'beta' });
+  assert.deepEqual(dropdownMenuPresentation(committed), { kind: 'closed', selected: 'beta' });
 });
 
 test('tabs behavior skips disabled tabs and leaves close ownership with the app', () => {
@@ -58,12 +58,12 @@ test('tabs behavior skips disabled tabs and leaves close ownership with the app'
 });
 
 test('choice controls keep distinct action semantics while sharing item foundations', () => {
-  const checked = checkboxListReducer({ selected: ['alpha'] }, { kind: 'toggle', id: 'beta' }, choices);
+  const checked = checkboxGroupReducer({ selected: ['alpha'] }, { kind: 'toggle', id: 'beta' }, choices);
   const radio = radioGroupReducer({}, { kind: 'select', id: 'beta' }, choices);
-  const selected = selectBoxReducer({}, { kind: 'move', delta: 1 }, choices);
-  const color = colorPickerReducer({}, { kind: 'select', id: 'beta' }, choices);
+  const selected = selectReducer({}, { kind: 'move', delta: 1 }, choices);
+  const color = colorSwatchPickerReducer({}, { kind: 'select', id: 'beta' }, choices);
 
-  assert.deepEqual(checkboxListPresentation(checked), { selected: ['alpha', 'beta'], focused: 'beta' });
+  assert.deepEqual(checkboxGroupPresentation(checked), { selected: ['alpha', 'beta'], focused: 'beta' });
   assert.deepEqual(radio, { selected: 'beta', focused: 'beta' });
   assert.deepEqual(selected, { focused: 'alpha' });
   assert.deepEqual(color, { selected: 'beta', focused: 'beta' });

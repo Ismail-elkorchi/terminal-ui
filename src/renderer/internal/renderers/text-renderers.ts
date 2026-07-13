@@ -1,5 +1,5 @@
 import {
-  activityIndicatorAccessibleBase,
+  statusIndicatorAccessibleBase,
   richTextAccessibleBase,
   richTextBlock,
   textAccessibleBase,
@@ -9,7 +9,7 @@ import {
   textAreaPointerOffset,
   textBlock,
 } from '../text-widgets.ts';
-import { activityIndicatorBlock } from '../feedback-visual.ts';
+import { statusIndicatorBlock } from '../feedback-visual.ts';
 import { writeRenderBlock } from './support/block.ts';
 import { focusTarget } from './support/common.ts';
 import {
@@ -57,10 +57,10 @@ export const textRenderers = {
       ];
     }
   },
-  activityIndicator: {
+  statusIndicator: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, activityIndicatorBlock(renderNode, theme));
+      writeRenderBlock(buffer, layoutNode.bounds, statusIndicatorBlock(renderNode, theme));
     },
-    accessibility: ({ renderNode, id }) => activityIndicatorAccessibleBase(renderNode, id)
+    accessibility: ({ renderNode, id }) => statusIndicatorAccessibleBase(renderNode, id)
   }
-} satisfies RendererMap<'text' | 'richText' | 'textArea' | 'activityIndicator'>;
+} satisfies RendererMap<'text' | 'richText' | 'textArea' | 'statusIndicator'>;

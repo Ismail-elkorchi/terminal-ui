@@ -69,3 +69,9 @@ export interface HelpBinding {
   readonly key: string;
   readonly label: string;
 }
+
+export interface HelpGroup {
+  readonly id: string;
+  readonly label?: string;
+  readonly bindings: readonly HelpBinding[];
+}

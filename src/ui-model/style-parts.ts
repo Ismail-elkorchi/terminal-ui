@@ -80,8 +80,9 @@ export type ChartStylePart =
   | 'legend'
   | 'empty';
 export type SurfaceStylePart = 'background' | 'border' | 'title' | 'shadow';
+export type SplitPaneStylePart = 'divider' | 'dividerActive';
 export type TabsStylePart = 'label' | 'indicator' | 'badge' | 'close' | 'overflow';
-export type ModalStylePart = 'background' | 'border' | 'title' | 'actionSeparator';
+export type DialogStylePart = 'background' | 'border' | 'title' | 'actionSeparator';
 export type DocumentStylePart =
   | 'title'
   | 'summary'
@@ -95,7 +96,7 @@ export type DocumentStylePart =
   | 'timestamp'
   | 'separator'
   | 'scrollbar';
-export type CommandBarStylePart =
+export type CommandInputStylePart =
   | TextEntryStylePart
   | 'prompt'
   | 'completion'

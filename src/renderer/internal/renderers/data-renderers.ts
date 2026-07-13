@@ -2,12 +2,13 @@ import {
   barChartAccessibleBase,
   barChartAccessibleChildren,
   barChartBlock,
+  barChartHitTargets,
   chartAccessibleBase,
   chartAccessibleChildren,
   chartBlock,
   chartHitTargets,
-  gaugeAccessibleBase,
-  gaugeBlock,
+  meterAccessibleBase,
+  meterBlock,
   heatmapAccessibleBase,
   heatmapAccessibleChildren,
   heatmapBlock,
@@ -66,7 +67,8 @@ export const dataRenderers = {
       ...barChartAccessibleBase(renderNode, layoutNode, id, focused),
       children: barChartAccessibleChildren(renderNode, layoutNode)
     }),
-    focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : []
+    focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : [],
+    hitTargets: ({ renderNode, bounds }) => barChartHitTargets(renderNode, bounds)
   },
   chart: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {
@@ -79,11 +81,11 @@ export const dataRenderers = {
     focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : [],
     hitTargets: ({ renderNode, bounds }) => chartHitTargets(renderNode, bounds)
   },
-  gauge: {
+  meter: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, gaugeBlock(renderNode, theme));
+      writeRenderBlock(buffer, layoutNode.bounds, meterBlock(renderNode, theme));
     },
-    accessibility: ({ renderNode, id }) => gaugeAccessibleBase(renderNode, id)
+    accessibility: ({ renderNode, id }) => meterAccessibleBase(renderNode, id)
   },
   heatmap: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {
@@ -192,4 +194,4 @@ export const dataRenderers = {
     focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : [],
     hitTargets: ({ renderNode, bounds, theme }) => activityFeedHitTargets(renderNode, bounds, theme)
   }
-} satisfies RendererMap<'sparkline' | 'barChart' | 'chart' | 'gauge' | 'heatmap' | 'list' | 'table' | 'tree' | 'paginator' | 'scrollback' | 'structuredBlock' | 'activityFeed'>;
+} satisfies RendererMap<'sparkline' | 'barChart' | 'chart' | 'meter' | 'heatmap' | 'list' | 'table' | 'tree' | 'paginator' | 'scrollback' | 'structuredBlock' | 'activityFeed'>;

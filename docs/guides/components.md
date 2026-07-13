@@ -3,7 +3,10 @@
 Components are typed public factories that return opaque `Element<TMessage>`
 values. They are generic UI building blocks, not product-specific recipes.
 
-Use this matrix to choose the narrowest component that matches the job.
+Use this matrix to choose the narrowest component that matches the job. Add a
+component only when it owns distinct state, actions, accessibility, or
+presentation semantics that current layout and component contracts cannot
+express cleanly.
 
 | Component | Role | Not |
 | --- | --- | --- |
@@ -12,13 +15,13 @@ Use this matrix to choose the narrowest component that matches the job.
 | `textArea()` | Caller-owned multi-line editable text surface with cursor, selection, gutter, wrapping, and scroll state. | A full IDE editor with syntax services, files, or undo history. |
 | `textInput()` | Caller-owned single-line editable value with cursor, placeholder, validation, and pointer-to-text support. | A command palette, number parser, or multi-line editor. |
 | `numberInput()` | Single numeric field with optional step controls and validation display. | A slider, range selector, or numeric domain model. |
-| `stack()` | Vertical composition with shared flow options. | A visual panel or scroll container by itself. |
+| `column()` | Vertical composition with shared flow options. | A visual panel or scroll container by itself. |
 | `row()` | Horizontal composition with shared flow options. | A toolbar semantic model or menu. |
 | `grid()` | Row/column layout, including named areas, for explicit spatial composition. | A responsive app shell or breakpoint policy engine. |
-| `splitPane()` | Axis-based pane division with caller-owned sizes. | A file explorer, workbench frame, or resizable window manager. |
+| `splitPane()` | Axis-based pane division with static tracks or caller-owned divider selection and resize actions. | Ownership of pane content, persistence, or a general window manager. |
 | `surface()` | Single-child visual container for hierarchy, border/title grammar, state tone, and accessible naming. | A multi-child layout primitive; compose children before wrapping. |
 | `tabs()` | Tab header plus selected-panel layout with semantic select, close, and navigation actions. | Navigation routing, persistence, or hidden panel state. |
-| `modal()` | Centered contained dialog with optional action area and focus containment. | A general overlay system or application-level route. |
+| `dialog()` | Centered contained dialog with optional action area and focus containment. | A general overlay system or application-level route. |
 | `overlay()` | Layer multiple children in the same bounds. | A positioning engine with product semantics. |
 | `absolute()` | Place one child at a relative rectangle. | A layout solver or drag/drop framework. |
 | `viewport()` | Bounded window over one child with caller-owned scroll offsets. | A semantic list, table, editor, or transcript component. |
@@ -31,36 +34,36 @@ Use this matrix to choose the narrowest component that matches the job.
 | `toggleSwitch()` | Boolean on/off control with switch visual anatomy. | A checkbox list or status indicator. |
 | `slider()` | Single numeric value on a track. | Progress display or range selection. |
 | `rangeSlider()` | Two numeric endpoints on one track. | Two unrelated sliders or a progress meter. |
-| `checkboxList()` | Multiple independent choices with semantic focus, movement, and toggle actions. | A tree, table, or form validator. |
+| `checkboxGroup()` | Multiple independent choices with semantic focus, movement, and toggle actions. | A tree, table, or form validator. |
 | `radioGroup()` | One selected choice with semantic focus and selection actions. | A menu or arbitrary command list. |
-| `selectBox()` | Form-style single value choice with semantic focus and selection actions. | A command menu, context menu, or searchable palette. |
-| `colorPicker()` | Compact caller-owned color choice with semantic navigation and selection actions. | A full color-management tool. |
-| `datePicker()` | Compact caller-owned date choice control. | Calendar scheduling or date arithmetic. |
+| `select()` | Form-style single value choice with semantic focus and selection actions. | A command menu, context menu, or searchable palette. |
+| `colorSwatchPicker()` | Compact caller-owned color choice with semantic navigation and selection actions. | A full color-management tool. |
+| `calendar()` | Compact caller-owned date choice control. | Calendar scheduling or date arithmetic. |
 | `menu()` | Inline command/action list with semantic navigation, activation, hierarchy, and scroll actions. | A form value selector or searchable command surface. |
 | `menuBar()` | Horizontal top-level commands using the menu action contract. | Application chrome ownership or routing. |
 | `contextMenu()` | Contextual command surface for a target. | Global navigation or persistent sidebar. |
-| `dropdown()` | Compact action surface with separate open, highlight, and committed selection state. | A validated form value control; use `selectBox()` for required/error form semantics. |
+| `dropdownMenu()` | Compact action surface with separate open, highlight, and committed selection state. | A validated form value control; use `select()` for required/error form semantics. |
 | `palette()` | Searchable bounded picker for commands or data entries. | A shell, command parser, or application command registry. |
-| `commandBar()` | Single-line command/composer surface with suggestions and history hooks. | A transcript, event log, or command execution engine. |
+| `commandInput()` | Single-line command/composer surface with suggestions and history hooks. | A transcript, event log, or command execution engine. |
 | `list()` | Simple selectable/filterable row list. | A table, tree, or virtual data store. |
 | `table()` | Structured rows and columns with selection, scrolling, density, and cell semantics. | A spreadsheet engine or database. |
 | `tree()` | Expandable hierarchy with selection, filtering, lazy placeholders, and pointer targets. | A filesystem API or ownership of expansion state. |
 | `paginator()` | Page navigation control paired with caller-owned paging state. | Data loading or page storage. |
 | `scrollback()` | Append-heavy visible window with semantic scroll, search, fold, and follow-tail actions. | A command input or complete session ledger. |
 | `structuredBlock()` | One titled status record with fields, summary, body, and details. | A generic layout surface or arbitrary markdown block. |
-| `activityFeed()` | Bounded structured records with semantic selection, filtering, and expansion actions. | Durable history storage or job orchestration. |
-| `statusBar()` | Compact status line for app/system state. | A command bar, menu bar, or layout frame. |
-| `helpBar()` | Keybinding and hint display. | Keybinding registration or command routing. |
-| `activityIndicator()` | Small activity state display. | Progress measurement or task scheduling. |
+| `activityFeed()` | Bounded structured records with stable-ID selection and expansion actions. | Filtering policy, durable history storage, or job orchestration. |
+| `statusBar()` | Passive leading, centered, and trailing text/status items under constrained width. | A command bar, menu bar, or interactive layout frame. |
+| `helpBar()` | Grouped keybinding hints with deterministic constrained-width projection. | Keybinding registration or command routing. |
+| `statusIndicator()` | Small activity state display. | Progress measurement or task scheduling. |
 | `progressBar()` | Determinate or indeterminate progress display. | Editable range input or status record. |
 | `spinner()` | Animated process indicator driven by caller-owned frame state. | A scheduler or hidden runtime timer. |
 | `notificationStack()` | Transient bounded notifications within caller-chosen layout bounds. | A global toast manager or overlay placement policy. |
 | `tooltip()` | Small contextual explanation with placement hints. | A focus manager, popover controller, or overlay lifecycle system. |
 | `divider()` | Visual separation and section rhythm. | Layout spacing by itself. |
 | `sparkline()` | Tiny trend visualization. | Full chart with axes, legend, or interaction. |
-| `barChart()` | Compact categorical bar visualization. | Table replacement or arbitrary canvas drawing. |
+| `barChart()` | Compact categorical bars with stable-ID selection and activation actions. | Table replacement or arbitrary canvas drawing. |
 | `chart()` | Bounded multi-series chart with sampling, axes, semantic selection, and keyboard window navigation. | A charting application or data analytics engine. |
-| `gauge()` | Compact scalar gauge. | Progress workflow or editable value input. |
+| `meter()` | Compact scalar meter. | Progress workflow or editable value input. |
 | `heatmap()` | Grid of values with value-scale coloring and semantic cell and viewport navigation. | Spreadsheet, calendar, or matrix editor. |
 
 ## Shared Contracts
@@ -73,7 +76,7 @@ are excluded from their parent's accessibility tree and must not expose
 keyboard, text-input, focus, or pointer interaction.
 
 `meta.focus` can disable focus traversal, set focus order, or contain focus
-inside a subtree. `modal()` declares a contained focus scope by default.
+inside a subtree. `dialog()` declares a contained focus scope by default.
 
 `meta.layer` controls visibility, z-index, opacity, and overflow priority.
 Higher visible layers render above lower layers and receive pointer hits first.

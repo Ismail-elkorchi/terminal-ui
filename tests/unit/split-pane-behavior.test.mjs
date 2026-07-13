@@ -1,0 +1,107 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  createSplitPaneState,
+  splitPanePresentation,
+  splitPaneReducer
+} from '../../dist/behavior/index.js';
+import { text } from '../../dist/components/index.js';
+import { splitPane } from '../../dist/layout/index.js';
+import { createTerminalHarness } from '../../dist/testing/index.js';
+import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
+
+test('split pane reducer preserves adjacent share totals and enforces constraints', () => {
+  const initial = createSplitPaneState(3, [0.25, 0.5, 0.25]);
+  const moved = splitPaneReducer(initial, { kind: 'resizeBy', deltaShare: 0.2 }, {
+    constraints: [
+      { minShare: 0.2, maxShare: 0.4 },
+      { minShare: 0.35 },
+      { minShare: 0.2 }
+    ]
+  });
+
+  assert.deepEqual(moved.shares, [0.4, 0.35, 0.25]);
+  assert.equal(moved.shares.reduce((sum, value) => sum + value, 0), 1);
+  assert.deepEqual(splitPanePresentation(moved).sizes, [
+    { kind: 'percent', value: 40 },
+    { kind: 'percent', value: 35 },
+    { kind: 'percent', value: 25 }
+  ]);
+});
+
+test('split pane drag uses its immutable press anchor', () => {
+  const initial = createSplitPaneState(2, [0.5, 0.5]);
+  const started = splitPaneReducer(initial, { kind: 'beginResize', dividerIndex: 0 });
+  const first = splitPaneReducer(started, {
+    kind: 'resizeFromAnchor',
+    dividerIndex: 0,
+    deltaShare: 0.1
+  });
+  const second = splitPaneReducer(first, {
+    kind: 'resizeFromAnchor',
+    dividerIndex: 0,
+    deltaShare: 0.2
+  });
+  const ended = splitPaneReducer(second, { kind: 'endResize', dividerIndex: 0 });
+
+  assert.deepEqual(first.shares, [0.6, 0.4]);
+  assert.deepEqual(second.shares, [0.7, 0.3]);
+  assert.equal(ended.drag, undefined);
+});
+
+test('resizable split pane routes keyboard and captured pointer drag actions', async () => {
+  const app = defineTui({
+    id: 'resizable-split-pane',
+    init: () => ({ split: createSplitPaneState(2, [0.5, 0.5]) }),
+    update: (state, message) => ({
+      state: { split: splitPaneReducer(state.split, message.action) }
+    }),
+    view: (state) => splitPane([
+      text('left', { id: 'left' }),
+      text('right', { id: 'right' })
+    ], {
+      id: 'workspace-split',
+      direction: 'horizontal',
+      ...splitPanePresentation(state.split),
+      onAction: (action) => ({ action })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.handleInput({ kind: 'key', key: 'arrowRight', ctrl: false, alt: false, shift: false, meta: false });
+  assert.deepEqual(runtime.getState().split.shares, [0.55, 0.45]);
+
+  const divider = runtime.frame().hitTargets?.find((target) => target.id === 'divider.0');
+  assert.deepEqual(divider?.bounds, { row: 1, column: 11, width: 1, height: 3 });
+  await runtime.handleInputChunk({ data: '\u001B[<0;11;1M' });
+  await runtime.handleInputChunk({ data: '\u001B[<32;13;1M' });
+  await runtime.handleInputChunk({ data: '\u001B[<0;13;1m' });
+
+  assert.ok(Math.abs(runtime.getState().split.shares[0] - (0.55 + (2 / 18))) < 1e-12);
+  assert.equal(runtime.getState().split.drag, undefined);
+});
+
+test('resizable split pane rejects geometry that cannot expose dividers', () => {
+  assert.throws(
+    () => splitPane([text('only')], {
+      id: 'invalid-one-pane',
+      direction: 'horizontal',
+      sizes: [{ kind: 'percent', value: 100 }],
+      onAction: () => ({ kind: 'none' })
+    }),
+    /requires at least two children/u
+  );
+  assert.throws(
+    () => splitPane([text('left'), text('right')], {
+      id: 'invalid-gap',
+      direction: 'horizontal',
+      sizes: [{ kind: 'percent', value: 50 }, { kind: 'percent', value: 50 }],
+      gap: 0,
+      onAction: () => ({ kind: 'none' })
+    }),
+    /gap of at least one cell/u
+  );
+});

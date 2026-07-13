@@ -8,19 +8,36 @@ import {
   tableReducer
 } from '../../dist/behavior/index.js';
 
-test('tableReducer clamps row and cell selection through caller-provided bounds', () => {
-  const row = tableReducer({}, { kind: 'selectRow', row: 12 }, { rowCount: 3 });
-  const cell = tableReducer(row, { kind: 'selectCell', row: -1, column: 99 }, { rowCount: 3, columnCount: 2 });
+const rows = ['row-0', 'row-1', 'row-2', 'row-3'];
+const options = { rows, getRowId: (row) => row, columnCount: 3 };
 
-  assert.deepEqual(row, { selectedRow: 2 });
-  assert.deepEqual(cell, { selectedRow: 0, selectedColumn: 1 });
+test('tableReducer selects rows by stable id and clamps cell columns', () => {
+  const row = tableReducer({}, { kind: 'selectRow', rowId: 'row-2', rowIndex: 2 }, options);
+  const cell = tableReducer(row, { kind: 'selectCell', rowId: 'row-0', rowIndex: 0, column: 99 }, options);
+
+  assert.deepEqual(row, { selectedRowId: 'row-2' });
+  assert.deepEqual(cell, { selectedRowId: 'row-0', selectedColumn: 2 });
+});
+
+test('tableReducer preserves identity across reorder and recovers after deletion', () => {
+  const selected = tableReducer({}, { kind: 'selectRow', rowId: 'row-2', rowIndex: 2 }, options);
+  const reordered = { ...options, rows: ['row-3', 'row-2', 'row-0', 'row-1'] };
+  const moved = tableReducer(selected, { kind: 'moveRow', delta: 1 }, reordered);
+  const deleted = { ...options, rows: ['row-3', 'row-0', 'row-1'] };
+  const recoveredNext = tableReducer(selected, { kind: 'moveRow', delta: 1 }, deleted);
+  const recoveredPrevious = tableReducer(selected, { kind: 'moveRow', delta: -1 }, deleted);
+
+  assert.equal(selected.selectedRowId, 'row-2');
+  assert.equal(moved.selectedRowId, 'row-0');
+  assert.equal(recoveredNext.selectedRowId, 'row-3');
+  assert.equal(recoveredPrevious.selectedRowId, 'row-1');
 });
 
 test('tableReducer toggles sort state and resizes columns', () => {
-  const first = tableReducer({}, { kind: 'sortBy', column: 'name' });
-  const second = tableReducer(first, { kind: 'sortBy', column: 'name' });
-  const resized = tableReducer(second, { kind: 'resizeColumn', column: 'name', delta: 4 }, { minColumnWidth: 3 });
-  const shrunk = tableReducer(resized, { kind: 'resizeColumn', column: 'name', delta: -100 }, { minColumnWidth: 3 });
+  const first = tableReducer({}, { kind: 'sortBy', column: 'name' }, options);
+  const second = tableReducer(first, { kind: 'sortBy', column: 'name' }, options);
+  const resized = tableReducer(second, { kind: 'resizeColumn', column: 'name', delta: 4 }, { ...options, minColumnWidth: 3 });
+  const shrunk = tableReducer(resized, { kind: 'resizeColumn', column: 'name', delta: -100 }, { ...options, minColumnWidth: 3 });
 
   assert.deepEqual(first.sort, { column: 'name', direction: 'ascending' });
   assert.deepEqual(second.sort, { column: 'name', direction: 'descending' });
@@ -31,14 +48,14 @@ test('tableReducer toggles sort state and resizes columns', () => {
 test('tablePresentation projects every renderer-owned table state field', () => {
   const scroll = createScrollState({ contentRows: 20, viewportRows: 5 });
   assert.deepEqual(tablePresentation({
-    selectedRow: 3,
+    selectedRowId: 'row-3',
     selectedColumn: 2,
     sort: { column: 'name', direction: 'descending' },
     columnWidths: { name: 18 },
     scroll
   }), {
-    selected: 3,
-    selectedCell: { row: 3, column: 2 },
+    selectedRowId: 'row-3',
+    selectedCell: { rowId: 'row-3', column: 2 },
     sort: { column: 'name', direction: 'descending' },
     columnWidths: { name: 18 },
     scroll
@@ -81,7 +98,7 @@ test('tableReducer forwards scroll actions without creating hidden table state',
         }
       }
     }
-  });
+  }, options);
 
   assert.equal(state.scroll?.offsetRow, 4);
   assert.equal(state.scroll?.offsetColumn, 2);

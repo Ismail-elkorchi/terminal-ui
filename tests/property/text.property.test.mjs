@@ -18,7 +18,7 @@ import { clipTextCells,
   segmentGraphemes,
   wrapTextCells } from '../../dist/text/index.js';
 import { textInput } from '../../dist/components/index.js';
-import { stack } from '../../dist/layout/index.js';
+import { column } from '../../dist/layout/index.js';
 import { textSamples } from '../support/text-samples.mjs';
 
 test('text property checks keep sanitization segmentation clipping and wrapping bounded', () => {
@@ -74,7 +74,7 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
     id: 'focus-properties',
     init: () => ({ active: 'initial' }),
     update: (state, message) => ({ state: { ...state, active: message.kind } }),
-    view: (state) => stack([
+    view: (state) => column([
       textInput({
         id: 'first',
         value: state.active,

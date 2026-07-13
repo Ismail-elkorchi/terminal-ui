@@ -16,20 +16,20 @@ import {
   notificationStackHitTargets,
   renderNotificationStack
 } from '../notifications.ts';
-import { stringify } from '../render-node-props.ts';
+import { statusBarAccessibleText } from '../feedback-visual.ts';
 import { writeRenderBlock } from './support/block.ts';
 import type { RendererMap } from './types.ts';
 
 export const feedbackRenderers = {
   statusBar: {
-    render: ({ renderNode, layoutNode, buffer }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, statusBarBlock(renderNode));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, statusBarBlock(renderNode, theme, layoutNode.bounds.width));
     },
     accessibility: ({ renderNode, id }) => ({
       id,
       role: 'status',
       label: id,
-      value: stringify(renderNode.props.text),
+      value: statusBarAccessibleText(renderNode),
       live: 'polite'
     })
   },

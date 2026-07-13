@@ -1,10 +1,10 @@
-import type { DropdownAction, DropdownPresentation, MenuAction } from '../ui-model/menu.ts';
+import type { DropdownMenuAction, DropdownMenuPresentation, MenuAction } from '../ui-model/menu.ts';
 import type { MenuItem } from '../ui-model/menu.ts';
 import { adjacentItemId } from './navigation.ts';
 import { applyScrollEvent } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 
-export type { DropdownPresentation } from '../ui-model/menu.ts';
+export type { DropdownMenuPresentation } from '../ui-model/menu.ts';
 
 export interface MenuState {
   readonly selected?: string;
@@ -61,23 +61,23 @@ export function menuPresentation(items: readonly MenuItem[], state: MenuState): 
   };
 }
 
-export type DropdownState = DropdownPresentation;
+export type DropdownMenuState = DropdownMenuPresentation;
 
-export function dropdownReducer(
-  state: DropdownState,
-  action: DropdownAction,
+export function dropdownMenuReducer(
+  state: DropdownMenuState,
+  action: DropdownMenuAction,
   items: readonly MenuItem[]
-): DropdownState {
+): DropdownMenuState {
   const enabled = visibleMenuItems(items, []).filter((item) => item.disabled !== true);
   switch (action.kind) {
     case 'open':
-      return state.kind === 'open' ? state : openDropdown(state, validHighlight(state, enabled));
+      return state.kind === 'open' ? state : openDropdownMenu(state, validHighlight(state, enabled));
     case 'close':
-      return state.kind === 'open' ? closeDropdown(state) : state;
+      return state.kind === 'open' ? closeDropdownMenu(state) : state;
     case 'toggle':
       return state.kind === 'open'
-        ? closeDropdown(state)
-        : openDropdown(state, validHighlight(state, enabled));
+        ? closeDropdownMenu(state)
+        : openDropdownMenu(state, validHighlight(state, enabled));
     case 'highlight':
       return state.kind === 'open' && enabled.some((item) => item.id === action.id)
         ? { ...state, highlighted: action.id }
@@ -97,7 +97,7 @@ export function dropdownReducer(
   }
 }
 
-export function dropdownPresentation(state: DropdownState): DropdownPresentation {
+export function dropdownMenuPresentation(state: DropdownMenuState): DropdownMenuPresentation {
   return state;
 }
 
@@ -134,7 +134,7 @@ function withAdjacentSelection(state: MenuState, items: readonly MenuItem[], del
   return selected === undefined ? state : { ...state, selected };
 }
 
-function withAdjacentHighlight(state: DropdownState, items: readonly MenuItem[], delta: number): DropdownState {
+function withAdjacentHighlight(state: DropdownMenuState, items: readonly MenuItem[], delta: number): DropdownMenuState {
   if (state.kind !== 'open') return state;
   const currentId = state.highlighted ?? state.selected;
   const highlighted = adjacentItemId(items.map((item) => item.id), currentId, delta);
@@ -152,16 +152,16 @@ function setExpanded(state: MenuState, id: string, expanded: boolean): MenuState
   return expandedIds === state.expandedIds ? state : { ...state, expandedIds };
 }
 
-function validHighlight(state: DropdownState, items: readonly MenuItem[]): string | undefined {
+function validHighlight(state: DropdownMenuState, items: readonly MenuItem[]): string | undefined {
   const candidate = state.kind === 'open' ? state.highlighted ?? state.selected : state.selected;
   return items.some((item) => item.id === candidate) ? candidate : items[0]?.id;
 }
 
-function closeDropdown(state: DropdownState): DropdownState {
+function closeDropdownMenu(state: DropdownMenuState): DropdownMenuState {
   return state.selected === undefined ? { kind: 'closed' } : { kind: 'closed', selected: state.selected };
 }
 
-function openDropdown(state: DropdownState, highlighted: string | undefined): DropdownState {
+function openDropdownMenu(state: DropdownMenuState, highlighted: string | undefined): DropdownMenuState {
   return {
     kind: 'open',
     ...(state.selected === undefined ? {} : { selected: state.selected }),

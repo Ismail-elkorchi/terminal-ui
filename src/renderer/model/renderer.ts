@@ -78,6 +78,7 @@ export interface RenderNodeHitInput<
   TKind extends RenderNodeKind = RenderNodeKind
 > {
   readonly renderNode: RendererNode<TMessage, TKind>;
+  readonly layoutNode: LayoutNode;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
 }

@@ -11,7 +11,7 @@ import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import {
   grid,
   row,
-  stack,
+  column,
   surface
 } from '@ismail-elkorchi/terminal-ui/layout';
 import {
@@ -96,7 +96,7 @@ export const btopMonitorApp = defineTui({
 function initialState() {
   return {
     tick: 0,
-    selectedProcess: 9,
+    selectedProcessId: String(processRows[9]?.pid ?? processRows[0]?.pid ?? ''),
     sort: 'memory',
     processOffset: 0
   };
@@ -114,15 +114,19 @@ function updateMonitor(state, message) {
     case 'sort':
       return { state: { ...state, sort: state.sort === 'memory' ? 'cpu' : 'memory' } };
     case 'selectProcess': {
-      const selectedProcess = clamp(state.selectedProcess + message.delta, 0, processRows.length - 1);
+      const rows = sortedProcesses(state);
+      const currentIndex = Math.max(0, rows.findIndex((row) => String(row.pid) === state.selectedProcessId));
+      const selectedProcess = clamp(currentIndex + message.delta, 0, rows.length - 1);
       return {
         state: {
           ...state,
-          selectedProcess,
+          selectedProcessId: String(rows[selectedProcess]?.pid ?? ''),
           processOffset: Math.max(0, Math.min(selectedProcess - 8, processRows.length - 12))
         }
       };
     }
+    case 'selectProcessId':
+      return { state: { ...state, selectedProcessId: message.id } };
     case 'exit':
       return { state, exit: { reason: 'user requested exit' } };
   }
@@ -190,7 +194,11 @@ function compactMonitor(state) {
 }
 
 function topBar(state) {
-  return surface(statusBar({ id: 'btop-uptime', text: `Up ${formatUptime(state.tick)}  Load avg: 1.72 1.95 1.98` }), {
+  return surface(statusBar({
+    id: 'btop-uptime',
+    leading: [{ id: 'uptime', kind: 'text', text: `Up ${formatUptime(state.tick)}` }],
+    trailing: [{ id: 'load', kind: 'text', text: 'Load avg: 1.72 1.95 1.98' }]
+  }), {
     id: 'btop-top',
     title: {
       start: panelTitle('cpu', 'mem', `preset *  ${formatClock(state.tick)}`),
@@ -214,7 +222,7 @@ function cpuPanel(state) {
     columns: [{ kind: 'fill' }, { kind: 'fixed', cells: 48 }],
     gap: 2,
     children: {
-      graph: stack([
+      graph: column([
         text('i7-4770HQ                                             2.5 GHz', { id: 'cpu-caption', textRole: 'metadata' }),
         chart({
           id: 'cpu-chart',
@@ -230,7 +238,7 @@ function cpuPanel(state) {
           status: 'success'
         })
       ], {
-        id: 'cpu-graph-stack',
+        id: 'cpu-graph-column',
         gap: 0,
         sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }]
       }),
@@ -254,7 +262,7 @@ function corePanel(state) {
     const temp = 69 + ((index + state.tick) % 8);
     return { core: `C${String(index)}`, load, temp };
   });
-  return stack([
+  return column([
     progressBar({ id: 'cpu-total', label: 'CPU', value: 38 + (state.tick % 4), max: 100, display: 'bar+percent', barWidth: 28, valueScale: monitorScale }),
     grid({
       id: 'core-grid',
@@ -269,12 +277,12 @@ function corePanel(state) {
         right: coreList(cores.slice(4), 'right')
       }
     }),
-    statusBar({ id: 'load-avg', text: 'Load avg: 1.72 1.95 1.98' })
+    statusBar({ id: 'load-avg', trailing: [{ id: 'load', kind: 'text', text: 'Load avg: 1.72 1.95 1.98' }] })
   ], { id: 'core-panel', gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }] });
 }
 
 function coreList(cores, id) {
-  return stack(cores.map((core) => row([
+  return column(cores.map((core) => row([
     text(core.core, { id: `${id}-${core.core}-label`, textRole: 'metadata' }),
     sparkline({ id: `${id}-${core.core}-spark`, values: coreSpark(core.load), min: 0, max: 100, valueScale: monitorScale }),
     text(`${String(core.load).padStart(2, ' ')}% ${String(core.temp)}°C`, { id: `${id}-${core.core}-value`, textRole: 'metric' })
@@ -286,12 +294,12 @@ function coreList(cores, id) {
 }
 
 function memoryPanel() {
-  return surface(stack([
+  return surface(column([
     memoryRow('Total', 15.4, 'GiB', 76, 'warning'),
     memoryRow('Available', 3.75, 'GiB', 24, 'success'),
     memoryRow('Cached', 5.86, 'GiB', 38, 'success'),
     memoryRow('Free', 987, 'MiB', 6, 'success')
-  ], { id: 'memory-stack', gap: 1 }), {
+  ], { id: 'memory-column', gap: 1 }), {
     id: 'memory-panel',
     label: 'mem',
     title: panelTitle('mem', '15.4 GiB', '76%'),
@@ -301,7 +309,7 @@ function memoryPanel() {
 }
 
 function memoryRow(label, value, unit, percent, status) {
-  return stack([
+  return column([
     row([
       text(`${label}:`, { id: `${label}-label`, textRole: 'metadata' }),
       text(`${String(value)} ${unit}`, { id: `${label}-value`, textRole: 'metric' })
@@ -320,11 +328,11 @@ function memoryRow(label, value, unit, percent, status) {
 }
 
 function disksPanel() {
-  return surface(stack([
+  return surface(column([
     storageRow('root', 61, '138 GiB', '89.2 GiB'),
     storageRow('swap', 13, '1.55 GiB', '10.1 GiB'),
     storageRow('efi', 1, '6.30 MiB', '968 MiB')
-  ], { id: 'disks-stack', gap: 1 }), {
+  ], { id: 'disks-column', gap: 1 }), {
     id: 'disks-panel',
     label: 'disks',
     title: panelTitle('disks', 'root/swap/efi', '61%'),
@@ -334,7 +342,7 @@ function disksPanel() {
 }
 
 function storageRow(name, used, usedText, freeText) {
-  return stack([
+  return column([
     row([
       text(name, { id: `${name}-name`, textRole: 'metadata' }),
       text(`${usedText} used`, { id: `${name}-used`, textRole: 'metric' })
@@ -391,7 +399,7 @@ function networkPanel(state) {
         xLabel: 'wlp3s0',
         status: 'success'
       }),
-      stats: stack([
+      stats: column([
         structuredLine('download', '▼ 474 Byte/s', 'Top: 717 Kibps'),
         structuredLine('upload', '▲ 2.64 KiB/s', 'Top: 54.8 Kibps'),
         text('Total: 1.51 GiB', { id: 'net-total-down', textRole: 'metadata' }),
@@ -408,7 +416,7 @@ function networkPanel(state) {
 }
 
 function structuredLine(label, first, second) {
-  return stack([
+  return column([
     text(label, { id: `${label}-label`, textRole: 'heading' }),
     text(first, { id: `${label}-first`, textRole: 'metric' }),
     text(second, { id: `${label}-second`, textRole: 'metadata' })
@@ -417,16 +425,16 @@ function structuredLine(label, first, second) {
 
 function processPanel(state) {
   const rows = sortedProcesses(state).slice(state.processOffset);
-  const selected = Math.max(0, state.selectedProcess - state.processOffset);
-  return surface(stack([
+  return surface(column([
     row([
-      statusBar({ id: 'proc-mode', text: `proc filter  sort=${state.sort}` }),
-      statusBar({ id: 'proc-flags', text: 'per-core reverse tree memory' })
+      statusBar({ id: 'proc-mode', leading: [{ id: 'mode', kind: 'text', text: `proc filter  sort=${state.sort}` }] }),
+      statusBar({ id: 'proc-flags', trailing: [{ id: 'flags', kind: 'text', text: 'per-core reverse tree memory' }] })
     ], { id: 'proc-header', sizes: [{ kind: 'fill' }, { kind: 'content' }] }),
     table({
+      getRowId: (row) => String(row.pid),
       id: 'process-table',
       rows,
-      selected,
+      selectedRowId: state.selectedProcessId,
       density: 'dense',
       stickyHeader: true,
       scrollbar: { visible: 'auto' },
@@ -450,9 +458,12 @@ function processPanel(state) {
         arrowDown: () => ({ kind: 'selectProcess', delta: 1 }),
         arrowUp: () => ({ kind: 'selectProcess', delta: -1 }),
         text: { s: () => ({ kind: 'sort' }) }
-      }
+      },
+      onAction: (action) => action.kind === 'selectRow' || action.kind === 'selectCell' || action.kind === 'activate'
+        ? { kind: 'selectProcessId', id: action.rowId }
+        : undefined
     })
-  ], { id: 'proc-stack', gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }] }), {
+  ], { id: 'proc-column', gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }] }), {
     id: 'process-panel',
     label: 'proc',
     title: panelTitle('proc', `sort=${state.sort}`, `${String(rows.length)} rows`),
@@ -464,11 +475,14 @@ function processPanel(state) {
 function footerHelp() {
   return helpBar({
     id: 'btop-help',
-    bindings: [
-      { key: '↑/↓', label: 'select' },
-      { key: 's', label: 'sort' },
-      { key: 'q', label: 'quit' }
-    ]
+    groups: [{
+      id: 'processes',
+      bindings: [
+        { key: '↑/↓', label: 'select' },
+        { key: 's', label: 'sort' },
+        { key: 'q', label: 'quit' }
+      ]
+    }]
   });
 }
 
@@ -542,7 +556,7 @@ export async function runScriptedBtopMonitor() {
       hasMemory: output.includes('Total:'),
       hasNetwork: output.includes('wlp3s0') || output.includes('Kibps'),
       hasProcesses: output.includes('Program'),
-      selectedProcess: runtime.getState().selectedProcess,
+      selectedProcessId: runtime.getState().selectedProcessId,
       sort: runtime.getState().sort
     };
   } finally {

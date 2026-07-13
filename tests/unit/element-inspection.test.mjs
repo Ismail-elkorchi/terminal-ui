@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { button, inspectElement, textInput } from '../../dist/components/index.js';
-import { stack, surface } from '../../dist/layout/index.js';
+import { column, surface } from '../../dist/layout/index.js';
 
 test('element inspection exposes an immutable authoring projection without renderer payloads', () => {
-  const element = surface(stack([
+  const element = surface(column([
     textInput({
       id: 'query',
       value: '',
@@ -36,7 +36,7 @@ test('element inspection exposes an immutable authoring projection without rende
     },
     children: [{
       schemaVersion: 'terminal-ui.element.v1',
-      component: 'stack',
+      component: 'column',
       id: 'controls',
       inputs: { keyboard: false, text: false, paste: false, focus: 'none' },
       meta: {

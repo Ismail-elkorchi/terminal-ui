@@ -10,7 +10,7 @@ import {
   scrollback,
   statusBar
 } from '../../dist/components/index.js';
-import { stack } from '../../dist/layout/index.js';
+import { column } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
 const enterKey = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
@@ -22,6 +22,11 @@ test('PTY harness handles resize while async stream messages are rendering', asy
   const app = defineTui({
     id: 'pty-resize-streaming',
     init: () => ({ items: [] }),
+    keyBindings: [{
+      id: 'finish-stream',
+      triggers: [{ kind: 'key', key: 'enter' }],
+      message: { type: 'finish' }
+    }],
     update: (state, message) => {
       if (message.type === 'append') return { state: { items: [...state.items, message.text] } };
       return { state, exit: { reason: 'done' } };
@@ -38,15 +43,15 @@ test('PTY harness handles resize while async stream messages are rendering', asy
         }
       }
     }],
-    view: (state, context) => stack([
+    view: (state, context) => column([
       scrollback({
         id: 'stream-log',
         items: state.items.map((text, index) => ({ id: String(index), text }))
       }),
       statusBar({
         id: 'status',
-        text: `cols:${context.viewport.columns} items:${state.items.length}`,
-        onPress: { type: 'exit' }
+        leading: [{ id: 'viewport', kind: 'text', text: `cols:${context.viewport.columns}` }],
+        trailing: [{ id: 'items', kind: 'text', text: `items:${state.items.length}` }]
       })
     ], { id: 'root' })
   });

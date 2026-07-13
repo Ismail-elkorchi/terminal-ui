@@ -6,33 +6,33 @@ import type { BorderStyle } from '../../border.ts';
 import type { Rect } from '../../../model/layout.ts';
 import type { TerminalStyle } from '../../../../visual/render.ts';
 
-type ModalNode = RenderNodeOfKind<unknown, 'modal'>;
+type DialogNode = RenderNodeOfKind<unknown, 'dialog'>;
 
-export function borderForModal(widget: ModalNode, focused = false): BorderStyle {
+export function borderForDialog(widget: DialogNode, focused = false): BorderStyle {
   const border = defaultBorderStyle(
     widget,
     borderStyleFromValue(widget.props.border) ?? { kind: 'single' },
-    modalBorderStyle(widget)
+    dialogBorderStyle(widget)
   );
   if (border.title !== undefined || border.kind === 'none') return focusBorder(border, focused);
-  const title = modalLabel(widget);
+  const title = dialogLabel(widget);
   return focusBorder(title.length === 0 ? border : { ...border, title }, focused);
 }
 
-function defaultBorderStyle(widget: ModalNode, border: BorderStyle, baseStyle = renderNodeStyle(widget, 'border')): BorderStyle {
+function defaultBorderStyle(widget: DialogNode, border: BorderStyle, baseStyle = renderNodeStyle(widget, 'border')): BorderStyle {
   if (border.kind === 'none') return border;
   const style = mergeStyles(baseStyle, border.style);
   return style === undefined ? border : { ...border, style };
 }
 
-function modalBorderStyle(widget: ModalNode): TerminalStyle | undefined {
+function dialogBorderStyle(widget: DialogNode): TerminalStyle | undefined {
   return mergeStyles(
     { fg: { kind: 'theme', token: 'surface.raised.border' } },
     widget.styles?.parts?.['border']
   );
 }
 
-export function modalLabel(widget: ModalNode): string {
+export function dialogLabel(widget: DialogNode): string {
   const title = stringify(widget.props.title);
   if (title.length > 0) return title;
   const borderTitle = borderStyleFromValue(widget.props.border)?.title;

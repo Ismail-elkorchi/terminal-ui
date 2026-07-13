@@ -10,18 +10,18 @@ import type {
   RecordStatus
 } from '../../ui-model/contracts.ts';
 import type {
-  CommandBarDisplay,
-  CommandBarValidation,
+  CommandInputDisplay,
+  CommandInputValidation,
   ScrollbackItem,
   StructuredBlock
 } from '../../ui-model/documents.ts';
-import type { CommandBarAction } from '../../ui-model/command-bar.ts';
+import type { CommandInputAction } from '../../ui-model/command-input.ts';
 import type { PaletteAction } from '../../ui-model/palette.ts';
 import type { ActivityFeedAction } from '../../ui-model/activity-feed.ts';
 import type { ScrollbackAction } from '../../ui-model/scrollback.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type {
-  CommandBarStylePart,
+  CommandInputStylePart,
   DocumentStylePart,
   PaletteStylePart,
   TextAreaStylePart
@@ -52,26 +52,26 @@ export interface StructuredBlockOptions extends ElementOptions<DocumentStylePart
 
 export interface ActivityFeedOptions<TMessage = never> extends InteractiveElementOptions<DocumentStylePart> {
   readonly blocks: readonly StructuredBlock[];
-  readonly selected?: number;
+  readonly selectedId?: string;
   readonly onAction?: (action: ActivityFeedAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface CommandBarOptions<TMessage = never> extends InteractiveElementOptions<CommandBarStylePart> {
+export interface CommandInputOptions<TMessage = never> extends InteractiveElementOptions<CommandInputStylePart> {
   readonly value?: string;
   readonly cursor?: number;
   readonly selection?: TextSelection;
   readonly prompt?: string;
   readonly placeholder?: string;
   readonly completionPreview?: string;
-  readonly validation?: CommandBarValidation;
+  readonly validation?: CommandInputValidation;
   readonly footer?: string;
   readonly matchQuery?: string;
   readonly suggestions?: readonly SuggestionItem[];
   readonly selectedSuggestion?: number;
   readonly historyIndex?: number;
-  readonly display?: CommandBarDisplay;
-  readonly onAction?: (action: CommandBarAction) => TMessage;
+  readonly display?: CommandInputDisplay;
+  readonly onAction?: (action: CommandInputAction) => TMessage;
   readonly onSubmit?: TMessage;
   readonly onTextPointer?: (event: TextPointerEvent) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
@@ -96,8 +96,8 @@ export interface PaletteOptions<TValue = string, TMessage = never> extends Inter
 }
 
 export type {
-  CommandBarDisplay,
-  CommandBarValidation,
+  CommandInputDisplay,
+  CommandInputValidation,
   ScrollbackItem,
   StructuredBlock
 } from '../../ui-model/documents.ts';

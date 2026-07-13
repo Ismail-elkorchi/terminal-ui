@@ -1,10 +1,42 @@
-import type { ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
+import type { BarChartAction, ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
 import type {
+  BarChartItem,
   ChartPointSelection,
   ChartSeries,
   HeatmapCell,
   HeatmapSelection
 } from '../ui-model/feedback.ts';
+
+export interface BarChartState {
+  readonly selectedId?: string;
+}
+
+export type BarChartPresentation = BarChartState;
+
+export function barChartReducer(
+  state: BarChartState,
+  action: BarChartAction,
+  items: readonly BarChartItem[]
+): BarChartState {
+  if (items.length === 0) return state.selectedId === undefined ? state : {};
+  if (action.kind === 'activate') return state;
+  if (action.kind === 'select') {
+    return items.some((item) => item.id === action.id) ? { selectedId: action.id } : state;
+  }
+  if (action.kind === 'first') return barSelection(items[0]?.id);
+  if (action.kind === 'last') return barSelection(items.at(-1)?.id);
+  const current = items.findIndex((item) => item.id === state.selectedId);
+  if (current < 0) return barSelection(action.delta < 0 ? items.at(-1)?.id : items[0]?.id);
+  return barSelection(items[wrapIndex(current + action.delta, items.length)]?.id);
+}
+
+export function barChartPresentation(state: BarChartState): BarChartPresentation {
+  return state.selectedId === undefined ? {} : { selectedId: state.selectedId };
+}
+
+function barSelection(selectedId: string | undefined): BarChartState {
+  return selectedId === undefined ? {} : { selectedId };
+}
 
 export interface ChartState {
   readonly selected?: ChartPointSelection;

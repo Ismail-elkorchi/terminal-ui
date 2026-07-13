@@ -9,11 +9,11 @@ type CheckboxNode = RenderNodeOfKind<unknown, 'checkbox'>;
 type ToggleSwitchNode = RenderNodeOfKind<unknown, 'toggleSwitch'>;
 type SliderNode = RenderNodeOfKind<unknown, 'slider'>;
 type RangeSliderNode = RenderNodeOfKind<unknown, 'rangeSlider'>;
-type CheckboxListNode = RenderNodeOfKind<unknown, 'checkboxList'>;
+type CheckboxGroupNode = RenderNodeOfKind<unknown, 'checkboxGroup'>;
 type RadioGroupNode = RenderNodeOfKind<unknown, 'radioGroup'>;
-type ColorPickerNode = RenderNodeOfKind<unknown, 'colorPicker'>;
-type DatePickerNode = RenderNodeOfKind<unknown, 'datePicker'>;
-type SelectBoxNode = RenderNodeOfKind<unknown, 'selectBox'>;
+type ColorSwatchPickerNode = RenderNodeOfKind<unknown, 'colorSwatchPicker'>;
+type CalendarNode = RenderNodeOfKind<unknown, 'calendar'>;
+type SelectNode = RenderNodeOfKind<unknown, 'select'>;
 type TextInputNode = RenderNodeOfKind<unknown, 'textInput'>;
 type NumberInputNode = RenderNodeOfKind<unknown, 'numberInput'>;
 import { block, padRenderLine } from '../frame.ts';
@@ -46,12 +46,12 @@ import {
 } from './support/choices.ts';
 import {
   colorOptions,
-  colorPickerSpans,
-  colorPickerSummarySpans,
-  datePickerCellSpans,
-  datePickerDays,
-  datePickerMonthHeaderSpans,
-  datePickerWeekdayHeaderSpans,
+  colorSwatchPickerSpans,
+  colorSwatchPickerSummarySpans,
+  calendarCellSpans,
+  calendarDays,
+  calendarMonthHeaderSpans,
+  calendarWeekdayHeaderSpans,
   pickerColumns,
   selectedColorOption
 } from './support/pickers.ts';
@@ -208,7 +208,7 @@ export function rangeSliderBlock(widget: RangeSliderNode, bounds: Rect): RenderB
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function checkboxListBlock(widget: CheckboxListNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function checkboxGroupBlock(widget: CheckboxGroupNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const lines: RenderLine[] = [];
   const label = clean(stringify(widget.props.label));
   if (label.length > 0) {
@@ -258,37 +258,37 @@ export function radioGroupBlock(widget: RadioGroupNode, bounds: Rect, theme: Ter
   return block(lines.slice(0, Math.max(0, bounds.height)));
 }
 
-export function colorPickerBlock(widget: ColorPickerNode, bounds: Rect): RenderBlock {
+export function colorSwatchPickerBlock(widget: ColorSwatchPickerNode, bounds: Rect): RenderBlock {
   const rows: RenderLine[] = [];
   const label = clean(stringify(widget.props.label));
   if (label.length > 0) rows.push(clippedFormLine(controlLabelSpans(widget, label, formControlState(widget)), bounds.width));
   const selected = selectedColorOption(widget);
-  if (selected !== undefined) rows.push(clippedFormLine(colorPickerSummarySpans(selected, widget), bounds.width));
+  if (selected !== undefined) rows.push(clippedFormLine(colorSwatchPickerSummarySpans(selected, widget), bounds.width));
   const columns = pickerColumns(widget, 4);
   const options = colorOptions(widget);
   for (let index = 0; index < options.length; index += columns) {
-    rows.push(clippedFormLine(options.slice(index, index + columns).flatMap((option) => colorPickerSpans(option, widget)), bounds.width));
+    rows.push(clippedFormLine(options.slice(index, index + columns).flatMap((option) => colorSwatchPickerSpans(option, widget)), bounds.width));
   }
   rows.push(...errorLines(widget, bounds.width));
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function datePickerBlock(widget: DatePickerNode, bounds: Rect): RenderBlock {
+export function calendarBlock(widget: CalendarNode, bounds: Rect): RenderBlock {
   const rows: RenderLine[] = [];
   const label = clean(stringify(widget.props.label));
   if (label.length > 0) rows.push(clippedFormLine(controlLabelSpans(widget, label, formControlState(widget)), bounds.width));
   const columns = 7;
-  rows.push(clippedFormLine(datePickerMonthHeaderSpans(widget), bounds.width));
-  rows.push(clippedFormLine(datePickerWeekdayHeaderSpans(widget), bounds.width));
-  const days = datePickerDays(widget);
+  rows.push(clippedFormLine(calendarMonthHeaderSpans(widget), bounds.width));
+  rows.push(clippedFormLine(calendarWeekdayHeaderSpans(widget), bounds.width));
+  const days = calendarDays(widget);
   for (let index = 0; index < days.length; index += columns) {
-    rows.push(clippedFormLine(days.slice(index, index + columns).flatMap((day) => datePickerCellSpans(day, widget)), bounds.width));
+    rows.push(clippedFormLine(days.slice(index, index + columns).flatMap((day) => calendarCellSpans(day, widget)), bounds.width));
   }
   rows.push(...errorLines(widget, bounds.width));
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function selectBoxBlock(widget: SelectBoxNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function selectBlock(widget: SelectNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
   const selected = selectedOption(widget);
   const label = clean(stringify(widget.props.label));
   const placeholder = clean(stringify(widget.props.placeholder)) || 'Select…';
@@ -305,7 +305,7 @@ export function selectBoxBlock(widget: SelectBoxNode, bounds: Rect, theme: Termi
       }),
       formSpan(widget, selected === undefined ? 'placeholder' : 'value', selected === undefined ? 'value.placeholder' : 'value.selected', value, style),
       separatorSpan(widget),
-      formSpan(widget, 'chrome', 'chrome.dropdown', theme.tokens.symbols.treeCollapsed, renderNodeStyle(widget, 'marker'))
+      formSpan(widget, 'chrome', 'chrome.dropdownMenu', theme.tokens.symbols.treeCollapsed, renderNodeStyle(widget, 'marker'))
     ], bounds.width),
     ...errorLines(widget, bounds.width)
   ];

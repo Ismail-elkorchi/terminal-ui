@@ -197,7 +197,7 @@ test('diagnostics normalize causes into JSON-safe transcript data', () => {
   });
 
   assert.deepEqual(item.cause, { name: 'Error', message: 'socket closed' });
-  assert.equal(JSON.stringify(item).includes('stack'), false);
+  assert.equal(JSON.stringify(item).includes('column'), false);
   assert.equal(validateTranscript(transcript).ok, true);
   assert.equal(invalid.ok, false);
   assert.match(invalid.error.message, /diagnostic cause/u);

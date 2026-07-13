@@ -3,14 +3,14 @@ import type { ListOptions, PaginatorOptions, TableOptions, TreeOptions } from '.
 import type { NumberInputAction } from '../../ui-model/number-input.ts';
 import type { RangeSliderOptions, SliderOptions } from '../options/forms.ts';
 import type {
-  CheckboxListOptions,
-  ColorPickerOptions,
+  CheckboxGroupOptions,
+  ColorSwatchPickerOptions,
   RadioGroupOptions,
-  SelectBoxOptions
+  SelectOptions
 } from '../options/forms.ts';
 import type { MenuItem } from '../options/menus.ts';
-import type { DropdownAction, MenuAction } from '../../ui-model/menu.ts';
-import type { CommandBarAction } from '../../ui-model/command-bar.ts';
+import type { DropdownMenuAction, MenuAction } from '../../ui-model/menu.ts';
+import type { CommandInputAction } from '../../ui-model/command-input.ts';
 import type { PaletteAction } from '../../ui-model/palette.ts';
 import type { TextEditOperation } from '../../text/index.ts';
 import type { RenderMenuItem } from '../../renderer/model/props/menus.ts';
@@ -28,7 +28,10 @@ export function listKeyBindings<TValue, TMessage>(
 ): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
   if (onAction === undefined) return options.keys;
-  const selected = options.selected;
+  const selectedId = options.selectedId;
+  const selectedIndex = selectedId === undefined
+    ? -1
+    : options.items.findIndex((item, index) => options.getItemId(item, index) === selectedId);
   const generated = {
     arrowUp: () => onAction({ kind: 'move', delta: -1 }),
     arrowDown: () => onAction({ kind: 'move', delta: 1 }),
@@ -36,8 +39,8 @@ export function listKeyBindings<TValue, TMessage>(
     pageDown: () => onAction({ kind: 'page', delta: 1 }),
     home: () => onAction({ kind: 'first' }),
     end: () => onAction({ kind: 'last' }),
-    ...(selected === undefined ? {} : {
-      enter: () => onAction({ kind: 'activate', index: selected })
+    ...(selectedId === undefined || selectedIndex < 0 ? {} : {
+      enter: () => onAction({ kind: 'activate', id: selectedId, index: selectedIndex })
     })
   } satisfies ElementKeyBindings<TMessage>;
   return mergeKeyBindings(generated, options.keys);
@@ -48,7 +51,10 @@ export function tableKeyBindings<TRow, TMessage>(
 ): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
   if (onAction === undefined) return options.keys;
-  const selected = options.selected;
+  const selectedRowId = options.selectedRowId;
+  const selectedRowIndex = selectedRowId === undefined
+    ? -1
+    : options.rows.findIndex((row, index) => options.getRowId(row, index) === selectedRowId);
   const generated = {
     arrowUp: () => onAction({ kind: 'moveRow', delta: -1 }),
     arrowDown: () => onAction({ kind: 'moveRow', delta: 1 }),
@@ -58,10 +64,11 @@ export function tableKeyBindings<TRow, TMessage>(
     pageDown: () => onAction({ kind: 'page', delta: 1 }),
     home: () => onAction({ kind: 'firstRow' }),
     end: () => onAction({ kind: 'lastRow' }),
-    ...(selected === undefined ? {} : {
+    ...(selectedRowId === undefined || selectedRowIndex < 0 ? {} : {
       enter: () => onAction({
         kind: 'activate',
-        row: selected,
+        rowId: selectedRowId,
+        rowIndex: selectedRowIndex,
         ...(options.selectedCell?.column === undefined ? {} : { column: options.selectedCell.column })
       })
     })
@@ -105,8 +112,8 @@ export function paginatorKeyBindings<TMessage>(
   return mergeKeyBindings(generated, options.keys);
 }
 
-export function datePickerKeyBindings<TMessage>(
-  options: import('../options/forms.ts').DatePickerOptions<TMessage>
+export function calendarKeyBindings<TMessage>(
+  options: import('../options/forms.ts').CalendarOptions<TMessage>
 ): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
   if (onAction === undefined) return options.keys;
@@ -134,8 +141,8 @@ export function activationKeyBindings<TMessage>(
   return mergeKeyBindings(handler === undefined ? undefined : { enter: handler }, explicit);
 }
 
-export function commandBarKeyBindings<TMessage>(
-  onAction: (action: CommandBarAction) => TMessage
+export function commandInputKeyBindings<TMessage>(
+  onAction: (action: CommandInputAction) => TMessage
 ): ElementKeyBindings<TMessage> {
   return {
     backspace: () => onAction({ kind: 'deleteBackward' }),
@@ -247,8 +254,8 @@ export function rangeSliderKeyBindings<TMessage>(
   }, options.keys);
 }
 
-export function checkboxListKeyBindings<TValue, TMessage>(
-  options: CheckboxListOptions<TValue, TMessage>
+export function checkboxGroupKeyBindings<TValue, TMessage>(
+  options: CheckboxGroupOptions<TValue, TMessage>
 ): ElementKeyBindings<TMessage> | undefined {
   const action = options.onAction;
   const active = choiceFocus(options.options, options.focused, options.selected?.[0]);
@@ -275,8 +282,8 @@ export function radioGroupKeyBindings<TValue, TMessage>(
   } satisfies ElementKeyBindings<TMessage>, options.keys);
 }
 
-export function selectBoxKeyBindings<TValue, TMessage>(
-  options: SelectBoxOptions<TValue, TMessage>
+export function selectKeyBindings<TValue, TMessage>(
+  options: SelectOptions<TValue, TMessage>
 ): ElementKeyBindings<TMessage> | undefined {
   const action = options.onAction;
   const active = choiceFocus(options.options, options.focused, options.selected);
@@ -289,8 +296,8 @@ export function selectBoxKeyBindings<TValue, TMessage>(
   } satisfies ElementKeyBindings<TMessage>, options.keys);
 }
 
-export function colorPickerKeyBindings<TValue, TMessage>(
-  options: ColorPickerOptions<TValue, TMessage>
+export function colorSwatchPickerKeyBindings<TValue, TMessage>(
+  options: ColorSwatchPickerOptions<TValue, TMessage>
 ): ElementKeyBindings<TMessage> | undefined {
   const action = options.onAction;
   const active = choiceFocus(options.options, options.focused, options.selected);
@@ -327,12 +334,12 @@ export function menuKeyBindings<TMessage>(
   }, explicit);
 }
 
-export function dropdownKeyBindings<TMessage>(
+export function dropdownMenuKeyBindings<TMessage>(
   items: readonly MenuItem[],
   selected: string | undefined,
   highlighted: string | undefined,
   open: boolean,
-  onAction: ((action: DropdownAction) => TMessage) | undefined,
+  onAction: ((action: DropdownMenuAction) => TMessage) | undefined,
   explicit: ElementKeyBindings<TMessage> | undefined
 ): ElementKeyBindings<TMessage> | undefined {
   if (onAction === undefined) return explicit;

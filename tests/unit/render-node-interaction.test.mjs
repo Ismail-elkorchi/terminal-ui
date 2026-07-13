@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { datePickerFixture } from '../helpers/date-picker.mjs';
+import { calendarFixture } from '../helpers/calendar.mjs';
 
 import { defineTui } from '../../dist/tui/index.js';
 import {
@@ -13,14 +13,14 @@ import {
 import {
   button,
   checkbox,
-  checkboxList,
-  colorPicker,
-  commandBar,
-  datePicker,
+  checkboxGroup,
+  colorSwatchPicker,
+  commandInput,
+  calendar,
   numberInput,
   radioGroup,
   rangeSlider,
-  selectBox,
+  select,
   slider,
   textArea,
   textInput,
@@ -61,8 +61,8 @@ const disabledWidgetCases = [
     })
   },
   {
-    name: 'checkboxList',
-    element: () => checkboxList({
+    name: 'checkboxGroup',
+    element: () => checkboxGroup({
       id: 'disabled-checkbox-list',
       label: 'Channels',
       options: formOptions,
@@ -81,8 +81,8 @@ const disabledWidgetCases = [
     })
   },
   {
-    name: 'selectBox',
-    element: () => selectBox({
+    name: 'select',
+    element: () => select({
       id: 'disabled-select',
       label: 'Tier',
       options: formOptions,
@@ -91,8 +91,8 @@ const disabledWidgetCases = [
     })
   },
   {
-    name: 'colorPicker',
-    element: () => colorPicker({
+    name: 'colorSwatchPicker',
+    element: () => colorSwatchPicker({
       id: 'disabled-colors',
       label: 'Accent',
       options: formOptions,
@@ -101,11 +101,11 @@ const disabledWidgetCases = [
     })
   },
   {
-    name: 'datePicker',
-    element: () => datePicker({
+    name: 'calendar',
+    element: () => calendar({
       id: 'disabled-date',
       label: 'Date',
-      ...datePickerFixture(),
+      ...calendarFixture(),
       onAction: () => message,
       disabled: true
     })
@@ -163,9 +163,9 @@ test('disabled widget props block generated keyboard and mouse dispatch', async 
   assert.deepEqual(runtime.getState(), { active: 'idle' });
 });
 
-test('commandBar preserves disabled suggestion semantics', () => {
+test('commandInput preserves disabled suggestion semantics', () => {
   const frame = renderElementFrame(
-    commandBar({
+    commandInput({
       id: 'command',
       prompt: '>',
       value: 'de',

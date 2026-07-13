@@ -10,7 +10,7 @@ import { numberProp } from '../../render-node-props.ts';
 import { borderContentBounds } from './border.ts';
 import { clampRect, nonNegativeInteger } from './common.ts';
 
-export function modalDialogBounds(widget: RenderNode, bounds: Rect): Rect {
+export function dialogBounds(widget: RenderNode, bounds: Rect): Rect {
   const width = Math.min(bounds.width, Math.max(4, Math.floor(numberProp(widget, 'width') ?? Math.min(bounds.width, 60))));
   const height = Math.min(bounds.height, Math.max(3, Math.floor(numberProp(widget, 'height') ?? Math.min(bounds.height, 20))));
   return clampRect({
@@ -21,15 +21,15 @@ export function modalDialogBounds(widget: RenderNode, bounds: Rect): Rect {
   });
 }
 
-export function modalChildBounds(
+export function dialogChildBounds(
   widget: RenderNode,
   bounds: Rect,
   border: BorderStyle,
   childMeasures: readonly Measurement[]
 ): readonly Rect[] {
-  const contentBounds = borderContentBounds(modalDialogBounds(widget, bounds), border);
-  if (!modalHasActions(widget)) return [contentBounds];
-  const actionHeight = modalActionHeight(contentBounds.height, childMeasures[1]);
+  const contentBounds = borderContentBounds(dialogBounds(widget, bounds), border);
+  if (!dialogHasActions(widget)) return [contentBounds];
+  const actionHeight = dialogActionHeight(contentBounds.height, childMeasures[1]);
   const separatorHeight = contentBounds.height > actionHeight ? 1 : 0;
   const bodyHeight = Math.max(0, contentBounds.height - actionHeight - separatorHeight);
   return [
@@ -48,22 +48,22 @@ export function modalChildBounds(
   ];
 }
 
-export function drawModalActionSeparator(
+export function drawDialogActionSeparator(
   buffer: RenderTarget,
   node: LayoutNode,
   theme: TerminalTheme,
   style: TerminalStyle | undefined
 ): void {
-  const bounds = modalActionSeparatorBounds(node);
+  const bounds = dialogActionSeparatorBounds(node);
   if (bounds === undefined) return;
   buffer.write(bounds.row, bounds.column, [{
     text: theme.tokens.symbols.borderSingle.horizontal.repeat(bounds.width),
     ...(style === undefined ? {} : { style }),
-    source: frameCellSource({ ownerKind: 'modal', family: 'layout', role: 'separator', part: 'action-separator', label: 'action-separator' })
+    source: frameCellSource({ ownerKind: 'dialog', family: 'component', role: 'separator', part: 'action-separator', label: 'action-separator' })
   }]);
 }
 
-function modalActionSeparatorBounds(node: LayoutNode): Rect | undefined {
+function dialogActionSeparatorBounds(node: LayoutNode): Rect | undefined {
   const body = node.children[0]?.bounds;
   const actions = node.children[1]?.bounds;
   if (body === undefined || actions === undefined || actions.width <= 0 || actions.height <= 0) return undefined;
@@ -77,11 +77,11 @@ function modalActionSeparatorBounds(node: LayoutNode): Rect | undefined {
   };
 }
 
-function modalHasActions(widget: RenderNode): boolean {
+function dialogHasActions(widget: RenderNode): boolean {
   return (widget.children?.length ?? 0) > 1;
 }
 
-function modalActionHeight(contentHeight: number, measure: Measurement | undefined): number {
+function dialogActionHeight(contentHeight: number, measure: Measurement | undefined): number {
   if (contentHeight <= 0) return 0;
   const preferred = Math.max(1, nonNegativeInteger(measure?.preferredHeight));
   return Math.min(preferred, contentHeight <= 1 ? contentHeight : contentHeight - 1);

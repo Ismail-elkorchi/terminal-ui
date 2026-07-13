@@ -1,10 +1,11 @@
 import type { RenderNodeOfKind, RenderNodesOfKind } from '../model/index.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { ProcessStatus } from '../../ui-model/contracts.ts';
-import { normalizeProcessStatus } from '../../ui-model/status.ts';
+import type { HelpGroup, ProcessStatus } from '../../ui-model/contracts.ts';
+import type { StatusBarItem, StatusBarSection } from '../../ui-model/feedback.ts';
+import { normalizeComponentStatus, normalizeProcessStatus } from '../../ui-model/status.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
-import { block, line, measureRenderSpans, span } from '../../visual/render.ts';
+import { block, clipRenderSpans, line, measureRenderSpans, span } from '../../visual/render.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import type { FrameSemanticRole } from './frame-passes/index.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
@@ -15,18 +16,18 @@ import { normalizeSpinnerFrameIndex } from '../../behavior/spinner.ts';
 export type FeedbackVisualKind =
   | 'statusBar'
   | 'helpBar'
-  | 'activityIndicator'
+  | 'statusIndicator'
   | 'spinner'
   | 'progressBar'
   | 'notification';
 
 type FeedbackNode = RenderNodesOfKind<
   unknown,
-  'activityIndicator' | 'helpBar' | 'notificationStack' | 'progressBar' | 'spinner' | 'statusBar'
+  'statusIndicator' | 'helpBar' | 'notificationStack' | 'progressBar' | 'spinner' | 'statusBar'
 >;
 type StatusBarNode = RenderNodeOfKind<unknown, 'statusBar'>;
 type HelpBarNode = RenderNodeOfKind<unknown, 'helpBar'>;
-type ActivityIndicatorNode = RenderNodeOfKind<unknown, 'activityIndicator'>;
+type StatusIndicatorNode = RenderNodeOfKind<unknown, 'statusIndicator'>;
 type SpinnerNode = RenderNodeOfKind<unknown, 'spinner'>;
 
 export interface FeedbackSpanOptions {
@@ -38,63 +39,228 @@ export interface FeedbackSpanOptions {
   readonly state?: string | undefined;
 }
 
-export function statusBarBlock(widget: StatusBarNode): RenderBlock {
-  return block([line([
-    feedbackSpan(widget, stringify(widget.props.text), {
-      kind: 'statusBar',
-      label: 'value',
-      style: feedbackBarValueStyle(widget)
-    })
-  ])]);
+export function statusBarBlock(widget: StatusBarNode, theme: TerminalTheme, maxCells?: number): RenderBlock {
+  const leading = statusBarSectionSpans(widget, 'leading', statusBarItems(widget.props.leading), theme);
+  const center = statusBarSectionSpans(widget, 'center', statusBarItems(widget.props.center), theme);
+  const trailing = statusBarSectionSpans(widget, 'trailing', statusBarItems(widget.props.trailing), theme);
+  return block([line(maxCells === undefined
+    ? joinedStatusBarSections(widget, [leading, center, trailing])
+    : placedStatusBarSections(widget, leading, center, trailing, maxCells))]);
 }
 
-export function statusBarText(widget: StatusBarNode): string {
-  return blockText(statusBarBlock(widget));
+export function statusBarText(widget: StatusBarNode, theme: TerminalTheme): string {
+  return blockText(statusBarBlock(widget, theme));
+}
+
+export function statusBarAccessibleText(widget: StatusBarNode): string {
+  return [widget.props.leading, widget.props.center, widget.props.trailing]
+    .flatMap((section) => statusBarItems(section).map((item) => item.text))
+    .join('  ');
+}
+
+function statusBarItems(value: unknown): readonly StatusBarItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): readonly StatusBarItem[] => {
+    if (typeof item !== 'object' || item === null) return [];
+    const candidate = item as Partial<StatusBarItem>;
+    if (typeof candidate.id !== 'string' || typeof candidate.text !== 'string') return [];
+    const id = sanitizeTerminalText(candidate.id).text;
+    const text = sanitizeTerminalText(candidate.text).text;
+    if (candidate.kind === 'status') {
+      return [{ id, kind: 'status', text, status: normalizeComponentStatus(candidate.status) }];
+    }
+    return candidate.kind === 'text' ? [{ id, kind: 'text', text }] : [];
+  });
+}
+
+function statusBarSectionSpans(
+  widget: StatusBarNode,
+  section: StatusBarSection,
+  items: readonly StatusBarItem[],
+  theme: TerminalTheme
+): readonly RenderSpan[] {
+  return items.flatMap((item, index): readonly RenderSpan[] => {
+    const part = `${section}.${item.id}`;
+    const itemSpans = item.kind === 'status'
+      ? [
+          feedbackSpan(widget, statusMarker(item.status, theme), {
+            kind: 'statusBar',
+            label: `${part}.marker`,
+            sourceId: item.id,
+            style: statusStyle(item.status),
+            state: item.status
+          }),
+          feedbackSpan(widget, ' ', {
+            kind: 'statusBar',
+            label: `${part}.gap`,
+            sourceId: item.id,
+            role: 'separator',
+            style: feedbackBarSeparatorStyle(widget)
+          }),
+          feedbackSpan(widget, item.text, {
+            kind: 'statusBar',
+            label: `${part}.value`,
+            sourceId: item.id,
+            style: statusStyle(item.status),
+            state: item.status
+          })
+        ]
+      : [feedbackSpan(widget, item.text, {
+          kind: 'statusBar',
+          label: `${part}.value`,
+          sourceId: item.id,
+          style: feedbackBarValueStyle(widget)
+        })];
+    return index === 0
+      ? itemSpans
+      : [statusBarGap(widget, `${section}.separator.${String(index)}`), ...itemSpans];
+  });
+}
+
+function joinedStatusBarSections(
+  widget: StatusBarNode,
+  sections: readonly (readonly RenderSpan[])[]
+): readonly RenderSpan[] {
+  const visible = sections.filter((section) => section.length > 0);
+  return visible.flatMap((section, index): readonly RenderSpan[] =>
+    index === 0 ? section : [statusBarGap(widget, `section.separator.${String(index)}`), ...section]
+  );
+}
+
+function placedStatusBarSections(
+  widget: StatusBarNode,
+  leadingInput: readonly RenderSpan[],
+  centerInput: readonly RenderSpan[],
+  trailingInput: readonly RenderSpan[],
+  maxCells: number
+): readonly RenderSpan[] {
+  if (maxCells <= 0) return [];
+  const trailing = clipRenderSpans(trailingInput, maxCells, { ellipsis: '…', mode: 'middle' });
+  const trailingWidth = measureRenderSpans(trailing);
+  const leadingBudget = Math.max(0, maxCells - trailingWidth - (trailingWidth > 0 ? 2 : 0));
+  const leading = clipRenderSpans(leadingInput, leadingBudget, { ellipsis: '…' });
+  const leadingWidth = measureRenderSpans(leading);
+  const trailingStart = maxCells - trailingWidth;
+  const center = clipRenderSpans(centerInput, maxCells, { ellipsis: '…', mode: 'middle' });
+  const centerWidth = measureRenderSpans(center);
+  const desiredCenterStart = Math.floor((maxCells - centerWidth) / 2);
+  const centerFits = centerWidth > 0
+    && desiredCenterStart >= leadingWidth + (leadingWidth > 0 ? 1 : 0)
+    && desiredCenterStart + centerWidth <= trailingStart - (trailingWidth > 0 ? 1 : 0);
+  const placements = [
+    ...(leading.length === 0 ? [] : [{ start: 0, spans: leading }]),
+    ...(centerFits ? [{ start: desiredCenterStart, spans: center }] : []),
+    ...(trailing.length === 0 ? [] : [{ start: trailingStart, spans: trailing }])
+  ].sort((left, right) => left.start - right.start);
+  const output: RenderSpan[] = [];
+  let column = 0;
+  for (const placement of placements) {
+    if (placement.start > column) output.push(statusBarFill(widget, placement.start - column));
+    output.push(...placement.spans);
+    column = placement.start + measureRenderSpans(placement.spans);
+  }
+  if (column < maxCells) output.push(statusBarFill(widget, maxCells - column));
+  return output;
+}
+
+function statusBarGap(widget: StatusBarNode, label: string): RenderSpan {
+  return feedbackSpan(widget, '  ', {
+    kind: 'statusBar',
+    label,
+    role: 'separator',
+    style: feedbackBarSeparatorStyle(widget)
+  });
+}
+
+function statusBarFill(widget: StatusBarNode, cells: number): RenderSpan {
+  return feedbackSpan(widget, ' '.repeat(cells), {
+    kind: 'statusBar',
+    label: 'fill',
+    role: 'decoration',
+    style: feedbackBarValueStyle(widget)
+  });
 }
 
 export function helpBarBlock(widget: HelpBarNode, maxCells?: number): RenderBlock {
-  const bindings = helpBindings(widget);
-  const spans = fitHelpBindingSpans(widget, bindings, maxCells);
+  const spans = fitHelpGroupSpans(widget, helpGroups(widget), maxCells);
   return block([line(spans)]);
 }
 
-function fitHelpBindingSpans(
+function fitHelpGroupSpans(
   widget: HelpBarNode,
-  bindings: readonly { readonly key: string; readonly label: string }[],
+  groups: readonly HelpGroup[],
   maxCells: number | undefined
 ): readonly RenderSpan[] {
-  if (maxCells === undefined) return helpBindingSpans(widget, bindings);
+  if (maxCells === undefined) return groups.flatMap((group, index) => helpGroupSpans(widget, group, index, index > 0));
   const fitted: RenderSpan[] = [];
-  for (let index = 0; index < bindings.length; index += 1) {
-    const binding = bindings[index];
-    if (binding === undefined) continue;
-    const group = helpBindingGroupSpans(widget, binding, index, fitted.length > 0);
-    if (measureRenderSpans([...fitted, ...group]) <= maxCells) {
-      fitted.push(...group);
+  for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+    const group = groups[groupIndex];
+    if (group === undefined) continue;
+    const groupSpans = helpGroupSpans(widget, group, groupIndex, fitted.length > 0);
+    if (measureRenderSpans([...fitted, ...groupSpans]) <= maxCells) {
+      fitted.push(...groupSpans);
       continue;
     }
+    appendPartialHelpGroup(widget, fitted, group, groupIndex, maxCells);
     appendHelpOverflow(widget, fitted, maxCells);
     break;
   }
   return fitted;
 }
 
-function helpBindingSpans(
+function helpGroupSpans(
   widget: HelpBarNode,
-  bindings: readonly { readonly key: string; readonly label: string }[]
+  group: HelpGroup,
+  groupIndex: number,
+  separated: boolean
 ): readonly RenderSpan[] {
-  return bindings.flatMap((binding, index): readonly RenderSpan[] =>
-    helpBindingGroupSpans(widget, binding, index, index > 0)
-  );
+  const prefix = helpGroupPrefixSpans(widget, group, groupIndex, separated);
+  return [
+    ...prefix,
+    ...group.bindings.flatMap((binding, bindingIndex): readonly RenderSpan[] =>
+      helpBindingSpans(widget, binding, group.id, bindingIndex, group.label !== undefined || bindingIndex > 0)
+    )
+  ];
 }
 
-function helpBindingGroupSpans(
+function helpGroupPrefixSpans(
+  widget: HelpBarNode,
+  group: HelpGroup,
+  groupIndex: number,
+  separated: boolean
+): readonly RenderSpan[] {
+  return [
+    ...(separated ? [feedbackSpan(widget, '  ', {
+      kind: 'helpBar',
+      label: `group.${group.id}.separator`,
+      role: 'separator',
+      style: feedbackBarSeparatorStyle(widget)
+    })] : []),
+    ...(group.label === undefined ? [] : [
+      feedbackSpan(widget, group.label, {
+        kind: 'helpBar',
+        label: `group.${group.id}.label`,
+        sourceId: group.id,
+        style: renderNodeStyle(widget, 'label')
+      }),
+      feedbackSpan(widget, ' ', {
+        kind: 'helpBar',
+        label: `group.${String(groupIndex)}.gap`,
+        role: 'separator',
+        style: feedbackBarSeparatorStyle(widget)
+      })
+    ])
+  ];
+}
+
+function helpBindingSpans(
   widget: HelpBarNode,
   binding: { readonly key: string; readonly label: string },
+  groupId: string,
   index: number,
   separated: boolean
 ): readonly RenderSpan[] {
-  const bindingLabel = `binding.${String(index)}`;
+  const bindingLabel = `group.${groupId}.binding.${String(index)}`;
   return [
     ...(separated ? [feedbackSpan(widget, '  ', {
       kind: 'helpBar',
@@ -105,14 +271,34 @@ function helpBindingGroupSpans(
     feedbackSpan(widget, binding.key, {
       kind: 'helpBar',
       label: `${bindingLabel}.key`,
+      sourceId: groupId,
       style: helpKeyStyle(widget)
     }),
     feedbackSpan(widget, ` ${binding.label}`, {
       kind: 'helpBar',
       label: `${bindingLabel}.label`,
+      sourceId: groupId,
       style: feedbackBarValueStyle(widget)
     })
   ];
+}
+
+function appendPartialHelpGroup(
+  widget: HelpBarNode,
+  fitted: RenderSpan[],
+  group: HelpGroup,
+  groupIndex: number,
+  maxCells: number
+): void {
+  const prefix = helpGroupPrefixSpans(widget, group, groupIndex, fitted.length > 0);
+  if (measureRenderSpans([...fitted, ...prefix]) <= maxCells) fitted.push(...prefix);
+  for (let index = 0; index < group.bindings.length; index += 1) {
+    const binding = group.bindings[index];
+    if (binding === undefined) continue;
+    const spans = helpBindingSpans(widget, binding, group.id, index, group.label !== undefined || index > 0);
+    if (measureRenderSpans([...fitted, ...spans]) > maxCells) break;
+    fitted.push(...spans);
+  }
 }
 
 function helpKeyStyle(widget: HelpBarNode): TerminalStyle | undefined {
@@ -157,11 +343,11 @@ export function helpBarText(widget: HelpBarNode): string {
   return blockText(helpBarBlock(widget));
 }
 
-export function activityIndicatorBlock(widget: ActivityIndicatorNode, theme: TerminalTheme): RenderBlock {
+export function statusIndicatorBlock(widget: StatusIndicatorNode, theme: TerminalTheme): RenderBlock {
   const label = stringify(widget.props.label) || 'Activity';
   const status = normalizeProcessStatus(widget.props.status);
   return block([line(statusLineSpans(widget, {
-    kind: 'activityIndicator',
+    kind: 'statusIndicator',
     label,
     status,
     marker: statusMarker(status, theme),
@@ -169,8 +355,8 @@ export function activityIndicatorBlock(widget: ActivityIndicatorNode, theme: Ter
   }))]);
 }
 
-export function activityIndicatorText(widget: ActivityIndicatorNode, theme: TerminalTheme): string {
-  return blockText(activityIndicatorBlock(widget, theme));
+export function statusIndicatorText(widget: StatusIndicatorNode, theme: TerminalTheme): string {
+  return blockText(statusIndicatorBlock(widget, theme));
 }
 
 export function spinnerBlock(widget: SpinnerNode, theme: TerminalTheme): RenderBlock {
@@ -293,17 +479,29 @@ function spinnerFrames(widget: SpinnerNode, theme: TerminalTheme): readonly stri
   return cleaned.length === 0 ? theme.tokens.symbols.spinnerFrames : cleaned;
 }
 
-function helpBindings(widget: HelpBarNode): readonly { readonly key: string; readonly label: string }[] {
-  if (!Array.isArray(widget.props.bindings)) return [];
-  return widget.props.bindings.filter((binding): binding is { readonly key: string; readonly label: string } =>
-    typeof binding === 'object'
-    && binding !== null
-    && typeof (binding as { readonly key?: unknown }).key === 'string'
-    && typeof (binding as { readonly label?: unknown }).label === 'string'
-  ).map((binding) => ({
-    key: sanitizeTerminalText(binding.key).text,
-    label: sanitizeTerminalText(binding.label).text
-  }));
+function helpGroups(widget: HelpBarNode): readonly HelpGroup[] {
+  if (!Array.isArray(widget.props.groups)) return [];
+  return widget.props.groups.flatMap((group): readonly HelpGroup[] => {
+    if (typeof group !== 'object' || group === null) return [];
+    const candidate = group as Partial<HelpGroup>;
+    if (typeof candidate.id !== 'string' || !Array.isArray(candidate.bindings)) return [];
+    const bindings = candidate.bindings.flatMap((binding): readonly { readonly key: string; readonly label: string }[] =>
+      typeof binding === 'object'
+      && binding !== null
+      && typeof (binding as { readonly key?: unknown }).key === 'string'
+      && typeof (binding as { readonly label?: unknown }).label === 'string'
+        ? [{
+            key: sanitizeTerminalText((binding as { readonly key: string }).key).text,
+            label: sanitizeTerminalText((binding as { readonly label: string }).label).text
+          }]
+        : []
+    );
+    return [{
+      id: sanitizeTerminalText(candidate.id).text,
+      ...(typeof candidate.label === 'string' ? { label: sanitizeTerminalText(candidate.label).text } : {}),
+      bindings
+    }];
+  });
 }
 
 export function feedbackSpan(

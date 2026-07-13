@@ -23,6 +23,7 @@ export interface RenderNodeFocusTarget<TMessage> extends LayoutFocusTarget {
 
 export interface RenderNodeLayoutTarget<TMessage> extends LayoutFocusTarget {
   readonly renderNode: RenderNode<TMessage>;
+  readonly layoutNode: LayoutNode;
 }
 
 export function collectLayoutFocusTargets(layout: LayoutNode): readonly LayoutFocusTarget[] {
@@ -124,10 +125,10 @@ function collectRenderNodeFocusRegionTargets<TMessage>(
   widget: RenderNode<TMessage>,
   layout: LayoutNode,
   parentPath: FocusPath
-): readonly RenderNodeLayoutTarget<TMessage>[] {
+): readonly RenderNodeFocusTarget<TMessage>[] {
   if (!layout.visible) return [];
   const path = [...parentPath, focusSegment(layout)];
-  const current = layout.focusTargets.map((target, index): RenderNodeLayoutTarget<TMessage> => {
+  const current = layout.focusTargets.map((target, index): RenderNodeFocusTarget<TMessage> => {
     const focusable = !target.disabled && target.bounds.width > 0 && target.bounds.height > 0;
     return {
       path: targetPath(path, target.id, index, layout.focusTargets.length),
@@ -165,7 +166,8 @@ function collectRenderNodeLayoutTargetsRecursive<TMessage>(
     kind: layout.kind,
     focusable: layout.focusable,
     disabled: false,
-    renderNode
+    renderNode,
+    layoutNode: layout
   };
   const children = renderNode.children ?? [];
   return [

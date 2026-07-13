@@ -21,22 +21,22 @@ import {
 import {
   button,
   canvas,
-  commandBar,
+  commandInput,
   contextMenu,
-  dropdown,
+  dialog,
+  dropdownMenu,
   textInput,
   table,
+  tabs,
   text
 } from '../../dist/components/index.js';
 import {
   grid,
   absolute,
-  modal,
   overlay,
   row,
   splitPane,
-  stack,
-  tabs,
+  column,
   surface
 } from '../../dist/layout/index.js';
 
@@ -122,7 +122,7 @@ test('grid and splitPane widgets lay out common app frames', () => {
       sizes: [{ kind: 'fixed', cells: 10 }, { kind: 'fill' }, { kind: 'fixed', cells: 8 }]
     }),
     text('status', { id: 'status' }),
-    commandBar({ id: 'command', value: '/help' })
+    commandInput({ id: 'command', value: '/help' })
   ], {
     id: 'workspace-frame',
     rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }],
@@ -154,8 +154,8 @@ test('splitPane content tracks use measured child width', () => {
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 9, width: 12, height: 3 });
 });
 
-test('stack explicit sizes keep fixed chrome around fill content', () => {
-  const widget = stack([
+test('column explicit sizes keep fixed chrome around fill content', () => {
+  const widget = column([
     text('Header', { id: 'header' }),
     text('Body', { id: 'body' }),
     text('Footer', { id: 'footer' })
@@ -195,10 +195,10 @@ test('row explicit sizes keep fixed sidebars around fill content', () => {
   ]);
 });
 
-test('stack and row reject size tracks that do not match child count', () => {
+test('column and row reject size tracks that do not match child count', () => {
   assert.throws(
-    () => stack([text('A'), text('B')], { sizes: [{ kind: 'fill' }] }),
-    /stack sizes length 1 must match child count 2/u
+    () => column([text('A'), text('B')], { sizes: [{ kind: 'fill' }] }),
+    /column sizes length 1 must match child count 2/u
   );
   assert.throws(
     () => row([text('A'), text('B')], { sizes: [{ kind: 'fill' }] }),
@@ -534,8 +534,8 @@ test('overlay accessibility and initial focus follow topmost visual order', () =
   assert.deepEqual(zFrame.accessibility.root.children?.map((node) => node.id), ['top-layer', 'low-layer']);
 });
 
-test('modal centers a bounded dialog and lays out child content inside the border', () => {
-  const widget = modal(text('inside', { id: 'inside' }), {
+test('dialog centers a bounded dialog and lays out child content inside the border', () => {
+  const widget = dialog(text('inside', { id: 'inside' }), {
     id: 'dialog',
     title: 'Confirm',
     width: 12,
@@ -550,14 +550,14 @@ test('modal centers a bounded dialog and lays out child content inside the borde
   assert.match(rendered, /inside/u);
 });
 
-test('modal accessibility label derives from structured border titles', () => {
-  const spanTitleFrame = renderElementFrame(modal(text('inside', { id: 'inside' }), {
+test('dialog accessibility label derives from structured border titles', () => {
+  const spanTitleFrame = renderElementFrame(dialog(text('inside', { id: 'inside' }), {
     id: 'span-dialog',
     border: { kind: 'single', title: [{ text: 'Span' }, { text: ' title' }] },
     width: 18,
     height: 5
   }), { columns: 30, rows: 9 });
-  const railTitleFrame = renderElementFrame(modal(text('inside', { id: 'inside' }), {
+  const railTitleFrame = renderElementFrame(dialog(text('inside', { id: 'inside' }), {
     id: 'rail-dialog',
     border: {
       kind: 'single',
@@ -575,8 +575,8 @@ test('modal accessibility label derives from structured border titles', () => {
   assert.equal(railTitleFrame.accessibility.root.label, 'Start Center End');
 });
 
-test('modal reserves a structurally separated action area without color', () => {
-  const widget = modal(text('Modal body', { id: 'body' }), {
+test('dialog reserves a structurally separated action area without color', () => {
+  const widget = dialog(text('Dialog body', { id: 'body' }), {
     id: 'dialog',
     title: 'Confirm',
     width: 20,
@@ -592,11 +592,11 @@ test('modal reserves a structurally separated action area without color', () => 
   assert.deepEqual(layout.children[1]?.bounds, { row: 7, column: 7, width: 18, height: 1 });
 
   const frame = renderElementFrame(widget, { columns: 30, rows: 9 }, { theme: noColorTheme });
-  const separatorCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'modal' && cell.source.label === 'action-separator');
+  const separatorCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'dialog' && cell.source.label === 'action-separator');
 
   assert.equal(separatorCells.length, 18);
   assert.deepEqual([...new Set(separatorCells.map((cell) => cell.text))], ['-']);
-  assert.match(renderFramePlain(frame), /Modal body/u);
+  assert.match(renderFramePlain(frame), /Dialog body/u);
   assert.match(renderFramePlain(frame), /Cancel/u);
   assert.match(renderFramePlain(frame), /OK/u);
 });
@@ -776,10 +776,10 @@ test('focus is scoped to the topmost visible focus layer', () => {
   });
 });
 
-test('overlapping modal renders above lower region content', () => {
+test('overlapping dialog renders above lower region content', () => {
   const widget = surface(overlay([
     canvas({
-    id: 'modal-backdrop-canvas',
+    id: 'dialog-backdrop-canvas',
     painter({ canvas, bounds }) {
         for (let row = 0; row < bounds.height; row += 1) {
             canvas.text(0, row, [{ text: 'backdrop backdrop backdrop' }]);
@@ -791,7 +791,7 @@ test('overlapping modal renders above lower region content', () => {
         }
     }
 }),
-    modal(text('front', { id: 'front' }), {
+    dialog(text('front', { id: 'front' }), {
     id: 'dialog-layer',
     title: 'Dialog',
     width: 14,
@@ -802,8 +802,8 @@ test('overlapping modal renders above lower region content', () => {
         }
     }
 })
-  ], { id: 'modal-layer-overlay' }), {
-    id: 'modal-layer-root',
+  ], { id: 'dialog-layer-overlay' }), {
+    id: 'dialog-layer-root',
     border: { kind: 'none' }
   });
 
@@ -824,9 +824,10 @@ test('overlapping modal renders above lower region content', () => {
   assert.match(output, /front/u);
 });
 
-test('dropdown renders above table content in a higher region', () => {
+test('dropdownMenu renders above table content in a higher region', () => {
   const widget = surface(overlay([
     table({
+    getRowId: (_row, index) => String(index),
     id: 'settings-table',
     columns: [
         {
@@ -844,8 +845,8 @@ test('dropdown renders above table content in a higher region', () => {
         }
     }
 }),
-    dropdown({
-    id: 'theme-dropdown-layer',
+    dropdownMenu({
+    id: 'theme-dropdownMenu-layer',
     label: 'Theme',
     presentation: { kind: 'open', selected: 'dark', highlighted: 'dark' },
     items: [
@@ -859,8 +860,8 @@ test('dropdown renders above table content in a higher region', () => {
         }
     }
 })
-  ], { id: 'dropdown-layer-overlay' }), {
-    id: 'dropdown-layer-root',
+  ], { id: 'dropdownMenu-layer-overlay' }), {
+    id: 'dropdownMenu-layer-root',
     border: { kind: 'none' }
   });
 
@@ -953,7 +954,7 @@ test('inheritBackground regions preserve lower background styles', () => {
   assert.deepEqual(cell?.style?.bg, { kind: 'ansi', value: 1 });
 });
 
-test('screen stack supports push, pop, replace, reset, and active screen lookup', () => {
+test('screen column supports push, pop, replace, reset, and active screen lookup', () => {
   const first = { id: 'home', state: { path: '/' } };
   const second = { id: 'details', state: { path: '/details' } };
   const pushed = screenStackReducer({ screens: [first] }, { kind: 'push', screen: second });

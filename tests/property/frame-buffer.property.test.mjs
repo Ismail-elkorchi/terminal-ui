@@ -9,7 +9,7 @@ import {
 } from '../../dist/renderer/index.js';
 import {
   row,
-  stack
+  column
 } from '../../dist/layout/index.js';
 import { text } from '../../dist/components/index.js';
 import { textSamples } from '../support/text-samples.mjs';
@@ -17,7 +17,7 @@ import { textSamples } from '../support/text-samples.mjs';
 test('layout and clipping properties keep rendered cells inside the viewport', () => {
   for (const { index, seed, value } of generatedTexts(64)) {
     const viewport = viewportFor(value);
-    const widget = stack([
+    const widget = column([
       text(value, { id: 'top' }),
       row([
         text(`${value} left`, { id: 'left' }),

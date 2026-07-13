@@ -12,12 +12,12 @@ import {
 } from '../../dist/renderer/index.js';
 import {
   absolute,
-  modal,
   overlay,
   surface
 } from '../../dist/layout/index.js';
 import {
   canvas,
+  dialog,
   text
 } from '../../dist/components/index.js';
 
@@ -192,10 +192,10 @@ test('region ids stay stable when a sibling overlay is inserted', () => {
   assert.equal(beforeHud?.id, afterHud?.id);
 });
 
-test('region ids stay stable when modal content changes', () => {
+test('region ids stay stable when dialog content changes', () => {
   const before = overlay([
-    text('backdrop', { id: 'modal-backdrop' }),
-    modal(text('front', { id: 'modal-content' }), {
+    text('backdrop', { id: 'dialog-backdrop' }),
+    dialog(text('front', { id: 'dialog-content' }), {
     id: 'stable-dialog',
     title: 'Dialog',
     width: 12,
@@ -206,10 +206,10 @@ test('region ids stay stable when modal content changes', () => {
         }
     }
 })
-  ], { id: 'modal-region-root' });
+  ], { id: 'dialog-region-root' });
   const after = overlay([
-    text('backdrop', { id: 'modal-backdrop' }),
-    modal(text('changed', { id: 'modal-content' }), {
+    text('backdrop', { id: 'dialog-backdrop' }),
+    dialog(text('changed', { id: 'dialog-content' }), {
     id: 'stable-dialog',
     title: 'Dialog',
     width: 12,
@@ -220,7 +220,7 @@ test('region ids stay stable when modal content changes', () => {
         }
     }
 })
-  ], { id: 'modal-region-root' });
+  ], { id: 'dialog-region-root' });
   const beforeDialog = renderElementRegions(before, { columns: 20, rows: 7 }).find((region) => region.zIndex === 20);
   const afterDialog = renderElementRegions(after, { columns: 20, rows: 7 }).find((region) => region.zIndex === 20);
 

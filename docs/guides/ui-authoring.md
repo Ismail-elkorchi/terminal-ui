@@ -7,8 +7,8 @@ targets, hit targets, accessibility snapshots, and terminal output.
 Normal application code should think in layers:
 
 - app runtime: `defineTui()`, `runTui()`, subscriptions, and effects;
-- layout: `stack()`, `row()`, `grid()`, `splitPane()`, `overlay()`, `modal()`;
-- components: controls, data views, text surfaces, feedback, visualization;
+- layout: `column()`, `row()`, `grid()`, `splitPane()`, and `overlay()`;
+- components: `dialog()`, `tabs()`, controls, data views, text surfaces, feedback, and visualization;
 - behavior: pure reducers and state helpers for controlled components;
 - renderer extensions: `custom()` and low-level frame/rendering contracts.
 
@@ -21,7 +21,8 @@ application code composes it and returns it, but does not inspect `kind`,
 ```ts
 import { defineTui, runTui } from '@ismail-elkorchi/terminal-ui';
 import { button, text } from '@ismail-elkorchi/terminal-ui/components';
-import { stack } from '@ismail-elkorchi/terminal-ui/layout';
+import { createTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
+import { column } from '@ismail-elkorchi/terminal-ui/layout';
 
 type Message = { kind: 'save' } | { kind: 'quit' };
 interface State { readonly saved: boolean; }
@@ -33,14 +34,14 @@ const app = defineTui<State, Message>({
     if (message.kind === 'save') return { state: { saved: true } };
     return { state, exit: { reason: 'quit' } };
   },
-  view: (state) => stack([
+  view: (state) => column([
     text(state.saved ? 'Saved' : 'Unsaved'),
     button({ id: 'save', label: 'Save', onPress: { kind: 'save' } }),
     button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit' } })
   ])
 });
 
-await runTui(app);
+await runTui(app, createTerminalHost());
 ```
 
 ## Component Options

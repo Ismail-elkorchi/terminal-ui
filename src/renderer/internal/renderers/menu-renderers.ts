@@ -1,10 +1,10 @@
 import {
   contextMenuTitleBlock,
   contextMenuTitleRows,
-  dropdownAccessibleBase,
-  dropdownAccessibleChildren,
-  dropdownBlock,
-  dropdownHitTargets,
+  dropdownMenuAccessibleBase,
+  dropdownMenuAccessibleChildren,
+  dropdownMenuBlock,
+  dropdownMenuHitTargets,
   menuAccessibleBase,
   menuAccessibleChildren,
   menuBarBlock,
@@ -14,11 +14,11 @@ import {
   menuHitTargets
 } from '../menu-widgets.ts';
 import {
-  commandBarAccessibleChildren,
-  commandBarBlock,
-  commandBarCursor,
-  commandBarPointerOffset
-} from '../command-bar.ts';
+  commandInputAccessibleChildren,
+  commandInputBlock,
+  commandInputCursor,
+  commandInputPointerOffset
+} from '../command-input.ts';
 import { paletteAccessibleChildren, paletteBlock, paletteHitTargets } from '../palette.ts';
 import { textPointerHitTargets, textPointerMessageFactory } from '../text-pointer.ts';
 import { stringify } from '../render-node-props.ts';
@@ -90,27 +90,27 @@ export const menuRenderers = {
       ];
     }
   },
-  dropdown: {
+  dropdownMenu: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, dropdownBlock(renderNode, layoutNode.bounds, theme));
+      writeRenderBlock(buffer, layoutNode.bounds, dropdownMenuBlock(renderNode, layoutNode.bounds, theme));
     },
     accessibility: ({ renderNode, id, focused }) => {
-      const children = dropdownAccessibleChildren(renderNode);
+      const children = dropdownMenuAccessibleChildren(renderNode);
       return {
-        ...dropdownAccessibleBase(renderNode, id, focused),
+        ...dropdownMenuAccessibleBase(renderNode, id, focused),
         ...(renderNode.props.presentation.kind === 'open' ? { scope: { kind: 'menu' as const } } : {}),
         ...(children === undefined ? {} : { children })
       };
     },
     focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, menuCursor(renderNode, bounds, renderNode.props.presentation.kind === 'open' ? 1 : 0))],
-    hitTargets: ({ renderNode, bounds }) => dropdownHitTargets(renderNode, bounds)
+    hitTargets: ({ renderNode, bounds }) => dropdownMenuHitTargets(renderNode, bounds)
   },
-  commandBar: {
+  commandInput: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, commandBarBlock(renderNode, layoutNode.bounds, theme));
+      writeRenderBlock(buffer, layoutNode.bounds, commandInputBlock(renderNode, layoutNode.bounds, theme));
     },
     accessibility: ({ renderNode, id, focused }) => {
-      const children = commandBarAccessibleChildren(renderNode);
+      const children = commandInputAccessibleChildren(renderNode);
       return {
         id,
         role: 'textbox',
@@ -120,12 +120,12 @@ export const menuRenderers = {
         ...(children === undefined ? {} : { children })
       };
     },
-    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, commandBarCursor(renderNode, bounds))],
+    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, commandInputCursor(renderNode, bounds))],
     hitTargets: ({ renderNode, bounds }) => textPointerHitTargets({
       id: `${renderNode.id ?? renderNode.kind}:text`,
       bounds,
       toMessage: textPointerMessageFactory(renderNode),
-      offsetAt: (event) => commandBarPointerOffset(renderNode, bounds, event)
+      offsetAt: (event) => commandInputPointerOffset(renderNode, bounds, event)
     })
   },
   palette: {
@@ -152,7 +152,7 @@ export const menuRenderers = {
       ];
     }
   }
-} satisfies RendererMap<'menu' | 'menuBar' | 'contextMenu' | 'dropdown' | 'commandBar' | 'palette'>;
+} satisfies RendererMap<'menu' | 'menuBar' | 'contextMenu' | 'dropdownMenu' | 'commandInput' | 'palette'>;
 
 function contextMenuBodyBounds(
   bounds: { readonly row: number; readonly column: number; readonly width: number; readonly height: number },

@@ -3,52 +3,51 @@ import { applyScrollEvent, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 
 export interface TableState {
-  readonly selectedRow?: number;
+  readonly selectedRowId?: string;
   readonly selectedColumn?: number;
   readonly sort?: TableSortState;
   readonly columnWidths?: Readonly<Record<string, number>>;
   readonly scroll?: ScrollState;
 }
 
-export interface TableReducerOptions {
-  readonly rowCount?: number;
+export interface TableReducerOptions<TRow> {
+  readonly rows: readonly TRow[];
+  readonly getRowId: (row: TRow, index: number) => string;
   readonly columnCount?: number;
   readonly minColumnWidth?: number;
 }
 
 export type TableCellValueGetter<TRow> = (row: TRow, column: string) => unknown;
 
-export function tableReducer(
+export function tableReducer<TRow>(
   state: TableState,
   action: TableAction,
-  options: TableReducerOptions = {}
+  options: TableReducerOptions<TRow>
 ): TableState {
+  const rowIds = options.rows.map(options.getRowId);
   switch (action.kind) {
     case 'selectRow':
-      return {
-        ...state,
-        selectedRow: boundedIndex(action.row, options.rowCount)
-      };
+      return rowIds.includes(action.rowId) ? selectRow(state, action.rowId, rowIds) : state;
     case 'selectCell':
-      return {
-        ...state,
-        selectedRow: boundedIndex(action.row, options.rowCount),
-        selectedColumn: boundedIndex(action.column, options.columnCount)
-      };
+      return rowIds.includes(action.rowId)
+        ? selectCell(state, action.rowId, action.column, rowIds, options.columnCount)
+        : state;
     case 'moveRow':
-      return selectRow(state, (state.selectedRow ?? 0) + action.delta, options);
+      return selectRowAtOffset(state, action.delta, rowIds);
     case 'moveColumn':
-      return selectCell(state, state.selectedRow ?? 0, (state.selectedColumn ?? 0) + action.delta, options);
-    case 'page':
-      return selectRow(
+      return selectCell(
         state,
-        (state.selectedRow ?? 0) + action.delta * Math.max(1, state.scroll?.viewportRows ?? 1),
-        options
+        selectedRowId(state, rowIds),
+        (state.selectedColumn ?? 0) + action.delta,
+        rowIds,
+        options.columnCount
       );
+    case 'page':
+      return selectRowAtOffset(state, action.delta * Math.max(1, state.scroll?.viewportRows ?? 1), rowIds);
     case 'firstRow':
-      return selectRow(state, 0, options);
+      return selectRow(state, rowIds[0], rowIds);
     case 'lastRow':
-      return selectRow(state, Math.max(0, (options.rowCount ?? 1) - 1), options);
+      return selectRow(state, rowIds.at(-1), rowIds);
     case 'activate':
       return state;
     case 'sortBy':
@@ -73,46 +72,73 @@ export function tableReducer(
 
 export function tablePresentation(state: TableState): TablePresentation {
   return {
-    ...(state.selectedRow === undefined ? {} : { selected: state.selectedRow }),
-    ...(state.selectedRow === undefined || state.selectedColumn === undefined
+    ...(state.selectedRowId === undefined ? {} : { selectedRowId: state.selectedRowId }),
+    ...(state.selectedRowId === undefined || state.selectedColumn === undefined
       ? {}
-      : { selectedCell: { row: state.selectedRow, column: state.selectedColumn } }),
+      : { selectedCell: { rowId: state.selectedRowId, column: state.selectedColumn } }),
     ...(state.sort === undefined ? {} : { sort: state.sort }),
     ...(state.columnWidths === undefined ? {} : { columnWidths: state.columnWidths }),
     ...(state.scroll === undefined ? {} : { scroll: state.scroll })
   };
 }
 
-function selectRow(state: TableState, row: number, options: TableReducerOptions): TableState {
-  const selectedRow = boundedIndex(row, options.rowCount);
+function selectRow(state: TableState, selectedRowId: string | undefined, rowIds: readonly string[]): TableState {
+  if (selectedRowId === undefined) return withoutRowSelection(state);
+  const selectedRow = rowIds.indexOf(selectedRowId);
+  if (selectedRow < 0) return state;
   const scroll = state.scroll === undefined
     ? undefined
     : scrollReducer(state.scroll, { kind: 'itemIntoView', index: selectedRow });
-  if (state.selectedRow === selectedRow && state.scroll === scroll) return state;
+  if (state.selectedRowId === selectedRowId && state.scroll === scroll) return state;
   return {
     ...state,
-    selectedRow,
+    selectedRowId,
     ...(scroll === undefined ? {} : { scroll })
   };
 }
 
 function selectCell(
   state: TableState,
-  row: number,
+  selectedRowId: string | undefined,
   column: number,
-  options: TableReducerOptions
+  rowIds: readonly string[],
+  columnCount: number | undefined
 ): TableState {
-  const selectedRow = boundedIndex(row, options.rowCount);
-  const selectedColumn = boundedIndex(column, options.columnCount);
+  if (selectedRowId === undefined) return withoutRowSelection(state);
+  const selectedRow = rowIds.indexOf(selectedRowId);
+  if (selectedRow < 0) return state;
+  const selectedColumn = boundedIndex(column, columnCount);
   const scroll = state.scroll === undefined
     ? undefined
     : scrollReducer(state.scroll, { kind: 'itemIntoView', index: selectedRow });
-  if (state.selectedRow === selectedRow && state.selectedColumn === selectedColumn && state.scroll === scroll) return state;
+  if (state.selectedRowId === selectedRowId && state.selectedColumn === selectedColumn && state.scroll === scroll) return state;
   return {
     ...state,
-    selectedRow,
+    selectedRowId,
     selectedColumn,
     ...(scroll === undefined ? {} : { scroll })
+  };
+}
+
+function selectRowAtOffset(state: TableState, delta: number, rowIds: readonly string[]): TableState {
+  if (rowIds.length === 0) return withoutRowSelection(state);
+  const current = rowIds.indexOf(state.selectedRowId ?? '');
+  if (current < 0) return selectRow(state, delta < 0 ? rowIds.at(-1) : rowIds[0], rowIds);
+  const index = ((current + delta) % rowIds.length + rowIds.length) % rowIds.length;
+  return selectRow(state, rowIds[index], rowIds);
+}
+
+function selectedRowId(state: TableState, rowIds: readonly string[]): string | undefined {
+  return state.selectedRowId !== undefined && rowIds.includes(state.selectedRowId)
+    ? state.selectedRowId
+    : rowIds[0];
+}
+
+function withoutRowSelection(state: TableState): TableState {
+  return {
+    ...(state.sort === undefined ? {} : { sort: state.sort }),
+    ...(state.columnWidths === undefined ? {} : { columnWidths: state.columnWidths }),
+    ...(state.scroll === undefined ? {} : { scroll: state.scroll })
   };
 }
 

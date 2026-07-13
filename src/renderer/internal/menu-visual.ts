@@ -53,7 +53,7 @@ export function menuBarLine(
   return { spans: clipSpans(spans, width) };
 }
 
-export function dropdownControlLine(input: {
+export function dropdownMenuControlLine(input: {
   readonly widget: RenderNode;
   readonly label: string;
   readonly value: string;
@@ -73,10 +73,10 @@ export function dropdownControlLine(input: {
       : [
           menuSpan(input.widget, `${input.label}: `, renderNodeStyle(input.widget, 'label'), { label: 'label' })
         ]),
-    menuSpan(input.widget, '[', chromeStyle, { label: 'dropdown-open' }),
-    menuSpan(input.widget, input.value, stateStyle, { label: 'dropdown-value' }),
-    menuSpan(input.widget, ` ${marker}`, chromeStyle, { label: 'dropdown-marker' }),
-    menuSpan(input.widget, ']', chromeStyle, { label: 'dropdown-close' })
+    menuSpan(input.widget, '[', chromeStyle, { label: 'dropdownMenu-open' }),
+    menuSpan(input.widget, input.value, stateStyle, { label: 'dropdownMenu-value' }),
+    menuSpan(input.widget, ` ${marker}`, chromeStyle, { label: 'dropdownMenu-marker' }),
+    menuSpan(input.widget, ']', chromeStyle, { label: 'dropdownMenu-close' })
   ];
   return { spans: clipSpans(spans, input.width) };
 }

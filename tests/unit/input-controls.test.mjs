@@ -10,21 +10,21 @@ import { renderFramePlain,
 } from '../../dist/renderer/index.js';
 import {
   checkbox,
-  checkboxList,
-  colorPicker,
-  datePicker,
+  checkboxGroup,
+  colorSwatchPicker,
+  calendar,
   rangeSlider,
-  selectBox,
+  select,
   slider,
   toggleSwitch
 } from '../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
-import { stack } from '../../dist/layout/index.js';
-import { datePickerFixture } from '../helpers/date-picker.mjs';
+import { column } from '../../dist/layout/index.js';
+import { calendarFixture } from '../helpers/calendar.mjs';
 
 test('toggleSwitch slider and rangeSlider render caller-owned values with keyboard and mouse affordances', () => {
-  const widget = stack([
+  const widget = column([
     toggleSwitch({
       id: 'switch',
       label: 'Live updates',
@@ -93,9 +93,9 @@ test('slider generated bindings use normalized arrow-key identities', async () =
   await runtime.dispose();
 });
 
-test('checkboxList colorPicker and datePicker expose selectable item hit targets and accessibility', () => {
-  const widget = stack([
-    checkboxList({
+test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit targets and accessibility', () => {
+  const widget = column([
+    checkboxGroup({
       id: 'check-list',
       label: 'Channels',
       options: [
@@ -105,7 +105,7 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
       selected: ['email'],
       onAction: (action) => ({ kind: 'channel', action })
     }),
-    colorPicker({
+    colorSwatchPicker({
       id: 'colors',
       label: 'Accent',
       selected: 'green',
@@ -116,10 +116,10 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
       ],
       onAction: (action) => ({ kind: 'color', action })
     }),
-    datePicker({
+    calendar({
       id: 'dates',
       label: 'June',
-      ...datePickerFixture({
+      ...calendarFixture({
         selected: { year: 2026, month: 6, day: 15 },
         focused: { year: 2026, month: 6, day: 15 },
         today: { year: 2026, month: 6, day: 10 }
@@ -169,7 +169,7 @@ test('checkboxList colorPicker and datePicker expose selectable item hit targets
 });
 
 test('form controls keep state visible in high contrast and no-color projections', () => {
-  const widget = stack([
+  const widget = column([
     checkbox({
       id: 'agree',
       label: 'Agree',
@@ -184,15 +184,15 @@ test('form controls keep state visible in high contrast and no-color projections
       max: 100,
       width: 5
     }),
-    selectBox({
+    select({
       id: 'region',
       label: 'Region',
       placeholder: 'Select region',
       options: [{ id: 'eu', label: 'Europe', value: 'eu' }]
     }),
-    datePicker({
+    calendar({
       id: 'calendar',
-      ...datePickerFixture({
+      ...calendarFixture({
         selected: { year: 2026, month: 6, day: 2 },
         today: { year: 2026, month: 6, day: 2 }
       })

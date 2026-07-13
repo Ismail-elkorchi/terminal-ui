@@ -4,8 +4,8 @@ import type { BorderStyle } from '../../../visual/border.ts';
 import type {
   DividerLineKind,
   DividerOrientation,
-  DropdownAction,
-  DropdownPresentation,
+  DropdownMenuAction,
+  DropdownMenuPresentation,
   MenuAction,
   MenuItem,
   TooltipPlacement,
@@ -41,11 +41,11 @@ export interface ContextMenuRenderProps<TMessage> extends MenuCollectionRenderPr
   readonly toActionMessage?: (action: MenuAction) => TMessage;
 }
 
-export interface DropdownRenderProps<TMessage> extends MenuCollectionRenderProps<TMessage> {
+export interface DropdownMenuRenderProps<TMessage> extends MenuCollectionRenderProps<TMessage> {
   readonly label?: string;
-  readonly presentation: DropdownPresentation;
+  readonly presentation: DropdownMenuPresentation;
   readonly placeholder?: string;
-  readonly toDropdownActionMessage?: (action: DropdownAction) => TMessage;
+  readonly toDropdownMenuActionMessage?: (action: DropdownMenuAction) => TMessage;
 }
 
 export interface DividerRenderProps {

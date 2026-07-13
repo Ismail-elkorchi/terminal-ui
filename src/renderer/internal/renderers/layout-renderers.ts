@@ -1,7 +1,7 @@
 import { createFrameBuffer } from '../frame.ts';
 import { splitTracks } from '../layout-geometry.ts';
 import { writeRenderBlock } from './support/block.ts';
-import { borderForModal, modalLabel } from './support/border.ts';
+import { borderForDialog, dialogLabel } from './support/border.ts';
 import { cellInside, groupAccessibleNode } from './support/common.ts';
 import {
   childLayoutSizes,
@@ -10,6 +10,11 @@ import {
   priorityFillLayoutSizes,
   splitPaneChildBounds
 } from './support/layout.ts';
+import {
+  renderSplitPaneDividers,
+  splitPaneAccessibleNode,
+  splitPaneHitTargets
+} from '../split-pane.ts';
 import { tabsAccessibleChildren, tabsChildBounds, tabsHeaderBlock, tabsHitTargets } from './support/tabs.ts';
 import {
   drawScrollbars,
@@ -23,7 +28,7 @@ import {
   viewportChildBounds,
   viewportIndicatorCellKey
 } from './support/viewport.ts';
-import { drawModalActionSeparator, modalChildBounds, modalDialogBounds } from './support/modal.ts';
+import { dialogBounds, dialogChildBounds, drawDialogActionSeparator } from './support/dialog.ts';
 import { drawSurfaceFrame } from '../surface.ts';
 import type { RendererMap } from './types.ts';
 
@@ -41,7 +46,7 @@ export const layoutRenderers = {
     },
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
-  stack: {
+  column: {
     layout: ({ renderNode, bounds, childMeasures }) => splitTracks(
       bounds,
       'vertical',
@@ -92,8 +97,10 @@ export const layoutRenderers = {
     layout: ({ renderNode, bounds, childMeasures }) => splitPaneChildBounds(renderNode, bounds, childMeasures),
     render: (input) => {
       input.renderChildren();
+      renderSplitPaneDividers(input.renderNode, input.layoutNode, input.buffer, input.theme, input.focused);
     },
-    accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
+    accessibility: ({ renderNode, id, focused }) => splitPaneAccessibleNode(renderNode, id, focused),
+    hitTargets: ({ renderNode, layoutNode }) => splitPaneHitTargets(renderNode, layoutNode)
   },
   tabs: {
     layout: ({ renderNode, bounds }) => tabsChildBounds(renderNode, bounds),
@@ -113,23 +120,23 @@ export const layoutRenderers = {
     }),
     hitTargets: ({ renderNode, bounds }) => tabsHitTargets(renderNode, bounds)
   },
-  modal: {
-    layout: ({ renderNode, bounds, childMeasures }) => modalChildBounds(renderNode, bounds, borderForModal(renderNode), childMeasures),
+  dialog: {
+    layout: ({ renderNode, bounds, childMeasures }) => dialogChildBounds(renderNode, bounds, borderForDialog(renderNode), childMeasures),
     render: (input) => {
-      const border = borderForModal(input.renderNode, input.focused);
-      const childBounds = modalDialogBounds(input.renderNode, input.layoutNode.bounds);
+      const border = borderForDialog(input.renderNode, input.focused);
+      const childBounds = dialogBounds(input.renderNode, input.layoutNode.bounds);
       drawSurfaceFrame(input.buffer, childBounds, input.renderNode, input.theme, input.focused, {
         variant: 'raised',
         border,
         shadow: true
       });
-      drawModalActionSeparator(input.buffer, input.layoutNode, input.theme, border.style);
+      drawDialogActionSeparator(input.buffer, input.layoutNode, input.theme, border.style);
       input.renderChildren();
     },
     accessibility: ({ renderNode, id }) => ({
       id,
       role: 'dialog',
-      label: modalLabel(renderNode) || id,
+      label: dialogLabel(renderNode) || id,
       scope: {
         kind: 'modal',
         trapsFocus: true,
@@ -137,4 +144,4 @@ export const layoutRenderers = {
       }
     })
   }
-} satisfies RendererMap<'row' | 'stack' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'modal'>;
+} satisfies RendererMap<'column' | 'row' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'dialog'>;

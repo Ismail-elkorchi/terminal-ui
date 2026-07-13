@@ -14,8 +14,8 @@ import type { RenderNodeOfKind } from '../model/index.ts';
 export type { SurfaceChromeOptions, SurfaceVariant } from '../../visual/surface.ts';
 
 type SurfaceNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'surface'>;
-type ModalNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'modal'>;
-type SurfaceFrameNode<TMessage = unknown> = SurfaceNode<TMessage> | ModalNode<TMessage>;
+type DialogNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'dialog'>;
+type SurfaceFrameNode<TMessage = unknown> = DialogNode<TMessage> | SurfaceNode<TMessage>;
 
 export function surfaceChildContentBounds(widget: SurfaceNode, bounds: Rect): Rect {
   const border = surfaceBorderForBounds(widget, bounds);

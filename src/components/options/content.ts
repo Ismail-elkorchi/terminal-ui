@@ -36,7 +36,8 @@ export interface RichTextOptions extends ElementOptions<TextStylePart> {
 
 export interface ListOptions<TValue, TMessage> extends InteractiveElementOptions<DataListStylePart> {
   readonly items: readonly TValue[];
-  readonly selected?: number;
+  readonly getItemId: (value: TValue, index: number) => string;
+  readonly selectedId?: string;
   readonly filterQuery?: string;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
@@ -48,8 +49,9 @@ export interface ListOptions<TValue, TMessage> extends InteractiveElementOptions
 
 export interface TableOptions<TRow, TMessage = never> extends InteractiveElementOptions<TableStylePart> {
   readonly rows: readonly TRow[];
+  readonly getRowId: (row: TRow, index: number) => string;
   readonly columns?: readonly TableColumn<TRow>[];
-  readonly selected?: number;
+  readonly selectedRowId?: string;
   readonly selectedCell?: TableCellSelection;
   readonly sort?: TableSortState;
   readonly columnWidths?: Readonly<Record<string, number>>;

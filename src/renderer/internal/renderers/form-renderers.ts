@@ -3,18 +3,18 @@ import {
   buttonBlock,
   checkboxAccessibleBase,
   checkboxBlock,
-  checkboxListAccessibleBase,
-  checkboxListAccessibleChildren,
-  checkboxListBlock,
-  checkboxListHitTargets,
-  colorPickerAccessibleBase,
-  colorPickerAccessibleChildren,
-  colorPickerBlock,
+  checkboxGroupAccessibleBase,
+  checkboxGroupAccessibleChildren,
+  checkboxGroupBlock,
+  checkboxGroupHitTargets,
+  colorSwatchPickerAccessibleBase,
+  colorSwatchPickerAccessibleChildren,
+  colorSwatchPickerBlock,
   controlHitTargets,
-  datePickerAccessibleBase,
-  datePickerAccessibleChildren,
-  datePickerBlock,
-  datePickerNavigationHitTargets,
+  calendarAccessibleBase,
+  calendarAccessibleChildren,
+  calendarBlock,
+  calendarNavigationHitTargets,
   fieldAccessibleBase,
   fieldBlock,
   fieldContentBounds,
@@ -35,9 +35,9 @@ import {
   rangeSliderAccessibleBase,
   rangeSliderBlock,
   rangeSliderHitTargets,
-  selectBoxAccessibleBase,
-  selectBoxAccessibleChildren,
-  selectBoxBlock,
+  selectAccessibleBase,
+  selectAccessibleChildren,
+  selectBlock,
   sliderAccessibleBase,
   sliderBlock,
   sliderHitTargets,
@@ -129,16 +129,16 @@ export const formRenderers = {
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => rangeSliderHitTargets(renderNode, bounds)
   },
-  checkboxList: {
+  checkboxGroup: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, checkboxListBlock(renderNode, layoutNode.bounds, theme));
+      writeRenderBlock(buffer, layoutNode.bounds, checkboxGroupBlock(renderNode, layoutNode.bounds, theme));
     },
     accessibility: ({ renderNode, id, focused }) => ({
-      ...checkboxListAccessibleBase(renderNode, id, focused),
-      children: checkboxListAccessibleChildren(renderNode)
+      ...checkboxGroupAccessibleBase(renderNode, id, focused),
+      children: checkboxGroupAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ renderNode, bounds }) => checkboxListHitTargets(renderNode, bounds)
+    hitTargets: ({ renderNode, bounds }) => checkboxGroupHitTargets(renderNode, bounds)
   },
   radioGroup: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {
@@ -151,39 +151,39 @@ export const formRenderers = {
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => optionHitTargets(renderNode, bounds)
   },
-  selectBox: {
+  select: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, selectBoxBlock(renderNode, layoutNode.bounds, theme));
+      writeRenderBlock(buffer, layoutNode.bounds, selectBlock(renderNode, layoutNode.bounds, theme));
     },
     accessibility: ({ renderNode, id, focused }) => ({
-      ...selectBoxAccessibleBase(renderNode, id, focused),
-      children: selectBoxAccessibleChildren(renderNode)
+      ...selectAccessibleBase(renderNode, id, focused),
+      children: selectAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => optionHitTargets(renderNode, bounds)
   },
-  colorPicker: {
+  colorSwatchPicker: {
     render: ({ renderNode, layoutNode, buffer }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, colorPickerBlock(renderNode, layoutNode.bounds));
+      writeRenderBlock(buffer, layoutNode.bounds, colorSwatchPickerBlock(renderNode, layoutNode.bounds));
     },
     accessibility: ({ renderNode, id, focused }) => ({
-      ...colorPickerAccessibleBase(renderNode, id, focused),
-      children: colorPickerAccessibleChildren(renderNode)
+      ...colorSwatchPickerAccessibleBase(renderNode, id, focused),
+      children: colorSwatchPickerAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => pickerHitTargets(renderNode, bounds)
   },
-  datePicker: {
+  calendar: {
     render: ({ renderNode, layoutNode, buffer }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, datePickerBlock(renderNode, layoutNode.bounds));
+      writeRenderBlock(buffer, layoutNode.bounds, calendarBlock(renderNode, layoutNode.bounds));
     },
     accessibility: ({ renderNode, id, focused }) => ({
-      ...datePickerAccessibleBase(renderNode, id, focused),
-      children: datePickerAccessibleChildren(renderNode)
+      ...calendarAccessibleBase(renderNode, id, focused),
+      children: calendarAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => [
-      ...datePickerNavigationHitTargets(renderNode, bounds),
+      ...calendarNavigationHitTargets(renderNode, bounds),
       ...pickerHitTargets(renderNode, bounds)
     ]
   },
@@ -228,11 +228,11 @@ export const formRenderers = {
   | 'toggleSwitch'
   | 'slider'
   | 'rangeSlider'
-  | 'checkboxList'
+  | 'checkboxGroup'
   | 'radioGroup'
-  | 'selectBox'
-  | 'colorPicker'
-  | 'datePicker'
+  | 'select'
+  | 'colorSwatchPicker'
+  | 'calendar'
   | 'textInput'
   | 'numberInput'
 >;

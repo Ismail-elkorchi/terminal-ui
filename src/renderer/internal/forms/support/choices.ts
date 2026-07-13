@@ -4,13 +4,13 @@ import type { TerminalStyle } from '../../frame.ts';
 import { resolveRenderNodeStyle } from '../../render-node-style.ts';
 import { clean, isRecord } from './shared.ts';
 
-type CheckboxListNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'checkboxList'>;
-type ChoiceNode<TMessage = unknown> = RenderNodesOfKind<TMessage, 'radioGroup' | 'selectBox'>;
-type ColorPickerNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'colorPicker'>;
-type DatePickerNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'datePicker'>;
-type ChoiceControlNode<TMessage = unknown> = CheckboxListNode<TMessage> | ChoiceNode<TMessage>;
-type SelectableControlNode<TMessage = unknown> = ChoiceControlNode<TMessage> | ColorPickerNode<TMessage> | DatePickerNode<TMessage>;
-type OptionStateNode<TMessage = unknown> = ChoiceControlNode<TMessage> | ColorPickerNode<TMessage>;
+type CheckboxGroupNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'checkboxGroup'>;
+type ChoiceNode<TMessage = unknown> = RenderNodesOfKind<TMessage, 'radioGroup' | 'select'>;
+type ColorSwatchPickerNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'colorSwatchPicker'>;
+type CalendarNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'calendar'>;
+type ChoiceControlNode<TMessage = unknown> = CheckboxGroupNode<TMessage> | ChoiceNode<TMessage>;
+type SelectableControlNode<TMessage = unknown> = ChoiceControlNode<TMessage> | ColorSwatchPickerNode<TMessage> | CalendarNode<TMessage>;
+type OptionStateNode<TMessage = unknown> = ChoiceControlNode<TMessage> | ColorSwatchPickerNode<TMessage>;
 
 export function selectedId(widget: SelectableControlNode): string | undefined {
   const selected = widget.props.selected;
@@ -58,7 +58,7 @@ export function optionStyle(
   });
 }
 
-export function selectedIds(widget: CheckboxListNode): ReadonlySet<string> {
+export function selectedIds(widget: CheckboxGroupNode): ReadonlySet<string> {
   return new Set(widget.props.selected?.map(clean) ?? []);
 }
 

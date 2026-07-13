@@ -34,7 +34,8 @@ import {
 import {
   button,
   contextMenu,
-  dropdown,
+  dialog,
+  dropdownMenu,
   textInput,
   list,
   notificationStack,
@@ -43,18 +44,17 @@ import {
   spinner,
   statusBar,
   table,
+  tabs,
   text,
   textArea,
   tree
 } from '../../dist/components/index.js';
 import { custom } from '../../dist/renderer/index.js';
 import {
-  modal,
   overlay,
   row,
-  stack,
+  column,
   surface,
-  tabs,
   viewport
 } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.mjs';
@@ -201,7 +201,7 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
       return { state };
     },
     view: (state) => overlay([
-      stack([
+      column([
         textInput({
           id: 'command',
           value: state.command,
@@ -276,7 +276,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
       return { state };
     },
     view: (state) => overlay([
-      stack([
+      column([
         textInput({
           id: 'command',
           value: state.command,
@@ -289,7 +289,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
       ], { id: 'base' }),
       ...(state.modal === 'a' || state.modal === 'b'
         ? [
-            surface(stack([
+            surface(column([
               button({ id: 'open-b', label: 'Open B', onPress: { kind: 'openB' } }),
               button({ id: 'close-a', label: 'Close A', onPress: { kind: 'closeA' } })
             ], { id: 'modal-a-actions' }), {
@@ -378,7 +378,12 @@ test('TUI frame rendering positions wide graphemes by terminal cells', () => {
 
 test('TUI frame cursor follows the selected visible list item', () => {
   const items = Array.from({ length: 10 }, (_value, index) => `Item ${index}`);
-  const frame = renderElementFrame(list({ id: 'cursor-list', items, selected: 6 }), { columns: 16, rows: 5 });
+  const frame = renderElementFrame(list({
+    id: 'cursor-list',
+    items,
+    getItemId: (item) => item,
+    selectedId: 'Item 6'
+  }), { columns: 16, rows: 5 });
   const output = renderFramePlain(frame);
   const addressed = renderFrameDebug(frame);
 
@@ -389,8 +394,8 @@ test('TUI frame cursor follows the selected visible list item', () => {
 });
 
 test('TUI status, progress, and spinner widgets render accessible status state', () => {
-  const frame = renderElementFrame(stack([
-    statusBar({ id: 'status', text: 'Ready' }),
+  const frame = renderElementFrame(column([
+    statusBar({ id: 'status', leading: [{ id: 'ready', kind: 'status', text: 'Ready', status: 'success' }] }),
     progressBar({ id: 'progress', label: 'Sync', value: 150, max: 100 }),
     progressBar({ id: 'pending', label: 'Waiting', indeterminate: true }),
     spinner({ id: 'spinner', label: 'Working' })
@@ -1177,7 +1182,7 @@ test('anonymous container focus identity survives terminal resize', async () => 
     id: 'structural-focus-resize',
     init: () => ({ value: '' }),
     update: (state) => ({ state }),
-    view: (state) => stack([
+    view: (state) => column([
       textInput({ id: 'first', value: state.value }),
       textInput({ id: 'second', value: state.value })
     ])
@@ -1197,7 +1202,7 @@ test('anonymous container focus identity survives terminal resize', async () => 
   const focusBeforeResize = runtime.frame().focusPath;
   await runtime.resize({ columns: 18, rows: 4 });
 
-  assert.deepEqual(focusBeforeResize, ['stack:0', 'second']);
+  assert.deepEqual(focusBeforeResize, ['column:0', 'second']);
   assert.deepEqual(runtime.frame().focusPath, focusBeforeResize);
 });
 
@@ -1206,7 +1211,7 @@ test('TUI runtime routes key events through focused widget keymaps', async () =>
     id: 'keymap-routing',
     init: () => ({ active: 'none' }),
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => stack([
+    view: (state) => column([
       textInput({ id: 'first', value: state.active, keys: { enter: () => ({ active: 'first' }) } }),
       textInput({ id: 'second', value: state.active, keys: { enter: () => ({ active: 'second' }) } })
     ])
@@ -1223,7 +1228,7 @@ test('TUI runtime routes key events through focused widget keymaps', async () =>
   assert.equal(tab.handled, true);
   assert.equal(second.handled, true);
   assert.deepEqual(runtime.getState(), { active: 'second' });
-  assert.deepEqual(runtime.frame().focusPath, ['stack:0', 'second']);
+  assert.deepEqual(runtime.frame().focusPath, ['column:0', 'second']);
   assert.equal(harness.frames().length, 4);
   assert.equal(harness.diffs()[0].fullRewrite, true);
   assert.match(renderFramePlain(runtime.frame()), /second/);
@@ -1234,7 +1239,7 @@ test('TUI runtime lets focused widgets handle tab before focus traversal', async
     id: 'tab-keymap-routing',
     init: () => ({ active: 'none' }),
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => stack([
+    view: (state) => column([
       textInput({ id: 'first', value: state.active, keys: { tab: () => ({ active: 'accepted' }) } }),
       textInput({ id: 'second', value: state.active, keys: { enter: () => ({ active: 'second' }) } })
     ])
@@ -1553,7 +1558,7 @@ test('runTui accepts an initial focus path', async () => {
     id: 'run-focus-restore',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active }, exit: {} }),
-    view: (state) => stack([
+    view: (state) => column([
       textInput({ id: 'first', value: state.active, keys: { enter: () => ({ active: 'first' }) } }),
       textInput({ id: 'second', value: state.active, keys: { enter: () => ({ active: 'second' }) } })
     ])
@@ -1561,7 +1566,7 @@ test('runTui accepts an initial focus path', async () => {
   const host = createMemoryTerminalHost({ viewport: { columns: 20, rows: 4 } });
   host.input('\r');
 
-  const exit = await runTui(app, host, { initialFocusPath: ['stack:0', 'second'] });
+  const exit = await runTui(app, host, { initialFocusPath: ['column:0', 'second'] });
 
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state, { active: 'second' });
@@ -1603,7 +1608,7 @@ test('TUI runtime restores a serialized focus path when it still exists', async 
     id: 'focus-restore',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => stack([
+    view: (state) => column([
       textInput({ id: 'first', value: state.active, keys: { enter: () => ({ active: 'first' }) } }),
       textInput({ id: 'second', value: state.active, keys: { enter: () => ({ active: 'second' }) } })
     ])
@@ -1630,7 +1635,7 @@ test('TUI runtime restores a serialized focus path when it still exists', async 
     meta: false
   });
 
-  assert.deepEqual(restoredPath, ['stack:0', 'second']);
+  assert.deepEqual(restoredPath, ['column:0', 'second']);
   assert.deepEqual(restoredRuntime.frame().focusPath, restoredPath);
   assert.equal(committed.handled, true);
   assert.deepEqual(restoredRuntime.getState(), { active: 'second' });
@@ -1641,7 +1646,7 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
     id: 'stale-focus-restore',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => stack([
+    view: (state) => column([
       textInput({ id: 'first', value: state.active, keys: { enter: () => ({ active: 'first' }) } }),
       textInput({ id: 'second', value: state.active, keys: { enter: () => ({ active: 'second' }) } })
     ])
@@ -1650,7 +1655,7 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
   const runtime = createTuiRuntime({
     app,
     host: harness.host,
-    initialFocusPath: ['stack:0', 'missing']
+    initialFocusPath: ['column:0', 'missing']
   });
 
   await runtime.start();
@@ -1663,7 +1668,7 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
     meta: false
   });
 
-  assert.deepEqual(runtime.frame().focusPath, ['stack:0', 'first']);
+  assert.deepEqual(runtime.frame().focusPath, ['column:0', 'first']);
   assert.equal(committed.handled, true);
   assert.deepEqual(runtime.getState(), { active: 'first' });
 });
@@ -1673,7 +1678,7 @@ test('TUI runtime traverses focus backward with shifted tab', async () => {
     id: 'reverse-focus',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => stack([
+    view: (state) => column([
       textInput({ id: 'first', value: state.active, keys: { enter: () => ({ active: 'first' }) } }),
       textInput({ id: 'second', value: state.active, keys: { enter: () => ({ active: 'second' }) } })
     ])
@@ -1690,7 +1695,7 @@ test('TUI runtime traverses focus backward with shifted tab', async () => {
   assert.equal(backward.handled, true);
   assert.equal(committed.handled, true);
   assert.deepEqual(runtime.getState(), { active: 'first' });
-  assert.deepEqual(runtime.frame().focusPath, ['stack:0', 'first']);
+  assert.deepEqual(runtime.frame().focusPath, ['column:0', 'first']);
 });
 
 test('TUI runtime respects explicit focus order and disabled focus targets', async () => {
@@ -1698,7 +1703,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
     id: 'ordered-focus',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => stack([
+    view: (state) => column([
       textInput({
     id: 'disabled',
     value: state.active,
@@ -1736,7 +1741,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
   assert.equal(first.handled, true);
   assert.equal(tab.handled, true);
   assert.equal(second.handled, true);
-  assert.deepEqual(runtime.frame().focusPath, ['stack:0', 'later']);
+  assert.deepEqual(runtime.frame().focusPath, ['column:0', 'later']);
   assert.deepEqual(runtime.getState(), { active: 'later' });
 });
 
@@ -1745,9 +1750,9 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
     id: 'modal-focus-scope',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => stack([
+    view: (state) => column([
       textInput({ id: 'background', value: state.active, keys: { enter: () => ({ active: 'background' }) } }),
-      modal(textInput({ id: 'dialog-field', value: state.active, keys: { enter: () => ({ active: 'dialog' }) } }), {
+      dialog(textInput({ id: 'dialog-field', value: state.active, keys: { enter: () => ({ active: 'dialog' }) } }), {
         id: 'dialog',
         width: 20,
         height: 4
@@ -1763,7 +1768,7 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
 
   assert.equal(modalTab.handled, true);
   assert.equal(modalEnter.handled, true);
-  assert.deepEqual(modalRuntime.frame().focusPath, ['stack:0', 'dialog', 'dialog-field']);
+  assert.deepEqual(modalRuntime.frame().focusPath, ['column:0', 'dialog', 'dialog-field']);
   assert.deepEqual(modalRuntime.frame().accessibility.root.children?.[1]?.scope, {
     kind: 'modal',
     trapsFocus: true,
@@ -1775,7 +1780,7 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
     id: 'popover-focus-scope',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => stack([
+    view: (state) => column([
       textInput({ id: 'page-field', value: state.active, keys: { enter: () => ({ active: 'page' }) } }),
       surface(textInput({ id: 'popover-field', value: state.active, keys: { enter: () => ({ active: 'popover' }) } }), {
     id: 'popover',
@@ -1795,7 +1800,7 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
   const popoverEnter = await popoverRuntime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
 
   assert.equal(popoverEnter.handled, true);
-  assert.deepEqual(popoverRuntime.frame().focusPath, ['stack:0', 'popover', 'popover-field']);
+  assert.deepEqual(popoverRuntime.frame().focusPath, ['column:0', 'popover', 'popover-field']);
   assert.deepEqual(popoverRuntime.frame().accessibility.root.children?.[1]?.scope, {
     kind: 'popover',
     trapsFocus: true
@@ -1803,7 +1808,7 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
   assert.deepEqual(popoverRuntime.getState(), { active: 'popover' });
 });
 
-test('TUI runtime focuses top-layer context menus and open dropdowns', async () => {
+test('TUI runtime focuses top-layer context menus and open dropdownMenus', async () => {
   const contextMenuApp = defineTui({
     id: 'context-menu-focus',
     init: () => ({ active: 'idle' }),
@@ -1841,21 +1846,21 @@ test('TUI runtime focuses top-layer context menus and open dropdowns', async () 
   assert.deepEqual(contextMenuRuntime.frame().focusPath, ['context-menu-root', 'actions-menu']);
   assert.deepEqual(contextMenuRuntime.getState(), { active: 'context-menu' });
 
-  const dropdownApp = defineTui({
-    id: 'dropdown-focus',
+  const dropdownMenuApp = defineTui({
+    id: 'dropdownMenu-focus',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => overlay([
       textInput({ id: 'page-field', value: state.active, keys: { enter: () => ({ active: 'page' }) } }),
-      dropdown({
-    id: 'theme-dropdown',
+      dropdownMenu({
+    id: 'theme-dropdownMenu',
     label: 'Theme',
     presentation: { kind: 'open', selected: 'dark', highlighted: 'dark' },
     items: [
         { id: 'light', label: 'Light' },
         { id: 'dark', label: 'Dark' }
     ],
-    onAction: (action) => ({ active: action.kind === 'activate' && action.id === 'dark' ? 'dropdown' : action.kind }),
+    onAction: (action) => ({ active: action.kind === 'activate' && action.id === 'dark' ? 'dropdownMenu' : action.kind }),
     meta: {
         layer: {
             zIndex: 10
@@ -1863,20 +1868,20 @@ test('TUI runtime focuses top-layer context menus and open dropdowns', async () 
     }
 })
     ], {
-      id: 'dropdown-root'
+      id: 'dropdownMenu-root'
     })
   });
-  const dropdownRuntime = createTuiRuntime({
-    app: dropdownApp,
+  const dropdownMenuRuntime = createTuiRuntime({
+    app: dropdownMenuApp,
     host: createTerminalHarness({ viewport: { columns: 24, rows: 5 } }).host
   });
 
-  await dropdownRuntime.start();
-  const dropdownResult = await dropdownRuntime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  await dropdownMenuRuntime.start();
+  const dropdownMenuResult = await dropdownMenuRuntime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
 
-  assert.equal(dropdownResult.handled, true);
-  assert.deepEqual(dropdownRuntime.frame().focusPath, ['dropdown-root', 'theme-dropdown']);
-  assert.deepEqual(dropdownRuntime.getState(), { active: 'dropdown' });
+  assert.equal(dropdownMenuResult.handled, true);
+  assert.deepEqual(dropdownMenuRuntime.frame().focusPath, ['dropdownMenu-root', 'theme-dropdownMenu']);
+  assert.deepEqual(dropdownMenuRuntime.getState(), { active: 'dropdownMenu' });
 });
 
 test('TUI runtime traverses multiple custom focus targets within one widget', async () => {
@@ -1928,7 +1933,7 @@ test('TUI frame accessibility uses widget metadata and marks only the active foc
     id: 'a11y-frame',
     init: () => ({ active: 'idle' }),
     update: (_state, message) => ({ state: { active: message.active } }),
-    view: (state) => stack([
+    view: (state) => column([
       textInput({
     id: 'first-field',
     value: state.active,
@@ -1943,12 +1948,13 @@ test('TUI frame accessibility uses widget metadata and marks only the active foc
     }
 }),
       list({
+        getItemId: (item) => String(item),
         id: 'choices',
         items: ['Alpha', 'Beta'],
-        selected: 1,
+        selectedId: 'Beta',
         onAction: (action) => ({ active: ['alpha', 'beta'][action.index] ?? 'none' })
       }),
-      table({ id: 'grid', rows: [['A1', 'B1']] })
+      table({ id: 'grid', rows: [['A1', 'B1']], getRowId: (_row, index) => String(index) })
     ])
   });
   const harness = createTerminalHarness({ viewport: { columns: 24, rows: 8 } });
@@ -1962,7 +1968,7 @@ test('TUI frame accessibility uses widget metadata and marks only the active foc
   const tableNode = snapshot.root.children[2];
 
   assert.equal(snapshot.source, 'tui');
-  assert.deepEqual(snapshot.focusPath, ['stack:0', 'choices']);
+  assert.deepEqual(snapshot.focusPath, ['column:0', 'choices']);
   assert.equal(first?.label, 'First field');
   assert.equal(first?.description, 'Primary input');
   assert.equal(first?.focused, undefined);
@@ -2046,9 +2052,9 @@ test('TUI runtime falls back when app-level accessibility is structurally invali
 
 test('TUI rendering windows large list and table widgets to visible height', () => {
   const manyItems = Array.from({ length: 1000 }, (_value, index) => `Item ${index}`);
-  const frame = renderElementFrame(stack([
-    list({ id: 'many-items', items: manyItems, selected: 990 }),
-    table({ id: 'many-rows', rows: manyItems.map((item) => [item, 'value']) })
+  const frame = renderElementFrame(column([
+    list({ id: 'many-items', items: manyItems, getItemId: (item) => item, selectedId: 'Item 990' }),
+    table({ id: 'many-rows', rows: manyItems.map((item) => [item, 'value']), getRowId: (_row, index) => String(index) })
   ]), { columns: 24, rows: 8 });
   const output = renderFramePlain(frame);
   const listNode = frame.accessibility.root.children[0];
@@ -2581,9 +2587,9 @@ test('TUI press routing keeps scroll-only content targets from swallowing text p
 
 test('TUI wheel routing keeps scroll content hits in their overlay region layer', async () => {
   const backgroundValue = Array.from({ length: 20 }, (_, index) => `background ${String(index + 1)}`).join('\n');
-  const foregroundContent = stack(
+  const foregroundContent = column(
     Array.from({ length: 20 }, (_, index) => text(`foreground ${String(index + 1)}`, { id: `foreground-${String(index)}` })),
-    { id: 'foreground-stack' }
+    { id: 'foreground-column' }
   );
   const app = defineTui({
     id: 'scroll-layer-routing-tui',

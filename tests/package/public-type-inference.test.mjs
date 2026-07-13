@@ -99,10 +99,10 @@ test('item domains share only valid foundations', () => {
 test('frame-only renderer helpers accept heterogeneous authored elements', () => {
   const diagnostics = typecheckSource(`
     import { button, text } from '@ismail-elkorchi/terminal-ui/components';
-    import { stack } from '@ismail-elkorchi/terminal-ui/layout';
+    import { column } from '@ismail-elkorchi/terminal-ui/layout';
     import { renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
 
-    const content = stack([
+    const content = column([
       text('Actions'),
       button({ id: 'save', label: 'Save', onPress: { kind: 'save' } as const }),
       button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit' } as const })
@@ -117,7 +117,7 @@ test('frame-only renderer helpers accept heterogeneous authored elements', () =>
 test('passive container options preserve child message unions', () => {
   const diagnostics = typecheckSource(`
     import { button, type Element } from '@ismail-elkorchi/terminal-ui/components';
-    import { overlay, row, stack, surface } from '@ismail-elkorchi/terminal-ui/layout';
+    import { overlay, row, column, surface } from '@ismail-elkorchi/terminal-ui/layout';
 
     type Message =
       | { readonly kind: 'save' }
@@ -127,7 +127,7 @@ test('passive container options preserve child message unions', () => {
       button({ id: 'save', label: 'Save', onPress: { kind: 'save' } as const }),
       button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit' } as const })
     ] as const, { id: 'actions', gap: 1 });
-    const panel = surface(stack([actions], { id: 'content' }), {
+    const panel = surface(column([actions], { id: 'content' }), {
       id: 'panel',
       variant: 'raised'
     });
@@ -135,6 +135,49 @@ test('passive container options preserve child message unions', () => {
     const accepted: Element<Message> = root;
     void accepted;
   `, { name: 'passive-container-message-inference' });
+
+  assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
+});
+
+test('split pane separates passive layout from controlled resize actions', () => {
+  const diagnostics = typecheckSource(`
+    import { text, type Element } from '@ismail-elkorchi/terminal-ui/components';
+    import { splitPane, type SplitPaneAction } from '@ismail-elkorchi/terminal-ui/layout';
+    import {
+      createSplitPaneState,
+      splitPanePresentation,
+      splitPaneReducer
+    } from '@ismail-elkorchi/terminal-ui/behavior';
+
+    const passive = splitPane([text('A'), text('B')], {
+      direction: 'horizontal',
+      sizes: [{ kind: 'fixed', cells: 4 }, { kind: 'fill' }]
+    });
+    const state = splitPaneReducer(
+      createSplitPaneState(2),
+      { kind: 'resizeBy', deltaShare: 0.05 }
+    );
+    const interactive = splitPane([text('A'), text('B')], {
+      id: 'panes',
+      direction: 'horizontal',
+      ...splitPanePresentation(state),
+      onAction: (action) => ({ kind: 'split' as const, action })
+    });
+
+    const acceptedPassive: Element<never> = passive;
+    const acceptedInteractive: Element<{
+      readonly kind: 'split';
+      readonly action: SplitPaneAction;
+    }> = interactive;
+    void [acceptedPassive, acceptedInteractive];
+
+    // @ts-expect-error resizable panes require a stable component id
+    splitPane([text('A'), text('B')], {
+      direction: 'horizontal',
+      sizes: [{ kind: 'percent', value: 50 }, { kind: 'percent', value: 50 }],
+      onAction: (_action: SplitPaneAction) => ({ kind: 'split' as const })
+    });
+  `, { name: 'split-pane-controlled-contract' });
 
   assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
 });
@@ -150,14 +193,15 @@ test('table rows and explicit cell accessors retain their domain types', () => {
 
     const rows: readonly ProcessRow[] = [{ pid: 42, name: 'worker' }];
     const processes = table({
-      id: 'processes',
+    getRowId: (row) => String(row.pid),
+    id: 'processes',
       rows,
       columns: [
         { id: 'pid', header: 'PID', value: (row) => row.pid },
         { id: 'name', header: 'Name', value: (row) => row.name }
       ],
-      selected: 0,
-      selectedCell: { row: 0, column: 1 },
+      selectedRowId: '42',
+      selectedCell: { rowId: '42', column: 1 },
       onAction: (action) => ({
         kind: 'selected' as const,
         action
@@ -177,11 +221,11 @@ test('table rows and explicit cell accessors retain their domain types', () => {
 test('multi-channel components infer unions without explicit message arguments', () => {
   const diagnostics = typecheckSource(`
     import {
-      commandBar,
+      commandInput,
       palette,
       textArea,
       tree,
-      type CommandBarAction,
+      type CommandInputAction,
       type Element,
       type PaletteAction,
       type TreeAction
@@ -212,9 +256,9 @@ test('multi-channel components infer unions without explicit message arguments',
       onEdit: (operation: TextEditOperation) => ({ kind: 'edit' as const, operation })
     });
 
-    const commands = commandBar({
+    const commands = commandInput({
       id: 'commands',
-      onAction: (action: CommandBarAction) => ({ kind: 'command' as const, action }),
+      onAction: (action: CommandInputAction) => ({ kind: 'command' as const, action }),
       onSubmit: { kind: 'submit' as const },
       keys: {
         arrowUp: () => ({ kind: 'history' as const, delta: -1 as const }),
@@ -240,7 +284,7 @@ test('multi-channel components infer unions without explicit message arguments',
       | { readonly kind: 'scroll'; readonly event: ScrollEvent }
       | { readonly kind: 'edit'; readonly operation: TextEditOperation };
     type CommandMessage =
-      | { readonly kind: 'command'; readonly action: CommandBarAction }
+      | { readonly kind: 'command'; readonly action: CommandInputAction }
       | { readonly kind: 'submit' }
       | { readonly kind: 'history'; readonly delta: -1 }
       | { readonly kind: 'close' };

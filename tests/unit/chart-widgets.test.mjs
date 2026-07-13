@@ -18,14 +18,14 @@ import {
 import {
   barChart,
   chart,
-  gauge,
+  meter,
   heatmap,
   progressBar,
   sparkline
 } from '../../dist/components/index.js';
 import {
   row,
-  stack,
+  column,
   surface
 } from '../../dist/layout/index.js';
 
@@ -78,11 +78,11 @@ test('sparkline renders an empty state with chart source metadata', () => {
 test('barChart windows visible bars and exposes selected accessibility', () => {
   const frame = renderElementFrame(barChart({
     id: 'bars',
-    selected: 2,
+    selectedId: 'c',
     items: [
-      { label: 'A', value: 1 },
-      { label: 'B', value: 5 },
-      { label: 'C', value: 10 }
+      { id: 'a', label: 'A', value: 1 },
+      { id: 'b', label: 'B', value: 5 },
+      { id: 'c', label: 'C', value: 10 }
     ]
   }), { columns: 20, rows: 2 });
 
@@ -91,11 +91,11 @@ test('barChart windows visible bars and exposes selected accessibility', () => {
   assert.match(output, /› C/u);
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
   assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.ownerKind, 'barChart');
-  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.label, 'bar.2.label');
-  assert.equal(frame.cells.find((cell) => cell.text === '█')?.source?.label, 'bar.1.fill');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'bar.1.fill')?.style?.fg?.token, 'chart.series.2');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'bar.2.fill')?.style?.bg?.token, 'selection.background');
-  assert.equal(frame.cells.find((cell) => cell.text === '1')?.source?.label, 'bar.2.value');
+  assert.equal(frame.cells.find((cell) => cell.text === 'C')?.source?.label, 'bar.c.label');
+  assert.equal(frame.cells.find((cell) => cell.text === '█')?.source?.label, 'bar.b.fill');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'bar.b.fill')?.style?.fg?.token, 'chart.series.2');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'bar.c.fill')?.style?.bg?.token, 'selection.background');
+  assert.equal(frame.cells.find((cell) => cell.text === '1')?.source?.label, 'bar.c.value');
 });
 
 test('barChart renders loading state from shared chart state contract', () => {
@@ -281,9 +281,9 @@ test('chart renders error state without anonymous text cells', () => {
 });
 
 test('chart intrinsic measurement remains bounded inside content layout', () => {
-  const layout = layoutElement(stack([
+  const layout = layoutElement(column([
     row([
-      surface(stack([
+      surface(column([
         progressBar({ id: 'progress', value: 48, max: 100 }),
         chart({ id: 'chart', series: [{ id: 'live', points: [2, 4, 3, 5, 6, 8] }] })
       ]), { id: 'motion', border: { label: 'Motion' } })
@@ -296,9 +296,9 @@ test('chart intrinsic measurement remains bounded inside content layout', () => 
   assert.equal(chartNode.bounds.height <= 18, true);
 });
 
-test('gauge renders a labeled bounded meter with progress accessibility', () => {
-  const frame = renderElementFrame(gauge({
-    id: 'gauge',
+test('meter renders a labeled bounded meter with progress accessibility', () => {
+  const frame = renderElementFrame(meter({
+    id: 'meter',
     label: 'Throughput',
     value: 75,
     max: 100,
@@ -311,15 +311,15 @@ test('gauge renders a labeled bounded meter with progress accessibility', () => 
   assert.match(output, /75%/u);
   assert.equal(frame.accessibility.root.role, 'progressbar');
   assert.equal(frame.accessibility.root.value, 75);
-  assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.ownerKind, 'gauge');
+  assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.ownerKind, 'meter');
   assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.label, 'metric.label');
   assert.equal(frame.cells.find((cell) => cell.text === '7')?.source?.label, 'metric.value');
   assert.equal(frame.cells.find((cell) => cell.text === 's')?.source?.label, 'status.value');
 });
 
-test('gauge dial variant renders distinct tested dial anatomy', () => {
-  const frame = renderElementFrame(gauge({
-    id: 'dial-gauge',
+test('meter dial variant renders distinct tested dial anatomy', () => {
+  const frame = renderElementFrame(meter({
+    id: 'dial-meter',
     label: 'CPU',
     value: 73,
     max: 100,

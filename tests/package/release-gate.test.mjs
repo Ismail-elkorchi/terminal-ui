@@ -76,7 +76,7 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
   for (const relativePath of centralFiles) {
     const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
     assert.doesNotMatch(source, /switch\s*\(\s*widget\.kind\s*\)/u, relativePath);
-    assert.doesNotMatch(source, /case\s+['"`](?:text|surface|stack|row|list|table|textInput|statusBar|progressBar|spinner|viewport|custom)['"`]/u, relativePath);
+    assert.doesNotMatch(source, /case\s+['"`](?:text|surface|column|row|list|table|textInput|statusBar|progressBar|spinner|viewport|custom)['"`]/u, relativePath);
   }
 
   const behavior = await readFile(new URL('../../src/renderer/internal/render-node-behavior.ts', import.meta.url), 'utf8');
@@ -86,7 +86,7 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
   assert.match(behavior, /builtinRenderNodeRenderers\[widget\.kind\]/u);
   assert.doesNotMatch(behavior, /const\s+widgetRenderers\s*=/u);
   assert.doesNotMatch(behavior, /satisfies Record<BuiltinRenderNodeKind, RenderNodeRenderer>/u);
-  assert.doesNotMatch(behavior, /from\s+['"]\.\/(?:forms|charts|menu-widgets|drawing-widgets|table|data-widgets|palette|command-bar|progress-widget|structured-block)(?:\/index)?['"]/u);
+  assert.doesNotMatch(behavior, /from\s+['"]\.\/(?:forms|charts|menu-widgets|drawing-widgets|table|data-widgets|palette|command-input|progress-widget|structured-block)(?:\/index)?['"]/u);
   assert.match(registry, /type BuiltinRendererRegistry = \{[\s\S]*RenderNodeRenderer<unknown, TKind>/u);
   assert.match(registry, /satisfies BuiltinRendererRegistry/u);
   assert.doesNotMatch(registry, /custom:\s*\{\s*\}/u);
@@ -264,7 +264,7 @@ test('widget rendering layer has no command, clipboard, host-output, or raw ANSI
     ...await sourceFiles(new URL('../../src/renderer/internal/forms/', import.meta.url)),
     ...await namedRendererSourceFiles([
       'border.ts',
-      'command-bar.ts',
+      'command-input.ts',
       'data-widgets.ts',
       'drawing-widgets.ts',
       'menu-widgets.ts',
@@ -382,8 +382,8 @@ test('terminal text indexing and editing stay centralized', async () => {
     }
   }
 
-  const commandBar = await readFile(new URL('../../src/renderer/internal/command-bar.ts', import.meta.url), 'utf8');
-  const commandSurface = await readFile(new URL('../../src/behavior/command-bar-state.ts', import.meta.url), 'utf8');
+  const commandInput = await readFile(new URL('../../src/renderer/internal/command-input.ts', import.meta.url), 'utf8');
+  const commandSurface = await readFile(new URL('../../src/behavior/command-input-state.ts', import.meta.url), 'utf8');
   const commandVisual = await readFile(new URL('../../src/renderer/internal/command-visual.ts', import.meta.url), 'utf8');
   const formWidgets = await readSourceTree(new URL('../../src/renderer/internal/forms/', import.meta.url));
   const formVisual = await readFile(new URL('../../src/renderer/internal/form-visual.ts', import.meta.url), 'utf8');
@@ -402,8 +402,8 @@ test('terminal text indexing and editing stay centralized', async () => {
   const structuredBlock = await readFile(new URL('../../src/renderer/internal/structured-block.ts', import.meta.url), 'utf8');
   const textTypes = await readFile(new URL('../../src/text/types.ts', import.meta.url), 'utf8');
 
-  assert.match(commandBar, /from '\.\/text-display\.ts'/u);
-  assert.match(commandBar, /from '\.\/command-visual\.ts'/u);
+  assert.match(commandInput, /from '\.\/text-display\.ts'/u);
+  assert.match(commandInput, /from '\.\/command-visual\.ts'/u);
   assert.match(commandVisual, /from '\.\/text-highlight\.ts'/u);
   assert.match(commandSurface, /\bmoveWordLeft\b/u);
   assert.match(commandSurface, /\bselectAll\b/u);
@@ -418,7 +418,7 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(feedbackRenderers, /from '\.\.\/feedback-visual\.ts'/u);
   assert.match(feedbackVisual, /\bstatusBarBlock\b/u);
   assert.match(feedbackVisual, /\bhelpBarBlock\b/u);
-  assert.match(feedbackVisual, /\bactivityIndicatorBlock\b/u);
+  assert.match(feedbackVisual, /\bstatusIndicatorBlock\b/u);
   assert.match(documentVisual, /\bdocumentHighlightSpans\b/u);
   assert.match(documentVisual, /\bdocumentFieldSpans\b/u);
   assert.match(chartWidgets, /from '\.\.\/chart-visual\.ts'/u);
@@ -426,7 +426,7 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(dataRenderers, /\bsparklineBlock\b/u);
   assert.match(dataRenderers, /\bbarChartBlock\b/u);
   assert.match(dataRenderers, /\bchartBlock\b/u);
-  assert.match(dataRenderers, /\bgaugeBlock\b/u);
+  assert.match(dataRenderers, /\bmeterBlock\b/u);
   assert.match(dataRenderers, /\bheatmapBlock\b/u);
   assert.match(textWidgets, /from '\.\/text-display\.ts'/u);
   assert.match(textWidgets, /from '\.\/input-visual\.ts'/u);
@@ -435,11 +435,11 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(formRenderers, /\btextInputBlock\b/u);
   assert.doesNotMatch(textTypes, /\bmoveLineStart\b/u);
   assert.doesNotMatch(textTypes, /\bmoveLineEnd\b/u);
-  assert.doesNotMatch(commandBar, /function matchSpans/u);
-  assert.doesNotMatch(commandBar, /lowerText\.indexOf/u);
+  assert.doesNotMatch(commandInput, /function matchSpans/u);
+  assert.doesNotMatch(commandInput, /lowerText\.indexOf/u);
   assert.doesNotMatch(menuWidgets, /function menuItemStyle/u);
   assert.doesNotMatch(feedbackRenderers, /\bwriteBlock\b/u);
-  assert.doesNotMatch(dataRenderers, /sparklineText|barChartText|chartText|gaugeText|heatmapText/u);
+  assert.doesNotMatch(dataRenderers, /sparklineText|barChartText|chartText|meterText|heatmapText/u);
   const palette = await readFile(new URL('../../src/renderer/internal/palette.ts', import.meta.url), 'utf8');
   const scrollback = await readFile(new URL('../../src/renderer/internal/scrollback.ts', import.meta.url), 'utf8');
   assert.match(palette, /from '\.\/command-visual\.ts'/u);
@@ -548,7 +548,7 @@ test('dirty region narrowing is structural and render-diff visible', async () =>
   assert.match(frameSource, /dirtyColumnRanges/u);
   assert.match(frameSource, /unchangedFingerprintRows/u);
   assert.match(runtimeFrameSource, /dirtyRegionsForRenderCommit/u);
-  assert.doesNotMatch(dirtySource, /widget\.kind|contextMenu|dropdown|modal/u);
+  assert.doesNotMatch(dirtySource, /widget\.kind|contextMenu|dropdownMenu|modal/u);
 });
 
 test('box drawing joins are source-role gated frame passes', async () => {

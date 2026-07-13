@@ -4,17 +4,17 @@ import type { ChoiceItem } from '../../../ui-model/contracts.ts';
 import type {
   ButtonState,
   ButtonTone,
-  ColorPickerOption,
+  ColorSwatchPickerOption,
   NumericRange,
   RangeSliderValue
 } from '../../../ui-model/forms.ts';
 import type { NumberInputAction, NumberInputPresentation } from '../../../ui-model/number-input.ts';
-import type { DatePickerAction, DatePickerDay } from '../../../ui-model/date-picker.ts';
+import type { CalendarAction, CalendarDay } from '../../../ui-model/calendar.ts';
 import type {
-  CheckboxListAction,
-  ColorPickerAction,
+  CheckboxGroupAction,
+  ColorSwatchPickerAction,
   RadioGroupAction,
-  SelectBoxAction
+  SelectAction
 } from '../../../ui-model/choice-controls.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 
@@ -96,10 +96,10 @@ interface ChoiceControlRenderProps {
   readonly error?: string;
 }
 
-export interface CheckboxListRenderProps<TMessage> extends ChoiceControlRenderProps {
+export interface CheckboxGroupRenderProps<TMessage> extends ChoiceControlRenderProps {
   readonly selected?: readonly string[];
   readonly focused?: string;
-  readonly toActionMessage?: (action: CheckboxListAction) => TMessage;
+  readonly toActionMessage?: (action: CheckboxGroupAction) => TMessage;
 }
 
 export interface RadioGroupRenderProps<TMessage> extends ChoiceControlRenderProps {
@@ -108,34 +108,34 @@ export interface RadioGroupRenderProps<TMessage> extends ChoiceControlRenderProp
   readonly toActionMessage?: (action: RadioGroupAction) => TMessage;
 }
 
-export interface SelectBoxRenderProps<TMessage> extends ChoiceControlRenderProps {
+export interface SelectRenderProps<TMessage> extends ChoiceControlRenderProps {
   readonly selected?: string;
   readonly focused?: string;
-  readonly toActionMessage?: (action: SelectBoxAction) => TMessage;
+  readonly toActionMessage?: (action: SelectAction) => TMessage;
 }
 
-export interface ColorPickerRenderProps<TMessage> {
+export interface ColorSwatchPickerRenderProps<TMessage> {
   readonly label?: string;
-  readonly options: readonly ColorPickerOption<unknown>[];
+  readonly options: readonly ColorSwatchPickerOption<unknown>[];
   readonly selected?: string;
   readonly focused?: string;
   readonly columns?: number;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly toActionMessage?: (action: ColorPickerAction) => TMessage;
+  readonly toActionMessage?: (action: ColorSwatchPickerAction) => TMessage;
 }
 
-export interface DatePickerRenderProps<TMessage> {
+export interface CalendarRenderProps<TMessage> {
   readonly label?: string;
   readonly monthLabel: string;
   readonly weekdays: readonly string[];
-  readonly days: readonly DatePickerDay[];
+  readonly days: readonly CalendarDay[];
   readonly selected?: string;
   readonly focused?: string;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly toMessage?: (day: DatePickerDay) => TMessage;
-  readonly toActionMessage?: (action: DatePickerAction) => TMessage;
+  readonly toMessage?: (day: CalendarDay) => TMessage;
+  readonly toActionMessage?: (action: CalendarAction) => TMessage;
 }
 
 export interface TextInputRenderProps<TMessage> {

@@ -178,22 +178,23 @@ clipboard protocol. Terminal-native selection remains a separate mode: the app
 can delegate to it, but the runtime does not invent selected text from terminal
 emulator state.
 
-Layout regions are structural element data. `grid()`, `splitPane()`, `tabs()`,
-and `modal()` produce regular layout nodes, frames, diffs, and accessible
+Layout regions are structural element data. Layout elements such as `grid()`
+and `splitPane()`, and interactive components such as `tabs()` and `dialog()`,
+produce regular layout nodes, frames, diffs, and accessible
 snapshots. For application navigation, use the pure `screenStackReducer()` and
 `activeScreen()` helpers; a screen stack is serializable state, not a hidden
 runtime mode.
 
 Use explicit track sizes for chrome/body compositions. `grid()` uses `rows` and
-`columns`, while `splitPane()`, `stack()`, and `row()` use `sizes`. The same
+`columns`, while `splitPane()`, `column()`, and `row()` use `sizes`. The same
 `LayoutSize` vocabulary applies across them: fixed cells for headers, footers,
 and side rails; fill tracks for scrollable bodies; content tracks for measured
-labels or compact controls. When `stack()` or `row()` receives `sizes`, the
+labels or compact controls. When `column()` or `row()` receives `sizes`, the
 track count must match the child count.
 
 ```ts
 import { helpBar, text, tree, type TreeNode } from '@ismail-elkorchi/terminal-ui/components';
-import { stack, surface } from '@ismail-elkorchi/terminal-ui/layout';
+import { column, surface } from '@ismail-elkorchi/terminal-ui/layout';
 
 const nodes: readonly TreeNode[] = [
   {
@@ -206,10 +207,10 @@ const nodes: readonly TreeNode[] = [
 ];
 const bindings = [{ key: 'Enter', label: 'Open' }];
 
-surface(stack([
+surface(column([
   text('Explorer', { textRole: 'heading' }),
   tree({ id: 'explorer-tree', nodes }),
-  helpBar({ bindings })
+  helpBar({ groups: [{ id: 'explorer', bindings }] })
 ], {
   sizes: [
     { kind: 'fixed', cells: 1 },

@@ -10,6 +10,7 @@ import {
 import {
   createScrollState,
   dataWindow,
+  listReducer,
   paginationWindow,
   treeReducer
 } from '../../dist/behavior/index.js';
@@ -24,7 +25,7 @@ import {
   table,
   tree
 } from '../../dist/components/index.js';
-import { stack } from '../../dist/layout/index.js';
+import { column } from '../../dist/layout/index.js';
 
 const mousePress = (row, column) => ({
   kind: 'mouse',
@@ -90,6 +91,7 @@ test('dataWindow keeps selected rows visible and preserves explicit scroll windo
 
 test('list widget filters items and can use explicit shared scroll state', () => {
   const frame = renderElementFrame(list({
+    getItemId: (item) => String(item),
     id: 'filtered-list',
     items: ['alpha', 'bravo', 'charlie', 'delta'],
     filterQuery: 'a',
@@ -105,47 +107,51 @@ test('list widget filters items and can use explicit shared scroll state', () =>
 
 test('list widget exposes source-aware row values matches and empty filter state', () => {
   const frame = renderElementFrame(list({
+    getItemId: (item) => String(item),
     id: 'items',
     items: ['Atlas', 'Pulse'],
-    selected: 0,
+    selectedId: 'Atlas',
     filterQuery: 'at'
   }), { columns: 24, rows: 2 });
   const emptyFrame = renderElementFrame(list({
+    getItemId: (item) => String(item),
     id: 'empty-items',
     items: [],
     filterQuery: 'missing'
   }), { columns: 24, rows: 2 });
 
-  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.label, 'item.0.marker');
-  assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.label, 'item.0.match');
-  assert.equal(frame.cells.find((cell) => cell.text === 'l')?.source?.label, 'item.0.value');
+  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.label, 'item.Atlas.marker');
+  assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.label, 'item.Atlas.match');
+  assert.equal(frame.cells.find((cell) => cell.text === 'l')?.source?.label, 'item.Atlas.value');
   assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N')?.source?.label, 'filter.empty');
   assert.match(renderFramePlain(emptyFrame), /No matching items/u);
 });
 
 test('list cursor and mouse hit targets use the filtered visible rows', async () => {
   const frame = renderElementFrame(list({
+    getItemId: (item) => String(item),
     id: 'clickable-list',
     items: ['alpha', 'bravo', 'charlie', 'delta'],
     filterQuery: 'br',
-    selected: 0,
+    selectedId: 'bravo',
     onAction: (action) => ({ kind: 'chosen', action })
   }), { columns: 24, rows: 2 });
 
   assert.deepEqual(frame.cursor, { row: 1, column: 1 });
   assert.deepEqual(
     frame.hitTargets?.filter((target) => target.id.includes(':option:')).map((target) => target.id),
-    ['clickable-list:option:1']
+    ['clickable-list:option:bravo']
   );
 
   const app = defineTui({
     id: 'list-click-flow',
     init: () => ({ selected: 'none' }),
     update: (_state, message) => ({
-      state: { selected: ['alpha', 'bravo'][message.action.index] ?? 'none' }
+      state: { selected: message.action.id }
     }),
     view: () => list({
-      id: 'clickable-list',
+    getItemId: (item) => String(item),
+    id: 'clickable-list',
       items: ['alpha', 'bravo'],
       onAction: (action) => ({ kind: 'chosen', action })
     })
@@ -160,10 +166,46 @@ test('list cursor and mouse hit targets use the filtered visible rows', async ()
   assert.equal(release.state.selected, 'bravo');
 });
 
+test('list selection uses stable identity across reorder, filter, insertion, and deletion', () => {
+  const items = ['alpha', 'bravo', 'charlie'];
+  const getItemId = (item) => item;
+  const selected = listReducer({}, { kind: 'select', id: 'bravo', index: 1 }, { items, getItemId });
+  const reordered = [items[2], items[1], items[0]];
+  const moved = listReducer(selected, { kind: 'move', delta: 1 }, { items: reordered, getItemId });
+  const inserted = ['delta', ...reordered];
+  const filtered = listReducer(selected, { kind: 'move', delta: 1 }, {
+    items: inserted,
+    getItemId,
+    filterQuery: 'bravo'
+  });
+  const deleted = inserted.filter((item) => item !== 'bravo');
+  const recovered = listReducer(selected, { kind: 'move', delta: 1 }, { items: deleted, getItemId });
+
+  assert.equal(selected.selectedId, 'bravo');
+  assert.equal(moved.selectedId, 'alpha');
+  assert.equal(filtered.selectedId, 'bravo');
+  assert.equal(recovered.selectedId, 'delta');
+});
+
+test('list and table reject empty or duplicate stable ids at authoring time', () => {
+  assert.throws(() => list({
+    id: 'duplicate-list',
+    items: ['alpha', 'alpha'],
+    getItemId: (item) => item
+  }), /ids must be unique/u);
+  assert.throws(() => table({
+    id: 'empty-table-id',
+    rows: [['alpha']],
+    getRowId: () => '',
+    columns: [{ id: 'value', header: 'Value', value: (row) => row[0] }]
+  }), /ids must not be empty/u);
+});
+
 test('table widget renders constrained columns and selected rows', () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'table',
-    selectedCell: { row: 1, column: 1 },
+    selectedCell: { rowId: '1', column: 1 },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 5 },
@@ -186,6 +228,7 @@ test('table widget renders constrained columns and selected rows', () => {
 
 test('table exposes row hit targets and routes row messages', async () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'clickable-table',
     rows: [
       ['alpha', '100'],
@@ -204,10 +247,11 @@ test('table exposes row hit targets and routes row messages', async () => {
     id: 'table-click-flow',
     init: () => ({ selected: 'none' }),
     update: (_state, message) => ({
-      state: { selected: `${String(message.action.row)}:${['alpha', 'bravo'][message.action.row] ?? 'none'}` }
+      state: { selected: `${String(message.action.rowIndex)}:${['alpha', 'bravo'][message.action.rowIndex] ?? 'none'}` }
     }),
     view: () => table({
-      id: 'clickable-table',
+    getRowId: (_row, index) => String(index),
+    id: 'clickable-table',
       rows: [
         ['alpha', '100'],
         ['bravo', '200']
@@ -227,8 +271,9 @@ test('table exposes row hit targets and routes row messages', async () => {
 
 test('table exposes visible cell hit targets when cell selection is active', async () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'cell-table',
-    selectedCell: { row: 0, column: 1 },
+    selectedCell: { rowId: '0', column: 1 },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 6 },
@@ -254,12 +299,13 @@ test('table exposes visible cell hit targets when cell selection is active', asy
     init: () => ({ selected: 'none' }),
     update: (_state, message) => ({
       state: {
-        selected: `${String(message.action.row)}:${String([['Atlas', 89], ['Pulse', 92]][message.action.row]?.[message.action.column])}:${['Name', 'Score'][message.action.column]}`
+        selected: `${String(message.action.rowIndex)}:${String([['Atlas', 89], ['Pulse', 92]][message.action.rowIndex]?.[message.action.column])}:${['Name', 'Score'][message.action.column]}`
       }
     }),
     view: () => table({
-      id: 'cell-table',
-      selectedCell: { row: 0, column: 1 },
+    getRowId: (_row, index) => String(index),
+    id: 'cell-table',
+      selectedCell: { rowId: '0', column: 1 },
       columns: [
         {
           id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 6 },
@@ -284,8 +330,9 @@ test('table exposes visible cell hit targets when cell selection is active', asy
 
 test('table supports scroll state column sizing styled renderers sort markers empty states and cell selection', () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'table',
-    selectedCell: { row: 2, column: 1 },
+    selectedCell: { rowId: '2', column: 1 },
     sort: { column: 'name-1', direction: 'ascending' },
     scroll: createScrollState({ offsetRow: 1, offsetColumn: 0, contentRows: 3, viewportRows: 2 }),
     stickyHeader: true,
@@ -335,8 +382,9 @@ test('table supports scroll state column sizing styled renderers sort markers em
 
 test('table source metadata describes headers rows cells separators and empty state', () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'fleet-table',
-    selectedCell: { row: 1, column: 1 },
+    selectedCell: { rowId: '1', column: 1 },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 6, resizable: true },
@@ -349,6 +397,7 @@ test('table source metadata describes headers rows cells separators and empty st
     ]
   }), { columns: 28, rows: 3 });
   const emptyFrame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'empty-table',
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
@@ -366,9 +415,10 @@ test('table source metadata describes headers rows cells separators and empty st
 
 test('table dense metric semantics tighten spacing and expose metric metadata', () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'metrics-table',
     density: 'dense',
-    selected: 0,
+    selectedRowId: '0',
     stickyHeader: true,
     rows: [[18, 'node', '188M', 4.2]],
     columns: [
@@ -398,10 +448,11 @@ test('table dense metric semantics tighten spacing and expose metric metadata', 
 
 test('table dense fill columns keep marker width aligned with cell hit targets', () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'dense-fill-table',
     density: 'dense',
-    selected: 0,
-    selectedCell: { row: 0, column: 1 },
+    selectedRowId: '0',
+    selectedCell: { rowId: '0', column: 1 },
     stickyHeader: true,
     rows: [[18, 'node', 4.2]],
     columns: [
@@ -425,6 +476,7 @@ test('table dense fill columns keep marker width aligned with cell hit targets',
 
 test('table headers can expose a visible resize affordance without changing reducer ownership', () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'resizable-table',
     columns: [
       {
@@ -441,10 +493,11 @@ test('table headers can expose a visible resize affordance without changing redu
 test('table and paginator compose explicitly over a bounded page', () => {
   const rows = [['Aster'], ['Atlas'], ['Pulse'], ['Lumen'], ['Vector']];
   const page = paginationWindow({ page: 2, pageSize: 2, total: rows.length });
-  const frame = renderElementFrame(stack([
+  const frame = renderElementFrame(column([
     table({
-      id: 'fleet-pages-table',
-      selected: 0,
+    getRowId: (_row, index) => String(index),
+    id: 'fleet-pages-table',
+      selectedRowId: '0',
       columns: [{
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
       rows: rows.slice(page.start, page.end)
@@ -476,6 +529,7 @@ test('table supports sticky headers and both-axis scrollbars directly', () => {
     viewportColumns: 14
   });
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'virtual-table',
     scroll,
     scrollbar: { axis: 'both' },
@@ -496,6 +550,7 @@ test('table supports sticky headers and both-axis scrollbars directly', () => {
 
 test('table renders a styled empty state', () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'empty',
     rows: [],
     columns: [{
@@ -509,6 +564,7 @@ test('table renders a styled empty state', () => {
 
 test('table uses shared horizontal scroll state', () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'wide-table',
     scroll: createScrollState({
       offsetRow: 0,
@@ -537,8 +593,9 @@ test('table uses shared horizontal scroll state', () => {
 
 test('table selected cell row drives the shared vertical window and scrollbar scope', () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'selected-cell-window',
-    selectedCell: { row: 4, column: 0 },
+    selectedCell: { rowId: '4', column: 0 },
     scrollbar: { visible: 'always' },
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 12 }],

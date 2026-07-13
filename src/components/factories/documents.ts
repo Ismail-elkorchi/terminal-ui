@@ -2,13 +2,13 @@ import { elementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
   ActivityFeedOptions,
-  CommandBarOptions,
+  CommandInputOptions,
   PaletteOptions,
   ScrollbackOptions,
   StructuredBlockOptions
 } from '../options/documents.ts';
 import {
-  commandBarKeyBindings,
+  commandInputKeyBindings,
   componentMetaProps,
   interactionProps,
   mergeKeyBindings,
@@ -66,12 +66,14 @@ export function structuredBlock(options: StructuredBlockOptions): Element {
 
 export function activityFeed<const TMessage = never>(options: ActivityFeedOptions<TMessage>): Element<TMessage> {
   const onAction = options.onAction;
-  const selectedBlock = options.selected === undefined ? undefined : options.blocks[options.selected];
+  const selectedBlock = options.selectedId === undefined
+    ? undefined
+    : options.blocks.find((block) => block.id === options.selectedId);
   const generatedKeys = onAction === undefined ? undefined : {
     arrowUp: () => onAction({ kind: 'selectPrevious' }),
     arrowDown: () => onAction({ kind: 'selectNext' }),
-    home: () => onAction({ kind: 'select', index: 0 }),
-    end: () => onAction({ kind: 'select', index: Math.max(0, options.blocks.length - 1) }),
+    home: () => onAction({ kind: 'selectFirst' }),
+    end: () => onAction({ kind: 'selectLast' }),
     enter: () => selectedBlock === undefined ? undefined : onAction({ kind: 'toggleBlock', id: selectedBlock.id })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   const keyMap = mergeKeyBindings(generatedKeys, options.keys);
@@ -80,7 +82,7 @@ export function activityFeed<const TMessage = never>(options: ActivityFeedOption
     kind: 'activityFeed',
     props: {
       blocks: options.blocks,
-      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
       ...(onAction === undefined ? {} : { toActionMessage: onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
@@ -88,14 +90,14 @@ export function activityFeed<const TMessage = never>(options: ActivityFeedOption
   });
 }
 
-export function commandBar<
+export function commandInput<
   const TActionMessage = never,
   const TTextPointerMessage = never,
   const TSubmitMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
-    CommandBarOptions,
+    CommandInputOptions,
     {
       readonly onAction: TActionMessage;
       readonly onTextPointer: TTextPointerMessage;
@@ -104,14 +106,14 @@ export function commandBar<
     TKeys
   >
 ): Element<TActionMessage | TTextPointerMessage | TSubmitMessage | ComponentKeyBindingMessages<TKeys>>;
-export function commandBar(options: CommandBarOptions<unknown>): Element<unknown> {
+export function commandInput(options: CommandInputOptions<unknown>): Element<unknown> {
   const action = options.onAction;
-  const generatedKeys = action === undefined ? undefined : commandBarKeyBindings(action);
+  const generatedKeys = action === undefined ? undefined : commandInputKeyBindings(action);
   const submitKeys = options.onSubmit === undefined ? undefined : { enter: () => options.onSubmit };
   const keyMap = mergeKeyBindings(mergeKeyBindings(generatedKeys, submitKeys), options.keys);
-  return elementFromRenderNode<'commandBar', unknown>({
-    ...requiredId(options.id, 'commandBar'),
-    kind: 'commandBar',
+  return elementFromRenderNode<'commandInput', unknown>({
+    ...requiredId(options.id, 'commandInput'),
+    kind: 'commandInput',
     props: {
       value: options.value ?? '',
       ...(options.cursor === undefined ? {} : { cursor: options.cursor }),

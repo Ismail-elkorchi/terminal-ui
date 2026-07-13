@@ -1,21 +1,22 @@
 export {
   activityFeed,
-  activityIndicator,
+  statusIndicator,
   barChart,
   button,
   canvas,
   chart,
   checkbox,
-  checkboxList,
-  commandBar,
+  checkboxGroup,
+  commandInput,
   contextMenu,
-  colorPicker,
-  datePicker,
+  colorSwatchPicker,
+  calendar,
+  dialog,
   divider,
-  dropdown,
+  dropdownMenu,
   field,
   form,
-  gauge,
+  meter,
   helpBar,
   heatmap,
   label,
@@ -31,13 +32,14 @@ export {
   rangeSlider,
   richText,
   scrollback,
-  selectBox,
+  select,
   sparkline,
   spinner,
   statusBar,
   structuredBlock,
   slider,
   table,
+  tabs,
   text,
   textArea,
   textInput,
@@ -46,7 +48,7 @@ export {
   toggleSwitch
 } from './factories.ts';
 export type * from '../ui-model/contracts.ts';
-export type { CommandBarAction } from '../ui-model/command-bar.ts';
+export type { CommandInputAction } from '../ui-model/command-input.ts';
 export type { ListAction } from '../ui-model/list.ts';
 export type { TableAction, TablePresentation, TableSortDirection, TableSortState } from '../ui-model/table.ts';
 export type { TreeAction, TreeDisclosureAction, TreeNode } from '../ui-model/tree.ts';
@@ -56,20 +58,20 @@ export type { NotificationStackAction } from '../ui-model/notification-stack.ts'
 export type {
   CalendarDate,
   CalendarMonth,
-  DatePickerAction,
-  DatePickerDay
-} from '../ui-model/date-picker.ts';
+  CalendarAction,
+  CalendarDay
+} from '../ui-model/calendar.ts';
 export type { PaletteAction } from '../ui-model/palette.ts';
-export type { DropdownAction, MenuAction } from '../ui-model/menu.ts';
+export type { DropdownMenuAction, MenuAction } from '../ui-model/menu.ts';
 export type { TabAction } from '../ui-model/tabs.ts';
 export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
 export type { ScrollbackAction } from '../ui-model/scrollback.ts';
 export type { ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
 export type {
-  CheckboxListAction,
-  ColorPickerAction,
+  CheckboxGroupAction,
+  ColorSwatchPickerAction,
   RadioGroupAction,
-  SelectBoxAction
+  SelectAction
 } from '../ui-model/choice-controls.ts';
 export type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from '../element/index.ts';
 export { inspectElement } from './inspection.ts';

@@ -26,21 +26,21 @@ type InputControlNode = TextInputNode | NumberInputNode;
 type ErrorControlNode = RenderNodesOfKind<
   unknown,
   | 'checkbox'
-  | 'checkboxList'
-  | 'colorPicker'
-  | 'datePicker'
+  | 'checkboxGroup'
+  | 'colorSwatchPicker'
+  | 'calendar'
   | 'field'
   | 'numberInput'
   | 'radioGroup'
   | 'rangeSlider'
-  | 'selectBox'
+  | 'select'
   | 'slider'
   | 'textInput'
   | 'toggleSwitch'
 >;
 type DescribedControlNode = RenderNodesOfKind<
   unknown,
-  'checkbox' | 'field' | 'numberInput' | 'radioGroup' | 'selectBox' | 'textInput'
+  'checkbox' | 'field' | 'numberInput' | 'radioGroup' | 'select' | 'textInput'
 >;
 
 export function controlInputBlock(

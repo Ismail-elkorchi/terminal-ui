@@ -1,7 +1,7 @@
 import type {
-  ColorPickerOption
+  ColorSwatchPickerOption
 } from '../../../../ui-model/forms.ts';
-import type { CalendarDate, DatePickerDay } from '../../../../ui-model/date-picker.ts';
+import type { CalendarDate, CalendarDay } from '../../../../ui-model/calendar.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../frame.ts';
 import {
@@ -21,59 +21,59 @@ import {
   isRecord
 } from './shared.ts';
 
-type ColorPickerNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'colorPicker'>;
-type DatePickerNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'datePicker'>;
-type PickerNode<TMessage = unknown> = ColorPickerNode<TMessage> | DatePickerNode<TMessage>;
+type ColorSwatchPickerNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'colorSwatchPicker'>;
+type CalendarNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'calendar'>;
+type PickerNode<TMessage = unknown> = ColorSwatchPickerNode<TMessage> | CalendarNode<TMessage>;
 
 export function pickerMessageFactory<TMessage>(
   widget: PickerNode<TMessage>
-): ((option: ColorPickerOption<unknown> | DatePickerDay) => TMessage) | undefined {
-  if (widget.kind === 'colorPicker') {
+): ((option: ColorSwatchPickerOption<unknown> | CalendarDay) => TMessage) | undefined {
+  if (widget.kind === 'colorSwatchPicker') {
     const toMessage = widget.props.toActionMessage;
     return toMessage === undefined ? undefined : (option) => toMessage({ kind: 'select', id: option.id });
   }
   const toMessage = widget.props.toMessage;
-  return toMessage === undefined ? undefined : (option) => toMessage(option as DatePickerDay);
+  return toMessage === undefined ? undefined : (option) => toMessage(option as CalendarDay);
 }
 
-export function colorOptions(widget: ColorPickerNode): readonly ColorPickerOption<unknown>[] {
+export function colorOptions(widget: ColorSwatchPickerNode): readonly ColorSwatchPickerOption<unknown>[] {
   return widget.props.options.flatMap(
-    (option): readonly ColorPickerOption<unknown>[] => sanitizeColorOption(option)
+    (option): readonly ColorSwatchPickerOption<unknown>[] => sanitizeColorOption(option)
   );
 }
 
-export function selectedColorOption(widget: ColorPickerNode): ColorPickerOption<unknown> | undefined {
+export function selectedColorOption(widget: ColorSwatchPickerNode): ColorSwatchPickerOption<unknown> | undefined {
   const selected = selectedId(widget);
   return selected === undefined ? undefined : colorOptions(widget).find((option) => option.id === selected);
 }
 
-export function datePickerDays(widget: DatePickerNode): readonly DatePickerDay[] {
-  return widget.props.days.flatMap((day): readonly DatePickerDay[] => sanitizeDatePickerDay(day));
+export function calendarDays(widget: CalendarNode): readonly CalendarDay[] {
+  return widget.props.days.flatMap((day): readonly CalendarDay[] => sanitizeCalendarDay(day));
 }
 
-export function selectedDatePickerDay(widget: DatePickerNode): DatePickerDay | undefined {
+export function selectedCalendarDay(widget: CalendarNode): CalendarDay | undefined {
   const selected = selectedId(widget);
-  return selected === undefined ? undefined : datePickerDays(widget).find((day) => day.id === selected);
+  return selected === undefined ? undefined : calendarDays(widget).find((day) => day.id === selected);
 }
 
 export function pickerColumns(widget: PickerNode, fallback: number): number {
-  return widget.kind === 'datePicker'
+  return widget.kind === 'calendar'
     ? 7
     : Math.max(1, Math.floor(finiteNumber(widget.props.columns, fallback)));
 }
 
 export function pickerCellWidth(widget: PickerNode): number {
-  return widget.kind === 'datePicker' ? 4 : 12;
+  return widget.kind === 'calendar' ? 4 : 12;
 }
 
 export function pickerOptionRowOffset(widget: PickerNode, columns: number): number {
   let offset = clean(widget.props.label ?? '').length > 0 ? 1 : 0;
-  if (widget.kind === 'colorPicker' && selectedColorOption(widget) !== undefined) offset += 1;
-  if (widget.kind === 'datePicker' && columns === 7) offset += 2;
+  if (widget.kind === 'colorSwatchPicker' && selectedColorOption(widget) !== undefined) offset += 1;
+  if (widget.kind === 'calendar' && columns === 7) offset += 2;
   return offset;
 }
 
-export function datePickerMonthHeaderSpans(widget: DatePickerNode): readonly RenderSpan[] {
+export function calendarMonthHeaderSpans(widget: CalendarNode): readonly RenderSpan[] {
   const label = clean(widget.props.monthLabel);
   if (widget.props.toActionMessage === undefined || widget.props.disabled === true) {
     return [formSpan(widget, 'title', 'month.label', label, formLabelStyle(widget))];
@@ -87,9 +87,9 @@ export function datePickerMonthHeaderSpans(widget: DatePickerNode): readonly Ren
   ];
 }
 
-export function colorPickerSummarySpans(
-  option: ColorPickerOption<unknown>,
-  widget: ColorPickerNode
+export function colorSwatchPickerSummarySpans(
+  option: ColorSwatchPickerOption<unknown>,
+  widget: ColorSwatchPickerNode
 ): readonly RenderSpan[] {
   const disabled = option.disabled === true || widget.props.disabled === true;
   const style = disabled
@@ -104,9 +104,9 @@ export function colorPickerSummarySpans(
   ];
 }
 
-export function colorPickerSpans(
-  option: ColorPickerOption<unknown>,
-  widget: ColorPickerNode
+export function colorSwatchPickerSpans(
+  option: ColorSwatchPickerOption<unknown>,
+  widget: ColorSwatchPickerNode
 ): readonly RenderSpan[] {
   const selected = option.id === selectedId(widget);
   const disabled = option.disabled === true || widget.props.disabled === true;
@@ -125,41 +125,41 @@ export function colorPickerSpans(
   ];
 }
 
-export function datePickerWeekdayHeaderSpans(widget: DatePickerNode): readonly RenderSpan[] {
+export function calendarWeekdayHeaderSpans(widget: CalendarNode): readonly RenderSpan[] {
   return widget.props.weekdays.slice(0, 7).map((label, index) =>
     formSpan(widget, 'weekday', `weekday.${String(index)}`, ` ${clipNoEllipsis(clean(label), 2).padEnd(2, ' ')} `, formLabelStyle(widget, 'disabled'))
   );
 }
 
-export function datePickerCellSpans(
-  day: DatePickerDay,
-  widget: DatePickerNode
+export function calendarCellSpans(
+  day: CalendarDay,
+  widget: CalendarNode
 ): readonly RenderSpan[] {
   const label = clipNoEllipsis(day.label, 2).padStart(2, ' ');
   const selected = day.id === selectedId(widget);
-  const state = datePickerDayState(day, widget);
+  const state = calendarDayState(day, widget);
   if (selected) {
     return [
       formSpan(widget, 'marker', `day.${day.id}.open`, '[', formMarkerStyle(widget, state)),
-      formSpan(widget, 'day', `day.${day.id}.label`, label, datePickerDayStyle(day, widget)),
+      formSpan(widget, 'day', `day.${day.id}.label`, label, calendarDayStyle(day, widget)),
       formSpan(widget, 'marker', `day.${day.id}.close`, ']', formMarkerStyle(widget, state))
     ];
   }
   if (day.today === true) {
     return [
       formSpan(widget, 'marker', `day.${day.id}.today`, '*', formMarkerStyle(widget, state)),
-      formSpan(widget, 'day', `day.${day.id}.label`, label, datePickerDayStyle(day, widget)),
+      formSpan(widget, 'day', `day.${day.id}.label`, label, calendarDayStyle(day, widget)),
       separatorSpan(widget)
     ];
   }
   return [
     separatorSpan(widget),
-    formSpan(widget, 'day', `day.${day.id}.label`, label, datePickerDayStyle(day, widget)),
+    formSpan(widget, 'day', `day.${day.id}.label`, label, calendarDayStyle(day, widget)),
     separatorSpan(widget)
   ];
 }
 
-function sanitizeColorOption(value: unknown): readonly ColorPickerOption<unknown>[] {
+function sanitizeColorOption(value: unknown): readonly ColorSwatchPickerOption<unknown>[] {
   if (!isRecord(value)) return [];
   const id = value['id'];
   const label = value['label'];
@@ -177,7 +177,7 @@ function sanitizeColorOption(value: unknown): readonly ColorPickerOption<unknown
   }];
 }
 
-function sanitizeDatePickerDay(value: unknown): readonly DatePickerDay[] {
+function sanitizeCalendarDay(value: unknown): readonly CalendarDay[] {
   if (!isRecord(value)) return [];
   const id = value['id'];
   const label = value['label'];
@@ -194,7 +194,7 @@ function sanitizeDatePickerDay(value: unknown): readonly DatePickerDay[] {
   }];
 }
 
-function colorSwatchStyle(widget: ColorPickerNode): TerminalStyle | undefined {
+function colorSwatchStyle(widget: ColorSwatchPickerNode): TerminalStyle | undefined {
   return resolveRenderNodeStyle(widget, {
     part: 'swatch',
     base: {
@@ -205,8 +205,8 @@ function colorSwatchStyle(widget: ColorPickerNode): TerminalStyle | undefined {
 }
 
 function colorOptionStyle(
-  option: ColorPickerOption<unknown>,
-  widget: ColorPickerNode
+  option: ColorSwatchPickerOption<unknown>,
+  widget: ColorSwatchPickerNode
 ): TerminalStyle | undefined {
   if (option.disabled === true || widget.props.disabled === true) {
     return renderNodeStyle(widget, 'option', 'disabled');
@@ -214,9 +214,9 @@ function colorOptionStyle(
   return renderNodeStyle(widget, 'option', option.id === selectedId(widget) ? 'selected' : undefined);
 }
 
-function datePickerDayStyle(
-  day: DatePickerDay,
-  widget: DatePickerNode
+function calendarDayStyle(
+  day: CalendarDay,
+  widget: CalendarNode
 ): TerminalStyle | undefined {
   if (day.disabled === true || widget.props.disabled === true) {
     return renderNodeStyle(widget, 'option', 'disabled');
@@ -227,9 +227,9 @@ function datePickerDayStyle(
   return renderNodeStyle(widget, 'option', day.outsideMonth === true ? 'disabled' : undefined);
 }
 
-function datePickerDayState(
-  day: DatePickerDay,
-  widget: DatePickerNode
+function calendarDayState(
+  day: CalendarDay,
+  widget: CalendarNode
 ): 'selected' | 'disabled' | 'focused' | undefined {
   if (day.disabled === true || widget.props.disabled === true) return 'disabled';
   if (day.id === selectedId(widget)) return 'selected';

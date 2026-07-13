@@ -3,10 +3,10 @@ import test from 'node:test';
 
 import {
   calendarDateId,
-  datePickerPresentation,
-  datePickerReducer
+  calendarPresentation,
+  calendarReducer
 } from '../../dist/behavior/index.js';
-import { datePicker } from '../../dist/components/index.js';
+import { calendar } from '../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
@@ -14,7 +14,7 @@ import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 const policy = Object.freeze({ locale: 'en-US', weekStartsOn: 1 });
 
 test('date picker projection creates a deterministic six-week civil calendar', () => {
-  const presentation = datePickerPresentation({
+  const presentation = calendarPresentation({
     visibleMonth: { year: 2024, month: 2 },
     selected: { year: 2024, month: 2, day: 29 },
     focused: { year: 2024, month: 2, day: 29 }
@@ -38,12 +38,12 @@ test('date picker reducer navigates focus across month boundaries and skips disa
     visibleMonth: { year: 2026, month: 6 },
     focused: { year: 2026, month: 6, day: 5 }
   };
-  const moved = datePickerReducer(state, { kind: 'moveFocus', days: 1 }, {
+  const moved = calendarReducer(state, { kind: 'moveFocus', days: 1 }, {
     ...policy,
     isDisabled: (date) => date.day === 6 || date.day === 7
   });
-  const nextMonth = datePickerReducer(moved, { kind: 'moveMonth', months: 1 }, policy);
-  const selected = datePickerReducer(nextMonth, { kind: 'select', date: { year: 2026, month: 7, day: 8 } }, policy);
+  const nextMonth = calendarReducer(moved, { kind: 'moveMonth', months: 1 }, policy);
+  const selected = calendarReducer(nextMonth, { kind: 'select', date: { year: 2026, month: 7, day: 8 } }, policy);
 
   assert.deepEqual(moved.focused, { year: 2026, month: 6, day: 8 });
   assert.deepEqual(nextMonth.visibleMonth, { year: 2026, month: 7 });
@@ -51,17 +51,17 @@ test('date picker reducer navigates focus across month boundaries and skips disa
   assert.equal(calendarDateId(selected.selected), '2026-07-08');
 });
 
-test('date picker component routes keyboard and pointer through DatePickerAction', async () => {
+test('date picker component routes keyboard and pointer through CalendarAction', async () => {
   const app = defineTui({
     id: 'calendar-actions',
     init: () => ({
       visibleMonth: { year: 2026, month: 6 },
       focused: { year: 2026, month: 6, day: 15 }
     }),
-    update: (state, action) => ({ state: datePickerReducer(state, action, policy) }),
-    view: (state) => datePicker({
+    update: (state, action) => ({ state: calendarReducer(state, action, policy) }),
+    view: (state) => calendar({
       id: 'calendar',
-      ...datePickerPresentation(state, policy),
+      ...calendarPresentation(state, policy),
       onAction: (action) => action
     })
   });
@@ -87,14 +87,14 @@ test('date picker component routes keyboard and pointer through DatePickerAction
 
 test('date picker validates civil dates and explicit locale policy', () => {
   assert.throws(
-    () => datePickerPresentation({ visibleMonth: { year: 2023, month: 2 } }, {
+    () => calendarPresentation({ visibleMonth: { year: 2023, month: 2 } }, {
       ...policy,
       min: { year: 2023, month: 2, day: 29 }
     }),
     /invalid calendar date/u
   );
   assert.throws(
-    () => datePickerPresentation({ visibleMonth: { year: 2026, month: 6 } }, { locale: '', weekStartsOn: 1 }),
+    () => calendarPresentation({ visibleMonth: { year: 2026, month: 6 } }, { locale: '', weekStartsOn: 1 }),
     /locale must not be empty/u
   );
 });

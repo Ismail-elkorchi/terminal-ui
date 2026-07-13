@@ -64,10 +64,10 @@ Layout and styled components:
 ```ts
 import { renderFramePlain, renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
 import { richText, statusBar } from '@ismail-elkorchi/terminal-ui/components';
-import { row, stack } from '@ismail-elkorchi/terminal-ui/layout';
+import { column, row } from '@ismail-elkorchi/terminal-ui/layout';
 
-const frame = renderElementFrame(stack([
-  statusBar({ id: 'status', text: 'Ready' }),
+const frame = renderElementFrame(column([
+  statusBar({ id: 'status', leading: [{ id: 'ready', kind: 'status', text: 'Ready', status: 'success' }] }),
   row([
     richText({ segments: [{ text: 'Primary', style: { fg: { kind: 'theme', token: 'accent.primary' } } }] }),
     richText({ segments: [{ text: 'Secondary', style: { fg: { kind: 'theme', token: 'accent.secondary' } } }] })

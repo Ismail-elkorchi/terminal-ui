@@ -1,5 +1,20 @@
 import type { ThemeColorToken } from '../visual/color.ts';
-import type { ComponentTone, TitledItem } from './contracts.ts';
+import type { ComponentStatus, ComponentTone, TitledItem } from './contracts.ts';
+
+export type StatusBarSection = 'leading' | 'center' | 'trailing';
+
+export type StatusBarItem =
+  | {
+      readonly id: string;
+      readonly kind: 'text';
+      readonly text: string;
+    }
+  | {
+      readonly id: string;
+      readonly kind: 'status';
+      readonly text: string;
+      readonly status: ComponentStatus;
+    };
 
 export interface NotificationItem extends TitledItem {
   readonly message?: string;
@@ -23,6 +38,7 @@ export interface ValueScaleStop {
 export type ValueScale = readonly ValueScaleStop[];
 
 export interface BarChartItem {
+  readonly id: string;
   readonly label: string;
   readonly value: number;
 }
@@ -49,7 +65,7 @@ export interface ChartPointSelection {
   readonly point: number;
 }
 
-export type GaugeVariant = 'linear' | 'dial';
+export type MeterVariant = 'linear' | 'dial';
 
 export interface HeatmapCell<TValue = unknown> {
   readonly id: string;

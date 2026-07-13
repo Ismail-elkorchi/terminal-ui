@@ -39,7 +39,7 @@ const blocks = [
 ];
 
 const initialState = {
-  selected: 0,
+  selectedId: 'pending',
   expandedIds: [],
   collapsedIds: []
 };
@@ -48,17 +48,20 @@ test('activityFeedReducer selects visible items and wraps', () => {
   const next = activityFeedReducer(initialState, { kind: 'selectNext' }, { blocks });
   const previous = activityFeedReducer(next, { kind: 'selectPrevious' }, { blocks });
 
-  assert.equal(next.selected, 1);
-  assert.equal(previous.selected, 0);
+  assert.equal(next.selectedId, 'warning');
+  assert.equal(previous.selectedId, 'pending');
 });
 
-test('activityFeedReducer filters by status and jumps to problem blocks', () => {
-  const filtered = activityFeedReducer(initialState, { kind: 'setStatusFilter', statuses: ['success'] }, { blocks });
-  const problem = activityFeedReducer(initialState, { kind: 'jumpToFirstProblem' }, { blocks });
+test('activityFeedReducer selects records by stable id and supports boundaries', () => {
+  const selected = activityFeedReducer(initialState, { kind: 'select', id: 'success' }, { blocks });
+  const first = activityFeedReducer(selected, { kind: 'selectFirst' }, { blocks });
+  const last = activityFeedReducer(first, { kind: 'selectLast' }, { blocks });
+  const invalid = activityFeedReducer(last, { kind: 'select', id: 'missing' }, { blocks });
 
-  assert.equal(filtered.selected, 2);
-  assert.deepEqual(visibleActivityFeedBlocks(blocks, filtered).map((entry) => entry.block.id), ['success']);
-  assert.equal(problem.selected, 1);
+  assert.equal(selected.selectedId, 'success');
+  assert.equal(first.selectedId, 'pending');
+  assert.equal(last.selectedId, 'error');
+  assert.equal(invalid, last);
 });
 
 test('activityFeedReducer expands and collapses caller-owned block state', () => {
@@ -73,11 +76,10 @@ test('activityFeedReducer expands and collapses caller-owned block state', () =>
 
 test('copyActivityFeedVisibleText returns sanitized visible block text', () => {
   const text = copyActivityFeedVisibleText(blocks, {
-    selected: 0,
     expandedIds: [],
-    collapsedIds: [],
-    statusFilter: ['error']
+    collapsedIds: []
   });
 
-  assert.equal(text, '[error] Error block\nFailed red\nStack trace');
+  assert.match(text, /\[error\] Error block\nFailed red\nStack trace/u);
+  assert.doesNotMatch(text, /\u001B/u);
 });

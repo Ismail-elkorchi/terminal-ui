@@ -6,7 +6,7 @@ import type { Rect } from '../model/layout.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { HitTarget } from '../model/renderer.ts';
 
-type TextPointerNode<TMessage> = RenderNodesOfKind<TMessage, 'commandBar' | 'textArea' | 'textInput'>;
+type TextPointerNode<TMessage> = RenderNodesOfKind<TMessage, 'commandInput' | 'textArea' | 'textInput'>;
 
 export type { TextPointerAction, TextPointerEvent } from '../../interaction/text-pointer.ts';
 

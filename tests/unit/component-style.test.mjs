@@ -1,21 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { datePickerFixture } from '../helpers/date-picker.mjs';
+import { calendarFixture } from '../helpers/calendar.mjs';
 
 import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import {
-  activityIndicator,
+  statusIndicator,
   barChart,
   button,
   chart,
-  checkboxList,
-  colorPicker,
-  commandBar,
-  datePicker,
-  dropdown,
+  checkboxGroup,
+  colorSwatchPicker,
+  commandInput,
+  calendar,
+  dialog,
+  dropdownMenu,
   helpBar,
   heatmap,
   list,
@@ -30,6 +31,7 @@ import {
   statusBar,
   structuredBlock,
   table,
+  tabs,
   text,
   textArea,
   textInput,
@@ -37,11 +39,9 @@ import {
   tree
 } from '../../dist/components/index.js';
 import {
-  modal,
   row,
-  stack,
-  surface,
-  tabs
+  column,
+  surface
 } from '../../dist/layout/index.js';
 
 function styleFor(frame, textValue) {
@@ -190,6 +190,7 @@ test('menu palette table and tree use selected placeholder and title slots', () 
     }
 }), { columns: 24, rows: 3 });
   const tableFrame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'empty-table',
     rows: [],
     columns: [{
@@ -221,21 +222,24 @@ test('menu palette table and tree use selected placeholder and title slots', () 
 
 test('list table and tree share data navigation selection and match styles', () => {
   const listFrame = renderElementFrame(list({
+    getItemId: (item) => String(item),
     id: 'styled-list',
     items: ['Atlas', 'Pulse'],
-    selected: 0,
+    selectedId: 'Atlas',
     filterQuery: 'at'
   }), { columns: 18, rows: 2 });
   const tableFrame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'styled-table',
-    selected: 0,
+    selectedRowId: '0',
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [['Atlas'], ['Pulse']]
   }), { columns: 18, rows: 3 });
   const activeTableFrame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'active-table',
-    selectedCell: { row: 0, column: 0 },
+    selectedCell: { rowId: '0', column: 0 },
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [['Atlas'], ['Pulse']]
@@ -259,7 +263,7 @@ test('list table and tree share data navigation selection and match styles', () 
   assert.equal(styleForCell(activeTableFrame, (cell) => cell.text === 'A')?.bg?.token, 'selection.background');
   assert.equal(styleForCell(treeFrame, (cell) => cell.text === '▾')?.fg?.token, 'tree.branch');
   assert.equal(styleForCell(treeFrame, (cell) => cell.text === 'A')?.fg?.token, 'menu.match');
-  assert.equal(listFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'item.0.match');
+  assert.equal(listFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'item.Atlas.match');
   assert.equal(tableFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'row.0.cell.0');
   assert.equal(activeTableFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'row.0.cell.0');
   assert.equal(treeFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'node.api.match');
@@ -281,7 +285,7 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
         focus: { disabled: true }
     }
 }), { columns: 18, rows: 1 });
-  const commandFrame = renderElementFrame(commandBar({
+  const commandFrame = renderElementFrame(commandInput({
     id: 'command',
     value: '/open README.md',
     display: 'expanded',
@@ -299,7 +303,7 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
     ],
     selected: 'open'
   }), { columns: 20, rows: 2 });
-  const dropdownFrame = renderElementFrame(dropdown({
+  const dropdownMenuFrame = renderElementFrame(dropdownMenu({
     id: 'region',
     label: 'Region',
     presentation: { kind: 'closed', selected: 'us' },
@@ -325,6 +329,7 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
     ]
   }), { columns: 28, rows: 2 });
   const tableFrame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'table',
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }],
@@ -352,7 +357,7 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
   assert.equal(styleForSource(commandFrame, (source) => source.part === 'prompt')?.fg?.token, 'command.prompt');
   assert.equal(styleForSource(commandFrame, (source) => source.part === 'suggestion.0.label')?.bg?.token, 'selection.background');
   assert.equal(styleForSource(menuFrame, (source) => source.part === 'label' && source.itemId === 'open')?.bg?.token, 'selection.background');
-  assert.equal(styleForSource(dropdownFrame, (source) => source.part === 'dropdown-value')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(dropdownMenuFrame, (source) => source.part === 'dropdownMenu-value')?.fg?.token, 'text.default');
   assert.equal(styleForSource(paletteFrame, (source) => source.part === 'entry.open.label')?.fg?.token, 'text.default');
   assert.equal(styleForSource(tabsFrame, (source) => source.part === 'label' && source.itemId === 'one')?.fg?.token, 'tab.active.foreground');
   assert.equal(styleForSource(tabsFrame, (source) => source.part === 'label' && source.itemId === 'two')?.fg?.token, 'tab.inactive.foreground');
@@ -430,7 +435,7 @@ test('tabs use shared selected disabled and value styles', () => {
   assert.equal(styleFor(frame, 'A')?.fg?.token, 'status.warning');
 });
 
-test('scrollback and modal chrome use placeholder and border slots', () => {
+test('scrollback and dialog chrome use placeholder and border slots', () => {
   const scrollbackFrame = renderElementFrame(scrollback({
     id: 'styled-scrollback',
     items: Array.from({ length: 5 }, (_value, index) => ({ id: `row-${String(index)}`, text: `Row ${String(index)}` })),
@@ -440,14 +445,14 @@ test('scrollback and modal chrome use placeholder and border slots', () => {
         }
     }
 }), { columns: 36, rows: 2 });
-  const modalFrame = renderElementFrame(modal(
+  const modalFrame = renderElementFrame(dialog(
     text('Body'),
     {
-    id: 'styled-modal',
+    id: 'styled-dialog',
     title: 'Panel',
     width: 14,
     height: 6,
-    actions: row([button({ id: 'modal-ok', label: 'OK' })]),
+    actions: row([button({ id: 'dialog-ok', label: 'OK' })]),
     meta: {
         styles: {
             parts: { border: tokenStyle('status.error') }
@@ -458,11 +463,11 @@ test('scrollback and modal chrome use placeholder and border slots', () => {
 
   assert.equal(styleFor(scrollbackFrame, '.')?.fg?.token, 'status.warning');
   assert.equal(styleFor(modalFrame, '┌')?.fg?.token, 'status.error');
-  assert.equal(styleForCell(modalFrame, (cell) => cell.source?.ownerKind === 'modal' && cell.source.label === 'action-separator')?.fg?.token, 'status.error');
+  assert.equal(styleForCell(modalFrame, (cell) => cell.source?.ownerKind === 'dialog' && cell.source.label === 'action-separator')?.fg?.token, 'status.error');
 });
 
 test('semantic text roles use shared visual grammar', () => {
-  const textFrame = renderElementFrame(stack([
+  const textFrame = renderElementFrame(column([
     text('42', { textRole: 'metric' }),
     text('quiet', { textRole: 'caption' }),
     text('risk', { textRole: 'danger' })
@@ -547,7 +552,7 @@ test('overflow priority preserves important row content before decorative conten
 test('feedback widgets use shared status styles and source metadata', () => {
   const statusFrame = renderElementFrame(statusBar({
     id: 'status',
-    text: 'Ready',
+    leading: [{ id: 'ready', kind: 'text', text: 'Ready' }],
     meta: {
         styles: {
             parts: { value: tokenStyle('status.success') }
@@ -556,17 +561,20 @@ test('feedback widgets use shared status styles and source metadata', () => {
 }), { columns: 16, rows: 1 });
   const helpFrame = renderElementFrame(helpBar({
     id: 'help',
-    bindings: [
+    groups: [{
+      id: 'primary',
+      bindings: [
         { key: 'Enter', label: 'open' },
         { key: 'Esc', label: 'close' }
-    ],
+      ]
+    }],
     meta: {
         styles: {
             parts: { label: tokenStyle('accent.primary') }
         }
     }
 }), { columns: 32, rows: 1 });
-  const activityFrame = renderElementFrame(activityIndicator({
+  const activityFrame = renderElementFrame(statusIndicator({
     id: 'activity',
     label: 'Indexing',
     status: 'warning'
@@ -591,7 +599,7 @@ test('feedback widgets use shared status styles and source metadata', () => {
   assert.equal(statusFrame.cells.find((cell) => cell.text === 'R')?.source?.ownerKind, 'statusBar');
   assert.equal(styleFor(helpFrame, 'E')?.fg?.token, 'accent.primary');
   assert.equal(styleFor(helpFrame, 'o')?.bg?.token, 'surface.chrome.background');
-  assert.equal(helpFrame.cells.find((cell) => cell.text === 'E')?.source?.label, 'binding.0.key');
+  assert.equal(helpFrame.cells.find((cell) => cell.text === 'E')?.source?.label, 'group.primary.binding.0.key');
   assert.equal(styleFor(activityFrame, '!')?.fg?.token, 'status.warning');
   assert.equal(activityFrame.cells.find((cell) => cell.text === '!')?.source?.label, 'status.marker');
   assert.equal(activityFrame.cells.find((cell) => cell.text === 'I')?.style?.fg?.token, 'text.default');
@@ -631,8 +639,8 @@ test('record and notification widgets use shared semantic status contracts', () 
 test('chart widgets use shared visual state styles and source metadata', () => {
   const barFrame = renderElementFrame(barChart({
     id: 'bars',
-    selected: 0,
-    items: [{ label: 'Atlas', value: 5 }],
+    selectedId: 'atlas',
+    items: [{ id: 'atlas', label: 'Atlas', value: 5 }],
     meta: {
         styles: {
             parts: { label: tokenStyle('accent.primary') },
@@ -679,19 +687,19 @@ test('choice and picker controls use shared form visual styles and source metada
     max: 100,
     width: 5
   }), { columns: 24, rows: 1 });
-  const checkboxFrame = renderElementFrame(checkboxList({
+  const checkboxFrame = renderElementFrame(checkboxGroup({
     id: 'checks',
     selected: ['a'],
     options: [{ id: 'a', label: 'Alpha', value: 'a' }]
   }), { columns: 24, rows: 1 });
-  const colorFrame = renderElementFrame(colorPicker({
+  const colorFrame = renderElementFrame(colorSwatchPicker({
     id: 'colors',
     selected: 'green',
     options: [{ id: 'green', label: 'Green', value: 'green', swatch: '■' }]
   }), { columns: 24, rows: 2 });
-  const dateFrame = renderElementFrame(datePicker({
+  const dateFrame = renderElementFrame(calendar({
     id: 'dates',
-    ...datePickerFixture({ selected: { year: 2026, month: 6, day: 2 } })
+    ...calendarFixture({ selected: { year: 2026, month: 6, day: 2 } })
   }), { columns: 30, rows: 8 });
 
   assert.equal(styleForCell(toggleFrame, (cell) => cell.source?.label === 'value.on')?.bg?.token, 'control.toggle.on.background');

@@ -16,7 +16,7 @@ import {
   tree,
   textInput
 } from '../../dist/components/index.js';
-import { stack } from '../../dist/layout/index.js';
+import { column } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
 test('testing harness records input and output deterministically', async () => {
@@ -190,7 +190,7 @@ test('terminal harness resize events drive active TUI resize handling', async ()
 
 test('interaction scripts assert styled text focus selection and hit targets against recorded frames', async () => {
   const harness = createTerminalHarness({ viewport: { columns: 24, rows: 9 } });
-  const frame = renderElementFrame(stack([
+  const frame = renderElementFrame(column([
     richText({
       id: 'styled-line',
       segments: [{ text: 'Styled', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]

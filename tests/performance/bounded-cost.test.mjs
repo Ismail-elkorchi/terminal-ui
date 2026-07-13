@@ -15,7 +15,7 @@ import {
 import {
   button,
   canvas,
-  commandBar,
+  commandInput,
   form,
   textInput,
   list,
@@ -26,7 +26,7 @@ import {
   text,
   tree
 } from '../../dist/components/index.js';
-import { stack } from '../../dist/layout/index.js';
+import { column } from '../../dist/layout/index.js';
 
 test('paste bursts decode as one paste event instead of per-character key churn', () => {
   const decoder = createInputDecoder();
@@ -40,7 +40,12 @@ test('paste bursts decode as one paste event instead of per-character key churn'
 
 test('large list rendering is bounded by viewport size, not collection size', () => {
   const items = Array.from({ length: 50_000 }, (_value, index) => `Item ${index}`);
-  const frame = renderElementFrame(list({ id: 'large-list', items, selected: 40_000 }), { columns: 32, rows: 10 });
+  const frame = renderElementFrame(list({
+    id: 'large-list',
+    items,
+    getItemId: (item) => item,
+    selectedId: 'Item 40000'
+  }), { columns: 32, rows: 10 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Item 40000/u);
@@ -73,8 +78,8 @@ test('small local frame updates produce bounded render diffs', () => {
 });
 
 test('full frame render stays bounded by viewport for mixed widget trees', () => {
-  const frame = renderElementFrame(stack([
-    commandBar({
+  const frame = renderElementFrame(column([
+    commandInput({
       id: 'search',
       prompt: '?',
       value: 'fil',
@@ -85,7 +90,8 @@ test('full frame render stays bounded by viewport for mixed widget trees', () =>
       selectedSuggestion: 0
     }),
     table({
-      id: 'summary',
+    getRowId: (_row, index) => String(index),
+    id: 'summary',
       columns: [
         {
           id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 12 } },
@@ -136,8 +142,9 @@ test('append-heavy scrollback diffs stay bounded by visible rows', () => {
 
 test('large table viewport is bounded independently from row count', () => {
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'large-table',
-    selectedCell: { row: 42_000, column: 1 },
+    selectedCell: { rowId: '42000', column: 1 },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
@@ -159,6 +166,7 @@ test('fill-width tables do not scan offscreen row values for intrinsic measureme
   let valueReads = 0;
   const rows = Array.from({ length: 20_000 }, (_value, index) => ({ name: `Row ${String(index)}` }));
   const frame = renderElementFrame(table({
+    getRowId: (_row, index) => String(index),
     id: 'fill-table-cost',
     rows,
     columns: [{
@@ -169,7 +177,7 @@ test('fill-width tables do not scan offscreen row values for intrinsic measureme
         return row.name;
       }
     }],
-    selected: 10_000
+    selectedRowId: '10000'
   }), { columns: 80, rows: 20 });
 
   assert.match(renderFramePlain(frame), /Row 10000/u);
@@ -180,8 +188,9 @@ test('large table retained damage is narrowed to changed visible rows', () => {
   const viewport = { columns: 64, rows: 12 };
   const rows = Array.from({ length: 20_000 }, (_value, index) => [`Row ${index}`, index, `metadata ${index}`]);
   const previousWidget = table({
+    getRowId: (_row, index) => String(index),
     id: 'large-table-damage',
-    selectedCell: { row: 12_000, column: 1 },
+    selectedCell: { rowId: '12000', column: 1 },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
@@ -193,8 +202,9 @@ test('large table retained damage is narrowed to changed visible rows', () => {
     rows
   });
   const nextWidget = table({
+    getRowId: (_row, index) => String(index),
     id: 'large-table-damage',
-    selectedCell: { row: 12_000, column: 2 },
+    selectedCell: { rowId: '12000', column: 2 },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },

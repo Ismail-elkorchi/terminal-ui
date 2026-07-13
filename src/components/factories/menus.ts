@@ -3,14 +3,14 @@ import type { Element } from '../../element/index.ts';
 import type {
   ContextMenuOptions,
   DividerOptions,
-  DropdownOptions,
+  DropdownMenuOptions,
   MenuBarOptions,
   MenuOptions,
   TooltipOptions
 } from '../options/menus.ts';
 import {
   componentMetaProps,
-  dropdownKeyBindings,
+  dropdownMenuKeyBindings,
   interactionProps,
   menuItemsForRenderer,
   menuKeyBindings,
@@ -113,20 +113,20 @@ export function contextMenu(options: ContextMenuOptions<unknown>): Element<unkno
   });
 }
 
-export function dropdown<
+export function dropdownMenu<
   const TActionMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
-  DropdownOptions,
+  DropdownMenuOptions,
   { readonly onAction: TActionMessage },
   Record<never, never>,
   TKeys
 >): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
-export function dropdown(options: DropdownOptions<unknown>): Element<unknown> {
+export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unknown> {
   const selected = options.presentation.selected;
   const highlighted = options.presentation.kind === 'open' ? options.presentation.highlighted : undefined;
   const open = options.presentation.kind === 'open';
-  const keyMap = dropdownKeyBindings(
+  const keyMap = dropdownMenuKeyBindings(
     options.items,
     selected,
     highlighted,
@@ -137,15 +137,15 @@ export function dropdown(options: DropdownOptions<unknown>): Element<unknown> {
   const meta = open
     ? withMetaDefaults(options.meta, { layer: { opacity: 'opaque' } })
     : options.meta;
-  return elementFromRenderNode<'dropdown', unknown>({
-    ...requiredId(options.id, 'dropdown'),
-    kind: 'dropdown',
+  return elementFromRenderNode<'dropdownMenu', unknown>({
+    ...requiredId(options.id, 'dropdownMenu'),
+    kind: 'dropdownMenu',
     props: {
       items: menuItemsForRenderer(options.items),
       ...(options.label === undefined ? {} : { label: options.label }),
       presentation: options.presentation,
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
-      ...(options.onAction === undefined ? {} : { toDropdownActionMessage: options.onAction })
+      ...(options.onAction === undefined ? {} : { toDropdownMenuActionMessage: options.onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ meta })

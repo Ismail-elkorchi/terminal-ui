@@ -16,8 +16,8 @@ import {
 import {
   highContrastTheme } from '../../dist/theme/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
-import { activityIndicator,
-  commandBar,
+import { statusIndicator,
+  commandInput,
   helpBar,
   numberInput,
   richText,
@@ -26,7 +26,7 @@ import { activityIndicator,
   textArea,
   textInput
 } from '../../dist/components/index.js';
-import { stack } from '../../dist/layout/index.js';
+import { column } from '../../dist/layout/index.js';
 
 test('richText renders sanitized styled segments as plain frame text', () => {
   const frame = renderElementFrame(richText({
@@ -173,7 +173,7 @@ test('text widgets map Unicode cursor positions through the shared text contract
     id: 'unicode-field',
     value: 'go🙂'
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-field'] });
-  const commandFrame = renderElementFrame(commandBar({
+  const commandFrame = renderElementFrame(commandInput({
     id: 'unicode-command',
     prompt: '> ',
     value,
@@ -188,7 +188,7 @@ test('text widgets map Unicode cursor positions through the shared text contract
   assert.deepEqual(secondaryInputFrame.cursor?.source, formSource('unicode-field', 'textInput', 'cursor'));
   assert.deepEqual(commandFrame.cursor?.source, {
     ownerId: 'unicode-command',
-    ownerKind: 'commandBar',
+    ownerKind: 'commandInput',
     family: 'command',
     role: 'cursor',
     part: 'cursor',
@@ -330,14 +330,14 @@ test('wrapped textArea exposes scrollbar scope over visual rows', () => {
 });
 
 test('editable text controls remain readable in high contrast and no-color projections', () => {
-  const widget = stack([
+  const widget = column([
     textInput({
       id: 'contrast-input',
       value: 'alpha',
       selection: { start: 1, end: 4 },
       error: 'Invalid value'
     }),
-    commandBar({
+    commandInput({
       id: 'contrast-command',
       prompt: '/',
       value: '',
@@ -543,15 +543,18 @@ function noColorCapabilities() {
   };
 }
 
-test('helpBar and activityIndicator provide reusable app chrome', () => {
+test('helpBar and statusIndicator provide reusable app chrome', () => {
   const helpFrame = renderElementFrame(helpBar({
     id: 'help',
-    bindings: [
-      { key: 'Enter', label: 'open' },
-      { key: 'Esc', label: 'close' }
-    ]
+    groups: [{
+      id: 'primary',
+      bindings: [
+        { key: 'Enter', label: 'open' },
+        { key: 'Esc', label: 'close' }
+      ]
+    }]
   }), { columns: 32, rows: 1 });
-  const activityFrame = renderElementFrame(activityIndicator({
+  const activityFrame = renderElementFrame(statusIndicator({
     id: 'activity',
     label: 'Indexing',
     status: 'running'
@@ -566,11 +569,14 @@ test('helpBar and activityIndicator provide reusable app chrome', () => {
 test('helpBar keeps compact bindings whole instead of clipping partial labels', () => {
   const frame = renderElementFrame(helpBar({
     id: 'help-compact',
-    bindings: [
-      { key: 'click', label: 'select/open file' },
-      { key: 'disclosure', label: 'toggle folder' },
-      { key: 'enter', label: 'open/toggle' }
-    ]
+    groups: [{
+      id: 'primary',
+      bindings: [
+        { key: 'click', label: 'select/open file' },
+        { key: 'disclosure', label: 'toggle folder' },
+        { key: 'enter', label: 'open/toggle' }
+      ]
+    }]
   }), { columns: 26, rows: 1 });
 
   assert.equal(renderFramePlain(frame), 'click select/open file  …');

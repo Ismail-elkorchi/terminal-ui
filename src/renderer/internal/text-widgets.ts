@@ -10,7 +10,7 @@ import {
   textAreaInputContentBounds, textAreaInputCursor, textAreaInputLine, type TextAreaVisualLine
 } from './input-visual.ts';
 import {
-  activityIndicatorText as feedbackActivityIndicatorText, helpBarText as feedbackHelpBarText, spinnerBlock as feedbackSpinnerBlock, spinnerText as feedbackSpinnerText
+  statusIndicatorText as feedbackStatusIndicatorText, helpBarText as feedbackHelpBarText, spinnerBlock as feedbackSpinnerBlock, spinnerText as feedbackSpinnerText
 } from './feedback-visual.ts';
 import { clampedTextOffset, textOffsetAtVisualColumn } from './text-pointer.ts';
 import { defaultStyleForTextRole, mergeStyles, resolveRenderNodeStyle, themeStyle } from './render-node-style.ts';
@@ -29,7 +29,7 @@ type TextNode = RenderNodeOfKind<unknown, 'text'>;
 type RichTextNode = RenderNodeOfKind<unknown, 'richText'>;
 type TextAreaNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'textArea'>;
 type HelpBarNode = RenderNodeOfKind<unknown, 'helpBar'>;
-type ActivityIndicatorNode = RenderNodeOfKind<unknown, 'activityIndicator'>;
+type StatusIndicatorNode = RenderNodeOfKind<unknown, 'statusIndicator'>;
 type SpinnerNode = RenderNodeOfKind<unknown, 'spinner'>;
 
 export function textBlock(widget: TextNode): RenderBlock {
@@ -184,16 +184,16 @@ export function helpBarAccessibleBase(widget: HelpBarNode, id: string): Accessib
   };
 }
 
-export function activityIndicatorText(widget: ActivityIndicatorNode, theme: TerminalTheme): string {
-  return feedbackActivityIndicatorText(widget, theme);
+export function statusIndicatorText(widget: StatusIndicatorNode, theme: TerminalTheme): string {
+  return feedbackStatusIndicatorText(widget, theme);
 }
 
-export function activityIndicatorAccessibleBase(widget: ActivityIndicatorNode, id: string): AccessibleNode {
+export function statusIndicatorAccessibleBase(widget: StatusIndicatorNode, id: string): AccessibleNode {
   return {
     id,
     role: 'status',
     label: id,
-    value: activityIndicatorText(widget, defaultTheme),
+    value: statusIndicatorText(widget, defaultTheme),
     live: 'polite'
   };
 }
