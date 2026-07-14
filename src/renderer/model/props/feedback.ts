@@ -9,22 +9,24 @@ import type {
   MeterVariant,
   HeatmapCell,
   HeatmapSelection,
-  NotificationItem,
   NotificationPlacement,
   ProgressBarDisplay,
   ProgressBarLabelPosition,
   StatusBarItem,
   ValueScale
 } from '../../../ui-model/feedback.ts';
-import type { NotificationStackAction } from '../../../ui-model/notification-stack.ts';
+import type {
+  NotificationStackAction,
+  NotificationStackPresentation
+} from '../../../ui-model/notification-stack.ts';
 import type { BarChartAction, ChartAction, HeatmapAction } from '../../../ui-model/visualization.ts';
 
 export interface NotificationStackRenderProps<TMessage> {
-  readonly items: readonly NotificationItem[];
-  readonly selected?: string;
+  readonly presentation: NotificationStackPresentation;
   readonly placement?: NotificationPlacement;
   readonly maxWidth?: number;
   readonly toActionMessage?: (action: NotificationStackAction) => TMessage;
+  readonly toDismissMessage?: (id: string) => TMessage;
 }
 
 export interface StatusBarRenderProps {

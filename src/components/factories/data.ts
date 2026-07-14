@@ -7,6 +7,7 @@ import type {
   TreeOptions
 } from '../options/content.ts';
 import type { ScrollEvent } from '../../interaction/scroll.ts';
+import { projectListItems } from '../../behavior/list.ts';
 import type { ListAction } from '../../ui-model/list.ts';
 import type { TableAction } from '../../ui-model/table.ts';
 import {
@@ -44,14 +45,10 @@ export function list<
   >
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unknown> {
-  const keyMap = listKeyBindings(options);
+  const projectedItems = projectListItems(options.items, options.projectItem);
+  const keyMap = listKeyBindings(options, projectedItems.map(({ item }) => item.id));
   const toActionMessage = options.onAction;
-  const itemIds = resolveStableIds(options.items, options.getItemId, 'list');
-  const items = options.items.map((value, index) => ({
-    id: itemIds[index] ?? '',
-    value,
-    disabled: options.isDisabled?.(value, index) === true
-  }));
+  const items = projectedItems.map(({ item }) => ({ ...item, disabled: item.disabled === true }));
   return elementFromRenderNode<'list', unknown>({
     ...requiredId(options.id, 'list'),
     kind: 'list',

@@ -54,7 +54,7 @@ test('notification controller pauses deadlines, resumes them, expires records, a
   assert.equal(state.active[0]?.paused, true);
   assert.equal(state.active[0]?.remainingMs, 6_000);
   assert.equal(nextNotificationExpiry(state), undefined);
-  assert.equal(notificationPresentation(state, { now: 20_000 }).items[0]?.detail, 'paused · ttl 6s');
+  assert.equal(notificationPresentation(state, { mode: 'live', now: 20_000 }).items[0]?.detail, 'paused · ttl 6s');
 
   state = notificationReducer(state, { kind: 'expire', now: 20_000 }, policy);
   assert.equal(state.active[0]?.id, 'a');

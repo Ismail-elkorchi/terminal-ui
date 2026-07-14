@@ -225,14 +225,14 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
         layer: {
             zIndex: 20
         },
-        focus: { scope: 'contain' }
+        focus: { scope: { kind: 'contain' } }
     }
 })
           ]
         : []),
       notificationStack({
     id: 'notices',
-    items: state.notifications,
+    presentation: { kind: 'live', items: state.notifications },
     meta: {
         layer: {
             zIndex: 30
@@ -299,7 +299,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
         layer: {
             zIndex: 10
         },
-        focus: { scope: 'contain' }
+        focus: { scope: { kind: 'contain' } }
     }
 })
           ]
@@ -316,7 +316,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
         layer: {
             zIndex: 20
         },
-        focus: { scope: 'contain' }
+        focus: { scope: { kind: 'contain' } }
     }
 })
           ]
@@ -382,7 +382,7 @@ test('TUI frame cursor follows the selected visible list item', () => {
   const frame = renderElementFrame(list({
     id: 'cursor-list',
     items,
-    getItemId: (item) => item,
+    projectItem: (item) => ({ id: item, label: item }),
     selectedId: 'Item 6'
   }), { columns: 16, rows: 5 });
   const output = renderFramePlain(frame);
@@ -1755,6 +1755,8 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
       textInput({ id: 'background', value: state.active, keys: { enter: () => ({ active: 'background' }) } }),
       dialog(textInput({ id: 'dialog-field', value: state.active, keys: { enter: () => ({ active: 'dialog' }) } }), {
         id: 'dialog',
+        modal: true,
+        focusPolicy: { returnFocus: 'restore' },
         width: 20,
         height: 4
       })
@@ -1789,7 +1791,7 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
         layer: {
             zIndex: 10
         },
-        focus: { scope: 'contain' }
+        focus: { scope: { kind: 'contain' } }
     }
 })
     ])
@@ -1809,6 +1811,63 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
   assert.deepEqual(popoverRuntime.getState(), { active: 'popover' });
 });
 
+test('dialog owns escape dismissal, initial focus, and focus restoration', async () => {
+  const app = defineTui({
+    id: 'dialog-lifecycle',
+    init: () => ({ open: false, dismissedBy: undefined }),
+    update: (state, message) => {
+      if (message.kind === 'open') return { state: { ...state, open: true } };
+      if (message.kind === 'dismiss') {
+        return { state: { open: false, dismissedBy: message.reason } };
+      }
+      return { state };
+    },
+    view: (state) => column([
+      textInput({
+        id: 'dialog-launcher',
+        value: '',
+        keys: { enter: () => ({ kind: 'open' }) }
+      }),
+      ...(state.open
+        ? [dialog(column([
+            textInput({ id: 'first-dialog-field', value: '' }),
+            textInput({ id: 'preferred-dialog-field', value: '' })
+          ]), {
+            id: 'lifecycle-dialog',
+            modal: true,
+            focusPolicy: {
+              initialTargetId: 'preferred-dialog-field',
+              returnFocus: 'restore'
+            },
+            dismissal: {
+              escape: true,
+              outsidePress: true,
+              onDismiss: (reason) => ({ kind: 'dismiss', reason })
+            },
+            width: 24,
+            height: 6
+          })]
+        : [])
+    ])
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 40, rows: 10 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  assert.deepEqual(runtime.frame().focusPath, ['column:0', 'dialog-launcher']);
+  await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  assert.deepEqual(runtime.frame().focusPath, [
+    'column:0',
+    'lifecycle-dialog',
+    'column:0',
+    'preferred-dialog-field'
+  ]);
+  await runtime.handleInput({ kind: 'key', key: 'escape', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.deepEqual(runtime.getState(), { open: false, dismissedBy: 'escape' });
+  assert.deepEqual(runtime.frame().focusPath, ['column:0', 'dialog-launcher']);
+});
+
 test('TUI runtime focuses top-layer context menus and open dropdownMenus', async () => {
   const contextMenuApp = defineTui({
     id: 'context-menu-focus',
@@ -1819,12 +1878,22 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
       contextMenu({
     id: 'actions-menu',
     title: 'Actions',
-    selected: 'copy',
-    items: [
-        { id: 'copy', label: 'Copy' },
-        { id: 'paste', label: 'Paste' }
-    ],
-    onAction: (action) => ({ active: action.kind === 'activate' && action.id === 'copy' ? 'context-menu' : action.kind }),
+    presentation: {
+      kind: 'open',
+      anchor: { kind: 'cursor', row: 1, column: 1 },
+      menu: {
+        activePath: ['copy'],
+        items: [
+          { id: 'copy', label: 'Copy' },
+          { id: 'paste', label: 'Paste' }
+        ]
+      }
+    },
+    onAction: (action) => ({
+      active: action.kind === 'menu' && action.action.kind === 'activate' && action.action.id === 'copy'
+        ? 'context-menu'
+        : action.kind
+    }),
     meta: {
         layer: {
             zIndex: 10
@@ -1856,12 +1925,26 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
       dropdownMenu({
     id: 'theme-dropdownMenu',
     label: 'Theme',
-    presentation: { kind: 'open', selected: 'dark', highlighted: 'dark' },
+    presentation: {
+      kind: 'open',
+      active: 'dark',
+      menu: {
+        activePath: ['dark'],
+        items: [
+          { id: 'light', label: 'Light' },
+          { id: 'dark', label: 'Dark' }
+        ]
+      }
+    },
     items: [
         { id: 'light', label: 'Light' },
         { id: 'dark', label: 'Dark' }
     ],
-    onAction: (action) => ({ active: action.kind === 'activate' && action.id === 'dark' ? 'dropdownMenu' : action.kind }),
+    onAction: (action) => ({
+      active: action.kind === 'menu' && action.action.kind === 'activate' && action.action.id === 'dark'
+        ? 'dropdownMenu'
+        : action.kind
+    }),
     meta: {
         layer: {
             zIndex: 10
@@ -1949,7 +2032,7 @@ test('TUI frame accessibility uses widget metadata and marks only the active foc
     }
 }),
       list({
-        getItemId: (item) => String(item),
+        projectItem: (item) => ({ id: String(item), label: String(item) }),
         id: 'choices',
         items: ['Alpha', 'Beta'],
         selectedId: 'Beta',
@@ -2054,7 +2137,7 @@ test('TUI runtime falls back when app-level accessibility is structurally invali
 test('TUI rendering windows large list and table widgets to visible height', () => {
   const manyItems = Array.from({ length: 1000 }, (_value, index) => `Item ${index}`);
   const frame = renderElementFrame(column([
-    list({ id: 'many-items', items: manyItems, getItemId: (item) => item, selectedId: 'Item 990' }),
+    list({ id: 'many-items', items: manyItems, projectItem: (item) => ({ id: item, label: item }), selectedId: 'Item 990' }),
     table({ id: 'many-rows', rows: manyItems.map((item) => [item, 'value']), getRowId: (_row, index) => String(index) })
   ]), { columns: 24, rows: 8 });
   const output = renderFramePlain(frame);
@@ -3164,18 +3247,21 @@ test('TUI routed context menu scroll events use fixed title chrome and shared sc
     view: (state) => contextMenu({
       id: 'context-scroll',
       title: 'Actions',
-      items,
-      scroll: state.scroll,
+      presentation: {
+        kind: 'open',
+        anchor: { kind: 'cursor', row: 1, column: 1 },
+        menu: { activePath: ['item-1'], items, scroll: state.scroll }
+      },
       scrollbar: { visible: 'always' },
       scrollPolicy: { wheel: { rows: 2 } },
-      onAction: (action) => ({ action })
+      onAction: (action) => ({ action: action.kind === 'menu' ? action.action : action })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const contentTarget = targetById(runtime, 'context-scroll:scroll:content');
+  const contentTarget = targetById(runtime, 'context-scroll:popup:menu:scroll:content');
   const result = await runtime.handleInput({
     kind: 'mouse',
     sequence: '',
@@ -3189,7 +3275,7 @@ test('TUI routed context menu scroll events use fixed title chrome and shared sc
   });
 
   assert.equal(result.handled, true);
-  assert.equal(runtime.getState().event.scroll.viewportRows, 3);
+  assert.equal(runtime.getState().event.scroll.viewportRows, 2);
   assert.equal(runtime.getState().scroll.offsetRow, 2);
   const frame = renderFramePlain(runtime.frame());
   assert.match(frame, /Actions/u);

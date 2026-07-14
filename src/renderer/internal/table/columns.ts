@@ -22,6 +22,7 @@ export interface NormalizedTableColumn {
   readonly render?: (input: TableCellRenderInput) => string | InlineContentSegment | InlineContent;
   readonly value: (row: unknown, rowIndex: number) => unknown;
   readonly sort?: TableSortDirection;
+  readonly sortable?: boolean;
   readonly resizable?: boolean;
 }
 
@@ -126,6 +127,7 @@ function normalizeColumn(column: unknown, index: number): readonly NormalizedTab
     ...(typeof render === 'function' ? {
       render: render as (input: TableCellRenderInput) => string | InlineContentSegment | InlineContent
     } : {}),
+    ...(column['sortable'] === true ? { sortable: true } : {}),
     ...(column['resizable'] === true ? { resizable: true } : {})
   }];
 }

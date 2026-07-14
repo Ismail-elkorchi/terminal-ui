@@ -58,7 +58,11 @@ export interface ElementStyles<TPart extends string = string> {
   readonly states?: Readonly<Partial<Record<Exclude<ElementVisualState, 'default'>, TerminalStyle>>>;
 }
 
-export type ElementFocusScope = 'none' | 'contain';
+export interface ElementFocusScope {
+  readonly kind: 'contain';
+  readonly initialTargetId?: string;
+  readonly restore?: boolean;
+}
 
 export interface ElementFocus {
   readonly disabled?: boolean;

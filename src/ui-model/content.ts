@@ -21,6 +21,7 @@ export interface TableColumn<TRow = unknown> {
   readonly align?: TableColumnAlignment;
   readonly semantic?: TableColumnSemantic;
   readonly hidden?: boolean;
+  readonly sortable?: boolean;
   readonly resizable?: boolean;
   readonly style?: TerminalStyle;
   readonly headerStyle?: TerminalStyle;

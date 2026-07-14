@@ -321,7 +321,15 @@ export function selectBlock(widget: SelectNode, bounds: Rect, theme: TerminalThe
       }),
       formSpan(widget, selected === undefined ? 'placeholder' : 'value', selected === undefined ? 'value.placeholder' : 'value.selected', value, style),
       separatorSpan(widget),
-      formSpan(widget, 'chrome', 'chrome.dropdownMenu', theme.tokens.symbols.treeCollapsed, renderNodeStyle(widget, 'marker'))
+      formSpan(
+        widget,
+        'chrome',
+        'chrome.dropdownMenu',
+        widget.props.presentation.kind === 'open'
+          ? theme.tokens.symbols.treeExpanded
+          : theme.tokens.symbols.treeCollapsed,
+        renderNodeStyle(widget, 'marker')
+      )
     ], bounds.width),
     ...errorLines(widget, bounds.width)
   ];

@@ -55,10 +55,15 @@ export function tableReducer<TRow>(
         ...state,
         sort: nextSort(state.sort, action.column)
       };
-    case 'resizeColumn':
+    case 'resizeColumnBy':
       return {
         ...state,
         columnWidths: resizedColumns(state.columnWidths, action.column, action.delta, options.minColumnWidth)
+      };
+    case 'setColumnWidth':
+      return {
+        ...state,
+        columnWidths: setColumnWidth(state.columnWidths, action.column, action.width, options.minColumnWidth)
       };
     case 'scroll':
       return state.scroll === undefined
@@ -173,6 +178,19 @@ function resizedColumns(
   return {
     ...(widths ?? {}),
     [column]: Math.max(minimum, Math.floor(current + delta))
+  };
+}
+
+function setColumnWidth(
+  widths: Readonly<Record<string, number>> | undefined,
+  column: string,
+  width: number,
+  minColumnWidth: number | undefined
+): Readonly<Record<string, number>> {
+  const minimum = Math.max(1, Math.floor(minColumnWidth ?? 1));
+  return {
+    ...(widths ?? {}),
+    [column]: Math.max(minimum, Math.floor(Number.isFinite(width) ? width : minimum))
   };
 }
 

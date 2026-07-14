@@ -198,6 +198,8 @@ test('region ids stay stable when dialog content changes', () => {
     dialog(text('front', { id: 'dialog-content' }), {
     id: 'stable-dialog',
     title: 'Dialog',
+    modal: true,
+    focusPolicy: { returnFocus: 'restore' },
     width: 12,
     height: 5,
     meta: {
@@ -212,6 +214,8 @@ test('region ids stay stable when dialog content changes', () => {
     dialog(text('changed', { id: 'dialog-content' }), {
     id: 'stable-dialog',
     title: 'Dialog',
+    modal: true,
+    focusPolicy: { returnFocus: 'restore' },
     width: 12,
     height: 5,
     meta: {

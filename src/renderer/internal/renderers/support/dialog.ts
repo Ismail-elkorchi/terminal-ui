@@ -1,5 +1,5 @@
 import type { TerminalTheme } from '../../../../theme/index.ts';
-import type { RenderNode } from '../../../model/index.ts';
+import type { RenderNode, RenderNodeOfKind } from '../../../model/index.ts';
 import type { BorderStyle } from '../../border.ts';
 import type { RenderTarget } from '../../../model/render-target.ts';
 import { frameCellSource } from '../../../../visual/source.ts';
@@ -9,6 +9,7 @@ import type { TerminalStyle } from '../../../../visual/render.ts';
 import { numberProp } from '../../render-node-props.ts';
 import { borderContentBounds } from './border.ts';
 import { clampRect, nonNegativeInteger } from './common.ts';
+import type { HitTarget } from '../../../model/renderer.ts';
 
 export function dialogBounds(widget: RenderNode, bounds: Rect): Rect {
   const width = Math.min(bounds.width, Math.max(4, Math.floor(numberProp(widget, 'width') ?? Math.min(bounds.width, 60))));
@@ -48,6 +49,21 @@ export function dialogChildBounds(
   ];
 }
 
+export function dialogOutsideHitTargets<TMessage>(
+  widget: RenderNodeOfKind<TMessage, 'dialog'>,
+  bounds: Rect
+): readonly HitTarget<TMessage>[] {
+  const toDismissMessage = widget.props.toDismissMessage;
+  if (!widget.props.dismissOnOutsidePress || toDismissMessage === undefined) return [];
+  return outsideRects(bounds, dialogBounds(widget, bounds)).map((targetBounds, index) => ({
+    id: `${widget.id ?? 'dialog'}:outside:${String(index)}`,
+    bounds: targetBounds,
+    accepts: ['click'],
+    cursor: 'default',
+    message: () => toDismissMessage('outsidePress')
+  }));
+}
+
 export function drawDialogActionSeparator(
   buffer: RenderTarget,
   node: LayoutNode,
@@ -85,4 +101,20 @@ function dialogActionHeight(contentHeight: number, measure: Measurement | undefi
   if (contentHeight <= 0) return 0;
   const preferred = Math.max(1, nonNegativeInteger(measure?.preferredHeight));
   return Math.min(preferred, contentHeight <= 1 ? contentHeight : contentHeight - 1);
+}
+
+function outsideRects(outer: Rect, inner: Rect): readonly Rect[] {
+  const topHeight = Math.max(0, inner.row - outer.row);
+  const bottomRow = inner.row + inner.height;
+  const bottomHeight = Math.max(0, outer.row + outer.height - bottomRow);
+  const middleHeight = Math.max(0, Math.min(outer.row + outer.height, bottomRow) - Math.max(outer.row, inner.row));
+  const leftWidth = Math.max(0, inner.column - outer.column);
+  const rightColumn = inner.column + inner.width;
+  const rightWidth = Math.max(0, outer.column + outer.width - rightColumn);
+  return [
+    { row: outer.row, column: outer.column, width: outer.width, height: topHeight },
+    { row: bottomRow, column: outer.column, width: outer.width, height: bottomHeight },
+    { row: inner.row, column: outer.column, width: leftWidth, height: middleHeight },
+    { row: inner.row, column: rightColumn, width: rightWidth, height: middleHeight }
+  ].filter((rect) => rect.width > 0 && rect.height > 0);
 }

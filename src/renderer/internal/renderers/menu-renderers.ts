@@ -1,18 +1,25 @@
 import {
-  contextMenuTitleBlock,
-  contextMenuTitleRows,
+  contextMenuAccessibleBase,
+  contextMenuAccessibleChildren,
   dropdownMenuAccessibleBase,
   dropdownMenuAccessibleChildren,
   dropdownMenuBlock,
-  dropdownMenuHitTargets,
   menuAccessibleBase,
   menuAccessibleChildren,
+  menuBarAccessibleBase,
+  menuBarAccessibleChildren,
   menuBarBlock,
-  menuBarHitTargets,
   menuBlock,
-  menuCursor,
   menuHitTargets
 } from '../menu-widgets.ts';
+import {
+  contextMenuHitTargets,
+  contextMenuPopupBounds,
+  dropdownMenuHitTargets,
+  dropdownMenuPopupBounds,
+  menuBarHitTargets,
+  menuBarPopupBounds
+} from '../anchored-menus.ts';
 import {
   commandInputAccessibleChildren,
   commandInputBlock,
@@ -56,44 +63,50 @@ export const menuRenderers = {
     }
   },
   menuBar: {
-    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, menuBarBlock(renderNode, layoutNode.bounds, theme, focused));
+    layout: ({ renderNode, bounds, viewport }) => menuBarPopupBounds(renderNode, bounds, viewport),
+    render: (input) => {
+      writeRenderBlock(input.buffer, input.layoutNode.bounds, menuBarBlock(
+        input.renderNode,
+        input.layoutNode.bounds,
+        input.theme,
+        input.focused
+      ));
+      input.renderChildren();
     },
     accessibility: ({ renderNode, id, focused }) => ({
-      ...menuAccessibleBase(renderNode, id, focused),
+      ...menuBarAccessibleBase(renderNode, id, focused),
       scope: { kind: 'menu' },
-      children: menuAccessibleChildren(renderNode)
+      children: menuBarAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ renderNode, bounds }) => menuBarHitTargets(renderNode, bounds)
+    hitTargets: ({ renderNode, layoutNode }) => menuBarHitTargets(renderNode, layoutNode)
   },
   contextMenu: {
-    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
-      const titleRows = contextMenuTitleRows(renderNode);
-      const bodyBounds = contextMenuBodyBounds(layoutNode.bounds, titleRows);
-      const scrollbars = scrollbarsForRenderNode(renderNode, bodyBounds, (contentBounds) => menuScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, layoutNode.bounds, contextMenuTitleBlock(renderNode, layoutNode.bounds));
-      writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(renderNode, scrollbars.contentBounds, theme, focused));
-      drawScrollbars(buffer, renderNode, scrollbars, theme);
+    layout: ({ renderNode, viewport }) => contextMenuPopupBounds(renderNode, viewport),
+    render: (input) => {
+      input.renderChildren();
     },
-    accessibility: ({ renderNode, id, focused }) => ({
-      ...menuAccessibleBase(renderNode, id, focused),
-      scope: { kind: 'popover' },
-      children: menuAccessibleChildren(renderNode)
-    }),
-    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, menuCursor(renderNode, bounds, renderNode.props.title === undefined ? 0 : 1))],
-    hitTargets: ({ renderNode, bounds }) => {
-      const bodyBounds = contextMenuBodyBounds(bounds, contextMenuTitleRows(renderNode));
-      const scrollbars = scrollbarsForRenderNode(renderNode, bodyBounds, (contentBounds) => menuScrollbarState(renderNode, contentBounds), 'vertical');
-      return [
-        ...menuHitTargets(renderNode, scrollbars.contentBounds),
-        ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)
-      ];
-    }
+    accessibility: ({ renderNode, id, focused }) => {
+      const children = contextMenuAccessibleChildren(renderNode);
+      return {
+        ...contextMenuAccessibleBase(renderNode, id, focused),
+        scope: { kind: 'popover', trapsFocus: renderNode.props.presentation.kind === 'open' },
+        ...(children === undefined ? {} : { children })
+      };
+    },
+    focusTargets: ({ renderNode, bounds }) => renderNode.props.presentation.kind === 'open' ? [focusTarget(bounds)] : [],
+    hitTargets: ({ renderNode, layoutNode }) => contextMenuHitTargets(renderNode, layoutNode)
   },
   dropdownMenu: {
-    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, dropdownMenuBlock(renderNode, layoutNode.bounds, theme, focused));
+    layout: ({ renderNode, bounds, viewport }) => dropdownMenuPopupBounds(renderNode, bounds, viewport),
+    render: (input) => {
+      writeRenderBlock(input.buffer, input.layoutNode.bounds, dropdownMenuBlock(
+        input.renderNode,
+        input.layoutNode.bounds,
+        input.theme,
+        input.focused
+      ));
+      input.renderChildren();
     },
     accessibility: ({ renderNode, id, focused }) => {
       const children = dropdownMenuAccessibleChildren(renderNode);
@@ -103,8 +116,8 @@ export const menuRenderers = {
         ...(children === undefined ? {} : { children })
       };
     },
-    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, menuCursor(renderNode, bounds, renderNode.props.presentation.kind === 'open' ? 1 : 0))],
-    hitTargets: ({ renderNode, bounds }) => dropdownMenuHitTargets(renderNode, bounds)
+    focusTargets: ({ bounds }) => [focusTarget(bounds)],
+    hitTargets: ({ renderNode, layoutNode }) => dropdownMenuHitTargets(renderNode, layoutNode)
   },
   commandInput: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {
@@ -157,16 +170,3 @@ export const menuRenderers = {
     }
   }
 } satisfies RendererMap<'menu' | 'menuBar' | 'contextMenu' | 'dropdownMenu' | 'commandInput' | 'palette'>;
-
-function contextMenuBodyBounds(
-  bounds: { readonly row: number; readonly column: number; readonly width: number; readonly height: number },
-  titleRows: number
-): typeof bounds {
-  const rows = Math.min(Math.max(0, titleRows), Math.max(0, bounds.height));
-  return {
-    row: bounds.row + rows,
-    column: bounds.column,
-    width: bounds.width,
-    height: Math.max(0, bounds.height - rows)
-  };
-}

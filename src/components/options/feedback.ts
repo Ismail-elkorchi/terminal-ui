@@ -12,7 +12,6 @@ import type {
   MeterVariant,
   HeatmapCell,
   HeatmapSelection,
-  NotificationItem,
   NotificationPlacement,
   ProgressBarDisplay,
   ProgressBarLabelPosition,
@@ -20,20 +19,36 @@ import type {
   ValueScale
 } from '../../ui-model/feedback.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
-import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
+import type {
+  NotificationStackAction,
+  NotificationStackPresentation
+} from '../../ui-model/notification-stack.ts';
 import type { BarChartAction, ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
 import type { ChartStylePart, NotificationStylePart, StatusStylePart } from '../../ui-model/style-parts.ts';
 
-export interface NotificationStackOptions<TMessage = never> extends InteractiveElementOptions<NotificationStylePart, TMessage> {
-  readonly items: readonly NotificationItem[];
-  readonly selected?: string;
+interface NotificationStackBaseOptions<TMessage> extends InteractiveElementOptions<NotificationStylePart, TMessage> {
+  readonly presentation: NotificationStackPresentation;
   readonly placement?: NotificationPlacement;
   readonly maxWidth?: number;
-  readonly onAction?: (action: NotificationStackAction) => TMessage;
+}
+
+export interface LiveNotificationStackOptions<TMessage = never> extends NotificationStackBaseOptions<TMessage> {
+  readonly presentation: Extract<NotificationStackPresentation, { readonly kind: 'live' }>;
+  readonly onDismiss?: (id: string) => TMessage;
+}
+
+export interface NotificationHistoryOptions<TMessage = never> extends NotificationStackBaseOptions<TMessage> {
+  readonly presentation: Extract<NotificationStackPresentation, { readonly kind: 'history' }>;
+  readonly onAction: (action: NotificationStackAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
+export type NotificationStackOptions<TMessage = never> =
+  | LiveNotificationStackOptions<TMessage>
+  | NotificationHistoryOptions<TMessage>;
+
 export interface StatusBarOptions extends ElementOptions<StatusStylePart> {
+  readonly id: string;
   readonly leading?: readonly StatusBarItem[];
   readonly center?: readonly StatusBarItem[];
   readonly trailing?: readonly StatusBarItem[];
@@ -159,3 +174,4 @@ export type {
   ValueScale,
   ValueScaleStop
 } from '../../ui-model/feedback.ts';
+export type { NotificationStackPresentation } from '../../ui-model/notification-stack.ts';

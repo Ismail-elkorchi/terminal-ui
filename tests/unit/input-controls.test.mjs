@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  resolveTerminalCapabilities } from '../../dist/host/index.js';
+import { rangeSliderReducer } from '../../dist/behavior/index.js';
+import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { renderFramePlain,
@@ -44,10 +44,10 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
     rangeSlider({
       id: 'range',
       label: 'Window',
-      value: { start: 20, end: 80 },
+      presentation: { value: { start: 20, end: 80 }, activeHandle: 'start' },
       range: { min: 0, max: 100 },
       width: 11,
-      onChange: (value) => ({ kind: 'range', value })
+      onAction: (action) => ({ kind: 'range', action })
     })
   ], { gap: 1 });
   const frame = renderElementFrame(widget, { columns: 56, rows: 7 });
@@ -58,9 +58,11 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
   assert.match(output, /Window: ─+●━+●/u);
   assert.ok(frame.hitTargets?.some((target) => target.id === 'switch:control'));
   assert.ok(frame.hitTargets?.some((target) => target.id === 'slider:value:5'));
-  assert.ok(frame.hitTargets?.some((target) => target.id === 'range:value:8'));
+  assert.ok(frame.hitTargets?.some((target) => target.id === 'range:track'));
   assert.deepEqual(frame.accessibility.root.children?.[0]?.checked, true);
   assert.equal(frame.accessibility.root.children?.[1]?.role, 'progressbar');
+  assert.equal(frame.accessibility.root.children?.[2]?.role, 'group');
+  assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.selected, true);
   assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.ownerKind, 'toggleSwitch');
   assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.label, 'value.on.open');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'slider' && cell.text === '●')?.source?.label, 'track.handle');
@@ -89,6 +91,73 @@ test('slider generated bindings use normalized arrow-key identities', async () =
   assert.equal(runtime.getState()?.value, 4);
   await runtime.handleInput({ kind: 'key', key: 'arrowRight' });
   assert.equal(runtime.getState()?.value, 5);
+
+  await runtime.dispose();
+});
+
+test('rangeSlider reducer moves only the active handle and preserves ordered values', () => {
+  const options = { range: { min: 0, max: 100 }, step: 5 };
+  const initial = { value: { start: 20, end: 80 }, activeHandle: 'end' };
+  const stepped = rangeSliderReducer(initial, { kind: 'step', direction: 'decrement' }, options);
+  const selected = rangeSliderReducer(stepped, { kind: 'selectHandle', handle: 'start' }, options);
+  const moved = rangeSliderReducer(selected, { kind: 'step', direction: 'increment' }, options);
+  const clamped = rangeSliderReducer(moved, { kind: 'set', handle: 'start', value: 90 }, options);
+
+  assert.deepEqual(stepped, { value: { start: 20, end: 75 }, activeHandle: 'end' });
+  assert.deepEqual(moved, { value: { start: 25, end: 75 }, activeHandle: 'start' });
+  assert.deepEqual(clamped, { value: { start: 75, end: 75 }, activeHandle: 'start' });
+});
+
+test('rangeSlider pointer capture preserves the pressed handle and arrow keys use one axis', async () => {
+  const options = { range: { min: 0, max: 100 }, step: 10 };
+  const app = defineTui({
+    id: 'range-slider-interaction',
+    init: () => ({ range: { value: { start: 20, end: 80 }, activeHandle: 'end' } }),
+    update: (state, message) => ({
+      state: { range: rangeSliderReducer(state.range, message.action, options) }
+    }),
+    view: (state) => rangeSlider({
+      id: 'window',
+      presentation: state.range,
+      range: options.range,
+      step: options.step,
+      width: 11,
+      onAction: (action) => ({ action })
+    })
+  });
+  const host = createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host, initialFocusPath: ['window'] });
+  const mouse = (action, row, column) => ({
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action,
+    button: 'left',
+    row,
+    column,
+    rawCode: action === 'drag' ? 32 : 0,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+
+  await runtime.start();
+  const target = runtime.frame()?.hitTargets?.find((entry) => entry.id === 'window:track');
+  assert.ok(target);
+  const press = await runtime.handleInput(mouse('press', target.bounds.row, target.bounds.column + 8));
+  const drag = await runtime.handleInput(mouse('drag', target.bounds.row, target.bounds.column + 4));
+  assert.equal(press.handled, true);
+  assert.equal(drag.handled, true);
+  assert.deepEqual(runtime.getState()?.range, {
+    value: { start: 20, end: 40 },
+    activeHandle: 'end'
+  });
+
+  await runtime.handleInput({ kind: 'key', key: 'arrowLeft' });
+  assert.deepEqual(runtime.getState()?.range, {
+    value: { start: 20, end: 30 },
+    activeHandle: 'end'
+  });
+  await runtime.handleInput({ kind: 'key', key: 'arrowUp' });
+  assert.equal(runtime.getState()?.range.value.end, 30);
 
   await runtime.dispose();
 });
@@ -188,6 +257,7 @@ test('form controls keep state visible in high contrast and no-color projections
       id: 'region',
       label: 'Region',
       placeholder: 'Select region',
+      presentation: { kind: 'closed' },
       options: [{ id: 'eu', label: 'Europe', value: 'eu' }]
     }),
     calendar({

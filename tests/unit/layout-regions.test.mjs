@@ -538,6 +538,8 @@ test('dialog centers a bounded dialog and lays out child content inside the bord
   const widget = dialog(text('inside', { id: 'inside' }), {
     id: 'dialog',
     title: 'Confirm',
+    modal: true,
+    focusPolicy: { returnFocus: 'restore' },
     width: 12,
     height: 5
   });
@@ -553,6 +555,8 @@ test('dialog centers a bounded dialog and lays out child content inside the bord
 test('dialog accessibility label derives from structured authored titles', () => {
   const spanTitleFrame = renderElementFrame(dialog(text('inside', { id: 'inside' }), {
     id: 'span-dialog',
+    modal: true,
+    focusPolicy: { returnFocus: 'restore' },
     title: [{ kind: 'text', text: 'Span' }, { kind: 'text', text: ' title' }],
     border: { kind: 'single' },
     width: 18,
@@ -560,6 +564,8 @@ test('dialog accessibility label derives from structured authored titles', () =>
   }), { columns: 30, rows: 9 });
   const railTitleFrame = renderElementFrame(dialog(text('inside', { id: 'inside' }), {
     id: 'rail-dialog',
+    modal: true,
+    focusPolicy: { returnFocus: 'restore' },
     title: {
       start: [{ kind: 'text', text: 'Start' }],
       center: 'Center',
@@ -578,6 +584,8 @@ test('dialog reserves a structurally separated action area without color', () =>
   const widget = dialog(text('Dialog body', { id: 'body' }), {
     id: 'dialog',
     title: 'Confirm',
+    modal: true,
+    focusPolicy: { returnFocus: 'restore' },
     width: 20,
     height: 7,
     actions: row([
@@ -598,6 +606,34 @@ test('dialog reserves a structurally separated action area without color', () =>
   assert.match(renderFramePlain(frame), /Dialog body/u);
   assert.match(renderFramePlain(frame), /Cancel/u);
   assert.match(renderFramePlain(frame), /OK/u);
+});
+
+test('dialog exposes outside-press dismissal only outside its painted bounds', () => {
+  const widget = dialog(text('Dialog body', { id: 'body' }), {
+    id: 'dismissible-dialog',
+    title: 'Dismissible',
+    modal: true,
+    focusPolicy: { returnFocus: 'restore' },
+    dismissal: {
+      escape: false,
+      outsidePress: true,
+      onDismiss: (reason) => ({ kind: 'dismiss', reason })
+    },
+    width: 12,
+    height: 5
+  });
+  const targets = renderElementRegions(widget, { columns: 30, rows: 9 }).flatMap((region) => region.hitTargets);
+  const dialogRect = { row: 3, column: 10, width: 12, height: 5 };
+  const outside = targets.filter((target) => target.id.startsWith('dismissible-dialog:outside:'));
+
+  assert.equal(outside.length, 4);
+  assert.equal(outside.every((target) => !rectanglesOverlap(target.bounds, dialogRect)), true);
+  assert.deepEqual(outside[0]?.message({
+    kind: 'click',
+    row: outside[0].bounds.row,
+    column: outside[0].bounds.column,
+    button: 'left'
+  }), { kind: 'dismiss', reason: 'outsidePress' });
 });
 
 test('border model supports styled widget borders and borderless layout', () => {
@@ -794,6 +830,8 @@ test('overlapping dialog renders above lower region content', () => {
     dialog(text('front', { id: 'front' }), {
     id: 'dialog-layer',
     title: 'Dialog',
+    modal: true,
+    focusPolicy: { returnFocus: 'restore' },
     width: 14,
     height: 5,
     meta: {
@@ -848,7 +886,17 @@ test('dropdownMenu renders above table content in a higher region', () => {
     dropdownMenu({
     id: 'theme-dropdownMenu-layer',
     label: 'Theme',
-    presentation: { kind: 'open', selected: 'dark', highlighted: 'dark' },
+    presentation: {
+      kind: 'open',
+      active: 'dark',
+      menu: {
+        activePath: ['dark'],
+        items: [
+          { id: 'light', label: 'Light' },
+          { id: 'dark', label: 'Dark' }
+        ]
+      }
+    },
     items: [
         { id: 'light', label: 'Light' },
         { id: 'dark', label: 'Dark' }
@@ -869,9 +917,9 @@ test('dropdownMenu renders above table content in a higher region', () => {
   const output = renderFramePlain(renderElementFrame(widget, { columns: 28, rows: 5 }));
   const firstLine = output.split('\n')[0] ?? '';
 
-  assert.deepEqual(regions.map((region) => region.zIndex), [0, 15]);
+  assert.deepEqual(regions.map((region) => region.zIndex), [0, 15, 35]);
   assert.equal(regions[0]?.cells.some((cell) => cell.text === 'N'), true);
-  assert.equal(regions[1]?.cells.some((cell) => cell.text === 'L'), true);
+  assert.equal(regions[2]?.cells.some((cell) => cell.text === 'L'), true);
   assert.match(firstLine, /^Theme: \[Dark ▾\]/u);
   assert.doesNotMatch(firstLine, /^Name/u);
   assert.match(output, /Light/u);
@@ -895,11 +943,17 @@ test('context menu renders above canvas content in a higher region', () => {
     contextMenu({
     id: 'canvas-context-menu',
     title: 'Actions',
-    selected: 'copy',
-    items: [
-        { id: 'copy', label: 'Copy' },
-        { id: 'paste', label: 'Paste' }
-    ],
+    presentation: {
+      kind: 'open',
+      anchor: { kind: 'cursor', row: 1, column: 1 },
+      menu: {
+        activePath: ['copy'],
+        items: [
+          { id: 'copy', label: 'Copy' },
+          { id: 'paste', label: 'Paste' }
+        ]
+      }
+    },
     onAction: (action) => ({ kind: 'context', action }),
     meta: {
         layer: {
@@ -916,12 +970,11 @@ test('context menu renders above canvas content in a higher region', () => {
   const output = renderFramePlain(renderElementFrame(widget, { columns: 24, rows: 4 }));
   const firstLine = output.split('\n')[0] ?? '';
 
-  assert.deepEqual(regions.map((region) => region.zIndex), [0, 12]);
-  assert.equal(regions[1]?.opacity, 'opaque');
+  assert.deepEqual(regions.map((region) => region.zIndex), [0, 12, 32]);
+  assert.equal(regions[2]?.opacity, 'opaque');
   assert.equal(regions[0]?.cells.some((cell) => cell.text === 'c'), true);
-  assert.equal(regions[1]?.cells.some((cell) => cell.text === 'A'), true);
-  assert.match(firstLine, /^Actions/u);
-  assert.doesNotMatch(firstLine, /^canvas/u);
+  assert.equal(regions[2]?.cells.some((cell) => cell.text === 'A'), true);
+  assert.match(firstLine, /Actions/u);
   assert.match(output, /Copy/u);
 });
 
@@ -969,6 +1022,13 @@ test('screen column supports push, pop, replace, reset, and active screen lookup
   const reset = screenStackReducer(popped, { kind: 'reset', screens: [] });
   assert.equal(activeScreen(reset), undefined);
 });
+
+function rectanglesOverlap(left, right) {
+  return left.column < right.column + right.width
+    && left.column + left.width > right.column
+    && left.row < right.row + right.height
+    && left.row + left.height > right.row;
+}
 
 function cellInsideRect(cell, rect) {
   return cell.row >= rect.row

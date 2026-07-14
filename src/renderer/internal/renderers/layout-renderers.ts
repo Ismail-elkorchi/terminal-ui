@@ -28,7 +28,7 @@ import {
   viewportChildBounds,
   viewportIndicatorCellKey
 } from './support/viewport.ts';
-import { dialogBounds, dialogChildBounds, drawDialogActionSeparator } from './support/dialog.ts';
+import { dialogBounds, dialogChildBounds, dialogOutsideHitTargets, drawDialogActionSeparator } from './support/dialog.ts';
 import { drawSurfaceFrame } from '../surface.ts';
 import type { RendererMap } from './types.ts';
 
@@ -137,11 +137,16 @@ export const layoutRenderers = {
       id,
       role: 'dialog',
       label: dialogLabel(renderNode) || id,
-      scope: {
-        kind: 'modal',
-        trapsFocus: true,
-        obscuresBackground: true
-      }
-    })
+      ...(renderNode.props.modal
+        ? {
+            scope: {
+              kind: 'modal' as const,
+              trapsFocus: true,
+              obscuresBackground: true
+            }
+          }
+        : {})
+    }),
+    hitTargets: ({ renderNode, bounds }) => dialogOutsideHitTargets(renderNode, bounds)
   }
 } satisfies RendererMap<'column' | 'row' | 'viewport' | 'grid' | 'splitPane' | 'tabs' | 'dialog'>;

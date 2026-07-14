@@ -301,7 +301,7 @@ function topChrome(state) {
         { id: 'palette', label: 'Palette' },
         { id: 'quit', label: 'Quit' }
       ],
-      selected: 'save',
+      presentation: { kind: 'closed', active: 'save' },
       onAction: ideMenuMessage
     }),
     statusBar({
@@ -324,13 +324,13 @@ function topChrome(state) {
 }
 
 function notificationStackWidget(state) {
-  const presentation = notificationPresentation(state.notifications, { now: Date.now() });
+  const presentation = notificationPresentation(state.notifications, { mode: 'live', now: Date.now() });
   return notificationStack({
     id: 'ide-notifications',
-    ...presentation,
+    presentation,
     placement: 'bottom-right',
     maxWidth: 36,
-    onAction: (action) => ({ kind: 'notification', action })
+    onDismiss: (id) => ({ kind: 'notification', action: { kind: 'dismiss', id } })
   });
 }
 
@@ -645,7 +645,7 @@ function paletteOverlay(state) {
     margin: { top: 4, left: 20, right: 20, bottom: 6 },
     meta: {
       layer: { zIndex: 20 },
-      focus: { scope: 'contain' }
+      focus: { scope: { kind: 'contain' } }
     }
   });
 }
@@ -658,7 +658,7 @@ function handleMenu(state, action) {
 }
 
 function ideMenuMessage(action) {
-  if (action.kind !== 'activate') return undefined;
+  if (action.kind !== 'activateHeading') return undefined;
   switch (action.id) {
     case 'open-root': return { kind: 'menu', action: 'openCwd' };
     case 'save': return { kind: 'saveActive', source: 'menu' };

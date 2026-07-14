@@ -21,7 +21,7 @@ express cleanly.
 | `splitPane()` | Axis-based pane division with static tracks or caller-owned divider selection and resize actions. | Ownership of pane content, persistence, or a general window manager. |
 | `surface()` | Single-child visual container for hierarchy, border/title grammar, state tone, and accessible naming. | A multi-child layout primitive; compose children before wrapping. |
 | `tabs()` | Tab header plus selected-panel layout with semantic select, close, and navigation actions. | Navigation routing, persistence, or hidden panel state. |
-| `dialog()` | Centered contained dialog with optional action area and focus containment. | A general overlay system or application-level route. |
+| `dialog()` | Centered surface with explicit modal focus policy, semantic dismissal, and an optional action area. | A general overlay system, route, or owner of open/closed state. |
 | `overlay()` | Layer multiple children in the same bounds. | A positioning engine with product semantics. |
 | `absolute()` | Place one child at a relative rectangle. | A layout solver or drag/drop framework. |
 | `viewport()` | Bounded window over one child with caller-owned scroll offsets. | A semantic list, table, editor, or transcript component. |
@@ -31,33 +31,33 @@ express cleanly.
 | `label()` | Accessible label/value text for forms and metadata. | A button or static document paragraph. |
 | `button()` | Discrete action trigger with visual state and caller-provided message. | A toggle, menu item, or navigation link. |
 | `checkbox()` | Boolean checked/unchecked control. | Multi-choice selection or a switch animation. |
-| `toggleSwitch()` | Boolean on/off control with switch visual anatomy. | A checkbox list or status indicator. |
+| `toggleSwitch()` | Boolean on/off control with switch visual anatomy. | A multi-choice control or status indicator. |
 | `slider()` | Single numeric value on a track. | Progress display or range selection. |
-| `rangeSlider()` | Two numeric endpoints on one track. | Two unrelated sliders or a progress meter. |
+| `rangeSlider()` | Two numeric endpoints with a caller-owned active handle on one track. | Two unrelated sliders or a progress meter. |
 | `checkboxGroup()` | Multiple independent choices with semantic focus, movement, and toggle actions. | A tree, table, or form validator. |
 | `radioGroup()` | One selected choice with semantic focus and selection actions. | A menu or arbitrary command list. |
-| `select()` | Form-style single value choice with semantic focus and selection actions. | A command menu, context menu, or searchable palette. |
+| `select()` | Form value trigger with controlled open, highlight, commit, dismissal, and popup-scroll state. | A command menu, context menu, or searchable palette. |
 | `colorSwatchPicker()` | Compact caller-owned color choice with semantic navigation and selection actions. | A full color-management tool. |
 | `calendar()` | Compact caller-owned date choice control. | Calendar scheduling or date arithmetic. |
 | `menu()` | Inline command/action list with semantic navigation, activation, hierarchy, and scroll actions. | A form value selector or searchable command surface. |
-| `menuBar()` | Horizontal top-level commands using the menu action contract. | Application chrome ownership or routing. |
-| `contextMenu()` | Contextual command surface for a target. | Global navigation or persistent sidebar. |
-| `dropdownMenu()` | Compact action surface with separate open, highlight, and committed selection state. | A validated form value control; use `select()` for required/error form semantics. |
+| `menuBar()` | Horizontal top-level command headings with controlled heading selection and hierarchical menu navigation. | Application chrome ownership or routing. |
+| `contextMenu()` | Controlled contextual command surface anchored to a target or cursor. | Global navigation, a form selector, or persistent sidebar. |
+| `dropdownMenu()` | Controlled compact action trigger with separate open, highlight, activation, dismissal, and popup-scroll state. | A validated form value control; use `select()` for required/error form semantics. |
 | `palette()` | Searchable bounded picker for commands or data entries. | A shell, command parser, or application command registry. |
 | `commandInput()` | Single-line command/composer surface with suggestions and history hooks. | A transcript, event log, or command execution engine. |
-| `list()` | Simple selectable/filterable row list. | A table, tree, or virtual data store. |
-| `table()` | Structured rows and columns with selection, scrolling, density, and cell semantics. | A spreadsheet engine or database. |
+| `list()` | Fixed-row selectable/filterable list using an explicit stable item projection. | A table, tree, arbitrary-element collection, or virtual data store. |
+| `table()` | Structured rows and columns with selection, scrolling, sorting, resizing, density, and cell semantics. | A spreadsheet engine or database. |
 | `tree()` | Expandable hierarchy with selection, filtering, lazy placeholders, and pointer targets. | A filesystem API or ownership of expansion state. |
 | `paginator()` | Page navigation control paired with caller-owned paging state. | Data loading or page storage. |
 | `scrollback()` | Append-heavy visible window with semantic scroll, search, fold, and follow-tail actions. | A command input or complete session ledger. |
 | `structuredBlock()` | One titled status record with fields, summary, body, and details. | A generic layout surface or arbitrary markdown block. |
-| `activityFeed()` | Bounded structured records with stable-ID selection and expansion actions. | Filtering policy, durable history storage, or job orchestration. |
+| `activityFeed()` | Variable-height structured records projected through one measured window with stable-ID selection and expansion actions. | Filtering policy, durable history storage, or job orchestration. |
 | `statusBar()` | Passive leading, centered, and trailing text/status items under constrained width. | A command bar, menu bar, or interactive layout frame. |
 | `helpBar()` | Grouped keybinding hints with deterministic constrained-width projection. | Keybinding registration or command routing. |
 | `statusIndicator()` | Small activity state display. | Progress measurement or task scheduling. |
 | `progressBar()` | Determinate or indeterminate progress display. | Editable range input or status record. |
 | `spinner()` | Animated process indicator driven by caller-owned frame state. | A scheduler or hidden runtime timer. |
-| `notificationStack()` | Transient bounded notifications within caller-chosen layout bounds. | A global toast manager or overlay placement policy. |
+| `notificationStack()` | Bounded passive live notifications or a controlled navigable notification history. | A global toast manager, durable notification store, or overlay placement policy. |
 | `tooltip()` | Small contextual explanation with placement hints. | A focus manager, popover controller, or overlay lifecycle system. |
 | `divider()` | Visual separation and section rhythm. | Layout spacing by itself. |
 | `sparkline()` | Tiny trend visualization. | Full chart with axes, legend, or interaction. |
@@ -76,7 +76,9 @@ are excluded from their parent's accessibility tree and must not expose
 keyboard, text-input, focus, or pointer interaction.
 
 `meta.focus` can disable focus traversal, set focus order, or contain focus
-inside a subtree. `dialog()` declares a contained focus scope by default.
+inside a subtree. A modal `dialog()` requires an explicit `focusPolicy` for its
+initial target and focus-return behavior; a non-modal dialog does not create a
+focus scope.
 
 `meta.layer` controls visibility, z-index, opacity, and overflow priority.
 Higher visible layers render above lower layers and receive pointer hits first.

@@ -36,7 +36,6 @@ const WHEEL_SCROLL_LINES = 3;
 const WHEEL_SCROLL_COLUMNS = 3;
 
 type ScrollableRenderNodeKind =
-  | 'contextMenu'
   | 'list'
   | 'menu'
   | 'palette'
@@ -48,14 +47,14 @@ type ScrollableRenderNodeKind =
 type ScrollableNode<TMessage = unknown> = RenderNodesOfKind<TMessage, ScrollableRenderNodeKind>;
 type StateBackedScrollableNode = RenderNodesOfKind<
   unknown,
-  Exclude<ScrollableRenderNodeKind, 'scrollback' | 'viewport'>
+  Exclude<ScrollableRenderNodeKind, 'menu' | 'scrollback' | 'viewport'>
 >;
 type TableNode = RenderNodeOfKind<unknown, 'table'>;
 type TreeNode = RenderNodeOfKind<unknown, 'tree'>;
 type ViewportNode = RenderNodeOfKind<unknown, 'viewport'>;
 type ScrollbackNode = RenderNodeOfKind<unknown, 'scrollback'>;
 type PaletteNode = RenderNodeOfKind<unknown, 'palette'>;
-type MenuNode = RenderNodesOfKind<unknown, 'contextMenu' | 'menu'>;
+type MenuNode = RenderNodeOfKind<unknown, 'menu'>;
 type TextAreaNode = RenderNodeOfKind<unknown, 'textArea'>;
 
 interface NormalizedScrollWheelPolicy {
@@ -487,9 +486,10 @@ export function paletteScrollbarState(widget: PaletteNode, bounds: Rect): Scroll
 
 export function menuScrollbarState(widget: MenuNode, bounds: Rect): ScrollState {
   const rows = countMenuRows(widget.props.items);
-  const scroll = normalizedRenderNodeScroll(widget, {
-    contentRows: scrollNumberProp(widget, 'contentRows') ?? rows,
-    contentColumns: scrollNumberProp(widget, 'contentColumns') ?? bounds.width,
+  const scroll = createScrollState({
+    ...(widget.props.presentation.scroll ?? {}),
+    contentRows: rows,
+    contentColumns: bounds.width,
     viewportRows: bounds.height,
     viewportColumns: bounds.width
   });

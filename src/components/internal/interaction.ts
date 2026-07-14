@@ -9,7 +9,19 @@ import type {
   SelectOptions
 } from '../options/forms.ts';
 import type { MenuItem } from '../options/menus.ts';
-import type { DropdownMenuAction, MenuAction } from '../../ui-model/menu.ts';
+import type {
+  ContextMenuAction,
+  DropdownMenuAction,
+  MenuAction,
+  MenuBarAction
+} from '../../ui-model/menu.ts';
+import type {
+  ContextMenuPresentation,
+  DropdownMenuPresentation,
+  MenuBarPresentation,
+  MenuPresentation,
+  MenuPresentationItem
+} from '../../behavior/menu.ts';
 import type { CommandInputAction } from '../../ui-model/command-input.ts';
 import type { PaletteAction } from '../../ui-model/palette.ts';
 import type { TextEditOperation } from '../../text/index.ts';
@@ -27,14 +39,15 @@ export {
 } from '../../renderer/model/metadata.ts';
 
 export function listKeyBindings<TValue, TMessage>(
-  options: ListOptions<TValue, TMessage>
+  options: ListOptions<TValue, TMessage>,
+  itemIds: readonly string[]
 ): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
   if (onAction === undefined) return options.keys;
   const selectedId = options.selectedId;
   const selectedIndex = selectedId === undefined
     ? -1
-    : options.items.findIndex((item, index) => options.getItemId(item, index) === selectedId);
+    : itemIds.indexOf(selectedId);
   const generated = {
     arrowUp: () => onAction({ kind: 'move', delta: -1 }),
     arrowDown: () => onAction({ kind: 'move', delta: 1 }),
@@ -58,15 +71,29 @@ export function tableKeyBindings<TRow, TMessage>(
   const selectedRowIndex = selectedRowId === undefined
     ? -1
     : options.rows.findIndex((row, index) => options.getRowId(row, index) === selectedRowId);
+  const selectedColumn = options.selectedCell?.column === undefined
+    ? undefined
+    : options.columns?.filter((column) => column.hidden !== true)[options.selectedCell.column];
   const generated = {
     arrowUp: () => onAction({ kind: 'moveRow', delta: -1 }),
     arrowDown: () => onAction({ kind: 'moveRow', delta: 1 }),
-    arrowLeft: () => onAction({ kind: 'moveColumn', delta: -1 }),
-    arrowRight: () => onAction({ kind: 'moveColumn', delta: 1 }),
+    arrowLeft: ({ input }) => input.kind === 'key' && input.alt
+      ? selectedColumn?.resizable === true
+        ? onAction({ kind: 'resizeColumnBy', column: selectedColumn.id, delta: -1 })
+        : undefined
+      : onAction({ kind: 'moveColumn', delta: -1 }),
+    arrowRight: ({ input }) => input.kind === 'key' && input.alt
+      ? selectedColumn?.resizable === true
+        ? onAction({ kind: 'resizeColumnBy', column: selectedColumn.id, delta: 1 })
+        : undefined
+      : onAction({ kind: 'moveColumn', delta: 1 }),
     pageUp: () => onAction({ kind: 'page', delta: -1 }),
     pageDown: () => onAction({ kind: 'page', delta: 1 }),
     home: () => onAction({ kind: 'firstRow' }),
     end: () => onAction({ kind: 'lastRow' }),
+    ...(selectedColumn?.sortable === true ? {
+      space: () => onAction({ kind: 'sortBy', column: selectedColumn.id })
+    } : {}),
     ...(selectedRowId === undefined || selectedRowIndex < 0 ? {} : {
       enter: () => onAction({
         kind: 'activate',
@@ -236,24 +263,15 @@ export function sliderKeyBindings<TMessage>(
 export function rangeSliderKeyBindings<TMessage>(
   options: RangeSliderOptions<TMessage>
 ): ElementKeyBindings<TMessage> | undefined {
-  const step = options.step ?? 1;
-  const min = options.range?.min ?? 0;
-  const max = options.range?.max ?? 100;
-  const { start, end } = options.value;
-  const hasHandler = options.onStep !== undefined || options.onChange !== undefined;
-  const decrementStart = hasHandler ? () => options.onStep?.({ handle: 'start', direction: 'decrement' })
-    ?? options.onChange?.({ start: Math.max(min, start - step), end }) : undefined;
-  const incrementStart = hasHandler ? () => options.onStep?.({ handle: 'start', direction: 'increment' })
-    ?? options.onChange?.({ start: Math.min(end, start + step), end }) : undefined;
-  const decrementEnd = hasHandler ? () => options.onStep?.({ handle: 'end', direction: 'decrement' })
-    ?? options.onChange?.({ start, end: Math.max(start, end - step) }) : undefined;
-  const incrementEnd = hasHandler ? () => options.onStep?.({ handle: 'end', direction: 'increment' })
-    ?? options.onChange?.({ start, end: Math.min(max, end + step) }) : undefined;
+  const decrement = options.onAction === undefined
+    ? undefined
+    : () => options.onAction?.({ kind: 'step', direction: 'decrement' });
+  const increment = options.onAction === undefined
+    ? undefined
+    : () => options.onAction?.({ kind: 'step', direction: 'increment' });
   return mergeKeyBindings({
-    ...(decrementStart === undefined ? {} : { arrowLeft: decrementStart }),
-    ...(incrementStart === undefined ? {} : { arrowRight: incrementStart }),
-    ...(decrementEnd === undefined ? {} : { arrowDown: decrementEnd }),
-    ...(incrementEnd === undefined ? {} : { arrowUp: incrementEnd })
+    ...(decrement === undefined ? {} : { arrowLeft: decrement }),
+    ...(increment === undefined ? {} : { arrowRight: increment })
   }, options.keys);
 }
 
@@ -289,13 +307,18 @@ export function selectKeyBindings<TValue, TMessage>(
   options: SelectOptions<TValue, TMessage>
 ): ElementKeyBindings<TMessage> | undefined {
   const action = options.onAction;
-  const active = choiceFocus(options.options, options.focused, options.selected);
+  const presentation = options.presentation;
+  const active = presentation.kind === 'open' ? presentation.highlighted : undefined;
   return mergeKeyBindings(action === undefined ? undefined : {
     arrowUp: () => action({ kind: 'move', delta: -1 }),
     arrowDown: () => action({ kind: 'move', delta: 1 }),
     home: () => action({ kind: 'first' }),
     end: () => action({ kind: 'last' }),
-    ...(active === undefined ? {} : { enter: () => action({ kind: 'select', id: active }) })
+    enter: () => active === undefined ? action({ kind: 'open' }) : action({ kind: 'commit', id: active }),
+    space: () => active === undefined ? action({ kind: 'open' }) : action({ kind: 'commit', id: active }),
+    ...(presentation.kind === 'open'
+      ? { escape: () => action({ kind: 'dismiss', reason: 'escape' }) }
+      : {})
   } satisfies ElementKeyBindings<TMessage>, options.keys);
 }
 
@@ -317,49 +340,97 @@ export function colorSwatchPickerKeyBindings<TValue, TMessage>(
 }
 
 export function menuKeyBindings<TMessage>(
-  items: readonly MenuItem[],
-  selected: string | undefined,
+  presentation: MenuPresentation,
   onAction: ((action: MenuAction) => TMessage) | undefined,
   explicit: ElementKeyBindings<TMessage> | undefined
 ): ElementKeyBindings<TMessage> | undefined {
   if (onAction === undefined) return explicit;
-  const active = selected ?? visibleMenuItems(items).find((item) => item.disabled !== true)?.id;
+  const active = presentation.activePath.at(-1);
   return mergeKeyBindings({
     arrowUp: () => onAction({ kind: 'move', delta: -1 }),
     arrowDown: () => onAction({ kind: 'move', delta: 1 }),
-    ...(active === undefined ? {} : {
-      arrowLeft: () => onAction({ kind: 'collapse', id: active }),
-      arrowRight: () => onAction({ kind: 'expand', id: active })
-    }),
+    arrowLeft: () => onAction({ kind: 'back' }),
+    arrowRight: () => onAction({ kind: 'enter' }),
     home: () => onAction({ kind: 'first' }),
     end: () => onAction({ kind: 'last' }),
     ...(active === undefined ? {} : { enter: () => onAction({ kind: 'activate', id: active }) })
   }, explicit);
 }
 
+export function menuBarKeyBindings<TMessage>(
+  presentation: MenuBarPresentation,
+  onAction: ((action: MenuBarAction) => TMessage) | undefined,
+  explicit: ElementKeyBindings<TMessage> | undefined
+): ElementKeyBindings<TMessage> | undefined {
+  if (onAction === undefined) return explicit;
+  const activeItem = presentation.kind === 'open' ? presentation.menu.activePath.at(-1) : undefined;
+  return mergeKeyBindings({
+    arrowLeft: () => onAction({ kind: 'moveHeading', delta: -1 }),
+    arrowRight: () => onAction({ kind: 'moveHeading', delta: 1 }),
+    arrowDown: () => presentation.kind === 'open'
+      ? onAction({ kind: 'menu', action: { kind: 'move', delta: 1 } })
+      : onAction({ kind: 'open', ...(presentation.active === undefined ? {} : { id: presentation.active }) }),
+    ...(presentation.kind === 'open'
+      ? {
+          arrowUp: () => onAction({ kind: 'menu', action: { kind: 'move', delta: -1 } }),
+          escape: () => onAction({ kind: 'close', reason: 'escape' })
+        }
+      : {}),
+    home: () => onAction({ kind: 'firstHeading' }),
+    end: () => onAction({ kind: 'lastHeading' }),
+    enter: () => presentation.kind === 'open' && activeItem !== undefined
+      ? onAction({ kind: 'menu', action: { kind: 'activate', id: activeItem } })
+      : onAction({ kind: 'open', ...(presentation.active === undefined ? {} : { id: presentation.active }) })
+  }, explicit);
+}
+
+export function contextMenuKeyBindings<TMessage>(
+  presentation: ContextMenuPresentation,
+  onAction: ((action: ContextMenuAction) => TMessage) | undefined,
+  explicit: ElementKeyBindings<TMessage> | undefined
+): ElementKeyBindings<TMessage> | undefined {
+  if (onAction === undefined || presentation.kind === 'closed') return explicit;
+  const menuBindings = menuKeyBindings(
+    presentation.menu,
+    (action) => onAction({ kind: 'menu', action }),
+    undefined
+  );
+  return mergeKeyBindings({
+    ...menuBindings,
+    escape: () => onAction({ kind: 'dismiss', reason: 'escape' })
+  }, explicit);
+}
+
 export function dropdownMenuKeyBindings<TMessage>(
-  items: readonly MenuItem[],
-  selected: string | undefined,
-  highlighted: string | undefined,
-  open: boolean,
+  presentation: DropdownMenuPresentation,
   onAction: ((action: DropdownMenuAction) => TMessage) | undefined,
   explicit: ElementKeyBindings<TMessage> | undefined
 ): ElementKeyBindings<TMessage> | undefined {
   if (onAction === undefined) return explicit;
-  const active = highlighted ?? selected ?? visibleMenuItems(items).find((item) => item.disabled !== true)?.id;
+  const active = presentation.kind === 'open' ? presentation.menu.activePath.at(-1) : undefined;
   return mergeKeyBindings({
-    arrowUp: () => onAction({ kind: 'move', delta: -1 }),
-    arrowDown: () => onAction({ kind: 'move', delta: 1 }),
-    home: () => onAction({ kind: 'first' }),
-    end: () => onAction({ kind: 'last' }),
-    enter: () => open && active !== undefined
-      ? onAction({ kind: 'activate', id: active })
+    arrowUp: () => presentation.kind === 'open'
+      ? onAction({ kind: 'menu', action: { kind: 'move', delta: -1 } })
       : onAction({ kind: 'open' }),
-    ...(open ? { escape: () => onAction({ kind: 'close' }) } : {})
+    arrowDown: () => presentation.kind === 'open'
+      ? onAction({ kind: 'menu', action: { kind: 'move', delta: 1 } })
+      : onAction({ kind: 'open' }),
+    home: () => presentation.kind === 'open'
+      ? onAction({ kind: 'menu', action: { kind: 'first' } })
+      : onAction({ kind: 'open' }),
+    end: () => presentation.kind === 'open'
+      ? onAction({ kind: 'menu', action: { kind: 'last' } })
+      : onAction({ kind: 'open' }),
+    enter: () => presentation.kind === 'open' && active !== undefined
+      ? onAction({ kind: 'menu', action: { kind: 'activate', id: active } })
+      : onAction({ kind: 'open' }),
+    ...(presentation.kind === 'open'
+      ? { escape: () => onAction({ kind: 'dismiss', reason: 'escape' }) }
+      : {})
   }, explicit);
 }
 
-export function menuItemsForRenderer(items: readonly MenuItem[]): readonly RenderMenuItem[] {
+export function menuItemsForRenderer(items: readonly (MenuItem | MenuPresentationItem)[]): readonly RenderMenuItem[] {
   return items.map((item) => ({
     id: item.id,
     label: item.label,
@@ -370,16 +441,9 @@ export function menuItemsForRenderer(items: readonly MenuItem[]): readonly Rende
     ...(item.shortcut === undefined ? {} : { shortcut: item.shortcut }),
     ...(item.tone === undefined ? {} : { tone: item.tone }),
     ...(item.checked === undefined ? {} : { checked: item.checked }),
-    ...(item.expanded === undefined ? {} : { expanded: item.expanded }),
+    ...('expanded' in item && item.expanded ? { expanded: true } : {}),
     ...(item.children === undefined ? {} : { children: menuItemsForRenderer(item.children) })
   }));
-}
-
-function visibleMenuItems(items: readonly MenuItem[]): readonly MenuItem[] {
-  return items.flatMap((item): readonly MenuItem[] => [
-    item,
-    ...(item.expanded === true && item.children !== undefined ? visibleMenuItems(item.children) : [])
-  ]);
 }
 
 function choiceFocus<TValue>(

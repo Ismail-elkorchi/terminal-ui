@@ -43,7 +43,7 @@ test('large list rendering is bounded by viewport size, not collection size', ()
   const frame = renderElementFrame(list({
     id: 'large-list',
     items,
-    getItemId: (item) => item,
+    projectItem: (item) => ({ id: item, label: item }),
     selectedId: 'Item 40000'
   }), { columns: 32, rows: 10 });
   const output = renderFramePlain(frame);

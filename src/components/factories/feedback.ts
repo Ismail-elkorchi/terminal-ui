@@ -7,6 +7,8 @@ import type {
   MeterOptions,
   HeatmapOptions,
   HelpBarOptions,
+  LiveNotificationStackOptions,
+  NotificationHistoryOptions,
   NotificationStackOptions,
   ProgressBarOptions,
   SparklineOptions,
@@ -32,40 +34,62 @@ import type { BarChartAction, ChartAction, HeatmapAction } from '../../ui-model/
 import { resolveStableIds } from '../internal/identity.ts';
 
 export function notificationStack<
-  const TActionMessage = never,
+  const TDismissMessage = never,
+  const TPointerMessage = never,
+>(
+  options: IndependentInteractionOptions<
+    LiveNotificationStackOptions,
+    { readonly onDismiss: TDismissMessage },
+    Record<never, never>,
+    undefined,
+    TPointerMessage
+  >
+): Element<TDismissMessage | TPointerMessage>;
+export function notificationStack<
+  const TActionMessage,
   const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
-    NotificationStackOptions,
+    NotificationHistoryOptions,
     { readonly onAction: TActionMessage },
     Record<never, never>,
     TKeys,
     TPointerMessage
-  >
+  > & {
+    readonly onAction: (action: NotificationStackAction) => TActionMessage;
+  }
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function notificationStack(options: NotificationStackOptions<unknown>): Element<unknown> {
-  const meta = withMetaDefaults(options.meta, { focus: { disabled: true } });
-  const onAction = options.onAction;
-  const generated = onAction === undefined ? undefined : {
+export function notificationStack(rawOptions: object): Element<unknown> {
+  const options = rawOptions as NotificationStackOptions<unknown>;
+  const onAction = 'onAction' in options ? options.onAction : undefined;
+  const onDismiss = 'onDismiss' in options ? options.onDismiss : undefined;
+  const keys = 'keys' in options ? options.keys : undefined;
+  const meta = withMetaDefaults(options.meta, {
+    focus: { disabled: options.presentation.kind === 'live' }
+  });
+  const generated = onAction === undefined || options.presentation.kind !== 'history' ? undefined : {
     arrowUp: () => onAction({ kind: 'move', delta: -1 }),
     arrowDown: () => onAction({ kind: 'move', delta: 1 }),
-    delete: () => options.selected === undefined
+    delete: () => options.presentation.kind !== 'history' || options.presentation.selected === undefined
       ? undefined
-      : onAction({ kind: 'dismiss', id: options.selected })
+      : onAction({ kind: 'dismiss', id: options.presentation.selected })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<unknown>;
-  const keyMap = mergeKeyBindings(generated, options.keys);
+  const keyMap = onAction === undefined
+    ? undefined
+    : mergeKeyBindings(generated, keys);
+  resolveStableIds(options.presentation.items, (item) => item.id, 'notificationStack');
   return elementFromRenderNode<'notificationStack', unknown>({
     ...requiredId(options.id, 'notificationStack'),
     kind: 'notificationStack',
     props: {
-      items: options.items,
-      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      presentation: options.presentation,
       ...(options.placement === undefined ? {} : { placement: options.placement }),
       ...(options.maxWidth === undefined ? {} : { maxWidth: options.maxWidth }),
-      ...(onAction === undefined ? {} : {
-        toActionMessage: (action: NotificationStackAction) => onAction(action)
-      })
+      ...(onDismiss === undefined ? {} : { toDismissMessage: onDismiss }),
+      ...(onAction === undefined
+        ? {}
+        : { toActionMessage: (action: NotificationStackAction) => onAction(action) })
     },
     ...interactionProps({ keys: keyMap, pointer: options.pointer, meta })
   });

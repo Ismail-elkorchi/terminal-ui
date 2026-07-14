@@ -76,5 +76,5 @@ function focusCapability<TMessage, TKind extends RenderNodeKind>(
   node: RenderNodeOfKind<TMessage, TKind>
 ): ElementInspection['inputs']['focus'] {
   if (node.focus === undefined || node.focus.disabled === true) return 'none';
-  return node.focus.scope === 'contain' ? 'scope' : 'item';
+  return node.focus.scope?.kind === 'contain' ? 'scope' : 'item';
 }

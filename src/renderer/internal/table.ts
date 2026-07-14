@@ -24,6 +24,7 @@ import {
   tableSortMarker,
   type NormalizedTableColumn
 } from './table/columns.ts';
+import { tableColumnTracks, visibleTableTrack } from './table/geometry.ts';
 import { tableMetrics, type TableMetrics } from './component-metrics.ts';
 import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
 import { renderInlineContent } from './inline-content.ts';
@@ -142,6 +143,13 @@ export function tableAccessibleChildren(widget: TableNode, bounds: Rect): readon
           role: 'cell',
           label: columnLabel(column, columnIndex),
           value: columnLabel(column, columnIndex),
+          ...(column.sortable === true || column.resizable === true ? {
+            description: [
+              ...(column.sortable === true ? ['sortable'] : []),
+              ...(column.resizable === true ? ['resizable'] : []),
+              ...(column.sort === undefined ? [] : [`sorted ${column.sort}`])
+            ].join(', ')
+          } : {}),
           position: {
             rowIndex: 0,
             rowCount: rows.length + 1,
@@ -192,7 +200,10 @@ export function tableHitTargets<TMessage>(widget: TableNode<TMessage>, bounds: R
   const toMessage = tableActionMessageFactory(widget);
   if (toMessage === undefined) return [];
   const { rowIds, columns, spacing, headerHeight, window, widths, selectedCell } = tableProjection(widget, bounds);
-  return window.rows.flatMap((_row, visibleIndex): HitTarget<TMessage>[] => {
+  const headerTargets = headerHeight <= 0
+    ? []
+    : tableHeaderHitTargets(widget, columns, widths, bounds, window.horizontalOffset, spacing, toMessage);
+  const bodyTargets = window.rows.flatMap((_row, visibleIndex): HitTarget<TMessage>[] => {
     const rowIndex = window.start + visibleIndex;
     const rowId = rowIds[rowIndex];
     if (rowId === undefined) return [];
@@ -212,6 +223,61 @@ export function tableHitTargets<TMessage>(widget: TableNode<TMessage>, bounds: R
       cursor: 'pointer'
     }];
   });
+  return [...headerTargets, ...bodyTargets];
+}
+
+function tableHeaderHitTargets<TMessage>(
+  widget: TableNode<TMessage>,
+  columns: readonly NormalizedTableColumn[],
+  widths: readonly number[],
+  bounds: Rect,
+  horizontalOffset: number,
+  spacing: TableMetrics,
+  toMessage: (action: TableAction) => TMessage
+): HitTarget<TMessage>[] {
+  const tracks = tableColumnTracks(widths, spacing.markerCells, spacing.separatorCells);
+  return columns.flatMap((column, index): HitTarget<TMessage>[] => {
+    const track = tracks[index];
+    if (track === undefined) return [];
+    const visible = visibleTableTrack(track, horizontalOffset, bounds.width);
+    if (visible === undefined) return [];
+    const targets: HitTarget<TMessage>[] = [];
+    if (column.sortable === true) {
+      targets.push({
+        id: renderNodeTargetId(widget, 'header', column.id, 'sort'),
+        bounds: {
+          row: bounds.row,
+          column: bounds.column + visible.start,
+          width: visible.end - visible.start,
+          height: 1
+        },
+        accepts: ['click'],
+        message: () => toMessage({ kind: 'sortBy', column: column.id }),
+        cursor: 'pointer'
+      });
+    }
+    if (column.resizable === true) {
+      targets.push({
+        id: renderNodeTargetId(widget, 'header', column.id, 'resize'),
+        bounds: {
+          row: bounds.row,
+          column: bounds.column + visible.end - 1,
+          width: 1,
+          height: 1
+        },
+        accepts: ['pointerDown', 'dragStart', 'drag'],
+        message: (event) => event.button !== 'left'
+          ? undefined
+          : toMessage({
+              kind: 'setColumnWidth',
+              column: column.id,
+              width: track.width + event.column - (event.pressColumn ?? event.column)
+            }),
+        cursor: 'pointer'
+      });
+    }
+    return targets;
+  });
 }
 
 function tableCellHitTargets<TMessage>(
@@ -225,21 +291,18 @@ function tableCellHitTargets<TMessage>(
   spacing: TableMetrics,
   toMessage: (action: TableAction) => TMessage
 ): HitTarget<TMessage>[] {
-  let lineColumn = spacing.markerCells;
+  const tracks = tableColumnTracks(widths, spacing.markerCells, spacing.separatorCells);
   return columns.flatMap((column, visibleColumnIndex): HitTarget<TMessage>[] => {
-    const separator = visibleColumnIndex === 0 ? 0 : spacing.separatorCells;
-    const cellStart = lineColumn + separator;
-    const cellWidth = widths[visibleColumnIndex] ?? 1;
-    lineColumn = cellStart + cellWidth;
-    const visibleStart = Math.max(0, cellStart - horizontalOffset);
-    const visibleEnd = Math.min(rowBounds.width, cellStart + cellWidth - horizontalOffset);
-    if (visibleEnd <= visibleStart) return [];
+    const track = tracks[visibleColumnIndex];
+    if (track === undefined) return [];
+    const visible = visibleTableTrack(track, horizontalOffset, rowBounds.width);
+    if (visible === undefined) return [];
     return [{
       id: tableCellTargetId(widget, rowId, column.index),
       bounds: {
         row: rowBounds.row,
-        column: rowBounds.column + visibleStart,
-        width: visibleEnd - visibleStart,
+        column: rowBounds.column + visible.start,
+        width: visible.end - visible.start,
         height: 1
       },
       message: () => toMessage({ kind: 'selectCell', rowId, rowIndex, column: visibleColumnIndex }),

@@ -56,11 +56,19 @@ export type {
 } from '../visual/inline-content.ts';
 export type { CommandInputAction } from '../ui-model/command-input.ts';
 export type { ListAction } from '../ui-model/list.ts';
+export type { ListItemProjection, ListItemProjector } from '../ui-model/list.ts';
+export type {
+  RangeSliderAction,
+  RangeSliderHandle,
+  RangeSliderPresentation,
+  RangeSliderState
+} from '../ui-model/range-slider.ts';
 export type { TableAction, TablePresentation, TableSortDirection, TableSortState } from '../ui-model/table.ts';
 export type { TreeAction, TreeDisclosureAction, TreeNode } from '../ui-model/tree.ts';
 export type { NumberInputAction, NumberInputValidity } from '../ui-model/number-input.ts';
 export type { PaginatorAction } from '../ui-model/paginator.ts';
 export type { NotificationStackAction } from '../ui-model/notification-stack.ts';
+export type { DialogDismissReason, DialogDismissal, DialogFocusPolicy } from '../ui-model/dialog.ts';
 export type {
   CalendarDate,
   CalendarMonth,
@@ -68,7 +76,13 @@ export type {
   CalendarDay
 } from '../ui-model/calendar.ts';
 export type { PaletteAction } from '../ui-model/palette.ts';
-export type { DropdownMenuAction, MenuAction } from '../ui-model/menu.ts';
+export type {
+  ContextMenuAction,
+  DropdownMenuAction,
+  MenuAction,
+  MenuBarAction,
+  TooltipPresentation
+} from '../ui-model/menu.ts';
 export type { TabAction } from '../ui-model/tabs.ts';
 export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
 export type { ScrollbackAction } from '../ui-model/scrollback.ts';

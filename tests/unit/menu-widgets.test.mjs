@@ -16,6 +16,12 @@ import {
   menu,
   menuBar
 } from '../../dist/components/index.js';
+import {
+  contextMenuPresentation,
+  dropdownMenuPresentation,
+  menuBarPresentation,
+  menuPresentation
+} from '../../dist/behavior/index.js';
 import { column } from '../../dist/layout/index.js';
 
 const enter = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
@@ -47,7 +53,6 @@ const items = [
   {
     id: 'open',
     label: 'Open',
-    expanded: true,
     children: [
       { id: 'recent', label: 'Recent' },
       { id: 'disabled-recent', label: 'Disabled Recent', disabled: true }
@@ -61,8 +66,7 @@ const items = [
 test('menu renders nested checked disabled items with menu accessibility', () => {
   const frame = renderElementFrame(menu({
     id: 'file-menu',
-    items,
-    selected: 'recent'
+    presentation: menuPresentation(items, { activePath: ['open', 'recent'] })
   }), { columns: 40, rows: 8 });
   const output = renderFramePlain(frame);
 
@@ -82,46 +86,59 @@ test('menu renders nested checked disabled items with menu accessibility', () =>
 });
 
 test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () => {
-  const widget = column([
+  const menuBarFrame = renderElementFrame(
     menuBar({
       id: 'main-menu',
       items: [
         { id: 'file', label: 'File' },
         { id: 'edit', label: 'Edit', disabled: true }
       ],
-      selected: 'file'
+      presentation: menuBarPresentation([
+        { id: 'file', label: 'File' },
+        { id: 'edit', label: 'Edit', disabled: true }
+      ], { kind: 'closed', active: 'file' })
     }),
+    { columns: 44, rows: 3 }
+  );
+  const contextFrame = renderElementFrame(
     contextMenu({
       id: 'context',
       title: 'Actions',
-      items,
-      selected: 'autosave'
+      presentation: contextMenuPresentation(items, {
+        kind: 'open',
+        anchor: { kind: 'cursor', row: 3, column: 1 },
+        menu: { activePath: ['autosave'] }
+      })
     }),
+    { columns: 44, rows: 13 }
+  );
+  const dropdownFrame = renderElementFrame(
     dropdownMenu({
       id: 'theme-dropdownMenu',
       label: 'Theme',
-      presentation: { kind: 'open', selected: 'dark', highlighted: 'dark' },
       items: [
         { id: 'light', label: 'Light' },
         { id: 'dark', label: 'Dark' }
-      ]
-    })
-  ]);
-
-  const frame = renderElementFrame(widget, { columns: 44, rows: 13 });
-  const output = renderFramePlain(frame);
+      ],
+      presentation: dropdownMenuPresentation([
+        { id: 'light', label: 'Light' },
+        { id: 'dark', label: 'Dark' }
+      ], { kind: 'open', active: 'dark', menu: { activePath: ['dark'] } })
+    }),
+    { columns: 44, rows: 8 }
+  );
+  const output = [menuBarFrame, contextFrame, dropdownFrame].map(renderFramePlain).join('\n');
 
   assert.match(output, /› File  - Edit/u);
   assert.match(output, /Actions/u);
   assert.match(output, /Theme: \[Dark ▾\]/u);
   assert.match(output, /Light/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'F')?.source?.ownerKind, 'menuBar');
-  assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.ownerKind, 'contextMenu');
-  assert.equal(frame.cells.find((cell) => cell.text === 'D')?.source?.ownerKind, 'dropdownMenu');
-  assert.equal(frame.cells.find((cell) => cell.text === 'D')?.source?.label, 'dropdownMenu-value');
-  assert.equal(frame.accessibility.root.children?.[0]?.role, 'menu');
-  assert.equal(frame.accessibility.root.children?.[1]?.role, 'menu');
-  assert.equal(frame.accessibility.root.children?.[2]?.expanded, true);
+  assert.equal(menuBarFrame.cells.find((cell) => cell.text === 'F')?.source?.ownerKind, 'menuBar');
+  assert.equal(contextFrame.accessibility.root.role, 'menu');
+  assert.equal(dropdownFrame.cells.find((cell) => cell.text === 'D')?.source?.ownerKind, 'dropdownMenu');
+  assert.equal(dropdownFrame.cells.find((cell) => cell.text === 'D')?.source?.label, 'dropdownMenu-value');
+  assert.equal(menuBarFrame.accessibility.root.role, 'menubar');
+  assert.equal(dropdownFrame.accessibility.root.expanded, true);
 });
 
 test('menus route keyboard and mouse interaction through generic focus and hit targets', async () => {
@@ -132,8 +149,9 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
     view: (state) => column([
       menu({
         id: 'actions',
-        items,
-        selected: state.action === 'recent' ? 'autosave' : 'recent',
+        presentation: menuPresentation(items, {
+          activePath: state.action === 'recent' ? ['autosave'] : ['open', 'recent']
+        }),
         onAction: (action) => action
       }),
       menuBar({
@@ -141,6 +159,7 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
         items: [
           { id: 'help', label: 'Help' }
         ],
+        presentation: { kind: 'closed', active: 'help' },
         onAction: (action) => action
       })
     ])

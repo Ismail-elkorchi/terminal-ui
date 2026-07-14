@@ -36,13 +36,15 @@ test('tableReducer preserves identity across reorder and recovers after deletion
 test('tableReducer toggles sort state and resizes columns', () => {
   const first = tableReducer({}, { kind: 'sortBy', column: 'name' }, options);
   const second = tableReducer(first, { kind: 'sortBy', column: 'name' }, options);
-  const resized = tableReducer(second, { kind: 'resizeColumn', column: 'name', delta: 4 }, { ...options, minColumnWidth: 3 });
-  const shrunk = tableReducer(resized, { kind: 'resizeColumn', column: 'name', delta: -100 }, { ...options, minColumnWidth: 3 });
+  const resized = tableReducer(second, { kind: 'resizeColumnBy', column: 'name', delta: 4 }, { ...options, minColumnWidth: 3 });
+  const shrunk = tableReducer(resized, { kind: 'resizeColumnBy', column: 'name', delta: -100 }, { ...options, minColumnWidth: 3 });
+  const absolute = tableReducer(shrunk, { kind: 'setColumnWidth', column: 'name', width: 11 }, { ...options, minColumnWidth: 3 });
 
   assert.deepEqual(first.sort, { column: 'name', direction: 'ascending' });
   assert.deepEqual(second.sort, { column: 'name', direction: 'descending' });
   assert.equal(resized.columnWidths?.['name'], 7);
   assert.equal(shrunk.columnWidths?.['name'], 3);
+  assert.equal(absolute.columnWidths?.['name'], 11);
 });
 
 test('tablePresentation projects every renderer-owned table state field', () => {

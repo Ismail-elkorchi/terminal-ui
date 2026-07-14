@@ -20,7 +20,12 @@ export function rendererForRenderNode<TMessage>(widget: RenderNode<TMessage>): R
   return builtinRenderNodeRenderers[widget.kind] as RenderNodeRenderer<TMessage>;
 }
 
-export function layoutChildBounds(widget: RenderNode, bounds: Rect, theme: TerminalTheme): readonly Rect[] {
+export function layoutChildBounds(
+  widget: RenderNode,
+  bounds: Rect,
+  viewport: Rect,
+  theme: TerminalTheme
+): readonly Rect[] {
   const children = widget.children ?? [];
   if (children.length === 0) return [];
   if (bounds.width <= 0 || bounds.height <= 0) return children.map(() => emptyRect(bounds));
@@ -29,7 +34,16 @@ export function layoutChildBounds(widget: RenderNode, bounds: Rect, theme: Termi
     throw new Error(`RenderNode "${widget.kind}" has children but does not define layout.`);
   }
   const childMeasures = children.map((child) => measureRenderNode(child, bounds, theme));
-  return renderer.layout({ renderNode: widget, bounds, theme, childMeasures });
+  return renderer.layout({ renderNode: widget, bounds, viewport, theme, childMeasures });
+}
+
+export function placeRenderNode(
+  widget: RenderNode,
+  bounds: Rect,
+  viewport: Rect,
+  theme: TerminalTheme
+): Rect {
+  return rendererForRenderNode(widget).place?.({ renderNode: widget, bounds, viewport, theme }) ?? bounds;
 }
 
 export function measureRenderNode(widget: RenderNode, bounds: Rect, theme: TerminalTheme): Measurement {
@@ -83,8 +97,7 @@ export function focusTargetsForRenderNode(widget: RenderNode, bounds: Rect, them
 }
 
 export function focusScopeForRenderNode(widget: RenderNode): ElementFocusScope | undefined {
-  const scope = widget.focus?.scope ?? (widget.kind === 'dialog' ? 'contain' : undefined);
-  return scope === 'none' ? undefined : scope;
+  return widget.focus?.scope;
 }
 
 export function cursorForRenderNode(

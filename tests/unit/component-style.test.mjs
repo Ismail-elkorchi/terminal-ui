@@ -147,7 +147,7 @@ test('controlled pointer presentation resolves styles and source state across co
   const listFrame = renderElementFrame(list({
     id: 'items',
     items: ['Alpha', 'Beta'],
-    getItemId: (item) => item,
+    projectItem: (item) => ({ id: item, label: item }),
     pointer: { state: { hoveredTargetId: 'items:option:Beta' } }
   }), { columns: 20, rows: 2 });
   const tabFrame = renderElementFrame(tabs({
@@ -161,8 +161,10 @@ test('controlled pointer presentation resolves styles and source state across co
   }), { columns: 24, rows: 2 });
   const menuFrame = renderElementFrame(menu({
     id: 'actions',
-    items: [{ id: 'open', label: 'Open' }, { id: 'save', label: 'Save' }],
-    selected: 'open',
+    presentation: {
+      activePath: ['open'],
+      items: [{ id: 'open', label: 'Open' }, { id: 'save', label: 'Save' }]
+    },
     pointer: { state: { hoveredTargetId: 'actions:save' } }
   }), { columns: 20, rows: 2 });
   const commandFrame = renderElementFrame(commandInput({
@@ -182,7 +184,7 @@ test('controlled pointer presentation resolves styles and source state across co
   }), { columns: 40, rows: 1 });
   const notificationFrame = renderElementFrame(notificationStack({
     id: 'notices',
-    items: [{ id: 'ready', title: 'Ready', tone: 'info' }],
+    presentation: { kind: 'live', items: [{ id: 'ready', title: 'Ready', tone: 'info' }] },
     pointer: { state: { hoveredTargetId: 'notices:notification:ready' } }
   }), { columns: 30, rows: 6 });
 
@@ -233,7 +235,7 @@ test('text entry chrome uses shared border focus and error styles', () => {
 test('menu palette table and tree use selected placeholder and title slots', () => {
   const menuFrame = renderElementFrame(menuBar({
     id: 'styled-menu',
-    selected: 'file',
+    presentation: { kind: 'closed', active: 'file' },
     items: [
         { id: 'file', label: 'File' },
         { id: 'edit', label: 'Edit' }
@@ -290,7 +292,7 @@ test('menu palette table and tree use selected placeholder and title slots', () 
 
 test('list table and tree share data navigation selection and match styles', () => {
   const listFrame = renderElementFrame(list({
-    getItemId: (item) => String(item),
+    projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'styled-list',
     items: ['Atlas', 'Pulse'],
     selectedId: 'Atlas',
@@ -365,17 +367,19 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
   }), { columns: 36, rows: 3 });
   const menuFrame = renderElementFrame(menu({
     id: 'menu',
-    items: [
-      { id: 'open', label: 'Open' },
-      { id: 'save', label: 'Save' }
-    ],
-    selected: 'open'
+    presentation: {
+      activePath: ['open'],
+      items: [
+        { id: 'open', label: 'Open' },
+        { id: 'save', label: 'Save' }
+      ]
+    }
   }), { columns: 20, rows: 2 });
   const dropdownMenuFrame = renderElementFrame(dropdownMenu({
     id: 'region',
     label: 'Region',
     meta: { focus: { disabled: true } },
-    presentation: { kind: 'closed', selected: 'us' },
+    presentation: { kind: 'closed', active: 'us' },
     items: [
       { id: 'us', label: 'United States' }
     ]
@@ -416,8 +420,7 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
   }), { columns: 24, rows: 2 });
   const noticeFrame = renderElementFrame(notificationStack({
     id: 'notices',
-    items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
-    maxVisible: 1,
+    presentation: { kind: 'live', items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }] },
     maxWidth: 24
   }), { columns: 32, rows: 6 });
 
@@ -518,6 +521,8 @@ test('scrollback and dialog chrome use placeholder and border slots', () => {
     {
     id: 'styled-dialog',
     title: 'Panel',
+    modal: true,
+    focusPolicy: { returnFocus: 'restore' },
     width: 14,
     height: 6,
     actions: row([button({ id: 'dialog-ok', label: 'OK' })]),
@@ -691,12 +696,12 @@ test('record and notification widgets use shared semantic status contracts', () 
   }), { columns: 32, rows: 2 });
   const notificationFrame = renderElementFrame(notificationStack({
     id: 'notices',
-    items: [{
+    presentation: { kind: 'live', items: [{
       id: 'sync',
       title: 'Sync',
       tone: 'progress',
       progress: 50
-    }]
+    }] }
   }), { columns: 42, rows: 6 });
 
   assert.equal(styleFor(failedBlockFrame, 'f')?.fg?.token, 'status.error');

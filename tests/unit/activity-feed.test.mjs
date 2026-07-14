@@ -181,6 +181,26 @@ test('activityFeed exposes block hit targets and keyboard focus when interactive
   });
 });
 
+test('activityFeed uses one measured projection for clipped rendering hit targets and accessibility', () => {
+  const element = activityFeed({
+    id: 'measured-feed',
+    blocks,
+    selectedId: 'running',
+    onAction: (action) => action
+  });
+  const frame = renderElementFrame(element, { columns: 36, rows: 4 });
+
+  assert.match(renderFramePlain(frame), /Running task/u);
+  assert.doesNotMatch(renderFramePlain(frame), /Queued task|Completed task/u);
+  assert.deepEqual(frame.hitTargets?.map((target) => [target.id, target.bounds.row, target.bounds.height]), [
+    ['measured-feed:block:running', 1, 4]
+  ]);
+  assert.deepEqual(frame.accessibility.root.children?.map((node) => node.id), [
+    'measured-feed:block:running'
+  ]);
+  assert.equal(frame.accessibility.root.description, 'Showing 2-2 of 3 activity blocks.');
+});
+
 test('activityFeed renders caller-owned reducer expansion state', () => {
   const reducerBlocks = [
     {

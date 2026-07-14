@@ -543,18 +543,18 @@ function paletteOverlay(state) {
     margin: { top: 4, left: 18, right: 18, bottom: 6 },
     meta: {
       layer: { zIndex: 20 },
-      focus: { scope: 'contain' }
+      focus: { scope: { kind: 'contain' } }
     }
   });
 }
 
 function notificationStackForState(state) {
-  const presentation = notificationPresentation(state.notifications, { now: Date.now() });
+  const presentation = notificationPresentation(state.notifications, { mode: 'live', now: Date.now() });
   return notificationStack({
     id: 'workspace-notifications',
-    ...presentation,
+    presentation,
     placement: 'bottom-right',
-    onAction: (action) => ({ kind: 'notification', action })
+    onDismiss: (id) => ({ kind: 'notification', action: { kind: 'dismiss', id } })
   });
 }
 

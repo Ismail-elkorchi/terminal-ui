@@ -2,14 +2,14 @@ import type { TextEditOperation, TextSelection } from '../../text/index.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import type { TextPointerEvent } from '../../interaction/text-pointer.ts';
+import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
+import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { ChoiceItem } from '../../ui-model/contracts.ts';
 import type {
   ButtonState,
   ButtonTone,
   ColorSwatchPickerOption,
   NumericRange,
-  RangeSliderStepEvent,
-  RangeSliderValue,
   SliderStepEvent
 } from '../../ui-model/forms.ts';
 import type { NumberInputAction, NumberInputPresentation } from '../../ui-model/number-input.ts';
@@ -20,6 +20,8 @@ import type {
   RadioGroupAction,
   SelectAction
 } from '../../ui-model/choice-controls.ts';
+import type { RangeSliderAction, RangeSliderPresentation } from '../../ui-model/range-slider.ts';
+import type { SelectPresentation } from '../../behavior/choice-controls.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type {
   ButtonStylePart,
@@ -100,12 +102,11 @@ export interface SliderOptions<TMessage = never> extends InteractiveElementOptio
 
 export interface RangeSliderOptions<TMessage = never> extends InteractiveElementOptions<SliderStylePart, TMessage> {
   readonly label?: string;
-  readonly value: RangeSliderValue;
+  readonly presentation: RangeSliderPresentation;
   readonly range?: NumericRange;
   readonly step?: number;
   readonly width?: number;
-  readonly onChange?: (value: RangeSliderValue) => TMessage;
-  readonly onStep?: (event: RangeSliderStepEvent) => TMessage;
+  readonly onAction?: (action: RangeSliderAction) => TMessage;
   readonly disabled?: boolean;
   readonly error?: string;
   readonly keys?: ElementKeyBindings<TMessage>;
@@ -163,9 +164,11 @@ export interface RadioGroupOptions<TValue = string, TMessage = never> extends In
 export interface SelectOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<ChoiceStylePart, TMessage> {
   readonly label?: string;
   readonly options: readonly ChoiceItem<TValue>[];
-  readonly selected?: string;
-  readonly focused?: string;
+  readonly presentation: SelectPresentation;
   readonly placeholder?: string;
+  readonly placement?: AnchoredSurfacePlacement;
+  readonly maxVisibleOptions?: number;
+  readonly scrollbar?: ScrollbarOptions;
   readonly onAction?: (action: SelectAction) => TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
@@ -202,7 +205,6 @@ export type {
   ButtonTone,
   ColorSwatchPickerOption,
   NumericRange,
-  RangeSliderStepEvent,
   RangeSliderValue,
   SliderStepDirection,
   SliderStepEvent

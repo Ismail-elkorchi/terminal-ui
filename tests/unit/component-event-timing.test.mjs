@@ -24,7 +24,7 @@ test('component construction and rendering do not execute event handlers', () =>
   const elements = [
     checkbox({ id: 'check', label: 'Check', checked: false, onChange: message }),
     slider({ id: 'slider', value: 4, onChange: message }),
-    list({ id: 'list', items: ['a'], getItemId: (item) => item, selectedId: 'a', onAction: message }),
+    list({ id: 'list', items: ['a'], projectItem: (item) => ({ id: item, label: item }), selectedId: 'a', onAction: message }),
     table({ id: 'table', rows: ['a'], getRowId: (row) => row, selectedRowId: 'a', onAction: message }),
     textArea({ id: 'area', value: 'a', onEdit: message }),
     commandInput({ id: 'command', value: 'a', onAction: message }),

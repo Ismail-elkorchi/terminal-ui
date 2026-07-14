@@ -26,5 +26,6 @@ export type TableAction =
   | { readonly kind: 'lastRow' }
   | { readonly kind: 'activate'; readonly rowId: string; readonly rowIndex: number; readonly column?: number }
   | { readonly kind: 'sortBy'; readonly column: string }
-  | { readonly kind: 'resizeColumn'; readonly column: string; readonly delta: number }
+  | { readonly kind: 'resizeColumnBy'; readonly column: string; readonly delta: number }
+  | { readonly kind: 'setColumnWidth'; readonly column: string; readonly width: number }
   | { readonly kind: 'scroll'; readonly event: ScrollEvent };

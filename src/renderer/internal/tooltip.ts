@@ -7,33 +7,22 @@ import type { RenderTarget } from '../model/render-target.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import type { Rect } from '../model/layout.ts';
 import type { FrameCellSource, TerminalStyle } from '../../visual/render.ts';
-import { drawSurfaceShadow } from './surface.ts';
 import { stringify } from './render-node-props.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { TooltipPlacement, TooltipTone } from '../../ui-model/menu.ts';
+import type { TooltipTone } from '../../ui-model/menu.ts';
 
 export interface TooltipSize {
   readonly width: number;
   readonly height: number;
 }
 
-export interface TooltipPlacementInput {
-  readonly viewport: Rect;
-  readonly target: Rect;
-  readonly size: TooltipSize;
-  readonly placement?: TooltipPlacement;
-  readonly cursor?: { readonly row: number; readonly column: number };
-  readonly margin?: number;
-}
-
-export type TooltipVisualKind = 'background' | 'content' | 'shadow';
+export type TooltipVisualKind = 'background' | 'content';
 
 export function renderTooltip(widget: TooltipNode, buffer: RenderTarget, bounds: Rect, theme: TerminalTheme): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const tone = tooltipTone(widget);
   const border = tooltipBorder(widget, tone);
   fillTooltipBackground(widget, buffer, bounds, tooltipBackgroundStyle(tone));
-  drawSurfaceShadow(buffer, bounds, tooltipSource(widget, 'shadow', 'shadow'));
   drawBorder(buffer, bounds, border, theme);
   const contentBounds = {
     row: bounds.row + 1,
@@ -76,20 +65,6 @@ export function tooltipAccessibleBase(widget: TooltipNode, id: string, focused: 
     scope: { kind: 'popover' },
     ...(focused ? { focused } : {})
   };
-}
-
-export function placeTooltip(input: TooltipPlacementInput): Rect {
-  const margin = Math.max(0, Math.floor(input.margin ?? 1));
-  const placement = input.placement ?? 'auto';
-  const target = placement === 'cursor' && input.cursor !== undefined
-    ? { row: input.cursor.row, column: input.cursor.column, width: 1, height: 1 }
-    : input.target;
-  const ordered = placementOrder(placement);
-  for (const candidate of ordered) {
-    const rect = tooltipRectForPlacement(target, input.size, candidate, margin);
-    if (rectInside(rect, input.viewport)) return rect;
-  }
-  return clampTooltipRect(tooltipRectForPlacement(target, input.size, ordered[0] ?? 'below', margin), input.viewport);
 }
 
 function tooltipContentLines(widget: TooltipNode): readonly string[] {
@@ -195,65 +170,4 @@ function tooltipTextStyle(tone: TooltipTone): TerminalStyle {
   return { fg: { kind: 'theme', token: 'text.default' } };
 }
 
-function placementOrder(placement: TooltipPlacement): readonly Exclude<TooltipPlacement, 'auto' | 'cursor'>[] {
-  if (placement === 'above') return ['above', 'below', 'right', 'left'];
-  if (placement === 'below' || placement === 'cursor') return ['below', 'above', 'right', 'left'];
-  if (placement === 'left') return ['left', 'right', 'below', 'above'];
-  if (placement === 'right') return ['right', 'left', 'below', 'above'];
-  return ['below', 'above', 'right', 'left'];
-}
-
-function tooltipRectForPlacement(
-  target: Rect,
-  size: TooltipSize,
-  placement: Exclude<TooltipPlacement, 'auto' | 'cursor'>,
-  margin: number
-): Rect {
-  if (placement === 'above') {
-    return {
-      row: target.row - size.height - margin,
-      column: target.column,
-      width: size.width,
-      height: size.height
-    };
-  }
-  if (placement === 'left') {
-    return {
-      row: target.row,
-      column: target.column - size.width - margin,
-      width: size.width,
-      height: size.height
-    };
-  }
-  if (placement === 'right') {
-    return {
-      row: target.row,
-      column: target.column + target.width + margin,
-      width: size.width,
-      height: size.height
-    };
-  }
-  return {
-    row: target.row + target.height + margin,
-    column: target.column,
-    width: size.width,
-    height: size.height
-  };
-}
-
-function rectInside(rect: Rect, viewport: Rect): boolean {
-  return rect.row >= viewport.row
-    && rect.column >= viewport.column
-    && rect.row + rect.height <= viewport.row + viewport.height
-    && rect.column + rect.width <= viewport.column + viewport.width;
-}
-
-function clampTooltipRect(rect: Rect, viewport: Rect): Rect {
-  return {
-    row: Math.min(Math.max(rect.row, viewport.row), Math.max(viewport.row, viewport.row + viewport.height - rect.height)),
-    column: Math.min(Math.max(rect.column, viewport.column), Math.max(viewport.column, viewport.column + viewport.width - rect.width)),
-    width: Math.min(rect.width, viewport.width),
-    height: Math.min(rect.height, viewport.height)
-  };
-}
 type TooltipNode = RenderNodeOfKind<unknown, 'tooltip'>;

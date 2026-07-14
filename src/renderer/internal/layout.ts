@@ -8,7 +8,12 @@ import { toRenderNode } from '../model/element.ts';
 import { defineTheme, isTerminalTheme } from '../../theme/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import type { LayoutFocusRegion, LayoutNode } from '../model/layout.ts';
-import { layoutChildBounds, focusScopeForRenderNode, focusTargetsForRenderNode } from './render-node-behavior.ts';
+import {
+  focusScopeForRenderNode,
+  focusTargetsForRenderNode,
+  layoutChildBounds,
+  placeRenderNode
+} from './render-node-behavior.ts';
 
 export type { Layer, LayoutFocusRegion, LayoutNode } from '../model/layout.ts';
 
@@ -29,17 +34,20 @@ export function layoutRenderNode(
   const bounds = 'columns' in viewport
     ? { row: 1, column: 1, width: viewport.columns, height: viewport.rows }
     : viewport;
-  return layoutNode(widget, clampRect(bounds), theme, 0, 0, []);
+  const viewportBounds = clampRect(bounds);
+  return layoutNode(widget, viewportBounds, viewportBounds, theme, 0, 0, []);
 }
 
 function layoutNode(
   widget: RenderNode,
   bounds: Rect,
+  viewport: Rect,
   theme: TerminalTheme,
   ordinal: number,
   parentZIndex: number,
   parentIdentity: readonly string[]
 ): LayoutNode {
+  const placedBounds = placeRenderNode(widget, bounds, viewport, theme);
   const visible = widget.layer?.visible !== false;
   const zIndex = parentZIndex + zIndexForRenderNode(widget);
   const identity = widget.id ?? `${widget.kind}:${String(ordinal)}`;
@@ -47,7 +55,7 @@ function layoutNode(
   const layer = {
     id: identityPath.join('/'),
     zIndex,
-    bounds,
+    bounds: placedBounds,
     opacity: opacityForRenderNode(widget)
   };
   if (!visible) {
@@ -55,7 +63,8 @@ function layoutNode(
       ...(widget.id === undefined ? {} : { id: widget.id }),
       identity,
       kind: widget.kind,
-      bounds,
+      bounds: placedBounds,
+      viewport,
       layer,
       visible: false,
       focusable: false,
@@ -63,8 +72,8 @@ function layoutNode(
       children: []
     };
   }
-  const childBounds = boundsForChildren(widget, bounds, theme);
-  const focusTargets = focusTargetsForRenderNode(widget, bounds, theme).map((target): LayoutFocusRegion => ({
+  const childBounds = boundsForChildren(widget, placedBounds, viewport, theme);
+  const focusTargets = focusTargetsForRenderNode(widget, placedBounds, theme).map((target): LayoutFocusRegion => ({
     id: target.id,
     bounds: target.bounds,
     ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
@@ -77,7 +86,8 @@ function layoutNode(
     ...(widget.id === undefined ? {} : { id: widget.id }),
     identity,
     kind: widget.kind,
-    bounds,
+    bounds: placedBounds,
+    viewport,
     layer,
     visible,
     focusable: focusTargets.some((target) => !target.disabled && target.bounds.width > 0 && target.bounds.height > 0),
@@ -86,7 +96,8 @@ function layoutNode(
     children: (widget.children ?? [])
       .map((child, index) => layoutNode(
         child,
-        childBounds[index] ?? emptyRect(bounds),
+        childBounds[index] ?? emptyRect(placedBounds),
+        viewport,
         theme,
         index,
         zIndex,
@@ -95,9 +106,9 @@ function layoutNode(
   };
 }
 
-function boundsForChildren(widget: RenderNode, bounds: Rect, theme: TerminalTheme): readonly Rect[] {
+function boundsForChildren(widget: RenderNode, bounds: Rect, viewport: Rect, theme: TerminalTheme): readonly Rect[] {
   const children = widget.children ?? [];
-  return children.length === 0 ? [] : layoutChildBounds(widget, bounds, theme);
+  return children.length === 0 ? [] : layoutChildBounds(widget, bounds, viewport, theme);
 }
 
 function emptyRect(bounds: Rect): Rect {

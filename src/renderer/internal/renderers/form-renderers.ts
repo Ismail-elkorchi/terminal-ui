@@ -38,6 +38,8 @@ import {
   selectAccessibleBase,
   selectAccessibleChildren,
   selectBlock,
+  selectHitTargets,
+  selectPopupBounds,
   sliderAccessibleBase,
   sliderBlock,
   sliderHitTargets,
@@ -152,15 +154,21 @@ export const formRenderers = {
     hitTargets: ({ renderNode, bounds }) => optionHitTargets(renderNode, bounds)
   },
   select: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, selectBlock(renderNode, layoutNode.bounds, theme));
+    layout: ({ renderNode, bounds, viewport }) => selectPopupBounds(renderNode, bounds, viewport),
+    render: (input) => {
+      writeRenderBlock(
+        input.buffer,
+        input.layoutNode.bounds,
+        selectBlock(input.renderNode, input.layoutNode.bounds, input.theme)
+      );
+      input.renderChildren();
     },
     accessibility: ({ renderNode, id, focused }) => ({
       ...selectAccessibleBase(renderNode, id, focused),
       children: selectAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ renderNode, bounds }) => optionHitTargets(renderNode, bounds)
+    hitTargets: ({ renderNode, layoutNode }) => selectHitTargets(renderNode, layoutNode)
   },
   colorSwatchPicker: {
     render: ({ renderNode, layoutNode, buffer }) => {

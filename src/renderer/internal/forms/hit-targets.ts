@@ -5,7 +5,7 @@ import type { Rect } from '../../model/layout.ts';
 import type { HitTarget } from '../../model/renderer.ts';
 
 type ActivationControlNode<TMessage> = RenderNodesOfKind<TMessage, 'button' | 'checkbox' | 'toggleSwitch'>;
-type OptionControlNode<TMessage> = RenderNodesOfKind<TMessage, 'radioGroup' | 'select'>;
+type OptionControlNode<TMessage> = RenderNodeOfKind<TMessage, 'radioGroup'>;
 type CheckboxGroupNode<TMessage> = RenderNodeOfKind<TMessage, 'checkboxGroup'>;
 type SliderNode<TMessage> = RenderNodeOfKind<TMessage, 'slider'>;
 type RangeSliderNode<TMessage> = RenderNodeOfKind<TMessage, 'rangeSlider'>;
@@ -21,9 +21,9 @@ import {
   pickerOptionRowOffset
 } from './support/pickers.ts';
 import {
-  rangeForClick,
-  rangeSliderMessageFactory,
+  rangeSliderActionMessageFactory,
   rangeSliderModel,
+  rangeSliderPointerAction,
   sliderMessageFactory,
   sliderModel,
   sliderValues
@@ -111,20 +111,27 @@ export function sliderHitTargets<TMessage>(widget: SliderNode<TMessage>, bounds:
 }
 
 export function rangeSliderHitTargets<TMessage>(widget: RangeSliderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  const toMessage = rangeSliderMessageFactory(widget);
-  if (toMessage === undefined) return [];
+  const toMessage = rangeSliderActionMessageFactory(widget);
+  if (toMessage === undefined || widget.props.disabled === true) return [];
   const model = rangeSliderModel(widget);
-  return sliderValues(model).map((value, index) => ({
-    id: `${widget.id ?? widget.kind}:value:${String(index)}`,
-    bounds: {
-      row: bounds.row,
-      column: bounds.column + labelPrefix(clean(stringify(widget.props.label))).length + index,
-      width: 1,
-      height: 1
+  const labelWidth = terminalTextWidth(labelPrefix(clean(stringify(widget.props.label))));
+  const trackBounds = {
+    row: bounds.row,
+    column: bounds.column + labelWidth,
+    width: Math.min(model.width, Math.max(0, bounds.width - labelWidth)),
+    height: Math.min(1, bounds.height)
+  };
+  if (trackBounds.width <= 0 || trackBounds.height <= 0) return [];
+  return [{
+    id: `${widget.id ?? widget.kind}:track`,
+    bounds: trackBounds,
+    accepts: ['pointerDown', 'dragStart', 'drag'],
+    message: (event) => {
+      const action = rangeSliderPointerAction(event, model, trackBounds);
+      return action === undefined ? undefined : toMessage(action);
     },
-    message: () => toMessage(rangeForClick(model, value)),
     cursor: 'pointer'
-  }));
+  }];
 }
 
 export function numberInputHitTargets<TMessage>(

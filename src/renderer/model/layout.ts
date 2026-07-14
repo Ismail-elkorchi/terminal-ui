@@ -26,6 +26,7 @@ export interface LayoutNode {
   readonly identity: string;
   readonly kind: RenderNodeKind;
   readonly bounds: Rect;
+  readonly viewport: Rect;
   readonly layer: Layer;
   readonly visible: boolean;
   readonly focusable: boolean;

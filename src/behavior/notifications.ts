@@ -1,4 +1,7 @@
-import type { NotificationStackAction } from '../ui-model/notification-stack.ts';
+import type {
+  NotificationStackAction,
+  NotificationStackPresentation
+} from '../ui-model/notification-stack.ts';
 import type { NotificationItem, NotificationTone } from '../ui-model/feedback.ts';
 import { sanitizeTerminalText } from '../text/index.ts';
 
@@ -84,14 +87,21 @@ export interface NotificationPolicy {
   readonly maxHistory?: number;
 }
 
-export interface NotificationPresentation {
-  readonly items: readonly NotificationItem[];
-  readonly selected?: string;
-}
-
-export interface NotificationPresentationOptions {
+interface NotificationPresentationOptionsBase {
   readonly now?: number;
 }
+
+export interface LiveNotificationPresentationOptions extends NotificationPresentationOptionsBase {
+  readonly mode: 'live';
+}
+
+export interface NotificationHistoryPresentationOptions extends NotificationPresentationOptionsBase {
+  readonly mode: 'history';
+}
+
+export type NotificationPresentationOptions =
+  | LiveNotificationPresentationOptions
+  | NotificationHistoryPresentationOptions;
 
 export function createNotificationState(): NotificationState {
   return { active: [], queued: [], history: [] };
@@ -151,8 +161,16 @@ export function notificationActionFromStack(
 
 export function notificationPresentation(
   state: NotificationState,
-  options: NotificationPresentationOptions = {}
-): NotificationPresentation {
+  options: LiveNotificationPresentationOptions
+): Extract<NotificationStackPresentation, { readonly kind: 'live' }>;
+export function notificationPresentation(
+  state: NotificationState,
+  options: NotificationHistoryPresentationOptions
+): Extract<NotificationStackPresentation, { readonly kind: 'history' }>;
+export function notificationPresentation(
+  state: NotificationState,
+  options: NotificationPresentationOptions
+): NotificationStackPresentation {
   const items = state.active.map((record): NotificationItem => ({
     id: record.id,
     title: record.title,
@@ -162,10 +180,13 @@ export function notificationPresentation(
     dismissible: record.dismissible,
     ...notificationDetail(record, options.now)
   }));
-  return {
-    items,
-    ...(state.selected === undefined ? {} : { selected: state.selected })
-  };
+  return options.mode === 'live'
+    ? { kind: 'live', items }
+    : {
+        kind: 'history',
+        items,
+        ...(state.selected === undefined ? {} : { selected: state.selected })
+      };
 }
 
 export function nextNotificationExpiry(state: NotificationState): number | undefined {

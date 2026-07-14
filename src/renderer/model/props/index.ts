@@ -123,7 +123,7 @@ export interface RenderNodePropsByKind<TMessage> {
   readonly grid: GridRenderProps;
   readonly splitPane: SplitPaneRenderProps<TMessage>;
   readonly tabs: TabsRenderProps<TMessage>;
-  readonly dialog: DialogRenderProps;
+  readonly dialog: DialogRenderProps<TMessage>;
   readonly custom: Record<never, never>;
 }
 

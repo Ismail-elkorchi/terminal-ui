@@ -78,7 +78,9 @@ export interface TableRenderProps<TMessage> {
 
 export interface ListRenderItem {
   readonly id: string;
-  readonly value: unknown;
+  readonly label: string;
+  readonly description?: string;
+  readonly keywords?: readonly string[];
   readonly disabled: boolean;
 }
 

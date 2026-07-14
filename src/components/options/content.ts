@@ -3,7 +3,7 @@ import type { InlineContent } from '../../visual/inline-content.ts';
 import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { TextPointerEvent } from '../../interaction/text-pointer.ts';
-import type { ListAction } from '../../ui-model/list.ts';
+import type { ListAction, ListItemProjector } from '../../ui-model/list.ts';
 import type { TableAction, TableSortState } from '../../ui-model/table.ts';
 import type { TreeAction, TreeNode } from '../../ui-model/tree.ts';
 import type { PaginatorAction } from '../../ui-model/paginator.ts';
@@ -36,13 +36,12 @@ export interface RichTextOptions extends ElementOptions<TextStylePart> {
 
 export interface ListOptions<TValue, TMessage> extends InteractiveElementOptions<DataListStylePart, TMessage> {
   readonly items: readonly TValue[];
-  readonly getItemId: (value: TValue, index: number) => string;
+  readonly projectItem: ListItemProjector<TValue>;
   readonly selectedId?: string;
   readonly filterQuery?: string;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly isDisabled?: (value: TValue, index: number) => boolean;
   readonly onAction?: (action: ListAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }

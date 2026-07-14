@@ -12,6 +12,7 @@ import {
   dataWindow,
   listReducer,
   paginationWindow,
+  tableReducer,
   treeReducer
 } from '../../dist/behavior/index.js';
 import {
@@ -90,7 +91,7 @@ test('dataWindow keeps selected rows visible and preserves explicit scroll windo
 
 test('list widget filters items and can use explicit shared scroll state', () => {
   const frame = renderElementFrame(list({
-    getItemId: (item) => String(item),
+    projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'filtered-list',
     items: ['alpha', 'bravo', 'charlie', 'delta'],
     filterQuery: 'a',
@@ -106,14 +107,14 @@ test('list widget filters items and can use explicit shared scroll state', () =>
 
 test('list widget exposes source-aware row values matches and empty filter state', () => {
   const frame = renderElementFrame(list({
-    getItemId: (item) => String(item),
+    projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'items',
     items: ['Atlas', 'Pulse'],
     selectedId: 'Atlas',
     filterQuery: 'at'
   }), { columns: 24, rows: 2 });
   const emptyFrame = renderElementFrame(list({
-    getItemId: (item) => String(item),
+    projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'empty-items',
     items: [],
     filterQuery: 'missing'
@@ -126,9 +127,33 @@ test('list widget exposes source-aware row values matches and empty filter state
   assert.match(renderFramePlain(emptyFrame), /No matching items/u);
 });
 
+test('list projects object values once for visible text filtering and accessibility', () => {
+  const frame = renderElementFrame(list({
+    id: 'object-list',
+    items: [
+      { key: 'atlas', title: 'Atlas', detail: 'Primary workspace', aliases: ['north'] },
+      { key: 'pulse', title: 'Pulse', detail: 'Telemetry workspace', aliases: ['metrics'] }
+    ],
+    projectItem: (item) => ({
+      id: item.key,
+      label: item.title,
+      description: item.detail,
+      keywords: item.aliases
+    }),
+    filterQuery: 'metrics'
+  }), { columns: 32, rows: 3 });
+
+  const output = renderFramePlain(frame);
+  assert.match(output, /Pulse/u);
+  assert.match(output, /Telemetry workspace/u);
+  assert.doesNotMatch(output, /\[object Object\]/u);
+  assert.equal(frame.accessibility.root.children?.[0]?.label, 'Pulse');
+  assert.equal(frame.accessibility.root.children?.[0]?.description, 'Telemetry workspace');
+});
+
 test('list cursor and mouse hit targets use the filtered visible rows', async () => {
   const frame = renderElementFrame(list({
-    getItemId: (item) => String(item),
+    projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'clickable-list',
     items: ['alpha', 'bravo', 'charlie', 'delta'],
     filterQuery: 'br',
@@ -149,7 +174,7 @@ test('list cursor and mouse hit targets use the filtered visible rows', async ()
       state: { selected: message.action.id }
     }),
     view: () => list({
-    getItemId: (item) => String(item),
+    projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'clickable-list',
       items: ['alpha', 'bravo'],
       onAction: (action) => ({ kind: 'chosen', action })
@@ -167,18 +192,18 @@ test('list cursor and mouse hit targets use the filtered visible rows', async ()
 
 test('list selection uses stable identity across reorder, filter, insertion, and deletion', () => {
   const items = ['alpha', 'bravo', 'charlie'];
-  const getItemId = (item) => item;
-  const selected = listReducer({}, { kind: 'select', id: 'bravo', index: 1 }, { items, getItemId });
+  const projectItem = (item) => ({ id: item, label: item });
+  const selected = listReducer({}, { kind: 'select', id: 'bravo', index: 1 }, { items, projectItem });
   const reordered = [items[2], items[1], items[0]];
-  const moved = listReducer(selected, { kind: 'move', delta: 1 }, { items: reordered, getItemId });
+  const moved = listReducer(selected, { kind: 'move', delta: 1 }, { items: reordered, projectItem });
   const inserted = ['delta', ...reordered];
   const filtered = listReducer(selected, { kind: 'move', delta: 1 }, {
     items: inserted,
-    getItemId,
+    projectItem,
     filterQuery: 'bravo'
   });
   const deleted = inserted.filter((item) => item !== 'bravo');
-  const recovered = listReducer(selected, { kind: 'move', delta: 1 }, { items: deleted, getItemId });
+  const recovered = listReducer(selected, { kind: 'move', delta: 1 }, { items: deleted, projectItem });
 
   assert.equal(selected.selectedId, 'bravo');
   assert.equal(moved.selectedId, 'alpha');
@@ -190,7 +215,7 @@ test('list and table reject empty or duplicate stable ids at authoring time', ()
   assert.throws(() => list({
     id: 'duplicate-list',
     items: ['alpha', 'alpha'],
-    getItemId: (item) => item
+    projectItem: (item) => ({ id: item, label: item })
   }), /ids must be unique/u);
   assert.throws(() => table({
     id: 'empty-table-id',
@@ -488,6 +513,92 @@ test('table headers can expose a visible resize affordance without changing redu
   }), { columns: 24, rows: 2 });
 
   assert.match(renderFramePlain(frame), /Name ↔/u);
+});
+
+test('table header capabilities share geometry across keyboard, click, and captured resize drag', async () => {
+  const rows = [['Atlas', 89], ['Pulse', 92]];
+  const columns = [
+    {
+      id: 'name',
+      value: (row) => row[0],
+      header: 'Name',
+      width: 8,
+      sortable: true,
+      resizable: true
+    },
+    { id: 'score', value: (row) => row[1], header: 'Score', width: 6 }
+  ];
+  const reducerOptions = {
+    rows,
+    getRowId: (_row, index) => String(index),
+    columnCount: columns.length,
+    minColumnWidth: 3
+  };
+  const app = defineTui({
+    id: 'table-header-interaction',
+    init: () => ({ selectedRowId: '0', selectedColumn: 0, columnWidths: { name: 8 } }),
+    update: (state, message) => ({
+      state: tableReducer(state, message.action, reducerOptions)
+    }),
+    view: (state) => table({
+      id: 'metrics',
+      rows,
+      getRowId: reducerOptions.getRowId,
+      columns,
+      selectedRowId: state.selectedRowId,
+      selectedCell: { rowId: state.selectedRowId, column: state.selectedColumn },
+      sort: state.sort,
+      columnWidths: state.columnWidths,
+      onAction: (action) => ({ action })
+    })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 4 } }),
+    initialFocusPath: ['metrics']
+  });
+
+  await runtime.start();
+  await runtime.handleInput({ kind: 'key', key: 'space' });
+  assert.deepEqual(runtime.getState()?.sort, { column: 'name', direction: 'ascending' });
+  await runtime.handleInput({ kind: 'key', key: 'arrowRight', alt: true });
+  assert.equal(runtime.getState()?.columnWidths?.name, 9);
+
+  const sortTarget = runtime.frame()?.hitTargets?.find((target) => target.id === 'metrics:header:name:sort');
+  const resizeTarget = runtime.frame()?.hitTargets?.find((target) => target.id === 'metrics:header:name:resize');
+  assert.ok(sortTarget);
+  assert.ok(resizeTarget);
+  assert.equal(sortTarget.bounds.row, resizeTarget.bounds.row);
+  assert.equal(resizeTarget.bounds.column, sortTarget.bounds.column + sortTarget.bounds.width - 1);
+
+  await runtime.handleInput(mousePress(sortTarget.bounds.row, sortTarget.bounds.column));
+  await runtime.handleInput(mouseRelease(sortTarget.bounds.row, sortTarget.bounds.column));
+  assert.deepEqual(runtime.getState()?.sort, { column: 'name', direction: 'descending' });
+
+  await runtime.handleInput(mousePress(resizeTarget.bounds.row, resizeTarget.bounds.column));
+  await runtime.handleInput({
+    ...mousePress(resizeTarget.bounds.row, resizeTarget.bounds.column + 2),
+    action: 'drag',
+    rawCode: 32
+  });
+  assert.equal(runtime.getState()?.columnWidths?.name, 11);
+
+  await runtime.dispose();
+});
+
+test('table headers emit no command targets without explicit column capabilities', () => {
+  const frame = renderElementFrame(table({
+    id: 'passive-headers',
+    rows: [['Atlas', 89]],
+    getRowId: () => 'atlas',
+    columns: [
+      { id: 'name', value: (row) => row[0], header: 'Name', width: 8 },
+      { id: 'score', value: (row) => row[1], header: 'Score', width: 6 }
+    ],
+    onAction: (action) => ({ action })
+  }), { columns: 24, rows: 3 });
+
+  assert.equal(frame.hitTargets?.some((target) => target.id.includes(':header:')), false);
 });
 
 test('table and paginator compose explicitly over a bounded page', () => {

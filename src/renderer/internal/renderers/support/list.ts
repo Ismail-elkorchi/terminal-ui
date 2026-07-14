@@ -14,6 +14,8 @@ import type { RenderBlock, RenderLine } from '../../../../visual/render.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
 import type { ListAction } from '../../../../ui-model/list.ts';
 import { interactionVisualState, renderNodeTargetId } from '../../pointer-presentation.ts';
+import { measureBlock } from '../../measurement.ts';
+import type { Measurement } from '../../../model/measurement.ts';
 
 type ListNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'list'>;
 
@@ -92,7 +94,7 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
               ...(state === undefined ? {} : { state })
             })
           ),
-          ...dataValueSpans(clean(String(entry.value)), query, style, {
+          ...dataValueSpans(entry.label, query, style, {
             source: dataSource(widget, `item.${entry.id}.value`, {
               itemId: entry.id,
               itemIndex,
@@ -100,11 +102,25 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
             }),
             matchSource: dataSource(widget, `item.${entry.id}.match`, { itemId: entry.id, itemIndex, state: 'match' }),
             ...(matchStyle === undefined ? {} : { matchStyle })
-          })
+          }),
+          ...(entry.description === undefined ? [] : [dataSpan(
+            ` · ${entry.description}`,
+            resolveRenderNodeStyle(widget, { part: 'description', base: themeStyle('text.muted', { dim: true }) }),
+            dataSource(widget, `item.${entry.id}.description`, {
+              itemId: entry.id,
+              itemIndex,
+              ...(state === undefined ? {} : { state })
+            })
+          )])
         ]
       };
     })
   };
+}
+
+export function listIntrinsicMeasurement(widget: ListNode, theme: TerminalTheme): Measurement {
+  const rowCount = Math.max(1, filteredListItems(widget).length);
+  return measureBlock(listBlock(widget, rowCount, theme));
 }
 
 export function listAccessibleNode(widget: ListNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
@@ -128,7 +144,8 @@ export function listAccessibleChildren(widget: ListNode, node: LayoutNode): read
   return window.rows.map((entry) => ({
       id: listOptionTargetId(widget, entry.id),
       role: 'option',
-      label: String(entry.value),
+      label: entry.label,
+      ...(entry.description === undefined ? {} : { description: entry.description }),
       selected: entry.id === selectedId,
       disabled: entry.disabled
     }));
@@ -176,7 +193,9 @@ export function listHitTargets<TMessage>(widget: ListNode<TMessage>, bounds: Rec
 
 interface ListEntry {
   readonly id: string;
-  readonly value: unknown;
+  readonly label: string;
+  readonly description?: string;
+  readonly keywords: readonly string[];
   readonly index: number;
   readonly disabled: boolean;
 }
@@ -184,11 +203,22 @@ interface ListEntry {
 function filteredListItems(widget: ListNode): readonly ListEntry[] {
   const items = Array.isArray(widget.props.items) ? widget.props.items : [];
   const query = filterQuery(widget).toLocaleLowerCase();
-  return items.flatMap((item, index): readonly ListEntry[] =>
-    !isListRenderItem(item) || (query.length > 0 && !String(item.value).toLocaleLowerCase().includes(query))
-      ? []
-      : [{ id: item.id, value: item.value, index, disabled: item.disabled }]
-  );
+  return items.flatMap((item, index): readonly ListEntry[] => {
+    if (!isListRenderItem(item)) return [];
+    const entry = {
+      id: clean(item.id),
+      label: clean(item.label),
+      ...(item.description === undefined ? {} : { description: clean(item.description) }),
+      keywords: (item.keywords ?? []).map(clean),
+      index,
+      disabled: item.disabled
+    };
+    const searchText = [entry.label, entry.description, ...entry.keywords]
+      .filter((value): value is string => value !== undefined)
+      .join(' ')
+      .toLocaleLowerCase();
+    return query.length > 0 && !searchText.includes(query) ? [] : [entry];
+  });
 }
 
 function filterQuery(widget: ListNode): string {
@@ -223,7 +253,8 @@ function isListRenderItem(value: unknown): value is import('../../../model/props
     && value !== null
     && 'id' in value
     && typeof value.id === 'string'
-    && 'value' in value
+    && 'label' in value
+    && typeof value.label === 'string'
     && 'disabled' in value
     && typeof value.disabled === 'boolean';
 }

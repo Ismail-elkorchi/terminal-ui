@@ -1,3 +1,5 @@
+export type * from './anchored-surface.ts';
+export { placeAnchoredSurface } from './anchored-surface.ts';
 export type * from './focus.ts';
 export type * from './pointer-presentation.ts';
 export { pointerVisualState } from './pointer-presentation.ts';

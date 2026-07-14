@@ -110,11 +110,11 @@ function withScope(base: AccessibleNode, widget: RenderNode): AccessibleNode {
       ...base,
       scope: {
         kind: 'popover',
-        ...(widget.focus?.scope === 'contain' ? { trapsFocus: true } : {})
+        ...(widget.focus?.scope?.kind === 'contain' ? { trapsFocus: true } : {})
       }
     };
   }
-  if (widget.focus?.scope === 'contain') {
+  if (widget.focus?.scope?.kind === 'contain') {
     return {
       ...base,
       scope: {

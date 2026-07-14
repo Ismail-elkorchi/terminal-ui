@@ -1,16 +1,24 @@
-import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../../interaction/scroll.ts';
+import type { ScrollEvent, ScrollPolicy } from '../../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../../interaction/scrollbar.ts';
 import type { BorderOptions } from '../../../visual/border.ts';
+import type { AnchoredSurfacePlacement } from '../../../interaction/anchored-surface.ts';
 import type {
+  ContextMenuAction,
   DividerLineKind,
   DividerOrientation,
   DropdownMenuAction,
-  DropdownMenuPresentation,
   MenuAction,
+  MenuBarAction,
   MenuItem,
-  TooltipPlacement,
+  TooltipPresentation,
   TooltipTone
 } from '../../../ui-model/menu.ts';
+import type {
+  ContextMenuPresentation,
+  DropdownMenuPresentation,
+  MenuBarPresentation,
+  MenuPresentation
+} from '../../../behavior/menu.ts';
 
 export interface RenderMenuItem extends Omit<MenuItem, 'children'> {
   readonly children?: readonly RenderMenuItem[];
@@ -18,9 +26,8 @@ export interface RenderMenuItem extends Omit<MenuItem, 'children'> {
 
 interface MenuCollectionRenderProps<TMessage> {
   readonly items: readonly RenderMenuItem[];
-  readonly selected?: string;
+  readonly presentation: MenuPresentation;
   readonly emptyText?: string;
-  readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
   readonly toScrollMessage?: (event: ScrollEvent) => TMessage;
@@ -32,19 +39,26 @@ export interface MenuRenderProps<TMessage> extends MenuCollectionRenderProps<TMe
 
 export interface MenuBarRenderProps<TMessage> {
   readonly items: readonly RenderMenuItem[];
-  readonly selected?: string;
-  readonly toActionMessage?: (action: MenuAction) => TMessage;
+  readonly presentation: MenuBarPresentation;
+  readonly maxVisibleItems: number;
+  readonly toActionMessage?: (action: MenuBarAction) => TMessage;
 }
 
-export interface ContextMenuRenderProps<TMessage> extends MenuCollectionRenderProps<TMessage> {
+export interface ContextMenuRenderProps<TMessage> {
+  readonly presentation: ContextMenuPresentation;
   readonly title?: string;
-  readonly toActionMessage?: (action: MenuAction) => TMessage;
+  readonly placement?: AnchoredSurfacePlacement;
+  readonly maxVisibleItems: number;
+  readonly toActionMessage?: (action: ContextMenuAction) => TMessage;
 }
 
-export interface DropdownMenuRenderProps<TMessage> extends MenuCollectionRenderProps<TMessage> {
+export interface DropdownMenuRenderProps<TMessage> {
+  readonly items: readonly RenderMenuItem[];
   readonly label?: string;
   readonly presentation: DropdownMenuPresentation;
   readonly placeholder?: string;
+  readonly placement?: AnchoredSurfacePlacement;
+  readonly maxVisibleItems: number;
   readonly toDropdownMenuActionMessage?: (action: DropdownMenuAction) => TMessage;
 }
 
@@ -57,9 +71,10 @@ export interface DividerRenderProps {
 
 export interface TooltipRenderProps {
   readonly content: string | readonly string[];
+  readonly presentation: TooltipPresentation;
   readonly title?: string;
   readonly tone?: TooltipTone;
-  readonly placement?: TooltipPlacement;
+  readonly placement?: AnchoredSurfacePlacement;
   readonly maxWidth?: number;
   readonly border?: BorderOptions;
 }

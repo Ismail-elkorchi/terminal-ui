@@ -5,7 +5,8 @@ import {
   resolveTerminalCapabilities } from '../../dist/host/index.js';
 import { createVisualSnapshot } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
-import { placeTooltip,
+import { placeAnchoredSurface } from '../../dist/interaction/index.js';
+import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
@@ -14,6 +15,7 @@ import { tooltip } from '../../dist/components/index.js';
 test('tooltip renders bounded popover content with semantic surface tokens', () => {
   const frame = renderElementFrame(tooltip({
     id: 'tip',
+    presentation: { kind: 'visible', anchor: { kind: 'cursor', row: 1, column: 1 } },
     title: 'Hint',
     content: ['Use Enter', 'Press Esc'],
     tone: 'info'
@@ -21,10 +23,9 @@ test('tooltip renders bounded popover content with semantic surface tokens', () 
   const output = renderFramePlain(frame);
   const border = frame.cells.find((cell) => cell.source?.role === 'border');
   const content = frame.cells.find((cell) => cell.text === 'U');
-  const background = frame.cells.find((cell) => cell.source?.ownerKind === 'tooltip' && cell.source.part === 'background');
-  const shadow = frame.cells.find((cell) => cell.source?.ownerKind === 'tooltip' && cell.source.part === 'shadow');
   const highContrastFrame = renderElementFrame(tooltip({
     id: 'tip-hc',
+    presentation: { kind: 'visible', anchor: { kind: 'cursor', row: 1, column: 1 } },
     title: 'Hint',
     content: ['Use Enter', 'Press Esc'],
     tone: 'info'
@@ -38,14 +39,29 @@ test('tooltip renders bounded popover content with semantic surface tokens', () 
   assert.match(output, /Use Enter/u);
   assert.deepEqual(border?.style?.fg, { kind: 'theme', token: 'surface.selected.border' });
   assert.deepEqual(content?.style?.fg, { kind: 'theme', token: 'text.default' });
-  assert.deepEqual(background?.source, tooltipSource('tip', 'decoration', 'background'));
   assert.deepEqual(content?.source, tooltipSource('tip', 'text', 'content.0', 'content'));
-  assert.deepEqual(shadow?.source, tooltipSource('tip', 'decoration', 'shadow'));
-  assert.equal(highContrastFrame.cells.some((cell) => cell.source?.ownerKind === 'tooltip' && cell.source.part === 'shadow'), true);
   assert.match(noColor.plainTextFrame, /Hint/u);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
   assert.equal(frame.accessibility.root.scope?.kind, 'popover');
   assert.equal(frame.accessibility.root.live, 'polite');
+});
+
+test('tooltip visibility and anchor determine painted geometry', () => {
+  const hidden = renderElementFrame(tooltip({
+    id: 'hidden-tip',
+    content: 'Hidden',
+    presentation: { kind: 'hidden' }
+  }), { columns: 20, rows: 6 });
+  const visible = renderElementFrame(tooltip({
+    id: 'visible-tip',
+    content: 'Visible',
+    presentation: { kind: 'visible', anchor: { kind: 'cursor', row: 5, column: 18 } },
+    placement: 'below'
+  }), { columns: 20, rows: 6 });
+
+  assert.equal(hidden.cells.length, 0);
+  assert.match(renderFramePlain(visible), /Visible/u);
+  assert.equal(visible.cells.every((cell) => cell.row >= 1 && cell.row <= 6 && cell.column >= 1 && cell.column <= 20), true);
 });
 
 function tooltipSource(ownerId, role, label, partKind = label) {
@@ -65,26 +81,45 @@ test('tooltip placement flips and clamps inside viewport', () => {
   const targetNearBottom = { row: 9, column: 8, width: 4, height: 1 };
   const targetNearRight = { row: 3, column: 28, width: 2, height: 1 };
 
-  assert.deepEqual(placeTooltip({
+  assert.deepEqual(placeAnchoredSurface({
     viewport,
-    target: targetNearBottom,
+    anchor: { kind: 'target', bounds: targetNearBottom },
     size: { width: 8, height: 3 },
     placement: 'below'
   }), { row: 5, column: 8, width: 8, height: 3 });
 
-  assert.deepEqual(placeTooltip({
+  assert.deepEqual(placeAnchoredSurface({
     viewport,
-    target: targetNearRight,
+    anchor: { kind: 'target', bounds: targetNearRight },
     size: { width: 8, height: 3 },
     placement: 'right'
   }), { row: 3, column: 19, width: 8, height: 3 });
 
-  assert.deepEqual(placeTooltip({
+  assert.deepEqual(placeAnchoredSurface({
     viewport,
-    target: { row: 1, column: 1, width: 1, height: 1 },
+    anchor: { kind: 'target', bounds: { row: 1, column: 1, width: 1, height: 1 } },
     size: { width: 40, height: 20 },
     placement: 'above'
   }), { row: 1, column: 1, width: 30, height: 10 });
+});
+
+test('anchored placement recomputes fallback and bounds after viewport resize', () => {
+  const anchor = { kind: 'target', bounds: { row: 8, column: 18, width: 3, height: 1 } };
+  const wide = placeAnchoredSurface({
+    viewport: { row: 1, column: 1, width: 30, height: 12 },
+    anchor,
+    size: { width: 10, height: 4 },
+    placement: 'below'
+  });
+  const narrow = placeAnchoredSurface({
+    viewport: { row: 1, column: 1, width: 20, height: 9 },
+    anchor,
+    size: { width: 10, height: 4 },
+    placement: 'below'
+  });
+
+  assert.deepEqual(wide, { row: 3, column: 18, width: 10, height: 4 });
+  assert.deepEqual(narrow, { row: 6, column: 11, width: 10, height: 4 });
 });
 
 function colorCapabilities() {

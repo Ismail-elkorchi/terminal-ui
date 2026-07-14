@@ -237,7 +237,12 @@ test('public renderer helpers accept authored component elements', () => {
       tabs: [{ id: 'main', label: 'Main', panel: text('x', { id: 'x' }) }]
     });
     const element = column([
-      dialog(panels, { id: 'dialog', title: 'Example' })
+      dialog(panels, {
+        id: 'dialog',
+        title: 'Example',
+        modal: true,
+        focusPolicy: { returnFocus: 'restore' }
+      })
     ], { id: 'root' });
     const frame = renderElementFrame(element, { columns: 10, rows: 3 });
     const layout = layoutElement(element, { columns: 10, rows: 3 });

@@ -20,7 +20,7 @@ import {
 test('notificationStack renders stacked status cards with semantic styles and accessibility', () => {
   const frame = renderElementFrame(notificationStack({
     id: 'notices',
-    items: [
+    presentation: { kind: 'history', items: [
       {
         id: 'deploy',
         title: 'Deploying',
@@ -30,10 +30,10 @@ test('notificationStack renders stacked status cards with semantic styles and ac
         detail: 'paused · ttl 5s'
       },
       { id: 'done', title: 'Saved', message: 'State stored', tone: 'success' }
-    ],
-    selected: 'deploy',
+    ], selected: 'deploy' },
     placement: 'top-right',
-    maxWidth: 28
+    maxWidth: 28,
+    onAction: (action) => action
   }), { columns: 48, rows: 14 });
   const output = renderFramePlain(frame);
   const border = frame.cells.find((cell) => cell.source?.role === 'border');
@@ -59,9 +59,10 @@ test('notificationStack renders stacked status cards with semantic styles and ac
   assert.equal(selectedMessage?.source?.role, 'text');
   assert.equal(selectedMeta?.source?.role, 'text');
   assert.equal(background?.source?.role, 'decoration');
-  assert.equal(frame.accessibility.root.role, 'status');
+  assert.equal(frame.accessibility.root.role, 'listbox');
   assert.equal(frame.accessibility.root.scope?.kind, 'popover');
   assert.equal(frame.accessibility.root.children?.length, 2);
+  assert.equal(frame.accessibility.root.children?.[0]?.role, 'option');
   assert.equal(frame.accessibility.root.children?.[0]?.selected, true);
   assert.match(frame.accessibility.root.children?.[0]?.description ?? '', /paused · ttl 5s/u);
 });
@@ -69,12 +70,12 @@ test('notificationStack renders stacked status cards with semantic styles and ac
 test('notificationStack middle-clips compact title and message lines', () => {
   const frame = renderElementFrame(notificationStack({
     id: 'notices',
-    items: [{
+    presentation: { kind: 'live', items: [{
       id: 'long-path',
       title: 'Opened /home/ismail-el-korchi/Documents/Projects/terminal-ui/src/accessibility/snapshot.ts',
       message: 'Stored /home/ismail-el-korchi/Documents/Projects/terminal-ui/src/accessibility/snapshot.ts',
       tone: 'success'
-    }],
+    }] },
     maxWidth: 32
   }), { columns: 42, rows: 8 });
   const output = renderFramePlain(frame);
@@ -83,17 +84,55 @@ test('notificationStack middle-clips compact title and message lines', () => {
   assert.match(output, /Stored \/home\/is…ty\/snapshot\.ts/u);
 });
 
-test('notificationStack can opt into focus explicitly', () => {
+test('notificationStack history is focusable and owns navigation bindings', () => {
   const frame = renderElementFrame(notificationStack({
     id: 'focusable-notices',
-    items: [{ id: 'a', title: 'Focusable' }],
-    keys: { enter: () => ({ kind: 'open' }) },
-    meta: {
-        focus: { disabled: false }
-    }
+    presentation: { kind: 'history', items: [{ id: 'a', title: 'Focusable' }], selected: 'a' },
+    onAction: (action) => action,
+    keys: { enter: () => ({ kind: 'open' }) }
 }), { columns: 32, rows: 8 });
 
   assert.deepEqual(frame.focusPath, ['focusable-notices']);
+});
+
+test('notificationStack live mode is a passive live region without selection targets', () => {
+  const widget = notificationStack({
+    id: 'live-notices',
+    presentation: { kind: 'live', items: [{ id: 'a', title: 'Passive', dismissible: false }] }
+  });
+  const frame = renderElementFrame(widget, { columns: 32, rows: 8 });
+
+  assert.equal(frame.focusPath, undefined);
+  assert.equal(frame.hitTargets?.length ?? 0, 0);
+  assert.equal(frame.accessibility.root.role, 'status');
+  assert.equal(frame.accessibility.root.live, 'polite');
+  assert.equal(frame.accessibility.root.children?.[0]?.role, 'status');
+});
+
+test('notificationStack live mode exposes pointer dismissal only for dismissible items', () => {
+  const widget = notificationStack({
+    id: 'live-notices',
+    presentation: {
+      kind: 'live',
+      items: [
+        { id: 'fixed', title: 'Fixed', dismissible: false },
+        { id: 'dismissible', title: 'Dismissible', dismissible: true }
+      ]
+    },
+    onDismiss: (id) => ({ kind: 'dismiss', id })
+  });
+  const frame = renderElementFrame(widget, { columns: 40, rows: 12 });
+  const targets = renderElementRegions(widget, { columns: 40, rows: 12 }).flatMap((region) => region.hitTargets);
+
+  assert.equal(frame.hitTargets?.some((target) => target.id.includes('fixed:dismiss')) ?? false, false);
+  const target = targets.find((candidate) => candidate.id.includes('dismissible:dismiss'));
+  assert.ok(target);
+  assert.deepEqual(target.message({
+    kind: 'click',
+    row: target.bounds.row,
+    column: target.bounds.column,
+    button: 'left'
+  }), { kind: 'dismiss', id: 'dismissible' });
 });
 
 test('placeNotificationStack supports top, bottom, and centered placement presets', () => {
@@ -131,7 +170,7 @@ test('notificationStack is constrained by its layout bounds', () => {
       main: text('Main content'),
       notices: notificationStack({
         id: 'notices',
-        items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
+        presentation: { kind: 'live', items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }] },
         maxWidth: 22
       })
     }
@@ -146,7 +185,7 @@ test('notificationStack is constrained by its layout bounds', () => {
 test('notificationStack skips cards when bounds cannot fit a viable card', () => {
   const frame = renderElementFrame(notificationStack({
     id: 'notices',
-    items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
+    presentation: { kind: 'live', items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }] },
     maxWidth: 24
   }), { columns: 28, rows: 2 });
   const notificationCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'notificationStack');
@@ -158,7 +197,7 @@ test('notificationStack skips cards when bounds cannot fit a viable card', () =>
 test('notificationStack exposes dismiss hit targets for placed cards', () => {
   const widget = notificationStack({
     id: 'notices',
-    items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }],
+    presentation: { kind: 'history', items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }], selected: 'saved' },
     maxWidth: 24,
     onAction: (action) => action
   });
@@ -179,15 +218,15 @@ test('notificationStack exposes dismiss hit targets for placed cards', () => {
 test('notificationStack keeps tone progress and selection meaningful in no color output', () => {
   const frame = renderElementFrame(notificationStack({
     id: 'notices',
-    items: [{
+    presentation: { kind: 'history', items: [{
       id: 'failure',
       title: 'Sync failed',
       message: 'Retry required',
       tone: 'error',
       progress: 75
-    }],
-    selected: 'failure',
-    maxWidth: 28
+    }], selected: 'failure' },
+    maxWidth: 28,
+    onAction: (action) => action
   }), { columns: 40, rows: 8 }, { theme: highContrastTheme });
   const highContrast = createVisualSnapshot({
     frame,

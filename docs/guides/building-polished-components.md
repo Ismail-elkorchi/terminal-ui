@@ -57,9 +57,13 @@ layers and receive pointer hits first. Modal or popover-like compositions can
 use focus containment without a special runtime mode.
 
 Transient feedback should be bounded by composition, not app roles. For
-example, mount `notificationStack()` inside an overlay child whose layout bounds
-are the area where notifications may appear. The stack places cards within
-those bounds and skips cards that cannot fit a minimum useful shape.
+example, mount a live `notificationStack()` inside an overlay child whose
+layout bounds are the area where notifications may appear. Live presentation
+is a passive accessibility region and may expose pointer dismissal for
+dismissible items. Use history presentation only when the application needs a
+focusable, selected, keyboard-navigable notification collection. The stack
+places cards within its bounds and skips cards that cannot fit a minimum useful
+shape.
 
 ## Renderer Extensions
 

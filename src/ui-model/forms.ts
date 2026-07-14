@@ -19,11 +19,6 @@ export interface NumericRange {
   readonly max: number;
 }
 
-export interface RangeSliderStepEvent {
-  readonly handle: 'start' | 'end';
-  readonly direction: SliderStepDirection;
-}
-
 export interface ColorSwatchPickerOption<TValue = string> extends ChoiceItem<TValue> {
   readonly swatch?: string;
   readonly style?: TerminalStyle;

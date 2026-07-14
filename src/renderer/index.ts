@@ -165,13 +165,7 @@ export type {
   NotificationStackPlacementInput,
   NotificationStackSize
 } from './internal/notifications.ts';
-export {
-  placeTooltip
-} from './internal/tooltip.ts';
-export type {
-  TooltipPlacementInput,
-  TooltipSize
-} from './internal/tooltip.ts';
+export type { TooltipSize } from './internal/tooltip.ts';
 export {
   compositeRegions,
   diffFrames,

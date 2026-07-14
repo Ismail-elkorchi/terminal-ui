@@ -6,6 +6,8 @@ import type {
   SelectAction
 } from '../ui-model/choice-controls.ts';
 import type { ColorSwatchPickerOption } from '../ui-model/forms.ts';
+import type { ScrollState } from '../interaction/scroll.ts';
+import { applyScrollEvent, scrollReducer } from './scroll.ts';
 import { adjacentItemId } from './navigation.ts';
 
 export interface CheckboxGroupState {
@@ -66,23 +68,64 @@ export function radioGroupPresentation(state: RadioGroupState): RadioGroupPresen
   return compactSingleChoice(state);
 }
 
-export interface SelectState {
-  readonly selected?: string;
-  readonly focused?: string;
-}
+export type SelectState = SelectPresentation;
 
-export type SelectPresentation = SelectState;
+export type SelectPresentation =
+  | { readonly kind: 'closed'; readonly selected?: string }
+  | {
+      readonly kind: 'open';
+      readonly selected?: string;
+      readonly highlighted?: string;
+      readonly scroll?: ScrollState;
+    };
 
 export function selectReducer<TValue>(
   state: SelectState,
   action: SelectAction,
   options: readonly ChoiceItem<TValue>[]
 ): SelectState {
-  return reduceSingleChoice(state, action, enabledIds(options));
+  const enabled = enabledIds(options);
+  switch (action.kind) {
+    case 'open': return state.kind === 'open' ? state : openSelect(state.selected, enabled);
+    case 'close': return closedSelect(state.selected);
+    case 'toggle': return state.kind === 'open' ? closedSelect(state.selected) : openSelect(state.selected, enabled);
+    case 'dismiss': return closedSelect(state.selected);
+    case 'highlight': return state.kind === 'open' && enabled.includes(action.id)
+      ? withSelectHighlight(state, action.id, options)
+      : state;
+    case 'move': {
+      if (state.kind === 'closed') return openSelect(state.selected, enabled, action.delta < 0 ? 'last' : 'first');
+      const highlighted = adjacentId(enabled, state.highlighted ?? state.selected, action.delta);
+      return highlighted === undefined ? state : withSelectHighlight(state, highlighted, options);
+    }
+    case 'first': {
+      if (state.kind === 'closed') return openSelect(state.selected, enabled);
+      const highlighted = enabled[0];
+      return highlighted === undefined ? state : withSelectHighlight(state, highlighted, options);
+    }
+    case 'last': {
+      if (state.kind === 'closed') return openSelect(state.selected, enabled);
+      const highlighted = enabled.at(-1);
+      return highlighted === undefined ? state : withSelectHighlight(state, highlighted, options);
+    }
+    case 'commit': return state.kind === 'open' && enabled.includes(action.id)
+      ? { kind: 'closed', selected: action.id }
+      : state;
+    case 'scroll': return state.kind === 'open' && state.scroll !== undefined
+      ? { ...state, scroll: applyScrollEvent(state.scroll, action.event) }
+      : state;
+  }
 }
 
 export function selectPresentation(state: SelectState): SelectPresentation {
-  return compactSingleChoice(state);
+  return state.kind === 'closed'
+    ? closedSelect(state.selected)
+    : {
+        kind: 'open',
+        ...(state.selected === undefined ? {} : { selected: state.selected }),
+        ...(state.highlighted === undefined ? {} : { highlighted: state.highlighted }),
+        ...(state.scroll === undefined ? {} : { scroll: state.scroll })
+      };
 }
 
 export interface ColorSwatchPickerState {
@@ -118,7 +161,7 @@ interface SingleChoiceState {
 
 function reduceSingleChoice(
   state: SingleChoiceState,
-  action: RadioGroupAction | SelectAction,
+  action: RadioGroupAction,
   enabled: readonly string[]
 ): SingleChoiceState {
   switch (action.kind) {
@@ -146,5 +189,40 @@ function compactSingleChoice(state: SingleChoiceState): SingleChoiceState {
   return {
     ...(state.selected === undefined ? {} : { selected: state.selected }),
     ...(state.focused === undefined ? {} : { focused: state.focused })
+  };
+}
+
+function openSelect(
+  selected: string | undefined,
+  enabled: readonly string[],
+  fallback: 'first' | 'last' = 'first'
+): SelectPresentation {
+  const highlighted = selected !== undefined && enabled.includes(selected)
+    ? selected
+    : fallback === 'last' ? enabled.at(-1) : enabled[0];
+  return {
+    kind: 'open',
+    ...(selected === undefined ? {} : { selected }),
+    ...(highlighted === undefined ? {} : { highlighted })
+  };
+}
+
+function closedSelect(selected: string | undefined): SelectPresentation {
+  return selected === undefined ? { kind: 'closed' } : { kind: 'closed', selected };
+}
+
+function withSelectHighlight<TValue>(
+  state: Extract<SelectPresentation, { readonly kind: 'open' }>,
+  highlighted: string,
+  options: readonly ChoiceItem<TValue>[]
+): SelectPresentation {
+  const index = options.findIndex((option) => option.id === highlighted);
+  const scroll = state.scroll === undefined || index < 0
+    ? state.scroll
+    : scrollReducer(state.scroll, { kind: 'itemIntoView', index });
+  return {
+    ...state,
+    highlighted,
+    ...(scroll === undefined ? {} : { scroll })
   };
 }

@@ -1,24 +1,30 @@
 import type { BorderOptions } from '../../visual/border.ts';
-import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
+import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
+import type { ScrollPolicy } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type {
+  ContextMenuAction,
   DividerLineKind,
   DividerOrientation,
   DropdownMenuAction,
-  DropdownMenuPresentation,
   MenuAction,
+  MenuBarAction,
   MenuItem,
-  TooltipPlacement,
+  TooltipPresentation,
   TooltipTone
 } from '../../ui-model/menu.ts';
+import type {
+  ContextMenuPresentation,
+  DropdownMenuPresentation,
+  MenuBarPresentation,
+  MenuPresentation
+} from '../../behavior/menu.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type { DividerStylePart, MenuStylePart, TooltipStylePart } from '../../ui-model/style-parts.ts';
 
 export interface MenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart, TMessage> {
-  readonly items: readonly MenuItem[];
-  readonly selected?: string;
+  readonly presentation: MenuPresentation;
   readonly emptyText?: string;
-  readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
   readonly onAction?: (action: MenuAction) => TMessage;
@@ -27,20 +33,23 @@ export interface MenuOptions<TMessage = never> extends InteractiveElementOptions
 
 export interface MenuBarOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart, TMessage> {
   readonly items: readonly MenuItem[];
-  readonly selected?: string;
-  readonly onAction?: (action: MenuAction) => TMessage;
+  readonly presentation: MenuBarPresentation;
+  readonly maxVisibleItems?: number;
+  readonly scrollbar?: ScrollbarOptions;
+  readonly scrollPolicy?: ScrollPolicy;
+  readonly onAction?: (action: MenuBarAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
 export interface ContextMenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart, TMessage> {
-  readonly items: readonly MenuItem[];
-  readonly selected?: string;
+  readonly presentation: ContextMenuPresentation;
   readonly title?: string;
   readonly emptyText?: string;
-  readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onAction?: (action: MenuAction) => TMessage;
+  readonly placement?: AnchoredSurfacePlacement;
+  readonly maxVisibleItems?: number;
+  readonly onAction?: (action: ContextMenuAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
@@ -49,6 +58,10 @@ export interface DropdownMenuOptions<TMessage = never> extends InteractiveElemen
   readonly items: readonly MenuItem[];
   readonly presentation: DropdownMenuPresentation;
   readonly placeholder?: string;
+  readonly placement?: AnchoredSurfacePlacement;
+  readonly maxVisibleItems?: number;
+  readonly scrollbar?: ScrollbarOptions;
+  readonly scrollPolicy?: ScrollPolicy;
   readonly onAction?: (action: DropdownMenuAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
@@ -62,17 +75,23 @@ export interface DividerOptions extends ElementOptions<DividerStylePart> {
 
 export interface TooltipOptions extends ElementOptions<TooltipStylePart> {
   readonly content: string | readonly string[];
+  readonly presentation: TooltipPresentation;
   readonly title?: string;
   readonly tone?: TooltipTone;
-  readonly placement?: TooltipPlacement;
+  readonly placement?: AnchoredSurfacePlacement;
   readonly maxWidth?: number;
   readonly border?: BorderOptions;
 }
 
 export type {
+  ContextMenuAction,
   DividerLineKind,
   DividerOrientation,
+  DropdownMenuAction,
+  MenuAction,
+  MenuBarAction,
   MenuItem,
-  TooltipPlacement,
+  TooltipPresentation,
   TooltipTone
 } from '../../ui-model/menu.ts';
+export type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';

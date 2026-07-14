@@ -62,7 +62,7 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
     select({
       id: 'region',
       label: 'Region',
-      selected: 'eu',
+      presentation: { kind: 'closed', selected: 'eu' },
       options: [
         { id: 'eu', label: 'Europe', value: 'eu' },
         { id: 'us', label: 'United States', value: 'us' }
@@ -95,6 +95,55 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
   assert.match(output, /4/u);
   assert.match(output, /\[ Continue \]/u);
   assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
+});
+
+test('open select renders a bounded popup with painted option targets only', () => {
+  const frame = renderElementFrame(select({
+    id: 'region',
+    label: 'Region',
+    presentation: { kind: 'open', selected: 'eu', highlighted: 'us' },
+    options: [
+      { id: 'eu', label: 'Europe', value: 'eu' },
+      { id: 'disabled', label: 'Unavailable', value: 'disabled', disabled: true },
+      { id: 'us', label: 'United States', value: 'us' }
+    ],
+    onAction: (action) => ({ kind: 'region', action })
+  }), { columns: 24, rows: 8 });
+  const output = renderFramePlain(frame);
+  const targetIds = frame.hitTargets?.map((target) => target.id) ?? [];
+
+  assert.match(output, /Region: Europe/u);
+  assert.match(output, /United States/u);
+  assert.deepEqual(targetIds, [
+    'region:outside',
+    'region:popup',
+    'region:trigger',
+    'region:popup:list:option:eu',
+    'region:popup:list:option:us'
+  ]);
+  assert.equal(frame.accessibility.root.role, 'combobox');
+  assert.equal(frame.accessibility.root.expanded, true);
+  assert.equal(frame.accessibility.root.value, 'Europe');
+  assert.equal(frame.accessibility.root.children?.[1]?.disabled, true);
+  assert.equal(frame.accessibility.root.children?.[2]?.focused, true);
+});
+
+test('closed select renders only its trigger and hides popup accessibility children', () => {
+  const frame = renderElementFrame(select({
+    id: 'region',
+    label: 'Region',
+    presentation: { kind: 'closed', selected: 'eu' },
+    options: [
+      { id: 'eu', label: 'Europe', value: 'eu' },
+      { id: 'us', label: 'United States', value: 'us' }
+    ],
+    onAction: (action) => ({ kind: 'region', action })
+  }), { columns: 24, rows: 4 });
+
+  assert.doesNotMatch(renderFramePlain(frame), /United States/u);
+  assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['region:trigger']);
+  assert.equal(frame.accessibility.root.expanded, false);
+  assert.deepEqual(frame.accessibility.root.children, []);
 });
 
 test('form fields expose label required description and validation source anatomy', () => {

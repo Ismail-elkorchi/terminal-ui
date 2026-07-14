@@ -52,6 +52,13 @@ test('activityFeedReducer selects visible items and wraps', () => {
   assert.equal(previous.selectedId, 'pending');
 });
 
+test('activityFeedReducer enters from the nearest edge when no selection exists', () => {
+  const state = { expandedIds: [], collapsedIds: [] };
+
+  assert.equal(activityFeedReducer(state, { kind: 'selectNext' }, { blocks }).selectedId, 'pending');
+  assert.equal(activityFeedReducer(state, { kind: 'selectPrevious' }, { blocks }).selectedId, 'error');
+});
+
 test('activityFeedReducer selects records by stable id and supports boundaries', () => {
   const selected = activityFeedReducer(initialState, { kind: 'select', id: 'success' }, { blocks });
   const first = activityFeedReducer(selected, { kind: 'selectFirst' }, { blocks });

@@ -6,7 +6,9 @@ import { createTuiEffectManager } from './effects.ts';
 import { completedExitFromSnapshot } from './exit.ts';
 import {
   findAnyLayoutFocusTarget,
+  activeFocusScopeRestores,
   findRenderNodeFocusTarget,
+  renderNodeKeyChainForFocus,
   nextFocusPath,
   previousFocusPath
 } from '../renderer/internal/focus.ts';
@@ -487,6 +489,7 @@ export function createTuiRuntime<TState, TMessage>(
       && render.frame.focusPath !== undefined
       && !sameFocusPath(render.frame.focusPath, requestedFocusPath)
       && findAnyLayoutFocusTarget(render.layout, requestedFocusPath) !== undefined
+      && activeFocusScopeRestores(render.layout)
       && !focusReturnPaths.some((path) => sameFocusPath(path, requestedFocusPath))
     ) {
       focusReturnPaths.push([...requestedFocusPath]);
@@ -532,8 +535,10 @@ export function createTuiRuntime<TState, TMessage>(
       if (mapped !== undefined) return mapped;
     }
     if (event.kind === 'paste') return focused?.renderNode.inputMap?.paste?.(event.text);
-    const focusedMessage = componentKeyMessage(focused?.renderNode.keyMap, event, currentFocusPath);
-    if (focusedMessage !== undefined) return focusedMessage;
+    for (const renderNode of renderNodeKeyChainForFocus(current.node, current.layout, currentFocusPath)) {
+      const focusedMessage = componentKeyMessage(renderNode.keyMap, event, currentFocusPath);
+      if (focusedMessage !== undefined) return focusedMessage;
+    }
     const keyText = textFromUnmappedKey(event);
     if (keyText !== undefined) {
       const mapped = focused?.renderNode.inputMap?.text?.(keyText);

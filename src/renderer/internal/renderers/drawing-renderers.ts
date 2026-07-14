@@ -11,6 +11,8 @@ import {
 import { dividerAccessibleBase, renderDivider } from '../divider.ts';
 import { drawSurfaceChrome } from '../surface.ts';
 import { renderTooltip, tooltipAccessibleBase } from '../tooltip.ts';
+import { placeAnchoredSurface } from '../../../interaction/anchored-surface.ts';
+import { tooltipPreferredSize } from '../tooltip.ts';
 import { focusTarget, hasKeyboardOrInputMap } from './support/common.ts';
 import type { RendererMap } from './types.ts';
 
@@ -51,8 +53,18 @@ export const drawingRenderers = {
     accessibility: ({ renderNode, id, focused }) => dividerAccessibleBase(renderNode, id, focused)
   },
   tooltip: {
+    place: ({ renderNode, viewport }) => renderNode.props.presentation.kind === 'hidden'
+      ? { row: viewport.row, column: viewport.column, width: 0, height: 0 }
+      : placeAnchoredSurface({
+          viewport,
+          anchor: renderNode.props.presentation.anchor,
+          size: tooltipPreferredSize(renderNode),
+          ...(renderNode.props.placement === undefined ? {} : { placement: renderNode.props.placement })
+        }),
     render: ({ renderNode, layoutNode, buffer, theme }) => {
-      renderTooltip(renderNode, buffer, layoutNode.bounds, theme);
+      if (renderNode.props.presentation.kind === 'visible') {
+        renderTooltip(renderNode, buffer, layoutNode.bounds, theme);
+      }
     },
     accessibility: ({ renderNode, id, focused }) => tooltipAccessibleBase(renderNode, id, focused)
   }

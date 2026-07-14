@@ -66,7 +66,7 @@ test('interactive identity, passive inputs, and component anatomy are enforced b
     // @ts-expect-error pointer press is controlled through pointer presentation
     button({ id: 'legacy-button-state', label: 'Save', state: 'pressed' });
     // @ts-expect-error range sliders retain the shared disabled control contract
-    rangeSlider({ id: 'invalid-range-state', value: { start: 1, end: 2 }, state: 'disabled' });
+    rangeSlider({ id: 'invalid-range-state', presentation: { value: { start: 1, end: 2 }, activeHandle: 'start' }, state: 'disabled' });
     // @ts-expect-error passive text cannot own local input bindings
     text('Passive', { keys: { enter: () => ({ kind: 'invalid' }) } });
     textInput({
@@ -80,6 +80,60 @@ test('interactive identity, passive inputs, and component anatomy are enforced b
       }
     });
   `, { name: 'component-capability-contracts' });
+
+  assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
+});
+
+test('feedback and dialog lifecycle modes are structurally explicit', () => {
+  const diagnostics = typecheckSource(`
+    import {
+      createNotificationState,
+      notificationPresentation
+    } from '@ismail-elkorchi/terminal-ui/behavior';
+    import {
+      dialog,
+      notificationStack,
+      statusBar,
+      text
+    } from '@ismail-elkorchi/terminal-ui/components';
+
+    statusBar({ id: 'status' });
+    const notifications = createNotificationState();
+    notificationStack({
+      id: 'live',
+      presentation: notificationPresentation(notifications, { mode: 'live' }),
+      onDismiss: (id) => ({ kind: 'dismiss' as const, id })
+    });
+    notificationStack({
+      id: 'history',
+      presentation: notificationPresentation(notifications, { mode: 'history' }),
+      onAction: (action) => ({ kind: 'notification' as const, action }),
+      keys: { home: () => ({ kind: 'home' as const }) }
+    });
+    dialog(text('Body'), {
+      id: 'dialog',
+      modal: true,
+      focusPolicy: { initialTargetId: 'confirm', returnFocus: 'restore' },
+      dismissal: {
+        escape: true,
+        outsidePress: false,
+        onDismiss: (reason) => ({ kind: 'dismiss' as const, reason })
+      }
+    });
+
+    // @ts-expect-error status bars require stable identity
+    statusBar({});
+    // @ts-expect-error passive live regions do not own local keyboard bindings
+    notificationStack({
+      id: 'invalid-live',
+      presentation: { kind: 'live', items: [] },
+      keys: { escape: () => ({ kind: 'invalid' as const }) }
+    });
+    // @ts-expect-error navigable history requires an action handler
+    notificationStack({ id: 'invalid-history', presentation: { kind: 'history', items: [] } });
+    // @ts-expect-error dialog modal policy is required
+    dialog(text('Body'), { id: 'implicit-dialog' });
+  `, { name: 'feedback-lifecycle-contracts' });
 
   assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
 });

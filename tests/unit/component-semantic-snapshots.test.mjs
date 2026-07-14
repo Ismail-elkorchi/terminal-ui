@@ -70,6 +70,12 @@ import {
   tree,
   toggleSwitch
 } from '../../dist/components/index.js';
+import {
+  contextMenuPresentation,
+  dropdownMenuPresentation,
+  menuBarPresentation,
+  menuPresentation
+} from '../../dist/behavior/index.js';
 
 const unsafe = 'Unsafe \u001B[31mred\u001B[0m text';
 const viewportNormal = { columns: 48, rows: 10 };
@@ -171,7 +177,7 @@ const cases = [
   {
     name: 'list',
     element: () => list({
-    getItemId: (item) => String(item),
+    projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'list',
       items: [unsafe, 'Second', 'Third'],
       selectedId: 'Second'
@@ -280,9 +286,9 @@ const cases = [
     element: () => rangeSlider({
       id: 'range-slider',
       label: unsafe,
-      value: { start: 2, end: 8 },
+      presentation: { value: { start: 2, end: 8 }, activeHandle: 'end' },
       range: { min: 0, max: 10 },
-      onChange: (value) => ({ kind: 'range', value })
+      onAction: (action) => ({ kind: 'range', action })
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
@@ -320,7 +326,7 @@ const cases = [
       id: 'select',
       label: 'Choice',
       options: optionItems,
-      selected: 'alpha',
+      presentation: { kind: 'closed', selected: 'alpha' },
       onAction: (action) => ({ kind: 'select', action })
     }),
     expectText: /Choice/u,
@@ -375,21 +381,21 @@ const cases = [
   },
   {
     name: 'menu',
-    element: () => menu({ id: 'menu', items: menuItems, selected: 'open', onAction: (action) => ({ kind: 'menu', action }) }),
+    element: () => menu({ id: 'menu', presentation: menuPresentation(menuItems, { activePath: ['open'] }), onAction: (action) => ({ kind: 'menu', action }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'menuBar',
-    element: () => menuBar({ id: 'menu-bar', items: menuItems, selected: 'open', onAction: (action) => ({ kind: 'menu', action }) }),
+    element: () => menuBar({ id: 'menu-bar', items: menuItems, presentation: menuBarPresentation(menuItems, { kind: 'closed', active: 'open' }), onAction: (action) => ({ kind: 'menu', action }) }),
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true
   },
   {
     name: 'contextMenu',
-    element: () => contextMenu({ id: 'context-menu', title: unsafe, items: menuItems, selected: 'save', onAction: (action) => ({ kind: 'menu', action }) }),
+    element: () => contextMenu({ id: 'context-menu', title: unsafe, presentation: contextMenuPresentation(menuItems, { kind: 'open', anchor: { kind: 'cursor', row: 1, column: 1 }, menu: { activePath: ['save'] } }), onAction: (action) => ({ kind: 'menu', action }) }),
     expectText: /Save/u,
     expectFocus: true,
     expectHitTargets: true
@@ -400,7 +406,7 @@ const cases = [
       id: 'dropdownMenu',
       label: unsafe,
       items: menuItems,
-      presentation: { kind: 'open', selected: 'save', highlighted: 'save' },
+      presentation: dropdownMenuPresentation(menuItems, { kind: 'open', active: 'save', menu: { activePath: ['save'] } }),
       onAction: (action) => ({ kind: 'dropdownMenu', action })
     }),
     expectText: /Save/u,
@@ -415,7 +421,7 @@ const cases = [
   },
   {
     name: 'tooltip',
-    element: () => tooltip({ id: 'tooltip', title: 'Hint', content: unsafe, tone: 'warning' }),
+    element: () => tooltip({ id: 'tooltip', title: 'Hint', content: unsafe, tone: 'warning', presentation: { kind: 'visible', anchor: { kind: 'cursor', row: 1, column: 1 } } }),
     expectText: /Unsafe red text/u,
     expectStyledCells: true
   },
@@ -484,9 +490,9 @@ const cases = [
     name: 'notificationStack',
     element: () => notificationStack({
       id: 'notifications',
-      items: [
+      presentation: { kind: 'live', items: [
         { id: 'warning', title: unsafe, message: 'Check route', tone: 'warning' }
-      ],
+      ] },
       maxWidth: 32
     }),
     expectText: /Unsafe red text/u,
@@ -635,6 +641,8 @@ const cases = [
     element: () => dialog(button({ id: 'dialog-button', label: 'Confirm', onPress: { kind: 'confirm' } }), {
       id: 'dialog',
       title: unsafe,
+      modal: true,
+      focusPolicy: { returnFocus: 'restore' },
       width: 24,
       height: 5
     }),

@@ -140,13 +140,23 @@ export function sliderAccessibleBase(widget: SliderNode, id: string, focused: bo
 
 export function rangeSliderAccessibleBase(widget: RangeSliderNode, id: string, focused: boolean): AccessibleNode {
   const model = rangeSliderModel(widget);
+  const label = clean(stringify(widget.props.label)) || id;
   return {
     id,
-    role: 'progressbar',
-    label: clean(stringify(widget.props.label)) || id,
+    role: 'group',
+    label,
     value: `${formatNumber(model.start)}-${formatNumber(model.end)}`,
     ...(widget.props.disabled === true ? { disabled: true } : {}),
-    ...(focused ? { focused } : {})
+    ...(focused ? { focused } : {}),
+    children: (['start', 'end'] as const).map((handle) => ({
+      id: `${id}:${handle}`,
+      role: 'progressbar',
+      label: `${label} ${handle}`,
+      value: formatNumber(handle === 'start' ? model.start : model.end),
+      selected: model.activeHandle === handle,
+      ...(widget.props.disabled === true ? { disabled: true } : {}),
+      ...(focused && model.activeHandle === handle ? { focused: true } : {})
+    }))
   };
 }
 
@@ -254,8 +264,9 @@ export function selectAccessibleBase(widget: SelectNode, id: string, focused: bo
   const description = fieldDescription(widget);
   return {
     id,
-    role: 'listbox',
+    role: 'combobox',
     label: labelWithRequired(clean(stringify(widget.props.label)), widget.props.required === true) || id,
+    expanded: widget.props.presentation.kind === 'open',
     ...(selected === undefined ? {} : { value: selected.label }),
     ...(description.length === 0 ? {} : { description }),
     ...(widget.props.disabled === true ? { disabled: true } : {}),
@@ -264,12 +275,15 @@ export function selectAccessibleBase(widget: SelectNode, id: string, focused: bo
 }
 
 export function selectAccessibleChildren(widget: SelectNode): readonly AccessibleNode[] {
+  if (widget.props.presentation.kind !== 'open') return [];
   const selected = selectedId(widget);
+  const highlighted = widget.props.presentation.highlighted;
   return formOptions(widget).map((option) => ({
     id: `${widget.id ?? 'select'}:${option.id}`,
     role: 'option',
     label: option.label,
     selected: option.id === selected,
+    ...(option.id === highlighted ? { focused: true } : {}),
     ...(option.description === undefined ? {} : { description: option.description }),
     ...(option.disabled === true || widget.props.disabled === true ? { disabled: true } : {})
   }));

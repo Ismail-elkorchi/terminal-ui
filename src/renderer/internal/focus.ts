@@ -94,6 +94,20 @@ export function findRenderNodeFocusTarget<TMessage>(
   return scopedFocusTargets(layout, collectRenderNodeFocusTargets(widget, layout)).find((target) => samePath(target.path, path));
 }
 
+export function renderNodeKeyChainForFocus<TMessage>(
+  renderNode: RenderNode<TMessage>,
+  layout: LayoutNode,
+  path: FocusPath | undefined
+): readonly RenderNode<TMessage>[] {
+  const focused = findRenderNodeFocusTarget(renderNode, layout, path);
+  if (focused === undefined || path === undefined) return [];
+  const ancestors = collectRenderNodeLayoutTargets(renderNode, layout)
+    .filter((target) => pathStartsWith(path, target.path))
+    .toSorted((left, right) => right.path.length - left.path.length)
+    .map((target) => target.renderNode);
+  return uniqueRenderNodes([focused.renderNode, ...ancestors]);
+}
+
 export function focusPathIncludes(left: FocusPath | undefined, right: FocusPath): boolean {
   return left !== undefined && samePath(left, right);
 }
@@ -220,6 +234,8 @@ interface FocusScope {
   readonly path: FocusPath;
   readonly layer: Layer;
   readonly sequence: number;
+  readonly initialTargetId?: string;
+  readonly restore: boolean;
 }
 
 function scopedFocusTargets<TTarget extends LayoutFocusTarget>(
@@ -235,14 +251,30 @@ function scopedFocusTargets<TTarget extends LayoutFocusTarget>(
   if (scoped.length === 0) return [];
   const activeLayer = activeScope?.layer.zIndex ?? Math.max(...scoped.map((target) => target.layer.zIndex));
   const layered = scoped.filter((target) => target.layer.zIndex === activeLayer);
-  return orderedFocusTargets(layered);
+  const ordered = orderedFocusTargets(layered);
+  if (activeScope?.initialTargetId === undefined) return ordered;
+  const preferred = ordered.findIndex((target) => target.path.includes(activeScope.initialTargetId ?? ''));
+  const preferredTarget = ordered[preferred];
+  return preferred <= 0 || preferredTarget === undefined
+    ? ordered
+    : [preferredTarget, ...ordered.slice(0, preferred), ...ordered.slice(preferred + 1)];
+}
+
+export function activeFocusScopeRestores(layout: LayoutNode): boolean {
+  return activeFocusScope(collectFocusScopes(layout))?.restore ?? true;
 }
 
 function collectFocusScopes(layout: LayoutNode, parentPath: FocusPath = [], sequence = { value: 0 }): readonly FocusScope[] {
   if (!layout.visible) return [];
   const path = [...parentPath, focusSegment(layout)];
-  const current = layout.focusScope === 'contain'
-    ? [{ path, layer: layout.layer, sequence: sequence.value }]
+  const current = layout.focusScope?.kind === 'contain'
+    ? [{
+        path,
+        layer: layout.layer,
+        sequence: sequence.value,
+        ...(layout.focusScope.initialTargetId === undefined ? {} : { initialTargetId: layout.focusScope.initialTargetId }),
+        restore: layout.focusScope.restore !== false
+      }]
     : [];
   sequence.value += 1;
   return [
@@ -274,4 +306,13 @@ function pathStartsWith(path: FocusPath, prefix: FocusPath): boolean {
 
 function samePath(left: FocusPath, right: FocusPath): boolean {
   return left.length === right.length && left.every((segment, index) => segment === right[index]);
+}
+
+function uniqueRenderNodes<TMessage>(nodes: readonly RenderNode<TMessage>[]): readonly RenderNode<TMessage>[] {
+  const seen = new Set<RenderNode<TMessage>>();
+  return nodes.filter((node) => {
+    if (seen.has(node)) return false;
+    seen.add(node);
+    return true;
+  });
 }

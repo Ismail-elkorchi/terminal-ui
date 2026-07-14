@@ -1,6 +1,6 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
 import { sanitizeTerminalText, wrapTextCells } from '../../text/index.ts';
-import { dataWindow, rowWindow } from '../../behavior/data-window.ts';
+import { measuredWindow, type MeasuredWindow } from '../../behavior/measured-window.ts';
 import {
   type DocumentSourceOptions, documentBodyStyle, documentDetailStyle, documentFieldSpans, documentMarkerStyle, documentSpan, documentStatusStyle, documentSummaryStyle, documentTitleStyle, sourceToken
 } from './document-visual.ts';
@@ -27,6 +27,25 @@ interface StructuredBlockRenderOptions {
   readonly itemId?: string;
   readonly itemIndex?: number;
 }
+
+interface ActivityFeedMeasuredBlock {
+  readonly block: StructuredBlock;
+  readonly index: number;
+  readonly lines: readonly RenderLine[];
+}
+
+interface ActivityFeedProjection {
+  readonly blocks: readonly StructuredBlock[];
+  readonly selectedIndex: number | undefined;
+  readonly window: MeasuredWindow<ActivityFeedMeasuredBlock>;
+}
+
+const activityFeedProjectionCache = new WeakMap<object, {
+  readonly width: number;
+  readonly height: number;
+  readonly theme: TerminalTheme;
+  readonly projection: ActivityFeedProjection;
+}>();
 
 export function structuredBlockText(widget: StructuredBlockNode, node: LayoutNode, theme: TerminalTheme): string {
   return renderBlockText(structuredBlockBlock(widget, node, theme));
@@ -67,34 +86,27 @@ export function activityFeedBlock(widget: ActivityFeedNode, node: LayoutNode, th
   };
 }
 
-export function activityFeedAccessibleBase(widget: ActivityFeedNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
-  const blocks = activityFeedBlocks(widget);
-  const selected = selectedBlockIndex(widget, blocks.length);
-  const window = dataWindow({
-    totalRows: blocks.length,
-    viewportRows: Math.max(1, node.bounds.height),
-    selectedIndex: selected ?? 0
-  });
+export function activityFeedAccessibleBase(widget: ActivityFeedNode, node: LayoutNode, id: string, focused: boolean, theme: TerminalTheme): AccessibleNode {
+  const { blocks, window } = activityFeedProjection(widget, node.bounds, theme);
   return {
     id,
     role: 'listbox',
     label: id,
     description: blocks.length === 0
       ? 'Showing 0 activity blocks.'
-      : `Showing ${String(window.start + 1)}-${String(window.end)} of ${String(blocks.length)} activity blocks.`,
+      : `Showing ${String(window.startIndex + 1)}-${String(window.endIndex)} of ${String(blocks.length)} activity blocks.`,
     ...(focused ? { focused } : {})
   };
 }
 
-export function activityFeedAccessibleChildren(widget: ActivityFeedNode, node: LayoutNode): readonly AccessibleNode[] {
-  const blocks = visibleActivityBlocks(widget, node.bounds);
-  const selected = selectedBlockIndex(widget, activityFeedBlocks(widget).length);
-  return blocks.map(({ block, index }) => ({
+export function activityFeedAccessibleChildren(widget: ActivityFeedNode, node: LayoutNode, theme: TerminalTheme): readonly AccessibleNode[] {
+  const projection = activityFeedProjection(widget, node.bounds, theme);
+  return projection.window.entries.map(({ item: { value: { block, index } } }) => ({
     id: `${widget.id ?? 'activityFeed'}:block:${block.id}`,
     role: 'option',
     label: block.title,
     value: block.summary ?? block.title,
-    selected: selected === index,
+    selected: projection.selectedIndex === index,
     description: structuredBlockDescription(block)
   }));
 }
@@ -106,76 +118,65 @@ export function activityFeedHitTargets<TMessage>(
 ): readonly HitTarget<TMessage>[] {
   const toActionMessage = activityFeedActionMessageFactory(widget);
   if (toActionMessage === undefined) return [];
-  const selected = selectedBlockIndex(widget, activityFeedBlocks(widget).length);
-  const targets: HitTarget<TMessage>[] = [];
-  let rowOffset = 0;
-  for (const { block, index } of visibleActivityBlocks(widget, bounds)) {
-    if (rowOffset >= bounds.height) break;
-    const height = Math.min(
-      activityFeedItemLines(widget, block, index, selected === index, bounds.width, theme).length,
-      bounds.height - rowOffset
-    );
-    if (height <= 0) continue;
-    targets.push({
+  const projection = activityFeedProjection(widget, bounds, theme);
+  return projection.window.entries.map(({ item: { value: { block } }, rowOffset, visibleRows }) => ({
       id: `${widget.id ?? 'activityFeed'}:block:${block.id}`,
       bounds: {
         row: bounds.row + rowOffset,
         column: bounds.column,
         width: bounds.width,
-        height
+        height: visibleRows
       },
       accepts: ['click'],
       message: () => toActionMessage({ kind: 'select', id: block.id }),
       cursor: 'pointer'
-    });
-    rowOffset += height;
-  }
-  return targets;
+    }));
 }
 
 function activityFeedRows(widget: ActivityFeedNode, node: LayoutNode, theme: TerminalTheme): readonly RenderLine[] {
-  const selected = selectedBlockIndex(widget, activityFeedBlocks(widget).length);
-  const rows: RenderLine[] = [];
-  for (const { block, index } of visibleActivityBlocks(widget, node.bounds)) {
-    const selectedRow = selected === index;
-    const marker = selectedRow ? `${theme.tokens.symbols.pointer} ` : '  ';
-    const lines = activityFeedItemLines(widget, block, index, selectedRow, node.bounds.width, theme);
-    for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-      if (rows.length >= node.bounds.height) return rows;
-      const prefix = lineIndex === 0 ? marker : '  ';
-      rows.push({
+  const projection = activityFeedProjection(widget, node.bounds, theme);
+  return projection.window.entries.flatMap(({ item: { value }, clippedRowsBefore, visibleRows }) =>
+    value.lines.slice(clippedRowsBefore, clippedRowsBefore + visibleRows)
+  );
+}
+
+function activityFeedProjection(widget: ActivityFeedNode, bounds: Rect, theme: TerminalTheme): ActivityFeedProjection {
+  const cached = activityFeedProjectionCache.get(widget);
+  if (cached?.width === bounds.width && cached.height === bounds.height && cached.theme === theme) return cached.projection;
+  const blocks = activityFeedBlocks(widget);
+  const selectedIndex = selectedBlockIndex(widget, blocks.length);
+  const measured = blocks.map((block, index): ActivityFeedMeasuredBlock => {
+    const selected = selectedIndex === index;
+    const content = activityFeedItemLines(widget, block, index, selected, bounds.width, theme);
+    const marker = selected ? `${theme.tokens.symbols.pointer} ` : '  ';
+    return {
+      block,
+      index,
+      lines: content.map((line, lineIndex): RenderLine => ({
         spans: [
           documentSpan(
             widget,
             'activityFeed',
             'marker',
-            selectedRow ? 'selection.selected' : 'selection.unselected',
-            prefix,
-            documentMarkerStyle(widget, selectedRow),
-            sourceOptionsForBlock({ itemId: block.id, itemIndex: index, selected: selectedRow })
+            selected ? 'selection.selected' : 'selection.unselected',
+            lineIndex === 0 ? marker : '  ',
+            documentMarkerStyle(widget, selected),
+            sourceOptionsForBlock({ itemId: block.id, itemIndex: index, selected })
           ),
-          ...(lines[lineIndex]?.spans ?? [])
+          ...line.spans
         ]
-      });
-    }
-  }
-  return rows;
-}
-
-function visibleActivityBlocks(
-  widget: ActivityFeedNode,
-  bounds: Rect
-): readonly { readonly block: StructuredBlock; readonly index: number }[] {
-  const blocks = activityFeedBlocks(widget);
-  const selected = selectedBlockIndex(widget, blocks.length) ?? 0;
-  const window = rowWindow(blocks, {
-    viewportRows: Math.max(1, bounds.height),
-    selectedIndex: selected
+      }))
+    };
   });
-  return window.rows.map((block, offset) => ({
-    block,
-    index: window.start + offset
-  }));
+  const selectedId = selectedIndex === undefined ? undefined : blocks[selectedIndex]?.id;
+  const window = measuredWindow({
+    items: measured.map((value) => ({ id: value.block.id, value, rows: value.lines.length })),
+    viewportRows: bounds.height,
+    ...(selectedId === undefined ? {} : { selectedId })
+  });
+  const projection = { blocks, selectedIndex, window };
+  activityFeedProjectionCache.set(widget, { width: bounds.width, height: bounds.height, theme, projection });
+  return projection;
 }
 
 function activityFeedItemLines(

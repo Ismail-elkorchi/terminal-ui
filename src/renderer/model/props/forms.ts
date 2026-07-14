@@ -1,13 +1,14 @@
 import type { TextSelection } from '../../../text/index.ts';
 import type { TextPointerEvent } from '../../../interaction/text-pointer.ts';
+import type { AnchoredSurfacePlacement } from '../../../interaction/anchored-surface.ts';
 import type { ChoiceItem } from '../../../ui-model/contracts.ts';
 import type {
   ButtonState,
   ButtonTone,
   ColorSwatchPickerOption,
-  NumericRange,
-  RangeSliderValue
+  NumericRange
 } from '../../../ui-model/forms.ts';
+import type { RangeSliderAction, RangeSliderPresentation } from '../../../ui-model/range-slider.ts';
 import type { NumberInputAction, NumberInputPresentation } from '../../../ui-model/number-input.ts';
 import type { CalendarAction, CalendarDay } from '../../../ui-model/calendar.ts';
 import type {
@@ -18,6 +19,7 @@ import type {
 } from '../../../ui-model/choice-controls.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 import type { InlineContent } from '../../../visual/inline-content.ts';
+import type { SelectPresentation } from '../../../behavior/choice-controls.ts';
 
 export interface FormRenderProps extends RenderNodeLayoutProps {
   readonly title?: string;
@@ -82,11 +84,11 @@ export interface SliderRenderProps<TMessage> {
 
 export interface RangeSliderRenderProps<TMessage> {
   readonly label?: string;
-  readonly value: RangeSliderValue;
+  readonly presentation: RangeSliderPresentation;
   readonly range?: NumericRange;
   readonly step?: number;
   readonly width?: number;
-  readonly toMessage?: (value: RangeSliderValue) => TMessage;
+  readonly toActionMessage?: (action: RangeSliderAction) => TMessage;
   readonly disabled?: boolean;
   readonly error?: string;
 }
@@ -113,9 +115,10 @@ export interface RadioGroupRenderProps<TMessage> extends ChoiceControlRenderProp
 }
 
 export interface SelectRenderProps<TMessage> extends ChoiceControlRenderProps {
-  readonly selected?: string;
-  readonly focused?: string;
+  readonly presentation: SelectPresentation;
   readonly toActionMessage?: (action: SelectAction) => TMessage;
+  readonly placement?: AnchoredSurfacePlacement;
+  readonly maxVisibleOptions: number;
 }
 
 export interface ColorSwatchPickerRenderProps<TMessage> {

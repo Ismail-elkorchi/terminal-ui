@@ -13,11 +13,16 @@ export type RadioGroupAction =
   | { readonly kind: 'select'; readonly id: string };
 
 export type SelectAction =
-  | { readonly kind: 'focus'; readonly id: string }
+  | { readonly kind: 'open' }
+  | { readonly kind: 'close' }
+  | { readonly kind: 'toggle' }
+  | { readonly kind: 'highlight'; readonly id: string }
   | { readonly kind: 'move'; readonly delta: number }
   | { readonly kind: 'first' }
   | { readonly kind: 'last' }
-  | { readonly kind: 'select'; readonly id: string };
+  | { readonly kind: 'commit'; readonly id: string }
+  | { readonly kind: 'dismiss'; readonly reason: AnchoredSurfaceDismissReason }
+  | { readonly kind: 'scroll'; readonly event: ScrollEvent };
 
 export type ColorSwatchPickerAction =
   | { readonly kind: 'focus'; readonly id: string }
@@ -25,3 +30,5 @@ export type ColorSwatchPickerAction =
   | { readonly kind: 'first' }
   | { readonly kind: 'last' }
   | { readonly kind: 'select'; readonly id: string };
+import type { AnchoredSurfaceDismissReason } from '../interaction/anchored-surface.ts';
+import type { ScrollEvent } from '../interaction/scroll.ts';

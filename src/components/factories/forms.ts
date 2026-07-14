@@ -45,6 +45,7 @@ import {
 } from '../../authoring/render-node.ts';
 import { choiceItemsForRenderer, colorOptionsForRenderer } from '../internal/domain.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
+import { selectPopupRenderNode } from '../internal/select-popup.ts';
 
 export function form<const TChildren extends ElementChildren>(
   children: TChildren,
@@ -207,11 +208,11 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
     kind: 'rangeSlider',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
-      value: options.value,
+      presentation: options.presentation,
       ...(options.range === undefined ? {} : { range: options.range }),
       ...(options.step === undefined ? {} : { step: options.step }),
       ...(options.width === undefined ? {} : { width: options.width }),
-      ...(options.onChange === undefined ? {} : { toMessage: options.onChange }),
+      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
@@ -318,23 +319,44 @@ export function calendar(options: CalendarOptions<unknown>): Element<unknown> {
 
 export function select<TValue, const TMessage = never>(options: SelectOptions<TValue, TMessage>): Element<TMessage> {
   const keyMap = selectKeyBindings(options);
+  const normalizedOptions = choiceItemsForRenderer(options.options);
+  const popup = options.presentation.kind === 'open'
+    ? selectPopupRenderNode({
+        ownerId: options.id,
+        options: normalizedOptions,
+        presentation: options.presentation,
+        ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
+        ...(options.meta?.styles === undefined ? {} : { styles: options.meta.styles }),
+        ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })
+      })
+    : undefined;
   return elementFromRenderNode<'select', TMessage>({
     ...requiredId(options.id, 'select'),
     kind: 'select',
     props: {
-      options: choiceItemsForRenderer(options.options),
+      options: normalizedOptions,
       ...(options.label === undefined ? {} : { label: options.label }),
-      ...(options.selected === undefined ? {} : { selected: options.selected }),
-      ...(options.focused === undefined ? {} : { focused: options.focused }),
+      presentation: options.presentation,
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
+      ...(options.placement === undefined ? {} : { placement: options.placement }),
+      maxVisibleOptions: selectVisibleOptionLimit(options.maxVisibleOptions),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
+    ...(popup === undefined ? {} : { children: [popup] }),
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
+}
+
+function selectVisibleOptionLimit(value: number | undefined): number {
+  if (value === undefined) return 8;
+  if (!Number.isFinite(value) || value < 1) {
+    throw new RangeError('select maxVisibleOptions must be a positive finite number.');
+  }
+  return Math.max(1, Math.floor(value));
 }
 
 export function textInput<
@@ -418,7 +440,8 @@ function assertRangeSliderOptions<TMessage>(options: RangeSliderOptions<TMessage
   if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
     throw new RangeError('rangeSlider range must have finite ordered bounds.');
   }
-  if (options.value.start < min || options.value.end > max || options.value.start > options.value.end) {
+  const { start, end } = options.presentation.value;
+  if (start < min || end > max || start > end) {
     throw new RangeError('rangeSlider value must be ordered and contained by range.');
   }
   if (options.step !== undefined && (!Number.isFinite(options.step) || options.step <= 0)) {

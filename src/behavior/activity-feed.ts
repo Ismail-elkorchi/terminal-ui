@@ -104,10 +104,11 @@ export function copyActivityFeedVisibleText(
 
 function adjacentBlockId(state: ActivityFeedState, blocks: readonly StructuredBlock[], direction: 1 | -1): string | undefined {
   if (blocks.length === 0) return undefined;
-  const selectedIndex = state.selectedId === undefined
-    ? 0
-    : Math.max(0, blocks.findIndex((block) => block.id === state.selectedId));
-  return blocks[wrapIndex(selectedIndex + direction, blocks.length)]?.id;
+  const currentIndex = state.selectedId === undefined
+    ? -1
+    : blocks.findIndex((block) => block.id === state.selectedId);
+  if (currentIndex < 0) return direction === 1 ? blocks[0]?.id : blocks.at(-1)?.id;
+  return blocks[wrapIndex(currentIndex + direction, blocks.length)]?.id;
 }
 
 function selectedBlockId(state: ActivityFeedState, blocks: readonly StructuredBlock[]): string | undefined {

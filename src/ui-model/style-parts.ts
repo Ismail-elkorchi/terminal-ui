@@ -1,5 +1,5 @@
 export type TextStylePart = 'content' | 'link';
-export type DataListStylePart = 'marker' | 'item' | 'match' | 'empty' | 'scrollbar';
+export type DataListStylePart = 'marker' | 'item' | 'description' | 'match' | 'empty' | 'scrollbar';
 export type TableStylePart =
   | 'header'
   | 'headerCell'

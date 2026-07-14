@@ -25,24 +25,24 @@ test('menu behavior owns selection, hierarchy projection, and activation state',
     { id: 'file', label: 'File', children: [{ id: 'open', label: 'Open' }] },
     { id: 'disabled', label: 'Disabled', disabled: true }
   ];
-  const opened = menuReducer({ expandedIds: [] }, { kind: 'activate', id: 'file' }, items);
-  const selected = menuReducer(opened, { kind: 'move', delta: 1 }, items);
-  const projection = menuPresentation(items, selected);
+  const entered = menuReducer({ activePath: ['file'] }, { kind: 'enter' }, items);
+  const returned = menuReducer(entered, { kind: 'back' }, items);
+  const projection = menuPresentation(items, entered);
 
-  assert.deepEqual(opened.expandedIds, ['file']);
-  assert.equal(selected.selected, 'file');
+  assert.deepEqual(entered.activePath, ['file', 'open']);
+  assert.deepEqual(returned.activePath, ['file']);
   assert.equal(projection.items[0]?.expanded, true);
-  assert.equal(menuReducer(selected, { kind: 'select', id: 'disabled' }, items), selected);
+  assert.equal(menuReducer(returned, { kind: 'focus', id: 'disabled' }, items), returned);
 });
 
-test('dropdownMenu behavior separates highlighted and committed choices', () => {
-  const opened = dropdownMenuReducer({ kind: 'closed', selected: 'alpha' }, { kind: 'open' }, choices);
-  const moved = dropdownMenuReducer(opened, { kind: 'move', delta: 1 }, choices);
-  const committed = dropdownMenuReducer(moved, { kind: 'activate', id: moved.highlighted }, choices);
+test('dropdownMenu behavior separates popup navigation from committed action', () => {
+  const opened = dropdownMenuReducer({ kind: 'closed', active: 'alpha' }, { kind: 'open' }, choices);
+  const moved = dropdownMenuReducer(opened, { kind: 'menu', action: { kind: 'move', delta: 1 } }, choices);
+  const committed = dropdownMenuReducer(moved, { kind: 'menu', action: { kind: 'activate', id: 'beta' } }, choices);
 
-  assert.equal(opened.highlighted, 'alpha');
-  assert.equal(moved.highlighted, 'beta');
-  assert.deepEqual(dropdownMenuPresentation(committed), { kind: 'closed', selected: 'beta' });
+  assert.deepEqual(opened.kind === 'open' ? opened.menu.activePath : [], ['alpha']);
+  assert.deepEqual(moved.kind === 'open' ? moved.menu.activePath : [], ['beta']);
+  assert.deepEqual(dropdownMenuPresentation(choices, committed), { kind: 'closed', active: 'beta' });
 });
 
 test('tabs behavior skips disabled tabs and leaves close ownership with the app', () => {
@@ -60,11 +60,34 @@ test('tabs behavior skips disabled tabs and leaves close ownership with the app'
 test('choice controls keep distinct action semantics while sharing item foundations', () => {
   const checked = checkboxGroupReducer({ selected: ['alpha'] }, { kind: 'toggle', id: 'beta' }, choices);
   const radio = radioGroupReducer({}, { kind: 'select', id: 'beta' }, choices);
-  const selected = selectReducer({}, { kind: 'move', delta: 1 }, choices);
+  const selected = selectReducer({ kind: 'closed' }, { kind: 'move', delta: 1 }, choices);
   const color = colorSwatchPickerReducer({}, { kind: 'select', id: 'beta' }, choices);
 
   assert.deepEqual(checkboxGroupPresentation(checked), { selected: ['alpha', 'beta'], focused: 'beta' });
   assert.deepEqual(radio, { selected: 'beta', focused: 'beta' });
-  assert.deepEqual(selected, { focused: 'alpha' });
+  assert.deepEqual(selected, { kind: 'open', highlighted: 'alpha' });
   assert.deepEqual(color, { selected: 'beta', focused: 'beta' });
+});
+
+test('select keeps highlight separate from committed selection and dismisses without committing', () => {
+  const opened = selectReducer({ kind: 'closed', selected: 'alpha' }, { kind: 'open' }, choices);
+  const moved = selectReducer(opened, { kind: 'move', delta: 1 }, choices);
+  const dismissed = selectReducer(moved, { kind: 'dismiss', reason: 'escape' }, choices);
+  const committed = selectReducer(moved, { kind: 'commit', id: 'beta' }, choices);
+
+  assert.deepEqual(opened, { kind: 'open', selected: 'alpha', highlighted: 'alpha' });
+  assert.deepEqual(moved, { kind: 'open', selected: 'alpha', highlighted: 'beta' });
+  assert.deepEqual(dismissed, { kind: 'closed', selected: 'alpha' });
+  assert.deepEqual(committed, { kind: 'closed', selected: 'beta' });
+});
+
+test('select never highlights or commits disabled options', () => {
+  const opened = selectReducer({ kind: 'closed' }, { kind: 'open' }, choices);
+
+  assert.equal(selectReducer(opened, { kind: 'highlight', id: 'disabled' }, choices), opened);
+  assert.equal(selectReducer(opened, { kind: 'commit', id: 'disabled' }, choices), opened);
+  assert.deepEqual(selectReducer(opened, { kind: 'last' }, choices), {
+    kind: 'open',
+    highlighted: 'beta'
+  });
 });

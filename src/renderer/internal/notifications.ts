@@ -14,6 +14,7 @@ import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
 import { normalizeNotificationTone, statusFromTone } from '../../ui-model/status.ts';
 import type { NotificationItem, NotificationPlacement, NotificationTone } from '../../ui-model/feedback.ts';
 import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
+import type { NotificationStackPresentation } from '../../ui-model/notification-stack.ts';
 import { feedbackSpan } from './feedback-visual.ts';
 import { statusToken } from './status-visual.ts';
 import { mergeStyles } from './render-node-style.ts';
@@ -64,24 +65,25 @@ export function notificationStackPreferredSize(widget: NotificationStackNode): N
 export function notificationStackAccessibleBase(widget: NotificationStackNode, id: string, focused: boolean): AccessibleNode {
   const items = notificationItems(widget);
   const selected = notificationSelectedId(widget);
+  const navigable = notificationPresentation(widget).kind === 'history';
   return {
     id,
-    role: 'status',
+    role: navigable ? 'listbox' : 'status',
     label: 'Notifications',
     description: `${String(items.length)} visible notification${items.length === 1 ? '' : 's'}.`,
-    live: items.some((item) => item.tone === 'error') ? 'assertive' : 'polite',
+    ...(navigable ? {} : { live: items.some((item) => item.tone === 'error') ? 'assertive' as const : 'polite' as const }),
     scope: { kind: 'popover' },
     ...(focused ? { focused } : {}),
     children: items.map((item): AccessibleNode => {
       const description = notificationDescription(item);
       return {
         id: `${id}:notification:${item.id}`,
-        role: 'status',
+        role: navigable ? 'option' : 'status',
         label: item.title,
         selected: item.id === selected,
         ...(description === undefined ? {} : { description }),
         ...(item.progress === undefined ? {} : { progress: { value: clampProgress(item.progress), max: 100 } }),
-        live: item.tone === 'error' ? 'assertive' : 'polite'
+        ...(navigable ? {} : { live: item.tone === 'error' ? 'assertive' as const : 'polite' as const })
       };
     })
   };
@@ -89,18 +91,23 @@ export function notificationStackAccessibleBase(widget: NotificationStackNode, i
 
 export function notificationStackHitTargets<TMessage>(widget: NotificationStackNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toActionMessage = notificationActionMessageFactory(widget);
-  if (toActionMessage === undefined) return [];
+  const toDismissMessage = notificationDismissMessageFactory(widget);
+  if (toActionMessage === undefined && toDismissMessage === undefined) return [];
   return notificationCardPlacements(widget, bounds).flatMap((placement): readonly HitTarget<TMessage>[] => {
     const id = notificationTargetId(widget, placement.card.item.id);
-    const select: HitTarget<TMessage> = {
+    const select: readonly HitTarget<TMessage>[] = toActionMessage === undefined ? [] : [{
       id,
       bounds: placement.bounds,
       accepts: ['click'],
       cursor: 'pointer',
       message: () => toActionMessage({ kind: 'select', id: placement.card.item.id })
-    };
-    if (placement.card.item.dismissible === false || placement.bounds.width < 3) return [select];
-    return [select, {
+    }];
+    if (placement.card.item.dismissible === false || placement.bounds.width < 3) return select;
+    const dismiss = toDismissMessage ?? (toActionMessage === undefined
+      ? undefined
+      : (itemId: string) => toActionMessage({ kind: 'dismiss', id: itemId }));
+    if (dismiss === undefined) return select;
+    return [...select, {
       id: notificationDismissTargetId(widget, placement.card.item.id),
       bounds: {
         row: placement.bounds.row,
@@ -110,7 +117,7 @@ export function notificationStackHitTargets<TMessage>(widget: NotificationStackN
       },
       accepts: ['click'],
       cursor: 'pointer',
-      message: () => toActionMessage({ kind: 'dismiss', id: placement.card.item.id })
+      message: () => dismiss(placement.card.item.id)
     }];
   });
 }
@@ -233,7 +240,7 @@ function notificationStackSizeFromCards(cards: readonly NotificationCard[]): Not
 }
 
 function notificationItems(widget: NotificationStackNode): readonly NotificationItem[] {
-  const items = Array.isArray(widget.props.items) ? widget.props.items : [];
+  const items = notificationPresentation(widget).items;
   return items.filter(isNotificationItem);
 }
 
@@ -410,11 +417,21 @@ function notificationMaxWidth(widget: NotificationStackNode): number {
 }
 
 function notificationSelectedId(widget: NotificationStackNode): string | undefined {
-  return typeof widget.props.selected === 'string' ? widget.props.selected : undefined;
+  const presentation = notificationPresentation(widget);
+  return presentation.kind === 'history' ? presentation.selected : undefined;
+}
+
+function notificationPresentation(widget: NotificationStackNode): NotificationStackPresentation {
+  return widget.props.presentation;
 }
 
 function notificationActionMessageFactory<TMessage>(widget: NotificationStackNode<TMessage>): ((action: NotificationStackAction) => TMessage) | undefined {
   const candidate = widget.props.toActionMessage;
+  return typeof candidate === 'function' ? candidate : undefined;
+}
+
+function notificationDismissMessageFactory<TMessage>(widget: NotificationStackNode<TMessage>): ((id: string) => TMessage) | undefined {
+  const candidate = widget.props.toDismissMessage;
   return typeof candidate === 'function' ? candidate : undefined;
 }
 

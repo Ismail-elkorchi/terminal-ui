@@ -28,8 +28,19 @@ export interface RenderNodeLayoutInput<
 > {
   readonly renderNode: RendererNode<TMessage, TKind>;
   readonly bounds: Rect;
+  readonly viewport: Rect;
   readonly theme: TerminalTheme;
   readonly childMeasures: readonly Measurement[];
+}
+
+export interface RenderNodePlaceInput<
+  TMessage = unknown,
+  TKind extends RenderNodeKind = RenderNodeKind
+> {
+  readonly renderNode: RendererNode<TMessage, TKind>;
+  readonly bounds: Rect;
+  readonly viewport: Rect;
+  readonly theme: TerminalTheme;
 }
 
 export interface RenderNodeRenderInput<
@@ -96,6 +107,7 @@ export interface RenderNodeRenderer<
   TMessage = unknown,
   TKind extends RenderNodeKind = RenderNodeKind
 > {
+  place?(input: RenderNodePlaceInput<TMessage, TKind>): Rect;
   measure?(input: RenderNodeMeasureInput<TMessage, TKind>): Measurement;
   layout?(input: RenderNodeLayoutInput<TMessage, TKind>): readonly Rect[];
   render(input: RenderNodeRenderInput<TMessage, TKind>): void;

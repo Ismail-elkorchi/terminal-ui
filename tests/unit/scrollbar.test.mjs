@@ -289,13 +289,16 @@ test('table scrollbar can expose vertical and horizontal scroll scope together',
 test('menu scrollbar windows menu rows instead of drawing decorative chrome only', () => {
   const frame = renderElementFrame(menu({
     id: 'menu',
-    items: [
-      { id: 'new', label: 'New' },
-      { id: 'open', label: 'Open' },
-      { id: 'save', label: 'Save' },
-      { id: 'quit', label: 'Quit' }
-    ],
-    scroll: createScrollState({ offsetRow: 2, contentRows: 4, viewportRows: 2 }),
+    presentation: {
+      activePath: ['save'],
+      items: [
+        { id: 'new', label: 'New' },
+        { id: 'open', label: 'Open' },
+        { id: 'save', label: 'Save' },
+        { id: 'quit', label: 'Quit' }
+      ],
+      scroll: createScrollState({ offsetRow: 2, contentRows: 4, viewportRows: 2 })
+    },
     scrollbar: {}
   }), { columns: 14, rows: 2 });
 

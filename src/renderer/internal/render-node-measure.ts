@@ -19,13 +19,12 @@ import {
   textInputBlock,
   toggleSwitchBlock
 } from './forms/index.ts';
-import { contextMenuBlock, dropdownMenuBlock, menuBarBlock, menuBlock } from './menu-widgets.ts';
+import { dropdownMenuBlock, menuBarBlock, menuBlock } from './menu-widgets.ts';
 import {
   combineMeasurementsHorizontally,
   combineMeasurementsOverlay,
   combineMeasurementsVertically,
   measureBlock,
-  measureLines,
   measureSize,
   measureText,
   zeroMeasurement
@@ -36,6 +35,7 @@ import { notificationStackPreferredSize } from './notifications.ts';
 import { statusBarText } from './feedback-visual.ts';
 import { isRecord, nonNegativeInteger } from './renderers/support/common.ts';
 import { tabsHeaderText } from './renderers/support/tabs.ts';
+import { listIntrinsicMeasurement } from './renderers/support/list.ts';
 import { activityFeedBlock, structuredBlockBlock } from './structured-block.ts';
 import { statusIndicatorText, helpBarText, richTextBlock, spinnerBlock } from './text-widgets.ts';
 import { tooltipPreferredSize } from './tooltip.ts';
@@ -47,7 +47,6 @@ import type { BorderStyle } from './border.ts';
 import type { LayoutNode, Rect } from '../model/layout.ts';
 import type { Measurement } from './measurement.ts';
 
-type ListNode = RenderNodeOfKind<unknown, 'list'>;
 type TableNode = RenderNodeOfKind<unknown, 'table'>;
 type SurfaceNode = RenderNodeOfKind<unknown, 'surface'>;
 type AbsoluteNode = RenderNodeOfKind<unknown, 'absolute'>;
@@ -106,7 +105,7 @@ export function measureBuiltinRenderNode(
     case 'menuBar':
       return measureBlock(menuBarBlock(widget, intrinsicBounds(bounds), theme));
     case 'contextMenu':
-      return measureBlock(contextMenuBlock(widget, intrinsicBounds(bounds), theme));
+      return zeroMeasurement();
     case 'dropdownMenu':
       return measureBlock(dropdownMenuBlock(widget, intrinsicBounds(bounds), theme));
     case 'divider': {
@@ -140,7 +139,7 @@ export function measureBuiltinRenderNode(
     case 'heatmap':
       return measureText(heatmapText(widget, fakeLayoutNode(widget, visualMeasureBounds(bounds)), theme));
     case 'list':
-      return measureList(widget, theme);
+      return listIntrinsicMeasurement(widget, theme);
     case 'table':
       return measureTable(widget);
     case 'tree':
@@ -182,15 +181,6 @@ export function measureBuiltinRenderNode(
     case 'custom':
       return zeroMeasurement();
   }
-}
-
-function measureList(widget: ListNode, theme: TerminalTheme): Measurement {
-  const items = Array.isArray(widget.props.items) ? widget.props.items : [];
-  const lines = items.map((item, index) => {
-    const marker = index === numberProp(widget, 'selected') ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected;
-    return `${marker} ${String(item)}`;
-  });
-  return measureLines(lines);
 }
 
 function measureTable(widget: TableNode): Measurement {
@@ -397,6 +387,7 @@ function fakeLayoutNode(widget: RenderNode, bounds: Rect): LayoutNode {
     ...(widget.id === undefined ? {} : { id: widget.id }),
     kind: widget.kind,
     bounds,
+    viewport: bounds,
     identity: widget.id ?? `${widget.kind}:0`,
     layer: { id: widget.id ?? `${widget.kind}:0`, zIndex: 0, bounds, opacity: widget.layer?.opacity ?? 'transparent' },
     visible: true,

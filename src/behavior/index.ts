@@ -31,6 +31,13 @@ export type {
   CalendarDay
 } from '../ui-model/calendar.ts';
 export { dataWindow, rowWindow } from './data-window.ts';
+export { measuredWindow } from './measured-window.ts';
+export type {
+  MeasuredWindow,
+  MeasuredWindowEntry,
+  MeasuredWindowInput,
+  MeasuredWindowItem
+} from './measured-window.ts';
 export type { DataWindow, DataWindowInput } from './data-window.ts';
 export {
   commandInputPresentation
@@ -61,6 +68,7 @@ export type {
 } from '../interaction/pointer-presentation.ts';
 export {
   listPresentation,
+  projectListItems,
   listReducer,
   visibleListEntries
 } from './list.ts';
@@ -71,6 +79,15 @@ export type {
   ListVisibleEntry
 } from './list.ts';
 export type { ListAction } from '../ui-model/list.ts';
+export type { ListItemProjection, ListItemProjector } from '../ui-model/list.ts';
+export { rangeSliderPresentation, rangeSliderReducer } from './range-slider.ts';
+export type {
+  RangeSliderAction,
+  RangeSliderHandle,
+  RangeSliderPresentation,
+  RangeSliderReducerOptions,
+  RangeSliderState
+} from '../ui-model/range-slider.ts';
 export {
   createNumberInputState,
   numberInputAnalysis,
@@ -110,9 +127,10 @@ export type {
   NotificationConflictPolicy,
   NotificationHistoryEntry,
   NotificationHistoryReason,
+  NotificationHistoryPresentationOptions,
   NotificationInput,
+  LiveNotificationPresentationOptions,
   NotificationPolicy,
-  NotificationPresentation,
   NotificationPresentationOptions,
   NotificationRecord,
   NotificationState
@@ -139,18 +157,26 @@ export type {
 } from './palette.ts';
 export type { PaletteAction } from '../ui-model/palette.ts';
 export {
+  contextMenuPresentation,
+  contextMenuReducer,
   dropdownMenuPresentation,
   dropdownMenuReducer,
+  menuBarPresentation,
+  menuBarReducer,
   menuPresentation,
   menuReducer
 } from './menu.ts';
 export type {
+  ContextMenuPresentation,
+  ContextMenuState,
   DropdownMenuPresentation,
   DropdownMenuState,
+  MenuBarPresentation,
+  MenuBarState,
   MenuPresentation,
   MenuState
 } from './menu.ts';
-export type { DropdownMenuAction, MenuAction } from '../ui-model/menu.ts';
+export type { ContextMenuAction, DropdownMenuAction, MenuAction, MenuBarAction } from '../ui-model/menu.ts';
 export { tabsPresentation, tabsReducer } from './tabs.ts';
 export type { TabsPresentation, TabsState } from './tabs.ts';
 export type { TabAction } from '../ui-model/tabs.ts';

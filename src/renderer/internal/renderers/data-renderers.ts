@@ -187,9 +187,9 @@ export const dataRenderers = {
     render: ({ renderNode, layoutNode, buffer, theme }) => {
       writeRenderBlock(buffer, layoutNode.bounds, activityFeedBlock(renderNode, layoutNode, theme));
     },
-    accessibility: ({ renderNode, layoutNode, id, focused }) => ({
-      ...activityFeedAccessibleBase(renderNode, layoutNode, id, focused),
-      children: activityFeedAccessibleChildren(renderNode, layoutNode)
+    accessibility: ({ renderNode, layoutNode, id, focused, theme }) => ({
+      ...activityFeedAccessibleBase(renderNode, layoutNode, id, focused, theme),
+      children: activityFeedAccessibleChildren(renderNode, layoutNode, theme)
     }),
     focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : [],
     hitTargets: ({ renderNode, bounds, theme }) => activityFeedHitTargets(renderNode, bounds, theme)

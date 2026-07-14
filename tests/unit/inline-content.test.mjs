@@ -106,7 +106,10 @@ test('inline adornments use component part styles and source anatomy', () => {
     }), { columns: 20, rows: 1 }),
     renderElementFrame(menu({
       id: 'actions',
-      items: [{ id: 'open', label: 'Open', leading: [symbol], trailing: [{ kind: 'text', text: 'O' }] }],
+      presentation: {
+        activePath: ['open'],
+        items: [{ id: 'open', label: 'Open', leading: [symbol], trailing: [{ kind: 'text', text: 'O' }] }]
+      },
       meta: {
         focus: { disabled: true },
         styles: { parts: { leading: leadingStyle, trailing: trailingStyle } }

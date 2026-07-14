@@ -13,7 +13,7 @@ type SelectableControlNode<TMessage = unknown> = ChoiceControlNode<TMessage> | C
 type OptionStateNode<TMessage = unknown> = ChoiceControlNode<TMessage> | ColorSwatchPickerNode<TMessage>;
 
 export function selectedId(widget: SelectableControlNode): string | undefined {
-  const selected = widget.props.selected;
+  const selected = widget.kind === 'select' ? widget.props.presentation.selected : widget.props.selected;
   return typeof selected === 'string' ? clean(selected) : undefined;
 }
 
@@ -63,6 +63,8 @@ export function selectedIds(widget: CheckboxGroupNode): ReadonlySet<string> {
 }
 
 export function focusedId(widget: OptionStateNode): string | undefined {
-  const focused = widget.props.focused;
+  const focused = widget.kind === 'select'
+    ? widget.props.presentation.kind === 'open' ? widget.props.presentation.highlighted : undefined
+    : widget.props.focused;
   return typeof focused === 'string' ? clean(focused) : undefined;
 }

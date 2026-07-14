@@ -55,8 +55,8 @@ const disabledWidgetCases = [
     element: () => rangeSlider({
       id: 'disabled-range',
       label: 'Window',
-      value: { start: 2, end: 8 },
-      onChange: () => message,
+      presentation: { value: { start: 2, end: 8 }, activeHandle: 'start' },
+      onAction: () => message,
       disabled: true
     })
   },
@@ -86,6 +86,7 @@ const disabledWidgetCases = [
       id: 'disabled-select',
       label: 'Tier',
       options: formOptions,
+      presentation: { kind: 'closed' },
       onAction: () => message,
       disabled: true
     })
