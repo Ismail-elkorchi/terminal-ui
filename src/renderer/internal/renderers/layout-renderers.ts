@@ -108,7 +108,7 @@ export const layoutRenderers = {
       writeRenderBlock(input.buffer, {
         ...input.layoutNode.bounds,
         height: Math.min(1, input.layoutNode.bounds.height)
-      }, tabsHeaderBlock(input.renderNode, input.layoutNode.bounds, input.focused));
+      }, tabsHeaderBlock(input.renderNode, input.layoutNode.bounds, input.focused, input.theme));
       input.renderChildren();
     },
     accessibility: ({ renderNode, id, focused }) => ({
@@ -118,12 +118,12 @@ export const layoutRenderers = {
       ...(focused ? { focused } : {}),
       children: tabsAccessibleChildren(renderNode)
     }),
-    hitTargets: ({ renderNode, bounds }) => tabsHitTargets(renderNode, bounds)
+    hitTargets: ({ renderNode, bounds, theme }) => tabsHitTargets(renderNode, bounds, theme)
   },
   dialog: {
     layout: ({ renderNode, bounds, childMeasures }) => dialogChildBounds(renderNode, bounds, borderForDialog(renderNode), childMeasures),
     render: (input) => {
-      const border = borderForDialog(input.renderNode, input.focused);
+      const border = borderForDialog(input.renderNode, input.focused, input.theme);
       const childBounds = dialogBounds(input.renderNode, input.layoutNode.bounds);
       drawSurfaceFrame(input.buffer, childBounds, input.renderNode, input.theme, input.focused, {
         variant: 'raised',

@@ -1,19 +1,32 @@
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type {
-  BorderStyle,
-  BorderTitle,
-  BorderTitleContent,
-  BorderTitleRail
-} from '../../visual/border.ts';
+import type { BorderKind } from '../../visual/border.ts';
 import { frameCellSource } from '../../visual/source.ts';
-import type { TerminalColor, TerminalStyle } from './frame.ts';
+import type { TerminalStyle } from './frame.ts';
 import type { RenderTarget } from '../model/render-target.ts';
 import type { Rect } from '../model/layout.ts';
 import { clipRenderSpans, measureRenderSpans, span } from '../../visual/render.ts';
 import type { RenderSpan } from '../../visual/render.ts';
 
-export type { BorderKind, BorderStyle, BorderTitle, BorderTitleContent, BorderTitleRail } from '../../visual/border.ts';
+export type { BorderKind } from '../../visual/border.ts';
+
+export type BorderTitleContent = string | readonly RenderSpan[];
+
+export interface BorderTitleRail {
+  readonly start?: BorderTitleContent;
+  readonly center?: BorderTitleContent;
+  readonly end?: BorderTitleContent;
+}
+
+export type BorderTitle = BorderTitleContent | BorderTitleRail;
+
+export interface BorderStyle {
+  readonly kind: BorderKind;
+  readonly title?: BorderTitle;
+  readonly titleAlign?: 'start' | 'center' | 'end';
+  readonly style?: TerminalStyle;
+  readonly focusStyle?: TerminalStyle;
+}
 
 interface BorderGlyphs {
   readonly topLeft: string;
@@ -98,16 +111,10 @@ export function borderStyleFromValue(value: unknown): BorderStyle | undefined {
   if (!isRecord(value)) return undefined;
   const kind = value['kind'];
   if (!isBorderKind(kind)) return undefined;
-  const title = borderTitleFromValue(value['title']);
   const titleAlign = value['titleAlign'];
-  const style = terminalStyleFromValue(value['style']);
-  const focusStyle = terminalStyleFromValue(value['focusStyle']);
   return {
     kind,
-    ...(title === undefined ? {} : { title }),
-    ...(isTitleAlign(titleAlign) ? { titleAlign } : {}),
-    ...(style === undefined ? {} : { style }),
-    ...(focusStyle === undefined ? {} : { focusStyle })
+    ...(isTitleAlign(titleAlign) ? { titleAlign } : {})
   };
 }
 
@@ -248,36 +255,6 @@ function titleRailContents(rail: BorderTitleRail): readonly BorderTitleContent[]
   return [rail.start, rail.center, rail.end].filter((value): value is BorderTitleContent => value !== undefined);
 }
 
-function borderTitleFromValue(value: unknown): BorderTitle | undefined {
-  if (typeof value === 'string') return value;
-  if (Array.isArray(value)) {
-    const spans = value.filter(isRenderSpan).map((currentSpan, index) => sanitizeTitleSpan(currentSpan, undefined, index));
-    return spans.length === 0 ? undefined : spans;
-  }
-  if (typeof value !== 'object' || value === null) return undefined;
-  const rail = {
-    ...borderTitleRailPart('start', value),
-    ...borderTitleRailPart('center', value),
-    ...borderTitleRailPart('end', value)
-  };
-  return Object.keys(rail).length === 0 ? undefined : rail;
-}
-
-function borderTitleRailPart<TKey extends keyof BorderTitleRail>(
-  key: TKey,
-  value: object
-): Pick<BorderTitleRail, TKey> | Record<string, never> {
-  const part = (value as Record<string, unknown>)[key];
-  const title = borderTitleFromValue(part);
-  return title === undefined ? {} : { [key]: title } as Pick<BorderTitleRail, TKey>;
-}
-
-function isRenderSpan(value: unknown): value is RenderSpan {
-  return typeof value === 'object'
-    && value !== null
-    && typeof (value as { readonly text?: unknown }).text === 'string';
-}
-
 function sanitizeTitleSpan(currentSpan: RenderSpan, style: TerminalStyle | undefined, index: number): RenderSpan {
   const text = sanitizeTerminalText(currentSpan.text).text;
   return {
@@ -359,47 +336,6 @@ const emptyGlyphs: BorderGlyphs = {
 
 function isTitleAlign(value: unknown): value is NonNullable<BorderStyle['titleAlign']> {
   return value === 'start' || value === 'center' || value === 'end';
-}
-
-function terminalStyleFromValue(value: unknown): TerminalStyle | undefined {
-  if (!isRecord(value)) return undefined;
-  const fg = terminalColorFromValue(value['fg']);
-  const bg = terminalColorFromValue(value['bg']);
-  return {
-    ...(fg === undefined ? {} : { fg }),
-    ...(bg === undefined ? {} : { bg }),
-    ...(typeof value['bold'] === 'boolean' ? { bold: value['bold'] } : {}),
-    ...(typeof value['dim'] === 'boolean' ? { dim: value['dim'] } : {}),
-    ...(typeof value['italic'] === 'boolean' ? { italic: value['italic'] } : {}),
-    ...(typeof value['underline'] === 'boolean' ? { underline: value['underline'] } : {}),
-    ...(typeof value['strikethrough'] === 'boolean' ? { strikethrough: value['strikethrough'] } : {}),
-    ...(typeof value['inverse'] === 'boolean' ? { inverse: value['inverse'] } : {}),
-    ...(typeof value['hidden'] === 'boolean' ? { hidden: value['hidden'] } : {})
-  };
-}
-
-function terminalColorFromValue(value: unknown): TerminalColor | undefined {
-  if (!isRecord(value)) return undefined;
-  const kind = value['kind'];
-  if (kind === 'ansi') {
-    const color = value['value'];
-    return typeof color === 'number' && Number.isFinite(color) ? { kind, value: color } : undefined;
-  }
-  if (kind === 'rgb') {
-    const r = value['r'];
-    const g = value['g'];
-    const b = value['b'];
-    return typeof r === 'number' && Number.isFinite(r)
-      && typeof g === 'number' && Number.isFinite(g)
-      && typeof b === 'number' && Number.isFinite(b)
-      ? { kind, r, g, b }
-      : undefined;
-  }
-  if (kind === 'theme') {
-    const token = value['token'];
-    return typeof token === 'string' ? { kind, token } : undefined;
-  }
-  return undefined;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

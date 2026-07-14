@@ -1,4 +1,4 @@
-import type { BorderStyle } from '../../visual/border.ts';
+import type { BorderOptions } from '../../visual/border.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type {
@@ -14,7 +14,7 @@ import type {
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type { DividerStylePart, MenuStylePart, TooltipStylePart } from '../../ui-model/style-parts.ts';
 
-export interface MenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart> {
+export interface MenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart, TMessage> {
   readonly items: readonly MenuItem[];
   readonly selected?: string;
   readonly emptyText?: string;
@@ -25,14 +25,14 @@ export interface MenuOptions<TMessage = never> extends InteractiveElementOptions
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface MenuBarOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart> {
+export interface MenuBarOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart, TMessage> {
   readonly items: readonly MenuItem[];
   readonly selected?: string;
   readonly onAction?: (action: MenuAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface ContextMenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart> {
+export interface ContextMenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart, TMessage> {
   readonly items: readonly MenuItem[];
   readonly selected?: string;
   readonly title?: string;
@@ -44,7 +44,7 @@ export interface ContextMenuOptions<TMessage = never> extends InteractiveElement
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface DropdownMenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart> {
+export interface DropdownMenuOptions<TMessage = never> extends InteractiveElementOptions<MenuStylePart, TMessage> {
   readonly label?: string;
   readonly items: readonly MenuItem[];
   readonly presentation: DropdownMenuPresentation;
@@ -66,7 +66,7 @@ export interface TooltipOptions extends ElementOptions<TooltipStylePart> {
   readonly tone?: TooltipTone;
   readonly placement?: TooltipPlacement;
   readonly maxWidth?: number;
-  readonly border?: BorderStyle;
+  readonly border?: BorderOptions;
 }
 
 export type {

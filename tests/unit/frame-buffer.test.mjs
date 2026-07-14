@@ -170,8 +170,8 @@ test('richText emits styled cells through render spans', () => {
   const frame = renderElementFrame(richText({
     id: 'styled',
     segments: [
-      { text: 'Error', style: { fg: { kind: 'theme', token: 'status.error' }, bold: true } },
-      { text: ' muted', style: { fg: { kind: 'theme', token: 'text.muted' } } }
+      { kind: 'text', text: 'Error', style: { fg: { kind: 'theme', token: 'status.error' }, bold: true } },
+      { kind: 'text', text: ' muted', style: { fg: { kind: 'theme', token: 'text.muted' } } }
     ]
   }), { columns: 20, rows: 2 });
 

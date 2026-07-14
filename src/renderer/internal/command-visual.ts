@@ -1,7 +1,8 @@
 import { highlightRenderSpans } from './text-highlight.ts';
-import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
+import { resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
+import type { ElementVisualState } from '../../element/metadata.ts';
 import type { ComponentTone } from '../../ui-model/contracts.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 
@@ -49,43 +50,37 @@ export function commandMatchSpans(
   }));
 }
 
-export function commandRowStyle(widget: RenderNode, selected: boolean, disabled = false): TerminalStyle | undefined {
+export function commandRowStyle(widget: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
   const part = commandPrimaryPart(widget);
   const base = themeStyle('text.default');
-  if (selected && disabled) return mergeStyles(
-    resolveRenderNodeStyle(widget, { part, base, state: 'selected' }),
-    renderNodeStyle(widget, part, 'disabled')
-  );
   return resolveRenderNodeStyle(widget, {
     part,
     base,
-    ...(selected ? { state: 'selected' } : disabled ? { state: 'disabled' } : {})
+    ...(state === undefined ? {} : { state })
   });
 }
 
-export function commandMetadataStyle(widget: RenderNode, selected: boolean, disabled = false): TerminalStyle | undefined {
+export function commandMetadataStyle(widget: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
   const part = widget.kind === 'palette' ? 'description' : 'suggestion';
-  return mergeStyles(
-    selected ? renderNodeStyle(widget, part, 'selected') : undefined,
-    renderNodeStyle(widget, part, disabled ? 'disabled' : undefined)
-  );
+  return renderNodeStyle(widget, part, state);
 }
 
 export function commandSelectionMarkerSpans(
   widget: RenderNode,
   theme: TerminalTheme,
   selected: boolean,
+  state: ElementVisualState | undefined,
   source?: FrameCellSource
 ): readonly RenderSpan[] {
-  const style = selected ? renderNodeStyle(widget, commandPrimaryPart(widget), 'selected') : undefined;
+  const style = state === undefined ? undefined : renderNodeStyle(widget, commandPrimaryPart(widget), state);
   return [
     styledSpan(`${selected ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected} `, style, source)
   ];
 }
 
-export function commandGroupSpans(widget: RenderNode, group: string | undefined, selected: boolean, source?: FrameCellSource): readonly RenderSpan[] {
+export function commandGroupSpans(widget: RenderNode, group: string | undefined, state: ElementVisualState | undefined, source?: FrameCellSource): readonly RenderSpan[] {
   if (group === undefined || group.length === 0) return [];
-  const style = commandMetadataStyle(widget, selected);
+  const style = commandMetadataStyle(widget, state);
   return [
     styledSpan(`[${group}] `, style, source)
   ];

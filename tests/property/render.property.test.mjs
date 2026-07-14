@@ -64,11 +64,11 @@ test('diff round-trips reproduce the next frame text and keep ANSI serialization
 test('style-only diffs are incremental and preserve visual dimensions', () => {
   const previous = renderElementFrame(richText({
     id: 'status',
-    segments: [{ text: 'same text', style: { fg: { kind: 'theme', token: 'status.info' } } }]
+    segments: [{ kind: 'text', text: 'same text', style: { fg: { kind: 'theme', token: 'status.info' } } }]
   }), { columns: 24, rows: 2 });
   const next = renderElementFrame(richText({
     id: 'status',
-    segments: [{ text: 'same text', style: { fg: { kind: 'theme', token: 'status.error' } } }]
+    segments: [{ kind: 'text', text: 'same text', style: { fg: { kind: 'theme', token: 'status.error' } } }]
   }), { columns: 24, rows: 2 });
   const diff = diffFrames(previous, next);
 

@@ -36,7 +36,7 @@ const formOptions = [
 const disabledWidgetCases = [
   {
     name: 'button',
-    element: () => button({ id: 'disabled-button', label: 'Submit', onPress: message, state: 'disabled' })
+    element: () => button({ id: 'disabled-button', label: 'Submit', onPress: message, disabled: true })
   },
   {
     name: 'checkbox',
@@ -148,7 +148,7 @@ test('disabled widget props block generated keyboard and mouse dispatch', async 
       label: state.active,
       onPress: { active: 'mouse' },
       keys: { enter: () => ({ active: 'key' }) },
-      state: 'disabled'
+      disabled: true
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });

@@ -1,6 +1,7 @@
 import type { TerminalStyle } from '../visual/render.ts';
 import { mergeSymbols, sanitizeSymbols, symbolEntries } from './symbols.ts';
-import type { TerminalDesignTokenDefinition, TerminalDesignTokens, TerminalSpacingTokens, ThemeColor, ThemeColorToken } from './tokens.ts';
+import type { TerminalDesignTokenDefinition, TerminalDesignTokens, ThemeColor, ThemeColorToken } from './tokens.ts';
+import { isThemeColorToken } from '../visual/color.ts';
 
 export interface TerminalTheme {
   readonly name: string;
@@ -35,10 +36,10 @@ export function mergeDesignTokens(
   override: TerminalDesignTokenDefinition | undefined
 ): TerminalDesignTokens {
   if (override === undefined) return base;
+  assertDesignTokenDefinition(override);
   return normalizeDesignTokens({
     colors: { ...base.colors, ...(override.colors ?? {}) },
-    symbols: mergeSymbols(base.symbols, override.symbols),
-    spacing: { ...base.spacing, ...(override.spacing ?? {}) }
+    symbols: mergeSymbols(base.symbols, override.symbols)
   });
 }
 
@@ -80,36 +81,24 @@ export function isTerminalTheme(theme: TerminalTheme | TerminalThemeDefinition):
 }
 
 function normalizeDesignTokens(tokens: TerminalDesignTokens): TerminalDesignTokens {
+  assertColorTokens(tokens.colors);
   return {
     colors: Object.freeze({ ...tokens.colors }),
-    symbols: sanitizeSymbols(tokens.symbols),
-    spacing: normalizeSpacing(tokens.spacing)
+    symbols: sanitizeSymbols(tokens.symbols)
   };
-}
-
-function normalizeSpacing(spacing: TerminalSpacingTokens): TerminalSpacingTokens {
-  return {
-    gap: normalizeSpacingValue(spacing.gap),
-    padding: normalizeSpacingValue(spacing.padding)
-  };
-}
-
-function normalizeSpacingValue(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.floor(value));
 }
 
 function themeFingerprint(name: string, tokens: TerminalDesignTokens): string {
   return `theme:${hashString(JSON.stringify([
     name,
     colorEntries(tokens.colors),
-    symbolEntries(tokens.symbols),
-    [tokens.spacing.gap, tokens.spacing.padding]
+    symbolEntries(tokens.symbols)
   ]))}`;
 }
 
-function colorEntries(colors: Readonly<Record<string, ThemeColor>>): readonly unknown[] {
+function colorEntries(colors: TerminalDesignTokens['colors']): readonly unknown[] {
   return Object.entries(colors)
+    .filter((entry): entry is [string, ThemeColor] => entry[1] !== undefined)
     .sort(([left], [right]) => left.localeCompare(right))
     .map(([token, color]) => [
       token,
@@ -132,7 +121,25 @@ function assertThemeDefinition(definition: TerminalThemeDefinition): void {
   const keys = Object.keys(definition);
   for (const key of keys) {
     if (key !== 'name' && key !== 'tokens') {
-      throw new TypeError(`Unsupported theme definition key: ${key}. Use tokens.colors, tokens.symbols, or tokens.spacing.`);
+      throw new TypeError(`Unsupported theme definition key: ${key}. Use tokens.colors or tokens.symbols.`);
+    }
+  }
+  if (definition.tokens !== undefined) assertDesignTokenDefinition(definition.tokens);
+}
+
+function assertDesignTokenDefinition(definition: TerminalDesignTokenDefinition): void {
+  for (const key of Object.keys(definition)) {
+    if (key !== 'colors' && key !== 'symbols') {
+      throw new TypeError(`Unsupported design token key: ${key}. Use colors or symbols.`);
+    }
+  }
+  if (definition.colors !== undefined) assertColorTokens(definition.colors);
+}
+
+function assertColorTokens(colors: TerminalDesignTokens['colors']): void {
+  for (const token of Object.keys(colors)) {
+    if (!isThemeColorToken(token)) {
+      throw new TypeError(`Unsupported color token: ${token}. Custom color tokens must use the custom.* namespace.`);
     }
   }
 }

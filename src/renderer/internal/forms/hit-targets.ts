@@ -33,18 +33,24 @@ import {
   clean,
   labelPrefix
 } from './support/shared.ts';
+import { renderNodeTargetId } from '../pointer-presentation.ts';
 
 export function controlHitTargets<TMessage>(widget: ActivationControlNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  if (widget.props.disabled === true) return [];
   const handler = widget.kind === 'button'
     ? widget.props.message === undefined ? undefined : () => widget.props.message
     : widget.props.toMessage === undefined ? undefined : () => widget.props.toMessage?.(!widget.props.checked);
   if (handler === undefined) return [];
   return [{
-    id: `${widget.id ?? widget.kind}:control`,
+    id: controlTargetId(widget),
     bounds,
     message: handler,
     cursor: 'pointer'
   }];
+}
+
+export function controlTargetId(widget: ActivationControlNode<unknown>): string {
+  return renderNodeTargetId(widget, 'control');
 }
 
 export function optionHitTargets<TMessage>(widget: OptionControlNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {

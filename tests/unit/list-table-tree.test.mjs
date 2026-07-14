@@ -18,7 +18,6 @@ import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
-import { span } from '../../dist/renderer/index.js';
 import {
   list,
   paginator,
@@ -346,9 +345,10 @@ test('table supports scroll state column sizing styled renderers sort markers em
         header: 'Score',
         width: { kind: 'fixed', cells: 5 },
         align: 'end',
-        render: ({ value }) => span(String(value), {
-          style: { fg: { kind: 'theme', token: 'status.success' } },
-          source: { ownerId: 'score-renderer', ownerKind: 'external', role: 'text', label: 'score.value' }
+        render: ({ value }) => ({
+          kind: 'text',
+          text: String(value),
+          style: { fg: { kind: 'theme', token: 'status.success' } }
         })
       },
       {
@@ -371,8 +371,8 @@ test('table supports scroll state column sizing styled renderers sort markers em
   assert.match(output, /bravo🙂/u);
   assert.match(output, /charlie/u);
   assert.equal(styledScore?.style?.fg?.token, 'status.success');
-  assert.equal(styledScore?.source?.label, 'score.value');
-  assert.equal(styledScore?.source?.ownerKind, 'external');
+  assert.equal(styledScore?.source?.label, 'row.1.cell.2');
+  assert.equal(styledScore?.source?.ownerKind, 'table');
   assert.equal(sortMarker?.source?.label, 'header.1.sort');
   assert.equal(selectedScore?.style?.bg?.token, 'selection.background');
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.value, 'Name');
@@ -413,11 +413,11 @@ test('table source metadata describes headers rows cells separators and empty st
   assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N' && cell.row === 2)?.source?.label, 'empty');
 });
 
-test('table dense metric semantics tighten spacing and expose metric metadata', () => {
+test('table compact metric semantics tighten spacing and expose metric metadata', () => {
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'metrics-table',
-    density: 'dense',
+    density: 'compact',
     selectedRowId: '0',
     stickyHeader: true,
     rows: [[18, 'node', '188M', 4.2]],
@@ -446,11 +446,11 @@ test('table dense metric semantics tighten spacing and expose metric metadata', 
   assert.equal(metricCell?.source?.state, 'selected');
 });
 
-test('table dense fill columns keep marker width aligned with cell hit targets', () => {
+test('table compact fill columns keep marker width aligned with cell hit targets', () => {
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'dense-fill-table',
-    density: 'dense',
+    density: 'compact',
     selectedRowId: '0',
     selectedCell: { rowId: '0', column: 1 },
     stickyHeader: true,

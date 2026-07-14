@@ -5,6 +5,7 @@ export type {
   RenderNodesOfKind,
   RenderNodeChildren,
   RenderNodeInputMap,
+  RenderNodePointerPresentation,
   RenderNodeKind
 } from './types.ts';
 export type { CursorPosition } from './cursor.ts';

@@ -24,6 +24,7 @@ import {
   text
 } from '@ismail-elkorchi/terminal-ui/components';
 
+/** @type {import('@ismail-elkorchi/terminal-ui/components').ValueScale} */
 const monitorScale = Object.freeze([
   { at: 0, token: 'scale.low', label: 'low' },
   { at: 0.45, token: 'scale.medium', label: 'medium' },
@@ -202,7 +203,7 @@ function topBar(state) {
     id: 'btop-top',
     title: {
       start: panelTitle('cpu', 'mem', `preset *  ${formatClock(state.tick)}`),
-      center: [themeSpan('btop', 'surface.title', { bold: true })],
+      center: [inlineText('btop', 'surface.title', { bold: true })],
       end: panelTitle('BAT', '84%', `${String(4.14 + state.tick / 200).slice(0, 4)}W  2000ms`)
     },
     border: { kind: 'single' },
@@ -435,7 +436,7 @@ function processPanel(state) {
       id: 'process-table',
       rows,
       selectedRowId: state.selectedProcessId,
-      density: 'dense',
+      density: 'compact',
       stickyHeader: true,
       scrollbar: { visible: 'auto' },
       columns: [
@@ -521,9 +522,9 @@ function meterStatus(status) {
 
 function panelTitle(title, detail, metric) {
   return [
-    themeSpan(title, 'surface.title', { bold: true }),
-    themeSpan(` ${detail}`, 'text.muted', { dim: true }),
-    themeSpan(` ${metric}`, 'chart.value')
+    inlineText(title, 'surface.title', { bold: true }),
+    inlineText(` ${detail}`, 'text.muted', { dim: true }),
+    inlineText(` ${metric}`, 'chart.value')
   ];
 }
 
@@ -531,10 +532,10 @@ function panelTitle(title, detail, metric) {
  * @param {string} content
  * @param {import('@ismail-elkorchi/terminal-ui/theme').ThemeColorToken} token
  * @param {import('@ismail-elkorchi/terminal-ui/renderer').TerminalStyle} [style]
- * @returns {import('@ismail-elkorchi/terminal-ui/renderer').RenderSpan}
+ * @returns {import('@ismail-elkorchi/terminal-ui/components').InlineTextSegment}
  */
-function themeSpan(content, token, style = {}) {
-  return { text: content, style: { ...style, fg: { kind: 'theme', token } } };
+function inlineText(content, token, style = {}) {
+  return { kind: 'text', text: content, style: { ...style, fg: { kind: 'theme', token } } };
 }
 
 export async function runScriptedBtopMonitor() {

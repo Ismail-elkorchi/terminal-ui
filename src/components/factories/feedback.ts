@@ -26,21 +26,24 @@ import type {
   IndependentInteractionOptions,
   InferredElementKeyBindings
 } from '../internal/messages.ts';
+import { normalizeInlineContent } from '../../visual/inline-content.ts';
 import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
 import type { BarChartAction, ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
 import { resolveStableIds } from '../internal/identity.ts';
 
 export function notificationStack<
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     NotificationStackOptions,
     { readonly onAction: TActionMessage },
     Record<never, never>,
-    TKeys
+    TKeys,
+    TPointerMessage
   >
-): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function notificationStack(options: NotificationStackOptions<unknown>): Element<unknown> {
   const meta = withMetaDefaults(options.meta, { focus: { disabled: true } });
   const onAction = options.onAction;
@@ -64,14 +67,14 @@ export function notificationStack(options: NotificationStackOptions<unknown>): E
         toActionMessage: (action: NotificationStackAction) => onAction(action)
       })
     },
-    ...interactionProps({ keys: keyMap, meta })
+    ...interactionProps({ keys: keyMap, pointer: options.pointer, meta })
   });
 }
 
 export function statusBar(options: StatusBarOptions): Element {
-  const leading = options.leading ?? [];
-  const center = options.center ?? [];
-  const trailing = options.trailing ?? [];
+  const leading = normalizedStatusItems(options.leading ?? []);
+  const center = normalizedStatusItems(options.center ?? []);
+  const trailing = normalizedStatusItems(options.trailing ?? []);
   resolveStableIds([...leading, ...center, ...trailing], (item) => item.id, 'statusBar');
   return elementFromRenderNode<'statusBar'>({
     ...requiredId(options.id, 'statusBar'),
@@ -79,6 +82,16 @@ export function statusBar(options: StatusBarOptions): Element {
     props: { leading, center, trailing },
     ...componentMetaProps(options.meta)
   });
+}
+
+function normalizedStatusItems(
+  items: readonly import('../../ui-model/feedback.ts').StatusBarItem[]
+): readonly import('../../ui-model/feedback.ts').StatusBarItem[] {
+  return items.map((item) => ({
+    ...item,
+    ...(item.leading === undefined ? {} : { leading: normalizeInlineContent(item.leading) }),
+    ...(item.trailing === undefined ? {} : { trailing: normalizeInlineContent(item.trailing) })
+  }));
 }
 
 export function helpBar(options: HelpBarOptions): Element {
@@ -145,15 +158,17 @@ export function sparkline(options: SparklineOptions): Element {
 
 export function barChart<
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     BarChartOptions,
     { readonly onAction: TActionMessage },
     Record<never, never>,
-    TKeys
+    TKeys,
+    TPointerMessage
   >
-): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
   resolveStableIds(options.items, (item) => item.id, 'barChart');
   const onAction = options.onAction;

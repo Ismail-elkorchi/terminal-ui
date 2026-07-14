@@ -223,7 +223,7 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   assert.match(renderNodeRendererDeclaration, /readonly scopeId\?: string;/u);
   assert.match(renderNodeRendererDeclaration, /readonly focused: boolean;/u);
   assert.match(borderDeclaration, /readonly titleAlign\?: 'start' \| 'center' \| 'end';/u);
-  assert.match(borderDeclaration, /readonly focusStyle\?: TerminalStyle;/u);
+  assert.doesNotMatch(borderDeclaration, /\b(?:TerminalStyle|RenderSpan|FrameCellSource)\b/u);
 });
 
 test('public renderer helpers accept authored component elements', () => {

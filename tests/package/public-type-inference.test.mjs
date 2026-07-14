@@ -17,6 +17,15 @@ test('public component factories preserve exact and heterogeneous message types'
     const passive = richText({ segments: [] });
     const save = button({ id: 'save', label: 'Save', onPress: { kind: 'save' } as const });
     const quit = button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit', force: true } as const });
+    const controlled = button({
+      id: 'controlled',
+      label: 'Controlled',
+      onPress: { kind: 'activate' } as const,
+      pointer: {
+        state: { hoveredTargetId: 'controlled:control' },
+        onAction: (action) => ({ kind: 'pointer', action } as const)
+      }
+    });
     const toolbar = row([passive, save, quit] as const);
 
     type _Passive = Assert<Equal<MessageOf<typeof passive>, never>>;
@@ -24,6 +33,11 @@ test('public component factories preserve exact and heterogeneous message types'
     type _Toolbar = Assert<Equal<
       MessageOf<typeof toolbar>,
       { readonly kind: 'save' } | { readonly kind: 'quit'; readonly force: true }
+    >>;
+    type _Controlled = Assert<Equal<
+      MessageOf<typeof controlled>,
+      | { readonly kind: 'activate' }
+      | { readonly kind: 'pointer'; readonly action: import('@ismail-elkorchi/terminal-ui/interaction').PointerPresentationAction }
     >>;
   `, { name: 'public-component-inference' });
 
@@ -48,8 +62,9 @@ test('interactive identity, passive inputs, and component anatomy are enforced b
 
     // @ts-expect-error interactive components require authored identity
     button({ label: 'Save' });
-    // @ts-expect-error button interaction state is one discriminated field
-    button({ id: 'legacy-button-state', label: 'Save', disabled: true });
+    button({ id: 'disabled-button', label: 'Save', disabled: true });
+    // @ts-expect-error pointer press is controlled through pointer presentation
+    button({ id: 'legacy-button-state', label: 'Save', state: 'pressed' });
     // @ts-expect-error range sliders retain the shared disabled control contract
     rangeSlider({ id: 'invalid-range-state', value: { start: 1, end: 2 }, state: 'disabled' });
     // @ts-expect-error passive text cannot own local input bindings
@@ -92,6 +107,82 @@ test('item domains share only valid foundations', () => {
     const invalidChoice: ChoiceItem<number> = action;
     void invalidChoice;
   `, { name: 'item-domain-contracts' });
+
+  assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
+});
+
+test('component density uses one exact public vocabulary', () => {
+  const diagnostics = typecheckSource(`
+    import { table, type ComponentDensity } from '@ismail-elkorchi/terminal-ui/components';
+
+    const compact: ComponentDensity = 'compact';
+    const regular: ComponentDensity = 'regular';
+    table({
+      id: 'jobs',
+      rows: [{ id: 'one' }],
+      getRowId: (row) => row.id,
+      density: compact
+    });
+    table({
+      id: 'regular-jobs',
+      rows: [{ id: 'one' }],
+      getRowId: (row) => row.id,
+      density: regular
+    });
+
+    // @ts-expect-error removed table-only density vocabulary
+    table({ id: 'dense', rows: [], getRowId: () => '', density: 'dense' });
+    // @ts-expect-error removed table-only density vocabulary
+    table({ id: 'normal', rows: [], getRowId: () => '', density: 'normal' });
+  `, { name: 'component-density-contract' });
+
+  assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
+});
+
+test('inline content keeps authored source internal and color tokens namespaced', () => {
+  const diagnostics = typecheckSource(`
+    import { button, richText, text, type InlineContent } from '@ismail-elkorchi/terminal-ui/components';
+    import { surface } from '@ismail-elkorchi/terminal-ui/layout';
+
+    const content: InlineContent = [
+      { kind: 'text', text: 'Open', style: { fg: { kind: 'theme', token: 'text.default' } } },
+      { kind: 'symbol', unicode: '→', ascii: '->', accessibleText: 'next' }
+    ];
+    richText({ segments: content });
+    button({
+      id: 'open',
+      label: 'Open',
+      leading: [{ kind: 'symbol', unicode: '◆', ascii: '*', accessibleText: 'status' }],
+      meta: { styles: { parts: { label: { fg: { kind: 'theme', token: 'custom.brand' } } } } }
+    });
+    surface(text('body'), {
+      title: [{ kind: 'symbol', unicode: '◆', ascii: '*', accessibleText: 'status' }],
+      border: { kind: 'single' }
+    });
+
+    // @ts-expect-error frame source metadata is renderer-owned
+    richText({ segments: [{ kind: 'text', text: 'unsafe', source: { ownerId: 'caller' } }] });
+    // @ts-expect-error symbolic content requires accessible text
+    richText({ segments: [{ kind: 'symbol', unicode: '→', ascii: '->' }] });
+    surface(text('invalid border title'), {
+      // @ts-expect-error border geometry does not own authored title content
+      border: { kind: 'single', title: 'Legacy title' }
+    });
+    surface(text('invalid title source'), {
+      // @ts-expect-error surface titles cannot author renderer source metadata
+      title: [{ kind: 'text', text: 'Title', source: { ownerId: 'caller' } }]
+    });
+    button({
+      id: 'invalid-token',
+      label: 'Invalid',
+      meta: {
+        styles: {
+          // @ts-expect-error custom color tokens require the custom.* namespace
+          parts: { label: { fg: { kind: 'theme', token: 'brand.accent' } } }
+        }
+      }
+    });
+  `, { name: 'inline-content-contract' });
 
   assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
 });

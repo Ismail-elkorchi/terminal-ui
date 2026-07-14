@@ -1,7 +1,10 @@
 import type { ScrollEvent } from '../interaction/scroll.ts';
 import type { ComponentActionTone, ComponentTone, HierarchyItem, ItemBase } from './contracts.ts';
+import type { InlineContent } from '../visual/inline-content.ts';
 
 export interface MenuItem extends ItemBase, HierarchyItem<MenuItem> {
+  readonly leading?: InlineContent;
+  readonly trailing?: InlineContent;
   readonly checked?: boolean;
   readonly shortcut?: string;
   readonly tone?: ComponentActionTone;

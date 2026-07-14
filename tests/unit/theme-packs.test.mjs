@@ -112,7 +112,8 @@ test('theme matrix snapshots cover core widgets with packs high contrast and no 
     const frame = renderElementFrame(column([
       surface(text(`Theme ${theme.name}`, { id: `title-${theme.name}` }), {
         id: `surface-${theme.name}`,
-        border: { kind: 'rounded', title: theme.name },
+        title: theme.name,
+        border: { kind: 'rounded' },
         padding: 1
       }),
       progressBar({ id: `progress-${theme.name}`, value: 64, label: 'readable' }),
@@ -146,8 +147,8 @@ test('default theme specimen composes surface control text command log and data 
     richText({
       id: 'specimen-title',
       segments: [
-        { text: 'terminal-ui ', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } },
-        { text: 'docs', link: { href: 'https://example.test/docs' } }
+        { kind: 'text', text: 'terminal-ui ', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } },
+        { kind: 'text', text: 'docs', link: { href: 'https://example.test/docs' } }
       ]
     }),
     tabs({
@@ -158,7 +159,12 @@ test('default theme specimen composes surface control text command log and data 
         { id: 'two', label: 'tab two', panel: text('Second panel') }
       ]
     }),
-    button({ id: 'specimen-button', label: 'Primary', tone: 'primary', state: 'pressed' }),
+    button({
+      id: 'specimen-button',
+      label: 'Primary',
+      tone: 'primary',
+      pointer: { state: { pressedTargetId: 'specimen-button:control' } }
+    }),
     commandInput({
       id: 'specimen-command',
       value: '/open readme',
@@ -215,7 +221,8 @@ test('default theme specimen composes surface control text command log and data 
   }), {
     id: 'specimen-surface',
     variant: 'raised',
-    border: { kind: 'rounded', title: 'Theme specimen' },
+    title: 'Theme specimen',
+    border: { kind: 'rounded' },
     padding: 1
   }), { columns: 72, rows: 32 }, { theme: defaultTheme });
 
@@ -226,7 +233,7 @@ test('default theme specimen composes surface control text command log and data 
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'tab.active.foreground'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'tab.inactive.foreground'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.bg?.token === 'badge.background'), true);
-  assert.equal(frame.cells.find((cell) => cell.text === 'P')?.style?.bg?.token, 'control.primary.background');
+  assert.equal(frame.cells.find((cell) => cell.text === 'P')?.style?.bg?.token, 'selection.background');
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'command.prompt'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'log.info'), true);
   assert.equal(frame.cells.some((cell) => cell.style?.fg?.token === 'log.warning'), true);

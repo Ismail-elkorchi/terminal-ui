@@ -1,5 +1,5 @@
 import type { TextEditOperation, TextSelection } from '../../text/index.ts';
-import type { RenderSpan } from '../../visual/render.ts';
+import type { InlineContent } from '../../visual/inline-content.ts';
 import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { TextPointerEvent } from '../../interaction/text-pointer.ts';
@@ -7,10 +7,10 @@ import type { ListAction } from '../../ui-model/list.ts';
 import type { TableAction, TableSortState } from '../../ui-model/table.ts';
 import type { TreeAction, TreeNode } from '../../ui-model/tree.ts';
 import type { PaginatorAction } from '../../ui-model/paginator.ts';
+import type { ComponentDensity } from '../../ui-model/contracts.ts';
 import type {
   TableCellSelection,
   TableColumn,
-  TableDensity,
   TextAreaHighlight,
   TextAreaLineNumberOptions,
   TextAreaWrapOptions
@@ -30,11 +30,11 @@ export interface TextOptions extends ElementOptions<TextStylePart> {
 }
 
 export interface RichTextOptions extends ElementOptions<TextStylePart> {
-  readonly segments: readonly RenderSpan[];
+  readonly segments: InlineContent;
   readonly wrap?: boolean;
 }
 
-export interface ListOptions<TValue, TMessage> extends InteractiveElementOptions<DataListStylePart> {
+export interface ListOptions<TValue, TMessage> extends InteractiveElementOptions<DataListStylePart, TMessage> {
   readonly items: readonly TValue[];
   readonly getItemId: (value: TValue, index: number) => string;
   readonly selectedId?: string;
@@ -47,7 +47,7 @@ export interface ListOptions<TValue, TMessage> extends InteractiveElementOptions
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface TableOptions<TRow, TMessage = never> extends InteractiveElementOptions<TableStylePart> {
+export interface TableOptions<TRow, TMessage = never> extends InteractiveElementOptions<TableStylePart, TMessage> {
   readonly rows: readonly TRow[];
   readonly getRowId: (row: TRow, index: number) => string;
   readonly columns?: readonly TableColumn<TRow>[];
@@ -55,7 +55,7 @@ export interface TableOptions<TRow, TMessage = never> extends InteractiveElement
   readonly selectedCell?: TableCellSelection;
   readonly sort?: TableSortState;
   readonly columnWidths?: Readonly<Record<string, number>>;
-  readonly density?: TableDensity;
+  readonly density?: ComponentDensity;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
@@ -68,7 +68,7 @@ export interface TableOptions<TRow, TMessage = never> extends InteractiveElement
 export interface TreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
   TMessage = never
-> extends InteractiveElementOptions<TreeStylePart> {
+> extends InteractiveElementOptions<TreeStylePart, TMessage> {
   readonly nodes: readonly TreeNode<TMetadata>[];
   readonly selected?: string;
   readonly filterQuery?: string;
@@ -80,7 +80,7 @@ export interface TreeOptions<
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface PaginatorOptions<TMessage = never> extends InteractiveElementOptions<PaginatorStylePart> {
+export interface PaginatorOptions<TMessage = never> extends InteractiveElementOptions<PaginatorStylePart, TMessage> {
   readonly page: number;
   readonly pageCount: number;
   readonly label?: string;
@@ -88,7 +88,7 @@ export interface PaginatorOptions<TMessage = never> extends InteractiveElementOp
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface TextAreaOptions<TMessage = never> extends InteractiveElementOptions<TextAreaStylePart> {
+export interface TextAreaOptions<TMessage = never> extends InteractiveElementOptions<TextAreaStylePart, TMessage> {
   readonly value?: string;
   readonly cursor?: number;
   readonly selection?: TextSelection;
@@ -116,7 +116,6 @@ export type {
   TableColumnAlignment,
   TableColumnSemantic,
   TableColumnWidth,
-  TableDensity,
   TextAreaHighlight,
   TextAreaLineNumberOptions,
   TextAreaWrapOptions

@@ -1,6 +1,7 @@
 import type { AccessibilityOptions, AccessibleNode } from '../accessibility/index.ts';
 import type { BindableKeyName, InputEvent } from '../input/index.ts';
 import type { FocusPath } from '../interaction/focus.ts';
+import type { PointerPresentationOptions } from '../interaction/pointer-presentation.ts';
 import type { TerminalStyle } from '../visual/render.ts';
 
 export interface ElementKeyEvent {
@@ -27,6 +28,8 @@ export interface ElementLayer {
 export type ElementVisualState =
   | 'default'
   | 'focused'
+  | 'hovered'
+  | 'pressed'
   | 'selected'
   | 'disabled'
   | 'active'
@@ -77,8 +80,12 @@ export interface ElementOptions<TPart extends string = string> {
   readonly meta?: ElementMeta<TPart>;
 }
 
-export interface InteractiveElementOptions<TPart extends string = string> extends ElementOptions<TPart> {
+export interface InteractiveElementOptions<
+  TPart extends string = string,
+  TMessage = never
+> extends ElementOptions<TPart> {
   readonly id: string;
+  readonly pointer?: PointerPresentationOptions<TMessage>;
 }
 
 export interface ElementTextInputHandlers<TMessage> {

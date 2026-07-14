@@ -146,7 +146,7 @@ const cases = [
     element: () => richText({
       id: 'rich',
       segments: [
-        renderSpan(unsafe, { style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } })
+        { kind: 'text', text: unsafe, style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }
       ]
     }),
     expectText: /Unsafe red text/u,
@@ -436,7 +436,8 @@ const cases = [
     element: () => surface(text(unsafe, { id: 'surface-child' }), {
       id: 'surface',
       label: unsafe,
-      border: { kind: 'single', title: unsafe }
+      title: unsafe,
+      border: { kind: 'single' }
     }),
     expectText: /Unsafe red text/u
   },

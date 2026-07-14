@@ -115,8 +115,8 @@ test('table clipping keeps multi-span cell styles instead of flattening to plain
       header: 'State',
       width: 6,
       render: () => [
-        { text: 'pass', style: red },
-        { text: '-fail', style: blue }
+        { kind: 'text', text: 'pass', style: red },
+        { kind: 'text', text: '-fail', style: blue }
       ]
     }]
   }), { columns: 10, rows: 2 });
@@ -148,8 +148,8 @@ test('table horizontal scrolling keeps span styles after clipped cells are shift
       id: 'column-0', value: (row) => Array.isArray(row) ? row[0] : row,
       width: 8,
       render: () => [
-        { text: 'left', style: red },
-        { text: 'right', style: blue }
+        { kind: 'text', text: 'left', style: red },
+        { kind: 'text', text: 'right', style: blue }
       ]
     }]
   }), { columns: 6, rows: 1 });

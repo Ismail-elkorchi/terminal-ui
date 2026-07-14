@@ -91,9 +91,9 @@ export function buttonAccessibleBase(widget: ButtonNode, id: string, focused: bo
     id,
     role: 'button',
     label: clean(stringify(widget.props.label)) || id,
-    ...(widget.props.state === 'pending' ? { value: 'pending' } : widget.props.state === 'pressed' ? { value: 'pressed' } : {}),
+    ...(widget.props.state === 'pending' ? { value: 'pending' } : {}),
     ...(description.length === 0 ? {} : { description }),
-    ...(widget.props.state === 'disabled' ? { disabled: true } : {}),
+    ...(widget.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }

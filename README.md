@@ -69,8 +69,8 @@ import { column, row } from '@ismail-elkorchi/terminal-ui/layout';
 const frame = renderElementFrame(column([
   statusBar({ id: 'status', leading: [{ id: 'ready', kind: 'status', text: 'Ready', status: 'success' }] }),
   row([
-    richText({ segments: [{ text: 'Primary', style: { fg: { kind: 'theme', token: 'accent.primary' } } }] }),
-    richText({ segments: [{ text: 'Secondary', style: { fg: { kind: 'theme', token: 'accent.secondary' } } }] })
+    richText({ segments: [{ kind: 'text', text: 'Primary', style: { fg: { kind: 'theme', token: 'accent.primary' } } }] }),
+    richText({ segments: [{ kind: 'text', text: 'Secondary', style: { fg: { kind: 'theme', token: 'accent.secondary' } } }] })
   ])
 ]), { columns: 40, rows: 4 });
 

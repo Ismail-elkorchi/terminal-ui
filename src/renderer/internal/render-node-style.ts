@@ -89,6 +89,17 @@ export function defaultStyleForState(state: ElementVisualState): TerminalStyle |
       return undefined;
     case 'focused':
       return themeStyle('accent.primary', { bold: true });
+    case 'hovered':
+      return {
+        fg: { kind: 'theme', token: 'text.default' },
+        bg: { kind: 'theme', token: 'focus.background' }
+      };
+    case 'pressed':
+      return {
+        fg: { kind: 'theme', token: 'selection.foreground' },
+        bg: { kind: 'theme', token: 'selection.background' },
+        bold: true
+      };
     case 'selected':
       return {
         fg: { kind: 'theme', token: 'selection.foreground' },

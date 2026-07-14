@@ -1,22 +1,45 @@
 import type { RenderNodeOfKind } from '../../../model/index.ts';
-import { borderStyleFromValue, borderTitleText } from '../../border.ts';
-import { stringify } from '../../render-node-props.ts';
+import { borderStyleFromValue } from '../../border.ts';
 import { mergeStyles, renderNodeStyle } from '../../render-node-style.ts';
 import type { BorderStyle } from '../../border.ts';
 import type { Rect } from '../../../model/layout.ts';
 import type { TerminalStyle } from '../../../../visual/render.ts';
+import type { TerminalTheme } from '../../../../theme/index.ts';
+import { borderTitleAccessibleText } from '../../../../visual/border.ts';
+import { renderNodeFrameSource } from '../../../../visual/source.ts';
+import { renderBorderTitle } from '../../border-title.ts';
 
 type DialogNode = RenderNodeOfKind<unknown, 'dialog'>;
 
-export function borderForDialog(widget: DialogNode, focused = false): BorderStyle {
+export function borderForDialog(
+  widget: DialogNode,
+  focused = false,
+  theme?: TerminalTheme
+): BorderStyle {
   const border = defaultBorderStyle(
     widget,
     borderStyleFromValue(widget.props.border) ?? { kind: 'single' },
     dialogBorderStyle(widget)
   );
-  if (border.title !== undefined || border.kind === 'none') return focusBorder(border, focused);
-  const title = dialogLabel(widget);
-  return focusBorder(title.length === 0 ? border : { ...border, title }, focused);
+  if (border.title !== undefined || border.kind === 'none' || theme === undefined) {
+    return focusBorder(border, focused);
+  }
+  const title = renderBorderTitle(widget.props.title, {
+    theme,
+    ...styleOption(renderNodeStyle(widget, 'title')),
+    source: (part, index) => renderNodeFrameSource(widget, {
+      family: 'dialog',
+      role: 'text',
+      part: `${part}.${String(index)}`,
+      partKind: 'title',
+      label: `${part}.${String(index)}`
+    })
+  });
+  return focusBorder(title === undefined ? border : { ...border, title }, focused);
+}
+
+function styleOption(style: TerminalStyle | undefined): { readonly baseStyle?: TerminalStyle } {
+  return style === undefined ? {} : { baseStyle: style };
 }
 
 function defaultBorderStyle(widget: DialogNode, border: BorderStyle, baseStyle = renderNodeStyle(widget, 'border')): BorderStyle {
@@ -33,10 +56,7 @@ function dialogBorderStyle(widget: DialogNode): TerminalStyle | undefined {
 }
 
 export function dialogLabel(widget: DialogNode): string {
-  const title = stringify(widget.props.title);
-  if (title.length > 0) return title;
-  const borderTitle = borderStyleFromValue(widget.props.border)?.title;
-  return borderTitleText(borderTitle);
+  return borderTitleAccessibleText(widget.props.title);
 }
 
 export function borderContentBounds(bounds: Rect, border: BorderStyle): Rect {

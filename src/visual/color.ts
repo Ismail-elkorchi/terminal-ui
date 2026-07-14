@@ -1,103 +1,112 @@
-export type CoreColorToken =
-  | 'app.background'
-  | 'app.foreground'
-  | 'surface.background'
-  | 'surface.foreground'
-  | 'surface.border'
-  | 'surface.title'
-  | 'surface.chrome.background'
-  | 'surface.chrome.border'
-  | 'surface.raised.background'
-  | 'surface.raised.border'
-  | 'surface.inset.background'
-  | 'surface.inset.border'
-  | 'surface.selected.background'
-  | 'surface.selected.border'
-  | 'surface.warning.background'
-  | 'surface.warning.border'
-  | 'surface.danger.background'
-  | 'surface.danger.border'
-  | 'surface.success.background'
-  | 'surface.success.border'
-  | 'surface.shadow'
-  | 'text.default'
-  | 'text.muted'
-  | 'text.strong'
-  | 'text.disabled'
-  | 'link.foreground'
-  | 'accent.primary'
-  | 'accent.secondary'
-  | 'status.info'
-  | 'status.success'
-  | 'status.warning'
-  | 'status.error'
-  | 'status.pending'
-  | 'status.running'
-  | 'scale.low'
-  | 'scale.medium'
-  | 'scale.high'
-  | 'scale.critical'
-  | 'selection.background'
-  | 'selection.foreground'
-  | 'focus.border'
-  | 'focus.background'
-  | 'control.background'
-  | 'control.foreground'
-  | 'control.border'
-  | 'control.primary.background'
-  | 'control.primary.foreground'
-  | 'control.primary.border'
-  | 'control.secondary.background'
-  | 'control.secondary.foreground'
-  | 'control.secondary.border'
-  | 'control.track'
-  | 'control.track.filled'
-  | 'control.handle'
-  | 'control.toggle.on.background'
-  | 'control.toggle.off.background'
-  | 'input.cursor'
-  | 'input.placeholder'
-  | 'editor.gutter.foreground'
-  | 'editor.gutter.background'
-  | 'editor.gutter.active.foreground'
-  | 'editor.activeLine.background'
-  | 'command.prompt'
-  | 'command.match'
-  | 'menu.match'
-  | 'menu.selected'
-  | 'tab.active.foreground'
-  | 'tab.inactive.foreground'
-  | 'tab.indicator'
-  | 'badge.background'
-  | 'badge.foreground'
-  | 'keyHint.background'
-  | 'keyHint.foreground'
-  | 'table.header'
-  | 'table.metric'
-  | 'table.metadata'
-  | 'tree.branch'
-  | 'log.info'
-  | 'log.metadata'
-  | 'log.warning'
-  | 'log.error'
-  | 'log.timestamp'
-  | 'scrollbar.track'
-  | 'scrollbar.thumb'
-  | 'diff.add'
-  | 'diff.remove'
-  | 'diff.context'
-  | 'chart.axis'
-  | 'chart.label'
-  | 'chart.value'
-  | 'chart.muted'
-  | 'chart.baseline'
-  | 'chart.positive'
-  | 'chart.negative'
-  | 'chart.series.1'
-  | 'chart.series.2'
-  | 'chart.series.3';
+export const coreColorTokens = [
+  'app.background',
+  'app.foreground',
+  'surface.background',
+  'surface.foreground',
+  'surface.border',
+  'surface.title',
+  'surface.chrome.background',
+  'surface.chrome.border',
+  'surface.raised.background',
+  'surface.raised.border',
+  'surface.inset.background',
+  'surface.inset.border',
+  'surface.selected.background',
+  'surface.selected.border',
+  'surface.warning.background',
+  'surface.warning.border',
+  'surface.danger.background',
+  'surface.danger.border',
+  'surface.success.background',
+  'surface.success.border',
+  'surface.shadow',
+  'text.default',
+  'text.muted',
+  'text.strong',
+  'text.disabled',
+  'link.foreground',
+  'accent.primary',
+  'accent.secondary',
+  'status.info',
+  'status.success',
+  'status.warning',
+  'status.error',
+  'status.pending',
+  'status.running',
+  'scale.low',
+  'scale.medium',
+  'scale.high',
+  'scale.critical',
+  'selection.background',
+  'selection.foreground',
+  'focus.border',
+  'focus.background',
+  'control.background',
+  'control.foreground',
+  'control.border',
+  'control.primary.background',
+  'control.primary.foreground',
+  'control.primary.border',
+  'control.secondary.background',
+  'control.secondary.foreground',
+  'control.secondary.border',
+  'control.track',
+  'control.track.filled',
+  'control.handle',
+  'control.toggle.on.background',
+  'control.toggle.off.background',
+  'input.cursor',
+  'input.placeholder',
+  'editor.gutter.foreground',
+  'editor.gutter.background',
+  'editor.gutter.active.foreground',
+  'editor.activeLine.background',
+  'command.prompt',
+  'command.match',
+  'menu.match',
+  'menu.selected',
+  'tab.active.foreground',
+  'tab.inactive.foreground',
+  'tab.indicator',
+  'badge.background',
+  'badge.foreground',
+  'keyHint.background',
+  'keyHint.foreground',
+  'table.header',
+  'table.metric',
+  'table.metadata',
+  'tree.branch',
+  'log.info',
+  'log.metadata',
+  'log.warning',
+  'log.error',
+  'log.timestamp',
+  'scrollbar.track',
+  'scrollbar.thumb',
+  'diff.add',
+  'diff.remove',
+  'diff.context',
+  'chart.axis',
+  'chart.label',
+  'chart.value',
+  'chart.muted',
+  'chart.baseline',
+  'chart.positive',
+  'chart.negative',
+  'chart.series.1',
+  'chart.series.2',
+  'chart.series.3'
+] as const;
 
-export type ThemeColorToken = CoreColorToken | (string & {});
+export type CoreColorToken = typeof coreColorTokens[number];
+export type CustomColorToken = `custom.${string}`;
+export type ThemeColorToken = CoreColorToken | CustomColorToken;
+
+const coreColorTokenSet = new Set<string>(coreColorTokens);
+
+export function isThemeColorToken(value: string): value is ThemeColorToken {
+  return coreColorTokenSet.has(value) || value.startsWith('custom.') && value.length > 'custom.'.length;
+}
 
 export type ThemeColor =
   | { readonly kind: 'ansi'; readonly value: number }

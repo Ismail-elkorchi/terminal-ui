@@ -12,6 +12,7 @@ export type ComponentTone =
 
 export type ComponentActionTone = Extract<ComponentTone, 'default' | 'destructive'>;
 export type ComponentValidationTone = Extract<ComponentTone, 'info' | 'warning' | 'error'>;
+export type ComponentDensity = 'compact' | 'regular';
 
 export type ComponentStatus =
   | 'idle'

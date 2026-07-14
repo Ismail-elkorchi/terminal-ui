@@ -1,9 +1,9 @@
 import type { LayoutSize } from '../geometry/types.ts';
-import type { RenderSpan, TerminalStyle } from '../visual/render.ts';
+import type { InlineContent, InlineContentSegment } from '../visual/inline-content.ts';
+import type { TerminalStyle } from '../visual/render.ts';
 
 export type TableColumnWidth = number | LayoutSize;
 export type TableColumnAlignment = 'start' | 'center' | 'end';
-export type TableDensity = 'normal' | 'dense';
 export type TableColumnSemantic = 'text' | 'metric' | 'metadata';
 
 export interface TableCellRenderInput<TRow = unknown> {
@@ -24,7 +24,7 @@ export interface TableColumn<TRow = unknown> {
   readonly resizable?: boolean;
   readonly style?: TerminalStyle;
   readonly headerStyle?: TerminalStyle;
-  readonly render?: (input: TableCellRenderInput<TRow>) => string | RenderSpan | readonly RenderSpan[];
+  readonly render?: (input: TableCellRenderInput<TRow>) => string | InlineContentSegment | InlineContent;
 }
 
 export interface TableCellSelection {

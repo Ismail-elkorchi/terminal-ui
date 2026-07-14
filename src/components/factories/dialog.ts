@@ -1,8 +1,10 @@
-import { interactionProps, withMetaDefaults } from '../../authoring/metadata.ts';
+import { withMetaDefaults } from '../../authoring/metadata.ts';
 import { layoutProps, requiredId } from '../../authoring/render-node.ts';
 import type { Element } from '../../element/index.ts';
 import { elementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
+import { renderNodeInteraction as interactionProps } from '../../renderer/model/metadata.ts';
 import type { DialogOptions } from '../options/dialog.ts';
+import { normalizeBorderTitle } from '../../visual/border.ts';
 
 export function dialog<TMessage>(child: Element<TMessage>, options: DialogOptions<TMessage>): Element<TMessage> {
   const meta = withMetaDefaults(options.meta, {
@@ -14,7 +16,7 @@ export function dialog<TMessage>(child: Element<TMessage>, options: DialogOption
     ...requiredId(options.id, 'dialog'),
     kind: 'dialog',
     props: {
-      ...(options.title === undefined ? {} : { title: options.title }),
+      ...(options.title === undefined ? {} : { title: normalizeBorderTitle(options.title) }),
       ...(options.border === undefined ? {} : { border: options.border }),
       ...(options.width === undefined ? {} : { width: options.width }),
       ...(options.height === undefined ? {} : { height: options.height }),

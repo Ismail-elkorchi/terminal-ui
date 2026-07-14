@@ -1,6 +1,6 @@
 import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../../interaction/scrollbar.ts';
-import type { BorderStyle } from '../../../visual/border.ts';
+import type { BorderOptions } from '../../../visual/border.ts';
 import type {
   DividerLineKind,
   DividerOrientation,
@@ -61,5 +61,5 @@ export interface TooltipRenderProps {
   readonly tone?: TooltipTone;
   readonly placement?: TooltipPlacement;
   readonly maxWidth?: number;
-  readonly border?: BorderStyle;
+  readonly border?: BorderOptions;
 }

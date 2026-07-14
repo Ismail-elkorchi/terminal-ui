@@ -10,6 +10,7 @@ import type { RenderNodeInputMap } from './model/index.ts';
 import type { RenderNodeRenderer } from './model/renderer.ts';
 import type { CustomRenderer } from './custom-renderer.ts';
 import { renderNodeId } from '../foundation/identity.ts';
+import { renderNodeInteraction } from './model/metadata.ts';
 
 const rendererHookNames = [
   'measure',
@@ -18,7 +19,7 @@ const rendererHookNames = [
   'hitTargets'
 ] as const satisfies readonly (keyof CustomRenderer)[];
 
-interface CustomElementOptionsBase<TMessage> extends InteractiveElementOptions, ElementTextInputHandlers<TMessage> {
+interface CustomElementOptionsBase<TMessage> extends InteractiveElementOptions<string, TMessage>, ElementTextInputHandlers<TMessage> {
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
@@ -63,12 +64,13 @@ export function custom<TState, const TMessage = never>(
     kind: 'custom',
     props: {},
     custom: { renderer },
-    ...(options.keys === undefined || Object.keys(options.keys).length === 0 ? {} : { keyMap: options.keys }),
-    ...(inputMap === undefined ? {} : { inputMap }),
-    ...(options.meta?.layer === undefined ? {} : { layer: options.meta.layer }),
-    focus: options.meta?.focus ?? {},
-    ...(options.meta?.styles === undefined ? {} : { styles: options.meta.styles }),
-    ...(options.meta?.accessibility === undefined ? {} : { accessibility: options.meta.accessibility })
+    ...renderNodeInteraction({
+      keys: options.keys,
+      onInput: options.onInput,
+      onPaste: options.onPaste,
+      pointer: options.pointer,
+      meta: options.meta
+    })
   });
 }
 

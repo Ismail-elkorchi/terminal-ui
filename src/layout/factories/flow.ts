@@ -1,7 +1,7 @@
 import { elementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type { ColumnOptions, RowOptions } from '../options.ts';
-import { componentMetaProps } from '../../authoring/metadata.ts';
+import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
 import { layoutProps, optionalId, renderNodeChildren } from '../../authoring/render-node.ts';
 import { assertTrackCount } from './internals.ts';
 

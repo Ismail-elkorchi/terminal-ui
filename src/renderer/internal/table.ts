@@ -6,11 +6,13 @@ import { stringify } from './render-node-props.ts';
 import { mergeStyles, resolveRenderNodeStyle, themeStyle } from './render-node-style.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { TableColumnAlignment, TableColumnSemantic, TableDensity } from '../../ui-model/content.ts';
+import type { TableColumnAlignment, TableColumnSemantic } from '../../ui-model/content.ts';
 import type { TableAction } from '../../ui-model/table.ts';
 import type { Rect } from '../model/layout.ts';
 import { clipRenderSpans } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
+import { normalizeInlineContent } from '../../visual/inline-content.ts';
+import type { InlineContent, InlineContentSegment } from '../../visual/inline-content.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
 import type { HitTarget } from '../model/renderer.ts';
 import {
@@ -22,6 +24,9 @@ import {
   tableSortMarker,
   type NormalizedTableColumn
 } from './table/columns.ts';
+import { tableMetrics, type TableMetrics } from './component-metrics.ts';
+import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
+import { renderInlineContent } from './inline-content.ts';
 
 interface TableWindow {
   readonly rows: readonly unknown[];
@@ -33,16 +38,11 @@ interface TableWindow {
   readonly omittedAfter: number;
 }
 
-interface TableSpacing {
-  readonly marker: number;
-  readonly separator: number;
-}
-
 interface TableProjection {
   readonly rows: readonly unknown[];
   readonly rowIds: readonly string[];
   readonly columns: readonly NormalizedTableColumn[];
-  readonly spacing: TableSpacing;
+  readonly spacing: TableMetrics;
   readonly hasHeader: boolean;
   readonly headerHeight: number;
   readonly bodyHeight: number;
@@ -64,7 +64,7 @@ const tableProjectionCache = new WeakMap<object, {
   readonly projection: TableProjection;
 }>();
 
-export function tableBlock(widget: TableNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function tableBlock(widget: TableNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
   const {
     rows,
     rowIds,
@@ -95,6 +95,7 @@ export function tableBlock(widget: TableNode, bounds: Rect, theme: TerminalTheme
         widths,
         rowIndex === window.selected,
         selectedCell,
+        focused,
         theme,
         spacing
       ), window.horizontalOffset, bounds.width);
@@ -154,7 +155,7 @@ export function tableAccessibleChildren(widget: TableNode, bounds: Rect): readon
   const bodyRows: AccessibleNode[] = window.rows.map((row, visibleIndex) => {
     const rowIndex = window.start + visibleIndex;
     return {
-      id: `${widget.id ?? 'table'}:row:${rowIds[rowIndex] ?? String(rowIndex)}`,
+      id: tableRowTargetId(widget, rowIds[rowIndex] ?? String(rowIndex)),
       role: 'row',
       selected: rowIndex === window.selected,
       position: {
@@ -168,7 +169,7 @@ export function tableAccessibleChildren(widget: TableNode, bounds: Rect): readon
         const value = column.value(row, rowIndex);
         const label = columnLabel(column, columnIndex);
         return {
-          id: `${widget.id ?? 'table'}:row:${rowIds[rowIndex] ?? String(rowIndex)}:cell:${String(column.index)}`,
+          id: tableCellTargetId(widget, rowIds[rowIndex] ?? String(rowIndex), column.index),
           role: 'cell',
           label: displayTableValue(value),
           value: displayTableValue(value),
@@ -205,7 +206,7 @@ export function tableHitTargets<TMessage>(widget: TableNode<TMessage>, bounds: R
       return tableCellHitTargets(widget, rowId, rowIndex, columns, widths, rowBounds, window.horizontalOffset, spacing, toMessage);
     }
     return [{
-      id: `${widget.id ?? 'table'}:row:${rowId}`,
+      id: tableRowTargetId(widget, rowId),
       bounds: rowBounds,
       message: () => toMessage({ kind: 'selectRow', rowId, rowIndex }),
       cursor: 'pointer'
@@ -221,12 +222,12 @@ function tableCellHitTargets<TMessage>(
   widths: readonly number[],
   rowBounds: Rect,
   horizontalOffset: number,
-  spacing: TableSpacing,
+  spacing: TableMetrics,
   toMessage: (action: TableAction) => TMessage
 ): HitTarget<TMessage>[] {
-  let lineColumn = spacing.marker;
+  let lineColumn = spacing.markerCells;
   return columns.flatMap((column, visibleColumnIndex): HitTarget<TMessage>[] => {
-    const separator = visibleColumnIndex === 0 ? 0 : spacing.separator;
+    const separator = visibleColumnIndex === 0 ? 0 : spacing.separatorCells;
     const cellStart = lineColumn + separator;
     const cellWidth = widths[visibleColumnIndex] ?? 1;
     lineColumn = cellStart + cellWidth;
@@ -234,7 +235,7 @@ function tableCellHitTargets<TMessage>(
     const visibleEnd = Math.min(rowBounds.width, cellStart + cellWidth - horizontalOffset);
     if (visibleEnd <= visibleStart) return [];
     return [{
-      id: `${widget.id ?? 'table'}:row:${rowId}:cell:${String(column.index)}`,
+      id: tableCellTargetId(widget, rowId, column.index),
       bounds: {
         row: rowBounds.row,
         column: rowBounds.column + visibleStart,
@@ -291,17 +292,22 @@ function tableProjection(widget: TableNode, bounds: Rect): TableProjection {
     selected,
     selectedCell,
     window: tableWindow(widget, rows, bodyHeight, selected),
-    widths: tableColumnWidths(columns, rows, Math.max(1, bounds.width - spacing.marker), spacing.separator)
+    widths: tableColumnWidths(
+      columns,
+      rows,
+      Math.max(1, bounds.width - spacing.markerCells),
+      spacing.separatorCells
+    )
   };
   tableProjectionCache.set(widget, { width: bounds.width, height: bounds.height, projection });
   return projection;
 }
 
-function headerLine(widget: TableNode, columns: readonly NormalizedTableColumn[], widths: readonly number[], spacing: TableSpacing): RenderLine {
+function headerLine(widget: TableNode, columns: readonly NormalizedTableColumn[], widths: readonly number[], spacing: TableMetrics): RenderLine {
   const decorationStyle = resolveRenderNodeStyle(widget, { part: 'header', base: themeStyle('table.header', { bold: true }) });
-  const spans: RenderSpan[] = [dataSpan(' '.repeat(spacing.marker), decorationStyle, tableSource(widget, 'header.marker', undefined, 'decoration'))];
+  const spans: RenderSpan[] = [dataSpan(' '.repeat(spacing.markerCells), decorationStyle, tableSource(widget, 'header.marker', undefined, 'decoration'))];
   columns.forEach((column, index) => {
-    if (index > 0) spans.push(dataSpan(' '.repeat(spacing.separator), decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
+    if (index > 0) spans.push(dataSpan(' '.repeat(spacing.separatorCells), decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
     const headerStyle = mergeStyles(
       resolveRenderNodeStyle(widget, { part: 'headerCell', base: themeStyle('table.header', { bold: true }) }),
       column.headerStyle
@@ -349,11 +355,19 @@ function rowLine(
   widths: readonly number[],
   selected: boolean,
   selectedCell: SelectedTableCell | undefined,
+  focused: boolean,
   theme: TerminalTheme,
-  spacing: TableSpacing
+  spacing: TableMetrics
 ): RenderLine {
-  const rowStyle = resolveRenderNodeStyle(widget, { part: 'row', ...(selected ? { state: 'selected' } : {}) });
-  const selectedStyle = selected ? rowStyle : undefined;
+  const rowState = interactionVisualState(widget, tableRowTargetId(widget, rowId), {
+    selected,
+    focused: focused && selected
+  });
+  const rowStyle = resolveRenderNodeStyle(widget, {
+    part: 'row',
+    ...(rowState === undefined ? {} : { state: rowState })
+  });
+  const selectedStyle = rowState === undefined ? undefined : rowStyle;
   const decorationStyle = rowStyle;
   const spans: RenderSpan[] = [...selectionMarkerSpans(
     widget,
@@ -362,25 +376,35 @@ function rowLine(
     selectedStyle,
     tableSource(widget, `row.${rowId}.marker`, rowId, 'decoration', {
       partKind: 'marker',
-      ...(selected ? { state: 'selected' } : {})
+      ...(rowState === undefined ? {} : { state: rowState })
     })
   )];
   columns.forEach((column, columnIndex) => {
-    if (columnIndex > 0) spans.push(dataSpan(' '.repeat(spacing.separator), decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
+    if (columnIndex > 0) spans.push(dataSpan(' '.repeat(spacing.separatorCells), decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
     const rendered = renderCell(
       widget,
       row,
       rowIndex,
       column,
       columnIndex,
+      theme,
       tableSource(widget, `row.${rowId}.cell.${String(column.index)}`, rowId, 'text', {
         partKind: column.semantic,
-        ...(selected ? { state: 'selected' } : {})
+        ...(rowState === undefined ? {} : { state: rowState })
       })
     );
-    const cellSelectedStyle = selectedCell?.row === rowIndex && selectedCell.column === columnIndex
-      ? mergeDataStyles(selectedStyle, resolveRenderNodeStyle(widget, { part: 'cell', state: 'active' }))
-      : selectedStyle;
+    const cellSelected = selectedCell?.row === rowIndex && selectedCell.column === columnIndex;
+    const cellState = selectedCell === undefined
+      ? rowState
+      : interactionVisualState(widget, tableCellTargetId(widget, rowId, column.index), {
+          selected: cellSelected,
+          focused: focused && cellSelected
+        });
+    const cellSelectedStyle = mergeDataStyles(
+      selectedStyle,
+      cellState === undefined ? undefined : resolveRenderNodeStyle(widget, { part: 'cell', state: cellState }),
+      cellSelected ? resolveRenderNodeStyle(widget, { part: 'cell', state: 'active' }) : undefined
+    );
     spans.push(...cellSpans(
       rendered,
       widths[columnIndex] ?? 1,
@@ -388,7 +412,7 @@ function rowLine(
       cellSelectedStyle,
       tableSource(widget, `row.${rowId}.cell.${String(column.index)}.padding`, rowId, 'decoration', {
         partKind: 'padding',
-        ...(selected ? { state: 'selected' } : {})
+        ...(cellState === undefined ? {} : { state: cellState })
       }),
       cellSelectedStyle ?? resolveRenderNodeStyle(widget, { part: 'cell' })
     ));
@@ -396,11 +420,11 @@ function rowLine(
   return { spans };
 }
 
-function emptyLine(widget: TableNode, spacing: TableSpacing): RenderLine {
+function emptyLine(widget: TableNode, spacing: TableMetrics): RenderLine {
   const emptyText = sanitizeTableText(stringify(widget.props.emptyText)) || 'No rows';
   return {
     spans: [
-      dataSpan(' '.repeat(spacing.marker), resolveRenderNodeStyle(widget, { part: 'marker' }), tableSource(widget, 'empty.marker', undefined, 'decoration')),
+      dataSpan(' '.repeat(spacing.markerCells), resolveRenderNodeStyle(widget, { part: 'marker' }), tableSource(widget, 'empty.marker', undefined, 'decoration')),
       dataSpan(emptyText, resolveRenderNodeStyle(widget, { part: 'empty', base: themeStyle('text.muted', { dim: true }) }), tableSource(widget, 'empty'))
     ]
   };
@@ -412,12 +436,18 @@ function renderCell(
   rowIndex: number,
   column: NormalizedTableColumn,
   columnIndex: number,
+  theme: TerminalTheme,
   fallbackSource: FrameCellSource
 ): readonly RenderSpan[] {
   const value = column.value(row, rowIndex);
   const fallbackStyle = mergeDataStyles(tableSemanticStyle(widget, column.semantic), column.style);
   if (column.render !== undefined) {
-    return renderResultToSpans(column.render({ value, row, rowIndex, columnIndex }), fallbackStyle, fallbackSource);
+    return renderResultToSpans(
+      column.render({ value, row, rowIndex, columnIndex }),
+      fallbackStyle,
+      fallbackSource,
+      theme
+    );
   }
   return [dataSpan(displayTableValue(value), fallbackStyle, fallbackSource)];
 }
@@ -429,23 +459,18 @@ function tableSemanticStyle(widget: TableNode, semantic: TableColumnSemantic): T
 }
 
 function renderResultToSpans(
-  result: string | RenderSpan | readonly RenderSpan[],
+  result: string | InlineContentSegment | InlineContent,
   style: TerminalStyle | undefined,
-  fallbackSource: FrameCellSource
+  fallbackSource: FrameCellSource,
+  theme: TerminalTheme
 ): readonly RenderSpan[] {
   if (typeof result === 'string') return [dataSpan(sanitizeTableText(result), style, fallbackSource)];
-  if (isRenderSpanArray(result)) return result.map((span) => cleanSpan(span, style, fallbackSource));
-  return [cleanSpan(result, style, fallbackSource)];
-}
-
-function cleanSpan(span: RenderSpan, fallbackStyle: TerminalStyle | undefined, fallbackSource: FrameCellSource): RenderSpan {
-  return {
-    text: sanitizeTableText(span.text),
-    ...(span.style === undefined && fallbackStyle !== undefined ? { style: fallbackStyle } : {}),
-    ...(span.style === undefined ? {} : { style: span.style }),
-    ...(span.link === undefined ? {} : { link: span.link }),
-    source: span.source ?? fallbackSource
-  };
+  const content = normalizeInlineContent(Array.isArray(result) ? result : [result]);
+  return renderInlineContent(content, {
+    theme,
+    ...(style === undefined ? {} : { baseStyle: style }),
+    source: () => fallbackSource
+  });
 }
 
 function cellSpans(
@@ -530,14 +555,8 @@ function tableRowIds(widget: TableNode, rowCount: number): readonly string[] {
   return rowIds;
 }
 
-function tableSpacing(widget: TableNode): TableSpacing {
-  return tableDensity(widget.props.density) === 'dense'
-    ? { marker: 2, separator: 1 }
-    : { marker: 2, separator: 2 };
-}
-
-function tableDensity(value: unknown): TableDensity {
-  return value === 'dense' ? 'dense' : 'normal';
+function tableSpacing(widget: TableNode): TableMetrics {
+  return tableMetrics(widget.props.density);
 }
 
 
@@ -574,10 +593,6 @@ function tableActionMessageFactory<TMessage>(widget: TableNode<TMessage>): ((act
   return widget.props.toActionMessage;
 }
 
-function isRenderSpanArray(value: RenderSpan | readonly RenderSpan[]): value is readonly RenderSpan[] {
-  return Array.isArray(value);
-}
-
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -597,5 +612,13 @@ function tableSource(
     role,
     ...options
   });
+}
+
+function tableRowTargetId(widget: TableNode, rowId: string): string {
+  return renderNodeTargetId(widget, 'row', rowId);
+}
+
+function tableCellTargetId(widget: TableNode, rowId: string, column: number): string {
+  return renderNodeTargetId(widget, 'row', rowId, 'cell', String(column));
 }
 type TableNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'table'>;

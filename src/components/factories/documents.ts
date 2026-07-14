@@ -86,7 +86,7 @@ export function activityFeed<const TMessage = never>(options: ActivityFeedOption
       ...(onAction === undefined ? {} : { toActionMessage: onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
@@ -94,6 +94,7 @@ export function commandInput<
   const TActionMessage = never,
   const TTextPointerMessage = never,
   const TSubmitMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
@@ -103,9 +104,10 @@ export function commandInput<
       readonly onTextPointer: TTextPointerMessage;
     },
     { readonly onSubmit: TSubmitMessage },
-    TKeys
+    TKeys,
+    TPointerMessage
   >
-): Element<TActionMessage | TTextPointerMessage | TSubmitMessage | ComponentKeyBindingMessages<TKeys>>;
+): Element<TActionMessage | TTextPointerMessage | TSubmitMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function commandInput(options: CommandInputOptions<unknown>): Element<unknown> {
   const action = options.onAction;
   const generatedKeys = action === undefined ? undefined : commandInputKeyBindings(action);
@@ -128,6 +130,7 @@ export function commandInput(options: CommandInputOptions<unknown>): Element<unk
       ...(options.selectedSuggestion === undefined ? {} : { selectedSuggestion: options.selectedSuggestion }),
       ...(options.historyIndex === undefined ? {} : { historyIndex: options.historyIndex }),
       ...(options.display === undefined ? {} : { display: options.display }),
+      ...(action === undefined ? {} : { toActionMessage: action }),
       ...(options.onTextPointer === undefined ? {} : { toTextPointerMessage: options.onTextPointer })
     },
     ...interactionProps({
@@ -136,6 +139,7 @@ export function commandInput(options: CommandInputOptions<unknown>): Element<unk
         onPaste: (text) => action({ kind: 'insert', text })
       }),
       ...(keyMap === undefined ? {} : { keys: keyMap }),
+      pointer: options.pointer,
       meta: options.meta
     })
   });
@@ -146,6 +150,7 @@ export function palette<
   const TSelectMessage = never,
   const TScrollMessage = never,
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
@@ -156,9 +161,10 @@ export function palette<
       readonly onAction: TActionMessage;
     },
     Record<never, never>,
-    TKeys
+    TKeys,
+    TPointerMessage
   >
-): Element<TSelectMessage | TScrollMessage | TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+): Element<TSelectMessage | TScrollMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function palette<TValue>(options: PaletteOptions<TValue, unknown>): Element<unknown> {
   const action = options.onAction;
   const generatedKeys = action === undefined ? undefined : paletteKeyBindings(action);
@@ -188,6 +194,7 @@ export function palette<TValue>(options: PaletteOptions<TValue, unknown>): Eleme
         onPaste: (text) => action({ kind: 'insertQuery', text })
       }),
       ...(keyMap === undefined ? {} : { keys: keyMap }),
+      pointer: options.pointer,
       meta: options.meta
     })
   });

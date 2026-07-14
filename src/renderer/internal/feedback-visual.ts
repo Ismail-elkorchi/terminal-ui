@@ -12,6 +12,9 @@ import { statusMarker, statusStyle } from './status-visual.ts';
 import { numberProp, stringify } from './render-node-props.ts';
 import { mergeStyles, renderNodeStyle } from './render-node-style.ts';
 import { normalizeSpinnerFrameIndex } from '../../behavior/spinner.ts';
+import { inlineContentAccessibleText, isInlineContent } from '../../visual/inline-content.ts';
+import type { InlineContent } from '../../visual/inline-content.ts';
+import { renderInlineContent } from './inline-content.ts';
 
 export type FeedbackVisualKind =
   | 'statusBar'
@@ -54,7 +57,11 @@ export function statusBarText(widget: StatusBarNode, theme: TerminalTheme): stri
 
 export function statusBarAccessibleText(widget: StatusBarNode): string {
   return [widget.props.leading, widget.props.center, widget.props.trailing]
-    .flatMap((section) => statusBarItems(section).map((item) => item.text))
+    .flatMap((section) => statusBarItems(section).map((item) => [
+      item.leading === undefined ? '' : inlineContentAccessibleText(item.leading),
+      item.text,
+      item.trailing === undefined ? '' : inlineContentAccessibleText(item.trailing)
+    ].filter((value) => value.length > 0).join(' ')))
     .join('  ');
 }
 
@@ -66,10 +73,14 @@ function statusBarItems(value: unknown): readonly StatusBarItem[] {
     if (typeof candidate.id !== 'string' || typeof candidate.text !== 'string') return [];
     const id = sanitizeTerminalText(candidate.id).text;
     const text = sanitizeTerminalText(candidate.text).text;
+    const adornments = {
+      ...(isInlineContent(candidate.leading) ? { leading: candidate.leading } : {}),
+      ...(isInlineContent(candidate.trailing) ? { trailing: candidate.trailing } : {})
+    };
     if (candidate.kind === 'status') {
-      return [{ id, kind: 'status', text, status: normalizeComponentStatus(candidate.status) }];
+      return [{ id, kind: 'status', text, status: normalizeComponentStatus(candidate.status), ...adornments }];
     }
-    return candidate.kind === 'text' ? [{ id, kind: 'text', text }] : [];
+    return candidate.kind === 'text' ? [{ id, kind: 'text', text, ...adornments }] : [];
   });
 }
 
@@ -81,7 +92,9 @@ function statusBarSectionSpans(
 ): readonly RenderSpan[] {
   return items.flatMap((item, index): readonly RenderSpan[] => {
     const part = `${section}.${item.id}`;
-    const itemSpans = item.kind === 'status'
+    const leading = statusInlineSpans(widget, item.leading, `${part}.leading`, 'leading', item.id, theme);
+    const trailing = statusInlineSpans(widget, item.trailing, `${part}.trailing`, 'trailing', item.id, theme);
+    const contentSpans = item.kind === 'status'
       ? [
           feedbackSpan(widget, statusMarker(item.status, theme), {
             kind: 'statusBar',
@@ -111,9 +124,40 @@ function statusBarSectionSpans(
           sourceId: item.id,
           style: feedbackBarValueStyle(widget)
         })];
+    const itemSpans = [
+      ...leading,
+      ...(leading.length === 0 ? [] : [statusBarGap(widget, `${part}.leading.separator`)]),
+      ...contentSpans,
+      ...(trailing.length === 0 ? [] : [statusBarGap(widget, `${part}.trailing.separator`)]),
+      ...trailing
+    ];
     return index === 0
       ? itemSpans
       : [statusBarGap(widget, `${section}.separator.${String(index)}`), ...itemSpans];
+  });
+}
+
+function statusInlineSpans(
+  widget: StatusBarNode,
+  content: InlineContent | undefined,
+  part: string,
+  stylePart: 'leading' | 'trailing',
+  itemId: string,
+  theme: TerminalTheme
+): readonly RenderSpan[] {
+  if (content === undefined) return [];
+  const baseStyle = mergeStyles(feedbackBarValueStyle(widget), widget.styles?.parts?.[stylePart]);
+  return renderInlineContent(content, {
+    theme,
+    ...(baseStyle === undefined ? {} : { baseStyle }),
+    source: (_segment, index) => renderNodeFrameSource(widget, {
+      family: 'feedback',
+      role: 'text',
+      part: `${part}.${String(index)}`,
+      partKind: stylePart,
+      itemId,
+      label: `${part}.${String(index)}`
+    })
   });
 }
 

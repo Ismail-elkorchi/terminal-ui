@@ -35,8 +35,10 @@ export function commandInputReducer(state: CommandInputState, action: CommandInp
       return commandInputHistory(state, -1);
     case 'historyNext':
       return commandInputHistory(state, 1);
+    case 'moveSuggestion':
+      return moveSuggestion(state, action.delta);
     case 'selectSuggestion':
-      return selectSuggestion(state, action.direction);
+      return selectSuggestion(state, action.index);
     case 'acceptSuggestion': {
       const suggestion = acceptedSuggestion(state);
       return suggestion === undefined || suggestion.disabled === true
@@ -132,7 +134,7 @@ function commandInputHistory(state: CommandInputState, direction: 1 | -1): Comma
   return { ...state, input: { text: value, cursor: value.length }, historyIndex: next };
 }
 
-function selectSuggestion(state: CommandInputState, direction: 1 | -1): CommandInputState {
+function moveSuggestion(state: CommandInputState, direction: 1 | -1): CommandInputState {
   if (state.suggestions.length === 0) return state;
   const current = state.selectedSuggestion ?? (direction === 1 ? -1 : 0);
   for (let offset = 1; offset <= state.suggestions.length; offset += 1) {
@@ -142,6 +144,14 @@ function selectSuggestion(state: CommandInputState, direction: 1 | -1): CommandI
     }
   }
   return withClearedSuggestion(state);
+}
+
+function selectSuggestion(state: CommandInputState, index: number): CommandInputState {
+  const normalized = Math.floor(index);
+  const suggestion = state.suggestions[normalized];
+  return suggestion === undefined || suggestion.disabled === true
+    ? state
+    : { ...state, selectedSuggestion: normalized };
 }
 
 function withClearedHistory(state: CommandInputState): CommandInputState {

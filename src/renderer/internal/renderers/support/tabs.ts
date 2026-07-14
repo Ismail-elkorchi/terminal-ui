@@ -4,17 +4,24 @@ import { renderNodeFrameSource } from '../../../../visual/source.ts';
 import { stringify } from '../../render-node-props.ts';
 import { clipRenderSpans, measureRenderSpans } from '../../../../visual/render.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from '../../../../visual/render.ts';
-import { mergeStyles, themeStyle, renderNodeStyle } from '../../render-node-style.ts';
+import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from '../../render-node-style.ts';
 import { clampRect, emptyRect } from './common.ts';
 import type { Rect } from '../../../model/layout.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
 import type { TabAction } from '../../../../ui-model/tabs.ts';
+import type { TerminalTheme } from '../../../../theme/index.ts';
+import { interactionVisualState, renderNodeTargetId } from '../../pointer-presentation.ts';
+import type { ElementVisualState } from '../../../../element/metadata.ts';
+import { isInlineContent } from '../../../../visual/inline-content.ts';
+import type { InlineContent } from '../../../../visual/inline-content.ts';
+import { renderInlineContent } from '../../inline-content.ts';
 
 type TabsNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'tabs'>;
 
 interface TabItemView {
   readonly id: string;
   readonly label: string;
+  readonly leading?: InlineContent;
   readonly badge?: string;
   readonly description?: string;
   readonly disabled?: boolean;
@@ -50,15 +57,15 @@ export function tabsChildBounds(widget: TabsNode, bounds: Rect): readonly Rect[]
   return (widget.children ?? []).map((_child, index) => index === selected ? panelBounds : emptyRect(bounds));
 }
 
-export function tabsHeaderText(widget: TabsNode): string {
+export function tabsHeaderText(widget: TabsNode, theme: TerminalTheme): string {
   const tabs = tabItems(widget);
   const selected = selectedTabIndex(widget, tabs);
-  return tabs.map((tab, index) => tabHeaderSpans(widget, tab, index === selected, false).spans.map((span) => span.text).join('')).join(' ');
+  return tabs.map((tab, index) => tabHeaderSpans(widget, tab, index === selected, false, theme).spans.map((span) => span.text).join('')).join(' ');
 }
 
-export function tabsHeaderBlock(widget: TabsNode, bounds: Rect, focused = false): RenderBlock {
+export function tabsHeaderBlock(widget: TabsNode, bounds: Rect, focused: boolean, theme: TerminalTheme): RenderBlock {
   if (bounds.height <= 0 || bounds.width <= 0) return { lines: [] };
-  const layout = tabHeaderLayout(widget, bounds.width, focused);
+  const layout = tabHeaderLayout(widget, bounds.width, focused, theme);
   return {
     lines: [{
       spans: layout.spans
@@ -80,11 +87,15 @@ export function tabsAccessibleChildren(widget: TabsNode): readonly AccessibleNod
   }));
 }
 
-export function tabsHitTargets<TMessage>(widget: TabsNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function tabsHitTargets<TMessage>(
+  widget: TabsNode<TMessage>,
+  bounds: Rect,
+  theme: TerminalTheme
+): readonly HitTarget<TMessage>[] {
   if (bounds.height <= 0 || bounds.width <= 0) return [];
   const toMessage = tabActionMessageFactory(widget);
   if (toMessage === undefined) return [];
-  const layout = tabHeaderLayout(widget, bounds.width, false);
+  const layout = tabHeaderLayout(widget, bounds.width, false, theme);
   const targets: HitTarget<TMessage>[] = [];
   for (const metrics of layout.visibleTabs) {
     const tab = metrics.tab;
@@ -93,7 +104,7 @@ export function tabsHitTargets<TMessage>(widget: TabsNode<TMessage>, bounds: Rec
       const width = Math.min(metrics.bodyWidth, Math.max(0, bounds.column + bounds.width - column));
       if (width <= 0) continue;
       targets.push({
-        id: `${widget.id ?? 'tabs'}:tab:${tab.id}`,
+        id: tabTargetId(widget, tab.id),
         bounds: {
           row: bounds.row,
           column,
@@ -109,7 +120,7 @@ export function tabsHitTargets<TMessage>(widget: TabsNode<TMessage>, bounds: Rec
       const width = Math.min(metrics.width - metrics.closeOffset, Math.max(0, bounds.column + bounds.width - closeColumn));
       if (width <= 0) continue;
       targets.push({
-        id: `${widget.id ?? 'tabs'}:tab:${tab.id}:close`,
+        id: tabCloseTargetId(widget, tab.id),
         bounds: {
           row: bounds.row,
           column: closeColumn,
@@ -129,6 +140,7 @@ function tabItems(widget: TabsNode): readonly TabItemView[] {
   return widget.props.tabs.filter((tab): tab is {
     readonly id: string;
     readonly label: string;
+    readonly leading?: InlineContent;
     readonly badge?: string;
     readonly description?: string;
     readonly disabled?: boolean;
@@ -141,6 +153,7 @@ function tabItems(widget: TabsNode): readonly TabItemView[] {
   ).map((tab) => ({
     id: stringify(tab.id),
     label: stringify(tab.label),
+    ...(isInlineContent(tab.leading) ? { leading: tab.leading } : {}),
     ...(
       typeof tab.badge === 'string' && tab.badge.length > 0
         ? { badge: stringify(tab.badge) }
@@ -160,14 +173,14 @@ function tabActionMessageFactory<TMessage>(widget: TabsNode<TMessage>): ((action
   return widget.props.toActionMessage;
 }
 
-function tabHeaderLayout(widget: TabsNode, width: number, focused: boolean): TabHeaderLayout {
+function tabHeaderLayout(widget: TabsNode, width: number, focused: boolean, theme: TerminalTheme): TabHeaderLayout {
   if (width <= 0) return { spans: [], visibleTabs: [] };
   const tabs = tabItems(widget);
   if (tabs.length === 0) return { spans: [], visibleTabs: [] };
   const selected = selectedTabIndex(widget, tabs);
   const entries = tabs.map((tab, index): TabHeaderMetrics => ({
     tab,
-    ...tabHeaderSpans(widget, tab, index === selected, focused && index === selected)
+    ...tabHeaderSpans(widget, tab, index === selected, focused && index === selected, theme)
   }));
   let start = selected;
   let end = selected;
@@ -248,44 +261,37 @@ function selectedTabIndex(widget: TabsNode, tabs: readonly { readonly id: string
   return Math.max(0, index === -1 ? 0 : index);
 }
 
-function tabHeaderStyle(
-  widget: TabsNode,
-  state: { readonly selected: boolean; readonly focused: boolean; readonly disabled: boolean }
-): TerminalStyle | undefined {
-  if (state.disabled) return renderNodeStyle(widget, 'label', 'disabled');
-  if (state.selected && state.focused) {
+function tabHeaderStyle(widget: TabsNode, state: ElementVisualState | undefined, selected: boolean): TerminalStyle | undefined {
+  if (selected && state === 'selected') {
     return mergeStyles(
-      renderNodeStyle(widget, 'label', 'selected'),
       themeStyle('tab.active.foreground', { underline: true }),
-      widget.styles?.states?.selected,
-      renderNodeStyle(widget, 'label', 'focused'),
-      widget.styles?.states?.focused
+      widget.styles?.parts?.['label'],
+      widget.styles?.states?.selected
     );
   }
-  if (state.selected) return mergeStyles(renderNodeStyle(widget, 'label', 'selected'), themeStyle('tab.active.foreground', { underline: true }), widget.styles?.states?.selected);
-  if (state.focused) return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.parts?.['label'], renderNodeStyle(widget, 'label', 'focused'));
-  return mergeStyles(themeStyle('tab.inactive.foreground'), widget.styles?.parts?.['label']);
+  return resolveRenderNodeStyle(widget, {
+    part: 'label',
+    base: selected ? themeStyle('tab.active.foreground', { underline: true }) : themeStyle('tab.inactive.foreground'),
+    ...(state === undefined ? {} : { state })
+  });
 }
 
-function tabBadgeStyle(widget: TabsNode, selected: boolean, disabled: boolean, focused: boolean): TerminalStyle | undefined {
+function tabBadgeStyle(widget: TabsNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
   return mergeStyles(
-    renderNodeStyle(widget, 'badge', selected ? 'selected' : undefined),
     {
       fg: { kind: 'theme', token: 'badge.foreground' },
       bg: { kind: 'theme', token: 'badge.background' },
       bold: true
     },
-    disabled ? renderNodeStyle(widget, 'badge', 'disabled') : undefined,
-    focused ? renderNodeStyle(widget, 'badge', 'focused') : undefined
+    widget.styles?.parts?.['badge'],
+    state === undefined || state === 'default' ? undefined : widget.styles?.states?.[state]
   );
 }
 
-function tabCloseStyle(widget: TabsNode, selected: boolean, disabled: boolean, focused: boolean): TerminalStyle | undefined {
+function tabCloseStyle(widget: TabsNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
   return mergeStyles(
     renderNodeStyle(widget, 'close'),
-    selected ? renderNodeStyle(widget, 'close', 'selected') : undefined,
-    disabled ? renderNodeStyle(widget, 'close', 'disabled') : undefined,
-    focused ? renderNodeStyle(widget, 'close', 'focused') : undefined
+    state === undefined ? undefined : renderNodeStyle(widget, 'close', state)
   );
 }
 
@@ -294,41 +300,55 @@ function tabHeaderSpans(
   tab: {
     readonly id: string;
     readonly label: string;
+    readonly leading?: InlineContent;
     readonly badge?: string;
     readonly disabled?: boolean;
     readonly closable?: boolean;
   },
   selected: boolean,
-  focused: boolean
+  focused: boolean,
+  theme: TerminalTheme
 ): { readonly spans: readonly RenderSpan[]; readonly width: number; readonly bodyWidth: number; readonly closeOffset?: number } {
   const disabled = tab.disabled === true;
-  const style = tabHeaderStyle(widget, { disabled, focused, selected });
-  const markerStyle = selected ? tabIndicatorStyle(widget, focused) : style;
-  const closeStyle = tabCloseStyle(widget, selected, disabled, focused);
+  const state = interactionVisualState(widget, tabTargetId(widget, tab.id), {
+    disabled,
+    selected,
+    focused: focused && selected
+  });
+  const closeState = interactionVisualState(widget, tabCloseTargetId(widget, tab.id), {
+    disabled,
+    selected,
+    focused: focused && selected
+  });
+  const style = tabHeaderStyle(widget, state, selected);
+  const markerStyle = selected ? tabIndicatorStyle(widget, state) : style;
+  const closeStyle = tabCloseStyle(widget, closeState);
   const badge = tab.badge;
   const baseSpans = [
-    tabSpan(widget, selected ? '[' : ' ', markerStyle, tab.id, selected ? 'marker.selected.open' : 'marker.unselected.open', 'decoration', 'marker', stateForTab(selected, disabled, focused)),
-    tabSpan(widget, tab.label, style, tab.id, 'label', 'text', 'label', stateForTab(selected, disabled, focused)),
+    tabSpan(widget, selected ? '[' : ' ', markerStyle, tab.id, selected ? 'marker.selected.open' : 'marker.unselected.open', 'decoration', 'marker', state),
+    ...tabLeadingSpans(widget, tab, state, style, theme),
+    ...(tab.leading === undefined ? [] : [tabSpan(widget, ' ', style, tab.id, 'leading.separator', 'separator', 'leading', state)]),
+    tabSpan(widget, tab.label, style, tab.id, 'label', 'text', 'label', state),
     ...(badge === undefined
       ? []
       : [
-          tabSpan(widget, ' ', style, tab.id, 'badge.separator', 'separator', 'separator', stateForTab(selected, disabled, focused)),
-          tabSpan(widget, badge, tabBadgeStyle(widget, selected, disabled, focused), tab.id, 'badge', 'text', 'badge', stateForTab(selected, disabled, focused))
+          tabSpan(widget, ' ', style, tab.id, 'badge.separator', 'separator', 'separator', state),
+          tabSpan(widget, badge, tabBadgeStyle(widget, state), tab.id, 'badge', 'text', 'badge', state)
         ]),
     ...(tab.closable !== true
       ? []
       : [
-          tabSpan(widget, ' ', closeStyle, tab.id, 'close.separator', 'separator', 'separator', stateForTab(selected, disabled, focused))
+          tabSpan(widget, ' ', closeStyle, tab.id, 'close.separator', 'separator', 'separator', closeState)
         ])
   ];
   const closeOffset = tab.closable !== true ? undefined : measureRenderSpans(baseSpans);
   const closeSpans = tab.closable !== true
     ? []
     : [
-        tabSpan(widget, '×', closeStyle, tab.id, 'close', 'text', 'close', stateForTab(selected, disabled, focused))
+        tabSpan(widget, '×', closeStyle, tab.id, 'close', 'text', 'close', closeState)
       ];
   const endSpans = [
-    tabSpan(widget, selected ? ']' : ' ', markerStyle, tab.id, selected ? 'marker.selected.close' : 'marker.unselected.close', 'decoration', 'marker', stateForTab(selected, disabled, focused))
+    tabSpan(widget, selected ? ']' : ' ', markerStyle, tab.id, selected ? 'marker.selected.close' : 'marker.unselected.close', 'decoration', 'marker', state)
   ];
   const spans = [...baseSpans, ...closeSpans, ...endSpans];
   const width = measureRenderSpans(spans);
@@ -340,15 +360,40 @@ function tabHeaderSpans(
   };
 }
 
-function tabIndicatorStyle(widget: TabsNode, focused: boolean): TerminalStyle | undefined {
-  return mergeStyles(themeStyle('tab.indicator', { bold: true }), widget.styles?.parts?.['indicator'], focused ? widget.styles?.states?.focused : undefined);
+function tabLeadingSpans(
+  widget: TabsNode,
+  tab: { readonly id: string; readonly leading?: InlineContent },
+  state: ElementVisualState | undefined,
+  style: TerminalStyle | undefined,
+  theme: TerminalTheme
+): readonly RenderSpan[] {
+  if (tab.leading === undefined) return [];
+  const leadingStyle = mergeStyles(
+    style,
+    widget.styles?.parts?.['leading'],
+    state === undefined || state === 'default' ? undefined : widget.styles?.states?.[state]
+  );
+  return renderInlineContent(tab.leading, {
+    theme,
+    ...(leadingStyle === undefined ? {} : { baseStyle: leadingStyle }),
+    source: (_segment, index) => renderNodeFrameSource(widget, {
+      family: 'layout',
+      role: 'text',
+      part: `leading.${String(index)}`,
+      partKind: 'leading',
+      itemId: tab.id,
+      ...(state === undefined ? {} : { state }),
+      label: `leading.${String(index)}`
+    })
+  });
 }
 
-function stateForTab(selected: boolean, disabled: boolean, focused: boolean): string | undefined {
-  if (disabled) return 'disabled';
-  if (focused) return 'focused';
-  if (selected) return 'selected';
-  return undefined;
+function tabIndicatorStyle(widget: TabsNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
+  return mergeStyles(
+    themeStyle('tab.indicator', { bold: true }),
+    widget.styles?.parts?.['indicator'],
+    state === undefined || state === 'default' ? undefined : widget.styles?.states?.[state]
+  );
 }
 
 function tabSpan(
@@ -359,7 +404,7 @@ function tabSpan(
   label: string,
   role: 'decoration' | 'separator' | 'text',
   partKind?: string,
-  state?: string
+  state?: ElementVisualState
 ): RenderSpan {
   return {
     text,
@@ -374,6 +419,14 @@ function tabSpan(
       label
     })
   };
+}
+
+function tabTargetId(widget: TabsNode, tabId: string): string {
+  return renderNodeTargetId(widget, 'tab', tabId);
+}
+
+function tabCloseTargetId(widget: TabsNode, tabId: string): string {
+  return renderNodeTargetId(widget, 'tab', tabId, 'close');
 }
 
 function tabOverflowSpan(widget: TabsNode, text: string, part: 'overflow.leading' | 'overflow.trailing'): RenderSpan {

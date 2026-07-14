@@ -70,7 +70,7 @@ export function measureBuiltinRenderNode(
     case 'text':
       return measureText(stringify(widget.props.content));
     case 'richText':
-      return measureBlock(richTextBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(richTextBlock(widget, intrinsicBounds(bounds), theme));
     case 'statusBar':
       return measureText(statusBarText(widget, theme));
     case 'textArea':
@@ -290,7 +290,7 @@ function measureTabs(
   theme: TerminalTheme,
   measureNode: RenderNodeMeasureFunction
 ): Measurement {
-  const header = measureText(tabsHeaderText(widget));
+  const header = measureText(tabsHeaderText(widget, theme));
   const panel = measureChildrenOverlay(widget, bounds, theme, measureNode);
   return measureSize(Math.max(header.preferredWidth, panel.preferredWidth), header.preferredHeight + panel.preferredHeight);
 }

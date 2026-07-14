@@ -1,4 +1,5 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
+import { isInlineContent } from '../../visual/inline-content.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
 import { stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
@@ -16,6 +17,7 @@ import type { RenderBlock, RenderLine } from '../../visual/render.ts';
 import type { Rect } from '../model/layout.ts';
 import type { HitTarget } from '../model/renderer.ts';
 import type { DropdownMenuAction, MenuAction } from '../../ui-model/menu.ts';
+import { renderNodeTargetId } from './pointer-presentation.ts';
 
 type MenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'menu'>;
 type ContextMenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'contextMenu'>;
@@ -44,12 +46,12 @@ interface MenuRow {
   readonly row: number;
 }
 
-export function menuBlock(widget: MenuCollectionNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function menuBlock(widget: MenuCollectionNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
   const rows = menuRows(widget, bounds, 0);
   if (rows.length === 0 && bounds.height > 0) {
     return { lines: [menuEmptyLine(widget, emptyText(widget), bounds.width)] };
   }
-  return { lines: rows.map((row) => menuLine(widget, row.item, activeId(widget), bounds.width, theme)) };
+  return { lines: rows.map((row) => menuLine(widget, row.item, activeId(widget), bounds.width, theme, focused)) };
 }
 
 export function contextMenuBlock(widget: ContextMenuNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
@@ -72,14 +74,14 @@ export function contextMenuTitleRows(widget: ContextMenuNode): number {
   return clean(stringify(widget.props.title)).length > 0 ? 1 : 0;
 }
 
-export function menuBarBlock(widget: MenuBarNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function menuBarBlock(widget: MenuBarNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
   const selected = selectedId(widget);
   return {
-    lines: [menuBarLine(widget, topLevelMenuItems(widget), selected, bounds.width, theme)]
+    lines: [menuBarLine(widget, topLevelMenuItems(widget), selected, bounds.width, theme, focused)]
   };
 }
 
-export function dropdownMenuBlock(widget: DropdownMenuNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function dropdownMenuBlock(widget: DropdownMenuNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
   const selected = selectedMenuItem(widget);
   const label = clean(stringify(widget.props.label));
   const placeholder = clean(stringify(widget.props.placeholder)) || 'Select…';
@@ -92,6 +94,7 @@ export function dropdownMenuBlock(widget: DropdownMenuNode, bounds: Rect, theme:
       value,
       placeholder: selected === undefined,
       open,
+      focused,
       width: bounds.width,
       theme
     }).spans
@@ -102,7 +105,7 @@ export function dropdownMenuBlock(widget: DropdownMenuNode, bounds: Rect, theme:
       column: bounds.column,
       width: bounds.width,
       height: Math.max(0, bounds.height - 1)
-    }, theme).lines);
+    }, theme, focused).lines);
   }
   return { lines: lines.slice(0, Math.max(0, bounds.height)) };
 }
@@ -163,7 +166,7 @@ export function menuBarHitTargets<TMessage>(widget: MenuBarNode<TMessage>, bound
     const width = Math.min(bounds.width, menuBarItemWidth(item, item.id === selected));
     if (item.disabled !== true) {
       targets.push({
-        id: `${widget.id ?? widget.kind}:${item.id}`,
+        id: menuItemTargetId(widget, item.id),
         bounds: { row: bounds.row, column, width, height: 1 },
         message: () => toMessage({ kind: 'activate', id: item.id }),
         cursor: 'pointer'
@@ -179,7 +182,7 @@ export function dropdownMenuHitTargets<TMessage>(widget: DropdownMenuNode<TMessa
   if (toMessage === undefined) return [];
   if (widget.props.presentation.kind !== 'open') {
     return [{
-      id: `${widget.id ?? widget.kind}:control`,
+      id: menuControlTargetId(widget),
       bounds: { ...bounds, height: Math.min(1, bounds.height) },
       message: () => toMessage({ kind: 'toggle' }),
       cursor: 'pointer'
@@ -205,7 +208,7 @@ function hitTargetForRow<TMessage>(
   const toMessage = menuActionMessageFactory(widget);
   if (row.item.disabled === true || toMessage === undefined) return [];
   return [{
-    id: `${widget.id ?? widget.kind}:${row.item.id}`,
+    id: menuItemTargetId(widget, row.item.id),
     bounds: {
       row: bounds.row + row.row,
       column: bounds.column,
@@ -225,7 +228,7 @@ function dropdownMenuHitTargetForRow<TMessage>(
 ): HitTarget<TMessage>[] {
   if (row.item.disabled === true) return [];
   return [{
-    id: `${widget.id ?? widget.kind}:${row.item.id}`,
+    id: menuItemTargetId(widget, row.item.id),
     bounds: {
       row: bounds.row + row.row,
       column: bounds.column,
@@ -245,8 +248,15 @@ function menuRows(widget: MenuCollectionNode, bounds: Rect, rowOffset: number): 
     .map((item, index) => ({ item, row: rowOffset + index }));
 }
 
-function menuLine(widget: MenuCollectionNode, item: VisibleMenuItem, selected: string | undefined, width: number, theme: TerminalTheme): RenderLine {
-  return menuItemLine(widget, item, item.id === selected, width, theme);
+function menuLine(
+  widget: MenuCollectionNode,
+  item: VisibleMenuItem,
+  selected: string | undefined,
+  width: number,
+  theme: TerminalTheme,
+  focused: boolean
+): RenderLine {
+  return menuItemLine(widget, item, item.id === selected, width, theme, focused);
 }
 
 function visibleMenuItems(widget: AnyMenuNode): readonly VisibleMenuItem[] {
@@ -308,6 +318,8 @@ function sanitizeMenuItem(value: unknown, depth: number): readonly VisibleMenuIt
   const normalized: VisibleMenuItem = {
     id: clean(id),
     label: clean(label),
+    ...(isInlineContent(value['leading']) ? { leading: value['leading'] } : {}),
+    ...(isInlineContent(value['trailing']) ? { trailing: value['trailing'] } : {}),
     ...(value['disabled'] === true ? { disabled: true } : {}),
     ...(value['checked'] === true ? { checked: true } : {}),
     ...(tone === 'destructive' ? { tone } : {}),
@@ -347,4 +359,12 @@ function clean(value: string): string {
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function menuItemTargetId(widget: AnyMenuNode, itemId: string): string {
+  return renderNodeTargetId(widget, itemId);
+}
+
+function menuControlTargetId(widget: DropdownMenuNode): string {
+  return renderNodeTargetId(widget, 'control');
 }

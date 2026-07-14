@@ -14,11 +14,11 @@ export type {
   CoreColorToken,
   TerminalDesignTokenDefinition,
   TerminalDesignTokens,
-  TerminalSpacingTokens,
   ThemeColor,
   ThemeColorToken,
   ThemeColorTokens
 } from './tokens.ts';
+export { coreColorTokens, isThemeColorToken } from './tokens.ts';
 export type {
   BorderGlyphSet,
   BorderGlyphSetDefinition,
@@ -45,8 +45,7 @@ export const minimalTheme: TerminalTheme = createTheme({
   name: 'minimal',
   tokens: {
     colors: {},
-    symbols: asciiSymbols,
-    spacing: { gap: 1, padding: 0 }
+    symbols: asciiSymbols
   }
 });
 
@@ -54,17 +53,7 @@ export const modernTheme: TerminalTheme = createTheme({
   name: 'modern',
   tokens: {
     colors: modernColors,
-    symbols: unicodeSymbols,
-    spacing: { gap: 1, padding: 0 }
-  }
-});
-
-export const compactTheme: TerminalTheme = createTheme({
-  name: 'compact',
-  tokens: {
-    colors: modernColors,
-    symbols: asciiSymbols,
-    spacing: { gap: 0, padding: 0 }
+    symbols: unicodeSymbols
   }
 });
 
@@ -72,8 +61,7 @@ export const highContrastTheme: TerminalTheme = createTheme({
   name: 'highContrast',
   tokens: {
     colors: highContrastColors,
-    symbols: asciiSymbols,
-    spacing: { gap: 1, padding: 0 }
+    symbols: asciiSymbols
   }
 });
 
@@ -81,8 +69,7 @@ export const noColorTheme: TerminalTheme = createTheme({
   name: 'noColor',
   tokens: {
     colors: {},
-    symbols: asciiSymbols,
-    spacing: { gap: 1, padding: 0 }
+    symbols: asciiSymbols
   }
 });
 
@@ -91,7 +78,6 @@ export const defaultTheme: TerminalTheme = modernTheme;
 export const defaultThemes = {
   minimal: minimalTheme,
   modern: modernTheme,
-  compact: compactTheme,
   highContrast: highContrastTheme,
   noColor: noColorTheme
 } as const;

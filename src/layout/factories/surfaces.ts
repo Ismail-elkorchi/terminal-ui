@@ -2,12 +2,13 @@ import { elementFromRenderNode, toRenderNode } from '../../renderer/model/elemen
 import type { RenderNode } from '../../renderer/model/index.ts';
 import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from '../../element/index.ts';
 import type { AbsoluteOptions, OverlayOptions, SurfaceOptions } from '../options.ts';
-import { componentMetaProps } from '../../authoring/metadata.ts';
+import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
 import {
   optionalId,
   renderNodeChildren
 } from '../../authoring/render-node.ts';
 import { assertSurfaceChild, surfaceLayoutProps } from './internals.ts';
+import { normalizeBorderTitle } from '../../visual/border.ts';
 
 export function surface<const TChild extends Element<unknown>>(
   child: TChild,
@@ -24,7 +25,7 @@ export function surface<const TChild extends Element<unknown>>(
     kind: 'surface',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
-      ...(options.title === undefined ? {} : { title: options.title }),
+      ...(options.title === undefined ? {} : { title: normalizeBorderTitle(options.title) }),
       ...(options.variant === undefined ? {} : { variant: options.variant }),
       ...(options.visualState === undefined ? {} : { visualState: options.visualState }),
       ...(options.border === undefined ? {} : { border: options.border }),

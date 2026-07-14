@@ -193,7 +193,7 @@ test('interaction scripts assert styled text focus selection and hit targets aga
   const frame = renderElementFrame(column([
     richText({
       id: 'styled-line',
-      segments: [{ text: 'Styled', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]
+      segments: [{ kind: 'text', text: 'Styled', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]
     }),
     tree({
       id: 'tree',

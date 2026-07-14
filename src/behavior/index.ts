@@ -54,14 +54,11 @@ export type {
   ProgressFrame,
   ProgressFrameCell
 } from './feedback.ts';
-export {
-  hoverableActive,
-  hoverableReducer
-} from './hoverable.ts';
+export { pointerPresentationReducer } from './pointer-presentation.ts';
 export type {
-  HoverableAction,
-  HoverableState
-} from './hoverable.ts';
+  PointerPresentationAction,
+  PointerPresentationState
+} from '../interaction/pointer-presentation.ts';
 export {
   listPresentation,
   listReducer,

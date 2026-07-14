@@ -25,13 +25,15 @@ import type {
 
 export function menu<
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   MenuOptions,
   { readonly onAction: TActionMessage },
   Record<never, never>,
-  TKeys
->): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+  TKeys,
+  TPointerMessage
+>): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function menu(options: MenuOptions<unknown>): Element<unknown> {
   const onAction = options.onAction;
   const keyMap = menuKeyBindings(options.items, options.selected, onAction, options.keys);
@@ -51,19 +53,21 @@ export function menu(options: MenuOptions<unknown>): Element<unknown> {
       ...(onAction === undefined ? {} : { toActionMessage: onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
 export function menuBar<
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   MenuBarOptions,
   { readonly onAction: TActionMessage },
   Record<never, never>,
-  TKeys
->): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+  TKeys,
+  TPointerMessage
+>): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function menuBar(options: MenuBarOptions<unknown>): Element<unknown> {
   const keyMap = menuKeyBindings(options.items, options.selected, options.onAction, options.keys);
   return elementFromRenderNode<'menuBar', unknown>({
@@ -75,19 +79,21 @@ export function menuBar(options: MenuBarOptions<unknown>): Element<unknown> {
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
 export function contextMenu<
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   ContextMenuOptions,
   { readonly onAction: TActionMessage },
   Record<never, never>,
-  TKeys
->): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+  TKeys,
+  TPointerMessage
+>): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function contextMenu(options: ContextMenuOptions<unknown>): Element<unknown> {
   const onAction = options.onAction;
   const keyMap = menuKeyBindings(options.items, options.selected, onAction, options.keys);
@@ -109,19 +115,21 @@ export function contextMenu(options: ContextMenuOptions<unknown>): Element<unkno
       ...(onAction === undefined ? {} : { toActionMessage: onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta })
+    ...interactionProps({ pointer: options.pointer, meta })
   });
 }
 
 export function dropdownMenu<
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   DropdownMenuOptions,
   { readonly onAction: TActionMessage },
   Record<never, never>,
-  TKeys
->): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+  TKeys,
+  TPointerMessage
+>): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unknown> {
   const selected = options.presentation.selected;
   const highlighted = options.presentation.kind === 'open' ? options.presentation.highlighted : undefined;
@@ -148,7 +156,7 @@ export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unk
       ...(options.onAction === undefined ? {} : { toDropdownMenuActionMessage: options.onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta })
+    ...interactionProps({ pointer: options.pointer, meta })
   });
 }
 

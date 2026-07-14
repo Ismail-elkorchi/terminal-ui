@@ -48,6 +48,12 @@ export {
   toggleSwitch
 } from './factories.ts';
 export type * from '../ui-model/contracts.ts';
+export type {
+  InlineContent,
+  InlineContentSegment,
+  InlineSymbolSegment,
+  InlineTextSegment
+} from '../visual/inline-content.ts';
 export type { CommandInputAction } from '../ui-model/command-input.ts';
 export type { ListAction } from '../ui-model/list.ts';
 export type { TableAction, TablePresentation, TableSortDirection, TableSortState } from '../ui-model/table.ts';

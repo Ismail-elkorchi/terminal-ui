@@ -98,16 +98,16 @@ export const formRenderers = {
     hitTargets: ({ renderNode, bounds }) => controlHitTargets(renderNode, bounds)
   },
   checkbox: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, checkboxBlock(renderNode, layoutNode.bounds, theme));
+    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, checkboxBlock(renderNode, layoutNode.bounds, theme, focused));
     },
     accessibility: ({ renderNode, id, focused }) => checkboxAccessibleBase(renderNode, id, focused),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => controlHitTargets(renderNode, bounds)
   },
   toggleSwitch: {
-    render: ({ renderNode, layoutNode, buffer }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, toggleSwitchBlock(renderNode, layoutNode.bounds));
+    render: ({ renderNode, layoutNode, buffer, focused }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, toggleSwitchBlock(renderNode, layoutNode.bounds, focused));
     },
     accessibility: ({ renderNode, id, focused }) => toggleSwitchAccessibleBase(renderNode, id, focused),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],

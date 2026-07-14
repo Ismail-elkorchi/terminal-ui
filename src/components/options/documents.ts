@@ -27,7 +27,7 @@ import type {
   TextAreaStylePart
 } from '../../ui-model/style-parts.ts';
 
-export interface ScrollbackOptions<TMessage = never> extends InteractiveElementOptions<TextAreaStylePart> {
+export interface ScrollbackOptions<TMessage = never> extends InteractiveElementOptions<TextAreaStylePart, TMessage> {
   readonly items: readonly ScrollbackItem[];
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
@@ -50,14 +50,14 @@ export interface StructuredBlockOptions extends ElementOptions<DocumentStylePart
   readonly collapsed?: boolean;
 }
 
-export interface ActivityFeedOptions<TMessage = never> extends InteractiveElementOptions<DocumentStylePart> {
+export interface ActivityFeedOptions<TMessage = never> extends InteractiveElementOptions<DocumentStylePart, TMessage> {
   readonly blocks: readonly StructuredBlock[];
   readonly selectedId?: string;
   readonly onAction?: (action: ActivityFeedAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface CommandInputOptions<TMessage = never> extends InteractiveElementOptions<CommandInputStylePart> {
+export interface CommandInputOptions<TMessage = never> extends InteractiveElementOptions<CommandInputStylePart, TMessage> {
   readonly value?: string;
   readonly cursor?: number;
   readonly selection?: TextSelection;
@@ -77,7 +77,7 @@ export interface CommandInputOptions<TMessage = never> extends InteractiveElemen
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface PaletteOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<PaletteStylePart> {
+export interface PaletteOptions<TValue = string, TMessage = never> extends InteractiveElementOptions<PaletteStylePart, TMessage> {
   readonly title?: string;
   readonly query?: string;
   readonly entries: readonly SearchEntry<TValue>[];

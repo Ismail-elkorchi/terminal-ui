@@ -17,7 +17,8 @@ import {
   commandInputAccessibleChildren,
   commandInputBlock,
   commandInputCursor,
-  commandInputPointerOffset
+  commandInputPointerOffset,
+  commandInputSuggestionHitTargets
 } from '../command-input.ts';
 import { paletteAccessibleChildren, paletteBlock, paletteHitTargets } from '../palette.ts';
 import { textPointerHitTargets, textPointerMessageFactory } from '../text-pointer.ts';
@@ -35,9 +36,9 @@ import type { RendererMap } from './types.ts';
 
 export const menuRenderers = {
   menu: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => menuScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(renderNode, scrollbars.contentBounds, theme));
+      writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(renderNode, scrollbars.contentBounds, theme, focused));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, id, focused }) => ({
@@ -55,8 +56,8 @@ export const menuRenderers = {
     }
   },
   menuBar: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, menuBarBlock(renderNode, layoutNode.bounds, theme));
+    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, menuBarBlock(renderNode, layoutNode.bounds, theme, focused));
     },
     accessibility: ({ renderNode, id, focused }) => ({
       ...menuAccessibleBase(renderNode, id, focused),
@@ -67,12 +68,12 @@ export const menuRenderers = {
     hitTargets: ({ renderNode, bounds }) => menuBarHitTargets(renderNode, bounds)
   },
   contextMenu: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
       const titleRows = contextMenuTitleRows(renderNode);
       const bodyBounds = contextMenuBodyBounds(layoutNode.bounds, titleRows);
       const scrollbars = scrollbarsForRenderNode(renderNode, bodyBounds, (contentBounds) => menuScrollbarState(renderNode, contentBounds), 'vertical');
       writeRenderBlock(buffer, layoutNode.bounds, contextMenuTitleBlock(renderNode, layoutNode.bounds));
-      writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(renderNode, scrollbars.contentBounds, theme));
+      writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(renderNode, scrollbars.contentBounds, theme, focused));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, id, focused }) => ({
@@ -91,8 +92,8 @@ export const menuRenderers = {
     }
   },
   dropdownMenu: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, dropdownMenuBlock(renderNode, layoutNode.bounds, theme));
+    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, dropdownMenuBlock(renderNode, layoutNode.bounds, theme, focused));
     },
     accessibility: ({ renderNode, id, focused }) => {
       const children = dropdownMenuAccessibleChildren(renderNode);
@@ -121,12 +122,15 @@ export const menuRenderers = {
       };
     },
     focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, commandInputCursor(renderNode, bounds))],
-    hitTargets: ({ renderNode, bounds }) => textPointerHitTargets({
-      id: `${renderNode.id ?? renderNode.kind}:text`,
-      bounds,
-      toMessage: textPointerMessageFactory(renderNode),
-      offsetAt: (event) => commandInputPointerOffset(renderNode, bounds, event)
-    })
+    hitTargets: ({ renderNode, bounds }) => [
+      ...textPointerHitTargets({
+        id: `${renderNode.id ?? renderNode.kind}:text`,
+        bounds: { ...bounds, height: Math.min(1, bounds.height) },
+        toMessage: textPointerMessageFactory(renderNode),
+        offsetAt: (event) => commandInputPointerOffset(renderNode, bounds, event)
+      }),
+      ...commandInputSuggestionHitTargets(renderNode, bounds)
+    ]
   },
   palette: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {

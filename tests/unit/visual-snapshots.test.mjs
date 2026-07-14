@@ -37,11 +37,11 @@ test('visual snapshots produce deterministic plain ANSI frame accessibility diff
 test('visual snapshots fail on uncontrolled style changes through structured frame JSON', () => {
   const base = renderElementFrame(richText({
     id: 'style',
-    segments: [{ text: 'Styled', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]
+    segments: [{ kind: 'text', text: 'Styled', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]
   }), { columns: 12, rows: 1 });
   const changed = renderElementFrame(richText({
     id: 'style',
-    segments: [{ text: 'Styled', style: { fg: { kind: 'theme', token: 'status.error' } } }]
+    segments: [{ kind: 'text', text: 'Styled', style: { fg: { kind: 'theme', token: 'status.error' } } }]
   }), { columns: 12, rows: 1 });
 
   assert.notEqual(createVisualSnapshot({ frame: base }).frameJson, createVisualSnapshot({ frame: changed }).frameJson);

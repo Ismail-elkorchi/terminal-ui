@@ -30,7 +30,7 @@ import {
   optionControlState,
   separatorSpan
 } from '../form-visual.ts';
-import { renderNodeStyle } from '../render-node-style.ts';
+import { mergeStyles, renderNodeStyle, themeStyle } from '../render-node-style.ts';
 import { stringify } from '../render-node-props.ts';
 import type { RenderBlock, RenderLine } from '../frame.ts';
 import type { Rect } from '../../model/layout.ts';
@@ -74,6 +74,8 @@ import {
   numberInputValue,
 } from './support/shared.ts';
 import { numberInputLayout } from './support/number-input.ts';
+import { interactionVisualState } from '../pointer-presentation.ts';
+import { controlTargetId } from './hit-targets.ts';
 
 export function formContentBounds(widget: FormNode, bounds: Rect): Rect {
   const titleRows = formTitle(widget).length === 0 ? 0 : 1;
@@ -124,13 +126,24 @@ export function buttonBlock(widget: ButtonNode, bounds: Rect, focused = false, t
   return block([clippedFormLine(buttonSpans(widget, label, focused, theme), bounds.width)]);
 }
 
-export function checkboxBlock(widget: CheckboxNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function checkboxBlock(widget: CheckboxNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
   const checked = widget.props.checked;
   const symbol = checked ? theme.tokens.symbols.checkboxChecked : theme.tokens.symbols.checkboxUnchecked;
-  const state = formControlState(widget, checked);
+  const state = interactionVisualState(widget, controlTargetId(widget), {
+    disabled: widget.props.disabled === true,
+    error: typeof widget.props.error === 'string' && widget.props.error.length > 0,
+    focused
+  });
   const lines = [
     clippedFormLine([
-      formSpan(widget, 'marker', checked ? 'marker.checked' : 'marker.unchecked', symbol, formMarkerStyle(widget, state)),
+      formSpan(
+        widget,
+        'marker',
+        checked ? 'marker.checked' : 'marker.unchecked',
+        symbol,
+        mergeStyles(checked ? themeStyle('accent.primary', { bold: true }) : undefined, formMarkerStyle(widget, state)),
+        state
+      ),
       separatorSpan(widget),
       ...labelSpans(widget, 'label', clean(stringify(widget.props.label)), state, widget.props.required === true)
     ], bounds.width),
@@ -139,34 +152,37 @@ export function checkboxBlock(widget: CheckboxNode, bounds: Rect, theme: Termina
   return block(lines.slice(0, Math.max(0, bounds.height)));
 }
 
-export function toggleSwitchBlock(widget: ToggleSwitchNode, bounds: Rect): RenderBlock {
+export function toggleSwitchBlock(widget: ToggleSwitchNode, bounds: Rect, focused = false): RenderBlock {
   const checked = widget.props.checked;
   const label = clean(stringify(widget.props.label));
   const onLabel = clean(stringify(widget.props.onLabel)) || 'On';
   const offLabel = clean(stringify(widget.props.offLabel)) || 'Off';
-  const enabledState = formControlState(widget, true);
-  const disabledState = formControlState(widget, false);
+  const state = interactionVisualState(widget, controlTargetId(widget), {
+    disabled: widget.props.disabled === true,
+    error: typeof widget.props.error === 'string' && widget.props.error.length > 0,
+    focused
+  });
   const lines = [
     clippedFormLine([
-      ...controlPrefixSpans(widget, label, formControlState(widget)),
+      ...controlPrefixSpans(widget, label, state),
       ...(checked
         ? [
-            formSpan(widget, 'chrome', 'value.on.open', '[', formMarkerStyle(widget, enabledState)),
+            formSpan(widget, 'chrome', 'value.on.open', '[', formMarkerStyle(widget, state), state),
             separatorSpan(widget),
-            formSpan(widget, 'value', 'value.on', onLabel, toggleValueStyle(widget, true)),
+            formSpan(widget, 'value', 'value.on', onLabel, mergeStyles(toggleValueStyle(widget, true), renderNodeStyle(widget, 'value', state)), state),
             separatorSpan(widget),
-            formSpan(widget, 'chrome', 'value.on.close', ']', formMarkerStyle(widget, enabledState)),
+            formSpan(widget, 'chrome', 'value.on.close', ']', formMarkerStyle(widget, state), state),
             separatorSpan(widget),
             formSpan(widget, 'placeholder', 'value.off', offLabel, formPlaceholderStyle(widget))
           ]
         : [
             formSpan(widget, 'placeholder', 'value.on', onLabel, formPlaceholderStyle(widget)),
             separatorSpan(widget),
-            formSpan(widget, 'chrome', 'value.off.open', '[', formMarkerStyle(widget, disabledState)),
+            formSpan(widget, 'chrome', 'value.off.open', '[', formMarkerStyle(widget, state), state),
             separatorSpan(widget),
-            formSpan(widget, 'value', 'value.off', offLabel, toggleValueStyle(widget, false)),
+            formSpan(widget, 'value', 'value.off', offLabel, mergeStyles(toggleValueStyle(widget, false), renderNodeStyle(widget, 'value', state)), state),
             separatorSpan(widget),
-            formSpan(widget, 'chrome', 'value.off.close', ']', formMarkerStyle(widget, disabledState))
+            formSpan(widget, 'chrome', 'value.off.close', ']', formMarkerStyle(widget, state), state)
           ])
     ], bounds.width),
     ...errorLines(widget, bounds.width)

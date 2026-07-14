@@ -610,8 +610,8 @@ function commandPane(state) {
     onAction: (action) => ({ kind: 'commandEdit', action }),
     onSubmit: { kind: 'submitCommand' },
     keys: {
-      arrowUp: () => ({ kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: -1 } }),
-      arrowDown: () => ({ kind: 'commandEdit', action: { kind: 'selectSuggestion', direction: 1 } }),
+      arrowUp: () => ({ kind: 'commandEdit', action: { kind: 'moveSuggestion', delta: -1 } }),
+      arrowDown: () => ({ kind: 'commandEdit', action: { kind: 'moveSuggestion', delta: 1 } }),
       escape: () => ({ kind: 'commandEdit', action: { kind: 'setValue', value: '' } })
     }
   }), {

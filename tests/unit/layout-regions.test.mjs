@@ -550,23 +550,22 @@ test('dialog centers a bounded dialog and lays out child content inside the bord
   assert.match(rendered, /inside/u);
 });
 
-test('dialog accessibility label derives from structured border titles', () => {
+test('dialog accessibility label derives from structured authored titles', () => {
   const spanTitleFrame = renderElementFrame(dialog(text('inside', { id: 'inside' }), {
     id: 'span-dialog',
-    border: { kind: 'single', title: [{ text: 'Span' }, { text: ' title' }] },
+    title: [{ kind: 'text', text: 'Span' }, { kind: 'text', text: ' title' }],
+    border: { kind: 'single' },
     width: 18,
     height: 5
   }), { columns: 30, rows: 9 });
   const railTitleFrame = renderElementFrame(dialog(text('inside', { id: 'inside' }), {
     id: 'rail-dialog',
-    border: {
-      kind: 'single',
-      title: {
-        start: [{ text: 'Start' }],
-        center: 'Center',
-        end: [{ text: 'End' }]
-      }
+    title: {
+      start: [{ kind: 'text', text: 'Start' }],
+      center: 'Center',
+      end: [{ kind: 'text', text: 'End' }]
     },
+    border: { kind: 'single' },
     width: 26,
     height: 5
   }), { columns: 34, rows: 9 });
@@ -604,7 +603,8 @@ test('dialog reserves a structurally separated action area without color', () =>
 test('border model supports styled widget borders and borderless layout', () => {
   const doubleFrame = renderElementFrame(surface(text('inside', { id: 'inside' }), {
     id: 'panel',
-    border: { kind: 'double', title: 'Panel' }
+    title: 'Panel',
+    border: { kind: 'double' }
   }), { columns: 14, rows: 4 });
   const doubleOutput = renderFramePlain(doubleFrame);
 

@@ -17,6 +17,7 @@ import type {
   SelectAction
 } from '../../../ui-model/choice-controls.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
+import type { InlineContent } from '../../../visual/inline-content.ts';
 
 export interface FormRenderProps extends RenderNodeLayoutProps {
   readonly title?: string;
@@ -39,8 +40,11 @@ export interface LabelRenderProps {
 
 export interface ButtonRenderProps<TMessage> {
   readonly label: string;
+  readonly leading?: InlineContent;
+  readonly trailing?: InlineContent;
   readonly message?: TMessage;
   readonly state?: ButtonState;
+  readonly disabled?: boolean;
   readonly tone?: ButtonTone;
 }
 

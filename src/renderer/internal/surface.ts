@@ -1,17 +1,25 @@
 import { borderStyleFromValue, drawBorder } from './border.ts';
-import type { BorderStyle, BorderTitle, BorderTitleContent, BorderTitleRail } from './border.ts';
-import type { SurfaceChromeOptions, SurfaceVariant } from '../../visual/surface.ts';
-import { sanitizeTerminalText } from '../../text/index.ts';
+import type { BorderStyle, BorderTitle } from './border.ts';
+import type { SurfaceVariant } from '../../visual/surface.ts';
 import type { RenderTarget } from '../model/render-target.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import type { Rect } from '../model/layout.ts';
-import type { FrameCellSource, RenderSpan, TerminalStyle } from '../../visual/render.ts';
+import type { FrameCellSource, TerminalStyle } from '../../visual/render.ts';
 import { mergeStyles, resolveRenderNodeStyle } from './render-node-style.ts';
 import { stringify } from './render-node-props.ts';
 import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
+import { renderBorderTitle } from './border-title.ts';
 
-export type { SurfaceChromeOptions, SurfaceVariant } from '../../visual/surface.ts';
+export type { SurfaceVariant } from '../../visual/surface.ts';
+
+export interface SurfaceChromeOptions {
+  readonly variant?: SurfaceVariant;
+  readonly border?: BorderStyle;
+  readonly shadow?: boolean;
+  readonly disabled?: boolean;
+  readonly visualState?: 'active' | 'selected' | 'error' | 'warning' | 'success';
+}
 
 type SurfaceNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'surface'>;
 type DialogNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'dialog'>;
@@ -37,7 +45,7 @@ export function drawSurfaceChrome(
   focused: boolean
 ): void {
   const variant = surfaceVariantFromValue(widget.props.variant);
-  const border = surfaceBorderForBounds(widget, bounds, variant);
+  const border = surfaceBorderForBounds(widget, bounds, variant, theme);
   drawSurfaceFrame(buffer, bounds, widget, theme, focused, {
     ...(variant === undefined ? {} : { variant }),
     ...(border === undefined ? {} : { border }),
@@ -93,19 +101,26 @@ function surfaceVariantFromValue(value: unknown): SurfaceVariant | undefined {
     : undefined;
 }
 
-function surfaceBorder(widget: SurfaceNode, variant = surfaceVariantFromValue(widget.props.variant)): BorderStyle | undefined {
+function surfaceBorder(
+  widget: SurfaceNode,
+  variant = surfaceVariantFromValue(widget.props.variant),
+  theme?: TerminalTheme
+): BorderStyle | undefined {
   const explicit = borderStyleFromValue(widget.props.border);
-  if (explicit !== undefined) return surfaceBorderStyle(widget, surfaceTitledBorder(widget, explicit), variant);
+  if (explicit !== undefined) {
+    return surfaceBorderStyle(widget, surfaceTitledBorder(widget, explicit, theme), variant);
+  }
   if (variant === undefined || variant === 'neutral' || variant === 'chrome') return undefined;
-  return surfaceBorderStyle(widget, surfaceTitledBorder(widget, { kind: 'single' }), variant);
+  return surfaceBorderStyle(widget, surfaceTitledBorder(widget, { kind: 'single' }, theme), variant);
 }
 
 function surfaceBorderForBounds(
   widget: SurfaceNode,
   bounds: Rect,
-  variant = surfaceVariantFromValue(widget.props.variant)
+  variant = surfaceVariantFromValue(widget.props.variant),
+  theme?: TerminalTheme
 ): BorderStyle | undefined {
-  return surfaceBorderWithinBounds(surfaceBorder(widget, variant), bounds);
+  return surfaceBorderWithinBounds(surfaceBorder(widget, variant, theme), bounds);
 }
 
 function surfaceBorderWithinBounds(border: BorderStyle | undefined, bounds: Rect): BorderStyle | undefined {
@@ -146,7 +161,7 @@ export function surfaceBackgroundStyle(
   state: Pick<SurfaceChromeOptions, 'disabled' | 'visualState'> = {}
 ): TerminalStyle {
   const base = { bg: { kind: 'theme', token: surfaceBackgroundToken(variant) } } satisfies TerminalStyle;
-  const focusedBase = focused && state.disabled !== true && (border === undefined || border.kind === 'none')
+  const focusedBase: TerminalStyle = focused && state.disabled !== true && (border === undefined || border.kind === 'none')
     ? { ...base, bg: { kind: 'theme' as const, token: 'focus.background' } }
     : base;
   const visualState = state.disabled === true
@@ -161,69 +176,29 @@ export function surfaceBackgroundStyle(
   }) ?? focusedBase;
 }
 
-function surfaceTitledBorder(widget: SurfaceNode, border: BorderStyle): BorderStyle {
-  if (border.kind === 'none' || border.title !== undefined) return border;
-  const title = surfaceTitle(widget);
+function surfaceTitledBorder(widget: SurfaceNode, border: BorderStyle, theme: TerminalTheme | undefined): BorderStyle {
+  if (border.kind === 'none' || border.title !== undefined || theme === undefined) return border;
+  const title = surfaceTitle(widget, theme);
   return title === undefined ? border : { ...border, title };
 }
 
-function surfaceTitle(widget: SurfaceNode): BorderTitle | undefined {
-  const explicit = widget.props.title;
-  if (isBorderTitleRailInput(explicit)) {
-    const rail = {
-      ...surfaceRailTitlePart(widget, 'start', explicit),
-      ...surfaceRailTitlePart(widget, 'center', explicit),
-      ...surfaceRailTitlePart(widget, 'end', explicit)
-    };
-    return Object.keys(rail).length === 0 ? undefined : rail;
-  }
-  return surfaceTitleContent(widget, explicit, 'title') ?? surfaceTitleContent(widget, stringify(widget.props.label), 'title');
-}
-
-function surfaceRailTitlePart<TKey extends keyof BorderTitleRail>(
-  widget: SurfaceNode,
-  key: TKey,
-  input: Record<string, unknown>
-): Pick<BorderTitleRail, TKey> | Record<string, never> {
-  const title = surfaceTitleContent(widget, input[key], `title.${key}`);
-  return title === undefined ? {} : { [key]: title } as Pick<BorderTitleRail, TKey>;
-}
-
-function surfaceTitleContent(widget: SurfaceNode, value: unknown, label: string): BorderTitleContent | undefined {
-  if (Array.isArray(value)) {
-    const spans = value.flatMap((currentSpan, index): readonly RenderSpan[] =>
-      isRenderSpan(currentSpan) ? [surfaceTitleSpan(widget, currentSpan, `${label}.${String(index)}`)] : []
-    );
-    return spans.length === 0 ? undefined : spans;
-  }
-  const title = sanitizeTerminalText(typeof value === 'string' ? value : '').text;
-  return title.length === 0
-    ? undefined
-    : [surfaceTitleSpan(widget, { text: title }, `${label}.0`)];
-}
-
-function surfaceTitleSpan(widget: SurfaceNode, currentSpan: Pick<RenderSpan, 'text'> & Partial<RenderSpan>, label: string): RenderSpan {
-  const text = sanitizeTerminalText(currentSpan.text).text;
-  const style = currentSpan.style ?? surfaceTitleStyle(widget);
-  return {
-    text,
-    ...(style === undefined ? {} : { style }),
-    ...(currentSpan.link === undefined ? {} : { link: currentSpan.link }),
-    source: currentSpan.source ?? renderNodeFrameSource(widget, {
+function surfaceTitle(widget: SurfaceNode, theme: TerminalTheme): BorderTitle | undefined {
+  const title = widget.props.title ?? stringify(widget.props.label);
+  return renderBorderTitle(title, {
+    theme,
+    ...surfaceTitleStyleOption(surfaceTitleStyle(widget)),
+    source: (part, index) => renderNodeFrameSource(widget, {
       family: 'surface',
       role: 'text',
-      part: label,
+      part: `${part}.${String(index)}`,
       partKind: 'title',
-      label
+      label: `${part}.${String(index)}`
     })
-  };
+  });
 }
 
-function isBorderTitleRailInput(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object'
-    && value !== null
-    && !Array.isArray(value)
-    && ('start' in value || 'center' in value || 'end' in value);
+function surfaceTitleStyleOption(style: TerminalStyle | undefined): { readonly baseStyle?: TerminalStyle } {
+  return style === undefined ? {} : { baseStyle: style };
 }
 
 function surfaceTitleStyle(widget: SurfaceNode): TerminalStyle | undefined {
@@ -231,12 +206,6 @@ function surfaceTitleStyle(widget: SurfaceNode): TerminalStyle | undefined {
     part: 'title',
     base: { fg: { kind: 'theme', token: 'surface.title' }, bold: true }
   });
-}
-
-function isRenderSpan(value: unknown): value is RenderSpan {
-  return typeof value === 'object'
-    && value !== null
-    && typeof (value as { readonly text?: unknown }).text === 'string';
 }
 
 function surfaceDisabled(widget: SurfaceNode): boolean {

@@ -1,4 +1,5 @@
 import { sanitizeTerminalText } from '../text/index.ts';
+import type { TerminalSymbolMode } from '../visual/inline-content.ts';
 
 export interface BorderGlyphSet {
   readonly topLeft: string;
@@ -10,6 +11,7 @@ export interface BorderGlyphSet {
 }
 
 export interface TerminalSymbols {
+  readonly mode: TerminalSymbolMode;
   readonly borderSingle: BorderGlyphSet;
   readonly borderRounded: BorderGlyphSet;
   readonly treeExpanded: string;
@@ -51,6 +53,7 @@ export interface BorderGlyphSetDefinition {
 }
 
 export interface TerminalSymbolsDefinition {
+  readonly mode?: TerminalSymbolMode;
   readonly borderSingle?: BorderGlyphSetDefinition;
   readonly borderRounded?: BorderGlyphSetDefinition;
   readonly treeExpanded?: string;
@@ -83,6 +86,7 @@ export interface TerminalSymbolsDefinition {
 }
 
 export const asciiSymbols: TerminalSymbols = {
+  mode: 'ascii',
   borderSingle: { topLeft: '+', topRight: '+', bottomLeft: '+', bottomRight: '+', horizontal: '-', vertical: '|' },
   borderRounded: { topLeft: '+', topRight: '+', bottomLeft: '+', bottomRight: '+', horizontal: '-', vertical: '|' },
   treeExpanded: 'v',
@@ -115,6 +119,7 @@ export const asciiSymbols: TerminalSymbols = {
 };
 
 export const unicodeSymbols: TerminalSymbols = {
+  mode: 'unicode',
   borderSingle: { topLeft: '┌', topRight: '┐', bottomLeft: '└', bottomRight: '┘', horizontal: '─', vertical: '│' },
   borderRounded: { topLeft: '╭', topRight: '╮', bottomLeft: '╰', bottomRight: '╯', horizontal: '─', vertical: '│' },
   treeExpanded: '▾',
@@ -149,6 +154,7 @@ export const unicodeSymbols: TerminalSymbols = {
 export function mergeSymbols(base: TerminalSymbols, override: TerminalSymbolsDefinition | undefined): TerminalSymbols {
   if (override === undefined) return base;
   return sanitizeSymbols({
+    mode: override.mode ?? base.mode,
     borderSingle: mergeBorder(base.borderSingle, override.borderSingle),
     borderRounded: mergeBorder(base.borderRounded, override.borderRounded),
     treeExpanded: override.treeExpanded ?? base.treeExpanded,
@@ -183,6 +189,7 @@ export function mergeSymbols(base: TerminalSymbols, override: TerminalSymbolsDef
 
 export function sanitizeSymbols(symbols: TerminalSymbols): TerminalSymbols {
   return {
+    mode: symbols.mode === 'unicode' ? 'unicode' : 'ascii',
     borderSingle: sanitizeBorder(symbols.borderSingle),
     borderRounded: sanitizeBorder(symbols.borderRounded),
     treeExpanded: cleanSymbol(symbols.treeExpanded),
@@ -217,6 +224,7 @@ export function sanitizeSymbols(symbols: TerminalSymbols): TerminalSymbols {
 
 export function symbolEntries(symbols: TerminalSymbols): readonly unknown[] {
   return [
+    ['mode', symbols.mode],
     ['borderSingle', borderEntries(symbols.borderSingle)],
     ['borderRounded', borderEntries(symbols.borderRounded)],
     ['treeExpanded', symbols.treeExpanded],

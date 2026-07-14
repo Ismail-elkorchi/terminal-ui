@@ -2,7 +2,7 @@ import type { TerminalStyle } from '../visual/render.ts';
 import type { ChoiceItem, ComponentTone } from './contracts.ts';
 
 export type ButtonTone = Extract<ComponentTone, 'default' | 'primary' | 'secondary' | 'destructive'>;
-export type ButtonState = 'idle' | 'pressed' | 'pending' | 'disabled';
+export type ButtonState = 'idle' | 'pending';
 export type SliderStepDirection = 'decrement' | 'increment';
 
 export interface SliderStepEvent {

@@ -8,6 +8,7 @@ import {
   textEditInputHandlers
 } from '../internal/interaction.ts';
 import { optionalId, requiredId } from '../../authoring/render-node.ts';
+import { normalizeInlineContent } from '../../visual/inline-content.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
@@ -31,7 +32,7 @@ export function richText(options: RichTextOptions): Element {
     ...optionalId(options.id),
     kind: 'richText',
     props: {
-      segments: options.segments,
+      segments: normalizeInlineContent(options.segments),
       ...(options.wrap === undefined ? {} : { wrap: options.wrap })
     },
     ...componentMetaProps(options.meta)
@@ -42,6 +43,7 @@ export function textArea<
   const TScrollMessage = never,
   const TTextPointerMessage = never,
   const TEditMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
@@ -52,12 +54,14 @@ export function textArea<
       readonly onEdit: TEditMessage;
     },
     Record<never, never>,
-    TKeys
+    TKeys,
+    TPointerMessage
   >
 ): Element<
   | TScrollMessage
   | TTextPointerMessage
   | TEditMessage
+  | TPointerMessage
   | ComponentKeyBindingMessages<TKeys>
 >;
 export function textArea(options: TextAreaOptions<unknown>): Element<unknown> {
@@ -86,6 +90,7 @@ export function textArea(options: TextAreaOptions<unknown>): Element<unknown> {
     ...interactionProps({
       ...textEditInputHandlers(options.onEdit),
       keys,
+      pointer: options.pointer,
       meta: options.meta
     })
   });

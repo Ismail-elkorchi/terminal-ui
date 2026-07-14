@@ -3,13 +3,18 @@ import type { ElementVisualState } from '../../../../element/metadata.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
 import type { TerminalTheme } from '../../../../theme/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../frame.ts';
-import { formSpan, separatorSpan } from '../../form-visual.ts';
+import { formSource, formSpan, separatorSpan } from '../../form-visual.ts';
 import {
   defaultStyleForState,
   mergeStyles,
   resolveRenderNodeStyle,
   themeStyle
 } from '../../render-node-style.ts';
+import {
+  interactionVisualState,
+  renderNodePointerVisualState
+} from '../../pointer-presentation.ts';
+import { renderInlineContent } from '../../inline-content.ts';
 
 type ButtonNode = RenderNodeOfKind<unknown, 'button'>;
 
@@ -20,36 +25,62 @@ export function buttonSpans(
   theme: TerminalTheme
 ): readonly RenderSpan[] {
   const spans: RenderSpan[] = [];
+  const visualState = buttonState(widget, focused);
   const style = buttonStyle(widget, focused);
   const chromeStyle = buttonChromeStyle(widget, focused);
-  if (focused && widget.props.state !== 'disabled') {
-    spans.push(formSpan(widget, 'chrome', 'chrome.open', '[', chromeStyle));
-    spans.push(formSpan(widget, 'chrome', 'chrome.focus', theme.tokens.symbols.pointer, chromeStyle));
+  if (focused && widget.props.disabled !== true) {
+    spans.push(formSpan(widget, 'chrome', 'chrome.open', '[', chromeStyle, visualState));
+    spans.push(formSpan(widget, 'chrome', 'chrome.focus', theme.tokens.symbols.pointer, chromeStyle, visualState));
   } else {
-    spans.push(formSpan(widget, 'chrome', 'chrome.open', '[ ', chromeStyle));
+    spans.push(formSpan(widget, 'chrome', 'chrome.open', '[ ', chromeStyle, visualState));
   }
   const state = buttonStateMarker(widget, theme);
   if (state.length > 0) {
-    spans.push(formSpan(widget, 'state', 'state.marker', state, style));
+    spans.push(formSpan(widget, 'state', 'state.marker', state, style, visualState));
     spans.push(separatorSpan(widget));
   }
-  spans.push(formSpan(widget, 'label', 'label.text', label, style));
-  spans.push(formSpan(widget, 'chrome', 'chrome.close', ' ]', chromeStyle));
+  if (widget.props.leading !== undefined) {
+    spans.push(...renderInlineContent(widget.props.leading, {
+      theme,
+      ...inlineBaseStyle(widget, 'leading', style),
+      source: (_segment, index) => formSource(widget, 'leading', `leading.${String(index)}`, visualState)
+    }));
+    spans.push(separatorSpan(widget));
+  }
+  spans.push(formSpan(widget, 'label', 'label.text', label, style, visualState));
+  if (widget.props.trailing !== undefined) {
+    spans.push(separatorSpan(widget));
+    spans.push(...renderInlineContent(widget.props.trailing, {
+      theme,
+      ...inlineBaseStyle(widget, 'trailing', style),
+      source: (_segment, index) => formSource(widget, 'trailing', `trailing.${String(index)}`, visualState)
+    }));
+  }
+  spans.push(formSpan(widget, 'chrome', 'chrome.close', ' ]', chromeStyle, visualState));
   return spans;
+}
+
+function inlineBaseStyle(
+  widget: ButtonNode,
+  part: 'leading' | 'trailing',
+  base: TerminalStyle | undefined
+): { readonly baseStyle?: TerminalStyle } {
+  const style = mergeStyles(base, widget.styles?.parts?.[part]);
+  return style === undefined ? {} : { baseStyle: style };
 }
 
 export function buttonDescription(widget: ButtonNode): string {
   return [
     widget.props.state === 'pending' ? 'Pending.' : '',
-    widget.props.state === 'pressed' ? 'Pressed.' : '',
+    renderNodePointerVisualState(widget, buttonTargetId(widget)) === 'pressed' ? 'Pressed.' : '',
     buttonTone(widget) === 'destructive' ? 'Destructive action.' : ''
   ].filter((part) => part.length > 0).join(' ');
 }
 
 function buttonStateMarker(widget: ButtonNode, theme: TerminalTheme): string {
-  if (widget.props.state === 'disabled') return '-';
+  if (widget.props.disabled === true) return '-';
   if (widget.props.state === 'pending') return theme.tokens.symbols.statusInfo;
-  if (widget.props.state === 'pressed') return theme.tokens.symbols.selected;
+  if (renderNodePointerVisualState(widget, buttonTargetId(widget)) === 'pressed') return theme.tokens.symbols.selected;
   return buttonTone(widget) === 'destructive' ? theme.tokens.symbols.statusError : '';
 }
 
@@ -75,7 +106,6 @@ function buttonChromeStyle(widget: ButtonNode, focused: boolean): TerminalStyle 
 
 function buttonBaseStyle(widget: ButtonNode): TerminalStyle | undefined {
   if (widget.props.state === 'pending') return themeStyle('status.pending', { bold: true });
-  if (widget.props.state === 'pressed') return controlToneStyle('primary');
   switch (buttonTone(widget)) {
     case 'default':
       return controlToneStyle('default');
@@ -90,7 +120,6 @@ function buttonBaseStyle(widget: ButtonNode): TerminalStyle | undefined {
 
 function buttonChromeBaseStyle(widget: ButtonNode): TerminalStyle | undefined {
   if (widget.props.state === 'pending') return themeStyle('status.pending', { bold: true });
-  if (widget.props.state === 'pressed') return controlToneBorderStyle('primary');
   switch (buttonTone(widget)) {
     case 'default':
       return controlToneBorderStyle('default');
@@ -146,10 +175,16 @@ function controlToneBorderStyle(tone: 'default' | 'primary' | 'secondary'): Term
 }
 
 function buttonState(widget: ButtonNode, focused: boolean): ElementVisualState | undefined {
-  if (widget.props.state === 'disabled') return 'disabled';
-  if (buttonTone(widget) === 'destructive') return 'error';
-  if (widget.props.state === 'pending' || widget.props.state === 'pressed') return undefined;
-  return focused ? 'focused' : undefined;
+  if (widget.props.state === 'pending') return undefined;
+  return interactionVisualState(widget, buttonTargetId(widget), {
+    disabled: widget.props.disabled === true,
+    error: buttonTone(widget) === 'destructive',
+    focused
+  });
+}
+
+function buttonTargetId(widget: ButtonNode): string {
+  return `${widget.id ?? widget.kind}:control`;
 }
 
 function buttonTone(widget: ButtonNode): ButtonTone {

@@ -11,6 +11,7 @@ import {
   barChart,
   button,
   chart,
+  checkbox,
   checkboxGroup,
   colorSwatchPicker,
   commandInput,
@@ -24,6 +25,7 @@ import {
   menuBar,
   notificationStack,
   palette,
+  paginator,
   progressBar,
   scrollback,
   slider,
@@ -108,13 +110,13 @@ test('button states use shared styles and structural markers', () => {
   const pressedFrame = renderElementFrame(button({
     id: 'pressed',
     label: 'Pinned',
-    state: 'pressed'
+    pointer: { state: { pressedTargetId: 'pressed:control' } }
   }), { columns: 18, rows: 1 });
   const disabledFrame = renderElementFrame(button({
     id: 'disabled',
     label: 'Disabled',
-    state: 'disabled'
-  }), { columns: 20, rows: 1 });
+    disabled: true
+  }), { columns: 20, rows: 1 }, { focusPath: ['none'] });
 
   assert.equal(renderFramePlain(focusedFrame).trimEnd(), '[›Focus ]');
   assert.equal(renderFramePlain(pendingFrame).trimEnd(), '[ i Sync ]');
@@ -123,7 +125,7 @@ test('button states use shared styles and structural markers', () => {
   assert.equal(renderFramePlain(disabledFrame).trimEnd(), '[ - Disabled ]');
   assert.equal(styleFor(pendingFrame, 'S')?.fg?.token, 'status.pending');
   assert.equal(styleFor(destructiveFrame, 'D')?.fg?.token, 'status.error');
-  assert.equal(styleFor(pressedFrame, 'P')?.bg?.token, 'control.primary.background');
+  assert.equal(styleFor(pressedFrame, 'P')?.bg?.token, 'selection.background');
   assert.equal(styleFor(disabledFrame, 'D')?.fg?.token, 'text.disabled');
   assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.label, 'chrome.focus');
   assert.equal(focusedFrame.cells.find((cell) => cell.text === '[')?.source?.label, 'chrome.open');
@@ -132,6 +134,72 @@ test('button states use shared styles and structural markers', () => {
   assert.equal(pressedFrame.cells.find((cell) => cell.text === '●')?.source?.label, 'state.marker');
   assert.equal(disabledFrame.cells.find((cell) => cell.text === '-')?.source?.label, 'state.marker');
   assert.equal(disabledFrame.cells.find((cell) => cell.text === 'D')?.source?.label, 'label.text');
+});
+
+test('controlled pointer presentation resolves styles and source state across component families', () => {
+  const checkboxFrame = renderElementFrame(checkbox({
+    id: 'check',
+    label: 'Enabled',
+    checked: false,
+    meta: { focus: { disabled: true } },
+    pointer: { state: { hoveredTargetId: 'check:control' } }
+  }), { columns: 20, rows: 1 });
+  const listFrame = renderElementFrame(list({
+    id: 'items',
+    items: ['Alpha', 'Beta'],
+    getItemId: (item) => item,
+    pointer: { state: { hoveredTargetId: 'items:option:Beta' } }
+  }), { columns: 20, rows: 2 });
+  const tabFrame = renderElementFrame(tabs({
+    id: 'views',
+    selected: 'one',
+    tabs: [
+      { id: 'one', label: 'One', panel: text('One') },
+      { id: 'two', label: 'Two', panel: text('Two') }
+    ],
+    pointer: { state: { pressedTargetId: 'views:tab:two' } }
+  }), { columns: 24, rows: 2 });
+  const menuFrame = renderElementFrame(menu({
+    id: 'actions',
+    items: [{ id: 'open', label: 'Open' }, { id: 'save', label: 'Save' }],
+    selected: 'open',
+    pointer: { state: { hoveredTargetId: 'actions:save' } }
+  }), { columns: 20, rows: 2 });
+  const commandFrame = renderElementFrame(commandInput({
+    id: 'command',
+    value: '/o',
+    display: 'expanded',
+    suggestions: [{ value: '/open', label: 'Open' }, { value: '/save', label: 'Save' }],
+    selectedSuggestion: 0,
+    pointer: { state: { hoveredTargetId: 'command:suggestion:1' } }
+  }), { columns: 24, rows: 3 });
+  const paginatorFrame = renderElementFrame(paginator({
+    id: 'pages',
+    page: 2,
+    pageCount: 4,
+    onAction: () => undefined,
+    pointer: { state: { pressedTargetId: 'pages:next' } }
+  }), { columns: 40, rows: 1 });
+  const notificationFrame = renderElementFrame(notificationStack({
+    id: 'notices',
+    items: [{ id: 'ready', title: 'Ready', tone: 'info' }],
+    pointer: { state: { hoveredTargetId: 'notices:notification:ready' } }
+  }), { columns: 30, rows: 6 });
+
+  assert.equal(styleFor(checkboxFrame, 'E')?.bg?.token, 'focus.background');
+  assert.equal(checkboxFrame.cells.find((cell) => cell.text === 'E')?.source?.state, 'hovered');
+  assert.equal(styleFor(listFrame, 'B')?.bg?.token, 'focus.background');
+  assert.equal(listFrame.cells.find((cell) => cell.text === 'B')?.source?.state, 'hovered');
+  assert.equal(styleFor(tabFrame, 'T')?.bg?.token, 'selection.background');
+  assert.equal(tabFrame.cells.find((cell) => cell.text === 'T')?.source?.state, 'pressed');
+  assert.equal(styleFor(menuFrame, 'S')?.bg?.token, 'focus.background');
+  assert.equal(menuFrame.cells.find((cell) => cell.text === 'S')?.source?.state, 'hovered');
+  assert.equal(styleFor(commandFrame, 'S')?.bg?.token, 'focus.background');
+  assert.equal(commandFrame.cells.find((cell) => cell.text === 'S')?.source?.state, 'hovered');
+  assert.equal(paginatorFrame.cells.find((cell) => cell.source?.part === 'control.next')?.source?.state, 'pressed');
+  assert.equal(notificationFrame.cells.find((cell) =>
+    cell.source?.itemId === 'ready' && cell.source.part === 'title'
+  )?.source?.state, 'hovered.info');
 });
 
 test('text entry chrome uses shared border focus and error styles', () => {
@@ -306,6 +374,7 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
   const dropdownMenuFrame = renderElementFrame(dropdownMenu({
     id: 'region',
     label: 'Region',
+    meta: { focus: { disabled: true } },
     presentation: { kind: 'closed', selected: 'us' },
     items: [
       { id: 'us', label: 'United States' }
@@ -430,8 +499,7 @@ test('tabs use shared selected disabled and value styles', () => {
   const selectedLabel = frame.cells.find((cell) => cell.source?.itemId === 'data' && cell.source?.label === 'label');
 
   assert.equal(dStyles[0]?.fg?.token, 'text.muted');
-  assert.equal(selectedLabel?.style?.fg?.token, 'accent.primary');
-  assert.equal(selectedLabel?.style?.underline, true);
+  assert.equal(selectedLabel?.style?.fg?.token, 'status.success');
   assert.equal(styleFor(frame, 'A')?.fg?.token, 'status.warning');
 });
 

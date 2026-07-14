@@ -17,6 +17,8 @@ import type { CommandInputDisplay, CommandInputValidation } from '../../ui-model
 import type { CursorPosition } from '../model/cursor.ts';
 import type { Rect } from '../model/layout.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
+import type { HitTarget } from '../model/renderer.ts';
+import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
 import { clipRenderSpans, measureRenderSpans } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 
@@ -108,6 +110,31 @@ export function commandInputPointerOffset(
   return textOffsetAtVisualColumn(model.value, model.offsetCells + Math.max(0, contentColumn));
 }
 
+export function commandInputSuggestionHitTargets<TMessage>(
+  widget: CommandInputNode<TMessage>,
+  bounds: Rect
+): readonly HitTarget<TMessage>[] {
+  if (commandInputDisplay(widget) !== 'expanded') return [];
+  const toMessage = widget.props.toActionMessage;
+  if (toMessage === undefined) return [];
+  const validationRows = validationProp(widget) === undefined ? 0 : 1;
+  const available = Math.max(0, bounds.height - 1 - validationRows - footerReserve(widget));
+  return commandInputSuggestions(widget).slice(0, available).flatMap((suggestion, index): readonly HitTarget<TMessage>[] => {
+    if (suggestion.disabled === true) return [];
+    return [{
+      id: commandSuggestionTargetId(widget, index),
+      bounds: {
+        row: bounds.row + 1 + validationRows + index,
+        column: bounds.column,
+        width: bounds.width,
+        height: 1
+      },
+      message: () => toMessage({ kind: 'selectSuggestion', index }),
+      cursor: 'pointer'
+    }];
+  });
+}
+
 function inputLine(widget: CommandInputNode, width: number): RenderLine {
   const model = commandInputModel(widget, width);
   const placeholder = placeholderText(widget);
@@ -194,10 +221,13 @@ function suggestionLine(
   const label = suggestion.label ?? suggestion.value;
   const description = suggestion.description;
   const disabled = suggestion.disabled === true;
-  const rowStyle = commandRowStyle(widget, selected, disabled);
-  const state = disabled ? 'disabled' : selected ? 'selected' : undefined;
+  const state = interactionVisualState(widget, commandSuggestionTargetId(widget, index), {
+    disabled,
+    selected
+  });
+  const rowStyle = commandRowStyle(widget, state);
   const spans: RenderSpan[] = [
-    ...commandSelectionMarkerSpans(widget, theme, selected, commandSource(widget, `suggestion.${String(index)}.marker`, commandSourceOptions('marker', state, 'decoration'))),
+    ...commandSelectionMarkerSpans(widget, theme, selected, state, commandSource(widget, `suggestion.${String(index)}.marker`, commandSourceOptions('marker', state, 'decoration'))),
     ...commandMatchSpans(label, query, rowStyle, {
       source: commandSource(widget, `suggestion.${String(index)}.label`, commandSourceOptions('label', state)),
       matchSource: commandSource(widget, `suggestion.${String(index)}.match`, commandSourceOptions('match', state))
@@ -206,13 +236,17 @@ function suggestionLine(
   if (description !== undefined && description.length > 0) {
     spans.push(styledSpan(
       ` · ${description}`,
-      commandMetadataStyle(widget, selected, disabled),
+      commandMetadataStyle(widget, state),
       commandSource(widget, `suggestion.${String(index)}.description`, commandSourceOptions('description', state))
     ));
   }
   return {
     spans
   };
+}
+
+function commandSuggestionTargetId(widget: CommandInputNode, index: number): string {
+  return renderNodeTargetId(widget, 'suggestion', String(index));
 }
 
 function mutedLine(widget: CommandInputNode, text: string, theme: TerminalTheme): RenderLine {

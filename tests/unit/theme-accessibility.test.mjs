@@ -30,8 +30,7 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
         checkboxChecked: '[x]\u001B[0m',
         spinnerFrames: ['a\u001B[31m', 'b']
       },
-      colors: { 'status.error': { kind: 'ansi', value: 9 } },
-      spacing: { gap: 2 }
+      colors: { 'status.error': { kind: 'ansi', value: 9 } }
     }
   });
   const merged = mergeThemes(theme, {
@@ -60,7 +59,6 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
   assert.equal(theme.tokens.symbols.pointer, '>');
   assert.equal(theme.tokens.symbols.checkboxChecked, '[x]');
   assert.deepEqual(theme.tokens.symbols.spinnerFrames, ['a', 'b']);
-  assert.equal(theme.tokens.spacing.gap, 2);
   assert.notEqual(merged.fingerprint, theme.fingerprint);
   assert.deepEqual(merged.tokens.colors['custom.surface'], { kind: 'rgb', r: 1, g: 2, b: 3 });
   assert.deepEqual(
@@ -91,7 +89,7 @@ test('theme fingerprints are stable for equivalent themes and change with theme 
       }
     }
   });
-  const changed = mergeThemes(first, { tokens: { spacing: { padding: 1 } } });
+  const changed = mergeThemes(first, { tokens: { symbols: { pointer: '*' } } });
 
   assert.equal(first.fingerprint, second.fingerprint);
   assert.notEqual(changed.fingerprint, first.fingerprint);
@@ -113,12 +111,16 @@ test('theme definitions reject removed top-level token fields', () => {
     () => defineTheme({ name: 'legacy', spacing: {} }),
     /Unsupported theme definition key: spacing/u
   );
+  assert.throws(
+    () => defineTheme({ name: 'legacy', tokens: { spacing: {} } }),
+    /Unsupported design token key: spacing/u
+  );
 });
 
 test('rich text widgets preserve render spans and render their plain text into frames', () => {
   const widget = richText({
     id: 'styled-title',
-    segments: [{ text: 'Styled title', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }]
+    segments: [{ kind: 'text', text: 'Styled title', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }]
   });
   const frame = renderElementFrame(widget, { columns: 20, rows: 2 });
 

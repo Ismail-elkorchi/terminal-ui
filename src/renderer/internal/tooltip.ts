@@ -125,10 +125,10 @@ function tooltipTone(widget: TooltipNode): TooltipTone {
 
 function tooltipBorder(widget: TooltipNode, tone: TooltipTone): BorderStyle {
   const explicit = borderStyleFromValue(widget.props.border);
-  if (explicit !== undefined) return explicit;
+  const title = tooltipTitle(widget);
   return {
-    kind: 'rounded',
-    ...(tooltipTitle(widget).length === 0 ? {} : { title: tooltipTitle(widget) }),
+    ...(explicit ?? { kind: 'rounded' }),
+    ...(title.length === 0 ? {} : { title }),
     style: tooltipBorderStyle(tone)
   };
 }

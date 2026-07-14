@@ -175,7 +175,8 @@ test('surface variants draw semantic background border and shadow without owning
     id: 'visual-surface',
     label: 'Visual surface',
     variant: 'warning',
-    border: { kind: 'dashed', title: 'Alert' },
+    title: 'Alert',
+    border: { kind: 'dashed' },
     shadow: true
   });
   const frame = renderElementFrame(widget, { columns: 14, rows: 4 });
@@ -191,12 +192,12 @@ test('surface variants draw semantic background border and shadow without owning
   assert.deepEqual(shadowCell?.style?.fg, { kind: 'theme', token: 'surface.shadow' });
 });
 
-test('surface titles can preserve structured span style and source metadata', () => {
+test('surface titles compile authored inline styles with renderer-owned source metadata', () => {
   const frame = renderElementFrame(surface(text('body', { id: 'body' }), {
     id: 'metric-panel',
     title: [
-      { text: 'cpu', style: { fg: { kind: 'theme', token: 'chart.label' } } },
-      { text: ' 38%', style: { fg: { kind: 'theme', token: 'chart.value' } } }
+      { kind: 'text', text: 'cpu', style: { fg: { kind: 'theme', token: 'chart.label' } } },
+      { kind: 'text', text: ' 38%', style: { fg: { kind: 'theme', token: 'chart.value' } } }
     ],
     border: { kind: 'single' },
     variant: 'inset'
@@ -216,9 +217,9 @@ test('surface title rails render start center and end zones in the border line',
   const frame = renderElementFrame(surface(text('body', { id: 'rail-body' }), {
     id: 'rail-surface',
     title: {
-      start: [{ text: 'cpu', style: { fg: { kind: 'theme', token: 'surface.title' } } }],
-      center: [{ text: 'btop', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }],
-      end: [{ text: 'BAT 84%', style: { fg: { kind: 'theme', token: 'chart.value' } } }]
+      start: [{ kind: 'text', text: 'cpu', style: { fg: { kind: 'theme', token: 'surface.title' } } }],
+      center: [{ kind: 'text', text: 'btop', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }],
+      end: [{ kind: 'text', text: 'BAT 84%', style: { fg: { kind: 'theme', token: 'chart.value' } } }]
     },
     border: { kind: 'single' },
     variant: 'chrome'

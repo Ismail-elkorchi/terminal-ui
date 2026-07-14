@@ -286,7 +286,7 @@ test('chart intrinsic measurement remains bounded inside content layout', () => 
       surface(column([
         progressBar({ id: 'progress', value: 48, max: 100 }),
         chart({ id: 'chart', series: [{ id: 'live', points: [2, 4, 3, 5, 6, 8] }] })
-      ]), { id: 'motion', border: { label: 'Motion' } })
+      ]), { id: 'motion', title: 'Motion', border: { kind: 'single' } })
     ])
   ]), { columns: 84, rows: 18 });
   const chartNode = findLayoutNode(layout, 'chart');

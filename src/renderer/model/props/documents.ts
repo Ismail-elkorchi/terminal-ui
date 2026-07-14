@@ -16,6 +16,7 @@ import type {
   StructuredBlock
 } from '../../../ui-model/documents.ts';
 import type { PaletteAction } from '../../../ui-model/palette.ts';
+import type { CommandInputAction } from '../../../ui-model/command-input.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 import type { TerminalStyle } from '../../../visual/render.ts';
 
@@ -72,6 +73,7 @@ export interface CommandInputRenderProps<TMessage> {
   readonly historyIndex?: number;
   readonly display?: CommandInputDisplay;
   readonly message?: TMessage;
+  readonly toActionMessage?: (action: CommandInputAction) => TMessage;
   readonly toTextPointerMessage?: (event: TextPointerEvent) => TMessage;
 }
 

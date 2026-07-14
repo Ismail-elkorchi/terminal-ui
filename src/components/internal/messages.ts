@@ -39,6 +39,19 @@ type DirectMessageOverrides<
     TKey extends keyof TOptions ? TMessages[TKey] : never;
 };
 
+type PointerOverride<TOptions, TPointerMessage> =
+  TOptions extends { readonly pointer?: infer TPointer }
+    ? {
+        readonly pointer?: Exclude<TPointer, undefined> extends infer TDefinedPointer
+          ? TDefinedPointer extends { readonly onAction?: infer TOnAction }
+            ? Omit<TDefinedPointer, 'onAction'> & {
+                readonly onAction?: CallbackWithResult<TOnAction, TPointerMessage>;
+              }
+            : TDefinedPointer
+          : never;
+      }
+    : Readonly<Record<never, never>>;
+
 /**
  * Rebinds independent interaction channels without coupling their message
  * results to one inference variable. Domain options and callback parameters
@@ -48,9 +61,11 @@ export type IndependentInteractionOptions<
   TOptions,
   TCallbackMessages extends Partial<Record<keyof TOptions, unknown>> = Record<never, never>,
   TDirectMessages extends Partial<Record<keyof TOptions, unknown>> = Record<never, never>,
-  TKeyBindings extends InferredElementKeyBindings | undefined = undefined
+  TKeyBindings extends InferredElementKeyBindings | undefined = undefined,
+  TPointerMessage = never
 > =
-  & Omit<TOptions, keyof TCallbackMessages | keyof TDirectMessages | 'keys'>
+  & Omit<TOptions, keyof TCallbackMessages | keyof TDirectMessages | 'keys' | 'pointer'>
   & CallbackOverrides<TOptions, TCallbackMessages>
   & DirectMessageOverrides<TOptions, TDirectMessages>
+  & PointerOverride<TOptions, TPointerMessage>
   & { readonly keys?: TKeyBindings };

@@ -1,6 +1,7 @@
 import type { ElementTextRole } from '../../element/metadata.ts';
 import { createTerminalTextIndex, normalizeTextCursor, sanitizeTerminalText } from '../../text/index.ts';
-import { block, blockFromText, line, span, wrapRenderSpans } from './frame.ts';
+import { block, blockFromText, line, wrapRenderSpans } from './frame.ts';
+import { inlineContentAccessibleText } from '../../visual/inline-content.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import { normalizeScrollState } from '../../behavior/scroll.ts';
 import {
@@ -13,7 +14,8 @@ import {
   statusIndicatorText as feedbackStatusIndicatorText, helpBarText as feedbackHelpBarText, spinnerBlock as feedbackSpinnerBlock, spinnerText as feedbackSpinnerText
 } from './feedback-visual.ts';
 import { clampedTextOffset, textOffsetAtVisualColumn } from './text-pointer.ts';
-import { defaultStyleForTextRole, mergeStyles, resolveRenderNodeStyle, themeStyle } from './render-node-style.ts';
+import { defaultStyleForTextRole, resolveRenderNodeStyle } from './render-node-style.ts';
+import { renderInlineContent } from './inline-content.ts';
 import { numberProp, stringify } from './render-node-props.ts';
 import { defaultTheme } from '../../theme/index.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
@@ -49,20 +51,12 @@ export function textAccessibleBase(widget: TextNode, id: string): AccessibleNode
   };
 }
 
-export function richTextBlock(widget: RichTextNode, bounds: Rect): RenderBlock {
-  const segments = richTextSegments(widget);
+export function richTextBlock(widget: RichTextNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+  const segments = richTextSegments(widget, theme);
   if (widget.props.wrap === true && bounds.width > 0) {
     return block(wrapRenderSpans(segments, bounds.width));
   }
   return block([line(segments)]);
-}
-
-export function richTextText(widget: RichTextNode, bounds: Rect): string {
-  const segments = richTextSegments(widget);
-  const lines = widget.props.wrap === true && bounds.width > 0
-    ? wrapRenderSpans(segments, bounds.width)
-    : [line(segments)];
-  return lines.map(lineText).join('\n');
 }
 
 export function richTextAccessibleBase(widget: RichTextNode, id: string): AccessibleNode {
@@ -70,7 +64,7 @@ export function richTextAccessibleBase(widget: RichTextNode, id: string): Access
     id,
     role: 'text',
     label: id,
-    value: richTextSegments(widget).map((segment) => segment.text).join('')
+    value: inlineContentAccessibleText(widget.props.segments)
   };
 }
 
@@ -218,35 +212,13 @@ export function spinnerAccessibleBase(widget: SpinnerNode, id: string): Accessib
   };
 }
 
-function styledSegments(widget: RichTextNode): readonly RenderSpan[] {
-  if (!Array.isArray(widget.props.segments)) return [];
-  return widget.props.segments.filter((segment): segment is RenderSpan =>
-    typeof segment === 'object'
-    && segment !== null
-    && typeof (segment as { readonly text?: unknown }).text === 'string'
-  );
-}
-
-function richTextSegments(widget: RichTextNode): readonly RenderSpan[] {
+function richTextSegments(widget: RichTextNode, theme: TerminalTheme): readonly RenderSpan[] {
   const rootStyle = resolveRenderNodeStyle(widget, { part: 'root' });
-  return styledSegments(widget).map((segment, index) => cleanSpan(widget, segment, index, rootStyle));
-}
-
-function cleanSpan(
-  widget: RichTextNode,
-  segment: RenderSpan,
-  index: number,
-  rootStyle: RenderSpan['style']
-): RenderSpan {
-  return span(sanitizeTerminalText(segment.text).text, {
-    ...styleOption(mergeStyles(rootStyle, linkStyle(segment), segment.style)),
-    ...(segment.link === undefined ? {} : { link: segment.link }),
-    source: segment.source ?? richTextSource(widget, index)
+  return renderInlineContent(widget.props.segments, {
+    theme,
+    ...(rootStyle === undefined ? {} : { baseStyle: rootStyle }),
+    source: (_segment, index) => richTextSource(widget, index)
   });
-}
-
-function linkStyle(segment: RenderSpan): RenderSpan['style'] {
-  return segment.link === undefined ? undefined : themeStyle('link.foreground', { underline: true });
 }
 
 function textStyle(widget: TextNode): TerminalStyle | undefined {
@@ -300,10 +272,6 @@ function widgetTextRole(value: unknown): ElementTextRole | undefined {
     default:
       return undefined;
   }
-}
-
-function lineText(renderLine: RenderLine): string {
-  return renderLine.spans.map((currentSpan) => currentSpan.text).join('');
 }
 
 function textAreaDescription(widget: TextAreaNode, value: string, bounds: Rect | undefined, theme: TerminalTheme): string {

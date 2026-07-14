@@ -1,4 +1,4 @@
-import type { Element } from '../../element/index.ts';
+import type { Element, ElementValue } from '../../element/index.ts';
 import { toRenderNode } from '../../renderer/model/element.ts';
 import type { RenderNodeLayoutProps } from '../../renderer/model/props/shared-layout.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
@@ -68,7 +68,7 @@ export function gridAreaNames(template: readonly (readonly string[])[]): readonl
 
 export function assertGridAreaChildren(
   areaNames: readonly string[],
-  children: Readonly<Record<string, Element<unknown>>>
+  children: Readonly<Record<string, ElementValue>>
 ): void {
   const names = new Set(areaNames);
   for (const name of areaNames) {

@@ -7,16 +7,16 @@ import type { TextSelection } from '../../../text/index.ts';
 import type {
   TableCellSelection,
   TableColumn,
-  TableDensity,
   TextAreaHighlight,
   TextAreaLineNumberOptions,
   TextAreaWrapOptions
 } from '../../../ui-model/content.ts';
 import type { ListAction } from '../../../ui-model/list.ts';
+import type { ComponentDensity } from '../../../ui-model/contracts.ts';
 import type { PaginatorAction } from '../../../ui-model/paginator.ts';
 import type { TableAction, TableSortState } from '../../../ui-model/table.ts';
 import type { TreeAction, TreeDisclosureAction, TreeNode } from '../../../ui-model/tree.ts';
-import type { RenderSpan } from '../../../visual/render.ts';
+import type { InlineContent } from '../../../visual/inline-content.ts';
 
 export interface TextRenderProps {
   readonly textRole?: ElementTextRole;
@@ -24,7 +24,7 @@ export interface TextRenderProps {
 }
 
 export interface RichTextRenderProps {
-  readonly segments: readonly RenderSpan[];
+  readonly segments: InlineContent;
   readonly wrap?: boolean;
 }
 
@@ -66,7 +66,7 @@ export interface TableRenderProps<TMessage> {
   readonly selectedCell?: TableCellSelection;
   readonly sort?: TableSortState;
   readonly columnWidths?: Readonly<Record<string, number>>;
-  readonly density?: TableDensity;
+  readonly density?: ComponentDensity;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;

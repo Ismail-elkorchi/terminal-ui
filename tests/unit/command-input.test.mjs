@@ -32,7 +32,7 @@ test('commandInputReducer edits, navigates history, and accepts suggestions', ()
   assert.deepEqual(earlier.input, { text: 'build', cursor: 5 });
   assert.equal(earlier.historyIndex, 0);
 
-  const selected = commandInputReducer(earlier, { kind: 'selectSuggestion', direction: 1 });
+  const selected = commandInputReducer(earlier, { kind: 'moveSuggestion', delta: 1 });
   assert.equal(selected.selectedSuggestion, 0);
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
@@ -51,8 +51,12 @@ test('commandInputReducer skips disabled suggestions for selection and acceptanc
     ]
   };
 
-  const selected = commandInputReducer(initial, { kind: 'selectSuggestion', direction: 1 });
+  const selected = commandInputReducer(initial, { kind: 'moveSuggestion', delta: 1 });
   assert.equal(selected.selectedSuggestion, 1);
+
+  const selectedByIndex = commandInputReducer(initial, { kind: 'selectSuggestion', index: 1 });
+  assert.equal(selectedByIndex.selectedSuggestion, 1);
+  assert.equal(commandInputReducer(initial, { kind: 'selectSuggestion', index: 0 }), initial);
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
   assert.deepEqual(accepted.input, { text: 'status', cursor: 6 });
@@ -70,7 +74,7 @@ test('commandInputReducer ignores accept when every suggestion is disabled', () 
     ]
   };
 
-  const selected = commandInputReducer(initial, { kind: 'selectSuggestion', direction: 1 });
+  const selected = commandInputReducer(initial, { kind: 'moveSuggestion', delta: 1 });
   assert.equal('selectedSuggestion' in selected, false);
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });

@@ -1,4 +1,5 @@
 import { sanitizeTerminalText } from '../../text/index.ts';
+import { isThemeColorToken } from '../../theme/index.ts';
 import type { ThemeColorToken } from '../../theme/index.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 import { mergeStyles } from './render-node-style.ts';
@@ -23,7 +24,7 @@ export function normalizeValueScale(value: unknown): readonly NormalizedValueSca
     const at = (item as { readonly at?: unknown }).at;
     const token = (item as { readonly token?: unknown }).token;
     if (typeof at !== 'number' || !Number.isFinite(at)) return [];
-    if (typeof token !== 'string' || token.length === 0) return [];
+    if (typeof token !== 'string' || !isThemeColorToken(token)) return [];
     const label = (item as { readonly label?: unknown }).label;
     const cleanedLabel = typeof label === 'string' ? sanitizeTerminalText(label).text.trim() : '';
     return [{

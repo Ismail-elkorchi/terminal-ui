@@ -29,8 +29,8 @@ export const textRenderers = {
     accessibility: ({ renderNode, id }) => textAccessibleBase(renderNode, id)
   },
   richText: {
-    render: ({ renderNode, layoutNode, buffer }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, richTextBlock(renderNode, layoutNode.bounds));
+    render: ({ renderNode, layoutNode, buffer, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, richTextBlock(renderNode, layoutNode.bounds, theme));
     },
     accessibility: ({ renderNode, id }) => richTextAccessibleBase(renderNode, id)
   },

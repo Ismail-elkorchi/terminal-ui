@@ -4,14 +4,16 @@ import type { LayoutFlowOptions } from '../../geometry/types.ts';
 import type { ItemBase } from '../../ui-model/contracts.ts';
 import type { TabsStylePart } from '../../ui-model/style-parts.ts';
 import type { TabAction } from '../../ui-model/tabs.ts';
+import type { InlineContent } from '../../visual/inline-content.ts';
 
 export interface TabItem<TMessage = never> extends ItemBase {
+  readonly leading?: InlineContent;
   readonly badge?: string;
   readonly closable?: boolean;
   readonly panel: Element<TMessage>;
 }
 
-export interface TabsOptions<TMessage = never> extends InteractiveElementOptions<TabsStylePart>, LayoutFlowOptions {
+export interface TabsOptions<TMessage = never> extends InteractiveElementOptions<TabsStylePart, TMessage>, LayoutFlowOptions {
   readonly tabs: readonly TabItem<TMessage>[];
   readonly selected?: string;
   readonly onAction?: (action: TabAction) => TMessage;

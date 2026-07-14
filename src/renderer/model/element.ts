@@ -1,4 +1,4 @@
-import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
+import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, ElementValue } from '../../element/index.ts';
 import type { ElementInspection } from '../../element/inspection.ts';
 import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
 
@@ -15,7 +15,7 @@ export function elementFromRenderNode<
   return element;
 }
 
-export function inspectElementInternal(element: Element<unknown>): ElementInspection {
+export function inspectElementInternal(element: ElementValue): ElementInspection {
   const inspection = isObject(element) ? inspections.get(element) : undefined;
   if (inspection === undefined) {
     throw new TypeError('Expected an Element created by a terminal-ui component or layout factory.');
@@ -23,21 +23,21 @@ export function inspectElementInternal(element: Element<unknown>): ElementInspec
   return inspection;
 }
 
-export function toRenderNode<TMessage>(element: Element<TMessage>): RenderNode<TMessage> {
+export function toRenderNode<TElement extends ElementValue>(element: TElement): RenderNode<ElementMessage<TElement>> {
   const node = isObject(element) ? renderNodes.get(element) : undefined;
   if (node === undefined) {
     throw new TypeError('Expected an Element created by a terminal-ui component or layout factory.');
   }
-  return node as RenderNode<TMessage>;
+  return node as RenderNode<ElementMessage<TElement>>;
 }
 
 export function toRenderNodes<const TChildren extends ElementChildren>(
   children: TChildren
 ): readonly RenderNode<ElementChildrenMessage<TChildren>>[] {
-  const values: readonly Element<unknown>[] = Array.isArray(children)
+  const values: readonly ElementValue[] = Array.isArray(children)
     ? children
     : [children];
-  return values.map((element) => toRenderNode(element)) as readonly RenderNode<ElementChildrenMessage<TChildren>>[];
+  return values.map((element) => toRenderNode(element));
 }
 
 function isObject(value: unknown): value is object {

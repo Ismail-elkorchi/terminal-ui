@@ -7,7 +7,8 @@ import type {
   TableColumnWidth
 } from '../../../ui-model/content.ts';
 import type { TableSortDirection, TableSortState } from '../../../ui-model/table.ts';
-import type { RenderSpan, TerminalStyle } from '../../../visual/render.ts';
+import type { InlineContent, InlineContentSegment } from '../../../visual/inline-content.ts';
+import type { TerminalStyle } from '../../../visual/render.ts';
 
 export interface NormalizedTableColumn {
   readonly id: string;
@@ -18,7 +19,7 @@ export interface NormalizedTableColumn {
   readonly semantic: TableColumnSemantic;
   readonly style?: TerminalStyle;
   readonly headerStyle?: TerminalStyle;
-  readonly render?: (input: TableCellRenderInput) => string | RenderSpan | readonly RenderSpan[];
+  readonly render?: (input: TableCellRenderInput) => string | InlineContentSegment | InlineContent;
   readonly value: (row: unknown, rowIndex: number) => unknown;
   readonly sort?: TableSortDirection;
   readonly resizable?: boolean;
@@ -123,7 +124,7 @@ function normalizeColumn(column: unknown, index: number): readonly NormalizedTab
     ...(isTerminalStyle(style) ? { style } : {}),
     ...(isTerminalStyle(headerStyle) ? { headerStyle } : {}),
     ...(typeof render === 'function' ? {
-      render: render as (input: TableCellRenderInput) => string | RenderSpan | readonly RenderSpan[]
+      render: render as (input: TableCellRenderInput) => string | InlineContentSegment | InlineContent
     } : {}),
     ...(column['resizable'] === true ? { resizable: true } : {})
   }];

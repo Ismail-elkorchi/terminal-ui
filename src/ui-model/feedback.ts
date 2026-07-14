@@ -1,20 +1,26 @@
 import type { ThemeColorToken } from '../visual/color.ts';
 import type { ComponentStatus, ComponentTone, TitledItem } from './contracts.ts';
+import type { InlineContent } from '../visual/inline-content.ts';
 
 export type StatusBarSection = 'leading' | 'center' | 'trailing';
 
-export type StatusBarItem =
+interface StatusBarItemContent {
+  readonly id: string;
+  readonly leading?: InlineContent;
+  readonly trailing?: InlineContent;
+}
+
+export type StatusBarItem = StatusBarItemContent & (
   | {
-      readonly id: string;
       readonly kind: 'text';
       readonly text: string;
     }
   | {
-      readonly id: string;
       readonly kind: 'status';
       readonly text: string;
       readonly status: ComponentStatus;
-    };
+    }
+);
 
 export interface NotificationItem extends TitledItem {
   readonly message?: string;

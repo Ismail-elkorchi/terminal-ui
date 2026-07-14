@@ -8,6 +8,7 @@ import { resolveRenderNodeStyle } from './render-node-style.ts';
 import type { Rect } from '../model/layout.ts';
 import type { HitTarget } from '../model/renderer.ts';
 import type { RenderBlock, RenderSpan } from '../../visual/render.ts';
+import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
 
 interface PaginatorParts {
   readonly label: string;
@@ -69,7 +70,7 @@ export function paginatorHitTargets<TMessage>(
   return paginatorLayout(widget).controls.flatMap((control): readonly HitTarget<TMessage>[] => control.disabled
     ? []
     : [{
-        id: `${widget.id ?? widget.kind}:${control.action.kind}`,
+        id: paginatorControlTargetId(widget, control.action.kind),
         bounds: {
           row: bounds.row,
           column: bounds.column + control.offset,
@@ -86,8 +87,13 @@ function paginatorLayout(widget: PaginatorNode): PaginatorLayout {
   const spans: RenderSpan[] = [];
   const controls: PaginatorControl[] = [];
   let offset = 0;
-  const append = (text: string, label: string, style = resolveRenderNodeStyle(widget, { part: 'label' })): void => {
-    spans.push(dataSpan(text, style, dataSource(widget, label)));
+  const append = (
+    text: string,
+    label: string,
+    style = resolveRenderNodeStyle(widget, { part: 'label' }),
+    state?: import('../../element/metadata.ts').ElementVisualState
+  ): void => {
+    spans.push(dataSpan(text, style, dataSource(widget, label, state === undefined ? {} : { state })));
     offset += terminalTextWidth(text);
   };
   const appendControl = (
@@ -98,10 +104,11 @@ function paginatorLayout(widget: PaginatorNode): PaginatorLayout {
   ): void => {
     const width = terminalTextWidth(text);
     controls.push({ label, action, offset, width, disabled });
+    const state = interactionVisualState(widget, paginatorControlTargetId(widget, action.kind), { disabled });
     append(text, `control.${action.kind}`, resolveRenderNodeStyle(widget, {
       part: 'control',
-      ...(disabled ? { state: 'disabled' } : {})
-    }));
+      ...(state === undefined ? {} : { state })
+    }), state);
   };
 
   if (parts.label.length > 0) {
@@ -127,6 +134,10 @@ function paginatorLayout(widget: PaginatorNode): PaginatorLayout {
     appendControl('[»]', 'Last page', { kind: 'last' }, atLast);
   }
   return { spans, controls };
+}
+
+function paginatorControlTargetId(widget: PaginatorNode, kind: PaginatorAction['kind']): string {
+  return renderNodeTargetId(widget, kind);
 }
 
 function paginatorParts(widget: PaginatorNode): PaginatorParts {

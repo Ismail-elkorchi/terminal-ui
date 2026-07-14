@@ -10,6 +10,7 @@ import {
   createScrollState,
   applyScrollEvent,
   scrollReducer,
+  pointerPresentationReducer,
   treePresentation,
   treeReducer
 } from '../../dist/behavior/index.js';
@@ -1580,7 +1581,7 @@ test('runTui accepts a state-derived theme', async () => {
     update: () => ({ state: { active: true }, exit: {} }),
     view: () => richText({
       id: 'theme-label',
-      segments: [{ text: 'theme', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]
+      segments: [{ kind: 'text', text: 'theme', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]
     })
   });
   const host = createMemoryTerminalHost({ viewport: { columns: 12, rows: 2 } });
@@ -2306,6 +2307,72 @@ test('TUI pointer click activates once on left release and ignores right click o
   assert.equal(rightPress[0]?.handled, false);
   assert.equal(wheel[0]?.handled, false);
   assert.deepEqual(runtime.getState(), { clicks: 1 });
+});
+
+test('built-in controls expose controlled pointer presentation without duplicate activation', async () => {
+  const app = defineTui({
+    id: 'controlled-pointer-presentation',
+    init: () => ({ pointer: {}, activations: 0 }),
+    update: (state, message) => message.kind === 'pointer'
+      ? { state: { ...state, pointer: pointerPresentationReducer(state.pointer, message.action) } }
+      : { state: { ...state, activations: state.activations + 1 } },
+    view: (state) => button({
+      id: 'controlled-button',
+      label: 'Run',
+      onPress: { kind: 'activate' },
+      pointer: {
+        state: state.pointer,
+        onAction: (action) => ({ kind: 'pointer', action })
+      }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 2 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.handleInputChunk({ data: '\u001B[<35;2;1M' });
+  assert.deepEqual(runtime.getState().pointer, { hoveredTargetId: 'controlled-button:control' });
+
+  await runtime.handleInputChunk({ data: '\u001B[<0;2;1M' });
+  assert.deepEqual(runtime.getState().pointer, {
+    hoveredTargetId: 'controlled-button:control',
+    pressedTargetId: 'controlled-button:control'
+  });
+
+  await runtime.handleInputChunk({ data: '\u001B[<0;2;1m' });
+  assert.deepEqual(runtime.getState(), {
+    pointer: { hoveredTargetId: 'controlled-button:control' },
+    activations: 1
+  });
+
+  await runtime.handleInputChunk({ data: '\u001B[<35;20;2M' });
+  assert.deepEqual(runtime.getState().pointer, {});
+});
+
+test('disabled controls expose neither activation nor synthetic pointer lifecycle targets', async () => {
+  const app = defineTui({
+    id: 'disabled-pointer-presentation',
+    init: () => ({ events: [] }),
+    update: (state, message) => ({ state: { events: [...state.events, message] } }),
+    view: (state) => button({
+      id: 'disabled-button',
+      label: 'Disabled',
+      disabled: true,
+      onPress: { kind: 'activate' },
+      pointer: {
+        state: {},
+        onAction: (action) => ({ kind: 'pointer', action, count: state.events.length })
+      }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 2 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  assert.deepEqual(runtime.frame().hitTargets ?? [], []);
+  await runtime.handleInputChunk({ data: '\u001B[<0;2;1M' });
+  await runtime.handleInputChunk({ data: '\u001B[<0;2;1m' });
+  assert.deepEqual(runtime.getState(), { events: [] });
 });
 
 test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages', async () => {

@@ -14,6 +14,7 @@ import type { PaletteFilterResult, PaletteWindowInput } from '../../behavior/pal
 import type { Rect } from '../model/layout.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 import type { HitTarget } from '../model/renderer.ts';
+import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
 
 const renderModelCache = new WeakMap<object, {
   readonly height: number;
@@ -67,6 +68,7 @@ export function paletteBlock(widget: PaletteNode, height: number, theme: Termina
       widget,
       entry,
       index === model.window.selected,
+      model.window.start + index,
       model.query,
       theme
     )));
@@ -97,7 +99,7 @@ export function paletteHitTargets<TMessage>(widget: PaletteNode<TMessage>, bound
   return model.window.entries.slice(0, model.availableEntries).flatMap((entry, index): readonly HitTarget<TMessage>[] => {
     if (entry.disabled === true) return [];
     return [{
-      id: `${widget.id ?? widget.kind}:${entry.id}`,
+      id: paletteEntryTargetId(widget, entry.id),
       bounds: {
         row: bounds.row + 2 + index,
         column: bounds.column,
@@ -132,23 +134,28 @@ function entryLine<TValue>(
   widget: PaletteNode,
   entry: SearchEntry<TValue>,
   selected: boolean,
+  itemIndex: number,
   query: string,
   theme: TerminalTheme
 ): RenderLine {
-  const rowStyle = commandRowStyle(widget, selected, entry.disabled === true);
+  const state = interactionVisualState(widget, paletteEntryTargetId(widget, entry.id), {
+    disabled: entry.disabled === true,
+    selected
+  });
+  const rowStyle = commandRowStyle(widget, state);
   const spans: RenderSpan[] = [
-    ...commandSelectionMarkerSpans(widget, theme, selected, paletteSource(widget, `entry.${entry.id}.marker`, 'decoration', entry.id)),
-    ...commandGroupSpans(widget, entry.group, selected, paletteSource(widget, `entry.${entry.id}.group`, 'text', entry.id)),
+    ...commandSelectionMarkerSpans(widget, theme, selected, state, paletteSource(widget, `entry.${entry.id}.marker`, 'decoration', entry.id, itemIndex, state)),
+    ...commandGroupSpans(widget, entry.group, state, paletteSource(widget, `entry.${entry.id}.group`, 'text', entry.id, itemIndex, state)),
     ...commandMatchSpans(entry.label, query, rowStyle, {
-      source: paletteSource(widget, `entry.${entry.id}.label`, 'text', entry.id),
-      matchSource: paletteSource(widget, `entry.${entry.id}.match`, 'text', entry.id)
+      source: paletteSource(widget, `entry.${entry.id}.label`, 'text', entry.id, itemIndex, state),
+      matchSource: paletteSource(widget, `entry.${entry.id}.match`, 'text', entry.id, itemIndex, state)
     })
   ];
   if (entry.description !== undefined && entry.description.length > 0) {
     spans.push(styledSpan(
       ` · ${entry.description}`,
-      commandMetadataStyle(widget, selected, entry.disabled === true),
-      paletteSource(widget, `entry.${entry.id}.description`, 'text', entry.id)
+      commandMetadataStyle(widget, state),
+      paletteSource(widget, `entry.${entry.id}.description`, 'text', entry.id, itemIndex, state)
     ));
   }
   return { spans };
@@ -255,15 +262,23 @@ function paletteSource(
   widget: PaletteNode,
   label: string,
   role: FrameCellSource['role'] = 'text',
-  id: string | undefined = widget.id
+  id: string | undefined = widget.id,
+  itemIndex?: number,
+  state?: import('../../element/metadata.ts').ElementVisualState
 ): FrameCellSource {
   return renderNodeFrameSource(widget, {
     family: 'command',
     role,
     part: label,
     ...(id === undefined || id === widget.id ? {} : { itemId: id }),
+    ...(itemIndex === undefined ? {} : { itemIndex }),
+    ...(state === undefined ? {} : { state }),
     label
   });
+}
+
+function paletteEntryTargetId(widget: PaletteNode, entryId: string): string {
+  return renderNodeTargetId(widget, entryId);
 }
 
 type PaletteNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'palette'>;

@@ -21,6 +21,8 @@ import {
   placeNotificationStack,
   type NotificationStackSize
 } from './notifications/placement.ts';
+import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
+import type { ElementVisualState } from '../../element/metadata.ts';
 
 export { placeNotificationStack } from './notifications/placement.ts';
 export type { NotificationStackPlacementInput, NotificationStackSize } from './notifications/placement.ts';
@@ -30,6 +32,7 @@ const MIN_NOTIFICATION_CARD_HEIGHT = 3;
 interface NotificationCard {
   readonly item: NotificationItem;
   readonly selected: boolean;
+  readonly state?: ElementVisualState;
   readonly width: number;
   readonly height: number;
   readonly lines: readonly NotificationCardLine[];
@@ -88,7 +91,7 @@ export function notificationStackHitTargets<TMessage>(widget: NotificationStackN
   const toActionMessage = notificationActionMessageFactory(widget);
   if (toActionMessage === undefined) return [];
   return notificationCardPlacements(widget, bounds).flatMap((placement): readonly HitTarget<TMessage>[] => {
-    const id = `${widget.id ?? 'notificationStack'}:notification:${placement.card.item.id}`;
+    const id = notificationTargetId(widget, placement.card.item.id);
     const select: HitTarget<TMessage> = {
       id,
       bounds: placement.bounds,
@@ -98,7 +101,7 @@ export function notificationStackHitTargets<TMessage>(widget: NotificationStackN
     };
     if (placement.card.item.dismissible === false || placement.bounds.width < 3) return [select];
     return [select, {
-      id: `${id}:dismiss`,
+      id: notificationDismissTargetId(widget, placement.card.item.id),
       bounds: {
         row: placement.bounds.row,
         column: placement.bounds.column + placement.bounds.width - 2,
@@ -153,19 +156,22 @@ function renderNotificationCard(
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const tone = normalizeNotificationTone(card.item.tone);
-  fillCardBackground(buffer, widget, bounds, card.item, tone, card.selected);
+  fillCardBackground(buffer, widget, bounds, card.item, tone, card.state);
   drawBorder(buffer, bounds, notificationBorder(widget, card, tone, theme), theme);
   if (card.item.dismissible !== false && bounds.width >= 3) {
+    const dismissState = interactionVisualState(widget, notificationDismissTargetId(widget, card.item.id), {
+      selected: card.selected
+    });
     buffer.write(bounds.row, bounds.column + bounds.width - 2, [{
       text: '×',
-      style: notificationPartStyle(widget, 'dismiss', tone, false, card.selected),
+      style: notificationPartStyle(widget, 'dismiss', tone, false, dismissState),
       source: renderNodeFrameSource(widget, {
         family: 'feedback',
         role: 'text',
         part: 'dismiss',
         partKind: 'notification',
         itemId: card.item.id,
-        state: card.selected ? `selected.${tone}` : tone,
+        state: notificationStateLabel(dismissState, tone),
         label: 'dismiss'
       })
     }]);
@@ -184,12 +190,12 @@ function renderNotificationCard(
         part: cardLine.kind,
         partKind: 'notification',
         itemId: card.item.id,
-        state: card.selected ? `selected.${tone}` : tone,
+        state: notificationStateLabel(card.state, tone),
         label: cardLine.kind
     });
     buffer.write(contentBounds.row + index, contentBounds.column, clipRenderSpans([{
       text: cardLine.text,
-      style: notificationPartStyle(widget, cardLine.kind === 'meta' ? 'detail' : cardLine.kind, tone, index === 0, card.selected),
+      style: notificationPartStyle(widget, cardLine.kind === 'meta' ? 'detail' : cardLine.kind, tone, index === 0, card.state),
       source
     }], contentBounds.width, {
       ellipsis: '…',
@@ -198,7 +204,7 @@ function renderNotificationCard(
   }
   if (card.item.progress !== undefined && contentBounds.height > 0) {
     const progressRow = contentBounds.row + contentBounds.height - 1;
-    buffer.write(progressRow, contentBounds.column, progressSpans(widget, card.item, contentBounds.width, tone, theme, card.selected));
+    buffer.write(progressRow, contentBounds.column, progressSpans(widget, card.item, contentBounds.width, tone, theme, card.state));
   }
 }
 
@@ -212,7 +218,9 @@ function notificationCards(widget: NotificationStackNode): readonly Notification
     const progressWidth = item.progress === undefined ? 0 : Math.min(maxWidth - 2, 22);
     const width = Math.max(20, Math.min(maxWidth, Math.max(contentWidth, titleWidth, progressWidth) + 2));
     const height = Math.max(3, lines.length + 2 + (item.progress === undefined ? 0 : 1));
-    return { item, selected: item.id === selected, width, height, lines };
+    const itemSelected = item.id === selected;
+    const state = interactionVisualState(widget, notificationTargetId(widget, item.id), { selected: itemSelected });
+    return { item, selected: itemSelected, ...(state === undefined ? {} : { state }), width, height, lines };
   });
 }
 
@@ -243,10 +251,10 @@ function fillCardBackground(
   bounds: Rect,
   item: NotificationItem,
   tone: NotificationTone,
-  selected: boolean
+  state: ElementVisualState | undefined
 ): void {
-  const style = notificationPartStyle(widget, 'background', tone, false, selected, {
-    bg: { kind: 'theme', token: selected ? 'selection.background' : backgroundToken(tone) }
+  const style = notificationPartStyle(widget, 'background', tone, false, state, {
+    bg: { kind: 'theme', token: isHighlightedState(state) ? 'selection.background' : backgroundToken(tone) }
   });
   const line = ' '.repeat(bounds.width);
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
@@ -258,7 +266,7 @@ function fillCardBackground(
         role: 'decoration',
         part: 'background',
         itemId: item.id,
-        state: selected ? `selected.${tone}` : tone,
+        state: notificationStateLabel(state, tone),
         label: 'background'
       })
     }]);
@@ -271,7 +279,7 @@ function progressSpans(
   width: number,
   tone: NotificationTone,
   theme: TerminalTheme,
-  selected: boolean
+  state: ElementVisualState | undefined
 ): readonly RenderSpan[] {
   const progress = clampProgress(item.progress ?? 0);
   const barWidth = Math.max(1, Math.min(width - 6, 18));
@@ -282,7 +290,7 @@ function progressSpans(
       label: 'progress.filled',
       sourceId: item.id,
       role: 'decoration',
-      style: notificationPartStyle(widget, 'progress', tone, true, selected, {
+      style: notificationPartStyle(widget, 'progress', tone, true, state, {
         fg: { kind: 'theme', token: foregroundToken(tone) },
         bold: true
       }),
@@ -293,7 +301,7 @@ function progressSpans(
       label: 'progress.empty',
       sourceId: item.id,
       role: 'decoration',
-      style: notificationPartStyle(widget, 'progress', tone, false, selected, {
+      style: notificationPartStyle(widget, 'progress', tone, false, state, {
         fg: { kind: 'theme', token: 'text.muted' }
       }),
       state: tone
@@ -302,8 +310,8 @@ function progressSpans(
       kind: 'notification',
       label: 'progress.value',
       sourceId: item.id,
-      style: notificationPartStyle(widget, 'progress', tone, false, selected),
-      state: selected ? `selected.${tone}` : tone
+      style: notificationPartStyle(widget, 'progress', tone, false, state),
+      state: notificationStateLabel(state, tone)
     })
   ];
 }
@@ -317,8 +325,8 @@ function notificationBorder(
   return {
     kind: 'rounded',
     title: notificationTitle(card, tone, theme),
-    style: notificationPartStyle(widget, 'border', tone, false, card.selected, {
-      fg: { kind: 'theme', token: card.selected ? 'selection.foreground' : borderToken(tone) }
+    style: notificationPartStyle(widget, 'border', tone, false, card.state, {
+      fg: { kind: 'theme', token: isHighlightedState(card.state) ? 'selection.foreground' : borderToken(tone) }
     })
   };
 }
@@ -348,15 +356,15 @@ function notificationPartStyle(
   part: 'background' | 'border' | 'detail' | 'dismiss' | 'message' | 'progress' | 'title',
   tone: NotificationTone,
   emphasized: boolean,
-  selected: boolean,
+  state: ElementVisualState | undefined,
   base?: TerminalStyle
 ): TerminalStyle {
   const toneState = tone === 'progress' ? 'active' : tone === 'info' ? undefined : tone;
   return mergeStyles({
     fg: { kind: 'theme', token: emphasized ? foregroundToken(tone) : 'text.default' },
-    ...(selected ? { bg: { kind: 'theme', token: 'selection.background' } } : {}),
+    ...(isHighlightedState(state) ? { bg: { kind: 'theme', token: 'selection.background' } } : {}),
     bold: emphasized || tone === 'error' || tone === 'success'
-  }, base, widget.styles?.parts?.[part], toneState === undefined ? undefined : widget.styles?.states?.[toneState], selected ? widget.styles?.states?.selected : undefined) ?? {};
+  }, base, widget.styles?.parts?.[part], toneState === undefined ? undefined : widget.styles?.states?.[toneState], state === undefined || state === 'default' ? undefined : widget.styles?.states?.[state]) ?? {};
 }
 
 function backgroundToken(tone: NotificationTone): ThemeColorToken {
@@ -430,6 +438,22 @@ function notificationDescription(item: NotificationItem): string | undefined {
     ...notificationMetaLines(item)
   ].filter((part): part is string => part !== undefined && part.length > 0);
   return parts.length === 0 ? undefined : parts.join(' ');
+}
+
+function notificationTargetId(widget: NotificationStackNode, itemId: string): string {
+  return renderNodeTargetId(widget, 'notification', itemId);
+}
+
+function notificationDismissTargetId(widget: NotificationStackNode, itemId: string): string {
+  return renderNodeTargetId(widget, 'notification', itemId, 'dismiss');
+}
+
+function isHighlightedState(state: ElementVisualState | undefined): boolean {
+  return state === 'selected' || state === 'hovered' || state === 'pressed' || state === 'focused';
+}
+
+function notificationStateLabel(state: ElementVisualState | undefined, tone: NotificationTone): string {
+  return state === undefined ? tone : `${state}.${tone}`;
 }
 
 type NotificationStackNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'notificationStack'>;

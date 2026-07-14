@@ -11,7 +11,7 @@ express cleanly.
 | Component | Role | Not |
 | --- | --- | --- |
 | `text()` | Static sanitized text with an optional semantic text role. | A text editor, input, or rich styling container. |
-| `richText()` | Styled inline spans with preserved style, link, and source metadata. | A document model or markdown renderer. |
+| `richText()` | Styled authored inline content with optional links and accessible symbol fallbacks. | A document model, markdown renderer, or source-metadata escape hatch. |
 | `textArea()` | Caller-owned multi-line editable text surface with cursor, selection, gutter, wrapping, and scroll state. | A full IDE editor with syntax services, files, or undo history. |
 | `textInput()` | Caller-owned single-line editable value with cursor, placeholder, validation, and pointer-to-text support. | A command palette, number parser, or multi-line editor. |
 | `numberInput()` | Single numeric field with optional step controls and validation display. | A slider, range selector, or numeric domain model. |
@@ -85,6 +85,40 @@ Higher visible layers render above lower layers and receive pointer hits first.
 named for stable component parts and states: `root`, `border`, `title`,
 `label`, `value`, `placeholder`, `selected`, `focused`, `disabled`, `error`,
 `warning`, and `success`.
+
+## Inline Content And Adornments
+
+`richText()` and component adornments use authored inline content rather than
+renderer spans. A text segment may carry local style and link data. A symbol
+segment supplies Unicode and printable-ASCII renderings plus required
+`accessibleText`, so the active theme chooses a deterministic symbol mode
+without making accessibility depend on a decorative glyph.
+
+```ts
+import { button } from '@ismail-elkorchi/terminal-ui/components';
+
+button({
+  id: 'save',
+  label: 'Save',
+  leading: [{
+    kind: 'symbol',
+    unicode: '✓',
+    ascii: '+',
+    accessibleText: 'confirm'
+  }],
+  onPress: { kind: 'save' }
+});
+```
+
+Callers do not author frame source metadata. The renderer assigns component,
+part, item, and visual-state identity when it compiles inline content into
+render spans. Core theme color tokens are a closed vocabulary; application
+tokens must use the `custom.*` namespace.
+
+`surface()` and `dialog()` titles accept the same authored inline content,
+including title rails with `start`, `center`, and `end` content. Their `border`
+option owns geometry only: border kind and title alignment. Renderer spans,
+frame source metadata, and border styles remain renderer-extension concerns.
 
 For app structure and controlled state, see [UI authoring](./ui-authoring.md).
 For reusable reducers, see [Behavior helpers](./behavior.md). For custom

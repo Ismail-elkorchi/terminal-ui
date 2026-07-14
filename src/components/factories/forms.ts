@@ -44,6 +44,7 @@ import {
   renderNodeChildren
 } from '../../authoring/render-node.ts';
 import { choiceItemsForRenderer, colorOptionsForRenderer } from '../internal/domain.ts';
+import { normalizeInlineContent } from '../../visual/inline-content.ts';
 
 export function form<const TChildren extends ElementChildren>(
   children: TChildren,
@@ -97,23 +98,37 @@ export function label(options: LabelOptions): Element {
   });
 }
 
-export function button<const TMessage = never>(options: ButtonOptions<TMessage>): Element<TMessage> {
+export function button<
+  const TPressMessage = never,
+  const TPointerMessage = never,
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
+>(options: IndependentInteractionOptions<
+  ButtonOptions,
+  Record<never, never>,
+  { readonly onPress: TPressMessage },
+  TKeys,
+  TPointerMessage
+>): Element<TPressMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+export function button(options: ButtonOptions<unknown>): Element<unknown> {
   const state = options.state ?? 'idle';
   const keyMap = activationKeyBindings(
-    options.onPress === undefined || state === 'disabled' || state === 'pending' ? undefined : () => options.onPress,
+    options.onPress === undefined || options.disabled === true || state === 'pending' ? undefined : () => options.onPress,
     options.keys
   );
-  return elementFromRenderNode<'button', TMessage>({
+  return elementFromRenderNode<'button', unknown>({
     ...requiredId(options.id, 'button'),
     kind: 'button',
     props: {
       label: options.label,
+      ...(options.leading === undefined ? {} : { leading: normalizeInlineContent(options.leading) }),
+      ...(options.trailing === undefined ? {} : { trailing: normalizeInlineContent(options.trailing) }),
       ...(options.onPress === undefined ? {} : { message: options.onPress }),
       state,
-      ...(options.tone === undefined ? {} : { tone: options.tone }),
+      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      ...(options.tone === undefined ? {} : { tone: options.tone })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
@@ -136,7 +151,7 @@ export function checkbox<const TMessage = never>(options: CheckboxOptions<TMessa
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
@@ -159,7 +174,7 @@ export function toggleSwitch<const TMessage = never>(options: ToggleSwitchOption
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
@@ -180,7 +195,7 @@ export function slider<const TMessage = never>(options: SliderOptions<TMessage>)
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
@@ -201,7 +216,7 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
@@ -221,7 +236,7 @@ export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxG
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
@@ -241,7 +256,7 @@ export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOp
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
@@ -261,19 +276,21 @@ export function colorSwatchPicker<TValue, const TMessage = never>(options: Color
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
 export function calendar<
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   CalendarOptions,
   { readonly onAction: TActionMessage },
   Record<never, never>,
-  TKeys
->): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+  TKeys,
+  TPointerMessage
+>): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function calendar(options: CalendarOptions<unknown>): Element<unknown> {
   const keyMap = calendarKeyBindings(options);
   const onAction = options.onAction;
@@ -295,7 +312,7 @@ export function calendar(options: CalendarOptions<unknown>): Element<unknown> {
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
@@ -316,7 +333,7 @@ export function select<TValue, const TMessage = never>(options: SelectOptions<TV
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
@@ -324,6 +341,7 @@ export function textInput<
   const TSubmitMessage = never,
   const TTextPointerMessage = never,
   const TEditMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   TextInputOptions,
@@ -332,8 +350,9 @@ export function textInput<
     readonly onEdit: TEditMessage;
   },
   { readonly onSubmit: TSubmitMessage },
-  TKeys
->): Element<TSubmitMessage | TTextPointerMessage | TEditMessage | ComponentKeyBindingMessages<TKeys>>;
+  TKeys,
+  TPointerMessage
+>): Element<TSubmitMessage | TTextPointerMessage | TEditMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function textInput(options: TextInputOptions<unknown>): Element<unknown> {
   const keyMap = textInputKeyBindings(options.onEdit, options.onSubmit, options.keys);
   return elementFromRenderNode<'textInput', unknown>({
@@ -353,6 +372,7 @@ export function textInput(options: TextInputOptions<unknown>): Element<unknown> 
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({
       ...textEditInputHandlers(options.onEdit),
+      pointer: options.pointer,
       meta: options.meta
     })
   });
@@ -360,13 +380,15 @@ export function textInput(options: TextInputOptions<unknown>): Element<unknown> 
 
 export function numberInput<
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   NumberInputOptions,
   { readonly onAction: TActionMessage },
   Record<never, never>,
-  TKeys
->): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+  TKeys,
+  TPointerMessage
+>): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function numberInput(options: NumberInputOptions<unknown>): Element<unknown> {
   const keyMap = numberInputKeyBindings(options.onAction, options.keys);
   const editHandlers = textEditInputHandlers(
@@ -386,7 +408,7 @@ export function numberInput(options: NumberInputOptions<unknown>): Element<unkno
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ ...editHandlers, meta: options.meta })
+    ...interactionProps({ ...editHandlers, pointer: options.pointer, meta: options.meta })
   });
 }
 

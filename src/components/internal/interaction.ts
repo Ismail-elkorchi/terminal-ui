@@ -15,13 +15,16 @@ import type { PaletteAction } from '../../ui-model/palette.ts';
 import type { TextEditOperation } from '../../text/index.ts';
 import type { RenderMenuItem } from '../../renderer/model/props/menus.ts';
 import { mergeKeyBindings } from '../../authoring/metadata.ts';
+import { normalizeInlineContent } from '../../visual/inline-content.ts';
 
 export {
-  componentMetaProps,
-  interactionProps,
   mergeKeyBindings,
   withMetaDefaults
 } from '../../authoring/metadata.ts';
+export {
+  renderNodeInteraction as interactionProps,
+  renderNodeMeta as componentMetaProps
+} from '../../renderer/model/metadata.ts';
 
 export function listKeyBindings<TValue, TMessage>(
   options: ListOptions<TValue, TMessage>
@@ -360,6 +363,8 @@ export function menuItemsForRenderer(items: readonly MenuItem[]): readonly Rende
   return items.map((item) => ({
     id: item.id,
     label: item.label,
+    ...(item.leading === undefined ? {} : { leading: normalizeInlineContent(item.leading) }),
+    ...(item.trailing === undefined ? {} : { trailing: normalizeInlineContent(item.trailing) }),
     ...(item.description === undefined ? {} : { description: item.description }),
     ...(item.disabled === undefined ? {} : { disabled: item.disabled }),
     ...(item.shortcut === undefined ? {} : { shortcut: item.shortcut }),

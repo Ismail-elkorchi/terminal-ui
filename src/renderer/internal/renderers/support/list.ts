@@ -13,6 +13,7 @@ import type { LayoutNode, Rect } from '../../../model/layout.ts';
 import type { RenderBlock, RenderLine } from '../../../../visual/render.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
 import type { ListAction } from '../../../../ui-model/list.ts';
+import { interactionVisualState, renderNodeTargetId } from '../../pointer-presentation.ts';
 
 type ListNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'list'>;
 
@@ -41,7 +42,7 @@ export function listScrollbarState(widget: ListNode, bounds: Rect): ScrollState 
   });
 }
 
-export function listBlock(widget: ListNode, height: number, theme: TerminalTheme): RenderBlock {
+export function listBlock(widget: ListNode, height: number, theme: TerminalTheme, focused = false): RenderBlock {
   const items = filteredListItems(widget);
   const selectedId = stringify(widget.props.selectedId);
   const selected = selectedVisibleIndex(items, selectedId);
@@ -62,10 +63,15 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
     lines: window.rows.map((entry): RenderLine => {
       const itemIndex = entry.index;
       const isSelected = entry.id === selectedId;
+      const state = interactionVisualState(widget, listOptionTargetId(widget, entry.id), {
+        disabled: entry.disabled,
+        selected: isSelected,
+        focused: focused && isSelected
+      });
       const style = resolveRenderNodeStyle(widget, {
         part: 'item',
         base: themeStyle('text.default'),
-        ...(isSelected ? { state: 'selected' } : {})
+        ...(state === undefined ? {} : { state })
       });
       const matchStyle = mergeDataStyles(
         style,
@@ -79,11 +85,20 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
             isSelected,
             theme,
             style,
-            dataSource(widget, `item.${entry.id}.marker`, { itemId: entry.id, itemIndex, role: 'decoration' })
+            dataSource(widget, `item.${entry.id}.marker`, {
+              itemId: entry.id,
+              itemIndex,
+              role: 'decoration',
+              ...(state === undefined ? {} : { state })
+            })
           ),
           ...dataValueSpans(clean(String(entry.value)), query, style, {
-            source: dataSource(widget, `item.${entry.id}.value`, { itemId: entry.id, itemIndex }),
-            matchSource: dataSource(widget, `item.${entry.id}.match`, { itemId: entry.id, itemIndex }),
+            source: dataSource(widget, `item.${entry.id}.value`, {
+              itemId: entry.id,
+              itemIndex,
+              ...(state === undefined ? {} : { state })
+            }),
+            matchSource: dataSource(widget, `item.${entry.id}.match`, { itemId: entry.id, itemIndex, state: 'match' }),
             ...(matchStyle === undefined ? {} : { matchStyle })
           })
         ]
@@ -111,12 +126,16 @@ export function listAccessibleChildren(widget: ListNode, node: LayoutNode): read
   const selected = selectedVisibleIndex(items, selectedId);
   const window = listWindow(widget, items, node.bounds.height, selected, node.bounds.width);
   return window.rows.map((entry) => ({
-      id: `${widget.id ?? 'list'}:option:${entry.id}`,
+      id: listOptionTargetId(widget, entry.id),
       role: 'option',
       label: String(entry.value),
       selected: entry.id === selectedId,
       disabled: entry.disabled
     }));
+}
+
+function listOptionTargetId(widget: ListNode, entryId: string): string {
+  return renderNodeTargetId(widget, 'option', entryId);
 }
 
 export function listCursor(widget: ListNode, bounds: Rect): { readonly row: number; readonly column: number } {
@@ -142,7 +161,7 @@ export function listHitTargets<TMessage>(widget: ListNode<TMessage>, bounds: Rec
     if (entry.disabled) return [];
     const itemIndex = entry.index;
     return [{
-      id: `${widget.id ?? 'list'}:option:${entry.id}`,
+      id: listOptionTargetId(widget, entry.id),
       bounds: {
         row: bounds.row + index,
         column: bounds.column,

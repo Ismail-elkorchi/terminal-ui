@@ -1,19 +1,24 @@
-import { interactionProps, mergeKeyBindings } from '../../authoring/metadata.ts';
+import { mergeKeyBindings } from '../../authoring/metadata.ts';
 import { layoutProps, optionalId, requiredId, renderNodeChildren } from '../../authoring/render-node.ts';
-import type { Element, ElementChildren } from '../../element/index.ts';
+import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
 import { elementFromRenderNode } from '../../renderer/model/element.ts';
+import { renderNodeInteraction as interactionProps } from '../../renderer/model/metadata.ts';
 import type { SplitPaneAction } from '../../ui-model/split-pane.ts';
 import type { ResizableSplitPaneOptions, SplitPaneOptions } from '../options.ts';
 
-export function splitPane<TMessage>(
-  children: ElementChildren<TMessage>,
-  options: SplitPaneOptions<TMessage>
-): Element<TMessage> {
+export function splitPane<
+  const TChildren extends ElementChildren,
+  const TActionMessage = never
+>(
+  children: TChildren,
+  options: SplitPaneOptions<TActionMessage>
+): Element<ElementChildrenMessage<TChildren> | TActionMessage> {
+  type Message = ElementChildrenMessage<TChildren> | TActionMessage;
   const renderChildren = renderNodeChildren(children);
   assertSplitPaneOptions(renderChildren.length, options);
   if (options.onAction === undefined) {
-    return elementFromRenderNode<'splitPane', TMessage>({
+    return elementFromRenderNode<'splitPane', Message>({
       ...optionalId(options.id),
       kind: 'splitPane',
       props: {
@@ -27,7 +32,7 @@ export function splitPane<TMessage>(
   }
 
   const keys = mergeKeyBindings(splitPaneKeyBindings(options), options.keys);
-  return elementFromRenderNode<'splitPane', TMessage>({
+  return elementFromRenderNode<'splitPane', Message>({
     ...requiredId(options.id, 'splitPane'),
     kind: 'splitPane',
     props: {

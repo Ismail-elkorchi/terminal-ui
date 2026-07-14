@@ -32,8 +32,8 @@ test('richText renders sanitized styled segments as plain frame text', () => {
   const frame = renderElementFrame(richText({
     id: 'rich',
     segments: [
-      { text: 'Build ', style: { fg: { kind: 'theme', token: 'text.muted' } } },
-      { text: '\u001B[31mfailed\u001B[0m', style: { fg: { kind: 'theme', token: 'status.error' }, bold: true } }
+      { kind: 'text', text: 'Build ', style: { fg: { kind: 'theme', token: 'text.muted' } } },
+      { kind: 'text', text: '\u001B[31mfailed\u001B[0m', style: { fg: { kind: 'theme', token: 'status.error' }, bold: true } }
     ]
   }), { columns: 24, rows: 2 });
 
@@ -72,15 +72,15 @@ test('wrapped richText preserves segment style link and source metadata', () => 
     wrap: true,
     segments: [
       {
+        kind: 'text',
         text: 'Alpha ',
-        style: { fg: { kind: 'theme', token: 'status.success' } },
-        source: { ownerId: 'alpha', ownerKind: 'token', role: 'text', label: 'alpha' }
+        style: { fg: { kind: 'theme', token: 'status.success' } }
       },
       {
+        kind: 'text',
         text: 'Beta',
         style: { fg: { kind: 'theme', token: 'status.warning' }, bold: true },
-        link: { href: 'https://example.test/beta' },
-        source: { ownerId: 'beta', ownerKind: 'token', role: 'text', label: 'beta' }
+        link: { href: 'https://example.test/beta' }
       }
     ]
   }), { columns: 6, rows: 2 });
@@ -90,7 +90,10 @@ test('wrapped richText preserves segment style link and source metadata', () => 
   assert.deepEqual(frame.cells.find((cell) => cell.text === 'A')?.style, { fg: { kind: 'theme', token: 'status.success' } });
   assert.deepEqual(beta?.style, { fg: { kind: 'theme', token: 'status.warning' }, underline: true, bold: true });
   assert.deepEqual(beta?.link, { href: 'https://example.test/beta' });
-  assert.deepEqual(beta?.source, { ownerId: 'beta', ownerKind: 'token', role: 'text', label: 'beta' });
+  assert.deepEqual(beta?.source, textSource('rich-wrap', 'richText', 'segment.1', {
+    part: 'segment',
+    itemIndex: 1
+  }));
   assert.equal(frame.accessibility.root.value, 'Alpha Beta');
 });
 
@@ -98,8 +101,9 @@ test('richText gives linked spans the default link style without overriding expl
   const frame = renderElementFrame(richText({
     id: 'links',
     segments: [
-      { text: 'Docs', link: { href: 'https://example.test/docs' } },
+      { kind: 'text', text: 'Docs', link: { href: 'https://example.test/docs' } },
       {
+        kind: 'text',
         text: ' Warn',
         style: { fg: { kind: 'theme', token: 'status.warning' }, bold: true },
         link: { href: 'https://example.test/warn' }

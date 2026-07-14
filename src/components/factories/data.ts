@@ -32,15 +32,17 @@ import { resolveStableIds } from '../internal/identity.ts';
 export function list<
   TValue,
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     ListOptions<TValue, never>,
     { readonly onAction: TActionMessage },
     Record<never, never>,
-    TKeys
+    TKeys,
+    TPointerMessage
   >
-): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unknown> {
   const keyMap = listKeyBindings(options);
   const toActionMessage = options.onAction;
@@ -68,22 +70,24 @@ export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unk
       })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
 export function table<
   TRow,
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     TableOptions<TRow>,
     { readonly onAction: TActionMessage },
     Record<never, never>,
-    TKeys
+    TKeys,
+    TPointerMessage
   >
-): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unknown> {
   const keyMap = tableKeyBindings(options);
   const columns = tableColumnsForRenderer(options.columns);
@@ -114,22 +118,24 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
 export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
     TreeOptions<TMetadata>,
     { readonly onAction: TActionMessage },
     Record<never, never>,
-    TKeys
+    TKeys,
+    TPointerMessage
   >
-): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
   options: TreeOptions<TMetadata, unknown>
 ): Element<unknown> {
@@ -155,19 +161,21 @@ export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
       })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
 export function paginator<
   const TActionMessage = never,
+  const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   PaginatorOptions,
   { readonly onAction: TActionMessage },
   Record<never, never>,
-  TKeys
->): Element<TActionMessage | ComponentKeyBindingMessages<TKeys>>;
+  TKeys,
+  TPointerMessage
+>): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function paginator(options: PaginatorOptions<unknown>): Element<unknown> {
   const keyMap = paginatorKeyBindings(options);
   return elementFromRenderNode<'paginator', unknown>({
@@ -180,6 +188,6 @@ export function paginator(options: PaginatorOptions<unknown>): Element<unknown> 
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
-    ...interactionProps({ meta: options.meta })
+    ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }

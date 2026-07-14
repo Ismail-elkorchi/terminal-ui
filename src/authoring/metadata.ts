@@ -1,12 +1,8 @@
 import type {
-  ElementAccessibility,
-  ElementFocus,
   ElementKeyBindings,
-  ElementLayer,
   ElementMeta,
   ElementStyles
 } from '../element/metadata.ts';
-import type { RenderNode } from '../renderer/model/index.ts';
 
 export function mergeKeyBindings<TMessage>(
   generated: ElementKeyBindings<TMessage> | undefined,
@@ -19,43 +15,6 @@ export function mergeKeyBindings<TMessage>(
     ...(Object.keys(mergedText).length === 0 ? {} : { text: mergedText })
   };
   return Object.keys(merged).length === 0 ? undefined : merged;
-}
-
-export function interactionProps<TMessage, TPart extends string = never>(options: {
-  readonly keys?: ElementKeyBindings<TMessage> | undefined;
-  readonly onInput?: ((text: string) => TMessage) | undefined;
-  readonly onPaste?: ((text: string) => TMessage) | undefined;
-  readonly meta?: ElementMeta<TPart> | undefined;
-}): {
-  readonly layer?: ElementLayer;
-  readonly focus?: ElementFocus;
-  readonly styles?: ElementStyles;
-  readonly keyMap?: ElementKeyBindings<TMessage>;
-  readonly inputMap?: NonNullable<RenderNode<TMessage>['inputMap']>;
-  readonly accessibility?: ElementAccessibility;
-} {
-  const keyMap = normalizeKeyBindings(options.keys);
-  const inputMap = inputMapFromHandlers(options);
-  const meta = withMetaDefaults(options.meta, { focus: {} });
-  return {
-    ...componentMetaProps(meta),
-    ...(keyMap === undefined ? {} : { keyMap }),
-    ...(inputMap === undefined ? {} : { inputMap })
-  };
-}
-
-export function componentMetaProps<TPart extends string>(meta: ElementMeta<TPart> | undefined): {
-  readonly layer?: ElementLayer;
-  readonly focus?: ElementFocus;
-  readonly styles?: ElementStyles;
-  readonly accessibility?: ElementAccessibility;
-} {
-  return {
-    ...(meta?.layer === undefined ? {} : { layer: meta.layer }),
-    ...(meta?.focus === undefined ? {} : { focus: meta.focus }),
-    ...(meta?.styles === undefined ? {} : { styles: renderNodeStyles(meta.styles) }),
-    ...(meta?.accessibility === undefined ? {} : { accessibility: meta.accessibility })
-  };
 }
 
 export function withMetaDefaults<TPart extends string>(
@@ -72,14 +31,6 @@ export function withMetaDefaults<TPart extends string>(
     ...(layer === undefined ? {} : { layer }),
     ...(styles === undefined ? {} : { styles })
   }) ?? {};
-}
-
-function renderNodeStyles<TPart extends string>(styles: ElementStyles<TPart>): ElementStyles {
-  return {
-    ...(styles.root === undefined ? {} : { root: styles.root }),
-    ...(styles.parts === undefined ? {} : { parts: { ...styles.parts } }),
-    ...(styles.states === undefined ? {} : { states: { ...styles.states } })
-  };
 }
 
 function mergeElementStyles<TPart extends string>(
@@ -100,23 +51,6 @@ function mergeElementStyles<TPart extends string>(
     ...(parts === undefined ? {} : { parts }),
     ...(states === undefined ? {} : { states })
   };
-}
-
-function inputMapFromHandlers<TMessage>(options: {
-  readonly onInput?: ((text: string) => TMessage) | undefined;
-  readonly onPaste?: ((text: string) => TMessage) | undefined;
-}): NonNullable<RenderNode<TMessage>['inputMap']> | undefined {
-  if (options.onInput === undefined && options.onPaste === undefined) return undefined;
-  return {
-    ...(options.onInput === undefined ? {} : { text: options.onInput }),
-    ...(options.onPaste === undefined ? {} : { paste: options.onPaste })
-  };
-}
-
-function normalizeKeyBindings<TMessage>(
-  keyMap: ElementKeyBindings<TMessage> | undefined
-): ElementKeyBindings<TMessage> | undefined {
-  return keyMap === undefined || Object.keys(keyMap).length === 0 ? undefined : keyMap;
 }
 
 function compactMeta<TPart extends string>(meta: ElementMeta<TPart>): ElementMeta<TPart> | undefined {

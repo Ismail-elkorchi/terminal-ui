@@ -4,16 +4,9 @@ import { renderNodeFrameSource } from '../../visual/source.ts';
 import type { FrameCellSource, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import { line } from '../../visual/render.ts';
 import { mergeStyles, resolveRenderNodeStyle, renderNodeStyle, themeStyle } from './render-node-style.ts';
+import type { ElementVisualState } from '../../element/metadata.ts';
 
-export type FormControlState =
-  | 'default'
-  | 'selected'
-  | 'disabled'
-  | 'focused'
-  | 'active'
-  | 'error'
-  | 'warning'
-  | 'success';
+export type FormControlState = ElementVisualState;
 
 export type FormVisualKind =
   | 'activeLine'
@@ -25,6 +18,7 @@ export type FormVisualKind =
   | 'handle'
   | 'help'
   | 'label'
+  | 'leading'
   | 'lineNumber'
   | 'gutter'
   | 'highlight'
@@ -39,6 +33,7 @@ export type FormVisualKind =
   | 'swatch'
   | 'title'
   | 'track'
+  | 'trailing'
   | 'value'
   | 'weekday';
 
@@ -62,20 +57,27 @@ export function formSpan(
   visual: FormVisualKind,
   label: string,
   text: string,
-  style?: TerminalStyle
+  style?: TerminalStyle,
+  sourceState?: string
 ): RenderSpan {
   return span(text, {
     ...(style === undefined ? {} : { style }),
-    source: formSource(widget, visual, label)
+    source: formSource(widget, visual, label, sourceState)
   });
 }
 
-export function formSource(widget: RenderNode, visual: FormVisualKind, label: string): FrameCellSource {
+export function formSource(
+  widget: RenderNode,
+  visual: FormVisualKind,
+  label: string,
+  state?: string
+): FrameCellSource {
   return renderNodeFrameSource(widget, {
     family: 'form',
     role: roleForVisual(visual),
     part: label,
     partKind: visual,
+    ...(state === undefined ? {} : { state }),
     label
   });
 }
@@ -196,8 +198,8 @@ export function labelSpans(
     return required ? [formSpan(widget, 'required', `${label}.required`, 'Required', formLabelStyle(widget, state))] : [];
   }
   return [
-    formSpan(widget, 'label', `${label}.text`, text, formLabelStyle(widget, state)),
-    ...(required ? [formSpan(widget, 'required', `${label}.required`, ' *', formLabelStyle(widget, state))] : [])
+    formSpan(widget, 'label', `${label}.text`, text, formLabelStyle(widget, state), state),
+    ...(required ? [formSpan(widget, 'required', `${label}.required`, ' *', formLabelStyle(widget, state), state)] : [])
   ];
 }
 
@@ -224,11 +226,13 @@ function roleForVisual(visual: FormVisualKind): NonNullable<FrameCellSource['rol
     case 'highlight':
     case 'label':
     case 'lineNumber':
+    case 'leading':
     case 'option':
     case 'placeholder':
     case 'selection':
     case 'summary':
     case 'title':
+    case 'trailing':
     case 'value':
     case 'weekday':
       return 'text';

@@ -2,7 +2,7 @@ import { elementFromRenderNode, toRenderNode } from '../../renderer/model/elemen
 import type { RenderNode } from '../../renderer/model/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
 import type { ViewportOptions } from '../options.ts';
-import { interactionProps } from '../../authoring/metadata.ts';
+import { renderNodeInteraction as interactionProps } from '../../renderer/model/metadata.ts';
 import { layoutProps, requiredId } from '../../authoring/render-node.ts';
 
 export function viewport<const TChild extends Element<unknown>, const TMessage = never>(

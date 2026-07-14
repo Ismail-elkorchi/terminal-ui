@@ -99,9 +99,9 @@ export const dataRenderers = {
     hitTargets: ({ renderNode, bounds }) => heatmapHitTargets(renderNode, bounds)
   },
   list: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => listScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, listBlock(renderNode, scrollbars.contentBounds.height, theme));
+      writeRenderBlock(buffer, scrollbars.contentBounds, listBlock(renderNode, scrollbars.contentBounds.height, theme, focused));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
@@ -118,9 +118,9 @@ export const dataRenderers = {
     }
   },
   table: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => tableScrollbarState(renderNode, contentBounds), 'both');
-      writeRenderBlock(buffer, scrollbars.contentBounds, tableBlock(renderNode, scrollbars.contentBounds, theme));
+      writeRenderBlock(buffer, scrollbars.contentBounds, tableBlock(renderNode, scrollbars.contentBounds, theme, focused));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
@@ -136,9 +136,9 @@ export const dataRenderers = {
     }
   },
   tree: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => treeScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, treeBlock(renderNode, scrollbars.contentBounds, theme));
+      writeRenderBlock(buffer, scrollbars.contentBounds, treeBlock(renderNode, scrollbars.contentBounds, theme, focused));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({

@@ -3,6 +3,7 @@ import { builtinRenderNodeRenderers } from './renderers/index.ts';
 import { normalizeMeasurement, zeroMeasurement } from './measurement.ts';
 import { measureBuiltinRenderNode } from './render-node-measure.ts';
 import { renderNodeInteractionDisabled } from './render-node-interaction.ts';
+import { pointerPresentationHitTargets } from './pointer-presentation.ts';
 import {
   emptyRect, hasKeyboardOrInputMap, sameRect
 } from './renderers/support/common.ts';
@@ -101,12 +102,13 @@ export function hitTargetsForRenderNode<TMessage>(
   theme: TerminalTheme
 ): readonly HitTarget<TMessage>[] {
   if (renderNodeInteractionDisabled(widget)) return [];
-  return rendererForRenderNode(widget).hitTargets?.({
+  const targets = rendererForRenderNode(widget).hitTargets?.({
     renderNode: widget,
     layoutNode: target.layoutNode,
     bounds: target.bounds,
     theme
   }) ?? [];
+  return pointerPresentationHitTargets(widget, target.bounds, targets);
 }
 
 function customRenderer<TMessage>(widget: RenderNode<TMessage>): RenderNodeRenderer<TMessage> {

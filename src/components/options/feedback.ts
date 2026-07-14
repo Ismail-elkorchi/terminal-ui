@@ -24,7 +24,7 @@ import type { NotificationStackAction } from '../../ui-model/notification-stack.
 import type { BarChartAction, ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
 import type { ChartStylePart, NotificationStylePart, StatusStylePart } from '../../ui-model/style-parts.ts';
 
-export interface NotificationStackOptions<TMessage = never> extends InteractiveElementOptions<NotificationStylePart> {
+export interface NotificationStackOptions<TMessage = never> extends InteractiveElementOptions<NotificationStylePart, TMessage> {
   readonly items: readonly NotificationItem[];
   readonly selected?: string;
   readonly placement?: NotificationPlacement;
@@ -74,7 +74,7 @@ export interface SparklineOptions extends ElementOptions<ChartStylePart> {
   readonly errorText?: string;
 }
 
-export interface BarChartOptions<TMessage = never> extends InteractiveElementOptions<ChartStylePart> {
+export interface BarChartOptions<TMessage = never> extends InteractiveElementOptions<ChartStylePart, TMessage> {
   readonly items: readonly BarChartItem[];
   readonly max?: number;
   readonly selectedId?: string;
@@ -86,7 +86,7 @@ export interface BarChartOptions<TMessage = never> extends InteractiveElementOpt
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export interface ChartOptions<TMessage = never> extends InteractiveElementOptions<ChartStylePart> {
+export interface ChartOptions<TMessage = never> extends InteractiveElementOptions<ChartStylePart, TMessage> {
   readonly series: readonly ChartSeries[];
   readonly min?: number;
   readonly max?: number;
@@ -117,7 +117,7 @@ export interface MeterOptions extends ElementOptions<StatusStylePart> {
   readonly status?: ProcessStatus;
 }
 
-export interface HeatmapOptions<TValue = unknown, TMessage = never> extends InteractiveElementOptions<ChartStylePart> {
+export interface HeatmapOptions<TValue = unknown, TMessage = never> extends InteractiveElementOptions<ChartStylePart, TMessage> {
   readonly rows: readonly (readonly HeatmapCell<TValue>[])[];
   readonly min?: number;
   readonly max?: number;
