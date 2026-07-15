@@ -56,21 +56,54 @@ function mouseEvent(options: {
   readonly released: boolean;
 }): MouseEvent {
   const baseCode = options.rawCode & 0b11;
+  const action = mouseAction(options.rawCode, options.released);
+  const button = mouseButton(options.rawCode, baseCode, options.released);
+  if (action === 'wheel') {
+    return {
+      kind: 'mouse',
+      sequence: options.sequence,
+      encoding: options.encoding,
+      action,
+      button: wheelButton(button),
+      row: options.row,
+      column: options.column,
+      rawCode: options.rawCode,
+      modifiers: mouseModifiers(options.rawCode),
+      deltaRows: button === 'wheelUp' ? -1 : button === 'wheelDown' ? 1 : 0,
+      deltaColumns: button === 'wheelLeft' ? -1 : button === 'wheelRight' ? 1 : 0
+    };
+  }
   return {
     kind: 'mouse',
     sequence: options.sequence,
     encoding: options.encoding,
-    action: mouseAction(options.rawCode, options.released),
-    button: mouseButton(options.rawCode, baseCode, options.released),
+    action,
+    button,
     row: options.row,
     column: options.column,
     rawCode: options.rawCode,
-    modifiers: {
-      shift: (options.rawCode & 4) !== 0,
-      alt: (options.rawCode & 8) !== 0,
-      ctrl: (options.rawCode & 16) !== 0
-    }
+    modifiers: mouseModifiers(options.rawCode)
   };
+}
+
+function mouseModifiers(rawCode: number): MouseEvent['modifiers'] {
+  return {
+    shift: (rawCode & 4) !== 0,
+    alt: (rawCode & 8) !== 0,
+    ctrl: (rawCode & 16) !== 0
+  };
+}
+
+function wheelButton(button: MouseButton): Extract<MouseEvent, { readonly action: 'wheel' }>['button'] {
+  switch (button) {
+    case 'wheelUp':
+    case 'wheelDown':
+    case 'wheelLeft':
+    case 'wheelRight':
+      return button;
+    default:
+      return 'unknown';
+  }
 }
 
 function mouseAction(rawCode: number, released: boolean): MouseAction {

@@ -97,7 +97,7 @@ export const layoutRenderers = {
     layout: ({ renderNode, bounds, childMeasures }) => splitPaneChildBounds(renderNode, bounds, childMeasures),
     render: (input) => {
       input.renderChildren();
-      renderSplitPaneDividers(input.renderNode, input.layoutNode, input.buffer, input.theme, input.focused);
+      renderSplitPaneDividers(input.renderNode, input.layoutNode, input.buffer, input.theme, input.focus === 'self');
     },
     accessibility: ({ renderNode, id, focused }) => splitPaneAccessibleNode(renderNode, id, focused),
     hitTargets: ({ renderNode, layoutNode }) => splitPaneHitTargets(renderNode, layoutNode)
@@ -108,13 +108,14 @@ export const layoutRenderers = {
       writeRenderBlock(input.buffer, {
         ...input.layoutNode.bounds,
         height: Math.min(1, input.layoutNode.bounds.height)
-      }, tabsHeaderBlock(input.renderNode, input.layoutNode.bounds, input.focused, input.theme));
+      }, tabsHeaderBlock(input.renderNode, input.layoutNode.bounds, input.focus === 'self', input.theme));
       input.renderChildren();
     },
     accessibility: ({ renderNode, id, focused }) => ({
       id,
-      role: 'menu',
+      role: 'tablist',
       label: id,
+      ...(typeof renderNode.props.selected === 'string' ? { value: renderNode.props.selected } : {}),
       ...(focused ? { focused } : {}),
       children: tabsAccessibleChildren(renderNode)
     }),
@@ -123,9 +124,10 @@ export const layoutRenderers = {
   dialog: {
     layout: ({ renderNode, bounds, childMeasures }) => dialogChildBounds(renderNode, bounds, borderForDialog(renderNode), childMeasures),
     render: (input) => {
-      const border = borderForDialog(input.renderNode, input.focused, input.theme);
+      const focused = input.focus !== 'none';
+      const border = borderForDialog(input.renderNode, input.theme);
       const childBounds = dialogBounds(input.renderNode, input.layoutNode.bounds);
-      drawSurfaceFrame(input.buffer, childBounds, input.renderNode, input.theme, input.focused, {
+      drawSurfaceFrame(input.buffer, childBounds, input.renderNode, input.theme, focused, {
         variant: 'raised',
         border,
         shadow: true

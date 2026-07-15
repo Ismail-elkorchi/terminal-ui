@@ -2,19 +2,34 @@ import {
   treeNodeChildren,
   treeNodeExpanded
 } from '../ui-model/tree.ts';
-import type { TreeAction, TreeDisclosureAction, TreeNode } from '../ui-model/tree.ts';
+import type { TreeAction, TreeControlAction, TreeDisclosureAction, TreeNode } from '../ui-model/tree.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 
-export interface TreeState<
+interface TreeStateBase<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
 > {
   readonly nodes: readonly TreeNode<TMetadata>[];
   readonly selected?: string;
   readonly filterQuery?: string;
   readonly rename?: TreeRenameState;
-  readonly scroll?: ScrollState;
 }
+
+export interface PassiveTreeState<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> extends TreeStateBase<TMetadata> {
+  readonly scroll?: never;
+}
+
+export interface ScrollableTreeState<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> extends TreeStateBase<TMetadata> {
+  readonly scroll: ScrollState;
+}
+
+export type TreeState<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> = PassiveTreeState<TMetadata> | ScrollableTreeState<TMetadata>;
 
 export interface TreeRenameState {
   readonly id: string;
@@ -38,9 +53,22 @@ export interface TreePresentation<TMetadata extends Readonly<Record<string, unkn
   readonly nodes: readonly TreeNode<TMetadata>[];
   readonly selected?: string;
   readonly filterQuery?: string;
-  readonly scroll?: ScrollState;
 }
 
+export interface TreeScrollablePresentation<
+  TMetadata extends Readonly<Record<string, unknown>>
+> extends TreePresentation<TMetadata> {
+  readonly scroll: ScrollState;
+}
+
+export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: ScrollableTreeState<TMetadata>,
+  action: TreeAction<TMetadata>
+): ScrollableTreeState<TMetadata>;
+export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: PassiveTreeState<TMetadata>,
+  action: TreeControlAction<TMetadata>
+): PassiveTreeState<TMetadata>;
 export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
   state: TreeState<TMetadata>,
   action: TreeAction<TMetadata>
@@ -78,13 +106,24 @@ export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>
 }
 
 export function treePresentation<TMetadata extends Readonly<Record<string, unknown>>>(
-  state: TreeState<TMetadata>
+  state: PassiveTreeState<TMetadata>
+): TreePresentation<TMetadata> {
+  return treePresentationBase(state);
+}
+
+export function treeScrollablePresentation<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: ScrollableTreeState<TMetadata>
+): TreeScrollablePresentation<TMetadata> {
+  return { ...treePresentationBase(state), scroll: state.scroll };
+}
+
+function treePresentationBase<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: TreeStateBase<TMetadata>
 ): TreePresentation<TMetadata> {
   return {
     nodes: state.nodes,
     ...(state.selected === undefined ? {} : { selected: state.selected }),
-    ...(state.filterQuery === undefined ? {} : { filterQuery: state.filterQuery }),
-    ...(state.scroll === undefined ? {} : { scroll: state.scroll })
+    ...(state.filterQuery === undefined ? {} : { filterQuery: state.filterQuery })
   };
 }
 

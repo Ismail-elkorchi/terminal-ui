@@ -1,4 +1,4 @@
-import type { MouseEvent as TerminalMouseEvent } from '../../input/index.ts';
+import type { MouseEvent as TerminalMouseEvent, MouseWheelEvent } from '../../input/index.ts';
 import type { Rect } from '../model/layout.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
 import type { RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
@@ -14,6 +14,7 @@ export interface PointerRouter<TMessage> {
     regions: readonly RenderRegion<TMessage>[],
     event: TerminalMouseEvent
   ): readonly PointerRouteResult<TMessage>[];
+  wheelTargetId(regions: readonly RenderRegion<TMessage>[], event: MouseWheelEvent): string | undefined;
   reset(): void;
 }
 
@@ -56,6 +57,9 @@ export function createPointerRouter<TMessage>(): PointerRouter<TMessage> {
       }
       if (event.action === 'wheel') return [routeResult(event, pointerHit, 'scroll', press)];
       return [];
+    },
+    wheelTargetId(regions, event) {
+      return topHitAt(regions, event.row, event.column, ['scroll'])?.id;
     },
     reset() {
       press = undefined;
@@ -160,8 +164,8 @@ function routedPointerEvent<TMessage>(
         }),
     button: releaseButton(event, press),
     modifiers: event.modifiers,
-    deltaRows: pointerDeltaRows(event),
-    deltaColumns: pointerDeltaColumns(event),
+    deltaRows: event.action === 'wheel' ? event.deltaRows : 0,
+    deltaColumns: event.action === 'wheel' ? event.deltaColumns : 0,
     ...(hit === undefined ? {} : { targetId: hit.id }),
     ...(press?.target.id === undefined ? {} : { capturedTargetId: press.target.id }),
     raw: event
@@ -173,20 +177,6 @@ function releaseButton<TMessage>(
   press: PointerPress<TMessage> | undefined
 ): TerminalMouseEvent['button'] {
   return event.action === 'release' && press !== undefined ? press.button : event.button;
-}
-
-function pointerDeltaRows(event: TerminalMouseEvent): number {
-  if (event.action !== 'wheel') return 0;
-  if (event.button === 'wheelUp') return -1;
-  if (event.button === 'wheelDown') return 1;
-  return 0;
-}
-
-function pointerDeltaColumns(event: TerminalMouseEvent): number {
-  if (event.action !== 'wheel') return 0;
-  if (event.button === 'wheelLeft') return -1;
-  if (event.button === 'wheelRight') return 1;
-  return 0;
 }
 
 function messageForTarget<TMessage>(

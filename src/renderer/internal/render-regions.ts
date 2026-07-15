@@ -5,6 +5,7 @@ import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotMetadata, FrameBufferSnapshotOptions } from './frame-buffer.ts';
 import type { FrameCell, FrameHitTarget } from '../model/frame.ts';
 import type { FocusPath, LayoutFocusTarget } from './focus.ts';
+import type { ResolvedPointerFocusIntent } from '../../interaction/focus.ts';
 import type { ElementLayerOpacity } from '../../element/metadata.ts';
 import type { LayoutNode, Rect } from '../model/layout.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
@@ -29,12 +30,14 @@ export interface RenderRegion<TMessage = unknown> {
 
 export function toRegionHitTarget<TMessage>(
   hitTarget: HitTarget<TMessage>,
-  region: { readonly zIndex: number }
+  region: { readonly zIndex: number },
+  focus: ResolvedPointerFocusIntent | undefined
 ): RenderRegionHitTarget<TMessage> {
   return {
     id: hitTarget.id,
     bounds: hitTarget.bounds,
     ...(hitTarget.accepts === undefined ? {} : { accepts: hitTarget.accepts }),
+    ...(focus === undefined ? {} : { focus }),
     message: (event) => hitTarget.message(event),
     ...(hitTarget.cursor === undefined ? {} : { cursor: hitTarget.cursor }),
     zIndex: hitTarget.zIndex ?? region.zIndex
@@ -101,6 +104,10 @@ function createRegionFrameBuffer(viewport: TerminalViewport, bounds: Rect): Fram
     writeCell(cell) {
       if (!cellInside(cell, bounds)) return;
       local.writeCell(toLocalCell(bounds, cell));
+    },
+    readCell(row, column) {
+      const cell = local.readCell(toLocalRow(bounds, row), toLocalColumn(bounds, column));
+      return cell === undefined ? undefined : toViewportCell(bounds, cell);
     },
     clear(rect) {
       const clearBounds = rect === undefined ? bounds : intersectRects(bounds, rect);

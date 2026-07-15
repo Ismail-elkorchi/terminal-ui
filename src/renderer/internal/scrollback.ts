@@ -1,5 +1,5 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
-import { sanitizeTerminalText, wrapTextCells } from '../../text/index.ts';
+import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import {
   createScrollState, normalizeScrollState, scrollReducer, visibleWindowFromScroll
 } from '../../behavior/scroll.ts';
@@ -11,10 +11,12 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TextSelection } from '../../text/index.ts';
 import type { ScrollbackItem } from '../../ui-model/documents.ts';
 import type { LayoutNode } from '../model/layout.ts';
-import type { RenderBlock, RenderSpan } from '../../visual/render.ts';
+import { wrapRenderSpans } from '../../visual/render.ts';
+import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
+import type { RoutedPointerEvent } from '../../input/pointer.ts';
+import { textOffsetAtVisualColumn } from './text-pointer.ts';
 import {
   extractScrollbackSelectionText,
-  scrollbackDisplayText,
   scrollbackItemLevel,
   scrollbackItemsFromUnknown,
   scrollbackMetadataEntries,
@@ -40,6 +42,14 @@ interface ScrollbackVisibleRow {
   readonly metadata?: Readonly<Record<string, string>>;
   readonly matched?: boolean;
   readonly selected?: boolean;
+  readonly bodyPositions?: readonly ScrollbackBodyPosition[];
+}
+
+interface ScrollbackBodyPosition {
+  readonly column: number;
+  readonly cells: number;
+  readonly text: string;
+  readonly offset: number;
 }
 
 interface ScrollbackWindow {
@@ -60,7 +70,10 @@ export function scrollbackWindow(widget: ScrollbackNode, node: Pick<LayoutNode, 
   const query = searchQueryProp(widget);
   const selectedRange = selectedRangeProp(widget);
   const itemSelections = scrollbackSelectedBodyRanges(items, selectedRange);
-  const expandedRows = wrap || query.length > 0 ? scrollbackRows(widget, items, node.bounds.width, query, itemSelections) : undefined;
+  const bodyOffsets = scrollbackBodyOffsets(items);
+  const expandedRows = wrap || query.length > 0
+    ? scrollbackRows(widget, items, node.bounds.width, query, itemSelections, bodyOffsets, wrap)
+    : undefined;
   const totalRows = expandedRows?.length ?? items.length;
   const matchIndexes = query.length === 0 ? [] : matchedRowIndexes(expandedRows ?? []);
   const explicitScroll = scrollStateProp(widget);
@@ -75,14 +88,15 @@ export function scrollbackWindow(widget: ScrollbackNode, node: Pick<LayoutNode, 
   const omittedBefore = window.start;
   const omittedAfter = Math.max(0, totalRows - window.end);
   const visibleRows = expandedRows === undefined
-    ? items.slice(window.start, window.end).map((item, index) => scrollbackRow(
+    ? items.slice(window.start, window.end).flatMap((item, index) => scrollbackItemRows(
         widget,
         item,
         window.start + index,
-        0,
-        scrollbackDisplayText(item),
+        node.bounds.width,
         '',
-        itemSelections[window.start + index]
+        itemSelections[window.start + index],
+        bodyOffsets[window.start + index] ?? 0,
+        false
       ))
     : expandedRows.slice(window.start, window.end);
   return {
@@ -108,6 +122,29 @@ export function scrollbackBlock(widget: ScrollbackNode, node: LayoutNode): Rende
   return {
     lines: scrollbackWindow(widget, node).rows.map((row) => ({ spans: row.segments }))
   };
+}
+
+export function scrollbackPointerOffset(
+  widget: ScrollbackNode,
+  node: Pick<LayoutNode, 'bounds'>,
+  event: RoutedPointerEvent
+): number | undefined {
+  const row = scrollbackWindow(widget, node).rows[(event.localRow ?? 0) - 1];
+  const positions = row?.bodyPositions;
+  if (positions === undefined || positions.length === 0) return undefined;
+  const column = Math.max(0, (event.localColumn ?? 1) - 1);
+  const containing = positions.find((position) =>
+    column >= position.column && column < position.column + position.cells
+  );
+  if (containing !== undefined) {
+    return containing.offset + textOffsetAtVisualColumn(
+      containing.text,
+      column - containing.column
+    );
+  }
+  const previous = positions.findLast((position) => column >= position.column + position.cells);
+  if (previous !== undefined) return previous.offset + previous.text.length;
+  return positions[0]?.offset;
 }
 
 export function scrollbackAccessibleBase(widget: ScrollbackNode, node: LayoutNode, id: string): AccessibleNode {
@@ -148,44 +185,62 @@ function scrollbackRows(
   items: readonly ScrollbackItem[],
   width: number,
   query: string,
-  itemSelections: readonly (ScrollbackBodySelection | undefined)[]
+  itemSelections: readonly (ScrollbackBodySelection | undefined)[],
+  bodyOffsets: readonly number[],
+  wrap: boolean
 ): readonly ScrollbackVisibleRow[] {
-  const wrap = widget.props.wrap === true;
   const rows: ScrollbackVisibleRow[] = [];
   for (let index = 0; index < items.length; index += 1) {
     const item = items[index];
     if (item === undefined) continue;
-    const text = scrollbackDisplayText(item);
-    const lines = wrap && width > 0 ? wrapTextCells(text, width).map((line) => line.text) : [text];
-    for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-      const line = lines[lineIndex] ?? '';
-      rows.push(scrollbackRow(widget, item, index, lineIndex, line, query, itemSelections[index]));
-    }
+    rows.push(...scrollbackItemRows(
+      widget,
+      item,
+      index,
+      width,
+      query,
+      itemSelections[index],
+      bodyOffsets[index] ?? 0,
+      wrap
+    ));
   }
   return rows;
 }
 
-function scrollbackRow(
+function scrollbackItemRows(
   widget: ScrollbackNode,
   item: ScrollbackItem,
   itemIndex: number,
-  lineIndex: number,
-  text: string,
+  width: number,
   query: string,
-  selection?: ScrollbackBodySelection
-): ScrollbackVisibleRow {
-  const segments = scrollbackLineSpans(widget, item, itemIndex, lineIndex, text, query, selection);
-  return {
-    id: `${widget.id ?? 'scrollback'}:item:${String(itemIndex)}:line:${String(lineIndex)}`,
-    text: segments.map((segment) => segment.text).join(''),
-    segments,
-    sourceItemId: item.id,
-    sourceItemIndex: itemIndex,
-    ...timestampForItem(item),
-    ...metadataForItem(item),
-    matched: segments.some((segment) => segment.matched === true),
-    ...(selection === undefined ? {} : { selected: true })
-  };
+  selection: ScrollbackBodySelection | undefined,
+  bodyOffset: number,
+  wrap: boolean
+): readonly ScrollbackVisibleRow[] {
+  const fullLine = scrollbackFullLineSpans(widget, item, itemIndex, query, selection);
+  const lines = wrap && width > 0
+    ? wrapRenderSpans(fullLine, width)
+    : [{ spans: fullLine } satisfies RenderLine];
+  const bodyText = sanitizeTerminalText(item.text).text;
+  let bodyCursor = 0;
+  return lines.map((renderLine, lineIndex) => {
+    const positionProjection = bodyPositionsForLine(renderLine.spans, bodyText, bodyOffset, bodyCursor);
+    bodyCursor = positionProjection.nextBodyCursor;
+    return {
+      id: `${widget.id ?? 'scrollback'}:item:${String(itemIndex)}:line:${String(lineIndex)}`,
+      text: renderLine.spans.map((segment) => segment.text).join(''),
+      segments: renderLine.spans,
+      sourceItemId: item.id,
+      sourceItemIndex: itemIndex,
+      ...timestampForItem(item),
+      ...metadataForItem(item),
+      matched: renderLine.spans.some((segment) => 'matched' in segment && segment.matched === true),
+      ...(selection === undefined ? {} : { selected: true }),
+      ...(positionProjection.positions.length === 0
+        ? {}
+        : { bodyPositions: positionProjection.positions })
+    };
+  });
 }
 
 function withOmissionMarkers(
@@ -282,27 +337,48 @@ function matchedRowIndexes(rows: readonly ScrollbackVisibleRow[]): readonly numb
   return indexes;
 }
 
-function scrollbackLineSpans(
-  widget: ScrollbackNode,
-  item: ScrollbackItem,
-  itemIndex: number,
-  lineIndex: number,
-  text: string,
-  query: string,
-  selection?: ScrollbackBodySelection
-): readonly ScrollbackTextSegment[] {
-  return lineIndex === 0 && text === scrollbackDisplayText(item)
-    ? scrollbackFullLineSpans(widget, item, itemIndex, query, selection)
-    : documentHighlightSpans({
-        widget,
-        kind: 'scrollback',
-        visual: 'body',
-        label: 'body',
-        text,
-        query,
-        baseStyle: scrollbackBodyStyle(widget, item.style, scrollbackItemLevel(item)),
-        sourceOptions: sourceOptionsForItem(item, itemIndex)
-      });
+function scrollbackBodyOffsets(items: readonly ScrollbackItem[]): readonly number[] {
+  const offsets: number[] = [];
+  let offset = 0;
+  for (const item of items) {
+    offsets.push(offset);
+    offset += sanitizeTerminalText(item.text).text.length + 1;
+  }
+  return offsets;
+}
+
+function bodyPositionsForLine(
+  spans: readonly RenderSpan[],
+  bodyText: string,
+  bodyOffset: number,
+  initialBodyCursor: number
+): { readonly positions: readonly ScrollbackBodyPosition[]; readonly nextBodyCursor: number } {
+  const positions: ScrollbackBodyPosition[] = [];
+  let column = 0;
+  let bodyCursor = initialBodyCursor;
+  for (const currentSpan of spans) {
+    const cells = measureTextCells(currentSpan.text).cells;
+    if (isBodyTextSpan(currentSpan) && currentSpan.text.length > 0) {
+      const start = bodyText.indexOf(currentSpan.text, bodyCursor);
+      if (start >= 0) {
+        positions.push({
+          column,
+          cells,
+          text: currentSpan.text,
+          offset: bodyOffset + start
+        });
+        bodyCursor = start + currentSpan.text.length;
+      }
+    }
+    column += cells;
+  }
+  return { positions, nextBodyCursor: bodyCursor };
+}
+
+function isBodyTextSpan(currentSpan: RenderSpan): boolean {
+  const part = currentSpan.source?.part;
+  return currentSpan.source?.family === 'scrollback'
+    && (part === 'body' || part?.startsWith('body.') === true);
 }
 
 function scrollbackFullLineSpans(

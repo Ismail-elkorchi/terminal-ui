@@ -28,11 +28,13 @@ import {
 import {
   scrollbackAccessibleBase,
   scrollbackAccessibleChildren,
-  scrollbackBlock
+  scrollbackBlock,
+  scrollbackPointerOffset
 } from '../scrollback.ts';
 import { tableAccessibleBase, tableAccessibleChildren, tableBlock, tableHitTargets } from '../table.ts';
 import { treeAccessibleBase, treeAccessibleChildren, treeBlock, treeHitTargets } from '../tree.ts';
 import { writeRenderBlock } from './support/block.ts';
+import { textPointerHitTargets } from '../text-pointer.ts';
 import { focusTarget, hasKeyboardOrInputMap } from './support/common.ts';
 import {
   listAccessibleChildren,
@@ -99,9 +101,9 @@ export const dataRenderers = {
     hitTargets: ({ renderNode, bounds }) => heatmapHitTargets(renderNode, bounds)
   },
   list: {
-    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focus }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => listScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, listBlock(renderNode, scrollbars.contentBounds.height, theme, focused));
+      writeRenderBlock(buffer, scrollbars.contentBounds, listBlock(renderNode, scrollbars.contentBounds.height, theme, focus === 'self'));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
@@ -118,9 +120,9 @@ export const dataRenderers = {
     }
   },
   table: {
-    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focus }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => tableScrollbarState(renderNode, contentBounds), 'both');
-      writeRenderBlock(buffer, scrollbars.contentBounds, tableBlock(renderNode, scrollbars.contentBounds, theme, focused));
+      writeRenderBlock(buffer, scrollbars.contentBounds, tableBlock(renderNode, scrollbars.contentBounds, theme, focus === 'self'));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
@@ -136,9 +138,9 @@ export const dataRenderers = {
     }
   },
   tree: {
-    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focus }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => treeScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, treeBlock(renderNode, scrollbars.contentBounds, theme, focused));
+      writeRenderBlock(buffer, scrollbars.contentBounds, treeBlock(renderNode, scrollbars.contentBounds, theme, focus === 'self'));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
@@ -172,9 +174,27 @@ export const dataRenderers = {
       ...scrollbackAccessibleBase(renderNode, layoutNode, id),
       children: scrollbackAccessibleChildren(renderNode, layoutNode)
     }),
+    focusTargets: ({ renderNode, bounds }) => renderNode.props.toActionMessage === undefined
+      ? []
+      : [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => scrollbackScrollbarState(renderNode, { bounds: contentBounds }), 'vertical');
-      return scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state);
+      return [
+        ...textPointerHitTargets({
+          id: `${renderNode.id ?? renderNode.kind}:text`,
+          bounds: scrollbars.contentBounds,
+          focusTargetId: 'self',
+          toMessage: renderNode.props.toActionMessage === undefined
+            ? undefined
+            : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
+          offsetAt: (event) => scrollbackPointerOffset(
+            renderNode,
+            { bounds: scrollbars.contentBounds },
+            event
+          )
+        }),
+        ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)
+      ];
     }
   },
   structuredBlock: {

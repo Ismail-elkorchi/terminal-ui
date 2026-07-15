@@ -108,7 +108,7 @@ test('table clipping keeps multi-span cell styles instead of flattening to plain
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'styled-table',
-    selectedRowId: '0',
+    presentation: { selectedRowId: '0' },
     rows: [{ value: 'unused' }],
     columns: [{
       id: 'state-0', value: (row) => Array.isArray(row) ? row[0] : row,
@@ -141,9 +141,12 @@ test('table horizontal scrolling keeps span styles after clipped cells are shift
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'scrolled-styled-table',
-    selectedRowId: '0',
+    presentation: {
+      selectedRowId: '0',
+      scroll: createScrollState({ offsetColumn: 6, contentRows: 1, viewportRows: 1, contentColumns: 12, viewportColumns: 6 })
+    },
     rows: [{ value: 'unused' }],
-    scroll: createScrollState({ offsetColumn: 6, contentRows: 1, viewportRows: 1, contentColumns: 12, viewportColumns: 6 }),
+    onAction: (action) => action,
     columns: [{
       id: 'column-0', value: (row) => Array.isArray(row) ? row[0] : row,
       width: 8,

@@ -162,7 +162,15 @@ function rectsEqual(left: Rect, right: Rect): boolean {
 
 function scrollMessageFactory<TMessage>(
   widget: ScrollableNode<TMessage>
-): ((event: ScrollEvent) => TMessage) | undefined {
+): ((event: ScrollEvent) => TMessage | undefined) | undefined {
+  if (widget.kind === 'textArea') {
+    const raw = widget.props.toActionMessage;
+    return raw === undefined ? undefined : (event) => raw({ kind: 'scroll', event });
+  }
+  if (widget.kind === 'scrollback') {
+    const raw = widget.props.toActionMessage;
+    return raw === undefined ? undefined : (event) => raw({ kind: 'scroll', event });
+  }
   const raw = widget.props.toScrollMessage;
   return typeof raw === 'function'
     ? (event) => (raw)(event)
@@ -175,6 +183,7 @@ function scrollContentHitTarget<TMessage>(
   state: ScrollState,
   wheel: NormalizedScrollWheelPolicy,
   factory: (event: ScrollEvent) => TMessage
+  | undefined
 ): HitTarget<TMessage> {
   return {
     id: `${id}:scroll:content`,
@@ -194,6 +203,7 @@ function scrollbarTrackHitTargets<TMessage>(
   state: ScrollState,
   wheel: NormalizedScrollWheelPolicy,
   factory: (event: ScrollEvent) => TMessage
+  | undefined
 ): readonly HitTarget<TMessage>[] {
   const trackTarget: HitTarget<TMessage> = {
     id: `${id}:scrollbar:${axis}:track`,

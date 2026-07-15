@@ -40,7 +40,7 @@ test('schemas validate payloads emitted by public runtime APIs', async () => {
     id: 'schema-payloads',
     init: () => ({ ready: true }),
     update: (state) => ({ state }),
-    view: () => textInput({ id: 'schema-field', value: 'ready' })
+    view: () => textInput({ id: 'schema-field', presentation: { value: 'ready', cursor: 0 } })
   });
   const frame = renderElementFrame(app.definition.view({ ready: true }, {
     host: harness.host,

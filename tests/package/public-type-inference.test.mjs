@@ -51,7 +51,7 @@ test('interactive identity, passive inputs, and component anatomy are enforced b
     button({ id: 'save', label: 'Save' });
     textInput({
       id: 'query',
-      value: 'term',
+      presentation: { value: 'term', cursor: 0 },
       meta: {
         styles: {
           parts: { value: { bold: true }, cursor: { underline: true } },
@@ -71,7 +71,7 @@ test('interactive identity, passive inputs, and component anatomy are enforced b
     text('Passive', { keys: { enter: () => ({ kind: 'invalid' }) } });
     textInput({
       id: 'invalid-style',
-      value: '',
+      presentation: { value: '', cursor: 0 },
       meta: {
         styles: {
           // @ts-expect-error text inputs do not expose table anatomy
@@ -345,8 +345,10 @@ test('table rows and explicit cell accessors retain their domain types', () => {
         { id: 'pid', header: 'PID', value: (row) => row.pid },
         { id: 'name', header: 'Name', value: (row) => row.name }
       ],
-      selectedRowId: '42',
-      selectedCell: { rowId: '42', column: 1 },
+      presentation: {
+        selectedRowId: '42',
+        selectedCell: { rowId: '42', column: 1 }
+      },
       onAction: (action) => ({
         kind: 'selected' as const,
         action
@@ -355,10 +357,237 @@ test('table rows and explicit cell accessors retain their domain types', () => {
 
     const accepted: Element<{
       readonly kind: 'selected';
-      readonly action: import('@ismail-elkorchi/terminal-ui/components').TableAction;
+      readonly action: import('@ismail-elkorchi/terminal-ui/components').TableControlAction;
     }> = processes;
     void accepted;
   `, { name: 'typed-table-contract' });
+
+  assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
+});
+
+test('interactive scroll chrome requires a controlled scroll route', () => {
+  const diagnostics = typecheckSource(`
+    import {
+      list,
+      palette,
+      scrollback,
+      text,
+      textArea,
+      tree,
+      type Element,
+      type ListAction,
+      type ScrollbackAction,
+      type TextAreaAction,
+      type TreeAction
+    } from '@ismail-elkorchi/terminal-ui/components';
+    import { createScrollState } from '@ismail-elkorchi/terminal-ui/behavior';
+    import { viewport } from '@ismail-elkorchi/terminal-ui/layout';
+    import type { ScrollEvent } from '@ismail-elkorchi/terminal-ui/interaction';
+
+    type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
+    type Equal<TLeft, TRight> =
+      (<T>() => T extends TLeft ? 1 : 2) extends
+      (<T>() => T extends TRight ? 1 : 2) ? true : false;
+    type Assert<TValue extends true> = TValue;
+
+    const scroll = createScrollState({ contentRows: 20, contentColumns: 40 });
+
+    const controlledList = list({
+      id: 'list',
+      items: ['one'],
+      projectItem: (value) => ({ id: value, label: value }),
+      scroll,
+      scrollbar: { visible: 'auto' },
+      onAction: (action) => ({ kind: 'list' as const, action })
+    });
+    const controlledTree = tree({
+      id: 'tree',
+      nodes: [{ id: 'one', label: 'One', kind: 'leaf' }],
+      scroll,
+      scrollbar: { visible: 'auto' },
+      onAction: (action) => ({ kind: 'tree' as const, action })
+    });
+    const controlledEditor = textArea({
+      id: 'editor',
+      presentation: { value: 'value', cursor: 0, scroll },
+      scrollbar: { visible: 'auto' },
+      onAction: (action) => ({ kind: 'editor' as const, action })
+    });
+    const controlledLog = scrollback({
+      id: 'log',
+      items: [{ id: 'one', text: 'One' }],
+      scroll,
+      scrollbar: { visible: 'auto' },
+      onAction: (action) => ({ kind: 'log' as const, action })
+    });
+    const controlledPalette = palette({
+      id: 'palette',
+      entries: [{ id: 'one', label: 'One', value: 1 }],
+      scroll,
+      scrollbar: { visible: 'auto' },
+      onScroll: (event) => ({ kind: 'paletteScroll' as const, event })
+    });
+    const controlledViewport = viewport(text('content'), {
+      id: 'viewport',
+      scrollRow: 0,
+      scrollColumn: 0,
+      contentRows: 20,
+      contentColumns: 40,
+      scrollbar: { visible: 'auto' },
+      onScroll: (event) => ({ kind: 'viewportScroll' as const, event })
+    });
+
+    type _List = Assert<Equal<
+      MessageOf<typeof controlledList>,
+      { readonly kind: 'list'; readonly action: ListAction }
+    >>;
+    type _Tree = Assert<Equal<
+      MessageOf<typeof controlledTree>,
+      { readonly kind: 'tree'; readonly action: TreeAction }
+    >>;
+    type _Editor = Assert<Equal<
+      MessageOf<typeof controlledEditor>,
+      { readonly kind: 'editor'; readonly action: TextAreaAction }
+    >>;
+    type _Log = Assert<Equal<
+      MessageOf<typeof controlledLog>,
+      { readonly kind: 'log'; readonly action: ScrollbackAction }
+    >>;
+    type _Palette = Assert<Equal<
+      MessageOf<typeof controlledPalette>,
+      { readonly kind: 'paletteScroll'; readonly event: ScrollEvent }
+    >>;
+    type _Viewport = Assert<Equal<
+      MessageOf<typeof controlledViewport>,
+      { readonly kind: 'viewportScroll'; readonly event: ScrollEvent }
+    >>;
+
+    // @ts-expect-error list scrollbar requires controlled scroll state and action routing
+    list({ id: 'inert-list', items: [], projectItem: () => ({ id: '', label: '' }), scrollbar: { visible: 'auto' } });
+    // @ts-expect-error tree scrollbar requires controlled scroll state and action routing
+    tree({ id: 'inert-tree', nodes: [], scrollbar: { visible: 'auto' } });
+    // @ts-expect-error text-area scrollbar requires scroll presentation and action routing
+    textArea({ id: 'inert-editor', presentation: { value: '', cursor: 0 }, scrollbar: { visible: 'auto' } });
+    // @ts-expect-error scrollback scrollbar requires controlled scroll state and action routing
+    scrollback({ id: 'inert-log', items: [], scrollbar: { visible: 'auto' } });
+    // @ts-expect-error palette scrollbar requires controlled scroll state and event routing
+    palette({ id: 'inert-palette', entries: [], scrollbar: { visible: 'auto' } });
+    // @ts-expect-error viewport scrollbar requires complete metrics and event routing
+    viewport(text('content'), { id: 'inert-viewport', contentRows: 20, scrollbar: { visible: 'auto' } });
+  `, { name: 'controlled-scroll-contracts' });
+
+  assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
+});
+
+test('behavior projections preserve passive and scrollable component variants', () => {
+  const diagnostics = typecheckSource(`
+    import {
+      list,
+      scrollback,
+      table,
+      tree,
+      type Element,
+      type ListAction,
+      type ListControlAction,
+      type ScrollbackAction,
+      type ScrollbackControlAction,
+      type TableAction,
+      type TableControlAction,
+      type TextAreaControlAction,
+      type TreeAction,
+      type TreeControlAction
+    } from '@ismail-elkorchi/terminal-ui/components';
+    import {
+      createScrollState,
+      listPresentation,
+      listScrollablePresentation,
+      scrollbackPresentation,
+      scrollbackScrollablePresentation,
+      tablePresentation,
+      tableScrollablePresentation,
+      treePresentation,
+      treeScrollablePresentation,
+      type PassiveListState,
+      type PassiveScrollbackState,
+      type PassiveTableState,
+      type PassiveTreeState,
+      type ScrollableListState,
+      type ScrollableScrollbackState,
+      type ScrollableTableState,
+      type ScrollableTreeState
+    } from '@ismail-elkorchi/terminal-ui/behavior';
+
+    type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
+    type Equal<TLeft, TRight> =
+      (<T>() => T extends TLeft ? 1 : 2) extends
+      (<T>() => T extends TRight ? 1 : 2) ? true : false;
+    type Assert<TValue extends true> = TValue;
+
+    const scroll = createScrollState({ contentRows: 20, viewportRows: 5 });
+    const passiveListState: PassiveListState = {};
+    const scrollableListState: ScrollableListState = { scroll };
+    const passiveTableState: PassiveTableState = {};
+    const scrollableTableState: ScrollableTableState = { scroll };
+    const passiveTreeState: PassiveTreeState = { nodes: [] };
+    const scrollableTreeState: ScrollableTreeState = { nodes: [], scroll };
+    const passiveScrollbackState: PassiveScrollbackState = { foldedIds: [], followTail: false };
+    const scrollableScrollbackState: ScrollableScrollbackState = { foldedIds: [], followTail: true, scroll };
+
+    const passiveList = list({
+      id: 'passive-list', items: ['one'],
+      projectItem: (value) => ({ id: value, label: value }),
+      ...listPresentation(passiveListState),
+      onAction: (action) => ({ kind: 'passiveList' as const, action })
+    });
+    const scrollableList = list({
+      id: 'scrollable-list', items: ['one'],
+      projectItem: (value) => ({ id: value, label: value }),
+      ...listScrollablePresentation(scrollableListState),
+      scrollbar: { visible: 'auto' },
+      onAction: (action) => ({ kind: 'scrollableList' as const, action })
+    });
+    const passiveTable = table({
+      id: 'passive-table', rows: [{ id: 'one' }], getRowId: (row) => row.id,
+      presentation: tablePresentation(passiveTableState),
+      onAction: (action) => ({ kind: 'passiveTable' as const, action })
+    });
+    const scrollableTable = table({
+      id: 'scrollable-table', rows: [{ id: 'one' }], getRowId: (row) => row.id,
+      presentation: tableScrollablePresentation(scrollableTableState),
+      scrollbar: { visible: 'auto' },
+      onAction: (action) => ({ kind: 'scrollableTable' as const, action })
+    });
+    const passiveTree = tree({
+      id: 'passive-tree', ...treePresentation(passiveTreeState),
+      onAction: (action) => ({ kind: 'passiveTree' as const, action })
+    });
+    const scrollableTree = tree({
+      id: 'scrollable-tree', ...treeScrollablePresentation(scrollableTreeState),
+      scrollbar: { visible: 'auto' },
+      onAction: (action) => ({ kind: 'scrollableTree' as const, action })
+    });
+    const passiveLog = scrollback({
+      id: 'passive-log', ...scrollbackPresentation([], passiveScrollbackState),
+      onAction: (action) => ({ kind: 'passiveLog' as const, action })
+    });
+    const scrollableLog = scrollback({
+      id: 'scrollable-log', ...scrollbackScrollablePresentation([], scrollableScrollbackState),
+      scrollbar: { visible: 'auto' },
+      onAction: (action) => ({ kind: 'scrollableLog' as const, action })
+    });
+
+    type _PassiveList = Assert<Equal<MessageOf<typeof passiveList>, { readonly kind: 'passiveList'; readonly action: ListControlAction }>>;
+    type _ScrollableList = Assert<Equal<MessageOf<typeof scrollableList>, { readonly kind: 'scrollableList'; readonly action: ListAction }>>;
+    type _PassiveTable = Assert<Equal<MessageOf<typeof passiveTable>, { readonly kind: 'passiveTable'; readonly action: TableControlAction }>>;
+    type _ScrollableTable = Assert<Equal<MessageOf<typeof scrollableTable>, { readonly kind: 'scrollableTable'; readonly action: TableAction }>>;
+    type _PassiveTree = Assert<Equal<MessageOf<typeof passiveTree>, { readonly kind: 'passiveTree'; readonly action: TreeControlAction }>>;
+    type _ScrollableTree = Assert<Equal<MessageOf<typeof scrollableTree>, { readonly kind: 'scrollableTree'; readonly action: TreeAction }>>;
+    type _PassiveLog = Assert<Equal<MessageOf<typeof passiveLog>, { readonly kind: 'passiveLog'; readonly action: ScrollbackControlAction }>>;
+    type _ScrollableLog = Assert<Equal<MessageOf<typeof scrollableLog>, { readonly kind: 'scrollableLog'; readonly action: ScrollbackAction }>>;
+
+    declare const textAreaControlAction: TextAreaControlAction;
+    void textAreaControlAction;
+  `, { name: 'behavior-presentation-variants' });
 
   assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
 });
@@ -373,10 +602,9 @@ test('multi-channel components infer unions without explicit message arguments',
       type CommandInputAction,
       type Element,
       type PaletteAction,
+      type TextAreaAction,
       type TreeAction
     } from '@ismail-elkorchi/terminal-ui/components';
-    import type { ScrollEvent } from '@ismail-elkorchi/terminal-ui/behavior';
-    import type { TextEditOperation } from '@ismail-elkorchi/terminal-ui/text';
 
     type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
     type Equal<TLeft, TRight> =
@@ -396,13 +624,13 @@ test('multi-channel components infer unions without explicit message arguments',
 
     const editor = textArea({
       id: 'editor',
-      value: 'hello',
-      onScroll: (event: ScrollEvent) => ({ kind: 'scroll' as const, event }),
-      onEdit: (operation: TextEditOperation) => ({ kind: 'edit' as const, operation })
+      presentation: { value: 'hello', cursor: 0 },
+      onAction: (action: TextAreaAction) => ({ kind: 'editor' as const, action })
     });
 
     const commands = commandInput({
       id: 'commands',
+      presentation: { value: '', cursor: 0, suggestions: [] },
       onAction: (action: CommandInputAction) => ({ kind: 'command' as const, action }),
       onSubmit: { kind: 'submit' as const },
       keys: {
@@ -425,9 +653,7 @@ test('multi-channel components infer unions without explicit message arguments',
     type TreeMessage =
       | { readonly kind: 'tree'; readonly action: TreeAction }
       | { readonly kind: 'activate' };
-    type EditorMessage =
-      | { readonly kind: 'scroll'; readonly event: ScrollEvent }
-      | { readonly kind: 'edit'; readonly operation: TextEditOperation };
+    type EditorMessage = { readonly kind: 'editor'; readonly action: TextAreaAction };
     type CommandMessage =
       | { readonly kind: 'command'; readonly action: CommandInputAction }
       | { readonly kind: 'submit' }

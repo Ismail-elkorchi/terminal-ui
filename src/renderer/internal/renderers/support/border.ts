@@ -13,7 +13,6 @@ type DialogNode = RenderNodeOfKind<unknown, 'dialog'>;
 
 export function borderForDialog(
   widget: DialogNode,
-  focused = false,
   theme?: TerminalTheme
 ): BorderStyle {
   const border = defaultBorderStyle(
@@ -22,7 +21,7 @@ export function borderForDialog(
     dialogBorderStyle(widget)
   );
   if (border.title !== undefined || border.kind === 'none' || theme === undefined) {
-    return focusBorder(border, focused);
+    return border;
   }
   const title = renderBorderTitle(widget.props.title, {
     theme,
@@ -35,7 +34,7 @@ export function borderForDialog(
       label: `${part}.${String(index)}`
     })
   });
-  return focusBorder(title === undefined ? border : { ...border, title }, focused);
+  return title === undefined ? border : { ...border, title };
 }
 
 function styleOption(style: TerminalStyle | undefined): { readonly baseStyle?: TerminalStyle } {
@@ -68,15 +67,4 @@ export function borderContentBounds(bounds: Rect, border: BorderStyle): Rect {
         width: Math.max(0, bounds.width - 2),
         height: Math.max(0, bounds.height - 2)
       };
-}
-
-function focusBorder(border: BorderStyle, focused: boolean): BorderStyle {
-  if (!focused || border.kind === 'none') return border;
-  return {
-    ...border,
-    style: {
-      ...border.style,
-      ...(border.focusStyle ?? { fg: { kind: 'theme', token: 'focus.border' } })
-    }
-  };
 }

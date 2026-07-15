@@ -3,7 +3,11 @@ import type { Element } from '../../element/index.ts';
 import type {
   ActivityFeedOptions,
   CommandInputOptions,
+  PassivePaletteOptions,
+  PassiveScrollbackOptions,
   PaletteOptions,
+  ScrollablePaletteOptions,
+  ScrollableScrollbackOptions,
   ScrollbackOptions,
   StructuredBlockOptions
 } from '../options/documents.ts';
@@ -24,10 +28,44 @@ import type {
   IndependentInteractionOptions,
   InferredElementKeyBindings
 } from '../internal/messages.ts';
+import type { ScrollbackAction, ScrollbackControlAction } from '../../ui-model/scrollback.ts';
 
-export function scrollback<const TMessage = never>(options: ScrollbackOptions<TMessage>): Element<TMessage> {
-  const onAction = options.onAction;
-  return elementFromRenderNode<'scrollback', TMessage>({
+/* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
+export function scrollback<
+  const TActionMessage = unknown,
+  const TPointerMessage = never,
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
+>(
+  options: IndependentInteractionOptions<
+    ScrollableScrollbackOptions,
+    { readonly onAction: TActionMessage },
+    Record<never, never>,
+    TKeys,
+    TPointerMessage
+  >
+): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+export function scrollback<
+  const TActionMessage = never,
+  const TPointerMessage = never,
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
+>(
+  options: IndependentInteractionOptions<
+    PassiveScrollbackOptions,
+    { readonly onAction: TActionMessage },
+    Record<never, never>,
+    TKeys,
+    TPointerMessage
+  >
+): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+/* eslint-enable @typescript-eslint/unified-signatures */
+export function scrollback(options: ScrollbackOptions<unknown>): Element<unknown> {
+  const onControlAction: ((action: ScrollbackControlAction) => unknown) | undefined = options.onAction;
+  const onAction: ((action: ScrollbackAction) => unknown) | undefined = options.onAction === undefined
+    ? undefined
+    : isScrollableScrollbackOptions(options)
+      ? options.onAction
+      : (action) => action.kind === 'scroll' ? undefined : onControlAction?.(action);
+  return elementFromRenderNode<'scrollback', unknown>({
     ...requiredId(options.id, 'scrollback'),
     kind: 'scrollback',
     props: {
@@ -35,15 +73,19 @@ export function scrollback<const TMessage = never>(options: ScrollbackOptions<TM
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(onAction === undefined ? {} : {
-        toScrollMessage: (event) => onAction({ kind: 'scroll', event })
-      }),
+      ...(onAction === undefined ? {} : { toActionMessage: onAction }),
       ...(options.wrap === undefined ? {} : { wrap: options.wrap }),
       ...(options.searchQuery === undefined ? {} : { searchQuery: options.searchQuery }),
       ...(options.selectedRange === undefined ? {} : { selectedRange: options.selectedRange })
     },
     ...interactionProps(options)
   });
+}
+
+function isScrollableScrollbackOptions<TMessage>(
+  options: ScrollbackOptions<TMessage>
+): options is ScrollableScrollbackOptions<TMessage> {
+  return options.scroll !== undefined;
 }
 
 export function structuredBlock(options: StructuredBlockOptions): Element {
@@ -92,7 +134,6 @@ export function activityFeed<const TMessage = never>(options: ActivityFeedOption
 
 export function commandInput<
   const TActionMessage = never,
-  const TTextPointerMessage = never,
   const TSubmitMessage = never,
   const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
@@ -101,42 +142,41 @@ export function commandInput<
     CommandInputOptions,
     {
       readonly onAction: TActionMessage;
-      readonly onTextPointer: TTextPointerMessage;
     },
     { readonly onSubmit: TSubmitMessage },
     TKeys,
     TPointerMessage
   >
-): Element<TActionMessage | TTextPointerMessage | TSubmitMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+): Element<TActionMessage | TSubmitMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function commandInput(options: CommandInputOptions<unknown>): Element<unknown> {
   const action = options.onAction;
   const generatedKeys = action === undefined ? undefined : commandInputKeyBindings(action);
   const submitKeys = options.onSubmit === undefined ? undefined : { enter: () => options.onSubmit };
   const keyMap = mergeKeyBindings(mergeKeyBindings(generatedKeys, submitKeys), options.keys);
+  const presentation = options.presentation;
   return elementFromRenderNode<'commandInput', unknown>({
     ...requiredId(options.id, 'commandInput'),
     kind: 'commandInput',
     props: {
-      value: options.value ?? '',
-      ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
-      ...(options.selection === undefined ? {} : { selection: options.selection }),
+      value: presentation.value,
+      cursor: presentation.cursor,
+      ...(presentation.selection === undefined ? {} : { selection: presentation.selection }),
       ...(options.prompt === undefined ? {} : { prompt: options.prompt }),
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
       ...(options.completionPreview === undefined ? {} : { completionPreview: options.completionPreview }),
       ...(options.validation === undefined ? {} : { validation: options.validation }),
       ...(options.footer === undefined ? {} : { footer: options.footer }),
       ...(options.matchQuery === undefined ? {} : { matchQuery: options.matchQuery }),
-      ...(options.suggestions === undefined ? {} : { suggestions: options.suggestions }),
-      ...(options.selectedSuggestion === undefined ? {} : { selectedSuggestion: options.selectedSuggestion }),
-      ...(options.historyIndex === undefined ? {} : { historyIndex: options.historyIndex }),
+      suggestions: presentation.suggestions,
+      ...(presentation.selectedSuggestion === undefined ? {} : { selectedSuggestion: presentation.selectedSuggestion }),
+      ...(presentation.historyIndex === undefined ? {} : { historyIndex: presentation.historyIndex }),
       ...(options.display === undefined ? {} : { display: options.display }),
-      ...(action === undefined ? {} : { toActionMessage: action }),
-      ...(options.onTextPointer === undefined ? {} : { toTextPointerMessage: options.onTextPointer })
+      ...(action === undefined ? {} : { toActionMessage: action })
     },
     ...interactionProps({
       ...(action === undefined ? {} : {
-        onInput: (text) => action({ kind: 'insert', text }),
-        onPaste: (text) => action({ kind: 'insert', text })
+        onInput: (text) => action({ kind: 'edit', operation: { kind: 'insert', text } }),
+        onPaste: (text) => action({ kind: 'edit', operation: { kind: 'insert', text } })
       }),
       ...(keyMap === undefined ? {} : { keys: keyMap }),
       pointer: options.pointer,
@@ -148,13 +188,13 @@ export function commandInput(options: CommandInputOptions<unknown>): Element<unk
 export function palette<
   TValue,
   const TSelectMessage = never,
-  const TScrollMessage = never,
+  const TScrollMessage = unknown,
   const TActionMessage = never,
   const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
-    PaletteOptions<TValue>,
+    ScrollablePaletteOptions<TValue>,
     {
       readonly onSelect: TSelectMessage;
       readonly onScroll: TScrollMessage;
@@ -165,6 +205,24 @@ export function palette<
     TPointerMessage
   >
 ): Element<TSelectMessage | TScrollMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+export function palette<
+  TValue,
+  const TSelectMessage = never,
+  const TActionMessage = never,
+  const TPointerMessage = never,
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
+>(
+  options: IndependentInteractionOptions<
+    PassivePaletteOptions<TValue>,
+    {
+      readonly onSelect: TSelectMessage;
+      readonly onAction: TActionMessage;
+    },
+    Record<never, never>,
+    TKeys,
+    TPointerMessage
+  >
+): Element<TSelectMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function palette<TValue>(options: PaletteOptions<TValue, unknown>): Element<unknown> {
   const action = options.onAction;
   const generatedKeys = action === undefined ? undefined : paletteKeyBindings(action);

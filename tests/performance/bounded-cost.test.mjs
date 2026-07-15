@@ -68,8 +68,8 @@ test('large scrollback rendering is bounded by viewport size, not collection siz
 });
 
 test('small local frame updates produce bounded render diffs', () => {
-  const previous = renderElementFrame(textInput({ id: 'field', value: 'alpha' }), { columns: 24, rows: 3 });
-  const next = renderElementFrame(textInput({ id: 'field', value: 'alpha!' }), { columns: 24, rows: 3 });
+  const previous = renderElementFrame(textInput({ id: 'field', presentation: { value: 'alpha', cursor: 0 } }), { columns: 24, rows: 3 });
+  const next = renderElementFrame(textInput({ id: 'field', presentation: { value: 'alpha!', cursor: 0 } }), { columns: 24, rows: 3 });
   const diff = diffFrames(previous, next);
 
   assert.equal(diff.fullRewrite, false);
@@ -82,12 +82,10 @@ test('full frame render stays bounded by viewport for mixed widget trees', () =>
     commandInput({
       id: 'search',
       prompt: '?',
-      value: 'fil',
-      suggestions: [
+      presentation: { value: 'fil', cursor: 0, suggestions: [
         { value: 'file', label: 'file' },
         { value: 'filter', label: 'filter' }
-      ],
-      selectedSuggestion: 0
+      ], selectedSuggestion: 0 },
     }),
     table({
     getRowId: (_row, index) => String(index),
@@ -144,7 +142,7 @@ test('large table viewport is bounded independently from row count', () => {
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'large-table',
-    selectedCell: { rowId: '42000', column: 1 },
+    presentation: { selectedCell: { rowId: '42000', column: 1 } },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
@@ -177,7 +175,7 @@ test('fill-width tables do not scan offscreen row values for intrinsic measureme
         return row.name;
       }
     }],
-    selectedRowId: '10000'
+    presentation: { selectedRowId: '10000' }
   }), { columns: 80, rows: 20 });
 
   assert.match(renderFramePlain(frame), /Row 10000/u);
@@ -190,7 +188,7 @@ test('large table retained damage is narrowed to changed visible rows', () => {
   const previousWidget = table({
     getRowId: (_row, index) => String(index),
     id: 'large-table-damage',
-    selectedCell: { rowId: '12000', column: 1 },
+    presentation: { selectedCell: { rowId: '12000', column: 1 } },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
@@ -204,7 +202,7 @@ test('large table retained damage is narrowed to changed visible rows', () => {
   const nextWidget = table({
     getRowId: (_row, index) => String(index),
     id: 'large-table-damage',
-    selectedCell: { rowId: '12000', column: 2 },
+    presentation: { selectedCell: { rowId: '12000', column: 2 } },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
@@ -297,7 +295,7 @@ test('form navigation over many controls records one bounded frame per input', a
     view: (state) => form([
       ...Array.from({ length: 25 }, (_value, index) => textInput({
         id: `field-${index}`,
-        value: state.active,
+        presentation: { value: state.active, cursor: 0 },
         keys: { enter: () => ({ kind: `field-${index}` }) }
       })),
       button({ id: 'done', label: 'Done', onPress: { kind: 'done' } })

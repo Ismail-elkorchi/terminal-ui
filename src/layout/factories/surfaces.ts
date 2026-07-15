@@ -31,6 +31,7 @@ export function surface<const TChild extends Element<unknown>>(
       ...(options.border === undefined ? {} : { border: options.border }),
       ...(options.shadow === undefined ? {} : { shadow: options.shadow }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
+      ...(options.focusWithin === undefined ? {} : { focusWithin: options.focusWithin }),
       ...surfaceLayoutProps(options)
     },
     children: [toRenderNode(child)] as readonly RenderNode<Message>[],

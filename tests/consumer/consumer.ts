@@ -1,5 +1,6 @@
 import {
   commandInputReducer,
+  commandInputPresentation,
   createSplitPaneState,
   createScrollState,
   scrollReducer,
@@ -58,7 +59,7 @@ function view(state: State): Element<Message> {
     | { readonly kind: 'submit' }
   > = commandInput({
     id: 'commands',
-    value: '',
+    presentation: commandInputPresentation({ input: { text: '', cursor: 0 }, history: [], suggestions: [] }),
     onAction: (action) => ({ kind: 'command' as const, action }),
     onSubmit: { kind: 'submit' as const }
   });
@@ -98,7 +99,7 @@ const command = commandInputReducer({
   input: { text: '', cursor: 0 },
   history: [],
   suggestions: []
-}, { kind: 'insert', text: 'open' });
+}, { kind: 'edit', operation: { kind: 'insert', text: 'open' } });
 const split = splitPaneReducer(createSplitPaneState(2), {
   kind: 'resizeBy',
   deltaShare: 0.1

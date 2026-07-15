@@ -1,7 +1,5 @@
-import type { TextEditOperation, TextSelection } from '../../text/index.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 import type { LayoutFlowOptions } from '../../geometry/types.ts';
-import type { TextPointerEvent } from '../../interaction/text-pointer.ts';
 import type { AnchoredSurfacePlacement } from '../../interaction/anchored-surface.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { ChoiceItem } from '../../ui-model/contracts.ts';
@@ -13,6 +11,7 @@ import type {
   SliderStepEvent
 } from '../../ui-model/forms.ts';
 import type { NumberInputAction, NumberInputPresentation } from '../../ui-model/number-input.ts';
+import type { TextInputAction, TextInputPresentation } from '../../ui-model/text-input.ts';
 import type { CalendarAction, CalendarDay } from '../../ui-model/calendar.ts';
 import type {
   CheckboxGroupAction,
@@ -68,7 +67,6 @@ export interface CheckboxOptions<TMessage = never> extends InteractiveElementOpt
   readonly label: string;
   readonly checked: boolean;
   readonly onChange?: (checked: boolean) => TMessage;
-  readonly onTextPointer?: (event: TextPointerEvent) => TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
@@ -177,17 +175,14 @@ export interface SelectOptions<TValue = string, TMessage = never> extends Intera
 }
 
 export interface TextInputOptions<TMessage = never> extends InteractiveElementOptions<TextEntryStylePart, TMessage> {
-  readonly value?: string;
-  readonly cursor?: number;
-  readonly selection?: TextSelection;
+  readonly presentation: TextInputPresentation;
   readonly placeholder?: string;
   readonly onSubmit?: TMessage;
-  readonly onTextPointer?: (event: TextPointerEvent) => TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
   readonly keys?: ElementKeyBindings<TMessage>;
-  readonly onEdit?: (operation: TextEditOperation) => TMessage;
+  readonly onAction?: (action: TextInputAction) => TMessage;
 }
 
 export interface NumberInputOptions<TMessage = never> extends InteractiveElementOptions<NumberInputStylePart, TMessage> {

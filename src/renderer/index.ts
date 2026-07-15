@@ -99,6 +99,7 @@ export type {
   RenderOperation,
   RenderSerializeOptions
 } from './internal/frame.ts';
+export type { RenderFocusRelation } from './model/renderer.ts';
 export {
   boxDrawingJoinPass
 } from './internal/frame-passes/index.ts';
@@ -137,12 +138,10 @@ export {
   clampedTextOffset,
   textOffsetAtVisualColumn,
   textPointerHitTargets,
-  textPointerMessageFactory,
   textSelectionBetween
 } from './internal/text-pointer.ts';
 export type {
   TextPointerAction,
-  TextPointerEvent,
   TextPointerHitTargetInput
 } from './internal/text-pointer.ts';
 export {

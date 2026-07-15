@@ -229,7 +229,7 @@ test('table widget renders constrained columns and selected rows', () => {
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'table',
-    selectedCell: { rowId: '1', column: 1 },
+    presentation: { selectedCell: { rowId: '1', column: 1 } },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 5 },
@@ -297,7 +297,7 @@ test('table exposes visible cell hit targets when cell selection is active', asy
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'cell-table',
-    selectedCell: { rowId: '0', column: 1 },
+    presentation: { selectedCell: { rowId: '0', column: 1 } },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 6 },
@@ -329,7 +329,7 @@ test('table exposes visible cell hit targets when cell selection is active', asy
     view: () => table({
     getRowId: (_row, index) => String(index),
     id: 'cell-table',
-      selectedCell: { rowId: '0', column: 1 },
+      presentation: { selectedCell: { rowId: '0', column: 1 } },
       columns: [
         {
           id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 6 },
@@ -356,9 +356,12 @@ test('table supports scroll state column sizing styled renderers sort markers em
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'table',
-    selectedCell: { rowId: '2', column: 1 },
-    sort: { column: 'name-1', direction: 'ascending' },
-    scroll: createScrollState({ offsetRow: 1, offsetColumn: 0, contentRows: 3, viewportRows: 2 }),
+    presentation: {
+      selectedCell: { rowId: '2', column: 1 },
+      sort: { column: 'name-1', direction: 'ascending' },
+      scroll: createScrollState({ offsetRow: 1, offsetColumn: 0, contentRows: 3, viewportRows: 2 })
+    },
+    onAction: (action) => action,
     stickyHeader: true,
     columns: [
       {
@@ -409,7 +412,7 @@ test('table source metadata describes headers rows cells separators and empty st
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'fleet-table',
-    selectedCell: { rowId: '1', column: 1 },
+    presentation: { selectedCell: { rowId: '1', column: 1 } },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 6, resizable: true },
@@ -443,7 +446,7 @@ test('table compact metric semantics tighten spacing and expose metric metadata'
     getRowId: (_row, index) => String(index),
     id: 'metrics-table',
     density: 'compact',
-    selectedRowId: '0',
+    presentation: { selectedRowId: '0' },
     stickyHeader: true,
     rows: [[18, 'node', '188M', 4.2]],
     columns: [
@@ -476,8 +479,10 @@ test('table compact fill columns keep marker width aligned with cell hit targets
     getRowId: (_row, index) => String(index),
     id: 'dense-fill-table',
     density: 'compact',
-    selectedRowId: '0',
-    selectedCell: { rowId: '0', column: 1 },
+    presentation: {
+      selectedRowId: '0',
+      selectedCell: { rowId: '0', column: 1 }
+    },
     stickyHeader: true,
     rows: [[18, 'node', 4.2]],
     columns: [
@@ -545,10 +550,12 @@ test('table header capabilities share geometry across keyboard, click, and captu
       rows,
       getRowId: reducerOptions.getRowId,
       columns,
-      selectedRowId: state.selectedRowId,
-      selectedCell: { rowId: state.selectedRowId, column: state.selectedColumn },
-      sort: state.sort,
-      columnWidths: state.columnWidths,
+      presentation: {
+        selectedRowId: state.selectedRowId,
+        selectedCell: { rowId: state.selectedRowId, column: state.selectedColumn },
+        sort: state.sort,
+        columnWidths: state.columnWidths
+      },
       onAction: (action) => ({ action })
     })
   });
@@ -608,7 +615,7 @@ test('table and paginator compose explicitly over a bounded page', () => {
     table({
     getRowId: (_row, index) => String(index),
     id: 'fleet-pages-table',
-      selectedRowId: '0',
+      presentation: { selectedRowId: '0' },
       columns: [{
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
       rows: rows.slice(page.start, page.end)
@@ -642,8 +649,9 @@ test('table supports sticky headers and both-axis scrollbars directly', () => {
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'virtual-table',
-    scroll,
+    presentation: { scroll },
     scrollbar: { axis: 'both' },
+    onAction: (action) => action,
     stickyHeader: true,
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 12 }, {
@@ -677,14 +685,17 @@ test('table uses shared horizontal scroll state', () => {
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'wide-table',
-    scroll: createScrollState({
-      offsetRow: 0,
-      offsetColumn: 12,
-      contentRows: 1,
-      contentColumns: 40,
-      viewportRows: 2,
-      viewportColumns: 16
-    }),
+    presentation: {
+      scroll: createScrollState({
+        offsetRow: 0,
+        offsetColumn: 12,
+        contentRows: 1,
+        contentColumns: 40,
+        viewportRows: 2,
+        viewportColumns: 16
+      })
+    },
+    onAction: (action) => action,
     columns: [
       {
         id: 'first-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'First', width: { kind: 'fixed', cells: 12 } },
@@ -702,12 +713,16 @@ test('table uses shared horizontal scroll state', () => {
   assert.match(output, /beta/u);
 });
 
-test('table selected cell row drives the shared vertical window and scrollbar scope', () => {
+test('table controlled scroll presentation drives the vertical window and scrollbar scope', () => {
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'selected-cell-window',
-    selectedCell: { rowId: '4', column: 0 },
+    presentation: {
+      selectedCell: { rowId: '4', column: 0 },
+      scroll: createScrollState({ contentRows: 6, offsetRow: 3 })
+    },
     scrollbar: { visible: 'always' },
+    onAction: (action) => action,
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 12 }],
     rows: [
@@ -723,7 +738,8 @@ test('table selected cell row drives the shared vertical window and scrollbar sc
   const output = renderFramePlain(frame);
 
   assert.doesNotMatch(output, /alpha/u);
-  assert.match(output, /echo/u);
+  assert.match(output, /delta/u);
+  assert.doesNotMatch(output, /echo/u);
   assert.equal(frame.accessibility.root.description, 'Showing 4-5 of 6 rows.');
   assert.equal(frame.cells.filter((cell) => cell.column === 16).length, 2);
 });

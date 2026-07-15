@@ -35,6 +35,7 @@ import {
   sliderKeyBindings,
   selectKeyBindings,
   textEditInputHandlers,
+  textActionInputHandlers,
   textInputKeyBindings
 } from '../internal/interaction.ts';
 import {
@@ -146,7 +147,6 @@ export function checkbox<const TMessage = never>(options: CheckboxOptions<TMessa
       label: options.label,
       checked: options.checked,
       ...(toMessage === undefined ? {} : { toMessage }),
-      ...(options.onTextPointer === undefined ? {} : { toTextPointerMessage: options.onTextPointer }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
@@ -361,39 +361,36 @@ function selectVisibleOptionLimit(value: number | undefined): number {
 
 export function textInput<
   const TSubmitMessage = never,
-  const TTextPointerMessage = never,
-  const TEditMessage = never,
+  const TActionMessage = never,
   const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   TextInputOptions,
-  {
-    readonly onTextPointer: TTextPointerMessage;
-    readonly onEdit: TEditMessage;
-  },
+  { readonly onAction: TActionMessage },
   { readonly onSubmit: TSubmitMessage },
   TKeys,
   TPointerMessage
->): Element<TSubmitMessage | TTextPointerMessage | TEditMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+>): Element<TSubmitMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function textInput(options: TextInputOptions<unknown>): Element<unknown> {
-  const keyMap = textInputKeyBindings(options.onEdit, options.onSubmit, options.keys);
+  const keyMap = textInputKeyBindings(options.onAction, options.onSubmit, options.keys);
+  const presentation = options.presentation;
   return elementFromRenderNode<'textInput', unknown>({
     ...requiredId(options.id, 'textInput'),
     kind: 'textInput',
     props: {
-      value: options.value ?? '',
-      ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
-      ...(options.selection === undefined ? {} : { selection: options.selection }),
+      value: presentation.value,
+      cursor: presentation.cursor,
+      ...(presentation.selection === undefined ? {} : { selection: presentation.selection }),
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
       ...(options.onSubmit === undefined ? {} : { message: options.onSubmit }),
-      ...(options.onTextPointer === undefined ? {} : { toTextPointerMessage: options.onTextPointer }),
+      ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.error === undefined ? {} : { error: options.error })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({
-      ...textEditInputHandlers(options.onEdit),
+      ...textActionInputHandlers(options.onAction),
       pointer: options.pointer,
       meta: options.meta
     })

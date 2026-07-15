@@ -1,9 +1,4 @@
-import type { RoutedPointerEvent } from '../input/pointer.ts';
-
-export type TextPointerAction = 'placeCursor' | 'extendSelection' | 'endSelection';
-
-export interface TextPointerEvent {
-  readonly action: TextPointerAction;
-  readonly offset: number;
-  readonly pointer: RoutedPointerEvent;
-}
+export type TextPointerAction =
+  | { readonly kind: 'placeCaret'; readonly offset: number }
+  | { readonly kind: 'extendSelection'; readonly anchor: number; readonly offset: number }
+  | { readonly kind: 'endSelection'; readonly anchor: number; readonly offset: number };

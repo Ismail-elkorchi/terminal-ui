@@ -8,6 +8,7 @@ import { highContrastTheme } from '../../dist/theme/index.js';
 import { createScrollState } from '../../dist/behavior/index.js';
 import {
   extractScrollbackSelectionText,
+  renderElementRegions,
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
@@ -199,6 +200,99 @@ test('scrollback selection extraction is pure and sanitized', () => {
 
   assert.equal(text, 'ha\nbravo charli');
 });
+
+test('scrollback maps pointer selection through metadata to canonical body offsets', () => {
+  const regions = renderElementRegions(scrollback({
+    id: 'selectable-log',
+    items: [
+      { id: 'alpha', timestamp: '10:30', metadata: { source: 'worker' }, text: 'alpha' },
+      { id: 'bravo', text: 'bravo' }
+    ],
+    scroll: createScrollState({ offsetRow: 0, contentRows: 2, viewportRows: 2 }),
+    onAction: (action) => ({ action })
+  }), { columns: 48, rows: 2 });
+  const target = targetById(regions, 'selectable-log:text');
+  const frame = renderElementFrame(scrollback({
+    id: 'selectable-log',
+    items: [
+      { id: 'alpha', timestamp: '10:30', metadata: { source: 'worker' }, text: 'alpha' },
+      { id: 'bravo', text: 'bravo' }
+    ],
+    scroll: createScrollState({ offsetRow: 0, contentRows: 2, viewportRows: 2 }),
+    onAction: (action) => ({ action })
+  }), { columns: 48, rows: 2 });
+  const alpha = frame.cells.find((cell) => cell.source?.part === 'body' && cell.text === 'p');
+  const bravo = frame.cells.find((cell) => cell.source?.itemId === 'bravo' && cell.text === 'a');
+  assert.ok(alpha);
+  assert.ok(bravo);
+  const press = pointerAt(target, 'pointerDown', alpha.row, alpha.column);
+  const drag = pointerAt(target, 'drag', bravo.row, bravo.column, alpha);
+
+  assert.deepEqual(target.focus, { kind: 'focus', path: ['selectable-log'] });
+  assert.deepEqual(target.message(press)?.action, {
+    kind: 'pointer',
+    action: { kind: 'placeCaret', offset: 2 }
+  });
+  assert.deepEqual(target.message(drag)?.action, {
+    kind: 'pointer',
+    action: { kind: 'extendSelection', anchor: 2, offset: 8 }
+  });
+});
+
+test('wrapped scrollback preserves selected body source and visual style', () => {
+  const frame = renderElementFrame(scrollback({
+    id: 'wrapped-selection',
+    items: [{ id: 'alpha', text: 'alpha bravo' }],
+    wrap: true,
+    selectedRange: { start: 2, end: 8 }
+  }), { columns: 5, rows: 4 });
+  const selected = frame.cells.filter((cell) => cell.source?.part === 'body.selection');
+
+  assert.equal(selected.map((cell) => cell.text).join(''), 'pha br');
+  assert.equal(selected.every((cell) => cell.style?.bg?.token === 'selection.background'), true);
+  assert.ok(new Set(selected.map((cell) => cell.row)).size > 1);
+});
+
+function targetById(regions, id) {
+  const target = regions.flatMap((region) => region.hitTargets).find((current) => current.id === id);
+  assert.ok(target, `expected hit target ${id}`);
+  return target;
+}
+
+function pointerAt(target, kind, row, column, press) {
+  const localRow = row - target.bounds.row + 1;
+  const localColumn = column - target.bounds.column + 1;
+  return {
+    kind,
+    source: 'mouse',
+    row,
+    column,
+    localRow,
+    localColumn,
+    ...(press === undefined ? {} : {
+      pressRow: press.row,
+      pressColumn: press.column,
+      pressLocalRow: press.row - target.bounds.row + 1,
+      pressLocalColumn: press.column - target.bounds.column + 1
+    }),
+    button: 'left',
+    modifiers: { shift: false, alt: false, ctrl: false },
+    deltaRows: 0,
+    deltaColumns: 0,
+    targetId: target.id,
+    raw: {
+      kind: 'mouse',
+      sequence: '',
+      encoding: 'sgr',
+      action: kind === 'pointerDown' ? 'press' : 'drag',
+      button: 'left',
+      row,
+      column,
+      rawCode: kind === 'pointerDown' ? 0 : 32,
+      modifiers: { shift: false, alt: false, ctrl: false }
+    }
+  };
+}
 
 function colorCapabilities() {
   return resolveTerminalCapabilities({

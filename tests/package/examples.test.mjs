@@ -23,6 +23,12 @@ for (const example of exampleScripts) {
       assert.equal(summary.rootOpened, true);
       assert.equal(summary.activeFile, 'plan.md');
       assert.equal(summary.savedReadme, true);
+      assert.equal(summary.pointerSelectionLength > 0, true);
+      assert.equal(summary.pointerReplacementApplied, true);
+      assert.equal(summary.chooserOpened, true);
+      assert.equal(summary.chooserFocused, true);
+      assert.equal(summary.chooserCompleted, true);
+      assert.equal(summary.chooserFocusRestored, true);
       assert.equal(summary.openBuffers, 2);
       assert.equal(summary.dirtyBuffers, 0);
       assert.equal(summary.paletteQuery, 'save');
@@ -40,6 +46,8 @@ for (const example of exampleScripts) {
       assert.equal(summary.status, 'ok');
       assert.equal(summary.selectedNode, 'queue:review');
       assert.equal(summary.activeTab, 'activity');
+      assert.equal(summary.tabSelectedByPointer, true);
+      assert.equal(summary.tabSelectedByKeyboard, true);
       assert.equal(summary.paletteUsed, true);
       assert.equal(summary.pointerTree, true);
       assert.equal(summary.pointerTable, true);
@@ -48,7 +56,19 @@ for (const example of exampleScripts) {
       assert.equal(summary.commandAfterPaletteAccept, '/issues');
       assert.equal(summary.visible, true);
       assert.equal(summary.tableHitTargets > 0, true);
+      assert.equal(summary.narrowRows, 24);
+      assert.equal(summary.focusValidAfterResize, true);
+      assert.equal(summary.statusVisible, true);
       assert.ok(summary.frames >= 4);
+    }
+    if (example.endsWith('/btop-monitor.mjs')) {
+      const summary = JSON.parse(result.stdout);
+      assert.equal(summary.status, 'ok');
+      assert.equal(summary.wheelBatchShared, true);
+      assert.equal(summary.offsetAfterWheel > 0, true);
+      assert.equal(summary.offsetAfterDrag > summary.offsetAfterWheel, true);
+      assert.equal(summary.keyboardSelectionMoved, true);
+      assert.equal(summary.metrics.wheelPackets, 3);
     }
   });
 }

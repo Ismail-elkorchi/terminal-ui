@@ -1,14 +1,29 @@
-import type { TableAction, TablePresentation, TableSortState } from '../ui-model/table.ts';
+import type {
+  TableAction,
+  TableControlAction,
+  TablePresentation,
+  TableScrollablePresentation,
+  TableSortState
+} from '../ui-model/table.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 
-export interface TableState {
+interface TableStateBase {
   readonly selectedRowId?: string;
   readonly selectedColumn?: number;
   readonly sort?: TableSortState;
   readonly columnWidths?: Readonly<Record<string, number>>;
-  readonly scroll?: ScrollState;
 }
+
+export interface PassiveTableState extends TableStateBase {
+  readonly scroll?: never;
+}
+
+export interface ScrollableTableState extends TableStateBase {
+  readonly scroll: ScrollState;
+}
+
+export type TableState = PassiveTableState | ScrollableTableState;
 
 export interface TableReducerOptions<TRow> {
   readonly rows: readonly TRow[];
@@ -19,6 +34,16 @@ export interface TableReducerOptions<TRow> {
 
 export type TableCellValueGetter<TRow> = (row: TRow, column: string) => unknown;
 
+export function tableReducer<TRow>(
+  state: ScrollableTableState,
+  action: TableAction,
+  options: TableReducerOptions<TRow>
+): ScrollableTableState;
+export function tableReducer<TRow>(
+  state: PassiveTableState,
+  action: TableControlAction,
+  options: TableReducerOptions<TRow>
+): PassiveTableState;
 export function tableReducer<TRow>(
   state: TableState,
   action: TableAction,
@@ -75,15 +100,22 @@ export function tableReducer<TRow>(
   }
 }
 
-export function tablePresentation(state: TableState): TablePresentation {
+export function tablePresentation(state: PassiveTableState): TablePresentation {
+  return tablePresentationBase(state);
+}
+
+export function tableScrollablePresentation(state: ScrollableTableState): TableScrollablePresentation {
+  return { ...tablePresentationBase(state), scroll: state.scroll };
+}
+
+function tablePresentationBase(state: TableStateBase): TablePresentation {
   return {
     ...(state.selectedRowId === undefined ? {} : { selectedRowId: state.selectedRowId }),
     ...(state.selectedRowId === undefined || state.selectedColumn === undefined
       ? {}
       : { selectedCell: { rowId: state.selectedRowId, column: state.selectedColumn } }),
     ...(state.sort === undefined ? {} : { sort: state.sort }),
-    ...(state.columnWidths === undefined ? {} : { columnWidths: state.columnWidths }),
-    ...(state.scroll === undefined ? {} : { scroll: state.scroll })
+    ...(state.columnWidths === undefined ? {} : { columnWidths: state.columnWidths })
   };
 }
 

@@ -66,7 +66,7 @@ function workspaceView(state) {
       sizes: [{ kind: 'fixed', cells: 20 }, { kind: 'fill' }]
     }),
     statusBar({ id: 'status', leading: [{ id: 'view', kind: 'text', text: state.palette ? 'palette' : 'log' }] }),
-    commandInput({ id: 'command', prompt: '/', value: state.query })
+    commandInput({ id: 'command', prompt: '/', presentation: { value: state.query, cursor: 0, suggestions: [] } })
   ], {
     id: 'workspace',
     rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }],

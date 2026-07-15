@@ -124,10 +124,37 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "bounds": { "$ref": "#/$defs/rect" },
+        "accepts": {
+          "type": "array",
+          "items": {
+            "enum": ["pointerDown", "pointerUp", "click", "contextMenu", "scroll", "dragStart", "drag", "dragEnd", "hover", "enter", "leave"]
+          },
+          "uniqueItems": true
+        },
+        "focus": { "$ref": "#/$defs/pointerFocus" },
         "cursor": { "enum": ["pointer", "text", "default"] },
         "zIndex": { "type": "integer" }
       },
       "additionalProperties": false
+    },
+    "pointerFocus": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "path"],
+          "properties": {
+            "kind": { "const": "focus" },
+            "path": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "preserve" } },
+          "additionalProperties": false
+        }
+      ]
     },
     "frameBufferSnapshotMetadata": {
       "type": "object",

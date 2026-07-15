@@ -79,7 +79,7 @@ test('button and text input use user style slots', () => {
 }), { columns: 12, rows: 1 });
   const inputFrame = renderElementFrame(textInput({
     id: 'styled-input',
-    value: 'abc',
+    presentation: { value: 'abc', cursor: 0 },
     meta: {
         styles: {
             parts: { value: tokenStyle('status.warning') },
@@ -169,10 +169,8 @@ test('controlled pointer presentation resolves styles and source state across co
   }), { columns: 20, rows: 2 });
   const commandFrame = renderElementFrame(commandInput({
     id: 'command',
-    value: '/o',
+    presentation: { value: '/o', cursor: 0, suggestions: [{ value: '/open', label: 'Open' }, { value: '/save', label: 'Save' }], selectedSuggestion: 0 },
     display: 'expanded',
-    suggestions: [{ value: '/open', label: 'Open' }, { value: '/save', label: 'Save' }],
-    selectedSuggestion: 0,
     pointer: { state: { hoveredTargetId: 'command:suggestion:1' } }
   }), { columns: 24, rows: 3 });
   const paginatorFrame = renderElementFrame(paginator({
@@ -207,7 +205,7 @@ test('controlled pointer presentation resolves styles and source state across co
 test('text entry chrome uses shared border focus and error styles', () => {
   const inputFrame = renderElementFrame(textInput({
     id: 'query',
-    value: 'abc',
+    presentation: { value: 'abc', cursor: 0 },
     meta: {
         styles: {
             parts: { border: tokenStyle('status.info') },
@@ -217,7 +215,7 @@ test('text entry chrome uses shared border focus and error styles', () => {
 }), { columns: 16, rows: 1 }, { focusPath: ['query'] });
   const areaFrame = renderElementFrame(textArea({
     id: 'body',
-    value: 'details',
+    presentation: { value: 'details', cursor: 0 },
     error: 'Required',
     meta: {
         styles: {
@@ -301,7 +299,7 @@ test('list table and tree share data navigation selection and match styles', () 
   const tableFrame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'styled-table',
-    selectedRowId: '0',
+    presentation: { selectedRowId: '0' },
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [['Atlas'], ['Pulse']]
@@ -309,7 +307,7 @@ test('list table and tree share data navigation selection and match styles', () 
   const activeTableFrame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'active-table',
-    selectedCell: { rowId: '0', column: 0 },
+    presentation: { selectedCell: { rowId: '0', column: 0 } },
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [['Atlas'], ['Pulse']]
@@ -350,20 +348,18 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
 }), { columns: 16, rows: 1 }, { focusPath: ['none'] });
   const inputFrame = renderElementFrame(textInput({
     id: 'query',
-    value: 'find',
+    presentation: { value: 'find', cursor: 0 },
     meta: {
         focus: { disabled: true }
     }
 }), { columns: 18, rows: 1 });
   const commandFrame = renderElementFrame(commandInput({
     id: 'command',
-    value: '/open README.md',
-    display: 'expanded',
-    suggestions: [
+    presentation: { value: '/open README.md', cursor: 0, suggestions: [
       { value: '/open', label: 'Open file' },
       { value: '/save', label: 'Save file' }
-    ],
-    selectedSuggestion: 0
+    ], selectedSuggestion: 0 },
+    display: 'expanded',
   }), { columns: 36, rows: 3 });
   const menuFrame = renderElementFrame(menu({
     id: 'menu',
@@ -552,11 +548,11 @@ test('semantic text roles use shared visual grammar', () => {
 });
 
 test('passive surfaces keep visual state separate from descendant focus', () => {
-  const focusedFrame = renderElementFrame(surface(textInput({ id: 'pane-field', value: 'Pane' }), {
+  const focusedFrame = renderElementFrame(surface(textInput({ id: 'pane-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'focus-surface',
     variant: 'chrome'
   }), { columns: 10, rows: 1 }, { focusPath: ['focus-surface', 'pane-field'] });
-  const customFrame = renderElementFrame(surface(textInput({ id: 'custom-field', value: 'Pane' }), {
+  const customFrame = renderElementFrame(surface(textInput({ id: 'custom-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'custom-focus-surface',
     variant: 'chrome',
     meta: {
@@ -565,9 +561,15 @@ test('passive surfaces keep visual state separate from descendant focus', () => 
         }
     }
 }), { columns: 10, rows: 1 }, { focusPath: ['custom-focus-surface', 'custom-field'] });
+  const focusWithinFrame = renderElementFrame(surface(textInput({ id: 'within-field', presentation: { value: 'Pane', cursor: 0 } }), {
+    id: 'focus-within-surface',
+    variant: 'chrome',
+    focusWithin: true
+  }), { columns: 10, rows: 1 }, { focusPath: ['focus-within-surface', 'within-field'] });
 
   assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'surface.chrome.background');
   assert.equal(styleForCell(customFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'surface.chrome.background');
+  assert.equal(styleForCell(focusWithinFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'focus.background');
 });
 
 test('surface visualState exposes selected panes without stealing focus semantics', () => {
@@ -576,7 +578,7 @@ test('surface visualState exposes selected panes without stealing focus semantic
     variant: 'chrome',
     visualState: 'selected'
   }), { columns: 10, rows: 1 });
-  const focusedFrame = renderElementFrame(surface(textInput({ id: 'focused-field', value: 'Pane' }), {
+  const focusedFrame = renderElementFrame(surface(textInput({ id: 'focused-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'focused-surface',
     variant: 'chrome',
     visualState: 'selected'

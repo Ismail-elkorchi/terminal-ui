@@ -9,6 +9,7 @@ import { mergeStyles, resolveRenderNodeStyle } from './render-node-style.ts';
 import { stringify } from './render-node-props.ts';
 import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
+import type { RenderFocusRelation } from '../model/renderer.ts';
 import { renderBorderTitle } from './border-title.ts';
 
 export type { SurfaceVariant } from '../../visual/surface.ts';
@@ -42,8 +43,9 @@ export function drawSurfaceChrome(
   bounds: Rect,
   widget: SurfaceNode,
   theme: TerminalTheme,
-  focused: boolean
+  focus: RenderFocusRelation
 ): void {
+  const focused = focus === 'self' || (focus === 'descendant' && widget.props.focusWithin === true);
   const variant = surfaceVariantFromValue(widget.props.variant);
   const border = surfaceBorderForBounds(widget, bounds, variant, theme);
   drawSurfaceFrame(buffer, bounds, widget, theme, focused, {
@@ -130,11 +132,13 @@ function surfaceBorderWithinBounds(border: BorderStyle | undefined, bounds: Rect
 
 function surfaceFocusedBorder(border: BorderStyle | undefined, focused: boolean): BorderStyle | undefined {
   if (border === undefined || !focused || border.kind === 'none') return border;
+  const focusStyle = border.focusStyle;
   return {
     ...border,
     style: {
+      ...(focusStyle ?? { fg: { kind: 'theme', token: 'focus.border' } }),
       ...border.style,
-      ...(border.focusStyle ?? { fg: { kind: 'theme', token: 'focus.border' } })
+      ...(focusStyle ?? {})
     }
   };
 }

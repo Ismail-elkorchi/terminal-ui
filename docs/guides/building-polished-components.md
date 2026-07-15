@@ -49,8 +49,15 @@ When content is larger than the bounds:
 Keyboard behavior comes from component event props, `keys`, editable-text
 handlers, focus metadata, and renderer focus targets. Pointer behavior comes
 from hit targets. The runtime routes input after rendering; renderers describe
-target geometry, accepted pointer event kinds, and how a routed pointer event
-maps to a caller-owned message.
+target geometry, accepted pointer event kinds, focus intent, and how a routed
+pointer event maps to a caller-owned message. Built-in focusable controls bind
+their pointer targets to their single declared focus target. Custom renderers
+must declare that relationship explicitly.
+
+Renderer visual focus is a relation: `none`, `self`, or `descendant`.
+Accessibility remains exact and marks only the active target as focused.
+`surface({ focusWithin: true })` may use descendant focus for an active-pane
+treatment; passive surfaces do not inherit focus styling.
 
 Layer metadata controls z-order. Higher visible layers render above lower
 layers and receive pointer hits first. Modal or popover-like compositions can

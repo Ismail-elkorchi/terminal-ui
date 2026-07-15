@@ -77,12 +77,12 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
     view: (state) => column([
       textInput({
         id: 'first',
-        value: state.active,
+        presentation: { value: state.active, cursor: 0 },
         keys: { enter: () => ({ kind: 'first' }) }
       }),
       textInput({
     id: 'disabled',
-    value: state.active,
+    presentation: { value: state.active, cursor: 0 },
     keys: { enter: () => ({ kind: 'disabled' }) },
     meta: {
         focus: { disabled: true }
@@ -90,7 +90,7 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
 }),
       textInput({
         id: 'second',
-        value: state.active,
+        presentation: { value: state.active, cursor: 0 },
         keys: { enter: () => ({ kind: 'second' }) }
       })
     ], { id: 'focus-root' })

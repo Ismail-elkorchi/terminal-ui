@@ -1,22 +1,38 @@
 import { findTextHighlightMatches, sanitizeTerminalText } from '../text/index.ts';
 import { applyScrollEvent, createScrollState, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
+import type { TextSelection } from '../text/index.ts';
 import type { ScrollbackItem } from '../ui-model/documents.ts';
-import type { ScrollbackAction } from '../ui-model/scrollback.ts';
+import type { ScrollbackAction, ScrollbackControlAction } from '../ui-model/scrollback.ts';
+import { selectionFromTextPointerAction } from './text-editing.ts';
 
-export interface ScrollbackState {
+interface ScrollbackStateBase {
   readonly searchQuery?: string;
   readonly selectedMatchIndex?: number;
   readonly foldedIds: readonly string[];
   readonly followTail: boolean;
-  readonly scroll?: ScrollState;
+  readonly selectedRange?: TextSelection;
 }
+
+export interface PassiveScrollbackState extends ScrollbackStateBase {
+  readonly scroll?: never;
+}
+
+export interface ScrollableScrollbackState extends ScrollbackStateBase {
+  readonly scroll: ScrollState;
+}
+
+export type ScrollbackState = PassiveScrollbackState | ScrollableScrollbackState;
 
 export interface ScrollbackPresentation {
   readonly items: readonly ScrollbackItem[];
   readonly followTail: boolean;
   readonly searchQuery?: string;
-  readonly scroll?: ScrollState;
+  readonly selectedRange?: TextSelection;
+}
+
+export interface ScrollbackScrollablePresentation extends ScrollbackPresentation {
+  readonly scroll: ScrollState;
 }
 
 export interface ScrollbackSearchMark {
@@ -25,12 +41,26 @@ export interface ScrollbackSearchMark {
   readonly matchCount: number;
 }
 
+export function scrollbackReducer(
+  state: ScrollableScrollbackState,
+  action: ScrollbackAction
+): ScrollableScrollbackState;
+export function scrollbackReducer(
+  state: PassiveScrollbackState,
+  action: ScrollbackControlAction
+): PassiveScrollbackState;
 export function scrollbackReducer(state: ScrollbackState, action: ScrollbackAction): ScrollbackState {
   switch (action.kind) {
     case 'scroll':
       return state.scroll === undefined
         ? state
         : { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
+    case 'pointer': {
+      const selectedRange = selectionFromTextPointerAction(action.action);
+      if (selectedRange !== undefined) return { ...state, selectedRange };
+      const { selectedRange: previousSelection, ...withoutSelection } = state;
+      return previousSelection === undefined ? state : withoutSelection;
+    }
     case 'setSearchQuery':
       return action.query === undefined || action.query.length === 0
         ? withoutSearch(state)
@@ -64,13 +94,27 @@ export function scrollbackReducer(state: ScrollbackState, action: ScrollbackActi
 
 export function scrollbackPresentation(
   items: readonly ScrollbackItem[],
-  state: ScrollbackState
+  state: PassiveScrollbackState
+): ScrollbackPresentation {
+  return scrollbackPresentationBase(items, state);
+}
+
+export function scrollbackScrollablePresentation(
+  items: readonly ScrollbackItem[],
+  state: ScrollableScrollbackState
+): ScrollbackScrollablePresentation {
+  return { ...scrollbackPresentationBase(items, state), scroll: state.scroll };
+}
+
+function scrollbackPresentationBase(
+  items: readonly ScrollbackItem[],
+  state: ScrollbackStateBase
 ): ScrollbackPresentation {
   return {
     items: visibleScrollbackItems(items, state),
     followTail: state.followTail,
     ...(state.searchQuery === undefined ? {} : { searchQuery: state.searchQuery }),
-    ...(state.scroll === undefined ? {} : { scroll: state.scroll })
+    ...(state.selectedRange === undefined ? {} : { selectedRange: state.selectedRange })
   };
 }
 
@@ -152,6 +196,7 @@ function withoutSearch(state: ScrollbackState): ScrollbackState {
   return {
     foldedIds: state.foldedIds,
     followTail: state.followTail,
-    ...(state.scroll === undefined ? {} : { scroll: state.scroll })
+    ...(state.scroll === undefined ? {} : { scroll: state.scroll }),
+    ...(state.selectedRange === undefined ? {} : { selectedRange: state.selectedRange })
   };
 }

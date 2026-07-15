@@ -78,12 +78,22 @@ export function tabsAccessibleChildren(widget: TabsNode): readonly AccessibleNod
   const selected = selectedTabIndex(widget, tabs);
   return tabs.map((tab, index) => ({
     id: `${widget.id ?? 'tabs'}:${tab.id}`,
-    role: 'menuitem',
+    role: 'tab',
     label: tab.label,
     ...(tab.badge === undefined ? {} : { value: tab.badge }),
     ...(tab.description === undefined ? {} : { description: tab.description }),
     selected: index === selected,
-    disabled: tab.disabled === true
+    disabled: tab.disabled === true,
+    ...(widget.children?.[index]?.id === undefined ? {} : { controls: widget.children[index].id }),
+    ...(tab.closable !== true || tab.disabled === true
+      ? {}
+      : {
+          children: [{
+            id: tabCloseTargetId(widget, tab.id),
+            role: 'button' as const,
+            label: `Close ${tab.label}`
+          }]
+        })
   }));
 }
 
@@ -325,7 +335,7 @@ function tabHeaderSpans(
   const closeStyle = tabCloseStyle(widget, closeState);
   const badge = tab.badge;
   const baseSpans = [
-    tabSpan(widget, selected ? '[' : ' ', markerStyle, tab.id, selected ? 'marker.selected.open' : 'marker.unselected.open', 'decoration', 'marker', state),
+    tabSpan(widget, selected ? '▏' : ' ', markerStyle, tab.id, 'indicator', 'decoration', 'indicator', state),
     ...tabLeadingSpans(widget, tab, state, style, theme),
     ...(tab.leading === undefined ? [] : [tabSpan(widget, ' ', style, tab.id, 'leading.separator', 'separator', 'leading', state)]),
     tabSpan(widget, tab.label, style, tab.id, 'label', 'text', 'label', state),
@@ -347,9 +357,7 @@ function tabHeaderSpans(
     : [
         tabSpan(widget, '×', closeStyle, tab.id, 'close', 'text', 'close', closeState)
       ];
-  const endSpans = [
-    tabSpan(widget, selected ? ']' : ' ', markerStyle, tab.id, selected ? 'marker.selected.close' : 'marker.unselected.close', 'decoration', 'marker', state)
-  ];
+  const endSpans = [tabSpan(widget, ' ', style, tab.id, 'padding.trailing', 'separator', 'separator', state)];
   const spans = [...baseSpans, ...closeSpans, ...endSpans];
   const width = measureRenderSpans(spans);
   return {

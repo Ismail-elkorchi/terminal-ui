@@ -70,6 +70,9 @@ function firstNodeIssue(node: unknown, ids: Set<string>): TerminalDiagnostic | u
   if (labelIssue !== undefined) return labelIssue;
   const descriptionIssue = optionalStringIssue(node, 'description', id);
   if (descriptionIssue !== undefined) return descriptionIssue;
+  const controlsIssue = optionalStringIssue(node, 'controls', id);
+  if (controlsIssue !== undefined) return controlsIssue;
+  if (node['controls'] === '') return accessibilityFailure('Accessible node controls must not be empty.', id);
   if (node['value'] !== undefined && !isAccessibleValue(node['value'])) {
     return accessibilityFailure('Accessible node value must be string, number, boolean, or null.', id);
   }
@@ -225,7 +228,7 @@ function progressIssueForNode(node: Record<string, unknown>, id: string): Termin
 
 function optionalStringIssue(
   node: Record<string, unknown>,
-  field: 'label' | 'description',
+  field: 'label' | 'description' | 'controls',
   id: string
 ): TerminalDiagnostic | undefined {
   if (node[field] === undefined) return undefined;

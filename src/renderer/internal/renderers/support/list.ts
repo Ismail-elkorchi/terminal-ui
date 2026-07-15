@@ -12,7 +12,7 @@ import { resolveRenderNodeStyle, themeStyle } from '../../render-node-style.ts';
 import type { LayoutNode, Rect } from '../../../model/layout.ts';
 import type { RenderBlock, RenderLine } from '../../../../visual/render.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
-import type { ListAction } from '../../../../ui-model/list.ts';
+import type { ListControlAction } from '../../../../ui-model/list.ts';
 import { interactionVisualState, renderNodeTargetId } from '../../pointer-presentation.ts';
 import { measureBlock } from '../../measurement.ts';
 import type { Measurement } from '../../../model/measurement.ts';
@@ -240,7 +240,7 @@ function scrollInput(widget: ListNode): { readonly scroll?: ScrollState } {
   return scroll === undefined ? {} : { scroll };
 }
 
-function toActionMessageProp<TMessage>(widget: ListNode<TMessage>): ((action: ListAction) => TMessage) | undefined {
+function toActionMessageProp<TMessage>(widget: ListNode<TMessage>): ((action: ListControlAction) => TMessage) | undefined {
   return widget.props.toActionMessage;
 }
 

@@ -2,6 +2,7 @@ import { editTextBuffer } from '../text/index.ts';
 import type { TextEditBuffer } from '../text/index.ts';
 import type { CommandInputAction } from '../ui-model/command-input.ts';
 import type { SuggestionItem } from '../ui-model/contracts.ts';
+import { applyTextPointerAction } from './text-editing.ts';
 
 export interface CommandInputState {
   readonly input: TextEditBuffer;
@@ -13,22 +14,13 @@ export interface CommandInputState {
 
 export function commandInputReducer(state: CommandInputState, action: CommandInputAction): CommandInputState {
   switch (action.kind) {
-    case 'insert':
-    case 'deleteBackward':
-    case 'deleteForward':
-    case 'deleteWordBackward':
-    case 'deleteWordForward':
-    case 'moveLeft':
-    case 'moveRight':
-    case 'moveWordLeft':
-    case 'moveWordRight':
-    case 'moveHome':
-    case 'moveEnd':
-    case 'selectAll':
+    case 'edit':
       return withClearedHistory({
         ...state,
-        input: editTextBuffer(state.input, actionToTextEdit(action))
+        input: editTextBuffer(state.input, action.operation)
       });
+    case 'pointer':
+      return withClearedHistory({ ...state, input: applyTextPointerAction(state.input, action.action) });
     case 'setValue':
       return withClearedHistory({ ...state, input: { text: action.value, cursor: action.value.length } });
     case 'historyPrevious':
@@ -46,81 +38,6 @@ export function commandInputReducer(state: CommandInputState, action: CommandInp
         : withClearedSuggestion({ ...state, input: { text: suggestion.value, cursor: suggestion.value.length } });
     }
   }
-}
-
-function actionToTextEdit(
-  action: Extract<
-    CommandInputAction,
-    {
-      readonly kind:
-        | 'insert'
-        | 'deleteBackward'
-        | 'deleteForward'
-        | 'deleteWordBackward'
-        | 'deleteWordForward'
-        | 'moveLeft'
-        | 'moveRight'
-        | 'moveWordLeft'
-        | 'moveWordRight'
-        | 'moveHome'
-        | 'moveEnd'
-        | 'selectAll';
-    }
-  >
-): Parameters<typeof editTextBuffer>[1] {
-  switch (action.kind) {
-    case 'insert':
-      return { kind: 'insert', text: action.text };
-    case 'deleteBackward':
-    case 'deleteForward':
-    case 'deleteWordBackward':
-    case 'deleteWordForward':
-    case 'selectAll':
-      return { kind: action.kind };
-    case 'moveLeft':
-      return optionalSelection('moveLeft', action.select);
-    case 'moveRight':
-      return optionalSelection('moveRight', action.select);
-    case 'moveWordLeft':
-      return optionalSelection('moveWordLeft', action.select);
-    case 'moveWordRight':
-      return optionalSelection('moveWordRight', action.select);
-    case 'moveHome':
-      return optionalSelection('moveHome', action.select);
-    case 'moveEnd':
-      return optionalSelection('moveEnd', action.select);
-  }
-}
-
-function optionalSelection(
-  kind: 'moveLeft',
-  select: boolean | undefined
-): Extract<Parameters<typeof editTextBuffer>[1], { readonly kind: 'moveLeft' }>;
-function optionalSelection(
-  kind: 'moveRight',
-  select: boolean | undefined
-): Extract<Parameters<typeof editTextBuffer>[1], { readonly kind: 'moveRight' }>;
-function optionalSelection(
-  kind: 'moveWordLeft',
-  select: boolean | undefined
-): Extract<Parameters<typeof editTextBuffer>[1], { readonly kind: 'moveWordLeft' }>;
-function optionalSelection(
-  kind: 'moveWordRight',
-  select: boolean | undefined
-): Extract<Parameters<typeof editTextBuffer>[1], { readonly kind: 'moveWordRight' }>;
-function optionalSelection(
-  kind: 'moveHome',
-  select: boolean | undefined
-): Extract<Parameters<typeof editTextBuffer>[1], { readonly kind: 'moveHome' }>;
-function optionalSelection(
-  kind: 'moveEnd',
-  select: boolean | undefined
-): Extract<Parameters<typeof editTextBuffer>[1], { readonly kind: 'moveEnd' }>;
-function optionalSelection(
-  kind: 'moveLeft' | 'moveRight' | 'moveWordLeft' | 'moveWordRight' | 'moveHome' | 'moveEnd',
-  select: boolean | undefined
-): Parameters<typeof editTextBuffer>[1] {
-  return select === undefined ? { kind } : { kind, select };
 }
 
 function commandInputHistory(state: CommandInputState, direction: 1 | -1): CommandInputState {

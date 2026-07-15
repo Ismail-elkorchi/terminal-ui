@@ -32,7 +32,7 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
   const widget = form([
     field(textInput({
       id: 'name-input',
-      value: '',
+      presentation: { value: '', cursor: 0 },
       placeholder: 'Project name',
       required: true,
       error: 'Name is required'
@@ -150,7 +150,7 @@ test('form fields expose label required description and validation source anatom
   const widget = form([
     field(textInput({
       id: 'name-input',
-      value: '',
+      presentation: { value: '', cursor: 0 },
       placeholder: 'Project name',
       required: true,
       error: 'Name is required'
@@ -187,7 +187,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
   const widget = form([
     field(textInput({
       id: 'email',
-      value: 'user@example.test',
+      presentation: { value: 'user@example.test', cursor: 0 },
       required: true
     }), {
       id: 'email-field',
@@ -242,9 +242,11 @@ test('form controls emit submit and cancel messages while app state owns values'
     view: (state) => form([
       textInput({
         id: 'query',
-        value: state.result,
-        onEdit: (operation) => ({
-          kind: operation.kind === 'insert' ? `typed:${operation.text}` : operation.kind
+        presentation: { value: state.result, cursor: 0 },
+        onAction: (action) => ({
+          kind: action.kind === 'edit' && action.operation.kind === 'insert'
+            ? `typed:${action.operation.text}`
+            : action.kind
         })
       }),
       row([

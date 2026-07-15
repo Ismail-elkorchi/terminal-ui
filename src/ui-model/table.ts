@@ -13,7 +13,10 @@ export interface TablePresentation {
   readonly selectedCell?: { readonly rowId: string; readonly column: number };
   readonly sort?: TableSortState;
   readonly columnWidths?: Readonly<Record<string, number>>;
-  readonly scroll?: ScrollState;
+}
+
+export interface TableScrollablePresentation extends TablePresentation {
+  readonly scroll: ScrollState;
 }
 
 export type TableAction =
@@ -29,3 +32,5 @@ export type TableAction =
   | { readonly kind: 'resizeColumnBy'; readonly column: string; readonly delta: number }
   | { readonly kind: 'setColumnWidth'; readonly column: string; readonly width: number }
   | { readonly kind: 'scroll'; readonly event: ScrollEvent };
+
+export type TableControlAction = Exclude<TableAction, { readonly kind: 'scroll' }>;

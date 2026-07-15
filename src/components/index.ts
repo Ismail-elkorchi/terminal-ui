@@ -54,8 +54,16 @@ export type {
   InlineSymbolSegment,
   InlineTextSegment
 } from '../visual/inline-content.ts';
-export type { CommandInputAction } from '../ui-model/command-input.ts';
-export type { ListAction } from '../ui-model/list.ts';
+export type { CommandInputAction, CommandInputPresentation } from '../ui-model/command-input.ts';
+export type { TextInputAction, TextInputPresentation } from '../ui-model/text-input.ts';
+export type {
+  TextAreaAction,
+  TextAreaControlAction,
+  TextAreaPresentation,
+  TextAreaScrollablePresentation
+} from '../ui-model/text-area.ts';
+export type { TextPointerAction } from '../interaction/text-pointer.ts';
+export type { ListAction, ListControlAction } from '../ui-model/list.ts';
 export type { ListItemProjection, ListItemProjector } from '../ui-model/list.ts';
 export type {
   RangeSliderAction,
@@ -63,8 +71,15 @@ export type {
   RangeSliderPresentation,
   RangeSliderState
 } from '../ui-model/range-slider.ts';
-export type { TableAction, TablePresentation, TableSortDirection, TableSortState } from '../ui-model/table.ts';
-export type { TreeAction, TreeDisclosureAction, TreeNode } from '../ui-model/tree.ts';
+export type {
+  TableAction,
+  TableControlAction,
+  TablePresentation,
+  TableScrollablePresentation,
+  TableSortDirection,
+  TableSortState
+} from '../ui-model/table.ts';
+export type { TreeAction, TreeControlAction, TreeDisclosureAction, TreeNode } from '../ui-model/tree.ts';
 export type { NumberInputAction, NumberInputValidity } from '../ui-model/number-input.ts';
 export type { PaginatorAction } from '../ui-model/paginator.ts';
 export type { NotificationStackAction } from '../ui-model/notification-stack.ts';
@@ -85,7 +100,7 @@ export type {
 } from '../ui-model/menu.ts';
 export type { TabAction } from '../ui-model/tabs.ts';
 export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
-export type { ScrollbackAction } from '../ui-model/scrollback.ts';
+export type { ScrollbackAction, ScrollbackControlAction } from '../ui-model/scrollback.ts';
 export type { ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
 export type {
   CheckboxGroupAction,

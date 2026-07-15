@@ -405,8 +405,9 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(commandInput, /from '\.\/text-display\.ts'/u);
   assert.match(commandInput, /from '\.\/command-visual\.ts'/u);
   assert.match(commandVisual, /from '\.\/text-highlight\.ts'/u);
-  assert.match(commandSurface, /\bmoveWordLeft\b/u);
-  assert.match(commandSurface, /\bselectAll\b/u);
+  assert.match(commandSurface, /import \{ editTextBuffer \} from '\.\.\/text\/index\.ts';/u);
+  assert.match(commandSurface, /editTextBuffer\(state\.input, action\.operation\)/u);
+  assert.doesNotMatch(commandSurface, /case 'moveWordLeft'/u);
   assert.match(formWidgets, /from '\.\.\/\.\.\/text-display\.ts'/u);
   assert.match(formWidgets, /from '\.\.\/\.\.\/input-visual\.ts'/u);
   assert.match(formWidgets, /from '\.\.\/form-visual\.ts'/u);

@@ -54,7 +54,7 @@ function update(state: State, message: Message): State {
 function view(state: State) {
   return commandInput({
     id: 'command',
-    ...commandInputPresentation(state.command),
+    presentation: commandInputPresentation(state.command),
     onAction: (action) => ({ kind: 'command', action }),
     onSubmit: { kind: 'submit' }
   });
@@ -112,24 +112,24 @@ Hierarchical data uses the same controlled shape without moving application
 effects into the component:
 
 ```ts
-import { tree, type TreeAction, type TreeNode } from '@ismail-elkorchi/terminal-ui/components';
+import { tree, type TreeControlAction, type TreeNode } from '@ismail-elkorchi/terminal-ui/components';
 import {
   treePresentation,
   treeReducer,
-  type TreeState
+  type PassiveTreeState
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
-type Message = { kind: 'tree'; action: TreeAction };
+type Message = { kind: 'tree'; action: TreeControlAction };
 
-function updateTree(state: TreeState, message: Message): TreeState {
+function updateTree(state: PassiveTreeState, message: Message): PassiveTreeState {
   return treeReducer(state, message.action);
 }
 
-function treeView(state: TreeState) {
+function treeView(state: PassiveTreeState) {
   return tree({
     id: 'navigation',
     ...treePresentation(state),
-    onAction: (action) => ({ kind: 'tree', action })
+    onAction: (action: TreeControlAction): Message => ({ kind: 'tree', action })
   });
 }
 ```
@@ -140,6 +140,14 @@ application effects. The reducer owns only deterministic hierarchy state.
 Behavior helpers may return the same state object for no-op transitions. That
 lets applications avoid unnecessary rerenders while keeping update logic
 explicit.
+
+Scrollable controls use exact state and projection variants. For example,
+`PassiveTableState` is projected with `tablePresentation()`, while
+`ScrollableTableState` is projected with `tableScrollablePresentation()` and
+accepts the complete `TableAction` stream. Lists, trees, and scrollback follow
+the same naming and action split. This prevents passive controls from receiving
+scroll actions that cannot change their state and prevents scrollable controls
+from losing required scroll metrics during projection.
 
 Resizable panes use normalized shares so terminal resizing does not make the
 application persist stale cell coordinates. `createSplitPaneState()` owns the

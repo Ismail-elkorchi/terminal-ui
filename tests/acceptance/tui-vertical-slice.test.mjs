@@ -33,7 +33,7 @@ function dashboardWidget(state) {
         text('Left pane', { id: 'left-pane' }),
         textInput({
           id: 'action-field',
-          value: state.submitted ? 'Submitted' : 'Press enter',
+          presentation: { value: state.submitted ? 'Submitted' : 'Press enter', cursor: 0 },
           onSubmit: { type: 'submit' }
         })
       ], { id: 'panes' }),
@@ -87,10 +87,13 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
     operation.kind === 'write'
     && operation.spans.some((span) => span.text === '   ')
   ));
-  assert.ok(diff.operations.some((operation) =>
+  const submittedWrite = diff.operations.find((operation) =>
     operation.kind === 'write'
-    && operation.spans.some((span) => span.text.includes('Submitted'))
-  ));
+    && operation.spans.map((span) => span.text).join('').includes('Submitted')
+  );
+  assert.equal(submittedWrite?.kind, 'write');
+  assert.equal(submittedWrite?.spans[0]?.style?.inverse, true);
+  assert.equal(submittedWrite?.spans[0]?.source?.ownerId, 'action-field');
   assert.ok(renderDiffAnsi(diff).includes('\u001B['));
 
   const app = defineTui({
@@ -124,7 +127,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.equal(harness.transcript.snapshot().steps.filter((step) => step.kind === 'diff').length, 2);
   assert.equal(harness.transcript.snapshot().steps.filter((step) => step.kind === 'restore').length, 1);
   assert.match(harness.output(), /Terminal workbench/u);
-  assert.match(harness.output(), /Submitted/u);
+  assert.match(renderFramePlain(harness.frames()[1]), /Submitted/u);
   assert.equal(exit.snapshot.root.id, 'root-surface');
   assert.equal(harness.host.stdin.isRawModeEnabled(), false);
 });

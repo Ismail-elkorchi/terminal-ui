@@ -1,6 +1,7 @@
 import type { RenderNode } from '../model/index.ts';
 import type { FocusPath } from '../../interaction/focus.ts';
 import type { CursorPosition } from '../model/cursor.ts';
+import type { RenderFocusRelation } from '../model/renderer.ts';
 import type { Layer, LayoutNode, Rect } from '../model/layout.ts';
 
 export type { FocusPath } from '../../interaction/focus.ts';
@@ -110,6 +111,25 @@ export function renderNodeKeyChainForFocus<TMessage>(
 
 export function focusPathIncludes(left: FocusPath | undefined, right: FocusPath): boolean {
   return left !== undefined && samePath(left, right);
+}
+
+export function renderFocusRelation(
+  activePath: FocusPath | undefined,
+  renderNodePath: FocusPath
+): RenderFocusRelation {
+  if (activePath === undefined || !pathStartsWith(activePath, renderNodePath)) return 'none';
+  return samePath(activePath, renderNodePath) ? 'self' : 'descendant';
+}
+
+export function focusPathForLayoutTarget(
+  target: RenderNodeLayoutTarget<unknown>,
+  targetId: string
+): FocusPath | undefined {
+  const index = target.layoutNode.focusTargets.findIndex((item) => item.id === targetId);
+  const focusTarget = target.layoutNode.focusTargets[index];
+  if (index < 0 || focusTarget === undefined || focusTarget.disabled) return undefined;
+  if (focusTarget.bounds.width <= 0 || focusTarget.bounds.height <= 0) return undefined;
+  return targetPath(target.path, focusTarget.id, index, target.layoutNode.focusTargets.length);
 }
 
 function collectLayoutTargets(layout: LayoutNode, parentPath: FocusPath): readonly LayoutFocusTarget[] {

@@ -26,6 +26,10 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
     arrowRight: () => onAction({ kind: 'move', delta: 1 }),
     home: () => onAction({ kind: 'first' }),
     end: () => onAction({ kind: 'last' }),
+    delete: () => {
+      const selectedTab = options.tabs.find((tab) => tab.id === selected);
+      return selectedTab?.closable === true ? onAction({ kind: 'close', id: selectedTab.id }) : undefined;
+    },
     enter: () => selected === undefined ? undefined : onAction({ kind: 'select', id: selected })
   } satisfies ElementKeyBindings<TMessage>;
   const keys = mergeKeyBindings(generated, options.keys);

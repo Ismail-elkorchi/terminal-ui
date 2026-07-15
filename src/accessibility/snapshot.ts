@@ -59,6 +59,7 @@ function sanitizeAccessibleNode(node: AccessibleNode): AccessibleNode {
     ...node,
     ...(node.label === undefined ? {} : { label: sanitizeAccessibleText(node.label) }),
     ...(node.description === undefined ? {} : { description: sanitizeAccessibleText(node.description) }),
+    ...(node.controls === undefined ? {} : { controls: sanitizeAccessibleText(node.controls) }),
     ...(node.value === undefined ? {} : { value: sanitizeAccessibleValue(node.value) }),
     ...(node.position === undefined ? {} : { position: sanitizePosition(node.position) }),
     ...(node.children === undefined ? {} : { children: node.children.map(sanitizeAccessibleNode) })

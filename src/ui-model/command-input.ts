@@ -1,16 +1,19 @@
+import type { TextEditOperation, TextSelection } from '../text/index.ts';
+import type { TextPointerAction } from '../interaction/text-pointer.ts';
+import type { SuggestionItem } from './contracts.ts';
+
+export interface CommandInputPresentation {
+  readonly value: string;
+  readonly cursor: number;
+  readonly suggestions: readonly SuggestionItem[];
+  readonly selection?: TextSelection;
+  readonly selectedSuggestion?: number;
+  readonly historyIndex?: number;
+}
+
 export type CommandInputAction =
-  | { readonly kind: 'insert'; readonly text: string }
-  | { readonly kind: 'deleteBackward' }
-  | { readonly kind: 'deleteForward' }
-  | { readonly kind: 'deleteWordBackward' }
-  | { readonly kind: 'deleteWordForward' }
-  | { readonly kind: 'moveLeft'; readonly select?: boolean }
-  | { readonly kind: 'moveRight'; readonly select?: boolean }
-  | { readonly kind: 'moveWordLeft'; readonly select?: boolean }
-  | { readonly kind: 'moveWordRight'; readonly select?: boolean }
-  | { readonly kind: 'moveHome'; readonly select?: boolean }
-  | { readonly kind: 'moveEnd'; readonly select?: boolean }
-  | { readonly kind: 'selectAll' }
+  | { readonly kind: 'edit'; readonly operation: TextEditOperation }
+  | { readonly kind: 'pointer'; readonly action: TextPointerAction }
   | { readonly kind: 'historyPrevious' }
   | { readonly kind: 'historyNext' }
   | { readonly kind: 'moveSuggestion'; readonly delta: 1 | -1 }

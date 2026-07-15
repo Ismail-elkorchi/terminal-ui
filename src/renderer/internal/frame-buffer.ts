@@ -43,6 +43,7 @@ export interface FrameBuffer extends RenderTarget {
   writeLine(row: number, column: number, line: RenderLine): void;
   writeBlock(row: number, column: number, block: RenderBlock): void;
   writeCell(cell: FrameCell): void;
+  readCell(row: number, column: number): FrameCell | undefined;
 
   clear(rect?: Rect): void;
   snapshot(options?: FrameBufferSnapshotOptions): FrameBufferSnapshot;
@@ -113,6 +114,10 @@ class CellFrameBuffer implements FrameBuffer {
       ...(cell.link === undefined ? {} : { link: cell.link }),
       ...(cell.source === undefined ? {} : { source: cell.source })
     }]);
+  }
+
+  readCell(row: number, column: number): FrameCell | undefined {
+    return this.cellAt(row, column);
   }
 
   clear(rect?: Rect): void {

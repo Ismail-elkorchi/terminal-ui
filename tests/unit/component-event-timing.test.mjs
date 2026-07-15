@@ -8,6 +8,8 @@ import {
   palette,
   slider,
   table,
+  tabs,
+  text,
   textArea,
   textInput
 } from '../../dist/components/index.js';
@@ -25,9 +27,9 @@ test('component construction and rendering do not execute event handlers', () =>
     checkbox({ id: 'check', label: 'Check', checked: false, onChange: message }),
     slider({ id: 'slider', value: 4, onChange: message }),
     list({ id: 'list', items: ['a'], projectItem: (item) => ({ id: item, label: item }), selectedId: 'a', onAction: message }),
-    table({ id: 'table', rows: ['a'], getRowId: (row) => row, selectedRowId: 'a', onAction: message }),
-    textArea({ id: 'area', value: 'a', onEdit: message }),
-    commandInput({ id: 'command', value: 'a', onAction: message }),
+    table({ id: 'table', rows: ['a'], getRowId: (row) => row, presentation: { selectedRowId: 'a' }, onAction: message }),
+    textArea({ id: 'area', presentation: { value: 'a', cursor: 0 }, onAction: message }),
+    commandInput({ id: 'command', presentation: { value: 'a', cursor: 0, suggestions: [] }, onAction: message }),
     palette({ id: 'palette', entries: [{ id: 'a', label: 'A', value: 'a' }], onAction: message })
   ];
 
@@ -44,7 +46,7 @@ test('component key handlers run at dispatch time with the normalized event and 
     update: (_state, message) => ({ state: { value: message.value } }),
     view: (state) => textInput({
       id: 'field',
-      value: state.value,
+      presentation: { value: state.value, cursor: 0 },
       keys: {
         enter: (event) => {
           observed.push(event);
@@ -73,6 +75,37 @@ test('component key handlers run at dispatch time with the normalized event and 
   assert.equal(observed[0]?.input.kind, 'key');
   assert.deepEqual(observed[0]?.focusPath, ['field']);
   assert.deepEqual(runtime.getState(), { value: 'handled' });
+  await runtime.dispose();
+});
+
+test('tabs route delete to the selected close action without selecting twice', async () => {
+  const messages = [];
+  const app = defineTui({
+    id: 'tabs-close-contract',
+    init: () => ({ selected: 'second' }),
+    update: (state, message) => {
+      messages.push(message);
+      return { state };
+    },
+    view: (state) => tabs({
+      id: 'tabs',
+      selected: state.selected,
+      tabs: [
+        { id: 'first', label: 'First', panel: text('First') },
+        { id: 'second', label: 'Second', closable: true, panel: text('Second') }
+      ],
+      onAction: (action) => ({ kind: 'tabs', action })
+    })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 4 } })
+  });
+
+  await runtime.start();
+  await runtime.handleInput({ kind: 'key', key: 'delete', ctrl: false, alt: false, shift: false, meta: false });
+
+  assert.deepEqual(messages, [{ kind: 'tabs', action: { kind: 'close', id: 'second' } }]);
   await runtime.dispose();
 });
 

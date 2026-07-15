@@ -28,7 +28,7 @@ import {
   commandInputSuggestionHitTargets
 } from '../command-input.ts';
 import { paletteAccessibleChildren, paletteBlock, paletteHitTargets } from '../palette.ts';
-import { textPointerHitTargets, textPointerMessageFactory } from '../text-pointer.ts';
+import { textPointerHitTargets } from '../text-pointer.ts';
 import { stringify } from '../render-node-props.ts';
 import {
   drawScrollbars,
@@ -43,9 +43,9 @@ import type { RendererMap } from './types.ts';
 
 export const menuRenderers = {
   menu: {
-    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focus }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => menuScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(renderNode, scrollbars.contentBounds, theme, focused));
+      writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(renderNode, scrollbars.contentBounds, theme, focus === 'self'));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, id, focused }) => ({
@@ -69,7 +69,7 @@ export const menuRenderers = {
         input.renderNode,
         input.layoutNode.bounds,
         input.theme,
-        input.focused
+        input.focus === 'self'
       ));
       input.renderChildren();
     },
@@ -104,7 +104,7 @@ export const menuRenderers = {
         input.renderNode,
         input.layoutNode.bounds,
         input.theme,
-        input.focused
+        input.focus === 'self'
       ));
       input.renderChildren();
     },
@@ -139,7 +139,10 @@ export const menuRenderers = {
       ...textPointerHitTargets({
         id: `${renderNode.id ?? renderNode.kind}:text`,
         bounds: { ...bounds, height: Math.min(1, bounds.height) },
-        toMessage: textPointerMessageFactory(renderNode),
+        focusTargetId: 'self',
+        toMessage: renderNode.props.toActionMessage === undefined
+          ? undefined
+          : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
         offsetAt: (event) => commandInputPointerOffset(renderNode, bounds, event)
       }),
       ...commandInputSuggestionHitTargets(renderNode, bounds)

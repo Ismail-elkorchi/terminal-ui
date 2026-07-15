@@ -1,5 +1,6 @@
 import type { AccessibleSnapshot } from '../../accessibility/index.ts';
-import type { FocusPath } from '../../interaction/focus.ts';
+import type { FocusPath, ResolvedPointerFocusIntent } from '../../interaction/focus.ts';
+import type { PointerEventKind } from '../../input/pointer.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { FrameCellSource, TerminalLink, TerminalStyle } from '../../visual/render.ts';
 import type { CursorPosition } from './cursor.ts';
@@ -29,6 +30,8 @@ export interface FrameCell {
 export interface FrameHitTarget {
   readonly id: string;
   readonly bounds: Rect;
+  readonly accepts?: readonly PointerEventKind[];
+  readonly focus?: ResolvedPointerFocusIntent;
   readonly cursor?: 'pointer' | 'text' | 'default';
   readonly zIndex?: number;
 }

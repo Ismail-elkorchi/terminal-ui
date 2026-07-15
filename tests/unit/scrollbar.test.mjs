@@ -224,8 +224,7 @@ test('scrollback scrollbar is opt-in and preserves scoped visible-window accessi
 test('textArea scrollbar follows explicit text scroll state', () => {
   const frame = renderElementFrame(textArea({
     id: 'body',
-    value: 'alpha\nbravo\ncharlie',
-    scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }),
+    presentation: { value: 'alpha\nbravo\ncharlie', cursor: 0, scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
     scrollbar: {}
   }), { columns: 10, rows: 2 });
 
@@ -239,8 +238,7 @@ test('textArea scrollbar follows explicit text scroll state', () => {
 test('widget scrollbars expose owner source metadata and visual state', () => {
   const frame = renderElementFrame(textArea({
     id: 'body',
-    value: 'alpha\nbravo\ncharlie',
-    scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }),
+    presentation: { value: 'alpha\nbravo\ncharlie', cursor: 0, scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
     scrollbar: { visible: 'always', visualState: 'hover' }
   }), { columns: 10, rows: 2 });
 
@@ -271,15 +269,18 @@ test('table scrollbar can expose vertical and horizontal scroll scope together',
       {
         id: 'value-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Value', width: { kind: 'fixed', cells: 10 } }
     ],
-    scroll: createScrollState({
-      offsetRow: 1,
-      offsetColumn: 8,
-      contentRows: 3,
-      contentColumns: 30,
-      viewportRows: 3,
-      viewportColumns: 14
-    }),
-    scrollbar: { axis: 'both' }
+    presentation: {
+      scroll: createScrollState({
+        offsetRow: 1,
+        offsetColumn: 8,
+        contentRows: 3,
+        contentColumns: 30,
+        viewportRows: 3,
+        viewportColumns: 14
+      })
+    },
+    scrollbar: { axis: 'both' },
+    onAction: (action) => action
   }), { columns: 14, rows: 3 });
 
   assert.ok(frame.cells.some((cell) => cell.column === 14 && cell.style?.fg?.token === 'scrollbar.track'));

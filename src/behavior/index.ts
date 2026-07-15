@@ -44,7 +44,7 @@ export {
 } from './command-input.ts';
 export type {
   CommandInputPresentation
-} from './command-input.ts';
+} from '../ui-model/command-input.ts';
 export {
   commandInputReducer
 } from './command-input-state.ts';
@@ -52,6 +52,23 @@ export type {
   CommandInputState
 } from './command-input-state.ts';
 export type { CommandInputAction } from '../ui-model/command-input.ts';
+export {
+  applyTextPointerAction,
+  selectionFromTextPointerAction,
+  textAreaPresentation,
+  textAreaReducer,
+  textInputPresentation,
+  textInputReducer
+} from './text-editing.ts';
+export type { TextAreaState } from './text-editing.ts';
+export type {
+  TextAreaAction,
+  TextAreaControlAction,
+  TextAreaPresentation,
+  TextAreaScrollablePresentation
+} from '../ui-model/text-area.ts';
+export type { TextInputAction, TextInputPresentation } from '../ui-model/text-input.ts';
+export type { TextPointerAction } from '../interaction/text-pointer.ts';
 export {
   indeterminateProgressFrame,
   progressCompletionState
@@ -68,17 +85,21 @@ export type {
 } from '../interaction/pointer-presentation.ts';
 export {
   listPresentation,
+  listScrollablePresentation,
   projectListItems,
   listReducer,
   visibleListEntries
 } from './list.ts';
 export type {
   ListPresentation,
+  ListScrollablePresentation,
   ListReducerOptions,
+  PassiveListState,
+  ScrollableListState,
   ListState,
   ListVisibleEntry
 } from './list.ts';
-export type { ListAction } from '../ui-model/list.ts';
+export type { ListAction, ListControlAction } from '../ui-model/list.ts';
 export type { ListItemProjection, ListItemProjector } from '../ui-model/list.ts';
 export { rangeSliderPresentation, rangeSliderReducer } from './range-slider.ts';
 export type {
@@ -181,7 +202,7 @@ export { tabsPresentation, tabsReducer } from './tabs.ts';
 export type { TabsPresentation, TabsState } from './tabs.ts';
 export type { TabAction } from '../ui-model/tabs.ts';
 export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
-export type { ScrollbackAction } from '../ui-model/scrollback.ts';
+export type { ScrollbackAction, ScrollbackControlAction } from '../ui-model/scrollback.ts';
 export {
   barChartPresentation,
   barChartReducer,
@@ -259,13 +280,17 @@ export {
   followTailScrollState,
   nextScrollbackMatch,
   scrollbackPresentation,
+  scrollbackScrollablePresentation,
   scrollbackReducer,
   scrollbackSearchMarks,
   visibleScrollbackItems
 } from './scrollback.ts';
 export type {
+  PassiveScrollbackState,
   ScrollbackPresentation,
+  ScrollbackScrollablePresentation,
   ScrollbackSearchMark,
+  ScrollableScrollbackState,
   ScrollbackState
 } from './scrollback.ts';
 export {
@@ -303,14 +328,23 @@ export type { SplitPaneAction } from '../ui-model/split-pane.ts';
 export {
   sortTableRows,
   tablePresentation,
+  tableScrollablePresentation,
   tableReducer
 } from './table.ts';
 export type {
+  PassiveTableState,
+  ScrollableTableState,
   TableCellValueGetter,
   TableReducerOptions,
   TableState
 } from './table.ts';
-export type { TableAction, TablePresentation, TableSortState } from '../ui-model/table.ts';
+export type {
+  TableAction,
+  TableControlAction,
+  TablePresentation,
+  TableScrollablePresentation,
+  TableSortState
+} from '../ui-model/table.ts';
 export {
   nextTreeRowId,
   selectableTreeRows,
@@ -318,14 +352,18 @@ export {
   treeNodeCanDisclose,
   treeNodeMatches,
   treePresentation,
+  treeScrollablePresentation,
   treeReducer,
   visibleTreeRows
 } from './tree.ts';
 export type {
+  PassiveTreeState,
+  ScrollableTreeState,
   TreePresentation,
+  TreeScrollablePresentation,
   TreeRenameState,
   TreeState,
   TreeVisibleRow,
   TreeVisibleRowsOptions
 } from './tree.ts';
-export type { TreeAction } from '../ui-model/tree.ts';
+export type { TreeAction, TreeControlAction } from '../ui-model/tree.ts';

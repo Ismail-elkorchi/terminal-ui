@@ -121,7 +121,13 @@ export function hitTargetsForRenderNode<TMessage>(
     bounds: target.bounds,
     theme
   }) ?? [];
-  return pointerPresentationHitTargets(widget, target.bounds, targets);
+  const presented = pointerPresentationHitTargets(widget, target.bounds, targets);
+  if (widget.kind === 'custom' || target.layoutNode.focusTargets.length !== 1) return presented;
+  const focusTarget = target.layoutNode.focusTargets[0];
+  if (focusTarget === undefined || focusTarget.disabled) return presented;
+  return presented.map((hitTarget): HitTarget<TMessage> => hitTarget.focus === undefined
+    ? { ...hitTarget, focus: { kind: 'target', targetId: focusTarget.id } }
+    : hitTarget);
 }
 
 function customRenderer<TMessage>(widget: RenderNode<TMessage>): RenderNodeRenderer<TMessage> {

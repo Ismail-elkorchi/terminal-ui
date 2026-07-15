@@ -172,6 +172,7 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
   const mouseReleaseResult = await runtime.handleInput(mouseRelease(5, 2));
 
   assert.equal(keyed.state.action, 'recent');
-  assert.equal(mousePressResult.handled, false);
+  assert.equal(mousePressResult.handled, true);
+  assert.ok(mousePressResult.frame.focusPath?.includes('bar'));
   assert.equal(mouseReleaseResult.state.action, 'help');
 });

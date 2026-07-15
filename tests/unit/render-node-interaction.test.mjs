@@ -113,7 +113,7 @@ const disabledWidgetCases = [
   },
   {
     name: 'textInput',
-    element: () => textInput({ id: 'disabled-text-input', value: 'locked', onSubmit: message, disabled: true })
+    element: () => textInput({ id: 'disabled-text-input', presentation: { value: 'locked', cursor: 0 }, onSubmit: message, disabled: true })
   },
   {
     name: 'numberInput',
@@ -125,7 +125,7 @@ const disabledWidgetCases = [
   },
   {
     name: 'textArea',
-    element: () => textArea({ id: 'disabled-text-area', value: 'locked', disabled: true })
+    element: () => textArea({ id: 'disabled-text-area', presentation: { value: 'locked', cursor: 0 }, disabled: true })
   }
 ];
 
@@ -160,7 +160,7 @@ test('disabled widget props block generated keyboard and mouse dispatch', async 
   const mouse = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
 
   assert.equal(key.handled, false);
-  assert.equal(mouse[0]?.handled, false);
+  assert.equal(mouse.results[0]?.handled, false);
   assert.deepEqual(runtime.getState(), { active: 'idle' });
 });
 
@@ -169,12 +169,10 @@ test('commandInput preserves disabled suggestion semantics', () => {
     commandInput({
       id: 'command',
       prompt: '>',
-      value: 'de',
-      matchQuery: 'de',
-      suggestions: [
+      presentation: { value: 'de', cursor: 0, suggestions: [
         { value: 'deploy', label: 'Deploy', description: 'Unavailable', disabled: true }
-      ],
-      selectedSuggestion: 0,
+      ], selectedSuggestion: 0 },
+      matchQuery: 'de',
       display: 'expanded'
     }),
     { columns: 40, rows: 3 }

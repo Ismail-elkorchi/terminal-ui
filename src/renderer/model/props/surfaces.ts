@@ -17,6 +17,7 @@ export interface SurfaceRenderProps extends RenderNodeLayoutProps {
   readonly border?: BorderOptions;
   readonly shadow?: boolean;
   readonly disabled?: boolean;
+  readonly focusWithin?: boolean;
 }
 
 export interface AbsoluteRenderProps {

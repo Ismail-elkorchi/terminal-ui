@@ -59,15 +59,30 @@ export interface ResizableSplitPaneOptions<TMessage> extends SplitPaneOptionsBas
 
 export type SplitPaneOptions<TMessage = never> = PassiveSplitPaneOptions | ResizableSplitPaneOptions<TMessage>;
 
-export interface ViewportOptions<TMessage = never> extends InteractiveElementOptions<DataListStylePart, TMessage>, LayoutFlowOptions {
+interface ViewportBaseOptions<TMessage> extends InteractiveElementOptions<DataListStylePart, TMessage>, LayoutFlowOptions {
+  readonly keys?: ElementKeyBindings<TMessage>;
+}
+
+export type ViewportOptions<TMessage = never> = PassiveViewportOptions<TMessage> | ScrollableViewportOptions<TMessage>;
+
+export interface PassiveViewportOptions<TMessage = never> extends ViewportBaseOptions<TMessage> {
   readonly scrollRow?: number;
   readonly scrollColumn?: number;
   readonly contentRows?: number;
   readonly contentColumns?: number;
+  readonly scrollbar?: never;
+  readonly scrollPolicy?: never;
+  readonly onScroll?: never;
+}
+
+export interface ScrollableViewportOptions<TMessage = never> extends ViewportBaseOptions<TMessage> {
+  readonly scrollRow: number;
+  readonly scrollColumn: number;
+  readonly contentRows: number;
+  readonly contentColumns: number;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onScroll?: (event: ScrollEvent) => TMessage;
-  readonly keys?: ElementKeyBindings<TMessage>;
+  readonly onScroll: (event: ScrollEvent) => TMessage;
 }
 
 export interface SurfaceOptions extends ElementOptions<SurfaceStylePart>, Omit<LayoutFlowOptions, 'gap'> {
@@ -78,6 +93,7 @@ export interface SurfaceOptions extends ElementOptions<SurfaceStylePart>, Omit<L
   readonly border?: BorderOptions;
   readonly shadow?: boolean;
   readonly disabled?: boolean;
+  readonly focusWithin?: boolean;
 }
 
 export interface AbsoluteOptions extends ElementOptions {

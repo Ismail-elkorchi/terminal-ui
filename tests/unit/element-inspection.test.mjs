@@ -8,8 +8,8 @@ test('element inspection exposes an immutable authoring projection without rende
   const element = surface(column([
     textInput({
       id: 'query',
-      value: '',
-      onEdit: (operation) => ({ kind: 'query', operation }),
+      presentation: { value: '', cursor: 0 },
+      onAction: (action) => ({ kind: 'query', action }),
       meta: {
         styles: {
           parts: { value: { bold: true } },

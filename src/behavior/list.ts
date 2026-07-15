@@ -1,12 +1,21 @@
-import type { ListAction } from '../ui-model/list.ts';
+import type { ListAction, ListControlAction } from '../ui-model/list.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type { ListItemProjection, ListItemProjector } from '../ui-model/list.ts';
 
-export interface ListState {
+interface ListStateBase {
   readonly selectedId?: string;
-  readonly scroll?: ScrollState;
 }
+
+export interface PassiveListState extends ListStateBase {
+  readonly scroll?: never;
+}
+
+export interface ScrollableListState extends ListStateBase {
+  readonly scroll: ScrollState;
+}
+
+export type ListState = PassiveListState | ScrollableListState;
 
 export interface ListReducerOptions<TValue> {
   readonly items: readonly TValue[];
@@ -16,7 +25,10 @@ export interface ListReducerOptions<TValue> {
 
 export interface ListPresentation {
   readonly selectedId?: string;
-  readonly scroll?: ScrollState;
+}
+
+export interface ListScrollablePresentation extends ListPresentation {
+  readonly scroll: ScrollState;
 }
 
 export interface ListVisibleEntry<TValue> {
@@ -25,6 +37,16 @@ export interface ListVisibleEntry<TValue> {
   readonly index: number;
 }
 
+export function listReducer<TValue>(
+  state: ScrollableListState,
+  action: ListAction,
+  options: ListReducerOptions<TValue>
+): ScrollableListState;
+export function listReducer<TValue>(
+  state: PassiveListState,
+  action: ListControlAction,
+  options: ListReducerOptions<TValue>
+): PassiveListState;
 export function listReducer<TValue>(
   state: ListState,
   action: ListAction,
@@ -53,10 +75,17 @@ export function listReducer<TValue>(
       };
 }
 
-export function listPresentation(state: ListState): ListPresentation {
+export function listPresentation(state: PassiveListState): ListPresentation {
+  return listPresentationBase(state);
+}
+
+export function listScrollablePresentation(state: ScrollableListState): ListScrollablePresentation {
+  return { ...listPresentationBase(state), scroll: state.scroll };
+}
+
+function listPresentationBase(state: ListStateBase): ListPresentation {
   return {
-    ...(state.selectedId === undefined ? {} : { selectedId: state.selectedId }),
-    ...(state.scroll === undefined ? {} : { scroll: state.scroll })
+    ...(state.selectedId === undefined ? {} : { selectedId: state.selectedId })
   };
 }
 

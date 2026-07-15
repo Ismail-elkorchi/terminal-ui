@@ -1,6 +1,5 @@
 import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../../interaction/scrollbar.ts';
-import type { TextPointerEvent } from '../../../interaction/text-pointer.ts';
 import type { TextSelection } from '../../../text/index.ts';
 import type { ActivityFeedAction } from '../../../ui-model/activity-feed.ts';
 import type {
@@ -17,6 +16,7 @@ import type {
 } from '../../../ui-model/documents.ts';
 import type { PaletteAction } from '../../../ui-model/palette.ts';
 import type { CommandInputAction } from '../../../ui-model/command-input.ts';
+import type { ScrollbackAction } from '../../../ui-model/scrollback.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 import type { TerminalStyle } from '../../../visual/render.ts';
 
@@ -35,7 +35,7 @@ export interface ScrollbackRenderProps<TMessage> {
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly toScrollMessage?: (event: ScrollEvent) => TMessage;
+  readonly toActionMessage?: (action: ScrollbackAction) => TMessage | undefined;
   readonly wrap?: boolean;
   readonly searchQuery?: string;
   readonly selectedRange?: TextSelection;
@@ -74,7 +74,6 @@ export interface CommandInputRenderProps<TMessage> {
   readonly display?: CommandInputDisplay;
   readonly message?: TMessage;
   readonly toActionMessage?: (action: CommandInputAction) => TMessage;
-  readonly toTextPointerMessage?: (event: TextPointerEvent) => TMessage;
 }
 
 export interface PaletteRenderProps<TMessage> {

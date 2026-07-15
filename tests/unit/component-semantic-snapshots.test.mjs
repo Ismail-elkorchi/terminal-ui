@@ -191,7 +191,7 @@ const cases = [
     getRowId: (_row, index) => String(index),
     id: 'table',
       rows: [{ name: unsafe, status: 'ok' }, { name: 'Second', status: 'idle' }],
-      selectedRowId: '1',
+      presentation: { selectedRowId: '1' },
       columns: [{
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name' }, {
         id: 'status-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Status' }]
@@ -217,14 +217,14 @@ const cases = [
   },
   {
     name: 'textArea',
-    element: () => textArea({ id: 'text-area', value: `${unsafe}\nSecond`, cursor: 3 }),
+    element: () => textArea({ id: 'text-area', presentation: { value: `${unsafe}\nSecond`, cursor: 3 }, }),
     expectText: /Second/u,
     expectFocus: true
   },
   {
     name: 'form',
     element: () => form([
-      field(textInput({ id: 'form-input', value: unsafe }), { id: 'form-field', label: 'Name' }),
+      field(textInput({ id: 'form-input', presentation: { value: unsafe, cursor: 0 } }), { id: 'form-field', label: 'Name' }),
       button({ id: 'form-submit', label: 'Submit', onPress: { kind: 'submit' } })
     ], { id: 'form', title: unsafe }),
     expectText: /Submit/u,
@@ -233,7 +233,7 @@ const cases = [
   },
   {
     name: 'field',
-    element: () => field(textInput({ id: 'field-input', value: unsafe }), {
+    element: () => field(textInput({ id: 'field-input', presentation: { value: unsafe, cursor: 0 } }), {
       id: 'field',
       label: unsafe,
       description: 'Description',
@@ -366,7 +366,7 @@ const cases = [
   },
   {
     name: 'textInput',
-    element: () => textInput({ id: 'text-input', value: unsafe, cursor: 2 }),
+    element: () => textInput({ id: 'text-input', presentation: { value: unsafe, cursor: 2 }, }),
     expectText: /Unsafe red text/u,
     expectFocus: true
   },
@@ -578,10 +578,8 @@ const cases = [
     name: 'commandInput',
     element: () => commandInput({
       id: 'command-input',
-      value: unsafe,
+      presentation: { value: unsafe, cursor: 0, suggestions: [{ value: 'open', label: unsafe, description: 'Open action' }], selectedSuggestion: 0 },
       prompt: '>',
-      suggestions: [{ value: 'open', label: unsafe, description: 'Open action' }],
-      selectedSuggestion: 0
     }),
     expectText: /Unsafe red text/u,
     expectFocus: true

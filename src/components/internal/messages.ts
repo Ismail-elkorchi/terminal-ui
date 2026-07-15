@@ -21,15 +21,27 @@ type CallbackWithResult<TCallback, TResult> =
     ? (...arguments_: TArguments) => TResult
     : never;
 
+type OptionalKeys<TValue> = {
+  [TKey in keyof TValue]-?: Readonly<Record<never, never>> extends Pick<TValue, TKey> ? TKey : never;
+}[keyof TValue];
+
+type CallbackMessageKeys<
+  TOptions,
+  TMessages extends Partial<Record<keyof TOptions, unknown>>
+> = keyof TMessages & keyof TOptions;
+
 type CallbackOverrides<
   TOptions,
   TMessages extends Partial<Record<keyof TOptions, unknown>>
-> = {
-  readonly [TKey in keyof TMessages]?:
-    TKey extends keyof TOptions
-      ? CallbackWithResult<TOptions[TKey], TMessages[TKey]>
-      : never;
-};
+> =
+  & {
+    readonly [TKey in Exclude<CallbackMessageKeys<TOptions, TMessages>, OptionalKeys<TOptions>>]:
+      CallbackWithResult<TOptions[TKey], TMessages[TKey]>;
+  }
+  & {
+    readonly [TKey in Extract<CallbackMessageKeys<TOptions, TMessages>, OptionalKeys<TOptions>>]?:
+      CallbackWithResult<TOptions[TKey], TMessages[TKey]>;
+  };
 
 type DirectMessageOverrides<
   TOptions,
@@ -63,9 +75,10 @@ export type IndependentInteractionOptions<
   TDirectMessages extends Partial<Record<keyof TOptions, unknown>> = Record<never, never>,
   TKeyBindings extends InferredElementKeyBindings | undefined = undefined,
   TPointerMessage = never
-> =
-  & Omit<TOptions, keyof TCallbackMessages | keyof TDirectMessages | 'keys' | 'pointer'>
-  & CallbackOverrides<TOptions, TCallbackMessages>
-  & DirectMessageOverrides<TOptions, TDirectMessages>
-  & PointerOverride<TOptions, TPointerMessage>
-  & { readonly keys?: TKeyBindings };
+> = TOptions extends unknown
+  ? & Omit<TOptions, keyof TCallbackMessages | keyof TDirectMessages | 'keys' | 'pointer'>
+    & CallbackOverrides<TOptions, TCallbackMessages>
+    & DirectMessageOverrides<TOptions, TDirectMessages>
+    & PointerOverride<TOptions, TPointerMessage>
+    & { readonly keys?: TKeyBindings }
+  : never;

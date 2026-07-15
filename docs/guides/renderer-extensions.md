@@ -38,6 +38,10 @@ cell, line, block, and clear operations but not frame snapshotting or terminal
 output. Custom renderers must not write raw ANSI, mutate terminal hosts, bypass
 clipping, bypass text sanitization, or create hidden application state.
 
+The custom render hook receives `focus: 'none' | 'self' | 'descendant'` for
+visual treatment. Its accessibility hook receives the exact `focused`
+boolean, so ancestor visuals do not become accessibility focus.
+
 Interactive custom renderers must expose accessibility. Pure decoration may
 opt into `meta: { accessibility: { decorative: true } }`, but decorative output
 must not expose keyboard, text input, focus, or pointer interaction.
@@ -45,13 +49,18 @@ must not expose keyboard, text input, focus, or pointer interaction.
 ## Hit Targets
 
 Pointer interaction is expressed through hit targets emitted during rendering.
-A hit target declares stable bounds, accepted pointer event kinds, z-index, and
-a message function that receives the normalized pointer event. The runtime
-routes input to the topmost matching target after each committed render.
+A hit target declares stable bounds, accepted pointer event kinds, z-index, an
+optional focus intent, and a message function that receives the normalized
+pointer event. A custom renderer that wants pointer presses to transfer
+keyboard focus must refer explicitly to one of its own focus-target ids. The
+renderer resolves that id to the committed focus path; the runtime never
+infers focus from matching strings. The runtime routes input to the topmost
+matching target after each committed render.
 
 Hit targets are renderer metadata. Normal application code should use
-component event props such as `onPress`, `onAction`, `onScroll`, and
-`onTextPointer`.
+component event props such as `onPress`, `onAction`, and `onScroll`. Editable
+controls expose pointer caret and selection gestures through their typed
+`onAction` union rather than a renderer-level pointer callback.
 
 ## Evidence To Test
 

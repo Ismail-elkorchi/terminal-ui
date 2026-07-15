@@ -4,6 +4,7 @@ import { completedExit, exitWithStatus } from './exit.ts';
 import type { TerminalSignal, Unsubscribe } from '../host/index.ts';
 import type { TranscriptRecorder } from '../transcript/index.ts';
 import type { TuiExit, TuiRuntime } from './types.ts';
+import type { TuiInputResult } from './types.ts';
 
 export async function runTuiInputLoop<TState, TMessage>(
   runtime: TuiRuntime<TState, TMessage>,
@@ -16,13 +17,23 @@ export async function runTuiInputLoop<TState, TMessage>(
   let inputNext = input.next();
   let signalNext = signals.next();
   let runtimeChangeNext = runtime.nextChange(changeController.signal);
+  let inputBatchNext: Promise<readonly TuiInputResult<TState>[]> | undefined;
   try {
     for (;;) {
       const event = await Promise.race([
         inputNext.then((result) => ({ kind: 'input' as const, result })),
         signalNext.then((signal) => ({ kind: 'signal' as const, signal })),
-        runtimeChangeNext.then((change) => ({ kind: 'runtime' as const, change }))
+        runtimeChangeNext.then((change) => ({ kind: 'runtime' as const, change })),
+        ...(inputBatchNext === undefined
+          ? []
+          : [inputBatchNext.then((results) => ({ kind: 'inputBatch' as const, results }))])
       ]);
+      if (event.kind === 'inputBatch') {
+        inputBatchNext = undefined;
+        const exit = event.results.find((result) => result.exit !== undefined)?.exit;
+        if (exit !== undefined) return exit;
+        continue;
+      }
       if (event.kind === 'runtime') {
         if (event.change.kind === 'exit') return event.change.exit;
         runtimeChangeNext = runtime.nextChange(changeController.signal);
@@ -30,6 +41,10 @@ export async function runTuiInputLoop<TState, TMessage>(
       }
       if (event.kind === 'signal') {
         signalNext = signals.next();
+        const pendingResults = await runtime.flushInput();
+        inputBatchNext = undefined;
+        const pendingExit = pendingResults.find((result) => result.exit !== undefined)?.exit;
+        if (pendingExit !== undefined) return pendingExit;
         transcript?.record({ kind: 'input', event: { kind: 'signal', signal: event.signal } });
         const exit = await handleTuiSignal(runtime, event.signal);
         if (exit !== undefined) return exit;
@@ -42,8 +57,9 @@ export async function runTuiInputLoop<TState, TMessage>(
         if (exit !== undefined) return exit;
         break;
       }
-      const results = await runtime.handleInputChunk(event.result.value);
-      const exit = results.find((result) => result.exit !== undefined)?.exit;
+      const batch = await runtime.handleInputChunk(event.result.value);
+      inputBatchNext = batch.pending;
+      const exit = batch.results.find((result) => result.exit !== undefined)?.exit;
       if (exit !== undefined) return exit;
     }
   } finally {

@@ -4,27 +4,32 @@ import path from 'node:path';
 import process from 'node:process';
 
 import { createMemoryTerminalHost, createTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
-import { editTextBuffer } from '@ismail-elkorchi/terminal-ui/text';
 import {
   createTuiRuntime,
   defineTui,
   runTui
 } from '@ismail-elkorchi/terminal-ui/tui';
 import {
-  applyScrollEvent,
   commandInputPresentation,
   commandInputReducer,
+  applyScrollEvent,
   createNotificationState,
   notificationActionFromStack,
   notificationPresentation,
   notificationReducer,
   createScrollState,
+  menuBarPresentation,
+  menuBarReducer,
   palettePresentation,
   paletteReducer,
   scrollReducer,
   selectedPaletteEntry,
   tableReducer,
-  treePresentation,
+  textAreaPresentation,
+  textAreaReducer,
+  textInputPresentation,
+  textInputReducer,
+  treeScrollablePresentation,
   treeReducer,
   visibleTreeRows
 } from '@ismail-elkorchi/terminal-ui/behavior';
@@ -39,7 +44,9 @@ import {
 } from '@ismail-elkorchi/terminal-ui/layout';
 import {
   statusIndicator,
+  button,
   commandInput,
+  dialog,
   helpBar,
   menuBar,
   notificationStack,
@@ -51,6 +58,7 @@ import {
   tabs,
   text,
   textArea,
+  textInput,
   tree
 } from '@ismail-elkorchi/terminal-ui/components';
 
@@ -125,7 +133,7 @@ export function defineIdeEditorApp(options = {}) {
     keyBindings: [
       {
         id: 'exit',
-        triggers: [{ kind: 'key', key: 'ctrlC' }, { kind: 'key', key: 'ctrlQ' }],
+        triggers: [{ kind: 'key', key: 'ctrlQ' }],
         label: 'Exit',
         message: { kind: 'exit' }
       },
@@ -135,6 +143,13 @@ export function defineIdeEditorApp(options = {}) {
         phase: 'beforeFocus',
         enabled: ({ state }) => state.palette.open,
         message: { kind: 'closePalette' }
+      },
+      {
+        id: 'escape-chooser',
+        triggers: [{ kind: 'key', key: 'escape' }],
+        phase: 'beforeFocus',
+        enabled: ({ state }) => state.chooser.kind === 'open',
+        message: { kind: 'closeChooser' }
       }
     ],
     update: updateIde,
@@ -150,8 +165,9 @@ function initialState(rootPath) {
     tree: {
       nodes: workspace.nodes,
       selected: workspace.nodes[0]?.id,
-      omitted: workspace.omitted
+      scroll: createScrollState({ contentRows: visibleTreeRows(workspace.nodes).length })
     },
+    treeOmitted: workspace.omitted,
     buffers: {},
     openOrder: [],
     activePath: undefined,
@@ -161,8 +177,11 @@ function initialState(rootPath) {
       suggestions: commandSuggestions
     },
     palette: { open: false, query: '', selectedIndex: 0, used: false },
+    menu: { kind: 'closed', active: 'file' },
+    chooser: { kind: 'closed' },
     notifications: createNotificationState(),
     nextNotificationId: 1,
+    logScroll: createScrollState({ contentRows: 2 }),
     log: [
       `Workspace opened: ${workspace.rootPath}`,
       'Use /open <path>, click a file in the tree, edit text, then use File Save or /save.'
@@ -176,12 +195,29 @@ function updateIde(state, message) {
   switch (message.kind) {
     case 'tick':
       return withState({ ...state, ticks: state.ticks + 1 });
-    case 'menu':
-      return withState(handleMenu(state, message.action));
+    case 'menuAction':
+      return message.action.kind === 'menu'
+          && message.action.action.kind === 'activate'
+          && message.action.action.id === 'file.quit'
+        ? { state, exit: { reason: 'user requested exit from menu' } }
+        : withState(handleMenuAction(state, message.action));
+    case 'chooserEdit':
+      return withState(updateChooserInput(state, message.action));
+    case 'chooserTree':
+      return withState(updateChooserTree(state, message.action));
+    case 'confirmChooser':
+      return withState(confirmChooser(state));
+    case 'closeChooser':
+      return withState({ ...state, chooser: { kind: 'closed' } });
     case 'tree':
       return withState(handleTreeAction(state, message.action));
     case 'bufferTable':
       return withState(handleBufferTableAction(state, message.action));
+    case 'logScroll':
+      return withState({
+        ...state,
+        logScroll: applyScrollEvent(state.logScroll, message.event)
+      });
     case 'setActiveBuffer':
       return withState(setActiveBuffer({ ...state, pointer: { ...state.pointer, bufferTable: message.source === 'pointer' || state.pointer.bufferTable } }, message.path));
     case 'closeActive':
@@ -192,8 +228,6 @@ function updateIde(state, message) {
       return withState(saveActiveBuffer(state, message.source));
     case 'editActive':
       return withState(editActiveBuffer(state, message.action));
-    case 'scrollActive':
-      return withState(scrollActiveBuffer(state, message.event));
     case 'commandEdit':
       return withState({ ...state, command: commandInputReducer(state.command, message.action) });
     case 'submitCommand':
@@ -243,6 +277,7 @@ function ideView(state, context) {
   const workspace = context.viewport.columns >= 108 ? wideIdeView(state, context) : narrowIdeView(state, context);
   return overlay([
     workspace,
+    ...(state.chooser.kind === 'open' ? [chooserDialog(state)] : []),
     ...(state.palette.open ? [paletteOverlay(state)] : []),
   ], { id: 'ide-root' });
 }
@@ -254,9 +289,15 @@ function wideIdeView(state, context) {
     areas: `
       top top top
       explorer editor inspector
+      status status status
       command command command
     `,
-    rows: [{ kind: 'fixed', cells: 2 }, { kind: 'fill' }, { kind: 'fixed', cells: commandRows }],
+    rows: [
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fill' },
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: commandRows }
+    ],
     columns: [{ kind: 'fixed', cells: 31 }, { kind: 'fill' }, { kind: 'fixed', cells: 38 }],
     gap: 1,
     children: {
@@ -264,6 +305,7 @@ function wideIdeView(state, context) {
       explorer: explorerPane(state),
       editor: editorWorkspace(state),
       inspector: inspectorPane(state, context),
+      status: bottomStatus(state),
       command: commandPane(state)
     }
   });
@@ -276,50 +318,61 @@ function narrowIdeView(state, _context) {
     areas: `
       top
       editor
+      status
       command
     `,
-    rows: [{ kind: 'fixed', cells: 2 }, { kind: 'fill' }, { kind: 'fixed', cells: commandRows }],
+    rows: [
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fill' },
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: commandRows }
+    ],
     columns: [{ kind: 'fill' }],
     gap: 1,
     children: {
       top: topChrome(state),
       editor: editorWorkspace(state),
+      status: bottomStatus(state),
       command: commandPane(state)
     }
   });
 }
 
 function topChrome(state) {
-  const active = activeBuffer(state);
-  return surface(column([
-    menuBar({
-      id: 'ide-menu',
-      items: [
-        { id: 'open-root', label: 'Open Cwd' },
-        { id: 'save', label: 'Save', disabled: active === undefined || active.dirty !== true },
-        { id: 'close', label: 'Close', disabled: active === undefined },
-        { id: 'palette', label: 'Palette' },
-        { id: 'quit', label: 'Quit' }
-      ],
-      presentation: { kind: 'closed', active: 'save' },
-      onAction: ideMenuMessage
-    }),
-    statusBar({
-      id: 'ide-status',
-      leading: [{ id: 'workspace', kind: 'text', text: path.basename(state.rootPath) || state.rootPath }],
-      center: [{ id: 'buffers', kind: 'text', text: `${state.openOrder.length} buffer(s)` }],
-      trailing: [
-        { id: 'dirty', kind: 'status', text: `${dirtyBuffers(state).length} unsaved`, status: dirtyBuffers(state).length > 0 ? 'warning' : 'success' },
-        { id: 'ticks', kind: 'text', text: `${state.ticks} tick(s)` }
-      ]
-    })
-  ], {
-    id: 'ide-top-body',
-    sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }]
+  const items = ideMenuItems(state);
+  return surface(menuBar({
+    id: 'ide-menu',
+    items,
+    presentation: menuBarPresentation(items, state.menu),
+    onAction: (action) => ({ kind: 'menuAction', action })
   }), {
     id: 'ide-top',
     variant: 'chrome',
     padding: { left: 1, right: 1 }
+  });
+}
+
+function bottomStatus(state) {
+  const active = activeBuffer(state);
+  const position = active === undefined ? undefined : textPosition(active.text, active.cursor);
+  const selectionLength = active?.selection === undefined
+    ? 0
+    : Math.abs(active.selection.end - active.selection.start);
+  return statusBar({
+    id: 'ide-status',
+    leading: [
+      { id: 'workspace', kind: 'text', text: path.basename(state.rootPath) || state.rootPath },
+      { id: 'buffer', kind: 'status', text: active?.label ?? 'No file', status: active?.dirty === true ? 'warning' : 'success' }
+    ],
+    center: [
+      { id: 'position', kind: 'text', text: position === undefined ? 'Ln -, Col -' : `Ln ${String(position.line)}, Col ${String(position.column)}` },
+      { id: 'selection', kind: 'text', text: selectionLength === 0 ? 'No selection' : `${String(selectionLength)} selected` }
+    ],
+    trailing: [
+      { id: 'encoding', kind: 'text', text: 'UTF-8' },
+      { id: 'newline', kind: 'text', text: active?.text.includes('\r\n') === true ? 'CRLF' : 'LF' },
+      { id: 'mode', kind: 'text', text: active === undefined ? 'BROWSE' : 'INSERT' }
+    ]
   });
 }
 
@@ -340,7 +393,7 @@ function explorerPane(state) {
     text(shortPath(state.rootPath, state.rootPath), { id: 'explorer-root', textRole: 'metadata' }),
     tree({
       id: 'ide-tree',
-      ...treePresentation(state.tree),
+      ...treeScrollablePresentation(state.tree),
       scrollbar: { visible: 'auto' },
       onAction: (action) => ({ kind: 'tree', action })
     }),
@@ -395,11 +448,7 @@ function editorWorkspace(state) {
       description: buffer.path,
       panel: editorPanel(state, buffer)
     })),
-    onAction: (action) => ideTabActionMessage(state, action),
-    keys: {
-      arrowLeft: () => ({ kind: 'setActiveBuffer', path: adjacentBufferPath(state, -1), source: 'keyboard' }),
-      arrowRight: () => ({ kind: 'setActiveBuffer', path: adjacentBufferPath(state, 1), source: 'keyboard' })
-    }
+    onAction: (action) => ideTabActionMessage(state, action)
   });
 }
 
@@ -422,7 +471,7 @@ function welcomePanel(state) {
       summary: state.rootPath,
       fields: [
         { label: 'Tree nodes', value: String(visibleTreeRows(state.tree.nodes).length) },
-        { label: 'Omitted', value: String(state.tree.omitted) }
+        { label: 'Omitted', value: String(state.treeOmitted) }
       ]
     })
   ], {
@@ -464,17 +513,20 @@ function editorPanel(state, buffer) {
       ], { id: 'editor-meta', gap: 2 }),
       editor: notificationLayer(state, textArea({
         id: 'ide-editor-text',
-        value: buffer.text,
-        cursor: buffer.cursor,
-        selection: buffer.selection,
+        presentation: textAreaPresentation({
+          input: {
+            text: buffer.text,
+            cursor: buffer.cursor,
+            ...(buffer.selection === undefined ? {} : { selection: buffer.selection })
+          },
+          scroll: buffer.scroll
+        }),
         lineNumbers: { minWidth: 3 },
         activeLine: true,
-        scroll: buffer.scroll,
         scrollbar: { visible: 'auto' },
         scrollPolicy: { wheel: { rows: 6, columns: 8 } },
         placeholder: 'Write here...',
-        onScroll: (event) => ({ kind: 'scrollActive', event }),
-        onEdit: (action) => ({ kind: 'editActive', action })
+        onAction: (action) => ({ kind: 'editActive', action })
       })),
       footer: helpBar({
         id: 'editor-help',
@@ -520,7 +572,7 @@ function inspectorPane(state, context) {
       fields: [
         { label: 'Workspace', value: shortPath(state.rootPath, state.rootPath) },
         { label: 'Dirty buffers', value: String(dirtyBuffers(state).length) },
-        { label: 'Tree omitted', value: String(state.tree.omitted) },
+        { label: 'Tree omitted', value: String(state.treeOmitted) },
         { label: 'Lines', value: active === undefined ? '-' : String(lineCount(active.text)) },
         { label: 'Size', value: active === undefined ? '-' : `${String(active.text.length)} chars` },
         ...(diagnosticItem === undefined ? [] : [{ label: 'Host input', value: diagnosticLabel(diagnosticItem) }])
@@ -531,7 +583,7 @@ function inspectorPane(state, context) {
       getRowId: (row) => row.path,
       id: 'buffer-table',
       rows: bufferRows,
-      selectedRowId: state.activePath,
+      presentation: { selectedRowId: state.activePath },
       emptyText: 'No open buffers',
       stickyHeader: true,
       columns: [
@@ -548,7 +600,11 @@ function inspectorPane(state, context) {
       id: `ide-log-${String(index)}`
     })), { id: 'ide-log-lines', gap: 0 }), {
       id: 'ide-log',
+      scrollRow: state.logScroll.offsetRow,
+      scrollColumn: state.logScroll.offsetColumn,
       contentRows: state.log.length,
+      contentColumns: maxLineCells(state.log.join('\n')) + 3,
+      onScroll: (event) => ({ kind: 'logScroll', event }),
       scrollbar: { visible: 'auto' }
     })
   ], {
@@ -598,14 +654,17 @@ function diagnosticLabel(item) {
 
 function commandPane(state) {
   const expanded = commandInputExpanded(state);
+  const presentation = commandInputPresentation(state.command);
   return surface(commandInput({
     id: 'ide-command',
     prompt: '› ',
-    ...commandInputPresentation(state.command),
+    presentation: {
+      ...presentation,
+      suggestions: expanded ? presentation.suggestions : []
+    },
     placeholder: 'Type /open, /folder, /save, /palette',
-    suggestions: expanded ? state.command.suggestions : [],
     completionPreview: expanded ? completionPreview(state.command.input.text) : undefined,
-    footer: expanded ? 'Enter run | arrows suggestions | Esc clear | Tab focus | Ctrl+C/Ctrl+Q exit' : undefined,
+    footer: expanded ? 'Enter run | arrows suggestions | Esc clear | Tab focus | Ctrl+Q exit' : undefined,
     display: expanded ? 'expanded' : 'compact',
     onAction: (action) => ({ kind: 'commandEdit', action }),
     onSubmit: { kind: 'submitCommand' },
@@ -650,22 +709,202 @@ function paletteOverlay(state) {
   });
 }
 
-function handleMenu(state, action) {
-  switch (action) {
-    case 'openCwd':
-      return openFolder(state, process.cwd(), 'menu');
+function chooserDialog(state) {
+  const chooser = state.chooser;
+  if (chooser.kind !== 'open') throw new Error('Chooser dialog requires open chooser state.');
+  const title = chooser.mode === 'folder' ? 'Open Folder' : 'Open File';
+  return dialog(column([
+    textInput({
+      id: 'ide-chooser-path',
+      presentation: textInputPresentation(chooser.input),
+      placeholder: chooser.mode === 'folder' ? 'Directory path' : 'File path',
+      error: chooser.error,
+      onAction: (action) => ({ kind: 'chooserEdit', action }),
+      onSubmit: { kind: 'confirmChooser' }
+    }),
+    tree({
+      id: 'ide-chooser-tree',
+      ...treeScrollablePresentation(chooser.tree),
+      scrollbar: { visible: 'auto' },
+      onAction: (action) => ({ kind: 'chooserTree', action })
+    }),
+    text(
+      chooser.mode === 'folder'
+        ? 'Select a folder or type a directory path.'
+        : 'Select a file or type a file path.',
+      { id: 'ide-chooser-help', textRole: 'metadata' }
+    )
+  ], {
+    id: 'ide-chooser-body',
+    gap: 1,
+    sizes: [{ kind: 'fixed', cells: chooser.error === undefined ? 1 : 2 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }]
+  }), {
+    id: 'ide-chooser',
+    title,
+    width: 76,
+    height: 24,
+    modal: true,
+    focusPolicy: { initialTargetId: 'ide-chooser-path', returnFocus: 'restore' },
+    dismissal: {
+      escape: true,
+      outsidePress: true,
+      onDismiss: () => ({ kind: 'closeChooser' })
+    },
+    actions: row([
+      button({ id: 'ide-chooser-cancel', label: 'Cancel', onPress: { kind: 'closeChooser' } }),
+      button({ id: 'ide-chooser-confirm', label: title, tone: 'primary', onPress: { kind: 'confirmChooser' } })
+    ], { id: 'ide-chooser-actions', gap: 1, justify: 'end' })
+  });
+}
+
+function ideMenuItems(state) {
+  const active = activeBuffer(state);
+  return [
+    {
+      id: 'file',
+      label: 'File',
+      children: [
+        { id: 'file.openFolder', label: 'Open Folder...', shortcut: 'Ctrl+O' },
+        { id: 'file.openFile', label: 'Open File...' },
+        { id: 'file.save', label: 'Save', shortcut: 'Ctrl+S', disabled: active === undefined || active.dirty !== true },
+        { id: 'file.close', label: 'Close Editor', disabled: active === undefined },
+        { id: 'file.quit', label: 'Quit', shortcut: 'Ctrl+Q' }
+      ]
+    },
+    {
+      id: 'edit',
+      label: 'Edit',
+      children: [
+        { id: 'edit.selectAll', label: 'Select All', disabled: active === undefined },
+        { id: 'edit.clearSelection', label: 'Clear Selection', disabled: active?.selection === undefined }
+      ]
+    },
+    {
+      id: 'view',
+      label: 'View',
+      children: [{ id: 'view.palette', label: 'Command Palette...', shortcut: 'Ctrl+P' }]
+    },
+    {
+      id: 'help',
+      label: 'Help',
+      children: [{ id: 'help.about', label: 'About This Example' }]
+    }
+  ];
+}
+
+function handleMenuAction(state, action) {
+  const items = ideMenuItems(state);
+  const nextState = {
+    ...state,
+    menu: menuBarReducer(state.menu, action, items),
+    pointer: {
+      ...state.pointer,
+      menu: action.kind === 'focusHeading' || action.kind === 'activateHeading' || state.pointer.menu
+    }
+  };
+  if (action.kind !== 'menu' || action.action.kind !== 'activate') return nextState;
+  switch (action.action.id) {
+    case 'file.openFolder': return openChooser(nextState, 'folder');
+    case 'file.openFile': return openChooser(nextState, 'file');
+    case 'file.save': return saveActiveBuffer(nextState, 'menu');
+    case 'file.close': return closeActiveBuffer(nextState);
+    case 'file.quit': return nextState;
+    case 'edit.selectAll': return selectAllActiveBuffer(nextState);
+    case 'edit.clearSelection': return clearActiveSelection(nextState);
+    case 'view.palette': return { ...nextState, palette: { ...nextState.palette, open: true, query: '', selectedIndex: 0 } };
+    case 'help.about': return notifyState(nextState, 'Terminal UI IDE', 'A hand-written editor built from generic terminal-ui components.', 'info');
+    default: return nextState;
   }
 }
 
-function ideMenuMessage(action) {
-  if (action.kind !== 'activateHeading') return undefined;
-  switch (action.id) {
-    case 'open-root': return { kind: 'menu', action: 'openCwd' };
-    case 'save': return { kind: 'saveActive', source: 'menu' };
-    case 'close': return { kind: 'closeActive' };
-    case 'palette': return { kind: 'openPalette', source: 'menu' };
-    case 'quit': return { kind: 'exit' };
-    default: return undefined;
+function openChooser(state, mode) {
+  const workspace = loadWorkspace(state.rootPath);
+  const input = state.rootPath;
+  return {
+    ...state,
+    menu: { kind: 'closed', active: 'file' },
+    chooser: {
+      kind: 'open',
+      mode,
+      rootPath: workspace.rootPath,
+      input: { text: input, cursor: input.length },
+      omitted: workspace.omitted,
+      tree: {
+        nodes: workspace.nodes,
+        selected: workspace.nodes[0]?.id,
+        scroll: createScrollState({ contentRows: visibleTreeRows(workspace.nodes).length })
+      }
+    }
+  };
+}
+
+function updateChooserInput(state, action) {
+  if (state.chooser.kind !== 'open') return state;
+  return {
+    ...state,
+    chooser: {
+      ...state.chooser,
+      input: textInputReducer(state.chooser.input, action),
+      error: undefined
+    }
+  };
+}
+
+function updateChooserTree(state, action) {
+  if (state.chooser.kind !== 'open') return state;
+  const selectedNode = action.id === undefined ? undefined : findTreeNode(state.chooser.tree.nodes, action.id);
+  let tree = treeReducer(state.chooser.tree, action);
+  let omitted = state.chooser.omitted;
+  if (
+    (action.kind === 'toggle' || action.kind === 'expand')
+    && selectedNode?.metadata?.kind === 'directory'
+    && typeof selectedNode.metadata.path === 'string'
+    && (selectedNode.children === undefined || selectedNode.lazy === true)
+  ) {
+    const loaded = directoryChildren(state.chooser.rootPath, selectedNode.metadata.path);
+    tree = treeReducer(tree, { kind: 'lazySuccess', id: selectedNode.id, children: loaded.nodes });
+    omitted += loaded.omitted;
+  }
+  const selectedPath = selectedNode?.metadata?.kind === 'file' || selectedNode?.metadata?.kind === 'directory'
+    ? selectedNode.metadata.path
+    : undefined;
+  const nextState = {
+    ...state,
+    chooser: {
+      ...state.chooser,
+      tree,
+      omitted,
+      ...(typeof selectedPath !== 'string'
+        ? {}
+        : { input: { text: selectedPath, cursor: selectedPath.length }, error: undefined })
+    }
+  };
+  return action.kind === 'activate' && typeof selectedPath === 'string'
+    ? confirmChooser(nextState)
+    : nextState;
+}
+
+function confirmChooser(state) {
+  if (state.chooser.kind !== 'open') return state;
+  const target = resolveUserPath(state.chooser.rootPath, state.chooser.input.text);
+  try {
+    const stat = fs.statSync(target);
+    const valid = state.chooser.mode === 'folder' ? stat.isDirectory() : stat.isFile();
+    if (!valid) {
+      return {
+        ...state,
+        chooser: {
+          ...state.chooser,
+          error: state.chooser.mode === 'folder' ? 'Choose a directory.' : 'Choose a file.'
+        }
+      };
+    }
+    const closed = { ...state, chooser: { kind: 'closed' } };
+    return state.chooser.mode === 'folder'
+      ? openFolder(closed, target, 'chooser')
+      : openFile(closed, target, 'chooser');
+  } catch (error) {
+    return { ...state, chooser: { ...state.chooser, error: errorMessage(error) } };
   }
 }
 
@@ -741,19 +980,15 @@ function expandDirectoryNode(state, node, source) {
     const loaded = directoryChildren(state.rootPath, node.metadata.path);
     return {
       ...state,
-      tree: {
-        ...treeReducer(state.tree, { kind: 'lazySuccess', id: node.id, children: loaded.nodes }),
-        omitted: state.tree.omitted + loaded.omitted
-      },
+      tree: treeReducer(state.tree, { kind: 'lazySuccess', id: node.id, children: loaded.nodes }),
+      treeOmitted: state.treeOmitted + loaded.omitted,
       log: appendLog(state, `Loaded folder from ${source}: ${shortPath(state.rootPath, node.metadata.path)}`)
     };
   } catch (error) {
     return {
       ...state,
-      tree: {
-        ...treeReducer(state.tree, { kind: 'lazyError', id: node.id, message: errorMessage(error) }),
-        omitted: state.tree.omitted + 1
-      },
+      tree: treeReducer(state.tree, { kind: 'lazyError', id: node.id, message: errorMessage(error) }),
+      treeOmitted: state.treeOmitted + 1,
       ...notificationPatch(state, 'Folder load failed', errorMessage(error), 'error'),
       log: appendLog(state, `Folder load failed: ${errorMessage(error)}`)
     };
@@ -806,8 +1041,9 @@ function openFolder(state, folderPath, source) {
       tree: {
         nodes: workspace.nodes,
         selected: workspace.nodes[0]?.id,
-        omitted: workspace.omitted
+        scroll: createScrollState({ contentRows: visibleTreeRows(workspace.nodes).length })
       },
+      treeOmitted: workspace.omitted,
       ...notificationPatch(state, 'Folder opened', workspace.rootPath, 'success'),
       log: appendLog(state, `Opened folder from ${source}: ${workspace.rootPath}`)
     };
@@ -853,24 +1089,30 @@ function openFile(state, filePath, source) {
 function editActiveBuffer(state, action) {
   const active = activeBuffer(state);
   if (active === undefined) return state;
-  const next = editTextBuffer({
-    text: active.text,
-    cursor: active.cursor,
-    ...(active.selection === undefined ? {} : { selection: active.selection })
+  const next = textAreaReducer({
+    input: {
+      text: active.text,
+      cursor: active.cursor,
+      ...(active.selection === undefined ? {} : { selection: active.selection })
+    },
+    scroll: active.scroll
   }, action);
-  const changed = next.text !== active.text || next.cursor !== active.cursor || !sameSelection(next.selection, active.selection);
+  const changed = next.input.text !== active.text
+    || next.input.cursor !== active.cursor
+    || next.scroll !== active.scroll
+    || !sameSelection(next.input.selection, active.selection);
   if (!changed) return state;
   const updated = {
     ...active,
-    text: next.text,
-    cursor: next.cursor,
-    scroll: scrollReducer(active.scroll, {
+    text: next.input.text,
+    cursor: next.input.cursor,
+    scroll: scrollReducer(next.scroll, {
       kind: 'setContent',
-      rows: lineCount(next.text),
-      columns: maxLineCells(next.text)
+      rows: lineCount(next.input.text),
+      columns: maxLineCells(next.input.text)
     }),
-    ...(next.selection === undefined ? { selection: undefined } : { selection: next.selection }),
-    dirty: contentFingerprint(next.text) !== active.savedSha
+    ...(next.input.selection === undefined ? { selection: undefined } : { selection: next.input.selection }),
+    dirty: contentFingerprint(next.input.text) !== active.savedSha
   };
   return {
     ...state,
@@ -878,18 +1120,31 @@ function editActiveBuffer(state, action) {
   };
 }
 
-function scrollActiveBuffer(state, event) {
+function selectAllActiveBuffer(state) {
   const active = activeBuffer(state);
-  if (active === undefined) return state;
-  const scroll = applyScrollEvent(active.scroll, event);
-  if (scroll === active.scroll) return state;
-  const updated = {
-    ...active,
-    scroll
-  };
+  if (active === undefined || active.text.length === 0) return state;
   return {
     ...state,
-    buffers: { ...state.buffers, [active.path]: updated }
+    buffers: {
+      ...state.buffers,
+      [active.path]: {
+        ...active,
+        cursor: active.text.length,
+        selection: { start: 0, end: active.text.length }
+      }
+    }
+  };
+}
+
+function clearActiveSelection(state) {
+  const active = activeBuffer(state);
+  if (active?.selection === undefined) return state;
+  return {
+    ...state,
+    buffers: {
+      ...state.buffers,
+      [active.path]: { ...active, selection: undefined }
+    }
   };
 }
 
@@ -1061,6 +1316,15 @@ function lineCount(value) {
   return value.split('\n').length;
 }
 
+function textPosition(value, offset) {
+  const before = value.slice(0, Math.max(0, Math.min(value.length, offset)));
+  const lines = before.split('\n');
+  return {
+    line: lines.length,
+    column: (lines.at(-1)?.length ?? 0) + 1
+  };
+}
+
 function maxLineCells(value) {
   return value.split('\n').reduce((max, line) => Math.max(max, line.length), 0);
 }
@@ -1169,8 +1433,22 @@ export async function runScriptedIdeEditor() {
     await runtime.handleInput(keyEvent('enter'));
     await runtime.handleInput({ kind: 'text', text: 'Edited from scripted IDE.', paste: false });
 
-    const saveTarget = targetById(runtime, 'ide-menu:save');
-    await click(runtime, saveTarget);
+    const editorTextTarget = targetById(runtime, 'ide-editor-text:text');
+    await dragSelect(
+      runtime,
+      editorTextTarget,
+      editorTextTarget.bounds.column + 5,
+      editorTextTarget.bounds.column + 13
+    );
+    const pointerSelection = activeBuffer(runtime.getState())?.selection;
+    const pointerSelectionLength = pointerSelection === undefined
+      ? 0
+      : Math.abs(pointerSelection.end - pointerSelection.start);
+    await runtime.handleInput({ kind: 'text', text: 'Pointer', paste: false });
+    const pointerReplacementApplied = activeBuffer(runtime.getState())?.text.includes('Pointer') === true;
+
+    await click(runtime, targetById(runtime, 'ide-menu:file'));
+    await click(runtime, targetById(runtime, 'ide-menu:popup:menu:file.save'));
 
     const notesTarget = targetById(runtime, `ide-tree:${nodeId('dir', notesDir)}:disclosure`);
     await click(runtime, notesTarget);
@@ -1179,11 +1457,17 @@ export async function runScriptedIdeEditor() {
     const readmeTarget = targetById(runtime, `ide-tree:${nodeId('file', readmePath)}:body`);
     await click(runtime, readmeTarget);
 
-    const planTarget = targetById(runtime, `ide-tree:${nodeId('file', planPath)}:body`);
-    await click(runtime, planTarget);
+    await click(runtime, targetById(runtime, 'ide-menu:file'));
+    await click(runtime, targetById(runtime, 'ide-menu:popup:menu:file.openFile'));
+    const chooserOpened = runtime.getState().chooser.kind === 'open';
+    const chooserFocused = runtime.frame()?.focusPath?.includes('ide-chooser-path') === true;
+    await click(runtime, targetById(runtime, `ide-chooser-tree:${nodeId('file', planPath)}:body`));
+    await click(runtime, targetById(runtime, 'ide-chooser-confirm:control'));
+    const chooserCompleted = runtime.getState().chooser.kind === 'closed';
+    const chooserFocusRestored = runtime.frame()?.focusPath?.includes('ide-chooser-path') !== true;
 
-    const paletteTarget = targetById(runtime, 'ide-menu:palette');
-    await click(runtime, paletteTarget);
+    await click(runtime, targetById(runtime, 'ide-menu:view'));
+    await runtime.handleInput(keyEvent('enter'));
     await runtime.handleInput({ kind: 'text', text: 'save', paste: false });
     const paletteQuery = runtime.getState().palette.query;
 
@@ -1196,9 +1480,15 @@ export async function runScriptedIdeEditor() {
       rootOpened: state.rootPath === root,
       activeFile: state.activePath === planPath ? 'plan.md' : path.basename(state.activePath ?? ''),
       savedReadme: fs.readFileSync(readmePath, 'utf8').includes('Edited from scripted IDE.'),
+      pointerSelectionLength,
+      pointerReplacementApplied,
       openBuffers: state.openOrder.length,
       dirtyBuffers: dirtyBuffers(state).length,
       paletteQuery,
+      chooserOpened,
+      chooserFocused,
+      chooserCompleted,
+      chooserFocusRestored,
       notesExpanded,
       readmeVisible,
       pointerTree: state.pointer.tree,
@@ -1234,16 +1524,26 @@ async function click(runtime, target) {
   await runtime.handleInput(mouseEvent('release', target, 'none'));
 }
 
+async function dragSelect(runtime, target, startColumn, endColumn) {
+  await runtime.handleInput(mouseEventAt('press', target.bounds.row, startColumn, 'left'));
+  await runtime.handleInput(mouseEventAt('drag', target.bounds.row, endColumn, 'left'));
+  await runtime.handleInput(mouseEventAt('release', target.bounds.row, endColumn, 'none'));
+}
+
 function mouseEvent(action, target, button) {
+  return mouseEventAt(action, target.bounds.row, target.bounds.column, button);
+}
+
+function mouseEventAt(action, row, column, button) {
   return {
     kind: 'mouse',
     sequence: '',
     encoding: 'sgr',
     action,
     button,
-    row: target.bounds.row,
-    column: target.bounds.column,
-    rawCode: 0,
+    row,
+    column,
+    rawCode: action === 'drag' ? 32 : 0,
     modifiers: { shift: false, alt: false, ctrl: false }
   };
 }

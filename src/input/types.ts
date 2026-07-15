@@ -34,16 +34,28 @@ export interface PasteEvent {
   readonly bracketed: boolean;
 }
 
-export interface MouseEvent {
+interface MouseEventBase {
   readonly kind: 'mouse';
   readonly sequence: string;
   readonly encoding: MouseEncoding;
-  readonly action: MouseAction;
   readonly button: MouseButton;
   readonly row: number;
   readonly column: number;
   readonly rawCode: number;
   readonly modifiers: MouseModifiers;
+}
+
+export type MouseEvent = MousePointerEvent | MouseWheelEvent;
+
+export interface MousePointerEvent extends MouseEventBase {
+  readonly action: Exclude<MouseAction, 'wheel'>;
+}
+
+export interface MouseWheelEvent extends MouseEventBase {
+  readonly action: 'wheel';
+  readonly button: 'wheelUp' | 'wheelDown' | 'wheelLeft' | 'wheelRight' | 'unknown';
+  readonly deltaRows: number;
+  readonly deltaColumns: number;
 }
 
 export type MouseEncoding = 'sgr' | 'x10';

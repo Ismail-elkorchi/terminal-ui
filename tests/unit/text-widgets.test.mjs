@@ -122,15 +122,16 @@ test('richText gives linked spans the default link style without overriding expl
 test('textArea renders multiline windows and exposes cursor/accessibility state', () => {
   const frame = renderElementFrame(textArea({
     id: 'body',
-    value: 'line one\nline two',
-    cursor: 'line one\nline'.length,
-    selection: { start: 0, end: 4 }
+    presentation: { value: 'line one\nline two', cursor: 'line one\nline'.length, selection: { start: 0, end: 4 } },
   }), { columns: 20, rows: 3 });
 
   assert.equal(renderFramePlain(frame), '› line one\n│ line two');
   assert.deepEqual(cursorPosition(frame.cursor), { row: 2, column: 7 });
   assert.equal(frame.cursor?.style?.fg?.token, 'input.cursor');
   assert.equal(frame.cursor?.style?.inverse, true);
+  const caretCell = frame.cells.find((cell) => cell.row === frame.cursor?.row && cell.column === frame.cursor.column);
+  assert.equal(caretCell?.style?.inverse, true);
+  assert.equal(caretCell?.source?.label, 'value');
   assert.equal(frame.accessibility.root.role, 'textbox');
   assert.equal(
     frame.accessibility.root.description,
@@ -142,12 +143,11 @@ test('textArea renders multiline windows and exposes cursor/accessibility state'
 test('editable text controls expose source metadata for chrome value placeholder and selection', () => {
   const inputFrame = renderElementFrame(textInput({
     id: 'email',
-    value: 'abc',
-    selection: { start: 1, end: 2 }
+    presentation: { value: 'abc', cursor: 0, selection: { start: 1, end: 2 } },
   }), { columns: 12, rows: 1 });
   const placeholderFrame = renderElementFrame(textInput({
     id: 'empty',
-    value: '',
+    presentation: { value: '', cursor: 0 },
     placeholder: 'Email'
   }), { columns: 12, rows: 1 });
   const numberFrame = renderElementFrame(numberInput({
@@ -169,20 +169,16 @@ test('text widgets map Unicode cursor positions through the shared text contract
   const value = 'a🙂界b';
   const textInputFrame = renderElementFrame(textInput({
     id: 'unicode-input',
-    value,
-    cursor: 'a🙂'.length,
-    selection: { start: 1, end: 'a🙂'.length }
+    presentation: { value, cursor: 'a🙂'.length, selection: { start: 1, end: 'a🙂'.length } }
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-input'] });
   const secondaryInputFrame = renderElementFrame(textInput({
     id: 'unicode-field',
-    value: 'go🙂'
+    presentation: { value: 'go🙂', cursor: 'go🙂'.length }
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-field'] });
   const commandFrame = renderElementFrame(commandInput({
     id: 'unicode-command',
     prompt: '> ',
-    value,
-    cursor: 'a🙂'.length,
-    selection: { start: 1, end: 'a🙂'.length }
+    presentation: { value, cursor: 'a🙂'.length, selection: { start: 1, end: 'a🙂'.length }, suggestions: [] }
   }), { columns: 18, rows: 1 }, { focusPath: ['unicode-command'] });
 
   assert.deepEqual(cursorPosition(textInputFrame.cursor), { row: 1, column: 7 });
@@ -202,6 +198,8 @@ test('text widgets map Unicode cursor positions through the shared text contract
   assert.equal(textInputFrame.cursor?.style?.fg?.token, 'input.cursor');
   assert.equal(commandFrame.cursor?.style?.fg?.token, 'input.cursor');
   assert.equal(commandFrame.cursor?.style?.inverse, true);
+  assert.equal(textInputFrame.cells.find((cell) => cell.column === textInputFrame.cursor?.column)?.style?.inverse, true);
+  assert.equal(commandFrame.cells.find((cell) => cell.column === commandFrame.cursor?.column)?.style?.inverse, true);
   assert.equal(renderFramePlain(textInputFrame), '›[ a🙂界b ]');
   assert.equal(renderFramePlain(secondaryInputFrame), '›[ go🙂 ]');
   assert.equal(renderFramePlain(commandFrame), '> a🙂界b');
@@ -212,12 +210,11 @@ test('text widgets map Unicode cursor positions through the shared text contract
 test('textArea editable cells expose chrome value placeholder and selection source metadata', () => {
   const selectedFrame = renderElementFrame(textArea({
     id: 'notes',
-    value: 'alpha\nbeta',
-    selection: { start: 1, end: 4 }
+    presentation: { value: 'alpha\nbeta', cursor: 0, selection: { start: 1, end: 4 } },
   }), { columns: 12, rows: 2 });
   const placeholderFrame = renderElementFrame(textArea({
     id: 'notes-empty',
-    value: '',
+    presentation: { value: '', cursor: 0 },
     placeholder: 'Write notes'
   }), { columns: 12, rows: 1 });
 
@@ -231,8 +228,7 @@ test('textArea editable cells expose chrome value placeholder and selection sour
 test('textArea can opt into line number gutter and active line anatomy', () => {
   const frame = renderElementFrame(textArea({
     id: 'editor',
-    value: 'alpha\nbeta',
-    cursor: 'alpha\nb'.length,
+    presentation: { value: 'alpha\nbeta', cursor: 'alpha\nb'.length },
     lineNumbers: { minWidth: 2 },
     activeLine: true
   }), { columns: 24, rows: 2 }, { focusPath: ['editor'] });
@@ -259,8 +255,7 @@ test('textArea cursor uses the actual line-number gutter width', () => {
   const cursor = lines.slice(0, 9).join('\n').length + 1;
   const frame = renderElementFrame(textArea({
     id: 'wide-gutter-editor',
-    value,
-    cursor,
+    presentation: { value, cursor },
     lineNumbers: true
   }), { columns: 24, rows: 12 }, { focusPath: ['wide-gutter-editor'] });
 
@@ -273,8 +268,7 @@ test('textArea cursor uses the actual line-number gutter width', () => {
 test('textArea renders caller-owned highlight ranges without overriding selection', () => {
   const frame = renderElementFrame(textArea({
     id: 'searchable',
-    value: 'alpha beta gamma',
-    selection: { start: 0, end: 5 },
+    presentation: { value: 'alpha beta gamma', cursor: 0, selection: { start: 0, end: 5 } },
     highlights: [
       { start: 6, end: 10, label: 'search.match' },
       { start: 11, end: 16, label: 'custom.match', style: { fg: { kind: 'theme', token: 'status.warning' }, bold: true } }
@@ -299,8 +293,7 @@ test('textArea renders caller-owned highlight ranges without overriding selectio
 test('textArea can soft-wrap long logical lines while preserving editor anatomy', () => {
   const frame = renderElementFrame(textArea({
     id: 'wrapped-editor',
-    value: 'alpha beta gamma',
-    cursor: 'alpha beta'.length,
+    presentation: { value: 'alpha beta gamma', cursor: 'alpha beta'.length },
     lineNumbers: { minWidth: 2 },
     activeLine: true,
     wrap: true
@@ -319,9 +312,8 @@ test('textArea can soft-wrap long logical lines while preserving editor anatomy'
 test('wrapped textArea exposes scrollbar scope over visual rows', () => {
   const frame = renderElementFrame(textArea({
     id: 'wrapped-scroll',
-    value: 'alpha beta gamma delta',
+    presentation: { value: 'alpha beta gamma delta', cursor: 0, scroll: { offsetRow: 1, offsetColumn: 0, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0 } },
     wrap: true,
-    scroll: { offsetRow: 1, offsetColumn: 0, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0 },
     scrollbar: { visible: 'always', axis: 'vertical' }
   }), { columns: 9, rows: 2 });
 
@@ -337,14 +329,13 @@ test('editable text controls remain readable in high contrast and no-color proje
   const widget = column([
     textInput({
       id: 'contrast-input',
-      value: 'alpha',
-      selection: { start: 1, end: 4 },
+      presentation: { value: 'alpha', cursor: 0, selection: { start: 1, end: 4 } },
       error: 'Invalid value'
     }),
     commandInput({
       id: 'contrast-command',
       prompt: '/',
-      value: '',
+      presentation: { value: '', cursor: 0, suggestions: [] },
       placeholder: 'command',
       validation: { tone: 'warning', message: 'Waiting' }
     })
@@ -374,7 +365,7 @@ test('editable text controls remain readable in high contrast and no-color proje
 test('disabled textInput exposes no mouse hit target', () => {
   const frame = renderElementFrame(textInput({
     id: 'disabled-input',
-    value: 'locked',
+    presentation: { value: 'locked', cursor: 0 },
     disabled: true,
     onSubmit: { kind: 'submit' }
   }), { columns: 16, rows: 1 });
@@ -385,8 +376,8 @@ test('disabled textInput exposes no mouse hit target', () => {
 test('textInput maps pointer positions to text offsets when opted in', () => {
   const regions = renderElementRegions(textInput({
     id: 'editable-input',
-    value: 'alpha',
-    onTextPointer: (event) => ({ event })
+    presentation: { value: 'alpha', cursor: 0 },
+    onAction: (action) => ({ action })
   }), { columns: 16, rows: 1 });
   const target = targetById(regions, 'editable-input:text');
   const message = target.message(pointerEvent({
@@ -397,16 +388,18 @@ test('textInput maps pointer positions to text offsets when opted in', () => {
     localColumn: 6
   }));
 
-  assert.deepEqual(message?.event.action, 'placeCursor');
-  assert.equal(message?.event.offset, 2);
+  assert.deepEqual(message?.action, {
+    kind: 'pointer',
+    action: { kind: 'placeCaret', offset: 2 }
+  });
 });
 
 test('disabled textInput suppresses opted-in text pointer targets', () => {
   const frame = renderElementFrame(textInput({
     id: 'disabled-editable-input',
-    value: 'locked',
+    presentation: { value: 'locked', cursor: 0 },
     disabled: true,
-    onTextPointer: (event) => ({ event })
+    onAction: (action) => ({ action })
   }), { columns: 16, rows: 1 });
 
   assert.deepEqual(frame.hitTargets ?? [], []);
@@ -415,9 +408,9 @@ test('disabled textInput suppresses opted-in text pointer targets', () => {
 test('textArea maps pointer positions through gutters visual rows and selection drag actions', () => {
   const regions = renderElementRegions(textArea({
     id: 'editable-area',
-    value: 'alpha\nbeta',
+    presentation: { value: 'alpha\nbeta', cursor: 0 },
     lineNumbers: true,
-    onTextPointer: (event) => ({ event })
+    onAction: (action) => ({ action })
   }), { columns: 24, rows: 2 });
   const target = targetById(regions, 'editable-area:text');
   const place = target.message(pointerEvent({
@@ -432,21 +425,27 @@ test('textArea maps pointer positions through gutters visual rows and selection 
     row: 2,
     column: 9,
     localRow: 2,
-    localColumn: 9
+    localColumn: 9,
+    pressRow: 2,
+    pressColumn: 8,
+    pressLocalRow: 2,
+    pressLocalColumn: 8
   }));
 
-  assert.equal(place?.event.action, 'placeCursor');
-  assert.equal(place?.event.offset, 8);
-  assert.equal(drag?.event.action, 'extendSelection');
-  assert.equal(drag?.event.offset, 9);
+  assert.deepEqual(place?.action, {
+    kind: 'pointer',
+    action: { kind: 'placeCaret', offset: 8 }
+  });
+  assert.deepEqual(drag?.action, {
+    kind: 'pointer',
+    action: { kind: 'extendSelection', anchor: 8, offset: 9 }
+  });
 });
 
 test('textArea horizontal windows use visual cells without splitting graphemes', () => {
   const frame = renderElementFrame(textArea({
     id: 'unicode-area',
-    value: 'a🙂界b\nplain',
-    cursor: 'a🙂界'.length,
-    scroll: { offsetRow: 0, offsetColumn: 3, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0 }
+    presentation: { value: 'a🙂界b\nplain', cursor: 'a🙂界'.length, scroll: { offsetRow: 0, offsetColumn: 3, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0 } },
   }), { columns: 5, rows: 2 }, { focusPath: ['unicode-area'] });
 
   assert.equal(renderFramePlain(frame), '› 界b\n│ in');
@@ -473,7 +472,11 @@ function pointerEvent({
   row,
   column,
   localRow,
-  localColumn
+  localColumn,
+  pressRow,
+  pressColumn,
+  pressLocalRow,
+  pressLocalColumn
 }) {
   return {
     kind,
@@ -482,6 +485,10 @@ function pointerEvent({
     column,
     localRow,
     localColumn,
+    ...(pressRow === undefined ? {} : { pressRow }),
+    ...(pressColumn === undefined ? {} : { pressColumn }),
+    ...(pressLocalRow === undefined ? {} : { pressLocalRow }),
+    ...(pressLocalColumn === undefined ? {} : { pressLocalColumn }),
     button: 'left',
     modifiers: { shift: false, alt: false, ctrl: false },
     deltaRows: 0,

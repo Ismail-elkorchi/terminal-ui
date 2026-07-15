@@ -1,19 +1,17 @@
 import { createTerminalTextIndex, normalizeTextCursor } from '../../text/index.ts';
 import type { TextMeasurementOptions, TextSelection } from '../../text/index.ts';
-import type { RenderNodesOfKind } from '../model/index.ts';
-import type { TextPointerAction, TextPointerEvent } from '../../interaction/text-pointer.ts';
+import type { TextPointerAction } from '../../interaction/text-pointer.ts';
 import type { Rect } from '../model/layout.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { HitTarget } from '../model/renderer.ts';
 
-type TextPointerNode<TMessage> = RenderNodesOfKind<TMessage, 'commandInput' | 'textArea' | 'textInput'>;
-
-export type { TextPointerAction, TextPointerEvent } from '../../interaction/text-pointer.ts';
+export type { TextPointerAction } from '../../interaction/text-pointer.ts';
 
 export interface TextPointerHitTargetInput<TMessage> {
   readonly id: string;
   readonly bounds: Rect;
-  readonly toMessage?: ((event: TextPointerEvent) => TMessage | undefined) | undefined;
+  readonly focusTargetId?: string;
+  readonly toMessage?: ((action: TextPointerAction) => TMessage | undefined) | undefined;
   offsetAt(event: RoutedPointerEvent): number | undefined;
 }
 
@@ -26,27 +24,17 @@ export function textPointerHitTargets<TMessage>(
     id: input.id,
     bounds: input.bounds,
     accepts: ['pointerDown', 'dragStart', 'drag', 'dragEnd'],
+    ...(input.focusTargetId === undefined
+      ? {}
+      : { focus: { kind: 'target' as const, targetId: input.focusTargetId } }),
     cursor: 'text',
     message(event) {
-      const action = textPointerAction(event);
       const offset = input.offsetAt(event);
-      if (action === undefined || offset === undefined) return undefined;
-      return input.toMessage?.({
-        action,
-        offset,
-        pointer: event
-      });
+      if (offset === undefined) return undefined;
+      const action = textPointerAction(event, offset, (candidate) => input.offsetAt(candidate));
+      return action === undefined ? undefined : input.toMessage?.(action);
     }
   }];
-}
-
-export function textPointerMessageFactory<TMessage>(
-  widget: TextPointerNode<TMessage>
-): ((event: TextPointerEvent) => TMessage) | undefined {
-  const raw = widget.props.toTextPointerMessage;
-  return typeof raw === 'function'
-    ? (event) => (raw)(event)
-    : undefined;
 }
 
 export function textOffsetAtVisualColumn(
@@ -69,16 +57,38 @@ export function clampedTextOffset(text: string, offset: number): number {
   return normalizeTextCursor(text, offset);
 }
 
-function textPointerAction(event: RoutedPointerEvent): TextPointerAction | undefined {
+function textPointerAction(
+  event: RoutedPointerEvent,
+  offset: number,
+  offsetAt: (event: RoutedPointerEvent) => number | undefined
+): TextPointerAction | undefined {
   switch (event.kind) {
     case 'pointerDown':
-      return 'placeCursor';
+      return { kind: 'placeCaret', offset };
     case 'dragStart':
     case 'drag':
-      return 'extendSelection';
+      return selectionAction('extendSelection', event, offset, offsetAt);
     case 'dragEnd':
-      return 'endSelection';
+      return selectionAction('endSelection', event, offset, offsetAt);
     default:
       return undefined;
   }
+}
+
+function selectionAction(
+  kind: 'extendSelection' | 'endSelection',
+  event: RoutedPointerEvent,
+  offset: number,
+  offsetAt: (event: RoutedPointerEvent) => number | undefined
+): TextPointerAction {
+  const pressLocalRow = event.pressLocalRow ?? event.localRow;
+  const pressLocalColumn = event.pressLocalColumn ?? event.localColumn;
+  const anchor = offsetAt({
+    ...event,
+    row: event.pressRow ?? event.row,
+    column: event.pressColumn ?? event.column,
+    ...(pressLocalRow === undefined ? {} : { localRow: pressLocalRow }),
+    ...(pressLocalColumn === undefined ? {} : { localColumn: pressLocalColumn })
+  }) ?? offset;
+  return { kind, anchor, offset };
 }

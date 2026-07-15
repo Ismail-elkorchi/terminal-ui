@@ -18,7 +18,7 @@ import {
   scrollbarsForRenderNode,
   textAreaScrollbarState
 } from './support/scroll.ts';
-import { textPointerHitTargets, textPointerMessageFactory } from '../text-pointer.ts';
+import { textPointerHitTargets } from '../text-pointer.ts';
 import type { RendererMap } from './types.ts';
 
 export const textRenderers = {
@@ -35,9 +35,9 @@ export const textRenderers = {
     accessibility: ({ renderNode, id }) => richTextAccessibleBase(renderNode, id)
   },
   textArea: {
-    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focus }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => textAreaScrollbarState(renderNode, contentBounds), 'both');
-      writeRenderBlock(buffer, scrollbars.contentBounds, textAreaBlock(renderNode, scrollbars.contentBounds, theme, focused));
+      writeRenderBlock(buffer, scrollbars.contentBounds, textAreaBlock(renderNode, scrollbars.contentBounds, theme, focus === 'self'));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, layoutNode, id, focused, theme }) => textAreaAccessibleBase(renderNode, id, focused, layoutNode.bounds, theme),
@@ -50,7 +50,10 @@ export const textRenderers = {
           : textPointerHitTargets({
               id: `${renderNode.id ?? renderNode.kind}:text`,
               bounds: scrollbars.contentBounds,
-              toMessage: textPointerMessageFactory(renderNode),
+              focusTargetId: 'self',
+              toMessage: renderNode.props.toActionMessage === undefined
+                ? undefined
+                : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
               offsetAt: (event) => textAreaPointerOffset(renderNode, scrollbars.contentBounds, theme, event)
             })),
         ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)

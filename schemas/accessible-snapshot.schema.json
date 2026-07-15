@@ -36,8 +36,10 @@
             "listbox",
             "option",
         "menu",
-        "menubar",
+            "menubar",
             "menuitem",
+            "tablist",
+            "tab",
             "table",
             "row",
             "cell",
@@ -106,6 +108,7 @@
           "additionalProperties": false
         },
         "description": { "type": "string" },
+        "controls": { "type": "string", "minLength": 1 },
         "children": { "type": "array", "items": { "$ref": "#/$defs/accessibleNode" } }
       },
       "additionalProperties": false

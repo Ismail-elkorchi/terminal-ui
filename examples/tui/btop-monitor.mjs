@@ -23,6 +23,12 @@ import {
   table,
   text
 } from '@ismail-elkorchi/terminal-ui/components';
+import {
+  createScrollState,
+  sortTableRows,
+  tableScrollablePresentation,
+  tableReducer
+} from '@ismail-elkorchi/terminal-ui/behavior';
 
 /** @type {import('@ismail-elkorchi/terminal-ui/components').ValueScale} */
 const monitorScale = Object.freeze([
@@ -85,9 +91,9 @@ export const btopMonitorApp = defineTui({
   subscriptions: () => [intervalSource('btop-tick', 1000, (tick) => ({ kind: 'tick', tick }))],
   keyBindings: [
     { id: 'exit', triggers: [{ kind: 'text', text: 'q' }, { kind: 'key', key: 'ctrlC' }], label: 'Quit', message: { kind: 'exit' } },
-    { id: 'next-sort', triggers: [{ kind: 'text', text: 's' }], label: 'Sort', message: { kind: 'sort' } },
-    { id: 'next-process', triggers: [{ kind: 'key', key: 'arrowDown' }, { kind: 'text', text: 'j' }], label: 'Next process', message: { kind: 'selectProcess', delta: 1 } },
-    { id: 'previous-process', triggers: [{ kind: 'key', key: 'arrowUp' }, { kind: 'text', text: 'k' }], label: 'Previous process', message: { kind: 'selectProcess', delta: -1 } }
+    { id: 'next-sort', triggers: [{ kind: 'text', text: 's' }], label: 'Sort', message: { kind: 'cycleSort' } },
+    { id: 'next-process', triggers: [{ kind: 'key', key: 'arrowDown' }, { kind: 'text', text: 'j' }], label: 'Next process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: 1 } } },
+    { id: 'previous-process', triggers: [{ kind: 'key', key: 'arrowUp' }, { kind: 'text', text: 'k' }], label: 'Previous process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: -1 } } }
   ],
   update: updateMonitor,
   view: monitorView,
@@ -95,11 +101,17 @@ export const btopMonitorApp = defineTui({
 });
 
 function initialState() {
+  const selectedRowId = String(processRows[9]?.pid ?? processRows[0]?.pid ?? '');
   return {
     tick: 0,
-    selectedProcessId: String(processRows[9]?.pid ?? processRows[0]?.pid ?? ''),
-    sort: 'memory',
-    processOffset: 0
+    processTable: {
+      selectedRowId,
+      sort: { column: 'memory', direction: 'descending' },
+      scroll: createScrollState({
+        contentRows: processRows.length,
+        selectedIndex: processRows.findIndex((row) => String(row.pid) === selectedRowId)
+      })
+    }
   };
 }
 
@@ -112,22 +124,31 @@ function updateMonitor(state, message) {
           tick: message.tick
         }
       };
-    case 'sort':
-      return { state: { ...state, sort: state.sort === 'memory' ? 'cpu' : 'memory' } };
-    case 'selectProcess': {
-      const rows = sortedProcesses(state);
-      const currentIndex = Math.max(0, rows.findIndex((row) => String(row.pid) === state.selectedProcessId));
-      const selectedProcess = clamp(currentIndex + message.delta, 0, rows.length - 1);
+    case 'cycleSort': {
+      const column = state.processTable.sort?.column === 'memory' ? 'cpu' : 'memory';
       return {
         state: {
           ...state,
-          selectedProcessId: String(rows[selectedProcess]?.pid ?? ''),
-          processOffset: Math.max(0, Math.min(selectedProcess - 8, processRows.length - 12))
+          processTable: {
+            ...state.processTable,
+            sort: { column, direction: 'descending' }
+          }
         }
       };
     }
-    case 'selectProcessId':
-      return { state: { ...state, selectedProcessId: message.id } };
+    case 'processTable': {
+      const rows = sortedProcesses(state);
+      return {
+        state: {
+          ...state,
+          processTable: tableReducer(state.processTable, message.action, {
+            rows,
+            getRowId: processRowId,
+            columnCount: processColumns.length
+          })
+        }
+      };
+    }
     case 'exit':
       return { state, exit: { reason: 'user requested exit' } };
   }
@@ -425,49 +446,28 @@ function structuredLine(label, first, second) {
 }
 
 function processPanel(state) {
-  const rows = sortedProcesses(state).slice(state.processOffset);
+  const rows = sortedProcesses(state);
+  const sort = state.processTable.sort;
   return surface(column([
     row([
-      statusBar({ id: 'proc-mode', leading: [{ id: 'mode', kind: 'text', text: `proc filter  sort=${state.sort}` }] }),
+      statusBar({ id: 'proc-mode', leading: [{ id: 'mode', kind: 'text', text: `proc filter  sort=${sort?.column ?? 'none'} ${sort?.direction ?? ''}` }] }),
       statusBar({ id: 'proc-flags', trailing: [{ id: 'flags', kind: 'text', text: 'per-core reverse tree memory' }] })
     ], { id: 'proc-header', sizes: [{ kind: 'fill' }, { kind: 'content' }] }),
     table({
-      getRowId: (row) => String(row.pid),
+      getRowId: processRowId,
       id: 'process-table',
       rows,
-      selectedRowId: state.selectedProcessId,
+      presentation: tableScrollablePresentation(state.processTable),
       density: 'compact',
       stickyHeader: true,
       scrollbar: { visible: 'auto' },
-      columns: [
-        {
-          id: 'pid-0', value: (row) => row.pid, header: 'Pid', width: { kind: 'fixed', cells: 5 }, semantic: 'metadata', render: ({ row }) => String(row.pid) },
-        {
-          id: 'program-1', value: (row) => row.program, header: 'Program', width: { kind: 'fixed', cells: 18 }, render: ({ row }) => row.program },
-        {
-          id: 'command-2', value: (row) => row.command, header: 'Command', width: { kind: 'fill' }, semantic: 'metadata', render: ({ row }) => row.command },
-        {
-          id: 'threads-3', value: (row) => row.threads, header: 'Threads', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ row }) => String(row.threads) },
-        {
-          id: 'user-4', value: (row) => row.user, header: 'User', width: { kind: 'fixed', cells: 8 }, semantic: 'metadata', render: ({ row }) => row.user },
-        {
-          id: 'memb-5', value: (row) => row.memory, header: 'MemB', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ row }) => row.memory },
-        {
-          id: 'cpu-6', value: (row) => row.cpu, header: 'Cpu%', width: { kind: 'fixed', cells: 6 }, align: 'end', semantic: 'metric', render: ({ row }) => row.cpu.toFixed(1) }
-      ],
-      keys: {
-        arrowDown: () => ({ kind: 'selectProcess', delta: 1 }),
-        arrowUp: () => ({ kind: 'selectProcess', delta: -1 }),
-        text: { s: () => ({ kind: 'sort' }) }
-      },
-      onAction: (action) => action.kind === 'selectRow' || action.kind === 'selectCell' || action.kind === 'activate'
-        ? { kind: 'selectProcessId', id: action.rowId }
-        : undefined
+      columns: processColumns,
+      onAction: (action) => ({ kind: 'processTable', action })
     })
   ], { id: 'proc-column', gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }] }), {
     id: 'process-panel',
     label: 'proc',
-    title: panelTitle('proc', `sort=${state.sort}`, `${String(rows.length)} rows`),
+    title: panelTitle('proc', `sort=${sort?.column ?? 'none'}`, `${String(rows.length)} rows`),
     variant: 'inset',
     padding: 1
   });
@@ -488,9 +488,29 @@ function footerHelp() {
 }
 
 function sortedProcesses(state) {
-  const rows = [...processRows];
-  if (state.sort === 'cpu') return rows.sort((left, right) => right.cpu - left.cpu);
-  return rows.sort((left, right) => Number.parseFloat(right.memory) - Number.parseFloat(left.memory));
+  return sortTableRows(processRows, state.processTable.sort, processValueForColumn);
+}
+
+/** @typedef {(typeof processRows)[number]} ProcessRow */
+
+/** @type {readonly import('@ismail-elkorchi/terminal-ui/components').TableColumn<ProcessRow>[]} */
+const processColumns = Object.freeze([
+  { id: 'pid', value: (row) => row.pid, header: 'Pid', width: { kind: 'fixed', cells: 5 }, semantic: 'metadata', render: ({ row }) => String(row.pid) },
+  { id: 'program', value: (row) => row.program, header: 'Program', width: { kind: 'fixed', cells: 18 }, render: ({ row }) => row.program },
+  { id: 'command', value: (row) => row.command, header: 'Command', width: { kind: 'fill' }, semantic: 'metadata', render: ({ row }) => row.command },
+  { id: 'threads', value: (row) => row.threads, header: 'Threads', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ row }) => String(row.threads) },
+  { id: 'user', value: (row) => row.user, header: 'User', width: { kind: 'fixed', cells: 8 }, semantic: 'metadata', render: ({ row }) => row.user },
+  { id: 'memory', value: (row) => row.memory, header: 'MemB', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ row }) => row.memory },
+  { id: 'cpu', value: (row) => row.cpu, header: 'Cpu%', width: { kind: 'fixed', cells: 6 }, align: 'end', semantic: 'metric', render: ({ row }) => row.cpu.toFixed(1) }
+]);
+
+function processRowId(row) {
+  return String(row.pid);
+}
+
+function processValueForColumn(row, column) {
+  if (column === 'memory') return Number.parseFloat(row.memory);
+  return processColumns.find((candidate) => candidate.id === column)?.value(row, processRows.indexOf(row));
 }
 
 function rotate(values, offset) {
@@ -544,8 +564,34 @@ export async function runScriptedBtopMonitor() {
   try {
     await runtime.start();
     await runtime.dispatch({ kind: 'tick', tick: 3 });
-    await runtime.dispatch({ kind: 'selectProcess', delta: 2 });
-    await runtime.dispatch({ kind: 'sort' });
+    const contentTarget = targetById(runtime, 'process-table:scroll:content');
+    const wheelPacket = `\u001B[<65;${String(contentTarget.bounds.column)};${String(contentTarget.bounds.row)}M`;
+    const firstWheel = await runtime.handleInputChunk({ data: wheelPacket });
+    const secondWheel = await runtime.handleInputChunk({ data: wheelPacket });
+    const thirdWheel = await runtime.handleInputChunk({ data: wheelPacket });
+    host.clock.advance(8);
+    await thirdWheel.pending;
+    const offsetAfterWheel = runtime.getState().processTable.scroll.offsetRow;
+
+    const thumbTarget = targetById(runtime, 'process-table:scrollbar:vertical:thumb');
+    const trackTarget = targetById(runtime, 'process-table:scrollbar:vertical:track');
+    const thumbPressRow = thumbTarget.bounds.row;
+    await runtime.handleInput(pointerEvent('press', thumbTarget.bounds.column, thumbPressRow, 'left'));
+    await runtime.handleInput(pointerEvent(
+      'drag',
+      thumbTarget.bounds.column,
+      Math.min(trackTarget.bounds.row + trackTarget.bounds.height - 1, thumbPressRow + 3),
+      'left'
+    ));
+    await runtime.handleInput(pointerEvent('release', thumbTarget.bounds.column, thumbPressRow + 3, 'none'));
+    const offsetAfterDrag = runtime.getState().processTable.scroll.offsetRow;
+
+    const selectedTarget = targetByPrefix(runtime, 'process-table:row:');
+    await click(runtime, selectedTarget);
+    const selectedBeforeKeyboard = runtime.getState().processTable.selectedRowId;
+    await runtime.handleInput(keyEvent('arrowDown'));
+    const selectedAfterKeyboard = runtime.getState().processTable.selectedRowId;
+    await runtime.handleInput({ kind: 'text', text: 's', paste: false });
     const frame = runtime.frame();
     if (frame === undefined) throw new Error('The scripted monitor did not render a frame.');
     const output = renderFramePlain(frame);
@@ -557,12 +603,71 @@ export async function runScriptedBtopMonitor() {
       hasMemory: output.includes('Total:'),
       hasNetwork: output.includes('wlp3s0') || output.includes('Kibps'),
       hasProcesses: output.includes('Program'),
-      selectedProcessId: runtime.getState().selectedProcessId,
-      sort: runtime.getState().sort
+      selectedProcessId: runtime.getState().processTable.selectedRowId,
+      sort: runtime.getState().processTable.sort,
+      wheelBatchShared: firstWheel.pending === secondWheel.pending && secondWheel.pending === thirdWheel.pending,
+      offsetAfterWheel,
+      offsetAfterDrag,
+      keyboardSelectionMoved: selectedAfterKeyboard !== selectedBeforeKeyboard,
+      metrics: runtime.metrics()
     };
   } finally {
     await runtime.dispose();
   }
+}
+
+function targetById(runtime, id) {
+  const target = runtime.frame()?.hitTargets?.find((item) => item.id === id);
+  if (target === undefined) throw new Error(`Missing hit target ${id}`);
+  return target;
+}
+
+function targetByPrefix(runtime, prefix) {
+  const target = runtime.frame()?.hitTargets?.find((item) => item.id.startsWith(prefix));
+  if (target === undefined) throw new Error(`Missing hit target with prefix ${prefix}`);
+  return target;
+}
+
+async function click(runtime, target) {
+  await runtime.handleInput(pointerEvent('press', target.bounds.column, target.bounds.row, 'left'));
+  await runtime.handleInput(pointerEvent('release', target.bounds.column, target.bounds.row, 'none'));
+}
+
+/**
+ * @param {'press' | 'drag' | 'release'} action
+ * @param {number} column
+ * @param {number} row
+ * @param {'left' | 'none'} button
+ * @returns {import('@ismail-elkorchi/terminal-ui/input').MousePointerEvent}
+ */
+function pointerEvent(action, column, row, button) {
+  return {
+    kind: 'mouse',
+    sequence: '',
+    encoding: 'sgr',
+    action,
+    button,
+    row,
+    column,
+    rawCode: action === 'drag' ? 32 : 0,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  };
+}
+
+/**
+ * @param {import('@ismail-elkorchi/terminal-ui/input').KeyName} key
+ * @returns {import('@ismail-elkorchi/terminal-ui/input').KeyEvent}
+ */
+function keyEvent(key) {
+  return {
+    kind: 'key',
+    key,
+    sequence: '',
+    shift: false,
+    alt: false,
+    ctrl: false,
+    meta: false
+  };
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {

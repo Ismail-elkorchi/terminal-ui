@@ -27,7 +27,7 @@ export const drawingRenderers = {
   surface: {
     layout: ({ renderNode, bounds }) => surfaceChildBounds(renderNode, bounds),
     render: (input) => {
-      drawSurfaceChrome(input.buffer, input.layoutNode.bounds, input.renderNode, input.theme, input.focused);
+      drawSurfaceChrome(input.buffer, input.layoutNode.bounds, input.renderNode, input.theme, input.focus);
       input.renderChildren();
     },
     accessibility: ({ renderNode, id, focused }) => surfaceAccessibleBase(renderNode, id, focused)

@@ -80,11 +80,8 @@ Public event props describe user intent and return caller-owned messages:
 | `onSelect` | Palette entry selection where the selected domain value is the event payload. |
 | `onChange` | Scalar controls such as checkboxes, switches, and sliders whose next value is computed by the component. |
 | `onStep` | Step controls where the caller handles a structured step action. |
-| `onInput` | Text editing. |
-| `onPaste` | Paste input when handled separately from ordinary text. |
-| `onAction` | Structured controlled-component actions for navigation surfaces, multi-choice controls, lists, tables, trees, documents, charts, notifications, command bars, and palettes. |
-| `onScroll` | Structured scrolling for text and layout viewport surfaces that do not have a broader domain action model. |
-| `onTextPointer` | Pointer-to-text position and selection events. |
+| `onAction` | Structured controlled-component actions for editable controls, navigation surfaces, multi-choice controls, lists, tables, trees, documents, charts, notifications, command inputs, and palettes. Editable-control actions include text edits, pointer caret/selection gestures, and scrolling where applicable. |
+| `onScroll` | Structured scrolling for layout viewport and palette surfaces that retain a direct scroll contract. |
 | `onContextMenu` | Context-menu activation. |
 | `keys` | Component-local key bindings not covered by semantic events. |
 

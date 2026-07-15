@@ -196,7 +196,7 @@ export interface TuiRuntime<TState, TMessage> {
   handleInputChunk(
     chunk: TerminalInputChunk,
     decodeOptions?: InputDecodeOptions
-  ): Promise<readonly TuiInputResult<TState>[]>;
+  ): Promise<TuiInputBatchResult<TState>>;
   flushInput(): Promise<readonly TuiInputResult<TState>[]>;
   resetInput(): void;
   nextChange(signal?: AbortSignal): Promise<TuiRuntimeChange<TState>>;
@@ -205,6 +205,20 @@ export interface TuiRuntime<TState, TMessage> {
   frame(): Frame | undefined;
   exit(): TuiExit<TState> | undefined;
   diagnostics(): readonly TerminalDiagnostic[];
+  metrics(): TuiRuntimeMetrics;
+}
+
+export interface TuiRuntimeMetrics {
+  readonly decodedInputEvents: number;
+  readonly wheelPackets: number;
+  readonly dispatchedMessages: number;
+  readonly stateUpdates: number;
+  readonly frameCommits: number;
+}
+
+export interface TuiInputBatchResult<TState> {
+  readonly results: readonly TuiInputResult<TState>[];
+  readonly pending?: Promise<readonly TuiInputResult<TState>[]>;
 }
 
 export type TuiRuntimeChange<TState> =

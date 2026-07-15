@@ -5,6 +5,7 @@ import {
   followTailScrollState,
   nextScrollbackMatch,
   scrollbackPresentation,
+  scrollbackScrollablePresentation,
   scrollbackReducer,
   scrollbackSearchMarks,
   visibleScrollbackItems
@@ -53,7 +54,7 @@ test('visibleScrollbackItems folds records without mutating source items', () =>
 
 test('scrollbackPresentation projects fold, search, follow-tail, and scroll state', () => {
   const scroll = followTailScrollState({ contentRows: 25, viewportRows: 5 });
-  const projection = scrollbackPresentation(items, {
+  const projection = scrollbackScrollablePresentation(items, {
     foldedIds: ['a'],
     followTail: true,
     searchQuery: 'needle',
@@ -71,4 +72,19 @@ test('followTailScrollState returns a bottom-pinned scroll state', () => {
 
   assert.equal(scroll.offsetRow, 20);
   assert.equal(scroll.followTail, true);
+});
+
+test('scrollbackReducer owns pointer selection without retaining an empty range', () => {
+  const initial = { foldedIds: [], followTail: true };
+  const selected = scrollbackReducer(initial, {
+    kind: 'pointer',
+    action: { kind: 'extendSelection', anchor: 8, offset: 2 }
+  });
+  const cleared = scrollbackReducer(selected, {
+    kind: 'pointer',
+    action: { kind: 'placeCaret', offset: 4 }
+  });
+
+  assert.deepEqual(selected.selectedRange, { start: 2, end: 8 });
+  assert.equal('selectedRange' in cleared, false);
 });

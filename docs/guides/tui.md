@@ -113,8 +113,9 @@ geometry, and `visualState: 'active' | 'hover' | 'disabled' | 'inactive' |
 stable `idle` or `inactive` states from scrollability.
 
 Tree components keep hierarchy state caller-owned. Send the component's single
-`onAction` stream through `treeReducer()` and render the result with
-`treePresentation()`. The action stream covers selection, navigation,
+`onAction` stream through `treeReducer()` and render passive state with
+`treePresentation()` or controlled scroll state with
+`treeScrollablePresentation()`. The action stream covers selection, navigation,
 activation, disclosure, filtering, rename, lazy transitions, and scrolling.
 `visibleTreeRows()` remains available when application effects need the exact
 rendered row order. These helpers do not load files or infer application
@@ -168,10 +169,13 @@ target-local coordinates, press-origin coordinates for captured drags,
 button/modifier state, vertical and horizontal scroll deltas, captured target
 ids, and the raw terminal mouse event for tests and richer components.
 
-Application text selection is caller-owned state. Editable components can opt
-into pointer-to-text messages with `onTextPointer`; the renderer maps press,
-drag, and release gestures to text offsets, while the app owns cursor and
-selection state. Use `resolveSelectedText()` to turn explicit selectable text
+Application text selection is caller-owned state. Editable components expose
+grapheme-aware caret placement and selection start/extend/end through their
+typed `onAction` union. Route those actions through `textInputReducer()`,
+`textAreaReducer()`, or `commandInputReducer()` for standard controlled
+behavior, or interpret them in application state directly. The renderer maps
+press, drag, and release gestures to stable anchor/current text offsets. Use
+`resolveSelectedText()` to turn explicit selectable text
 sources and ranges into copyable text, or `copySelectedTextToClipboard()` to
 run that selected text through the capability- and policy-gated OSC 52
 clipboard protocol. Terminal-native selection remains a separate mode: the app
@@ -243,9 +247,11 @@ such as search matches; selection remains visually stronger. `wrap: true` or
 with the same scroll state, scrollbar, cursor, and accessibility contracts. The
 cursor uses the generic `input.cursor` token in frame metadata. The component does
 not own editing policy, syntax highlighting, file paths, or language semantics.
-Use `onEdit` to map standard Enter, deletion, cursor-motion, Home, End,
-Page Up, and Page Down operations into application messages. Explicit local
-`keys` may override those generated bindings.
+Pass `textAreaPresentation(state)` to `presentation` and map `onAction` to an
+application message. The `TextAreaAction` union covers standard edits,
+grapheme-aware pointer selection, and scrolling; `textAreaReducer()` provides
+the default controlled behavior. Explicit local `keys` may override generated
+bindings.
 
 Executable example:
 

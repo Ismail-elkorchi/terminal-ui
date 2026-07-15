@@ -27,6 +27,7 @@ export interface AccessibleNode {
   readonly window?: AccessibleWindow;
   readonly position?: AccessiblePosition;
   readonly description?: string;
+  readonly controls?: string;
   readonly children?: readonly AccessibleNode[];
 }
 
@@ -90,6 +91,8 @@ export type AccessibleRole =
   | 'menu'
   | 'menubar'
   | 'menuitem'
+  | 'tablist'
+  | 'tab'
   | 'table'
   | 'row'
   | 'cell'
@@ -119,6 +122,8 @@ export const accessibleRoles = [
   'menu',
   'menubar',
   'menuitem',
+  'tablist',
+  'tab',
   'table',
   'row',
   'cell',

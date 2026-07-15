@@ -18,3 +18,5 @@ export type ListAction =
   | { readonly kind: 'last' }
   | { readonly kind: 'activate'; readonly id: string; readonly index: number }
   | { readonly kind: 'scroll'; readonly event: ScrollEvent };
+
+export type ListControlAction = Exclude<ListAction, { readonly kind: 'scroll' }>;

@@ -7,7 +7,7 @@ import { mergeStyles, resolveRenderNodeStyle, themeStyle } from './render-node-s
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { TableColumnAlignment, TableColumnSemantic } from '../../ui-model/content.ts';
-import type { TableAction } from '../../ui-model/table.ts';
+import type { TableControlAction } from '../../ui-model/table.ts';
 import type { Rect } from '../model/layout.ts';
 import { clipRenderSpans } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -233,7 +233,7 @@ function tableHeaderHitTargets<TMessage>(
   bounds: Rect,
   horizontalOffset: number,
   spacing: TableMetrics,
-  toMessage: (action: TableAction) => TMessage
+  toMessage: (action: TableControlAction) => TMessage
 ): HitTarget<TMessage>[] {
   const tracks = tableColumnTracks(widths, spacing.markerCells, spacing.separatorCells);
   return columns.flatMap((column, index): HitTarget<TMessage>[] => {
@@ -289,7 +289,7 @@ function tableCellHitTargets<TMessage>(
   rowBounds: Rect,
   horizontalOffset: number,
   spacing: TableMetrics,
-  toMessage: (action: TableAction) => TMessage
+  toMessage: (action: TableControlAction) => TMessage
 ): HitTarget<TMessage>[] {
   const tracks = tableColumnTracks(widths, spacing.markerCells, spacing.separatorCells);
   return columns.flatMap((column, visibleColumnIndex): HitTarget<TMessage>[] => {
@@ -652,7 +652,7 @@ function scrollInput(widget: TableNode): { readonly scroll?: ScrollState } {
   return scroll === undefined ? {} : { scroll };
 }
 
-function tableActionMessageFactory<TMessage>(widget: TableNode<TMessage>): ((action: TableAction) => TMessage) | undefined {
+function tableActionMessageFactory<TMessage>(widget: TableNode<TMessage>): ((action: TableControlAction) => TMessage) | undefined {
   return widget.props.toActionMessage;
 }
 

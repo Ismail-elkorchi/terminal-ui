@@ -3,8 +3,9 @@ import type { Element } from '../../element/index.ts';
 import { toRenderNode } from '../model/element.ts';
 import type { RenderNode } from '../model/index.ts';
 import { defineTheme, isTerminalTheme } from '../../theme/index.ts';
-import { collectLayoutFocusTargets, collectRenderNodeLayoutTargets, findRenderNodeFocusTarget, focusPathIncludes, resolveFocusPath } from './focus.ts';
+import { collectLayoutFocusTargets, collectRenderNodeLayoutTargets, findRenderNodeFocusTarget, focusPathForLayoutTarget, renderFocusRelation, resolveFocusPath } from './focus.ts';
 import { createFrameBuffer } from './frame.ts';
+import { projectStyledCursor } from './cursor-projection.ts';
 import { applyFramePasses, boxDrawingJoinPass } from './frame-passes/index.ts';
 import { layoutRenderNode } from './layout.ts';
 import { accessibleNode } from './render-accessibility.ts';
@@ -108,6 +109,7 @@ export function renderElementProjection<TMessage>(
   const buffer = compositeRegions(viewport, regions);
   applyFramePasses(buffer, framePassesForOptions(options), { theme, viewport });
   const cursor = cursorForFocusedRenderNode(renderNode, layout, resolvedFocusPath, theme);
+  projectStyledCursor(buffer, cursor);
   const hitTargets = regions.flatMap((region) => region.hitTargets.map(frameHitTargetFromRegion));
   const accessibility = toAccessibleSnapshot({
     source: 'tui',
@@ -160,14 +162,31 @@ function frameHitTargets<TMessage>(
   return collectRenderNodeLayoutTargets(widget, layout)
     .filter((target) => target.layer.zIndex === region.zIndex && rectsOverlap(target.bounds, region.bounds))
     .flatMap((target): RenderRegionHitTarget<TMessage>[] =>
-      hitTargetsForRenderNode(target.renderNode, target, theme).map((hitTarget) => toRegionHitTarget(hitTarget, region))
+      hitTargetsForRenderNode(target.renderNode, target, theme).map((hitTarget) =>
+        toRegionHitTarget(hitTarget, region, resolveHitTargetFocus(hitTarget, target))
+      )
     );
+}
+
+function resolveHitTargetFocus<TMessage>(
+  hitTarget: import('../model/renderer.ts').HitTarget<TMessage>,
+  target: import('./focus.ts').RenderNodeLayoutTarget<TMessage>
+): import('../../interaction/focus.ts').ResolvedPointerFocusIntent | undefined {
+  if (hitTarget.focus === undefined) return undefined;
+  if (hitTarget.focus.kind === 'preserve') return hitTarget.focus;
+  const path = focusPathForLayoutTarget(target, hitTarget.focus.targetId);
+  if (path !== undefined) return { kind: 'focus', path };
+  throw new Error(
+    `Hit target "${hitTarget.id}" refers to unavailable focus target "${hitTarget.focus.targetId}".`
+  );
 }
 
 function frameHitTargetFromRegion(hitTarget: RenderRegionHitTarget): FrameHitTarget {
   return {
     id: hitTarget.id,
     bounds: hitTarget.bounds,
+    ...(hitTarget.accepts === undefined ? {} : { accepts: hitTarget.accepts }),
+    ...(hitTarget.focus === undefined ? {} : { focus: hitTarget.focus }),
     ...(hitTarget.cursor === undefined ? {} : { cursor: hitTarget.cursor }),
     ...(hitTarget.zIndex === undefined ? {} : { zIndex: hitTarget.zIndex })
   };
@@ -188,7 +207,7 @@ function renderRenderNodeToRegion<TMessage>(
     layoutNode: node,
     buffer: region.buffer,
     theme,
-    focused: focusPathIncludes(focusPath, path),
+    focus: renderFocusRelation(focusPath, path),
     renderChildren(target = region.buffer) {
       renderRenderNodeChildrenToRegions(widget, node, path, target, region, composer, theme, focusPath);
     }
@@ -232,7 +251,7 @@ function renderRenderNodeToBuffer<TMessage>(
     layoutNode: node,
     buffer,
     theme,
-    focused: focusPathIncludes(focusPath, path),
+    focus: renderFocusRelation(focusPath, path),
     renderChildren(target = buffer) {
       for (const { child, childNode } of orderedChildren(widget.children ?? [], node)) {
         renderRenderNodeToBuffer(child, childNode, path, target, theme, focusPath);

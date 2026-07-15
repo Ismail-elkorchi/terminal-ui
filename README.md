@@ -53,7 +53,10 @@ const app = defineTui({
   id: 'example',
   init: () => ({ value: 'ready' }),
   update: (state) => ({ state, exit: {} }),
-  view: (state) => textInput({ id: 'field', value: state.value })
+  view: (state) => textInput({
+    id: 'field',
+    presentation: { value: state.value, cursor: state.value.length }
+  })
 });
 
 await runTui(app);

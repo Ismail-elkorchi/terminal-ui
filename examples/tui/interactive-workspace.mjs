@@ -9,6 +9,8 @@ import {
 import {
   commandInputPresentation,
   commandInputReducer,
+  applyScrollEvent,
+  createScrollState,
   createSplitPaneState,
   createNotificationState,
   notificationActionFromStack,
@@ -20,7 +22,9 @@ import {
   splitPanePresentation,
   splitPaneReducer,
   tableReducer,
-  treePresentation,
+  tableScrollablePresentation,
+  tabsReducer,
+  treeScrollablePresentation,
   treeReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
@@ -105,8 +109,15 @@ const commandSuggestions = Object.freeze(paletteEntries.map((entry) => ({ value:
 function initialState() {
   return {
     tab: 'issues',
-    tree: { nodes: navigationNodes(), selected: 'queue:triage' },
-    table: { selectedRowId: 'T-101' },
+    tree: {
+      nodes: navigationNodes(),
+      selected: 'queue:triage',
+      scroll: createScrollState({ contentRows: 10 })
+    },
+    table: {
+      selectedRowId: 'T-101',
+      scroll: createScrollState({ contentRows: tickets.length })
+    },
     split: createSplitPaneState(3, [0.18, 0.6, 0.22]),
     command: {
       input: { text: '', cursor: 0 },
@@ -116,6 +127,7 @@ function initialState() {
     palette: { open: false, query: '', selectedIndex: 0, selectedIds: [], used: false },
     notifications: createNotificationState(),
     nextNotificationId: 1,
+    activityScroll: createScrollState({ contentRows: 3 }),
     log: [
       'Workspace started.',
       'Loaded 6 issues from local state.',
@@ -199,6 +211,11 @@ function updateWorkspace(state, message) {
         pointer: { ...state.pointer, table: true }
       });
       }
+    case 'activityScroll':
+      return withState({
+        ...state,
+        activityScroll: applyScrollEvent(state.activityScroll, message.event)
+      });
     case 'split':
       return withState({
         ...state,
@@ -268,13 +285,19 @@ function wideWorkspace(state) {
     areas: `
       header
       body
+      status
       command
     `,
-    rows: [{ kind: 'fixed', cells: 2 }, { kind: 'fill' }, { kind: 'fixed', cells: commandRows }],
+    rows: [
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fill' },
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: commandRows }
+    ],
     columns: [{ kind: 'fill' }],
     gap: 1,
     children: {
-      header: headerSurface(state),
+      header: headerSurface(),
       body: splitPane([
         navigationSurface(state),
         mainSurface(state),
@@ -285,6 +308,7 @@ function wideWorkspace(state) {
         ...splitPanePresentation(state.split),
         onAction: (action) => ({ kind: 'split', action })
       }),
+      status: workspaceStatus(state),
       command: commandSurface(state)
     }
   });
@@ -297,37 +321,50 @@ function narrowWorkspace(state) {
     areas: `
       header
       main
+      status
       command
     `,
-    rows: [{ kind: 'fixed', cells: 2 }, { kind: 'fill' }, { kind: 'fixed', cells: commandRows }],
+    rows: [
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fill' },
+      { kind: 'fixed', cells: 1 },
+      { kind: 'fixed', cells: commandRows }
+    ],
     columns: [{ kind: 'fill' }],
     gap: 1,
     children: {
-      header: headerSurface(state),
+      header: headerSurface(),
       main: mainSurface(state),
+      status: workspaceStatus(state),
       command: commandSurface(state)
     }
   });
 }
 
-function headerSurface(state) {
-  const selected = selectedTicket(state);
-  return surface(column([
-    text('Interactive Workspace', { id: 'workspace-title', textRole: 'title' }),
-    statusBar({
-      id: 'workspace-status',
-      leading: [{ id: 'ticket', kind: 'status', text: `${selected.id} ${selected.state}`, status: ticketStatus(selected) }],
-      center: [{ id: 'tab', kind: 'text', text: state.tab }],
-      trailing: [{ id: 'scope', kind: 'text', text: state.tree.selected ?? 'all' }]
-    })
-  ], {
-    id: 'workspace-header-body',
-    gap: 0,
-    sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }]
-  }), {
+function headerSurface() {
+  return surface(text('Interactive Workspace', { id: 'workspace-title', textRole: 'title' }), {
     id: 'workspace-header',
     variant: 'chrome',
     padding: { left: 1, right: 1 }
+  });
+}
+
+function workspaceStatus(state) {
+  const selected = selectedTicket(state);
+  return statusBar({
+    id: 'workspace-status',
+    leading: [
+      { id: 'ticket', kind: 'status', text: `${selected.id} ${selected.state}`, status: ticketStatus(selected) },
+      { id: 'owner', kind: 'text', text: selected.owner }
+    ],
+    center: [
+      { id: 'tab', kind: 'text', text: state.tab },
+      { id: 'scope', kind: 'text', text: state.tree.selected ?? 'all' }
+    ],
+    trailing: [
+      { id: 'queue', kind: 'text', text: `${String(visibleTickets(state).length)} visible` },
+      { id: 'runtime', kind: 'status', text: selected.state === 'running' ? 'working' : 'ready', status: ticketStatus(selected) }
+    ]
   });
 }
 
@@ -335,7 +372,7 @@ function navigationSurface(state) {
   return surface(column([
     tree({
       id: 'workspace-tree',
-      ...treePresentation(state.tree),
+      ...treeScrollablePresentation(state.tree),
       onAction: (action) => ({ kind: 'tree', action }),
       scrollbar: { visible: 'auto' }
     }),
@@ -362,6 +399,11 @@ function navigationSurface(state) {
 }
 
 function mainSurface(state) {
+  const tabItems = [
+    { id: 'issues' },
+    { id: 'activity' },
+    { id: 'notes' }
+  ];
   return tabs({
     id: 'workspace-tabs',
     selected: state.tab,
@@ -370,11 +412,10 @@ function mainSurface(state) {
       { id: 'activity', label: 'Activity', description: 'Scrollable log', panel: activityPanel(state) },
       { id: 'notes', label: 'Notes', description: 'Command guide', panel: notesPanel(state) }
     ],
-    onAction: (action) => action.kind === 'select'
-      ? { kind: 'setTab', tab: action.id }
-      : action.kind === 'move'
-        ? { kind: 'setTab', tab: action.delta < 0 ? previousTab(state.tab) : nextTab(state.tab) }
-        : { kind: 'setTab', tab: state.tab }
+    onAction: (action) => ({
+      kind: 'setTab',
+      tab: tabsReducer({ selected: state.tab }, action, tabItems).selected ?? state.tab
+    })
   });
 }
 
@@ -385,7 +426,7 @@ function issueTablePanel(state) {
       getRowId: (ticket) => ticket.id,
       id: 'ticket-table',
       rows,
-      selectedRowId: state.table.selectedRowId,
+      presentation: tableScrollablePresentation(state.table),
       stickyHeader: true,
       scrollbar: { visible: 'auto' },
       onAction: (action) => ({ kind: 'table', action }),
@@ -430,7 +471,11 @@ function activityPanel(state) {
   }));
   return surface(notificationLayer(state, viewport(column(lines, { id: 'activity-lines', gap: 0 }), {
     id: 'activity-viewport',
+    scrollRow: state.activityScroll.offsetRow,
+    scrollColumn: state.activityScroll.offsetColumn,
     contentRows: lines.length,
+    contentColumns: Math.max(0, ...state.log.map((line) => line.length + 3)),
+    onScroll: (event) => ({ kind: 'activityScroll', event }),
     scrollbar: { visible: 'auto' }
   })), {
     id: 'activity-panel',
@@ -494,12 +539,15 @@ function inspectorSurface(state) {
 
 function commandSurface(state) {
   const expanded = commandInputExpanded(state);
+  const presentation = commandInputPresentation(state.command);
   return surface(commandInput({
     id: 'workspace-command',
     prompt: '› ',
-    ...commandInputPresentation(state.command),
+    presentation: {
+      ...presentation,
+      suggestions: expanded ? presentation.suggestions : []
+    },
     placeholder: 'Type /command',
-    suggestions: expanded ? state.command.suggestions : [],
     completionPreview: expanded ? completionPreview(state.command.input.text) : undefined,
     footer: expanded ? 'Enter run | arrows suggestions | Esc clear | Tab focus | Ctrl+C/Ctrl+Q exit' : undefined,
     display: expanded ? 'expanded' : 'compact',
@@ -696,21 +744,6 @@ function resolvedCount() {
   return tickets.filter((ticket) => ticket.state === 'success').length;
 }
 
-const tabOrder = Object.freeze(['issues', 'activity', 'notes']);
-
-function nextTab(tab) {
-  return tabOrder[wrapIndex(tabOrder.indexOf(tab) + 1, tabOrder.length)] ?? 'issues';
-}
-
-function previousTab(tab) {
-  return tabOrder[wrapIndex(tabOrder.indexOf(tab) - 1, tabOrder.length)] ?? 'issues';
-}
-
-function wrapIndex(index, count) {
-  if (count <= 0) return 0;
-  return ((index % count) + count) % count;
-}
-
 export async function runScriptedWorkspace() {
   const host = createMemoryTerminalHost({ viewport: { columns: 112, rows: 32 } });
   const runtime = createTuiRuntime({ app: interactiveWorkspaceApp, host, initialFocusPath: commandFocusPath });
@@ -734,6 +767,18 @@ export async function runScriptedWorkspace() {
     const paletteTarget = targetByPrefix(runtime, 'workspace-palette:resolve-ticket');
     await click(runtime, paletteTarget);
 
+    await click(runtime, targetById(runtime, 'workspace-tabs:tab:notes'));
+    const tabSelectedByPointer = runtime.getState().tab === 'notes';
+    await runtime.handleInput(keyEvent('arrowLeft'));
+    const tabSelectedByKeyboard = runtime.getState().tab === 'activity';
+
+    await runtime.handleInput({ kind: 'resize', viewport: { columns: 76, rows: 24 } });
+    const narrowFrame = runtime.frame();
+    if (narrowFrame === undefined) throw new Error('The scripted workspace lost its frame after resize.');
+    const narrowRows = renderFramePlain(narrowFrame).split('\n').length;
+    const focusAfterNarrowResize = runtime.frame()?.focusPath ?? [];
+    await runtime.handleInput({ kind: 'resize', viewport: { columns: 112, rows: 32 } });
+
     const frame = runtime.frame();
     if (frame === undefined) throw new Error('The scripted workspace did not render a frame.');
     const state = runtime.getState();
@@ -747,9 +792,14 @@ export async function runScriptedWorkspace() {
       pointerTree: state.pointer.tree,
       pointerTable: state.pointer.table,
       pointerPalette: state.pointer.palette,
+      tabSelectedByPointer,
+      tabSelectedByKeyboard,
       keyboardPaletteQuery,
       commandAfterPaletteAccept,
       tableHitTargets,
+      narrowRows,
+      focusValidAfterResize: focusAfterNarrowResize.length > 0,
+      statusVisible: renderFramePlain(frame).includes(selectedTicket(state).id),
       visible: renderFramePlain(frame).includes('Resolved T-106.'),
       outputRows: renderFramePlain(frame).split('\n').length
     };

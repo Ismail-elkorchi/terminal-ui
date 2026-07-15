@@ -2,7 +2,6 @@ import type { ElementTextRole } from '../../../element/metadata.ts';
 import type { RoutedPointerEvent } from '../../../input/pointer.ts';
 import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../../interaction/scrollbar.ts';
-import type { TextPointerEvent } from '../../../interaction/text-pointer.ts';
 import type { TextSelection } from '../../../text/index.ts';
 import type {
   TableCellSelection,
@@ -11,10 +10,11 @@ import type {
   TextAreaLineNumberOptions,
   TextAreaWrapOptions
 } from '../../../ui-model/content.ts';
-import type { ListAction } from '../../../ui-model/list.ts';
+import type { ListControlAction } from '../../../ui-model/list.ts';
 import type { ComponentDensity } from '../../../ui-model/contracts.ts';
+import type { TextAreaAction } from '../../../ui-model/text-area.ts';
 import type { PaginatorAction } from '../../../ui-model/paginator.ts';
-import type { TableAction, TableSortState } from '../../../ui-model/table.ts';
+import type { TableControlAction, TableSortState } from '../../../ui-model/table.ts';
 import type { TreeAction, TreeDisclosureAction, TreeNode } from '../../../ui-model/tree.ts';
 import type { InlineContent } from '../../../visual/inline-content.ts';
 
@@ -43,8 +43,7 @@ export interface TextAreaRenderProps<TMessage> {
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly toScrollMessage?: (event: ScrollEvent) => TMessage;
-  readonly toTextPointerMessage?: (event: TextPointerEvent) => TMessage;
+  readonly toActionMessage?: (action: TextAreaAction) => TMessage;
 }
 
 export interface ListRenderProps<TMessage> {
@@ -55,7 +54,7 @@ export interface ListRenderProps<TMessage> {
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
   readonly toScrollMessage?: (event: ScrollEvent) => TMessage;
-  readonly toActionMessage?: (action: ListAction) => TMessage;
+  readonly toActionMessage?: (action: ListControlAction) => TMessage;
 }
 
 export interface TableRenderProps<TMessage> {
@@ -73,7 +72,7 @@ export interface TableRenderProps<TMessage> {
   readonly toScrollMessage?: (event: ScrollEvent) => TMessage;
   readonly stickyHeader?: boolean;
   readonly emptyText?: string;
-  readonly toActionMessage?: (action: TableAction) => TMessage;
+  readonly toActionMessage?: (action: TableControlAction) => TMessage;
 }
 
 export interface ListRenderItem {

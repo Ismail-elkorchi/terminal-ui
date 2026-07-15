@@ -51,7 +51,7 @@ import {
 } from '../forms/index.ts';
 import { singleLineInputPointerOffset } from '../input-visual.ts';
 import { splitTracks } from '../layout-geometry.ts';
-import { textPointerHitTargets, textPointerMessageFactory } from '../text-pointer.ts';
+import { textPointerHitTargets } from '../text-pointer.ts';
 import { stringify } from '../render-node-props.ts';
 import { writeRenderBlock } from './support/block.ts';
 import { focusTarget, widgetMessageHitTargets } from './support/common.ts';
@@ -92,24 +92,24 @@ export const formRenderers = {
     accessibility: ({ renderNode, id }) => labelAccessibleBase(renderNode, id)
   },
   button: {
-    render: ({ renderNode, layoutNode, buffer, focused, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, buttonBlock(renderNode, layoutNode.bounds, focused, theme));
+    render: ({ renderNode, layoutNode, buffer, focus, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, buttonBlock(renderNode, layoutNode.bounds, focus === 'self', theme));
     },
     accessibility: ({ renderNode, id, focused }) => buttonAccessibleBase(renderNode, id, focused),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => controlHitTargets(renderNode, bounds)
   },
   checkbox: {
-    render: ({ renderNode, layoutNode, buffer, theme, focused }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, checkboxBlock(renderNode, layoutNode.bounds, theme, focused));
+    render: ({ renderNode, layoutNode, buffer, theme, focus }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, checkboxBlock(renderNode, layoutNode.bounds, theme, focus === 'self'));
     },
     accessibility: ({ renderNode, id, focused }) => checkboxAccessibleBase(renderNode, id, focused),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => controlHitTargets(renderNode, bounds)
   },
   toggleSwitch: {
-    render: ({ renderNode, layoutNode, buffer, focused }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, toggleSwitchBlock(renderNode, layoutNode.bounds, focused));
+    render: ({ renderNode, layoutNode, buffer, focus }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, toggleSwitchBlock(renderNode, layoutNode.bounds, focus === 'self'));
     },
     accessibility: ({ renderNode, id, focused }) => toggleSwitchAccessibleBase(renderNode, id, focused),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
@@ -196,8 +196,8 @@ export const formRenderers = {
     ]
   },
   textInput: {
-    render: ({ renderNode, layoutNode, buffer, focused, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, textInputBlock(renderNode, layoutNode.bounds, focused, theme));
+    render: ({ renderNode, layoutNode, buffer, focus, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, textInputBlock(renderNode, layoutNode.bounds, focus === 'self', theme));
     },
     accessibility: ({ renderNode, id, focused }) => textInputAccessibleBase(renderNode, id, focused),
     focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, textInputCursor(renderNode, bounds))],
@@ -208,7 +208,10 @@ export const formRenderers = {
         : textPointerHitTargets({
             id: `${renderNode.id ?? renderNode.kind}:text`,
             bounds,
-            toMessage: textPointerMessageFactory(renderNode),
+            focusTargetId: 'self',
+            toMessage: renderNode.props.toActionMessage === undefined
+              ? undefined
+              : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
             offsetAt: (event) => singleLineInputPointerOffset({
               widget: renderNode,
               bounds,
@@ -220,8 +223,8 @@ export const formRenderers = {
     ]
   },
   numberInput: {
-    render: ({ renderNode, layoutNode, buffer, focused, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, numberInputBlock(renderNode, layoutNode.bounds, focused, theme));
+    render: ({ renderNode, layoutNode, buffer, focus, theme }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, numberInputBlock(renderNode, layoutNode.bounds, focus === 'self', theme));
     },
     accessibility: ({ renderNode, id, focused }) => numberInputAccessibleBase(renderNode, id, focused),
     focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, numberInputCursor(renderNode, bounds))],

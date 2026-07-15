@@ -152,6 +152,8 @@ test('scroll events reconcile rendered viewport metrics before applying actions'
         encoding: 'sgr',
         action: 'wheel',
         button: 'wheelUp',
+        deltaRows: -1,
+        deltaColumns: 0,
         row: 1,
         column: 1,
         rawCode: 64,

@@ -67,13 +67,13 @@ export function tableKeyBindings<TRow, TMessage>(
 ): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
   if (onAction === undefined) return options.keys;
-  const selectedRowId = options.selectedRowId;
+  const selectedRowId = options.presentation?.selectedRowId;
   const selectedRowIndex = selectedRowId === undefined
     ? -1
     : options.rows.findIndex((row, index) => options.getRowId(row, index) === selectedRowId);
-  const selectedColumn = options.selectedCell?.column === undefined
+  const selectedColumn = options.presentation?.selectedCell?.column === undefined
     ? undefined
-    : options.columns?.filter((column) => column.hidden !== true)[options.selectedCell.column];
+    : options.columns?.filter((column) => column.hidden !== true)[options.presentation.selectedCell.column];
   const generated = {
     arrowUp: () => onAction({ kind: 'moveRow', delta: -1 }),
     arrowDown: () => onAction({ kind: 'moveRow', delta: 1 }),
@@ -99,7 +99,9 @@ export function tableKeyBindings<TRow, TMessage>(
         kind: 'activate',
         rowId: selectedRowId,
         rowIndex: selectedRowIndex,
-        ...(options.selectedCell?.column === undefined ? {} : { column: options.selectedCell.column })
+        ...(options.presentation?.selectedCell?.column === undefined
+          ? {}
+          : { column: options.presentation.selectedCell.column })
       })
     })
   } satisfies ElementKeyBindings<TMessage>;
@@ -174,13 +176,14 @@ export function activationKeyBindings<TMessage>(
 export function commandInputKeyBindings<TMessage>(
   onAction: (action: CommandInputAction) => TMessage
 ): ElementKeyBindings<TMessage> {
+  const edit = (operation: TextEditOperation): TMessage => onAction({ kind: 'edit', operation });
   return {
-    backspace: () => onAction({ kind: 'deleteBackward' }),
-    delete: () => onAction({ kind: 'deleteForward' }),
-    arrowLeft: () => onAction({ kind: 'moveLeft' }),
-    arrowRight: () => onAction({ kind: 'moveRight' }),
-    home: () => onAction({ kind: 'moveHome' }),
-    end: () => onAction({ kind: 'moveEnd' })
+    backspace: () => edit({ kind: 'deleteBackward' }),
+    delete: () => edit({ kind: 'deleteForward' }),
+    arrowLeft: () => edit({ kind: 'moveLeft' }),
+    arrowRight: () => edit({ kind: 'moveRight' }),
+    home: () => edit({ kind: 'moveHome' }),
+    end: () => edit({ kind: 'moveEnd' })
   };
 }
 
@@ -195,11 +198,14 @@ export function paletteKeyBindings<TMessage>(
 }
 
 export function textInputKeyBindings<TMessage>(
-  onEdit: ((operation: TextEditOperation) => TMessage) | undefined,
+  onAction: ((action: import('../../ui-model/text-input.ts').TextInputAction) => TMessage) | undefined,
   onSubmit: TMessage | undefined,
   explicit: ElementKeyBindings<TMessage> | undefined
 ): ElementKeyBindings<TMessage> | undefined {
-  const generated = editKeyBindings(onEdit, false);
+  const generated = editKeyBindings(
+    onAction === undefined ? undefined : (operation) => onAction({ kind: 'edit', operation }),
+    false
+  );
   return mergeKeyBindings(
     mergeKeyBindings(generated, onSubmit === undefined ? undefined : { enter: () => onSubmit }),
     explicit
@@ -207,23 +213,40 @@ export function textInputKeyBindings<TMessage>(
 }
 
 export function textAreaKeyBindings<TMessage>(
-  onEdit: ((operation: TextEditOperation) => TMessage) | undefined,
+  onAction: ((action: import('../../ui-model/text-area.ts').TextAreaControlAction) => TMessage) | undefined,
   explicit: ElementKeyBindings<TMessage> | undefined
 ): ElementKeyBindings<TMessage> | undefined {
-  return mergeKeyBindings(editKeyBindings(onEdit, true), explicit);
+  return mergeKeyBindings(editKeyBindings(
+    onAction === undefined ? undefined : (operation) => onAction({ kind: 'edit', operation }),
+    true
+  ), explicit);
 }
 
-export function textEditInputHandlers<TMessage>(
-  onEdit: ((operation: TextEditOperation) => TMessage) | undefined
+export function textActionInputHandlers<TMessage>(
+  onAction: ((action: { readonly kind: 'edit'; readonly operation: TextEditOperation }) => TMessage) | undefined
 ): {
   readonly onInput?: (text: string) => TMessage;
   readonly onPaste?: (text: string) => TMessage;
 } {
-  return onEdit === undefined
+  return onAction === undefined
     ? {}
     : {
-        onInput: (text) => onEdit({ kind: 'insert', text }),
-        onPaste: (text) => onEdit({ kind: 'insert', text })
+        onInput: (text) => onAction({ kind: 'edit', operation: { kind: 'insert', text } }),
+        onPaste: (text) => onAction({ kind: 'edit', operation: { kind: 'insert', text } })
+      };
+}
+
+export function textEditInputHandlers<TMessage>(
+  toMessage: ((operation: TextEditOperation) => TMessage) | undefined
+): {
+  readonly onInput?: (text: string) => TMessage;
+  readonly onPaste?: (text: string) => TMessage;
+} {
+  return toMessage === undefined
+    ? {}
+    : {
+        onInput: (text) => toMessage({ kind: 'insert', text }),
+        onPaste: (text) => toMessage({ kind: 'insert', text })
       };
 }
 
@@ -457,40 +480,40 @@ function choiceFocus<TValue>(
 }
 
 function editKeyBindings<TMessage>(
-  onEdit: ((operation: TextEditOperation) => TMessage) | undefined,
+  toMessage: ((operation: TextEditOperation) => TMessage) | undefined,
   multiline: boolean
 ): ElementKeyBindings<TMessage> | undefined {
-  if (onEdit === undefined) return undefined;
+  if (toMessage === undefined) return undefined;
   return {
-    ...(multiline ? { enter: () => onEdit({ kind: 'insert', text: '\n' }) } : {}),
-    backspace: ({ input }) => onEdit(
+    ...(multiline ? { enter: () => toMessage({ kind: 'insert', text: '\n' }) } : {}),
+    backspace: ({ input }) => toMessage(
       input.kind === 'key' && (input.ctrl || input.alt)
         ? { kind: 'deleteWordBackward' }
         : { kind: 'deleteBackward' }
     ),
-    delete: ({ input }) => onEdit(
+    delete: ({ input }) => toMessage(
       input.kind === 'key' && (input.ctrl || input.alt)
         ? { kind: 'deleteWordForward' }
         : { kind: 'deleteForward' }
     ),
-    arrowLeft: ({ input }) => onEdit(
+    arrowLeft: ({ input }) => toMessage(
       input.kind === 'key' && (input.ctrl || input.alt)
         ? { kind: 'moveWordLeft', select: input.shift }
         : { kind: 'moveLeft', select: input.kind === 'key' && input.shift }
     ),
-    arrowRight: ({ input }) => onEdit(
+    arrowRight: ({ input }) => toMessage(
       input.kind === 'key' && (input.ctrl || input.alt)
         ? { kind: 'moveWordRight', select: input.shift }
         : { kind: 'moveRight', select: input.kind === 'key' && input.shift }
     ),
-    home: ({ input }) => onEdit({ kind: 'moveHome', select: input.kind === 'key' && input.shift }),
-    end: ({ input }) => onEdit({ kind: 'moveEnd', select: input.kind === 'key' && input.shift }),
+    home: ({ input }) => toMessage({ kind: 'moveHome', select: input.kind === 'key' && input.shift }),
+    end: ({ input }) => toMessage({ kind: 'moveEnd', select: input.kind === 'key' && input.shift }),
     ...(multiline
       ? {
-          arrowUp: ({ input }) => onEdit({ kind: 'moveLineUp', select: input.kind === 'key' && input.shift }),
-          arrowDown: ({ input }) => onEdit({ kind: 'moveLineDown', select: input.kind === 'key' && input.shift }),
-          pageUp: ({ input }) => onEdit({ kind: 'movePageUp', select: input.kind === 'key' && input.shift }),
-          pageDown: ({ input }) => onEdit({ kind: 'movePageDown', select: input.kind === 'key' && input.shift })
+          arrowUp: ({ input }) => toMessage({ kind: 'moveLineUp', select: input.kind === 'key' && input.shift }),
+          arrowDown: ({ input }) => toMessage({ kind: 'moveLineDown', select: input.kind === 'key' && input.shift }),
+          pageUp: ({ input }) => toMessage({ kind: 'movePageUp', select: input.kind === 'key' && input.shift }),
+          pageDown: ({ input }) => toMessage({ kind: 'movePageDown', select: input.kind === 'key' && input.shift })
         }
       : {})
   };

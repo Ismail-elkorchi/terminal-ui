@@ -132,7 +132,7 @@ test('theme matrix snapshots cover core widgets with packs high contrast and no 
           value: (row) => Array.isArray(row) ? row[0] : row, id: 'key', header: 'Key' }, {
           value: (row) => Array.isArray(row) ? row[1] : undefined, id: 'value', header: 'Value' }],
         rows: [{ key: 'focus', value: 'visible' }],
-        selectedRowId: '0'
+        presentation: { selectedRowId: '0' }
       })
     ], { id: `matrix-${theme.name}`, gap: 1 }), { columns: 48, rows: 14 }, { theme });
 
@@ -167,9 +167,7 @@ test('default theme specimen composes surface control text command log and data 
     }),
     commandInput({
       id: 'specimen-command',
-      value: '/open readme',
-      suggestions: [{ value: '/open', label: 'Open File' }],
-      selectedSuggestion: 0,
+      presentation: { value: '/open readme', cursor: 0, suggestions: [{ value: '/open', label: 'Open File' }], selectedSuggestion: 0 },
       display: 'expanded'
     }),
     scrollback({
@@ -195,7 +193,7 @@ test('default theme specimen composes surface control text command log and data 
     table({
     getRowId: (_row, index) => String(index),
     id: 'specimen-table',
-      selectedRowId: '0',
+      presentation: { selectedRowId: '0' },
       columns: [{
         value: (row) => Array.isArray(row) ? row[0] : row, id: 'name', header: 'Name' }, {
         value: (row) => Array.isArray(row) ? row[1] : undefined, id: 'status', header: 'Status' }],

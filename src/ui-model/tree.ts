@@ -62,3 +62,7 @@ export type TreeAction<
   | { readonly kind: 'commitRename' }
   | { readonly kind: 'cancelRename' }
   | { readonly kind: 'scroll'; readonly event: ScrollEvent };
+
+export type TreeControlAction<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> = Exclude<TreeAction<TMetadata>, { readonly kind: 'scroll' }>;

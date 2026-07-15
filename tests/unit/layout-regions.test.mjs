@@ -122,7 +122,7 @@ test('grid and splitPane widgets lay out common app frames', () => {
       sizes: [{ kind: 'fixed', cells: 10 }, { kind: 'fill' }, { kind: 'fixed', cells: 8 }]
     }),
     text('status', { id: 'status' }),
-    commandInput({ id: 'command', value: '/help' })
+    commandInput({ id: 'command', presentation: { value: '/help', cursor: 0, suggestions: [] } })
   ], {
     id: 'workspace-frame',
     rows: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }],
@@ -349,12 +349,12 @@ test('tabs render only the selected panel as focusable content', () => {
     id: 'tabs',
     selected: 'second',
     tabs: [
-      { id: 'first', label: 'First', panel: textInput({ id: 'first-input', value: 'hidden' }) },
+      { id: 'first', label: 'First', panel: textInput({ id: 'first-input', presentation: { value: 'hidden', cursor: 0 } }) },
       {
         id: 'second',
         label: 'Second',
         description: 'Visible editor panel',
-        panel: textInput({ id: 'second-input', value: 'visible' })
+        panel: textInput({ id: 'second-input', presentation: { value: 'visible', cursor: 0 } })
       }
     ]
   });
@@ -366,7 +366,11 @@ test('tabs render only the selected panel as focusable content', () => {
   const frame = renderElementFrame(widget, { columns: 32, rows: 5 });
   assert.ok(frame.focusPath?.includes('second-input'));
   assert.ok(!frame.focusPath?.includes('first-input'));
-  assert.match(frame.cells.map((cell) => cell.text).join(''), /\[Second\]/u);
+  assert.match(frame.cells.map((cell) => cell.text).join(''), /▏Second/u);
+  assert.equal(frame.accessibility.root.role, 'tablist');
+  assert.equal(frame.accessibility.root.value, 'second');
+  assert.equal(frame.accessibility.root.children?.[1]?.role, 'tab');
+  assert.equal(frame.accessibility.root.children?.[1]?.controls, 'second-input');
   assert.equal(frame.accessibility.root.children?.[1]?.description, 'Visible editor panel');
 });
 
@@ -383,11 +387,10 @@ test('tabs keep active markers disabled targets and overflow visible without col
   }), { columns: 14, rows: 3 }, { theme: noColorTheme });
   const header = renderFramePlain(frame).split('\n')[0] ?? '';
 
-  assert.match(header, /\[Alpha\]/u);
+  assert.match(header, /▏Alpha/u);
   assert.match(header, /…/u);
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['tabs:tab:alpha']);
-  assert.equal(frame.cells.find((cell) => cell.source?.itemId === 'alpha' && cell.source.label === 'marker.selected.open')?.text, '[');
-  assert.equal(frame.cells.find((cell) => cell.source?.itemId === 'alpha' && cell.source.label === 'marker.selected.close')?.text, ']');
+  assert.equal(frame.cells.find((cell) => cell.source?.itemId === 'alpha' && cell.source.label === 'indicator')?.text, '▏');
 });
 
 test('tabs keep the selected tab visible when headers overflow', () => {
@@ -411,11 +414,16 @@ test('tabs keep the selected tab visible when headers overflow', () => {
   const header = renderFramePlain(frame).split('\n')[0] ?? '';
 
   assert.match(header, /…/u);
-  assert.match(header, /\[Gamma 2 ×\]/u);
+  assert.match(header, /▏Gamma 2 ×/u);
   assert.doesNotMatch(header, /Alpha/u);
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['tabs:tab:gamma', 'tabs:tab:gamma:close']);
   assert.equal(frame.cells.find((cell) => cell.source?.partKind === 'overflow')?.text, '…');
   assert.equal(frame.accessibility.root.children?.[2]?.value, '2');
+  assert.deepEqual(frame.accessibility.root.children?.[2]?.children, [{
+    id: 'tabs:tab:gamma:close',
+    role: 'button',
+    label: 'Close Gamma'
+  }]);
 });
 
 test('absolute clips child bounds without leaking outside its parent', () => {
@@ -504,8 +512,8 @@ test('overlay preserves declaration order within one layer and z-order across la
 
 test('overlay accessibility and initial focus follow topmost visual order', () => {
   const widget = overlay([
-    textInput({ id: 'lower-field', value: 'lower' }),
-    textInput({ id: 'upper-field', value: 'upper' })
+    textInput({ id: 'lower-field', presentation: { value: 'lower', cursor: 0 } }),
+    textInput({ id: 'upper-field', presentation: { value: 'upper', cursor: 0 } })
   ], { id: 'focus-overlay' });
   const zWidget = overlay([
     text('LOW', {
@@ -778,7 +786,7 @@ test('layers render top z-index content last and hide invisible widgets', () => 
 test('focus is scoped to the topmost visible focus layer', () => {
   const widget = overlay([
     textInput({
-    id: 'lower-input', value: 'lower',
+    id: 'lower-input', presentation: { value: 'lower', cursor: 0 },
     meta: {
         layer: {
             zIndex: 0
@@ -786,7 +794,7 @@ test('focus is scoped to the topmost visible focus layer', () => {
     }
 }),
     textInput({
-    id: 'upper-input', value: 'upper',
+    id: 'upper-input', presentation: { value: 'upper', cursor: 0 },
     meta: {
         layer: {
             zIndex: 8
@@ -800,7 +808,7 @@ test('focus is scoped to the topmost visible focus layer', () => {
   const frame = renderElementFrame(widget, { columns: 16, rows: 2 }, { focusPath: ['focus-root', 'lower-input'] });
 
   assert.deepEqual(frame.focusPath, ['focus-root', 'upper-input']);
-  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 9 });
+  assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 4 });
   assert.deepEqual(frame.cursor?.source, {
     ownerId: 'upper-input',
     ownerKind: 'textInput',

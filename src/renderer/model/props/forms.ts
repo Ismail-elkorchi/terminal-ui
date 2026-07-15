@@ -1,5 +1,4 @@
 import type { TextSelection } from '../../../text/index.ts';
-import type { TextPointerEvent } from '../../../interaction/text-pointer.ts';
 import type { AnchoredSurfacePlacement } from '../../../interaction/anchored-surface.ts';
 import type { ChoiceItem } from '../../../ui-model/contracts.ts';
 import type {
@@ -20,6 +19,7 @@ import type {
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 import type { InlineContent } from '../../../visual/inline-content.ts';
 import type { SelectPresentation } from '../../../behavior/choice-controls.ts';
+import type { TextInputAction } from '../../../ui-model/text-input.ts';
 
 export interface FormRenderProps extends RenderNodeLayoutProps {
   readonly title?: string;
@@ -54,7 +54,6 @@ export interface CheckboxRenderProps<TMessage> {
   readonly label: string;
   readonly checked: boolean;
   readonly toMessage?: (checked: boolean) => TMessage;
-  readonly toTextPointerMessage?: (event: TextPointerEvent) => TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
@@ -151,7 +150,7 @@ export interface TextInputRenderProps<TMessage> {
   readonly selection?: TextSelection;
   readonly placeholder?: string;
   readonly message?: TMessage;
-  readonly toTextPointerMessage?: (event: TextPointerEvent) => TMessage;
+  readonly toActionMessage?: (action: TextInputAction) => TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;

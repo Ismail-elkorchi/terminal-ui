@@ -20,7 +20,7 @@ test('commandInputReducer edits, navigates history, and accepts suggestions', ()
     ]
   };
 
-  const typed = commandInputReducer(initial, { kind: 'insert', text: 't' });
+  const typed = commandInputReducer(initial, { kind: 'edit', operation: { kind: 'insert', text: 't' } });
   assert.deepEqual(typed.input, { text: 't', cursor: 1 });
   assert.equal('historyIndex' in typed, false);
 
@@ -95,7 +95,7 @@ test('commandInput projects controlled state and emits semantic actions', async 
     update: (state, message) => ({ state: { ...state, messages: [...state.messages, message] } }),
     view: (state) => commandInput({
       id: 'command',
-      ...commandInputPresentation(state.command),
+      presentation: commandInputPresentation(state.command),
       onAction: (action) => ({ kind: 'action', action }),
       onSubmit: { kind: 'submit' },
       keys: {
@@ -125,9 +125,9 @@ test('commandInput projects controlled state and emits semantic actions', async 
     historyIndex: 0
   });
   assert.deepEqual(runtime.getState().messages, [
-    { kind: 'action', action: { kind: 'insert', text: 'x' } },
-    { kind: 'action', action: { kind: 'insert', text: 'clip' } },
-    { kind: 'action', action: { kind: 'deleteBackward' } },
+    { kind: 'action', action: { kind: 'edit', operation: { kind: 'insert', text: 'x' } } },
+    { kind: 'action', action: { kind: 'edit', operation: { kind: 'insert', text: 'clip' } } },
+    { kind: 'action', action: { kind: 'edit', operation: { kind: 'deleteBackward' } } },
     { kind: 'history' },
     { kind: 'suggestion' },
     { kind: 'submit' },
@@ -140,13 +140,10 @@ test('commandInput widget renders prompt, suggestions, cursor, and accessibility
     commandInput({
       id: 'command',
       prompt: '/',
-      value: 'op',
-      cursor: 2,
-      suggestions: [
+      presentation: { value: 'op', cursor: 2, suggestions: [
         { value: 'open', label: 'open', description: 'Open item' },
         { value: 'options', label: 'options' }
-      ],
-      selectedSuggestion: 1,
+      ], selectedSuggestion: 1 },
       display: 'expanded'
     }),
     { columns: 30, rows: 4 }
@@ -167,23 +164,19 @@ test('commandInput renders completion preview validation footer match styles and
     commandInput({
       id: 'launcher',
       prompt: '?',
-      value: 'a🙂',
-      cursor: 'a🙂'.length,
-      selection: { start: 1, end: 'a🙂'.length },
+      presentation: { value: 'a🙂', cursor: 'a🙂'.length, selection: { start: 1, end: 'a🙂'.length }, suggestions: [
+        { value: 'a🙂bc', label: 'a🙂bc', description: 'first match' }
+      ], selectedSuggestion: 0 },
       completionPreview: 'bc',
       validation: { message: 'Choose a value', tone: 'warning' },
       footer: 'enter accepts',
-      suggestions: [
-        { value: 'a🙂bc', label: 'a🙂bc', description: 'first match' }
-      ],
-      selectedSuggestion: 0,
       display: 'expanded'
     }),
     { columns: 32, rows: 4 }
   );
 
   const output = frame.cells.map((cell) => cell.text).join('');
-  const previewCell = frame.cells.find((cell) => cell.row === 1 && cell.text === 'b');
+  const previewCell = frame.cells.find((cell) => cell.row === 1 && cell.text === 'c');
   const selectedCell = frame.cells.find((cell) => cell.row === 1 && cell.text === '🙂');
   const validationCell = frame.cells.find((cell) => cell.row === 2 && cell.text === 'C');
   const matchCell = frame.cells.find((cell) => cell.row === 3 && cell.text === 'a');
@@ -207,12 +200,10 @@ test('commandInput stays compact by default even when suggestions are provided',
     commandInput({
       id: 'compact-command',
       prompt: '/',
-      value: '',
-      placeholder: 'Type a command',
-      suggestions: [
+      presentation: { value: '', cursor: 0, suggestions: [
         { value: 'open', label: 'open', description: 'Open item' }
-      ],
-      selectedSuggestion: 0,
+      ], selectedSuggestion: 0 },
+      placeholder: 'Type a command',
       footer: 'Enter run'
     }),
     { columns: 32, rows: 5 }
@@ -231,8 +222,7 @@ test('commandInput windows long input around the cursor', () => {
     commandInput({
       id: 'long-command',
       prompt: '>',
-      value,
-      cursor: value.length
+      presentation: { value, cursor: value.length, suggestions: [] }
     }),
     { columns: 18, rows: 3 }
   );
@@ -254,9 +244,8 @@ test('commandInput maps pointer positions through the cursor-relative input wind
     commandInput({
       id: 'windowed-command',
       prompt: '>',
-      value: 'abcdef',
-      cursor: 6,
-      onTextPointer: (event) => ({ event })
+      presentation: { value: 'abcdef', cursor: 6, suggestions: [] },
+      onAction: (action) => ({ action })
     }),
     { columns: 5, rows: 1 }
   );
@@ -268,8 +257,10 @@ test('commandInput maps pointer positions through the cursor-relative input wind
     localColumn: 3
   }));
 
-  assert.equal(message?.event.action, 'placeCursor');
-  assert.equal(message?.event.offset, 4);
+  assert.deepEqual(message?.action, {
+    kind: 'pointer',
+    action: { kind: 'placeCaret', offset: 4 }
+  });
 });
 
 function cursorPosition(cursor) {
@@ -319,14 +310,11 @@ test('commandInput exposes prompt value selection suggestion validation and foot
     commandInput({
       id: 'cmd-source',
       prompt: ':',
-      value: 'open file',
-      selection: { start: 5, end: 9 },
+      presentation: { value: 'open file', cursor: 0, selection: { start: 5, end: 9 }, suggestions: [
+        { value: 'open-file', label: 'Open file', description: 'recent' }
+      ], selectedSuggestion: 0 },
       completionPreview: 's',
       validation: { tone: 'warning', message: 'Needs target' },
-      suggestions: [
-        { value: 'open-file', label: 'Open file', description: 'recent' }
-      ],
-      selectedSuggestion: 0,
       footer: 'Enter run',
       display: 'expanded'
     }),

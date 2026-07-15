@@ -9,7 +9,7 @@ import { createTerminalHarness,
   replayTranscript,
   runInteractionScript } from '../../dist/testing/index.js';
 import { defineTui } from '../../dist/tui/index.js';
-import { renderElementFrame } from '../../dist/renderer/index.js';
+import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import {
   button,
   richText,
@@ -97,7 +97,7 @@ test('terminal harness delivers normalized key events to TUI runtimes', async ()
     update: (_state, message) => ({ state: { submitted: message.submitted }, exit: {} }),
     view: (state) => textInput({
       id: 'submit',
-      value: state.submitted ? 'submitted' : 'waiting',
+      presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
       onSubmit: { submitted: true }
     })
   });
@@ -163,7 +163,7 @@ test('terminal harness resize events drive active TUI resize handling', async ()
     update: (_state, message) => ({ state: { done: message.done }, exit: {} }),
     view: (_state, context) => textInput({
       id: 'resize-field',
-      value: `columns:${context.viewport.columns}`,
+      presentation: { value: `columns:${context.viewport.columns}`, cursor: 0 },
       onSubmit: { done: true }
     })
   });
@@ -178,7 +178,7 @@ test('terminal harness resize events drive active TUI resize handling', async ()
 
   assert.equal(exit.status, 'completed');
   assert.equal(harness.frames()[1]?.width, 12);
-  assert.match(harness.output(), /column…/u);
+  assert.match(renderFramePlain(harness.frames()[1]), /column…/u);
   assert.equal(harness.frames()[1]?.accessibility.root.value, 'columns:12');
   assert.deepEqual(
     harness.transcript.snapshot().steps

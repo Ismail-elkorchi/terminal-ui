@@ -22,6 +22,7 @@ export function widgetMessageHitTargets<TMessage>(
   return [{
     id: `${widget.id ?? widget.kind}:${suffix}`,
     bounds,
+    focus: { kind: 'target', targetId: 'self' },
     message: () => widget.props.message,
     cursor: 'pointer'
   }];

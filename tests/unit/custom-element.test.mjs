@@ -20,8 +20,10 @@ import {
 } from '../../dist/layout/index.js';
 
 test('custom renderers render through required renderer contract', () => {
+  let observedFocus;
   const renderer = {
-    render({ state, bounds, buffer }) {
+    render({ state, bounds, buffer, focus }) {
+      observedFocus = focus;
       buffer.write(bounds.row, bounds.column, [{
         text: state.label,
         style: { bold: true }
@@ -54,6 +56,7 @@ test('custom renderers render through required renderer contract', () => {
   assert.equal(frame.accessibility.root.role, 'button');
   assert.equal(frame.accessibility.root.label, 'XO');
   assert.equal(frame.accessibility.root.focused, true);
+  assert.equal(observedFocus, 'self');
 });
 
 test('custom renderer output preserves metadata and sanitizes terminal controls', () => {
@@ -127,8 +130,8 @@ test('custom renderer hit targets route mouse messages', async () => {
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
   const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
 
-  assert.equal(press[0]?.handled, false);
-  assert.equal(release[0]?.handled, true);
+  assert.equal(press.results[0]?.handled, false);
+  assert.equal(release.results[0]?.handled, true);
   assert.deepEqual(runtime.getState(), { clicked: true });
   assert.match(renderFramePlain(runtime.frame()), /hit/);
   assert.deepEqual(runtime.frame().hitTargets?.[0], {
@@ -209,6 +212,59 @@ test('custom renderer focus targets require stable ids', () => {
   assert.throws(
     () => renderElementFrame(custom({ id: 'bad-focus-target', renderer }), { columns: 10, rows: 2 }),
     /focus target without a non-empty id/u
+  );
+});
+
+test('custom renderer hit targets resolve explicitly declared focus targets', () => {
+  const renderer = {
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'focusable' }]);
+    },
+    accessibility({ id, focused }) {
+      return { id, role: 'button', label: 'focusable', ...(focused ? { focused: true } : {}) };
+    },
+    focusTargets({ bounds }) {
+      return [{ id: 'control', bounds }];
+    },
+    hitTargets({ bounds }) {
+      return [{
+        id: 'focusable:hit',
+        bounds,
+        accepts: ['pointerDown'],
+        focus: { kind: 'target', targetId: 'control' },
+        message: () => undefined
+      }];
+    }
+  };
+  const frame = renderElementFrame(custom({ id: 'focusable', renderer }), { columns: 12, rows: 1 });
+
+  assert.deepEqual(frame.hitTargets?.[0]?.focus, { kind: 'focus', path: ['focusable', 'control'] });
+});
+
+test('custom renderer hit targets reject unavailable focus targets', () => {
+  const renderer = {
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'invalid' }]);
+    },
+    accessibility({ id }) {
+      return { id, role: 'button', label: 'invalid' };
+    },
+    focusTargets({ bounds }) {
+      return [{ id: 'control', bounds }];
+    },
+    hitTargets({ bounds }) {
+      return [{
+        id: 'invalid:hit',
+        bounds,
+        focus: { kind: 'target', targetId: 'missing' },
+        message: () => undefined
+      }];
+    }
+  };
+
+  assert.throws(
+    () => renderElementFrame(custom({ id: 'invalid', renderer }), { columns: 12, rows: 1 }),
+    /refers to unavailable focus target/u
   );
 });
 

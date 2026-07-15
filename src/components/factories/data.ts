@@ -2,14 +2,20 @@ import { elementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
   ListOptions,
+  PassiveListOptions,
+  ScrollableListOptions,
   PaginatorOptions,
+  PassiveTableOptions,
+  ScrollableTableOptions,
   TableOptions,
+  PassiveTreeOptions,
+  ScrollableTreeOptions,
   TreeOptions
 } from '../options/content.ts';
 import type { ScrollEvent } from '../../interaction/scroll.ts';
 import { projectListItems } from '../../behavior/list.ts';
-import type { ListAction } from '../../ui-model/list.ts';
-import type { TableAction } from '../../ui-model/table.ts';
+import type { ListControlAction } from '../../ui-model/list.ts';
+import type { TableControlAction } from '../../ui-model/table.ts';
 import {
   interactionProps,
   listKeyBindings,
@@ -30,6 +36,21 @@ import type {
 } from '../internal/messages.ts';
 import { resolveStableIds } from '../internal/identity.ts';
 
+/* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
+export function list<
+  TValue,
+  const TActionMessage = unknown,
+  const TPointerMessage = never,
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
+>(
+  options: IndependentInteractionOptions<
+    ScrollableListOptions<TValue>,
+    { readonly onAction: TActionMessage },
+    Record<never, never>,
+    TKeys,
+    TPointerMessage
+  >
+): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function list<
   TValue,
   const TActionMessage = never,
@@ -37,17 +58,19 @@ export function list<
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
-    ListOptions<TValue, never>,
+    PassiveListOptions<TValue>,
     { readonly onAction: TActionMessage },
     Record<never, never>,
     TKeys,
     TPointerMessage
   >
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+/* eslint-enable @typescript-eslint/unified-signatures */
 export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unknown> {
   const projectedItems = projectListItems(options.items, options.projectItem);
   const keyMap = listKeyBindings(options, projectedItems.map(({ item }) => item.id));
-  const toActionMessage = options.onAction;
+  const toActionMessage: ((action: ListControlAction) => unknown) | undefined = options.onAction;
+  const toScrollActionMessage = isScrollableListOptions(options) ? options.onAction : undefined;
   const items = projectedItems.map(({ item }) => ({ ...item, disabled: item.disabled === true }));
   return elementFromRenderNode<'list', unknown>({
     ...requiredId(options.id, 'list'),
@@ -59,18 +82,38 @@ export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unk
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(toActionMessage === undefined ? {} : {
-        ...(options.scroll === undefined ? {} : {
-          toScrollMessage: (event: ScrollEvent) => toActionMessage({ kind: 'scroll', event })
-        }),
-        toActionMessage: (action: ListAction) => toActionMessage(action)
-      })
+      ...(toScrollActionMessage === undefined ? {} : {
+        toScrollMessage: (event: ScrollEvent) => toScrollActionMessage({ kind: 'scroll', event })
+      }),
+      ...(toActionMessage === undefined ? {} : { toActionMessage })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
 }
 
+function isScrollableListOptions<TValue, TMessage>(
+  options: ListOptions<TValue, TMessage>
+): options is ScrollableListOptions<TValue, TMessage> {
+  return options.scroll !== undefined;
+}
+
+/* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
+export function table<
+  TRow,
+  const TActionMessage = unknown,
+  const TPointerMessage = never,
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
+>(
+  options:
+    IndependentInteractionOptions<
+      ScrollableTableOptions<TRow>,
+      { readonly onAction: TActionMessage },
+      Record<never, never>,
+      TKeys,
+      TPointerMessage
+    >
+): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function table<
   TRow,
   const TActionMessage = never,
@@ -78,17 +121,21 @@ export function table<
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
-    TableOptions<TRow>,
+    PassiveTableOptions<TRow>,
     { readonly onAction: TActionMessage },
     Record<never, never>,
     TKeys,
     TPointerMessage
   >
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+/* eslint-enable @typescript-eslint/unified-signatures */
 export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unknown> {
   const keyMap = tableKeyBindings(options);
   const columns = tableColumnsForRenderer(options.columns);
   const toActionMessage = options.onAction;
+  const toScrollActionMessage = isScrollableTableOptions(options) ? options.onAction : undefined;
+  const presentation = options.presentation;
+  const scroll = isScrollableTableOptions(options) ? options.presentation.scroll : undefined;
   const rowIds = resolveStableIds(options.rows, options.getRowId, 'table');
   return elementFromRenderNode<'table', unknown>({
     ...requiredId(options.id, 'table'),
@@ -97,19 +144,19 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
       rows: domainValues(options.rows),
       rowIds,
       ...(columns === undefined ? {} : { columns }),
-      ...(options.selectedRowId === undefined ? {} : { selectedRowId: options.selectedRowId }),
-      ...(options.selectedCell === undefined ? {} : { selectedCell: options.selectedCell }),
-      ...(options.sort === undefined ? {} : { sort: options.sort }),
-      ...(options.columnWidths === undefined ? {} : { columnWidths: options.columnWidths }),
+      ...(presentation?.selectedRowId === undefined ? {} : { selectedRowId: presentation.selectedRowId }),
+      ...(presentation?.selectedCell === undefined ? {} : { selectedCell: presentation.selectedCell }),
+      ...(presentation?.sort === undefined ? {} : { sort: presentation.sort }),
+      ...(presentation?.columnWidths === undefined ? {} : { columnWidths: presentation.columnWidths }),
       ...(options.density === undefined ? {} : { density: options.density }),
-      ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
+      ...(scroll === undefined ? {} : { scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
       ...(toActionMessage === undefined ? {} : {
-        ...(options.scroll === undefined ? {} : {
-          toScrollMessage: (event: ScrollEvent) => toActionMessage({ kind: 'scroll', event })
+        ...(toScrollActionMessage === undefined ? {} : {
+          toScrollMessage: (event: ScrollEvent) => toScrollActionMessage({ kind: 'scroll', event })
         }),
-        toActionMessage: (action: TableAction) => toActionMessage(action)
+        toActionMessage: (action: TableControlAction) => toActionMessage(action)
       }),
       ...(options.stickyHeader === undefined ? {} : { stickyHeader: options.stickyHeader }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText })
@@ -119,6 +166,27 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
   });
 }
 
+function isScrollableTableOptions<TRow, TMessage>(
+  options: TableOptions<TRow, TMessage>
+): options is ScrollableTableOptions<TRow, TMessage> {
+  return options.presentation !== undefined && 'scroll' in options.presentation;
+}
+
+/* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
+export function tree<
+  TMetadata extends Readonly<Record<string, unknown>>,
+  const TActionMessage = unknown,
+  const TPointerMessage = never,
+  const TKeys extends InferredElementKeyBindings | undefined = undefined
+>(
+  options: IndependentInteractionOptions<
+    ScrollableTreeOptions<TMetadata>,
+    { readonly onAction: TActionMessage },
+    Record<never, never>,
+    TKeys,
+    TPointerMessage
+  >
+): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function tree<
   TMetadata extends Readonly<Record<string, unknown>>,
   const TActionMessage = never,
@@ -126,17 +194,19 @@ export function tree<
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
-    TreeOptions<TMetadata>,
+    PassiveTreeOptions<TMetadata>,
     { readonly onAction: TActionMessage },
     Record<never, never>,
     TKeys,
     TPointerMessage
   >
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
+/* eslint-enable @typescript-eslint/unified-signatures */
 export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
   options: TreeOptions<TMetadata, unknown>
 ): Element<unknown> {
   const onAction = options.onAction;
+  const onScrollAction = isScrollableTreeOptions(options) ? options.onAction : undefined;
   const keyMap = treeKeyBindings(options);
   return elementFromRenderNode<'tree', unknown>({
     ...requiredId(options.id, 'tree'),
@@ -148,8 +218,8 @@ export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
-      ...(onAction === undefined || options.scroll === undefined ? {} : {
-        toScrollMessage: (event: ScrollEvent) => onAction({ kind: 'scroll', event })
+      ...(onScrollAction === undefined ? {} : {
+        toScrollMessage: (event: ScrollEvent) => onScrollAction({ kind: 'scroll', event })
       }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
       ...(onAction === undefined ? {} : {
@@ -160,6 +230,15 @@ export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
   });
+}
+
+function isScrollableTreeOptions<
+  TMetadata extends Readonly<Record<string, unknown>>,
+  TMessage
+>(
+  options: TreeOptions<TMetadata, TMessage>
+): options is ScrollableTreeOptions<TMetadata, TMessage> {
+  return options.scroll !== undefined;
 }
 
 export function paginator<

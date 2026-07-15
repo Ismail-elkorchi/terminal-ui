@@ -70,6 +70,11 @@ express cleanly.
 
 Every component accepts top-level `id` and optional `meta`.
 
+Components that expose interactive scroll chrome use controlled variants. A
+visible scrollbar requires caller-owned scroll state and a semantic action or
+scroll handler. Passive variants may project a fixed window, but cannot expose
+an inert scrollbar.
+
 `meta.accessibility` can provide a full accessible node override or lightweight
 options such as `label`, `description`, and `decorative`. Decorative elements
 are excluded from their parent's accessibility tree and must not expose
