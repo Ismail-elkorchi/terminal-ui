@@ -22,7 +22,7 @@ test('PTY harness handles resize while async stream messages are rendering', asy
   const app = defineTui({
     id: 'pty-resize-streaming',
     init: () => ({ items: [] }),
-    keyBindings: [{
+    inputBindings: [{
       id: 'finish-stream',
       triggers: [{ kind: 'key', key: 'enter' }],
       message: { type: 'finish' }

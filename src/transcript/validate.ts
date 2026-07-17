@@ -3,6 +3,7 @@ import { diagnostic, terminalDiagnosticIssue } from '../diagnostics.ts';
 import { err, ok } from '../result.ts';
 import { measureTextCells } from '../text/index.ts';
 import type { TerminalStateSnapshot, TerminalViewport } from '../host/index.ts';
+import { normalizeKeyboardProfile } from '../protocol/index.ts';
 import type { KeyName, MouseAction, MouseButton, MouseEncoding } from '../input/index.ts';
 import type { Result } from '../result.ts';
 import type { CursorPosition } from '../renderer/index.ts';
@@ -170,9 +171,35 @@ function keyEventIssue(event: Record<string, unknown>): string | undefined {
     if (typeof event['modifiers'][modifier] !== 'boolean') return `key modifiers require ${modifier}.`;
   }
   if (event['sequence'] !== undefined && typeof event['sequence'] !== 'string') return 'key sequence must be a string.';
+  if (event['committedText'] !== undefined && typeof event['committedText'] !== 'string') {
+    return 'key committedText must be a string.';
+  }
+  if (event['alternateCodePoints'] !== undefined) {
+    const issue = alternateCodePointsIssue(event['alternateCodePoints']);
+    if (issue !== undefined) return issue;
+  }
   if (!isOneOf(event['eventType'], ['press', 'repeat', 'release'] as const)) return 'key event requires eventType.';
   if (!isOneOf(event['location'], ['standard', 'numpad', 'unknown'] as const)) return 'key event requires location.';
   return undefined;
+}
+
+function alternateCodePointsIssue(value: unknown): string | undefined {
+  if (!isRecord(value)) return 'key alternateCodePoints must be an object.';
+  const shifted = value['shifted'];
+  const baseLayout = value['baseLayout'];
+  if (shifted === undefined && baseLayout === undefined) {
+    return 'key alternateCodePoints requires shifted or baseLayout.';
+  }
+  if (shifted !== undefined && !isUnicodeScalar(shifted)) return 'key shifted alternate code point is invalid.';
+  if (baseLayout !== undefined && !isUnicodeScalar(baseLayout)) return 'key base-layout alternate code point is invalid.';
+  return undefined;
+}
+
+function isUnicodeScalar(value: unknown): boolean {
+  return Number.isSafeInteger(value)
+    && Number(value) >= 0
+    && Number(value) <= 0x10ffff
+    && !(Number(value) >= 0xd800 && Number(value) <= 0xdfff);
 }
 
 function mouseEventIssue(event: Record<string, unknown>): string | undefined {
@@ -344,7 +371,11 @@ function restoreCheckpointIssue(checkpoint: unknown): string | undefined {
     return 'restore checkpoint requires mouseReporting.';
   }
   if (typeof typed.focusReporting !== 'boolean') return 'restore checkpoint requires focusReporting.';
-  if (typeof typed.enhancedKeyboard !== 'boolean') return 'restore checkpoint requires enhancedKeyboard.';
+  try {
+    normalizeKeyboardProfile(typed.keyboardProfile);
+  } catch {
+    return 'restore checkpoint requires a valid keyboardProfile.';
+  }
   if (typeof typed.cursorVisible !== 'boolean') return 'restore checkpoint requires cursorVisible.';
   return undefined;
 }

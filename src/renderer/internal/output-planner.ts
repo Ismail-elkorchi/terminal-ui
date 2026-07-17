@@ -32,6 +32,7 @@ type PreparedOutputOperation =
       readonly column: number;
       readonly text: string;
       readonly columns: number;
+      readonly bytes: number;
     }
   | Extract<RenderOperation, { readonly kind: 'clearRect' }>;
 
@@ -41,26 +42,82 @@ export function planTerminalOutput(
 ): TerminalOutputPlan {
   const policy = createTerminalSerializationPolicy(options);
   const operations = prepareOperations(diff.operations, options, policy.capabilities);
-  const baseline = encodeOperations(diff, operations, policy, false);
-  const optimized = encodeOperations(diff, operations, policy, true);
-  const baselinePayloadBytes = utf8Bytes(baseline.text);
-  const optimizedPayloadBytes = utf8Bytes(optimized.text);
-  const selected = optimizedPayloadBytes < baselinePayloadBytes ? optimized.text : baseline.text;
-  const strategy = selected === optimized.text && optimized.text !== baseline.text ? 'optimized' : 'baseline';
-  const payloadBytes = utf8Bytes(selected);
-  const synchronized = selected.length > 0 && policy.capabilities.synchronizedOutput.status === 'supported';
-  const text = synchronized
-    ? `${policy.beginSynchronizedOutput()}${selected}${policy.endSynchronizedOutput()}`
-    : selected;
+  const baselinePayloadBytes = evaluateOperations(diff, operations, policy, false);
+  const optimizedPayloadBytes = evaluateOperations(diff, operations, policy, true);
+  const optimize = optimizedPayloadBytes < baselinePayloadBytes;
+  const strategy = optimize ? 'optimized' : 'baseline';
+  const payloadBytes = optimize ? optimizedPayloadBytes : baselinePayloadBytes;
+  const selected = encodeOperations(diff, operations, policy, optimize).text;
+  const synchronized = payloadBytes > 0
+    && policy.capabilities.synchronizedOutput.support === 'supported'
+    && policy.capabilities.synchronizedOutput.availability === 'available';
+  const begin = synchronized ? policy.beginSynchronizedOutput() : '';
+  const end = synchronized ? policy.endSynchronizedOutput() : '';
+  const text = `${begin}${selected}${end}`;
   return Object.freeze({
     text,
-    bytes: utf8Bytes(text),
+    bytes: payloadBytes + asciiBytes(begin) + asciiBytes(end),
     payloadBytes,
     baselinePayloadBytes,
     strategy,
     synchronized,
-    ...(synchronized ? { failureCleanup: policy.endSynchronizedOutput() } : {})
+    ...(synchronized ? { failureCleanup: end } : {})
   });
+}
+
+function evaluateOperations(
+  diff: RenderDiff,
+  operations: readonly PreparedOutputOperation[],
+  policy: ReturnType<typeof createTerminalSerializationPolicy>,
+  optimize: boolean
+): number {
+  let bytes = 0;
+  let cursor: CursorState | undefined;
+  for (const operation of operations) {
+    if (operation.kind === 'write') {
+      const moved = moveCursor(operation.row, operation.column, cursor, optimize, policy);
+      bytes += asciiBytes(moved.text) + operation.bytes;
+      cursor = cursorAfterColumns(
+        { row: operation.row, column: operation.column },
+        operation.columns,
+        diff.width
+      );
+      continue;
+    }
+    const evaluated = evaluateClearRect(operation, diff.width, cursor, optimize, policy);
+    bytes += evaluated.bytes;
+    cursor = evaluated.cursor;
+  }
+  if (diff.cursor !== undefined) {
+    bytes += asciiBytes(moveCursor(diff.cursor.row, diff.cursor.column, cursor, optimize, policy).text);
+  }
+  return bytes;
+}
+
+function evaluateClearRect(
+  operation: Extract<RenderOperation, { readonly kind: 'clearRect' }>,
+  frameWidth: number,
+  initialCursor: CursorState | undefined,
+  optimize: boolean,
+  policy: ReturnType<typeof createTerminalSerializationPolicy>
+): { readonly bytes: number; readonly cursor?: CursorState } {
+  let bytes = 0;
+  let cursor = initialCursor;
+  const width = Math.max(0, operation.bounds.width);
+  const endColumn = operation.bounds.column + width - 1;
+  for (let rowOffset = 0; rowOffset < operation.bounds.height; rowOffset += 1) {
+    const row = operation.bounds.row + rowOffset;
+    const moved = moveCursor(row, operation.bounds.column, cursor, optimize, policy);
+    bytes += asciiBytes(moved.text);
+    if (optimize && endColumn >= frameWidth) {
+      bytes += asciiBytes(policy.eraseLineToEnd());
+      cursor = moved.cursor;
+    } else {
+      bytes += width;
+      cursor = cursorAfterColumns(moved.cursor, width, frameWidth);
+    }
+  }
+  return cursor === undefined ? { bytes } : { bytes, cursor };
 }
 
 function encodeOperations(
@@ -157,11 +214,13 @@ function prepareOperations(
 ): readonly PreparedOutputOperation[] {
   return Object.freeze(operations.map((operation): PreparedOutputOperation => {
     if (operation.kind !== 'write') return operation;
+    const text = serializeRenderSpans(operation.spans, options);
     return Object.freeze({
       kind: 'write',
       row: operation.row,
       column: operation.column,
-      text: serializeRenderSpans(operation.spans, options),
+      text,
+      bytes: utf8Bytes(text),
       columns: operation.spans.reduce((total, current) => {
         const text = sanitizeTerminalText(current.text).text;
         return total + measureTextCells(text, { widthProfile: capabilities.unicode.widthProfile }).cells;
@@ -172,4 +231,8 @@ function prepareOperations(
 
 function utf8Bytes(value: string): number {
   return new TextEncoder().encode(value).byteLength;
+}
+
+function asciiBytes(value: string): number {
+  return value.length;
 }

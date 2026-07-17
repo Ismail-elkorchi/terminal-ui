@@ -368,8 +368,8 @@ test('renderDiffAnsi wraps non-empty output when synchronized output is explicit
 
 function capabilities(depth, hyperlinks = false, synchronizedOutput = false) {
   const support = (supported) => supported
-    ? { status: 'supported', confidence: 'detected', facts: [], diagnostics: [], requiresSessionOperation: false }
-    : { status: 'unavailable', confidence: 'unavailable', facts: [], diagnostics: [], requiresSessionOperation: false };
+    ? { support: 'supported', availability: 'available', facts: [], diagnostics: [], requiresSessionOperation: false }
+    : { support: 'unsupported', availability: 'available', facts: [], diagnostics: [], requiresSessionOperation: false };
   return {
     schemaVersion: 'terminal-ui.terminal-capabilities.v1',
     runtime: 'node',
@@ -388,7 +388,7 @@ function capabilities(depth, hyperlinks = false, synchronizedOutput = false) {
     rawInput: support(true),
     resize: support(true),
     hyperlinks: support(hyperlinks),
-    enhancedKeyboard: support(false),
+    keyboardProtocol: support(false),
     bracketedPaste: support(true),
     mouseReporting: support(true),
     alternateScreen: support(true),

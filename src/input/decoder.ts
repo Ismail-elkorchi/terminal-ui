@@ -4,7 +4,7 @@ import { keyEvent, keyFromPrefix, keySequences } from './keys.ts';
 import { mouseFromPrefix } from './mouse.ts';
 import { bracketedPasteFromPrefix, isIncompleteBracketedPaste } from './paste.ts';
 import type { TerminalInputChunk } from '../host/index.ts';
-import type { InputDecodeOptions, InputDecoder, InputEvent } from './types.ts';
+import type { InputDecodeOptions, InputDecoder, InputDecoderBatch, InputEvent, InputPendingState } from './types.ts';
 
 const csiPattern = new RegExp(String.raw`^\u001B\[[0-?]*[ -/]*[@-~]`, 'u');
 const completeSgrMousePattern = new RegExp(String.raw`^\u001B\[<\d+;\d+;\d+[Mm]`, 'u');
@@ -15,7 +15,7 @@ export function decodeInputChunk(
 ): readonly InputEvent[] {
   const text = chunkText(chunk);
   if (text.length === 0) return [];
-  if (text === ' ') return [keyEvent('space', text)];
+  if (text === ' ') return [{ ...keyEvent('space', text), committedText: ' ' }];
   return decodeTerminalText(text, options, true).events;
 }
 
@@ -25,18 +25,20 @@ export function createInputDecoder(options: InputDecodeOptions = {}): InputDecod
   return {
     decode(chunk) {
       const text = chunkText(chunk);
-      if (text.length === 0) return [];
-      if (pending.length === 0 && text === ' ') return [keyEvent('space', text)];
+      if (text.length === 0) return batch([], pendingState(pending));
+      if (pending.length === 0 && text === ' ') {
+        return batch([{ ...keyEvent('space', text), committedText: ' ' }], { kind: 'none' });
+      }
       pending += text;
       const result = decodeTerminalText(pending, options, false);
       pending = result.remainder;
-      return result.events;
+      return batch(result.events, pendingState(pending));
     },
     flush() {
-      if (pending.length === 0) return [];
+      if (pending.length === 0) return batch([], { kind: 'none' });
       const result = decodeTerminalText(pending, options, true);
       pending = '';
-      return result.events;
+      return batch(result.events, { kind: 'none' });
     },
     reset() {
       pending = '';
@@ -93,8 +95,8 @@ function decodeTerminalText(
       continue;
     }
 
-    const key = options.keyboard === 'enhanced'
-      ? enhancedKeyFromPrefix(remaining) ?? keyFromPrefix(remaining)
+    const key = options.keyboard?.kind === 'kitty'
+      ? enhancedKeyFromPrefix(remaining, options.keyboard) ?? keyFromPrefix(remaining)
       : keyFromPrefix(remaining);
     if (key !== undefined) {
       flushText();
@@ -123,13 +125,22 @@ function decodeTerminalText(
 
 function isIncompleteEscapeSequence(value: string): boolean {
   if (!value.startsWith('\u001B')) return false;
-  if (value === '\u001B') return false;
+  if (value === '\u001B') return true;
   for (const sequence of keySequences.keys()) {
     if (sequence.startsWith(value) && value.length < sequence.length) return true;
   }
   if (value.startsWith('\u001B[M') && value.length < 6) return true;
   if (value.startsWith('\u001B[<') && !completeSgrMousePattern.test(value)) return true;
   return value.startsWith('\u001B[') && !csiPattern.test(value);
+}
+
+function pendingState(value: string): InputPendingState {
+  if (value.length === 0) return { kind: 'none' };
+  return value === '\u001B' ? { kind: 'escape' } : { kind: 'sequence' };
+}
+
+function batch(events: readonly InputEvent[], pending: InputPendingState): InputDecoderBatch {
+  return { events, pending };
 }
 
 function unknownEscapeFromPrefix(value: string): string | undefined {

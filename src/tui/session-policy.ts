@@ -6,6 +6,8 @@ import type {
   TerminalStateChange
 } from '../host/index.ts';
 import type { Result } from '../result.ts';
+import { LEGACY_KEYBOARD_PROFILE } from '../protocol/keyboard.ts';
+import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 
 export type ProtocolRequirement = 'required' | 'optional' | 'disabled';
 export type CursorVisibilityPolicy = 'hide' | 'show' | 'unchanged';
@@ -16,7 +18,7 @@ export interface SessionProtocolPolicy {
   readonly bracketedPaste: ProtocolRequirement;
   readonly focusReporting: ProtocolRequirement;
   readonly keyboard: {
-    readonly profile: 'legacy' | 'enhanced';
+    readonly profile: TerminalKeyboardProfile;
     readonly requirement: ProtocolRequirement;
   };
   readonly cursorVisibility: {
@@ -42,9 +44,9 @@ export type SessionProtocolOperation =
       readonly target: MouseReportingMode;
     }
   | {
-      readonly kind: 'enhancedKeyboard';
+      readonly kind: 'keyboardProfile';
       readonly requirement: ProtocolRequirement;
-      readonly target: 'legacy' | 'enhanced';
+      readonly target: TerminalKeyboardProfile;
     };
 
 interface BooleanSessionProtocolOperation {
@@ -69,7 +71,7 @@ export const defaultSessionProtocolPolicy: SessionProtocolPolicy = {
   rawInput: 'required',
   bracketedPaste: 'optional',
   focusReporting: 'optional',
-  keyboard: { profile: 'legacy', requirement: 'disabled' },
+  keyboard: { profile: LEGACY_KEYBOARD_PROFILE, requirement: 'disabled' },
   cursorVisibility: { state: 'hide', requirement: 'optional' },
   mouseReporting: { mode: 'drag', requirement: 'optional' }
 };
@@ -81,7 +83,7 @@ export function createSessionProtocolPlan(
     { kind: 'alternateScreen', requirement: policy.alternateScreen, target: true },
     { kind: 'bracketedPaste', requirement: policy.bracketedPaste, target: true },
     { kind: 'rawInput', requirement: policy.rawInput, target: true },
-    { kind: 'enhancedKeyboard', requirement: policy.keyboard.requirement, target: policy.keyboard.profile },
+    { kind: 'keyboardProfile', requirement: policy.keyboard.requirement, target: policy.keyboard.profile },
     { kind: 'mouseReporting', requirement: policy.mouseReporting.requirement, target: policy.mouseReporting.mode },
     { kind: 'focusReporting', requirement: policy.focusReporting, target: true },
     { kind: 'cursorVisibility', requirement: policy.cursorVisibility.requirement, target: policy.cursorVisibility.state }
@@ -102,7 +104,7 @@ export async function applySessionProtocolPolicy(
       item.requirement === 'disabled'
       || item.target === 'unchanged'
       || item.target === 'none'
-      || item.target === 'legacy'
+      || (typeof item.target === 'object' && item.target.kind === 'legacy')
     ) {
       skipped.push(item);
       diagnostics.push(skippedDiagnostic(session, item));
@@ -116,7 +118,7 @@ export async function applySessionProtocolPolicy(
         severity: item.requirement === 'required' ? 'error' : 'warning',
         target: session.id,
         cause,
-        data: { operation: item.kind, requirement: item.requirement, target: String(item.target) }
+        data: { operation: item.kind, requirement: item.requirement, target: protocolTarget(item.target) }
       });
       diagnostics.push(error);
       skipped.push(item);
@@ -148,8 +150,8 @@ async function applyOperation(
       return session.enableBracketedPaste();
     case 'focusReporting':
       return session.enableFocusReporting();
-    case 'enhancedKeyboard':
-      return session.enableEnhancedKeyboard();
+    case 'keyboardProfile':
+      return session.enableKeyboardProfile(item.target);
     case 'cursorVisibility':
       return item.target === 'show' ? session.showCursor() : session.hideCursor();
     case 'mouseReporting':
@@ -167,7 +169,7 @@ function skippedDiagnostic(
     data: {
       operation: item.kind,
       requirement: item.requirement,
-      target: String(item.target)
+      target: protocolTarget(item.target)
     }
   });
 }
@@ -186,7 +188,11 @@ function operationFailureDiagnostic(
       ...(error.data ?? {}),
       operation: item.kind,
       requirement: item.requirement,
-      target: String(item.target)
+      target: protocolTarget(item.target)
     }
   });
+}
+
+function protocolTarget(target: SessionProtocolOperation['target']): string {
+  return typeof target === 'object' ? `${target.kind}:${target.kind === 'kitty' ? String(target.flags) : ''}` : String(target);
 }

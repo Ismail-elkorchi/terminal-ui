@@ -153,7 +153,7 @@ export function createIdeEditorApp(operations: IdeEditorOperations = nodeEditorO
     init: initialState,
     update: (state, message) => updateEditor(state, message, operations),
     view: editorView,
-    keyBindings: [
+    inputBindings: [
       {
         id: 'exit',
         triggers: [
@@ -584,7 +584,7 @@ function chooserDialog(chooser: ChooserState): Element<EditorMessage> {
     id: 'path-chooser',
     title: chooser.mode === 'folder' ? 'Open Folder' : 'Open File',
     modal: true,
-    focusPolicy: { initialFocus: { kind: 'element', id: 'path-chooser-input' }, returnFocus: 'restore' },
+    focusPolicy: { initialFocus: { kind: 'element', elementId: 'path-chooser-input' }, returnFocus: 'restore' },
     dismissal: { escape: true, outsidePress: true, onDismiss: (): EditorMessage => ({ kind: 'dismissChooser' }) },
     width: 72,
     height: 7,
@@ -769,7 +769,7 @@ if (isMain) {
         rawInput: 'required',
         bracketedPaste: 'optional',
         focusReporting: 'optional',
-        keyboard: { profile: 'legacy', requirement: 'disabled' },
+        keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
         cursorVisibility: { state: 'hide', requirement: 'optional' },
         mouseReporting: { mode: 'drag', requirement: 'optional' }
       }

@@ -1,7 +1,11 @@
 export { createInputDecoder, decodeInputChunk } from './decoder.ts';
 export { createInputPipeline, resolveInputPipelineProfile } from './pipeline.ts';
+export { createInputAmbiguityDeadline } from './ambiguity-deadline.ts';
+export type { InputAmbiguityDeadline } from './ambiguity-deadline.ts';
 export { isCancelKey, isInterruptKey, normalizeKeyEvent } from './keys.ts';
 export { matchesInputTrigger } from './triggers.ts';
+export { createKeyboardState, keyboardKeyIsPressed, reduceKeyboardState } from './keyboard-state.ts';
 export type * from './types.ts';
 export type * from './pipeline.ts';
 export type * from './pointer.ts';
+export type * from './keyboard-state.ts';

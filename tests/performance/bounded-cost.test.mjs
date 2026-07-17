@@ -41,7 +41,7 @@ const outputCapabilities = await createMemoryTerminalHost().getCapabilities();
 test('paste bursts decode as one paste event instead of per-character key churn', () => {
   const decoder = createInputDecoder();
   const payload = `${'\u001B[200~'}${'x'.repeat(10_000)}${'\u001B[201~'}`;
-  const events = decoder.decode({ data: payload });
+  const { events } = decoder.decode({ data: payload });
 
   assert.equal(events.length, 1);
   assert.equal(events[0]?.kind, 'paste');
@@ -112,6 +112,21 @@ test('large scrollback rendering is bounded by viewport size, not collection siz
   assert.ok(frame.cells.length <= frame.width * frame.height);
   assert.equal(frame.accessibility.root.children?.length, 12);
   assert.equal(frame.accessibility.root.description, 'Showing 99989-100000 of 100000 scrollback rows. Omitted before: 99988. Omitted after: 0. Follow tail: true.');
+});
+
+test('passive scrollback projections do not reread offscreen history', () => {
+  let textReads = 0;
+  const items = Array.from({ length: 20_000 }, (_value, index) => ({
+    id: `line-${String(index)}`,
+    get text() {
+      textReads += 1;
+      return `Line ${String(index)}`;
+    }
+  }));
+
+  renderElementFrame(scrollback({ id: 'bounded-history', items }), { columns: 48, rows: 12 });
+
+  assert.ok(textReads <= 40, `expected viewport-bounded history reads, received ${String(textReads)}`);
 });
 
 test('small local frame updates produce bounded render diffs', () => {

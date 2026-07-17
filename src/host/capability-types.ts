@@ -7,7 +7,7 @@ export type TerminalCapabilityName =
   | 'rawInput'
   | 'resize'
   | 'hyperlinks'
-  | 'enhancedKeyboard'
+  | 'keyboardProtocol'
   | 'bracketedPaste'
   | 'mouseReporting'
   | 'alternateScreen'
@@ -18,8 +18,8 @@ export type TerminalCapabilityName =
   | 'bell'
   | 'clipboard';
 
-export type CapabilityStatus = 'supported' | 'unavailable';
-export type CapabilityConfidence = 'detected' | 'assumed' | 'forced' | 'unavailable';
+export type TerminalFeatureSupport = 'supported' | 'unsupported' | 'unknown';
+export type HostFeatureAvailability = 'available' | 'unavailable';
 export type CapabilitySourceKind = 'host' | 'environment' | 'probe' | 'override';
 
 export interface CapabilitySourceFact {
@@ -29,8 +29,8 @@ export interface CapabilitySourceFact {
 }
 
 export interface CapabilitySupport {
-  readonly status: CapabilityStatus;
-  readonly confidence: CapabilityConfidence;
+  readonly support: TerminalFeatureSupport;
+  readonly availability: HostFeatureAvailability;
   readonly facts: readonly CapabilitySourceFact[];
   readonly diagnostics: readonly TerminalDiagnostic[];
   readonly requiresSessionOperation: boolean;
@@ -58,7 +58,7 @@ export interface TerminalCapabilityProfile {
   readonly rawInput: CapabilitySupport;
   readonly resize: CapabilitySupport;
   readonly hyperlinks: CapabilitySupport;
-  readonly enhancedKeyboard: CapabilitySupport;
+  readonly keyboardProtocol: CapabilitySupport;
   readonly bracketedPaste: CapabilitySupport;
   readonly mouseReporting: CapabilitySupport;
   readonly alternateScreen: CapabilitySupport;

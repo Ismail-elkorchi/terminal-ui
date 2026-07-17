@@ -30,6 +30,13 @@ It is also available through `createTerminalHost({ adapter: 'pty', ... })`.
 
 Hosts expose input, output, signals, environment, viewport, capabilities, clock,
 and session-managed terminal restoration.
+Output writes are asynchronous and ordered. A resolved write has crossed the
+adapter's native backpressure boundary; `flush()` settles every write accepted
+before it. Node adapters wait for write callbacks and `drain`, Web Stream
+adapters retain one writer and await each write, and memory/PTY adapters expose
+the same completion semantics. Runtime scheduling uses the host's monotonic
+clock; wall-clock changes do not affect pointer timing, animation deadlines, or
+cleanup bounds.
 `restoreTerminalState(host)` restores the host's currently active terminal
 sessions in reverse open order. If no session is active it returns a successful
 empty restore result instead of opening a new no-op session.

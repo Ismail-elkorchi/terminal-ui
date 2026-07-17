@@ -3,7 +3,9 @@ import type { Element } from '../../element/index.ts';
 import { toRenderNode } from '../model/element.ts';
 import type { RenderNode } from '../model/index.ts';
 import { defineTheme, isTerminalTheme } from '../../theme/index.ts';
-import { collectLayoutFocusTargets, collectRenderNodeLayoutTargets, findRenderNodeFocusTarget, focusPathForLayoutTarget, renderFocusRelation, resolveFocusPath } from './focus.ts';
+import { findRenderNodeFocusTarget, focusPathForLayoutTarget, renderFocusRelation, resolveFocusPath } from './focus.ts';
+import { createProjectionTargetIndex } from './projection-target-index.ts';
+import type { ProjectionTargetIndex } from './projection-target-index.ts';
 import { createFrameBuffer } from './frame.ts';
 import { projectStyledCursor } from './cursor-projection.ts';
 import { applyFramePasses, boxDrawingJoinPass } from './frame-passes/index.ts';
@@ -16,7 +18,7 @@ import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.t
 import type { FocusPath } from './focus.ts';
 import type { Frame, FrameBuffer, FrameCell, FrameHitTarget } from './frame.ts';
 import type { FramePass } from './frame-passes/index.ts';
-import type { LayoutNode, Rect } from '../model/layout.ts';
+import type { LayoutNode } from '../model/layout.ts';
 import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
 import type { RenderTarget } from '../model/render-target.ts';
 
@@ -150,17 +152,15 @@ function renderLayoutRegions<TMessage>(
   const composer = createRegionComposer<TMessage>(viewport);
   const path = nodePath(layout, []);
   renderRenderNodeToRegion(widget, layout, [], composer.regionFor(layout, path), composer, theme, focusPath);
-  return composer.snapshot(widget, layout, theme);
+  return composer.snapshot(createProjectionTargetIndex(widget, layout), theme);
 }
 
 function frameHitTargets<TMessage>(
-  widget: RenderNode<TMessage>,
-  layout: LayoutNode,
+  targets: readonly import('./focus.ts').RenderNodeLayoutTarget<TMessage>[],
   theme: TerminalTheme,
   region: DraftRenderRegion
 ): readonly RenderRegionHitTarget<TMessage>[] {
-  return collectRenderNodeLayoutTargets(widget, layout)
-    .filter((target) => target.layer.zIndex === region.zIndex && rectsOverlap(target.bounds, region.bounds))
+  return targets
     .flatMap((target): RenderRegionHitTarget<TMessage>[] =>
       hitTargetsForRenderNode(target.renderNode, target, theme).map((hitTarget) =>
         toRegionHitTarget(hitTarget, region, resolveHitTargetFocus(hitTarget, target))
@@ -278,7 +278,7 @@ function orderedChildren(
 
 interface RegionComposer<TMessage> {
   regionFor(node: LayoutNode, path: FocusPath): DraftRenderRegion;
-  snapshot(widget: RenderNode<TMessage>, layout: LayoutNode, theme: TerminalTheme): readonly RenderRegion<TMessage>[];
+  snapshot(index: ProjectionTargetIndex<TMessage>, theme: TerminalTheme): readonly RenderRegion<TMessage>[];
 }
 
 function createRegionComposer<TMessage>(viewport: ViewportSize): RegionComposer<TMessage> {
@@ -298,7 +298,7 @@ function createRegionComposer<TMessage>(viewport: ViewportSize): RegionComposer<
       regions.push(region);
       return region;
     },
-    snapshot(widget, layout, theme) {
+    snapshot(index, theme) {
       return regions
         .toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)
         .map((region): RenderRegion<TMessage> => {
@@ -311,10 +311,8 @@ function createRegionComposer<TMessage>(viewport: ViewportSize): RegionComposer<
             opacity: region.opacity,
             cells: snapshot.cells,
             metadata: snapshot.metadata,
-            hitTargets: frameHitTargets(widget, layout, theme, region),
-            focusTargets: collectLayoutFocusTargets(layout).filter((target) =>
-              target.layer.zIndex === region.zIndex && rectsOverlap(target.bounds, region.bounds)
-            )
+            hitTargets: frameHitTargets(index.layoutTargetsForRegion(region.zIndex, region.bounds), theme, region),
+            focusTargets: index.focusTargetsForRegion(region.zIndex, region.bounds)
           };
         });
     }
@@ -330,21 +328,14 @@ export function compositeRegions(viewport: ViewportSize, regions: readonly Rende
       continue;
     }
     if (region.opacity === 'inheritBackground') {
-      const lowerCells = indexedCells(buffer.snapshot().cells);
-      for (const cell of region.cells) buffer.writeCell(withInheritedBackground(cell, lowerCells.get(cellKey(cell))));
+      for (const cell of region.cells) {
+        buffer.writeCell(withInheritedBackground(cell, buffer.readCell(cell.row, cell.column)));
+      }
       continue;
     }
     for (const cell of region.cells) buffer.writeCell(cell);
   }
   return buffer;
-}
-
-function indexedCells(cells: readonly FrameCell[]): ReadonlyMap<string, FrameCell> {
-  return new Map(cells.map((cell) => [cellKey(cell), cell]));
-}
-
-function cellKey(cell: { readonly row: number; readonly column: number }): string {
-  return `${String(cell.row)}:${String(cell.column)}`;
 }
 
 function withInheritedBackground(cell: FrameCell, lower: FrameCell | undefined): FrameCell {
@@ -357,13 +348,6 @@ function withInheritedBackground(cell: FrameCell, lower: FrameCell | undefined):
       bg: background
     }
   };
-}
-
-function rectsOverlap(left: Rect, right: Rect): boolean {
-  return left.row < right.row + right.height
-    && left.row + left.height > right.row
-    && left.column < right.column + right.width
-    && left.column + left.width > right.column;
 }
 
 function themeForOptions(theme: TerminalTheme | TerminalThemeDefinition | undefined): TerminalTheme {

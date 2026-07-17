@@ -1,11 +1,12 @@
 import { diagnostic } from '../diagnostics.ts';
-import { createInputDecoder, isCancelKey, isInterruptKey } from '../input/index.ts';
+import { isCancelKey, isInterruptKey } from '../input/index.ts';
 import { toAccessibleSnapshot } from '../accessibility/index.ts';
 import { createProgress } from './progress.ts';
 import { progressDisplayLine } from './progress-view.ts';
 import { nonTtyDiagnosticOptions } from './non-tty.ts';
 import { setupPromptSession, restoreReasonForPrompt } from './session.ts';
 import { submitPrompt } from './submit.ts';
+import { promptInputEvents } from './input-events.ts';
 import {
   createPromptTranscript,
   createTranscriptOnlyPromptTranscript,
@@ -125,7 +126,7 @@ function createProgressRuntime(
     },
     async run() {
       const task = progressTaskOutcome(prompt, controller);
-      const input = progressInputOutcome(prompt, host, transcript);
+      const input = progressInputOutcome(prompt, host, transcript, signal);
       const timeout = progressTimeoutOutcome(prompt, host, signal);
       const outcome = await Promise.race([task, input, timeout]);
       closed = true;
@@ -153,16 +154,14 @@ async function progressTaskOutcome(
 async function progressInputOutcome(
   prompt: ProgressPromptDefinition,
   host: TerminalHost | undefined,
-  transcript: TranscriptRecorder | undefined
+  transcript: TranscriptRecorder | undefined,
+  signal: AbortSignal
 ): Promise<ProgressOutcome> {
   if (host?.stdin.isTty() !== true) return never();
-  const decoder = createInputDecoder();
-  for await (const chunk of host.stdin.read()) {
-    for (const event of decoder.decode(chunk)) {
-      transcript?.record({ kind: 'input', event: transcriptEvent(prompt, event) });
-      const outcome = outcomeFromInputEvent(event);
-      if (outcome !== undefined) return outcome;
-    }
+  for await (const event of promptInputEvents(host, signal)) {
+    transcript?.record({ kind: 'input', event: transcriptEvent(prompt, event) });
+    const outcome = outcomeFromInputEvent(event);
+    if (outcome !== undefined) return outcome;
   }
   return never();
 }

@@ -153,7 +153,7 @@ export const interactiveWorkspaceApp = defineTui<WorkspaceState, WorkspaceMessag
   init: initialState,
   update: updateWorkspace,
   view: workspaceView,
-  keyBindings: [{
+  inputBindings: [{
     id: 'exit',
     triggers: [
       { kind: 'key', key: 'c', modifiers: { ctrl: true } },
@@ -556,7 +556,7 @@ function mouseEvent(
 if (process.argv[1] === new URL(import.meta.url).pathname) {
   if (process.stdin.isTTY && process.stdout.isTTY && !process.argv.includes('--scripted')) {
     const exit = await runTui(interactiveWorkspaceApp, createTerminalHost({ runtime: 'node' }), {
-      initialFocusPath: ['workspace-root', 'workspace-grid', 'workspace-command-surface', 'workspace-command']
+      initialFocus: { kind: 'path', path: ['workspace-root', 'workspace-grid', 'workspace-command-surface', 'workspace-command'] }
     });
     if (exit.status !== 'completed') process.exitCode = 1;
   } else {

@@ -65,7 +65,16 @@ function normalizeInitialFocus(
   selector: InitialFocusSelector | undefined
 ): InitialFocusSelector | undefined {
   if (selector === undefined) return undefined;
-  const id = selector.id.trim();
-  if (id.length === 0) throw new TypeError('dialog focusPolicy.initialFocus id must be non-empty.');
-  return { kind: selector.kind, id };
+  if (selector.kind === 'path') {
+    if (selector.path.length === 0 || selector.path.some((segment) => segment.trim() === '')) {
+      throw new TypeError('dialog focusPolicy.initialFocus path must contain non-empty segments.');
+    }
+    return { kind: 'path', path: Object.freeze([...selector.path]) };
+  }
+  const elementId = selector.elementId.trim();
+  if (elementId.length === 0) throw new TypeError('dialog focusPolicy.initialFocus elementId must be non-empty.');
+  if (selector.kind === 'element') return { kind: 'element', elementId };
+  const targetId = selector.targetId.trim();
+  if (targetId.length === 0) throw new TypeError('dialog focusPolicy.initialFocus targetId must be non-empty.');
+  return { kind: 'elementTarget', elementId, targetId };
 }

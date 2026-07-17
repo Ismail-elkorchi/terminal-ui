@@ -1,24 +1,26 @@
 import { resolveTerminalCapabilities } from './capabilities.ts';
 import { BasicTerminalSession } from './session.ts';
-import { ObjectEnvironment, RuntimeClock, RuntimeInput, RuntimeSignals } from './runtime-streams.ts';
+import { ObjectEnvironment, RuntimeClock, RuntimeInput, RuntimeOutput, RuntimeSignals } from './runtime-streams.ts';
 import { restoreActiveTerminalSessions } from './session-registry.ts';
+import { createTerminalHostOutputAuthority } from './ordered-output.ts';
 import type {
   PtyTerminalHost,
   PtyTerminalHostOptions,
   RuntimeTerminalOutputOptions,
   TerminalOutput,
-  TerminalOutputChunk,
   TerminalSession,
   TerminalViewport
 } from './types.ts';
 
 class PtyOutput implements TerminalOutput {
-  #writer: WritableStreamDefaultWriter<Uint8Array> | undefined;
+  readonly #output: RuntimeOutput;
 
   constructor(
-    private readonly options: RuntimeTerminalOutputOptions,
+    options: RuntimeTerminalOutputOptions,
     private readonly viewport: () => TerminalViewport
-  ) {}
+  ) {
+    this.#output = new RuntimeOutput(options);
+  }
 
   get columns(): number {
     return this.viewport().columns;
@@ -28,19 +30,16 @@ class PtyOutput implements TerminalOutput {
     return this.viewport().rows;
   }
 
-  async write(chunk: string | Uint8Array): Promise<void> {
-    if (this.options.write !== undefined) {
-      await this.options.write(chunk);
-      return;
-    }
-    if (this.options.writable !== undefined) {
-      this.#writer ??= this.options.writable.getWriter();
-      await this.#writer.write(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
-    }
+  write(chunk: string | Uint8Array): Promise<void> {
+    return this.#output.write(chunk);
+  }
+
+  flush(): Promise<void> {
+    return this.#output.flush();
   }
 
   isTty(): boolean {
-    return this.options.isTty ?? true;
+    return this.#output.isTty();
   }
 }
 
@@ -52,6 +51,7 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
   const stdin = new RuntimeInput({ ...options.stdin, isTty: options.stdin?.isTty ?? true });
   const stdout = new PtyOutput({ ...options.stdout, isTty: options.stdout?.isTty ?? true }, () => viewport);
   const stderr = new PtyOutput({ ...options.stderr, isTty: options.stderr?.isTty ?? true }, () => viewport);
+  const output = createTerminalHostOutputAuthority(stdout, stderr);
   const clock = new RuntimeClock();
   const runtime = options.runtime ?? 'node';
   const capabilities = resolveTerminalCapabilities({
@@ -61,10 +61,13 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
       outputIsTty: stdout.isTty(),
       columns: viewport.columns,
       rows: viewport.rows,
-      rawInput: options.stdin?.setRawMode !== undefined
+      rawInput: options.stdin?.setRawMode !== undefined,
+      resizeEvents: options.subscribeSignals !== undefined,
+      terminalProtocols: stdout.isTty()
     },
     environment: { variables: options.env ?? {} },
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
+    ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
     ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides })
   });
   const env = new ObjectEnvironment(options.env ?? {});
@@ -88,11 +91,8 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     getCapabilities: () => Promise.resolve(capabilities),
     beginSession: (sessionOptions): Promise<TerminalSession> =>
       Promise.resolve(new BasicTerminalSession(sessionOptions?.id ?? `${options.id ?? 'pty'}-session`, host, capabilities)),
-    write: async (output: TerminalOutputChunk) => {
-      if (output.text !== undefined) await stdout.write(output.text);
-      if (output.bytes !== undefined) await stdout.write(output.bytes);
-    },
-    flush: () => Promise.resolve(),
+    write: output.write,
+    flush: output.flush,
     dispose: async () => {
       await restoreActiveTerminalSessions(host, 'disposed');
     }

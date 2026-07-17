@@ -1,4 +1,10 @@
 import type { TuiEventSource, TuiSubscriptionContext } from './types.ts';
+import {
+  advanceAnimationTimeline,
+  createAnimationTimeline,
+  nextAnimationDeadline
+} from './animation-timeline.ts';
+import type { AnimationFrame } from './animation-timeline.ts';
 
 export function intervalSource<TMessage>(
   id: string,
@@ -42,10 +48,30 @@ export function timeoutSource<TMessage>(
 export function animationSource<TMessage>(
   id: string,
   fps: number,
-  message: (frame: number) => TMessage
+  message: (frame: AnimationFrame) => TMessage
 ): TuiEventSource<TMessage> {
   assertPositiveNumber(fps, 'animation fps');
-  return intervalSource(id, Math.max(1, Math.round(1000 / fps)), message);
+  return {
+    id,
+    generation: 0,
+    source: 'timer',
+    delivery: 'latest',
+    async *messages(context) {
+      let timeline = createAnimationTimeline(context.clock.monotonicNow(), fps);
+      while (!context.signal.aborted) {
+        const delay = Math.max(0, nextAnimationDeadline(timeline) - context.clock.monotonicNow());
+        await context.clock.sleep(delay, context.signal);
+        if (signalAborted(context.signal)) return;
+        const advanced = advanceAnimationTimeline(timeline, context.clock.monotonicNow());
+        timeline = advanced.timeline;
+        yield message(advanced.frame);
+      }
+    }
+  };
+}
+
+function signalAborted(signal: AbortSignal): boolean {
+  return signal.aborted;
 }
 
 async function sleepForTick(

@@ -1,7 +1,8 @@
 import type { TextWidthProfile } from '../text/index.ts';
 
 export interface TerminalOutputFeatureSupport {
-  readonly status: 'supported' | 'unavailable';
+  readonly support: 'supported' | 'unsupported' | 'unknown';
+  readonly availability: 'available' | 'unavailable';
 }
 
 export interface TerminalOutputCapabilityProfile {
@@ -22,6 +23,6 @@ export const defaultTerminalOutputCapabilities: TerminalOutputCapabilityProfile 
   unicode: Object.freeze({
     widthProfile: Object.freeze({ emoji: 'wide', ambiguous: 'narrow' })
   }),
-  hyperlinks: Object.freeze({ status: 'unavailable' }),
-  synchronizedOutput: Object.freeze({ status: 'unavailable' })
+  hyperlinks: Object.freeze({ support: 'unknown', availability: 'unavailable' }),
+  synchronizedOutput: Object.freeze({ support: 'unknown', availability: 'unavailable' })
 });

@@ -99,6 +99,12 @@
         }
       ]
     },
+    "unicodeScalar": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1114111,
+      "not": { "minimum": 55296, "maximum": 57343 }
+    },
     "inputEvent": {
       "oneOf": [
         {
@@ -137,6 +143,16 @@
               ]
             },
             "sequence": { "type": "string" },
+            "committedText": { "type": "string" },
+            "alternateCodePoints": {
+              "type": "object",
+              "minProperties": 1,
+              "properties": {
+                "shifted": { "$ref": "#/$defs/unicodeScalar" },
+                "baseLayout": { "$ref": "#/$defs/unicodeScalar" }
+              },
+              "additionalProperties": false
+            },
             "modifiers": {
               "type": "object",
               "required": ["ctrl", "alt", "shift", "meta"],
@@ -663,7 +679,7 @@
         "bracketedPaste",
         "mouseReporting",
         "focusReporting",
-        "enhancedKeyboard",
+        "keyboardProfile",
         "cursorVisible"
       ],
       "properties": {
@@ -672,7 +688,30 @@
         "bracketedPaste": { "type": "boolean" },
         "mouseReporting": { "enum": ["none", "click", "drag", "all"] },
         "focusReporting": { "type": "boolean" },
-        "enhancedKeyboard": { "type": "boolean" },
+        "keyboardProfile": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["kind"],
+              "properties": { "kind": { "const": "legacy" } },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["kind", "flags"],
+              "properties": {
+                "kind": { "const": "kitty" },
+                "flags": {
+                  "anyOf": [
+                    { "type": "integer", "minimum": 1, "maximum": 15 },
+                    { "type": "integer", "minimum": 24, "maximum": 31 }
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          ]
+        },
         "cursorVisible": { "type": "boolean" }
       },
       "additionalProperties": false

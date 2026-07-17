@@ -17,7 +17,6 @@ import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import { textOffsetAtVisualColumn } from './text-pointer.ts';
 import {
   scrollbackItemLevel,
-  scrollbackItemsFromUnknown,
   scrollbackMetadataEntries,
   scrollbackSelectedBodyRanges,
   scrollbackTimestampText,
@@ -62,15 +61,30 @@ interface ScrollbackWindow {
   readonly selectedText?: string;
 }
 
+const scrollbackWindowCache = new WeakMap<object, {
+  readonly width: number;
+  readonly height: number;
+  readonly window: ScrollbackWindow;
+}>();
+
 export function scrollbackWindow(widget: ScrollbackNode, node: Pick<LayoutNode, 'bounds'>): ScrollbackWindow {
+  const cached = scrollbackWindowCache.get(widget);
+  if (cached?.width === node.bounds.width && cached.height === node.bounds.height) return cached.window;
+  const window = projectScrollbackWindow(widget, node);
+  scrollbackWindowCache.set(widget, { width: node.bounds.width, height: node.bounds.height, window });
+  return window;
+}
+
+function projectScrollbackWindow(widget: ScrollbackNode, node: Pick<LayoutNode, 'bounds'>): ScrollbackWindow {
   const items = scrollbackItems(widget);
   const wrap = widget.props.wrap === true;
   const query = searchQueryProp(widget);
   const selectedRange = selectedRangeProp(widget);
+  const includeBodyPositions = selectedRange !== undefined || widget.props.toActionMessage !== undefined;
   const itemSelections = scrollbackSelectedBodyRanges(items, selectedRange);
-  const bodyOffsets = scrollbackBodyOffsets(items);
+  const bodyOffsets = includeBodyPositions ? scrollbackBodyOffsets(items) : [];
   const expandedRows = wrap || query.length > 0
-    ? scrollbackRows(widget, items, node.bounds.width, query, itemSelections, bodyOffsets, wrap)
+    ? scrollbackRows(widget, items, node.bounds.width, query, itemSelections, bodyOffsets, wrap, includeBodyPositions)
     : undefined;
   const totalRows = expandedRows?.length ?? items.length;
   const matchIndexes = query.length === 0 ? [] : matchedRowIndexes(expandedRows ?? []);
@@ -94,7 +108,8 @@ export function scrollbackWindow(widget: ScrollbackNode, node: Pick<LayoutNode, 
         '',
         itemSelections[window.start + index],
         bodyOffsets[window.start + index] ?? 0,
-        false
+        false,
+        includeBodyPositions
       ))
     : expandedRows.slice(window.start, window.end);
   return {
@@ -185,7 +200,8 @@ function scrollbackRows(
   query: string,
   itemSelections: readonly (ScrollbackBodySelection | undefined)[],
   bodyOffsets: readonly number[],
-  wrap: boolean
+  wrap: boolean,
+  includeBodyPositions: boolean
 ): readonly ScrollbackVisibleRow[] {
   const rows: ScrollbackVisibleRow[] = [];
   for (let index = 0; index < items.length; index += 1) {
@@ -199,7 +215,8 @@ function scrollbackRows(
       query,
       itemSelections[index],
       bodyOffsets[index] ?? 0,
-      wrap
+      wrap,
+      includeBodyPositions
     ));
   }
   return rows;
@@ -213,7 +230,8 @@ function scrollbackItemRows(
   query: string,
   selection: ScrollbackBodySelection | undefined,
   bodyOffset: number,
-  wrap: boolean
+  wrap: boolean,
+  includeBodyPositions: boolean
 ): readonly ScrollbackVisibleRow[] {
   const fullLine = scrollbackFullLineSpans(widget, item, itemIndex, query, selection);
   const lines = wrap && width > 0
@@ -222,7 +240,9 @@ function scrollbackItemRows(
   const bodyText = sanitizeTerminalText(item.text).text;
   let bodyCursor = 0;
   return lines.map((renderLine, lineIndex) => {
-    const positionProjection = bodyPositionsForLine(renderLine.spans, bodyText, bodyOffset, bodyCursor);
+    const positionProjection = includeBodyPositions
+      ? bodyPositionsForLine(renderLine.spans, bodyText, bodyOffset, bodyCursor)
+      : { positions: [], nextBodyCursor: bodyCursor };
     bodyCursor = positionProjection.nextBodyCursor;
     return {
       id: `${widget.id ?? 'scrollback'}:item:${String(itemIndex)}:line:${String(lineIndex)}`,
@@ -279,7 +299,7 @@ function omissionRow(widget: ScrollbackNode, position: 'before' | 'after', text:
 }
 
 function scrollbackItems(widget: ScrollbackNode): readonly ScrollbackItem[] {
-  return scrollbackItemsFromUnknown(widget.props.items);
+  return widget.props.items;
 }
 
 function timestampForItem(item: ScrollbackItem): { readonly timestamp?: string } {

@@ -11,7 +11,7 @@ import {
 } from '../../dist/host/index.js';
 
 test('runtime host constructors expose stable runtime identities with explicit streams', async () => {
-  const node = createNodeTerminalHost({ stdout: { write: () => {}, isTty: () => false } });
+  const node = createNodeTerminalHost({ stdout: immediateNodeOutput() });
   const deno = createDenoTerminalHost({ stdout: { write: () => {}, isTty: () => false } });
   const bun = createBunTerminalHost({ stdout: { write: () => {}, isTty: () => false } });
   const memory = createMemoryTerminalHost();
@@ -44,8 +44,8 @@ test('generic host factory forwards adapter-specific explicit host options', asy
   const writes = [];
   const node = createTerminalHost({
     runtime: 'node',
-    stdout: { write: (chunk) => writes.push(String(chunk)), isTTY: false, columns: 41, rows: 9 },
-    stderr: { write: () => {}, isTTY: false },
+    stdout: immediateNodeOutput(writes, { columns: 41, rows: 9 }),
+    stderr: immediateNodeOutput(),
     stdin: emptyNodeInput(),
     env: { TERM: 'xterm-256color' }
   });
@@ -111,5 +111,19 @@ function emptyNodeInput() {
   return {
     isTTY: false,
     async *[Symbol.asyncIterator]() {}
+  };
+}
+
+function immediateNodeOutput(writes = [], dimensions = {}) {
+  return {
+    isTTY: false,
+    ...dimensions,
+    write(chunk, callback) {
+      writes.push(String(chunk));
+      callback();
+      return true;
+    },
+    once() {},
+    off() {}
   };
 }

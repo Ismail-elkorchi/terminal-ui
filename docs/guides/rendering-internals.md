@@ -22,6 +22,14 @@ private authoring boundary; renderer implementation modules never import those
 factories or the TUI runtime. The `tui` source directory owns application and
 terminal-session lifecycle rather than frame, layout, or widget rendering.
 
+The renderer package has two deliberate public layers. Application and test
+code uses authored-element projection (`renderElementFrame()`), frame/diff
+serialization, and output projection. Renderer extensions use `custom()`,
+`customComposite()`, `Canvas2D`, render spans, bounded `RenderTarget`, geometry,
+measurement, and frame-source contracts. Layout nodes, frames, and diffs are
+immutable data contracts; normalized render nodes and projection indexes remain
+private implementation details.
+
 ## Styled Cells
 
 A frame cell carries visible text, display width, continuation metadata for

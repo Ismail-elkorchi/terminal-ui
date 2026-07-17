@@ -37,12 +37,20 @@ state. Subscriptions receive the same diagnostics through their subscription
 context.
 
 Input bytes are decoded through an input pipeline selected from the active
-terminal capability profile and the session setup result. The current keyboard
-profile is the stable legacy terminal profile; enhanced keyboard protocols are
-reported as an unsupported input profile instead of being silently simulated.
-Bracketed paste parsing follows the protocol operation that was actually
-enabled for the session, so a skipped or disabled bracketed-paste setup cannot
-accidentally turn ordinary input bytes into a paste event.
+terminal capability profile and session setup result. The keyboard profile is
+either legacy input or an exact Kitty flag set. Kitty setup, decoding, and
+restoration use the same flags; associated text is accepted only with the
+report-all-keys flag required by the protocol. A lone Escape prefix remains
+pending for the configured ambiguity delay so split escape sequences decode
+the same way as contiguous input. Bracketed paste parsing follows the protocol
+operation actually enabled for the session, so a skipped or disabled setup
+cannot turn ordinary input bytes into a paste event.
+
+Capability entries distinguish terminal protocol `support` from host-adapter
+`availability`. An unknown protocol is not treated as supported, and a
+supported protocol is not operable when the host lacks the required input,
+output, resize, or session hook. Each entry retains its source facts and
+diagnostics so applications can explain why an optional operation was skipped.
 
 Non-TTY behavior is explicit on the TUI definition. The default is `reject`.
 Apps may opt into `transcript_only`, `last_frame`, or `line_fallback`; these
@@ -57,7 +65,7 @@ When an update returns `exit: { reason }`, the completed `TuiExit` preserves
 that reason after terminal-text sanitization.
 
 `Frame.focusPath` is serializable. Pass a previously captured path to
-`createTuiRuntime({ initialFocusPath })` to restore focus when the current
+`createTuiRuntime({ initialFocus: { kind: 'path', path } })` to restore focus when the current
 layout still contains that target; otherwise the runtime falls back to the first
 focusable component.
 
@@ -76,6 +84,13 @@ application message. Effects have stable ids, receive an abort signal, report
 failures as diagnostics, and may map failures back to a message through
 `onError`. Promises therefore stay outside the serialized state-transition
 critical section.
+
+Effects and subscriptions receive an abort signal and app-facing context, but
+not the terminal host. Cancellation revokes producer authority before queued
+messages are admitted, so retired work cannot mutate a newer application
+generation. `replace` effects keep a bounded handoff deadline for
+non-cooperative work; `parallel`, `keep-first`, and `enqueue` retain their
+explicit queue contracts.
 
 Subscriptions are async event sources, not one-shot effects. A source returns a
 stable `id`, an explicit `delivery` policy, and an async
@@ -114,11 +129,13 @@ geometry, and `visualState: 'active' | 'hover' | 'disabled' | 'inactive' |
 'idle'` only when the application owns that state. Otherwise renderers derive
 stable `idle` or `inactive` states from scrollability.
 
-Tree components keep hierarchy state caller-owned. Send the component's single
-`onAction` stream through `treeReducer()` and render passive state with
+Tree components keep hierarchy state caller-owned. Send the component's
+interaction `onAction` stream through `treeReducer()` and render passive state with
 `treePresentation()` or controlled scroll state with
-`treeScrollablePresentation()`. The action stream covers selection, navigation,
-activation, disclosure, filtering, rename, lazy transitions, and scrolling.
+`treeScrollablePresentation()`. Component interaction emits selection,
+navigation, activation, disclosure, and scrolling. Filtering, rename workflow,
+and lazy-loading transitions are application or effect commands accepted by the
+same reducer; the renderer does not invent them.
 `visibleTreeRows()` remains available when application effects need the exact
 rendered row order. These helpers do not load files or infer application
 activation policy; they only describe generic hierarchical records. Pointer
@@ -136,7 +153,7 @@ values; `terminal-ui` does not reserve a global command-palette shortcut,
 Escape key, or Ctrl-C key event. Host signals such as `SIGINT` and `SIGTERM`
 still interrupt the full-screen run through the terminal host signal path.
 
-Use app-level `keyBindings` for application policy that should not belong to a
+Use app-level `inputBindings` for application policy that should not belong to a
 particular focused component. Bindings run in two explicit phases:
 
 1. `beforeFocus` bindings run before focused component input and should be used

@@ -46,20 +46,29 @@ const result = await runPrompt(input({ label: 'Name' }));
 Basic full-screen app:
 
 ```ts
-import { defineTui, runTui } from '@ismail-elkorchi/terminal-ui';
-import { textInput } from '@ismail-elkorchi/terminal-ui/components';
+import { createTerminalHost, defineTui, runTui } from '@ismail-elkorchi/terminal-ui';
+import { textInput, type TextInputAction } from '@ismail-elkorchi/terminal-ui/components';
+import { textInputPresentation, textInputReducer } from '@ismail-elkorchi/terminal-ui/behavior';
+
+type Message =
+  | { readonly kind: 'edit'; readonly action: TextInputAction }
+  | { readonly kind: 'submit' };
 
 const app = defineTui({
   id: 'example',
-  init: () => ({ value: 'ready' }),
-  update: (state) => ({ state, exit: {} }),
+  init: () => ({ text: 'ready', cursor: 5 }),
+  update: (state, message: Message) => message.kind === 'submit'
+    ? { state, exit: { reason: state.text } }
+    : { state: textInputReducer(state, message.action) },
   view: (state) => textInput({
     id: 'field',
-    presentation: { value: state.value, cursor: state.value.length }
+    presentation: textInputPresentation(state),
+    onAction: (action): Message => ({ kind: 'edit', action }),
+    onSubmit: (): Message => ({ kind: 'submit' })
   })
 });
 
-await runTui(app);
+await runTui(app, createTerminalHost());
 ```
 
 Layout and styled components:

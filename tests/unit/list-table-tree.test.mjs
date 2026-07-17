@@ -255,6 +255,55 @@ test('list selection uses stable identity across reorder, filter, insertion, and
   assert.equal(recovered.selectedId, 'delta');
 });
 
+test('filtered list scrolling uses visible positions instead of sparse source indexes', () => {
+  const items = Array.from({ length: 1_000 }, (_value, index) => ({
+    id: `item-${index}`,
+    label: index === 500 || index === 700 || index === 900 ? `visible-${index}` : `hidden-${index}`,
+    disabled: index === 700
+  }));
+  const projectItem = (item) => ({
+    id: item.id,
+    label: item.label,
+    disabled: item.disabled
+  });
+  const base = {
+    scroll: createScrollState({ contentRows: 3, viewportRows: 1, offsetRow: 0 })
+  };
+
+  const first = listReducer(base, { kind: 'select', id: 'item-500', index: 500 }, {
+    items,
+    projectItem,
+    filterQuery: 'visible'
+  });
+  const paged = listReducer(first, { kind: 'page', delta: 1 }, {
+    items,
+    projectItem,
+    filterQuery: 'visible'
+  });
+
+  assert.equal(first.selectedId, 'item-500');
+  assert.equal(first.scroll.offsetRow, 0);
+  assert.equal(paged.selectedId, 'item-900');
+  assert.equal(paged.scroll.offsetRow, 2);
+});
+
+test('windowed list selection keeps global collection indexes in scroll state', () => {
+  const collection = prepareListCollection(
+    ['Item 100', 'Item 101'],
+    (item, index) => ({ id: String(index), label: item }),
+    { start: 100, total: 1_000 }
+  );
+  const state = {
+    scroll: createScrollState({ contentRows: 1_000, viewportRows: 10 })
+  };
+
+  const selected = listReducer(state, { kind: 'select', id: '100', index: 100 }, { collection });
+
+  assert.equal(selected.selectedId, '100');
+  assert.equal(selected.scroll.selectedIndex, 100);
+  assert.equal(selected.scroll.offsetRow, 95);
+});
+
 test('list pointer selection and double-click activation match keyboard semantics', async () => {
   const app = defineTui({
     id: 'list-pointer-activation',
@@ -671,7 +720,7 @@ test('table header capabilities share geometry across keyboard, click, and captu
   const runtime = createTuiRuntime({
     app,
     host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 4 } }),
-    initialFocusPath: ['metrics']
+    initialFocus: { kind: 'path', path: ['metrics'] }
   });
 
   await runtime.start();

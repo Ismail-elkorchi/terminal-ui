@@ -499,6 +499,26 @@ test('frame passes are applied before snapshots and remain serialization-free', 
   }
 });
 
+test('request projection performs expensive structural work once', async () => {
+  const renderSource = await readFile(new URL('../../src/renderer/internal/render.ts', import.meta.url), 'utf8');
+  const targetIndexSource = await readFile(new URL('../../src/renderer/internal/projection-target-index.ts', import.meta.url), 'utf8');
+  const measureSource = await readFile(new URL('../../src/renderer/internal/render-node-measure.ts', import.meta.url), 'utf8');
+  const outputPlannerSource = await readFile(new URL('../../src/renderer/internal/output-planner.ts', import.meta.url), 'utf8');
+
+  assert.equal((renderSource.match(/createProjectionTargetIndex\(/gu) ?? []).length, 1);
+  assert.doesNotMatch(renderSource, /collectRenderNodeLayoutTargets|collectRenderNodeFocusTargets/u);
+  assert.equal((targetIndexSource.match(/collectRenderNodeLayoutTargets\(/gu) ?? []).length, 1);
+  assert.equal((targetIndexSource.match(/collectLayoutFocusTargets\(/gu) ?? []).length, 1);
+  assert.doesNotMatch(measureSource, /\b1000\b/u);
+  assert.equal((outputPlannerSource.match(/encodeOperations\(/gu) ?? []).length, 2);
+  assert.match(outputPlannerSource, /evaluateOperations\(diff, operations, policy, false\)/u);
+  assert.match(outputPlannerSource, /evaluateOperations\(diff, operations, policy, true\)/u);
+
+  const scrollbackSource = await readFile(new URL('../../src/renderer/internal/scrollback.ts', import.meta.url), 'utf8');
+  assert.match(scrollbackSource, /const scrollbackWindowCache = new WeakMap/u);
+  assert.doesNotMatch(scrollbackSource, /scrollbackItemsFromUnknown/u);
+});
+
 test('runtime input routing uses the committed render cache', async () => {
   const runtime = await readFile(new URL('../../src/tui/runtime.ts', import.meta.url), 'utf8');
   assert.match(runtime, /createInputPipeline\(options\.input\)/u);

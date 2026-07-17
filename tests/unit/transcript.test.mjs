@@ -28,7 +28,7 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
     bracketedPaste: false,
     mouseReporting: 'none',
     focusReporting: false,
-    enhancedKeyboard: false,
+    keyboardProfile: { kind: 'legacy' },
     cursorVisible: true
   };
 

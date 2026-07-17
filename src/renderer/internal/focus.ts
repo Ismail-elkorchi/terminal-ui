@@ -56,6 +56,22 @@ export function resolveFocusPath(layout: LayoutNode, requested: FocusPath | unde
   return targets[0]?.path;
 }
 
+export type InitialFocusResolution =
+  | { readonly kind: 'matched'; readonly path: FocusPath }
+  | { readonly kind: 'missing' }
+  | { readonly kind: 'ambiguous'; readonly paths: readonly FocusPath[] };
+
+export function resolveInitialFocusSelector(
+  layout: LayoutNode,
+  selector: InitialFocusSelector
+): InitialFocusResolution {
+  const matches = scopedFocusTargets(layout, collectLayoutFocusTargets(layout))
+    .filter((target) => matchesInitialFocus(target, selector));
+  if (matches.length === 0) return { kind: 'missing' };
+  if (matches.length > 1) return { kind: 'ambiguous', paths: matches.map((target) => target.path) };
+  return { kind: 'matched', path: matches[0]?.path ?? [] };
+}
+
 export function nextFocusPath(layout: LayoutNode, current: FocusPath | undefined): FocusPath | undefined {
   const targets = scopedFocusTargets(layout, collectLayoutFocusTargets(layout));
   if (targets.length === 0) return undefined;
@@ -313,9 +329,9 @@ function collectFocusScopes(layout: LayoutNode, parentPath: FocusPath = [], sequ
 }
 
 function matchesInitialFocus(target: LayoutFocusTarget, selector: InitialFocusSelector): boolean {
-  return selector.kind === 'element'
-    ? target.elementId === selector.id
-    : target.targetId === selector.id;
+  if (selector.kind === 'path') return samePath(target.path, selector.path);
+  if (selector.kind === 'element') return target.elementId === selector.elementId;
+  return target.elementId === selector.elementId && target.targetId === selector.targetId;
 }
 
 function activeFocusScope(scopes: readonly FocusScope[]): FocusScope | undefined {

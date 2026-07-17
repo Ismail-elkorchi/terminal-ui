@@ -37,7 +37,7 @@ test('testing harness records input and output deterministically', async () => {
 
   assert.equal(result.output, 'done');
   assert.equal(result.transcript.steps.length, 1);
-  assert.equal(harness.clock.now(), 5);
+  assert.equal(harness.clock.monotonicNow(), 5);
 });
 
 test('testing harness records paste script steps as paste events', async () => {

@@ -7,7 +7,6 @@ export async function createTuiContext(
   diagnostics: readonly TerminalDiagnostic[] = []
 ): Promise<TuiContext> {
   return {
-    host,
     viewport: host.getViewport(),
     capabilities: await host.getCapabilities(),
     diagnostics,

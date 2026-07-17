@@ -1,17 +1,16 @@
 import process from 'node:process';
 import { resolveTerminalCapabilities } from './capabilities.ts';
+import { NodeTerminalOutput } from './node-output.ts';
+import { createTerminalHostOutputAuthority } from './ordered-output.ts';
 import { NodeInput } from './node-input.ts';
 import { BasicTerminalSession } from './session.ts';
 import { restoreActiveTerminalSessions } from './session-registry.ts';
 import type {
   NodeTerminalHostOptions,
   NodeTerminalSignal,
-  NodeWritableTerminalStream,
   TerminalClock,
   TerminalEnvironment,
   TerminalHost,
-  TerminalOutput,
-  TerminalOutputChunk,
   TerminalSession,
   TerminalSignal,
   TerminalSignalSource,
@@ -19,38 +18,24 @@ import type {
   Unsubscribe
 } from './types.ts';
 
-class NodeOutput implements TerminalOutput {
-  constructor(private readonly stream: NodeWritableTerminalStream) {}
-
-  get columns(): number | undefined {
-    return this.stream.columns;
-  }
-
-  get rows(): number | undefined {
-    return this.stream.rows;
-  }
-
-  write(chunk: string | Uint8Array): void {
-    this.stream.write(chunk);
-  }
-
-  isTty(): boolean {
-    return this.stream.isTTY === true;
-  }
-}
-
 class NodeSignals implements TerminalSignalSource {
-  constructor(private readonly source: Pick<NonNullable<NodeTerminalHostOptions['process']>, 'on' | 'off'> = process) {}
+  constructor(
+    private readonly source: Pick<NonNullable<NodeTerminalHostOptions['process']>, 'on' | 'off'> = process,
+    private readonly output?: NodeTerminalHostOptions['stdout']
+  ) {}
 
   subscribe(listener: (signal: TerminalSignal) => void): Unsubscribe {
-    const signals: NodeTerminalSignal[] = ['SIGINT', 'SIGTERM', 'SIGHUP', 'SIGWINCH'];
+    const signals: NodeTerminalSignal[] = ['SIGINT', 'SIGTERM', 'SIGHUP'];
     const handler = (signal: NodeTerminalSignal): void => {
       const mapped = terminalSignalFromNodeSignal(signal);
       if (mapped !== undefined) listener(mapped);
     };
     for (const signal of signals) this.source.on(signal, handler);
+    const resize = (): void => { listener('resize'); };
+    this.output?.on?.('resize', resize);
     return () => {
       for (const signal of signals) this.source.off(signal, handler);
+      this.output?.off?.('resize', resize);
     };
   }
 }
@@ -61,16 +46,14 @@ function terminalSignalFromNodeSignal(signal: NodeTerminalSignal): TerminalSigna
     case 'SIGTERM':
     case 'SIGHUP':
       return signal;
-    case 'SIGWINCH':
-      return 'resize';
     default:
       return undefined;
   }
 }
 
 class NodeClock implements TerminalClock {
-  now(): number {
-    return Date.now();
+  monotonicNow(): number {
+    return globalThis.performance.now();
   }
 
   sleep(ms: number, signal?: AbortSignal): Promise<void> {
@@ -109,9 +92,11 @@ class ProcessEnvironment implements TerminalEnvironment {
 export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): TerminalHost {
   const nodeProcess = options.process ?? process;
   const inputStream = options.stdin ?? nodeProcess.stdin;
+  const outputStream = options.stdout ?? nodeProcess.stdout;
   const stdin = new NodeInput(inputStream);
-  const stdout = new NodeOutput(options.stdout ?? nodeProcess.stdout);
-  const stderr = new NodeOutput(options.stderr ?? nodeProcess.stderr);
+  const stdout = new NodeTerminalOutput(outputStream);
+  const stderr = new NodeTerminalOutput(options.stderr ?? nodeProcess.stderr);
+  const output = createTerminalHostOutputAuthority(stdout, stderr);
   const clock = new NodeClock();
   const getViewport = (): TerminalViewport => ({
     columns: stdout.columns ?? 80,
@@ -124,11 +109,14 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
       outputIsTty: stdout.isTty(),
       columns: getViewport().columns,
       rows: getViewport().rows,
-      rawInput: typeof inputStream.setRawMode === 'function'
+      rawInput: typeof inputStream.setRawMode === 'function',
+      resizeEvents: typeof outputStream.on === 'function' && typeof outputStream.off === 'function',
+      terminalProtocols: stdout.isTty()
     },
     environment: { variables: options.env ?? nodeProcess.env },
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
-    ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides })
+    ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides }),
+    ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth })
   });
   const host: TerminalHost = {
     id: options.id ?? 'node',
@@ -136,19 +124,15 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     stdin,
     stdout,
     stderr,
-    signals: new NodeSignals(nodeProcess),
+    signals: new NodeSignals(nodeProcess, outputStream),
     clock,
     env: new ProcessEnvironment(options.env ?? nodeProcess.env),
     getViewport,
     getCapabilities: () => Promise.resolve(capabilities),
     beginSession: (sessionOptions): Promise<TerminalSession> =>
       Promise.resolve(new BasicTerminalSession(sessionOptions?.id ?? 'node-session', host, capabilities)),
-    write: (output: TerminalOutputChunk): Promise<void> => {
-      if (output.text !== undefined) stdout.write(output.text);
-      if (output.bytes !== undefined) stdout.write(output.bytes);
-      return Promise.resolve();
-    },
-    flush: () => Promise.resolve(),
+    write: output.write,
+    flush: output.flush,
     dispose: async () => {
       await restoreActiveTerminalSessions(host, 'disposed');
       await stdin.dispose();

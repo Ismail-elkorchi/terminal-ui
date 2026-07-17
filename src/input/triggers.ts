@@ -2,6 +2,7 @@ import type { InputEvent, InputTrigger, KeyModifierTrigger, KeyModifiers } from 
 
 export function matchesInputTrigger(trigger: InputTrigger, event: InputEvent): boolean {
   if (trigger.kind === 'text') return event.kind === 'text' && event.text === trigger.text;
+  if (trigger.kind === 'focus') return event.kind === 'focus' && event.focused === trigger.focused;
   if (event.kind !== 'key' || event.key !== trigger.key) return false;
   if ((trigger.eventType ?? 'press') !== event.eventType) return false;
   if (trigger.modifiers?.kind === 'any') return true;

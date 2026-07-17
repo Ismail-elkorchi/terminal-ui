@@ -7,7 +7,7 @@ import type {
   ListItemProjection,
   ListItemProjector
 } from '../ui-model/list.ts';
-import { collectionRecordById, completeCollection, windowedCollection } from '../ui-model/collection.ts';
+import { completeCollection, windowedCollection } from '../ui-model/collection.ts';
 import type { CollectionWindow } from '../ui-model/collection.ts';
 
 interface ListStateBase {
@@ -49,13 +49,21 @@ export interface ListScrollablePresentation extends ListPresentation {
   readonly scroll: ScrollState;
 }
 
-export type ListVisibleEntry<TValue> = ListCollectionRecord<TValue>;
+export interface ListVisibleEntry<TValue> {
+  readonly id: string;
+  readonly sourceIndex: number;
+  readonly visibleIndex: number;
+  readonly selectableIndex?: number;
+  readonly value: TValue;
+  readonly item: ListCollectionRecord<TValue>['item'];
+}
 
 interface ListViewIndex<TValue> {
   readonly query: string;
   readonly visible: readonly ListVisibleEntry<TValue>[];
   readonly selectable: readonly ListVisibleEntry<TValue>[];
   readonly selectablePositions: ReadonlyMap<string, number>;
+  readonly scrollPositions: ReadonlyMap<string, number>;
 }
 
 const listViewIndexes = new WeakMap<object, ListViewIndex<unknown>>();
@@ -87,10 +95,10 @@ export function listReducer<TValue>(
   if (selectable.length === 0) return withoutSelection(state);
   const selectedId = selectedIdForAction(state.selectedId, action, view, state.scroll?.viewportRows);
   if (selectedId === undefined) return state;
-  const selectedEntry = collectionRecordById(collection, selectedId);
-  const scroll = state.scroll === undefined || selectedEntry === undefined
+  const scrollIndex = view.scrollPositions.get(selectedId);
+  const scroll = state.scroll === undefined || scrollIndex === undefined
     ? state.scroll
-    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: selectedEntry.index });
+    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: scrollIndex });
   return state.selectedId === selectedId && state.scroll === scroll
     ? state
     : {
@@ -174,12 +182,29 @@ function listViewIndex<TValue>(
   }
   const cached = listViewIndexes.get(collection) as ListViewIndex<TValue> | undefined;
   if (cached?.query === query) return cached;
-  const visible = Object.freeze(collection.records.filter(({ item }) =>
+  const visibleRecords = collection.records.filter(({ item }) =>
     query.length === 0 || listItemSearchText(item).includes(query)
-  ));
-  const selectable = Object.freeze(visible.filter((entry) => !entry.item.disabled));
-  const selectablePositions = new Map(selectable.map((entry, index) => [entry.id, index]));
-  const index = Object.freeze({ query, visible, selectable, selectablePositions });
+  );
+  const selectablePositions = new Map<string, number>();
+  let selectableIndex = 0;
+  const visible = Object.freeze(visibleRecords.map((entry, visibleIndex): ListVisibleEntry<TValue> => {
+    const selectable = entry.item.disabled ? undefined : selectableIndex++;
+    if (selectable !== undefined) selectablePositions.set(entry.id, selectable);
+    return Object.freeze({
+      id: entry.id,
+      sourceIndex: entry.index,
+      visibleIndex,
+      ...(selectable === undefined ? {} : { selectableIndex: selectable }),
+      value: entry.value,
+      item: entry.item
+    });
+  }));
+  const selectable = Object.freeze(visible.filter((entry) => entry.selectableIndex !== undefined));
+  const scrollPositions = new Map(visible.map((entry) => [
+    entry.id,
+    collection.kind === 'window' ? entry.sourceIndex : entry.visibleIndex
+  ]));
+  const index = Object.freeze({ query, visible, selectable, selectablePositions, scrollPositions });
   listViewIndexes.set(collection, index);
   return index;
 }

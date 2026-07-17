@@ -1,6 +1,7 @@
 import { BasicTerminalSession } from './session.ts';
 import { resolveTerminalCapabilities } from './capabilities.ts';
 import { restoreActiveTerminalSessions } from './session-registry.ts';
+import { createTerminalHostOutputAuthority } from './ordered-output.ts';
 import type {
   ControlledTerminalClock,
   MemoryTerminalHostOptions,
@@ -10,7 +11,6 @@ import type {
   TerminalInputChunk,
   TerminalInputReadOptions,
   TerminalOutput,
-  TerminalOutputChunk,
   TerminalSession,
   TerminalSignal,
   TerminalSignalSource,
@@ -102,8 +102,13 @@ class BufferOutput implements TerminalOutput {
     private readonly tty = true
   ) {}
 
-  write(chunk: string | Uint8Array): void {
+  write(chunk: string | Uint8Array): Promise<void> {
     this.#chunks.push(typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk));
+    return Promise.resolve();
+  }
+
+  flush(): Promise<void> {
+    return Promise.resolve();
   }
 
   isTty(): boolean {
@@ -143,7 +148,7 @@ class MemoryClock implements ControlledTerminalClock {
   #now = 0;
   #sleepers: MemorySleep[] = [];
 
-  now(): number {
+  monotonicNow(): number {
     return this.#now;
   }
 
@@ -223,6 +228,7 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
   const stdin = new QueueInput(isTty);
   const stdout = new BufferOutput(viewport.columns, viewport.rows, isTty);
   const stderr = new BufferOutput(viewport.columns, viewport.rows, isTty);
+  const output = createTerminalHostOutputAuthority(stdout, stderr);
   const signals = new MemorySignals();
   const clock = new MemoryClock();
   const capabilities = resolveTerminalCapabilities({
@@ -232,10 +238,13 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
       outputIsTty: stdout.isTty(),
       columns: viewport.columns,
       rows: viewport.rows,
-      rawInput: true
+      rawInput: true,
+      resizeEvents: true,
+      terminalProtocols: isTty
     },
     environment: { variables: options.env ?? {} },
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
+    ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
     ...(
       options.clipboard === undefined && options.capabilities?.overrides === undefined
         ? {}
@@ -284,11 +293,8 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     getCapabilities: () => Promise.resolve(capabilities),
     beginSession: (sessionOptions): Promise<TerminalSession> =>
       Promise.resolve(new BasicTerminalSession(sessionOptions?.id ?? 'memory-session', host, capabilities)),
-    write: (output: TerminalOutputChunk): Promise<void> => {
-      if (output.text !== undefined) stdout.write(output.text);
-      if (output.bytes !== undefined) stdout.write(output.bytes);
-      return Promise.resolve();
-    },
+    write: output.write,
+    flush: output.flush,
     input: (data: string | Uint8Array) => { stdin.push(data); },
     output: () => stdout.text(),
     frames: () => [...frames],

@@ -15,27 +15,28 @@ import type {
 } from './types.ts';
 import type { TerminalCapabilityProfile } from './capability-types.ts';
 import { createTerminalRestorePlan } from './session-restore.ts';
+import { LEGACY_KEYBOARD_PROFILE, normalizeKeyboardProfile } from '../protocol/keyboard.ts';
+import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 
 export class BasicTerminalSession implements TerminalSession {
-  readonly startedAt: number;
   readonly initialState: TerminalStateSnapshot;
   #state: TerminalStateSnapshot;
   #uncertain = new Set<keyof TerminalStateSnapshot>();
   #protocol: ReturnType<typeof createProtocolWriter>;
+  #ownsKeyboardProfileStackFrame = false;
 
   constructor(
     readonly id: string,
     readonly host: TerminalHost,
     readonly capabilities: TerminalCapabilityProfile
   ) {
-    this.startedAt = host.clock.now();
     this.initialState = {
       rawInput: host.stdin.isRawModeEnabled?.() ?? false,
       alternateScreen: false,
       bracketedPaste: false,
       mouseReporting: 'none',
       focusReporting: false,
-      enhancedKeyboard: false,
+      keyboardProfile: LEGACY_KEYBOARD_PROFILE,
       cursorVisible: true
     };
     this.#state = this.initialState;
@@ -75,10 +76,32 @@ export class BasicTerminalSession implements TerminalSession {
     return this.#mutate('focusReporting', true, () => this.#protocol.enableFocusReporting());
   }
 
-  async enableEnhancedKeyboard(): Promise<Result<TerminalStateChange>> {
-    const support = this.#requireCapability('enhancedKeyboard');
+  async enableKeyboardProfile(profile: TerminalKeyboardProfile): Promise<Result<TerminalStateChange>> {
+    const normalized = normalizeKeyboardProfile(profile);
+    if (
+      keyboardProfilesEqual(this.#state.keyboardProfile, normalized)
+      && !this.#uncertain.has('keyboardProfile')
+    ) {
+      return ok({ kind: 'keyboardProfile', enabled: normalized });
+    }
+    if (normalized.kind === 'legacy' && !this.#ownsKeyboardProfileStackFrame) {
+      this.#state = { ...this.#state, keyboardProfile: normalized };
+      this.#uncertain.delete('keyboardProfile');
+      return ok({ kind: 'keyboardProfile', enabled: normalized });
+    }
+    const support = this.#requireCapability('keyboardProtocol');
     if (support !== undefined) return support;
-    return this.#mutate('enhancedKeyboard', true, () => this.#protocol.enableEnhancedKeyboard());
+    const change = { kind: 'keyboardProfile', enabled: normalized } as const;
+    this.#uncertain.add('keyboardProfile');
+    if (this.#ownsKeyboardProfileStackFrame) {
+      await this.#protocol.setKeyboardProfile(normalized);
+    } else {
+      this.#ownsKeyboardProfileStackFrame = true;
+      await this.#protocol.pushKeyboardProfile(normalized);
+    }
+    this.#state = { ...this.#state, keyboardProfile: normalized };
+    this.#uncertain.delete('keyboardProfile');
+    return ok(change);
   }
 
   async hideCursor(): Promise<Result<TerminalStateChange>> {
@@ -98,7 +121,15 @@ export class BasicTerminalSession implements TerminalSession {
     const diagnostics: TerminalDiagnostic[] = [];
     const plan = createTerminalRestorePlan(this.initialState);
     for (const operation of plan.operations) {
-      if (this.#state[operation.kind] === operation.enabled && !this.#uncertain.has(operation.kind)) continue;
+      const ownsKeyboardFrame = operation.kind === 'keyboardProfile' && this.#ownsKeyboardProfileStackFrame;
+      const stateMatches = operation.kind === 'keyboardProfile'
+        ? keyboardProfilesEqual(this.#state.keyboardProfile, operation.enabled)
+        : Object.is(this.#state[operation.kind], operation.enabled);
+      if (
+        !ownsKeyboardFrame
+        && stateMatches
+        && !this.#uncertain.has(operation.kind)
+      ) continue;
       try {
         await this.#applyRestoreOperation(operation);
         this.#state = { ...this.#state, [operation.kind]: operation.enabled };
@@ -125,10 +156,11 @@ export class BasicTerminalSession implements TerminalSession {
   async #mutate<K extends keyof TerminalStateSnapshot>(
     kind: K,
     enabled: TerminalStateSnapshot[K],
-    apply: () => void | Promise<void>
+    apply: () => void | Promise<void>,
+    equal: (current: TerminalStateSnapshot[K], next: TerminalStateSnapshot[K]) => boolean = Object.is
   ): Promise<Result<TerminalStateChange>> {
     const change = { kind, enabled } as TerminalStateChange;
-    if (this.#state[kind] === enabled && !this.#uncertain.has(kind)) return ok(change);
+    if (equal(this.#state[kind], enabled) && !this.#uncertain.has(kind)) return ok(change);
     this.#uncertain.add(kind);
     await apply();
     this.#state = { ...this.#state, [kind]: enabled };
@@ -143,11 +175,11 @@ export class BasicTerminalSession implements TerminalSession {
       | 'bracketedPaste'
       | 'mouseReporting'
       | 'focusReporting'
-      | 'enhancedKeyboard'
+      | 'keyboardProtocol'
       | 'cursorVisibility'
   ): Result<never> | undefined {
     const capability = this.capabilities[kind];
-    if (capability.status === 'supported') return undefined;
+    if (capability.support === 'supported' && capability.availability === 'available') return undefined;
     return err(diagnostic(
       'HOST_PROTOCOL_UNSUPPORTED',
       `Terminal protocol is unavailable: ${kind}.`,
@@ -156,7 +188,8 @@ export class BasicTerminalSession implements TerminalSession {
         target: this.id,
         data: {
           capability: kind,
-          confidence: capability.confidence,
+          support: capability.support,
+          availability: capability.availability,
           diagnostics: capability.diagnostics.map((item) => item.message)
         }
       }
@@ -173,9 +206,14 @@ export class BasicTerminalSession implements TerminalSession {
         if (operation.enabled) await this.#protocol.enableFocusReporting();
         else await this.#protocol.disableFocusReporting();
         break;
-      case 'enhancedKeyboard':
-        if (operation.enabled) await this.#protocol.enableEnhancedKeyboard();
-        else await this.#protocol.disableEnhancedKeyboard();
+      case 'keyboardProfile':
+        if (this.#ownsKeyboardProfileStackFrame) {
+          await this.#protocol.popKeyboardProfile();
+          this.#ownsKeyboardProfileStackFrame = false;
+        } else if (operation.enabled.kind === 'kitty') {
+          await this.#protocol.pushKeyboardProfile(operation.enabled);
+          this.#ownsKeyboardProfileStackFrame = true;
+        }
         break;
       case 'mouseReporting':
         if (operation.enabled === 'none') await this.#protocol.disableMouseReporting();
@@ -194,4 +232,9 @@ export class BasicTerminalSession implements TerminalSession {
         break;
     }
   }
+}
+
+function keyboardProfilesEqual(left: TerminalKeyboardProfile, right: TerminalKeyboardProfile): boolean {
+  return left.kind === right.kind
+    && (left.kind === 'legacy' || (right.kind === 'kitty' && left.flags === right.flags));
 }

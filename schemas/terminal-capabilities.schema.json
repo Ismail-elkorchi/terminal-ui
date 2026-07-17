@@ -11,7 +11,7 @@
     "rawInput",
     "resize",
     "hyperlinks",
-    "enhancedKeyboard",
+    "keyboardProtocol",
     "bracketedPaste",
     "mouseReporting",
     "alternateScreen",
@@ -59,7 +59,7 @@
     "rawInput": { "$ref": "#/$defs/capabilitySupport" },
     "resize": { "$ref": "#/$defs/capabilitySupport" },
     "hyperlinks": { "$ref": "#/$defs/capabilitySupport" },
-    "enhancedKeyboard": { "$ref": "#/$defs/capabilitySupport" },
+    "keyboardProtocol": { "$ref": "#/$defs/capabilitySupport" },
     "bracketedPaste": { "$ref": "#/$defs/capabilitySupport" },
     "mouseReporting": { "$ref": "#/$defs/capabilitySupport" },
     "alternateScreen": { "$ref": "#/$defs/capabilitySupport" },
@@ -78,10 +78,10 @@
   "$defs": {
     "capabilitySupport": {
       "type": "object",
-      "required": ["status", "confidence", "facts", "diagnostics", "requiresSessionOperation"],
+      "required": ["support", "availability", "facts", "diagnostics", "requiresSessionOperation"],
       "properties": {
-        "status": { "enum": ["supported", "unavailable"] },
-        "confidence": { "enum": ["detected", "assumed", "forced", "unavailable"] },
+        "support": { "enum": ["supported", "unsupported", "unknown"] },
+        "availability": { "enum": ["available", "unavailable"] },
         "facts": {
           "type": "array",
           "items": { "$ref": "#/$defs/capabilitySourceFact" }

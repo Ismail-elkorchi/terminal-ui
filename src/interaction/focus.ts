@@ -1,8 +1,9 @@
 export type FocusPath = readonly string[];
 
 export type InitialFocusSelector =
-  | { readonly kind: 'element'; readonly id: string }
-  | { readonly kind: 'target'; readonly id: string };
+  | { readonly kind: 'path'; readonly path: FocusPath }
+  | { readonly kind: 'element'; readonly elementId: string }
+  | { readonly kind: 'elementTarget'; readonly elementId: string; readonly targetId: string };
 
 export type PointerFocusIntent =
   | { readonly kind: 'target'; readonly targetId: string }

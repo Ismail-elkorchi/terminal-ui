@@ -1,7 +1,7 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic } from '../diagnostics.ts';
-import type { TerminalHost, TerminalInputChunk, TerminalRestoreReason } from '../host/index.ts';
-import { createInputDecoder, isCancelKey, isInterruptKey } from '../input/index.ts';
+import type { TerminalHost, TerminalRestoreReason } from '../host/index.ts';
+import { isCancelKey, isInterruptKey } from '../input/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { TranscriptRecorder } from '../transcript/index.ts';
 import {
@@ -14,6 +14,7 @@ import { runEditorPrompt } from './editor.ts';
 import type { PromptInteractionHooks } from './interaction-hooks.ts';
 import { nonTtyDiagnosticOptions, nonTtyMode } from './non-tty.ts';
 import { runProgressPrompt } from './progress-runtime.ts';
+import { promptInputEvents } from './input-events.ts';
 import { renderPromptText } from './render-theme.ts';
 import { setupPromptSession, restoreReasonForPrompt } from './session.ts';
 import { createPromptSnapshot, promptValueForSnapshot } from './snapshot.ts';
@@ -269,8 +270,8 @@ async function runPromptLoop<TChoice>(
   host: TerminalHost,
   transcript: TranscriptRecorder | undefined
 ): Promise<PromptResult<InteractivePromptValue<TChoice>>> {
-  const decoder = createInputDecoder();
-  const input = host.stdin.read()[Symbol.asyncIterator]();
+  const inputController = new AbortController();
+  const input = promptInputEvents(host, inputController.signal)[Symbol.asyncIterator]();
   const choices = isChoicePrompt(prompt)
     ? await resolvePromptChoices(prompt)
     : { ok: true as const, choices: [], diagnostics: [], hasMore: false };
@@ -284,50 +285,52 @@ async function runPromptLoop<TChoice>(
     };
   }
   const state = initialPromptState(prompt, choices);
-  scheduleInitialValidation(prompt, host, state, { render: renderPromptState });
-  await renderPromptState(host, prompt, state);
-  for (;;) {
-    const next = await readPromptInput(input, host, prompt.timeoutMs);
-    if (next.kind === 'timeout') {
-      void input.return?.().catch(() => undefined);
-      completePromptState(state);
-      return {
-        schemaVersion: 'terminal-ui.prompt-result.v1',
-        status: 'aborted',
-        reason: 'timeout',
-        diagnostics: [
-          diagnostic('INPUT_TIMEOUT', 'Prompt timed out before submission.', {
-            target: prompt.id ?? prompt.kind,
-            data: { timeoutMs: prompt.timeoutMs ?? null }
-          })
-        ],
-        snapshot: createPromptSnapshot(prompt, promptValueForSnapshot(prompt, state), state)
-      };
-    }
-    const events = next.value.done === true ? decoder.flush() : decoder.decode(next.value.value);
-    for (const event of events) {
+  try {
+    scheduleInitialValidation(prompt, host, state, { render: renderPromptState });
+    await renderPromptState(host, prompt, state);
+    for (;;) {
+      const next = await readPromptInput(input, host, prompt.timeoutMs);
+      if (next.kind === 'timeout') {
+        completePromptState(state);
+        return {
+          schemaVersion: 'terminal-ui.prompt-result.v1',
+          status: 'aborted',
+          reason: 'timeout',
+          diagnostics: [
+            diagnostic('INPUT_TIMEOUT', 'Prompt timed out before submission.', {
+              target: prompt.id ?? prompt.kind,
+              data: { timeoutMs: prompt.timeoutMs ?? null }
+            })
+          ],
+          snapshot: createPromptSnapshot(prompt, promptValueForSnapshot(prompt, state), state)
+        };
+      }
+      if (next.value.done === true) break;
+      const event = next.value.value;
       transcript?.record({ kind: 'input', event: transcriptEvent(prompt, event) });
       const nextResult = await applyPromptEvent(prompt, host, state, event);
       if (nextResult !== undefined) return nextResult;
     }
-    if (next.value.done === true) break;
+    completePromptState(state);
+    return {
+      schemaVersion: 'terminal-ui.prompt-result.v1',
+      status: 'aborted',
+      reason: 'host_error',
+      diagnostics: [diagnostic('HOST_STREAM_CLOSED', 'Prompt input ended before submission.')],
+      snapshot: createPromptSnapshot(prompt, promptValueForSnapshot(prompt, state), state)
+    };
+  } finally {
+    inputController.abort();
+    await input.return?.();
   }
-  completePromptState(state);
-  return {
-    schemaVersion: 'terminal-ui.prompt-result.v1',
-    status: 'aborted',
-    reason: 'host_error',
-    diagnostics: [diagnostic('HOST_STREAM_CLOSED', 'Prompt input ended before submission.')],
-    snapshot: createPromptSnapshot(prompt, promptValueForSnapshot(prompt, state), state)
-  };
 }
 
 type PromptInputRead =
-  | { readonly kind: 'input'; readonly value: IteratorResult<TerminalInputChunk> }
+  | { readonly kind: 'input'; readonly value: IteratorResult<InputEvent> }
   | { readonly kind: 'timeout' };
 
 async function readPromptInput(
-  input: AsyncIterator<TerminalInputChunk>,
+  input: AsyncIterator<InputEvent>,
   host: TerminalHost,
   timeoutMs: number | undefined
 ): Promise<PromptInputRead> {

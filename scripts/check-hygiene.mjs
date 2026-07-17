@@ -15,7 +15,7 @@ for await (const filePath of filesUnder(root)) {
   if (content.length > 0 && !content.endsWith('\n')) failures.push(`${relative}: missing final newline`);
 }
 
-if (failures.length > 0) throw new Error(`Formatting contract failed:\n${failures.join('\n')}`);
+if (failures.length > 0) throw new Error(`Source hygiene contract failed:\n${failures.join('\n')}`);
 
 async function* filesUnder(directory) {
   for (const entry of await fs.readdir(directory, { withFileTypes: true })) {

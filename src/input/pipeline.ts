@@ -1,33 +1,35 @@
 import { diagnostic } from '../diagnostics.ts';
+import { LEGACY_KEYBOARD_PROFILE, normalizeKeyboardProfile } from '../protocol/index.ts';
 import { createInputDecoder, decodeInputChunk } from './decoder.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalCapabilityProfile } from '../host/index.ts';
-import type { TerminalInputChunk } from '../host/index.ts';
-import type { InputDecodeOptions, InputEvent } from './types.ts';
+import type { TerminalCapabilityProfile, TerminalInputChunk } from '../host/index.ts';
+import type { TerminalKeyboardProfile } from '../protocol/index.ts';
+import type { InputDecodeOptions, InputDecoderBatch, InputEvent } from './types.ts';
 
-export type KeyboardInputProfileName = 'legacy' | 'enhanced';
-export type KeyboardInputProfileRequest = 'auto' | 'legacy' | 'enhanced';
+export type KeyboardInputProfileRequest = 'auto' | TerminalKeyboardProfile;
 
 export interface InputPipelineOptions {
   readonly capabilities?: TerminalCapabilityProfile;
   readonly keyboard?: KeyboardInputProfileRequest;
   readonly bracketedPaste?: boolean;
+  readonly escapeDelayMs?: number;
 }
 
 export interface InputPipelineProfile {
   readonly keyboard: {
-    readonly active: KeyboardInputProfileName;
+    readonly active: TerminalKeyboardProfile;
     readonly requested: KeyboardInputProfileRequest;
   };
   readonly bracketedPaste: boolean;
+  readonly escapeDelayMs: number;
   readonly diagnostics: readonly TerminalDiagnostic[];
 }
 
 export interface InputPipeline {
   readonly profile: InputPipelineProfile;
-  decode(chunk: TerminalInputChunk, options?: InputDecodeOptions): readonly InputEvent[];
+  decode(chunk: TerminalInputChunk, options?: InputDecodeOptions): InputDecoderBatch;
   decodeOnce(chunk: TerminalInputChunk, options?: InputDecodeOptions): readonly InputEvent[];
-  flush(): readonly InputEvent[];
+  flush(): InputDecoderBatch;
   reset(): void;
 }
 
@@ -36,62 +38,59 @@ export function createInputPipeline(options: InputPipelineOptions = {}): InputPi
   const decoder = createInputDecoder(decodeOptions(profile));
   return {
     profile,
-    decode(chunk, override) {
-      return override === undefined
-        ? decoder.decode(chunk)
-        : decodeInputChunk(chunk, { ...decodeOptions(profile), ...override });
-    },
-    decodeOnce(chunk, override) {
-      return decodeInputChunk(chunk, { ...decodeOptions(profile), ...override });
-    },
-    flush() {
-      return decoder.flush();
-    },
-    reset() {
-      decoder.reset();
-    }
+    decode: (chunk, override) => override === undefined
+      ? decoder.decode(chunk)
+      : { events: decodeInputChunk(chunk, { ...decodeOptions(profile), ...override }), pending: { kind: 'none' } },
+    decodeOnce: (chunk, override) => decodeInputChunk(chunk, { ...decodeOptions(profile), ...override }),
+    flush: () => decoder.flush(),
+    reset: () => { decoder.reset(); }
   };
 }
 
 export function resolveInputPipelineProfile(options: InputPipelineOptions = {}): InputPipelineProfile {
   const requested = options.keyboard ?? 'auto';
-  const enhanced = requested !== 'legacy' && enhancedKeyboardDetected(options.capabilities);
-  const diagnostics = requested === 'enhanced' && !enhanced
-    ? [unsupportedEnhancedKeyboardDiagnostic(requested, options.capabilities)]
-    : [];
+  const requestedProfile = requested === 'auto' ? LEGACY_KEYBOARD_PROFILE : normalizeKeyboardProfile(requested);
+  const available = requestedProfile.kind === 'legacy' || capabilityUsable(options.capabilities?.keyboardProtocol);
+  const active = available ? requestedProfile : LEGACY_KEYBOARD_PROFILE;
   return {
-    keyboard: {
-      active: enhanced ? 'enhanced' : 'legacy',
-      requested
-    },
-    bracketedPaste: options.bracketedPaste ?? bracketedPasteSupported(options.capabilities),
-    diagnostics
+    keyboard: { active, requested },
+    bracketedPaste: options.bracketedPaste ?? capabilityUsable(options.capabilities?.bracketedPaste, true),
+    escapeDelayMs: escapeDelay(options.escapeDelayMs),
+    diagnostics: available ? [] : [unsupportedKeyboardDiagnostic(requestedProfile, options.capabilities)]
   };
+}
+
+function escapeDelay(value: number | undefined): number {
+  const delay = value ?? 25;
+  if (!Number.isFinite(delay) || delay < 0) {
+    throw new RangeError('Input escapeDelayMs must be a non-negative finite number.');
+  }
+  return delay;
 }
 
 function decodeOptions(profile: InputPipelineProfile): InputDecodeOptions {
   return { bracketedPaste: profile.bracketedPaste, keyboard: profile.keyboard.active };
 }
 
-function bracketedPasteSupported(capabilities: TerminalCapabilityProfile | undefined): boolean {
-  return capabilities === undefined || capabilities.bracketedPaste.status === 'supported';
+function capabilityUsable(
+  capability: TerminalCapabilityProfile['keyboardProtocol'] | undefined,
+  missingDefault = false
+): boolean {
+  if (capability === undefined) return missingDefault;
+  return capability.support === 'supported' && capability.availability === 'available';
 }
 
-function enhancedKeyboardDetected(capabilities: TerminalCapabilityProfile | undefined): boolean {
-  return capabilities?.enhancedKeyboard.status === 'supported';
-}
-
-function unsupportedEnhancedKeyboardDiagnostic(
-  requested: KeyboardInputProfileRequest,
+function unsupportedKeyboardDiagnostic(
+  requested: TerminalKeyboardProfile,
   capabilities: TerminalCapabilityProfile | undefined
 ): TerminalDiagnostic {
-  return diagnostic('INPUT_PROFILE_UNSUPPORTED', 'Enhanced keyboard input profile is unavailable; using legacy keyboard decoding.', {
-    severity: requested === 'enhanced' ? 'warning' : 'info',
+  return diagnostic('INPUT_PROFILE_UNSUPPORTED', 'Requested keyboard profile is unavailable; using legacy decoding.', {
+    severity: 'warning',
     data: {
-      requested,
+      requested: requested.kind === 'kitty' ? `kitty:${String(requested.flags)}` : 'legacy',
       active: 'legacy',
-      capability: capabilities?.enhancedKeyboard.status ?? 'unknown',
-      confidence: capabilities?.enhancedKeyboard.confidence ?? 'unknown'
+      support: capabilities?.keyboardProtocol.support ?? 'unknown',
+      availability: capabilities?.keyboardProtocol.availability ?? 'unavailable'
     }
   });
 }

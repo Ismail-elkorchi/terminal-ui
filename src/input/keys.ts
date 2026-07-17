@@ -88,8 +88,34 @@ export function normalizeKeyEvent(event: KeyEventLike): KeyEvent {
     ...(event.sequence === undefined ? {} : { sequence: event.sequence }),
     modifiers: normalizeModifiers(event.modifiers),
     eventType: event.eventType ?? 'press',
-    location: event.location ?? 'standard'
+    location: event.location ?? 'standard',
+    ...(event.alternateCodePoints === undefined
+      ? {}
+      : { alternateCodePoints: normalizeAlternateCodePoints(event.alternateCodePoints) }),
+    ...(event.committedText === undefined ? {} : { committedText: event.committedText })
   };
+}
+
+function normalizeAlternateCodePoints(
+  alternate: NonNullable<KeyEventLike['alternateCodePoints']>
+): NonNullable<KeyEvent['alternateCodePoints']> {
+  const shifted = optionalUnicodeScalar(alternate.shifted, 'shifted alternate key');
+  const baseLayout = optionalUnicodeScalar(alternate.baseLayout, 'base-layout alternate key');
+  if (shifted === undefined && baseLayout === undefined) {
+    throw new TypeError('Alternate key code points must contain shifted or baseLayout.');
+  }
+  return Object.freeze({
+    ...(shifted === undefined ? {} : { shifted }),
+    ...(baseLayout === undefined ? {} : { baseLayout })
+  });
+}
+
+function optionalUnicodeScalar(value: number | undefined, name: string): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isSafeInteger(value) || value < 0 || value > 0x10ffff || (value >= 0xd800 && value <= 0xdfff)) {
+    throw new RangeError(`${name} must be a Unicode scalar value.`);
+  }
+  return value;
 }
 
 export function isCancelKey(event: InputEvent): boolean {

@@ -187,7 +187,7 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   for (const typeName of [
     'TuiContext',
     'TuiInit',
-    'TuiKeyBinding',
+    'TuiInputBinding',
     'TuiRuntime',
     'TuiUpdateResult'
   ]) {

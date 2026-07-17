@@ -2,17 +2,17 @@ import { diagnostic } from '../diagnostics.ts';
 import { runTuiInputLoop } from './input-loop.ts';
 import {
   restoreReasonForExit,
-  restoreTuiSession,
   setupTuiSession,
   tuiSnapshot
 } from './lifecycle.ts';
 import { runTuiNonTty } from './non-tty.ts';
 import { createTuiRuntime } from './runtime.ts';
-import { settleTuiCleanup } from './cleanup.ts';
-import { createTuiTranscript, recordTuiRestore, withTuiTranscript } from './transcript.ts';
+import { TuiRunLifecycleOwner } from './run-lifecycle.ts';
+import { normalizeTuiRunOptions } from './run-configuration.ts';
+import { createTuiTranscript, withTuiTranscript } from './transcript.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalHost, TerminalSession } from '../host/index.ts';
-import type { TuiCleanupTask } from './cleanup.ts';
+import { LEGACY_KEYBOARD_PROFILE } from '../protocol/index.ts';
 import type { TuiApp, TuiExit, TuiRunOptions, TuiRuntime } from './types.ts';
 
 export async function runTui<TState, TMessage>(
@@ -21,6 +21,18 @@ export async function runTui<TState, TMessage>(
   options: TuiRunOptions<TState> = {}
 ): Promise<TuiExit<TState>> {
   const transcript = createTuiTranscript(app);
+  let normalized;
+  try {
+    normalized = normalizeTuiRunOptions(options);
+  } catch (cause) {
+    return withTuiTranscript(errorExit(app.id, [
+      diagnostic('TUI_RUN_FAILED', 'TUI run configuration is invalid.', {
+        target: app.id,
+        cause,
+        data: { phase: 'configuration' }
+      })
+    ]), transcript);
+  }
   if (host === undefined) {
     return withTuiTranscript(errorExit(app.id, [
       diagnostic('HOST_CAPABILITY_UNAVAILABLE', 'Full-screen TUI requires an explicit terminal host.', {
@@ -29,8 +41,8 @@ export async function runTui<TState, TMessage>(
     ]), transcript);
   }
 
+  const lifecycle = new TuiRunLifecycleOwner(app, host, normalized, transcript);
   let session: TerminalSession | undefined;
-  let runtime: TuiRuntime<TState, TMessage> | undefined;
   let exit: TuiExit<TState> | undefined;
   let failure: unknown;
   let setupFailed = false;
@@ -41,7 +53,8 @@ export async function runTui<TState, TMessage>(
     const nonTtyExit = await runTuiNonTty(app, host, transcript);
     if (nonTtyExit !== undefined) return withTuiTranscript(nonTtyExit, transcript);
     session = await host.beginSession({ id: app.id });
-    const setup = await setupTuiSession(session, options.sessionPolicy);
+    lifecycle.openSession(session);
+    const setup = await setupTuiSession(session, normalized.sessionPolicy);
     setupDiagnostics.push(...setup.diagnostics);
     if (!setup.ok) {
       setupFailed = true;
@@ -57,38 +70,35 @@ export async function runTui<TState, TMessage>(
         }
       );
     } else {
-      runtime = createTuiRuntime({
+      const runtime = createTuiRuntime({
         app,
         host,
-        ...(options.initialFocusPath === undefined ? {} : { initialFocusPath: options.initialFocusPath }),
-        ...(options.theme === undefined ? {} : { theme: options.theme }),
+        ...(normalized.initialFocus === undefined ? {} : { initialFocus: normalized.initialFocus }),
+        ...(normalized.theme === undefined ? {} : { theme: normalized.theme }),
         input: {
           capabilities: session.capabilities,
           bracketedPaste: setup.applied.some((item) => item.kind === 'bracketedPaste' && item.enabled),
-          keyboard: setup.applied.some((item) => item.kind === 'enhancedKeyboard' && item.enabled)
-            ? 'enhanced'
-            : 'legacy'
+          keyboard: setup.applied.find((item) => item.kind === 'keyboardProfile')?.enabled
+            ?? LEGACY_KEYBOARD_PROFILE,
+          escapeDelayMs: normalized.input.escapeDelayMs
         },
         diagnostics: setupDiagnostics,
         ...(transcript === undefined ? {} : { transcript })
       });
+      lifecycle.activateRuntime(runtime);
       await runtime.start();
       exit = await runTuiInputLoop(runtime, transcript);
+      lifecycle.complete(exit);
     }
   } catch (cause) {
     failure = cause;
   }
 
-  const cleanupDiagnostics = await cleanupTuiRun(app, host, runtime, exit, options);
-  const restoreDiagnostics = session === undefined
-    ? []
-    : await restoreTuiSession(
-      session,
-      failure === undefined && !setupFailed && exit !== undefined && !hasFailure(cleanupDiagnostics)
-        ? restoreReasonForExit(exit.status)
-        : 'error'
-    );
-  if (session !== undefined) recordTuiRestore(transcript, session.initialState);
+  const finalization = await lifecycle.finalize(
+    failure === undefined && !setupFailed && exit !== undefined
+      ? restoreReasonForExit(exit.status)
+      : 'error'
+  );
 
   const terminalDiagnostics = mergeDiagnostics(
     failure === undefined ? [] : [diagnostic('TUI_RUN_FAILED', 'TUI run failed before completion.', {
@@ -97,38 +107,15 @@ export async function runTui<TState, TMessage>(
     })],
     setupFailureDiagnostic === undefined ? [] : [setupFailureDiagnostic],
     setupDiagnostics,
-    cleanupDiagnostics,
-    restoreDiagnostics
+    finalization.diagnostics
   );
-  if (setupFailed || failure !== undefined || exit === undefined || hasFailure(cleanupDiagnostics) || hasFailure(restoreDiagnostics)) {
-    return withTuiTranscript(errorExitFromRuntime(app.id, runtime, exit, terminalDiagnostics), transcript);
+  if (setupFailed || failure !== undefined || exit === undefined || hasFailure(finalization.diagnostics)) {
+    return withTuiTranscript(errorExitFromRuntime(app.id, lifecycle.runtime, exit, terminalDiagnostics), transcript);
   }
   return withTuiTranscript({
     ...exit,
-    diagnostics: mergeDiagnostics(exit.diagnostics, cleanupDiagnostics, restoreDiagnostics)
+    diagnostics: mergeDiagnostics(exit.diagnostics, finalization.diagnostics)
   }, transcript);
-}
-
-async function cleanupTuiRun<TState, TMessage>(
-  app: TuiApp<TState, TMessage>,
-  host: TerminalHost,
-  runtime: TuiRuntime<TState, TMessage> | undefined,
-  exit: TuiExit<TState> | undefined,
-  options: TuiRunOptions<TState>
-): Promise<readonly TerminalDiagnostic[]> {
-  const tasks: TuiCleanupTask[] = [];
-  if (runtime !== undefined) {
-    tasks.push({ owner: app.id, phase: 'runtime', completion: runtime.dispose() });
-  }
-  if (exit !== undefined && 'state' in exit && app.definition.onExit !== undefined) {
-    const state = exit.state;
-    tasks.push({
-      owner: app.id,
-      phase: 'onExit',
-      completion: Promise.resolve().then(async () => app.definition.onExit?.(state))
-    });
-  }
-  return settleTuiCleanup(host.clock, tasks, options.cleanup);
 }
 
 function errorExit<TState>(id: string, diagnostics: readonly TerminalDiagnostic[]): TuiExit<TState> {

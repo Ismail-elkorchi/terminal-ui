@@ -18,7 +18,7 @@ import { renderDiffAnsi,
 import { richText } from '../../dist/components/index.js';
 
 test('theme API defines token palettes, merges symbols, and resolves semantic styles', async () => {
-  const colorHost = createMemoryTerminalHost();
+  const colorHost = createMemoryTerminalHost({ capabilities: { colorDepth: 8 } });
   const monoHost = createMemoryTerminalHost({ isTty: false });
   const colorCapabilities = await colorHost.getCapabilities();
   const monoCapabilities = await monoHost.getCapabilities();

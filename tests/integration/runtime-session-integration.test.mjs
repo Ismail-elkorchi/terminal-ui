@@ -48,21 +48,9 @@ function explicitNodeHost() {
       },
       [Symbol.asyncIterator]: input[Symbol.asyncIterator].bind(input)
     },
-    stdout: {
-      isTTY: true,
-      columns: 80,
-      rows: 24,
-      write: (chunk) => {
-        output.push(String(chunk));
-      }
-    },
-    stderr: {
-      isTTY: true,
-      columns: 80,
-      rows: 24,
-      write: () => {}
-    },
-    env: {},
+    stdout: immediateNodeOutput(output),
+    stderr: immediateNodeOutput(),
+    env: { TERM: 'xterm-256color' },
     process: {
       stdin: {
         isTTY: true,
@@ -71,9 +59,9 @@ function explicitNodeHost() {
         },
         [Symbol.asyncIterator]: input[Symbol.asyncIterator].bind(input)
       },
-      stdout: { isTTY: true, columns: 80, rows: 24, write: () => {} },
-      stderr: { isTTY: true, columns: 80, rows: 24, write: () => {} },
-      env: {},
+      stdout: immediateNodeOutput(),
+      stderr: immediateNodeOutput(),
+      env: { TERM: 'xterm-256color' },
       on: () => {},
       off: () => {}
     }
@@ -87,6 +75,7 @@ function explicitStreamHost(runtime) {
   const factory = runtime === 'deno' ? createDenoTerminalHost : createBunTerminalHost;
   const host = factory({
     id: `${runtime}-integration`,
+    env: { TERM: 'xterm-256color' },
     stdin: {
       source: runtimeInput([]),
       isTty: true,
@@ -123,4 +112,19 @@ async function* asyncIterable(values) {
 
 function runtimeInput(values) {
   return { read: () => asyncIterable(values) };
+}
+
+function immediateNodeOutput(output = []) {
+  return {
+    isTTY: true,
+    columns: 80,
+    rows: 24,
+    write(chunk, callback) {
+      output.push(String(chunk));
+      callback();
+      return true;
+    },
+    once() {},
+    off() {}
+  };
 }

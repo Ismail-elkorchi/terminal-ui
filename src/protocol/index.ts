@@ -2,7 +2,17 @@ import { sanitizeTerminalText } from '../text/index.ts';
 export type { ClipboardWritePolicy, ClipboardWriteResult } from './clipboard.ts';
 export { createClipboardWriteSequence, writeClipboardText } from './clipboard.ts';
 export type { TerminalProtocolSink } from './types.ts';
+export {
+  KITTY_KEYBOARD_FLAGS,
+  LEGACY_KEYBOARD_PROFILE,
+  kittyKeyboardFlags,
+  kittyKeyboardProfile,
+  normalizeKeyboardProfile
+} from './keyboard.ts';
+export type { KittyKeyboardFlagMap, KittyKeyboardFlags, TerminalKeyboardProfile } from './keyboard.ts';
 import type { TerminalProtocolSink } from './types.ts';
+import { normalizeKeyboardProfile } from './keyboard.ts';
+import type { TerminalKeyboardProfile } from './keyboard.ts';
 
 export interface TerminalProtocolWriter {
   enableAlternateScreen(): Promise<void>;
@@ -13,8 +23,9 @@ export interface TerminalProtocolWriter {
   disableMouseReporting(): Promise<void>;
   enableFocusReporting(): Promise<void>;
   disableFocusReporting(): Promise<void>;
-  enableEnhancedKeyboard(): Promise<void>;
-  disableEnhancedKeyboard(): Promise<void>;
+  pushKeyboardProfile(profile: TerminalKeyboardProfile): Promise<void>;
+  setKeyboardProfile(profile: TerminalKeyboardProfile): Promise<void>;
+  popKeyboardProfile(): Promise<void>;
   hideCursor(): Promise<void>;
   showCursor(): Promise<void>;
   moveCursor(row: number, column: number): Promise<void>;
@@ -36,8 +47,17 @@ export function createProtocolWriter(sink: TerminalProtocolSink): TerminalProtoc
     disableMouseReporting: async () => sink.write(mouseReportingDisableSequence()),
     enableFocusReporting: async () => sink.write('\u001B[?1004h'),
     disableFocusReporting: async () => sink.write('\u001B[?1004l'),
-    enableEnhancedKeyboard: async () => sink.write('\u001B[>3u'),
-    disableEnhancedKeyboard: async () => sink.write('\u001B[<u'),
+    pushKeyboardProfile: async (profile) => {
+      const normalized = normalizeKeyboardProfile(profile);
+      if (normalized.kind === 'legacy') return;
+      await sink.write(`\u001B[>${String(normalized.flags)}u`);
+    },
+    setKeyboardProfile: async (profile) => {
+      const normalized = normalizeKeyboardProfile(profile);
+      const flags = normalized.kind === 'kitty' ? normalized.flags : 0;
+      await sink.write(`\u001B[=${String(flags)}u`);
+    },
+    popKeyboardProfile: async () => sink.write('\u001B[<u'),
     hideCursor: async () => sink.write('\u001B[?25l'),
     showCursor: async () => sink.write('\u001B[?25h'),
     moveCursor: async (row, column) => sink.write(cursorMoveSequence(row, column)),

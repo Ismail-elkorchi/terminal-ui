@@ -78,7 +78,7 @@ test('layout regions compose scrollback, activity, tabs, palette, status, and co
   const app = defineTui({
     id: 'layout-regions',
     init: () => ({ palette: false, query: '', items: ['one', 'two'] }),
-    keyBindings: [
+    inputBindings: [
       { id: 'open-palette', triggers: [{ kind: 'text', text: 'p' }], message: { type: 'palette' } },
       { id: 'exit', triggers: [{ kind: 'key', key: 'enter' }], message: { type: 'exit' } }
     ],

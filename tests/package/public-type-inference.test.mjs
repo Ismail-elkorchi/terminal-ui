@@ -237,7 +237,7 @@ test('feedback and dialog lifecycle modes are structurally explicit', () => {
     dialog(text('Body'), {
       id: 'dialog',
       modal: true,
-      focusPolicy: { initialFocus: { kind: 'element', id: 'confirm' }, returnFocus: 'restore' },
+      focusPolicy: { initialFocus: { kind: 'element', elementId: 'confirm' }, returnFocus: 'restore' },
       dismissal: {
         escape: true,
         outsidePress: false,

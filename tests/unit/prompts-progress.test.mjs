@@ -4,7 +4,7 @@ import test from 'node:test';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createProgress, progress, runPrompt } from '../../dist/prompts/index.js';
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
-import { waitUntil } from '../helpers/async.mjs';
+import { flushAsync, waitUntil } from '../helpers/async.mjs';
 
 test('progress primitive exposes accessible progress state', () => {
   const progressState = createProgress({ label: 'Loading', kind: 'determinate', value: 2, max: 5 });
@@ -107,6 +107,8 @@ test('runPrompt cancels progress tasks and aborts the task signal', async () => 
 
   await waitUntil(() => /Running/u.test(host.output()));
   host.input('\u001B');
+  await flushAsync();
+  host.clock.advance(25);
   const result = await running;
 
   assert.equal(result.status, 'aborted');
@@ -136,4 +138,24 @@ test('runPrompt executes progress tasks in non-TTY transcript-only mode', async 
   assert.deepEqual(result.snapshot.root.progress, { value: 1, max: 1, indeterminate: false });
   assert.equal(host.output(), '');
   assert.ok((result.transcript?.steps.filter((step) => step.kind === 'snapshot').length ?? 0) >= 2);
+});
+
+test('completed progress prompts release their input reader', async () => {
+  const host = createMemoryTerminalHost();
+
+  const result = await runPrompt(progress({
+    label: 'Build',
+    progress: { kind: 'determinate', value: 0, max: 1 },
+    task: async (controller) => {
+      await controller.update({ kind: 'determinate', value: 1, max: 1 });
+    }
+  }), host);
+
+  assert.equal(result.status, 'submitted');
+  const reader = host.stdin.read()[Symbol.asyncIterator]();
+  host.input('next');
+  const next = await reader.next();
+  assert.equal(next.done, false);
+  assert.equal(next.value?.data, 'next');
+  await reader.return?.();
 });

@@ -7,8 +7,10 @@ import type {
   KeyName,
   LetterKeyName
 } from './types.ts';
+import { KITTY_KEYBOARD_FLAGS } from '../protocol/index.ts';
+import type { TerminalKeyboardProfile } from '../protocol/index.ts';
 
-const csiUnicodeKeyPattern = new RegExp(String.raw`^\u001B\[(\d+)(?::\d+(?::\d+)?)?(?:;(\d+)(?::([123]))?)?(?:;[\d:]+)?u`, 'u');
+const csiUnicodeKeyPattern = new RegExp(String.raw`^\u001B\[(\d+)(?::(\d+)?(?::(\d+))?)?(?:;(\d+)(?::([123]))?)?(?:;([\d:]+))?u`, 'u');
 const csiFinalKeyPattern = new RegExp(String.raw`^\u001B\[1(?:;(\d+)(?::([123]))?)?([ABCDEFHPQRS])`, 'u');
 const csiTildeKeyPattern = new RegExp(String.raw`^\u001B\[(\d+)(?:;(\d+)(?::([123]))?)?~`, 'u');
 
@@ -77,13 +79,25 @@ const keypadKeys: Readonly<Record<number, KeyName>> = Object.freeze({
   57426: 'delete'
 });
 
-export function enhancedKeyFromPrefix(value: string): KeyEvent | undefined {
+export function enhancedKeyFromPrefix(value: string, profile: TerminalKeyboardProfile): KeyEvent | undefined {
   const unicode = csiUnicodeKeyPattern.exec(value);
   if (unicode?.[0] !== undefined) {
     const codePoint = integer(unicode[1]);
     if (codePoint === undefined) return undefined;
     const key = keyFromCodePoint(codePoint);
-    return event(key, unicode[0], unicode[2], unicode[3], keypadKeys[codePoint] === undefined ? 'standard' : 'numpad');
+    const alternateCodePoints = alternateKeys(unicode[2], unicode[3], profile);
+    if (alternateCodePoints === null) return undefined;
+    const committedText = associatedText(unicode[6], profile);
+    if (committedText === null) return undefined;
+    return event(
+      key,
+      unicode[0],
+      unicode[4],
+      unicode[5],
+      keypadKeys[codePoint] === undefined ? 'standard' : 'numpad',
+      alternateCodePoints,
+      committedText
+    );
   }
 
   const final = csiFinalKeyPattern.exec(value);
@@ -103,15 +117,63 @@ function event(
   sequence: string,
   encodedModifiers: string | undefined,
   encodedEventType: string | undefined,
-  location: KeyLocation = 'standard'
+  location: KeyLocation = 'standard',
+  alternateCodePoints?: KeyEvent['alternateCodePoints'],
+  committedText?: string
 ): KeyEvent {
   return normalizeKeyEvent({
     key,
     sequence,
     modifiers: decodeModifiers(encodedModifiers),
     eventType: decodeEventType(encodedEventType),
-    location
+    location,
+    ...(alternateCodePoints === undefined ? {} : { alternateCodePoints }),
+    ...(committedText === undefined ? {} : { committedText })
   });
+}
+
+function alternateKeys(
+  shiftedValue: string | undefined,
+  baseLayoutValue: string | undefined,
+  profile: TerminalKeyboardProfile
+): KeyEvent['alternateCodePoints'] | null | undefined {
+  if (shiftedValue === undefined && baseLayoutValue === undefined) return undefined;
+  if (profile.kind !== 'kitty' || (profile.flags & KITTY_KEYBOARD_FLAGS.reportAlternateKeys) === 0) {
+    return undefined;
+  }
+  const shifted = shiftedValue === undefined || shiftedValue.length === 0 ? undefined : integer(shiftedValue);
+  const baseLayout = baseLayoutValue === undefined || baseLayoutValue.length === 0 ? undefined : integer(baseLayoutValue);
+  if (
+    (shiftedValue !== undefined && shiftedValue.length > 0 && (shifted === undefined || !isUnicodeScalar(shifted)))
+    || (baseLayoutValue !== undefined && baseLayoutValue.length > 0 && (baseLayout === undefined || !isUnicodeScalar(baseLayout)))
+    || (shifted === undefined && baseLayout === undefined)
+  ) return null;
+  return {
+    ...(shifted === undefined ? {} : { shifted }),
+    ...(baseLayout === undefined ? {} : { baseLayout })
+  };
+}
+
+function associatedText(value: string | undefined, profile: TerminalKeyboardProfile): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (
+    profile.kind !== 'kitty'
+    || (profile.flags & KITTY_KEYBOARD_FLAGS.reportAssociatedText) === 0
+  ) return undefined;
+  const points = value.split(':').map(integer);
+  if (points.some((point) => point === undefined || !isTextScalar(point))) return null;
+  return String.fromCodePoint(...points as number[]);
+}
+
+function isTextScalar(value: number): boolean {
+  return isUnicodeScalar(value)
+    && value >= 0x20
+    && value !== 0x7f
+    && !(value >= 0x80 && value <= 0x9f);
+}
+
+function isUnicodeScalar(value: number): boolean {
+  return value <= 0x10ffff && !(value >= 0xd800 && value <= 0xdfff);
 }
 
 function keyFromCodePoint(codePoint: number): KeyName {

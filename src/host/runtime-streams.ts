@@ -1,6 +1,7 @@
 import { resolveTerminalCapabilities } from './capabilities.ts';
 import { BasicTerminalSession } from './session.ts';
 import { restoreActiveTerminalSessions } from './session-registry.ts';
+import { OrderedOutputQueue, createTerminalHostOutputAuthority } from './ordered-output.ts';
 import type { RuntimeTarget } from './capability-types.ts';
 import type {
   RuntimeInputSource,
@@ -13,7 +14,6 @@ import type {
   TerminalInputChunk,
   TerminalInputReadOptions,
   TerminalOutput,
-  TerminalOutputChunk,
   TerminalSession,
   TerminalSignal,
   TerminalSignalSource,
@@ -29,6 +29,9 @@ export interface StreamTerminalHostOptions {
   readonly stdin?: RuntimeTerminalInputOptions;
   readonly stdout?: RuntimeTerminalOutputOptions;
   readonly stderr?: RuntimeTerminalOutputOptions;
+  readonly stdoutOutput?: TerminalOutput;
+  readonly stderrOutput?: TerminalOutput;
+  readonly getViewport?: () => TerminalViewport | undefined;
   readonly env?: Record<string, string>;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly capabilities?: TerminalCapabilityConfiguration;
@@ -36,25 +39,30 @@ export interface StreamTerminalHostOptions {
 
 export function createStreamTerminalHost(options: StreamTerminalHostOptions): TerminalHost {
   const stdin = new RuntimeInput(options.stdin);
-  const stdout = new RuntimeOutput(options.stdout);
-  const stderr = new RuntimeOutput(options.stderr);
+  const stdout = options.stdoutOutput ?? new RuntimeOutput(options.stdout);
+  const stderr = options.stderrOutput ?? new RuntimeOutput(options.stderr);
   const clock = new RuntimeClock();
-  const getViewport = (): TerminalViewport => ({
+  const output = createTerminalHostOutputAuthority(stdout, stderr);
+  const getViewport = (): TerminalViewport => options.getViewport?.() ?? {
     columns: stdout.columns ?? 80,
     rows: stdout.rows ?? 24
-  });
+  };
+  const initialViewport = getViewport();
   const capabilities: TerminalCapabilityProfile = resolveTerminalCapabilities({
     host: {
       runtime: options.runtime,
       inputIsTty: stdin.isTty(),
       outputIsTty: stdout.isTty(),
-      columns: getViewport().columns,
-      rows: getViewport().rows,
-      rawInput: options.stdin?.setRawMode !== undefined
+      columns: initialViewport.columns,
+      rows: initialViewport.rows,
+      rawInput: options.stdin?.setRawMode !== undefined,
+      resizeEvents: options.subscribeSignals !== undefined,
+      terminalProtocols: stdout.isTty()
     },
     environment: { variables: options.env ?? {} },
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
-    ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides })
+    ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides }),
+    ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth })
   });
   const host: TerminalHost = {
     id: options.id,
@@ -69,11 +77,8 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
     getCapabilities: () => Promise.resolve(capabilities),
     beginSession: (sessionOptions): Promise<TerminalSession> =>
       Promise.resolve(new BasicTerminalSession(sessionOptions?.id ?? `${options.id}-session`, host, capabilities)),
-    write: async (output: TerminalOutputChunk) => {
-      if (output.text !== undefined) await stdout.write(output.text);
-      if (output.bytes !== undefined) await stdout.write(output.bytes);
-    },
-    flush: () => Promise.resolve(),
+    write: output.write,
+    flush: output.flush,
     dispose: async () => {
       await restoreActiveTerminalSessions(host, 'disposed');
     }
@@ -110,6 +115,7 @@ export class RuntimeInput implements TerminalInput {
 
 export class RuntimeOutput implements TerminalOutput {
   #writer: WritableStreamDefaultWriter<Uint8Array> | undefined;
+  readonly #queue = new OrderedOutputQueue();
 
   constructor(private readonly options: RuntimeTerminalOutputOptions = {}) {}
 
@@ -121,15 +127,22 @@ export class RuntimeOutput implements TerminalOutput {
     return this.options.rows;
   }
 
-  async write(chunk: string | Uint8Array): Promise<void> {
-    if (this.options.write !== undefined) {
-      await this.options.write(chunk);
-      return;
-    }
-    if (this.options.writable !== undefined) {
-      this.#writer ??= this.options.writable.getWriter();
-      await this.#writer.write(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
-    }
+  write(chunk: string | Uint8Array): Promise<void> {
+    return this.#queue.run(async () => {
+      if (this.options.write !== undefined) {
+        await this.options.write(chunk);
+        return;
+      }
+      if (this.options.writable !== undefined) {
+        this.#writer ??= this.options.writable.getWriter();
+        await this.#writer.write(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
+      }
+    });
+  }
+
+  async flush(): Promise<void> {
+    await this.#queue.flush();
+    if (this.#writer !== undefined) await this.#writer.ready;
   }
 
   isTty(): boolean {
@@ -146,8 +159,8 @@ export class RuntimeSignals implements TerminalSignalSource {
 }
 
 export class RuntimeClock implements TerminalClock {
-  now(): number {
-    return Date.now();
+  monotonicNow(): number {
+    return globalThis.performance.now();
   }
 
   sleep(ms: number, signal?: AbortSignal): Promise<void> {

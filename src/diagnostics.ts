@@ -12,6 +12,8 @@ export type TerminalDiagnosticValue =
 
 export const terminalDiagnosticCodes = [
   'HOST_CAPABILITY_UNAVAILABLE',
+  'HOST_CAPABILITY_UNSUPPORTED',
+  'HOST_CAPABILITY_UNKNOWN',
   'HOST_STREAM_CLOSED',
   'HOST_RESTORE_FAILED',
   'HOST_PROTOCOL_SKIPPED',
@@ -28,6 +30,7 @@ export const terminalDiagnosticCodes = [
   'TUI_RUN_FAILED',
   'TUI_RENDER_FAILED',
   'TUI_LAYOUT_FAILED',
+  'TUI_FOCUS_SELECTION_INVALID',
   'TUI_CLEANUP_FAILED',
   'TUI_CLEANUP_TIMEOUT',
   'TUI_SOURCE_FAILED',

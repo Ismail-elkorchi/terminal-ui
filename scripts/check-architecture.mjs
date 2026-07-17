@@ -7,6 +7,10 @@ const sourceFiles = await collectTypeScript(root);
 const failures = [];
 
 const forbiddenDependencies = new Map([
+  ['protocol', new Set(['behavior', 'components', 'host', 'input', 'interaction', 'layout', 'renderer', 'testing', 'tui', 'ui-model', 'visual'])],
+  ['host', new Set(['behavior', 'components', 'layout', 'renderer', 'testing', 'tui', 'ui-model'])],
+  ['input', new Set(['behavior', 'components', 'layout', 'renderer', 'testing', 'tui', 'ui-model'])],
+  ['interaction', new Set(['behavior', 'components', 'host', 'layout', 'renderer', 'testing', 'tui', 'ui-model'])],
   ['ui-model', new Set(['behavior', 'components', 'host', 'renderer', 'testing', 'tui'])],
   ['visual', new Set(['components', 'host', 'renderer', 'testing', 'tui'])],
   ['components', new Set(['host', 'testing', 'tui'])],
@@ -29,6 +33,7 @@ for (const filePath of sourceFiles) {
     }
   }
   inspectDeterministicGlobals(sourceFile, owner, filePath);
+  inspectTuiContext(sourceFile, filePath);
 }
 
 const rendererIndex = await fs.readFile(path.join(root, 'renderer/index.ts'), 'utf8');
@@ -60,6 +65,23 @@ function inspectDeterministicGlobals(sourceFile, owner, filePath) {
     ts.forEachChild(node, visit);
   };
   visit(sourceFile);
+}
+
+function inspectTuiContext(sourceFile, filePath) {
+  if (relative(filePath) !== 'src/tui/types.ts') return;
+  const declaration = sourceFile.statements.find((statement) =>
+    ts.isInterfaceDeclaration(statement) && statement.name.text === 'TuiContext'
+  );
+  if (declaration === undefined || !ts.isInterfaceDeclaration(declaration)) {
+    failures.push('src/tui/types.ts must declare TuiContext.');
+    return;
+  }
+  for (const member of declaration.members) {
+    if (ts.isPropertySignature(member) && member.name !== undefined
+      && ts.isIdentifier(member.name) && member.name.text === 'host') {
+      failures.push('TuiContext must not expose terminal host authority.');
+    }
+  }
 }
 
 function firstSegment(filePath) {

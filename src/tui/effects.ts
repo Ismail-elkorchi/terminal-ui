@@ -3,6 +3,8 @@ import { effectExecutionId } from '../foundation/identity.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalClock } from '../host/index.ts';
 import type { EffectExecutionId } from '../foundation/identity.ts';
+import { createProducerAdmissionLease } from './producer-admission.ts';
+import type { ProducerAdmissionLease } from './producer-admission.ts';
 import type {
   TuiContext,
   TuiEffect,
@@ -14,6 +16,7 @@ import type {
 interface ActiveEffect {
   readonly id: EffectExecutionId;
   readonly controller: AbortController;
+  readonly lease: ProducerAdmissionLease;
   completion: Promise<void>;
 }
 
@@ -33,7 +36,7 @@ export interface TuiEffectManager<TMessage> {
 export interface TuiEffectManagerOptions<TMessage> {
   readonly clock: TerminalClock;
   readonly context: () => Promise<TuiContext>;
-  readonly dispatch: (messages: readonly TMessage[]) => Promise<void>;
+  readonly dispatch: (messages: readonly TMessage[], lease: ProducerAdmissionLease) => Promise<void>;
   readonly reportDiagnostic: (item: TerminalDiagnostic) => void;
   readonly policy?: TuiEffectPolicy;
 }
@@ -62,12 +65,14 @@ export function createTuiEffectManager<TMessage>(
   function launch(effect: TuiEffect<TMessage>): void {
     const id = effectExecutionId(effect.id);
     const controller = new AbortController();
-    const execution: ActiveEffect = { id, controller, completion: Promise.resolve() };
-    execution.completion = executeEffect(effect, controller, options)
+    const lease = createProducerAdmissionLease('effect', String(id), controller.signal);
+    const execution: ActiveEffect = { id, controller, lease, completion: Promise.resolve() };
+    execution.completion = executeEffect(effect, execution, options)
       .catch((cause: unknown) => {
         executionFailures.push(cause);
       })
       .finally(() => {
+        execution.lease.revoke();
         active.delete(execution);
         const group = activeById.get(id);
         group?.delete(execution);
@@ -130,7 +135,10 @@ export function createTuiEffectManager<TMessage>(
     }
     if (effect.concurrency === 'replace') {
       const activeForId = activeById.get(id);
-      for (const execution of activeForId ?? []) execution.controller.abort();
+      for (const execution of activeForId ?? []) {
+        execution.lease.revoke();
+        execution.controller.abort();
+      }
       queues.delete(id);
       if (hasCapacity(id)) {
         cancelReplacementDeadline(id);
@@ -213,7 +221,10 @@ export function createTuiEffectManager<TMessage>(
     pendingReplacements.clear();
     for (const deadline of replacementDeadlines.values()) deadline.controller.abort();
     replacementDeadlines.clear();
-    for (const execution of active) execution.controller.abort();
+    for (const execution of active) {
+      execution.lease.revoke();
+      execution.controller.abort();
+    }
   }
 
   function canQueueReplacement(): boolean {
@@ -257,15 +268,16 @@ interface ReplacementDeadline {
 
 async function executeEffect<TMessage>(
   effect: TuiEffect<TMessage>,
-  controller: AbortController,
+  execution: ActiveEffect,
   options: TuiEffectManagerOptions<TMessage>
 ): Promise<void> {
+  const { controller, lease } = execution;
   let base: TuiContext;
   try {
     base = await options.context();
   } catch (cause) {
     if (controller.signal.aborted) return;
-    await recoverEffect(effect, cause, 'context', controller.signal, options);
+    await recoverEffect(effect, cause, 'context', lease, options);
     return;
   }
   if (controller.signal.aborted) return;
@@ -276,24 +288,24 @@ async function executeEffect<TMessage>(
     output = await effect.run(context);
   } catch (cause) {
     if (signalIsAborted(controller.signal)) return;
-    await recoverEffect(effect, cause, 'run', controller.signal, options);
+    await recoverEffect(effect, cause, 'run', lease, options);
     return;
   }
   if (output.kind === 'none' || signalIsAborted(controller.signal)) return;
   try {
-    await options.dispatch(outputMessages(output));
+    await options.dispatch(outputMessages(output), lease);
   } catch (cause) {
-    reportDispatchFailure(effect, cause, controller.signal, options);
+    reportDispatchFailure(effect, cause, lease, options);
   }
 }
 
 function reportDispatchFailure<TMessage>(
   effect: TuiEffect<TMessage>,
   cause: unknown,
-  signal: AbortSignal,
+  lease: ProducerAdmissionLease,
   options: TuiEffectManagerOptions<TMessage>
 ): void {
-  if (!signal.aborted) options.reportDiagnostic(effectFailure(effect, cause, 'dispatch'));
+  if (lease.authorized()) options.reportDiagnostic(effectFailure(effect, cause, 'dispatch'));
 }
 
 function signalIsAborted(signal: AbortSignal): boolean {
@@ -304,7 +316,7 @@ async function recoverEffect<TMessage>(
   effect: TuiEffect<TMessage>,
   cause: unknown,
   phase: 'context' | 'run',
-  signal: AbortSignal,
+  lease: ProducerAdmissionLease,
   options: TuiEffectManagerOptions<TMessage>
 ): Promise<void> {
   let failureCause = cause;
@@ -317,15 +329,15 @@ async function recoverEffect<TMessage>(
     failureCause = new AggregateError([cause, handlerCause], 'TUI effect and its error mapper failed.');
     failurePhase = 'onError';
   }
-  if (output !== undefined && output.kind !== 'none' && !signal.aborted) {
+  if (output !== undefined && output.kind !== 'none' && lease.authorized()) {
     try {
-      await options.dispatch(outputMessages(output));
+      await options.dispatch(outputMessages(output), lease);
     } catch (dispatchCause) {
       failureCause = new AggregateError([cause, dispatchCause], 'TUI effect recovery dispatch failed.');
       failurePhase = 'error_dispatch';
     }
   }
-  options.reportDiagnostic(effectFailure(effect, failureCause, failurePhase));
+  if (lease.authorized()) options.reportDiagnostic(effectFailure(effect, failureCause, failurePhase));
 }
 
 function outputMessages<TMessage>(output: Exclude<TuiEffectOutput<TMessage>, { readonly kind: 'none' }>): readonly TMessage[] {

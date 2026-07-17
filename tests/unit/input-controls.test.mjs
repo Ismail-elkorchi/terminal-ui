@@ -104,7 +104,7 @@ test('slider generated bindings use normalized arrow-key identities', async () =
     })
   });
   const host = createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host, initialFocusPath: ['volume'] });
+  const runtime = createTuiRuntime({ app, host, initialFocus: { kind: 'path', path: ['volume'] } });
 
   await runtime.start();
   await runtime.handleInput({ kind: 'key', key: 'arrowLeft', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
@@ -146,7 +146,7 @@ test('rangeSlider pointer capture preserves the pressed handle and arrow keys us
     })
   });
   const host = createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host, initialFocusPath: ['window'] });
+  const runtime = createTuiRuntime({ app, host, initialFocus: { kind: 'path', path: ['window'] } });
   const mouse = (action, row, column) => ({
     kind: 'mouse',
     sequence: '',

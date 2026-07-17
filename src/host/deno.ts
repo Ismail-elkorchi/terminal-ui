@@ -6,16 +6,22 @@ interface DenoLike {
   readonly stdout?: { readonly writable?: WritableStream<Uint8Array>; readonly isTerminal?: () => boolean };
   readonly stderr?: { readonly writable?: WritableStream<Uint8Array>; readonly isTerminal?: () => boolean };
   readonly env?: { toObject?: () => Record<string, string> };
+  readonly consoleSize?: () => { readonly columns: number; readonly rows: number };
 }
 
 export function createDenoTerminalHost(options: DenoTerminalHostOptions = {}): TerminalHost {
   const deno = denoGlobal();
+  const getNativeViewport = options.stdout === undefined
+    ? () => denoConsoleSize(deno)
+    : undefined;
   return createStreamTerminalHost({
     id: options.id ?? 'deno',
     runtime: 'deno',
+    ...(options.subscribeSignals === undefined ? {} : { subscribeSignals: options.subscribeSignals }),
     stdin: options.stdin ?? denoInputOptions(deno),
     stdout: options.stdout ?? denoOutputOptions(deno?.stdout),
     stderr: options.stderr ?? denoOutputOptions(deno?.stderr),
+    ...(getNativeViewport === undefined ? {} : { getViewport: getNativeViewport }),
     ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
     ...optionalEnv(options.env ?? denoEnvironment(deno))
   });
@@ -29,11 +35,22 @@ function denoInputOptions(deno: DenoLike | undefined): RuntimeTerminalInputOptio
   };
 }
 
-function denoOutputOptions(stream: DenoLike['stdout'] | DenoLike['stderr'] | undefined): RuntimeTerminalOutputOptions {
+function denoOutputOptions(
+  stream: DenoLike['stdout'] | DenoLike['stderr'] | undefined
+): RuntimeTerminalOutputOptions {
   return {
     isTty: stream?.isTerminal?.() ?? false,
     ...(stream?.writable === undefined ? {} : { writable: stream.writable })
   };
+}
+
+function denoConsoleSize(deno: DenoLike | undefined): { readonly columns: number; readonly rows: number } | undefined {
+  if (deno?.stdout?.isTerminal?.() !== true) return undefined;
+  try {
+    return deno.consoleSize?.();
+  } catch {
+    return undefined;
+  }
 }
 
 function optionalEnv(env: Record<string, string> | undefined): { readonly env?: Record<string, string> } {

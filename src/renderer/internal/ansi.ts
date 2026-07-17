@@ -80,7 +80,11 @@ function withoutLink(state: AnsiStyleState): AnsiStyleState {
 
 function effectiveLink(span: RenderSpan, options: RenderSerializeOptions | undefined): TerminalLink | undefined {
   if (span.link === undefined) return undefined;
-  if (options?.hyperlinks !== true || options.capabilities.hyperlinks.status !== 'supported') return undefined;
+  if (
+    options?.hyperlinks !== true
+    || options.capabilities.hyperlinks.support !== 'supported'
+    || options.capabilities.hyperlinks.availability !== 'available'
+  ) return undefined;
   const href = sanitizeTerminalText(span.link.href).text;
   if (href.length === 0) return undefined;
   if (span.link.id === undefined) return { href };

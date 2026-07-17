@@ -21,6 +21,11 @@ import {
 import { column, splitPane, surface } from '@ismail-elkorchi/terminal-ui/layout';
 import { renderElementFrame, renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
 import { defineTui } from '@ismail-elkorchi/terminal-ui/tui';
+import { createTerminalHost, ok } from '@ismail-elkorchi/terminal-ui';
+import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
+import { createInputDecoder } from '@ismail-elkorchi/terminal-ui/input';
+import { resolveSelectedText } from '@ismail-elkorchi/terminal-ui/interaction';
+import { createTerminalHarness } from '@ismail-elkorchi/terminal-ui/testing';
 
 type Message =
   | { readonly kind: 'increment' }
@@ -114,8 +119,29 @@ const output = renderFramePlain(renderElementFrame(view({ count: 1 }), {
   columns: 40,
   rows: 8
 }));
+const rootHost = createTerminalHost({ runtime: 'memory' });
+const memoryHost = createMemoryTerminalHost();
+await memoryHost.write({ text: 'ordered output' });
+await memoryHost.flush();
+const decoded = createInputDecoder().decode({ data: '\r' });
+const selected = resolveSelectedText({
+  sources: [{ id: 'consumer-source', text: 'selected text', selection: { start: 0, end: 8 } }]
+});
+const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+const result = ok('root-entrypoint');
 
 if (app.id !== 'packed-consumer') throw new Error('The TUI entrypoint did not create the app.');
+if (rootHost.runtime !== 'memory' || !result.ok || result.value !== 'root-entrypoint') {
+  throw new Error('The root entrypoint did not expose its documented runtime contracts.');
+}
+if (memoryHost.output() !== 'ordered output') throw new Error('The host entrypoint did not flush output.');
+if (decoded.events[0]?.kind !== 'key' || decoded.events[0].key !== 'enter') {
+  throw new Error('The input entrypoint did not decode terminal input.');
+}
+if (!selected.ok || selected.text !== 'selected') {
+  throw new Error('The interaction entrypoint did not resolve controlled selection.');
+}
+if (harness.host.runtime !== 'memory') throw new Error('The testing entrypoint did not create a harness.');
 if (scroll.offsetRow !== 2) throw new Error('The behavior entrypoint did not update controlled state.');
 if (command.input.text !== 'open') throw new Error('The behavior entrypoint did not update command state.');
 if (!renderFramePlain(renderElementFrame(panes, { columns: 20, rows: 2 })).includes('Left')) {

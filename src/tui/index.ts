@@ -4,6 +4,8 @@ export { runTui } from './run.ts';
 export { defaultTuiCleanupPolicy } from './cleanup.ts';
 export { defaultTuiEffectPolicy } from './effects.ts';
 export { animationSource, intervalSource, timeoutSource } from './scheduler.ts';
+export { advanceAnimationTimeline, createAnimationTimeline, nextAnimationDeadline } from './animation-timeline.ts';
+export type { AnimationFrame, AnimationTimeline } from './animation-timeline.ts';
 export { copySelectedTextToClipboard } from './selection.ts';
 export type { CopySelectedTextInput, CopySelectedTextResult } from './selection.ts';
 export {

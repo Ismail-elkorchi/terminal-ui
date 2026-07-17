@@ -274,6 +274,22 @@ test('runPrompt keeps interactive transcripts opt-in', async () => {
   assert.equal(result.transcript, undefined);
 });
 
+test('completed interactive prompts release their input reader', async () => {
+  const host = createMemoryTerminalHost();
+  const running = runPrompt(input({ label: 'Name' }), host);
+
+  host.input('Ada\r');
+  const result = await running;
+  assert.equal(result.status, 'submitted');
+
+  const reader = host.stdin.read()[Symbol.asyncIterator]();
+  host.input('next');
+  const next = await reader.next();
+  assert.equal(next.done, false);
+  assert.equal(next.value?.data, 'next');
+  await reader.return?.();
+});
+
 test('runPrompt times out interactive prompts through the terminal clock', async () => {
   const harness = createTerminalHarness();
 
@@ -310,6 +326,8 @@ test('runPrompt restores terminal protocols on success, cancellation, interrupti
   const cancelledHarness = createTerminalHarness();
   const cancelledRun = runPrompt(confirm({ label: 'Continue?' }), cancelledHarness.host);
   cancelledHarness.host.input('\u001B');
+  await flushAsync();
+  cancelledHarness.clock.advance(25);
   const cancelled = await cancelledRun;
 
   const interruptedHarness = createTerminalHarness();

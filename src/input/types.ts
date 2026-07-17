@@ -1,4 +1,5 @@
 import type { TerminalInputChunk, TerminalViewport } from '../host/index.ts';
+import type { TerminalKeyboardProfile } from '../protocol/index.ts';
 
 export type InputEvent =
   | KeyEvent
@@ -18,6 +19,13 @@ export interface KeyEvent {
   readonly modifiers: KeyModifiers;
   readonly eventType: KeyEventType;
   readonly location: KeyLocation;
+  readonly alternateCodePoints?: KeyAlternateCodePoints;
+  readonly committedText?: string;
+}
+
+export interface KeyAlternateCodePoints {
+  readonly shifted?: number;
+  readonly baseLayout?: number;
 }
 
 export interface KeyModifiers {
@@ -158,11 +166,15 @@ export type InputTrigger =
   | {
       readonly kind: 'text';
       readonly text: string;
+    }
+  | {
+      readonly kind: 'focus';
+      readonly focused: boolean;
     };
 
 export interface InputDecodeOptions {
   readonly bracketedPaste?: boolean;
-  readonly keyboard?: 'legacy' | 'enhanced';
+  readonly keyboard?: TerminalKeyboardProfile;
 }
 
 export type KeyModifierTrigger =
@@ -181,10 +193,22 @@ export interface KeyEventLike {
   readonly modifiers?: Partial<KeyModifiers>;
   readonly eventType?: KeyEventType;
   readonly location?: KeyLocation;
+  readonly alternateCodePoints?: KeyAlternateCodePoints;
+  readonly committedText?: string;
 }
 
 export interface InputDecoder {
-  decode(chunk: TerminalInputChunk): readonly InputEvent[];
-  flush(): readonly InputEvent[];
+  decode(chunk: TerminalInputChunk): InputDecoderBatch;
+  flush(): InputDecoderBatch;
   reset(): void;
 }
+
+export interface InputDecoderBatch {
+  readonly events: readonly InputEvent[];
+  readonly pending: InputPendingState;
+}
+
+export type InputPendingState =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'escape' }
+  | { readonly kind: 'sequence' };

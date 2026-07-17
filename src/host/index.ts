@@ -1,13 +1,13 @@
 export type {
-  CapabilityConfidence,
   CapabilitySourceFact,
   CapabilitySourceKind,
   CapabilitySupport,
-  CapabilityStatus,
+  HostFeatureAvailability,
   RuntimeTarget,
   TerminalCapabilityName,
   TerminalCapabilityProfile,
   TerminalColorCapability,
+  TerminalFeatureSupport,
   TerminalUnicodeCapability
 } from './capability-types.ts';
 export type {

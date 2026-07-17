@@ -69,45 +69,45 @@ export function measureBuiltinRenderNode(
     case 'text':
       return measureText(stringify(widget.props.content));
     case 'richText':
-      return measureBlock(richTextBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(richTextBlock(widget, constrainedMeasureBounds(bounds), theme));
     case 'statusBar':
       return measureText(statusBarText(widget, theme));
     case 'textArea':
       return measureText(textAreaMeasureText(widget));
     case 'label':
-      return measureBlock(labelBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(labelBlock(widget, constrainedMeasureBounds(bounds)));
     case 'button':
-      return measureBlock(buttonBlock(widget, intrinsicBounds(bounds), false, theme));
+      return measureBlock(buttonBlock(widget, constrainedMeasureBounds(bounds), false, theme));
     case 'checkbox':
-      return measureBlock(checkboxBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(checkboxBlock(widget, constrainedMeasureBounds(bounds), theme));
     case 'toggleSwitch':
-      return measureBlock(toggleSwitchBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(toggleSwitchBlock(widget, constrainedMeasureBounds(bounds)));
     case 'slider':
-      return measureBlock(sliderBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(sliderBlock(widget, constrainedMeasureBounds(bounds)));
     case 'rangeSlider':
-      return measureBlock(rangeSliderBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(rangeSliderBlock(widget, constrainedMeasureBounds(bounds)));
     case 'checkboxGroup':
-      return measureBlock(checkboxGroupBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(checkboxGroupBlock(widget, constrainedMeasureBounds(bounds), theme));
     case 'radioGroup':
-      return measureBlock(radioGroupBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(radioGroupBlock(widget, constrainedMeasureBounds(bounds), theme));
     case 'select':
-      return measureBlock(selectBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(selectBlock(widget, constrainedMeasureBounds(bounds), theme));
     case 'colorSwatchPicker':
-      return measureBlock(colorSwatchPickerBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(colorSwatchPickerBlock(widget, constrainedMeasureBounds(bounds)));
     case 'calendar':
-      return measureBlock(calendarBlock(widget, intrinsicBounds(bounds)));
+      return measureBlock(calendarBlock(widget, constrainedMeasureBounds(bounds)));
     case 'textInput':
-      return measureBlock(textInputBlock(widget, intrinsicBounds(bounds), false, theme));
+      return measureBlock(textInputBlock(widget, constrainedMeasureBounds(bounds), false, theme));
     case 'numberInput':
-      return measureBlock(numberInputBlock(widget, intrinsicBounds(bounds), false, theme));
+      return measureBlock(numberInputBlock(widget, constrainedMeasureBounds(bounds), false, theme));
     case 'menu':
-      return measureBlock(menuBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(menuBlock(widget, constrainedMeasureBounds(bounds), theme));
     case 'menuBar':
-      return measureBlock(menuBarBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(menuBarBlock(widget, constrainedMeasureBounds(bounds), theme));
     case 'contextMenu':
       return zeroMeasurement();
     case 'dropdownMenu':
-      return measureBlock(dropdownMenuBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(dropdownMenuBlock(widget, constrainedMeasureBounds(bounds), theme));
     case 'divider': {
       const preferred = dividerPreferredSize(widget);
       return measureSize(preferred.width, preferred.height);
@@ -143,19 +143,19 @@ export function measureBuiltinRenderNode(
     case 'table':
       return measureTable(widget);
     case 'tree':
-      return measureBlock(treeBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(treeBlock(widget, constrainedMeasureBounds(bounds), theme));
     case 'paginator':
       return measureText(paginatorText(widget));
     case 'scrollback':
       return measureText(scrollbackMeasureText(widget));
     case 'structuredBlock':
-      return measureBlock(structuredBlockBlock(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
+      return measureBlock(structuredBlockBlock(widget, fakeLayoutNode(widget, constrainedMeasureBounds(bounds)), theme));
     case 'activityFeed':
-      return measureBlock(activityFeedBlock(widget, fakeLayoutNode(widget, intrinsicBounds(bounds)), theme));
+      return measureBlock(activityFeedBlock(widget, fakeLayoutNode(widget, constrainedMeasureBounds(bounds)), theme));
     case 'commandInput':
-      return measureBlock(commandInputBlock(widget, intrinsicBounds(bounds), theme));
+      return measureBlock(commandInputBlock(widget, constrainedMeasureBounds(bounds), theme));
     case 'palette':
-      return measureBlock(paletteBlock(widget, intrinsicBounds(bounds).height, theme));
+      return measureBlock(paletteBlock(widget, constrainedMeasureBounds(bounds).height, theme));
     case 'form':
     case 'field':
     case 'column':
@@ -331,7 +331,19 @@ function childMeasuresFor(
 
 function scrollbackMeasureText(widget: ScrollbackNode): string {
   const items = Array.isArray(widget.props.items) ? widget.props.items : [];
-  return items.map((item) => isRecord(item) ? stringify(item['text']) : '').join('\n');
+  const scroll = isRecord(widget.props.scroll) ? widget.props.scroll : undefined;
+  const viewportRows = boundedMeasureSize(
+    typeof scroll?.viewportRows === 'number' ? scroll.viewportRows : 0,
+    1,
+    200
+  );
+  const offset = typeof scroll?.offsetRow === 'number'
+    ? Math.max(0, Math.floor(scroll.offsetRow))
+    : Math.max(0, items.length - viewportRows);
+  return items
+    .slice(offset, offset + viewportRows + 1)
+    .map((item) => isRecord(item) ? stringify(item['text']) : '')
+    .join('\n');
 }
 
 function textAreaMeasureText(widget: TextAreaNode): string {
@@ -359,12 +371,12 @@ function tableColumnMeasureInputs(widget: TableNode, rows: readonly unknown[]): 
   });
 }
 
-function intrinsicBounds(bounds: Rect): Rect {
+function constrainedMeasureBounds(bounds: Rect): Rect {
   return {
     row: bounds.row,
     column: bounds.column,
-    width: Math.max(bounds.width, 1_000),
-    height: Math.max(bounds.height, 1_000)
+    width: Math.max(1, bounds.width),
+    height: Math.max(1, bounds.height)
   };
 }
 

@@ -46,11 +46,25 @@ test('disposing a Node host unreferences its input stream', async () => {
   };
   const host = createNodeTerminalHost({
     stdin: stream,
-    stdout: { isTTY: true, columns: 80, rows: 24, write() {} },
-    stderr: { isTTY: true, columns: 80, rows: 24, write() {} }
+    stdout: immediateNodeOutput(),
+    stderr: immediateNodeOutput()
   });
 
   await host.dispose?.();
 
   assert.equal(unreferenced, true);
 });
+
+function immediateNodeOutput() {
+  return {
+    isTTY: true,
+    columns: 80,
+    rows: 24,
+    write(_chunk, callback) {
+      callback();
+      return true;
+    },
+    once() {},
+    off() {}
+  };
+}

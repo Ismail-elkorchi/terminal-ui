@@ -353,7 +353,7 @@ test('custom composites arrange opaque children while preserving interaction and
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
-  const runtime = createTuiRuntime({ app, host: harness.host, initialFocusPath: ['custom-actions', 'save'] });
+  const runtime = createTuiRuntime({ app, host: harness.host, initialFocus: { kind: 'path', path: ['custom-actions', 'save'] } });
 
   await runtime.start();
   await runtime.handleInput({

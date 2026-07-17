@@ -77,5 +77,37 @@ test('animationSource maps frames from fps to clock-driven intervals', async () 
   await waitUntil(() => runtime.state()?.frames.length === 1);
   await runtime.dispose();
 
-  assert.deepEqual(runtime.state()?.frames, [0]);
+  assert.deepEqual(runtime.state()?.frames, [{
+    frameIndex: 0,
+    targetTime: 50,
+    elapsed: 50,
+    delta: 50,
+    droppedFrames: 0
+  }]);
+});
+
+test('animationSource coalesces overruns to the latest due frame', async () => {
+  const app = defineTui({
+    id: 'animation-overrun',
+    init: () => ({ frames: [] }),
+    update: (state, message) => ({ state: { frames: [...state.frames, message.frame] } }),
+    subscriptions: () => [animationSource('animation', 20, (frame) => ({ frame }))],
+    view: (state) => text(String(state.frames.length), { id: 'frame-count' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 12, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await Promise.resolve();
+  harness.clock.advance(180);
+  await waitUntil(() => runtime.state()?.frames.length === 1);
+  await runtime.dispose();
+
+  assert.deepEqual(runtime.state()?.frames, [{
+    frameIndex: 2,
+    targetTime: 150,
+    elapsed: 180,
+    delta: 180,
+    droppedFrames: 2
+  }]);
 });

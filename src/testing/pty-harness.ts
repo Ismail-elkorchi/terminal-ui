@@ -126,6 +126,7 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
   const transcript = createTranscriptRecorder({ source: 'test' });
   const host = createPtyTerminalHost({
     id: options.id ?? 'pty-harness',
+    env: { TERM: 'xterm-256color' },
     viewport: options.viewport ?? { columns: 80, rows: 24 },
     stdin: {
       source: input,

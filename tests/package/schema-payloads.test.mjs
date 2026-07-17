@@ -163,6 +163,7 @@ test('prompt result schema enforces submitted and aborted result shapes', async 
 test('schemas reject malformed nested public payloads', async () => {
   const { ajv, validators } = await loadSchemaValidators();
   const frameValidator = validators.get('tui-frame.schema.json');
+  const transcriptValidator = validators.get('interaction-transcript.schema.json');
 
   assert.equal(frameValidator({
     schemaVersion: 'terminal-ui.tui-frame.v1',
@@ -220,7 +221,7 @@ test('schemas reject malformed nested public payloads', async () => {
     rawInput: capabilitySupport('supported'),
     resize: capabilitySupport('supported'),
     hyperlinks: capabilitySupport('unavailable'),
-    enhancedKeyboard: capabilitySupport('unavailable'),
+    keyboardProtocol: capabilitySupport('unsupported'),
     bracketedPaste: capabilitySupport('supported'),
     mouseReporting: capabilitySupport('supported'),
     alternateScreen: capabilitySupport('supported'),
@@ -239,12 +240,58 @@ test('schemas reject malformed nested public payloads', async () => {
     severity: 'error',
     message: 'Unknown code should not satisfy the public diagnostic contract.'
   }), false);
+
+  const keyTranscript = (alternateCodePoints) => ({
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
+    id: 'key-transcript',
+    source: 'test',
+    steps: [{
+      kind: 'input',
+      event: {
+        kind: 'key',
+        key: 'a',
+        modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+        eventType: 'press',
+        location: 'standard',
+        alternateCodePoints
+      }
+    }],
+    diagnostics: [],
+    redactions: []
+  });
+
+  assert.equal(transcriptValidator(keyTranscript({ shifted: 65 })), true, ajv.errorsText(transcriptValidator.errors));
+  assert.equal(transcriptValidator(keyTranscript({ baseLayout: 97 })), true, ajv.errorsText(transcriptValidator.errors));
+  assert.equal(transcriptValidator(keyTranscript({})), false);
+
+  const transcriptWithKeyboardFlags = (flags) => ({
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
+    id: 'keyboard-flags',
+    source: 'test',
+    steps: [{
+      kind: 'restore',
+      checkpoint: {
+        rawInput: false,
+        alternateScreen: false,
+        bracketedPaste: false,
+        mouseReporting: 'none',
+        focusReporting: false,
+        keyboardProfile: { kind: 'kitty', flags },
+        cursorVisible: true
+      }
+    }],
+    diagnostics: [],
+    redactions: []
+  });
+
+  assert.equal(transcriptValidator(transcriptWithKeyboardFlags(24)), true, ajv.errorsText(transcriptValidator.errors));
+  assert.equal(transcriptValidator(transcriptWithKeyboardFlags(16)), false);
 });
 
-function capabilitySupport(status) {
+function capabilitySupport(support) {
   return {
-    status,
-    confidence: status === 'supported' ? 'assumed' : 'unavailable',
+    support,
+    availability: 'available',
     facts: [{ kind: 'host', name: 'test', value: true }],
     diagnostics: [],
     requiresSessionOperation: false

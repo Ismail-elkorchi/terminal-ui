@@ -1,10 +1,14 @@
 import { createStreamTerminalHost, runtimeInputSourceFromAsyncIterable } from './runtime-streams.ts';
-import type { BunTerminalHostOptions, RuntimeTerminalInputOptions, RuntimeTerminalOutputOptions, TerminalHost } from './types.ts';
+import { NodeTerminalOutput } from './node-output.ts';
+import type {
+  BunTerminalHostOptions,
+  NodeWritableTerminalStream,
+  RuntimeTerminalInputOptions,
+  TerminalHost
+} from './types.ts';
 
 interface BunLike {
   readonly stdin?: { readonly stream?: () => AsyncIterable<Uint8Array>; readonly isTTY?: boolean; setRawMode?: (enabled: boolean) => void };
-  readonly stdout?: { write?: (chunk: string | Uint8Array) => void | Promise<void>; readonly isTTY?: boolean; readonly columns?: number; readonly rows?: number };
-  readonly stderr?: { write?: (chunk: string | Uint8Array) => void | Promise<void>; readonly isTTY?: boolean; readonly columns?: number; readonly rows?: number };
 }
 
 export function createBunTerminalHost(options: BunTerminalHostOptions = {}): TerminalHost {
@@ -14,11 +18,22 @@ export function createBunTerminalHost(options: BunTerminalHostOptions = {}): Ter
     id: options.id ?? 'bun',
     runtime: 'bun',
     stdin: options.stdin ?? bunInputOptions(bun, processLike),
-    stdout: options.stdout ?? bunOutputOptions(bun?.stdout, processLike?.stdout),
-    stderr: options.stderr ?? bunOutputOptions(bun?.stderr, processLike?.stderr),
+    ...(options.subscribeSignals === undefined ? {} : { subscribeSignals: options.subscribeSignals }),
+    ...bunHostOutput('stdout', options.stdout, processLike?.stdout),
+    ...bunHostOutput('stderr', options.stderr, processLike?.stderr),
     ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
     ...optionalEnv(options.env ?? processLike?.env)
   });
+}
+
+function bunHostOutput(
+  name: 'stdout' | 'stderr',
+  configured: BunTerminalHostOptions[typeof name],
+  processStream: ProcessOutputLike | undefined
+): Partial<Pick<import('./runtime-streams.ts').StreamTerminalHostOptions, 'stdout' | 'stderr' | 'stdoutOutput' | 'stderrOutput'>> {
+  if (configured !== undefined) return { [name]: configured };
+  if (processStream === undefined) return {};
+  return { [`${name}Output`]: new NodeTerminalOutput(processStream) };
 }
 
 function bunInputOptions(
@@ -34,23 +49,6 @@ function bunInputOptions(
   };
 }
 
-function bunOutputOptions(
-  bunStream: BunLike['stdout'] | BunLike['stderr'] | undefined,
-  processStream: ProcessOutputLike | undefined
-): RuntimeTerminalOutputOptions {
-  const write = bunStream === undefined
-    ? processStream === undefined ? undefined : processStream.write.bind(processStream)
-    : bunStream.write;
-  const columns = bunStream?.columns ?? processStream?.columns;
-  const rows = bunStream?.rows ?? processStream?.rows;
-  return {
-    isTty: bunStream?.isTTY ?? processStream?.isTTY ?? false,
-    ...(write === undefined ? {} : { write }),
-    ...(columns === undefined ? {} : { columns }),
-    ...(rows === undefined ? {} : { rows })
-  };
-}
-
 interface ProcessLike {
   readonly stdin?: AsyncIterable<Uint8Array> & { readonly isTTY?: boolean; setRawMode?: (enabled: boolean) => void };
   readonly stdout?: ProcessOutputLike;
@@ -58,12 +56,7 @@ interface ProcessLike {
   readonly env?: Record<string, string>;
 }
 
-interface ProcessOutputLike {
-  readonly isTTY?: boolean;
-  readonly columns?: number;
-  readonly rows?: number;
-  write(chunk: string | Uint8Array): void | Promise<void>;
-}
+type ProcessOutputLike = NodeWritableTerminalStream;
 
 function bunGlobal(): BunLike | undefined {
   const value: unknown = Reflect.get(globalThis, 'Bun');

@@ -17,6 +17,7 @@ import {
   diagnostic } from '../../dist/diagnostics.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { ignoreMessage } from '../../dist/interaction/index.js';
+import { kittyKeyboardProfile } from '../../dist/protocol/index.js';
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import {
   assertTerminalRestored,
@@ -58,7 +59,7 @@ import {
   surface,
   viewport
 } from '../../dist/layout/index.js';
-import { waitUntil } from '../helpers/async.mjs';
+import { flushAsync, waitUntil } from '../helpers/async.mjs';
 
 test('runTui emits deterministic transcripts when enabled', async () => {
   const app = defineTui({
@@ -227,8 +228,9 @@ test('runTui restores the terminal after bounded non-cooperative effect cleanup'
   const host = createMemoryTerminalHost();
   host.input('\r\r');
   const running = runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
-  await waitUntil(() => effectStarted && exitHandlerStarted);
+  await waitUntil(() => effectStarted);
   host.clock.advance(5);
+  await waitUntil(() => exitHandlerStarted);
   const exit = await running;
 
   assert.equal(exit.status, 'error');
@@ -266,8 +268,9 @@ test('runTui restores the terminal after bounded non-cooperative source cleanup'
   const host = createMemoryTerminalHost();
   host.input('\r');
   const running = runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
-  await waitUntil(() => sourceStarted && exitHandlerStarted);
+  await waitUntil(() => sourceStarted);
   host.clock.advance(5);
+  await waitUntil(() => exitHandlerStarted);
   const exit = await running;
 
   assert.equal(exit.status, 'error');
@@ -665,7 +668,7 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
   const runtime = createTuiRuntime({
     app,
     host,
-    initialFocusPath: ['root', 'base', 'command']
+    initialFocus: { kind: 'path', path: ['root', 'base', 'command'] }
   });
 
   await runtime.start();
@@ -747,7 +750,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
   const runtime = createTuiRuntime({
     app,
     host,
-    initialFocusPath: ['root', 'base', 'command']
+    initialFocus: { kind: 'path', path: ['root', 'base', 'command'] }
   });
 
   await runtime.start();
@@ -972,7 +975,7 @@ test('runTui exposes setup diagnostics to app views', async () => {
       rawInput: 'disabled',
       bracketedPaste: 'disabled',
       focusReporting: 'disabled',
-      keyboard: { profile: 'legacy', requirement: 'disabled' },
+      keyboard: { profile: { kind: 'legacy' }, requirement: 'disabled' },
       cursorVisibility: { state: 'hide', requirement: 'disabled' },
       mouseReporting: { mode: 'none', requirement: 'disabled' }
     }
@@ -986,6 +989,47 @@ test('runTui exposes setup diagnostics to app views', async () => {
 
   assert.equal(exit.status, 'completed');
   assert.equal(exit.diagnostics.some((item) => item.code === 'HOST_PROTOCOL_SKIPPED'), true);
+});
+
+test('runTui decodes legacy input when optional Kitty setup was not applied', async () => {
+  const app = defineTui({
+    id: 'skipped-kitty-decoding',
+    init: () => ({ decodedAsKitty: false }),
+    inputBindings: [{
+      id: 'kitty-a',
+      triggers: [{ kind: 'key', key: 'a' }],
+      message: { decodedAsKitty: true }
+    }],
+    update: (_state, message) => ({ state: message }),
+    view: (state) => text(state.decodedAsKitty ? 'kitty' : 'legacy')
+  });
+  const harness = createTerminalHarness({
+    viewport: { columns: 20, rows: 3 },
+    capabilities: { probes: { keyboardProtocol: true } }
+  });
+  const write = harness.host.write.bind(harness.host);
+  harness.host.write = async (output) => {
+    if (output.text === '\u001B[>1u') throw new Error('keyboard setup unavailable');
+    await write(output);
+  };
+  harness.host.input('\u001B[97u');
+  harness.host.stdin.close();
+
+  const exit = await runTui(app, harness.host, {
+    sessionPolicy: {
+      alternateScreen: 'disabled',
+      rawInput: 'disabled',
+      bracketedPaste: 'disabled',
+      focusReporting: 'disabled',
+      keyboard: { profile: kittyKeyboardProfile(1), requirement: 'optional' },
+      cursorVisibility: { state: 'unchanged', requirement: 'disabled' },
+      mouseReporting: { mode: 'none', requirement: 'disabled' }
+    }
+  });
+
+  assert.equal(exit.status, 'completed');
+  assert.deepEqual(exit.state, { decodedAsKitty: false });
+  assert.equal(exit.diagnostics.some((item) => item.data?.operation === 'keyboardProfile'), true);
 });
 
 test('runTui restores terminal protocols on successful exit', async () => {
@@ -1008,7 +1052,7 @@ test('runTui restores terminal protocols on successful exit', async () => {
     bracketedPaste: false,
     mouseReporting: 'none',
     focusReporting: false,
-    enhancedKeyboard: false,
+    keyboardProfile: { kind: 'legacy' },
     cursorVisible: true
   });
   assert.match(harness.output(), /\u001B\[\?1049h/);
@@ -1097,8 +1141,12 @@ test('runTui lets apps own escape and ctrlC key bindings', async () => {
     })
   });
   const escapeHarness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const escapeRunning = runTui(app, escapeHarness.host, { input: { escapeDelayMs: 1 } });
+  await waitUntil(() => escapeHarness.frames().length === 1);
   escapeHarness.host.input('\u001B');
-  const escape = await runTui(app, escapeHarness.host);
+  await flushAsync();
+  escapeHarness.host.clock.advance(1);
+  const escape = await escapeRunning;
 
   const ctrlCHarness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
   ctrlCHarness.host.input('\u0003');
@@ -1140,6 +1188,61 @@ test('runTui re-renders when the host emits resize signals', async () => {
   assert.equal(harness.diffs()[1].fullRewrite, true);
   assert.match(renderFramePlain(harness.frames()[1]), /column…/);
   assert.equal(harness.frames()[1].accessibility.root.value, 'columns:12');
+  assert.equal(harness.restores().length, 1);
+});
+
+test('runTui coalesces resize storms to one active and one latest commit', async () => {
+  const app = defineTui({
+    id: 'run-loop-resize-storm',
+    init: () => ({ done: false }),
+    update: (_state, message) => ({ state: { done: message.done }, exit: message.done ? {} : undefined }),
+    view: (_state, context) => textInput({
+      id: 'resize-storm-field',
+      presentation: { value: `columns:${context.viewport.columns}`, cursor: 0 },
+      onSubmit: () => ({ done: true })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const signalSubscribed = deferred();
+  const originalSubscribe = harness.host.signals.subscribe.bind(harness.host.signals);
+  harness.host.signals.subscribe = (listener) => {
+    const unsubscribe = originalSubscribe(listener);
+    signalSubscribed.release();
+    return unsubscribe;
+  };
+  const originalWrite = harness.host.write;
+  const resizeStarted = deferred();
+  const releaseResize = deferred();
+  let blocked = false;
+  harness.host.write = async (output) => {
+    if (!blocked && harness.host.getViewport().columns === 21) {
+      blocked = true;
+      resizeStarted.release();
+      await releaseResize.promise;
+    }
+    await originalWrite(output);
+  };
+  const running = runTui(app, harness.host);
+
+  await Promise.all([
+    waitUntil(() => harness.frames().length === 1),
+    signalSubscribed.promise
+  ]);
+  await harness.host.viewportControl?.setViewport({ columns: 21, rows: 3 });
+  harness.host.signals.emit('resize');
+  await resizeStarted.promise;
+  for (const columns of [22, 23, 24]) {
+    await harness.host.viewportControl?.setViewport({ columns, rows: 3 });
+    harness.host.signals.emit('resize');
+  }
+  releaseResize.release();
+  await waitUntil(() => harness.frames().at(-1)?.width === 24);
+  const resizeFrameWidths = harness.frames().map((frame) => frame.width);
+  harness.host.input('\r');
+  const exit = await running;
+
+  assert.equal(exit.status, 'completed');
+  assert.deepEqual(resizeFrameWidths, [20, 21, 24]);
   assert.equal(harness.restores().length, 1);
 });
 
@@ -1412,6 +1515,58 @@ test('TUI runtime cancels subscription sources when they leave the definition', 
   assert.match(renderFramePlain(runtime.frame()), /disabled/);
 });
 
+test('retired subscription output already queued behind its retirement is ignored', async () => {
+  const sourceGate = deferred();
+  let sourceStarted = false;
+  const app = defineTui({
+    id: 'retired-queued-source-output',
+    init: () => ({ enabled: true, phase: 'idle', staleMessages: 0 }),
+    update: (state, message) => {
+      if (message.kind === 'block') return { state: { ...state, phase: 'blocking' } };
+      if (message.kind === 'disable') return { state: { ...state, enabled: false, phase: 'disabled' } };
+      return { state: { ...state, staleMessages: state.staleMessages + 1 } };
+    },
+    subscriptions: (state) => state.enabled ? [{
+      id: 'retired-source',
+      generation: 0,
+      delivery: 'sequential',
+      async *messages() {
+        sourceStarted = true;
+        await sourceGate.promise;
+        yield { kind: 'stale-source-output' };
+      }
+    }] : [],
+    view: (state) => text(`${state.phase}:${String(state.staleMessages)}`, { id: 'source-admission-state' })
+  });
+  const host = createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host });
+  await runtime.start();
+  await waitUntil(() => sourceStarted);
+
+  const commitGate = deferred();
+  let commitBlocked = false;
+  const write = host.write.bind(host);
+  host.write = async (output) => {
+    if (!commitBlocked) {
+      commitBlocked = true;
+      await commitGate.promise;
+    }
+    await write(output);
+  };
+  const blocker = runtime.dispatch({ kind: 'block' });
+  await waitUntil(() => commitBlocked);
+  const retirement = runtime.dispatch({ kind: 'disable' });
+  sourceGate.release();
+  await flushAsync();
+  commitGate.release();
+  await Promise.all([blocker, retirement]);
+  await flushAsync();
+
+  assert.deepEqual(runtime.state(), { enabled: false, phase: 'disabled', staleMessages: 0 });
+  assert.match(renderFramePlain(runtime.frame()), /disabled:0/u);
+  await runtime.dispose();
+});
+
 test('TUI effects do not block later input or external dispatches', async () => {
   let releaseEffect;
   const gate = new Promise((resolve) => {
@@ -1452,6 +1607,90 @@ test('TUI effects do not block later input or external dispatches', async () => 
   releaseEffect();
   await waitUntil(() => runtime.state()?.phase === 'done');
   assert.deepEqual(runtime.state(), { count: 1, phase: 'done' });
+});
+
+test('replaced effect output and recovery output already queued behind replacement are ignored', async () => {
+  const outputGate = deferred();
+  const failureGate = deferred();
+  let effectsStarted = 0;
+  const app = defineTui({
+    id: 'replaced-queued-effect-output',
+    init: () => ({ phase: 'idle', staleOutput: false, staleRecovery: false }),
+    update: (state, message) => {
+      if (message.kind === 'start') {
+        return {
+          state: { ...state, phase: 'running' },
+          effects: [
+            {
+              id: 'replace-output',
+              concurrency: 'replace',
+              async run() {
+                effectsStarted += 1;
+                await outputGate.promise;
+                return { kind: 'message', message: { kind: 'stale-output' } };
+              }
+            },
+            {
+              id: 'replace-error',
+              concurrency: 'replace',
+              async run() {
+                effectsStarted += 1;
+                await failureGate.promise;
+                throw new Error('retired effect failure');
+              },
+              onError: () => ({ kind: 'message', message: { kind: 'stale-recovery' } })
+            }
+          ]
+        };
+      }
+      if (message.kind === 'replace') {
+        return {
+          state: { ...state, phase: 'replaced' },
+          effects: [
+            { id: 'replace-output', concurrency: 'replace', run: async () => ({ kind: 'none' }) },
+            { id: 'replace-error', concurrency: 'replace', run: async () => ({ kind: 'none' }) }
+          ]
+        };
+      }
+      if (message.kind === 'stale-output') return { state: { ...state, staleOutput: true } };
+      if (message.kind === 'stale-recovery') return { state: { ...state, staleRecovery: true } };
+      return { state: { ...state, phase: 'blocking' } };
+    },
+    view: (state) => text(
+      `${state.phase}:${String(state.staleOutput)}:${String(state.staleRecovery)}`,
+      { id: 'effect-admission-state' }
+    )
+  });
+  const host = createMemoryTerminalHost({ viewport: { columns: 32, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host });
+  await runtime.start();
+  await runtime.dispatch({ kind: 'start' });
+  await waitUntil(() => effectsStarted === 2);
+
+  const commitGate = deferred();
+  let commitBlocked = false;
+  const write = host.write.bind(host);
+  host.write = async (output) => {
+    if (!commitBlocked) {
+      commitBlocked = true;
+      await commitGate.promise;
+    }
+    await write(output);
+  };
+  const blocker = runtime.dispatch({ kind: 'block' });
+  await waitUntil(() => commitBlocked);
+  const replacement = runtime.dispatch({ kind: 'replace' });
+  outputGate.release();
+  failureGate.release();
+  await flushAsync();
+  commitGate.release();
+  await Promise.all([blocker, replacement]);
+  await flushAsync();
+
+  assert.deepEqual(runtime.state(), { phase: 'replaced', staleOutput: false, staleRecovery: false });
+  assert.equal(runtime.diagnostics().some((item) => item.code === 'TUI_EFFECT_FAILED'
+    && item.target === 'replace-error'), false);
+  await runtime.dispose();
 });
 
 test('multi-message effect output commits one atomic state transition', async () => {
@@ -1799,7 +2038,7 @@ test('TUI runtime routes default app key bindings after focused widgets', async 
   const app = defineTui({
     id: 'app-key-binding-after-focus',
     init: () => ({ active: 'open' }),
-    keyBindings: [
+    inputBindings: [
       { id: 'close', triggers: [{ kind: 'key', key: 'escape' }], message: { active: 'closed' } }
     ],
     update: (_state, message) => ({ state: { active: message.active } }),
@@ -1827,7 +2066,7 @@ test('TUI runtime lets focused widgets override after-focus app bindings', async
   const app = defineTui({
     id: 'app-key-binding-focused-wins',
     init: () => ({ active: 'open' }),
-    keyBindings: [
+    inputBindings: [
       { id: 'global-close', triggers: [{ kind: 'key', key: 'escape' }], message: { active: 'global' } }
     ],
     update: (_state, message) => ({ state: { active: message.active } }),
@@ -1858,7 +2097,7 @@ test('TUI runtime lets before-focus app bindings intentionally preempt widgets',
   const app = defineTui({
     id: 'app-key-binding-before-focus',
     init: () => ({ active: 'open' }),
-    keyBindings: [
+    inputBindings: [
       { id: 'priority-enter', triggers: [{ kind: 'key', key: 'enter' }], phase: 'beforeFocus', message: { active: 'global' } }
     ],
     update: (_state, message) => ({ state: { active: message.active } }),
@@ -1882,7 +2121,7 @@ test('TUI runtime does not steal printable text for default app bindings', async
   const app = defineTui({
     id: 'app-key-binding-printable-after-focus',
     init: () => ({ value: '' }),
-    keyBindings: [
+    inputBindings: [
       { id: 'quit', triggers: [{ kind: 'text', text: 'q' }], message: { value: 'quit' } }
     ],
     update: (state, message) => ({ state: { value: `${state.value}${message.value}` } }),
@@ -1902,11 +2141,107 @@ test('TUI runtime does not steal printable text for default app bindings', async
   assert.match(renderFramePlain(runtime.frame()), /q/);
 });
 
+test('TUI runtime routes committed text before after-focus app bindings', async () => {
+  const app = defineTui({
+    id: 'committed-text-before-app-binding',
+    init: () => ({ value: '' }),
+    inputBindings: [{
+      id: 'global-space',
+      triggers: [{ kind: 'text', text: ' ' }],
+      message: { value: 'global' }
+    }],
+    update: (state, message) => ({ state: { value: `${state.value}${message.value}` } }),
+    view: (state) => textInput({
+      id: 'field',
+      presentation: { value: state.value, cursor: state.value.length },
+      onAction: ({ operation }) => ({ value: operation.kind === 'insert' ? operation.text : '' })
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'space',
+    committedText: ' ',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+
+  assert.deepEqual(runtime.state(), { value: ' ' });
+});
+
+test('TUI runtime routes committed text through app text bindings', async () => {
+  const app = defineTui({
+    id: 'committed-text-app-binding',
+    init: () => ({ value: 'idle' }),
+    inputBindings: [{
+      id: 'quit',
+      triggers: [{ kind: 'text', text: 'q' }],
+      message: { value: 'quit' }
+    }],
+    update: (_state, message) => ({ state: message }),
+    view: (state) => textInput({
+      id: 'field',
+      presentation: { value: state.value, cursor: 0 }
+    })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } })
+  });
+
+  await runtime.start();
+  const handled = await runtime.handleInput({
+    kind: 'key',
+    key: 'q',
+    committedText: 'q',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+
+  assert.equal(handled.handled, true);
+  assert.deepEqual(runtime.state(), { value: 'quit' });
+});
+
+test('TUI runtime routes committed text through component text key bindings', async () => {
+  const app = defineTui({
+    id: 'committed-text-component-binding',
+    init: () => ({ value: 'idle' }),
+    update: (_state, message) => ({ state: message }),
+    view: (state) => textInput({
+      id: 'field',
+      presentation: { value: state.value, cursor: 0 },
+      keys: { text: { q: () => ({ value: 'component' }) } }
+    })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } })
+  });
+
+  await runtime.start();
+  const handled = await runtime.handleInput({
+    kind: 'key',
+    key: 'q',
+    committedText: 'q',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+
+  assert.equal(handled.handled, true);
+  assert.deepEqual(runtime.state(), { value: 'component' });
+});
+
 test('TUI runtime evaluates app key binding predicates and dynamic messages', async () => {
   const app = defineTui({
     id: 'app-key-binding-dynamic',
     init: () => ({ active: 'blocked', enabled: false }),
-    keyBindings: [
+    inputBindings: [
       {
         id: 'dynamic-help',
         triggers: [{ kind: 'key', key: 'q', modifiers: { ctrl: true } }],
@@ -1938,7 +2273,7 @@ test('TUI runtime keeps scanning app key bindings when earlier matches decline',
   const app = defineTui({
     id: 'app-key-binding-declined-fallback',
     init: () => ({ active: 'open' }),
-    keyBindings: [
+    inputBindings: [
       {
         id: 'contextual-help',
         triggers: [{ kind: 'key', key: 'q', modifiers: { ctrl: true } }],
@@ -2109,7 +2444,7 @@ test('runTui accepts an initial focus path', async () => {
   const host = createMemoryTerminalHost({ viewport: { columns: 20, rows: 4 } });
   host.input('\r');
 
-  const exit = await runTui(app, host, { initialFocusPath: ['column:0', 'second'] });
+  const exit = await runTui(app, host, { initialFocus: { kind: 'path', path: ['column:0', 'second'] } });
 
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state, { active: 'second' });
@@ -2119,7 +2454,7 @@ test('runTui accepts a state-derived theme', async () => {
   const app = defineTui({
     id: 'run-state-theme',
     init: () => ({ active: false }),
-    keyBindings: [{ id: 'activate-theme', triggers: [{ kind: 'key', key: 'enter' }], message: { active: true } }],
+    inputBindings: [{ id: 'activate-theme', triggers: [{ kind: 'key', key: 'enter' }], message: { active: true } }],
     update: () => ({ state: { active: true }, exit: {} }),
     view: () => richText({
       id: 'theme-label',
@@ -2142,8 +2477,8 @@ test('runTui accepts a state-derived theme', async () => {
   });
 
   assert.equal(exit.status, 'completed');
-  assert.match(host.output(), /\u001B\[38;5;1m/u);
-  assert.match(host.output(), /\u001B\[38;5;2m/u);
+  assert.match(host.output(), /\u001B\[31m/u);
+  assert.match(host.output(), /\u001B\[32m/u);
 });
 
 test('TUI runtime restores a serialized focus path when it still exists', async () => {
@@ -2166,7 +2501,7 @@ test('TUI runtime restores a serialized focus path when it still exists', async 
   const restoredRuntime = createTuiRuntime({
     app,
     host: restoredHarness.host,
-    initialFocusPath: restoredPath
+    initialFocus: { kind: 'path', path: restoredPath }
   });
   await restoredRuntime.start();
   const committed = await restoredRuntime.handleInput({
@@ -2197,7 +2532,7 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
   const runtime = createTuiRuntime({
     app,
     host: harness.host,
-    initialFocusPath: ['column:0', 'missing']
+    initialFocus: { kind: 'path', path: ['column:0', 'missing'] }
   });
 
   await runtime.start();
@@ -2212,6 +2547,32 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
   assert.deepEqual(runtime.frame().focusPath, ['column:0', 'first']);
   assert.equal(committed.handled, true);
   assert.deepEqual(runtime.state(), { active: 'first' });
+});
+
+test('ambiguous initial element focus is diagnosed instead of selecting an arbitrary match', async () => {
+  const app = defineTui({
+    id: 'ambiguous-initial-focus',
+    init: () => ({ active: 'idle' }),
+    update: (_state, message) => ({ state: { active: message.active } }),
+    view: (state) => column([
+      textInput({ id: 'duplicate', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'first' }) } }),
+      textInput({ id: 'duplicate', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
+    ])
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const runtime = createTuiRuntime({
+    app,
+    host: harness.host,
+    initialFocus: { kind: 'element', elementId: 'duplicate' }
+  });
+
+  await runtime.start();
+
+  assert.equal(runtime.diagnostics().some((item) => item.code === 'TUI_FOCUS_SELECTION_INVALID'
+    && item.data?.reason === 'ambiguous'
+    && item.data.paths.length === 2), true);
+  assert.deepEqual(runtime.frame().focusPath, ['column:0', 'duplicate']);
+  await runtime.dispose();
 });
 
 test('TUI runtime traverses focus backward with shifted tab', async () => {
@@ -2379,7 +2740,7 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
             id: 'lifecycle-dialog',
             modal: true,
             focusPolicy: {
-              initialFocus: { kind: 'element', id: 'preferred-dialog-field' },
+              initialFocus: { kind: 'element', elementId: 'preferred-dialog-field' },
               returnFocus: 'restore'
             },
             dismissal: {
@@ -3702,10 +4063,10 @@ test('TUI runtime flushes pending wheel input before keyboard input', async () =
     update: (state, message) => message.kind === 'scroll'
       ? { state: { ...state, scroll: applyScrollEvent(state.scroll, message.event) } }
       : { state: { ...state, keys: state.keys + 1 } },
-    keyBindings: [{
+    inputBindings: [{
       id: 'count-key',
       phase: 'beforeFocus',
-      triggers: [{ kind: 'key', key: 'escape' }],
+      triggers: [{ kind: 'key', key: 'enter' }],
       message: { kind: 'key' }
     }],
     view: (state) => textArea({
@@ -3722,7 +4083,7 @@ test('TUI runtime flushes pending wheel input before keyboard input', async () =
   await runtime.handleInputChunk({
     data: `\u001B[<65;${String(contentTarget.bounds.column)};${String(contentTarget.bounds.row)}M`
   });
-  const key = await runtime.handleInputChunk({ data: '\u001B' });
+  const key = await runtime.handleInputChunk({ data: '\r' });
 
   assert.equal(key.results.length, 2);
   assert.equal(key.results.every((result) => result.handled), true);

@@ -122,7 +122,7 @@ export const btopMonitorApp = defineTui<MonitorState, MonitorMessage>({
   id: 'btop-monitor',
   init: () => initialState(),
   subscriptions: () => [intervalSource('btop-tick', 1000, (tick) => ({ kind: 'tick', tick }))],
-  keyBindings: [
+  inputBindings: [
     {
       id: 'exit',
       triggers: [{ kind: 'text', text: 'q' }, { kind: 'key', key: 'c', modifiers: { ctrl: true } }],
@@ -601,7 +601,7 @@ function inlineText(
 
 export async function runScriptedBtopMonitor() {
   const host = createMemoryTerminalHost({ viewport: { columns: 160, rows: 42 } });
-  const runtime = createTuiRuntime({ app: btopMonitorApp, host, initialFocusPath: commandFocusPath });
+  const runtime = createTuiRuntime({ app: btopMonitorApp, host, initialFocus: { kind: 'path', path: commandFocusPath } });
   try {
     await runtime.start();
     await runtime.dispatch({ kind: 'tick', tick: 3 });
@@ -710,7 +710,7 @@ function keyEvent(key: KeyEvent['key']): KeyEvent {
 if (process.argv[1] === new URL(import.meta.url).pathname) {
   if (process.stdin.isTTY && process.stdout.isTTY && !process.argv.includes('--scripted')) {
     const exit = await runTui(btopMonitorApp, createTerminalHost({ runtime: 'node' }), {
-      initialFocusPath: commandFocusPath
+      initialFocus: { kind: 'path', path: commandFocusPath }
     });
     if (exit.status !== 'completed') {
       process.exitCode = 1;

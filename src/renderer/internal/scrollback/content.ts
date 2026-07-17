@@ -7,10 +7,6 @@ export interface ScrollbackBodySelection {
   readonly end: number;
 }
 
-export function scrollbackItemsFromUnknown(value: unknown): readonly ScrollbackItem[] {
-  return Array.isArray(value) ? value.filter(isScrollbackItem) : [];
-}
-
 export function scrollbackDisplayText(item: ScrollbackItem): string {
   const text = sanitizeTerminalText(item.text).text;
   const prefix = [
@@ -73,15 +69,6 @@ export function scrollbackItemLevel(item: ScrollbackItem): ScrollbackItem['level
 
 function scrollbackMetadataText(item: ScrollbackItem): readonly string[] {
   return scrollbackMetadataEntries(item.metadata).map(([key, value]) => `${key}=${value}`);
-}
-
-function isScrollbackItem(value: unknown): value is ScrollbackItem {
-  return typeof value === 'object'
-    && value !== null
-    && 'id' in value
-    && 'text' in value
-    && typeof value.id === 'string'
-    && typeof value.text === 'string';
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

@@ -10,7 +10,7 @@ export const defaultTuiCleanupPolicy: TuiCleanupPolicy = {
 export interface TuiCleanupTask {
   readonly owner: string;
   readonly phase: 'runtime' | 'onExit';
-  readonly completion: Promise<void>;
+  readonly run: () => Promise<void>;
 }
 
 export async function settleTuiCleanup(
@@ -18,42 +18,56 @@ export async function settleTuiCleanup(
   tasks: readonly TuiCleanupTask[],
   policy: TuiCleanupPolicy = defaultTuiCleanupPolicy
 ): Promise<readonly TerminalDiagnostic[]> {
-  assertCleanupPolicy(policy);
   if (tasks.length === 0) return [];
-  const pending = new Set(tasks);
   const diagnostics: TerminalDiagnostic[] = [];
-  const settlements = tasks.map(async (task) => {
-    try {
-      await task.completion;
-    } catch (cause) {
-      diagnostics.push(diagnostic('TUI_CLEANUP_FAILED', `TUI cleanup failed: ${task.phase}.`, {
-        target: task.owner,
-        cause,
-        data: { phase: task.phase }
-      }));
-    } finally {
-      pending.delete(task);
-    }
-  });
-  const allSettled = Promise.all(settlements).then(() => 'settled' as const);
-  const timeoutController = new AbortController();
-  const timeout = clock.sleep(policy.gracePeriodMs, timeoutController.signal).then(() => 'timeout' as const);
-  const outcome = await Promise.race([allSettled, timeout]);
-  if (outcome === 'settled') {
-    timeoutController.abort();
-    return diagnostics;
+  for (const task of tasks) {
+    diagnostics.push(...await settleCleanupTask(clock, task, policy));
   }
-  for (const task of pending) {
+  return Object.freeze([...diagnostics]);
+}
+
+async function settleCleanupTask(
+  clock: TerminalClock,
+  task: TuiCleanupTask,
+  policy: TuiCleanupPolicy
+): Promise<readonly TerminalDiagnostic[]> {
+  const diagnostics: TerminalDiagnostic[] = [];
+  let acceptingDiagnostics = true;
+  const completion = Promise.resolve()
+    .then(task.run)
+    .then(() => 'settled' as const)
+    .catch((cause: unknown) => {
+      if (acceptingDiagnostics) {
+        diagnostics.push(diagnostic('TUI_CLEANUP_FAILED', `TUI cleanup failed: ${task.phase}.`, {
+          target: task.owner,
+          cause,
+          data: { phase: task.phase }
+        }));
+      }
+      return 'settled' as const;
+    });
+  const timeoutController = new AbortController();
+  const timeout = Promise.resolve()
+    .then(() => clock.sleep(policy.gracePeriodMs, timeoutController.signal))
+    .then(() => 'timeout' as const)
+    .catch((cause: unknown) => {
+      if (acceptingDiagnostics) {
+        diagnostics.push(diagnostic('TUI_CLEANUP_FAILED', 'TUI cleanup clock failed.', {
+          target: task.owner,
+          cause,
+          data: { phase: 'clock', cleanupPhase: task.phase }
+        }));
+      }
+      return 'clock_failed' as const;
+    });
+  const outcome = await Promise.race([completion, timeout]);
+  if (outcome === 'settled') timeoutController.abort();
+  if (outcome === 'timeout') {
     diagnostics.push(diagnostic('TUI_CLEANUP_TIMEOUT', `TUI cleanup exceeded its grace period: ${task.phase}.`, {
       target: task.owner,
       data: { phase: task.phase, gracePeriodMs: policy.gracePeriodMs }
     }));
   }
+  acceptingDiagnostics = false;
   return diagnostics;
-}
-
-function assertCleanupPolicy(policy: TuiCleanupPolicy): void {
-  if (!Number.isFinite(policy.gracePeriodMs) || policy.gracePeriodMs < 0) {
-    throw new RangeError('TUI cleanup gracePeriodMs must be a non-negative finite number.');
-  }
 }

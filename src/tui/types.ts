@@ -6,7 +6,7 @@ import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
 import type { InteractionTranscript, TranscriptPolicy, TranscriptRecorder } from '../transcript/index.ts';
 import type { Element } from '../element/index.ts';
 import type { Frame } from '../renderer/internal/frame.ts';
-import type { FocusPath } from '../interaction/focus.ts';
+import type { FocusPath, InitialFocusSelector } from '../interaction/focus.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
 import type { TuiMessageSource } from '../runtime-model/message-source.ts';
 import type { MessageResolution } from '../interaction/message.ts';
@@ -16,7 +16,7 @@ export interface TuiDefinition<TState, TMessage> {
   readonly init: TuiInit<TState>;
   readonly update: TuiUpdate<TState, TMessage>;
   readonly view: TuiView<TState, TMessage>;
-  readonly keyBindings?: readonly TuiKeyBinding<TState, TMessage>[];
+  readonly inputBindings?: readonly TuiInputBinding<TState, TMessage>[];
   readonly subscriptions?: TuiSubscriptions<TState, TMessage>;
   readonly onExit?: TuiExitHandler<TState>;
   readonly transcript?: TranscriptPolicy;
@@ -37,31 +37,31 @@ export type TuiUpdate<TState, TMessage> = (
 ) => TuiUpdateResult<TState, TMessage>;
 export type TuiView<TState, TMessage> = (state: TState, context: TuiContext) => Element<TMessage>;
 
-export type TuiKeyBindingPhase = 'beforeFocus' | 'afterFocus';
+export type TuiInputBindingPhase = 'beforeFocus' | 'afterFocus';
 
-export interface TuiKeyBindingContext<TState> {
+export interface TuiInputBindingContext<TState> {
   readonly state: TState;
   readonly event: InputEvent;
   readonly trigger: InputTrigger;
   readonly focusPath?: FocusPath;
 }
 
-interface TuiKeyBindingBase<TState> {
+interface TuiInputBindingBase<TState> {
   readonly id: string;
   readonly triggers: readonly InputTrigger[];
-  readonly phase?: TuiKeyBindingPhase;
+  readonly phase?: TuiInputBindingPhase;
   readonly label?: string;
-  readonly enabled?: boolean | ((context: TuiKeyBindingContext<TState>) => boolean);
+  readonly enabled?: boolean | ((context: TuiInputBindingContext<TState>) => boolean);
 }
 
-export type TuiKeyBinding<TState, TMessage> =
-  | TuiKeyBindingBase<TState> & {
+export type TuiInputBinding<TState, TMessage> =
+  | TuiInputBindingBase<TState> & {
       readonly message: TMessage;
       readonly toMessage?: never;
     }
-  | TuiKeyBindingBase<TState> & {
+  | TuiInputBindingBase<TState> & {
       readonly message?: never;
-      readonly toMessage: (context: TuiKeyBindingContext<TState>) => MessageResolution<TMessage>;
+      readonly toMessage: (context: TuiInputBindingContext<TState>) => MessageResolution<TMessage>;
     };
 
 export interface TuiUpdateResult<TState, TMessage> {
@@ -71,7 +71,6 @@ export interface TuiUpdateResult<TState, TMessage> {
 }
 
 export interface TuiContext {
-  readonly host: TerminalHost;
   readonly viewport: TerminalViewport;
   readonly capabilities: TerminalCapabilityProfile;
   readonly diagnostics: readonly TerminalDiagnostic[];
@@ -188,7 +187,7 @@ export type TuiExit<TState> =
 export interface TuiRuntimeOptions<TState, TMessage> {
   readonly app: TuiApp<TState, TMessage>;
   readonly host: TerminalHost;
-  readonly initialFocusPath?: FocusPath;
+  readonly initialFocus?: InitialFocusSelector;
   readonly theme?: TuiTheme<TState>;
   readonly transcript?: TranscriptRecorder;
   readonly input?: InputPipelineOptions;
@@ -197,10 +196,15 @@ export interface TuiRuntimeOptions<TState, TMessage> {
 }
 
 export interface TuiRunOptions<TState = unknown> {
-  readonly initialFocusPath?: FocusPath;
+  readonly initialFocus?: InitialFocusSelector;
   readonly theme?: TuiTheme<TState>;
   readonly sessionPolicy?: SessionProtocolPolicy;
   readonly cleanup?: TuiCleanupPolicy;
+  readonly input?: TuiRunInputPolicy;
+}
+
+export interface TuiRunInputPolicy {
+  readonly escapeDelayMs?: number;
 }
 
 export interface TuiCleanupPolicy {
