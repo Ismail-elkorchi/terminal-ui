@@ -10,12 +10,14 @@ import {
 import {
   createFrameBuffer,
   renderFramePlain,
+  renderElementFrame
+} from '../../dist/renderer/index.js';
+import {
   renderScrollbars,
-  renderElementFrame,
   scrollbarInteractionReducer,
   scrollbarLayout,
   scrollbarVisualStateForTarget
-} from '../../dist/renderer/index.js';
+} from '../../dist/testing/index.js';
 import {
   menu,
   palette,
@@ -293,10 +295,10 @@ test('menu scrollbar windows menu rows instead of drawing decorative chrome only
     presentation: {
       activePath: ['save'],
       items: [
-        { id: 'new', label: 'New' },
-        { id: 'open', label: 'Open' },
-        { id: 'save', label: 'Save' },
-        { id: 'quit', label: 'Quit' }
+        { kind: 'action', id: 'new', label: 'New' },
+        { kind: 'action', id: 'open', label: 'Open' },
+        { kind: 'action', id: 'save', label: 'Save' },
+        { kind: 'action', id: 'quit', label: 'Quit' }
       ],
       scroll: createScrollState({ offsetRow: 2, contentRows: 4, viewportRows: 2 })
     },

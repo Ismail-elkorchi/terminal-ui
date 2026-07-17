@@ -5,6 +5,7 @@ import {
   visibleWindowFromScroll
 } from './scroll.ts';
 import type { ScrollState, ScrollVisibleWindow } from '../interaction/scroll.ts';
+import type { CollectionProjection, CollectionRecord } from '../ui-model/collection.ts';
 
 export interface DataWindowInput {
   readonly totalRows: number;
@@ -67,6 +68,44 @@ export function rowWindow<TValue>(
 ): DataWindow & { readonly rows: readonly TValue[] } {
   const window = dataWindow({ ...input, totalRows: rows.length });
   return { ...window, rows: rows.slice(window.start, window.end) };
+}
+
+export function projectedRowWindow<TRecord extends CollectionRecord>(
+  projection: CollectionProjection<TRecord>,
+  input: Omit<DataWindowInput, 'totalRows'>
+): DataWindow & { readonly rows: readonly TRecord[] } {
+  if (projection.kind === 'complete') return rowWindow(projection.records, input);
+  const viewportRows = nonNegativeInteger(input.viewportRows);
+  const contentColumns = nonNegativeInteger(input.contentColumns ?? input.scroll?.contentColumns ?? input.viewportColumns ?? 0);
+  const viewportColumns = nonNegativeInteger(input.viewportColumns ?? input.scroll?.viewportColumns ?? contentColumns);
+  const requested = dataWindow({
+    ...input,
+    totalRows: projection.total,
+    ...(input.scroll === undefined ? {} : { scroll: input.scroll }),
+    contentColumns,
+    viewportColumns
+  });
+  const availableEnd = projection.start + projection.records.length;
+  const lastStart = Math.max(projection.start, availableEnd - Math.min(viewportRows, projection.records.length));
+  const start = Math.max(projection.start, Math.min(lastStart, requested.start));
+  const localStart = start - projection.start;
+  const rows = projection.records.slice(localStart, localStart + viewportRows);
+  const end = start + rows.length;
+  const selectedIndex = requested.selectedIndex;
+  const selectedVisibleIndex = selectedIndex === undefined || selectedIndex < start || selectedIndex >= end
+    ? undefined
+    : selectedIndex - start;
+  return {
+    totalRows: requested.totalRows,
+    start,
+    end,
+    ...(selectedIndex === undefined ? {} : { selectedIndex }),
+    offsetColumn: requested.offsetColumn,
+    rows,
+    omittedBefore: start,
+    omittedAfter: Math.max(0, projection.total - end),
+    ...(selectedVisibleIndex === undefined ? {} : { selectedVisibleIndex })
+  };
 }
 
 export function scrollStateFromUnknown(value: unknown): ScrollState | undefined {

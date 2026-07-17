@@ -19,8 +19,13 @@ export interface TextLine {
   readonly hardBreak: boolean;
 }
 
+export interface TextWidthProfile {
+  readonly emoji: 'narrow' | 'wide';
+  readonly ambiguous: 'narrow' | 'wide';
+}
+
 export interface TextMeasurementOptions {
-  readonly emojiWidth?: 'narrow' | 'wide';
+  readonly widthProfile?: TextWidthProfile;
 }
 
 export interface TextClipOptions extends TextMeasurementOptions {

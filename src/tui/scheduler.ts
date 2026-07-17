@@ -8,6 +8,7 @@ export function intervalSource<TMessage>(
   assertPositiveMilliseconds(ms, 'interval ms');
   return {
     id,
+    generation: 0,
     source: 'timer',
     delivery: 'sequential',
     async *messages(context) {
@@ -28,6 +29,7 @@ export function timeoutSource<TMessage>(
   assertNonNegativeMilliseconds(ms, 'timeout ms');
   return {
     id,
+    generation: 0,
     source: 'timer',
     delivery: 'sequential',
     async *messages(context) {

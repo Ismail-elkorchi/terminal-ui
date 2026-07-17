@@ -26,7 +26,7 @@ test('release check is composed from explicit suite lanes', () => {
   const scripts = packageJson.scripts;
   assert.equal(typeof scripts.lint, 'string');
   assert.equal(typeof scripts.build, 'string');
-  assert.match(scripts.build, /rm -rf dist/u);
+  assert.match(scripts.build, /node scripts\/clean\.mjs/u);
   assert.equal(typeof scripts.check, 'string');
   assert.equal(typeof scripts['check:fast'], 'string');
 
@@ -215,7 +215,7 @@ test('source has no compatibility wrapper or obsolete render model markers', asy
 test('removed mouse-map API names do not appear in active tests docs or examples', async () => {
   const files = [
     ...await sourceFiles(new URL('../../docs/', import.meta.url), '.md'),
-    ...await sourceFiles(new URL('../../examples/', import.meta.url), '.mjs'),
+    ...await exampleSourceFiles(),
     ...await sourceFiles(new URL('../../tests/', import.meta.url), '.mjs')
   ].filter((file) => !file.pathname.endsWith('/tests/package/release-gate.test.mjs'));
 
@@ -348,7 +348,7 @@ test('TUI widgets and examples use scheduler sources instead of raw timers', asy
   const files = [
     ...await sourceFiles(new URL('../../src/tui/', import.meta.url)),
     ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
-    ...await sourceFiles(new URL('../../examples/', import.meta.url), '.mjs')
+    ...await exampleSourceFiles()
   ];
   const forbiddenPatterns = [
     /\bsetTimeout\s*\(/u,
@@ -366,7 +366,7 @@ test('TUI widgets and examples use scheduler sources instead of raw timers', asy
 test('terminal text indexing and editing stay centralized', async () => {
   const sourceFilesToCheck = [
     ...await sourceFiles(sourceRoot),
-    ...await sourceFiles(new URL('../../examples/', import.meta.url), '.mjs')
+    ...await exampleSourceFiles()
   ];
   const textSources = [
     '/src/text/graphemes.ts',
@@ -454,14 +454,18 @@ test('terminal text indexing and editing stay centralized', async () => {
 test('TUI ANSI serialization decisions are owned by the internal policy', async () => {
   const policy = await readFile(new URL('../../src/renderer/internal/serialization-policy.ts', import.meta.url), 'utf8');
   const ansi = await readFile(new URL('../../src/renderer/internal/ansi.ts', import.meta.url), 'utf8');
+  const planner = await readFile(new URL('../../src/renderer/internal/output-planner.ts', import.meta.url), 'utf8');
   const frame = await readFile(new URL('../../src/renderer/internal/frame.ts', import.meta.url), 'utf8');
 
   assert.match(policy, /export interface TerminalSerializationPolicy/u);
-  assert.match(policy, /readonly capabilities: TerminalCapabilityProfile;/u);
+  assert.match(policy, /readonly capabilities: TerminalOutputCapabilityProfile;/u);
   assert.match(policy, /resetStyle\(\): string;/u);
   assert.match(policy, /styleTransition\(previous: TerminalStyle \| undefined, next: TerminalStyle \| undefined\): string;/u);
+  assert.match(policy, /beginSynchronizedOutput\(\): string;/u);
+  assert.match(policy, /endSynchronizedOutput\(\): string;/u);
   assert.match(ansi, /createTerminalSerializationPolicy\(options\)/u);
-  assert.match(frame, /createTerminalSerializationPolicy\(options\)/u);
+  assert.match(planner, /createTerminalSerializationPolicy\(options\)/u);
+  assert.match(frame, /planTerminalOutput\(diff, options\)\.text/u);
 
   for (const file of await sourceFiles(new URL('../../src/renderer/internal/', import.meta.url))) {
     if (file.pathname.endsWith('/src/renderer/internal/serialization-policy.ts')
@@ -489,7 +493,7 @@ test('runtime input routing uses the committed render cache', async () => {
   assert.doesNotMatch(runtime, /\blayoutWidget\(/u);
   assert.match(runtime, /\bensureRender\(\)/u);
   assert.match(runtime, /findRenderNodeFocusTarget\(current\.node, current\.layout/u);
-  assert.match(runtime, /createPointerRouter<TMessage>\(\)/u);
+  assert.match(runtime, /createPointerRouter<TMessage>\(\{ now:/u);
   assert.match(runtime, /pointerRouter\.route\(current\.regions, event\)/u);
   assert.doesNotMatch(runtime, /collectRenderNodeLayoutTargets\(current\.node, current\.layout\)/u);
   assert.doesNotMatch(runtime, /hitTargetsForRenderNode\(/u);
@@ -525,6 +529,7 @@ test('RenderRegion replaces the obsolete render layer model', async () => {
 test('dirty region narrowing is structural and render-diff visible', async () => {
   const dirtySource = await readFile(new URL('../../src/renderer/internal/dirty-regions.ts', import.meta.url), 'utf8');
   const frameBufferSource = await readFile(new URL('../../src/renderer/internal/frame-buffer.ts', import.meta.url), 'utf8');
+  const diffSource = await readFile(new URL('../../src/renderer/model/diff.ts', import.meta.url), 'utf8');
   const frameSource = await readFile(new URL('../../src/renderer/internal/frame.ts', import.meta.url), 'utf8');
   const runtimeFrameSource = await readFile(new URL('../../src/tui/runtime-frame.ts', import.meta.url), 'utf8');
 
@@ -545,7 +550,7 @@ test('dirty region narrowing is structural and render-diff visible', async () =>
   assert.doesNotMatch(frameBufferSource, /this\.writtenBounds\s*=\s*this\.writtenBounds\.add/u);
   assert.doesNotMatch(frameBufferSource, /this\.clearedBounds\s*=\s*this\.clearedBounds\.add/u);
   assert.doesNotMatch(frameBufferSource, /function stableString/u);
-  assert.match(frameSource, /readonly dirtyRegions\?: readonly Rect\[\];/u);
+  assert.match(diffSource, /readonly dirtyRegions\?: readonly Rect\[\];/u);
   assert.match(frameSource, /dirtyColumnRanges/u);
   assert.match(frameSource, /unchangedFingerprintRows/u);
   assert.match(runtimeFrameSource, /dirtyRegionsForRenderCommit/u);
@@ -583,7 +588,7 @@ test('custom renderers can render only through write-scoped renderer inputs', as
 
   assert.match(rendererTypes, /interface RenderNodeRenderInput/u);
   assert.match(rendererTypes, /readonly buffer: RenderTarget;/u);
-  assert.match(rendererTypes, /renderChildren\(target\?: RenderTarget\): void;/u);
+  assert.match(rendererTypes, /readonly renderChildren: \(target\?: RenderTarget\) => void;/u);
   assert.doesNotMatch(rendererTypes, /\bTerminalHost\b/u);
   assert.doesNotMatch(rendererTypes, /\bhost\b/u);
   assert.doesNotMatch(rendererTypes, /\bwrite\s*\(/u);
@@ -643,6 +648,13 @@ async function sourceFiles(directory, extension = '.ts') {
     if (entry.isFile() && entry.name.endsWith(extension)) files.push(child);
   }
   return files.sort((left, right) => left.pathname.localeCompare(right.pathname));
+}
+
+async function exampleSourceFiles() {
+  return [
+    ...await sourceFiles(new URL('../../examples/', import.meta.url), '.ts'),
+    ...await sourceFiles(new URL('../../examples/', import.meta.url), '.mjs')
+  ].sort((left, right) => left.pathname.localeCompare(right.pathname));
 }
 
 async function namedTuiSourceFiles(names) {

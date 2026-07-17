@@ -75,6 +75,12 @@ visible scrollbar requires caller-owned scroll state and a semantic action or
 scroll handler. Passive variants may project a fixed window, but cannot expose
 an inert scrollbar.
 
+`list()`, `table()`, and `tree()` accept either raw local data or a prepared
+collection from the behavior entrypoint. The two inputs are mutually
+exclusive. Use raw arrays for small data; retain prepared complete or windowed
+collections when projection, identity, or hierarchy flattening must not repeat
+on every `view()` call.
+
 `meta.accessibility` can provide a full accessible node override or lightweight
 options such as `label`, `description`, and `decorative`. Decorative elements
 are excluded from their parent's accessibility tree and must not expose
@@ -113,7 +119,7 @@ button({
     ascii: '+',
     accessibleText: 'confirm'
   }],
-  onPress: { kind: 'save' }
+  onPress: () => ({ kind: 'save' })
 });
 ```
 

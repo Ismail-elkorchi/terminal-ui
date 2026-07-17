@@ -10,7 +10,7 @@ export function clipTextCells(
 ): TextClipResult {
   if (maxCells < 0) throw new RangeError('maxCells must be non-negative.');
   const ellipsis = options.ellipsis ?? '';
-  const ellipsisCells = measureTextCells(ellipsis).cells;
+  const ellipsisCells = measureTextCells(ellipsis, options).cells;
   const fittedEllipsis = ellipsisCells <= maxCells
     ? ellipsis
     : takeCells(ellipsis, maxCells, options).text;

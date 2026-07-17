@@ -3,17 +3,18 @@ import test from 'node:test';
 
 import {
   resolveTerminalCapabilities } from '../../dist/host/index.js';
-import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { createVisualSnapshot, renderElementRegions } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
-import { createScrollState } from '../../dist/behavior/index.js';
 import {
+  createScrollState,
   extractScrollbackSelectionText,
-  renderElementRegions,
+  visibleScrollbackItems
+} from '../../dist/behavior/index.js';
+import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import { scrollback } from '../../dist/components/index.js';
-import { visibleScrollbackItems } from '../../dist/behavior/index.js';
 
 function item(index, text = `Row ${index}`) {
   return { id: `row-${index}`, text };

@@ -24,7 +24,7 @@ import {
 } from '../../dist/behavior/index.js';
 import { column } from '../../dist/layout/index.js';
 
-const enter = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
+const enter = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 const mousePress = (row, column) => ({
   kind: 'mouse',
   sequence: '',
@@ -49,18 +49,19 @@ const mouseRelease = (row, column) => ({
 });
 
 const items = [
-  { id: 'new', label: 'New', description: 'Create item', shortcut: 'N' },
+  { kind: 'action', id: 'new', label: 'New', description: 'Create item', shortcut: 'N' },
   {
+    kind: 'submenu',
     id: 'open',
     label: 'Open',
     children: [
-      { id: 'recent', label: 'Recent' },
-      { id: 'disabled-recent', label: 'Disabled Recent', disabled: true }
+      { kind: 'action', id: 'recent', label: 'Recent' },
+      { kind: 'action', id: 'disabled-recent', label: 'Disabled Recent', disabled: true }
     ]
   },
-  { id: 'autosave', label: 'Autosave', checked: true },
-  { id: 'delete', label: 'Delete', tone: 'destructive' },
-  { id: 'disabled', label: 'Disabled', disabled: true }
+  { kind: 'check', id: 'autosave', label: 'Autosave', checked: true },
+  { kind: 'action', id: 'delete', label: 'Delete', tone: 'destructive' },
+  { kind: 'action', id: 'disabled', label: 'Disabled', disabled: true }
 ];
 
 test('menu renders nested checked disabled items with menu accessibility', () => {
@@ -85,17 +86,38 @@ test('menu renders nested checked disabled items with menu accessibility', () =>
   assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
 });
 
+test('menu models reject duplicate identities across nested branches', () => {
+  assert.throws(() => menuPresentation([
+    {
+      kind: 'submenu',
+      id: 'file',
+      label: 'File',
+      children: [{ kind: 'action', id: 'duplicate', label: 'Open' }]
+    },
+    { kind: 'action', id: 'duplicate', label: 'Close' }
+  ], { activePath: [] }), /menu item ids must be unique; duplicate id: duplicate/u);
+});
+
+test('menu models reject malformed structural item variants at the authoring boundary', () => {
+  assert.throws(() => menuPresentation([
+    { kind: 'submenu', id: 'empty', label: 'Empty', children: [] }
+  ], { activePath: [] }), /requires at least one child/u);
+  assert.throws(() => menuPresentation([
+    { kind: 'check', id: 'check', label: 'Check' }
+  ], { activePath: [] }), /requires boolean checked state/u);
+});
+
 test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () => {
   const menuBarFrame = renderElementFrame(
     menuBar({
       id: 'main-menu',
       items: [
-        { id: 'file', label: 'File' },
-        { id: 'edit', label: 'Edit', disabled: true }
+        { kind: 'action', id: 'file', label: 'File' },
+        { kind: 'action', id: 'edit', label: 'Edit', disabled: true }
       ],
       presentation: menuBarPresentation([
-        { id: 'file', label: 'File' },
-        { id: 'edit', label: 'Edit', disabled: true }
+        { kind: 'action', id: 'file', label: 'File' },
+        { kind: 'action', id: 'edit', label: 'Edit', disabled: true }
       ], { kind: 'closed', active: 'file' })
     }),
     { columns: 44, rows: 3 }
@@ -117,12 +139,12 @@ test('menuBar contextMenu and dropdownMenu render reusable menu surfaces', () =>
       id: 'theme-dropdownMenu',
       label: 'Theme',
       items: [
-        { id: 'light', label: 'Light' },
-        { id: 'dark', label: 'Dark' }
+        { kind: 'action', id: 'light', label: 'Light' },
+        { kind: 'action', id: 'dark', label: 'Dark' }
       ],
       presentation: dropdownMenuPresentation([
-        { id: 'light', label: 'Light' },
-        { id: 'dark', label: 'Dark' }
+        { kind: 'action', id: 'light', label: 'Light' },
+        { kind: 'action', id: 'dark', label: 'Dark' }
       ], { kind: 'open', active: 'dark', menu: { activePath: ['dark'] } })
     }),
     { columns: 44, rows: 8 }
@@ -157,7 +179,7 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
       menuBar({
         id: 'bar',
         items: [
-          { id: 'help', label: 'Help' }
+          { kind: 'action', id: 'help', label: 'Help' }
         ],
         presentation: { kind: 'closed', active: 'help' },
         onAction: (action) => action

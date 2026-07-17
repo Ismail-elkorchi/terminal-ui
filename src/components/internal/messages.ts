@@ -1,20 +1,52 @@
 import type { BindableKeyName } from '../../input/index.ts';
 import type { ElementKeyEvent } from '../../element/metadata.ts';
+import type { IgnoredMessage } from '../../interaction/message.ts';
 
 type InferredKeyHandler = (event: ElementKeyEvent) => unknown;
 
 export type InferredElementKeyBindings =
   & Readonly<Partial<Record<BindableKeyName, InferredKeyHandler>>>
-  & { readonly text?: Readonly<Record<string, InferredKeyHandler>> };
+  & {
+    readonly modified?: readonly {
+      readonly trigger: Readonly<Record<string, unknown>>;
+      readonly onKey: InferredKeyHandler;
+    }[];
+    readonly text?: Readonly<Record<string, InferredKeyHandler>>;
+  };
 
-type MessageFromBinding<TBinding> =
-  TBinding extends (...arguments_: infer _TArguments) => infer TResult
-    ? Exclude<TResult, undefined>
-    : TBinding extends Readonly<Record<PropertyKey, infer TValue>>
-      ? MessageFromBinding<TValue>
-      : never;
+type MessageFromKeyHandler<THandler> =
+  THandler extends (...arguments_: infer _TArguments) => infer TResult
+    ? Exclude<TResult, IgnoredMessage>
+    : never;
 
-export type ComponentKeyBindingMessages<TBindings> = MessageFromBinding<TBindings>;
+type NamedKeyBindingMessages<TBindings> = TBindings extends object
+  ? {
+      [TKey in Exclude<keyof TBindings, 'modified' | 'text'>]: MessageFromKeyHandler<TBindings[TKey]>;
+    }[Exclude<keyof TBindings, 'modified' | 'text'>]
+  : never;
+
+type ModifiedKeyBindingMessages<TBindings> = TBindings extends {
+  readonly modified?: infer TModified;
+}
+  ? TModified extends readonly (infer TBinding)[]
+    ? TBinding extends { readonly onKey: infer THandler }
+      ? MessageFromKeyHandler<THandler>
+      : never
+    : never
+  : never;
+
+type TextKeyBindingMessages<TBindings> = TBindings extends {
+  readonly text?: infer TText;
+}
+  ? TText extends object
+    ? MessageFromKeyHandler<TText[keyof TText]>
+    : never
+  : never;
+
+export type ComponentKeyBindingMessages<TBindings> =
+  | NamedKeyBindingMessages<TBindings>
+  | ModifiedKeyBindingMessages<TBindings>
+  | TextKeyBindingMessages<TBindings>;
 
 type CallbackWithResult<TCallback, TResult> =
   Exclude<TCallback, undefined> extends (...arguments_: infer TArguments) => unknown
@@ -43,14 +75,6 @@ type CallbackOverrides<
       CallbackWithResult<TOptions[TKey], TMessages[TKey]>;
   };
 
-type DirectMessageOverrides<
-  TOptions,
-  TMessages extends Partial<Record<keyof TOptions, unknown>>
-> = {
-  readonly [TKey in keyof TMessages]?:
-    TKey extends keyof TOptions ? TMessages[TKey] : never;
-};
-
 type PointerOverride<TOptions, TPointerMessage> =
   TOptions extends { readonly pointer?: infer TPointer }
     ? {
@@ -72,13 +96,11 @@ type PointerOverride<TOptions, TPointerMessage> =
 export type IndependentInteractionOptions<
   TOptions,
   TCallbackMessages extends Partial<Record<keyof TOptions, unknown>> = Record<never, never>,
-  TDirectMessages extends Partial<Record<keyof TOptions, unknown>> = Record<never, never>,
   TKeyBindings extends InferredElementKeyBindings | undefined = undefined,
   TPointerMessage = never
 > = TOptions extends unknown
-  ? & Omit<TOptions, keyof TCallbackMessages | keyof TDirectMessages | 'keys' | 'pointer'>
+  ? & Omit<TOptions, keyof TCallbackMessages | 'keys' | 'pointer'>
     & CallbackOverrides<TOptions, TCallbackMessages>
-    & DirectMessageOverrides<TOptions, TDirectMessages>
     & PointerOverride<TOptions, TPointerMessage>
     & { readonly keys?: TKeyBindings }
   : never;

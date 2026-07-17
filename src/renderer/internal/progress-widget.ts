@@ -196,11 +196,10 @@ function progressTrackStyle(): TerminalStyle {
 }
 
 function progressModel(widget: ProgressBarNode): ProgressModel {
-  const rawMax = numberProp(widget, 'max') ?? 100;
-  const max = rawMax > 0 ? rawMax : 100;
-  const rawValue = numberProp(widget, 'value');
-  const indeterminate = widget.props.indeterminate === true || rawValue === undefined;
-  const value = Math.max(0, Math.min(max, rawValue ?? 0));
+  const mode = widget.props.mode;
+  const indeterminate = mode.kind === 'indeterminate';
+  const max = mode.kind === 'determinate' ? mode.max ?? 100 : 100;
+  const value = mode.kind === 'determinate' ? Math.max(0, Math.min(max, mode.value)) : 0;
   const barWidth = boundedBarWidth(numberProp(widget, 'barWidth'));
   const percentage = max === 0 ? 0 : Math.round((value / max) * 100);
   return {
@@ -213,7 +212,7 @@ function progressModel(widget: ProgressBarNode): ProgressModel {
     max,
     barWidth,
     percentage,
-    frame: Math.floor(numberProp(widget, 'frame') ?? 0),
+    frame: mode.kind === 'indeterminate' ? Math.floor(mode.frame ?? 0) : 0,
     valueScale: normalizeValueScale(widget.props.valueScale),
     ...durationProp('elapsedMs', widget.props.elapsedMs),
     ...durationProp('remainingMs', widget.props.remainingMs)

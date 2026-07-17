@@ -2,45 +2,44 @@ import type { ChoiceItem, SearchEntry } from '../../ui-model/contracts.ts';
 import type {
   TableColumn,
 } from '../options/content.ts';
-import type { TreeNode } from '../../ui-model/tree.ts';
+import type { TableRenderColumn } from '../../renderer/model/props/content.ts';
+import { resolveStableIds } from '../../ui-model/identity.ts';
 import type { ColorSwatchPickerOption } from '../options/forms.ts';
 import type { HeatmapCell } from '../options/feedback.ts';
 
-export function domainValues(values: readonly unknown[]): readonly unknown[] {
-  return values;
-}
-
 export function tableColumnsForRenderer<TRow>(
   columns: readonly TableColumn<TRow>[] | undefined
-): readonly TableColumn[] | undefined {
+): readonly TableRenderColumn[] | undefined {
   return columns?.map((column) => {
-    const { value, render, ...metadata } = column;
+    if ('render' in column) {
+      throw new TypeError('Table columns with custom rendering must be created with tableColumn().');
+    }
+    if ('renderCell' in column) {
+      const { value, renderCell, ...metadata } = column;
+      return {
+        ...metadata,
+        value: (row: unknown, index: number) => value(row as TRow, index),
+        renderCell: (row: unknown, rowIndex: number, columnIndex: number) =>
+          renderCell(row as TRow, rowIndex, columnIndex)
+      };
+    }
+    const { value, ...metadata } = column;
     return {
       ...metadata,
-      value: (row: unknown, index: number) => value(row as TRow, index),
-      ...(render === undefined ? {} : {
-        render: (input) => render({
-        ...input,
-        row: input.row as TRow
-        })
-      })
+      value: (row: unknown, index: number) => value(row as TRow, index)
     };
   });
 }
 
-export function treeNodesForRenderer<TMetadata extends Readonly<Record<string, unknown>>>(
-  nodes: readonly TreeNode<TMetadata>[]
-): readonly TreeNode[] {
-  return nodes;
-}
-
 export function choiceItemsForRenderer<TValue>(items: readonly ChoiceItem<TValue>[]): readonly ChoiceItem<unknown>[] {
+  resolveStableIds(items, (item) => item.id, 'choice');
   return items;
 }
 
 export function colorOptionsForRenderer<TValue>(
   options: readonly ColorSwatchPickerOption<TValue>[]
 ): readonly ColorSwatchPickerOption<unknown>[] {
+  resolveStableIds(options, (option) => option.id, 'colorSwatchPicker');
   return options;
 }
 

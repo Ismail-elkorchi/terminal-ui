@@ -19,6 +19,7 @@ import {
   paletteKeyBindings
 } from '../internal/interaction.ts';
 import { optionalId, requiredId } from '../../authoring/render-node.ts';
+import { ignoreMessage } from '../../interaction/message.ts';
 import {
   searchEntriesForRenderer,
   searchSelectionHandler
@@ -39,7 +40,6 @@ export function scrollback<
   options: IndependentInteractionOptions<
     ScrollableScrollbackOptions,
     { readonly onAction: TActionMessage },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   >
@@ -52,7 +52,6 @@ export function scrollback<
   options: IndependentInteractionOptions<
     PassiveScrollbackOptions,
     { readonly onAction: TActionMessage },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   >
@@ -64,7 +63,11 @@ export function scrollback(options: ScrollbackOptions<unknown>): Element<unknown
     ? undefined
     : isScrollableScrollbackOptions(options)
       ? options.onAction
-      : (action) => action.kind === 'scroll' ? undefined : onControlAction?.(action);
+      : (action) => action.kind === 'scroll'
+        ? ignoreMessage()
+        : onControlAction === undefined
+          ? ignoreMessage()
+          : onControlAction(action);
   return elementFromRenderNode<'scrollback', unknown>({
     ...requiredId(options.id, 'scrollback'),
     kind: 'scrollback',
@@ -116,7 +119,7 @@ export function activityFeed<const TMessage = never>(options: ActivityFeedOption
     arrowDown: () => onAction({ kind: 'selectNext' }),
     home: () => onAction({ kind: 'selectFirst' }),
     end: () => onAction({ kind: 'selectLast' }),
-    enter: () => selectedBlock === undefined ? undefined : onAction({ kind: 'toggleBlock', id: selectedBlock.id })
+    enter: () => selectedBlock === undefined ? ignoreMessage() : onAction({ kind: 'toggleBlock', id: selectedBlock.id })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   const keyMap = mergeKeyBindings(generatedKeys, options.keys);
   return elementFromRenderNode<'activityFeed', TMessage>({
@@ -142,8 +145,8 @@ export function commandInput<
     CommandInputOptions,
     {
       readonly onAction: TActionMessage;
+      readonly onSubmit: TSubmitMessage;
     },
-    { readonly onSubmit: TSubmitMessage },
     TKeys,
     TPointerMessage
   >
@@ -151,7 +154,10 @@ export function commandInput<
 export function commandInput(options: CommandInputOptions<unknown>): Element<unknown> {
   const action = options.onAction;
   const generatedKeys = action === undefined ? undefined : commandInputKeyBindings(action);
-  const submitKeys = options.onSubmit === undefined ? undefined : { enter: () => options.onSubmit };
+  const onSubmit = options.onSubmit;
+  const submitKeys = onSubmit === undefined
+    ? undefined
+    : { enter: () => onSubmit(options.presentation.value) };
   const keyMap = mergeKeyBindings(mergeKeyBindings(generatedKeys, submitKeys), options.keys);
   const presentation = options.presentation;
   return elementFromRenderNode<'commandInput', unknown>({
@@ -200,7 +206,6 @@ export function palette<
       readonly onScroll: TScrollMessage;
       readonly onAction: TActionMessage;
     },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   >
@@ -218,7 +223,6 @@ export function palette<
       readonly onSelect: TSelectMessage;
       readonly onAction: TActionMessage;
     },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   >

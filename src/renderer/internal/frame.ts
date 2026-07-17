@@ -1,8 +1,9 @@
 import { serializeRenderSpans } from './ansi.ts';
 import { createDirtyRegionSet } from './dirty-regions.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
-import type { TerminalSerializationPolicy } from './serialization-policy.ts';
+import { planTerminalOutput } from './output-planner.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
+import type { FrameRowDiff, RenderDiff, RenderOperation } from '../model/diff.ts';
 import type { Rect } from '../model/layout.ts';
 import type { Frame, FrameCell } from '../model/frame.ts';
 import type {
@@ -16,34 +17,11 @@ export type { Frame, FrameCell, FrameHitTarget } from '../model/frame.ts';
 
 export type { FocusPath } from './focus.ts';
 
-export interface RenderDiff {
-  readonly schemaVersion: 'terminal-ui.render-diff.v1';
-  readonly width: number;
-  readonly height: number;
-  readonly operations: readonly RenderOperation[];
-  readonly fullRewrite: boolean;
-  readonly dirtyRegions?: readonly Rect[];
-}
-
 export interface DiffFramesOptions {
   readonly dirtyRegions?: DirtyRegionSet | readonly Rect[];
 }
 
-export interface FrameRowDiff {
-  readonly row: number;
-  readonly operations: readonly RenderOperation[];
-}
-
-export type RenderOperation =
-  | { readonly kind: 'write'; readonly row: number; readonly column: number; readonly spans: readonly RenderSpan[] }
-  | { readonly kind: 'clearRect'; readonly bounds: Rect }
-  | { readonly kind: 'clearLine'; readonly row: number; readonly fromColumn?: number }
-  | { readonly kind: 'moveCursor'; readonly row: number; readonly column: number }
-  | { readonly kind: 'showCursor'; readonly visible: boolean };
-
-export type TerminalEffect =
-  | { readonly kind: 'setTitle'; readonly title: string }
-  | { readonly kind: 'bell' };
+export type { FrameRowDiff, RenderDiff, RenderOperation } from '../model/diff.ts';
 
 export type { AnsiStyleState, RenderSerializeOptions } from './ansi.ts';
 
@@ -63,6 +41,7 @@ export type {
 } from '../../visual/render.ts';
 export type {
   FrameBuffer,
+  FrameBufferOptions,
   FrameBufferSnapshot,
   FrameBufferSnapshotMetadata,
   FrameBufferSnapshotOptions,
@@ -104,26 +83,30 @@ export function renderFramePlain(frame: Frame): string {
 
 export function renderFrameAnsi(frame: Frame, options: RenderSerializeOptions): string {
   const operations: RenderOperation[] = [...frameWriteOperations(frame)];
-  if (frame.cursor !== undefined) operations.push({ kind: 'moveCursor', row: frame.cursor.row, column: frame.cursor.column });
   return renderDiffAnsi({
-    schemaVersion: 'terminal-ui.render-diff.v1',
+    schemaVersion: 'terminal-ui.render-diff.v2',
     width: frame.width,
     height: frame.height,
     operations,
+    ...(frame.cursor === undefined ? {} : { cursor: frame.cursor }),
     fullRewrite: true
   }, options);
 }
 
 export function diffFrames(previous: Frame | undefined, next: Frame, options: DiffFramesOptions = {}): RenderDiff {
   if (previous?.width !== next.width || previous.height !== next.height) {
+    const clear = next.width > 0 && next.height > 0
+      ? [{ kind: 'clearRect', bounds: { row: 1, column: 1, width: next.width, height: next.height } } as const]
+      : [];
     return {
-      schemaVersion: 'terminal-ui.render-diff.v1',
+      schemaVersion: 'terminal-ui.render-diff.v2',
       width: next.width,
       height: next.height,
       operations: [
-        { kind: 'clearRect', bounds: { row: 1, column: 1, width: next.width, height: next.height } },
+        ...clear,
         ...frameWriteOperations(next)
       ],
+      ...(next.cursor === undefined ? {} : { cursor: next.cursor }),
       fullRewrite: true
     };
   }
@@ -150,23 +133,19 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
     }
   }
 
-  if (next.cursor !== undefined) {
-    operations.push({ kind: 'moveCursor', row: next.cursor.row, column: next.cursor.column });
-  }
-
   return {
-    schemaVersion: 'terminal-ui.render-diff.v1',
+    schemaVersion: 'terminal-ui.render-diff.v2',
     width: next.width,
     height: next.height,
     operations,
+    ...(next.cursor === undefined ? {} : { cursor: next.cursor }),
     fullRewrite: false,
     ...(dirtyRegions === undefined ? {} : { dirtyRegions })
   };
 }
 
 export function renderDiffAnsi(diff: RenderDiff, options?: RenderSerializeOptions): string {
-  const policy = createTerminalSerializationPolicy(options);
-  return diff.operations.map((operation) => renderOperation(operation, options, policy)).join('');
+  return planTerminalOutput(diff, options).text;
 }
 
 export function compareCells(left: FrameCell, right: FrameCell): number {
@@ -190,25 +169,6 @@ export function renderFrameDebug(frame: Frame): string {
     ? ''
     : policy.cursorMove(frame.cursor.row, frame.cursor.column);
   return `${writes}${cursor}`;
-}
-
-function renderOperation(
-  operation: RenderOperation,
-  options: RenderSerializeOptions | undefined,
-  policy: TerminalSerializationPolicy
-): string {
-  switch (operation.kind) {
-    case 'write':
-      return `${policy.cursorMove(operation.row, operation.column)}${serializeRenderSpans(operation.spans, options)}`;
-    case 'clearRect':
-      return policy.clearRect(operation.bounds);
-    case 'clearLine':
-      return policy.clearLine(operation.row, operation.fromColumn);
-    case 'moveCursor':
-      return policy.cursorMove(operation.row, operation.column);
-    case 'showCursor':
-      return policy.showCursor(operation.visible);
-  }
 }
 
 function rowTextFromCells(rowCells: readonly FrameCell[], width: number): string {

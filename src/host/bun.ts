@@ -16,6 +16,7 @@ export function createBunTerminalHost(options: BunTerminalHostOptions = {}): Ter
     stdin: options.stdin ?? bunInputOptions(bun, processLike),
     stdout: options.stdout ?? bunOutputOptions(bun?.stdout, processLike?.stdout),
     stderr: options.stderr ?? bunOutputOptions(bun?.stderr, processLike?.stderr),
+    ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
     ...optionalEnv(options.env ?? processLike?.env)
   });
 }

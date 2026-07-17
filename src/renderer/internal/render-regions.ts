@@ -1,6 +1,6 @@
 import { createFrameBuffer } from './frame-buffer.ts';
 import { createDirtyRegionSet } from './dirty-regions.ts';
-import type { TerminalViewport } from '../../host/index.ts';
+import type { ViewportSize } from '../../geometry/types.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotMetadata, FrameBufferSnapshotOptions } from './frame-buffer.ts';
 import type { FrameCell, FrameHitTarget } from '../model/frame.ts';
@@ -10,10 +10,11 @@ import type { ElementLayerOpacity } from '../../element/metadata.ts';
 import type { LayoutNode, Rect } from '../model/layout.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
 import type { HitTarget } from '../model/renderer.ts';
+import type { MessageResolution } from '../../interaction/message.ts';
 
 export interface RenderRegionHitTarget<TMessage = unknown> extends FrameHitTarget {
   readonly accepts?: readonly PointerEventKind[];
-  message(event: RoutedPointerEvent): TMessage | undefined;
+  message(event: RoutedPointerEvent): MessageResolution<TMessage>;
 }
 
 export interface RenderRegion<TMessage = unknown> {
@@ -70,7 +71,7 @@ export function createDraftRenderRegion(
     readonly id: string;
     readonly zIndex: number;
     readonly order: number;
-    readonly viewport: TerminalViewport;
+    readonly viewport: ViewportSize;
     readonly bounds: Rect;
     readonly opacity: ElementLayerOpacity;
   }
@@ -87,11 +88,12 @@ export function createDraftRenderRegion(
   };
 }
 
-function createRegionFrameBuffer(viewport: TerminalViewport, bounds: Rect): FrameBuffer {
+function createRegionFrameBuffer(viewport: ViewportSize, bounds: Rect): FrameBuffer {
   const local = createFrameBuffer(bounds.width, bounds.height);
   return {
     width: viewport.columns,
     height: viewport.rows,
+    widthProfile: local.widthProfile,
     write(row, column, spans) {
       local.write(toLocalRow(bounds, row), toLocalColumn(bounds, column), spans);
     },
@@ -127,7 +129,7 @@ function createRegionFrameBuffer(viewport: TerminalViewport, bounds: Rect): Fram
   };
 }
 
-function normalizeRegionBounds(viewport: TerminalViewport, bounds: Rect): Rect {
+function normalizeRegionBounds(viewport: ViewportSize, bounds: Rect): Rect {
   const viewportBounds = { row: 1, column: 1, width: viewport.columns, height: viewport.rows };
   return intersectRects(viewportBounds, bounds) ?? {
     row: Math.max(1, Math.floor(bounds.row)),

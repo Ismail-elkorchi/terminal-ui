@@ -16,6 +16,8 @@ For the renderer data model behind that path, see
 [Rendering internals](./rendering-internals.md). For component authoring
 guidance, see [UI authoring](./ui-authoring.md) and
 [Building polished components](./building-polished-components.md).
+Applications migrating across the current pre-alpha contract replacement should
+also read [Breaking changes](./breaking-changes.md).
 
 Full-screen TUI runs enter terminal protocols through the session manager and a
 `SessionProtocolPolicy`. The default policy requires alternate screen and raw
@@ -256,4 +258,4 @@ bindings.
 Executable example:
 
 - `examples/testing/harness.mjs`
-- `examples/tui/interactive-workspace.mjs`
+- `examples/tui/interactive-workspace.ts`

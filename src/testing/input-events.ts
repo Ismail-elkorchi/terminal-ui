@@ -14,9 +14,20 @@ const keySequences = new Map<string, string>([
   ['pageDown', '\u001B[6~'],
   ['home', '\u001B[H'],
   ['end', '\u001B[F'],
+  ['insert', '\u001B[2~'],
   ['space', ' '],
-  ['ctrlC', '\u0003'],
-  ['ctrlD', '\u0004']
+  ['f1', '\u001BOP'],
+  ['f2', '\u001BOQ'],
+  ['f3', '\u001BOR'],
+  ['f4', '\u001BOS'],
+  ['f5', '\u001B[15~'],
+  ['f6', '\u001B[17~'],
+  ['f7', '\u001B[18~'],
+  ['f8', '\u001B[19~'],
+  ['f9', '\u001B[20~'],
+  ['f10', '\u001B[21~'],
+  ['f11', '\u001B[23~'],
+  ['f12', '\u001B[24~']
 ]);
 
 const shiftedKeySequences = new Map<string, string>([
@@ -53,9 +64,19 @@ export function encodeHarnessInputEvent(event: InputEvent): string | undefined {
 
 function encodeKeyEvent(event: KeyEvent): string | undefined {
   if (event.sequence !== undefined) return event.sequence;
-  if (event.shift) {
+  const control = controlSequence(event);
+  if (control !== undefined) return control;
+  if (event.modifiers.alt && /^[a-z]$/u.test(event.key)) {
+    return `\u001B${event.modifiers.shift ? event.key.toUpperCase() : event.key}`;
+  }
+  if (event.modifiers.shift) {
     const shifted = shiftedKeySequences.get(event.key);
     if (shifted !== undefined) return shifted;
   }
   return keySequences.get(event.key);
+}
+
+function controlSequence(event: KeyEvent): string | undefined {
+  if (!event.modifiers.ctrl || !/^[a-z]$/u.test(event.key)) return undefined;
+  return String.fromCharCode(event.key.charCodeAt(0) - 96);
 }

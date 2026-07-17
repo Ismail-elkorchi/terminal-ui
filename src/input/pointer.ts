@@ -13,6 +13,8 @@ export type PointerEventKind =
   | 'enter'
   | 'leave';
 
+export type PointerClickCount = 0 | 1 | 2;
+
 export interface RoutedPointerEvent {
   readonly kind: PointerEventKind;
   readonly source: 'mouse';
@@ -28,6 +30,7 @@ export interface RoutedPointerEvent {
   readonly modifiers: MouseModifiers;
   readonly deltaRows: number;
   readonly deltaColumns: number;
+  readonly clickCount: PointerClickCount;
   readonly targetId?: string;
   readonly capturedTargetId?: string;
   readonly raw: TerminalMouseEvent;

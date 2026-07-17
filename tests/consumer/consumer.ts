@@ -37,7 +37,7 @@ function view(state: State): Element<Message> {
   const increment: Element<{ readonly kind: 'increment' }> = button({
     id: 'increment',
     label: 'Increment',
-    onPress: { kind: 'increment' } as const
+    onPress: () => ({ kind: 'increment' }) as const
   });
   const processes: Element<{ readonly kind: 'selectRow'; readonly action: TableAction }> = table({
     getRowId: (row) => String(row.id),
@@ -61,7 +61,7 @@ function view(state: State): Element<Message> {
     id: 'commands',
     presentation: commandInputPresentation({ input: { text: '', cursor: 0 }, history: [], suggestions: [] }),
     onAction: (action) => ({ kind: 'command' as const, action }),
-    onSubmit: { kind: 'submit' as const }
+    onSubmit: () => ({ kind: 'submit' as const })
   });
   const content: Element<Message> = column([
     text(`Count: ${String(state.count)}`, { id: 'count', textRole: 'metric' }),

@@ -2,6 +2,8 @@ import { matchesInputTrigger } from '../input/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { TuiKeyBinding, TuiKeyBindingPhase } from './types.ts';
+import { ignoreMessage, isIgnoredMessage } from '../interaction/message.ts';
+import type { MessageResolution } from '../interaction/message.ts';
 
 export interface ResolveTuiKeyBindingInput<TState, TMessage> {
   readonly bindings: readonly TuiKeyBinding<TState, TMessage>[] | undefined;
@@ -13,8 +15,8 @@ export interface ResolveTuiKeyBindingInput<TState, TMessage> {
 
 export function resolveTuiKeyBinding<TState, TMessage>(
   input: ResolveTuiKeyBindingInput<TState, TMessage>
-): TMessage | undefined {
-  if (input.bindings === undefined) return undefined;
+): MessageResolution<TMessage> {
+  if (input.bindings === undefined) return ignoreMessage();
   for (const binding of input.bindings) {
     if ((binding.phase ?? 'afterFocus') !== input.phase) continue;
     const trigger = binding.triggers.find((candidate) => matchesInputTrigger(candidate, input.event));
@@ -30,7 +32,7 @@ export function resolveTuiKeyBinding<TState, TMessage>(
       : binding.enabled;
     if (enabled === false) continue;
     const message = 'toMessage' in binding ? binding.toMessage(context) : binding.message;
-    if (message !== undefined) return message;
+    if (!isIgnoredMessage(message)) return message;
   }
-  return undefined;
+  return ignoreMessage();
 }

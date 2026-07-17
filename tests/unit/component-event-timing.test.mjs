@@ -65,16 +65,15 @@ test('component key handlers run at dispatch time with the normalized event and 
   await runtime.handleInput({
     kind: 'key',
     key: 'enter',
-    ctrl: false,
-    alt: false,
-    shift: false,
-    meta: false
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
   });
 
   assert.equal(observed.length, 1);
   assert.equal(observed[0]?.input.kind, 'key');
   assert.deepEqual(observed[0]?.focusPath, ['field']);
-  assert.deepEqual(runtime.getState(), { value: 'handled' });
+  assert.deepEqual(runtime.state(), { value: 'handled' });
   await runtime.dispose();
 });
 
@@ -103,7 +102,7 @@ test('tabs route delete to the selected close action without selecting twice', a
   });
 
   await runtime.start();
-  await runtime.handleInput({ kind: 'key', key: 'delete', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'delete', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.deepEqual(messages, [{ kind: 'tabs', action: { kind: 'close', id: 'second' } }]);
   await runtime.dispose();
@@ -130,11 +129,11 @@ test('checkbox keyboard and pointer activation evaluate the same handler at inte
 
   await runtime.start();
   assert.equal(calls, 0);
-  await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.equal(calls, 1);
-  assert.equal(runtime.getState()?.checked, true);
+  assert.equal(runtime.state()?.checked, true);
   await runtime.handleInputChunk({ data: '\u001B[<0;1;1M\u001B[<0;1;1m' });
   assert.equal(calls, 2);
-  assert.equal(runtime.getState()?.checked, false);
+  assert.equal(runtime.state()?.checked, false);
   await runtime.dispose();
 });

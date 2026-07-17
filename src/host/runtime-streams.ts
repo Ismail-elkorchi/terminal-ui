@@ -1,7 +1,7 @@
 import { resolveTerminalCapabilities } from './capabilities.ts';
 import { BasicTerminalSession } from './session.ts';
 import { restoreActiveTerminalSessions } from './session-registry.ts';
-import type { RuntimeTarget } from '../package.ts';
+import type { RuntimeTarget } from './capability-types.ts';
 import type {
   RuntimeInputSource,
   RuntimeTerminalInputOptions,
@@ -21,6 +21,7 @@ import type {
   Unsubscribe
 } from './types.ts';
 import type { TerminalCapabilityProfile } from './capability-types.ts';
+import type { TerminalCapabilityConfiguration } from './capabilities.ts';
 
 export interface StreamTerminalHostOptions {
   readonly id: string;
@@ -30,6 +31,7 @@ export interface StreamTerminalHostOptions {
   readonly stderr?: RuntimeTerminalOutputOptions;
   readonly env?: Record<string, string>;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
+  readonly capabilities?: TerminalCapabilityConfiguration;
 }
 
 export function createStreamTerminalHost(options: StreamTerminalHostOptions): TerminalHost {
@@ -50,7 +52,9 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
       rows: getViewport().rows,
       rawInput: options.stdin?.setRawMode !== undefined
     },
-    environment: { variables: options.env ?? {} }
+    environment: { variables: options.env ?? {} },
+    ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
+    ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides })
   });
   const host: TerminalHost = {
     id: options.id,

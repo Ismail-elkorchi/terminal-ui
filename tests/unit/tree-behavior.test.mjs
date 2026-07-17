@@ -168,6 +168,8 @@ test('nextTreeRowId skips disabled and lazy placeholder rows and wraps', () => {
   assert.equal(nextTreeRowId(rows, 'root', 1), 'file-a');
   assert.equal(nextTreeRowId(rows, 'file-b', 1), 'root');
   assert.equal(nextTreeRowId(rows, 'root', -1), 'file-b');
+  assert.equal(nextTreeRowId(rows, undefined, 1), 'root');
+  assert.equal(nextTreeRowId(rows, undefined, -1), 'file-b');
 });
 
 test('treeDisclosureAction returns only meaningful disclosure actions', () => {

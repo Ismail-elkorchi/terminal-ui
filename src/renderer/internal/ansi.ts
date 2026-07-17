@@ -1,6 +1,6 @@
 import { sanitizeTerminalText } from '../../text/index.ts';
 import { defaultTheme, defineTheme, isTerminalTheme, resolveTerminalStyle } from '../../theme/index.ts';
-import type { TerminalCapabilityProfile } from '../../host/index.ts';
+import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import { createTerminalSerializationPolicy } from './serialization-policy.ts';
 import type { TerminalSerializationPolicy } from './serialization-policy.ts';
@@ -8,7 +8,7 @@ import type { RenderSpan, TerminalLink, TerminalStyle } from '../../visual/rende
 import { sameTerminalLink, sameTerminalStyle } from '../../visual/render.ts';
 
 export interface RenderSerializeOptions {
-  readonly capabilities: TerminalCapabilityProfile;
+  readonly capabilities: TerminalOutputCapabilityProfile;
   readonly theme?: TerminalTheme | TerminalThemeDefinition;
   readonly forceColor?: boolean;
   readonly hyperlinks?: boolean;

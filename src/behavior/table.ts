@@ -7,6 +7,14 @@ import type {
 } from '../ui-model/table.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
+import type { TableCollection, TableCollectionRecord } from '../ui-model/table.ts';
+import {
+  collectionIds,
+  collectionRecordById,
+  completeCollection,
+  windowedCollection
+} from '../ui-model/collection.ts';
+import type { CollectionWindow } from '../ui-model/collection.ts';
 
 interface TableStateBase {
   readonly selectedRowId?: string;
@@ -25,12 +33,23 @@ export interface ScrollableTableState extends TableStateBase {
 
 export type TableState = PassiveTableState | ScrollableTableState;
 
-export interface TableReducerOptions<TRow> {
-  readonly rows: readonly TRow[];
-  readonly getRowId: (row: TRow, index: number) => string;
+interface TableReducerOptionsBase {
   readonly columnCount?: number;
   readonly minColumnWidth?: number;
 }
+
+export type TableReducerOptions<TRow> = TableReducerOptionsBase & (
+  | {
+      readonly rows: readonly TRow[];
+      readonly getRowId: (row: TRow, index: number) => string;
+      readonly collection?: never;
+    }
+  | {
+      readonly collection: TableCollection<TRow>;
+      readonly rows?: never;
+      readonly getRowId?: never;
+    }
+);
 
 export type TableCellValueGetter<TRow> = (row: TRow, column: string) => unknown;
 
@@ -49,30 +68,38 @@ export function tableReducer<TRow>(
   action: TableAction,
   options: TableReducerOptions<TRow>
 ): TableState {
-  const rowIds = options.rows.map(options.getRowId);
+  const collection = collectionForTableOptions(options);
+  const rowIds = collectionIds(collection);
   switch (action.kind) {
     case 'selectRow':
-      return rowIds.includes(action.rowId) ? selectRow(state, action.rowId, rowIds) : state;
+      return collectionRecordById(collection, action.rowId) === undefined
+        ? state
+        : selectRow(state, action.rowId, collection);
     case 'selectCell':
-      return rowIds.includes(action.rowId)
-        ? selectCell(state, action.rowId, action.column, rowIds, options.columnCount)
+      return collectionRecordById(collection, action.rowId) !== undefined
+        ? selectCell(state, action.rowId, action.column, collection, options.columnCount)
         : state;
     case 'moveRow':
-      return selectRowAtOffset(state, action.delta, rowIds);
+      return selectRowAtOffset(state, action.delta, rowIds, collection);
     case 'moveColumn':
       return selectCell(
         state,
-        selectedRowId(state, rowIds),
+        selectedRowId(state, collection),
         (state.selectedColumn ?? 0) + action.delta,
-        rowIds,
+        collection,
         options.columnCount
       );
     case 'page':
-      return selectRowAtOffset(state, action.delta * Math.max(1, state.scroll?.viewportRows ?? 1), rowIds);
+      return selectRowAtOffset(
+        state,
+        action.delta * Math.max(1, state.scroll?.viewportRows ?? 1),
+        rowIds,
+        collection
+      );
     case 'firstRow':
-      return selectRow(state, rowIds[0], rowIds);
+      return selectRow(state, rowIds[0], collection);
     case 'lastRow':
-      return selectRow(state, rowIds.at(-1), rowIds);
+      return selectRow(state, rowIds.at(-1), collection);
     case 'activate':
       return state;
     case 'sortBy':
@@ -119,10 +146,33 @@ function tablePresentationBase(state: TableStateBase): TablePresentation {
   };
 }
 
-function selectRow(state: TableState, selectedRowId: string | undefined, rowIds: readonly string[]): TableState {
+export function prepareTableCollection<TRow>(
+  rows: readonly TRow[],
+  getRowId: (row: TRow, index: number) => string,
+  window?: CollectionWindow
+): TableCollection<TRow> {
+  const start = window?.start ?? 0;
+  const records = rows.map((row, offset): TableCollectionRecord<TRow> => {
+    const index = start + offset;
+    return { id: getRowId(row, index), index, row };
+  });
+  return window === undefined
+    ? completeCollection(records)
+    : windowedCollection({ records, window });
+}
+
+function collectionForTableOptions<TRow>(options: TableReducerOptions<TRow>): TableCollection<TRow> {
+  return options.collection ?? prepareTableCollection(options.rows, options.getRowId);
+}
+
+function selectRow(
+  state: TableState,
+  selectedRowId: string | undefined,
+  collection: TableCollection<unknown>
+): TableState {
   if (selectedRowId === undefined) return withoutRowSelection(state);
-  const selectedRow = rowIds.indexOf(selectedRowId);
-  if (selectedRow < 0) return state;
+  const selectedRow = collectionRecordById(collection, selectedRowId)?.index;
+  if (selectedRow === undefined) return state;
   const scroll = state.scroll === undefined
     ? undefined
     : scrollReducer(state.scroll, { kind: 'itemIntoView', index: selectedRow });
@@ -138,12 +188,12 @@ function selectCell(
   state: TableState,
   selectedRowId: string | undefined,
   column: number,
-  rowIds: readonly string[],
+  collection: TableCollection<unknown>,
   columnCount: number | undefined
 ): TableState {
   if (selectedRowId === undefined) return withoutRowSelection(state);
-  const selectedRow = rowIds.indexOf(selectedRowId);
-  if (selectedRow < 0) return state;
+  const selectedRow = collectionRecordById(collection, selectedRowId)?.index;
+  if (selectedRow === undefined) return state;
   const selectedColumn = boundedIndex(column, columnCount);
   const scroll = state.scroll === undefined
     ? undefined
@@ -157,18 +207,23 @@ function selectCell(
   };
 }
 
-function selectRowAtOffset(state: TableState, delta: number, rowIds: readonly string[]): TableState {
+function selectRowAtOffset(
+  state: TableState,
+  delta: number,
+  rowIds: readonly string[],
+  collection: TableCollection<unknown>
+): TableState {
   if (rowIds.length === 0) return withoutRowSelection(state);
   const current = rowIds.indexOf(state.selectedRowId ?? '');
-  if (current < 0) return selectRow(state, delta < 0 ? rowIds.at(-1) : rowIds[0], rowIds);
+  if (current < 0) return selectRow(state, delta < 0 ? rowIds.at(-1) : rowIds[0], collection);
   const index = ((current + delta) % rowIds.length + rowIds.length) % rowIds.length;
-  return selectRow(state, rowIds[index], rowIds);
+  return selectRow(state, rowIds[index], collection);
 }
 
-function selectedRowId(state: TableState, rowIds: readonly string[]): string | undefined {
-  return state.selectedRowId !== undefined && rowIds.includes(state.selectedRowId)
+function selectedRowId(state: TableState, collection: TableCollection<unknown>): string | undefined {
+  return state.selectedRowId !== undefined && collectionRecordById(collection, state.selectedRowId) !== undefined
     ? state.selectedRowId
-    : rowIds[0];
+    : collectionIds(collection)[0];
 }
 
 function withoutRowSelection(state: TableState): TableState {

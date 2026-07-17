@@ -15,12 +15,12 @@ test('public component factories preserve exact and heterogeneous message types'
     type Assert<TValue extends true> = TValue;
 
     const passive = richText({ segments: [] });
-    const save = button({ id: 'save', label: 'Save', onPress: { kind: 'save' } as const });
-    const quit = button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit', force: true } as const });
+    const save = button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) });
+    const quit = button({ id: 'quit', label: 'Quit', onPress: () => ({ kind: 'quit', force: true } as const) });
     const controlled = button({
       id: 'controlled',
       label: 'Controlled',
-      onPress: { kind: 'activate' } as const,
+      onPress: () => ({ kind: 'activate' } as const),
       pointer: {
         state: { hoveredTargetId: 'controlled:control' },
         onAction: (action) => ({ kind: 'pointer', action } as const)
@@ -40,6 +40,129 @@ test('public component factories preserve exact and heterogeneous message types'
       | { readonly kind: 'pointer'; readonly action: import('@ismail-elkorchi/terminal-ui/interaction').PointerPresentationAction }
     >>;
   `, { name: 'public-component-inference' });
+
+  assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
+});
+
+test('custom composite extensions preserve opaque child message unions', () => {
+  const diagnostics = typecheckSource(`
+    import { button, type Element } from '@ismail-elkorchi/terminal-ui/components';
+    import { customComposite } from '@ismail-elkorchi/terminal-ui/renderer';
+
+    type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
+    type Equal<TLeft, TRight> =
+      (<T>() => T extends TLeft ? 1 : 2) extends
+      (<T>() => T extends TRight ? 1 : 2) ? true : false;
+    type Assert<TValue extends true> = TValue;
+
+    const save = button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) });
+    const cancel = button({ id: 'cancel', label: 'Cancel', onPress: () => ({ kind: 'cancel' } as const) });
+    const composite = customComposite({
+      id: 'actions',
+      children: [save, cancel] as const,
+      renderer: {
+        layout: ({ bounds }) => [
+          { ...bounds, width: Math.floor(bounds.width / 2) },
+          { ...bounds, column: bounds.column + Math.floor(bounds.width / 2), width: bounds.width - Math.floor(bounds.width / 2) }
+        ],
+        accessibility: ({ id }) => ({ id, role: 'group', label: 'Actions' })
+      }
+    });
+
+    type _Composite = Assert<Equal<
+      MessageOf<typeof composite>,
+      { readonly kind: 'save' } | { readonly kind: 'cancel' }
+    >>;
+  `, { name: 'custom-composite-inference' });
+
+  assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
+});
+
+test('large collection projections are explicit and mutually exclusive with raw data inputs', () => {
+  const diagnostics = typecheckSource(`
+    import {
+      prepareListCollection,
+      prepareTableCollection,
+      prepareTreeRows
+    } from '@ismail-elkorchi/terminal-ui/behavior';
+    import { list, table, tree } from '@ismail-elkorchi/terminal-ui/components';
+
+    const listCollection = prepareListCollection(
+      ['alpha', 'bravo'],
+      (value, index) => ({ id: String(index), label: value }),
+      { start: 100, total: 1_000 }
+    );
+    const tableCollection = prepareTableCollection(
+      [{ id: 'one', value: 1 }],
+      (row) => row.id,
+      { start: 20, total: 500 }
+    );
+    const treeCollection = prepareTreeRows([{
+      node: { id: 'leaf', label: 'Leaf', kind: 'leaf' },
+      depth: 0,
+      path: ['leaf']
+    }], { start: 10, total: 100 });
+
+    list({ id: 'list', collection: listCollection });
+    table({
+      id: 'table',
+      collection: tableCollection,
+      columns: [{ id: 'value', value: (row) => row.value }]
+    });
+    tree({ id: 'tree', collection: treeCollection });
+
+    // @ts-expect-error retained list collections replace raw item/projector inputs
+    list({ id: 'mixed-list', collection: listCollection, items: ['alpha'], projectItem: (value) => ({ id: value, label: value }) });
+    // @ts-expect-error retained table collections replace raw row identity inputs
+    table({ id: 'mixed-table', collection: tableCollection, rows: [{ id: 'two', value: 2 }], getRowId: (row) => row.id });
+    // @ts-expect-error retained tree collections replace raw hierarchy inputs
+    tree({ id: 'mixed-tree', collection: treeCollection, nodes: [{ id: 'other', label: 'Other', kind: 'leaf' }] });
+  `, { name: 'collection-projection-contracts' });
+
+  assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
+});
+
+test('message inference preserves every authored value and excludes only the ignored sentinel', () => {
+  const diagnostics = typecheckSource(`
+    import { button, textInput, type Element } from '@ismail-elkorchi/terminal-ui/components';
+    import { ignoreMessage } from '@ismail-elkorchi/terminal-ui/interaction';
+
+    type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
+    type Equal<TLeft, TRight> =
+      (<T>() => T extends TLeft ? 1 : 2) extends
+      (<T>() => T extends TRight ? 1 : 2) ? true : false;
+    type Assert<TValue extends true> = TValue;
+
+    const undefinedMessage = button({ id: 'undefined', label: 'Undefined', onPress: () => undefined });
+    const nullMessage = button({ id: 'null', label: 'Null', onPress: () => null });
+    const booleanMessage = button({ id: 'boolean', label: 'Boolean', onPress: () => true as const });
+    const numberMessage = button({ id: 'number', label: 'Number', onPress: () => 42 as const });
+    const stringMessage = button({ id: 'string', label: 'String', onPress: () => 'save' as const });
+    const arrayMessage = button({ id: 'array', label: 'Array', onPress: () => ['save'] as readonly string[] });
+    const tupleMessage = button({ id: 'tuple', label: 'Tuple', onPress: () => ['save', 1] as const });
+    const objectMessage = button({ id: 'object', label: 'Object', onPress: () => ({ kind: 'save' } as const) });
+    const modified = textInput({
+      id: 'modified',
+      presentation: { value: '', cursor: 0 },
+      keys: {
+        enter: () => ignoreMessage(),
+        modified: [{
+          trigger: { kind: 'key', key: 's', modifiers: { ctrl: true } },
+          onKey: () => ({ kind: 'save' } as const)
+        }]
+      }
+    });
+
+    type _Undefined = Assert<Equal<MessageOf<typeof undefinedMessage>, undefined>>;
+    type _Null = Assert<Equal<MessageOf<typeof nullMessage>, null>>;
+    type _Boolean = Assert<Equal<MessageOf<typeof booleanMessage>, true>>;
+    type _Number = Assert<Equal<MessageOf<typeof numberMessage>, 42>>;
+    type _String = Assert<Equal<MessageOf<typeof stringMessage>, 'save'>>;
+    type _Array = Assert<Equal<MessageOf<typeof arrayMessage>, readonly string[]>>;
+    type _Tuple = Assert<Equal<MessageOf<typeof tupleMessage>, readonly ['save', 1]>>;
+    type _Object = Assert<Equal<MessageOf<typeof objectMessage>, { readonly kind: 'save' }>>;
+    type _Modified = Assert<Equal<MessageOf<typeof modified>, { readonly kind: 'save' }>>;
+  `, { name: 'message-value-inference' });
 
   assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
 });
@@ -93,6 +216,7 @@ test('feedback and dialog lifecycle modes are structurally explicit', () => {
     import {
       dialog,
       notificationStack,
+      progressBar,
       statusBar,
       text
     } from '@ismail-elkorchi/terminal-ui/components';
@@ -113,12 +237,20 @@ test('feedback and dialog lifecycle modes are structurally explicit', () => {
     dialog(text('Body'), {
       id: 'dialog',
       modal: true,
-      focusPolicy: { initialTargetId: 'confirm', returnFocus: 'restore' },
+      focusPolicy: { initialFocus: { kind: 'element', id: 'confirm' }, returnFocus: 'restore' },
       dismissal: {
         escape: true,
         outsidePress: false,
         onDismiss: (reason) => ({ kind: 'dismiss' as const, reason })
       }
+    });
+    progressBar({
+      id: 'determinate',
+      mode: { kind: 'determinate', value: 2, max: 4 }
+    });
+    progressBar({
+      id: 'indeterminate',
+      mode: { kind: 'indeterminate', frame: 2 }
     });
 
     // @ts-expect-error status bars require stable identity
@@ -133,6 +265,13 @@ test('feedback and dialog lifecycle modes are structurally explicit', () => {
     notificationStack({ id: 'invalid-history', presentation: { kind: 'history', items: [] } });
     // @ts-expect-error dialog modal policy is required
     dialog(text('Body'), { id: 'implicit-dialog' });
+    progressBar({
+      id: 'contradictory-progress',
+      // @ts-expect-error indeterminate progress cannot carry determinate values
+      mode: { kind: 'indeterminate', value: 2 }
+    });
+    // @ts-expect-error progress mode is required
+    progressBar({ id: 'implicit-progress', value: 2, max: 4 });
   `, { name: 'feedback-lifecycle-contracts' });
 
   assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
@@ -142,20 +281,34 @@ test('item domains share only valid foundations', () => {
   const diagnostics = typecheckSource(`
     import type {
       ChoiceItem,
+      MenuActionItem,
+      MenuCheckItem,
       MenuItem,
+      MenuSubmenuItem,
       SearchEntry,
       SuggestionItem,
       TreeNode
     } from '@ismail-elkorchi/terminal-ui/components';
 
     const choice: ChoiceItem<number> = { id: 'one', label: 'One', value: 1 };
-    const action: MenuItem = { id: 'open', label: 'Open' };
+    const action: MenuActionItem = { kind: 'action', id: 'open', label: 'Open' };
+    const check: MenuCheckItem = { kind: 'check', id: 'autosave', label: 'Autosave', checked: true };
+    const submenu: MenuSubmenuItem = { kind: 'submenu', id: 'file', label: 'File', children: [action] };
+    const menuItems: readonly MenuItem[] = [action, check, submenu];
     const suggestion: SuggestionItem = { value: '/open', label: 'Open' };
     const search: SearchEntry<number> = {
       id: 'file', label: 'File', value: 1, keywords: ['open']
     };
     const tree: TreeNode = { id: 'src', label: 'src', kind: 'branch', expanded: true, children: [] };
-    void [choice, action, suggestion, search, tree];
+    void [choice, menuItems, suggestion, search, tree];
+
+    // @ts-expect-error check items require explicit checked state
+    const invalidCheck: MenuCheckItem = { kind: 'check', id: 'bad-check', label: 'Bad' };
+    // @ts-expect-error submenus must contain at least one structural child
+    const invalidSubmenu: MenuSubmenuItem = { kind: 'submenu', id: 'empty', label: 'Empty', children: [] };
+    // @ts-expect-error action items cannot carry submenu children
+    const invalidAction: MenuActionItem = { kind: 'action', id: 'bad-action', label: 'Bad', children: [action] };
+    void [invalidCheck, invalidSubmenu, invalidAction];
 
     // @ts-expect-error action items do not become values implicitly
     const invalidChoice: ChoiceItem<number> = action;
@@ -249,8 +402,8 @@ test('frame-only renderer helpers accept heterogeneous authored elements', () =>
 
     const content = column([
       text('Actions'),
-      button({ id: 'save', label: 'Save', onPress: { kind: 'save' } as const }),
-      button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit' } as const })
+      button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) }),
+      button({ id: 'quit', label: 'Quit', onPress: () => ({ kind: 'quit' } as const) })
     ] as const);
 
     renderElementFrame(content, { columns: 20, rows: 4 });
@@ -269,8 +422,8 @@ test('passive container options preserve child message unions', () => {
       | { readonly kind: 'quit' };
 
     const actions = row([
-      button({ id: 'save', label: 'Save', onPress: { kind: 'save' } as const }),
-      button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit' } as const })
+      button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) }),
+      button({ id: 'quit', label: 'Quit', onPress: () => ({ kind: 'quit' } as const) })
     ] as const, { id: 'actions', gap: 1 });
     const panel = surface(column([actions], { id: 'content' }), {
       id: 'panel',
@@ -327,23 +480,65 @@ test('split pane separates passive layout from controlled resize actions', () =>
   assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
 });
 
-test('table rows and explicit cell accessors retain their domain types', () => {
+test('table columns retain heterogeneous cell value types', () => {
   const diagnostics = typecheckSource(`
-    import { table, type Element } from '@ismail-elkorchi/terminal-ui/components';
+    import {
+      table,
+      tableColumn,
+      type Element,
+      type TableCellRenderInput,
+      type TableColumn
+    } from '@ismail-elkorchi/terminal-ui/components';
 
     interface ProcessRow {
       readonly pid: number;
       readonly name: string;
+      readonly active: boolean;
+      readonly state: 'idle' | 'running';
+      readonly owner: { readonly handle: string };
     }
 
-    const rows: readonly ProcessRow[] = [{ pid: 42, name: 'worker' }];
+    const rows: readonly ProcessRow[] = [{
+      pid: 42,
+      name: 'worker',
+      active: true,
+      state: 'running',
+      owner: { handle: 'ada' }
+    }];
+    const column = tableColumn<ProcessRow>();
     const processes = table({
-    getRowId: (row) => String(row.pid),
-    id: 'processes',
+      getRowId: (row) => String(row.pid),
+      id: 'processes',
       rows,
       columns: [
-        { id: 'pid', header: 'PID', value: (row) => row.pid },
-        { id: 'name', header: 'Name', value: (row) => row.name }
+        column({
+          id: 'pid',
+          header: 'PID',
+          value: (row) => row.pid,
+          render: ({ value }) => value.toFixed(0)
+        }),
+        column({
+          id: 'name',
+          header: 'Name',
+          value: (row) => row.name,
+          render: ({ value }) => value.toUpperCase()
+        }),
+        column({
+          id: 'active',
+          value: (row) => row.active,
+          render: ({ value }) => value ? 'yes' : 'no'
+        }),
+        column({
+          id: 'state',
+          value: (row) => row.state,
+          render: ({ value }) => value === 'running' ? 'busy' : 'idle'
+        }),
+        column({
+          id: 'owner',
+          value: (row) => row.owner,
+          render: ({ value }) => value.handle
+        }),
+        { id: 'automatic', value: (row) => row.name }
       ],
       presentation: {
         selectedRowId: '42',
@@ -360,6 +555,14 @@ test('table rows and explicit cell accessors retain their domain types', () => {
       readonly action: import('@ismail-elkorchi/terminal-ui/components').TableControlAction;
     }> = processes;
     void accepted;
+
+    const invalidColumn: TableColumn<ProcessRow> = {
+      id: 'invalid-renderer',
+      value: (row) => row.pid,
+      // @ts-expect-error custom renderers must use tableColumn() to preserve the value type
+      render: ({ value }: TableCellRenderInput<ProcessRow, number>) => String(value)
+    };
+    void invalidColumn;
   `, { name: 'typed-table-contract' });
 
   assert.deepEqual(diagnostics.map(formatTypeDiagnostic), []);
@@ -378,7 +581,7 @@ test('interactive scroll chrome requires a controlled scroll route', () => {
       type ListAction,
       type ScrollbackAction,
       type TextAreaAction,
-      type TreeAction
+      type TreeInteractionAction
     } from '@ismail-elkorchi/terminal-ui/components';
     import { createScrollState } from '@ismail-elkorchi/terminal-ui/behavior';
     import { viewport } from '@ismail-elkorchi/terminal-ui/layout';
@@ -443,7 +646,7 @@ test('interactive scroll chrome requires a controlled scroll route', () => {
     >>;
     type _Tree = Assert<Equal<
       MessageOf<typeof controlledTree>,
-      { readonly kind: 'tree'; readonly action: TreeAction }
+      { readonly kind: 'tree'; readonly action: TreeInteractionAction }
     >>;
     type _Editor = Assert<Equal<
       MessageOf<typeof controlledEditor>,
@@ -494,7 +697,7 @@ test('behavior projections preserve passive and scrollable component variants', 
       type TableAction,
       type TableControlAction,
       type TextAreaControlAction,
-      type TreeAction,
+      type TreeInteractionAction,
       type TreeControlAction
     } from '@ismail-elkorchi/terminal-ui/components';
     import {
@@ -581,7 +784,7 @@ test('behavior projections preserve passive and scrollable component variants', 
     type _PassiveTable = Assert<Equal<MessageOf<typeof passiveTable>, { readonly kind: 'passiveTable'; readonly action: TableControlAction }>>;
     type _ScrollableTable = Assert<Equal<MessageOf<typeof scrollableTable>, { readonly kind: 'scrollableTable'; readonly action: TableAction }>>;
     type _PassiveTree = Assert<Equal<MessageOf<typeof passiveTree>, { readonly kind: 'passiveTree'; readonly action: TreeControlAction }>>;
-    type _ScrollableTree = Assert<Equal<MessageOf<typeof scrollableTree>, { readonly kind: 'scrollableTree'; readonly action: TreeAction }>>;
+    type _ScrollableTree = Assert<Equal<MessageOf<typeof scrollableTree>, { readonly kind: 'scrollableTree'; readonly action: TreeInteractionAction }>>;
     type _PassiveLog = Assert<Equal<MessageOf<typeof passiveLog>, { readonly kind: 'passiveLog'; readonly action: ScrollbackControlAction }>>;
     type _ScrollableLog = Assert<Equal<MessageOf<typeof scrollableLog>, { readonly kind: 'scrollableLog'; readonly action: ScrollbackAction }>>;
 
@@ -632,7 +835,7 @@ test('multi-channel components infer unions without explicit message arguments',
       id: 'commands',
       presentation: { value: '', cursor: 0, suggestions: [] },
       onAction: (action: CommandInputAction) => ({ kind: 'command' as const, action }),
-      onSubmit: { kind: 'submit' as const },
+      onSubmit: () => ({ kind: 'submit' as const }),
       keys: {
         arrowUp: () => ({ kind: 'history' as const, delta: -1 as const }),
         escape: () => ({ kind: 'close' as const })
@@ -748,6 +951,7 @@ test('TUI transitions are synchronous and asynchronous work uses typed effects a
         : { state: { value: message.value } },
       subscriptions: () => [{
         id: 'refresh',
+        generation: 0,
         delivery: 'latest',
         async *messages() {
           yield { kind: 'loaded' as const, value: 'fresh' };
@@ -776,6 +980,7 @@ test('TUI transitions are synchronous and asynchronous work uses typed effects a
       // @ts-expect-error event sources must declare their backlog semantics
       subscriptions: () => [{
         id: 'missing-delivery',
+        generation: 0,
         async *messages() {
           yield { kind: 'loaded' as const, value: 'fresh' };
         }

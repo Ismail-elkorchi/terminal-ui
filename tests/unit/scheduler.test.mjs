@@ -26,12 +26,12 @@ test('intervalSource emits deterministic ticks through the terminal clock', asyn
   await runtime.start();
   await Promise.resolve();
   harness.clock.advance(10);
-  await waitUntil(() => runtime.getState()?.ticks.length === 1);
+  await waitUntil(() => runtime.state()?.ticks.length === 1);
   harness.clock.advance(10);
-  await waitUntil(() => runtime.getState()?.ticks.length === 2);
+  await waitUntil(() => runtime.state()?.ticks.length === 2);
   await runtime.dispose();
 
-  assert.deepEqual(runtime.getState()?.ticks, [0, 1]);
+  assert.deepEqual(runtime.state()?.ticks, [0, 1]);
 });
 
 test('timeoutSource emits once after the configured clock delay', async () => {
@@ -48,14 +48,14 @@ test('timeoutSource emits once after the configured clock delay', async () => {
   await runtime.start();
   await Promise.resolve();
   harness.clock.advance(4);
-  assert.deepEqual(runtime.getState(), { ready: false, count: 0 });
+  assert.deepEqual(runtime.state(), { ready: false, count: 0 });
   harness.clock.advance(1);
-  await waitUntil(() => runtime.getState()?.ready === true);
+  await waitUntil(() => runtime.state()?.ready === true);
   harness.clock.advance(10);
   await Promise.resolve();
   await runtime.dispose();
 
-  assert.deepEqual(runtime.getState(), { ready: true, count: 1 });
+  assert.deepEqual(runtime.state(), { ready: true, count: 1 });
 });
 
 test('animationSource maps frames from fps to clock-driven intervals', async () => {
@@ -72,10 +72,10 @@ test('animationSource maps frames from fps to clock-driven intervals', async () 
   await runtime.start();
   await Promise.resolve();
   harness.clock.advance(49);
-  assert.deepEqual(runtime.getState()?.frames, []);
+  assert.deepEqual(runtime.state()?.frames, []);
   harness.clock.advance(1);
-  await waitUntil(() => runtime.getState()?.frames.length === 1);
+  await waitUntil(() => runtime.state()?.frames.length === 1);
   await runtime.dispose();
 
-  assert.deepEqual(runtime.getState()?.frames, [0]);
+  assert.deepEqual(runtime.state()?.frames, [0]);
 });

@@ -90,8 +90,7 @@ function capabilities(depth, hyperlinks = false) {
     },
     unicode: {
       graphemeClusters: true,
-      eastAsianWidth: 'narrow',
-      emojiWidth: 'wide',
+      widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
       bidi: 'stable-fallback'
     },
     rawInput: support(true),
@@ -103,6 +102,7 @@ function capabilities(depth, hyperlinks = false) {
     alternateScreen: support(true),
     focusReporting: support(true),
     cursorVisibility: support(true),
+    synchronizedOutput: support(false),
     title: support(true),
     bell: support(true),
     clipboard: support(false),

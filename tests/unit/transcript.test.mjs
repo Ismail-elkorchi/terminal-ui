@@ -16,7 +16,7 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
     accessibility: snapshot
   };
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v1',
+    schemaVersion: 'terminal-ui.render-diff.v2',
     width: 3,
     height: 1,
     fullRewrite: true,
@@ -28,11 +28,12 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
     bracketedPaste: false,
     mouseReporting: 'none',
     focusReporting: false,
+    enhancedKeyboard: false,
     cursorVisible: true
   };
 
   const result = await replayTranscript(harness, {
-    schemaVersion: 'terminal-ui.interaction-transcript.v1',
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: 'replay-all',
     source: 'test',
     steps: [
@@ -67,7 +68,7 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
 test('transcript replay returns a typed diagnostic for invalid transcripts', async () => {
   const harness = createTerminalHarness();
   const result = await replayTranscript(harness, {
-    schemaVersion: 'terminal-ui.interaction-transcript.v1',
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: '',
     source: 'test',
     steps: [],
@@ -87,7 +88,7 @@ test('transcript replay preserves top-level diagnostics and redaction metadata',
   const stepDiagnostic = diagnostic('INPUT_CANCELLED', 'Cancelled.');
 
   const result = await replayTranscript(harness, {
-    schemaVersion: 'terminal-ui.interaction-transcript.v1',
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: 'top-level-metadata',
     source: 'test',
     steps: [
@@ -116,7 +117,7 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
   const harness = createTerminalHarness();
   const snapshot = harness.snapshot();
   const invalidFrame = validateTranscript({
-    schemaVersion: 'terminal-ui.interaction-transcript.v1',
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: 'invalid-frame',
     source: 'test',
     steps: [
@@ -138,14 +139,14 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
   assert.match(invalidFrame.error.message, /frame schemaVersion/u);
 
   const invalidDiff = validateTranscript({
-    schemaVersion: 'terminal-ui.interaction-transcript.v1',
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: 'invalid-diff',
     source: 'test',
     steps: [
       {
         kind: 'diff',
         diff: {
-          schemaVersion: 'terminal-ui.render-diff.v1',
+          schemaVersion: 'terminal-ui.render-diff.v2',
           width: 2,
           height: 1,
           fullRewrite: true,
@@ -163,7 +164,7 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
 
 test('transcript redaction records concrete paths for redacted strings', () => {
   const redacted = redactTranscript({
-    schemaVersion: 'terminal-ui.interaction-transcript.v1',
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: 'redaction',
     source: 'test',
     steps: [
@@ -184,7 +185,7 @@ test('diagnostics normalize causes into JSON-safe transcript data', () => {
     cause: new Error('socket closed')
   });
   const transcript = {
-    schemaVersion: 'terminal-ui.interaction-transcript.v1',
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: 'diagnostic-cause',
     source: 'test',
     steps: [{ kind: 'diagnostic', diagnostic: item }],
@@ -222,7 +223,7 @@ test('diagnostics redact obvious secret-bearing strings by default', () => {
   assert.equal(encoded.includes('visible-credential'), false);
   assert.match(encoded, /\[redacted\]/u);
   assert.equal(validateTranscript({
-    schemaVersion: 'terminal-ui.interaction-transcript.v1',
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: 'redacted-diagnostic',
     source: 'test',
     steps: [{ kind: 'diagnostic', diagnostic: item }],
@@ -233,7 +234,7 @@ test('diagnostics redact obvious secret-bearing strings by default', () => {
 
 test('transcript validation rejects unknown diagnostic codes', () => {
   const invalid = validateTranscript({
-    schemaVersion: 'terminal-ui.interaction-transcript.v1',
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: 'unknown-diagnostic',
     source: 'test',
     steps: [

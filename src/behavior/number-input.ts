@@ -1,8 +1,12 @@
-import type { NumberInputAction, NumberInputPresentation, NumberInputValidity } from '../ui-model/number-input.ts';
+import type {
+  NumberInputAction,
+  NumberInputAnalysis,
+  NumberInputPresentation
+} from '../ui-model/number-input.ts';
 import { editTextBuffer } from '../text/index.ts';
 import type { TextEditBuffer, TextEditOperation } from '../text/index.ts';
 
-export type { NumberInputPresentation } from '../ui-model/number-input.ts';
+export type { NumberInputAnalysis, NumberInputPresentation } from '../ui-model/number-input.ts';
 
 export interface NumberInputGrammar {
   readonly notation?: 'integer' | 'decimal' | 'scientific';
@@ -18,34 +22,82 @@ export interface NumberInputBehaviorOptions {
   readonly clampOnCommit?: boolean;
 }
 
+export interface NumberInputConfiguration {
+  readonly min?: number;
+  readonly max?: number;
+  readonly step: number;
+  readonly grammar: {
+    readonly notation: 'integer' | 'decimal' | 'scientific';
+    readonly decimalSeparator: '.' | ',';
+    readonly allowSign: boolean;
+  };
+  readonly clampOnCommit: boolean;
+}
+
 export interface NumberInputState {
   readonly input: TextEditBuffer;
   readonly committed?: number;
+  readonly configuration: NumberInputConfiguration;
 }
 
-export interface NumberInputAnalysis {
-  readonly validity: NumberInputValidity;
-  readonly value?: number;
+export const defaultNumberInputConfiguration: NumberInputConfiguration = Object.freeze({
+  step: 1,
+  grammar: Object.freeze({ notation: 'decimal', decimalSeparator: '.', allowSign: true }),
+  clampOnCommit: false
+});
+
+export function createNumberInputConfiguration(
+  options: NumberInputBehaviorOptions = {}
+): NumberInputConfiguration {
+  const grammar = {
+    notation: options.grammar?.notation ?? 'decimal',
+    decimalSeparator: options.grammar?.decimalSeparator ?? '.',
+    allowSign: options.grammar?.allowSign ?? true
+  } as const;
+  const step = options.step ?? 1;
+  assertFiniteBound(options.min, 'min');
+  assertFiniteBound(options.max, 'max');
+  if (options.min !== undefined && options.max !== undefined && options.min > options.max) {
+    throw new RangeError('number input min must be less than or equal to max.');
+  }
+  if (!Number.isFinite(step) || step <= 0) {
+    throw new RangeError('number input step must be finite and greater than zero.');
+  }
+  assertGrammarValue(options.min, grammar, 'min');
+  assertGrammarValue(options.max, grammar, 'max');
+  if (grammar.notation === 'integer' && !Number.isInteger(step)) {
+    throw new RangeError('integer number input step must be an integer.');
+  }
+  return Object.freeze({
+    ...(options.min === undefined ? {} : { min: options.min }),
+    ...(options.max === undefined ? {} : { max: options.max }),
+    step,
+    grammar: Object.freeze(grammar),
+    clampOnCommit: options.clampOnCommit === true
+  });
 }
 
-export function createNumberInputState(value?: number): NumberInputState {
-  if (value === undefined || !Number.isFinite(value)) return { input: { text: '', cursor: 0 } };
-  const text = formatNumberInputValue(value);
-  return { input: { text, cursor: text.length }, committed: value };
+export function createNumberInputState(
+  value?: number,
+  options: NumberInputBehaviorOptions = {}
+): NumberInputState {
+  const configuration = createNumberInputConfiguration(options);
+  if (value === undefined) return { input: { text: '', cursor: 0 }, configuration };
+  assertInitialValue(value, configuration);
+  return stateForValue(value, true, configuration);
 }
 
 export function numberInputReducer(
   state: NumberInputState,
-  action: NumberInputAction,
-  options: NumberInputBehaviorOptions = {}
+  action: NumberInputAction
 ): NumberInputState {
   switch (action.kind) {
     case 'edit':
       return { ...state, input: editTextBuffer(state.input, singleLineOperation(action.operation)) };
     case 'step':
-      return steppedState(state, action.direction, options);
+      return steppedState(state, action.direction);
     case 'commit':
-      return committedState(state, options);
+      return committedState(state);
     case 'revert':
       return revertedState(state);
   }
@@ -53,78 +105,84 @@ export function numberInputReducer(
 
 export function numberInputAnalysis(
   text: string,
-  options: NumberInputBehaviorOptions = {}
+  configuration: NumberInputConfiguration = defaultNumberInputConfiguration
 ): NumberInputAnalysis {
-  assertNumberInputRange(options);
-  const grammar = normalizedGrammar(options.grammar);
+  const grammar = configuration.grammar;
   if (text.length === 0) return { validity: 'empty' };
   if (isIncompleteNumber(text, grammar)) return { validity: 'incomplete' };
   if (!numberPattern(grammar).test(text)) return { validity: 'invalid' };
   const normalized = grammar.decimalSeparator === ',' ? text.replace(',', '.') : text;
-  const value = Number(normalized);
-  if (!Number.isFinite(value)) return { validity: 'invalid' };
-  if ((options.min !== undefined && value < options.min) || (options.max !== undefined && value > options.max)) {
-    return { validity: 'outOfRange', value };
+  const parsedValue = Number(normalized);
+  if (!Number.isFinite(parsedValue)) return { validity: 'invalid' };
+  if (
+    (configuration.min !== undefined && parsedValue < configuration.min)
+    || (configuration.max !== undefined && parsedValue > configuration.max)
+  ) {
+    return { validity: 'outOfRange', parsedValue };
   }
-  return { validity: 'valid', value };
+  return { validity: 'valid', parsedValue };
 }
 
-export function numberInputPresentation(
-  state: NumberInputState,
-  options: NumberInputBehaviorOptions = {}
-): NumberInputPresentation {
-  const analysis = numberInputAnalysis(state.input.text, options);
+export function numberInputPresentation(state: NumberInputState): NumberInputPresentation {
+  const analysis = numberInputAnalysis(state.input.text, state.configuration);
   return {
     value: state.input.text,
     cursor: state.input.cursor,
     ...(state.input.selection === undefined ? {} : { selection: state.input.selection }),
     ...(state.committed === undefined ? {} : { committedValue: state.committed }),
-    ...(analysis.value === undefined ? {} : { parsedValue: analysis.value }),
-    validity: analysis.validity,
-    ...(options.min === undefined ? {} : { min: options.min }),
-    ...(options.max === undefined ? {} : { max: options.max }),
-    ...(options.step === undefined ? {} : { step: options.step })
+    ...(state.configuration.min === undefined ? {} : { min: state.configuration.min }),
+    ...(state.configuration.max === undefined ? {} : { max: state.configuration.max }),
+    step: state.configuration.step,
+    ...analysis
   };
 }
 
-function committedState(state: NumberInputState, options: NumberInputBehaviorOptions): NumberInputState {
-  const analysis = numberInputAnalysis(state.input.text, options);
-  if (analysis.validity === 'valid' && analysis.value !== undefined) {
-    return { ...state, committed: analysis.value };
+function committedState(state: NumberInputState): NumberInputState {
+  const analysis = numberInputAnalysis(state.input.text, state.configuration);
+  if (analysis.validity === 'valid') {
+    return { ...state, committed: analysis.parsedValue };
   }
-  if (analysis.validity !== 'outOfRange' || analysis.value === undefined || options.clampOnCommit !== true) {
-    return state;
-  }
-  return stateForValue(clampToRange(analysis.value, options), true);
+  if (analysis.validity !== 'outOfRange' || !state.configuration.clampOnCommit) return state;
+  return stateForValue(clampToRange(analysis.parsedValue, state.configuration), true, state.configuration);
 }
 
 function steppedState(
   state: NumberInputState,
-  direction: 'decrement' | 'increment',
-  options: NumberInputBehaviorOptions
+  direction: 'decrement' | 'increment'
 ): NumberInputState {
-  const analysis = numberInputAnalysis(state.input.text, options);
-  const base = analysis.value ?? state.committed ?? options.min ?? 0;
-  const rawStep = options.step ?? 1;
-  const step = Number.isFinite(rawStep) && rawStep > 0 ? rawStep : 1;
-  const value = clampToRange(base + (direction === 'increment' ? step : -step), options);
-  return stateForValue(value, true);
+  const analysis = numberInputAnalysis(state.input.text, state.configuration);
+  const base = analysis.validity === 'valid' || analysis.validity === 'outOfRange'
+    ? analysis.parsedValue
+    : state.committed ?? state.configuration.min ?? 0;
+  const delta = direction === 'increment' ? state.configuration.step : -state.configuration.step;
+  const value = clampToRange(base + delta, state.configuration);
+  return stateForValue(value, true, state.configuration);
 }
 
 function revertedState(state: NumberInputState): NumberInputState {
-  return state.committed === undefined ? { input: { text: '', cursor: 0 } } : stateForValue(state.committed, true);
+  return state.committed === undefined
+    ? { input: { text: '', cursor: 0 }, configuration: state.configuration }
+    : stateForValue(state.committed, true, state.configuration);
 }
 
-function stateForValue(value: number, committed: boolean): NumberInputState {
-  const text = formatNumberInputValue(value);
+function stateForValue(
+  value: number,
+  committed: boolean,
+  configuration: NumberInputConfiguration
+): NumberInputState {
+  const text = formatNumberInputValue(value, configuration.grammar);
   return {
     input: { text, cursor: text.length },
-    ...(committed ? { committed: value } : {})
+    ...(committed ? { committed: value } : {}),
+    configuration
   };
 }
 
-function clampToRange(value: number, options: NumberInputBehaviorOptions): number {
-  return Math.max(options.min ?? Number.NEGATIVE_INFINITY, Math.min(options.max ?? Number.POSITIVE_INFINITY, value));
+function clampToRange(value: number, configuration: NumberInputConfiguration): number {
+  return Math.max(
+    configuration.min ?? Number.NEGATIVE_INFINITY,
+    Math.min(configuration.max ?? Number.POSITIVE_INFINITY, value)
+  );
 }
 
 function singleLineOperation(operation: TextEditOperation): TextEditOperation {
@@ -132,15 +190,7 @@ function singleLineOperation(operation: TextEditOperation): TextEditOperation {
   return { ...operation, text: operation.text.replace(/\r\n?|\n/gu, '') };
 }
 
-function normalizedGrammar(grammar: NumberInputGrammar | undefined): Required<NumberInputGrammar> {
-  return {
-    notation: grammar?.notation ?? 'decimal',
-    decimalSeparator: grammar?.decimalSeparator ?? '.',
-    allowSign: grammar?.allowSign ?? true
-  };
-}
-
-function numberPattern(grammar: Required<NumberInputGrammar>): RegExp {
+function numberPattern(grammar: NumberInputConfiguration['grammar']): RegExp {
   const sign = grammar.allowSign ? '[+-]?' : '';
   if (grammar.notation === 'integer') return new RegExp(`^${sign}\\d+$`, 'u');
   const separator = grammar.decimalSeparator === '.' ? '\\.' : ',';
@@ -149,7 +199,7 @@ function numberPattern(grammar: Required<NumberInputGrammar>): RegExp {
   return new RegExp(`^${sign}${decimal}(?:[eE][+-]?\\d+)?$`, 'u');
 }
 
-function isIncompleteNumber(text: string, grammar: Required<NumberInputGrammar>): boolean {
+function isIncompleteNumber(text: string, grammar: NumberInputConfiguration['grammar']): boolean {
   const sign = grammar.allowSign ? '[+-]?' : '';
   if (grammar.notation === 'integer') return new RegExp(`^${sign}$`, 'u').test(text);
   const separator = grammar.decimalSeparator === '.' ? '\\.' : ',';
@@ -158,18 +208,38 @@ function isIncompleteNumber(text: string, grammar: Required<NumberInputGrammar>)
   return new RegExp(`^${sign}(?:\\d+(?:${separator}\\d*)?|${separator}\\d+)[eE][+-]?$`, 'u').test(text);
 }
 
-function formatNumberInputValue(value: number): string {
-  return String(value);
+function formatNumberInputValue(value: number, grammar: NumberInputConfiguration['grammar']): string {
+  const text = String(value);
+  return grammar.decimalSeparator === ',' ? text.replace('.', ',') : text;
 }
 
-function assertNumberInputRange(options: NumberInputBehaviorOptions): void {
-  if (options.min !== undefined && !Number.isFinite(options.min)) {
-    throw new RangeError('number input min must be finite when provided.');
+function assertFiniteBound(value: number | undefined, name: 'min' | 'max'): void {
+  if (value !== undefined && !Number.isFinite(value)) {
+    throw new RangeError(`number input ${name} must be finite when provided.`);
   }
-  if (options.max !== undefined && !Number.isFinite(options.max)) {
-    throw new RangeError('number input max must be finite when provided.');
+}
+
+function assertGrammarValue(
+  value: number | undefined,
+  grammar: NumberInputConfiguration['grammar'],
+  name: 'min' | 'max'
+): void {
+  if (value === undefined) return;
+  if (grammar.notation === 'integer' && !Number.isInteger(value)) {
+    throw new RangeError(`integer number input ${name} must be an integer.`);
   }
-  if (options.min !== undefined && options.max !== undefined && options.min > options.max) {
-    throw new RangeError('number input min must be less than or equal to max.');
+  if (!grammar.allowSign && value < 0) {
+    throw new RangeError(`unsigned number input ${name} cannot be negative.`);
+  }
+}
+
+function assertInitialValue(value: number, configuration: NumberInputConfiguration): void {
+  if (!Number.isFinite(value)) throw new RangeError('number input initial value must be finite.');
+  assertGrammarValue(value, configuration.grammar, 'min');
+  if (
+    (configuration.min !== undefined && value < configuration.min)
+    || (configuration.max !== undefined && value > configuration.max)
+  ) {
+    throw new RangeError('number input initial value must be contained by its range.');
   }
 }

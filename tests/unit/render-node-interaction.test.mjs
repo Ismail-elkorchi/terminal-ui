@@ -36,7 +36,7 @@ const formOptions = [
 const disabledWidgetCases = [
   {
     name: 'button',
-    element: () => button({ id: 'disabled-button', label: 'Submit', onPress: message, disabled: true })
+    element: () => button({ id: 'disabled-button', label: 'Submit', onPress: () => message, disabled: true })
   },
   {
     name: 'checkbox',
@@ -113,7 +113,7 @@ const disabledWidgetCases = [
   },
   {
     name: 'textInput',
-    element: () => textInput({ id: 'disabled-text-input', presentation: { value: 'locked', cursor: 0 }, onSubmit: message, disabled: true })
+    element: () => textInput({ id: 'disabled-text-input', presentation: { value: 'locked', cursor: 0 }, onSubmit: () => message, disabled: true })
   },
   {
     name: 'numberInput',
@@ -147,7 +147,7 @@ test('disabled widget props block generated keyboard and mouse dispatch', async 
     view: (state) => button({
       id: 'disabled-action',
       label: state.active,
-      onPress: { active: 'mouse' },
+      onPress: () => ({ active: 'mouse' }),
       keys: { enter: () => ({ active: 'key' }) },
       disabled: true
     })
@@ -156,12 +156,12 @@ test('disabled widget props block generated keyboard and mouse dispatch', async 
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const key = await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  const key = await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   const mouse = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
 
   assert.equal(key.handled, false);
   assert.equal(mouse.results[0]?.handled, false);
-  assert.deepEqual(runtime.getState(), { active: 'idle' });
+  assert.deepEqual(runtime.state(), { active: 'idle' });
 });
 
 test('commandInput preserves disabled suggestion semantics', () => {

@@ -12,6 +12,7 @@ import type {
   NotificationPlacement,
   ProgressBarDisplay,
   ProgressBarLabelPosition,
+  ProgressBarMode,
   StatusBarItem,
   ValueScale
 } from '../../../ui-model/feedback.ts';
@@ -46,15 +47,12 @@ export interface StatusIndicatorRenderProps {
 
 export interface ProgressBarRenderProps {
   readonly label?: string;
-  readonly value?: number;
-  readonly max?: number;
-  readonly indeterminate?: boolean;
+  readonly mode: ProgressBarMode;
   readonly barWidth?: number;
   readonly display?: ProgressBarDisplay;
   readonly labelPosition?: ProgressBarLabelPosition;
   readonly elapsedMs?: number;
   readonly remainingMs?: number;
-  readonly frame?: number;
   readonly status?: ProcessStatus;
   readonly valueScale?: ValueScale;
 }

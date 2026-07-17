@@ -2,7 +2,8 @@ import { toAccessibleSnapshot, validateAccessibleSnapshot } from '../accessibili
 import type { RenderNode } from '../renderer/model/index.ts';
 import { defineTheme, isTerminalTheme } from '../theme/index.ts';
 import { dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions.ts';
-import { diffFrames, renderDiffAnsi, renderElementProjection } from '../renderer/internal/render.ts';
+import { diffFrames, renderElementProjection } from '../renderer/internal/render.ts';
+import { planTerminalOutput } from '../renderer/internal/output-planner.ts';
 import { recordTuiFrame } from './transcript.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalHost, TerminalViewport } from '../host/index.ts';
@@ -58,14 +59,40 @@ export async function commitFrame(
   frame: Frame,
   transcript: TuiRuntimeOptions<unknown, unknown>['transcript'] | undefined,
   theme: TerminalTheme,
-  options: { readonly dirtyRegions?: DirtyRegionSet } = {}
+  options: { readonly dirtyRegions?: DirtyRegionSet; readonly signal?: AbortSignal } = {}
 ): Promise<RenderDiff> {
+  options.signal?.throwIfAborted();
   const diff = diffFrames(previousFrame, frame, options);
   const capabilities = await host.getCapabilities();
+  options.signal?.throwIfAborted();
+  const output = planTerminalOutput(diff, { capabilities, hyperlinks: true, theme });
+  try {
+    await host.write({ text: output.text });
+  } catch (error) {
+    await attemptOutputCleanup(host, output.failureCleanup, error);
+  }
+  options.signal?.throwIfAborted();
   recordHostFrame(host, frame, diff);
   recordTuiFrame(transcript, frame, diff);
-  await host.write({ text: renderDiffAnsi(diff, { capabilities, hyperlinks: true, theme }) });
   return diff;
+}
+
+async function attemptOutputCleanup(
+  host: TerminalHost,
+  cleanup: string | undefined,
+  writeError: unknown
+): Promise<never> {
+  if (cleanup === undefined) throw writeError;
+  try {
+    await host.write({ text: cleanup });
+  } catch (cleanupError) {
+    throw new AggregateError(
+      [writeError, cleanupError],
+      'Terminal frame write failed and synchronized-output cleanup also failed.',
+      { cause: cleanupError }
+    );
+  }
+  throw writeError;
 }
 
 export function dirtyRegionsForRenderCommit(

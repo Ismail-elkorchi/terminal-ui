@@ -1,4 +1,5 @@
 import type { ScrollEvent } from '../interaction/scroll.ts';
+import type { CollectionProjection, CollectionRecord } from './collection.ts';
 
 export interface ListItemProjection {
   readonly id: string;
@@ -9,6 +10,13 @@ export interface ListItemProjection {
 }
 
 export type ListItemProjector<TValue> = (value: TValue, index: number) => ListItemProjection;
+
+export interface ListCollectionRecord<TValue> extends CollectionRecord {
+  readonly value: TValue;
+  readonly item: ListItemProjection & { readonly disabled: boolean };
+}
+
+export type ListCollection<TValue> = CollectionProjection<ListCollectionRecord<TValue>>;
 
 export type ListAction =
   | { readonly kind: 'select'; readonly id: string; readonly index: number }

@@ -19,32 +19,32 @@ export function editPromptBufferForEvent(state: PromptTextBufferState, event: In
   if (event.kind !== 'key') return false;
   switch (event.key) {
     case 'backspace':
-      state.buffer = editTextBuffer(state.buffer, event.alt || event.ctrl ? { kind: 'deleteWordBackward' } : { kind: 'deleteBackward' });
+      state.buffer = editTextBuffer(state.buffer, event.modifiers.alt || event.modifiers.ctrl ? { kind: 'deleteWordBackward' } : { kind: 'deleteBackward' });
       return true;
     case 'delete':
-      state.buffer = editTextBuffer(state.buffer, event.alt || event.ctrl ? { kind: 'deleteWordForward' } : { kind: 'deleteForward' });
+      state.buffer = editTextBuffer(state.buffer, event.modifiers.alt || event.modifiers.ctrl ? { kind: 'deleteWordForward' } : { kind: 'deleteForward' });
       return true;
     case 'arrowLeft':
-      state.buffer = editTextBuffer(state.buffer, event.alt || event.ctrl
-        ? { kind: 'moveWordLeft', select: event.shift }
-        : { kind: 'moveLeft', select: event.shift });
+      state.buffer = editTextBuffer(state.buffer, event.modifiers.alt || event.modifiers.ctrl
+        ? { kind: 'moveWordLeft', select: event.modifiers.shift }
+        : { kind: 'moveLeft', select: event.modifiers.shift });
       return true;
     case 'arrowRight':
-      state.buffer = editTextBuffer(state.buffer, event.alt || event.ctrl
-        ? { kind: 'moveWordRight', select: event.shift }
-        : { kind: 'moveRight', select: event.shift });
+      state.buffer = editTextBuffer(state.buffer, event.modifiers.alt || event.modifiers.ctrl
+        ? { kind: 'moveWordRight', select: event.modifiers.shift }
+        : { kind: 'moveRight', select: event.modifiers.shift });
       return true;
     case 'home':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'moveHome', select: event.shift });
+      state.buffer = editTextBuffer(state.buffer, { kind: 'moveHome', select: event.modifiers.shift });
       return true;
     case 'end':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'moveEnd', select: event.shift });
+      state.buffer = editTextBuffer(state.buffer, { kind: 'moveEnd', select: event.modifiers.shift });
       return true;
     case 'pageUp':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'movePageUp', select: event.shift });
+      state.buffer = editTextBuffer(state.buffer, { kind: 'movePageUp', select: event.modifiers.shift });
       return true;
     case 'pageDown':
-      state.buffer = editTextBuffer(state.buffer, { kind: 'movePageDown', select: event.shift });
+      state.buffer = editTextBuffer(state.buffer, { kind: 'movePageDown', select: event.modifiers.shift });
       return true;
     case 'space':
       state.buffer = editTextBuffer(state.buffer, { kind: 'insert', text: ' ' });

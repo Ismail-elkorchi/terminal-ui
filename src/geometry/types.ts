@@ -5,6 +5,11 @@ export interface Rect {
   readonly height: number;
 }
 
+export interface ViewportSize {
+  readonly columns: number;
+  readonly rows: number;
+}
+
 export type LayoutSize =
   | { readonly kind: 'fixed'; readonly cells: number }
   | { readonly kind: 'percent'; readonly value: number }

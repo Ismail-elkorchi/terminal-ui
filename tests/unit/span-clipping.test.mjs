@@ -15,7 +15,7 @@ import {
   renderElementFrame,
   wrapRenderSpans
 } from '../../dist/renderer/index.js';
-import { table } from '../../dist/components/index.js';
+import { table, tableColumn } from '../../dist/components/index.js';
 
 const red = { fg: { kind: 'ansi', value: 1 } };
 const blue = { fg: { kind: 'ansi', value: 4 } };
@@ -110,7 +110,7 @@ test('table clipping keeps multi-span cell styles instead of flattening to plain
     id: 'styled-table',
     presentation: { selectedRowId: '0' },
     rows: [{ value: 'unused' }],
-    columns: [{
+    columns: [tableColumn({
       id: 'state-0', value: (row) => Array.isArray(row) ? row[0] : row,
       header: 'State',
       width: 6,
@@ -118,7 +118,7 @@ test('table clipping keeps multi-span cell styles instead of flattening to plain
         { kind: 'text', text: 'pass', style: red },
         { kind: 'text', text: '-fail', style: blue }
       ]
-    }]
+    })]
   }), { columns: 10, rows: 2 });
 
   assert.equal(renderFramePlain(frame), '  State\n› pass-…');
@@ -147,14 +147,14 @@ test('table horizontal scrolling keeps span styles after clipped cells are shift
     },
     rows: [{ value: 'unused' }],
     onAction: (action) => action,
-    columns: [{
+    columns: [tableColumn({
       id: 'column-0', value: (row) => Array.isArray(row) ? row[0] : row,
       width: 8,
       render: () => [
         { kind: 'text', text: 'left', style: red },
         { kind: 'text', text: 'right', style: blue }
       ]
-    }]
+    })]
   }), { columns: 6, rows: 1 });
 
   assert.equal(renderFramePlain(frame), 'rig…');

@@ -2,6 +2,7 @@ import { clipTextCells, measureTextCells } from '../text/index.ts';
 import type { ThemeColorToken } from './color.ts';
 import { sameFrameCellSource } from './source.ts';
 import type { FrameCellSource } from './source.ts';
+import type { TextMeasurementOptions } from '../text/index.ts';
 
 export interface TerminalStyle {
   readonly fg?: TerminalColor;
@@ -47,14 +48,14 @@ export interface RenderBlockSize {
   readonly height: number;
 }
 
-export interface PadRenderLineOptions {
+export interface PadRenderLineOptions extends TextMeasurementOptions {
   readonly align?: RenderAlignment;
   readonly fill?: RenderSpan;
 }
 
 export type RenderClipMode = 'end' | 'middle';
 
-export interface ClipRenderSpansOptions {
+export interface ClipRenderSpansOptions extends TextMeasurementOptions {
   readonly ellipsis?: string;
   readonly mode?: RenderClipMode;
 }
@@ -86,7 +87,7 @@ export function clipRenderSpans(
   if (maxCells < 0) throw new RangeError('maxCells must be non-negative.');
   if (maxCells === 0 || spans.length === 0) return [];
   const segments = spans.flatMap((currentSpan) =>
-    measureTextCells(currentSpan.text).graphemes.map((segment) => ({
+    measureTextCells(currentSpan.text, options).graphemes.map((segment) => ({
       text: segment.text,
       cells: segment.cells,
       options: spanOptions(currentSpan)
@@ -97,8 +98,8 @@ export function clipRenderSpans(
     return compactSpans(segments.map((segment) => ({ text: segment.text, options: segment.options })));
   }
   const ellipsis = options.ellipsis ?? '';
-  const fittedEllipsis = ellipsis.length === 0 ? '' : clipTextCells(ellipsis, maxCells).text;
-  const ellipsisCells = measureTextCells(fittedEllipsis).cells;
+  const fittedEllipsis = ellipsis.length === 0 ? '' : clipTextCells(ellipsis, maxCells, options).text;
+  const ellipsisCells = measureTextCells(fittedEllipsis, options).cells;
   const budget = Math.max(0, maxCells - ellipsisCells);
   if (options.mode === 'middle') {
     return middleClipSegments(segments, budget, fittedEllipsis);
@@ -128,38 +129,43 @@ export function clipRenderLine(
   return line(clipRenderSpans(renderLine.spans, maxCells, options));
 }
 
-export function measureRenderSpans(spans: readonly RenderSpan[]): number {
-  return spans.reduce((sum, currentSpan) => sum + measureTextCells(currentSpan.text).cells, 0);
+export function measureRenderSpans(spans: readonly RenderSpan[], options: TextMeasurementOptions = {}): number {
+  return spans.reduce((sum, currentSpan) => sum + measureTextCells(currentSpan.text, options).cells, 0);
 }
 
-export function measureRenderLine(renderLine: RenderLine): number {
-  return measureRenderSpans(renderLine.spans);
+export function measureRenderLine(renderLine: RenderLine, options: TextMeasurementOptions = {}): number {
+  return measureRenderSpans(renderLine.spans, options);
 }
 
-export function measureRenderBlock(renderBlock: RenderBlock): RenderBlockSize {
+export function measureRenderBlock(renderBlock: RenderBlock, options: TextMeasurementOptions = {}): RenderBlockSize {
   return {
-    width: renderBlock.lines.reduce((max, currentLine) => Math.max(max, measureRenderLine(currentLine)), 0),
+    width: renderBlock.lines.reduce((max, currentLine) => Math.max(max, measureRenderLine(currentLine, options)), 0),
     height: renderBlock.lines.length
   };
 }
 
 export function padRenderLine(renderLine: RenderLine, width: number, options: PadRenderLineOptions = {}): RenderLine {
   if (width < 0) throw new RangeError('width must be non-negative.');
-  const currentWidth = measureRenderLine(renderLine);
+  const currentWidth = measureRenderLine(renderLine, options);
   if (currentWidth >= width) return renderLine;
   const missing = width - currentWidth;
   const before = paddingForAlignment(missing, options.align ?? 'start');
   const after = missing - before;
   const fillSpan = options.fill ?? { text: ' ' };
   return line([
-    ...repeatFillSpan(fillSpan, before),
+    ...repeatFillSpan(fillSpan, before, options),
     ...renderLine.spans,
-    ...repeatFillSpan(fillSpan, after)
+    ...repeatFillSpan(fillSpan, after, options)
   ]);
 }
 
-export function alignRenderLine(renderLine: RenderLine, width: number, align: RenderAlignment): RenderLine {
-  return padRenderLine(clipRenderLine(renderLine, width), width, { align });
+export function alignRenderLine(
+  renderLine: RenderLine,
+  width: number,
+  align: RenderAlignment,
+  options: TextMeasurementOptions = {}
+): RenderLine {
+  return padRenderLine(clipRenderLine(renderLine, width, options), width, { align, ...options });
 }
 
 export function compactRenderSpans(spans: readonly RenderSpan[]): readonly RenderSpan[] {
@@ -168,7 +174,8 @@ export function compactRenderSpans(spans: readonly RenderSpan[]): readonly Rende
 
 export function wrapRenderSpans(
   spans: readonly RenderSpan[],
-  width: number
+  width: number,
+  options: TextMeasurementOptions = {}
 ): readonly RenderLine[] {
   if (width <= 0) throw new RangeError('width must be positive.');
   const lines: RenderLine[] = [];
@@ -185,8 +192,8 @@ export function wrapRenderSpans(
   };
 
   for (const currentSpan of spans) {
-    const options = spanOptions(currentSpan);
-    for (const segment of measureTextCells(currentSpan.text).graphemes) {
+    const spanMetadata = spanOptions(currentSpan);
+    for (const segment of measureTextCells(currentSpan.text, options).graphemes) {
       if (segment.text === '\n') {
         pushLine();
         continue;
@@ -194,7 +201,7 @@ export function wrapRenderSpans(
       if (usedCells > 0 && usedCells + segment.cells > width) {
         pushLine();
       }
-      current.push({ text: segment.text, options, cells: segment.cells });
+      current.push({ text: segment.text, options: spanMetadata, cells: segment.cells });
       usedCells += segment.cells;
     }
   }
@@ -257,10 +264,14 @@ function paddingForAlignment(missing: number, align: RenderAlignment): number {
   }
 }
 
-function repeatFillSpan(fill: RenderSpan, cells: number): readonly RenderSpan[] {
+function repeatFillSpan(
+  fill: RenderSpan,
+  cells: number,
+  options: TextMeasurementOptions
+): readonly RenderSpan[] {
   if (cells === 0) return [];
   const text = fill.text.length === 0 ? ' ' : fill.text;
-  const measured = measureTextCells(text).cells;
+  const measured = measureTextCells(text, options).cells;
   if (measured !== 1) {
     return [{ ...fill, text: ' '.repeat(cells) }];
   }

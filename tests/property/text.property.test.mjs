@@ -99,8 +99,8 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
   const runtime = createTuiRuntime({ app, host });
 
   await runtime.start();
-  const next = await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
-  const previous = await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: true, meta: false });
+  const next = await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  const previous = await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: true, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.deepEqual(next.frame.focusPath, ['focus-root', 'second']);
   assert.deepEqual(previous.frame.focusPath, ['focus-root', 'first']);

@@ -1,4 +1,5 @@
 import { focusFromPrefix } from './focus.ts';
+import { enhancedKeyFromPrefix } from './enhanced-keyboard.ts';
 import { keyEvent, keyFromPrefix, keySequences } from './keys.ts';
 import { mouseFromPrefix } from './mouse.ts';
 import { bracketedPasteFromPrefix, isIncompleteBracketedPaste } from './paste.ts';
@@ -92,7 +93,9 @@ function decodeTerminalText(
       continue;
     }
 
-    const key = keyFromPrefix(remaining);
+    const key = options.keyboard === 'enhanced'
+      ? enhancedKeyFromPrefix(remaining) ?? keyFromPrefix(remaining)
+      : keyFromPrefix(remaining);
     if (key !== undefined) {
       flushText();
       events.push(key);

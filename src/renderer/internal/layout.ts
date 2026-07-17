@@ -1,4 +1,4 @@
-import type { TerminalViewport } from '../../host/index.ts';
+import type { ViewportSize } from '../../geometry/types.ts';
 import type { ElementLayerOpacity } from '../../element/metadata.ts';
 import type { Rect } from '../../geometry/types.ts';
 export type { Rect } from '../../geometry/types.ts';
@@ -19,7 +19,7 @@ export type { Layer, LayoutFocusRegion, LayoutNode } from '../model/layout.ts';
 
 export function layoutElement(
   element: Element,
-  viewport: TerminalViewport | Rect,
+  viewport: ViewportSize | Rect,
   themeInput?: TerminalTheme | TerminalThemeDefinition
 ): LayoutNode {
   return layoutRenderNode(toRenderNode(element), viewport, themeInput);
@@ -27,7 +27,7 @@ export function layoutElement(
 
 export function layoutRenderNode(
   widget: RenderNode,
-  viewport: TerminalViewport | Rect,
+  viewport: ViewportSize | Rect,
   themeInput?: TerminalTheme | TerminalThemeDefinition
 ): LayoutNode {
   const theme = themeForLayout(themeInput);

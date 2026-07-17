@@ -13,7 +13,7 @@ import {
 import { column } from '../../dist/layout/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
-const enterKey = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
+const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 
 test('PTY harness handles resize while async stream messages are rendering', async () => {
   const result = createPtyTerminalHarness({ viewport: { columns: 36, rows: 8 } });
@@ -33,6 +33,7 @@ test('PTY harness handles resize while async stream messages are rendering', asy
     },
     subscriptions: () => [{
       id: 'stream',
+      generation: 0,
       source: 'external',
       delivery: 'latest',
       async *messages(context) {

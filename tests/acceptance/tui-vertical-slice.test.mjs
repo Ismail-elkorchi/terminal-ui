@@ -34,7 +34,7 @@ function dashboardWidget(state) {
         textInput({
           id: 'action-field',
           presentation: { value: state.submitted ? 'Submitted' : 'Press enter', cursor: 0 },
-          onSubmit: { type: 'submit' }
+          onSubmit: () => ({ type: 'submit' })
         })
       ], { id: 'panes' }),
       statusBar({
@@ -80,9 +80,9 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
     focusPath: frame.focusPath
   });
   const diff = diffFrames(frame, submittedFrame);
-  assert.equal(diff.schemaVersion, 'terminal-ui.render-diff.v1');
+  assert.equal(diff.schemaVersion, 'terminal-ui.render-diff.v2');
   assert.equal(diff.fullRewrite, false);
-  assert.ok(diff.operations.every((operation) => operation.kind !== 'clearLine'));
+  assert.ok(diff.operations.every((operation) => operation.kind === 'write' || operation.kind === 'clearRect'));
   assert.ok(diff.operations.some((operation) =>
     operation.kind === 'write'
     && operation.spans.some((span) => span.text === '   ')

@@ -88,11 +88,14 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.json && node scripts/copy-schemas.mjs",
-    "clean": "rm -rf dist",
-    "lint": "eslint \"src/**/*.ts\"",
+    "build": "node scripts/clean.mjs && tsc -p tsconfig.json && node scripts/copy-schemas.mjs",
+    "clean": "node scripts/clean.mjs",
+    "lint": "eslint \"src/**/*.ts\" \"examples/**/*.{ts,mjs}\" \"scripts/**/*.mjs\" \"tests/**/*.mjs\"",
+    "check:architecture": "node scripts/check-architecture.mjs",
+    "check:format": "node scripts/check-format.mjs",
+    "check:metadata": "node scripts/check-package-metadata.mjs",
     "check": "npm run check:fast && npm run check:pack && npm run check:consumer && npm run check:runtime && npm run check:jsr && npm run check:performance",
-    "check:fast": "npm run lint && npm run build && npm run check:examples && npm run check:acceptance && npm run check:conformance && npm run check:integration && npm run check:package && npm run check:property && npm run check:security && npm run check:unit",
+    "check:fast": "npm run lint && npm run check:format && npm run check:architecture && npm run check:metadata && npm run build && npm run check:examples && npm run check:acceptance && npm run check:conformance && npm run check:integration && npm run check:package && npm run check:property && npm run check:security && npm run check:unit",
     "check:acceptance": "node --test tests/acceptance/*.test.mjs",
     "check:conformance": "node --test tests/conformance/*.test.mjs",
     "check:examples": "tsc --project tsconfig.examples.json",

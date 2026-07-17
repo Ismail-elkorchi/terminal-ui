@@ -2,9 +2,20 @@ import {
   treeNodeChildren,
   treeNodeExpanded
 } from '../ui-model/tree.ts';
-import type { TreeAction, TreeControlAction, TreeDisclosureAction, TreeNode } from '../ui-model/tree.ts';
+import type {
+  PassiveTreeAction,
+  TreeAction,
+  TreeCollection,
+  TreeCollectionRecord,
+  TreeDisclosureAction,
+  TreeNode,
+  TreeVisibleRow
+} from '../ui-model/tree.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
+import { collectionRecordById, completeCollection, windowedCollection } from '../ui-model/collection.ts';
+import type { CollectionWindow } from '../ui-model/collection.ts';
+import { assertUniqueRecursiveIds } from '../ui-model/identity.ts';
 
 interface TreeStateBase<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
@@ -36,18 +47,22 @@ export interface TreeRenameState {
   readonly value: string;
 }
 
-export interface TreeVisibleRow<
-  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
-> {
-  readonly node: TreeNode<TMetadata>;
-  readonly depth: number;
-  readonly path: readonly string[];
-  readonly lazyPlaceholder?: boolean;
-}
-
 export interface TreeVisibleRowsOptions {
   readonly filterQuery?: string;
 }
+
+export interface TreeReducerOptions<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> {
+  readonly collection?: TreeCollection<TMetadata>;
+}
+
+interface TreeSelectionIndex<TMetadata extends Readonly<Record<string, unknown>>> {
+  readonly records: readonly TreeCollectionRecord<TMetadata>[];
+  readonly positions: ReadonlyMap<string, number>;
+}
+
+const treeSelectionIndexes = new WeakMap<object, TreeSelectionIndex<Readonly<Record<string, unknown>>>>();
 
 export interface TreePresentation<TMetadata extends Readonly<Record<string, unknown>>> {
   readonly nodes: readonly TreeNode<TMetadata>[];
@@ -63,21 +78,24 @@ export interface TreeScrollablePresentation<
 
 export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
   state: ScrollableTreeState<TMetadata>,
-  action: TreeAction<TMetadata>
+  action: TreeAction<TMetadata>,
+  options?: TreeReducerOptions<TMetadata>
 ): ScrollableTreeState<TMetadata>;
 export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
   state: PassiveTreeState<TMetadata>,
-  action: TreeControlAction<TMetadata>
+  action: PassiveTreeAction<TMetadata>,
+  options?: TreeReducerOptions<TMetadata>
 ): PassiveTreeState<TMetadata>;
 export function treeReducer<TMetadata extends Readonly<Record<string, unknown>>>(
   state: TreeState<TMetadata>,
-  action: TreeAction<TMetadata>
+  action: TreeAction<TMetadata>,
+  options: TreeReducerOptions<TMetadata> = {}
 ): TreeState<TMetadata> {
   switch (action.kind) {
     case 'select':
-      return selectTreeNode(state, action.id);
+      return selectTreeNode(state, action.id, options.collection);
     case 'move':
-      return moveTreeSelection(state, action.delta);
+      return moveTreeSelection(state, action.delta, options.collection);
     case 'activate':
       return state;
     case 'filter':
@@ -156,6 +174,29 @@ export function visibleTreeRows<TMetadata extends Readonly<Record<string, unknow
   return rows;
 }
 
+export function prepareTreeCollection<TMetadata extends Readonly<Record<string, unknown>>>(
+  nodes: readonly TreeNode<TMetadata>[],
+  options: TreeVisibleRowsOptions = {}
+): TreeCollection<TMetadata> {
+  assertUniqueRecursiveIds(nodes, (node) => ({ id: node.id, children: treeNodeChildren(node) }), 'tree');
+  return prepareTreeRows(visibleTreeRows(nodes, options));
+}
+
+export function prepareTreeRows<TMetadata extends Readonly<Record<string, unknown>>>(
+  rows: readonly TreeVisibleRow<TMetadata>[],
+  window?: CollectionWindow
+): TreeCollection<TMetadata> {
+  const start = window?.start ?? 0;
+  const records = rows.map((row, offset): TreeCollectionRecord<TMetadata> => ({
+    id: row.node.id,
+    index: start + offset,
+    row: Object.freeze({ ...row, path: Object.freeze([...row.path]) })
+  }));
+  return window === undefined
+    ? completeCollection(records)
+    : windowedCollection({ records, window });
+}
+
 export function selectableTreeRows<TMetadata extends Readonly<Record<string, unknown>>>(
   rows: readonly TreeVisibleRow<TMetadata>[]
 ): readonly TreeVisibleRow<TMetadata>[] {
@@ -170,7 +211,10 @@ export function nextTreeRowId(
   const selectable = selectableTreeRows(rows);
   if (selectable.length === 0) return undefined;
   const selectedIndex = selectable.findIndex((row) => row.node.id === selected);
-  const current = selectedIndex < 0 ? 0 : selectedIndex;
+  if (selectedIndex < 0) {
+    return (delta < 0 ? selectable.at(-1) : selectable[0])?.node.id;
+  }
+  const current = selectedIndex;
   return selectable[wrapIndex(current + delta, selectable.length)]?.node.id;
 }
 
@@ -190,25 +234,61 @@ export function treeNodeCanDisclose<TMetadata extends Readonly<Record<string, un
 
 function selectTreeNode<TMetadata extends Readonly<Record<string, unknown>>>(
   state: TreeState<TMetadata>,
-  id: string | undefined
+  id: string | undefined,
+  collection?: TreeCollection<TMetadata>
 ): TreeState<TMetadata> {
   if (id === undefined) return withoutSelection(state);
   if (state.selected === id) return state;
-  const rows = visibleTreeRows(state.nodes, state.filterQuery === undefined ? {} : { filterQuery: state.filterQuery });
-  const rowIndex = rows.findIndex((row) => row.node.id === id && row.node.disabled !== true && row.lazyPlaceholder !== true);
-  if (rowIndex < 0) return state;
+  const rows = treeRowsForState(state, collection);
+  const selectedRecord = collectionRecordById(rows, id);
+  if (selectedRecord?.row.node.disabled === true || selectedRecord?.row.lazyPlaceholder === true) return state;
+  if (selectedRecord === undefined) return state;
   const scroll = state.scroll === undefined
     ? undefined
-    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: rowIndex });
+    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: selectedRecord.index });
   return { ...state, selected: id, ...(scroll === undefined ? {} : { scroll }) };
 }
 
 function moveTreeSelection<TMetadata extends Readonly<Record<string, unknown>>>(
   state: TreeState<TMetadata>,
-  delta: number
+  delta: number,
+  collection?: TreeCollection<TMetadata>
 ): TreeState<TMetadata> {
-  const rows = visibleTreeRows(state.nodes, state.filterQuery === undefined ? {} : { filterQuery: state.filterQuery });
-  return selectTreeNode(state, nextTreeRowId(rows, state.selected, delta));
+  const records = treeRowsForState(state, collection);
+  const selection = treeSelectionIndex(records);
+  if (selection.records.length === 0) return withoutSelection(state);
+  const current = state.selected === undefined ? undefined : selection.positions.get(state.selected);
+  const next = current === undefined
+    ? (delta < 0 ? selection.records.at(-1) : selection.records[0])
+    : selection.records[wrapIndex(current + delta, selection.records.length)];
+  return selectTreeNode(state, next?.id, records);
+}
+
+function treeRowsForState<TMetadata extends Readonly<Record<string, unknown>>>(
+  state: TreeState<TMetadata>,
+  collection: TreeCollection<TMetadata> | undefined
+): TreeCollection<TMetadata> {
+  return collection ?? prepareTreeCollection(
+    state.nodes,
+    state.filterQuery === undefined ? {} : { filterQuery: state.filterQuery }
+  );
+}
+
+function treeSelectionIndex<TMetadata extends Readonly<Record<string, unknown>>>(
+  collection: TreeCollection<TMetadata>
+): TreeSelectionIndex<TMetadata> {
+  const cached = treeSelectionIndexes.get(collection) as TreeSelectionIndex<TMetadata> | undefined;
+  if (cached !== undefined) return cached;
+  const records = Object.freeze(collection.records.filter((record) =>
+    record.row.node.disabled !== true && record.row.lazyPlaceholder !== true
+  ));
+  const positions = new Map(records.map((record, index) => [record.id, index]));
+  const index = Object.freeze({ records, positions });
+  treeSelectionIndexes.set(
+    collection,
+    index
+  );
+  return index;
 }
 
 function commitTreeRename<TMetadata extends Readonly<Record<string, unknown>>>(

@@ -12,8 +12,9 @@ import {
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { text } from '../../dist/components/index.js';
+import { button, text } from '../../dist/components/index.js';
 import { custom } from '../../dist/renderer/index.js';
+import { customComposite } from '../../dist/renderer/index.js';
 import {
   splitPane,
   column
@@ -51,7 +52,7 @@ test('custom renderers render through required renderer contract', () => {
   const addressed = renderFrameDebug(frame);
 
   assert.equal(renderFramePlain(frame), 'XO');
-  assert.match(addressed, /\u001B\[1;1H/u);
+  assert.match(addressed, /\u001B\[H/u);
   assert.deepEqual(frame.cursor, { row: 1, column: 2 });
   assert.equal(frame.accessibility.root.role, 'button');
   assert.equal(frame.accessibility.root.label, 'XO');
@@ -132,7 +133,7 @@ test('custom renderer hit targets route mouse messages', async () => {
 
   assert.equal(press.results[0]?.handled, false);
   assert.equal(release.results[0]?.handled, true);
-  assert.deepEqual(runtime.getState(), { clicked: true });
+  assert.deepEqual(runtime.state(), { clicked: true });
   assert.match(renderFramePlain(runtime.frame()), /hit/);
   assert.deepEqual(runtime.frame().hitTargets?.[0], {
     id: 'custom-hit:press',
@@ -309,6 +310,65 @@ test('decorative custom renderers cannot expose interaction targets', () => {
     }),
     /Decorative custom renderers cannot expose focus or hit targets/u
   );
+});
+
+test('custom composites arrange opaque children while preserving interaction and accessibility', async () => {
+  const app = defineTui({
+    id: 'custom-composite-tui',
+    init: () => ({ selected: 'none' }),
+    update: (_state, message) => ({ state: { selected: message.kind } }),
+    view: (state) => customComposite({
+      id: 'custom-actions',
+      state,
+      children: [
+        button({
+          id: 'save',
+          label: 'Save',
+          onPress: () => ({ kind: 'save' })
+        }),
+        button({
+          id: 'cancel',
+          label: 'Cancel',
+          onPress: () => ({ kind: 'cancel' })
+        })
+      ],
+      renderer: {
+        layout({ bounds }) {
+          return [
+            { ...bounds, width: Math.floor(bounds.width / 2) },
+            {
+              ...bounds,
+              column: bounds.column + Math.floor(bounds.width / 2),
+              width: bounds.width - Math.floor(bounds.width / 2)
+            }
+          ];
+        },
+        render({ bounds, buffer }) {
+          buffer.write(bounds.row + 1, bounds.column, [{ text: `selected:${state.selected}` }]);
+        },
+        accessibility({ id }) {
+          return { id, role: 'group', label: 'Actions' };
+        }
+      }
+    })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host, initialFocusPath: ['custom-actions', 'save'] });
+
+  await runtime.start();
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'enter',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+
+  assert.equal(runtime.state().selected, 'save');
+  assert.deepEqual(runtime.frame().accessibility.root.children?.map((child) => child.id), ['save', 'cancel']);
+  assert.match(renderFramePlain(runtime.frame()), /Save.*Cancel/u);
+  assert.match(renderFramePlain(runtime.frame()), /selected:save/u);
+  await runtime.dispose();
 });
 
 function assertNoTerminalControls(value) {

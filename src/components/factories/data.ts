@@ -13,7 +13,9 @@ import type {
   TreeOptions
 } from '../options/content.ts';
 import type { ScrollEvent } from '../../interaction/scroll.ts';
-import { projectListItems } from '../../behavior/list.ts';
+import { prepareListCollection } from '../../behavior/list.ts';
+import { prepareTableCollection } from '../../behavior/table.ts';
+import { prepareTreeCollection } from '../../behavior/tree.ts';
 import type { ListControlAction } from '../../ui-model/list.ts';
 import type { TableControlAction } from '../../ui-model/table.ts';
 import {
@@ -23,18 +25,13 @@ import {
   tableKeyBindings,
   treeKeyBindings
 } from '../internal/interaction.ts';
-import {
-  domainValues,
-  tableColumnsForRenderer,
-  treeNodesForRenderer
-} from '../internal/domain.ts';
+import { tableColumnsForRenderer } from '../internal/domain.ts';
 import { requiredId } from '../../authoring/render-node.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
   InferredElementKeyBindings
 } from '../internal/messages.ts';
-import { resolveStableIds } from '../internal/identity.ts';
 
 /* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
 export function list<
@@ -46,7 +43,6 @@ export function list<
   options: IndependentInteractionOptions<
     ScrollableListOptions<TValue>,
     { readonly onAction: TActionMessage },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   >
@@ -60,23 +56,24 @@ export function list<
   options: IndependentInteractionOptions<
     PassiveListOptions<TValue>,
     { readonly onAction: TActionMessage },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   >
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 /* eslint-enable @typescript-eslint/unified-signatures */
 export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unknown> {
-  const projectedItems = projectListItems(options.items, options.projectItem);
-  const keyMap = listKeyBindings(options, projectedItems.map(({ item }) => item.id));
+  const collection = options.collection ?? prepareListCollection(options.items, options.projectItem);
+  if (collection.kind === 'window' && (options.filterQuery ?? '').trim().length > 0) {
+    throw new TypeError('windowed list collections must be filtered before they are authored.');
+  }
+  const keyMap = listKeyBindings(options, collection);
   const toActionMessage: ((action: ListControlAction) => unknown) | undefined = options.onAction;
   const toScrollActionMessage = isScrollableListOptions(options) ? options.onAction : undefined;
-  const items = projectedItems.map(({ item }) => ({ ...item, disabled: item.disabled === true }));
   return elementFromRenderNode<'list', unknown>({
     ...requiredId(options.id, 'list'),
     kind: 'list',
     props: {
-      items,
+      collection,
       ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
       ...(options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
@@ -109,7 +106,6 @@ export function table<
     IndependentInteractionOptions<
       ScrollableTableOptions<TRow>,
       { readonly onAction: TActionMessage },
-      Record<never, never>,
       TKeys,
       TPointerMessage
     >
@@ -123,26 +119,24 @@ export function table<
   options: IndependentInteractionOptions<
     PassiveTableOptions<TRow>,
     { readonly onAction: TActionMessage },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   >
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 /* eslint-enable @typescript-eslint/unified-signatures */
 export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unknown> {
-  const keyMap = tableKeyBindings(options);
+  const collection = options.collection ?? prepareTableCollection(options.rows, options.getRowId);
+  const keyMap = tableKeyBindings(options, collection);
   const columns = tableColumnsForRenderer(options.columns);
   const toActionMessage = options.onAction;
   const toScrollActionMessage = isScrollableTableOptions(options) ? options.onAction : undefined;
   const presentation = options.presentation;
   const scroll = isScrollableTableOptions(options) ? options.presentation.scroll : undefined;
-  const rowIds = resolveStableIds(options.rows, options.getRowId, 'table');
   return elementFromRenderNode<'table', unknown>({
     ...requiredId(options.id, 'table'),
     kind: 'table',
     props: {
-      rows: domainValues(options.rows),
-      rowIds,
+      collection,
       ...(columns === undefined ? {} : { columns }),
       ...(presentation?.selectedRowId === undefined ? {} : { selectedRowId: presentation.selectedRowId }),
       ...(presentation?.selectedCell === undefined ? {} : { selectedCell: presentation.selectedCell }),
@@ -182,7 +176,6 @@ export function tree<
   options: IndependentInteractionOptions<
     ScrollableTreeOptions<TMetadata>,
     { readonly onAction: TActionMessage },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   >
@@ -196,7 +189,6 @@ export function tree<
   options: IndependentInteractionOptions<
     PassiveTreeOptions<TMetadata>,
     { readonly onAction: TActionMessage },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   >
@@ -208,11 +200,18 @@ export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
   const onAction = options.onAction;
   const onScrollAction = isScrollableTreeOptions(options) ? options.onAction : undefined;
   const keyMap = treeKeyBindings(options);
+  const collection = options.collection ?? prepareTreeCollection(
+    options.nodes,
+    options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }
+  );
+  if (collection.kind === 'window' && (options.filterQuery ?? '').trim().length > 0) {
+    throw new TypeError('windowed tree collections must be filtered before they are authored.');
+  }
   return elementFromRenderNode<'tree', unknown>({
     ...requiredId(options.id, 'tree'),
     kind: 'tree',
     props: {
-      nodes: treeNodesForRenderer(options.nodes),
+      collection,
       ...(options.selected === undefined ? {} : { selected: options.selected }),
       ...(options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
@@ -222,10 +221,7 @@ export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
         toScrollMessage: (event: ScrollEvent) => onScrollAction({ kind: 'scroll', event })
       }),
       ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
-      ...(onAction === undefined ? {} : {
-        toMessage: (node) => onAction({ kind: 'select', id: node.id }),
-        toDisclosureMessage: (_node, action) => onAction(action)
-      })
+      ...(onAction === undefined ? {} : { toActionMessage: onAction })
     },
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ pointer: options.pointer, meta: options.meta })
@@ -248,7 +244,6 @@ export function paginator<
 >(options: IndependentInteractionOptions<
   PaginatorOptions,
   { readonly onAction: TActionMessage },
-  Record<never, never>,
   TKeys,
   TPointerMessage
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;

@@ -34,12 +34,13 @@ import {
   labelPrefix
 } from './support/shared.ts';
 import { renderNodeTargetId } from '../pointer-presentation.ts';
+import { ignoreMessage } from '../../../interaction/message.ts';
 
 export function controlHitTargets<TMessage>(widget: ActivationControlNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   if (widget.props.disabled === true) return [];
   const handler = widget.kind === 'button'
-    ? widget.props.message === undefined ? undefined : () => widget.props.message
-    : widget.props.toMessage === undefined ? undefined : () => widget.props.toMessage?.(!widget.props.checked);
+    ? widget.props.toPressMessage
+    : checkboxMessageHandler(widget);
   if (handler === undefined) return [];
   return [{
     id: controlTargetId(widget),
@@ -47,6 +48,13 @@ export function controlHitTargets<TMessage>(widget: ActivationControlNode<TMessa
     message: handler,
     cursor: 'pointer'
   }];
+}
+
+function checkboxMessageHandler<TMessage>(
+  widget: RenderNodesOfKind<TMessage, 'checkbox' | 'toggleSwitch'>
+): (() => TMessage) | undefined {
+  const toMessage = widget.props.toMessage;
+  return toMessage === undefined ? undefined : () => toMessage(!widget.props.checked);
 }
 
 export function controlTargetId(widget: ActivationControlNode<unknown>): string {
@@ -128,7 +136,7 @@ export function rangeSliderHitTargets<TMessage>(widget: RangeSliderNode<TMessage
     accepts: ['pointerDown', 'dragStart', 'drag'],
     message: (event) => {
       const action = rangeSliderPointerAction(event, model, trackBounds);
-      return action === undefined ? undefined : toMessage(action);
+      return action === undefined ? ignoreMessage() : toMessage(action);
     },
     cursor: 'pointer'
   }];

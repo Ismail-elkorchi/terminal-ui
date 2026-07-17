@@ -16,6 +16,7 @@ export {
   addMonths,
   calendarDateId,
   compareDates,
+  defaultCalendarFocusSearchLimitDays,
   calendarPresentation,
   calendarReducer
 } from './calendar.ts';
@@ -86,7 +87,7 @@ export type {
 export {
   listPresentation,
   listScrollablePresentation,
-  projectListItems,
+  prepareListCollection,
   listReducer,
   visibleListEntries
 } from './list.ts';
@@ -99,8 +100,14 @@ export type {
   ListState,
   ListVisibleEntry
 } from './list.ts';
-export type { ListAction, ListControlAction } from '../ui-model/list.ts';
-export type { ListItemProjection, ListItemProjector } from '../ui-model/list.ts';
+export type {
+  ListAction,
+  ListCollection,
+  ListCollectionRecord,
+  ListControlAction,
+  ListItemProjection,
+  ListItemProjector
+} from '../ui-model/list.ts';
 export { rangeSliderPresentation, rangeSliderReducer } from './range-slider.ts';
 export type {
   RangeSliderAction,
@@ -110,7 +117,9 @@ export type {
   RangeSliderState
 } from '../ui-model/range-slider.ts';
 export {
+  createNumberInputConfiguration,
   createNumberInputState,
+  defaultNumberInputConfiguration,
   numberInputAnalysis,
   numberInputPresentation,
   numberInputReducer
@@ -118,11 +127,12 @@ export {
 export type {
   NumberInputAnalysis,
   NumberInputBehaviorOptions,
+  NumberInputConfiguration,
   NumberInputGrammar,
   NumberInputPresentation,
   NumberInputState
 } from './number-input.ts';
-export type { NumberInputAction, NumberInputValidity } from '../ui-model/number-input.ts';
+export type { NumberInputAction, NumberInputControlAction, NumberInputValidity } from '../ui-model/number-input.ts';
 export {
   paginationWindow,
   paginatorPresentation,
@@ -188,16 +198,21 @@ export {
   menuReducer
 } from './menu.ts';
 export type {
-  ContextMenuPresentation,
   ContextMenuState,
-  DropdownMenuPresentation,
   DropdownMenuState,
-  MenuBarPresentation,
   MenuBarState,
-  MenuPresentation,
   MenuState
 } from './menu.ts';
-export type { ContextMenuAction, DropdownMenuAction, MenuAction, MenuBarAction } from '../ui-model/menu.ts';
+export type {
+  ContextMenuAction,
+  ContextMenuPresentation,
+  DropdownMenuAction,
+  DropdownMenuPresentation,
+  MenuAction,
+  MenuBarAction,
+  MenuBarPresentation,
+  MenuPresentation
+} from '../ui-model/menu.ts';
 export { tabsPresentation, tabsReducer } from './tabs.ts';
 export type { TabsPresentation, TabsState } from './tabs.ts';
 export type { TabAction } from '../ui-model/tabs.ts';
@@ -227,6 +242,10 @@ export {
   checkboxGroupReducer,
   colorSwatchPickerPresentation,
   colorSwatchPickerReducer,
+  normalizeCheckboxGroupState,
+  normalizeColorSwatchPickerState,
+  normalizeRadioGroupState,
+  normalizeSelectState,
   radioGroupPresentation,
   radioGroupReducer,
   selectPresentation,
@@ -239,14 +258,14 @@ export type {
   ColorSwatchPickerState,
   RadioGroupPresentation,
   RadioGroupState,
-  SelectPresentation,
   SelectState
 } from './choice-controls.ts';
 export type {
   CheckboxGroupAction,
   ColorSwatchPickerAction,
   RadioGroupAction,
-  SelectAction
+  SelectAction,
+  SelectPresentation
 } from '../ui-model/choice-controls.ts';
 export {
   applyScrollEvent,
@@ -326,6 +345,7 @@ export type {
 } from './split-pane.ts';
 export type { SplitPaneAction } from '../ui-model/split-pane.ts';
 export {
+  prepareTableCollection,
   sortTableRows,
   tablePresentation,
   tableScrollablePresentation,
@@ -340,6 +360,8 @@ export type {
 } from './table.ts';
 export type {
   TableAction,
+  TableCollection,
+  TableCollectionRecord,
   TableControlAction,
   TablePresentation,
   TableScrollablePresentation,
@@ -347,6 +369,8 @@ export type {
 } from '../ui-model/table.ts';
 export {
   nextTreeRowId,
+  prepareTreeCollection,
+  prepareTreeRows,
   selectableTreeRows,
   treeDisclosureAction,
   treeNodeCanDisclose,
@@ -363,7 +387,13 @@ export type {
   TreeScrollablePresentation,
   TreeRenameState,
   TreeState,
-  TreeVisibleRow,
   TreeVisibleRowsOptions
 } from './tree.ts';
-export type { TreeAction, TreeControlAction } from '../ui-model/tree.ts';
+export type {
+  TreeCollection,
+  TreeCollectionRecord,
+  TreeVisibleRow
+} from '../ui-model/tree.ts';
+export type { PassiveTreeAction, TreeAction, TreeControlAction, TreeInteractionAction } from '../ui-model/tree.ts';
+export { extractScrollbackSelectionText } from './scrollback-selection.ts';
+export type { ExtractScrollbackSelectionTextInput } from './scrollback-selection.ts';

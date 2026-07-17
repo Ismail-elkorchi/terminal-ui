@@ -7,6 +7,7 @@ export interface DialogDismissal<TMessage> {
 }
 
 export interface DialogFocusPolicy {
-  readonly initialTargetId?: string;
+  readonly initialFocus?: InitialFocusSelector;
   readonly returnFocus: 'restore' | 'none';
 }
+import type { InitialFocusSelector } from '../interaction/focus.ts';

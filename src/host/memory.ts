@@ -235,7 +235,17 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
       rawInput: true
     },
     environment: { variables: options.env ?? {} },
-    ...(options.clipboard === undefined ? {} : { overrides: { clipboard: options.clipboard } })
+    ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
+    ...(
+      options.clipboard === undefined && options.capabilities?.overrides === undefined
+        ? {}
+        : {
+            overrides: {
+              ...(options.capabilities?.overrides ?? {}),
+              ...(options.clipboard === undefined ? {} : { clipboard: options.clipboard })
+            }
+          }
+    )
   });
   const env = new ObjectEnvironment(options.env ?? {});
   const frames: unknown[] = [];

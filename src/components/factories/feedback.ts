@@ -22,6 +22,7 @@ import {
   withMetaDefaults
 } from '../internal/interaction.ts';
 import { optionalId, requiredId } from '../../authoring/render-node.ts';
+import { ignoreMessage } from '../../interaction/message.ts';
 import { heatmapRowsForRenderer } from '../internal/domain.ts';
 import type {
   ComponentKeyBindingMessages,
@@ -31,7 +32,7 @@ import type {
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
 import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
 import type { BarChartAction, ChartAction, HeatmapAction } from '../../ui-model/visualization.ts';
-import { resolveStableIds } from '../internal/identity.ts';
+import { resolveStableIds } from '../../ui-model/identity.ts';
 
 export function notificationStack<
   const TDismissMessage = never,
@@ -40,7 +41,6 @@ export function notificationStack<
   options: IndependentInteractionOptions<
     LiveNotificationStackOptions,
     { readonly onDismiss: TDismissMessage },
-    Record<never, never>,
     undefined,
     TPointerMessage
   >
@@ -53,7 +53,6 @@ export function notificationStack<
   options: IndependentInteractionOptions<
     NotificationHistoryOptions,
     { readonly onAction: TActionMessage },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   > & {
@@ -141,25 +140,38 @@ export function statusIndicator(options: StatusIndicatorOptions = {}): Element {
 }
 
 export function progressBar(options: ProgressBarOptions): Element {
+  assertProgressBarMode(options.mode);
   return elementFromRenderNode<'progressBar'>({
     ...optionalId(options.id),
     kind: 'progressBar',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
-      ...(options.value === undefined ? {} : { value: options.value }),
-      ...(options.max === undefined ? {} : { max: options.max }),
-      ...(options.indeterminate === undefined ? {} : { indeterminate: options.indeterminate }),
+      mode: options.mode,
       ...(options.barWidth === undefined ? {} : { barWidth: options.barWidth }),
       ...(options.display === undefined ? {} : { display: options.display }),
       ...(options.labelPosition === undefined ? {} : { labelPosition: options.labelPosition }),
       ...(options.elapsedMs === undefined ? {} : { elapsedMs: options.elapsedMs }),
       ...(options.remainingMs === undefined ? {} : { remainingMs: options.remainingMs }),
-      ...(options.frame === undefined ? {} : { frame: options.frame }),
       ...(options.status === undefined ? {} : { status: options.status }),
       ...(options.valueScale === undefined ? {} : { valueScale: options.valueScale })
     },
     ...componentMetaProps(options.meta)
   });
+}
+
+function assertProgressBarMode(mode: ProgressBarOptions['mode']): void {
+  if (mode.kind === 'indeterminate') {
+    if (mode.frame !== undefined && !Number.isFinite(mode.frame)) {
+      throw new RangeError('progressBar indeterminate frame must be finite when provided.');
+    }
+    return;
+  }
+  if (!Number.isFinite(mode.value)) {
+    throw new RangeError('progressBar determinate value must be finite.');
+  }
+  if (mode.max !== undefined && (!Number.isFinite(mode.max) || mode.max <= 0)) {
+    throw new RangeError('progressBar determinate max must be finite and greater than zero.');
+  }
 }
 
 export function sparkline(options: SparklineOptions): Element {
@@ -188,7 +200,6 @@ export function barChart<
   options: IndependentInteractionOptions<
     BarChartOptions,
     { readonly onAction: TActionMessage },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   >
@@ -236,7 +247,7 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
     home: () => onAction({ kind: 'firstPoint' }),
     end: () => onAction({ kind: 'lastPoint' }),
     enter: () => selected === undefined
-      ? undefined
+      ? ignoreMessage()
       : onAction({ kind: 'select', series: selected.series, point: selected.point })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   return elementFromRenderNode<'chart', TMessage>({
@@ -297,7 +308,7 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
     home: () => onAction({ kind: 'first' }),
     end: () => onAction({ kind: 'last' }),
     enter: () => selected === undefined
-      ? undefined
+      ? ignoreMessage()
       : onAction({ kind: 'select', row: selected.row, column: selected.column })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   return elementFromRenderNode<'heatmap', TMessage>({

@@ -99,9 +99,9 @@ const themed = defineTheme({
 });
 
 const menuItems = [
-  { id: 'open', label: unsafe, shortcut: 'O' },
-  { id: 'save', label: 'Save', checked: true },
-  { id: 'disabled', label: 'Disabled', disabled: true }
+  { kind: 'action', id: 'open', label: unsafe, shortcut: 'O' },
+  { kind: 'check', id: 'save', label: 'Save', checked: true },
+  { kind: 'action', id: 'disabled', label: 'Disabled', disabled: true }
 ];
 
 const optionItems = [
@@ -225,7 +225,7 @@ const cases = [
     name: 'form',
     element: () => form([
       field(textInput({ id: 'form-input', presentation: { value: unsafe, cursor: 0 } }), { id: 'form-field', label: 'Name' }),
-      button({ id: 'form-submit', label: 'Submit', onPress: { kind: 'submit' } })
+      button({ id: 'form-submit', label: 'Submit', onPress: () => ({ kind: 'submit' }) })
     ], { id: 'form', title: unsafe }),
     expectText: /Submit/u,
     expectFocus: true,
@@ -249,7 +249,7 @@ const cases = [
   },
   {
     name: 'button',
-    element: () => button({ id: 'button', label: unsafe, onPress: { kind: 'button' } }),
+    element: () => button({ id: 'button', label: unsafe, onPress: () => ({ kind: 'button' }) }),
     expectText: /Unsafe red text/u,
     expectFocus: true,
     expectHitTargets: true
@@ -483,7 +483,7 @@ const cases = [
   },
   {
     name: 'progressBar',
-    element: () => progressBar({ id: 'progress', label: unsafe, value: 3, max: 5 }),
+    element: () => progressBar({ id: 'progress', label: unsafe, mode: { kind: 'determinate', value: 3, max: 5 } }),
     expectText: /Unsafe red text/u
   },
   {
@@ -636,7 +636,7 @@ const cases = [
   },
   {
     name: 'dialog',
-    element: () => dialog(button({ id: 'dialog-button', label: 'Confirm', onPress: { kind: 'confirm' } }), {
+    element: () => dialog(button({ id: 'dialog-button', label: 'Confirm', onPress: () => ({ kind: 'confirm' }) }), {
       id: 'dialog',
       title: unsafe,
       modal: true,

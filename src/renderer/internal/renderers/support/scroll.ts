@@ -9,13 +9,14 @@ import { dataWindow } from '../../../../behavior/data-window.ts';
 import { createScrollState, normalizeScrollState } from '../../../../behavior/scroll.ts';
 import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
 import { scrollbackWindow } from '../../scrollback.ts';
-import { treeVisibleRows } from '../../tree.ts';
 import { stringify } from '../../render-node-props.ts';
 import { isRecord } from './common.ts';
 import { viewportVisualState } from './viewport.ts';
 import type { RenderTarget } from '../../../model/render-target.ts';
 import type { LayoutNode, Rect } from '../../../model/layout.ts';
 import type { RoutedPointerEvent } from '../../../../input/pointer.ts';
+import { ignoreMessage } from '../../../../interaction/message.ts';
+import type { MessageResolution } from '../../../../interaction/message.ts';
 import type {
   ScrollAction,
   ScrollState,
@@ -31,6 +32,7 @@ import type {
   ScrollbarVisualState
 } from '../../scrollbar.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
+import { collectionRecordById } from '../../../../ui-model/collection.ts';
 
 const WHEEL_SCROLL_LINES = 3;
 const WHEEL_SCROLL_COLUMNS = 3;
@@ -162,7 +164,7 @@ function rectsEqual(left: Rect, right: Rect): boolean {
 
 function scrollMessageFactory<TMessage>(
   widget: ScrollableNode<TMessage>
-): ((event: ScrollEvent) => TMessage | undefined) | undefined {
+): ((event: ScrollEvent) => MessageResolution<TMessage>) | undefined {
   if (widget.kind === 'textArea') {
     const raw = widget.props.toActionMessage;
     return raw === undefined ? undefined : (event) => raw({ kind: 'scroll', event });
@@ -182,8 +184,7 @@ function scrollContentHitTarget<TMessage>(
   bounds: Rect,
   state: ScrollState,
   wheel: NormalizedScrollWheelPolicy,
-  factory: (event: ScrollEvent) => TMessage
-  | undefined
+  factory: (event: ScrollEvent) => MessageResolution<TMessage>
 ): HitTarget<TMessage> {
   return {
     id: `${id}:scroll:content`,
@@ -191,7 +192,7 @@ function scrollContentHitTarget<TMessage>(
     accepts: ['scroll'],
     message: (event) => {
       const action = scrollActionForWheel(event, wheel);
-      return action === undefined ? undefined : factory(scrollEvent(action, state, event, 'content'));
+      return action === undefined ? ignoreMessage() : factory(scrollEvent(action, state, event, 'content'));
     }
   };
 }
@@ -202,8 +203,7 @@ function scrollbarTrackHitTargets<TMessage>(
   track: ScrollbarTrack,
   state: ScrollState,
   wheel: NormalizedScrollWheelPolicy,
-  factory: (event: ScrollEvent) => TMessage
-  | undefined
+  factory: (event: ScrollEvent) => MessageResolution<TMessage>
 ): readonly HitTarget<TMessage>[] {
   const trackTarget: HitTarget<TMessage> = {
     id: `${id}:scrollbar:${axis}:track`,
@@ -214,7 +214,7 @@ function scrollbarTrackHitTargets<TMessage>(
       const action = event.kind === 'scroll'
         ? scrollActionForWheel(event, wheel)
         : scrollActionForTrack(axis, track, state, event);
-      return action === undefined ? undefined : factory(scrollEvent(
+      return action === undefined ? ignoreMessage() : factory(scrollEvent(
         action,
         state,
         event,
@@ -234,7 +234,7 @@ function scrollbarTrackHitTargets<TMessage>(
           cursor: 'pointer',
           message: (event) => {
             const action = scrollActionForThumb(axis, track, state, event);
-            return action === undefined ? undefined : factory(scrollEvent(
+            return action === undefined ? ignoreMessage() : factory(scrollEvent(
               action,
               state,
               event,
@@ -429,16 +429,15 @@ function isScrollbarVisualState(value: unknown): value is ScrollbarVisualState {
 }
 
 export function tableScrollbarState(widget: TableNode, bounds: Rect): ScrollState {
-  const rows = Array.isArray(widget.props.rows) ? widget.props.rows : [];
   const selected = selectedTableRow(widget);
   const window = dataWindow({
-    totalRows: rows.length,
+    totalRows: widget.props.collection.total,
     viewportRows: bounds.height,
     selectedIndex: selected
   });
   const configured = normalizedRenderNodeScroll(widget, {
     offsetRow: scrollNumberProp(widget, 'offsetRow') ?? window.start,
-    contentRows: scrollNumberProp(widget, 'contentRows') ?? rows.length,
+    contentRows: scrollNumberProp(widget, 'contentRows') ?? widget.props.collection.total,
     contentColumns: scrollNumberProp(widget, 'contentColumns') ?? bounds.width,
     viewportRows: bounds.height,
     viewportColumns: bounds.width
@@ -447,9 +446,8 @@ export function tableScrollbarState(widget: TableNode, bounds: Rect): ScrollStat
 }
 
 export function treeScrollbarState(widget: TreeNode, bounds: Rect): ScrollState {
-  const rows = treeVisibleRows(widget);
   const scroll = normalizedRenderNodeScroll(widget, {
-    contentRows: rows.length,
+    contentRows: widget.props.collection.total,
     contentColumns: scrollNumberProp(widget, 'contentColumns') ?? bounds.width,
     viewportRows: bounds.height,
     viewportColumns: bounds.width
@@ -607,7 +605,8 @@ function selectedTableRow(widget: TableNode): number {
     ? selectedCell.rowId
     : undefined;
   const selectedRowId = selectedCellId ?? (typeof widget.props.selectedRowId === 'string' ? widget.props.selectedRowId : undefined);
-  const rowIds = Array.isArray(widget.props.rowIds) ? widget.props.rowIds : [];
-  const selected = selectedRowId === undefined ? -1 : rowIds.indexOf(selectedRowId);
+  const selected = selectedRowId === undefined
+    ? -1
+    : collectionRecordById(widget.props.collection, selectedRowId)?.index ?? -1;
   return Math.max(0, selected);
 }

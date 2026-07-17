@@ -51,7 +51,7 @@ test('text measurement exposes grapheme segments and respects emoji width option
     { text: 'e\u0301', cells: 1 },
     { text: '🙂', cells: 2 }
   ]);
-  assert.equal(measureTextCells('a🙂', { emojiWidth: 'narrow' }).cells, 2);
+  assert.equal(measureTextCells('a🙂', { widthProfile: { emoji: 'narrow', ambiguous: 'narrow' } }).cells, 2);
   assert.equal(measureTextCells('界').cells, 2);
 });
 
@@ -89,7 +89,7 @@ test('text clipping preserves graphemes, sanitizes controls, and stays within th
     cells: 3,
     clipped: false
   });
-  assert.deepEqual(clipTextCells('a🙂b', 3, { emojiWidth: 'narrow' }), {
+  assert.deepEqual(clipTextCells('a🙂b', 3, { widthProfile: { emoji: 'narrow', ambiguous: 'narrow' } }), {
     text: 'a🙂b',
     cells: 3,
     clipped: false
@@ -215,7 +215,7 @@ test('text wrapping can preserve word boundaries within cell width', () => {
     { text: 'a🙂', cells: 3, hardBreak: false },
     { text: 'b', cells: 1, hardBreak: true }
   ]);
-  assert.deepEqual(wrapTextCells('a🙂b', 3, { emojiWidth: 'narrow' }), [
+  assert.deepEqual(wrapTextCells('a🙂b', 3, { widthProfile: { emoji: 'narrow', ambiguous: 'narrow' } }), [
     { text: 'a🙂b', cells: 3, hardBreak: true }
   ]);
 });

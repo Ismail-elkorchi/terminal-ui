@@ -4,6 +4,7 @@ export type {
   CapabilitySourceKind,
   CapabilitySupport,
   CapabilityStatus,
+  RuntimeTarget,
   TerminalCapabilityName,
   TerminalCapabilityProfile,
   TerminalColorCapability,
@@ -50,6 +51,7 @@ export type {
   CapabilityOverrides,
   EnvironmentFacts,
   ProtocolProbeFacts,
+  TerminalCapabilityConfiguration,
   TerminalCapabilityResolverInput,
   TerminalHostFacts
 } from './capabilities.ts';

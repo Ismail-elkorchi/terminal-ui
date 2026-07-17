@@ -1,10 +1,15 @@
 import { diagnostic } from '../diagnostics.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { completedExit, exitWithStatus } from './exit.ts';
-import type { TerminalSignal, Unsubscribe } from '../host/index.ts';
+import type { TerminalInputChunk, TerminalSignal, Unsubscribe } from '../host/index.ts';
 import type { TranscriptRecorder } from '../transcript/index.ts';
-import type { TuiExit, TuiRuntime } from './types.ts';
-import type { TuiInputResult } from './types.ts';
+import type {
+  TuiExit,
+  TuiInputBatchResult,
+  TuiInputResult,
+  TuiRuntime,
+  TuiRuntimeChange
+} from './types.ts';
 
 export async function runTuiInputLoop<TState, TMessage>(
   runtime: TuiRuntime<TState, TMessage>,
@@ -14,24 +19,66 @@ export async function runTuiInputLoop<TState, TMessage>(
   const changeController = new AbortController();
   const input = runtime.host.stdin.read({ signal: inputController.signal })[Symbol.asyncIterator]();
   const signals = createSignalQueue(runtime.host.signals.subscribe.bind(runtime.host.signals));
-  let inputNext = input.next();
+  let inputNext: Promise<IteratorResult<TerminalInputChunk>> | undefined = input.next();
   let signalNext = signals.next();
   let runtimeChangeNext = runtime.nextChange(changeController.signal);
+  let inputWorkNext: Promise<InputWorkOutcome<TState>> | undefined;
   let inputBatchNext: Promise<readonly TuiInputResult<TState>[]> | undefined;
+  let resizeNext: Promise<Settled<void>> | undefined;
+  let resizeRequested = false;
   try {
     for (;;) {
-      const event = await Promise.race([
-        inputNext.then((result) => ({ kind: 'input' as const, result })),
+      const candidates: Promise<InputLoopEvent<TState>>[] = [
         signalNext.then((signal) => ({ kind: 'signal' as const, signal })),
         runtimeChangeNext.then((change) => ({ kind: 'runtime' as const, change })),
+        ...(inputNext === undefined
+          ? []
+          : [settle(inputNext).then((outcome) => ({ kind: 'input' as const, outcome }))]),
+        ...(inputWorkNext === undefined
+          ? []
+          : [inputWorkNext.then((outcome) => ({ kind: 'inputWork' as const, outcome }))]),
         ...(inputBatchNext === undefined
           ? []
-          : [inputBatchNext.then((results) => ({ kind: 'inputBatch' as const, results }))])
-      ]);
+          : [settle(inputBatchNext).then((outcome) => ({ kind: 'inputBatch' as const, outcome }))]),
+        ...(resizeNext === undefined
+          ? []
+          : [resizeNext.then((outcome) => ({ kind: 'resize' as const, outcome }))])
+      ];
+      const event = await Promise.race(candidates);
+      if (event.kind === 'input') {
+        inputNext = undefined;
+        if (!event.outcome.ok) throw event.outcome.cause;
+        inputWorkNext = event.outcome.value.done === true
+          ? settle(runtime.flushInput()).then((outcome) => ({ outcome, endAfter: true }))
+          : settle(runtime.handleInputChunk(event.outcome.value.value))
+              .then((outcome) => ({ outcome, endAfter: false }));
+        continue;
+      }
+      if (event.kind === 'inputWork') {
+        inputWorkNext = undefined;
+        if (!event.outcome.outcome.ok) throw event.outcome.outcome.cause;
+        const batch = normalizeInputWork(event.outcome.outcome.value);
+        const exit = batch.results.find((result) => result.exit !== undefined)?.exit;
+        if (exit !== undefined) return exit;
+        inputBatchNext = batch.pending;
+        if (event.outcome.endAfter) break;
+        inputNext = input.next();
+        continue;
+      }
       if (event.kind === 'inputBatch') {
         inputBatchNext = undefined;
-        const exit = event.results.find((result) => result.exit !== undefined)?.exit;
+        if (!event.outcome.ok) throw event.outcome.cause;
+        const exit = event.outcome.value.find((result) => result.exit !== undefined)?.exit;
         if (exit !== undefined) return exit;
+        continue;
+      }
+      if (event.kind === 'resize') {
+        resizeNext = undefined;
+        if (!event.outcome.ok) throw event.outcome.cause;
+        if (resizeRequested) {
+          resizeRequested = false;
+          resizeNext = settleVoid(runtime.resize(runtime.host.getViewport()));
+        }
         continue;
       }
       if (event.kind === 'runtime') {
@@ -39,28 +86,14 @@ export async function runTuiInputLoop<TState, TMessage>(
         runtimeChangeNext = runtime.nextChange(changeController.signal);
         continue;
       }
-      if (event.kind === 'signal') {
-        signalNext = signals.next();
-        const pendingResults = await runtime.flushInput();
-        inputBatchNext = undefined;
-        const pendingExit = pendingResults.find((result) => result.exit !== undefined)?.exit;
-        if (pendingExit !== undefined) return pendingExit;
-        transcript?.record({ kind: 'input', event: { kind: 'signal', signal: event.signal } });
-        const exit = await handleTuiSignal(runtime, event.signal);
-        if (exit !== undefined) return exit;
+      signalNext = signals.next();
+      transcript?.record({ kind: 'input', event: { kind: 'signal', signal: event.signal } });
+      if (event.signal === 'resize') {
+        if (resizeNext === undefined) resizeNext = settleVoid(runtime.resize(runtime.host.getViewport()));
+        else resizeRequested = true;
         continue;
       }
-      inputNext = input.next();
-      if (event.result.done === true) {
-        const results = await runtime.flushInput();
-        const exit = results.find((result) => result.exit !== undefined)?.exit;
-        if (exit !== undefined) return exit;
-        break;
-      }
-      const batch = await runtime.handleInputChunk(event.result.value);
-      inputBatchNext = batch.pending;
-      const exit = batch.results.find((result) => result.exit !== undefined)?.exit;
-      if (exit !== undefined) return exit;
+      return handleTuiSignal(runtime, event.signal);
     }
   } finally {
     inputController.abort();
@@ -70,7 +103,7 @@ export async function runTuiInputLoop<TState, TMessage>(
   }
   const explicitExit = runtime.exit();
   if (explicitExit !== undefined) return explicitExit;
-  const state = runtime.getState();
+  const state = runtime.state();
   const frame = runtime.frame();
   if (state !== undefined && frame !== undefined) {
     return { ...completedExit(state, frame), diagnostics: runtime.diagnostics() };
@@ -87,15 +120,11 @@ export async function runTuiInputLoop<TState, TMessage>(
   };
 }
 
-async function handleTuiSignal<TState, TMessage>(
+function handleTuiSignal<TState, TMessage>(
   runtime: TuiRuntime<TState, TMessage>,
-  signal: TerminalSignal
-): Promise<TuiExit<TState> | undefined> {
-  if (signal === 'resize') {
-    await runtime.resize(runtime.host.getViewport());
-    return undefined;
-  }
-  const state = runtime.getState();
+  signal: Exclude<TerminalSignal, 'resize'>
+): TuiExit<TState> {
+  const state = runtime.state();
   const frame = runtime.frame();
   if (state === undefined || frame === undefined) {
     return {
@@ -109,6 +138,43 @@ async function handleTuiSignal<TState, TMessage>(
     };
   }
   return { ...exitWithStatus('interrupted', state, frame), diagnostics: runtime.diagnostics() };
+}
+
+type Settled<TValue> =
+  | { readonly ok: true; readonly value: TValue }
+  | { readonly ok: false; readonly cause: unknown };
+
+interface InputWorkOutcome<TState> {
+  readonly outcome: Settled<TuiInputBatchResult<TState> | readonly TuiInputResult<TState>[]>;
+  readonly endAfter: boolean;
+}
+
+type InputLoopEvent<TState> =
+  | { readonly kind: 'input'; readonly outcome: Settled<IteratorResult<TerminalInputChunk>> }
+  | { readonly kind: 'inputWork'; readonly outcome: InputWorkOutcome<TState> }
+  | { readonly kind: 'inputBatch'; readonly outcome: Settled<readonly TuiInputResult<TState>[]> }
+  | { readonly kind: 'resize'; readonly outcome: Settled<void> }
+  | { readonly kind: 'runtime'; readonly change: TuiRuntimeChange<TState> }
+  | { readonly kind: 'signal'; readonly signal: TerminalSignal };
+
+function settle<TValue>(operation: Promise<TValue>): Promise<Settled<TValue>> {
+  return operation.then(
+    (value) => ({ ok: true, value }),
+    (cause: unknown) => ({ ok: false, cause })
+  );
+}
+
+function settleVoid(operation: Promise<unknown>): Promise<Settled<void>> {
+  return operation.then(
+    () => ({ ok: true, value: undefined }),
+    (cause: unknown) => ({ ok: false, cause })
+  );
+}
+
+function normalizeInputWork<TState>(
+  work: TuiInputBatchResult<TState> | readonly TuiInputResult<TState>[]
+): TuiInputBatchResult<TState> {
+  return 'results' in work ? work : { results: work };
 }
 
 interface SignalQueue {

@@ -42,7 +42,7 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
     }
   });
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v1',
+    schemaVersion: 'terminal-ui.render-diff.v2',
     width: 4,
     height: 1,
     fullRewrite: false,
@@ -66,7 +66,7 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
     { fg: theme.tokens.colors['text.default'] }
   );
   assert.match(renderDiffAnsi(diff, { capabilities: colorCapabilities, theme }), /\u001B\[4;38;5;9mbad\u001B\[0m/u);
-  assert.equal(renderDiffAnsi(diff, { capabilities: monoCapabilities, theme }), '\u001B[1;1Hbad');
+  assert.equal(renderDiffAnsi(diff, { capabilities: monoCapabilities, theme }), '\u001B[Hbad');
   assert.equal(defaultThemes.noColor.name, 'noColor');
 });
 

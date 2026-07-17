@@ -12,9 +12,9 @@ import {
   layoutElement,
   renderFramePlain,
   renderElementFrame,
-  renderElementRegions,
   splitTracks
 } from '../../dist/renderer/index.js';
+import { renderElementRegions } from '../../dist/testing/index.js';
 import {
   defaultTheme,
   noColorTheme } from '../../dist/theme/index.js';
@@ -900,14 +900,14 @@ test('dropdownMenu renders above table content in a higher region', () => {
       menu: {
         activePath: ['dark'],
         items: [
-          { id: 'light', label: 'Light' },
-          { id: 'dark', label: 'Dark' }
+          { kind: 'action', id: 'light', label: 'Light' },
+          { kind: 'action', id: 'dark', label: 'Dark' }
         ]
       }
     },
     items: [
-        { id: 'light', label: 'Light' },
-        { id: 'dark', label: 'Dark' }
+        { kind: 'action', id: 'light', label: 'Light' },
+        { kind: 'action', id: 'dark', label: 'Dark' }
     ],
     onAction: (action) => ({ kind: 'theme', action }),
     meta: {
@@ -957,8 +957,8 @@ test('context menu renders above canvas content in a higher region', () => {
       menu: {
         activePath: ['copy'],
         items: [
-          { id: 'copy', label: 'Copy' },
-          { id: 'paste', label: 'Paste' }
+          { kind: 'action', id: 'copy', label: 'Copy' },
+          { kind: 'action', id: 'paste', label: 'Paste' }
         ]
       }
     },

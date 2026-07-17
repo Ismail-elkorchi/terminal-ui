@@ -1,4 +1,6 @@
 import type { GraphemeSegment, TextMeasurementOptions } from './types.ts';
+import { eastAsianAmbiguousRanges, eastAsianWideRanges } from './unicode-width-data.ts';
+import { defaultTextWidthProfile, textWidthProfileKey } from './width-profile.ts';
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 const segmentCacheLimit = 4096;
@@ -33,17 +35,48 @@ export function segmentGraphemesForMeasurement(
 
 function measureGraphemeCells(text: string, options: TextMeasurementOptions): number {
   if (text.length === 0) return 0;
-  if (/^[\u0300-\u036F]+$/u.test(text)) return 0;
-  if (/\p{Extended_Pictographic}/u.test(text)) return options.emojiWidth === 'narrow' ? 1 : 2;
-  if (/[\u1100-\u115F\u2329\u232A\u2E80-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE10-\uFE19\uFE30-\uFE6F\uFF00-\uFF60\uFFE0-\uFFE6]/u.test(text)) {
-    return 2;
-  }
+  const profile = options.widthProfile ?? defaultTextWidthProfile;
+  const codePoints = Array.from(text, (value) => value.codePointAt(0) ?? 0);
+  const visible = codePoints.filter((value) => !isZeroWidthCodePoint(value));
+  if (visible.length === 0) return 0;
+  if (hasEmojiPresentation(text)) return profile.emoji === 'wide' ? 2 : 1;
+  if (visible.some((value) => inRanges(value, eastAsianWideRanges))) return 2;
+  if (profile.ambiguous === 'wide'
+    && visible.some((value) => inRanges(value, eastAsianAmbiguousRanges))) return 2;
   return 1;
 }
 
 function segmentCacheKey(text: string, options: TextMeasurementOptions): string | undefined {
   if (text.length > segmentCacheMaxTextLength) return undefined;
-  return `${options.emojiWidth ?? 'wide'}\u0000${text}`;
+  return `${textWidthProfileKey(options.widthProfile)}\u0000${text}`;
+}
+
+function isZeroWidthCodePoint(value: number): boolean {
+  const text = String.fromCodePoint(value);
+  return /[\p{Nonspacing_Mark}\p{Enclosing_Mark}\p{Default_Ignorable_Code_Point}]/u.test(text);
+}
+
+function hasEmojiPresentation(text: string): boolean {
+  if (text.includes('\uFE0E')) return false;
+  return text.includes('\uFE0F')
+    || /\p{Emoji_Presentation}/u.test(text)
+    || /\p{Emoji_Modifier}/u.test(text)
+    || /\p{Regional_Indicator}/u.test(text)
+    || (text.includes('\u200D') && /\p{Extended_Pictographic}/u.test(text));
+}
+
+function inRanges(value: number, ranges: readonly (readonly [number, number])[]): boolean {
+  let lower = 0;
+  let upper = ranges.length - 1;
+  while (lower <= upper) {
+    const middle = Math.floor((lower + upper) / 2);
+    const range = ranges[middle];
+    if (range === undefined) return false;
+    if (value < range[0]) upper = middle - 1;
+    else if (value > range[1]) lower = middle + 1;
+    else return true;
+  }
+  return false;
 }
 
 function trimSegmentCache(): void {

@@ -46,12 +46,11 @@ test('paginator routes keyboard and pointer controls through the same action str
   await runtime.handleInput({
     kind: 'key',
     key: 'arrowRight',
-    ctrl: false,
-    alt: false,
-    shift: false,
-    meta: false
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
   });
-  assert.equal(runtime.getState().page, 3);
+  assert.equal(runtime.state().page, 3);
 
   const last = runtime.frame().hitTargets.find((target) => target.id === 'pages:last');
   assert.ok(last);
@@ -78,7 +77,7 @@ test('paginator routes keyboard and pointer controls through the same action str
     modifiers: { shift: false, alt: false, ctrl: false }
   });
 
-  assert.equal(runtime.getState().page, 4);
+  assert.equal(runtime.state().page, 4);
   assert.match(renderFramePlain(runtime.frame()), /Page 4 of 4/u);
   assert.equal(runtime.frame().hitTargets.some((target) => target.id === 'pages:next'), false);
   await runtime.dispose();

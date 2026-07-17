@@ -1,6 +1,7 @@
 import { segmentGraphemesForMeasurement } from './graphemes.ts';
 import { sanitizeTerminalText } from './sanitize.ts';
 import type { TextCellMetrics, TextMeasurementOptions } from './types.ts';
+import { textWidthProfileKey } from './width-profile.ts';
 
 const measurementCacheLimit = 4096;
 const measurementCacheMaxTextLength = 4096;
@@ -33,7 +34,7 @@ export function measureTextCells(
 
 function measurementCacheKey(text: string, options: TextMeasurementOptions): string | undefined {
   if (text.length > measurementCacheMaxTextLength) return undefined;
-  return `${options.emojiWidth ?? 'wide'}\u0000${text}`;
+  return `${textWidthProfileKey(options.widthProfile)}\u0000${text}`;
 }
 
 function trimMeasurementCache(): void {

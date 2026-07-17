@@ -7,11 +7,11 @@ import {
 import { createInputDecoder } from '../../dist/input/index.js';
 import {
   diffFrames,
-  dirtyRegionsForRegionChanges,
+  renderDiffAnsi,
   renderFramePlain,
-  renderElementFrame,
-  renderElementRegions
+  renderElementFrame
 } from '../../dist/renderer/index.js';
+import { dirtyRegionsForRegionChanges, renderElementRegions } from '../../dist/testing/index.js';
 import {
   button,
   canvas,
@@ -27,6 +27,16 @@ import {
   tree
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
+import {
+  listReducer,
+  prepareListCollection,
+  prepareTableCollection,
+  prepareTreeCollection,
+  tableReducer,
+  treeReducer
+} from '../../dist/behavior/index.js';
+
+const outputCapabilities = await createMemoryTerminalHost().getCapabilities();
 
 test('paste bursts decode as one paste event instead of per-character key churn', () => {
   const decoder = createInputDecoder();
@@ -55,6 +65,43 @@ test('large list rendering is bounded by viewport size, not collection size', ()
   assert.equal(frame.accessibility.root.description, 'Showing 39996-40005 of 50000 items.');
 });
 
+test('prepared list collections retain projection work across renders and actions', () => {
+  let projectorCalls = 0;
+  const values = Array.from({ length: 50_000 }, (_value, index) => `Item ${String(index)}`);
+  const collection = prepareListCollection(values, (value, index) => {
+    projectorCalls += 1;
+    return { id: String(index), label: value };
+  });
+
+  assert.equal(projectorCalls, values.length);
+  projectorCalls = 0;
+  renderElementFrame(list({ id: 'retained-list', collection, selectedId: '25000' }), { columns: 32, rows: 10 });
+  renderElementFrame(list({ id: 'retained-list', collection, selectedId: '25001' }), { columns: 40, rows: 12 });
+  const state = listReducer({ selectedId: '25000' }, { kind: 'move', delta: 1 }, { collection });
+
+  assert.equal(state.selectedId, '25001');
+  assert.equal(projectorCalls, 0);
+});
+
+test('windowed list collections project only supplied rows while preserving global scope', () => {
+  let projectorCalls = 0;
+  const start = 40_000;
+  const values = Array.from({ length: 10 }, (_value, offset) => `Item ${String(start + offset)}`);
+  const collection = prepareListCollection(values, (value, index) => {
+    projectorCalls += 1;
+    return { id: String(index), label: value };
+  }, { start, total: 50_000 });
+  const frame = renderElementFrame(list({
+    id: 'windowed-list',
+    collection,
+    selectedId: '40004'
+  }), { columns: 32, rows: 5 });
+
+  assert.equal(projectorCalls, 10);
+  assert.match(renderFramePlain(frame), /Item 40004/u);
+  assert.equal(frame.accessibility.root.description, 'Showing 40003-40007 of 50000 items.');
+});
+
 test('large scrollback rendering is bounded by viewport size, not collection size', () => {
   const items = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
   const frame = renderElementFrame(scrollback({ id: 'large-scrollback', items }), { columns: 48, rows: 12 });
@@ -76,6 +123,34 @@ test('small local frame updates produce bounded render diffs', () => {
   assert.ok(diff.operations.length > 0);
   assert.ok(diff.operations.length < previous.width * previous.height);
 });
+
+test('terminal output planning does not exceed absolute-addressed literal-clear output', () => {
+  const diff = {
+    schemaVersion: 'terminal-ui.render-diff.v2',
+    width: 120,
+    height: 30,
+    fullRewrite: false,
+    operations: [
+      { kind: 'write', row: 3, column: 4, spans: [{ text: 'status' }] },
+      { kind: 'write', row: 3, column: 12, spans: [{ text: 'ready' }] },
+      { kind: 'clearRect', bounds: { row: 8, column: 90, width: 31, height: 3 } }
+    ],
+    cursor: { row: 20, column: 1 }
+  };
+  const output = renderDiffAnsi(diff, { capabilities: outputCapabilities });
+  const baseline = [
+    '\u001B[3;4Hstatus',
+    '\u001B[3;12Hready',
+    ...[8, 9, 10].map((row) => `\u001B[${String(row)};90H${' '.repeat(31)}`),
+    '\u001B[20;1H'
+  ].join('');
+
+  assert.ok(byteLength(output) <= byteLength(baseline));
+});
+
+function byteLength(value) {
+  return new TextEncoder().encode(value).byteLength;
+}
 
 test('full frame render stays bounded by viewport for mixed widget trees', () => {
   const frame = renderElementFrame(column([
@@ -158,6 +233,46 @@ test('large table viewport is bounded independently from row count', () => {
   assert.doesNotMatch(renderFramePlain(frame), /Row 0/u);
   assert.ok(frame.cells.length <= frame.width * frame.height);
   assert.equal((frame.accessibility.root.children?.length ?? 0) <= 12, true);
+});
+
+test('prepared table collections retain row identity across renders and reducer actions', () => {
+  let rowIdCalls = 0;
+  const rows = Array.from({ length: 100_000 }, (_value, index) => ({ name: `Row ${String(index)}` }));
+  const collection = prepareTableCollection(rows, (_row, index) => {
+    rowIdCalls += 1;
+    return String(index);
+  });
+
+  assert.equal(rowIdCalls, rows.length);
+  rowIdCalls = 0;
+  const columns = [{ id: 'name', value: (row) => row.name, width: { kind: 'fill' } }];
+  renderElementFrame(table({ id: 'retained-table', collection, columns, presentation: { selectedRowId: '50000' } }), { columns: 48, rows: 12 });
+  renderElementFrame(table({ id: 'retained-table', collection, columns, presentation: { selectedRowId: '50001' } }), { columns: 64, rows: 16 });
+  const state = tableReducer({ selectedRowId: '50000' }, { kind: 'moveRow', delta: 1 }, { collection, columnCount: 1 });
+
+  assert.equal(state.selectedRowId, '50001');
+  assert.equal(rowIdCalls, 0);
+});
+
+test('windowed table collections identify only supplied records and keep global row positions', () => {
+  let rowIdCalls = 0;
+  const start = 70_000;
+  const rows = Array.from({ length: 12 }, (_value, offset) => ({ name: `Row ${String(start + offset)}` }));
+  const collection = prepareTableCollection(rows, (_row, index) => {
+    rowIdCalls += 1;
+    return String(index);
+  }, { start, total: 100_000 });
+  const frame = renderElementFrame(table({
+    id: 'windowed-table',
+    collection,
+    columns: [{ id: 'name', header: 'Name', value: (row) => row.name, width: { kind: 'fill' } }],
+    presentation: { selectedRowId: '70005' }
+  }), { columns: 40, rows: 7 });
+
+  assert.equal(rowIdCalls, 12);
+  assert.match(renderFramePlain(frame), /Row 70005/u);
+  assert.equal(frame.accessibility.root.window?.total, 100_000);
+  assert.equal(frame.accessibility.root.children?.[1]?.position?.rowIndex, 70_003);
 });
 
 test('fill-width tables do not scan offscreen row values for intrinsic measurement', () => {
@@ -267,6 +382,45 @@ test('large tree viewport is bounded independently from node count', () => {
   assert.equal((frame.accessibility.root.children?.length ?? 0) <= 10, true);
 });
 
+test('prepared tree collections avoid recursive flattening on rerender and movement', () => {
+  let nodeIdReads = 0;
+  const children = Array.from({ length: 50_000 }, (_value, index) => {
+    const id = `node-${String(index)}`;
+    return {
+      get id() {
+        nodeIdReads += 1;
+        return id;
+      },
+      label: `Node ${String(index)}`,
+      kind: 'leaf'
+    };
+  });
+  const nodes = [{ id: 'root', label: 'Root', kind: 'branch', expanded: true, children }];
+  const collection = prepareTreeCollection(nodes);
+
+  assert.ok(nodeIdReads >= children.length);
+  nodeIdReads = 0;
+  renderElementFrame(tree({ id: 'retained-tree', collection, selected: 'node-25000' }), { columns: 40, rows: 10 });
+  renderElementFrame(tree({ id: 'retained-tree', collection, selected: 'node-25001' }), { columns: 48, rows: 12 });
+  const state = treeReducer({ nodes, selected: 'node-25000' }, { kind: 'move', delta: 1 }, { collection });
+
+  assert.equal(state.selected, 'node-25001');
+  assert.ok(nodeIdReads < 500, `expected viewport-bounded node reads, received ${String(nodeIdReads)}`);
+});
+
+test('prepared collections snapshot source membership instead of retaining mutable arrays', () => {
+  const values = ['alpha', 'bravo'];
+  const rows = [{ name: 'alpha' }, { name: 'bravo' }];
+  const listCollection = prepareListCollection(values, (value) => ({ id: value, label: value }));
+  const tableCollection = prepareTableCollection(rows, (row) => row.name);
+
+  values.splice(0, values.length, 'changed');
+  rows.splice(0, rows.length, { name: 'changed' });
+
+  assert.deepEqual(listCollection.records.map((record) => record.id), ['alpha', 'bravo']);
+  assert.deepEqual(tableCollection.records.map((record) => record.id), ['alpha', 'bravo']);
+});
+
 test('palette filtering returns bounded windows for large entry sets', () => {
   const entries = Array.from({ length: 20_000 }, (_value, index) => ({
     id: `entry-${index}`,
@@ -298,7 +452,7 @@ test('form navigation over many controls records one bounded frame per input', a
         presentation: { value: state.active, cursor: 0 },
         keys: { enter: () => ({ kind: `field-${index}` }) }
       })),
-      button({ id: 'done', label: 'Done', onPress: { kind: 'done' } })
+      button({ id: 'done', label: 'Done', onPress: () => ({ kind: 'done' }) })
     ], { id: 'many-fields', title: 'Many fields' })
   });
   const host = createMemoryTerminalHost({ viewport: { columns: 32, rows: 12 } });
@@ -306,7 +460,7 @@ test('form navigation over many controls records one bounded frame per input', a
 
   await runtime.start();
   for (let index = 0; index < 20; index += 1) {
-    await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
+    await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   }
 
   assert.equal(host.frames().length, 21);

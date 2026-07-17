@@ -2,11 +2,17 @@ import type { AnchoredSurfaceAnchor } from '../interaction/anchored-surface.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type {
   ContextMenuAction,
+  ContextMenuPresentation,
   DropdownMenuAction,
+  DropdownMenuPresentation,
   MenuAction,
   MenuBarAction,
-  MenuItem
+  MenuBarPresentation,
+  MenuItem,
+  MenuPresentation,
+  MenuPresentationItem
 } from '../ui-model/menu.ts';
+import { assertValidMenuItems, menuItemChildren } from '../ui-model/menu.ts';
 import { adjacentItemId } from './navigation.ts';
 import { applyScrollEvent } from './scroll.ts';
 
@@ -15,40 +21,17 @@ export interface MenuState {
   readonly scroll?: ScrollState;
 }
 
-export interface MenuPresentationItem extends Omit<MenuItem, 'children'> {
-  readonly expanded?: boolean;
-  readonly children?: readonly MenuPresentationItem[];
-}
-
-export interface MenuPresentation {
-  readonly activePath: readonly string[];
-  readonly items: readonly MenuPresentationItem[];
-  readonly scroll?: ScrollState;
-}
-
 export type MenuBarState =
   | { readonly kind: 'closed'; readonly active?: string }
   | { readonly kind: 'open'; readonly active: string; readonly menu: MenuState };
-
-export type MenuBarPresentation =
-  | { readonly kind: 'closed'; readonly active?: string }
-  | { readonly kind: 'open'; readonly active: string; readonly menu: MenuPresentation };
 
 export type ContextMenuState =
   | { readonly kind: 'closed' }
   | { readonly kind: 'open'; readonly anchor: AnchoredSurfaceAnchor; readonly menu: MenuState };
 
-export type ContextMenuPresentation =
-  | { readonly kind: 'closed' }
-  | { readonly kind: 'open'; readonly anchor: AnchoredSurfaceAnchor; readonly menu: MenuPresentation };
-
 export type DropdownMenuState =
   | { readonly kind: 'closed'; readonly active?: string }
   | { readonly kind: 'open'; readonly active?: string; readonly menu: MenuState };
-
-export type DropdownMenuPresentation =
-  | { readonly kind: 'closed'; readonly active?: string }
-  | { readonly kind: 'open'; readonly active?: string; readonly menu: MenuPresentation };
 
 export function menuReducer(
   state: MenuState,
@@ -84,6 +67,7 @@ export function menuReducer(
 }
 
 export function menuPresentation(items: readonly MenuItem[], state: MenuState): MenuPresentation {
+  assertValidMenuItems(items);
   const activePath = normalizedActivePath(items, state.activePath);
   return {
     activePath,
@@ -132,7 +116,7 @@ export function menuBarReducer(
     case 'menu': {
       if (state.kind !== 'open') return state;
       const heading = enabledItem(items, state.active);
-      if (heading?.children === undefined) return state;
+      if (heading?.kind !== 'submenu') return state;
       const nextMenu = menuReducer(state.menu, action.action, heading.children);
       return action.action.kind === 'activate' && isLeafId(heading.children, action.action.id)
         ? { kind: 'closed', active: state.active }
@@ -147,7 +131,7 @@ export function menuBarPresentation(items: readonly MenuItem[], state: MenuBarSt
     return active === undefined ? { kind: 'closed' } : { kind: 'closed', active };
   }
   const heading = enabledItem(items, state.active);
-  if (heading?.children === undefined) return { kind: 'closed', active: state.active };
+  if (heading?.kind !== 'submenu') return { kind: 'closed', active: state.active };
   return { kind: 'open', active: state.active, menu: menuPresentation(heading.children, state.menu) };
 }
 
@@ -215,7 +199,7 @@ function initialMenuState(items: readonly MenuItem[]): MenuState {
 
 function openMenuBar(items: readonly MenuItem[], id: string): MenuBarState {
   const heading = enabledItem(items, id);
-  return heading?.children === undefined
+  return heading?.kind !== 'submenu'
     ? { kind: 'closed', active: id }
     : { kind: 'open', active: id, menu: initialMenuState(heading.children) };
 }
@@ -235,7 +219,7 @@ function closedDropdownMenu(active: string | undefined): DropdownMenuState {
 
 function enterMenuItem(state: MenuState, items: readonly MenuItem[]): MenuState {
   const item = itemAtPath(items, state.activePath);
-  const firstChild = item === undefined ? undefined : enabledItems(item.children ?? [])[0];
+  const firstChild = item === undefined ? undefined : enabledItems(menuItemChildren(item))[0];
   return firstChild === undefined ? state : { ...state, activePath: [...state.activePath, firstChild.id] };
 }
 
@@ -261,7 +245,7 @@ function normalizedActivePath(items: readonly MenuItem[], path: readonly string[
     const item = enabledItem(siblings, id);
     if (item === undefined) break;
     normalized.push(id);
-    siblings = item.children ?? [];
+    siblings = menuItemChildren(item);
   }
   if (normalized.length > 0 || path.length === 0) return normalized;
   const first = enabledItems(items)[0];
@@ -274,16 +258,14 @@ function projectMenuItems(
   depth: number
 ): readonly MenuPresentationItem[] {
   return items.map((item) => {
-    const expanded = item.children !== undefined
-      && item.children.length > 0
+    const expanded = item.kind === 'submenu'
       && activePath[depth] === item.id
       && activePath.length > depth + 1;
+    if (item.kind !== 'submenu') return item;
     return {
       ...item,
-      ...(item.children === undefined ? {} : {
-        ...(expanded ? { expanded: true } : {}),
-        children: projectMenuItems(item.children, activePath, depth + 1)
-      })
+      ...(expanded ? { expanded: true } : {}),
+      children: projectMenuItems(item.children, activePath, depth + 1)
     };
   });
 }
@@ -293,7 +275,7 @@ function enabledPathForId(items: readonly MenuItem[], id: string, parent: readon
     if (item.disabled === true) continue;
     const path = [...parent, item.id];
     if (item.id === id) return path;
-    const child = item.children === undefined ? undefined : enabledPathForId(item.children, id, path);
+    const child = item.kind === 'submenu' ? enabledPathForId(item.children, id, path) : undefined;
     if (child !== undefined) return child;
   }
   return undefined;
@@ -305,14 +287,15 @@ function itemAtPath(items: readonly MenuItem[], path: readonly string[]): MenuIt
   for (const id of path) {
     current = siblings.find((item) => item.id === id);
     if (current === undefined) return undefined;
-    siblings = current.children ?? [];
+    siblings = menuItemChildren(current);
   }
   return current;
 }
 
 function itemsAtPath(items: readonly MenuItem[], path: readonly string[]): readonly MenuItem[] {
   if (path.length === 0) return items;
-  return itemAtPath(items, path)?.children ?? [];
+  const item = itemAtPath(items, path);
+  return item === undefined ? [] : menuItemChildren(item);
 }
 
 function enabledItems(items: readonly MenuItem[]): readonly MenuItem[] {
@@ -328,11 +311,11 @@ function validId(items: readonly MenuItem[], id: string | undefined): string | u
 }
 
 function hasEnabledChildren(item: MenuItem): boolean {
-  return enabledItems(item.children ?? []).length > 0;
+  return enabledItems(menuItemChildren(item)).length > 0;
 }
 
 function isLeafId(items: readonly MenuItem[], id: string): boolean {
   const path = enabledPathForId(items, id);
   const item = path === undefined ? undefined : itemAtPath(items, path);
-  return item !== undefined && !hasEnabledChildren(item);
+  return item !== undefined && item.kind !== 'submenu';
 }

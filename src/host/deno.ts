@@ -16,6 +16,7 @@ export function createDenoTerminalHost(options: DenoTerminalHostOptions = {}): T
     stdin: options.stdin ?? denoInputOptions(deno),
     stdout: options.stdout ?? denoOutputOptions(deno?.stdout),
     stderr: options.stderr ?? denoOutputOptions(deno?.stderr),
+    ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
     ...optionalEnv(options.env ?? denoEnvironment(deno))
   });
 }

@@ -1,6 +1,7 @@
 import { validateAccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic, terminalDiagnosticIssue } from '../diagnostics.ts';
 import { err, ok } from '../result.ts';
+import { measureTextCells } from '../text/index.ts';
 import type { TerminalStateSnapshot, TerminalViewport } from '../host/index.ts';
 import type { KeyName, MouseAction, MouseButton, MouseEncoding } from '../input/index.ts';
 import type { Result } from '../result.ts';
@@ -11,6 +12,10 @@ import type { InteractionTranscript, TranscriptSource } from './types.ts';
 const transcriptSources = ['prompt', 'tui', 'test', 'replay'] as const satisfies readonly TranscriptSource[];
 const messageSources = ['input', 'signal', 'timer', 'external', 'effect'] as const satisfies readonly TuiMessageSource[];
 const keyNames = [
+  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+  'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+  'f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7', 'f8', 'f9', 'f10', 'f11', 'f12',
   'enter',
   'escape',
   'tab',
@@ -24,9 +29,14 @@ const keyNames = [
   'pageDown',
   'home',
   'end',
+  'insert',
   'space',
-  'ctrlC',
-  'ctrlD',
+  'add',
+  'subtract',
+  'multiply',
+  'divide',
+  'decimal',
+  'equal',
   'unknown'
 ] as const satisfies readonly KeyName[];
 const mouseEncodings = ['sgr', 'x10'] as const satisfies readonly MouseEncoding[];
@@ -57,7 +67,7 @@ function isInteractionTranscript(value: unknown): value is InteractionTranscript
 
 function transcriptIssue(transcript: unknown): string | undefined {
   if (!isRecord(transcript)) return 'Interaction transcript must be an object.';
-  if (transcript['schemaVersion'] !== 'terminal-ui.interaction-transcript.v1') {
+  if (transcript['schemaVersion'] !== 'terminal-ui.interaction-transcript.v2') {
     return 'Unsupported interaction transcript schema version.';
   }
   if (!isNonEmptyString(transcript['id'])) {
@@ -155,11 +165,13 @@ function inputEventIssue(event: unknown): string | undefined {
 
 function keyEventIssue(event: Record<string, unknown>): string | undefined {
   if (!isOneOf(event['key'], keyNames)) return `unsupported key name: ${String(event['key'])}.`;
+  if (!isRecord(event['modifiers'])) return 'key event requires modifiers.';
   for (const modifier of ['ctrl', 'alt', 'shift', 'meta'] as const) {
-    if (typeof event[modifier] !== 'boolean') return `key event requires ${modifier}.`;
+    if (typeof event['modifiers'][modifier] !== 'boolean') return `key modifiers require ${modifier}.`;
   }
   if (event['sequence'] !== undefined && typeof event['sequence'] !== 'string') return 'key sequence must be a string.';
-  if (event['repeat'] !== undefined && typeof event['repeat'] !== 'boolean') return 'key repeat must be a boolean.';
+  if (!isOneOf(event['eventType'], ['press', 'repeat', 'release'] as const)) return 'key event requires eventType.';
+  if (!isOneOf(event['location'], ['standard', 'numpad', 'unknown'] as const)) return 'key event requires location.';
   return undefined;
 }
 
@@ -224,49 +236,62 @@ function cursorIssue(cursor: unknown): string | undefined {
 
 function renderDiffIssue(diff: unknown): string | undefined {
   if (!isRecord(diff)) return 'diff must be an object.';
-  if (diff['schemaVersion'] !== 'terminal-ui.render-diff.v1') return 'diff schemaVersion is invalid.';
+  if (diff['schemaVersion'] !== 'terminal-ui.render-diff.v2') return 'diff schemaVersion is invalid.';
   if (!isIntegerAtLeast(diff['width'], 0) || !isIntegerAtLeast(diff['height'], 0)) {
     return 'diff width and height must be non-negative integers.';
   }
+  const width = Number(diff['width']);
+  const height = Number(diff['height']);
   if (typeof diff['fullRewrite'] !== 'boolean') return 'diff fullRewrite must be a boolean.';
   if (!Array.isArray(diff['operations'])) return 'diff operations must be an array.';
+  if (diff['cursor'] !== undefined) {
+    const issue = cursorIssue(diff['cursor']);
+    if (issue !== undefined) return `diff cursor: ${issue}`;
+    if (isRecord(diff['cursor']) && !pointFits(diff['cursor'], width, height)) {
+      return 'diff cursor must fit within the declared frame.';
+    }
+  }
   if (diff['dirtyRegions'] !== undefined) {
     if (!Array.isArray(diff['dirtyRegions'])) return 'diff dirtyRegions must be an array.';
     for (const [index, rect] of diff['dirtyRegions'].entries()) {
-      const issue = rectIssue(rect);
+      const issue = boundedRectIssue(rect, width, height);
       if (issue !== undefined) return `diff dirtyRegions ${String(index)}: ${issue}`;
     }
   }
   for (const [index, operation] of diff['operations'].entries()) {
-    const issue = renderOperationIssue(operation);
+    const issue = renderOperationIssue(operation, width, height);
     if (issue !== undefined) return `diff operation ${String(index)}: ${issue}`;
   }
   return undefined;
 }
 
-function renderOperationIssue(operation: unknown): string | undefined {
+function renderOperationIssue(operation: unknown, width: number, height: number): string | undefined {
   if (!isRecord(operation)) return 'operation must be an object.';
   switch (operation['kind']) {
-    case 'write':
-      return isIntegerAtLeast(operation['row'], 1)
-        && isIntegerAtLeast(operation['column'], 1)
-        && Array.isArray(operation['spans'])
-        && operation['spans'].every((item) => isRecord(item) && typeof item['text'] === 'string')
-        ? undefined
-        : 'write requires row, column, and spans.';
+    case 'write': {
+      if (!isIntegerAtLeast(operation['row'], 1) || !isIntegerAtLeast(operation['column'], 1)) {
+        return 'write requires positive integer row and column.';
+      }
+      const row = Number(operation['row']);
+      const column = Number(operation['column']);
+      if (!Array.isArray(operation['spans']) || operation['spans'].length === 0) {
+        return 'write requires at least one span.';
+      }
+      let columns = 0;
+      for (const item of operation['spans']) {
+        if (!isRecord(item) || typeof item['text'] !== 'string') {
+          return 'write spans must contain text.';
+        }
+        columns += measureTextCells(item['text']).cells;
+      }
+      if (columns <= 0) return 'write must affect at least one terminal cell.';
+      if (row > height || column + columns - 1 > width) {
+        return 'write must fit within the declared frame.';
+      }
+      return undefined;
+    }
     case 'clearRect':
-      return rectIssue(operation['bounds']) ?? undefined;
-    case 'clearLine':
-      if (!isIntegerAtLeast(operation['row'], 1)) return 'clearLine requires row.';
-      return operation['fromColumn'] === undefined || isIntegerAtLeast(operation['fromColumn'], 1)
-        ? undefined
-        : 'clearLine fromColumn must be a positive integer.';
-    case 'moveCursor':
-      return isIntegerAtLeast(operation['row'], 1) && isIntegerAtLeast(operation['column'], 1)
-        ? undefined
-        : 'moveCursor requires row and column.';
-    case 'showCursor':
-      return typeof operation['visible'] === 'boolean' ? undefined : 'showCursor requires visible.';
+      return boundedRectIssue(operation['bounds'], width, height);
     default:
       return `unsupported diff operation kind: ${String(operation['kind'])}.`;
   }
@@ -276,10 +301,27 @@ function rectIssue(rect: unknown): string | undefined {
   if (!isRecord(rect)) return 'clearRect bounds must be an object.';
   return isIntegerAtLeast(rect['row'], 1)
     && isIntegerAtLeast(rect['column'], 1)
-    && isIntegerAtLeast(rect['width'], 0)
-    && isIntegerAtLeast(rect['height'], 0)
+    && isIntegerAtLeast(rect['width'], 1)
+    && isIntegerAtLeast(rect['height'], 1)
     ? undefined
     : 'clearRect bounds must contain row, column, width, and height.';
+}
+
+function boundedRectIssue(rect: unknown, width: number, height: number): string | undefined {
+  const issue = rectIssue(rect);
+  if (issue !== undefined) return issue;
+  if (!isRecord(rect)) return 'bounds must be an object.';
+  return Number(rect['row']) + Number(rect['height']) - 1 <= height
+    && Number(rect['column']) + Number(rect['width']) - 1 <= width
+    ? undefined
+    : 'bounds must fit within the declared frame.';
+}
+
+function pointFits(point: Record<string, unknown>, width: number, height: number): boolean {
+  return typeof point['row'] === 'number'
+    && typeof point['column'] === 'number'
+    && point['row'] <= height
+    && point['column'] <= width;
 }
 
 function snapshotIssue(snapshot: unknown): string | undefined {
@@ -302,6 +344,7 @@ function restoreCheckpointIssue(checkpoint: unknown): string | undefined {
     return 'restore checkpoint requires mouseReporting.';
   }
   if (typeof typed.focusReporting !== 'boolean') return 'restore checkpoint requires focusReporting.';
+  if (typeof typed.enhancedKeyboard !== 'boolean') return 'restore checkpoint requires enhancedKeyboard.';
   if (typeof typed.cursorVisible !== 'boolean') return 'restore checkpoint requires cursorVisible.';
   return undefined;
 }

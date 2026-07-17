@@ -1,6 +1,8 @@
 import { createTerminalTextIndex, normalizeTextCursor } from '../../text/index.ts';
 import type { TextMeasurementOptions, TextSelection } from '../../text/index.ts';
 import type { TextPointerAction } from '../../interaction/text-pointer.ts';
+import type { MessageResolution } from '../../interaction/message.ts';
+import { ignoreMessage } from '../../interaction/message.ts';
 import type { Rect } from '../model/layout.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { HitTarget } from '../model/renderer.ts';
@@ -11,14 +13,15 @@ export interface TextPointerHitTargetInput<TMessage> {
   readonly id: string;
   readonly bounds: Rect;
   readonly focusTargetId?: string;
-  readonly toMessage?: ((action: TextPointerAction) => TMessage | undefined) | undefined;
+  readonly toMessage?: ((action: TextPointerAction) => MessageResolution<TMessage>) | undefined;
   offsetAt(event: RoutedPointerEvent): number | undefined;
 }
 
 export function textPointerHitTargets<TMessage>(
   input: TextPointerHitTargetInput<TMessage>
 ): readonly HitTarget<TMessage>[] {
-  if (input.toMessage === undefined) return [];
+  const toMessage = input.toMessage;
+  if (toMessage === undefined) return [];
   if (input.bounds.width <= 0 || input.bounds.height <= 0) return [];
   return [{
     id: input.id,
@@ -30,9 +33,9 @@ export function textPointerHitTargets<TMessage>(
     cursor: 'text',
     message(event) {
       const offset = input.offsetAt(event);
-      if (offset === undefined) return undefined;
+      if (offset === undefined) return ignoreMessage();
       const action = textPointerAction(event, offset, (candidate) => input.offsetAt(candidate));
-      return action === undefined ? undefined : input.toMessage?.(action);
+      return action === undefined ? ignoreMessage() : toMessage(action);
     }
   }];
 }

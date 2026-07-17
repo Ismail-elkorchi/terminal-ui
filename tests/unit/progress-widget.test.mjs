@@ -14,8 +14,7 @@ test('progressBar supports value plus percentage display and status tone', () =>
   const frame = renderElementFrame(progressBar({
     id: 'deploy',
     label: 'Deploy',
-    value: 5,
-    max: 10,
+    mode: { kind: 'determinate', value: 5, max: 10 },
     barWidth: 4,
     display: 'bar+value+percent',
     status: 'success'
@@ -41,8 +40,7 @@ test('progressBar supports bar-only display with end label and explicit bar widt
   const frame = renderElementFrame(progressBar({
     id: 'compact',
     label: 'Build',
-    value: 1,
-    max: 4,
+    mode: { kind: 'determinate', value: 1, max: 4 },
     barWidth: 4,
     display: 'bar',
     labelPosition: 'end'
@@ -60,8 +58,7 @@ test('progressBar supports bar-only display with end label and explicit bar widt
 test('progressBar valueScale renders segmented fill tokens', () => {
   const frame = renderElementFrame(progressBar({
     id: 'scaled-progress',
-    value: 8,
-    max: 10,
+    mode: { kind: 'determinate', value: 8, max: 10 },
     barWidth: 5,
     display: 'bar',
     labelPosition: 'none',
@@ -85,8 +82,7 @@ test('progressBar renders explicit elapsed and remaining timing without hidden c
   const frame = renderElementFrame(progressBar({
     id: 'timed',
     label: 'Upload',
-    value: 2,
-    max: 4,
+    mode: { kind: 'determinate', value: 2, max: 4 },
     barWidth: 4,
     display: 'bar+value+percent',
     elapsedMs: 65_000,
@@ -101,8 +97,7 @@ test('progressBar ignores invalid timing fields', () => {
   const frame = renderElementFrame(progressBar({
     id: 'invalid-timing',
     label: 'Sync',
-    value: 1,
-    max: 2,
+    mode: { kind: 'determinate', value: 1, max: 2 },
     elapsedMs: -1,
     remainingMs: Number.NaN
   }), { columns: 32, rows: 1 });
@@ -116,8 +111,7 @@ test('progressBar supports label-free percentage and tiny viewport clipping', ()
     id: 'tiny',
     label: 'Hidden',
     labelPosition: 'none',
-    value: 3,
-    max: 4,
+    mode: { kind: 'determinate', value: 3, max: 4 },
     barWidth: 4,
     display: 'bar+percent'
   }), { columns: 6, rows: 1 });
@@ -130,8 +124,7 @@ test('progressBar degrades display parts deterministically under width pressure'
   const normal = renderElementFrame(progressBar({
     id: 'normal-pressure',
     label: 'Sync',
-    value: 3,
-    max: 4,
+    mode: { kind: 'determinate', value: 3, max: 4 },
     display: 'bar+value+percent',
     elapsedMs: 65_000,
     barWidth: 10,
@@ -140,8 +133,7 @@ test('progressBar degrades display parts deterministically under width pressure'
   const tight = renderElementFrame(progressBar({
     id: 'tight-pressure',
     label: 'Sync',
-    value: 3,
-    max: 4,
+    mode: { kind: 'determinate', value: 3, max: 4 },
     display: 'bar+value+percent',
     elapsedMs: 65_000,
     barWidth: 10,
@@ -150,8 +142,7 @@ test('progressBar degrades display parts deterministically under width pressure'
   const tiny = renderElementFrame(progressBar({
     id: 'tiny-pressure',
     label: 'Sync',
-    value: 3,
-    max: 4,
+    mode: { kind: 'determinate', value: 3, max: 4 },
     display: 'bar+value+percent',
     elapsedMs: 65_000,
     barWidth: 10,
@@ -172,9 +163,8 @@ test('progressBar renders indeterminate bars with scoped progress accessibility'
   const frame = renderElementFrame(progressBar({
     id: 'waiting',
     label: 'Waiting',
-    indeterminate: true,
+    mode: { kind: 'indeterminate', frame: 1 },
     barWidth: 4,
-    frame: 1,
     status: 'warning'
   }), { columns: 24, rows: 1 });
   const activeCell = frame.cells.find((cell) => cell.source?.label === 'active');
@@ -187,28 +177,40 @@ test('progressBar renders indeterminate bars with scoped progress accessibility'
   assert.deepEqual(frame.accessibility.root.progress, { indeterminate: true });
 });
 
+test('progressBar rejects invalid authored progress modes', () => {
+  assert.throws(
+    () => progressBar({ id: 'nan-value', mode: { kind: 'determinate', value: Number.NaN } }),
+    /value must be finite/u
+  );
+  assert.throws(
+    () => progressBar({ id: 'zero-max', mode: { kind: 'determinate', value: 1, max: 0 } }),
+    /max must be finite and greater than zero/u
+  );
+  assert.throws(
+    () => progressBar({ id: 'nan-frame', mode: { kind: 'indeterminate', frame: Number.NaN } }),
+    /frame must be finite/u
+  );
+});
+
 test('progressBar clamps 0 percent 100 percent and overflow values visibly', () => {
   const empty = renderElementFrame(progressBar({
     id: 'empty',
     labelPosition: 'none',
-    value: 0,
-    max: 10,
+    mode: { kind: 'determinate', value: 0, max: 10 },
     barWidth: 4,
     display: 'bar+percent'
   }), { columns: 12, rows: 1 });
   const complete = renderElementFrame(progressBar({
     id: 'complete',
     labelPosition: 'none',
-    value: 10,
-    max: 10,
+    mode: { kind: 'determinate', value: 10, max: 10 },
     barWidth: 4,
     display: 'bar+percent'
   }), { columns: 12, rows: 1 });
   const overflow = renderElementFrame(progressBar({
     id: 'overflow',
     labelPosition: 'none',
-    value: 25,
-    max: 10,
+    mode: { kind: 'determinate', value: 25, max: 10 },
     barWidth: 4,
     display: 'bar+percent'
   }), { columns: 12, rows: 1 });
@@ -225,8 +227,7 @@ test('progressBar visual snapshots stay readable in high contrast and no color m
   const frame = renderElementFrame(progressBar({
     id: 'themed-progress',
     label: 'Theme',
-    value: 2,
-    max: 4,
+    mode: { kind: 'determinate', value: 2, max: 4 },
     barWidth: 4,
     display: 'bar+value+percent',
     status: 'warning'

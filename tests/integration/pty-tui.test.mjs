@@ -12,7 +12,7 @@ import {
 } from '../../dist/components/index.js';
 import { waitUntil } from '../helpers/async.mjs';
 
-const enterKey = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
+const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 
 test('PTY harness runs full-screen TUI and captures protocol restoration on success', async () => {
   const result = createPtyTerminalHarness({ viewport: { columns: 32, rows: 5 } });
@@ -28,7 +28,7 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
     view: (state) => textInput({
       id: 'submit',
       presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
-      onSubmit: { submitted: true }
+      onSubmit: () => ({ submitted: true })
     })
   });
 

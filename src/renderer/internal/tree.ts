@@ -1,21 +1,22 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
-import { treeDisclosureAction, treeNodeCanDisclose, visibleTreeRows } from '../../behavior/tree.ts';
+import { treeDisclosureAction, treeNodeCanDisclose } from '../../behavior/tree.ts';
 import { treeNodeExpanded } from '../../ui-model/tree.ts';
-import type { TreeVisibleRow } from '../../behavior/tree.ts';
+import { collectionRecordById } from '../../ui-model/collection.ts';
+import type { TreeVisibleRow } from '../../ui-model/tree.ts';
 import { dataSource, dataSpan, dataValueSpans, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
-import { rowWindow, scrollStateFromUnknown } from '../../behavior/data-window.ts';
+import { projectedRowWindow, scrollStateFromUnknown } from '../../behavior/data-window.ts';
 import { stringify } from './render-node-props.ts';
 import { resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
 import { windowDescription } from './visible-window.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { TreeDisclosureAction, TreeNode } from '../../ui-model/tree.ts';
+import type { TreeControlAction, TreeNode } from '../../ui-model/tree.ts';
 import type { Rect } from '../model/layout.ts';
 import { clipRenderSpans } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
-import type { RoutedPointerEvent } from '../../input/pointer.ts';
+import { ignoreMessage } from '../../interaction/message.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
 import type { HitTarget } from '../model/renderer.ts';
 import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
@@ -27,20 +28,19 @@ interface TreeWindow {
 }
 
 interface TreeProjection {
-  readonly rows: readonly TreeVisibleRow[];
+  readonly totalRows: number;
   readonly selected: string | undefined;
   readonly window: TreeWindow;
 }
 
-const treeRowsCache = new WeakMap<object, readonly TreeVisibleRow[]>();
 const treeProjectionCache = new WeakMap<object, {
   readonly height: number;
   readonly projection: TreeProjection;
 }>();
 
 export function treeBlock(widget: TreeRenderNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
-  const { rows, selected, window } = treeProjection(widget, bounds.height);
-  if (rows.length === 0 && bounds.height > 0) {
+  const { totalRows, selected, window } = treeProjection(widget, bounds.height);
+  if (totalRows === 0 && bounds.height > 0) {
     return {
       lines: [{
         spans: [dataSpan(emptyText(widget), resolveRenderNodeStyle(widget, {
@@ -56,25 +56,25 @@ export function treeBlock(widget: TreeRenderNode, bounds: Rect, theme: TerminalT
 }
 
 export function treeAccessibleBase(widget: TreeRenderNode, bounds: Rect, id: string, focused: boolean): AccessibleNode {
-  const { rows, window } = treeProjection(widget, bounds.height);
+  const { totalRows, window } = treeProjection(widget, bounds.height);
   return {
     id,
     role: 'listbox',
     label: id,
-    description: windowDescription('tree rows', window, rows.length),
+    description: windowDescription('tree rows', window, totalRows),
     window: {
       start: window.start,
       end: window.end,
-      total: rows.length,
+      total: totalRows,
       omittedBefore: window.start,
-      omittedAfter: Math.max(0, rows.length - window.end)
+      omittedAfter: Math.max(0, totalRows - window.end)
     },
     ...(focused ? { focused } : {})
   };
 }
 
 export function treeAccessibleChildren(widget: TreeRenderNode, bounds: Rect): readonly AccessibleNode[] {
-  const { rows, selected, window } = treeProjection(widget, bounds.height);
+  const { totalRows, selected, window } = treeProjection(widget, bounds.height);
   return window.rows.map((row, index) => ({
     id: `${widget.id ?? 'tree'}:${row.node.id}`,
     role: 'option',
@@ -85,7 +85,7 @@ export function treeAccessibleChildren(widget: TreeRenderNode, bounds: Rect): re
     ...(row.node.kind === 'leaf' ? {} : { expanded: treeNodeExpanded(row.node) }),
     position: {
       index: window.start + index,
-      count: rows.length,
+      count: totalRows,
       level: row.depth + 1
     },
     value: row.path.join('/')
@@ -93,38 +93,35 @@ export function treeAccessibleChildren(widget: TreeRenderNode, bounds: Rect): re
 }
 
 export function treeHitTargets<TMessage>(widget: TreeRenderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  const toMessage = toMessageProp(widget);
-  const toDisclosureMessage = toDisclosureMessageProp(widget);
-  if (toMessage === undefined && toDisclosureMessage === undefined) return [];
+  const toMessage = toActionMessageProp(widget);
+  if (toMessage === undefined) return [];
   const { window } = treeProjection(widget, bounds.height);
   return window.rows.flatMap((row, index): HitTarget<TMessage>[] => {
     if (row.lazyPlaceholder === true || row.node.disabled === true) return [];
     const targets: HitTarget<TMessage>[] = [];
-    const disclosureMessage = toDisclosureMessage;
     const disclosureBounds = treeNodeCanDisclose(row.node) ? treeDisclosureBounds(bounds, index, row) : undefined;
-    const hasDisclosureTarget = disclosureMessage !== undefined && disclosureBounds !== undefined;
+    const hasDisclosureTarget = disclosureBounds !== undefined;
     if (hasDisclosureTarget) {
-      const messageForDisclosure = disclosureMessage;
       targets.push({
         id: treeDisclosureTargetId(widget, row.node.id),
         bounds: disclosureBounds,
-        message: (event) => {
+        message: () => {
           const action = treeDisclosureAction(row.node, 'toggle');
-          return action === undefined ? undefined : messageForDisclosure(row.node, action, event);
+          return action === undefined ? ignoreMessage() : toMessage(action);
         },
         cursor: 'pointer'
       });
     }
-    if (toMessage !== undefined) {
-      const rowBounds = treeRowBodyBounds(bounds, index, row, hasDisclosureTarget);
-      if (rowBounds.width > 0) {
-        targets.push({
-          id: treeBodyTargetId(widget, row.node.id),
-          bounds: rowBounds,
-          message: () => toMessage(row.node),
-          cursor: 'pointer'
-        });
-      }
+    const rowBounds = treeRowBodyBounds(bounds, index, row, hasDisclosureTarget);
+    if (rowBounds.width > 0) {
+      targets.push({
+        id: treeBodyTargetId(widget, row.node.id),
+        bounds: rowBounds,
+        message: (event) => toMessage(event.clickCount === 2
+          ? { kind: 'activate', id: row.node.id }
+          : { kind: 'select', id: row.node.id }),
+        cursor: 'pointer'
+      });
     }
     return targets;
   });
@@ -295,37 +292,28 @@ function treeSourceState(state: string | undefined): { readonly state?: string }
   return state === undefined ? {} : { state };
 }
 
-export function treeVisibleRows(widget: TreeRenderNode): readonly TreeVisibleRow[] {
-  const cached = treeRowsCache.get(widget);
-  if (cached !== undefined) return cached;
-  const rows = visibleTreeRows(widget.props.nodes, { filterQuery: filterQuery(widget) });
-  treeRowsCache.set(widget, rows);
-  return rows;
-}
-
 function treeProjection(widget: TreeRenderNode, height: number): TreeProjection {
   const cached = treeProjectionCache.get(widget);
   if (cached?.height === height) return cached.projection;
-  const rows = treeVisibleRows(widget);
   const selected = selectedTreeId(widget);
   const projection = {
-    rows,
+    totalRows: widget.props.collection.total,
     selected,
-    window: treeWindow(widget, rows, height, selected)
+    window: treeWindow(widget, height, selected)
   };
   treeProjectionCache.set(widget, { height, projection });
   return projection;
 }
 
-function treeWindow(widget: TreeRenderNode, rows: readonly TreeVisibleRow[], height: number, selected: string | undefined): TreeWindow {
-  const selectedIndex = selectedTreeIndex(rows, selected) ?? 0;
-  const window = rowWindow(rows, {
+function treeWindow(widget: TreeRenderNode, height: number, selected: string | undefined): TreeWindow {
+  const selectedIndex = selectedTreeIndex(widget.props.collection, selected) ?? 0;
+  const window = projectedRowWindow(widget.props.collection, {
     viewportRows: height,
     selectedIndex,
     ...scrollInput(widget)
   });
   return {
-    rows: window.rows,
+    rows: window.rows.map((record) => record.row),
     start: window.start,
     end: window.end
   };
@@ -336,10 +324,12 @@ function selectedTreeId(widget: TreeRenderNode): string | undefined {
   return typeof selected === 'string' ? clean(selected) : undefined;
 }
 
-function selectedTreeIndex(rows: readonly TreeVisibleRow[], selected: string | undefined): number | undefined {
+function selectedTreeIndex(
+  collection: TreeRenderNode['props']['collection'],
+  selected: string | undefined
+): number | undefined {
   if (selected === undefined) return undefined;
-  const index = rows.findIndex((row) => row.node.id === selected);
-  return index === -1 ? undefined : index;
+  return collectionRecordById(collection, selected)?.index;
 }
 
 function treeDisclosureBounds(bounds: Rect, rowIndex: number, row: TreeVisibleRow): Rect | undefined {
@@ -372,14 +362,10 @@ function scrollInput(widget: TreeRenderNode): { readonly scroll?: ScrollState } 
   return scroll === undefined ? {} : { scroll };
 }
 
-function toMessageProp<TMessage>(widget: TreeRenderNode<TMessage>): ((node: TreeNode) => TMessage) | undefined {
-  return widget.props.toMessage;
-}
-
-function toDisclosureMessageProp<TMessage>(
+function toActionMessageProp<TMessage>(
   widget: TreeRenderNode<TMessage>
-): ((node: TreeNode, action: TreeDisclosureAction, event: RoutedPointerEvent) => TMessage) | undefined {
-  return widget.props.toDisclosureMessage;
+): ((action: TreeControlAction) => TMessage) | undefined {
+  return widget.props.toActionMessage;
 }
 
 function emptyText(widget: TreeRenderNode): string {

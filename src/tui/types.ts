@@ -9,6 +9,7 @@ import type { Frame } from '../renderer/internal/frame.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
 import type { TuiMessageSource } from '../runtime-model/message-source.ts';
+import type { MessageResolution } from '../interaction/message.ts';
 
 export interface TuiDefinition<TState, TMessage> {
   readonly id?: string;
@@ -60,7 +61,7 @@ export type TuiKeyBinding<TState, TMessage> =
     }
   | TuiKeyBindingBase<TState> & {
       readonly message?: never;
-      readonly toMessage: (context: TuiKeyBindingContext<TState>) => TMessage | undefined;
+      readonly toMessage: (context: TuiKeyBindingContext<TState>) => MessageResolution<TMessage>;
     };
 
 export interface TuiUpdateResult<TState, TMessage> {
@@ -113,20 +114,34 @@ export interface TuiEffect<TMessage> {
   onError?(failure: TuiEffectFailure): TuiEffectOutput<TMessage>;
 }
 
+export interface TuiEffectPolicy {
+  readonly maxActive: number;
+  readonly maxActivePerId: number;
+  readonly maxQueued: number;
+  readonly maxQueuedPerId: number;
+  readonly replacementGracePeriodMs: number;
+}
+
 export type TuiEffectConcurrency = 'parallel' | 'keep-first' | 'replace' | 'enqueue';
 
 export type TuiEventDelivery = 'sequential' | 'latest';
 
 export type TuiSourceLifecycle =
-  | { readonly kind: 'completed'; readonly id: string }
-  | { readonly kind: 'failed'; readonly id: string; readonly diagnostic: TerminalDiagnostic };
+  | { readonly kind: 'completed'; readonly id: string; readonly generation: string | number }
+  | {
+      readonly kind: 'failed';
+      readonly id: string;
+      readonly generation: string | number;
+      readonly diagnostic: TerminalDiagnostic;
+    };
 
 export interface TuiEventSource<TMessage> {
   readonly id: string;
+  readonly generation: string | number;
   readonly source?: Exclude<TuiMessageSource, 'input' | 'effect'>;
   readonly delivery: TuiEventDelivery;
   messages(context: TuiSubscriptionContext): AsyncIterable<TMessage>;
-  onLifecycle?(event: TuiSourceLifecycle): TMessage | undefined;
+  onLifecycle?(event: TuiSourceLifecycle): MessageResolution<TMessage>;
   dispose?(): void | Promise<void>;
 }
 
@@ -178,12 +193,18 @@ export interface TuiRuntimeOptions<TState, TMessage> {
   readonly transcript?: TranscriptRecorder;
   readonly input?: InputPipelineOptions;
   readonly diagnostics?: readonly TerminalDiagnostic[];
+  readonly effectPolicy?: TuiEffectPolicy;
 }
 
 export interface TuiRunOptions<TState = unknown> {
   readonly initialFocusPath?: FocusPath;
   readonly theme?: TuiTheme<TState>;
   readonly sessionPolicy?: SessionProtocolPolicy;
+  readonly cleanup?: TuiCleanupPolicy;
+}
+
+export interface TuiCleanupPolicy {
+  readonly gracePeriodMs: number;
 }
 
 export interface TuiRuntime<TState, TMessage> {
@@ -201,7 +222,7 @@ export interface TuiRuntime<TState, TMessage> {
   resetInput(): void;
   nextChange(signal?: AbortSignal): Promise<TuiRuntimeChange<TState>>;
   dispose(): Promise<void>;
-  getState(): TState | undefined;
+  state(): TState;
   frame(): Frame | undefined;
   exit(): TuiExit<TState> | undefined;
   diagnostics(): readonly TerminalDiagnostic[];
@@ -214,6 +235,11 @@ export interface TuiRuntimeMetrics {
   readonly dispatchedMessages: number;
   readonly stateUpdates: number;
   readonly frameCommits: number;
+  readonly effects: {
+    readonly active: number;
+    readonly queued: number;
+    readonly rejected: number;
+  };
 }
 
 export interface TuiInputBatchResult<TState> {

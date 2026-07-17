@@ -16,7 +16,6 @@ import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import { textOffsetAtVisualColumn } from './text-pointer.ts';
 import {
-  extractScrollbackSelectionText,
   scrollbackItemLevel,
   scrollbackItemsFromUnknown,
   scrollbackMetadataEntries,
@@ -24,9 +23,8 @@ import {
   scrollbackTimestampText,
   type ScrollbackBodySelection
 } from './scrollback/content.ts';
+import { extractScrollbackSelectionText } from '../../behavior/scrollback-selection.ts';
 
-export { extractScrollbackSelectionText } from './scrollback/content.ts';
-export type { ExtractScrollbackSelectionTextInput } from './scrollback/content.ts';
 
 interface ScrollbackTextSegment extends RenderSpan {
   readonly matched?: boolean;

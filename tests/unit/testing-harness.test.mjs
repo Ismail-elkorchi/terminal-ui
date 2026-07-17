@@ -76,7 +76,13 @@ test('terminal harness delivers normalized input events to prompt runtimes', asy
   const harness = createTerminalHarness();
 
   await harness.input({ kind: 'text', text: 'Ada', paste: false });
-  await harness.input({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  await harness.input({
+    kind: 'key',
+    key: 'enter',
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
 
   const result = await runPrompt(input({ label: 'Name' }), harness.host);
 
@@ -98,7 +104,7 @@ test('terminal harness delivers normalized key events to TUI runtimes', async ()
     view: (state) => textInput({
       id: 'submit',
       presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
-      onSubmit: { submitted: true }
+      onSubmit: () => ({ submitted: true })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -106,7 +112,7 @@ test('terminal harness delivers normalized key events to TUI runtimes', async ()
   await runInteractionScript(harness, {
     id: 'queue-enter',
     steps: [
-      { kind: 'input', event: { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false } }
+      { kind: 'input', event: { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' } }
     ]
   });
   const result = await runTui(app, harness.host);
@@ -121,7 +127,7 @@ test('terminal harness replay delivers transcript input events back to the memor
   const harness = createTerminalHarness();
 
   await replayTranscript(harness, {
-    schemaVersion: 'terminal-ui.interaction-transcript.v1',
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: 'replay-input',
     source: 'replay',
     startedAt: new Date(0).toISOString(),
@@ -129,7 +135,7 @@ test('terminal harness replay delivers transcript input events back to the memor
     redactions: [],
     steps: [
       { kind: 'input', event: { kind: 'text', text: 'Grace', paste: false } },
-      { kind: 'input', event: { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false } }
+      { kind: 'input', event: { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' } }
     ]
   });
   const result = await runPrompt(input({ label: 'Name' }), harness.host);
@@ -164,7 +170,7 @@ test('terminal harness resize events drive active TUI resize handling', async ()
     view: (_state, context) => textInput({
       id: 'resize-field',
       presentation: { value: `columns:${context.viewport.columns}`, cursor: 0 },
-      onSubmit: { done: true }
+      onSubmit: () => ({ done: true })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -213,7 +219,7 @@ test('interaction scripts assert styled text focus selection and hit targets aga
     button({
       id: 'confirm',
       label: 'Confirm',
-      onPress: { kind: 'confirm' }
+      onPress: () => ({ kind: 'confirm' })
     })
   ]), { columns: 24, rows: 9 });
   harness.recordFrame(frame);

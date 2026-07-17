@@ -116,7 +116,7 @@ test('theme matrix snapshots cover core widgets with packs high contrast and no 
         border: { kind: 'rounded' },
         padding: 1
       }),
-      progressBar({ id: `progress-${theme.name}`, value: 64, label: 'readable' }),
+      progressBar({ id: `progress-${theme.name}`, mode: { kind: 'determinate', value: 64 }, label: 'readable' }),
       barChart({
         id: `chart-${theme.name}`,
         items: [
@@ -179,7 +179,7 @@ test('default theme specimen composes surface control text command log and data 
       ],
       scroll: { offsetRow: 0, offsetColumn: 0, contentRows: 3, viewportRows: 4 }
     }),
-    progressBar({ id: 'specimen-progress', value: 72, label: 'coverage' }),
+    progressBar({ id: 'specimen-progress', mode: { kind: 'determinate', value: 72 }, label: 'coverage' }),
     chart({
       id: 'specimen-chart',
       legend: true,

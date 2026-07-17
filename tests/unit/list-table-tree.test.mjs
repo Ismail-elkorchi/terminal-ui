@@ -11,6 +11,9 @@ import {
   createScrollState,
   dataWindow,
   listReducer,
+  prepareListCollection,
+  prepareTableCollection,
+  prepareTreeRows,
   paginationWindow,
   tableReducer,
   treeReducer
@@ -23,6 +26,7 @@ import {
   list,
   paginator,
   table,
+  tableColumn,
   tree
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
@@ -49,6 +53,11 @@ const mouseRelease = (row, column) => ({
   rawCode: 0,
   modifiers: { shift: false, alt: false, ctrl: false }
 });
+
+async function clickAt(runtime, row, column) {
+  await runtime.handleInput(mousePress(row, column));
+  return runtime.handleInput(mouseRelease(row, column));
+}
 
 test('dataWindow keeps selected rows visible and preserves explicit scroll windows', () => {
   assert.deepEqual(
@@ -86,6 +95,41 @@ test('dataWindow keeps selected rows visible and preserves explicit scroll windo
       omittedBefore: 10,
       omittedAfter: 85
     }
+  );
+});
+
+test('prepared collections reject ambiguous identity and invalid global windows', () => {
+  assert.throws(
+    () => prepareListCollection(['same', 'same'], (item) => ({ id: item, label: item })),
+    /must be unique/u
+  );
+  assert.throws(
+    () => prepareTableCollection([{ id: 'one' }, { id: 'two' }], () => 'same'),
+    /must be unique/u
+  );
+  assert.throws(
+    () => prepareTreeRows([{ node: { id: 'one', label: 'One', kind: 'leaf' }, depth: 0, path: ['one'] }], {
+      start: 2,
+      total: 2
+    }),
+    /must fit inside/u
+  );
+});
+
+test('windowed collection filtering is explicit rather than incomplete', () => {
+  const collection = prepareListCollection(
+    ['Item 100'],
+    (item, index) => ({ id: String(index), label: item }),
+    { start: 100, total: 1_000 }
+  );
+
+  assert.throws(
+    () => list({ id: 'window-filter', collection, filterQuery: 'item' }),
+    /must be filtered before/u
+  );
+  assert.throws(
+    () => listReducer({}, { kind: 'first' }, { collection, filterQuery: 'item' }),
+    /must be filtered before/u
   );
 });
 
@@ -209,6 +253,30 @@ test('list selection uses stable identity across reorder, filter, insertion, and
   assert.equal(moved.selectedId, 'alpha');
   assert.equal(filtered.selectedId, 'bravo');
   assert.equal(recovered.selectedId, 'delta');
+});
+
+test('list pointer selection and double-click activation match keyboard semantics', async () => {
+  const app = defineTui({
+    id: 'list-pointer-activation',
+    init: () => ({ actions: [] }),
+    update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
+    view: () => list({
+      id: 'activation-list',
+      items: ['alpha'],
+      projectItem: (item) => ({ id: item, label: item }),
+      onAction: (action) => action
+    })
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 20, rows: 2 } }) });
+
+  await runtime.start();
+  await clickAt(runtime, 1, 1);
+  await clickAt(runtime, 1, 1);
+
+  assert.deepEqual(runtime.state().actions, [
+    { kind: 'select', id: 'alpha', index: 0 },
+    { kind: 'activate', id: 'alpha', index: 0 }
+  ]);
 });
 
 test('list and table reject empty or duplicate stable ids at authoring time', () => {
@@ -352,6 +420,54 @@ test('table exposes visible cell hit targets when cell selection is active', asy
   assert.equal(release.state.selected, '0:89:Score');
 });
 
+test('table row and cell double clicks emit the same activation action as Enter', async () => {
+  const rowApp = defineTui({
+    id: 'table-row-pointer-activation',
+    init: () => ({ actions: [] }),
+    update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
+    view: () => table({
+      id: 'activation-table-row',
+      rows: [['alpha']],
+      getRowId: () => 'alpha',
+      onAction: (action) => action
+    })
+  });
+  const rowRuntime = createTuiRuntime({ app: rowApp, host: createMemoryTerminalHost({ viewport: { columns: 20, rows: 2 } }) });
+
+  await rowRuntime.start();
+  await clickAt(rowRuntime, 1, 1);
+  await clickAt(rowRuntime, 1, 1);
+  assert.deepEqual(rowRuntime.state().actions, [
+    { kind: 'selectRow', rowId: 'alpha', rowIndex: 0 },
+    { kind: 'activate', rowId: 'alpha', rowIndex: 0 }
+  ]);
+
+  const cellApp = defineTui({
+    id: 'table-cell-pointer-activation',
+    init: () => ({ actions: [] }),
+    update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
+    view: () => table({
+      id: 'activation-table-cell',
+      presentation: { selectedCell: { rowId: 'alpha', column: 0 } },
+      rows: [['alpha']],
+      getRowId: () => 'alpha',
+      columns: [{ id: 'name', header: 'Name', value: (row) => row[0] }],
+      onAction: (action) => action
+    })
+  });
+  const cellRuntime = createTuiRuntime({ app: cellApp, host: createMemoryTerminalHost({ viewport: { columns: 20, rows: 2 } }) });
+
+  await cellRuntime.start();
+  const cellTarget = cellRuntime.frame().hitTargets.find((target) => target.id.includes(':cell:'));
+  assert.ok(cellTarget);
+  await clickAt(cellRuntime, cellTarget.bounds.row, cellTarget.bounds.column);
+  await clickAt(cellRuntime, cellTarget.bounds.row, cellTarget.bounds.column);
+  assert.deepEqual(cellRuntime.state().actions, [
+    { kind: 'selectCell', rowId: 'alpha', rowIndex: 0, column: 0 },
+    { kind: 'activate', rowId: 'alpha', rowIndex: 0, column: 0 }
+  ]);
+});
+
 test('table supports scroll state column sizing styled renderers sort markers empty states and cell selection', () => {
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
@@ -368,7 +484,7 @@ test('table supports scroll state column sizing styled renderers sort markers em
         id: 'hidden-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Hidden', hidden: true },
       {
         id: 'name-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Name', width: { kind: 'content', max: 8 } },
-      {
+      tableColumn({
         id: 'score-2', value: (row) => Array.isArray(row) ? row[2] : undefined,
         header: 'Score',
         width: { kind: 'fixed', cells: 5 },
@@ -378,7 +494,7 @@ test('table supports scroll state column sizing styled renderers sort markers em
           text: String(value),
           style: { fg: { kind: 'theme', token: 'status.success' } }
         })
-      },
+      }),
       {
         id: 'notes-3', value: (row) => Array.isArray(row) ? row[3] : undefined, header: 'Notes', width: { kind: 'fill' } }
     ],
@@ -450,14 +566,10 @@ test('table compact metric semantics tighten spacing and expose metric metadata'
     stickyHeader: true,
     rows: [[18, 'node', '188M', 4.2]],
     columns: [
-      {
-        id: 'pid-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'PID', width: { kind: 'fixed', cells: 3 }, semantic: 'metadata', render: ({ row }) => String(row[0]) },
-      {
-        id: 'name-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Name', width: { kind: 'fixed', cells: 6 }, render: ({ row }) => row[1] },
-      {
-        id: 'mem-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Mem', width: { kind: 'fixed', cells: 5 }, align: 'end', semantic: 'metric', render: ({ row }) => row[2] },
-      {
-        id: 'cpu-3', value: (row) => Array.isArray(row) ? row[3] : undefined, header: 'CPU', width: { kind: 'fixed', cells: 4 }, align: 'end', semantic: 'metric', render: ({ row }) => row[3].toFixed(1) }
+      tableColumn({ id: 'pid-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'PID', width: { kind: 'fixed', cells: 3 }, semantic: 'metadata', render: ({ value }) => String(value) }),
+      tableColumn({ id: 'name-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Name', width: { kind: 'fixed', cells: 6 }, render: ({ value }) => value }),
+      tableColumn({ id: 'mem-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'Mem', width: { kind: 'fixed', cells: 5 }, align: 'end', semantic: 'metric', render: ({ value }) => value }),
+      tableColumn({ id: 'cpu-3', value: (row) => Array.isArray(row) ? row[3] : undefined, header: 'CPU', width: { kind: 'fixed', cells: 4 }, align: 'end', semantic: 'metric', render: ({ value }) => Number(value).toFixed(1) })
     ]
   }), { columns: 24, rows: 2 });
   const metricCell = frame.cells.find((cell) => cell.text === '4' && cell.source?.label === 'row.0.cell.3');
@@ -486,12 +598,9 @@ test('table compact fill columns keep marker width aligned with cell hit targets
     stickyHeader: true,
     rows: [[18, 'node', 4.2]],
     columns: [
-      {
-        id: 'pid-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'PID', width: { kind: 'fixed', cells: 3 }, render: ({ row }) => String(row[0]) },
-      {
-        id: 'name-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Name', width: { kind: 'fill' }, render: ({ row }) => row[1] },
-      {
-        id: 'cpu-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'CPU', width: { kind: 'fixed', cells: 4 }, align: 'end', render: ({ row }) => row[2].toFixed(1) }
+      tableColumn({ id: 'pid-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'PID', width: { kind: 'fixed', cells: 3 }, render: ({ value }) => String(value) }),
+      tableColumn({ id: 'name-1', value: (row) => Array.isArray(row) ? row[1] : undefined, header: 'Name', width: { kind: 'fill' }, render: ({ value }) => value }),
+      tableColumn({ id: 'cpu-2', value: (row) => Array.isArray(row) ? row[2] : undefined, header: 'CPU', width: { kind: 'fixed', cells: 4 }, align: 'end', render: ({ value }) => Number(value).toFixed(1) })
     ],
     onAction: (action) => ({ kind: 'cell', action })
   }), { columns: 14, rows: 2 });
@@ -566,10 +675,16 @@ test('table header capabilities share geometry across keyboard, click, and captu
   });
 
   await runtime.start();
-  await runtime.handleInput({ kind: 'key', key: 'space' });
-  assert.deepEqual(runtime.getState()?.sort, { column: 'name', direction: 'ascending' });
-  await runtime.handleInput({ kind: 'key', key: 'arrowRight', alt: true });
-  assert.equal(runtime.getState()?.columnWidths?.name, 9);
+  await runtime.handleInput({ kind: 'key', key: 'space', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  assert.deepEqual(runtime.state()?.sort, { column: 'name', direction: 'ascending' });
+  await runtime.handleInput({
+    kind: 'key',
+    key: 'arrowRight',
+    modifiers: { ctrl: false, alt: true, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
+  });
+  assert.equal(runtime.state()?.columnWidths?.name, 9);
 
   const sortTarget = runtime.frame()?.hitTargets?.find((target) => target.id === 'metrics:header:name:sort');
   const resizeTarget = runtime.frame()?.hitTargets?.find((target) => target.id === 'metrics:header:name:resize');
@@ -580,7 +695,7 @@ test('table header capabilities share geometry across keyboard, click, and captu
 
   await runtime.handleInput(mousePress(sortTarget.bounds.row, sortTarget.bounds.column));
   await runtime.handleInput(mouseRelease(sortTarget.bounds.row, sortTarget.bounds.column));
-  assert.deepEqual(runtime.getState()?.sort, { column: 'name', direction: 'descending' });
+  assert.deepEqual(runtime.state()?.sort, { column: 'name', direction: 'descending' });
 
   await runtime.handleInput(mousePress(resizeTarget.bounds.row, resizeTarget.bounds.column));
   await runtime.handleInput({
@@ -588,7 +703,7 @@ test('table header capabilities share geometry across keyboard, click, and captu
     action: 'drag',
     rawCode: 32
   });
-  assert.equal(runtime.getState()?.columnWidths?.name, 11);
+  assert.equal(runtime.state()?.columnWidths?.name, 11);
 
   await runtime.dispose();
 });
@@ -758,6 +873,47 @@ test('treeReducer toggles nested expansion without mutating input nodes', () => 
   assert.equal(nodes[0]?.expanded, false);
   assert.equal(expanded.nodes[0]?.expanded, true);
   assert.match(renderFramePlain(frame), /Child/u);
+});
+
+test('tree authoring rejects duplicate identities across nested branches', () => {
+  assert.throws(() => tree({
+    id: 'duplicate-tree',
+    nodes: [
+      {
+        id: 'root',
+        label: 'Root',
+        kind: 'branch',
+        expanded: true,
+        children: [{ id: 'duplicate', label: 'Nested', kind: 'leaf' }]
+      },
+      { id: 'duplicate', label: 'Top level', kind: 'leaf' }
+    ]
+  }), /tree item ids must be unique; duplicate id: duplicate/u);
+});
+
+test('tree pointer selection and double-click activation match keyboard semantics', async () => {
+  const app = defineTui({
+    id: 'tree-pointer-activation',
+    init: () => ({ actions: [] }),
+    update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
+    view: () => tree({
+      id: 'activation-tree',
+      nodes: [{ id: 'leaf', label: 'Leaf', kind: 'leaf' }],
+      onAction: (action) => action
+    })
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 20, rows: 2 } }) });
+
+  await runtime.start();
+  const target = runtime.frame().hitTargets.find((candidate) => candidate.id.endsWith(':body'));
+  assert.ok(target);
+  await clickAt(runtime, target.bounds.row, target.bounds.column);
+  await clickAt(runtime, target.bounds.row, target.bounds.column);
+
+  assert.deepEqual(runtime.state().actions, [
+    { kind: 'select', id: 'leaf' },
+    { kind: 'activate', id: 'leaf' }
+  ]);
 });
 
 test('tree filters through descendants and exposes selected disabled metadata-rich nodes', () => {

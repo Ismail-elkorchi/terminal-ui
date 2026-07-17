@@ -4,8 +4,7 @@ import test from 'node:test';
 import {
   activityBlockCollapsed,
   activityFeedReducer,
-  copyActivityFeedVisibleText,
-  visibleActivityFeedBlocks
+  copyActivityFeedVisibleText
 } from '../../dist/behavior/index.js';
 
 const blocks = [

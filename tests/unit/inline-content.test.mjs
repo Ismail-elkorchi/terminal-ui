@@ -7,6 +7,7 @@ import {
   richText,
   statusBar,
   table,
+  tableColumn,
   tabs,
   text
 } from '../../dist/components/index.js';
@@ -108,7 +109,7 @@ test('inline adornments use component part styles and source anatomy', () => {
       id: 'actions',
       presentation: {
         activePath: ['open'],
-        items: [{ id: 'open', label: 'Open', leading: [symbol], trailing: [{ kind: 'text', text: 'O' }] }]
+        items: [{ kind: 'action', id: 'open', label: 'Open', leading: [symbol], trailing: [{ kind: 'text', text: 'O' }] }]
       },
       meta: {
         focus: { disabled: true },
@@ -152,7 +153,7 @@ test('table inline cell content preserves authored style while replacing authore
     id: 'results',
     rows: [{ id: 'one', state: 'ready' }],
     getRowId: (row) => row.id,
-    columns: [{
+    columns: [tableColumn({
       id: 'state',
       header: 'State',
       value: (row) => row.state,
@@ -162,7 +163,7 @@ test('table inline cell content preserves authored style while replacing authore
         style: { fg: { kind: 'theme', token: 'status.success' } },
         source: { ownerId: 'authored' }
       })
-    }]
+    })]
   }), { columns: 20, rows: 2 });
   const cell = frame.cells.find((candidate) => candidate.text === 'r');
 

@@ -1,6 +1,7 @@
 import type { ElementKeyBindings } from '../../element/metadata.ts';
 import type { ListOptions, PaginatorOptions, TableOptions, TreeOptions } from '../options/content.ts';
-import type { NumberInputAction } from '../../ui-model/number-input.ts';
+import type { ListCollection } from '../../ui-model/list.ts';
+import type { NumberInputControlAction } from '../../ui-model/number-input.ts';
 import type { RangeSliderOptions, SliderOptions } from '../options/forms.ts';
 import type {
   CheckboxGroupOptions,
@@ -11,23 +12,24 @@ import type {
 import type { MenuItem } from '../options/menus.ts';
 import type {
   ContextMenuAction,
-  DropdownMenuAction,
-  MenuAction,
-  MenuBarAction
-} from '../../ui-model/menu.ts';
-import type {
   ContextMenuPresentation,
+  DropdownMenuAction,
   DropdownMenuPresentation,
+  MenuAction,
+  MenuBarAction,
   MenuBarPresentation,
   MenuPresentation,
   MenuPresentationItem
-} from '../../behavior/menu.ts';
+} from '../../ui-model/menu.ts';
 import type { CommandInputAction } from '../../ui-model/command-input.ts';
 import type { PaletteAction } from '../../ui-model/palette.ts';
 import type { TextEditOperation } from '../../text/index.ts';
 import type { RenderMenuItem } from '../../renderer/model/props/menus.ts';
 import { mergeKeyBindings } from '../../authoring/metadata.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
+import { assertValidMenuItems } from '../../ui-model/menu.ts';
+import type { TableCollection } from '../../ui-model/table.ts';
+import { collectionRecordById } from '../../ui-model/collection.ts';
 
 export {
   mergeKeyBindings,
@@ -40,14 +42,14 @@ export {
 
 export function listKeyBindings<TValue, TMessage>(
   options: ListOptions<TValue, TMessage>,
-  itemIds: readonly string[]
+  collection: ListCollection<TValue>
 ): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
   if (onAction === undefined) return options.keys;
   const selectedId = options.selectedId;
   const selectedIndex = selectedId === undefined
     ? -1
-    : itemIds.indexOf(selectedId);
+    : collectionRecordById(collection, selectedId)?.index ?? -1;
   const generated = {
     arrowUp: () => onAction({ kind: 'move', delta: -1 }),
     arrowDown: () => onAction({ kind: 'move', delta: 1 }),
@@ -63,30 +65,35 @@ export function listKeyBindings<TValue, TMessage>(
 }
 
 export function tableKeyBindings<TRow, TMessage>(
-  options: TableOptions<TRow, TMessage>
+  options: TableOptions<TRow, TMessage>,
+  collection: TableCollection<TRow>
 ): ElementKeyBindings<TMessage> | undefined {
   const onAction = options.onAction;
   if (onAction === undefined) return options.keys;
   const selectedRowId = options.presentation?.selectedRowId;
   const selectedRowIndex = selectedRowId === undefined
     ? -1
-    : options.rows.findIndex((row, index) => options.getRowId(row, index) === selectedRowId);
+    : collectionRecordById(collection, selectedRowId)?.index ?? -1;
   const selectedColumn = options.presentation?.selectedCell?.column === undefined
     ? undefined
     : options.columns?.filter((column) => column.hidden !== true)[options.presentation.selectedCell.column];
   const generated = {
     arrowUp: () => onAction({ kind: 'moveRow', delta: -1 }),
     arrowDown: () => onAction({ kind: 'moveRow', delta: 1 }),
-    arrowLeft: ({ input }) => input.kind === 'key' && input.alt
-      ? selectedColumn?.resizable === true
-        ? onAction({ kind: 'resizeColumnBy', column: selectedColumn.id, delta: -1 })
-        : undefined
-      : onAction({ kind: 'moveColumn', delta: -1 }),
-    arrowRight: ({ input }) => input.kind === 'key' && input.alt
-      ? selectedColumn?.resizable === true
-        ? onAction({ kind: 'resizeColumnBy', column: selectedColumn.id, delta: 1 })
-        : undefined
-      : onAction({ kind: 'moveColumn', delta: 1 }),
+    arrowLeft: () => onAction({ kind: 'moveColumn', delta: -1 }),
+    arrowRight: () => onAction({ kind: 'moveColumn', delta: 1 }),
+    ...(selectedColumn?.resizable === true ? {
+      modified: [
+        {
+          trigger: { kind: 'key', key: 'arrowLeft', modifiers: { alt: true } },
+          onKey: () => onAction({ kind: 'resizeColumnBy', column: selectedColumn.id, delta: -1 })
+        },
+        {
+          trigger: { kind: 'key', key: 'arrowRight', modifiers: { alt: true } },
+          onKey: () => onAction({ kind: 'resizeColumnBy', column: selectedColumn.id, delta: 1 })
+        }
+      ]
+    } : {}),
     pageUp: () => onAction({ kind: 'page', delta: -1 }),
     pageDown: () => onAction({ kind: 'page', delta: 1 }),
     home: () => onAction({ kind: 'firstRow' }),
@@ -167,7 +174,7 @@ export function calendarKeyBindings<TMessage>(
 }
 
 export function activationKeyBindings<TMessage>(
-  handler: (() => TMessage | undefined) | undefined,
+  handler: import('../../element/metadata.ts').ElementKeyHandler<TMessage> | undefined,
   explicit: ElementKeyBindings<TMessage> | undefined
 ): ElementKeyBindings<TMessage> | undefined {
   return mergeKeyBindings(handler === undefined ? undefined : { enter: handler }, explicit);
@@ -199,7 +206,8 @@ export function paletteKeyBindings<TMessage>(
 
 export function textInputKeyBindings<TMessage>(
   onAction: ((action: import('../../ui-model/text-input.ts').TextInputAction) => TMessage) | undefined,
-  onSubmit: TMessage | undefined,
+  onSubmit: ((value: string) => TMessage) | undefined,
+  value: string,
   explicit: ElementKeyBindings<TMessage> | undefined
 ): ElementKeyBindings<TMessage> | undefined {
   const generated = editKeyBindings(
@@ -207,7 +215,7 @@ export function textInputKeyBindings<TMessage>(
     false
   );
   return mergeKeyBindings(
-    mergeKeyBindings(generated, onSubmit === undefined ? undefined : { enter: () => onSubmit }),
+    mergeKeyBindings(generated, onSubmit === undefined ? undefined : { enter: () => onSubmit(value) }),
     explicit
   );
 }
@@ -251,7 +259,7 @@ export function textEditInputHandlers<TMessage>(
 }
 
 export function numberInputKeyBindings<TMessage>(
-  onAction: ((action: NumberInputAction) => TMessage) | undefined,
+  onAction: ((action: NumberInputControlAction) => TMessage) | undefined,
   explicit: ElementKeyBindings<TMessage> | undefined
 ): ElementKeyBindings<TMessage> | undefined {
   if (onAction === undefined) return explicit;
@@ -269,14 +277,18 @@ export function sliderKeyBindings<TMessage>(
   const step = options.step ?? 1;
   const min = options.min ?? 0;
   const max = options.max ?? 100;
-  const decrement = options.onStep === undefined && options.onChange === undefined
-    ? undefined
-    : () => options.onStep?.({ direction: 'decrement' })
-      ?? options.onChange?.(Math.max(min, options.value - step));
-  const increment = options.onStep === undefined && options.onChange === undefined
-    ? undefined
-    : () => options.onStep?.({ direction: 'increment' })
-      ?? options.onChange?.(Math.min(max, options.value + step));
+  const onStep = options.onStep;
+  const onChange = options.onChange;
+  const decrement = onStep !== undefined
+    ? () => onStep({ direction: 'decrement' })
+    : onChange !== undefined
+      ? () => onChange(Math.max(min, options.value - step))
+      : undefined;
+  const increment = onStep !== undefined
+    ? () => onStep({ direction: 'increment' })
+    : onChange !== undefined
+      ? () => onChange(Math.min(max, options.value + step))
+      : undefined;
   return mergeKeyBindings({
     ...(decrement === undefined ? {} : { arrowLeft: decrement, arrowDown: decrement }),
     ...(increment === undefined ? {} : { arrowRight: increment, arrowUp: increment })
@@ -286,12 +298,13 @@ export function sliderKeyBindings<TMessage>(
 export function rangeSliderKeyBindings<TMessage>(
   options: RangeSliderOptions<TMessage>
 ): ElementKeyBindings<TMessage> | undefined {
-  const decrement = options.onAction === undefined
+  const onAction = options.onAction;
+  const decrement = onAction === undefined
     ? undefined
-    : () => options.onAction?.({ kind: 'step', direction: 'decrement' });
-  const increment = options.onAction === undefined
+    : () => onAction({ kind: 'step', direction: 'decrement' });
+  const increment = onAction === undefined
     ? undefined
-    : () => options.onAction?.({ kind: 'step', direction: 'increment' });
+    : () => onAction({ kind: 'step', direction: 'increment' });
   return mergeKeyBindings({
     ...(decrement === undefined ? {} : { arrowLeft: decrement }),
     ...(increment === undefined ? {} : { arrowRight: increment })
@@ -454,19 +467,33 @@ export function dropdownMenuKeyBindings<TMessage>(
 }
 
 export function menuItemsForRenderer(items: readonly (MenuItem | MenuPresentationItem)[]): readonly RenderMenuItem[] {
-  return items.map((item) => ({
-    id: item.id,
-    label: item.label,
-    ...(item.leading === undefined ? {} : { leading: normalizeInlineContent(item.leading) }),
-    ...(item.trailing === undefined ? {} : { trailing: normalizeInlineContent(item.trailing) }),
-    ...(item.description === undefined ? {} : { description: item.description }),
-    ...(item.disabled === undefined ? {} : { disabled: item.disabled }),
-    ...(item.shortcut === undefined ? {} : { shortcut: item.shortcut }),
-    ...(item.tone === undefined ? {} : { tone: item.tone }),
-    ...(item.checked === undefined ? {} : { checked: item.checked }),
-    ...('expanded' in item && item.expanded ? { expanded: true } : {}),
-    ...(item.children === undefined ? {} : { children: menuItemsForRenderer(item.children) })
-  }));
+  assertValidMenuItems(items);
+  return projectMenuItemsForRenderer(items);
+}
+
+function projectMenuItemsForRenderer(items: readonly (MenuItem | MenuPresentationItem)[]): readonly RenderMenuItem[] {
+  return items.map((item): RenderMenuItem => {
+    const common = {
+      id: item.id,
+      label: item.label,
+      ...(item.leading === undefined ? {} : { leading: normalizeInlineContent(item.leading) }),
+      ...(item.trailing === undefined ? {} : { trailing: normalizeInlineContent(item.trailing) }),
+      ...(item.description === undefined ? {} : { description: item.description }),
+      ...(item.disabled === undefined ? {} : { disabled: item.disabled }),
+      ...(item.shortcut === undefined ? {} : { shortcut: item.shortcut }),
+      ...(item.tone === undefined ? {} : { tone: item.tone })
+    };
+    switch (item.kind) {
+      case 'action': return { ...common, kind: 'action' };
+      case 'check': return { ...common, kind: 'check', checked: item.checked };
+      case 'submenu': return {
+        ...common,
+        kind: 'submenu',
+        ...('expanded' in item && item.expanded ? { expanded: true } : {}),
+        children: projectMenuItemsForRenderer(item.children)
+      };
+    }
+  });
 }
 
 function choiceFocus<TValue>(
@@ -487,33 +514,33 @@ function editKeyBindings<TMessage>(
   return {
     ...(multiline ? { enter: () => toMessage({ kind: 'insert', text: '\n' }) } : {}),
     backspace: ({ input }) => toMessage(
-      input.kind === 'key' && (input.ctrl || input.alt)
+      input.kind === 'key' && (input.modifiers.ctrl || input.modifiers.alt)
         ? { kind: 'deleteWordBackward' }
         : { kind: 'deleteBackward' }
     ),
     delete: ({ input }) => toMessage(
-      input.kind === 'key' && (input.ctrl || input.alt)
+      input.kind === 'key' && (input.modifiers.ctrl || input.modifiers.alt)
         ? { kind: 'deleteWordForward' }
         : { kind: 'deleteForward' }
     ),
     arrowLeft: ({ input }) => toMessage(
-      input.kind === 'key' && (input.ctrl || input.alt)
-        ? { kind: 'moveWordLeft', select: input.shift }
-        : { kind: 'moveLeft', select: input.kind === 'key' && input.shift }
+      input.kind === 'key' && (input.modifiers.ctrl || input.modifiers.alt)
+        ? { kind: 'moveWordLeft', select: input.modifiers.shift }
+        : { kind: 'moveLeft', select: input.kind === 'key' && input.modifiers.shift }
     ),
     arrowRight: ({ input }) => toMessage(
-      input.kind === 'key' && (input.ctrl || input.alt)
-        ? { kind: 'moveWordRight', select: input.shift }
-        : { kind: 'moveRight', select: input.kind === 'key' && input.shift }
+      input.kind === 'key' && (input.modifiers.ctrl || input.modifiers.alt)
+        ? { kind: 'moveWordRight', select: input.modifiers.shift }
+        : { kind: 'moveRight', select: input.kind === 'key' && input.modifiers.shift }
     ),
-    home: ({ input }) => toMessage({ kind: 'moveHome', select: input.kind === 'key' && input.shift }),
-    end: ({ input }) => toMessage({ kind: 'moveEnd', select: input.kind === 'key' && input.shift }),
+    home: ({ input }) => toMessage({ kind: 'moveHome', select: input.kind === 'key' && input.modifiers.shift }),
+    end: ({ input }) => toMessage({ kind: 'moveEnd', select: input.kind === 'key' && input.modifiers.shift }),
     ...(multiline
       ? {
-          arrowUp: ({ input }) => toMessage({ kind: 'moveLineUp', select: input.kind === 'key' && input.shift }),
-          arrowDown: ({ input }) => toMessage({ kind: 'moveLineDown', select: input.kind === 'key' && input.shift }),
-          pageUp: ({ input }) => toMessage({ kind: 'movePageUp', select: input.kind === 'key' && input.shift }),
-          pageDown: ({ input }) => toMessage({ kind: 'movePageDown', select: input.kind === 'key' && input.shift })
+          arrowUp: ({ input }) => toMessage({ kind: 'moveLineUp', select: input.kind === 'key' && input.modifiers.shift }),
+          arrowDown: ({ input }) => toMessage({ kind: 'moveLineDown', select: input.kind === 'key' && input.modifiers.shift }),
+          pageUp: ({ input }) => toMessage({ kind: 'movePageUp', select: input.kind === 'key' && input.modifiers.shift }),
+          pageDown: ({ input }) => toMessage({ kind: 'movePageDown', select: input.kind === 'key' && input.modifiers.shift })
         }
       : {})
   };

@@ -8,6 +8,7 @@ import type { RenderTabItem } from '../../renderer/model/props/tabs.ts';
 import type { TabAction } from '../../ui-model/tabs.ts';
 import type { TabsOptions } from '../options/tabs.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
+import { ignoreMessage } from '../../interaction/message.ts';
 
 export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage> {
   const tabs: readonly RenderTabItem[] = options.tabs.map((tab) => ({
@@ -28,9 +29,9 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
     end: () => onAction({ kind: 'last' }),
     delete: () => {
       const selectedTab = options.tabs.find((tab) => tab.id === selected);
-      return selectedTab?.closable === true ? onAction({ kind: 'close', id: selectedTab.id }) : undefined;
+      return selectedTab?.closable === true ? onAction({ kind: 'close', id: selectedTab.id }) : ignoreMessage();
     },
-    enter: () => selected === undefined ? undefined : onAction({ kind: 'select', id: selected })
+    enter: () => selected === undefined ? ignoreMessage() : onAction({ kind: 'select', id: selected })
   } satisfies ElementKeyBindings<TMessage>;
   const keys = mergeKeyBindings(generated, options.keys);
   return elementFromRenderNode<'tabs', TMessage>({

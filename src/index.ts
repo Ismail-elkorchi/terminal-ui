@@ -1,5 +1,3 @@
-export { terminalUiPackage } from './package.ts';
-export type { RuntimeTarget, TerminalUiEntrypoint, TerminalUiPackage } from './package.ts';
 
 export { diagnostic, terminalDiagnosticCodes } from './diagnostics.ts';
 export type {

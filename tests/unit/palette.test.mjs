@@ -176,12 +176,12 @@ test('palette emits compact controlled actions while acceptance remains app-owne
   await runtime.start();
   await runtime.handleInput({ kind: 'text', text: 'o', paste: false });
   await runtime.handleInput({ kind: 'paste', text: 'pen', bracketed: true });
-  await runtime.handleInput({ kind: 'key', key: 'backspace', ctrl: false, alt: false, shift: false, meta: false });
-  await runtime.handleInput({ kind: 'key', key: 'arrowDown', ctrl: false, alt: false, shift: false, meta: false });
-  await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
-  await runtime.handleInput({ kind: 'key', key: 'escape', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'backspace', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  await runtime.handleInput({ kind: 'key', key: 'arrowDown', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  await runtime.handleInput({ kind: 'key', key: 'escape', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
-  assert.deepEqual(runtime.getState().messages, [
+  assert.deepEqual(runtime.state().messages, [
     { kind: 'action', action: { kind: 'insertQuery', text: 'o' } },
     { kind: 'action', action: { kind: 'insertQuery', text: 'pen' } },
     { kind: 'action', action: { kind: 'deleteQueryBackward' } },

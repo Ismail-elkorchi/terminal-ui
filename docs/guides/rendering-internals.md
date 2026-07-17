@@ -97,6 +97,14 @@ boundaries, and honor terminal color and hyperlink capabilities. Plain and
 debug serialization remain separate entrypoints so production output,
 snapshot text, and diagnostic control-sequence views do not share hidden flags.
 
+Runtime frame commits pass the portable `RenderDiff` through a private terminal
+output planner. The planner compares absolute and relative cursor movement and
+safe line-clear encodings by UTF-8 byte size, then writes one selected payload.
+Synchronized output is conservative: it is used only when a host probe or
+explicit capability override reports support. A failed synchronized write
+causes the runtime to attempt the matching end sequence before surfacing the
+write failure. Render diffs and transcripts remain terminal-neutral.
+
 ## Themes, Symbols, Layout, Focus, And Hit Targets
 
 Themes resolve semantic tokens to terminal styles. Theme symbols provide

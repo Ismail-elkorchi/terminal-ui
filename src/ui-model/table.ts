@@ -1,5 +1,12 @@
 import type { ScrollEvent } from '../interaction/scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
+import type { CollectionProjection, CollectionRecord } from './collection.ts';
+
+export interface TableCollectionRecord<TRow> extends CollectionRecord {
+  readonly row: TRow;
+}
+
+export type TableCollection<TRow> = CollectionProjection<TableCollectionRecord<TRow>>;
 
 export type TableSortDirection = 'ascending' | 'descending';
 

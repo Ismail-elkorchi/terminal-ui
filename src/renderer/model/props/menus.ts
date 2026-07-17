@@ -18,11 +18,14 @@ import type {
   DropdownMenuPresentation,
   MenuBarPresentation,
   MenuPresentation
-} from '../../../behavior/menu.ts';
+} from '../../../ui-model/menu.ts';
 
-export interface RenderMenuItem extends Omit<MenuItem, 'children'> {
-  readonly children?: readonly RenderMenuItem[];
-}
+export type RenderMenuItem =
+  | Exclude<MenuItem, { readonly kind: 'submenu' }>
+  | Omit<Extract<MenuItem, { readonly kind: 'submenu' }>, 'children'> & {
+      readonly expanded?: boolean;
+      readonly children: readonly RenderMenuItem[];
+    };
 
 interface MenuCollectionRenderProps<TMessage> {
   readonly items: readonly RenderMenuItem[];

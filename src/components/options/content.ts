@@ -1,14 +1,20 @@
 import type { InlineContent } from '../../visual/inline-content.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
-import type { ListAction, ListControlAction, ListItemProjector } from '../../ui-model/list.ts';
+import type { ListAction, ListCollection, ListControlAction, ListItemProjector } from '../../ui-model/list.ts';
 import type {
   TableAction,
+  TableCollection,
   TableControlAction,
   TablePresentation,
   TableScrollablePresentation
 } from '../../ui-model/table.ts';
-import type { TreeAction, TreeControlAction, TreeNode } from '../../ui-model/tree.ts';
+import type {
+  TreeCollection,
+  TreeControlAction,
+  TreeInteractionAction,
+  TreeNode
+} from '../../ui-model/tree.ts';
 import type { PaginatorAction } from '../../ui-model/paginator.ts';
 import type { ComponentDensity } from '../../ui-model/contracts.ts';
 import type {
@@ -42,71 +48,92 @@ export interface RichTextOptions extends ElementOptions<TextStylePart> {
   readonly wrap?: boolean;
 }
 
-interface ListBaseOptions<TValue, TMessage> extends InteractiveElementOptions<DataListStylePart, TMessage> {
-  readonly items: readonly TValue[];
-  readonly projectItem: ListItemProjector<TValue>;
+interface ListCommonOptions<TMessage> extends InteractiveElementOptions<DataListStylePart, TMessage> {
   readonly selectedId?: string;
   readonly filterQuery?: string;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
+type ListDataOptions<TValue> =
+  | {
+      readonly items: readonly TValue[];
+      readonly projectItem: ListItemProjector<TValue>;
+      readonly collection?: never;
+    }
+  | {
+      readonly collection: ListCollection<TValue>;
+      readonly items?: never;
+      readonly projectItem?: never;
+    };
+
+type ListBaseOptions<TValue, TMessage> = ListCommonOptions<TMessage> & ListDataOptions<TValue>;
+
 export type ListOptions<TValue, TMessage = never> =
   | PassiveListOptions<TValue, TMessage>
   | ScrollableListOptions<TValue, TMessage>;
 
-export interface PassiveListOptions<TValue, TMessage = never> extends ListBaseOptions<TValue, TMessage> {
+export type PassiveListOptions<TValue, TMessage = never> = ListBaseOptions<TValue, TMessage> & {
   readonly scroll?: never;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
   readonly onAction?: (action: ListControlAction) => TMessage;
-}
+};
 
-export interface ScrollableListOptions<TValue, TMessage = never> extends ListBaseOptions<TValue, TMessage> {
+export type ScrollableListOptions<TValue, TMessage = never> = ListBaseOptions<TValue, TMessage> & {
   readonly scroll: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
   readonly onAction: (action: ListAction) => TMessage;
-}
+};
 
-interface TreeBaseOptions<
-  TMetadata extends Readonly<Record<string, unknown>>,
-  TMessage
-> extends InteractiveElementOptions<TreeStylePart, TMessage> {
-  readonly nodes: readonly TreeNode<TMetadata>[];
+interface TreeCommonOptions<TMessage> extends InteractiveElementOptions<TreeStylePart, TMessage> {
   readonly selected?: string;
   readonly filterQuery?: string;
   readonly emptyText?: string;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
+type TreeDataOptions<TMetadata extends Readonly<Record<string, unknown>>> =
+  | {
+      readonly nodes: readonly TreeNode<TMetadata>[];
+      readonly collection?: never;
+    }
+  | {
+      readonly collection: TreeCollection<TMetadata>;
+      readonly nodes?: never;
+    };
+
+type TreeBaseOptions<
+  TMetadata extends Readonly<Record<string, unknown>>,
+  TMessage
+> = TreeCommonOptions<TMessage> & TreeDataOptions<TMetadata>;
+
 export type TreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
   TMessage = never
 > = PassiveTreeOptions<TMetadata, TMessage> | ScrollableTreeOptions<TMetadata, TMessage>;
 
-export interface PassiveTreeOptions<
+export type PassiveTreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
   TMessage = never
-> extends TreeBaseOptions<TMetadata, TMessage> {
+> = TreeBaseOptions<TMetadata, TMessage> & {
   readonly scroll?: never;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
-  readonly onAction?: (action: TreeControlAction<TMetadata>) => TMessage;
-}
+  readonly onAction?: (action: TreeControlAction) => TMessage;
+};
 
-export interface ScrollableTreeOptions<
+export type ScrollableTreeOptions<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>,
   TMessage = never
-> extends TreeBaseOptions<TMetadata, TMessage> {
+> = TreeBaseOptions<TMetadata, TMessage> & {
   readonly scroll: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onAction: (action: TreeAction<TMetadata>) => TMessage;
-}
+  readonly onAction: (action: TreeInteractionAction) => TMessage;
+};
 
-interface TableBaseOptions<TRow, TMessage> extends InteractiveElementOptions<TableStylePart, TMessage> {
-  readonly rows: readonly TRow[];
-  readonly getRowId: (row: TRow, index: number) => string;
+interface TableCommonOptions<TRow, TMessage> extends InteractiveElementOptions<TableStylePart, TMessage> {
   readonly columns?: readonly TableColumn<TRow>[];
   readonly density?: ComponentDensity;
   readonly stickyHeader?: boolean;
@@ -114,23 +141,37 @@ interface TableBaseOptions<TRow, TMessage> extends InteractiveElementOptions<Tab
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
+type TableDataOptions<TRow> =
+  | {
+      readonly rows: readonly TRow[];
+      readonly getRowId: (row: TRow, index: number) => string;
+      readonly collection?: never;
+    }
+  | {
+      readonly collection: TableCollection<TRow>;
+      readonly rows?: never;
+      readonly getRowId?: never;
+    };
+
+type TableBaseOptions<TRow, TMessage> = TableCommonOptions<TRow, TMessage> & TableDataOptions<TRow>;
+
 export type TableOptions<TRow, TMessage = never> =
   | PassiveTableOptions<TRow, TMessage>
   | ScrollableTableOptions<TRow, TMessage>;
 
-export interface PassiveTableOptions<TRow, TMessage = never> extends TableBaseOptions<TRow, TMessage> {
+export type PassiveTableOptions<TRow, TMessage = never> = TableBaseOptions<TRow, TMessage> & {
   readonly presentation?: TablePresentation;
   readonly onAction?: (action: TableControlAction) => TMessage;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
-}
+};
 
-export interface ScrollableTableOptions<TRow, TMessage = never> extends TableBaseOptions<TRow, TMessage> {
+export type ScrollableTableOptions<TRow, TMessage = never> = TableBaseOptions<TRow, TMessage> & {
   readonly presentation: TableScrollablePresentation;
   readonly onAction: (action: TableAction) => TMessage;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-}
+};
 
 export interface PaginatorOptions<TMessage = never> extends InteractiveElementOptions<PaginatorStylePart, TMessage> {
   readonly page: number;
@@ -174,9 +215,13 @@ export type {
   TableCellRenderInput,
   TableCellSelection,
   TableColumn,
+  TableColumnBuilder,
+  TableColumnDefinition,
   TableColumnAlignment,
   TableColumnSemantic,
   TableColumnWidth,
+  TableRenderedColumn,
+  TableValueColumn,
   TextAreaHighlight,
   TextAreaLineNumberOptions,
   TextAreaWrapOptions

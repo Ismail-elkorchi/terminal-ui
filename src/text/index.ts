@@ -27,6 +27,7 @@ export {
   wordSelectionAt
 } from './word-boundaries.ts';
 export { wrapTextCells } from './wrap.ts';
+export { defaultTextWidthProfile, textWidthProfileKey } from './width-profile.ts';
 export type * from './types.ts';
 export type {
   TextEditHistory,

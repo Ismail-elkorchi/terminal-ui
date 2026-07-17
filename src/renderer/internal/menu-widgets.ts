@@ -24,6 +24,7 @@ type MenuBarNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'menuBar'>;
 type DropdownMenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'dropdownMenu'>;
 
 export interface VisibleMenuItem extends MenuVisualItem {
+  readonly kind: 'action' | 'check' | 'submenu';
   readonly id: string;
   readonly label: string;
   readonly disabled?: boolean;
@@ -227,7 +228,7 @@ function accessibleMenuItems(
     label: item.label,
     selected: item.id === active,
     disabled: item.disabled === true,
-    checked: item.checked === true,
+    ...(item.kind === 'check' ? { checked: item.checked === true } : {}),
     ...(item.description === undefined && item.shortcut === undefined
       ? {}
       : { description: [item.description, item.shortcut].filter((value): value is string => value !== undefined).join(' ') }),
@@ -248,26 +249,29 @@ function sanitizeMenuItem(value: unknown, depth: number): readonly VisibleMenuIt
   if (!isRecord(value)) return [];
   const id = value['id'];
   const label = value['label'];
-  if (typeof id !== 'string' || typeof label !== 'string') return [];
-  const children = menuItems(value['children'], depth + 1);
+  const kind = value['kind'];
+  if (typeof id !== 'string' || typeof label !== 'string'
+    || (kind !== 'action' && kind !== 'check' && kind !== 'submenu')) return [];
+  const children = kind === 'submenu' ? menuItems(value['children'], depth + 1) : [];
   const description = value['description'];
   const shortcut = value['shortcut'];
   const tone = value['tone'];
   const expanded = value['expanded'] === true;
   return [{
     id: clean(id),
+    kind,
     label: clean(label),
     ...(isInlineContent(value['leading']) ? { leading: value['leading'] } : {}),
     ...(isInlineContent(value['trailing']) ? { trailing: value['trailing'] } : {}),
     ...(value['disabled'] === true ? { disabled: true } : {}),
-    ...(value['checked'] === true ? { checked: true } : {}),
+    ...(kind === 'check' ? { checked: value['checked'] === true } : {}),
     ...(tone === 'destructive' ? { tone } : {}),
     ...(typeof description === 'string' ? { description: clean(description) } : {}),
     ...(typeof shortcut === 'string' ? { shortcut: clean(shortcut) } : {}),
     depth,
     ...(expanded ? { expanded: true } : {}),
-    hasChildren: children.length > 0,
-    ...(children.length === 0 ? {} : { children })
+    hasChildren: kind === 'submenu',
+    ...(kind === 'submenu' ? { children } : {})
   }];
 }
 

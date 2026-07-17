@@ -9,7 +9,6 @@ import {
 import {
   createScrollState,
   applyScrollEvent,
-  scrollReducer,
   pointerPresentationReducer,
   treeScrollablePresentation,
   treeReducer
@@ -17,6 +16,7 @@ import {
 import {
   diagnostic } from '../../dist/diagnostics.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
+import { ignoreMessage } from '../../dist/interaction/index.js';
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
 import {
   assertTerminalRestored,
@@ -69,7 +69,7 @@ test('runTui emits deterministic transcripts when enabled', async () => {
     view: (state) => textInput({
       id: 'transcript-field',
       presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
-      onSubmit: { submitted: true }
+      onSubmit: () => ({ submitted: true })
     })
   });
   const host = createMemoryTerminalHost({ viewport: { columns: 20, rows: 3 } });
@@ -85,6 +85,344 @@ test('runTui emits deterministic transcripts when enabled', async () => {
   assert.ok(exit.transcript?.steps.some((step) => step.kind === 'diff'));
   assert.ok(exit.transcript?.steps.some((step) => step.kind === 'restore'));
   assert.ok(exit.transcript?.steps.some((step) => step.kind === 'snapshot'));
+});
+
+test('TUI runtime startup is one transactional terminal outcome', async () => {
+  const app = defineTui({
+    id: 'failed-start-tui',
+    init: () => {
+      throw new Error('initialization failed');
+    },
+    update: (state) => ({ state }),
+    view: () => text('unreachable')
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+  const first = runtime.start();
+  const second = runtime.start();
+
+  assert.equal(first, second);
+  await assert.rejects(first, /initialization failed/u);
+  assert.throws(() => runtime.state(), /does not have state/u);
+  await assert.rejects(() => runtime.dispatch({ kind: 'ignored' }), /failed/u);
+});
+
+test('TUI runtime does not publish state frame or transcript when the first host commit fails', async () => {
+  const transcript = createTranscriptRecorder({ id: 'failed-first-commit', source: 'tui' });
+  const host = createMemoryTerminalHost();
+  host.write = async () => {
+    throw new Error('first frame write failed');
+  };
+  const app = defineTui({
+    id: 'failed-first-commit',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    view: () => text('ready', { id: 'failed-first-commit-view' })
+  });
+  const runtime = createTuiRuntime({ app, host, transcript });
+
+  await assert.rejects(() => runtime.start(), /first frame write failed/u);
+  assert.throws(() => runtime.state(), /does not have state/u);
+  assert.equal(runtime.frame(), undefined);
+  assert.equal(transcript.snapshot().steps.some((step) => step.kind === 'frame'), false);
+  await runtime.dispose();
+});
+
+test('TUI runtime attempts synchronized-output cleanup after a failed frame write', async () => {
+  const host = createMemoryTerminalHost({
+    capabilities: { overrides: { synchronizedOutput: true } }
+  });
+  const writes = [];
+  host.write = async (output) => {
+    writes.push(output.text ?? '');
+    if (writes.length === 1) throw new Error('synchronized frame write failed');
+  };
+  const app = defineTui({
+    id: 'failed-synchronized-frame',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    view: () => text('ready', { id: 'failed-synchronized-frame-view' })
+  });
+  const runtime = createTuiRuntime({ app, host });
+
+  await assert.rejects(() => runtime.start(), /synchronized frame write failed/u);
+  assert.equal(writes[0]?.startsWith('\u001B[?2026h'), true);
+  assert.equal(writes[1], '\u001B[?2026l');
+  assert.equal(runtime.frame(), undefined);
+  await runtime.dispose();
+});
+
+test('TUI runtime supports undefined as an initialized application state', async () => {
+  const app = defineTui({
+    id: 'undefined-state-tui',
+    init: () => undefined,
+    update: () => ({ state: undefined }),
+    view: () => text('undefined is state')
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+
+  await runtime.start();
+  assert.equal(runtime.state(), undefined);
+  await runtime.dispatch(undefined);
+  assert.equal(runtime.state(), undefined);
+});
+
+test('runTui restores the terminal after a bounded hanging exit handler', async () => {
+  let exitHandlerStarted = false;
+  const app = defineTui({
+    id: 'bounded-exit-cleanup-tui',
+    init: () => ({ done: false }),
+    update: () => ({ state: { done: true }, exit: {} }),
+    view: () => textInput({
+      id: 'bounded-exit-field',
+      presentation: { value: '', cursor: 0 },
+      onSubmit: () => ({ kind: 'exit' })
+    }),
+    onExit: () => {
+      exitHandlerStarted = true;
+      return new Promise(() => undefined);
+    }
+  });
+  const host = createMemoryTerminalHost();
+  host.input('\r');
+  const running = runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
+  await waitUntil(() => exitHandlerStarted);
+  host.clock.advance(5);
+  const exit = await running;
+
+  assert.equal(exit.status, 'error');
+  assert.deepEqual(exit.state, { done: true });
+  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'), true);
+  assert.equal(host.restores().length, 1);
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+});
+
+test('runTui restores the terminal after bounded non-cooperative effect cleanup', async () => {
+  let effectStarted = false;
+  let exitHandlerStarted = false;
+  const app = defineTui({
+    id: 'bounded-effect-cleanup-tui',
+    init: () => ({ running: false }),
+    update: (state, message) => message.kind === 'start'
+      ? {
+          state: { running: true },
+          effects: [{
+            id: 'non-cooperative',
+            concurrency: 'parallel',
+            run: () => {
+              effectStarted = true;
+              return new Promise(() => undefined);
+            }
+          }]
+        }
+      : { state, exit: {} },
+    view: (state) => textInput({
+      id: 'bounded-effect-field',
+      presentation: { value: '', cursor: 0 },
+      onSubmit: () => ({ kind: state.running ? 'exit' : 'start' })
+    }),
+    onExit: () => {
+      exitHandlerStarted = true;
+    }
+  });
+  const host = createMemoryTerminalHost();
+  host.input('\r\r');
+  const running = runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
+  await waitUntil(() => effectStarted && exitHandlerStarted);
+  host.clock.advance(5);
+  const exit = await running;
+
+  assert.equal(exit.status, 'error');
+  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.data?.phase === 'runtime'), true);
+  assert.equal(host.restores().length, 1);
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+});
+
+test('runTui restores the terminal after bounded non-cooperative source cleanup', async () => {
+  let sourceStarted = false;
+  let exitHandlerStarted = false;
+  const app = defineTui({
+    id: 'bounded-source-cleanup-tui',
+    init: () => ({ done: false }),
+    update: () => ({ state: { done: true }, exit: {} }),
+    subscriptions: () => [{
+      id: 'non-cooperative',
+      generation: 0,
+      delivery: 'sequential',
+      async *messages() {
+        sourceStarted = true;
+        await new Promise(() => undefined);
+      }
+    }],
+    view: () => textInput({
+      id: 'bounded-source-field',
+      presentation: { value: '', cursor: 0 },
+      onSubmit: () => ({ kind: 'exit' })
+    }),
+    onExit: () => {
+      exitHandlerStarted = true;
+    }
+  });
+  const host = createMemoryTerminalHost();
+  host.input('\r');
+  const running = runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
+  await waitUntil(() => sourceStarted && exitHandlerStarted);
+  host.clock.advance(5);
+  const exit = await running;
+
+  assert.equal(exit.status, 'error');
+  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.data?.phase === 'runtime'), true);
+  assert.equal(host.restores().length, 1);
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+});
+
+test('runTui reports capability and session acquisition failures as typed exits', async () => {
+  const app = defineTui({
+    id: 'host-acquisition-failure',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    view: () => text('ready')
+  });
+  const capabilityHost = createMemoryTerminalHost();
+  capabilityHost.getCapabilities = async () => {
+    throw new Error('capability lookup failed');
+  };
+  const sessionHost = createMemoryTerminalHost();
+  sessionHost.beginSession = async () => {
+    throw new Error('session creation failed');
+  };
+
+  const capabilityExit = await runTui(app, capabilityHost);
+  const sessionExit = await runTui(app, sessionHost);
+
+  for (const exit of [capabilityExit, sessionExit]) {
+    assert.equal(exit.status, 'error');
+    assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_RUN_FAILED'), true);
+  }
+  assert.equal(capabilityHost.restores().length, 0);
+  assert.equal(sessionHost.restores().length, 0);
+});
+
+test('runTui restores earlier and uncertain mutations after partial setup failure', async () => {
+  const app = defineTui({
+    id: 'partial-session-setup',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    view: () => text('unreachable')
+  });
+  const host = createMemoryTerminalHost();
+  const setRawMode = host.stdin.setRawMode.bind(host.stdin);
+  host.stdin.setRawMode = (enabled) => {
+    setRawMode(enabled);
+    if (enabled) throw new Error('raw input failed after mutation');
+  };
+
+  const exit = await runTui(app, host);
+
+  assert.equal(exit.status, 'error');
+  assert.equal(exit.diagnostics.some((item) => item.code === 'HOST_PROTOCOL_UNSUPPORTED'
+    && item.data?.operation === 'rawInput'), true);
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+  assert.equal(host.restores().length, 1);
+  assert.match(host.output(), /\u001B\[\?1049h/u);
+  assert.match(host.output(), /\u001B\[\?1049l/u);
+  assert.match(host.output(), /\u001B\[\?2004h/u);
+  assert.match(host.output(), /\u001B\[\?2004l/u);
+});
+
+test('runTui bounds a hanging source disposer before restoring protocols', async () => {
+  let disposerStarted = false;
+  const app = defineTui({
+    id: 'bounded-source-disposer',
+    init: () => ({ done: false }),
+    update: () => ({ state: { done: true }, exit: {} }),
+    subscriptions: () => [{
+      id: 'hanging-disposer',
+      generation: 0,
+      delivery: 'sequential',
+      async *messages(context) {
+        await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
+      },
+      dispose() {
+        disposerStarted = true;
+        return new Promise(() => undefined);
+      }
+    }],
+    view: () => textInput({
+      id: 'bounded-disposer-field',
+      presentation: { value: '', cursor: 0 },
+      onSubmit: () => ({ kind: 'exit' })
+    })
+  });
+  const host = createMemoryTerminalHost();
+  host.input('\r');
+  const running = runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
+  await waitUntil(() => disposerStarted);
+  host.clock.advance(5);
+
+  const exit = await running;
+
+  assert.equal(exit.status, 'error');
+  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.data?.phase === 'runtime'), true);
+  assert.equal(host.restores().length, 1);
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+});
+
+test('interrupts preempt a hanging dispatch commit and restore within the cleanup bound', async () => {
+  const app = defineTui({
+    id: 'interrupt-hanging-dispatch',
+    init: () => ({ count: 0 }),
+    update: (state) => ({ state: { count: state.count + 1 } }),
+    view: (state) => textInput({
+      id: 'interrupt-hanging-field',
+      presentation: { value: String(state.count), cursor: 0 },
+      onSubmit: () => ({ kind: 'increment' })
+    })
+  });
+  let committedFrames = 0;
+  const host = createMemoryTerminalHost({
+    observer: { recordFrame: () => { committedFrames += 1; } }
+  });
+  const running = runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
+  await waitUntil(() => committedFrames === 1);
+  let blockedCommitStarted = false;
+  let blockNextWrite = true;
+  const blockedCommit = deferred();
+  const write = host.write.bind(host);
+  host.write = async (output) => {
+    if (blockNextWrite) {
+      blockNextWrite = false;
+      blockedCommitStarted = true;
+      await blockedCommit.promise;
+      return;
+    }
+    return write(output);
+  };
+  host.input('\r');
+  await waitUntil(() => blockedCommitStarted);
+  let cleanupTimerStarted = false;
+  const sleep = host.clock.sleep.bind(host.clock);
+  host.clock.sleep = (ms, signal) => {
+    if (ms === 5) cleanupTimerStarted = true;
+    return sleep(ms, signal);
+  };
+  host.signals.emit('SIGTERM');
+  await waitUntil(() => cleanupTimerStarted);
+  host.clock.advance(5);
+
+  const exit = await running;
+
+  assert.equal(exit.status, 'error');
+  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.data?.phase === 'runtime'), true);
+  assert.equal(host.restores().length, 1);
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+  const framesAfterExit = committedFrames;
+  blockedCommit.release();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(committedFrames, framesAfterExit);
 });
 
 test('TUI tabs expose clickable tab hit targets', async () => {
@@ -111,7 +449,7 @@ test('TUI tabs expose clickable tab hit targets', async () => {
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}M` });
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}m` });
 
-  assert.equal(runtime.getState()?.selected, 'right');
+  assert.equal(runtime.state()?.selected, 'right');
 });
 
 test('TUI pointer presses focus the declared target before application actions', async () => {
@@ -158,7 +496,7 @@ test('TUI pointer presses focus the declared target before application actions',
   });
 
   assert.equal(result.handled, true);
-  assert.equal(runtime.getState()?.pointerActions, 1);
+  assert.equal(runtime.state()?.pointerActions, 1);
   assert.deepEqual(result.frame.focusPath, ['pointer-focus-fields', 'second-field']);
 });
 
@@ -204,7 +542,7 @@ test('TUI runtime routes mouse input through the committed render cache', async 
     update: (state) => ({ state: { count: state.count + 1 } }),
     view: (state) => {
       viewCalls += 1;
-      return button({ id: 'cached-button', label: `Count ${state.count}`, onPress: { kind: 'click' } });
+      return button({ id: 'cached-button', label: `Count ${state.count}`, onPress: () => ({ kind: 'click' }) });
     }
   });
   const host = createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } });
@@ -215,11 +553,11 @@ test('TUI runtime routes mouse input through the committed render cache', async 
   assert.equal(viewCalls, 1);
   assert.notEqual(target, undefined);
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}M` });
-  assert.equal(runtime.getState()?.count, 0);
+  assert.equal(runtime.state()?.count, 0);
   assert.equal(viewCalls, 1);
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}m` });
 
-  assert.equal(runtime.getState()?.count, 1);
+  assert.equal(runtime.state()?.count, 1);
   assert.equal(viewCalls, 2);
 });
 
@@ -257,7 +595,7 @@ test('TUI runtime uses committed hit targets without recomputing renderer hit ta
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}M` });
   await runtime.handleInputChunk({ data: `\u001B[<0;${String(target.bounds.column)};${String(target.bounds.row)}m` });
 
-  assert.deepEqual(runtime.getState(), { clicked: true });
+  assert.deepEqual(runtime.state(), { clicked: true });
   assert.equal(hitTargetCalls, 2);
 });
 
@@ -300,7 +638,7 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
             surface(button({
               id: 'accept',
               label: 'Accept',
-              onPress: { kind: 'accept' }
+              onPress: () => ({ kind: 'accept' })
             }), {
     id: 'palette-surface',
     meta: {
@@ -332,16 +670,16 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
 
   await runtime.start();
   await runtime.handleInput({ kind: 'text', text: 'a' });
-  await runtime.handleInput({ kind: 'key', key: 'enter' });
+  await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.deepEqual(runtime.frame().focusPath, ['root', 'palette-surface', 'accept']);
 
-  await runtime.handleInput({ kind: 'key', key: 'enter' });
-  assert.equal(runtime.getState()?.notifications.length, 1);
+  await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  assert.equal(runtime.state()?.notifications.length, 1);
   assert.notDeepEqual(runtime.frame().focusPath, ['root', 'notices']);
 
   await runtime.handleInput({ kind: 'text', text: 'b' });
 
-  assert.equal(runtime.getState()?.command, 'ab');
+  assert.equal(runtime.state()?.command, 'ab');
 });
 
 test('TUI runtime unwinds nested contained overlay focus to the original field', async () => {
@@ -373,8 +711,8 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
       ...(state.modal === 'a' || state.modal === 'b'
         ? [
             surface(column([
-              button({ id: 'open-b', label: 'Open B', onPress: { kind: 'openB' } }),
-              button({ id: 'close-a', label: 'Close A', onPress: { kind: 'closeA' } })
+              button({ id: 'open-b', label: 'Open B', onPress: () => ({ kind: 'openB' }) }),
+              button({ id: 'close-a', label: 'Close A', onPress: () => ({ kind: 'closeA' }) })
             ], { id: 'modal-a-actions' }), {
     id: 'modal-a',
     meta: {
@@ -391,7 +729,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
             surface(button({
               id: 'close-b',
               label: 'Close B',
-              onPress: { kind: 'closeB' }
+              onPress: () => ({ kind: 'closeB' })
             }), {
     id: 'modal-b',
     meta: {
@@ -413,30 +751,30 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
   });
 
   await runtime.start();
-  await runtime.handleInput({ kind: 'key', key: 'enter' });
+  await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.deepEqual(runtime.frame().focusPath, ['root', 'modal-a', 'modal-a-actions', 'open-b']);
 
-  await runtime.handleInput({ kind: 'key', key: 'enter' });
+  await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.deepEqual(runtime.frame().focusPath, ['root', 'modal-b', 'close-b']);
 
-  await runtime.handleInput({ kind: 'key', key: 'enter' });
+  await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.deepEqual(runtime.frame().focusPath, ['root', 'modal-a', 'modal-a-actions', 'open-b']);
 
-  await runtime.handleInput({ kind: 'key', key: 'tab' });
+  await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.deepEqual(runtime.frame().focusPath, ['root', 'modal-a', 'modal-a-actions', 'close-a']);
 
-  await runtime.handleInput({ kind: 'key', key: 'enter' });
+  await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.deepEqual(runtime.frame().focusPath, ['root', 'base', 'command']);
 
   await runtime.handleInput({ kind: 'text', text: 'z' });
-  assert.equal(runtime.getState()?.command, 'z');
+  assert.equal(runtime.state()?.command, 'z');
 });
 
 test('renderFrameDebug emits cursor-addressed control-sequence output', () => {
   const frame = renderElementFrame(textInput({ id: 'addressed-field', presentation: { value: 'Go', cursor: 0 } }), { columns: 8, rows: 2 });
   const output = renderFrameDebug(frame);
 
-  assert.match(output, /^\u001B\[1;1H›/u);
+  assert.match(output, /^\u001B\[H›/u);
   assert.match(output, /\u001B\[1;4HG/u);
   assert.match(output, /\u001B\[1;5Ho/u);
   assert.match(output, new RegExp(`\\u001B\\[${String(frame.cursor?.row)};${String(frame.cursor?.column)}H$`, 'u'));
@@ -473,14 +811,14 @@ test('TUI frame cursor follows the selected visible list item', () => {
   assert.deepEqual(frame.focusPath, ['cursor-list']);
   assert.deepEqual(frame.cursor, { row: 3, column: 1 });
   assert.match(output, /› Item 6/);
-  assert.match(addressed, /\u001B\[3;1H$/u);
+  assert.match(addressed, /\u001B\[3H$/u);
 });
 
 test('TUI status, progress, and spinner widgets render accessible status state', () => {
   const frame = renderElementFrame(column([
     statusBar({ id: 'status', leading: [{ id: 'ready', kind: 'status', text: 'Ready', status: 'success' }] }),
-    progressBar({ id: 'progress', label: 'Sync', value: 150, max: 100 }),
-    progressBar({ id: 'pending', label: 'Waiting', indeterminate: true }),
+    progressBar({ id: 'progress', label: 'Sync', mode: { kind: 'determinate', value: 150, max: 100 } }),
+    progressBar({ id: 'pending', label: 'Waiting', mode: { kind: 'indeterminate' } }),
     spinner({ id: 'spinner', label: 'Working' })
   ]), { columns: 32, rows: 8 });
   const output = renderFramePlain(frame);
@@ -506,21 +844,18 @@ test('TUI status, progress, and spinner widgets render accessible status state',
   assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
 });
 
-test('renderDiffAnsi serializes clear, write, cursor, and visibility operations', () => {
+test('renderDiffAnsi serializes clear, write, and structural cursor state', () => {
   const previous = renderElementFrame(text('Longer text', { id: 'before' }), { columns: 16, rows: 2 });
   const next = renderElementFrame(textInput({ id: 'after', presentation: { value: 'Go', cursor: 0 } }), { columns: 16, rows: 2 });
   const diff = diffFrames(previous, next);
-  const output = renderDiffAnsi({
-    ...diff,
-    operations: [...diff.operations, { kind: 'showCursor', visible: false }]
-  });
+  const output = renderDiffAnsi(diff);
 
   assert.ok(diff.operations.some((operation) => operation.kind === 'clearRect'));
   assert.ok(diff.operations.some((operation) => operation.kind === 'write'));
-  assert.ok(diff.operations.some((operation) => operation.kind === 'moveCursor'));
-  assert.match(output, /\u001B\[1;1H {11}/u);
-  assert.match(output, /\u001B\[1;1H›\[ Go \]/u);
-  assert.match(output, /\u001B\[\?25l$/u);
+  assert.deepEqual(diff.cursor, next.cursor);
+  assert.match(output, /\u001B\[H {11}/u);
+  assert.match(output, /\u001B\[H›\[ Go \]/u);
+  assert.doesNotMatch(output, /\u001B\[\?25[hl]/u);
 });
 
 test('runTui rejects non-TTY hosts deterministically before opening fullscreen protocols', async () => {
@@ -600,6 +935,7 @@ test('TUI runtime exposes diagnostics to subscription sources', async () => {
     update: (_state, message) => ({ state: { label: message.label } }),
     subscriptions: () => [{
       id: 'diagnostic-source',
+      generation: 0,
       delivery: 'sequential',
       async *messages(context) {
         observed = `${context.diagnostics[0]?.code ?? 'none'}:${context.diagnostics[0]?.data?.operation ?? 'none'}`;
@@ -636,6 +972,7 @@ test('runTui exposes setup diagnostics to app views', async () => {
       rawInput: 'disabled',
       bracketedPaste: 'disabled',
       focusReporting: 'disabled',
+      keyboard: { profile: 'legacy', requirement: 'disabled' },
       cursorVisibility: { state: 'hide', requirement: 'disabled' },
       mouseReporting: { mode: 'none', requirement: 'disabled' }
     }
@@ -671,6 +1008,7 @@ test('runTui restores terminal protocols on successful exit', async () => {
     bracketedPaste: false,
     mouseReporting: 'none',
     focusReporting: false,
+    enhancedKeyboard: false,
     cursorVisible: true
   });
   assert.match(harness.output(), /\u001B\[\?1049h/);
@@ -698,7 +1036,7 @@ test('runTui processes host input chunks until the app exits', async () => {
     view: (state) => textInput({
       id: 'submit-field',
       presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
-      onSubmit: { submitted: true }
+      onSubmit: () => ({ submitted: true })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -709,7 +1047,7 @@ test('runTui processes host input chunks until the app exits', async () => {
   assert.deepEqual(exit.state, { submitted: true });
   assert.equal(harness.frames().length, 2);
   assert.equal(harness.frames()[0].schemaVersion, 'terminal-ui.tui-frame.v1');
-  assert.equal(harness.diffs()[0].schemaVersion, 'terminal-ui.render-diff.v1');
+  assert.equal(harness.diffs()[0].schemaVersion, 'terminal-ui.render-diff.v2');
   assert.equal(harness.diffs()[0].fullRewrite, true);
   assert.equal(harness.diffs()[1].fullRewrite, false);
   assert.match(renderFramePlain(harness.frames()[1]), /submitted/);
@@ -728,7 +1066,7 @@ test('runTui preserves sanitized completed exit reasons', async () => {
     view: (state) => textInput({
       id: 'reason-field',
       presentation: { value: state.submitted ? 'submitted' : 'waiting', cursor: 0 },
-      onSubmit: { submitted: true }
+      onSubmit: () => ({ submitted: true })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -751,7 +1089,10 @@ test('runTui lets apps own escape and ctrlC key bindings', async () => {
       presentation: { value: state.active, cursor: 0 },
       keys: {
         escape: () => ({ active: 'escape' }),
-        ctrlC: () => ({ active: 'ctrlC' })
+        modified: [{
+          trigger: { kind: 'key', key: 'c', modifiers: { ctrl: true } },
+          onKey: () => ({ active: 'ctrlC' })
+        }]
       }
     })
   });
@@ -781,7 +1122,7 @@ test('runTui re-renders when the host emits resize signals', async () => {
     view: (_state, context) => textInput({
       id: 'resize-field',
       presentation: { value: `columns:${context.viewport.columns}`, cursor: 0 },
-      onSubmit: { done: true }
+      onSubmit: () => ({ done: true })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -834,7 +1175,7 @@ test('runTui restores terminal protocols after initialization failure', async ()
   const exit = await runTui(app, harness.host);
 
   assert.equal(exit.status, 'error');
-  assert.equal(exit.diagnostics[0]?.code, 'TUI_RUN_FAILED');
+  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_RUN_FAILED'), true);
   assert.equal(harness.host.stdin.isRawModeEnabled(), false);
   assert.equal(harness.restores().length, 1);
   assert.match(harness.output(), /\u001B\[\?1049h/);
@@ -854,7 +1195,7 @@ test('TUI runtime dispatch updates state and records incremental render diffs', 
   await runtime.start();
   await runtime.dispatch({ delta: 2 });
 
-  assert.deepEqual(runtime.getState(), { count: 2 });
+  assert.deepEqual(runtime.state(), { count: 2 });
   assert.equal(harness.frames().length, 2);
   assert.equal(harness.diffs().length, 2);
   assert.equal(harness.diffs()[0].fullRewrite, true);
@@ -888,6 +1229,7 @@ test('TUI runtime consumes async subscription sources without duplicate restarts
     update: (state, message) => ({ state: { count: state.count + message.delta } }),
     subscriptions: () => [{
       id: 'timer-source',
+      generation: 0,
       source: 'timer',
       delivery: 'sequential',
       async *messages() {
@@ -901,10 +1243,10 @@ test('TUI runtime consumes async subscription sources without duplicate restarts
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  await waitUntil(() => runtime.getState()?.count === 1);
+  await waitUntil(() => runtime.state()?.count === 1);
   await runtime.dispatch({ delta: 1 });
 
-  assert.deepEqual(runtime.getState(), { count: 2 });
+  assert.deepEqual(runtime.state(), { count: 2 });
   assert.equal(starts, 1);
   assert.match(renderFramePlain(runtime.frame()), /Count 2/);
 });
@@ -919,6 +1261,7 @@ test('TUI runtime records subscription source failures and stops the failed sour
       : { state: { ...state, count: state.count + message.delta } },
     subscriptions: () => [{
       id: 'failed-source',
+      generation: 0,
       source: 'external',
       delivery: 'sequential',
       async *messages() {
@@ -934,7 +1277,7 @@ test('TUI runtime records subscription source failures and stops the failed sour
 
   await runtime.start();
   await waitUntil(() => runtime.diagnostics().some((item) => item.code === 'TUI_SOURCE_FAILED'));
-  await waitUntil(() => runtime.getState()?.status === 'failed');
+  await waitUntil(() => runtime.state()?.status === 'failed');
   await runtime.dispatch({ kind: 'increment', delta: 1 });
 
   assert.equal(starts, 1);
@@ -951,6 +1294,7 @@ test('latest subscription delivery keeps one replaceable pending message', async
     update: (state, message) => ({ state: { values: [...state.values, message.value] } }),
     subscriptions: () => [{
       id: 'samples',
+      generation: 0,
       delivery: 'latest',
       async *messages() {
         for (let value = 1; value <= 100; value += 1) yield { value };
@@ -962,12 +1306,73 @@ test('latest subscription delivery keeps one replaceable pending message', async
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  await waitUntil(() => runtime.getState()?.values.at(-1) === 100);
+  await waitUntil(() => runtime.state()?.values.at(-1) === 100);
 
-  const values = runtime.getState()?.values ?? [];
+  const values = runtime.state()?.values ?? [];
   assert.equal(values[0], 1);
   assert.equal(values.at(-1), 100);
   assert.ok(values.length < 100);
+});
+
+test('subscription generations replace completed and failed executions without duplicate active sources', async () => {
+  const starts = [];
+  const disposals = [];
+  const app = defineTui({
+    id: 'subscription-generations',
+    init: () => ({ generation: 0, values: [] }),
+    update: (state, message) => message.kind === 'advance'
+      ? { state: { ...state, generation: state.generation + 1 } }
+      : { state: { ...state, values: [...state.values, message.value] } },
+    subscriptions: (state) => [{
+      id: 'versioned-source',
+      generation: state.generation,
+      delivery: 'sequential',
+      async *messages() {
+        starts.push(state.generation);
+        yield { kind: 'value', value: state.generation };
+      },
+      dispose() {
+        disposals.push(state.generation);
+      }
+    }],
+    view: (state) => text(state.values.join(','), { id: 'subscription-generations-value' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await waitUntil(() => runtime.state().values.length === 1);
+  await runtime.dispatch({ kind: 'advance' });
+  await waitUntil(() => runtime.state().values.length === 2);
+  await runtime.dispatch({ kind: 'value', value: 9 });
+
+  assert.deepEqual(starts, [0, 1]);
+  assert.deepEqual(disposals, [0, 1]);
+  assert.deepEqual(runtime.state().values, [0, 1, 9]);
+  await runtime.dispose();
+});
+
+test('duplicate subscription ids fail startup before publishing runtime state', async () => {
+  const app = defineTui({
+    id: 'duplicate-subscriptions',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    subscriptions: () => [0, 1].map(() => ({
+      id: 'duplicate',
+      generation: 0,
+      delivery: 'sequential',
+      async *messages() {}
+    })),
+    view: () => text('ready', { id: 'duplicate-subscriptions-view' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await assert.rejects(() => runtime.start(), /Duplicate TUI event source id/u);
+  assert.equal(runtime.diagnostics().some((item) => item.code === 'TUI_SOURCE_DUPLICATE_ID'), true);
+  assert.throws(() => runtime.state(), /does not have state/u);
+  assert.equal(runtime.frame(), undefined);
+  await runtime.dispose();
 });
 
 test('TUI runtime cancels subscription sources when they leave the definition', async () => {
@@ -980,6 +1385,7 @@ test('TUI runtime cancels subscription sources when they leave the definition', 
     subscriptions: (state) => state.enabled
       ? [{
           id: 'long-source',
+          generation: 0,
           delivery: 'sequential',
           async *messages(context) {
             sourceSignal = context.signal;
@@ -1040,13 +1446,62 @@ test('TUI effects do not block later input or external dispatches', async () => 
   await runtime.dispatch({ kind: 'start' });
   await runtime.dispatch({ kind: 'increment' });
 
-  assert.deepEqual(runtime.getState(), { count: 1, phase: 'loading' });
+  assert.deepEqual(runtime.state(), { count: 1, phase: 'loading' });
   assert.match(renderFramePlain(runtime.frame()), /loading:1/u);
 
   releaseEffect();
-  await waitUntil(() => runtime.getState()?.phase === 'done');
-  assert.deepEqual(runtime.getState(), { count: 1, phase: 'done' });
+  await waitUntil(() => runtime.state()?.phase === 'done');
+  assert.deepEqual(runtime.state(), { count: 1, phase: 'done' });
 });
+
+test('multi-message effect output commits one atomic state transition', async () => {
+  const release = deferred();
+  const app = defineTui({
+    id: 'effect-message-batch',
+    init: () => ({ count: 0 }),
+    update: (state, message) => message.kind === 'start'
+      ? {
+          state,
+          effects: [{
+            id: 'batch',
+            concurrency: 'parallel',
+            async run() {
+              await release.promise;
+              return {
+                kind: 'messages',
+                messages: [
+                  { kind: 'increment' },
+                  { kind: 'increment' },
+                  { kind: 'increment' }
+                ]
+              };
+            }
+          }]
+        }
+      : { state: { count: state.count + 1 } },
+    view: (state) => text(`Count ${state.count}`, { id: 'effect-message-batch-count' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+
+  await runtime.start();
+  await runtime.dispatch({ kind: 'start' });
+  const commitsBeforeOutput = runtime.metrics().frameCommits;
+  release.release();
+  await waitUntil(() => runtime.state().count === 3);
+
+  assert.equal(runtime.metrics().frameCommits, commitsBeforeOutput + 1);
+  assert.equal(harness.frames().length, commitsBeforeOutput + 1);
+  await runtime.dispose();
+});
+
+function deferred() {
+  let release;
+  const promise = new Promise((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+}
 
 test('TUI effects may dispatch terminal exit without deadlocking disposal', async () => {
   const app = defineTui({
@@ -1100,6 +1555,7 @@ test('TUI subscriptions may dispatch terminal exit without deadlocking disposal'
       : { state: { phase: 'waiting' } },
     subscriptions: () => [{
       id: 'exit-source',
+      generation: 0,
       delivery: 'sequential',
       async *messages() {
         try {
@@ -1235,7 +1691,7 @@ test('TUI runtime reports effect failures and can map them to application messag
 
   await runtime.start();
   await runtime.dispatch({ kind: 'start' });
-  await waitUntil(() => runtime.getState()?.status === 'failed');
+  await waitUntil(() => runtime.state()?.status === 'failed');
 
   assert.equal(runtime.diagnostics().some((item) => item.code === 'TUI_EFFECT_FAILED'), true);
   assert.match(renderFramePlain(runtime.frame()), /failed/u);
@@ -1277,10 +1733,9 @@ test('anonymous container focus identity survives terminal resize', async () => 
   await runtime.handleInput({
     kind: 'key',
     key: 'tab',
-    ctrl: false,
-    alt: false,
-    shift: false,
-    meta: false
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
   });
   const focusBeforeResize = runtime.frame().focusPath;
   await runtime.resize({ columns: 18, rows: 4 });
@@ -1303,14 +1758,14 @@ test('TUI runtime routes key events through focused widget keymaps', async () =>
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const first = await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
-  const tab = await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
-  const second = await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  const first = await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  const tab = await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  const second = await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.equal(first.handled, true);
   assert.equal(tab.handled, true);
   assert.equal(second.handled, true);
-  assert.deepEqual(runtime.getState(), { active: 'second' });
+  assert.deepEqual(runtime.state(), { active: 'second' });
   assert.deepEqual(runtime.frame().focusPath, ['column:0', 'second']);
   assert.equal(harness.frames().length, 4);
   assert.equal(harness.diffs()[0].fullRewrite, true);
@@ -1332,10 +1787,10 @@ test('TUI runtime lets focused widgets handle tab before focus traversal', async
 
   await runtime.start();
   const focusBefore = runtime.frame().focusPath;
-  const handled = await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
+  const handled = await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.equal(handled.handled, true);
-  assert.deepEqual(runtime.getState(), { active: 'accepted' });
+  assert.deepEqual(runtime.state(), { active: 'accepted' });
   assert.deepEqual(runtime.frame().focusPath, focusBefore);
   assert.match(renderFramePlain(runtime.frame()), /accepted/);
 });
@@ -1358,14 +1813,13 @@ test('TUI runtime routes default app key bindings after focused widgets', async 
     kind: 'key',
     key: 'escape',
     sequence: '\u001B',
-    ctrl: false,
-    alt: false,
-    shift: false,
-    meta: false
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
   });
 
   assert.equal(handled.handled, true);
-  assert.deepEqual(runtime.getState(), { active: 'closed' });
+  assert.deepEqual(runtime.state(), { active: 'closed' });
   assert.match(renderFramePlain(runtime.frame()), /closed/);
 });
 
@@ -1391,13 +1845,12 @@ test('TUI runtime lets focused widgets override after-focus app bindings', async
     kind: 'key',
     key: 'escape',
     sequence: '\u001B',
-    ctrl: false,
-    alt: false,
-    shift: false,
-    meta: false
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
   });
 
-  assert.deepEqual(runtime.getState(), { active: 'local' });
+  assert.deepEqual(runtime.state(), { active: 'local' });
   assert.match(renderFramePlain(runtime.frame()), /local/);
 });
 
@@ -1419,9 +1872,9 @@ test('TUI runtime lets before-focus app bindings intentionally preempt widgets',
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
-  assert.deepEqual(runtime.getState(), { active: 'global' });
+  assert.deepEqual(runtime.state(), { active: 'global' });
   assert.match(renderFramePlain(runtime.frame()), /global/);
 });
 
@@ -1445,7 +1898,7 @@ test('TUI runtime does not steal printable text for default app bindings', async
   await runtime.start();
   await runtime.handleInput({ kind: 'text', text: 'q' });
 
-  assert.deepEqual(runtime.getState(), { value: 'q' });
+  assert.deepEqual(runtime.state(), { value: 'q' });
   assert.match(renderFramePlain(runtime.frame()), /q/);
 });
 
@@ -1456,7 +1909,7 @@ test('TUI runtime evaluates app key binding predicates and dynamic messages', as
     keyBindings: [
       {
         id: 'dynamic-help',
-        triggers: [{ kind: 'key', key: 'ctrlQ' }],
+        triggers: [{ kind: 'key', key: 'q', modifiers: { ctrl: true } }],
         enabled: ({ state }) => state.enabled,
         toMessage: ({ focusPath }) => ({ active: focusPath?.join('/') ?? 'none', enabled: true })
       }
@@ -1472,13 +1925,13 @@ test('TUI runtime evaluates app key binding predicates and dynamic messages', as
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const disabled = await runtime.handleInput({ kind: 'key', key: 'ctrlQ', ctrl: true, alt: false, shift: false, meta: false });
-  await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
-  const enabled = await runtime.handleInput({ kind: 'key', key: 'ctrlQ', ctrl: true, alt: false, shift: false, meta: false });
+  const disabled = await runtime.handleInput({ kind: 'key', key: 'q', modifiers: { ctrl: true, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  const enabled = await runtime.handleInput({ kind: 'key', key: 'q', modifiers: { ctrl: true, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.equal(disabled.handled, false);
   assert.equal(enabled.handled, true);
-  assert.deepEqual(runtime.getState(), { active: 'field', enabled: true });
+  assert.deepEqual(runtime.state(), { active: 'field', enabled: true });
 });
 
 test('TUI runtime keeps scanning app key bindings when earlier matches decline', async () => {
@@ -1486,8 +1939,16 @@ test('TUI runtime keeps scanning app key bindings when earlier matches decline',
     id: 'app-key-binding-declined-fallback',
     init: () => ({ active: 'open' }),
     keyBindings: [
-      { id: 'contextual-help', triggers: [{ kind: 'key', key: 'ctrlQ' }], toMessage: () => undefined },
-      { id: 'fallback-help', triggers: [{ kind: 'key', key: 'ctrlQ' }], message: { active: 'fallback' } }
+      {
+        id: 'contextual-help',
+        triggers: [{ kind: 'key', key: 'q', modifiers: { ctrl: true } }],
+        toMessage: ignoreMessage
+      },
+      {
+        id: 'fallback-help',
+        triggers: [{ kind: 'key', key: 'q', modifiers: { ctrl: true } }],
+        message: { active: 'fallback' }
+      }
     ],
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => textInput({ id: 'field', presentation: { value: state.active, cursor: 0 } })
@@ -1496,10 +1957,10 @@ test('TUI runtime keeps scanning app key bindings when earlier matches decline',
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const handled = await runtime.handleInput({ kind: 'key', key: 'ctrlQ', ctrl: true, alt: false, shift: false, meta: false });
+  const handled = await runtime.handleInput({ kind: 'key', key: 'q', modifiers: { ctrl: true, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.equal(handled.handled, true);
-  assert.deepEqual(runtime.getState(), { active: 'fallback' });
+  assert.deepEqual(runtime.state(), { active: 'fallback' });
 });
 
 test('TUI runtime routes escape through focused widget keymaps', async () => {
@@ -1521,16 +1982,15 @@ test('TUI runtime routes escape through focused widget keymaps', async () => {
     kind: 'key',
     key: 'escape',
     sequence: '\u001B',
-    ctrl: false,
-    alt: false,
-    shift: false,
-    meta: false
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
   });
 
   assert.equal(handled.handled, true);
   assert.equal(handled.exit, undefined);
   assert.equal(runtime.exit(), undefined);
-  assert.deepEqual(runtime.getState(), { active: 'closed' });
+  assert.deepEqual(runtime.state(), { active: 'closed' });
   assert.match(renderFramePlain(runtime.frame()), /closed/);
 });
 
@@ -1560,7 +2020,7 @@ test('TUI runtime routes focused text and paste through one edit-operation chann
 
   assert.equal(typed.handled, true);
   assert.equal(pasted.handled, true);
-  assert.deepEqual(runtime.getState(), { value: 'abc' });
+  assert.deepEqual(runtime.state(), { value: 'abc' });
   assert.match(renderFramePlain(runtime.frame()), /abc/);
 });
 
@@ -1584,7 +2044,7 @@ test('TUI runtime routes single-space input chunks as text for editable focused 
   await runtime.handleInputChunk({ data: 'src' });
 
   assert.equal(space.results.some((result) => result.handled), true);
-  assert.deepEqual(runtime.getState(), { value: '/folder src' });
+  assert.deepEqual(runtime.state(), { value: '/folder src' });
   assert.match(renderFramePlain(runtime.frame()), /\/folder src/u);
 });
 
@@ -1607,7 +2067,7 @@ test('TUI runtime lets focused space key bindings override text insertion', asyn
   const space = await runtime.handleInputChunk({ data: ' ' });
 
   assert.equal(space.results.some((result) => result.handled), true);
-  assert.deepEqual(runtime.getState(), { value: 'space-key' });
+  assert.deepEqual(runtime.state(), { value: 'space-key' });
 });
 
 test('TUI runtime decodes input chunks through the configured input pipeline', async () => {
@@ -1632,7 +2092,7 @@ test('TUI runtime decodes input chunks through the configured input pipeline', a
   const results = await runtime.handleInputChunk({ data: '\u001B[200~pasted\ntext\u001B[201~' });
 
   assert.equal(results.results.some((result) => result.handled), true);
-  assert.deepEqual(runtime.getState(), { value: 'pastedtext' });
+  assert.deepEqual(runtime.state(), { value: 'pastedtext' });
   assert.match(renderFramePlain(runtime.frame()), /pastedtext/);
 });
 
@@ -1699,7 +2159,7 @@ test('TUI runtime restores a serialized focus path when it still exists', async 
   const firstHarness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
   const firstRuntime = createTuiRuntime({ app, host: firstHarness.host });
   await firstRuntime.start();
-  await firstRuntime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
+  await firstRuntime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   const restoredPath = firstRuntime.frame().focusPath;
 
   const restoredHarness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
@@ -1712,16 +2172,15 @@ test('TUI runtime restores a serialized focus path when it still exists', async 
   const committed = await restoredRuntime.handleInput({
     kind: 'key',
     key: 'enter',
-    ctrl: false,
-    alt: false,
-    shift: false,
-    meta: false
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
   });
 
   assert.deepEqual(restoredPath, ['column:0', 'second']);
   assert.deepEqual(restoredRuntime.frame().focusPath, restoredPath);
   assert.equal(committed.handled, true);
-  assert.deepEqual(restoredRuntime.getState(), { active: 'second' });
+  assert.deepEqual(restoredRuntime.state(), { active: 'second' });
 });
 
 test('TUI runtime falls back when restored focus path is stale', async () => {
@@ -1745,15 +2204,14 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
   const committed = await runtime.handleInput({
     kind: 'key',
     key: 'enter',
-    ctrl: false,
-    alt: false,
-    shift: false,
-    meta: false
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
   });
 
   assert.deepEqual(runtime.frame().focusPath, ['column:0', 'first']);
   assert.equal(committed.handled, true);
-  assert.deepEqual(runtime.getState(), { active: 'first' });
+  assert.deepEqual(runtime.state(), { active: 'first' });
 });
 
 test('TUI runtime traverses focus backward with shifted tab', async () => {
@@ -1770,14 +2228,14 @@ test('TUI runtime traverses focus backward with shifted tab', async () => {
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const forward = await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
-  const backward = await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: true, meta: false });
-  const committed = await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  const forward = await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  const backward = await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: true, meta: false }, eventType: 'press', location: 'standard' });
+  const committed = await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.equal(forward.handled, true);
   assert.equal(backward.handled, true);
   assert.equal(committed.handled, true);
-  assert.deepEqual(runtime.getState(), { active: 'first' });
+  assert.deepEqual(runtime.state(), { active: 'first' });
   assert.deepEqual(runtime.frame().focusPath, ['column:0', 'first']);
 });
 
@@ -1817,15 +2275,15 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const first = await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
-  const tab = await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
-  const second = await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  const first = await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  const tab = await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  const second = await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.equal(first.handled, true);
   assert.equal(tab.handled, true);
   assert.equal(second.handled, true);
   assert.deepEqual(runtime.frame().focusPath, ['column:0', 'later']);
-  assert.deepEqual(runtime.getState(), { active: 'later' });
+  assert.deepEqual(runtime.state(), { active: 'later' });
 });
 
 test('TUI runtime traps focus inside modal and scoped popover widgets', async () => {
@@ -1848,8 +2306,8 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
   const modalRuntime = createTuiRuntime({ app: modalApp, host: modalHarness.host });
 
   await modalRuntime.start();
-  const modalTab = await modalRuntime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
-  const modalEnter = await modalRuntime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  const modalTab = await modalRuntime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  const modalEnter = await modalRuntime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.equal(modalTab.handled, true);
   assert.equal(modalEnter.handled, true);
@@ -1859,7 +2317,7 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
     trapsFocus: true,
     obscuresBackground: true
   });
-  assert.deepEqual(modalRuntime.getState(), { active: 'dialog' });
+  assert.deepEqual(modalRuntime.state(), { active: 'dialog' });
 
   const popoverApp = defineTui({
     id: 'popover-focus-scope',
@@ -1882,7 +2340,7 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
   const popoverRuntime = createTuiRuntime({ app: popoverApp, host: popoverHarness.host });
 
   await popoverRuntime.start();
-  const popoverEnter = await popoverRuntime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  const popoverEnter = await popoverRuntime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.equal(popoverEnter.handled, true);
   assert.deepEqual(popoverRuntime.frame().focusPath, ['column:0', 'popover', 'popover-field']);
@@ -1890,7 +2348,7 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
     kind: 'popover',
     trapsFocus: true
   });
-  assert.deepEqual(popoverRuntime.getState(), { active: 'popover' });
+  assert.deepEqual(popoverRuntime.state(), { active: 'popover' });
 });
 
 test('dialog owns escape dismissal, initial focus, and focus restoration', async () => {
@@ -1912,13 +2370,16 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
       }),
       ...(state.open
         ? [dialog(column([
+            surface(textInput({ id: 'nested-dialog-field', presentation: { value: '', cursor: 0 } }), {
+              id: 'preferred-dialog-field'
+            }),
             textInput({ id: 'first-dialog-field', presentation: { value: '', cursor: 0 } }),
             textInput({ id: 'preferred-dialog-field', presentation: { value: '', cursor: 0 } })
           ]), {
             id: 'lifecycle-dialog',
             modal: true,
             focusPolicy: {
-              initialTargetId: 'preferred-dialog-field',
+              initialFocus: { kind: 'element', id: 'preferred-dialog-field' },
               returnFocus: 'restore'
             },
             dismissal: {
@@ -1937,16 +2398,16 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
 
   await runtime.start();
   assert.deepEqual(runtime.frame().focusPath, ['column:0', 'dialog-launcher']);
-  await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.deepEqual(runtime.frame().focusPath, [
     'column:0',
     'lifecycle-dialog',
     'column:0',
     'preferred-dialog-field'
   ]);
-  await runtime.handleInput({ kind: 'key', key: 'escape', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'escape', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
-  assert.deepEqual(runtime.getState(), { open: false, dismissedBy: 'escape' });
+  assert.deepEqual(runtime.state(), { open: false, dismissedBy: 'escape' });
   assert.deepEqual(runtime.frame().focusPath, ['column:0', 'dialog-launcher']);
 });
 
@@ -1966,8 +2427,8 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
       menu: {
         activePath: ['copy'],
         items: [
-          { id: 'copy', label: 'Copy' },
-          { id: 'paste', label: 'Paste' }
+          { kind: 'action', id: 'copy', label: 'Copy' },
+          { kind: 'action', id: 'paste', label: 'Paste' }
         ]
       }
     },
@@ -1992,11 +2453,11 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
   });
 
   await contextMenuRuntime.start();
-  const contextResult = await contextMenuRuntime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  const contextResult = await contextMenuRuntime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.equal(contextResult.handled, true);
   assert.deepEqual(contextMenuRuntime.frame().focusPath, ['context-menu-root', 'actions-menu']);
-  assert.deepEqual(contextMenuRuntime.getState(), { active: 'context-menu' });
+  assert.deepEqual(contextMenuRuntime.state(), { active: 'context-menu' });
 
   const dropdownMenuApp = defineTui({
     id: 'dropdownMenu-focus',
@@ -2013,14 +2474,14 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
       menu: {
         activePath: ['dark'],
         items: [
-          { id: 'light', label: 'Light' },
-          { id: 'dark', label: 'Dark' }
+          { kind: 'action', id: 'light', label: 'Light' },
+          { kind: 'action', id: 'dark', label: 'Dark' }
         ]
       }
     },
     items: [
-        { id: 'light', label: 'Light' },
-        { id: 'dark', label: 'Dark' }
+        { kind: 'action', id: 'light', label: 'Light' },
+        { kind: 'action', id: 'dark', label: 'Dark' }
     ],
     onAction: (action) => ({
       active: action.kind === 'menu' && action.action.kind === 'activate' && action.action.id === 'dark'
@@ -2043,11 +2504,11 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
   });
 
   await dropdownMenuRuntime.start();
-  const dropdownMenuResult = await dropdownMenuRuntime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
+  const dropdownMenuResult = await dropdownMenuRuntime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.equal(dropdownMenuResult.handled, true);
   assert.deepEqual(dropdownMenuRuntime.frame().focusPath, ['dropdownMenu-root', 'theme-dropdownMenu']);
-  assert.deepEqual(dropdownMenuRuntime.getState(), { active: 'dropdownMenu' });
+  assert.deepEqual(dropdownMenuRuntime.state(), { active: 'dropdownMenu' });
 });
 
 test('TUI runtime traverses multiple custom focus targets within one widget', async () => {
@@ -2090,7 +2551,7 @@ test('TUI runtime traverses multiple custom focus targets within one widget', as
   await runtime.start();
   assert.deepEqual(runtime.frame().focusPath, ['custom-board', 'right']);
 
-  await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.deepEqual(runtime.frame().focusPath, ['custom-board', 'left']);
 });
 
@@ -2103,7 +2564,7 @@ test('TUI frame accessibility uses widget metadata and marks only the active foc
       textInput({
     id: 'first-field',
     presentation: { value: state.active, cursor: 0 },
-    onSubmit: { active: 'first' },
+    onSubmit: () => ({ active: 'first' }),
     meta: {
         accessibility: {
             id: 'first-field',
@@ -2127,7 +2588,7 @@ test('TUI frame accessibility uses widget metadata and marks only the active foc
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   const snapshot = runtime.frame().accessibility;
   const first = snapshot.root.children[0];
   const choices = snapshot.root.children[1];
@@ -2153,7 +2614,7 @@ test('TUI runtime uses app-level accessibility descriptions for frames and exits
     id: 'custom-a11y',
     init: () => ({ label: 'ready' }),
     update: (state) => ({ state, exit: {} }),
-    view: (state) => textInput({ id: 'custom-field', presentation: { value: state.label, cursor: 0 }, onSubmit: { done: true } }),
+    view: (state) => textInput({ id: 'custom-field', presentation: { value: state.label, cursor: 0 }, onSubmit: () => ({ done: true }) }),
     accessibility: {
       describe: (state) => ({
         schemaVersion: 'terminal-ui.accessible-snapshot.v1',
@@ -2320,19 +2781,17 @@ test('TUI runtime does not reserve escape or ctrlC key events', async () => {
     kind: 'key',
     key: 'escape',
     sequence: '\u001B',
-    ctrl: false,
-    alt: false,
-    shift: false,
-    meta: false
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
   });
   const ctrlC = await runtime.handleInput({
     kind: 'key',
-    key: 'ctrlC',
+    key: 'c',
     sequence: '\u0003',
-    ctrl: true,
-    alt: false,
-    shift: false,
-    meta: false
+    modifiers: { ctrl: true, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
   });
 
   assert.equal(escape.handled, false);
@@ -2350,7 +2809,7 @@ test('TUI runtime decodes input chunks before routing them', async () => {
     view: (state) => textInput({
       id: 'commit-field',
       presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
-      onSubmit: { committed: true }
+      onSubmit: () => ({ committed: true })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -2361,7 +2820,7 @@ test('TUI runtime decodes input chunks before routing them', async () => {
 
   assert.equal(results.results.length, 1);
   assert.equal(results.results[0].handled, true);
-  assert.deepEqual(runtime.getState(), { committed: true });
+  assert.deepEqual(runtime.state(), { committed: true });
   assert.match(renderFramePlain(runtime.frame()), /committed/);
 });
 
@@ -2373,7 +2832,7 @@ test('TUI runtime buffers split input chunks before routing them', async () => {
     view: (state) => textInput({
       id: 'split-commit-field',
       presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
-      onSubmit: { committed: true }
+      onSubmit: () => ({ committed: true })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -2387,7 +2846,7 @@ test('TUI runtime buffers split input chunks before routing them', async () => {
   assert.equal(second.results.length, 2);
   assert.equal(second.results[0]?.handled, false);
   assert.equal(second.results[1]?.handled, true);
-  assert.deepEqual(runtime.getState(), { committed: true });
+  assert.deepEqual(runtime.state(), { committed: true });
   assert.match(renderFramePlain(runtime.frame()), /committed/);
 });
 
@@ -2399,7 +2858,7 @@ test('TUI runtime ignores non-command paste, focus, and mouse events without cor
     view: (state) => textInput({
       id: 'protocol-field',
       presentation: { value: state.committed ? 'committed' : 'pending', cursor: 0 },
-      onSubmit: { committed: true }
+      onSubmit: () => ({ committed: true })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -2414,7 +2873,7 @@ test('TUI runtime ignores non-command paste, focus, and mouse events without cor
   assert.equal(ignored.results.length, 3);
   assert.equal(ignored.results.every((result) => result.handled === false), true);
   assert.equal(committed.results[0]?.handled, true);
-  assert.deepEqual(runtime.getState(), { committed: true });
+  assert.deepEqual(runtime.state(), { committed: true });
 });
 
 test('TUI runtime routes mouse events to widgets under the pointer', async () => {
@@ -2422,10 +2881,10 @@ test('TUI runtime routes mouse events to widgets under the pointer', async () =>
     id: 'mouse-routing',
     init: () => ({ clicked: false }),
     update: (_state, message) => ({ state: { clicked: message.clicked } }),
-    view: (state) => textInput({
+    view: (state) => button({
       id: 'mouse-field',
-      presentation: { value: state.clicked ? 'clicked' : 'idle', cursor: 0 },
-      onSubmit: { clicked: true }
+      label: state.clicked ? 'clicked' : 'idle',
+      onPress: () => ({ clicked: true })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -2433,7 +2892,7 @@ test('TUI runtime routes mouse events to widgets under the pointer', async () =>
 
   await runtime.start();
   assert.deepEqual(runtime.frame().hitTargets?.[0], {
-    id: 'mouse-field:input',
+    id: 'mouse-field:control',
     bounds: { row: 1, column: 1, width: 20, height: 3 },
     focus: { kind: 'focus', path: ['mouse-field'] },
     cursor: 'pointer',
@@ -2444,7 +2903,7 @@ test('TUI runtime routes mouse events to widgets under the pointer', async () =>
 
   assert.equal(press.results[0]?.handled, false);
   assert.equal(release.results[0]?.handled, true);
-  assert.deepEqual(runtime.getState(), { clicked: true });
+  assert.deepEqual(runtime.state(), { clicked: true });
   assert.match(renderFramePlain(runtime.frame()), /clicked/);
 });
 
@@ -2453,10 +2912,10 @@ test('TUI pointer click activates once on left release and ignores right click o
     id: 'pointer-router-events',
     init: () => ({ clicks: 0 }),
     update: (state, message) => ({ state: { clicks: state.clicks + message.clicks } }),
-    view: (state) => textInput({
+    view: (state) => button({
       id: 'pointer-field',
-      presentation: { value: `clicks ${state.clicks}`, cursor: 0 },
-      onSubmit: { clicks: 1 }
+      label: `clicks ${state.clicks}`,
+      onPress: () => ({ clicks: 1 })
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
@@ -2474,7 +2933,7 @@ test('TUI pointer click activates once on left release and ignores right click o
   assert.notEqual(wheel.pending, undefined);
   const wheelResults = await runtime.flushInput();
   assert.equal(wheelResults[0]?.handled, false);
-  assert.deepEqual(runtime.getState(), { clicks: 1 });
+  assert.deepEqual(runtime.state(), { clicks: 1 });
 });
 
 test('built-in controls expose controlled pointer presentation without duplicate activation', async () => {
@@ -2487,7 +2946,7 @@ test('built-in controls expose controlled pointer presentation without duplicate
     view: (state) => button({
       id: 'controlled-button',
       label: 'Run',
-      onPress: { kind: 'activate' },
+      onPress: () => ({ kind: 'activate' }),
       pointer: {
         state: state.pointer,
         onAction: (action) => ({ kind: 'pointer', action })
@@ -2499,22 +2958,22 @@ test('built-in controls expose controlled pointer presentation without duplicate
 
   await runtime.start();
   await runtime.handleInputChunk({ data: '\u001B[<35;2;1M' });
-  assert.deepEqual(runtime.getState().pointer, { hoveredTargetId: 'controlled-button:control' });
+  assert.deepEqual(runtime.state().pointer, { hoveredTargetId: 'controlled-button:control' });
 
   await runtime.handleInputChunk({ data: '\u001B[<0;2;1M' });
-  assert.deepEqual(runtime.getState().pointer, {
+  assert.deepEqual(runtime.state().pointer, {
     hoveredTargetId: 'controlled-button:control',
     pressedTargetId: 'controlled-button:control'
   });
 
   await runtime.handleInputChunk({ data: '\u001B[<0;2;1m' });
-  assert.deepEqual(runtime.getState(), {
+  assert.deepEqual(runtime.state(), {
     pointer: { hoveredTargetId: 'controlled-button:control' },
     activations: 1
   });
 
   await runtime.handleInputChunk({ data: '\u001B[<35;20;2M' });
-  assert.deepEqual(runtime.getState().pointer, {});
+  assert.deepEqual(runtime.state().pointer, {});
 });
 
 test('disabled controls expose neither activation nor synthetic pointer lifecycle targets', async () => {
@@ -2526,7 +2985,7 @@ test('disabled controls expose neither activation nor synthetic pointer lifecycl
       id: 'disabled-button',
       label: 'Disabled',
       disabled: true,
-      onPress: { kind: 'activate' },
+      onPress: () => ({ kind: 'activate' }),
       pointer: {
         state: {},
         onAction: (action) => ({ kind: 'pointer', action, count: state.events.length })
@@ -2540,7 +2999,7 @@ test('disabled controls expose neither activation nor synthetic pointer lifecycl
   assert.deepEqual(runtime.frame().hitTargets ?? [], []);
   await runtime.handleInputChunk({ data: '\u001B[<0;2;1M' });
   await runtime.handleInputChunk({ data: '\u001B[<0;2;1m' });
-  assert.deepEqual(runtime.getState(), { events: [] });
+  assert.deepEqual(runtime.state(), { events: [] });
 });
 
 test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages', async () => {
@@ -2582,7 +3041,7 @@ test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages',
 
   assert.equal(press.results[0]?.handled, true);
   assert.equal(release.results[0]?.handled, true);
-  assert.deepEqual(runtime.getState(), {
+  assert.deepEqual(runtime.state(), {
     events: [
       {
         kind: 'pointerDown',
@@ -2600,6 +3059,67 @@ test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages',
       }
     ]
   });
+});
+
+test('TUI pointer click counts use clock, stable target identity, and cross-target reset', async () => {
+  const renderer = {
+    render({ bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: 'left right' }]);
+    },
+    accessibility({ id }) {
+      return { id, role: 'group', label: 'click targets' };
+    },
+    hitTargets({ bounds }) {
+      return [
+        {
+          id: 'left-click',
+          bounds: { ...bounds, width: 4 },
+          accepts: ['click'],
+          message: (event) => ({ target: 'left', clickCount: event.clickCount })
+        },
+        {
+          id: 'right-click',
+          bounds: { ...bounds, column: bounds.column + 5, width: 5 },
+          accepts: ['click'],
+          message: (event) => ({ target: 'right', clickCount: event.clickCount })
+        }
+      ];
+    }
+  };
+  const app = defineTui({
+    id: 'pointer-click-counts',
+    init: () => ({ events: [] }),
+    update: (state, message) => ({ state: { events: [...state.events, message] } }),
+    view: () => custom({ id: 'pointer-click-count-targets', renderer })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 2 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+  const click = async (column) => {
+    await runtime.handleInput({
+      kind: 'mouse', sequence: '', encoding: 'sgr', action: 'press', button: 'left',
+      row: 1, column, rawCode: 0, modifiers: { shift: false, alt: false, ctrl: false }
+    });
+    await runtime.handleInput({
+      kind: 'mouse', sequence: '', encoding: 'sgr', action: 'release', button: 'none',
+      row: 1, column, rawCode: 0, modifiers: { shift: false, alt: false, ctrl: false }
+    });
+  };
+
+  await runtime.start();
+  await click(1);
+  await click(6);
+  await click(1);
+  harness.clock.advance(501);
+  await click(1);
+  await click(1);
+
+  assert.deepEqual(runtime.state().events, [
+    { target: 'left', clickCount: 1 },
+    { target: 'right', clickCount: 1 },
+    { target: 'left', clickCount: 1 },
+    { target: 'left', clickCount: 1 },
+    { target: 'left', clickCount: 2 }
+  ]);
 });
 
 test('TUI pointer hover emits enter leave and hover when crossing targets', async () => {
@@ -2655,7 +3175,7 @@ test('TUI pointer hover emits enter leave and hover when crossing targets', asyn
   assert.equal(moveLeft.results[0]?.handled, true);
   assert.equal(moveRight.results[0]?.handled, true);
   assert.equal(moveOutside.results[0]?.handled, true);
-  assert.deepEqual(runtime.getState(), {
+  assert.deepEqual(runtime.state(), {
     events: [
       { kind: 'enter', targetId: 'left-hit', localColumn: 2 },
       { kind: 'hover', targetId: 'left-hit', localColumn: 2 },
@@ -2709,7 +3229,7 @@ test('TUI pointer targets receive event-aware messages and horizontal wheel delt
   assert.notEqual(wheelRight.pending, undefined);
   const wheelRightResults = await runtime.flushInput();
   assert.equal(wheelRightResults[0]?.handled, true);
-  assert.deepEqual(runtime.getState(), {
+  assert.deepEqual(runtime.state(), {
     events: [
       { kind: 'contextMenu', button: 'right', deltaRows: 0, deltaColumns: 0, localRow: 1, localColumn: 2 },
       { kind: 'scroll', button: 'wheelRight', deltaRows: 0, deltaColumns: 1, localRow: 1, localColumn: 3 }
@@ -2765,7 +3285,7 @@ test('TUI wheel routing skips non-scroll child targets and reaches scroll owner'
   assert.equal(wheel.results.length, 0);
   assert.equal(release.results[0]?.handled, true);
   assert.equal(release.results[1]?.handled, false);
-  assert.deepEqual(runtime.getState(), {
+  assert.deepEqual(runtime.state(), {
     events: [
       { kind: 'scroll', targetId: 'scroll-owner', localColumn: 3 }
     ]
@@ -2818,9 +3338,9 @@ test('TUI press routing keeps scroll-only content targets from swallowing text p
   });
 
   assert.equal(press.handled, true);
-  assert.equal(runtime.getState().events.length, 1);
-  assert.equal(runtime.getState().events[0].kind, 'text');
-  assert.deepEqual(runtime.getState().events[0].action, {
+  assert.equal(runtime.state().events.length, 1);
+  assert.equal(runtime.state().events[0].kind, 'text');
+  assert.deepEqual(runtime.state().events[0].action, {
     kind: 'pointer',
     action: { kind: 'placeCaret', offset: 2 }
   });
@@ -2881,9 +3401,9 @@ test('TUI wheel routing keeps scroll content hits in their overlay region layer'
   });
 
   assert.equal(result.handled, true);
-  assert.deepEqual(runtime.getState().events, ['foreground:content']);
-  assert.equal(runtime.getState().foreground.offsetRow, 3);
-  assert.equal(runtime.getState().background.offsetRow, 0);
+  assert.deepEqual(runtime.state().events, ['foreground:content']);
+  assert.equal(runtime.state().foreground.offsetRow, 3);
+  assert.equal(runtime.state().background.offsetRow, 0);
 });
 
 test('TUI pointer scrolling and scrollbar track input route to controlled text areas', async () => {
@@ -2968,13 +3488,13 @@ presentation: { value, cursor: 0, scroll: state.scroll },
   assert.equal(wheelUp.state.scroll.offsetRow, 0);
   assert.equal(trackPress.handled, true);
   assert.equal(trackDrag.handled, true);
-  assert.deepEqual(runtime.getState().events, [
+  assert.deepEqual(runtime.state().events, [
     'wheel:content',
     'wheel:content',
     'pointerDown:verticalScrollbarTrack',
     'dragStart:verticalScrollbarTrack'
   ]);
-  assert.equal(runtime.getState().scroll.offsetRow, 35);
+  assert.equal(runtime.state().scroll.offsetRow, 35);
   assert.match(renderFramePlain(runtime.frame()), /line 40/u);
 });
 
@@ -3030,11 +3550,11 @@ presentation: { value, cursor: 0, scroll: state.scroll },
 
   assert.equal(press.handled, true);
   assert.equal(drag.handled, true);
-  assert.deepEqual(runtime.getState().events, [
+  assert.deepEqual(runtime.state().events, [
     'pointerDown:verticalScrollbarThumb:setOffset',
     'dragStart:verticalScrollbarThumb:setOffset'
   ]);
-  assert.equal(runtime.getState().scroll.offsetRow, 27);
+  assert.equal(runtime.state().scroll.offsetRow, 27);
 });
 
 test('TUI scrollbar thumb routing stays above its track inside elevated regions', async () => {
@@ -3081,7 +3601,7 @@ presentation: { value, cursor: 0, scroll: state.scroll },
   });
 
   assert.equal(press.handled, true);
-  assert.deepEqual(runtime.getState().events, ['pointerDown:verticalScrollbarThumb']);
+  assert.deepEqual(runtime.state().events, ['pointerDown:verticalScrollbarThumb']);
 });
 
 test('TUI runtime batches decoded wheel bursts into one accelerated frame update', async () => {
@@ -3116,7 +3636,7 @@ presentation: { value, cursor: 0, scroll: state.scroll },
   assert.equal(batch.results.length, 0);
   assert.equal(results.length, 1);
   assert.equal(results.every((result) => result.handled), true);
-  assert.equal(runtime.getState().scroll.offsetRow, 9);
+  assert.equal(runtime.state().scroll.offsetRow, 9);
   assert.equal(harness.frames().length, 2);
   assert.match(renderFramePlain(runtime.frame()), /line 10/u);
 });
@@ -3153,7 +3673,8 @@ test('TUI runtime coalesces compatible wheel packets across terminal reads', asy
     wheelPackets: 3,
     dispatchedMessages: 0,
     stateUpdates: 0,
-    frameCommits: 1
+    frameCommits: 1,
+    effects: { active: 0, queued: 0, rejected: 0 }
   });
 
   harness.clock.advance(8);
@@ -3161,13 +3682,14 @@ test('TUI runtime coalesces compatible wheel packets across terminal reads', asy
 
   assert.equal(results?.length, 1);
   assert.equal(results?.[0]?.handled, true);
-  assert.equal(runtime.getState().scroll.offsetRow, 9);
+  assert.equal(runtime.state().scroll.offsetRow, 9);
   assert.deepEqual(runtime.metrics(), {
     decodedInputEvents: 3,
     wheelPackets: 3,
     dispatchedMessages: 1,
     stateUpdates: 1,
-    frameCommits: 2
+    frameCommits: 2,
+    effects: { active: 0, queued: 0, rejected: 0 }
   });
   assert.equal(harness.frames().length, 2);
 });
@@ -3204,14 +3726,15 @@ test('TUI runtime flushes pending wheel input before keyboard input', async () =
 
   assert.equal(key.results.length, 2);
   assert.equal(key.results.every((result) => result.handled), true);
-  assert.equal(runtime.getState().scroll.offsetRow, 3);
-  assert.equal(runtime.getState().keys, 1);
+  assert.equal(runtime.state().scroll.offsetRow, 3);
+  assert.equal(runtime.state().keys, 1);
   assert.deepEqual(runtime.metrics(), {
     decodedInputEvents: 2,
     wheelPackets: 1,
     dispatchedMessages: 2,
     stateUpdates: 2,
-    frameCommits: 3
+    frameCommits: 3,
+    effects: { active: 0, queued: 0, rejected: 0 }
   });
 });
 
@@ -3273,9 +3796,9 @@ presentation: { value, cursor: 0, scroll: state.scroll },
 
   assert.equal(down.handled, true);
   assert.equal(right.handled, true);
-  assert.deepEqual(runtime.getState().event.action, { kind: 'scrollLines', columns: 5 });
-  assert.equal(runtime.getState().scroll.offsetRow, 8);
-  assert.equal(runtime.getState().scroll.offsetColumn, 5);
+  assert.deepEqual(runtime.state().event.action, { kind: 'scrollLines', columns: 5 });
+  assert.equal(runtime.state().scroll.offsetRow, 8);
+  assert.equal(runtime.state().scroll.offsetColumn, 5);
   assert.match(renderFramePlain(runtime.frame()), /09 x/u);
 });
 
@@ -3324,8 +3847,8 @@ test('TUI routed horizontal text area scroll uses the editable viewport after gu
     });
   }
 
-  assert.equal(runtime.getState().event.scroll.viewportColumns, editableViewportColumns);
-  assert.equal(runtime.getState().scroll.offsetColumn, value.length - editableViewportColumns);
+  assert.equal(runtime.state().event.scroll.viewportColumns, editableViewportColumns);
+  assert.equal(runtime.state().scroll.offsetColumn, value.length - editableViewportColumns);
 });
 
 test('TUI routed wheel events support page-based widget scroll policy', async () => {
@@ -3368,7 +3891,7 @@ presentation: { value, cursor: 0, scroll: state.scroll },
   });
 
   assert.equal(down.handled, true);
-  assert.equal(runtime.getState().scroll.offsetRow, 5);
+  assert.equal(runtime.state().scroll.offsetRow, 5);
   assert.match(renderFramePlain(runtime.frame()), /line 06/u);
 });
 
@@ -3417,14 +3940,15 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
   });
 
   assert.equal(result.handled, true);
-  assert.equal(runtime.getState().event.scroll.contentRows, nodes.length);
-  assert.equal(runtime.getState().event.scroll.viewportRows, 3);
-  assert.equal(runtime.getState().tree.scroll.offsetRow, 3);
+  assert.equal(runtime.state().event.scroll.contentRows, nodes.length);
+  assert.equal(runtime.state().event.scroll.viewportRows, 3);
+  assert.equal(runtime.state().tree.scroll.offsetRow, 3);
   assert.match(renderFramePlain(runtime.frame()), /Node 4/u);
 });
 
 test('TUI routed context menu scroll events use fixed title chrome and shared scroll policy', async () => {
   const items = Array.from({ length: 8 }, (_value, index) => ({
+    kind: 'action',
     id: `item-${String(index + 1)}`,
     label: `Item ${String(index + 1)}`
   }));
@@ -3473,8 +3997,8 @@ test('TUI routed context menu scroll events use fixed title chrome and shared sc
   });
 
   assert.equal(result.handled, true);
-  assert.equal(runtime.getState().event.scroll.viewportRows, 2);
-  assert.equal(runtime.getState().scroll.offsetRow, 2);
+  assert.equal(runtime.state().event.scroll.viewportRows, 2);
+  assert.equal(runtime.state().scroll.offsetRow, 2);
   const frame = renderFramePlain(runtime.frame());
   assert.match(frame, /Actions/u);
   assert.match(frame, /Item 3/u);
@@ -3520,7 +4044,7 @@ test('TUI pointer drag routes to the captured origin target', async () => {
   assert.equal(press.results[0]?.handled, false);
   assert.equal(drag.results[0]?.handled, true);
   assert.equal(release.results[0]?.handled, true);
-  assert.deepEqual(runtime.getState(), {
+  assert.deepEqual(runtime.state(), {
     events: [
       { kind: 'dragStart', targetId: 'drag-hit', capturedTargetId: 'drag-hit', localColumn: 10 },
       { kind: 'dragEnd', targetId: 'drag-hit', capturedTargetId: 'drag-hit', localColumn: 10 }
@@ -3551,7 +4075,7 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
 
   assert.equal(press.results[0]?.handled, false);
   assert.equal(release.results[0]?.handled, true);
-  assert.deepEqual(runtime.getState(), { selected: 'child' });
+  assert.deepEqual(runtime.state(), { selected: 'child' });
   assert.match(renderFramePlain(runtime.frame()), /Child/);
 });
 
@@ -3580,7 +4104,7 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
 
   assert.equal(disclosureRelease.results[0]?.handled, true);
   assert.equal(bodyRelease.results[0]?.handled, true);
-  assert.deepEqual(runtime.getState(), {
+  assert.deepEqual(runtime.state(), {
     events: [
       { kind: 'tree', action: { kind: 'toggle', id: 'root' } },
       { kind: 'tree', action: { kind: 'select', id: 'root' } }
@@ -3594,20 +4118,20 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
     init: () => ({ clicked: 'none' }),
     update: (_state, message) => ({ state: { clicked: message.clicked } }),
     view: () => overlay([
-      textInput({
+      button({
     id: 'lower-mouse-field',
-    presentation: { value: 'lower', cursor: 0 },
-    onSubmit: { clicked: 'lower' },
+    label: 'lower',
+    onPress: () => ({ clicked: 'lower' }),
     meta: {
         layer: {
             zIndex: 0
         }
     }
 }),
-      textInput({
+      button({
     id: 'upper-mouse-field',
-    presentation: { value: 'upper', cursor: 0 },
-    onSubmit: { clicked: 'upper' },
+    label: 'upper',
+    onPress: () => ({ clicked: 'upper' }),
     meta: {
         layer: {
             zIndex: 20
@@ -3623,15 +4147,15 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
 
   await runtime.start();
   assert.deepEqual(runtime.frame().hitTargets?.map((target) => [target.id, target.zIndex]), [
-    ['lower-mouse-field:input', 0],
-    ['upper-mouse-field:input', 20]
+    ['lower-mouse-field:control', 0],
+    ['upper-mouse-field:control', 20]
   ]);
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
   const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
 
   assert.equal(press.results[0]?.handled, false);
   assert.equal(release.results[0]?.handled, true);
-  assert.deepEqual(runtime.getState(), { clicked: 'upper' });
+  assert.deepEqual(runtime.state(), { clicked: 'upper' });
 });
 
 test('TUI runtime routes same-layer overlay mouse events to the last visible child', async () => {
@@ -3640,15 +4164,15 @@ test('TUI runtime routes same-layer overlay mouse events to the last visible chi
     init: () => ({ clicked: 'none' }),
     update: (_state, message) => ({ state: { clicked: message.clicked } }),
     view: () => overlay([
-      textInput({
+      button({
         id: 'lower-overlay-field',
-        presentation: { value: 'lower', cursor: 0 },
-        onSubmit: { clicked: 'lower' }
+        label: 'lower',
+        onPress: () => ({ clicked: 'lower' })
       }),
-      textInput({
+      button({
         id: 'upper-overlay-field',
-        presentation: { value: 'upper', cursor: 0 },
-        onSubmit: { clicked: 'upper' }
+        label: 'upper',
+        onPress: () => ({ clicked: 'upper' })
       })
     ], { id: 'same-layer-overlay' })
   });
@@ -3657,15 +4181,15 @@ test('TUI runtime routes same-layer overlay mouse events to the last visible chi
 
   await runtime.start();
   assert.deepEqual(runtime.frame().hitTargets?.map((target) => target.id), [
-    'lower-overlay-field:input',
-    'upper-overlay-field:input'
+    'lower-overlay-field:control',
+    'upper-overlay-field:control'
   ]);
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
   const release = await runtime.handleInputChunk({ data: '\u001B[<0;1;1m' });
 
   assert.equal(press.results[0]?.handled, false);
   assert.equal(release.results[0]?.handled, true);
-  assert.deepEqual(runtime.getState(), { clicked: 'upper' });
+  assert.deepEqual(runtime.state(), { clicked: 'upper' });
 });
 
 test('TUI runtime rejects operations after disposal and keeps disposal idempotent', async () => {
@@ -3686,7 +4210,7 @@ test('TUI runtime rejects operations after disposal and keeps disposal idempoten
   await assert.rejects(runtime.start(), /runtime is disposed/u);
   await assert.rejects(runtime.dispatch({ delta: 1 }), /runtime is disposed/u);
   await assert.rejects(runtime.resize({ columns: 30, rows: 6 }), /runtime is disposed/u);
-  await assert.rejects(runtime.handleInput({ kind: 'key', key: 'enter' }), /runtime is disposed/u);
+  await assert.rejects(runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' }), /runtime is disposed/u);
   await assert.rejects(runtime.handleInputChunk({ data: 'x' }), /runtime is disposed/u);
   await assert.rejects(runtime.flushInput(), /runtime is disposed/u);
   assert.throws(() => runtime.resetInput(), /runtime is disposed/u);
@@ -3704,6 +4228,7 @@ test('TUI runtime disposal awaits aborted subscription pumps and source cleanup'
     update: (state) => ({ state }),
     subscriptions: () => [{
       id: 'blocking-source',
+      generation: 0,
       delivery: 'sequential',
       async *messages(context) {
         await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
@@ -3738,6 +4263,7 @@ test('runTui restores terminal state after runtime and exit-handler cleanup fail
     update: () => ({ state: { done: true }, exit: { reason: 'done' } }),
     subscriptions: () => [{
       id: 'cleanup-failure-source',
+      generation: 0,
       delivery: 'sequential',
       async *messages() {},
       dispose() {
@@ -3747,7 +4273,7 @@ test('runTui restores terminal state after runtime and exit-handler cleanup fail
     onExit() {
       throw new Error('exit cleanup failed');
     },
-    view: () => textInput({ id: 'cleanup-submit', presentation: { value: '', cursor: 0 }, onSubmit: { kind: 'submit' } })
+    view: () => textInput({ id: 'cleanup-submit', presentation: { value: '', cursor: 0 }, onSubmit: () => ({ kind: 'submit' }) })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
   harness.input('\r');

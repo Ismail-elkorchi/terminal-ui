@@ -13,6 +13,8 @@ export interface TerminalProtocolWriter {
   disableMouseReporting(): Promise<void>;
   enableFocusReporting(): Promise<void>;
   disableFocusReporting(): Promise<void>;
+  enableEnhancedKeyboard(): Promise<void>;
+  disableEnhancedKeyboard(): Promise<void>;
   hideCursor(): Promise<void>;
   showCursor(): Promise<void>;
   moveCursor(row: number, column: number): Promise<void>;
@@ -34,6 +36,8 @@ export function createProtocolWriter(sink: TerminalProtocolSink): TerminalProtoc
     disableMouseReporting: async () => sink.write(mouseReportingDisableSequence()),
     enableFocusReporting: async () => sink.write('\u001B[?1004h'),
     disableFocusReporting: async () => sink.write('\u001B[?1004l'),
+    enableEnhancedKeyboard: async () => sink.write('\u001B[>3u'),
+    disableEnhancedKeyboard: async () => sink.write('\u001B[<u'),
     hideCursor: async () => sink.write('\u001B[?25l'),
     showCursor: async () => sink.write('\u001B[?25h'),
     moveCursor: async (row, column) => sink.write(cursorMoveSequence(row, column)),
@@ -77,3 +81,10 @@ function assertMouseReportingMode(mode: unknown): MouseReportingMode {
   if (mode === 'none' || mode === 'click' || mode === 'drag' || mode === 'all') return mode;
   throw new RangeError('mouse reporting mode must be none, click, drag, or all.');
 }
+export {
+  defaultTerminalOutputCapabilities
+} from './output-capabilities.ts';
+export type {
+  TerminalOutputCapabilityProfile,
+  TerminalOutputFeatureSupport
+} from './output-capabilities.ts';

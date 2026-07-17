@@ -5,7 +5,9 @@ import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { ChoiceItem } from '../../ui-model/contracts.ts';
 import type { SelectAction } from '../../ui-model/choice-controls.ts';
 import type { ListAction } from '../../ui-model/list.ts';
-import type { SelectPresentation } from '../../behavior/choice-controls.ts';
+import type { ListCollectionRecord } from '../../ui-model/list.ts';
+import type { SelectPresentation } from '../../ui-model/choice-controls.ts';
+import { completeCollection } from '../../ui-model/collection.ts';
 
 export interface SelectPopupInput<TMessage> {
   readonly ownerId: string;
@@ -34,16 +36,22 @@ export function selectPopupRenderNode<TMessage>(input: SelectPopupInput<TMessage
 
 function selectPopupList<TMessage>(input: SelectPopupInput<TMessage>): RenderNodeOfKind<TMessage, 'list'> {
   const toActionMessage = input.toActionMessage;
+  const collection = completeCollection(input.options.map((option, index): ListCollectionRecord<unknown> => ({
+    id: option.id,
+    index,
+    value: option.value,
+    item: {
+      id: option.id,
+      label: option.label,
+      ...(option.description === undefined ? {} : { description: option.description }),
+      disabled: option.disabled === true
+    }
+  })));
   return {
     id: renderNodeId(`${input.ownerId}:popup:list`, 'select popup list'),
     kind: 'list',
     props: {
-      items: input.options.map((option) => ({
-        id: option.id,
-        label: option.label,
-        ...(option.description === undefined ? {} : { description: option.description }),
-        disabled: option.disabled === true
-      })),
+      collection,
       ...(input.presentation.highlighted === undefined ? {} : { selectedId: input.presentation.highlighted }),
       ...(input.presentation.scroll === undefined ? {} : { scroll: input.presentation.scroll }),
       ...(input.scrollbar === undefined ? {} : { scrollbar: input.scrollbar }),

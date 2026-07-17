@@ -55,7 +55,6 @@ export function textArea<
   options: IndependentInteractionOptions<
     ScrollableTextAreaOptions,
     { readonly onAction: TActionMessage },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   >
@@ -72,7 +71,6 @@ export function textArea<
   options: IndependentInteractionOptions<
     PassiveTextAreaOptions,
     { readonly onAction: TActionMessage },
-    Record<never, never>,
     TKeys,
     TPointerMessage
   >

@@ -8,6 +8,7 @@ import type { Measurement } from './measurement.ts';
 import type { RenderTarget } from './render-target.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
 import type { PointerFocusIntent } from '../../interaction/focus.ts';
+import type { MessageResolution } from '../../interaction/message.ts';
 
 type RendererNode<TMessage, TKind extends RenderNodeKind> =
   RenderNodeKind extends TKind
@@ -53,7 +54,7 @@ export interface RenderNodeRenderInput<
   readonly buffer: RenderTarget;
   readonly theme: TerminalTheme;
   readonly focus: RenderFocusRelation;
-  renderChildren(target?: RenderTarget): void;
+  readonly renderChildren: (target?: RenderTarget) => void;
 }
 
 export type RenderFocusRelation = 'none' | 'self' | 'descendant';
@@ -102,7 +103,7 @@ export interface HitTarget<TMessage = unknown> {
   readonly bounds: Rect;
   readonly accepts?: readonly PointerEventKind[];
   readonly focus?: PointerFocusIntent;
-  message(event: RoutedPointerEvent): TMessage | undefined;
+  message(event: RoutedPointerEvent): MessageResolution<TMessage>;
   readonly cursor?: 'pointer' | 'text' | 'default';
   readonly zIndex?: number;
 }

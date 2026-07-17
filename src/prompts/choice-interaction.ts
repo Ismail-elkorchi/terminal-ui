@@ -177,7 +177,7 @@ function toggleFocusedChoice<TValue>(
 function isMultiSelectRangeEvent<TValue>(prompt: MultiSelectPromptDefinition<TValue>, event: InputEvent): boolean {
   return prompt.rangeSelection === true
     && event.kind === 'key'
-    && event.shift
+    && event.modifiers.shift
     && (event.key === 'arrowDown' || event.key === 'arrowUp' || event.key === 'home' || event.key === 'end');
 }
 

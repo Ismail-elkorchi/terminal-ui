@@ -23,8 +23,7 @@ test('feedback status widgets preserve state in high contrast and no color outpu
     progressBar({
       id: 'progress',
       label: 'Deploy',
-      value: 2,
-      max: 4,
+      mode: { kind: 'determinate', value: 2, max: 4 },
       barWidth: 4,
       status: 'error',
       display: 'bar+value+percent'

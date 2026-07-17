@@ -5,24 +5,8 @@ import { formatTypeDiagnostic, typecheckSource } from './support/typecheck.mjs';
 
 const packageJson = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
 
-const entrypoints = [
-  '.',
-  './host',
-  './input',
-  './protocol',
-  './text',
-  './theme',
-  './prompts',
-  './tui',
-  './components',
-  './layout',
-  './behavior',
-  './renderer',
-  './accessibility',
-  './transcript',
-  './testing',
-  './schemas'
-];
+const entrypoints = Object.keys(packageJson.exports)
+  .filter((entrypoint) => !entrypoint.includes('*'));
 
 test('all public entrypoints import from built package', async () => {
   for (const entrypoint of entrypoints) {
@@ -45,8 +29,7 @@ test('all declared public value exports exist at runtime', async () => {
 
 test('root exposes the primary vertical path', async () => {
   const terminalUi = await import('@ismail-elkorchi/terminal-ui');
-  assert.equal(terminalUi.terminalUiPackage.schemaVersion, 'terminal-ui.v1');
-  assert.deepEqual(terminalUi.terminalUiPackage.runtimeTargets, ['node', 'deno', 'bun', 'memory']);
+  assert.equal('terminalUiPackage' in terminalUi, false);
   assert.ok(terminalUi.terminalDiagnosticCodes.includes('INPUT_CANCELLED'));
   assert.equal(typeof terminalUi.createTerminalHost, 'function');
   assert.equal(typeof terminalUi.defineTui, 'function');
@@ -62,7 +45,7 @@ test('transcript entrypoint exposes replay against a structural harness target',
   const harness = createTerminalHarness();
 
   const result = await replayTranscript(harness, {
-    schemaVersion: 'terminal-ui.interaction-transcript.v1',
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: 'entrypoint-replay',
     source: 'test',
     steps: [{ kind: 'input', event: { kind: 'text', text: 'x', paste: false } }],

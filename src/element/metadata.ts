@@ -1,7 +1,8 @@
 import type { AccessibilityOptions, AccessibleNode } from '../accessibility/index.ts';
-import type { BindableKeyName, InputEvent } from '../input/index.ts';
-import type { FocusPath } from '../interaction/focus.ts';
+import type { BindableKeyName, InputEvent, InputTrigger } from '../input/index.ts';
+import type { FocusPath, InitialFocusSelector } from '../interaction/focus.ts';
 import type { PointerPresentationOptions } from '../interaction/pointer-presentation.ts';
+import type { MessageResolution } from '../interaction/message.ts';
 import type { TerminalStyle } from '../visual/render.ts';
 
 export interface ElementKeyEvent {
@@ -9,9 +10,15 @@ export interface ElementKeyEvent {
   readonly focusPath: FocusPath;
 }
 
-export type ElementKeyHandler<TMessage> = (event: ElementKeyEvent) => TMessage | undefined;
+export type ElementKeyHandler<TMessage> = (event: ElementKeyEvent) => MessageResolution<TMessage>;
+
+export interface ElementModifiedKeyBinding<TMessage> {
+  readonly trigger: Extract<InputTrigger, { readonly kind: 'key' }>;
+  readonly onKey: ElementKeyHandler<TMessage>;
+}
 
 export type ElementKeyBindings<TMessage> = Readonly<Partial<Record<BindableKeyName, ElementKeyHandler<TMessage>>>> & {
+  readonly modified?: readonly ElementModifiedKeyBinding<TMessage>[];
   readonly text?: Readonly<Record<string, ElementKeyHandler<TMessage>>>;
 };
 
@@ -60,7 +67,7 @@ export interface ElementStyles<TPart extends string = string> {
 
 export interface ElementFocusScope {
   readonly kind: 'contain';
-  readonly initialTargetId?: string;
+  readonly initialFocus?: InitialFocusSelector;
   readonly restore?: boolean;
 }
 

@@ -4,7 +4,7 @@
   "type": "object",
   "required": ["schemaVersion", "width", "height", "operations", "fullRewrite"],
   "properties": {
-    "schemaVersion": { "const": "terminal-ui.render-diff.v1" },
+    "schemaVersion": { "const": "terminal-ui.render-diff.v2" },
     "width": { "type": "integer", "minimum": 0 },
     "height": { "type": "integer", "minimum": 0 },
     "operations": {
@@ -20,6 +20,7 @@
               "column": { "type": "integer", "minimum": 1 },
               "spans": {
                 "type": "array",
+                "minItems": 1,
                 "items": { "$ref": "#/$defs/renderSpan" }
               }
             },
@@ -33,39 +34,11 @@
               "bounds": { "$ref": "#/$defs/rect" }
             },
             "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": ["kind", "row"],
-            "properties": {
-              "kind": { "const": "clearLine" },
-              "row": { "type": "integer", "minimum": 1 },
-              "fromColumn": { "type": "integer", "minimum": 1 }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": ["kind", "row", "column"],
-            "properties": {
-              "kind": { "const": "moveCursor" },
-              "row": { "type": "integer", "minimum": 1 },
-              "column": { "type": "integer", "minimum": 1 }
-            },
-            "additionalProperties": false
-          },
-          {
-            "type": "object",
-            "required": ["kind", "visible"],
-            "properties": {
-              "kind": { "const": "showCursor" },
-              "visible": { "type": "boolean" }
-            },
-            "additionalProperties": false
           }
         ]
       }
     },
+    "cursor": { "$ref": "#/$defs/cursor" },
     "fullRewrite": { "type": "boolean" },
     "dirtyRegions": {
       "type": "array",
@@ -79,8 +52,19 @@
       "properties": {
         "row": { "type": "integer", "minimum": 1 },
         "column": { "type": "integer", "minimum": 1 },
-        "width": { "type": "integer", "minimum": 0 },
-        "height": { "type": "integer", "minimum": 0 }
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "cursor": {
+      "type": "object",
+      "required": ["row", "column"],
+      "properties": {
+        "row": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "style": { "$ref": "#/$defs/terminalStyle" },
+        "source": { "$ref": "#/$defs/frameCellSource" }
       },
       "additionalProperties": false
     },

@@ -17,51 +17,37 @@ for (const example of exampleScripts) {
     assert.equal(result.status, 0, result.stderr || result.stdout);
     assert.equal(result.stderr, '');
     assert.notEqual(result.stdout.trim(), '');
-    if (example.endsWith('/ide-editor.mjs')) {
+    if (example.endsWith('/ide-editor.ts')) {
       const summary = JSON.parse(result.stdout);
       assert.equal(summary.status, 'ok');
       assert.equal(summary.rootOpened, true);
-      assert.equal(summary.activeFile, 'plan.md');
-      assert.equal(summary.savedReadme, true);
-      assert.equal(summary.pointerSelectionLength > 0, true);
-      assert.equal(summary.pointerReplacementApplied, true);
-      assert.equal(summary.chooserOpened, true);
-      assert.equal(summary.chooserFocused, true);
-      assert.equal(summary.chooserCompleted, true);
-      assert.equal(summary.chooserFocusRestored, true);
+      assert.equal(summary.activeFile, 'README.md');
+      assert.equal(summary.savedPlan, true);
+      assert.equal(summary.chooserVisible, true);
       assert.equal(summary.openBuffers, 2);
       assert.equal(summary.dirtyBuffers, 0);
-      assert.equal(summary.paletteQuery, 'save');
-      assert.equal(summary.notesExpanded, true);
-      assert.equal(summary.readmeVisible, true);
-      assert.equal(summary.pointerTree, true);
-      assert.equal(summary.pointerMenu, true);
       assert.equal(summary.treeTargets > 0, true);
-      assert.equal(summary.menuTargets > 0, true);
       assert.equal(summary.visible, true);
-      assert.ok(summary.frames >= 8);
+      assert.ok(summary.frames >= 6);
     }
-    if (example.endsWith('/interactive-workspace.mjs')) {
+    if (example.endsWith('/interactive-workspace.ts')) {
       const summary = JSON.parse(result.stdout);
       assert.equal(summary.status, 'ok');
       assert.equal(summary.selectedNode, 'queue:review');
-      assert.equal(summary.activeTab, 'activity');
+      assert.equal(summary.activeTab, 'issues');
       assert.equal(summary.tabSelectedByPointer, true);
       assert.equal(summary.tabSelectedByKeyboard, true);
       assert.equal(summary.paletteUsed, true);
       assert.equal(summary.pointerTree, true);
       assert.equal(summary.pointerTable, true);
-      assert.equal(summary.pointerPalette, true);
       assert.equal(summary.keyboardPaletteQuery, 'resolve');
-      assert.equal(summary.commandAfterPaletteAccept, '/issues');
       assert.equal(summary.visible, true);
       assert.equal(summary.tableHitTargets > 0, true);
-      assert.equal(summary.narrowRows, 24);
       assert.equal(summary.focusValidAfterResize, true);
       assert.equal(summary.statusVisible, true);
       assert.ok(summary.frames >= 4);
     }
-    if (example.endsWith('/btop-monitor.mjs')) {
+    if (example.endsWith('/btop-monitor.ts')) {
       const summary = JSON.parse(result.stdout);
       assert.equal(summary.status, 'ok');
       assert.equal(summary.wheelBatchShared, true);

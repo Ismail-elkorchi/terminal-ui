@@ -8,6 +8,8 @@ authoring model.
 
 - `canvas()` from the component layer for bounded drawing through `Canvas2D`;
 - `custom()` from the renderer entrypoint for a full renderer protocol.
+- `customComposite()` for arranging opaque authored children without exposing
+  renderer nodes.
 
 ## Canvas Component
 
@@ -61,6 +63,19 @@ Hit targets are renderer metadata. Normal application code should use
 component event props such as `onPress`, `onAction`, and `onScroll`. Editable
 controls expose pointer caret and selection gestures through their typed
 `onAction` union rather than a renderer-level pointer callback.
+
+## Custom Composite Renderer
+
+Use `customComposite()` when a new container needs an application-defined
+measurement or child arrangement. Its layout hook receives child measurements
+and returns one bounded rectangle per opaque child. The framework renders those
+children and preserves their accessibility, focus, pointer targets, clipping,
+layers, source metadata, and message union. The optional render hook paints the
+container before its children through the bounded `RenderTarget`.
+
+Composite extensions cannot inspect private render nodes, write to a terminal
+host, retain hidden state, omit child bounds, or place child bounds outside the
+container. Caller state remains an explicit input.
 
 ## Evidence To Test
 

@@ -26,9 +26,9 @@ import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui/prompts';
 
 - `examples/prompts/non-tty-input.mjs` demonstrates deterministic non-TTY prompt input.
 - `examples/testing/harness.mjs` demonstrates the memory testing harness.
-- `examples/tui/interactive-workspace.mjs` demonstrates a hand-written interactive TUI using layout, components, behavior helpers, and runtime APIs.
-- `examples/tui/ide-editor.mjs` demonstrates a full-screen editor-style app using controlled tree, tabs, text area, command bar, and notifications.
-- `examples/tui/btop-monitor.mjs` demonstrates a full-screen monitor-style app using tables, charts, progress, surfaces, and subscriptions.
+- `examples/tui/interactive-workspace.ts` demonstrates a hand-written interactive TUI using layout, components, behavior helpers, and runtime APIs.
+- `examples/tui/ide-editor.ts` demonstrates a full-screen editor whose filesystem work runs through typed effects.
+- `examples/tui/btop-monitor.ts` demonstrates a full-screen monitor using tables, charts, progress, surfaces, and subscriptions.
 
 ## Guides
 
@@ -41,6 +41,7 @@ import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui/prompts';
 - [Components](./guides/components.md)
 - [Behavior helpers](./guides/behavior.md)
 - [Public UI authoring model](./guides/public-ui-authoring-model.md)
+- [Breaking changes](./guides/breaking-changes.md)
 - [Rendering internals](./guides/rendering-internals.md)
 - [Building polished components](./guides/building-polished-components.md)
 - [Themes](./guides/themes.md)

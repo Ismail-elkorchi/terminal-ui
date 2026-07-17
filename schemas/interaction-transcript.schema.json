@@ -4,7 +4,7 @@
   "type": "object",
   "required": ["schemaVersion", "id", "source", "steps", "diagnostics", "redactions"],
   "properties": {
-    "schemaVersion": { "const": "terminal-ui.interaction-transcript.v1" },
+    "schemaVersion": { "const": "terminal-ui.interaction-transcript.v2" },
     "id": { "type": "string", "minLength": 1 },
     "source": { "enum": ["prompt", "tui", "test", "replay"] },
     "startedAt": { "type": "string" },
@@ -103,11 +103,15 @@
       "oneOf": [
         {
           "type": "object",
-          "required": ["kind", "key", "ctrl", "alt", "shift", "meta"],
+          "required": ["kind", "key", "modifiers", "eventType", "location"],
           "properties": {
             "kind": { "const": "key" },
             "key": {
               "enum": [
+                "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+                "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+                "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
+                "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10", "f11", "f12",
                 "enter",
                 "escape",
                 "tab",
@@ -121,18 +125,31 @@
                 "pageDown",
                 "home",
                 "end",
+                "insert",
                 "space",
-                "ctrlC",
-                "ctrlD",
+                "add",
+                "subtract",
+                "multiply",
+                "divide",
+                "decimal",
+                "equal",
                 "unknown"
               ]
             },
             "sequence": { "type": "string" },
-            "ctrl": { "type": "boolean" },
-            "alt": { "type": "boolean" },
-            "shift": { "type": "boolean" },
-            "meta": { "type": "boolean" },
-            "repeat": { "type": "boolean" }
+            "modifiers": {
+              "type": "object",
+              "required": ["ctrl", "alt", "shift", "meta"],
+              "properties": {
+                "ctrl": { "type": "boolean" },
+                "alt": { "type": "boolean" },
+                "shift": { "type": "boolean" },
+                "meta": { "type": "boolean" }
+              },
+              "additionalProperties": false
+            },
+            "eventType": { "enum": ["press", "repeat", "release"] },
+            "location": { "enum": ["standard", "numpad", "unknown"] }
           },
           "additionalProperties": false
         },
@@ -281,10 +298,37 @@
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "bounds": { "$ref": "#/$defs/rect" },
+        "accepts": {
+          "type": "array",
+          "items": {
+            "enum": ["pointerDown", "pointerUp", "click", "contextMenu", "scroll", "dragStart", "drag", "dragEnd", "hover", "enter", "leave"]
+          },
+          "uniqueItems": true
+        },
+        "focus": { "$ref": "#/$defs/pointerFocus" },
         "cursor": { "enum": ["pointer", "text", "default"] },
         "zIndex": { "type": "integer" }
       },
       "additionalProperties": false
+    },
+    "pointerFocus": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "path"],
+          "properties": {
+            "kind": { "const": "focus" },
+            "path": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["kind"],
+          "properties": { "kind": { "const": "preserve" } },
+          "additionalProperties": false
+        }
+      ]
     },
     "frameBufferSnapshotMetadata": {
       "type": "object",
@@ -335,13 +379,14 @@
       "type": "object",
       "required": ["schemaVersion", "width", "height", "operations", "fullRewrite"],
       "properties": {
-        "schemaVersion": { "const": "terminal-ui.render-diff.v1" },
+        "schemaVersion": { "const": "terminal-ui.render-diff.v2" },
         "width": { "type": "integer", "minimum": 0 },
         "height": { "type": "integer", "minimum": 0 },
         "operations": {
           "type": "array",
           "items": { "$ref": "#/$defs/renderOperation" }
         },
+        "cursor": { "$ref": "#/$defs/cursor" },
         "fullRewrite": { "type": "boolean" },
         "dirtyRegions": {
           "type": "array",
@@ -359,7 +404,7 @@
             "kind": { "const": "write" },
             "row": { "type": "integer", "minimum": 1 },
             "column": { "type": "integer", "minimum": 1 },
-            "spans": { "type": "array", "items": { "$ref": "#/$defs/renderSpan" } }
+            "spans": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/renderSpan" } }
           },
           "additionalProperties": false
         },
@@ -371,35 +416,6 @@
             "bounds": { "$ref": "#/$defs/rect" }
           },
           "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["kind", "row"],
-          "properties": {
-            "kind": { "const": "clearLine" },
-            "row": { "type": "integer", "minimum": 1 },
-            "fromColumn": { "type": "integer", "minimum": 1 }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["kind", "row", "column"],
-          "properties": {
-            "kind": { "const": "moveCursor" },
-            "row": { "type": "integer", "minimum": 1 },
-            "column": { "type": "integer", "minimum": 1 }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["kind", "visible"],
-          "properties": {
-            "kind": { "const": "showCursor" },
-            "visible": { "type": "boolean" }
-          },
-          "additionalProperties": false
         }
       ]
     },
@@ -409,8 +425,8 @@
       "properties": {
         "row": { "type": "integer", "minimum": 1 },
         "column": { "type": "integer", "minimum": 1 },
-        "width": { "type": "integer", "minimum": 0 },
-        "height": { "type": "integer", "minimum": 0 }
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
       },
       "additionalProperties": false
     },
@@ -647,6 +663,7 @@
         "bracketedPaste",
         "mouseReporting",
         "focusReporting",
+        "enhancedKeyboard",
         "cursorVisible"
       ],
       "properties": {
@@ -655,6 +672,7 @@
         "bracketedPaste": { "type": "boolean" },
         "mouseReporting": { "enum": ["none", "click", "drag", "all"] },
         "focusReporting": { "type": "boolean" },
+        "enhancedKeyboard": { "type": "boolean" },
         "cursorVisible": { "type": "boolean" }
       },
       "additionalProperties": false

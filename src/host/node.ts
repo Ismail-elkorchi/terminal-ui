@@ -126,7 +126,9 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
       rows: getViewport().rows,
       rawInput: typeof inputStream.setRawMode === 'function'
     },
-    environment: { variables: options.env ?? nodeProcess.env }
+    environment: { variables: options.env ?? nodeProcess.env },
+    ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
+    ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides })
   });
   const host: TerminalHost = {
     id: options.id ?? 'node',

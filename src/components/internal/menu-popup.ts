@@ -5,7 +5,7 @@ import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type { RenderNode, RenderNodeOfKind } from '../../renderer/model/index.ts';
 import type { MenuAction } from '../../ui-model/menu.ts';
 import type { MenuStylePart } from '../../ui-model/style-parts.ts';
-import type { MenuPresentation } from '../../behavior/menu.ts';
+import type { MenuPresentation } from '../../ui-model/menu.ts';
 import { normalizeBorderTitle } from '../../visual/border.ts';
 import { menuItemsForRenderer } from './interaction.ts';
 

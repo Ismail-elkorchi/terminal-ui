@@ -10,6 +10,7 @@ export type {
 } from './types.ts';
 export type { CursorPosition } from './cursor.ts';
 export type { Frame, FrameCell, FrameHitTarget } from './frame.ts';
+export type { FrameRowDiff, RenderDiff, RenderOperation } from './diff.ts';
 export type {
   Canvas2D,
   CanvasPoint,

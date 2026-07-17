@@ -6,6 +6,7 @@ import { renderNodeInteraction as interactionProps } from '../../renderer/model/
 import type { DialogOptions } from '../options/dialog.ts';
 import { normalizeBorderTitle } from '../../visual/border.ts';
 import type { DialogDismissReason } from '../../ui-model/dialog.ts';
+import type { InitialFocusSelector } from '../../interaction/focus.ts';
 
 export function dialog<TMessage>(child: Element<TMessage>, options: DialogOptions<TMessage>): Element<TMessage> {
   const meta = dialogMeta(options);
@@ -46,19 +47,25 @@ function dialogMeta<TMessage>(options: DialogOptions<TMessage>) {
       ...(Object.keys(authoredFocus).length === 0 ? { focus: {} } : { focus: authoredFocus })
     };
   }
-  const initialTargetId = options.focusPolicy.initialTargetId?.trim();
-  if (options.focusPolicy.initialTargetId !== undefined && initialTargetId === '') {
-    throw new TypeError('dialog focusPolicy.initialTargetId must be a non-empty ID.');
-  }
+  const initialFocus = normalizeInitialFocus(options.focusPolicy.initialFocus);
   return {
     ...base,
     focus: {
       ...authoredFocus,
       scope: {
         kind: 'contain' as const,
-        ...(initialTargetId === undefined ? {} : { initialTargetId }),
+        ...(initialFocus === undefined ? {} : { initialFocus }),
         restore: options.focusPolicy.returnFocus === 'restore'
       }
     }
   };
+}
+
+function normalizeInitialFocus(
+  selector: InitialFocusSelector | undefined
+): InitialFocusSelector | undefined {
+  if (selector === undefined) return undefined;
+  const id = selector.id.trim();
+  if (id.length === 0) throw new TypeError('dialog focusPolicy.initialFocus id must be non-empty.');
+  return { kind: selector.kind, id };
 }

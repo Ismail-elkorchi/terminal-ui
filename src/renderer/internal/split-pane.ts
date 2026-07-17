@@ -1,5 +1,7 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
+import { ignoreMessage } from '../../interaction/message.ts';
+import type { MessageResolution } from '../../interaction/message.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { SplitPaneAction } from '../../ui-model/split-pane.ts';
 import type { Rect } from '../model/layout.ts';
@@ -115,7 +117,7 @@ function splitPanePointerAction<TMessage>(
   direction: 'horizontal' | 'vertical',
   contentExtent: number,
   toMessage: (action: SplitPaneAction) => TMessage
-): TMessage | undefined {
+): MessageResolution<TMessage> {
   switch (event.kind) {
     case 'pointerDown':
       return toMessage({ kind: 'beginResize', dividerIndex });
@@ -130,7 +132,7 @@ function splitPanePointerAction<TMessage>(
     case 'dragEnd':
       return toMessage({ kind: 'endResize', dividerIndex });
     default:
-      return undefined;
+      return ignoreMessage();
   }
 }
 

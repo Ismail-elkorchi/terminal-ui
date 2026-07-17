@@ -30,9 +30,9 @@ const requiredDocs = [
 const executableExampleLinks = [
   'examples/prompts/non-tty-input.mjs',
   'examples/testing/harness.mjs',
-  'examples/tui/interactive-workspace.mjs',
-  'examples/tui/ide-editor.mjs',
-  'examples/tui/btop-monitor.mjs'
+  'examples/tui/interactive-workspace.ts',
+  'examples/tui/ide-editor.ts',
+  'examples/tui/btop-monitor.ts'
 ];
 
 const documentationPaths = ['README.md'];

@@ -55,8 +55,8 @@ function view(state: State) {
   return commandInput({
     id: 'command',
     presentation: commandInputPresentation(state.command),
-    onAction: (action) => ({ kind: 'command', action }),
-    onSubmit: { kind: 'submit' }
+    onAction: (action): Message => ({ kind: 'command', action }),
+    onSubmit: (): Message => ({ kind: 'submit' })
   });
 }
 ```
@@ -140,6 +140,43 @@ application effects. The reducer owns only deterministic hierarchy state.
 Behavior helpers may return the same state object for no-op transitions. That
 lets applications avoid unnecessary rerenders while keeping update logic
 explicit.
+
+## Large Collections
+
+`list()`, `table()`, and `tree()` accept ordinary arrays for small, local data.
+For large or remotely windowed data, prepare an immutable collection outside
+`view()` and retain it until its source data changes:
+
+```ts
+import { prepareTableCollection } from '@ismail-elkorchi/terminal-ui/behavior';
+import { table } from '@ismail-elkorchi/terminal-ui/components';
+
+const visibleRows = [{ id: 'row-40000', value: 42 }];
+const collection = prepareTableCollection(
+  visibleRows,
+  (row) => row.id,
+  { start: 40_000, total: 100_000 }
+);
+
+table({
+  id: 'results',
+  collection,
+  columns: [{ id: 'value', value: (row) => row.value }]
+});
+```
+
+`prepareListCollection()`, `prepareTableCollection()`, and
+`prepareTreeCollection()` create complete projections. The list and table
+helpers accept `start` and `total` to create a windowed projection whose
+records retain global indices. `prepareTreeRows()` accepts an already flattened
+tree projection and the same optional window descriptor. Windowed list and
+tree data must be filtered before preparation because the library cannot derive
+complete filter results from a partial window.
+
+Prepared collections snapshot membership and identity. Replace the collection
+when rows are inserted, deleted, reordered, or reprojected. Reducers and
+renderers reuse identity and projection work while the same collection object
+is retained; they do not retain mutable application arrays implicitly.
 
 Scrollable controls use exact state and projection variants. For example,
 `PassiveTableState` is projected with `tablePresentation()`, while

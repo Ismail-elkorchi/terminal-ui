@@ -33,7 +33,6 @@ export function menu<
 >(options: IndependentInteractionOptions<
   MenuOptions,
   { readonly onAction: TActionMessage },
-  Record<never, never>,
   TKeys,
   TPointerMessage
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
@@ -66,7 +65,6 @@ export function menuBar<
 >(options: IndependentInteractionOptions<
   MenuBarOptions,
   { readonly onAction: TActionMessage },
-  Record<never, never>,
   TKeys,
   TPointerMessage
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
@@ -112,7 +110,6 @@ export function contextMenu<
 >(options: IndependentInteractionOptions<
   ContextMenuOptions,
   { readonly onAction: TActionMessage },
-  Record<never, never>,
   TKeys,
   TPointerMessage
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
@@ -159,7 +156,6 @@ export function dropdownMenu<
 >(options: IndependentInteractionOptions<
   DropdownMenuOptions,
   { readonly onAction: TActionMessage },
-  Record<never, never>,
   TKeys,
   TPointerMessage
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;

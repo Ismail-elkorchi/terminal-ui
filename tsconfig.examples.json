@@ -7,11 +7,11 @@
     "checkJs": true,
     "noEmit": true,
     "strict": true,
-    "noImplicitAny": false,
-    "exactOptionalPropertyTypes": false,
-    "noUncheckedIndexedAccess": false,
+    "noImplicitAny": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
     "types": ["node"],
     "skipLibCheck": false
   },
-  "include": ["examples/**/*.mjs"]
+  "include": ["examples/**/*.ts", "examples/**/*.mjs"]
 }

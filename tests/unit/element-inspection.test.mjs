@@ -17,7 +17,7 @@ test('element inspection exposes an immutable authoring projection without rende
         }
       }
     }),
-    button({ id: 'submit', label: 'Search', onPress: { kind: 'submit' } })
+    button({ id: 'submit', label: 'Search', onPress: () => ({ kind: 'submit' }) })
   ], { id: 'controls' }), { id: 'panel', variant: 'raised' });
 
   const inspection = inspectElement(element);

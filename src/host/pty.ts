@@ -63,7 +63,9 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
       rows: viewport.rows,
       rawInput: options.stdin?.setRawMode !== undefined
     },
-    environment: { variables: options.env ?? {} }
+    environment: { variables: options.env ?? {} },
+    ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
+    ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides })
   });
   const env = new ObjectEnvironment(options.env ?? {});
   const setViewport = async (nextViewport: TerminalViewport): Promise<void> => {

@@ -4,7 +4,6 @@ import test from 'node:test';
 import { createScrollState } from '../../dist/behavior/index.js';
 import {
   sortTableRows,
-  tablePresentation,
   tableScrollablePresentation,
   tableReducer
 } from '../../dist/behavior/index.js';

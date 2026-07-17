@@ -10,7 +10,8 @@ import {
   heatmapReducer
 } from '../../dist/behavior/index.js';
 import { barChart, chart, heatmap } from '../../dist/components/index.js';
-import { renderElementFrame, renderElementRegions } from '../../dist/renderer/index.js';
+import { renderElementFrame } from '../../dist/renderer/index.js';
+import { renderElementRegions } from '../../dist/testing/index.js';
 
 test('bar chart behavior keeps stable selection through reorder and deletion', () => {
   const items = [

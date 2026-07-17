@@ -15,6 +15,10 @@ export interface SessionProtocolPolicy {
   readonly rawInput: ProtocolRequirement;
   readonly bracketedPaste: ProtocolRequirement;
   readonly focusReporting: ProtocolRequirement;
+  readonly keyboard: {
+    readonly profile: 'legacy' | 'enhanced';
+    readonly requirement: ProtocolRequirement;
+  };
   readonly cursorVisibility: {
     readonly state: CursorVisibilityPolicy;
     readonly requirement: ProtocolRequirement;
@@ -25,19 +29,31 @@ export interface SessionProtocolPolicy {
   };
 }
 
-export type SessionProtocolOperationKind =
-  | 'alternateScreen'
-  | 'rawInput'
-  | 'bracketedPaste'
-  | 'focusReporting'
-  | 'cursorVisibility'
-  | 'mouseReporting';
+export type SessionProtocolOperation =
+  | BooleanSessionProtocolOperation
+  | {
+      readonly kind: 'cursorVisibility';
+      readonly requirement: ProtocolRequirement;
+      readonly target: CursorVisibilityPolicy;
+    }
+  | {
+      readonly kind: 'mouseReporting';
+      readonly requirement: ProtocolRequirement;
+      readonly target: MouseReportingMode;
+    }
+  | {
+      readonly kind: 'enhancedKeyboard';
+      readonly requirement: ProtocolRequirement;
+      readonly target: 'legacy' | 'enhanced';
+    };
 
-export interface SessionProtocolOperation {
-  readonly kind: SessionProtocolOperationKind;
+interface BooleanSessionProtocolOperation {
+  readonly kind: 'alternateScreen' | 'rawInput' | 'bracketedPaste' | 'focusReporting';
   readonly requirement: ProtocolRequirement;
-  readonly target: boolean | CursorVisibilityPolicy | MouseReportingMode;
+  readonly target: true;
 }
+
+export type SessionProtocolOperationKind = SessionProtocolOperation['kind'];
 
 export interface SessionProtocolSetupResult {
   readonly ok: boolean;
@@ -53,6 +69,7 @@ export const defaultSessionProtocolPolicy: SessionProtocolPolicy = {
   rawInput: 'required',
   bracketedPaste: 'optional',
   focusReporting: 'optional',
+  keyboard: { profile: 'legacy', requirement: 'disabled' },
   cursorVisibility: { state: 'hide', requirement: 'optional' },
   mouseReporting: { mode: 'drag', requirement: 'optional' }
 };
@@ -61,12 +78,13 @@ export function createSessionProtocolPlan(
   policy: SessionProtocolPolicy = defaultSessionProtocolPolicy
 ): readonly SessionProtocolOperation[] {
   return [
-    operation('alternateScreen', policy.alternateScreen, true),
-    operation('bracketedPaste', policy.bracketedPaste, true),
-    operation('rawInput', policy.rawInput, true),
-    operation('mouseReporting', policy.mouseReporting.requirement, policy.mouseReporting.mode),
-    operation('focusReporting', policy.focusReporting, true),
-    operation('cursorVisibility', policy.cursorVisibility.requirement, policy.cursorVisibility.state)
+    { kind: 'alternateScreen', requirement: policy.alternateScreen, target: true },
+    { kind: 'bracketedPaste', requirement: policy.bracketedPaste, target: true },
+    { kind: 'rawInput', requirement: policy.rawInput, target: true },
+    { kind: 'enhancedKeyboard', requirement: policy.keyboard.requirement, target: policy.keyboard.profile },
+    { kind: 'mouseReporting', requirement: policy.mouseReporting.requirement, target: policy.mouseReporting.mode },
+    { kind: 'focusReporting', requirement: policy.focusReporting, target: true },
+    { kind: 'cursorVisibility', requirement: policy.cursorVisibility.requirement, target: policy.cursorVisibility.state }
   ];
 }
 
@@ -80,12 +98,31 @@ export async function applySessionProtocolPolicy(
   const diagnostics: TerminalDiagnostic[] = [];
   let ok = true;
   for (const item of planned) {
-    if (item.requirement === 'disabled' || item.target === 'unchanged' || item.target === 'none') {
+    if (
+      item.requirement === 'disabled'
+      || item.target === 'unchanged'
+      || item.target === 'none'
+      || item.target === 'legacy'
+    ) {
       skipped.push(item);
       diagnostics.push(skippedDiagnostic(session, item));
       continue;
     }
-    const result = await applyOperation(session, item);
+    let result: Result<TerminalStateChange>;
+    try {
+      result = await applyOperation(session, item);
+    } catch (cause) {
+      const error = diagnostic('HOST_PROTOCOL_UNSUPPORTED', `Terminal protocol setup failed: ${item.kind}.`, {
+        severity: item.requirement === 'required' ? 'error' : 'warning',
+        target: session.id,
+        cause,
+        data: { operation: item.kind, requirement: item.requirement, target: String(item.target) }
+      });
+      diagnostics.push(error);
+      skipped.push(item);
+      if (item.requirement === 'required') ok = false;
+      continue;
+    }
     if (result.ok) {
       applied.push(result.value);
       diagnostics.push(...(result.diagnostics ?? []));
@@ -96,14 +133,6 @@ export async function applySessionProtocolPolicy(
     if (item.requirement === 'required') ok = false;
   }
   return { ok, policy, planned, applied, skipped, diagnostics };
-}
-
-function operation(
-  kind: SessionProtocolOperationKind,
-  requirement: ProtocolRequirement,
-  target: SessionProtocolOperation['target']
-): SessionProtocolOperation {
-  return { kind, requirement, target };
 }
 
 async function applyOperation(
@@ -119,10 +148,12 @@ async function applyOperation(
       return session.enableBracketedPaste();
     case 'focusReporting':
       return session.enableFocusReporting();
+    case 'enhancedKeyboard':
+      return session.enableEnhancedKeyboard();
     case 'cursorVisibility':
       return item.target === 'show' ? session.showCursor() : session.hideCursor();
     case 'mouseReporting':
-      return session.enableMouseReporting(item.target as MouseReportingMode);
+      return session.enableMouseReporting(item.target);
   }
 }
 

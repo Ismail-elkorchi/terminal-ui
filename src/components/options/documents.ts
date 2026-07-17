@@ -79,7 +79,7 @@ export interface CommandInputOptions<TMessage = never> extends InteractiveElemen
   readonly matchQuery?: string;
   readonly display?: CommandInputDisplay;
   readonly onAction?: (action: CommandInputAction) => TMessage;
-  readonly onSubmit?: TMessage;
+  readonly onSubmit?: (value: string) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 

@@ -20,13 +20,10 @@ import {
   select,
   textInput
 } from '../../dist/components/index.js';
-import {
-  row,
-  column
-} from '../../dist/layout/index.js';
+import { row } from '../../dist/layout/index.js';
 
-const enter = { kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false };
-const tab = { kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false };
+const enter = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
+const tab = { kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 
 test('form primitives render settings and setup-wizard shapes with scoped state', () => {
   const widget = form([
@@ -74,8 +71,8 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
       presentation: { value: '4', cursor: 1, validity: 'valid', parsedValue: 4, min: 1, max: 8 }
     }),
     row([
-      button({ id: 'submit', label: 'Continue', onPress: { kind: 'submit' } }),
-      button({ id: 'cancel', label: 'Cancel', onPress: { kind: 'cancel' } })
+      button({ id: 'submit', label: 'Continue', onPress: () => ({ kind: 'submit' }) }),
+      button({ id: 'cancel', label: 'Cancel', onPress: () => ({ kind: 'cancel' }) })
     ])
   ], {
     id: 'setup-form',
@@ -250,8 +247,8 @@ test('form controls emit submit and cancel messages while app state owns values'
         })
       }),
       row([
-        button({ id: 'submit', label: 'Submit', onPress: { kind: 'submit' } }),
-        button({ id: 'cancel', label: 'Cancel', onPress: { kind: 'cancel' } })
+        button({ id: 'submit', label: 'Submit', onPress: () => ({ kind: 'submit' }) }),
+        button({ id: 'cancel', label: 'Cancel', onPress: () => ({ kind: 'cancel' }) })
       ])
     ], {
       id: 'flow-form',

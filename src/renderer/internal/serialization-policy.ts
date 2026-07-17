@@ -1,18 +1,21 @@
-import { resolveTerminalCapabilities } from '../../host/capabilities.ts';
-import type { TerminalCapabilityProfile } from '../../host/index.ts';
+import {
+  defaultTerminalOutputCapabilities,
+  type TerminalOutputCapabilityProfile
+} from '../../protocol/index.ts';
 import type { Rect } from '../model/layout.ts';
 import type { CursorPosition } from '../model/cursor.ts';
 import type { TerminalColor, TerminalLink, TerminalStyle } from '../../visual/render.ts';
 import { sameTerminalColor } from '../../visual/render.ts';
 
 export interface TerminalSerializationPolicyInput {
-  readonly capabilities?: TerminalCapabilityProfile;
+  readonly capabilities?: TerminalOutputCapabilityProfile;
   readonly forceColor?: boolean;
 }
 
 export interface TerminalSerializationPolicy {
-  readonly capabilities: TerminalCapabilityProfile;
+  readonly capabilities: TerminalOutputCapabilityProfile;
   cursorMove(row: number, column: number, previous?: CursorPosition): string;
+  eraseLineToEnd(): string;
   clearLine(row: number, fromColumn?: number): string;
   clearRect(bounds: Rect): string;
   showCursor(visible: boolean): string;
@@ -20,6 +23,8 @@ export interface TerminalSerializationPolicy {
   styleTransition(previous: TerminalStyle | undefined, next: TerminalStyle | undefined): string;
   openHyperlink(link: TerminalLink): string;
   closeHyperlink(): string;
+  beginSynchronizedOutput(): string;
+  endSynchronizedOutput(): string;
 }
 
 export function createTerminalSerializationPolicy(
@@ -28,11 +33,16 @@ export function createTerminalSerializationPolicy(
   const capabilities = input.capabilities ?? defaultSerializationCapabilities;
   return {
     capabilities,
-    cursorMove(row, column) {
-      return csi(`${String(row)};${String(column)}H`);
+    cursorMove(row, column, previous) {
+      const absolute = absoluteCursorMove(row, column);
+      if (previous === undefined || !capabilities.isTty) return absolute;
+      return shorter(relativeCursorMove(previous, { row, column }), absolute);
     },
     clearLine(row, fromColumn = 1) {
-      return `${csi(`${String(row)};${String(fromColumn)}H`)}${csi('0K')}`;
+      return `${absoluteCursorMove(row, fromColumn)}${csi('0K')}`;
+    },
+    eraseLineToEnd() {
+      return csi('0K');
     },
     clearRect(bounds) {
       const parts: string[] = [];
@@ -58,20 +68,19 @@ export function createTerminalSerializationPolicy(
     },
     closeHyperlink() {
       return `${escapeSequence}]8;;${bellSequence}`;
+    },
+    beginSynchronizedOutput() {
+      return csi('?2026h');
+    },
+    endSynchronizedOutput() {
+      return csi('?2026l');
     }
   };
 }
 
 const escapeSequence = '\u001B';
 const bellSequence = '\u0007';
-const defaultSerializationCapabilities = resolveTerminalCapabilities({
-  host: {
-    runtime: 'memory',
-    inputIsTty: false,
-    outputIsTty: false,
-    rawInput: false
-  }
-});
+const defaultSerializationCapabilities = defaultTerminalOutputCapabilities;
 
 function csi(body: string): string {
   return `${escapeSequence}[${body}`;
@@ -81,9 +90,45 @@ function sgr(codes: readonly string[]): string {
   return codes.length === 0 ? '' : csi(`${codes.join(';')}m`);
 }
 
+function absoluteCursorMove(row: number, column: number): string {
+  if (row === 1 && column === 1) return csi('H');
+  if (column === 1) return csi(`${String(row)}H`);
+  return csi(`${String(row)};${String(column)}H`);
+}
+
+function relativeCursorMove(previous: CursorPosition, next: CursorPosition): string {
+  if (previous.row === next.row && previous.column === next.column) return '';
+  const parts: string[] = [];
+  const rowDelta = next.row - previous.row;
+  if (rowDelta < 0) parts.push(relativeSequence(-rowDelta, 'A'));
+  if (rowDelta > 0) parts.push(relativeSequence(rowDelta, 'B'));
+  if (next.column === 1) {
+    if (previous.column !== 1) parts.push(carriageReturn);
+    return parts.join('');
+  }
+  const columnDelta = next.column - previous.column;
+  if (columnDelta < 0) parts.push(relativeSequence(-columnDelta, 'D'));
+  if (columnDelta > 0) parts.push(relativeSequence(columnDelta, 'C'));
+  return parts.join('');
+}
+
+function relativeSequence(distance: number, suffix: 'A' | 'B' | 'C' | 'D'): string {
+  return distance === 1 ? csi(suffix) : csi(`${String(distance)}${suffix}`);
+}
+
+function shorter(left: string, right: string): string {
+  return utf8Bytes(left) < utf8Bytes(right) ? left : right;
+}
+
+function utf8Bytes(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}
+
+const carriageReturn = '\r';
+
 function styleOpen(
   style: TerminalStyle | undefined,
-  capabilities: TerminalCapabilityProfile,
+  capabilities: TerminalOutputCapabilityProfile,
   forceColor: boolean | undefined
 ): string {
   if (style === undefined) return '';
@@ -93,7 +138,7 @@ function styleOpen(
 function styleTransitionCodes(
   previous: TerminalStyle,
   next: TerminalStyle | undefined,
-  capabilities: TerminalCapabilityProfile,
+  capabilities: TerminalOutputCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
   if (forceColor !== true && capabilities.color.depth === 0) return [];
@@ -130,7 +175,7 @@ function uniqueCodes(codes: readonly string[]): readonly string[] {
 
 function styleCodes(
   style: TerminalStyle,
-  capabilities: TerminalCapabilityProfile,
+  capabilities: TerminalOutputCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
   if (forceColor !== true && capabilities.color.depth === 0) return [];
@@ -152,7 +197,7 @@ function colorTransitionCodes(
   target: 'fg' | 'bg',
   previous: TerminalColor | undefined,
   next: TerminalColor | undefined,
-  capabilities: TerminalCapabilityProfile,
+  capabilities: TerminalOutputCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
   if (sameTerminalColor(previous, next)) return [];
@@ -163,7 +208,7 @@ function colorTransitionCodes(
 function colorCodes(
   target: 'fg' | 'bg',
   color: TerminalColor | undefined,
-  capabilities: TerminalCapabilityProfile,
+  capabilities: TerminalOutputCapabilityProfile,
   forceColor: boolean | undefined
 ): readonly string[] {
   if (color === undefined || color.kind === 'theme') return [];

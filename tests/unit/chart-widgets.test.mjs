@@ -284,7 +284,7 @@ test('chart intrinsic measurement remains bounded inside content layout', () => 
   const layout = layoutElement(column([
     row([
       surface(column([
-        progressBar({ id: 'progress', value: 48, max: 100 }),
+        progressBar({ id: 'progress', mode: { kind: 'determinate', value: 48, max: 100 } }),
         chart({ id: 'chart', series: [{ id: 'live', points: [2, 4, 3, 5, 6, 8] }] })
       ]), { id: 'motion', title: 'Motion', border: { kind: 'single' } })
     ])

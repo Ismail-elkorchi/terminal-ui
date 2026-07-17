@@ -20,7 +20,7 @@ export class BasicTerminalSession implements TerminalSession {
   readonly startedAt: number;
   readonly initialState: TerminalStateSnapshot;
   #state: TerminalStateSnapshot;
-  #changes: TerminalStateChange[] = [];
+  #uncertain = new Set<keyof TerminalStateSnapshot>();
   #protocol: ReturnType<typeof createProtocolWriter>;
 
   constructor(
@@ -35,6 +35,7 @@ export class BasicTerminalSession implements TerminalSession {
       bracketedPaste: false,
       mouseReporting: 'none',
       focusReporting: false,
+      enhancedKeyboard: false,
       cursorVisible: true
     };
     this.#state = this.initialState;
@@ -47,50 +48,49 @@ export class BasicTerminalSession implements TerminalSession {
   async enableRawInput(): Promise<Result<TerminalStateChange>> {
     const support = this.#requireCapability('rawInput');
     if (support !== undefined) return support;
-    await this.host.stdin.setRawMode?.(true);
-    return this.#set('rawInput', true);
+    return this.#mutate('rawInput', true, () => this.host.stdin.setRawMode?.(true));
   }
 
   async enableAlternateScreen(): Promise<Result<TerminalStateChange>> {
     const support = this.#requireCapability('alternateScreen');
     if (support !== undefined) return support;
-    await this.#protocol.enableAlternateScreen();
-    return this.#set('alternateScreen', true);
+    return this.#mutate('alternateScreen', true, () => this.#protocol.enableAlternateScreen());
   }
 
   async enableBracketedPaste(): Promise<Result<TerminalStateChange>> {
     const support = this.#requireCapability('bracketedPaste');
     if (support !== undefined) return support;
-    await this.#protocol.enableBracketedPaste();
-    return this.#set('bracketedPaste', true);
+    return this.#mutate('bracketedPaste', true, () => this.#protocol.enableBracketedPaste());
   }
 
   async enableMouseReporting(mode: MouseReportingMode = 'click'): Promise<Result<TerminalStateChange>> {
     const support = this.#requireCapability('mouseReporting');
     if (support !== undefined) return support;
-    await this.#protocol.enableMouseReporting(mode);
-    return this.#set('mouseReporting', mode);
+    return this.#mutate('mouseReporting', mode, () => this.#protocol.enableMouseReporting(mode));
   }
 
   async enableFocusReporting(): Promise<Result<TerminalStateChange>> {
     const support = this.#requireCapability('focusReporting');
     if (support !== undefined) return support;
-    await this.#protocol.enableFocusReporting();
-    return this.#set('focusReporting', true);
+    return this.#mutate('focusReporting', true, () => this.#protocol.enableFocusReporting());
+  }
+
+  async enableEnhancedKeyboard(): Promise<Result<TerminalStateChange>> {
+    const support = this.#requireCapability('enhancedKeyboard');
+    if (support !== undefined) return support;
+    return this.#mutate('enhancedKeyboard', true, () => this.#protocol.enableEnhancedKeyboard());
   }
 
   async hideCursor(): Promise<Result<TerminalStateChange>> {
     const support = this.#requireCapability('cursorVisibility');
     if (support !== undefined) return support;
-    await this.#protocol.hideCursor();
-    return this.#set('cursorVisible', false);
+    return this.#mutate('cursorVisible', false, () => this.#protocol.hideCursor());
   }
 
   async showCursor(): Promise<Result<TerminalStateChange>> {
     const support = this.#requireCapability('cursorVisibility');
     if (support !== undefined) return support;
-    await this.#protocol.showCursor();
-    return this.#set('cursorVisible', true);
+    return this.#mutate('cursorVisible', true, () => this.#protocol.showCursor());
   }
 
   async restore(reason: TerminalRestoreReason = 'success'): Promise<TerminalRestoreResult> {
@@ -98,10 +98,11 @@ export class BasicTerminalSession implements TerminalSession {
     const diagnostics: TerminalDiagnostic[] = [];
     const plan = createTerminalRestorePlan(this.initialState);
     for (const operation of plan.operations) {
-      if (this.#state[operation.kind] === operation.enabled) continue;
+      if (this.#state[operation.kind] === operation.enabled && !this.#uncertain.has(operation.kind)) continue;
       try {
         await this.#applyRestoreOperation(operation);
         this.#state = { ...this.#state, [operation.kind]: operation.enabled };
+        this.#uncertain.delete(operation.kind);
         restored.push(operation);
       } catch (cause) {
         diagnostics.push(diagnostic('HOST_RESTORE_FAILED', `Failed to restore terminal state: ${operation.kind}.`, {
@@ -114,23 +115,24 @@ export class BasicTerminalSession implements TerminalSession {
     }
     if (diagnostics.length === 0) {
       this.#state = this.initialState;
-      this.#changes = [];
+      this.#uncertain.clear();
       unregisterTerminalSession(this);
     }
     this.host.observer?.recordRestore?.(this.#state);
     return { ok: diagnostics.length === 0, reason, restored, diagnostics };
   }
 
-  #set<K extends keyof TerminalStateSnapshot>(
+  async #mutate<K extends keyof TerminalStateSnapshot>(
     kind: K,
-    enabled: TerminalStateSnapshot[K]
-  ): Result<TerminalStateChange> {
-    if (this.#state[kind] === enabled) {
-      return ok({ kind, enabled } as TerminalStateChange);
-    }
-    this.#state = { ...this.#state, [kind]: enabled };
+    enabled: TerminalStateSnapshot[K],
+    apply: () => void | Promise<void>
+  ): Promise<Result<TerminalStateChange>> {
     const change = { kind, enabled } as TerminalStateChange;
-    this.#changes.push(change);
+    if (this.#state[kind] === enabled && !this.#uncertain.has(kind)) return ok(change);
+    this.#uncertain.add(kind);
+    await apply();
+    this.#state = { ...this.#state, [kind]: enabled };
+    this.#uncertain.delete(kind);
     return ok(change);
   }
 
@@ -141,6 +143,7 @@ export class BasicTerminalSession implements TerminalSession {
       | 'bracketedPaste'
       | 'mouseReporting'
       | 'focusReporting'
+      | 'enhancedKeyboard'
       | 'cursorVisibility'
   ): Result<never> | undefined {
     const capability = this.capabilities[kind];
@@ -169,6 +172,10 @@ export class BasicTerminalSession implements TerminalSession {
       case 'focusReporting':
         if (operation.enabled) await this.#protocol.enableFocusReporting();
         else await this.#protocol.disableFocusReporting();
+        break;
+      case 'enhancedKeyboard':
+        if (operation.enabled) await this.#protocol.enableEnhancedKeyboard();
+        else await this.#protocol.disableEnhancedKeyboard();
         break;
       case 'mouseReporting':
         if (operation.enabled === 'none') await this.#protocol.disableMouseReporting();

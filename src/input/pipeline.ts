@@ -5,7 +5,7 @@ import type { TerminalCapabilityProfile } from '../host/index.ts';
 import type { TerminalInputChunk } from '../host/index.ts';
 import type { InputDecodeOptions, InputEvent } from './types.ts';
 
-export type KeyboardInputProfileName = 'legacy';
+export type KeyboardInputProfileName = 'legacy' | 'enhanced';
 export type KeyboardInputProfileRequest = 'auto' | 'legacy' | 'enhanced';
 
 export interface InputPipelineOptions {
@@ -55,12 +55,13 @@ export function createInputPipeline(options: InputPipelineOptions = {}): InputPi
 
 export function resolveInputPipelineProfile(options: InputPipelineOptions = {}): InputPipelineProfile {
   const requested = options.keyboard ?? 'auto';
-  const diagnostics = requested === 'enhanced' || enhancedKeyboardDetected(options.capabilities)
+  const enhanced = requested !== 'legacy' && enhancedKeyboardDetected(options.capabilities);
+  const diagnostics = requested === 'enhanced' && !enhanced
     ? [unsupportedEnhancedKeyboardDiagnostic(requested, options.capabilities)]
     : [];
   return {
     keyboard: {
-      active: 'legacy',
+      active: enhanced ? 'enhanced' : 'legacy',
       requested
     },
     bracketedPaste: options.bracketedPaste ?? bracketedPasteSupported(options.capabilities),
@@ -69,7 +70,7 @@ export function resolveInputPipelineProfile(options: InputPipelineOptions = {}):
 }
 
 function decodeOptions(profile: InputPipelineProfile): InputDecodeOptions {
-  return { bracketedPaste: profile.bracketedPaste };
+  return { bracketedPaste: profile.bracketedPaste, keyboard: profile.keyboard.active };
 }
 
 function bracketedPasteSupported(capabilities: TerminalCapabilityProfile | undefined): boolean {

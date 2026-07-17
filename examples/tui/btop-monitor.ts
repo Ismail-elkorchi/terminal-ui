@@ -7,7 +7,9 @@ import {
   intervalSource,
   runTui
 } from '@ismail-elkorchi/terminal-ui/tui';
+import type { TuiContext, TuiRuntime, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
 import { renderFramePlain } from '@ismail-elkorchi/terminal-ui/renderer';
+import type { FrameHitTarget, TerminalStyle } from '@ismail-elkorchi/terminal-ui/renderer';
 import {
   grid,
   row,
@@ -21,24 +23,55 @@ import {
   sparkline,
   statusBar,
   table,
+  tableColumn,
   text
 } from '@ismail-elkorchi/terminal-ui/components';
+import type { InlineTextSegment, TableColumn, TableColumnBuilder, ValueScale } from '@ismail-elkorchi/terminal-ui/components';
 import {
   createScrollState,
   sortTableRows,
   tableScrollablePresentation,
   tableReducer
 } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { ScrollableTableState, TableAction } from '@ismail-elkorchi/terminal-ui/behavior';
+import type { KeyEvent, MousePointerEvent } from '@ismail-elkorchi/terminal-ui/input';
+import type { ThemeColorToken } from '@ismail-elkorchi/terminal-ui/theme';
 
-/** @type {import('@ismail-elkorchi/terminal-ui/components').ValueScale} */
-const monitorScale = Object.freeze([
+interface ProcessRow {
+  readonly pid: number;
+  readonly program: string;
+  readonly command: string;
+  readonly threads: number;
+  readonly user: string;
+  readonly memory: string;
+  readonly cpu: number;
+}
+
+interface MonitorState {
+  readonly tick: number;
+  readonly processTable: ScrollableTableState;
+}
+
+type MonitorMessage =
+  | { readonly kind: 'tick'; readonly tick: number }
+  | { readonly kind: 'cycleSort' }
+  | { readonly kind: 'processTable'; readonly action: TableAction }
+  | { readonly kind: 'exit' };
+
+interface CoreSample {
+  readonly core: string;
+  readonly load: number;
+  readonly temp: number;
+}
+
+const monitorScale: ValueScale = Object.freeze([
   { at: 0, token: 'scale.low', label: 'low' },
   { at: 0.45, token: 'scale.medium', label: 'medium' },
   { at: 0.7, token: 'scale.high', label: 'high' },
   { at: 0.88, token: 'scale.critical', label: 'critical' }
 ]);
 
-const baseProcessRows = Object.freeze([
+const baseProcessRows: readonly ProcessRow[] = Object.freeze([
   { pid: 18, program: 'migration/0', command: 'kernel worker', threads: 1, user: 'root', memory: '0B', cpu: 0.0 },
   { pid: 19, program: 'kprobe-optimizer', command: 'kernel worker', threads: 1, user: 'root', memory: '0B', cpu: 0.0 },
   { pid: 20, program: 'idle_inject/0', command: 'idle governor', threads: 1, user: 'root', memory: '0B', cpu: 0.0 },
@@ -57,7 +90,7 @@ const baseProcessRows = Object.freeze([
   { pid: 33, program: 'wireplumber', command: 'session policy', threads: 4, user: 'ismail', memory: '31M', cpu: 0.2 }
 ]);
 
-const processRows = Object.freeze([
+const processRows: readonly ProcessRow[] = Object.freeze([
   ...baseProcessRows,
   ...Array.from({ length: 72 }, (_, index) => {
     const names = ['code', 'node', 'gnome-shell', 'pipewire', 'rust-analyzer', 'typescript', 'browser', 'worker'];
@@ -85,12 +118,17 @@ const netUp = Object.freeze([0, -1, 0, -4, -2, -8, -14, -6, -2, 0, -10, -22, -8,
 
 const commandFocusPath = Object.freeze(['btop-root']);
 
-export const btopMonitorApp = defineTui({
+export const btopMonitorApp = defineTui<MonitorState, MonitorMessage>({
   id: 'btop-monitor',
   init: () => initialState(),
   subscriptions: () => [intervalSource('btop-tick', 1000, (tick) => ({ kind: 'tick', tick }))],
   keyBindings: [
-    { id: 'exit', triggers: [{ kind: 'text', text: 'q' }, { kind: 'key', key: 'ctrlC' }], label: 'Quit', message: { kind: 'exit' } },
+    {
+      id: 'exit',
+      triggers: [{ kind: 'text', text: 'q' }, { kind: 'key', key: 'c', modifiers: { ctrl: true } }],
+      label: 'Quit',
+      message: { kind: 'exit' }
+    },
     { id: 'next-sort', triggers: [{ kind: 'text', text: 's' }], label: 'Sort', message: { kind: 'cycleSort' } },
     { id: 'next-process', triggers: [{ kind: 'key', key: 'arrowDown' }, { kind: 'text', text: 'j' }], label: 'Next process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: 1 } } },
     { id: 'previous-process', triggers: [{ kind: 'key', key: 'arrowUp' }, { kind: 'text', text: 'k' }], label: 'Previous process', message: { kind: 'processTable', action: { kind: 'moveRow', delta: -1 } } }
@@ -100,7 +138,7 @@ export const btopMonitorApp = defineTui({
   nonTty: { mode: 'last_frame' }
 });
 
-function initialState() {
+function initialState(): MonitorState {
   const selectedRowId = String(processRows[9]?.pid ?? processRows[0]?.pid ?? '');
   return {
     tick: 0,
@@ -115,7 +153,10 @@ function initialState() {
   };
 }
 
-function updateMonitor(state, message) {
+function updateMonitor(
+  state: MonitorState,
+  message: MonitorMessage
+): TuiUpdateResult<MonitorState, MonitorMessage> {
   switch (message.kind) {
     case 'tick':
       return {
@@ -152,15 +193,15 @@ function updateMonitor(state, message) {
     case 'exit':
       return { state, exit: { reason: 'user requested exit' } };
   }
-  throw new Error(`Unsupported monitor message: ${String(message?.kind)}`);
+  throw new Error('Unsupported monitor message');
 }
 
-function monitorView(state, context) {
+function monitorView(state: MonitorState, context: TuiContext) {
   const wide = context.viewport.columns >= 120;
   return wide ? wideMonitor(state) : compactMonitor(state);
 }
 
-function wideMonitor(state) {
+function wideMonitor(state: MonitorState) {
   return grid({
     id: 'btop-root',
     areas: `
@@ -194,7 +235,7 @@ function wideMonitor(state) {
   });
 }
 
-function compactMonitor(state) {
+function compactMonitor(state: MonitorState) {
   return grid({
     id: 'btop-root-compact',
     areas: `
@@ -215,7 +256,7 @@ function compactMonitor(state) {
   });
 }
 
-function topBar(state) {
+function topBar(state: MonitorState) {
   return surface(statusBar({
     id: 'btop-uptime',
     leading: [{ id: 'uptime', kind: 'text', text: `Up ${formatUptime(state.tick)}` }],
@@ -233,7 +274,7 @@ function topBar(state) {
   });
 }
 
-function cpuPanel(state) {
+function cpuPanel(state: MonitorState) {
   const cpuValues = rotate(cpuBase, state.tick).map((value, index) => clamp(value + ((index + state.tick) % 7), 0, 92));
   return surface(grid({
     id: 'cpu-grid',
@@ -278,14 +319,14 @@ function cpuPanel(state) {
   });
 }
 
-function corePanel(state) {
+function corePanel(state: MonitorState) {
   const cores = Array.from({ length: 8 }, (_, index) => {
     const load = clamp(31 + ((index * 7 + state.tick * 3) % 14), 0, 99);
     const temp = 69 + ((index + state.tick) % 8);
     return { core: `C${String(index)}`, load, temp };
   });
   return column([
-    progressBar({ id: 'cpu-total', label: 'CPU', value: 38 + (state.tick % 4), max: 100, display: 'bar+percent', barWidth: 28, valueScale: monitorScale }),
+    progressBar({ id: 'cpu-total', label: 'CPU', mode: { kind: 'determinate', value: 38 + (state.tick % 4), max: 100 }, display: 'bar+percent', barWidth: 28, valueScale: monitorScale }),
     grid({
       id: 'core-grid',
       areas: `
@@ -303,7 +344,7 @@ function corePanel(state) {
   ], { id: 'core-panel', gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }] });
 }
 
-function coreList(cores, id) {
+function coreList(cores: readonly CoreSample[], id: string) {
   return column(cores.map((core) => row([
     text(core.core, { id: `${id}-${core.core}-label`, textRole: 'metadata' }),
     sparkline({ id: `${id}-${core.core}-spark`, values: coreSpark(core.load), min: 0, max: 100, valueScale: monitorScale }),
@@ -330,7 +371,13 @@ function memoryPanel() {
   });
 }
 
-function memoryRow(label, value, unit, percent, status) {
+function memoryRow(
+  label: string,
+  value: number,
+  unit: string,
+  percent: number,
+  status: 'running' | 'warning' | 'success'
+) {
   return column([
     row([
       text(`${label}:`, { id: `${label}-label`, textRole: 'metadata' }),
@@ -338,8 +385,7 @@ function memoryRow(label, value, unit, percent, status) {
     ], { id: `${label}-header`, sizes: [{ kind: 'fill' }, { kind: 'content' }] }),
     progressBar({
       id: `${label}-bar`,
-      value: percent,
-      max: 100,
+      mode: { kind: 'determinate', value: percent, max: 100 },
       display: 'bar+percent',
       labelPosition: 'none',
       barWidth: 24,
@@ -363,7 +409,7 @@ function disksPanel() {
   });
 }
 
-function storageRow(name, used, usedText, freeText) {
+function storageRow(name: string, used: number, usedText: string, freeText: string) {
   return column([
     row([
       text(name, { id: `${name}-name`, textRole: 'metadata' }),
@@ -372,8 +418,7 @@ function storageRow(name, used, usedText, freeText) {
     progressBar({
       id: `${name}-used-row`,
       label: 'used',
-      value: used,
-      max: 100,
+      mode: { kind: 'determinate', value: used, max: 100 },
       display: 'bar+percent',
       barWidth: 20,
       valueScale: monitorScale,
@@ -382,8 +427,7 @@ function storageRow(name, used, usedText, freeText) {
     progressBar({
       id: `${name}-free-row`,
       label: 'free',
-      value: 100 - used,
-      max: 100,
+      mode: { kind: 'determinate', value: 100 - used, max: 100 },
       display: 'bar+percent',
       barWidth: 20,
       valueScale: monitorScale,
@@ -393,7 +437,7 @@ function storageRow(name, used, usedText, freeText) {
   ], { id: `${name}-storage`, gap: 0 });
 }
 
-function networkPanel(state) {
+function networkPanel(state: MonitorState) {
   const download = rotate(netDown, state.tick);
   const upload = rotate(netUp, state.tick);
   return surface(grid({
@@ -437,7 +481,7 @@ function networkPanel(state) {
   });
 }
 
-function structuredLine(label, first, second) {
+function structuredLine(label: string, first: string, second: string) {
   return column([
     text(label, { id: `${label}-label`, textRole: 'heading' }),
     text(first, { id: `${label}-first`, textRole: 'metric' }),
@@ -445,7 +489,7 @@ function structuredLine(label, first, second) {
   ], { id: `${label}-stats`, gap: 0 });
 }
 
-function processPanel(state) {
+function processPanel(state: MonitorState) {
   const rows = sortedProcesses(state);
   const sort = state.processTable.sort;
   return surface(column([
@@ -487,60 +531,59 @@ function footerHelp() {
   });
 }
 
-function sortedProcesses(state) {
+function sortedProcesses(state: MonitorState): readonly ProcessRow[] {
   return sortTableRows(processRows, state.processTable.sort, processValueForColumn);
 }
 
-/** @typedef {(typeof processRows)[number]} ProcessRow */
+const processColumn: TableColumnBuilder<ProcessRow> = tableColumn<ProcessRow>();
 
-/** @type {readonly import('@ismail-elkorchi/terminal-ui/components').TableColumn<ProcessRow>[]} */
-const processColumns = Object.freeze([
-  { id: 'pid', value: (row) => row.pid, header: 'Pid', width: { kind: 'fixed', cells: 5 }, semantic: 'metadata', render: ({ row }) => String(row.pid) },
-  { id: 'program', value: (row) => row.program, header: 'Program', width: { kind: 'fixed', cells: 18 }, render: ({ row }) => row.program },
-  { id: 'command', value: (row) => row.command, header: 'Command', width: { kind: 'fill' }, semantic: 'metadata', render: ({ row }) => row.command },
-  { id: 'threads', value: (row) => row.threads, header: 'Threads', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ row }) => String(row.threads) },
-  { id: 'user', value: (row) => row.user, header: 'User', width: { kind: 'fixed', cells: 8 }, semantic: 'metadata', render: ({ row }) => row.user },
-  { id: 'memory', value: (row) => row.memory, header: 'MemB', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ row }) => row.memory },
-  { id: 'cpu', value: (row) => row.cpu, header: 'Cpu%', width: { kind: 'fixed', cells: 6 }, align: 'end', semantic: 'metric', render: ({ row }) => row.cpu.toFixed(1) }
+const processColumns: readonly TableColumn<ProcessRow>[] = Object.freeze([
+  processColumn({ id: 'pid', value: (row) => row.pid, header: 'Pid', width: { kind: 'fixed', cells: 5 }, semantic: 'metadata', render: ({ value }) => String(value) }),
+  processColumn({ id: 'program', value: (row) => row.program, header: 'Program', width: { kind: 'fixed', cells: 18 }, render: ({ value }) => value }),
+  processColumn({ id: 'command', value: (row) => row.command, header: 'Command', width: { kind: 'fill' }, semantic: 'metadata', render: ({ value }) => value }),
+  processColumn({ id: 'threads', value: (row) => row.threads, header: 'Threads', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ value }) => String(value) }),
+  processColumn({ id: 'user', value: (row) => row.user, header: 'User', width: { kind: 'fixed', cells: 8 }, semantic: 'metadata', render: ({ value }) => value }),
+  processColumn({ id: 'memory', value: (row) => row.memory, header: 'MemB', width: { kind: 'fixed', cells: 8 }, align: 'end', semantic: 'metric', render: ({ value }) => value }),
+  processColumn({ id: 'cpu', value: (row) => row.cpu, header: 'Cpu%', width: { kind: 'fixed', cells: 6 }, align: 'end', semantic: 'metric', render: ({ value }) => value.toFixed(1) })
 ]);
 
-function processRowId(row) {
+function processRowId(row: ProcessRow): string {
   return String(row.pid);
 }
 
-function processValueForColumn(row, column) {
+function processValueForColumn(row: ProcessRow, column: string): unknown {
   if (column === 'memory') return Number.parseFloat(row.memory);
   return processColumns.find((candidate) => candidate.id === column)?.value(row, processRows.indexOf(row));
 }
 
-function rotate(values, offset) {
+function rotate(values: readonly number[], offset: number): readonly number[] {
   return values.map((_, index) => values[(index + offset) % values.length] ?? 0);
 }
 
-function coreSpark(load) {
+function coreSpark(load: number): readonly number[] {
   return [load - 8, load - 5, load - 10, load - 1, load - 6, load + 2, load - 3].map((value) => clamp(value, 0, 100));
 }
 
-function formatClock(tick) {
+function formatClock(tick: number): string {
   const seconds = 18 + tick;
   return `22:16:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-function formatUptime(tick) {
+function formatUptime(tick: number): string {
   const minutes = 18 + Math.floor(tick / 60);
   const seconds = tick % 60;
   return `01:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
-function clamp(value, min, max) {
+function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function meterStatus(status) {
-  return status === 'warning' ? 'warning' : 'running';
+function meterStatus(status: 'running' | 'warning' | 'success'): 'running' | 'warning' | 'success' {
+  return status;
 }
 
-function panelTitle(title, detail, metric) {
+function panelTitle(title: string, detail: string, metric: string): readonly InlineTextSegment[] {
   return [
     inlineText(title, 'surface.title', { bold: true }),
     inlineText(` ${detail}`, 'text.muted', { dim: true }),
@@ -548,13 +591,11 @@ function panelTitle(title, detail, metric) {
   ];
 }
 
-/**
- * @param {string} content
- * @param {import('@ismail-elkorchi/terminal-ui/theme').ThemeColorToken} token
- * @param {import('@ismail-elkorchi/terminal-ui/renderer').TerminalStyle} [style]
- * @returns {import('@ismail-elkorchi/terminal-ui/components').InlineTextSegment}
- */
-function inlineText(content, token, style = {}) {
+function inlineText(
+  content: string,
+  token: ThemeColorToken,
+  style: TerminalStyle = {}
+): InlineTextSegment {
   return { kind: 'text', text: content, style: { ...style, fg: { kind: 'theme', token } } };
 }
 
@@ -571,7 +612,7 @@ export async function runScriptedBtopMonitor() {
     const thirdWheel = await runtime.handleInputChunk({ data: wheelPacket });
     host.clock.advance(8);
     await thirdWheel.pending;
-    const offsetAfterWheel = runtime.getState().processTable.scroll.offsetRow;
+    const offsetAfterWheel = runtime.state().processTable.scroll.offsetRow;
 
     const thumbTarget = targetById(runtime, 'process-table:scrollbar:vertical:thumb');
     const trackTarget = targetById(runtime, 'process-table:scrollbar:vertical:track');
@@ -584,13 +625,13 @@ export async function runScriptedBtopMonitor() {
       'left'
     ));
     await runtime.handleInput(pointerEvent('release', thumbTarget.bounds.column, thumbPressRow + 3, 'none'));
-    const offsetAfterDrag = runtime.getState().processTable.scroll.offsetRow;
+    const offsetAfterDrag = runtime.state().processTable.scroll.offsetRow;
 
     const selectedTarget = targetByPrefix(runtime, 'process-table:row:');
     await click(runtime, selectedTarget);
-    const selectedBeforeKeyboard = runtime.getState().processTable.selectedRowId;
+    const selectedBeforeKeyboard = runtime.state().processTable.selectedRowId;
     await runtime.handleInput(keyEvent('arrowDown'));
-    const selectedAfterKeyboard = runtime.getState().processTable.selectedRowId;
+    const selectedAfterKeyboard = runtime.state().processTable.selectedRowId;
     await runtime.handleInput({ kind: 'text', text: 's', paste: false });
     const frame = runtime.frame();
     if (frame === undefined) throw new Error('The scripted monitor did not render a frame.');
@@ -603,8 +644,8 @@ export async function runScriptedBtopMonitor() {
       hasMemory: output.includes('Total:'),
       hasNetwork: output.includes('wlp3s0') || output.includes('Kibps'),
       hasProcesses: output.includes('Program'),
-      selectedProcessId: runtime.getState().processTable.selectedRowId,
-      sort: runtime.getState().processTable.sort,
+      selectedProcessId: runtime.state().processTable.selectedRowId,
+      sort: runtime.state().processTable.sort,
       wheelBatchShared: firstWheel.pending === secondWheel.pending && secondWheel.pending === thirdWheel.pending,
       offsetAfterWheel,
       offsetAfterDrag,
@@ -616,31 +657,32 @@ export async function runScriptedBtopMonitor() {
   }
 }
 
-function targetById(runtime, id) {
+function targetById(runtime: TuiRuntime<MonitorState, MonitorMessage>, id: string): FrameHitTarget {
   const target = runtime.frame()?.hitTargets?.find((item) => item.id === id);
   if (target === undefined) throw new Error(`Missing hit target ${id}`);
   return target;
 }
 
-function targetByPrefix(runtime, prefix) {
+function targetByPrefix(runtime: TuiRuntime<MonitorState, MonitorMessage>, prefix: string): FrameHitTarget {
   const target = runtime.frame()?.hitTargets?.find((item) => item.id.startsWith(prefix));
   if (target === undefined) throw new Error(`Missing hit target with prefix ${prefix}`);
   return target;
 }
 
-async function click(runtime, target) {
+async function click(
+  runtime: TuiRuntime<MonitorState, MonitorMessage>,
+  target: FrameHitTarget
+): Promise<void> {
   await runtime.handleInput(pointerEvent('press', target.bounds.column, target.bounds.row, 'left'));
   await runtime.handleInput(pointerEvent('release', target.bounds.column, target.bounds.row, 'none'));
 }
 
-/**
- * @param {'press' | 'drag' | 'release'} action
- * @param {number} column
- * @param {number} row
- * @param {'left' | 'none'} button
- * @returns {import('@ismail-elkorchi/terminal-ui/input').MousePointerEvent}
- */
-function pointerEvent(action, column, row, button) {
+function pointerEvent(
+  action: 'press' | 'drag' | 'release',
+  column: number,
+  row: number,
+  button: 'left' | 'none'
+): MousePointerEvent {
   return {
     kind: 'mouse',
     sequence: '',
@@ -654,24 +696,19 @@ function pointerEvent(action, column, row, button) {
   };
 }
 
-/**
- * @param {import('@ismail-elkorchi/terminal-ui/input').KeyName} key
- * @returns {import('@ismail-elkorchi/terminal-ui/input').KeyEvent}
- */
-function keyEvent(key) {
+function keyEvent(key: KeyEvent['key']): KeyEvent {
   return {
     kind: 'key',
     key,
     sequence: '',
-    shift: false,
-    alt: false,
-    ctrl: false,
-    meta: false
+    modifiers: { shift: false, alt: false, ctrl: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
   };
 }
 
 if (process.argv[1] === new URL(import.meta.url).pathname) {
-  if (process.stdin.isTTY === true && process.stdout.isTTY === true && !process.argv.includes('--scripted')) {
+  if (process.stdin.isTTY && process.stdout.isTTY && !process.argv.includes('--scripted')) {
     const exit = await runTui(btopMonitorApp, createTerminalHost({ runtime: 'node' }), {
       initialFocusPath: commandFocusPath
     });

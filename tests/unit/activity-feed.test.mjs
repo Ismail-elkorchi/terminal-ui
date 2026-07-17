@@ -3,11 +3,10 @@ import test from 'node:test';
 
 import {
   resolveTerminalCapabilities } from '../../dist/host/index.js';
-import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { createVisualSnapshot, renderElementRegions } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import {
   renderElementFrame,
-  renderElementRegions,
   renderFramePlain
 } from '../../dist/renderer/index.js';
 import {

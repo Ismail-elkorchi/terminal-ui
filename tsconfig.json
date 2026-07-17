@@ -19,6 +19,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitReturns": true,
+    "noEmitOnError": true,
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "useUnknownInCatchVariables": true,

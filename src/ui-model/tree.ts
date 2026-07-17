@@ -1,5 +1,6 @@
 import type { ScrollEvent } from '../interaction/scroll.ts';
 import type { ItemBase } from './contracts.ts';
+import type { CollectionProjection, CollectionRecord } from './collection.ts';
 
 interface TreeNodeBase<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
@@ -28,6 +29,25 @@ export type TreeNode<
       readonly expanded: boolean;
       readonly loading: TreeLazyState;
     };
+
+export interface TreeVisibleRow<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> {
+  readonly node: TreeNode<TMetadata>;
+  readonly depth: number;
+  readonly path: readonly string[];
+  readonly lazyPlaceholder?: boolean;
+}
+
+export interface TreeCollectionRecord<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> extends CollectionRecord {
+  readonly row: TreeVisibleRow<TMetadata>;
+}
+
+export type TreeCollection<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> = CollectionProjection<TreeCollectionRecord<TMetadata>>;
 
 export function treeNodeChildren<TMetadata extends Readonly<Record<string, unknown>>>(
   node: TreeNode<TMetadata>
@@ -63,6 +83,16 @@ export type TreeAction<
   | { readonly kind: 'cancelRename' }
   | { readonly kind: 'scroll'; readonly event: ScrollEvent };
 
-export type TreeControlAction<
+export type TreeControlAction =
+  | TreeDisclosureAction
+  | { readonly kind: 'select'; readonly id?: string }
+  | { readonly kind: 'move'; readonly delta: number }
+  | { readonly kind: 'activate'; readonly id: string };
+
+export type TreeInteractionAction =
+  | TreeControlAction
+  | { readonly kind: 'scroll'; readonly event: ScrollEvent };
+
+export type PassiveTreeAction<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
 > = Exclude<TreeAction<TMetadata>, { readonly kind: 'scroll' }>;

@@ -3,12 +3,14 @@ import test from 'node:test';
 
 import {
   resolveTerminalCapabilities } from '../../dist/host/index.js';
-import { createVisualSnapshot } from '../../dist/testing/index.js';
+import {
+  createVisualSnapshot,
+  placeNotificationStack,
+  renderElementRegions
+} from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import {
-  placeNotificationStack,
   renderFramePlain,
-  renderElementRegions,
   renderElementFrame
 } from '../../dist/renderer/index.js';
 import { grid } from '../../dist/layout/index.js';

@@ -4,7 +4,6 @@ import test from 'node:test';
 import {
   followTailScrollState,
   nextScrollbackMatch,
-  scrollbackPresentation,
   scrollbackScrollablePresentation,
   scrollbackReducer,
   scrollbackSearchMarks,

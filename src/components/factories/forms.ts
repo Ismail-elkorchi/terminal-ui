@@ -47,6 +47,16 @@ import {
 import { choiceItemsForRenderer, colorOptionsForRenderer } from '../internal/domain.ts';
 import { normalizeInlineContent } from '../../visual/inline-content.ts';
 import { selectPopupRenderNode } from '../internal/select-popup.ts';
+import {
+  assertNumericControlValue,
+  validatedNumericControlRange
+} from '../internal/numeric-controls.ts';
+import {
+  normalizeCheckboxGroupState,
+  normalizeColorSwatchPickerState,
+  normalizeRadioGroupState,
+  normalizeSelectState
+} from '../../behavior/choice-controls.ts';
 
 export function form<const TChildren extends ElementChildren>(
   children: TChildren,
@@ -106,15 +116,15 @@ export function button<
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   ButtonOptions,
-  Record<never, never>,
   { readonly onPress: TPressMessage },
   TKeys,
   TPointerMessage
 >): Element<TPressMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function button(options: ButtonOptions<unknown>): Element<unknown> {
   const state = options.state ?? 'idle';
+  const onPress = options.onPress;
   const keyMap = activationKeyBindings(
-    options.onPress === undefined || options.disabled === true || state === 'pending' ? undefined : () => options.onPress,
+    onPress === undefined || options.disabled === true || state === 'pending' ? undefined : () => onPress(),
     options.keys
   );
   return elementFromRenderNode<'button', unknown>({
@@ -124,7 +134,7 @@ export function button(options: ButtonOptions<unknown>): Element<unknown> {
       label: options.label,
       ...(options.leading === undefined ? {} : { leading: normalizeInlineContent(options.leading) }),
       ...(options.trailing === undefined ? {} : { trailing: normalizeInlineContent(options.trailing) }),
-      ...(options.onPress === undefined ? {} : { message: options.onPress }),
+      ...(onPress === undefined ? {} : { toPressMessage: onPress }),
       state,
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
       ...(options.tone === undefined ? {} : { tone: options.tone })
@@ -180,6 +190,8 @@ export function toggleSwitch<const TMessage = never>(options: ToggleSwitchOption
 }
 
 export function slider<const TMessage = never>(options: SliderOptions<TMessage>): Element<TMessage> {
+  const range = validatedNumericControlRange('slider', options);
+  assertNumericControlValue('slider', options.value, range);
   const keyMap = sliderKeyBindings(options);
   return elementFromRenderNode<'slider', TMessage>({
     ...requiredId(options.id, 'slider'),
@@ -201,7 +213,16 @@ export function slider<const TMessage = never>(options: SliderOptions<TMessage>)
 }
 
 export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<TMessage>): Element<TMessage> {
-  assertRangeSliderOptions(options);
+  const range = validatedNumericControlRange('rangeSlider', {
+    ...(options.range === undefined ? {} : { min: options.range.min, max: options.range.max }),
+    ...(options.step === undefined ? {} : { step: options.step }),
+    ...(options.width === undefined ? {} : { width: options.width })
+  });
+  assertNumericControlValue('rangeSlider', options.presentation.value.start, range);
+  assertNumericControlValue('rangeSlider', options.presentation.value.end, range);
+  if (options.presentation.value.start > options.presentation.value.end) {
+    throw new RangeError('rangeSlider start value must be less than or equal to end value.');
+  }
   const keyMap = rangeSliderKeyBindings(options);
   return elementFromRenderNode<'rangeSlider', TMessage>({
     ...requiredId(options.id, 'rangeSlider'),
@@ -222,15 +243,20 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
 }
 
 export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxGroupOptions<TValue, TMessage>): Element<TMessage> {
+  const normalizedOptions = choiceItemsForRenderer(options.options);
+  const presentation = normalizeCheckboxGroupState({
+    selected: options.selected ?? [],
+    ...(options.focused === undefined ? {} : { focused: options.focused })
+  }, options.options);
   const keyMap = checkboxGroupKeyBindings(options);
   return elementFromRenderNode<'checkboxGroup', TMessage>({
     ...requiredId(options.id, 'checkboxGroup'),
     kind: 'checkboxGroup',
     props: {
-      options: choiceItemsForRenderer(options.options),
+      options: normalizedOptions,
       ...(options.label === undefined ? {} : { label: options.label }),
-      ...(options.selected === undefined ? {} : { selected: options.selected }),
-      ...(options.focused === undefined ? {} : { focused: options.focused }),
+      ...(presentation.selected.length === 0 ? {} : { selected: presentation.selected }),
+      ...(presentation.focused === undefined ? {} : { focused: presentation.focused }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
@@ -242,15 +268,20 @@ export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxG
 }
 
 export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOptions<TValue, TMessage>): Element<TMessage> {
+  const normalizedOptions = choiceItemsForRenderer(options.options);
+  const presentation = normalizeRadioGroupState({
+    ...(options.selected === undefined ? {} : { selected: options.selected }),
+    ...(options.focused === undefined ? {} : { focused: options.focused })
+  }, options.options);
   const keyMap = radioGroupKeyBindings(options);
   return elementFromRenderNode<'radioGroup', TMessage>({
     ...requiredId(options.id, 'radioGroup'),
     kind: 'radioGroup',
     props: {
-      options: choiceItemsForRenderer(options.options),
+      options: normalizedOptions,
       ...(options.label === undefined ? {} : { label: options.label }),
-      ...(options.selected === undefined ? {} : { selected: options.selected }),
-      ...(options.focused === undefined ? {} : { focused: options.focused }),
+      ...(presentation.selected === undefined ? {} : { selected: presentation.selected }),
+      ...(presentation.focused === undefined ? {} : { focused: presentation.focused }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
@@ -262,15 +293,20 @@ export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOp
 }
 
 export function colorSwatchPicker<TValue, const TMessage = never>(options: ColorSwatchPickerOptions<TValue, TMessage>): Element<TMessage> {
+  const normalizedOptions = colorOptionsForRenderer(options.options);
+  const presentation = normalizeColorSwatchPickerState({
+    ...(options.selected === undefined ? {} : { selected: options.selected }),
+    ...(options.focused === undefined ? {} : { focused: options.focused })
+  }, options.options);
   const keyMap = colorSwatchPickerKeyBindings(options);
   return elementFromRenderNode<'colorSwatchPicker', TMessage>({
     ...requiredId(options.id, 'colorSwatchPicker'),
     kind: 'colorSwatchPicker',
     props: {
-      options: colorOptionsForRenderer(options.options),
+      options: normalizedOptions,
       ...(options.label === undefined ? {} : { label: options.label }),
-      ...(options.selected === undefined ? {} : { selected: options.selected }),
-      ...(options.focused === undefined ? {} : { focused: options.focused }),
+      ...(presentation.selected === undefined ? {} : { selected: presentation.selected }),
+      ...(presentation.focused === undefined ? {} : { focused: presentation.focused }),
       ...(options.columns === undefined ? {} : { columns: options.columns }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
@@ -288,7 +324,6 @@ export function calendar<
 >(options: IndependentInteractionOptions<
   CalendarOptions,
   { readonly onAction: TActionMessage },
-  Record<never, never>,
   TKeys,
   TPointerMessage
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
@@ -320,11 +355,12 @@ export function calendar(options: CalendarOptions<unknown>): Element<unknown> {
 export function select<TValue, const TMessage = never>(options: SelectOptions<TValue, TMessage>): Element<TMessage> {
   const keyMap = selectKeyBindings(options);
   const normalizedOptions = choiceItemsForRenderer(options.options);
-  const popup = options.presentation.kind === 'open'
+  const presentation = normalizeSelectState(options.presentation, options.options);
+  const popup = presentation.kind === 'open'
     ? selectPopupRenderNode({
         ownerId: options.id,
         options: normalizedOptions,
-        presentation: options.presentation,
+        presentation,
         ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
         ...(options.meta?.styles === undefined ? {} : { styles: options.meta.styles }),
         ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })
@@ -336,7 +372,7 @@ export function select<TValue, const TMessage = never>(options: SelectOptions<TV
     props: {
       options: normalizedOptions,
       ...(options.label === undefined ? {} : { label: options.label }),
-      presentation: options.presentation,
+      presentation,
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
       ...(options.placement === undefined ? {} : { placement: options.placement }),
       maxVisibleOptions: selectVisibleOptionLimit(options.maxVisibleOptions),
@@ -366,14 +402,16 @@ export function textInput<
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(options: IndependentInteractionOptions<
   TextInputOptions,
-  { readonly onAction: TActionMessage },
-  { readonly onSubmit: TSubmitMessage },
+  {
+    readonly onAction: TActionMessage;
+    readonly onSubmit: TSubmitMessage;
+  },
   TKeys,
   TPointerMessage
 >): Element<TSubmitMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function textInput(options: TextInputOptions<unknown>): Element<unknown> {
-  const keyMap = textInputKeyBindings(options.onAction, options.onSubmit, options.keys);
   const presentation = options.presentation;
+  const keyMap = textInputKeyBindings(options.onAction, options.onSubmit, presentation.value, options.keys);
   return elementFromRenderNode<'textInput', unknown>({
     ...requiredId(options.id, 'textInput'),
     kind: 'textInput',
@@ -382,7 +420,6 @@ export function textInput(options: TextInputOptions<unknown>): Element<unknown> 
       cursor: presentation.cursor,
       ...(presentation.selection === undefined ? {} : { selection: presentation.selection }),
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
-      ...(options.onSubmit === undefined ? {} : { message: options.onSubmit }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction }),
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
@@ -404,7 +441,6 @@ export function numberInput<
 >(options: IndependentInteractionOptions<
   NumberInputOptions,
   { readonly onAction: TActionMessage },
-  Record<never, never>,
   TKeys,
   TPointerMessage
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
@@ -429,19 +465,4 @@ export function numberInput(options: NumberInputOptions<unknown>): Element<unkno
     ...(keyMap === undefined ? {} : { keyMap }),
     ...interactionProps({ ...editHandlers, pointer: options.pointer, meta: options.meta })
   });
-}
-
-function assertRangeSliderOptions<TMessage>(options: RangeSliderOptions<TMessage>): void {
-  const min = options.range?.min ?? 0;
-  const max = options.range?.max ?? 100;
-  if (!Number.isFinite(min) || !Number.isFinite(max) || min > max) {
-    throw new RangeError('rangeSlider range must have finite ordered bounds.');
-  }
-  const { start, end } = options.presentation.value;
-  if (start < min || end > max || start > end) {
-    throw new RangeError('rangeSlider value must be ordered and contained by range.');
-  }
-  if (options.step !== undefined && (!Number.isFinite(options.step) || options.step <= 0)) {
-    throw new RangeError('rangeSlider step must be finite and greater than zero.');
-  }
 }

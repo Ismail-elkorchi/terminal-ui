@@ -184,11 +184,11 @@ export function measureBuiltinRenderNode(
 }
 
 function measureTable(widget: TableNode): Measurement {
-  const rows = Array.isArray(widget.props.rows) ? widget.props.rows : [];
+  const rows = widget.props.collection.records.slice(0, 64).map((record) => record.row);
   const columns = tableColumnMeasureInputs(widget, rows);
   const width = columns.reduce((sum, column, index) => sum + column.width + (index === 0 ? 2 : 4), 0);
   const hasHeader = columns.some((column) => column.header.length > 0);
-  return measureSize(width, rows.length + (hasHeader ? 1 : 0));
+  return measureSize(width, widget.props.collection.total + (hasHeader ? 1 : 0));
 }
 
 function measureSurface(

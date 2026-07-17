@@ -1,4 +1,5 @@
-import { createInputPipeline } from '../input/index.ts';
+import { createInputPipeline, matchesInputTrigger } from '../input/index.ts';
+import { diagnostic } from '../diagnostics.ts';
 import { TerminalUiError } from '../errors.ts';
 import { createTuiContext } from './context.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
@@ -32,6 +33,8 @@ import {
 import type { InputEvent, MouseEvent as TerminalMouseEvent, MouseWheelEvent } from '../input/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalTheme } from '../theme/index.ts';
+import { ignoreMessage, isIgnoredMessage } from '../interaction/message.ts';
+import type { MessageResolution } from '../interaction/message.ts';
 import type { RenderNode } from '../renderer/model/index.ts';
 import type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
 import type { Frame } from '../renderer/internal/frame.ts';
@@ -70,14 +73,18 @@ interface PendingWheelInput<TState> {
   completion: Promise<readonly TuiInputResult<TState>[]>;
 }
 
+interface OwnedRuntimeTask<TResult> {
+  completion: Promise<TResult>;
+}
+
 type MutableTuiRuntimeMetrics = {
-  -readonly [TKey in keyof TuiRuntimeMetrics]: TuiRuntimeMetrics[TKey];
+  -readonly [TKey in Exclude<keyof TuiRuntimeMetrics, 'effects'>]: TuiRuntimeMetrics[TKey];
 };
 
 export function createTuiRuntime<TState, TMessage>(
   options: TuiRuntimeOptions<TState, TMessage>
 ): TuiRuntime<TState, TMessage> {
-  let currentState: TState | undefined;
+  let currentState: RuntimeStateSlot<TState> = { kind: 'empty' };
   let currentViewport = options.host.getViewport();
   let currentRender: RenderCommitCandidate<TMessage> | undefined;
   let stateVersion = 0;
@@ -85,14 +92,18 @@ export function createTuiRuntime<TState, TMessage>(
   let focusReturnPaths: FocusPath[] = [];
   let terminalExit: TuiExit<TState> | undefined;
   let phase: TuiRuntimePhase = 'created';
+  let startup: Promise<Frame> | undefined;
   let disposal: Promise<void> | undefined;
+  const lifetimeController = new AbortController();
   const runtimeDiagnostics = [...(options.diagnostics ?? [])];
   let diagnosticRefreshQueued = false;
+  const backgroundTasks = new Set<OwnedRuntimeTask<void>>();
+  const wheelTasks = new Set<OwnedRuntimeTask<readonly TuiInputResult<TState>[]>>();
   let pendingFrameChange: Extract<TuiRuntimeChange<TState>, { readonly kind: 'frame' }> | undefined;
   let pendingExitChange: Extract<TuiRuntimeChange<TState>, { readonly kind: 'exit' }> | undefined;
   const changeWaiters: ChangeWaiter<TState>[] = [];
   const inputPipeline = createInputPipeline(options.input);
-  const pointerRouter = createPointerRouter<TMessage>();
+  const pointerRouter = createPointerRouter<TMessage>({ now: () => options.host.clock.now() });
   let pendingWheelInput: PendingWheelInput<TState> | undefined;
   const metrics: MutableTuiRuntimeMetrics = {
     decodedInputEvents: 0,
@@ -113,18 +124,25 @@ export function createTuiRuntime<TState, TMessage>(
     }
   });
   const effects = createTuiEffectManager<TMessage>({
+    clock: options.host.clock,
     context: createRuntimeContext,
     reportDiagnostic,
-    dispatch(message) {
-      return dispatchQueue.run(() => dispatchInternal(message, 'effect')).then(() => undefined);
-    }
+    dispatch(messages) {
+      return dispatchQueue.run(() => dispatchManyInternal(messages, 'effect')).then(() => undefined);
+    },
+    ...(options.effectPolicy === undefined ? {} : { policy: options.effectPolicy })
   });
 
   const runtime: TuiRuntime<TState, TMessage> = {
     app: options.app,
     host: options.host,
     start() {
-      return dispatchQueue.run(startInternal);
+      if (phase === 'created' || phase === 'starting') {
+        startup ??= dispatchQueue.run(startInternal);
+        return startup;
+      }
+      if (phase === 'active') return startup ?? Promise.reject(runtimePhaseError(phase));
+      return Promise.reject(runtimePhaseError(phase));
     },
     dispatch(message) {
       return dispatchQueue.run(() => dispatchInternal(message, 'external'));
@@ -165,8 +183,8 @@ export function createTuiRuntime<TState, TMessage>(
     dispose() {
       return disposeRuntime();
     },
-    getState() {
-      return currentState;
+    state() {
+      return ensureState();
     },
     frame() {
       return currentRender?.frame;
@@ -178,7 +196,7 @@ export function createTuiRuntime<TState, TMessage>(
       return [...runtimeDiagnostics];
     },
     metrics() {
-      return { ...metrics };
+      return { ...metrics, effects: effects.metrics() };
     }
   };
   return runtime;
@@ -195,9 +213,9 @@ export function createTuiRuntime<TState, TMessage>(
       return { handled: true, state: ensureState(), frame: resized };
     }
     const message = messageForInput(state, event);
-    if (message === undefined) {
+    if (isIgnoredMessage(message)) {
       if (event.kind === 'key' && event.key === 'tab') {
-        const next = await moveFocus(state, event.shift ? 'previous' : 'next');
+        const next = await moveFocus(state, event.modifiers.shift ? 'previous' : 'next');
         return { handled: true, state, frame: next };
       }
       return { handled: false, state, frame };
@@ -212,20 +230,31 @@ export function createTuiRuntime<TState, TMessage>(
   async function startInternal(): Promise<Frame> {
     assertRuntimeCanStart(phase);
     if (phase === 'active' && currentRender !== undefined) return currentRender.frame;
-    phase = 'active';
-    const context = await createRuntimeContext();
-    currentState = options.app.definition.init(context);
-    await subscriptions.reconcile(ensureState());
-    const state = ensureState();
-    const theme = resolveTuiTheme(options.theme, state);
-    const render = renderFrameWithFocusRecovery(state, context);
-    storeCurrentRender(render, currentFocusPath);
-    await commitFrame(options.host, undefined, render.frame, options.transcript, theme);
-    metrics.frameCommits += 1;
-    updateCompletedExitSnapshot(render.frame);
-    publishChange({ kind: 'frame', frame: render.frame });
-    if (terminalExit !== undefined) publishChange({ kind: 'exit', exit: terminalExit });
-    return render.frame;
+    phase = 'starting';
+    try {
+      const context = await createRuntimeContext();
+      const state = options.app.definition.init(context);
+      const preparedSubscriptions = await subscriptions.prepare(state);
+      const theme = resolveTuiTheme(options.theme, state);
+      const render = renderFrameWithFocusRecovery(state, context);
+      await commitFrame(options.host, undefined, render.frame, options.transcript, theme, {
+        signal: lifetimeController.signal
+      });
+      metrics.frameCommits += 1;
+      currentState = { kind: 'ready', value: state };
+      storeCurrentRender(render, currentFocusPath);
+      phase = 'active';
+      subscriptions.activate(preparedSubscriptions);
+      updateCompletedExitSnapshot(render.frame);
+      publishChange({ kind: 'frame', frame: render.frame });
+      if (terminalExit !== undefined) publishChange({ kind: 'exit', exit: terminalExit });
+      return render.frame;
+    } catch (cause) {
+      phase = 'failed';
+      subscriptions.cancel();
+      effects.cancel();
+      throw cause;
+    }
   }
 
   async function dispatchInternal(message: TMessage, source: TuiMessageSource): Promise<TState> {
@@ -235,6 +264,7 @@ export function createTuiRuntime<TState, TMessage>(
   async function dispatchManyInternal(messages: readonly TMessage[], source: TuiMessageSource): Promise<TState> {
     await ensureStarted();
     const context = await createRuntimeContext();
+    assertRuntimeOperational(phase);
     const pendingEffects: TuiEffect<TMessage>[] = [];
     const previousStateVersion = stateVersion;
     const previousExit = terminalExit;
@@ -242,7 +272,10 @@ export function createTuiRuntime<TState, TMessage>(
       if (terminalExit !== undefined) break;
       pendingEffects.push(...applyMessage({ message, source }, context));
     }
-    if (terminalExit === undefined) await subscriptions.reconcile(ensureState());
+    if (terminalExit === undefined) {
+      await subscriptions.reconcile(ensureState());
+      assertRuntimeOperational(phase);
+    }
     if (terminalExit !== undefined) {
       subscriptions.cancel();
       effects.cancel();
@@ -279,6 +312,7 @@ export function createTuiRuntime<TState, TMessage>(
     options.transcript?.record({ kind: 'input', event: { kind: 'resize', viewport } });
     currentViewport = viewport;
     const context = await createRuntimeContext();
+    assertRuntimeOperational(phase);
     const theme = resolveTuiTheme(options.theme, state);
     const previousFrame = frameDiffBase(theme);
     const render = renderFrameWithFocusRecovery(state, context);
@@ -295,19 +329,43 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   function reportDiagnostic(item: TerminalDiagnostic): void {
-    runtimeDiagnostics.push(item);
-    options.transcript?.recordDiagnostic(item);
-    if (phase !== 'active' || currentState === undefined || currentRender === undefined || diagnosticRefreshQueued) return;
+    recordDiagnostic(item);
+    if (phase !== 'active' || currentState.kind === 'empty' || currentRender === undefined || diagnosticRefreshQueued) return;
     diagnosticRefreshQueued = true;
-    void dispatchQueue.run(refreshAfterDiagnostic).finally(() => {
+    ownBackgroundTask(dispatchQueue.run(refreshAfterDiagnostic), 'diagnostic_refresh', () => {
       diagnosticRefreshQueued = false;
     });
   }
 
+  function recordDiagnostic(item: TerminalDiagnostic): void {
+    runtimeDiagnostics.push(item);
+    options.transcript?.recordDiagnostic(item);
+  }
+
+  function ownBackgroundTask(task: Promise<unknown>, owner: string, settled?: () => void): void {
+    const owned: OwnedRuntimeTask<void> = { completion: Promise.resolve() };
+    owned.completion = (async () => {
+      try {
+        await task;
+      } catch (cause) {
+        recordDiagnostic(diagnostic('TUI_RUNTIME_TASK_FAILED', `TUI runtime task ${owner} failed.`, {
+          target: options.app.id,
+          cause,
+          data: { owner }
+        }));
+      } finally {
+        settled?.();
+        backgroundTasks.delete(owned);
+      }
+    })();
+    backgroundTasks.add(owned);
+  }
+
   async function refreshAfterDiagnostic(): Promise<void> {
-    if (phase !== 'active' || currentState === undefined || currentRender === undefined) return;
-    const state = currentState;
+    if (!runtimeIsActive() || currentState.kind === 'empty' || currentRender === undefined) return;
+    const state = currentState.value;
     const context = await createRuntimeContext();
+    if (!runtimeIsActive()) return;
     const theme = resolveTuiTheme(options.theme, state);
     const previousFrame = frameDiffBase(theme);
     const render = renderFrameWithFocusRecovery(state, context);
@@ -323,6 +381,10 @@ export function createTuiRuntime<TState, TMessage>(
     storeCurrentRender(render, currentFocusPath);
     updateCompletedExitSnapshot(render.frame);
     publishChange({ kind: 'frame', frame: render.frame });
+  }
+
+  function runtimeIsActive(): boolean {
+    return phase === 'active';
   }
 
   function publishChange(change: TuiRuntimeChange<TState>): void {
@@ -391,10 +453,35 @@ export function createTuiRuntime<TState, TMessage>(
       completion: Promise.resolve([])
     };
     pendingWheelInput = next;
-    next.completion = options.host.clock
-      .sleep(DEFAULT_WHEEL_BATCH_WINDOW_MS, controller.signal)
-      .then(() => flushWheelInput(next));
+    next.completion = ownWheelTask(
+      options.host.clock
+        .sleep(DEFAULT_WHEEL_BATCH_WINDOW_MS, controller.signal)
+        .then(() => flushWheelInput(next))
+    );
     return flushed;
+  }
+
+  function ownWheelTask(
+    task: Promise<readonly TuiInputResult<TState>[]>
+  ): Promise<readonly TuiInputResult<TState>[]> {
+    const owned: OwnedRuntimeTask<readonly TuiInputResult<TState>[]> = { completion: Promise.resolve([]) };
+    owned.completion = task
+      .catch((cause: unknown) => {
+        if (phase !== 'disposing' && phase !== 'disposed') {
+          recordDiagnostic(diagnostic('TUI_RUNTIME_TASK_FAILED', 'TUI wheel input flush failed.', {
+            target: options.app.id,
+            cause,
+            data: { owner: 'wheel_flush' }
+          }));
+        }
+        return [];
+      })
+      .then((results) => {
+        wheelTasks.delete(owned);
+        return results;
+      });
+    wheelTasks.add(owned);
+    return owned.completion;
   }
 
   function flushPendingWheelInput(): Promise<readonly TuiInputResult<TState>[]> {
@@ -437,7 +524,7 @@ export function createTuiRuntime<TState, TMessage>(
     const previousRender = ensureRender();
     const routed = pointerRouter.route(previousRender.regions, event);
     const focusChanged = applyPointerFocus(event, routed);
-    const messages = routed.flatMap((result) => result.message === undefined ? [] : [result.message]);
+    const messages = routed.flatMap((result) => isIgnoredMessage(result.message) ? [] : [result.message]);
     if (messages.length > 0) await dispatchManyInternal(messages, 'input');
     if (focusChanged && currentRender === previousRender) {
       await commitFocusChangeInternal(ensureState());
@@ -491,7 +578,7 @@ export function createTuiRuntime<TState, TMessage>(
     const state = ensureState();
     metrics.dispatchedMessages += 1;
     const result = options.app.definition.update(state, item.message, context);
-    currentState = result.state;
+    currentState = { kind: 'ready', value: result.state };
     if (result.state !== state) {
       stateVersion += 1;
       metrics.stateUpdates += 1;
@@ -523,13 +610,8 @@ export function createTuiRuntime<TState, TMessage>(
 
   async function ensureStarted(): Promise<TState> {
     assertRuntimeOperational(phase);
-    if (phase === 'created' || currentState === undefined) {
-      await startInternal();
-    }
-    if (currentState === undefined) {
-      throw new Error('TUI runtime did not initialize state.');
-    }
-    return currentState;
+    if (phase === 'created') await runtime.start();
+    return ensureState();
   }
 
   function waitForChange(signal: AbortSignal | undefined): Promise<TuiRuntimeChange<TState>> {
@@ -558,6 +640,7 @@ export function createTuiRuntime<TState, TMessage>(
   function disposeRuntime(): Promise<void> {
     if (disposal !== undefined) return disposal;
     resetPendingWheelInput();
+    lifetimeController.abort();
     phase = 'disposing';
     const unavailable = runtimePhaseError(phase);
     for (const waiter of changeWaiters.splice(0)) {
@@ -575,6 +658,10 @@ export function createTuiRuntime<TState, TMessage>(
       } catch (cause) {
         failures.push(cause);
       }
+      await Promise.allSettled([
+        ...[...backgroundTasks].map((task) => task.completion),
+        ...[...wheelTasks].map((task) => task.completion)
+      ]);
       const cleanups = await Promise.allSettled([subscriptions.dispose(), effects.dispose()]);
       for (const cleanup of cleanups) {
         if (cleanup.status === 'rejected') failures.push(cleanup.reason);
@@ -586,10 +673,10 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   function ensureState(): TState {
-    if (currentState === undefined) {
+    if (currentState.kind === 'empty') {
       throw new Error('TUI runtime does not have state.');
     }
-    return currentState;
+    return currentState.value;
   }
 
   function ensureFrame(): Frame {
@@ -662,7 +749,7 @@ export function createTuiRuntime<TState, TMessage>(
     return render.frame;
   }
 
-  function messageForInput(_state: TState, event: InputEvent): TMessage | undefined {
+  function messageForInput(_state: TState, event: InputEvent): MessageResolution<TMessage> {
     const beforeFocus = resolveTuiKeyBinding({
       bindings: options.app.definition.keyBindings,
       phase: 'beforeFocus',
@@ -670,22 +757,25 @@ export function createTuiRuntime<TState, TMessage>(
       event,
       focusPath: currentFocusPath
     });
-    if (beforeFocus !== undefined) return beforeFocus;
+    if (!isIgnoredMessage(beforeFocus)) return beforeFocus;
     const current = ensureRender();
     const focused = findRenderNodeFocusTarget(current.node, current.layout, currentFocusPath);
     if (event.kind === 'text') {
-      const mapped = focused?.renderNode.inputMap?.text?.(event.text);
-      if (mapped !== undefined) return mapped;
+      const handler = focused?.renderNode.inputMap?.text;
+      if (handler !== undefined) return handler(event.text);
     }
-    if (event.kind === 'paste') return focused?.renderNode.inputMap?.paste?.(event.text);
+    if (event.kind === 'paste') {
+      const handler = focused?.renderNode.inputMap?.paste;
+      if (handler !== undefined) return handler(event.text);
+    }
     for (const renderNode of renderNodeKeyChainForFocus(current.node, current.layout, currentFocusPath)) {
       const focusedMessage = componentKeyMessage(renderNode.keyMap, event, currentFocusPath);
-      if (focusedMessage !== undefined) return focusedMessage;
+      if (!isIgnoredMessage(focusedMessage)) return focusedMessage;
     }
     const keyText = textFromUnmappedKey(event);
     if (keyText !== undefined) {
-      const mapped = focused?.renderNode.inputMap?.text?.(keyText);
-      if (mapped !== undefined) return mapped;
+      const handler = focused?.renderNode.inputMap?.text;
+      if (handler !== undefined) return handler(keyText);
     }
     return resolveTuiKeyBinding({
       bindings: options.app.definition.keyBindings,
@@ -699,7 +789,7 @@ export function createTuiRuntime<TState, TMessage>(
   function messagesForMouse(_state: TState, event: TerminalMouseEvent): readonly TMessage[] {
     const current = ensureRender();
     return pointerRouter.route(current.regions, event)
-      .flatMap((result) => result.message === undefined ? [] : [result.message]);
+      .flatMap((result) => isIgnoredMessage(result.message) ? [] : [result.message]);
   }
 
   function frameDiffBase(theme: TerminalTheme): Frame | undefined {
@@ -709,24 +799,40 @@ export function createTuiRuntime<TState, TMessage>(
   function dirtyCommitOptions(
     previousFrame: Frame | undefined,
     render: RenderCommitCandidate<TMessage>
-  ): { readonly dirtyRegions?: DirtyRegionSet } {
-    if (previousFrame === undefined) return {};
+  ): { readonly dirtyRegions?: DirtyRegionSet; readonly signal: AbortSignal } {
+    if (previousFrame === undefined) return { signal: lifetimeController.signal };
     const dirtyRegions = dirtyRegionsForRenderCommit(currentRender, render);
-    return dirtyRegions === undefined ? {} : { dirtyRegions };
+    return dirtyRegions === undefined
+      ? { signal: lifetimeController.signal }
+      : { dirtyRegions, signal: lifetimeController.signal };
   }
 }
+
+type RuntimeStateSlot<TState> =
+  | { readonly kind: 'empty' }
+  | { readonly kind: 'ready'; readonly value: TState };
 
 function componentKeyMessage<TMessage>(
   keyMap: RenderNode<TMessage>['keyMap'] | undefined,
   event: InputEvent,
   focusPath: FocusPath | undefined
-): TMessage | undefined {
+): MessageResolution<TMessage> {
   const handler = event.kind === 'key' && event.key !== 'unknown'
-    ? keyMap?.[event.key]
+    ? keyMap?.modified?.find((binding) => matchesInputTrigger(binding.trigger, event))?.onKey
+      ?? (hasNoKeyModifiers(event) ? keyMap?.[event.key] : undefined)
     : event.kind === 'text'
       ? keyMap?.text?.[event.text]
       : undefined;
-  return handler?.({ input: event, focusPath: focusPath ?? [] });
+  return handler === undefined
+    ? ignoreMessage()
+    : handler({ input: event, focusPath: focusPath ?? [] });
+}
+
+function hasNoKeyModifiers(event: Extract<InputEvent, { readonly kind: 'key' }>): boolean {
+  return !event.modifiers.ctrl
+    && !event.modifiers.alt
+    && !event.modifiers.shift
+    && !event.modifiers.meta;
 }
 
 function isWheelInputEvent(event: InputEvent | undefined): event is MouseWheelEvent {

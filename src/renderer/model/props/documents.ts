@@ -19,6 +19,7 @@ import type { CommandInputAction } from '../../../ui-model/command-input.ts';
 import type { ScrollbackAction } from '../../../ui-model/scrollback.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 import type { TerminalStyle } from '../../../visual/render.ts';
+import type { MessageResolution } from '../../../interaction/message.ts';
 
 export interface ViewportRenderProps<TMessage> extends RenderNodeLayoutProps {
   readonly scrollRow?: number;
@@ -35,7 +36,7 @@ export interface ScrollbackRenderProps<TMessage> {
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly toActionMessage?: (action: ScrollbackAction) => TMessage | undefined;
+  readonly toActionMessage?: (action: ScrollbackAction) => MessageResolution<TMessage>;
   readonly wrap?: boolean;
   readonly searchQuery?: string;
   readonly selectedRange?: TextSelection;
@@ -72,7 +73,6 @@ export interface CommandInputRenderProps<TMessage> {
   readonly selectedSuggestion?: number;
   readonly historyIndex?: number;
   readonly display?: CommandInputDisplay;
-  readonly message?: TMessage;
   readonly toActionMessage?: (action: CommandInputAction) => TMessage;
 }
 

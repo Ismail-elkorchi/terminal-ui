@@ -267,18 +267,18 @@ test('renderFrameAnsi serializes full frames as row runs instead of per-cell cur
   buffer.write(3, 4, [{ text: 'Z' }]);
 
   const output = renderFrameAnsi(buffer.snapshot(), { capabilities: capabilities(8) });
-  const cursorMoves = output.match(/\u001B\[\d+;\d+H/gu) ?? [];
+  const cursorMoves = output.match(/\u001B\[[\d;]*H/gu) ?? [];
 
-  assert.deepEqual(cursorMoves, ['\u001B[1;1H', '\u001B[3;1H']);
-  assert.match(output, /\u001B\[1;1H/u);
+  assert.deepEqual(cursorMoves, ['\u001B[H', '\u001B[3H']);
+  assert.match(output, /\u001B\[H/u);
   assert.match(output, /AB/u);
   assert.match(output, /CD/u);
-  assert.match(output, /\u001B\[3;1H   Z/u);
+  assert.match(output, /\u001B\[3H   Z/u);
 });
 
 test('renderDiffAnsi serializes styled spans according to terminal color capability', () => {
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v1',
+    schemaVersion: 'terminal-ui.render-diff.v2',
     width: 6,
     height: 1,
     fullRewrite: false,
@@ -296,12 +296,12 @@ test('renderDiffAnsi serializes styled spans according to terminal color capabil
 
   assert.match(trueColor, /\u001B\[1;38;2;12;34;56mHi\u001B\[0m/u);
   assert.match(color256, /\u001B\[1;38;5;\d+mHi\u001B\[0m/u);
-  assert.equal(noColor, '\u001B[1;1HHi');
+  assert.equal(noColor, '\u001B[HHi');
 });
 
 test('renderDiffAnsi gates OSC 8 hyperlinks by capability and option', () => {
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v1',
+    schemaVersion: 'terminal-ui.render-diff.v2',
     width: 4,
     height: 1,
     fullRewrite: false,
@@ -317,10 +317,56 @@ test('renderDiffAnsi gates OSC 8 hyperlinks by capability and option', () => {
   const disabled = renderDiffAnsi(diff, { capabilities: capabilities(8, true), hyperlinks: false });
 
   assert.ok(enabled.includes('\u001B]8;id=doc;https://example.test\u0007doc\u001B]8;;\u0007'));
-  assert.equal(disabled, '\u001B[1;1Hdoc');
+  assert.equal(disabled, '\u001B[Hdoc');
 });
 
-function capabilities(depth, hyperlinks = false) {
+test('renderDiffAnsi chooses shorter cursor and tail-clear encodings without exceeding the baseline', () => {
+  const diff = {
+    schemaVersion: 'terminal-ui.render-diff.v2',
+    width: 20,
+    height: 4,
+    fullRewrite: false,
+    operations: [
+      { kind: 'write', row: 1, column: 1, spans: [{ text: 'a' }] },
+      { kind: 'write', row: 1, column: 3, spans: [{ text: 'b' }] },
+      { kind: 'clearRect', bounds: { row: 2, column: 16, width: 5, height: 1 } }
+    ],
+    cursor: { row: 4, column: 1 }
+  };
+  const output = renderDiffAnsi(diff, { capabilities: capabilities(8) });
+  const baseline = '\u001B[1;1Ha\u001B[1;3Hb\u001B[2;16H     \u001B[4;1H';
+
+  assert.equal(output, '\u001B[Ha\u001B[Cb\u001B[2;16H\u001B[0K\u001B[4H');
+  assert.ok(new TextEncoder().encode(output).byteLength <= new TextEncoder().encode(baseline).byteLength);
+});
+
+test('renderDiffAnsi emits the structural final cursor without session visibility commands', () => {
+  const output = renderDiffAnsi({
+    schemaVersion: 'terminal-ui.render-diff.v2',
+    width: 8,
+    height: 3,
+    fullRewrite: false,
+    operations: [{ kind: 'write', row: 2, column: 1, spans: [{ text: 'x' }] }],
+    cursor: { row: 3, column: 4 }
+  }, { capabilities: capabilities(8) });
+
+  assert.equal((output.match(/\?25[hl]/gu) ?? []).length, 0);
+  assert.equal(output.endsWith('\u001B[3;4H'), true);
+});
+
+test('renderDiffAnsi wraps non-empty output when synchronized output is explicitly supported', () => {
+  const output = renderDiffAnsi({
+    schemaVersion: 'terminal-ui.render-diff.v2',
+    width: 4,
+    height: 1,
+    fullRewrite: false,
+    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'sync' }] }]
+  }, { capabilities: capabilities(8, false, true) });
+
+  assert.equal(output, '\u001B[?2026h\u001B[Hsync\u001B[?2026l');
+});
+
+function capabilities(depth, hyperlinks = false, synchronizedOutput = false) {
   const support = (supported) => supported
     ? { status: 'supported', confidence: 'detected', facts: [], diagnostics: [], requiresSessionOperation: false }
     : { status: 'unavailable', confidence: 'unavailable', facts: [], diagnostics: [], requiresSessionOperation: false };
@@ -336,8 +382,7 @@ function capabilities(depth, hyperlinks = false) {
     },
     unicode: {
       graphemeClusters: true,
-      eastAsianWidth: 'narrow',
-      emojiWidth: 'wide',
+      widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
       bidi: 'stable-fallback'
     },
     rawInput: support(true),
@@ -349,6 +394,7 @@ function capabilities(depth, hyperlinks = false) {
     alternateScreen: support(true),
     focusReporting: support(true),
     cursorVisibility: support(true),
+    synchronizedOutput: support(synchronizedOutput),
     title: support(true),
     bell: support(true),
     clipboard: support(false),

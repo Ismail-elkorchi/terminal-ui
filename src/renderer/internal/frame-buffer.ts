@@ -11,6 +11,12 @@ import type { Frame, FrameCell, FrameHitTarget } from '../model/frame.ts';
 import type { Rect } from '../model/layout.ts';
 import type { RenderBlock, RenderLine, RenderSpan, TerminalColor, TerminalLink, TerminalStyle } from '../../visual/render.ts';
 import type { RenderTarget } from '../model/render-target.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
+import { defaultTextWidthProfile } from '../../text/index.ts';
+
+export interface FrameBufferOptions {
+  readonly widthProfile?: TextWidthProfile;
+}
 
 export interface FrameBufferSnapshotOptions {
   readonly cursor?: CursorPosition;
@@ -49,21 +55,23 @@ export interface FrameBuffer extends RenderTarget {
   snapshot(options?: FrameBufferSnapshotOptions): FrameBufferSnapshot;
 }
 
-export function createFrameBuffer(width: number, height: number): FrameBuffer {
-  return new CellFrameBuffer(width, height);
+export function createFrameBuffer(width: number, height: number, options: FrameBufferOptions = {}): FrameBuffer {
+  return new CellFrameBuffer(width, height, options.widthProfile ?? defaultTextWidthProfile);
 }
 
 class CellFrameBuffer implements FrameBuffer {
   readonly width: number;
   readonly height: number;
+  readonly widthProfile: TextWidthProfile;
 
   private readonly cells: (FrameCell | undefined)[];
   private readonly writtenCoverage = new DirtyCoverageAccumulator();
   private readonly clearedCoverage = new DirtyCoverageAccumulator();
 
-  constructor(width: number, height: number) {
+  constructor(width: number, height: number, widthProfile: TextWidthProfile) {
     this.width = Math.max(0, Math.floor(width));
     this.height = Math.max(0, Math.floor(height));
+    this.widthProfile = widthProfile;
     this.cells = Array.from({ length: this.width * this.height });
   }
 
@@ -71,7 +79,7 @@ class CellFrameBuffer implements FrameBuffer {
     if (!this.containsRow(row)) return;
     let nextColumn = Math.floor(column);
     for (const currentSpan of spans) {
-      const measured = measureTextCells(currentSpan.text);
+      const measured = measureTextCells(currentSpan.text, { widthProfile: this.widthProfile });
       const style = currentSpan.style;
       const link = currentSpan.link === undefined ? undefined : sanitizeTerminalLink(currentSpan.link);
       const source = currentSpan.source === undefined ? undefined : sanitizeFrameCellSource(currentSpan.source);

@@ -12,6 +12,7 @@ export function createTerminalRestorePlan(snapshot: TerminalStateSnapshot): Term
       { kind: 'cursorVisible', enabled: snapshot.cursorVisible },
       { kind: 'focusReporting', enabled: snapshot.focusReporting },
       { kind: 'mouseReporting', enabled: snapshot.mouseReporting },
+      { kind: 'enhancedKeyboard', enabled: snapshot.enhancedKeyboard },
       { kind: 'bracketedPaste', enabled: snapshot.bracketedPaste },
       { kind: 'alternateScreen', enabled: snapshot.alternateScreen },
       { kind: 'rawInput', enabled: snapshot.rawInput }

@@ -5,9 +5,9 @@ import { commandInputPresentation, commandInputReducer } from '../../dist/behavi
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import {
-  renderElementFrame,
-  renderElementRegions
+  renderElementFrame
 } from '../../dist/renderer/index.js';
+import { renderElementRegions } from '../../dist/testing/index.js';
 import { commandInput } from '../../dist/components/index.js';
 
 test('commandInputReducer edits, navigates history, and accepts suggestions', () => {
@@ -97,7 +97,7 @@ test('commandInput projects controlled state and emits semantic actions', async 
       id: 'command',
       presentation: commandInputPresentation(state.command),
       onAction: (action) => ({ kind: 'action', action }),
-      onSubmit: { kind: 'submit' },
+      onSubmit: () => ({ kind: 'submit' }),
       keys: {
         arrowUp: () => ({ kind: 'history' }),
         tab: () => ({ kind: 'suggestion' }),
@@ -110,11 +110,11 @@ test('commandInput projects controlled state and emits semantic actions', async 
   await runtime.start();
   await runtime.handleInput({ kind: 'text', text: 'x', paste: false });
   await runtime.handleInput({ kind: 'paste', text: 'clip', bracketed: true });
-  await runtime.handleInput({ kind: 'key', key: 'backspace', ctrl: false, alt: false, shift: false, meta: false });
-  await runtime.handleInput({ kind: 'key', key: 'arrowUp', ctrl: false, alt: false, shift: false, meta: false });
-  await runtime.handleInput({ kind: 'key', key: 'tab', ctrl: false, alt: false, shift: false, meta: false });
-  await runtime.handleInput({ kind: 'key', key: 'enter', ctrl: false, alt: false, shift: false, meta: false });
-  await runtime.handleInput({ kind: 'key', key: 'escape', ctrl: false, alt: false, shift: false, meta: false });
+  await runtime.handleInput({ kind: 'key', key: 'backspace', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  await runtime.handleInput({ kind: 'key', key: 'arrowUp', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  await runtime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  await runtime.handleInput({ kind: 'key', key: 'escape', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
 
   assert.deepEqual(commandInputPresentation(command), {
     value: 'te',
@@ -124,7 +124,7 @@ test('commandInput projects controlled state and emits semantic actions', async 
     selectedSuggestion: 0,
     historyIndex: 0
   });
-  assert.deepEqual(runtime.getState().messages, [
+  assert.deepEqual(runtime.state().messages, [
     { kind: 'action', action: { kind: 'edit', operation: { kind: 'insert', text: 'x' } } },
     { kind: 'action', action: { kind: 'edit', operation: { kind: 'insert', text: 'clip' } } },
     { kind: 'action', action: { kind: 'edit', operation: { kind: 'deleteBackward' } } },

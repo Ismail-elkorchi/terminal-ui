@@ -1,11 +1,11 @@
 import type { RenderNodeOfKind } from '../../model/index.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../../text/index.ts';
 import type {
-  TableCellRenderInput,
   TableColumnAlignment,
   TableColumnSemantic,
   TableColumnWidth
 } from '../../../ui-model/content.ts';
+import type { TableRenderColumn } from '../../model/props/content.ts';
 import type { TableSortDirection, TableSortState } from '../../../ui-model/table.ts';
 import type { InlineContent, InlineContentSegment } from '../../../visual/inline-content.ts';
 import type { TerminalStyle } from '../../../visual/render.ts';
@@ -19,7 +19,11 @@ export interface NormalizedTableColumn {
   readonly semantic: TableColumnSemantic;
   readonly style?: TerminalStyle;
   readonly headerStyle?: TerminalStyle;
-  readonly render?: (input: TableCellRenderInput) => string | InlineContentSegment | InlineContent;
+  readonly renderCell?: (
+    row: unknown,
+    rowIndex: number,
+    columnIndex: number
+  ) => string | InlineContentSegment | InlineContent;
   readonly value: (row: unknown, rowIndex: number) => unknown;
   readonly sort?: TableSortDirection;
   readonly sortable?: boolean;
@@ -28,7 +32,7 @@ export interface NormalizedTableColumn {
 
 export function tableColumns(widget: TableNode, rows: readonly unknown[]): readonly NormalizedTableColumn[] {
   const raw = widget.props.columns;
-  const configured = Array.isArray(raw) ? raw.flatMap((column, index) => normalizeColumn(column, index)) : [];
+  const configured = raw?.flatMap((column, index) => normalizeColumn(column, index)) ?? [];
   const columns = configured.length > 0 ? configured : Array.from({
     length: rows.reduce<number>((max, row) => Math.max(max, rowCells(row).length), 0)
   }, (_value, index): NormalizedTableColumn => ({
@@ -96,24 +100,24 @@ export function displayTableValue(value: unknown): string {
   return typeof json === 'string' ? sanitizeTableText(json) : '';
 }
 
-function normalizeColumn(column: unknown, index: number): readonly NormalizedTableColumn[] {
-  if (!isRecord(column) || column['hidden'] === true) return [];
-  const id = column['id'];
-  const value = column['value'];
+function normalizeColumn(column: TableRenderColumn, index: number): readonly NormalizedTableColumn[] {
+  if (column.hidden === true) return [];
+  const id = column.id;
+  const value = column.value;
   if (typeof id !== 'string' || id.trim().length === 0) {
     throw new TypeError(`Table column ${String(index)} must define a non-empty id.`);
   }
   if (typeof value !== 'function') {
     throw new TypeError(`Table column "${id}" must define a value(row, rowIndex) accessor.`);
   }
-  const header = column['header'];
-  const align = column['align'];
-  const style = column['style'];
-  const headerStyle = column['headerStyle'];
-  const render = column['render'];
-  const width = normalizeWidth(column['width']);
+  const header = column.header;
+  const align = column.align;
+  const style = column.style;
+  const headerStyle = column.headerStyle;
+  const renderCell = column.renderCell;
+  const width = normalizeWidth(column.width);
   const normalizedAlign: TableColumnAlignment = align === 'center' || align === 'end' ? align : 'start';
-  const semantic = normalizeColumnSemantic(column['semantic'], normalizedAlign);
+  const semantic = normalizeColumnSemantic(column.semantic, normalizedAlign);
   return [{
     id: sanitizeTableText(id),
     index,
@@ -121,14 +125,12 @@ function normalizeColumn(column: unknown, index: number): readonly NormalizedTab
     ...(width === undefined ? {} : { width }),
     align: normalizedAlign,
     semantic,
-    value: value as (row: unknown, rowIndex: number) => unknown,
+    value,
     ...(isTerminalStyle(style) ? { style } : {}),
     ...(isTerminalStyle(headerStyle) ? { headerStyle } : {}),
-    ...(typeof render === 'function' ? {
-      render: render as (input: TableCellRenderInput) => string | InlineContentSegment | InlineContent
-    } : {}),
-    ...(column['sortable'] === true ? { sortable: true } : {}),
-    ...(column['resizable'] === true ? { resizable: true } : {})
+    ...(typeof renderCell === 'function' ? { renderCell } : {}),
+    ...(column.sortable === true ? { sortable: true } : {}),
+    ...(column.resizable === true ? { resizable: true } : {})
   }];
 }
 

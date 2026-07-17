@@ -2,6 +2,7 @@ import { placeAnchoredSurface } from '../../interaction/anchored-surface.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
 import type { LayoutNode, Rect } from '../model/layout.ts';
 import type { HitTarget } from '../model/renderer.ts';
+import { ignoreMessage } from '../../interaction/message.ts';
 import {
   menuBarItemBounds,
   menuPopupContentSize
@@ -114,7 +115,7 @@ function anchoredBackdropTargets<TMessage>(
       id: renderNodeTargetId(widget, 'popup'),
       bounds: popupBounds,
       accepts: ['click'] as const,
-      message: (): TMessage | undefined => undefined,
+      message: ignoreMessage,
       zIndex: 19
     }])
   ];

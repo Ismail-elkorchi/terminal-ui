@@ -18,8 +18,11 @@ export interface CalendarBehaviorOptions {
   readonly max?: CalendarDate;
   readonly today?: CalendarDate;
   readonly outsideMonth?: 'hidden' | 'visible' | 'selectable';
+  readonly focusSearchLimitDays?: number;
   isDisabled?(date: CalendarDate): boolean;
 }
+
+export const defaultCalendarFocusSearchLimitDays = 3660;
 
 export interface CalendarPresentation {
   readonly monthLabel: string;
@@ -64,28 +67,17 @@ export function calendarPresentation(
   assertCalendarDate(first);
   const start = addDays(first, -weekdayOffset(first, options.weekStartsOn));
   const weekdays = Array.from({ length: 7 }, (_value, index) => weekdayLabel(addDays(start, index), options.locale));
-  const outsidePolicy = options.outsideMonth ?? 'visible';
-  const days = Array.from({ length: 42 }, (_value, index): CalendarDay => {
-    const date = addDays(start, index);
-    const outsideMonth = date.year !== state.visibleMonth.year || date.month !== state.visibleMonth.month;
-    const hidden = outsideMonth && outsidePolicy === 'hidden';
-    const disabled = hidden || !selectable(date, options) || (outsideMonth && outsidePolicy !== 'selectable');
-    return {
-      id: calendarDateId(date),
-      label: hidden ? '' : String(date.day),
-      date,
-      ...(disabled ? { disabled: true } : {}),
-      ...(options.today !== undefined && compareDates(date, options.today) === 0 ? { today: true } : {}),
-      ...(outsideMonth ? { outsideMonth: true } : {}),
-      ...(hidden ? { hidden: true } : {})
-    };
-  });
+  const days = calendarDays(state.visibleMonth, options);
+  const focusedId = state.focused === undefined ? undefined : calendarDateId(state.focused);
+  const representedFocus = focusedId === undefined
+    ? undefined
+    : days.find((day) => day.id === focusedId && day.disabled !== true)?.id;
   return {
     monthLabel: monthLabel(state.visibleMonth, options.locale),
     weekdays,
     days,
     ...(state.selected === undefined ? {} : { selected: calendarDateId(state.selected) }),
-    ...(state.focused === undefined ? {} : { focused: calendarDateId(state.focused) })
+    ...(representedFocus === undefined ? {} : { focused: representedFocus })
   };
 }
 
@@ -117,12 +109,13 @@ function moveFocus(
 ): CalendarState {
   const direction = Math.sign(days);
   let candidate = addDays(focusDate(state), days);
-  for (let attempts = 0; attempts < 3660; attempts += 1) {
+  const searchLimit = options.focusSearchLimitDays ?? defaultCalendarFocusSearchLimitDays;
+  for (let attempts = 0; attempts <= searchLimit; attempts += 1) {
     if (selectable(candidate, options)) return { ...state, focused: candidate, visibleMonth: monthOf(candidate) };
-    if (direction === 0 || outsideBounds(candidate, options, direction)) return state;
+    if (direction === 0 || outsideBounds(candidate, options, direction)) return withoutCalendarFocus(state);
     candidate = addDays(candidate, direction);
   }
-  return state;
+  return withoutCalendarFocus(state);
 }
 
 function moveVisibleMonth(
@@ -133,8 +126,50 @@ function moveVisibleMonth(
   const visibleMonth = addMonths(state.visibleMonth, months);
   const day = Math.min(focusDate(state).day, daysInMonth(visibleMonth));
   const candidate = { ...visibleMonth, day };
-  const focused = selectable(candidate, options) ? candidate : state.focused;
-  return { ...state, visibleMonth, ...(focused === undefined ? {} : { focused }) };
+  const focused = nearestPresentedSelectableDate(visibleMonth, candidate, options);
+  const next = withoutCalendarFocus({ ...state, visibleMonth });
+  return focused === undefined ? next : { ...next, focused };
+}
+
+function calendarDays(
+  visibleMonth: CalendarMonth,
+  options: CalendarBehaviorOptions
+): readonly CalendarDay[] {
+  const first = { ...visibleMonth, day: 1 };
+  const start = addDays(first, -weekdayOffset(first, options.weekStartsOn));
+  const outsidePolicy = options.outsideMonth ?? 'visible';
+  return Array.from({ length: 42 }, (_value, index): CalendarDay => {
+    const date = addDays(start, index);
+    const outsideMonth = date.year !== visibleMonth.year || date.month !== visibleMonth.month;
+    const hidden = outsideMonth && outsidePolicy === 'hidden';
+    const disabled = hidden || !selectable(date, options) || (outsideMonth && outsidePolicy !== 'selectable');
+    return {
+      id: calendarDateId(date),
+      label: hidden ? '' : String(date.day),
+      date,
+      ...(disabled ? { disabled: true } : {}),
+      ...(options.today !== undefined && compareDates(date, options.today) === 0 ? { today: true } : {}),
+      ...(outsideMonth ? { outsideMonth: true } : {}),
+      ...(hidden ? { hidden: true } : {})
+    };
+  });
+}
+
+function nearestPresentedSelectableDate(
+  visibleMonth: CalendarMonth,
+  candidate: CalendarDate,
+  options: CalendarBehaviorOptions
+): CalendarDate | undefined {
+  return calendarDays(visibleMonth, options)
+    .filter((day) => day.disabled !== true)
+    .map((day) => day.date)
+    .sort((left, right) => Math.abs(compareDates(left, candidate)) - Math.abs(compareDates(right, candidate)))[0];
+}
+
+function withoutCalendarFocus<TState extends CalendarState>(state: TState): Omit<TState, 'focused'> {
+  const { focused, ...rest } = state;
+  void focused;
+  return rest;
 }
 
 function focusDate(state: CalendarState): CalendarDate {
@@ -200,6 +235,12 @@ function assertOptions(options: CalendarBehaviorOptions): void {
   if (options.max !== undefined) assertCalendarDate(options.max);
   if (options.min !== undefined && options.max !== undefined && compareDates(options.min, options.max) > 0) {
     throw new RangeError('date picker min must be before or equal to max.');
+  }
+  if (
+    options.focusSearchLimitDays !== undefined
+    && (!Number.isSafeInteger(options.focusSearchLimitDays) || options.focusSearchLimitDays < 0)
+  ) {
+    throw new RangeError('date picker focusSearchLimitDays must be a non-negative safe integer.');
   }
 }
 

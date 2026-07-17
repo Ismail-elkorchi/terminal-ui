@@ -1,7 +1,14 @@
 import type { ListAction, ListControlAction } from '../ui-model/list.ts';
 import { applyScrollEvent, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
-import type { ListItemProjection, ListItemProjector } from '../ui-model/list.ts';
+import type {
+  ListCollection,
+  ListCollectionRecord,
+  ListItemProjection,
+  ListItemProjector
+} from '../ui-model/list.ts';
+import { collectionRecordById, completeCollection, windowedCollection } from '../ui-model/collection.ts';
+import type { CollectionWindow } from '../ui-model/collection.ts';
 
 interface ListStateBase {
   readonly selectedId?: string;
@@ -17,11 +24,22 @@ export interface ScrollableListState extends ListStateBase {
 
 export type ListState = PassiveListState | ScrollableListState;
 
-export interface ListReducerOptions<TValue> {
-  readonly items: readonly TValue[];
-  readonly projectItem: ListItemProjector<TValue>;
+interface ListReducerOptionsBase {
   readonly filterQuery?: string;
 }
+
+export type ListReducerOptions<TValue> = ListReducerOptionsBase & (
+  | {
+      readonly items: readonly TValue[];
+      readonly projectItem: ListItemProjector<TValue>;
+      readonly collection?: never;
+    }
+  | {
+      readonly collection: ListCollection<TValue>;
+      readonly items?: never;
+      readonly projectItem?: never;
+    }
+);
 
 export interface ListPresentation {
   readonly selectedId?: string;
@@ -31,11 +49,16 @@ export interface ListScrollablePresentation extends ListPresentation {
   readonly scroll: ScrollState;
 }
 
-export interface ListVisibleEntry<TValue> {
-  readonly value: TValue;
-  readonly item: ListItemProjection;
-  readonly index: number;
+export type ListVisibleEntry<TValue> = ListCollectionRecord<TValue>;
+
+interface ListViewIndex<TValue> {
+  readonly query: string;
+  readonly visible: readonly ListVisibleEntry<TValue>[];
+  readonly selectable: readonly ListVisibleEntry<TValue>[];
+  readonly selectablePositions: ReadonlyMap<string, number>;
 }
+
+const listViewIndexes = new WeakMap<object, ListViewIndex<unknown>>();
 
 export function listReducer<TValue>(
   state: ScrollableListState,
@@ -58,15 +81,16 @@ export function listReducer<TValue>(
       : { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
   }
   if (action.kind === 'activate') return state;
-  const visible = visibleListEntries(options);
-  const selectable = visible.filter((entry) => entry.item.disabled !== true);
+  const collection = collectionForListOptions(options);
+  const view = listViewIndex(collection, options.filterQuery);
+  const { selectable } = view;
   if (selectable.length === 0) return withoutSelection(state);
-  const selectedId = selectedIdForAction(state.selectedId, action, selectable, state.scroll?.viewportRows);
+  const selectedId = selectedIdForAction(state.selectedId, action, view, state.scroll?.viewportRows);
   if (selectedId === undefined) return state;
-  const visibleIndex = visible.findIndex((entry) => entry.item.id === selectedId);
-  const scroll = state.scroll === undefined || visibleIndex < 0
+  const selectedEntry = collectionRecordById(collection, selectedId);
+  const scroll = state.scroll === undefined || selectedEntry === undefined
     ? state.scroll
-    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: visibleIndex });
+    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: selectedEntry.index });
   return state.selectedId === selectedId && state.scroll === scroll
     ? state
     : {
@@ -90,42 +114,74 @@ function listPresentationBase(state: ListStateBase): ListPresentation {
 }
 
 export function visibleListEntries<TValue>(options: ListReducerOptions<TValue>): readonly ListVisibleEntry<TValue>[] {
-  const query = (options.filterQuery ?? '').trim().toLocaleLowerCase();
-  const projected = projectListItems(options.items, options.projectItem);
-  return projected.flatMap(({ value, item, index }): readonly ListVisibleEntry<TValue>[] =>
-    query.length > 0 && !listItemSearchText(item).includes(query) ? [] : [{ value, item, index }]
-  );
+  const collection = collectionForListOptions(options);
+  return listViewIndex(collection, options.filterQuery).visible;
 }
 
-export function projectListItems<TValue>(
+export function prepareListCollection<TValue>(
   values: readonly TValue[],
-  projectItem: ListItemProjector<TValue>
-): readonly ListVisibleEntry<TValue>[] {
-  const ids = new Set<string>();
-  return values.map((value, index) => {
-    const item = projectItem(value, index);
-    if (item.id.length === 0) throw new Error('list ids must not be empty');
-    if (ids.has(item.id)) throw new Error('list ids must be unique');
-    ids.add(item.id);
-    return { value, item, index };
+  projectItem: ListItemProjector<TValue>,
+  window?: CollectionWindow
+): ListCollection<TValue> {
+  const start = window?.start ?? 0;
+  const records = values.map((value, offset): ListCollectionRecord<TValue> => {
+    const index = start + offset;
+    const item = normalizedListItem(projectItem(value, index));
+    return { id: item.id, index, value, item };
+  });
+  return window === undefined
+    ? completeCollection(records)
+    : windowedCollection({ records, window });
+}
+
+function collectionForListOptions<TValue>(options: ListReducerOptions<TValue>): ListCollection<TValue> {
+  return options.collection ?? prepareListCollection(options.items, options.projectItem);
+}
+
+function normalizedListItem(item: ListItemProjection): ListCollectionRecord<unknown>['item'] {
+  return Object.freeze({
+    ...item,
+    ...(item.keywords === undefined ? {} : { keywords: Object.freeze([...item.keywords]) }),
+    disabled: item.disabled === true
   });
 }
 
 function selectedIdForAction<TValue>(
   current: string | undefined,
   action: Exclude<ListAction, { readonly kind: 'scroll' | 'activate' }>,
-  selectable: readonly ListVisibleEntry<TValue>[],
+  view: ListViewIndex<TValue>,
   viewportRows = 1
 ): string | undefined {
-  if (action.kind === 'select') return selectable.some((entry) => entry.item.id === action.id) ? action.id : current;
+  const { selectable } = view;
+  if (action.kind === 'select') return view.selectablePositions.has(action.id) ? action.id : current;
   if (action.kind === 'first') return selectable[0]?.item.id;
   if (action.kind === 'last') return selectable.at(-1)?.item.id;
   const delta = action.kind === 'page'
     ? action.delta * Math.max(1, viewportRows)
     : action.delta;
-  const currentPosition = selectable.findIndex((entry) => entry.item.id === current);
-  if (currentPosition < 0) return delta < 0 ? selectable.at(-1)?.item.id : selectable[0]?.item.id;
+  const currentPosition = current === undefined ? undefined : view.selectablePositions.get(current);
+  if (currentPosition === undefined) return delta < 0 ? selectable.at(-1)?.item.id : selectable[0]?.item.id;
   return selectable[wrapIndex(currentPosition + delta, selectable.length)]?.item.id;
+}
+
+function listViewIndex<TValue>(
+  collection: ListCollection<TValue>,
+  filterQuery: string | undefined
+): ListViewIndex<TValue> {
+  const query = (filterQuery ?? '').trim().toLocaleLowerCase();
+  if (collection.kind === 'window' && query.length > 0) {
+    throw new TypeError('windowed list collections must be filtered before they are prepared.');
+  }
+  const cached = listViewIndexes.get(collection) as ListViewIndex<TValue> | undefined;
+  if (cached?.query === query) return cached;
+  const visible = Object.freeze(collection.records.filter(({ item }) =>
+    query.length === 0 || listItemSearchText(item).includes(query)
+  ));
+  const selectable = Object.freeze(visible.filter((entry) => !entry.item.disabled));
+  const selectablePositions = new Map(selectable.map((entry, index) => [entry.id, index]));
+  const index = Object.freeze({ query, visible, selectable, selectablePositions });
+  listViewIndexes.set(collection, index);
+  return index;
 }
 
 function listItemSearchText(item: ListItemProjection): string {

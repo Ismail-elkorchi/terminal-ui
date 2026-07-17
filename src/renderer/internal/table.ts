@@ -1,13 +1,14 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
 import { measureTextCells } from '../../text/index.ts';
 import { dataSource, dataSpan, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
-import { rowWindow, scrollStateFromUnknown } from '../../behavior/data-window.ts';
+import { projectedRowWindow, scrollStateFromUnknown } from '../../behavior/data-window.ts';
 import { stringify } from './render-node-props.ts';
 import { mergeStyles, resolveRenderNodeStyle, themeStyle } from './render-node-style.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { TableColumnAlignment, TableColumnSemantic } from '../../ui-model/content.ts';
-import type { TableControlAction } from '../../ui-model/table.ts';
+import type { TableCollection, TableCollectionRecord, TableControlAction } from '../../ui-model/table.ts';
+import { collectionRecordById } from '../../ui-model/collection.ts';
 import type { Rect } from '../model/layout.ts';
 import { clipRenderSpans } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -15,6 +16,7 @@ import { normalizeInlineContent } from '../../visual/inline-content.ts';
 import type { InlineContent, InlineContentSegment } from '../../visual/inline-content.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
 import type { HitTarget } from '../model/renderer.ts';
+import { ignoreMessage } from '../../interaction/message.ts';
 import {
   displayTableValue,
   sanitizeTableText,
@@ -30,7 +32,7 @@ import { interactionVisualState, renderNodeTargetId } from './pointer-presentati
 import { renderInlineContent } from './inline-content.ts';
 
 interface TableWindow {
-  readonly rows: readonly unknown[];
+  readonly rows: readonly TableCollectionRecord<unknown>[];
   readonly start: number;
   readonly end: number;
   readonly selected: number;
@@ -40,8 +42,7 @@ interface TableWindow {
 }
 
 interface TableProjection {
-  readonly rows: readonly unknown[];
-  readonly rowIds: readonly string[];
+  readonly totalRows: number;
   readonly columns: readonly NormalizedTableColumn[];
   readonly spacing: TableMetrics;
   readonly hasHeader: boolean;
@@ -67,8 +68,7 @@ const tableProjectionCache = new WeakMap<object, {
 
 export function tableBlock(widget: TableNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
   const {
-    rows,
-    rowIds,
+    totalRows,
     columns,
     spacing,
     hasHeader,
@@ -82,19 +82,18 @@ export function tableBlock(widget: TableNode, bounds: Rect, theme: TerminalTheme
   if (hasHeader && headerHeight > 0) {
     lines.push(scrolledLine(headerLine(widget, columns, widths, spacing), window.horizontalOffset, bounds.width));
   }
-  if (rows.length === 0 && bodyHeight > 0) {
+  if (totalRows === 0 && bodyHeight > 0) {
     lines.push(scrolledLine(emptyLine(widget, spacing), window.horizontalOffset, bounds.width));
   } else {
-    lines.push(...window.rows.map((row, visibleIndex) => {
-      const rowIndex = window.start + visibleIndex;
+    lines.push(...window.rows.map((record) => {
       return scrolledLine(rowLine(
         widget,
-        row,
-        rowIndex,
-        rowIds[rowIndex] ?? String(rowIndex),
+        record.row,
+        record.index,
+        record.id,
         columns,
         widths,
-        rowIndex === window.selected,
+        record.index === window.selected,
         selectedCell,
         focused,
         theme,
@@ -106,21 +105,21 @@ export function tableBlock(widget: TableNode, bounds: Rect, theme: TerminalTheme
 }
 
 export function tableAccessibleBase(widget: TableNode, bounds: Rect, id: string, focused: boolean): AccessibleNode {
-  const { rows, columns, window } = tableProjection(widget, bounds);
+  const { totalRows, columns, window } = tableProjection(widget, bounds);
   return {
     id,
     role: 'table',
     label: id,
-    description: `Showing ${String(window.start + 1)}-${String(window.end)} of ${String(rows.length)} rows.`,
+    description: `Showing ${String(window.start + 1)}-${String(window.end)} of ${String(totalRows)} rows.`,
     window: {
       start: window.start,
       end: window.end,
-      total: rows.length,
+      total: totalRows,
       omittedBefore: window.omittedBefore,
       omittedAfter: window.omittedAfter
     },
     position: {
-      rowCount: rows.length,
+      rowCount: totalRows,
       columnCount: columns.length
     },
     ...(focused ? { focused } : {})
@@ -128,14 +127,14 @@ export function tableAccessibleBase(widget: TableNode, bounds: Rect, id: string,
 }
 
 export function tableAccessibleChildren(widget: TableNode, bounds: Rect): readonly AccessibleNode[] {
-  const { rows, rowIds, columns, hasHeader, window, selectedCell } = tableProjection(widget, bounds);
+  const { totalRows, columns, hasHeader, window, selectedCell } = tableProjection(widget, bounds);
   const headerRow: AccessibleNode[] = hasHeader
     ? [{
         id: `${widget.id ?? 'table'}:headers`,
         role: 'row',
         position: {
           rowIndex: 0,
-          rowCount: rows.length + 1,
+          rowCount: totalRows + 1,
           columnCount: columns.length
         },
         children: columns.map((column, columnIndex) => ({
@@ -152,7 +151,7 @@ export function tableAccessibleChildren(widget: TableNode, bounds: Rect): readon
           } : {}),
           position: {
             rowIndex: 0,
-            rowCount: rows.length + 1,
+            rowCount: totalRows + 1,
             columnIndex,
             columnCount: columns.length,
             columnLabel: columnLabel(column, columnIndex)
@@ -160,30 +159,30 @@ export function tableAccessibleChildren(widget: TableNode, bounds: Rect): readon
         }))
       }]
     : [];
-  const bodyRows: AccessibleNode[] = window.rows.map((row, visibleIndex) => {
-    const rowIndex = window.start + visibleIndex;
+  const bodyRows: AccessibleNode[] = window.rows.map((record) => {
+    const rowIndex = record.index;
     return {
-      id: tableRowTargetId(widget, rowIds[rowIndex] ?? String(rowIndex)),
+      id: tableRowTargetId(widget, record.id),
       role: 'row',
       selected: rowIndex === window.selected,
       position: {
         index: rowIndex,
-        count: rows.length,
+        count: totalRows,
         rowIndex: hasHeader ? rowIndex + 1 : rowIndex,
-        rowCount: hasHeader ? rows.length + 1 : rows.length,
+        rowCount: hasHeader ? totalRows + 1 : totalRows,
         columnCount: columns.length
       },
       children: columns.map((column, columnIndex) => {
-        const value = column.value(row, rowIndex);
+        const value = column.value(record.row, rowIndex);
         const label = columnLabel(column, columnIndex);
         return {
-          id: tableCellTargetId(widget, rowIds[rowIndex] ?? String(rowIndex), column.index),
+          id: tableCellTargetId(widget, record.id, column.index),
           role: 'cell',
           label: displayTableValue(value),
           value: displayTableValue(value),
           position: {
             rowIndex: hasHeader ? rowIndex + 1 : rowIndex,
-            rowCount: hasHeader ? rows.length + 1 : rows.length,
+            rowCount: hasHeader ? totalRows + 1 : totalRows,
             columnIndex,
             columnCount: columns.length,
             columnLabel: label
@@ -199,14 +198,13 @@ export function tableAccessibleChildren(widget: TableNode, bounds: Rect): readon
 export function tableHitTargets<TMessage>(widget: TableNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = tableActionMessageFactory(widget);
   if (toMessage === undefined) return [];
-  const { rowIds, columns, spacing, headerHeight, window, widths, selectedCell } = tableProjection(widget, bounds);
+  const { columns, spacing, headerHeight, window, widths, selectedCell } = tableProjection(widget, bounds);
   const headerTargets = headerHeight <= 0
     ? []
     : tableHeaderHitTargets(widget, columns, widths, bounds, window.horizontalOffset, spacing, toMessage);
-  const bodyTargets = window.rows.flatMap((_row, visibleIndex): HitTarget<TMessage>[] => {
-    const rowIndex = window.start + visibleIndex;
-    const rowId = rowIds[rowIndex];
-    if (rowId === undefined) return [];
+  const bodyTargets = window.rows.flatMap((record, visibleIndex): HitTarget<TMessage>[] => {
+    const rowIndex = record.index;
+    const rowId = record.id;
     const rowBounds = {
       row: bounds.row + headerHeight + visibleIndex,
       column: bounds.column,
@@ -219,7 +217,9 @@ export function tableHitTargets<TMessage>(widget: TableNode<TMessage>, bounds: R
     return [{
       id: tableRowTargetId(widget, rowId),
       bounds: rowBounds,
-      message: () => toMessage({ kind: 'selectRow', rowId, rowIndex }),
+      message: (event) => toMessage(event.clickCount === 2
+        ? { kind: 'activate', rowId, rowIndex }
+        : { kind: 'selectRow', rowId, rowIndex }),
       cursor: 'pointer'
     }];
   });
@@ -267,7 +267,7 @@ function tableHeaderHitTargets<TMessage>(
         },
         accepts: ['pointerDown', 'dragStart', 'drag'],
         message: (event) => event.button !== 'left'
-          ? undefined
+          ? ignoreMessage()
           : toMessage({
               kind: 'setColumnWidth',
               column: column.id,
@@ -305,7 +305,9 @@ function tableCellHitTargets<TMessage>(
         width: visible.end - visible.start,
         height: 1
       },
-      message: () => toMessage({ kind: 'selectCell', rowId, rowIndex, column: visibleColumnIndex }),
+      message: (event) => toMessage(event.clickCount === 2
+        ? { kind: 'activate', rowId, rowIndex, column: visibleColumnIndex }
+        : { kind: 'selectCell', rowId, rowIndex, column: visibleColumnIndex }),
       cursor: 'pointer'
     }];
   });
@@ -315,8 +317,8 @@ function columnLabel(column: NormalizedTableColumn, index: number): string {
   return column.header ?? `Column ${String(index + 1)}`;
 }
 
-function tableWindow(widget: TableNode, rows: readonly unknown[], bodyHeight: number, selected: number): TableWindow {
-  const window = rowWindow(rows, {
+function tableWindow(widget: TableNode, bodyHeight: number, selected: number): TableWindow {
+  const window = projectedRowWindow(widget.props.collection, {
     viewportRows: bodyHeight,
     selectedIndex: selected,
     ...scrollInput(widget)
@@ -335,18 +337,17 @@ function tableWindow(widget: TableNode, rows: readonly unknown[], bodyHeight: nu
 function tableProjection(widget: TableNode, bounds: Rect): TableProjection {
   const cached = tableProjectionCache.get(widget);
   if (cached?.width === bounds.width && cached.height === bounds.height) return cached.projection;
-  const rows = tableRows(widget);
-  const rowIds = tableRowIds(widget, rows.length);
-  const columns = tableColumns(widget, rows);
+  const collection = widget.props.collection;
+  const selected = selectedTableRow(widget, collection);
+  const selectedCell = selectedTableCell(widget, collection);
+  const columns = tableColumns(widget, tableRowSample(collection, selected));
   const spacing = tableSpacing(widget);
   const hasHeader = columns.some((column) => column.header !== undefined);
   const headerHeight = hasHeader && widget.props.stickyHeader !== false ? 1 : 0;
   const bodyHeight = Math.max(0, bounds.height - headerHeight);
-  const selected = selectedTableRow(widget);
-  const selectedCell = selectedTableCell(widget);
+  const window = tableWindow(widget, bodyHeight, selected);
   const projection: TableProjection = {
-    rows,
-    rowIds,
+    totalRows: collection.total,
     columns,
     spacing,
     hasHeader,
@@ -354,16 +355,29 @@ function tableProjection(widget: TableNode, bounds: Rect): TableProjection {
     bodyHeight,
     selected,
     selectedCell,
-    window: tableWindow(widget, rows, bodyHeight, selected),
+    window,
     widths: tableColumnWidths(
       columns,
-      rows,
+      window.rows.map((record) => record.row),
       Math.max(1, bounds.width - spacing.markerCells),
       spacing.separatorCells
     )
   };
   tableProjectionCache.set(widget, { width: bounds.width, height: bounds.height, projection });
   return projection;
+}
+
+function tableRowSample(
+  collection: TableCollection<unknown>,
+  selected: number,
+  limit = 64
+): readonly unknown[] {
+  const recordCount = collection.records.length;
+  if (recordCount <= limit) return collection.records.map((record) => record.row);
+  const selectedOffset = selected - collection.start;
+  const anchor = selectedOffset < 0 || selectedOffset >= recordCount ? 0 : selectedOffset;
+  const start = Math.max(0, Math.min(recordCount - limit, anchor - Math.floor(limit / 2)));
+  return collection.records.slice(start, start + limit).map((record) => record.row);
 }
 
 function headerLine(widget: TableNode, columns: readonly NormalizedTableColumn[], widths: readonly number[], spacing: TableMetrics): RenderLine {
@@ -502,16 +516,16 @@ function renderCell(
   theme: TerminalTheme,
   fallbackSource: FrameCellSource
 ): readonly RenderSpan[] {
-  const value = column.value(row, rowIndex);
   const fallbackStyle = mergeDataStyles(tableSemanticStyle(widget, column.semantic), column.style);
-  if (column.render !== undefined) {
+  if (column.renderCell !== undefined) {
     return renderResultToSpans(
-      column.render({ value, row, rowIndex, columnIndex }),
+      column.renderCell(row, rowIndex, columnIndex),
       fallbackStyle,
       fallbackSource,
       theme
     );
   }
+  const value = column.value(row, rowIndex);
   return [dataSpan(displayTableValue(value), fallbackStyle, fallbackSource)];
 }
 
@@ -606,40 +620,32 @@ function scrolledLine(line: RenderLine, offsetCells: number, width: number): Ren
   return { spans };
 }
 
-function tableRows(widget: TableNode): readonly unknown[] {
-  return Array.isArray(widget.props.rows) ? widget.props.rows : [];
-}
-
-function tableRowIds(widget: TableNode, rowCount: number): readonly string[] {
-  const rowIds = Array.isArray(widget.props.rowIds)
-    ? widget.props.rowIds.filter((value): value is string => typeof value === 'string')
-    : [];
-  if (rowIds.length !== rowCount) throw new TypeError('table render rows and row ids must have equal length.');
-  return rowIds;
-}
-
 function tableSpacing(widget: TableNode): TableMetrics {
   return tableMetrics(widget.props.density);
 }
 
 
-function selectedTableRow(widget: TableNode): number {
-  const selectedCell = selectedTableCell(widget);
+function selectedTableRow(
+  widget: TableNode,
+  collection: TableCollection<unknown>
+): number {
+  const selectedCell = selectedTableCell(widget, collection);
   if (selectedCell !== undefined) return selectedCell.row;
   const selectedRowId = stringify(widget.props.selectedRowId);
-  return selectedRowId.length === 0
-    ? -1
-    : tableRowIds(widget, tableRows(widget).length).indexOf(selectedRowId);
+  return selectedRowId.length === 0 ? -1 : collectionRecordById(collection, selectedRowId)?.index ?? -1;
 }
 
-function selectedTableCell(widget: TableNode): SelectedTableCell | undefined {
+function selectedTableCell(
+  widget: TableNode,
+  collection: TableCollection<unknown>
+): SelectedTableCell | undefined {
   const selectedCell = widget.props.selectedCell;
   if (!isRecord(selectedCell)) return undefined;
   const rowId = selectedCell.rowId;
   const column = selectedCell.column;
   if (typeof rowId !== 'string') return undefined;
-  const row = tableRowIds(widget, tableRows(widget).length).indexOf(rowId);
-  if (row < 0) return undefined;
+  const row = collectionRecordById(collection, rowId)?.index;
+  if (row === undefined) return undefined;
   return {
     row,
     rowId,

@@ -1,9 +1,16 @@
 import { TerminalUiError } from '../errors.ts';
 
-export type TuiRuntimePhase = 'created' | 'active' | 'exiting' | 'disposing' | 'disposed';
+export type TuiRuntimePhase =
+  | 'created'
+  | 'starting'
+  | 'active'
+  | 'exiting'
+  | 'failed'
+  | 'disposing'
+  | 'disposed';
 
 export function assertRuntimeCanStart(phase: TuiRuntimePhase): void {
-  if (phase === 'created' || phase === 'active') return;
+  if (phase === 'created' || phase === 'starting' || phase === 'active') return;
   throw runtimePhaseError(phase);
 }
 

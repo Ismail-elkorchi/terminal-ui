@@ -3,6 +3,7 @@ import { pointerVisualState } from '../../interaction/pointer-presentation.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { HitTarget } from '../model/renderer.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
+import { ignoreMessage, isIgnoredMessage } from '../../interaction/message.ts';
 
 const presentationKinds = ['enter', 'leave', 'pointerDown', 'pointerUp'] as const;
 
@@ -20,7 +21,7 @@ export function pointerPresentationHitTargets<TMessage>(
         id: `${widget.id ?? widget.kind}:root`,
         bounds,
         accepts: ['click'] as const,
-        message: () => undefined,
+        message: ignoreMessage,
         cursor: 'default' as const
       }];
   return authoredTargets.map((target) => decoratePointerTarget(target, toActionMessage));
@@ -67,7 +68,10 @@ function decoratePointerTarget<TMessage>(
   return {
     ...target,
     accepts: mergeKinds(accepted, presentationKinds),
-    message: (event) => pointerAction(event, target.id, toActionMessage) ?? target.message(event)
+    message: (event) => {
+      const presentation = pointerAction(event, target.id, toActionMessage);
+      return isIgnoredMessage(presentation) ? target.message(event) : presentation;
+    }
   };
 }
 
@@ -75,18 +79,18 @@ function pointerAction<TMessage>(
   event: RoutedPointerEvent,
   targetId: string,
   toMessage: (action: PointerPresentationAction) => TMessage
-): TMessage | undefined {
+): import('../../interaction/message.ts').MessageResolution<TMessage> {
   switch (event.kind) {
     case 'enter':
       return toMessage({ kind: 'enter', targetId });
     case 'leave':
       return toMessage({ kind: 'leave', targetId });
     case 'pointerDown':
-      return event.button === 'left' ? toMessage({ kind: 'press', targetId }) : undefined;
+      return event.button === 'left' ? toMessage({ kind: 'press', targetId }) : ignoreMessage();
     case 'pointerUp':
-      return event.button === 'left' ? toMessage({ kind: 'release', targetId }) : undefined;
+      return event.button === 'left' ? toMessage({ kind: 'release', targetId }) : ignoreMessage();
     default:
-      return undefined;
+      return ignoreMessage();
   }
 }
 

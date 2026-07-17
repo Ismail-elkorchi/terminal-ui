@@ -70,6 +70,26 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'range' && cell.source?.label === 'track.endHandle')?.text, '●');
 });
 
+test('slider controls reject invalid authored numeric contracts consistently', () => {
+  const validRangePresentation = { value: { start: 10, end: 20 }, activeHandle: 'start' };
+  assert.throws(() => slider({ id: 'nan-slider', value: Number.NaN }), /value must be finite/u);
+  assert.throws(() => slider({ id: 'bounds-slider', value: 1, min: 2, max: 1 }), /finite ordered bounds/u);
+  assert.throws(() => slider({ id: 'step-slider', value: 1, step: 0 }), /step must be finite and greater than zero/u);
+  assert.throws(() => slider({ id: 'width-slider', value: 1, width: 1.5 }), /width must be a positive safe integer/u);
+  assert.throws(
+    () => rangeSlider({ id: 'nan-range', presentation: { value: { start: Number.NaN, end: 20 }, activeHandle: 'start' } }),
+    /value must be finite/u
+  );
+  assert.throws(
+    () => rangeSlider({ id: 'ordered-range', presentation: { value: { start: 20, end: 10 }, activeHandle: 'start' } }),
+    /start value must be less than or equal/u
+  );
+  assert.throws(
+    () => rangeSlider({ id: 'width-range', presentation: validRangePresentation, width: 0 }),
+    /width must be a positive safe integer/u
+  );
+});
+
 test('slider generated bindings use normalized arrow-key identities', async () => {
   const app = defineTui({
     id: 'slider-arrow-identity',
@@ -87,10 +107,10 @@ test('slider generated bindings use normalized arrow-key identities', async () =
   const runtime = createTuiRuntime({ app, host, initialFocusPath: ['volume'] });
 
   await runtime.start();
-  await runtime.handleInput({ kind: 'key', key: 'arrowLeft' });
-  assert.equal(runtime.getState()?.value, 4);
-  await runtime.handleInput({ kind: 'key', key: 'arrowRight' });
-  assert.equal(runtime.getState()?.value, 5);
+  await runtime.handleInput({ kind: 'key', key: 'arrowLeft', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  assert.equal(runtime.state()?.value, 4);
+  await runtime.handleInput({ kind: 'key', key: 'arrowRight', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  assert.equal(runtime.state()?.value, 5);
 
   await runtime.dispose();
 });
@@ -146,18 +166,18 @@ test('rangeSlider pointer capture preserves the pressed handle and arrow keys us
   const drag = await runtime.handleInput(mouse('drag', target.bounds.row, target.bounds.column + 4));
   assert.equal(press.handled, true);
   assert.equal(drag.handled, true);
-  assert.deepEqual(runtime.getState()?.range, {
+  assert.deepEqual(runtime.state()?.range, {
     value: { start: 20, end: 40 },
     activeHandle: 'end'
   });
 
-  await runtime.handleInput({ kind: 'key', key: 'arrowLeft' });
-  assert.deepEqual(runtime.getState()?.range, {
+  await runtime.handleInput({ kind: 'key', key: 'arrowLeft', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  assert.deepEqual(runtime.state()?.range, {
     value: { start: 20, end: 30 },
     activeHandle: 'end'
   });
-  await runtime.handleInput({ kind: 'key', key: 'arrowUp' });
-  assert.equal(runtime.getState()?.range.value.end, 30);
+  await runtime.handleInput({ kind: 'key', key: 'arrowUp', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  assert.equal(runtime.state()?.range.value.end, 30);
 
   await runtime.dispose();
 });

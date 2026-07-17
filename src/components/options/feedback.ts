@@ -15,6 +15,7 @@ import type {
   NotificationPlacement,
   ProgressBarDisplay,
   ProgressBarLabelPosition,
+  ProgressBarMode,
   StatusBarItem,
   ValueScale
 } from '../../ui-model/feedback.ts';
@@ -65,15 +66,12 @@ export interface StatusIndicatorOptions extends ElementOptions<StatusStylePart> 
 
 export interface ProgressBarOptions extends ElementOptions<StatusStylePart> {
   readonly label?: string;
-  readonly value?: number;
-  readonly max?: number;
-  readonly indeterminate?: boolean;
+  readonly mode: ProgressBarMode;
   readonly barWidth?: number;
   readonly display?: ProgressBarDisplay;
   readonly labelPosition?: ProgressBarLabelPosition;
   readonly elapsedMs?: number;
   readonly remainingMs?: number;
-  readonly frame?: number;
   readonly status?: ProcessStatus;
   readonly valueScale?: ValueScale;
 }
@@ -171,6 +169,7 @@ export type {
   NotificationTone,
   ProgressBarDisplay,
   ProgressBarLabelPosition,
+  ProgressBarMode,
   ValueScale,
   ValueScaleStop
 } from '../../ui-model/feedback.ts';

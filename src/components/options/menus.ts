@@ -4,21 +4,19 @@ import type { ScrollPolicy } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type {
   ContextMenuAction,
+  ContextMenuPresentation,
   DividerLineKind,
   DividerOrientation,
   DropdownMenuAction,
+  DropdownMenuPresentation,
   MenuAction,
   MenuBarAction,
+  MenuBarPresentation,
   MenuItem,
+  MenuPresentation,
   TooltipPresentation,
   TooltipTone
 } from '../../ui-model/menu.ts';
-import type {
-  ContextMenuPresentation,
-  DropdownMenuPresentation,
-  MenuBarPresentation,
-  MenuPresentation
-} from '../../behavior/menu.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type { DividerStylePart, MenuStylePart, TooltipStylePart } from '../../ui-model/style-parts.ts';
 
@@ -85,12 +83,20 @@ export interface TooltipOptions extends ElementOptions<TooltipStylePart> {
 
 export type {
   ContextMenuAction,
+  ContextMenuPresentation,
   DividerLineKind,
   DividerOrientation,
   DropdownMenuAction,
+  DropdownMenuPresentation,
   MenuAction,
+  MenuActionItem,
   MenuBarAction,
+  MenuBarPresentation,
+  MenuCheckItem,
   MenuItem,
+  MenuPresentation,
+  MenuPresentationItem,
+  MenuSubmenuItem,
   TooltipPresentation,
   TooltipTone
 } from '../../ui-model/menu.ts';

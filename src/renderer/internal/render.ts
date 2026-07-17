@@ -11,7 +11,7 @@ import { layoutRenderNode } from './layout.ts';
 import { accessibleNode } from './render-accessibility.ts';
 import { createDraftRenderRegion, regionIdForLayoutNode, toRegionHitTarget } from './render-regions.ts';
 import { renderRenderNode, cursorForRenderNode, hitTargetsForRenderNode } from './render-node-behavior.ts';
-import type { TerminalViewport } from '../../host/index.ts';
+import type { ViewportSize } from '../../geometry/types.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import type { FocusPath } from './focus.ts';
 import type { Frame, FrameBuffer, FrameCell, FrameHitTarget } from './frame.ts';
@@ -81,7 +81,7 @@ export interface RenderElementOptions {
 
 export interface RenderElementProjection<TMessage = unknown> {
   readonly node: RenderNode<TMessage>;
-  readonly viewport: TerminalViewport;
+  readonly viewport: ViewportSize;
   readonly theme: TerminalTheme;
   readonly layout: LayoutNode;
   readonly regions: readonly RenderRegion<TMessage>[];
@@ -90,7 +90,7 @@ export interface RenderElementProjection<TMessage = unknown> {
 
 export function renderElementFrame(
   element: Element<unknown>,
-  viewport: TerminalViewport,
+  viewport: ViewportSize,
   options: RenderElementOptions = {}
 ): Frame {
   return renderElementProjection(element, viewport, options).frame;
@@ -98,7 +98,7 @@ export function renderElementFrame(
 
 export function renderElementProjection<TMessage>(
   element: Element<TMessage>,
-  viewport: TerminalViewport,
+  viewport: ViewportSize,
   options: RenderElementOptions = {}
 ): RenderElementProjection<TMessage> {
   const renderNode = toRenderNode(element);
@@ -134,7 +134,7 @@ const defaultFramePasses: readonly FramePass[] = Object.freeze([boxDrawingJoinPa
 
 export function renderElementRegions(
   element: Element,
-  viewport: TerminalViewport,
+  viewport: ViewportSize,
   options: RenderElementOptions = {}
 ): readonly RenderRegion[] {
   return renderElementProjection(element, viewport, options).regions;
@@ -143,7 +143,7 @@ export function renderElementRegions(
 function renderLayoutRegions<TMessage>(
   widget: RenderNode<TMessage>,
   layout: LayoutNode,
-  viewport: TerminalViewport,
+  viewport: ViewportSize,
   theme: TerminalTheme,
   focusPath: FocusPath | undefined
 ): readonly RenderRegion<TMessage>[] {
@@ -281,7 +281,7 @@ interface RegionComposer<TMessage> {
   snapshot(widget: RenderNode<TMessage>, layout: LayoutNode, theme: TerminalTheme): readonly RenderRegion<TMessage>[];
 }
 
-function createRegionComposer<TMessage>(viewport: TerminalViewport): RegionComposer<TMessage> {
+function createRegionComposer<TMessage>(viewport: ViewportSize): RegionComposer<TMessage> {
   const regions: DraftRenderRegion[] = [];
   let regionOrder = 0;
   return {
@@ -321,7 +321,7 @@ function createRegionComposer<TMessage>(viewport: TerminalViewport): RegionCompo
   };
 }
 
-export function compositeRegions(viewport: TerminalViewport, regions: readonly RenderRegion[]): FrameBuffer {
+export function compositeRegions(viewport: ViewportSize, regions: readonly RenderRegion[]): FrameBuffer {
   const buffer = createFrameBuffer(viewport.columns, viewport.rows);
   for (const region of regions.toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)) {
     if (region.opacity === 'opaque') {

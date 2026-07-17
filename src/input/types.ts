@@ -15,12 +15,20 @@ export interface KeyEvent {
   readonly kind: 'key';
   readonly key: KeyName;
   readonly sequence?: string;
+  readonly modifiers: KeyModifiers;
+  readonly eventType: KeyEventType;
+  readonly location: KeyLocation;
+}
+
+export interface KeyModifiers {
   readonly ctrl: boolean;
   readonly alt: boolean;
   readonly shift: boolean;
   readonly meta: boolean;
-  readonly repeat?: boolean;
 }
+
+export type KeyEventType = 'press' | 'repeat' | 'release';
+export type KeyLocation = 'standard' | 'numpad' | 'unknown';
 
 export interface TextInputEvent {
   readonly kind: 'text';
@@ -101,7 +109,20 @@ export interface UnknownInputEvent {
   readonly sequence: string;
 }
 
-export type KeyName =
+export type KeyName = LetterKeyName | DigitKeyName | FunctionKeyName | SpecialKeyName;
+
+export type LetterKeyName =
+  | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i'
+  | 'j' | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q' | 'r'
+  | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z';
+
+export type DigitKeyName = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
+
+export type FunctionKeyName =
+  | 'f1' | 'f2' | 'f3' | 'f4' | 'f5' | 'f6'
+  | 'f7' | 'f8' | 'f9' | 'f10' | 'f11' | 'f12';
+
+export type SpecialKeyName =
   | 'enter'
   | 'escape'
   | 'tab'
@@ -115,10 +136,14 @@ export type KeyName =
   | 'pageDown'
   | 'home'
   | 'end'
+  | 'insert'
   | 'space'
-  | 'ctrlC'
-  | 'ctrlD'
-  | 'ctrlQ'
+  | 'add'
+  | 'subtract'
+  | 'multiply'
+  | 'divide'
+  | 'decimal'
+  | 'equal'
   | 'unknown';
 
 export type BindableKeyName = Exclude<KeyName, 'unknown'>;
@@ -127,10 +152,8 @@ export type InputTrigger =
   | {
       readonly kind: 'key';
       readonly key: BindableKeyName;
-      readonly ctrl?: boolean;
-      readonly alt?: boolean;
-      readonly shift?: boolean;
-      readonly meta?: boolean;
+      readonly modifiers?: KeyModifierTrigger;
+      readonly eventType?: KeyEventType;
     }
   | {
       readonly kind: 'text';
@@ -139,9 +162,26 @@ export type InputTrigger =
 
 export interface InputDecodeOptions {
   readonly bracketedPaste?: boolean;
+  readonly keyboard?: 'legacy' | 'enhanced';
 }
 
-export type KeyEventLike = Partial<KeyEvent> & { readonly key: KeyName };
+export type KeyModifierTrigger =
+  | { readonly kind: 'any' }
+  | {
+      readonly kind?: 'exact';
+      readonly ctrl?: boolean;
+      readonly alt?: boolean;
+      readonly shift?: boolean;
+      readonly meta?: boolean;
+    };
+
+export interface KeyEventLike {
+  readonly key: KeyName;
+  readonly sequence?: string;
+  readonly modifiers?: Partial<KeyModifiers>;
+  readonly eventType?: KeyEventType;
+  readonly location?: KeyLocation;
+}
 
 export interface InputDecoder {
   decode(chunk: TerminalInputChunk): readonly InputEvent[];

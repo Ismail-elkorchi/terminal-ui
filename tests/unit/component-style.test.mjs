@@ -163,7 +163,10 @@ test('controlled pointer presentation resolves styles and source state across co
     id: 'actions',
     presentation: {
       activePath: ['open'],
-      items: [{ id: 'open', label: 'Open' }, { id: 'save', label: 'Save' }]
+      items: [
+        { kind: 'action', id: 'open', label: 'Open' },
+        { kind: 'action', id: 'save', label: 'Save' }
+      ]
     },
     pointer: { state: { hoveredTargetId: 'actions:save' } }
   }), { columns: 20, rows: 2 });
@@ -235,8 +238,8 @@ test('menu palette table and tree use selected placeholder and title slots', () 
     id: 'styled-menu',
     presentation: { kind: 'closed', active: 'file' },
     items: [
-        { id: 'file', label: 'File' },
-        { id: 'edit', label: 'Edit' }
+        { kind: 'action', id: 'file', label: 'File' },
+        { kind: 'action', id: 'edit', label: 'Edit' }
     ],
     meta: {
         styles: {
@@ -366,8 +369,8 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
     presentation: {
       activePath: ['open'],
       items: [
-        { id: 'open', label: 'Open' },
-        { id: 'save', label: 'Save' }
+        { kind: 'action', id: 'open', label: 'Open' },
+        { kind: 'action', id: 'save', label: 'Save' }
       ]
     }
   }), { columns: 20, rows: 2 });
@@ -377,7 +380,7 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
     meta: { focus: { disabled: true } },
     presentation: { kind: 'closed', active: 'us' },
     items: [
-      { id: 'us', label: 'United States' }
+      { kind: 'action', id: 'us', label: 'United States' }
     ]
   }), { columns: 32, rows: 1 });
   const paletteFrame = renderElementFrame(palette({
@@ -662,8 +665,7 @@ test('feedback widgets use shared status styles and source metadata', () => {
   const progressFrame = renderElementFrame(progressBar({
     id: 'progress',
     label: 'Upload',
-    value: 2,
-    max: 4,
+    mode: { kind: 'determinate', value: 2, max: 4 },
     barWidth: 4,
     display: 'bar+value+percent',
     status: 'error'

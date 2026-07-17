@@ -1,5 +1,5 @@
 import { diagnostic } from '../diagnostics.ts';
-import type { RuntimeTarget } from '../package.ts';
+import type { RuntimeTarget } from './capability-types.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type {
   CapabilityConfidence,
@@ -34,6 +34,11 @@ export interface CapabilityOverride {
 
 export type CapabilityOverrides = Partial<Record<TerminalCapabilityName, boolean | CapabilityOverride>>;
 
+export interface TerminalCapabilityConfiguration {
+  readonly probes?: ProtocolProbeFacts;
+  readonly overrides?: CapabilityOverrides;
+}
+
 export interface TerminalCapabilityResolverInput {
   readonly host: TerminalHostFacts;
   readonly environment?: EnvironmentFacts;
@@ -60,6 +65,7 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
     }),
     enhancedKeyboard: resolveCapability(input, 'enhancedKeyboard', false, {
       unavailable: 'Enhanced keyboard protocol has not been detected.',
+      requiresSessionOperation: true,
       facts: environmentFacts(input.environment, ['KITTY_WINDOW_ID', 'TERM'])
     }),
     bracketedPaste: resolveCapability(input, 'bracketedPaste', inputProtocol, {
@@ -87,6 +93,13 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       requiresSessionOperation: true,
       facts: [hostFact('outputIsTty', input.host.outputIsTty)]
     }),
+    synchronizedOutput: resolveCapability(input, 'synchronizedOutput', false, {
+      unavailable: 'Synchronized terminal output has not been detected.',
+      facts: [
+        hostFact('outputIsTty', input.host.outputIsTty),
+        ...environmentFacts(input.environment, ['TERM', 'TERM_PROGRAM'])
+      ]
+    }),
     title: resolveCapability(input, 'title', outputProtocol, {
       unavailable: 'Output stream cannot set terminal title.',
       facts: [hostFact('outputIsTty', input.host.outputIsTty)]
@@ -107,7 +120,7 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
     runtime: input.host.runtime,
     isTty: inputProtocol,
     color: resolveColor(input),
-    unicode: resolveUnicode(input.host),
+    unicode: resolveUnicode(),
     ...capabilities,
     diagnostics
   };
@@ -204,11 +217,10 @@ function resolveColor(input: TerminalCapabilityResolverInput): TerminalColorCapa
   return { depth: 8, hasBasicColors: true, has256Colors: true, hasTrueColor: false };
 }
 
-function resolveUnicode(host: TerminalHostFacts): TerminalUnicodeCapability {
+function resolveUnicode(): TerminalUnicodeCapability {
   return {
     graphemeClusters: true,
-    eastAsianWidth: host.columns !== undefined && host.columns < 40 ? 'ambiguous-narrow' : 'narrow',
-    emojiWidth: 'wide',
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     bidi: 'stable-fallback'
   };
 }

@@ -2,14 +2,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  createDirtyRegionSet,
-  createFrameBuffer,
   diffFrames,
-  dirtyRegionsForRegionChanges,
   renderFramePlain,
-  renderElementFrame,
-  renderElementRegions
+  renderElementFrame
 } from '../../dist/renderer/index.js';
+import {
+  applyRenderDiff,
+  createDirtyRegionSet,
+  dirtyRegionsForRegionChanges,
+  renderElementRegions
+} from '../../dist/testing/index.js';
 import {
   absolute,
   overlay,
@@ -254,31 +256,4 @@ function movingOverlay(row, column) {
   );
 }
 
-function applyDiffToFrame(frame, diff) {
-  const buffer = createFrameBuffer(diff.width, diff.height);
-  for (const cell of frame.cells) {
-    if (cell.continuation !== true) buffer.writeCell(cell);
-  }
-  for (const operation of diff.operations) {
-    switch (operation.kind) {
-      case 'write':
-        buffer.write(operation.row, operation.column, operation.spans);
-        break;
-      case 'clearRect':
-        buffer.clear(operation.bounds);
-        break;
-      case 'clearLine':
-        buffer.clear({
-          row: operation.row,
-          column: operation.fromColumn ?? 1,
-          width: diff.width - (operation.fromColumn ?? 1) + 1,
-          height: 1
-        });
-        break;
-      case 'moveCursor':
-      case 'showCursor':
-        break;
-    }
-  }
-  return buffer.snapshot({ accessibility: frame.accessibility });
-}
+const applyDiffToFrame = applyRenderDiff;

@@ -71,8 +71,8 @@ test('resizable split pane routes keyboard and captured pointer drag actions', a
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  await runtime.handleInput({ kind: 'key', key: 'arrowRight', ctrl: false, alt: false, shift: false, meta: false });
-  assert.deepEqual(runtime.getState().split.shares, [0.55, 0.45]);
+  await runtime.handleInput({ kind: 'key', key: 'arrowRight', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
+  assert.deepEqual(runtime.state().split.shares, [0.55, 0.45]);
 
   const divider = runtime.frame().hitTargets?.find((target) => target.id === 'divider.0');
   assert.deepEqual(divider?.bounds, { row: 1, column: 11, width: 1, height: 3 });
@@ -80,8 +80,8 @@ test('resizable split pane routes keyboard and captured pointer drag actions', a
   await runtime.handleInputChunk({ data: '\u001B[<32;13;1M' });
   await runtime.handleInputChunk({ data: '\u001B[<0;13;1m' });
 
-  assert.ok(Math.abs(runtime.getState().split.shares[0] - (0.55 + (2 / 18))) < 1e-12);
-  assert.equal(runtime.getState().split.drag, undefined);
+  assert.ok(Math.abs(runtime.state().split.shares[0] - (0.55 + (2 / 18))) < 1e-12);
+  assert.equal(runtime.state().split.drag, undefined);
 });
 
 test('resizable split pane rejects geometry that cannot expose dividers', () => {

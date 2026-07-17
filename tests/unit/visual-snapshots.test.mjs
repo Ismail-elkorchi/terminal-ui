@@ -13,7 +13,7 @@ test('visual snapshots produce deterministic plain ANSI frame accessibility diff
   const frame = renderElementFrame(button({
     id: 'run',
     label: 'Run',
-    onPress: { kind: 'run' }
+    onPress: () => ({ kind: 'run' })
   }), { columns: 12, rows: 2 });
 
   const first = createVisualSnapshot({ frame, previousFrame: frame });
@@ -22,13 +22,13 @@ test('visual snapshots produce deterministic plain ANSI frame accessibility diff
   assert.deepEqual(second, first);
   assert.equal(first.schemaVersion, 'terminal-ui.visual-snapshots.v1');
   assert.equal(first.plainTextFrame, '[›Run ]');
-  assert.match(first.ansiFrame, /\\x1b\[1;1H/u);
+  assert.match(first.ansiFrame, /\\x1b\[H/u);
   assert.doesNotMatch(first.ansiFrame, /\u001B/u);
   assert.match(first.accessibleText, /- button: Run/u);
   assert.match(first.frameJson, /"schemaVersion": "terminal-ui.tui-frame.v1"/u);
   assert.match(first.accessibilityJson, /"role": "button"/u);
-  assert.match(first.diffJson, /"schemaVersion": "terminal-ui.render-diff.v1"/u);
-  assert.match(first.diffJson, /"kind": "moveCursor"/u);
+  assert.match(first.diffJson, /"schemaVersion": "terminal-ui.render-diff.v2"/u);
+  assert.match(first.diffJson, /"cursor":/u);
   assert.match(first.hitTargetJson, /"id": "run:control"/u);
   assert.match(first.focusTargetJson, /"focusPath"/u);
   assert.match(first.focusTargetJson, /"run"/u);

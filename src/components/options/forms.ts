@@ -10,7 +10,7 @@ import type {
   NumericRange,
   SliderStepEvent
 } from '../../ui-model/forms.ts';
-import type { NumberInputAction, NumberInputPresentation } from '../../ui-model/number-input.ts';
+import type { NumberInputControlAction, NumberInputPresentation } from '../../ui-model/number-input.ts';
 import type { TextInputAction, TextInputPresentation } from '../../ui-model/text-input.ts';
 import type { CalendarAction, CalendarDay } from '../../ui-model/calendar.ts';
 import type {
@@ -20,7 +20,7 @@ import type {
   SelectAction
 } from '../../ui-model/choice-controls.ts';
 import type { RangeSliderAction, RangeSliderPresentation } from '../../ui-model/range-slider.ts';
-import type { SelectPresentation } from '../../behavior/choice-controls.ts';
+import type { SelectPresentation } from '../../ui-model/choice-controls.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type {
   ButtonStylePart,
@@ -56,7 +56,7 @@ export interface ButtonOptions<TMessage = never> extends InteractiveElementOptio
   readonly label: string;
   readonly leading?: InlineContent;
   readonly trailing?: InlineContent;
-  readonly onPress?: TMessage;
+  readonly onPress?: () => TMessage;
   readonly state?: ButtonState;
   readonly disabled?: boolean;
   readonly tone?: ButtonTone;
@@ -177,7 +177,7 @@ export interface SelectOptions<TValue = string, TMessage = never> extends Intera
 export interface TextInputOptions<TMessage = never> extends InteractiveElementOptions<TextEntryStylePart, TMessage> {
   readonly presentation: TextInputPresentation;
   readonly placeholder?: string;
-  readonly onSubmit?: TMessage;
+  readonly onSubmit?: (value: string) => TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
@@ -191,7 +191,7 @@ export interface NumberInputOptions<TMessage = never> extends InteractiveElement
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly onAction?: (action: NumberInputAction) => TMessage;
+  readonly onAction?: (action: NumberInputControlAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
@@ -204,3 +204,4 @@ export type {
   SliderStepDirection,
   SliderStepEvent
 } from '../../ui-model/forms.ts';
+export type { SelectPresentation } from '../../ui-model/choice-controls.ts';

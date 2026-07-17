@@ -75,11 +75,6 @@ export type {
   BorderStyle
 } from './internal/border.ts';
 export {
-  createDirtyRegionSet,
-  dirtyRegionsForRegionChanges
-} from './internal/dirty-regions.ts';
-export type { DirtyRegionSet } from './internal/dirty-regions.ts';
-export {
   createFrameBuffer
 } from './internal/frame-buffer.ts';
 export type {
@@ -135,35 +130,12 @@ export type {
   MeasurementInput
 } from './internal/measurement.ts';
 export {
-  clampedTextOffset,
-  textOffsetAtVisualColumn,
-  textPointerHitTargets,
-  textSelectionBetween
-} from './internal/text-pointer.ts';
-export type {
-  TextPointerAction,
-  TextPointerHitTargetInput
-} from './internal/text-pointer.ts';
-export {
-  extractScrollbackSelectionText
-} from './internal/scrollback.ts';
-export type {
-  ExtractScrollbackSelectionTextInput
-} from './internal/scrollback.ts';
-export {
   highlightRenderSpans
 } from './internal/text-highlight.ts';
 export type {
   HighlightRenderSpan,
   HighlightRenderSpansOptions
 } from './internal/text-highlight.ts';
-export {
-  placeNotificationStack
-} from './internal/notifications.ts';
-export type {
-  NotificationStackPlacementInput,
-  NotificationStackSize
-} from './internal/notifications.ts';
 export type { TooltipSize } from './internal/tooltip.ts';
 export {
   compositeRegions,
@@ -173,7 +145,6 @@ export {
   renderFrameDebug,
   renderFramePlain,
   renderElementFrame,
-  renderElementRegions,
   sameFrameCell,
   serializeRenderSpansStateful,
   sameTerminalColor,
@@ -184,18 +155,7 @@ export {
   layoutElement
 } from './internal/layout.ts';
 export type {
-  RenderRegion,
-  RenderRegionHitTarget,
-  RenderElementProjection
-} from './internal/render.ts';
-export {
-  createPointerRouter
-} from './internal/pointer-router.ts';
-export type {
-  PointerRouteResult,
-  PointerRouter
-} from './internal/pointer-router.ts';
-export type {
+  PointerClickCount,
   PointerEventKind,
   RoutedPointerEvent
 } from '../input/pointer.ts';
@@ -208,25 +168,9 @@ export type {
   OutputProjectionInput
 } from './internal/output-projection.ts';
 export {
-  renderScrollbars,
-  scrollbarInteractionReducer,
-  scrollbarLayout,
-  scrollbarVisualStateForTarget
-} from './internal/scrollbar.ts';
-export type {
-  ScrollbarLayout,
-  ScrollbarInteractionAction,
-  ScrollbarInteractionState,
-  ScrollbarOptions,
-  ScrollbarRenderOptions,
-  ScrollbarState,
-  ScrollbarThumb,
-  ScrollbarTrack,
-  ScrollbarVisualState
-} from './internal/scrollbar.ts';
-export {
   custom
 } from './custom-element.ts';
+export { customComposite } from './custom-composite.ts';
 export type {
   CustomElementOptions,
   StatefulCustomElementOptions,
@@ -240,6 +184,14 @@ export type {
   CustomRendererMeasureInput,
   CustomRendererRenderInput
 } from './custom-renderer.ts';
+export type {
+  CustomCompositeAccessibilityInput,
+  CustomCompositeLayoutInput,
+  CustomCompositeRenderer,
+  CustomCompositeRenderInput,
+  StatefulCustomCompositeOptions,
+  StatelessCustomCompositeOptions
+} from './custom-composite.ts';
 export {
   gridCellRects,
   splitTracks

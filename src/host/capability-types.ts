@@ -1,5 +1,7 @@
-import type { RuntimeTarget } from '../package.ts';
 import type { TerminalDiagnostic, TerminalDiagnosticValue } from '../diagnostics.ts';
+import type { TextWidthProfile } from '../text/index.ts';
+
+export type RuntimeTarget = 'node' | 'deno' | 'bun' | 'memory';
 
 export type TerminalCapabilityName =
   | 'rawInput'
@@ -11,6 +13,7 @@ export type TerminalCapabilityName =
   | 'alternateScreen'
   | 'focusReporting'
   | 'cursorVisibility'
+  | 'synchronizedOutput'
   | 'title'
   | 'bell'
   | 'clipboard';
@@ -42,8 +45,7 @@ export interface TerminalColorCapability {
 
 export interface TerminalUnicodeCapability {
   readonly graphemeClusters: true;
-  readonly eastAsianWidth: 'narrow' | 'wide' | 'ambiguous-narrow' | 'ambiguous-wide';
-  readonly emojiWidth: 'narrow' | 'wide';
+  readonly widthProfile: TextWidthProfile;
   readonly bidi: 'full' | 'stable-fallback';
 }
 
@@ -62,6 +64,7 @@ export interface TerminalCapabilityProfile {
   readonly alternateScreen: CapabilitySupport;
   readonly focusReporting: CapabilitySupport;
   readonly cursorVisibility: CapabilitySupport;
+  readonly synchronizedOutput: CapabilitySupport;
   readonly title: CapabilitySupport;
   readonly bell: CapabilitySupport;
   readonly clipboard: CapabilitySupport;

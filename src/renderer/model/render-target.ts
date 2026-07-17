@@ -1,4 +1,5 @@
 import type { Rect } from '../../geometry/types.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 import type {
   FrameCellSource,
   RenderBlock,
@@ -22,6 +23,7 @@ export interface RenderTargetCell {
 export interface RenderTarget {
   readonly width: number;
   readonly height: number;
+  readonly widthProfile: TextWidthProfile;
   write(row: number, column: number, spans: readonly RenderSpan[]): void;
   writeLine(row: number, column: number, line: RenderLine): void;
   writeBlock(row: number, column: number, block: RenderBlock): void;

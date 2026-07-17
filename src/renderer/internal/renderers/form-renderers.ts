@@ -54,7 +54,7 @@ import { splitTracks } from '../layout-geometry.ts';
 import { textPointerHitTargets } from '../text-pointer.ts';
 import { stringify } from '../render-node-props.ts';
 import { writeRenderBlock } from './support/block.ts';
-import { focusTarget, widgetMessageHitTargets } from './support/common.ts';
+import { focusHitTargets, focusTarget } from './support/common.ts';
 import { fillLayoutSizes, layoutFlowOptions } from './support/layout.ts';
 import type { RendererMap } from './types.ts';
 
@@ -202,7 +202,7 @@ export const formRenderers = {
     accessibility: ({ renderNode, id, focused }) => textInputAccessibleBase(renderNode, id, focused),
     focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, textInputCursor(renderNode, bounds))],
     hitTargets: ({ renderNode, bounds, theme }) => [
-      ...widgetMessageHitTargets(renderNode, bounds, 'input'),
+      ...focusHitTargets(renderNode, bounds, 'input'),
       ...(renderNode.props.disabled === true
         ? []
         : textPointerHitTargets({

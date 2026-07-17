@@ -37,6 +37,24 @@ test('host capability helper distinguishes input and output protocol support', (
   assert.equal(capabilities.rawInput.status, 'unavailable');
   assert.equal(capabilities.rawInput.diagnostics[0]?.code, 'HOST_CAPABILITY_UNAVAILABLE');
   assert.equal(capabilities.alternateScreen.status, 'supported');
+  assert.equal(capabilities.synchronizedOutput.status, 'unavailable');
+});
+
+test('synchronized output requires an explicit probe or override', () => {
+  const host = {
+    runtime: 'node',
+    inputIsTty: true,
+    outputIsTty: true,
+    rawInput: true
+  };
+  const probed = resolveTerminalCapabilities({ host, probes: { synchronizedOutput: true } });
+  const forced = resolveTerminalCapabilities({ host, overrides: { synchronizedOutput: true } });
+
+  assert.equal(probed.synchronizedOutput.status, 'supported');
+  assert.equal(probed.synchronizedOutput.confidence, 'detected');
+  assert.equal(forced.synchronizedOutput.status, 'supported');
+  assert.equal(forced.synchronizedOutput.confidence, 'forced');
+  assert.equal(probed.synchronizedOutput.requiresSessionOperation, false);
 });
 
 test('protocol writer emits typed mouse mode and sanitized title sequences', async () => {
@@ -45,10 +63,13 @@ test('protocol writer emits typed mouse mode and sanitized title sequences', asy
 
   await protocol.enableMouseReporting('drag');
   await protocol.disableMouseReporting();
+  await protocol.enableEnhancedKeyboard();
+  await protocol.disableEnhancedKeyboard();
   await protocol.setTitle('Build\u001B[31m');
 
   assert.match(host.output(), /^\u001B\[\?1006h\u001B\[\?1002h/u);
   assert.match(host.output(), /\u001B\[\?1003l\u001B\[\?1002l\u001B\[\?1000l\u001B\[\?1006l/u);
+  assert.match(host.output(), /\u001B\[>3u\u001B\[<u/u);
   assert.equal(host.output().includes('\u001B]0;Build\u0007'), true);
   assert.doesNotMatch(host.output(), /\u001B\[31m/u);
 });
@@ -77,6 +98,7 @@ test('terminal sessions restore state in protocol-safe order', async () => {
     bracketedPaste: false,
     mouseReporting: 'none',
     focusReporting: false,
+    enhancedKeyboard: false,
     cursorVisible: true
   };
   const expectedOperations = [
@@ -115,6 +137,7 @@ test('session protocol policies plan and apply only requested operations', async
     rawInput: 'required',
     bracketedPaste: 'disabled',
     focusReporting: 'disabled',
+    keyboard: { profile: 'legacy', requirement: 'disabled' },
     cursorVisibility: { state: 'hide', requirement: 'disabled' },
     mouseReporting: { mode: 'drag', requirement: 'optional' }
   };
@@ -122,12 +145,13 @@ test('session protocol policies plan and apply only requested operations', async
   const plan = createSessionProtocolPlan(policy);
   const result = await applySessionProtocolPolicy(session, policy);
 
-  assert.equal(plan.length, 6);
+  assert.equal(plan.length, 7);
   assert.equal(result.ok, true);
   assert.deepEqual(result.applied.map((item) => item.kind), ['rawInput', 'mouseReporting']);
   assert.deepEqual(result.skipped.map((item) => item.kind), [
     'alternateScreen',
     'bracketedPaste',
+    'enhancedKeyboard',
     'focusReporting',
     'cursorVisibility'
   ]);
@@ -147,6 +171,7 @@ test('session protocol policies fail only required unavailable operations', asyn
     rawInput: 'required',
     bracketedPaste: 'disabled',
     focusReporting: 'disabled',
+    keyboard: { profile: 'legacy', requirement: 'disabled' },
     cursorVisibility: { state: 'hide', requirement: 'disabled' },
     mouseReporting: { mode: 'none', requirement: 'disabled' }
   });
@@ -157,6 +182,7 @@ test('session protocol policies fail only required unavailable operations', asyn
     'alternateScreen',
     'bracketedPaste',
     'rawInput',
+    'enhancedKeyboard',
     'mouseReporting',
     'focusReporting',
     'cursorVisibility'
@@ -175,6 +201,7 @@ test('session protocol diagnostics preserve requested operation and mouse mode',
     rawInput: 'disabled',
     bracketedPaste: 'disabled',
     focusReporting: 'disabled',
+    keyboard: { profile: 'legacy', requirement: 'disabled' },
     cursorVisibility: { state: 'hide', requirement: 'disabled' },
     mouseReporting: { mode: 'drag', requirement: 'optional' }
   });
@@ -185,6 +212,7 @@ test('session protocol diagnostics preserve requested operation and mouse mode',
     'alternateScreen',
     'bracketedPaste',
     'rawInput',
+    'enhancedKeyboard',
     'mouseReporting',
     'focusReporting',
     'cursorVisibility'
@@ -210,6 +238,31 @@ test('terminal sessions preserve raw input state that existed before the session
   host.stdin.setRawMode(false);
 });
 
+test('session policy enables and restores a supported enhanced keyboard protocol', async () => {
+  const host = createMemoryTerminalHost({
+    capabilities: { probes: { enhancedKeyboard: true } }
+  });
+  const session = await host.beginSession({ id: 'enhanced-keyboard-session' });
+  const result = await applySessionProtocolPolicy(session, {
+    alternateScreen: 'disabled',
+    rawInput: 'disabled',
+    bracketedPaste: 'disabled',
+    focusReporting: 'disabled',
+    keyboard: { profile: 'enhanced', requirement: 'required' },
+    cursorVisibility: { state: 'unchanged', requirement: 'disabled' },
+    mouseReporting: { mode: 'none', requirement: 'disabled' }
+  });
+
+  assert.equal(result.ok, true);
+  assert.deepEqual(result.applied, [{ kind: 'enhancedKeyboard', enabled: true }]);
+  assert.match(host.output(), /\u001B\[>3u/u);
+
+  const restored = await session.restore('success');
+  assert.equal(restored.ok, true);
+  assert.deepEqual(restored.restored, [{ kind: 'enhancedKeyboard', enabled: false }]);
+  assert.match(host.output(), /\u001B\[>3u\u001B\[<u/u);
+});
+
 test('terminal sessions continue restoring later state after one restore operation fails', async () => {
   const host = createMemoryTerminalHost();
   const originalWrite = host.write.bind(host);
@@ -230,6 +283,81 @@ test('terminal sessions continue restoring later state after one restore operati
   assert.equal(host.stdin.isRawModeEnabled(), false);
   assert.equal(host.restores()[0]?.alternateScreen, true);
   assert.equal(host.restores()[0]?.rawInput, false);
+});
+
+test('terminal sessions restore protocol mutations whose writes apply and then reject', async () => {
+  const host = createMemoryTerminalHost();
+  const write = host.write.bind(host);
+  const session = await host.beginSession({ id: 'uncertain-protocol-mutation' });
+  host.write = async (output) => {
+    await write(output);
+    if (output.text === '\u001B[?1049h') throw new Error('write rejected after applying alternate screen');
+  };
+
+  await assert.rejects(() => session.enableAlternateScreen(), /after applying/u);
+  host.write = write;
+  const restored = await session.restore('error');
+
+  assert.equal(restored.ok, true);
+  assert.deepEqual(restored.restored.map((operation) => operation.kind), ['alternateScreen']);
+  assert.match(host.output(), /\u001B\[\?1049h\u001B\[\?1049l/u);
+});
+
+test('terminal sessions conservatively restore every uncertain protocol mutation', async () => {
+  const cases = [
+    { id: 'alternate', enable: (session) => session.enableAlternateScreen(), sequence: '\u001B[?1049h', kind: 'alternateScreen' },
+    { id: 'paste', enable: (session) => session.enableBracketedPaste(), sequence: '\u001B[?2004h', kind: 'bracketedPaste' },
+    {
+      id: 'mouse',
+      enable: (session) => session.enableMouseReporting('drag'),
+      sequence: '\u001B[?1006h\u001B[?1002h',
+      kind: 'mouseReporting'
+    },
+    { id: 'focus', enable: (session) => session.enableFocusReporting(), sequence: '\u001B[?1004h', kind: 'focusReporting' },
+    {
+      id: 'enhanced-keyboard',
+      hostOptions: { capabilities: { probes: { enhancedKeyboard: true } } },
+      enable: (session) => session.enableEnhancedKeyboard(),
+      sequence: '\u001B[>3u',
+      kind: 'enhancedKeyboard'
+    },
+    { id: 'cursor', enable: (session) => session.hideCursor(), sequence: '\u001B[?25l', kind: 'cursorVisible' }
+  ];
+
+  for (const item of cases) {
+    const host = createMemoryTerminalHost(item.hostOptions);
+    const write = host.write.bind(host);
+    const session = await host.beginSession({ id: `uncertain-${item.id}` });
+    host.write = async (output) => {
+      await write(output);
+      if (output.text === item.sequence) throw new Error(`${item.id} rejected after applying`);
+    };
+
+    await assert.rejects(() => item.enable(session), /rejected after applying/u);
+    host.write = write;
+    const restored = await session.restore('error');
+
+    assert.equal(restored.ok, true, item.id);
+    assert.deepEqual(restored.restored.map((operation) => operation.kind), [item.kind], item.id);
+  }
+});
+
+test('terminal sessions restore uncertain raw mode after the host mutates and rejects', async () => {
+  const host = createMemoryTerminalHost();
+  const setRawMode = host.stdin.setRawMode.bind(host.stdin);
+  const session = await host.beginSession({ id: 'uncertain-raw-mutation' });
+  host.stdin.setRawMode = (enabled) => {
+    setRawMode(enabled);
+    if (enabled) throw new Error('raw mode rejected after mutation');
+  };
+
+  await assert.rejects(() => session.enableRawInput(), /after mutation/u);
+  host.stdin.setRawMode = setRawMode;
+  const restored = await session.restore('error');
+
+  assert.equal(restored.ok, true);
+  assert.equal(host.stdin.isRawModeEnabled(), false);
+  assert.deepEqual(restored.restored.map((operation) => operation.kind), ['rawInput']);
 });
 
 test('restoreTerminalState restores active sessions instead of opening a fresh no-op session', async () => {

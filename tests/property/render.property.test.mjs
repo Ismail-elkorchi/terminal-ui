@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
+import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import {
-  resolveTerminalCapabilities } from '../../dist/host/index.js';
-import { createFrameBuffer,
   diffFrames,
   renderDiffAnsi,
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
+import { applyRenderDiff } from '../../dist/testing/index.js';
 import {
   richText,
   text
@@ -51,7 +51,7 @@ test('diff round-trips reproduce the next frame text and keep ANSI serialization
     const before = renderElementFrame(text(value), { columns: 18, rows: 4 });
     const next = renderElementFrame(text(`unsafe ${index} ${value} \u001B[31mred`), { columns: 18, rows: 4 });
     const diff = diffFrames(before, next);
-    const applied = applyDiffToFrame(before, diff);
+    const applied = applyRenderDiff(before, diff);
     const serialized = renderDiffAnsi(diff, { capabilities: colorCapabilities });
     const detail = `index=${String(index)} seed=${String(seed)} value=${JSON.stringify(value)}`;
 
@@ -89,33 +89,4 @@ function generatedTexts(count) {
     output.push({ index: output.length, seed: state, value: `${base}${String(state % 997)}` });
   }
   return output;
-}
-
-function applyDiffToFrame(frame, diff) {
-  const buffer = createFrameBuffer(diff.width, diff.height);
-  for (const cell of frame.cells) {
-    if (cell.continuation !== true) buffer.writeCell(cell);
-  }
-  for (const operation of diff.operations) {
-    switch (operation.kind) {
-      case 'write':
-        buffer.write(operation.row, operation.column, operation.spans);
-        break;
-      case 'clearRect':
-        buffer.clear(operation.bounds);
-        break;
-      case 'clearLine':
-        buffer.clear({
-          row: operation.row,
-          column: operation.fromColumn ?? 1,
-          width: diff.width - (operation.fromColumn ?? 1) + 1,
-          height: 1
-        });
-        break;
-      case 'moveCursor':
-      case 'showCursor':
-        break;
-    }
-  }
-  return buffer.snapshot({ accessibility: frame.accessibility });
 }

@@ -8,7 +8,7 @@ import type {
   NumericRange
 } from '../../../ui-model/forms.ts';
 import type { RangeSliderAction, RangeSliderPresentation } from '../../../ui-model/range-slider.ts';
-import type { NumberInputAction, NumberInputPresentation } from '../../../ui-model/number-input.ts';
+import type { NumberInputControlAction, NumberInputPresentation } from '../../../ui-model/number-input.ts';
 import type { CalendarAction, CalendarDay } from '../../../ui-model/calendar.ts';
 import type {
   CheckboxGroupAction,
@@ -18,7 +18,7 @@ import type {
 } from '../../../ui-model/choice-controls.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 import type { InlineContent } from '../../../visual/inline-content.ts';
-import type { SelectPresentation } from '../../../behavior/choice-controls.ts';
+import type { SelectPresentation } from '../../../ui-model/choice-controls.ts';
 import type { TextInputAction } from '../../../ui-model/text-input.ts';
 
 export interface FormRenderProps extends RenderNodeLayoutProps {
@@ -44,7 +44,7 @@ export interface ButtonRenderProps<TMessage> {
   readonly label: string;
   readonly leading?: InlineContent;
   readonly trailing?: InlineContent;
-  readonly message?: TMessage;
+  readonly toPressMessage?: () => TMessage;
   readonly state?: ButtonState;
   readonly disabled?: boolean;
   readonly tone?: ButtonTone;
@@ -149,7 +149,6 @@ export interface TextInputRenderProps<TMessage> {
   readonly cursor?: number;
   readonly selection?: TextSelection;
   readonly placeholder?: string;
-  readonly message?: TMessage;
   readonly toActionMessage?: (action: TextInputAction) => TMessage;
   readonly required?: boolean;
   readonly disabled?: boolean;
@@ -162,5 +161,5 @@ export interface NumberInputRenderProps<TMessage> {
   readonly required?: boolean;
   readonly disabled?: boolean;
   readonly error?: string;
-  readonly toActionMessage?: (action: NumberInputAction) => TMessage;
+  readonly toActionMessage?: (action: NumberInputControlAction) => TMessage;
 }

@@ -48,7 +48,7 @@ button({
   id: 'save',
   label: 'Save',
   state: state.saving ? 'pending' : 'idle',
-  onPress: { kind: 'save' },
+  onPress: (): Message => ({ kind: 'save' }),
   meta: {
     accessibility: { description: 'Save the current document' },
     styles: { states: { focused: { bold: true } } }

@@ -51,6 +51,43 @@ test('date picker reducer navigates focus across month boundaries and skips disa
   assert.equal(calendarDateId(selected.selected), '2026-07-08');
 });
 
+test('date picker month movement keeps focus inside the rendered selectable grid', () => {
+  const state = {
+    visibleMonth: { year: 2026, month: 6 },
+    focused: { year: 2026, month: 6, day: 30 }
+  };
+  const options = {
+    ...policy,
+    isDisabled: (date) => date.month === 7 && date.day === 30
+  };
+  const moved = calendarReducer(state, { kind: 'moveMonth', months: 1 }, options);
+  const presentation = calendarPresentation(moved, options);
+  const focused = presentation.days.find((day) => day.id === presentation.focused);
+
+  assert.deepEqual(moved.visibleMonth, { year: 2026, month: 7 });
+  assert.ok(focused);
+  assert.equal(focused.disabled, undefined);
+  assert.notEqual(presentation.focused, '2026-06-30');
+});
+
+test('date picker clears focus when its explicit search policy cannot find a selectable date', () => {
+  const state = {
+    visibleMonth: { year: 2026, month: 6 },
+    focused: { year: 2026, month: 6, day: 15 }
+  };
+  const moved = calendarReducer(state, { kind: 'moveFocus', days: 1 }, {
+    ...policy,
+    focusSearchLimitDays: 2,
+    isDisabled: () => true
+  });
+
+  assert.equal(moved.focused, undefined);
+  assert.throws(
+    () => calendarPresentation(state, { ...policy, focusSearchLimitDays: -1 }),
+    /non-negative safe integer/u
+  );
+});
+
 test('date picker component routes keyboard and pointer through CalendarAction', async () => {
   const app = defineTui({
     id: 'calendar-actions',
@@ -74,12 +111,11 @@ test('date picker component routes keyboard and pointer through CalendarAction',
   await runtime.handleInput({
     kind: 'key',
     key: 'arrowRight',
-    ctrl: false,
-    alt: false,
-    shift: false,
-    meta: false
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false },
+    eventType: 'press',
+    location: 'standard'
   });
-  assert.deepEqual(runtime.getState().focused, { year: 2026, month: 6, day: 16 });
+  assert.deepEqual(runtime.state().focused, { year: 2026, month: 6, day: 16 });
   assert.match(renderFramePlain(runtime.frame()), /June 2026/u);
   assert.ok(runtime.frame().hitTargets.some((target) => target.id === 'calendar:month:next'));
   await runtime.dispose();

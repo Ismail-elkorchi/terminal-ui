@@ -9,9 +9,11 @@ export function mergeKeyBindings<TMessage>(
   explicit: ElementKeyBindings<TMessage> | undefined
 ): ElementKeyBindings<TMessage> | undefined {
   const mergedText = { ...(generated?.text ?? {}), ...(explicit?.text ?? {}) };
+  const modified = [...(explicit?.modified ?? []), ...(generated?.modified ?? [])];
   const merged: ElementKeyBindings<TMessage> = {
     ...(generated ?? {}),
     ...(explicit ?? {}),
+    ...(modified.length === 0 ? {} : { modified }),
     ...(Object.keys(mergedText).length === 0 ? {} : { text: mergedText })
   };
   return Object.keys(merged).length === 0 ? undefined : merged;

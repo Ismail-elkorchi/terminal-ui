@@ -4,6 +4,7 @@ import type { CursorPosition } from '../../../model/cursor.ts';
 import type { FrameCell } from '../../frame.ts';
 import type { Rect } from '../../../model/layout.ts';
 import type { FocusTarget, HitTarget } from '../../../model/renderer.ts';
+import { ignoreMessage } from '../../../../interaction/message.ts';
 
 export function hasKeyboardOrInputMap(widget: RenderNode): boolean {
   return (widget.keyMap !== undefined && Object.keys(widget.keyMap).length > 0)
@@ -11,19 +12,18 @@ export function hasKeyboardOrInputMap(widget: RenderNode): boolean {
     || widget.inputMap?.paste !== undefined;
 }
 
-export function widgetMessageHitTargets<TMessage>(
+export function focusHitTargets<TMessage>(
   widget: RenderNodeOfKind<TMessage, 'textInput'>,
   bounds: Rect,
   suffix: string
 ): readonly HitTarget<TMessage>[] {
   if (bounds.width <= 0 || bounds.height <= 0) return [];
-  if (widget.props.disabled === true) return [];
-  if (widget.props.message === undefined) return [];
+  if (widget.props.disabled === true || widget.focus?.disabled === true) return [];
   return [{
     id: `${widget.id ?? widget.kind}:${suffix}`,
     bounds,
     focus: { kind: 'target', targetId: 'self' },
-    message: () => widget.props.message,
+    message: ignoreMessage,
     cursor: 'pointer'
   }];
 }

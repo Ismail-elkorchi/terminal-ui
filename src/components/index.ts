@@ -48,6 +48,7 @@ export {
   toggleSwitch
 } from './factories.ts';
 export type * from '../ui-model/contracts.ts';
+export { tableColumn } from '../ui-model/content.ts';
 export type {
   InlineContent,
   InlineContentSegment,
@@ -63,8 +64,14 @@ export type {
   TextAreaScrollablePresentation
 } from '../ui-model/text-area.ts';
 export type { TextPointerAction } from '../interaction/text-pointer.ts';
-export type { ListAction, ListControlAction } from '../ui-model/list.ts';
-export type { ListItemProjection, ListItemProjector } from '../ui-model/list.ts';
+export type {
+  ListAction,
+  ListCollection,
+  ListCollectionRecord,
+  ListControlAction,
+  ListItemProjection,
+  ListItemProjector
+} from '../ui-model/list.ts';
 export type {
   RangeSliderAction,
   RangeSliderHandle,
@@ -73,14 +80,26 @@ export type {
 } from '../ui-model/range-slider.ts';
 export type {
   TableAction,
+  TableCollection,
+  TableCollectionRecord,
   TableControlAction,
   TablePresentation,
   TableScrollablePresentation,
   TableSortDirection,
   TableSortState
 } from '../ui-model/table.ts';
-export type { TreeAction, TreeControlAction, TreeDisclosureAction, TreeNode } from '../ui-model/tree.ts';
-export type { NumberInputAction, NumberInputValidity } from '../ui-model/number-input.ts';
+export type {
+  PassiveTreeAction,
+  TreeAction,
+  TreeControlAction,
+  TreeDisclosureAction,
+  TreeInteractionAction,
+  TreeNode,
+  TreeCollection,
+  TreeCollectionRecord,
+  TreeVisibleRow
+} from '../ui-model/tree.ts';
+export type { NumberInputAction, NumberInputControlAction, NumberInputValidity } from '../ui-model/number-input.ts';
 export type { PaginatorAction } from '../ui-model/paginator.ts';
 export type { NotificationStackAction } from '../ui-model/notification-stack.ts';
 export type { DialogDismissReason, DialogDismissal, DialogFocusPolicy } from '../ui-model/dialog.ts';
@@ -95,7 +114,11 @@ export type {
   ContextMenuAction,
   DropdownMenuAction,
   MenuAction,
+  MenuActionItem,
   MenuBarAction,
+  MenuCheckItem,
+  MenuItem,
+  MenuSubmenuItem,
   TooltipPresentation
 } from '../ui-model/menu.ts';
 export type { TabAction } from '../ui-model/tabs.ts';

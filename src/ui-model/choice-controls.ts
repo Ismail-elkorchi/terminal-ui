@@ -31,4 +31,13 @@ export type ColorSwatchPickerAction =
   | { readonly kind: 'last' }
   | { readonly kind: 'select'; readonly id: string };
 import type { AnchoredSurfaceDismissReason } from '../interaction/anchored-surface.ts';
-import type { ScrollEvent } from '../interaction/scroll.ts';
+import type { ScrollEvent, ScrollState } from '../interaction/scroll.ts';
+
+export type SelectPresentation =
+  | { readonly kind: 'closed'; readonly selected?: string }
+  | {
+      readonly kind: 'open';
+      readonly selected?: string;
+      readonly highlighted?: string;
+      readonly scroll?: ScrollState;
+    };

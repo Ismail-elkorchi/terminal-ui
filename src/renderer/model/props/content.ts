@@ -1,22 +1,25 @@
 import type { ElementTextRole } from '../../../element/metadata.ts';
-import type { RoutedPointerEvent } from '../../../input/pointer.ts';
 import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../../interaction/scrollbar.ts';
 import type { TextSelection } from '../../../text/index.ts';
 import type {
   TableCellSelection,
-  TableColumn,
+  TableColumnAlignment,
+  TableColumnSemantic,
+  TableColumnWidth,
   TextAreaHighlight,
   TextAreaLineNumberOptions,
   TextAreaWrapOptions
 } from '../../../ui-model/content.ts';
-import type { ListControlAction } from '../../../ui-model/list.ts';
+import type { ListCollection, ListControlAction } from '../../../ui-model/list.ts';
 import type { ComponentDensity } from '../../../ui-model/contracts.ts';
 import type { TextAreaAction } from '../../../ui-model/text-area.ts';
 import type { PaginatorAction } from '../../../ui-model/paginator.ts';
-import type { TableControlAction, TableSortState } from '../../../ui-model/table.ts';
-import type { TreeAction, TreeDisclosureAction, TreeNode } from '../../../ui-model/tree.ts';
+import type { TableCollection, TableControlAction, TableSortState } from '../../../ui-model/table.ts';
+import type { TreeCollection, TreeControlAction } from '../../../ui-model/tree.ts';
 import type { InlineContent } from '../../../visual/inline-content.ts';
+import type { InlineContentSegment } from '../../../visual/inline-content.ts';
+import type { TerminalStyle } from '../../../visual/render.ts';
 
 export interface TextRenderProps {
   readonly textRole?: ElementTextRole;
@@ -47,7 +50,7 @@ export interface TextAreaRenderProps<TMessage> {
 }
 
 export interface ListRenderProps<TMessage> {
-  readonly items: readonly ListRenderItem[];
+  readonly collection: ListCollection<unknown>;
   readonly selectedId?: string;
   readonly filterQuery?: string;
   readonly scroll?: ScrollState;
@@ -58,9 +61,8 @@ export interface ListRenderProps<TMessage> {
 }
 
 export interface TableRenderProps<TMessage> {
-  readonly rows: readonly unknown[];
-  readonly rowIds: readonly string[];
-  readonly columns?: readonly TableColumn[];
+  readonly collection: TableCollection<unknown>;
+  readonly columns?: readonly TableRenderColumn[];
   readonly selectedRowId?: string;
   readonly selectedCell?: TableCellSelection;
   readonly sort?: TableSortState;
@@ -75,16 +77,27 @@ export interface TableRenderProps<TMessage> {
   readonly toActionMessage?: (action: TableControlAction) => TMessage;
 }
 
-export interface ListRenderItem {
+export interface TableRenderColumn {
   readonly id: string;
-  readonly label: string;
-  readonly description?: string;
-  readonly keywords?: readonly string[];
-  readonly disabled: boolean;
+  readonly header?: string;
+  readonly value: (row: unknown, rowIndex: number) => unknown;
+  readonly width?: TableColumnWidth;
+  readonly align?: TableColumnAlignment;
+  readonly semantic?: TableColumnSemantic;
+  readonly hidden?: boolean;
+  readonly sortable?: boolean;
+  readonly resizable?: boolean;
+  readonly style?: TerminalStyle;
+  readonly headerStyle?: TerminalStyle;
+  readonly renderCell?: (
+    row: unknown,
+    rowIndex: number,
+    columnIndex: number
+  ) => string | InlineContentSegment | InlineContent;
 }
 
 export interface TreeRenderProps<TMessage> {
-  readonly nodes: readonly TreeNode[];
+  readonly collection: TreeCollection;
   readonly selected?: string;
   readonly filterQuery?: string;
   readonly scroll?: ScrollState;
@@ -92,13 +105,7 @@ export interface TreeRenderProps<TMessage> {
   readonly scrollPolicy?: ScrollPolicy;
   readonly emptyText?: string;
   readonly toScrollMessage?: (event: ScrollEvent) => TMessage;
-  readonly toMessage?: (node: TreeNode) => TMessage;
-  readonly toActionMessage?: (action: TreeAction) => TMessage;
-  readonly toDisclosureMessage?: (
-    node: TreeNode,
-    action: TreeDisclosureAction,
-    event: RoutedPointerEvent
-  ) => TMessage;
+  readonly toActionMessage?: (action: TreeControlAction) => TMessage;
 }
 
 export interface PaginatorRenderProps<TMessage> {

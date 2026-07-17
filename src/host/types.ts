@@ -1,12 +1,11 @@
-import type { RuntimeTarget } from '../package.ts';
+import type { RuntimeTarget } from './capability-types.ts';
 import type { Result } from '../result.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalCapabilityProfile } from './capability-types.ts';
+import type { TerminalCapabilityConfiguration } from './capabilities.ts';
+import type { ViewportSize } from '../geometry/types.ts';
 
-export interface TerminalViewport {
-  readonly columns: number;
-  readonly rows: number;
-}
+export type TerminalViewport = Readonly<ViewportSize>;
 
 export interface TerminalOutputChunk {
   readonly text?: string;
@@ -103,6 +102,7 @@ export interface TerminalSession {
   enableBracketedPaste(): Promise<Result<TerminalStateChange>>;
   enableMouseReporting(mode?: MouseReportingMode): Promise<Result<TerminalStateChange>>;
   enableFocusReporting(): Promise<Result<TerminalStateChange>>;
+  enableEnhancedKeyboard(): Promise<Result<TerminalStateChange>>;
   hideCursor(): Promise<Result<TerminalStateChange>>;
   showCursor(): Promise<Result<TerminalStateChange>>;
   restore(reason?: TerminalRestoreReason): Promise<TerminalRestoreResult>;
@@ -114,6 +114,7 @@ export interface TerminalStateSnapshot {
   readonly bracketedPaste: boolean;
   readonly mouseReporting: MouseReportingMode;
   readonly focusReporting: boolean;
+  readonly enhancedKeyboard: boolean;
   readonly cursorVisible: boolean;
 }
 
@@ -123,6 +124,7 @@ export type TerminalStateChange =
   | { readonly kind: 'bracketedPaste'; readonly enabled: boolean }
   | { readonly kind: 'mouseReporting'; readonly enabled: MouseReportingMode }
   | { readonly kind: 'focusReporting'; readonly enabled: boolean }
+  | { readonly kind: 'enhancedKeyboard'; readonly enabled: boolean }
   | { readonly kind: 'cursorVisible'; readonly enabled: boolean };
 
 export interface TerminalRestoreResult {
@@ -177,6 +179,7 @@ export interface NodeTerminalHostOptions {
   readonly stderr?: NodeWritableTerminalStream;
   readonly env?: Record<string, string | undefined>;
   readonly process?: NodeProcessLike;
+  readonly capabilities?: TerminalCapabilityConfiguration;
 }
 
 export interface MemoryTerminalHostOptions {
@@ -186,6 +189,7 @@ export interface MemoryTerminalHostOptions {
   readonly clipboard?: boolean;
   readonly env?: Record<string, string>;
   readonly observer?: TerminalHostObserver;
+  readonly capabilities?: TerminalCapabilityConfiguration;
 }
 
 export interface RuntimeInputSource {
@@ -213,6 +217,7 @@ export interface DenoTerminalHostOptions {
   readonly stdout?: RuntimeTerminalOutputOptions;
   readonly stderr?: RuntimeTerminalOutputOptions;
   readonly env?: Record<string, string>;
+  readonly capabilities?: TerminalCapabilityConfiguration;
 }
 
 export interface BunTerminalHostOptions {
@@ -221,6 +226,7 @@ export interface BunTerminalHostOptions {
   readonly stdout?: RuntimeTerminalOutputOptions;
   readonly stderr?: RuntimeTerminalOutputOptions;
   readonly env?: Record<string, string>;
+  readonly capabilities?: TerminalCapabilityConfiguration;
 }
 
 export interface PtyTerminalHostOptions {
@@ -234,6 +240,7 @@ export interface PtyTerminalHostOptions {
   readonly resize?: (viewport: TerminalViewport) => void | Promise<void>;
   readonly observer?: TerminalHostObserver;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
+  readonly capabilities?: TerminalCapabilityConfiguration;
 }
 
 export interface PtyTerminalHost extends TerminalHost {

@@ -10,12 +10,11 @@ import {
   resolveTerminalCapabilities } from '../../dist/host/index.js';
 import {
   renderFramePlain,
-  renderElementFrame,
-  renderElementRegions
+  renderElementFrame
 } from '../../dist/renderer/index.js';
 import {
   highContrastTheme } from '../../dist/theme/index.js';
-import { createVisualSnapshot } from '../../dist/testing/index.js';
+import { createVisualSnapshot, renderElementRegions } from '../../dist/testing/index.js';
 import { statusIndicator,
   commandInput,
   helpBar,
@@ -367,7 +366,7 @@ test('disabled textInput exposes no mouse hit target', () => {
     id: 'disabled-input',
     presentation: { value: 'locked', cursor: 0 },
     disabled: true,
-    onSubmit: { kind: 'submit' }
+    onSubmit: () => ({ kind: 'submit' })
   }), { columns: 16, rows: 1 });
 
   assert.deepEqual(frame.hitTargets ?? [], []);

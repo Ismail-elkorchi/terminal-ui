@@ -36,8 +36,8 @@ const app = defineTui<State, Message>({
   },
   view: (state) => column([
     text(state.saved ? 'Saved' : 'Unsaved'),
-    button({ id: 'save', label: 'Save', onPress: { kind: 'save' } }),
-    button({ id: 'quit', label: 'Quit', onPress: { kind: 'quit' } })
+    button({ id: 'save', label: 'Save', onPress: (): Message => ({ kind: 'save' }) }),
+    button({ id: 'quit', label: 'Quit', onPress: (): Message => ({ kind: 'quit' }) })
   ])
 });
 
@@ -57,7 +57,7 @@ button({
   id: 'save',
   label: 'Save',
   state: 'idle',
-  onPress: { kind: 'save' },
+  onPress: (): Message => ({ kind: 'save' }),
   meta: {
     accessibility: { description: 'Persist the current document' },
     focus: { order: 10 },
@@ -119,6 +119,6 @@ See [Renderer extensions](./renderer-extensions.md) and
 
 Executable examples:
 
-- `examples/tui/interactive-workspace.mjs`
-- `examples/tui/ide-editor.mjs`
-- `examples/tui/btop-monitor.mjs`
+- `examples/tui/interactive-workspace.ts`
+- `examples/tui/ide-editor.ts`
+- `examples/tui/btop-monitor.ts`
