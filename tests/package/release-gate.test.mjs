@@ -3,6 +3,7 @@ import { access, readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const packageJson = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
+const ciWorkflow = await readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
 const sourceRoot = new URL('../../src/', import.meta.url);
 const repositoryRoot = new URL('../../', import.meta.url);
 
@@ -40,6 +41,18 @@ test('release check is composed from explicit suite lanes', () => {
   for (const scriptName of fullOnlyCheckScripts) {
     assert.ok(scripts.check.includes(`npm run ${scriptName}`), scriptName);
   }
+});
+
+test('host smoke CI runs only the installed Node runtime coverage', () => {
+  const hostSmoke = workflowJob(ciWorkflow, 'host-smoke');
+  const linuxFull = workflowJob(ciWorkflow, 'linux-full');
+
+  assert.match(hostSmoke, /node scripts\/runtime-smoke\.mjs/u);
+  assert.match(hostSmoke, /node --test tests\/integration\/node-host-lifecycle\.test\.mjs/u);
+  assert.doesNotMatch(hostSmoke, /tests\/runtime\/runtime-smoke\.test\.mjs|npm run check:runtime/u);
+  assert.match(linuxFull, /denoland\/setup-deno/u);
+  assert.match(linuxFull, /oven-sh\/setup-bun/u);
+  assert.match(linuxFull, /npm run check:runtime/u);
 });
 
 test('package scripts do not keep generated fixture maintenance lanes', () => {
@@ -648,6 +661,15 @@ async function sourceFiles(directory, extension = '.ts') {
     if (entry.isFile() && entry.name.endsWith(extension)) files.push(child);
   }
   return files.sort((left, right) => left.pathname.localeCompare(right.pathname));
+}
+
+function workflowJob(source, jobId) {
+  const lines = source.split('\n');
+  const start = lines.findIndex((line) => line === `  ${jobId}:`);
+  assert.notEqual(start, -1, `Missing CI job ${jobId}.`);
+  const followingJob = lines.slice(start + 1).findIndex((line) => /^  [a-z][a-z0-9-]*:$/u.test(line));
+  const end = followingJob === -1 ? lines.length : start + 1 + followingJob;
+  return lines.slice(start, end).join('\n');
 }
 
 async function exampleSourceFiles() {

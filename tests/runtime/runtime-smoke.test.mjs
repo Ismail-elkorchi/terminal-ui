@@ -2,24 +2,26 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import process from 'node:process';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
-const runtimeSmokeScript = new URL('../../scripts/runtime-smoke.mjs', import.meta.url);
+const runtimeSmokeScript = fileURLToPath(new URL('../../scripts/runtime-smoke.mjs', import.meta.url));
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
 
 const runtimeCommands = [
   {
     name: 'node',
     command: process.execPath,
-    args: [runtimeSmokeScript.pathname]
+    args: [runtimeSmokeScript]
   },
   {
     name: 'deno',
     command: 'deno',
-    args: ['run', '--allow-read=dist,scripts', runtimeSmokeScript.pathname]
+    args: ['run', '--allow-read=dist,scripts', runtimeSmokeScript]
   },
   {
     name: 'bun',
     command: 'bun',
-    args: [runtimeSmokeScript.pathname]
+    args: [runtimeSmokeScript]
   }
 ];
 
@@ -39,7 +41,7 @@ for (const runtime of runtimeCommands) {
 async function runRuntimeSmoke(command, args) {
   return await new Promise((resolve) => {
     const child = spawn(command, args, {
-      cwd: new URL('../..', import.meta.url),
+      cwd: repositoryRoot,
       stdio: ['ignore', 'pipe', 'pipe']
     });
     let stdout = '';

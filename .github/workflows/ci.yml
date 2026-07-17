@@ -68,5 +68,5 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: node scripts/runtime-smoke.mjs
-      - run: node --test tests/runtime/runtime-smoke.test.mjs tests/integration/node-host-lifecycle.test.mjs
+      - run: node --test tests/integration/node-host-lifecycle.test.mjs
       - run: npm run check:pack
