@@ -3,19 +3,22 @@ import type { NodeWritableTerminalStream, TerminalOutput } from './types.ts';
 
 export class NodeTerminalOutput implements TerminalOutput {
   readonly #queue = new OrderedOutputQueue();
+  readonly #stream: NodeWritableTerminalStream;
 
-  constructor(private readonly stream: NodeWritableTerminalStream) {}
+  constructor(stream: NodeWritableTerminalStream) {
+    this.#stream = stream;
+  }
 
   get columns(): number | undefined {
-    return this.stream.columns;
+    return this.#stream.columns;
   }
 
   get rows(): number | undefined {
-    return this.stream.rows;
+    return this.#stream.rows;
   }
 
   write(chunk: string | Uint8Array): Promise<void> {
-    return this.#queue.run(() => writeNodeChunk(this.stream, chunk));
+    return this.#queue.run(() => writeNodeChunk(this.#stream, chunk));
   }
 
   flush(): Promise<void> {
@@ -23,7 +26,7 @@ export class NodeTerminalOutput implements TerminalOutput {
   }
 
   isTty(): boolean {
-    return this.stream.isTTY === true;
+    return this.#stream.isTTY === true;
   }
 }
 

@@ -14,7 +14,7 @@ import {
   select
 } from '../../dist/prompts/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { flushAsync, waitUntil } from '../helpers/async.mjs';
+import { flushAsync, waitUntil } from '../helpers/async.ts';
 
 test('prompt factories create typed prompt definitions', () => {
   assert.equal(confirm({ label: 'Continue?', defaultValue: true }).kind, 'confirm');

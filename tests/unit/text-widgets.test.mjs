@@ -430,6 +430,17 @@ test('textArea maps pointer positions through gutters visual rows and selection 
     pressLocalRow: 2,
     pressLocalColumn: 8
   }));
+  const dragEnd = target.message(pointerEvent({
+    kind: 'dragEnd',
+    row: 2,
+    column: 10,
+    localRow: 2,
+    localColumn: 10,
+    pressRow: 2,
+    pressColumn: 8,
+    pressLocalRow: 2,
+    pressLocalColumn: 8
+  }));
 
   assert.deepEqual(place?.action, {
     kind: 'pointer',
@@ -438,6 +449,10 @@ test('textArea maps pointer positions through gutters visual rows and selection 
   assert.deepEqual(drag?.action, {
     kind: 'pointer',
     action: { kind: 'extendSelection', anchor: 8, offset: 9 }
+  });
+  assert.deepEqual(dragEnd?.action, {
+    kind: 'pointer',
+    action: { kind: 'endSelection', anchor: 8, offset: 10 }
   });
 });
 

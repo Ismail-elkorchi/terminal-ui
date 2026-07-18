@@ -17,7 +17,7 @@ import {
   textInput
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
-import { waitUntil } from '../helpers/async.mjs';
+import { waitUntil } from '../helpers/async.ts';
 
 test('testing harness records input and output deterministically', async () => {
   const harness = createTerminalHarness();
@@ -160,6 +160,47 @@ test('terminal harness input events update resize, signal, and end-of-input host
   const chunks = [];
   for await (const chunk of harness.host.stdin.read()) chunks.push(chunk);
   assert.deepEqual(chunks, []);
+});
+
+test('terminal harness encodes normalized text key pointer paste and focus events', async () => {
+  const harness = createTerminalHarness();
+  const key = (keyName, modifiers, sequence) => ({
+    kind: 'key',
+    key: keyName,
+    modifiers: { ctrl: false, alt: false, shift: false, meta: false, ...modifiers },
+    eventType: 'press',
+    location: 'standard',
+    ...(sequence === undefined ? {} : { sequence })
+  });
+
+  await harness.input({ kind: 'text', text: 'x', paste: false });
+  await harness.input({ kind: 'paste', text: 'clip', bracketed: true });
+  await harness.input(key('c', { ctrl: true }));
+  await harness.input(key('q', { alt: true, shift: true }));
+  await harness.input(key('arrowUp', { shift: true }));
+  await harness.input(key('unknown', {}, '\u001B[99~'));
+  await harness.input({
+    kind: 'mouse',
+    sequence: '\u001B[<0;2;3M',
+    encoding: 'sgr',
+    action: 'press',
+    button: 'left',
+    row: 3,
+    column: 2,
+    rawCode: 0,
+    modifiers: { shift: false, alt: false, ctrl: false }
+  });
+  await harness.input({ kind: 'unknown', sequence: '\u001B[?999z' });
+  await harness.input({ kind: 'focus', focused: true });
+  await harness.input({ kind: 'focus', focused: false });
+  await harness.input({ kind: 'end' });
+
+  const chunks = [];
+  for await (const chunk of harness.host.stdin.read()) chunks.push(chunk);
+  assert.equal(
+    chunks.map((chunk) => chunk.data).join(''),
+    'x\u001B[200~clip\u001B[201~\u0003\u001BQ\u001B[1;2A\u001B[99~\u001B[<0;2;3M\u001B[?999z\u001B[I\u001B[O'
+  );
 });
 
 test('terminal harness resize events drive active TUI resize handling', async () => {

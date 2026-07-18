@@ -19,6 +19,9 @@ import { LEGACY_KEYBOARD_PROFILE, normalizeKeyboardProfile } from '../protocol/k
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 
 export class BasicTerminalSession implements TerminalSession {
+  readonly id: string;
+  readonly host: TerminalHost;
+  readonly capabilities: TerminalCapabilityProfile;
   readonly initialState: TerminalStateSnapshot;
   #state: TerminalStateSnapshot;
   #uncertain = new Set<keyof TerminalStateSnapshot>();
@@ -26,10 +29,13 @@ export class BasicTerminalSession implements TerminalSession {
   #ownsKeyboardProfileStackFrame = false;
 
   constructor(
-    readonly id: string,
-    readonly host: TerminalHost,
-    readonly capabilities: TerminalCapabilityProfile
+    id: string,
+    host: TerminalHost,
+    capabilities: TerminalCapabilityProfile
   ) {
+    this.id = id;
+    this.host = host;
+    this.capabilities = capabilities;
     this.initialState = {
       rawInput: host.stdin.isRawModeEnabled?.() ?? false,
       alternateScreen: false,

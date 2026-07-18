@@ -1,0 +1,27 @@
+import { text, type Element } from '@ismail-elkorchi/terminal-ui/components';
+import { defineTui, type TuiApp } from '@ismail-elkorchi/terminal-ui/tui';
+
+interface IncrementMessage { readonly kind: 'increment' }
+interface ResetMessage { readonly kind: 'reset' }
+type Message = IncrementMessage | ResetMessage;
+interface State { readonly count: number }
+
+const app: TuiApp<State, Message> = defineTui<State, Message>({
+  id: 'contract',
+  init: () => ({ count: 0 }),
+  update: (state, message) => message.kind === 'increment'
+    ? { state: { count: state.count + 1 } }
+    : { state: { count: 0 } },
+  view: (state): Element<Message> => text(String(state.count))
+});
+
+// @ts-expect-error update messages must match the declared message union
+const invalidApp: TuiApp<State, Message> = defineTui<State, { readonly kind: 'other' }>({
+  id: 'invalid',
+  init: () => ({ count: 0 }),
+  update: (state) => ({ state }),
+  view: (state) => text(String(state.count))
+});
+
+void app;
+void invalidApp;

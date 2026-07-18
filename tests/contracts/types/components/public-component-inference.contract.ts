@@ -1,0 +1,34 @@
+import { button, richText, type Element } from '@ismail-elkorchi/terminal-ui/components';
+import { row } from '@ismail-elkorchi/terminal-ui/layout';
+
+export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
+export type Equal<TLeft, TRight> =
+  (<T>() => T extends TLeft ? 1 : 2) extends
+  (<T>() => T extends TRight ? 1 : 2) ? true : false;
+export type Assert<TValue extends true> = TValue;
+
+const passive = richText({ segments: [] });
+const save = button({ id: 'save', label: 'Save', onPress: () => ({ kind: 'save' } as const) });
+const quit = button({ id: 'quit', label: 'Quit', onPress: () => ({ kind: 'quit', force: true } as const) });
+const controlled = button({
+  id: 'controlled',
+  label: 'Controlled',
+  onPress: () => ({ kind: 'activate' } as const),
+  pointer: {
+    state: { hoveredTargetId: 'controlled:control' },
+    onAction: (action) => ({ kind: 'pointer', action } as const)
+  }
+});
+const toolbar = row([passive, save, quit] as const);
+
+export type _Passive = Assert<Equal<MessageOf<typeof passive>, never>>;
+export type _Save = Assert<Equal<MessageOf<typeof save>, { readonly kind: 'save' }>>;
+export type _Toolbar = Assert<Equal<
+  MessageOf<typeof toolbar>,
+  { readonly kind: 'save' } | { readonly kind: 'quit'; readonly force: true }
+>>;
+export type _Controlled = Assert<Equal<
+  MessageOf<typeof controlled>,
+  | { readonly kind: 'activate' }
+  | { readonly kind: 'pointer'; readonly action: import('@ismail-elkorchi/terminal-ui/interaction').PointerPresentationAction }
+>>;

@@ -4,7 +4,7 @@ import test from 'node:test';
 import { diagnostic } from '../../dist/diagnostics.js';
 import { autocomplete, multiselect, runPrompt, select } from '../../dist/prompts/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
-import { flushAsync, waitUntil } from '../helpers/async.mjs';
+import { flushAsync, waitUntil } from '../helpers/async.ts';
 
 test('runPrompt supports interactive select navigation and disabled choices', async () => {
   const harness = createTerminalHarness();

@@ -8,8 +8,11 @@ import type {
 export class NodeInput implements TerminalInput {
   #rawMode = false;
   readonly #activeReaders = new Set<ClosableNodeInputIterator>();
+  readonly #stream: NodeReadableTerminalStream;
 
-  constructor(private readonly stream: NodeReadableTerminalStream) {}
+  constructor(stream: NodeReadableTerminalStream) {
+    this.#stream = stream;
+  }
 
   read(options: TerminalInputReadOptions = {}): AsyncIterable<TerminalInputChunk> {
     return {
@@ -21,13 +24,13 @@ export class NodeInput implements TerminalInput {
     const active = [...this.#activeReaders];
     this.#activeReaders.clear();
     await Promise.allSettled(active.map(async (reader) => reader.close()));
-    this.stream.pause?.();
-    this.stream.unref?.();
+    this.#stream.pause?.();
+    this.#stream.unref?.();
   }
 
   setRawMode(enabled: boolean): void {
-    if (typeof this.stream.setRawMode === 'function' && this.stream.isTTY === true) {
-      this.stream.setRawMode(enabled);
+    if (typeof this.#stream.setRawMode === 'function' && this.#stream.isTTY === true) {
+      this.#stream.setRawMode(enabled);
       this.#rawMode = enabled;
     }
   }
@@ -37,13 +40,13 @@ export class NodeInput implements TerminalInput {
   }
 
   isTty(): boolean {
-    return this.stream.isTTY === true;
+    return this.#stream.isTTY === true;
   }
 
   private createIterator(signal: AbortSignal | undefined): ClosableNodeInputIterator {
-    const reader = hasEventReader(this.stream)
-      ? new EventNodeInputIterator(this.stream)
-      : new IterableNodeInputIterator(this.stream[Symbol.asyncIterator]());
+    const reader = hasEventReader(this.#stream)
+      ? new EventNodeInputIterator(this.#stream)
+      : new IterableNodeInputIterator(this.#stream[Symbol.asyncIterator]());
     this.#activeReaders.add(reader);
     reader.onClose(() => this.#activeReaders.delete(reader));
     if (signal !== undefined) {
@@ -79,6 +82,7 @@ class EventNodeInputIterator implements ClosableNodeInputIterator {
   readonly #closeListeners: (() => void)[] = [];
   #closed = false;
   #failure: Error | undefined;
+  readonly #stream: NodeEventReadableStream;
 
   readonly #onData = (...args: unknown[]): void => {
     if (this.#closed) return;
@@ -100,12 +104,13 @@ class EventNodeInputIterator implements ClosableNodeInputIterator {
     this.#failure = inputError(args[0]);
     const waiters = this.#waiters.splice(0);
     this.detach();
-    this.stream.pause?.();
+    this.#stream.pause?.();
     for (const waiter of waiters) waiter.reject(this.#failure);
     this.notifyClosed();
   };
 
-  constructor(private readonly stream: NodeEventReadableStream) {
+  constructor(stream: NodeEventReadableStream) {
+    this.#stream = stream;
     stream.on('data', this.#onData);
     stream.on('end', this.#onEnd);
     stream.on('close', this.#onEnd);
@@ -129,7 +134,7 @@ class EventNodeInputIterator implements ClosableNodeInputIterator {
     if (this.#closed) return Promise.resolve();
     this.#closed = true;
     this.detach();
-    this.stream.pause?.();
+    this.#stream.pause?.();
     const waiters = this.#waiters.splice(0);
     for (const waiter of waiters) waiter.resolve({ done: true, value: undefined });
     this.notifyClosed();
@@ -142,10 +147,10 @@ class EventNodeInputIterator implements ClosableNodeInputIterator {
   }
 
   private detach(): void {
-    this.stream.off('data', this.#onData);
-    this.stream.off('end', this.#onEnd);
-    this.stream.off('close', this.#onEnd);
-    this.stream.off('error', this.#onError);
+    this.#stream.off('data', this.#onData);
+    this.#stream.off('end', this.#onEnd);
+    this.#stream.off('close', this.#onEnd);
+    this.#stream.off('error', this.#onError);
   }
 
   private notifyClosed(): void {
@@ -157,11 +162,14 @@ class EventNodeInputIterator implements ClosableNodeInputIterator {
 class IterableNodeInputIterator implements ClosableNodeInputIterator {
   readonly #closeListeners: (() => void)[] = [];
   #closed = false;
+  readonly #source: AsyncIterator<string | Uint8Array>;
 
-  constructor(private readonly source: AsyncIterator<string | Uint8Array>) {}
+  constructor(source: AsyncIterator<string | Uint8Array>) {
+    this.#source = source;
+  }
 
   async next(): Promise<IteratorResult<TerminalInputChunk>> {
-    const result = await this.source.next();
+    const result = await this.#source.next();
     if (result.done === true) {
       await this.close();
       return { done: true, value: undefined };
@@ -177,7 +185,7 @@ class IterableNodeInputIterator implements ClosableNodeInputIterator {
   async close(): Promise<void> {
     if (this.#closed) return;
     this.#closed = true;
-    await this.source.return?.();
+    await this.#source.return?.();
     const listeners = this.#closeListeners.splice(0);
     for (const listener of listeners) listener();
   }

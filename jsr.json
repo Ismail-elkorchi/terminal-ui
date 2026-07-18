@@ -34,6 +34,9 @@
       "schemas",
       "README.md",
       "LICENSE"
+    ],
+    "exclude": [
+      "src/**/*.test.ts"
     ]
   }
 }

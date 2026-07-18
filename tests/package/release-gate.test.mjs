@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { access, readdir, readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { testLaneNames } from '../../scripts/test-discovery.mjs';
 
 const packageJson = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
 const ciWorkflow = await readFile(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
@@ -8,6 +9,9 @@ const sourceRoot = new URL('../../src/', import.meta.url);
 const repositoryRoot = new URL('../../', import.meta.url);
 
 const fastCheckScripts = [
+  'check:test-inventory',
+  'check:contracts',
+  'check:test-types',
   'check:acceptance',
   'check:conformance',
   'check:integration',
@@ -40,6 +44,13 @@ test('release check is composed from explicit suite lanes', () => {
   assert.ok(scripts.check.includes('npm run check:fast'));
   for (const scriptName of fullOnlyCheckScripts) {
     assert.ok(scripts.check.includes(`npm run ${scriptName}`), scriptName);
+  }
+});
+
+test('test lanes use recursive discovery instead of shell globs', () => {
+  const scripts = packageJson.scripts;
+  for (const lane of testLaneNames) {
+    assert.equal(scripts[`check:${lane}`], `node scripts/run-test-lane.mjs ${lane}`);
   }
 });
 
@@ -678,7 +689,11 @@ async function sourceFiles(directory, extension = '.ts') {
       files.push(...await sourceFiles(new URL(`${entry.name}/`, directory), extension));
       continue;
     }
-    if (entry.isFile() && entry.name.endsWith(extension)) files.push(child);
+    if (entry.isFile()
+      && entry.name.endsWith(extension)
+      && !(extension === '.ts' && entry.name.endsWith('.test.ts'))) {
+      files.push(child);
+    }
   }
   return files.sort((left, right) => left.pathname.localeCompare(right.pathname));
 }

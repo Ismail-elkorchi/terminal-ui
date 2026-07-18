@@ -8,7 +8,7 @@ import { createTuiRuntime } from '../../dist/tui/index.js';
 import { btopMonitorApp } from '../../examples/tui/btop-monitor.ts';
 import { createIdeEditorApp, ideEditorApp } from '../../examples/tui/ide-editor.ts';
 import { interactiveWorkspaceApp } from '../../examples/tui/interactive-workspace.ts';
-import { waitUntil } from '../helpers/async.mjs';
+import { waitUntil } from '../helpers/async.ts';
 
 const examples = [
   { name: 'interactive workspace', app: interactiveWorkspaceApp, anchor: 'T-101' },

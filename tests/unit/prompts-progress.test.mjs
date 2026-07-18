@@ -4,7 +4,7 @@ import test from 'node:test';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createProgress, progress, runPrompt } from '../../dist/prompts/index.js';
 import { validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
-import { flushAsync, waitUntil } from '../helpers/async.mjs';
+import { flushAsync, waitUntil } from '../helpers/async.ts';
 
 test('progress primitive exposes accessible progress state', () => {
   const progressState = createProgress({ label: 'Loading', kind: 'determinate', value: 2, max: 5 });

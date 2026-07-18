@@ -1,0 +1,41 @@
+import { button, richText, text, type InlineContent } from '@ismail-elkorchi/terminal-ui/components';
+import { surface } from '@ismail-elkorchi/terminal-ui/layout';
+
+const content: InlineContent = [
+  { kind: 'text', text: 'Open', style: { fg: { kind: 'theme', token: 'text.default' } } },
+  { kind: 'symbol', unicode: '→', ascii: '->', accessibleText: 'next' }
+];
+richText({ segments: content });
+button({
+  id: 'open',
+  label: 'Open',
+  leading: [{ kind: 'symbol', unicode: '◆', ascii: '*', accessibleText: 'status' }],
+  meta: { styles: { parts: { label: { fg: { kind: 'theme', token: 'custom.brand' } } } } }
+});
+surface(text('body'), {
+  title: [{ kind: 'symbol', unicode: '◆', ascii: '*', accessibleText: 'status' }],
+  border: { kind: 'single' }
+});
+
+// @ts-expect-error frame source metadata is renderer-owned
+richText({ segments: [{ kind: 'text', text: 'unsafe', source: { ownerId: 'caller' } }] });
+// @ts-expect-error symbolic content requires accessible text
+richText({ segments: [{ kind: 'symbol', unicode: '→', ascii: '->' }] });
+surface(text('invalid border title'), {
+  // @ts-expect-error border geometry does not own authored title content
+  border: { kind: 'single', title: 'Legacy title' }
+});
+surface(text('invalid title source'), {
+  // @ts-expect-error surface titles cannot author renderer source metadata
+  title: [{ kind: 'text', text: 'Title', source: { ownerId: 'caller' } }]
+});
+button({
+  id: 'invalid-token',
+  label: 'Invalid',
+  meta: {
+    styles: {
+      // @ts-expect-error custom color tokens require the custom.* namespace
+      parts: { label: { fg: { kind: 'theme', token: 'brand.accent' } } }
+    }
+  }
+});

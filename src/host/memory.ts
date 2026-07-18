@@ -24,8 +24,11 @@ class QueueInput implements TerminalInput {
   #waiters: QueueInputWaiter[] = [];
   #closed = false;
   #rawMode = false;
+  readonly #tty: boolean;
 
-  constructor(private readonly tty = true) {}
+  constructor(tty = true) {
+    this.#tty = tty;
+  }
 
   push(data: string | Uint8Array): void {
     if (this.#closed) return;
@@ -84,7 +87,7 @@ class QueueInput implements TerminalInput {
   }
 
   isTty(): boolean {
-    return this.tty;
+    return this.#tty;
   }
 }
 
@@ -95,12 +98,15 @@ interface QueueInputWaiter {
 
 class BufferOutput implements TerminalOutput {
   #chunks: string[] = [];
+  readonly #tty: boolean;
+  readonly columns: number;
+  readonly rows: number;
 
-  constructor(
-    readonly columns = 80,
-    readonly rows = 24,
-    private readonly tty = true
-  ) {}
+  constructor(columns = 80, rows = 24, tty = true) {
+    this.columns = columns;
+    this.rows = rows;
+    this.#tty = tty;
+  }
 
   write(chunk: string | Uint8Array): Promise<void> {
     this.#chunks.push(typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk));
@@ -112,7 +118,7 @@ class BufferOutput implements TerminalOutput {
   }
 
   isTty(): boolean {
-    return this.tty;
+    return this.#tty;
   }
 
   text(): string {
@@ -198,14 +204,18 @@ class MemoryClock implements ControlledTerminalClock {
 }
 
 class ObjectEnvironment implements TerminalEnvironment {
-  constructor(private readonly values: Record<string, string>) {}
+  readonly #values: Record<string, string>;
+
+  constructor(values: Record<string, string>) {
+    this.#values = values;
+  }
 
   get(name: string): string | undefined {
-    return this.values[name];
+    return this.#values[name];
   }
 
   entries(): Iterable<readonly [string, string]> {
-    return Object.entries(this.values);
+    return Object.entries(this.#values);
   }
 }
 

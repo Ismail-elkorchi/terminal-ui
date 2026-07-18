@@ -25,7 +25,14 @@ import { createTerminalHost, ok } from '@ismail-elkorchi/terminal-ui';
 import { createMemoryTerminalHost } from '@ismail-elkorchi/terminal-ui/host';
 import { createInputDecoder } from '@ismail-elkorchi/terminal-ui/input';
 import { resolveSelectedText } from '@ismail-elkorchi/terminal-ui/interaction';
+import { createProtocolWriter } from '@ismail-elkorchi/terminal-ui/protocol';
+import { measureTextCells } from '@ismail-elkorchi/terminal-ui/text';
+import { defaultTheme, resolveThemeColor } from '@ismail-elkorchi/terminal-ui/theme';
+import { confirm, runPrompt } from '@ismail-elkorchi/terminal-ui/prompts';
+import { toAccessibleSnapshot, validateAccessibleSnapshot } from '@ismail-elkorchi/terminal-ui/accessibility';
+import { createTranscriptRecorder, validateTranscript } from '@ismail-elkorchi/terminal-ui/transcript';
 import { createTerminalHarness } from '@ismail-elkorchi/terminal-ui/testing';
+import { schemaArtifacts } from '@ismail-elkorchi/terminal-ui/schemas';
 
 type Message =
   | { readonly kind: 'increment' }
@@ -129,6 +136,23 @@ const selected = resolveSelectedText({
 });
 const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
 const result = ok('root-entrypoint');
+const protocolWrites: string[] = [];
+const protocol = createProtocolWriter({
+  write: (value) => {
+    protocolWrites.push(value);
+    return Promise.resolve();
+  }
+});
+await protocol.enableBracketedPaste();
+const promptResult = await runPrompt(confirm({
+  label: 'Continue?',
+  nonTty: { mode: 'provided_value', value: true }
+}));
+const accessible = toAccessibleSnapshot({
+  source: 'widget',
+  root: { id: 'consumer', role: 'application', label: 'Consumer' }
+});
+const transcript = createTranscriptRecorder({ id: 'consumer', source: 'test' }).snapshot();
 
 if (app.id !== 'packed-consumer') throw new Error('The TUI entrypoint did not create the app.');
 if (rootHost.runtime !== 'memory' || !result.ok || result.value !== 'root-entrypoint') {
@@ -150,5 +174,15 @@ if (!renderFramePlain(renderElementFrame(panes, { columns: 20, rows: 2 })).inclu
 if (!output.includes('Count: 1') || !output.includes('Increment')) {
   throw new Error(`The packed renderer output was incomplete: ${JSON.stringify(output)}`);
 }
+if (measureTextCells('A界').cells !== 3 || resolveThemeColor(defaultTheme, 'accent.primary') === undefined) {
+  throw new Error('The packed text or theme entrypoint failed.');
+}
+if (protocolWrites[0] !== '\u001B[?2004h' || promptResult.status !== 'submitted') {
+  throw new Error('The packed protocol or prompt entrypoint failed.');
+}
+if (!validateAccessibleSnapshot(accessible).ok || !validateTranscript(transcript).ok) {
+  throw new Error('The packed accessibility or transcript entrypoint failed.');
+}
+if (schemaArtifacts.length < 7) throw new Error('The packed schema catalog is incomplete.');
 
 console.log('terminal-ui packed consumer passed');

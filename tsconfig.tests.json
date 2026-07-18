@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true
+  },
+  "include": [
+    "src/**/*.test.ts",
+    "tests/contracts/**/*.ts",
+    "tests/**/*.test.ts",
+    "tests/helpers/**/*.ts",
+    "tests/support/**/*.ts"
+  ],
+  "exclude": []
+}

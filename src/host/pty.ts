@@ -14,20 +14,22 @@ import type {
 
 class PtyOutput implements TerminalOutput {
   readonly #output: RuntimeOutput;
+  readonly #viewport: () => TerminalViewport;
 
   constructor(
     options: RuntimeTerminalOutputOptions,
-    private readonly viewport: () => TerminalViewport
+    viewport: () => TerminalViewport
   ) {
     this.#output = new RuntimeOutput(options);
+    this.#viewport = viewport;
   }
 
   get columns(): number {
-    return this.viewport().columns;
+    return this.#viewport().columns;
   }
 
   get rows(): number {
-    return this.viewport().rows;
+    return this.#viewport().rows;
   }
 
   write(chunk: string | Uint8Array): Promise<void> {

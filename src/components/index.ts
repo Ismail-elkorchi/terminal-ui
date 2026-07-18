@@ -56,6 +56,12 @@ export type {
   InlineTextSegment
 } from '../visual/inline-content.ts';
 export type { CommandInputAction, CommandInputPresentation } from '../ui-model/command-input.ts';
+export type {
+  CommandInputDisplay,
+  CommandInputValidation,
+  ScrollbackItem,
+  StructuredBlock
+} from '../ui-model/documents.ts';
 export type { TextInputAction, TextInputPresentation } from '../ui-model/text-input.ts';
 export type {
   TextAreaAction,

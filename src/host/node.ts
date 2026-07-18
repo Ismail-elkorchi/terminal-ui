@@ -19,10 +19,16 @@ import type {
 } from './types.ts';
 
 class NodeSignals implements TerminalSignalSource {
+  readonly #source: Pick<NonNullable<NodeTerminalHostOptions['process']>, 'on' | 'off'>;
+  readonly #output: NodeTerminalHostOptions['stdout'] | undefined;
+
   constructor(
-    private readonly source: Pick<NonNullable<NodeTerminalHostOptions['process']>, 'on' | 'off'> = process,
-    private readonly output?: NodeTerminalHostOptions['stdout']
-  ) {}
+    source: Pick<NonNullable<NodeTerminalHostOptions['process']>, 'on' | 'off'> = process,
+    output?: NodeTerminalHostOptions['stdout']
+  ) {
+    this.#source = source;
+    this.#output = output;
+  }
 
   subscribe(listener: (signal: TerminalSignal) => void): Unsubscribe {
     const signals: NodeTerminalSignal[] = ['SIGINT', 'SIGTERM', 'SIGHUP'];
@@ -30,12 +36,12 @@ class NodeSignals implements TerminalSignalSource {
       const mapped = terminalSignalFromNodeSignal(signal);
       if (mapped !== undefined) listener(mapped);
     };
-    for (const signal of signals) this.source.on(signal, handler);
+    for (const signal of signals) this.#source.on(signal, handler);
     const resize = (): void => { listener('resize'); };
-    this.output?.on?.('resize', resize);
+    this.#output?.on?.('resize', resize);
     return () => {
-      for (const signal of signals) this.source.off(signal, handler);
-      this.output?.off?.('resize', resize);
+      for (const signal of signals) this.#source.off(signal, handler);
+      this.#output?.off?.('resize', resize);
     };
   }
 }
@@ -76,14 +82,18 @@ class NodeClock implements TerminalClock {
 }
 
 class ProcessEnvironment implements TerminalEnvironment {
-  constructor(private readonly env: Record<string, string | undefined>) {}
+  readonly #env: Record<string, string | undefined>;
+
+  constructor(env: Record<string, string | undefined>) {
+    this.#env = env;
+  }
 
   get(name: string): string | undefined {
-    return this.env[name];
+    return this.#env[name];
   }
 
   entries(): Iterable<readonly [string, string]> {
-    return Object.entries(this.env).flatMap(([key, value]) =>
+    return Object.entries(this.#env).flatMap(([key, value]) =>
       value === undefined ? [] : ([[key, value] as const])
     );
   }

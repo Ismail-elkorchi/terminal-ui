@@ -23,6 +23,10 @@ export interface TuiRunFinalization {
 }
 
 export class TuiRunLifecycleOwner<TState, TMessage> {
+  readonly #app: TuiApp<TState, TMessage>;
+  readonly #host: TerminalHost;
+  readonly #options: NormalizedTuiRunOptions<TState>;
+  readonly #transcript: TranscriptRecorder | undefined;
   #phase: TuiRunPhase = 'prepared';
   #session: TerminalSession | undefined;
   #runtime: TuiRuntime<TState, TMessage> | undefined;
@@ -30,11 +34,16 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
   #finalization: Promise<TuiRunFinalization> | undefined;
 
   constructor(
-    private readonly app: TuiApp<TState, TMessage>,
-    private readonly host: TerminalHost,
-    private readonly options: NormalizedTuiRunOptions<TState>,
-    private readonly transcript: TranscriptRecorder | undefined
-  ) {}
+    app: TuiApp<TState, TMessage>,
+    host: TerminalHost,
+    options: NormalizedTuiRunOptions<TState>,
+    transcript: TranscriptRecorder | undefined
+  ) {
+    this.#app = app;
+    this.#host = host;
+    this.#options = options;
+    this.#transcript = transcript;
+  }
 
   get phase(): TuiRunPhase {
     return this.#phase;
@@ -72,9 +81,9 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
     const diagnostics: TerminalDiagnostic[] = [];
     this.#phase = 'cleaning';
     const cleanupDiagnostics = await settleTuiCleanup(
-      this.host.clock,
+      this.#host.clock,
       this.cleanupTasks(),
-      this.options.cleanup
+      this.#options.cleanup
     );
     diagnostics.push(...cleanupDiagnostics);
 
@@ -82,14 +91,14 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
     if (this.#session !== undefined) {
       const restoreReason = cleanupDiagnostics.some(isFailure) ? 'error' : reason;
       diagnostics.push(...await restoreTuiSession(this.#session, restoreReason));
-      recordTuiRestore(this.transcript, this.#session.initialState);
+      recordTuiRestore(this.#transcript, this.#session.initialState);
     }
 
     try {
-      await this.host.flush();
+      await this.#host.flush();
     } catch (cause) {
       diagnostics.push(diagnostic('TUI_CLEANUP_FAILED', 'Terminal output flush failed during TUI finalization.', {
-        target: this.app.id,
+        target: this.#app.id,
         cause,
         data: { phase: 'flush' }
       }));
@@ -103,13 +112,13 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
     const tasks: TuiCleanupTask[] = [];
     const runtime = this.#runtime;
     if (runtime !== undefined) {
-      tasks.push({ owner: this.app.id, phase: 'runtime', run: () => invoke(() => runtime.dispose()) });
+      tasks.push({ owner: this.#app.id, phase: 'runtime', run: () => invoke(() => runtime.dispose()) });
     }
-    const onExit = this.app.definition.onExit;
+    const onExit = this.#app.definition.onExit;
     if (this.#exit !== undefined && 'state' in this.#exit && onExit !== undefined) {
       const state = this.#exit.state;
       tasks.push({
-        owner: this.app.id,
+        owner: this.#app.id,
         phase: 'onExit',
         run: () => invoke(() => onExit(state))
       });

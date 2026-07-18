@@ -33,19 +33,21 @@ export function createCanvas2D(buffer: RenderTarget, bounds: Rect): Canvas2D {
 
 class FrameBufferCanvas2D implements Canvas2D {
   readonly bounds: Rect;
+  readonly #buffer: RenderTarget;
 
   private readonly brailleCells = new Map<string, { readonly mask: number; readonly style?: TerminalStyle }>();
 
   private transform: CanvasTransform = identityCanvasTransform;
 
-  constructor(private readonly buffer: RenderTarget, bounds: Rect) {
+  constructor(buffer: RenderTarget, bounds: Rect) {
+    this.#buffer = buffer;
     this.bounds = bounds;
   }
 
   point(x: number, y: number, span: RenderSpan): void {
     const point = this.transformedPoint(x, y);
     if (!this.inside(point.x, point.y)) return;
-    this.buffer.write(this.rowFor(point.y), this.columnFor(point.x), this.clipAt(point.x, [span]));
+    this.#buffer.write(this.rowFor(point.y), this.columnFor(point.x), this.clipAt(point.x, [span]));
   }
 
   line(x1: number, y1: number, x2: number, y2: number, span: RenderSpan): void {
@@ -111,7 +113,7 @@ class FrameBufferCanvas2D implements Canvas2D {
   text(x: number, y: number, spans: readonly RenderSpan[]): void {
     const point = this.transformedPoint(x, y);
     if (!this.inside(point.x, point.y)) return;
-    this.buffer.write(this.rowFor(point.y), this.columnFor(point.x), this.clipAt(point.x, spans));
+    this.#buffer.write(this.rowFor(point.y), this.columnFor(point.x), this.clipAt(point.x, spans));
   }
 
   braillePoint(x: number, y: number, style?: TerminalStyle): void {
@@ -134,7 +136,7 @@ class FrameBufferCanvas2D implements Canvas2D {
   clear(bounds?: Rect): void {
     if (bounds === undefined) {
       this.brailleCells.clear();
-      this.buffer.clear(this.bounds);
+      this.#buffer.clear(this.bounds);
       return;
     }
     const transformed = transformCanvasRect(this.transform, bounds);
@@ -145,7 +147,7 @@ class FrameBufferCanvas2D implements Canvas2D {
       height: transformed.height
     };
     this.clearBrailleCells(transformed);
-    this.buffer.clear(absolute);
+    this.#buffer.clear(absolute);
   }
 
   translate(dx: number, dy: number): void {
@@ -168,7 +170,7 @@ class FrameBufferCanvas2D implements Canvas2D {
 
   private rawPoint(x: number, y: number, span: RenderSpan): void {
     if (!this.inside(x, y)) return;
-    this.buffer.write(this.rowFor(y), this.columnFor(x), this.clipAt(x, [span]));
+    this.#buffer.write(this.rowFor(y), this.columnFor(x), this.clipAt(x, [span]));
   }
 
   private transformedPoint(x: number, y: number): CanvasPoint {

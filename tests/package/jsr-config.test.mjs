@@ -5,46 +5,33 @@ import test from 'node:test';
 const packageJson = JSON.parse(await readFile(new URL('../../package.json', import.meta.url), 'utf8'));
 const jsrJson = JSON.parse(await readFile(new URL('../../jsr.json', import.meta.url), 'utf8'));
 
-const npmToSourceEntries = new Map([
-  ['.', './src/index.ts'],
-  ['./host', './src/host/index.ts'],
-  ['./input', './src/input/index.ts'],
-  ['./interaction', './src/interaction/index.ts'],
-  ['./protocol', './src/protocol/index.ts'],
-  ['./text', './src/text/index.ts'],
-  ['./theme', './src/theme/index.ts'],
-  ['./prompts', './src/prompts/index.ts'],
-  ['./tui', './src/tui/index.ts'],
-  ['./components', './src/components/index.ts'],
-  ['./accessibility', './src/accessibility/index.ts'],
-  ['./transcript', './src/transcript/index.ts'],
-  ['./testing', './src/testing/index.ts'],
-  ['./schemas', './src/schemas/index.ts']
-]);
-
-const schemaEntries = [
-  './schemas/accessible-snapshot.schema.json',
-  './schemas/interaction-transcript.schema.json',
-  './schemas/prompt-result.schema.json',
-  './schemas/render-diff.schema.json',
-  './schemas/terminal-capabilities.schema.json',
-  './schemas/terminal-diagnostic.schema.json',
-  './schemas/tui-frame.schema.json'
-];
+const npmEntrypoints = Object.keys(packageJson.exports)
+  .filter((entrypoint) => !entrypoint.includes('*'))
+  .sort();
+const jsrEntrypoints = Object.keys(jsrJson.exports)
+  .filter((entrypoint) => !entrypoint.startsWith('./schemas/'))
+  .sort();
 
 test('JSR manifest mirrors package identity and source entrypoints', () => {
   assert.equal(jsrJson.name, packageJson.name);
   assert.equal(jsrJson.version, packageJson.version);
   assert.equal(jsrJson.license, packageJson.license);
 
-  for (const [entrypoint, sourcePath] of npmToSourceEntries) {
-    assert.ok(Object.hasOwn(packageJson.exports, entrypoint), entrypoint);
-    assert.equal(jsrJson.exports[entrypoint], sourcePath, entrypoint);
+  assert.deepEqual(jsrEntrypoints, npmEntrypoints);
+  for (const entrypoint of npmEntrypoints) {
+    assert.match(jsrJson.exports[entrypoint], /^\.\/src\/.+\.ts$/u, entrypoint);
   }
 });
 
 test('JSR manifest exports concrete schema artifacts instead of dist wildcard only', () => {
+  const schemaEntries = Object.keys(jsrJson.exports)
+    .filter((entrypoint) => entrypoint.startsWith('./schemas/') && entrypoint.endsWith('.json'));
+  assert.ok(schemaEntries.length > 0);
   for (const schemaEntry of schemaEntries) {
     assert.equal(jsrJson.exports[schemaEntry], schemaEntry, schemaEntry);
   }
+});
+
+test('JSR publication excludes source-owned test modules', () => {
+  assert.deepEqual(jsrJson.publish?.exclude, ['src/**/*.test.ts']);
 });

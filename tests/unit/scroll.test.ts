@@ -1,0 +1,168 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  applyScrollEvent,
+  createScrollState,
+  normalizeScrollState,
+  scrollReducer,
+  visibleWindowFromScroll
+} from '../../dist/behavior/index.js';
+
+void test('scroll state normalizes offsets and visible windows', () => {
+  const state = createScrollState({
+    offsetRow: 100,
+    offsetColumn: 50,
+    contentRows: 20,
+    contentColumns: 12,
+    viewportRows: 5,
+    viewportColumns: 4
+  });
+
+  assert.deepEqual(state, {
+    offsetRow: 15,
+    offsetColumn: 8,
+    contentRows: 20,
+    contentColumns: 12,
+    viewportRows: 5,
+    viewportColumns: 4,
+    followTail: false
+  });
+  assert.deepEqual(visibleWindowFromScroll(state), { start: 15, end: 20 });
+});
+
+void test('scroll reducer supports line, page, top, and bottom actions', () => {
+  let state = createScrollState({ contentRows: 100, viewportRows: 10 });
+
+  state = scrollReducer(state, { kind: 'scrollLines', rows: 3 });
+  assert.equal(state.offsetRow, 3);
+
+  state = scrollReducer(state, { kind: 'scrollPages', rows: 2 });
+  assert.equal(state.offsetRow, 23);
+
+  state = scrollReducer(state, { kind: 'bottom' });
+  assert.equal(state.offsetRow, 90);
+  assert.equal(state.followTail, true);
+
+  state = scrollReducer(state, { kind: 'top' });
+  assert.equal(state.offsetRow, 0);
+  assert.equal(state.followTail, false);
+});
+
+void test('scroll reducer preserves identity for boundary no-op scrolls', () => {
+  const top = createScrollState({ contentRows: 100, viewportRows: 10 });
+  const stillTop = scrollReducer(top, { kind: 'scrollLines', rows: -1 });
+  assert.equal(stillTop, top);
+
+  const down = scrollReducer(top, { kind: 'scrollLines', rows: 1 });
+  assert.notEqual(down, top);
+  assert.equal(down.offsetRow, 1);
+
+  const backToTop = scrollReducer(down, { kind: 'scrollLines', rows: -1 });
+  assert.notEqual(backToTop, down);
+  assert.equal(backToTop.offsetRow, 0);
+});
+
+void test('scroll reducer supports absolute offset actions for pointer scrollbars', () => {
+  let state = createScrollState({ contentRows: 100, contentColumns: 60, viewportRows: 10, viewportColumns: 20 });
+
+  state = scrollReducer(state, { kind: 'setOffset', rows: 40, columns: 12 });
+  assert.equal(state.offsetRow, 40);
+  assert.equal(state.offsetColumn, 12);
+
+  state = scrollReducer({ ...state, followTail: true }, { kind: 'setOffset', rows: 200 });
+  assert.equal(state.offsetRow, 90);
+  assert.equal(state.followTail, false);
+});
+
+void test('follow-tail stays at the bottom while content grows and freezes when the user scrolls up', () => {
+  let state = createScrollState({ contentRows: 10, viewportRows: 4 });
+
+  state = scrollReducer(state, { kind: 'bottom' });
+  assert.equal(state.offsetRow, 6);
+  assert.equal(state.followTail, true);
+
+  state = scrollReducer(state, { kind: 'setContent', rows: 15 });
+  assert.equal(state.offsetRow, 11);
+  assert.equal(state.followTail, true);
+
+  state = scrollReducer(state, { kind: 'scrollLines', rows: -2 });
+  assert.equal(state.offsetRow, 9);
+  assert.equal(state.followTail, false);
+
+  state = scrollReducer(state, { kind: 'setContent', rows: 20 });
+  assert.equal(state.offsetRow, 9);
+  assert.equal(state.followTail, false);
+});
+
+void test('item-into-view centers selected items and records selection', () => {
+  const state = scrollReducer(
+    createScrollState({ contentRows: 50_000, viewportRows: 10 }),
+    { kind: 'itemIntoView', index: 40_000 }
+  );
+
+  assert.equal(state.selectedIndex, 40_000);
+  assert.deepEqual(visibleWindowFromScroll(state), { start: 39_995, end: 40_005 });
+});
+
+void test('normalizing a selected index clamps it to content bounds', () => {
+  assert.deepEqual(
+    normalizeScrollState({
+      offsetRow: 0,
+      offsetColumn: 0,
+      contentRows: 3,
+      contentColumns: 0,
+      viewportRows: 1,
+      viewportColumns: 0,
+      followTail: false,
+      selectedIndex: 99
+    }).selectedIndex,
+    2
+  );
+});
+
+void test('scroll events reconcile rendered viewport metrics before applying actions', () => {
+  const stale = createScrollState({
+    offsetRow: 79,
+    contentRows: 80,
+    viewportRows: 1
+  });
+
+  const next = applyScrollEvent(stale, {
+    action: { kind: 'scrollLines', rows: -3 },
+    scroll: createScrollState({
+      offsetRow: 74,
+      contentRows: 80,
+      viewportRows: 6
+    }),
+    source: 'wheel',
+    target: 'content',
+    pointer: {
+      kind: 'scroll',
+      source: 'mouse',
+      row: 1,
+      column: 1,
+      button: 'wheelUp',
+      modifiers: { shift: false, alt: false, ctrl: false },
+      deltaRows: -1,
+      deltaColumns: 0,
+      clickCount: 0,
+      raw: {
+        kind: 'mouse',
+        sequence: '',
+        encoding: 'sgr',
+        action: 'wheel',
+        button: 'wheelUp',
+        deltaRows: -1,
+        deltaColumns: 0,
+        row: 1,
+        column: 1,
+        rawCode: 64,
+        modifiers: { shift: false, alt: false, ctrl: false }
+      }
+    }
+  });
+
+  assert.equal(next.viewportRows, 6);
+  assert.equal(next.offsetRow, 71);
+});

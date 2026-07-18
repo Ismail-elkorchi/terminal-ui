@@ -88,53 +88,59 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
 
 export class RuntimeInput implements TerminalInput {
   #rawMode = false;
+  readonly #options: RuntimeTerminalInputOptions;
 
-  constructor(private readonly options: RuntimeTerminalInputOptions = {}) {}
+  constructor(options: RuntimeTerminalInputOptions = {}) {
+    this.#options = options;
+  }
 
   async *read(options: TerminalInputReadOptions = {}): AsyncIterable<TerminalInputChunk> {
-    if (this.options.source === undefined) return;
-    for await (const chunk of this.options.source.read(options)) {
+    if (this.#options.source === undefined) return;
+    for await (const chunk of this.#options.source.read(options)) {
       if (options.signal?.aborted === true) return;
       yield { data: chunk };
     }
   }
 
   async setRawMode(enabled: boolean): Promise<void> {
-    await this.options.setRawMode?.(enabled);
+    await this.#options.setRawMode?.(enabled);
     this.#rawMode = enabled;
   }
 
   isRawModeEnabled(): boolean {
-    return this.options.isRawModeEnabled?.() ?? this.#rawMode;
+    return this.#options.isRawModeEnabled?.() ?? this.#rawMode;
   }
 
   isTty(): boolean {
-    return this.options.isTty ?? false;
+    return this.#options.isTty ?? false;
   }
 }
 
 export class RuntimeOutput implements TerminalOutput {
   #writer: WritableStreamDefaultWriter<Uint8Array> | undefined;
   readonly #queue = new OrderedOutputQueue();
+  readonly #options: RuntimeTerminalOutputOptions;
 
-  constructor(private readonly options: RuntimeTerminalOutputOptions = {}) {}
+  constructor(options: RuntimeTerminalOutputOptions = {}) {
+    this.#options = options;
+  }
 
   get columns(): number | undefined {
-    return this.options.columns;
+    return this.#options.columns;
   }
 
   get rows(): number | undefined {
-    return this.options.rows;
+    return this.#options.rows;
   }
 
   write(chunk: string | Uint8Array): Promise<void> {
     return this.#queue.run(async () => {
-      if (this.options.write !== undefined) {
-        await this.options.write(chunk);
+      if (this.#options.write !== undefined) {
+        await this.#options.write(chunk);
         return;
       }
-      if (this.options.writable !== undefined) {
-        this.#writer ??= this.options.writable.getWriter();
+      if (this.#options.writable !== undefined) {
+        this.#writer ??= this.#options.writable.getWriter();
         await this.#writer.write(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
       }
     });
@@ -146,15 +152,19 @@ export class RuntimeOutput implements TerminalOutput {
   }
 
   isTty(): boolean {
-    return this.options.isTty ?? false;
+    return this.#options.isTty ?? false;
   }
 }
 
 export class RuntimeSignals implements TerminalSignalSource {
-  constructor(private readonly subscribeHook?: (listener: (signal: TerminalSignal) => void) => Unsubscribe) {}
+  readonly #subscribeHook: ((listener: (signal: TerminalSignal) => void) => Unsubscribe) | undefined;
+
+  constructor(subscribeHook?: (listener: (signal: TerminalSignal) => void) => Unsubscribe) {
+    this.#subscribeHook = subscribeHook;
+  }
 
   subscribe(listener: (signal: TerminalSignal) => void): Unsubscribe {
-    return this.subscribeHook?.(listener) ?? (() => undefined);
+    return this.#subscribeHook?.(listener) ?? (() => undefined);
   }
 }
 
@@ -183,14 +193,18 @@ export class RuntimeClock implements TerminalClock {
 }
 
 export class ObjectEnvironment implements TerminalEnvironment {
-  constructor(private readonly values: Record<string, string>) {}
+  readonly #values: Record<string, string>;
+
+  constructor(values: Record<string, string>) {
+    this.#values = values;
+  }
 
   get(name: string): string | undefined {
-    return this.values[name];
+    return this.#values[name];
   }
 
   entries(): Iterable<readonly [string, string]> {
-    return Object.entries(this.values);
+    return Object.entries(this.#values);
   }
 }
 

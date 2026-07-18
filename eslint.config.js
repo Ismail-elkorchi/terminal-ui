@@ -17,9 +17,20 @@ export default [
     ...tseslint.configs.strict,
     ...tseslint.configs.strictTypeChecked,
     ...tseslint.configs.stylisticTypeChecked
-  ].map((config) => ({ ...config, files: ['src/**/*.ts', 'examples/**/*.ts'] })),
+  ].map((config) => ({
+    ...config,
+    files: [
+      'src/**/*.ts',
+      'examples/**/*.ts',
+      'tests/contracts/**/*.ts',
+      'tests/**/*.test.ts',
+      'tests/helpers/**/*.ts',
+      'tests/support/**/*.ts'
+    ]
+  })),
   {
     files: ['src/**/*.ts'],
+    ignores: ['src/**/*.test.ts'],
     languageOptions: {
       parserOptions: {
         projectService: true,
@@ -37,9 +48,45 @@ export default [
     }
   },
   {
+    files: [
+      'src/**/*.test.ts',
+      'tests/contracts/**/*.ts',
+      'tests/**/*.test.ts',
+      'tests/helpers/**/*.ts',
+      'tests/support/**/*.ts'
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: './tsconfig.tests.json',
+        tsconfigRootDir
+      }
+    }
+  },
+  {
+    files: ['tests/contracts/types/**/*.contract.ts'],
+    rules: {
+      '@typescript-eslint/consistent-type-definitions': 'off',
+      '@typescript-eslint/no-unnecessary-type-arguments': 'off',
+      '@typescript-eslint/no-unnecessary-type-parameters': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/require-await': 'off'
+    }
+  },
+  {
+    files: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+    rules: {
+      '@typescript-eslint/no-empty-function': 'off',
+      '@typescript-eslint/require-await': 'off',
+      'no-control-regex': 'off'
+    }
+  },
+  {
     files: ['examples/**/*.mjs', 'scripts/**/*.mjs', 'tests/**/*.mjs'],
     languageOptions: {
-      ecmaVersion: 2024,
+      ecmaVersion: 'latest',
       sourceType: 'module',
       globals: {
         Buffer: 'readonly',

@@ -25,6 +25,7 @@
     "useUnknownInCatchVariables": true,
     "useDefineForClassFields": true,
     "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
     "rewriteRelativeImportExtensions": true,
     "verbatimModuleSyntax": true,
     "types": ["node"],
@@ -32,5 +33,6 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": false
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts"]
 }

@@ -134,11 +134,11 @@ function framePassesForOptions(options: RenderElementOptions): readonly FramePas
 
 const defaultFramePasses: readonly FramePass[] = Object.freeze([boxDrawingJoinPass]);
 
-export function renderElementRegions(
-  element: Element,
+export function renderElementRegions<TMessage>(
+  element: Element<TMessage>,
   viewport: ViewportSize,
   options: RenderElementOptions = {}
-): readonly RenderRegion[] {
+): readonly RenderRegion<TMessage>[] {
   return renderElementProjection(element, viewport, options).regions;
 }
 
