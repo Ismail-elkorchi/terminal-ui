@@ -1,6 +1,7 @@
 import { measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import { measureRenderBlock as renderBlockSize, measureRenderLine } from '../../visual/render.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
+import type { TextMeasurementOptions } from '../../text/index.ts';
 import type { Measurement, MeasurementInput } from '../model/measurement.ts';
 
 export type { Measurement, MeasurementInput } from '../model/measurement.ts';
@@ -49,27 +50,30 @@ export function measureSize(preferredWidth: number, preferredHeight: number, min
   return measurement({ minWidth, minHeight, preferredWidth, preferredHeight });
 }
 
-export function measureText(text: string): Measurement {
+export function measureText(text: string, options: TextMeasurementOptions = {}): Measurement {
   const lines = sanitizeTerminalText(text).text.split('\n');
-  return measureLines(lines);
+  return measureLines(lines, options);
 }
 
-export function measureSpans(spans: readonly RenderSpan[]): Measurement {
-  return measureSize(spans.reduce((sum, currentSpan) => sum + measureTextCells(currentSpan.text).cells, 0), 1);
+export function measureSpans(spans: readonly RenderSpan[], options: TextMeasurementOptions = {}): Measurement {
+  return measureSize(spans.reduce(
+    (sum, currentSpan) => sum + measureTextCells(currentSpan.text, options).cells,
+    0
+  ), 1);
 }
 
-export function measureLine(renderLine: RenderLine): Measurement {
-  return measureSize(measureRenderLine(renderLine), 1);
+export function measureLine(renderLine: RenderLine, options: TextMeasurementOptions = {}): Measurement {
+  return measureSize(measureRenderLine(renderLine, options), 1);
 }
 
-export function measureBlock(block: RenderBlock): Measurement {
-  const size = renderBlockSize(block);
+export function measureBlock(block: RenderBlock, options: TextMeasurementOptions = {}): Measurement {
+  const size = renderBlockSize(block, options);
   return measureSize(size.width, size.height);
 }
 
-export function measureLines(lines: readonly string[]): Measurement {
+export function measureLines(lines: readonly string[], options: TextMeasurementOptions = {}): Measurement {
   return measureSize(
-    lines.reduce((max, currentLine) => Math.max(max, measureTextCells(currentLine).cells), 0),
+    lines.reduce((max, currentLine) => Math.max(max, measureTextCells(currentLine, options).cells), 0),
     lines.length
   );
 }

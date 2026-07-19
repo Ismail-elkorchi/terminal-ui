@@ -43,9 +43,9 @@ import type { RendererMap } from './types.ts';
 
 export const menuRenderers = {
   menu: {
-    render: ({ renderNode, layoutNode, buffer, theme, focus }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focus, widthProfile }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => menuScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(renderNode, scrollbars.contentBounds, theme, focus === 'self'));
+      writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(renderNode, scrollbars.contentBounds, theme, widthProfile, focus === 'self'));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, id, focused }) => ({
@@ -63,12 +63,13 @@ export const menuRenderers = {
     }
   },
   menuBar: {
-    layout: ({ renderNode, bounds, viewport }) => menuBarPopupBounds(renderNode, bounds, viewport),
+    layout: ({ renderNode, bounds, viewport, widthProfile }) => menuBarPopupBounds(renderNode, bounds, viewport, widthProfile),
     render: (input) => {
       writeRenderBlock(input.buffer, input.layoutNode.bounds, menuBarBlock(
         input.renderNode,
         input.layoutNode.bounds,
         input.theme,
+        input.widthProfile,
         input.focus === 'self'
       ));
       input.renderChildren();
@@ -79,10 +80,10 @@ export const menuRenderers = {
       children: menuBarAccessibleChildren(renderNode)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
-    hitTargets: ({ renderNode, layoutNode }) => menuBarHitTargets(renderNode, layoutNode)
+    hitTargets: ({ renderNode, layoutNode, widthProfile }) => menuBarHitTargets(renderNode, layoutNode, widthProfile)
   },
   contextMenu: {
-    layout: ({ renderNode, viewport }) => contextMenuPopupBounds(renderNode, viewport),
+    layout: ({ renderNode, viewport, widthProfile }) => contextMenuPopupBounds(renderNode, viewport, widthProfile),
     render: (input) => {
       input.renderChildren();
     },
@@ -98,12 +99,13 @@ export const menuRenderers = {
     hitTargets: ({ renderNode, layoutNode }) => contextMenuHitTargets(renderNode, layoutNode)
   },
   dropdownMenu: {
-    layout: ({ renderNode, bounds, viewport }) => dropdownMenuPopupBounds(renderNode, bounds, viewport),
+    layout: ({ renderNode, bounds, viewport, widthProfile }) => dropdownMenuPopupBounds(renderNode, bounds, viewport, widthProfile),
     render: (input) => {
       writeRenderBlock(input.buffer, input.layoutNode.bounds, dropdownMenuBlock(
         input.renderNode,
         input.layoutNode.bounds,
         input.theme,
+        input.widthProfile,
         input.focus === 'self'
       ));
       input.renderChildren();
@@ -120,8 +122,12 @@ export const menuRenderers = {
     hitTargets: ({ renderNode, layoutNode }) => dropdownMenuHitTargets(renderNode, layoutNode)
   },
   commandInput: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, commandInputBlock(renderNode, layoutNode.bounds, theme));
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
+      writeRenderBlock(
+        buffer,
+        layoutNode.bounds,
+        commandInputBlock(renderNode, layoutNode.bounds, theme, widthProfile)
+      );
     },
     accessibility: ({ renderNode, id, focused }) => {
       const children = commandInputAccessibleChildren(renderNode);
@@ -134,8 +140,10 @@ export const menuRenderers = {
         ...(children === undefined ? {} : { children })
       };
     },
-    focusTargets: ({ renderNode, bounds }) => [focusTarget(bounds, commandInputCursor(renderNode, bounds))],
-    hitTargets: ({ renderNode, bounds }) => [
+    focusTargets: ({ renderNode, bounds, widthProfile }) => [
+      focusTarget(bounds, commandInputCursor(renderNode, bounds, widthProfile))
+    ],
+    hitTargets: ({ renderNode, bounds, widthProfile }) => [
       ...textPointerHitTargets({
         id: `${renderNode.id ?? renderNode.kind}:text`,
         bounds: { ...bounds, height: Math.min(1, bounds.height) },
@@ -143,7 +151,7 @@ export const menuRenderers = {
         toMessage: renderNode.props.toActionMessage === undefined
           ? undefined
           : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
-        offsetAt: (event) => commandInputPointerOffset(renderNode, bounds, event)
+        offsetAt: (event) => commandInputPointerOffset(renderNode, bounds, event, widthProfile)
       }),
       ...commandInputSuggestionHitTargets(renderNode, bounds)
     ]

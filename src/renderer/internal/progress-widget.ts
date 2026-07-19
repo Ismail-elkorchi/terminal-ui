@@ -1,5 +1,5 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
-import { sanitizeTerminalText } from '../../text/index.ts';
+import { fillTextCells, measureTextCells, sanitizeTerminalText } from '../../text/index.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import { indeterminateProgressFrame } from '../../behavior/feedback.ts';
 import type { ProcessStatus } from '../../ui-model/contracts.ts';
@@ -14,6 +14,7 @@ import { measureRenderSpans } from '../../visual/render.ts';
 import { normalizeValueScale, valueScaleStyle } from './value-scale.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from './frame.ts';
 import type { NormalizedValueScaleStop } from './value-scale.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 
 interface ProgressModel {
   readonly label: string;
@@ -38,13 +39,18 @@ interface ProgressParts {
   readonly timing: boolean;
 }
 
-export function progressBlock(widget: ProgressBarNode, theme: TerminalTheme, maxCells?: number): RenderBlock {
+export function progressBlock(
+  widget: ProgressBarNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  maxCells?: number
+): RenderBlock {
   const model = progressModel(widget);
-  return block([line(fitProgressSpans(widget, model, theme, maxCells))]);
+  return block([line(fitProgressSpans(widget, model, theme, maxCells, widthProfile))]);
 }
 
-export function progressText(widget: ProgressBarNode, theme: TerminalTheme): string {
-  return progressBlock(widget, theme).lines.map((currentLine) => currentLine.spans.map((currentSpan) => currentSpan.text).join('')).join('\n');
+export function progressText(widget: ProgressBarNode, theme: TerminalTheme, widthProfile: TextWidthProfile): string {
+  return progressBlock(widget, theme, widthProfile).lines.map((currentLine) => currentLine.spans.map((currentSpan) => currentSpan.text).join('')).join('\n');
 }
 
 export function progressAccessibleBase(widget: ProgressBarNode, id: string): AccessibleNode {
@@ -69,7 +75,13 @@ export function progressAccessibleBase(widget: ProgressBarNode, id: string): Acc
   };
 }
 
-function fitProgressSpans(widget: ProgressBarNode, model: ProgressModel, theme: TerminalTheme, maxCells: number | undefined): readonly RenderSpan[] {
+function fitProgressSpans(
+  widget: ProgressBarNode,
+  model: ProgressModel,
+  theme: TerminalTheme,
+  maxCells: number | undefined,
+  widthProfile: TextWidthProfile
+): readonly RenderSpan[] {
   if (maxCells !== undefined && maxCells <= 0) return [];
   const initialParts = progressParts(model);
   const candidates: readonly ProgressParts[] = [
@@ -80,10 +92,10 @@ function fitProgressSpans(widget: ProgressBarNode, model: ProgressModel, theme: 
     { ...initialParts, label: false, timing: false, value: false, percentage: false }
   ];
   for (const parts of candidates) {
-    const spans = progressSpans(widget, model, theme, parts, maxCells);
-    if (maxCells === undefined || measureRenderSpans(spans) <= maxCells) return spans;
+    const spans = progressSpans(widget, model, theme, parts, maxCells, widthProfile);
+    if (maxCells === undefined || measureRenderSpans(spans, { widthProfile }) <= maxCells) return spans;
   }
-  return progressSpans(widget, model, theme, candidates.at(-1) ?? initialParts, maxCells);
+  return progressSpans(widget, model, theme, candidates.at(-1) ?? initialParts, maxCells, widthProfile);
 }
 
 function progressSpans(
@@ -91,14 +103,15 @@ function progressSpans(
   model: ProgressModel,
   theme: TerminalTheme,
   parts: ProgressParts,
-  maxCells: number | undefined
+  maxCells: number | undefined,
+  widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
-  const barWidth = fittedBarWidth(widget, model, theme, parts, maxCells);
+  const barWidth = fittedBarWidth(widget, model, theme, parts, maxCells, widthProfile);
   return [
     ...progressStatusSpans(widget, model, theme),
     ...(parts.label && model.label.length > 0 && model.labelPosition === 'start' ? [feedbackTextSpan(widget, `${model.label} `, 'progressBar', 'label')] : []),
     feedbackStructureSpan(widget, '[', 'progressBar', 'chrome.open', statusStyle('idle')),
-    ...progressBarSpans(widget, model, theme, barWidth),
+    ...progressBarSpans(widget, model, theme, barWidth, widthProfile),
     feedbackStructureSpan(widget, ']', 'progressBar', 'chrome.close', statusStyle('idle')),
     ...progressMetricSpans(widget, model, parts),
     ...(parts.label && model.label.length > 0 && model.labelPosition === 'end' ? [feedbackTextSpan(widget, ` ${model.label}`, 'progressBar', 'label')] : [])
@@ -110,7 +123,8 @@ function fittedBarWidth(
   model: ProgressModel,
   theme: TerminalTheme,
   parts: ProgressParts,
-  maxCells: number | undefined
+  maxCells: number | undefined,
+  widthProfile: TextWidthProfile
 ): number {
   if (maxCells === undefined) return model.barWidth;
   const withoutBar = [
@@ -121,7 +135,7 @@ function fittedBarWidth(
     ...progressMetricSpans(widget, model, parts),
     ...(parts.label && model.label.length > 0 && model.labelPosition === 'end' ? [feedbackTextSpan(widget, ` ${model.label}`, 'progressBar', 'label')] : [])
   ];
-  return Math.max(1, Math.min(model.barWidth, maxCells - measureRenderSpans(withoutBar)));
+  return Math.max(1, Math.min(model.barWidth, maxCells - measureRenderSpans(withoutBar, { widthProfile })));
 }
 
 function progressParts(model: ProgressModel): ProgressParts {
@@ -133,34 +147,115 @@ function progressParts(model: ProgressModel): ProgressParts {
   };
 }
 
-function progressBarSpans(widget: ProgressBarNode, model: ProgressModel, theme: TerminalTheme, barWidth: number) {
+function progressBarSpans(
+  widget: ProgressBarNode,
+  model: ProgressModel,
+  theme: TerminalTheme,
+  barWidth: number,
+  widthProfile: TextWidthProfile
+): readonly RenderSpan[] {
   if (model.indeterminate) {
-    return indeterminateProgressFrame(model.frame, barWidth).cells.map((cell) =>
-      cell.active
-        ? feedbackStructureSpan(widget, theme.tokens.symbols.progressFilled, 'progressBar', 'active', progressFillStyle(model.status))
-        : feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty, 'progressBar', 'track', progressTrackStyle())
-    );
+    return indeterminateProgressSpans(widget, model, theme, barWidth, widthProfile);
   }
-  const filled = Math.round((model.value / model.max) * barWidth);
+  const filledCells = Math.round((model.value / model.max) * barWidth);
   if (model.valueScale.length === 0) {
     return [
-      feedbackStructureSpan(widget, theme.tokens.symbols.progressFilled.repeat(filled), 'progressBar', 'filled', progressFillStyle(model.status)),
-      feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty.repeat(barWidth - filled), 'progressBar', 'track', progressTrackStyle())
+      feedbackStructureSpan(
+        widget,
+        fillTextCells(theme.tokens.symbols.progressFilled, filledCells, { widthProfile }),
+        'progressBar',
+        'filled',
+        progressFillStyle(model.status)
+      ),
+      feedbackStructureSpan(
+        widget,
+        fillTextCells(theme.tokens.symbols.progressEmpty, barWidth - filledCells, { widthProfile }),
+        'progressBar',
+        'track',
+        progressTrackStyle()
+      )
     ];
   }
   return [
-    ...Array.from({ length: filled }, (_, index) => {
-      const segmentValue = ((index + 1) / Math.max(1, barWidth)) * model.max;
-      return feedbackStructureSpan(
-        widget,
-        theme.tokens.symbols.progressFilled,
-        'progressBar',
-        `segment.${String(index)}.filled`,
-        valueScaleStyle(segmentValue, { min: 0, max: model.max }, model.valueScale, progressFillStyle(model.status))
-      );
-    }),
-    feedbackStructureSpan(widget, theme.tokens.symbols.progressEmpty.repeat(barWidth - filled), 'progressBar', 'track', progressTrackStyle())
+    ...scaledProgressFillSpans(widget, model, theme, filledCells, barWidth, widthProfile),
+    feedbackStructureSpan(
+      widget,
+      fillTextCells(theme.tokens.symbols.progressEmpty, barWidth - filledCells, { widthProfile }),
+      'progressBar',
+      'track',
+      progressTrackStyle()
+    )
   ];
+}
+
+function indeterminateProgressSpans(
+  widget: ProgressBarNode,
+  model: ProgressModel,
+  theme: TerminalTheme,
+  barWidth: number,
+  widthProfile: TextWidthProfile
+): readonly RenderSpan[] {
+  const slotCells = Math.max(
+    1,
+    measureTextCells(theme.tokens.symbols.progressFilled, { widthProfile }).cells,
+    measureTextCells(theme.tokens.symbols.progressEmpty, { widthProfile }).cells
+  );
+  const frame = indeterminateProgressFrame(model.frame, Math.max(1, Math.ceil(barWidth / slotCells)));
+  let remaining = barWidth;
+  return frame.cells.flatMap((cell): readonly RenderSpan[] => {
+    if (remaining === 0) return [];
+    const currentCells = Math.min(slotCells, remaining);
+    remaining -= currentCells;
+    return [cell.active
+      ? feedbackStructureSpan(
+          widget,
+          fillTextCells(theme.tokens.symbols.progressFilled, currentCells, { widthProfile }),
+          'progressBar',
+          'active',
+          progressFillStyle(model.status)
+        )
+      : feedbackStructureSpan(
+          widget,
+          fillTextCells(theme.tokens.symbols.progressEmpty, currentCells, { widthProfile }),
+          'progressBar',
+          'track',
+          progressTrackStyle()
+        )];
+  });
+}
+
+function scaledProgressFillSpans(
+  widget: ProgressBarNode,
+  model: ProgressModel,
+  theme: TerminalTheme,
+  filledCells: number,
+  barWidth: number,
+  widthProfile: TextWidthProfile
+): readonly RenderSpan[] {
+  const glyphCells = Math.max(
+    1,
+    measureTextCells(theme.tokens.symbols.progressFilled, { widthProfile }).cells
+  );
+  const spans: RenderSpan[] = [];
+  let usedCells = 0;
+  while (usedCells < filledCells) {
+    const currentCells = Math.min(glyphCells, filledCells - usedCells);
+    const segmentValue = ((usedCells + currentCells) / Math.max(1, barWidth)) * model.max;
+    spans.push(feedbackStructureSpan(
+      widget,
+      fillTextCells(theme.tokens.symbols.progressFilled, currentCells, { widthProfile }),
+      'progressBar',
+      `segment.${String(spans.length)}.filled`,
+      valueScaleStyle(
+        segmentValue,
+        { min: 0, max: model.max },
+        model.valueScale,
+        progressFillStyle(model.status)
+      )
+    ));
+    usedCells += currentCells;
+  }
+  return spans;
 }
 
 function progressStatusSpans(widget: ProgressBarNode, model: ProgressModel, theme: TerminalTheme) {

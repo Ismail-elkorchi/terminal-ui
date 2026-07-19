@@ -4,7 +4,7 @@ import { createInputDecoder, decodeInputChunk } from './decoder.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalCapabilityProfile, TerminalInputChunk } from '../host/index.ts';
 import type { TerminalKeyboardProfile } from '../protocol/index.ts';
-import type { InputDecodeOptions, InputDecoderBatch, InputEvent } from './types.ts';
+import type { InputDecodeLimits, InputDecodeOptions, InputDecoderBatch, InputEvent } from './types.ts';
 
 export type KeyboardInputProfileRequest = 'auto' | TerminalKeyboardProfile;
 
@@ -13,6 +13,7 @@ export interface InputPipelineOptions {
   readonly keyboard?: KeyboardInputProfileRequest;
   readonly bracketedPaste?: boolean;
   readonly escapeDelayMs?: number;
+  readonly limits?: Partial<InputDecodeLimits>;
 }
 
 export interface InputPipelineProfile {
@@ -35,13 +36,13 @@ export interface InputPipeline {
 
 export function createInputPipeline(options: InputPipelineOptions = {}): InputPipeline {
   const profile = resolveInputPipelineProfile(options);
-  const decoder = createInputDecoder(decodeOptions(profile));
+  const decoder = createInputDecoder(pipelineDecodeOptions(profile, options.limits));
   return {
     profile,
     decode: (chunk, override) => override === undefined
       ? decoder.decode(chunk)
-      : { events: decodeInputChunk(chunk, { ...decodeOptions(profile), ...override }), pending: { kind: 'none' } },
-    decodeOnce: (chunk, override) => decodeInputChunk(chunk, { ...decodeOptions(profile), ...override }),
+      : { events: decodeInputChunk(chunk, pipelineDecodeOptions(profile, options.limits, override)), pending: { kind: 'none' } },
+    decodeOnce: (chunk, override) => decodeInputChunk(chunk, pipelineDecodeOptions(profile, options.limits, override)),
     flush: () => decoder.flush(),
     reset: () => { decoder.reset(); }
   };
@@ -70,6 +71,21 @@ function escapeDelay(value: number | undefined): number {
 
 function decodeOptions(profile: InputPipelineProfile): InputDecodeOptions {
   return { bracketedPaste: profile.bracketedPaste, keyboard: profile.keyboard.active };
+}
+
+function pipelineDecodeOptions(
+  profile: InputPipelineProfile,
+  configuredLimits: Partial<InputDecodeLimits> | undefined,
+  override: InputDecodeOptions = {}
+): InputDecodeOptions {
+  const limits = configuredLimits === undefined && override.limits === undefined
+    ? undefined
+    : { ...configuredLimits, ...override.limits };
+  return {
+    ...decodeOptions(profile),
+    ...override,
+    ...(limits === undefined ? {} : { limits })
+  };
 }
 
 function capabilityUsable(

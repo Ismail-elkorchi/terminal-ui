@@ -9,7 +9,7 @@ import { createTerminalHarness,
   replayTranscript,
   runInteractionScript } from '../../dist/testing/index.js';
 import { defineTui } from '../../dist/tui/index.js';
-import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
+import { diffFrames, renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import {
   button,
   richText,
@@ -263,7 +263,14 @@ test('interaction scripts assert styled text focus selection and hit targets aga
       onPress: () => ({ kind: 'confirm' })
     })
   ]), { columns: 24, rows: 9 });
-  harness.recordFrame(frame);
+  harness.recordCommit({
+    id: 'semantic-assertions:commit:1',
+    stateVersion: 0,
+    viewport: { columns: frame.width, rows: frame.height },
+    ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),
+    frame,
+    diff: diffFrames(undefined, frame)
+  });
   const target = frame.hitTargets?.find((item) => item.id === 'confirm:control');
   assert.ok(target);
 

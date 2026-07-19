@@ -4,6 +4,8 @@ import type { ScrollState } from '../interaction/scroll.ts';
 import type { SearchEntry } from '../ui-model/contracts.ts';
 import type { PaletteAction } from '../ui-model/palette.ts';
 
+const searchableTextCache = new WeakMap<object, readonly string[]>();
+
 export type PaletteAsyncState<TValue = string> =
   | { readonly status: 'idle'; readonly entries: readonly SearchEntry<TValue>[] }
   | { readonly status: 'loading'; readonly entries: readonly SearchEntry<TValue>[] }
@@ -236,18 +238,26 @@ function selectedIndex<TValue>(
 }
 
 function paletteEntryScore<TValue>(entry: SearchEntry<TValue>, query: string): number | undefined {
-  const haystacks = [
-    entry.label,
-    entry.id,
-    entry.description,
-    ...(entry.keywords ?? [])
-  ].filter((value): value is string => value !== undefined).map((value) => value.toLocaleLowerCase());
+  const haystacks = searchableText(entry);
   let best: number | undefined;
   for (const haystack of haystacks) {
     const score = textScore(haystack, query);
     if (score !== undefined && (best === undefined || score < best)) best = score;
   }
   return best;
+}
+
+function searchableText<TValue>(entry: SearchEntry<TValue>): readonly string[] {
+  const cached = searchableTextCache.get(entry);
+  if (cached !== undefined) return cached;
+  const values = [
+    entry.label,
+    entry.id,
+    entry.description,
+    ...(entry.keywords ?? [])
+  ].filter((value): value is string => value !== undefined).map((value) => value.toLocaleLowerCase());
+  searchableTextCache.set(entry, values);
+  return values;
 }
 
 function textScore(text: string, query: string): number | undefined {

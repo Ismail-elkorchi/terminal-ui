@@ -12,6 +12,7 @@ import {
   renderFramePlain,
   tooltipLines
 } from '../../dist/renderer/index.js';
+import { defaultTextWidthProfile } from '../../dist/text/index.js';
 
 test('Canvas2D draws points lines rectangles text and block spans through FrameBuffer', () => {
   const buffer = createFrameBuffer(14, 6);
@@ -68,7 +69,7 @@ test('Canvas2D helpers provide deterministic path axis and tooltip primitives', 
     { x: 2, y: 2 },
     { x: 4, y: 2 }
   ]);
-  assert.deepEqual(tooltipLines([{ text: 'Heading' }], [[{ text: 'Body text' }]], 4), [
+  assert.deepEqual(tooltipLines([{ text: 'Heading' }], [[{ text: 'Body text' }]], 4, defaultTextWidthProfile), [
     { spans: [{ text: 'Head' }] },
     { spans: [{ text: 'Body' }] }
   ]);

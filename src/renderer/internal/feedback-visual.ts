@@ -15,6 +15,7 @@ import { normalizeSpinnerFrameIndex } from '../../behavior/spinner.ts';
 import { inlineContentAccessibleText, isInlineContent } from '../../visual/inline-content.ts';
 import type { InlineContent } from '../../visual/inline-content.ts';
 import { renderInlineContent } from './inline-content.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 
 export type FeedbackVisualKind =
   | 'statusBar'
@@ -42,17 +43,22 @@ export interface FeedbackSpanOptions {
   readonly state?: string | undefined;
 }
 
-export function statusBarBlock(widget: StatusBarNode, theme: TerminalTheme, maxCells?: number): RenderBlock {
+export function statusBarBlock(
+  widget: StatusBarNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  maxCells?: number
+): RenderBlock {
   const leading = statusBarSectionSpans(widget, 'leading', statusBarItems(widget.props.leading), theme);
   const center = statusBarSectionSpans(widget, 'center', statusBarItems(widget.props.center), theme);
   const trailing = statusBarSectionSpans(widget, 'trailing', statusBarItems(widget.props.trailing), theme);
   return block([line(maxCells === undefined
     ? joinedStatusBarSections(widget, [leading, center, trailing])
-    : placedStatusBarSections(widget, leading, center, trailing, maxCells))]);
+    : placedStatusBarSections(widget, leading, center, trailing, maxCells, widthProfile))]);
 }
 
-export function statusBarText(widget: StatusBarNode, theme: TerminalTheme): string {
-  return blockText(statusBarBlock(widget, theme));
+export function statusBarText(widget: StatusBarNode, theme: TerminalTheme, widthProfile: TextWidthProfile): string {
+  return blockText(statusBarBlock(widget, theme, widthProfile));
 }
 
 export function statusBarAccessibleText(widget: StatusBarNode): string {
@@ -176,17 +182,18 @@ function placedStatusBarSections(
   leadingInput: readonly RenderSpan[],
   centerInput: readonly RenderSpan[],
   trailingInput: readonly RenderSpan[],
-  maxCells: number
+  maxCells: number,
+  widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   if (maxCells <= 0) return [];
-  const trailing = clipRenderSpans(trailingInput, maxCells, { ellipsis: '…', mode: 'middle' });
-  const trailingWidth = measureRenderSpans(trailing);
+  const trailing = clipRenderSpans(trailingInput, maxCells, { ellipsis: '…', mode: 'middle', widthProfile });
+  const trailingWidth = measureRenderSpans(trailing, { widthProfile });
   const leadingBudget = Math.max(0, maxCells - trailingWidth - (trailingWidth > 0 ? 2 : 0));
-  const leading = clipRenderSpans(leadingInput, leadingBudget, { ellipsis: '…' });
-  const leadingWidth = measureRenderSpans(leading);
+  const leading = clipRenderSpans(leadingInput, leadingBudget, { ellipsis: '…', widthProfile });
+  const leadingWidth = measureRenderSpans(leading, { widthProfile });
   const trailingStart = maxCells - trailingWidth;
-  const center = clipRenderSpans(centerInput, maxCells, { ellipsis: '…', mode: 'middle' });
-  const centerWidth = measureRenderSpans(center);
+  const center = clipRenderSpans(centerInput, maxCells, { ellipsis: '…', mode: 'middle', widthProfile });
+  const centerWidth = measureRenderSpans(center, { widthProfile });
   const desiredCenterStart = Math.floor((maxCells - centerWidth) / 2);
   const centerFits = centerWidth > 0
     && desiredCenterStart >= leadingWidth + (leadingWidth > 0 ? 1 : 0)
@@ -201,7 +208,7 @@ function placedStatusBarSections(
   for (const placement of placements) {
     if (placement.start > column) output.push(statusBarFill(widget, placement.start - column));
     output.push(...placement.spans);
-    column = placement.start + measureRenderSpans(placement.spans);
+    column = placement.start + measureRenderSpans(placement.spans, { widthProfile });
   }
   if (column < maxCells) output.push(statusBarFill(widget, maxCells - column));
   return output;
@@ -225,15 +232,16 @@ function statusBarFill(widget: StatusBarNode, cells: number): RenderSpan {
   });
 }
 
-export function helpBarBlock(widget: HelpBarNode, maxCells?: number): RenderBlock {
-  const spans = fitHelpGroupSpans(widget, helpGroups(widget), maxCells);
+export function helpBarBlock(widget: HelpBarNode, widthProfile: TextWidthProfile, maxCells?: number): RenderBlock {
+  const spans = fitHelpGroupSpans(widget, helpGroups(widget), maxCells, widthProfile);
   return block([line(spans)]);
 }
 
 function fitHelpGroupSpans(
   widget: HelpBarNode,
   groups: readonly HelpGroup[],
-  maxCells: number | undefined
+  maxCells: number | undefined,
+  widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   if (maxCells === undefined) return groups.flatMap((group, index) => helpGroupSpans(widget, group, index, index > 0));
   const fitted: RenderSpan[] = [];
@@ -241,12 +249,12 @@ function fitHelpGroupSpans(
     const group = groups[groupIndex];
     if (group === undefined) continue;
     const groupSpans = helpGroupSpans(widget, group, groupIndex, fitted.length > 0);
-    if (measureRenderSpans([...fitted, ...groupSpans]) <= maxCells) {
+    if (measureRenderSpans([...fitted, ...groupSpans], { widthProfile }) <= maxCells) {
       fitted.push(...groupSpans);
       continue;
     }
-    appendPartialHelpGroup(widget, fitted, group, groupIndex, maxCells);
-    appendHelpOverflow(widget, fitted, maxCells);
+    appendPartialHelpGroup(widget, fitted, group, groupIndex, maxCells, widthProfile);
+    appendHelpOverflow(widget, fitted, maxCells, widthProfile);
     break;
   }
   return fitted;
@@ -332,15 +340,16 @@ function appendPartialHelpGroup(
   fitted: RenderSpan[],
   group: HelpGroup,
   groupIndex: number,
-  maxCells: number
+  maxCells: number,
+  widthProfile: TextWidthProfile
 ): void {
   const prefix = helpGroupPrefixSpans(widget, group, groupIndex, fitted.length > 0);
-  if (measureRenderSpans([...fitted, ...prefix]) <= maxCells) fitted.push(...prefix);
+  if (measureRenderSpans([...fitted, ...prefix], { widthProfile }) <= maxCells) fitted.push(...prefix);
   for (let index = 0; index < group.bindings.length; index += 1) {
     const binding = group.bindings[index];
     if (binding === undefined) continue;
     const spans = helpBindingSpans(widget, binding, group.id, index, group.label !== undefined || index > 0);
-    if (measureRenderSpans([...fitted, ...spans]) > maxCells) break;
+    if (measureRenderSpans([...fitted, ...spans], { widthProfile }) > maxCells) break;
     fitted.push(...spans);
   }
 }
@@ -357,7 +366,12 @@ function helpKeyStyle(widget: HelpBarNode): TerminalStyle | undefined {
   );
 }
 
-function appendHelpOverflow(widget: HelpBarNode, fitted: RenderSpan[], maxCells: number): void {
+function appendHelpOverflow(
+  widget: HelpBarNode,
+  fitted: RenderSpan[],
+  maxCells: number,
+  widthProfile: TextWidthProfile
+): void {
   if (maxCells <= 0) return;
   const marker = feedbackSpan(widget, '…', {
     kind: 'helpBar',
@@ -376,15 +390,15 @@ function appendHelpOverflow(widget: HelpBarNode, fitted: RenderSpan[], maxCells:
     }),
         marker
       ];
-  if (measureRenderSpans([...fitted, ...separatedMarker]) <= maxCells) {
+  if (measureRenderSpans([...fitted, ...separatedMarker], { widthProfile }) <= maxCells) {
     fitted.push(...separatedMarker);
     return;
   }
-  if (fitted.length === 0 && measureRenderSpans([marker]) <= maxCells) fitted.push(marker);
+  if (fitted.length === 0 && measureRenderSpans([marker], { widthProfile }) <= maxCells) fitted.push(marker);
 }
 
-export function helpBarText(widget: HelpBarNode): string {
-  return blockText(helpBarBlock(widget));
+export function helpBarText(widget: HelpBarNode, widthProfile: TextWidthProfile): string {
+  return blockText(helpBarBlock(widget, widthProfile));
 }
 
 export function statusIndicatorBlock(widget: StatusIndicatorNode, theme: TerminalTheme): RenderBlock {

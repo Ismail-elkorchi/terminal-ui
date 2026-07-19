@@ -27,8 +27,14 @@ import {
 } from './support/heatmap.ts';
 import { clipLineSpans } from './support/render-block.ts';
 import { cleanLabel } from './support/values.ts';
+import type { TextWidthProfile } from '../../../text/index.ts';
 
-export function heatmapBlock(widget: HeatmapNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+export function heatmapBlock(
+  widget: HeatmapNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   const rows = heatmapRows(widget.props.rows);
   const state = chartStateBlock(widget, 'heatmap', theme, {
     empty: rows.length === 0,
@@ -56,16 +62,22 @@ export function heatmapBlock(widget: HeatmapNode, node: LayoutNode, theme: Termi
           range,
           scale,
           intensity: normalizedIndex(cell.value, range, heatmapIntensityLevelCount - 1),
-          selected: selected?.row === rowIndex && selected.column === columnIndex
+          selected: selected?.row === rowIndex && selected.column === columnIndex,
+          widthProfile
         })
       ]);
-      return { spans: clipLineSpans(spans, Math.max(0, node.bounds.width)) };
+      return { spans: clipLineSpans(spans, Math.max(0, node.bounds.width), widthProfile) };
     })
   };
 }
 
-export function heatmapText(widget: HeatmapNode, node: LayoutNode, theme: TerminalTheme): string {
-  return chartTextFromBlock(heatmapBlock(widget, node, theme));
+export function heatmapText(
+  widget: HeatmapNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): string {
+  return chartTextFromBlock(heatmapBlock(widget, node, theme, widthProfile));
 }
 
 export function heatmapAccessibleBase(widget: HeatmapNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {

@@ -1,4 +1,5 @@
-import { sanitizeTerminalText } from '../../text/index.ts';
+import { oneCellGlyph, sanitizeTerminalText } from '../../text/index.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { BorderKind } from '../../visual/border.ts';
 import { frameCellSource } from '../../visual/source.ts';
@@ -45,15 +46,15 @@ export function drawBorder(
 ): void {
   const style = border ?? { kind: 'single' };
   if (style.kind === 'none' || bounds.width <= 0 || bounds.height <= 0) return;
-  const glyphs = glyphsForBorder(style.kind, theme);
+  const glyphs = glyphsForBorder(style.kind, theme, buffer.widthProfile);
   const terminalStyle = style.style;
 
   if (bounds.height === 1) {
-    writeBorderLine(buffer, bounds.row, bounds.column, horizontalLine(bounds.width, glyphs, 'top', style.title, style.titleAlign, terminalStyle));
+    writeBorderLine(buffer, bounds.row, bounds.column, horizontalLine(bounds.width, glyphs, 'top', buffer.widthProfile, style.title, style.titleAlign, terminalStyle));
     return;
   }
 
-  writeBorderLine(buffer, bounds.row, bounds.column, horizontalLine(bounds.width, glyphs, 'top', style.title, style.titleAlign, terminalStyle));
+  writeBorderLine(buffer, bounds.row, bounds.column, horizontalLine(bounds.width, glyphs, 'top', buffer.widthProfile, style.title, style.titleAlign, terminalStyle));
   for (let row = bounds.row + 1; row < bounds.row + bounds.height - 1; row += 1) {
     writeBorderText(buffer, row, bounds.column, glyphs.vertical, terminalStyle);
     if (bounds.width > 1) {
@@ -64,7 +65,7 @@ export function drawBorder(
     buffer,
     bounds.row + bounds.height - 1,
     bounds.column,
-    horizontalLine(bounds.width, glyphs, 'bottom', undefined, undefined, terminalStyle)
+    horizontalLine(bounds.width, glyphs, 'bottom', buffer.widthProfile, undefined, undefined, terminalStyle)
   );
 }
 
@@ -72,6 +73,7 @@ function horizontalLine(
   width: number,
   glyphs: BorderGlyphs,
   position: 'top' | 'bottom',
+  widthProfile: TextWidthProfile,
   title?: BorderTitle,
   titleAlign: BorderStyle['titleAlign'] = 'start',
   style?: TerminalStyle
@@ -80,7 +82,7 @@ function horizontalLine(
   const left = position === 'top' ? glyphs.topLeft : glyphs.bottomLeft;
   const right = position === 'top' ? glyphs.topRight : glyphs.bottomRight;
   const innerWidth = Math.max(0, width - 2);
-  if (position === 'bottom' || title === undefined || titleLength(title) === 0 || innerWidth <= 0) {
+  if (position === 'bottom' || title === undefined || titleLength(title, widthProfile) === 0 || innerWidth <= 0) {
     return [
       borderSpan(left, style, 'border.corner'),
       borderSpan(glyphs.horizontal.repeat(innerWidth), style, 'border.edge'),
@@ -90,12 +92,12 @@ function horizontalLine(
   if (isBorderTitleRail(title)) {
     return [
       borderSpan(left, style, 'border.corner'),
-      ...titleRailSpans(title, innerWidth, glyphs.horizontal, style),
+      ...titleRailSpans(title, innerWidth, glyphs.horizontal, style, widthProfile),
       borderSpan(right, style, 'border.corner')
     ];
   }
-  const clippedTitle = clipRenderSpans(titleSpans(title, style), innerWidth);
-  const remaining = Math.max(0, innerWidth - measureRenderSpans(clippedTitle));
+  const clippedTitle = clipRenderSpans(titleSpans(title, style), innerWidth, { widthProfile });
+  const remaining = Math.max(0, innerWidth - measureRenderSpans(clippedTitle, { widthProfile }));
   const before = titleAlign === 'end' ? remaining : titleAlign === 'center' ? Math.floor(remaining / 2) : 0;
   const after = remaining - before;
   return [
@@ -130,15 +132,34 @@ export function isBorderKind(value: unknown): value is BorderStyle['kind'] {
     || value === 'empty';
 }
 
-function glyphsForBorder(kind: Exclude<BorderStyle['kind'], 'none'>, theme: TerminalTheme): BorderGlyphs {
-  if (kind === 'single') return theme.tokens.symbols.borderSingle;
-  if (kind === 'rounded') return theme.tokens.symbols.borderRounded;
-  if (kind === 'ascii') return asciiGlyphs;
-  if (kind === 'double') return doubleGlyphs;
-  if (kind === 'dashed') return dashedGlyphs;
-  if (kind === 'dotted') return dottedGlyphs;
-  if (kind === 'empty') return emptyGlyphs;
-  return heavyGlyphs;
+function glyphsForBorder(
+  kind: Exclude<BorderStyle['kind'], 'none'>,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): BorderGlyphs {
+  const preferred = kind === 'single'
+    ? theme.tokens.symbols.borderSingle
+    : kind === 'rounded'
+      ? theme.tokens.symbols.borderRounded
+      : kind === 'ascii'
+        ? asciiGlyphs
+        : kind === 'double'
+          ? doubleGlyphs
+          : kind === 'dashed'
+            ? dashedGlyphs
+            : kind === 'dotted'
+              ? dottedGlyphs
+              : kind === 'empty'
+                ? emptyGlyphs
+                : heavyGlyphs;
+  return {
+    topLeft: oneCellGlyph(preferred.topLeft, asciiGlyphs.topLeft, { widthProfile }),
+    topRight: oneCellGlyph(preferred.topRight, asciiGlyphs.topRight, { widthProfile }),
+    bottomLeft: oneCellGlyph(preferred.bottomLeft, asciiGlyphs.bottomLeft, { widthProfile }),
+    bottomRight: oneCellGlyph(preferred.bottomRight, asciiGlyphs.bottomRight, { widthProfile }),
+    horizontal: oneCellGlyph(preferred.horizontal, asciiGlyphs.horizontal, { widthProfile }),
+    vertical: oneCellGlyph(preferred.vertical, asciiGlyphs.vertical, { widthProfile })
+  };
 }
 
 function writeBorderText(
@@ -160,11 +181,14 @@ function writeBorderLine(
   buffer.write(row, column, spans);
 }
 
-function titleLength(title: BorderTitle): number {
+function titleLength(title: BorderTitle, widthProfile: TextWidthProfile): number {
   if (isBorderTitleRail(title)) {
-    return titleRailContents(title).reduce((sum, currentTitle) => sum + measureRenderSpans(titleSpans(currentTitle, undefined)), 0);
+    return titleRailContents(title).reduce(
+      (sum, currentTitle) => sum + measureRenderSpans(titleSpans(currentTitle, undefined), { widthProfile }),
+      0
+    );
   }
-  return typeof title === 'string' ? sanitizeTerminalText(title).text.length : measureRenderSpans(title);
+  return measureRenderSpans(titleSpans(title, undefined), { widthProfile });
 }
 
 export function borderTitleText(title: BorderTitle | undefined): string {
@@ -199,7 +223,8 @@ function titleRailSpans(
   rail: BorderTitleRail,
   innerWidth: number,
   horizontal: string,
-  style: TerminalStyle | undefined
+  style: TerminalStyle | undefined,
+  widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   const start = titleContentSpans(rail.start, style);
   const center = titleContentSpans(rail.center, style);
@@ -207,15 +232,15 @@ function titleRailSpans(
   const pieces: RenderSpan[] = [];
   let cursor = 0;
 
-  cursor = appendRailSegment(pieces, cursor, 0, innerWidth, start, horizontal, style);
+  cursor = appendRailSegment(pieces, cursor, 0, innerWidth, start, horizontal, style, widthProfile);
 
-  const centerWidth = measureRenderSpans(center);
+  const centerWidth = measureRenderSpans(center, { widthProfile });
   const centerColumn = Math.max(cursor, Math.floor((innerWidth - centerWidth) / 2));
-  cursor = appendRailSegment(pieces, cursor, centerColumn, innerWidth, center, horizontal, style);
+  cursor = appendRailSegment(pieces, cursor, centerColumn, innerWidth, center, horizontal, style, widthProfile);
 
-  const endWidth = measureRenderSpans(end);
+  const endWidth = measureRenderSpans(end, { widthProfile });
   const endColumn = Math.max(cursor, innerWidth - endWidth);
-  cursor = appendRailSegment(pieces, cursor, endColumn, innerWidth, end, horizontal, style);
+  cursor = appendRailSegment(pieces, cursor, endColumn, innerWidth, end, horizontal, style, widthProfile);
 
   if (cursor < innerWidth) pieces.push(borderSpan(horizontal.repeat(innerWidth - cursor), style, 'border.edge'));
   return pieces;
@@ -228,7 +253,8 @@ function appendRailSegment(
   innerWidth: number,
   spans: readonly RenderSpan[],
   horizontal: string,
-  style: TerminalStyle | undefined
+  style: TerminalStyle | undefined,
+  widthProfile: TextWidthProfile
 ): number {
   if (cursor >= innerWidth) return cursor;
   const start = Math.max(cursor, Math.min(innerWidth, column));
@@ -236,9 +262,9 @@ function appendRailSegment(
     output.push(borderSpan(horizontal.repeat(start - cursor), style, 'border.edge'));
   }
   const budget = Math.max(0, innerWidth - start);
-  const clipped = clipRenderSpans(spans, budget);
+  const clipped = clipRenderSpans(spans, budget, { widthProfile });
   output.push(...clipped);
-  return start + measureRenderSpans(clipped);
+  return start + measureRenderSpans(clipped, { widthProfile });
 }
 
 function titleContentSpans(title: BorderTitleContent | undefined, style: TerminalStyle | undefined): readonly RenderSpan[] {

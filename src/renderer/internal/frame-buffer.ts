@@ -149,6 +149,7 @@ class CellFrameBuffer implements FrameBuffer {
       schemaVersion: 'terminal-ui.tui-frame.v1',
       width: this.width,
       height: this.height,
+      widthProfile: this.widthProfile,
       cells,
       accessibility,
       metadata: {

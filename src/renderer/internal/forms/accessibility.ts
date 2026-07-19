@@ -1,8 +1,9 @@
 import type { AccessibleNode } from '../../../accessibility/index.ts';
 import type { RenderNodeOfKind } from '../../model/index.ts';
-import { defaultTheme } from '../../../theme/index.ts';
+import type { TerminalTheme } from '../../../theme/index.ts';
 import { stringify, numberProp } from '../render-node-props.ts';
 import type { CursorPosition } from '../../model/cursor.ts';
+import type { TextWidthProfile } from '../../../text/index.ts';
 
 type FormNode = RenderNodeOfKind<unknown, 'form'>;
 type FieldNode = RenderNodeOfKind<unknown, 'field'>;
@@ -305,14 +306,24 @@ export function numberInputAccessibleBase(widget: NumberInputNode, id: string, f
   return { ...base, ...(description.length === 0 ? {} : { description }) };
 }
 
-export function textInputCursor(widget: TextInputNode, bounds: Rect): CursorPosition {
-  return singleLineCursor(widget, inputValue(widget), numberProp(widget, 'cursor'), bounds, defaultTheme);
+export function textInputCursor(
+  widget: TextInputNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): CursorPosition {
+  return singleLineCursor(widget, inputValue(widget), numberProp(widget, 'cursor'), bounds, theme, widthProfile);
 }
 
-export function numberInputCursor(widget: NumberInputNode, bounds: Rect): CursorPosition {
+export function numberInputCursor(
+  widget: NumberInputNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): CursorPosition {
   const layout = numberInputLayout(bounds);
   const inputBounds = widget.props.toActionMessage === undefined || widget.props.disabled === true || layout === undefined
     ? bounds
     : layout.input;
-  return singleLineCursor(widget, numberInputValue(widget), widget.props.presentation.cursor, inputBounds, defaultTheme);
+  return singleLineCursor(widget, numberInputValue(widget), widget.props.presentation.cursor, inputBounds, theme, widthProfile);
 }

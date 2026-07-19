@@ -5,8 +5,11 @@ import {
   clipTextCells,
   createTerminalTextIndex,
   editTextBuffer,
+  fillTextCells,
   lineSelectionAt,
   measureTextCells,
+  oneCellGlyph,
+  padTextCells,
   sanitizeTerminalText,
   segmentGraphemes,
   selectedText,
@@ -34,6 +37,15 @@ test('text measurement sanitizes control sequences and measures visible cells', 
   assert.equal(measureTextCells('a🙂').cells, 3);
 });
 
+test('oneCellGlyph preserves fixed-cell geometry across width profiles', () => {
+  const wideAmbiguous = { emoji: 'wide', ambiguous: 'wide' };
+
+  assert.equal(oneCellGlyph('─', '-', { widthProfile: wideAmbiguous }), '-');
+  assert.equal(oneCellGlyph('🙂', '*', { widthProfile: wideAmbiguous }), '*');
+  assert.equal(oneCellGlyph('x', '*', { widthProfile: wideAmbiguous }), 'x');
+  assert.equal(oneCellGlyph('xy', '界', { widthProfile: wideAmbiguous }), ' ');
+});
+
 test('text sanitization cache separates text and replacement tuples unambiguously', () => {
   const unsafe = sanitizeTerminalText('b\u0000c', { replacement: 'a' });
   const safe = sanitizeTerminalText('c', { replacement: 'a\u0000b' });
@@ -53,6 +65,18 @@ test('text measurement exposes grapheme segments and respects emoji width option
   ]);
   assert.equal(measureTextCells('a🙂', { widthProfile: { emoji: 'narrow', ambiguous: 'narrow' } }).cells, 2);
   assert.equal(measureTextCells('界').cells, 2);
+});
+
+test('cell padding and fill honor the active terminal width profile', () => {
+  const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
+
+  assert.equal(padTextCells('界', 2, { widthProfile }), '界');
+  assert.equal(padTextCells('·', 4, { widthProfile }), '·  ');
+  assert.equal(padTextCells('·', 4, { align: 'end', widthProfile }), '  ·');
+  assert.equal(fillTextCells('█', 5, { widthProfile }), '██ ');
+  assert.equal(measureTextCells(fillTextCells('█', 5, { widthProfile }), { widthProfile }).cells, 5);
+  assert.throws(() => padTextCells('x', -1), /non-negative integer/u);
+  assert.throws(() => fillTextCells('x', 1.5), /non-negative integer/u);
 });
 
 test('text measurement returns stable immutable metrics for repeated labels', () => {

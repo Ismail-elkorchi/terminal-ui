@@ -1,6 +1,7 @@
 import type { ViewportSize } from '../../../geometry/types.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { FrameBuffer } from '../frame.ts';
+import type { TextWidthProfile } from '../../../text/index.ts';
 
 export type { FrameSemanticRole } from '../../../visual/source.ts';
 
@@ -12,6 +13,7 @@ export interface FramePass {
 export interface FramePassContext {
   readonly theme: TerminalTheme;
   readonly viewport: ViewportSize;
+  readonly widthProfile: TextWidthProfile;
 }
 
 export function applyFramePasses(

@@ -1,47 +1,83 @@
 import { focusFromPrefix } from './focus.ts';
+import { InputDecodeError } from './decode-error.ts';
 import { enhancedKeyFromPrefix } from './enhanced-keyboard.ts';
 import { keyEvent, keyFromPrefix, keySequences } from './keys.ts';
 import { mouseFromPrefix } from './mouse.ts';
-import { bracketedPasteFromPrefix, isIncompleteBracketedPaste } from './paste.ts';
+import {
+  bracketedPasteFromPrefix,
+  incompleteBracketedPastePayloadLength,
+  isIncompleteBracketedPaste
+} from './paste.ts';
+import { createUtf8StreamDecoder, decodeUtf8Chunk } from './utf8-stream.ts';
 import type { TerminalInputChunk } from '../host/index.ts';
-import type { InputDecodeOptions, InputDecoder, InputDecoderBatch, InputEvent, InputPendingState } from './types.ts';
+import type {
+  InputDecodeLimits,
+  InputDecodeOptions,
+  InputDecoder,
+  InputDecoderBatch,
+  InputEvent,
+  InputPendingState
+} from './types.ts';
 
 const csiPattern = new RegExp(String.raw`^\u001B\[[0-?]*[ -/]*[@-~]`, 'u');
 const completeSgrMousePattern = new RegExp(String.raw`^\u001B\[<\d+;\d+;\d+[Mm]`, 'u');
+
+export const defaultInputDecodeLimits: InputDecodeLimits = Object.freeze({
+  maxPendingSequenceCodeUnits: 16_384,
+  maxPasteCodeUnits: 1_048_576
+});
 
 export function decodeInputChunk(
   chunk: TerminalInputChunk,
   options: InputDecodeOptions = {}
 ): readonly InputEvent[] {
-  const text = chunkText(chunk);
+  const text = decodeUtf8Chunk(chunk);
   if (text.length === 0) return [];
   if (text === ' ') return [{ ...keyEvent('space', text), committedText: ' ' }];
-  return decodeTerminalText(text, options, true).events;
+  const limits = normalizeLimits(options.limits);
+  return decodeTerminalText(text, options, true, limits).events;
 }
 
 export function createInputDecoder(options: InputDecodeOptions = {}): InputDecoder {
   let pending = '';
+  const utf8 = createUtf8StreamDecoder();
+  const limits = normalizeLimits(options.limits);
 
   return {
     decode(chunk) {
-      const text = chunkText(chunk);
-      if (text.length === 0) return batch([], pendingState(pending));
-      if (pending.length === 0 && text === ' ') {
-        return batch([{ ...keyEvent('space', text), committedText: ' ' }], { kind: 'none' });
+      try {
+        const text = utf8.decode(chunk);
+        if (text.length === 0) return batch([], pendingState(pending));
+        if (pending.length === 0 && text === ' ') {
+          return batch([{ ...keyEvent('space', text), committedText: ' ' }], { kind: 'none' });
+        }
+        pending += text;
+        const result = decodeTerminalText(pending, options, false, limits);
+        pending = result.remainder;
+        assertPendingSequenceWithinLimit(pending, limits);
+        return batch(result.events, pendingState(pending));
+      } catch (cause) {
+        pending = '';
+        utf8.reset();
+        throw cause;
       }
-      pending += text;
-      const result = decodeTerminalText(pending, options, false);
-      pending = result.remainder;
-      return batch(result.events, pendingState(pending));
     },
     flush() {
-      if (pending.length === 0) return batch([], { kind: 'none' });
-      const result = decodeTerminalText(pending, options, true);
-      pending = '';
-      return batch(result.events, { kind: 'none' });
+      try {
+        pending += utf8.flush();
+        if (pending.length === 0) return batch([], { kind: 'none' });
+        const result = decodeTerminalText(pending, options, true, limits);
+        pending = '';
+        return batch(result.events, { kind: 'none' });
+      } catch (cause) {
+        pending = '';
+        utf8.reset();
+        throw cause;
+      }
     },
     reset() {
       pending = '';
+      utf8.reset();
     }
   };
 }
@@ -49,7 +85,8 @@ export function createInputDecoder(options: InputDecodeOptions = {}): InputDecod
 function decodeTerminalText(
   text: string,
   options: InputDecodeOptions,
-  final: boolean
+  final: boolean,
+  limits: InputDecodeLimits
 ): { readonly events: readonly InputEvent[]; readonly remainder: string } {
   const events: InputEvent[] = [];
   let buffer = '';
@@ -62,17 +99,26 @@ function decodeTerminalText(
   };
 
   while (index < text.length) {
+    const plainTextEnd = plainTextRunEnd(text, index);
+    if (plainTextEnd > index) {
+      buffer += text.slice(index, plainTextEnd);
+      index = plainTextEnd;
+      continue;
+    }
+
     const remaining = text.slice(index);
     if (options.bracketedPaste !== false) {
       const paste = bracketedPasteFromPrefix(remaining);
       if (paste !== undefined) {
+        assertPastePayloadWithinLimit(paste.event.text.length, limits);
         flushText();
         events.push(paste.event);
         index += paste.length;
         continue;
       }
-      if (!final && isIncompleteBracketedPaste(remaining)) {
-        break;
+      if (isIncompleteBracketedPaste(remaining)) {
+        assertIncompletePasteWithinLimit(remaining, limits);
+        if (!final) break;
       }
     }
 
@@ -123,6 +169,16 @@ function decodeTerminalText(
   return { events, remainder: text.slice(index) };
 }
 
+function plainTextRunEnd(value: string, start: number): number {
+  let index = start;
+  while (index < value.length) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit <= 26 || codeUnit === 27 || codeUnit === 127) break;
+    index += 1;
+  }
+  return index;
+}
+
 function isIncompleteEscapeSequence(value: string): boolean {
   if (!value.startsWith('\u001B')) return false;
   if (value === '\u001B') return true;
@@ -151,6 +207,45 @@ function unknownEscapeFromPrefix(value: string): string | undefined {
   return value.slice(0, 1);
 }
 
-function chunkText(chunk: TerminalInputChunk): string {
-  return typeof chunk.data === 'string' ? chunk.data : new TextDecoder().decode(chunk.data);
+function normalizeLimits(value: InputDecodeOptions['limits']): InputDecodeLimits {
+  return {
+    maxPendingSequenceCodeUnits: positiveInteger(
+      value?.maxPendingSequenceCodeUnits,
+      defaultInputDecodeLimits.maxPendingSequenceCodeUnits,
+      'maxPendingSequenceCodeUnits'
+    ),
+    maxPasteCodeUnits: positiveInteger(
+      value?.maxPasteCodeUnits,
+      defaultInputDecodeLimits.maxPasteCodeUnits,
+      'maxPasteCodeUnits'
+    )
+  };
+}
+
+function positiveInteger(value: number | undefined, fallback: number, name: string): number {
+  const resolved = value ?? fallback;
+  if (!Number.isSafeInteger(resolved) || resolved <= 0) {
+    throw new RangeError(`Input decode limit ${name} must be a positive safe integer.`);
+  }
+  return resolved;
+}
+
+function assertPendingSequenceWithinLimit(value: string, limits: InputDecodeLimits): void {
+  if (!isIncompleteBracketedPaste(value) && value.length > limits.maxPendingSequenceCodeUnits) {
+    throw new InputDecodeError(
+      'pending_sequence_limit_exceeded',
+      limits.maxPendingSequenceCodeUnits,
+      value.length
+    );
+  }
+}
+
+function assertIncompletePasteWithinLimit(value: string, limits: InputDecodeLimits): void {
+  const payloadLength = incompleteBracketedPastePayloadLength(value);
+  if (payloadLength !== undefined) assertPastePayloadWithinLimit(payloadLength, limits);
+}
+
+function assertPastePayloadWithinLimit(payloadLength: number, limits: InputDecodeLimits): void {
+  if (payloadLength <= limits.maxPasteCodeUnits) return;
+  throw new InputDecodeError('paste_limit_exceeded', limits.maxPasteCodeUnits, payloadLength);
 }

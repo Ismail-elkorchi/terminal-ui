@@ -151,6 +151,12 @@ export {
   sameTerminalLink,
   sameTerminalStyle
 } from './internal/render.ts';
+export type {
+  RenderElementOptions,
+  RenderInstrumentation,
+  RenderProjectionStage,
+  RenderStageMeasurement
+} from './internal/render.ts';
 export {
   layoutElement
 } from './internal/layout.ts';

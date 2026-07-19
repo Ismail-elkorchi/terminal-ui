@@ -6,7 +6,7 @@ import type {
   PtyTerminalHost,
   TerminalClock,
   TerminalHost,
-  TerminalStateSnapshot,
+  TerminalRestoreResult,
   TerminalViewport
 } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
@@ -56,7 +56,7 @@ export interface PtyTerminalHarness extends TranscriptReplayTarget {
   snapshot(): AccessibleSnapshot;
   frames(): readonly Frame[];
   diffs(): readonly RenderDiff[];
-  restores(): readonly TerminalStateSnapshot[];
+  restores(): readonly TerminalRestoreResult[];
   output(): string;
   dispose(): Promise<void>;
 }

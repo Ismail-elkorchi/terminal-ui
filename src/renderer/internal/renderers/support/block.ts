@@ -13,11 +13,15 @@ export function writeRenderBlock(buffer: RenderTarget, bounds: Rect, block: Rend
   if (bounds.width <= 0 || bounds.height <= 0) return;
   const lines = block.lines.slice(0, bounds.height);
   for (let offset = 0; offset < lines.length; offset += 1) {
-    const clipped = clipRenderLine(lines[offset] ?? { spans: [] }, bounds.width);
+    const clipped = clipRenderLine(lines[offset] ?? { spans: [] }, bounds.width, buffer.widthProfile);
     buffer.writeLine(bounds.row + offset, bounds.column, clipped);
   }
 }
 
-function clipRenderLine(renderLine: RenderLine, maxCells: number): RenderLine {
-  return { spans: clipRenderSpans(renderLine.spans, Math.max(0, maxCells)) };
+function clipRenderLine(
+  renderLine: RenderLine,
+  maxCells: number,
+  widthProfile: import('../../../../text/index.ts').TextWidthProfile
+): RenderLine {
+  return { spans: clipRenderSpans(renderLine.spans, Math.max(0, maxCells), { widthProfile }) };
 }

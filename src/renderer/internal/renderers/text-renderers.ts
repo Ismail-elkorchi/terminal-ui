@@ -29,21 +29,44 @@ export const textRenderers = {
     accessibility: ({ renderNode, id }) => textAccessibleBase(renderNode, id)
   },
   richText: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, richTextBlock(renderNode, layoutNode.bounds, theme));
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, richTextBlock(renderNode, layoutNode.bounds, theme, widthProfile));
     },
     accessibility: ({ renderNode, id }) => richTextAccessibleBase(renderNode, id)
   },
   textArea: {
-    render: ({ renderNode, layoutNode, buffer, theme, focus }) => {
-      const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => textAreaScrollbarState(renderNode, contentBounds), 'both');
-      writeRenderBlock(buffer, scrollbars.contentBounds, textAreaBlock(renderNode, scrollbars.contentBounds, theme, focus === 'self'));
+    render: ({ renderNode, layoutNode, buffer, theme, focus, widthProfile }) => {
+      const scrollbars = scrollbarsForRenderNode(
+        renderNode,
+        layoutNode.bounds,
+        (contentBounds) => textAreaScrollbarState(renderNode, contentBounds, widthProfile),
+        'both'
+      );
+      writeRenderBlock(
+        buffer,
+        scrollbars.contentBounds,
+        textAreaBlock(renderNode, scrollbars.contentBounds, theme, widthProfile, focus === 'self')
+      );
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
-    accessibility: ({ renderNode, layoutNode, id, focused, theme }) => textAreaAccessibleBase(renderNode, id, focused, layoutNode.bounds, theme),
-    focusTargets: ({ renderNode, bounds, theme }) => [focusTarget(bounds, textAreaCursor(renderNode, bounds, theme))],
-    hitTargets: ({ renderNode, bounds, theme }) => {
-      const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => textAreaScrollbarState(renderNode, contentBounds), 'both');
+    accessibility: ({ renderNode, layoutNode, id, focused, theme, widthProfile }) => textAreaAccessibleBase(
+      renderNode,
+      id,
+      focused,
+      layoutNode.bounds,
+      theme,
+      widthProfile
+    ),
+    focusTargets: ({ renderNode, bounds, theme, widthProfile }) => [
+      focusTarget(bounds, textAreaCursor(renderNode, bounds, theme, widthProfile))
+    ],
+    hitTargets: ({ renderNode, bounds, theme, widthProfile }) => {
+      const scrollbars = scrollbarsForRenderNode(
+        renderNode,
+        bounds,
+        (contentBounds) => textAreaScrollbarState(renderNode, contentBounds, widthProfile),
+        'both'
+      );
       return [
         ...(renderNode.props.disabled === true
           ? []
@@ -54,7 +77,13 @@ export const textRenderers = {
               toMessage: renderNode.props.toActionMessage === undefined
                 ? undefined
                 : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
-              offsetAt: (event) => textAreaPointerOffset(renderNode, scrollbars.contentBounds, theme, event)
+              offsetAt: (event) => textAreaPointerOffset(
+                renderNode,
+                scrollbars.contentBounds,
+                theme,
+                event,
+                widthProfile
+              )
             })),
         ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)
       ];

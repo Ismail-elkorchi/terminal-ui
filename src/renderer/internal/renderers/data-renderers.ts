@@ -62,8 +62,8 @@ export const dataRenderers = {
     accessibility: ({ renderNode, id }) => sparklineAccessibleBase(renderNode, id)
   },
   barChart: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, barChartBlock(renderNode, layoutNode, theme));
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, barChartBlock(renderNode, layoutNode, theme, widthProfile));
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
       ...barChartAccessibleBase(renderNode, layoutNode, id, focused),
@@ -73,8 +73,8 @@ export const dataRenderers = {
     hitTargets: ({ renderNode, bounds }) => barChartHitTargets(renderNode, bounds)
   },
   chart: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, chartBlock(renderNode, layoutNode, theme));
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, chartBlock(renderNode, layoutNode, theme, widthProfile));
     },
     accessibility: ({ renderNode, id }) => ({
       ...chartAccessibleBase(renderNode, id),
@@ -84,14 +84,14 @@ export const dataRenderers = {
     hitTargets: ({ renderNode, bounds }) => chartHitTargets(renderNode, bounds)
   },
   meter: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, meterBlock(renderNode, theme));
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, meterBlock(renderNode, theme, widthProfile));
     },
     accessibility: ({ renderNode, id }) => meterAccessibleBase(renderNode, id)
   },
   heatmap: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, heatmapBlock(renderNode, layoutNode, theme));
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, heatmapBlock(renderNode, layoutNode, theme, widthProfile));
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
       ...heatmapAccessibleBase(renderNode, layoutNode, id, focused),
@@ -120,27 +120,39 @@ export const dataRenderers = {
     }
   },
   table: {
-    render: ({ renderNode, layoutNode, buffer, theme, focus }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focus, widthProfile }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => tableScrollbarState(renderNode, contentBounds), 'both');
-      writeRenderBlock(buffer, scrollbars.contentBounds, tableBlock(renderNode, scrollbars.contentBounds, theme, focus === 'self'));
+      writeRenderBlock(buffer, scrollbars.contentBounds, tableBlock(
+        renderNode,
+        scrollbars.contentBounds,
+        theme,
+        widthProfile,
+        focus === 'self'
+      ));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
-    accessibility: ({ renderNode, layoutNode, id, focused }) => ({
-      ...tableAccessibleBase(renderNode, layoutNode.bounds, id, focused),
-      children: tableAccessibleChildren(renderNode, layoutNode.bounds)
+    accessibility: ({ renderNode, layoutNode, id, focused, widthProfile }) => ({
+      ...tableAccessibleBase(renderNode, layoutNode.bounds, id, focused, widthProfile),
+      children: tableAccessibleChildren(renderNode, layoutNode.bounds, widthProfile)
     }),
-    hitTargets: ({ renderNode, bounds }) => {
+    hitTargets: ({ renderNode, bounds, widthProfile }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => tableScrollbarState(renderNode, contentBounds), 'both');
       return [
-        ...tableHitTargets(renderNode, scrollbars.contentBounds),
+        ...tableHitTargets(renderNode, scrollbars.contentBounds, widthProfile),
         ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)
       ];
     }
   },
   tree: {
-    render: ({ renderNode, layoutNode, buffer, theme, focus }) => {
+    render: ({ renderNode, layoutNode, buffer, theme, focus, widthProfile }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => treeScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, treeBlock(renderNode, scrollbars.contentBounds, theme, focus === 'self'));
+      writeRenderBlock(buffer, scrollbars.contentBounds, treeBlock(
+        renderNode,
+        scrollbars.contentBounds,
+        theme,
+        widthProfile,
+        focus === 'self'
+      ));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
@@ -157,28 +169,42 @@ export const dataRenderers = {
     }
   },
   paginator: {
-    render: ({ renderNode, layoutNode, buffer }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, paginatorBlock(renderNode));
+    render: ({ renderNode, layoutNode, buffer, widthProfile }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, paginatorBlock(renderNode, widthProfile));
     },
-    accessibility: ({ renderNode, id, focused }) => paginatorAccessibleBase(renderNode, id, focused),
+    accessibility: ({ renderNode, id, focused, widthProfile }) => paginatorAccessibleBase(renderNode, id, focused, widthProfile),
     focusTargets: ({ renderNode, bounds }) => renderNode.props.toActionMessage === undefined ? [] : [focusTarget(bounds)],
-    hitTargets: ({ renderNode, bounds }) => paginatorHitTargets(renderNode, bounds)
+    hitTargets: ({ renderNode, bounds, widthProfile }) => paginatorHitTargets(renderNode, bounds, widthProfile)
   },
   scrollback: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => scrollbackScrollbarState(renderNode, { bounds: contentBounds }), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, scrollbackBlock(renderNode, { ...layoutNode, bounds: scrollbars.contentBounds }));
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
+      const scrollbars = scrollbarsForRenderNode(
+        renderNode,
+        layoutNode.bounds,
+        (contentBounds) => scrollbackScrollbarState(renderNode, { bounds: contentBounds }, widthProfile),
+        'vertical'
+      );
+      writeRenderBlock(buffer, scrollbars.contentBounds, scrollbackBlock(
+        renderNode,
+        { ...layoutNode, bounds: scrollbars.contentBounds },
+        widthProfile
+      ));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
-    accessibility: ({ renderNode, layoutNode, id }) => ({
-      ...scrollbackAccessibleBase(renderNode, layoutNode, id),
-      children: scrollbackAccessibleChildren(renderNode, layoutNode)
+    accessibility: ({ renderNode, layoutNode, id, widthProfile }) => ({
+      ...scrollbackAccessibleBase(renderNode, layoutNode, id, widthProfile),
+      children: scrollbackAccessibleChildren(renderNode, layoutNode, widthProfile)
     }),
     focusTargets: ({ renderNode, bounds }) => renderNode.props.toActionMessage === undefined
       ? []
       : [focusTarget(bounds)],
-    hitTargets: ({ renderNode, bounds }) => {
-      const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => scrollbackScrollbarState(renderNode, { bounds: contentBounds }), 'vertical');
+    hitTargets: ({ renderNode, bounds, widthProfile }) => {
+      const scrollbars = scrollbarsForRenderNode(
+        renderNode,
+        bounds,
+        (contentBounds) => scrollbackScrollbarState(renderNode, { bounds: contentBounds }, widthProfile),
+        'vertical'
+      );
       return [
         ...textPointerHitTargets({
           id: `${renderNode.id ?? renderNode.kind}:text`,
@@ -190,7 +216,8 @@ export const dataRenderers = {
           offsetAt: (event) => scrollbackPointerOffset(
             renderNode,
             { bounds: scrollbars.contentBounds },
-            event
+            event,
+            widthProfile
           )
         }),
         ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)
@@ -198,20 +225,35 @@ export const dataRenderers = {
     }
   },
   structuredBlock: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, structuredBlockBlock(renderNode, layoutNode, theme));
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, structuredBlockBlock(
+        renderNode,
+        layoutNode,
+        theme,
+        widthProfile
+      ));
     },
     accessibility: ({ renderNode, id }) => structuredBlockAccessibleBase(renderNode, id)
   },
   activityFeed: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, activityFeedBlock(renderNode, layoutNode, theme));
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, activityFeedBlock(
+        renderNode,
+        layoutNode,
+        theme,
+        widthProfile
+      ));
     },
-    accessibility: ({ renderNode, layoutNode, id, focused, theme }) => ({
-      ...activityFeedAccessibleBase(renderNode, layoutNode, id, focused, theme),
-      children: activityFeedAccessibleChildren(renderNode, layoutNode, theme)
+    accessibility: ({ renderNode, layoutNode, id, focused, theme, widthProfile }) => ({
+      ...activityFeedAccessibleBase(renderNode, layoutNode, id, focused, theme, widthProfile),
+      children: activityFeedAccessibleChildren(renderNode, layoutNode, theme, widthProfile)
     }),
     focusTargets: ({ renderNode, bounds }) => hasKeyboardOrInputMap(renderNode) ? [focusTarget(bounds)] : [],
-    hitTargets: ({ renderNode, bounds, theme }) => activityFeedHitTargets(renderNode, bounds, theme)
+    hitTargets: ({ renderNode, bounds, theme, widthProfile }) => activityFeedHitTargets(
+      renderNode,
+      bounds,
+      theme,
+      widthProfile
+    )
   }
 } satisfies RendererMap<'sparkline' | 'barChart' | 'chart' | 'meter' | 'heatmap' | 'list' | 'table' | 'tree' | 'paginator' | 'scrollback' | 'structuredBlock' | 'activityFeed'>;

@@ -18,6 +18,8 @@ import type { LayoutNode, Rect } from '../../model/layout.ts';
 import { numberProp } from '../render-node-props.ts';
 import type { RenderBlock } from '../../../visual/render.ts';
 import type { HitTarget } from '../../model/renderer.ts';
+import { oneCellGlyph } from '../../../text/index.ts';
+import type { TextWidthProfile } from '../../../text/index.ts';
 import { normalizeValueScale } from '../value-scale.ts';
 import type { NormalizedValueScaleStop } from '../value-scale.ts';
 import {
@@ -44,7 +46,12 @@ import {
 } from './support/series.ts';
 import { cleanLabel, rangeFor } from './support/values.ts';
 
-export function chartBlock(widget: ChartNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+export function chartBlock(
+  widget: ChartNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   const series = chartSeries(widget.props.series);
   const points = series.flatMap((item) => item.points);
   const state = chartStateBlock(widget, 'chart', theme, {
@@ -56,11 +63,13 @@ export function chartBlock(widget: ChartNode, node: LayoutNode, theme: TerminalT
   if (state !== undefined) return state;
   if (node.bounds.height <= 0 || node.bounds.width <= 0) return { lines: [] };
   const layout = chartLayout(widget, node.bounds);
-  if (layout.plotHeight <= 0 || layout.plotWidth <= 0) return chartChromeBlock(widget, node.bounds.width);
+  if (layout.plotHeight <= 0 || layout.plotWidth <= 0) {
+    return chartChromeBlock(widget, node.bounds.width, widthProfile);
+  }
   const range = rangeFor(points, numberProp(widget, 'min'), numberProp(widget, 'max'));
   const widgetScale = normalizeValueScale(widget.props.valueScale);
-  const buffer = createFrameBuffer(node.bounds.width, node.bounds.height);
-  writeChartChrome(buffer, widget, node.bounds.width);
+  const buffer = createFrameBuffer(node.bounds.width, node.bounds.height, { widthProfile });
+  writeChartChrome(buffer, widget, node.bounds.width, widthProfile);
   const canvas = createCanvas2D(buffer, {
     row: layout.plotRow,
     column: 1,
@@ -73,13 +82,17 @@ export function chartBlock(widget: ChartNode, node: LayoutNode, theme: TerminalT
       'chart',
       'baseline',
       'baseline.zero',
-      '─',
+      oneCellGlyph('─', '-', { widthProfile }),
       chartBaselineStyle(widget)
     ));
   }
   for (const [seriesIndex, item] of series.entries()) {
     const visible = projectChartSeries(widget, item, layout.plotWidth);
-    const glyph = seriesGlyph(item);
+    const glyph = oneCellGlyph(
+      seriesGlyph(item),
+      item.kind === 'area' || item.kind === 'bar' ? '#' : '*',
+      { widthProfile }
+    );
     const seriesStyle = chartSeriesStyle(widget, seriesIndex);
     const seriesScale = chartSeriesScale(item, widgetScale);
     if (item.kind === 'area' || item.kind === 'bar') {
@@ -115,7 +128,14 @@ export function chartBlock(widget: ChartNode, node: LayoutNode, theme: TerminalT
     const position = chartPointPosition(widget, node.bounds, selected.series, selected.point, range);
     if (position !== undefined) {
       buffer.write(position.row, position.column, [
-        chartSpan(widget, 'chart', 'selected', `selection.${selected.series}.${String(selected.point)}`, '◆', chartSelectedStyle(widget))
+        chartSpan(
+          widget,
+          'chart',
+          'selected',
+          `selection.${selected.series}.${String(selected.point)}`,
+          oneCellGlyph('◆', '*', { widthProfile }),
+          chartSelectedStyle(widget)
+        )
       ]);
     }
   }
@@ -202,8 +222,13 @@ function drawSegmentedChartLine(
   }
 }
 
-export function chartText(widget: ChartNode, node: LayoutNode, theme: TerminalTheme): string {
-  return chartTextFromBlock(chartBlock(widget, node, theme));
+export function chartText(
+  widget: ChartNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): string {
+  return chartTextFromBlock(chartBlock(widget, node, theme, widthProfile));
 }
 
 export function chartAccessibleBase(widget: ChartNode, id: string): AccessibleNode {

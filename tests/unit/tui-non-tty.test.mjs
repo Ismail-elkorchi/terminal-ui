@@ -45,7 +45,7 @@ test('TUI non-TTY transcript_only mode renders a snapshot without terminal outpu
   assert.equal(result.reason, 'transcript_only');
   assert.equal(host.output(), '');
   assert.equal(result.snapshot.root.id, 'status');
-  assert.equal(result.transcript?.steps.some((step) => step.kind === 'frame'), true);
+  assert.equal(result.transcript?.steps.some((step) => step.kind === 'commit'), true);
   assert.equal(host.restores().length, 0);
 });
 
@@ -69,27 +69,25 @@ test('TUI non-TTY last_frame mode writes readable text without control sequences
   assert.doesNotMatch(host.output(), /\u001B\[/u);
 });
 
-test('TUI non-TTY line_fallback maps one input line into an app message', async () => {
+test('TUI non-TTY projection reports initialization failures precisely and disposes the host', async () => {
   const host = createMemoryTerminalHost({ isTty: false });
-  host.input('Ada\n');
-  host.stdin.close();
+  let disposed = false;
+  const dispose = host.dispose.bind(host);
+  host.dispose = async (context) => {
+    disposed = true;
+    await dispose(context);
+  };
   const app = defineTui({
-    id: 'non-tty-line',
-    init: () => ({ name: '' }),
-    update: (_state, message) => ({ state: { name: message.name } }),
-    view: (state) => text(`Hello ${state.name}`, { id: 'greeting' }),
-    nonTty: {
-      mode: 'line_fallback',
-      message: (line) => ({ name: line })
-    }
+    id: 'non-tty-init-failure',
+    init: () => { throw new Error('initialization failed'); },
+    update: (state) => ({ state }),
+    view: () => text('unreachable'),
+    nonTty: { mode: 'transcript_only' }
   });
 
   const result = await runTui(app, host);
 
-  assert.equal(result.status, 'completed');
-  assert.equal(result.reason, 'line_fallback');
-  assert.deepEqual(result.state, { name: 'Ada' });
-  assert.match(host.output(), /# greeting/u);
-  assert.match(host.output(), /- text: greeting = Hello Ada/u);
-  assert.match(host.output(), /\n\nHello Ada\n$/u);
+  assert.equal(result.status, 'error');
+  assert.equal(result.diagnostics[0]?.code, 'TUI_INITIALIZATION_FAILED');
+  assert.equal(disposed, true);
 });

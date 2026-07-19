@@ -35,7 +35,7 @@ export interface PreparedTuiSubscriptions<TMessage> {
 }
 
 export interface TuiSubscriptionManager<TState, TMessage> {
-  prepare(state: TState): Promise<PreparedTuiSubscriptions<TMessage>>;
+  prepare(state: TState, context?: TuiContext): Promise<PreparedTuiSubscriptions<TMessage>>;
   activate(prepared: PreparedTuiSubscriptions<TMessage>): void;
   reconcile(state: TState): Promise<void>;
   cancel(): void;
@@ -63,8 +63,8 @@ export function createTuiSubscriptionManager<TState, TMessage>(
   let disposed = false;
 
   return {
-    async prepare(state) {
-      const context = await options.context();
+    async prepare(state, suppliedContext) {
+      const context = suppliedContext ?? await options.context();
       const sources = options.subscriptions?.(state, context) ?? [];
       assertUniqueSourceIds(sources, options.reportDiagnostic);
       return { context, sources };

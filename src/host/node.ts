@@ -1,17 +1,17 @@
 import process from 'node:process';
+import { abortableSleep } from './abortable-sleep.ts';
+import { settleResourceDisposal } from './dispose.ts';
 import { resolveTerminalCapabilities } from './capabilities.ts';
 import { NodeTerminalOutput } from './node-output.ts';
 import { createTerminalHostOutputAuthority } from './ordered-output.ts';
 import { NodeInput } from './node-input.ts';
-import { BasicTerminalSession } from './session.ts';
-import { restoreActiveTerminalSessions } from './session-registry.ts';
+import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import type {
   NodeTerminalHostOptions,
   NodeTerminalSignal,
   TerminalClock,
   TerminalEnvironment,
   TerminalHost,
-  TerminalSession,
   TerminalSignal,
   TerminalSignalSource,
   TerminalViewport,
@@ -38,10 +38,11 @@ class NodeSignals implements TerminalSignalSource {
     };
     for (const signal of signals) this.#source.on(signal, handler);
     const resize = (): void => { listener('resize'); };
-    this.#output?.on?.('resize', resize);
+    const output = this.#output;
+    if (output?.on !== undefined) output.on('resize', resize);
     return () => {
       for (const signal of signals) this.#source.off(signal, handler);
-      this.#output?.off?.('resize', resize);
+      if (output?.off !== undefined) output.off('resize', resize);
     };
   }
 }
@@ -63,21 +64,7 @@ class NodeClock implements TerminalClock {
   }
 
   sleep(ms: number, signal?: AbortSignal): Promise<void> {
-    return new Promise((resolve) => {
-      if (signal?.aborted === true) {
-        resolve();
-        return;
-      }
-      const timeout = setTimeout(resolve, ms);
-      signal?.addEventListener(
-        'abort',
-        () => {
-          clearTimeout(timeout);
-          resolve();
-        },
-        { once: true }
-      );
-    });
+    return abortableSleep(ms, signal);
   }
 }
 
@@ -126,8 +113,10 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     environment: { variables: options.env ?? nodeProcess.env },
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
     ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides }),
-    ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth })
+    ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
+    ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile })
   });
+  const terminalState = new TerminalStateAuthorityBinding();
   const host: TerminalHost = {
     id: options.id ?? 'node',
     runtime: 'node',
@@ -139,14 +128,22 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     env: new ProcessEnvironment(options.env ?? nodeProcess.env),
     getViewport,
     getCapabilities: () => Promise.resolve(capabilities),
-    beginSession: (sessionOptions): Promise<TerminalSession> =>
-      Promise.resolve(new BasicTerminalSession(sessionOptions?.id ?? 'node-session', host, capabilities)),
+    beginSession: (sessionOptions) =>
+      terminalState.beginLease(sessionOptions?.id ?? 'node-session', capabilities),
+    restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
     write: output.write,
     flush: output.flush,
-    dispose: async () => {
-      await restoreActiveTerminalSessions(host, 'disposed');
-      await stdin.dispose();
+    dispose: async (context) => {
+      await settleResourceDisposal([
+        () => terminalState.restoreAllConfirmed('disposed', context),
+        () => stdin.dispose(),
+        () => output.dispose(context)
+      ]);
     }
   };
+  terminalState.bind(host, {
+    rawInputKnowledge: 'observed',
+    ...(options.initialState === undefined ? {} : { initialState: options.initialState })
+  });
   return host;
 }

@@ -33,8 +33,11 @@ export type {
   TerminalInput,
   TerminalInputChunk,
   TerminalInputReadOptions,
+  TerminalInitialState,
   TerminalOutput,
   TerminalOutputChunk,
+  TerminalOperationContext,
+  TerminalRestoreOptions,
   TerminalRestoreReason,
   TerminalRestoreResult,
   TerminalSession,
@@ -42,6 +45,8 @@ export type {
   TerminalSignal,
   TerminalSignalSource,
   TerminalStateChange,
+  TerminalStateKnowledge,
+  TerminalStateProvenanceSnapshot,
   TerminalStateSnapshot,
   TerminalViewport,
   Unsubscribe
@@ -68,7 +73,6 @@ import { createDenoTerminalHost } from './deno.ts';
 import { createMemoryTerminalHost } from './memory.ts';
 import { createNodeTerminalHost } from './node.ts';
 import { createPtyTerminalHost } from './pty.ts';
-import { restoreActiveTerminalSessions } from './session-registry.ts';
 import type {
   CreateTerminalHostOptions,
   TerminalHost,
@@ -122,5 +126,5 @@ export async function detectTerminalCapabilities(host: TerminalHost): Promise<Te
 }
 
 export async function restoreTerminalState(host: TerminalHost): Promise<TerminalRestoreResult> {
-  return restoreActiveTerminalSessions(host, 'disposed');
+  return host.restoreTerminalState('disposed');
 }

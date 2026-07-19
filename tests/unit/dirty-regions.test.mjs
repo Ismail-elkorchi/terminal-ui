@@ -72,6 +72,25 @@ test('dirty diff for moved regions round-trips to the full next frame', () => {
   assert.equal(diff.dirtyRegions?.some((rect) => rect.width === viewport.columns && rect.height === viewport.rows), false);
 });
 
+test('incremental diff projections reject width-profile changes', () => {
+  const wide = { emoji: 'wide', ambiguous: 'narrow' };
+  const narrow = { emoji: 'narrow', ambiguous: 'narrow' };
+  const previous = renderElementFrame(text('🙂'), { columns: 4, rows: 1 }, { widthProfile: wide });
+  const incompatible = {
+    ...diffFrames(previous, previous),
+    widthProfile: narrow
+  };
+
+  assert.throws(
+    () => applyRenderDiff(previous, incompatible),
+    /width profile/u
+  );
+
+  const rewritten = renderElementFrame(text('🙂'), { columns: 4, rows: 1 }, { widthProfile: narrow });
+  const projection = applyRenderDiff(undefined, diffFrames(undefined, rewritten));
+  assert.deepEqual(projection.widthProfile, narrow);
+});
+
 test('region fingerprints skip unchanged regions', () => {
   const regions = renderElementRegions(text('same', { id: 'fingerprint-same' }), { columns: 12, rows: 3 });
   const dirty = dirtyRegionsForRegionChanges(regions, regions);

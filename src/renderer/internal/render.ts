@@ -2,7 +2,7 @@ import { toAccessibleSnapshot } from '../../accessibility/index.ts';
 import type { Element } from '../../element/index.ts';
 import { toRenderNode } from '../model/element.ts';
 import type { RenderNode } from '../model/index.ts';
-import { defineTheme, isTerminalTheme } from '../../theme/index.ts';
+import { createRenderEnvironment } from './render-environment.ts';
 import { findRenderNodeFocusTarget, focusPathForLayoutTarget, renderFocusRelation, resolveFocusPath } from './focus.ts';
 import { createProjectionTargetIndex } from './projection-target-index.ts';
 import type { ProjectionTargetIndex } from './projection-target-index.ts';
@@ -15,6 +15,7 @@ import { createDraftRenderRegion, regionIdForLayoutNode, toRegionHitTarget } fro
 import { renderRenderNode, cursorForRenderNode, hitTargetsForRenderNode } from './render-node-behavior.ts';
 import type { ViewportSize } from '../../geometry/types.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 import type { FocusPath } from './focus.ts';
 import type { Frame, FrameBuffer, FrameCell, FrameHitTarget } from './frame.ts';
 import type { FramePass } from './frame-passes/index.ts';
@@ -77,14 +78,39 @@ export type { RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
 export interface RenderElementOptions {
   readonly focusPath?: FocusPath;
   readonly theme?: TerminalTheme | TerminalThemeDefinition;
+  readonly widthProfile?: TextWidthProfile;
   readonly framePasses?: readonly FramePass[];
   readonly disableFramePasses?: boolean;
+  readonly instrumentation?: RenderInstrumentation;
+}
+
+export type RenderProjectionStage =
+  | 'normalize'
+  | 'layout'
+  | 'focus'
+  | 'regions'
+  | 'composition'
+  | 'frame_passes'
+  | 'cursor'
+  | 'hit_targets'
+  | 'accessibility'
+  | 'snapshot';
+
+export interface RenderStageMeasurement {
+  readonly stage: RenderProjectionStage;
+  readonly durationMs: number;
+}
+
+export interface RenderInstrumentation {
+  readonly now: () => number;
+  record(measurement: RenderStageMeasurement): void;
 }
 
 export interface RenderElementProjection<TMessage = unknown> {
   readonly node: RenderNode<TMessage>;
   readonly viewport: ViewportSize;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
   readonly layout: LayoutNode;
   readonly regions: readonly RenderRegion<TMessage>[];
   readonly frame: Frame;
@@ -103,28 +129,63 @@ export function renderElementProjection<TMessage>(
   viewport: ViewportSize,
   options: RenderElementOptions = {}
 ): RenderElementProjection<TMessage> {
-  const renderNode = toRenderNode(element);
-  const theme = themeForOptions(options.theme);
-  const layout = layoutRenderNode(renderNode, viewport, theme);
-  const resolvedFocusPath = resolveFocusPath(layout, options.focusPath);
-  const regions = renderLayoutRegions(renderNode, layout, viewport, theme, resolvedFocusPath);
-  const buffer = compositeRegions(viewport, regions);
-  applyFramePasses(buffer, framePassesForOptions(options), { theme, viewport });
-  const cursor = cursorForFocusedRenderNode(renderNode, layout, resolvedFocusPath, theme);
-  projectStyledCursor(buffer, cursor);
-  const hitTargets = regions.flatMap((region) => region.hitTargets.map(frameHitTargetFromRegion));
-  const accessibility = toAccessibleSnapshot({
+  const renderNode = measureRenderStage(options.instrumentation, 'normalize', () => toRenderNode(element));
+  const environment = createRenderEnvironment({
+    viewport,
+    ...(options.theme === undefined ? {} : { theme: options.theme }),
+    ...(options.widthProfile === undefined ? {} : { widthProfile: options.widthProfile })
+  });
+  const { theme, widthProfile } = environment;
+  const layout = measureRenderStage(options.instrumentation, 'layout', () =>
+    layoutRenderNode(renderNode, viewport, theme, widthProfile)
+  );
+  const resolvedFocusPath = measureRenderStage(options.instrumentation, 'focus', () =>
+    resolveFocusPath(layout, options.focusPath)
+  );
+  const regions = measureRenderStage(options.instrumentation, 'regions', () =>
+    renderLayoutRegions(renderNode, layout, viewport, theme, widthProfile, resolvedFocusPath)
+  );
+  const buffer = measureRenderStage(options.instrumentation, 'composition', () =>
+    compositeRegions(viewport, regions, widthProfile)
+  );
+  measureRenderStage(options.instrumentation, 'frame_passes', () => {
+    applyFramePasses(buffer, framePassesForOptions(options), { theme, viewport, widthProfile });
+  });
+  const cursor = measureRenderStage(options.instrumentation, 'cursor', () => {
+    const next = cursorForFocusedRenderNode(renderNode, layout, resolvedFocusPath, theme, widthProfile);
+    projectStyledCursor(buffer, next);
+    return next;
+  });
+  const hitTargets = measureRenderStage(options.instrumentation, 'hit_targets', () =>
+    regions.flatMap((region) => region.hitTargets.map(frameHitTargetFromRegion))
+  );
+  const accessibility = measureRenderStage(options.instrumentation, 'accessibility', () => toAccessibleSnapshot({
     source: 'tui',
-    root: accessibleNode(renderNode, layout, [], resolvedFocusPath, theme),
+    root: accessibleNode(renderNode, layout, [], resolvedFocusPath, theme, widthProfile),
     ...(resolvedFocusPath === undefined ? {} : { focusPath: resolvedFocusPath })
-  });
-  const frame = buffer.snapshot({
-    accessibility,
-    ...(hitTargets.length === 0 ? {} : { hitTargets }),
-    ...(cursor === undefined ? {} : { cursor }),
-    ...(resolvedFocusPath === undefined ? {} : { focusPath: resolvedFocusPath })
-  });
-  return { node: renderNode, viewport, theme, layout, regions, frame };
+  }));
+  const frame = measureRenderStage(options.instrumentation, 'snapshot', () => buffer.snapshot({
+      accessibility,
+      ...(hitTargets.length === 0 ? {} : { hitTargets }),
+      ...(cursor === undefined ? {} : { cursor }),
+      ...(resolvedFocusPath === undefined ? {} : { focusPath: resolvedFocusPath })
+    }));
+  return { node: renderNode, viewport: environment.viewport, theme, widthProfile, layout, regions, frame };
+}
+
+function measureRenderStage<TValue>(
+  instrumentation: RenderInstrumentation | undefined,
+  stage: RenderProjectionStage,
+  operation: () => TValue
+): TValue {
+  if (instrumentation === undefined) return operation();
+  const now = instrumentation.now;
+  const started = now();
+  try {
+    return operation();
+  } finally {
+    instrumentation.record({ stage, durationMs: Math.max(0, now() - started) });
+  }
 }
 
 function framePassesForOptions(options: RenderElementOptions): readonly FramePass[] {
@@ -147,22 +208,24 @@ function renderLayoutRegions<TMessage>(
   layout: LayoutNode,
   viewport: ViewportSize,
   theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
   focusPath: FocusPath | undefined
 ): readonly RenderRegion<TMessage>[] {
-  const composer = createRegionComposer<TMessage>(viewport);
+  const composer = createRegionComposer<TMessage>(viewport, widthProfile);
   const path = nodePath(layout, []);
-  renderRenderNodeToRegion(widget, layout, [], composer.regionFor(layout, path), composer, theme, focusPath);
-  return composer.snapshot(createProjectionTargetIndex(widget, layout), theme);
+  renderRenderNodeToRegion(widget, layout, [], composer.regionFor(layout, path), composer, theme, widthProfile, focusPath);
+  return composer.snapshot(createProjectionTargetIndex(widget, layout), theme, widthProfile);
 }
 
 function frameHitTargets<TMessage>(
   targets: readonly import('./focus.ts').RenderNodeLayoutTarget<TMessage>[],
   theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
   region: DraftRenderRegion
 ): readonly RenderRegionHitTarget<TMessage>[] {
   return targets
     .flatMap((target): RenderRegionHitTarget<TMessage>[] =>
-      hitTargetsForRenderNode(target.renderNode, target, theme).map((hitTarget) =>
+      hitTargetsForRenderNode(target.renderNode, target, theme, widthProfile).map((hitTarget) =>
         toRegionHitTarget(hitTarget, region, resolveHitTargetFocus(hitTarget, target))
       )
     );
@@ -199,6 +262,7 @@ function renderRenderNodeToRegion<TMessage>(
   region: DraftRenderRegion,
   composer: RegionComposer<TMessage>,
   theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
   focusPath: FocusPath | undefined
 ): void {
   if (!node.visible) return;
@@ -207,9 +271,10 @@ function renderRenderNodeToRegion<TMessage>(
     layoutNode: node,
     buffer: region.buffer,
     theme,
+    widthProfile,
     focus: renderFocusRelation(focusPath, path),
     renderChildren(target = region.buffer) {
-      renderRenderNodeChildrenToRegions(widget, node, path, target, region, composer, theme, focusPath);
+      renderRenderNodeChildrenToRegions(widget, node, path, target, region, composer, theme, widthProfile, focusPath);
     }
   });
 }
@@ -222,18 +287,19 @@ function renderRenderNodeChildrenToRegions<TMessage>(
   region: DraftRenderRegion,
   composer: RegionComposer<TMessage>,
   theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
   focusPath: FocusPath | undefined
 ): void {
   const children = widget.children ?? [];
   for (const { child, childNode } of orderedChildren(children, node)) {
     if (buffer !== region.buffer) {
-      renderRenderNodeToBuffer(child, childNode, path, buffer, theme, focusPath);
+      renderRenderNodeToBuffer(child, childNode, path, buffer, theme, widthProfile, focusPath);
       continue;
     }
     const childRegion = childNode.layer.zIndex === region.zIndex
       ? region
       : composer.regionFor(childNode, [...path, childNode.identity]);
-    renderRenderNodeToRegion(child, childNode, path, childRegion, composer, theme, focusPath);
+    renderRenderNodeToRegion(child, childNode, path, childRegion, composer, theme, widthProfile, focusPath);
   }
 }
 
@@ -243,6 +309,7 @@ function renderRenderNodeToBuffer<TMessage>(
   parentPath: FocusPath,
   buffer: RenderTarget,
   theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
   focusPath: FocusPath | undefined
 ): void {
   if (!node.visible) return;
@@ -251,10 +318,11 @@ function renderRenderNodeToBuffer<TMessage>(
     layoutNode: node,
     buffer,
     theme,
+    widthProfile,
     focus: renderFocusRelation(focusPath, path),
     renderChildren(target = buffer) {
       for (const { child, childNode } of orderedChildren(widget.children ?? [], node)) {
-        renderRenderNodeToBuffer(child, childNode, path, target, theme, focusPath);
+        renderRenderNodeToBuffer(child, childNode, path, target, theme, widthProfile, focusPath);
       }
     }
   });
@@ -278,10 +346,14 @@ function orderedChildren(
 
 interface RegionComposer<TMessage> {
   regionFor(node: LayoutNode, path: FocusPath): DraftRenderRegion;
-  snapshot(index: ProjectionTargetIndex<TMessage>, theme: TerminalTheme): readonly RenderRegion<TMessage>[];
+  snapshot(
+    index: ProjectionTargetIndex<TMessage>,
+    theme: TerminalTheme,
+    widthProfile: TextWidthProfile
+  ): readonly RenderRegion<TMessage>[];
 }
 
-function createRegionComposer<TMessage>(viewport: ViewportSize): RegionComposer<TMessage> {
+function createRegionComposer<TMessage>(viewport: ViewportSize, widthProfile: TextWidthProfile): RegionComposer<TMessage> {
   const regions: DraftRenderRegion[] = [];
   let regionOrder = 0;
   return {
@@ -292,13 +364,14 @@ function createRegionComposer<TMessage>(viewport: ViewportSize): RegionComposer<
         order: regionOrder,
         viewport,
         bounds: node.layer.bounds,
-        opacity: node.layer.opacity
+        opacity: node.layer.opacity,
+        widthProfile
       });
       regionOrder += 1;
       regions.push(region);
       return region;
     },
-    snapshot(index, theme) {
+    snapshot(index, theme, snapshotWidthProfile) {
       return regions
         .toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)
         .map((region): RenderRegion<TMessage> => {
@@ -311,7 +384,12 @@ function createRegionComposer<TMessage>(viewport: ViewportSize): RegionComposer<
             opacity: region.opacity,
             cells: snapshot.cells,
             metadata: snapshot.metadata,
-            hitTargets: frameHitTargets(index.layoutTargetsForRegion(region.zIndex, region.bounds), theme, region),
+            hitTargets: frameHitTargets(
+              index.layoutTargetsForRegion(region.zIndex, region.bounds),
+              theme,
+              snapshotWidthProfile,
+              region
+            ),
             focusTargets: index.focusTargetsForRegion(region.zIndex, region.bounds)
           };
         });
@@ -319,8 +397,12 @@ function createRegionComposer<TMessage>(viewport: ViewportSize): RegionComposer<
   };
 }
 
-export function compositeRegions(viewport: ViewportSize, regions: readonly RenderRegion[]): FrameBuffer {
-  const buffer = createFrameBuffer(viewport.columns, viewport.rows);
+export function compositeRegions(
+  viewport: ViewportSize,
+  regions: readonly RenderRegion[],
+  widthProfile: TextWidthProfile
+): FrameBuffer {
+  const buffer = createFrameBuffer(viewport.columns, viewport.rows, { widthProfile });
   for (const region of regions.toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)) {
     if (region.opacity === 'opaque') {
       buffer.clear(region.bounds);
@@ -350,18 +432,15 @@ function withInheritedBackground(cell: FrameCell, lower: FrameCell | undefined):
   };
 }
 
-function themeForOptions(theme: TerminalTheme | TerminalThemeDefinition | undefined): TerminalTheme {
-  if (theme === undefined) return defineTheme();
-  return isTerminalTheme(theme) ? theme : defineTheme(theme);
-}
-
 function cursorForFocusedRenderNode(
   widget: RenderNode,
   layout: LayoutNode,
   focusPath: FocusPath | undefined,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): { readonly row: number; readonly column: number } | undefined {
   const target = findRenderNodeFocusTarget(widget, layout, focusPath);
   if (target === undefined) return undefined;
-  return cursorForRenderNode(target.renderNode, target, theme) ?? { row: target.bounds.row, column: target.bounds.column };
+  return cursorForRenderNode(target.renderNode, target, theme, widthProfile)
+    ?? { row: target.bounds.row, column: target.bounds.column };
 }

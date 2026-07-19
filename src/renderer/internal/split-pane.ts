@@ -11,6 +11,7 @@ import type { RenderTarget } from '../model/render-target.ts';
 import type { LayoutNode } from '../model/layout.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
+import { oneCellGlyph } from '../../text/index.ts';
 import { mergeStyles, renderNodeStyle, themeStyle } from './render-node-style.ts';
 
 type SplitPaneNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'splitPane'>;
@@ -34,13 +35,17 @@ export function renderSplitPaneDividers<TMessage>(
       label: `divider.${String(dividerIndex)}`
     });
     if (renderNode.props.direction === 'horizontal') {
-      const glyph = theme.tokens.symbols.borderSingle.vertical;
+      const glyph = oneCellGlyph(theme.tokens.symbols.borderSingle.vertical, '|', {
+        widthProfile: buffer.widthProfile
+      });
       for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
         buffer.write(row, bounds.column, [{ text: glyph, style, source }]);
       }
       return;
     }
-    const glyph = theme.tokens.symbols.borderSingle.horizontal;
+    const glyph = oneCellGlyph(theme.tokens.symbols.borderSingle.horizontal, '-', {
+      widthProfile: buffer.widthProfile
+    });
     buffer.write(bounds.row, bounds.column, [{ text: glyph.repeat(bounds.width), style, source }]);
   });
 }

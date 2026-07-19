@@ -1,5 +1,5 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
-import { measureTextCells } from '../../text/index.ts';
+import { fillTextCells, measureTextCells } from '../../text/index.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import { drawBorder } from './border.ts';
 import type { BorderStyle } from './border.ts';
@@ -24,6 +24,7 @@ import {
 } from './notifications/placement.ts';
 import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 
 export { placeNotificationStack } from './notifications/placement.ts';
 export type { NotificationStackPlacementInput, NotificationStackSize } from './notifications/placement.ts';
@@ -51,15 +52,18 @@ export function renderNotificationStack(
   theme: TerminalTheme
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
-  const cards = notificationCards(widget);
+  const cards = notificationCards(widget, buffer.widthProfile);
   if (cards.length === 0) return;
   for (const placement of notificationCardPlacements(widget, bounds, cards)) {
     renderNotificationCard(widget, placement.card, buffer, placement.bounds, theme);
   }
 }
 
-export function notificationStackPreferredSize(widget: NotificationStackNode): NotificationStackSize {
-  return notificationStackSizeFromCards(notificationCards(widget));
+export function notificationStackPreferredSize(
+  widget: NotificationStackNode,
+  widthProfile: TextWidthProfile
+): NotificationStackSize {
+  return notificationStackSizeFromCards(notificationCards(widget, widthProfile));
 }
 
 export function notificationStackAccessibleBase(widget: NotificationStackNode, id: string, focused: boolean): AccessibleNode {
@@ -89,11 +93,16 @@ export function notificationStackAccessibleBase(widget: NotificationStackNode, i
   };
 }
 
-export function notificationStackHitTargets<TMessage>(widget: NotificationStackNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function notificationStackHitTargets<TMessage>(
+  widget: NotificationStackNode<TMessage>,
+  bounds: Rect,
+  widthProfile: TextWidthProfile
+): readonly HitTarget<TMessage>[] {
   const toActionMessage = notificationActionMessageFactory(widget);
   const toDismissMessage = notificationDismissMessageFactory(widget);
   if (toActionMessage === undefined && toDismissMessage === undefined) return [];
-  return notificationCardPlacements(widget, bounds).flatMap((placement): readonly HitTarget<TMessage>[] => {
+  return notificationCardPlacements(widget, bounds, notificationCards(widget, widthProfile))
+    .flatMap((placement): readonly HitTarget<TMessage>[] => {
     const id = notificationTargetId(widget, placement.card.item.id);
     const select: readonly HitTarget<TMessage>[] = toActionMessage === undefined ? [] : [{
       id,
@@ -122,7 +131,7 @@ export function notificationStackHitTargets<TMessage>(widget: NotificationStackN
   });
 }
 
-function notificationCardPlacements(widget: NotificationStackNode, bounds: Rect, cards: readonly NotificationCard[] = notificationCards(widget)): readonly {
+function notificationCardPlacements(widget: NotificationStackNode, bounds: Rect, cards: readonly NotificationCard[]): readonly {
   readonly card: NotificationCard;
   readonly bounds: Rect;
 }[] {
@@ -206,22 +215,34 @@ function renderNotificationCard(
       source
     }], contentBounds.width, {
       ellipsis: '…',
-      mode: 'middle'
+      mode: 'middle',
+      widthProfile: buffer.widthProfile
     }));
   }
   if (card.item.progress !== undefined && contentBounds.height > 0) {
     const progressRow = contentBounds.row + contentBounds.height - 1;
-    buffer.write(progressRow, contentBounds.column, progressSpans(widget, card.item, contentBounds.width, tone, theme, card.state));
+    buffer.write(progressRow, contentBounds.column, progressSpans(
+      widget,
+      card.item,
+      contentBounds.width,
+      tone,
+      theme,
+      card.state,
+      buffer.widthProfile
+    ));
   }
 }
 
-function notificationCards(widget: NotificationStackNode): readonly NotificationCard[] {
+function notificationCards(widget: NotificationStackNode, widthProfile: TextWidthProfile): readonly NotificationCard[] {
   const maxWidth = notificationMaxWidth(widget);
   const selected = notificationSelectedId(widget);
   return notificationItems(widget).map((item) => {
     const lines = cardContentLines(item);
-    const contentWidth = lines.reduce((max, line) => Math.max(max, measureTextCells(line.text).cells), 0);
-    const titleWidth = measureTextCells(` ${item.title} `).cells;
+    const contentWidth = lines.reduce(
+      (max, line) => Math.max(max, measureTextCells(line.text, { widthProfile }).cells),
+      0
+    );
+    const titleWidth = measureTextCells(` ${item.title} `, { widthProfile }).cells;
     const progressWidth = item.progress === undefined ? 0 : Math.min(maxWidth - 2, 22);
     const width = Math.max(20, Math.min(maxWidth, Math.max(contentWidth, titleWidth, progressWidth) + 2));
     const height = Math.max(3, lines.length + 2 + (item.progress === undefined ? 0 : 1));
@@ -286,13 +307,14 @@ function progressSpans(
   width: number,
   tone: NotificationTone,
   theme: TerminalTheme,
-  state: ElementVisualState | undefined
+  state: ElementVisualState | undefined,
+  widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   const progress = clampProgress(item.progress ?? 0);
   const barWidth = Math.max(1, Math.min(width - 6, 18));
   const filled = Math.round((progress / 100) * barWidth);
   return [
-    feedbackSpan(widget, theme.tokens.symbols.progressFilled.repeat(filled), {
+    feedbackSpan(widget, fillTextCells(theme.tokens.symbols.progressFilled, filled, { widthProfile }), {
       kind: 'notification',
       label: 'progress.filled',
       sourceId: item.id,
@@ -303,7 +325,7 @@ function progressSpans(
       }),
       state: tone
     }),
-    feedbackSpan(widget, theme.tokens.symbols.progressEmpty.repeat(barWidth - filled), {
+    feedbackSpan(widget, fillTextCells(theme.tokens.symbols.progressEmpty, barWidth - filled, { widthProfile }), {
       kind: 'notification',
       label: 'progress.empty',
       sourceId: item.id,

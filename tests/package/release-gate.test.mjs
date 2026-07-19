@@ -501,8 +501,14 @@ test('TUI ANSI serialization decisions are owned by the internal policy', async 
 
 test('frame passes are applied before snapshots and remain serialization-free', async () => {
   const renderSource = await readFile(new URL('../../src/renderer/internal/render.ts', import.meta.url), 'utf8');
-  assert.match(renderSource, /const buffer = compositeRegions\(viewport, regions\);[\s\S]*applyFramePasses\(buffer/u);
-  assert.match(renderSource, /const frame = buffer\.snapshot/u);
+  const composition = renderSource.indexOf("measureRenderStage(options.instrumentation, 'composition'");
+  const framePasses = renderSource.indexOf("measureRenderStage(options.instrumentation, 'frame_passes'");
+  const snapshot = renderSource.indexOf("measureRenderStage(options.instrumentation, 'snapshot'");
+  assert.equal(composition >= 0, true);
+  assert.equal(framePasses > composition, true);
+  assert.equal(snapshot > framePasses, true);
+  assert.match(renderSource, /applyFramePasses\(buffer/u);
+  assert.match(renderSource, /buffer\.snapshot/u);
 
   for (const file of await sourceFiles(new URL('../../src/renderer/internal/frame-passes/', import.meta.url))) {
     const source = await readFile(file, 'utf8');

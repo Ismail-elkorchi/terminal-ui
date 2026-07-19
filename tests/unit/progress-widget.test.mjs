@@ -55,6 +55,20 @@ test('progressBar supports bar-only display with end label and explicit bar widt
   assert.equal(empty?.style?.dim, true);
 });
 
+test('progressBar treats bar width as terminal cells under ambiguous-wide profiles', () => {
+  const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
+  const frame = renderElementFrame(progressBar({
+    id: 'wide-progress',
+    labelPosition: 'none',
+    mode: { kind: 'determinate', value: 1, max: 1 },
+    barWidth: 4,
+    display: 'bar'
+  }), { columns: 6, rows: 1 }, { widthProfile });
+
+  assert.equal(renderFramePlain(frame), '[██]');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'chrome.close')?.column, 6);
+});
+
 test('progressBar valueScale renders segmented fill tokens', () => {
   const frame = renderElementFrame(progressBar({
     id: 'scaled-progress',

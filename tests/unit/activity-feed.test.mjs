@@ -112,6 +112,25 @@ test('structuredBlock aligns fields and wraps long body text predictably', () =>
   );
 });
 
+test('structuredBlock aligns and wraps by terminal cells under wide profiles', () => {
+  const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
+  const frame = renderElementFrame(structuredBlock({
+    id: 'wide-details',
+    title: 'Wide',
+    fields: [
+      { label: '界', value: 'wide' },
+      { label: 'ab', value: 'ascii' }
+    ],
+    details: '···'
+  }), { columns: 12, rows: 6 }, { widthProfile });
+  const separators = frame.cells
+    .filter((cell) => cell.text === ':' && cell.source?.label?.startsWith('field.') === true)
+    .map((cell) => cell.column);
+
+  assert.equal(renderFramePlain(frame), '[-] Wide\n界: wide\nab: ascii\nDetails: ·\n··');
+  assert.deepEqual(separators, [3, 3]);
+});
+
 test('structuredBlock middle-clips compact summaries and fields', () => {
   const frame = renderElementFrame(structuredBlock({
     id: 'path-card',

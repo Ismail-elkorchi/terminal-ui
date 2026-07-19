@@ -11,8 +11,10 @@ import {
 import { applyRenderDiff } from '../../dist/testing/index.js';
 import {
   richText,
+  scrollback,
   text
 } from '../../dist/components/index.js';
+import { defaultTextWidthProfile } from '../../dist/text/index.js';
 import { textSamples } from '../support/text-samples.mjs';
 
 const colorCapabilities = resolveTerminalCapabilities({
@@ -77,6 +79,43 @@ test('style-only diffs are incremental and preserve visual dimensions', () => {
   assert.ok(diff.operations.length <= 2);
   assert.equal(diff.width, previous.width);
   assert.equal(diff.height, previous.height);
+});
+
+test('scrollback cached projections equal fresh projections across render environments', () => {
+  const items = Array.from({ length: 96 }, (_value, index) => Object.freeze({
+    id: `item-${String(index)}`,
+    text: `${index % 3 === 0 ? 'needle ' : ''}row ${String(index)} wide 界 emoji 🙂 combining e\u0301 ${'body '.repeat(index % 7)}`,
+    timestamp: `12:${String(index % 60).padStart(2, '0')}`,
+    metadata: { source: `worker-${String(index % 5)}` }
+  }));
+  const profiles = [
+    defaultTextWidthProfile,
+    { emoji: 'narrow', ambiguous: 'wide' }
+  ];
+  const cases = [
+    { columns: 18, rows: 7, wrap: true, searchQuery: '' },
+    { columns: 31, rows: 9, wrap: true, searchQuery: 'needle' },
+    { columns: 52, rows: 11, wrap: false, searchQuery: 'worker-3' },
+    { columns: 23, rows: 8, wrap: true, searchQuery: '界' }
+  ];
+
+  for (const widthProfile of profiles) {
+    for (const current of cases) {
+      const options = {
+        id: 'history',
+        items,
+        wrap: current.wrap,
+        searchQuery: current.searchQuery
+      };
+      renderElementFrame(scrollback(options), current, { widthProfile });
+      const cached = renderElementFrame(scrollback(options), current, { widthProfile });
+      const freshItems = items.map((item) => ({ ...item, metadata: { ...item.metadata } }));
+      const fresh = renderElementFrame(scrollback({ ...options, items: freshItems }), current, { widthProfile });
+      const detail = `columns=${String(current.columns)} rows=${String(current.rows)} wrap=${String(current.wrap)} query=${current.searchQuery}`;
+
+      assert.deepEqual(cached, fresh, detail);
+    }
+  }
 });
 
 function generatedTexts(count) {

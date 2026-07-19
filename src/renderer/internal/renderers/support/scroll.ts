@@ -1,4 +1,5 @@
 import { measureTextCells, sanitizeTerminalText } from '../../../../text/index.ts';
+import type { TextWidthProfile } from '../../../../text/index.ts';
 import type { TerminalTheme } from '../../../../theme/index.ts';
 import type {
   RenderNodeKind,
@@ -468,8 +469,12 @@ export function viewportScrollbarState(widget: ViewportNode, bounds: Rect): Scro
   });
 }
 
-export function scrollbackScrollbarState(widget: ScrollbackNode, node: Pick<LayoutNode, 'bounds'>): ScrollState {
-  const window = scrollbackWindow(widget, node);
+export function scrollbackScrollbarState(
+  widget: ScrollbackNode,
+  node: Pick<LayoutNode, 'bounds'>,
+  widthProfile: TextWidthProfile
+): ScrollState {
+  const window = scrollbackWindow(widget, node, widthProfile);
   return createScrollState({
     offsetRow: window.start,
     offsetColumn: 0,
@@ -504,16 +509,26 @@ export function menuScrollbarState(widget: MenuNode, bounds: Rect): ScrollState 
   return scroll;
 }
 
-export function textAreaScrollbarState(widget: TextAreaNode, bounds: Rect): ScrollState {
+export function textAreaScrollbarState(
+  widget: TextAreaNode,
+  bounds: Rect,
+  widthProfile: TextWidthProfile
+): ScrollState {
   const lines = textAreaLines(widget);
   const wrap = textAreaWrapEnabled(widget);
   const contentWidth = Math.max(0, bounds.width - textAreaPrefixWidth(widget, lines.length));
   const contentRows = wrap
-    ? lines.reduce<number>((total, lineText) => total + wrappedTextAreaRows(lineText, contentWidth), 0)
+    ? lines.reduce<number>(
+        (total, lineText) => total + wrappedTextAreaRows(lineText, contentWidth, widthProfile),
+        0
+      )
     : lines.length;
   const contentColumns = wrap
     ? contentWidth
-    : lines.reduce<number>((max, lineText) => Math.max(max, measureTextCells(lineText).cells), 0);
+    : lines.reduce<number>(
+        (max, lineText) => Math.max(max, measureTextCells(lineText, { widthProfile }).cells),
+        0
+      );
   const scroll = normalizedRenderNodeScroll(widget, {
     contentRows,
     contentColumns,
@@ -593,9 +608,9 @@ function textAreaPrefixWidth(widget: TextAreaNode, lineCount: number): number {
   return Math.max(minWidth, String(start + Math.max(0, lineCount - 1)).length) + 4;
 }
 
-function wrappedTextAreaRows(lineText: string, width: number): number {
+function wrappedTextAreaRows(lineText: string, width: number, widthProfile: TextWidthProfile): number {
   if (lineText.length === 0) return 1;
-  const cells = measureTextCells(lineText).cells;
+  const cells = measureTextCells(lineText, { widthProfile }).cells;
   return width <= 0 ? 1 : Math.max(1, Math.ceil(cells / width));
 }
 

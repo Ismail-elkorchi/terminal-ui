@@ -10,7 +10,7 @@ import { textOffsetAtVisualColumn } from './text-pointer.ts';
 import { inputCursorStyle, mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { TextSelection } from '../../text/index.ts';
+import type { TextSelection, TextWidthProfile } from '../../text/index.ts';
 import type { SuggestionItem, ComponentValidationTone } from '../../ui-model/contracts.ts';
 import { optionalValidationTone } from '../../ui-model/status.ts';
 import type { CommandInputDisplay, CommandInputValidation } from '../../ui-model/documents.ts';
@@ -38,9 +38,14 @@ type CommandPartKind =
   | 'value'
   | 'window';
 
-export function commandInputBlock(widget: CommandInputNode, bounds: Pick<Rect, 'width' | 'height'>, theme: TerminalTheme): RenderBlock {
+export function commandInputBlock(
+  widget: CommandInputNode,
+  bounds: Pick<Rect, 'width' | 'height'>,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   const display = commandInputDisplay(widget);
-  const lines: RenderLine[] = [inputLine(widget, bounds.width)];
+  const lines: RenderLine[] = [inputLine(widget, bounds.width, widthProfile)];
   const validation = validationProp(widget);
   if (bounds.height > lines.length && validation !== undefined) lines.push(validationLine(widget, validation, theme));
   if (display === 'expanded') {
@@ -61,8 +66,14 @@ export function commandInputBlock(widget: CommandInputNode, bounds: Pick<Rect, '
   return { lines: lines.slice(0, bounds.height) };
 }
 
-export function commandInputText(widget: CommandInputNode, height: number, theme: TerminalTheme): string {
-  return commandInputBlock(widget, { width: 1_000, height }, theme).lines.map((line) => line.spans.map((span) => span.text).join('')).join('\n');
+export function commandInputText(
+  widget: CommandInputNode,
+  height: number,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): string {
+  return commandInputBlock(widget, { width: 1_000, height }, theme, widthProfile).lines
+    .map((line) => line.spans.map((span) => span.text).join('')).join('\n');
 }
 
 export function commandInputAccessibleChildren(widget: CommandInputNode): readonly AccessibleNode[] | undefined {
@@ -89,8 +100,8 @@ export function commandInputAccessibleChildren(widget: CommandInputNode): readon
   return children.length === 0 ? undefined : children;
 }
 
-export function commandInputCursor(widget: CommandInputNode, bounds: Rect): CursorPosition {
-  const model = commandInputModel(widget, bounds.width);
+export function commandInputCursor(widget: CommandInputNode, bounds: Rect, widthProfile: TextWidthProfile): CursorPosition {
+  const model = commandInputModel(widget, bounds.width, widthProfile);
   return {
     row: bounds.row,
     column: bounds.column + Math.max(0, Math.min(bounds.width - 1, model.promptCells + model.cursorColumn)),
@@ -102,12 +113,17 @@ export function commandInputCursor(widget: CommandInputNode, bounds: Rect): Curs
 export function commandInputPointerOffset(
   widget: CommandInputNode,
   bounds: Pick<Rect, 'width'>,
-  pointer: RoutedPointerEvent
+  pointer: RoutedPointerEvent,
+  widthProfile: TextWidthProfile
 ): number | undefined {
   if (pointer.localColumn === undefined) return undefined;
-  const model = commandInputModel(widget, bounds.width);
+  const model = commandInputModel(widget, bounds.width, widthProfile);
   const contentColumn = pointer.localColumn - 1 - model.promptCells;
-  return textOffsetAtVisualColumn(model.value, model.offsetCells + Math.max(0, contentColumn));
+  return textOffsetAtVisualColumn(
+    model.value,
+    model.offsetCells + Math.max(0, contentColumn),
+    { widthProfile }
+  );
 }
 
 export function commandInputSuggestionHitTargets<TMessage>(
@@ -135,17 +151,17 @@ export function commandInputSuggestionHitTargets<TMessage>(
   });
 }
 
-function inputLine(widget: CommandInputNode, width: number): RenderLine {
-  const model = commandInputModel(widget, width);
+function inputLine(widget: CommandInputNode, width: number, widthProfile: TextWidthProfile): RenderLine {
+  const model = commandInputModel(widget, width, widthProfile);
   const placeholder = placeholderText(widget);
   const completion = completionText(widget);
   const spans: RenderSpan[] = [
     styledSpan(model.prompt, commandPromptStyle(widget), commandSource(widget, 'prompt', { role: 'decoration', partKind: 'prompt' })),
     ...(model.value.length === 0 && placeholder.length > 0
-      ? clipRenderSpans([styledSpan(placeholder, renderNodeStyle(widget, 'placeholder'), commandSource(widget, 'placeholder', { partKind: 'placeholder' }))], model.contentWidth)
-      : valueWindowSpans(widget, model))
+      ? clipRenderSpans([styledSpan(placeholder, renderNodeStyle(widget, 'placeholder'), commandSource(widget, 'placeholder', { partKind: 'placeholder' }))], model.contentWidth, { widthProfile })
+      : valueWindowSpans(widget, model, widthProfile))
   ];
-  const visibleCells = measureRenderSpans(spans) - model.promptCells;
+  const visibleCells = measureRenderSpans(spans, { widthProfile }) - model.promptCells;
   const completionWidth = Math.max(0, model.contentWidth - visibleCells);
   if (model.value.length > 0 && completion.length > 0 && model.window.endOffset >= model.value.length && completionWidth > 0) {
     spans.push(...clipRenderSpans([
@@ -153,7 +169,7 @@ function inputLine(widget: CommandInputNode, width: number): RenderLine {
         part: 'completion',
         base: themeStyle('input.placeholder', { dim: true })
       }), commandSource(widget, 'completion', { partKind: 'completion', state: 'preview' }))
-    ], completionWidth));
+    ], completionWidth, { widthProfile }));
   }
   const historyIndex = numberProp(widget, 'historyIndex');
   if (historyIndex !== undefined) {
@@ -182,14 +198,14 @@ interface CommandInputModel {
   readonly window: ReturnType<typeof visibleLineWindow>;
 }
 
-function commandInputModel(widget: CommandInputNode, width: number): CommandInputModel {
+function commandInputModel(widget: CommandInputNode, width: number, widthProfile: TextWidthProfile): CommandInputModel {
   const prompt = promptText(widget);
   const value = valueText(widget);
-  const promptCells = singleLineCursorColumn(prompt, prompt.length);
+  const promptCells = singleLineCursorColumn(prompt, prompt.length, { widthProfile });
   const contentWidth = Math.max(0, Math.floor(width) - promptCells);
-  const cursorCells = singleLineCursorColumn(value, numberProp(widget, 'cursor'));
+  const cursorCells = singleLineCursorColumn(value, numberProp(widget, 'cursor'), { widthProfile });
   const offsetCells = Math.max(0, cursorCells - Math.max(0, contentWidth - 1));
-  const window = visibleLineWindow(value, offsetCells, contentWidth);
+  const window = visibleLineWindow(value, offsetCells, contentWidth, { widthProfile });
   return {
     prompt,
     promptCells,
@@ -294,7 +310,11 @@ function validationToneForSurface(tone: ComponentValidationTone): 'info' | 'warn
   return tone;
 }
 
-function valueWindowSpans(widget: CommandInputNode, model: CommandInputModel): readonly RenderSpan[] {
+function valueWindowSpans(
+  widget: CommandInputNode,
+  model: CommandInputModel,
+  widthProfile: TextWidthProfile
+): readonly RenderSpan[] {
   const selection = windowSelection(selectionFromUnknown(model.value, widget.props.selection), model.window.startOffset, model.window.endOffset);
   const spans = selectedTextSpans(
     model.window.text,
@@ -309,7 +329,7 @@ function valueWindowSpans(widget: CommandInputNode, model: CommandInputModel): r
   if (model.offsetCells <= 0) return spans;
   return [
     styledSpan('‹', renderNodeStyle(widget, 'placeholder'), commandSource(widget, 'window.left', { role: 'decoration', partKind: 'window' })),
-    ...clipRenderSpans(spans, Math.max(0, model.contentWidth - 1))
+    ...clipRenderSpans(spans, Math.max(0, model.contentWidth - 1), { widthProfile })
   ];
 }
 

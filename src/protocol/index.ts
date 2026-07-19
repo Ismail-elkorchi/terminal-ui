@@ -49,8 +49,8 @@ export function createProtocolWriter(sink: TerminalProtocolSink): TerminalProtoc
     disableFocusReporting: async () => sink.write('\u001B[?1004l'),
     pushKeyboardProfile: async (profile) => {
       const normalized = normalizeKeyboardProfile(profile);
-      if (normalized.kind === 'legacy') return;
-      await sink.write(`\u001B[>${String(normalized.flags)}u`);
+      const flags = normalized.kind === 'kitty' ? normalized.flags : 0;
+      await sink.write(`\u001B[>${String(flags)}u`);
     },
     setKeyboardProfile: async (profile) => {
       const normalized = normalizeKeyboardProfile(profile);

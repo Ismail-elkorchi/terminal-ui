@@ -1,6 +1,6 @@
 import { createInputAmbiguityDeadline, createInputPipeline, matchesInputTrigger } from '../input/index.ts';
 import { diagnostic } from '../diagnostics.ts';
-import { TerminalUiError } from '../errors.ts';
+import { TerminalUiError, errorFromUnknown } from '../errors.ts';
 import { createTuiContext } from './context.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
 import { createTuiEffectManager } from './effects.ts';
@@ -15,7 +15,9 @@ import {
   resolveInitialFocusSelector
 } from '../renderer/internal/focus.ts';
 import { resolveTuiInputBinding } from './input-bindings.ts';
+import { defaultTuiFinalizationPolicy } from './run-configuration.ts';
 import { tuiSnapshot } from './lifecycle.ts';
+import { recordTuiCommit } from './transcript.ts';
 import { createPointerRouter } from '../renderer/internal/pointer-router.ts';
 import {
   assertRuntimeCanStart,
@@ -26,6 +28,7 @@ import {
 import { commitFrame, dirtyRegionsForRenderCommit, renderCurrentFrame, resolveTuiTheme } from './runtime-frame.ts';
 import { createTuiSubscriptionManager } from './subscriptions.ts';
 import { createWheelInputCoordinator } from './wheel-input-coordinator.ts';
+import { createResizeCoordinator } from './resize-coordinator.ts';
 import type { InputEvent, MouseEvent as TerminalMouseEvent, MouseWheelEvent } from '../input/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -33,7 +36,7 @@ import { ignoreMessage, isIgnoredMessage } from '../interaction/message.ts';
 import type { MessageResolution } from '../interaction/message.ts';
 import type { RenderNode } from '../renderer/model/index.ts';
 import type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
-import type { Frame } from '../renderer/internal/frame.ts';
+import type { Frame, RenderDiff } from '../renderer/internal/frame.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { RenderCommitCandidate } from './runtime-frame.ts';
 import type { PointerRouteResult } from '../renderer/internal/pointer-router.ts';
@@ -47,6 +50,7 @@ import type {
   TuiMessageSource,
   TuiRuntime,
   TuiRuntimeChange,
+  TuiRuntimeDisposeOptions,
   TuiRuntimeMetrics,
   TuiRuntimeOptions
 } from './types.ts';
@@ -56,6 +60,22 @@ import type { ProducerAdmissionLease } from './producer-admission.ts';
 interface PendingTuiMessage<TMessage> {
   readonly message: TMessage;
   readonly source: TuiMessageSource;
+}
+
+interface RuntimeReduction<TState, TMessage> {
+  readonly state: TState;
+  readonly stateVersion: number;
+  readonly stateUpdates: number;
+  readonly messages: readonly PendingTuiMessage<TMessage>[];
+  readonly effects: readonly TuiEffect<TMessage>[];
+  readonly exitReason?: string;
+}
+
+interface RuntimeRenderResolution<TMessage> {
+  readonly render: RenderCommitCandidate<TMessage>;
+  readonly focusPath?: FocusPath;
+  readonly focusReturnPaths: readonly FocusPath[];
+  readonly diagnostics: readonly TerminalDiagnostic[];
 }
 
 interface ChangeWaiter<TState> {
@@ -79,6 +99,7 @@ export function createTuiRuntime<TState, TMessage>(
   let currentViewport = options.host.getViewport();
   let currentRender: RenderCommitCandidate<TMessage> | undefined;
   let stateVersion = 0;
+  let nextCommitSequence = 1;
   let currentFocusPath: FocusPath | undefined = options.initialFocus?.kind === 'path'
     ? options.initialFocus.path
     : undefined;
@@ -89,7 +110,14 @@ export function createTuiRuntime<TState, TMessage>(
   let startup: Promise<Frame> | undefined;
   let disposal: Promise<void> | undefined;
   const lifetimeController = new AbortController();
-  const runtimeDiagnostics = [...(options.diagnostics ?? [])];
+  const runtimeDiagnostics: TerminalDiagnostic[] = [];
+  const runtimeDiagnosticIds = new Set<string>();
+  for (const item of options.diagnostics ?? []) {
+    if (runtimeDiagnosticIds.has(item.id)) continue;
+    runtimeDiagnosticIds.add(item.id);
+    runtimeDiagnostics.push(item);
+    options.transcript?.recordDiagnostic(item);
+  }
   let diagnosticRefreshQueued = false;
   const backgroundTasks = new Set<OwnedRuntimeTask<void>>();
   let pendingFrameChange: Extract<TuiRuntimeChange<TState>, { readonly kind: 'frame' }> | undefined;
@@ -121,6 +149,10 @@ export function createTuiRuntime<TState, TMessage>(
         }));
       }
     }
+  });
+  const resizeCoordinator = createResizeCoordinator(async (viewport: typeof currentViewport) => {
+    await wheelInput.flush();
+    return dispatchQueue.run(() => resizeInternal(viewport));
   });
   const subscriptions = createTuiSubscriptionManager<TState, TMessage>({
     ...(options.app.definition.subscriptions === undefined
@@ -156,9 +188,8 @@ export function createTuiRuntime<TState, TMessage>(
     dispatch(message) {
       return dispatchQueue.run(() => dispatchInternal(message, 'external'));
     },
-    async resize(viewport) {
-      await wheelInput.flush();
-      return dispatchQueue.run(() => resizeInternal(viewport));
+    resize(viewport) {
+      return resizeCoordinator.request(viewport);
     },
     async handleInput(event) {
       await wheelInput.flush();
@@ -204,8 +235,8 @@ export function createTuiRuntime<TState, TMessage>(
       if (next !== undefined) return Promise.resolve(next);
       return waitForChange(signal);
     },
-    dispose() {
-      return disposeRuntime();
+    dispose(disposeOptions) {
+      return disposeRuntime(disposeOptions);
     },
     state() {
       return ensureState();
@@ -274,21 +305,39 @@ export function createTuiRuntime<TState, TMessage>(
     try {
       const context = await createRuntimeContext();
       const state = options.app.definition.init(context);
-      const preparedSubscriptions = await subscriptions.prepare(state);
+      const preparedSubscriptions = await subscriptions.prepare(state, context);
       const theme = resolveTuiTheme(options.theme, state);
-      const render = renderFrameWithFocusRecovery(state, context);
-      await commitFrame(options.host, undefined, render.frame, options.transcript, theme, {
+      const resolution = resolveRenderCandidate(
+        state,
+        context,
+        currentFocusPath,
+        focusReturnPaths,
+        pendingInitialFocus,
+        stateVersion,
+        candidateCommitId()
+      );
+      const diff = await commitFrame(options.host, undefined, resolution.render.frame, theme, {
         signal: lifetimeController.signal
       });
       metrics.frameCommits += 1;
       currentState = { kind: 'ready', value: state };
-      storeCurrentRender(render, currentFocusPath);
+      currentRender = resolution.render;
+      currentFocusPath = resolution.focusPath;
+      focusReturnPaths = [...resolution.focusReturnPaths];
+      pendingInitialFocus = undefined;
       phase = 'active';
+      nextCommitSequence += 1;
+      recordCommittedRender(resolution.render, diff);
       subscriptions.activate(preparedSubscriptions);
-      updateCompletedExitSnapshot(render.frame);
-      publishChange({ kind: 'frame', frame: render.frame });
+      for (const item of resolution.diagnostics) recordDiagnostic(item);
+      publishChange({
+        kind: 'frame',
+        commitId: resolution.render.commitId,
+        stateVersion: resolution.render.stateVersion,
+        frame: resolution.render.frame
+      });
       if (terminalExit !== undefined) publishChange({ kind: 'exit', exit: terminalExit });
-      return render.frame;
+      return resolution.render.frame;
     } catch (cause) {
       phase = 'failed';
       subscriptions.cancel();
@@ -303,69 +352,152 @@ export function createTuiRuntime<TState, TMessage>(
 
   async function dispatchManyInternal(messages: readonly TMessage[], source: TuiMessageSource): Promise<TState> {
     await ensureStarted();
-    const context = await createRuntimeContext();
     assertRuntimeOperational(phase);
-    const pendingEffects: TuiEffect<TMessage>[] = [];
-    const previousStateVersion = stateVersion;
-    const previousExit = terminalExit;
-    for (const message of messages) {
-      if (terminalExit !== undefined) break;
-      pendingEffects.push(...applyMessage({ message, source }, context));
-    }
-    if (terminalExit === undefined) {
-      await subscriptions.reconcile(ensureState());
-      assertRuntimeOperational(phase);
-    }
-    if (terminalExit !== undefined) {
-      subscriptions.cancel();
-      effects.cancel();
-    }
-    const exitChanged = terminalExit !== previousExit;
-    if (stateVersion === previousStateVersion) {
-      if (terminalExit === undefined) effects.start(pendingEffects);
-      if (exitChanged && terminalExit !== undefined) publishChange({ kind: 'exit', exit: terminalExit });
-      return ensureState();
-    }
-    const state = ensureState();
-    const theme = resolveTuiTheme(options.theme, state);
-    const previousFrame = frameDiffBase(theme);
-    const render = renderFrameWithFocusRecovery(state, context);
-    await commitFrame(
-      options.host,
-      previousFrame,
-      render.frame,
-      options.transcript,
-      theme,
-      dirtyCommitOptions(previousFrame, render)
-    );
-    metrics.frameCommits += 1;
-    storeCurrentRender(render, currentFocusPath);
-    updateCompletedExitSnapshot(render.frame);
-    publishChange({ kind: 'frame', frame: render.frame });
-    if (terminalExit !== undefined) publishChange({ kind: 'exit', exit: terminalExit });
-    if (terminalExit === undefined) effects.start(pendingEffects);
-    return ensureState();
+    return commitRuntimeTransition({
+      messages: messages.map((message) => ({ message, source })),
+      viewport: currentViewport,
+      requestedFocusPath: currentFocusPath
+    });
   }
 
   async function resizeInternal(viewport: Parameters<TuiRuntime<TState, TMessage>['resize']>[0]): Promise<Frame> {
-    const state = await ensureStarted();
-    options.transcript?.record({ kind: 'input', event: { kind: 'resize', viewport } });
-    currentViewport = viewport;
-    const context = await createRuntimeContext();
+    await ensureStarted();
     assertRuntimeOperational(phase);
-    const theme = resolveTuiTheme(options.theme, state);
-    const previousFrame = frameDiffBase(theme);
-    const render = renderFrameWithFocusRecovery(state, context);
-    await commitFrame(options.host, previousFrame, render.frame, options.transcript, theme, dirtyCommitOptions(previousFrame, render));
-    metrics.frameCommits += 1;
-    storeCurrentRender(render, currentFocusPath);
-    publishChange({ kind: 'frame', frame: render.frame });
-    return render.frame;
+    options.transcript?.record({ kind: 'input', event: { kind: 'resize', viewport } });
+    await commitRuntimeTransition({ messages: [], viewport, requestedFocusPath: currentFocusPath });
+    return ensureFrame();
   }
 
-  async function createRuntimeContext(): Promise<TuiContext> {
+  async function createRuntimeContext(viewport: typeof currentViewport = currentViewport): Promise<TuiContext> {
     const context = await createTuiContext(options.host, runtimeDiagnostics);
-    return { ...context, viewport: currentViewport };
+    return { ...context, viewport };
+  }
+
+  async function commitRuntimeTransition(input: {
+    readonly messages: readonly PendingTuiMessage<TMessage>[];
+    readonly viewport: typeof currentViewport;
+    readonly requestedFocusPath: FocusPath | undefined;
+    readonly forceFrame?: boolean;
+  }): Promise<TState> {
+    const context = await createRuntimeContext(input.viewport);
+    assertRuntimeOperational(phase);
+    const reduction = reduceMessages(input.messages, context);
+    const viewportChanged = input.viewport.columns !== currentViewport.columns
+      || input.viewport.rows !== currentViewport.rows;
+    const focusChanged = !sameFocusPath(input.requestedFocusPath, currentFocusPath);
+    const requiresFrame = input.forceFrame === true || reduction.stateUpdates > 0 || viewportChanged || focusChanged;
+    if (!requiresFrame) {
+      recordReductionMessages(reduction);
+      const exitChange = completeReduction(reduction, currentRender?.frame);
+      if (exitChange !== undefined) publishChange(exitChange);
+      if (reduction.exitReason === undefined) effects.start(reduction.effects);
+      return reduction.state;
+    }
+
+    const preparedSubscriptions = reduction.exitReason === undefined
+      ? await subscriptions.prepare(reduction.state, context)
+      : undefined;
+    assertRuntimeOperational(phase);
+    const theme = resolveTuiTheme(options.theme, reduction.state);
+    const previousFrame = frameDiffBase(theme);
+    const resolution = resolveRenderCandidate(
+      reduction.state,
+      context,
+      input.requestedFocusPath,
+      focusReturnPaths,
+      undefined,
+      reduction.stateVersion,
+      candidateCommitId()
+    );
+    const diff = await commitFrame(
+      options.host,
+      previousFrame,
+      resolution.render.frame,
+      theme,
+      dirtyCommitOptions(previousFrame, resolution.render)
+    );
+
+    currentState = { kind: 'ready', value: reduction.state };
+    stateVersion = reduction.stateVersion;
+    currentViewport = input.viewport;
+    currentRender = resolution.render;
+    currentFocusPath = resolution.focusPath;
+    focusReturnPaths = [...resolution.focusReturnPaths];
+    metrics.stateUpdates += reduction.stateUpdates;
+    metrics.frameCommits += 1;
+    nextCommitSequence += 1;
+    recordReductionMessages(reduction);
+    recordCommittedRender(resolution.render, diff);
+    for (const item of resolution.diagnostics) recordDiagnostic(item);
+    const exitChange = completeReduction(reduction, resolution.render.frame);
+    publishChange({
+      kind: 'frame',
+      commitId: resolution.render.commitId,
+      stateVersion: resolution.render.stateVersion,
+      frame: resolution.render.frame
+    });
+    if (exitChange !== undefined) publishChange(exitChange);
+    if (preparedSubscriptions !== undefined) subscriptions.activate(preparedSubscriptions);
+    if (reduction.exitReason === undefined) effects.start(reduction.effects);
+    return reduction.state;
+  }
+
+  function reduceMessages(
+    messages: readonly PendingTuiMessage<TMessage>[],
+    context: TuiContext
+  ): RuntimeReduction<TState, TMessage> {
+    let state = ensureState();
+    let nextStateVersion = stateVersion;
+    let stateUpdates = 0;
+    let exitReason: string | undefined;
+    const applied: PendingTuiMessage<TMessage>[] = [];
+    const pendingEffects: TuiEffect<TMessage>[] = [];
+    for (const item of messages) {
+      if (exitReason !== undefined) break;
+      metrics.dispatchedMessages += 1;
+      const result = options.app.definition.update(state, item.message, context);
+      applied.push(item);
+      pendingEffects.push(...(result.effects ?? []));
+      if (result.state !== state) {
+        nextStateVersion += 1;
+        stateUpdates += 1;
+      }
+      state = result.state;
+      if (result.exit !== undefined) exitReason = result.exit.reason ?? '';
+    }
+    return {
+      state,
+      stateVersion: nextStateVersion,
+      stateUpdates,
+      messages: applied,
+      effects: pendingEffects,
+      ...(exitReason === undefined ? {} : { exitReason })
+    };
+  }
+
+  function recordReductionMessages(reduction: RuntimeReduction<TState, TMessage>): void {
+    for (const item of reduction.messages) {
+      options.transcript?.record({ kind: 'message', source: item.source, message: item.message });
+    }
+  }
+
+  function completeReduction(
+    reduction: RuntimeReduction<TState, TMessage>,
+    frame: Frame | undefined
+  ): Extract<TuiRuntimeChange<TState>, { readonly kind: 'exit' }> | undefined {
+    if (reduction.exitReason === undefined) return undefined;
+    phase = 'exiting';
+    subscriptions.cancel();
+    effects.cancel();
+    terminalExit = {
+      ...completedExitFromSnapshot(
+        reduction.state,
+        frame?.accessibility ?? currentRender?.frame.accessibility ?? tuiSnapshot(options.app.id),
+        reduction.exitReason === '' ? undefined : reduction.exitReason
+      ),
+      diagnostics: [...runtimeDiagnostics]
+    };
+    return { kind: 'exit', exit: terminalExit };
   }
 
   function reportDiagnostic(item: TerminalDiagnostic): void {
@@ -378,6 +510,8 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   function recordDiagnostic(item: TerminalDiagnostic): void {
+    if (runtimeDiagnosticIds.has(item.id)) return;
+    runtimeDiagnosticIds.add(item.id);
     runtimeDiagnostics.push(item);
     options.transcript?.recordDiagnostic(item);
   }
@@ -388,11 +522,13 @@ export function createTuiRuntime<TState, TMessage>(
       try {
         await task;
       } catch (cause) {
-        recordDiagnostic(diagnostic('TUI_RUNTIME_TASK_FAILED', `TUI runtime task ${owner} failed.`, {
-          target: options.app.id,
-          cause,
-          data: { owner }
-        }));
+        if (phase !== 'disposing' && phase !== 'disposed') {
+          recordDiagnostic(diagnostic('TUI_RUNTIME_TASK_FAILED', `TUI runtime task ${owner} failed.`, {
+            target: options.app.id,
+            cause,
+            data: { owner }
+          }));
+        }
       } finally {
         settled?.();
         backgroundTasks.delete(owned);
@@ -403,24 +539,12 @@ export function createTuiRuntime<TState, TMessage>(
 
   async function refreshAfterDiagnostic(): Promise<void> {
     if (!runtimeIsActive() || currentState.kind === 'empty' || currentRender === undefined) return;
-    const state = currentState.value;
-    const context = await createRuntimeContext();
-    if (!runtimeIsActive()) return;
-    const theme = resolveTuiTheme(options.theme, state);
-    const previousFrame = frameDiffBase(theme);
-    const render = renderFrameWithFocusRecovery(state, context);
-    await commitFrame(
-      options.host,
-      previousFrame,
-      render.frame,
-      options.transcript,
-      theme,
-      dirtyCommitOptions(previousFrame, render)
-    );
-    metrics.frameCommits += 1;
-    storeCurrentRender(render, currentFocusPath);
-    updateCompletedExitSnapshot(render.frame);
-    publishChange({ kind: 'frame', frame: render.frame });
+    await commitRuntimeTransition({
+      messages: [],
+      viewport: currentViewport,
+      requestedFocusPath: currentFocusPath,
+      forceFrame: true
+    });
   }
 
   function runtimeIsActive(): boolean {
@@ -500,13 +624,16 @@ export function createTuiRuntime<TState, TMessage>(
 
   async function handleMouseInputInternal(event: TerminalMouseEvent): Promise<TuiInputResult<TState>> {
     await ensureStarted();
-    const previousRender = ensureRender();
-    const routed = pointerRouter.route(previousRender.regions, event);
-    const focusChanged = applyPointerFocus(event, routed);
+    const routed = pointerRouter.route(ensureRender().regions, event);
+    const requestedFocusPath = pointerFocusPath(event, routed);
+    const focusChanged = !sameFocusPath(requestedFocusPath, currentFocusPath);
     const messages = routed.flatMap((result) => isIgnoredMessage(result.message) ? [] : [result.message]);
-    if (messages.length > 0) await dispatchManyInternal(messages, 'input');
-    if (focusChanged && currentRender === previousRender) {
-      await commitFocusChangeInternal(ensureState());
+    if (messages.length > 0 || focusChanged) {
+      await commitRuntimeTransition({
+        messages: messages.map((message) => ({ message, source: 'input' })),
+        viewport: currentViewport,
+        requestedFocusPath
+      });
     }
     const nextState = ensureState();
     const nextFrame = ensureFrame();
@@ -516,75 +643,14 @@ export function createTuiRuntime<TState, TMessage>(
       : { handled, state: nextState, frame: nextFrame, exit: terminalExit };
   }
 
-  function applyPointerFocus(
+  function pointerFocusPath(
     event: TerminalMouseEvent,
     routed: readonly PointerRouteResult<TMessage>[]
-  ): boolean {
-    if (event.action !== 'press') return false;
+  ): FocusPath | undefined {
+    if (event.action !== 'press') return currentFocusPath;
     const intent = routed.find((result) => result.event.kind === 'pointerDown')?.hit?.focus;
-    if (intent === undefined || intent.kind === 'preserve') return false;
-    if (sameFocusPath(currentFocusPath, intent.path)) return false;
-    currentFocusPath = [...intent.path];
-    return true;
-  }
-
-  async function commitFocusChangeInternal(state: TState): Promise<Frame> {
-    const context = await createRuntimeContext();
-    const theme = resolveTuiTheme(options.theme, state);
-    const previousFrame = frameDiffBase(theme);
-    const requestedFocusPath = currentFocusPath;
-    const render = renderFrameWithFocusRecovery(state, context);
-    await commitFrame(
-      options.host,
-      previousFrame,
-      render.frame,
-      options.transcript,
-      theme,
-      dirtyCommitOptions(previousFrame, render)
-    );
-    metrics.frameCommits += 1;
-    storeCurrentRender(render, requestedFocusPath);
-    updateCompletedExitSnapshot(render.frame);
-    publishChange({ kind: 'frame', frame: render.frame });
-    return render.frame;
-  }
-
-  function applyMessage(
-    item: PendingTuiMessage<TMessage>,
-    context: TuiContext
-  ): readonly TuiEffect<TMessage>[] {
-    options.transcript?.record({ kind: 'message', source: item.source, message: item.message });
-    const state = ensureState();
-    metrics.dispatchedMessages += 1;
-    const result = options.app.definition.update(state, item.message, context);
-    currentState = { kind: 'ready', value: result.state };
-    if (result.state !== state) {
-      stateVersion += 1;
-      metrics.stateUpdates += 1;
-    }
-    if (result.exit !== undefined) {
-      phase = 'exiting';
-      terminalExit = {
-        ...completedExitFromSnapshot(
-          ensureState(),
-          currentRender?.frame.accessibility ?? tuiSnapshot(options.app.id),
-          result.exit.reason
-        ),
-        diagnostics: [...runtimeDiagnostics]
-      };
-    }
-    return result.effects ?? [];
-  }
-
-  function updateCompletedExitSnapshot(frame: Frame): void {
-    if (terminalExit?.status === 'completed') {
-      terminalExit = {
-        ...terminalExit,
-        state: ensureState(),
-        diagnostics: [...runtimeDiagnostics],
-        snapshot: frame.accessibility
-      };
-    }
+    if (intent === undefined || intent.kind === 'preserve') return currentFocusPath;
+    return [...intent.path];
   }
 
   async function ensureStarted(): Promise<TState> {
@@ -616,13 +682,20 @@ export function createTuiRuntime<TState, TMessage>(
     });
   }
 
-  function disposeRuntime(): Promise<void> {
+  function disposeRuntime(disposeOptions: TuiRuntimeDisposeOptions = {}): Promise<void> {
     if (disposal !== undefined) return disposal;
+    let timeoutMs: number;
+    try {
+      timeoutMs = runtimeDisposalTimeout(disposeOptions.timeoutMs);
+    } catch (cause) {
+      return Promise.reject(errorFromUnknown(cause));
+    }
     wheelInput.reset();
     inputAmbiguity.cancel();
     lifetimeController.abort();
     phase = 'disposing';
-    const unavailable = runtimePhaseError(phase);
+    const unavailable = runtimePhaseError('disposed');
+    resizeCoordinator.dispose(unavailable);
     for (const waiter of changeWaiters.splice(0)) {
       waiter.detach();
       waiter.reject(unavailable);
@@ -631,7 +704,7 @@ export function createTuiRuntime<TState, TMessage>(
     pendingExitChange = undefined;
     subscriptions.cancel();
     effects.cancel();
-    disposal = (async () => {
+    const cleanup = (async () => {
       const failures: unknown[] = [];
       try {
         await dispatchQueue.drain();
@@ -646,10 +719,41 @@ export function createTuiRuntime<TState, TMessage>(
       for (const cleanup of cleanups) {
         if (cleanup.status === 'rejected') failures.push(cleanup.reason);
       }
-      phase = 'disposed';
       if (failures.length > 0) throw new AggregateError(failures, 'TUI runtime disposal failed.');
     })();
+    phase = 'disposed';
+    disposal = boundedRuntimeDisposal(cleanup, disposeOptions, timeoutMs);
     return disposal;
+  }
+
+  function boundedRuntimeDisposal(
+    cleanup: Promise<void>,
+    disposeOptions: TuiRuntimeDisposeOptions,
+    timeoutMs: number
+  ): Promise<void> {
+    const controller = new AbortController();
+    const callerSignal = disposeOptions.signal;
+    const abortFromCaller = (): void => {
+      if (!controller.signal.aborted) controller.abort(callerSignal?.reason);
+    };
+    if (callerSignal?.aborted === true) abortFromCaller();
+    else callerSignal?.addEventListener('abort', abortFromCaller, { once: true });
+    void Promise.resolve()
+      .then(() => options.host.clock.sleep(timeoutMs, controller.signal))
+      .then(() => {
+        if (!controller.signal.aborted) controller.abort(RUNTIME_DISPOSAL_TIMEOUT);
+      })
+      .catch((cause: unknown) => {
+        if (!controller.signal.aborted) {
+          controller.abort(new TerminalUiError('TUI runtime disposal clock failed.', {
+            cause: errorFromUnknown(cause)
+          }));
+        }
+      });
+    return raceRuntimeDisposal(cleanup, controller.signal).finally(() => {
+      callerSignal?.removeEventListener('abort', abortFromCaller);
+      if (!controller.signal.aborted) controller.abort(RUNTIME_DISPOSAL_SETTLED);
+    });
   }
 
   function ensureState(): TState {
@@ -673,20 +777,25 @@ export function createTuiRuntime<TState, TMessage>(
     return currentRender;
   }
 
-  function renderFrameWithFocusRecovery(
+  function resolveRenderCandidate(
     state: TState,
-    context: TuiContext
-  ): RenderCommitCandidate<TMessage> {
-    const requestedFocusPath = currentFocusPath;
-    let render = renderCurrentFrame(options.app, state, context, requestedFocusPath, options, stateVersion);
-    if (pendingInitialFocus !== undefined) {
-      const resolution = resolveInitialFocusSelector(render.layout, pendingInitialFocus);
-      pendingInitialFocus = undefined;
+    context: TuiContext,
+    requestedFocusPath: FocusPath | undefined,
+    previousReturnPaths: readonly FocusPath[],
+    initialFocus: TuiRuntimeOptions<TState, TMessage>['initialFocus'],
+    candidateStateVersion: number,
+    commitId: string
+  ): RuntimeRenderResolution<TMessage> {
+    const diagnostics: TerminalDiagnostic[] = [];
+    let desiredFocusPath = requestedFocusPath;
+    let render = renderCurrentFrame(options.app, state, context, desiredFocusPath, options, candidateStateVersion, commitId);
+    if (initialFocus !== undefined) {
+      const resolution = resolveInitialFocusSelector(render.layout, initialFocus);
       if (resolution.kind === 'matched' && !sameFocusPath(resolution.path, render.frame.focusPath)) {
-        currentFocusPath = resolution.path;
-        render = renderCurrentFrame(options.app, state, context, resolution.path, options, stateVersion);
+        desiredFocusPath = resolution.path;
+        render = renderCurrentFrame(options.app, state, context, desiredFocusPath, options, candidateStateVersion, commitId);
       } else if (resolution.kind !== 'matched') {
-        recordDiagnostic(diagnostic(
+        diagnostics.push(diagnostic(
           'TUI_FOCUS_SELECTION_INVALID',
           resolution.kind === 'missing'
             ? 'Initial focus selector did not match an active focus target.'
@@ -702,54 +811,57 @@ export function createTuiRuntime<TState, TMessage>(
         ));
       }
     }
-    const focusReturnPath = focusReturnPaths.at(-1);
+    let nextReturnPaths = previousReturnPaths
+      .filter((path) => findAnyLayoutFocusTarget(render.layout, path) !== undefined)
+      .map((path) => [...path]);
+    const focusReturnPath = nextReturnPaths.at(-1);
     if (
-      focusReturnPath === undefined
-      || requestedFocusPath === undefined
-      || sameFocusPath(render.frame.focusPath, requestedFocusPath)
+      focusReturnPath !== undefined
+      && desiredFocusPath !== undefined
+      && !sameFocusPath(render.frame.focusPath, desiredFocusPath)
     ) {
-      return render;
+      const recovered = renderCurrentFrame(
+        options.app,
+        state,
+        context,
+        focusReturnPath,
+        options,
+        candidateStateVersion,
+        commitId
+      );
+      if (sameFocusPath(recovered.frame.focusPath, focusReturnPath)) render = recovered;
     }
-    const recovered = renderCurrentFrame(options.app, state, context, focusReturnPath, options, stateVersion);
-    return sameFocusPath(recovered.frame.focusPath, focusReturnPath) ? recovered : render;
-  }
-
-  function storeCurrentRender(render: RenderCommitCandidate<TMessage>, requestedFocusPath: FocusPath | undefined): void {
-    focusReturnPaths = focusReturnPaths.filter((path) => findAnyLayoutFocusTarget(render.layout, path) !== undefined);
     if (
-      requestedFocusPath !== undefined
+      desiredFocusPath !== undefined
       && render.frame.focusPath !== undefined
-      && !sameFocusPath(render.frame.focusPath, requestedFocusPath)
-      && findAnyLayoutFocusTarget(render.layout, requestedFocusPath) !== undefined
+      && !sameFocusPath(render.frame.focusPath, desiredFocusPath)
+      && findAnyLayoutFocusTarget(render.layout, desiredFocusPath) !== undefined
       && activeFocusScopeRestores(render.layout)
-      && !focusReturnPaths.some((path) => sameFocusPath(path, requestedFocusPath))
+      && !nextReturnPaths.some((path) => sameFocusPath(path, desiredFocusPath))
     ) {
-      focusReturnPaths.push([...requestedFocusPath]);
+      nextReturnPaths.push([...desiredFocusPath]);
     }
     if (
-      focusReturnPaths.length > 0
-      && sameFocusPath(render.frame.focusPath, focusReturnPaths.at(-1))
+      nextReturnPaths.length > 0
+      && sameFocusPath(render.frame.focusPath, nextReturnPaths.at(-1))
     ) {
-      focusReturnPaths = focusReturnPaths.slice(0, -1);
+      nextReturnPaths = nextReturnPaths.slice(0, -1);
     }
-    currentRender = render;
-    currentFocusPath = render.frame.focusPath;
+    return {
+      render,
+      ...(render.frame.focusPath === undefined ? {} : { focusPath: render.frame.focusPath }),
+      focusReturnPaths: nextReturnPaths,
+      diagnostics
+    };
   }
 
-  async function moveFocus(state: TState, direction: 'next' | 'previous'): Promise<Frame> {
-    const context = await createRuntimeContext();
+  async function moveFocus(_state: TState, direction: 'next' | 'previous'): Promise<Frame> {
     const current = ensureRender();
-    const theme = resolveTuiTheme(options.theme, state);
-    currentFocusPath = direction === 'next'
+    const requestedFocusPath = direction === 'next'
       ? nextFocusPath(current.layout, currentFocusPath)
       : previousFocusPath(current.layout, currentFocusPath);
-    const render = renderFrameWithFocusRecovery(state, context);
-    const previousFrame = frameDiffBase(theme);
-    await commitFrame(options.host, previousFrame, render.frame, options.transcript, theme, dirtyCommitOptions(previousFrame, render));
-    metrics.frameCommits += 1;
-    storeCurrentRender(render, currentFocusPath);
-    publishChange({ kind: 'frame', frame: render.frame });
-    return render.frame;
+    await commitRuntimeTransition({ messages: [], viewport: currentViewport, requestedFocusPath });
+    return ensureFrame();
   }
 
   function messageForInput(_state: TState, event: InputEvent): MessageResolution<TMessage> {
@@ -826,6 +938,21 @@ export function createTuiRuntime<TState, TMessage>(
       ? { signal: lifetimeController.signal }
       : { dirtyRegions, signal: lifetimeController.signal };
   }
+
+  function candidateCommitId(): string {
+    return `${options.app.id}:commit:${String(nextCommitSequence)}`;
+  }
+
+  function recordCommittedRender(render: RenderCommitCandidate<TMessage>, diff: RenderDiff): void {
+    recordTuiCommit(options.transcript, {
+      id: render.commitId,
+      stateVersion: render.stateVersion,
+      viewport: render.viewport,
+      ...(render.frame.focusPath === undefined ? {} : { focusPath: render.frame.focusPath }),
+      frame: render.frame,
+      diff
+    });
+  }
 }
 
 function committedTextInputEvent(
@@ -836,6 +963,14 @@ function committedTextInputEvent(
     && event.committedText !== undefined
     ? { kind: 'text', text: event.committedText, paste: false }
     : undefined;
+}
+
+function runtimeDisposalTimeout(value: number | undefined): number {
+  const timeoutMs = value ?? defaultTuiFinalizationPolicy.timeoutMs;
+  if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
+    throw new RangeError('TUI runtime disposal timeoutMs must be a non-negative finite number.');
+  }
+  return timeoutMs;
 }
 
 type RuntimeStateSlot<TState> =
@@ -881,3 +1016,47 @@ function combinePendingInput<TState>(
   if (first === undefined) return second;
   return Promise.all([first, second]).then(([left, right]) => [...left, ...right]);
 }
+
+function raceRuntimeDisposal(cleanup: Promise<void>, signal: AbortSignal): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const aborted = (): void => {
+      settle(() => {
+        reject(runtimeDisposalAbort(signal));
+      });
+    };
+    const settle = (complete: () => void): void => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener('abort', aborted);
+      complete();
+    };
+    signal.addEventListener('abort', aborted, { once: true });
+    cleanup.then(
+      () => {
+        settle(() => {
+          resolve();
+        });
+      },
+      (cause: unknown) => {
+        settle(() => {
+          reject(errorFromUnknown(cause));
+        });
+      }
+    );
+    if (signal.aborted) aborted();
+  });
+}
+
+function runtimeDisposalAbort(signal: AbortSignal): TerminalUiError {
+  if (signal.reason instanceof TerminalUiError) return signal.reason;
+  if (signal.reason === RUNTIME_DISPOSAL_TIMEOUT) {
+    return new TerminalUiError('TUI runtime disposal timed out.');
+  }
+  return new TerminalUiError('TUI runtime disposal was cancelled.', {
+    cause: signal.reason
+  });
+}
+
+const RUNTIME_DISPOSAL_TIMEOUT = Symbol('terminal-ui.runtime-disposal-timeout');
+const RUNTIME_DISPOSAL_SETTLED = Symbol('terminal-ui.runtime-disposal-settled');

@@ -2,6 +2,8 @@ import type {
   ColorSwatchPickerOption
 } from '../../../../ui-model/forms.ts';
 import type { CalendarDate, CalendarDay } from '../../../../ui-model/calendar.ts';
+import { oneCellGlyph, padTextCells } from '../../../../text/index.ts';
+import type { TextWidthProfile } from '../../../../text/index.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../frame.ts';
 import {
@@ -89,7 +91,8 @@ export function calendarMonthHeaderSpans(widget: CalendarNode): readonly RenderS
 
 export function colorSwatchPickerSummarySpans(
   option: ColorSwatchPickerOption<unknown>,
-  widget: ColorSwatchPickerNode
+  widget: ColorSwatchPickerNode,
+  widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   const disabled = option.disabled === true || widget.props.disabled === true;
   const style = disabled
@@ -98,7 +101,7 @@ export function colorSwatchPickerSummarySpans(
   return [
     formSpan(widget, 'summary', 'summary.label', 'Selected', formLabelStyle(widget, disabled ? 'disabled' : undefined)),
     formSpan(widget, 'separator', 'summary.separator', ': '),
-    formSpan(widget, 'swatch', 'summary.swatch', option.swatch ?? '■', style),
+    formSpan(widget, 'swatch', 'summary.swatch', oneCellGlyph(option.swatch ?? '■', '*', { widthProfile }), style),
     separatorSpan(widget),
     formSpan(widget, 'summary', 'summary.value', option.label, style)
   ];
@@ -106,36 +109,55 @@ export function colorSwatchPickerSummarySpans(
 
 export function colorSwatchPickerSpans(
   option: ColorSwatchPickerOption<unknown>,
-  widget: ColorSwatchPickerNode
+  widget: ColorSwatchPickerNode,
+  widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   const selected = option.id === selectedId(widget);
   const disabled = option.disabled === true || widget.props.disabled === true;
-  const label = clip(option.label, 8).padEnd(8, ' ');
+  const label = padTextCells(clip(option.label, 8, widthProfile), 8, { widthProfile });
   const state = optionControlState(widget, { selected, disabled });
   const style = disabled
     ? renderNodeStyle(widget, 'option', 'disabled')
     : option.style ?? colorOptionStyle(option, widget) ?? colorSwatchStyle(widget);
   return [
     formSpan(widget, 'marker', `option.${option.id}.open`, selected ? '[' : ' ', formMarkerStyle(widget, state)),
-    formSpan(widget, 'swatch', `option.${option.id}.swatch`, option.swatch ?? '■', style),
+    formSpan(
+      widget,
+      'swatch',
+      `option.${option.id}.swatch`,
+      oneCellGlyph(option.swatch ?? '■', '*', { widthProfile }),
+      style
+    ),
     separatorSpan(widget),
     formSpan(widget, 'option', `option.${option.id}.label`, label, style),
-    formSpan(widget, 'marker', `option.${option.id}.close`, selected ? ']' : ' ', formMarkerStyle(widget, state)),
-    separatorSpan(widget)
+    formSpan(widget, 'marker', `option.${option.id}.close`, selected ? ']' : ' ', formMarkerStyle(widget, state))
   ];
 }
 
-export function calendarWeekdayHeaderSpans(widget: CalendarNode): readonly RenderSpan[] {
+export function calendarWeekdayHeaderSpans(
+  widget: CalendarNode,
+  widthProfile: TextWidthProfile
+): readonly RenderSpan[] {
   return widget.props.weekdays.slice(0, 7).map((label, index) =>
-    formSpan(widget, 'weekday', `weekday.${String(index)}`, ` ${clipNoEllipsis(clean(label), 2).padEnd(2, ' ')} `, formLabelStyle(widget, 'disabled'))
+    formSpan(
+      widget,
+      'weekday',
+      `weekday.${String(index)}`,
+      ` ${padTextCells(clipNoEllipsis(clean(label), 2, widthProfile), 2, { widthProfile })} `,
+      formLabelStyle(widget, 'disabled')
+    )
   );
 }
 
 export function calendarCellSpans(
   day: CalendarDay,
-  widget: CalendarNode
+  widget: CalendarNode,
+  widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
-  const label = clipNoEllipsis(day.label, 2).padStart(2, ' ');
+  const label = padTextCells(clipNoEllipsis(day.label, 2, widthProfile), 2, {
+    align: 'end',
+    widthProfile
+  });
   const selected = day.id === selectedId(widget);
   const state = calendarDayState(day, widget);
   if (selected) {

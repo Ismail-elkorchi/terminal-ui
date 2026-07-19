@@ -80,6 +80,22 @@ test('dialog reserves a structurally separated action area without color', () =>
   assert.match(renderFramePlain(frame), /OK/u);
 });
 
+test('dialog action separators preserve one-cell geometry under ambiguous-wide profiles', () => {
+  const frame = renderElementFrame(dialog(text('Body'), {
+    id: 'wide-dialog',
+    title: 'Confirm',
+    width: 16,
+    height: 7,
+    actions: button({ id: 'confirm', label: 'OK' })
+  }), { columns: 24, rows: 9 }, {
+    widthProfile: { emoji: 'wide', ambiguous: 'wide' }
+  });
+  const separators = frame.cells.filter((cell) => cell.source?.label === 'action-separator');
+
+  assert.equal(separators.length, 14);
+  assert.ok(separators.every((cell) => cell.text === '-' && cell.width === 1));
+});
+
 test('dialog exposes outside-press dismissal only outside its painted bounds', () => {
   const widget = dialog(text('Dialog body', { id: 'body' }), {
     id: 'dismissible-dialog',

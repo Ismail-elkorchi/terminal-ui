@@ -20,6 +20,7 @@ const renderModelCache = new WeakMap<object, {
   readonly height: number;
   readonly model: PaletteRenderModel;
 }>();
+const normalizedEntriesCache = new WeakMap<object, readonly SearchEntry<unknown>[]>();
 
 interface PaletteRenderModel {
   readonly title: string;
@@ -193,7 +194,10 @@ function paletteRenderModel(widget: PaletteNode, height: number): PaletteRenderM
 }
 
 function paletteEntries(widget: PaletteNode): readonly SearchEntry<unknown>[] {
-  return widget.props.entries.map((entry) => ({
+  const entries = widget.props.entries;
+  const cached = normalizedEntriesCache.get(entries);
+  if (cached !== undefined) return cached;
+  const normalized = entries.map((entry) => ({
     id: clean(entry.id),
     label: clean(entry.label),
     value: entry.value,
@@ -203,6 +207,8 @@ function paletteEntries(widget: PaletteNode): readonly SearchEntry<unknown>[] {
     ...(entry.disabled === true ? { disabled: true } : {}),
     ...(entry.keywords === undefined ? {} : { keywords: entry.keywords.map(clean) })
   }));
+  normalizedEntriesCache.set(entries, normalized);
+  return normalized;
 }
 
 function selectedInput(widget: PaletteNode): Partial<Pick<PaletteWindowInput<unknown>, 'selected' | 'selectedId'>> {

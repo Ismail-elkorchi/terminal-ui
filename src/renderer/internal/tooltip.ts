@@ -10,6 +10,7 @@ import type { FrameCellSource, TerminalStyle } from '../../visual/render.ts';
 import { stringify } from './render-node-props.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { TooltipTone } from '../../ui-model/menu.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 
 export interface TooltipSize {
   readonly width: number;
@@ -32,7 +33,7 @@ export function renderTooltip(widget: TooltipNode, buffer: RenderTarget, bounds:
   };
   const lines = tooltipContentLines(widget).slice(0, contentBounds.height);
   for (let index = 0; index < lines.length; index += 1) {
-    const line = clipTextCells(lines[index] ?? '', contentBounds.width).text;
+    const line = clipTextCells(lines[index] ?? '', contentBounds.width, { widthProfile: buffer.widthProfile }).text;
     buffer.write(contentBounds.row + index, contentBounds.column, [{
       text: line,
       style: tooltipTextStyle(tone),
@@ -41,12 +42,15 @@ export function renderTooltip(widget: TooltipNode, buffer: RenderTarget, bounds:
   }
 }
 
-export function tooltipPreferredSize(widget: TooltipNode): TooltipSize {
+export function tooltipPreferredSize(widget: TooltipNode, widthProfile: TextWidthProfile): TooltipSize {
   const maxWidth = tooltipMaxWidth(widget);
   const title = tooltipTitle(widget);
   const lines = tooltipContentLines(widget);
-  const contentWidth = lines.reduce((max, line) => Math.max(max, measureTextCells(line).cells), 0);
-  const titleWidth = title.length === 0 ? 0 : measureTextCells(` ${title} `).cells;
+  const contentWidth = lines.reduce(
+    (max, line) => Math.max(max, measureTextCells(line, { widthProfile }).cells),
+    0
+  );
+  const titleWidth = title.length === 0 ? 0 : measureTextCells(` ${title} `, { widthProfile }).cells;
   return {
     width: Math.max(2, Math.min(maxWidth, Math.max(contentWidth, titleWidth) + 2)),
     height: Math.max(2, lines.length + 2)

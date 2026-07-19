@@ -8,12 +8,13 @@ import {
   menuPopupContentSize
 } from './menu-widgets.ts';
 import { renderNodeTargetId } from './pointer-presentation.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 
 type ContextMenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'contextMenu'>;
 type MenuBarNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'menuBar'>;
 type DropdownMenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'dropdownMenu'>;
 
-export function contextMenuPopupBounds(widget: ContextMenuNode, viewport: Rect): readonly Rect[] {
+export function contextMenuPopupBounds(widget: ContextMenuNode, viewport: Rect, widthProfile: TextWidthProfile): readonly Rect[] {
   if (widget.props.presentation.kind === 'closed' || (widget.children?.length ?? 0) === 0) return [];
   return [placeAnchoredSurface({
     viewport,
@@ -21,16 +22,27 @@ export function contextMenuPopupBounds(widget: ContextMenuNode, viewport: Rect):
     size: menuPopupContentSize(
       widget.props.presentation.menu.items,
       widget.props.maxVisibleItems,
-      widget.props.title
+      widget.props.title,
+      widthProfile
     ),
     ...(widget.props.placement === undefined ? {} : { placement: widget.props.placement }),
     margin: 0
   })];
 }
 
-export function dropdownMenuPopupBounds(widget: DropdownMenuNode, bounds: Rect, viewport: Rect): readonly Rect[] {
+export function dropdownMenuPopupBounds(
+  widget: DropdownMenuNode,
+  bounds: Rect,
+  viewport: Rect,
+  widthProfile: TextWidthProfile
+): readonly Rect[] {
   if (widget.props.presentation.kind === 'closed' || (widget.children?.length ?? 0) === 0) return [];
-  const contentSize = menuPopupContentSize(widget.props.presentation.menu.items, widget.props.maxVisibleItems, undefined);
+  const contentSize = menuPopupContentSize(
+    widget.props.presentation.menu.items,
+    widget.props.maxVisibleItems,
+    undefined,
+    widthProfile
+  );
   return [placeAnchoredSurface({
     viewport,
     anchor: { kind: 'target', bounds: triggerBounds(bounds) },
@@ -40,14 +52,20 @@ export function dropdownMenuPopupBounds(widget: DropdownMenuNode, bounds: Rect, 
   })];
 }
 
-export function menuBarPopupBounds(widget: MenuBarNode, bounds: Rect, viewport: Rect): readonly Rect[] {
+export function menuBarPopupBounds(
+  widget: MenuBarNode,
+  bounds: Rect,
+  viewport: Rect,
+  widthProfile: TextWidthProfile
+): readonly Rect[] {
   if (widget.props.presentation.kind === 'closed' || (widget.children?.length ?? 0) === 0) return [];
-  const heading = menuBarItemBounds(widget, bounds).find((candidate) => candidate.item.id === widget.props.presentation.active);
+  const heading = menuBarItemBounds(widget, bounds, widthProfile)
+    .find((candidate) => candidate.item.id === widget.props.presentation.active);
   if (heading === undefined) return [];
   return [placeAnchoredSurface({
     viewport,
     anchor: { kind: 'target', bounds: heading.bounds },
-    size: menuPopupContentSize(widget.props.presentation.menu.items, widget.props.maxVisibleItems, undefined),
+    size: menuPopupContentSize(widget.props.presentation.menu.items, widget.props.maxVisibleItems, undefined, widthProfile),
     placement: 'below',
     margin: 0
   })];
@@ -78,10 +96,14 @@ export function dropdownMenuHitTargets<TMessage>(widget: DropdownMenuNode<TMessa
       ];
 }
 
-export function menuBarHitTargets<TMessage>(widget: MenuBarNode<TMessage>, layout: LayoutNode): readonly HitTarget<TMessage>[] {
+export function menuBarHitTargets<TMessage>(
+  widget: MenuBarNode<TMessage>,
+  layout: LayoutNode,
+  widthProfile: TextWidthProfile
+): readonly HitTarget<TMessage>[] {
   const toMessage = widget.props.toActionMessage;
   if (toMessage === undefined) return [];
-  const headings = menuBarItemBounds(widget, layout.bounds).flatMap(({ item, bounds }) => item.disabled === true ? [] : [{
+  const headings = menuBarItemBounds(widget, layout.bounds, widthProfile).flatMap(({ item, bounds }) => item.disabled === true ? [] : [{
     id: renderNodeTargetId(widget, item.id),
     bounds,
     accepts: ['click'] as const,

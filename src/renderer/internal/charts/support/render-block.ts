@@ -1,6 +1,7 @@
 import { createFrameBuffer } from '../../frame-buffer.ts';
 import { clipRenderSpans } from '../../../../visual/render.ts';
 import type { RenderBlock, RenderSpan } from '../../../../visual/render.ts';
+import type { TextWidthProfile } from '../../../../text/index.ts';
 
 export function frameBufferBlock(
   buffer: ReturnType<typeof createFrameBuffer>,
@@ -25,8 +26,12 @@ export function frameBufferBlock(
   };
 }
 
-export function clipLineSpans(spans: readonly RenderSpan[], width: number): readonly RenderSpan[] {
-  return clipRenderSpans(spans, width);
+export function clipLineSpans(
+  spans: readonly RenderSpan[],
+  width: number,
+  widthProfile: TextWidthProfile
+): readonly RenderSpan[] {
+  return clipRenderSpans(spans, width, { widthProfile });
 }
 
 function trimTrailingPlainSpaces(spans: readonly RenderSpan[]): readonly RenderSpan[] {

@@ -123,8 +123,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.equal(harness.restores().length, 1);
   assert.equal(harness.snapshot().source, 'tui');
   assert.equal(harness.snapshot().root.id, 'root-surface');
-  assert.equal(harness.transcript.snapshot().steps.filter((step) => step.kind === 'frame').length, 2);
-  assert.equal(harness.transcript.snapshot().steps.filter((step) => step.kind === 'diff').length, 2);
+  assert.equal(harness.transcript.snapshot().steps.filter((step) => step.kind === 'commit').length, 2);
   assert.equal(harness.transcript.snapshot().steps.filter((step) => step.kind === 'restore').length, 1);
   assert.match(harness.output(), /Terminal workbench/u);
   assert.match(renderFramePlain(harness.frames()[1]), /Submitted/u);

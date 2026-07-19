@@ -4,9 +4,9 @@ import { defineTheme, isTerminalTheme } from '../theme/index.ts';
 import { dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions.ts';
 import { diffFrames, renderElementProjection } from '../renderer/internal/render.ts';
 import { planTerminalOutput } from '../renderer/internal/output-planner.ts';
-import { recordTuiFrame } from './transcript.ts';
+import { defaultTuiFinalizationPolicy } from './run-configuration.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { TerminalHost, TerminalViewport } from '../host/index.ts';
+import type { TerminalHost, TerminalOperationContext, TerminalViewport } from '../host/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
 import type { FocusPath } from '../interaction/focus.ts';
@@ -16,6 +16,7 @@ import type { RenderRegion } from '../renderer/internal/render.ts';
 import type { TuiApp, TuiContext, TuiRuntimeOptions, TuiTheme } from './types.ts';
 
 export interface RenderCommitCandidate<TMessage> {
+  readonly commitId: string;
   readonly stateVersion: number;
   readonly themeFingerprint: string;
   readonly viewport: TerminalViewport;
@@ -32,16 +33,19 @@ export function renderCurrentFrame<TState, TMessage>(
   context: TuiContext,
   focusPath: FocusPath | undefined,
   options: TuiRuntimeOptions<TState, TMessage>,
-  stateVersion: number
+  stateVersion: number,
+  commitId: string
 ): RenderCommitCandidate<TMessage> {
   const theme = resolveTuiTheme(options.theme, state);
   const projection = renderElementProjection(app.definition.view(state, context), context.viewport, {
     ...(focusPath === undefined ? {} : { focusPath }),
-    theme
+    theme,
+    widthProfile: context.capabilities.unicode.widthProfile
   });
   const accessibility = appAccessibility(app, state, projection.frame);
   const frame = accessibility === projection.frame.accessibility ? projection.frame : { ...projection.frame, accessibility };
   return {
+    commitId,
     stateVersion,
     themeFingerprint: theme.fingerprint,
     viewport: context.viewport,
@@ -57,7 +61,6 @@ export async function commitFrame(
   host: TerminalHost,
   previousFrame: Frame | undefined,
   frame: Frame,
-  transcript: TuiRuntimeOptions<unknown, unknown>['transcript'] | undefined,
   theme: TerminalTheme,
   options: { readonly dirtyRegions?: DirtyRegionSet; readonly signal?: AbortSignal } = {}
 ): Promise<RenderDiff> {
@@ -66,14 +69,16 @@ export async function commitFrame(
   const capabilities = await host.getCapabilities();
   options.signal?.throwIfAborted();
   const output = planTerminalOutput(diff, { capabilities, hyperlinks: true, theme });
+  const operationContext: TerminalOperationContext = options.signal === undefined
+    ? {}
+    : { signal: options.signal };
   try {
-    await host.write({ text: output.text });
+    await host.write({ text: output.text }, operationContext);
   } catch (error) {
     await attemptOutputCleanup(host, output.failureCleanup, error);
   }
   options.signal?.throwIfAborted();
   recordHostFrame(host, frame, diff);
-  recordTuiFrame(transcript, frame, diff);
   return diff;
 }
 
@@ -83,14 +88,25 @@ async function attemptOutputCleanup(
   writeError: unknown
 ): Promise<never> {
   if (cleanup === undefined) throw writeError;
+  const controller = new AbortController();
+  const timer = Promise.resolve()
+    .then(() => host.clock.sleep(defaultTuiFinalizationPolicy.timeoutMs, controller.signal))
+    .then(() => {
+      if (!controller.signal.aborted) controller.abort(new Error('Terminal output cleanup timed out.'));
+    }, (cause: unknown) => {
+      if (!controller.signal.aborted) controller.abort(cause);
+    });
   try {
-    await host.write({ text: cleanup });
+    await host.write({ text: cleanup }, { signal: controller.signal });
   } catch (cleanupError) {
     throw new AggregateError(
       [writeError, cleanupError],
       'Terminal frame write failed and synchronized-output cleanup also failed.',
       { cause: cleanupError }
     );
+  } finally {
+    controller.abort('terminal_output_cleanup_settled');
+    await timer;
   }
   throw writeError;
 }

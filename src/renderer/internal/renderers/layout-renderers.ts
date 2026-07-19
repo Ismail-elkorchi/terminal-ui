@@ -62,7 +62,9 @@ export const layoutRenderers = {
   viewport: {
     layout: ({ renderNode, bounds }) => [viewportChildBounds(renderNode, bounds)],
     render: (input) => {
-      const viewportBuffer = createFrameBuffer(input.buffer.width, input.buffer.height);
+      const viewportBuffer = createFrameBuffer(input.buffer.width, input.buffer.height, {
+        widthProfile: input.buffer.widthProfile
+      });
       input.renderChildren(viewportBuffer);
       const scrollbars = scrollbarsForRenderNode(input.renderNode, input.layoutNode.bounds, (contentBounds) => viewportScrollbarState(input.renderNode, contentBounds), 'both');
       const occupiedCells = new Set<string>();
@@ -108,7 +110,13 @@ export const layoutRenderers = {
       writeRenderBlock(input.buffer, {
         ...input.layoutNode.bounds,
         height: Math.min(1, input.layoutNode.bounds.height)
-      }, tabsHeaderBlock(input.renderNode, input.layoutNode.bounds, input.focus === 'self', input.theme));
+      }, tabsHeaderBlock(
+        input.renderNode,
+        input.layoutNode.bounds,
+        input.focus === 'self',
+        input.theme,
+        input.widthProfile
+      ));
       input.renderChildren();
     },
     accessibility: ({ renderNode, id, focused }) => ({
@@ -119,7 +127,12 @@ export const layoutRenderers = {
       ...(focused ? { focused } : {}),
       children: tabsAccessibleChildren(renderNode)
     }),
-    hitTargets: ({ renderNode, bounds, theme }) => tabsHitTargets(renderNode, bounds, theme)
+    hitTargets: ({ renderNode, bounds, theme, widthProfile }) => tabsHitTargets(
+      renderNode,
+      bounds,
+      theme,
+      widthProfile
+    )
   },
   dialog: {
     layout: ({ renderNode, bounds, childMeasures }) => dialogChildBounds(renderNode, bounds, borderForDialog(renderNode), childMeasures),

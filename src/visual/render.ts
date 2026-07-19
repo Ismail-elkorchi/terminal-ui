@@ -1,4 +1,4 @@
-import { clipTextCells, measureTextCells } from '../text/index.ts';
+import { clipTextCells, fillTextCells, measureTextCells } from '../text/index.ts';
 import type { ThemeColorToken } from './color.ts';
 import { sameFrameCellSource } from './source.ts';
 import type { FrameCellSource } from './source.ts';
@@ -271,11 +271,7 @@ function repeatFillSpan(
 ): readonly RenderSpan[] {
   if (cells === 0) return [];
   const text = fill.text.length === 0 ? ' ' : fill.text;
-  const measured = measureTextCells(text, options).cells;
-  if (measured !== 1) {
-    return [{ ...fill, text: ' '.repeat(cells) }];
-  }
-  return [{ ...fill, text: text.repeat(cells) }];
+  return [{ ...fill, text: fillTextCells(text, cells, options) }];
 }
 
 function middleClipSegments(

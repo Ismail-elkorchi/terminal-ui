@@ -39,3 +39,14 @@ test('drawBorder renders 2x2 corners for every visible border kind', () => {
     assert.equal(renderFramePlain(buffer.snapshot()), current.expected, current.kind);
   }
 });
+
+test('drawBorder falls back to one-cell geometry for ambiguous-wide border glyphs', () => {
+  const buffer = createFrameBuffer(6, 3, {
+    widthProfile: { emoji: 'wide', ambiguous: 'wide' }
+  });
+
+  drawBorder(buffer, { row: 1, column: 1, width: 6, height: 3 }, { kind: 'rounded' }, defaultTheme);
+
+  assert.equal(renderFramePlain(buffer.snapshot()), '+----+\n|    |\n+----+');
+  assert.ok(buffer.snapshot().cells.every((cell) => cell.width === 1));
+});

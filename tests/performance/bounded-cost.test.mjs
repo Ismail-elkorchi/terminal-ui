@@ -496,7 +496,7 @@ test('custom canvas render stays bounded even when painters write outside the vi
   assert.equal(renderFramePlain(frame).split('\n').length, 8);
 });
 
-test('resize storms commit one frame per resize without hidden unbounded loops', async () => {
+test('resize storms skip unchanged viewports and commit each distinct sequential resize', async () => {
   const app = defineTui({
     id: 'resize-bounds',
     init: () => ({ label: 'ready' }),
@@ -511,6 +511,6 @@ test('resize storms commit one frame per resize without hidden unbounded loops',
     await runtime.resize({ columns: 20 + (index % 5), rows: 4 + (index % 3) });
   }
 
-  assert.equal(host.frames().length, 51);
-  assert.equal(host.diffs().length, 51);
+  assert.equal(host.frames().length, 50);
+  assert.equal(host.diffs().length, 50);
 });

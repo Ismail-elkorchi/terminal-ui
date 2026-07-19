@@ -11,6 +11,7 @@ import type {
 } from '../../visual/render.ts';
 import { sameFrameCellSource, sameTerminalLink, sameTerminalStyle, span } from '../../visual/render.ts';
 import type { RenderSerializeOptions } from './ansi.ts';
+import { textWidthProfileKey } from '../../text/index.ts';
 
 export type { CursorPosition } from '../model/cursor.ts';
 export type { Frame, FrameCell, FrameHitTarget } from '../model/frame.ts';
@@ -87,6 +88,7 @@ export function renderFrameAnsi(frame: Frame, options: RenderSerializeOptions): 
     schemaVersion: 'terminal-ui.render-diff.v2',
     width: frame.width,
     height: frame.height,
+    widthProfile: frame.widthProfile,
     operations,
     ...(frame.cursor === undefined ? {} : { cursor: frame.cursor }),
     fullRewrite: true
@@ -94,7 +96,11 @@ export function renderFrameAnsi(frame: Frame, options: RenderSerializeOptions): 
 }
 
 export function diffFrames(previous: Frame | undefined, next: Frame, options: DiffFramesOptions = {}): RenderDiff {
-  if (previous?.width !== next.width || previous.height !== next.height) {
+  if (
+    previous?.width !== next.width
+    || previous.height !== next.height
+    || textWidthProfileKey(previous.widthProfile) !== textWidthProfileKey(next.widthProfile)
+  ) {
     const clear = next.width > 0 && next.height > 0
       ? [{ kind: 'clearRect', bounds: { row: 1, column: 1, width: next.width, height: next.height } } as const]
       : [];
@@ -102,6 +108,7 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
       schemaVersion: 'terminal-ui.render-diff.v2',
       width: next.width,
       height: next.height,
+      widthProfile: next.widthProfile,
       operations: [
         ...clear,
         ...frameWriteOperations(next)
@@ -137,6 +144,7 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
     schemaVersion: 'terminal-ui.render-diff.v2',
     width: next.width,
     height: next.height,
+    widthProfile: next.widthProfile,
     operations,
     ...(next.cursor === undefined ? {} : { cursor: next.cursor }),
     fullRewrite: false,

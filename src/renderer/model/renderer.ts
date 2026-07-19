@@ -9,6 +9,7 @@ import type { RenderTarget } from './render-target.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
 import type { PointerFocusIntent } from '../../interaction/focus.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 
 type RendererNode<TMessage, TKind extends RenderNodeKind> =
   RenderNodeKind extends TKind
@@ -22,6 +23,7 @@ export interface RenderNodeMeasureInput<
   readonly renderNode: RendererNode<TMessage, TKind>;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
 }
 
 export interface RenderNodeLayoutInput<
@@ -33,6 +35,7 @@ export interface RenderNodeLayoutInput<
   readonly viewport: Rect;
   readonly theme: TerminalTheme;
   readonly childMeasures: readonly Measurement[];
+  readonly widthProfile: TextWidthProfile;
 }
 
 export interface RenderNodePlaceInput<
@@ -43,6 +46,7 @@ export interface RenderNodePlaceInput<
   readonly bounds: Rect;
   readonly viewport: Rect;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
 }
 
 export interface RenderNodeRenderInput<
@@ -53,6 +57,7 @@ export interface RenderNodeRenderInput<
   readonly layoutNode: LayoutNode;
   readonly buffer: RenderTarget;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
   readonly focus: RenderFocusRelation;
   readonly renderChildren: (target?: RenderTarget) => void;
 }
@@ -68,6 +73,7 @@ export interface RenderNodeAccessibilityInput<
   readonly id: string;
   readonly focused: boolean;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
 }
 
 export interface RenderNodeFocusInput<
@@ -77,6 +83,7 @@ export interface RenderNodeFocusInput<
   readonly renderNode: RendererNode<TMessage, TKind>;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
 }
 
 export interface FocusTarget {
@@ -96,6 +103,7 @@ export interface RenderNodeHitInput<
   readonly layoutNode: LayoutNode;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
 }
 
 export interface HitTarget<TMessage = unknown> {

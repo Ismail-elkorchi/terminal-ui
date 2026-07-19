@@ -1,6 +1,7 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalStateSnapshot } from '../host/index.ts';
+import type { TerminalRestoreResult, TerminalViewport } from '../host/index.ts';
+import type { FocusPath } from '../interaction/focus.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { TuiMessageSource } from '../runtime-model/message-source.ts';
@@ -20,11 +21,19 @@ export type TranscriptSource = 'prompt' | 'tui' | 'test' | 'replay';
 export type InteractionTranscriptStep =
   | { readonly kind: 'input'; readonly event: InputEvent }
   | { readonly kind: 'message'; readonly source: TuiMessageSource; readonly message: unknown }
-  | { readonly kind: 'frame'; readonly frame: Frame }
-  | { readonly kind: 'diff'; readonly diff: RenderDiff }
+  | { readonly kind: 'commit'; readonly commit: TranscriptRuntimeCommit }
   | { readonly kind: 'snapshot'; readonly snapshot: AccessibleSnapshot }
   | { readonly kind: 'diagnostic'; readonly diagnostic: TerminalDiagnostic }
-  | { readonly kind: 'restore'; readonly checkpoint: TerminalStateSnapshot };
+  | { readonly kind: 'restore'; readonly result: TerminalRestoreResult };
+
+export interface TranscriptRuntimeCommit {
+  readonly id: string;
+  readonly stateVersion: number;
+  readonly viewport: TerminalViewport;
+  readonly focusPath?: FocusPath;
+  readonly frame: Frame;
+  readonly diff: RenderDiff;
+}
 
 export interface TranscriptRedaction {
   readonly path: string;
@@ -65,7 +74,6 @@ export interface TranscriptReplayTarget {
   input(event: InputEvent | string): Promise<void>;
   snapshot(): AccessibleSnapshot;
   output(): string;
-  recordFrame(frame: Frame): void;
-  recordDiff(diff: RenderDiff): void;
-  recordRestore(checkpoint: TerminalStateSnapshot): void;
+  recordCommit(commit: TranscriptRuntimeCommit): void;
+  recordRestore(result: TerminalRestoreResult): void;
 }

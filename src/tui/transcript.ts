@@ -1,8 +1,7 @@
 import { createTranscriptRecorder } from '../transcript/index.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalStateSnapshot } from '../host/index.ts';
+import type { TerminalRestoreResult } from '../host/index.ts';
 import type { TranscriptRecorder } from '../transcript/index.ts';
-import type { Frame, RenderDiff } from '../renderer/internal/frame.ts';
+import type { TranscriptRuntimeCommit } from '../transcript/index.ts';
 import type { TuiApp, TuiExit } from './types.ts';
 
 export function createTuiTranscript<TState, TMessage>(
@@ -12,20 +11,18 @@ export function createTuiTranscript<TState, TMessage>(
   return createTranscriptRecorder({ id: `${app.id}-transcript`, source: 'tui' });
 }
 
-export function recordTuiFrame(
+export function recordTuiCommit(
   transcript: TranscriptRecorder | undefined,
-  frame: Frame,
-  diff: RenderDiff
+  commit: TranscriptRuntimeCommit
 ): void {
-  transcript?.record({ kind: 'frame', frame });
-  transcript?.record({ kind: 'diff', diff });
+  transcript?.record({ kind: 'commit', commit });
 }
 
 export function recordTuiRestore(
   transcript: TranscriptRecorder | undefined,
-  checkpoint: TerminalStateSnapshot
+  result: TerminalRestoreResult
 ): void {
-  transcript?.record({ kind: 'restore', checkpoint });
+  transcript?.record({ kind: 'restore', result });
 }
 
 export function withTuiTranscript<TState>(
@@ -33,16 +30,7 @@ export function withTuiTranscript<TState>(
   transcript: TranscriptRecorder | undefined
 ): TuiExit<TState> {
   if (transcript === undefined) return exit;
-  recordTuiDiagnostics(transcript, exit.diagnostics);
+  for (const item of exit.diagnostics) transcript.recordDiagnostic(item);
   transcript.record({ kind: 'snapshot', snapshot: exit.snapshot });
   return { ...exit, transcript: transcript.snapshot() };
-}
-
-function recordTuiDiagnostics(
-  transcript: TranscriptRecorder,
-  diagnostics: readonly TerminalDiagnostic[]
-): void {
-  for (const item of diagnostics) {
-    transcript.recordDiagnostic(item);
-  }
 }

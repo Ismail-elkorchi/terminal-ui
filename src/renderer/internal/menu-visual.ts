@@ -9,6 +9,7 @@ import type { ElementVisualState } from '../../element/metadata.ts';
 import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
 import { renderInlineContent } from './inline-content.ts';
 import type { InlineContent, InlineContentSegment } from '../../visual/inline-content.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 
 export interface MenuVisualItem {
   readonly id: string;
@@ -25,22 +26,22 @@ export interface MenuVisualItem {
   readonly tone?: ComponentActionTone;
 }
 
-export function menuTitleLine(widget: RenderNode, title: string, width: number): RenderLine {
+export function menuTitleLine(widget: RenderNode, title: string, width: number, widthProfile: TextWidthProfile): RenderLine {
   return {
     spans: clipSpans([
       menuSpan(widget, title, renderNodeStyle(widget, 'title'), { label: 'title' })
-    ], width)
+    ], width, widthProfile)
   };
 }
 
-export function menuEmptyLine(widget: RenderNode, text: string, width: number): RenderLine {
+export function menuEmptyLine(widget: RenderNode, text: string, width: number, widthProfile: TextWidthProfile): RenderLine {
   return {
     spans: clipSpans([
       menuSpan(widget, text, resolveRenderNodeStyle(widget, {
         part: 'empty',
         base: themeStyle('text.muted', { dim: true })
       }), { label: 'empty' })
-    ], width)
+    ], width, widthProfile)
   };
 }
 
@@ -50,6 +51,7 @@ export function menuBarLine(
   selectedId: string | undefined,
   width: number,
   theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
   focused = false
 ): RenderLine {
   const spans: RenderSpan[] = [];
@@ -63,7 +65,7 @@ export function menuBarLine(
     });
     spans.push(...menuBarItemSpans(widget, item, selected, state, theme));
   });
-  return { spans: clipSpans(spans, width) };
+  return { spans: clipSpans(spans, width, widthProfile) };
 }
 
 export function dropdownMenuControlLine(input: {
@@ -75,6 +77,7 @@ export function dropdownMenuControlLine(input: {
   readonly focused?: boolean;
   readonly width: number;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
 }): RenderLine {
   const stateStyle = input.placeholder
     ? renderNodeStyle(input.widget, 'placeholder')
@@ -97,7 +100,7 @@ export function dropdownMenuControlLine(input: {
     menuSpan(input.widget, ` ${marker}`, controlStyle, { label: 'dropdownMenu-marker', state }),
     menuSpan(input.widget, ']', controlStyle, { label: 'dropdownMenu-close', state })
   ];
-  return { spans: clipSpans(spans, input.width) };
+  return { spans: clipSpans(spans, input.width, input.widthProfile) };
 }
 
 export function menuItemLine(
@@ -106,6 +109,7 @@ export function menuItemLine(
   selected: boolean,
   width: number,
   theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
   focused = false
 ): RenderLine {
   const state = interactionVisualState(widget, menuItemTargetId(widget, item.id), {
@@ -114,7 +118,7 @@ export function menuItemLine(
     focused: focused && selected
   });
   return {
-    spans: clipSpans(menuItemSpans(widget, item, selected, state, theme), width)
+    spans: clipSpans(menuItemSpans(widget, item, selected, state, theme), width, widthProfile)
   };
 }
 
@@ -301,6 +305,10 @@ function menuItemTargetId(widget: RenderNode, itemId: string): string {
   return renderNodeTargetId(widget, itemId);
 }
 
-function clipSpans(spans: readonly RenderSpan[], width: number): readonly RenderSpan[] {
-  return clipRenderSpans(spans, Math.max(0, width), { ellipsis: '…' });
+function clipSpans(
+  spans: readonly RenderSpan[],
+  width: number,
+  widthProfile: TextWidthProfile
+): readonly RenderSpan[] {
+  return clipRenderSpans(spans, Math.max(0, width), { ellipsis: '…', widthProfile });
 }

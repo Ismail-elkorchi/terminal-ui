@@ -53,12 +53,12 @@ export const drawingRenderers = {
     accessibility: ({ renderNode, id, focused }) => dividerAccessibleBase(renderNode, id, focused)
   },
   tooltip: {
-    place: ({ renderNode, viewport }) => renderNode.props.presentation.kind === 'hidden'
+    place: ({ renderNode, viewport, widthProfile }) => renderNode.props.presentation.kind === 'hidden'
       ? { row: viewport.row, column: viewport.column, width: 0, height: 0 }
       : placeAnchoredSurface({
           viewport,
           anchor: renderNode.props.presentation.anchor,
-          size: tooltipPreferredSize(renderNode),
+          size: tooltipPreferredSize(renderNode, widthProfile),
           ...(renderNode.props.placement === undefined ? {} : { placement: renderNode.props.placement })
         }),
     render: ({ renderNode, layoutNode, buffer, theme }) => {

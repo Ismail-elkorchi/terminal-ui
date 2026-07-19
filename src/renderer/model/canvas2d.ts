@@ -1,4 +1,5 @@
 import type { Rect } from '../../geometry/types.ts';
+import type { TextWidthProfile } from '../../text/types.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 
 export interface CanvasPoint {
@@ -27,6 +28,7 @@ export interface StrokeFillOptions {
 
 export interface Canvas2D {
   readonly bounds: Rect;
+  readonly widthProfile: TextWidthProfile;
   point(x: number, y: number, span: RenderSpan): void;
   line(x1: number, y1: number, x2: number, y2: number, span: RenderSpan): void;
   polyline(points: readonly CanvasPoint[], span: RenderSpan): void;

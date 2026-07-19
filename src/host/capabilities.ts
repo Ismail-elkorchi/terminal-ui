@@ -11,6 +11,8 @@ import type {
   TerminalFeatureSupport,
   TerminalUnicodeCapability
 } from './capability-types.ts';
+import { defineTextWidthProfile } from '../text/index.ts';
+import type { TextWidthProfile } from '../text/index.ts';
 
 export interface TerminalHostFacts {
   readonly runtime: RuntimeTarget;
@@ -41,6 +43,7 @@ export interface TerminalCapabilityConfiguration {
   readonly probes?: ProtocolProbeFacts;
   readonly overrides?: CapabilityOverrides;
   readonly colorDepth?: 0 | 1 | 4 | 8 | 24;
+  readonly widthProfile?: TextWidthProfile;
 }
 
 export interface TerminalCapabilityResolverInput {
@@ -49,6 +52,7 @@ export interface TerminalCapabilityResolverInput {
   readonly probes?: ProtocolProbeFacts;
   readonly overrides?: CapabilityOverrides;
   readonly colorDepth?: 0 | 1 | 4 | 8 | 24;
+  readonly widthProfile?: TextWidthProfile;
 }
 
 interface CapabilityBasis {
@@ -62,7 +66,6 @@ interface CapabilityBasis {
 
 export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInput): TerminalCapabilityProfile {
   const interactive = input.host.inputIsTty && input.host.outputIsTty;
-  const terminalSupport = protocolSupport(input);
   const outputAvailability = availability(input.host.outputIsTty && input.host.terminalProtocols);
   const interactiveAvailability = availability(interactive && input.host.terminalProtocols);
   const capabilities = {
@@ -95,35 +98,35 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       facts: [hostFact('terminalProtocols', input.host.terminalProtocols), ...environmentFacts(input.environment, ['KITTY_WINDOW_ID', 'TERM'])]
     }),
     bracketedPaste: resolveCapability(input, 'bracketedPaste', protocolBasis(
-      terminalSupport,
+      controlProtocolSupport(input),
       interactiveAvailability,
       'Host cannot operate bracketed paste.',
       input,
       true
     )),
     mouseReporting: resolveCapability(input, 'mouseReporting', protocolBasis(
-      terminalSupport,
+      controlProtocolSupport(input),
       interactiveAvailability,
       'Host cannot operate mouse reporting.',
       input,
       true
     )),
     alternateScreen: resolveCapability(input, 'alternateScreen', protocolBasis(
-      terminalSupport,
+      controlProtocolSupport(input),
       outputAvailability,
       'Host cannot operate the alternate screen.',
       input,
       true
     )),
     focusReporting: resolveCapability(input, 'focusReporting', protocolBasis(
-      terminalSupport,
+      controlProtocolSupport(input),
       interactiveAvailability,
       'Host cannot operate focus reporting.',
       input,
       true
     )),
     cursorVisibility: resolveCapability(input, 'cursorVisibility', protocolBasis(
-      terminalSupport,
+      controlProtocolSupport(input),
       outputAvailability,
       'Host cannot control cursor visibility.',
       input,
@@ -137,13 +140,13 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       facts: [hostFact('terminalProtocols', input.host.terminalProtocols), ...environmentFacts(input.environment, ['TERM', 'TERM_PROGRAM'])]
     }),
     title: resolveCapability(input, 'title', protocolBasis(
-      terminalSupport,
+      controlProtocolSupport(input),
       outputAvailability,
       'Host cannot set the terminal title.',
       input
     )),
     bell: resolveCapability(input, 'bell', protocolBasis(
-      terminalSupport,
+      controlProtocolSupport(input),
       outputAvailability,
       'Host cannot emit the terminal bell.',
       input
@@ -162,7 +165,7 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
     runtime: input.host.runtime,
     isTty: interactive,
     color: resolveColor(input),
-    unicode: resolveUnicode(),
+    unicode: resolveUnicode(input),
     ...capabilities,
     diagnostics: Object.values(capabilities).flatMap((item) => item.diagnostics)
   };
@@ -251,7 +254,7 @@ function protocolBasis(
   };
 }
 
-function protocolSupport(input: TerminalCapabilityResolverInput): TerminalFeatureSupport {
+function controlProtocolSupport(input: TerminalCapabilityResolverInput): TerminalFeatureSupport {
   if (!input.host.outputIsTty || !input.host.terminalProtocols) return 'unsupported';
   if (input.host.runtime === 'memory') return 'supported';
   const term = env(input.environment, 'TERM');
@@ -268,11 +271,11 @@ function hyperlinkSupport(input: TerminalCapabilityResolverInput): TerminalFeatu
   if (term?.includes('kitty') === true || term?.includes('foot') === true) return 'supported';
   const vte = Number.parseInt(env(input.environment, 'VTE_VERSION') ?? '', 10);
   if (Number.isFinite(vte) && vte >= 5000) return 'supported';
-  return protocolSupport(input) === 'unsupported' ? 'unsupported' : 'unknown';
+  return controlProtocolSupport(input) === 'unsupported' ? 'unsupported' : 'unknown';
 }
 
 function kittySupport(input: TerminalCapabilityResolverInput): TerminalFeatureSupport {
-  if (protocolSupport(input) === 'unsupported') return 'unsupported';
+  if (controlProtocolSupport(input) === 'unsupported') return 'unsupported';
   if (env(input.environment, 'KITTY_WINDOW_ID') !== undefined) return 'supported';
   if (env(input.environment, 'TERM')?.toLowerCase().includes('kitty') === true) return 'supported';
   return 'unknown';
@@ -284,6 +287,7 @@ function resolveColor(input: TerminalCapabilityResolverInput): TerminalColorCapa
   if (!input.host.outputIsTty) return colorCapability(0);
   const noColor = env(input.environment, 'NO_COLOR');
   if (noColor !== undefined && noColor.length > 0) return colorCapability(0);
+  if (env(input.environment, 'TERM')?.toLowerCase() === 'dumb') return colorCapability(0);
   if (input.host.colorDepth !== undefined) return colorCapability(input.host.colorDepth);
   if (env(input.environment, 'COLORTERM')?.toLowerCase().includes('truecolor') === true) return colorCapability(24);
   if (env(input.environment, 'TERM')?.includes('256color') === true) return colorCapability(8);
@@ -299,8 +303,12 @@ function colorCapability(depth: TerminalColorCapability['depth']): TerminalColor
   };
 }
 
-function resolveUnicode(): TerminalUnicodeCapability {
-  return { graphemeClusters: true, widthProfile: { emoji: 'wide', ambiguous: 'narrow' }, bidi: 'stable-fallback' };
+function resolveUnicode(input: TerminalCapabilityResolverInput): TerminalUnicodeCapability {
+  return {
+    graphemeClusters: true,
+    widthProfile: defineTextWidthProfile(input.widthProfile),
+    bidi: 'stable-fallback'
+  };
 }
 
 function availability(value: boolean): HostFeatureAvailability {

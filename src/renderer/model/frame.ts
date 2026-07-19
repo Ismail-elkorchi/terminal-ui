@@ -4,11 +4,13 @@ import type { PointerEventKind } from '../../input/pointer.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { FrameCellSource, TerminalLink, TerminalStyle } from '../../visual/render.ts';
 import type { CursorPosition } from './cursor.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 
 export interface Frame {
   readonly schemaVersion: 'terminal-ui.tui-frame.v1';
   readonly width: number;
   readonly height: number;
+  readonly widthProfile: TextWidthProfile;
   readonly cells: readonly FrameCell[];
   readonly hitTargets?: readonly FrameHitTarget[];
   readonly cursor?: CursorPosition;

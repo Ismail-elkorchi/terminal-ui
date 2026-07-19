@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import process from 'node:process';
 import test from 'node:test';
 import { createTuiRuntime, defineTui, runTui } from '../../dist/tui/index.js';
 import { diagnostic } from '../../dist/diagnostics.js';
@@ -31,10 +32,40 @@ test('runTui emits deterministic transcripts when enabled', async () => {
   assert.equal(exit.transcript?.id, 'transcript-tui-transcript');
   assert.equal(validateTranscript(exit.transcript).ok, true);
   assert.equal(exit.transcript?.steps.filter((step) => step.kind === 'input').length, 1);
-  assert.ok(exit.transcript?.steps.some((step) => step.kind === 'frame'));
-  assert.ok(exit.transcript?.steps.some((step) => step.kind === 'diff'));
+  assert.ok(exit.transcript?.steps.some((step) => step.kind === 'commit'));
   assert.ok(exit.transcript?.steps.some((step) => step.kind === 'restore'));
   assert.ok(exit.transcript?.steps.some((step) => step.kind === 'snapshot'));
+});
+
+test('runTui fails and records final diagnostics when terminal restoration is unsuccessful', async () => {
+  const app = defineTui({
+    id: 'failed-restoration',
+    transcript: { enabled: true },
+    init: () => ({ done: false }),
+    update: () => ({ state: { done: true }, exit: {} }),
+    view: () => textInput({
+      id: 'failed-restoration-input',
+      presentation: { value: '', cursor: 0 },
+      onSubmit: () => ({ kind: 'exit' })
+    })
+  });
+  const host = createMemoryTerminalHost();
+  const write = host.write.bind(host);
+  host.write = async (output, context) => {
+    if (output.text === '\u001B[?1049l') throw new Error('alternate screen restore failed');
+    await write(output, context);
+  };
+  host.input('\r');
+
+  const exit = await runTui(app, host);
+
+  assert.equal(exit.status, 'error');
+  assert.equal(exit.diagnostics.some((item) => item.code === 'HOST_RESTORE_FAILED'), true);
+  assert.equal(exit.transcript?.diagnostics.some((item) => item.code === 'HOST_RESTORE_FAILED'), true);
+  assert.equal(exit.transcript?.steps.some((step) => step.kind === 'diagnostic'
+    && step.diagnostic.code === 'HOST_RESTORE_FAILED'), true);
+  assert.equal(exit.transcript?.steps.some((step) => step.kind === 'restore'
+    && step.result.status !== 'restored'), true);
 });
 
 test('TUI runtime startup is one transactional terminal outcome', async () => {
@@ -56,6 +87,21 @@ test('TUI runtime startup is one transactional terminal outcome', async () => {
   await assert.rejects(() => runtime.dispatch({ kind: 'ignored' }), /failed/u);
 });
 
+test('TUI runtime validates disposal options before changing runtime state', async () => {
+  const app = defineTui({
+    id: 'dispose-validation',
+    init: () => 0,
+    update: (state, message) => ({ state: state + message }),
+    view: (state) => text(String(state))
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+  await runtime.start();
+
+  await assert.rejects(runtime.dispose({ timeoutMs: -1 }), /non-negative finite number/u);
+  assert.equal(await runtime.dispatch(1), 1);
+  await runtime.dispose();
+});
+
 test('TUI runtime does not publish state frame or transcript when the first host commit fails', async () => {
   const transcript = createTranscriptRecorder({ id: 'failed-first-commit', source: 'tui' });
   const host = createMemoryTerminalHost();
@@ -73,7 +119,7 @@ test('TUI runtime does not publish state frame or transcript when the first host
   await assert.rejects(() => runtime.start(), /first frame write failed/u);
   assert.throws(() => runtime.state(), /does not have state/u);
   assert.equal(runtime.frame(), undefined);
-  assert.equal(transcript.snapshot().steps.some((step) => step.kind === 'frame'), false);
+  assert.equal(transcript.snapshot().steps.some((step) => step.kind === 'commit'), false);
   await runtime.dispose();
 });
 
@@ -116,7 +162,7 @@ test('TUI runtime supports undefined as an initialized application state', async
   assert.equal(runtime.state(), undefined);
 });
 
-test('runTui restores the terminal after a bounded hanging exit handler', async () => {
+test('runTui records unconfirmed restoration after a hanging exit handler consumes the deadline', async () => {
   let exitHandlerStarted = false;
   const app = defineTui({
     id: 'bounded-exit-cleanup-tui',
@@ -134,7 +180,7 @@ test('runTui restores the terminal after a bounded hanging exit handler', async 
   });
   const host = createMemoryTerminalHost();
   host.input('\r');
-  const running = runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
+  const running = runTui(app, host, { cleanup: { timeoutMs: 5 } });
   await waitUntil(() => exitHandlerStarted);
   host.clock.advance(5);
   const exit = await running;
@@ -142,11 +188,119 @@ test('runTui restores the terminal after a bounded hanging exit handler', async 
   assert.equal(exit.status, 'error');
   assert.deepEqual(exit.state, { done: true });
   assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'), true);
-  assert.equal(host.restores().length, 1);
+  assertUnconfirmedRestoration(host);
+  assert.equal(host.stdin.isRawModeEnabled(), true);
+});
+
+test('runTui bounds an input iterator whose return operation never settles', async () => {
+  let returnStarted = false;
+  const app = defineTui({
+    id: 'bounded-input-retirement',
+    init: () => ({ done: false }),
+    update: () => ({ state: { done: true }, exit: {} }),
+    view: () => textInput({
+      id: 'bounded-input-retirement-field',
+      presentation: { value: '', cursor: 0 },
+      onSubmit: () => ({ kind: 'exit' })
+    })
+  });
+  const host = createMemoryTerminalHost();
+  const originalRead = host.stdin.read.bind(host.stdin);
+  host.stdin.read = (options) => {
+    const iterator = originalRead(options)[Symbol.asyncIterator]();
+    return {
+      [Symbol.asyncIterator]() {
+        return {
+          next: () => iterator.next(),
+          return: () => {
+            returnStarted = true;
+            return new Promise(() => undefined);
+          }
+        };
+      }
+    };
+  };
+  host.input('\r');
+  const running = runTui(app, host, { cleanup: { timeoutMs: 5 } });
+  await waitUntil(() => returnStarted);
+  host.clock.advance(5);
+
+  const exit = await running;
+
+  assert.equal(exit.status, 'error');
+  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.data?.phase === 'input'), true);
+  assert.equal(host.restores()[0]?.status, 'failed');
+});
+
+test('runTui bounds restoration that ignores cancellation without recording success', async () => {
+  let restoreStarted = false;
+  const app = defineTui({
+    id: 'bounded-restore',
+    init: () => ({ done: false }),
+    update: () => ({ state: { done: true }, exit: {} }),
+    view: () => textInput({
+      id: 'bounded-restore-field',
+      presentation: { value: '', cursor: 0 },
+      onSubmit: () => ({ kind: 'exit' })
+    })
+  });
+  const host = createMemoryTerminalHost();
+  const beginSession = host.beginSession.bind(host);
+  host.beginSession = async (options) => {
+    const session = await beginSession(options);
+    session.restore = () => {
+      restoreStarted = true;
+      return new Promise(() => undefined);
+    };
+    return session;
+  };
+  host.input('\r');
+  const running = runTui(app, host, { cleanup: { timeoutMs: 5 } });
+  await waitUntil(() => restoreStarted);
+  host.clock.advance(5);
+
+  const exit = await running;
+
+  assert.equal(exit.status, 'error');
+  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.data?.phase === 'restore'), true);
+  assert.equal(host.restores().length, 0);
+  assert.equal(host.stdin.isRawModeEnabled(), true);
+});
+
+test('runTui bounds an output flush that ignores cancellation', async () => {
+  let flushStarted = false;
+  const app = defineTui({
+    id: 'bounded-flush',
+    init: () => ({ done: false }),
+    update: () => ({ state: { done: true }, exit: {} }),
+    view: () => textInput({
+      id: 'bounded-flush-field',
+      presentation: { value: '', cursor: 0 },
+      onSubmit: () => ({ kind: 'exit' })
+    })
+  });
+  const host = createMemoryTerminalHost();
+  host.flush = () => {
+    flushStarted = true;
+    return new Promise(() => undefined);
+  };
+  host.input('\r');
+  const running = runTui(app, host, { cleanup: { timeoutMs: 5 } });
+  await waitUntil(() => flushStarted);
+  host.clock.advance(5);
+
+  const exit = await running;
+
+  assert.equal(exit.status, 'error');
+  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
+    && item.data?.phase === 'flush'), true);
+  assert.equal(host.restores()[0]?.status, 'restored');
   assert.equal(host.stdin.isRawModeEnabled(), false);
 });
 
-test('runTui restores the terminal after bounded non-cooperative effect cleanup', async () => {
+test('runTui records unconfirmed restoration after non-cooperative effect cleanup consumes the deadline', async () => {
   let effectStarted = false;
   let exitHandlerStarted = false;
   const app = defineTui({
@@ -176,7 +330,7 @@ test('runTui restores the terminal after bounded non-cooperative effect cleanup'
   });
   const host = createMemoryTerminalHost();
   host.input('\r\r');
-  const running = runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
+  const running = runTui(app, host, { cleanup: { timeoutMs: 5 } });
   await waitUntil(() => effectStarted);
   host.clock.advance(5);
   await waitUntil(() => exitHandlerStarted);
@@ -185,11 +339,11 @@ test('runTui restores the terminal after bounded non-cooperative effect cleanup'
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
     && item.data?.phase === 'runtime'), true);
-  assert.equal(host.restores().length, 1);
-  assert.equal(host.stdin.isRawModeEnabled(), false);
+  assertUnconfirmedRestoration(host);
+  assert.equal(host.stdin.isRawModeEnabled(), true);
 });
 
-test('runTui restores the terminal after bounded non-cooperative source cleanup', async () => {
+test('runTui records unconfirmed restoration after non-cooperative source cleanup consumes the deadline', async () => {
   let sourceStarted = false;
   let exitHandlerStarted = false;
   const app = defineTui({
@@ -216,7 +370,7 @@ test('runTui restores the terminal after bounded non-cooperative source cleanup'
   });
   const host = createMemoryTerminalHost();
   host.input('\r');
-  const running = runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
+  const running = runTui(app, host, { cleanup: { timeoutMs: 5 } });
   await waitUntil(() => sourceStarted);
   host.clock.advance(5);
   await waitUntil(() => exitHandlerStarted);
@@ -225,8 +379,8 @@ test('runTui restores the terminal after bounded non-cooperative source cleanup'
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
     && item.data?.phase === 'runtime'), true);
-  assert.equal(host.restores().length, 1);
-  assert.equal(host.stdin.isRawModeEnabled(), false);
+  assertUnconfirmedRestoration(host);
+  assert.equal(host.stdin.isRawModeEnabled(), true);
 });
 
 test('runTui reports capability and session acquisition failures as typed exits', async () => {
@@ -283,7 +437,7 @@ test('runTui restores earlier and uncertain mutations after partial setup failur
   assert.match(host.output(), /\u001B\[\?2004l/u);
 });
 
-test('runTui bounds a hanging source disposer before restoring protocols', async () => {
+test('runTui bounds a hanging source disposer and reports restoration truthfully', async () => {
   let disposerStarted = false;
   const app = defineTui({
     id: 'bounded-source-disposer',
@@ -309,7 +463,7 @@ test('runTui bounds a hanging source disposer before restoring protocols', async
   });
   const host = createMemoryTerminalHost();
   host.input('\r');
-  const running = runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
+  const running = runTui(app, host, { cleanup: { timeoutMs: 5 } });
   await waitUntil(() => disposerStarted);
   host.clock.advance(5);
 
@@ -318,11 +472,11 @@ test('runTui bounds a hanging source disposer before restoring protocols', async
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
     && item.data?.phase === 'runtime'), true);
-  assert.equal(host.restores().length, 1);
-  assert.equal(host.stdin.isRawModeEnabled(), false);
+  assertUnconfirmedRestoration(host);
+  assert.equal(host.stdin.isRawModeEnabled(), true);
 });
 
-test('interrupts preempt a hanging dispatch commit and restore within the cleanup bound', async () => {
+test('interrupts preempt a hanging dispatch and report unconfirmed restoration within the deadline', async () => {
   const app = defineTui({
     id: 'interrupt-hanging-dispatch',
     init: () => ({ count: 0 }),
@@ -337,7 +491,7 @@ test('interrupts preempt a hanging dispatch commit and restore within the cleanu
   const host = createMemoryTerminalHost({
     observer: { recordFrame: () => { committedFrames += 1; } }
   });
-  const running = runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
+  const running = runTui(app, host, { cleanup: { timeoutMs: 5 } });
   await waitUntil(() => committedFrames === 1);
   let blockedCommitStarted = false;
   let blockNextWrite = true;
@@ -369,14 +523,19 @@ test('interrupts preempt a hanging dispatch commit and restore within the cleanu
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_TIMEOUT'
     && item.data?.phase === 'runtime'), true);
-  assert.equal(host.restores().length, 1);
-  assert.equal(host.stdin.isRawModeEnabled(), false);
+  assertUnconfirmedRestoration(host);
+  assert.equal(host.stdin.isRawModeEnabled(), true);
   const framesAfterExit = committedFrames;
   blockedCommit.release();
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(committedFrames, framesAfterExit);
 });
 
+function assertUnconfirmedRestoration(host) {
+  const restorations = host.restores();
+  assert.ok(restorations.length >= 1);
+  assert.equal(restorations.every((result) => result.status !== 'restored'), true);
+}
 
 test('runTui rejects non-TTY hosts deterministically before opening fullscreen protocols', async () => {
   const app = defineTui({
@@ -563,15 +722,10 @@ test('runTui restores terminal protocols on successful exit', async () => {
 
   assert.equal(exit.status, 'completed');
   assert.equal(harness.host.stdin.isRawModeEnabled(), false);
-  assert.deepEqual(harness.restores()[0], {
-    rawInput: false,
-    alternateScreen: false,
-    bracketedPaste: false,
-    mouseReporting: 'none',
-    focusReporting: false,
-    keyboardProfile: { kind: 'legacy' },
-    cursorVisible: true
-  });
+  assert.equal(harness.restores()[0]?.status, 'restored');
+  assert.equal(harness.restores()[0]?.resultingState.rawInput, false);
+  assert.equal(harness.restores()[0]?.resultingState.alternateScreen, false);
+  assert.equal(harness.restores()[0]?.resultingState.cursorVisible, true);
   assert.match(harness.output(), /\u001B\[\?1049h/);
   assert.match(harness.output(), /\u001B\[\?1049l/);
   assert.match(harness.output(), /\u001B\[\?2004h/);
@@ -720,6 +874,12 @@ test('runTui coalesces resize storms to one active and one latest commit', async
     })
   });
   const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const getViewport = harness.host.getViewport.bind(harness.host);
+  let viewportReads = 0;
+  harness.host.getViewport = () => {
+    viewportReads += 1;
+    return getViewport();
+  };
   const signalSubscribed = deferred();
   const originalSubscribe = harness.host.signals.subscribe.bind(harness.host.signals);
   harness.host.signals.subscribe = (listener) => {
@@ -745,21 +905,23 @@ test('runTui coalesces resize storms to one active and one latest commit', async
     waitUntil(() => harness.frames().length === 1),
     signalSubscribed.promise
   ]);
+  const initialViewportReads = viewportReads;
   await harness.host.viewportControl?.setViewport({ columns: 21, rows: 3 });
   harness.host.signals.emit('resize');
   await resizeStarted.promise;
-  for (const columns of [22, 23, 24]) {
+  for (let columns = 22; columns <= 64; columns += 1) {
     await harness.host.viewportControl?.setViewport({ columns, rows: 3 });
     harness.host.signals.emit('resize');
   }
   releaseResize.release();
-  await waitUntil(() => harness.frames().at(-1)?.width === 24);
+  await waitUntil(() => harness.frames().at(-1)?.width === 64);
   const resizeFrameWidths = harness.frames().map((frame) => frame.width);
   harness.host.input('\r');
   const exit = await running;
 
   assert.equal(exit.status, 'completed');
-  assert.deepEqual(resizeFrameWidths, [20, 21, 24]);
+  assert.deepEqual(resizeFrameWidths, [20, 21, 64]);
+  assert.equal(viewportReads - initialViewportReads, 6);
   assert.equal(harness.restores().length, 1);
 });
 
@@ -865,6 +1027,123 @@ test('TUI runtime disposal awaits aborted subscription pumps and source cleanup'
   releasePump();
   await disposal;
   assert.equal(disposed, true);
+});
+
+test('TUI runtime disposal remains bounded when the cleanup clock rejects', async () => {
+  let sourceStarted = false;
+  const app = defineTui({
+    id: 'runtime-disposal-clock-failure',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    subscriptions: () => [{
+      id: 'non-cooperative-clock-source',
+      generation: 0,
+      delivery: 'sequential',
+      async *messages() {
+        sourceStarted = true;
+        await new Promise(() => undefined);
+      }
+    }],
+    view: () => text('ready')
+  });
+  const host = createMemoryTerminalHost();
+  const runtime = createTuiRuntime({ app, host });
+  await runtime.start();
+  await waitUntil(() => sourceStarted);
+  host.clock.sleep = () => Promise.reject(new Error('runtime cleanup clock failed'));
+
+  await assert.rejects(
+    Promise.race([
+      runtime.dispose({ timeoutMs: 5 }),
+      new Promise((_resolve, reject) => setTimeout(() => reject(new Error('runtime disposal remained pending')), 100))
+    ]),
+    (error) => error instanceof Error
+      && error.message === 'TUI runtime disposal clock failed.'
+      && error.cause instanceof Error
+      && error.cause.message === 'runtime cleanup clock failed'
+  );
+});
+
+test('TUI runtime disposal preserves its timeout when a caller signal is supplied', async () => {
+  let sourceStarted = false;
+  const app = defineTui({
+    id: 'runtime-disposal-signal-and-timeout',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    subscriptions: () => [{
+      id: 'non-cooperative-signal-and-timeout-source',
+      generation: 0,
+      delivery: 'sequential',
+      async *messages() {
+        sourceStarted = true;
+        await new Promise(() => undefined);
+      }
+    }],
+    view: () => text('ready')
+  });
+  const host = createMemoryTerminalHost();
+  const runtime = createTuiRuntime({ app, host });
+  await runtime.start();
+  await waitUntil(() => sourceStarted);
+  let requestedTimeout;
+  host.clock.sleep = async (timeoutMs) => {
+    requestedTimeout = timeoutMs;
+  };
+  const caller = new globalThis.AbortController();
+
+  await assert.rejects(
+    runtime.dispose({ signal: caller.signal, timeoutMs: 7 }),
+    /TUI runtime disposal timed out/u
+  );
+  assert.equal(requestedTimeout, 7);
+  assert.equal(caller.signal.aborted, false);
+});
+
+test('pre-aborted TUI runtime disposal still observes later cleanup failures', async () => {
+  const releaseCleanup = deferred();
+  let sourceStarted = false;
+  const app = defineTui({
+    id: 'pre-aborted-disposal-cleanup',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    subscriptions: () => [{
+      id: 'late-cleanup-failure',
+      generation: 0,
+      delivery: 'sequential',
+      async *messages(context) {
+        sourceStarted = true;
+        await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
+      },
+      async dispose() {
+        await releaseCleanup.promise;
+        throw new Error('late source cleanup failed');
+      }
+    }],
+    view: () => text('ready')
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+  await runtime.start();
+  await waitUntil(() => sourceStarted);
+  const controller = new globalThis.AbortController();
+  controller.abort(new Error('caller already cancelled'));
+  const unhandled = [];
+  const recordUnhandled = (reason) => { unhandled.push(reason); };
+  process.on('unhandledRejection', recordUnhandled);
+  try {
+    await assert.rejects(
+      runtime.dispose({ signal: controller.signal }),
+      (error) => error instanceof Error
+        && error.message === 'TUI runtime disposal was cancelled.'
+        && error.cause instanceof Error
+        && error.cause.message === 'caller already cancelled'
+    );
+    releaseCleanup.release();
+    await flushAsync();
+    await flushAsync();
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.off('unhandledRejection', recordUnhandled);
+  }
 });
 
 test('runTui restores terminal state after runtime and exit-handler cleanup failures', async () => {

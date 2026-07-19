@@ -11,6 +11,7 @@ import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
 import type { RenderFocusRelation } from '../model/renderer.ts';
 import { renderBorderTitle } from './border-title.ts';
+import { oneCellGlyph } from '../../text/index.ts';
 
 export type { SurfaceVariant } from '../../visual/surface.ts';
 
@@ -246,17 +247,18 @@ export function drawSurfaceShadow(
 ): void {
   if (bounds.width <= 3 || bounds.height <= 3) return;
   const style: TerminalStyle = { fg: { kind: 'theme', token: 'surface.shadow' }, dim: true };
+  const glyph = oneCellGlyph('░', '.', { widthProfile: buffer.widthProfile });
   const rightColumn = bounds.column + bounds.width - 2;
   const bottomRow = bounds.row + bounds.height - 2;
   for (let row = bounds.row + 1; row <= bottomRow; row += 1) {
     buffer.write(row, rightColumn, [{
-      text: '░',
+      text: glyph,
       style,
       source
     }]);
   }
   buffer.write(bottomRow, bounds.column + 1, [{
-    text: '░'.repeat(Math.max(0, bounds.width - 2)),
+    text: glyph.repeat(Math.max(0, bounds.width - 2)),
     style,
     source
   }]);

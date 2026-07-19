@@ -1,4 +1,4 @@
-import { clipTextCells, measureTextCells } from '../../text/index.ts';
+import { clipTextCells, measureTextCells, oneCellGlyph } from '../../text/index.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
@@ -7,6 +7,7 @@ import type { RenderTarget } from '../model/render-target.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import type { Rect } from '../model/layout.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 import { stringify } from './render-node-props.ts';
 import { mergeStyles, renderNodeStyle } from './render-node-style.ts';
 
@@ -35,9 +36,12 @@ export function dividerAccessibleBase(widget: DividerNode, id: string, focused: 
   };
 }
 
-export function dividerPreferredSize(widget: DividerNode): { readonly width: number; readonly height: number } {
+export function dividerPreferredSize(
+  widget: DividerNode,
+  widthProfile: TextWidthProfile
+): { readonly width: number; readonly height: number } {
   const label = dividerLabel(widget);
-  const labelCells = measureTextCells(label).cells;
+  const labelCells = measureTextCells(label, { widthProfile }).cells;
   return dividerOrientation(widget) === 'vertical'
     ? { width: 1, height: Math.max(1, labelCells) }
     : { width: Math.max(1, labelCells + (labelCells === 0 ? 0 : 2)), height: 1 };
@@ -51,11 +55,13 @@ function renderHorizontalDivider(
   theme: TerminalTheme
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
-  const glyph = dividerGlyphs(widget, theme).horizontal;
+  const glyph = oneCellGlyph(dividerGlyphs(widget, theme).horizontal, '-', {
+    widthProfile: buffer.widthProfile
+  });
   const label = dividerLabel(widget);
   const spans = label.length === 0
     ? [separatorSpan(widget, glyph.repeat(bounds.width), style)]
-    : labelledDividerSpans(widget, glyph, label, bounds.width, dividerLabelAlign(widget), style);
+    : labelledDividerSpans(widget, glyph, label, bounds.width, dividerLabelAlign(widget), style, buffer.widthProfile);
   buffer.write(bounds.row, bounds.column, spans);
 }
 
@@ -67,7 +73,9 @@ function renderVerticalDivider(
   theme: TerminalTheme
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
-  const glyph = dividerGlyphs(widget, theme).vertical;
+  const glyph = oneCellGlyph(dividerGlyphs(widget, theme).vertical, '|', {
+    widthProfile: buffer.widthProfile
+  });
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
     buffer.write(row, bounds.column, [{
       text: glyph,
@@ -83,10 +91,11 @@ function labelledDividerSpans(
   label: string,
   width: number,
   align: 'start' | 'center' | 'end',
-  style: TerminalStyle | undefined
+  style: TerminalStyle | undefined,
+  widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
-  const clippedLabel = clipTextCells(` ${label} `, Math.max(0, width)).text;
-  const labelCells = measureTextCells(clippedLabel).cells;
+  const clippedLabel = clipTextCells(` ${label} `, Math.max(0, width), { widthProfile }).text;
+  const labelCells = measureTextCells(clippedLabel, { widthProfile }).cells;
   const remaining = Math.max(0, width - labelCells);
   const before = align === 'end' ? remaining : align === 'center' ? Math.floor(remaining / 2) : 0;
   const after = remaining - before;

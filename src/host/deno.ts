@@ -1,28 +1,34 @@
 import { createStreamTerminalHost, runtimeInputSourceFromReadableStream } from './runtime-streams.ts';
+import { denoSignalSubscriber } from './native-signals.ts';
 import type { DenoTerminalHostOptions, RuntimeTerminalInputOptions, RuntimeTerminalOutputOptions, TerminalHost } from './types.ts';
 
 interface DenoLike {
+  readonly build?: { readonly os?: string };
   readonly stdin?: { readonly readable?: ReadableStream<Uint8Array>; readonly isTerminal?: () => boolean; setRaw?: (mode: boolean) => void };
   readonly stdout?: { readonly writable?: WritableStream<Uint8Array>; readonly isTerminal?: () => boolean };
   readonly stderr?: { readonly writable?: WritableStream<Uint8Array>; readonly isTerminal?: () => boolean };
   readonly env?: { toObject?: () => Record<string, string> };
   readonly consoleSize?: () => { readonly columns: number; readonly rows: number };
+  addSignalListener?(signal: string, handler: () => void): void;
+  removeSignalListener?(signal: string, handler: () => void): void;
 }
 
 export function createDenoTerminalHost(options: DenoTerminalHostOptions = {}): TerminalHost {
   const deno = denoGlobal();
+  const subscribeSignals = options.subscribeSignals ?? denoSignalSubscriber(deno);
   const getNativeViewport = options.stdout === undefined
     ? () => denoConsoleSize(deno)
     : undefined;
   return createStreamTerminalHost({
     id: options.id ?? 'deno',
     runtime: 'deno',
-    ...(options.subscribeSignals === undefined ? {} : { subscribeSignals: options.subscribeSignals }),
+    ...(subscribeSignals === undefined ? {} : { subscribeSignals }),
     stdin: options.stdin ?? denoInputOptions(deno),
     stdout: options.stdout ?? denoOutputOptions(deno?.stdout),
     stderr: options.stderr ?? denoOutputOptions(deno?.stderr),
     ...(getNativeViewport === undefined ? {} : { getViewport: getNativeViewport }),
     ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
+    ...(options.initialState === undefined ? {} : { initialState: options.initialState }),
     ...optionalEnv(options.env ?? denoEnvironment(deno))
   });
 }

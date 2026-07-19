@@ -1,4 +1,3 @@
-import { defaultTuiCleanupPolicy } from './cleanup.ts';
 import { defaultSessionProtocolPolicy } from './session-policy.ts';
 import type { InitialFocusSelector } from '../interaction/focus.ts';
 import type { MouseReportingMode } from '../host/index.ts';
@@ -13,6 +12,8 @@ export interface NormalizedTuiRunOptions<TState> {
   readonly cleanup: TuiCleanupPolicy;
   readonly input: Readonly<Required<TuiRunInputPolicy>>;
 }
+
+export const defaultTuiFinalizationPolicy: TuiCleanupPolicy = Object.freeze({ timeoutMs: 1_000 });
 
 export function normalizeTuiRunOptions<TState>(
   options: TuiRunOptions<TState>
@@ -36,11 +37,11 @@ function normalizeInputPolicy(policy: TuiRunInputPolicy | undefined): Readonly<R
 }
 
 function normalizeCleanupPolicy(policy: TuiCleanupPolicy | undefined): TuiCleanupPolicy {
-  const gracePeriodMs = policy?.gracePeriodMs ?? defaultTuiCleanupPolicy.gracePeriodMs;
-  if (!Number.isFinite(gracePeriodMs) || gracePeriodMs < 0) {
-    throw new RangeError('TUI cleanup gracePeriodMs must be a non-negative finite number.');
+  const timeoutMs = policy?.timeoutMs ?? defaultTuiFinalizationPolicy.timeoutMs;
+  if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
+    throw new RangeError('TUI cleanup timeoutMs must be a non-negative finite number.');
   }
-  return Object.freeze({ gracePeriodMs });
+  return Object.freeze({ timeoutMs });
 }
 
 function normalizeSessionPolicy(policy: unknown): SessionProtocolPolicy {

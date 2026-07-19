@@ -24,6 +24,7 @@ import type {
   StrokeFillOptions
 } from '../../model/canvas2d.ts';
 import { clipRenderSpans } from '../../../visual/render.ts';
+import type { TextWidthProfile } from '../../../text/index.ts';
 
 export type { Canvas2D, StrokeFillOptions } from '../../model/canvas2d.ts';
 
@@ -42,6 +43,10 @@ class FrameBufferCanvas2D implements Canvas2D {
   constructor(buffer: RenderTarget, bounds: Rect) {
     this.#buffer = buffer;
     this.bounds = bounds;
+  }
+
+  get widthProfile(): TextWidthProfile {
+    return this.#buffer.widthProfile;
   }
 
   point(x: number, y: number, span: RenderSpan): void {
@@ -195,7 +200,9 @@ class FrameBufferCanvas2D implements Canvas2D {
   }
 
   private clipAt(x: number, spans: readonly RenderSpan[]): readonly RenderSpan[] {
-    return clipRenderSpans(spans, Math.max(0, this.bounds.width - Math.floor(x)));
+    return clipRenderSpans(spans, Math.max(0, this.bounds.width - Math.floor(x)), {
+      widthProfile: this.#buffer.widthProfile
+    });
   }
 
   private clearBrailleCells(bounds: Rect): void {

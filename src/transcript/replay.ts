@@ -1,6 +1,5 @@
 import { validateTranscript } from './validate.ts';
 import type { InteractionResult, InteractionTranscript, TranscriptReplayTarget } from './types.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
 
 export async function replayTranscript(
   target: TranscriptReplayTarget,
@@ -17,11 +16,8 @@ export async function replayTranscript(
       case 'input':
         await target.input(step.event);
         break;
-      case 'frame':
-        target.recordFrame(step.frame);
-        break;
-      case 'diff':
-        target.recordDiff(step.diff);
+      case 'commit':
+        target.recordCommit(step.commit);
         break;
       case 'snapshot':
         target.transcript.record(step);
@@ -30,7 +26,7 @@ export async function replayTranscript(
         target.transcript.recordDiagnostic(step.diagnostic);
         break;
       case 'restore':
-        target.recordRestore(step.checkpoint);
+        target.recordRestore(step.result);
         break;
     }
   }
@@ -45,23 +41,11 @@ function recordTopLevelDiagnostics(
   transcript: InteractionTranscript
 ): void {
   const stepDiagnostics = new Set(
-    transcript.steps.flatMap((step) => step.kind === 'diagnostic' ? [diagnosticKey(step.diagnostic)] : [])
+    transcript.steps.flatMap((step) => step.kind === 'diagnostic' ? [step.diagnostic.id] : [])
   );
   for (const item of transcript.diagnostics) {
-    if (!stepDiagnostics.has(diagnosticKey(item))) target.transcript.recordDiagnostic(item);
+    if (!stepDiagnostics.has(item.id)) target.transcript.recordDiagnostic(item);
   }
-}
-
-function diagnosticKey(diagnostic: TerminalDiagnostic): string {
-  return JSON.stringify({
-    code: diagnostic.code,
-    severity: diagnostic.severity,
-    message: diagnostic.message,
-    target: diagnostic.target ?? null,
-    cause: diagnostic.cause ?? null,
-    hint: diagnostic.hint ?? null,
-    data: diagnostic.data ?? null
-  });
 }
 
 function currentResult(target: TranscriptReplayTarget): InteractionResult {

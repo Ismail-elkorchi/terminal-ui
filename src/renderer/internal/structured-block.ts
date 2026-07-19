@@ -1,5 +1,7 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
 import { sanitizeTerminalText, wrapTextCells } from '../../text/index.ts';
+import { measureTextCells, textWidthProfileKey } from '../../text/index.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 import { measuredWindow, type MeasuredWindow } from '../../behavior/measured-window.ts';
 import {
   type DocumentSourceOptions, documentBodyStyle, documentDetailStyle, documentFieldSpans, documentMarkerStyle, documentSpan, documentStatusStyle, documentSummaryStyle, documentTitleStyle, sourceToken
@@ -24,6 +26,7 @@ interface StructuredBlockRenderOptions {
   readonly widget: DocumentNode;
   readonly kind: 'structuredBlock' | 'activityFeed';
   readonly selected: boolean;
+  readonly widthProfile: TextWidthProfile;
   readonly itemId?: string;
   readonly itemIndex?: number;
 }
@@ -44,20 +47,32 @@ const activityFeedProjectionCache = new WeakMap<object, {
   readonly width: number;
   readonly height: number;
   readonly theme: TerminalTheme;
+  readonly widthProfileKey: string;
   readonly projection: ActivityFeedProjection;
 }>();
 
-export function structuredBlockText(widget: StructuredBlockNode, node: LayoutNode, theme: TerminalTheme): string {
-  return renderBlockText(structuredBlockBlock(widget, node, theme));
+export function structuredBlockText(
+  widget: StructuredBlockNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): string {
+  return renderBlockText(structuredBlockBlock(widget, node, theme, widthProfile));
 }
 
-export function structuredBlockBlock(widget: StructuredBlockNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+export function structuredBlockBlock(
+  widget: StructuredBlockNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   const block = blockFromRenderNode(widget);
   return {
     lines: structuredBlockLines(block, theme, node.bounds.width, {
       widget,
       kind: 'structuredBlock',
       selected: false,
+      widthProfile,
       itemId: block.id
     })
   };
@@ -76,18 +91,35 @@ export function structuredBlockAccessibleBase(widget: StructuredBlockNode, id: s
   };
 }
 
-export function activityFeedText(widget: ActivityFeedNode, node: LayoutNode, theme: TerminalTheme): string {
-  return renderBlockText(activityFeedBlock(widget, node, theme));
+export function activityFeedText(
+  widget: ActivityFeedNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): string {
+  return renderBlockText(activityFeedBlock(widget, node, theme, widthProfile));
 }
 
-export function activityFeedBlock(widget: ActivityFeedNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+export function activityFeedBlock(
+  widget: ActivityFeedNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   return {
-    lines: activityFeedRows(widget, node, theme)
+    lines: activityFeedRows(widget, node, theme, widthProfile)
   };
 }
 
-export function activityFeedAccessibleBase(widget: ActivityFeedNode, node: LayoutNode, id: string, focused: boolean, theme: TerminalTheme): AccessibleNode {
-  const { blocks, window } = activityFeedProjection(widget, node.bounds, theme);
+export function activityFeedAccessibleBase(
+  widget: ActivityFeedNode,
+  node: LayoutNode,
+  id: string,
+  focused: boolean,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): AccessibleNode {
+  const { blocks, window } = activityFeedProjection(widget, node.bounds, theme, widthProfile);
   return {
     id,
     role: 'listbox',
@@ -99,8 +131,13 @@ export function activityFeedAccessibleBase(widget: ActivityFeedNode, node: Layou
   };
 }
 
-export function activityFeedAccessibleChildren(widget: ActivityFeedNode, node: LayoutNode, theme: TerminalTheme): readonly AccessibleNode[] {
-  const projection = activityFeedProjection(widget, node.bounds, theme);
+export function activityFeedAccessibleChildren(
+  widget: ActivityFeedNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): readonly AccessibleNode[] {
+  const projection = activityFeedProjection(widget, node.bounds, theme, widthProfile);
   return projection.window.entries.map(({ item: { value: { block, index } } }) => ({
     id: `${widget.id ?? 'activityFeed'}:block:${block.id}`,
     role: 'option',
@@ -114,11 +151,12 @@ export function activityFeedAccessibleChildren(widget: ActivityFeedNode, node: L
 export function activityFeedHitTargets<TMessage>(
   widget: ActivityFeedNode<TMessage>,
   bounds: Rect,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
   const toActionMessage = activityFeedActionMessageFactory(widget);
   if (toActionMessage === undefined) return [];
-  const projection = activityFeedProjection(widget, bounds, theme);
+  const projection = activityFeedProjection(widget, bounds, theme, widthProfile);
   return projection.window.entries.map(({ item: { value: { block } }, rowOffset, visibleRows }) => ({
       id: `${widget.id ?? 'activityFeed'}:block:${block.id}`,
       bounds: {
@@ -133,21 +171,37 @@ export function activityFeedHitTargets<TMessage>(
     }));
 }
 
-function activityFeedRows(widget: ActivityFeedNode, node: LayoutNode, theme: TerminalTheme): readonly RenderLine[] {
-  const projection = activityFeedProjection(widget, node.bounds, theme);
+function activityFeedRows(
+  widget: ActivityFeedNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): readonly RenderLine[] {
+  const projection = activityFeedProjection(widget, node.bounds, theme, widthProfile);
   return projection.window.entries.flatMap(({ item: { value }, clippedRowsBefore, visibleRows }) =>
     value.lines.slice(clippedRowsBefore, clippedRowsBefore + visibleRows)
   );
 }
 
-function activityFeedProjection(widget: ActivityFeedNode, bounds: Rect, theme: TerminalTheme): ActivityFeedProjection {
+function activityFeedProjection(
+  widget: ActivityFeedNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): ActivityFeedProjection {
   const cached = activityFeedProjectionCache.get(widget);
-  if (cached?.width === bounds.width && cached.height === bounds.height && cached.theme === theme) return cached.projection;
+  const profileKey = textWidthProfileKey(widthProfile);
+  if (
+    cached?.width === bounds.width
+    && cached.height === bounds.height
+    && cached.theme === theme
+    && cached.widthProfileKey === profileKey
+  ) return cached.projection;
   const blocks = activityFeedBlocks(widget);
   const selectedIndex = selectedBlockIndex(widget, blocks.length);
   const measured = blocks.map((block, index): ActivityFeedMeasuredBlock => {
     const selected = selectedIndex === index;
-    const content = activityFeedItemLines(widget, block, index, selected, bounds.width, theme);
+    const content = activityFeedItemLines(widget, block, index, selected, bounds.width, theme, widthProfile);
     const marker = selected ? `${theme.tokens.symbols.pointer} ` : '  ';
     return {
       block,
@@ -175,7 +229,13 @@ function activityFeedProjection(widget: ActivityFeedNode, bounds: Rect, theme: T
     ...(selectedId === undefined ? {} : { selectedId })
   });
   const projection = { blocks, selectedIndex, window };
-  activityFeedProjectionCache.set(widget, { width: bounds.width, height: bounds.height, theme, projection });
+  activityFeedProjectionCache.set(widget, {
+    width: bounds.width,
+    height: bounds.height,
+    theme,
+    widthProfileKey: profileKey,
+    projection
+  });
   return projection;
 }
 
@@ -185,13 +245,16 @@ function activityFeedItemLines(
   index: number,
   selected: boolean,
   width: number,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): readonly RenderLine[] {
   const marker = selected ? `${theme.tokens.symbols.pointer} ` : '  ';
-  return structuredBlockLines(block, theme, Math.max(0, width - marker.length), {
+  const markerWidth = measureTextCells(marker, { widthProfile }).cells;
+  return structuredBlockLines(block, theme, Math.max(0, width - markerWidth), {
     widget,
     kind: 'activityFeed',
     selected,
+    widthProfile,
     itemId: block.id,
     itemIndex: index
   });
@@ -204,7 +267,7 @@ function structuredBlockLines(
   options: StructuredBlockRenderOptions
 ): readonly RenderLine[] {
   const collapsed = block.collapsed === true;
-  const fieldLabelWidth = maxFieldLabelWidth(block.fields ?? []);
+  const fieldLabelWidth = maxFieldLabelWidth(block.fields ?? [], options.widthProfile);
   const lines: RenderLine[] = [headerLine(block, theme, collapsed, options, width)];
   if (block.summary !== undefined && block.summary.length > 0) {
     lines.push(compactTextLine(block.summary, width, documentSummaryStyle(options.widget, options.selected), options, 'summary', 'summary'));
@@ -409,15 +472,27 @@ function headerLine(
     documentSpan(options.widget, options.kind, 'separator', 'title.separator', ' ', documentMarkerStyle(options.widget, options.selected), sourceOptionsForBlock(options)),
     documentSpan(options.widget, options.kind, 'title', 'title', block.title, documentTitleStyle(options.widget, block.style, options.selected), sourceOptionsForBlock(options))
   );
-  return clipRenderLine({ spans }, Math.max(0, width), { ellipsis: '…', mode: 'middle' });
+  return clipRenderLine({ spans }, Math.max(0, width), {
+    ellipsis: '…',
+    mode: 'middle',
+    widthProfile: options.widthProfile
+  });
 }
 
 function fieldLine(field: FieldItem, labelWidth: number, width: number, options: StructuredBlockRenderOptions): RenderLine {
   return {
     spans: clipRenderSpans(
-      documentFieldSpans(options.widget, field, labelWidth, options.selected, options.kind, sourceOptionsForBlock(options)),
+      documentFieldSpans(
+        options.widget,
+        field,
+        labelWidth,
+        options.widthProfile,
+        options.selected,
+        options.kind,
+        sourceOptionsForBlock(options)
+      ),
       Math.max(0, width),
-      { ellipsis: '…', mode: 'middle' }
+      { ellipsis: '…', mode: 'middle', widthProfile: options.widthProfile }
     )
   };
 }
@@ -434,7 +509,7 @@ function compactTextLine(
     spans: clipRenderSpans(
       [documentSpan(options.widget, options.kind, visual, label, text, style, sourceOptionsForBlock(options))],
       Math.max(0, width),
-      { ellipsis: '…', mode: 'middle' }
+      { ellipsis: '…', mode: 'middle', widthProfile: options.widthProfile }
     )
   };
 }
@@ -448,7 +523,9 @@ function wrappedTextLines(
   label: string
 ): readonly RenderLine[] {
   return text.split('\n').flatMap((line): RenderLine[] => {
-    const wrapped = width > 0 ? wrapTextCells(line, width).map((item) => item.text) : [line];
+    const wrapped = width > 0
+      ? wrapTextCells(line, width, { widthProfile: options.widthProfile }).map((item) => item.text)
+      : [line];
     return wrapped.map((textLine) => ({
       spans: [documentSpan(options.widget, options.kind, visual, label, textLine, style, sourceOptionsForBlock(options))]
     }));
@@ -471,12 +548,17 @@ function detailTextLines(
     documentSpan(options.widget, options.kind, 'detail', 'details.body', detailText, style, sourceOptionsForBlock(options))
   ];
   const plain = spans.map((item) => item.text).join('');
-  if (width <= 0 || plain.length <= width) return [{ spans }];
+  if (width <= 0 || measureTextCells(plain, { widthProfile: options.widthProfile }).cells <= width) {
+    return [{ spans }];
+  }
   return wrappedTextLines(plain, width, style, options, 'detail', 'details.body');
 }
 
-function maxFieldLabelWidth(fields: readonly FieldItem[]): number {
-  return fields.reduce((width, field) => Math.max(width, field.label.length), 0);
+function maxFieldLabelWidth(fields: readonly FieldItem[], widthProfile: TextWidthProfile): number {
+  return fields.reduce(
+    (width, field) => Math.max(width, measureTextCells(field.label, { widthProfile }).cells),
+    0
+  );
 }
 
 function renderBlockText(block: RenderBlock): string {

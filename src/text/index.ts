@@ -1,4 +1,5 @@
 export { clipTextCells } from './clip.ts';
+export { fillTextCells, oneCellGlyph, padTextCells } from './cell-geometry.ts';
 export { applyTextEditWithHistory, emptyTextEditHistory } from './edit-history.ts';
 export { editTextBuffer } from './edit.ts';
 export { segmentGraphemes } from './graphemes.ts';
@@ -27,8 +28,9 @@ export {
   wordSelectionAt
 } from './word-boundaries.ts';
 export { wrapTextCells } from './wrap.ts';
-export { defaultTextWidthProfile, textWidthProfileKey } from './width-profile.ts';
+export { defaultTextWidthProfile, defineTextWidthProfile, textWidthProfileKey } from './width-profile.ts';
 export type * from './types.ts';
+export type { PadTextCellsOptions, TextCellAlignment } from './cell-geometry.ts';
 export type {
   TextEditHistory,
   TextEditHistoryGroup,

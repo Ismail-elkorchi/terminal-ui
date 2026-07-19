@@ -13,7 +13,8 @@ import type {
 
 export async function runTuiInputLoop<TState, TMessage>(
   runtime: TuiRuntime<TState, TMessage>,
-  transcript?: TranscriptRecorder
+  transcript: TranscriptRecorder | undefined,
+  retireInput: (retirement: Promise<void>) => void
 ): Promise<TuiExit<TState>> {
   const inputController = new AbortController();
   const changeController = new AbortController();
@@ -24,8 +25,8 @@ export async function runTuiInputLoop<TState, TMessage>(
   let runtimeChangeNext = runtime.nextChange(changeController.signal);
   let inputWorkNext: Promise<InputWorkOutcome<TState>> | undefined;
   let inputBatchNext: Promise<readonly TuiInputResult<TState>[]> | undefined;
-  let resizeNext: Promise<Settled<void>> | undefined;
-  let resizeRequested = false;
+  let resizeQueued = false;
+  let resizeNext: Promise<Settled<unknown>> | undefined;
   try {
     for (;;) {
       const candidates: Promise<InputLoopEvent<TState>>[] = [
@@ -75,9 +76,9 @@ export async function runTuiInputLoop<TState, TMessage>(
       if (event.kind === 'resize') {
         resizeNext = undefined;
         if (!event.outcome.ok) throw event.outcome.cause;
-        if (resizeRequested) {
-          resizeRequested = false;
-          resizeNext = settleVoid(runtime.resize(runtime.host.getViewport()));
+        if (resizeQueued) {
+          resizeQueued = false;
+          resizeNext = settle(runtime.resize(runtime.host.getViewport()));
         }
         continue;
       }
@@ -89,8 +90,8 @@ export async function runTuiInputLoop<TState, TMessage>(
       signalNext = signals.next();
       transcript?.record({ kind: 'input', event: { kind: 'signal', signal: event.signal } });
       if (event.signal === 'resize') {
-        if (resizeNext === undefined) resizeNext = settleVoid(runtime.resize(runtime.host.getViewport()));
-        else resizeRequested = true;
+        if (resizeNext === undefined) resizeNext = settle(runtime.resize(runtime.host.getViewport()));
+        else resizeQueued = true;
         continue;
       }
       return handleTuiSignal(runtime, event.signal);
@@ -99,7 +100,7 @@ export async function runTuiInputLoop<TState, TMessage>(
     inputController.abort();
     changeController.abort();
     signals.dispose();
-    await input.return?.();
+    retireInput(Promise.resolve().then(async () => { await input.return?.(); }));
   }
   const explicitExit = runtime.exit();
   if (explicitExit !== undefined) return explicitExit;
@@ -153,20 +154,13 @@ type InputLoopEvent<TState> =
   | { readonly kind: 'input'; readonly outcome: Settled<IteratorResult<TerminalInputChunk>> }
   | { readonly kind: 'inputWork'; readonly outcome: InputWorkOutcome<TState> }
   | { readonly kind: 'inputBatch'; readonly outcome: Settled<readonly TuiInputResult<TState>[]> }
-  | { readonly kind: 'resize'; readonly outcome: Settled<void> }
+  | { readonly kind: 'resize'; readonly outcome: Settled<unknown> }
   | { readonly kind: 'runtime'; readonly change: TuiRuntimeChange<TState> }
   | { readonly kind: 'signal'; readonly signal: TerminalSignal };
 
 function settle<TValue>(operation: Promise<TValue>): Promise<Settled<TValue>> {
   return operation.then(
     (value) => ({ ok: true, value }),
-    (cause: unknown) => ({ ok: false, cause })
-  );
-}
-
-function settleVoid(operation: Promise<unknown>): Promise<Settled<void>> {
-  return operation.then(
-    () => ({ ok: true, value: undefined }),
     (cause: unknown) => ({ ok: false, cause })
   );
 }
@@ -185,10 +179,13 @@ interface SignalQueue {
 function createSignalQueue(subscribe: (listener: (signal: TerminalSignal) => void) => Unsubscribe): SignalQueue {
   const queued: TerminalSignal[] = [];
   const waiters: ((signal: TerminalSignal) => void)[] = [];
+  let resizeQueued = false;
   const unsubscribe = subscribe((signal) => {
     const waiter = waiters.shift();
     if (waiter === undefined) {
+      if (signal === 'resize' && resizeQueued) return;
       queued.push(signal);
+      if (signal === 'resize') resizeQueued = true;
       return;
     }
     waiter(signal);
@@ -196,13 +193,17 @@ function createSignalQueue(subscribe: (listener: (signal: TerminalSignal) => voi
   return {
     next() {
       const queuedSignal = queued.shift();
-      if (queuedSignal !== undefined) return Promise.resolve(queuedSignal);
+      if (queuedSignal !== undefined) {
+        if (queuedSignal === 'resize') resizeQueued = false;
+        return Promise.resolve(queuedSignal);
+      }
       return new Promise((resolve) => waiters.push(resolve));
     },
     dispose() {
       unsubscribe();
       waiters.splice(0);
       queued.splice(0);
+      resizeQueued = false;
     }
   };
 }

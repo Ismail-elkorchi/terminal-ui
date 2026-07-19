@@ -1,11 +1,13 @@
 import { OrderedOutputQueue } from './ordered-output.ts';
-import type { NodeWritableTerminalStream, TerminalOutput } from './types.ts';
+import { throwIfTerminalOperationAborted } from './operation.ts';
+import type { NodeWritableTerminalStream, TerminalOperationContext, TerminalOutput } from './types.ts';
 
 export class NodeTerminalOutput implements TerminalOutput {
   readonly #queue = new OrderedOutputQueue();
   readonly #stream: NodeWritableTerminalStream;
 
   constructor(stream: NodeWritableTerminalStream) {
+    validateNodeWritableTerminalStream(stream);
     this.#stream = stream;
   }
 
@@ -17,12 +19,16 @@ export class NodeTerminalOutput implements TerminalOutput {
     return this.#stream.rows;
   }
 
-  write(chunk: string | Uint8Array): Promise<void> {
-    return this.#queue.run(() => writeNodeChunk(this.#stream, chunk));
+  write(chunk: string | Uint8Array, context: TerminalOperationContext = {}): Promise<void> {
+    return this.#queue.run((operationContext) => writeNodeChunk(this.#stream, chunk, operationContext), context);
   }
 
-  flush(): Promise<void> {
-    return this.#queue.flush();
+  flush(context: TerminalOperationContext = {}): Promise<void> {
+    return this.#queue.flush(context);
+  }
+
+  dispose(context: TerminalOperationContext = {}): Promise<void> {
+    return this.flush(context);
   }
 
   isTty(): boolean {
@@ -30,7 +36,12 @@ export class NodeTerminalOutput implements TerminalOutput {
   }
 }
 
-function writeNodeChunk(stream: NodeWritableTerminalStream, chunk: string | Uint8Array): Promise<void> {
+function writeNodeChunk(
+  stream: NodeWritableTerminalStream,
+  chunk: string | Uint8Array,
+  context: TerminalOperationContext
+): Promise<void> {
+  throwIfTerminalOperationAborted(context);
   return new Promise((resolve, reject) => {
     let callbackComplete = false;
     let drainComplete = true;
@@ -38,9 +49,9 @@ function writeNodeChunk(stream: NodeWritableTerminalStream, chunk: string | Uint
     let settled = false;
 
     const cleanup = (): void => {
-      stream.off?.('error', onError);
-      stream.off?.('close', onClose);
-      stream.off?.('drain', onDrain);
+      stream.off('error', onError);
+      stream.off('close', onClose);
+      stream.off('drain', onDrain);
     };
     const fail = (cause: unknown): void => {
       if (settled) return;
@@ -61,9 +72,8 @@ function writeNodeChunk(stream: NodeWritableTerminalStream, chunk: string | Uint
       drainComplete = true;
       complete();
     };
-
-    stream.once?.('error', onError);
-    stream.once?.('close', onClose);
+    stream.once('error', onError);
+    stream.once('close', onClose);
     try {
       const accepted = stream.write(chunk, (cause?: Error | null) => {
         if (cause !== undefined && cause !== null) {
@@ -76,11 +86,17 @@ function writeNodeChunk(stream: NodeWritableTerminalStream, chunk: string | Uint
       writeReturned = true;
       if (!accepted && writeIsPending()) {
         drainComplete = false;
-        stream.once?.('drain', onDrain);
+        stream.once('drain', onDrain);
       }
       complete();
     } catch (cause) {
       fail(cause);
     }
   });
+}
+
+function validateNodeWritableTerminalStream(stream: NodeWritableTerminalStream): void {
+  if (typeof stream.write !== 'function' || typeof stream.once !== 'function' || typeof stream.off !== 'function') {
+    throw new TypeError('Node terminal output requires write(), once(), and off() methods.');
+  }
 }

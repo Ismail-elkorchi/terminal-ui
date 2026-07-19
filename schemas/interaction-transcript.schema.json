@@ -31,6 +31,15 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "textWidthProfile": {
+      "type": "object",
+      "required": ["emoji", "ambiguous"],
+      "properties": {
+        "emoji": { "enum": ["narrow", "wide"] },
+        "ambiguous": { "enum": ["narrow", "wide"] }
+      },
+      "additionalProperties": false
+    },
     "step": {
       "oneOf": [
         {
@@ -47,26 +56,17 @@
           "required": ["kind", "source", "message"],
           "properties": {
             "kind": { "const": "message" },
-            "source": { "enum": ["input", "signal", "timer", "external", "internal"] },
+            "source": { "enum": ["input", "signal", "timer", "external", "effect"] },
             "message": true
           },
           "additionalProperties": false
         },
         {
           "type": "object",
-          "required": ["kind", "frame"],
+          "required": ["kind", "commit"],
           "properties": {
-            "kind": { "const": "frame" },
-            "frame": { "$ref": "#/$defs/frame" }
-          },
-          "additionalProperties": false
-        },
-        {
-          "type": "object",
-          "required": ["kind", "diff"],
-          "properties": {
-            "kind": { "const": "diff" },
-            "diff": { "$ref": "#/$defs/renderDiff" }
+            "kind": { "const": "commit" },
+            "commit": { "$ref": "#/$defs/runtimeCommit" }
           },
           "additionalProperties": false
         },
@@ -90,14 +90,27 @@
         },
         {
           "type": "object",
-          "required": ["kind", "checkpoint"],
+          "required": ["kind", "result"],
           "properties": {
             "kind": { "const": "restore" },
-            "checkpoint": { "$ref": "#/$defs/restoreCheckpoint" }
+            "result": { "$ref": "#/$defs/restoreResult" }
           },
           "additionalProperties": false
         }
       ]
+    },
+    "runtimeCommit": {
+      "type": "object",
+      "required": ["id", "stateVersion", "viewport", "frame", "diff"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "stateVersion": { "type": "integer", "minimum": 0 },
+        "viewport": { "$ref": "#/$defs/viewport" },
+        "focusPath": { "type": "array", "items": { "type": "string" } },
+        "frame": { "$ref": "#/$defs/frame" },
+        "diff": { "$ref": "#/$defs/renderDiff" }
+      },
+      "additionalProperties": false
     },
     "unicodeScalar": {
       "type": "integer",
@@ -143,6 +156,7 @@
               ]
             },
             "sequence": { "type": "string" },
+            "keyCodePoint": { "$ref": "#/$defs/unicodeScalar" },
             "committedText": { "type": "string" },
             "alternateCodePoints": {
               "type": "object",
@@ -273,11 +287,12 @@
     },
     "frame": {
       "type": "object",
-      "required": ["schemaVersion", "width", "height", "cells", "accessibility"],
+      "required": ["schemaVersion", "width", "height", "widthProfile", "cells", "accessibility"],
       "properties": {
         "schemaVersion": { "const": "terminal-ui.tui-frame.v1" },
         "width": { "type": "integer", "minimum": 0 },
         "height": { "type": "integer", "minimum": 0 },
+        "widthProfile": { "$ref": "#/$defs/textWidthProfile" },
         "cells": {
           "type": "array",
           "items": { "$ref": "#/$defs/frameCell" }
@@ -393,11 +408,12 @@
     },
     "renderDiff": {
       "type": "object",
-      "required": ["schemaVersion", "width", "height", "operations", "fullRewrite"],
+      "required": ["schemaVersion", "width", "height", "widthProfile", "operations", "fullRewrite"],
       "properties": {
         "schemaVersion": { "const": "terminal-ui.render-diff.v2" },
         "width": { "type": "integer", "minimum": 0 },
         "height": { "type": "integer", "minimum": 0 },
+        "widthProfile": { "$ref": "#/$defs/textWidthProfile" },
         "operations": {
           "type": "array",
           "items": { "$ref": "#/$defs/renderOperation" }
@@ -642,9 +658,10 @@
     },
     "diagnostic": {
       "type": "object",
-      "required": ["schemaVersion", "code", "severity", "message"],
+      "required": ["schemaVersion", "id", "code", "severity", "message"],
       "properties": {
         "schemaVersion": { "const": "terminal-ui.terminal-diagnostic.v1" },
+        "id": { "type": "string", "minLength": 1 },
         "code": { "type": "string", "minLength": 1 },
         "severity": { "enum": ["debug", "info", "warning", "error", "fatal"] },
         "message": { "type": "string" },
@@ -671,7 +688,32 @@
         }
       ]
     },
-    "restoreCheckpoint": {
+    "restoreResult": {
+      "type": "object",
+      "required": ["status", "reason", "requested", "attempted", "confirmed", "resultingState", "diagnostics"],
+      "properties": {
+        "status": { "enum": ["restored", "partial", "failed"] },
+        "reason": { "enum": ["success", "cancelled", "interrupted", "timeout", "error", "disposed"] },
+        "requested": { "$ref": "#/$defs/terminalStateSnapshot" },
+        "attempted": { "type": "array", "items": { "$ref": "#/$defs/terminalStateChange" } },
+        "confirmed": { "type": "array", "items": { "$ref": "#/$defs/terminalStateChange" } },
+        "resultingState": { "$ref": "#/$defs/terminalStateSnapshot" },
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
+      },
+      "additionalProperties": false
+    },
+    "terminalStateChange": {
+      "oneOf": [
+        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "rawInput" }, "enabled": { "type": "boolean" } }, "additionalProperties": false },
+        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "alternateScreen" }, "enabled": { "type": "boolean" } }, "additionalProperties": false },
+        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "bracketedPaste" }, "enabled": { "type": "boolean" } }, "additionalProperties": false },
+        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "mouseReporting" }, "enabled": { "enum": ["none", "click", "drag", "all"] } }, "additionalProperties": false },
+        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "focusReporting" }, "enabled": { "type": "boolean" } }, "additionalProperties": false },
+        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "keyboardProfile" }, "enabled": { "$ref": "#/$defs/keyboardProfile" } }, "additionalProperties": false },
+        { "type": "object", "required": ["kind", "enabled"], "properties": { "kind": { "const": "cursorVisible" }, "enabled": { "type": "boolean" } }, "additionalProperties": false }
+      ]
+    },
+    "terminalStateSnapshot": {
       "type": "object",
       "required": [
         "rawInput",
@@ -680,7 +722,8 @@
         "mouseReporting",
         "focusReporting",
         "keyboardProfile",
-        "cursorVisible"
+        "cursorVisible",
+        "provenance"
       ],
       "properties": {
         "rawInput": { "type": "boolean" },
@@ -688,7 +731,29 @@
         "bracketedPaste": { "type": "boolean" },
         "mouseReporting": { "enum": ["none", "click", "drag", "all"] },
         "focusReporting": { "type": "boolean" },
-        "keyboardProfile": {
+        "keyboardProfile": { "$ref": "#/$defs/keyboardProfile" },
+        "cursorVisible": { "type": "boolean" },
+        "provenance": {
+          "type": "object",
+          "required": ["rawInput", "alternateScreen", "bracketedPaste", "mouseReporting", "focusReporting", "keyboardProfile", "cursorVisible"],
+          "properties": {
+            "rawInput": { "$ref": "#/$defs/terminalStateKnowledge" },
+            "alternateScreen": { "$ref": "#/$defs/terminalStateKnowledge" },
+            "bracketedPaste": { "$ref": "#/$defs/terminalStateKnowledge" },
+            "mouseReporting": { "$ref": "#/$defs/terminalStateKnowledge" },
+            "focusReporting": { "$ref": "#/$defs/terminalStateKnowledge" },
+            "keyboardProfile": { "$ref": "#/$defs/terminalStateKnowledge" },
+            "cursorVisible": { "$ref": "#/$defs/terminalStateKnowledge" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "terminalStateKnowledge": {
+      "enum": ["observed", "explicit", "library_known", "assumed", "indeterminate"]
+    },
+    "keyboardProfile": {
           "oneOf": [
             {
               "type": "object",
@@ -711,10 +776,6 @@
               "additionalProperties": false
             }
           ]
-        },
-        "cursorVisible": { "type": "boolean" }
-      },
-      "additionalProperties": false
     }
   }
 }

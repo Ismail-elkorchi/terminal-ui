@@ -6,7 +6,7 @@ import {
   normalizeTextSelection,
   terminalTextWidth
 } from '../../text/index.ts';
-import type { TextSelection } from '../../text/index.ts';
+import type { TextMeasurementOptions, TextSelection } from '../../text/index.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 
 export interface TextCursorLineMetrics {
@@ -25,8 +25,13 @@ export interface SelectedTextSpanOptions {
   readonly selectedSource?: FrameCellSource;
 }
 
-export function singleLineCursorColumn(value: string, cursor: number | undefined, maxColumns?: number): number {
-  const index = createTerminalTextIndex(value);
+export function singleLineCursorColumn(
+  value: string,
+  cursor: number | undefined,
+  options: TextMeasurementOptions,
+  maxColumns?: number
+): number {
+  const index = createTerminalTextIndex(value, options);
   const boundedCursor = normalizeTextCursor(value, cursor ?? value.length);
   const graphemeIndex = index.codeUnitOffsetToGraphemeIndex(boundedCursor);
   const cells = index.graphemeIndexToVisualColumn(graphemeIndex);
@@ -49,16 +54,26 @@ export function selectedTextSpans(
   ].filter((span) => span.text.length > 0);
 }
 
-export function visibleLineText(lineText: string, offsetCells: number, width: number): string {
-  return visibleLineWindow(lineText, offsetCells, width).text;
+export function visibleLineText(
+  lineText: string,
+  offsetCells: number,
+  width: number,
+  options: TextMeasurementOptions
+): string {
+  return visibleLineWindow(lineText, offsetCells, width, options).text;
 }
 
-export function visibleLineWindow(lineText: string, offsetCells: number, width: number): VisibleLineWindow {
+export function visibleLineWindow(
+  lineText: string,
+  offsetCells: number,
+  width: number,
+  options: TextMeasurementOptions
+): VisibleLineWindow {
   const start = Math.max(0, Math.floor(offsetCells));
-  const index = createTerminalTextIndex(lineText);
+  const index = createTerminalTextIndex(lineText, options);
   const startGrapheme = index.visualColumnToGraphemeIndex(start);
   const startOffset = index.graphemeIndexToCodeUnitOffset(startGrapheme);
-  const clipped = clipTextCells(textRange(lineText, startOffset, lineText.length), Math.max(0, width)).text;
+  const clipped = clipTextCells(textRange(lineText, startOffset, lineText.length), Math.max(0, width), options).text;
   return {
     text: clipped,
     startOffset,
@@ -66,7 +81,11 @@ export function visibleLineWindow(lineText: string, offsetCells: number, width: 
   };
 }
 
-export function textCursorLineMetrics(value: string, cursor: number | undefined): TextCursorLineMetrics {
+export function textCursorLineMetrics(
+  value: string,
+  cursor: number | undefined,
+  options: TextMeasurementOptions
+): TextCursorLineMetrics {
   const boundedCursor = normalizeTextCursor(value, cursor ?? value.length);
   const beforeCursor = textRange(value, 0, boundedCursor);
   const lineIndex = beforeCursor.split('\n').length - 1;
@@ -74,12 +93,12 @@ export function textCursorLineMetrics(value: string, cursor: number | undefined)
   const currentLine = textRange(value, lineStart, boundedCursor);
   return {
     lineIndex,
-    columnCells: terminalTextWidth(currentLine)
+    columnCells: terminalTextWidth(currentLine, options)
   };
 }
 
-export function textDisplayWidth(value: string): number {
-  return terminalTextWidth(value);
+export function textDisplayWidth(value: string, options: TextMeasurementOptions): number {
+  return terminalTextWidth(value, options);
 }
 
 export function selectionFromUnknown(value: string, selection: unknown): TextSelection | undefined {

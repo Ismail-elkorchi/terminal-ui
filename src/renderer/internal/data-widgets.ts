@@ -9,6 +9,7 @@ import type { Rect } from '../model/layout.ts';
 import type { HitTarget } from '../model/renderer.ts';
 import type { RenderBlock, RenderSpan } from '../../visual/render.ts';
 import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 
 interface PaginatorParts {
   readonly label: string;
@@ -31,17 +32,22 @@ interface PaginatorControl {
 
 type PaginatorNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'paginator'>;
 
-export function paginatorText(widget: PaginatorNode): string {
-  return paginatorLayout(widget).spans.map((item) => item.text).join('');
+export function paginatorText(widget: PaginatorNode, widthProfile: TextWidthProfile): string {
+  return paginatorLayout(widget, widthProfile).spans.map((item) => item.text).join('');
 }
 
-export function paginatorBlock(widget: PaginatorNode): RenderBlock {
-  return { lines: [{ spans: paginatorLayout(widget).spans }] };
+export function paginatorBlock(widget: PaginatorNode, widthProfile: TextWidthProfile): RenderBlock {
+  return { lines: [{ spans: paginatorLayout(widget, widthProfile).spans }] };
 }
 
-export function paginatorAccessibleBase(widget: PaginatorNode, id: string, focused: boolean): AccessibleNode {
+export function paginatorAccessibleBase(
+  widget: PaginatorNode,
+  id: string,
+  focused: boolean,
+  widthProfile: TextWidthProfile
+): AccessibleNode {
   const parts = paginatorParts(widget);
-  const controls = paginatorLayout(widget).controls;
+  const controls = paginatorLayout(widget, widthProfile).controls;
   return {
     id,
     role: controls.length === 0 ? 'status' : 'application',
@@ -63,11 +69,12 @@ export function paginatorAccessibleBase(widget: PaginatorNode, id: string, focus
 
 export function paginatorHitTargets<TMessage>(
   widget: PaginatorNode<TMessage>,
-  bounds: Rect
+  bounds: Rect,
+  widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
   const onAction = widget.props.toActionMessage;
   if (onAction === undefined || bounds.height <= 0) return [];
-  return paginatorLayout(widget).controls.flatMap((control): readonly HitTarget<TMessage>[] => control.disabled
+  return paginatorLayout(widget, widthProfile).controls.flatMap((control): readonly HitTarget<TMessage>[] => control.disabled
     ? []
     : [{
         id: paginatorControlTargetId(widget, control.action.kind),
@@ -82,7 +89,7 @@ export function paginatorHitTargets<TMessage>(
       }]);
 }
 
-function paginatorLayout(widget: PaginatorNode): PaginatorLayout {
+function paginatorLayout(widget: PaginatorNode, widthProfile: TextWidthProfile): PaginatorLayout {
   const parts = paginatorParts(widget);
   const spans: RenderSpan[] = [];
   const controls: PaginatorControl[] = [];
@@ -94,7 +101,7 @@ function paginatorLayout(widget: PaginatorNode): PaginatorLayout {
     state?: import('../../element/metadata.ts').ElementVisualState
   ): void => {
     spans.push(dataSpan(text, style, dataSource(widget, label, state === undefined ? {} : { state })));
-    offset += terminalTextWidth(text);
+    offset += terminalTextWidth(text, { widthProfile });
   };
   const appendControl = (
     text: string,
@@ -102,7 +109,7 @@ function paginatorLayout(widget: PaginatorNode): PaginatorLayout {
     action: PaginatorAction,
     disabled: boolean
   ): void => {
-    const width = terminalTextWidth(text);
+    const width = terminalTextWidth(text, { widthProfile });
     controls.push({ label, action, offset, width, disabled });
     const state = interactionVisualState(widget, paginatorControlTargetId(widget, action.kind), { disabled });
     append(text, `control.${action.kind}`, resolveRenderNodeStyle(widget, {

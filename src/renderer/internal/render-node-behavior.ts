@@ -10,6 +10,7 @@ import {
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 import type { RenderNodeFocusTarget, RenderNodeLayoutTarget } from './focus.ts';
 import type { LayoutNode, Rect } from '../model/layout.ts';
 import type { Measurement } from './measurement.ts';
@@ -24,7 +25,8 @@ export function layoutChildBounds(
   widget: RenderNode,
   bounds: Rect,
   viewport: Rect,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): readonly Rect[] {
   const children = widget.children ?? [];
   if (children.length === 0) return [];
@@ -33,24 +35,32 @@ export function layoutChildBounds(
   if (renderer.layout === undefined) {
     throw new Error(`RenderNode "${widget.kind}" has children but does not define layout.`);
   }
-  const childMeasures = children.map((child) => measureRenderNode(child, bounds, theme));
-  return renderer.layout({ renderNode: widget, bounds, viewport, theme, childMeasures });
+  const childMeasures = children.map((child) => measureRenderNode(child, bounds, theme, widthProfile));
+  return renderer.layout({ renderNode: widget, bounds, viewport, theme, childMeasures, widthProfile });
 }
 
 export function placeRenderNode(
   widget: RenderNode,
   bounds: Rect,
   viewport: Rect,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): Rect {
-  return rendererForRenderNode(widget).place?.({ renderNode: widget, bounds, viewport, theme }) ?? bounds;
+  return rendererForRenderNode(widget).place?.({ renderNode: widget, bounds, viewport, theme, widthProfile }) ?? bounds;
 }
 
-export function measureRenderNode(widget: RenderNode, bounds: Rect, theme: TerminalTheme): Measurement {
+export function measureRenderNode(
+  widget: RenderNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): Measurement {
   const renderer = rendererForRenderNode(widget);
-  if (renderer.measure !== undefined) return normalizeMeasurement(renderer.measure({ renderNode: widget, bounds, theme }));
+  if (renderer.measure !== undefined) {
+    return normalizeMeasurement(renderer.measure({ renderNode: widget, bounds, theme, widthProfile }));
+  }
   if (widget.kind === 'custom') return zeroMeasurement();
-  return measureBuiltinRenderNode(widget, bounds, theme, measureRenderNode);
+  return measureBuiltinRenderNode(widget, bounds, theme, widthProfile, measureRenderNode);
 }
 
 export function renderRenderNode(
@@ -65,18 +75,24 @@ export function accessibilityForRenderNode(
   node: LayoutNode,
   id: string,
   focused: boolean,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): AccessibleNode {
   const renderer = rendererForRenderNode(widget);
   if (renderer.accessibility === undefined) {
     throw new Error(`RenderNode "${id}" must provide accessibility or be marked decorative.`);
   }
-  return renderer.accessibility({ renderNode: widget, layoutNode: node, id, focused, theme });
+  return renderer.accessibility({ renderNode: widget, layoutNode: node, id, focused, theme, widthProfile });
 }
 
-export function focusTargetsForRenderNode(widget: RenderNode, bounds: Rect, theme: TerminalTheme): readonly FocusTarget[] {
+export function focusTargetsForRenderNode(
+  widget: RenderNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): readonly FocusTarget[] {
   if (renderNodeInteractionDisabled(widget)) return [];
-  const explicit = rendererForRenderNode(widget).focusTargets?.({ renderNode: widget, bounds, theme }) ?? [];
+  const explicit = rendererForRenderNode(widget).focusTargets?.({ renderNode: widget, bounds, theme, widthProfile }) ?? [];
   const targets = explicit.length > 0 || !hasKeyboardOrInputMap(widget)
     ? explicit
     : [{ id: 'self', bounds }];
@@ -103,23 +119,27 @@ export function focusScopeForRenderNode(widget: RenderNode): ElementFocusScope |
 export function cursorForRenderNode(
   widget: RenderNode,
   target: RenderNodeFocusTarget<unknown>,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): { readonly row: number; readonly column: number } | undefined {
   return target.cursor
-    ?? focusTargetsForRenderNode(widget, target.bounds, theme).find((item) => sameRect(item.bounds, target.bounds))?.cursor;
+    ?? focusTargetsForRenderNode(widget, target.bounds, theme, widthProfile)
+      .find((item) => sameRect(item.bounds, target.bounds))?.cursor;
 }
 
 export function hitTargetsForRenderNode<TMessage>(
   widget: RenderNode<TMessage>,
   target: RenderNodeLayoutTarget<TMessage>,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
   if (renderNodeInteractionDisabled(widget)) return [];
   const targets = rendererForRenderNode(widget).hitTargets?.({
     renderNode: widget,
     layoutNode: target.layoutNode,
     bounds: target.bounds,
-    theme
+    theme,
+    widthProfile
   }) ?? [];
   const presented = pointerPresentationHitTargets(widget, target.bounds, targets);
   if (widget.kind === 'custom' || target.layoutNode.focusTargets.length !== 1) return presented;

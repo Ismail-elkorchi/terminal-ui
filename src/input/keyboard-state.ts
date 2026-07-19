@@ -1,13 +1,24 @@
-import type { FocusEvent, KeyEvent, KeyModifiers, KeyName, KeyLocation } from './types.ts';
+import type { FocusEvent, KeyEvent, KeyLocation, KeyModifiers, KeyName } from './types.ts';
 
-export interface KeyboardKeyIdentity {
-  readonly key: KeyName;
+export type PressedKeyIdentity =
+  | {
+      readonly kind: 'codePoint';
+      readonly codePoint: number;
+      readonly location: KeyLocation;
+    }
+  | {
+      readonly kind: 'logicalKey';
+      readonly key: KeyName;
+      readonly location: KeyLocation;
+    };
+
+export interface PressedKey {
+  readonly identity: PressedKeyIdentity;
   readonly modifiers: KeyModifiers;
-  readonly location: KeyLocation;
 }
 
 export interface KeyboardState {
-  readonly pressed: readonly KeyboardKeyIdentity[];
+  readonly pressed: readonly PressedKey[];
 }
 
 export type KeyboardStateAction =
@@ -20,30 +31,32 @@ export function createKeyboardState(): KeyboardState {
 
 export function reduceKeyboardState(state: KeyboardState, action: KeyboardStateAction): KeyboardState {
   if (action.kind === 'focus') return action.event.focused ? state : createKeyboardState();
-  const identity = keyIdentity(action.event);
-  const index = state.pressed.findIndex((candidate) => sameKey(candidate, identity));
+  const identity = pressedKeyIdentity(action.event);
+  const index = state.pressed.findIndex((candidate) => sameIdentity(candidate.identity, identity));
   if (action.event.eventType === 'release') {
     return index < 0
       ? state
       : { pressed: state.pressed.filter((_, candidateIndex) => candidateIndex !== index) };
   }
-  if (index >= 0) return state;
-  return { pressed: [...state.pressed, identity] };
+  const pressed = { identity, modifiers: action.event.modifiers } satisfies PressedKey;
+  if (index < 0) return { pressed: [...state.pressed, pressed] };
+  return {
+    pressed: state.pressed.map((candidate, candidateIndex) => candidateIndex === index ? pressed : candidate)
+  };
 }
 
-export function keyboardKeyIsPressed(state: KeyboardState, identity: KeyboardKeyIdentity): boolean {
-  return state.pressed.some((candidate) => sameKey(candidate, identity));
+export function keyboardKeyIsPressed(state: KeyboardState, identity: PressedKeyIdentity): boolean {
+  return state.pressed.some((candidate) => sameIdentity(candidate.identity, identity));
 }
 
-function keyIdentity(event: KeyEvent): KeyboardKeyIdentity {
-  return { key: event.key, modifiers: event.modifiers, location: event.location };
+export function pressedKeyIdentity(event: KeyEvent): PressedKeyIdentity {
+  return event.keyCodePoint === undefined
+    ? { kind: 'logicalKey', key: event.key, location: event.location }
+    : { kind: 'codePoint', codePoint: event.keyCodePoint, location: event.location };
 }
 
-function sameKey(left: KeyboardKeyIdentity, right: KeyboardKeyIdentity): boolean {
-  return left.key === right.key
-    && left.location === right.location
-    && left.modifiers.ctrl === right.modifiers.ctrl
-    && left.modifiers.alt === right.modifiers.alt
-    && left.modifiers.shift === right.modifiers.shift
-    && left.modifiers.meta === right.modifiers.meta;
+function sameIdentity(left: PressedKeyIdentity, right: PressedKeyIdentity): boolean {
+  if (left.kind !== right.kind || left.location !== right.location) return false;
+  if (left.kind === 'codePoint') return right.kind === 'codePoint' && left.codePoint === right.codePoint;
+  return right.kind === 'logicalKey' && left.key === right.key;
 }

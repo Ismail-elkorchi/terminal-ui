@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, splitTracks } from '../../dist/renderer/index.js';
-import { commandInput, text } from '../../dist/components/index.js';
+import { commandInput, palette, text } from '../../dist/components/index.js';
 import { column, grid, row, splitPane, surface } from '../../dist/layout/index.js';
 
 test('track helpers split fixed, percent, and fill regions deterministically', () => {
@@ -116,6 +116,36 @@ test('splitPane content tracks use measured child width', () => {
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 8, height: 3 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 9, width: 12, height: 3 });
+});
+
+test('palette content tracks use the active text-width profile', () => {
+  const widget = row([
+    palette({
+      id: 'profiled-palette',
+      entries: [{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }],
+      query: '',
+      onSelect: (entry) => entry.value
+    }),
+    text('remaining', { id: 'profiled-palette-sibling' })
+  ], {
+    id: 'profiled-palette-row',
+    sizes: [{ kind: 'content' }, { kind: 'fill' }]
+  });
+  const narrow = layoutElement(
+    widget,
+    { columns: 40, rows: 5 },
+    undefined,
+    { emoji: 'narrow', ambiguous: 'narrow' }
+  );
+  const wide = layoutElement(
+    widget,
+    { columns: 40, rows: 5 },
+    undefined,
+    { emoji: 'wide', ambiguous: 'narrow' }
+  );
+
+  assert.equal(narrow.children[0]?.bounds.width, 16);
+  assert.equal(wide.children[0]?.bounds.width, 22);
 });
 
 test('column explicit sizes keep fixed chrome around fill content', () => {

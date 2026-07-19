@@ -10,10 +10,10 @@ Non-TTY behavior is deterministic and surface-specific.
   caller provides an explicit `provided_value` contract.
 - Progress prompts can run in transcript-only mode.
 - Full-screen TUI surfaces default to rejection. TUI definitions may opt into
-  `transcript_only`, `last_frame`, or `line_fallback`. These fallback paths do
+  `transcript_only` or `last_frame`. These projection paths do
   not enter alternate screen, raw input, mouse reporting, focus reporting, or
   other full-screen protocols.
-- `last_frame` and `line_fallback` output come from the same output projection
+- `last_frame` output comes from the same output projection
   as visual frames and accessibility snapshots. The human output includes an
   accessible linear summary followed by the plain frame, rather than only a raw
   rectangle dump.

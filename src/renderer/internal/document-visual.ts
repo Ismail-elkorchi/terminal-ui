@@ -1,4 +1,6 @@
 import type { RenderNode } from '../model/index.ts';
+import { padTextCells } from '../../text/index.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 import { highlightRenderSpans } from './text-highlight.ts';
 import type { FieldItem, LogLevel, RecordStatus } from '../../ui-model/contracts.ts';
 import { baseStatusForRecordStatus } from '../../ui-model/status.ts';
@@ -145,6 +147,7 @@ export function documentFieldSpans(
   widget: RenderNode,
   field: FieldItem,
   labelWidth: number,
+  widthProfile: TextWidthProfile,
   selected = false,
   kind: DocumentSurfaceKind = 'structuredBlock',
   sourceOptions: DocumentSourceOptions = {}
@@ -160,7 +163,15 @@ export function documentFieldSpans(
     : renderNodeStyle(widget, 'separator');
   const key = sourceToken(field.label);
   return [
-    documentSpan(widget, kind, 'field', `field.${key}.label`, field.label.padEnd(labelWidth), labelStyle, sourceOptions),
+    documentSpan(
+      widget,
+      kind,
+      'field',
+      `field.${key}.label`,
+      padTextCells(field.label, labelWidth, { widthProfile }),
+      labelStyle,
+      sourceOptions
+    ),
     documentSpan(widget, kind, 'separator', `field.${key}.separator`, ': ', separatorStyle, sourceOptions),
     documentSpan(widget, kind, 'field', `field.${key}.value`, field.value, valueStyle, sourceOptions)
   ];

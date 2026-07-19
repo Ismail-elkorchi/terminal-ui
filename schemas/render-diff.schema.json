@@ -2,11 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.ismail-elkorchi.dev/terminal-ui/render-diff.schema.json",
   "type": "object",
-  "required": ["schemaVersion", "width", "height", "operations", "fullRewrite"],
+  "required": ["schemaVersion", "width", "height", "widthProfile", "operations", "fullRewrite"],
   "properties": {
     "schemaVersion": { "const": "terminal-ui.render-diff.v2" },
     "width": { "type": "integer", "minimum": 0 },
     "height": { "type": "integer", "minimum": 0 },
+    "widthProfile": { "$ref": "#/$defs/textWidthProfile" },
     "operations": {
       "type": "array",
       "items": {
@@ -46,6 +47,15 @@
     }
   },
   "$defs": {
+    "textWidthProfile": {
+      "type": "object",
+      "required": ["emoji", "ambiguous"],
+      "properties": {
+        "emoji": { "enum": ["narrow", "wide"] },
+        "ambiguous": { "enum": ["narrow", "wide"] }
+      },
+      "additionalProperties": false
+    },
     "rect": {
       "type": "object",
       "required": ["row", "column", "width", "height"],

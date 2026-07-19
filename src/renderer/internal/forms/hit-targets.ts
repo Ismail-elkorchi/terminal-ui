@@ -1,5 +1,6 @@
 import type { RenderNodeOfKind, RenderNodesOfKind } from '../../model/index.ts';
 import { terminalTextWidth } from '../../../text/index.ts';
+import type { TextWidthProfile } from '../../../text/index.ts';
 import { stringify } from '../render-node-props.ts';
 import type { Rect } from '../../model/layout.ts';
 import type { HitTarget } from '../../model/renderer.ts';
@@ -101,15 +102,20 @@ export function checkboxGroupHitTargets<TMessage>(widget: CheckboxGroupNode<TMes
   });
 }
 
-export function sliderHitTargets<TMessage>(widget: SliderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function sliderHitTargets<TMessage>(
+  widget: SliderNode<TMessage>,
+  bounds: Rect,
+  widthProfile: TextWidthProfile
+): readonly HitTarget<TMessage>[] {
   const toMessage = sliderMessageFactory(widget);
   if (toMessage === undefined) return [];
   const model = sliderModel(widget);
+  const labelWidth = terminalTextWidth(labelPrefix(clean(stringify(widget.props.label))), { widthProfile });
   return sliderValues(model).map((value, index) => ({
     id: `${widget.id ?? widget.kind}:value:${String(index)}`,
     bounds: {
       row: bounds.row,
-      column: bounds.column + labelPrefix(clean(stringify(widget.props.label))).length + index,
+      column: bounds.column + labelWidth + index,
       width: 1,
       height: 1
     },
@@ -118,11 +124,15 @@ export function sliderHitTargets<TMessage>(widget: SliderNode<TMessage>, bounds:
   }));
 }
 
-export function rangeSliderHitTargets<TMessage>(widget: RangeSliderNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+export function rangeSliderHitTargets<TMessage>(
+  widget: RangeSliderNode<TMessage>,
+  bounds: Rect,
+  widthProfile: TextWidthProfile
+): readonly HitTarget<TMessage>[] {
   const toMessage = rangeSliderActionMessageFactory(widget);
   if (toMessage === undefined || widget.props.disabled === true) return [];
   const model = rangeSliderModel(widget);
-  const labelWidth = terminalTextWidth(labelPrefix(clean(stringify(widget.props.label))));
+  const labelWidth = terminalTextWidth(labelPrefix(clean(stringify(widget.props.label))), { widthProfile });
   const trackBounds = {
     row: bounds.row,
     column: bounds.column + labelWidth,
@@ -189,12 +199,13 @@ export function pickerHitTargets<TMessage>(widget: PickerNode<TMessage>, bounds:
 
 export function calendarNavigationHitTargets<TMessage>(
   widget: RenderNodeOfKind<TMessage, 'calendar'>,
-  bounds: Rect
+  bounds: Rect,
+  widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
   const onAction = widget.props.toActionMessage;
   if (onAction === undefined || widget.props.disabled === true || bounds.height <= 0) return [];
   const labelOffset = clean(stringify(widget.props.label)).length > 0 ? 1 : 0;
-  const monthLabelWidth = terminalTextWidth(clean(stringify(widget.props.monthLabel)));
+  const monthLabelWidth = terminalTextWidth(clean(stringify(widget.props.monthLabel)), { widthProfile });
   const row = bounds.row + labelOffset;
   return [
     {

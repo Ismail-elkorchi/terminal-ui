@@ -1,6 +1,7 @@
 import { createFrameBuffer } from './frame-buffer.ts';
 import { createDirtyRegionSet } from './dirty-regions.ts';
 import type { ViewportSize } from '../../geometry/types.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotMetadata, FrameBufferSnapshotOptions } from './frame-buffer.ts';
 import type { FrameCell, FrameHitTarget } from '../model/frame.ts';
@@ -74,9 +75,10 @@ export function createDraftRenderRegion(
     readonly viewport: ViewportSize;
     readonly bounds: Rect;
     readonly opacity: ElementLayerOpacity;
+    readonly widthProfile: TextWidthProfile;
   }
 ): DraftRenderRegion {
-  const { id, zIndex, order, viewport, bounds, opacity } = input;
+  const { id, zIndex, order, viewport, bounds, opacity, widthProfile } = input;
   const regionBounds = normalizeRegionBounds(viewport, bounds);
   return {
     id,
@@ -84,12 +86,12 @@ export function createDraftRenderRegion(
     order,
     bounds: regionBounds,
     opacity,
-    buffer: createRegionFrameBuffer(viewport, regionBounds)
+    buffer: createRegionFrameBuffer(viewport, regionBounds, widthProfile)
   };
 }
 
-function createRegionFrameBuffer(viewport: ViewportSize, bounds: Rect): FrameBuffer {
-  const local = createFrameBuffer(bounds.width, bounds.height);
+function createRegionFrameBuffer(viewport: ViewportSize, bounds: Rect, widthProfile: TextWidthProfile): FrameBuffer {
+  const local = createFrameBuffer(bounds.width, bounds.height, { widthProfile });
   return {
     width: viewport.columns,
     height: viewport.rows,

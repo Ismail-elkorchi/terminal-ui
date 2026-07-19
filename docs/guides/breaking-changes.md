@@ -16,6 +16,14 @@ names such as `ctrlC`. Plain and modified triggers are distinct, and enhanced
 keyboard press, repeat, and release phases are accepted only when the active
 terminal profile negotiated them.
 
+Pressed-key tracking keeps protocol identity separate from binding and text
+semantics. `PressedKeyIdentity` uses the Kitty primary key code and location
+when available, or the normalized logical key and location for legacy input.
+Modifiers are the latest event snapshot, not part of identity. Shifted and
+base-layout alternates remain shortcut-matching data, while `committedText`
+remains text input. Unknown Kitty functional keys retain their distinct raw key
+code instead of collapsing into one pressed key.
+
 Callbacks that may decline an event return `MessageResolution<TMessage>`. Use
 `ignoreMessage()` for the declined case. `undefined`, `null`, primitives,
 arrays, tuples, and objects remain valid application messages.
@@ -96,7 +104,7 @@ Runtime startup is transactional: state and the first frame become observable
 only after the first host commit succeeds. Capability, session, setup, runtime,
 input, cleanup, and restoration failures return typed `TuiExit` errors.
 
-`runTui(..., { cleanup: { gracePeriodMs } })` controls the finite shutdown
+`runTui(..., { cleanup: { timeoutMs } })` controls the finite shutdown
 grace period. Cleanup requests cancellation first, then restores terminal
 protocols after the bound. Runtime disposal, `onExit`, or restoration failures
 make the overall exit an error while preserving the last available state and

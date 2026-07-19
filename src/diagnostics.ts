@@ -1,4 +1,5 @@
 import { redactSecretLikeText } from './text/secrets.ts';
+import { sha256Hex } from './diagnostic-identity.ts';
 
 export type TerminalSeverity = 'debug' | 'info' | 'warning' | 'error' | 'fatal';
 
@@ -18,6 +19,7 @@ export const terminalDiagnosticCodes = [
   'HOST_RESTORE_FAILED',
   'HOST_PROTOCOL_SKIPPED',
   'HOST_PROTOCOL_UNSUPPORTED',
+  'HOST_PROTOCOL_LEASE_INACTIVE',
   'INPUT_CANCELLED',
   'INPUT_INTERRUPTED',
   'INPUT_TIMEOUT',
@@ -28,6 +30,10 @@ export const terminalDiagnosticCodes = [
   'PROMPT_DATA_SOURCE_FAILED',
   'SELECTION_UNAVAILABLE',
   'TUI_RUN_FAILED',
+  'TUI_INITIALIZATION_FAILED',
+  'TUI_PROJECTION_FAILED',
+  'TUI_OUTPUT_FAILED',
+  'TUI_EXIT_HOOK_FAILED',
   'TUI_RENDER_FAILED',
   'TUI_LAYOUT_FAILED',
   'TUI_FOCUS_SELECTION_INVALID',
@@ -56,6 +62,7 @@ export const terminalSeverities = [
 
 export interface TerminalDiagnostic {
   readonly schemaVersion: 'terminal-ui.terminal-diagnostic.v1';
+  readonly id: string;
   readonly code: TerminalDiagnosticCode;
   readonly severity: TerminalSeverity;
   readonly message: string;
@@ -76,7 +83,7 @@ export function diagnostic(
     readonly data?: Record<string, TerminalDiagnosticValue>;
   } = {}
 ): TerminalDiagnostic {
-  const result: TerminalDiagnostic = {
+  const content = {
     schemaVersion: 'terminal-ui.terminal-diagnostic.v1',
     code,
     severity: options.severity ?? 'error',
@@ -85,8 +92,29 @@ export function diagnostic(
     ...(options.cause === undefined ? {} : { cause: diagnosticValue(options.cause) }),
     ...(options.hint === undefined ? {} : { hint: redactDiagnosticText(options.hint) }),
     ...(options.data === undefined ? {} : { data: diagnosticData(options.data) })
-  };
-  return result;
+  } as const;
+  return { ...content, id: diagnosticId(content) };
+}
+
+function diagnosticId(content: Omit<TerminalDiagnostic, 'id'>): string {
+  const serialized = JSON.stringify(canonicalDiagnosticValue(content));
+  return `diagnostic:sha256:${sha256Hex(serialized)}`;
+}
+
+function canonicalDiagnosticValue(value: TerminalDiagnosticValue): TerminalDiagnosticValue {
+  if (Array.isArray(value)) return value.map(canonicalDiagnosticValue);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([left], [right]) => compareCodeUnits(left, right))
+        .map(([key, item]) => [key, canonicalDiagnosticValue(item)])
+    );
+  }
+  return value;
+}
+
+function compareCodeUnits(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function diagnosticValue(value: unknown, depth = 0): TerminalDiagnosticValue {
@@ -139,6 +167,7 @@ function redactDiagnosticText(value: string): string {
 export function terminalDiagnosticIssue(item: unknown): string | undefined {
   if (!isRecord(item)) return 'diagnostic must be an object.';
   if (item['schemaVersion'] !== 'terminal-ui.terminal-diagnostic.v1') return 'diagnostic schemaVersion is invalid.';
+  if (typeof item['id'] !== 'string' || item['id'].length === 0) return 'diagnostic id must be a non-empty string.';
   if (!isOneOf(item['code'], terminalDiagnosticCodes)) {
     return `unsupported diagnostic code: ${String(item['code'])}.`;
   }

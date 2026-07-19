@@ -15,6 +15,7 @@ export type InputEvent =
 export interface KeyEvent {
   readonly kind: 'key';
   readonly key: KeyName;
+  readonly keyCodePoint?: number;
   readonly sequence?: string;
   readonly modifiers: KeyModifiers;
   readonly eventType: KeyEventType;
@@ -175,6 +176,12 @@ export type InputTrigger =
 export interface InputDecodeOptions {
   readonly bracketedPaste?: boolean;
   readonly keyboard?: TerminalKeyboardProfile;
+  readonly limits?: Partial<InputDecodeLimits>;
+}
+
+export interface InputDecodeLimits {
+  readonly maxPendingSequenceCodeUnits: number;
+  readonly maxPasteCodeUnits: number;
 }
 
 export type KeyModifierTrigger =
@@ -189,6 +196,7 @@ export type KeyModifierTrigger =
 
 export interface KeyEventLike {
   readonly key: KeyName;
+  readonly keyCodePoint?: number;
   readonly sequence?: string;
   readonly modifiers?: Partial<KeyModifiers>;
   readonly eventType?: KeyEventType;

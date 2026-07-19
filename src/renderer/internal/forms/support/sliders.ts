@@ -6,6 +6,8 @@ import type { RenderSpan, TerminalStyle } from '../../frame.ts';
 import { formSpan } from '../../form-visual.ts';
 import { renderNodeStyle, resolveRenderNodeStyle } from '../../render-node-style.ts';
 import { clampNumber, finiteNumber } from './shared.ts';
+import { oneCellGlyph } from '../../../../text/index.ts';
+import type { TextWidthProfile } from '../../../../text/index.ts';
 
 type ToggleSwitchNode = RenderNodeOfKind<unknown, 'toggleSwitch'>;
 type SliderNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'slider'>;
@@ -60,15 +62,19 @@ export function rangeSliderModel(widget: RangeSliderNode): RangeSliderModel {
   };
 }
 
-export function sliderTrackSpans(widget: SliderNode, model: SliderModel): readonly RenderSpan[] {
+export function sliderTrackSpans(
+  widget: SliderNode,
+  model: SliderModel,
+  widthProfile: TextWidthProfile
+): readonly RenderSpan[] {
   const position = sliderPosition(model, model.value);
   const disabled = widget.props.disabled === true;
   return Array.from({ length: model.width }, (_, index): RenderSpan => {
     const current = index === position
-      ? { text: '●', label: 'track.handle', selected: true }
+      ? { text: oneCellGlyph('●', 'o', { widthProfile }), label: 'track.handle', selected: true }
       : index < position
-        ? { text: '━', label: 'track.filled', selected: false }
-        : { text: '─', label: 'track.empty', selected: false };
+        ? { text: oneCellGlyph('━', '-', { widthProfile }), label: 'track.filled', selected: false }
+        : { text: oneCellGlyph('─', '-', { widthProfile }), label: 'track.empty', selected: false };
     return formSpan(
       widget,
       current.selected ? 'handle' : 'track',
@@ -81,7 +87,8 @@ export function sliderTrackSpans(widget: SliderNode, model: SliderModel): readon
 
 export function rangeSliderTrackSpans(
   widget: RangeSliderNode,
-  model: RangeSliderModel
+  model: RangeSliderModel,
+  widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   const start = sliderPosition(model, model.start);
   const end = sliderPosition(model, model.end);
@@ -89,14 +96,14 @@ export function rangeSliderTrackSpans(
   return Array.from({ length: model.width }, (_, index): RenderSpan => {
     const current = index === start || index === end
       ? {
-          text: '●',
+          text: oneCellGlyph('●', 'o', { widthProfile }),
           label: index === start ? 'track.startHandle' : 'track.endHandle',
           selected: true,
           active: index === sliderPosition(model, model.activeHandle === 'start' ? model.start : model.end)
         }
       : index > start && index < end
-        ? { text: '━', label: 'track.filled', selected: false, active: false }
-        : { text: '─', label: 'track.empty', selected: false, active: false };
+        ? { text: oneCellGlyph('━', '-', { widthProfile }), label: 'track.filled', selected: false, active: false }
+        : { text: oneCellGlyph('─', '-', { widthProfile }), label: 'track.empty', selected: false, active: false };
     return formSpan(
       widget,
       current.selected ? 'handle' : 'track',

@@ -15,8 +15,11 @@ Cell measurement uses `defaultTextWidthProfile`: emoji presentation is wide and
 East Asian ambiguous characters are narrow. Callers and terminal hosts may pass
 one explicit `widthProfile` with independent `emoji` and `ambiguous` policies.
 East Asian wide and fullwidth code points measure as two cells. Clipping,
-wrapping, indexing, and output planning use the same profile and Unicode 17
-width data, so output stays inside the requested cell budget.
+padding, fixed-cell filling, wrapping, indexing, and output planning use the
+same profile and Unicode 17 width data, so output stays inside the requested
+cell budget. `padTextCells()` aligns text to a minimum cell width, while
+`fillTextCells()` repeats a visual pattern into an exact cell budget and fills
+any sub-glyph remainder with spaces.
 
 ## Bidirectional Text
 

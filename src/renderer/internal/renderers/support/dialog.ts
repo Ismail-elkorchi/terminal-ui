@@ -10,6 +10,7 @@ import { numberProp } from '../../render-node-props.ts';
 import { borderContentBounds } from './border.ts';
 import { clampRect, nonNegativeInteger } from './common.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
+import { oneCellGlyph } from '../../../../text/index.ts';
 
 export function dialogBounds(widget: RenderNode, bounds: Rect): Rect {
   const width = Math.min(bounds.width, Math.max(4, Math.floor(numberProp(widget, 'width') ?? Math.min(bounds.width, 60))));
@@ -72,8 +73,11 @@ export function drawDialogActionSeparator(
 ): void {
   const bounds = dialogActionSeparatorBounds(node);
   if (bounds === undefined) return;
+  const glyph = oneCellGlyph(theme.tokens.symbols.borderSingle.horizontal, '-', {
+    widthProfile: buffer.widthProfile
+  });
   buffer.write(bounds.row, bounds.column, [{
-    text: theme.tokens.symbols.borderSingle.horizontal.repeat(bounds.width),
+    text: glyph.repeat(bounds.width),
     ...(style === undefined ? {} : { style }),
     source: frameCellSource({ ownerKind: 'dialog', family: 'component', role: 'separator', part: 'action-separator', label: 'action-separator' })
   }]);

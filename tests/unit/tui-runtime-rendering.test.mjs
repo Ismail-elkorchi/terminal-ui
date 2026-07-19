@@ -32,6 +32,32 @@ test('TUI frame rendering positions wide graphemes by terminal cells', () => {
   assert.match(addressed, /\u001B\[1;4HB/u);
 });
 
+test('one width profile governs nested buffers and incompatible profiles force a full redraw', () => {
+  const element = viewport(text('·🙂x', { id: 'profile-text' }), {
+    id: 'profile-viewport',
+    contentRows: 1,
+    contentColumns: 8
+  });
+  const narrow = renderElementFrame(element, { columns: 8, rows: 1 }, {
+    widthProfile: { ambiguous: 'narrow', emoji: 'wide' }
+  });
+  const wide = renderElementFrame(element, { columns: 8, rows: 1 }, {
+    widthProfile: { ambiguous: 'wide', emoji: 'wide' }
+  });
+
+  assert.deepEqual(narrow.widthProfile, { ambiguous: 'narrow', emoji: 'wide' });
+  assert.deepEqual(wide.widthProfile, { ambiguous: 'wide', emoji: 'wide' });
+  assert.deepEqual(
+    narrow.cells.filter((cell) => cell.continuation !== true).map((cell) => [cell.column, cell.text, cell.width]),
+    [[1, '·', 1], [2, '🙂', 2], [4, 'x', 1]]
+  );
+  assert.deepEqual(
+    wide.cells.filter((cell) => cell.continuation !== true).map((cell) => [cell.column, cell.text, cell.width]),
+    [[1, '·', 2], [3, '🙂', 2], [5, 'x', 1]]
+  );
+  assert.equal(diffFrames(narrow, wide).fullRewrite, true);
+});
+
 test('TUI frame cursor follows the selected visible list item', () => {
   const items = Array.from({ length: 10 }, (_value, index) => `Item ${index}`);
   const frame = renderElementFrame(list({
@@ -181,4 +207,22 @@ test('viewport clipped-edge indicators do not overwrite visible content cells', 
   assert.ok(labels.has('clip-bottom'));
   assert.ok(labels.has('clip-left'));
   assert.ok(labels.has('clip-right'));
+});
+
+test('viewport edge indicators preserve fixed-cell geometry under ambiguous-wide profiles', () => {
+  const frame = renderElementFrame(viewport(
+    text('\n\n\n', { id: 'wide-blank-content' }),
+    {
+      id: 'wide-blank-window',
+      scrollRow: 1,
+      contentRows: 5,
+      contentColumns: 3
+    }
+  ), { columns: 3, rows: 3 }, {
+    widthProfile: { emoji: 'wide', ambiguous: 'wide' }
+  });
+  const top = frame.cells.find((cell) => cell.source?.label === 'clip-top');
+
+  assert.equal(top?.text, '^');
+  assert.equal(top?.width, 1);
 });

@@ -5,7 +5,7 @@ import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn, visibl
 import { textOffsetAtVisualColumn } from './text-pointer.ts';
 import { inputCursorStyle, mergeStyles, resolveRenderNodeStyle, renderNodeStyle } from './render-node-style.ts';
 import type { TextAreaHighlight } from '../../ui-model/content.ts';
-import type { TextSelection } from '../../text/index.ts';
+import type { TextSelection, TextWidthProfile } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNodeOfKind, RenderNodesOfKind } from '../model/index.ts';
 import type { CursorPosition } from '../model/cursor.ts';
@@ -21,6 +21,7 @@ export interface SingleLineInputBlockInput {
   readonly widget: SingleLineInputNode;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
   readonly value: string;
   readonly cursor?: number;
   readonly selection?: TextSelection;
@@ -32,6 +33,7 @@ export interface TextAreaInputBlockInput {
   readonly widget: TextAreaNode;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
   readonly lineCount: number;
   readonly selection?: TextSelection;
   readonly usesPlaceholder?: boolean;
@@ -67,7 +69,11 @@ export function singleLineInputBlock(input: SingleLineInputBlockInput): RenderBl
   );
   return block([line([
     styledSpan(model.prefix, model.chromeStyle, inputSource(input.widget, 'chrome', 'chrome.prefix')),
-    ...clipSpans(contentSpans, Math.max(0, input.bounds.width - model.prefixWidth - model.suffixWidth)),
+    ...clipSpans(
+      contentSpans,
+      Math.max(0, input.bounds.width - model.prefixWidth - model.suffixWidth),
+      input.widthProfile
+    ),
     styledSpan(model.suffix, model.chromeStyle, inputSource(input.widget, 'chrome', 'chrome.suffix'))
   ])]);
 }
@@ -78,7 +84,12 @@ export function singleLineInputCursor(input: SingleLineInputBlockInput): CursorP
   const style = cursorVisualStyle(input.widget);
   return {
     row: input.bounds.row,
-    column: input.bounds.column + model.prefixWidth + singleLineCursorColumn(input.value, input.cursor, Math.max(0, contentWidth - 1)),
+    column: input.bounds.column + model.prefixWidth + singleLineCursorColumn(
+      input.value,
+      input.cursor,
+      { widthProfile: input.widthProfile },
+      Math.max(0, contentWidth - 1)
+    ),
     ...(style === undefined ? {} : { style }),
     source: inputSource(input.widget, 'cursor')
   };
@@ -91,7 +102,7 @@ export function singleLineInputPointerOffset(
   if (pointer.localColumn === undefined) return undefined;
   const model = singleLineInputModel(input);
   const contentColumn = pointer.localColumn - 1 - model.prefixWidth;
-  return textOffsetAtVisualColumn(input.value, Math.max(0, contentColumn));
+  return textOffsetAtVisualColumn(input.value, Math.max(0, contentColumn), { widthProfile: input.widthProfile });
 }
 
 export function textAreaInputLine(input: TextAreaInputBlockInput, lineInput: {
@@ -111,9 +122,14 @@ export function textAreaInputLine(input: TextAreaInputBlockInput, lineInput: {
     active,
     lineInput.lineRecord.firstVisualLine
   );
-  const prefixWidth = spansWidth(prefix);
+  const prefixWidth = spansWidth(prefix, input.widthProfile);
   const contentWidth = Math.max(0, input.bounds.width - prefixWidth);
-  const window = visibleLineWindow(lineInput.lineRecord.text, lineInput.offsetColumn, contentWidth);
+  const window = visibleLineWindow(
+    lineInput.lineRecord.text,
+    lineInput.offsetColumn,
+    contentWidth,
+    { widthProfile: input.widthProfile }
+  );
   const selectionInWindow = input.usesPlaceholder === true
     ? undefined
     : selectionIntersection(input.selection, lineInput.lineRecord.start + window.startOffset, lineInput.lineRecord.start + window.endOffset);
@@ -137,7 +153,7 @@ export function textAreaInputLine(input: TextAreaInputBlockInput, lineInput: {
   return line([
     ...prefix,
     ...contentSpans,
-    ...textAreaActiveLineFill(input.widget, active, contentWidth, contentSpans)
+    ...textAreaActiveLineFill(input.widget, active, contentWidth, contentSpans, input.widthProfile)
   ]);
 }
 
@@ -145,12 +161,13 @@ export function textAreaInputCursor(input: {
   readonly widget: TextAreaNode;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
   readonly rowOffset: number;
   readonly columnCells: number;
   readonly offsetColumn: number;
   readonly lineCount: number;
 }): CursorPosition {
-  const prefixWidth = textAreaInputPrefixWidth(input.widget, input.theme, input.lineCount);
+  const prefixWidth = textAreaInputPrefixWidth(input.widget, input.theme, input.widthProfile, input.lineCount);
   const style = cursorVisualStyle(input.widget);
   return {
     row: input.bounds.row + input.rowOffset,
@@ -163,10 +180,16 @@ export function textAreaInputCursor(input: {
   };
 }
 
-export function textAreaInputContentBounds(bounds: Rect, theme: TerminalTheme, widget?: TextAreaNode, lineCount = 1): Rect {
+export function textAreaInputContentBounds(
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  widget?: TextAreaNode,
+  lineCount = 1
+): Rect {
   const prefixWidth = widget === undefined
-    ? terminalTextWidth(`${theme.tokens.symbols.borderSingle.vertical} `)
-    : textAreaInputPrefixWidth(widget, theme, lineCount);
+    ? terminalTextWidth(`${theme.tokens.symbols.borderSingle.vertical} `, { widthProfile })
+    : textAreaInputPrefixWidth(widget, theme, widthProfile, lineCount);
   return {
     ...bounds,
     width: Math.max(0, bounds.width - prefixWidth)
@@ -193,8 +216,8 @@ function singleLineInputModel(input: SingleLineInputBlockInput): {
     usesPlaceholder,
     prefix,
     suffix,
-    prefixWidth: terminalTextWidth(prefix),
-    suffixWidth: terminalTextWidth(suffix),
+    prefixWidth: terminalTextWidth(prefix, { widthProfile: input.widthProfile }),
+    suffixWidth: terminalTextWidth(suffix, { widthProfile: input.widthProfile }),
     chromeStyle: inputChromeStyle(input.widget, input.focused === true),
     contentStyle: usesPlaceholder ? renderNodeStyle(input.widget, 'placeholder') : inputContentStyle(input.widget, input.focused === true)
   };
@@ -224,8 +247,16 @@ function textAreaLinePrefixSpans(
   ];
 }
 
-function textAreaInputPrefixWidth(widget: TextAreaNode, theme: TerminalTheme, lineCount: number): number {
-  return spansWidth(textAreaLinePrefixSpans(widget, theme, true, 0, Math.max(0, lineCount - 1), lineCount, false));
+function textAreaInputPrefixWidth(
+  widget: TextAreaNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  lineCount: number
+): number {
+  return spansWidth(
+    textAreaLinePrefixSpans(widget, theme, true, 0, Math.max(0, lineCount - 1), lineCount, false),
+    widthProfile
+  );
 }
 
 function textAreaLineMarker(widget: TextAreaNode, theme: TerminalTheme, focused: boolean, rowIndex: number, active: boolean): string {
@@ -381,10 +412,11 @@ function textAreaActiveLineFill(
   widget: TextAreaNode,
   active: boolean,
   contentWidth: number,
-  contentSpans: readonly RenderSpan[]
+  contentSpans: readonly RenderSpan[],
+  widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   if (!active) return [];
-  const remaining = Math.max(0, contentWidth - spansWidth(contentSpans));
+  const remaining = Math.max(0, contentWidth - spansWidth(contentSpans, widthProfile));
   return remaining === 0
     ? []
     : [styledSpan(' '.repeat(remaining), textAreaActiveLineTextStyle(widget), inputSource(widget, 'activeLine', 'activeLine.background'))];
@@ -462,23 +494,27 @@ function cleanInputText(value: string): string {
   return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
 }
 
-function clipSpans(spans: readonly RenderSpan[], width: number): readonly RenderSpan[] {
+function clipSpans(
+  spans: readonly RenderSpan[],
+  width: number,
+  widthProfile: TextWidthProfile
+): readonly RenderSpan[] {
   const clipped: RenderSpan[] = [];
   let remaining = Math.max(0, width);
   for (const current of spans) {
     if (remaining <= 0) break;
     const next = sanitizeTerminalText(current.text).text;
-    const truncated = terminalTextWidth(next) > remaining;
+    const truncated = terminalTextWidth(next, { widthProfile }) > remaining;
     const visible = truncated
-      ? clipTextCells(next, remaining, { ellipsis: '…' }).text
-      : visibleLineWindow(next, 0, remaining).text;
+      ? clipTextCells(next, remaining, { ellipsis: '…', widthProfile }).text
+      : visibleLineWindow(next, 0, remaining, { widthProfile }).text;
     if (visible.length > 0) {
       clipped.push(span(visible, {
         ...(current.style === undefined ? {} : { style: current.style }),
         ...(current.link === undefined ? {} : { link: current.link }),
         ...(current.source === undefined ? {} : { source: current.source })
       }));
-      remaining -= terminalTextWidth(visible);
+      remaining -= terminalTextWidth(visible, { widthProfile });
     }
     if (truncated) break;
   }
@@ -503,8 +539,8 @@ function styledSpan(text: string, style: TerminalStyle | undefined, source: Fram
   });
 }
 
-function spansWidth(spans: readonly RenderSpan[]): number {
-  return spans.reduce((sum, current) => sum + terminalTextWidth(current.text), 0);
+function spansWidth(spans: readonly RenderSpan[], widthProfile: TextWidthProfile): number {
+  return spans.reduce((sum, current) => sum + terminalTextWidth(current.text, { widthProfile }), 0);
 }
 
 function inputSource(widget: InputNode, visual: FormVisualKind, label: string = visual): FrameCellSource {

@@ -21,7 +21,7 @@ export interface TuiDefinition<TState, TMessage> {
   readonly onExit?: TuiExitHandler<TState>;
   readonly transcript?: TranscriptPolicy;
   readonly accessibility?: TuiAccessibilityOptions<TState>;
-  readonly nonTty?: TuiNonTtyPolicy<TMessage>;
+  readonly nonTty?: TuiNonTtyPolicy;
 }
 
 export interface TuiApp<TState, TMessage> {
@@ -79,18 +79,12 @@ export interface TuiContext {
 
 export type { TuiMessageSource } from '../runtime-model/message-source.ts';
 
-export type TuiNonTtyMode = 'reject' | 'transcript_only' | 'line_fallback' | 'last_frame';
+export type TuiNonTtyMode = 'reject' | 'transcript_only' | 'last_frame';
 
-export type TuiNonTtyPolicy<TMessage> =
-  | {
-      readonly mode: 'reject' | 'transcript_only' | 'last_frame';
-      readonly diagnosticHint?: string;
-    }
-  | {
-      readonly mode: 'line_fallback';
-      readonly diagnosticHint?: string;
-      message(line: string): TMessage;
-    };
+export interface TuiNonTtyPolicy {
+  readonly mode: TuiNonTtyMode;
+  readonly diagnosticHint?: string;
+}
 
 export interface TuiEffectContext extends TuiContext {
   readonly signal: AbortSignal;
@@ -208,7 +202,7 @@ export interface TuiRunInputPolicy {
 }
 
 export interface TuiCleanupPolicy {
-  readonly gracePeriodMs: number;
+  readonly timeoutMs: number;
 }
 
 export interface TuiRuntime<TState, TMessage> {
@@ -225,12 +219,17 @@ export interface TuiRuntime<TState, TMessage> {
   flushInput(): Promise<readonly TuiInputResult<TState>[]>;
   resetInput(): void;
   nextChange(signal?: AbortSignal): Promise<TuiRuntimeChange<TState>>;
-  dispose(): Promise<void>;
+  dispose(options?: TuiRuntimeDisposeOptions): Promise<void>;
   state(): TState;
   frame(): Frame | undefined;
   exit(): TuiExit<TState> | undefined;
   diagnostics(): readonly TerminalDiagnostic[];
   metrics(): TuiRuntimeMetrics;
+}
+
+export interface TuiRuntimeDisposeOptions {
+  readonly signal?: AbortSignal;
+  readonly timeoutMs?: number;
 }
 
 export interface TuiRuntimeMetrics {
@@ -252,7 +251,7 @@ export interface TuiInputBatchResult<TState> {
 }
 
 export type TuiRuntimeChange<TState> =
-  | { readonly kind: 'frame'; readonly frame: Frame }
+  | { readonly kind: 'frame'; readonly commitId: string; readonly stateVersion: number; readonly frame: Frame }
   | { readonly kind: 'exit'; readonly exit: TuiExit<TState> };
 
 export interface TuiInputResult<TState> {

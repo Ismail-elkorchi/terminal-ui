@@ -17,6 +17,7 @@ import {
 import type { MenuVisualItem } from './menu-visual.ts';
 import { renderNodeTargetId } from './pointer-presentation.ts';
 import { stringify } from './render-node-props.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 
 type MenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'menu'>;
 type ContextMenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'contextMenu'>;
@@ -43,22 +44,40 @@ interface MenuRow {
   readonly row: number;
 }
 
-export function menuBlock(widget: MenuNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
+export function menuBlock(
+  widget: MenuNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  focused = false
+): RenderBlock {
   const rows = menuRows(widget, bounds);
   if (rows.length === 0 && bounds.height > 0) {
-    return { lines: [menuEmptyLine(widget, emptyText(widget), bounds.width)] };
+    return { lines: [menuEmptyLine(widget, emptyText(widget), bounds.width, widthProfile)] };
   }
   const active = menuActiveId(widget);
-  return { lines: rows.map((row) => menuItemLine(widget, row.item, row.item.id === active, bounds.width, theme, focused)) };
+  return { lines: rows.map((row) => menuItemLine(widget, row.item, row.item.id === active, bounds.width, theme, widthProfile, focused)) };
 }
 
-export function menuBarBlock(widget: MenuBarNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
+export function menuBarBlock(
+  widget: MenuBarNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  focused = false
+): RenderBlock {
   return {
-    lines: [menuBarLine(widget, topLevelMenuItems(widget), menuBarActiveId(widget), bounds.width, theme, focused)]
+    lines: [menuBarLine(widget, topLevelMenuItems(widget), menuBarActiveId(widget), bounds.width, theme, widthProfile, focused)]
   };
 }
 
-export function dropdownMenuBlock(widget: DropdownMenuNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
+export function dropdownMenuBlock(
+  widget: DropdownMenuNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  focused = false
+): RenderBlock {
   const active = dropdownActiveItem(widget);
   const placeholder = clean(stringify(widget.props.placeholder)) || 'Choose action…';
   return {
@@ -70,7 +89,8 @@ export function dropdownMenuBlock(widget: DropdownMenuNode, bounds: Rect, theme:
       open: widget.props.presentation.kind === 'open',
       focused,
       width: bounds.width,
-      theme
+      theme,
+      widthProfile
     })]
   };
 }
@@ -163,11 +183,18 @@ export function menuHitTargets<TMessage>(widget: MenuNode<TMessage>, bounds: Rec
   }]);
 }
 
-export function menuBarItemBounds(widget: MenuBarNode, bounds: Rect): readonly { readonly item: VisibleMenuItem; readonly bounds: Rect }[] {
+export function menuBarItemBounds(
+  widget: MenuBarNode,
+  bounds: Rect,
+  widthProfile: TextWidthProfile
+): readonly { readonly item: VisibleMenuItem; readonly bounds: Rect }[] {
   let column = bounds.column;
   const active = menuBarActiveId(widget);
   return topLevelMenuItems(widget).map((item) => {
-    const width = Math.min(Math.max(0, bounds.column + bounds.width - column), menuBarItemWidth(item, item.id === active));
+    const width = Math.min(
+      Math.max(0, bounds.column + bounds.width - column),
+      menuBarItemWidth(item, item.id === active, widthProfile)
+    );
     const itemBounds = { row: bounds.row, column, width, height: Math.min(1, bounds.height) };
     column += width + 2;
     return { item, bounds: itemBounds };
@@ -183,12 +210,13 @@ export function menuCursor(widget: MenuNode, bounds: Rect): { readonly row: numb
 export function menuPopupContentSize(
   items: unknown,
   maxVisibleItems: number,
-  title: string | undefined
+  title: string | undefined,
+  widthProfile: TextWidthProfile
 ): { readonly width: number; readonly height: number } {
   const visible = visibleMenuItems(items);
   const contentRows = Math.min(Math.max(1, visible.length), maxVisibleItems);
-  const titleWidth = title === undefined ? 0 : terminalTextWidth(clean(title));
-  const itemWidth = visible.reduce((width, item) => Math.max(width, menuItemContentWidth(item)), 0);
+  const titleWidth = title === undefined ? 0 : terminalTextWidth(clean(title), { widthProfile });
+  const itemWidth = visible.reduce((width, item) => Math.max(width, menuItemContentWidth(item, widthProfile)), 0);
   return { width: Math.max(8, titleWidth + 4, itemWidth + 4), height: contentRows + 2 };
 }
 
@@ -298,16 +326,16 @@ function menuScrollOffset(widget: MenuNode, total: number, height: number): numb
     : Math.max(0, Math.min(Math.floor(rawOffset), Math.max(0, total - Math.max(0, height))));
 }
 
-function menuBarItemWidth(item: VisibleMenuItem, selected: boolean): number {
-  return terminalTextWidth(item.label) + (selected || item.disabled === true ? 2 : 0);
+function menuBarItemWidth(item: VisibleMenuItem, selected: boolean, widthProfile: TextWidthProfile): number {
+  return terminalTextWidth(item.label, { widthProfile }) + (selected || item.disabled === true ? 2 : 0);
 }
 
-function menuItemContentWidth(item: VisibleMenuItem): number {
+function menuItemContentWidth(item: VisibleMenuItem, widthProfile: TextWidthProfile): number {
   return 8
     + item.depth * 2
-    + terminalTextWidth(item.label)
-    + (item.description === undefined ? 0 : terminalTextWidth(item.description) + 2)
-    + (item.shortcut === undefined ? 0 : terminalTextWidth(item.shortcut) + 2);
+    + terminalTextWidth(item.label, { widthProfile })
+    + (item.description === undefined ? 0 : terminalTextWidth(item.description, { widthProfile }) + 2)
+    + (item.shortcut === undefined ? 0 : terminalTextWidth(item.shortcut, { widthProfile }) + 2);
 }
 
 function clean(value: string): string {

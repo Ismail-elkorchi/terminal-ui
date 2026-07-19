@@ -2,16 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { diagnostic } from '../../dist/diagnostics.js';
+import { restoreTerminalState } from '../../dist/host/index.js';
 import { createTerminalHarness, replayTranscript } from '../../dist/testing/index.js';
 import { redactTranscript, validateTranscript } from '../../dist/transcript/index.js';
 
-test('transcript replay preserves frames, diffs, snapshots, diagnostics, and restore checkpoints', async () => {
+test('transcript replay preserves frames, diffs, snapshots, diagnostics, and restore outcomes', async () => {
   const harness = createTerminalHarness();
   const snapshot = harness.snapshot();
   const frame = {
     schemaVersion: 'terminal-ui.tui-frame.v1',
     width: 3,
     height: 1,
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     cells: [{ row: 1, column: 1, text: 'x', width: 1 }],
     accessibility: snapshot
   };
@@ -19,17 +21,18 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
     schemaVersion: 'terminal-ui.render-diff.v2',
     width: 3,
     height: 1,
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     fullRewrite: true,
     operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] }]
   };
   const restore = {
-    rawInput: false,
-    alternateScreen: false,
-    bracketedPaste: false,
-    mouseReporting: 'none',
-    focusReporting: false,
-    keyboardProfile: { kind: 'legacy' },
-    cursorVisible: true
+    status: 'restored',
+    reason: 'success',
+    requested: terminalState(),
+    attempted: [],
+    confirmed: [],
+    resultingState: terminalState(),
+    diagnostics: []
   };
 
   const result = await replayTranscript(harness, {
@@ -38,19 +41,19 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
     source: 'test',
     steps: [
       { kind: 'input', event: { kind: 'text', text: 'x', paste: false } },
-      { kind: 'frame', frame },
-      { kind: 'diff', diff },
+      { kind: 'commit', commit: runtimeCommit(frame, diff) },
       { kind: 'snapshot', snapshot },
       {
         kind: 'diagnostic',
         diagnostic: {
           schemaVersion: 'terminal-ui.terminal-diagnostic.v1',
+          id: 'diagnostic:cancelled',
           code: 'INPUT_CANCELLED',
           severity: 'info',
           message: 'cancelled'
         }
       },
-      { kind: 'restore', checkpoint: restore }
+      { kind: 'restore', result: restore }
     ],
     diagnostics: [],
     redactions: []
@@ -64,6 +67,44 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
   assert.ok(result.transcript.steps.some((step) => step.kind === 'snapshot'));
   assert.ok(result.transcript.steps.some((step) => step.kind === 'diagnostic'));
 });
+
+test('terminal harness transcripts represent nested lease restoration', async () => {
+  const harness = createTerminalHarness();
+  await harness.run(async (host) => {
+    const outer = await host.beginSession({ id: 'outer' });
+    await outer.enableAlternateScreen();
+    const inner = await host.beginSession({ id: 'inner' });
+    await inner.enableBracketedPaste();
+    await restoreTerminalState(host);
+  });
+  const transcript = harness.transcript.snapshot();
+  const restores = transcript.steps.filter((step) => step.kind === 'restore');
+  const validation = validateTranscript(transcript);
+
+  assert.equal(restores.length, 2);
+  assert.equal(validation.ok, true, validation.ok ? undefined : validation.error.message);
+});
+
+function terminalState() {
+  return {
+    rawInput: false,
+    alternateScreen: false,
+    bracketedPaste: false,
+    mouseReporting: 'none',
+    focusReporting: false,
+    keyboardProfile: { kind: 'legacy' },
+    cursorVisible: true,
+    provenance: {
+      rawInput: 'observed',
+      alternateScreen: 'assumed',
+      bracketedPaste: 'assumed',
+      mouseReporting: 'assumed',
+      focusReporting: 'assumed',
+      keyboardProfile: 'assumed',
+      cursorVisible: 'assumed'
+    }
+  };
+}
 
 test('transcript replay returns a typed diagnostic for invalid transcripts', async () => {
   const harness = createTerminalHarness();
@@ -113,6 +154,92 @@ test('transcript replay preserves top-level diagnostics and redaction metadata',
   assert.deepEqual(result.transcript.redactions, [{ path: '$.steps[0].event.text', reason: 'secret' }]);
 });
 
+test('transcript recording and replay deduplicate one logical diagnostic by stable id', async () => {
+  const source = createTerminalHarness();
+  const item = diagnostic('INPUT_TIMEOUT', 'Timed out.', { target: 'field' });
+  source.transcript.recordDiagnostic(item);
+  source.transcript.recordDiagnostic(item);
+  const recorded = source.transcript.snapshot();
+
+  assert.equal(recorded.diagnostics.length, 1);
+  assert.equal(recorded.steps.filter((step) => step.kind === 'diagnostic').length, 1);
+
+  const target = createTerminalHarness();
+  const result = await replayTranscript(target, {
+    ...recorded,
+    diagnostics: [item, item]
+  });
+  assert.equal(result.transcript.diagnostics.length, 1);
+  assert.equal(result.transcript.steps.filter((step) => step.kind === 'diagnostic').length, 1);
+});
+
+test('transcript replay preserves partial restoration without upgrading its outcome', async () => {
+  const harness = createTerminalHarness();
+  const partial = {
+    status: 'partial',
+    reason: 'error',
+    requested: terminalState(),
+    attempted: [{ kind: 'rawInput', enabled: false }],
+    confirmed: [],
+    resultingState: {
+      ...terminalState(),
+      rawInput: true,
+      provenance: { ...terminalState().provenance, rawInput: 'indeterminate' }
+    },
+    diagnostics: [diagnostic('HOST_RESTORE_FAILED', 'Raw input restoration was not confirmed.')]
+  };
+  const transcript = {
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
+    id: 'partial-restore',
+    source: 'test',
+    steps: [{ kind: 'restore', result: partial }],
+    diagnostics: [],
+    redactions: []
+  };
+
+  assert.equal(validateTranscript(transcript).ok, true);
+  const result = await replayTranscript(harness, transcript);
+
+  assert.equal(harness.restores()[0]?.status, 'partial');
+  assert.equal(harness.restores()[0]?.resultingState.provenance.rawInput, 'indeterminate');
+  assert.equal(result.transcript.steps.find((step) => step.kind === 'restore')?.result.status, 'partial');
+});
+
+test('transcript validation rejects duplicate, decreasing, and post-restore commits', () => {
+  const harness = createTerminalHarness();
+  const snapshot = harness.snapshot();
+  const frame = validFrame(2, 1, snapshot);
+  const diff = validDiff(2, 1);
+  const commit = runtimeCommit(frame, diff);
+  const base = {
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
+    id: 'commit-order',
+    source: 'test',
+    diagnostics: [],
+    redactions: []
+  };
+  const duplicate = validateTranscript({ ...base, steps: [
+    { kind: 'commit', commit },
+    { kind: 'commit', commit }
+  ] });
+  const decreasing = validateTranscript({ ...base, steps: [
+    { kind: 'commit', commit: { ...commit, id: 'commit:2', stateVersion: 2 } },
+    { kind: 'commit', commit: { ...commit, id: 'commit:3', stateVersion: 1 } }
+  ] });
+  const restored = {
+    status: 'restored', reason: 'success', requested: terminalState(), attempted: [], confirmed: [],
+    resultingState: terminalState(), diagnostics: []
+  };
+  const postRestore = validateTranscript({ ...base, steps: [
+    { kind: 'restore', result: restored },
+    { kind: 'commit', commit }
+  ] });
+
+  assert.match(duplicate.error.message, /duplicated/u);
+  assert.match(decreasing.error.message, /decreases/u);
+  assert.match(postRestore.error.message, /after restoration/u);
+});
+
 test('transcript validation rejects under-shaped replay frames and diffs', () => {
   const harness = createTerminalHarness();
   const snapshot = harness.snapshot();
@@ -122,13 +249,14 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
     source: 'test',
     steps: [
       {
-        kind: 'frame',
-        frame: {
+        kind: 'commit',
+        commit: runtimeCommit({
           width: 2,
           height: 1,
+          widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
           cells: [],
           accessibility: snapshot
-        }
+        }, validDiff(2, 1))
       }
     ],
     diagnostics: [],
@@ -144,14 +272,15 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
     source: 'test',
     steps: [
       {
-        kind: 'diff',
-        diff: {
+        kind: 'commit',
+        commit: runtimeCommit(validFrame(2, 1, snapshot), {
           schemaVersion: 'terminal-ui.render-diff.v2',
           width: 2,
           height: 1,
+          widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
           fullRewrite: true,
           operations: [{ kind: 'write', row: 0, column: 1, spans: [{ text: 'x' }] }]
-        }
+        })
       }
     ],
     diagnostics: [],
@@ -242,6 +371,7 @@ test('transcript validation rejects unknown diagnostic codes', () => {
         kind: 'diagnostic',
         diagnostic: {
           schemaVersion: 'terminal-ui.terminal-diagnostic.v1',
+          id: 'diagnostic:unknown',
           code: 'UNKNOWN_DIAGNOSTIC',
           severity: 'error',
           message: 'unknown'
@@ -255,3 +385,35 @@ test('transcript validation rejects unknown diagnostic codes', () => {
   assert.equal(invalid.ok, false);
   assert.match(invalid.error.message, /unsupported diagnostic code/u);
 });
+
+function runtimeCommit(frame, diff) {
+  return {
+    id: 'runtime:commit:1',
+    stateVersion: 0,
+    viewport: { columns: frame.width, rows: frame.height },
+    frame,
+    diff
+  };
+}
+
+function validFrame(width, height, accessibility) {
+  return {
+    schemaVersion: 'terminal-ui.tui-frame.v1',
+    width,
+    height,
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
+    cells: [],
+    accessibility
+  };
+}
+
+function validDiff(width, height) {
+  return {
+    schemaVersion: 'terminal-ui.render-diff.v2',
+    width,
+    height,
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
+    fullRewrite: true,
+    operations: []
+  };
+}

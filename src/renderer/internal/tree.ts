@@ -1,6 +1,7 @@
 import type { RenderNodeOfKind } from '../model/index.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 import { treeDisclosureAction, treeNodeCanDisclose } from '../../behavior/tree.ts';
 import { treeNodeExpanded } from '../../ui-model/tree.ts';
 import { collectionRecordById } from '../../ui-model/collection.ts';
@@ -38,7 +39,13 @@ const treeProjectionCache = new WeakMap<object, {
   readonly projection: TreeProjection;
 }>();
 
-export function treeBlock(widget: TreeRenderNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
+export function treeBlock(
+  widget: TreeRenderNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  focused = false
+): RenderBlock {
   const { totalRows, selected, window } = treeProjection(widget, bounds.height);
   if (totalRows === 0 && bounds.height > 0) {
     return {
@@ -51,7 +58,7 @@ export function treeBlock(widget: TreeRenderNode, bounds: Rect, theme: TerminalT
     };
   }
   return {
-    lines: window.rows.map((row) => treeLine(widget, row, selected, bounds.width, theme, focused))
+    lines: window.rows.map((row) => treeLine(widget, row, selected, bounds.width, theme, widthProfile, focused))
   };
 }
 
@@ -133,6 +140,7 @@ function treeLine(
   selected: string | undefined,
   width: number,
   theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
   focused: boolean
 ): RenderLine {
   const isSelected = row.node.id === selected;
@@ -201,7 +209,7 @@ function treeLine(
     })
   ];
   return {
-    spans: clipRenderSpans(spans, Math.max(0, width), { ellipsis: '…' })
+    spans: clipRenderSpans(spans, Math.max(0, width), { ellipsis: '…', widthProfile })
   };
 }
 

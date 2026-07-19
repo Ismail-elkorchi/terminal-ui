@@ -1,5 +1,6 @@
 import { placeAnchoredSurface } from '../../../interaction/anchored-surface.ts';
 import { terminalTextWidth } from '../../../text/index.ts';
+import type { TextWidthProfile } from '../../../text/index.ts';
 import type { RenderNodeOfKind } from '../../model/index.ts';
 import type { LayoutNode, Rect } from '../../model/layout.ts';
 import type { HitTarget } from '../../model/renderer.ts';
@@ -9,11 +10,19 @@ import { formOptions } from './support/choices.ts';
 
 type SelectNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'select'>;
 
-export function selectPopupBounds(widget: SelectNode, bounds: Rect, viewport: Rect): readonly Rect[] {
+export function selectPopupBounds(
+  widget: SelectNode,
+  bounds: Rect,
+  viewport: Rect,
+  widthProfile: TextWidthProfile
+): readonly Rect[] {
   if (widget.props.presentation.kind !== 'open' || (widget.children?.length ?? 0) === 0) return [];
   const options = formOptions(widget);
   const visibleRows = Math.min(Math.max(1, options.length), widget.props.maxVisibleOptions);
-  const labelWidth = options.reduce((width, option) => Math.max(width, terminalTextWidth(option.label)), 0);
+  const labelWidth = options.reduce(
+    (width, option) => Math.max(width, terminalTextWidth(option.label, { widthProfile })),
+    0
+  );
   const size = {
     width: Math.max(bounds.width, labelWidth + 4),
     height: visibleRows + 2

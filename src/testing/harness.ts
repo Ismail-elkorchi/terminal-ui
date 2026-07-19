@@ -7,26 +7,36 @@ import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { MemoryTerminalHost, TerminalSignal } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
-import type { InteractionTranscriptStep } from '../transcript/index.ts';
+import type { InteractionTranscriptStep, TranscriptRuntimeCommit } from '../transcript/index.ts';
 import type { TerminalHarness, TerminalHarnessOptions } from './types.ts';
 
 export function createTerminalHarness(options: TerminalHarnessOptions = {}): TerminalHarness {
   const transcript = createTranscriptRecorder({ source: 'test' });
   const frames: Frame[] = [];
   const diffs: RenderDiff[] = [];
+  let pendingFrame: Frame | undefined;
+  let commitSequence = 1;
   const host = createMemoryTerminalHost({
     ...(options.viewport === undefined ? {} : { viewport: options.viewport }),
     observer: {
       recordFrame(frame) {
-        frames.push(frame as Frame);
-        transcript.record({ kind: 'frame', frame: frame as Frame });
+        pendingFrame = frame as Frame;
+        frames.push(pendingFrame);
       },
       recordDiff(diff) {
-        diffs.push(diff as RenderDiff);
-        transcript.record({ kind: 'diff', diff: diff as RenderDiff });
+        const typedDiff = diff as RenderDiff;
+        diffs.push(typedDiff);
+        if (pendingFrame !== undefined) {
+          transcript.record({
+            kind: 'commit',
+            commit: harnessCommit(`harness:commit:${String(commitSequence)}`, commitSequence - 1, pendingFrame, typedDiff)
+          });
+          commitSequence += 1;
+          pendingFrame = undefined;
+        }
       },
       recordRestore(checkpoint) {
-        transcript.record({ kind: 'restore', checkpoint });
+        transcript.record({ kind: 'restore', result: checkpoint });
       }
     }
   });
@@ -61,9 +71,12 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
     frames: () => [...frames],
     diffs: () => [...diffs],
     restores: () => host.restores(),
-    recordFrame: (frame) => { host.observer?.recordFrame?.(frame); },
-    recordDiff: (diff) => { host.observer?.recordDiff?.(diff); },
-    recordRestore: (checkpoint) => { host.observer?.recordRestore?.(checkpoint); },
+    recordCommit(commit) {
+      frames.push(commit.frame);
+      diffs.push(commit.diff);
+      transcript.record({ kind: 'commit', commit });
+    },
+    recordRestore: (result) => { host.observer?.recordRestore?.(result); },
     output: () => host.output()
   };
 }
@@ -105,7 +118,7 @@ function latestHarnessSnapshot(
   for (let index = steps.length - 1; index >= 0; index -= 1) {
     const step = steps[index];
     if (step?.kind === 'snapshot') return step.snapshot;
-    if (step?.kind === 'frame') return step.frame.accessibility;
+    if (step?.kind === 'commit') return step.commit.frame.accessibility;
   }
   const lastFrame = frames.at(-1);
   if (lastFrame !== undefined) return lastFrame.accessibility;
@@ -113,4 +126,15 @@ function latestHarnessSnapshot(
     source: 'widget',
     root: { id: 'terminal-harness', role: 'application', label: 'Terminal harness' }
   });
+}
+
+function harnessCommit(id: string, stateVersion: number, frame: Frame, diff: RenderDiff): TranscriptRuntimeCommit {
+  return {
+    id,
+    stateVersion,
+    viewport: { columns: frame.width, rows: frame.height },
+    ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),
+    frame,
+    diff
+  };
 }

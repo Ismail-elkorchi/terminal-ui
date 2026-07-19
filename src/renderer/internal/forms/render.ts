@@ -1,5 +1,6 @@
 import type { RenderNodeOfKind } from '../../model/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
+import type { TextWidthProfile } from '../../../text/index.ts';
 
 type FormNode = RenderNodeOfKind<unknown, 'form'>;
 type FieldNode = RenderNodeOfKind<unknown, 'field'>;
@@ -97,36 +98,48 @@ export function fieldContentBounds(widget: FieldNode, bounds: Rect): Rect {
   };
 }
 
-export function formBlock(widget: FormNode, bounds: Rect): RenderBlock {
+export function formBlock(widget: FormNode, bounds: Rect, widthProfile: TextWidthProfile): RenderBlock {
   const title = formTitle(widget);
   if (title.length === 0 || bounds.height <= 0) return block([]);
   return block([clippedFormLine([
     formSpan(widget, 'title', 'form.title', title, renderNodeStyle(widget, 'title'))
-  ], bounds.width)]);
+  ], bounds.width, widthProfile)]);
 }
 
-export function fieldBlock(widget: FieldNode, bounds: Rect): RenderBlock {
+export function fieldBlock(widget: FieldNode, bounds: Rect, widthProfile: TextWidthProfile): RenderBlock {
   return block(fieldHeaderLines(widget).slice(0, Math.max(0, bounds.height)).map((item) =>
-    clippedFormLine(item, bounds.width)
+    clippedFormLine(item, bounds.width, widthProfile)
   ));
 }
 
-export function labelBlock(widget: LabelNode, bounds: Rect): RenderBlock {
+export function labelBlock(widget: LabelNode, bounds: Rect, widthProfile: TextWidthProfile): RenderBlock {
   return block([clippedFormLine(labelSpans(
     widget,
     'label',
     clean(stringify(widget.props.text)),
     widget.props.disabled === true ? 'disabled' : undefined,
     widget.props.required === true
-  ), bounds.width)]);
+  ), bounds.width, widthProfile)]);
 }
 
-export function buttonBlock(widget: ButtonNode, bounds: Rect, focused = false, theme: TerminalTheme): RenderBlock {
+export function buttonBlock(
+  widget: ButtonNode,
+  bounds: Rect,
+  focused: boolean,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   const label = clean(stringify(widget.props.label)) || 'Button';
-  return block([clippedFormLine(buttonSpans(widget, label, focused, theme), bounds.width)]);
+  return block([clippedFormLine(buttonSpans(widget, label, focused, theme), bounds.width, widthProfile)]);
 }
 
-export function checkboxBlock(widget: CheckboxNode, bounds: Rect, theme: TerminalTheme, focused = false): RenderBlock {
+export function checkboxBlock(
+  widget: CheckboxNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
+  focused = false
+): RenderBlock {
   const checked = widget.props.checked;
   const symbol = checked ? theme.tokens.symbols.checkboxChecked : theme.tokens.symbols.checkboxUnchecked;
   const state = interactionVisualState(widget, controlTargetId(widget), {
@@ -146,13 +159,18 @@ export function checkboxBlock(widget: CheckboxNode, bounds: Rect, theme: Termina
       ),
       separatorSpan(widget),
       ...labelSpans(widget, 'label', clean(stringify(widget.props.label)), state, widget.props.required === true)
-    ], bounds.width),
-    ...errorLines(widget, bounds.width)
+    ], bounds.width, widthProfile),
+    ...errorLines(widget, bounds.width, widthProfile)
   ];
   return block(lines.slice(0, Math.max(0, bounds.height)));
 }
 
-export function toggleSwitchBlock(widget: ToggleSwitchNode, bounds: Rect, focused = false): RenderBlock {
+export function toggleSwitchBlock(
+  widget: ToggleSwitchNode,
+  bounds: Rect,
+  widthProfile: TextWidthProfile,
+  focused = false
+): RenderBlock {
   const checked = widget.props.checked;
   const label = clean(stringify(widget.props.label));
   const onLabel = clean(stringify(widget.props.onLabel)) || 'On';
@@ -184,53 +202,58 @@ export function toggleSwitchBlock(widget: ToggleSwitchNode, bounds: Rect, focuse
             separatorSpan(widget),
             formSpan(widget, 'chrome', 'value.off.close', ']', formMarkerStyle(widget, state), state)
           ])
-    ], bounds.width),
-    ...errorLines(widget, bounds.width)
+    ], bounds.width, widthProfile),
+    ...errorLines(widget, bounds.width, widthProfile)
   ];
   return block(lines.slice(0, Math.max(0, bounds.height)));
 }
 
-export function sliderBlock(widget: SliderNode, bounds: Rect): RenderBlock {
+export function sliderBlock(widget: SliderNode, bounds: Rect, widthProfile: TextWidthProfile): RenderBlock {
   const model = sliderModel(widget);
   const label = clean(stringify(widget.props.label));
   const state = formControlState(widget);
   const rows = [
     clippedFormLine([
       ...controlPrefixSpans(widget, label, state),
-      ...sliderTrackSpans(widget, model),
+      ...sliderTrackSpans(widget, model, widthProfile),
       separatorSpan(widget),
       formSpan(widget, 'value', 'value.current', formatNumber(model.value), formValueStyle(widget, state))
-    ], bounds.width),
-    ...errorLines(widget, bounds.width)
+    ], bounds.width, widthProfile),
+    ...errorLines(widget, bounds.width, widthProfile)
   ];
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function rangeSliderBlock(widget: RangeSliderNode, bounds: Rect): RenderBlock {
+export function rangeSliderBlock(widget: RangeSliderNode, bounds: Rect, widthProfile: TextWidthProfile): RenderBlock {
   const model = rangeSliderModel(widget);
   const label = clean(stringify(widget.props.label));
   const state = formControlState(widget);
   const rows = [
     clippedFormLine([
       ...controlPrefixSpans(widget, label, state),
-      ...rangeSliderTrackSpans(widget, model),
+      ...rangeSliderTrackSpans(widget, model, widthProfile),
       separatorSpan(widget),
       formSpan(widget, 'value', 'value.start', formatNumber(model.start), formValueStyle(widget, state)),
       formSpan(widget, 'separator', 'value.separator', '-'),
       formSpan(widget, 'value', 'value.end', formatNumber(model.end), formValueStyle(widget, state))
-    ], bounds.width),
-    ...errorLines(widget, bounds.width)
+    ], bounds.width, widthProfile),
+    ...errorLines(widget, bounds.width, widthProfile)
   ];
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function checkboxGroupBlock(widget: CheckboxGroupNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function checkboxGroupBlock(
+  widget: CheckboxGroupNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   const lines: RenderLine[] = [];
   const label = clean(stringify(widget.props.label));
   if (label.length > 0) {
     lines.push(clippedFormLine(controlLabelSpans(widget, label, formControlState(widget), {
       required: widget.props.required === true
-    }), bounds.width));
+    }), bounds.width, widthProfile));
   }
   const selected = selectedIds(widget);
   for (const option of formOptions(widget)) {
@@ -243,19 +266,24 @@ export function checkboxGroupBlock(widget: CheckboxGroupNode, bounds: Rect, them
       formSpan(widget, 'marker', selected.has(option.id) ? `option.${option.id}.marker.checked` : `option.${option.id}.marker.unchecked`, symbol, formMarkerStyle(widget, state)),
       separatorSpan(widget),
       formSpan(widget, 'option', `option.${option.id}.label`, option.label, optionStyle(option, widget))
-    ], bounds.width));
+    ], bounds.width, widthProfile));
   }
-  lines.push(...errorLines(widget, bounds.width));
+  lines.push(...errorLines(widget, bounds.width, widthProfile));
   return block(lines.slice(0, Math.max(0, bounds.height)));
 }
 
-export function radioGroupBlock(widget: RadioGroupNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function radioGroupBlock(
+  widget: RadioGroupNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   const lines: RenderLine[] = [];
   const label = clean(stringify(widget.props.label));
   if (label.length > 0) {
     lines.push(clippedFormLine(controlLabelSpans(widget, label, formControlState(widget), {
       required: widget.props.required === true
-    }), bounds.width));
+    }), bounds.width, widthProfile));
   }
   const selected = selectedId(widget);
   for (const option of formOptions(widget)) {
@@ -268,43 +296,72 @@ export function radioGroupBlock(widget: RadioGroupNode, bounds: Rect, theme: Ter
       formSpan(widget, 'marker', option.id === selected ? `option.${option.id}.marker.selected` : `option.${option.id}.marker`, symbol, formMarkerStyle(widget, state)),
       separatorSpan(widget),
       formSpan(widget, 'option', `option.${option.id}.label`, option.label, optionStyle(option, widget))
-    ], bounds.width));
+    ], bounds.width, widthProfile));
   }
-  lines.push(...errorLines(widget, bounds.width));
+  lines.push(...errorLines(widget, bounds.width, widthProfile));
   return block(lines.slice(0, Math.max(0, bounds.height)));
 }
 
-export function colorSwatchPickerBlock(widget: ColorSwatchPickerNode, bounds: Rect): RenderBlock {
+export function colorSwatchPickerBlock(
+  widget: ColorSwatchPickerNode,
+  bounds: Rect,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   const rows: RenderLine[] = [];
   const label = clean(stringify(widget.props.label));
-  if (label.length > 0) rows.push(clippedFormLine(controlLabelSpans(widget, label, formControlState(widget)), bounds.width));
+  if (label.length > 0) rows.push(clippedFormLine(
+    controlLabelSpans(widget, label, formControlState(widget)),
+    bounds.width,
+    widthProfile
+  ));
   const selected = selectedColorOption(widget);
-  if (selected !== undefined) rows.push(clippedFormLine(colorSwatchPickerSummarySpans(selected, widget), bounds.width));
+  if (selected !== undefined) rows.push(clippedFormLine(
+    colorSwatchPickerSummarySpans(selected, widget, widthProfile),
+    bounds.width,
+    widthProfile
+  ));
   const columns = pickerColumns(widget, 4);
   const options = colorOptions(widget);
   for (let index = 0; index < options.length; index += columns) {
-    rows.push(clippedFormLine(options.slice(index, index + columns).flatMap((option) => colorSwatchPickerSpans(option, widget)), bounds.width));
+    rows.push(clippedFormLine(
+      options.slice(index, index + columns).flatMap((option) => colorSwatchPickerSpans(option, widget, widthProfile)),
+      bounds.width,
+      widthProfile
+    ));
   }
-  rows.push(...errorLines(widget, bounds.width));
+  rows.push(...errorLines(widget, bounds.width, widthProfile));
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function calendarBlock(widget: CalendarNode, bounds: Rect): RenderBlock {
+export function calendarBlock(widget: CalendarNode, bounds: Rect, widthProfile: TextWidthProfile): RenderBlock {
   const rows: RenderLine[] = [];
   const label = clean(stringify(widget.props.label));
-  if (label.length > 0) rows.push(clippedFormLine(controlLabelSpans(widget, label, formControlState(widget)), bounds.width));
+  if (label.length > 0) rows.push(clippedFormLine(
+    controlLabelSpans(widget, label, formControlState(widget)),
+    bounds.width,
+    widthProfile
+  ));
   const columns = 7;
-  rows.push(clippedFormLine(calendarMonthHeaderSpans(widget), bounds.width));
-  rows.push(clippedFormLine(calendarWeekdayHeaderSpans(widget), bounds.width));
+  rows.push(clippedFormLine(calendarMonthHeaderSpans(widget), bounds.width, widthProfile));
+  rows.push(clippedFormLine(calendarWeekdayHeaderSpans(widget, widthProfile), bounds.width, widthProfile));
   const days = calendarDays(widget);
   for (let index = 0; index < days.length; index += columns) {
-    rows.push(clippedFormLine(days.slice(index, index + columns).flatMap((day) => calendarCellSpans(day, widget)), bounds.width));
+    rows.push(clippedFormLine(
+      days.slice(index, index + columns).flatMap((day) => calendarCellSpans(day, widget, widthProfile)),
+      bounds.width,
+      widthProfile
+    ));
   }
-  rows.push(...errorLines(widget, bounds.width));
+  rows.push(...errorLines(widget, bounds.width, widthProfile));
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function selectBlock(widget: SelectNode, bounds: Rect, theme: TerminalTheme): RenderBlock {
+export function selectBlock(
+  widget: SelectNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   const selected = selectedOption(widget);
   const label = clean(stringify(widget.props.label));
   const placeholder = clean(stringify(widget.props.placeholder)) || 'Select…';
@@ -330,31 +387,43 @@ export function selectBlock(widget: SelectNode, bounds: Rect, theme: TerminalThe
           : theme.tokens.symbols.treeCollapsed,
         renderNodeStyle(widget, 'marker')
       )
-    ], bounds.width),
-    ...errorLines(widget, bounds.width)
+    ], bounds.width, widthProfile),
+    ...errorLines(widget, bounds.width, widthProfile)
   ];
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
-export function textInputBlock(widget: TextInputNode, bounds: Rect, focused = false, theme: TerminalTheme): RenderBlock {
-  return controlInputBlock(inputValue(widget), widget, bounds, focused, theme);
+export function textInputBlock(
+  widget: TextInputNode,
+  bounds: Rect,
+  focused: boolean,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
+  return controlInputBlock(inputValue(widget), widget, bounds, focused, theme, widthProfile);
 }
 
-export function numberInputBlock(widget: NumberInputNode, bounds: Rect, focused = false, theme: TerminalTheme): RenderBlock {
+export function numberInputBlock(
+  widget: NumberInputNode,
+  bounds: Rect,
+  focused: boolean,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   const layout = widget.props.toActionMessage === undefined || widget.props.disabled === true
     ? undefined
     : numberInputLayout(bounds);
-  if (layout === undefined) return controlInputBlock(numberInputValue(widget), widget, bounds, focused, theme);
+  if (layout === undefined) return controlInputBlock(numberInputValue(widget), widget, bounds, focused, theme, widthProfile);
   const controls = [
     separatorSpan(widget),
     formSpan(widget, 'handle', 'step.decrement', '[-]', formMarkerStyle(widget)),
     separatorSpan(widget),
     formSpan(widget, 'handle', 'step.increment', '[+]', formMarkerStyle(widget))
   ];
-  const input = controlInputBlock(numberInputValue(widget), widget, layout.input, focused, theme);
+  const input = controlInputBlock(numberInputValue(widget), widget, layout.input, focused, theme, widthProfile);
   const first = input.lines[0];
   return block([
-    line([...(first === undefined ? [] : padRenderLine(first, layout.input.width).spans), ...controls]),
+    line([...(first === undefined ? [] : padRenderLine(first, layout.input.width, { widthProfile }).spans), ...controls]),
     ...input.lines.slice(1)
   ]);
 }

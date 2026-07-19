@@ -7,6 +7,7 @@ import type { RenderTarget } from '../../../model/render-target.ts';
 import type { LayoutNode, Rect } from '../../../model/layout.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
 import type { TerminalTheme } from '../../../../theme/index.ts';
+import { oneCellGlyph } from '../../../../text/index.ts';
 
 type ViewportNode = RenderNodeOfKind<unknown, 'viewport'>;
 
@@ -105,8 +106,17 @@ function writeViewportIndicator(
   occupiedCells: ReadonlySet<string>
 ): void {
   if (occupiedCells.has(cellKey(position.row, position.column))) return;
+  const fallback = label === 'clip-top'
+    ? '^'
+    : label === 'clip-bottom'
+      ? 'v'
+      : label === 'clip-left'
+        ? '<'
+        : label === 'clip-right'
+          ? '>'
+          : '.';
   buffer.write(position.row, position.column, [{
-    text,
+    text: oneCellGlyph(text, fallback, { widthProfile: buffer.widthProfile }),
     ...(style === undefined ? {} : { style }),
     source: renderNodeFrameSource(widget, { family: 'layout', role: 'decoration', part: label, label })
   }]);

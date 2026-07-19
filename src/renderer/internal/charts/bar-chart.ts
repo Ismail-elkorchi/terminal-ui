@@ -3,7 +3,8 @@ import type { Rect } from '../../../geometry/types.ts';
 import type { BarChartAction } from '../../../ui-model/visualization.ts';
 import type { RenderNodeOfKind } from '../../model/index.ts';
 import type { HitTarget } from '../../model/renderer.ts';
-import { sanitizeTerminalText } from '../../../text/index.ts';
+import { fillTextCells, measureTextCells, sanitizeTerminalText } from '../../../text/index.ts';
+import type { TextWidthProfile } from '../../../text/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import {
   chartLabelStyle,
@@ -22,7 +23,12 @@ import type { RenderBlock } from '../../../visual/render.ts';
 import { visibleWindow } from '../visible-window.ts';
 import { barItems, cleanLabel } from './support/values.ts';
 
-export function barChartBlock(widget: BarChartNode, node: LayoutNode, theme: TerminalTheme): RenderBlock {
+export function barChartBlock(
+  widget: BarChartNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   const items = barItems(widget.props.items);
   const state = chartStateBlock(widget, 'barChart', theme, {
     empty: items.length === 0,
@@ -40,8 +46,13 @@ export function barChartBlock(widget: BarChartNode, node: LayoutNode, theme: Ter
       const currentSelected = index === selected;
       const prefix = currentSelected ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected;
       const label = sanitizeTerminalText(item.label).text;
-      const available = Math.max(1, node.bounds.width - label.length - String(item.value).length - 5);
-      const filled = Math.max(0, Math.min(available, Math.round((item.value / max) * available)));
+      const value = String(item.value);
+      const fixedCells = measureTextCells(`${prefix} ${label}  ${value}`, { widthProfile }).cells;
+      const availableCells = Math.max(0, node.bounds.width - fixedCells);
+      const filledCells = Math.max(
+        0,
+        Math.min(availableCells, Math.round((item.value / max) * availableCells))
+      );
       const selectionStyle = currentSelected ? chartSelectedStyle(widget) : undefined;
       return {
         spans: [
@@ -49,17 +60,29 @@ export function barChartBlock(widget: BarChartNode, node: LayoutNode, theme: Ter
           chartSpan(widget, 'barChart', 'separator', `bar.${item.id}.separator.beforeLabel`, ' ', chartPlaceholderStyle(widget)),
           chartSpan(widget, 'barChart', 'label', `bar.${item.id}.label`, label, selectionStyle ?? chartLabelStyle(widget)),
           chartSpan(widget, 'barChart', 'separator', `bar.${item.id}.separator.beforeFill`, ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'barChart', 'bar', `bar.${item.id}.fill`, theme.tokens.symbols.progressFilled.repeat(filled), selectionStyle ?? chartSeriesStyle(widget, index)),
+          chartSpan(
+            widget,
+            'barChart',
+            'bar',
+            `bar.${item.id}.fill`,
+            fillTextCells(theme.tokens.symbols.progressFilled, filledCells, { widthProfile }),
+            selectionStyle ?? chartSeriesStyle(widget, index)
+          ),
           chartSpan(widget, 'barChart', 'separator', `bar.${item.id}.separator.beforeValue`, ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'barChart', 'metric', `bar.${item.id}.value`, String(item.value), selectionStyle ?? chartValueStyle(widget))
+          chartSpan(widget, 'barChart', 'metric', `bar.${item.id}.value`, value, selectionStyle ?? chartValueStyle(widget))
         ]
       };
     })
   };
 }
 
-export function barChartText(widget: BarChartNode, node: LayoutNode, theme: TerminalTheme): string {
-  return chartTextFromBlock(barChartBlock(widget, node, theme));
+export function barChartText(
+  widget: BarChartNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): string {
+  return chartTextFromBlock(barChartBlock(widget, node, theme, widthProfile));
 }
 
 export function barChartAccessibleBase(widget: BarChartNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {

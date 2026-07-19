@@ -9,6 +9,7 @@ import {
   renderElementRegions
 } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
+import { measureTextCells } from '../../dist/text/index.js';
 import {
   renderFramePlain,
   renderElementFrame
@@ -67,6 +68,29 @@ test('notificationStack renders stacked status cards with semantic styles and ac
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'option');
   assert.equal(frame.accessibility.root.children?.[0]?.selected, true);
   assert.match(frame.accessibility.root.children?.[0]?.description ?? '', /paused · ttl 5s/u);
+});
+
+test('notification progress fills an exact terminal-cell budget under wide profiles', () => {
+  const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
+  const frame = renderElementFrame(notificationStack({
+    id: 'wide-notice',
+    presentation: { kind: 'live', items: [{
+      id: 'progress',
+      title: 'Working',
+      message: 'Still working',
+      tone: 'progress',
+      progress: 50
+    }] },
+    maxWidth: 20
+  }), { columns: 22, rows: 7 }, { widthProfile });
+  const progressText = frame.cells
+    .filter((cell) => cell.source?.label === 'progress.filled' || cell.source?.label === 'progress.empty')
+    .filter((cell) => cell.width > 0)
+    .map((cell) => cell.text)
+    .join('');
+
+  assert.equal(measureTextCells(progressText, { widthProfile }).cells, 12);
+  assert.equal(frame.cells.some((cell) => cell.source?.label === 'progress.value' && cell.text === '5'), true);
 });
 
 test('notificationStack middle-clips compact title and message lines', () => {

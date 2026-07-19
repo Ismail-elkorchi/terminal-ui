@@ -57,6 +57,7 @@ test('transcript validation rejects malformed input-event variants', () => {
     [{ ...validKey, modifiers: { ...modifiers, ctrl: 1 } }, /require ctrl/u],
     [{ ...validKey, sequence: 1 }, /sequence/u],
     [{ ...validKey, committedText: 1 }, /committedText/u],
+    [{ ...validKey, keyCodePoint: 0xd800 }, /code point/u],
     [{ ...validKey, alternateCodePoints: {} }, /requires shifted or baseLayout/u],
     [{ ...validKey, alternateCodePoints: { shifted: 0xd800 } }, /shifted alternate/u],
     [{ ...validKey, eventType: 'other' }, /eventType/u],
@@ -85,6 +86,7 @@ test('transcript validation rejects malformed frame and render-diff payloads', (
     schemaVersion: 'terminal-ui.tui-frame.v1',
     width: 2,
     height: 1,
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     cells: [{ row: 1, column: 1, text: 'x', width: 1 }],
     accessibility: snapshot
   };
@@ -92,7 +94,8 @@ test('transcript validation rejects malformed frame and render-diff payloads', (
     schemaVersion: 'terminal-ui.render-diff.v2',
     width: 2,
     height: 1,
-    fullRewrite: false,
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
+    fullRewrite: true,
     operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: 'x' }] }]
   };
   const frames = [
@@ -122,36 +125,147 @@ test('transcript validation rejects malformed frame and render-diff payloads', (
   ];
 
   for (const [frame, pattern] of frames) {
-    assertInvalid(transcript({ id: 'invalid-frame', steps: [{ kind: 'frame', frame }] }), pattern);
+    assertInvalid(transcript({
+      id: 'invalid-frame',
+      steps: [{ kind: 'commit', commit: runtimeCommit(frame, validDiff) }]
+    }), pattern);
   }
   for (const [diff, pattern] of diffs) {
-    assertInvalid(transcript({ id: 'invalid-diff', steps: [{ kind: 'diff', diff }] }), pattern);
+    assertInvalid(transcript({
+      id: 'invalid-diff',
+      steps: [{ kind: 'commit', commit: runtimeCommit(validFrame, diff) }]
+    }), pattern);
   }
 });
 
-test('transcript validation rejects malformed restore checkpoints', () => {
-  const checkpoint = {
-    rawInput: false,
-    alternateScreen: false,
-    bracketedPaste: false,
-    mouseReporting: 'none',
-    focusReporting: false,
-    keyboardProfile: { kind: 'legacy' },
-    cursorVisible: true
+test('transcript validation measures writes with the diff width profile', () => {
+  const snapshot = createTerminalHarness().snapshot();
+  const widthProfile = { emoji: 'narrow', ambiguous: 'narrow' };
+  const frame = {
+    schemaVersion: 'terminal-ui.tui-frame.v1',
+    width: 1,
+    height: 1,
+    widthProfile,
+    cells: [{ row: 1, column: 1, text: '🙂', width: 1 }],
+    accessibility: snapshot
   };
+  const diff = {
+    schemaVersion: 'terminal-ui.render-diff.v2',
+    width: 1,
+    height: 1,
+    widthProfile,
+    fullRewrite: true,
+    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text: '🙂' }] }]
+  };
+  const result = validateTranscript(transcript({
+    id: 'narrow-emoji-diff',
+    steps: [{
+      kind: 'commit',
+      commit: {
+        ...runtimeCommit(frame, diff),
+        viewport: { columns: 1, rows: 1 }
+      }
+    }]
+  }));
+
+  assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
+});
+
+test('transcript validation requires a replayable diff chain matching bundled frames', () => {
+  const snapshot = createTerminalHarness().snapshot();
+  const widthProfile = { emoji: 'wide', ambiguous: 'narrow' };
+  const frame = (text) => ({
+    schemaVersion: 'terminal-ui.tui-frame.v1',
+    width: 1,
+    height: 1,
+    widthProfile,
+    cells: [{ row: 1, column: 1, text, width: 1 }],
+    accessibility: snapshot
+  });
+  const diff = (text, fullRewrite) => ({
+    schemaVersion: 'terminal-ui.render-diff.v2',
+    width: 1,
+    height: 1,
+    widthProfile,
+    fullRewrite,
+    operations: [{ kind: 'write', row: 1, column: 1, spans: [{ text }] }]
+  });
+  const commit = (id, stateVersion, committedFrame, committedDiff) => ({
+    id,
+    stateVersion,
+    viewport: { columns: 1, rows: 1 },
+    frame: committedFrame,
+    diff: committedDiff
+  });
+
+  assertInvalid(transcript({
+    id: 'incremental-first-commit',
+    steps: [{ kind: 'commit', commit: commit('commit:1', 0, frame('x'), diff('x', false)) }]
+  }), /first commit.*full rewrite/u);
+  assertInvalid(transcript({
+    id: 'contradictory-commit',
+    steps: [{ kind: 'commit', commit: commit('commit:1', 0, frame('x'), diff('y', true)) }]
+  }), /does not reproduce its frame/u);
+
+  const valid = validateTranscript(transcript({
+    id: 'replayable-chain',
+    steps: [
+      { kind: 'commit', commit: commit('commit:1', 0, frame('x'), diff('x', true)) },
+      { kind: 'commit', commit: commit('commit:2', 1, frame('y'), diff('y', false)) }
+    ]
+  }));
+  assert.equal(valid.ok, true, valid.ok ? undefined : valid.error.message);
+});
+
+test('transcript validation accepts an ordered terminal restore sequence', () => {
+  const restore = validRestoreResult();
+  const result = validateTranscript(transcript({
+    id: 'ordered-restores',
+    steps: [
+      { kind: 'restore', result: restore },
+      { kind: 'restore', result: restore }
+    ]
+  }));
+
+  assert.equal(result.ok, true, result.ok ? undefined : result.error.message);
+});
+
+test('transcript validation rejects malformed structured restore results', () => {
+  const restore = validRestoreResult();
+  const state = restore.requested;
   const cases = [
     [null, /must be an object/u],
-    [{ ...checkpoint, rawInput: 'no' }, /rawInput/u],
-    [{ ...checkpoint, alternateScreen: 'no' }, /alternateScreen/u],
-    [{ ...checkpoint, bracketedPaste: 'no' }, /bracketedPaste/u],
-    [{ ...checkpoint, mouseReporting: 'other' }, /mouseReporting/u],
-    [{ ...checkpoint, focusReporting: 'no' }, /focusReporting/u],
-    [{ ...checkpoint, keyboardProfile: { kind: 'kitty', flags: 16 } }, /keyboardProfile/u],
-    [{ ...checkpoint, cursorVisible: 'yes' }, /cursorVisible/u]
+    [{ ...restore, requested: { ...state, rawInput: 'no' } }, /rawInput/u],
+    [{ ...restore, requested: { ...state, alternateScreen: 'no' } }, /alternateScreen/u],
+    [{ ...restore, requested: { ...state, bracketedPaste: 'no' } }, /bracketedPaste/u],
+    [{ ...restore, requested: { ...state, mouseReporting: 'other' } }, /mouseReporting/u],
+    [{ ...restore, requested: { ...state, focusReporting: 'no' } }, /focusReporting/u],
+    [{ ...restore, requested: { ...state, keyboardProfile: { kind: 'kitty', flags: 16 } } }, /keyboardProfile/u],
+    [{ ...restore, requested: { ...state, cursorVisible: 'yes' } }, /cursorVisible/u],
+    [{
+      ...restore,
+      confirmed: [{ kind: 'rawInput', enabled: false }]
+    }, /confirmed operations must be an ordered subset of attempted operations/u],
+    [{
+      ...restore,
+      attempted: [{ kind: 'rawInput', enabled: false }],
+      confirmed: [{ kind: 'rawInput', enabled: true }]
+    }, /confirmed operations must be an ordered subset of attempted operations/u],
+    [{
+      ...restore,
+      attempted: [
+        { kind: 'rawInput', enabled: false },
+        { kind: 'cursorVisible', enabled: true }
+      ],
+      confirmed: [
+        { kind: 'cursorVisible', enabled: true },
+        { kind: 'rawInput', enabled: false }
+      ]
+    }, /confirmed operations must be an ordered subset of attempted operations/u]
   ];
 
   for (const [value, pattern] of cases) {
-    assertInvalid(transcript({ id: 'invalid-restore', steps: [{ kind: 'restore', checkpoint: value }] }), pattern);
+    assertInvalid(transcript({ id: 'invalid-restore', steps: [{ kind: 'restore', result: value }] }), pattern);
   }
 });
 
@@ -171,4 +285,44 @@ function assertInvalid(value, pattern) {
   const result = validateTranscript(value);
   assert.equal(result.ok, false);
   assert.match(result.error.message, pattern);
+}
+
+function runtimeCommit(frame, diff) {
+  return {
+    id: 'runtime:commit:1',
+    stateVersion: 0,
+    viewport: { columns: 2, rows: 1 },
+    frame,
+    diff
+  };
+}
+
+function validRestoreResult() {
+  const state = {
+    rawInput: false,
+    alternateScreen: false,
+    bracketedPaste: false,
+    mouseReporting: 'none',
+    focusReporting: false,
+    keyboardProfile: { kind: 'legacy' },
+    cursorVisible: true,
+    provenance: {
+      rawInput: 'observed',
+      alternateScreen: 'assumed',
+      bracketedPaste: 'assumed',
+      mouseReporting: 'assumed',
+      focusReporting: 'assumed',
+      keyboardProfile: 'assumed',
+      cursorVisible: 'assumed'
+    }
+  };
+  return {
+    status: 'restored',
+    reason: 'success',
+    requested: state,
+    attempted: [],
+    confirmed: [],
+    resultingState: state,
+    diagnostics: []
+  };
 }

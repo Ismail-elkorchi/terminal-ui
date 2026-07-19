@@ -83,7 +83,7 @@ export function enhancedKeyFromPrefix(value: string, profile: TerminalKeyboardPr
   const unicode = csiUnicodeKeyPattern.exec(value);
   if (unicode?.[0] !== undefined) {
     const codePoint = integer(unicode[1]);
-    if (codePoint === undefined) return undefined;
+    if (codePoint === undefined || !isUnicodeScalar(codePoint)) return undefined;
     const key = keyFromCodePoint(codePoint);
     const alternateCodePoints = alternateKeys(unicode[2], unicode[3], profile);
     if (alternateCodePoints === null) return undefined;
@@ -95,6 +95,7 @@ export function enhancedKeyFromPrefix(value: string, profile: TerminalKeyboardPr
       unicode[4],
       unicode[5],
       keypadKeys[codePoint] === undefined ? 'standard' : 'numpad',
+      codePoint,
       alternateCodePoints,
       committedText
     );
@@ -118,11 +119,13 @@ function event(
   encodedModifiers: string | undefined,
   encodedEventType: string | undefined,
   location: KeyLocation = 'standard',
+  keyCodePoint?: number,
   alternateCodePoints?: KeyEvent['alternateCodePoints'],
   committedText?: string
 ): KeyEvent {
   return normalizeKeyEvent({
     key,
+    ...(keyCodePoint === undefined ? {} : { keyCodePoint }),
     sequence,
     modifiers: decodeModifiers(encodedModifiers),
     eventType: decodeEventType(encodedEventType),

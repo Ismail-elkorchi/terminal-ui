@@ -27,6 +27,23 @@ test('palette filtering is fuzzy stable and value-agnostic', () => {
   );
 });
 
+test('palette filtering reuses immutable entry search text across queries', () => {
+  let labelReads = 0;
+  const measuredEntry = {
+    id: 'measured',
+    get label() {
+      labelReads += 1;
+      return 'Measured entry';
+    },
+    value: 'measured',
+    keywords: ['stable']
+  };
+
+  assert.deepEqual(filterPaletteEntries([measuredEntry], 'measured'), [measuredEntry]);
+  assert.deepEqual(filterPaletteEntries([measuredEntry], 'stable'), [measuredEntry]);
+  assert.equal(labelReads, 1);
+});
+
 test('paletteWindow bounds visible entries around stable id selection and scroll', () => {
   const centered = paletteWindow({ entries, selectedId: 'run-tests', limit: 2 });
   assert.equal(centered.total, 3);
@@ -100,7 +117,7 @@ test('palette widget renders query matches disabled entries preview help empty s
   assert.equal(frame.accessibility.root.children?.[0]?.value, undefined);
 });
 
-test('one frame projection prepares palette entries once', () => {
+test('palette entry normalization is retained across authored frames', () => {
   let labelReads = 0;
   const measuredEntries = Array.from({ length: 100 }, (_, index) => ({
     id: `entry-${String(index)}`,
@@ -110,13 +127,15 @@ test('one frame projection prepares palette entries once', () => {
     },
     value: index
   }));
-  const element = palette({
+  const authoredFrame = (query) => palette({
     id: 'measured-palette',
     entries: measuredEntries,
+    query,
     onSelect: (entry) => entry.value
   });
 
-  renderElementFrame(element, { columns: 60, rows: 12 });
+  renderElementFrame(authoredFrame('entry'), { columns: 60, rows: 12 });
+  renderElementFrame(authoredFrame('entry-9'), { columns: 60, rows: 12 });
 
   assert.equal(labelReads, measuredEntries.length);
 });

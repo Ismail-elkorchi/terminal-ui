@@ -98,6 +98,18 @@ test('barChart windows visible bars and exposes selected accessibility', () => {
   assert.equal(frame.cells.find((cell) => cell.text === '1')?.source?.label, 'bar.c.value');
 });
 
+test('barChart budgets labels and fills in terminal cells under wide profiles', () => {
+  const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
+  const frame = renderElementFrame(barChart({
+    id: 'wide-bars',
+    items: [{ id: 'dots', label: '··', value: 10 }]
+  }), { columns: 16, rows: 1 }, { widthProfile });
+  const valueCells = frame.cells.filter((cell) => cell.source?.label === 'bar.dots.value');
+
+  assert.equal(renderFramePlain(frame), '  ·· ███ 10');
+  assert.deepEqual(valueCells.map((cell) => cell.column), [15, 16]);
+});
+
 test('barChart renders loading state from shared chart state contract', () => {
   const frame = renderElementFrame(barChart({
     id: 'loading-bars',
@@ -218,6 +230,44 @@ test('chart renders area and bar series with signed baseline semantics', () => {
   assert.equal(barCell?.style?.fg?.token, 'chart.negative');
 });
 
+test('heatmap cell width is measured in terminal cells under wide profiles', () => {
+  const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
+  const frame = renderElementFrame(heatmap({
+    id: 'wide-heatmap',
+    rows: [[{ id: 'hot', value: 1 }]],
+    cellWidth: 3,
+    min: 0,
+    max: 1
+  }), { columns: 3, rows: 1 }, { widthProfile });
+
+  assert.equal(renderFramePlain(frame), '█');
+  assert.equal(frame.cells.at(-1)?.column, 3);
+  assert.equal(frame.cells.at(-1)?.text, ' ');
+});
+
+test('selected heatmap cells and fixed-grid chart glyphs remain one cell under ambiguous-wide profiles', () => {
+  const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
+  const heatmapFrame = renderElementFrame(heatmap({
+    id: 'selected-wide-heatmap',
+    rows: [[{ id: 'first', value: 1 }, { id: 'second', value: 0 }]],
+    selected: { row: 0, column: 0 },
+    cellWidth: 1,
+    gap: 0,
+    min: 0,
+    max: 1
+  }), { columns: 2, rows: 1 }, { widthProfile });
+  const chartFrame = renderElementFrame(chart({
+    id: 'wide-grid-chart',
+    selected: { series: 'load', point: 1 },
+    series: [{ id: 'load', kind: 'area', points: [1, 2] }]
+  }), { columns: 2, rows: 2 }, { widthProfile });
+
+  assert.equal(heatmapFrame.cells.find((cell) => cell.source?.label === 'cell.0.0.selected')?.text, '*');
+  assert.ok(heatmapFrame.cells.some((cell) => cell.column === 2));
+  assert.ok(chartFrame.cells.every((cell) => cell.width === 1));
+  assert.equal(chartFrame.cells.find((cell) => cell.source?.partKind === 'selected')?.text, '*');
+});
+
 test('chart valueScale styles area series values without local renderer code', () => {
   const frame = renderElementFrame(chart({
     id: 'scaled-area',
@@ -315,6 +365,18 @@ test('meter renders a labeled bounded meter with progress accessibility', () => 
   assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.label, 'metric.label');
   assert.equal(frame.cells.find((cell) => cell.text === '7')?.source?.label, 'metric.value');
   assert.equal(frame.cells.find((cell) => cell.text === 's')?.source?.label, 'status.value');
+});
+
+test('meter width is a terminal-cell budget under wide profiles', () => {
+  const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
+  const frame = renderElementFrame(meter({
+    id: 'wide-meter',
+    value: 100,
+    width: 4
+  }), { columns: 12, rows: 1 }, { widthProfile });
+
+  assert.equal(renderFramePlain(frame), '[██] 100%');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'metric.value')?.column, 8);
 });
 
 test('meter dial variant renders distinct tested dial anatomy', () => {
@@ -469,6 +531,23 @@ test('Canvas2D chart helpers draw axes line area series and bars', () => {
   assert.equal(frame.cells.find((cell) => cell.column === 5 && cell.text === '█')?.source?.ownerKind, 'canvas2d');
   assert.equal(frame.cells.find((cell) => cell.column === 5 && cell.text === '█')?.source?.label, 'area.fill');
   assert.ok(frame.cells.some((cell) => cell.text === '█' && cell.source?.label === 'bar.fill'));
+});
+
+test('Canvas2D chart helpers preserve fixed-cell geometry under ambiguous-wide profiles', () => {
+  const buffer = createFrameBuffer(6, 3, {
+    widthProfile: { emoji: 'wide', ambiguous: 'wide' }
+  });
+  const canvas = createCanvas2D(buffer, { row: 1, column: 1, width: 6, height: 3 });
+
+  drawAxes(canvas, { xTicks: [2], yTicks: [1] });
+  drawLineSeries(canvas, [{ x: 1, y: 1 }, { x: 3, y: 0 }]);
+  drawAreaSeries(canvas, [{ x: 4, y: 1 }], { baseline: 2 });
+  drawBarSeries(canvas, [{ x: 5, value: 2 }]);
+
+  const frame = buffer.snapshot();
+  assert.ok(frame.cells.length > 0);
+  assert.ok(frame.cells.every((cell) => cell.width === 1));
+  assert.ok(frame.cells.every((cell) => cell.continuation !== true));
 });
 
 function frameBufferText(buffer, width, height) {

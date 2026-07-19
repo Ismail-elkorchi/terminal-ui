@@ -57,3 +57,6 @@ import { runPrompt } from 'jsr:@ismail-elkorchi/terminal-ui/prompts';
 ## Boundaries
 
 `terminal-ui` owns terminal interaction. Command definitions, command lookup, option binding, execution planning, and command manifests belong to caller-owned application code or command libraries.
+
+Performance work follows the reproducible evidence policy in
+[Performance evidence](./guides/performance.md).

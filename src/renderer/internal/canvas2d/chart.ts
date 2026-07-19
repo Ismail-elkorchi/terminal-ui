@@ -1,6 +1,7 @@
 import { frameCellSource } from '../../../visual/source.ts';
 import type { RenderSpan } from '../../../visual/render.ts';
 import type { Canvas2D } from './canvas2d.ts';
+import { oneCellGlyph } from '../../../text/index.ts';
 
 export interface ChartScale {
   readonly domain: readonly [number, number];
@@ -69,12 +70,14 @@ export function scaleChartValue(value: number, scale: ChartScale): number {
 }
 
 export function drawAxes(canvas: Canvas2D, options: ChartAxesOptions = {}): void {
-  const axisSpan = options.span ?? DEFAULT_AXIS_SPAN;
-  const tickSpan = options.tickSpan ?? DEFAULT_TICK_SPAN;
+  const axisSpan = fixedCellSpan(canvas, options.span ?? DEFAULT_AXIS_SPAN, '-');
+  const tickSpan = fixedCellSpan(canvas, options.tickSpan ?? DEFAULT_TICK_SPAN, '+');
   const bottom = Math.max(0, canvas.bounds.height - 1);
   const left = 0;
   canvas.line(0, bottom, Math.max(0, canvas.bounds.width - 1), bottom, axisSpan);
-  canvas.line(left, 0, left, bottom, withSpanText(axisSpan, '│'));
+  canvas.line(left, 0, left, bottom, withSpanText(axisSpan, oneCellGlyph('│', '|', {
+    widthProfile: canvas.widthProfile
+  })));
   for (const tick of options.xTicks ?? []) canvas.point(tick, bottom, tickSpan);
   for (const tick of options.yTicks ?? []) canvas.point(left, tick, tickSpan);
 }
@@ -84,7 +87,7 @@ export function drawLineSeries(
   points: readonly ChartPoint[],
   options: SeriesOptions = {}
 ): void {
-  const span = options.span ?? DEFAULT_SERIES_SPAN;
+  const span = fixedCellSpan(canvas, options.span ?? DEFAULT_SERIES_SPAN, '*');
   const scaled = points.map((point) => ({
     x: options.xScale === undefined ? point.x : scaleChartValue(point.x, options.xScale),
     y: options.yScale === undefined ? point.y : scaleChartValue(point.y, options.yScale)
@@ -97,7 +100,7 @@ export function drawAreaSeries(
   points: readonly ChartPoint[],
   options: AreaSeriesOptions = {}
 ): void {
-  const span = options.span ?? DEFAULT_AREA_SPAN;
+  const span = fixedCellSpan(canvas, options.span ?? DEFAULT_AREA_SPAN, '#');
   const baseline = Math.round(options.baseline ?? Math.max(0, canvas.bounds.height - 1));
   for (const point of points) {
     const x = options.xScale === undefined ? point.x : scaleChartValue(point.x, options.xScale);
@@ -111,7 +114,7 @@ export function drawBarSeries(
   bars: readonly BarDatum[],
   options: BarSeriesOptions = {}
 ): void {
-  const span = options.span ?? DEFAULT_BAR_SPAN;
+  const span = fixedCellSpan(canvas, options.span ?? DEFAULT_BAR_SPAN, '#');
   const width = Math.max(1, Math.floor(options.width ?? 1));
   const bottom = Math.max(0, canvas.bounds.height - 1);
   for (const bar of bars) {
@@ -130,4 +133,8 @@ function withSpanText(span: RenderSpan, text: string): RenderSpan {
     ...(span.link === undefined ? {} : { link: span.link }),
     ...(span.source === undefined ? {} : { source: span.source })
   };
+}
+
+function fixedCellSpan(canvas: Canvas2D, value: RenderSpan, fallback: string): RenderSpan {
+  return withSpanText(value, oneCellGlyph(value.text, fallback, { widthProfile: canvas.widthProfile }));
 }

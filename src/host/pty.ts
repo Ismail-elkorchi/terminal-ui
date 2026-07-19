@@ -1,14 +1,14 @@
 import { resolveTerminalCapabilities } from './capabilities.ts';
-import { BasicTerminalSession } from './session.ts';
+import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import { ObjectEnvironment, RuntimeClock, RuntimeInput, RuntimeOutput, RuntimeSignals } from './runtime-streams.ts';
-import { restoreActiveTerminalSessions } from './session-registry.ts';
 import { createTerminalHostOutputAuthority } from './ordered-output.ts';
+import { settleResourceDisposal } from './dispose.ts';
 import type {
   PtyTerminalHost,
   PtyTerminalHostOptions,
   RuntimeTerminalOutputOptions,
+  TerminalOperationContext,
   TerminalOutput,
-  TerminalSession,
   TerminalViewport
 } from './types.ts';
 
@@ -32,12 +32,16 @@ class PtyOutput implements TerminalOutput {
     return this.#viewport().rows;
   }
 
-  write(chunk: string | Uint8Array): Promise<void> {
-    return this.#output.write(chunk);
+  write(chunk: string | Uint8Array, context: TerminalOperationContext = {}): Promise<void> {
+    return this.#output.write(chunk, context);
   }
 
-  flush(): Promise<void> {
-    return this.#output.flush();
+  flush(context: TerminalOperationContext = {}): Promise<void> {
+    return this.#output.flush(context);
+  }
+
+  dispose(context: TerminalOperationContext = {}): Promise<void> {
+    return this.#output.dispose(context);
   }
 
   isTty(): boolean {
@@ -70,6 +74,7 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     environment: { variables: options.env ?? {} },
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
     ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
+    ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile }),
     ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides })
   });
   const env = new ObjectEnvironment(options.env ?? {});
@@ -77,6 +82,7 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     viewport = nextViewport;
     await options.resize?.(nextViewport);
   };
+  const terminalState = new TerminalStateAuthorityBinding();
 
   const host: PtyTerminalHost = {
     id: options.id ?? 'pty',
@@ -91,13 +97,21 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     ...(options.observer === undefined ? {} : { observer: options.observer }),
     getViewport: () => viewport,
     getCapabilities: () => Promise.resolve(capabilities),
-    beginSession: (sessionOptions): Promise<TerminalSession> =>
-      Promise.resolve(new BasicTerminalSession(sessionOptions?.id ?? `${options.id ?? 'pty'}-session`, host, capabilities)),
+    beginSession: (sessionOptions) =>
+      terminalState.beginLease(sessionOptions?.id ?? `${options.id ?? 'pty'}-session`, capabilities),
+    restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
     write: output.write,
     flush: output.flush,
-    dispose: async () => {
-      await restoreActiveTerminalSessions(host, 'disposed');
+    dispose: async (context) => {
+      await settleResourceDisposal([
+        () => terminalState.restoreAllConfirmed('disposed', context),
+        () => output.dispose(context)
+      ]);
     }
   };
+  terminalState.bind(host, {
+    rawInputKnowledge: options.stdin?.isRawModeEnabled === undefined ? 'library_known' : 'observed',
+    ...(options.initialState === undefined ? {} : { initialState: options.initialState })
+  });
   return host;
 }

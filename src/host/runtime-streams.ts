@@ -1,7 +1,9 @@
 import { resolveTerminalCapabilities } from './capabilities.ts';
-import { BasicTerminalSession } from './session.ts';
-import { restoreActiveTerminalSessions } from './session-registry.ts';
+import { abortableSleep } from './abortable-sleep.ts';
+import { settleResourceDisposal } from './dispose.ts';
+import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import { OrderedOutputQueue, createTerminalHostOutputAuthority } from './ordered-output.ts';
+import { waitForTerminalOperation } from './operation.ts';
 import type { RuntimeTarget } from './capability-types.ts';
 import type {
   RuntimeInputSource,
@@ -14,7 +16,7 @@ import type {
   TerminalInputChunk,
   TerminalInputReadOptions,
   TerminalOutput,
-  TerminalSession,
+  TerminalOperationContext,
   TerminalSignal,
   TerminalSignalSource,
   TerminalViewport,
@@ -35,6 +37,7 @@ export interface StreamTerminalHostOptions {
   readonly env?: Record<string, string>;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly capabilities?: TerminalCapabilityConfiguration;
+  readonly initialState?: import('./types.ts').TerminalInitialState;
 }
 
 export function createStreamTerminalHost(options: StreamTerminalHostOptions): TerminalHost {
@@ -62,8 +65,10 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
     environment: { variables: options.env ?? {} },
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
     ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides }),
-    ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth })
+    ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
+    ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile })
   });
+  const terminalState = new TerminalStateAuthorityBinding();
   const host: TerminalHost = {
     id: options.id,
     runtime: options.runtime,
@@ -75,14 +80,22 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
     env: new ObjectEnvironment(options.env ?? {}),
     getViewport,
     getCapabilities: () => Promise.resolve(capabilities),
-    beginSession: (sessionOptions): Promise<TerminalSession> =>
-      Promise.resolve(new BasicTerminalSession(sessionOptions?.id ?? `${options.id}-session`, host, capabilities)),
+    beginSession: (sessionOptions) =>
+      terminalState.beginLease(sessionOptions?.id ?? `${options.id}-session`, capabilities),
+    restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
     write: output.write,
     flush: output.flush,
-    dispose: async () => {
-      await restoreActiveTerminalSessions(host, 'disposed');
+    dispose: async (context) => {
+      await settleResourceDisposal([
+        () => terminalState.restoreAllConfirmed('disposed', context),
+        () => output.dispose(context)
+      ]);
     }
   };
+  terminalState.bind(host, {
+    rawInputKnowledge: options.stdin?.isRawModeEnabled === undefined ? 'library_known' : 'observed',
+    ...(options.initialState === undefined ? {} : { initialState: options.initialState })
+  });
   return host;
 }
 
@@ -117,6 +130,8 @@ export class RuntimeInput implements TerminalInput {
 }
 
 export class RuntimeOutput implements TerminalOutput {
+  #disposal: Promise<void> | undefined;
+  #phase: 'open' | 'disposing' | 'disposed' = 'open';
   #writer: WritableStreamDefaultWriter<Uint8Array> | undefined;
   readonly #queue = new OrderedOutputQueue();
   readonly #options: RuntimeTerminalOutputOptions;
@@ -133,22 +148,45 @@ export class RuntimeOutput implements TerminalOutput {
     return this.#options.rows;
   }
 
-  write(chunk: string | Uint8Array): Promise<void> {
-    return this.#queue.run(async () => {
+  write(chunk: string | Uint8Array, context: TerminalOperationContext = {}): Promise<void> {
+    if (this.#phase !== 'open') {
+      return Promise.reject(new Error('Terminal output is not writable after disposal begins.'));
+    }
+    return this.#queue.run(async (operationContext) => {
       if (this.#options.write !== undefined) {
-        await this.#options.write(chunk);
+        await this.#options.write(chunk, operationContext);
         return;
       }
       if (this.#options.writable !== undefined) {
         this.#writer ??= this.#options.writable.getWriter();
         await this.#writer.write(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
       }
-    });
+    }, context);
   }
 
-  async flush(): Promise<void> {
-    await this.#queue.flush();
-    if (this.#writer !== undefined) await this.#writer.ready;
+  async flush(context: TerminalOperationContext = {}): Promise<void> {
+    await this.#queue.flush(context);
+    if (this.#writer !== undefined) await waitForTerminalOperation(this.#writer.ready, context);
+  }
+
+  async dispose(context: TerminalOperationContext = {}): Promise<void> {
+    if (this.#disposal === undefined) {
+      this.#phase = 'disposing';
+      const releaseWriter = this.#queue.run(() => {
+        const writer = this.#writer;
+        if (writer !== undefined) {
+          writer.releaseLock();
+          if (this.#writer === writer) this.#writer = undefined;
+        }
+        return Promise.resolve();
+      });
+      this.#disposal = releaseWriter
+        .then(() => this.#queue.flush())
+        .finally(() => {
+          this.#phase = 'disposed';
+        });
+    }
+    await waitForTerminalOperation(this.#disposal, context);
   }
 
   isTty(): boolean {
@@ -174,21 +212,7 @@ export class RuntimeClock implements TerminalClock {
   }
 
   sleep(ms: number, signal?: AbortSignal): Promise<void> {
-    return new Promise((resolve) => {
-      if (signal?.aborted === true) {
-        resolve();
-        return;
-      }
-      const timeout = setTimeout(resolve, ms);
-      signal?.addEventListener(
-        'abort',
-        () => {
-          clearTimeout(timeout);
-          resolve();
-        },
-        { once: true }
-      );
-    });
+    return abortableSleep(ms, signal);
   }
 }
 

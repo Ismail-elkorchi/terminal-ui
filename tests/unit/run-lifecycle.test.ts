@@ -9,7 +9,7 @@ void test('invalid run configuration is rejected before terminal mutation', asyn
   const host = createMemoryTerminalHost();
   host.input('\r');
   const exit = await runTui(exitOnSubmitApp('invalid-cleanup-policy'), host, {
-    cleanup: { gracePeriodMs: Number.NaN }
+    cleanup: { timeoutMs: Number.NaN }
   });
 
   assert.equal(exit.status, 'error');
@@ -19,7 +19,7 @@ void test('invalid run configuration is rejected before terminal mutation', asyn
   assert.equal(host.restores().length, 0);
 });
 
-void test('cleanup clock failure is diagnostic data and does not suppress restoration', async () => {
+void test('cleanup clock failure records restoration as unconfirmed', async () => {
   const host = createMemoryTerminalHost();
   host.input('\r');
   host.clock.sleep = () => Promise.reject(new Error('cleanup clock failed'));
@@ -28,12 +28,40 @@ void test('cleanup clock failure is diagnostic data and does not suppress restor
     onExit: () => new Promise(() => undefined)
   });
 
-  const exit = await runTui(app, host, { cleanup: { gracePeriodMs: 5 } });
+  const exit = await runTui(app, host, { cleanup: { timeoutMs: 5 } });
 
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_FAILED'), true);
-  assert.equal(host.restores().length, 1);
-  assert.equal(host.stdin.isRawModeEnabled(), false);
+  const restorations = host.restores();
+  assert.ok(restorations.length >= 1);
+  assert.equal(restorations.every((result) => result.status !== 'restored'), true);
+  assert.equal(host.stdin.isRawModeEnabled(), true);
+});
+
+void test('intentional finalization timer cancellation is not a clock failure', async () => {
+  const host = createMemoryTerminalHost({ isTty: false });
+  host.clock.sleep = (_ms, signal) => new Promise<void>((_resolve, reject) => {
+    const abort = (): void => {
+      reject(new Error('timer cancelled', { cause: signal?.reason }));
+    };
+    if (signal?.aborted === true) abort();
+    else signal?.addEventListener('abort', abort, { once: true });
+  });
+  const app = defineTui({
+    id: 'abort-rejecting-finalization-clock',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    view: () => textInput({
+      id: 'abort-rejecting-clock-output',
+      presentation: { value: 'ready', cursor: 0 }
+    }),
+    nonTty: { mode: 'last_frame' }
+  });
+
+  const exit = await runTui(app, host, { cleanup: { timeoutMs: 5 } });
+
+  assert.equal(exit.status, 'completed');
+  assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_FAILED'), false);
 });
 
 function exitOnSubmitApp(id: string) {

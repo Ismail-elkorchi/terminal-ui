@@ -1,5 +1,6 @@
 import type { AccessibleNode } from '../../../../accessibility/index.ts';
 import type { TerminalTheme } from '../../../../theme/index.ts';
+import type { TextWidthProfile } from '../../../../text/index.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
 import { projectedRowWindow, rowWindow, scrollStateFromUnknown } from '../../../../behavior/data-window.ts';
 import { createScrollState, normalizeScrollState } from '../../../../behavior/scroll.ts';
@@ -126,9 +127,13 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
   };
 }
 
-export function listIntrinsicMeasurement(widget: ListNode, theme: TerminalTheme): Measurement {
+export function listIntrinsicMeasurement(
+  widget: ListNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): Measurement {
   const rowCount = Math.max(1, Math.min(intrinsicMeasurementRows, filteredListItems(widget).total));
-  return measureBlock(listBlock(widget, rowCount, theme));
+  return measureBlock(listBlock(widget, rowCount, theme), { widthProfile });
 }
 
 export function listAccessibleNode(widget: ListNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {

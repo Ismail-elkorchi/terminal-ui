@@ -30,6 +30,87 @@ test('TUI runtime dispatch updates state and records incremental render diffs', 
   assert.match(renderFramePlain(runtime.frame()), /Count 2/);
 });
 
+test('TUI runtime discards a candidate when output fails before publication', async () => {
+  let subscriptionStarts = 0;
+  const transcript = createTranscriptRecorder({ id: 'failed-candidate-transcript', source: 'tui' });
+  const app = defineTui({
+    id: 'failed-candidate',
+    init: () => ({ count: 0 }),
+    update: (state, message) => ({ state: { count: state.count + message.delta } }),
+    subscriptions: (state) => [{
+      id: 'state-generation',
+      generation: state.count,
+      async *messages(context) {
+        subscriptionStarts += 1;
+        await new Promise((resolve) => context.signal.addEventListener('abort', resolve, { once: true }));
+      }
+    }],
+    view: (state) => text(`Count ${String(state.count)}`, { id: 'failed-candidate-count' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host, transcript });
+
+  const initialFrame = await runtime.start();
+  const initialChange = await runtime.nextChange();
+  await waitUntil(() => subscriptionStarts === 1);
+  const write = harness.host.write.bind(harness.host);
+  harness.host.write = async () => {
+    throw new Error('candidate output failed');
+  };
+
+  await assert.rejects(() => runtime.dispatch({ delta: 1 }), /candidate output failed/u);
+
+  const commits = transcript.snapshot().steps.filter((step) => step.kind === 'commit');
+  assert.deepEqual(runtime.state(), { count: 0 });
+  assert.deepEqual(runtime.frame(), initialFrame);
+  assert.equal(runtime.exit(), undefined);
+  assert.equal(subscriptionStarts, 1);
+  assert.equal(harness.frames().length, 1);
+  assert.equal(commits.length, 1);
+  assert.equal(commits[0]?.commit.id, initialChange.commitId);
+  assert.equal(commits[0]?.commit.stateVersion, initialChange.stateVersion);
+  harness.host.write = write;
+  await runtime.dispose();
+});
+
+test('direct runtime resize coalesces an active request and retains only the latest queued viewport', async () => {
+  const app = defineTui({
+    id: 'direct-resize-coalescing',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    view: (_state, context) => text(`columns:${String(context.viewport.columns)}`, { id: 'resize-width' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+  await runtime.start();
+  const write = harness.host.write.bind(harness.host);
+  const firstResizeStarted = deferred();
+  const releaseFirstResize = deferred();
+  let blocked = false;
+  harness.host.write = async (output, context) => {
+    if (!blocked) {
+      blocked = true;
+      firstResizeStarted.release();
+      await releaseFirstResize.promise;
+    }
+    await write(output, context);
+  };
+
+  const first = runtime.resize({ columns: 21, rows: 3 });
+  await firstResizeStarted.promise;
+  const second = runtime.resize({ columns: 22, rows: 3 });
+  const third = runtime.resize({ columns: 24, rows: 3 });
+  assert.equal(first, second);
+  assert.equal(second, third);
+  releaseFirstResize.release();
+  const results = await Promise.all([first, second, third]);
+
+  assert.deepEqual(harness.frames().map((frame) => frame.width), [20, 21, 24]);
+  assert.deepEqual(results.map((frame) => frame.width), [24, 24, 24]);
+  assert.match(renderFramePlain(runtime.frame()), /columns:24/u);
+  await runtime.dispose();
+});
+
 test('TUI runtime start returns the committed initial frame', async () => {
   const app = defineTui({
     id: 'start-frame',
@@ -566,6 +647,63 @@ test('TUI runtime records external dispatch messages in transcripts', async () =
   assert.ok(snapshot.steps.some((step) => step.kind === 'message'
     && step.source === 'external'
     && step.message.delta === 4));
+  const messageIndex = snapshot.steps.findIndex((step) => step.kind === 'message' && step.source === 'external');
+  const committedIndex = snapshot.steps.findIndex((step, index) => index > messageIndex
+    && step.kind === 'commit'
+    && step.commit.stateVersion === 1);
+  assert.ok(messageIndex >= 0);
+  assert.ok(committedIndex > messageIndex);
+});
+
+test('TUI runtime records resize input before the frame commit it causes', async () => {
+  const transcript = createTranscriptRecorder({ id: 'resize-order-transcript', source: 'tui' });
+  const app = defineTui({
+    id: 'resize-order',
+    init: () => ({ ready: true }),
+    update: (state) => ({ state }),
+    view: () => text('ready', { id: 'resize-order-content' })
+  });
+  const runtime = createTuiRuntime({
+    app,
+    host: createMemoryTerminalHost({ viewport: { columns: 10, rows: 2 } }),
+    transcript
+  });
+
+  await runtime.start();
+  await runtime.resize({ columns: 20, rows: 4 });
+  const steps = transcript.snapshot().steps;
+  const resizeIndex = steps.findIndex((step) => step.kind === 'input' && step.event.kind === 'resize');
+  const resizedCommitIndex = steps.findIndex((step, index) => index > resizeIndex
+    && step.kind === 'commit'
+    && step.commit.frame.width === 20
+    && step.commit.frame.height === 4);
+
+  assert.ok(resizeIndex >= 0);
+  assert.ok(resizedCommitIndex > resizeIndex);
+  await runtime.dispose();
+});
+
+test('TUI runtime publishes a terminal transition frame before its exit', async () => {
+  const app = defineTui({
+    id: 'frame-before-exit',
+    init: () => ({ status: 'waiting' }),
+    update: () => ({ state: { status: 'finished' }, exit: { reason: 'done' } }),
+    view: (state) => text(state.status, { id: 'terminal-status' })
+  });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost() });
+  await runtime.start();
+  await runtime.nextChange();
+  const nextChange = runtime.nextChange();
+
+  await runtime.dispatch({ kind: 'finish' });
+
+  const frame = await nextChange;
+  const exit = await runtime.nextChange();
+  assert.equal(frame.kind, 'frame');
+  assert.match(renderFramePlain(frame.frame), /finished/u);
+  assert.equal(exit.kind, 'exit');
+  assert.equal(exit.exit.reason, 'done');
+  await runtime.dispose();
 });
 
 test('TUI runtime coalesces unobserved frame changes', async () => {

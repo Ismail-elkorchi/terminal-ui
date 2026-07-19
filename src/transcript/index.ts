@@ -6,6 +6,7 @@ export type {
   RedactionPolicy,
   TranscriptRecorder,
   TranscriptRecorderOptions,
+  TranscriptRuntimeCommit,
   TranscriptReplayTarget,
   TranscriptRedaction,
   TranscriptSource

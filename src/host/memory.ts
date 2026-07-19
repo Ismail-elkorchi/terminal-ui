@@ -1,7 +1,8 @@
-import { BasicTerminalSession } from './session.ts';
 import { resolveTerminalCapabilities } from './capabilities.ts';
-import { restoreActiveTerminalSessions } from './session-registry.ts';
+import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import { createTerminalHostOutputAuthority } from './ordered-output.ts';
+import { settleResourceDisposal } from './dispose.ts';
+import { throwIfTerminalOperationAborted } from './operation.ts';
 import type {
   ControlledTerminalClock,
   MemoryTerminalHostOptions,
@@ -11,10 +12,10 @@ import type {
   TerminalInputChunk,
   TerminalInputReadOptions,
   TerminalOutput,
-  TerminalSession,
+  TerminalOperationContext,
+  TerminalRestoreResult,
   TerminalSignal,
   TerminalSignalSource,
-  TerminalStateSnapshot,
   TerminalViewport,
   Unsubscribe
 } from './types.ts';
@@ -108,12 +109,19 @@ class BufferOutput implements TerminalOutput {
     this.#tty = tty;
   }
 
-  write(chunk: string | Uint8Array): Promise<void> {
+  write(chunk: string | Uint8Array, context: TerminalOperationContext = {}): Promise<void> {
+    throwIfTerminalOperationAborted(context);
     this.#chunks.push(typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk));
     return Promise.resolve();
   }
 
-  flush(): Promise<void> {
+  flush(context: TerminalOperationContext = {}): Promise<void> {
+    throwIfTerminalOperationAborted(context);
+    return Promise.resolve();
+  }
+
+  dispose(context: TerminalOperationContext = {}): Promise<void> {
+    throwIfTerminalOperationAborted(context);
     return Promise.resolve();
   }
 
@@ -229,7 +237,7 @@ export interface MemoryTerminalHost extends TerminalHost {
   output(): string;
   frames(): readonly unknown[];
   diffs(): readonly unknown[];
-  restores(): readonly TerminalStateSnapshot[];
+  restores(): readonly TerminalRestoreResult[];
 }
 
 export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}): MemoryTerminalHost {
@@ -255,6 +263,7 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     environment: { variables: options.env ?? {} },
     ...(options.capabilities?.probes === undefined ? {} : { probes: options.capabilities.probes }),
     ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
+    ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile }),
     ...(
       options.clipboard === undefined && options.capabilities?.overrides === undefined
         ? {}
@@ -269,8 +278,8 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
   const env = new ObjectEnvironment(options.env ?? {});
   const frames: unknown[] = [];
   const diffs: unknown[] = [];
-  const restores: TerminalStateSnapshot[] = [];
-
+  const restores: TerminalRestoreResult[] = [];
+  const terminalState = new TerminalStateAuthorityBinding();
   const host = {
     id: options.id ?? 'memory',
     runtime: 'memory',
@@ -294,15 +303,16 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
         diffs.push(diff);
         options.observer?.recordDiff?.(diff);
       },
-      recordRestore(checkpoint: TerminalStateSnapshot) {
-        restores.push(checkpoint);
-        options.observer?.recordRestore?.(checkpoint);
+      recordRestore(result) {
+        restores.push(result);
+        options.observer?.recordRestore?.(result);
       }
     },
     getViewport: () => viewport,
     getCapabilities: () => Promise.resolve(capabilities),
-    beginSession: (sessionOptions): Promise<TerminalSession> =>
-      Promise.resolve(new BasicTerminalSession(sessionOptions?.id ?? 'memory-session', host, capabilities)),
+    beginSession: (sessionOptions) =>
+      terminalState.beginLease(sessionOptions?.id ?? 'memory-session', capabilities),
+    restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
     write: output.write,
     flush: output.flush,
     input: (data: string | Uint8Array) => { stdin.push(data); },
@@ -310,13 +320,17 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     frames: () => [...frames],
     diffs: () => [...diffs],
     restores: () => [...restores],
-    dispose: async () => {
-      try {
-        await restoreActiveTerminalSessions(host, 'disposed');
-      } finally {
-        stdin.close();
-      }
+    dispose: async (context) => {
+      await settleResourceDisposal([
+        () => terminalState.restoreAllConfirmed('disposed', context),
+        () => { stdin.close(); },
+        () => output.dispose(context)
+      ]);
     }
   } satisfies MemoryTerminalHost;
+  terminalState.bind(host, {
+    rawInputKnowledge: 'library_known',
+    ...(options.initialState === undefined ? {} : { initialState: options.initialState })
+  });
   return host;
 }

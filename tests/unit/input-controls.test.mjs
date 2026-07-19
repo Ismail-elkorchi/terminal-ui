@@ -257,6 +257,56 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.text === '1')?.source?.role, 'text');
 });
 
+test('picker columns remain cell-aligned under ambiguous-wide profiles', () => {
+  const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
+  const colorFrame = renderElementFrame(colorSwatchPicker({
+    id: 'wide-colors',
+    columns: 1,
+    options: [{ id: 'dots', label: '··', value: 'dots', swatch: 'x' }]
+  }), { columns: 20, rows: 2 }, { widthProfile });
+  const calendarFrame = renderElementFrame(calendar({
+    id: 'wide-calendar',
+    monthLabel: 'Month',
+    weekdays: ['··', '··', '··', '··', '··', '··', '··'],
+    days: []
+  }), { columns: 32, rows: 3 }, { widthProfile });
+
+  assert.equal(
+    colorFrame.cells.find((cell) => cell.source?.label === 'option.dots.close')?.column,
+    12
+  );
+  assert.deepEqual(
+    Array.from({ length: 7 }, (_value, index) => Math.min(
+      ...calendarFrame.cells
+        .filter((cell) => cell.source?.label === `weekday.${String(index)}`)
+        .map((cell) => cell.column)
+    )),
+    [1, 5, 9, 13, 17, 21, 25]
+  );
+});
+
+test('picker swatches remain inside their fixed cell budget under ambiguous-wide profiles', () => {
+  const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
+  const frame = renderElementFrame(colorSwatchPicker({
+    id: 'wide-swatch',
+    columns: 2,
+    options: [
+      { id: 'first', label: 'First', value: 1, swatch: '■' },
+      { id: 'second', label: 'Second', value: 2, swatch: '◆' }
+    ],
+    onAction: () => ({ kind: 'select' })
+  }), { columns: 24, rows: 1 }, { widthProfile });
+
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'option.first.swatch')?.text, '*');
+  assert.equal(frame.cells.find((cell) => cell.source?.label === 'option.second.open')?.column, 13);
+  assert.deepEqual(frame.hitTargets?.find((target) => target.id === 'wide-swatch:second')?.bounds, {
+    row: 1,
+    column: 13,
+    width: 12,
+    height: 1
+  });
+});
+
 test('form controls keep state visible in high contrast and no-color projections', () => {
   const widget = column([
     checkbox({

@@ -70,6 +70,23 @@ test('renderScrollbars uses theme scrollbar symbols and tokens', () => {
   assert.equal(trackCell.source?.partKind, 'track');
 });
 
+test('renderScrollbars keeps one-cell tracks under ambiguous-wide profiles', () => {
+  const buffer = createFrameBuffer(4, 3, {
+    widthProfile: { emoji: 'wide', ambiguous: 'wide' }
+  });
+  const layout = scrollbarLayout(
+    { row: 1, column: 1, width: 4, height: 3 },
+    { offsetRow: 1, offsetColumn: 0, contentRows: 6, contentColumns: 4 },
+    { axis: 'vertical' }
+  );
+
+  renderScrollbars(buffer, layout, defaultTheme);
+
+  const cells = buffer.snapshot().cells.filter((cell) => cell.column === 4);
+  assert.equal(cells.length, 3);
+  assert.ok(cells.every((cell) => cell.text === '|' && cell.width === 1));
+});
+
 test('scrollbarLayout exposes inactive state for visible non-overflowing tracks', () => {
   const layout = scrollbarLayout(
     { row: 1, column: 1, width: 4, height: 3 },

@@ -22,8 +22,8 @@ import type { RendererMap } from './types.ts';
 
 export const feedbackRenderers = {
   statusBar: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, statusBarBlock(renderNode, theme, layoutNode.bounds.width));
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, statusBarBlock(renderNode, theme, widthProfile, layoutNode.bounds.width));
     },
     accessibility: ({ renderNode, id }) => ({
       id,
@@ -34,10 +34,10 @@ export const feedbackRenderers = {
     })
   },
   helpBar: {
-    render: ({ renderNode, layoutNode, buffer }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, helpBarBlock(renderNode, layoutNode.bounds.width));
+    render: ({ renderNode, layoutNode, buffer, widthProfile }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, helpBarBlock(renderNode, widthProfile, layoutNode.bounds.width));
     },
-    accessibility: ({ renderNode, id }) => helpBarAccessibleBase(renderNode, id)
+    accessibility: ({ renderNode, id, widthProfile }) => helpBarAccessibleBase(renderNode, id, widthProfile)
   },
   spinner: {
     render: ({ renderNode, layoutNode, buffer, theme }) => {
@@ -46,8 +46,8 @@ export const feedbackRenderers = {
     accessibility: ({ renderNode, id }) => spinnerAccessibleBase(renderNode, id)
   },
   progressBar: {
-    render: ({ renderNode, layoutNode, buffer, theme }) => {
-      writeRenderBlock(buffer, layoutNode.bounds, progressBlock(renderNode, theme, layoutNode.bounds.width));
+    render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
+      writeRenderBlock(buffer, layoutNode.bounds, progressBlock(renderNode, theme, widthProfile, layoutNode.bounds.width));
     },
     accessibility: ({ renderNode, id }) => progressAccessibleBase(renderNode, id)
   },
@@ -56,6 +56,6 @@ export const feedbackRenderers = {
       renderNotificationStack(renderNode, buffer, layoutNode.bounds, theme);
     },
     accessibility: ({ renderNode, id, focused }) => notificationStackAccessibleBase(renderNode, id, focused),
-    hitTargets: ({ renderNode, bounds }) => notificationStackHitTargets(renderNode, bounds)
+    hitTargets: ({ renderNode, bounds, widthProfile }) => notificationStackHitTargets(renderNode, bounds, widthProfile)
   }
 } satisfies RendererMap<'statusBar' | 'helpBar' | 'spinner' | 'progressBar' | 'notificationStack'>;

@@ -3,7 +3,12 @@ import { diagnostic } from '../diagnostics.ts';
 import { applySessionProtocolPolicy } from './session-policy.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalRestoreReason, TerminalSession } from '../host/index.ts';
+import type {
+  TerminalRestoreOptions,
+  TerminalRestoreReason,
+  TerminalRestoreResult,
+  TerminalSession
+} from '../host/index.ts';
 import type { TuiExit } from './types.ts';
 import type { SessionProtocolPolicy, SessionProtocolSetupResult } from './session-policy.ts';
 export { applySessionProtocolPolicy, createSessionProtocolPlan, defaultSessionProtocolPolicy } from './session-policy.ts';
@@ -32,13 +37,33 @@ export async function setupTuiSession(
 
 export async function restoreTuiSession(
   session: TerminalSession,
-  reason: TerminalRestoreReason
-): Promise<readonly TerminalDiagnostic[]> {
+  reason: TerminalRestoreReason,
+  options: TerminalRestoreOptions = {}
+): Promise<TerminalRestoreResult> {
   try {
-    const result = await session.restore(reason);
-    return result.diagnostics;
+    return await session.restore(reason, options);
   } catch (cause) {
-    return [diagnostic('HOST_RESTORE_FAILED', 'Terminal session restore failed.', { cause, target: session.id })];
+    const failure = diagnostic('HOST_RESTORE_FAILED', 'Terminal session restore failed.', { cause, target: session.id });
+    return {
+      status: 'failed',
+      reason,
+      requested: session.initialState,
+      attempted: [],
+      confirmed: [],
+      resultingState: {
+        ...session.initialState,
+        provenance: {
+          rawInput: 'indeterminate',
+          alternateScreen: 'indeterminate',
+          bracketedPaste: 'indeterminate',
+          mouseReporting: 'indeterminate',
+          focusReporting: 'indeterminate',
+          keyboardProfile: 'indeterminate',
+          cursorVisible: 'indeterminate'
+        }
+      },
+      diagnostics: [failure]
+    };
   }
 }
 

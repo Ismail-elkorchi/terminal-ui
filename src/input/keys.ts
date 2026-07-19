@@ -85,6 +85,9 @@ export function normalizeKeyEvent(event: KeyEventLike): KeyEvent {
   return {
     kind: 'key',
     key: event.key,
+    ...(event.keyCodePoint === undefined
+      ? {}
+      : { keyCodePoint: requiredUnicodeScalar(event.keyCodePoint, 'key code point') }),
     ...(event.sequence === undefined ? {} : { sequence: event.sequence }),
     modifiers: normalizeModifiers(event.modifiers),
     eventType: event.eventType ?? 'press',
@@ -116,6 +119,12 @@ function optionalUnicodeScalar(value: number | undefined, name: string): number 
     throw new RangeError(`${name} must be a Unicode scalar value.`);
   }
   return value;
+}
+
+function requiredUnicodeScalar(value: number, name: string): number {
+  const normalized = optionalUnicodeScalar(value, name);
+  if (normalized === undefined) throw new RangeError(`${name} must be a Unicode scalar value.`);
+  return normalized;
 }
 
 export function isCancelKey(event: InputEvent): boolean {

@@ -53,8 +53,9 @@ output, resize, or session hook. Each entry retains its source facts and
 diagnostics so applications can explain why an optional operation was skipped.
 
 Non-TTY behavior is explicit on the TUI definition. The default is `reject`.
-Apps may opt into `transcript_only`, `last_frame`, or `line_fallback`; these
-paths do not enter full-screen terminal protocols or emit control sequences.
+Apps may opt into `transcript_only` or `last_frame`; these paths do not enter
+full-screen terminal protocols or emit control sequences. Prompt line input is
+owned by the prompt runtime and is not a TUI execution mode.
 
 TUI transcript capture is opt-in with `transcript: { enabled: true }` on the
 TUI definition. Enabled transcripts record normalized input events, frames,

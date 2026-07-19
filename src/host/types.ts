@@ -21,6 +21,17 @@ export interface TerminalInputReadOptions {
   readonly signal?: AbortSignal;
 }
 
+export interface TerminalOperationContext {
+  readonly signal?: AbortSignal;
+}
+
+export interface TerminalRestoreOptions {
+  /** Stops only this caller from waiting for a shared restoration. */
+  readonly waitSignal?: AbortSignal;
+  /** Bounds the authority operation when this caller creates it. */
+  readonly operationSignal?: AbortSignal;
+}
+
 export interface TerminalInput {
   read(options?: TerminalInputReadOptions): AsyncIterable<TerminalInputChunk>;
   setRawMode?(enabled: boolean): Promise<void> | void;
@@ -29,8 +40,9 @@ export interface TerminalInput {
 }
 
 export interface TerminalOutput {
-  write(chunk: string | Uint8Array): Promise<void>;
-  flush(): Promise<void>;
+  write(chunk: string | Uint8Array, context?: TerminalOperationContext): Promise<void>;
+  flush(context?: TerminalOperationContext): Promise<void>;
+  dispose(context?: TerminalOperationContext): Promise<void>;
   isTty(): boolean;
   readonly columns: number | undefined;
   readonly rows: number | undefined;
@@ -65,7 +77,7 @@ export interface TerminalViewportControl {
 export interface TerminalHostObserver {
   recordFrame?(frame: unknown): void;
   recordDiff?(diff: unknown): void;
-  recordRestore?(checkpoint: TerminalStateSnapshot): void;
+  recordRestore?(result: TerminalRestoreResult): void;
 }
 
 export interface TerminalHost {
@@ -83,9 +95,10 @@ export interface TerminalHost {
   getViewport(): TerminalViewport;
   getCapabilities(): Promise<TerminalCapabilityProfile>;
   beginSession(options?: TerminalSessionOptions): Promise<TerminalSession>;
-  write(output: TerminalOutputChunk): Promise<void>;
-  flush(): Promise<void>;
-  dispose?(): Promise<void>;
+  restoreTerminalState(reason: TerminalRestoreReason, options?: TerminalRestoreOptions): Promise<TerminalRestoreResult>;
+  write(output: TerminalOutputChunk, context?: TerminalOperationContext): Promise<void>;
+  flush(context?: TerminalOperationContext): Promise<void>;
+  dispose(context?: TerminalOperationContext): Promise<void>;
 }
 
 export interface TerminalSessionOptions {
@@ -106,7 +119,7 @@ export interface TerminalSession {
   enableKeyboardProfile(profile: TerminalKeyboardProfile): Promise<Result<TerminalStateChange>>;
   hideCursor(): Promise<Result<TerminalStateChange>>;
   showCursor(): Promise<Result<TerminalStateChange>>;
-  restore(reason?: TerminalRestoreReason): Promise<TerminalRestoreResult>;
+  restore(reason?: TerminalRestoreReason, options?: TerminalRestoreOptions): Promise<TerminalRestoreResult>;
 }
 
 export interface TerminalStateSnapshot {
@@ -117,7 +130,27 @@ export interface TerminalStateSnapshot {
   readonly focusReporting: boolean;
   readonly keyboardProfile: TerminalKeyboardProfile;
   readonly cursorVisible: boolean;
+  readonly provenance: TerminalStateProvenanceSnapshot;
 }
+
+export type TerminalStateKnowledge =
+  | 'observed'
+  | 'explicit'
+  | 'library_known'
+  | 'assumed'
+  | 'indeterminate';
+
+export interface TerminalStateProvenanceSnapshot {
+  readonly rawInput: TerminalStateKnowledge;
+  readonly alternateScreen: TerminalStateKnowledge;
+  readonly bracketedPaste: TerminalStateKnowledge;
+  readonly mouseReporting: TerminalStateKnowledge;
+  readonly focusReporting: TerminalStateKnowledge;
+  readonly keyboardProfile: TerminalStateKnowledge;
+  readonly cursorVisible: TerminalStateKnowledge;
+}
+
+export type TerminalInitialState = Partial<Omit<TerminalStateSnapshot, 'provenance'>>;
 
 export type TerminalStateChange =
   | { readonly kind: 'rawInput'; readonly enabled: boolean }
@@ -129,9 +162,12 @@ export type TerminalStateChange =
   | { readonly kind: 'cursorVisible'; readonly enabled: boolean };
 
 export interface TerminalRestoreResult {
-  readonly ok: boolean;
+  readonly status: 'restored' | 'partial' | 'failed';
   readonly reason: TerminalRestoreReason;
-  readonly restored: readonly TerminalStateChange[];
+  readonly requested: TerminalStateSnapshot;
+  readonly attempted: readonly TerminalStateChange[];
+  readonly confirmed: readonly TerminalStateChange[];
+  readonly resultingState: TerminalStateSnapshot;
   readonly diagnostics: readonly TerminalDiagnostic[];
 }
 
@@ -147,6 +183,7 @@ export type MouseReportingMode = 'none' | 'click' | 'drag' | 'all';
 
 export interface NodeReadableTerminalStream extends AsyncIterable<string | Uint8Array> {
   readonly isTTY?: boolean;
+  readonly isRaw?: boolean;
   setRawMode?(enabled: boolean): void;
   pause?(): void;
   resume?(): void;
@@ -160,9 +197,9 @@ export interface NodeWritableTerminalStream {
   readonly columns?: number;
   readonly rows?: number;
   write(chunk: string | Uint8Array, callback: (error?: Error | null) => void): boolean;
-  once?(event: 'drain' | 'error' | 'close', listener: (...args: unknown[]) => void): void;
+  once(event: 'drain' | 'error' | 'close', listener: (...args: unknown[]) => void): void;
   on?(event: 'resize', listener: () => void): void;
-  off?(event: 'drain' | 'error' | 'close' | 'resize', listener: (...args: unknown[]) => void): void;
+  off(event: 'drain' | 'error' | 'close' | 'resize', listener: (...args: unknown[]) => void): void;
 }
 
 export type NodeTerminalSignal = 'SIGINT' | 'SIGTERM' | 'SIGHUP';
@@ -184,6 +221,7 @@ export interface NodeTerminalHostOptions {
   readonly env?: Record<string, string | undefined>;
   readonly process?: NodeProcessLike;
   readonly capabilities?: TerminalCapabilityConfiguration;
+  readonly initialState?: TerminalInitialState;
 }
 
 export interface MemoryTerminalHostOptions {
@@ -194,6 +232,7 @@ export interface MemoryTerminalHostOptions {
   readonly env?: Record<string, string>;
   readonly observer?: TerminalHostObserver;
   readonly capabilities?: TerminalCapabilityConfiguration;
+  readonly initialState?: TerminalInitialState;
 }
 
 export interface RuntimeInputSource {
@@ -208,7 +247,7 @@ export interface RuntimeTerminalInputOptions {
 }
 
 export interface RuntimeTerminalOutputOptions {
-  readonly write?: (chunk: string | Uint8Array) => void | Promise<void>;
+  readonly write?: (chunk: string | Uint8Array, context: TerminalOperationContext) => void | Promise<void>;
   readonly writable?: WritableStream<Uint8Array>;
   readonly isTty?: boolean;
   readonly columns?: number;
@@ -223,6 +262,7 @@ export interface DenoTerminalHostOptions {
   readonly env?: Record<string, string>;
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
+  readonly initialState?: TerminalInitialState;
 }
 
 export interface BunTerminalHostOptions {
@@ -233,6 +273,7 @@ export interface BunTerminalHostOptions {
   readonly env?: Record<string, string>;
   readonly capabilities?: TerminalCapabilityConfiguration;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
+  readonly initialState?: TerminalInitialState;
 }
 
 export interface PtyTerminalHostOptions {
@@ -247,6 +288,7 @@ export interface PtyTerminalHostOptions {
   readonly observer?: TerminalHostObserver;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly capabilities?: TerminalCapabilityConfiguration;
+  readonly initialState?: TerminalInitialState;
 }
 
 export interface PtyTerminalHost extends TerminalHost {

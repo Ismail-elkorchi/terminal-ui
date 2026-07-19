@@ -158,6 +158,22 @@ test('scrollback search navigates to the first match and exposes match segments'
   );
 });
 
+test('scrollback counts only queries represented by highlighted spans', () => {
+  const frame = renderElementFrame(scrollback({
+    id: 'span-scoped-search',
+    items: [{ id: 'split-boundary', timestamp: 'a', text: 'b' }],
+    searchQuery: '] b'
+  }), { columns: 40, rows: 2 });
+
+  assert.equal(renderFramePlain(frame), '[a] b');
+  assert.equal(frame.cells.some((cell) => cell.source?.partKind === 'match'), false);
+  assert.equal(frame.accessibility.root.children?.[0]?.description, undefined);
+  assert.equal(
+    frame.accessibility.root.description,
+    'Showing 1-1 of 1 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Search query: ] b. Matches in rows: 0.'
+  );
+});
+
 test('scrollback renders empty and selected text states in high contrast and no color output', () => {
   const emptyFrame = renderElementFrame(scrollback({
     id: 'empty-log',
@@ -252,6 +268,22 @@ test('wrapped scrollback preserves selected body source and visual style', () =>
   assert.equal(selected.map((cell) => cell.text).join(''), 'pha br');
   assert.equal(selected.every((cell) => cell.style?.bg?.token === 'selection.background'), true);
   assert.ok(new Set(selected.map((cell) => cell.row)).size > 1);
+});
+
+test('wrapped scrollback counts visible selection markers in its row projection', () => {
+  const frame = renderElementFrame(scrollback({
+    id: 'wrapped-selection-markers',
+    items: [{ id: 'alpha', text: 'abcd' }],
+    wrap: true,
+    selectedRange: { start: 1, end: 2 }
+  }), { columns: 4, rows: 2 });
+
+  assert.equal(renderFramePlain(frame), 'a[b]\ncd');
+  assert.equal(
+    frame.accessibility.root.description,
+    'Showing 1-2 of 2 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Selection length: 1.'
+  );
+  assert.equal(frame.accessibility.root.children?.length, 2);
 });
 
 function targetById(regions, id) {

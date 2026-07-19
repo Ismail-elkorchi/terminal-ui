@@ -6,12 +6,14 @@ import type {
 } from './types.ts';
 
 export class NodeInput implements TerminalInput {
-  #rawMode = false;
+  #rawMode: boolean;
+  #rawModeSet = false;
   readonly #activeReaders = new Set<ClosableNodeInputIterator>();
   readonly #stream: NodeReadableTerminalStream;
 
   constructor(stream: NodeReadableTerminalStream) {
     this.#stream = stream;
+    this.#rawMode = stream.isRaw === true;
   }
 
   read(options: TerminalInputReadOptions = {}): AsyncIterable<TerminalInputChunk> {
@@ -32,11 +34,12 @@ export class NodeInput implements TerminalInput {
     if (typeof this.#stream.setRawMode === 'function' && this.#stream.isTTY === true) {
       this.#stream.setRawMode(enabled);
       this.#rawMode = enabled;
+      this.#rawModeSet = true;
     }
   }
 
   isRawModeEnabled(): boolean {
-    return this.#rawMode;
+    return this.#rawModeSet ? this.#rawMode : this.#stream.isRaw ?? this.#rawMode;
   }
 
   isTty(): boolean {

@@ -10,6 +10,7 @@ import type { Rect } from '../../../model/layout.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
 import type { TabAction } from '../../../../ui-model/tabs.ts';
 import type { TerminalTheme } from '../../../../theme/index.ts';
+import type { TextWidthProfile } from '../../../../text/index.ts';
 import { interactionVisualState, renderNodeTargetId } from '../../pointer-presentation.ts';
 import type { ElementVisualState } from '../../../../element/metadata.ts';
 import { isInlineContent } from '../../../../visual/inline-content.ts';
@@ -57,15 +58,28 @@ export function tabsChildBounds(widget: TabsNode, bounds: Rect): readonly Rect[]
   return (widget.children ?? []).map((_child, index) => index === selected ? panelBounds : emptyRect(bounds));
 }
 
-export function tabsHeaderText(widget: TabsNode, theme: TerminalTheme): string {
+export function tabsHeaderText(widget: TabsNode, theme: TerminalTheme, widthProfile: TextWidthProfile): string {
   const tabs = tabItems(widget);
   const selected = selectedTabIndex(widget, tabs);
-  return tabs.map((tab, index) => tabHeaderSpans(widget, tab, index === selected, false, theme).spans.map((span) => span.text).join('')).join(' ');
+  return tabs.map((tab, index) => tabHeaderSpans(
+    widget,
+    tab,
+    index === selected,
+    false,
+    theme,
+    widthProfile
+  ).spans.map((span) => span.text).join('')).join(' ');
 }
 
-export function tabsHeaderBlock(widget: TabsNode, bounds: Rect, focused: boolean, theme: TerminalTheme): RenderBlock {
+export function tabsHeaderBlock(
+  widget: TabsNode,
+  bounds: Rect,
+  focused: boolean,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): RenderBlock {
   if (bounds.height <= 0 || bounds.width <= 0) return { lines: [] };
-  const layout = tabHeaderLayout(widget, bounds.width, focused, theme);
+  const layout = tabHeaderLayout(widget, bounds.width, focused, theme, widthProfile);
   return {
     lines: [{
       spans: layout.spans
@@ -100,12 +114,13 @@ export function tabsAccessibleChildren(widget: TabsNode): readonly AccessibleNod
 export function tabsHitTargets<TMessage>(
   widget: TabsNode<TMessage>,
   bounds: Rect,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
   if (bounds.height <= 0 || bounds.width <= 0) return [];
   const toMessage = tabActionMessageFactory(widget);
   if (toMessage === undefined) return [];
-  const layout = tabHeaderLayout(widget, bounds.width, false, theme);
+  const layout = tabHeaderLayout(widget, bounds.width, false, theme, widthProfile);
   const targets: HitTarget<TMessage>[] = [];
   for (const metrics of layout.visibleTabs) {
     const tab = metrics.tab;
@@ -183,14 +198,20 @@ function tabActionMessageFactory<TMessage>(widget: TabsNode<TMessage>): ((action
   return widget.props.toActionMessage;
 }
 
-function tabHeaderLayout(widget: TabsNode, width: number, focused: boolean, theme: TerminalTheme): TabHeaderLayout {
+function tabHeaderLayout(
+  widget: TabsNode,
+  width: number,
+  focused: boolean,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): TabHeaderLayout {
   if (width <= 0) return { spans: [], visibleTabs: [] };
   const tabs = tabItems(widget);
   if (tabs.length === 0) return { spans: [], visibleTabs: [] };
   const selected = selectedTabIndex(widget, tabs);
   const entries = tabs.map((tab, index): TabHeaderMetrics => ({
     tab,
-    ...tabHeaderSpans(widget, tab, index === selected, focused && index === selected, theme)
+    ...tabHeaderSpans(widget, tab, index === selected, focused && index === selected, theme, widthProfile)
   }));
   let start = selected;
   let end = selected;
@@ -201,7 +222,7 @@ function tabHeaderLayout(widget: TabsNode, width: number, focused: boolean, them
 
   if (!fits(start, end) && selectedEntry.width > width) {
     return {
-      spans: clipRenderSpans(selectedEntry.spans, width, { ellipsis: '…' }),
+      spans: clipRenderSpans(selectedEntry.spans, width, { ellipsis: '…', widthProfile }),
       visibleTabs: [{ ...selectedEntry, offset: 0 }]
     };
   }
@@ -241,7 +262,7 @@ function tabHeaderLayout(widget: TabsNode, width: number, focused: boolean, them
     spans.push(tabOverflowSpan(widget, ' …', 'overflow.trailing'));
   }
   return {
-    spans: clipRenderSpans(spans, width, { ellipsis: '…' }),
+    spans: clipRenderSpans(spans, width, { ellipsis: '…', widthProfile }),
     visibleTabs
   };
 }
@@ -317,7 +338,8 @@ function tabHeaderSpans(
   },
   selected: boolean,
   focused: boolean,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): { readonly spans: readonly RenderSpan[]; readonly width: number; readonly bodyWidth: number; readonly closeOffset?: number } {
   const disabled = tab.disabled === true;
   const state = interactionVisualState(widget, tabTargetId(widget, tab.id), {
@@ -351,7 +373,7 @@ function tabHeaderSpans(
           tabSpan(widget, ' ', closeStyle, tab.id, 'close.separator', 'separator', 'separator', closeState)
         ])
   ];
-  const closeOffset = tab.closable !== true ? undefined : measureRenderSpans(baseSpans);
+  const closeOffset = tab.closable !== true ? undefined : measureRenderSpans(baseSpans, { widthProfile });
   const closeSpans = tab.closable !== true
     ? []
     : [
@@ -359,7 +381,7 @@ function tabHeaderSpans(
       ];
   const endSpans = [tabSpan(widget, ' ', style, tab.id, 'padding.trailing', 'separator', 'separator', state)];
   const spans = [...baseSpans, ...closeSpans, ...endSpans];
-  const width = measureRenderSpans(spans);
+  const width = measureRenderSpans(spans, { widthProfile });
   return {
     spans,
     width,

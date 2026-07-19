@@ -169,6 +169,7 @@ test('schemas reject malformed nested public payloads', async () => {
     schemaVersion: 'terminal-ui.tui-frame.v1',
     width: 1,
     height: 1,
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     cells: [{
       row: 1,
       column: 1,
@@ -200,6 +201,7 @@ test('schemas reject malformed nested public payloads', async () => {
     schemaVersion: 'terminal-ui.tui-frame.v1',
     width: 1,
     height: 1,
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     cells: [{ row: 1, column: 1, text: 'x', width: 1, source: { id: 'legacy', kind: 'old' } }],
     accessibility: { root: { id: 'bad-source', role: 'text' } }
   }), false);
@@ -208,6 +210,7 @@ test('schemas reject malformed nested public payloads', async () => {
     schemaVersion: 'terminal-ui.tui-frame.v1',
     width: 1,
     height: 1,
+    widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
     cells: [],
     accessibility: { root: { id: 'bad', role: 'text' } }
   }), false);
@@ -236,6 +239,7 @@ test('schemas reject malformed nested public payloads', async () => {
 
   assert.equal(validators.get('terminal-diagnostic.schema.json')({
     schemaVersion: 'terminal-ui.terminal-diagnostic.v1',
+    id: 'diagnostic:unknown',
     code: 'UNKNOWN_DIAGNOSTIC',
     severity: 'error',
     message: 'Unknown code should not satisfy the public diagnostic contract.'
@@ -270,14 +274,14 @@ test('schemas reject malformed nested public payloads', async () => {
     source: 'test',
     steps: [{
       kind: 'restore',
-      checkpoint: {
-        rawInput: false,
-        alternateScreen: false,
-        bracketedPaste: false,
-        mouseReporting: 'none',
-        focusReporting: false,
-        keyboardProfile: { kind: 'kitty', flags },
-        cursorVisible: true
+      result: {
+        status: 'restored',
+        reason: 'success',
+        requested: terminalStateWithKeyboardFlags(flags),
+        attempted: [],
+        confirmed: [],
+        resultingState: terminalStateWithKeyboardFlags(flags),
+        diagnostics: []
       }
     }],
     diagnostics: [],
@@ -287,6 +291,27 @@ test('schemas reject malformed nested public payloads', async () => {
   assert.equal(transcriptValidator(transcriptWithKeyboardFlags(24)), true, ajv.errorsText(transcriptValidator.errors));
   assert.equal(transcriptValidator(transcriptWithKeyboardFlags(16)), false);
 });
+
+function terminalStateWithKeyboardFlags(flags) {
+  return {
+    rawInput: false,
+    alternateScreen: false,
+    bracketedPaste: false,
+    mouseReporting: 'none',
+    focusReporting: false,
+    keyboardProfile: { kind: 'kitty', flags },
+    cursorVisible: true,
+    provenance: {
+      rawInput: 'observed',
+      alternateScreen: 'assumed',
+      bracketedPaste: 'assumed',
+      mouseReporting: 'assumed',
+      focusReporting: 'assumed',
+      keyboardProfile: 'library_known',
+      cursorVisible: 'assumed'
+    }
+  };
+}
 
 function capabilitySupport(support) {
   return {

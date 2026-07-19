@@ -13,6 +13,7 @@ import type { RenderBlock, RenderLine, RenderSpan } from '../../../../visual/ren
 import { chartSeries } from './series.ts';
 import { clipLineSpans } from './render-block.ts';
 import { cleanLabel } from './values.ts';
+import type { TextWidthProfile } from '../../../../text/index.ts';
 
 type ChartNode = RenderNodeOfKind<unknown, 'chart'>;
 
@@ -33,19 +34,25 @@ export function chartLayout(widget: ChartNode, bounds: Rect): {
 export function writeChartChrome(
   buffer: ReturnType<typeof createFrameBuffer>,
   widget: ChartNode,
-  width: number
+  width: number,
+  widthProfile: TextWidthProfile
 ): void {
-  chartHeaderBlock(widget, width).lines.forEach((line, index) => {
+  chartHeaderBlock(widget, width, widthProfile).lines.forEach((line, index) => {
     buffer.write(index + 1, 1, line.spans);
   });
-  const footer = chartFooterBlock(widget, width);
+  const footer = chartFooterBlock(widget, width, widthProfile);
   if (footer.lines.length > 0) {
     buffer.write(buffer.height, 1, footer.lines[0]?.spans ?? []);
   }
 }
 
-export function chartChromeBlock(widget: ChartNode, width: number): RenderBlock {
-  return { lines: [...chartHeaderBlock(widget, width).lines, ...chartFooterBlock(widget, width).lines] };
+export function chartChromeBlock(widget: ChartNode, width: number, widthProfile: TextWidthProfile): RenderBlock {
+  return {
+    lines: [
+      ...chartHeaderBlock(widget, width, widthProfile).lines,
+      ...chartFooterBlock(widget, width, widthProfile).lines
+    ]
+  };
 }
 
 export function seriesGlyph(series: ChartSeries): string {
@@ -66,7 +73,7 @@ function chartHeaderRows(widget: ChartNode): number {
   return (widget.props.legend === true ? 1 : 0) + (cleanLabel(widget.props.yLabel).length > 0 ? 1 : 0);
 }
 
-function chartHeaderBlock(widget: ChartNode, width: number): RenderBlock {
+function chartHeaderBlock(widget: ChartNode, width: number, widthProfile: TextWidthProfile): RenderBlock {
   const rows: RenderLine[] = [];
   if (widget.props.legend === true) {
     rows.push({
@@ -91,25 +98,33 @@ function chartHeaderBlock(widget: ChartNode, width: number): RenderBlock {
           chartPlaceholderStyle(widget)
         ),
         chartSpan(widget, 'chart', 'legend', `legend.${item.id}.label`, item.label ?? item.id, chartLabelStyle(widget))
-      ]), width)
+      ]), width, widthProfile)
     });
   }
   const yLabel = cleanLabel(widget.props.yLabel);
   if (yLabel.length > 0) {
     rows.push({
-      spans: [chartSpan(widget, 'chart', 'axis', 'axis.y.label', yLabel.slice(0, width), chartAxisStyle(widget))]
+      spans: clipLineSpans(
+        [chartSpan(widget, 'chart', 'axis', 'axis.y.label', yLabel, chartAxisStyle(widget))],
+        width,
+        widthProfile
+      )
     });
   }
   return { lines: rows };
 }
 
-function chartFooterBlock(widget: ChartNode, width: number): RenderBlock {
+function chartFooterBlock(widget: ChartNode, width: number, widthProfile: TextWidthProfile): RenderBlock {
   const xLabel = cleanLabel(widget.props.xLabel);
   return {
     lines: xLabel.length === 0
       ? []
       : [{
-          spans: [chartSpan(widget, 'chart', 'axis', 'axis.x.label', xLabel.slice(0, width), chartAxisStyle(widget))]
+          spans: clipLineSpans(
+            [chartSpan(widget, 'chart', 'axis', 'axis.x.label', xLabel, chartAxisStyle(widget))],
+            width,
+            widthProfile
+          )
         }]
   };
 }

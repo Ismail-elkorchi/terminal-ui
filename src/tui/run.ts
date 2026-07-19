@@ -50,7 +50,7 @@ export async function runTui<TState, TMessage>(
   const setupDiagnostics: TerminalDiagnostic[] = [];
 
   try {
-    const nonTtyExit = await runTuiNonTty(app, host, transcript);
+    const nonTtyExit = await runTuiNonTty(app, host, transcript, normalized);
     if (nonTtyExit !== undefined) return withTuiTranscript(nonTtyExit, transcript);
     session = await host.beginSession({ id: app.id });
     lifecycle.openSession(session);
@@ -87,7 +87,9 @@ export async function runTui<TState, TMessage>(
       });
       lifecycle.activateRuntime(runtime);
       await runtime.start();
-      exit = await runTuiInputLoop(runtime, transcript);
+      exit = await runTuiInputLoop(runtime, transcript, (retirement) => {
+        lifecycle.retireInput(retirement);
+      });
       lifecycle.complete(exit);
     }
   } catch (cause) {
@@ -156,9 +158,8 @@ function mergeDiagnostics(
   const seen = new Set<string>();
   const merged: TerminalDiagnostic[] = [];
   for (const item of groups.flat()) {
-    const identity = JSON.stringify(item);
-    if (seen.has(identity)) continue;
-    seen.add(identity);
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
     merged.push(item);
   }
   return merged;

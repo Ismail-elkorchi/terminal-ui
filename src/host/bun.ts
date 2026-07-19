@@ -1,5 +1,6 @@
 import { createStreamTerminalHost, runtimeInputSourceFromAsyncIterable } from './runtime-streams.ts';
 import { NodeTerminalOutput } from './node-output.ts';
+import { processSignalSubscriber } from './native-signals.ts';
 import type {
   BunTerminalHostOptions,
   NodeWritableTerminalStream,
@@ -14,14 +15,16 @@ interface BunLike {
 export function createBunTerminalHost(options: BunTerminalHostOptions = {}): TerminalHost {
   const bun = bunGlobal();
   const processLike = processGlobal();
+  const subscribeSignals = options.subscribeSignals ?? processSignalSubscriber(processLike);
   return createStreamTerminalHost({
     id: options.id ?? 'bun',
     runtime: 'bun',
     stdin: options.stdin ?? bunInputOptions(bun, processLike),
-    ...(options.subscribeSignals === undefined ? {} : { subscribeSignals: options.subscribeSignals }),
+    ...(subscribeSignals === undefined ? {} : { subscribeSignals }),
     ...bunHostOutput('stdout', options.stdout, processLike?.stdout),
     ...bunHostOutput('stderr', options.stderr, processLike?.stderr),
     ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
+    ...(options.initialState === undefined ? {} : { initialState: options.initialState }),
     ...optionalEnv(options.env ?? processLike?.env)
   });
 }
@@ -41,7 +44,13 @@ function bunInputOptions(
   processLike: ProcessLike | undefined
 ): RuntimeTerminalInputOptions {
   const source = bun?.stdin?.stream?.() ?? processLike?.stdin;
-  const setRawMode = bun?.stdin?.setRawMode ?? processLike?.stdin?.setRawMode;
+  const bunInput = bun?.stdin;
+  const processInput = processLike?.stdin;
+  const setRawMode = bunInput?.setRawMode === undefined
+    ? processInput?.setRawMode === undefined
+      ? undefined
+      : (enabled: boolean): void => { processInput.setRawMode?.(enabled); }
+    : (enabled: boolean): void => { bunInput.setRawMode?.(enabled); };
   return {
     isTty: bun?.stdin?.isTTY ?? processLike?.stdin?.isTTY ?? false,
     ...(source === undefined ? {} : { source: runtimeInputSourceFromAsyncIterable(source) }),
@@ -54,6 +63,8 @@ interface ProcessLike {
   readonly stdout?: ProcessOutputLike;
   readonly stderr?: ProcessOutputLike;
   readonly env?: Record<string, string>;
+  on?(signal: string, handler: () => void): void;
+  off?(signal: string, handler: () => void): void;
 }
 
 type ProcessOutputLike = NodeWritableTerminalStream;

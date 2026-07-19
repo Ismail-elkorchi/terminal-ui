@@ -1,12 +1,18 @@
 import { validateAccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic, terminalDiagnosticIssue } from '../diagnostics.ts';
 import { err, ok } from '../result.ts';
-import { measureTextCells } from '../text/index.ts';
-import type { TerminalStateSnapshot, TerminalViewport } from '../host/index.ts';
+import { defineTextWidthProfile, measureTextCells } from '../text/index.ts';
+import {
+  applyRenderDiff,
+  renderDiffProjectionMatchesFrame
+} from '../renderer/internal/diff-interpreter.ts';
+import type { TerminalRestoreResult, TerminalStateChange, TerminalStateSnapshot, TerminalViewport } from '../host/index.ts';
 import { normalizeKeyboardProfile } from '../protocol/index.ts';
 import type { KeyName, MouseAction, MouseButton, MouseEncoding } from '../input/index.ts';
 import type { Result } from '../result.ts';
-import type { CursorPosition } from '../renderer/index.ts';
+import type { CursorPosition, Frame, RenderDiff } from '../renderer/index.ts';
+import type { RenderDiffProjection } from '../renderer/internal/diff-interpreter.ts';
+import type { TextWidthProfile } from '../text/index.ts';
 import type { TuiMessageSource } from '../runtime-model/message-source.ts';
 import type { InteractionTranscript, TranscriptSource } from './types.ts';
 
@@ -92,6 +98,8 @@ function transcriptIssue(transcript: unknown): string | undefined {
     const issue = stepIssue(item);
     if (issue !== undefined) return `Invalid transcript step at index ${String(index)}: ${issue}`;
   }
+  const orderingIssue = transcriptOrderingIssue(transcript['steps']);
+  if (orderingIssue !== undefined) return orderingIssue;
   for (const [index, item] of transcript['diagnostics'].entries()) {
     const issue = diagnosticIssue(item);
     if (issue !== undefined) return `Invalid transcript diagnostic at index ${String(index)}: ${issue}`;
@@ -105,6 +113,60 @@ function transcriptIssue(transcript: unknown): string | undefined {
   return undefined;
 }
 
+function transcriptOrderingIssue(steps: readonly unknown[]): string | undefined {
+  const commitIds = new Set<string>();
+  let lastStateVersion = -1;
+  let restorationSeen = false;
+  let previousProjection: RenderDiffProjection | undefined;
+  for (const [index, step] of steps.entries()) {
+    if (!isRecord(step)) continue;
+    if (step['kind'] === 'restore') {
+      restorationSeen = true;
+      continue;
+    }
+    if (step['kind'] !== 'commit' || !isRecord(step['commit'])) continue;
+    if (restorationSeen) return `Transcript commit at index ${String(index)} occurs after restoration.`;
+    const id = step['commit']['id'];
+    const stateVersion = step['commit']['stateVersion'];
+    if (typeof id === 'string') {
+      if (commitIds.has(id)) return `Transcript commit id ${id} is duplicated.`;
+      commitIds.add(id);
+    }
+    if (typeof stateVersion === 'number') {
+      if (stateVersion < lastStateVersion) {
+        return `Transcript commit stateVersion decreases at index ${String(index)}.`;
+      }
+      lastStateVersion = stateVersion;
+    }
+    const frame = step['commit']['frame'];
+    const diff = step['commit']['diff'];
+    if (!isRecord(frame) || !isRecord(diff)) continue;
+    if (previousProjection === undefined && diff['fullRewrite'] !== true) {
+      return `Transcript first commit at index ${String(index)} must contain a full rewrite.`;
+    }
+    try {
+      const projection = applyRenderDiff(
+        previousProjection,
+        diff as unknown as RenderDiff
+      );
+      if (!renderDiffProjectionMatchesFrame(
+        projection,
+        frame as unknown as Frame
+      )) {
+        return `Transcript commit at index ${String(index)} diff does not reproduce its frame.`;
+      }
+      previousProjection = projection;
+    } catch (cause) {
+      return `Transcript commit at index ${String(index)} diff chain is invalid: ${errorMessage(cause)}.`;
+    }
+  }
+  return undefined;
+}
+
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause);
+}
+
 function stepIssue(step: unknown): string | undefined {
   if (!isRecord(step)) return 'step must be an object.';
   switch (step['kind']) {
@@ -112,19 +174,61 @@ function stepIssue(step: unknown): string | undefined {
       return inputEventIssue(step['event']);
     case 'message':
       return messageStepIssue(step);
-    case 'frame':
-      return frameIssue(step['frame']);
-    case 'diff':
-      return renderDiffIssue(step['diff']);
+    case 'commit':
+      return commitIssue(step['commit']);
     case 'snapshot':
       return snapshotIssue(step['snapshot']);
     case 'diagnostic':
       return diagnosticIssue(step['diagnostic']);
     case 'restore':
-      return restoreCheckpointIssue(step['checkpoint']);
+      return restoreResultIssue(step['result']);
     default:
       return `unsupported step kind: ${String(step['kind'])}.`;
   }
+}
+
+function commitIssue(value: unknown): string | undefined {
+  if (!isRecord(value)) return 'commit must be an object.';
+  if (!isNonEmptyString(value['id'])) return 'commit id must not be empty.';
+  if (!isIntegerAtLeast(value['stateVersion'], 0)) return 'commit stateVersion must be a non-negative integer.';
+  const viewport = viewportIssue(value['viewport']);
+  if (viewport !== undefined) return `commit viewport: ${viewport}`;
+  if (value['focusPath'] !== undefined && !isStringArray(value['focusPath'])) {
+    return 'commit focusPath must be a string array.';
+  }
+  const frame = frameIssue(value['frame']);
+  if (frame !== undefined) return `commit frame: ${frame}`;
+  const diff = renderDiffIssue(value['diff']);
+  if (diff !== undefined) return `commit diff: ${diff}`;
+  if (!isRecord(value['viewport']) || !isRecord(value['frame']) || !isRecord(value['diff'])) {
+    return 'commit projection is incomplete.';
+  }
+  const columns = value['viewport']['columns'];
+  const rows = value['viewport']['rows'];
+  if (value['frame']['width'] !== columns || value['diff']['width'] !== columns) {
+    return 'commit frame and diff width must match viewport columns.';
+  }
+  if (value['frame']['height'] !== rows || value['diff']['height'] !== rows) {
+    return 'commit frame and diff height must match viewport rows.';
+  }
+  if (!sameWidthProfile(value['frame']['widthProfile'], value['diff']['widthProfile'])) {
+    return 'commit frame and diff width profiles must match.';
+  }
+  if (!sameOptionalStringArray(value['focusPath'], value['frame']['focusPath'])) {
+    return 'commit focusPath must match frame focusPath.';
+  }
+  return undefined;
+}
+
+function sameWidthProfile(left: unknown, right: unknown): boolean {
+  if (!isRecord(left) || !isRecord(right)) return left === right;
+  return left['emoji'] === right['emoji'] && left['ambiguous'] === right['ambiguous'];
+}
+
+function sameOptionalStringArray(left: unknown, right: unknown): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  if (!isStringArray(left) || !isStringArray(right) || left.length !== right.length) return false;
+  return left.every((value, index) => value === right[index]);
 }
 
 function messageStepIssue(step: Record<string, unknown>): string | undefined {
@@ -171,6 +275,9 @@ function keyEventIssue(event: Record<string, unknown>): string | undefined {
     if (typeof event['modifiers'][modifier] !== 'boolean') return `key modifiers require ${modifier}.`;
   }
   if (event['sequence'] !== undefined && typeof event['sequence'] !== 'string') return 'key sequence must be a string.';
+  if (event['keyCodePoint'] !== undefined && !isUnicodeScalar(event['keyCodePoint'])) {
+    return 'key code point is invalid.';
+  }
   if (event['committedText'] !== undefined && typeof event['committedText'] !== 'string') {
     return 'key committedText must be a string.';
   }
@@ -224,6 +331,8 @@ function frameIssue(frame: unknown): string | undefined {
   if (!isIntegerAtLeast(frame['width'], 0) || !isIntegerAtLeast(frame['height'], 0)) {
     return 'frame width and height must be non-negative integers.';
   }
+  const widthProfile = textWidthProfileIssue(frame['widthProfile']);
+  if (widthProfile !== undefined) return `frame widthProfile: ${widthProfile}`;
   if (!Array.isArray(frame['cells'])) return 'frame cells must be an array.';
   for (const [index, cell] of frame['cells'].entries()) {
     const issue = frameCellIssue(cell);
@@ -267,6 +376,9 @@ function renderDiffIssue(diff: unknown): string | undefined {
   if (!isIntegerAtLeast(diff['width'], 0) || !isIntegerAtLeast(diff['height'], 0)) {
     return 'diff width and height must be non-negative integers.';
   }
+  const widthProfile = textWidthProfileIssue(diff['widthProfile']);
+  if (widthProfile !== undefined) return `diff widthProfile: ${widthProfile}`;
+  const normalizedWidthProfile = defineTextWidthProfile(diff['widthProfile']);
   const width = Number(diff['width']);
   const height = Number(diff['height']);
   if (typeof diff['fullRewrite'] !== 'boolean') return 'diff fullRewrite must be a boolean.';
@@ -286,13 +398,29 @@ function renderDiffIssue(diff: unknown): string | undefined {
     }
   }
   for (const [index, operation] of diff['operations'].entries()) {
-    const issue = renderOperationIssue(operation, width, height);
+    const issue = renderOperationIssue(operation, width, height, normalizedWidthProfile);
     if (issue !== undefined) return `diff operation ${String(index)}: ${issue}`;
   }
   return undefined;
 }
 
-function renderOperationIssue(operation: unknown, width: number, height: number): string | undefined {
+function textWidthProfileIssue(value: unknown): string | undefined {
+  if (!isRecord(value)) return 'must be an object.';
+  if (value['emoji'] !== 'narrow' && value['emoji'] !== 'wide') {
+    return 'emoji must be "narrow" or "wide".';
+  }
+  if (value['ambiguous'] !== 'narrow' && value['ambiguous'] !== 'wide') {
+    return 'ambiguous must be "narrow" or "wide".';
+  }
+  return undefined;
+}
+
+function renderOperationIssue(
+  operation: unknown,
+  width: number,
+  height: number,
+  widthProfile: TextWidthProfile
+): string | undefined {
   if (!isRecord(operation)) return 'operation must be an object.';
   switch (operation['kind']) {
     case 'write': {
@@ -309,7 +437,7 @@ function renderOperationIssue(operation: unknown, width: number, height: number)
         if (!isRecord(item) || typeof item['text'] !== 'string') {
           return 'write spans must contain text.';
         }
-        columns += measureTextCells(item['text']).cells;
+        columns += measureTextCells(item['text'], { widthProfile }).cells;
       }
       if (columns <= 0) return 'write must affect at least one terminal cell.';
       if (row > height || column + columns - 1 > width) {
@@ -361,23 +489,119 @@ function diagnosticIssue(item: unknown): string | undefined {
   return terminalDiagnosticIssue(item);
 }
 
-function restoreCheckpointIssue(checkpoint: unknown): string | undefined {
-  if (!isRecord(checkpoint)) return 'restore checkpoint must be an object.';
-  const typed = checkpoint as Partial<TerminalStateSnapshot>;
-  if (typeof typed.rawInput !== 'boolean') return 'restore checkpoint requires rawInput.';
-  if (typeof typed.alternateScreen !== 'boolean') return 'restore checkpoint requires alternateScreen.';
-  if (typeof typed.bracketedPaste !== 'boolean') return 'restore checkpoint requires bracketedPaste.';
-  if (!isOneOf(typed.mouseReporting, ['none', 'click', 'drag', 'all'] as const)) {
-    return 'restore checkpoint requires mouseReporting.';
+function restoreResultIssue(result: unknown): string | undefined {
+  if (!isRecord(result)) return 'restore result must be an object.';
+  const typed = result as Partial<TerminalRestoreResult>;
+  if (!isOneOf(typed.status, ['restored', 'partial', 'failed'] as const)) return 'restore result requires status.';
+  if (!isOneOf(typed.reason, ['success', 'cancelled', 'interrupted', 'timeout', 'error', 'disposed'] as const)) {
+    return 'restore result requires reason.';
   }
-  if (typeof typed.focusReporting !== 'boolean') return 'restore checkpoint requires focusReporting.';
+  const requestedIssue = terminalStateSnapshotIssue(typed.requested);
+  if (requestedIssue !== undefined) return `restore requested state: ${requestedIssue}`;
+  const resultingIssue = terminalStateSnapshotIssue(typed.resultingState);
+  if (resultingIssue !== undefined) return `restore resulting state: ${resultingIssue}`;
+  if (!Array.isArray(typed.attempted)) return 'restore result requires attempted.';
+  for (const operation of typed.attempted) {
+    const issue = terminalStateChangeIssue(operation);
+    if (issue !== undefined) return `restore attempted: ${issue}`;
+  }
+  if (!Array.isArray(typed.confirmed)) return 'restore result requires confirmed.';
+  for (const operation of typed.confirmed) {
+    const issue = terminalStateChangeIssue(operation);
+    if (issue !== undefined) return `restore confirmed: ${issue}`;
+  }
+  if (!isOrderedTerminalStateChangeSubset(typed.confirmed, typed.attempted)) {
+    return 'restore confirmed operations must be an ordered subset of attempted operations.';
+  }
+  if (!Array.isArray(typed.diagnostics)) return 'restore result requires diagnostics.';
+  for (const item of typed.diagnostics) {
+    const issue = diagnosticIssue(item);
+    if (issue !== undefined) return `restore diagnostic: ${issue}`;
+  }
+  return undefined;
+}
+
+function isOrderedTerminalStateChangeSubset(
+  subset: readonly TerminalStateChange[],
+  values: readonly TerminalStateChange[]
+): boolean {
+  let valueIndex = 0;
+  for (const candidate of subset) {
+    let matched = false;
+    while (valueIndex < values.length) {
+      const value = values[valueIndex];
+      valueIndex += 1;
+      if (value !== undefined && terminalStateChangesEqual(candidate, value)) {
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) return false;
+  }
+  return true;
+}
+
+function terminalStateChangesEqual(left: TerminalStateChange, right: TerminalStateChange): boolean {
+  if (left.kind !== right.kind) return false;
+  if (left.kind === 'keyboardProfile' && right.kind === 'keyboardProfile') {
+    const leftProfile = normalizeKeyboardProfile(left.enabled);
+    const rightProfile = normalizeKeyboardProfile(right.enabled);
+    return leftProfile.kind === rightProfile.kind
+      && (leftProfile.kind === 'legacy'
+        || (rightProfile.kind === 'kitty' && leftProfile.flags === rightProfile.flags));
+  }
+  return left.enabled === right.enabled;
+}
+
+function terminalStateSnapshotIssue(checkpoint: unknown): string | undefined {
+  if (!isRecord(checkpoint)) return 'terminal state must be an object.';
+  const typed = checkpoint as Partial<TerminalStateSnapshot>;
+  if (typeof typed.rawInput !== 'boolean') return 'terminal state requires rawInput.';
+  if (typeof typed.alternateScreen !== 'boolean') return 'terminal state requires alternateScreen.';
+  if (typeof typed.bracketedPaste !== 'boolean') return 'terminal state requires bracketedPaste.';
+  if (!isOneOf(typed.mouseReporting, ['none', 'click', 'drag', 'all'] as const)) {
+    return 'terminal state requires mouseReporting.';
+  }
+  if (typeof typed.focusReporting !== 'boolean') return 'terminal state requires focusReporting.';
   try {
     normalizeKeyboardProfile(typed.keyboardProfile);
   } catch {
-    return 'restore checkpoint requires a valid keyboardProfile.';
+    return 'terminal state requires a valid keyboardProfile.';
   }
-  if (typeof typed.cursorVisible !== 'boolean') return 'restore checkpoint requires cursorVisible.';
+  if (typeof typed.cursorVisible !== 'boolean') return 'terminal state requires cursorVisible.';
+  if (!isRecord(typed.provenance)) return 'terminal state requires provenance.';
+  for (const key of ['rawInput', 'alternateScreen', 'bracketedPaste', 'mouseReporting', 'focusReporting', 'keyboardProfile', 'cursorVisible'] as const) {
+    if (!isOneOf(typed.provenance[key], ['observed', 'explicit', 'library_known', 'assumed', 'indeterminate'] as const)) {
+      return `terminal state provenance requires ${key}.`;
+    }
+  }
   return undefined;
+}
+
+function terminalStateChangeIssue(operation: unknown): string | undefined {
+  if (!isRecord(operation)) return 'terminal state change must be an object.';
+  const typed = operation as Partial<TerminalStateChange>;
+  switch (typed.kind) {
+    case 'rawInput':
+    case 'alternateScreen':
+    case 'bracketedPaste':
+    case 'focusReporting':
+    case 'cursorVisible':
+      return typeof typed.enabled === 'boolean' ? undefined : `${typed.kind} requires a boolean value.`;
+    case 'mouseReporting':
+      return isOneOf(typed.enabled, ['none', 'click', 'drag', 'all'] as const)
+        ? undefined
+        : 'mouseReporting requires a valid mode.';
+    case 'keyboardProfile':
+      try {
+        normalizeKeyboardProfile(typed.enabled);
+        return undefined;
+      } catch {
+        return 'keyboardProfile requires a valid profile.';
+      }
+    default:
+      return 'terminal state change requires a valid kind.';
+  }
 }
 
 function viewportIssue(viewport: unknown): string | undefined {

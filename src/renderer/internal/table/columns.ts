@@ -1,5 +1,6 @@
 import type { RenderNodeOfKind } from '../../model/index.ts';
 import { measureTextCells, sanitizeTerminalText } from '../../../text/index.ts';
+import type { TextWidthProfile } from '../../../text/index.ts';
 import type {
   TableColumnAlignment,
   TableColumnSemantic,
@@ -55,13 +56,14 @@ export function tableColumnWidths(
   columns: readonly NormalizedTableColumn[],
   rows: readonly unknown[],
   availableWidth: number,
-  separatorWidth: number
+  separatorWidth: number,
+  widthProfile: TextWidthProfile
 ): readonly number[] {
   if (columns.length === 0) return [];
   const separators = Math.max(0, columns.length - 1) * separatorWidth;
   const widthBudget = Math.max(columns.length, availableWidth - separators);
   const base = columns.map((column) => requiresIntrinsicWidth(column.width)
-    ? intrinsicColumnWidth(column, rows)
+    ? intrinsicColumnWidth(column, rows, widthProfile)
     : 1
   );
   const fixed = columns.map((column, index) => explicitWidth(column.width, widthBudget, base[index] ?? 1));
@@ -157,12 +159,16 @@ function fillWeightFor(width: TableColumnWidth | undefined): number {
   return typeof width === 'object' && width.kind === 'fill' ? Math.max(1, width.weight ?? 1) : 1;
 }
 
-function intrinsicColumnWidth(column: NormalizedTableColumn, rows: readonly unknown[]): number {
+function intrinsicColumnWidth(
+  column: NormalizedTableColumn,
+  rows: readonly unknown[],
+  widthProfile: TextWidthProfile
+): number {
   const header = `${column.header ?? ''}${tableSortMarker(column.sort)}`;
-  const headerWidth = measureTextCells(header).cells;
+  const headerWidth = measureTextCells(header, { widthProfile }).cells;
   const cellWidth = rows.reduce<number>((max, row, rowIndex) => Math.max(
     max,
-    measureTextCells(displayTableValue(column.value(row, rowIndex))).cells
+    measureTextCells(displayTableValue(column.value(row, rowIndex)), { widthProfile }).cells
   ), 1);
   return Math.max(1, headerWidth, Math.min(cellWidth, 24));
 }

@@ -2,9 +2,10 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.ismail-elkorchi.dev/terminal-ui/terminal-diagnostic.schema.json",
   "type": "object",
-  "required": ["schemaVersion", "code", "severity", "message"],
+  "required": ["schemaVersion", "id", "code", "severity", "message"],
   "properties": {
     "schemaVersion": { "const": "terminal-ui.terminal-diagnostic.v1" },
+    "id": { "type": "string", "minLength": 1 },
     "code": {
       "enum": [
         "HOST_CAPABILITY_UNAVAILABLE",
@@ -14,6 +15,7 @@
         "HOST_RESTORE_FAILED",
         "HOST_PROTOCOL_SKIPPED",
         "HOST_PROTOCOL_UNSUPPORTED",
+        "HOST_PROTOCOL_LEASE_INACTIVE",
         "INPUT_CANCELLED",
         "INPUT_INTERRUPTED",
         "INPUT_TIMEOUT",
@@ -24,6 +26,10 @@
         "PROMPT_DATA_SOURCE_FAILED",
         "SELECTION_UNAVAILABLE",
         "TUI_RUN_FAILED",
+        "TUI_INITIALIZATION_FAILED",
+        "TUI_PROJECTION_FAILED",
+        "TUI_OUTPUT_FAILED",
+        "TUI_EXIT_HOOK_FAILED",
         "TUI_RENDER_FAILED",
         "TUI_LAYOUT_FAILED",
         "TUI_FOCUS_SELECTION_INVALID",

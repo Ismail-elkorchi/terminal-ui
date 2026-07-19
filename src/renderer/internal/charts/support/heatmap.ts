@@ -1,7 +1,8 @@
 import type { HeatmapCell } from '../../../../ui-model/feedback.ts';
 import type { HeatmapAction } from '../../../../ui-model/visualization.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
-import { sanitizeTerminalText } from '../../../../text/index.ts';
+import { fillTextCells, oneCellGlyph, sanitizeTerminalText } from '../../../../text/index.ts';
+import type { TextWidthProfile } from '../../../../text/index.ts';
 import { chartHeatmapStyle, chartSpan } from '../../chart-visual.ts';
 import { numberProp } from '../../render-node-props.ts';
 import type { RenderSpan } from '../../../../visual/render.ts';
@@ -40,6 +41,7 @@ export function heatmapCellSpans(
     readonly scale: readonly NormalizedValueScaleStop[];
     readonly intensity: number;
     readonly selected: boolean;
+    readonly widthProfile: TextWidthProfile;
   }
 ): readonly RenderSpan[] {
   const glyph = heatmapGlyphs[options.intensity] ?? heatmapGlyphs[0];
@@ -51,15 +53,36 @@ export function heatmapCellSpans(
     chartHeatmapStyle(widget, options.intensity, options.selected)
   );
   if (!options.selected) {
-    return [chartSpan(widget, 'heatmap', 'cell', `${id}.value`, glyph.repeat(options.cellWidth), cellStyle)];
+    return [chartSpan(
+      widget,
+      'heatmap',
+      'cell',
+      `${id}.value`,
+      fillTextCells(glyph, options.cellWidth, { widthProfile: options.widthProfile }),
+      cellStyle
+    )];
   }
   if (options.cellWidth === 1) {
-    return [chartSpan(widget, 'heatmap', 'selected', `${id}.selected`, '◆', cellStyle)];
+    return [chartSpan(
+      widget,
+      'heatmap',
+      'selected',
+      `${id}.selected`,
+      oneCellGlyph('◆', '*', { widthProfile: options.widthProfile }),
+      cellStyle
+    )];
   }
   if (options.cellWidth === 2) {
     return [
       chartSpan(widget, 'heatmap', 'marker', `${id}.selected.marker`, '›', cellStyle),
-      chartSpan(widget, 'heatmap', 'cell', `${id}.value`, glyph, cellStyle)
+      chartSpan(
+        widget,
+        'heatmap',
+        'cell',
+        `${id}.value`,
+        fillTextCells(glyph, 1, { widthProfile: options.widthProfile }),
+        cellStyle
+      )
     ];
   }
   return [
@@ -69,7 +92,9 @@ export function heatmapCellSpans(
       'heatmap',
       'cell',
       `${id}.value`,
-      glyph.repeat(Math.max(1, options.cellWidth - 2)),
+      fillTextCells(glyph, Math.max(1, options.cellWidth - 2), {
+        widthProfile: options.widthProfile
+      }),
       cellStyle
     ),
     chartSpan(widget, 'heatmap', 'marker', `${id}.selected.close`, ']', cellStyle)

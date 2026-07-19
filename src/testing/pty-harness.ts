@@ -8,13 +8,13 @@ import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type {
   TerminalSignal,
-  TerminalStateSnapshot,
+  TerminalRestoreResult,
   RuntimeInputSource,
   TerminalInputReadOptions,
 } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
-import type { InteractionTranscriptStep } from '../transcript/index.ts';
+import type { InteractionTranscriptStep, TranscriptRuntimeCommit } from '../transcript/index.ts';
 import type { PtyTerminalHarness, PtyTerminalHarnessOptions, PtyTerminalHarnessResult } from './types.ts';
 
 class QueuedPtyInput implements RuntimeInputSource {
@@ -122,7 +122,9 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
   const output: string[] = [];
   const frames: Frame[] = [];
   const diffs: RenderDiff[] = [];
-  const restores: TerminalStateSnapshot[] = [];
+  const restores: TerminalRestoreResult[] = [];
+  let pendingFrame: Frame | undefined;
+  let commitSequence = 1;
   const transcript = createTranscriptRecorder({ source: 'test' });
   const host = createPtyTerminalHost({
     id: options.id ?? 'pty-harness',
@@ -146,16 +148,29 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
     resize: () => { signals.emit('resize'); },
     observer: {
       recordFrame(frame) {
-        frames.push(frame as Frame);
-        transcript.record({ kind: 'frame', frame: frame as Frame });
+        pendingFrame = frame as Frame;
+        frames.push(pendingFrame);
       },
       recordDiff(diff) {
-        diffs.push(diff as RenderDiff);
-        transcript.record({ kind: 'diff', diff: diff as RenderDiff });
+        const typedDiff = diff as RenderDiff;
+        diffs.push(typedDiff);
+        if (pendingFrame !== undefined) {
+          transcript.record({
+            kind: 'commit',
+            commit: ptyHarnessCommit(
+              `pty-harness:commit:${String(commitSequence)}`,
+              commitSequence - 1,
+              pendingFrame,
+              typedDiff
+            )
+          });
+          commitSequence += 1;
+          pendingFrame = undefined;
+        }
       },
-      recordRestore(checkpoint) {
-        restores.push(checkpoint);
-        transcript.record({ kind: 'restore', checkpoint });
+      recordRestore(result) {
+        restores.push(result);
+        transcript.record({ kind: 'restore', result });
       }
     }
   });
@@ -188,18 +203,17 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
     diffs: () => [...diffs],
     restores: () => [...restores],
     output: () => output.join(''),
-    recordFrame(frame) {
-      host.observer?.recordFrame?.(frame);
+    recordCommit(commit) {
+      frames.push(commit.frame);
+      diffs.push(commit.diff);
+      transcript.record({ kind: 'commit', commit });
     },
-    recordDiff(diff) {
-      host.observer?.recordDiff?.(diff);
-    },
-    recordRestore(checkpoint) {
-      host.observer?.recordRestore?.(checkpoint);
+    recordRestore(result) {
+      host.observer?.recordRestore?.(result);
     },
     async dispose() {
       input.close();
-      await host.dispose?.();
+      await host.dispose();
     }
   };
   return harness;
@@ -237,7 +251,7 @@ function latestPtyHarnessSnapshot(
   for (let index = steps.length - 1; index >= 0; index -= 1) {
     const step = steps[index];
     if (step?.kind === 'snapshot') return step.snapshot;
-    if (step?.kind === 'frame') return step.frame.accessibility;
+    if (step?.kind === 'commit') return step.commit.frame.accessibility;
   }
   const lastFrame = frames.at(-1);
   if (lastFrame !== undefined) return lastFrame.accessibility;
@@ -245,6 +259,22 @@ function latestPtyHarnessSnapshot(
     source: 'widget',
     root: { id: 'pty-harness', role: 'application', label: 'PTY harness' }
   });
+}
+
+function ptyHarnessCommit(
+  id: string,
+  stateVersion: number,
+  frame: Frame,
+  diff: RenderDiff
+): TranscriptRuntimeCommit {
+  return {
+    id,
+    stateVersion,
+    viewport: { columns: frame.width, rows: frame.height },
+    ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),
+    frame,
+    diff
+  };
 }
 
 export function isPtyHarnessUnavailable(result: PtyTerminalHarnessResult): result is {

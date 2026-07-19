@@ -5,13 +5,15 @@ import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { FocusPath } from './focus.ts';
 import type { LayoutNode } from '../model/layout.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 
 export function accessibleNode(
   widget: RenderNode,
   node: LayoutNode,
   parentPath: FocusPath,
   focusPath: FocusPath | undefined,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): AccessibleNode {
   if (!node.visible) {
     return {
@@ -23,11 +25,11 @@ export function accessibleNode(
   const path = [...parentPath, node.identity];
   const id = widget.id ?? `${widget.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`;
   if (isDecorative(widget.accessibility)) {
-    assertDecorativeRenderNodeIsNotInteractive(widget, node, theme);
+    assertDecorativeRenderNodeIsNotInteractive(widget, node, theme, widthProfile);
     return decorativeRootNode(id, widget.accessibility);
   }
-  const base = accessibilityForRenderNode(widget, node, id, focusPathIncludes(focusPath, path), theme);
-  const children = base.children ?? accessibleChildren(widget, node, path, focusPath, theme);
+  const base = accessibilityForRenderNode(widget, node, id, focusPathIncludes(focusPath, path), theme, widthProfile);
+  const children = base.children ?? accessibleChildren(widget, node, path, focusPath, theme, widthProfile);
   return mergeAccessibleNode(withScope(base, widget), widget.accessibility, children);
 }
 
@@ -36,17 +38,18 @@ function accessibleChildren(
   node: LayoutNode,
   path: FocusPath,
   focusPath: FocusPath | undefined,
-  theme: TerminalTheme
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
 ): readonly AccessibleNode[] | undefined {
   const children = widget.children ?? [];
   if (children.length === 0) return undefined;
   const rendered = orderedAccessibleChildren(widget, node).flatMap(({ child, childNode }) => {
     if (!childNode.visible) return [];
     if (isDecorative(child.accessibility)) {
-      assertDecorativeRenderNodeIsNotInteractive(child, childNode, theme);
+      assertDecorativeRenderNodeIsNotInteractive(child, childNode, theme, widthProfile);
       return [];
     }
-    return [accessibleNode(child, childNode, path, focusPath, theme)];
+    return [accessibleNode(child, childNode, path, focusPath, theme, widthProfile)];
   });
   return rendered.length === 0 ? undefined : rendered;
 }
@@ -126,14 +129,22 @@ function withScope(base: AccessibleNode, widget: RenderNode): AccessibleNode {
   return base;
 }
 
-function assertDecorativeRenderNodeIsNotInteractive(widget: RenderNode, node: LayoutNode, theme: TerminalTheme): void {
+function assertDecorativeRenderNodeIsNotInteractive(
+  widget: RenderNode,
+  node: LayoutNode,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): void {
   if (widget.keyMap !== undefined && Object.keys(widget.keyMap).length > 0) {
     throw new Error(`Decorative widget "${widget.id ?? widget.kind}" cannot define keyboard messages.`);
   }
   if (widget.inputMap?.text !== undefined || widget.inputMap?.paste !== undefined) {
     throw new Error(`Decorative widget "${widget.id ?? widget.kind}" cannot define text input messages.`);
   }
-  if (widget.custom?.renderer.hitTargets !== undefined || focusTargetsForRenderNode(widget, node.bounds, theme).some((target) => !target.disabled)) {
+  if (
+    widget.custom?.renderer.hitTargets !== undefined
+    || focusTargetsForRenderNode(widget, node.bounds, theme, widthProfile).some((target) => !target.disabled)
+  ) {
     throw new Error(`Decorative widget "${widget.id ?? widget.kind}" cannot expose focus or hit targets.`);
   }
 }

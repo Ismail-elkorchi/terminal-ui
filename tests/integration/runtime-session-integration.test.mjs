@@ -24,7 +24,7 @@ test('runtime hosts integrate session-managed protocols and restoration', async 
     await session.hideCursor();
     const result = await session.restore('success');
 
-    assert.equal(result.ok, true, item.id);
+    assert.equal(result.status, 'restored', item.id);
     assert.deepEqual(item.rawModes, [true, false], item.id);
     assert.match(item.output(), /\u001B\[\?1049h/u, item.id);
     assert.match(item.output(), /\u001B\[\?1049l/u, item.id);

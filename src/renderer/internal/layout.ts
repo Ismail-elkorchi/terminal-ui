@@ -7,6 +7,8 @@ import type { Element } from '../../element/index.ts';
 import { toRenderNode } from '../model/element.ts';
 import { defineTheme, isTerminalTheme } from '../../theme/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
+import { defaultTextWidthProfile } from '../../text/index.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 import type { LayoutFocusRegion, LayoutNode } from '../model/layout.ts';
 import {
   focusScopeForRenderNode,
@@ -20,22 +22,24 @@ export type { Layer, LayoutFocusRegion, LayoutNode } from '../model/layout.ts';
 export function layoutElement(
   element: Element,
   viewport: ViewportSize | Rect,
-  themeInput?: TerminalTheme | TerminalThemeDefinition
+  themeInput?: TerminalTheme | TerminalThemeDefinition,
+  widthProfile: TextWidthProfile = defaultTextWidthProfile
 ): LayoutNode {
-  return layoutRenderNode(toRenderNode(element), viewport, themeInput);
+  return layoutRenderNode(toRenderNode(element), viewport, themeInput, widthProfile);
 }
 
 export function layoutRenderNode(
   widget: RenderNode,
   viewport: ViewportSize | Rect,
-  themeInput?: TerminalTheme | TerminalThemeDefinition
+  themeInput?: TerminalTheme | TerminalThemeDefinition,
+  widthProfile: TextWidthProfile = defaultTextWidthProfile
 ): LayoutNode {
   const theme = themeForLayout(themeInput);
   const bounds = 'columns' in viewport
     ? { row: 1, column: 1, width: viewport.columns, height: viewport.rows }
     : viewport;
   const viewportBounds = clampRect(bounds);
-  return layoutNode(widget, viewportBounds, viewportBounds, theme, 0, 0, []);
+  return layoutNode(widget, viewportBounds, viewportBounds, theme, widthProfile, 0, 0, []);
 }
 
 function layoutNode(
@@ -43,11 +47,12 @@ function layoutNode(
   bounds: Rect,
   viewport: Rect,
   theme: TerminalTheme,
+  widthProfile: TextWidthProfile,
   ordinal: number,
   parentZIndex: number,
   parentIdentity: readonly string[]
 ): LayoutNode {
-  const placedBounds = placeRenderNode(widget, bounds, viewport, theme);
+  const placedBounds = placeRenderNode(widget, bounds, viewport, theme, widthProfile);
   const visible = widget.layer?.visible !== false;
   const zIndex = parentZIndex + zIndexForRenderNode(widget);
   const identity = widget.id ?? `${widget.kind}:${String(ordinal)}`;
@@ -72,8 +77,8 @@ function layoutNode(
       children: []
     };
   }
-  const childBounds = boundsForChildren(widget, placedBounds, viewport, theme);
-  const focusTargets = focusTargetsForRenderNode(widget, placedBounds, theme).map((target): LayoutFocusRegion => ({
+  const childBounds = boundsForChildren(widget, placedBounds, viewport, theme, widthProfile);
+  const focusTargets = focusTargetsForRenderNode(widget, placedBounds, theme, widthProfile).map((target): LayoutFocusRegion => ({
     id: target.id,
     bounds: target.bounds,
     ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
@@ -99,6 +104,7 @@ function layoutNode(
         childBounds[index] ?? emptyRect(placedBounds),
         viewport,
         theme,
+        widthProfile,
         index,
         zIndex,
         identityPath
@@ -106,9 +112,15 @@ function layoutNode(
   };
 }
 
-function boundsForChildren(widget: RenderNode, bounds: Rect, viewport: Rect, theme: TerminalTheme): readonly Rect[] {
+function boundsForChildren(
+  widget: RenderNode,
+  bounds: Rect,
+  viewport: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): readonly Rect[] {
   const children = widget.children ?? [];
-  return children.length === 0 ? [] : layoutChildBounds(widget, bounds, viewport, theme);
+  return children.length === 0 ? [] : layoutChildBounds(widget, bounds, viewport, theme, widthProfile);
 }
 
 function emptyRect(bounds: Rect): Rect {

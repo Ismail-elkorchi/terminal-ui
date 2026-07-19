@@ -5,6 +5,7 @@ import {
   createInputDecoder,
   createInputPipeline,
   decodeInputChunk,
+  InputDecodeError,
   resolveInputPipelineProfile
 } from '../../dist/input/index.js';
 import { resolveTerminalCapabilities } from '../../dist/host/index.js';
@@ -205,6 +206,7 @@ test('Kitty full keyboard reports preserve alternate key identity and committed 
   const sequence = '\u001B[97:65:113;2:1;65u';
   assert.deepEqual(decodeInputChunk({ data: sequence }, { keyboard: kittyFull }), [{
     ...expectedKey('a', sequence, { shift: true }),
+    keyCodePoint: 97,
     alternateCodePoints: { shifted: 65, baseLayout: 113 },
     committedText: 'A'
   }]);
@@ -213,7 +215,7 @@ test('Kitty full keyboard reports preserve alternate key identity and committed 
 test('Kitty fields are exposed only when their negotiated flags are active', () => {
   const sequence = '\u001B[97:65:113;2:1;65u';
   assert.deepEqual(decodeInputChunk({ data: sequence }, { keyboard: kittyEvents }), [
-    expectedKey('a', sequence, { shift: true })
+    { ...expectedKey('a', sequence, { shift: true }), keyCodePoint: 97 }
   ]);
 });
 
@@ -332,6 +334,7 @@ test('Kitty keyboard decoder preserves modifiers, event types, and keypad locati
 
   assert.deepEqual(decodeInputChunk({ data: '\u001B[97;5:2u' }, options)[0], {
     ...expectedKey('a', '\u001B[97;5:2u', { ctrl: true }),
+    keyCodePoint: 97,
     eventType: 'repeat'
   });
   assert.deepEqual(decodeInputChunk({ data: '\u001B[1;2:3D' }, options)[0], {
@@ -340,6 +343,7 @@ test('Kitty keyboard decoder preserves modifiers, event types, and keypad locati
   });
   assert.deepEqual(decodeInputChunk({ data: '\u001B[57400;1:1u' }, options)[0], {
     ...expectedKey('1', '\u001B[57400;1:1u'),
+    keyCodePoint: 57400,
     location: 'numpad'
   });
   assert.deepEqual(decodeInputChunk({ data: '\u001B[1;1:2R' }, options)[0], {
@@ -353,12 +357,30 @@ test('Kitty keyboard decoder buffers split reports without changing legacy parsi
   assert.deepEqual(decoder.decode({ data: '\u001B[97;5:' }).events, []);
   assert.deepEqual(decoder.decode({ data: '2u' }).events, [{
     ...expectedKey('a', '\u001B[97;5:2u', { ctrl: true }),
+    keyCodePoint: 97,
     eventType: 'repeat'
   }]);
 
   assert.deepEqual(decodeInputChunk({ data: '\u001B[97;5:2u' }), [
     { kind: 'unknown', sequence: '\u001B[97;5:2u' }
   ]);
+});
+
+test('Kitty keyboard decoder preserves unsupported functional key identity', () => {
+  const sequence = '\u001B[57430;1:1u';
+  assert.deepEqual(decodeInputChunk({ data: sequence }, { keyboard: kittyEvents }), [{
+    ...expectedKey('unknown', sequence),
+    keyCodePoint: 57430
+  }]);
+});
+
+test('Kitty keyboard decoder rejects invalid primary Unicode scalars as unknown input', () => {
+  for (const sequence of ['\u001B[1114112u', '\u001B[55296u']) {
+    assert.deepEqual(decodeInputChunk({ data: sequence }, { keyboard: kittyEvents }), [{
+      kind: 'unknown',
+      sequence
+    }]);
+  }
 });
 
 test('input pipeline disables bracketed paste when capabilities do not support it', () => {
@@ -375,4 +397,109 @@ test('input pipeline disables bracketed paste when capabilities do not support i
   const profile = resolveInputPipelineProfile({ capabilities });
 
   assert.equal(profile.bracketedPaste, false);
+});
+
+test('stateful input decoder preserves UTF-8 scalars split at every byte boundary', () => {
+  const value = 'Aé€🙂éZ';
+  const bytes = new TextEncoder().encode(value);
+  for (let split = 1; split < bytes.length; split += 1) {
+    const decoder = createInputDecoder();
+    const events = [
+      ...decoder.decode({ data: bytes.slice(0, split) }).events,
+      ...decoder.decode({ data: bytes.slice(split) }).events,
+      ...decoder.flush().events
+    ];
+    assert.equal(events.map((event) => event.kind === 'text' ? event.text : '').join(''), value, String(split));
+  }
+});
+
+test('stateful input decoder finalizes partial bytes before a following string chunk', () => {
+  const decoder = createInputDecoder();
+  assert.deepEqual(decoder.decode({ data: Uint8Array.of(0xe2, 0x82) }).events, []);
+  assert.deepEqual(decoder.decode({ data: 'x' }).events, [
+    { kind: 'text', text: '�x', paste: false }
+  ]);
+});
+
+test('stateful input decoder rejects and resets oversized pending protocols', () => {
+  const decoder = createInputDecoder({ limits: { maxPendingSequenceCodeUnits: 8, maxPasteCodeUnits: 12 } });
+  assert.throws(
+    () => decoder.decode({ data: '\u001B[' + '1'.repeat(8) }),
+    (cause) => cause instanceof InputDecodeError && cause.code === 'pending_sequence_limit_exceeded'
+  );
+  assert.deepEqual(decoder.decode({ data: 'ok' }).events, [{ kind: 'text', text: 'ok', paste: false }]);
+});
+
+test('stateful input decoder applies pending limits only to undecoded remainders', () => {
+  const decoder = createInputDecoder({ limits: { maxPendingSequenceCodeUnits: 4 } });
+  const text = 'plain text '.repeat(2_000);
+
+  assert.deepEqual(decoder.decode({ data: text }), {
+    events: [{ kind: 'text', text, paste: false }],
+    pending: { kind: 'none' }
+  });
+});
+
+test('stateful input decoder rejects oversized bracketed paste without truncation', () => {
+  const decoder = createInputDecoder({ limits: { maxPendingSequenceCodeUnits: 8, maxPasteCodeUnits: 4 } });
+  assert.throws(
+    () => decoder.decode({ data: '\u001B[200~12345' }),
+    (cause) => cause instanceof InputDecodeError && cause.code === 'paste_limit_exceeded'
+  );
+  assert.deepEqual(decoder.decode({ data: 'safe' }).events, [{ kind: 'text', text: 'safe', paste: false }]);
+});
+
+test('stateful input decoder excludes split closing markers from paste payload limits', () => {
+  const start = '\u001B[200~';
+  const end = '\u001B[201~';
+  for (let split = 1; split < end.length; split += 1) {
+    const decoder = createInputDecoder({ limits: { maxPasteCodeUnits: 4 } });
+    const first = decoder.decode({ data: `${start}1234${end.slice(0, split)}` });
+    const second = decoder.decode({ data: end.slice(split) });
+
+    assert.deepEqual(first.events, []);
+    assert.deepEqual(second.events, [{ kind: 'paste', text: '1234', bracketed: true }]);
+  }
+});
+
+test('stateful input decoder counts a rejected closing prefix as paste payload', () => {
+  const decoder = createInputDecoder({ limits: { maxPasteCodeUnits: 4 } });
+  decoder.decode({ data: '\u001B[200~1234\u001B[20' });
+
+  assert.throws(
+    () => decoder.decode({ data: 'x' }),
+    (cause) => cause instanceof InputDecodeError && cause.code === 'paste_limit_exceeded'
+  );
+});
+
+test('input decoder enforces limits for every bracketed paste marker', () => {
+  const oversized = '\u001B[200~12345\u001B[201~';
+  for (const value of [
+    `prefix${oversized}`,
+    `\u001B[200~ok\u001B[201~suffix${oversized}`
+  ]) {
+    assert.throws(
+      () => decodeInputChunk({ data: value }, { limits: { maxPasteCodeUnits: 4 } }),
+      (cause) => cause instanceof InputDecodeError && cause.code === 'paste_limit_exceeded'
+    );
+  }
+});
+
+test('input pipeline preserves configured limits across per-call decode overrides', () => {
+  const pipeline = createInputPipeline({
+    bracketedPaste: true,
+    limits: { maxPasteCodeUnits: 4 }
+  });
+
+  assert.throws(
+    () => pipeline.decode(
+      { data: '\u001B[200~12345\u001B[201~' },
+      { bracketedPaste: true }
+    ),
+    (cause) => cause instanceof InputDecodeError && cause.code === 'paste_limit_exceeded'
+  );
+});
+
+test('input decode limits reject invalid configuration', () => {
+  assert.throws(() => createInputDecoder({ limits: { maxPasteCodeUnits: 0 } }), /positive safe integer/u);
 });

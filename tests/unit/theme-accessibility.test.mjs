@@ -192,6 +192,7 @@ test('accessible snapshot validation returns diagnostics for malformed public pa
     diagnostics: [
       {
         schemaVersion: 'terminal-ui.terminal-diagnostic.v1',
+        id: 'diagnostic:unknown',
         code: 'UNKNOWN_DIAGNOSTIC',
         severity: 'error',
         message: 'unknown'

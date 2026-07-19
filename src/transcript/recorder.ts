@@ -10,12 +10,15 @@ import type { TerminalDiagnostic } from '../diagnostics.ts';
 export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}): TranscriptRecorder {
   const steps: InteractionTranscriptStep[] = [];
   const diagnostics: TerminalDiagnostic[] = [];
+  const diagnosticIds = new Set<string>();
   const redactions: TranscriptRedaction[] = [];
   return {
     record(step) {
       steps.push(step);
     },
     recordDiagnostic(item) {
+      if (diagnosticIds.has(item.id)) return;
+      diagnosticIds.add(item.id);
       diagnostics.push(item);
       steps.push({ kind: 'diagnostic', diagnostic: item });
     },
