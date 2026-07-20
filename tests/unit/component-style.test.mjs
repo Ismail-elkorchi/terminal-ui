@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
+import { prepareScrollbackHistory } from '../../dist/behavior/index.js';
 
 import {
   renderFramePlain,
@@ -40,6 +41,7 @@ import {
   toggleSwitch,
   tree
 } from '../../dist/components/index.js';
+import { prepareTextDocument } from '../../dist/text/index.js';
 import {
   row,
   column,
@@ -218,7 +220,7 @@ test('text entry chrome uses shared border focus and error styles', () => {
 }), { columns: 16, rows: 1 }, { focusPath: ['query'] });
   const areaFrame = renderElementFrame(textArea({
     id: 'body',
-    presentation: { value: 'details', cursor: 0 },
+    presentation: { document: prepareTextDocument('details'), cursor: 0 },
     error: 'Required',
     meta: {
         styles: {
@@ -508,7 +510,7 @@ test('tabs use shared selected disabled and value styles', () => {
 test('scrollback and dialog chrome use placeholder and border slots', () => {
   const scrollbackFrame = renderElementFrame(scrollback({
     id: 'styled-scrollback',
-    items: Array.from({ length: 5 }, (_value, index) => ({ id: `row-${String(index)}`, text: `Row ${String(index)}` })),
+    history: prepareScrollbackHistory(Array.from({ length: 5 }, (_value, index) => ({ id: `row-${String(index)}`, text: `Row ${String(index)}` }))),
     meta: {
         styles: {
             parts: { marker: tokenStyle('status.warning') }

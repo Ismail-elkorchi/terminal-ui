@@ -59,12 +59,29 @@ export function createFrameBuffer(width: number, height: number, options: FrameB
   return new CellFrameBuffer(width, height, options.widthProfile ?? defaultTextWidthProfile);
 }
 
+export function blitFrameCell(buffer: RenderTarget, cell: FrameCell): void {
+  if (buffer instanceof CellFrameBuffer) {
+    buffer[blitCell](cell);
+    return;
+  }
+  buffer.writeCell(cell);
+}
+
+export function mergeableFrameCells(buffer: FrameBuffer): readonly FrameCell[] {
+  if (buffer instanceof CellFrameBuffer) return buffer[mergeableCells]();
+  return buffer.snapshot().cells.filter(isMergeableFrameCell);
+}
+
+const blitCell = Symbol('terminal-ui.blit-frame-cell');
+const mergeableCells = Symbol('terminal-ui.mergeable-frame-cells');
+
 class CellFrameBuffer implements FrameBuffer {
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
 
   private readonly cells: (FrameCell | undefined)[];
+  private readonly mergeableCellIndexes = new Set<number>();
   private readonly writtenCoverage = new DirtyCoverageAccumulator();
   private readonly clearedCoverage = new DirtyCoverageAccumulator();
 
@@ -145,7 +162,7 @@ class CellFrameBuffer implements FrameBuffer {
       root: { id: 'frame', role: 'text', label: 'frame' }
     });
     const { cells, rowFingerprints } = this.snapshotCellsAndFingerprints();
-    return {
+    const frame: FrameBufferSnapshot = {
       schemaVersion: 'terminal-ui.tui-frame.v1',
       width: this.width,
       height: this.height,
@@ -162,6 +179,28 @@ class CellFrameBuffer implements FrameBuffer {
       ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
       ...(options.focusPath === undefined ? {} : { focusPath: options.focusPath })
     };
+    return frame;
+  }
+
+  [blitCell](cell: FrameCell): void {
+    if (cell.continuation === true || !this.containsCell(cell.row, cell.column)) return;
+    if (cell.width < 1 || cell.column + cell.width - 1 > this.width) return;
+    this.writeGrapheme(cell.row, cell.column, {
+      text: cell.text,
+      width: cell.width,
+      ...(cell.style === undefined ? {} : { style: cell.style }),
+      ...(cell.link === undefined ? {} : { link: cell.link }),
+      ...(cell.source === undefined ? {} : { source: cell.source })
+    });
+  }
+
+  [mergeableCells](): readonly FrameCell[] {
+    return Object.freeze([...this.mergeableCellIndexes]
+      .toSorted((left, right) => left - right)
+      .flatMap((index) => {
+        const cell = this.cells[index];
+        return cell === undefined ? [] : [cell];
+      }));
   }
 
   private containsRow(row: number): boolean {
@@ -190,8 +229,9 @@ class CellFrameBuffer implements FrameBuffer {
     const rowFingerprints: FrameRowFingerprint[] = [];
     for (let row = 1; row <= this.height; row += 1) {
       let rowHash = fnvOffset;
+      const rowOffset = (row - 1) * this.width;
       for (let column = 1; column <= this.width; column += 1) {
-        const cell = this.cellAt(row, column);
+        const cell = this.cells[rowOffset + column - 1];
         if (cell !== undefined) {
           output.push(cell);
           rowHash = hashFrameCell(rowHash, cell);
@@ -210,10 +250,13 @@ class CellFrameBuffer implements FrameBuffer {
     column: number,
     cell: Omit<FrameCell, 'row' | 'column'>
   ): void {
+    const firstIndex = this.index(row, column);
     for (let offset = 0; offset < cell.width; offset += 1) {
-      this.clearCellGroup(row, column + offset, 'write');
+      if (this.cells[firstIndex + offset] !== undefined) {
+        this.clearCellGroup(row, column + offset, 'write');
+      }
     }
-    this.markWritten({ row, column, width: Math.max(1, cell.width), height: 1 });
+    this.writtenCoverage.addSpan(row, column, Math.max(1, cell.width));
     const mainCell: FrameCell = {
       row,
       column,
@@ -223,9 +266,9 @@ class CellFrameBuffer implements FrameBuffer {
       ...(cell.link === undefined ? {} : { link: cell.link }),
       ...(cell.source === undefined ? {} : { source: cell.source })
     };
-    this.setCell(row, column, mainCell);
+    this.setCellAtIndex(firstIndex, mainCell);
     for (let offset = 1; offset < cell.width; offset += 1) {
-      this.setCell(row, column + offset, {
+      this.setCellAtIndex(firstIndex + offset, {
         row,
         column: column + offset,
         text: '',
@@ -243,7 +286,7 @@ class CellFrameBuffer implements FrameBuffer {
     if (!this.containsCell(row, targetColumn)) return;
     const target = this.cellAt(row, targetColumn);
     if (target === undefined || target.continuation === true) return;
-    this.markWritten({ row: target.row, column: target.column, width: Math.max(1, target.width), height: 1 });
+    this.markWritten(target.row, target.column, Math.max(1, target.width));
     this.setCell(row, targetColumn, {
       ...target,
       text: `${target.text}${text}`
@@ -252,13 +295,13 @@ class CellFrameBuffer implements FrameBuffer {
 
   private clearCellGroup(row: number, column: number, coverage: 'write' | 'none'): void {
     if (!this.containsCell(row, column)) return;
-    const current = this.cellAt(row, column);
+    const current = this.cells[this.index(row, column)];
     if (current === undefined) return;
     if (current.continuation === true) {
       const owner = this.findWideOwner(row, column);
       if (owner !== undefined) this.deleteCellSpan(owner, coverage);
       else {
-        if (coverage === 'write') this.markWritten({ row, column, width: 1, height: 1 });
+        if (coverage === 'write') this.markWritten(row, column, 1);
         this.deleteCell(row, column);
       }
       return;
@@ -278,7 +321,7 @@ class CellFrameBuffer implements FrameBuffer {
 
   private deleteCellSpan(cell: FrameCell, coverage: 'write' | 'none'): void {
     const width = Math.max(1, cell.width);
-    if (coverage === 'write') this.markWritten({ row: cell.row, column: cell.column, width, height: 1 });
+    if (coverage === 'write') this.markWritten(cell.row, cell.column, width);
     for (let offset = 0; offset < width; offset += 1) {
       this.deleteCell(cell.row, cell.column + offset);
     }
@@ -291,22 +334,38 @@ class CellFrameBuffer implements FrameBuffer {
 
   private setCell(row: number, column: number, cell: FrameCell): void {
     if (!this.containsCell(row, column)) return;
-    this.cells[this.index(row, column)] = cell;
+    this.setCellAtIndex(this.index(row, column), cell);
+  }
+
+  private setCellAtIndex(index: number, cell: FrameCell): void {
+    this.cells[index] = cell;
+    if (isMergeableFrameCell(cell)) this.mergeableCellIndexes.add(index);
+    else this.mergeableCellIndexes.delete(index);
   }
 
   private deleteCell(row: number, column: number): void {
     if (!this.containsCell(row, column)) return;
-    this.cells[this.index(row, column)] = undefined;
+    const index = this.index(row, column);
+    this.cells[index] = undefined;
+    this.mergeableCellIndexes.delete(index);
   }
 
   private index(row: number, column: number): number {
     return (row - 1) * this.width + column - 1;
   }
 
-  private markWritten(rect: Rect): void {
-    const clipped = this.clipRect(rect);
-    if (clipped !== undefined) this.writtenCoverage.add(clipped);
+  private markWritten(row: number, column: number, width: number): void {
+    if (!this.containsRow(row)) return;
+    const start = Math.max(1, column);
+    const end = Math.min(this.width + 1, column + width);
+    if (end > start) this.writtenCoverage.addSpan(row, start, end - start);
   }
+}
+
+function isMergeableFrameCell(cell: FrameCell): boolean {
+  return cell.continuation !== true
+    && cell.width === 1
+    && (cell.source?.role === 'border' || cell.source?.role === 'separator');
 }
 
 function sanitizeTerminalLink(link: TerminalLink): TerminalLink {
@@ -343,6 +402,8 @@ const hashTagNumberNan = 0x0d;
 const hashTagBoolean = 0x0e;
 const hashTagTextEnd = 0x0f;
 const sourceFingerprintCache = new WeakMap<FrameCellSource, number>();
+const styleFingerprintCache = new WeakMap<TerminalStyle, number>();
+const linkFingerprintCache = new WeakMap<TerminalLink, number>();
 
 function hashFrameCell(hash: number, cell: FrameCell): number {
   let next = hashCodeUnit(hash, hashTagCell);
@@ -357,7 +418,13 @@ function hashFrameCell(hash: number, cell: FrameCell): number {
 
 function hashTerminalStyle(hash: number, style: TerminalStyle | undefined): number {
   if (style === undefined) return hashCodeUnit(hash, hashTagStyleNone);
-  let next = hashCodeUnit(hash, hashTagStyle);
+  return hashNumber(hashCodeUnit(hash, hashTagStyle), terminalStyleFingerprint(style));
+}
+
+function terminalStyleFingerprint(style: TerminalStyle): number {
+  const cached = styleFingerprintCache.get(style);
+  if (cached !== undefined) return cached;
+  let next = fnvOffset;
   next = hashTerminalColor(next, style.fg);
   next = hashTerminalColor(next, style.bg);
   next = hashBoolean(next, style.bold === true);
@@ -366,7 +433,9 @@ function hashTerminalStyle(hash: number, style: TerminalStyle | undefined): numb
   next = hashBoolean(next, style.underline === true);
   next = hashBoolean(next, style.strikethrough === true);
   next = hashBoolean(next, style.inverse === true);
-  return hashBoolean(next, style.hidden === true);
+  next = hashBoolean(next, style.hidden === true);
+  styleFingerprintCache.set(style, next);
+  return next;
 }
 
 function hashTerminalColor(hash: number, color: TerminalColor | undefined): number {
@@ -387,9 +456,17 @@ function hashTerminalColor(hash: number, color: TerminalColor | undefined): numb
 
 function hashTerminalLink(hash: number, link: TerminalLink | undefined): number {
   if (link === undefined) return hashCodeUnit(hash, hashTagLinkNone);
-  let next = hashCodeUnit(hash, hashTagLink);
+  return hashNumber(hashCodeUnit(hash, hashTagLink), terminalLinkFingerprint(link));
+}
+
+function terminalLinkFingerprint(link: TerminalLink): number {
+  const cached = linkFingerprintCache.get(link);
+  if (cached !== undefined) return cached;
+  let next = fnvOffset;
   next = hashText(next, link.href);
-  return hashText(next, link.id ?? '');
+  next = hashText(next, link.id ?? '');
+  linkFingerprintCache.set(link, next);
+  return next;
 }
 
 function hashFrameCellSource(hash: number, source: FrameCellSource | undefined): number {

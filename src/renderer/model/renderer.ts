@@ -34,7 +34,8 @@ export interface RenderNodeLayoutInput<
   readonly bounds: Rect;
   readonly viewport: Rect;
   readonly theme: TerminalTheme;
-  readonly childMeasures: readonly Measurement[];
+  readonly childCount: number;
+  readonly measureChild: (index: number) => Measurement;
   readonly widthProfile: TextWidthProfile;
 }
 

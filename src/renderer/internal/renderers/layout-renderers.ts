@@ -1,4 +1,5 @@
 import { createFrameBuffer } from '../frame.ts';
+import { blitFrameCell } from '../frame-buffer.ts';
 import { splitTracks } from '../layout-geometry.ts';
 import { writeRenderBlock } from './support/block.ts';
 import { borderForDialog, dialogLabel } from './support/border.ts';
@@ -34,26 +35,32 @@ import type { RendererMap } from './types.ts';
 
 export const layoutRenderers = {
   row: {
-    layout: ({ renderNode, bounds, childMeasures }) => splitTracks(
-      bounds,
-      'horizontal',
-      childLayoutSizes(renderNode, priorityFillLayoutSizes(renderNode.children ?? [])),
-      layoutFlowOptions(renderNode),
-      childMeasures.map((measure) => measure.preferredWidth)
-    ),
+    layout: ({ renderNode, bounds, measureChild }) => {
+      const tracks = childLayoutSizes(renderNode, priorityFillLayoutSizes(renderNode.children ?? []));
+      return splitTracks(
+        bounds,
+        'horizontal',
+        tracks,
+        layoutFlowOptions(renderNode),
+        tracks.map((track, index) => track.kind === 'content' ? measureChild(index).preferredWidth : 0)
+      );
+    },
     render: (input) => {
       input.renderChildren();
     },
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   column: {
-    layout: ({ renderNode, bounds, childMeasures }) => splitTracks(
-      bounds,
-      'vertical',
-      childLayoutSizes(renderNode),
-      layoutFlowOptions(renderNode),
-      childMeasures.map((measure) => measure.preferredHeight)
-    ),
+    layout: ({ renderNode, bounds, measureChild }) => {
+      const tracks = childLayoutSizes(renderNode);
+      return splitTracks(
+        bounds,
+        'vertical',
+        tracks,
+        layoutFlowOptions(renderNode),
+        tracks.map((track, index) => track.kind === 'content' ? measureChild(index).preferredHeight : 0)
+      );
+    },
     render: (input) => {
       input.renderChildren();
     },
@@ -70,7 +77,7 @@ export const layoutRenderers = {
       const occupiedCells = new Set<string>();
       for (const cell of viewportBuffer.snapshot().cells) {
         if (cellInside(cell, scrollbars.contentBounds)) {
-          input.buffer.writeCell(cell);
+          blitFrameCell(input.buffer, cell);
           occupiedCells.add(viewportIndicatorCellKey(cell.row, cell.column));
         }
       }
@@ -89,14 +96,14 @@ export const layoutRenderers = {
     }
   },
   grid: {
-    layout: ({ renderNode, bounds, childMeasures }) => gridChildBounds(renderNode, bounds, childMeasures),
+    layout: ({ renderNode, bounds, measureChild }) => gridChildBounds(renderNode, bounds, measureChild),
     render: (input) => {
       input.renderChildren();
     },
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   splitPane: {
-    layout: ({ renderNode, bounds, childMeasures }) => splitPaneChildBounds(renderNode, bounds, childMeasures),
+    layout: ({ renderNode, bounds, measureChild }) => splitPaneChildBounds(renderNode, bounds, measureChild),
     render: (input) => {
       input.renderChildren();
       renderSplitPaneDividers(input.renderNode, input.layoutNode, input.buffer, input.theme, input.focus === 'self');
@@ -135,7 +142,7 @@ export const layoutRenderers = {
     )
   },
   dialog: {
-    layout: ({ renderNode, bounds, childMeasures }) => dialogChildBounds(renderNode, bounds, borderForDialog(renderNode), childMeasures),
+    layout: ({ renderNode, bounds, measureChild }) => dialogChildBounds(renderNode, bounds, borderForDialog(renderNode), measureChild),
     render: (input) => {
       const focused = input.focus !== 'none';
       const border = borderForDialog(input.renderNode, input.theme);

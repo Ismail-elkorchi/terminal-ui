@@ -1,7 +1,7 @@
 import type { ElementTextRole } from '../../../element/metadata.ts';
 import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../../interaction/scrollbar.ts';
-import type { TextSelection } from '../../../text/index.ts';
+import type { TextDocument, TextSelection } from '../../../text/index.ts';
 import type {
   TableCellSelection,
   TableColumnAlignment,
@@ -32,7 +32,7 @@ export interface RichTextRenderProps {
 }
 
 export interface TextAreaRenderProps<TMessage> {
-  readonly value: string;
+  readonly document: TextDocument;
   readonly cursor?: number;
   readonly selection?: TextSelection;
   readonly highlights?: readonly TextAreaHighlight[];

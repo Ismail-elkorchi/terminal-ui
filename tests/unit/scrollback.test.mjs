@@ -8,7 +8,10 @@ import { highContrastTheme } from '../../dist/theme/index.js';
 import {
   createScrollState,
   extractScrollbackSelectionText,
-  visibleScrollbackItems
+  foldScrollbackHistory,
+  prepareScrollbackHistory,
+  scrollbackHistoryItemAt,
+  scrollbackHistoryItems
 } from '../../dist/behavior/index.js';
 import {
   renderFramePlain,
@@ -22,7 +25,7 @@ function item(index, text = `Row ${index}`) {
 
 test('scrollback follows the tail by default and marks omitted earlier rows', () => {
   const items = Array.from({ length: 20 }, (_value, index) => item(index));
-  const frame = renderElementFrame(scrollback({ id: 'log', items }), { columns: 36, rows: 4 });
+  const frame = renderElementFrame(scrollback({ id: 'log', history: prepareScrollbackHistory(items) }), { columns: 36, rows: 4 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /\.\.\. 16 earlier rows omitted \.\.\./u);
@@ -40,7 +43,7 @@ test('scrollback accepts explicit scroll state and marks omitted later rows', ()
   const items = Array.from({ length: 10 }, (_value, index) => item(index));
   const frame = renderElementFrame(scrollback({
     id: 'log',
-    items,
+    history: prepareScrollbackHistory(items),
     scroll: createScrollState({ offsetRow: 0, contentRows: 10, viewportRows: 3 })
   }), { columns: 48, rows: 3 });
   const output = renderFramePlain(frame);
@@ -56,7 +59,7 @@ test('scrollback accepts explicit scroll state and marks omitted later rows', ()
 test('scrollback sanitizes terminal control sequences before rendering and accessibility', () => {
   const frame = renderElementFrame(scrollback({
     id: 'safe-log',
-    items: [item(0, 'safe \u001B[31mred\u001B[0m text')]
+    history: prepareScrollbackHistory([item(0, 'safe \u001B[31mred\u001B[0m text')])
   }), { columns: 40, rows: 2 });
   const output = renderFramePlain(frame);
 
@@ -67,13 +70,13 @@ test('scrollback sanitizes terminal control sequences before rendering and acces
 test('scrollback renders timestamp metadata and item style through visible rows', () => {
   const widget = scrollback({
     id: 'metadata-log',
-    items: [{
+    history: prepareScrollbackHistory([{
       id: 'meta-1',
       timestamp: '10:30',
       metadata: { status: 'ok', source: 'worker' },
       text: 'Zulu',
       style: { fg: { kind: 'theme', token: 'status.success' }, bold: true }
-    }]
+    }])
   });
   const frame = renderElementFrame(widget, { columns: 80, rows: 2 });
   const styledCell = frame.cells.find((cell) => cell.text === 'Z');
@@ -95,14 +98,31 @@ test('scrollback renders timestamp metadata and item style through visible rows'
   assert.equal(frame.accessibility.root.children?.[0]?.value, '[10:30] source=worker status=ok Zulu');
 });
 
+test('scrollback rendering uses the prepared metadata order used for row projection', () => {
+  const history = prepareScrollbackHistory([{
+    id: 'ordered',
+    metadata: { a: 'long-value', Z: 'short' },
+    text: 'body'
+  }]);
+  const record = scrollbackHistoryItemAt(history, 0);
+  const frame = renderElementFrame(scrollback({
+    id: 'ordered-metadata',
+    history,
+    wrap: true
+  }), { columns: 10, rows: 5 });
+
+  assert.equal(record?.displayText, 'Z=short a=long-value body');
+  assert.equal(frame.accessibility.root.children?.map((node) => node.value).join(''), record?.displayText);
+});
+
 test('scrollback renders log levels through log theme tokens and lets item styles refine them', () => {
   const frame = renderElementFrame(scrollback({
     id: 'level-log',
-    items: [
+    history: prepareScrollbackHistory([
       { id: 'info', level: 'info', text: 'Server ready' },
       { id: 'warn', level: 'warning', text: 'Memory high' },
       { id: 'error', level: 'error', text: 'Request failed', style: { bold: true } }
-    ],
+    ]),
     scroll: createScrollState({ offsetRow: 0, contentRows: 3, viewportRows: 3 })
   }), { columns: 40, rows: 3 });
 
@@ -113,26 +133,26 @@ test('scrollback renders log levels through log theme tokens and lets item style
   assert.equal(error?.style?.bold, true);
 });
 
-test('scrollback renders folded helper output as visible document metadata', () => {
-  const visibleItems = visibleScrollbackItems([
+test('scrollback renders folded history as visible document metadata', () => {
+  const visibleHistory = foldScrollbackHistory(prepareScrollbackHistory([
     { id: 'a', text: 'alpha\nmore alpha', metadata: { source: 'worker' } },
     { id: 'b', text: 'bravo' }
-  ], { foldedIds: ['a'] });
+  ]), ['a']);
   const frame = renderElementFrame(scrollback({
     id: 'folded-log',
-    items: visibleItems
+    history: visibleHistory
   }), { columns: 48, rows: 2 });
 
   assert.match(renderFramePlain(frame), /folded=true source=worker alpha \.\.\./u);
   assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.folded.key')?.text, 'f');
   assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.folded.value')?.text, 't');
-  assert.equal(visibleItems[0]?.text, 'alpha ...');
+  assert.equal(scrollbackHistoryItems(visibleHistory)[0]?.text, 'alpha ...');
 });
 
 test('scrollback wraps visible rows when requested', () => {
   const frame = renderElementFrame(scrollback({
     id: 'wrapped-log',
-    items: [item(0, 'abcdef')],
+    history: prepareScrollbackHistory([item(0, 'abcdef')]),
     wrap: true
   }), { columns: 3, rows: 3 });
 
@@ -143,7 +163,7 @@ test('scrollback wraps visible rows when requested', () => {
 
 test('scrollback search navigates to the first match and exposes match segments', () => {
   const items = Array.from({ length: 12 }, (_value, index) => item(index, index === 8 ? 'needle row' : `plain ${index}`));
-  const widget = scrollback({ id: 'search-log', items, searchQuery: 'needle' });
+  const widget = scrollback({ id: 'search-log', history: prepareScrollbackHistory(items), searchQuery: 'needle' });
   const frame = renderElementFrame(widget, { columns: 40, rows: 5 });
 
   const matchedCells = frame.cells.filter((cell) => cell.source?.label === 'body.match');
@@ -154,14 +174,29 @@ test('scrollback search navigates to the first match and exposes match segments'
   assert.ok(frame.accessibility.root.children?.some((node) => node.description === 'Search match.'));
   assert.equal(
     frame.accessibility.root.description,
-    'Showing 7-11 of 12 scrollback rows. Omitted before: 6. Omitted after: 1. Follow tail: false. Search query: needle. Matches in rows: 1.'
+    'Showing 7-11 of 12 scrollback rows. Omitted before: 6. Omitted after: 1. Follow tail: false. Search query: needle. Matching items: 1.'
   );
+});
+
+test('wrapped scrollback search centers the row containing the first highlight', () => {
+  const frame = renderElementFrame(scrollback({
+    id: 'wrapped-search-log',
+    history: prepareScrollbackHistory([{
+      id: 'long-record',
+      text: `${'prefix '.repeat(12)}needle suffix`
+    }]),
+    searchQuery: 'needle',
+    wrap: true
+  }), { columns: 8, rows: 5 });
+  const matches = frame.cells.filter((cell) => cell.source?.partKind === 'match');
+
+  assert.equal(matches.map((cell) => cell.text).join(''), 'needle');
 });
 
 test('scrollback counts only queries represented by highlighted spans', () => {
   const frame = renderElementFrame(scrollback({
     id: 'span-scoped-search',
-    items: [{ id: 'split-boundary', timestamp: 'a', text: 'b' }],
+    history: prepareScrollbackHistory([{ id: 'split-boundary', timestamp: 'a', text: 'b' }]),
     searchQuery: '] b'
   }), { columns: 40, rows: 2 });
 
@@ -170,21 +205,35 @@ test('scrollback counts only queries represented by highlighted spans', () => {
   assert.equal(frame.accessibility.root.children?.[0]?.description, undefined);
   assert.equal(
     frame.accessibility.root.description,
-    'Showing 1-1 of 1 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Search query: ] b. Matches in rows: 0.'
+    'Showing 1-1 of 1 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Search query: ] b. Matching items: 0.'
+  );
+});
+
+test('scrollback search rejects code-unit substrings inside one grapheme', () => {
+  const frame = renderElementFrame(scrollback({
+    id: 'grapheme-scoped-search',
+    history: prepareScrollbackHistory([{ id: 'family', text: 'team 👨‍👩‍👧‍👦' }]),
+    searchQuery: '👨'
+  }), { columns: 40, rows: 2 });
+
+  assert.equal(frame.cells.some((cell) => cell.source?.partKind === 'match'), false);
+  assert.equal(
+    frame.accessibility.root.description,
+    'Showing 1-1 of 1 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Search query: 👨. Matching items: 0.'
   );
 });
 
 test('scrollback renders empty and selected text states in high contrast and no color output', () => {
   const emptyFrame = renderElementFrame(scrollback({
     id: 'empty-log',
-    items: []
+    history: prepareScrollbackHistory([])
   }), { columns: 32, rows: 3 }, { theme: highContrastTheme });
   const selectedFrame = renderElementFrame(scrollback({
     id: 'selected-log',
-    items: [
+    history: prepareScrollbackHistory([
       { id: 'alpha', text: 'alpha' },
       { id: 'bravo', text: 'bravo charlie' }
-    ],
+    ]),
     selectedRange: { start: 3, end: 11 }
   }), { columns: 32, rows: 4 }, { theme: highContrastTheme });
   const highContrast = createVisualSnapshot({
@@ -198,8 +247,7 @@ test('scrollback renders empty and selected text states in high contrast and no 
 
   assert.equal(renderFramePlain(emptyFrame), 'No scrollback rows');
   assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N')?.source?.label, 'empty');
-  assert.equal(renderFramePlain(selectedFrame), 'alp[ha]\n[bravo] charlie');
-  assert.equal(selectedFrame.cells.find((cell) => cell.source?.label === 'selection.open')?.source?.role, 'decoration');
+  assert.equal(renderFramePlain(selectedFrame), 'alpha\nbravo charlie');
   assert.equal(selectedFrame.cells.find((cell) => cell.source?.label === 'body.selection')?.style?.bg?.token, 'selection.background');
   assert.equal(highContrast.plainTextFrame, noColor.plainTextFrame);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
@@ -211,7 +259,7 @@ test('scrollback selection extraction is pure and sanitized', () => {
     item(1, 'bravo \u001B[31mcharlie\u001B[0m')
   ];
   const text = extractScrollbackSelectionText({
-    items,
+    history: prepareScrollbackHistory(items),
     selectedRange: { start: 3, end: 18 }
   });
 
@@ -221,20 +269,20 @@ test('scrollback selection extraction is pure and sanitized', () => {
 test('scrollback maps pointer selection through metadata to canonical body offsets', () => {
   const regions = renderElementRegions(scrollback({
     id: 'selectable-log',
-    items: [
+    history: prepareScrollbackHistory([
       { id: 'alpha', timestamp: '10:30', metadata: { source: 'worker' }, text: 'alpha' },
       { id: 'bravo', text: 'bravo' }
-    ],
+    ]),
     scroll: createScrollState({ offsetRow: 0, contentRows: 2, viewportRows: 2 }),
     onAction: (action) => ({ action })
   }), { columns: 48, rows: 2 });
   const target = targetById(regions, 'selectable-log:text');
   const frame = renderElementFrame(scrollback({
     id: 'selectable-log',
-    items: [
+    history: prepareScrollbackHistory([
       { id: 'alpha', timestamp: '10:30', metadata: { source: 'worker' }, text: 'alpha' },
       { id: 'bravo', text: 'bravo' }
-    ],
+    ]),
     scroll: createScrollState({ offsetRow: 0, contentRows: 2, viewportRows: 2 }),
     onAction: (action) => ({ action })
   }), { columns: 48, rows: 2 });
@@ -259,7 +307,7 @@ test('scrollback maps pointer selection through metadata to canonical body offse
 test('wrapped scrollback preserves selected body source and visual style', () => {
   const frame = renderElementFrame(scrollback({
     id: 'wrapped-selection',
-    items: [{ id: 'alpha', text: 'alpha bravo' }],
+    history: prepareScrollbackHistory([{ id: 'alpha', text: 'alpha bravo' }]),
     wrap: true,
     selectedRange: { start: 2, end: 8 }
   }), { columns: 5, rows: 4 });
@@ -270,20 +318,20 @@ test('wrapped scrollback preserves selected body source and visual style', () =>
   assert.ok(new Set(selected.map((cell) => cell.row)).size > 1);
 });
 
-test('wrapped scrollback counts visible selection markers in its row projection', () => {
+test('wrapped scrollback selection does not alter cached row geometry', () => {
   const frame = renderElementFrame(scrollback({
     id: 'wrapped-selection-markers',
-    items: [{ id: 'alpha', text: 'abcd' }],
+    history: prepareScrollbackHistory([{ id: 'alpha', text: 'abcd' }]),
     wrap: true,
     selectedRange: { start: 1, end: 2 }
   }), { columns: 4, rows: 2 });
 
-  assert.equal(renderFramePlain(frame), 'a[b]\ncd');
+  assert.equal(renderFramePlain(frame), 'abcd');
   assert.equal(
     frame.accessibility.root.description,
-    'Showing 1-2 of 2 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Selection length: 1.'
+    'Showing 1-1 of 1 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Selection length: 1.'
   );
-  assert.equal(frame.accessibility.root.children?.length, 2);
+  assert.equal(frame.accessibility.root.children?.length, 1);
 });
 
 function targetById(regions, id) {

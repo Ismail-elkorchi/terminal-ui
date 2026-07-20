@@ -422,6 +422,7 @@ test('terminal text indexing and editing stay centralized', async () => {
   const chartVisual = await readFile(new URL('../../src/renderer/internal/chart-visual.ts', import.meta.url), 'utf8');
   const dataRenderers = await readFile(new URL('../../src/renderer/internal/renderers/data-renderers.ts', import.meta.url), 'utf8');
   const textWidgets = await readFile(new URL('../../src/renderer/internal/text-widgets.ts', import.meta.url), 'utf8');
+  const textAreaProjection = await readFile(new URL('../../src/renderer/internal/text-area/projection.ts', import.meta.url), 'utf8');
   const textRenderers = await readFile(new URL('../../src/renderer/internal/renderers/text-renderers.ts', import.meta.url), 'utf8');
   const structuredBlock = await readFile(new URL('../../src/renderer/internal/structured-block.ts', import.meta.url), 'utf8');
   const textTypes = await readFile(new URL('../../src/text/types.ts', import.meta.url), 'utf8');
@@ -453,8 +454,9 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(dataRenderers, /\bchartBlock\b/u);
   assert.match(dataRenderers, /\bmeterBlock\b/u);
   assert.match(dataRenderers, /\bheatmapBlock\b/u);
-  assert.match(textWidgets, /from '\.\/text-display\.ts'/u);
   assert.match(textWidgets, /from '\.\/input-visual\.ts'/u);
+  assert.match(textWidgets, /from '\.\/text-area\/projection\.ts'/u);
+  assert.match(textAreaProjection, /from '\.\.\/\.\.\/\.\.\/text\/index\.ts'/u);
   assert.match(textWidgets, /from '\.\/feedback-visual\.ts'/u);
   assert.match(textRenderers, /from '\.\.\/feedback-visual\.ts'/u);
   assert.match(formRenderers, /\btextInputBlock\b/u);
@@ -581,6 +583,7 @@ test('dirty region narrowing is structural and render-diff visible', async () =>
   const frameBufferSource = await readFile(new URL('../../src/renderer/internal/frame-buffer.ts', import.meta.url), 'utf8');
   const diffSource = await readFile(new URL('../../src/renderer/model/diff.ts', import.meta.url), 'utf8');
   const frameSource = await readFile(new URL('../../src/renderer/internal/frame.ts', import.meta.url), 'utf8');
+  const frameIndexSource = await readFile(new URL('../../src/renderer/internal/frame-index.ts', import.meta.url), 'utf8');
   const runtimeFrameSource = await readFile(new URL('../../src/tui/runtime-frame.ts', import.meta.url), 'utf8');
 
   assert.match(dirtySource, /export interface DirtyRegionSet/u);
@@ -602,7 +605,11 @@ test('dirty region narrowing is structural and render-diff visible', async () =>
   assert.doesNotMatch(frameBufferSource, /function stableString/u);
   assert.match(diffSource, /readonly dirtyRegions\?: readonly Rect\[\];/u);
   assert.match(frameSource, /dirtyColumnRanges/u);
-  assert.match(frameSource, /unchangedFingerprintRows/u);
+  assert.match(frameSource, /fingerprintsMatch/u);
+  assert.match(frameSource, /frameIndex\(previous\)/u);
+  assert.match(frameSource, /frameIndex\(next\)/u);
+  assert.match(frameIndexSource, /new WeakMap<Frame, FrameIndex>/u);
+  assert.match(frameIndexSource, /metadata\?\.rowFingerprints/u);
   assert.match(runtimeFrameSource, /dirtyRegionsForRenderCommit/u);
   assert.doesNotMatch(dirtySource, /widget\.kind|contextMenu|dropdownMenu|modal/u);
 });

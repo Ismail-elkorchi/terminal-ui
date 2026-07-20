@@ -55,13 +55,14 @@ export type {
 export type { CommandInputAction } from '../ui-model/command-input.ts';
 export {
   applyTextPointerAction,
+  createTextAreaState,
   selectionFromTextPointerAction,
   textAreaPresentation,
   textAreaReducer,
   textInputPresentation,
   textInputReducer
 } from './text-editing.ts';
-export type { TextAreaState } from './text-editing.ts';
+export type { CreateTextAreaStateInput, TextAreaState } from './text-editing.ts';
 export type {
   TextAreaAction,
   TextAreaControlAction,
@@ -296,13 +297,26 @@ export type {
   ScreenStackAction
 } from './screen-stack.ts';
 export {
+  appendScrollbackHistory,
+  prepareScrollbackHistory,
+  scrollbackHistoryItemAt,
+  scrollbackHistoryRecordMatchCount,
+  scrollbackHistoryItems
+} from '../ui-model/scrollback-history.ts';
+export type {
+  ScrollbackHistory,
+  ScrollbackHistoryRecord,
+  ScrollbackHistorySegment,
+  ScrollbackItem
+} from '../ui-model/scrollback-history.ts';
+export {
+  foldScrollbackHistory,
   followTailScrollState,
   nextScrollbackMatch,
   scrollbackPresentation,
   scrollbackScrollablePresentation,
   scrollbackReducer,
-  scrollbackSearchMarks,
-  visibleScrollbackItems
+  scrollbackSearchMarks
 } from './scrollback.ts';
 export type {
   PassiveScrollbackState,

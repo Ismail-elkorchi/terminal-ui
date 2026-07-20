@@ -3,8 +3,8 @@ import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { Rect } from '../model/layout.ts';
 
 interface ColumnInterval {
-  readonly start: number;
-  readonly end: number;
+  start: number;
+  end: number;
 }
 
 export class DirtyCoverageAccumulator {
@@ -13,17 +13,29 @@ export class DirtyCoverageAccumulator {
   add(rect: Rect): void {
     const normalized = normalizeRect(rect);
     if (normalized === undefined) return;
-    const endRow = normalized.row + normalized.height;
-    const endColumn = normalized.column + normalized.width;
-    for (let row = normalized.row; row < endRow; row += 1) {
-      const intervals = this.intervalsByRow.get(row);
-      const interval = { start: normalized.column, end: endColumn };
-      if (intervals === undefined) {
-        this.intervalsByRow.set(row, [interval]);
-      } else {
-        intervals.push(interval);
-      }
+    for (let row = normalized.row; row < normalized.row + normalized.height; row += 1) {
+      this.addSpan(row, normalized.column, normalized.width);
     }
+  }
+
+  addSpan(row: number, column: number, width: number): void {
+    if (!Number.isInteger(row) || !Number.isInteger(column) || !Number.isInteger(width) || width <= 0) return;
+    const start = column;
+    const end = column + width;
+    const intervals = this.intervalsByRow.get(row);
+    if (intervals === undefined) {
+      this.intervalsByRow.set(row, [{ start, end }]);
+      return;
+    }
+
+    const last = intervals.at(-1);
+    if (last !== undefined && start >= last.start) {
+      if (start <= last.end) last.end = Math.max(last.end, end);
+      else intervals.push({ start, end });
+      return;
+    }
+
+    mergeSpan(intervals, start, end);
   }
 
   toDirtyRegionSet(): DirtyRegionSet {
@@ -34,8 +46,7 @@ export class DirtyCoverageAccumulator {
     const rects: Rect[] = [];
     const rows = [...this.intervalsByRow.keys()].sort((left, right) => left - right);
     for (const row of rows) {
-      const intervals = mergedIntervals(this.intervalsByRow.get(row) ?? []);
-      for (const interval of intervals) {
+      for (const interval of this.intervalsByRow.get(row) ?? []) {
         appendRowInterval(rects, row, interval);
       }
     }
@@ -57,21 +68,21 @@ function appendRowInterval(rects: Rect[], row: number, interval: ColumnInterval)
   rects.push({ row, column: interval.start, width, height: 1 });
 }
 
-function mergedIntervals(intervals: readonly ColumnInterval[]): readonly ColumnInterval[] {
-  const sorted = intervals.toSorted((left, right) => left.start - right.start || left.end - right.end);
-  const output: ColumnInterval[] = [];
-  for (const interval of sorted) {
-    const previous = output.at(-1);
-    if (previous?.end !== undefined && previous.end >= interval.start) {
-      output[output.length - 1] = {
-        start: previous.start,
-        end: Math.max(previous.end, interval.end)
-      };
-      continue;
+function mergeSpan(intervals: ColumnInterval[], start: number, end: number): void {
+  let first = 0;
+  while (first < intervals.length && (intervals[first]?.end ?? 0) < start) first += 1;
+  let nextStart = start;
+  let nextEnd = end;
+  let last = first;
+  while (last < intervals.length && (intervals[last]?.start ?? Number.POSITIVE_INFINITY) <= nextEnd) {
+    const current = intervals[last];
+    if (current !== undefined) {
+      nextStart = Math.min(nextStart, current.start);
+      nextEnd = Math.max(nextEnd, current.end);
     }
-    output.push(interval);
+    last += 1;
   }
-  return output;
+  intervals.splice(first, last - first, { start: nextStart, end: nextEnd });
 }
 
 function normalizeRect(rect: Rect): Rect | undefined {

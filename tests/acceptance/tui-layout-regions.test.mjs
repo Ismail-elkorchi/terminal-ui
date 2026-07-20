@@ -21,6 +21,7 @@ import {
   grid,
   splitPane
 } from '../../dist/layout/index.js';
+import { prepareScrollbackHistory } from '../../dist/behavior/index.js';
 
 function workspaceView(state) {
   const mainPanel = tabs({
@@ -32,7 +33,7 @@ function workspaceView(state) {
         label: 'Log',
         panel: scrollback({
           id: 'log',
-          items: state.items.map((item, index) => ({ id: String(index), text: item }))
+          history: prepareScrollbackHistory(state.items.map((item, index) => ({ id: String(index), text: item })))
         })
       },
       {

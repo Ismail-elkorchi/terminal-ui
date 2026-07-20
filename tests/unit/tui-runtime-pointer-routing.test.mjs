@@ -88,7 +88,7 @@ test('built-in controls expose controlled pointer presentation without duplicate
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  await runtime.handleInputChunk({ data: '\u001B[<35;2;1M' });
+  await handleInputChunkAndSettle(runtime, '\u001B[<35;2;1M');
   assert.deepEqual(runtime.state().pointer, { hoveredTargetId: 'controlled-button:control' });
 
   await runtime.handleInputChunk({ data: '\u001B[<0;2;1M' });
@@ -103,7 +103,7 @@ test('built-in controls expose controlled pointer presentation without duplicate
     activations: 1
   });
 
-  await runtime.handleInputChunk({ data: '\u001B[<35;20;2M' });
+  await handleInputChunkAndSettle(runtime, '\u001B[<35;20;2M');
   assert.deepEqual(runtime.state().pointer, {});
 });
 
@@ -299,13 +299,13 @@ test('TUI pointer hover emits enter leave and hover when crossing targets', asyn
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
-  const moveLeft = await runtime.handleInputChunk({ data: '\u001B[<35;2;1M' });
-  const moveRight = await runtime.handleInputChunk({ data: '\u001B[<35;8;1M' });
-  const moveOutside = await runtime.handleInputChunk({ data: '\u001B[<35;20;1M' });
+  const moveLeft = await handleInputChunkAndSettle(runtime, '\u001B[<35;2;1M');
+  const moveRight = await handleInputChunkAndSettle(runtime, '\u001B[<35;8;1M');
+  const moveOutside = await handleInputChunkAndSettle(runtime, '\u001B[<35;20;1M');
 
-  assert.equal(moveLeft.results[0]?.handled, true);
-  assert.equal(moveRight.results[0]?.handled, true);
-  assert.equal(moveOutside.results[0]?.handled, true);
+  assert.equal(moveLeft[0]?.handled, true);
+  assert.equal(moveRight[0]?.handled, true);
+  assert.equal(moveOutside[0]?.handled, true);
   assert.deepEqual(runtime.state(), {
     events: [
       { kind: 'enter', targetId: 'left-hit', localColumn: 2 },
@@ -403,11 +403,11 @@ test('TUI pointer drag routes to the captured origin target', async () => {
 
   await runtime.start();
   const press = await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
-  const drag = await runtime.handleInputChunk({ data: '\u001B[<32;10;1M' });
+  const drag = await handleInputChunkAndSettle(runtime, '\u001B[<32;10;1M');
   const release = await runtime.handleInputChunk({ data: '\u001B[<0;10;1m' });
 
   assert.equal(press.results[0]?.handled, false);
-  assert.equal(drag.results[0]?.handled, true);
+  assert.equal(drag[0]?.handled, true);
   assert.equal(release.results[0]?.handled, true);
   assert.deepEqual(runtime.state(), {
     events: [
@@ -415,6 +415,65 @@ test('TUI pointer drag routes to the captured origin target', async () => {
       { kind: 'dragEnd', targetId: 'drag-hit', capturedTargetId: 'drag-hit', localColumn: 10 }
     ]
   });
+});
+
+test('TUI pointer motion drops stale drag samples before routing release', async () => {
+  const renderer = {
+    render({ state, bounds, buffer }) {
+      buffer.write(bounds.row, bounds.column, [{ text: `events ${String(state)}` }]);
+    },
+    accessibility({ id }) {
+      return { id, role: 'button', label: 'coalesced drag target' };
+    },
+    hitTargets({ bounds }) {
+      return [{
+        id: 'coalesced-drag-hit',
+        bounds,
+        accepts: ['dragStart', 'drag', 'dragEnd'],
+        message: (event) => ({ kind: event.kind, column: event.column }),
+        cursor: 'text'
+      }];
+    }
+  };
+  const app = defineTui({
+    id: 'coalesced-drag-tui',
+    init: () => ({ events: [] }),
+    update: (state, message) => ({ state: { events: [...state.events, message] } }),
+    view: (state) => custom({ id: 'coalesced-drag', renderer, state: state.events.length })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+  await runtime.start();
+  await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
+
+  const write = harness.host.write.bind(harness.host);
+  const firstWriteStarted = deferred();
+  const releaseFirstWrite = deferred();
+  let blockNextWrite = true;
+  harness.host.write = async (output, context) => {
+    if (blockNextWrite) {
+      blockNextWrite = false;
+      firstWriteStarted.release();
+      await releaseFirstWrite.promise;
+    }
+    await write(output, context);
+  };
+
+  const first = await runtime.handleInputChunk({ data: '\u001B[<32;2;1M' });
+  assert.notEqual(first.pending, undefined);
+  await firstWriteStarted.promise;
+  const stale = await runtime.handleInputChunk({ data: '\u001B[<32;3;1M' });
+  const latest = await runtime.handleInputChunk({ data: '\u001B[<32;4;1M' });
+  const release = runtime.handleInputChunk({ data: '\u001B[<0;4;1m' });
+  releaseFirstWrite.release();
+
+  await Promise.all([first.pending, stale.pending, latest.pending, release]);
+  assert.deepEqual(runtime.state().events, [
+    { kind: 'dragStart', column: 2 },
+    { kind: 'drag', column: 4 },
+    { kind: 'dragEnd', column: 4 }
+  ]);
+  await runtime.dispose();
 });
 
 test('TUI runtime routes tree row hit targets to node messages', async () => {
@@ -556,3 +615,19 @@ test('TUI runtime routes same-layer overlay mouse events to the last visible chi
   assert.equal(release.results[0]?.handled, true);
   assert.deepEqual(runtime.state(), { clicked: 'upper' });
 });
+
+function deferred() {
+  let release;
+  const promise = new Promise((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+}
+
+async function handleInputChunkAndSettle(runtime, data) {
+  const batch = await runtime.handleInputChunk({ data });
+  return [
+    ...batch.results,
+    ...(batch.pending === undefined ? [] : await batch.pending)
+  ];
+}

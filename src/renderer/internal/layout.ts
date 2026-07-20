@@ -5,7 +5,7 @@ export type { Rect } from '../../geometry/types.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { Element } from '../../element/index.ts';
 import { toRenderNode } from '../model/element.ts';
-import { defineTheme, isTerminalTheme } from '../../theme/index.ts';
+import { defaultTheme, defineTheme, isTerminalTheme } from '../../theme/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import { defaultTextWidthProfile } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
@@ -13,9 +13,11 @@ import type { LayoutFocusRegion, LayoutNode } from '../model/layout.ts';
 import {
   focusScopeForRenderNode,
   focusTargetsForRenderNode,
+  createRenderMeasurementContext,
   layoutChildBounds,
   placeRenderNode
 } from './render-node-behavior.ts';
+import type { RenderMeasurementContext } from './render-node-behavior.ts';
 
 export type { Layer, LayoutFocusRegion, LayoutNode } from '../model/layout.ts';
 
@@ -39,7 +41,8 @@ export function layoutRenderNode(
     ? { row: 1, column: 1, width: viewport.columns, height: viewport.rows }
     : viewport;
   const viewportBounds = clampRect(bounds);
-  return layoutNode(widget, viewportBounds, viewportBounds, theme, widthProfile, 0, 0, []);
+  const measurements = createRenderMeasurementContext(theme, widthProfile);
+  return layoutNode(widget, viewportBounds, viewportBounds, theme, widthProfile, measurements, 0, 0, []);
 }
 
 function layoutNode(
@@ -48,6 +51,7 @@ function layoutNode(
   viewport: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
+  measurements: RenderMeasurementContext,
   ordinal: number,
   parentZIndex: number,
   parentIdentity: readonly string[]
@@ -77,7 +81,7 @@ function layoutNode(
       children: []
     };
   }
-  const childBounds = boundsForChildren(widget, placedBounds, viewport, theme, widthProfile);
+  const childBounds = boundsForChildren(widget, placedBounds, viewport, measurements);
   const focusTargets = focusTargetsForRenderNode(widget, placedBounds, theme, widthProfile).map((target): LayoutFocusRegion => ({
     id: target.id,
     bounds: target.bounds,
@@ -105,6 +109,7 @@ function layoutNode(
         viewport,
         theme,
         widthProfile,
+        measurements,
         index,
         zIndex,
         identityPath
@@ -116,11 +121,10 @@ function boundsForChildren(
   widget: RenderNode,
   bounds: Rect,
   viewport: Rect,
-  theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  measurements: RenderMeasurementContext
 ): readonly Rect[] {
   const children = widget.children ?? [];
-  return children.length === 0 ? [] : layoutChildBounds(widget, bounds, viewport, theme, widthProfile);
+  return children.length === 0 ? [] : layoutChildBounds(widget, bounds, viewport, measurements);
 }
 
 function emptyRect(bounds: Rect): Rect {
@@ -146,6 +150,6 @@ function opacityForRenderNode(widget: RenderNode): ElementLayerOpacity {
 }
 
 function themeForLayout(theme: TerminalTheme | TerminalThemeDefinition | undefined): TerminalTheme {
-  if (theme === undefined) return defineTheme();
+  if (theme === undefined) return defaultTheme;
   return isTerminalTheme(theme) ? theme : defineTheme(theme);
 }

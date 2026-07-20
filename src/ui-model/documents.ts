@@ -1,20 +1,11 @@
 import type { TerminalStyle } from '../visual/render.ts';
+export type { ScrollbackHistory, ScrollbackItem } from './scrollback-history.ts';
 import type {
   ComponentValidationTone,
   FieldItem,
-  LogLevel,
   RecordStatus,
   TitledItem
 } from './contracts.ts';
-
-export interface ScrollbackItem {
-  readonly id: string;
-  readonly text: string;
-  readonly level?: LogLevel;
-  readonly style?: TerminalStyle;
-  readonly timestamp?: string;
-  readonly metadata?: Record<string, string>;
-}
 
 export interface StructuredBlock extends TitledItem {
   readonly summary?: string;

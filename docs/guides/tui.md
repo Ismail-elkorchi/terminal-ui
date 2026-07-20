@@ -270,8 +270,11 @@ not own editing policy, syntax highlighting, file paths, or language semantics.
 Pass `textAreaPresentation(state)` to `presentation` and map `onAction` to an
 application message. The `TextAreaAction` union covers standard edits,
 grapheme-aware pointer selection, and scrolling; `textAreaReducer()` provides
-the default controlled behavior. Explicit local `keys` may override generated
-bindings.
+the default controlled behavior. Initialize that state with
+`createTextAreaState()` and retain it in application state. Its prepared text
+document keeps line, grapheme, wrapping, cursor, and pointer projections stable
+across selection and scroll updates; replacing it inside `view()` discards that
+work. Explicit local `keys` may override generated bindings.
 
 Executable example:
 

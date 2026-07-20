@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
+import { prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { prepareTextDocument } from '../../dist/text/index.js';
 
 import {
   validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
@@ -217,7 +219,7 @@ const cases = [
   },
   {
     name: 'textArea',
-    element: () => textArea({ id: 'text-area', presentation: { value: `${unsafe}\nSecond`, cursor: 3 }, }),
+    element: () => textArea({ id: 'text-area', presentation: { document: prepareTextDocument(`${unsafe}\nSecond`), cursor: 3 }, }),
     expectText: /Second/u,
     expectFocus: true
   },
@@ -556,10 +558,10 @@ const cases = [
     name: 'scrollback',
     element: () => scrollback({
       id: 'scrollback',
-      items: [
+      history: prepareScrollbackHistory([
         { id: 'one', text: unsafe },
         { id: 'two', text: 'Second' }
-      ],
+      ]),
       searchQuery: 'Second'
     }),
     expectText: /Second/u

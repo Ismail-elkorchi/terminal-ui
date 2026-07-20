@@ -1,6 +1,13 @@
 import { applyScrollEvent } from './scroll.ts';
-import { editTextBuffer, normalizeTextCursor, normalizeTextSelection } from '../text/index.ts';
-import type { TextEditBuffer, TextSelection } from '../text/index.ts';
+import {
+  editTextBuffer,
+  normalizeTextCursor,
+  normalizeTextDocumentOffset,
+  normalizeTextDocumentSelection,
+  normalizeTextSelection,
+  prepareTextDocument
+} from '../text/index.ts';
+import type { TextDocument, TextEditBuffer, TextSelection } from '../text/index.ts';
 import type { TextPointerAction } from '../interaction/text-pointer.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type {
@@ -10,8 +17,29 @@ import type {
 import type { TextInputAction, TextInputPresentation } from '../ui-model/text-input.ts';
 
 export interface TextAreaState {
-  readonly input: TextEditBuffer;
+  readonly document: TextDocument;
+  readonly cursor: number;
+  readonly selection?: TextSelection;
   readonly scroll: ScrollState;
+}
+
+export interface CreateTextAreaStateInput {
+  readonly value: string;
+  readonly cursor?: number;
+  readonly selection?: TextSelection;
+  readonly scroll: ScrollState;
+}
+
+export function createTextAreaState(input: CreateTextAreaStateInput): TextAreaState {
+  const document = prepareTextDocument(input.value);
+  const cursor = normalizeTextDocumentOffset(document, input.cursor ?? 0);
+  const selection = normalizeTextDocumentSelection(document, input.selection);
+  return {
+    document,
+    cursor,
+    ...(selection === undefined ? {} : { selection }),
+    scroll: input.scroll
+  };
 }
 
 export function textInputPresentation(state: TextEditBuffer): TextInputPresentation {
@@ -31,20 +59,56 @@ export function textInputReducer(state: TextEditBuffer, action: TextInputAction)
 
 export function textAreaPresentation(state: TextAreaState): TextAreaScrollablePresentation {
   return {
-    ...textInputPresentation(state.input),
+    document: state.document,
+    cursor: state.cursor,
+    ...(state.selection === undefined ? {} : { selection: state.selection }),
     scroll: state.scroll
   };
 }
 
 export function textAreaReducer(state: TextAreaState, action: TextAreaAction): TextAreaState {
   switch (action.kind) {
-    case 'edit':
-      return { ...state, input: editTextBuffer(state.input, action.operation) };
-    case 'pointer':
-      return { ...state, input: applyTextPointerAction(state.input, action.action) };
+    case 'edit': {
+      const edited = editTextBuffer(textAreaEditBuffer(state), action.operation);
+      return textAreaStateWithSelection(state, {
+        document: edited.text === state.document.text ? state.document : prepareTextDocument(edited.text),
+        cursor: edited.cursor
+      }, edited.selection);
+    }
+    case 'pointer': {
+      const offset = normalizeTextDocumentOffset(state.document, action.action.offset);
+      if (action.action.kind === 'placeCaret') {
+        return textAreaStateWithSelection(state, { cursor: offset }, undefined);
+      }
+      const anchor = normalizeTextDocumentOffset(state.document, action.action.anchor);
+      const selection = normalizeTextDocumentSelection(state.document, { start: anchor, end: offset });
+      return textAreaStateWithSelection(state, { cursor: offset }, selection);
+    }
     case 'scroll':
       return { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
   }
+}
+
+function textAreaStateWithSelection(
+  state: TextAreaState,
+  changes: Partial<Pick<TextAreaState, 'document' | 'cursor' | 'scroll'>>,
+  selection: TextSelection | undefined
+): TextAreaState {
+  const { selection: previousSelection, ...base } = state;
+  void previousSelection;
+  return {
+    ...base,
+    ...changes,
+    ...(selection === undefined ? {} : { selection })
+  };
+}
+
+function textAreaEditBuffer(state: TextAreaState): TextEditBuffer {
+  return {
+    text: state.document.text,
+    cursor: state.cursor,
+    ...(state.selection === undefined ? {} : { selection: state.selection })
+  };
 }
 
 export function applyTextPointerAction(

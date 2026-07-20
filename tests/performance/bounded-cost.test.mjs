@@ -28,7 +28,9 @@ import {
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
 import {
+  appendScrollbackHistory,
   listReducer,
+  prepareScrollbackHistory,
   prepareListCollection,
   prepareTableCollection,
   prepareTreeCollection,
@@ -104,7 +106,8 @@ test('windowed list collections project only supplied rows while preserving glob
 
 test('large scrollback rendering is bounded by viewport size, not collection size', () => {
   const items = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
-  const frame = renderElementFrame(scrollback({ id: 'large-scrollback', items }), { columns: 48, rows: 12 });
+  const history = prepareScrollbackHistory(items);
+  const frame = renderElementFrame(scrollback({ id: 'large-scrollback', history }), { columns: 48, rows: 12 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Line 99999/u);
@@ -114,7 +117,7 @@ test('large scrollback rendering is bounded by viewport size, not collection siz
   assert.equal(frame.accessibility.root.description, 'Showing 99989-100000 of 100000 scrollback rows. Omitted before: 99988. Omitted after: 0. Follow tail: true.');
 });
 
-test('passive scrollback projections do not reread offscreen history', () => {
+test('prepared scrollback history pays source normalization once and projections do not reread items', () => {
   let textReads = 0;
   const items = Array.from({ length: 20_000 }, (_value, index) => ({
     id: `line-${String(index)}`,
@@ -124,9 +127,13 @@ test('passive scrollback projections do not reread offscreen history', () => {
     }
   }));
 
-  renderElementFrame(scrollback({ id: 'bounded-history', items }), { columns: 48, rows: 12 });
+  const history = prepareScrollbackHistory(items);
+  assert.equal(textReads, items.length);
+  textReads = 0;
+  renderElementFrame(scrollback({ id: 'bounded-history', history }), { columns: 48, rows: 12 });
+  renderElementFrame(scrollback({ id: 'bounded-history', history }), { columns: 64, rows: 16 });
 
-  assert.ok(textReads <= 40, `expected viewport-bounded history reads, received ${String(textReads)}`);
+  assert.equal(textReads, 0);
 });
 
 test('small local frame updates produce bounded render diffs', () => {
@@ -190,7 +197,7 @@ test('full frame render stays bounded by viewport for mixed widget trees', () =>
     }),
     scrollback({
       id: 'events',
-      items: Array.from({ length: 1_000 }, (_value, index) => ({ id: `event-${index}`, text: `Event ${index}` }))
+      history: prepareScrollbackHistory(Array.from({ length: 1_000 }, (_value, index) => ({ id: `event-${index}`, text: `Event ${index}` })))
     })
   ]), { columns: 60, rows: 16 });
 
@@ -217,9 +224,10 @@ test('style-only diffs are incremental and preserve visual dimensions', () => {
 
 test('append-heavy scrollback diffs stay bounded by visible rows', () => {
   const beforeItems = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
-  const afterItems = [...beforeItems, { id: 'line-100000', text: 'Line 100000' }];
-  const previous = renderElementFrame(scrollback({ id: 'append-log', items: beforeItems }), { columns: 48, rows: 8 });
-  const next = renderElementFrame(scrollback({ id: 'append-log', items: afterItems }), { columns: 48, rows: 8 });
+  const beforeHistory = prepareScrollbackHistory(beforeItems);
+  const afterHistory = appendScrollbackHistory(beforeHistory, [{ id: 'line-100000', text: 'Line 100000' }]);
+  const previous = renderElementFrame(scrollback({ id: 'append-log', history: beforeHistory }), { columns: 48, rows: 8 });
+  const next = renderElementFrame(scrollback({ id: 'append-log', history: afterHistory }), { columns: 48, rows: 8 });
   const diff = diffFrames(previous, next);
 
   assert.match(renderFramePlain(next), /Line 100000/u);

@@ -2,12 +2,16 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  appendScrollbackHistory,
   followTailScrollState,
+  foldScrollbackHistory,
   nextScrollbackMatch,
+  prepareScrollbackHistory,
   scrollbackScrollablePresentation,
   scrollbackReducer,
   scrollbackSearchMarks,
-  visibleScrollbackItems
+  scrollbackHistoryItemAt,
+  scrollbackHistoryItems
 } from '../../dist/behavior/index.js';
 
 const items = [
@@ -15,6 +19,7 @@ const items = [
   { id: 'b', text: 'bravo needle' },
   { id: 'c', text: 'charlie needle needle' }
 ];
+const history = prepareScrollbackHistory(items);
 
 void test('scrollbackReducer owns search match fold and follow-tail state', () => {
   const initial = { foldedIds: [], followTail: true };
@@ -33,7 +38,7 @@ void test('scrollbackReducer owns search match fold and follow-tail state', () =
 });
 
 void test('scrollbackSearchMarks and nextScrollbackMatch expose compact search state', () => {
-  const marks = scrollbackSearchMarks(items, 'needle');
+  const marks = scrollbackSearchMarks(history, 'needle');
 
   assert.deepEqual(marks, [
     { itemId: 'b', itemIndex: 1, matchCount: 1 },
@@ -43,24 +48,50 @@ void test('scrollbackSearchMarks and nextScrollbackMatch expose compact search s
   assert.deepEqual(nextScrollbackMatch(marks, 1, 1), marks[0]);
 });
 
-void test('visibleScrollbackItems folds records without mutating source items', () => {
-  const visible = visibleScrollbackItems(items, { foldedIds: ['a'] });
+void test('scrollback search uses one grapheme-aware contract across every searchable field', () => {
+  const searchableHistory = prepareScrollbackHistory([{
+    id: 'metadata',
+    timestamp: '10:30',
+    metadata: { owner: 'family 👨‍👩‍👧‍👦' },
+    text: 'body'
+  }]);
+
+  assert.deepEqual(scrollbackSearchMarks(searchableHistory, 'owner'), [
+    { itemId: 'metadata', itemIndex: 0, matchCount: 1 }
+  ]);
+  assert.deepEqual(scrollbackSearchMarks(searchableHistory, '👨'), []);
+});
+
+void test('scrollback append reserves a separator after an empty record', () => {
+  const initial = prepareScrollbackHistory([{ id: 'empty', text: '' }]);
+  const appended = appendScrollbackHistory(initial, [{ id: 'next', text: 'x' }]);
+
+  assert.equal(scrollbackHistoryItemAt(initial, 0)?.bodyOffset, 0);
+  assert.equal(scrollbackHistoryItemAt(appended, 1)?.bodyOffset, 1);
+  assert.equal(appended.bodyLength, 2);
+});
+
+void test('foldScrollbackHistory folds records without mutating source history', () => {
+  const foldedIds = ['a'];
+  const projection = foldScrollbackHistory(history, foldedIds);
+  const visible = scrollbackHistoryItems(projection);
 
   assert.equal(visible[0]?.text, 'alpha ...');
   assert.deepEqual(visible[0].metadata, { folded: 'true' });
   assert.equal(items[0]?.text, 'alpha\nmore alpha');
+  assert.equal(foldScrollbackHistory(history, foldedIds), projection);
 });
 
 void test('scrollbackPresentation projects fold, search, follow-tail, and scroll state', () => {
   const scroll = followTailScrollState({ contentRows: 25, viewportRows: 5 });
-  const projection = scrollbackScrollablePresentation(items, {
+  const projection = scrollbackScrollablePresentation(history, {
     foldedIds: ['a'],
     followTail: true,
     searchQuery: 'needle',
     scroll
   });
 
-  assert.equal(projection.items[0]?.text, 'alpha ...');
+  assert.equal(scrollbackHistoryItems(projection.history)[0]?.text, 'alpha ...');
   assert.equal(projection.searchQuery, 'needle');
   assert.equal(projection.followTail, true);
   assert.equal(projection.scroll, scroll);

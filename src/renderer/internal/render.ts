@@ -7,6 +7,7 @@ import { findRenderNodeFocusTarget, focusPathForLayoutTarget, renderFocusRelatio
 import { createProjectionTargetIndex } from './projection-target-index.ts';
 import type { ProjectionTargetIndex } from './projection-target-index.ts';
 import { createFrameBuffer } from './frame.ts';
+import { blitFrameCell } from './frame-buffer.ts';
 import { projectStyledCursor } from './cursor-projection.ts';
 import { applyFramePasses, boxDrawingJoinPass } from './frame-passes/index.ts';
 import { layoutRenderNode } from './layout.ts';
@@ -406,16 +407,16 @@ export function compositeRegions(
   for (const region of regions.toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)) {
     if (region.opacity === 'opaque') {
       buffer.clear(region.bounds);
-      for (const cell of region.cells) buffer.writeCell(cell);
+      for (const cell of region.cells) blitFrameCell(buffer, cell);
       continue;
     }
     if (region.opacity === 'inheritBackground') {
       for (const cell of region.cells) {
-        buffer.writeCell(withInheritedBackground(cell, buffer.readCell(cell.row, cell.column)));
+        blitFrameCell(buffer, withInheritedBackground(cell, buffer.readCell(cell.row, cell.column)));
       }
       continue;
     }
-    for (const cell of region.cells) buffer.writeCell(cell);
+    for (const cell of region.cells) blitFrameCell(buffer, cell);
   }
   return buffer;
 }

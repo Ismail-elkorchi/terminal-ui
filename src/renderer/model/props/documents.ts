@@ -11,9 +11,9 @@ import type {
 import type {
   CommandInputDisplay,
   CommandInputValidation,
-  ScrollbackItem,
   StructuredBlock
 } from '../../../ui-model/documents.ts';
+import type { ScrollbackHistory } from '../../../ui-model/scrollback-history.ts';
 import type { PaletteAction } from '../../../ui-model/palette.ts';
 import type { CommandInputAction } from '../../../ui-model/command-input.ts';
 import type { ScrollbackAction } from '../../../ui-model/scrollback.ts';
@@ -32,7 +32,7 @@ export interface ViewportRenderProps<TMessage> extends RenderNodeLayoutProps {
 }
 
 export interface ScrollbackRenderProps<TMessage> {
-  readonly items: readonly ScrollbackItem[];
+  readonly history: ScrollbackHistory;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;

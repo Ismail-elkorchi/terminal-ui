@@ -39,7 +39,7 @@ export const textRenderers = {
       const scrollbars = scrollbarsForRenderNode(
         renderNode,
         layoutNode.bounds,
-        (contentBounds) => textAreaScrollbarState(renderNode, contentBounds, widthProfile),
+        (contentBounds) => textAreaScrollbarState(renderNode, contentBounds, theme, widthProfile),
         'both'
       );
       writeRenderBlock(
@@ -64,7 +64,7 @@ export const textRenderers = {
       const scrollbars = scrollbarsForRenderNode(
         renderNode,
         bounds,
-        (contentBounds) => textAreaScrollbarState(renderNode, contentBounds, widthProfile),
+        (contentBounds) => textAreaScrollbarState(renderNode, contentBounds, theme, widthProfile),
         'both'
       );
       return [

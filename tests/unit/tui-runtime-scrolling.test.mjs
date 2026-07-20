@@ -6,6 +6,7 @@ import { createTerminalHarness } from '../../dist/testing/index.js';
 import { custom, renderFramePlain } from '../../dist/renderer/index.js';
 import { contextMenu, text, textArea, tree } from '../../dist/components/index.js';
 import { column, overlay, viewport } from '../../dist/layout/index.js';
+import { prepareTextDocument } from '../../dist/text/index.js';
 
 test('TUI wheel routing skips non-scroll child targets and reaches scroll owner', async () => {
   const renderer = {
@@ -83,7 +84,7 @@ test('TUI press routing keeps scroll-only content targets from swallowing text p
     },
     view: (state) => textArea({
       id: 'scrolling-text-pointer',
-      presentation: { value: 'alpha\nbeta', cursor: 0, scroll: state.scroll },
+      presentation: { document: prepareTextDocument('alpha\nbeta'), cursor: 0, scroll: state.scroll },
       scrollbar: { visible: 'always' },
       onAction: (action) => action.kind === 'scroll'
         ? { kind: 'scroll', event: action.event }
@@ -139,7 +140,7 @@ test('TUI wheel routing keeps scroll content hits in their overlay region layer'
     view: (state) => overlay([
       textArea({
         id: 'background-scroll',
-        presentation: { value: backgroundValue, cursor: 0, scroll: state.background },
+        presentation: { document: prepareTextDocument(backgroundValue), cursor: 0, scroll: state.background },
         scrollbar: { visible: 'always' },
         onAction: (action) => ({ owner: 'background', event: action.event })
       }),
@@ -192,7 +193,7 @@ test('TUI pointer scrolling and scrollbar track input route to controlled text a
     }),
     view: (state) => textArea({
       id: 'scroll-editor',
-presentation: { value, cursor: 0, scroll: state.scroll },
+presentation: { document: prepareTextDocument(value), cursor: 0, scroll: state.scroll },
       scrollbar: { visible: 'always' },
       onAction: (action) => ({ event: action.event })
     })
@@ -284,7 +285,7 @@ test('TUI scrollbar thumb drag preserves the press anchor', async () => {
     }),
     view: (state) => textArea({
       id: 'thumb-editor',
-presentation: { value, cursor: 0, scroll: state.scroll },
+presentation: { document: prepareTextDocument(value), cursor: 0, scroll: state.scroll },
       scrollbar: { visible: 'always' },
       onAction: (action) => ({ event: action.event })
     })
@@ -343,7 +344,7 @@ test('TUI scrollbar thumb routing stays above its track inside elevated regions'
     }),
     view: (state) => textArea({
     id: 'elevated-thumb-editor',
-presentation: { value, cursor: 0, scroll: state.scroll },
+presentation: { document: prepareTextDocument(value), cursor: 0, scroll: state.scroll },
     scrollbar: { visible: 'always' },
     onAction: (action) => ({ event: action.event }),
     meta: {
@@ -388,7 +389,7 @@ test('TUI runtime batches decoded wheel bursts into one accelerated frame update
     }),
     view: (state) => textArea({
       id: 'scroll-editor',
-presentation: { value, cursor: 0, scroll: state.scroll },
+presentation: { document: prepareTextDocument(value), cursor: 0, scroll: state.scroll },
       scrollbar: { visible: 'always' },
       onAction: (action) => ({ event: action.event })
     })
@@ -419,7 +420,7 @@ test('TUI runtime coalesces compatible wheel packets across terminal reads', asy
     update: (state, message) => ({ state: { scroll: applyScrollEvent(state.scroll, message.event) } }),
     view: (state) => textArea({
       id: 'cross-read-editor',
-      presentation: { value, cursor: 0, scroll: state.scroll },
+      presentation: { document: prepareTextDocument(value), cursor: 0, scroll: state.scroll },
       scrollbar: { visible: 'always' },
       onAction: (action) => ({ event: action.event })
     })
@@ -480,7 +481,7 @@ test('TUI runtime flushes pending wheel input before keyboard input', async () =
     }],
     view: (state) => textArea({
       id: 'barrier-editor',
-      presentation: { value, cursor: 0, scroll: state.scroll },
+      presentation: { document: prepareTextDocument(value), cursor: 0, scroll: state.scroll },
       onAction: (action) => action.kind === 'scroll' ? { kind: 'scroll', event: action.event } : undefined
     })
   });
@@ -526,7 +527,7 @@ test('TUI routed wheel events honor widget scroll policy line steps', async () =
     }),
     view: (state) => textArea({
       id: 'scroll-editor',
-presentation: { value, cursor: 0, scroll: state.scroll },
+presentation: { document: prepareTextDocument(value), cursor: 0, scroll: state.scroll },
       scrollbar: { visible: 'always' },
       scrollPolicy: { wheel: { rows: 8, columns: 5 } },
       onAction: (action) => ({ event: action.event })
@@ -589,7 +590,7 @@ test('TUI routed horizontal text area scroll uses the editable viewport after gu
     view: (state) => textArea({
       id: 'horizontal-gutter-editor',
       lineNumbers: true,
-      presentation: { value, cursor: 0, scroll: state.scroll },
+      presentation: { document: prepareTextDocument(value), cursor: 0, scroll: state.scroll },
       scrollbar: { visible: 'always', axis: 'both' },
       scrollPolicy: { wheel: { rows: 1, columns: 1 } },
       onAction: (action) => ({ event: action.event })
@@ -635,7 +636,7 @@ test('TUI routed wheel events support page-based widget scroll policy', async ()
     }),
     view: (state) => textArea({
       id: 'scroll-editor',
-presentation: { value, cursor: 0, scroll: state.scroll },
+presentation: { document: prepareTextDocument(value), cursor: 0, scroll: state.scroll },
       scrollbar: { visible: 'always' },
       scrollPolicy: { wheel: { unit: 'page', rows: 1 } },
       onAction: (action) => ({ event: action.event })

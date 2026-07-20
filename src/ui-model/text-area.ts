@@ -1,9 +1,9 @@
 import type { ScrollEvent, ScrollState } from '../interaction/scroll.ts';
-import type { TextEditOperation, TextSelection } from '../text/index.ts';
+import type { TextDocument, TextEditOperation, TextSelection } from '../text/index.ts';
 import type { TextPointerAction } from '../interaction/text-pointer.ts';
 
 export interface TextAreaPresentation {
-  readonly value: string;
+  readonly document: TextDocument;
   readonly cursor: number;
   readonly selection?: TextSelection;
   readonly scroll?: ScrollState;

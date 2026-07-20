@@ -12,6 +12,8 @@ import type {
 import { sameFrameCellSource, sameTerminalLink, sameTerminalStyle, span } from '../../visual/render.ts';
 import type { RenderSerializeOptions } from './ansi.ts';
 import { textWidthProfileKey } from '../../text/index.ts';
+import { frameIndex } from './frame-index.ts';
+import type { FrameIndex } from './frame-index.ts';
 
 export type { CursorPosition } from '../model/cursor.ts';
 export type { Frame, FrameCell, FrameHitTarget } from '../model/frame.ts';
@@ -77,8 +79,9 @@ export {
 export { serializeRenderSpansStateful } from './ansi.ts';
 
 export function renderFramePlain(frame: Frame): string {
-  const cellsByRow = indexRenderableCellsByRow(frame);
-  const rows = Array.from({ length: frame.height }, (_value, index) => rowTextFromCells(cellsByRow.get(index + 1) ?? [], frame.width));
+  const rowsByIndex = frameIndex(frame).rows;
+  const rows = Array.from({ length: frame.height }, (_value, index) =>
+    rowTextFromCells(rowsByIndex[index]?.renderable ?? [], frame.width));
   return trimTrailingEmptyRows(rows).join('\n');
 }
 
@@ -121,21 +124,19 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
   const operations: RenderOperation[] = [];
   const dirtyRegions = dirtyRectsForFrame(next, options.dirtyRegions);
   const dirtyRanges = dirtyRegions === undefined ? undefined : dirtyColumnRanges(dirtyRegions);
-  const previousCells = indexFrameCells(previous, dirtyRanges);
-  const nextCells = indexFrameCells(next, dirtyRanges);
-  const nextRows = indexRenderableCellsByRow(next);
-  const unchangedRows = unchangedFingerprintRows(previous, next);
+  const previousCells = frameIndex(previous);
+  const nextCells = frameIndex(next);
 
   if (dirtyRegions === undefined) {
     for (let row = 1; row <= next.height; row += 1) {
-      if (unchangedRows?.has(row) === true) continue;
-      operations.push(...diffRow(previousCells, nextCells, nextRows, next.width, row, 1, next.width).operations);
+      if (fingerprintsMatch(previousCells, nextCells, row)) continue;
+      operations.push(...diffRow(previousCells, nextCells, next.width, row, 1, next.width).operations);
     }
   } else {
     for (const [row, ranges] of dirtyRanges ?? []) {
-      if (unchangedRows?.has(row) === true) continue;
+      if (fingerprintsMatch(previousCells, nextCells, row)) continue;
       for (const range of ranges) {
-        operations.push(...diffRow(previousCells, nextCells, nextRows, next.width, row, range.fromColumn, range.toColumn).operations);
+        operations.push(...diffRow(previousCells, nextCells, next.width, row, range.fromColumn, range.toColumn).operations);
       }
     }
   }
@@ -162,15 +163,8 @@ export function compareCells(left: FrameCell, right: FrameCell): number {
 
 export function renderFrameDebug(frame: Frame): string {
   const policy = createTerminalSerializationPolicy();
-  const writes = frame.cells
-    .filter((cell) =>
-      cell.continuation !== true
-      && cell.row >= 1
-      && cell.row <= frame.height
-      && cell.column >= 1
-      && cell.column <= frame.width
-    )
-    .sort(compareCells)
+  const writes = frameIndex(frame).rows
+    .flatMap((row) => row?.renderable ?? [])
     .map((cell) => `${policy.cursorMove(cell.row, cell.column)}${serializeRenderSpans([cellToSpan(cell)])}`)
     .join('');
   const cursor = frame.cursor === undefined
@@ -200,9 +194,9 @@ function trimTrailingEmptyRows(rows: string[]): string[] {
 }
 
 function frameWriteOperations(frame: Frame): readonly RenderOperation[] {
-  const cellsByRow = indexRenderableCellsByRow(frame);
+  const rows = frameIndex(frame).rows;
   return Array.from({ length: frame.height }, (_value, index) =>
-    rowWriteOperations(cellsByRow.get(index + 1) ?? [], index + 1, frame.width, 1)
+    rowWriteOperations(rows[index]?.renderable ?? [], index + 1, frame.width, 1)
   ).flat();
 }
 
@@ -233,9 +227,8 @@ function rowWriteOperations(
 }
 
 function diffRow(
-  previousCells: IndexedFrameCells,
-  nextCells: IndexedFrameCells,
-  nextRows: RowCellIndex,
+  previousCells: FrameIndex,
+  nextCells: FrameIndex,
   nextWidth: number,
   row: number,
   fromColumn: number,
@@ -248,7 +241,7 @@ function diffRow(
     if (changed && runStart === undefined) runStart = column;
     if ((!changed || column === toColumn) && runStart !== undefined) {
       const runEnd = changed && column === toColumn ? column : column - 1;
-      operations.push(...changedRunOperations(previousCells, nextCells, nextRows, nextWidth, row, runStart, runEnd));
+      operations.push(...changedRunOperations(previousCells, nextCells, nextWidth, row, runStart, runEnd));
       runStart = undefined;
     }
   }
@@ -302,9 +295,8 @@ function mergeColumnRanges(ranges: readonly ColumnRange[]): readonly ColumnRange
 }
 
 function changedRunOperations(
-  previousCells: IndexedFrameCells,
-  nextCells: IndexedFrameCells,
-  nextRows: RowCellIndex,
+  previousCells: FrameIndex,
+  nextCells: FrameIndex,
   nextWidth: number,
   row: number,
   fromColumn: number,
@@ -314,13 +306,13 @@ function changedRunOperations(
   if (runNeedsClear(previousCells, nextCells, row, fromColumn, toColumn)) {
     operations.push({ kind: 'clearRect', bounds: { row, column: fromColumn, width: toColumn - fromColumn + 1, height: 1 } });
   }
-  operations.push(...rowWriteOperations(nextRows.get(row) ?? [], row, nextWidth, fromColumn, toColumn));
+  operations.push(...rowWriteOperations(nextCells.rows[row - 1]?.renderable ?? [], row, nextWidth, fromColumn, toColumn));
   return operations;
 }
 
 function runNeedsClear(
-  previousCells: IndexedFrameCells,
-  nextCells: IndexedFrameCells,
+  previousCells: FrameIndex,
+  nextCells: FrameIndex,
   row: number,
   fromColumn: number,
   toColumn: number
@@ -336,71 +328,13 @@ function runNeedsClear(
   return false;
 }
 
-type IndexedFrameCells = ReadonlyMap<number, ReadonlyMap<number, FrameCell>>;
-type RowCellIndex = ReadonlyMap<number, readonly FrameCell[]>;
-interface FrameWithSnapshotMetadata extends Frame {
-  readonly metadata?: {
-    readonly rowFingerprints?: readonly { readonly row: number; readonly fingerprint: string }[];
-  };
+function fingerprintsMatch(previous: FrameIndex, next: FrameIndex, row: number): boolean {
+  const previousFingerprint = previous.rows[row - 1]?.fingerprint;
+  return previousFingerprint !== undefined && previousFingerprint === next.rows[row - 1]?.fingerprint;
 }
 
-function unchangedFingerprintRows(previous: Frame, next: Frame): ReadonlySet<number> | undefined {
-  const previousRows = rowFingerprintMap(previous);
-  const nextRows = rowFingerprintMap(next);
-  if (previousRows === undefined || nextRows === undefined) return undefined;
-  const unchanged = new Set<number>();
-  for (const [row, previousFingerprint] of previousRows) {
-    if (nextRows.get(row) === previousFingerprint) unchanged.add(row);
-  }
-  return unchanged;
-}
-
-function rowFingerprintMap(frame: Frame): ReadonlyMap<number, string> | undefined {
-  const rowFingerprints = (frame as FrameWithSnapshotMetadata).metadata?.rowFingerprints;
-  if (rowFingerprints === undefined) return undefined;
-  return new Map(rowFingerprints.map((entry) => [entry.row, entry.fingerprint]));
-}
-
-function indexRenderableCellsByRow(frame: Frame): RowCellIndex {
-  const rows = new Map<number, FrameCell[]>();
-  for (const cell of frame.cells) {
-    if (
-      cell.continuation === true
-      || cell.row < 1
-      || cell.row > frame.height
-      || cell.column < 1
-      || cell.column > frame.width
-    ) {
-      continue;
-    }
-    const rowCells = rows.get(cell.row);
-    if (rowCells === undefined) rows.set(cell.row, [cell]);
-    else rowCells.push(cell);
-  }
-  return new Map([...rows.entries()].map(([row, cells]) => [row, Object.freeze(cells.toSorted(compareCells))]));
-}
-
-function indexFrameCells(frame: Frame, dirtyRanges: DirtyColumnRanges | undefined): IndexedFrameCells {
-  const rows = new Map<number, Map<number, FrameCell>>();
-  for (const cell of frame.cells) {
-    if (cell.row < 1 || cell.row > frame.height || cell.column < 1 || cell.column > frame.width) continue;
-    if (dirtyRanges !== undefined && !cellOverlapsAnyRange(cell, dirtyRanges.get(cell.row))) continue;
-    const rowCells = rows.get(cell.row);
-    if (rowCells === undefined) rows.set(cell.row, new Map([[cell.column, cell]]));
-    else rowCells.set(cell.column, cell);
-  }
-  return new Map([...rows.entries()].map(([row, cells]) => [row, new Map(cells)]));
-}
-
-function cellAt(cells: IndexedFrameCells, row: number, column: number): FrameCell | undefined {
-  return cells.get(row)?.get(column);
-}
-
-function cellOverlapsAnyRange(cell: FrameCell, ranges: readonly ColumnRange[] | undefined): boolean {
-  if (ranges === undefined) return false;
-  const fromColumn = cell.column;
-  const toColumn = cell.column + Math.max(1, cell.width) - 1;
-  return ranges.some((range) => fromColumn <= range.toColumn && toColumn >= range.fromColumn);
+function cellAt(cells: FrameIndex, row: number, column: number): FrameCell | undefined {
+  return cells.rows[row - 1]?.cells.get(column);
 }
 
 function pushSpan(spans: RenderSpan[], next: RenderSpan): void {

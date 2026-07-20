@@ -7,6 +7,7 @@ import type {
   TextAreaOptions,
   TextOptions
 } from '../options/content.ts';
+import { assertTextDocument } from '../../text/index.ts';
 import type { TextAreaAction, TextAreaControlAction } from '../../ui-model/text-area.ts';
 import {
   componentMetaProps,
@@ -89,11 +90,12 @@ export function textArea(options: TextAreaOptions<unknown>): Element<unknown> {
       : (action) => action.kind === 'scroll' ? undefined : toControlMessage?.(action);
   const keys = textAreaKeyBindings(toControlMessage, options.keys);
   const presentation = options.presentation;
+  assertTextDocument(presentation.document);
   return elementFromRenderNode<'textArea', unknown>({
     ...requiredId(options.id, 'textArea'),
     kind: 'textArea',
     props: {
-      value: presentation.value,
+      document: presentation.document,
       cursor: presentation.cursor,
       ...(presentation.selection === undefined ? {} : { selection: presentation.selection }),
       ...(options.highlights === undefined ? {} : { highlights: options.highlights }),

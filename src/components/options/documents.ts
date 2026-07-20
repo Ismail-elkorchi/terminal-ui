@@ -10,9 +10,9 @@ import type {
 import type {
   CommandInputDisplay,
   CommandInputValidation,
-  ScrollbackItem,
   StructuredBlock
 } from '../../ui-model/documents.ts';
+import type { ScrollbackHistory } from '../../ui-model/scrollback-history.ts';
 import type { CommandInputAction, CommandInputPresentation } from '../../ui-model/command-input.ts';
 import type { PaletteAction } from '../../ui-model/palette.ts';
 import type { ActivityFeedAction } from '../../ui-model/activity-feed.ts';
@@ -26,7 +26,7 @@ import type {
 } from '../../ui-model/style-parts.ts';
 
 interface ScrollbackBaseOptions<TMessage> extends InteractiveElementOptions<TextAreaStylePart, TMessage> {
-  readonly items: readonly ScrollbackItem[];
+  readonly history: ScrollbackHistory;
   readonly wrap?: boolean;
   readonly searchQuery?: string;
   readonly selectedRange?: TextSelection;
@@ -118,6 +118,6 @@ export interface ScrollablePaletteOptions<TValue = string, TMessage = never> ext
 export type {
   CommandInputDisplay,
   CommandInputValidation,
-  ScrollbackItem,
   StructuredBlock
 } from '../../ui-model/documents.ts';
+export type { ScrollbackHistory, ScrollbackItem } from '../../ui-model/scrollback-history.ts';

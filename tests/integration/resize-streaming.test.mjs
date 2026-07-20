@@ -11,6 +11,7 @@ import {
   statusBar
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
+import { appendScrollbackHistory, prepareScrollbackHistory } from '../../dist/behavior/index.js';
 import { waitUntil } from '../helpers/async.ts';
 
 const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
@@ -21,14 +22,20 @@ test('PTY harness handles resize while async stream messages are rendering', asy
   const harness = result.harness;
   const app = defineTui({
     id: 'pty-resize-streaming',
-    init: () => ({ items: [] }),
+    init: () => ({ history: prepareScrollbackHistory([]) }),
     inputBindings: [{
       id: 'finish-stream',
       triggers: [{ kind: 'key', key: 'enter' }],
       message: { type: 'finish' }
     }],
     update: (state, message) => {
-      if (message.type === 'append') return { state: { items: [...state.items, message.text] } };
+      if (message.type === 'append') {
+        return {
+          state: {
+            history: appendScrollbackHistory(state.history, [{ id: String(state.history.itemCount), text: message.text }])
+          }
+        };
+      }
       return { state, exit: { reason: 'done' } };
     },
     subscriptions: () => [{
@@ -47,12 +54,12 @@ test('PTY harness handles resize while async stream messages are rendering', asy
     view: (state, context) => column([
       scrollback({
         id: 'stream-log',
-        items: state.items.map((text, index) => ({ id: String(index), text }))
+        history: state.history
       }),
       statusBar({
         id: 'status',
         leading: [{ id: 'viewport', kind: 'text', text: `cols:${context.viewport.columns}` }],
-        trailing: [{ id: 'items', kind: 'text', text: `items:${state.items.length}` }]
+        trailing: [{ id: 'items', kind: 'text', text: `items:${state.history.itemCount}` }]
       })
     ], { id: 'root' })
   });

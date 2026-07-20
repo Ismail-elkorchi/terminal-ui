@@ -1,4 +1,6 @@
 import type { FrameCell } from '../frame.ts';
+import { mergeableFrameCells } from '../frame-buffer.ts';
+import type { FrameBuffer } from '../frame-buffer.ts';
 import type { FramePass } from './frame-pass.ts';
 
 type Direction = 'up' | 'right' | 'down' | 'left';
@@ -12,14 +14,10 @@ interface GlyphShape {
 export const boxDrawingJoinPass: FramePass = {
   id: 'box-drawing-join',
   apply(buffer) {
-    const cells = buffer.snapshot().cells;
-    const index = new Map(cells.map((cell) => [cellKey(cell.row, cell.column), cell]));
-
-    for (const cell of cells) {
-      if (!isMergeableCell(cell)) continue;
+    for (const cell of mergeableFrameCells(buffer)) {
       const shape = shapeForGlyph(cell.text);
       if (shape === undefined) continue;
-      const directions = joinedDirections(cell, shape, index);
+      const directions = joinedDirections(cell, shape, buffer);
       const glyph = glyphForDirections(shape.family, directions);
       if (glyph === undefined || glyph === cell.text) continue;
       buffer.writeCell({ ...cell, text: glyph, width: 1 });
@@ -30,11 +28,11 @@ export const boxDrawingJoinPass: FramePass = {
 function joinedDirections(
   cell: FrameCell,
   shape: GlyphShape,
-  index: ReadonlyMap<string, FrameCell>
+  buffer: FrameBuffer
 ): readonly Direction[] {
   const directions = new Set(shape.directions);
   for (const direction of allDirections) {
-    const neighbor = neighborCell(cell, direction, index);
+    const neighbor = neighborCell(cell, direction, buffer);
     if (neighbor === undefined || !isMergeableCell(neighbor)) continue;
     const neighborShape = shapeForGlyph(neighbor.text);
     if (neighborShape?.directions.includes(oppositeDirection(direction)) === true) directions.add(direction);
@@ -45,11 +43,11 @@ function joinedDirections(
 function neighborCell(
   cell: FrameCell,
   direction: Direction,
-  index: ReadonlyMap<string, FrameCell>
+  buffer: FrameBuffer
 ): FrameCell | undefined {
   const row = direction === 'up' ? cell.row - 1 : direction === 'down' ? cell.row + 1 : cell.row;
   const column = direction === 'left' ? cell.column - 1 : direction === 'right' ? cell.column + 1 : cell.column;
-  return index.get(cellKey(row, column));
+  return buffer.readCell(row, column);
 }
 
 function isMergeableCell(cell: FrameCell): boolean {
@@ -73,10 +71,6 @@ function oppositeDirection(direction: Direction): Direction {
   if (direction === 'down') return 'up';
   if (direction === 'left') return 'right';
   return 'left';
-}
-
-function cellKey(row: number, column: number): string {
-  return `${String(row)}:${String(column)}`;
 }
 
 function directionKey(directions: readonly Direction[]): string {

@@ -1,4 +1,3 @@
-import { measureTextCells, sanitizeTerminalText } from '../../../../text/index.ts';
 import type { TextWidthProfile } from '../../../../text/index.ts';
 import type { TerminalTheme } from '../../../../theme/index.ts';
 import type {
@@ -10,7 +9,6 @@ import { dataWindow } from '../../../../behavior/data-window.ts';
 import { createScrollState, normalizeScrollState } from '../../../../behavior/scroll.ts';
 import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
 import { scrollbackWindow } from '../../scrollback.ts';
-import { stringify } from '../../render-node-props.ts';
 import { isRecord } from './common.ts';
 import { viewportVisualState } from './viewport.ts';
 import type { RenderTarget } from '../../../model/render-target.ts';
@@ -34,6 +32,7 @@ import type {
 } from '../../scrollbar.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
 import { collectionRecordById } from '../../../../ui-model/collection.ts';
+import { textAreaRenderModel } from '../../text-area/render-model.ts';
 
 const WHEEL_SCROLL_LINES = 3;
 const WHEEL_SCROLL_COLUMNS = 3;
@@ -512,30 +511,10 @@ export function menuScrollbarState(widget: MenuNode, bounds: Rect): ScrollState 
 export function textAreaScrollbarState(
   widget: TextAreaNode,
   bounds: Rect,
+  theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): ScrollState {
-  const lines = textAreaLines(widget);
-  const wrap = textAreaWrapEnabled(widget);
-  const contentWidth = Math.max(0, bounds.width - textAreaPrefixWidth(widget, lines.length));
-  const contentRows = wrap
-    ? lines.reduce<number>(
-        (total, lineText) => total + wrappedTextAreaRows(lineText, contentWidth, widthProfile),
-        0
-      )
-    : lines.length;
-  const contentColumns = wrap
-    ? contentWidth
-    : lines.reduce<number>(
-        (max, lineText) => Math.max(max, measureTextCells(lineText, { widthProfile }).cells),
-        0
-      );
-  const scroll = normalizedRenderNodeScroll(widget, {
-    contentRows,
-    contentColumns,
-    viewportRows: bounds.height,
-    viewportColumns: contentWidth
-  });
-  return scroll;
+  return textAreaRenderModel(widget, bounds, theme, widthProfile).scroll;
 }
 
 interface RenderNodeScrollStateInput {
@@ -579,39 +558,6 @@ function countMenuRows(value: unknown): number {
     const children = item['expanded'] === true ? countMenuRows(item['children']) : 0;
     return count + 1 + children;
   }, 0);
-}
-
-function textAreaLines(widget: TextAreaNode): readonly string[] {
-  const value = sanitizeTerminalText(stringify(widget.props.value)).text;
-  const placeholder = sanitizeTerminalText(stringify(widget.props.placeholder)).text;
-  const display = value.length === 0 && placeholder.length > 0 ? placeholder : value;
-  return display.length === 0 ? [''] : display.split('\n');
-}
-
-function textAreaWrapEnabled(widget: TextAreaNode): boolean {
-  const raw = widget.props.wrap;
-  if (raw === true) return true;
-  if (!isRecord(raw)) return false;
-  const mode = raw['mode'];
-  return mode === undefined || mode === 'soft';
-}
-
-function textAreaPrefixWidth(widget: TextAreaNode, lineCount: number): number {
-  const raw = widget.props.lineNumbers;
-  if (raw !== true && !isRecord(raw)) return 2;
-  const start = isRecord(raw) && typeof raw['start'] === 'number' && Number.isFinite(raw['start'])
-    ? Math.floor(raw['start'])
-    : 1;
-  const minWidth = isRecord(raw) && typeof raw['minWidth'] === 'number' && Number.isFinite(raw['minWidth'])
-    ? Math.max(1, Math.floor(raw['minWidth']))
-    : 1;
-  return Math.max(minWidth, String(start + Math.max(0, lineCount - 1)).length) + 4;
-}
-
-function wrappedTextAreaRows(lineText: string, width: number, widthProfile: TextWidthProfile): number {
-  if (lineText.length === 0) return 1;
-  const cells = measureTextCells(lineText, { widthProfile }).cells;
-  return width <= 0 ? 1 : Math.max(1, Math.ceil(cells / width));
 }
 
 function selectedTableRow(widget: TableNode): number {

@@ -81,6 +81,11 @@ exclusive. Use raw arrays for small data; retain prepared complete or windowed
 collections when projection, identity, or hierarchy flattening must not repeat
 on every `view()` call.
 
+`scrollback()` always accepts a prepared `ScrollbackHistory`. Create it with
+`prepareScrollbackHistory()` and retain it in application state. Add records
+with `appendScrollbackHistory()` so sanitation, identity, offsets, wrapping,
+and search data remain reusable across frames.
+
 `meta.accessibility` can provide a full accessible node override or lightweight
 options such as `label`, `description`, and `decorative`. Decorative elements
 are excluded from their parent's accessibility tree and must not expose

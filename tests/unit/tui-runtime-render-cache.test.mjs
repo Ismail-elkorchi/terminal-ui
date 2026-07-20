@@ -6,6 +6,7 @@ import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { custom } from '../../dist/renderer/index.js';
 import { button, tabs, text, textArea, textInput } from '../../dist/components/index.js';
 import { row } from '../../dist/layout/index.js';
+import { prepareTextDocument } from '../../dist/text/index.js';
 
 test('TUI tabs expose clickable tab hit targets', async () => {
   const app = defineTui({
@@ -89,7 +90,7 @@ test('TUI wheel input preserves the current focus path', async () => {
     update: (state) => ({ state: { scrolls: state.scrolls + 1 } }),
     view: () => textArea({
       id: 'wheel-field',
-      presentation: { value: 'one\ntwo\nthree\nfour', cursor: 0, scroll: createScrollState({ contentRows: 4, viewportRows: 2 }) },
+      presentation: { document: prepareTextDocument('one\ntwo\nthree\nfour'), cursor: 0, scroll: createScrollState({ contentRows: 4, viewportRows: 2 }) },
       onAction: () => ({ kind: 'scroll' })
     })
   });

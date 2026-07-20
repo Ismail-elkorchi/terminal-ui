@@ -16,9 +16,13 @@ import {
   textArea
 } from '../dist/components/index.js';
 import { column, overlay } from '../dist/layout/index.js';
-import { prepareTableCollection } from '../dist/behavior/index.js';
+import {
+  appendScrollbackHistory,
+  prepareScrollbackHistory,
+  prepareTableCollection
+} from '../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../dist/host/index.js';
-import { defaultTextWidthProfile } from '../dist/text/index.js';
+import { defaultTextWidthProfile, prepareTextDocument } from '../dist/text/index.js';
 import { defaultTheme } from '../dist/theme/index.js';
 import { createTuiRuntime, defineTui } from '../dist/tui/index.js';
 import { summarizeSamples } from './benchmark-statistics.mjs';
@@ -88,16 +92,21 @@ function renderScenarios(realApps) {
     { id: 'value', header: 'Value', value: (row) => row.value, width: { kind: 'fixed', cells: 12 }, align: 'end' }
   ];
   const historyCount = quick ? 2_000 : 100_000;
-  const history = Array.from({ length: historyCount }, (_value, index) => ({
+  const historyItems = Array.from({ length: historyCount }, (_value, index) => ({
     id: String(index),
     text: `Log line ${String(index)} contains deterministic searchable text ${String(index % 17)}`
   }));
+  const history = prepareScrollbackHistory(historyItems);
   const entries = Array.from({ length: quick ? 1_000 : 20_000 }, (_value, index) => ({
     id: `entry-${String(index)}`,
     label: `Command ${String(index)}`,
     value: index,
     keywords: [`group-${String(index % 25)}`]
   }));
+  const selectionDocument = prepareTextDocument(Array.from(
+    { length: quick ? 2_000 : 20_000 },
+    (_value, index) => `line ${String(index)} contains selectable text`
+  ).join('\n'));
   return [
     {
       name: 'typing-text-area',
@@ -105,7 +114,27 @@ function renderScenarios(realApps) {
       author(index) {
         return textArea({
           id: 'editor',
-          presentation: { value: `${'line\n'.repeat(200)}edit-${String(index)}`, cursor: index }
+          presentation: {
+            document: prepareTextDocument(`${'line\n'.repeat(200)}edit-${String(index)}`),
+            cursor: index
+          }
+        });
+      }
+    },
+    {
+      name: 'selecting-large-text-area',
+      scale: selectionDocument.lineCount,
+      author(index) {
+        const end = Math.min(selectionDocument.text.length, 1_000 + index);
+        return textArea({
+          id: 'large-editor',
+          presentation: {
+            document: selectionDocument,
+            cursor: end,
+            selection: { start: 1_000, end }
+          },
+          lineNumbers: true,
+          activeLine: true
         });
       }
     },
@@ -136,22 +165,25 @@ function renderScenarios(realApps) {
     },
     {
       name: 'long-scrollback-wrap',
-      scale: history.length,
+      scale: history.itemCount,
       author(index) {
         return scrollback({
           id: 'wrapped-log',
-          items: [...history, { id: `new-${String(index)}`, text: `Newest wrapped line ${String(index)}` }],
+          history: appendScrollbackHistory(history, [{
+            id: `new-${String(index)}`,
+            text: `Newest wrapped line ${String(index)}`
+          }]),
           wrap: true
         });
       }
     },
     {
       name: 'long-scrollback-search',
-      scale: history.length,
+      scale: history.itemCount,
       author(index) {
         return scrollback({
           id: 'searched-log',
-          items: history,
+          history,
           searchQuery: `searchable text ${String(index % 17)}`
         });
       }

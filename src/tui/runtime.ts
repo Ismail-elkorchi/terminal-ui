@@ -29,6 +29,8 @@ import { commitFrame, dirtyRegionsForRenderCommit, renderCurrentFrame, resolveTu
 import { createTuiSubscriptionManager } from './subscriptions.ts';
 import { createWheelInputCoordinator } from './wheel-input-coordinator.ts';
 import { createResizeCoordinator } from './resize-coordinator.ts';
+import { createPointerMotionCoordinator } from './pointer-motion-coordinator.ts';
+import type { PointerMotionEvent } from './pointer-motion-coordinator.ts';
 import type { InputEvent, MouseEvent as TerminalMouseEvent, MouseWheelEvent } from '../input/index.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -150,8 +152,22 @@ export function createTuiRuntime<TState, TMessage>(
       }
     }
   });
+  const pointerMotion = createPointerMotionCoordinator<TuiInputResult<TState>>({
+    execute: (event) => dispatchQueue.run(() => handleMouseInputInternal(event)),
+    stop: (result) => result.exit !== undefined,
+    reportFailure(cause) {
+      if (phase !== 'disposing' && phase !== 'disposed') {
+        recordDiagnostic(diagnostic('TUI_RUNTIME_TASK_FAILED', 'TUI pointer motion dispatch failed.', {
+          target: options.app.id,
+          cause,
+          data: { owner: 'pointer_motion' }
+        }));
+      }
+    }
+  });
   const resizeCoordinator = createResizeCoordinator(async (viewport: typeof currentViewport) => {
     await wheelInput.flush();
+    await pointerMotion.flush();
     return dispatchQueue.run(() => resizeInternal(viewport));
   });
   const subscriptions = createTuiSubscriptionManager<TState, TMessage>({
@@ -193,6 +209,7 @@ export function createTuiRuntime<TState, TMessage>(
     },
     async handleInput(event) {
       await wheelInput.flush();
+      await pointerMotion.flush();
       metrics.decodedInputEvents += 1;
       return handleInputImmediately(event);
     },
@@ -206,12 +223,12 @@ export function createTuiRuntime<TState, TMessage>(
         const expired = inputPipeline.flush();
         metrics.decodedInputEvents += expired.events.length;
         const result = await processInputEvents(expired.events);
-        const pendingWheel = result.pending === undefined ? [] : await result.pending;
-        return [...result.results, ...pendingWheel];
+        const pendingInput = result.pending === undefined ? [] : await result.pending;
+        return [...result.results, ...pendingInput];
       }).then((results) => results ?? []);
       return {
         results: decoded.results,
-        pending: combinePendingInput(decoded.pending, pendingEscape)
+        pending: combinePendingInput(decoded.pending, pendingEscape) ?? pendingEscape
       };
     },
     async flushInput() {
@@ -219,7 +236,10 @@ export function createTuiRuntime<TState, TMessage>(
       const batch = inputPipeline.flush();
       metrics.decodedInputEvents += batch.events.length;
       const decoded = await processInputEvents(batch.events);
-      const pending = await wheelInput.flush();
+      const pending = [
+        ...await wheelInput.flush(),
+        ...await pointerMotion.flush()
+      ];
       return [...decoded.results, ...pending];
     },
     resetInput() {
@@ -227,6 +247,7 @@ export function createTuiRuntime<TState, TMessage>(
       inputAmbiguity.cancel();
       inputPipeline.reset();
       wheelInput.reset();
+      pointerMotion.reset();
       pointerRouter.reset();
     },
     nextChange(signal) {
@@ -310,6 +331,7 @@ export function createTuiRuntime<TState, TMessage>(
       const resolution = resolveRenderCandidate(
         state,
         context,
+        theme,
         currentFocusPath,
         focusReturnPaths,
         pendingInitialFocus,
@@ -403,6 +425,7 @@ export function createTuiRuntime<TState, TMessage>(
     const resolution = resolveRenderCandidate(
       reduction.state,
       context,
+      theme,
       input.requestedFocusPath,
       focusReturnPaths,
       undefined,
@@ -584,20 +607,36 @@ export function createTuiRuntime<TState, TMessage>(
     const results: TuiInputResult<TState>[] = [];
     for (const event of events) {
       if (isWheelInputEvent(event)) {
+        results.push(...await pointerMotion.flush());
+        if (results.at(-1)?.exit !== undefined) break;
         results.push(...await enqueueWheelInput(event));
         if (results.at(-1)?.exit !== undefined) break;
         continue;
       }
+      if (isPointerMotionEvent(event)) {
+        results.push(...await wheelInput.flush());
+        if (results.at(-1)?.exit !== undefined) break;
+        enqueuePointerMotion(event);
+        continue;
+      }
       results.push(...await wheelInput.flush());
+      if (results.at(-1)?.exit !== undefined) break;
+      results.push(...await pointerMotion.flush());
+      if (results.at(-1)?.exit !== undefined) break;
       const result = await handleInputImmediately(event);
       results.push(result);
       if (result.exit !== undefined) break;
     }
-    const pending = wheelInput.pending();
+    const pending = combinePendingInput(wheelInput.pending(), pointerMotion.pending());
     return {
       results,
       ...(pending === undefined ? {} : { pending })
     };
+  }
+
+  function enqueuePointerMotion(event: PointerMotionEvent): void {
+    options.transcript?.record({ kind: 'input', event });
+    pointerMotion.enqueue(event);
   }
 
   async function enqueueWheelInput(event: MouseWheelEvent): Promise<readonly TuiInputResult<TState>[]> {
@@ -695,6 +734,7 @@ export function createTuiRuntime<TState, TMessage>(
     lifetimeController.abort();
     phase = 'disposing';
     const unavailable = runtimePhaseError('disposed');
+    pointerMotion.dispose(unavailable);
     resizeCoordinator.dispose(unavailable);
     for (const waiter of changeWaiters.splice(0)) {
       waiter.detach();
@@ -713,7 +753,8 @@ export function createTuiRuntime<TState, TMessage>(
       }
       await Promise.allSettled([
         ...[...backgroundTasks].map((task) => task.completion),
-        wheelInput.settle()
+        wheelInput.settle(),
+        pointerMotion.settle()
       ]);
       const cleanups = await Promise.allSettled([subscriptions.dispose(), effects.dispose()]);
       for (const cleanup of cleanups) {
@@ -780,6 +821,7 @@ export function createTuiRuntime<TState, TMessage>(
   function resolveRenderCandidate(
     state: TState,
     context: TuiContext,
+    theme: TerminalTheme,
     requestedFocusPath: FocusPath | undefined,
     previousReturnPaths: readonly FocusPath[],
     initialFocus: TuiRuntimeOptions<TState, TMessage>['initialFocus'],
@@ -788,12 +830,12 @@ export function createTuiRuntime<TState, TMessage>(
   ): RuntimeRenderResolution<TMessage> {
     const diagnostics: TerminalDiagnostic[] = [];
     let desiredFocusPath = requestedFocusPath;
-    let render = renderCurrentFrame(options.app, state, context, desiredFocusPath, options, candidateStateVersion, commitId);
+    let render = renderCurrentFrame(options.app, state, context, desiredFocusPath, theme, candidateStateVersion, commitId);
     if (initialFocus !== undefined) {
       const resolution = resolveInitialFocusSelector(render.layout, initialFocus);
       if (resolution.kind === 'matched' && !sameFocusPath(resolution.path, render.frame.focusPath)) {
         desiredFocusPath = resolution.path;
-        render = renderCurrentFrame(options.app, state, context, desiredFocusPath, options, candidateStateVersion, commitId);
+        render = renderCurrentFrame(options.app, state, context, desiredFocusPath, theme, candidateStateVersion, commitId);
       } else if (resolution.kind !== 'matched') {
         diagnostics.push(diagnostic(
           'TUI_FOCUS_SELECTION_INVALID',
@@ -825,7 +867,7 @@ export function createTuiRuntime<TState, TMessage>(
         state,
         context,
         focusReturnPath,
-        options,
+        theme,
         candidateStateVersion,
         commitId
       );
@@ -1004,6 +1046,10 @@ function isWheelInputEvent(event: InputEvent | undefined): event is MouseWheelEv
   return event?.kind === 'mouse' && event.action === 'wheel';
 }
 
+function isPointerMotionEvent(event: InputEvent | undefined): event is PointerMotionEvent {
+  return event?.kind === 'mouse' && (event.action === 'drag' || event.action === 'move');
+}
+
 function sameFocusPath(left: FocusPath | undefined, right: FocusPath | undefined): boolean {
   if (left === undefined || right === undefined) return left === right;
   return left.length === right.length && left.every((segment, index) => segment === right[index]);
@@ -1011,8 +1057,9 @@ function sameFocusPath(left: FocusPath | undefined, right: FocusPath | undefined
 
 function combinePendingInput<TState>(
   first: Promise<readonly TuiInputResult<TState>[]> | undefined,
-  second: Promise<readonly TuiInputResult<TState>[]>
-): Promise<readonly TuiInputResult<TState>[]> {
+  second: Promise<readonly TuiInputResult<TState>[]> | undefined
+): Promise<readonly TuiInputResult<TState>[]> | undefined {
+  if (second === undefined) return first;
   if (first === undefined) return second;
   return Promise.all([first, second]).then(([left, right]) => [...left, ...right]);
 }

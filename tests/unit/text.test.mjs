@@ -131,6 +131,22 @@ test('text editing respects grapheme boundaries', () => {
   assert.deepEqual(deleted, { text: 'x', cursor: 0 });
 });
 
+test('text editing sanitizes inserted text before deriving cursor offsets', () => {
+  const escape = '\u001B[31m';
+
+  assert.deepEqual(
+    editTextBuffer({ text: 'ab', cursor: 1 }, { kind: 'insert', text: `${escape}X\u001B[0m` }),
+    { text: 'aXb', cursor: 2 }
+  );
+  assert.deepEqual(
+    editTextBuffer(
+      { text: 'abcd', cursor: 3, selection: { start: 1, end: 3 } },
+      { kind: 'replaceSelection', text: `Y\u0007Z` }
+    ),
+    { text: 'aYZd', cursor: 3 }
+  );
+});
+
 test('terminal text index maps grapheme, visual, and byte offsets', () => {
   const textValue = 'A👩‍💻e\u0301界\tمرحبا';
   const index = createTerminalTextIndex(textValue);

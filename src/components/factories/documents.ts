@@ -30,6 +30,7 @@ import type {
   InferredElementKeyBindings
 } from '../internal/messages.ts';
 import type { ScrollbackAction, ScrollbackControlAction } from '../../ui-model/scrollback.ts';
+import { assertScrollbackHistory } from '../../ui-model/scrollback-history.ts';
 
 /* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
 export function scrollback<
@@ -58,6 +59,7 @@ export function scrollback<
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 /* eslint-enable @typescript-eslint/unified-signatures */
 export function scrollback(options: ScrollbackOptions<unknown>): Element<unknown> {
+  assertScrollbackHistory(options.history);
   const onControlAction: ((action: ScrollbackControlAction) => unknown) | undefined = options.onAction;
   const onAction: ((action: ScrollbackAction) => unknown) | undefined = options.onAction === undefined
     ? undefined
@@ -72,7 +74,7 @@ export function scrollback(options: ScrollbackOptions<unknown>): Element<unknown
     ...requiredId(options.id, 'scrollback'),
     kind: 'scrollback',
     props: {
-      items: options.items,
+      history: options.history,
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),

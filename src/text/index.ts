@@ -2,6 +2,16 @@ export { clipTextCells } from './clip.ts';
 export { fillTextCells, oneCellGlyph, padTextCells } from './cell-geometry.ts';
 export { applyTextEditWithHistory, emptyTextEditHistory } from './edit-history.ts';
 export { editTextBuffer } from './edit.ts';
+export {
+  assertTextDocument,
+  isTextDocument,
+  normalizeTextDocumentOffset,
+  normalizeTextDocumentSelection,
+  prepareTextDocument,
+  textDocumentLineAt,
+  textDocumentLineIndexAtOffset
+} from './document.ts';
+export type { TextDocument, TextDocumentLine } from './document.ts';
 export { segmentGraphemes } from './graphemes.ts';
 export { measureTextCells } from './measure.ts';
 export { sanitizeTerminalText } from './sanitize.ts';

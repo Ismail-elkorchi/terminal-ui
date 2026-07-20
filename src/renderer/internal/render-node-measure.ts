@@ -1,4 +1,4 @@
-import { measureTextCells } from '../../text/index.ts';
+import { measureTextCells, prepareTextDocument } from '../../text/index.ts';
 import { borderStyleFromValue } from './border.ts';
 import { commandInputBlock } from './command-input.ts';
 import { barChartText, chartText, meterText, heatmapText, sparklineText } from './charts/index.ts';
@@ -33,6 +33,7 @@ import { paletteBlock } from './palette.ts';
 import { progressText } from './progress-widget.ts';
 import { notificationStackPreferredSize } from './notifications.ts';
 import { statusBarText } from './feedback-visual.ts';
+import { textAreaInputContentBounds } from './input-visual.ts';
 import { isRecord, nonNegativeInteger } from './renderers/support/common.ts';
 import { tabsHeaderText } from './renderers/support/tabs.ts';
 import { listIntrinsicMeasurement } from './renderers/support/list.ts';
@@ -47,6 +48,9 @@ import type { BorderStyle } from './border.ts';
 import type { LayoutNode, Rect } from '../model/layout.ts';
 import type { Measurement } from './measurement.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
+import { scrollbackHistoryItemAt } from '../../ui-model/scrollback-history.ts';
+import { projectTextAreaDocument } from './text-area/projection.ts';
+import { textAreaWrapEnabled } from './text-area/render-model.ts';
 
 type TableNode = RenderNodeOfKind<unknown, 'table'>;
 type SurfaceNode = RenderNodeOfKind<unknown, 'surface'>;
@@ -80,7 +84,7 @@ export function measureBuiltinRenderNode(
     case 'statusBar':
       return measureText(statusBarText(widget, theme, widthProfile), { widthProfile });
     case 'textArea':
-      return measureText(textAreaMeasureText(widget), { widthProfile });
+      return textAreaMeasurement(widget, bounds, theme, widthProfile);
     case 'label':
       return measureBlock(labelBlock(widget, constrainedMeasureBounds(bounds), widthProfile), { widthProfile });
     case 'button':
@@ -374,7 +378,7 @@ function childMeasuresFor(
 }
 
 function scrollbackMeasureText(widget: ScrollbackNode): string {
-  const items = Array.isArray(widget.props.items) ? widget.props.items : [];
+  const history = widget.props.history;
   const scroll = isRecord(widget.props.scroll) ? widget.props.scroll : undefined;
   const viewportRows = boundedMeasureSize(
     typeof scroll?.viewportRows === 'number' ? scroll.viewportRows : 0,
@@ -383,17 +387,31 @@ function scrollbackMeasureText(widget: ScrollbackNode): string {
   );
   const offset = typeof scroll?.offsetRow === 'number'
     ? Math.max(0, Math.floor(scroll.offsetRow))
-    : Math.max(0, items.length - viewportRows);
-  return items
-    .slice(offset, offset + viewportRows + 1)
-    .map((item) => isRecord(item) ? stringify(item['text']) : '')
+    : Math.max(0, history.itemCount - viewportRows);
+  return Array.from({ length: viewportRows + 1 }, (_value, index) =>
+    scrollbackHistoryItemAt(history, offset + index)?.bodyText ?? ''
+  )
     .join('\n');
 }
 
-function textAreaMeasureText(widget: TextAreaNode): string {
-  const value = stringify(widget.props.value);
-  const placeholder = stringify(widget.props.placeholder);
-  return value.length === 0 && placeholder.length > 0 ? placeholder : value;
+function textAreaMeasurement(
+  widget: TextAreaNode,
+  bounds: Rect,
+  theme: TerminalTheme,
+  widthProfile: TextWidthProfile
+): Measurement {
+  const document = widget.props.document.text.length === 0 && (widget.props.placeholder?.length ?? 0) > 0
+    ? prepareTextDocument(widget.props.placeholder ?? '')
+    : widget.props.document;
+  const contentBounds = textAreaInputContentBounds(bounds, theme, widthProfile, widget, document.lineCount);
+  const projection = projectTextAreaDocument(
+    document,
+    contentBounds.width,
+    textAreaWrapEnabled(widget),
+    widthProfile
+  );
+  const gutterColumns = Math.max(0, bounds.width - contentBounds.width);
+  return measureSize(projection.intrinsicColumns + gutterColumns, projection.contentRows);
 }
 
 function tableColumnMeasureInputs(

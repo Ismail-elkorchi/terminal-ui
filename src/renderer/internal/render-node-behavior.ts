@@ -25,8 +25,7 @@ export function layoutChildBounds(
   widget: RenderNode,
   bounds: Rect,
   viewport: Rect,
-  theme: TerminalTheme,
-  widthProfile: TextWidthProfile
+  measurements: RenderMeasurementContext
 ): readonly Rect[] {
   const children = widget.children ?? [];
   if (children.length === 0) return [];
@@ -35,8 +34,26 @@ export function layoutChildBounds(
   if (renderer.layout === undefined) {
     throw new Error(`RenderNode "${widget.kind}" has children but does not define layout.`);
   }
-  const childMeasures = children.map((child) => measureRenderNode(child, bounds, theme, widthProfile));
-  return renderer.layout({ renderNode: widget, bounds, viewport, theme, childMeasures, widthProfile });
+  const measured = new Map<number, Measurement>();
+  const measureChild = (index: number): Measurement => {
+    if (!Number.isInteger(index) || index < 0 || index >= children.length) return zeroMeasurement();
+    const cached = measured.get(index);
+    if (cached !== undefined) return cached;
+    const child = children[index];
+    if (child === undefined) return zeroMeasurement();
+    const measurement = measurements.measure(child, bounds);
+    measured.set(index, measurement);
+    return measurement;
+  };
+  return renderer.layout({
+    renderNode: widget,
+    bounds,
+    viewport,
+    theme: measurements.theme,
+    childCount: children.length,
+    measureChild,
+    widthProfile: measurements.widthProfile
+  });
 }
 
 export function placeRenderNode(
@@ -49,18 +66,56 @@ export function placeRenderNode(
   return rendererForRenderNode(widget).place?.({ renderNode: widget, bounds, viewport, theme, widthProfile }) ?? bounds;
 }
 
-export function measureRenderNode(
-  widget: RenderNode,
-  bounds: Rect,
+export interface RenderMeasurementContext {
+  readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+  measure(widget: RenderNode, bounds: Rect): Measurement;
+}
+
+export function createRenderMeasurementContext(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
+): RenderMeasurementContext {
+  const cache = new WeakMap<RenderNode, Map<string, Measurement>>();
+  const context: RenderMeasurementContext = {
+    theme,
+    widthProfile,
+    measure(widget, bounds) {
+      const key = `${String(bounds.row)}:${String(bounds.column)}:${String(bounds.width)}:${String(bounds.height)}`;
+      const byConstraint = cache.get(widget) ?? new Map<string, Measurement>();
+      cache.set(widget, byConstraint);
+      const cached = byConstraint.get(key);
+      if (cached !== undefined) return cached;
+      const measurement = measureRenderNode(widget, bounds, context);
+      byConstraint.set(key, measurement);
+      return measurement;
+    }
+  };
+  return context;
+}
+
+function measureRenderNode(
+  widget: RenderNode,
+  bounds: Rect,
+  context: RenderMeasurementContext
 ): Measurement {
   const renderer = rendererForRenderNode(widget);
   if (renderer.measure !== undefined) {
-    return normalizeMeasurement(renderer.measure({ renderNode: widget, bounds, theme, widthProfile }));
+    return normalizeMeasurement(renderer.measure({
+      renderNode: widget,
+      bounds,
+      theme: context.theme,
+      widthProfile: context.widthProfile
+    }));
   }
   if (widget.kind === 'custom') return zeroMeasurement();
-  return measureBuiltinRenderNode(widget, bounds, theme, widthProfile, measureRenderNode);
+  return measureBuiltinRenderNode(
+    widget,
+    bounds,
+    context.theme,
+    context.widthProfile,
+    (child, childBounds) => context.measure(child, childBounds)
+  );
 }
 
 export function renderRenderNode(

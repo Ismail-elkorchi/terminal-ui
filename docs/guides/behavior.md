@@ -178,6 +178,12 @@ when rows are inserted, deleted, reordered, or reprojected. Reducers and
 renderers reuse identity and projection work while the same collection object
 is retained; they do not retain mutable application arrays implicitly.
 
+Append-heavy documents use the same retained-projection rule through a
+dedicated contract. Build a `ScrollbackHistory` once with
+`prepareScrollbackHistory()`, store it in application state, and append records
+with `appendScrollbackHistory()`. The append helper preserves existing history
+segments, while wrapping and search indexes are reused by the renderer.
+
 Scrollable controls use exact state and projection variants. For example,
 `PassiveTableState` is projected with `tablePresentation()`, while
 `ScrollableTableState` is projected with `tableScrollablePresentation()` and

@@ -1,10 +1,20 @@
-import { findTextHighlightMatches, sanitizeTerminalText } from '../text/index.ts';
+import { sanitizeTerminalText } from '../text/index.ts';
 import { applyScrollEvent, createScrollState, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type { TextSelection } from '../text/index.ts';
-import type { ScrollbackItem } from '../ui-model/documents.ts';
+import {
+  prepareScrollbackHistory,
+  scrollbackHistoryRecordMatchCount,
+  scrollbackHistoryItems
+} from '../ui-model/scrollback-history.ts';
+import type { ScrollbackHistory } from '../ui-model/scrollback-history.ts';
 import type { ScrollbackAction, ScrollbackControlAction } from '../ui-model/scrollback.ts';
 import { selectionFromTextPointerAction } from './text-editing.ts';
+
+const foldedHistoryCache = new WeakMap<
+ScrollbackHistory,
+WeakMap<readonly string[], ScrollbackHistory>
+>();
 
 interface ScrollbackStateBase {
   readonly searchQuery?: string;
@@ -25,7 +35,7 @@ export interface ScrollableScrollbackState extends ScrollbackStateBase {
 export type ScrollbackState = PassiveScrollbackState | ScrollableScrollbackState;
 
 export interface ScrollbackPresentation {
-  readonly items: readonly ScrollbackItem[];
+  readonly history: ScrollbackHistory;
   readonly followTail: boolean;
   readonly searchQuery?: string;
   readonly selectedRange?: TextSelection;
@@ -93,25 +103,25 @@ export function scrollbackReducer(state: ScrollbackState, action: ScrollbackActi
 }
 
 export function scrollbackPresentation(
-  items: readonly ScrollbackItem[],
+  history: ScrollbackHistory,
   state: PassiveScrollbackState
 ): ScrollbackPresentation {
-  return scrollbackPresentationBase(items, state);
+  return scrollbackPresentationBase(history, state);
 }
 
 export function scrollbackScrollablePresentation(
-  items: readonly ScrollbackItem[],
+  history: ScrollbackHistory,
   state: ScrollableScrollbackState
 ): ScrollbackScrollablePresentation {
-  return { ...scrollbackPresentationBase(items, state), scroll: state.scroll };
+  return { ...scrollbackPresentationBase(history, state), scroll: state.scroll };
 }
 
 function scrollbackPresentationBase(
-  items: readonly ScrollbackItem[],
+  history: ScrollbackHistory,
   state: ScrollbackStateBase
 ): ScrollbackPresentation {
   return {
-    items: visibleScrollbackItems(items, state),
+    history: foldScrollbackHistory(history, state.foldedIds),
     followTail: state.followTail,
     ...(state.searchQuery === undefined ? {} : { searchQuery: state.searchQuery }),
     ...(state.selectedRange === undefined ? {} : { selectedRange: state.selectedRange })
@@ -119,17 +129,19 @@ function scrollbackPresentationBase(
 }
 
 export function scrollbackSearchMarks(
-  items: readonly ScrollbackItem[],
+  history: ScrollbackHistory,
   query: string
 ): readonly ScrollbackSearchMark[] {
   const normalized = query.trim();
   if (normalized.length === 0) return [];
-  return items.flatMap((item, itemIndex): readonly ScrollbackSearchMark[] => {
-    const matchCount = findTextHighlightMatches(sanitizeTerminalText(item.text).text, normalized).length;
-    return matchCount === 0
-      ? []
-      : [{ itemId: item.id, itemIndex, matchCount }];
-  });
+  return history.segments.flatMap((segment) => segment.records.flatMap((record): readonly ScrollbackSearchMark[] => {
+    const matchCount = scrollbackHistoryRecordMatchCount(record, normalized);
+    return matchCount === 0 ? [] : [{
+      itemId: record.item.id,
+      itemIndex: record.itemIndex,
+      matchCount
+    }];
+  }));
 }
 
 export function nextScrollbackMatch(
@@ -142,11 +154,15 @@ export function nextScrollbackMatch(
   return marks[index];
 }
 
-export function visibleScrollbackItems(
-  items: readonly ScrollbackItem[],
-  state: Pick<ScrollbackState, 'foldedIds'>
-): readonly ScrollbackItem[] {
-  return items.map((item) => state.foldedIds.includes(item.id)
+export function foldScrollbackHistory(
+  history: ScrollbackHistory,
+  foldedIds: readonly string[]
+): ScrollbackHistory {
+  if (foldedIds.length === 0) return history;
+  const cached = foldedHistoryCache.get(history)?.get(foldedIds);
+  if (cached !== undefined) return cached;
+  const folded = new Set(foldedIds);
+  const projected = prepareScrollbackHistory(scrollbackHistoryItems(history).map((item) => folded.has(item.id)
     ? {
         ...item,
         text: foldedText(item.text),
@@ -155,7 +171,11 @@ export function visibleScrollbackItems(
           folded: 'true'
         }
       }
-    : item);
+    : item));
+  const byFoldState = foldedHistoryCache.get(history) ?? new WeakMap<readonly string[], ScrollbackHistory>();
+  byFoldState.set(foldedIds, projected);
+  foldedHistoryCache.set(history, byFoldState);
+  return projected;
 }
 
 export function followTailScrollState(input: {

@@ -5,7 +5,7 @@ import { createTuiContext } from './context.ts';
 import { completedExitFromSnapshot } from './exit.ts';
 import { TuiFinalizationDeadline } from './finalization-deadline.ts';
 import { tuiSnapshot } from './lifecycle.ts';
-import { renderCurrentFrame } from './runtime-frame.ts';
+import { renderCurrentFrame, resolveTuiTheme } from './runtime-frame.ts';
 import { recordTuiCommit } from './transcript.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalHost } from '../host/index.ts';
@@ -45,12 +45,13 @@ export async function runTuiNonTty<TState, TMessage>(
   let frame;
   try {
     const context = await createTuiContext(host);
+    const runtime = runtimeOptions(app, host, transcript);
     frame = renderCurrentFrame(
       app,
       state,
       context,
       undefined,
-      runtimeOptions(app, host, transcript),
+      resolveTuiTheme(runtime.theme, state),
       0,
       `${app.id}:commit:1`
     ).frame;

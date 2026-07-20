@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createScrollState } from '../../dist/behavior/index.js';
+import { createScrollState, prepareScrollbackHistory } from '../../dist/behavior/index.js';
 import {
   asciiSymbols,
   defaultTheme,
@@ -28,6 +28,7 @@ import {
   text
 } from '../../dist/components/index.js';
 import { viewport } from '../../dist/layout/index.js';
+import { prepareTextDocument } from '../../dist/text/index.js';
 
 test('scrollbarLayout reserves edge tracks and computes proportional thumbs', () => {
   const layout = scrollbarLayout(
@@ -230,7 +231,7 @@ test('scrollback scrollbar is opt-in and preserves scoped visible-window accessi
   const items = Array.from({ length: 8 }, (_value, index) => ({ id: `row-${index}`, text: `Row ${index}` }));
   const frame = renderElementFrame(scrollback({
     id: 'log',
-    items,
+    history: prepareScrollbackHistory(items),
     scroll: createScrollState({ offsetRow: 0, contentRows: 8, viewportRows: 3 }),
     scrollbar: {}
   }), { columns: 12, rows: 3 });
@@ -243,7 +244,7 @@ test('scrollback scrollbar is opt-in and preserves scoped visible-window accessi
 test('textArea scrollbar follows explicit text scroll state', () => {
   const frame = renderElementFrame(textArea({
     id: 'body',
-    presentation: { value: 'alpha\nbravo\ncharlie', cursor: 0, scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
+    presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), cursor: 0, scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
     scrollbar: {}
   }), { columns: 10, rows: 2 });
 
@@ -257,7 +258,7 @@ test('textArea scrollbar follows explicit text scroll state', () => {
 test('widget scrollbars expose owner source metadata and visual state', () => {
   const frame = renderElementFrame(textArea({
     id: 'body',
-    presentation: { value: 'alpha\nbravo\ncharlie', cursor: 0, scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
+    presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), cursor: 0, scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
     scrollbar: { visible: 'always', visualState: 'hover' }
   }), { columns: 10, rows: 2 });
 

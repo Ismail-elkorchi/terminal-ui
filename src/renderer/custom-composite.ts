@@ -24,7 +24,8 @@ interface CustomCompositeInput<TState> {
 
 export interface CustomCompositeLayoutInput<TState> extends CustomCompositeInput<TState> {
   readonly viewport: Rect;
-  readonly childMeasurements: readonly Measurement[];
+  readonly childCount: number;
+  readonly measureChild: (index: number) => Measurement;
 }
 
 export interface CustomCompositeRenderInput<TState> extends CustomCompositeInput<TState> {
@@ -126,8 +127,8 @@ function adaptCustomCompositeRenderer<TState, TMessage>(
     ...(renderer.measure === undefined ? {} : {
       measure: ({ bounds, theme }) => renderer.measure?.({ state, bounds, theme }) ?? zeroMeasurement()
     }),
-    layout: ({ bounds, viewport, theme, childMeasures }) => normalizeChildBounds(
-      renderer.layout({ state, bounds, viewport, theme, childMeasurements: childMeasures }),
+    layout: ({ bounds, viewport, theme, childCount: measuredChildCount, measureChild }) => normalizeChildBounds(
+      renderer.layout({ state, bounds, viewport, theme, childCount: measuredChildCount, measureChild }),
       bounds,
       childCount
     ),

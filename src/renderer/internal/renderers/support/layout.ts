@@ -22,9 +22,11 @@ type LayoutFlowNode = RenderNodesOfKind<
   'column' | 'dialog' | 'field' | 'form' | 'grid' | 'row' | 'splitPane' | 'surface' | 'tabs' | 'viewport'
 >;
 
-export function gridChildBounds(widget: GridNode, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {
+type MeasureChild = (index: number) => Measurement;
+
+export function gridChildBounds(widget: GridNode, bounds: Rect, measureChild: MeasureChild): readonly Rect[] {
   if (Array.isArray(widget.props.areas)) {
-    return gridAreaChildBounds(widget, bounds, childMeasures);
+    return gridAreaChildBounds(widget, bounds, measureChild);
   }
   const rows = layoutSizes(widget.props.rows);
   const columns = layoutSizes(widget.props.columns);
@@ -37,14 +39,14 @@ export function gridChildBounds(widget: GridNode, bounds: Rect, childMeasures: r
     'vertical',
     resolvedRows,
     gapOnlyOptions(options.rowGap ?? options.gap),
-    gridContentSizes(childMeasures, resolvedRows.length, resolvedColumns.length, 'vertical')
+    gridContentSizes(resolvedRows, resolvedColumns.length, widget.children?.length ?? 0, measureChild, 'vertical')
   );
   const columnRects = splitTracks(
     contentBounds,
     'horizontal',
     resolvedColumns,
     gapOnlyOptions(options.columnGap ?? options.gap),
-    gridContentSizes(childMeasures, resolvedRows.length, resolvedColumns.length, 'horizontal')
+    gridContentSizes(resolvedColumns, resolvedColumns.length, widget.children?.length ?? 0, measureChild, 'horizontal')
   );
   const cells = rowRects.flatMap((rowRect) => columnRects.map((columnRect) => ({
     row: rowRect.row,
@@ -55,7 +57,7 @@ export function gridChildBounds(widget: GridNode, bounds: Rect, childMeasures: r
   return (widget.children ?? []).map((_child, index) => cells[index] ?? emptyRect(bounds));
 }
 
-function gridAreaChildBounds(widget: GridNode, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {
+function gridAreaChildBounds(widget: GridNode, bounds: Rect, measureChild: MeasureChild): readonly Rect[] {
   const template = gridAreasTemplate(widget.props.areas);
   const areaNames = gridAreaNames(widget.props.areaNames);
   if (template.length === 0 || areaNames.length === 0) return [];
@@ -68,48 +70,57 @@ function gridAreaChildBounds(widget: GridNode, bounds: Rect, childMeasures: read
     'vertical',
     rows.length === 0 ? [{ kind: 'fill' }] : rows,
     gapOnlyOptions(options.rowGap ?? options.gap),
-    gridAreaContentSizes(template, areaNames, childMeasures, 'vertical')
+    gridAreaContentSizes(template, areaNames, rows.length === 0 ? [{ kind: 'fill' }] : rows, measureChild, 'vertical')
   );
   const columnRects = splitTracks(
     contentBounds,
     'horizontal',
     columns.length === 0 ? [{ kind: 'fill' }] : columns,
     gapOnlyOptions(options.columnGap ?? options.gap),
-    gridAreaContentSizes(template, areaNames, childMeasures, 'horizontal')
+    gridAreaContentSizes(template, areaNames, columns.length === 0 ? [{ kind: 'fill' }] : columns, measureChild, 'horizontal')
   );
   return areaNames.map((name) => areaBounds(template, name, rowRects, columnRects) ?? emptyRect(bounds));
 }
 
-export function splitPaneChildBounds(widget: SplitPaneNode, bounds: Rect, childMeasures: readonly Measurement[]): readonly Rect[] {
+export function splitPaneChildBounds(widget: SplitPaneNode, bounds: Rect, measureChild: MeasureChild): readonly Rect[] {
   const children = widget.children ?? [];
   const explicit = layoutSizes(widget.props.sizes);
   const tracks = explicit.length === children.length ? explicit : children.map(() => ({ kind: 'fill' as const }));
   const direction = widget.props.direction === 'horizontal' ? 'horizontal' : 'vertical';
-  return splitTracks(bounds, direction, tracks, layoutFlowOptions(widget), childMeasures.map((measure) =>
-    direction === 'horizontal' ? measure.preferredWidth : measure.preferredHeight
-  ));
+  return splitTracks(bounds, direction, tracks, layoutFlowOptions(widget), tracks.map((track, index) => {
+    if (track.kind !== 'content') return 0;
+    const measure = measureChild(index);
+    return direction === 'horizontal' ? measure.preferredWidth : measure.preferredHeight;
+  }));
 }
 
 function gridContentSizes(
-  childMeasures: readonly Measurement[],
-  rowCount: number,
+  tracks: readonly LayoutSize[],
   columnCount: number,
+  childCount: number,
+  measureChild: MeasureChild,
   orientation: 'horizontal' | 'vertical'
 ): readonly number[] {
-  const count = orientation === 'horizontal' ? columnCount : rowCount;
-  return Array.from({ length: count }, (_item, trackIndex) => childMeasures.reduce((max, measure, childIndex) => {
+  return tracks.map((track, trackIndex) => {
+    if (track.kind !== 'content') return 0;
+    let maximum = 0;
+    for (let childIndex = 0; childIndex < childCount; childIndex += 1) {
     const rowIndex = columnCount === 0 ? 0 : Math.floor(childIndex / columnCount);
     const columnIndex = columnCount === 0 ? 0 : childIndex % columnCount;
     const matches = orientation === 'horizontal' ? columnIndex === trackIndex : rowIndex === trackIndex;
-    if (!matches) return max;
-    return Math.max(max, orientation === 'horizontal' ? measure.preferredWidth : measure.preferredHeight);
-  }, 0));
+      if (!matches) continue;
+      const measure = measureChild(childIndex);
+      maximum = Math.max(maximum, orientation === 'horizontal' ? measure.preferredWidth : measure.preferredHeight);
+    }
+    return maximum;
+  });
 }
 
 function gridAreaContentSizes(
   template: readonly (readonly string[])[],
   areaNames: readonly string[],
-  childMeasures: readonly Measurement[],
+  tracks: readonly LayoutSize[],
+  measureChild: MeasureChild,
   orientation: 'horizontal' | 'vertical'
 ): readonly number[] {
   const trackCount = orientation === 'horizontal' ? (template[0]?.length ?? 0) : template.length;
@@ -117,14 +128,16 @@ function gridAreaContentSizes(
   areaNames.forEach((name, areaIndex) => {
     const span = areaSpan(template, name);
     if (span === undefined) return;
-    const measure = childMeasures[areaIndex];
-    const preferred = orientation === 'horizontal' ? measure?.preferredWidth : measure?.preferredHeight;
-    if (preferred === undefined) return;
     const start = orientation === 'horizontal' ? span.minColumn : span.minRow;
     const end = orientation === 'horizontal' ? span.maxColumn : span.maxRow;
+    const contentTracks = Array.from({ length: end - start + 1 }, (_value, index) => start + index)
+      .filter((index) => tracks[index]?.kind === 'content');
+    if (contentTracks.length === 0) return;
+    const measure = measureChild(areaIndex);
+    const preferred = orientation === 'horizontal' ? measure.preferredWidth : measure.preferredHeight;
     const trackSpan = Math.max(1, end - start + 1);
     const perTrack = Math.ceil(preferred / trackSpan);
-    for (let index = start; index <= end; index += 1) {
+    for (const index of contentTracks) {
       sizes[index] = Math.max(sizes[index] ?? 0, perTrack);
     }
   });

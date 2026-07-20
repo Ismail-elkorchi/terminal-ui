@@ -21,6 +21,7 @@ import {
 import type { MenuItem, TabAction, TextAreaAction, TreeInteractionAction, TreeNode } from '@ismail-elkorchi/terminal-ui/components';
 import {
   commandInputPresentation,
+  createTextAreaState,
   commandInputReducer,
   createScrollState,
   menuBarPresentation,
@@ -330,7 +331,7 @@ function saveActive(
       operation: { kind: 'pending', id, label: `Saving ${buffer.path}` },
       nextOperation: state.nextOperation + 1
     },
-    effects: [saveEffect(id, buffer.path, buffer.editor.input.text, operations)]
+    effects: [saveEffect(id, buffer.path, buffer.editor.document.text, operations)]
   };
 }
 
@@ -516,7 +517,7 @@ function editorPane(state: EditorState): Element<EditorMessage> {
     id: 'editor-tabs',
     tabs: state.buffers.map((buffer) => ({
       id: buffer.path,
-      label: `${buffer.label}${buffer.editor.input.text === buffer.savedText ? '' : ' •'}`,
+      label: `${buffer.label}${buffer.editor.document.text === buffer.savedText ? '' : ' •'}`,
       closable: true,
       panel: textArea({
         id: `editor:${buffer.path}`,
@@ -610,10 +611,11 @@ function openBuffer(state: EditorState, targetPath: string, content: string): Ed
   const buffer: EditorBuffer = {
     path: targetPath,
     label: path.basename(targetPath),
-    editor: {
-      input: { text: content, cursor: 0 },
+    editor: createTextAreaState({
+      value: content,
+      cursor: 0,
       scroll: createScrollState({ contentRows: lineCount(content), viewportRows: 24 })
-    },
+    }),
     savedText: content
   };
   return {
@@ -658,7 +660,7 @@ function activeBuffer(state: EditorState): EditorBuffer | undefined {
 }
 
 function isDirty(buffer: EditorBuffer): boolean {
-  return buffer.editor.input.text !== buffer.savedText;
+  return buffer.editor.document.text !== buffer.savedText;
 }
 
 function isCurrentOperation(state: EditorState, id: string): boolean {

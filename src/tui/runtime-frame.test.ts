@@ -41,6 +41,24 @@ void test('frame commits use an independent bounded context for synchronized-out
   assert.equal(cleanupCall.aborted, false);
 });
 
+void test('unchanged frame commits record the diff without entering the host write queue', async () => {
+  const host = createMemoryTerminalHost();
+  const frame = renderElementFrame(text('stable frame'), { columns: 20, rows: 1 });
+  let writes = 0;
+  const originalWrite = host.write.bind(host);
+  host.write = async (output, context) => {
+    writes += 1;
+    await originalWrite(output, context);
+  };
+
+  const diff = await commitFrame(host, frame, frame, defineTheme());
+
+  assert.equal(diff.operations.length, 0);
+  assert.equal(writes, 0);
+  assert.equal(host.frames().length, 1);
+  assert.equal(host.diffs().length, 1);
+});
+
 function waitForAbort(signal: AbortSignal | undefined): Promise<never> {
   if (signal === undefined) return new Promise(() => {});
   if (signal.aborted) return Promise.reject(abortReason(signal));

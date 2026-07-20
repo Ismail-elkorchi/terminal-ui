@@ -18,6 +18,7 @@ import {
   createScrollState,
   listPresentation,
   listScrollablePresentation,
+  prepareScrollbackHistory,
   scrollbackPresentation,
   scrollbackScrollablePresentation,
   tablePresentation,
@@ -49,6 +50,7 @@ const passiveTreeState: PassiveTreeState = { nodes: [] };
 const scrollableTreeState: ScrollableTreeState = { nodes: [], scroll };
 const passiveScrollbackState: PassiveScrollbackState = { foldedIds: [], followTail: false };
 const scrollableScrollbackState: ScrollableScrollbackState = { foldedIds: [], followTail: true, scroll };
+const history = prepareScrollbackHistory([]);
 
 const passiveList = list({
   id: 'passive-list', items: ['one'],
@@ -84,11 +86,11 @@ const scrollableTree = tree({
   onAction: (action) => ({ kind: 'scrollableTree' as const, action })
 });
 const passiveLog = scrollback({
-  id: 'passive-log', ...scrollbackPresentation([], passiveScrollbackState),
+  id: 'passive-log', ...scrollbackPresentation(history, passiveScrollbackState),
   onAction: (action) => ({ kind: 'passiveLog' as const, action })
 });
 const scrollableLog = scrollback({
-  id: 'scrollable-log', ...scrollbackScrollablePresentation([], scrollableScrollbackState),
+  id: 'scrollable-log', ...scrollbackScrollablePresentation(history, scrollableScrollbackState),
   scrollbar: { visible: 'auto' },
   onAction: (action) => ({ kind: 'scrollableLog' as const, action })
 });

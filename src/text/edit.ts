@@ -12,6 +12,7 @@ import {
   nextWordBoundary,
   previousWordBoundary
 } from './word-boundaries.ts';
+import { sanitizeTerminalText } from './sanitize.ts';
 import type { TextEditBuffer, TextEditOperation, TextSelection } from './types.ts';
 
 const PAGE_LINE_DELTA = 10;
@@ -21,7 +22,11 @@ export function editTextBuffer(buffer: TextEditBuffer, operation: TextEditOperat
   const selection = normalizeTextSelection(buffer.text, buffer.selection);
   switch (operation.kind) {
     case 'insert': {
-      return replaceTextRange(buffer.text, selectedRange(selection, cursor), operation.text);
+      return replaceTextRange(
+        buffer.text,
+        selectedRange(selection, cursor),
+        sanitizeTerminalText(operation.text).text
+      );
     }
     case 'deleteBackward':
       if (selection !== undefined) return replaceTextRange(buffer.text, selection, '');
@@ -77,7 +82,11 @@ export function editTextBuffer(buffer: TextEditBuffer, operation: TextEditOperat
       };
     }
     case 'replaceSelection':
-      return replaceTextRange(buffer.text, selectedRange(selection, cursor), operation.text);
+      return replaceTextRange(
+        buffer.text,
+        selectedRange(selection, cursor),
+        sanitizeTerminalText(operation.text).text
+      );
   }
 }
 

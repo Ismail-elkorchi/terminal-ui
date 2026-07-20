@@ -17,7 +17,8 @@ import { custom } from '../../dist/renderer/index.js';
 import { customComposite } from '../../dist/renderer/index.js';
 import {
   splitPane,
-  column
+  column,
+  row
 } from '../../dist/layout/index.js';
 
 test('custom renderers render through required renderer contract', () => {
@@ -178,6 +179,86 @@ test('custom renderer measurement participates in content track layout', () => {
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 9, height: 4 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 10, width: 15, height: 4 });
   assert.match(renderFramePlain(frame), /custom/u);
+});
+
+test('layout measures children only for content-sized tracks', () => {
+  let measurementCalls = 0;
+  const measured = custom({
+    id: 'demand-measured-custom',
+    renderer: {
+      measure() {
+        measurementCalls += 1;
+        return {
+          minWidth: 2,
+          minHeight: 1,
+          preferredWidth: 7,
+          preferredHeight: 1
+        };
+      },
+      render({ bounds, buffer }) {
+        buffer.write(bounds.row, bounds.column, [{ text: 'custom' }]);
+      },
+      accessibility({ id }) {
+        return { id, role: 'text', label: 'custom' };
+      }
+    }
+  });
+
+  const fixedAndFill = row([
+    measured,
+    text('remaining', { id: 'demand-remaining' })
+  ], {
+    sizes: [{ kind: 'fixed', cells: 7 }, { kind: 'fill' }]
+  });
+  layoutElement(fixedAndFill, { columns: 24, rows: 2 });
+  assert.equal(measurementCalls, 0);
+
+  const contentAndFill = row([
+    measured,
+    text('remaining', { id: 'demand-content-remaining' })
+  ], {
+    sizes: [{ kind: 'content' }, { kind: 'fill' }]
+  });
+  const layout = layoutElement(contentAndFill, { columns: 24, rows: 2 });
+
+  assert.equal(measurementCalls, 1);
+  assert.equal(layout.children[0]?.bounds.width, 7);
+});
+
+test('custom measurements are cached by complete bounds rather than dimensions alone', () => {
+  const measuredColumns = [];
+  const positioned = custom({
+    id: 'position-measured-custom',
+    renderer: {
+      measure({ bounds }) {
+        measuredColumns.push(bounds.column);
+        return {
+          minWidth: 1,
+          minHeight: 1,
+          preferredWidth: bounds.column === 1 ? 2 : 4,
+          preferredHeight: 1
+        };
+      },
+      render({ bounds, buffer }) {
+        buffer.write(bounds.row, bounds.column, [{ text: 'x' }]);
+      },
+      accessibility({ id }) {
+        return { id, role: 'text', label: id };
+      }
+    }
+  });
+  const branch = row([positioned, text('fill')], {
+    sizes: [{ kind: 'content' }, { kind: 'fill' }]
+  });
+  const element = row([branch, branch], {
+    sizes: [{ kind: 'fixed', cells: 10 }, { kind: 'fixed', cells: 10 }]
+  });
+
+  const layout = layoutElement(element, { columns: 20, rows: 2 });
+
+  assert.deepEqual(measuredColumns, [1, 11]);
+  assert.equal(layout.children[0]?.children[0]?.bounds.width, 2);
+  assert.equal(layout.children[1]?.children[0]?.bounds.width, 4);
 });
 
 test('malformed custom renderers fail as programmer errors', () => {

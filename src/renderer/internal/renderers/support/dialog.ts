@@ -27,11 +27,11 @@ export function dialogChildBounds(
   widget: RenderNode,
   bounds: Rect,
   border: BorderStyle,
-  childMeasures: readonly Measurement[]
+  measureChild: (index: number) => Measurement
 ): readonly Rect[] {
   const contentBounds = borderContentBounds(dialogBounds(widget, bounds), border);
   if (!dialogHasActions(widget)) return [contentBounds];
-  const actionHeight = dialogActionHeight(contentBounds.height, childMeasures[1]);
+  const actionHeight = dialogActionHeight(contentBounds.height, measureChild(1));
   const separatorHeight = contentBounds.height > actionHeight ? 1 : 0;
   const bodyHeight = Math.max(0, contentBounds.height - actionHeight - separatorHeight);
   return [

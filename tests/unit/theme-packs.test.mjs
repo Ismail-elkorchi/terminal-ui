@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { prepareScrollbackHistory } from '../../dist/behavior/index.js';
 
 import {
   validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
@@ -172,11 +173,11 @@ test('default theme specimen composes surface control text command log and data 
     }),
     scrollback({
       id: 'specimen-log',
-      items: [
+      history: prepareScrollbackHistory([
         { id: 'info', level: 'info', text: 'Ready' },
         { id: 'warn', level: 'warning', text: 'High memory' },
         { id: 'err', level: 'error', text: 'Failed request' }
-      ],
+      ]),
       scroll: { offsetRow: 0, offsetColumn: 0, contentRows: 3, viewportRows: 4 }
     }),
     progressBar({ id: 'specimen-progress', mode: { kind: 'determinate', value: 72 }, label: 'coverage' }),

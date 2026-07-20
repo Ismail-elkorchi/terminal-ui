@@ -18,6 +18,7 @@ import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import type { InputEvent } from '../../dist/input/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
+import { prepareTextDocument } from '../../dist/text/index.js';
 
 void test('component construction and rendering do not execute event handlers', () => {
   let calls = 0;
@@ -30,7 +31,7 @@ void test('component construction and rendering do not execute event handlers', 
     slider({ id: 'slider', value: 4, onChange: message }),
     list({ id: 'list', items: ['a'], projectItem: (item) => ({ id: item, label: item }), selectedId: 'a', onAction: message }),
     table({ id: 'table', rows: ['a'], getRowId: (row) => row, presentation: { selectedRowId: 'a' }, onAction: message }),
-    textArea({ id: 'area', presentation: { value: 'a', cursor: 0 }, onAction: message }),
+    textArea({ id: 'area', presentation: { document: prepareTextDocument('a'), cursor: 0 }, onAction: message }),
     commandInput({ id: 'command', presentation: { value: 'a', cursor: 0, suggestions: [] }, onAction: message }),
     palette({ id: 'palette', entries: [{ id: 'a', label: 'A', value: 'a' }], onAction: message })
   ];

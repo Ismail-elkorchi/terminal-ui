@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { prepareScrollbackHistory } from '../../dist/behavior/index.js';
 
 import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import {
@@ -101,16 +102,17 @@ test('scrollback cached projections equal fresh projections across render enviro
 
   for (const widthProfile of profiles) {
     for (const current of cases) {
+      const history = prepareScrollbackHistory(items);
       const options = {
         id: 'history',
-        items,
+        history,
         wrap: current.wrap,
         searchQuery: current.searchQuery
       };
       renderElementFrame(scrollback(options), current, { widthProfile });
       const cached = renderElementFrame(scrollback(options), current, { widthProfile });
       const freshItems = items.map((item) => ({ ...item, metadata: { ...item.metadata } }));
-      const fresh = renderElementFrame(scrollback({ ...options, items: freshItems }), current, { widthProfile });
+      const fresh = renderElementFrame(scrollback({ ...options, history: prepareScrollbackHistory(freshItems) }), current, { widthProfile });
       const detail = `columns=${String(current.columns)} rows=${String(current.rows)} wrap=${String(current.wrap)} query=${current.searchQuery}`;
 
       assert.deepEqual(cached, fresh, detail);

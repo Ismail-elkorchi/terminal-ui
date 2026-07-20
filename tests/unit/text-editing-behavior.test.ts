@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   textAreaPresentation,
   textAreaReducer,
+  createTextAreaState,
   textInputPresentation,
   textInputReducer
 } from '../../dist/behavior/index.js';
@@ -35,10 +36,11 @@ void test('textInputReducer applies edits and grapheme-aware pointer selections'
 });
 
 void test('textAreaReducer owns editing selection and normalized scroll in one action channel', () => {
-  const initial = {
-    input: { text: 'alpha\nbeta', cursor: 0 },
+  const initial = createTextAreaState({
+    value: 'alpha\nbeta',
+    cursor: 0,
     scroll: createScrollState({ contentRows: 20, viewportRows: 4 })
-  };
+  });
   const selected = textAreaReducer(initial, {
     kind: 'pointer',
     action: { kind: 'endSelection', anchor: 6, offset: 10 }
@@ -54,16 +56,34 @@ void test('textAreaReducer owns editing selection and normalized scroll in one a
     }
   });
 
-  assert.deepEqual(selected.input, {
-    text: 'alpha\nbeta',
+  assert.equal(selected.document.text, 'alpha\nbeta');
+  assert.deepEqual({
+    cursor: selected.cursor,
+    selection: selected.selection
+  }, {
     cursor: 10,
     selection: { start: 6, end: 10 }
   });
   assert.equal(scrolled.scroll.offsetRow, 3);
   assert.deepEqual(textAreaPresentation(scrolled), {
-    value: 'alpha\nbeta',
+    document: selected.document,
     cursor: 10,
     selection: { start: 6, end: 10 },
     scroll: scrolled.scroll
   });
+});
+
+void test('textAreaReducer derives its cursor from sanitized inserted text', () => {
+  const initial = createTextAreaState({
+    value: 'ab',
+    cursor: 1,
+    scroll: createScrollState({ contentRows: 1, viewportRows: 1 })
+  });
+  const edited = textAreaReducer(initial, {
+    kind: 'edit',
+    operation: { kind: 'insert', text: '\u001B[31mX\u001B[0m' }
+  });
+
+  assert.equal(edited.document.text, 'aXb');
+  assert.equal(edited.cursor, 2);
 });

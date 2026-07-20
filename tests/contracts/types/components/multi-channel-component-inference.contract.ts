@@ -9,6 +9,7 @@ import {
   type TextAreaAction,
   type TreeAction
 } from '@ismail-elkorchi/terminal-ui/components';
+import { prepareTextDocument } from '@ismail-elkorchi/terminal-ui/text';
 
 export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
 export type Equal<TLeft, TRight> =
@@ -28,7 +29,7 @@ const explorer = tree({
 
 const editor = textArea({
   id: 'editor',
-  presentation: { value: 'hello', cursor: 0 },
+  presentation: { document: prepareTextDocument('hello'), cursor: 0 },
   onAction: (action: TextAreaAction) => ({ kind: 'editor' as const, action })
 });
 

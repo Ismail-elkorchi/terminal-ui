@@ -1,6 +1,6 @@
 import { toAccessibleSnapshot, validateAccessibleSnapshot } from '../accessibility/index.ts';
 import type { RenderNode } from '../renderer/model/index.ts';
-import { defineTheme, isTerminalTheme } from '../theme/index.ts';
+import { defaultTheme, defineTheme, isTerminalTheme } from '../theme/index.ts';
 import { dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions.ts';
 import { diffFrames, renderElementProjection } from '../renderer/internal/render.ts';
 import { planTerminalOutput } from '../renderer/internal/output-planner.ts';
@@ -13,7 +13,7 @@ import type { FocusPath } from '../interaction/focus.ts';
 import type { Frame, RenderDiff } from '../renderer/internal/frame.ts';
 import type { LayoutNode } from '../renderer/internal/layout.ts';
 import type { RenderRegion } from '../renderer/internal/render.ts';
-import type { TuiApp, TuiContext, TuiRuntimeOptions, TuiTheme } from './types.ts';
+import type { TuiApp, TuiContext, TuiTheme } from './types.ts';
 
 export interface RenderCommitCandidate<TMessage> {
   readonly commitId: string;
@@ -32,11 +32,10 @@ export function renderCurrentFrame<TState, TMessage>(
   state: TState,
   context: TuiContext,
   focusPath: FocusPath | undefined,
-  options: TuiRuntimeOptions<TState, TMessage>,
+  theme: TerminalTheme,
   stateVersion: number,
   commitId: string
 ): RenderCommitCandidate<TMessage> {
-  const theme = resolveTuiTheme(options.theme, state);
   const projection = renderElementProjection(app.definition.view(state, context), context.viewport, {
     ...(focusPath === undefined ? {} : { focusPath }),
     theme,
@@ -72,10 +71,12 @@ export async function commitFrame(
   const operationContext: TerminalOperationContext = options.signal === undefined
     ? {}
     : { signal: options.signal };
-  try {
-    await host.write({ text: output.text }, operationContext);
-  } catch (error) {
-    await attemptOutputCleanup(host, output.failureCleanup, error);
+  if (output.text.length > 0) {
+    try {
+      await host.write({ text: output.text }, operationContext);
+    } catch (error) {
+      await attemptOutputCleanup(host, output.failureCleanup, error);
+    }
   }
   options.signal?.throwIfAborted();
   recordHostFrame(host, frame, diff);
@@ -120,7 +121,7 @@ export function dirtyRegionsForRenderCommit(
 
 export function resolveTuiTheme<TState>(theme: TuiTheme<TState> | undefined, state: TState): TerminalTheme {
   const resolved = typeof theme === 'function' ? theme(state) : theme;
-  if (resolved === undefined) return defineTheme();
+  if (resolved === undefined) return defaultTheme;
   return isTerminalTheme(resolved) ? resolved : defineTheme(resolved);
 }
 
