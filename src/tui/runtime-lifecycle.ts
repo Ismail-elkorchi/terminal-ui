@@ -15,12 +15,12 @@ export function assertRuntimeCanStart(phase: TuiRuntimePhase): void {
 }
 
 export function assertRuntimeOperational(phase: TuiRuntimePhase): void {
-  if (phase === 'created' || phase === 'active') return;
+  if (phase === 'active') return;
   throw runtimePhaseError(phase);
 }
 
 export function assertRuntimeWaitable(phase: TuiRuntimePhase): void {
-  if (phase === 'created' || phase === 'active' || phase === 'exiting') return;
+  if (phase === 'active' || phase === 'exiting') return;
   throw runtimePhaseError(phase);
 }
 

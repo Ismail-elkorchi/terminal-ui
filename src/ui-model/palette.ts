@@ -7,3 +7,6 @@ export type PaletteAction =
   | { readonly kind: 'toggleSelected'; readonly id: string }
   | { readonly kind: 'clearSelected' }
   | { readonly kind: 'preview'; readonly id?: string };
+
+export type { PaletteIndex, PaletteQueryProjection } from './palette-index.ts';
+export { preparePaletteIndex, projectPaletteQuery } from './palette-index.ts';

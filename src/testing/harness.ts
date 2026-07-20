@@ -91,7 +91,7 @@ function deliverHarnessInputEvent(host: MemoryTerminalHost, event: InputEvent): 
     return;
   }
   if (event.kind === 'end') {
-    host.stdin.close();
+    host.endInput();
     return;
   }
   const encoded = encodeHarnessInputEvent(event);

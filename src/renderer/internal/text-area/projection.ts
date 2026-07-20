@@ -2,9 +2,11 @@ import {
   createTerminalTextIndex,
   textDocumentLineAt,
   textDocumentLineIndexAtOffset,
+  textDocumentLength,
+  textDocumentLineCount,
   textWidthProfileKey
 } from '../../../text/index.ts';
-import type { TerminalTextIndex, TextDocument, TextWidthProfile } from '../../../text/index.ts';
+import type { TerminalTextIndex, TextCaret, TextDocument, TextWidthProfile } from '../../../text/index.ts';
 import type { TextAreaVisualLine } from '../input-visual.ts';
 import type { ScrollState } from '../../../interaction/scroll.ts';
 
@@ -29,7 +31,21 @@ export interface TextAreaProjectedCursor {
 }
 
 const MAX_LAYOUTS_PER_DOCUMENT = 8;
+const MAX_RETAINED_LINE_LAYOUTS = 4_096;
 const projections = new WeakMap<TextDocument, Map<string, TextAreaDocumentProjection>>();
+const lineProjections = new Map<string, RetainedLineProjection>();
+
+interface RetainedProjectedLine {
+  readonly text: string;
+  readonly relativeStart: number;
+  readonly firstVisualLine: boolean;
+  readonly index: TerminalTextIndex;
+}
+
+interface RetainedLineProjection {
+  readonly intrinsicColumns: number;
+  readonly lines: readonly RetainedProjectedLine[];
+}
 
 export function projectTextAreaDocument(
   document: TextDocument,
@@ -46,13 +62,19 @@ export function projectTextAreaDocument(
   const lines: ProjectedTextAreaLine[] = [];
   const logicalLineRowStarts: number[] = [];
   let intrinsicColumns = 0;
-  for (let lineIndex = 0; lineIndex < document.lineCount; lineIndex += 1) {
+  for (let lineIndex = 0; lineIndex < textDocumentLineCount(document); lineIndex += 1) {
     logicalLineRowStarts.push(lines.length);
     const line = textDocumentLineAt(document, lineIndex);
     if (line === undefined) continue;
-    const index = createTerminalTextIndex(line.text, { widthProfile });
-    intrinsicColumns = Math.max(intrinsicColumns, index.cells);
-    lines.push(...projectLine(line.text, line.start, line.index, index, normalizedWidth, wrap, widthProfile));
+    const retained = retainedLineProjection(line.text, normalizedWidth, wrap, widthProfile);
+    intrinsicColumns = Math.max(intrinsicColumns, retained.intrinsicColumns);
+    lines.push(...retained.lines.map((record) => ({
+      text: record.text,
+      start: line.start + record.relativeStart,
+      logicalLineIndex: line.index,
+      firstVisualLine: record.firstVisualLine,
+      index: record.index
+    })));
   }
   const projection = Object.freeze({
     document,
@@ -70,9 +92,10 @@ export function projectTextAreaDocument(
 
 export function textAreaCursorInProjection(
   projection: TextAreaDocumentProjection,
-  rawOffset: number
+  caret: TextCaret
 ): TextAreaProjectedCursor {
-  const offset = Math.max(0, Math.min(projection.document.text.length, Math.floor(rawOffset)));
+  const rawOffset = caret.position.offset;
+  const offset = Math.max(0, Math.min(textDocumentLength(projection.document), Math.floor(rawOffset)));
   const logicalLine = textDocumentLineIndexAtOffset(projection.document, offset);
   const firstRow = projection.logicalLineRowStarts[logicalLine] ?? 0;
   const nextRow = projection.logicalLineRowStarts[logicalLine + 1] ?? projection.lines.length;
@@ -81,7 +104,12 @@ export function textAreaCursorInProjection(
     const record = projection.lines[index];
     if (record === undefined) continue;
     const end = record.start + record.text.length;
-    if (offset <= end || index === nextRow - 1) {
+    const sharedBoundary = offset === end && index < nextRow - 1;
+    if (
+      offset < end
+      || offset === end && (!sharedBoundary || caret.position.affinity === 'upstream')
+      || index === nextRow - 1
+    ) {
       rowIndex = index;
       break;
     }
@@ -125,17 +153,15 @@ function textAreaVisibleLine(record: ProjectedTextAreaLine, offsetColumn: number
 
 function projectLine(
   text: string,
-  start: number,
-  logicalLineIndex: number,
   index: TerminalTextIndex,
   width: number,
   wrap: boolean,
   widthProfile: TextWidthProfile
-): readonly ProjectedTextAreaLine[] {
+): readonly RetainedProjectedLine[] {
   if (!wrap || width <= 0 || index.cells <= width || text.length === 0) {
-    return [{ text, start, logicalLineIndex, firstVisualLine: true, index }];
+    return [{ text, relativeStart: 0, firstVisualLine: true, index }];
   }
-  const rows: ProjectedTextAreaLine[] = [];
+  const rows: RetainedProjectedLine[] = [];
   let visualColumn = 0;
   while (visualColumn < index.cells) {
     const startGrapheme = index.visualColumnToGraphemeIndex(visualColumn);
@@ -145,8 +171,7 @@ function projectLine(
     const rowText = text.slice(startOffset, endOffset);
     rows.push({
       text: rowText,
-      start: start + startOffset,
-      logicalLineIndex,
+      relativeStart: startOffset,
       firstVisualLine: rows.length === 0,
       index: createTerminalTextIndex(rowText, { widthProfile })
     });
@@ -154,6 +179,24 @@ function projectLine(
     if (endOffset >= text.length) break;
   }
   return rows;
+}
+
+function retainedLineProjection(
+  text: string,
+  width: number,
+  wrap: boolean,
+  widthProfile: TextWidthProfile
+): RetainedLineProjection {
+  const key = `${wrap ? 'wrap' : 'single'}:${String(width)}:${textWidthProfileKey(widthProfile)}:${text}`;
+  const cached = touch(lineProjections, key);
+  if (cached !== undefined) return cached;
+  const index = createTerminalTextIndex(text, { widthProfile });
+  const created = Object.freeze({
+    intrinsicColumns: index.cells,
+    lines: Object.freeze(projectLine(text, index, width, wrap, widthProfile))
+  });
+  retainBounded(lineProjections, key, created, MAX_RETAINED_LINE_LAYOUTS);
+  return created;
 }
 
 function projectionCache(document: TextDocument): Map<string, TextAreaDocumentProjection> {
@@ -164,10 +207,10 @@ function projectionCache(document: TextDocument): Map<string, TextAreaDocumentPr
   return created;
 }
 
-function touch(
-  cache: Map<string, TextAreaDocumentProjection>,
+function touch<TValue>(
+  cache: Map<string, TValue>,
   key: string
-): TextAreaDocumentProjection | undefined {
+): TValue | undefined {
   const value = cache.get(key);
   if (value === undefined) return undefined;
   cache.delete(key);
@@ -180,7 +223,16 @@ function retain(
   key: string,
   value: TextAreaDocumentProjection
 ): void {
-  while (cache.size >= MAX_LAYOUTS_PER_DOCUMENT) {
+  retainBounded(cache, key, value, MAX_LAYOUTS_PER_DOCUMENT);
+}
+
+function retainBounded<TValue>(
+  cache: Map<string, TValue>,
+  key: string,
+  value: TValue,
+  maxSize: number
+): void {
+  while (cache.size >= maxSize) {
     const oldest = cache.keys().next().value;
     if (oldest === undefined) break;
     cache.delete(oldest);

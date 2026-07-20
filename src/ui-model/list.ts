@@ -1,5 +1,10 @@
 import type { ScrollEvent } from '../interaction/scroll.ts';
-import type { CollectionProjection, CollectionRecord } from './collection.ts';
+import type {
+  CollectionProjection,
+  CollectionRecord,
+  CompleteCollectionProjection,
+  WindowedCollectionProjection
+} from './collection.ts';
 
 export interface ListItemProjection {
   readonly id: string;
@@ -17,6 +22,27 @@ export interface ListCollectionRecord<TValue> extends CollectionRecord {
 }
 
 export type ListCollection<TValue> = CollectionProjection<ListCollectionRecord<TValue>>;
+export type CompleteListCollection<TValue> = CompleteCollectionProjection<ListCollectionRecord<TValue>>;
+export type WindowedListCollection<TValue> = WindowedCollectionProjection<ListCollectionRecord<TValue>>;
+
+export interface ListViewEntry<TValue> {
+  readonly id: string;
+  readonly sourceIndex: number;
+  readonly visibleIndex: number;
+  readonly selectableIndex?: number;
+  readonly value: TValue;
+  readonly item: ListCollectionRecord<TValue>['item'];
+}
+
+export interface ListViewProjection<TValue> {
+  readonly kind: 'list-view';
+  readonly source: ListCollection<TValue>;
+  readonly query: string;
+  readonly entries: readonly ListViewEntry<TValue>[];
+  readonly selectable: readonly ListViewEntry<TValue>[];
+  readonly start: number;
+  readonly total: number;
+}
 
 export type ListAction =
   | { readonly kind: 'select'; readonly id: string; readonly index: number }

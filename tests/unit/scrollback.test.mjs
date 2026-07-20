@@ -3,15 +3,19 @@ import test from 'node:test';
 
 import {
   resolveTerminalCapabilities } from '../../dist/host/index.js';
-import { createVisualSnapshot, renderElementRegions } from '../../dist/testing/index.js';
+import {
+  createVisualSnapshot,
+  renderElementRegions,
+  scrollbackSearchStatistics
+} from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import {
+  appendScrollbackHistory,
   createScrollState,
   extractScrollbackSelectionText,
-  foldScrollbackHistory,
   prepareScrollbackHistory,
   scrollbackHistoryItemAt,
-  scrollbackHistoryItems
+  scrollbackSearchMatches
 } from '../../dist/behavior/index.js';
 import {
   renderFramePlain,
@@ -134,19 +138,41 @@ test('scrollback renders log levels through log theme tokens and lets item style
 });
 
 test('scrollback renders folded history as visible document metadata', () => {
-  const visibleHistory = foldScrollbackHistory(prepareScrollbackHistory([
+  const history = prepareScrollbackHistory([
     { id: 'a', text: 'alpha\nmore alpha', metadata: { source: 'worker' } },
     { id: 'b', text: 'bravo' }
-  ]), ['a']);
+  ]);
   const frame = renderElementFrame(scrollback({
     id: 'folded-log',
-    history: visibleHistory
+    history,
+    foldedIds: ['a']
   }), { columns: 48, rows: 2 });
 
-  assert.match(renderFramePlain(frame), /folded=true source=worker alpha \.\.\./u);
+  assert.match(renderFramePlain(frame), /source=worker folded=true alpha \.\.\./u);
   assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.folded.key')?.text, 'f');
   assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.folded.value')?.text, 't');
-  assert.equal(scrollbackHistoryItems(visibleHistory)[0]?.text, 'alpha ...');
+  assert.equal(scrollbackHistoryItemAt(history, 0)?.bodyText, 'alpha\nmore alpha');
+});
+
+test('scrollback folding preserves source-local selection anchors', () => {
+  const history = prepareScrollbackHistory([
+    { id: 'a', text: 'alpha\nmore alpha' },
+    { id: 'b', text: 'bravo' }
+  ]);
+  const selection = {
+    anchor: { itemId: 'a', offset: 2 },
+    focus: { itemId: 'b', offset: 3 }
+  };
+  const frame = renderElementFrame(scrollback({
+    id: 'folded-selection',
+    history,
+    foldedIds: ['a'],
+    selection
+  }), { columns: 48, rows: 3 });
+
+  assert.equal(extractScrollbackSelectionText({ history, selection }), 'pha\nmore alpha\nbra');
+  assert.equal(frame.accessibility.root.description?.endsWith('Selection length: 18.'), true);
+  assert.equal(scrollbackHistoryItemAt(history, 0)?.bodyText, 'alpha\nmore alpha');
 });
 
 test('scrollback wraps visible rows when requested', () => {
@@ -193,6 +219,28 @@ test('wrapped scrollback search centers the row containing the first highlight',
   assert.equal(matches.map((cell) => cell.text).join(''), 'needle');
 });
 
+test('wrapped scrollback search navigates by exact occurrence identity', () => {
+  const history = prepareScrollbackHistory([{
+    id: 'long-record',
+    text: `needle ${'padding '.repeat(8)}needle suffix`
+  }]);
+  const matches = scrollbackSearchMatches(history, 'needle');
+  const frame = renderElementFrame(scrollback({
+    id: 'selected-search-occurrence',
+    history,
+    searchQuery: 'needle',
+    selectedMatch: matches[1],
+    wrap: true
+  }), { columns: 8, rows: 3 });
+
+  assert.equal(matches.length, 2);
+  assert.equal(
+    frame.cells.filter((cell) => cell.source?.partKind === 'match').map((cell) => cell.text).join(''),
+    'needle'
+  );
+  assert.doesNotMatch(renderFramePlain(frame), /^needle/u);
+});
+
 test('scrollback counts only queries represented by highlighted spans', () => {
   const frame = renderElementFrame(scrollback({
     id: 'span-scoped-search',
@@ -223,6 +271,31 @@ test('scrollback search rejects code-unit substrings inside one grapheme', () =>
   );
 });
 
+test('scrollback search reuses retained segment indexes and invalidates only appended segments', () => {
+  const history = prepareScrollbackHistory(Array.from(
+    { length: 100 },
+    (_value, index) => item(index, `record ${index} searchable`)
+  ));
+  const searched = scrollback({ id: 'retained-search', history, searchQuery: 'searchable' });
+
+  renderElementFrame(searched, { columns: 40, rows: 5 });
+  const afterFirst = scrollbackSearchStatistics(history);
+  renderElementFrame(searched, { columns: 40, rows: 5 });
+  const afterSecond = scrollbackSearchStatistics(history);
+
+  assert.deepEqual(afterSecond, afterFirst);
+
+  const appended = appendScrollbackHistory(history, [{ id: 'new-record', text: 'searchable append' }]);
+  renderElementFrame(
+    scrollback({ id: 'retained-search-appended', history: appended, searchQuery: 'searchable' }),
+    { columns: 40, rows: 5 }
+  );
+  const afterAppend = scrollbackSearchStatistics(appended);
+
+  assert.equal(afterAppend.queryEvaluations - afterSecond.queryEvaluations, 1);
+  assert.equal(afterAppend.recordEvaluations - afterSecond.recordEvaluations, 1);
+});
+
 test('scrollback renders empty and selected text states in high contrast and no color output', () => {
   const emptyFrame = renderElementFrame(scrollback({
     id: 'empty-log',
@@ -234,7 +307,10 @@ test('scrollback renders empty and selected text states in high contrast and no 
       { id: 'alpha', text: 'alpha' },
       { id: 'bravo', text: 'bravo charlie' }
     ]),
-    selectedRange: { start: 3, end: 11 }
+    selection: {
+      anchor: { itemId: 'alpha', offset: 3 },
+      focus: { itemId: 'bravo', offset: 5 }
+    }
   }), { columns: 32, rows: 4 }, { theme: highContrastTheme });
   const highContrast = createVisualSnapshot({
     frame: selectedFrame,
@@ -260,7 +336,10 @@ test('scrollback selection extraction is pure and sanitized', () => {
   ];
   const text = extractScrollbackSelectionText({
     history: prepareScrollbackHistory(items),
-    selectedRange: { start: 3, end: 18 }
+    selection: {
+      anchor: { itemId: 'row-0', offset: 3 },
+      focus: { itemId: 'row-1', offset: 12 }
+    }
   });
 
   assert.equal(text, 'ha\nbravo charli');
@@ -296,11 +375,15 @@ test('scrollback maps pointer selection through metadata to canonical body offse
   assert.deepEqual(target.focus, { kind: 'focus', path: ['selectable-log'] });
   assert.deepEqual(target.message(press)?.action, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 2 }
+    action: { kind: 'placeCaret', position: { itemId: 'alpha', offset: 2 } }
   });
   assert.deepEqual(target.message(drag)?.action, {
     kind: 'pointer',
-    action: { kind: 'extendSelection', anchor: 2, offset: 8 }
+    action: {
+      kind: 'extendSelection',
+      anchor: { itemId: 'alpha', offset: 2 },
+      position: { itemId: 'bravo', offset: 2 }
+    }
   });
 });
 
@@ -309,7 +392,10 @@ test('wrapped scrollback preserves selected body source and visual style', () =>
     id: 'wrapped-selection',
     history: prepareScrollbackHistory([{ id: 'alpha', text: 'alpha bravo' }]),
     wrap: true,
-    selectedRange: { start: 2, end: 8 }
+    selection: {
+      anchor: { itemId: 'alpha', offset: 2 },
+      focus: { itemId: 'alpha', offset: 8 }
+    }
   }), { columns: 5, rows: 4 });
   const selected = frame.cells.filter((cell) => cell.source?.part === 'body.selection');
 
@@ -323,7 +409,10 @@ test('wrapped scrollback selection does not alter cached row geometry', () => {
     id: 'wrapped-selection-markers',
     history: prepareScrollbackHistory([{ id: 'alpha', text: 'abcd' }]),
     wrap: true,
-    selectedRange: { start: 1, end: 2 }
+    selection: {
+      anchor: { itemId: 'alpha', offset: 1 },
+      focus: { itemId: 'alpha', offset: 2 }
+    }
   }), { columns: 4, rows: 2 });
 
   assert.equal(renderFramePlain(frame), 'abcd');

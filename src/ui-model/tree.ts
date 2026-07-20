@@ -1,6 +1,11 @@
 import type { ScrollEvent } from '../interaction/scroll.ts';
 import type { ItemBase } from './contracts.ts';
-import type { CollectionProjection, CollectionRecord } from './collection.ts';
+import type {
+  CollectionProjection,
+  CollectionRecord,
+  CompleteCollectionProjection,
+  WindowedCollectionProjection
+} from './collection.ts';
 
 interface TreeNodeBase<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
@@ -48,6 +53,20 @@ export interface TreeCollectionRecord<
 export type TreeCollection<
   TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
 > = CollectionProjection<TreeCollectionRecord<TMetadata>>;
+export type CompleteTreeCollection<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> = CompleteCollectionProjection<TreeCollectionRecord<TMetadata>>;
+export type WindowedTreeCollection<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> = WindowedCollectionProjection<TreeCollectionRecord<TMetadata>>;
+
+export interface TreeViewProjection<
+  TMetadata extends Readonly<Record<string, unknown>> = Readonly<Record<string, unknown>>
+> {
+  readonly kind: 'tree-view';
+  readonly collection: TreeCollection<TMetadata>;
+  readonly query: string;
+}
 
 export function treeNodeChildren<TMetadata extends Readonly<Record<string, unknown>>>(
   node: TreeNode<TMetadata>

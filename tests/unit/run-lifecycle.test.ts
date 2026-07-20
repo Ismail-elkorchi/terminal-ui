@@ -9,7 +9,7 @@ void test('invalid run configuration is rejected before terminal mutation', asyn
   const host = createMemoryTerminalHost();
   host.input('\r');
   const exit = await runTui(exitOnSubmitApp('invalid-cleanup-policy'), host, {
-    cleanup: { timeoutMs: Number.NaN }
+    lifecycle: { defaultTimeoutMs: Number.NaN }
   });
 
   assert.equal(exit.status, 'error');
@@ -19,7 +19,7 @@ void test('invalid run configuration is rejected before terminal mutation', asyn
   assert.equal(host.restores().length, 0);
 });
 
-void test('cleanup clock failure records restoration as unconfirmed', async () => {
+void test('startup clock failure prevents terminal mutation', async () => {
   const host = createMemoryTerminalHost();
   host.input('\r');
   host.clock.sleep = () => Promise.reject(new Error('cleanup clock failed'));
@@ -28,14 +28,13 @@ void test('cleanup clock failure records restoration as unconfirmed', async () =
     onExit: () => new Promise(() => undefined)
   });
 
-  const exit = await runTui(app, host, { cleanup: { timeoutMs: 5 } });
+  const exit = await runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
 
   assert.equal(exit.status, 'error');
   assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_FAILED'), true);
   const restorations = host.restores();
-  assert.ok(restorations.length >= 1);
-  assert.equal(restorations.every((result) => result.status !== 'restored'), true);
-  assert.equal(host.stdin.isRawModeEnabled(), true);
+  assert.equal(restorations.length, 0);
+  assert.equal(host.stdin.isRawModeEnabled(), false);
 });
 
 void test('intentional finalization timer cancellation is not a clock failure', async () => {
@@ -58,7 +57,7 @@ void test('intentional finalization timer cancellation is not a clock failure', 
     nonTty: { mode: 'last_frame' }
   });
 
-  const exit = await runTui(app, host, { cleanup: { timeoutMs: 5 } });
+  const exit = await runTui(app, host, { lifecycle: { defaultTimeoutMs: 5 } });
 
   assert.equal(exit.status, 'completed');
   assert.equal(exit.diagnostics.some((item) => item.code === 'TUI_CLEANUP_FAILED'), false);

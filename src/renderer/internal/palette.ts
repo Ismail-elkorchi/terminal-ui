@@ -20,7 +20,6 @@ const renderModelCache = new WeakMap<object, {
   readonly height: number;
   readonly model: PaletteRenderModel;
 }>();
-const normalizedEntriesCache = new WeakMap<object, readonly SearchEntry<unknown>[]>();
 
 interface PaletteRenderModel {
   readonly title: string;
@@ -168,16 +167,16 @@ function paletteRenderModel(widget: PaletteNode, height: number): PaletteRenderM
   const title = titleText(widget);
   const query = queryText(widget);
   const helpText = helpTextProp(widget);
-  const entries = paletteEntries(widget);
+  const index = widget.props.index;
   const window = paletteWindow({
-    entries,
+    index,
     query,
     ...selectedInput(widget),
     ...scrollInput(widget),
     limit: entryLimit(widget, height)
   });
   const selectedPreview = window.selectedEntry?.preview;
-  const resultSummary = paletteResultSummary(window.total, entries.length, query);
+  const resultSummary = paletteResultSummary(window.total, index.size, query);
   const reserve = (selectedPreview === undefined || selectedPreview.length === 0 ? 0 : 1)
     + (helpText.length === 0 ? 0 : 1);
   const model = {
@@ -191,24 +190,6 @@ function paletteRenderModel(widget: PaletteNode, height: number): PaletteRenderM
   };
   renderModelCache.set(widget, { height, model });
   return model;
-}
-
-function paletteEntries(widget: PaletteNode): readonly SearchEntry<unknown>[] {
-  const entries = widget.props.entries;
-  const cached = normalizedEntriesCache.get(entries);
-  if (cached !== undefined) return cached;
-  const normalized = entries.map((entry) => ({
-    id: clean(entry.id),
-    label: clean(entry.label),
-    value: entry.value,
-    ...(entry.group === undefined ? {} : { group: clean(entry.group) }),
-    ...(entry.description === undefined ? {} : { description: clean(entry.description) }),
-    ...(entry.preview === undefined ? {} : { preview: clean(entry.preview) }),
-    ...(entry.disabled === true ? { disabled: true } : {}),
-    ...(entry.keywords === undefined ? {} : { keywords: entry.keywords.map(clean) })
-  }));
-  normalizedEntriesCache.set(entries, normalized);
-  return normalized;
 }
 
 function selectedInput(widget: PaletteNode): Partial<Pick<PaletteWindowInput<unknown>, 'selected' | 'selectedId'>> {

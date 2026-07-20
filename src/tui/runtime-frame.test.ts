@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { text } from '../components/index.ts';
 import { createMemoryTerminalHost } from '../host/memory.ts';
+import { committedTerminalWrite } from '../host/write-receipt.ts';
 import { renderElementFrame } from '../renderer/index.ts';
 import { defineTheme } from '../theme/index.ts';
 import { commitFrame } from './runtime-frame.ts';
@@ -24,6 +25,7 @@ void test('frame commits use an independent bounded context for synchronized-out
       started.resolve(true);
       await waitForAbort(context.signal);
     }
+    return committedTerminalWrite();
   };
 
   const committing = commitFrame(host, undefined, frame, defineTheme(), { signal: controller.signal });
@@ -48,7 +50,7 @@ void test('unchanged frame commits record the diff without entering the host wri
   const originalWrite = host.write.bind(host);
   host.write = async (output, context) => {
     writes += 1;
-    await originalWrite(output, context);
+    return originalWrite(output, context);
   };
 
   const diff = await commitFrame(host, frame, frame, defineTheme());

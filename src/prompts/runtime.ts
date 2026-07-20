@@ -1,5 +1,6 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic } from '../diagnostics.ts';
+import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import type { TerminalHost, TerminalRestoreReason } from '../host/index.ts';
 import { isCancelKey, isInterruptKey } from '../input/index.ts';
 import type { InputEvent } from '../input/index.ts';
@@ -447,7 +448,7 @@ async function submitInteractiveValue<TChoice, TValue>(
   state: PromptRuntimeState<TChoice>
 ): Promise<PromptResult<TValue>> {
   completePromptState(state);
-  await host.write({ text: '\n' });
+  requireCommittedTerminalWrite(await host.write({ text: '\n' }));
   const snapshot = createPromptSnapshot<TChoice>(
     prompt,
     promptValueForSnapshot<TChoice>(prompt, state, value),
@@ -462,7 +463,9 @@ async function renderPromptState<TChoice>(
   state: PromptRuntimeState<TChoice>
 ): Promise<void> {
   const capabilities = await host.getCapabilities();
-  await host.write({ text: `\r\u001B[2K${renderPromptText(prompt, state, capabilities)}` });
+  requireCommittedTerminalWrite(await host.write({
+    text: `\r\u001B[2K${renderPromptText(prompt, state, capabilities)}`
+  }));
 }
 
 function isInteractivePrompt<TChoice>(

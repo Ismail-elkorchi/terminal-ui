@@ -113,9 +113,9 @@ export async function runTuiInputLoop<TState, TMessage>(
     status: 'error',
     diagnostics: [
       ...runtime.diagnostics(),
-      diagnostic('TUI_RUN_FAILED', 'TUI input loop ended before the runtime produced a frame.', {
+      runtime.reportDiagnostic(diagnostic('TUI_RUN_FAILED', 'TUI input loop ended before the runtime produced a frame.', {
         target: runtime.app.id
-      })
+      }))
     ],
     snapshot: tuiSnapshot(runtime.app.id)
   };
@@ -131,9 +131,9 @@ function handleTuiSignal<TState, TMessage>(
     return {
       status: 'interrupted',
       diagnostics: [
-        diagnostic('INPUT_INTERRUPTED', `Received ${signal} before the TUI runtime produced a frame.`, {
+        runtime.reportDiagnostic(diagnostic('INPUT_INTERRUPTED', `Received ${signal} before the TUI runtime produced a frame.`, {
           target: runtime.app.id
-        })
+        }))
       ],
       snapshot: tuiSnapshot(runtime.app.id)
     };

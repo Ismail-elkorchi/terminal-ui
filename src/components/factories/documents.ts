@@ -20,10 +20,7 @@ import {
 } from '../internal/interaction.ts';
 import { optionalId, requiredId } from '../../authoring/render-node.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
-import {
-  searchEntriesForRenderer,
-  searchSelectionHandler
-} from '../internal/domain.ts';
+import { searchSelectionHandler } from '../internal/domain.ts';
 import type {
   ComponentKeyBindingMessages,
   IndependentInteractionOptions,
@@ -81,7 +78,9 @@ export function scrollback(options: ScrollbackOptions<unknown>): Element<unknown
       ...(onAction === undefined ? {} : { toActionMessage: onAction }),
       ...(options.wrap === undefined ? {} : { wrap: options.wrap }),
       ...(options.searchQuery === undefined ? {} : { searchQuery: options.searchQuery }),
-      ...(options.selectedRange === undefined ? {} : { selectedRange: options.selectedRange })
+      ...(options.selectedMatch === undefined ? {} : { selectedMatch: options.selectedMatch }),
+      ...(options.foldedIds === undefined ? {} : { foldedIds: options.foldedIds }),
+      ...(options.selection === undefined ? {} : { selection: options.selection })
     },
     ...interactionProps(options)
   });
@@ -238,7 +237,7 @@ export function palette<TValue>(options: PaletteOptions<TValue, unknown>): Eleme
     ...requiredId(options.id, 'palette'),
     kind: 'palette',
     props: {
-      entries: searchEntriesForRenderer(options.entries),
+      index: options.index,
       ...(options.title === undefined ? {} : { title: options.title }),
       ...(options.query === undefined ? {} : { query: options.query }),
       ...(toMessage === undefined ? {} : { toMessage }),

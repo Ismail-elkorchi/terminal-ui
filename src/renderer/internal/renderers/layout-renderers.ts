@@ -32,9 +32,11 @@ import {
 import { dialogBounds, dialogChildBounds, dialogOutsideHitTargets, drawDialogActionSeparator } from './support/dialog.ts';
 import { drawSurfaceFrame } from '../surface.ts';
 import type { RendererMap } from './types.ts';
+import { layoutMeasurements } from './layout-measurements.ts';
 
 export const layoutRenderers = {
   row: {
+    measure: layoutMeasurements.row,
     layout: ({ renderNode, bounds, measureChild }) => {
       const tracks = childLayoutSizes(renderNode, priorityFillLayoutSizes(renderNode.children ?? []));
       return splitTracks(
@@ -51,6 +53,7 @@ export const layoutRenderers = {
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   column: {
+    measure: layoutMeasurements.column,
     layout: ({ renderNode, bounds, measureChild }) => {
       const tracks = childLayoutSizes(renderNode);
       return splitTracks(
@@ -67,6 +70,7 @@ export const layoutRenderers = {
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   viewport: {
+    measure: layoutMeasurements.viewport,
     layout: ({ renderNode, bounds }) => [viewportChildBounds(renderNode, bounds)],
     render: (input) => {
       const viewportBuffer = createFrameBuffer(input.buffer.width, input.buffer.height, {
@@ -96,6 +100,7 @@ export const layoutRenderers = {
     }
   },
   grid: {
+    measure: layoutMeasurements.grid,
     layout: ({ renderNode, bounds, measureChild }) => gridChildBounds(renderNode, bounds, measureChild),
     render: (input) => {
       input.renderChildren();
@@ -103,6 +108,7 @@ export const layoutRenderers = {
     accessibility: ({ id, focused }) => groupAccessibleNode(id, focused)
   },
   splitPane: {
+    measure: layoutMeasurements.splitPane,
     layout: ({ renderNode, bounds, measureChild }) => splitPaneChildBounds(renderNode, bounds, measureChild),
     render: (input) => {
       input.renderChildren();
@@ -112,6 +118,7 @@ export const layoutRenderers = {
     hitTargets: ({ renderNode, layoutNode }) => splitPaneHitTargets(renderNode, layoutNode)
   },
   tabs: {
+    measure: layoutMeasurements.tabs,
     layout: ({ renderNode, bounds }) => tabsChildBounds(renderNode, bounds),
     render: (input) => {
       writeRenderBlock(input.buffer, {
@@ -142,6 +149,7 @@ export const layoutRenderers = {
     )
   },
   dialog: {
+    measure: layoutMeasurements.dialog,
     layout: ({ renderNode, bounds, measureChild }) => dialogChildBounds(renderNode, bounds, borderForDialog(renderNode), measureChild),
     render: (input) => {
       const focused = input.focus !== 'none';

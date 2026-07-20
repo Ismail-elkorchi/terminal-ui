@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  filterPaletteEntries,
+  paletteProjection,
+  preparePaletteIndex,
   paletteWindow
 } from '../../dist/behavior/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
@@ -15,14 +16,15 @@ const entries = [
   { id: 'toggle-terminal', label: 'Toggle Terminal', group: 'Workspace', value: { kind: 'action' }, description: 'Show terminal', keywords: ['terminal'] },
   { id: 'run-tests', label: 'Run Tests', group: 'Workspace', value: { kind: 'action' }, description: 'Execute tests', keywords: ['verify'], disabled: true }
 ];
+const index = preparePaletteIndex(entries);
 
 test('palette filtering is fuzzy stable and value-agnostic', () => {
   assert.deepEqual(
-    filterPaletteEntries(entries, 'term').map((entry) => entry.id),
+    paletteProjection(index, 'term').entries.map((entry) => entry.id),
     ['toggle-terminal']
   );
   assert.deepEqual(
-    filterPaletteEntries(entries, 'rt').map((entry) => entry.id),
+    paletteProjection(index, 'rt').entries.map((entry) => entry.id),
     ['run-tests']
   );
 });
@@ -39,20 +41,21 @@ test('palette filtering reuses immutable entry search text across queries', () =
     keywords: ['stable']
   };
 
-  assert.deepEqual(filterPaletteEntries([measuredEntry], 'measured'), [measuredEntry]);
-  assert.deepEqual(filterPaletteEntries([measuredEntry], 'stable'), [measuredEntry]);
+  const measuredIndex = preparePaletteIndex([measuredEntry]);
+  assert.deepEqual(paletteProjection(measuredIndex, 'measured').entries.map((entry) => entry.id), ['measured']);
+  assert.deepEqual(paletteProjection(measuredIndex, 'stable').entries.map((entry) => entry.id), ['measured']);
   assert.equal(labelReads, 1);
 });
 
 test('paletteWindow bounds visible entries around stable id selection and scroll', () => {
-  const centered = paletteWindow({ entries, selectedId: 'run-tests', limit: 2 });
+  const centered = paletteWindow({ index, selectedId: 'run-tests', limit: 2 });
   assert.equal(centered.total, 3);
   assert.deepEqual(centered.entries.map((entry) => entry.id), ['toggle-terminal', 'run-tests']);
   assert.equal(centered.selected, 1);
   assert.equal(centered.selectedEntry?.id, 'run-tests');
 
   const scrolled = paletteWindow({
-    entries,
+    index,
     selectedId: 'run-tests',
     scroll: {
       offsetRow: 0,
@@ -76,7 +79,7 @@ test('palette widget renders query matches disabled entries preview help empty s
       id: 'palette',
       title: 'Things',
       query: 'run',
-      entries,
+      index,
       selectedId: 'run-tests',
       maxVisible: 2,
       helpText: 'enter accepts, escape closes',
@@ -127,9 +130,10 @@ test('palette entry normalization is retained across authored frames', () => {
     },
     value: index
   }));
+  const measuredIndex = preparePaletteIndex(measuredEntries);
   const authoredFrame = (query) => palette({
     id: 'measured-palette',
-    entries: measuredEntries,
+    index: measuredIndex,
     query,
     onSelect: (entry) => entry.value
   });
@@ -145,7 +149,7 @@ test('palette widget renders empty states for unrelated queries', () => {
     palette({
       id: 'palette',
       query: 'zz',
-      entries,
+      index,
       emptyText: 'No available entries'
     }),
     { columns: 32, rows: 4 }
@@ -161,7 +165,7 @@ test('palette exposes enabled visible entry hit targets when toMessage is provid
     palette({
       id: 'commands',
       query: '',
-      entries,
+      index,
       maxVisible: 3,
       onSelect: (entry) => ({ kind: 'select', id: entry.id })
     }),
@@ -182,7 +186,7 @@ test('palette emits compact controlled actions while acceptance remains app-owne
     view: () => palette({
       id: 'commands',
       query: '',
-      entries,
+      index,
       onAction: (action) => ({ kind: 'action', action }),
       keys: {
         enter: () => ({ kind: 'accept' }),

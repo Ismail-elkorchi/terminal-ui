@@ -1,17 +1,29 @@
 export { clipTextCells } from './clip.ts';
 export { fillTextCells, oneCellGlyph, padTextCells } from './cell-geometry.ts';
+export { textCaretAt, textDocumentSelectionBetween, textPositionAt } from './coordinates.ts';
 export { applyTextEditWithHistory, emptyTextEditHistory } from './edit-history.ts';
 export { editTextBuffer } from './edit.ts';
+export { editTextDocument } from './document-edit.ts';
+export type { TextDocumentEditResult, TextDocumentEditState } from './document-edit.ts';
 export {
   assertTextDocument,
   isTextDocument,
   normalizeTextDocumentOffset,
   normalizeTextDocumentSelection,
+  normalizeTextDocumentSelectionModel,
+  normalizeTextCaret,
+  normalizeTextPosition,
   prepareTextDocument,
+  textDocumentEdit,
+  textDocumentLength,
   textDocumentLineAt,
-  textDocumentLineIndexAtOffset
+  textDocumentLineCount,
+  textDocumentLineIndexAtOffset,
+  textDocumentSlice,
+  textDocumentSelectionRange,
+  textDocumentText
 } from './document.ts';
-export type { TextDocument, TextDocumentLine } from './document.ts';
+export type { TextDocument, TextDocumentChange, TextDocumentLine } from './document.ts';
 export { segmentGraphemes } from './graphemes.ts';
 export { measureTextCells } from './measure.ts';
 export { sanitizeTerminalText } from './sanitize.ts';
@@ -48,4 +60,4 @@ export type {
   TextEditHistoryResult
 } from './edit-history.ts';
 export type { ExtractTextSelectionInput } from './selection.ts';
-export type { TextHighlightMatch, TextHighlightOptions } from './search-highlight.ts';
+export type { TextHighlightMatch, TextHighlightOptions } from './search-index.ts';

@@ -1,4 +1,5 @@
 import { diagnostic } from '../diagnostics.ts';
+import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import { isCancelKey, isInterruptKey } from '../input/index.ts';
 import { toAccessibleSnapshot } from '../accessibility/index.ts';
 import { createProgress } from './progress.ts';
@@ -101,7 +102,7 @@ function createProgressRuntime(
     const snapshot = progressSnapshot(progress);
     transcript?.record({ kind: 'snapshot', snapshot });
     if (host?.stdin.isTty() === true) {
-      await host.write({ text: `\r\u001B[2K${progressDisplayLine(progress)}` });
+      requireCommittedTerminalWrite(await host.write({ text: `\r\u001B[2K${progressDisplayLine(progress)}` }));
     }
   };
 
@@ -191,7 +192,7 @@ async function progressResultFromOutcome(
   const snapshot = progressSnapshot(progress);
   switch (outcome.kind) {
     case 'completed':
-      if (host?.stdin.isTty() === true) await host.write({ text: '\n' });
+      if (host?.stdin.isTty() === true) requireCommittedTerminalWrite(await host.write({ text: '\n' }));
       return submitPrompt(prompt, outcome.value, snapshot, host);
     case 'cancelled':
       return abortedProgress('cancelled', 'INPUT_CANCELLED', 'Prompt cancelled by user input.', snapshot);

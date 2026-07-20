@@ -19,7 +19,7 @@ test('runPrompt supports interactive select navigation and disabled choices', as
 
   harness.host.input('\u001B[B');
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -42,7 +42,7 @@ test('runPrompt renders choice descriptions and sanitizes prompt output', async 
 
   await waitUntil(() => /Tool:/.test(harness.output()));
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
   const output = harness.output();
 
@@ -58,7 +58,7 @@ test('runPrompt renders empty states for choice prompts', async () => {
 
   await waitUntil(() => /No choices/.test(selectHarness.output()));
   selectHarness.host.input('\u001B');
-  selectHarness.host.stdin.close();
+  selectHarness.host.endInput();
   await selectRun;
 
   const multiselectHarness = createTerminalHarness();
@@ -66,7 +66,7 @@ test('runPrompt renders empty states for choice prompts', async () => {
 
   await waitUntil(() => /No choices/.test(multiselectHarness.output()));
   multiselectHarness.host.input('\u001B');
-  multiselectHarness.host.stdin.close();
+  multiselectHarness.host.endInput();
   await multiselectRun;
 });
 
@@ -83,7 +83,7 @@ test('runPrompt searches select choices by keyword and description', async () =>
 
   harness.host.input('term');
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -107,7 +107,7 @@ test('runPrompt supports interactive multiselect toggling and bounds', async () 
   harness.host.input('\u001B[B');
   harness.host.input(' ');
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -131,7 +131,7 @@ test('runPrompt searches multiselect choices before toggling', async () => {
   harness.host.input('history');
   harness.host.input(' ');
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -157,7 +157,7 @@ test('runPrompt supports configured multiselect range selection', async () => {
   harness.host.input('\u001B[1;2B');
   harness.host.input('\u001B[1;2B');
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -184,7 +184,7 @@ test('runPrompt keeps multiselect range selection opt-in', async () => {
   harness.host.input('\u001B[1;2B');
   harness.host.input('\u001B[1;2B');
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -203,7 +203,7 @@ test('runPrompt reports choice data source failures as prompt diagnostics', asyn
     }
   }), harness.host);
 
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'aborted');
@@ -228,13 +228,16 @@ test('runPrompt preserves successful choice data source diagnostics in results a
 
   await waitUntil(() => /Some choices were omitted/.test(harness.output()));
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
   assert.equal(result.value, 'core');
   assert.deepEqual(result.diagnostics, [sourceDiagnostic]);
-  assert.deepEqual(result.transcript?.diagnostics, [sourceDiagnostic]);
+  const transcriptDiagnostic = result.transcript?.diagnostics[0];
+  assert.equal(transcriptDiagnostic?.fingerprint, sourceDiagnostic.fingerprint);
+  assert.equal(transcriptDiagnostic?.owner, 'prompt-select:transcript');
+  assert.equal(transcriptDiagnostic?.sequence, 1);
   assert.ok(result.transcript?.steps.some((step) => step.kind === 'diagnostic'));
 });
 
@@ -255,7 +258,7 @@ test('runPrompt incrementally paginates async select data sources', async () => 
   harness.host.input('\u001B[6~');
   await waitUntil(() => /Testing/.test(harness.output()));
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -280,7 +283,7 @@ test('runPrompt supports autocomplete query filtering and submission', async () 
   harness.host.input('re');
   await waitUntil(() => /Replay/.test(harness.output()));
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -303,7 +306,7 @@ test('runPrompt highlights autocomplete label matches without mutating submitted
   await waitUntil(() => /\u001B\[[0-9;]*4[0-9;]*mReplay/u.test(harness.output()));
   assert.doesNotMatch(harness.output(), /\u001B\[31m/u);
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -341,7 +344,7 @@ test('runPrompt debounces autocomplete data source refreshes', async () => {
   await waitUntil(() => requests.length === 1);
   await waitUntil(() => /Result ab/.test(harness.output()));
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -378,7 +381,7 @@ test('runPrompt suppresses stale autocomplete data source results', async () => 
   assert.doesNotMatch(harness.output(), /Alpha/);
 
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -404,7 +407,7 @@ test('runPrompt paginates autocomplete data sources with the current query', asy
   harness.host.input('\u001B[6~');
   await waitUntil(() => /Replay/.test(harness.output()));
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');

@@ -20,7 +20,7 @@ const modified = textInput({
   presentation: { value: '', cursor: 0 },
   keys: {
     enter: () => ignoreMessage(),
-    modified: [{
+    triggers: [{
       trigger: { kind: 'key', key: 's', modifiers: { ctrl: true } },
       onKey: () => ({ kind: 'save' } as const)
     }]

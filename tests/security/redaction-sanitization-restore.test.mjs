@@ -15,7 +15,7 @@ test('security lane proves password redaction and control-sequence sanitization'
   const running = runPrompt(password({ label: 'Token' }), host);
 
   host.input(`${secret}\r`);
-  host.stdin.close();
+  host.endInput();
   const result = await running;
   const encoded = JSON.stringify({ result, output: host.output() });
 

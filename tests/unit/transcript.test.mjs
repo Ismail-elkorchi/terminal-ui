@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { diagnostic } from '../../dist/diagnostics.js';
+import { createDiagnosticOccurrenceReporter, diagnostic } from '../../dist/diagnostics.js';
 import { restoreTerminalState } from '../../dist/host/index.js';
 import { createTerminalHarness, replayTranscript } from '../../dist/testing/index.js';
 import { redactTranscript, validateTranscript } from '../../dist/transcript/index.js';
@@ -45,13 +45,7 @@ test('transcript replay preserves frames, diffs, snapshots, diagnostics, and res
       { kind: 'snapshot', snapshot },
       {
         kind: 'diagnostic',
-        diagnostic: {
-          schemaVersion: 'terminal-ui.terminal-diagnostic.v1',
-          id: 'diagnostic:cancelled',
-          code: 'INPUT_CANCELLED',
-          severity: 'info',
-          message: 'cancelled'
-        }
+        diagnostic: occurrence('replay-all', 1, diagnostic('INPUT_CANCELLED', 'cancelled', { severity: 'info' }))
       },
       { kind: 'restore', result: restore }
     ],
@@ -122,11 +116,12 @@ test('transcript replay returns a typed diagnostic for invalid transcripts', asy
 
 test('transcript replay preserves top-level diagnostics and redaction metadata', async () => {
   const harness = createTerminalHarness();
-  const diagnosticItem = diagnostic('INPUT_TIMEOUT', 'Timed out.', {
+  const report = createDiagnosticOccurrenceReporter('top-level-metadata');
+  const diagnosticItem = report.report(diagnostic('INPUT_TIMEOUT', 'Timed out.', {
     target: 'prompt',
     data: { timeoutMs: 10 }
-  });
-  const stepDiagnostic = diagnostic('INPUT_CANCELLED', 'Cancelled.');
+  }));
+  const stepDiagnostic = report.report(diagnostic('INPUT_CANCELLED', 'Cancelled.'));
 
   const result = await replayTranscript(harness, {
     schemaVersion: 'terminal-ui.interaction-transcript.v2',
@@ -154,23 +149,26 @@ test('transcript replay preserves top-level diagnostics and redaction metadata',
   assert.deepEqual(result.transcript.redactions, [{ path: '$.steps[0].event.text', reason: 'secret' }]);
 });
 
-test('transcript recording and replay deduplicate one logical diagnostic by stable id', async () => {
+test('transcript recording is idempotent per occurrence and preserves equal occurrences', async () => {
   const source = createTerminalHarness();
   const item = diagnostic('INPUT_TIMEOUT', 'Timed out.', { target: 'field' });
-  source.transcript.recordDiagnostic(item);
-  source.transcript.recordDiagnostic(item);
+  const first = source.transcript.reportDiagnostic(item);
+  source.transcript.recordDiagnostic(first);
+  const second = source.transcript.reportDiagnostic(item);
   const recorded = source.transcript.snapshot();
 
-  assert.equal(recorded.diagnostics.length, 1);
-  assert.equal(recorded.steps.filter((step) => step.kind === 'diagnostic').length, 1);
+  assert.equal(recorded.diagnostics.length, 2);
+  assert.equal(recorded.steps.filter((step) => step.kind === 'diagnostic').length, 2);
+  assert.equal(first.fingerprint, second.fingerprint);
+  assert.notEqual(first.id, second.id);
 
   const target = createTerminalHarness();
   const result = await replayTranscript(target, {
     ...recorded,
-    diagnostics: [item, item]
+    diagnostics: [first, second, first]
   });
-  assert.equal(result.transcript.diagnostics.length, 1);
-  assert.equal(result.transcript.steps.filter((step) => step.kind === 'diagnostic').length, 1);
+  assert.equal(result.transcript.diagnostics.length, 2);
+  assert.equal(result.transcript.steps.filter((step) => step.kind === 'diagnostic').length, 2);
 });
 
 test('transcript replay preserves partial restoration without upgrading its outcome', async () => {
@@ -313,17 +311,18 @@ test('diagnostics normalize causes into JSON-safe transcript data', () => {
   const item = diagnostic('HOST_STREAM_CLOSED', 'Read failed.', {
     cause: new Error('socket closed')
   });
+  const reported = occurrence('diagnostic-cause', 1, item);
   const transcript = {
     schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: 'diagnostic-cause',
     source: 'test',
-    steps: [{ kind: 'diagnostic', diagnostic: item }],
-    diagnostics: [item],
+    steps: [{ kind: 'diagnostic', diagnostic: reported }],
+    diagnostics: [reported],
     redactions: []
   };
   const invalid = validateTranscript({
     ...transcript,
-    diagnostics: [{ ...item, cause: Number.NaN }]
+    diagnostics: [{ ...reported, cause: Number.NaN }]
   });
 
   assert.deepEqual(item.cause, { name: 'Error', message: 'socket closed' });
@@ -344,6 +343,7 @@ test('diagnostics redact obvious secret-bearing strings by default', () => {
     }
   });
   const encoded = JSON.stringify(item);
+  const reported = occurrence('redacted-diagnostic', 1, item);
 
   assert.equal(encoded.includes('visible-token'), false);
   assert.equal(encoded.includes('visible-api-key'), false);
@@ -355,8 +355,8 @@ test('diagnostics redact obvious secret-bearing strings by default', () => {
     schemaVersion: 'terminal-ui.interaction-transcript.v2',
     id: 'redacted-diagnostic',
     source: 'test',
-    steps: [{ kind: 'diagnostic', diagnostic: item }],
-    diagnostics: [item],
+    steps: [{ kind: 'diagnostic', diagnostic: reported }],
+    diagnostics: [reported],
     redactions: []
   }).ok, true);
 });
@@ -371,7 +371,10 @@ test('transcript validation rejects unknown diagnostic codes', () => {
         kind: 'diagnostic',
         diagnostic: {
           schemaVersion: 'terminal-ui.terminal-diagnostic.v1',
+          fingerprint: 'diagnostic:unknown-content',
           id: 'diagnostic:unknown',
+          owner: 'unknown-diagnostic',
+          sequence: 1,
           code: 'UNKNOWN_DIAGNOSTIC',
           severity: 'error',
           message: 'unknown'
@@ -393,6 +396,15 @@ function runtimeCommit(frame, diff) {
     viewport: { columns: frame.width, rows: frame.height },
     frame,
     diff
+  };
+}
+
+function occurrence(owner, sequence, item) {
+  return {
+    ...item,
+    id: `${owner}:diagnostic:${String(sequence)}`,
+    owner,
+    sequence
   };
 }
 

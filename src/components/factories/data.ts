@@ -13,9 +13,10 @@ import type {
   TreeOptions
 } from '../options/content.ts';
 import type { ScrollEvent } from '../../interaction/scroll.ts';
-import { prepareListCollection } from '../../behavior/list.ts';
+import { prepareListProjection } from '../../behavior/list.ts';
 import { prepareTableCollection } from '../../behavior/table.ts';
 import { prepareTreeCollection } from '../../behavior/tree.ts';
+import { prepareTreeView } from '../../ui-model/tree-view.ts';
 import type { ListControlAction } from '../../ui-model/list.ts';
 import type { TableControlAction } from '../../ui-model/table.ts';
 import {
@@ -62,20 +63,16 @@ export function list<
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 /* eslint-enable @typescript-eslint/unified-signatures */
 export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unknown> {
-  const collection = options.collection ?? prepareListCollection(options.items, options.projectItem);
-  if (collection.kind === 'window' && (options.filterQuery ?? '').trim().length > 0) {
-    throw new TypeError('windowed list collections must be filtered before they are authored.');
-  }
-  const keyMap = listKeyBindings(options, collection);
+  const view = prepareListProjection(options);
+  const keyMap = listKeyBindings(options, view.source);
   const toActionMessage: ((action: ListControlAction) => unknown) | undefined = options.onAction;
   const toScrollActionMessage = isScrollableListOptions(options) ? options.onAction : undefined;
   return elementFromRenderNode<'list', unknown>({
     ...requiredId(options.id, 'list'),
     kind: 'list',
     props: {
-      collection,
+      view,
       ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
-      ...(options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
@@ -204,16 +201,13 @@ export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
     options.nodes,
     options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }
   );
-  if (collection.kind === 'window' && (options.filterQuery ?? '').trim().length > 0) {
-    throw new TypeError('windowed tree collections must be filtered before they are authored.');
-  }
+  const view = prepareTreeView(collection, options.filterQuery);
   return elementFromRenderNode<'tree', unknown>({
     ...requiredId(options.id, 'tree'),
     kind: 'tree',
     props: {
-      collection,
+      view,
       ...(options.selected === undefined ? {} : { selected: options.selected }),
-      ...(options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
       ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),

@@ -37,6 +37,7 @@ import type { CommandInputAction, CommandInputState, MenuBarState, ScrollableTre
 import { createTuiRuntime, defineTui, runTui } from '@ismail-elkorchi/terminal-ui/tui';
 import type { TuiEffect, TuiRuntime, TuiUpdateResult } from '@ismail-elkorchi/terminal-ui/tui';
 import type { Element } from '@ismail-elkorchi/terminal-ui/components';
+import { textDocumentText } from '@ismail-elkorchi/terminal-ui/text';
 
 type EntryMetadata = Readonly<{
   path: string;
@@ -331,7 +332,7 @@ function saveActive(
       operation: { kind: 'pending', id, label: `Saving ${buffer.path}` },
       nextOperation: state.nextOperation + 1
     },
-    effects: [saveEffect(id, buffer.path, buffer.editor.document.text, operations)]
+    effects: [saveEffect(id, buffer.path, textDocumentText(buffer.editor.document), operations)]
   };
 }
 
@@ -517,7 +518,7 @@ function editorPane(state: EditorState): Element<EditorMessage> {
     id: 'editor-tabs',
     tabs: state.buffers.map((buffer) => ({
       id: buffer.path,
-      label: `${buffer.label}${buffer.editor.document.text === buffer.savedText ? '' : ' •'}`,
+      label: `${buffer.label}${textDocumentText(buffer.editor.document) === buffer.savedText ? '' : ' •'}`,
       closable: true,
       panel: textArea({
         id: `editor:${buffer.path}`,
@@ -613,7 +614,7 @@ function openBuffer(state: EditorState, targetPath: string, content: string): Ed
     label: path.basename(targetPath),
     editor: createTextAreaState({
       value: content,
-      cursor: 0,
+      caret: { position: { offset: 0, affinity: 'downstream' } },
       scroll: createScrollState({ contentRows: lineCount(content), viewportRows: 24 })
     }),
     savedText: content
@@ -660,7 +661,7 @@ function activeBuffer(state: EditorState): EditorBuffer | undefined {
 }
 
 function isDirty(buffer: EditorBuffer): boolean {
-  return buffer.editor.document.text !== buffer.savedText;
+  return textDocumentText(buffer.editor.document) !== buffer.savedText;
 }
 
 function isCurrentOperation(state: EditorState, id: string): boolean {

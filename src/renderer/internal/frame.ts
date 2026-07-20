@@ -14,6 +14,7 @@ import type { RenderSerializeOptions } from './ansi.ts';
 import { textWidthProfileKey } from '../../text/index.ts';
 import { frameIndex } from './frame-index.ts';
 import type { FrameIndex } from './frame-index.ts';
+import type { RenderWorkInstrumentation } from '../model/instrumentation.ts';
 
 export type { CursorPosition } from '../model/cursor.ts';
 export type { Frame, FrameCell, FrameHitTarget } from '../model/frame.ts';
@@ -22,6 +23,11 @@ export type { FocusPath } from './focus.ts';
 
 export interface DiffFramesOptions {
   readonly dirtyRegions?: DirtyRegionSet | readonly Rect[];
+  readonly instrumentation?: RenderWorkInstrumentation;
+}
+
+export interface RenderDiffAnsiOptions extends RenderSerializeOptions {
+  readonly instrumentation?: RenderWorkInstrumentation;
 }
 
 export type { FrameRowDiff, RenderDiff, RenderOperation } from '../model/diff.ts';
@@ -107,7 +113,7 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
     const clear = next.width > 0 && next.height > 0
       ? [{ kind: 'clearRect', bounds: { row: 1, column: 1, width: next.width, height: next.height } } as const]
       : [];
-    return {
+    const diff: RenderDiff = {
       schemaVersion: 'terminal-ui.render-diff.v2',
       width: next.width,
       height: next.height,
@@ -119,9 +125,13 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
       ...(next.cursor === undefined ? {} : { cursor: next.cursor }),
       fullRewrite: true
     };
+    recordDiffWork(options.instrumentation, next.height, next.width * next.height, diff.operations.length);
+    return diff;
   }
 
   const operations: RenderOperation[] = [];
+  let comparedRows = 0;
+  let comparedCells = 0;
   const dirtyRegions = dirtyRectsForFrame(next, options.dirtyRegions);
   const dirtyRanges = dirtyRegions === undefined ? undefined : dirtyColumnRanges(dirtyRegions);
   const previousCells = frameIndex(previous);
@@ -129,19 +139,23 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
 
   if (dirtyRegions === undefined) {
     for (let row = 1; row <= next.height; row += 1) {
+      comparedRows += 1;
       if (fingerprintsMatch(previousCells, nextCells, row)) continue;
+      comparedCells += next.width;
       operations.push(...diffRow(previousCells, nextCells, next.width, row, 1, next.width).operations);
     }
   } else {
     for (const [row, ranges] of dirtyRanges ?? []) {
+      comparedRows += 1;
       if (fingerprintsMatch(previousCells, nextCells, row)) continue;
       for (const range of ranges) {
+        comparedCells += range.toColumn - range.fromColumn + 1;
         operations.push(...diffRow(previousCells, nextCells, next.width, row, range.fromColumn, range.toColumn).operations);
       }
     }
   }
 
-  return {
+  const diff: RenderDiff = {
     schemaVersion: 'terminal-ui.render-diff.v2',
     width: next.width,
     height: next.height,
@@ -151,10 +165,25 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
     fullRewrite: false,
     ...(dirtyRegions === undefined ? {} : { dirtyRegions })
   };
+  recordDiffWork(options.instrumentation, comparedRows, comparedCells, operations.length);
+  return diff;
 }
 
-export function renderDiffAnsi(diff: RenderDiff, options?: RenderSerializeOptions): string {
-  return planTerminalOutput(diff, options).text;
+export function renderDiffAnsi(diff: RenderDiff, options?: RenderDiffAnsiOptions): string {
+  const text = planTerminalOutput(diff, options).text;
+  options?.instrumentation?.recordWork({ kind: 'encoded_bytes', count: new TextEncoder().encode(text).byteLength });
+  return text;
+}
+
+function recordDiffWork(
+  instrumentation: RenderWorkInstrumentation | undefined,
+  rows: number,
+  cells: number,
+  operations: number
+): void {
+  instrumentation?.recordWork({ kind: 'diff_rows', count: rows });
+  instrumentation?.recordWork({ kind: 'diff_cells', count: cells });
+  instrumentation?.recordWork({ kind: 'diff_operations', count: operations });
 }
 
 export function compareCells(left: FrameCell, right: FrameCell): number {

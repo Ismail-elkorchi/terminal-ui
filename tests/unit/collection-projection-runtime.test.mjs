@@ -60,7 +60,8 @@ test('prepared collections reject ambiguous identity and invalid global windows'
   assert.throws(
     () => prepareTreeRows([{ node: { id: 'one', label: 'One', kind: 'leaf' }, depth: 0, path: ['one'] }], {
       start: 2,
-      total: 2
+      total: 2,
+      domain: { kind: 'source' }
     }),
     /must fit inside/u
   );

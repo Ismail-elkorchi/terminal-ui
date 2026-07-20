@@ -1,6 +1,13 @@
 
-export { diagnostic, terminalDiagnosticCodes } from './diagnostics.ts';
+export {
+  createDiagnosticOccurrenceReporter,
+  diagnostic,
+  diagnosticOccurrenceIssue,
+  terminalDiagnosticCodes
+} from './diagnostics.ts';
 export type {
+  DiagnosticOccurrence,
+  DiagnosticOccurrenceReporter,
   TerminalDiagnostic,
   TerminalDiagnosticCode,
   TerminalDiagnosticValue,

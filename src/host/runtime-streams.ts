@@ -4,6 +4,9 @@ import { settleResourceDisposal } from './dispose.ts';
 import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import { OrderedOutputQueue, createTerminalHostOutputAuthority } from './ordered-output.ts';
 import { waitForTerminalOperation } from './operation.ts';
+import { TerminalInputAuthority } from './input-authority.ts';
+import { TerminalCapabilityDetector } from './capability-detection.ts';
+import { committedTerminalWrite, failedTerminalWrite, indeterminateTerminalWrite } from './write-receipt.ts';
 import type { RuntimeTarget } from './capability-types.ts';
 import type {
   RuntimeInputSource,
@@ -22,7 +25,6 @@ import type {
   TerminalViewport,
   Unsubscribe
 } from './types.ts';
-import type { TerminalCapabilityProfile } from './capability-types.ts';
 import type { TerminalCapabilityConfiguration } from './capabilities.ts';
 
 export interface StreamTerminalHostOptions {
@@ -41,17 +43,18 @@ export interface StreamTerminalHostOptions {
 }
 
 export function createStreamTerminalHost(options: StreamTerminalHostOptions): TerminalHost {
-  const stdin = new RuntimeInput(options.stdin);
+  const inputSource = new RuntimeInput(options.stdin);
+  const stdin = new TerminalInputAuthority(inputSource);
   const stdout = options.stdoutOutput ?? new RuntimeOutput(options.stdout);
   const stderr = options.stderrOutput ?? new RuntimeOutput(options.stderr);
   const clock = new RuntimeClock();
-  const output = createTerminalHostOutputAuthority(stdout, stderr);
+  const output = createTerminalHostOutputAuthority(stdout, stderr, options.id);
   const getViewport = (): TerminalViewport => options.getViewport?.() ?? {
     columns: stdout.columns ?? 80,
     rows: stdout.rows ?? 24
   };
   const initialViewport = getViewport();
-  const capabilities: TerminalCapabilityProfile = resolveTerminalCapabilities({
+  const resolverInput = {
     host: {
       runtime: options.runtime,
       inputIsTty: stdin.isTty(),
@@ -67,8 +70,15 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
     ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides }),
     ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
     ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile })
-  });
+  } satisfies Parameters<typeof resolveTerminalCapabilities>[0];
   const terminalState = new TerminalStateAuthorityBinding();
+  const detector = new TerminalCapabilityDetector({
+    input: stdin,
+    clock,
+    resolverInput,
+    beginSession: (id, capabilities) => terminalState.beginLease(id, capabilities),
+    write: (chunk, signal) => output.write(chunk, { signal })
+  });
   const host: TerminalHost = {
     id: options.id,
     runtime: options.runtime,
@@ -79,15 +89,17 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
     clock,
     env: new ObjectEnvironment(options.env ?? {}),
     getViewport,
-    getCapabilities: () => Promise.resolve(capabilities),
+    getCapabilities: (detectionOptions) => detector.detect(detectionOptions),
     beginSession: (sessionOptions) =>
-      terminalState.beginLease(sessionOptions?.id ?? `${options.id}-session`, capabilities),
+      terminalState.beginLease(sessionOptions?.id ?? `${options.id}-session`, detector.current()),
     restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
     write: output.write,
+    writeSafety: output.writeSafety,
     flush: output.flush,
     dispose: async (context) => {
       await settleResourceDisposal([
         () => terminalState.restoreAllConfirmed('disposed', context),
+        () => stdin.dispose(),
         () => output.dispose(context)
       ]);
     }
@@ -162,6 +174,34 @@ export class RuntimeOutput implements TerminalOutput {
         await this.#writer.write(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk);
       }
     }, context);
+  }
+
+  async writeSafety(
+    chunk: string | Uint8Array,
+    context: TerminalOperationContext = {}
+  ): Promise<import('./types.ts').TerminalWriteReceipt> {
+    if (context.signal?.aborted === true) {
+      return failedTerminalWrite('runtime-safety-output', context.signal.reason);
+    }
+    if (this.#phase !== 'open') {
+      return failedTerminalWrite('runtime-safety-output', new Error('Terminal output is not writable after disposal begins.'));
+    }
+    try {
+      if (this.#options.safetyWrite !== undefined) {
+        await this.#options.safetyWrite(chunk, context);
+      } else if (this.#options.writable !== undefined) {
+        this.#writer ??= this.#options.writable.getWriter();
+        await waitForTerminalOperation(
+          this.#writer.write(typeof chunk === 'string' ? new TextEncoder().encode(chunk) : chunk),
+          context
+        );
+      } else {
+        return failedTerminalWrite('runtime-safety-output', new Error('The output adapter has no safety-write authority.'));
+      }
+      return committedTerminalWrite();
+    } catch (cause) {
+      return indeterminateTerminalWrite('runtime-safety-output', cause);
+    }
   }
 
   async flush(context: TerminalOperationContext = {}): Promise<void> {

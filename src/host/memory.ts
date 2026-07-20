@@ -3,6 +3,9 @@ import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import { createTerminalHostOutputAuthority } from './ordered-output.ts';
 import { settleResourceDisposal } from './dispose.ts';
 import { throwIfTerminalOperationAborted } from './operation.ts';
+import { committedTerminalWrite, failedTerminalWrite } from './write-receipt.ts';
+import { TerminalInputAuthority } from './input-authority.ts';
+import { TerminalCapabilityDetector } from './capability-detection.ts';
 import type {
   ControlledTerminalClock,
   MemoryTerminalHostOptions,
@@ -113,6 +116,17 @@ class BufferOutput implements TerminalOutput {
     throwIfTerminalOperationAborted(context);
     this.#chunks.push(typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk));
     return Promise.resolve();
+  }
+
+  writeSafety(
+    chunk: string | Uint8Array,
+    context: TerminalOperationContext = {}
+  ): Promise<import('./types.ts').TerminalWriteReceipt> {
+    if (context.signal?.aborted === true) {
+      return Promise.resolve(failedTerminalWrite('memory-safety-output', context.signal.reason));
+    }
+    this.#chunks.push(typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk));
+    return Promise.resolve(committedTerminalWrite());
   }
 
   flush(context: TerminalOperationContext = {}): Promise<void> {
@@ -228,12 +242,13 @@ class ObjectEnvironment implements TerminalEnvironment {
 }
 
 export interface MemoryTerminalHost extends TerminalHost {
-  readonly stdin: QueueInput;
+  readonly stdin: TerminalInputAuthority;
   readonly stdout: BufferOutput;
   readonly stderr: BufferOutput;
   readonly signals: MemorySignals;
   readonly clock: ControlledTerminalClock;
   input(data: string | Uint8Array): void;
+  endInput(): void;
   output(): string;
   frames(): readonly unknown[];
   diffs(): readonly unknown[];
@@ -243,13 +258,14 @@ export interface MemoryTerminalHost extends TerminalHost {
 export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}): MemoryTerminalHost {
   let viewport: TerminalViewport = options.viewport ?? { columns: 80, rows: 24 };
   const isTty = options.isTty ?? true;
-  const stdin = new QueueInput(isTty);
+  const inputSource = new QueueInput(isTty);
+  const stdin = new TerminalInputAuthority(inputSource, () => { inputSource.close(); });
   const stdout = new BufferOutput(viewport.columns, viewport.rows, isTty);
   const stderr = new BufferOutput(viewport.columns, viewport.rows, isTty);
-  const output = createTerminalHostOutputAuthority(stdout, stderr);
+  const output = createTerminalHostOutputAuthority(stdout, stderr, options.id ?? 'memory');
   const signals = new MemorySignals();
   const clock = new MemoryClock();
-  const capabilities = resolveTerminalCapabilities({
+  const resolverInput = {
     host: {
       runtime: 'memory',
       inputIsTty: stdin.isTty(),
@@ -274,12 +290,19 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
             }
           }
     )
-  });
+  } satisfies Parameters<typeof resolveTerminalCapabilities>[0];
   const env = new ObjectEnvironment(options.env ?? {});
   const frames: unknown[] = [];
   const diffs: unknown[] = [];
   const restores: TerminalRestoreResult[] = [];
   const terminalState = new TerminalStateAuthorityBinding();
+  const detector = new TerminalCapabilityDetector({
+    input: stdin,
+    clock,
+    resolverInput,
+    beginSession: (id, capabilities) => terminalState.beginLease(id, capabilities),
+    write: (chunk, signal) => output.write(chunk, { signal })
+  });
   const host = {
     id: options.id ?? 'memory',
     runtime: 'memory',
@@ -309,13 +332,15 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
       }
     },
     getViewport: () => viewport,
-    getCapabilities: () => Promise.resolve(capabilities),
+    getCapabilities: (detectionOptions) => detector.detect(detectionOptions),
     beginSession: (sessionOptions) =>
-      terminalState.beginLease(sessionOptions?.id ?? 'memory-session', capabilities),
+      terminalState.beginLease(sessionOptions?.id ?? 'memory-session', detector.current()),
     restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
     write: output.write,
+    writeSafety: output.writeSafety,
     flush: output.flush,
-    input: (data: string | Uint8Array) => { stdin.push(data); },
+    input: (data: string | Uint8Array) => { inputSource.push(data); },
+    endInput: () => { inputSource.close(); },
     output: () => stdout.text(),
     frames: () => [...frames],
     diffs: () => [...diffs],
@@ -323,7 +348,7 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     dispose: async (context) => {
       await settleResourceDisposal([
         () => terminalState.restoreAllConfirmed('disposed', context),
-        () => { stdin.close(); },
+        () => stdin.dispose(),
         () => output.dispose(context)
       ]);
     }

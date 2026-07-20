@@ -30,6 +30,15 @@ It is also available through `createTerminalHost({ adapter: 'pty', ... })`.
 
 Hosts expose input, output, signals, environment, viewport, capabilities, clock,
 and session-managed terminal restoration.
+Capability facts supplied through host options use explicit
+`supported`/`unsupported`/`unknown` evidence. `getCapabilities()` normally
+returns that resolved profile without terminal I/O. A caller that intends to
+enable the Kitty keyboard protocol may request the bounded
+`keyboardProtocol` active probe. The host temporarily owns raw input through a
+terminal session, consumes only the documented `CSI ? flags u` response, and
+replays unrelated input in its original order. `runTui()` requests this probe
+only when its session policy asks for a Kitty profile and existing evidence is
+still unknown.
 Output writes are asynchronous and ordered. A resolved write has crossed the
 adapter's native backpressure boundary; `flush()` settles every write accepted
 before it. Node adapters wait for write callbacks and `drain`, Web Stream

@@ -48,7 +48,7 @@ export function recordPromptResult<TValue>(
   result: PromptResult<TValue>
 ): void {
   for (const item of result.diagnostics) {
-    transcript?.recordDiagnostic(item);
+    transcript?.reportDiagnostic(item);
   }
   if (result.snapshot !== undefined) transcript?.record({ kind: 'snapshot', snapshot: result.snapshot });
 }

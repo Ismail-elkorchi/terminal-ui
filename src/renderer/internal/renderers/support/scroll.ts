@@ -447,7 +447,7 @@ export function tableScrollbarState(widget: TableNode, bounds: Rect): ScrollStat
 
 export function treeScrollbarState(widget: TreeNode, bounds: Rect): ScrollState {
   const scroll = normalizedRenderNodeScroll(widget, {
-    contentRows: widget.props.collection.total,
+    contentRows: widget.props.view.collection.total,
     contentColumns: scrollNumberProp(widget, 'contentColumns') ?? bounds.width,
     viewportRows: bounds.height,
     viewportColumns: bounds.width
@@ -486,9 +486,8 @@ export function scrollbackScrollbarState(
 }
 
 export function paletteScrollbarState(widget: PaletteNode, bounds: Rect): ScrollState {
-  const entries = Array.isArray(widget.props.entries) ? widget.props.entries : [];
   const scroll = normalizedRenderNodeScroll(widget, {
-    contentRows: scrollNumberProp(widget, 'contentRows') ?? entries.length,
+    contentRows: scrollNumberProp(widget, 'contentRows') ?? widget.props.index.size,
     contentColumns: scrollNumberProp(widget, 'contentColumns') ?? bounds.width,
     viewportRows: bounds.height,
     viewportColumns: bounds.width

@@ -79,6 +79,25 @@ export function tableColumnWidths(
   });
 }
 
+export function tableIntrinsicSize(
+  widget: TableNode,
+  widthProfile: TextWidthProfile
+): { readonly width: number; readonly height: number } {
+  const rows = widget.props.collection.records.slice(0, 64).map((record) => record.row);
+  const columns = tableColumns(widget, rows);
+  const widths = columns.map((column) => {
+    if (typeof column.width === 'number') return Math.max(1, Math.floor(column.width));
+    if (column.width?.kind === 'fixed') return Math.max(1, Math.floor(column.width.cells));
+    return intrinsicColumnWidth(column, rows, widthProfile);
+  });
+  const width = widths.reduce((sum, columnWidth, index) => sum + columnWidth + (index === 0 ? 2 : 4), 0);
+  const hasHeader = columns.some((column) => (column.header?.length ?? 0) > 0);
+  return {
+    width,
+    height: widget.props.collection.total + (hasHeader ? 1 : 0)
+  };
+}
+
 export function tableSortMarker(sort: TableSortDirection | undefined): string {
   if (sort === 'ascending') return ' ↑';
   if (sort === 'descending') return ' ↓';

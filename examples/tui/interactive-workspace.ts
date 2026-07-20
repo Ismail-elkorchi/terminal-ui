@@ -9,6 +9,7 @@ import {
   createScrollState,
   palettePresentation,
   paletteReducer,
+  preparePaletteIndex,
   selectedPaletteEntry,
   tableReducer,
   tableScrollablePresentation,
@@ -107,6 +108,7 @@ const paletteEntries: readonly SearchEntry[] = [
   { id: 'resolve', label: 'Resolve selected ticket', value: '/resolve', group: 'Actions' },
   { id: 'notes', label: 'Open notes', value: '/notes', group: 'Navigation' }
 ];
+const workspacePaletteIndex = preparePaletteIndex(paletteEntries);
 
 const suggestions = paletteEntries.map((entry) => ({ label: entry.label, value: entry.value }));
 
@@ -216,10 +218,10 @@ function updateWorkspace(
     case 'palette':
       return updateResult({
         ...state,
-        palette: { ...state.palette, ...paletteReducer(state.palette, message.action, { entries: paletteEntries }) }
+        palette: { ...state.palette, ...paletteReducer(state.palette, message.action, { index: workspacePaletteIndex }) }
       });
     case 'acceptPalette': {
-      const selected = message.value ?? selectedPaletteEntry({ entries: paletteEntries, state: state.palette })?.value;
+      const selected = message.value ?? selectedPaletteEntry({ index: workspacePaletteIndex, state: state.palette })?.value;
       return updateResult(selected === undefined ? state : applyCommand({
         ...state,
         palette: { ...state.palette, open: false, used: true },
@@ -405,7 +407,7 @@ function paletteLayer(state: WorkspaceState) {
   return surface(palette({
     id: 'workspace-palette',
     title: 'Commands',
-    entries: paletteEntries,
+    index: workspacePaletteIndex,
     ...palettePresentation(state.palette),
     onAction: (action): WorkspaceMessage => ({ kind: 'palette', action }),
     onSelect: (entry): WorkspaceMessage => ({ kind: 'acceptPalette', source: 'pointer', value: entry.value }),

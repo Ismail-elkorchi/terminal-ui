@@ -6,7 +6,6 @@ import { projectedRowWindow, rowWindow, scrollStateFromUnknown } from '../../../
 import { createScrollState, normalizeScrollState } from '../../../../behavior/scroll.ts';
 import { dataSource, dataSpan, dataValueSpans, mergeDataStyles, selectionMarkerSpans } from '../../data-visual.ts';
 import type { ScrollState } from '../../../../interaction/scroll.ts';
-import { sanitizeTerminalText } from '../../../../text/index.ts';
 import { windowDescription } from '../../visible-window.ts';
 import { stringify } from '../../render-node-props.ts';
 import { resolveRenderNodeStyle, themeStyle } from '../../render-node-style.ts';
@@ -14,22 +13,17 @@ import type { LayoutNode, Rect } from '../../../model/layout.ts';
 import type { RenderBlock, RenderLine } from '../../../../visual/render.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
 import type { ListControlAction } from '../../../../ui-model/list.ts';
-import type { ListCollection } from '../../../../ui-model/list.ts';
+import type { ListViewProjection } from '../../../../ui-model/list.ts';
 import { interactionVisualState, renderNodeTargetId } from '../../pointer-presentation.ts';
 import { measureBlock } from '../../measurement.ts';
 import type { Measurement } from '../../../model/measurement.ts';
 
 type ListNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'list'>;
 
-const listEntriesCache = new WeakMap<object, {
-  readonly query: string;
-  readonly entries: readonly ListEntry[];
-}>();
-
 const intrinsicMeasurementRows = 64;
 
 export function listScrollbarState(widget: ListNode, bounds: Rect): ScrollState {
-  const projection = filteredListItems(widget);
+  const projection = widget.props.view;
   const selected = selectedVisibleIndex(projection, stringify(widget.props.selectedId));
   const explicitScroll = scrollStateFromUnknown(widget.props.scroll);
   if (explicitScroll !== undefined) {
@@ -54,11 +48,11 @@ export function listScrollbarState(widget: ListNode, bounds: Rect): ScrollState 
 }
 
 export function listBlock(widget: ListNode, height: number, theme: TerminalTheme, focused = false): RenderBlock {
-  const projection = filteredListItems(widget);
+  const projection = widget.props.view;
   const selectedId = stringify(widget.props.selectedId);
   const selected = selectedVisibleIndex(projection, selectedId);
   const window = listWindow(widget, projection, height, selected);
-  const query = filterQuery(widget);
+  const query = projection.query;
   if (window.rows.length === 0 && height > 0) {
     return {
       lines: [{
@@ -72,10 +66,10 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
   }
   return {
     lines: window.rows.map((entry): RenderLine => {
-      const itemIndex = entry.index;
+      const itemIndex = entry.sourceIndex;
       const isSelected = entry.id === selectedId;
       const state = interactionVisualState(widget, listOptionTargetId(widget, entry.id), {
-        disabled: entry.disabled,
+        disabled: entry.item.disabled,
         selected: isSelected,
         focused: focused && isSelected
       });
@@ -103,7 +97,7 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
               ...(state === undefined ? {} : { state })
             })
           ),
-          ...dataValueSpans(entry.label, query, style, {
+          ...dataValueSpans(entry.item.label, query, style, {
             source: dataSource(widget, `item.${entry.id}.value`, {
               itemId: entry.id,
               itemIndex,
@@ -112,8 +106,8 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
             matchSource: dataSource(widget, `item.${entry.id}.match`, { itemId: entry.id, itemIndex, state: 'match' }),
             ...(matchStyle === undefined ? {} : { matchStyle })
           }),
-          ...(entry.description === undefined ? [] : [dataSpan(
-            ` · ${entry.description}`,
+          ...(entry.item.description === undefined ? [] : [dataSpan(
+            ` · ${entry.item.description}`,
             resolveRenderNodeStyle(widget, { part: 'description', base: themeStyle('text.muted', { dim: true }) }),
             dataSource(widget, `item.${entry.id}.description`, {
               itemId: entry.id,
@@ -132,12 +126,12 @@ export function listIntrinsicMeasurement(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): Measurement {
-  const rowCount = Math.max(1, Math.min(intrinsicMeasurementRows, filteredListItems(widget).total));
+  const rowCount = Math.max(1, Math.min(intrinsicMeasurementRows, widget.props.view.total));
   return measureBlock(listBlock(widget, rowCount, theme), { widthProfile });
 }
 
 export function listAccessibleNode(widget: ListNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
-  const projection = filteredListItems(widget);
+  const projection = widget.props.view;
   const selected = selectedVisibleIndex(projection, stringify(widget.props.selectedId));
   const window = listWindow(widget, projection, node.bounds.height, selected, node.bounds.width);
   return {
@@ -150,17 +144,17 @@ export function listAccessibleNode(widget: ListNode, node: LayoutNode, id: strin
 }
 
 export function listAccessibleChildren(widget: ListNode, node: LayoutNode): readonly AccessibleNode[] {
-  const projection = filteredListItems(widget);
+  const projection = widget.props.view;
   const selectedId = stringify(widget.props.selectedId);
   const selected = selectedVisibleIndex(projection, selectedId);
   const window = listWindow(widget, projection, node.bounds.height, selected, node.bounds.width);
   return window.rows.map((entry) => ({
       id: listOptionTargetId(widget, entry.id),
       role: 'option',
-      label: entry.label,
-      ...(entry.description === undefined ? {} : { description: entry.description }),
+      label: entry.item.label,
+      ...(entry.item.description === undefined ? {} : { description: entry.item.description }),
       selected: entry.id === selectedId,
-      disabled: entry.disabled
+      disabled: entry.item.disabled
     }));
 }
 
@@ -169,7 +163,7 @@ function listOptionTargetId(widget: ListNode, entryId: string): string {
 }
 
 export function listCursor(widget: ListNode, bounds: Rect): { readonly row: number; readonly column: number } {
-  const projection = filteredListItems(widget);
+  const projection = widget.props.view;
   const selected = selectedVisibleIndex(projection, stringify(widget.props.selectedId));
   if (selected < 0 || projection.total === 0 || bounds.height <= 0) {
     return { row: bounds.row, column: bounds.column };
@@ -184,12 +178,12 @@ export function listCursor(widget: ListNode, bounds: Rect): { readonly row: numb
 export function listHitTargets<TMessage>(widget: ListNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
   const toMessage = toActionMessageProp(widget);
   if (toMessage === undefined) return [];
-  const projection = filteredListItems(widget);
+  const projection = widget.props.view;
   const selected = selectedVisibleIndex(projection, stringify(widget.props.selectedId));
   const window = listWindow(widget, projection, bounds.height, selected, bounds.width);
   return window.rows.flatMap((entry, index): HitTarget<TMessage>[] => {
-    if (entry.disabled) return [];
-    const itemIndex = entry.index;
+    if (entry.item.disabled) return [];
+    const itemIndex = entry.sourceIndex;
     return [{
       id: listOptionTargetId(widget, entry.id),
       bounds: {
@@ -206,56 +200,7 @@ export function listHitTargets<TMessage>(widget: ListNode<TMessage>, bounds: Rec
   });
 }
 
-interface ListEntry {
-  readonly id: string;
-  readonly label: string;
-  readonly description?: string;
-  readonly keywords: readonly string[];
-  readonly index: number;
-  readonly disabled: boolean;
-}
-
-interface ListEntriesProjection {
-  readonly entries: readonly ListEntry[];
-  readonly source: ListCollection<unknown>;
-  readonly start: number;
-  readonly total: number;
-}
-
-function filteredListItems(widget: ListNode): ListEntriesProjection {
-  const source = widget.props.collection;
-  const query = filterQuery(widget).toLocaleLowerCase();
-  const cached = listEntriesCache.get(source);
-  const entries = cached?.query === query ? cached.entries : source.records.flatMap((record): readonly ListEntry[] => {
-    const item = record.item;
-    const entry = {
-      id: clean(item.id),
-      label: clean(item.label),
-      ...(item.description === undefined ? {} : { description: clean(item.description) }),
-      keywords: (item.keywords ?? []).map(clean),
-      index: record.index,
-      disabled: item.disabled
-    };
-    const searchText = [entry.label, entry.description, ...entry.keywords]
-      .filter((value): value is string => value !== undefined)
-      .join(' ')
-      .toLocaleLowerCase();
-    return query.length > 0 && !searchText.includes(query) ? [] : [entry];
-  });
-  if (cached?.query !== query) listEntriesCache.set(source, { query, entries });
-  return {
-    entries,
-    source,
-    start: source.kind === 'window' ? source.start : 0,
-    total: source.kind === 'window' ? source.total : entries.length
-  };
-}
-
-function filterQuery(widget: ListNode): string {
-  return clean(stringify(widget.props.filterQuery)).trim();
-}
-
-function listWindow(widget: ListNode, projection: ListEntriesProjection, height: number, selected: number, width = 0) {
+function listWindow(widget: ListNode, projection: ListViewProjection<unknown>, height: number, selected: number, width = 0) {
   const input = {
     viewportRows: height,
     viewportColumns: width,
@@ -281,12 +226,8 @@ function toActionMessageProp<TMessage>(widget: ListNode<TMessage>): ((action: Li
   return widget.props.toActionMessage;
 }
 
-function selectedVisibleIndex(projection: ListEntriesProjection, selectedId: string): number {
+function selectedVisibleIndex(projection: ListViewProjection<unknown>, selectedId: string): number {
   if (selectedId.length === 0) return -1;
   const local = projection.entries.findIndex((entry) => entry.id === selectedId);
   return local < 0 ? -1 : projection.start + local;
-}
-
-function clean(value: string): string {
-  return sanitizeTerminalText(value).text.replace(/\s*\n\s*/gu, ' ');
 }

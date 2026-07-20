@@ -456,7 +456,7 @@ test('TUI pointer motion drops stale drag samples before routing release', async
       firstWriteStarted.release();
       await releaseFirstWrite.promise;
     }
-    await write(output, context);
+    return write(output, context);
   };
 
   const first = await runtime.handleInputChunk({ data: '\u001B[<32;2;1M' });

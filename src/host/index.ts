@@ -28,6 +28,8 @@ export type {
   RuntimeTerminalInputOptions,
   RuntimeTerminalOutputOptions,
   TerminalClock,
+  TerminalCapabilityDetectionOptions,
+  TerminalActiveCapabilityProbe,
   TerminalEnvironment,
   TerminalHost,
   TerminalInput,
@@ -37,6 +39,7 @@ export type {
   TerminalOutput,
   TerminalOutputChunk,
   TerminalOperationContext,
+  TerminalOperationOutcome,
   TerminalRestoreOptions,
   TerminalRestoreReason,
   TerminalRestoreResult,
@@ -49,6 +52,7 @@ export type {
   TerminalStateProvenanceSnapshot,
   TerminalStateSnapshot,
   TerminalViewport,
+  TerminalWriteReceipt,
   Unsubscribe
 } from './types.ts';
 export type {
@@ -67,6 +71,11 @@ export { createMemoryTerminalHost } from './memory.ts';
 export { createNodeTerminalHost } from './node.ts';
 export { createPtyTerminalHost } from './pty.ts';
 export { capabilityIsSupported, resolveTerminalCapabilities } from './capabilities.ts';
+export {
+  committedTerminalWrite,
+  failedTerminalWrite,
+  indeterminateTerminalWrite
+} from './write-receipt.ts';
 
 import { createBunTerminalHost } from './bun.ts';
 import { createDenoTerminalHost } from './deno.ts';

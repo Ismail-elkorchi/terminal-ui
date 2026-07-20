@@ -1,10 +1,10 @@
 import type { TerminalHost } from '../host/index.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
+import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import type { TuiContext } from './types.ts';
 
 export async function createTuiContext(
   host: TerminalHost,
-  diagnostics: readonly TerminalDiagnostic[] = []
+  diagnostics: readonly DiagnosticOccurrence[] = []
 ): Promise<TuiContext> {
   return {
     viewport: host.getViewport(),

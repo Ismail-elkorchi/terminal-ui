@@ -8,6 +8,7 @@ import type { ListAction } from '../../ui-model/list.ts';
 import type { ListCollectionRecord } from '../../ui-model/list.ts';
 import type { SelectPresentation } from '../../ui-model/choice-controls.ts';
 import { completeCollection } from '../../ui-model/collection.ts';
+import { prepareListView } from '../../ui-model/list-view.ts';
 
 export interface SelectPopupInput<TMessage> {
   readonly ownerId: string;
@@ -51,7 +52,7 @@ function selectPopupList<TMessage>(input: SelectPopupInput<TMessage>): RenderNod
     id: renderNodeId(`${input.ownerId}:popup:list`, 'select popup list'),
     kind: 'list',
     props: {
-      collection,
+      view: prepareListView(collection),
       ...(input.presentation.highlighted === undefined ? {} : { selectedId: input.presentation.highlighted }),
       ...(input.presentation.scroll === undefined ? {} : { scroll: input.presentation.scroll }),
       ...(input.scrollbar === undefined ? {} : { scrollbar: input.scrollbar }),

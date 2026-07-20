@@ -70,7 +70,7 @@ export type {
   TextAreaScrollablePresentation
 } from '../ui-model/text-area.ts';
 export type { TextInputAction, TextInputPresentation } from '../ui-model/text-input.ts';
-export type { TextPointerAction } from '../interaction/text-pointer.ts';
+export type { PointerSelectionAction, TextPointerAction } from '../interaction/text-pointer.ts';
 export {
   indeterminateProgressFrame,
   progressCompletionState
@@ -89,6 +89,7 @@ export {
   listPresentation,
   listScrollablePresentation,
   prepareListCollection,
+  prepareListProjection,
   listReducer,
   visibleListEntries
 } from './list.ts';
@@ -98,16 +99,19 @@ export type {
   ListReducerOptions,
   PassiveListState,
   ScrollableListState,
-  ListState,
-  ListVisibleEntry
+  ListState
 } from './list.ts';
 export type {
+  CompleteListCollection,
   ListAction,
   ListCollection,
   ListCollectionRecord,
   ListControlAction,
   ListItemProjection,
-  ListItemProjector
+  ListItemProjector,
+  ListViewEntry,
+  ListViewProjection,
+  WindowedListCollection
 } from '../ui-model/list.ts';
 export { rangeSliderPresentation, rangeSliderReducer } from './range-slider.ts';
 export type {
@@ -168,8 +172,8 @@ export type {
   NotificationState
 } from './notifications.ts';
 export {
-  filterPaletteEntries,
   groupPaletteEntries,
+  paletteProjection,
   palettePresentation,
   paletteReducer,
   paletteStatus,
@@ -188,6 +192,8 @@ export type {
   PaletteWindowInput
 } from './palette.ts';
 export type { PaletteAction } from '../ui-model/palette.ts';
+export { preparePaletteIndex } from '../ui-model/palette-index.ts';
+export type { PaletteIndex, PaletteQueryProjection } from '../ui-model/palette-index.ts';
 export {
   contextMenuPresentation,
   contextMenuReducer,
@@ -218,7 +224,12 @@ export { tabsPresentation, tabsReducer } from './tabs.ts';
 export type { TabsPresentation, TabsState } from './tabs.ts';
 export type { TabAction } from '../ui-model/tabs.ts';
 export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
-export type { ScrollbackAction, ScrollbackControlAction } from '../ui-model/scrollback.ts';
+export type {
+  ScrollbackAction,
+  ScrollbackBodyAnchor,
+  ScrollbackControlAction,
+  ScrollbackSelection
+} from '../ui-model/scrollback.ts';
 export {
   barChartPresentation,
   barChartReducer,
@@ -300,29 +311,30 @@ export {
   appendScrollbackHistory,
   prepareScrollbackHistory,
   scrollbackHistoryItemAt,
-  scrollbackHistoryRecordMatchCount,
+  scrollbackHistoryRecordById,
+  scrollbackHistoryRecordMatches,
   scrollbackHistoryItems
 } from '../ui-model/scrollback-history.ts';
 export type {
   ScrollbackHistory,
   ScrollbackHistoryRecord,
   ScrollbackHistorySegment,
-  ScrollbackItem
+  ScrollbackItem,
+  ScrollbackSearchField,
+  ScrollbackSearchMatch
 } from '../ui-model/scrollback-history.ts';
 export {
-  foldScrollbackHistory,
   followTailScrollState,
   nextScrollbackMatch,
   scrollbackPresentation,
   scrollbackScrollablePresentation,
   scrollbackReducer,
-  scrollbackSearchMarks
+  scrollbackSearchMatches
 } from './scrollback.ts';
 export type {
   PassiveScrollbackState,
   ScrollbackPresentation,
   ScrollbackScrollablePresentation,
-  ScrollbackSearchMark,
   ScrollableScrollbackState,
   ScrollbackState
 } from './scrollback.ts';
@@ -404,10 +416,14 @@ export type {
   TreeVisibleRowsOptions
 } from './tree.ts';
 export type {
+  CompleteTreeCollection,
   TreeCollection,
   TreeCollectionRecord,
-  TreeVisibleRow
+  TreeViewProjection,
+  TreeVisibleRow,
+  WindowedTreeCollection
 } from '../ui-model/tree.ts';
+export type { CollectionWindow, CollectionWindowDomain } from '../ui-model/collection.ts';
 export type { PassiveTreeAction, TreeAction, TreeControlAction, TreeInteractionAction } from '../ui-model/tree.ts';
 export { extractScrollbackSelectionText } from './scrollback-selection.ts';
 export type { ExtractScrollbackSelectionTextInput } from './scrollback-selection.ts';

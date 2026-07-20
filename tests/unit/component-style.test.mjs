@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
-import { prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { preparePaletteIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
 
 import {
   renderFramePlain,
@@ -41,7 +41,7 @@ import {
   toggleSwitch,
   tree
 } from '../../dist/components/index.js';
-import { prepareTextDocument } from '../../dist/text/index.js';
+import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 import {
   row,
   column,
@@ -220,7 +220,7 @@ test('text entry chrome uses shared border focus and error styles', () => {
 }), { columns: 16, rows: 1 }, { focusPath: ['query'] });
   const areaFrame = renderElementFrame(textArea({
     id: 'body',
-    presentation: { document: prepareTextDocument('details'), cursor: 0 },
+    presentation: { document: prepareTextDocument('details'), caret: textCaretAt(0 )},
     error: 'Required',
     meta: {
         styles: {
@@ -252,7 +252,7 @@ test('menu palette table and tree use selected placeholder and title slots', () 
   const paletteFrame = renderElementFrame(palette({
     id: 'styled-palette',
     title: 'Commands',
-    entries: [],
+    index: preparePaletteIndex([]),
     meta: {
         styles: {
             parts: {
@@ -389,10 +389,10 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
     id: 'palette',
     query: 'o',
     selected: 1,
-    entries: [
+    index: preparePaletteIndex([
       { id: 'open', label: 'Open file' },
       { id: 'toggle', label: 'Toggle theme' }
-    ]
+    ])
   }), { columns: 36, rows: 5 });
   const tabsFrame = renderElementFrame(tabs({
     id: 'tabs',

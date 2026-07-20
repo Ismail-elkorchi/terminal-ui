@@ -41,6 +41,23 @@ export interface TextSelection {
   readonly end: number;
 }
 
+export type TextAffinity = 'upstream' | 'downstream';
+
+export interface TextPosition {
+  readonly offset: number;
+  readonly affinity: TextAffinity;
+}
+
+export interface TextCaret {
+  readonly position: TextPosition;
+  readonly preferredColumnCells?: number;
+}
+
+export interface TextDocumentSelection {
+  readonly anchor: TextPosition;
+  readonly focus: TextPosition;
+}
+
 export interface TerminalTextIndex {
   readonly text: string;
   readonly graphemes: readonly GraphemeSegment[];

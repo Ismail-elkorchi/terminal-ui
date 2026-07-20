@@ -163,6 +163,23 @@ export type InputTrigger =
       readonly key: BindableKeyName;
       readonly modifiers?: KeyModifierTrigger;
       readonly eventType?: KeyEventType;
+      readonly location?: KeyLocation;
+    }
+  | {
+      readonly kind: 'codePoint';
+      readonly codePoint: number;
+      readonly source?: 'primary' | 'shifted';
+      readonly modifiers?: KeyModifierTrigger;
+      readonly eventType?: KeyEventType;
+      readonly location?: KeyLocation;
+    }
+  | {
+      /** Kitty's base-layout code point identifies the physical key position. */
+      readonly kind: 'physicalKey';
+      readonly codePoint: number;
+      readonly modifiers?: KeyModifierTrigger;
+      readonly eventType?: KeyEventType;
+      readonly location?: KeyLocation;
     }
   | {
       readonly kind: 'text';

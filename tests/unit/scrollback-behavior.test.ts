@@ -4,14 +4,12 @@ import test from 'node:test';
 import {
   appendScrollbackHistory,
   followTailScrollState,
-  foldScrollbackHistory,
   nextScrollbackMatch,
   prepareScrollbackHistory,
   scrollbackScrollablePresentation,
   scrollbackReducer,
-  scrollbackSearchMarks,
-  scrollbackHistoryItemAt,
-  scrollbackHistoryItems
+  scrollbackSearchMatches,
+  scrollbackHistoryItemAt
 } from '../../dist/behavior/index.js';
 
 const items = [
@@ -23,29 +21,38 @@ const history = prepareScrollbackHistory(items);
 
 void test('scrollbackReducer owns search match fold and follow-tail state', () => {
   const initial = { foldedIds: [], followTail: true };
+  const matches = scrollbackSearchMatches(history, 'needle');
   const searching = scrollbackReducer(initial, { kind: 'setSearchQuery', query: 'needle' });
-  const jumped = scrollbackReducer(searching, { kind: 'jumpMatch', direction: 1, matchCount: 3 });
+  const jumped = scrollbackReducer(searching, { kind: 'jumpMatch', direction: 1, matches });
   const folded = scrollbackReducer(jumped, { kind: 'toggleFold', id: 'a' });
   const unfollowed = scrollbackReducer(folded, { kind: 'setFollowTail', followTail: false });
   const cleared = scrollbackReducer(unfollowed, { kind: 'setSearchQuery', query: '' });
 
-  assert.deepEqual(searching, { foldedIds: [], followTail: true, searchQuery: 'needle', selectedMatchIndex: 0 });
-  assert.equal(jumped.selectedMatchIndex, 1);
+  assert.deepEqual(searching, { foldedIds: [], followTail: true, searchQuery: 'needle' });
+  assert.equal(jumped.selectedMatch?.id, matches[0]?.id);
   assert.deepEqual(folded.foldedIds, ['a']);
   assert.equal(unfollowed.followTail, false);
   assert.equal(cleared.searchQuery, undefined);
-  assert.equal(cleared.selectedMatchIndex, undefined);
+  assert.equal(cleared.selectedMatch, undefined);
 });
 
-void test('scrollbackSearchMarks and nextScrollbackMatch expose compact search state', () => {
-  const marks = scrollbackSearchMarks(history, 'needle');
+void test('scrollbackSearchMatches and nextScrollbackMatch expose one ordered occurrence domain', () => {
+  const matches = scrollbackSearchMatches(history, 'needle');
 
-  assert.deepEqual(marks, [
-    { itemId: 'b', itemIndex: 1, matchCount: 1 },
-    { itemId: 'c', itemIndex: 2, matchCount: 2 }
+  assert.equal(matches.length, 3);
+  assert.deepEqual(matches.map(({ itemId, occurrenceIndex, field, start, end }) => ({
+    itemId,
+    occurrenceIndex,
+    field,
+    start,
+    end
+  })), [
+    { itemId: 'b', occurrenceIndex: 0, field: 'body', start: 6, end: 12 },
+    { itemId: 'c', occurrenceIndex: 0, field: 'body', start: 8, end: 14 },
+    { itemId: 'c', occurrenceIndex: 1, field: 'body', start: 15, end: 21 }
   ]);
-  assert.deepEqual(nextScrollbackMatch(marks, 0, 1), marks[1]);
-  assert.deepEqual(nextScrollbackMatch(marks, 1, 1), marks[0]);
+  assert.equal(nextScrollbackMatch(matches, matches[0]?.id, 1)?.id, matches[1]?.id);
+  assert.equal(nextScrollbackMatch(matches, matches[2]?.id, 1)?.id, matches[0]?.id);
 });
 
 void test('scrollback search uses one grapheme-aware contract across every searchable field', () => {
@@ -56,10 +63,10 @@ void test('scrollback search uses one grapheme-aware contract across every searc
     text: 'body'
   }]);
 
-  assert.deepEqual(scrollbackSearchMarks(searchableHistory, 'owner'), [
-    { itemId: 'metadata', itemIndex: 0, matchCount: 1 }
+  assert.deepEqual(scrollbackSearchMatches(searchableHistory, 'owner').map((match) => match.field), [
+    'metadataKey'
   ]);
-  assert.deepEqual(scrollbackSearchMarks(searchableHistory, '👨'), []);
+  assert.deepEqual(scrollbackSearchMatches(searchableHistory, '👨'), []);
 });
 
 void test('scrollback append reserves a separator after an empty record', () => {
@@ -71,17 +78,6 @@ void test('scrollback append reserves a separator after an empty record', () => 
   assert.equal(appended.bodyLength, 2);
 });
 
-void test('foldScrollbackHistory folds records without mutating source history', () => {
-  const foldedIds = ['a'];
-  const projection = foldScrollbackHistory(history, foldedIds);
-  const visible = scrollbackHistoryItems(projection);
-
-  assert.equal(visible[0]?.text, 'alpha ...');
-  assert.deepEqual(visible[0].metadata, { folded: 'true' });
-  assert.equal(items[0]?.text, 'alpha\nmore alpha');
-  assert.equal(foldScrollbackHistory(history, foldedIds), projection);
-});
-
 void test('scrollbackPresentation projects fold, search, follow-tail, and scroll state', () => {
   const scroll = followTailScrollState({ contentRows: 25, viewportRows: 5 });
   const projection = scrollbackScrollablePresentation(history, {
@@ -91,7 +87,9 @@ void test('scrollbackPresentation projects fold, search, follow-tail, and scroll
     scroll
   });
 
-  assert.equal(scrollbackHistoryItems(projection.history)[0]?.text, 'alpha ...');
+  assert.equal(projection.history, history);
+  assert.deepEqual(projection.foldedIds, ['a']);
+  assert.equal(scrollbackHistoryItemAt(projection.history, 0)?.bodyText, 'alpha\nmore alpha');
   assert.equal(projection.searchQuery, 'needle');
   assert.equal(projection.followTail, true);
   assert.equal(projection.scroll, scroll);
@@ -108,13 +106,40 @@ void test('scrollbackReducer owns pointer selection without retaining an empty r
   const initial = { foldedIds: [], followTail: true };
   const selected = scrollbackReducer(initial, {
     kind: 'pointer',
-    action: { kind: 'extendSelection', anchor: 8, offset: 2 }
+    action: {
+      kind: 'extendSelection',
+      anchor: { itemId: 'b', offset: 8 },
+      position: { itemId: 'a', offset: 2 }
+    }
   });
   const cleared = scrollbackReducer(selected, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', offset: 4 }
+    action: { kind: 'placeCaret', position: { itemId: 'a', offset: 4 } }
   });
 
-  assert.deepEqual(selected.selectedRange, { start: 2, end: 8 });
-  assert.equal('selectedRange' in cleared, false);
+  assert.deepEqual(selected.selection, {
+    anchor: { itemId: 'b', offset: 8 },
+    focus: { itemId: 'a', offset: 2 }
+  });
+  assert.equal('selection' in cleared, false);
+});
+
+void test('scrollbackReducer preserves identity for no-op query fold scroll and navigation actions', () => {
+  const scroll = followTailScrollState({ contentRows: 25, viewportRows: 5 });
+  const matches = scrollbackSearchMatches(history, 'needle');
+  const state = scrollbackReducer({ foldedIds: ['a'], followTail: true, searchQuery: 'needle', scroll }, {
+    kind: 'jumpMatch',
+    direction: 1,
+    matches
+  });
+
+  assert.equal(scrollbackReducer(state, { kind: 'setSearchQuery', query: ' needle ' }), state);
+  assert.equal(scrollbackReducer(state, { kind: 'fold', id: 'a' }), state);
+  assert.equal(scrollbackReducer(state, { kind: 'setFollowTail', followTail: true }), state);
+  assert.notEqual(state.selectedMatch, undefined);
+  const selectedMatch = state.selectedMatch;
+  if (selectedMatch === undefined) throw new Error('Expected a selected scrollback match.');
+  assert.equal(scrollbackReducer(state, { kind: 'jumpMatch', direction: 1, matches: [selectedMatch] }), state);
+  const cleared = scrollbackReducer(state, { kind: 'jumpMatch', direction: 1, matches: [] });
+  assert.equal(cleared.selectedMatch, undefined);
 });

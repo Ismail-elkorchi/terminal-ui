@@ -261,6 +261,38 @@ test('custom measurements are cached by complete bounds rather than dimensions a
   assert.equal(layout.children[1]?.children[0]?.bounds.width, 4);
 });
 
+test('custom composites derive intrinsic size from opaque children under the active width profile', () => {
+  let measuredProfile;
+  let measuredChildren = 0;
+  const composite = customComposite({
+    id: 'measured-composite',
+    children: [text('··', { id: 'ambiguous-child' })],
+    renderer: {
+      measure({ childCount, measureChild, widthProfile }) {
+        measuredProfile = widthProfile;
+        measuredChildren = childCount;
+        return measureChild(0);
+      },
+      layout({ bounds }) {
+        return [bounds];
+      },
+      accessibility({ id }) {
+        return { id, role: 'group', label: 'Measured composite' };
+      }
+    }
+  });
+  const element = row([composite, text('fill')], {
+    sizes: [{ kind: 'content' }, { kind: 'fill' }]
+  });
+  const widthProfile = { emoji: 'wide', ambiguous: 'wide' };
+
+  const layout = layoutElement(element, { columns: 12, rows: 1 }, undefined, widthProfile);
+
+  assert.deepEqual(measuredProfile, widthProfile);
+  assert.equal(measuredChildren, 1);
+  assert.equal(layout.children[0]?.bounds.width, 4);
+});
+
 test('malformed custom renderers fail as programmer errors', () => {
   assert.throws(
     () => custom({ id: 'bad-renderer', renderer: undefined }),

@@ -6,6 +6,7 @@ import {
   createInputPipeline,
   decodeInputChunk,
   InputDecodeError,
+  matchesInputTrigger,
   resolveInputPipelineProfile
 } from '../../dist/input/index.js';
 import { resolveTerminalCapabilities } from '../../dist/host/index.js';
@@ -202,6 +203,25 @@ test('stateful input decoder flushes incomplete buffered input deterministically
   });
 });
 
+test('input decoder never emits C0 or C1 controls as text', () => {
+  for (let codePoint = 0; codePoint <= 0x1f; codePoint += 1) {
+    const sequence = String.fromCodePoint(codePoint);
+    const events = decodeInputChunk({ data: sequence });
+    assert.equal(events.some((event) => event.kind === 'text'), false, `U+${codePoint.toString(16)}`);
+  }
+  for (let codePoint = 0x7f; codePoint <= 0x9f; codePoint += 1) {
+    const sequence = String.fromCodePoint(codePoint);
+    const events = decodeInputChunk({ data: sequence });
+    assert.equal(events.some((event) => event.kind === 'text'), false, `U+${codePoint.toString(16)}`);
+  }
+  assert.deepEqual(decodeInputChunk({ data: '\u001C\u001D\u001E\u001F' }), [
+    { kind: 'unknown', sequence: '\u001C' },
+    { kind: 'unknown', sequence: '\u001D' },
+    { kind: 'unknown', sequence: '\u001E' },
+    { kind: 'unknown', sequence: '\u001F' }
+  ]);
+});
+
 test('Kitty full keyboard reports preserve alternate key identity and committed text', () => {
   const sequence = '\u001B[97:65:113;2:1;65u';
   assert.deepEqual(decodeInputChunk({ data: sequence }, { keyboard: kittyFull }), [{
@@ -210,6 +230,15 @@ test('Kitty full keyboard reports preserve alternate key identity and committed 
     alternateCodePoints: { shifted: 65, baseLayout: 113 },
     committedText: 'A'
   }]);
+});
+
+test('input triggers match normalized, code-point, and base-layout physical key identities', () => {
+  const [event] = decodeInputChunk({ data: '\u001B[97:65:113;2:2u' }, { keyboard: kittyFull });
+  assert.equal(matchesInputTrigger({ kind: 'key', key: 'a', eventType: 'repeat', modifiers: { shift: true } }, event), true);
+  assert.equal(matchesInputTrigger({ kind: 'codePoint', codePoint: 97, eventType: 'repeat', modifiers: { shift: true } }, event), true);
+  assert.equal(matchesInputTrigger({ kind: 'codePoint', codePoint: 65, source: 'shifted', eventType: 'repeat', modifiers: { shift: true } }, event), true);
+  assert.equal(matchesInputTrigger({ kind: 'physicalKey', codePoint: 113, eventType: 'repeat', modifiers: { shift: true } }, event), true);
+  assert.equal(matchesInputTrigger({ kind: 'physicalKey', codePoint: 97, eventType: 'repeat', modifiers: { shift: true } }, event), false);
 });
 
 test('Kitty fields are exposed only when their negotiated flags are active', () => {

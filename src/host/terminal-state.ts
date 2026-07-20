@@ -1,18 +1,23 @@
 import { diagnostic } from '../diagnostics.ts';
 import { createProtocolWriter } from '../protocol/index.ts';
 import { LEGACY_KEYBOARD_PROFILE, normalizeKeyboardProfile } from '../protocol/keyboard.ts';
-import { err, ok } from '../result.ts';
+import {
+  terminalOperationApplied,
+  terminalOperationIndeterminate,
+  terminalOperationRejected
+} from './operation-outcome.ts';
+import { requireCommittedTerminalWrite, TerminalWriteError } from './write-receipt.ts';
 import { createTerminalRestorePlan } from './session-restore.ts';
 import { waitForTerminalOperation } from './operation.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
-import type { Result } from '../result.ts';
 import type { TerminalCapabilityName, TerminalCapabilityProfile } from './capability-types.ts';
 import type {
   MouseReportingMode,
   TerminalHost,
   TerminalInitialState,
   TerminalOperationContext,
+  TerminalOperationOutcome,
   TerminalRestoreOptions,
   TerminalRestoreReason,
   TerminalRestoreResult,
@@ -70,7 +75,6 @@ export class TerminalStateAuthorityBinding {
 
 export class TerminalStateAuthority {
   readonly #host: TerminalHost;
-  readonly #protocol: ReturnType<typeof createProtocolWriter>;
   readonly #rawInputKnowledge: TerminalStateKnowledge;
   readonly #leases: TerminalSessionLease[] = [];
   readonly #uncertain = new Set<TerminalStateKey>();
@@ -81,9 +85,6 @@ export class TerminalStateAuthority {
     this.#host = host;
     this.#rawInputKnowledge = options.rawInputKnowledge;
     this.#current = initialTerminalState(host, options);
-    this.#protocol = createProtocolWriter({
-      write: async (sequence) => host.write({ text: sequence })
-    });
   }
 
   beginLease(id: string, capabilities: TerminalCapabilityProfile): Promise<TerminalSession> {
@@ -110,54 +111,72 @@ export class TerminalStateAuthority {
     lease: TerminalSessionLease,
     kind: K,
     enabled: TerminalStateSnapshot[K],
-    apply: () => void | Promise<void>,
+    apply: (context: TerminalOperationContext) => void | Promise<void>,
+    context: TerminalOperationContext = {},
     equal: (current: TerminalStateSnapshot[K], next: TerminalStateSnapshot[K]) => boolean = Object.is
-  ): Promise<Result<TerminalStateChange>> {
+  ): Promise<TerminalOperationOutcome> {
     return this.runExclusive(async () => {
       const inactive = this.inactiveLeaseDiagnostic(lease);
-      if (inactive !== undefined) return err(inactive);
+      if (inactive !== undefined) return terminalOperationRejected(inactive);
       const change = { kind, enabled } as TerminalStateChange;
-      if (equal(this.#current[kind], enabled) && !this.#uncertain.has(kind)) return ok(change);
+      const cancellation = cancelledOperationDiagnostic(lease, context);
+      if (cancellation !== undefined) return terminalOperationRejected(cancellation);
+      if (equal(this.#current[kind], enabled) && !this.#uncertain.has(kind)) {
+        return terminalOperationApplied(change);
+      }
       this.#uncertain.add(kind);
       try {
-        await apply();
+        await apply(context);
       } catch (cause) {
+        if (cause instanceof TerminalWriteError && cause.receipt.status === 'failed_before_write') {
+          this.#uncertain.delete(kind);
+          return terminalOperationRejected(cause.receipt.diagnostic);
+        }
         this.markIndeterminate(kind);
-        throw cause;
+        return terminalOperationIndeterminate(change, indeterminateOperationDiagnostic(lease, change, cause));
       }
       this.setKnown(kind, enabled, knowledgeAfterMutation(kind, this.#host));
-      return ok(change);
+      return terminalOperationApplied(change);
     });
   }
 
   async setKeyboardProfile(
     lease: TerminalSessionLease,
-    profile: TerminalKeyboardProfile
-  ): Promise<Result<TerminalStateChange>> {
+    profile: TerminalKeyboardProfile,
+    context: TerminalOperationContext = {}
+  ): Promise<TerminalOperationOutcome> {
     return this.runExclusive(async () => {
       const inactive = this.inactiveLeaseDiagnostic(lease);
-      if (inactive !== undefined) return err(inactive);
+      if (inactive !== undefined) return terminalOperationRejected(inactive);
       const normalized = normalizeKeyboardProfile(profile);
+      const change = { kind: 'keyboardProfile', enabled: normalized } as const;
+      const cancellation = cancelledOperationDiagnostic(lease, context);
+      if (cancellation !== undefined) return terminalOperationRejected(cancellation);
       if (keyboardProfilesEqual(this.#current.keyboardProfile, normalized) && !this.#uncertain.has('keyboardProfile')) {
-        return ok({ kind: 'keyboardProfile', enabled: normalized });
+        return terminalOperationApplied(change);
       }
       this.#uncertain.add('keyboardProfile');
       try {
         if (lease.keyboardFrameState === 'none') {
           lease.beginKeyboardFramePush();
-          await this.#protocol.pushKeyboardProfile(normalized);
+          await this.protocol(context).pushKeyboardProfile(normalized);
           lease.confirmKeyboardFramePush();
         } else if (lease.keyboardFrameState === 'owned') {
-          await this.#protocol.setKeyboardProfile(normalized);
+          await this.protocol(context).setKeyboardProfile(normalized);
         } else {
           throw new Error(`Keyboard frame state is indeterminate: ${lease.keyboardFrameState}.`);
         }
       } catch (cause) {
+        if (cause instanceof TerminalWriteError && cause.receipt.status === 'failed_before_write') {
+          this.#uncertain.delete('keyboardProfile');
+          lease.cancelKeyboardFramePush();
+          return terminalOperationRejected(cause.receipt.diagnostic);
+        }
         this.markIndeterminate('keyboardProfile');
-        throw cause;
+        return terminalOperationIndeterminate(change, indeterminateOperationDiagnostic(lease, change, cause));
       }
       this.setKnown('keyboardProfile', normalized, 'library_known');
-      return ok({ kind: 'keyboardProfile', enabled: normalized });
+      return terminalOperationApplied(change);
     });
   }
 
@@ -267,7 +286,7 @@ export class TerminalStateAuthority {
     operation: TerminalStateChange,
     context: TerminalOperationContext
   ): Promise<void> {
-    const protocol = this.protocol(context);
+    const protocol = this.safetyProtocol(context);
     switch (operation.kind) {
       case 'cursorVisible':
         await (operation.enabled ? protocol.showCursor() : protocol.hideCursor());
@@ -349,7 +368,17 @@ export class TerminalStateAuthority {
 
   private protocol(context: TerminalOperationContext): ReturnType<typeof createProtocolWriter> {
     return createProtocolWriter({
-      write: async (sequence) => this.#host.write({ text: sequence }, context)
+      write: async (sequence) => {
+        requireCommittedTerminalWrite(await this.#host.write({ text: sequence }, context));
+      }
+    });
+  }
+
+  private safetyProtocol(context: TerminalOperationContext): ReturnType<typeof createProtocolWriter> {
+    return createProtocolWriter({
+      write: async (sequence) => {
+        requireCommittedTerminalWrite(await this.#host.writeSafety({ text: sequence }, context));
+      }
     });
   }
 }
@@ -378,30 +407,40 @@ class TerminalSessionLease implements TerminalSession {
     this.initialState = initialState;
   }
 
-  enableRawInput(): Promise<Result<TerminalStateChange>> {
-    return this.mutate('rawInput', true, () => this.host.stdin.setRawMode?.(true));
+  enableRawInput(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
+    return this.mutate('rawInput', true, () => this.host.stdin.setRawMode?.(true), context);
   }
 
-  enableAlternateScreen(): Promise<Result<TerminalStateChange>> {
-    return this.mutate('alternateScreen', true, () => this.protocol().enableAlternateScreen());
+  enableAlternateScreen(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
+    return this.mutate('alternateScreen', true, (operationContext) =>
+      this.protocol(operationContext).enableAlternateScreen(), context);
   }
 
-  enableBracketedPaste(): Promise<Result<TerminalStateChange>> {
-    return this.mutate('bracketedPaste', true, () => this.protocol().enableBracketedPaste());
+  enableBracketedPaste(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
+    return this.mutate('bracketedPaste', true, (operationContext) =>
+      this.protocol(operationContext).enableBracketedPaste(), context);
   }
 
-  enableMouseReporting(mode: MouseReportingMode = 'click'): Promise<Result<TerminalStateChange>> {
-    return this.mutate('mouseReporting', mode, () => this.protocol().enableMouseReporting(mode));
+  enableMouseReporting(
+    mode: MouseReportingMode = 'click',
+    context: TerminalOperationContext = {}
+  ): Promise<TerminalOperationOutcome> {
+    return this.mutate('mouseReporting', mode, (operationContext) =>
+      this.protocol(operationContext).enableMouseReporting(mode), context);
   }
 
-  enableFocusReporting(): Promise<Result<TerminalStateChange>> {
-    return this.mutate('focusReporting', true, () => this.protocol().enableFocusReporting());
+  enableFocusReporting(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
+    return this.mutate('focusReporting', true, (operationContext) =>
+      this.protocol(operationContext).enableFocusReporting(), context);
   }
 
-  async enableKeyboardProfile(profile: TerminalKeyboardProfile): Promise<Result<TerminalStateChange>> {
+  async enableKeyboardProfile(
+    profile: TerminalKeyboardProfile,
+    context: TerminalOperationContext = {}
+  ): Promise<TerminalOperationOutcome> {
     const support = this.requireCapability('keyboardProtocol');
     if (support !== undefined && profile.kind !== 'legacy') return support;
-    return this.#authority.setKeyboardProfile(this, profile);
+    return this.#authority.setKeyboardProfile(this, profile, context);
   }
 
   get keyboardFrameState(): KeyboardFrameState {
@@ -422,6 +461,10 @@ class TerminalSessionLease implements TerminalSession {
     this.#keyboardFrameState = 'owned';
   }
 
+  cancelKeyboardFramePush(): void {
+    if (this.#keyboardFrameState === 'push_uncertain') this.#keyboardFrameState = 'none';
+  }
+
   async restoreKeyboardFrame(protocol: ReturnType<typeof createProtocolWriter>): Promise<void> {
     if (this.#keyboardFrameState === 'none') return;
     if (this.#keyboardFrameState === 'pop_uncertain') {
@@ -432,12 +475,12 @@ class TerminalSessionLease implements TerminalSession {
     this.#keyboardFrameState = 'none';
   }
 
-  hideCursor(): Promise<Result<TerminalStateChange>> {
-    return this.mutate('cursorVisible', false, () => this.protocol().hideCursor());
+  hideCursor(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
+    return this.mutate('cursorVisible', false, (operationContext) => this.protocol(operationContext).hideCursor(), context);
   }
 
-  showCursor(): Promise<Result<TerminalStateChange>> {
-    return this.mutate('cursorVisible', true, () => this.protocol().showCursor());
+  showCursor(context: TerminalOperationContext = {}): Promise<TerminalOperationOutcome> {
+    return this.mutate('cursorVisible', true, (operationContext) => this.protocol(operationContext).showCursor(), context);
   }
 
   restore(
@@ -465,18 +508,19 @@ class TerminalSessionLease implements TerminalSession {
   private mutate<K extends TerminalStateKey>(
     kind: K,
     enabled: TerminalStateSnapshot[K],
-    apply: () => void | Promise<void>
-  ): Promise<Result<TerminalStateChange>> {
+    apply: (context: TerminalOperationContext) => void | Promise<void>,
+    context: TerminalOperationContext
+  ): Promise<TerminalOperationOutcome> {
     const capability = capabilityForState(kind);
     const support = this.requireCapability(capability);
     if (support !== undefined) return Promise.resolve(support);
-    return this.#authority.mutate(this, kind, enabled, apply);
+    return this.#authority.mutate(this, kind, enabled, apply, context);
   }
 
-  private requireCapability(kind: TerminalCapabilityName): Result<never> | undefined {
+  private requireCapability(kind: TerminalCapabilityName): TerminalOperationOutcome | undefined {
     const capability = this.capabilities[kind];
     if (capability.support === 'supported' && capability.availability === 'available') return undefined;
-    return err(diagnostic('HOST_PROTOCOL_UNSUPPORTED', `Terminal protocol is unavailable: ${kind}.`, {
+    return terminalOperationRejected(diagnostic('HOST_PROTOCOL_UNSUPPORTED', `Terminal protocol is unavailable: ${kind}.`, {
       severity: 'warning',
       target: this.id,
       data: {
@@ -488,8 +532,12 @@ class TerminalSessionLease implements TerminalSession {
     }));
   }
 
-  private protocol(): ReturnType<typeof createProtocolWriter> {
-    return createProtocolWriter({ write: async (sequence) => this.host.write({ text: sequence }) });
+  private protocol(context: TerminalOperationContext): ReturnType<typeof createProtocolWriter> {
+    return createProtocolWriter({
+      write: async (sequence) => {
+        requireCommittedTerminalWrite(await this.host.write({ text: sequence }, context));
+      }
+    });
   }
 }
 
@@ -548,6 +596,30 @@ function capabilityForState(kind: TerminalStateKey): TerminalCapabilityName {
     case 'keyboardProfile': return 'keyboardProtocol';
     case 'cursorVisible': return 'cursorVisibility';
   }
+}
+
+function cancelledOperationDiagnostic(
+  lease: TerminalSessionLease,
+  context: TerminalOperationContext
+): TerminalDiagnostic | undefined {
+  if (context.signal?.aborted !== true) return undefined;
+  return diagnostic('HOST_OPERATION_CANCELLED', 'Terminal operation was cancelled before it started.', {
+    severity: 'warning',
+    target: lease.id
+  });
+}
+
+function indeterminateOperationDiagnostic(
+  lease: TerminalSessionLease,
+  change: TerminalStateChange,
+  cause: unknown
+): TerminalDiagnostic {
+  return diagnostic('HOST_OUTPUT_INDETERMINATE', `Terminal operation outcome is indeterminate: ${change.kind}.`, {
+    severity: 'error',
+    target: lease.id,
+    cause,
+    data: { operation: change.kind }
+  });
 }
 
 function keyboardProfilesEqual(left: TerminalKeyboardProfile, right: TerminalKeyboardProfile): boolean {

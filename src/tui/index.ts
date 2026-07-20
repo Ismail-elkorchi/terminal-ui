@@ -1,7 +1,7 @@
 export { defineTui } from './definition.ts';
 export { createTuiRuntime } from './runtime.ts';
 export { runTui } from './run.ts';
-export { defaultTuiFinalizationPolicy } from './run-configuration.ts';
+export { defaultTuiLifecyclePolicy } from './run-configuration.ts';
 export { defaultTuiEffectPolicy } from './effects.ts';
 export { animationSource, intervalSource, timeoutSource } from './scheduler.ts';
 export { advanceAnimationTimeline, createAnimationTimeline, nextAnimationDeadline } from './animation-timeline.ts';

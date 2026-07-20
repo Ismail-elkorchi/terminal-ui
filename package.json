@@ -113,6 +113,8 @@
     "check:test-types": "tsc --project tsconfig.tests.json",
     "check:unit": "node scripts/run-test-lane.mjs unit",
     "benchmark:interactive": "npm run build && node scripts/benchmark-interactive.mjs",
+    "benchmark:baseline": "npm run build && node scripts/capture-performance-baseline.mjs",
+    "benchmark:compare": "node scripts/check-performance-report.mjs",
     "test": "npm run check",
     "prepare": "npm run build"
   },

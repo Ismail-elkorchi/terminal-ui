@@ -14,7 +14,10 @@ import type {
   StructuredBlock
 } from '../../../ui-model/documents.ts';
 import type { ScrollbackHistory } from '../../../ui-model/scrollback-history.ts';
+import type { ScrollbackSearchMatch } from '../../../ui-model/scrollback-history.ts';
+import type { ScrollbackSelection } from '../../../ui-model/scrollback.ts';
 import type { PaletteAction } from '../../../ui-model/palette.ts';
+import type { PaletteIndex } from '../../../ui-model/palette-index.ts';
 import type { CommandInputAction } from '../../../ui-model/command-input.ts';
 import type { ScrollbackAction } from '../../../ui-model/scrollback.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
@@ -39,7 +42,9 @@ export interface ScrollbackRenderProps<TMessage> {
   readonly toActionMessage?: (action: ScrollbackAction) => MessageResolution<TMessage>;
   readonly wrap?: boolean;
   readonly searchQuery?: string;
-  readonly selectedRange?: TextSelection;
+  readonly selectedMatch?: ScrollbackSearchMatch;
+  readonly foldedIds?: readonly string[];
+  readonly selection?: ScrollbackSelection;
 }
 
 export interface StructuredBlockRenderProps {
@@ -79,7 +84,7 @@ export interface CommandInputRenderProps<TMessage> {
 export interface PaletteRenderProps<TMessage> {
   readonly title?: string;
   readonly query?: string;
-  readonly entries: readonly SearchEntry<unknown>[];
+  readonly index: PaletteIndex<unknown>;
   readonly toMessage?: (entry: SearchEntry<unknown>) => TMessage;
   readonly selected?: number;
   readonly selectedId?: string;

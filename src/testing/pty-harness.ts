@@ -138,11 +138,13 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
     },
     stdout: {
       isTty: true,
-      write: (chunk) => { output.push(chunkText(chunk)); }
+      write: (chunk) => { output.push(chunkText(chunk)); },
+      safetyWrite: (chunk) => { output.push(chunkText(chunk)); }
     },
     stderr: {
       isTty: true,
-      write: (chunk) => { output.push(chunkText(chunk)); }
+      write: (chunk) => { output.push(chunkText(chunk)); },
+      safetyWrite: (chunk) => { output.push(chunkText(chunk)); }
     },
     subscribeSignals: (listener) => signals.subscribe(listener),
     resize: () => { signals.emit('resize'); },

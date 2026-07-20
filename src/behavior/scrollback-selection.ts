@@ -1,27 +1,34 @@
 import { extractTextSelection } from '../text/index.ts';
-import type { TextSelection } from '../text/index.ts';
-import type { ScrollbackHistory } from '../ui-model/scrollback-history.ts';
+import {
+  scrollbackHistoryRecordById
+} from '../ui-model/scrollback-history.ts';
+import type { ScrollbackHistory, ScrollbackHistoryRecord } from '../ui-model/scrollback-history.ts';
+import type { ScrollbackBodyAnchor, ScrollbackSelection } from '../ui-model/scrollback.ts';
 
 export interface ExtractScrollbackSelectionTextInput {
   readonly history: ScrollbackHistory;
-  readonly selectedRange?: TextSelection;
+  readonly selection?: ScrollbackSelection;
 }
 
 export function extractScrollbackSelectionText(
   input: ExtractScrollbackSelectionTextInput
 ): string | undefined {
-  if (input.selectedRange === undefined) return undefined;
-  const start = Math.min(input.selectedRange.start, input.selectedRange.end);
-  const end = Math.max(input.selectedRange.start, input.selectedRange.end);
-  if (start === end) return '';
+  if (input.selection === undefined) return undefined;
+  const normalized = normalizedSelection(input.history, input.selection);
+  if (normalized === undefined) return undefined;
+  if (
+    normalized.start.itemId === normalized.end.itemId
+    && normalized.start.offset === normalized.end.offset
+  ) return '';
   const selected: string[] = [];
   for (const segment of input.history.segments) {
     for (const record of segment.records) {
-      const recordEnd = record.bodyOffset + record.bodyText.length;
-      if (recordEnd < start) continue;
-      if (record.bodyOffset > end) return selected.join('\n');
-      const localStart = Math.max(0, start - record.bodyOffset);
-      const localEnd = Math.min(record.bodyText.length, end - record.bodyOffset);
+      if (record.itemIndex < normalized.startRecord.itemIndex) continue;
+      if (record.itemIndex > normalized.endRecord.itemIndex) return selected.join('\n');
+      const localStart = record.item.id === normalized.start.itemId ? normalized.start.offset : 0;
+      const localEnd = record.item.id === normalized.end.itemId
+        ? normalized.end.offset
+        : record.bodyText.length;
       if (localEnd >= localStart) {
         selected.push(extractTextSelection({
           text: record.bodyText,
@@ -32,4 +39,35 @@ export function extractScrollbackSelectionText(
     }
   }
   return selected.join('\n');
+}
+
+function normalizedSelection(
+  history: ScrollbackHistory,
+  selection: ScrollbackSelection
+): {
+  readonly start: ScrollbackBodyAnchor;
+  readonly end: ScrollbackBodyAnchor;
+  readonly startRecord: ScrollbackHistoryRecord;
+  readonly endRecord: ScrollbackHistoryRecord;
+} | undefined {
+  const anchorRecord = scrollbackHistoryRecordById(history, selection.anchor.itemId);
+  const focusRecord = scrollbackHistoryRecordById(history, selection.focus.itemId);
+  if (anchorRecord === undefined || focusRecord === undefined) return undefined;
+  const anchor = boundedAnchor(anchorRecord, selection.anchor);
+  const focus = boundedAnchor(focusRecord, selection.focus);
+  const anchorFirst = anchorRecord.itemIndex < focusRecord.itemIndex
+    || anchorRecord.itemIndex === focusRecord.itemIndex && anchor.offset <= focus.offset;
+  return anchorFirst
+    ? { start: anchor, end: focus, startRecord: anchorRecord, endRecord: focusRecord }
+    : { start: focus, end: anchor, startRecord: focusRecord, endRecord: anchorRecord };
+}
+
+function boundedAnchor(
+  record: ScrollbackHistoryRecord,
+  anchor: ScrollbackBodyAnchor
+): ScrollbackBodyAnchor {
+  return {
+    itemId: record.item.id,
+    offset: Math.max(0, Math.min(record.bodyText.length, Math.floor(anchor.offset)))
+  };
 }

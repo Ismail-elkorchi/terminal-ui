@@ -1,5 +1,5 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
+import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalRestoreResult, TerminalViewport } from '../host/index.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { InputEvent } from '../input/index.ts';
@@ -12,7 +12,7 @@ export interface InteractionTranscript {
   readonly source: TranscriptSource;
   readonly startedAt?: string;
   readonly steps: readonly InteractionTranscriptStep[];
-  readonly diagnostics: readonly TerminalDiagnostic[];
+  readonly diagnostics: readonly DiagnosticOccurrence[];
   readonly redactions: readonly TranscriptRedaction[];
 }
 
@@ -23,7 +23,7 @@ export type InteractionTranscriptStep =
   | { readonly kind: 'message'; readonly source: TuiMessageSource; readonly message: unknown }
   | { readonly kind: 'commit'; readonly commit: TranscriptRuntimeCommit }
   | { readonly kind: 'snapshot'; readonly snapshot: AccessibleSnapshot }
-  | { readonly kind: 'diagnostic'; readonly diagnostic: TerminalDiagnostic }
+  | { readonly kind: 'diagnostic'; readonly diagnostic: DiagnosticOccurrence }
   | { readonly kind: 'restore'; readonly result: TerminalRestoreResult };
 
 export interface TranscriptRuntimeCommit {
@@ -52,7 +52,8 @@ export interface TranscriptPolicy {
 
 export interface TranscriptRecorder {
   record(step: InteractionTranscriptStep): void;
-  recordDiagnostic(diagnostic: TerminalDiagnostic): void;
+  reportDiagnostic(diagnostic: TerminalDiagnostic): DiagnosticOccurrence;
+  recordDiagnostic(diagnostic: DiagnosticOccurrence): void;
   recordRedaction(redaction: TranscriptRedaction): void;
   snapshot(): InteractionTranscript;
 }
@@ -66,7 +67,7 @@ export interface InteractionResult {
   readonly transcript: InteractionTranscript;
   readonly output: string;
   readonly snapshot: AccessibleSnapshot;
-  readonly diagnostics: readonly TerminalDiagnostic[];
+  readonly diagnostics: readonly DiagnosticOccurrence[];
 }
 
 export interface TranscriptReplayTarget {

@@ -1,4 +1,10 @@
-import { findTextHighlightMatches, sanitizeTerminalText } from '../text/index.ts';
+import { sanitizeTerminalText } from '../text/index.ts';
+import {
+  findPreparedTextMatches,
+  prepareTextSearchIndex,
+  prepareTextSearchQuery
+} from '../text/search-index.ts';
+import type { PreparedTextSearchIndex, PreparedTextSearchQuery } from '../text/search-index.ts';
 
 export interface ScrollbackItem {
   readonly id: string;
@@ -16,7 +22,24 @@ export interface ScrollbackHistoryRecord {
   readonly bodyText: string;
   readonly displayText: string;
   readonly metadataEntries: readonly (readonly [string, string])[];
-  readonly searchFields: readonly string[];
+  readonly searchFields: readonly ScrollbackSearchField[];
+}
+
+export type ScrollbackSearchField =
+  | { readonly kind: 'timestamp'; readonly text: string }
+  | { readonly kind: 'metadataKey'; readonly key: string; readonly text: string }
+  | { readonly kind: 'metadataValue'; readonly key: string; readonly text: string }
+  | { readonly kind: 'body'; readonly text: string };
+
+export interface ScrollbackSearchMatch {
+  readonly id: string;
+  readonly itemId: string;
+  readonly itemIndex: number;
+  readonly occurrenceIndex: number;
+  readonly field: ScrollbackSearchField['kind'];
+  readonly fieldKey?: string;
+  readonly start: number;
+  readonly end: number;
 }
 
 export interface ScrollbackHistorySegment {
@@ -69,16 +92,55 @@ export function scrollbackHistoryItems(history: ScrollbackHistory): readonly Scr
   return history.segments.flatMap((segment) => segment.records.map((record) => record.item));
 }
 
-export function scrollbackHistoryRecordMatchCount(
+export function scrollbackHistoryRecordMatches(
   record: ScrollbackHistoryRecord,
   query: string
-): number {
+): readonly ScrollbackSearchMatch[] {
   const searchQuery = query.trim();
-  if (searchQuery.length === 0) return 0;
-  return record.searchFields.reduce(
-    (count, field) => count + findTextHighlightMatches(field, searchQuery).length,
-    0
-  );
+  if (searchQuery.length === 0) return [];
+  return scrollbackHistoryRecordMatchesPrepared(record, prepareScrollbackSearchQuery(searchQuery));
+}
+
+export function prepareScrollbackSearchQuery(query: string): PreparedTextSearchQuery {
+  return prepareTextSearchQuery(query.trim());
+}
+
+export function scrollbackHistoryRecordMatchesPrepared(
+  record: ScrollbackHistoryRecord,
+  query: PreparedTextSearchQuery
+): readonly ScrollbackSearchMatch[] {
+  const matches: ScrollbackSearchMatch[] = [];
+  for (const field of record.searchFields) {
+    const index = searchIndexFor(field);
+    for (const match of findPreparedTextMatches(index, query)) {
+      const occurrenceIndex = matches.length;
+      const fieldKey = 'key' in field ? field.key : undefined;
+      const start = index.textIndex.graphemeIndexToCodeUnitOffset(match.startGrapheme);
+      const end = index.textIndex.graphemeIndexToCodeUnitOffset(match.endGrapheme);
+      matches.push(Object.freeze({
+        id: `${record.item.id}:${String(occurrenceIndex)}:${field.kind}:${fieldKey ?? ''}:${String(start)}:${String(end)}`,
+        itemId: record.item.id,
+        itemIndex: record.itemIndex,
+        occurrenceIndex,
+        field: field.kind,
+        ...(fieldKey === undefined ? {} : { fieldKey }),
+        start,
+        end
+      }));
+    }
+  }
+  return Object.freeze(matches);
+}
+
+export function scrollbackHistoryRecordById(
+  history: ScrollbackHistory,
+  id: string
+): ScrollbackHistoryRecord | undefined {
+  for (const segment of history.segments) {
+    if (segmentIds.get(segment)?.has(id) !== true) continue;
+    return segment.records.find((record) => record.item.id === id);
+  }
+  return undefined;
 }
 
 export function isScrollbackHistory(value: unknown): value is ScrollbackHistory {
@@ -93,6 +155,7 @@ export function assertScrollbackHistory(value: unknown): asserts value is Scroll
 
 const histories = new WeakSet<object>();
 const segmentIds = new WeakMap<ScrollbackHistorySegment, ReadonlySet<string>>();
+const searchIndexes = new WeakMap<ScrollbackSearchField, PreparedTextSearchIndex>();
 
 const emptyScrollbackHistory: ScrollbackHistory = registerHistory(Object.freeze({
   kind: 'scrollback-history',
@@ -132,6 +195,14 @@ function prepareRecords(
   }));
 }
 
+function searchIndexFor(field: ScrollbackSearchField): PreparedTextSearchIndex {
+  const cached = searchIndexes.get(field);
+  if (cached !== undefined) return cached;
+  const prepared = prepareTextSearchIndex(field.text);
+  searchIndexes.set(field, prepared);
+  return prepared;
+}
+
 function normalizeItem(
   item: ScrollbackItem,
   id: string,
@@ -165,11 +236,16 @@ function searchFieldsForItem(
   item: ScrollbackItem,
   bodyText: string,
   metadataEntries: readonly (readonly [string, string])[]
-): readonly string[] {
+): readonly ScrollbackSearchField[] {
   return [
-    ...(item.timestamp === undefined ? [] : [item.timestamp]),
-    ...metadataEntries.flatMap(([key, value]) => [key, value]),
-    bodyText
+    ...(item.timestamp === undefined
+      ? []
+      : [{ kind: 'timestamp' as const, text: item.timestamp }]),
+    ...metadataEntries.flatMap(([key, value]): readonly ScrollbackSearchField[] => [
+      { kind: 'metadataKey', key, text: key },
+      { kind: 'metadataValue', key, text: value }
+    ]),
+    { kind: 'body', text: bodyText }
   ];
 }
 

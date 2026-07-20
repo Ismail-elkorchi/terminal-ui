@@ -2,18 +2,28 @@ import { defaultSessionProtocolPolicy } from './session-policy.ts';
 import type { InitialFocusSelector } from '../interaction/focus.ts';
 import type { MouseReportingMode } from '../host/index.ts';
 import type { SessionProtocolPolicy } from './session-policy.ts';
-import type { TuiCleanupPolicy, TuiRunInputPolicy, TuiRunOptions, TuiTheme } from './types.ts';
+import type { TuiLifecyclePolicy, TuiRunInputPolicy, TuiRunOptions, TuiTheme } from './types.ts';
+
+export type NormalizedTuiLifecyclePolicy = Readonly<Required<Omit<TuiLifecyclePolicy, 'defaultTimeoutMs'>>>;
 import { normalizeKeyboardProfile } from '../protocol/index.ts';
 
 export interface NormalizedTuiRunOptions<TState> {
   readonly initialFocus?: InitialFocusSelector;
   readonly theme?: TuiTheme<TState>;
   readonly sessionPolicy: SessionProtocolPolicy;
-  readonly cleanup: TuiCleanupPolicy;
+  readonly lifecycle: NormalizedTuiLifecyclePolicy;
   readonly input: Readonly<Required<TuiRunInputPolicy>>;
 }
 
-export const defaultTuiFinalizationPolicy: TuiCleanupPolicy = Object.freeze({ timeoutMs: 1_000 });
+export const defaultTuiLifecyclePolicy: NormalizedTuiLifecyclePolicy = Object.freeze({
+  startupTimeoutMs: 1_000,
+  inputRetirementTimeoutMs: 1_000,
+  runtimeDisposalTimeoutMs: 1_000,
+  exitHandlerTimeoutMs: 1_000,
+  restorationTimeoutMs: 1_000,
+  outputFlushTimeoutMs: 1_000,
+  hostDisposalTimeoutMs: 1_000
+});
 
 export function normalizeTuiRunOptions<TState>(
   options: TuiRunOptions<TState>
@@ -23,7 +33,7 @@ export function normalizeTuiRunOptions<TState>(
     ...(initialFocus === undefined ? {} : { initialFocus }),
     ...(options.theme === undefined ? {} : { theme: options.theme }),
     sessionPolicy: normalizeSessionPolicy(options.sessionPolicy),
-    cleanup: normalizeCleanupPolicy(options.cleanup),
+    lifecycle: normalizeLifecyclePolicy(options.lifecycle),
     input: normalizeInputPolicy(options.input)
   });
 }
@@ -36,12 +46,33 @@ function normalizeInputPolicy(policy: TuiRunInputPolicy | undefined): Readonly<R
   return Object.freeze({ escapeDelayMs });
 }
 
-function normalizeCleanupPolicy(policy: TuiCleanupPolicy | undefined): TuiCleanupPolicy {
-  const timeoutMs = policy?.timeoutMs ?? defaultTuiFinalizationPolicy.timeoutMs;
+function normalizeLifecyclePolicy(policy: TuiLifecyclePolicy | undefined): NormalizedTuiLifecyclePolicy {
+  const fallback = optionalTimeout(policy?.defaultTimeoutMs, 'defaultTimeoutMs');
+  return Object.freeze({
+    startupTimeoutMs: timeout(policy?.startupTimeoutMs, 'startupTimeoutMs', fallback),
+    inputRetirementTimeoutMs: timeout(policy?.inputRetirementTimeoutMs, 'inputRetirementTimeoutMs', fallback),
+    runtimeDisposalTimeoutMs: timeout(policy?.runtimeDisposalTimeoutMs, 'runtimeDisposalTimeoutMs', fallback),
+    exitHandlerTimeoutMs: timeout(policy?.exitHandlerTimeoutMs, 'exitHandlerTimeoutMs', fallback),
+    restorationTimeoutMs: timeout(policy?.restorationTimeoutMs, 'restorationTimeoutMs', fallback),
+    outputFlushTimeoutMs: timeout(policy?.outputFlushTimeoutMs, 'outputFlushTimeoutMs', fallback),
+    hostDisposalTimeoutMs: timeout(policy?.hostDisposalTimeoutMs, 'hostDisposalTimeoutMs', fallback)
+  });
+}
+
+function timeout(value: number | undefined, name: keyof TuiLifecyclePolicy, fallback: number | undefined): number {
+  const timeoutMs = value ?? fallback ?? defaultTuiLifecyclePolicy[name as keyof NormalizedTuiLifecyclePolicy];
   if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
-    throw new RangeError('TUI cleanup timeoutMs must be a non-negative finite number.');
+    throw new RangeError(`TUI lifecycle ${name} must be a non-negative finite number.`);
   }
-  return Object.freeze({ timeoutMs });
+  return timeoutMs;
+}
+
+function optionalTimeout(value: number | undefined, name: keyof TuiLifecyclePolicy): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isFinite(value) || value < 0) {
+    throw new RangeError(`TUI lifecycle ${name} must be a non-negative finite number.`);
+  }
+  return value;
 }
 
 function normalizeSessionPolicy(policy: unknown): SessionProtocolPolicy {

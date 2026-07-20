@@ -80,12 +80,14 @@ export function scrollReducer(state: ScrollState, action: ScrollAction): ScrollS
 export function applyScrollEvent(state: ScrollState, event: ScrollEvent): ScrollState {
   const reconciled = normalizeScrollState({
     ...state,
+    offsetRow: event.scroll.offsetRow,
+    offsetColumn: event.scroll.offsetColumn,
     contentRows: event.scroll.contentRows,
     contentColumns: event.scroll.contentColumns,
     viewportRows: event.scroll.viewportRows,
     viewportColumns: event.scroll.viewportColumns
   });
-  return scrollReducer(reconciled, event.action);
+  return preserveScrollIdentity(state, scrollReducer(reconciled, event.action));
 }
 
 export function visibleWindowFromScroll(state: ScrollState): ScrollVisibleWindow {

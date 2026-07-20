@@ -194,7 +194,7 @@ test('runPrompt reads interactive input from a terminal host', async () => {
   const running = runPrompt(input({ label: 'Name', transcript: { enabled: true } }), harness.host);
 
   harness.host.input('Ada\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -228,13 +228,13 @@ test('runPrompt applies prompt theme symbols and terminal styling safely', async
   assert.doesNotMatch(themedOutput, /\u001B\[31m/u);
 
   themedHarness.host.input('\r');
-  themedHarness.host.stdin.close();
+  themedHarness.host.endInput();
   const themedResult = await themedRun;
   assert.equal(themedResult.status, 'submitted');
 
   const plainHost = createMemoryTerminalHost({ isTty: false });
   plainHost.input('Ada\n');
-  plainHost.stdin.close();
+  plainHost.endInput();
 	  const plainResult = await runPrompt(input({
 	    label: 'Name',
 	    theme: { tokens: { colors: { 'text.default': { kind: 'ansi', value: 14 } } } }
@@ -250,7 +250,7 @@ test('runPrompt enforces required interactive text input', async () => {
 
   await waitUntil(() => /Prompt value is required\./u.test(harness.output()));
   harness.host.input('\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'aborted');
@@ -266,7 +266,7 @@ test('runPrompt keeps interactive transcripts opt-in', async () => {
   const running = runPrompt(input({ label: 'Name' }), harness.host);
 
   harness.host.input('Ada\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -308,7 +308,7 @@ test('runPrompt times out interactive prompts through the terminal clock', async
 test('runPrompt accepts queued input before timeout expiry', async () => {
   const host = createMemoryTerminalHost();
   host.input('Ada\r');
-  host.stdin.close();
+  host.endInput();
 
   const result = await runPrompt(input({ label: 'Name', timeoutMs: 10 }), host);
 
@@ -358,7 +358,7 @@ test('runPrompt restores terminal protocols on success, cancellation, interrupti
 test('runPrompt uses non-TTY line fallback for input prompts', async () => {
   const host = createMemoryTerminalHost({ isTty: false });
   host.input('Ada\n');
-  host.stdin.close();
+  host.endInput();
 
   const result = await runPrompt(input({ label: 'Name', transcript: { enabled: true } }), host);
 
@@ -371,7 +371,7 @@ test('runPrompt uses non-TTY line fallback for input prompts', async () => {
 
 test('runPrompt includes non-TTY hints when line fallback receives no input', async () => {
   const host = createMemoryTerminalHost({ isTty: false });
-  host.stdin.close();
+  host.endInput();
 
   const result = await runPrompt(input({
     label: 'Name',
@@ -387,7 +387,7 @@ test('runPrompt includes non-TTY hints when line fallback receives no input', as
 test('runPrompt respects explicit non-TTY rejection policy', async () => {
   const host = createMemoryTerminalHost({ isTty: false });
   host.input('Ada\n');
-  host.stdin.close();
+  host.endInput();
 
   const result = await runPrompt(input({
     label: 'Name',
@@ -421,7 +421,7 @@ test('runPrompt supports interactive confirm answers', async () => {
   const running = runPrompt(confirm({ label: 'Continue?' }), harness.host);
 
   harness.host.input('y');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -436,7 +436,7 @@ test('runPrompt records interactive cancellation diagnostics in transcripts', as
   const running = runPrompt(confirm({ label: 'Continue?', transcript: { enabled: true } }), harness.host);
 
   harness.host.input('\u001B');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'aborted');
@@ -452,7 +452,7 @@ test('runPrompt masks password rendering and redacts password transcripts', asyn
   const running = runPrompt(password({ label: 'Token', mask: '•', transcript: { enabled: true } }), harness.host);
 
   harness.host.input('s🙂\r');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'submitted');
@@ -468,7 +468,7 @@ test('runPrompt rejects multiline paste in single-line prompts', async () => {
   const running = runPrompt(input({ label: 'Name' }), harness.host);
 
   harness.host.input('\u001B[200~Ada\nLovelace\u001B[201~');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
 
   assert.equal(result.status, 'aborted');
@@ -504,7 +504,7 @@ test('runPrompt suppresses stale interactive validation results', async () => {
   assert.doesNotMatch(harness.output(), /Stale one-character value/u);
 
   harness.host.input('\u0003');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
   assert.equal(result.status, 'aborted');
   assert.equal(result.reason, 'interrupted');
@@ -525,7 +525,7 @@ test('runPrompt redacts password values from live validation feedback', async ()
   assert.doesNotMatch(harness.output(), /super-secret/u);
 
   harness.host.input('\u0003');
-  harness.host.stdin.close();
+  harness.host.endInput();
   const result = await running;
   assert.equal(result.status, 'aborted');
   assert.equal(result.reason, 'interrupted');

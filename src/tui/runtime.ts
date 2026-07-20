@@ -1,5 +1,5 @@
 import { createInputAmbiguityDeadline, createInputPipeline, matchesInputTrigger } from '../input/index.ts';
-import { diagnostic } from '../diagnostics.ts';
+import { createDiagnosticOccurrenceReporter, diagnostic } from '../diagnostics.ts';
 import { TerminalUiError, errorFromUnknown } from '../errors.ts';
 import { createTuiContext } from './context.ts';
 import { createSerializedDispatchQueue } from './dispatch-queue.ts';
@@ -15,7 +15,7 @@ import {
   resolveInitialFocusSelector
 } from '../renderer/internal/focus.ts';
 import { resolveTuiInputBinding } from './input-bindings.ts';
-import { defaultTuiFinalizationPolicy } from './run-configuration.ts';
+import { defaultTuiLifecyclePolicy } from './run-configuration.ts';
 import { tuiSnapshot } from './lifecycle.ts';
 import { recordTuiCommit } from './transcript.ts';
 import { createPointerRouter } from '../renderer/internal/pointer-router.ts';
@@ -32,7 +32,7 @@ import { createResizeCoordinator } from './resize-coordinator.ts';
 import { createPointerMotionCoordinator } from './pointer-motion-coordinator.ts';
 import type { PointerMotionEvent } from './pointer-motion-coordinator.ts';
 import type { InputEvent, MouseEvent as TerminalMouseEvent, MouseWheelEvent } from '../input/index.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
+import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import { ignoreMessage, isIgnoredMessage } from '../interaction/message.ts';
 import type { MessageResolution } from '../interaction/message.ts';
@@ -58,6 +58,7 @@ import type {
 } from './types.ts';
 import type { WheelInputBatch } from './wheel-input-batch.ts';
 import type { ProducerAdmissionLease } from './producer-admission.ts';
+import { terminalWriteWasIndeterminate } from '../host/write-receipt.ts';
 
 interface PendingTuiMessage<TMessage> {
   readonly message: TMessage;
@@ -110,15 +111,13 @@ export function createTuiRuntime<TState, TMessage>(
   let terminalExit: TuiExit<TState> | undefined;
   let phase: TuiRuntimePhase = 'created';
   let startup: Promise<Frame> | undefined;
+  let outputBaselineKnown = false;
   let disposal: Promise<void> | undefined;
   const lifetimeController = new AbortController();
-  const runtimeDiagnostics: TerminalDiagnostic[] = [];
-  const runtimeDiagnosticIds = new Set<string>();
+  const diagnosticReporter = createDiagnosticOccurrenceReporter(`${options.app.id}:runtime`);
+  const runtimeDiagnostics: DiagnosticOccurrence[] = [];
   for (const item of options.diagnostics ?? []) {
-    if (runtimeDiagnosticIds.has(item.id)) continue;
-    runtimeDiagnosticIds.add(item.id);
-    runtimeDiagnostics.push(item);
-    options.transcript?.recordDiagnostic(item);
+    recordDiagnostic(item);
   }
   let diagnosticRefreshQueued = false;
   const backgroundTasks = new Set<OwnedRuntimeTask<void>>();
@@ -271,6 +270,9 @@ export function createTuiRuntime<TState, TMessage>(
     diagnostics() {
       return [...runtimeDiagnostics];
     },
+    reportDiagnostic(item) {
+      return recordDiagnostic(item);
+    },
     metrics() {
       return { ...metrics, effects: effects.metrics() };
     }
@@ -298,7 +300,8 @@ export function createTuiRuntime<TState, TMessage>(
     if (event.kind === 'mouse') {
       return dispatchQueue.run(() => handleMouseInputInternal(event));
     }
-    const state = await ensureStarted();
+    assertRuntimeOperational(phase);
+    const state = ensureState();
     const frame = ensureFrame();
     if (event.kind === 'resize') {
       const resized = await runtime.resize(event.viewport);
@@ -341,6 +344,7 @@ export function createTuiRuntime<TState, TMessage>(
       const diff = await commitFrame(options.host, undefined, resolution.render.frame, theme, {
         signal: lifetimeController.signal
       });
+      outputBaselineKnown = true;
       metrics.frameCommits += 1;
       currentState = { kind: 'ready', value: state };
       currentRender = resolution.render;
@@ -361,6 +365,7 @@ export function createTuiRuntime<TState, TMessage>(
       if (terminalExit !== undefined) publishChange({ kind: 'exit', exit: terminalExit });
       return resolution.render.frame;
     } catch (cause) {
+      if (terminalWriteWasIndeterminate(cause)) outputBaselineKnown = false;
       phase = 'failed';
       subscriptions.cancel();
       effects.cancel();
@@ -373,7 +378,6 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   async function dispatchManyInternal(messages: readonly TMessage[], source: TuiMessageSource): Promise<TState> {
-    await ensureStarted();
     assertRuntimeOperational(phase);
     return commitRuntimeTransition({
       messages: messages.map((message) => ({ message, source })),
@@ -383,7 +387,6 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   async function resizeInternal(viewport: Parameters<TuiRuntime<TState, TMessage>['resize']>[0]): Promise<Frame> {
-    await ensureStarted();
     assertRuntimeOperational(phase);
     options.transcript?.record({ kind: 'input', event: { kind: 'resize', viewport } });
     await commitRuntimeTransition({ messages: [], viewport, requestedFocusPath: currentFocusPath });
@@ -432,13 +435,20 @@ export function createTuiRuntime<TState, TMessage>(
       reduction.stateVersion,
       candidateCommitId()
     );
-    const diff = await commitFrame(
-      options.host,
-      previousFrame,
-      resolution.render.frame,
-      theme,
-      dirtyCommitOptions(previousFrame, resolution.render)
-    );
+    let diff: RenderDiff;
+    try {
+      diff = await commitFrame(
+        options.host,
+        previousFrame,
+        resolution.render.frame,
+        theme,
+        dirtyCommitOptions(previousFrame, resolution.render)
+      );
+      outputBaselineKnown = true;
+    } catch (cause) {
+      if (terminalWriteWasIndeterminate(cause)) outputBaselineKnown = false;
+      throw cause;
+    }
 
     currentState = { kind: 'ready', value: reduction.state };
     stateVersion = reduction.stateVersion;
@@ -532,11 +542,11 @@ export function createTuiRuntime<TState, TMessage>(
     });
   }
 
-  function recordDiagnostic(item: TerminalDiagnostic): void {
-    if (runtimeDiagnosticIds.has(item.id)) return;
-    runtimeDiagnosticIds.add(item.id);
-    runtimeDiagnostics.push(item);
-    options.transcript?.recordDiagnostic(item);
+  function recordDiagnostic(item: TerminalDiagnostic): DiagnosticOccurrence {
+    const occurrence = diagnosticReporter.report(item);
+    runtimeDiagnostics.push(occurrence);
+    options.transcript?.recordDiagnostic(occurrence);
+    return occurrence;
   }
 
   function ownBackgroundTask(task: Promise<unknown>, owner: string, settled?: () => void): void {
@@ -640,7 +650,7 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   async function enqueueWheelInput(event: MouseWheelEvent): Promise<readonly TuiInputResult<TState>[]> {
-    await ensureStarted();
+    assertRuntimeOperational(phase);
     metrics.wheelPackets += 1;
     options.transcript?.record({ kind: 'input', event });
     const targetId = pointerRouter.wheelTargetId(ensureRender().regions, event);
@@ -648,7 +658,8 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   async function handleWheelInputBatch(batch: WheelInputBatch): Promise<readonly TuiInputResult<TState>[]> {
-    const state = await ensureStarted();
+    assertRuntimeOperational(phase);
+    const state = ensureState();
     const frame = ensureFrame();
     const messages = messagesForMouse(state, batch.event);
     if (messages.length === 0) {
@@ -662,7 +673,7 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   async function handleMouseInputInternal(event: TerminalMouseEvent): Promise<TuiInputResult<TState>> {
-    await ensureStarted();
+    assertRuntimeOperational(phase);
     const routed = pointerRouter.route(ensureRender().regions, event);
     const requestedFocusPath = pointerFocusPath(event, routed);
     const focusChanged = !sameFocusPath(requestedFocusPath, currentFocusPath);
@@ -690,12 +701,6 @@ export function createTuiRuntime<TState, TMessage>(
     const intent = routed.find((result) => result.event.kind === 'pointerDown')?.hit?.focus;
     if (intent === undefined || intent.kind === 'preserve') return currentFocusPath;
     return [...intent.path];
-  }
-
-  async function ensureStarted(): Promise<TState> {
-    assertRuntimeOperational(phase);
-    if (phase === 'created') await runtime.start();
-    return ensureState();
   }
 
   function waitForChange(signal: AbortSignal | undefined): Promise<TuiRuntimeChange<TState>> {
@@ -967,7 +972,9 @@ export function createTuiRuntime<TState, TMessage>(
   }
 
   function frameDiffBase(theme: TerminalTheme): Frame | undefined {
-    return currentRender?.themeFingerprint === theme.fingerprint ? currentRender.frame : undefined;
+    return outputBaselineKnown && currentRender?.themeFingerprint === theme.fingerprint
+      ? currentRender.frame
+      : undefined;
   }
 
   function dirtyCommitOptions(
@@ -1008,7 +1015,7 @@ function committedTextInputEvent(
 }
 
 function runtimeDisposalTimeout(value: number | undefined): number {
-  const timeoutMs = value ?? defaultTuiFinalizationPolicy.timeoutMs;
+  const timeoutMs = value ?? defaultTuiLifecyclePolicy.runtimeDisposalTimeoutMs;
   if (!Number.isFinite(timeoutMs) || timeoutMs < 0) {
     throw new RangeError('TUI runtime disposal timeoutMs must be a non-negative finite number.');
   }
@@ -1025,7 +1032,7 @@ function componentKeyMessage<TMessage>(
   focusPath: FocusPath | undefined
 ): MessageResolution<TMessage> {
   const handler = event.kind === 'key' && event.key !== 'unknown'
-    ? keyMap?.modified?.find((binding) => matchesInputTrigger(binding.trigger, event))?.onKey
+    ? keyMap?.triggers?.find((binding) => matchesInputTrigger(binding.trigger, event))?.onKey
       ?? (hasNoKeyModifiers(event) ? keyMap?.[event.key] : undefined)
     : event.kind === 'text'
       ? keyMap?.text?.[event.text]

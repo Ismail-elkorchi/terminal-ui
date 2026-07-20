@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import test from 'node:test';
+import { structuralBudgetViolations } from '../../scripts/performance-contract.mjs';
 
 test('interactive benchmark emits reproducible structural evidence', async () => {
   const result = await runBenchmark();
@@ -15,6 +16,14 @@ test('interactive benchmark emits reproducible structural evidence', async () =>
   assert.ok(report.scenarios.some((scenario) => scenario.name === 'resize-storm'));
   assert.ok(report.scenarios.some((scenario) => scenario.name === 'memory-host-write'));
   assert.ok(report.scenarios.every((scenario) => scenario.scale > 0));
+  assert.ok(report.scenarios.filter((scenario) => scenario.kind === 'render').every((scenario) => (
+    scenario.work !== undefined
+    && Object.values(scenario.work).every((counter) => (
+      counter.count === report.metadata.sampleCount
+      && counter.min >= 0
+      && counter.max >= counter.min
+    ))
+  )));
   assert.ok(report.scenarios.every((scenario) => Object.values(scenario.stages).every((stage) => (
     stage.count === report.metadata.sampleCount
     && stage.p50Ms >= 0
@@ -22,6 +31,7 @@ test('interactive benchmark emits reproducible structural evidence', async () =>
     && stage.coefficientOfVariation >= 0
   ))));
   assert.ok(report.dominantStages.length > 0);
+  assert.deepEqual(structuralBudgetViolations(report), []);
 });
 
 function runBenchmark() {

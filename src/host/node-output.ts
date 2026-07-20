@@ -1,6 +1,12 @@
 import { OrderedOutputQueue } from './ordered-output.ts';
 import { throwIfTerminalOperationAborted } from './operation.ts';
-import type { NodeWritableTerminalStream, TerminalOperationContext, TerminalOutput } from './types.ts';
+import { committedTerminalWrite, failedTerminalWrite, indeterminateTerminalWrite } from './write-receipt.ts';
+import type {
+  NodeWritableTerminalStream,
+  TerminalOperationContext,
+  TerminalOutput,
+  TerminalWriteReceipt
+} from './types.ts';
 
 export class NodeTerminalOutput implements TerminalOutput {
   readonly #queue = new OrderedOutputQueue();
@@ -21,6 +27,19 @@ export class NodeTerminalOutput implements TerminalOutput {
 
   write(chunk: string | Uint8Array, context: TerminalOperationContext = {}): Promise<void> {
     return this.#queue.run((operationContext) => writeNodeChunk(this.#stream, chunk, operationContext), context);
+  }
+
+  async writeSafety(
+    chunk: string | Uint8Array,
+    context: TerminalOperationContext = {}
+  ): Promise<TerminalWriteReceipt> {
+    if (context.signal?.aborted === true) return failedTerminalWrite('node-safety-output', context.signal.reason);
+    try {
+      await writeNodeChunk(this.#stream, chunk, context);
+      return committedTerminalWrite();
+    } catch (cause) {
+      return indeterminateTerminalWrite('node-safety-output', cause);
+    }
   }
 
   flush(context: TerminalOperationContext = {}): Promise<void> {

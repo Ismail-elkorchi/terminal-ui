@@ -61,7 +61,7 @@ export async function runInteractionScript(
           break;
       }
     } catch (cause) {
-      harness.transcript.recordDiagnostic(diagnostic(
+      harness.transcript.reportDiagnostic(diagnostic(
         'INTERACTION_SCRIPT_FAILED',
         `Interaction script "${script.id}" failed at step ${String(index + 1)}.`,
         {

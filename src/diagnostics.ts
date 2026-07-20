@@ -20,6 +20,8 @@ export const terminalDiagnosticCodes = [
   'HOST_PROTOCOL_SKIPPED',
   'HOST_PROTOCOL_UNSUPPORTED',
   'HOST_PROTOCOL_LEASE_INACTIVE',
+  'HOST_OPERATION_CANCELLED',
+  'HOST_OUTPUT_INDETERMINATE',
   'INPUT_CANCELLED',
   'INPUT_INTERRUPTED',
   'INPUT_TIMEOUT',
@@ -39,6 +41,8 @@ export const terminalDiagnosticCodes = [
   'TUI_FOCUS_SELECTION_INVALID',
   'TUI_CLEANUP_FAILED',
   'TUI_CLEANUP_TIMEOUT',
+  'TUI_STARTUP_FAILED',
+  'TUI_STARTUP_TIMEOUT',
   'TUI_SOURCE_FAILED',
   'TUI_SOURCE_DUPLICATE_ID',
   'TUI_EFFECT_FAILED',
@@ -62,7 +66,7 @@ export const terminalSeverities = [
 
 export interface TerminalDiagnostic {
   readonly schemaVersion: 'terminal-ui.terminal-diagnostic.v1';
-  readonly id: string;
+  readonly fingerprint: string;
   readonly code: TerminalDiagnosticCode;
   readonly severity: TerminalSeverity;
   readonly message: string;
@@ -70,6 +74,17 @@ export interface TerminalDiagnostic {
   readonly cause?: TerminalDiagnosticValue;
   readonly hint?: string;
   readonly data?: Record<string, TerminalDiagnosticValue>;
+}
+
+export interface DiagnosticOccurrence extends TerminalDiagnostic {
+  readonly id: string;
+  readonly owner: string;
+  readonly sequence: number;
+}
+
+export interface DiagnosticOccurrenceReporter {
+  readonly owner: string;
+  report(diagnostic: TerminalDiagnostic): DiagnosticOccurrence;
 }
 
 export function diagnostic(
@@ -93,12 +108,31 @@ export function diagnostic(
     ...(options.hint === undefined ? {} : { hint: redactDiagnosticText(options.hint) }),
     ...(options.data === undefined ? {} : { data: diagnosticData(options.data) })
   } as const;
-  return { ...content, id: diagnosticId(content) };
+  return { ...content, fingerprint: diagnosticFingerprint(content) };
 }
 
-function diagnosticId(content: Omit<TerminalDiagnostic, 'id'>): string {
+function diagnosticFingerprint(content: Omit<TerminalDiagnostic, 'fingerprint'>): string {
   const serialized = JSON.stringify(canonicalDiagnosticValue(content));
   return `diagnostic:sha256:${sha256Hex(serialized)}`;
+}
+
+export function createDiagnosticOccurrenceReporter(owner: string): DiagnosticOccurrenceReporter {
+  const normalizedOwner = owner.trim();
+  if (normalizedOwner.length === 0) throw new TypeError('Diagnostic occurrence owner must not be empty.');
+  let nextSequence = 1;
+  return Object.freeze({
+    owner: normalizedOwner,
+    report(item: TerminalDiagnostic) {
+      const sequence = nextSequence;
+      nextSequence += 1;
+      return Object.freeze({
+        ...item,
+        id: `${normalizedOwner}:diagnostic:${String(sequence)}`,
+        owner: normalizedOwner,
+        sequence
+      });
+    }
+  });
 }
 
 function canonicalDiagnosticValue(value: TerminalDiagnosticValue): TerminalDiagnosticValue {
@@ -167,7 +201,9 @@ function redactDiagnosticText(value: string): string {
 export function terminalDiagnosticIssue(item: unknown): string | undefined {
   if (!isRecord(item)) return 'diagnostic must be an object.';
   if (item['schemaVersion'] !== 'terminal-ui.terminal-diagnostic.v1') return 'diagnostic schemaVersion is invalid.';
-  if (typeof item['id'] !== 'string' || item['id'].length === 0) return 'diagnostic id must be a non-empty string.';
+  if (typeof item['fingerprint'] !== 'string' || item['fingerprint'].length === 0) {
+    return 'diagnostic fingerprint must be a non-empty string.';
+  }
   if (!isOneOf(item['code'], terminalDiagnosticCodes)) {
     return `unsupported diagnostic code: ${String(item['code'])}.`;
   }
@@ -187,6 +223,44 @@ export function terminalDiagnosticIssue(item: unknown): string | undefined {
     && (!isRecord(item['data']) || !Object.values(item['data']).every(isDiagnosticValue))
   ) {
     return 'diagnostic data must be a JSON-safe object.';
+  }
+  const content: Omit<TerminalDiagnostic, 'fingerprint'> = {
+    schemaVersion: 'terminal-ui.terminal-diagnostic.v1',
+    code: item['code'],
+    severity: item['severity'],
+    message: item['message'],
+    ...(typeof item['target'] === 'string' ? { target: item['target'] } : {}),
+    ...(item['cause'] === undefined ? {} : { cause: item['cause'] as TerminalDiagnosticValue }),
+    ...(typeof item['hint'] === 'string' ? { hint: item['hint'] } : {}),
+    ...(item['data'] === undefined
+      ? {}
+      : { data: item['data'] as Record<string, TerminalDiagnosticValue> })
+  };
+  if (item['fingerprint'] !== diagnosticFingerprint(content)) {
+    return 'diagnostic fingerprint does not match its canonical content.';
+  }
+  return undefined;
+}
+
+export function diagnosticOccurrenceIssue(item: unknown): string | undefined {
+  const diagnosticIssue = terminalDiagnosticIssue(item);
+  if (diagnosticIssue !== undefined) return diagnosticIssue;
+  if (!isRecord(item)) return 'diagnostic occurrence must be an object.';
+  if (typeof item['id'] !== 'string' || item['id'].length === 0) {
+    return 'diagnostic occurrence id must be a non-empty string.';
+  }
+  if (typeof item['owner'] !== 'string' || item['owner'].length === 0) {
+    return 'diagnostic occurrence owner must be a non-empty string.';
+  }
+  if (
+    typeof item['sequence'] !== 'number'
+    || !Number.isInteger(item['sequence'])
+    || item['sequence'] < 1
+  ) {
+    return 'diagnostic occurrence sequence must be a positive integer.';
+  }
+  if (item['id'] !== `${item['owner']}:diagnostic:${String(item['sequence'])}`) {
+    return 'diagnostic occurrence id must match its owner and sequence.';
   }
   return undefined;
 }

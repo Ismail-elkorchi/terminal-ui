@@ -159,6 +159,14 @@ function decodeTerminalText(
       continue;
     }
 
+    const control = unknownControlFromPrefix(remaining);
+    if (control !== undefined) {
+      flushText();
+      events.push({ kind: 'unknown', sequence: control });
+      index += control.length;
+      continue;
+    }
+
     const [character] = Array.from(remaining);
     if (character === undefined) break;
     buffer += character;
@@ -173,10 +181,18 @@ function plainTextRunEnd(value: string, start: number): number {
   let index = start;
   while (index < value.length) {
     const codeUnit = value.charCodeAt(index);
-    if (codeUnit <= 26 || codeUnit === 27 || codeUnit === 127) break;
+    if (codeUnit < 32 || codeUnit === 127 || (codeUnit >= 128 && codeUnit <= 159)) break;
     index += 1;
   }
   return index;
+}
+
+function unknownControlFromPrefix(value: string): string | undefined {
+  const codePoint = value.codePointAt(0);
+  if (codePoint === undefined) return undefined;
+  return codePoint < 32 || codePoint === 127 || (codePoint >= 128 && codePoint <= 159)
+    ? String.fromCodePoint(codePoint)
+    : undefined;
 }
 
 function isIncompleteEscapeSequence(value: string): boolean {

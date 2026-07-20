@@ -19,22 +19,26 @@ import {
   textAreaScrollbarState
 } from './support/scroll.ts';
 import { textPointerHitTargets } from '../text-pointer.ts';
+import { textMeasurements } from './text-measurements.ts';
 import type { RendererMap } from './types.ts';
 
 export const textRenderers = {
   text: {
+    measure: textMeasurements.text,
     render: ({ renderNode, layoutNode, buffer }) => {
       writeRenderBlock(buffer, layoutNode.bounds, textBlock(renderNode));
     },
     accessibility: ({ renderNode, id }) => textAccessibleBase(renderNode, id)
   },
   richText: {
+    measure: textMeasurements.richText,
     render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
       writeRenderBlock(buffer, layoutNode.bounds, richTextBlock(renderNode, layoutNode.bounds, theme, widthProfile));
     },
     accessibility: ({ renderNode, id }) => richTextAccessibleBase(renderNode, id)
   },
   textArea: {
+    measure: textMeasurements.textArea,
     render: ({ renderNode, layoutNode, buffer, theme, focus, widthProfile }) => {
       const scrollbars = scrollbarsForRenderNode(
         renderNode,
@@ -90,6 +94,7 @@ export const textRenderers = {
     }
   },
   statusIndicator: {
+    measure: textMeasurements.statusIndicator,
     render: ({ renderNode, layoutNode, buffer, theme }) => {
       writeRenderBlock(buffer, layoutNode.bounds, statusIndicatorBlock(renderNode, theme));
     },

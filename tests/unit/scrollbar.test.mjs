@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createScrollState, prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { createScrollState, preparePaletteIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
 import {
   asciiSymbols,
   defaultTheme,
@@ -28,7 +28,7 @@ import {
   text
 } from '../../dist/components/index.js';
 import { viewport } from '../../dist/layout/index.js';
-import { prepareTextDocument } from '../../dist/text/index.js';
+import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 test('scrollbarLayout reserves edge tracks and computes proportional thumbs', () => {
   const layout = scrollbarLayout(
@@ -244,7 +244,7 @@ test('scrollback scrollbar is opt-in and preserves scoped visible-window accessi
 test('textArea scrollbar follows explicit text scroll state', () => {
   const frame = renderElementFrame(textArea({
     id: 'body',
-    presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), cursor: 0, scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
+    presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), caret: textCaretAt(0), scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
     scrollbar: {}
   }), { columns: 10, rows: 2 });
 
@@ -258,7 +258,7 @@ test('textArea scrollbar follows explicit text scroll state', () => {
 test('widget scrollbars expose owner source metadata and visual state', () => {
   const frame = renderElementFrame(textArea({
     id: 'body',
-    presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), cursor: 0, scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
+    presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), caret: textCaretAt(0), scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },
     scrollbar: { visible: 'always', visualState: 'hover' }
   }), { columns: 10, rows: 2 });
 
@@ -354,12 +354,12 @@ test('palette scrollbar renders beside the filtered result window', () => {
   const frame = renderElementFrame(palette({
     id: 'palette',
     title: 'Actions',
-    entries: [
+    index: preparePaletteIndex([
       { id: 'one', label: 'One', value: 'one' },
       { id: 'two', label: 'Two', value: 'two' },
       { id: 'three', label: 'Three', value: 'three' },
       { id: 'four', label: 'Four', value: 'four' }
-    ],
+    ]),
     scroll: createScrollState({ offsetRow: 1, contentRows: 4, viewportRows: 4 }),
     scrollbar: { visible: 'always' }
   }), { columns: 18, rows: 4 });

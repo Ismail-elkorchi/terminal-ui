@@ -11,10 +11,10 @@ import {
   type TextAreaAction,
   type TreeInteractionAction
 } from '@ismail-elkorchi/terminal-ui/components';
-import { createScrollState, prepareScrollbackHistory } from '@ismail-elkorchi/terminal-ui/behavior';
+import { createScrollState, preparePaletteIndex, prepareScrollbackHistory } from '@ismail-elkorchi/terminal-ui/behavior';
 import { viewport } from '@ismail-elkorchi/terminal-ui/layout';
 import type { ScrollEvent } from '@ismail-elkorchi/terminal-ui/interaction';
-import { prepareTextDocument } from '@ismail-elkorchi/terminal-ui/text';
+import { prepareTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
 
 export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
 export type Equal<TLeft, TRight> =
@@ -41,7 +41,7 @@ const controlledTree = tree({
 });
 const controlledEditor = textArea({
   id: 'editor',
-  presentation: { document: prepareTextDocument('value'), cursor: 0, scroll },
+  presentation: { document: prepareTextDocument('value'), caret: textCaretAt(0), scroll },
   scrollbar: { visible: 'auto' },
   onAction: (action) => ({ kind: 'editor' as const, action })
 });
@@ -54,7 +54,7 @@ const controlledLog = scrollback({
 });
 const controlledPalette = palette({
   id: 'palette',
-  entries: [{ id: 'one', label: 'One', value: 1 }],
+  index: preparePaletteIndex([{ id: 'one', label: 'One', value: 1 }]),
   scroll,
   scrollbar: { visible: 'auto' },
   onScroll: (event) => ({ kind: 'paletteScroll' as const, event })
@@ -99,10 +99,10 @@ list({ id: 'inert-list', items: [], projectItem: () => ({ id: '', label: '' }), 
 // @ts-expect-error tree scrollbar requires controlled scroll state and action routing
 tree({ id: 'inert-tree', nodes: [], scrollbar: { visible: 'auto' } });
 // @ts-expect-error text-area scrollbar requires scroll presentation and action routing
-textArea({ id: 'inert-editor', presentation: { document: prepareTextDocument(''), cursor: 0 }, scrollbar: { visible: 'auto' } });
+textArea({ id: 'inert-editor', presentation: { document: prepareTextDocument(''), caret: textCaretAt(0 )}, scrollbar: { visible: 'auto' } });
 // @ts-expect-error scrollback scrollbar requires controlled scroll state and action routing
 scrollback({ id: 'inert-log', history: prepareScrollbackHistory([]), scrollbar: { visible: 'auto' } });
 // @ts-expect-error palette scrollbar requires controlled scroll state and event routing
-palette({ id: 'inert-palette', entries: [], scrollbar: { visible: 'auto' } });
+palette({ id: 'inert-palette', index: preparePaletteIndex([]), scrollbar: { visible: 'auto' } });
 // @ts-expect-error viewport scrollbar requires complete metrics and event routing
 viewport(text('content'), { id: 'inert-viewport', contentRows: 20, scrollbar: { visible: 'auto' } });

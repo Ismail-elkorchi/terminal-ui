@@ -395,6 +395,7 @@ function capabilities(depth, hyperlinks = false, synchronizedOutput = false) {
     focusReporting: support(true),
     cursorVisibility: support(true),
     synchronizedOutput: support(synchronizedOutput),
+    scrollRegion: support(false),
     title: support(true),
     bell: support(true),
     clipboard: support(false),

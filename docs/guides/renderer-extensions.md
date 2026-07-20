@@ -67,8 +67,9 @@ controls expose pointer caret and selection gestures through their typed
 ## Custom Composite Renderer
 
 Use `customComposite()` when a new container needs an application-defined
-measurement or child arrangement. Its layout hook receives child measurements
-and returns one bounded rectangle per opaque child. The framework renders those
+measurement or child arrangement. Its measurement and layout hooks receive
+opaque child measurements and the active text-width profile. Layout returns one
+bounded rectangle per child. The framework renders those
 children and preserves their accessibility, focus, pointer targets, clipping,
 layers, source metadata, and message union. The optional render hook paints the
 container before its children through the bounded `RenderTarget`.

@@ -155,7 +155,7 @@ function treeLine(
   const iconStyle = treeIconStyle(widget, row, rowState);
   const markerStyle = treeMarkerStyle(widget, row, rowState);
   const matchStyle = mergeDataStyles(labelStyle, themeStyle('menu.match', { underline: true }), widget.styles?.parts?.['match']);
-  const query = filterQuery(widget);
+  const query = widget.props.view.query;
   const nodeSourceId = `${widget.id ?? 'tree'}:${row.node.id}`;
   const spans: RenderSpan[] = [
     ...selectionMarkerSpans(
@@ -305,7 +305,7 @@ function treeProjection(widget: TreeRenderNode, height: number): TreeProjection 
   if (cached?.height === height) return cached.projection;
   const selected = selectedTreeId(widget);
   const projection = {
-    totalRows: widget.props.collection.total,
+    totalRows: widget.props.view.collection.total,
     selected,
     window: treeWindow(widget, height, selected)
   };
@@ -314,8 +314,8 @@ function treeProjection(widget: TreeRenderNode, height: number): TreeProjection 
 }
 
 function treeWindow(widget: TreeRenderNode, height: number, selected: string | undefined): TreeWindow {
-  const selectedIndex = selectedTreeIndex(widget.props.collection, selected) ?? 0;
-  const window = projectedRowWindow(widget.props.collection, {
+  const selectedIndex = selectedTreeIndex(widget.props.view.collection, selected) ?? 0;
+  const window = projectedRowWindow(widget.props.view.collection, {
     viewportRows: height,
     selectedIndex,
     ...scrollInput(widget)
@@ -333,7 +333,7 @@ function selectedTreeId(widget: TreeRenderNode): string | undefined {
 }
 
 function selectedTreeIndex(
-  collection: TreeRenderNode['props']['collection'],
+  collection: TreeRenderNode['props']['view']['collection'],
   selected: string | undefined
 ): number | undefined {
   if (selected === undefined) return undefined;
@@ -379,10 +379,6 @@ function toActionMessageProp<TMessage>(
 function emptyText(widget: TreeRenderNode): string {
   const text = clean(stringify(widget.props.emptyText));
   return text.length === 0 ? 'No nodes' : text;
-}
-
-function filterQuery(widget: TreeRenderNode): string {
-  return clean(stringify(widget.props.filterQuery)).trim();
 }
 
 function clean(value: string): string {

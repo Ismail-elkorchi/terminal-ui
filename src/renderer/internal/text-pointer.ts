@@ -1,6 +1,6 @@
 import { createTerminalTextIndex, normalizeTextCursor } from '../../text/index.ts';
 import type { TextMeasurementOptions, TextSelection } from '../../text/index.ts';
-import type { TextPointerAction } from '../../interaction/text-pointer.ts';
+import type { PointerSelectionAction, TextPointerAction } from '../../interaction/text-pointer.ts';
 import type { MessageResolution } from '../../interaction/message.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
 import type { Rect } from '../model/layout.ts';
@@ -21,8 +21,32 @@ export function textPointerHitTargets<TMessage>(
   input: TextPointerHitTargetInput<TMessage>
 ): readonly HitTarget<TMessage>[] {
   const toMessage = input.toMessage;
-  if (toMessage === undefined) return [];
-  if (input.bounds.width <= 0 || input.bounds.height <= 0) return [];
+  const positionAt = (event: RoutedPointerEvent): number | undefined => input.offsetAt(event);
+  return pointerSelectionHitTargets<number, TMessage>({
+    id: input.id,
+    bounds: input.bounds,
+    ...(input.focusTargetId === undefined ? {} : { focusTargetId: input.focusTargetId }),
+    positionAt,
+    ...(toMessage === undefined
+      ? {}
+      : { toMessage: (action) => toMessage(toTextPointerAction(action)) })
+  });
+}
+
+export interface PointerSelectionHitTargetInput<TCoordinate, TMessage> {
+  readonly id: string;
+  readonly bounds: Rect;
+  readonly focusTargetId?: string;
+  readonly toMessage?: ((action: PointerSelectionAction<TCoordinate>) => MessageResolution<TMessage>) | undefined;
+  positionAt(event: RoutedPointerEvent): TCoordinate | undefined;
+}
+
+export function pointerSelectionHitTargets<TCoordinate, TMessage>(
+  input: PointerSelectionHitTargetInput<TCoordinate, TMessage>
+): readonly HitTarget<TMessage>[] {
+  const toMessage = input.toMessage;
+  const positionAt = (event: RoutedPointerEvent): TCoordinate | undefined => input.positionAt(event);
+  if (toMessage === undefined || input.bounds.width <= 0 || input.bounds.height <= 0) return [];
   return [{
     id: input.id,
     bounds: input.bounds,
@@ -32,9 +56,9 @@ export function textPointerHitTargets<TMessage>(
       : { focus: { kind: 'target' as const, targetId: input.focusTargetId } }),
     cursor: 'text',
     message(event) {
-      const offset = input.offsetAt(event);
-      if (offset === undefined) return ignoreMessage();
-      const action = textPointerAction(event, offset, (candidate) => input.offsetAt(candidate));
+      const position = positionAt(event);
+      if (position === undefined) return ignoreMessage();
+      const action = pointerSelectionAction(event, position, positionAt);
       return action === undefined ? ignoreMessage() : toMessage(action);
     }
   }];
@@ -60,38 +84,29 @@ export function clampedTextOffset(text: string, offset: number): number {
   return normalizeTextCursor(text, offset);
 }
 
-function textPointerAction(
-  event: RoutedPointerEvent,
-  offset: number,
-  offsetAt: (event: RoutedPointerEvent) => number | undefined
-): TextPointerAction | undefined {
-  switch (event.kind) {
-    case 'pointerDown':
-      return { kind: 'placeCaret', offset };
-    case 'dragStart':
-    case 'drag':
-      return selectionAction('extendSelection', event, offset, offsetAt);
-    case 'dragEnd':
-      return selectionAction('endSelection', event, offset, offsetAt);
-    default:
-      return undefined;
-  }
+function toTextPointerAction(action: PointerSelectionAction<number>): TextPointerAction {
+  return action.kind === 'placeCaret'
+    ? { kind: 'placeCaret', offset: action.position }
+    : { kind: action.kind, anchor: action.anchor, offset: action.position };
 }
 
-function selectionAction(
-  kind: 'extendSelection' | 'endSelection',
+function pointerSelectionAction<TCoordinate>(
   event: RoutedPointerEvent,
-  offset: number,
-  offsetAt: (event: RoutedPointerEvent) => number | undefined
-): TextPointerAction {
+  position: TCoordinate,
+  positionAt: (event: RoutedPointerEvent) => TCoordinate | undefined
+): PointerSelectionAction<TCoordinate> | undefined {
+  if (event.kind === 'pointerDown') return { kind: 'placeCaret', position };
+  if (event.kind !== 'dragStart' && event.kind !== 'drag' && event.kind !== 'dragEnd') return undefined;
   const pressLocalRow = event.pressLocalRow ?? event.localRow;
   const pressLocalColumn = event.pressLocalColumn ?? event.localColumn;
-  const anchor = offsetAt({
+  const anchor = positionAt({
     ...event,
     row: event.pressRow ?? event.row,
     column: event.pressColumn ?? event.column,
     ...(pressLocalRow === undefined ? {} : { localRow: pressLocalRow }),
     ...(pressLocalColumn === undefined ? {} : { localColumn: pressLocalColumn })
-  }) ?? offset;
-  return { kind, anchor, offset };
+  }) ?? position;
+  return event.kind === 'dragEnd'
+    ? { kind: 'endSelection', anchor, position }
+    : { kind: 'extendSelection', anchor, position };
 }

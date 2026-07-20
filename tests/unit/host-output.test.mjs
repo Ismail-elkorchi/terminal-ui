@@ -45,7 +45,9 @@ test('Node host propagates write callback failures and remains flushable', async
   const writing = host.write({ text: 'broken' });
   stream.completeWrite(new Error('write callback failed'));
 
-  await assert.rejects(writing, /write callback failed/u);
+  const receipt = await writing;
+  assert.equal(receipt.status, 'indeterminate');
+  assert.match(receipt.diagnostic.cause?.message ?? '', /write callback failed/u);
   await assert.rejects(host.flush(), /write callback failed/u);
 });
 
@@ -96,7 +98,9 @@ for (const event of ['error', 'close']) {
     else stream.emit(event);
     stream.completeWrite(new Error('late callback'));
 
-    await assert.rejects(writing, /stream interrupted|closed before the write completed/u);
+    const receipt = await writing;
+    assert.equal(receipt.status, 'indeterminate');
+    assert.match(receipt.diagnostic.cause?.message ?? '', /stream interrupted|closed before the write completed/u);
     assert.deepEqual(stream.listenerCounts(), { close: 0, drain: 0, error: 0 });
   });
 }
@@ -112,7 +116,9 @@ test('Node output queue admits later writes and reports an earlier failure once 
   const recovered = host.write({ text: 'recovered' });
 
   stream.completeWrite(new Error('first write failed'));
-  await assert.rejects(failed, /first write failed/u);
+  const failedReceipt = await failed;
+  assert.equal(failedReceipt.status, 'indeterminate');
+  assert.match(failedReceipt.diagnostic.cause?.message ?? '', /first write failed/u);
   await Promise.resolve();
   assert.deepEqual(stream.writes(), ['failed', 'recovered']);
   stream.completeWrite();
@@ -386,7 +392,9 @@ test('runtime output cancellation does not release later writes before native se
   const second = host.write({ text: 'second' });
 
   controller.abort(new Error('caller cancelled first write'));
-  await assert.rejects(first, /caller cancelled first write/u);
+  const firstReceipt = await first;
+  assert.equal(firstReceipt.status, 'indeterminate');
+  assert.match(firstReceipt.diagnostic.cause?.message ?? '', /caller cancelled first write/u);
   await Promise.resolve();
   assert.deepEqual(writes, ['first']);
 
@@ -407,7 +415,9 @@ test('Node output cancellation does not release later writes before native settl
   const second = host.write({ text: 'second' });
 
   controller.abort(new Error('caller cancelled first Node write'));
-  await assert.rejects(first, /caller cancelled first Node write/u);
+  const firstReceipt = await first;
+  assert.equal(firstReceipt.status, 'indeterminate');
+  assert.match(firstReceipt.diagnostic.cause?.message ?? '', /caller cancelled first Node write/u);
   await Promise.resolve();
   assert.deepEqual(stream.writes(), ['first']);
 

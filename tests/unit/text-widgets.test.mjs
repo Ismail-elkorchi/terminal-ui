@@ -26,7 +26,11 @@ import { statusIndicator,
   textInput
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
-import { prepareTextDocument } from '../../dist/text/index.js';
+import {
+  prepareTextDocument,
+  textCaretAt,
+  textDocumentSelectionBetween
+} from '../../dist/text/index.js';
 
 test('richText renders sanitized styled segments as plain frame text', () => {
   const frame = renderElementFrame(richText({
@@ -122,7 +126,11 @@ test('richText gives linked spans the default link style without overriding expl
 test('textArea renders multiline windows and exposes cursor/accessibility state', () => {
   const frame = renderElementFrame(textArea({
     id: 'body',
-    presentation: { document: prepareTextDocument('line one\nline two'), cursor: 'line one\nline'.length, selection: { start: 0, end: 4 } },
+    presentation: {
+      document: prepareTextDocument('line one\nline two'),
+      caret: textCaretAt('line one\nline'.length),
+      selection: textDocumentSelectionBetween(0, 4)
+    },
   }), { columns: 20, rows: 3 });
 
   assert.equal(renderFramePlain(frame), '› line one\n│ line two');
@@ -210,11 +218,15 @@ test('text widgets map Unicode cursor positions through the shared text contract
 test('textArea editable cells expose chrome value placeholder and selection source metadata', () => {
   const selectedFrame = renderElementFrame(textArea({
     id: 'notes',
-    presentation: { document: prepareTextDocument('alpha\nbeta'), cursor: 0, selection: { start: 1, end: 4 } },
+    presentation: {
+      document: prepareTextDocument('alpha\nbeta'),
+      caret: textCaretAt(0),
+      selection: textDocumentSelectionBetween(1, 4)
+    },
   }), { columns: 12, rows: 2 });
   const placeholderFrame = renderElementFrame(textArea({
     id: 'notes-empty',
-    presentation: { document: prepareTextDocument(''), cursor: 0 },
+    presentation: { document: prepareTextDocument(''), caret: textCaretAt(0) },
     placeholder: 'Write notes'
   }), { columns: 12, rows: 1 });
 
@@ -229,7 +241,7 @@ test('textArea editable cells expose chrome value placeholder and selection sour
 test('textArea can opt into line number gutter and active line anatomy', () => {
   const frame = renderElementFrame(textArea({
     id: 'editor',
-    presentation: { document: prepareTextDocument('alpha\nbeta'), cursor: 'alpha\nb'.length },
+    presentation: { document: prepareTextDocument('alpha\nbeta'), caret: textCaretAt('alpha\nb'.length) },
     lineNumbers: { minWidth: 2 },
     activeLine: true
   }), { columns: 24, rows: 2 }, { focusPath: ['editor'] });
@@ -256,7 +268,7 @@ test('textArea cursor uses the actual line-number gutter width', () => {
   const cursor = lines.slice(0, 9).join('\n').length + 1;
   const frame = renderElementFrame(textArea({
     id: 'wide-gutter-editor',
-    presentation: { document: prepareTextDocument(value), cursor },
+    presentation: { document: prepareTextDocument(value), caret: textCaretAt(cursor) },
     lineNumbers: true
   }), { columns: 24, rows: 12 }, { focusPath: ['wide-gutter-editor'] });
 
@@ -269,7 +281,11 @@ test('textArea cursor uses the actual line-number gutter width', () => {
 test('textArea renders caller-owned highlight ranges without overriding selection', () => {
   const frame = renderElementFrame(textArea({
     id: 'searchable',
-    presentation: { document: prepareTextDocument('alpha beta gamma'), cursor: 0, selection: { start: 0, end: 5 } },
+    presentation: {
+      document: prepareTextDocument('alpha beta gamma'),
+      caret: textCaretAt(0),
+      selection: textDocumentSelectionBetween(0, 5)
+    },
     highlights: [
       { start: 6, end: 10, label: 'search.match' },
       { start: 11, end: 16, label: 'custom.match', style: { fg: { kind: 'theme', token: 'status.warning' }, bold: true } }
@@ -294,7 +310,7 @@ test('textArea renders caller-owned highlight ranges without overriding selectio
 test('textArea can soft-wrap long logical lines while preserving editor anatomy', () => {
   const frame = renderElementFrame(textArea({
     id: 'wrapped-editor',
-    presentation: { document: prepareTextDocument('alpha beta gamma'), cursor: 'alpha beta'.length },
+    presentation: { document: prepareTextDocument('alpha beta gamma'), caret: textCaretAt('alpha beta'.length) },
     lineNumbers: { minWidth: 2 },
     activeLine: true,
     wrap: true
@@ -313,7 +329,7 @@ test('textArea can soft-wrap long logical lines while preserving editor anatomy'
 test('wrapped textArea exposes scrollbar scope over visual rows', () => {
   const frame = renderElementFrame(textArea({
     id: 'wrapped-scroll',
-    presentation: { document: prepareTextDocument('alpha beta gamma delta'), cursor: 0, scroll: { offsetRow: 1, offsetColumn: 0, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0 } },
+    presentation: { document: prepareTextDocument('alpha beta gamma delta'), caret: textCaretAt(0), scroll: { offsetRow: 1, offsetColumn: 0, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0 } },
     wrap: true,
     scrollbar: { visible: 'always', axis: 'vertical' }
   }), { columns: 9, rows: 2 });
@@ -409,7 +425,7 @@ test('disabled textInput suppresses opted-in text pointer targets', () => {
 test('textArea maps pointer positions through gutters visual rows and selection drag actions', () => {
   const regions = renderElementRegions(textArea({
     id: 'editable-area',
-    presentation: { document: prepareTextDocument('alpha\nbeta'), cursor: 0 },
+    presentation: { document: prepareTextDocument('alpha\nbeta'), caret: textCaretAt(0) },
     lineNumbers: true,
     onAction: (action) => ({ action })
   }), { columns: 24, rows: 2 });
@@ -461,7 +477,7 @@ test('textArea maps pointer positions through gutters visual rows and selection 
 test('textArea horizontal windows use visual cells without splitting graphemes', () => {
   const frame = renderElementFrame(textArea({
     id: 'unicode-area',
-    presentation: { document: prepareTextDocument('a🙂界b\nplain'), cursor: 'a🙂界'.length, scroll: { offsetRow: 0, offsetColumn: 3, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0 } },
+    presentation: { document: prepareTextDocument('a🙂界b\nplain'), caret: textCaretAt('a🙂界'.length), scroll: { offsetRow: 0, offsetColumn: 3, contentRows: 0, contentColumns: 0, viewportRows: 0, viewportColumns: 0 } },
   }), { columns: 5, rows: 2 }, { focusPath: ['unicode-area'] });
 
   assert.equal(renderFramePlain(frame), '› 界b\n│ in');

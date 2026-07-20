@@ -12,13 +12,13 @@ export interface ElementKeyEvent {
 
 export type ElementKeyHandler<TMessage> = (event: ElementKeyEvent) => MessageResolution<TMessage>;
 
-export interface ElementModifiedKeyBinding<TMessage> {
-  readonly trigger: Extract<InputTrigger, { readonly kind: 'key' }>;
+export interface ElementKeyTriggerBinding<TMessage> {
+  readonly trigger: Extract<InputTrigger, { readonly kind: 'key' | 'codePoint' | 'physicalKey' }>;
   readonly onKey: ElementKeyHandler<TMessage>;
 }
 
 export type ElementKeyBindings<TMessage> = Readonly<Partial<Record<BindableKeyName, ElementKeyHandler<TMessage>>>> & {
-  readonly modified?: readonly ElementModifiedKeyBinding<TMessage>[];
+  readonly triggers?: readonly ElementKeyTriggerBinding<TMessage>[];
   readonly text?: Readonly<Record<string, ElementKeyHandler<TMessage>>>;
 };
 

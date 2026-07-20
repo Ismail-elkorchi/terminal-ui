@@ -6,6 +6,14 @@ const root = path.resolve(new URL('../src', import.meta.url).pathname);
 const sourceFiles = await collectTypeScript(root);
 const failures = [];
 
+const foundationDependencies = new Map([
+  ['diagnostic-identity.ts', new Set()],
+  ['diagnostics.ts', new Set(['diagnostic-identity.ts', 'text'])],
+  ['foundation', new Set()],
+  ['geometry', new Set()],
+  ['text', new Set()]
+]);
+
 const forbiddenDependencies = new Map([
   ['protocol', new Set(['behavior', 'components', 'host', 'input', 'interaction', 'layout', 'renderer', 'testing', 'tui', 'ui-model', 'visual'])],
   ['host', new Set(['behavior', 'components', 'layout', 'renderer', 'testing', 'tui', 'ui-model'])],
@@ -28,6 +36,13 @@ for (const filePath of sourceFiles) {
     if (specifier === undefined || !ts.isStringLiteral(specifier) || !specifier.text.startsWith('.')) continue;
     const target = path.resolve(path.dirname(filePath), specifier.text);
     const targetOwner = firstSegment(target);
+    const allowedFoundationDependencies = foundationDependencies.get(owner);
+    if (allowedFoundationDependencies !== undefined
+      && owner !== targetOwner
+      && targetOwner !== undefined
+      && !allowedFoundationDependencies.has(targetOwner)) {
+      failures.push(`${relative(filePath)} imports non-foundation ${targetOwner} layer through ${specifier.text}`);
+    }
     if (forbiddenDependencies.get(owner)?.has(targetOwner) === true) {
       failures.push(`${relative(filePath)} imports forbidden ${targetOwner} layer through ${specifier.text}`);
     }

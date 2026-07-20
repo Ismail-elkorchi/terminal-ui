@@ -21,7 +21,7 @@ import {
   grid,
   splitPane
 } from '../../dist/layout/index.js';
-import { prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { preparePaletteIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
 
 function workspaceView(state) {
   const mainPanel = tabs({
@@ -43,10 +43,10 @@ function workspaceView(state) {
           id: 'palette',
           title: 'Actions',
           query: state.query,
-          entries: [
+          index: preparePaletteIndex([
             { id: 'open', label: 'Open', value: 'open' },
             { id: 'quit', label: 'Quit', value: 'quit' }
-          ],
+          ]),
           selected: 0
         })
       }

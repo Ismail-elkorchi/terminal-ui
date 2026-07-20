@@ -5,6 +5,8 @@ import { resolveTerminalCapabilities } from './capabilities.ts';
 import { NodeTerminalOutput } from './node-output.ts';
 import { createTerminalHostOutputAuthority } from './ordered-output.ts';
 import { NodeInput } from './node-input.ts';
+import { TerminalInputAuthority } from './input-authority.ts';
+import { TerminalCapabilityDetector } from './capability-detection.ts';
 import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import type {
   NodeTerminalHostOptions,
@@ -90,16 +92,17 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
   const nodeProcess = options.process ?? process;
   const inputStream = options.stdin ?? nodeProcess.stdin;
   const outputStream = options.stdout ?? nodeProcess.stdout;
-  const stdin = new NodeInput(inputStream);
+  const inputSource = new NodeInput(inputStream);
+  const stdin = new TerminalInputAuthority(inputSource, () => inputSource.dispose());
   const stdout = new NodeTerminalOutput(outputStream);
   const stderr = new NodeTerminalOutput(options.stderr ?? nodeProcess.stderr);
-  const output = createTerminalHostOutputAuthority(stdout, stderr);
+  const output = createTerminalHostOutputAuthority(stdout, stderr, options.id ?? 'node');
   const clock = new NodeClock();
   const getViewport = (): TerminalViewport => ({
     columns: stdout.columns ?? 80,
     rows: stdout.rows ?? 24
   });
-  const capabilities = resolveTerminalCapabilities({
+  const resolverInput = {
     host: {
       runtime: 'node',
       inputIsTty: stdin.isTty(),
@@ -115,8 +118,15 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides }),
     ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
     ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile })
-  });
+  } satisfies Parameters<typeof resolveTerminalCapabilities>[0];
   const terminalState = new TerminalStateAuthorityBinding();
+  const detector = new TerminalCapabilityDetector({
+    input: stdin,
+    clock,
+    resolverInput,
+    beginSession: (id, capabilities) => terminalState.beginLease(id, capabilities),
+    write: (chunk, signal) => output.write(chunk, { signal })
+  });
   const host: TerminalHost = {
     id: options.id ?? 'node',
     runtime: 'node',
@@ -127,11 +137,12 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     clock,
     env: new ProcessEnvironment(options.env ?? nodeProcess.env),
     getViewport,
-    getCapabilities: () => Promise.resolve(capabilities),
+    getCapabilities: (detectionOptions) => detector.detect(detectionOptions),
     beginSession: (sessionOptions) =>
-      terminalState.beginLease(sessionOptions?.id ?? 'node-session', capabilities),
+      terminalState.beginLease(sessionOptions?.id ?? 'node-session', detector.current()),
     restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
     write: output.write,
+    writeSafety: output.writeSafety,
     flush: output.flush,
     dispose: async (context) => {
       await settleResourceDisposal([

@@ -1,5 +1,5 @@
 import { validateAccessibleSnapshot } from '../accessibility/index.ts';
-import { diagnostic, terminalDiagnosticIssue } from '../diagnostics.ts';
+import { diagnostic, diagnosticOccurrenceIssue, terminalDiagnosticIssue } from '../diagnostics.ts';
 import { err, ok } from '../result.ts';
 import { defineTextWidthProfile, measureTextCells } from '../text/index.ts';
 import {
@@ -101,7 +101,7 @@ function transcriptIssue(transcript: unknown): string | undefined {
   const orderingIssue = transcriptOrderingIssue(transcript['steps']);
   if (orderingIssue !== undefined) return orderingIssue;
   for (const [index, item] of transcript['diagnostics'].entries()) {
-    const issue = diagnosticIssue(item);
+    const issue = diagnosticOccurrenceIssue(item);
     if (issue !== undefined) return `Invalid transcript diagnostic at index ${String(index)}: ${issue}`;
   }
   for (const [index, item] of transcript['redactions'].entries()) {
@@ -179,7 +179,7 @@ function stepIssue(step: unknown): string | undefined {
     case 'snapshot':
       return snapshotIssue(step['snapshot']);
     case 'diagnostic':
-      return diagnosticIssue(step['diagnostic']);
+      return diagnosticOccurrenceIssue(step['diagnostic']);
     case 'restore':
       return restoreResultIssue(step['result']);
     default:
@@ -485,10 +485,6 @@ function snapshotIssue(snapshot: unknown): string | undefined {
   return result.ok ? undefined : result.error.message;
 }
 
-function diagnosticIssue(item: unknown): string | undefined {
-  return terminalDiagnosticIssue(item);
-}
-
 function restoreResultIssue(result: unknown): string | undefined {
   if (!isRecord(result)) return 'restore result must be an object.';
   const typed = result as Partial<TerminalRestoreResult>;
@@ -515,7 +511,7 @@ function restoreResultIssue(result: unknown): string | undefined {
   }
   if (!Array.isArray(typed.diagnostics)) return 'restore result requires diagnostics.';
   for (const item of typed.diagnostics) {
-    const issue = diagnosticIssue(item);
+    const issue = terminalDiagnosticIssue(item);
     if (issue !== undefined) return `restore diagnostic: ${issue}`;
   }
   return undefined;

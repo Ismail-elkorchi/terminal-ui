@@ -8,8 +8,8 @@ export async function setupPromptSession(session: TerminalSession): Promise<read
     await session.enableRawInput(),
     await session.enableBracketedPaste()
   ]) {
-    if (result.ok) diagnostics.push(...(result.diagnostics ?? []));
-    else diagnostics.push(result.error, ...(result.diagnostics ?? []));
+    if (result.status === 'applied') diagnostics.push(...result.diagnostics);
+    else diagnostics.push(result.diagnostic, ...result.diagnostics);
   }
   return diagnostics;
 }

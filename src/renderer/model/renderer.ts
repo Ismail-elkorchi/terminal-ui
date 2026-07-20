@@ -23,6 +23,8 @@ export interface RenderNodeMeasureInput<
   readonly renderNode: RendererNode<TMessage, TKind>;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
+  readonly childCount: number;
+  readonly measureChild: (index: number) => Measurement;
   readonly widthProfile: TextWidthProfile;
 }
 
@@ -122,7 +124,7 @@ export interface RenderNodeRenderer<
   TKind extends RenderNodeKind = RenderNodeKind
 > {
   place?(input: RenderNodePlaceInput<TMessage, TKind>): Rect;
-  measure?(input: RenderNodeMeasureInput<TMessage, TKind>): Measurement;
+  measure(input: RenderNodeMeasureInput<TMessage, TKind>): Measurement;
   layout?(input: RenderNodeLayoutInput<TMessage, TKind>): readonly Rect[];
   render(input: RenderNodeRenderInput<TMessage, TKind>): void;
   accessibility?(input: RenderNodeAccessibilityInput<TMessage, TKind>): AccessibleNode;

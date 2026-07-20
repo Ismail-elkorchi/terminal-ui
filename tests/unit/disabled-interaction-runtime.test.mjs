@@ -26,7 +26,7 @@ import {
   textInput,
   toggleSwitch
 } from '../../dist/components/index.js';
-import { prepareTextDocument } from '../../dist/text/index.js';
+import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 const message = { kind: 'activate' };
 const formOptions = [
@@ -126,7 +126,7 @@ const disabledWidgetCases = [
   },
   {
     name: 'textArea',
-    element: () => textArea({ id: 'disabled-text-area', presentation: { document: prepareTextDocument('locked'), cursor: 0 }, disabled: true })
+    element: () => textArea({ id: 'disabled-text-area', presentation: { document: prepareTextDocument('locked'), caret: textCaretAt(0) }, disabled: true })
   }
 ];
 

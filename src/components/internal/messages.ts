@@ -7,7 +7,7 @@ type InferredKeyHandler = (event: ElementKeyEvent) => unknown;
 export type InferredElementKeyBindings =
   & Readonly<Partial<Record<BindableKeyName, InferredKeyHandler>>>
   & {
-    readonly modified?: readonly {
+    readonly triggers?: readonly {
       readonly trigger: Readonly<Record<string, unknown>>;
       readonly onKey: InferredKeyHandler;
     }[];
@@ -21,14 +21,14 @@ type MessageFromKeyHandler<THandler> =
 
 type NamedKeyBindingMessages<TBindings> = TBindings extends object
   ? {
-      [TKey in Exclude<keyof TBindings, 'modified' | 'text'>]: MessageFromKeyHandler<TBindings[TKey]>;
-    }[Exclude<keyof TBindings, 'modified' | 'text'>]
+      [TKey in Exclude<keyof TBindings, 'triggers' | 'text'>]: MessageFromKeyHandler<TBindings[TKey]>;
+    }[Exclude<keyof TBindings, 'triggers' | 'text'>]
   : never;
 
-type ModifiedKeyBindingMessages<TBindings> = TBindings extends {
-  readonly modified?: infer TModified;
+type TriggerKeyBindingMessages<TBindings> = TBindings extends {
+  readonly triggers?: infer TTriggers;
 }
-  ? TModified extends readonly (infer TBinding)[]
+  ? TTriggers extends readonly (infer TBinding)[]
     ? TBinding extends { readonly onKey: infer THandler }
       ? MessageFromKeyHandler<THandler>
       : never
@@ -45,7 +45,7 @@ type TextKeyBindingMessages<TBindings> = TBindings extends {
 
 export type ComponentKeyBindingMessages<TBindings> =
   | NamedKeyBindingMessages<TBindings>
-  | ModifiedKeyBindingMessages<TBindings>
+  | TriggerKeyBindingMessages<TBindings>
   | TextKeyBindingMessages<TBindings>;
 
 type CallbackWithResult<TCallback, TResult> =

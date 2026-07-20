@@ -1,3 +1,8 @@
+export type PointerSelectionAction<TCoordinate> =
+  | { readonly kind: 'placeCaret'; readonly position: TCoordinate }
+  | { readonly kind: 'extendSelection'; readonly anchor: TCoordinate; readonly position: TCoordinate }
+  | { readonly kind: 'endSelection'; readonly anchor: TCoordinate; readonly position: TCoordinate };
+
 export type TextPointerAction =
   | { readonly kind: 'placeCaret'; readonly offset: number }
   | { readonly kind: 'extendSelection'; readonly anchor: number; readonly offset: number }

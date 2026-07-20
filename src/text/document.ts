@@ -1,11 +1,11 @@
 import { sanitizeTerminalText } from './sanitize.ts';
 import { normalizeTextCursor } from './selection-model.ts';
-import type { TextSelection } from './types.ts';
+import type { TextCaret, TextDocumentSelection, TextPosition, TextSelection } from './types.ts';
+
+declare const textDocumentBrand: unique symbol;
 
 export interface TextDocument {
-  readonly kind: 'text-document';
-  readonly text: string;
-  readonly lineCount: number;
+  readonly [textDocumentBrand]: true;
 }
 
 export interface TextDocumentLine {
@@ -15,62 +15,119 @@ export interface TextDocumentLine {
   readonly text: string;
 }
 
-interface TextDocumentIndex {
-  readonly lineStarts: readonly number[];
+export interface TextDocumentChange {
+  readonly document: TextDocument;
+  readonly replaced: { readonly start: number; readonly end: number };
+  readonly insertedLength: number;
 }
 
-const indexes = new WeakMap<TextDocument, TextDocumentIndex>();
+type PieceNode = PieceLeaf | PieceBranch;
+
+interface PieceMetrics {
+  readonly length: number;
+  readonly lineBreaks: number;
+  readonly height: number;
+}
+
+interface PieceLeaf extends PieceMetrics {
+  readonly kind: 'leaf';
+  readonly text: string;
+}
+
+interface PieceBranch extends PieceMetrics {
+  readonly kind: 'branch';
+  readonly left: PieceNode;
+  readonly right: PieceNode;
+}
+
+interface TextDocumentData {
+  readonly root: PieceNode;
+}
+
+const EMPTY_LEAF: PieceLeaf = Object.freeze({ kind: 'leaf', text: '', length: 0, lineBreaks: 0, height: 1 });
+const MAX_INITIAL_PIECE_LENGTH = 4_096;
+const documents = new WeakMap<object, TextDocumentData>();
 
 export function prepareTextDocument(value: string): TextDocument {
-  const text = sanitizeTerminalText(value).text;
-  const lineStarts = lineStartsFor(text);
-  const document = Object.freeze({
-    kind: 'text-document' as const,
-    text,
-    lineCount: lineStarts.length
-  });
-  indexes.set(document, Object.freeze({ lineStarts }));
-  return document;
+  return createDocument(treeFromText(sanitizeTerminalText(value).text));
 }
 
 export function assertTextDocument(value: unknown): asserts value is TextDocument {
-  if (!isTextDocument(value)) {
-    throw new TypeError('text document must be created with prepareTextDocument().');
-  }
+  if (!isTextDocument(value)) throw new TypeError('text document must be created with text document APIs.');
 }
 
 export function isTextDocument(value: unknown): value is TextDocument {
-  return typeof value === 'object' && value !== null && indexes.has(value as TextDocument);
+  return typeof value === 'object' && value !== null && documents.has(value);
 }
 
-export function textDocumentLineAt(
+export function textDocumentLength(document: TextDocument): number {
+  return dataFor(document).root.length;
+}
+
+export function textDocumentLineCount(document: TextDocument): number {
+  return dataFor(document).root.lineBreaks + 1;
+}
+
+export function textDocumentText(document: TextDocument): string {
+  return textDocumentSlice(document, 0, textDocumentLength(document));
+}
+
+export function textDocumentSlice(
   document: TextDocument,
-  index: number
-): TextDocumentLine | undefined {
-  const data = indexFor(document);
-  if (!Number.isInteger(index) || index < 0 || index >= data.lineStarts.length) return undefined;
-  const start = data.lineStarts[index];
-  if (start === undefined) return undefined;
-  const nextStart = data.lineStarts[index + 1];
-  const end = nextStart === undefined ? document.text.length : Math.max(start, nextStart - 1);
-  return { index, start, end, text: document.text.slice(start, end) };
+  start?: number,
+  end?: number
+): string {
+  const length = textDocumentLength(document);
+  const boundedStart = clampOffset(start ?? 0, length);
+  const boundedEnd = Math.max(boundedStart, clampOffset(end ?? length, length));
+  const output: string[] = [];
+  collectSlice(dataFor(document).root, boundedStart, boundedEnd, output);
+  return output.join('');
+}
+
+export function textDocumentEdit(
+  document: TextDocument,
+  range: { readonly start: number; readonly end: number },
+  insertion: string
+): TextDocumentChange {
+  const start = normalizeTextDocumentOffset(document, Math.min(range.start, range.end));
+  const end = normalizeTextDocumentOffset(document, Math.max(range.start, range.end));
+  const sanitized = sanitizeTerminalText(insertion).text;
+  if (start === end && sanitized.length === 0) {
+    return { document, replaced: { start, end }, insertedLength: 0 };
+  }
+  if (sanitized === textDocumentSlice(document, start, end)) {
+    return { document, replaced: { start, end }, insertedLength: sanitized.length };
+  }
+  const root = dataFor(document).root;
+  const [before, remainder] = split(root, start);
+  const [, after] = split(remainder, end - start);
+  const next = concat(concat(before, treeFromText(sanitized)), after);
+  return {
+    document: createDocument(next),
+    replaced: { start, end },
+    insertedLength: sanitized.length
+  };
+}
+
+export function textDocumentLineAt(document: TextDocument, index: number): TextDocumentLine | undefined {
+  const lineCount = textDocumentLineCount(document);
+  if (!Number.isInteger(index) || index < 0 || index >= lineCount) return undefined;
+  const root = dataFor(document).root;
+  const start = index === 0 ? 0 : offsetAfterLineBreak(root, index - 1);
+  const afterBreak = index < root.lineBreaks ? offsetAfterLineBreak(root, index) : root.length;
+  const end = index < root.lineBreaks ? Math.max(start, afterBreak - 1) : afterBreak;
+  return { index, start, end, text: textDocumentSlice(document, start, end) };
 }
 
 export function textDocumentLineIndexAtOffset(document: TextDocument, offset: number): number {
-  const bounded = clampOffset(offset, document.text.length);
-  const starts = indexFor(document).lineStarts;
-  let low = 0;
-  let high = starts.length;
-  while (low < high) {
-    const middle = Math.floor((low + high) / 2);
-    if ((starts[middle] ?? 0) <= bounded) low = middle + 1;
-    else high = middle;
-  }
-  return Math.max(0, low - 1);
+  const root = dataFor(document).root;
+  return lineBreaksBefore(root, clampOffset(offset, root.length));
 }
 
 export function normalizeTextDocumentOffset(document: TextDocument, offset: number): number {
-  const bounded = clampOffset(offset, document.text.length);
+  const length = textDocumentLength(document);
+  const bounded = clampOffset(offset, length);
   const lineIndex = textDocumentLineIndexAtOffset(document, bounded);
   const line = textDocumentLineAt(document, lineIndex);
   if (line === undefined || bounded > line.end) return bounded;
@@ -89,20 +146,187 @@ export function normalizeTextDocumentSelection(
   return start === end ? undefined : { start, end };
 }
 
-function lineStartsFor(text: string): readonly number[] {
-  const starts = [0];
-  for (let index = 0; index < text.length; index += 1) {
-    if (text.charCodeAt(index) === 10) starts.push(index + 1);
-  }
-  return Object.freeze(starts);
+export function normalizeTextPosition(document: TextDocument, position: TextPosition): TextPosition {
+  return Object.freeze({
+    offset: normalizeTextDocumentOffset(document, position.offset),
+    affinity: position.affinity
+  });
 }
 
-function indexFor(document: TextDocument): TextDocumentIndex {
-  const index = indexes.get(document);
-  if (index === undefined) throw new TypeError('Invalid text document.');
-  return index;
+export function normalizeTextCaret(document: TextDocument, caret: TextCaret): TextCaret {
+  const position = normalizeTextPosition(document, caret.position);
+  const preferredColumnCells = caret.preferredColumnCells === undefined
+    ? undefined
+    : Math.max(0, Math.floor(caret.preferredColumnCells));
+  return Object.freeze({
+    position,
+    ...(preferredColumnCells === undefined ? {} : { preferredColumnCells })
+  });
+}
+
+export function normalizeTextDocumentSelectionModel(
+  document: TextDocument,
+  selection: TextDocumentSelection | undefined
+): TextDocumentSelection | undefined {
+  if (selection === undefined) return undefined;
+  const anchor = normalizeTextPosition(document, selection.anchor);
+  const focus = normalizeTextPosition(document, selection.focus);
+  return anchor.offset === focus.offset ? undefined : Object.freeze({ anchor, focus });
+}
+
+export function textDocumentSelectionRange(
+  document: TextDocument,
+  selection: TextDocumentSelection | undefined,
+  caret: TextCaret
+): { readonly start: number; readonly end: number } {
+  const focus = normalizeTextCaret(document, caret).position.offset;
+  if (selection === undefined) return { start: focus, end: focus };
+  const normalized = normalizeTextDocumentSelectionModel(document, selection);
+  if (normalized === undefined) return { start: focus, end: focus };
+  return {
+    start: Math.min(normalized.anchor.offset, normalized.focus.offset),
+    end: Math.max(normalized.anchor.offset, normalized.focus.offset)
+  };
+}
+
+function createDocument(root: PieceNode): TextDocument {
+  const document = Object.freeze({}) as TextDocument;
+  documents.set(document, Object.freeze({ root }));
+  return document;
+}
+
+function treeFromText(text: string): PieceNode {
+  if (text.length === 0) return EMPTY_LEAF;
+  const leaves: PieceNode[] = [];
+  let start = 0;
+  while (start < text.length) {
+    let end = Math.min(text.length, start + MAX_INITIAL_PIECE_LENGTH);
+    if (end < text.length && isLowSurrogate(text.charCodeAt(end))) end -= 1;
+    leaves.push(leaf(text.slice(start, end)));
+    start = end;
+  }
+  return balancedTree(leaves, 0, leaves.length);
+}
+
+function balancedTree(nodes: readonly PieceNode[], start: number, end: number): PieceNode {
+  const count = end - start;
+  if (count <= 0) return EMPTY_LEAF;
+  if (count === 1) return nodes[start] ?? EMPTY_LEAF;
+  const middle = start + Math.floor(count / 2);
+  return branch(balancedTree(nodes, start, middle), balancedTree(nodes, middle, end));
+}
+
+function leaf(text: string): PieceLeaf {
+  if (text.length === 0) return EMPTY_LEAF;
+  let lineBreaks = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    if (text.charCodeAt(index) === 10) lineBreaks += 1;
+  }
+  return Object.freeze({ kind: 'leaf', text, length: text.length, lineBreaks, height: 1 });
+}
+
+function branch(left: PieceNode, right: PieceNode): PieceNode {
+  if (left.length === 0) return right;
+  if (right.length === 0) return left;
+  return Object.freeze({
+    kind: 'branch',
+    left,
+    right,
+    length: left.length + right.length,
+    lineBreaks: left.lineBreaks + right.lineBreaks,
+    height: Math.max(left.height, right.height) + 1
+  });
+}
+
+function concat(left: PieceNode, right: PieceNode): PieceNode {
+  if (left.length === 0) return right;
+  if (right.length === 0) return left;
+  if (left.height > right.height + 1 && left.kind === 'branch') {
+    return balance(left.left, concat(left.right, right));
+  }
+  if (right.height > left.height + 1 && right.kind === 'branch') {
+    return balance(concat(left, right.left), right.right);
+  }
+  return balance(left, right);
+}
+
+function balance(left: PieceNode, right: PieceNode): PieceNode {
+  if (left.height > right.height + 1 && left.kind === 'branch') {
+    if (left.left.height >= left.right.height) return branch(left.left, branch(left.right, right));
+    if (left.right.kind === 'branch') {
+      return branch(branch(left.left, left.right.left), branch(left.right.right, right));
+    }
+  }
+  if (right.height > left.height + 1 && right.kind === 'branch') {
+    if (right.right.height >= right.left.height) return branch(branch(left, right.left), right.right);
+    if (right.left.kind === 'branch') {
+      return branch(branch(left, right.left.left), branch(right.left.right, right.right));
+    }
+  }
+  return branch(left, right);
+}
+
+function split(node: PieceNode, offset: number): readonly [PieceNode, PieceNode] {
+  const bounded = clampOffset(offset, node.length);
+  if (bounded === 0) return [EMPTY_LEAF, node];
+  if (bounded === node.length) return [node, EMPTY_LEAF];
+  if (node.kind === 'leaf') return [leaf(node.text.slice(0, bounded)), leaf(node.text.slice(bounded))];
+  if (bounded < node.left.length) {
+    const [before, after] = split(node.left, bounded);
+    return [before, concat(after, node.right)];
+  }
+  const [before, after] = split(node.right, bounded - node.left.length);
+  return [concat(node.left, before), after];
+}
+
+function collectSlice(node: PieceNode, start: number, end: number, output: string[]): void {
+  if (start >= end || end <= 0 || start >= node.length) return;
+  if (node.kind === 'leaf') {
+    output.push(node.text.slice(Math.max(0, start), Math.min(node.length, end)));
+    return;
+  }
+  collectSlice(node.left, start, Math.min(end, node.left.length), output);
+  collectSlice(node.right, start - node.left.length, end - node.left.length, output);
+}
+
+function lineBreaksBefore(node: PieceNode, offset: number): number {
+  if (offset <= 0) return 0;
+  if (offset >= node.length) return node.lineBreaks;
+  if (node.kind === 'leaf') {
+    let count = 0;
+    for (let index = 0; index < offset; index += 1) if (node.text.charCodeAt(index) === 10) count += 1;
+    return count;
+  }
+  return offset <= node.left.length
+    ? lineBreaksBefore(node.left, offset)
+    : node.left.lineBreaks + lineBreaksBefore(node.right, offset - node.left.length);
+}
+
+function offsetAfterLineBreak(node: PieceNode, breakIndex: number): number {
+  if (node.kind === 'leaf') {
+    let current = 0;
+    for (let index = 0; index < node.text.length; index += 1) {
+      if (node.text.charCodeAt(index) !== 10) continue;
+      if (current === breakIndex) return index + 1;
+      current += 1;
+    }
+    return node.length;
+  }
+  return breakIndex < node.left.lineBreaks
+    ? offsetAfterLineBreak(node.left, breakIndex)
+    : node.left.length + offsetAfterLineBreak(node.right, breakIndex - node.left.lineBreaks);
+}
+
+function dataFor(document: TextDocument): TextDocumentData {
+  const data = documents.get(document);
+  if (data === undefined) throw new TypeError('Invalid text document.');
+  return data;
 }
 
 function clampOffset(value: number, max: number): number {
   return Number.isFinite(value) ? Math.max(0, Math.min(max, Math.floor(value))) : 0;
+}
+
+function isLowSurrogate(value: number): boolean {
+  return value >= 0xdc00 && value <= 0xdfff;
 }

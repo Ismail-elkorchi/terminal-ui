@@ -7,7 +7,7 @@ export async function replayTranscript(
 ): Promise<InteractionResult> {
   const valid = validateTranscript(transcript);
   if (!valid.ok) {
-    target.transcript.recordDiagnostic(valid.error);
+    target.transcript.reportDiagnostic(valid.error);
     return currentResult(target);
   }
 

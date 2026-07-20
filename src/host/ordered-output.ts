@@ -1,4 +1,9 @@
 import { throwIfTerminalOperationAborted, waitForTerminalOperation } from './operation.ts';
+import {
+  committedTerminalWrite,
+  failedTerminalWrite,
+  indeterminateTerminalWrite
+} from './write-receipt.ts';
 import type { TerminalHost, TerminalOperationContext, TerminalOutput, TerminalOutputChunk } from './types.ts';
 
 export class OrderedOutputQueue {
@@ -47,20 +52,45 @@ function asError(cause: unknown): Error {
 
 export interface TerminalHostOutputAuthority {
   readonly write: TerminalHost['write'];
+  readonly writeSafety: TerminalHost['writeSafety'];
   readonly flush: TerminalHost['flush'];
   readonly dispose: TerminalHost['dispose'];
 }
 
 export function createTerminalHostOutputAuthority(
   stdout: TerminalOutput,
-  stderr?: TerminalOutput
+  stderr?: TerminalOutput,
+  target = 'terminal-output'
 ): TerminalHostOutputAuthority {
   const queue = new OrderedOutputQueue();
   return {
-    write: (chunk: TerminalOutputChunk, context = {}) => queue.run(async (operationContext) => {
-      if (chunk.text !== undefined) await stdout.write(chunk.text, operationContext);
-      if (chunk.bytes !== undefined) await stdout.write(chunk.bytes, operationContext);
-    }, context),
+    write: async (chunk: TerminalOutputChunk, context = {}) => {
+      const progress = { started: false };
+      try {
+        await queue.run(async (operationContext) => {
+          progress.started = true;
+          if (chunk.text !== undefined) await stdout.write(chunk.text, operationContext);
+          if (chunk.bytes !== undefined) await stdout.write(chunk.bytes, operationContext);
+        }, context);
+        return committedTerminalWrite();
+      } catch (cause) {
+        return progress.started
+          ? indeterminateTerminalWrite(target, cause)
+          : failedTerminalWrite(target, cause);
+      }
+    },
+    writeSafety: async (chunk: TerminalOutputChunk, context = {}) => {
+      const parts = [chunk.text, chunk.bytes].filter((part): part is string | Uint8Array => part !== undefined);
+      let committedParts = 0;
+      for (const part of parts) {
+        const receipt = await stdout.writeSafety(part, context);
+        if (receipt.status !== 'committed') {
+          return committedParts === 0 ? receipt : indeterminateTerminalWrite(target, receipt.diagnostic);
+        }
+        committedParts += 1;
+      }
+      return committedTerminalWrite();
+    },
     flush: async (context = {}) => {
       let failure: Error | undefined;
       for (const flush of [

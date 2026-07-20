@@ -2,6 +2,8 @@ import { resolveTerminalCapabilities } from './capabilities.ts';
 import { TerminalStateAuthorityBinding } from './terminal-state.ts';
 import { ObjectEnvironment, RuntimeClock, RuntimeInput, RuntimeOutput, RuntimeSignals } from './runtime-streams.ts';
 import { createTerminalHostOutputAuthority } from './ordered-output.ts';
+import { TerminalInputAuthority } from './input-authority.ts';
+import { TerminalCapabilityDetector } from './capability-detection.ts';
 import { settleResourceDisposal } from './dispose.ts';
 import type {
   PtyTerminalHost,
@@ -36,6 +38,13 @@ class PtyOutput implements TerminalOutput {
     return this.#output.write(chunk, context);
   }
 
+  writeSafety(
+    chunk: string | Uint8Array,
+    context: TerminalOperationContext = {}
+  ): Promise<import('./types.ts').TerminalWriteReceipt> {
+    return this.#output.writeSafety(chunk, context);
+  }
+
   flush(context: TerminalOperationContext = {}): Promise<void> {
     return this.#output.flush(context);
   }
@@ -54,13 +63,14 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     columns: options.stdout?.columns ?? 80,
     rows: options.stdout?.rows ?? 24
   };
-  const stdin = new RuntimeInput({ ...options.stdin, isTty: options.stdin?.isTty ?? true });
+  const inputSource = new RuntimeInput({ ...options.stdin, isTty: options.stdin?.isTty ?? true });
+  const stdin = new TerminalInputAuthority(inputSource);
   const stdout = new PtyOutput({ ...options.stdout, isTty: options.stdout?.isTty ?? true }, () => viewport);
   const stderr = new PtyOutput({ ...options.stderr, isTty: options.stderr?.isTty ?? true }, () => viewport);
-  const output = createTerminalHostOutputAuthority(stdout, stderr);
+  const output = createTerminalHostOutputAuthority(stdout, stderr, options.id ?? 'pty');
   const clock = new RuntimeClock();
   const runtime = options.runtime ?? 'node';
-  const capabilities = resolveTerminalCapabilities({
+  const resolverInput = {
     host: {
       runtime,
       inputIsTty: stdin.isTty(),
@@ -76,13 +86,20 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     ...(options.capabilities?.colorDepth === undefined ? {} : { colorDepth: options.capabilities.colorDepth }),
     ...(options.capabilities?.widthProfile === undefined ? {} : { widthProfile: options.capabilities.widthProfile }),
     ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides })
-  });
+  } satisfies Parameters<typeof resolveTerminalCapabilities>[0];
   const env = new ObjectEnvironment(options.env ?? {});
   const setViewport = async (nextViewport: TerminalViewport): Promise<void> => {
     viewport = nextViewport;
     await options.resize?.(nextViewport);
   };
   const terminalState = new TerminalStateAuthorityBinding();
+  const detector = new TerminalCapabilityDetector({
+    input: stdin,
+    clock,
+    resolverInput,
+    beginSession: (id, capabilities) => terminalState.beginLease(id, capabilities),
+    write: (chunk, signal) => output.write(chunk, { signal })
+  });
 
   const host: PtyTerminalHost = {
     id: options.id ?? 'pty',
@@ -96,15 +113,17 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     viewportControl: { setViewport },
     ...(options.observer === undefined ? {} : { observer: options.observer }),
     getViewport: () => viewport,
-    getCapabilities: () => Promise.resolve(capabilities),
+    getCapabilities: (detectionOptions) => detector.detect(detectionOptions),
     beginSession: (sessionOptions) =>
-      terminalState.beginLease(sessionOptions?.id ?? `${options.id ?? 'pty'}-session`, capabilities),
+      terminalState.beginLease(sessionOptions?.id ?? `${options.id ?? 'pty'}-session`, detector.current()),
     restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
     write: output.write,
+    writeSafety: output.writeSafety,
     flush: output.flush,
     dispose: async (context) => {
       await settleResourceDisposal([
         () => terminalState.restoreAllConfirmed('disposed', context),
+        () => stdin.dispose(),
         () => output.dispose(context)
       ]);
     }

@@ -1,7 +1,7 @@
 import type { ElementTextRole } from '../../../element/metadata.ts';
 import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../../interaction/scrollbar.ts';
-import type { TextDocument, TextSelection } from '../../../text/index.ts';
+import type { TextCaret, TextDocument, TextDocumentSelection } from '../../../text/index.ts';
 import type {
   TableCellSelection,
   TableColumnAlignment,
@@ -11,12 +11,12 @@ import type {
   TextAreaLineNumberOptions,
   TextAreaWrapOptions
 } from '../../../ui-model/content.ts';
-import type { ListCollection, ListControlAction } from '../../../ui-model/list.ts';
+import type { ListControlAction, ListViewProjection } from '../../../ui-model/list.ts';
 import type { ComponentDensity } from '../../../ui-model/contracts.ts';
 import type { TextAreaAction } from '../../../ui-model/text-area.ts';
 import type { PaginatorAction } from '../../../ui-model/paginator.ts';
 import type { TableCollection, TableControlAction, TableSortState } from '../../../ui-model/table.ts';
-import type { TreeCollection, TreeControlAction } from '../../../ui-model/tree.ts';
+import type { TreeControlAction, TreeViewProjection } from '../../../ui-model/tree.ts';
 import type { InlineContent } from '../../../visual/inline-content.ts';
 import type { InlineContentSegment } from '../../../visual/inline-content.ts';
 import type { TerminalStyle } from '../../../visual/render.ts';
@@ -33,8 +33,9 @@ export interface RichTextRenderProps {
 
 export interface TextAreaRenderProps<TMessage> {
   readonly document: TextDocument;
-  readonly cursor?: number;
-  readonly selection?: TextSelection;
+  readonly caret: TextCaret;
+  readonly selection?: TextDocumentSelection;
+  readonly revealCaret?: boolean;
   readonly highlights?: readonly TextAreaHighlight[];
   readonly placeholder?: string;
   readonly lineNumbers?: boolean | TextAreaLineNumberOptions;
@@ -50,9 +51,8 @@ export interface TextAreaRenderProps<TMessage> {
 }
 
 export interface ListRenderProps<TMessage> {
-  readonly collection: ListCollection<unknown>;
+  readonly view: ListViewProjection<unknown>;
   readonly selectedId?: string;
-  readonly filterQuery?: string;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
@@ -97,9 +97,8 @@ export interface TableRenderColumn {
 }
 
 export interface TreeRenderProps<TMessage> {
-  readonly collection: TreeCollection;
+  readonly view: TreeViewProjection;
   readonly selected?: string;
-  readonly filterQuery?: string;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;

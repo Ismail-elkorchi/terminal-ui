@@ -1,5 +1,11 @@
 import { normalizeScrollState } from '../../../behavior/scroll.ts';
-import { prepareTextDocument, textDocumentLineIndexAtOffset } from '../../../text/index.ts';
+import {
+  prepareTextDocument,
+  textDocumentLength,
+  textDocumentLineCount,
+  textDocumentLineIndexAtOffset
+} from '../../../text/index.ts';
+import { textAreaCursorInProjection } from './projection.ts';
 import type { TextDocument, TextWidthProfile } from '../../../text/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { RenderNodeOfKind } from '../../model/index.ts';
@@ -28,9 +34,10 @@ export function textAreaRenderModel(
 ): TextAreaRenderModel {
   const source = widget.props.document;
   const placeholder = widget.props.placeholder ?? '';
-  const usesPlaceholder = source.text.length === 0 && placeholder.length > 0;
+  const usesPlaceholder = textDocumentLength(source) === 0 && placeholder.length > 0;
   const document = usesPlaceholder ? prepareTextDocument(placeholder) : source;
-  const contentBounds = textAreaInputContentBounds(bounds, theme, widthProfile, widget, document.lineCount);
+  const lineCount = textDocumentLineCount(document);
+  const contentBounds = textAreaInputContentBounds(bounds, theme, widthProfile, widget, lineCount);
   const projection = projectTextAreaDocument(
     document,
     contentBounds.width,
@@ -38,7 +45,7 @@ export function textAreaRenderModel(
     widthProfile
   );
   const raw = widget.props.scroll;
-  const scroll = normalizeScrollState({
+  const baseScroll = normalizeScrollState({
     offsetRow: raw?.offsetRow ?? 0,
     offsetColumn: raw?.offsetColumn ?? 0,
     contentRows: projection.contentRows,
@@ -48,17 +55,42 @@ export function textAreaRenderModel(
     followTail: raw?.followTail === true,
     ...(raw?.selectedIndex === undefined ? {} : { selectedIndex: raw.selectedIndex })
   });
+  const scroll = usesPlaceholder || widget.props.revealCaret !== true
+    ? baseScroll
+    : revealCaret(baseScroll, textAreaCursorInProjection(projection, widget.props.caret));
   return {
     document,
     usesPlaceholder,
-    lineCount: document.lineCount,
+    lineCount,
     contentBounds,
     projection,
     scroll,
     ...(usesPlaceholder
       ? {}
-      : { activeLineIndex: textDocumentLineIndexAtOffset(source, widget.props.cursor ?? source.text.length) })
+      : { activeLineIndex: textDocumentLineIndexAtOffset(source, widget.props.caret.position.offset) })
   };
+}
+
+function revealCaret(
+  scroll: ReturnType<typeof normalizeScrollState>,
+  caret: ReturnType<typeof textAreaCursorInProjection>
+): ReturnType<typeof normalizeScrollState> {
+  const lastRow = scroll.offsetRow + Math.max(0, scroll.viewportRows - 1);
+  const lastColumn = scroll.offsetColumn + Math.max(0, scroll.viewportColumns - 1);
+  return normalizeScrollState({
+    ...scroll,
+    offsetRow: caret.rowIndex < scroll.offsetRow
+      ? caret.rowIndex
+      : caret.rowIndex > lastRow
+        ? caret.rowIndex - Math.max(0, scroll.viewportRows - 1)
+        : scroll.offsetRow,
+    offsetColumn: caret.columnCells < scroll.offsetColumn
+      ? caret.columnCells
+      : caret.columnCells > lastColumn
+        ? caret.columnCells - Math.max(0, scroll.viewportColumns - 1)
+        : scroll.offsetColumn,
+    followTail: false
+  });
 }
 
 export function textAreaWrapEnabled(widget: TextAreaNode): boolean {

@@ -89,6 +89,9 @@ function explicitStreamHost(runtime) {
       rows: 24,
       write: (chunk) => {
         output.push(String(chunk));
+      },
+      safetyWrite: (chunk) => {
+        output.push(String(chunk));
       }
     }
   });

@@ -1,13 +1,23 @@
 import { applyScrollEvent } from './scroll.ts';
 import {
+  editTextDocument,
   editTextBuffer,
+  normalizeTextCaret,
   normalizeTextCursor,
   normalizeTextDocumentOffset,
-  normalizeTextDocumentSelection,
+  normalizeTextDocumentSelectionModel,
   normalizeTextSelection,
-  prepareTextDocument
+  prepareTextDocument,
+  textCaretAt,
+  textDocumentSelectionBetween
 } from '../text/index.ts';
-import type { TextDocument, TextEditBuffer, TextSelection } from '../text/index.ts';
+import type {
+  TextCaret,
+  TextDocument,
+  TextDocumentSelection,
+  TextEditBuffer,
+  TextSelection
+} from '../text/index.ts';
 import type { TextPointerAction } from '../interaction/text-pointer.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type {
@@ -18,27 +28,29 @@ import type { TextInputAction, TextInputPresentation } from '../ui-model/text-in
 
 export interface TextAreaState {
   readonly document: TextDocument;
-  readonly cursor: number;
-  readonly selection?: TextSelection;
+  readonly caret: TextCaret;
+  readonly selection?: TextDocumentSelection;
   readonly scroll: ScrollState;
+  readonly revealCaret: boolean;
 }
 
 export interface CreateTextAreaStateInput {
   readonly value: string;
-  readonly cursor?: number;
-  readonly selection?: TextSelection;
+  readonly caret?: TextCaret;
+  readonly selection?: TextDocumentSelection;
   readonly scroll: ScrollState;
 }
 
 export function createTextAreaState(input: CreateTextAreaStateInput): TextAreaState {
   const document = prepareTextDocument(input.value);
-  const cursor = normalizeTextDocumentOffset(document, input.cursor ?? 0);
-  const selection = normalizeTextDocumentSelection(document, input.selection);
+  const caret = normalizeTextCaret(document, input.caret ?? textCaretAt(0));
+  const selection = normalizeTextDocumentSelectionModel(document, input.selection);
   return {
     document,
-    cursor,
+    caret,
     ...(selection === undefined ? {} : { selection }),
-    scroll: input.scroll
+    scroll: input.scroll,
+    revealCaret: true
   };
 }
 
@@ -60,40 +72,68 @@ export function textInputReducer(state: TextEditBuffer, action: TextInputAction)
 export function textAreaPresentation(state: TextAreaState): TextAreaScrollablePresentation {
   return {
     document: state.document,
-    cursor: state.cursor,
+    caret: state.caret,
     ...(state.selection === undefined ? {} : { selection: state.selection }),
-    scroll: state.scroll
+    scroll: state.scroll,
+    revealCaret: state.revealCaret
   };
 }
 
 export function textAreaReducer(state: TextAreaState, action: TextAreaAction): TextAreaState {
   switch (action.kind) {
     case 'edit': {
-      const edited = editTextBuffer(textAreaEditBuffer(state), action.operation);
-      return textAreaStateWithSelection(state, {
-        document: edited.text === state.document.text ? state.document : prepareTextDocument(edited.text),
-        cursor: edited.cursor
-      }, edited.selection);
+      const edited = editTextDocument(state, action.operation);
+      if (edited === state) return state;
+      return {
+        document: edited.document,
+        caret: edited.caret,
+        ...(edited.selection === undefined ? {} : { selection: edited.selection }),
+        scroll: state.scroll,
+        revealCaret: true
+      };
     }
     case 'pointer': {
       const offset = normalizeTextDocumentOffset(state.document, action.action.offset);
       if (action.action.kind === 'placeCaret') {
-        return textAreaStateWithSelection(state, { cursor: offset }, undefined);
+        return textAreaStateWithSelection(state, {
+          caret: textCaretAt(offset),
+          revealCaret: true
+        }, undefined);
       }
       const anchor = normalizeTextDocumentOffset(state.document, action.action.anchor);
-      const selection = normalizeTextDocumentSelection(state.document, { start: anchor, end: offset });
-      return textAreaStateWithSelection(state, { cursor: offset }, selection);
+      const selection = normalizeTextDocumentSelectionModel(
+        state.document,
+        textDocumentSelectionBetween(anchor, offset)
+      );
+      return textAreaStateWithSelection(state, {
+        caret: textCaretAt(offset),
+        revealCaret: true
+      }, selection);
     }
-    case 'scroll':
-      return { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
+    case 'scroll': {
+      const scroll = applyScrollEvent(state.scroll, action.event);
+      if (scroll === state.scroll && !state.revealCaret) return state;
+      return { ...state, scroll, revealCaret: false };
+    }
   }
 }
 
 function textAreaStateWithSelection(
   state: TextAreaState,
-  changes: Partial<Pick<TextAreaState, 'document' | 'cursor' | 'scroll'>>,
-  selection: TextSelection | undefined
+  changes: Partial<Pick<TextAreaState, 'document' | 'caret' | 'scroll' | 'revealCaret'>>,
+  selection: TextDocumentSelection | undefined
 ): TextAreaState {
+  const nextDocument = changes.document ?? state.document;
+  const nextCaret = changes.caret ?? state.caret;
+  const nextScroll = changes.scroll ?? state.scroll;
+  const nextRevealCaret = changes.revealCaret ?? state.revealCaret;
+  if (
+    nextDocument === state.document
+    && sameTextCaret(nextCaret, state.caret)
+    && nextScroll === state.scroll
+    && nextRevealCaret === state.revealCaret
+    && sameDocumentSelection(selection, state.selection)
+  ) return state;
   const { selection: previousSelection, ...base } = state;
   void previousSelection;
   return {
@@ -103,12 +143,21 @@ function textAreaStateWithSelection(
   };
 }
 
-function textAreaEditBuffer(state: TextAreaState): TextEditBuffer {
-  return {
-    text: state.document.text,
-    cursor: state.cursor,
-    ...(state.selection === undefined ? {} : { selection: state.selection })
-  };
+function sameTextCaret(left: TextCaret, right: TextCaret): boolean {
+  return left.position.offset === right.position.offset
+    && left.position.affinity === right.position.affinity
+    && left.preferredColumnCells === right.preferredColumnCells;
+}
+
+function sameDocumentSelection(
+  left: TextDocumentSelection | undefined,
+  right: TextDocumentSelection | undefined
+): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return left.anchor.offset === right.anchor.offset
+    && left.anchor.affinity === right.anchor.affinity
+    && left.focus.offset === right.focus.offset
+    && left.focus.affinity === right.focus.affinity;
 }
 
 export function applyTextPointerAction(

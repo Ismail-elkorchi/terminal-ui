@@ -30,6 +30,7 @@ import { column } from '../../dist/layout/index.js';
 import {
   appendScrollbackHistory,
   listReducer,
+  preparePaletteIndex,
   prepareScrollbackHistory,
   prepareListCollection,
   prepareTableCollection,
@@ -92,7 +93,7 @@ test('windowed list collections project only supplied rows while preserving glob
   const collection = prepareListCollection(values, (value, index) => {
     projectorCalls += 1;
     return { id: String(index), label: value };
-  }, { start, total: 50_000 });
+  }, { start, total: 50_000, domain: { kind: 'source' } });
   const frame = renderElementFrame(list({
     id: 'windowed-list',
     collection,
@@ -284,7 +285,7 @@ test('windowed table collections identify only supplied records and keep global 
   const collection = prepareTableCollection(rows, (_row, index) => {
     rowIdCalls += 1;
     return String(index);
-  }, { start, total: 100_000 });
+  }, { start, total: 100_000, domain: { kind: 'source' } });
   const frame = renderElementFrame(table({
     id: 'windowed-table',
     collection,
@@ -456,7 +457,7 @@ test('palette filtering returns bounded windows for large entry sets', () => {
     query: '19999',
     selectedId: 'entry-19999',
     maxVisible: 5,
-    entries
+    index: preparePaletteIndex(entries)
   }), { columns: 48, rows: 8 });
 
   assert.match(renderFramePlain(frame), /Entry 19999/u);

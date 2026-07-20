@@ -101,31 +101,30 @@ function adaptCustomRenderer<TState, TMessage>(
   state: TState
 ): RenderNodeRenderer<TMessage, 'custom'> {
   return {
-    ...(renderer.measure === undefined ? {} : {
-      measure: ({ bounds, theme }) => renderer.measure?.({ state, bounds, theme }) ?? {
+    measure: ({ bounds, theme, widthProfile }) => renderer.measure?.({ state, bounds, theme, widthProfile }) ?? {
         minWidth: 0,
         minHeight: 0,
         preferredWidth: 0,
         preferredHeight: 0
-      }
-    }),
-    render: ({ layoutNode, buffer, theme, focus }) => {
-      renderer.render({ state, bounds: layoutNode.bounds, buffer, theme, focus });
+      },
+    render: ({ layoutNode, buffer, theme, widthProfile, focus }) => {
+      renderer.render({ state, bounds: layoutNode.bounds, buffer, theme, widthProfile, focus });
     },
     ...(renderer.accessibility === undefined ? {} : {
-      accessibility: ({ layoutNode, id, focused, theme }) => renderer.accessibility?.({
+      accessibility: ({ layoutNode, id, focused, theme, widthProfile }) => renderer.accessibility?.({
         state,
         bounds: layoutNode.bounds,
         id,
         focused,
-        theme
+        theme,
+        widthProfile
       }) ?? { id, role: 'text', label: id }
     }),
     ...(renderer.focusTargets === undefined ? {} : {
-      focusTargets: ({ bounds, theme }) => renderer.focusTargets?.({ state, bounds, theme }) ?? []
+      focusTargets: ({ bounds, theme, widthProfile }) => renderer.focusTargets?.({ state, bounds, theme, widthProfile }) ?? []
     }),
     ...(renderer.hitTargets === undefined ? {} : {
-      hitTargets: ({ bounds, theme }) => renderer.hitTargets?.({ state, bounds, theme }) ?? []
+      hitTargets: ({ bounds, theme, widthProfile }) => renderer.hitTargets?.({ state, bounds, theme, widthProfile }) ?? []
     })
   };
 }

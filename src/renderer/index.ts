@@ -187,12 +187,15 @@ export type {
   CustomRendererAccessibilityInput,
   CustomRendererFocusInput,
   CustomRendererHitInput,
+  CustomRendererInput,
   CustomRendererMeasureInput,
   CustomRendererRenderInput
 } from './custom-renderer.ts';
 export type {
   CustomCompositeAccessibilityInput,
+  CustomCompositeInput,
   CustomCompositeLayoutInput,
+  CustomCompositeMeasureInput,
   CustomCompositeRenderer,
   CustomCompositeRenderInput,
   StatefulCustomCompositeOptions,

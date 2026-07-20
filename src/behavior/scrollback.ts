@@ -1,27 +1,21 @@
-import { sanitizeTerminalText } from '../text/index.ts';
 import { applyScrollEvent, createScrollState, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
-import type { TextSelection } from '../text/index.ts';
 import {
-  prepareScrollbackHistory,
-  scrollbackHistoryRecordMatchCount,
-  scrollbackHistoryItems
+  scrollbackHistoryRecordMatches
 } from '../ui-model/scrollback-history.ts';
-import type { ScrollbackHistory } from '../ui-model/scrollback-history.ts';
-import type { ScrollbackAction, ScrollbackControlAction } from '../ui-model/scrollback.ts';
-import { selectionFromTextPointerAction } from './text-editing.ts';
-
-const foldedHistoryCache = new WeakMap<
-ScrollbackHistory,
-WeakMap<readonly string[], ScrollbackHistory>
->();
+import type { ScrollbackHistory, ScrollbackSearchMatch } from '../ui-model/scrollback-history.ts';
+import type {
+  ScrollbackAction,
+  ScrollbackControlAction,
+  ScrollbackSelection
+} from '../ui-model/scrollback.ts';
 
 interface ScrollbackStateBase {
   readonly searchQuery?: string;
-  readonly selectedMatchIndex?: number;
+  readonly selectedMatch?: ScrollbackSearchMatch;
   readonly foldedIds: readonly string[];
   readonly followTail: boolean;
-  readonly selectedRange?: TextSelection;
+  readonly selection?: ScrollbackSelection;
 }
 
 export interface PassiveScrollbackState extends ScrollbackStateBase {
@@ -38,17 +32,13 @@ export interface ScrollbackPresentation {
   readonly history: ScrollbackHistory;
   readonly followTail: boolean;
   readonly searchQuery?: string;
-  readonly selectedRange?: TextSelection;
+  readonly selectedMatch?: ScrollbackSearchMatch;
+  readonly foldedIds: readonly string[];
+  readonly selection?: ScrollbackSelection;
 }
 
 export interface ScrollbackScrollablePresentation extends ScrollbackPresentation {
   readonly scroll: ScrollState;
-}
-
-export interface ScrollbackSearchMark {
-  readonly itemId: string;
-  readonly itemIndex: number;
-  readonly matchCount: number;
 }
 
 export function scrollbackReducer(
@@ -62,43 +52,45 @@ export function scrollbackReducer(
 export function scrollbackReducer(state: ScrollbackState, action: ScrollbackAction): ScrollbackState {
   switch (action.kind) {
     case 'scroll':
-      return state.scroll === undefined
-        ? state
-        : { ...state, scroll: applyScrollEvent(state.scroll, action.event) };
+      if (state.scroll === undefined) return state;
+      return withScroll(state, applyScrollEvent(state.scroll, action.event));
     case 'pointer': {
-      const selectedRange = selectionFromTextPointerAction(action.action);
-      if (selectedRange !== undefined) return { ...state, selectedRange };
-      const { selectedRange: previousSelection, ...withoutSelection } = state;
-      return previousSelection === undefined ? state : withoutSelection;
+      const selection = action.action.kind === 'placeCaret'
+        ? undefined
+        : normalizeScrollbackSelection({
+            anchor: action.action.anchor,
+            focus: action.action.position
+          });
+      return withSelection(state, selection);
     }
-    case 'setSearchQuery':
-      return action.query === undefined || action.query.length === 0
-        ? withoutSearch(state)
-        : { ...state, searchQuery: action.query, selectedMatchIndex: 0 };
-    case 'jumpMatch':
-      return {
-        ...state,
-        selectedMatchIndex: wrapIndex((state.selectedMatchIndex ?? 0) + action.direction, action.matchCount)
-      };
-    case 'toggleFold':
-      return {
-        ...state,
-        foldedIds: toggleId(state.foldedIds, action.id)
-      };
+    case 'setSearchQuery': {
+      const query = normalizedQuery(action.query);
+      if (query === undefined) return withoutSearch(state);
+      if (state.searchQuery === query) return state;
+      return { ...withoutSelectedMatch(state), searchQuery: query };
+    }
+    case 'jumpMatch': {
+      const selectedMatch = adjacentMatch(action.matches, state.selectedMatch?.id, action.direction);
+      if (selectedMatch?.id === state.selectedMatch?.id) return state;
+      if (selectedMatch === undefined) return withoutSelectedMatch(state);
+      return { ...state, selectedMatch };
+    }
+    case 'toggleFold': {
+      const foldedIds = state.foldedIds.includes(action.id)
+        ? state.foldedIds.filter((current) => current !== action.id)
+        : canonicalIds([...state.foldedIds, action.id]);
+      return sameStrings(foldedIds, state.foldedIds) ? state : { ...state, foldedIds };
+    }
     case 'fold':
       return state.foldedIds.includes(action.id)
         ? state
-        : { ...state, foldedIds: [...state.foldedIds, action.id] };
-    case 'unfold':
-      return {
-        ...state,
-        foldedIds: state.foldedIds.filter((id) => id !== action.id)
-      };
+        : { ...state, foldedIds: canonicalIds([...state.foldedIds, action.id]) };
+    case 'unfold': {
+      const foldedIds = state.foldedIds.filter((id) => id !== action.id);
+      return foldedIds.length === state.foldedIds.length ? state : { ...state, foldedIds };
+    }
     case 'setFollowTail':
-      return {
-        ...state,
-        followTail: action.followTail
-      };
+      return state.followTail === action.followTail ? state : { ...state, followTail: action.followTail };
   }
 }
 
@@ -121,61 +113,32 @@ function scrollbackPresentationBase(
   state: ScrollbackStateBase
 ): ScrollbackPresentation {
   return {
-    history: foldScrollbackHistory(history, state.foldedIds),
+    history,
     followTail: state.followTail,
+    foldedIds: state.foldedIds,
     ...(state.searchQuery === undefined ? {} : { searchQuery: state.searchQuery }),
-    ...(state.selectedRange === undefined ? {} : { selectedRange: state.selectedRange })
+    ...(state.selectedMatch === undefined ? {} : { selectedMatch: state.selectedMatch }),
+    ...(state.selection === undefined ? {} : { selection: state.selection })
   };
 }
 
-export function scrollbackSearchMarks(
+export function scrollbackSearchMatches(
   history: ScrollbackHistory,
   query: string
-): readonly ScrollbackSearchMark[] {
+): readonly ScrollbackSearchMatch[] {
   const normalized = query.trim();
   if (normalized.length === 0) return [];
-  return history.segments.flatMap((segment) => segment.records.flatMap((record): readonly ScrollbackSearchMark[] => {
-    const matchCount = scrollbackHistoryRecordMatchCount(record, normalized);
-    return matchCount === 0 ? [] : [{
-      itemId: record.item.id,
-      itemIndex: record.itemIndex,
-      matchCount
-    }];
-  }));
+  return Object.freeze(history.segments.flatMap((segment) =>
+    segment.records.flatMap((record) => scrollbackHistoryRecordMatches(record, normalized))
+  ));
 }
 
 export function nextScrollbackMatch(
-  marks: readonly ScrollbackSearchMark[],
-  selectedMatchIndex: number | undefined,
+  matches: readonly ScrollbackSearchMatch[],
+  selectedMatchId: string | undefined,
   direction: 1 | -1
-): ScrollbackSearchMark | undefined {
-  if (marks.length === 0) return undefined;
-  const index = wrapIndex((selectedMatchIndex ?? 0) + direction, marks.length);
-  return marks[index];
-}
-
-export function foldScrollbackHistory(
-  history: ScrollbackHistory,
-  foldedIds: readonly string[]
-): ScrollbackHistory {
-  if (foldedIds.length === 0) return history;
-  const cached = foldedHistoryCache.get(history)?.get(foldedIds);
-  if (cached !== undefined) return cached;
-  const folded = new Set(foldedIds);
-  const projected = prepareScrollbackHistory(scrollbackHistoryItems(history).map((item) => folded.has(item.id)
-    ? {
-        ...item,
-        text: foldedText(item.text),
-        metadata: {
-          ...(item.metadata ?? {}),
-          folded: 'true'
-        }
-      }
-    : item));
-  const byFoldState = foldedHistoryCache.get(history) ?? new WeakMap<readonly string[], ScrollbackHistory>();
-  byFoldState.set(foldedIds, projected);
-  foldedHistoryCache.set(history, byFoldState);
-  return projected;
+): ScrollbackSearchMatch | undefined {
+  return adjacentMatch(matches, selectedMatchId, direction);
 }
 
 export function followTailScrollState(input: {
@@ -193,19 +156,6 @@ export function followTailScrollState(input: {
   }), { kind: 'bottom' });
 }
 
-function foldedText(text: string): string {
-  const sanitized = sanitizeTerminalText(text).text;
-  const lines = sanitized.split('\n');
-  const first = lines[0] ?? '';
-  return lines.length > 1 ? `${first} ...` : first;
-}
-
-function toggleId(ids: readonly string[], id: string): readonly string[] {
-  return ids.includes(id)
-    ? ids.filter((current) => current !== id)
-    : [...ids, id];
-}
-
 function wrapIndex(index: number, count: number): number {
   const size = Math.max(0, Math.floor(count));
   if (size === 0) return 0;
@@ -213,10 +163,85 @@ function wrapIndex(index: number, count: number): number {
 }
 
 function withoutSearch(state: ScrollbackState): ScrollbackState {
+  if (state.searchQuery === undefined && state.selectedMatch === undefined) return state;
   return {
     foldedIds: state.foldedIds,
     followTail: state.followTail,
     ...(state.scroll === undefined ? {} : { scroll: state.scroll }),
-    ...(state.selectedRange === undefined ? {} : { selectedRange: state.selectedRange })
+    ...(state.selection === undefined ? {} : { selection: state.selection })
   };
+}
+
+function withoutSelectedMatch(state: ScrollbackState): ScrollbackState {
+  if (state.selectedMatch === undefined) return state;
+  return {
+    foldedIds: state.foldedIds,
+    followTail: state.followTail,
+    ...(state.searchQuery === undefined ? {} : { searchQuery: state.searchQuery }),
+    ...(state.scroll === undefined ? {} : { scroll: state.scroll }),
+    ...(state.selection === undefined ? {} : { selection: state.selection })
+  };
+}
+
+function withScroll(state: ScrollableScrollbackState, scroll: ScrollState): ScrollableScrollbackState {
+  return scroll === state.scroll ? state : { ...state, scroll };
+}
+
+function withSelection(state: ScrollbackState, selection: ScrollbackSelection | undefined): ScrollbackState {
+  if (sameSelection(selection, state.selection)) return state;
+  if (selection === undefined) {
+    return {
+      foldedIds: state.foldedIds,
+      followTail: state.followTail,
+      ...(state.searchQuery === undefined ? {} : { searchQuery: state.searchQuery }),
+      ...(state.selectedMatch === undefined ? {} : { selectedMatch: state.selectedMatch }),
+      ...(state.scroll === undefined ? {} : { scroll: state.scroll })
+    };
+  }
+  return { ...state, selection };
+}
+
+function normalizeScrollbackSelection(selection: ScrollbackSelection): ScrollbackSelection | undefined {
+  const anchor = normalizeAnchor(selection.anchor);
+  const focus = normalizeAnchor(selection.focus);
+  return anchor.itemId === focus.itemId && anchor.offset === focus.offset
+    ? undefined
+    : Object.freeze({ anchor, focus });
+}
+
+function normalizeAnchor(anchor: ScrollbackSelection['anchor']): ScrollbackSelection['anchor'] {
+  return Object.freeze({ itemId: anchor.itemId, offset: Math.max(0, Math.floor(anchor.offset)) });
+}
+
+function sameSelection(left: ScrollbackSelection | undefined, right: ScrollbackSelection | undefined): boolean {
+  if (left === undefined || right === undefined) return left === right;
+  return left.anchor.itemId === right.anchor.itemId
+    && left.anchor.offset === right.anchor.offset
+    && left.focus.itemId === right.focus.itemId
+    && left.focus.offset === right.focus.offset;
+}
+
+function canonicalIds(ids: readonly string[]): readonly string[] {
+  return Object.freeze([...new Set(ids)].toSorted());
+}
+
+function sameStrings(left: readonly string[], right: readonly string[]): boolean {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function normalizedQuery(query: string | undefined): string | undefined {
+  const normalized = query?.trim();
+  return normalized === undefined || normalized.length === 0 ? undefined : normalized;
+}
+
+function adjacentMatch(
+  matches: readonly ScrollbackSearchMatch[],
+  selectedId: string | undefined,
+  direction: 1 | -1
+): ScrollbackSearchMatch | undefined {
+  if (matches.length === 0) return undefined;
+  const selectedIndex = selectedId === undefined
+    ? direction > 0 ? -1 : 0
+    : matches.findIndex((match) => match.id === selectedId);
+  return matches[wrapIndex(selectedIndex + direction, matches.length)];
 }

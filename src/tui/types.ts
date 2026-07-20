@@ -1,5 +1,5 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
+import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalCapabilityProfile, TerminalClock, TerminalHost, TerminalInputChunk, TerminalViewport } from '../host/index.ts';
 import type { InputDecodeOptions, InputEvent, InputPipelineOptions, InputTrigger } from '../input/index.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../theme/index.ts';
@@ -73,7 +73,7 @@ export interface TuiUpdateResult<TState, TMessage> {
 export interface TuiContext {
   readonly viewport: TerminalViewport;
   readonly capabilities: TerminalCapabilityProfile;
-  readonly diagnostics: readonly TerminalDiagnostic[];
+  readonly diagnostics: readonly DiagnosticOccurrence[];
   readonly clock: TerminalClock;
 }
 
@@ -166,14 +166,14 @@ export type TuiExit<TState> =
       readonly status: 'completed';
       readonly state: TState;
       readonly reason?: string;
-      readonly diagnostics: readonly TerminalDiagnostic[];
+      readonly diagnostics: readonly DiagnosticOccurrence[];
       readonly transcript?: InteractionTranscript;
       readonly snapshot: AccessibleSnapshot;
     }
   | {
       readonly status: 'cancelled' | 'interrupted' | 'error';
       readonly state?: TState;
-      readonly diagnostics: readonly TerminalDiagnostic[];
+      readonly diagnostics: readonly DiagnosticOccurrence[];
       readonly transcript?: InteractionTranscript;
       readonly snapshot: AccessibleSnapshot;
     };
@@ -193,7 +193,7 @@ export interface TuiRunOptions<TState = unknown> {
   readonly initialFocus?: InitialFocusSelector;
   readonly theme?: TuiTheme<TState>;
   readonly sessionPolicy?: SessionProtocolPolicy;
-  readonly cleanup?: TuiCleanupPolicy;
+  readonly lifecycle?: TuiLifecyclePolicy;
   readonly input?: TuiRunInputPolicy;
 }
 
@@ -201,8 +201,15 @@ export interface TuiRunInputPolicy {
   readonly escapeDelayMs?: number;
 }
 
-export interface TuiCleanupPolicy {
-  readonly timeoutMs: number;
+export interface TuiLifecyclePolicy {
+  readonly defaultTimeoutMs?: number;
+  readonly startupTimeoutMs?: number;
+  readonly inputRetirementTimeoutMs?: number;
+  readonly runtimeDisposalTimeoutMs?: number;
+  readonly exitHandlerTimeoutMs?: number;
+  readonly restorationTimeoutMs?: number;
+  readonly outputFlushTimeoutMs?: number;
+  readonly hostDisposalTimeoutMs?: number;
 }
 
 export interface TuiRuntime<TState, TMessage> {
@@ -223,7 +230,8 @@ export interface TuiRuntime<TState, TMessage> {
   state(): TState;
   frame(): Frame | undefined;
   exit(): TuiExit<TState> | undefined;
-  diagnostics(): readonly TerminalDiagnostic[];
+  diagnostics(): readonly DiagnosticOccurrence[];
+  reportDiagnostic(diagnostic: TerminalDiagnostic): DiagnosticOccurrence;
   metrics(): TuiRuntimeMetrics;
 }
 

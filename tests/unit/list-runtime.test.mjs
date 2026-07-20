@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
-import { createScrollState, listReducer, prepareListCollection } from '../../dist/behavior/index.js';
+import { createScrollState, listReducer, prepareListCollection, prepareListProjection } from '../../dist/behavior/index.js';
 import { renderElementFrame, renderFramePlain } from '../../dist/renderer/index.js';
 import { list } from '../../dist/components/index.js';
 
@@ -34,21 +34,20 @@ async function clickAt(runtime, row, column) {
   return runtime.handleInput(mouseRelease(row, column));
 }
 
-test('windowed collection filtering is explicit rather than incomplete', () => {
+test('windowed collection uses its declared external projection query', () => {
   const collection = prepareListCollection(
     ['Item 100'],
     (item, index) => ({ id: String(index), label: item }),
-    { start: 100, total: 1_000 }
+    {
+      start: 100,
+      total: 1_000,
+      domain: { kind: 'projection', id: 'items:item', filterQuery: 'item' }
+    }
   );
+  const frame = renderElementFrame(list({ id: 'window-filter', collection }), { columns: 24, rows: 2 });
 
-  assert.throws(
-    () => list({ id: 'window-filter', collection, filterQuery: 'item' }),
-    /must be filtered before/u
-  );
-  assert.throws(
-    () => listReducer({}, { kind: 'first' }, { collection, filterQuery: 'item' }),
-    /must be filtered before/u
-  );
+  assert.match(renderFramePlain(frame), /Item 100/u);
+  assert.equal(prepareListProjection({ collection }).query, 'item');
 });
 
 test('list widget filters items and can use explicit shared scroll state', () => {
@@ -209,7 +208,7 @@ test('windowed list selection keeps global collection indexes in scroll state', 
   const collection = prepareListCollection(
     ['Item 100', 'Item 101'],
     (item, index) => ({ id: String(index), label: item }),
-    { start: 100, total: 1_000 }
+    { start: 100, total: 1_000, domain: { kind: 'source' } }
   );
   const state = {
     scroll: createScrollState({ contentRows: 1_000, viewportRows: 10 })

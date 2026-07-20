@@ -92,8 +92,10 @@ export function numberInputReducer(
   action: NumberInputAction
 ): NumberInputState {
   switch (action.kind) {
-    case 'edit':
-      return { ...state, input: editTextBuffer(state.input, singleLineOperation(action.operation)) };
+    case 'edit': {
+      const input = editTextBuffer(state.input, singleLineOperation(action.operation));
+      return input === state.input ? state : { ...state, input };
+    }
     case 'step':
       return steppedState(state, action.direction);
     case 'commit':
@@ -209,7 +211,7 @@ function isIncompleteNumber(text: string, grammar: NumberInputConfiguration['gra
 }
 
 function formatNumberInputValue(value: number, grammar: NumberInputConfiguration['grammar']): string {
-  const text = String(value);
+  const text = grammar.notation === 'scientific' ? value.toExponential() : String(value);
   return grammar.decimalSeparator === ',' ? text.replace('.', ',') : text;
 }
 

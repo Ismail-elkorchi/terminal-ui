@@ -1,4 +1,3 @@
-import type { TextSelection } from '../../text/index.ts';
 import type { TerminalStyle } from '../../visual/render.ts';
 import type { ScrollEvent, ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
@@ -15,8 +14,11 @@ import type {
 import type { ScrollbackHistory } from '../../ui-model/scrollback-history.ts';
 import type { CommandInputAction, CommandInputPresentation } from '../../ui-model/command-input.ts';
 import type { PaletteAction } from '../../ui-model/palette.ts';
+import type { PaletteIndex } from '../../ui-model/palette-index.ts';
 import type { ActivityFeedAction } from '../../ui-model/activity-feed.ts';
 import type { ScrollbackAction, ScrollbackControlAction } from '../../ui-model/scrollback.ts';
+import type { ScrollbackSelection } from '../../ui-model/scrollback.ts';
+import type { ScrollbackSearchMatch } from '../../ui-model/scrollback-history.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type {
   CommandInputStylePart,
@@ -29,7 +31,9 @@ interface ScrollbackBaseOptions<TMessage> extends InteractiveElementOptions<Text
   readonly history: ScrollbackHistory;
   readonly wrap?: boolean;
   readonly searchQuery?: string;
-  readonly selectedRange?: TextSelection;
+  readonly selectedMatch?: ScrollbackSearchMatch;
+  readonly foldedIds?: readonly string[];
+  readonly selection?: ScrollbackSelection;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
@@ -86,7 +90,7 @@ export interface CommandInputOptions<TMessage = never> extends InteractiveElemen
 interface PaletteBaseOptions<TValue, TMessage> extends InteractiveElementOptions<PaletteStylePart, TMessage> {
   readonly title?: string;
   readonly query?: string;
-  readonly entries: readonly SearchEntry<TValue>[];
+  readonly index: PaletteIndex<TValue>;
   readonly onSelect?: (entry: SearchEntry<TValue>) => TMessage;
   readonly selected?: number;
   readonly selectedId?: string;

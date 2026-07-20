@@ -16,6 +16,9 @@ export interface TerminalSerializationPolicy {
   readonly capabilities: TerminalOutputCapabilityProfile;
   cursorMove(row: number, column: number, previous?: CursorPosition): string;
   eraseLineToEnd(): string;
+  setScrollingRegion(top: number, bottom: number): string;
+  resetScrollingRegion(): string;
+  scrollRows(rows: number): string;
   clearLine(row: number, fromColumn?: number): string;
   clearRect(bounds: Rect): string;
   showCursor(visible: boolean): string;
@@ -43,6 +46,16 @@ export function createTerminalSerializationPolicy(
     },
     eraseLineToEnd() {
       return csi('0K');
+    },
+    setScrollingRegion(top, bottom) {
+      return csi(`${String(top)};${String(bottom)}r`);
+    },
+    resetScrollingRegion() {
+      return csi('r');
+    },
+    scrollRows(rows) {
+      const distance = Math.max(1, Math.abs(Math.trunc(rows)));
+      return csi(`${distance === 1 ? '' : String(distance)}${rows >= 0 ? 'S' : 'T'}`);
     },
     clearRect(bounds) {
       const parts: string[] = [];

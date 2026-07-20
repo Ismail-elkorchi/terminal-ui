@@ -10,6 +10,7 @@ import {
 } from '../../dist/behavior/index.js';
 import { createScrollState } from '../../dist/behavior/index.js';
 import { routedPointerEvent } from '../helpers/pointer.ts';
+import { textDocumentText } from '../../dist/text/index.js';
 
 void test('textInputReducer applies edits and grapheme-aware pointer selections', () => {
   const initial = { text: 'a🙂bc', cursor: 0 };
@@ -38,7 +39,7 @@ void test('textInputReducer applies edits and grapheme-aware pointer selections'
 void test('textAreaReducer owns editing selection and normalized scroll in one action channel', () => {
   const initial = createTextAreaState({
     value: 'alpha\nbeta',
-    cursor: 0,
+    caret: { position: { offset: 0, affinity: 'downstream' } },
     scroll: createScrollState({ contentRows: 20, viewportRows: 4 })
   });
   const selected = textAreaReducer(initial, {
@@ -56,27 +57,34 @@ void test('textAreaReducer owns editing selection and normalized scroll in one a
     }
   });
 
-  assert.equal(selected.document.text, 'alpha\nbeta');
+  assert.equal(textDocumentText(selected.document), 'alpha\nbeta');
   assert.deepEqual({
-    cursor: selected.cursor,
+    caret: selected.caret,
     selection: selected.selection
   }, {
-    cursor: 10,
-    selection: { start: 6, end: 10 }
+    caret: { position: { offset: 10, affinity: 'downstream' } },
+    selection: {
+      anchor: { offset: 6, affinity: 'downstream' },
+      focus: { offset: 10, affinity: 'downstream' }
+    }
   });
   assert.equal(scrolled.scroll.offsetRow, 3);
   assert.deepEqual(textAreaPresentation(scrolled), {
     document: selected.document,
-    cursor: 10,
-    selection: { start: 6, end: 10 },
-    scroll: scrolled.scroll
+    caret: { position: { offset: 10, affinity: 'downstream' } },
+    selection: {
+      anchor: { offset: 6, affinity: 'downstream' },
+      focus: { offset: 10, affinity: 'downstream' }
+    },
+    scroll: scrolled.scroll,
+    revealCaret: false
   });
 });
 
 void test('textAreaReducer derives its cursor from sanitized inserted text', () => {
   const initial = createTextAreaState({
     value: 'ab',
-    cursor: 1,
+    caret: { position: { offset: 1, affinity: 'downstream' } },
     scroll: createScrollState({ contentRows: 1, viewportRows: 1 })
   });
   const edited = textAreaReducer(initial, {
@@ -84,6 +92,32 @@ void test('textAreaReducer derives its cursor from sanitized inserted text', () 
     operation: { kind: 'insert', text: '\u001B[31mX\u001B[0m' }
   });
 
-  assert.equal(edited.document.text, 'aXb');
-  assert.equal(edited.cursor, 2);
+  assert.equal(textDocumentText(edited.document), 'aXb');
+  assert.equal(edited.caret.position.offset, 2);
+});
+
+void test('textAreaReducer preserves identity for no-op pointer and scroll actions', () => {
+  const initial = createTextAreaState({
+    value: 'alpha',
+    caret: { position: { offset: 0, affinity: 'downstream' } },
+    scroll: createScrollState({ contentRows: 1, viewportRows: 1 })
+  });
+  const revealed = textAreaReducer(initial, {
+    kind: 'pointer',
+    action: { kind: 'placeCaret', offset: 0 }
+  });
+  const scrolled = textAreaReducer({ ...initial, revealCaret: false }, {
+    kind: 'scroll',
+    event: {
+      action: { kind: 'scrollLines', rows: 0 },
+      scroll: initial.scroll,
+      source: 'wheel',
+      target: 'content',
+      pointer: routedPointerEvent({ kind: 'scroll', button: 'wheelDown', clickCount: 0 })
+    }
+  });
+
+  assert.equal(revealed, initial);
+  assert.equal(scrolled.revealCaret, false);
+  assert.equal(scrolled.scroll, initial.scroll);
 });

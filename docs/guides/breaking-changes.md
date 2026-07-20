@@ -80,6 +80,12 @@ Cursor movement, erase-line selection, synchronized output, and ANSI encoding
 are output-planning decisions and are not persisted as render operations. Old
 render-diff variants and version-1 readers were removed.
 
+Terminal row movement follows the same boundary. When `scrollRegion` support is
+established, the TTY frame planner may move a matching row region and serialize
+an ordinary canonical repair diff. Unknown or unsupported terminals serialize
+the original absolute diff. Row movement is never persisted in transcripts and
+does not change backend-neutral diff replay.
+
 ## Effects And Event Sources
 
 Effects have finite active and queue limits. Configure `TuiEffectPolicy` when
@@ -104,13 +110,19 @@ Runtime startup is transactional: state and the first frame become observable
 only after the first host commit succeeds. Capability, session, setup, runtime,
 input, cleanup, and restoration failures return typed `TuiExit` errors.
 
-`runTui(..., { cleanup: { timeoutMs } })` controls the finite shutdown
-grace period. Cleanup requests cancellation first, then restores terminal
+`runTui(..., { lifecycle: { defaultTimeoutMs } })` controls bounded startup,
+cleanup, restoration, flush, and host-disposal phases. Cleanup requests
+cancellation first, then restores terminal
 protocols after the bound. Runtime disposal, `onExit`, or restoration failures
 make the overall exit an error while preserving the last available state and
 accessible snapshot.
 
 ## Schemas
+
+Diagnostic content uses `fingerprint` for canonical content identity.
+Interaction transcripts store `DiagnosticOccurrence` records with a distinct
+owner-local `id` and `sequence`; equal diagnostic content is no longer erased
+by content-based deduplication.
 
 The render-diff schema is `terminal-ui.render-diff.v2`. Transcript diff steps
 embed that version. This release intentionally has no version-1 reader. Other

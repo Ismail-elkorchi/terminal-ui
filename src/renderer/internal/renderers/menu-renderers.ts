@@ -39,10 +39,12 @@ import {
 } from './support/scroll.ts';
 import { writeRenderBlock } from './support/block.ts';
 import { focusTarget } from './support/common.ts';
+import { menuMeasurements } from './menu-measurements.ts';
 import type { RendererMap } from './types.ts';
 
 export const menuRenderers = {
   menu: {
+    measure: menuMeasurements.menu,
     render: ({ renderNode, layoutNode, buffer, theme, focus, widthProfile }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => menuScrollbarState(renderNode, contentBounds), 'vertical');
       writeRenderBlock(buffer, scrollbars.contentBounds, menuBlock(renderNode, scrollbars.contentBounds, theme, widthProfile, focus === 'self'));
@@ -63,6 +65,7 @@ export const menuRenderers = {
     }
   },
   menuBar: {
+    measure: menuMeasurements.menuBar,
     layout: ({ renderNode, bounds, viewport, widthProfile }) => menuBarPopupBounds(renderNode, bounds, viewport, widthProfile),
     render: (input) => {
       writeRenderBlock(input.buffer, input.layoutNode.bounds, menuBarBlock(
@@ -83,6 +86,7 @@ export const menuRenderers = {
     hitTargets: ({ renderNode, layoutNode, widthProfile }) => menuBarHitTargets(renderNode, layoutNode, widthProfile)
   },
   contextMenu: {
+    measure: menuMeasurements.contextMenu,
     layout: ({ renderNode, viewport, widthProfile }) => contextMenuPopupBounds(renderNode, viewport, widthProfile),
     render: (input) => {
       input.renderChildren();
@@ -99,6 +103,7 @@ export const menuRenderers = {
     hitTargets: ({ renderNode, layoutNode }) => contextMenuHitTargets(renderNode, layoutNode)
   },
   dropdownMenu: {
+    measure: menuMeasurements.dropdownMenu,
     layout: ({ renderNode, bounds, viewport, widthProfile }) => dropdownMenuPopupBounds(renderNode, bounds, viewport, widthProfile),
     render: (input) => {
       writeRenderBlock(input.buffer, input.layoutNode.bounds, dropdownMenuBlock(
@@ -122,6 +127,7 @@ export const menuRenderers = {
     hitTargets: ({ renderNode, layoutNode }) => dropdownMenuHitTargets(renderNode, layoutNode)
   },
   commandInput: {
+    measure: menuMeasurements.commandInput,
     render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
       writeRenderBlock(
         buffer,
@@ -157,6 +163,7 @@ export const menuRenderers = {
     ]
   },
   palette: {
+    measure: menuMeasurements.palette,
     render: ({ renderNode, layoutNode, buffer, theme }) => {
       const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => paletteScrollbarState(renderNode, contentBounds), 'vertical');
       writeRenderBlock(buffer, scrollbars.contentBounds, paletteBlock(renderNode, scrollbars.contentBounds.height, theme));

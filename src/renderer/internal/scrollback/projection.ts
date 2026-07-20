@@ -5,7 +5,12 @@ import type {
   ScrollbackHistoryRecord,
   ScrollbackHistorySegment
 } from '../../../ui-model/scrollback-history.ts';
-import { scrollbackHistoryRecordMatchCount } from '../../../ui-model/scrollback-history.ts';
+import {
+  prepareScrollbackSearchQuery,
+  scrollbackHistoryRecordMatchesPrepared
+} from '../../../ui-model/scrollback-history.ts';
+import type { ScrollbackSearchMatch } from '../../../ui-model/scrollback-history.ts';
+import { projectScrollbackRecord } from './record-projection.ts';
 
 export interface ScrollbackLayoutProjection {
   readonly segments: readonly ScrollbackSegmentProjection[];
@@ -30,7 +35,7 @@ export interface ScrollbackVisibleRecord {
 
 export interface ScrollbackSearchProjection {
   readonly matchingItems: number;
-  readonly firstItemIndex?: number;
+  readonly matches: readonly ScrollbackSearchMatch[];
 }
 
 interface CachedSegmentLayout {
@@ -39,22 +44,34 @@ interface CachedSegmentLayout {
   readonly totalRows: number;
 }
 
+interface CachedSegmentSearch {
+  readonly matchingItems: number;
+  readonly matches: readonly ScrollbackSearchMatch[];
+}
+
 const MAX_LAYOUTS_PER_SEGMENT = 8;
-const MAX_QUERIES_PER_SEGMENT = 16;
+const MAX_SEARCHES_PER_SEGMENT = 16;
 const layoutCache = new WeakMap<ScrollbackHistorySegment, Map<string, CachedSegmentLayout>>();
-const queryCache = new WeakMap<ScrollbackHistorySegment, Map<string, readonly number[]>>();
+const searchCache = new WeakMap<ScrollbackHistorySegment, Map<string, CachedSegmentSearch>>();
+const searchWork = new WeakMap<ScrollbackHistorySegment, { queryEvaluations: number; recordEvaluations: number }>();
 
 export function projectScrollbackLayout(
   history: ScrollbackHistory,
   width: number,
   wrap: boolean,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  foldedIds: ReadonlySet<string> = new Set()
 ): ScrollbackLayoutProjection {
-  const key = `${wrap ? 'wrap' : 'single'}:${String(Math.max(0, width))}:${textWidthProfileKey(widthProfile)}`;
+  const geometryKey = `${wrap ? 'wrap' : 'single'}:${String(Math.max(0, width))}:${textWidthProfileKey(widthProfile)}`;
   const segments: ScrollbackSegmentProjection[] = [];
   let startRow = 0;
   for (const segment of history.segments) {
-    const layout = segmentLayout(segment, key, width, wrap, widthProfile);
+    const foldKey = segment.records
+      .filter((record) => foldedIds.has(record.item.id))
+      .map((record) => record.item.id)
+      .join('\u0000');
+    const key = `${geometryKey}:${foldKey}`;
+    const layout = segmentLayout(segment, key, width, wrap, widthProfile, foldedIds);
     segments.push({ segment, startRow, ...layout });
     startRow += layout.totalRows;
   }
@@ -111,23 +128,72 @@ export function scrollbackRowForItem(
 
 export function projectScrollbackSearch(
   history: ScrollbackHistory,
-  query: string
+  query: string,
+  foldedIds: ReadonlySet<string> = new Set()
 ): ScrollbackSearchProjection {
   const searchQuery = query.trim();
-  if (searchQuery.length === 0) return { matchingItems: 0 };
+  if (searchQuery.length === 0) return { matchingItems: 0, matches: [] };
+  const preparedQuery = prepareScrollbackSearchQuery(searchQuery);
+  const allMatches: ScrollbackSearchMatch[] = [];
   let matchingItems = 0;
-  let firstItemIndex: number | undefined;
   for (const segment of history.segments) {
-    const matches = matchingRecordIndexes(segment, searchQuery);
-    matchingItems += matches.length;
-    if (firstItemIndex === undefined && matches[0] !== undefined) {
-      firstItemIndex = segment.startIndex + matches[0];
-    }
+    const foldKey = segment.records
+      .filter((record) => foldedIds.has(record.item.id))
+      .map((record) => record.item.id)
+      .join('\u0000');
+    const projected = segmentSearch(segment, `${searchQuery}:${foldKey}`, preparedQuery, foldedIds);
+    matchingItems += projected.matchingItems;
+    allMatches.push(...projected.matches);
   }
   return {
     matchingItems,
-    ...(firstItemIndex === undefined ? {} : { firstItemIndex })
+    matches: Object.freeze(allMatches)
   };
+}
+
+function segmentSearch(
+  segment: ScrollbackHistorySegment,
+  key: string,
+  query: ReturnType<typeof prepareScrollbackSearchQuery>,
+  foldedIds: ReadonlySet<string>
+): CachedSegmentSearch {
+  const cache = cacheFor(searchCache, segment);
+  const cached = touch(cache, key);
+  if (cached !== undefined) return cached;
+  const work = searchWork.get(segment) ?? { queryEvaluations: 0, recordEvaluations: 0 };
+  work.queryEvaluations += 1;
+  work.recordEvaluations += segment.records.length;
+  searchWork.set(segment, work);
+  const matches: ScrollbackSearchMatch[] = [];
+  let matchingItems = 0;
+  for (const record of segment.records) {
+    const projected = projectScrollbackRecord(record, foldedIds.has(record.item.id));
+    const recordMatches = scrollbackHistoryRecordMatchesPrepared(
+      { ...record, searchFields: projected.searchFields },
+      query
+    );
+    if (recordMatches.length > 0) {
+      matchingItems += 1;
+      matches.push(...recordMatches);
+    }
+  }
+  const result = Object.freeze({ matchingItems, matches: Object.freeze(matches) });
+  retain(cache, key, result, MAX_SEARCHES_PER_SEGMENT);
+  return result;
+}
+
+export function scrollbackSearchStatistics(history: ScrollbackHistory): {
+  readonly queryEvaluations: number;
+  readonly recordEvaluations: number;
+} {
+  let queryEvaluations = 0;
+  let recordEvaluations = 0;
+  for (const segment of history.segments) {
+    const work = searchWork.get(segment);
+    queryEvaluations += work?.queryEvaluations ?? 0;
+    recordEvaluations += work?.recordEvaluations ?? 0;
+  }
+  return Object.freeze({ queryEvaluations, recordEvaluations });
 }
 
 function segmentLayout(
@@ -135,7 +201,8 @@ function segmentLayout(
   key: string,
   width: number,
   wrap: boolean,
-  widthProfile: TextWidthProfile
+  widthProfile: TextWidthProfile,
+  foldedIds: ReadonlySet<string>
 ): CachedSegmentLayout {
   const cache = cacheFor(layoutCache, segment);
   const cached = touch(cache, key);
@@ -145,8 +212,9 @@ function segmentLayout(
   let totalRows = 0;
   for (const record of segment.records) {
     rowStarts.push(totalRows);
+    const projected = projectScrollbackRecord(record, foldedIds.has(record.item.id));
     const rowCount = wrap && width > 0
-      ? Math.max(1, wrapTextCells(record.displayText, width, { widthProfile }).length)
+      ? Math.max(1, wrapTextCells(projected.displayText, width, { widthProfile }).length)
       : 1;
     rowCounts.push(rowCount);
     totalRows += rowCount;
@@ -158,25 +226,6 @@ function segmentLayout(
   });
   retain(cache, key, projection, MAX_LAYOUTS_PER_SEGMENT);
   return projection;
-}
-
-function matchingRecordIndexes(
-  segment: ScrollbackHistorySegment,
-  query: string
-): readonly number[] {
-  const cache = cacheFor(queryCache, segment);
-  const cached = touch(cache, query);
-  if (cached !== undefined) return cached;
-  const mutableMatches: number[] = [];
-  for (let index = 0; index < segment.records.length; index += 1) {
-    const record = segment.records[index];
-    if (record !== undefined && scrollbackHistoryRecordMatchCount(record, query) > 0) {
-      mutableMatches.push(index);
-    }
-  }
-  const matches = Object.freeze(mutableMatches);
-  retain(cache, query, matches, MAX_QUERIES_PER_SEGMENT);
-  return matches;
 }
 
 function firstOverlappingSegment(

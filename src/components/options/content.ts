@@ -1,7 +1,13 @@
 import type { InlineContent } from '../../visual/inline-content.ts';
 import type { ScrollPolicy, ScrollState } from '../../interaction/scroll.ts';
 import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
-import type { ListAction, ListCollection, ListControlAction, ListItemProjector } from '../../ui-model/list.ts';
+import type {
+  CompleteListCollection,
+  ListAction,
+  ListControlAction,
+  ListItemProjector,
+  WindowedListCollection
+} from '../../ui-model/list.ts';
 import type {
   TableAction,
   TableCollection,
@@ -10,10 +16,11 @@ import type {
   TableScrollablePresentation
 } from '../../ui-model/table.ts';
 import type {
-  TreeCollection,
+  CompleteTreeCollection,
   TreeControlAction,
   TreeInteractionAction,
-  TreeNode
+  TreeNode,
+  WindowedTreeCollection
 } from '../../ui-model/tree.ts';
 import type { PaginatorAction } from '../../ui-model/paginator.ts';
 import type { ComponentDensity } from '../../ui-model/contracts.ts';
@@ -50,7 +57,6 @@ export interface RichTextOptions extends ElementOptions<TextStylePart> {
 
 interface ListCommonOptions<TMessage> extends InteractiveElementOptions<DataListStylePart, TMessage> {
   readonly selectedId?: string;
-  readonly filterQuery?: string;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
@@ -59,11 +65,19 @@ type ListDataOptions<TValue> =
       readonly items: readonly TValue[];
       readonly projectItem: ListItemProjector<TValue>;
       readonly collection?: never;
+      readonly filterQuery?: string;
     }
   | {
-      readonly collection: ListCollection<TValue>;
+      readonly collection: CompleteListCollection<TValue>;
       readonly items?: never;
       readonly projectItem?: never;
+      readonly filterQuery?: string;
+    }
+  | {
+      readonly collection: WindowedListCollection<TValue>;
+      readonly items?: never;
+      readonly projectItem?: never;
+      readonly filterQuery?: never;
     };
 
 type ListBaseOptions<TValue, TMessage> = ListCommonOptions<TMessage> & ListDataOptions<TValue>;
@@ -88,7 +102,6 @@ export type ScrollableListOptions<TValue, TMessage = never> = ListBaseOptions<TV
 
 interface TreeCommonOptions<TMessage> extends InteractiveElementOptions<TreeStylePart, TMessage> {
   readonly selected?: string;
-  readonly filterQuery?: string;
   readonly emptyText?: string;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
@@ -97,10 +110,12 @@ type TreeDataOptions<TMetadata extends Readonly<Record<string, unknown>>> =
   | {
       readonly nodes: readonly TreeNode<TMetadata>[];
       readonly collection?: never;
+      readonly filterQuery?: string;
     }
   | {
-      readonly collection: TreeCollection<TMetadata>;
+      readonly collection: CompleteTreeCollection<TMetadata> | WindowedTreeCollection<TMetadata>;
       readonly nodes?: never;
+      readonly filterQuery?: never;
     };
 
 type TreeBaseOptions<

@@ -74,12 +74,14 @@ import {
 import {
   palettePresentation,
   paletteReducer,
+  preparePaletteIndex,
   type PaletteState
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
 const entries = [
   { id: 'open', label: 'Open', value: 'open' }
 ] satisfies readonly SearchEntry<string>[];
+const index = preparePaletteIndex(entries);
 
 type PaletteMessage =
   | { kind: 'palette'; action: PaletteAction }
@@ -87,13 +89,13 @@ type PaletteMessage =
   | { kind: 'closePalette' };
 
 function updatePalette(state: PaletteState, action: PaletteAction): PaletteState {
-  return paletteReducer(state, action, { entries });
+  return paletteReducer(state, action, { index });
 }
 
 function paletteView(state: PaletteState) {
   return palette({
     id: 'commands',
-    entries,
+    index,
     ...palettePresentation(state),
     onAction: (action): PaletteMessage => ({ kind: 'palette', action }),
     keys: {
@@ -141,6 +143,14 @@ Behavior helpers may return the same state object for no-op transitions. That
 lets applications avoid unnecessary rerenders while keeping update logic
 explicit.
 
+`numberInputReducer()` keeps numeric text lexical while the user edits it. A
+successful `commit` records the parsed finite number without rewriting a valid
+lexeme, so forms may preserve input such as `1.20E+03`. Numeric transitions
+(`step`, `revert`, and initial state creation) format from the numeric value
+using the configured notation and decimal separator. Scientific notation is a
+number-input grammar, not a decimal-precision model; applications that require
+lossless decimal scale must own that domain value separately.
+
 ## Large Collections
 
 `list()`, `table()`, and `tree()` accept ordinary arrays for small, local data.
@@ -155,7 +165,7 @@ const visibleRows = [{ id: 'row-40000', value: 42 }];
 const collection = prepareTableCollection(
   visibleRows,
   (row) => row.id,
-  { start: 40_000, total: 100_000 }
+  { start: 40_000, total: 100_000, domain: { kind: 'source' } }
 );
 
 table({
@@ -168,10 +178,12 @@ table({
 `prepareListCollection()`, `prepareTableCollection()`, and
 `prepareTreeCollection()` create complete projections. The list and table
 helpers accept `start` and `total` to create a windowed projection whose
-records retain global indices. `prepareTreeRows()` accepts an already flattened
-tree projection and the same optional window descriptor. Windowed list and
-tree data must be filtered before preparation because the library cannot derive
-complete filter results from a partial window.
+records retain global indices. Every window declares whether those indexes
+belong to the source or to an external projection. Externally filtered or sorted
+windows use a stable projection ID and carry their query/sort provenance.
+`prepareTreeRows()` accepts an already flattened tree projection and the same
+window descriptor. Windowed list and tree data cannot be filtered locally
+because the library cannot derive complete results from a partial window.
 
 Prepared collections snapshot membership and identity. Replace the collection
 when rows are inserted, deleted, reordered, or reprojected. Reducers and

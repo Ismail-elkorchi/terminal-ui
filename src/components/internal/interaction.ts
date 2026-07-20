@@ -83,7 +83,7 @@ export function tableKeyBindings<TRow, TMessage>(
     arrowLeft: () => onAction({ kind: 'moveColumn', delta: -1 }),
     arrowRight: () => onAction({ kind: 'moveColumn', delta: 1 }),
     ...(selectedColumn?.resizable === true ? {
-      modified: [
+      triggers: [
         {
           trigger: { kind: 'key', key: 'arrowLeft', modifiers: { alt: true } },
           onKey: () => onAction({ kind: 'resizeColumnBy', column: selectedColumn.id, delta: -1 })

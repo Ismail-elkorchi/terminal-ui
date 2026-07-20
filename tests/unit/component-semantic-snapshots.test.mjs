@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
-import { prepareScrollbackHistory } from '../../dist/behavior/index.js';
-import { prepareTextDocument } from '../../dist/text/index.js';
+import { preparePaletteIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 import {
   validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
@@ -219,7 +219,7 @@ const cases = [
   },
   {
     name: 'textArea',
-    element: () => textArea({ id: 'text-area', presentation: { document: prepareTextDocument(`${unsafe}\nSecond`), cursor: 3 }, }),
+    element: () => textArea({ id: 'text-area', presentation: { document: prepareTextDocument(`${unsafe}\nSecond`), caret: textCaretAt(3 )}, }),
     expectText: /Second/u,
     expectFocus: true
   },
@@ -591,10 +591,10 @@ const cases = [
     element: () => palette({
       id: 'palette',
       title: unsafe,
-      entries: [
+      index: preparePaletteIndex([
         { id: 'alpha', label: unsafe, value: 'alpha', preview: 'Preview' },
         { id: 'beta', label: 'Beta', value: 'beta', disabled: true }
-      ],
+      ]),
       selectedId: 'alpha'
     }),
     expectText: /Preview/u,

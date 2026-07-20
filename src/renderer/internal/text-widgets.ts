@@ -2,8 +2,10 @@ import type { ElementTextRole } from '../../element/metadata.ts';
 import {
   defaultTextWidthProfile,
   normalizeTextDocumentOffset,
-  normalizeTextDocumentSelection,
-  sanitizeTerminalText
+  textDocumentSelectionRange,
+  sanitizeTerminalText,
+  textDocumentLength,
+  textDocumentLineCount
 } from '../../text/index.ts';
 import { block, blockFromText, line, wrapRenderSpans } from './frame.ts';
 import { inlineContentAccessibleText } from '../../visual/inline-content.ts';
@@ -20,7 +22,7 @@ import {
 } from './text-area/projection.ts';
 import { defaultStyleForTextRole, resolveRenderNodeStyle } from './render-node-style.ts';
 import { renderInlineContent } from './inline-content.ts';
-import { numberProp, stringify } from './render-node-props.ts';
+import { stringify } from './render-node-props.ts';
 import { defaultTheme } from '../../theme/index.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
@@ -30,7 +32,7 @@ import type { CursorPosition } from '../model/cursor.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import type { Rect } from '../model/layout.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
-import type { TextSelection, TextWidthProfile } from '../../text/index.ts';
+import type { TextWidthProfile } from '../../text/index.ts';
 
 type TextNode = RenderNodeOfKind<unknown, 'text'>;
 type RichTextNode = RenderNodeOfKind<unknown, 'richText'>;
@@ -92,9 +94,9 @@ export function textAreaBlock(
   focused = false
 ): RenderBlock {
   const model = textAreaRenderModel(widget, bounds, theme, widthProfile);
-  const selection = model.usesPlaceholder
+  const selection = model.usesPlaceholder || widget.props.selection === undefined
     ? undefined
-    : normalizeTextDocumentSelection(model.document, selectionFromTextAreaProps(widget.props.selection));
+    : textDocumentSelectionRange(model.document, widget.props.selection, widget.props.caret);
   return block(model.projection.lines
     .slice(model.scroll.offsetRow, model.scroll.offsetRow + Math.max(0, bounds.height))
     .map((record, index): RenderLine => textAreaInputLine({
@@ -138,14 +140,6 @@ export function textAreaAccessibleBase(
   };
 }
 
-function selectionFromTextAreaProps(value: unknown): TextSelection | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
-  const record = value as Readonly<Record<string, unknown>>;
-  return typeof record['start'] === 'number' && typeof record['end'] === 'number'
-    ? { start: record['start'], end: record['end'] }
-    : undefined;
-}
-
 export function textAreaCursor(
   widget: TextAreaNode,
   bounds: Rect,
@@ -155,7 +149,7 @@ export function textAreaCursor(
   const model = textAreaRenderModel(widget, bounds, theme, widthProfile);
   const cursor = textAreaCursorInProjection(
     model.projection,
-    numberProp(widget, 'cursor') ?? model.document.text.length
+    widget.props.caret
   );
   const rowOffset = Math.max(0, Math.min(bounds.height - 1, cursor.rowIndex - model.scroll.offsetRow));
   return textAreaInputCursor({
@@ -307,7 +301,7 @@ function textAreaDescription(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): string {
-  const lines = widget.props.document.text.length === 0 ? 0 : widget.props.document.lineCount;
+  const lines = textDocumentLength(widget.props.document) === 0 ? 0 : textDocumentLineCount(widget.props.document);
   const scrollText = bounds === undefined ? '' : textAreaScrollDescription(widget, bounds, theme, widthProfile);
   const selection = widget.props.selection;
   const selectionText = selection === undefined ? '' : ' Selection active.';

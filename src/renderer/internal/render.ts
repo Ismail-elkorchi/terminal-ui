@@ -23,6 +23,7 @@ import type { FramePass } from './frame-passes/index.ts';
 import type { LayoutNode } from '../model/layout.ts';
 import type { DraftRenderRegion, RenderRegion, RenderRegionHitTarget } from './render-regions.ts';
 import type { RenderTarget } from '../model/render-target.ts';
+import type { RenderWorkInstrumentation, RenderWorkMeasurement } from '../model/instrumentation.ts';
 
 export {
   alignRenderLine,
@@ -66,6 +67,7 @@ export type {
   RenderBlock,
   RenderBlockSize,
   RenderDiff,
+  RenderDiffAnsiOptions,
   RenderLine,
   RenderOperation,
   RenderSerializeOptions,
@@ -105,7 +107,10 @@ export interface RenderStageMeasurement {
 export interface RenderInstrumentation {
   readonly now: () => number;
   record(measurement: RenderStageMeasurement): void;
+  readonly recordWork?: RenderWorkInstrumentation['recordWork'];
 }
+
+export type { RenderWorkInstrumentation, RenderWorkKind, RenderWorkMeasurement } from '../model/instrumentation.ts';
 
 export interface RenderElementProjection<TMessage = unknown> {
   readonly node: RenderNode<TMessage>;
@@ -131,6 +136,7 @@ export function renderElementProjection<TMessage>(
   options: RenderElementOptions = {}
 ): RenderElementProjection<TMessage> {
   const renderNode = measureRenderStage(options.instrumentation, 'normalize', () => toRenderNode(element));
+  recordRenderWork(options.instrumentation, { kind: 'authored_nodes', count: renderNodeCount(renderNode) });
   const environment = createRenderEnvironment({
     viewport,
     ...(options.theme === undefined ? {} : { theme: options.theme }),
@@ -140,15 +146,25 @@ export function renderElementProjection<TMessage>(
   const layout = measureRenderStage(options.instrumentation, 'layout', () =>
     layoutRenderNode(renderNode, viewport, theme, widthProfile)
   );
+  recordRenderWork(options.instrumentation, { kind: 'measured_nodes', count: layoutNodeCount(layout) });
+  recordRenderWork(options.instrumentation, { kind: 'rendered_nodes', count: visibleLayoutNodeCount(layout) });
   const resolvedFocusPath = measureRenderStage(options.instrumentation, 'focus', () =>
     resolveFocusPath(layout, options.focusPath)
   );
   const regions = measureRenderStage(options.instrumentation, 'regions', () =>
     renderLayoutRegions(renderNode, layout, viewport, theme, widthProfile, resolvedFocusPath)
   );
+  recordRenderWork(options.instrumentation, {
+    kind: 'hit_target_candidates',
+    count: regions.reduce((total, region) => total + region.hitTargets.length, 0)
+  });
   const buffer = measureRenderStage(options.instrumentation, 'composition', () =>
     compositeRegions(viewport, regions, widthProfile)
   );
+  recordRenderWork(options.instrumentation, {
+    kind: 'composed_cells',
+    count: regions.reduce((total, region) => total + region.cells.length, 0)
+  });
   measureRenderStage(options.instrumentation, 'frame_passes', () => {
     applyFramePasses(buffer, framePassesForOptions(options), { theme, viewport, widthProfile });
   });
@@ -171,7 +187,30 @@ export function renderElementProjection<TMessage>(
       ...(cursor === undefined ? {} : { cursor }),
       ...(resolvedFocusPath === undefined ? {} : { focusPath: resolvedFocusPath })
     }));
+  recordRenderWork(options.instrumentation, { kind: 'snapshot_rows', count: frame.height });
+  recordRenderWork(options.instrumentation, { kind: 'snapshot_cells', count: frame.width * frame.height });
+  recordRenderWork(options.instrumentation, { kind: 'emitted_cells', count: frame.cells.length });
   return { node: renderNode, viewport: environment.viewport, theme, widthProfile, layout, regions, frame };
+}
+
+function recordRenderWork(
+  instrumentation: RenderInstrumentation | undefined,
+  measurement: RenderWorkMeasurement
+): void {
+  instrumentation?.recordWork?.(measurement);
+}
+
+function renderNodeCount(node: RenderNode): number {
+  return 1 + (node.children ?? []).reduce((total, child) => total + renderNodeCount(child), 0);
+}
+
+function layoutNodeCount(node: LayoutNode): number {
+  return 1 + node.children.reduce((total, child) => total + layoutNodeCount(child), 0);
+}
+
+function visibleLayoutNodeCount(node: LayoutNode): number {
+  if (!node.visible) return 0;
+  return 1 + node.children.reduce((total, child) => total + visibleLayoutNodeCount(child), 0);
 }
 
 function measureRenderStage<TValue>(

@@ -1,5 +1,4 @@
 import type { RuntimeTarget } from './capability-types.ts';
-import type { Result } from '../result.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalCapabilityProfile } from './capability-types.ts';
 import type { TerminalCapabilityConfiguration } from './capabilities.ts';
@@ -32,6 +31,14 @@ export interface TerminalRestoreOptions {
   readonly operationSignal?: AbortSignal;
 }
 
+export type TerminalActiveCapabilityProbe = 'keyboardProtocol';
+
+export interface TerminalCapabilityDetectionOptions {
+  readonly activeProbes?: readonly TerminalActiveCapabilityProbe[];
+  readonly probeTimeoutMs?: number;
+  readonly signal?: AbortSignal;
+}
+
 export interface TerminalInput {
   read(options?: TerminalInputReadOptions): AsyncIterable<TerminalInputChunk>;
   setRawMode?(enabled: boolean): Promise<void> | void;
@@ -41,6 +48,7 @@ export interface TerminalInput {
 
 export interface TerminalOutput {
   write(chunk: string | Uint8Array, context?: TerminalOperationContext): Promise<void>;
+  writeSafety(chunk: string | Uint8Array, context?: TerminalOperationContext): Promise<TerminalWriteReceipt>;
   flush(context?: TerminalOperationContext): Promise<void>;
   dispose(context?: TerminalOperationContext): Promise<void>;
   isTty(): boolean;
@@ -93,10 +101,11 @@ export interface TerminalHost {
   readonly observer?: TerminalHostObserver;
 
   getViewport(): TerminalViewport;
-  getCapabilities(): Promise<TerminalCapabilityProfile>;
+  getCapabilities(options?: TerminalCapabilityDetectionOptions): Promise<TerminalCapabilityProfile>;
   beginSession(options?: TerminalSessionOptions): Promise<TerminalSession>;
   restoreTerminalState(reason: TerminalRestoreReason, options?: TerminalRestoreOptions): Promise<TerminalRestoreResult>;
-  write(output: TerminalOutputChunk, context?: TerminalOperationContext): Promise<void>;
+  write(output: TerminalOutputChunk, context?: TerminalOperationContext): Promise<TerminalWriteReceipt>;
+  writeSafety(output: TerminalOutputChunk, context?: TerminalOperationContext): Promise<TerminalWriteReceipt>;
   flush(context?: TerminalOperationContext): Promise<void>;
   dispose(context?: TerminalOperationContext): Promise<void>;
 }
@@ -105,22 +114,48 @@ export interface TerminalSessionOptions {
   readonly id?: string;
 }
 
+export type TerminalWriteReceipt =
+  | { readonly status: 'committed' }
+  | { readonly status: 'failed_before_write'; readonly diagnostic: TerminalDiagnostic }
+  | { readonly status: 'indeterminate'; readonly diagnostic: TerminalDiagnostic };
+
 export interface TerminalSession {
   readonly id: string;
   readonly host: TerminalHost;
   readonly initialState: TerminalStateSnapshot;
   readonly capabilities: TerminalCapabilityProfile;
 
-  enableRawInput(): Promise<Result<TerminalStateChange>>;
-  enableAlternateScreen(): Promise<Result<TerminalStateChange>>;
-  enableBracketedPaste(): Promise<Result<TerminalStateChange>>;
-  enableMouseReporting(mode?: MouseReportingMode): Promise<Result<TerminalStateChange>>;
-  enableFocusReporting(): Promise<Result<TerminalStateChange>>;
-  enableKeyboardProfile(profile: TerminalKeyboardProfile): Promise<Result<TerminalStateChange>>;
-  hideCursor(): Promise<Result<TerminalStateChange>>;
-  showCursor(): Promise<Result<TerminalStateChange>>;
+  enableRawInput(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
+  enableAlternateScreen(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
+  enableBracketedPaste(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
+  enableMouseReporting(mode?: MouseReportingMode, context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
+  enableFocusReporting(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
+  enableKeyboardProfile(
+    profile: TerminalKeyboardProfile,
+    context?: TerminalOperationContext
+  ): Promise<TerminalOperationOutcome>;
+  hideCursor(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
+  showCursor(context?: TerminalOperationContext): Promise<TerminalOperationOutcome>;
   restore(reason?: TerminalRestoreReason, options?: TerminalRestoreOptions): Promise<TerminalRestoreResult>;
 }
+
+export type TerminalOperationOutcome =
+  | {
+      readonly status: 'applied';
+      readonly change: TerminalStateChange;
+      readonly diagnostics: readonly TerminalDiagnostic[];
+    }
+  | {
+      readonly status: 'rejected';
+      readonly diagnostic: TerminalDiagnostic;
+      readonly diagnostics: readonly TerminalDiagnostic[];
+    }
+  | {
+      readonly status: 'indeterminate';
+      readonly attempted: TerminalStateChange;
+      readonly diagnostic: TerminalDiagnostic;
+      readonly diagnostics: readonly TerminalDiagnostic[];
+    };
 
 export interface TerminalStateSnapshot {
   readonly rawInput: boolean;
@@ -248,6 +283,7 @@ export interface RuntimeTerminalInputOptions {
 
 export interface RuntimeTerminalOutputOptions {
   readonly write?: (chunk: string | Uint8Array, context: TerminalOperationContext) => void | Promise<void>;
+  readonly safetyWrite?: (chunk: string | Uint8Array, context: TerminalOperationContext) => void | Promise<void>;
   readonly writable?: WritableStream<Uint8Array>;
   readonly isTty?: boolean;
   readonly columns?: number;

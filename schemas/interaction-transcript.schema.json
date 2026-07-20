@@ -14,7 +14,7 @@
     },
     "diagnostics": {
       "type": "array",
-      "items": { "$ref": "#/$defs/diagnostic" }
+      "items": { "$ref": "#/$defs/diagnosticOccurrence" }
     },
     "redactions": {
       "type": "array",
@@ -84,7 +84,7 @@
           "required": ["kind", "diagnostic"],
           "properties": {
             "kind": { "const": "diagnostic" },
-            "diagnostic": { "$ref": "#/$defs/diagnostic" }
+            "diagnostic": { "$ref": "#/$defs/diagnosticOccurrence" }
           },
           "additionalProperties": false
         },
@@ -555,7 +555,7 @@
         "title": { "type": "string" },
         "root": { "$ref": "#/$defs/accessibleNode" },
         "focusPath": { "type": "array", "items": { "type": "string" } },
-        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnosticContent" } }
       },
       "additionalProperties": false
     },
@@ -656,12 +656,34 @@
       },
       "additionalProperties": false
     },
-    "diagnostic": {
+    "diagnosticContent": {
       "type": "object",
-      "required": ["schemaVersion", "id", "code", "severity", "message"],
+      "required": ["schemaVersion", "fingerprint", "code", "severity", "message"],
       "properties": {
         "schemaVersion": { "const": "terminal-ui.terminal-diagnostic.v1" },
+        "fingerprint": { "type": "string", "minLength": 1 },
+        "code": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["debug", "info", "warning", "error", "fatal"] },
+        "message": { "type": "string" },
+        "target": { "type": "string" },
+        "cause": { "$ref": "#/$defs/diagnosticValue" },
+        "hint": { "type": "string" },
+        "data": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/diagnosticValue" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "diagnosticOccurrence": {
+      "type": "object",
+      "required": ["schemaVersion", "fingerprint", "id", "owner", "sequence", "code", "severity", "message"],
+      "properties": {
+        "schemaVersion": { "const": "terminal-ui.terminal-diagnostic.v1" },
+        "fingerprint": { "type": "string", "minLength": 1 },
         "id": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "sequence": { "type": "integer", "minimum": 1 },
         "code": { "type": "string", "minLength": 1 },
         "severity": { "enum": ["debug", "info", "warning", "error", "fatal"] },
         "message": { "type": "string" },
@@ -698,7 +720,7 @@
         "attempted": { "type": "array", "items": { "$ref": "#/$defs/terminalStateChange" } },
         "confirmed": { "type": "array", "items": { "$ref": "#/$defs/terminalStateChange" } },
         "resultingState": { "$ref": "#/$defs/terminalStateSnapshot" },
-        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } }
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnosticContent" } }
       },
       "additionalProperties": false
     },

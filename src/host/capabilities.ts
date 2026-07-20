@@ -13,6 +13,7 @@ import type {
 } from './capability-types.ts';
 import { defineTextWidthProfile } from '../text/index.ts';
 import type { TextWidthProfile } from '../text/index.ts';
+import { inferControlCapability, protocolFloor } from './protocol-evidence.ts';
 
 export interface TerminalHostFacts {
   readonly runtime: RuntimeTarget;
@@ -30,7 +31,7 @@ export interface EnvironmentFacts {
   readonly variables?: Record<string, string | undefined>;
 }
 
-export type ProtocolProbeFacts = Partial<Record<TerminalCapabilityName, boolean>>;
+export type ProtocolProbeFacts = Partial<Record<TerminalCapabilityName, TerminalFeatureSupport>>;
 
 export interface CapabilityOverride {
   readonly support: TerminalFeatureSupport;
@@ -98,35 +99,35 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       facts: [hostFact('terminalProtocols', input.host.terminalProtocols), ...environmentFacts(input.environment, ['KITTY_WINDOW_ID', 'TERM'])]
     }),
     bracketedPaste: resolveCapability(input, 'bracketedPaste', protocolBasis(
-      controlProtocolSupport(input),
+      controlSupport(input, 'bracketedPaste'),
       interactiveAvailability,
       'Host cannot operate bracketed paste.',
       input,
       true
     )),
     mouseReporting: resolveCapability(input, 'mouseReporting', protocolBasis(
-      controlProtocolSupport(input),
+      controlSupport(input, 'mouseReporting'),
       interactiveAvailability,
       'Host cannot operate mouse reporting.',
       input,
       true
     )),
     alternateScreen: resolveCapability(input, 'alternateScreen', protocolBasis(
-      controlProtocolSupport(input),
+      controlSupport(input, 'alternateScreen'),
       outputAvailability,
       'Host cannot operate the alternate screen.',
       input,
       true
     )),
     focusReporting: resolveCapability(input, 'focusReporting', protocolBasis(
-      controlProtocolSupport(input),
+      controlSupport(input, 'focusReporting'),
       interactiveAvailability,
       'Host cannot operate focus reporting.',
       input,
       true
     )),
     cursorVisibility: resolveCapability(input, 'cursorVisibility', protocolBasis(
-      controlProtocolSupport(input),
+      controlSupport(input, 'cursorVisibility'),
       outputAvailability,
       'Host cannot control cursor visibility.',
       input,
@@ -139,14 +140,20 @@ export function resolveTerminalCapabilities(input: TerminalCapabilityResolverInp
       unknown: 'Synchronized output support has not been established.',
       facts: [hostFact('terminalProtocols', input.host.terminalProtocols), ...environmentFacts(input.environment, ['TERM', 'TERM_PROGRAM'])]
     }),
+    scrollRegion: resolveCapability(input, 'scrollRegion', protocolBasis(
+      controlSupport(input, 'scrollRegion'),
+      outputAvailability,
+      'Host cannot operate terminal scrolling regions.',
+      input
+    )),
     title: resolveCapability(input, 'title', protocolBasis(
-      controlProtocolSupport(input),
+      controlSupport(input, 'title'),
       outputAvailability,
       'Host cannot set the terminal title.',
       input
     )),
     bell: resolveCapability(input, 'bell', protocolBasis(
-      controlProtocolSupport(input),
+      controlSupport(input, 'bell'),
       outputAvailability,
       'Host cannot emit the terminal bell.',
       input
@@ -183,7 +190,7 @@ function resolveCapability(
   const override = input.overrides?.[name];
   const probe = input.probes?.[name];
   const support = override === undefined
-    ? probe === undefined ? basis.support : supportFromBoolean(probe)
+    ? probe ?? basis.support
     : typeof override === 'boolean' ? supportFromBoolean(override) : override.support;
   const facts = [
     ...basis.facts,
@@ -254,14 +261,11 @@ function protocolBasis(
   };
 }
 
-function controlProtocolSupport(input: TerminalCapabilityResolverInput): TerminalFeatureSupport {
-  if (!input.host.outputIsTty || !input.host.terminalProtocols) return 'unsupported';
-  if (input.host.runtime === 'memory') return 'supported';
-  const term = env(input.environment, 'TERM');
-  if (term === 'dumb') return 'unsupported';
-  if (term !== undefined && term.length > 0) return 'supported';
-  if (env(input.environment, 'TERM_PROGRAM') !== undefined) return 'supported';
-  return 'unknown';
+function controlSupport(
+  input: TerminalCapabilityResolverInput,
+  capability: Parameters<typeof inferControlCapability>[0]
+): TerminalFeatureSupport {
+  return inferControlCapability(capability, protocolEvidence(input));
 }
 
 function hyperlinkSupport(input: TerminalCapabilityResolverInput): TerminalFeatureSupport {
@@ -271,14 +275,26 @@ function hyperlinkSupport(input: TerminalCapabilityResolverInput): TerminalFeatu
   if (term?.includes('kitty') === true || term?.includes('foot') === true) return 'supported';
   const vte = Number.parseInt(env(input.environment, 'VTE_VERSION') ?? '', 10);
   if (Number.isFinite(vte) && vte >= 5000) return 'supported';
-  return controlProtocolSupport(input) === 'unsupported' ? 'unsupported' : 'unknown';
+  return protocolFloor(protocolEvidence(input)) === 'unsupported' ? 'unsupported' : 'unknown';
 }
 
 function kittySupport(input: TerminalCapabilityResolverInput): TerminalFeatureSupport {
-  if (controlProtocolSupport(input) === 'unsupported') return 'unsupported';
+  if (protocolFloor(protocolEvidence(input)) === 'unsupported') return 'unsupported';
   if (env(input.environment, 'KITTY_WINDOW_ID') !== undefined) return 'supported';
   if (env(input.environment, 'TERM')?.toLowerCase().includes('kitty') === true) return 'supported';
   return 'unknown';
+}
+
+function protocolEvidence(input: TerminalCapabilityResolverInput): Parameters<typeof inferControlCapability>[1] {
+  const term = env(input.environment, 'TERM');
+  const termProgram = env(input.environment, 'TERM_PROGRAM');
+  return {
+    runtime: input.host.runtime,
+    outputIsTty: input.host.outputIsTty,
+    terminalProtocols: input.host.terminalProtocols,
+    ...(term === undefined ? {} : { term }),
+    ...(termProgram === undefined ? {} : { termProgram })
+  };
 }
 
 function resolveColor(input: TerminalCapabilityResolverInput): TerminalColorCapability {

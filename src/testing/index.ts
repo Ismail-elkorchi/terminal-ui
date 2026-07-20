@@ -35,6 +35,8 @@ export type {
   RenderRegionHitTarget
 } from '../renderer/internal/render.ts';
 export { placeNotificationStack } from '../renderer/internal/notifications.ts';
+export { scrollbackSearchStatistics } from '../renderer/internal/scrollback/projection.ts';
+export { paletteIndexStatistics } from '../ui-model/palette-index.ts';
 export type {
   NotificationStackPlacementInput,
   NotificationStackSize

@@ -9,7 +9,8 @@ import {
   type TextAreaAction,
   type TreeAction
 } from '@ismail-elkorchi/terminal-ui/components';
-import { prepareTextDocument } from '@ismail-elkorchi/terminal-ui/text';
+import { prepareTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
+import { preparePaletteIndex } from '@ismail-elkorchi/terminal-ui/behavior';
 
 export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
 export type Equal<TLeft, TRight> =
@@ -29,7 +30,7 @@ const explorer = tree({
 
 const editor = textArea({
   id: 'editor',
-  presentation: { document: prepareTextDocument('hello'), cursor: 0 },
+  presentation: { document: prepareTextDocument('hello'), caret: textCaretAt(0 )},
   onAction: (action: TextAreaAction) => ({ kind: 'editor' as const, action })
 });
 
@@ -46,7 +47,7 @@ const commands = commandInput({
 
 const search = palette({
   id: 'search',
-  entries: [{ id: 'open', label: 'Open', value: 1 }],
+  index: preparePaletteIndex([{ id: 'open', label: 'Open', value: 1 }]),
   onSelect: (entry) => ({ kind: 'selectEntry' as const, value: entry.value }),
   onAction: (action: PaletteAction) => ({ kind: 'palette' as const, action }),
   keys: {

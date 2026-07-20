@@ -6,3 +6,7 @@ export type BuiltinRenderNodeKind = Exclude<RenderNodeKind, 'custom'>;
 export type RendererMap<K extends BuiltinRenderNodeKind> = Readonly<{
   readonly [TKind in K]: RenderNodeRenderer<unknown, TKind>;
 }>;
+
+export type RendererMeasurementMap<K extends BuiltinRenderNodeKind> = Readonly<{
+  readonly [TKind in K]: RenderNodeRenderer<unknown, TKind>['measure'];
+}>;

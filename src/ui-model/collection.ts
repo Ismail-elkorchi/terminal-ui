@@ -21,6 +21,7 @@ export interface CompleteCollectionProjection<TRecord extends CollectionRecord>
 export interface WindowedCollectionProjection<TRecord extends CollectionRecord>
   extends CollectionProjectionBase<TRecord> {
   readonly kind: 'window';
+  readonly domain: CollectionWindowDomain;
 }
 
 export type CollectionProjection<TRecord extends CollectionRecord> =
@@ -30,7 +31,17 @@ export type CollectionProjection<TRecord extends CollectionRecord> =
 export interface CollectionWindow {
   readonly start: number;
   readonly total: number;
+  readonly domain: CollectionWindowDomain;
 }
+
+export type CollectionWindowDomain =
+  | { readonly kind: 'source' }
+  | {
+      readonly kind: 'projection';
+      readonly id: string;
+      readonly filterQuery?: string;
+      readonly sort?: { readonly key: string; readonly direction: 'ascending' | 'descending' };
+    };
 
 interface CollectionIdentityIndex {
   readonly ids: readonly string[];
@@ -68,7 +79,8 @@ export function windowedCollection<TRecord extends CollectionRecord>(input: {
     kind: 'window',
     records: immutableRecords,
     start,
-    total
+    total,
+    domain: normalizeWindowDomain(input.window.domain)
   });
 }
 
@@ -128,4 +140,27 @@ function nonNegativeInteger(value: number, label: string): number {
     throw new RangeError(`${label} must be a non-negative safe integer.`);
   }
   return value;
+}
+
+function normalizeWindowDomain(domain: CollectionWindowDomain): CollectionWindowDomain {
+  if (domain.kind === 'source') return Object.freeze({ kind: 'source' });
+  const id = domain.id.trim();
+  if (id.length === 0) throw new TypeError('projected collection window domain id must not be empty.');
+  const filterQuery = domain.filterQuery?.trim();
+  const sort = normalizeWindowSort(domain.sort);
+  return Object.freeze({
+    kind: 'projection',
+    id,
+    ...(filterQuery === undefined || filterQuery.length === 0 ? {} : { filterQuery }),
+    ...(sort === undefined ? {} : { sort })
+  });
+}
+
+function normalizeWindowSort(
+  sort: Extract<CollectionWindowDomain, { readonly kind: 'projection' }>['sort']
+): NonNullable<Extract<CollectionWindowDomain, { readonly kind: 'projection' }>['sort']> | undefined {
+  if (sort === undefined) return undefined;
+  const key = sort.key.trim();
+  if (key.length === 0) throw new TypeError('projected collection window sort key must not be empty.');
+  return Object.freeze({ key, direction: sort.direction });
 }

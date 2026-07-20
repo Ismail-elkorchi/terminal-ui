@@ -2,8 +2,9 @@ import { toAccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic } from '../diagnostics.ts';
 import { applySessionProtocolPolicy } from './session-policy.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
+import type { DiagnosticOccurrence } from '../diagnostics.ts';
 import type {
+  TerminalOperationContext,
   TerminalRestoreOptions,
   TerminalRestoreReason,
   TerminalRestoreResult,
@@ -30,9 +31,10 @@ export function tuiSnapshot(id: string): AccessibleSnapshot {
 
 export async function setupTuiSession(
   session: TerminalSession,
-  policy?: SessionProtocolPolicy
+  policy?: SessionProtocolPolicy,
+  context: TerminalOperationContext = {}
 ): Promise<SessionProtocolSetupResult> {
-  return applySessionProtocolPolicy(session, policy);
+  return applySessionProtocolPolicy(session, policy, context);
 }
 
 export async function restoreTuiSession(
@@ -82,7 +84,7 @@ export function restoreReasonForExit(status: TuiExit<unknown>['status']): Termin
 
 export function withDiagnostics<TState>(
   exit: TuiExit<TState>,
-  diagnostics: readonly TerminalDiagnostic[]
+  diagnostics: readonly DiagnosticOccurrence[]
 ): TuiExit<TState> {
   if (diagnostics.length === 0) return exit;
   return { ...exit, diagnostics: [...exit.diagnostics, ...diagnostics] };

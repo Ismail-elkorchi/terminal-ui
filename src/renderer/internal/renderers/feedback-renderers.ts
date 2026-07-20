@@ -18,10 +18,12 @@ import {
 } from '../notifications.ts';
 import { statusBarAccessibleText } from '../feedback-visual.ts';
 import { writeRenderBlock } from './support/block.ts';
+import { feedbackMeasurements } from './feedback-measurements.ts';
 import type { RendererMap } from './types.ts';
 
 export const feedbackRenderers = {
   statusBar: {
+    measure: feedbackMeasurements.statusBar,
     render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
       writeRenderBlock(buffer, layoutNode.bounds, statusBarBlock(renderNode, theme, widthProfile, layoutNode.bounds.width));
     },
@@ -34,24 +36,28 @@ export const feedbackRenderers = {
     })
   },
   helpBar: {
+    measure: feedbackMeasurements.helpBar,
     render: ({ renderNode, layoutNode, buffer, widthProfile }) => {
       writeRenderBlock(buffer, layoutNode.bounds, helpBarBlock(renderNode, widthProfile, layoutNode.bounds.width));
     },
     accessibility: ({ renderNode, id, widthProfile }) => helpBarAccessibleBase(renderNode, id, widthProfile)
   },
   spinner: {
+    measure: feedbackMeasurements.spinner,
     render: ({ renderNode, layoutNode, buffer, theme }) => {
       writeRenderBlock(buffer, layoutNode.bounds, spinnerBlock(renderNode, theme));
     },
     accessibility: ({ renderNode, id }) => spinnerAccessibleBase(renderNode, id)
   },
   progressBar: {
+    measure: feedbackMeasurements.progressBar,
     render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
       writeRenderBlock(buffer, layoutNode.bounds, progressBlock(renderNode, theme, widthProfile, layoutNode.bounds.width));
     },
     accessibility: ({ renderNode, id }) => progressAccessibleBase(renderNode, id)
   },
   notificationStack: {
+    measure: feedbackMeasurements.notificationStack,
     render: ({ renderNode, layoutNode, buffer, theme }) => {
       renderNotificationStack(renderNode, buffer, layoutNode.bounds, theme);
     },

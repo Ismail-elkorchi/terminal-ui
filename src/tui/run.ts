@@ -1,4 +1,4 @@
-import { diagnostic } from '../diagnostics.ts';
+import { createDiagnosticOccurrenceReporter, diagnostic } from '../diagnostics.ts';
 import { runTuiInputLoop } from './input-loop.ts';
 import {
   restoreReasonForExit,
@@ -8,10 +8,17 @@ import {
 import { runTuiNonTty } from './non-tty.ts';
 import { createTuiRuntime } from './runtime.ts';
 import { TuiRunLifecycleOwner } from './run-lifecycle.ts';
+import { runTuiLifecyclePhase } from './lifecycle-phase.ts';
 import { normalizeTuiRunOptions } from './run-configuration.ts';
 import { createTuiTranscript, withTuiTranscript } from './transcript.ts';
-import type { TerminalDiagnostic } from '../diagnostics.ts';
+import type {
+  DiagnosticOccurrence,
+  DiagnosticOccurrenceReporter,
+  TerminalDiagnostic
+} from '../diagnostics.ts';
 import type { TerminalHost, TerminalSession } from '../host/index.ts';
+import type { TuiLifecyclePhase } from './lifecycle-phase.ts';
+import type { NormalizedTuiRunOptions } from './run-configuration.ts';
 import { LEGACY_KEYBOARD_PROFILE } from '../protocol/index.ts';
 import type { TuiApp, TuiExit, TuiRunOptions, TuiRuntime } from './types.ts';
 
@@ -21,40 +28,51 @@ export async function runTui<TState, TMessage>(
   options: TuiRunOptions<TState> = {}
 ): Promise<TuiExit<TState>> {
   const transcript = createTuiTranscript(app);
-  let normalized;
+  const diagnosticReporter = createDiagnosticOccurrenceReporter(`${app.id}:run`);
+  let normalized: NormalizedTuiRunOptions<TState>;
   try {
     normalized = normalizeTuiRunOptions(options);
   } catch (cause) {
-    return withTuiTranscript(errorExit(app.id, [
+    return withTuiTranscript(errorExit(app.id, reportDiagnostics(diagnosticReporter, [
       diagnostic('TUI_RUN_FAILED', 'TUI run configuration is invalid.', {
         target: app.id,
         cause,
         data: { phase: 'configuration' }
       })
-    ]), transcript);
+    ])), transcript);
   }
   if (host === undefined) {
-    return withTuiTranscript(errorExit(app.id, [
+    return withTuiTranscript(errorExit(app.id, reportDiagnostics(diagnosticReporter, [
       diagnostic('HOST_CAPABILITY_UNAVAILABLE', 'Full-screen TUI requires an explicit terminal host.', {
         target: app.id
       })
-    ]), transcript);
+    ])), transcript);
   }
+  const terminalHost = host;
 
-  const lifecycle = new TuiRunLifecycleOwner(app, host, normalized, transcript);
+  const lifecycle = new TuiRunLifecycleOwner(app, terminalHost, normalized, transcript);
   let session: TerminalSession | undefined;
   let exit: TuiExit<TState> | undefined;
   let failure: unknown;
   let setupFailed = false;
   let setupFailureDiagnostic: TerminalDiagnostic | undefined;
   const setupDiagnostics: TerminalDiagnostic[] = [];
+  const startupDiagnostics: TerminalDiagnostic[] = [];
 
   try {
-    const nonTtyExit = await runTuiNonTty(app, host, transcript, normalized);
+    const capabilities = await startupPhase('capabilities', async (signal) => terminalHost.getCapabilities({
+      activeProbes: normalized.sessionPolicy.keyboard.profile.kind === 'kitty'
+        ? ['keyboardProtocol']
+        : [],
+      signal
+    }));
+    const nonTtyExit = await runTuiNonTty(app, terminalHost, transcript, normalized, capabilities);
     if (nonTtyExit !== undefined) return withTuiTranscript(nonTtyExit, transcript);
-    session = await host.beginSession({ id: app.id });
-    lifecycle.openSession(session);
-    const setup = await setupTuiSession(session, normalized.sessionPolicy);
+    const openedSession = await startupPhase('session', async () => terminalHost.beginSession({ id: app.id }));
+    session = openedSession;
+    lifecycle.openSession(openedSession);
+    const setup = await startupPhase('setup', async (signal) =>
+      setupTuiSession(openedSession, normalized.sessionPolicy, { signal }));
     setupDiagnostics.push(...setup.diagnostics);
     if (!setup.ok) {
       setupFailed = true;
@@ -72,7 +90,7 @@ export async function runTui<TState, TMessage>(
     } else {
       const runtime = createTuiRuntime({
         app,
-        host,
+        host: terminalHost,
         ...(normalized.initialFocus === undefined ? {} : { initialFocus: normalized.initialFocus }),
         ...(normalized.theme === undefined ? {} : { theme: normalized.theme }),
         input: {
@@ -86,7 +104,7 @@ export async function runTui<TState, TMessage>(
         ...(transcript === undefined ? {} : { transcript })
       });
       lifecycle.activateRuntime(runtime);
-      await runtime.start();
+      await startupPhase('runtime_start', async () => runtime.start());
       exit = await runTuiInputLoop(runtime, transcript, (retirement) => {
         lifecycle.retireInput(retirement);
       });
@@ -102,25 +120,50 @@ export async function runTui<TState, TMessage>(
       : 'error'
   );
 
-  const terminalDiagnostics = mergeDiagnostics(
-    failure === undefined ? [] : [diagnostic('TUI_RUN_FAILED', 'TUI run failed before completion.', {
-      target: app.id,
-      cause: failure
-    })],
-    setupFailureDiagnostic === undefined ? [] : [setupFailureDiagnostic],
-    setupDiagnostics,
-    finalization.diagnostics
-  );
   if (setupFailed || failure !== undefined || exit === undefined || hasFailure(finalization.diagnostics)) {
+    const preRuntimeDiagnostics = lifecycle.runtime === undefined
+      ? reportDiagnostics(diagnosticReporter, setupDiagnostics)
+      : lifecycle.runtime.diagnostics();
+    const terminalDiagnostics = mergeOccurrences(
+      preRuntimeDiagnostics,
+      reportDiagnostics(diagnosticReporter, [
+        ...startupDiagnostics,
+        ...(failure === undefined || startupDiagnostics.length > 0 ? [] : [diagnostic('TUI_RUN_FAILED', 'TUI run failed before completion.', {
+          target: app.id,
+          cause: failure
+        })]),
+        ...(setupFailureDiagnostic === undefined ? [] : [setupFailureDiagnostic]),
+        ...finalization.diagnostics
+      ])
+    );
     return withTuiTranscript(errorExitFromRuntime(app.id, lifecycle.runtime, exit, terminalDiagnostics), transcript);
   }
   return withTuiTranscript({
     ...exit,
-    diagnostics: mergeDiagnostics(exit.diagnostics, finalization.diagnostics)
+    diagnostics: mergeOccurrences(
+      exit.diagnostics,
+      reportDiagnostics(diagnosticReporter, finalization.diagnostics)
+    )
   }, transcript);
+
+  async function startupPhase<TValue>(
+    phase: Extract<TuiLifecyclePhase, 'capabilities' | 'session' | 'setup' | 'runtime_start'>,
+    operation: (signal: AbortSignal) => TValue | Promise<TValue>
+  ): Promise<TValue> {
+    const outcome = await runTuiLifecyclePhase({
+      clock: terminalHost.clock,
+      owner: app.id,
+      phase,
+      timeoutMs: normalized.lifecycle.startupTimeoutMs,
+      operation
+    });
+    if (outcome.status === 'settled') return outcome.value;
+    startupDiagnostics.push(outcome.diagnostic);
+    throw new Error(outcome.diagnostic.message, { cause: outcome.diagnostic.cause });
+  }
 }
 
-function errorExit<TState>(id: string, diagnostics: readonly TerminalDiagnostic[]): TuiExit<TState> {
+function errorExit<TState>(id: string, diagnostics: readonly DiagnosticOccurrence[]): TuiExit<TState> {
   return { status: 'error', diagnostics, snapshot: tuiSnapshot(id) };
 }
 
@@ -128,7 +171,7 @@ function errorExitFromRuntime<TState, TMessage>(
   id: string,
   runtime: TuiRuntime<TState, TMessage> | undefined,
   exit: TuiExit<TState> | undefined,
-  diagnostics: readonly TerminalDiagnostic[]
+  diagnostics: readonly DiagnosticOccurrence[]
 ): TuiExit<TState> {
   if (exit !== undefined && 'state' in exit) {
     return { status: 'error', state: exit.state, diagnostics, snapshot: exit.snapshot };
@@ -152,15 +195,22 @@ function hasFailure(diagnostics: readonly TerminalDiagnostic[]): boolean {
   return diagnostics.some((item) => item.severity === 'error' || item.severity === 'fatal');
 }
 
-function mergeDiagnostics(
-  ...groups: readonly (readonly TerminalDiagnostic[])[]
-): readonly TerminalDiagnostic[] {
+function mergeOccurrences(
+  ...groups: readonly (readonly DiagnosticOccurrence[])[]
+): readonly DiagnosticOccurrence[] {
   const seen = new Set<string>();
-  const merged: TerminalDiagnostic[] = [];
+  const merged: DiagnosticOccurrence[] = [];
   for (const item of groups.flat()) {
     if (seen.has(item.id)) continue;
     seen.add(item.id);
     merged.push(item);
   }
   return merged;
+}
+
+function reportDiagnostics(
+  reporter: DiagnosticOccurrenceReporter,
+  diagnostics: readonly TerminalDiagnostic[]
+): readonly DiagnosticOccurrence[] {
+  return diagnostics.map((item) => reporter.report(item));
 }

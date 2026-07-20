@@ -1,7 +1,6 @@
 import type { ElementFocusScope } from '../../element/metadata.ts';
 import { builtinRenderNodeRenderers } from './renderers/index.ts';
 import { normalizeMeasurement, zeroMeasurement } from './measurement.ts';
-import { measureBuiltinRenderNode } from './render-node-measure.ts';
 import { renderNodeInteractionDisabled } from './render-node-interaction.ts';
 import { pointerPresentationHitTargets } from './pointer-presentation.ts';
 import {
@@ -34,17 +33,7 @@ export function layoutChildBounds(
   if (renderer.layout === undefined) {
     throw new Error(`RenderNode "${widget.kind}" has children but does not define layout.`);
   }
-  const measured = new Map<number, Measurement>();
-  const measureChild = (index: number): Measurement => {
-    if (!Number.isInteger(index) || index < 0 || index >= children.length) return zeroMeasurement();
-    const cached = measured.get(index);
-    if (cached !== undefined) return cached;
-    const child = children[index];
-    if (child === undefined) return zeroMeasurement();
-    const measurement = measurements.measure(child, bounds);
-    measured.set(index, measurement);
-    return measurement;
-  };
+  const measureChild = childMeasurer(children, bounds, measurements);
   return renderer.layout({
     renderNode: widget,
     bounds,
@@ -100,22 +89,33 @@ function measureRenderNode(
   context: RenderMeasurementContext
 ): Measurement {
   const renderer = rendererForRenderNode(widget);
-  if (renderer.measure !== undefined) {
-    return normalizeMeasurement(renderer.measure({
-      renderNode: widget,
-      bounds,
-      theme: context.theme,
-      widthProfile: context.widthProfile
-    }));
-  }
-  if (widget.kind === 'custom') return zeroMeasurement();
-  return measureBuiltinRenderNode(
-    widget,
+  const children = widget.children ?? [];
+  return normalizeMeasurement(renderer.measure({
+    renderNode: widget,
     bounds,
-    context.theme,
-    context.widthProfile,
-    (child, childBounds) => context.measure(child, childBounds)
-  );
+    theme: context.theme,
+    childCount: children.length,
+    measureChild: childMeasurer(children, bounds, context),
+    widthProfile: context.widthProfile
+  }));
+}
+
+function childMeasurer(
+  children: readonly RenderNode[],
+  bounds: Rect,
+  measurements: RenderMeasurementContext
+): (index: number) => Measurement {
+  const measured = new Map<number, Measurement>();
+  return (index): Measurement => {
+    if (!Number.isInteger(index) || index < 0 || index >= children.length) return zeroMeasurement();
+    const cached = measured.get(index);
+    if (cached !== undefined) return cached;
+    const child = children[index];
+    if (child === undefined) return zeroMeasurement();
+    const measurement = measurements.measure(child, bounds);
+    measured.set(index, measurement);
+    return measurement;
+  };
 }
 
 export function renderRenderNode(

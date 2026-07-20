@@ -231,6 +231,7 @@ test('schemas reject malformed nested public payloads', async () => {
     focusReporting: capabilitySupport('supported'),
     cursorVisibility: capabilitySupport('supported'),
     synchronizedOutput: capabilitySupport('unavailable'),
+    scrollRegion: capabilitySupport('unavailable'),
     title: capabilitySupport('supported'),
     bell: capabilitySupport('supported'),
     clipboard: capabilitySupport('unavailable'),
@@ -239,7 +240,7 @@ test('schemas reject malformed nested public payloads', async () => {
 
   assert.equal(validators.get('terminal-diagnostic.schema.json')({
     schemaVersion: 'terminal-ui.terminal-diagnostic.v1',
-    id: 'diagnostic:unknown',
+    fingerprint: 'diagnostic:unknown',
     code: 'UNKNOWN_DIAGNOSTIC',
     severity: 'error',
     message: 'Unknown code should not satisfy the public diagnostic contract.'

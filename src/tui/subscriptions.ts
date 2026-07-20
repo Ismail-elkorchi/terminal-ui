@@ -209,6 +209,11 @@ export function createTuiSubscriptionManager<TState, TMessage>(
   function disposeSource(source: ActiveTuiEventSource<TMessage>): Promise<void> {
     source.disposal ??= invokeSourceDisposer(source).catch((cause: unknown) => {
       retirementFailures.push(cause);
+      options.reportDiagnostic(diagnostic('TUI_SOURCE_FAILED', `TUI event source ${source.id} cleanup failed.`, {
+        target: source.id,
+        cause,
+        data: { generation: source.generation, phase: 'dispose' }
+      }));
     });
     return source.disposal;
   }

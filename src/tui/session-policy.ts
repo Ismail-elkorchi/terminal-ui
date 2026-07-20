@@ -2,10 +2,11 @@ import { diagnostic } from '../diagnostics.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type {
   MouseReportingMode,
+  TerminalOperationContext,
+  TerminalOperationOutcome,
   TerminalSession,
   TerminalStateChange
 } from '../host/index.ts';
-import type { Result } from '../result.ts';
 import { LEGACY_KEYBOARD_PROFILE } from '../protocol/keyboard.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 
@@ -92,7 +93,8 @@ export function createSessionProtocolPlan(
 
 export async function applySessionProtocolPolicy(
   session: TerminalSession,
-  policy: SessionProtocolPolicy = defaultSessionProtocolPolicy
+  policy: SessionProtocolPolicy = defaultSessionProtocolPolicy,
+  context: TerminalOperationContext = {}
 ): Promise<SessionProtocolSetupResult> {
   const planned = createSessionProtocolPlan(policy);
   const applied: TerminalStateChange[] = [];
@@ -110,27 +112,13 @@ export async function applySessionProtocolPolicy(
       diagnostics.push(skippedDiagnostic(session, item));
       continue;
     }
-    let result: Result<TerminalStateChange>;
-    try {
-      result = await applyOperation(session, item);
-    } catch (cause) {
-      const error = diagnostic('HOST_PROTOCOL_UNSUPPORTED', `Terminal protocol setup failed: ${item.kind}.`, {
-        severity: item.requirement === 'required' ? 'error' : 'warning',
-        target: session.id,
-        cause,
-        data: { operation: item.kind, requirement: item.requirement, target: protocolTarget(item.target) }
-      });
-      diagnostics.push(error);
-      skipped.push(item);
-      if (item.requirement === 'required') ok = false;
+    const result = await applyOperation(session, item, context);
+    if (result.status === 'applied') {
+      applied.push(result.change);
+      diagnostics.push(...result.diagnostics);
       continue;
     }
-    if (result.ok) {
-      applied.push(result.value);
-      diagnostics.push(...(result.diagnostics ?? []));
-      continue;
-    }
-    diagnostics.push(operationFailureDiagnostic(session, item, result.error), ...(result.diagnostics ?? []));
+    diagnostics.push(operationFailureDiagnostic(session, item, result.diagnostic), ...result.diagnostics);
     skipped.push(item);
     if (item.requirement === 'required') ok = false;
   }
@@ -139,23 +127,24 @@ export async function applySessionProtocolPolicy(
 
 async function applyOperation(
   session: TerminalSession,
-  item: SessionProtocolOperation
-): Promise<Result<TerminalStateChange>> {
+  item: SessionProtocolOperation,
+  context: TerminalOperationContext
+): Promise<TerminalOperationOutcome> {
   switch (item.kind) {
     case 'alternateScreen':
-      return session.enableAlternateScreen();
+      return session.enableAlternateScreen(context);
     case 'rawInput':
-      return session.enableRawInput();
+      return session.enableRawInput(context);
     case 'bracketedPaste':
-      return session.enableBracketedPaste();
+      return session.enableBracketedPaste(context);
     case 'focusReporting':
-      return session.enableFocusReporting();
+      return session.enableFocusReporting(context);
     case 'keyboardProfile':
-      return session.enableKeyboardProfile(item.target);
+      return session.enableKeyboardProfile(item.target, context);
     case 'cursorVisibility':
-      return item.target === 'show' ? session.showCursor() : session.hideCursor();
+      return item.target === 'show' ? session.showCursor(context) : session.hideCursor(context);
     case 'mouseReporting':
-      return session.enableMouseReporting(item.target);
+      return session.enableMouseReporting(item.target, context);
   }
 }
 

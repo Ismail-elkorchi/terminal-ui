@@ -43,10 +43,6 @@ export function colorOptionsForRenderer<TValue>(
   return options;
 }
 
-export function searchEntriesForRenderer<TValue>(entries: readonly SearchEntry<TValue>[]): readonly SearchEntry<unknown>[] {
-  return entries;
-}
-
 export function searchSelectionHandler<TValue, TMessage>(
   handler: ((entry: SearchEntry<TValue>) => TMessage) | undefined
 ): ((entry: SearchEntry<unknown>) => TMessage) | undefined {

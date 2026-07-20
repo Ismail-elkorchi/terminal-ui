@@ -94,6 +94,21 @@ test('capability resolution distinguishes support, adapter availability, and env
   assert.equal(xterm.hyperlinks.support, 'supported');
   assert.equal(xterm.hyperlinks.facts.some((fact) => fact.kind === 'environment'), true);
 
+  const misleading = resolveTerminalCapabilities({
+    host: hostFacts(),
+    environment: { variables: { TERM: 'vendor-terminal', TERM_PROGRAM: 'unknown-program' } }
+  });
+  assert.equal(misleading.alternateScreen.support, 'unknown');
+  assert.equal(misleading.bracketedPaste.support, 'unknown');
+
+  const linux = resolveTerminalCapabilities({
+    host: hostFacts(),
+    environment: { variables: { TERM: 'linux' } }
+  });
+  assert.equal(linux.alternateScreen.support, 'supported');
+  assert.equal(linux.cursorVisibility.support, 'supported');
+  assert.equal(linux.bracketedPaste.support, 'unknown');
+
   const truecolor = resolveTerminalCapabilities({
     host: hostFacts(),
     environment: { variables: { TERM: 'xterm', COLORTERM: 'truecolor' } }
@@ -123,7 +138,7 @@ test('color and protocol evidence follow explicit override precedence', () => {
   });
   const protocol = resolveTerminalCapabilities({
     host: hostFacts(),
-    probes: { synchronizedOutput: true },
+    probes: { synchronizedOutput: 'supported' },
     overrides: { synchronizedOutput: false }
   });
 
@@ -144,7 +159,7 @@ test('synchronized output requires an explicit probe or override', () => {
     resizeEvents: true,
     terminalProtocols: true
   };
-  const probed = resolveTerminalCapabilities({ host, probes: { synchronizedOutput: true } });
+  const probed = resolveTerminalCapabilities({ host, probes: { synchronizedOutput: 'supported' } });
   const forced = resolveTerminalCapabilities({ host, overrides: { synchronizedOutput: true } });
 
   assert.equal(probed.synchronizedOutput.support, 'supported');
@@ -153,6 +168,61 @@ test('synchronized output requires an explicit probe or override', () => {
   assert.equal(forced.synchronizedOutput.support, 'supported');
   assert.equal(forced.synchronizedOutput.facts.at(-1)?.kind, 'override');
   assert.equal(probed.synchronizedOutput.requiresSessionOperation, false);
+});
+
+test('active Kitty discovery consumes only its split response and replays unrelated input', async () => {
+  const host = createMemoryTerminalHost();
+  host.input('before\u001B[?');
+  host.input('7uafter');
+
+  const capabilities = await host.getCapabilities({
+    activeProbes: ['keyboardProtocol'],
+    probeTimeoutMs: 10
+  });
+  const input = host.stdin.read()[Symbol.asyncIterator]();
+  const first = await input.next();
+  const second = await input.next();
+  await input.return?.();
+
+  assert.equal(capabilities.keyboardProtocol.support, 'supported');
+  assert.equal(capabilities.keyboardProtocol.facts.at(-1)?.kind, 'probe');
+  assert.equal(inputText(first.value?.data) + inputText(second.value?.data), 'beforeafter');
+  assert.equal(host.output(), '\u001B[?u');
+  assert.equal(host.restores().at(-1)?.status, 'restored');
+});
+
+test('active Kitty discovery is bounded and replays buffered user input after timeout', async () => {
+  const host = createMemoryTerminalHost();
+  host.input('typed while probing');
+  const detection = host.getCapabilities({
+    activeProbes: ['keyboardProtocol'],
+    probeTimeoutMs: 25
+  });
+  await Promise.resolve();
+  await Promise.resolve();
+  host.clock.advance(25);
+
+  const capabilities = await detection;
+  const input = host.stdin.read()[Symbol.asyncIterator]();
+  const replayed = await input.next();
+  await input.return?.();
+
+  assert.equal(capabilities.keyboardProtocol.support, 'unknown');
+  assert.equal(capabilities.keyboardProtocol.facts.at(-1)?.kind, 'probe');
+  assert.equal(inputText(replayed.value?.data), 'typed while probing');
+  assert.equal(host.restores().at(-1)?.status, 'restored');
+});
+
+test('injected capability evidence avoids active terminal queries', async () => {
+  const host = createMemoryTerminalHost({
+    capabilities: { probes: { keyboardProtocol: 'unsupported' } }
+  });
+
+  const capabilities = await host.getCapabilities({ activeProbes: ['keyboardProtocol'] });
+
+  assert.equal(capabilities.keyboardProtocol.support, 'unsupported');
+  assert.equal(host.output(), '');
+  assert.deepEqual(host.restores(), []);
 });
 
 test('protocol writer emits typed mouse mode and sanitized title sequences', async () => {
@@ -471,7 +541,7 @@ test('explicit raw input state outranks a runtime adapter fallback', async () =>
 
 test('session policy enables and restores a supported Kitty keyboard profile', async () => {
   const host = createMemoryTerminalHost({
-    capabilities: { probes: { keyboardProtocol: true } }
+    capabilities: { probes: { keyboardProtocol: 'supported' } }
   });
   const session = await host.beginSession({ id: 'enhanced-keyboard-session' });
   const result = await applySessionProtocolPolicy(session, {
@@ -496,7 +566,7 @@ test('session policy enables and restores a supported Kitty keyboard profile', a
 
 test('terminal sessions update one Kitty profile without growing the terminal stack', async () => {
   const host = createMemoryTerminalHost({
-    capabilities: { probes: { keyboardProtocol: true } }
+    capabilities: { probes: { keyboardProtocol: 'supported' } }
   });
   const session = await host.beginSession({ id: 'keyboard-profile-stack' });
 
@@ -515,7 +585,7 @@ test('terminal sessions update one Kitty profile without growing the terminal st
 
 test('terminal sessions pop their frame when restoring an explicit Kitty profile', async () => {
   const host = createMemoryTerminalHost({
-    capabilities: { probes: { keyboardProtocol: true } },
+    capabilities: { probes: { keyboardProtocol: 'supported' } },
     initialState: { keyboardProfile: kittyEvents }
   });
   const session = await host.beginSession({ id: 'explicit-kitty-profile' });
@@ -530,7 +600,7 @@ test('terminal sessions pop their frame when restoring an explicit Kitty profile
 
 test('terminal sessions apply legacy input inside an owned Kitty stack frame', async () => {
   const host = createMemoryTerminalHost({
-    capabilities: { probes: { keyboardProtocol: true } }
+    capabilities: { probes: { keyboardProtocol: 'supported' } }
   });
   const session = await host.beginSession({ id: 'keyboard-profile-legacy' });
 
@@ -549,13 +619,13 @@ test('terminal sessions apply legacy input inside an owned Kitty stack frame', a
 
 test('terminal sessions continue restoring later state after one restore operation fails', async () => {
   const host = createMemoryTerminalHost();
-  const originalWrite = host.write.bind(host);
+  const originalWrite = host.writeSafety.bind(host);
   const session = await host.beginSession({ id: 'restore-best-effort' });
   await session.enableRawInput();
   await session.enableAlternateScreen();
-  host.write = async (output) => {
+  host.writeSafety = async (output) => {
     if (output.text === '\u001B[?1049l') throw new Error('alternate screen restore failed');
-    await originalWrite(output);
+    return originalWrite(output);
   };
 
   const result = await session.restore('error');
@@ -572,17 +642,17 @@ test('terminal sessions continue restoring later state after one restore operati
 
 test('terminal sessions retry restoration after an unsuccessful completed attempt', async () => {
   const host = createMemoryTerminalHost();
-  const originalWrite = host.write.bind(host);
+  const originalWrite = host.writeSafety.bind(host);
   const session = await host.beginSession({ id: 'restore-retry' });
   await session.enableRawInput();
   await session.enableAlternateScreen();
   let remainingFailures = 1;
-  host.write = async (output, context) => {
+  host.writeSafety = async (output, context) => {
     if (output.text === '\u001B[?1049l' && remainingFailures > 0) {
       remainingFailures -= 1;
       throw new Error('transient alternate screen restore failure');
     }
-    await originalWrite(output, context);
+    return originalWrite(output, context);
   };
 
   const first = await session.restore('error');
@@ -596,14 +666,15 @@ test('terminal sessions retry restoration after an unsuccessful completed attemp
 
 test('terminal restoration checks cancellation between protocol operations and remains retryable', async () => {
   const host = createMemoryTerminalHost();
-  const write = host.write.bind(host);
+  const write = host.writeSafety.bind(host);
   const session = await host.beginSession({ id: 'restore-operation-cancellation' });
   await session.enableAlternateScreen();
   await session.hideCursor();
   const controller = new globalThis.AbortController();
-  host.write = async (output, context) => {
-    await write(output, context);
+  host.writeSafety = async (output, context) => {
+    const receipt = await write(output, context);
     if (output.text === '\u001B[?25h') controller.abort(new Error('restore deadline expired'));
+    return receipt;
   };
 
   const cancelled = await session.restore('error', { operationSignal: controller.signal });
@@ -614,7 +685,7 @@ test('terminal restoration checks cancellation between protocol operations and r
   assert.equal(cancelled.diagnostics[0]?.data?.operation, 'cursorVisible');
   assert.doesNotMatch(host.output(), /\u001B\[\?1049l/u);
 
-  host.write = write;
+  host.writeSafety = write;
   const retried = await session.restore('error');
   assert.equal(retried.status, 'restored');
   assert.deepEqual(retried.confirmed.map((operation) => operation.kind), ['alternateScreen']);
@@ -622,17 +693,17 @@ test('terminal restoration checks cancellation between protocol operations and r
 
 test('concurrent terminal session restores share one authority operation across caller contexts', async () => {
   const host = createMemoryTerminalHost();
-  const originalWrite = host.write.bind(host);
+  const originalWrite = host.writeSafety.bind(host);
   const session = await host.beginSession({ id: 'coalesced-restore' });
   await session.enableAlternateScreen();
   const restoreStarted = deferred();
   const releaseRestore = deferred();
-  host.write = async (output, context) => {
+  host.writeSafety = async (output, context) => {
     if (output.text === '\u001B[?1049l') {
       restoreStarted.resolve();
       await releaseRestore.promise;
     }
-    await originalWrite(output, context);
+    return originalWrite(output, context);
   };
   const firstController = new globalThis.AbortController();
   const secondController = new globalThis.AbortController();
@@ -658,7 +729,8 @@ test('terminal sessions restore protocol mutations whose writes apply and then r
     if (output.text === '\u001B[?1049h') throw new Error('write rejected after applying alternate screen');
   };
 
-  await assert.rejects(() => session.enableAlternateScreen(), /after applying/u);
+  const outcome = await session.enableAlternateScreen();
+  assert.equal(outcome.status, 'indeterminate');
   host.write = write;
   const restored = await session.restore('error');
 
@@ -680,7 +752,7 @@ test('terminal sessions conservatively restore every uncertain protocol mutation
     { id: 'focus', enable: (session) => session.enableFocusReporting(), sequence: '\u001B[?1004h', kind: 'focusReporting' },
     {
       id: 'kitty-keyboard',
-      hostOptions: { capabilities: { probes: { keyboardProtocol: true } } },
+      hostOptions: { capabilities: { probes: { keyboardProtocol: 'supported' } } },
       enable: (session) => session.enableKeyboardProfile(kittyEvents),
       sequence: '\u001B[>3u',
       kind: 'keyboardProfile'
@@ -697,7 +769,8 @@ test('terminal sessions conservatively restore every uncertain protocol mutation
       if (output.text === item.sequence) throw new Error(`${item.id} rejected after applying`);
     };
 
-    await assert.rejects(() => item.enable(session), /rejected after applying/u);
+    const outcome = await item.enable(session);
+    assert.equal(outcome.status, 'indeterminate', item.id);
     host.write = write;
     const restored = await session.restore('error');
 
@@ -718,7 +791,8 @@ test('terminal sessions restore uncertain raw mode after the host mutates and re
     if (enabled) throw new Error('raw mode rejected after mutation');
   };
 
-  await assert.rejects(() => session.enableRawInput(), /after mutation/u);
+  const outcome = await session.enableRawInput();
+  assert.equal(outcome.status, 'indeterminate');
   host.stdin.setRawMode = setRawMode;
   const restored = await session.restore('error');
 
@@ -763,8 +837,8 @@ test('shared terminal restoration is independent from each caller cancellation c
   await session.enableAlternateScreen();
   const restoreStarted = deferred();
   const releaseRestore = deferred();
-  const write = host.write.bind(host);
-  host.write = async (output, context) => {
+  const write = host.writeSafety.bind(host);
+  host.writeSafety = async (output, context) => {
     if (output.text === '\u001B[?1049l') {
       restoreStarted.resolve();
       await Promise.race([
@@ -774,7 +848,7 @@ test('shared terminal restoration is independent from each caller cancellation c
         })
       ]);
     }
-    await write(output, context);
+    return write(output, context);
   };
 
   const cancelledCaller = new globalThis.AbortController();
@@ -798,13 +872,13 @@ test('terminal lease creation waits for in-flight restoration to commit', async 
   await first.enableAlternateScreen();
   const restoreStarted = deferred();
   const releaseRestore = deferred();
-  const write = host.write.bind(host);
-  host.write = async (output, context) => {
+  const write = host.writeSafety.bind(host);
+  host.writeSafety = async (output, context) => {
     if (output.text === '\u001B[?1049l') {
       restoreStarted.resolve();
       await releaseRestore.promise;
     }
-    await write(output, context);
+    return write(output, context);
   };
 
   const restoring = first.restore('success');
@@ -821,7 +895,7 @@ test('terminal lease creation waits for in-flight restoration to commit', async 
   assert.equal((await restoring).status, 'restored');
   const second = await creating;
   assert.equal(secondCreated, true);
-  assert.equal((await second.enableBracketedPaste()).ok, true);
+  assert.equal((await second.enableBracketedPaste()).status, 'applied');
   assert.equal((await second.restore('success')).status, 'restored');
   assert.equal((await restoreTerminalState(host)).status, 'restored');
 });
@@ -867,7 +941,11 @@ test('stream host disposal restores active terminal sessions', async () => {
       isTty: true,
       setRawMode: (enabled) => rawModes.push(enabled)
     },
-    stdout: { write: (chunk) => output.push(String(chunk)), isTty: true }
+    stdout: {
+      write: (chunk) => output.push(String(chunk)),
+      safetyWrite: (chunk) => output.push(String(chunk)),
+      isTty: true
+    }
   });
   const session = await host.beginSession({ id: 'stream-dispose-session' });
   await session.enableRawInput();
@@ -886,6 +964,41 @@ test('stream host disposal restores active terminal sessions', async () => {
   assert.match(output.join(''), /\u001B\[\?25l/u);
   assert.match(output.join(''), /\u001B\[\?25h/u);
   assert.deepEqual(afterDisposeRestore.confirmed, []);
+});
+
+test('stream host restoration uses safety output while normal output is blocked', async () => {
+  const normalWrites = [];
+  const safetyWrites = [];
+  const blocked = deferred();
+  const release = deferred();
+  const host = createDenoTerminalHost({
+    id: 'stream-safety-restore',
+    capabilities: { overrides: { alternateScreen: true } },
+    stdout: {
+      isTty: true,
+      async write(chunk) {
+        normalWrites.push(String(chunk));
+        if (chunk === 'blocked-frame') {
+          blocked.resolve();
+          await release.promise;
+        }
+      },
+      safetyWrite: (chunk) => { safetyWrites.push(String(chunk)); }
+    }
+  });
+  const session = await host.beginSession({ id: 'stream-safety-session' });
+  assert.equal((await session.enableAlternateScreen()).status, 'applied');
+  const normalWrite = host.write({ text: 'blocked-frame' });
+  await blocked.promise;
+
+  const restored = await session.restore('error');
+
+  assert.equal(restored.status, 'restored');
+  assert.deepEqual(safetyWrites, ['\u001B[?1049l']);
+  assert.equal(normalWrites.includes('blocked-frame'), true);
+  release.resolve();
+  assert.equal((await normalWrite).status, 'committed');
+  await host.dispose();
 });
 
 test('Deno and Bun host adapters work with explicit runtime streams', async () => {
@@ -944,8 +1057,8 @@ test('runtime stream hosts only advertise raw input when a raw-mode setter exist
   assert.equal(unsupportedCapabilities.isTty, true);
   assert.equal(unsupportedCapabilities.rawInput.support, 'supported');
   assert.equal(unsupportedCapabilities.rawInput.availability, 'unavailable');
-  assert.equal(unsupportedRaw.ok, false);
-  assert.equal(unsupportedRaw.error.code, 'HOST_PROTOCOL_UNSUPPORTED');
+  assert.equal(unsupportedRaw.status, 'rejected');
+  assert.equal(unsupportedRaw.diagnostic.code, 'HOST_PROTOCOL_UNSUPPORTED');
 
   const rawModes = [];
   const withRawSetter = createBunTerminalHost({
@@ -963,7 +1076,7 @@ test('runtime stream hosts only advertise raw input when a raw-mode setter exist
 
   assert.equal(supportedCapabilities.rawInput.support, 'supported');
   assert.equal(supportedCapabilities.rawInput.availability, 'available');
-  assert.equal(supportedRaw.ok, true);
+  assert.equal(supportedRaw.status, 'applied');
   assert.deepEqual(rawModes, [true, false]);
 });
 
@@ -981,6 +1094,10 @@ async function readInputChunks(host) {
     chunks.push(typeof chunk.data === 'string' ? chunk.data : new TextDecoder().decode(chunk.data));
   }
   return chunks;
+}
+
+function inputText(data) {
+  return typeof data === 'string' ? data : new TextDecoder().decode(data);
 }
 
 function withoutProvenance(state) {

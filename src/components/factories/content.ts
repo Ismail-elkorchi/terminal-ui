@@ -96,8 +96,9 @@ export function textArea(options: TextAreaOptions<unknown>): Element<unknown> {
     kind: 'textArea',
     props: {
       document: presentation.document,
-      cursor: presentation.cursor,
+      caret: presentation.caret,
       ...(presentation.selection === undefined ? {} : { selection: presentation.selection }),
+      ...(presentation.revealCaret === undefined ? {} : { revealCaret: presentation.revealCaret }),
       ...(options.highlights === undefined ? {} : { highlights: options.highlights }),
       ...(options.placeholder === undefined ? {} : { placeholder: options.placeholder }),
       ...(options.lineNumbers === undefined ? {} : { lineNumbers: options.lineNumbers }),

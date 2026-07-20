@@ -5,11 +5,13 @@ import type { Rect } from '../geometry/types.ts';
 import type { Measurement } from './model/measurement.ts';
 import type { FocusTarget, HitTarget } from './model/renderer.ts';
 import type { RenderFocusRelation } from './model/renderer.ts';
+import type { TextWidthProfile } from '../text/index.ts';
 
-interface CustomRendererInput<TState> {
+export interface CustomRendererInput<TState> {
   readonly state: TState;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
 }
 
 export type CustomRendererMeasureInput<TState> = CustomRendererInput<TState>;

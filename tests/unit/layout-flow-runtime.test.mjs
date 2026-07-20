@@ -3,7 +3,8 @@ import test from 'node:test';
 import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, splitTracks } from '../../dist/renderer/index.js';
 import { commandInput, palette, text, textArea } from '../../dist/components/index.js';
 import { column, grid, row, splitPane, surface } from '../../dist/layout/index.js';
-import { prepareTextDocument } from '../../dist/text/index.js';
+import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
+import { preparePaletteIndex } from '../../dist/behavior/index.js';
 
 test('track helpers split fixed, percent, and fill regions deterministically', () => {
   assert.deepEqual(
@@ -123,7 +124,7 @@ test('wrapped text-area content tracks retain intrinsic width', () => {
   const widget = row([
     textArea({
       id: 'wrapped-content-editor',
-      presentation: { document: prepareTextDocument('x'), cursor: 0 },
+      presentation: { document: prepareTextDocument('x'), caret: textCaretAt(0 )},
       wrap: true
     }),
     text('remaining', { id: 'wrapped-content-sibling' })
@@ -142,7 +143,7 @@ test('palette content tracks use the active text-width profile', () => {
   const widget = row([
     palette({
       id: 'profiled-palette',
-      entries: [{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }],
+      index: preparePaletteIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
       query: '',
       onSelect: (entry) => entry.value
     }),

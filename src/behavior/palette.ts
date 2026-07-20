@@ -3,8 +3,8 @@ import { rowWindow } from './data-window.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type { SearchEntry } from '../ui-model/contracts.ts';
 import type { PaletteAction } from '../ui-model/palette.ts';
-
-const searchableTextCache = new WeakMap<object, readonly string[]>();
+import { projectPaletteQuery } from '../ui-model/palette-index.ts';
+import type { PaletteIndex, PaletteQueryProjection } from '../ui-model/palette-index.ts';
 
 export type PaletteAsyncState<TValue = string> =
   | { readonly status: 'idle'; readonly entries: readonly SearchEntry<TValue>[] }
@@ -24,11 +24,11 @@ export interface PalettePresentation {
 }
 
 export interface PaletteReducerOptions<TValue = string> {
-  readonly entries: readonly SearchEntry<TValue>[];
+  readonly index: PaletteIndex<TValue>;
 }
 
 export interface PaletteWindowInput<TValue = string> {
-  readonly entries: readonly SearchEntry<TValue>[];
+  readonly index: PaletteIndex<TValue>;
   readonly query?: string;
   readonly selected?: number;
   readonly selectedId?: string;
@@ -48,7 +48,7 @@ export interface PaletteFilterResult<TValue = string> {
 }
 
 export interface PaletteSelectionInput<TValue = string> {
-  readonly entries: readonly SearchEntry<TValue>[];
+  readonly index: PaletteIndex<TValue>;
   readonly state: PaletteState;
   readonly scroll?: ScrollState;
   readonly limit?: number;
@@ -103,12 +103,12 @@ export function paletteReducer<TValue>(
     case 'moveSelection':
       return {
         ...state,
-        selectedIndex: wrapIndex(state.selectedIndex + action.delta, filterPaletteEntries(options.entries, state.query).length)
+        selectedIndex: wrapIndex(state.selectedIndex + action.delta, projectPaletteQuery(options.index, state.query).entries.length)
       };
     case 'selectIndex':
       return {
         ...state,
-        selectedIndex: clampIndex(action.index, filterPaletteEntries(options.entries, state.query).length)
+        selectedIndex: clampIndex(action.index, projectPaletteQuery(options.index, state.query).entries.length)
       };
     case 'toggleSelected':
       return {
@@ -126,7 +126,8 @@ export function paletteReducer<TValue>(
 }
 
 export function paletteWindow<TValue>(input: PaletteWindowInput<TValue>): PaletteFilterResult<TValue> {
-  const filtered = filterPaletteEntries(input.entries, input.query ?? '');
+  const projection = projectPaletteQuery(input.index, input.query ?? '');
+  const filtered = projection.entries;
   const total = filtered.length;
   const limit = Math.max(1, Math.floor(input.limit ?? total));
   if (total === 0) {
@@ -157,22 +158,9 @@ export function paletteWindow<TValue>(input: PaletteWindowInput<TValue>): Palett
   };
 }
 
-export function filterPaletteEntries<TValue>(
-  entries: readonly SearchEntry<TValue>[],
-  query: string
-): readonly SearchEntry<TValue>[] {
-  const normalized = query.trim().toLocaleLowerCase();
-  if (normalized.length === 0) return entries;
-  return entries
-    .map((entry, index) => ({ entry, index, score: paletteEntryScore(entry, normalized) }))
-    .filter((result) => result.score !== undefined)
-    .sort((left, right) => (left.score ?? 0) - (right.score ?? 0) || left.index - right.index)
-    .map((result) => result.entry);
-}
-
 export function selectedPaletteEntry<TValue>(input: PaletteSelectionInput<TValue>): SearchEntry<TValue> | undefined {
   return paletteWindow({
-    entries: input.entries,
+    index: input.index,
     query: input.state.query,
     selected: input.state.selectedIndex,
     ...(input.scroll === undefined ? {} : { scroll: input.scroll }),
@@ -237,47 +225,8 @@ function selectedIndex<TValue>(
   return clampIndex(input.selected ?? 0, entries.length);
 }
 
-function paletteEntryScore<TValue>(entry: SearchEntry<TValue>, query: string): number | undefined {
-  const haystacks = searchableText(entry);
-  let best: number | undefined;
-  for (const haystack of haystacks) {
-    const score = textScore(haystack, query);
-    if (score !== undefined && (best === undefined || score < best)) best = score;
-  }
-  return best;
-}
-
-function searchableText<TValue>(entry: SearchEntry<TValue>): readonly string[] {
-  const cached = searchableTextCache.get(entry);
-  if (cached !== undefined) return cached;
-  const values = [
-    entry.label,
-    entry.id,
-    entry.description,
-    ...(entry.keywords ?? [])
-  ].filter((value): value is string => value !== undefined).map((value) => value.toLocaleLowerCase());
-  searchableTextCache.set(entry, values);
-  return values;
-}
-
-function textScore(text: string, query: string): number | undefined {
-  if (text === query) return 0;
-  if (text.startsWith(query)) return 1;
-  const includes = text.indexOf(query);
-  if (includes !== -1) return 10 + includes;
-  return subsequenceScore(text, query);
-}
-
-function subsequenceScore(text: string, query: string): number | undefined {
-  let offset = 0;
-  let score = 100;
-  for (const character of query) {
-    const found = text.indexOf(character, offset);
-    if (found === -1) return undefined;
-    score += found - offset;
-    offset = found + 1;
-  }
-  return score;
+export function paletteProjection<TValue>(index: PaletteIndex<TValue>, query = ''): PaletteQueryProjection<TValue> {
+  return projectPaletteQuery(index, query);
 }
 
 function withoutPreview(state: PaletteState): PaletteState {

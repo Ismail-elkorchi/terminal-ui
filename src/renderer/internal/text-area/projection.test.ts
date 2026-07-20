@@ -2,9 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { createScrollState } from '../../../behavior/scroll.ts';
-import { defaultTextWidthProfile, prepareTextDocument } from '../../../text/index.ts';
+import {
+  defaultTextWidthProfile,
+  prepareTextDocument,
+  textCaretAt,
+  textDocumentEdit
+} from '../../../text/index.ts';
 import {
   projectTextAreaDocument,
+  textAreaCursorInProjection,
   textAreaOffsetInProjection,
   textAreaVisibleText
 } from './projection.ts';
@@ -40,4 +46,29 @@ void test('text-area accessibility text is bounded to the visible viewport', () 
   });
 
   assert.equal(textAreaVisibleText(projection, scroll), 'rav');
+});
+
+void test('edited documents retain unchanged logical-line projection work', () => {
+  const document = prepareTextDocument('alpha\nbravo\ncharlie');
+  const first = projectTextAreaDocument(document, 4, true, defaultTextWidthProfile);
+  const edited = textDocumentEdit(document, { start: 6, end: 11 }, 'BRAVO').document;
+  const second = projectTextAreaDocument(edited, 4, true, defaultTextWidthProfile);
+
+  assert.equal(second.lines[0]?.index, first.lines[0]?.index);
+  assert.notEqual(second.lines[2]?.index, first.lines[2]?.index);
+  assert.equal(second.lines[4]?.index, first.lines[4]?.index);
+});
+
+void test('soft-wrap boundary affinity identifies the intended visual row', () => {
+  const document = prepareTextDocument('abcdefgh');
+  const projection = projectTextAreaDocument(document, 4, true, defaultTextWidthProfile);
+
+  assert.deepEqual(
+    textAreaCursorInProjection(projection, textCaretAt(4, { affinity: 'upstream' })),
+    { rowIndex: 0, columnCells: 4 }
+  );
+  assert.deepEqual(
+    textAreaCursorInProjection(projection, textCaretAt(4, { affinity: 'downstream' })),
+    { rowIndex: 1, columnCells: 0 }
+  );
 });

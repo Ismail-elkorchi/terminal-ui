@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
-import { createMemoryTerminalHost } from '../../dist/host/index.js';
+import { createMemoryTerminalHost, indeterminateTerminalWrite } from '../../dist/host/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { createTranscriptRecorder, validateTranscript } from '../../dist/transcript/index.js';
 import { renderFramePlain } from '../../dist/renderer/index.js';
@@ -73,6 +73,32 @@ test('TUI runtime discards a candidate when output fails before publication', as
   await runtime.dispose();
 });
 
+test('TUI runtime establishes a full baseline after an indeterminate frame write', async () => {
+  const app = defineTui({
+    id: 'indeterminate-frame-baseline',
+    init: () => ({ count: 0 }),
+    update: (state, message) => ({ state: { count: state.count + message.delta } }),
+    view: (state) => text(`Count ${String(state.count)}`, { id: 'indeterminate-count' })
+  });
+  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const runtime = createTuiRuntime({ app, host: harness.host });
+  await runtime.start();
+  const write = harness.host.write.bind(harness.host);
+  harness.host.write = async () => indeterminateTerminalWrite(
+    'indeterminate-frame-test',
+    new Error('frame outcome unknown')
+  );
+
+  await assert.rejects(() => runtime.dispatch({ delta: 1 }), /partially written/u);
+  harness.host.write = write;
+  await runtime.dispatch({ delta: 2 });
+
+  assert.deepEqual(runtime.state(), { count: 2 });
+  assert.equal(harness.diffs().length, 2);
+  assert.equal(harness.diffs()[1].fullRewrite, true);
+  await runtime.dispose();
+});
+
 test('direct runtime resize coalesces an active request and retains only the latest queued viewport', async () => {
   const app = defineTui({
     id: 'direct-resize-coalescing',
@@ -93,7 +119,7 @@ test('direct runtime resize coalesces an active request and retains only the lat
       firstResizeStarted.release();
       await releaseFirstResize.promise;
     }
-    await write(output, context);
+    return write(output, context);
   };
 
   const first = runtime.resize({ columns: 21, rows: 3 });
@@ -356,7 +382,7 @@ test('retired subscription output already queued behind its retirement is ignore
       commitBlocked = true;
       await commitGate.promise;
     }
-    await write(output);
+    return write(output);
   };
   const blocker = runtime.dispatch({ kind: 'block' });
   await waitUntil(() => commitBlocked);
@@ -480,7 +506,7 @@ test('replaced effect output and recovery output already queued behind replaceme
       commitBlocked = true;
       await commitGate.promise;
     }
-    await write(output);
+    return write(output);
   };
   const blocker = runtime.dispatch({ kind: 'block' });
   await waitUntil(() => commitBlocked);

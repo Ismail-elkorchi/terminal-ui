@@ -13,18 +13,30 @@ import {
   scrollback,
   table,
   text,
-  textArea
+  textArea,
+  tree
 } from '../dist/components/index.js';
 import { column, overlay } from '../dist/layout/index.js';
 import {
   appendScrollbackHistory,
+  createScrollState,
+  preparePaletteIndex,
   prepareScrollbackHistory,
-  prepareTableCollection
+  prepareTableCollection,
+  prepareTreeCollection
 } from '../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../dist/host/index.js';
-import { defaultTextWidthProfile, prepareTextDocument } from '../dist/text/index.js';
+import {
+  defaultTextWidthProfile,
+  prepareTextDocument,
+  textCaretAt,
+  textDocumentLength,
+  textDocumentLineCount,
+  textDocumentSelectionBetween
+} from '../dist/text/index.js';
 import { defaultTheme } from '../dist/theme/index.js';
 import { createTuiRuntime, defineTui } from '../dist/tui/index.js';
+import { paletteIndexStatistics, scrollbackSearchStatistics } from '../dist/testing/index.js';
 import { summarizeSamples } from './benchmark-statistics.mjs';
 
 const quick = process.env['TERMINAL_UI_BENCHMARK_QUICK'] === '1';
@@ -103,11 +115,92 @@ function renderScenarios(realApps) {
     value: index,
     keywords: [`group-${String(index % 25)}`]
   }));
+  const paletteIndex = preparePaletteIndex(entries);
+  const treeNodes = Array.from({ length: quick ? 2_000 : 50_000 }, (_value, index) => ({
+    id: `node-${String(index)}`,
+    kind: 'leaf',
+    label: `Node ${String(index)}`
+  }));
+  const treeCollection = prepareTreeCollection(treeNodes);
   const selectionDocument = prepareTextDocument(Array.from(
     { length: quick ? 2_000 : 20_000 },
     (_value, index) => `line ${String(index)} contains selectable text`
   ).join('\n'));
   return [
+    {
+      name: 'scrolling-text-area',
+      scale: textDocumentLineCount(selectionDocument),
+      author(index) {
+        return textArea({
+          id: 'scrolling-editor',
+          presentation: {
+            document: selectionDocument,
+            caret: textCaretAt(0),
+            scroll: createScrollState({
+              offsetRow: index + 100,
+              contentRows: textDocumentLineCount(selectionDocument),
+              viewportRows: viewport.rows
+            })
+          },
+          lineNumbers: true,
+          onAction: () => undefined
+        });
+      }
+    },
+    {
+      name: 'scrolling-scrollback',
+      scale: history.itemCount,
+      setupWork: { normalized_records: history.itemCount },
+      author(index) {
+        return scrollback({
+          id: 'scrolling-log',
+          history,
+          scroll: createScrollState({
+            offsetRow: index + 100,
+            contentRows: history.itemCount,
+            viewportRows: viewport.rows
+          }),
+          onAction: () => undefined
+        });
+      }
+    },
+    {
+      name: 'scrolling-table',
+      scale: tableCollection.records.length,
+      setupWork: { normalized_records: tableCollection.records.length },
+      author(index) {
+        return table({
+          id: 'scrolling-processes',
+          collection: tableCollection,
+          columns: tableColumns,
+          presentation: {
+            scroll: createScrollState({
+              offsetRow: index + 100,
+              contentRows: tableCollection.records.length,
+              viewportRows: viewport.rows - 1
+            })
+          },
+          onAction: () => undefined
+        });
+      }
+    },
+    {
+      name: 'scrolling-tree',
+      scale: treeCollection.records.length,
+      setupWork: { normalized_records: treeCollection.records.length },
+      author(index) {
+        return tree({
+          id: 'scrolling-tree',
+          collection: treeCollection,
+          scroll: createScrollState({
+            offsetRow: index + 100,
+            contentRows: treeCollection.records.length,
+            viewportRows: viewport.rows
+          }),
+          onAction: () => undefined
+        });
+      }
+    },
     {
       name: 'typing-text-area',
       scale: 200,
@@ -116,22 +209,22 @@ function renderScenarios(realApps) {
           id: 'editor',
           presentation: {
             document: prepareTextDocument(`${'line\n'.repeat(200)}edit-${String(index)}`),
-            cursor: index
+            caret: textCaretAt(index)
           }
         });
       }
     },
     {
       name: 'selecting-large-text-area',
-      scale: selectionDocument.lineCount,
+      scale: textDocumentLineCount(selectionDocument),
       author(index) {
-        const end = Math.min(selectionDocument.text.length, 1_000 + index);
+        const end = Math.min(textDocumentLength(selectionDocument), 1_000 + index);
         return textArea({
           id: 'large-editor',
           presentation: {
             document: selectionDocument,
-            cursor: end,
-            selection: { start: 1_000, end }
+            caret: textCaretAt(end),
+            selection: textDocumentSelectionBetween(1_000, end)
           },
           lineNumbers: true,
           activeLine: true
@@ -141,6 +234,7 @@ function renderScenarios(realApps) {
     {
       name: 'prepared-small-table',
       scale: smallTableCollection.records.length,
+      setupWork: { normalized_records: smallTableCollection.records.length },
       author(index) {
         return table({
           id: 'small-processes',
@@ -153,6 +247,7 @@ function renderScenarios(realApps) {
     {
       name: 'prepared-large-table',
       scale: tableRows.length,
+      setupWork: { normalized_records: tableCollection.records.length },
       author(index) {
         const selected = Math.min(tableRows.length - 1, Math.floor(tableRows.length / 2) + index);
         return table({
@@ -166,6 +261,7 @@ function renderScenarios(realApps) {
     {
       name: 'long-scrollback-wrap',
       scale: history.itemCount,
+      setupWork: { normalized_records: history.itemCount },
       author(index) {
         return scrollback({
           id: 'wrapped-log',
@@ -180,6 +276,11 @@ function renderScenarios(realApps) {
     {
       name: 'long-scrollback-search',
       scale: history.itemCount,
+      setupWork: { normalized_records: history.itemCount },
+      workSnapshot() {
+        const statistics = scrollbackSearchStatistics(history);
+        return { query_candidates: statistics.recordEvaluations };
+      },
       author(index) {
         return scrollback({
           id: 'searched-log',
@@ -191,10 +292,15 @@ function renderScenarios(realApps) {
     {
       name: 'large-palette-filter',
       scale: entries.length,
+      setupWork: { normalized_records: entries.length },
+      workSnapshot() {
+        const statistics = paletteIndexStatistics(paletteIndex);
+        return { query_candidates: statistics.candidateEvaluations };
+      },
       author(index) {
         return palette({
           id: 'commands',
-          entries,
+          index: paletteIndex,
           query: String(entries.length - 1 - index),
           maxVisible: 8
         });
@@ -248,16 +354,24 @@ function runRenderScenario(scenario) {
   const outputSamples = [];
   const authoringSamples = [];
   const totalSamples = [];
+  const workSamples = new Map();
   const heapBefore = process.memoryUsage().heapUsed;
 
   for (let index = -warmupCount; index < sampleCount; index += 1) {
     const measured = index >= 0;
-    const value = Math.max(0, index);
+    const value = Math.max(0, index + 1);
     const totalStarted = performance.now();
     const authoringStarted = performance.now();
     const element = scenario.author(value);
     const authoringDuration = performance.now() - authoringStarted;
     const currentStages = new Map();
+    const currentWork = new Map();
+    const projectionWorkBefore = scenario.workSnapshot?.() ?? {};
+    const instrumentation = {
+      recordWork(sample) {
+        currentWork.set(sample.kind, (currentWork.get(sample.kind) ?? 0) + sample.count);
+      }
+    };
     const frame = renderElementFrame(element, viewport, {
       theme: defaultTheme,
       widthProfile,
@@ -265,16 +379,21 @@ function runRenderScenario(scenario) {
         now: () => performance.now(),
         record(sample) {
           currentStages.set(sample.stage, (currentStages.get(sample.stage) ?? 0) + sample.durationMs);
-        }
+        },
+        recordWork: instrumentation.recordWork
       }
     });
     const diffStarted = performance.now();
-    const diff = diffFrames(previous, frame);
+    const diff = diffFrames(previous, frame, { instrumentation });
     const diffDuration = performance.now() - diffStarted;
     const outputStarted = performance.now();
-    renderDiffAnsi(diff);
+    renderDiffAnsi(diff, { capabilities: benchmarkContext.capabilities, instrumentation });
     const outputDuration = performance.now() - outputStarted;
     const totalDuration = performance.now() - totalStarted;
+    const projectionWorkAfter = scenario.workSnapshot?.() ?? {};
+    for (const [kind, count] of Object.entries(projectionWorkAfter)) {
+      currentWork.set(kind, count - (projectionWorkBefore[kind] ?? 0));
+    }
     previous = frame;
     if (!measured) continue;
     authoringSamples.push(authoringDuration);
@@ -282,12 +401,14 @@ function runRenderScenario(scenario) {
     outputSamples.push(outputDuration);
     totalSamples.push(totalDuration);
     for (const [stage, duration] of currentStages) append(stageSamples, stage, duration);
+    for (const [kind, count] of currentWork) append(workSamples, kind, count);
   }
 
   return Object.freeze({
     kind: 'render',
     name: scenario.name,
     scale: scenario.scale,
+    setupWork: scenario.setupWork ?? {},
     stages: {
       authoring: summarizeSamples(authoringSamples),
       ...Object.fromEntries([...stageSamples].map(([stage, samples]) => [stage, summarizeSamples(samples)])),
@@ -295,6 +416,7 @@ function runRenderScenario(scenario) {
       outputPlanning: summarizeSamples(outputSamples),
       total: summarizeSamples(totalSamples)
     },
+    work: Object.fromEntries([...workSamples].map(([kind, samples]) => [kind, summarizeWork(samples)])),
     heapDeltaBytes: process.memoryUsage().heapUsed - heapBefore
   });
 }
@@ -442,6 +564,16 @@ function append(map, key, value) {
   const values = map.get(key);
   if (values === undefined) map.set(key, [value]);
   else values.push(value);
+}
+
+function summarizeWork(samples) {
+  const sorted = [...samples].toSorted((left, right) => left - right);
+  return {
+    count: samples.length,
+    min: sorted[0] ?? 0,
+    max: sorted.at(-1) ?? 0,
+    median: sorted[Math.floor(sorted.length / 2)] ?? 0
+  };
 }
 
 function dominantStages(scenarios) {

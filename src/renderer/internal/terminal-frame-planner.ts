@@ -1,0 +1,170 @@
+import type { TerminalOutputCapabilityProfile } from '../../protocol/index.ts';
+import type { TerminalTheme } from '../../theme/index.ts';
+import type { Frame, FrameCell } from '../model/frame.ts';
+import type { RenderDiff } from '../model/diff.ts';
+import { diffFrames, sameFrameCell } from './frame.ts';
+import { frameIndex } from './frame-index.ts';
+import { planTerminalOutput } from './output-planner.ts';
+import type { RenderSerializeOptions } from './ansi.ts';
+import { createTerminalSerializationPolicy } from './serialization-policy.ts';
+
+export interface TerminalRowMovement {
+  readonly top: number;
+  readonly bottom: number;
+  readonly rows: number;
+}
+
+export interface TerminalFrameOutputPlan {
+  readonly text: string;
+  readonly bytes: number;
+  readonly payloadBytes: number;
+  readonly baselinePayloadBytes: number;
+  readonly strategy: 'diff' | 'scroll_rows';
+  readonly synchronized: boolean;
+  readonly failureCleanup?: string;
+  readonly rowMovement?: TerminalRowMovement;
+}
+
+interface TerminalFramePlanOptions extends RenderSerializeOptions {
+  readonly scrollRegion: boolean;
+  readonly theme?: TerminalTheme;
+}
+
+export function planTerminalFrameOutput(
+  previous: Frame | undefined,
+  next: Frame,
+  diff: RenderDiff,
+  options: TerminalFramePlanOptions
+): TerminalFrameOutputPlan {
+  const baseline = planTerminalOutput(diff, options);
+  if (
+    previous === undefined
+    || diff.fullRewrite
+    || !options.scrollRegion
+  ) return baselineFramePlan(baseline);
+
+  const unsynchronizedCapabilities: TerminalOutputCapabilityProfile = {
+    ...options.capabilities,
+    synchronizedOutput: {
+      ...options.capabilities.synchronizedOutput,
+      support: 'unsupported'
+    }
+  };
+  const policy = createTerminalSerializationPolicy({ capabilities: unsynchronizedCapabilities });
+  let selected: TerminalFrameOutputPlan | undefined;
+  for (const movement of rowMovementCandidates(previous, next)) {
+    const projected = applyTerminalRowMovement(previous, movement);
+    const repair = diffFrames(projected, next);
+    const repairPlan = planTerminalOutput(repair, {
+      ...options,
+      capabilities: unsynchronizedCapabilities
+    });
+    const movementText = [
+      policy.setScrollingRegion(movement.top, movement.bottom),
+      policy.cursorMove(movement.top, 1),
+      policy.scrollRows(movement.rows),
+      policy.resetScrollingRegion()
+    ].join('');
+    const candidatePayload = utf8Bytes(movementText) + repairPlan.payloadBytes;
+    if (candidatePayload >= baseline.payloadBytes) continue;
+    const synchronized = options.capabilities.synchronizedOutput.support === 'supported'
+      && options.capabilities.synchronizedOutput.availability === 'available';
+    const outerPolicy = createTerminalSerializationPolicy({ capabilities: options.capabilities });
+    const begin = synchronized ? outerPolicy.beginSynchronizedOutput() : '';
+    const end = synchronized ? outerPolicy.endSynchronizedOutput() : '';
+    const text = `${begin}${movementText}${repairPlan.text}${end}`;
+    const candidate: TerminalFrameOutputPlan = {
+      text,
+      bytes: utf8Bytes(text),
+      payloadBytes: candidatePayload,
+      baselinePayloadBytes: baseline.payloadBytes,
+      strategy: 'scroll_rows',
+      synchronized,
+      ...(synchronized ? { failureCleanup: end } : {}),
+      rowMovement: movement
+    };
+    if (selected === undefined || candidate.payloadBytes < selected.payloadBytes) selected = candidate;
+  }
+  return selected ?? baselineFramePlan(baseline);
+}
+
+export function applyTerminalRowMovement(frame: Frame, movement: TerminalRowMovement): Frame {
+  const cells: FrameCell[] = [];
+  for (const cell of frame.cells) {
+    if (cell.row < movement.top || cell.row > movement.bottom) {
+      cells.push(cell);
+      continue;
+    }
+    const row = cell.row - movement.rows;
+    if (row < movement.top || row > movement.bottom) continue;
+    cells.push({ ...cell, row });
+  }
+  return Object.freeze({
+    schemaVersion: frame.schemaVersion,
+    width: frame.width,
+    height: frame.height,
+    widthProfile: frame.widthProfile,
+    cells: Object.freeze(cells.toSorted((left, right) => left.row - right.row || left.column - right.column)),
+    accessibility: frame.accessibility,
+    ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),
+    ...(frame.hitTargets === undefined ? {} : { hitTargets: frame.hitTargets })
+  });
+}
+
+function rowMovementCandidates(previous: Frame, next: Frame): readonly TerminalRowMovement[] {
+  if (previous.width !== next.width || previous.height !== next.height || previous.height < 3) return [];
+  const maximumDistance = Math.min(8, previous.height - 1);
+  const candidates: TerminalRowMovement[] = [];
+  for (let distance = 1; distance <= maximumDistance; distance += 1) {
+    candidates.push(...movementRuns(previous, next, distance));
+    candidates.push(...movementRuns(previous, next, -distance));
+  }
+  return Object.freeze(candidates);
+}
+
+function movementRuns(previous: Frame, next: Frame, rows: number): readonly TerminalRowMovement[] {
+  const firstTarget = Math.max(1, 1 - rows);
+  const lastTarget = Math.min(next.height, previous.height - rows);
+  const minimumMatches = Math.max(2, Math.abs(rows) + 1);
+  const candidates: TerminalRowMovement[] = [];
+  let runStart: number | undefined;
+  for (let targetRow = firstTarget; targetRow <= lastTarget + 1; targetRow += 1) {
+    const matches = targetRow <= lastTarget && rowsMatch(previous, targetRow + rows, next, targetRow);
+    if (matches && runStart === undefined) runStart = targetRow;
+    if (matches || runStart === undefined) continue;
+    const runEnd = targetRow - 1;
+    if (runEnd - runStart + 1 >= minimumMatches) {
+      const top = rows > 0 ? runStart : runStart + rows;
+      const bottom = rows > 0 ? runEnd + rows : runEnd;
+      if (top >= 1 && bottom <= next.height && bottom > top) candidates.push({ top, bottom, rows });
+    }
+    runStart = undefined;
+  }
+  return candidates;
+}
+
+function rowsMatch(previous: Frame, previousRow: number, next: Frame, nextRow: number): boolean {
+  const previousCells = frameIndex(previous).rows[previousRow - 1]?.cells ?? new Map<number, FrameCell>();
+  const nextCells = frameIndex(next).rows[nextRow - 1]?.cells ?? new Map<number, FrameCell>();
+  if (previousCells.size !== nextCells.size) return false;
+  for (const [column, cell] of previousCells) {
+    if (!sameFrameCell(cell, nextCells.get(column))) return false;
+  }
+  return true;
+}
+
+function baselineFramePlan(plan: ReturnType<typeof planTerminalOutput>): TerminalFrameOutputPlan {
+  return {
+    text: plan.text,
+    bytes: plan.bytes,
+    payloadBytes: plan.payloadBytes,
+    baselinePayloadBytes: plan.baselinePayloadBytes,
+    strategy: 'diff',
+    synchronized: plan.synchronized,
+    ...(plan.failureCleanup === undefined ? {} : { failureCleanup: plan.failureCleanup })
+  };
+}
+
+function utf8Bytes(value: string): number {
+  return new TextEncoder().encode(value).byteLength;
+}

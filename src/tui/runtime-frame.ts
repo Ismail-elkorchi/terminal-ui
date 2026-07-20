@@ -3,8 +3,9 @@ import type { RenderNode } from '../renderer/model/index.ts';
 import { defaultTheme, defineTheme, isTerminalTheme } from '../theme/index.ts';
 import { dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions.ts';
 import { diffFrames, renderElementProjection } from '../renderer/internal/render.ts';
-import { planTerminalOutput } from '../renderer/internal/output-planner.ts';
-import { defaultTuiFinalizationPolicy } from './run-configuration.ts';
+import { planTerminalFrameOutput } from '../renderer/internal/terminal-frame-planner.ts';
+import { defaultTuiLifecyclePolicy } from './run-configuration.ts';
+import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { TerminalHost, TerminalOperationContext, TerminalViewport } from '../host/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
@@ -67,13 +68,19 @@ export async function commitFrame(
   const diff = diffFrames(previousFrame, frame, options);
   const capabilities = await host.getCapabilities();
   options.signal?.throwIfAborted();
-  const output = planTerminalOutput(diff, { capabilities, hyperlinks: true, theme });
+  const output = planTerminalFrameOutput(previousFrame, frame, diff, {
+    capabilities,
+    scrollRegion: capabilities.scrollRegion.support === 'supported'
+      && capabilities.scrollRegion.availability === 'available',
+    hyperlinks: true,
+    theme
+  });
   const operationContext: TerminalOperationContext = options.signal === undefined
     ? {}
     : { signal: options.signal };
   if (output.text.length > 0) {
     try {
-      await host.write({ text: output.text }, operationContext);
+      requireCommittedTerminalWrite(await host.write({ text: output.text }, operationContext));
     } catch (error) {
       await attemptOutputCleanup(host, output.failureCleanup, error);
     }
@@ -91,14 +98,14 @@ async function attemptOutputCleanup(
   if (cleanup === undefined) throw writeError;
   const controller = new AbortController();
   const timer = Promise.resolve()
-    .then(() => host.clock.sleep(defaultTuiFinalizationPolicy.timeoutMs, controller.signal))
+    .then(() => host.clock.sleep(defaultTuiLifecyclePolicy.runtimeDisposalTimeoutMs, controller.signal))
     .then(() => {
       if (!controller.signal.aborted) controller.abort(new Error('Terminal output cleanup timed out.'));
     }, (cause: unknown) => {
       if (!controller.signal.aborted) controller.abort(cause);
     });
   try {
-    await host.write({ text: cleanup }, { signal: controller.signal });
+    requireCommittedTerminalWrite(await host.write({ text: cleanup }, { signal: controller.signal }));
   } catch (cleanupError) {
     throw new AggregateError(
       [writeError, cleanupError],
@@ -107,7 +114,7 @@ async function attemptOutputCleanup(
     );
   } finally {
     controller.abort('terminal_output_cleanup_settled');
-    await timer;
+    void timer;
   }
   throw writeError;
 }

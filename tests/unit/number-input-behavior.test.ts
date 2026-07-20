@@ -60,7 +60,7 @@ void test('number input configuration owns grammar-aware formatting and validati
   assert.equal(comma.input.text, '1,5');
   assert.equal(stepped.input.text, '1,75');
   assert.equal(numberInputPresentation(edited).validity, 'valid');
-  assert.equal(exponent.input.text, '1000');
+  assert.equal(exponent.input.text, '1e+3');
   assert.throws(() => createNumberInputConfiguration({ step: -1 }), /step must be finite and greater than zero/u);
   assert.throws(
     () => createNumberInputConfiguration({ step: 0.5, grammar: { notation: 'integer' } }),
@@ -70,6 +70,31 @@ void test('number input configuration owns grammar-aware formatting and validati
     () => createNumberInputState(-1, { grammar: { allowSign: false } }),
     /cannot be negative/u
   );
+});
+
+void test('scientific number input preserves lexical edits and canonicalizes numeric transitions', () => {
+  const configuration = createNumberInputConfiguration({
+    step: 100,
+    grammar: { notation: 'scientific' }
+  });
+  const edited = {
+    input: { text: '1.20E+03', cursor: 8 },
+    committed: 1000,
+    configuration
+  };
+
+  const committed = numberInputReducer(edited, { kind: 'commit' });
+  const stepped = numberInputReducer(committed, { kind: 'step', direction: 'increment' });
+  const reverted = numberInputReducer(edited, { kind: 'revert' });
+
+  assert.deepEqual(numberInputAnalysis('1.20E+03', configuration), {
+    validity: 'valid',
+    parsedValue: 1200
+  });
+  assert.equal(committed.input.text, '1.20E+03');
+  assert.equal(committed.committed, 1200);
+  assert.equal(stepped.input.text, '1.3e+3');
+  assert.equal(reverted.input.text, '1e+3');
 });
 
 void test('number input commit can clamp out-of-range text only when requested', () => {

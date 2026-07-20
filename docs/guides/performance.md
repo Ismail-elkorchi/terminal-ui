@@ -13,6 +13,27 @@ version, platform, and architecture. Compare only reports with compatible
 runtime keys and scenario metadata. Heap deltas are noisy supporting evidence,
 not pass/fail thresholds.
 
+Capture a local timing baseline with:
+
+```sh
+npm run benchmark:baseline -- --output baseline.json
+```
+
+After a change, capture a report on the same runtime and viewport, then compare
+it with:
+
+```sh
+npm run benchmark:interactive -- --output current.json
+npm run benchmark:compare -- current.json baseline.json
+```
+
+`benchmark:compare` always enforces deterministic structural budgets. Timing is
+compared only for stages with at least 20 samples in both reports and a
+coefficient of variation no greater than `0.2`. A stage fails when its p95
+exceeds the baseline by more than the greatest of 0.25 ms, 25 percent, or six
+baseline median absolute deviations. Baselines are local evidence tied to the
+reported runtime key; they are not committed cross-host thresholds.
+
 CI checks structural bounds and verifies that the evidence harness executes. It
 does not impose universal millisecond limits. A timing regression becomes
 actionable only when:
@@ -25,3 +46,9 @@ actionable only when:
 Optimization proposals must record the baseline, hypothesis, changed owner,
 after-measurement, invalidation tests, and complexity cost. Retained rendering
 or caches are not justified by total render time alone.
+
+Scrolling benchmarks cover text areas, scrollback, tables, and trees as
+controlled one-row viewport transitions. On terminals with explicit
+`scrollRegion` support, runtime output planning compares the canonical absolute
+diff with a scrolling-region move plus canonical repair and emits only the
+smaller plan. The canonical diff remains the replay and transcript authority.

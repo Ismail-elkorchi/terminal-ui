@@ -14,6 +14,7 @@ export type TerminalCapabilityName =
   | 'focusReporting'
   | 'cursorVisibility'
   | 'synchronizedOutput'
+  | 'scrollRegion'
   | 'title'
   | 'bell'
   | 'clipboard';
@@ -65,6 +66,7 @@ export interface TerminalCapabilityProfile {
   readonly focusReporting: CapabilitySupport;
   readonly cursorVisibility: CapabilitySupport;
   readonly synchronizedOutput: CapabilitySupport;
+  readonly scrollRegion: CapabilitySupport;
   readonly title: CapabilitySupport;
   readonly bell: CapabilitySupport;
   readonly clipboard: CapabilitySupport;

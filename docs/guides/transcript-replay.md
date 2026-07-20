@@ -18,3 +18,11 @@ tests use. Replay validates transcript structure before reconstructing
 interaction steps. Frame, render diff, accessible snapshot, diagnostic, input,
 and restore entries must be shaped as their public machine-readable contracts,
 not just tagged with a step kind.
+
+Diagnostics separate immutable content from reported occurrences. A
+`TerminalDiagnostic.fingerprint` identifies equal sanitized content. A
+`DiagnosticOccurrence` adds an owner-local `id` and `sequence` when that
+content first reaches a runtime, transcript, or other reporting boundary.
+Recording the same occurrence twice is idempotent; reporting equal content
+twice creates two occurrences. Consumers may group occurrences by fingerprint
+for presentation, but transcripts preserve every occurrence.

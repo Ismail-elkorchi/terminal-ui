@@ -8,6 +8,25 @@ import { renderFramePlain } from '../../dist/renderer/index.js';
 import { textInput } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
 
+test('defineTui rejects duplicate binding identities and duplicate triggers within one binding', () => {
+  const trigger = { kind: 'key', key: 'enter' };
+  assert.throws(() => defineTui({
+    init: () => null,
+    update: (state) => ({ state }),
+    view: () => textInput({ presentation: { value: '', cursor: 0 } }),
+    inputBindings: [
+      { id: 'submit', triggers: [trigger], message: 'first' },
+      { id: 'submit', triggers: [{ kind: 'key', key: 'escape' }], message: 'second' }
+    ]
+  }), /binding id .* duplicated/u);
+  assert.throws(() => defineTui({
+    init: () => null,
+    update: (state) => ({ state }),
+    view: () => textInput({ presentation: { value: '', cursor: 0 } }),
+    inputBindings: [{ id: 'submit', triggers: [trigger, trigger], message: 'submit' }]
+  }), /duplicate trigger/u);
+});
+
 test('TUI runtime routes key events through focused widget keymaps', async () => {
   const app = defineTui({
     id: 'keymap-routing',

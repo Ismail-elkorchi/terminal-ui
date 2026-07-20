@@ -69,7 +69,7 @@ export type {
   TextAreaPresentation,
   TextAreaScrollablePresentation
 } from '../ui-model/text-area.ts';
-export type { TextPointerAction } from '../interaction/text-pointer.ts';
+export type { PointerSelectionAction, TextPointerAction } from '../interaction/text-pointer.ts';
 export type {
   ListAction,
   ListCollection,
@@ -129,7 +129,12 @@ export type {
 } from '../ui-model/menu.ts';
 export type { TabAction } from '../ui-model/tabs.ts';
 export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
-export type { ScrollbackAction, ScrollbackControlAction } from '../ui-model/scrollback.ts';
+export type {
+  ScrollbackAction,
+  ScrollbackBodyAnchor,
+  ScrollbackControlAction,
+  ScrollbackSelection
+} from '../ui-model/scrollback.ts';
 export type { ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
 export type {
   CheckboxGroupAction,

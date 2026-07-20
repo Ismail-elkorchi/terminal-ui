@@ -15,11 +15,18 @@ import type { TerminalTheme } from '../theme/index.ts';
 import type { Measurement } from './model/measurement.ts';
 import type { FocusTarget, HitTarget, RenderFocusRelation, RenderNodeRenderer } from './model/renderer.ts';
 import type { RenderTarget } from './model/render-target.ts';
+import type { TextWidthProfile } from '../text/index.ts';
 
-interface CustomCompositeInput<TState> {
+export interface CustomCompositeInput<TState> {
   readonly state: TState;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
+  readonly widthProfile: TextWidthProfile;
+}
+
+export interface CustomCompositeMeasureInput<TState> extends CustomCompositeInput<TState> {
+  readonly childCount: number;
+  readonly measureChild: (index: number) => Measurement;
 }
 
 export interface CustomCompositeLayoutInput<TState> extends CustomCompositeInput<TState> {
@@ -39,7 +46,7 @@ export interface CustomCompositeAccessibilityInput<TState> extends CustomComposi
 }
 
 export interface CustomCompositeRenderer<TState = undefined, TMessage = never> {
-  readonly measure?: (input: CustomCompositeInput<TState>) => Measurement;
+  readonly measure?: (input: CustomCompositeMeasureInput<TState>) => Measurement;
   readonly layout: (input: CustomCompositeLayoutInput<TState>) => readonly Rect[];
   readonly render?: (input: CustomCompositeRenderInput<TState>) => void;
   readonly accessibility: (input: CustomCompositeAccessibilityInput<TState>) => AccessibleNode;
@@ -124,30 +131,31 @@ function adaptCustomCompositeRenderer<TState, TMessage>(
 ): RenderNodeRenderer<TMessage, 'custom'> {
   const render = renderer.render;
   return {
-    ...(renderer.measure === undefined ? {} : {
-      measure: ({ bounds, theme }) => renderer.measure?.({ state, bounds, theme }) ?? zeroMeasurement()
-    }),
-    layout: ({ bounds, viewport, theme, childCount: measuredChildCount, measureChild }) => normalizeChildBounds(
-      renderer.layout({ state, bounds, viewport, theme, childCount: measuredChildCount, measureChild }),
+    measure: ({ bounds, theme, widthProfile, childCount: measuredChildCount, measureChild }) =>
+      renderer.measure?.({ state, bounds, theme, widthProfile, childCount: measuredChildCount, measureChild })
+        ?? zeroMeasurement(),
+    layout: ({ bounds, viewport, theme, widthProfile, childCount: measuredChildCount, measureChild }) => normalizeChildBounds(
+      renderer.layout({ state, bounds, viewport, theme, widthProfile, childCount: measuredChildCount, measureChild }),
       bounds,
       childCount
     ),
-    render: ({ layoutNode, buffer, theme, focus, renderChildren }) => {
-      render?.({ state, bounds: layoutNode.bounds, buffer, theme, focus });
+    render: ({ layoutNode, buffer, theme, widthProfile, focus, renderChildren }) => {
+      render?.({ state, bounds: layoutNode.bounds, buffer, theme, widthProfile, focus });
       renderChildren();
     },
-    accessibility: ({ layoutNode, id, focused, theme }) => renderer.accessibility({
+    accessibility: ({ layoutNode, id, focused, theme, widthProfile }) => renderer.accessibility({
       state,
       bounds: layoutNode.bounds,
       id,
       focused,
-      theme
+      theme,
+      widthProfile
     }),
     ...(renderer.focusTargets === undefined ? {} : {
-      focusTargets: ({ bounds, theme }) => renderer.focusTargets?.({ state, bounds, theme }) ?? []
+      focusTargets: ({ bounds, theme, widthProfile }) => renderer.focusTargets?.({ state, bounds, theme, widthProfile }) ?? []
     }),
     ...(renderer.hitTargets === undefined ? {} : {
-      hitTargets: ({ bounds, theme }) => renderer.hitTargets?.({ state, bounds, theme }) ?? []
+      hitTargets: ({ bounds, theme, widthProfile }) => renderer.hitTargets?.({ state, bounds, theme, widthProfile }) ?? []
     })
   };
 }

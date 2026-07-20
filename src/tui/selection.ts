@@ -1,6 +1,7 @@
 import { diagnostic } from '../diagnostics.ts';
 import { resolveSelectedText } from '../interaction/selection.ts';
 import { writeClipboardText } from '../protocol/index.ts';
+import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type {
   ResolveSelectedTextInput,
@@ -46,7 +47,9 @@ export async function copySelectedTextToClipboard(input: CopySelectedTextInput):
     };
   }
   const clipboard = await writeClipboardText({
-    write: async (sequence) => input.host.write({ text: sequence })
+    write: async (sequence) => {
+      requireCommittedTerminalWrite(await input.host.write({ text: sequence }));
+    }
   }, selection.text, input.policy);
   if (!clipboard.ok) return { ok: false, selection, diagnostic: clipboard.diagnostic };
   return { ok: true, selection, clipboard };
