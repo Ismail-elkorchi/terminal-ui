@@ -137,14 +137,21 @@ function appAccessibility<TState, TMessage>(
   state: TState,
   frame: Frame
 ): AccessibleSnapshot {
+  const tuiAccessibility = toAccessibleSnapshot({
+    ...frame.accessibility,
+    source: 'tui'
+  });
   const described = app.definition.accessibility?.describe?.(state);
-  if (described === undefined) return frame.accessibility;
-  const normalized = toAccessibleSnapshot(described);
+  if (described === undefined) return tuiAccessibility;
+  const normalized = toAccessibleSnapshot({
+    ...described,
+    source: 'tui'
+  });
   const valid = validateAccessibleSnapshot(normalized);
   if (valid.ok) return normalized;
   return toAccessibleSnapshot({
-    ...frame.accessibility,
-    diagnostics: [...frame.accessibility.diagnostics, valid.error]
+    ...tuiAccessibility,
+    diagnostics: [...tuiAccessibility.diagnostics, valid.error]
   });
 }
 

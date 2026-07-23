@@ -249,6 +249,16 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.checked, true);
   assert.equal(frame.accessibility.root.children?.[1]?.children?.[0]?.selected, true);
   assert.equal(frame.accessibility.root.children?.[2]?.role, 'grid');
+  assert.deepEqual(frame.accessibility.root.children?.[2]?.children?.[0]?.position, {
+    rowNumber: 1,
+    rowCount: 6,
+    columnCount: 7
+  });
+  assert.deepEqual(frame.accessibility.root.children?.[2]?.children?.[0]?.children?.[0]?.position, {
+    rowNumber: 1,
+    columnNumber: 1,
+    columnCount: 7
+  });
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'check-list' && cell.text === 'x')?.source?.label, 'option.email.marker.checked');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'check-list' && cell.text === 'x')?.source?.role, 'decoration');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.text === 'S')?.source?.label, 'summary.label');

@@ -69,8 +69,27 @@ test('table widget renders constrained columns and selected rows', () => {
   const output = renderFramePlain(frame);
   assert.match(output, /Name   Val…/u);
   assert.match(output, /› bravo  200/u);
-  assert.deepEqual(frame.accessibility.root.window, { start: 0, end: 2, total: 2, omittedBefore: 0, omittedAfter: 0 });
-  assert.equal(frame.accessibility.root.children?.[0]?.children?.[1]?.position?.columnLabel, 'Value');
+  assert.deepEqual(frame.accessibility.root.window, {
+    startIndex: 0,
+    endIndexExclusive: 2,
+    totalCount: 2,
+    omittedBefore: 0,
+    omittedAfter: 0
+  });
+  assert.deepEqual(frame.accessibility.root.children?.[0]?.children?.[1]?.position, {
+    rowNumber: 1,
+    rowCount: 3,
+    columnNumber: 2,
+    columnCount: 2,
+    columnLabel: 'Value'
+  });
+  assert.deepEqual(frame.accessibility.root.children?.[2]?.position, {
+    itemNumber: 2,
+    itemCount: 2,
+    rowNumber: 3,
+    rowCount: 3,
+    columnCount: 2
+  });
   assert.equal(frame.accessibility.root.children?.[2]?.selected, true);
 });
 

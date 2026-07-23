@@ -123,8 +123,8 @@ function latestHarnessSnapshot(
   const lastFrame = frames.at(-1);
   if (lastFrame !== undefined) return lastFrame.accessibility;
   return createAccessibleSnapshot({
-    source: 'widget',
-    root: { id: 'terminal-harness', role: 'application', label: 'Terminal harness' }
+    source: 'test_harness',
+    root: { id: 'terminal-harness', role: 'group', label: 'Terminal harness' }
   });
 }
 

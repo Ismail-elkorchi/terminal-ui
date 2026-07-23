@@ -18,6 +18,8 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
   const result = createPtyTerminalHarness({ viewport: { columns: 32, rows: 5 } });
   assert.equal(result.ok, true);
   const harness = result.harness;
+  assert.equal(harness.snapshot().source, 'test_harness');
+  assert.equal(harness.snapshot().root.role, 'group');
   const app = defineTui({
     id: 'pty-success',
     init: () => ({ submitted: false }),
@@ -43,6 +45,7 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
   assert.equal(harness.restores().length, 1);
   assert.ok(harness.frames().length >= 2);
   assert.ok(harness.diffs().length >= 2);
+  assert.equal(harness.snapshot().source, 'tui');
   assert.match(harness.output(), /\u001B\[\?1049h/u);
   assert.match(harness.output(), /\u001B\[\?1049l/u);
   assert.match(harness.output(), /\u001B\[\?2004h/u);

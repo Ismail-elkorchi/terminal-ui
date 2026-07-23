@@ -3,6 +3,7 @@ import { diffFrames, renderElementFrame } from '@ismail-elkorchi/terminal-ui/ren
 import { text } from '@ismail-elkorchi/terminal-ui/components';
 
 const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+const emptySnapshot = harness.snapshot();
 const frame = renderElementFrame(text('Harness ready', { id: 'ready' }), { columns: 20, rows: 4 });
 harness.recordCommit({
   id: 'example:commit:1',
@@ -23,5 +24,7 @@ const result = await runInteractionScript(harness, {
 console.log(JSON.stringify({
   steps: result.transcript.steps.length,
   source: result.snapshot.source,
+  emptySource: emptySnapshot.source,
+  emptyRole: emptySnapshot.root.role,
   frameCount: harness.frames().length
 }));

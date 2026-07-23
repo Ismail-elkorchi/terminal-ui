@@ -170,7 +170,7 @@ function windowIssueForNode(node: Record<string, unknown>, id: string): Terminal
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible node window field is unsupported: ${unknownField}.`, id);
   }
-  for (const field of ['start', 'end', 'total'] as const) {
+  for (const field of ['startIndex', 'endIndexExclusive', 'totalCount'] as const) {
     if (!isNonNegativeInteger(window[field])) return accessibilityFailure(`Accessible node window ${field} must be a non-negative integer.`, id);
   }
   for (const field of ['omittedBefore', 'omittedAfter'] as const) {
@@ -178,12 +178,22 @@ function windowIssueForNode(node: Record<string, unknown>, id: string): Terminal
       return accessibilityFailure(`Accessible node window ${field} must be a non-negative integer.`, id);
     }
   }
-  if (Number(window['end']) < Number(window['start'])) return accessibilityFailure('Accessible node window end must not be before start.', id);
-  if (Number(window['end']) > Number(window['total'])) return accessibilityFailure('Accessible node window end must not exceed total.', id);
+  if (Number(window['endIndexExclusive']) < Number(window['startIndex'])) {
+    return accessibilityFailure('Accessible node window endIndexExclusive must not be before startIndex.', id);
+  }
+  if (Number(window['endIndexExclusive']) > Number(window['totalCount'])) {
+    return accessibilityFailure('Accessible node window endIndexExclusive must not exceed totalCount.', id);
+  }
   return undefined;
 }
 
-const windowFields = new Set(['start', 'end', 'total', 'omittedBefore', 'omittedAfter']);
+const windowFields = new Set([
+  'startIndex',
+  'endIndexExclusive',
+  'totalCount',
+  'omittedBefore',
+  'omittedAfter'
+]);
 
 function positionIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
   const position = node['position'];
@@ -193,7 +203,15 @@ function positionIssueForNode(node: Record<string, unknown>, id: string): Termin
   if (unknownField !== undefined) {
     return accessibilityFailure(`Accessible node position field is unsupported: ${unknownField}.`, id);
   }
-  for (const field of ['index', 'count', 'level', 'rowIndex', 'rowCount', 'columnIndex', 'columnCount'] as const) {
+  for (const field of [
+    'itemNumber',
+    'itemCount',
+    'level',
+    'rowNumber',
+    'rowCount',
+    'columnNumber',
+    'columnCount'
+  ] as const) {
     if (position[field] !== undefined && !isPositiveInteger(position[field])) {
       return accessibilityFailure(`Accessible node position ${field} must be a positive integer.`, id);
     }
@@ -207,9 +225,9 @@ function positionIssueForNode(node: Record<string, unknown>, id: string): Termin
     }
   }
   for (const [indexField, countField] of [
-    ['index', 'count'],
-    ['rowIndex', 'rowCount'],
-    ['columnIndex', 'columnCount']
+    ['itemNumber', 'itemCount'],
+    ['rowNumber', 'rowCount'],
+    ['columnNumber', 'columnCount']
   ] as const) {
     if (
       typeof position[indexField] === 'number'
@@ -226,12 +244,12 @@ function positionIssueForNode(node: Record<string, unknown>, id: string): Termin
 }
 
 const positionFields = new Set([
-  'index',
-  'count',
+  'itemNumber',
+  'itemCount',
   'level',
-  'rowIndex',
+  'rowNumber',
   'rowCount',
-  'columnIndex',
+  'columnNumber',
   'columnCount',
   'columnLabel',
   'group'

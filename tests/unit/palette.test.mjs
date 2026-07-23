@@ -116,7 +116,11 @@ test('palette widget renders query matches disabled entries preview help empty s
   assert.equal(frame.accessibility.root.scope, undefined);
   assert.equal(frame.accessibility.root.children?.[0]?.selected, true);
   assert.equal(frame.accessibility.root.children?.[0]?.disabled, true);
-  assert.equal(frame.accessibility.root.children?.[0]?.position?.group, 'Workspace');
+  assert.deepEqual(frame.accessibility.root.children?.[0]?.position, {
+    itemNumber: 1,
+    itemCount: 1,
+    group: 'Workspace'
+  });
   assert.equal(frame.accessibility.root.children?.[0]?.value, undefined);
 });
 

@@ -133,9 +133,9 @@ export function tableAccessibleBase(
     label: id,
     description: `Showing ${String(window.start + 1)}-${String(window.end)} of ${String(totalRows)} rows.`,
     window: {
-      start: window.start,
-      end: window.end,
-      total: totalRows,
+      startIndex: window.start,
+      endIndexExclusive: window.end,
+      totalCount: totalRows,
       omittedBefore: window.omittedBefore,
       omittedAfter: window.omittedAfter
     },
@@ -158,7 +158,7 @@ export function tableAccessibleChildren(
         id: `${widget.id ?? 'table'}:headers`,
         role: 'row',
         position: {
-          rowIndex: 1,
+          rowNumber: 1,
           rowCount: totalRows + 1,
           columnCount: columns.length
         },
@@ -175,9 +175,9 @@ export function tableAccessibleChildren(
             ].join(', ')
           } : {}),
           position: {
-            rowIndex: 1,
+            rowNumber: 1,
             rowCount: totalRows + 1,
-            columnIndex: columnIndex + 1,
+            columnNumber: columnIndex + 1,
             columnCount: columns.length,
             columnLabel: columnLabel(column, columnIndex)
           }
@@ -191,9 +191,9 @@ export function tableAccessibleChildren(
       role: 'row',
       selected: rowIndex === window.selected,
       position: {
-        index: rowIndex + 1,
-        count: totalRows,
-        rowIndex: hasHeader ? rowIndex + 2 : rowIndex + 1,
+        itemNumber: rowIndex + 1,
+        itemCount: totalRows,
+        rowNumber: hasHeader ? rowIndex + 2 : rowIndex + 1,
         rowCount: hasHeader ? totalRows + 1 : totalRows,
         columnCount: columns.length
       },
@@ -206,9 +206,9 @@ export function tableAccessibleChildren(
           label: displayTableValue(value),
           value: displayTableValue(value),
           position: {
-            rowIndex: hasHeader ? rowIndex + 2 : rowIndex + 1,
+            rowNumber: hasHeader ? rowIndex + 2 : rowIndex + 1,
             rowCount: hasHeader ? totalRows + 1 : totalRows,
-            columnIndex: columnIndex + 1,
+            columnNumber: columnIndex + 1,
             columnCount: columns.length,
             columnLabel: label
           },

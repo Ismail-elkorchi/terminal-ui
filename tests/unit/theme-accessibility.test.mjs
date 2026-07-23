@@ -195,11 +195,11 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     {
       id: 'files',
       role: 'tree',
-      window: { start: 0, end: 1, total: 3, omittedBefore: 0, omittedAfter: 2 },
+      window: { startIndex: 0, endIndexExclusive: 1, totalCount: 3, omittedBefore: 0, omittedAfter: 2 },
       children: [{
         id: 'file',
         role: 'treeitem',
-        position: { index: 1, count: 3, level: 1 },
+        position: { itemNumber: 1, itemCount: 3, level: 1 },
         expanded: false,
         selected: true
       }]
@@ -210,11 +210,11 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
       children: [{
         id: 'week',
         role: 'row',
-        position: { rowIndex: 1, rowCount: 1, columnCount: 1 },
+        position: { rowNumber: 1, rowCount: 1, columnCount: 1 },
         children: [{
           id: 'day',
           role: 'gridcell',
-          position: { rowIndex: 1, columnIndex: 1, columnCount: 1 },
+          position: { rowNumber: 1, columnNumber: 1, columnCount: 1 },
           selected: true
         }]
       }]
@@ -229,7 +229,7 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
   for (const root of validRoots) {
     assert.equal(validateAccessibleSnapshot({
       schemaVersion: 'terminal-ui.accessible-snapshot.v1',
-      source: 'widget',
+      source: 'renderer',
       root,
       focusPath: [],
       diagnostics: []
@@ -242,9 +242,19 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     { id: 'mixed-switch', role: 'switch', checked: 'mixed' },
     { id: 'selected', role: 'text', selected: true },
     { id: 'expanded', role: 'status', expanded: true },
-    { id: 'position', role: 'option', position: { index: 0, count: 1 } },
-    { id: 'position-range', role: 'option', position: { index: 2, count: 1 } },
-    { id: 'window', role: 'listbox', window: { start: 1, end: 3, total: 2 } },
+    { id: 'position', role: 'option', position: { itemNumber: 0, itemCount: 1 } },
+    { id: 'position-range', role: 'option', position: { itemNumber: 2, itemCount: 1 } },
+    { id: 'legacy-position', role: 'option', position: { index: 1, itemCount: 1 } },
+    {
+      id: 'window',
+      role: 'listbox',
+      window: { startIndex: 1, endIndexExclusive: 3, totalCount: 2 }
+    },
+    {
+      id: 'legacy-window',
+      role: 'listbox',
+      window: { start: 0, endIndexExclusive: 1, totalCount: 1 }
+    },
     {
       id: 'numeric-role',
       role: 'text',
@@ -268,7 +278,7 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
   for (const root of invalidRoots) {
     const result = validateAccessibleSnapshot({
       schemaVersion: 'terminal-ui.accessible-snapshot.v1',
-      source: 'widget',
+      source: 'renderer',
       root,
       focusPath: [],
       diagnostics: []

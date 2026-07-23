@@ -121,8 +121,8 @@ export function paletteAccessibleChildren(widget: PaletteNode, height: number): 
     ...(entry.description === undefined ? {} : { description: entry.description }),
     ...(entry.preview === undefined ? {} : { value: entry.preview }),
     position: {
-      index: window.start + index + 1,
-      count: window.total,
+      itemNumber: window.start + index + 1,
+      itemCount: window.total,
       ...(entry.group === undefined ? {} : { group: entry.group })
     },
     selected: index === window.selected,

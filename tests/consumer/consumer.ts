@@ -122,10 +122,11 @@ const panes = splitPane([text('Left'), text('Right')], {
   ...splitPanePresentation(split),
   onAction: (action) => ({ kind: 'split' as const, action })
 });
-const output = renderFramePlain(renderElementFrame(view({ count: 1 }), {
+const renderedView = renderElementFrame(view({ count: 1 }), {
   columns: 40,
   rows: 8
-}));
+});
+const output = renderFramePlain(renderedView);
 const rootHost = createTerminalHost({ runtime: 'memory' });
 const memoryHost = createMemoryTerminalHost();
 await memoryHost.write({ text: 'ordered output' });
@@ -149,8 +150,18 @@ const promptResult = await runPrompt(confirm({
   nonTty: { mode: 'provided_value', value: true }
 }));
 const accessible = toAccessibleSnapshot({
-  source: 'widget',
-  root: { id: 'consumer', role: 'application', label: 'Consumer' }
+  source: 'renderer',
+  root: {
+    id: 'consumer',
+    role: 'listbox',
+    label: 'Consumer',
+    window: { startIndex: 0, endIndexExclusive: 1, totalCount: 1 },
+    children: [{
+      id: 'consumer-item',
+      role: 'option',
+      position: { itemNumber: 1, itemCount: 1 }
+    }]
+  }
 });
 const transcript = createTranscriptRecorder({ id: 'consumer', source: 'test' }).snapshot();
 
@@ -166,6 +177,12 @@ if (!selected.ok || selected.text !== 'selected') {
   throw new Error('The interaction entrypoint did not resolve controlled selection.');
 }
 if (harness.host.runtime !== 'memory') throw new Error('The testing entrypoint did not create a harness.');
+if (harness.snapshot().source !== 'test_harness' || harness.snapshot().root.role !== 'group') {
+  throw new Error('The packed testing entrypoint returned an invalid empty harness snapshot.');
+}
+if (renderedView.accessibility.source !== 'renderer') {
+  throw new Error('The packed renderer entrypoint returned an invalid snapshot source.');
+}
 if (scroll.offsetRow !== 2) throw new Error('The behavior entrypoint did not update controlled state.');
 if (command.input.text !== 'open') throw new Error('The behavior entrypoint did not update command state.');
 if (!renderFramePlain(renderElementFrame(panes, { columns: 20, rows: 2 })).includes('Left')) {

@@ -2,27 +2,21 @@ import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, 
 import type { ElementInspection } from '../../element/inspection.ts';
 import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
 
-const layoutKinds = new Set<RenderNodeKind>([
-  'absolute',
-  'column',
-  'grid',
-  'overlay',
-  'row',
-  'splitPane',
-  'surface',
-  'viewport'
-]);
-
 const renderNodes = new WeakMap<object, unknown>();
 const inspections = new WeakMap<object, ElementInspection>();
+const inspectionCategories = new WeakMap<object, ElementInspection['category']>();
 
 export function elementFromRenderNode<
   const TKind extends RenderNodeKind,
   TMessage = never
->(node: RenderNodeOfKind<TMessage, TKind>): Element<TMessage> {
+>(
+  node: RenderNodeOfKind<TMessage, TKind>,
+  category: ElementInspection['category'] = 'component'
+): Element<TMessage> {
   const element = Object.freeze({}) as Element<TMessage>;
   renderNodes.set(element, node);
-  inspections.set(element, inspectRenderNode(node));
+  inspectionCategories.set(node, category);
+  inspections.set(element, inspectRenderNode(node, category));
   return element;
 }
 
@@ -56,7 +50,8 @@ function isObject(value: unknown): value is object {
 }
 
 function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
-  node: RenderNodeOfKind<TMessage, TKind>
+  node: RenderNodeOfKind<TMessage, TKind>,
+  category: ElementInspection['category']
 ): ElementInspection {
   const styleParts = Object.keys(node.styles?.parts ?? {}).sort();
   const styleStates = Object.keys(node.styles?.states ?? {}).sort();
@@ -64,7 +59,7 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
   const inspection: ElementInspection = {
     schemaVersion: 'terminal-ui.element.v1',
     kind: node.kind,
-    category: node.kind === 'custom' ? 'extension' : layoutKinds.has(node.kind) ? 'layout' : 'component',
+    category,
     ...(node.id === undefined ? {} : { id: node.id }),
     inputs: Object.freeze({
       keyboard,
@@ -79,7 +74,9 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
       styleStates: Object.freeze(styleStates),
       layered: node.layer !== undefined
     }),
-    children: Object.freeze((node.children ?? []).map(inspectRenderNode))
+    children: Object.freeze((node.children ?? []).map((child) =>
+      inspectRenderNode(child, inspectionCategories.get(child) ?? category)
+    ))
   };
   return Object.freeze(inspection);
 }

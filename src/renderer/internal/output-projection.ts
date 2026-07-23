@@ -74,15 +74,15 @@ function numericValueState(numericValue: NonNullable<AccessibleNode['numericValu
 }
 
 function windowState(window: NonNullable<AccessibleNode['window']>): string {
-  return `window:${String(window.start)}-${String(window.end)}/${String(window.total)}`;
+  return `window:${String(window.startIndex)}-${String(window.endIndexExclusive)}/${String(window.totalCount)}`;
 }
 
 function positionState(position: NonNullable<AccessibleNode['position']>): string {
-  if (position.index !== undefined && position.count !== undefined) {
-    return `position:${String(position.index)}/${String(position.count)}`;
+  if (position.itemNumber !== undefined && position.itemCount !== undefined) {
+    return `position:${String(position.itemNumber)}/${String(position.itemCount)}`;
   }
-  if (position.rowIndex !== undefined && position.rowCount !== undefined) {
-    return `row:${String(position.rowIndex)}/${String(position.rowCount)}`;
+  if (position.rowNumber !== undefined && position.rowCount !== undefined) {
+    return `row:${String(position.rowNumber)}/${String(position.rowCount)}`;
   }
   return 'position';
 }

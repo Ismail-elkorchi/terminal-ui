@@ -551,7 +551,7 @@
       "required": ["schemaVersion", "source", "root", "focusPath", "diagnostics"],
       "properties": {
         "schemaVersion": { "const": "terminal-ui.accessible-snapshot.v1" },
-        "source": { "enum": ["prompt", "tui", "widget", "progress"] },
+        "source": { "enum": ["prompt", "tui", "renderer", "progress", "test_harness"] },
         "title": { "type": "string" },
         "root": { "$ref": "#/$defs/accessibleNode" },
         "focusPath": { "type": "array", "items": { "type": "string" } },
@@ -640,11 +640,11 @@
         },
         "window": {
           "type": "object",
-          "required": ["start", "end", "total"],
+          "required": ["startIndex", "endIndexExclusive", "totalCount"],
           "properties": {
-            "start": { "type": "integer", "minimum": 0 },
-            "end": { "type": "integer", "minimum": 0 },
-            "total": { "type": "integer", "minimum": 0 },
+            "startIndex": { "type": "integer", "minimum": 0 },
+            "endIndexExclusive": { "type": "integer", "minimum": 0 },
+            "totalCount": { "type": "integer", "minimum": 0 },
             "omittedBefore": { "type": "integer", "minimum": 0 },
             "omittedAfter": { "type": "integer", "minimum": 0 }
           },
@@ -653,12 +653,12 @@
         "position": {
           "type": "object",
           "properties": {
-            "index": { "type": "integer", "minimum": 1 },
-            "count": { "type": "integer", "minimum": 1 },
+            "itemNumber": { "type": "integer", "minimum": 1 },
+            "itemCount": { "type": "integer", "minimum": 1 },
             "level": { "type": "integer", "minimum": 1 },
-            "rowIndex": { "type": "integer", "minimum": 1 },
+            "rowNumber": { "type": "integer", "minimum": 1 },
             "rowCount": { "type": "integer", "minimum": 1 },
-            "columnIndex": { "type": "integer", "minimum": 1 },
+            "columnNumber": { "type": "integer", "minimum": 1 },
             "columnCount": { "type": "integer", "minimum": 1 },
             "columnLabel": { "type": "string" },
             "group": { "type": "string" }

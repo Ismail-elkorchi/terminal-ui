@@ -71,7 +71,7 @@ export function custom<TState, const TMessage = never>(
       pointer: options.pointer,
       meta: options.meta
     })
-  });
+  }, 'extension');
 }
 
 export function assertCustomRenderer(

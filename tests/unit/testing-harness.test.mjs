@@ -30,7 +30,7 @@ test('testing harness records input and output deterministically', async () => {
       { kind: 'input', event: 'x' },
       { kind: 'wait', ms: 5 },
       { kind: 'assertOutput', includes: 'done' },
-      { kind: 'assertSnapshot', assertion: { role: 'application', label: 'Terminal harness' } },
+      { kind: 'assertSnapshot', assertion: { role: 'group', label: 'Terminal harness' } },
       { kind: 'assertNoSecretLeak', secret: 'secret-token' }
     ]
   });
@@ -38,6 +38,8 @@ test('testing harness records input and output deterministically', async () => {
   assert.equal(result.output, 'done');
   assert.equal(result.transcript.steps.length, 1);
   assert.equal(harness.clock.monotonicNow(), 5);
+  assert.equal(harness.snapshot().source, 'test_harness');
+  assert.equal(harness.snapshot().root.role, 'group');
 });
 
 test('testing harness records paste script steps as paste events', async () => {
@@ -121,6 +123,7 @@ test('terminal harness delivers normalized key events to TUI runtimes', async ()
   assert.deepEqual(result.state, { submitted: true });
   assert.equal(harness.frames().length, 2);
   assert.equal(harness.diffs()[1]?.fullRewrite, false);
+  assert.equal(harness.snapshot().source, 'tui');
 });
 
 test('terminal harness replay delivers transcript input events back to the memory host', async () => {

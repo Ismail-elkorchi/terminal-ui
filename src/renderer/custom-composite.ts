@@ -121,7 +121,7 @@ export function customComposite<
       pointer: options.pointer,
       meta: options.meta
     })
-  });
+  }, 'extension');
 }
 
 function adaptCustomCompositeRenderer<TState, TMessage>(

@@ -258,8 +258,8 @@ function latestPtyHarnessSnapshot(
   const lastFrame = frames.at(-1);
   if (lastFrame !== undefined) return lastFrame.accessibility;
   return toAccessibleSnapshot({
-    source: 'widget',
-    root: { id: 'pty-harness', role: 'application', label: 'PTY harness' }
+    source: 'test_harness',
+    root: { id: 'pty-harness', role: 'group', label: 'PTY harness' }
   });
 }
 

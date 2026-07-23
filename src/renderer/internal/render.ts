@@ -177,7 +177,7 @@ export function renderElementProjection<TMessage>(
     regions.flatMap((region) => region.hitTargets.map(frameHitTargetFromRegion))
   );
   const accessibility = measureRenderStage(options.instrumentation, 'accessibility', () => toAccessibleSnapshot({
-    source: 'tui',
+    source: 'renderer',
     root: accessibleNode(renderNode, layout, [], resolvedFocusPath, theme, widthProfile),
     ...(resolvedFocusPath === undefined ? {} : { focusPath: resolvedFocusPath })
   }));

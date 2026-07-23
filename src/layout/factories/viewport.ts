@@ -26,5 +26,5 @@ export function viewport<const TChild extends Element<unknown>, const TMessage =
     },
     children: [childNode] as readonly RenderNode<Message>[],
     ...interactionProps(options)
-  });
+  }, 'layout');
 }

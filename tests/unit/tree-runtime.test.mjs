@@ -122,6 +122,18 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
   assert.equal(frame.accessibility.root.children?.[1]?.disabled, true);
   assert.equal(frame.accessibility.root.children?.[1]?.description, 'Server request boundary');
+  assert.deepEqual(frame.accessibility.root.window, {
+    startIndex: 0,
+    endIndexExclusive: 2,
+    totalCount: 2,
+    omittedBefore: 0,
+    omittedAfter: 0
+  });
+  assert.deepEqual(frame.accessibility.root.children?.[1]?.position, {
+    itemNumber: 2,
+    itemCount: 2,
+    level: 2
+  });
   assert.equal(frame.accessibility.root.children?.[1]?.value, 'root/api');
 });
 

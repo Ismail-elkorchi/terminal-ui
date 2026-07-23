@@ -158,7 +158,7 @@ class CellFrameBuffer implements FrameBuffer {
 
   snapshot(options: FrameBufferSnapshotOptions = {}): FrameBufferSnapshot {
     const accessibility = options.accessibility ?? toAccessibleSnapshot({
-      source: 'tui',
+      source: 'renderer',
       root: { id: 'frame', role: 'text', label: 'frame' }
     });
     const { cells, rowFingerprints } = this.snapshotCellsAndFingerprints();

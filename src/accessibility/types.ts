@@ -9,7 +9,7 @@ export interface AccessibleSnapshot {
   readonly diagnostics: readonly TerminalDiagnostic[];
 }
 
-export type AccessibleSnapshotSource = 'prompt' | 'tui' | 'widget' | 'progress';
+export type AccessibleSnapshotSource = 'prompt' | 'tui' | 'renderer' | 'progress' | 'test_harness';
 
 export interface AccessibleNode {
   readonly id: string;
@@ -57,20 +57,20 @@ export interface AccessibleScope {
 }
 
 export interface AccessibleWindow {
-  readonly start: number;
-  readonly end: number;
-  readonly total: number;
+  readonly startIndex: number;
+  readonly endIndexExclusive: number;
+  readonly totalCount: number;
   readonly omittedBefore?: number;
   readonly omittedAfter?: number;
 }
 
 export interface AccessiblePosition {
-  readonly index?: number;
-  readonly count?: number;
+  readonly itemNumber?: number;
+  readonly itemCount?: number;
   readonly level?: number;
-  readonly rowIndex?: number;
+  readonly rowNumber?: number;
   readonly rowCount?: number;
-  readonly columnIndex?: number;
+  readonly columnNumber?: number;
   readonly columnCount?: number;
   readonly columnLabel?: string;
   readonly group?: string;
@@ -162,6 +162,7 @@ export const accessibleRoles = [
 export const accessibleSources = [
   'prompt',
   'tui',
-  'widget',
-  'progress'
+  'renderer',
+  'progress',
+  'test_harness'
 ] as const satisfies readonly AccessibleSnapshotSource[];

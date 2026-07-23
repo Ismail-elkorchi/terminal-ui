@@ -96,6 +96,57 @@ test('accessible snapshot schema enums match runtime accessibility constants', a
   assert.deepEqual(accessibleSchema.$defs.accessibleNode.properties.role.enum, [...accessibleRoles]);
   assert.deepEqual(transcriptSchema.$defs.accessibleSnapshot.properties.source.enum, [...accessibleSources]);
   assert.deepEqual(transcriptSchema.$defs.accessibleNode.properties.role.enum, [...accessibleRoles]);
+  assert.deepEqual(
+    Object.keys(accessibleSchema.$defs.accessibleNode.properties.window.properties),
+    ['startIndex', 'endIndexExclusive', 'totalCount', 'omittedBefore', 'omittedAfter']
+  );
+  assert.deepEqual(
+    Object.keys(accessibleSchema.$defs.accessibleNode.properties.position.properties),
+    ['itemNumber', 'itemCount', 'level', 'rowNumber', 'rowCount', 'columnNumber', 'columnCount', 'columnLabel', 'group']
+  );
+  assert.deepEqual(
+    transcriptSchema.$defs.accessibleNode.properties.window,
+    accessibleSchema.$defs.accessibleNode.properties.window
+  );
+  assert.deepEqual(
+    transcriptSchema.$defs.accessibleNode.properties.position,
+    accessibleSchema.$defs.accessibleNode.properties.position
+  );
+});
+
+test('accessible snapshot schema accepts current names and rejects removed names', async () => {
+  const { ajv, validators } = await loadSchemaValidators();
+  const validate = validators.get('accessible-snapshot.schema.json');
+  const current = {
+    schemaVersion: 'terminal-ui.accessible-snapshot.v1',
+    source: 'renderer',
+    root: {
+      id: 'items',
+      role: 'listbox',
+      window: { startIndex: 0, endIndexExclusive: 1, totalCount: 1 },
+      children: [{
+        id: 'item',
+        role: 'option',
+        position: { itemNumber: 1, itemCount: 1 }
+      }]
+    },
+    focusPath: [],
+    diagnostics: []
+  };
+
+  assert.equal(validate(current), true, ajv.errorsText(validate.errors));
+  assert.equal(validate({ ...current, source: 'widget' }), false);
+  assert.equal(validate({
+    ...current,
+    root: { ...current.root, window: { start: 0, end: 1, total: 1 } }
+  }), false);
+  assert.equal(validate({
+    ...current,
+    root: {
+      ...current.root,
+      children: [{ id: 'item', role: 'option', position: { index: 1, count: 1 } }]
+    }
+  }), false);
 });
 
 test('prompt result schema enforces submitted and aborted result shapes', async () => {

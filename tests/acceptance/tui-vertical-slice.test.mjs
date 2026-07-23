@@ -67,7 +67,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v1');
   assert.equal(frame.width, 30);
   assert.equal(frame.height, 6);
-  assert.equal(frame.accessibility.source, 'tui');
+  assert.equal(frame.accessibility.source, 'renderer');
   assert.equal(frame.accessibility.root.id, 'root-surface');
   assert.ok(frame.focusPath?.includes('action-field'));
 
@@ -113,8 +113,14 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.deepEqual(exit.state, { submitted: true });
   assert.equal(harness.frames().length, 2);
   assert.equal(harness.diffs().length, 2);
-  assert.deepEqual(harness.frames()[0], frame);
-  assert.deepEqual(harness.frames()[1], submittedFrame);
+  assert.deepEqual(harness.frames()[0], {
+    ...frame,
+    accessibility: { ...frame.accessibility, source: 'tui' }
+  });
+  assert.deepEqual(harness.frames()[1], {
+    ...submittedFrame,
+    accessibility: { ...submittedFrame.accessibility, source: 'tui' }
+  });
   assert.equal(harness.diffs()[0].fullRewrite, true);
   assert.equal(harness.diffs()[1].fullRewrite, false);
   const { dirtyRegions, ...runtimeDiffPayload } = harness.diffs()[1];

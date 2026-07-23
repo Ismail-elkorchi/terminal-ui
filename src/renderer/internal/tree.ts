@@ -71,9 +71,9 @@ export function treeAccessibleBase(widget: TreeRenderNode, bounds: Rect, id: str
     label: id,
     description: windowDescription('tree rows', window, totalRows),
     window: {
-      start: window.start,
-      end: window.end,
-      total: totalRows,
+      startIndex: window.start,
+      endIndexExclusive: window.end,
+      totalCount: totalRows,
       omittedBefore: window.start,
       omittedAfter: Math.max(0, totalRows - window.end)
     },
@@ -92,8 +92,8 @@ export function treeAccessibleChildren(widget: TreeRenderNode, bounds: Rect): re
     disabled: row.node.disabled === true || row.lazyPlaceholder === true,
     ...(row.node.kind === 'leaf' ? {} : { expanded: treeNodeExpanded(row.node) }),
     position: {
-      index: window.start + index + 1,
-      count: totalRows,
+      itemNumber: window.start + index + 1,
+      itemCount: totalRows,
       level: row.depth + 1
     },
     value: row.path.join('/')
