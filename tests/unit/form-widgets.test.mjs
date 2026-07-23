@@ -121,8 +121,9 @@ test('open select renders a bounded popup with painted option targets only', () 
   assert.equal(frame.accessibility.root.role, 'combobox');
   assert.equal(frame.accessibility.root.expanded, true);
   assert.equal(frame.accessibility.root.value, 'Europe');
-  assert.equal(frame.accessibility.root.children?.[1]?.disabled, true);
-  assert.equal(frame.accessibility.root.children?.[2]?.focused, true);
+  assert.equal(frame.accessibility.root.children?.[0]?.role, 'listbox');
+  assert.equal(frame.accessibility.root.children?.[0]?.children?.[1]?.disabled, true);
+  assert.equal(frame.accessibility.root.children?.[0]?.children?.[2]?.focused, true);
 });
 
 test('closed select renders only its trigger and hides popup accessibility children', () => {
@@ -218,7 +219,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
   });
   const [emailField, terms, tier] = frame.accessibility.root.children;
 
-  assert.equal(frame.accessibility.root.role, 'application');
+  assert.equal(frame.accessibility.root.role, 'form');
   assert.equal(frame.accessibility.root.label, 'Account');
   assert.equal(emailField?.label, 'Email *');
   assert.equal(emailField?.children?.[0]?.role, 'textbox');

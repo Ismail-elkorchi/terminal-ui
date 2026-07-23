@@ -3,7 +3,7 @@ import { sanitizeTerminalText } from '../../text/index.ts';
 import {
   commandGroupSpans, commandMatchSpans, commandMetadataStyle, commandRowStyle, commandSelectionMarkerSpans, commandStatusSpans, styledSpan
 } from './command-visual.ts';
-import { renderNodeFrameSource } from '../../visual/source.ts';
+import { isFrameCellInteractionState, renderNodeFrameSource } from '../../visual/source.ts';
 import { stringify } from './render-node-props.ts';
 import { resolveRenderNodeStyle, renderNodeStyle, themeStyle } from './render-node-style.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
@@ -121,7 +121,7 @@ export function paletteAccessibleChildren(widget: PaletteNode, height: number): 
     ...(entry.description === undefined ? {} : { description: entry.description }),
     ...(entry.preview === undefined ? {} : { value: entry.preview }),
     position: {
-      index: window.start + index,
+      index: window.start + index + 1,
       count: window.total,
       ...(entry.group === undefined ? {} : { group: entry.group })
     },
@@ -259,7 +259,7 @@ function paletteSource(
     part: label,
     ...(id === undefined || id === widget.id ? {} : { itemId: id }),
     ...(itemIndex === undefined ? {} : { itemIndex }),
-    ...(state === undefined ? {} : { state }),
+    ...(isFrameCellInteractionState(state) ? { state } : {}),
     label
   });
 }

@@ -296,7 +296,7 @@ test('windowed table collections identify only supplied records and keep global 
   assert.equal(rowIdCalls, 12);
   assert.match(renderFramePlain(frame), /Row 70005/u);
   assert.equal(frame.accessibility.root.window?.total, 100_000);
-  assert.equal(frame.accessibility.root.children?.[1]?.position?.rowIndex, 70_003);
+  assert.equal(frame.accessibility.root.children?.[1]?.position?.rowIndex, 70_004);
 });
 
 test('fill-width tables do not scan offscreen row values for intrinsic measurement', () => {

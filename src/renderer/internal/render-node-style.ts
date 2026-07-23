@@ -72,12 +72,17 @@ export function defaultStyleForPart(part: RenderNodeStylePart): TerminalStyle | 
     case 'placeholder':
       return themeStyle('input.placeholder', { dim: true });
     case 'selected':
+      return defaultStyleForState('selected');
     case 'focused':
+      return defaultStyleForState('focused');
     case 'disabled':
+      return defaultStyleForState('disabled');
     case 'error':
+      return themeStyle('status.error', { bold: true });
     case 'warning':
+      return themeStyle('status.warning');
     case 'success':
-      return defaultStyleForState(part);
+      return themeStyle('status.success', { bold: true });
     default:
       return undefined;
   }
@@ -88,10 +93,9 @@ export function defaultStyleForState(state: ElementVisualState): TerminalStyle |
     case 'default':
       return undefined;
     case 'focused':
-      return themeStyle('accent.primary', { bold: true });
+      return { bold: true };
     case 'hovered':
       return {
-        fg: { kind: 'theme', token: 'text.default' },
         bg: { kind: 'theme', token: 'focus.background' }
       };
     case 'pressed':
@@ -109,9 +113,9 @@ export function defaultStyleForState(state: ElementVisualState): TerminalStyle |
     case 'disabled':
       return themeStyle('text.disabled', { dim: true });
     case 'active':
-      return themeStyle('accent.secondary', { bold: true });
+      return { bold: true };
     case 'error':
-      return themeStyle('status.error');
+      return themeStyle('status.error', { bold: true });
     case 'warning':
       return themeStyle('status.warning');
     case 'success':

@@ -25,24 +25,38 @@
           "enum": [
             "application",
             "dialog",
+            "form",
             "group",
+            "navigation",
             "status",
             "progressbar",
+            "meter",
             "textbox",
             "button",
             "checkbox",
+            "switch",
             "radio",
+            "radiogroup",
+            "slider",
+            "spinbutton",
             "combobox",
             "listbox",
             "option",
         "menu",
             "menubar",
             "menuitem",
+            "menuitemcheckbox",
+            "menuitemradio",
             "tablist",
             "tab",
             "table",
+            "grid",
             "row",
             "cell",
+            "gridcell",
+            "tree",
+            "treeitem",
+            "image",
             "text"
           ]
         },
@@ -60,11 +74,12 @@
         "disabled": { "type": "boolean" },
         "expanded": { "type": "boolean" },
         "checked": { "anyOf": [{ "type": "boolean" }, { "const": "mixed" }] },
-        "progress": {
+        "numericValue": {
           "type": "object",
           "properties": {
-            "value": { "type": "number" },
-            "max": { "type": "number" },
+            "current": { "type": "number" },
+            "minimum": { "type": "number" },
+            "maximum": { "type": "number" },
             "indeterminate": { "type": "boolean" }
           },
           "additionalProperties": false
@@ -95,13 +110,13 @@
         "position": {
           "type": "object",
           "properties": {
-            "index": { "type": "integer", "minimum": 0 },
-            "count": { "type": "integer", "minimum": 0 },
-            "level": { "type": "integer", "minimum": 0 },
-            "rowIndex": { "type": "integer", "minimum": 0 },
-            "rowCount": { "type": "integer", "minimum": 0 },
-            "columnIndex": { "type": "integer", "minimum": 0 },
-            "columnCount": { "type": "integer", "minimum": 0 },
+            "index": { "type": "integer", "minimum": 1 },
+            "count": { "type": "integer", "minimum": 1 },
+            "level": { "type": "integer", "minimum": 1 },
+            "rowIndex": { "type": "integer", "minimum": 1 },
+            "rowCount": { "type": "integer", "minimum": 1 },
+            "columnIndex": { "type": "integer", "minimum": 1 },
+            "columnCount": { "type": "integer", "minimum": 1 },
             "columnLabel": { "type": "string" },
             "group": { "type": "string" }
           },
@@ -111,7 +126,99 @@
         "controls": { "type": "string", "minLength": 1 },
         "children": { "type": "array", "items": { "$ref": "#/$defs/accessibleNode" } }
       },
+      "allOf": [
+        {
+          "if": { "type": "object", "properties": { "checked": true }, "required": ["checked"] },
+          "then": { "type": "object", "properties": { "role": { "enum": ["checkbox", "switch", "radio", "menuitemcheckbox", "menuitemradio"] } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "checked": { "const": "mixed" } }, "required": ["checked"] },
+          "then": { "type": "object", "properties": { "role": { "enum": ["checkbox", "menuitemcheckbox"] } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "selected": true }, "required": ["selected"] },
+          "then": { "type": "object", "properties": { "role": { "enum": ["option", "tab", "row", "gridcell", "treeitem"] } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "expanded": true }, "required": ["expanded"] },
+          "then": { "type": "object", "properties": { "role": { "enum": ["button", "combobox", "menuitem", "menuitemcheckbox", "menuitemradio", "treeitem"] } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "numericValue": true }, "required": ["numericValue"] },
+          "then": { "type": "object", "properties": { "role": { "enum": ["progressbar", "meter", "slider", "spinbutton"] } } }
+        },
+        {
+          "if": {
+            "type": "object",
+            "properties": {
+              "numericValue": {
+                "type": "object",
+                "properties": { "indeterminate": { "const": true } },
+                "required": ["indeterminate"]
+              }
+            },
+            "required": ["numericValue"]
+          },
+          "then": { "type": "object", "properties": { "role": { "const": "progressbar" } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "role": { "const": "listbox" } }, "required": ["role"] },
+          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/optionNode" } } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "role": { "enum": ["menu", "menubar"] } }, "required": ["role"] },
+          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/menuItemNode" } } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "role": { "const": "combobox" } }, "required": ["role"] },
+          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/comboboxChildNode" } } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "role": { "const": "tablist" } }, "required": ["role"] },
+          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/tabNode" } } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "role": { "const": "radiogroup" } }, "required": ["role"] },
+          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/radioNode" } } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "role": { "enum": ["table", "grid"] } }, "required": ["role"] },
+          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/rowNode" } } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "role": { "const": "row" } }, "required": ["role"] },
+          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/tableCellNode" } } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "role": { "const": "tree" } }, "required": ["role"] },
+          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/treeItemNode" } } } }
+        }
+      ],
       "additionalProperties": false
+    },
+    "optionNode": {
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "const": "option" } } }]
+    },
+    "menuItemNode": {
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["menuitem", "menuitemcheckbox", "menuitemradio"] } } }]
+    },
+    "comboboxChildNode": {
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["listbox", "status"] } } }]
+    },
+    "tabNode": {
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "const": "tab" } } }]
+    },
+    "radioNode": {
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "const": "radio" } } }]
+    },
+    "rowNode": {
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "const": "row" } } }]
+    },
+    "tableCellNode": {
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["cell", "gridcell"] } } }]
+    },
+    "treeItemNode": {
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "const": "treeitem" } } }]
     }
   }
 }

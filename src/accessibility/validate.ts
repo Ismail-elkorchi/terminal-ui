@@ -59,6 +59,10 @@ function isAccessibleNode(value: unknown): value is AccessibleNode {
 
 function firstNodeIssue(node: unknown, ids: Set<string>): TerminalDiagnostic | undefined {
   if (!isRecord(node)) return accessibilityFailure('Accessible node must be an object.');
+  const unknownField = firstUnknownField(node, accessibleNodeFields);
+  if (unknownField !== undefined) {
+    return accessibilityFailure(`Accessible node field is unsupported: ${unknownField}.`);
+  }
   if (!isNonEmptyString(node['id'])) return accessibilityFailure('Accessible node id must not be empty.');
   const id = node['id'];
   if (ids.has(id)) return accessibilityFailure(`Accessible node id must be unique: ${id}.`);
@@ -87,8 +91,10 @@ function firstNodeIssue(node: unknown, ids: Set<string>): TerminalDiagnostic | u
   if (node['checked'] !== undefined && typeof node['checked'] !== 'boolean' && node['checked'] !== 'mixed') {
     return accessibilityFailure('Accessible node checked must be a boolean or "mixed".', id);
   }
-  const progressIssue = progressIssueForNode(node, id);
-  if (progressIssue !== undefined) return progressIssue;
+  const stateRoleIssue = roleStateIssue(node, id);
+  if (stateRoleIssue !== undefined) return stateRoleIssue;
+  const numericValueIssue = numericValueIssueForNode(node, id);
+  if (numericValueIssue !== undefined) return numericValueIssue;
   const liveIssue = liveIssueForNode(node, id);
   if (liveIssue !== undefined) return liveIssue;
   const scopeIssue = scopeIssueForNode(node, id);
@@ -104,8 +110,30 @@ function firstNodeIssue(node: unknown, ids: Set<string>): TerminalDiagnostic | u
     const childIssue = firstNodeIssue(child, ids);
     if (childIssue !== undefined) return childIssue;
   }
+  const relationshipIssue = childRoleIssue(node, id);
+  if (relationshipIssue !== undefined) return relationshipIssue;
   return undefined;
 }
+
+const accessibleNodeFields = new Set([
+  'id',
+  'role',
+  'label',
+  'value',
+  'focused',
+  'selected',
+  'disabled',
+  'expanded',
+  'checked',
+  'numericValue',
+  'live',
+  'scope',
+  'window',
+  'position',
+  'description',
+  'controls',
+  'children'
+]);
 
 function liveIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
   return node['live'] === undefined || (typeof node['live'] === 'string' && ['off', 'polite', 'assertive'].includes(node['live']))
@@ -117,6 +145,10 @@ function scopeIssueForNode(node: Record<string, unknown>, id: string): TerminalD
   const scope = node['scope'];
   if (scope === undefined) return undefined;
   if (!isRecord(scope)) return accessibilityFailure('Accessible node scope must be an object.', id);
+  const unknownField = firstUnknownField(scope, scopeFields);
+  if (unknownField !== undefined) {
+    return accessibilityFailure(`Accessible node scope field is unsupported: ${unknownField}.`, id);
+  }
   if (!['document', 'modal', 'popover', 'menu'].includes(String(scope['kind']))) {
     return accessibilityFailure('Accessible node scope kind is unsupported.', id);
   }
@@ -128,10 +160,16 @@ function scopeIssueForNode(node: Record<string, unknown>, id: string): TerminalD
   return undefined;
 }
 
+const scopeFields = new Set(['kind', 'trapsFocus', 'obscuresBackground']);
+
 function windowIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
   const window = node['window'];
   if (window === undefined) return undefined;
   if (!isRecord(window)) return accessibilityFailure('Accessible node window must be an object.', id);
+  const unknownField = firstUnknownField(window, windowFields);
+  if (unknownField !== undefined) {
+    return accessibilityFailure(`Accessible node window field is unsupported: ${unknownField}.`, id);
+  }
   for (const field of ['start', 'end', 'total'] as const) {
     if (!isNonNegativeInteger(window[field])) return accessibilityFailure(`Accessible node window ${field} must be a non-negative integer.`, id);
   }
@@ -145,13 +183,19 @@ function windowIssueForNode(node: Record<string, unknown>, id: string): Terminal
   return undefined;
 }
 
+const windowFields = new Set(['start', 'end', 'total', 'omittedBefore', 'omittedAfter']);
+
 function positionIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
   const position = node['position'];
   if (position === undefined) return undefined;
   if (!isRecord(position)) return accessibilityFailure('Accessible node position must be an object.', id);
+  const unknownField = firstUnknownField(position, positionFields);
+  if (unknownField !== undefined) {
+    return accessibilityFailure(`Accessible node position field is unsupported: ${unknownField}.`, id);
+  }
   for (const field of ['index', 'count', 'level', 'rowIndex', 'rowCount', 'columnIndex', 'columnCount'] as const) {
-    if (position[field] !== undefined && !isNonNegativeInteger(position[field])) {
-      return accessibilityFailure(`Accessible node position ${field} must be a non-negative integer.`, id);
+    if (position[field] !== undefined && !isPositiveInteger(position[field])) {
+      return accessibilityFailure(`Accessible node position ${field} must be a positive integer.`, id);
     }
   }
   for (const field of ['columnLabel', 'group'] as const) {
@@ -162,8 +206,36 @@ function positionIssueForNode(node: Record<string, unknown>, id: string): Termin
       return accessibilityFailure(`Accessible node position ${field} must not contain terminal control sequences.`, id);
     }
   }
+  for (const [indexField, countField] of [
+    ['index', 'count'],
+    ['rowIndex', 'rowCount'],
+    ['columnIndex', 'columnCount']
+  ] as const) {
+    if (
+      typeof position[indexField] === 'number'
+      && typeof position[countField] === 'number'
+      && position[indexField] > position[countField]
+    ) {
+      return accessibilityFailure(
+        `Accessible node position ${indexField} must not exceed ${countField}.`,
+        id
+      );
+    }
+  }
   return undefined;
 }
+
+const positionFields = new Set([
+  'index',
+  'count',
+  'level',
+  'rowIndex',
+  'rowCount',
+  'columnIndex',
+  'columnCount',
+  'columnLabel',
+  'group'
+]);
 
 function firstFocusIssue(
   snapshot: Pick<AccessibleSnapshot, 'root' | 'focusPath'>
@@ -200,31 +272,94 @@ function isAccessibleRole(value: unknown): boolean {
   return typeof value === 'string' && (accessibleRoles as readonly string[]).includes(value);
 }
 
-function progressIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
-  const progress = node['progress'];
-  if (progress === undefined) return undefined;
-  if (node['role'] !== 'progressbar') {
-    return accessibilityFailure('Accessible progress state is only valid on progressbar nodes.', id);
+function numericValueIssueForNode(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
+  const numericValue = node['numericValue'];
+  if (numericValue === undefined) return undefined;
+  if (!['progressbar', 'meter', 'slider', 'spinbutton'].includes(String(node['role']))) {
+    return accessibilityFailure('Accessible numericValue is only valid on progressbar, meter, slider, or spinbutton nodes.', id);
   }
-  if (!isRecord(progress)) return accessibilityFailure('Accessible progress state must be an object.', id);
-  if (progress['value'] !== undefined && typeof progress['value'] !== 'number') {
-    return accessibilityFailure('Accessible progress value must be a number.', id);
+  if (!isRecord(numericValue)) return accessibilityFailure('Accessible numericValue must be an object.', id);
+  const unknownField = firstUnknownField(numericValue, numericValueFields);
+  if (unknownField !== undefined) {
+    return accessibilityFailure(`Accessible numericValue field is unsupported: ${unknownField}.`, id);
   }
-  if (progress['max'] !== undefined && typeof progress['max'] !== 'number') {
-    return accessibilityFailure('Accessible progress max must be a number.', id);
+  for (const field of ['current', 'minimum', 'maximum'] as const) {
+    if (numericValue[field] !== undefined && !isFiniteNumber(numericValue[field])) {
+      return accessibilityFailure(`Accessible numericValue ${field} must be a finite number.`, id);
+    }
   }
-  if (progress['indeterminate'] !== undefined && typeof progress['indeterminate'] !== 'boolean') {
-    return accessibilityFailure('Accessible progress indeterminate must be a boolean.', id);
+  if (numericValue['indeterminate'] !== undefined && typeof numericValue['indeterminate'] !== 'boolean') {
+    return accessibilityFailure('Accessible numericValue indeterminate must be a boolean.', id);
   }
-  if (
-    typeof progress['value'] === 'number'
-    && typeof progress['max'] === 'number'
-    && progress['value'] > progress['max']
-  ) {
-    return accessibilityFailure('Accessible progress value must not exceed max.', id);
+  if (numericValue['indeterminate'] === true && node['role'] !== 'progressbar') {
+    return accessibilityFailure('Only progressbar nodes may have an indeterminate numericValue.', id);
+  }
+  const current = numericValue['current'];
+  const minimum = numericValue['minimum'];
+  const maximum = numericValue['maximum'];
+  if (typeof minimum === 'number' && typeof maximum === 'number' && minimum > maximum) {
+    return accessibilityFailure('Accessible numericValue minimum must not exceed maximum.', id);
+  }
+  if (typeof current === 'number' && typeof minimum === 'number' && current < minimum) {
+    return accessibilityFailure('Accessible numericValue current must not be below minimum.', id);
+  }
+  if (typeof current === 'number' && typeof maximum === 'number' && current > maximum) {
+    return accessibilityFailure('Accessible numericValue current must not exceed maximum.', id);
   }
   return undefined;
 }
+
+const numericValueFields = new Set(['current', 'minimum', 'maximum', 'indeterminate']);
+
+function roleStateIssue(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
+  const role = String(node['role']);
+  if (node['checked'] !== undefined && !checkedRoles.has(role)) {
+    return accessibilityFailure(`Accessible checked state is not valid on ${role} nodes.`, id);
+  }
+  if (node['checked'] === 'mixed' && !mixedCheckedRoles.has(role)) {
+    return accessibilityFailure(`Accessible mixed checked state is not valid on ${role} nodes.`, id);
+  }
+  if (node['selected'] !== undefined && !selectedRoles.has(role)) {
+    return accessibilityFailure(`Accessible selected state is not valid on ${role} nodes.`, id);
+  }
+  if (node['expanded'] !== undefined && !expandedRoles.has(role)) {
+    return accessibilityFailure(`Accessible expanded state is not valid on ${role} nodes.`, id);
+  }
+  return undefined;
+}
+
+const checkedRoles = new Set(['checkbox', 'switch', 'radio', 'menuitemcheckbox', 'menuitemradio']);
+const mixedCheckedRoles = new Set(['checkbox', 'menuitemcheckbox']);
+const selectedRoles = new Set(['option', 'tab', 'row', 'gridcell', 'treeitem']);
+const expandedRoles = new Set(['button', 'combobox', 'menuitem', 'menuitemcheckbox', 'menuitemradio', 'treeitem']);
+
+function childRoleIssue(node: Record<string, unknown>, id: string): TerminalDiagnostic | undefined {
+  const role = String(node['role']);
+  const allowed = requiredChildRoles[role];
+  if (allowed === undefined) return undefined;
+  for (const child of node['children'] as readonly Record<string, unknown>[] | undefined ?? []) {
+    if (!allowed.has(String(child['role']))) {
+      return accessibilityFailure(
+        `Accessible ${role} nodes may contain only ${[...allowed].join(' or ')} children.`,
+        id
+      );
+    }
+  }
+  return undefined;
+}
+
+const requiredChildRoles: Readonly<Record<string, ReadonlySet<string>>> = Object.freeze({
+  listbox: new Set(['option']),
+  menu: new Set(['menuitem', 'menuitemcheckbox', 'menuitemradio']),
+  menubar: new Set(['menuitem', 'menuitemcheckbox', 'menuitemradio']),
+  combobox: new Set(['listbox', 'status']),
+  tablist: new Set(['tab']),
+  radiogroup: new Set(['radio']),
+  table: new Set(['row']),
+  grid: new Set(['row']),
+  row: new Set(['cell', 'gridcell']),
+  tree: new Set(['treeitem'])
+});
 
 function optionalStringIssue(
   node: Record<string, unknown>,
@@ -252,6 +387,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isNonNegativeInteger(value: unknown): boolean {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
+function isPositiveInteger(value: unknown): boolean {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function firstUnknownField(
+  value: Record<string, unknown>,
+  allowedFields: ReadonlySet<string>
+): string | undefined {
+  return Object.keys(value).find((field) => !allowedFields.has(field));
 }
 
 function samePath(left: readonly string[], right: readonly string[]): boolean {

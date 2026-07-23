@@ -103,7 +103,7 @@ export function listBlock(widget: ListNode, height: number, theme: TerminalTheme
               itemIndex,
               ...(state === undefined ? {} : { state })
             }),
-            matchSource: dataSource(widget, `item.${entry.id}.match`, { itemId: entry.id, itemIndex, state: 'match' }),
+            matchSource: dataSource(widget, `item.${entry.id}.match`, { itemId: entry.id, itemIndex }),
             ...(matchStyle === undefined ? {} : { matchStyle })
           }),
           ...(entry.item.description === undefined ? [] : [dataSpan(

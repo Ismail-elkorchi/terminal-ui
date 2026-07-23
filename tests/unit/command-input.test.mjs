@@ -154,9 +154,10 @@ test('commandInput widget renders prompt, suggestions, cursor, and accessibility
   assert.match(text, /open · Open item/u);
   assert.match(text, /›/u);
   assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 4 });
-  assert.equal(frame.accessibility.root.role, 'textbox');
+  assert.equal(frame.accessibility.root.role, 'combobox');
   assert.equal(frame.accessibility.root.value, 'op');
-  assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
+  assert.equal(frame.accessibility.root.children?.[0]?.role, 'listbox');
+  assert.equal(frame.accessibility.root.children?.[0]?.children?.[1]?.selected, true);
 });
 
 test('commandInput renders completion preview validation footer match styles and wide cursor position', () => {
@@ -191,8 +192,9 @@ test('commandInput renders completion preview validation footer match styles and
   assert.equal(matchCell?.style?.fg?.token, 'command.match');
   assert.deepEqual(frame.accessibility.root.children?.map((node) => [node.id, node.value]), [
     ['launcher:validation', 'Choose a value'],
-    ['launcher:suggestion:0', 'a🙂bc']
+    ['launcher:suggestions', undefined]
   ]);
+  assert.equal(frame.accessibility.root.children?.[1]?.children?.[0]?.value, 'a🙂bc');
 });
 
 test('commandInput stays compact by default even when suggestions are provided', () => {

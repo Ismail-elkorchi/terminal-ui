@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
@@ -12,6 +13,7 @@ import {
 } from '../../dist/renderer/index.js';
 import { richText } from '../../dist/components/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
+import { blitFrameCell } from '../../dist/renderer/internal/frame-buffer.js';
 
 test('FrameBuffer records ASCII, Unicode width, emoji, CJK, and combining marks deterministically', () => {
   const buffer = createFrameBuffer(10, 2);
@@ -102,6 +104,65 @@ test('FrameCellSource sanitizes stable structured metadata before entering frame
   const buffer = createFrameBuffer(4, 1);
   buffer.write(1, 1, [{ text: 'A', source: frameCellSource({ ownerId: 'cell', kind: 'legacy', itemIndex: -1 }) }]);
   assert.deepEqual(buffer.snapshot().cells[0]?.source, { ownerId: 'cell', itemIndex: 0 });
+});
+
+test('FrameCellSource interaction states agree across cleanup, frames, and schemas', () => {
+  const states = ['focused', 'hovered', 'pressed', 'selected', 'disabled', 'active'];
+  const buffer = createFrameBuffer(states.length, 1);
+
+  for (const [index, state] of states.entries()) {
+    buffer.write(1, index + 1, [{
+      text: String(index),
+      source: frameCellSource({ ownerId: `cell-${String(index)}`, state })
+    }]);
+  }
+  assert.deepEqual(buffer.snapshot().cells.map((cell) => cell.source?.state), states);
+
+  const schemaStates = [
+    ['tui-frame.schema.json', (schema) => schema.$defs.frameCellSource.properties.state.enum],
+    ['render-diff.schema.json', (schema) => schema.$defs.frameCellSource.properties.state.enum],
+    ['interaction-transcript.schema.json', (schema) => schema.$defs.frameCellSource.properties.state.enum]
+  ];
+  for (const [filename, getStates] of schemaStates) {
+    const schema = JSON.parse(readFileSync(
+      new URL(`../../schemas/${filename}`, import.meta.url),
+      'utf8'
+    ));
+    assert.deepEqual(getStates(schema), states, filename);
+  }
+});
+
+test('FrameCellSource rejects unknown interaction values at every frame-buffer entry point', () => {
+  assert.throws(
+    () => sanitizeFrameCellSource({ ownerId: 'invalid', state: 'busy' }),
+    /Frame cell source state/u
+  );
+
+  const written = createFrameBuffer(1, 1);
+  assert.throws(
+    () => written.write(1, 1, [{ text: 'x', source: { state: 'busy' } }]),
+    /Frame cell source state/u
+  );
+
+  const blitted = createFrameBuffer(1, 1);
+  assert.throws(
+    () => blitFrameCell(blitted, {
+      row: 1,
+      column: 1,
+      text: 'x',
+      width: 1,
+      source: { state: 'busy' }
+    }),
+    /Frame cell source state/u
+  );
+
+  const cursor = createFrameBuffer(1, 1);
+  assert.throws(
+    () => cursor.snapshot({
+      cursor: { row: 1, column: 1, source: { state: 'busy' } }
+    }),
+    /Frame cell source state/u
+  );
 });
 
 test('FrameBuffer snapshot metadata records clipped write and clear coverage', () => {

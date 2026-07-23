@@ -204,7 +204,7 @@ test('controlled pointer presentation resolves styles and source state across co
   assert.equal(paginatorFrame.cells.find((cell) => cell.source?.part === 'control.next')?.source?.state, 'pressed');
   assert.equal(notificationFrame.cells.find((cell) =>
     cell.source?.itemId === 'ready' && cell.source.part === 'title'
-  )?.source?.state, 'hovered.info');
+  )?.source?.state, 'hovered');
 });
 
 test('text entry chrome uses shared border focus and error styles', () => {
@@ -332,7 +332,7 @@ test('list table and tree share data navigation selection and match styles', () 
   assert.equal(styleForCell(listFrame, (cell) => cell.text === 'A')?.bg?.token, 'selection.background');
   assert.equal(styleForCell(listFrame, (cell) => cell.text === 'A')?.fg?.token, 'menu.match');
   assert.equal(styleForCell(tableFrame, (cell) => cell.text === 'A')?.bg?.token, 'selection.background');
-  assert.equal(styleForCell(activeTableFrame, (cell) => cell.text === 'A')?.fg?.token, 'accent.secondary');
+  assert.equal(styleForCell(activeTableFrame, (cell) => cell.text === 'A')?.fg?.token, 'selection.foreground');
   assert.equal(styleForCell(activeTableFrame, (cell) => cell.text === 'A')?.bg?.token, 'selection.background');
   assert.equal(styleForCell(treeFrame, (cell) => cell.text === '▾')?.fg?.token, 'tree.branch');
   assert.equal(styleForCell(treeFrame, (cell) => cell.text === 'A')?.fg?.token, 'menu.match');

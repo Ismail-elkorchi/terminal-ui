@@ -29,6 +29,7 @@ import type { TextWidthProfile } from '../../../text/index.ts';
 export type { Canvas2D, StrokeFillOptions } from '../../model/canvas2d.ts';
 
 export function createCanvas2D(buffer: RenderTarget, bounds: Rect): Canvas2D {
+  assertCanvasBounds(buffer, bounds);
   return new FrameBufferCanvas2D(buffer, bounds);
 }
 
@@ -50,12 +51,14 @@ class FrameBufferCanvas2D implements Canvas2D {
   }
 
   point(x: number, y: number, span: RenderSpan): void {
+    assertIntegerCoordinates('point', x, y);
     const point = this.transformedPoint(x, y);
     if (!this.inside(point.x, point.y)) return;
     this.#buffer.write(this.rowFor(point.y), this.columnFor(point.x), this.clipAt(point.x, [span]));
   }
 
   line(x1: number, y1: number, x2: number, y2: number, span: RenderSpan): void {
+    assertIntegerCoordinates('line', x1, y1, x2, y2);
     const start = this.transformedPoint(x1, y1);
     const end = this.transformedPoint(x2, y2);
     for (const point of linePoints(start.x, start.y, end.x, end.y)) {
@@ -64,6 +67,7 @@ class FrameBufferCanvas2D implements Canvas2D {
   }
 
   polyline(points: readonly CanvasPoint[], span: RenderSpan): void {
+    for (const point of points) assertIntegerCoordinates('polyline point', point.x, point.y);
     for (let index = 0; index < points.length - 1; index += 1) {
       const start = points[index];
       const end = points[index + 1];
@@ -72,7 +76,12 @@ class FrameBufferCanvas2D implements Canvas2D {
     }
   }
 
-  rect(bounds: Rect, options: StrokeFillOptions): void {
+  rect(
+    bounds: CanvasPoint & { readonly width: number; readonly height: number },
+    options: StrokeFillOptions
+  ): void {
+    assertIntegerCoordinates('rectangle position', bounds.x, bounds.y);
+    assertNonNegativeIntegerSizes('rectangle', bounds.width, bounds.height);
     const transformed = transformCanvasRect(this.transform, bounds);
     const fill = options.fill;
     const stroke = options.stroke;
@@ -85,10 +94,14 @@ class FrameBufferCanvas2D implements Canvas2D {
   }
 
   circle(center: CanvasPoint, radius: number, options: StrokeFillOptions): void {
+    assertIntegerCoordinates('circle center', center.x, center.y);
+    assertNonNegativeIntegerSizes('circle radius', radius);
     this.ellipse(center, radius, radius, options);
   }
 
   ellipse(center: CanvasPoint, radiusX: number, radiusY: number, options: StrokeFillOptions): void {
+    assertIntegerCoordinates('ellipse center', center.x, center.y);
+    assertNonNegativeIntegerSizes('ellipse radius', radiusX, radiusY);
     const transformed = this.transformedPoint(center.x, center.y);
     const rx = Math.abs(radiusX * this.transform.scaleX);
     const ry = Math.abs(radiusY * this.transform.scaleY);
@@ -101,6 +114,9 @@ class FrameBufferCanvas2D implements Canvas2D {
   }
 
   arc(center: CanvasPoint, radius: number, startAngle: number, endAngle: number, options: StrokeFillOptions): void {
+    assertIntegerCoordinates('arc center', center.x, center.y);
+    assertNonNegativeIntegerSizes('arc radius', radius);
+    assertFiniteNumbers('arc angle', startAngle, endAngle);
     if (options.stroke === undefined) return;
     const transformed = this.transformedPoint(center.x, center.y);
     const rx = Math.abs(radius * this.transform.scaleX);
@@ -111,17 +127,20 @@ class FrameBufferCanvas2D implements Canvas2D {
   }
 
   fillPolygon(points: readonly CanvasPoint[], span: RenderSpan): void {
+    for (const point of points) assertIntegerCoordinates('polygon point', point.x, point.y);
     const transformed = points.map((point) => this.transformedPoint(point.x, point.y));
     for (const point of polygonInteriorPoints(transformed)) this.rawPoint(point.x, point.y, span);
   }
 
   text(x: number, y: number, spans: readonly RenderSpan[]): void {
+    assertIntegerCoordinates('text', x, y);
     const point = this.transformedPoint(x, y);
     if (!this.inside(point.x, point.y)) return;
     this.#buffer.write(this.rowFor(point.y), this.columnFor(point.x), this.clipAt(point.x, spans));
   }
 
   braillePoint(x: number, y: number, style?: TerminalStyle): void {
+    assertIntegerCoordinates('Braille point', x, y);
     const transformed = this.transformedPoint(x, y);
     const point = brailleCellForPoint(transformed.x, transformed.y);
     if (!this.inside(point.cell.x, point.cell.y)) return;
@@ -138,16 +157,18 @@ class FrameBufferCanvas2D implements Canvas2D {
     });
   }
 
-  clear(bounds?: Rect): void {
+  clear(bounds?: CanvasPoint & { readonly width: number; readonly height: number }): void {
     if (bounds === undefined) {
       this.brailleCells.clear();
       this.#buffer.clear(this.bounds);
       return;
     }
+    assertIntegerCoordinates('clear rectangle position', bounds.x, bounds.y);
+    assertNonNegativeIntegerSizes('clear rectangle', bounds.width, bounds.height);
     const transformed = transformCanvasRect(this.transform, bounds);
     const absolute = {
-      row: this.rowFor(transformed.row),
-      column: this.columnFor(transformed.column),
+      row: this.rowFor(transformed.y),
+      column: this.columnFor(transformed.x),
       width: transformed.width,
       height: transformed.height
     };
@@ -156,14 +177,20 @@ class FrameBufferCanvas2D implements Canvas2D {
   }
 
   translate(dx: number, dy: number): void {
+    assertIntegerCoordinates('translation', dx, dy);
     this.transform = composeCanvasTransform(this.transform, { translateX: dx, translateY: dy });
   }
 
   scale(x: number, y: number): void {
+    assertNonZeroIntegers('scale', x, y);
     this.transform = composeCanvasTransform(this.transform, { scaleX: x, scaleY: y });
   }
 
   withTransform(transform: CanvasTransformInput, draw: (canvas: Canvas2D) => void): void {
+    assertOptionalInteger('translateX', transform.translateX, true);
+    assertOptionalInteger('translateY', transform.translateY, true);
+    assertOptionalInteger('scaleX', transform.scaleX, false);
+    assertOptionalInteger('scaleY', transform.scaleY, false);
     const previous = this.transform;
     this.transform = composeCanvasTransform(this.transform, transform);
     try {
@@ -205,10 +232,12 @@ class FrameBufferCanvas2D implements Canvas2D {
     });
   }
 
-  private clearBrailleCells(bounds: Rect): void {
-    const rowStart = Math.floor(bounds.row);
+  private clearBrailleCells(
+    bounds: CanvasPoint & { readonly width: number; readonly height: number }
+  ): void {
+    const rowStart = Math.floor(bounds.y);
     const rowEnd = rowStart + Math.max(0, Math.floor(bounds.height));
-    const columnStart = Math.floor(bounds.column);
+    const columnStart = Math.floor(bounds.x);
     const columnEnd = columnStart + Math.max(0, Math.floor(bounds.width));
     for (const key of this.brailleCells.keys()) {
       const [xRaw, yRaw] = key.split(':');
@@ -219,4 +248,52 @@ class FrameBufferCanvas2D implements Canvas2D {
       }
     }
   }
+}
+
+function assertCanvasBounds(buffer: RenderTarget, bounds: Rect): void {
+  if (
+    !Number.isInteger(bounds.row)
+    || !Number.isInteger(bounds.column)
+    || !Number.isInteger(bounds.width)
+    || !Number.isInteger(bounds.height)
+    || bounds.row < 1
+    || bounds.column < 1
+    || bounds.width < 0
+    || bounds.height < 0
+    || bounds.row + bounds.height - 1 > buffer.height
+    || bounds.column + bounds.width - 1 > buffer.width
+  ) {
+    throw new RangeError('Canvas2D bounds must be an integer rectangle inside the drawing target.');
+  }
+}
+
+function assertIntegerCoordinates(operation: string, ...values: readonly number[]): void {
+  if (values.every(Number.isInteger)) return;
+  throw new RangeError(`Canvas2D ${operation} coordinates must be finite integers.`);
+}
+
+function assertFiniteNumbers(operation: string, ...values: readonly number[]): void {
+  if (values.every(Number.isFinite)) return;
+  throw new RangeError(`Canvas2D ${operation} values must be finite numbers.`);
+}
+
+function assertNonNegativeIntegerSizes(operation: string, ...values: readonly number[]): void {
+  if (values.every((value) => Number.isInteger(value) && value >= 0)) return;
+  throw new RangeError(`Canvas2D ${operation} values must be non-negative integers.`);
+}
+
+function assertNonZeroIntegers(operation: string, ...values: readonly number[]): void {
+  if (values.every((value) => Number.isInteger(value) && value !== 0)) return;
+  throw new RangeError(`Canvas2D ${operation} values must be non-zero integers.`);
+}
+
+function assertOptionalInteger(
+  name: string,
+  value: number | undefined,
+  allowZero: boolean
+): void {
+  if (value === undefined || (Number.isInteger(value) && (allowZero || value !== 0))) return;
+  throw new RangeError(
+    `Canvas2D transform ${name} must be ${allowZero ? 'an integer' : 'a non-zero integer'}.`
+  );
 }

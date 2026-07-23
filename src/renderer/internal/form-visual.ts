@@ -1,6 +1,6 @@
 import type { RenderNode, RenderNodesOfKind } from '../model/index.ts';
 import { span } from './frame.ts';
-import { renderNodeFrameSource } from '../../visual/source.ts';
+import { isFrameCellInteractionState, renderNodeFrameSource } from '../../visual/source.ts';
 import type { FrameCellSource, RenderLine, RenderSpan, TerminalStyle } from './frame.ts';
 import { line } from '../../visual/render.ts';
 import { mergeStyles, resolveRenderNodeStyle, renderNodeStyle, themeStyle } from './render-node-style.ts';
@@ -58,7 +58,7 @@ export function formSpan(
   label: string,
   text: string,
   style?: TerminalStyle,
-  sourceState?: string
+  sourceState?: ElementVisualState
 ): RenderSpan {
   return span(text, {
     ...(style === undefined ? {} : { style }),
@@ -70,14 +70,14 @@ export function formSource(
   widget: RenderNode,
   visual: FormVisualKind,
   label: string,
-  state?: string
+  state?: ElementVisualState
 ): FrameCellSource {
   return renderNodeFrameSource(widget, {
     family: 'form',
     role: roleForVisual(visual),
     part: label,
     partKind: visual,
-    ...(state === undefined ? {} : { state }),
+    ...(isFrameCellInteractionState(state) ? { state } : {}),
     label
   });
 }

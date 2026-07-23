@@ -30,7 +30,6 @@ export {
 export type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
 export { renderElementRegions } from '../renderer/internal/render.ts';
 export type {
-  RenderElementProjection,
   RenderRegion,
   RenderRegionHitTarget
 } from '../renderer/internal/render.ts';

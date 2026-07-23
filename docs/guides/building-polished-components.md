@@ -30,6 +30,12 @@ Theme defaults should make ordinary components readable. Local `meta.styles`
 overrides should affect only the component that receives them and the stable
 slots that renderer uses. There is no global style cascade.
 
+Selected and pressed content uses selection colors; focus and active states
+add emphasis; hovered content uses the focus background; and disabled content
+uses disabled text. Warning, error, successful completion, and destructive
+actions use their corresponding status colors. Selection, focus, and disabled
+states do not inherit destructive styling.
+
 ## Layout And Bounds
 
 Every renderer receives bounds from layout. Do not infer screen size from

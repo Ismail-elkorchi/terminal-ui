@@ -7,6 +7,7 @@ import { treeNodeExpanded } from '../../ui-model/tree.ts';
 import { collectionRecordById } from '../../ui-model/collection.ts';
 import type { TreeVisibleRow } from '../../ui-model/tree.ts';
 import { dataSource, dataSpan, dataValueSpans, mergeDataStyles, selectionMarkerSpans } from './data-visual.ts';
+import { isFrameCellInteractionState } from '../../visual/source.ts';
 import { projectedRowWindow, scrollStateFromUnknown } from '../../behavior/data-window.ts';
 import { stringify } from './render-node-props.ts';
 import { resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
@@ -66,7 +67,7 @@ export function treeAccessibleBase(widget: TreeRenderNode, bounds: Rect, id: str
   const { totalRows, window } = treeProjection(widget, bounds.height);
   return {
     id,
-    role: 'listbox',
+    role: 'tree',
     label: id,
     description: windowDescription('tree rows', window, totalRows),
     window: {
@@ -84,14 +85,14 @@ export function treeAccessibleChildren(widget: TreeRenderNode, bounds: Rect): re
   const { totalRows, selected, window } = treeProjection(widget, bounds.height);
   return window.rows.map((row, index) => ({
     id: `${widget.id ?? 'tree'}:${row.node.id}`,
-    role: 'option',
+    role: 'treeitem',
     label: row.node.label,
     ...(row.node.description === undefined ? {} : { description: row.node.description }),
     selected: row.node.id === selected,
     disabled: row.node.disabled === true || row.lazyPlaceholder === true,
     ...(row.node.kind === 'leaf' ? {} : { expanded: treeNodeExpanded(row.node) }),
     position: {
-      index: window.start + index,
+      index: window.start + index + 1,
       count: totalRows,
       level: row.depth + 1
     },
@@ -202,8 +203,7 @@ function treeLine(
       }),
       matchSource: treeSource(widget, `node.${row.node.id}.match`, {
         itemId: nodeSourceId,
-        partKind: 'match',
-        state: 'match'
+        partKind: 'match'
       }),
       ...(matchStyle === undefined ? {} : { matchStyle })
     })
@@ -287,16 +287,24 @@ function treeDisclosureVisualState(
   });
 }
 
-function treeRowSourceState(row: TreeVisibleRow, state: ElementVisualState | undefined): string | undefined {
-  return row.lazyPlaceholder === true ? 'placeholder' : state;
+function treeRowSourceState(
+  row: TreeVisibleRow,
+  state: ElementVisualState | undefined
+): FrameCellSource['state'] {
+  return row.lazyPlaceholder === true || !isFrameCellInteractionState(state) ? undefined : state;
 }
 
-function treeDisclosureSourceState(row: TreeVisibleRow, state: ElementVisualState | undefined): string | undefined {
-  if (row.lazyPlaceholder === true) return 'placeholder';
-  return treeNodeCanDisclose(row.node) ? state : 'leaf';
+function treeDisclosureSourceState(
+  row: TreeVisibleRow,
+  state: ElementVisualState | undefined
+): FrameCellSource['state'] {
+  if (row.lazyPlaceholder === true || !treeNodeCanDisclose(row.node)) return undefined;
+  return isFrameCellInteractionState(state) ? state : undefined;
 }
 
-function treeSourceState(state: string | undefined): { readonly state?: string } {
+function treeSourceState(
+  state: FrameCellSource['state']
+): { readonly state?: NonNullable<FrameCellSource['state']> } {
   return state === undefined ? {} : { state };
 }
 
@@ -392,7 +400,7 @@ function treeSource(
     readonly itemId?: string;
     readonly partKind?: string;
     readonly role?: FrameCellSource['role'];
-    readonly state?: string;
+    readonly state?: FrameCellSource['state'];
   } = {}
 ): FrameCellSource {
   return dataSource(widget, label, {

@@ -40,7 +40,7 @@ export interface FeedbackSpanOptions {
   readonly style?: TerminalStyle | undefined;
   readonly role?: FrameSemanticRole | undefined;
   readonly sourceId?: string | undefined;
-  readonly state?: string | undefined;
+  readonly state?: import('../../visual/source.ts').FrameCellSource['state'] | undefined;
 }
 
 export function statusBarBlock(
@@ -107,7 +107,6 @@ function statusBarSectionSpans(
             label: `${part}.marker`,
             sourceId: item.id,
             style: statusStyle(item.status),
-            state: item.status
           }),
           feedbackSpan(widget, ' ', {
             kind: 'statusBar',
@@ -121,7 +120,6 @@ function statusBarSectionSpans(
             label: `${part}.value`,
             sourceId: item.id,
             style: statusStyle(item.status),
-            state: item.status
           })
         ]
       : [feedbackSpan(widget, item.text, {
@@ -445,7 +443,6 @@ export function feedbackStatusMarkerSpan(
     label,
     role: 'decoration',
     style: statusStyle(status),
-    state: status
   });
 }
 
@@ -515,7 +512,6 @@ function statusSuffixSpans(
       kind,
       label: 'status.value',
       style: statusStyle(status),
-      state: status
     }),
     feedbackStructureSpan(widget, ')', kind, 'status.close')
   ];

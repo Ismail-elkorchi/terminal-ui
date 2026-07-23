@@ -157,7 +157,7 @@
         "partKind": { "type": "string" },
         "itemId": { "type": "string" },
         "itemIndex": { "type": "integer", "minimum": 0 },
-        "state": { "type": "string" },
+        "state": { "enum": ["focused", "hovered", "pressed", "selected", "disabled", "active"] },
         "label": { "type": "string" }
       },
       "additionalProperties": false

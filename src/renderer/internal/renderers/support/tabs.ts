@@ -1,6 +1,6 @@
 import type { AccessibleNode } from '../../../../accessibility/index.ts';
 import type { RenderNodeOfKind } from '../../../model/index.ts';
-import { renderNodeFrameSource } from '../../../../visual/source.ts';
+import { isFrameCellInteractionState, renderNodeFrameSource } from '../../../../visual/source.ts';
 import { stringify } from '../../render-node-props.ts';
 import { clipRenderSpans, measureRenderSpans } from '../../../../visual/render.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from '../../../../visual/render.ts';
@@ -412,7 +412,7 @@ function tabLeadingSpans(
       part: `leading.${String(index)}`,
       partKind: 'leading',
       itemId: tab.id,
-      ...(state === undefined ? {} : { state }),
+      ...(isFrameCellInteractionState(state) ? { state } : {}),
       label: `leading.${String(index)}`
     })
   });
@@ -445,7 +445,7 @@ function tabSpan(
       part: label,
       ...(partKind === undefined ? {} : { partKind }),
       itemId,
-      ...(state === undefined ? {} : { state }),
+      ...(isFrameCellInteractionState(state) ? { state } : {}),
       label
     })
   };

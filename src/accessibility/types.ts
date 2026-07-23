@@ -21,7 +21,7 @@ export interface AccessibleNode {
   readonly disabled?: boolean;
   readonly expanded?: boolean;
   readonly checked?: boolean | 'mixed';
-  readonly progress?: AccessibleProgress;
+  readonly numericValue?: AccessibleNumericValue;
   readonly live?: AccessibleLiveRegion;
   readonly scope?: AccessibleScope;
   readonly window?: AccessibleWindow;
@@ -39,9 +39,10 @@ export interface AccessibilityOptions {
 
 export type AccessibleValue = string | number | boolean | null;
 
-export interface AccessibleProgress {
-  readonly value?: number;
-  readonly max?: number;
+export interface AccessibleNumericValue {
+  readonly current?: number;
+  readonly minimum?: number;
+  readonly maximum?: number;
   readonly indeterminate?: boolean;
 }
 
@@ -78,24 +79,38 @@ export interface AccessiblePosition {
 export type AccessibleRole =
   | 'application'
   | 'dialog'
+  | 'form'
   | 'group'
+  | 'navigation'
   | 'status'
   | 'progressbar'
+  | 'meter'
   | 'textbox'
   | 'button'
   | 'checkbox'
+  | 'switch'
   | 'radio'
+  | 'radiogroup'
+  | 'slider'
+  | 'spinbutton'
   | 'combobox'
   | 'listbox'
   | 'option'
   | 'menu'
   | 'menubar'
   | 'menuitem'
+  | 'menuitemcheckbox'
+  | 'menuitemradio'
   | 'tablist'
   | 'tab'
   | 'table'
+  | 'grid'
   | 'row'
   | 'cell'
+  | 'gridcell'
+  | 'tree'
+  | 'treeitem'
+  | 'image'
   | 'text';
 
 export interface AccessibleSnapshotInput {
@@ -109,24 +124,38 @@ export interface AccessibleSnapshotInput {
 export const accessibleRoles = [
   'application',
   'dialog',
+  'form',
   'group',
+  'navigation',
   'status',
   'progressbar',
+  'meter',
   'textbox',
   'button',
   'checkbox',
+  'switch',
   'radio',
+  'radiogroup',
+  'slider',
+  'spinbutton',
   'combobox',
   'listbox',
   'option',
   'menu',
   'menubar',
   'menuitem',
+  'menuitemcheckbox',
+  'menuitemradio',
   'tablist',
   'tab',
   'table',
+  'grid',
   'row',
   'cell',
+  'gridcell',
+  'tree',
+  'treeitem',
+  'image',
   'text'
 ] as const satisfies readonly AccessibleRole[];
 

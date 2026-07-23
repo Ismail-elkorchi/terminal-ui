@@ -4,7 +4,7 @@ import {
   commandMatchSpans, commandMetadataStyle, commandRowStyle, commandSelectionMarkerSpans, commandStatusSpans, styledSpan
 } from './command-visual.ts';
 import { numberProp, stringify } from './render-node-props.ts';
-import { renderNodeFrameSource } from '../../visual/source.ts';
+import { isFrameCellInteractionState, renderNodeFrameSource } from '../../visual/source.ts';
 import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn, visibleLineWindow } from './text-display.ts';
 import { textOffsetAtVisualColumn } from './text-pointer.ts';
 import { inputCursorStyle, mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
@@ -89,14 +89,22 @@ export function commandInputAccessibleChildren(widget: CommandInputNode): readon
     });
   }
   const selected = nonNegativeInteger(numberProp(widget, 'selectedSuggestion'));
-  children.push(...suggestions.map((suggestion, index) => ({
-    id: `${widget.id ?? 'command-input'}:suggestion:${String(index)}`,
-    role: 'option' as const,
-    label: suggestion.label ?? suggestion.value,
-    value: suggestion.value,
-    selected: index === selected,
-    disabled: suggestion.disabled === true
-  })));
+  if (suggestions.length > 0) {
+    const id = widget.id ?? 'command-input';
+    children.push({
+      id: `${id}:suggestions`,
+      role: 'listbox',
+      label: 'Suggestions',
+      children: suggestions.map((suggestion, index) => ({
+        id: `${id}:suggestion:${String(index)}`,
+        role: 'option' as const,
+        label: suggestion.label ?? suggestion.value,
+        value: suggestion.value,
+        selected: index === selected,
+        disabled: suggestion.disabled === true
+      }))
+    });
+  }
   return children.length === 0 ? undefined : children;
 }
 
@@ -168,7 +176,7 @@ function inputLine(widget: CommandInputNode, width: number, widthProfile: TextWi
       styledSpan(completion, resolveRenderNodeStyle(widget, {
         part: 'completion',
         base: themeStyle('input.placeholder', { dim: true })
-      }), commandSource(widget, 'completion', { partKind: 'completion', state: 'preview' }))
+      }), commandSource(widget, 'completion', { partKind: 'completion' }))
     ], completionWidth, { widthProfile }));
   }
   const historyIndex = numberProp(widget, 'historyIndex');
@@ -176,7 +184,7 @@ function inputLine(widget: CommandInputNode, width: number, widthProfile: TextWi
     spans.push(styledSpan(
       `  #${String(Math.max(0, Math.floor(historyIndex)) + 1)}`,
       renderNodeStyle(widget, 'placeholder'),
-      commandSource(widget, 'history', { partKind: 'history', state: 'history' })
+      commandSource(widget, 'history', { partKind: 'history' })
     ));
   }
   return {
@@ -220,8 +228,8 @@ function commandInputModel(widget: CommandInputNode, width: number, widthProfile
 function validationLine(widget: CommandInputNode, validation: CommandInputValidation, theme: TerminalTheme): RenderLine {
   return {
     spans: commandStatusSpans(widget, theme, validationToneForSurface(validation.tone ?? 'error'), validation.message, {
-      markerSource: commandSource(widget, 'validation.marker', { role: 'decoration', partKind: 'marker', state: validation.tone ?? 'error' }),
-      textSource: commandSource(widget, 'validation', { partKind: 'validation', state: validation.tone ?? 'error' })
+      markerSource: commandSource(widget, 'validation.marker', { role: 'decoration', partKind: 'marker' }),
+      textSource: commandSource(widget, 'validation', { partKind: 'validation' })
     })
   };
 }
@@ -268,8 +276,8 @@ function commandSuggestionTargetId(widget: CommandInputNode, index: number): str
 function mutedLine(widget: CommandInputNode, text: string, theme: TerminalTheme): RenderLine {
   return {
     spans: commandStatusSpans(widget, theme, 'muted', text, {
-      markerSource: commandSource(widget, 'footer.marker', { role: 'decoration', partKind: 'marker', state: 'muted' }),
-      textSource: commandSource(widget, 'footer', { partKind: 'footer', state: 'muted' })
+      markerSource: commandSource(widget, 'footer.marker', { role: 'decoration', partKind: 'marker' }),
+      textSource: commandSource(widget, 'footer', { partKind: 'footer' })
     })
   };
 }
@@ -350,7 +358,7 @@ function commandSource(
   options: {
     readonly role?: FrameCellSource['role'];
     readonly partKind?: CommandPartKind;
-    readonly state?: string;
+    readonly state?: import('../../element/metadata.ts').ElementVisualState;
   } = {}
 ): FrameCellSource {
   return renderNodeFrameSource(widget, {
@@ -358,19 +366,19 @@ function commandSource(
     role: options.role ?? 'text',
     part: label,
     ...(options.partKind === undefined ? {} : { partKind: options.partKind }),
-    ...(options.state === undefined ? {} : { state: options.state }),
+    ...(isFrameCellInteractionState(options.state) ? { state: options.state } : {}),
     label
   });
 }
 
 function commandSourceOptions(
   partKind: CommandPartKind,
-  state?: string,
+  state?: import('../../element/metadata.ts').ElementVisualState,
   role?: FrameCellSource['role']
 ): {
   readonly role?: FrameCellSource['role'];
   readonly partKind: CommandPartKind;
-  readonly state?: string;
+  readonly state?: import('../../element/metadata.ts').ElementVisualState;
 } {
   return {
     ...(role === undefined ? {} : { role }),

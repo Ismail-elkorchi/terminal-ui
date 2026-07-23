@@ -33,7 +33,7 @@ test('progressBar supports value plus percentage display and status tone', () =>
   assert.equal(filledCell?.source?.role, 'decoration');
   assert.equal(valueCell?.text, '5');
   assert.equal(percentageCell?.text, '5');
-  assert.deepEqual(frame.accessibility.root.progress, { value: 5, max: 10 });
+  assert.deepEqual(frame.accessibility.root.numericValue, { current: 5, minimum: 0, maximum: 10 });
 });
 
 test('progressBar supports bar-only display with end label and explicit bar width', () => {
@@ -131,7 +131,7 @@ test('progressBar supports label-free percentage and tiny viewport clipping', ()
   }), { columns: 6, rows: 1 });
 
   assert.equal(renderFramePlain(frame), '[███░]');
-  assert.deepEqual(frame.accessibility.root.progress, { value: 3, max: 4 });
+  assert.deepEqual(frame.accessibility.root.numericValue, { current: 3, minimum: 0, maximum: 4 });
 });
 
 test('progressBar degrades display parts deterministically under width pressure', () => {
@@ -188,7 +188,7 @@ test('progressBar renders indeterminate bars with scoped progress accessibility'
   assert.equal(markerCell?.text, '!');
   assert.equal(activeCell?.style?.fg?.token, 'status.warning');
   assert.equal(activeCell?.source?.role, 'decoration');
-  assert.deepEqual(frame.accessibility.root.progress, { indeterminate: true });
+  assert.deepEqual(frame.accessibility.root.numericValue, { indeterminate: true });
 });
 
 test('progressBar rejects invalid authored progress modes', () => {
@@ -232,9 +232,9 @@ test('progressBar clamps 0 percent 100 percent and overflow values visibly', () 
   assert.equal(renderFramePlain(empty), '[░░░░] 0%');
   assert.equal(renderFramePlain(complete), '[████] 100%');
   assert.equal(renderFramePlain(overflow), '[████] 100%');
-  assert.deepEqual(empty.accessibility.root.progress, { value: 0, max: 10 });
-  assert.deepEqual(complete.accessibility.root.progress, { value: 10, max: 10 });
-  assert.deepEqual(overflow.accessibility.root.progress, { value: 10, max: 10 });
+  assert.deepEqual(empty.accessibility.root.numericValue, { current: 0, minimum: 0, maximum: 10 });
+  assert.deepEqual(complete.accessibility.root.numericValue, { current: 10, minimum: 0, maximum: 10 });
+  assert.deepEqual(overflow.accessibility.root.numericValue, { current: 10, minimum: 0, maximum: 10 });
 });
 
 test('progressBar visual snapshots stay readable in high contrast and no color modes', () => {

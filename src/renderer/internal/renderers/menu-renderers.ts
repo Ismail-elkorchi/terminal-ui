@@ -139,7 +139,7 @@ export const menuRenderers = {
       const children = commandInputAccessibleChildren(renderNode);
       return {
         id,
-        role: 'textbox',
+        role: 'combobox',
         label: stringify(renderNode.props.prompt) || id,
         value: stringify(renderNode.props.value),
         ...(focused ? { focused } : {}),
@@ -171,11 +171,10 @@ export const menuRenderers = {
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
       id,
-      role: 'menu',
+      role: 'listbox',
       label: stringify(renderNode.props.title) || id,
       value: stringify(renderNode.props.query),
       ...(focused ? { focused } : {}),
-      scope: { kind: 'menu' },
       children: paletteAccessibleChildren(renderNode, layoutNode.bounds.height)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],

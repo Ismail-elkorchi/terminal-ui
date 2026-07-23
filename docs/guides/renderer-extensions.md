@@ -20,6 +20,11 @@ manage children, expose custom focus targets, or emit arbitrary host output.
 
 Canvas output is clipped, sanitized, styled, diffed, and projected into
 accessibility through the canvas component's label or accessibility metadata.
+Canvas points use local, zero-based terminal-cell coordinates. The drawing
+surface converts them to the one-based row and column coordinates of its
+assigned terminal rectangle. Coordinates and sizes must be finite integers;
+sizes and radii must also be non-negative, and Braille subcell coordinates
+must fit their cell.
 
 ## Custom Renderer
 

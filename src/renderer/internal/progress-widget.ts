@@ -60,7 +60,7 @@ export function progressAccessibleBase(widget: ProgressBarNode, id: string): Acc
       id,
       role: 'progressbar',
       label: model.label || id,
-      progress: { indeterminate: true },
+      numericValue: { indeterminate: true },
       live: 'polite',
       ...progressDescription(model)
     };
@@ -69,7 +69,7 @@ export function progressAccessibleBase(widget: ProgressBarNode, id: string): Acc
     id,
     role: 'progressbar',
     label: model.label || id,
-    progress: { value: model.value, max: model.max },
+    numericValue: { current: model.value, minimum: 0, maximum: model.max },
     live: 'polite',
     ...progressDescription(model)
   };

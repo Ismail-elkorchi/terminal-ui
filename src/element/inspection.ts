@@ -17,7 +17,8 @@ export interface ElementMetaInspection {
 
 export interface ElementInspection {
   readonly schemaVersion: 'terminal-ui.element.v1';
-  readonly component: string;
+  readonly kind: string;
+  readonly category: 'component' | 'layout' | 'extension';
   readonly id?: string;
   readonly inputs: ElementInputInspection;
   readonly meta: ElementMetaInspection;

@@ -182,5 +182,5 @@ test('commandInput preserves disabled suggestion semantics', () => {
 
   assert.match(renderFramePlain(frame), /Deploy/u);
   assert.equal(disabledDescriptionCell?.style?.fg?.token, 'text.disabled');
-  assert.equal(frame.accessibility.root.children?.[0]?.disabled, true);
+  assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.disabled, true);
 });

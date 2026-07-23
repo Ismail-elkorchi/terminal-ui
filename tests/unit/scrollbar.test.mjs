@@ -66,7 +66,7 @@ test('renderScrollbars uses theme scrollbar symbols and tokens', () => {
   assert.equal(thumbCell.source?.family, 'scroll');
   assert.equal(thumbCell.source?.part, 'vertical.thumb');
   assert.equal(thumbCell.source?.partKind, 'thumb');
-  assert.equal(thumbCell.source?.state, 'idle');
+  assert.equal(thumbCell.source?.state, undefined);
   assert.equal(trackCell.source?.part, 'vertical.track');
   assert.equal(trackCell.source?.partKind, 'track');
 });
@@ -103,7 +103,7 @@ test('scrollbarLayout exposes inactive state for visible non-overflowing tracks'
   const cells = buffer.snapshot().cells.filter((cell) => cell.column === 4);
 
   assert.equal(cells.length, 3);
-  assert.ok(cells.every((cell) => cell.source?.state === 'inactive'));
+  assert.ok(cells.every((cell) => cell.source?.state === 'disabled'));
   assert.ok(cells.every((cell) => cell.style?.fg?.token === 'scrollbar.track'));
   assert.ok(cells.every((cell) => cell.style?.dim === true));
 });
@@ -136,7 +136,7 @@ test('scrollbar visualState controls active and hover thumb styling', () => {
   assert.equal(hoverThumb?.style?.bold, true);
   assert.equal(hoverThumb?.style?.inverse, undefined);
   assert.equal(hoverThumb?.style?.fg?.token, 'scrollbar.thumb');
-  assert.equal(hoverThumb?.source?.state, 'hover');
+  assert.equal(hoverThumb?.source?.state, 'hovered');
 });
 
 test('scrollbar interaction reducer maps pointer lifecycle to caller-owned visual state', () => {
@@ -269,7 +269,7 @@ test('widget scrollbars expose owner source metadata and visual state', () => {
   assert.equal(thumbCell?.source?.family, 'scroll');
   assert.equal(thumbCell?.source?.role, 'scrollbar');
   assert.equal(thumbCell?.source?.partKind, 'thumb');
-  assert.equal(thumbCell?.source?.state, 'hover');
+  assert.equal(thumbCell?.source?.state, 'hovered');
   assert.equal(thumbCell?.style?.inverse, undefined);
   assert.equal(thumbCell?.style?.bold, true);
 });

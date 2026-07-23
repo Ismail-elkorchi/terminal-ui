@@ -35,7 +35,7 @@ test('canvas writes styled spans through safe Canvas2D APIs', () => {
   assert.equal(renderFramePlain(frame), 'A🙂B\n  safe');
   assert.equal(frame.cells.find((cell) => cell.text === 'A')?.style?.fg?.token, 'accent.primary');
   assert.equal(frame.cells.some((cell) => cell.text.includes('\u001B')), false);
-  assert.equal(frame.accessibility.root.role, 'application');
+  assert.equal(frame.accessibility.root.role, 'image');
   assert.equal(frame.accessibility.root.label, 'Game board');
 });
 
@@ -45,7 +45,7 @@ test('canvas painters receive Canvas2D helpers without raw frame-buffer access',
     label: 'Canvas2D board',
     painter({ canvas }) {
       canvas.line(0, 0, 3, 0, { text: '-' });
-      canvas.rect({ row: 0, column: 0, width: 4, height: 2 }, {
+      canvas.rect({ x: 0, y: 0, width: 4, height: 2 }, {
         stroke: blockSpan('full')
       });
       canvas.text(5, 0, [{ text: 'ok' }]);

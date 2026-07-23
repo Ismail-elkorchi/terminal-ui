@@ -4,7 +4,7 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import { drawBorder } from './border.ts';
 import type { BorderStyle } from './border.ts';
 import type { RenderTarget } from '../model/render-target.ts';
-import { renderNodeFrameSource } from '../../visual/source.ts';
+import { isFrameCellInteractionState, renderNodeFrameSource } from '../../visual/source.ts';
 import type { Rect } from '../model/layout.ts';
 import { clipRenderSpans } from '../../visual/render.ts';
 import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -84,9 +84,16 @@ export function notificationStackAccessibleBase(widget: NotificationStackNode, i
         id: `${id}:notification:${item.id}`,
         role: navigable ? 'option' : 'status',
         label: item.title,
-        selected: item.id === selected,
+        ...(navigable ? { selected: item.id === selected } : {}),
         ...(description === undefined ? {} : { description }),
-        ...(item.progress === undefined ? {} : { progress: { value: clampProgress(item.progress), max: 100 } }),
+        ...(item.progress === undefined ? {} : {
+          children: [{
+            id: `${id}:notification:${item.id}:progress`,
+            role: 'progressbar' as const,
+            label: `${item.title} progress`,
+            numericValue: { current: clampProgress(item.progress), minimum: 0, maximum: 100 }
+          }]
+        }),
         ...(navigable ? {} : { live: item.tone === 'error' ? 'assertive' as const : 'polite' as const })
       };
     })
@@ -187,7 +194,7 @@ function renderNotificationCard(
         part: 'dismiss',
         partKind: 'notification',
         itemId: card.item.id,
-        state: notificationStateLabel(dismissState, tone),
+        ...(isFrameCellInteractionState(dismissState) ? { state: dismissState } : {}),
         label: 'dismiss'
       })
     }]);
@@ -206,7 +213,7 @@ function renderNotificationCard(
         part: cardLine.kind,
         partKind: 'notification',
         itemId: card.item.id,
-        state: notificationStateLabel(card.state, tone),
+        ...(isFrameCellInteractionState(card.state) ? { state: card.state } : {}),
         label: cardLine.kind
     });
     buffer.write(contentBounds.row + index, contentBounds.column, clipRenderSpans([{
@@ -294,7 +301,7 @@ function fillCardBackground(
         role: 'decoration',
         part: 'background',
         itemId: item.id,
-        state: notificationStateLabel(state, tone),
+        ...(isFrameCellInteractionState(state) ? { state } : {}),
         label: 'background'
       })
     }]);
@@ -322,8 +329,7 @@ function progressSpans(
       style: notificationPartStyle(widget, 'progress', tone, true, state, {
         fg: { kind: 'theme', token: foregroundToken(tone) },
         bold: true
-      }),
-      state: tone
+      })
     }),
     feedbackSpan(widget, fillTextCells(theme.tokens.symbols.progressEmpty, barWidth - filled, { widthProfile }), {
       kind: 'notification',
@@ -332,15 +338,14 @@ function progressSpans(
       role: 'decoration',
       style: notificationPartStyle(widget, 'progress', tone, false, state, {
         fg: { kind: 'theme', token: 'text.muted' }
-      }),
-      state: tone
+      })
     }),
     feedbackSpan(widget, ` ${String(progress)}%`, {
       kind: 'notification',
       label: 'progress.value',
       sourceId: item.id,
       style: notificationPartStyle(widget, 'progress', tone, false, state),
-      state: notificationStateLabel(state, tone)
+      ...(isFrameCellInteractionState(state) ? { state } : {})
     })
   ];
 }
@@ -489,10 +494,6 @@ function notificationDismissTargetId(widget: NotificationStackNode, itemId: stri
 
 function isHighlightedState(state: ElementVisualState | undefined): boolean {
   return state === 'selected' || state === 'hovered' || state === 'pressed' || state === 'focused';
-}
-
-function notificationStateLabel(state: ElementVisualState | undefined, tone: NotificationTone): string {
-  return state === undefined ? tone : `${state}.${tone}`;
 }
 
 type NotificationStackNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'notificationStack'>;

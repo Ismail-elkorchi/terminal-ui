@@ -1,5 +1,5 @@
 import { highlightRenderSpans } from './text-highlight.ts';
-import { frameSourcePart, renderNodeFrameSource } from '../../visual/source.ts';
+import { frameSourcePart, isFrameCellInteractionState, renderNodeFrameSource } from '../../visual/source.ts';
 import { themeStyle, renderNodeStyle } from './render-node-style.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
@@ -10,7 +10,7 @@ export interface DataSourceOptions {
   readonly itemIndex?: number;
   readonly role?: FrameCellSource['role'];
   readonly partKind?: string;
-  readonly state?: string;
+  readonly state?: import('../../element/metadata.ts').ElementVisualState;
 }
 
 export function selectionMarkerSpans(
@@ -66,7 +66,7 @@ export function dataSource(widget: RenderNode, label: string, options: DataSourc
     ...(options.partKind === undefined ? {} : { partKind: options.partKind }),
     ...(options.itemId === undefined ? {} : { itemId: options.itemId }),
     ...(options.itemIndex === undefined ? {} : { itemIndex: options.itemIndex }),
-    ...(options.state === undefined ? {} : { state: options.state }),
+    ...(isFrameCellInteractionState(options.state) ? { state: options.state } : {}),
     label
   });
 }

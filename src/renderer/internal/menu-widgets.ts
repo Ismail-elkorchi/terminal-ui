@@ -108,7 +108,6 @@ export function contextMenuAccessibleBase(widget: ContextMenuNode, id: string, f
     id,
     role: 'menu',
     label: clean(stringify(widget.props.title)) || id,
-    expanded: widget.props.presentation.kind === 'open',
     ...(focused ? { focused } : {})
   };
 }
@@ -128,8 +127,7 @@ export function dropdownMenuAccessibleBase(widget: DropdownMenuNode, id: string,
 export function menuAccessibleChildren(widget: MenuNode): readonly AccessibleNode[] {
   return accessibleMenuItems(
     widget.id ?? widget.kind,
-    visibleMenuItems(widget.props.items),
-    menuActiveId(widget)
+    visibleMenuItems(widget.props.items)
   );
 }
 
@@ -137,17 +135,16 @@ export function menuBarAccessibleChildren(widget: MenuBarNode): readonly Accessi
   const active = menuBarActiveId(widget);
   return topLevelMenuItems(widget).map((item) => ({
     id: `${widget.id ?? widget.kind}:${item.id}`,
-    role: 'menuitem',
+    role: item.kind === 'check' ? 'menuitemcheckbox' : 'menuitem',
     label: item.label,
-    selected: item.id === active,
     disabled: item.disabled === true,
+    ...(item.kind === 'check' ? { checked: item.checked === true } : {}),
     ...(item.hasChildren ? { expanded: widget.props.presentation.kind === 'open' && item.id === active } : {}),
     ...(widget.props.presentation.kind === 'open' && item.id === active
       ? {
           children: accessibleMenuItems(
             `${widget.id ?? widget.kind}:${item.id}`,
-            visibleMenuItems(widget.props.presentation.menu.items),
-            widget.props.presentation.menu.activePath.at(-1)
+            visibleMenuItems(widget.props.presentation.menu.items)
           )
         }
       : {})
@@ -158,8 +155,7 @@ export function contextMenuAccessibleChildren(widget: ContextMenuNode): readonly
   if (widget.props.presentation.kind === 'closed') return undefined;
   return accessibleMenuItems(
     widget.id ?? widget.kind,
-    visibleMenuItems(widget.props.presentation.menu.items),
-    widget.props.presentation.menu.activePath.at(-1)
+    visibleMenuItems(widget.props.presentation.menu.items)
   );
 }
 
@@ -167,8 +163,7 @@ export function dropdownMenuAccessibleChildren(widget: DropdownMenuNode): readon
   if (widget.props.presentation.kind === 'closed') return undefined;
   return accessibleMenuItems(
     widget.id ?? widget.kind,
-    visibleMenuItems(widget.props.presentation.menu.items),
-    widget.props.presentation.menu.activePath.at(-1)
+    visibleMenuItems(widget.props.presentation.menu.items)
   );
 }
 
@@ -247,14 +242,12 @@ function dropdownActiveItem(widget: DropdownMenuNode): VisibleMenuItem | undefin
 
 function accessibleMenuItems(
   ownerId: string,
-  items: readonly VisibleMenuItem[],
-  active: string | undefined
+  items: readonly VisibleMenuItem[]
 ): readonly AccessibleNode[] {
   return items.map((item) => ({
     id: `${ownerId}:${item.id}`,
-    role: 'menuitem',
+    role: item.kind === 'check' ? 'menuitemcheckbox' : 'menuitem',
     label: item.label,
-    selected: item.id === active,
     disabled: item.disabled === true,
     ...(item.kind === 'check' ? { checked: item.checked === true } : {}),
     ...(item.description === undefined && item.shortcut === undefined

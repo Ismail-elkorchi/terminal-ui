@@ -32,6 +32,9 @@ export function linePoints(x1: number, y1: number, x2: number, y2: number): read
 }
 
 export function integerPoint(x: number, y: number): CanvasPoint {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    throw new RangeError('Canvas coordinates must be finite numbers.');
+  }
   return {
     x: Math.floor(x),
     y: Math.floor(y)

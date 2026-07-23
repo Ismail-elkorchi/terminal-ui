@@ -141,9 +141,10 @@ export function meterAccessibleBase(widget: MeterNode, id: string): AccessibleNo
   const label = cleanLabel(widget.props.label);
   return {
     id,
-    role: 'progressbar',
+    role: 'meter',
     label: label.length === 0 ? id : label,
     value,
+    numericValue: { current: value, minimum: min, maximum: max },
     description: `Meter from ${String(min)} to ${String(max)}.`
   };
 }

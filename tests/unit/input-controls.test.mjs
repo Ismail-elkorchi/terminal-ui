@@ -60,9 +60,12 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
   assert.ok(frame.hitTargets?.some((target) => target.id === 'slider:value:5'));
   assert.ok(frame.hitTargets?.some((target) => target.id === 'range:track'));
   assert.deepEqual(frame.accessibility.root.children?.[0]?.checked, true);
-  assert.equal(frame.accessibility.root.children?.[1]?.role, 'progressbar');
+  assert.equal(frame.accessibility.root.children?.[0]?.role, 'switch');
+  assert.equal(frame.accessibility.root.children?.[1]?.role, 'slider');
   assert.equal(frame.accessibility.root.children?.[2]?.role, 'group');
-  assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.selected, true);
+  assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.role, 'slider');
+  assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.selected, undefined);
+  assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.numericValue?.current, 20);
   assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.ownerKind, 'toggleSwitch');
   assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.label, 'value.on.open');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'slider' && cell.text === '●')?.source?.label, 'track.handle');
@@ -245,7 +248,7 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
   });
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.checked, true);
   assert.equal(frame.accessibility.root.children?.[1]?.children?.[0]?.selected, true);
-  assert.equal(frame.accessibility.root.children?.[2]?.role, 'table');
+  assert.equal(frame.accessibility.root.children?.[2]?.role, 'grid');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'check-list' && cell.text === 'x')?.source?.label, 'option.email.marker.checked');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'check-list' && cell.text === 'x')?.source?.role, 'decoration');
   assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.text === 'S')?.source?.label, 'summary.label');

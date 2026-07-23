@@ -3,7 +3,7 @@ export type {
   AccessibleLiveRegion,
   AccessibleNode,
   AccessiblePosition,
-  AccessibleProgress,
+  AccessibleNumericValue,
   AccessibleRole,
   AccessibleScope,
   AccessibleScopeKind,

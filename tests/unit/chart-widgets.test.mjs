@@ -307,7 +307,9 @@ test('chart renders scatter points legends axis labels and selectable point hit 
   assert.match(output, /watch cycle/u);
   assert.match(output, /◆/u);
   assert.equal(frame.hitTargets.some((target) => target.id === 'scatter-chart:scatter:2'), true);
-  assert.equal(frame.accessibility.root.children?.some((child) => child.label === 'Scatter' && child.selected === true), true);
+  assert.equal(frame.accessibility.root.children?.some((child) =>
+    child.label === 'Scatter' && /Selected point 3 of 4/u.test(child.description ?? '')
+  ), true);
   assert.equal(frame.cells.find((cell) => cell.text === '◆')?.source?.label, 'selection.scatter.2');
   assert.equal(frame.cells.find((cell) => cell.text === '+')?.source?.label, 'legend.line.glyph');
   assert.equal(frame.cells.find((cell) => cell.source?.label === 'legend.line.glyph')?.style?.fg?.token, 'chart.series.1');
@@ -359,8 +361,13 @@ test('meter renders a labeled bounded meter with progress accessibility', () => 
   const output = renderFramePlain(frame);
   assert.match(output, /Throughput/u);
   assert.match(output, /75%/u);
-  assert.equal(frame.accessibility.root.role, 'progressbar');
+  assert.equal(frame.accessibility.root.role, 'meter');
   assert.equal(frame.accessibility.root.value, 75);
+  assert.deepEqual(frame.accessibility.root.numericValue, {
+    current: 75,
+    minimum: 0,
+    maximum: 100
+  });
   assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.ownerKind, 'meter');
   assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.label, 'metric.label');
   assert.equal(frame.cells.find((cell) => cell.text === '7')?.source?.label, 'metric.value');
@@ -449,8 +456,10 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
 
   const output = renderFramePlain(frame);
   assert.match(output, /\[█\]/u);
-  assert.equal(frame.accessibility.root.role, 'table');
-  assert.equal(frame.accessibility.root.children?.some((child) => child.label === 'Bravo' && child.selected === true), true);
+  assert.equal(frame.accessibility.root.role, 'grid');
+  assert.equal(frame.accessibility.root.children?.some((row) =>
+    row.children?.some((child) => child.label === 'Bravo' && child.selected === true)
+  ), true);
   assert.equal(frame.hitTargets.some((target) => target.id === 'heatmap:0:1' && target.cursor === 'pointer'), true);
   assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.ownerKind, 'heatmap');
   assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.label, 'cell.0.1.selected.open');

@@ -12,15 +12,15 @@ test('progress primitive exposes accessible progress state', () => {
 
   assert.equal(snapshot.source, 'progress');
   assert.equal(snapshot.root.role, 'progressbar');
-  assert.equal(snapshot.root.progress.value, 2);
+  assert.equal(snapshot.root.numericValue.current, 2);
 });
 
 test('progress primitive normalizes accessible progress values across updates', () => {
   const progressState = createProgress({ label: 'Sync', kind: 'determinate', value: 20, max: 10 });
   const updated = progressState.update({ kind: 'determinate', value: -5, max: 0, status: 'retrying' });
 
-  assert.deepEqual(progressState.snapshot().root.progress, { value: 10, max: 10, indeterminate: false });
-  assert.deepEqual(updated.snapshot().root.progress, { value: 0, max: 100, indeterminate: false });
+  assert.deepEqual(progressState.snapshot().root.numericValue, { current: 10, minimum: 0, maximum: 10, indeterminate: false });
+  assert.deepEqual(updated.snapshot().root.numericValue, { current: 0, minimum: 0, maximum: 100, indeterminate: false });
   assert.equal(updated.snapshot().root.description, 'retrying');
   assert.equal(validateAccessibleSnapshot(progressState.snapshot()).ok, true);
   assert.equal(validateAccessibleSnapshot(updated.snapshot()).ok, true);
@@ -39,11 +39,11 @@ test('runPrompt supports transcript-only non-TTY progress results', async () => 
   assert.equal(result.snapshot.source, 'progress');
   assert.equal(result.snapshot.root.role, 'progressbar');
   assert.equal(result.snapshot.root.description, 'Downloading');
-  assert.deepEqual(result.snapshot.root.progress, { value: 2, max: 5, indeterminate: false });
+  assert.deepEqual(result.snapshot.root.numericValue, { current: 2, minimum: 0, maximum: 5, indeterminate: false });
   assert.equal(result.transcript?.source, 'prompt');
   assert.equal(result.transcript?.steps[0]?.kind, 'snapshot');
   assert.equal(result.transcript?.steps[0]?.snapshot.root.label, 'Loading');
-  assert.deepEqual(result.transcript?.steps[0]?.snapshot.root.progress, { value: 2, max: 5, indeterminate: false });
+  assert.deepEqual(result.transcript?.steps[0]?.snapshot.root.numericValue, { current: 2, minimum: 0, maximum: 5, indeterminate: false });
 });
 
 test('runPrompt includes non-TTY hints when progress prompts are rejected', async () => {
@@ -79,7 +79,7 @@ test('runPrompt renders progress task updates and submits completion', async () 
   assert.deepEqual(result.value, { completed: true });
   assert.equal(result.snapshot.root.role, 'progressbar');
   assert.equal(result.snapshot.root.description, 'Done');
-  assert.deepEqual(result.snapshot.root.progress, { value: 2, max: 2, indeterminate: false });
+  assert.deepEqual(result.snapshot.root.numericValue, { current: 2, minimum: 0, maximum: 2, indeterminate: false });
   assert.match(host.output(), /Build/u);
   assert.match(host.output(), /Compiling/u);
   assert.match(host.output(), /Done/u);
@@ -135,7 +135,7 @@ test('runPrompt executes progress tasks in non-TTY transcript-only mode', async 
   assert.equal(result.status, 'submitted');
   assert.deepEqual(result.value, { completed: true });
   assert.equal(result.snapshot.root.description, 'Packed');
-  assert.deepEqual(result.snapshot.root.progress, { value: 1, max: 1, indeterminate: false });
+  assert.deepEqual(result.snapshot.root.numericValue, { current: 1, minimum: 0, maximum: 1, indeterminate: false });
   assert.equal(host.output(), '');
   assert.ok((result.transcript?.steps.filter((step) => step.kind === 'snapshot').length ?? 0) >= 2);
 });

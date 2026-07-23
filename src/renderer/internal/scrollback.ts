@@ -762,7 +762,11 @@ function bodySpans(
   ];
 }
 
-function sourceOptionsForItem(item: ScrollbackItem, itemIndex: number, state?: string) {
+function sourceOptionsForItem(
+  item: ScrollbackItem,
+  itemIndex: number,
+  state?: import('../../visual/source.ts').FrameCellSource['state']
+) {
   return {
     itemId: item.id,
     itemIndex,

@@ -33,7 +33,7 @@ export interface DocumentHighlightSpan extends RenderSpan {
 export interface DocumentSourceOptions {
   readonly itemId?: string;
   readonly itemIndex?: number;
-  readonly state?: string;
+  readonly state?: FrameCellSource['state'];
 }
 
 export function documentSpan(
@@ -88,7 +88,9 @@ export function documentSource(
     role: roleForVisual(visual),
     part: label,
     partKind: visual,
-    ...sourceOptions,
+    ...(sourceOptions.itemId === undefined ? {} : { itemId: sourceOptions.itemId }),
+    ...(sourceOptions.itemIndex === undefined ? {} : { itemIndex: sourceOptions.itemIndex }),
+    ...(sourceOptions.state === undefined ? {} : { state: sourceOptions.state }),
     label
   });
 }

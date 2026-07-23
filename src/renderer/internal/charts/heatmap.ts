@@ -86,7 +86,7 @@ export function heatmapAccessibleBase(widget: HeatmapNode, node: LayoutNode, id:
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
   return {
     id,
-    role: 'table',
+    role: 'grid',
     label: id,
     description: `${String(rows.length)} heatmap rows. Showing ${String(rowWindow.start + 1)}-${String(rowWindow.end)}.`,
     ...(focused ? { focused } : {})
@@ -97,15 +97,26 @@ export function heatmapAccessibleChildren(widget: HeatmapNode, node: LayoutNode)
   const rows = heatmapRows(widget.props.rows);
   const selected = heatmapSelected(widget);
   const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
-  return rows.slice(rowWindow.start, rowWindow.end).flatMap((row, rowOffset) => {
+  return rows.slice(rowWindow.start, rowWindow.end).map((row, rowOffset): AccessibleNode => {
     const rowIndex = rowWindow.start + rowOffset;
-    return row.map((cell, columnIndex) => ({
-      id: `${widget.id ?? 'heatmap'}:${String(rowIndex)}:${String(columnIndex)}`,
-      role: 'cell' as const,
-      label: cell.label ?? cell.id,
-      value: cell.value,
-      selected: selected?.row === rowIndex && selected.column === columnIndex
-    }));
+    return {
+      id: `${widget.id ?? 'heatmap'}:row:${String(rowIndex)}`,
+      role: 'row',
+      position: { rowIndex: rowIndex + 1, rowCount: rows.length, columnCount: row.length },
+      children: row.map((cell, columnIndex) => ({
+        id: `${widget.id ?? 'heatmap'}:${String(rowIndex)}:${String(columnIndex)}`,
+        role: 'gridcell' as const,
+        label: cell.label ?? cell.id,
+        value: cell.value,
+        selected: selected?.row === rowIndex && selected.column === columnIndex,
+        position: {
+          rowIndex: rowIndex + 1,
+          rowCount: rows.length,
+          columnIndex: columnIndex + 1,
+          columnCount: row.length
+        }
+      }))
+    };
   });
 }
 

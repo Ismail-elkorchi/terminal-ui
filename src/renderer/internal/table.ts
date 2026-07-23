@@ -129,7 +129,7 @@ export function tableAccessibleBase(
   const { totalRows, columns, window } = tableProjection(widget, bounds, widthProfile);
   return {
     id,
-    role: 'table',
+    role: 'grid',
     label: id,
     description: `Showing ${String(window.start + 1)}-${String(window.end)} of ${String(totalRows)} rows.`,
     window: {
@@ -158,13 +158,13 @@ export function tableAccessibleChildren(
         id: `${widget.id ?? 'table'}:headers`,
         role: 'row',
         position: {
-          rowIndex: 0,
+          rowIndex: 1,
           rowCount: totalRows + 1,
           columnCount: columns.length
         },
         children: columns.map((column, columnIndex) => ({
           id: `${widget.id ?? 'table'}:header:${String(column.index)}`,
-          role: 'cell',
+          role: 'gridcell',
           label: columnLabel(column, columnIndex),
           value: columnLabel(column, columnIndex),
           ...(column.sortable === true || column.resizable === true ? {
@@ -175,9 +175,9 @@ export function tableAccessibleChildren(
             ].join(', ')
           } : {}),
           position: {
-            rowIndex: 0,
+            rowIndex: 1,
             rowCount: totalRows + 1,
-            columnIndex,
+            columnIndex: columnIndex + 1,
             columnCount: columns.length,
             columnLabel: columnLabel(column, columnIndex)
           }
@@ -191,9 +191,9 @@ export function tableAccessibleChildren(
       role: 'row',
       selected: rowIndex === window.selected,
       position: {
-        index: rowIndex,
+        index: rowIndex + 1,
         count: totalRows,
-        rowIndex: hasHeader ? rowIndex + 1 : rowIndex,
+        rowIndex: hasHeader ? rowIndex + 2 : rowIndex + 1,
         rowCount: hasHeader ? totalRows + 1 : totalRows,
         columnCount: columns.length
       },
@@ -202,13 +202,13 @@ export function tableAccessibleChildren(
         const label = columnLabel(column, columnIndex);
         return {
           id: tableCellTargetId(widget, record.id, column.index),
-          role: 'cell',
+          role: 'gridcell',
           label: displayTableValue(value),
           value: displayTableValue(value),
           position: {
-            rowIndex: hasHeader ? rowIndex + 1 : rowIndex,
+            rowIndex: hasHeader ? rowIndex + 2 : rowIndex + 1,
             rowCount: hasHeader ? totalRows + 1 : totalRows,
-            columnIndex,
+            columnIndex: columnIndex + 1,
             columnCount: columns.length,
             columnLabel: label
           },
@@ -731,7 +731,7 @@ function tableSource(
   role: FrameCellSource['role'] = 'text',
   options: {
     readonly partKind?: string;
-    readonly state?: string;
+    readonly state?: import('../../element/metadata.ts').ElementVisualState;
   } = {}
 ): FrameCellSource {
   return dataSource(widget, label, {

@@ -94,10 +94,11 @@ function choiceSnapshotNodes<TChoice>(
     role: 'option',
     label: choice.label,
     ...(choice.description === undefined ? {} : { description: choice.description }),
-    selected: prompt.kind === 'select' && index === state.focusedChoiceIndex,
+    selected: prompt.kind === 'multiselect'
+      ? state.selectedChoiceIndexes.has(index)
+      : prompt.kind === 'select' && index === state.focusedChoiceIndex,
     focused: index === state.focusedChoiceIndex,
     disabled: isChoiceDisabled(choice),
-    ...(prompt.kind === 'multiselect' ? { checked: state.selectedChoiceIndexes.has(index) } : {})
   }));
 }
 

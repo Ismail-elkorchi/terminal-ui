@@ -112,9 +112,9 @@ test('runPrompt supports interactive multiselect toggling and bounds', async () 
 
   assert.equal(result.status, 'submitted');
   assert.deepEqual(result.value, ['search', 'replay']);
-  assert.equal(result.snapshot.root.children[0]?.checked, true);
+  assert.equal(result.snapshot.root.children[0]?.selected, true);
   assert.equal(result.snapshot.root.children[1]?.disabled, true);
-  assert.equal(result.snapshot.root.children[2]?.checked, true);
+  assert.equal(result.snapshot.root.children[2]?.selected, true);
 });
 
 test('runPrompt searches multiselect choices before toggling', async () => {
@@ -137,7 +137,7 @@ test('runPrompt searches multiselect choices before toggling', async () => {
   assert.equal(result.status, 'submitted');
   assert.deepEqual(result.value, ['replay']);
   assert.equal(result.snapshot.root.children[1]?.focused, true);
-  assert.equal(result.snapshot.root.children[1]?.checked, true);
+  assert.equal(result.snapshot.root.children[1]?.selected, true);
 });
 
 test('runPrompt supports configured multiselect range selection', async () => {
@@ -162,11 +162,11 @@ test('runPrompt supports configured multiselect range selection', async () => {
 
   assert.equal(result.status, 'submitted');
   assert.deepEqual(result.value, ['search', 'replay', 'render']);
-  assert.equal(result.snapshot.root.children[0]?.checked, true);
+  assert.equal(result.snapshot.root.children[0]?.selected, true);
   assert.equal(result.snapshot.root.children[1]?.disabled, true);
-  assert.equal(result.snapshot.root.children[1]?.checked, false);
-  assert.equal(result.snapshot.root.children[2]?.checked, true);
-  assert.equal(result.snapshot.root.children[3]?.checked, true);
+  assert.equal(result.snapshot.root.children[1]?.selected, false);
+  assert.equal(result.snapshot.root.children[2]?.selected, true);
+  assert.equal(result.snapshot.root.children[3]?.selected, true);
 });
 
 test('runPrompt keeps multiselect range selection opt-in', async () => {
@@ -189,9 +189,9 @@ test('runPrompt keeps multiselect range selection opt-in', async () => {
 
   assert.equal(result.status, 'submitted');
   assert.deepEqual(result.value, ['search']);
-  assert.equal(result.snapshot.root.children[0]?.checked, true);
+  assert.equal(result.snapshot.root.children[0]?.selected, true);
   assert.equal(result.snapshot.root.children[2]?.focused, true);
-  assert.equal(result.snapshot.root.children[2]?.checked, false);
+  assert.equal(result.snapshot.root.children[2]?.selected, false);
 });
 
 test('runPrompt reports choice data source failures as prompt diagnostics', async () => {

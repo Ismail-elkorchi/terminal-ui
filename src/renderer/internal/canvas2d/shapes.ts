@@ -1,7 +1,8 @@
-import type { Rect } from '../../model/layout.ts';
 import type { CanvasPoint } from './paths.ts';
 
-export function rectInteriorPoints(bounds: Rect): readonly CanvasPoint[] {
+export function rectInteriorPoints(
+  bounds: CanvasPoint & { readonly width: number; readonly height: number }
+): readonly CanvasPoint[] {
   const normalized = normalizeRect(bounds);
   const points: CanvasPoint[] = [];
   for (let y = normalized.y; y < normalized.y + normalized.height; y += 1) {
@@ -12,7 +13,9 @@ export function rectInteriorPoints(bounds: Rect): readonly CanvasPoint[] {
   return points;
 }
 
-export function rectStrokePoints(bounds: Rect): readonly CanvasPoint[] {
+export function rectStrokePoints(
+  bounds: CanvasPoint & { readonly width: number; readonly height: number }
+): readonly CanvasPoint[] {
   const normalized = normalizeRect(bounds);
   const points: CanvasPoint[] = [];
   if (normalized.width === 0 || normalized.height === 0) return points;
@@ -36,6 +39,12 @@ export function ellipseStrokePoints(
   startAngle = 0,
   endAngle = Math.PI * 2
 ): readonly CanvasPoint[] {
+  assertFinitePoint(center, 'ellipse center');
+  assertNonNegativeFinite(radiusX, 'ellipse horizontal radius');
+  assertNonNegativeFinite(radiusY, 'ellipse vertical radius');
+  if (!Number.isFinite(startAngle) || !Number.isFinite(endAngle)) {
+    throw new RangeError('Canvas ellipse angles must be finite numbers.');
+  }
   const rx = Math.abs(radiusX);
   const ry = Math.abs(radiusY);
   if (rx === 0 && ry === 0) return [integerPoint(center.x, center.y)];
@@ -50,6 +59,9 @@ export function ellipseStrokePoints(
 }
 
 export function ellipseInteriorPoints(center: CanvasPoint, radiusX: number, radiusY: number): readonly CanvasPoint[] {
+  assertFinitePoint(center, 'ellipse center');
+  assertNonNegativeFinite(radiusX, 'ellipse horizontal radius');
+  assertNonNegativeFinite(radiusY, 'ellipse vertical radius');
   const rx = Math.abs(radiusX);
   const ry = Math.abs(radiusY);
   if (rx === 0 && ry === 0) return [integerPoint(center.x, center.y)];
@@ -69,6 +81,7 @@ export function ellipseInteriorPoints(center: CanvasPoint, radiusX: number, radi
 }
 
 export function polygonInteriorPoints(points: readonly CanvasPoint[]): readonly CanvasPoint[] {
+  for (const point of points) assertFinitePoint(point, 'polygon point');
   if (points.length < 3) return [];
   const bounds = pointBounds(points);
   const filled: CanvasPoint[] = [];
@@ -80,16 +93,24 @@ export function polygonInteriorPoints(points: readonly CanvasPoint[]): readonly 
   return filled;
 }
 
-function normalizeRect(bounds: Rect): { readonly x: number; readonly y: number; readonly width: number; readonly height: number } {
+function normalizeRect(
+  bounds: CanvasPoint & { readonly width: number; readonly height: number }
+): { readonly x: number; readonly y: number; readonly width: number; readonly height: number } {
+  assertFinitePoint(bounds, 'rectangle position');
+  assertNonNegativeFinite(bounds.width, 'rectangle width');
+  assertNonNegativeFinite(bounds.height, 'rectangle height');
   return {
-    x: Math.floor(bounds.column),
-    y: Math.floor(bounds.row),
+    x: Math.floor(bounds.x),
+    y: Math.floor(bounds.y),
     width: Math.max(0, Math.floor(bounds.width)),
     height: Math.max(0, Math.floor(bounds.height))
   };
 }
 
 function integerPoint(x: number, y: number): CanvasPoint {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    throw new RangeError('Canvas shape coordinates must be finite numbers.');
+  }
   return {
     x: Math.round(x),
     y: Math.round(y)
@@ -97,10 +118,19 @@ function integerPoint(x: number, y: number): CanvasPoint {
 }
 
 function normalizeAngleSpan(startAngle: number, endAngle: number): number {
-  if (!Number.isFinite(startAngle) || !Number.isFinite(endAngle)) return Math.PI * 2;
   const span = endAngle - startAngle;
   if (span === 0) return Math.PI * 2;
   return span;
+}
+
+function assertFinitePoint(point: CanvasPoint, name: string): void {
+  if (Number.isFinite(point.x) && Number.isFinite(point.y)) return;
+  throw new RangeError(`Canvas ${name} coordinates must be finite numbers.`);
+}
+
+function assertNonNegativeFinite(value: number, name: string): void {
+  if (Number.isFinite(value) && value >= 0) return;
+  throw new RangeError(`Canvas ${name} must be a non-negative finite number.`);
 }
 
 function uniquePoints(points: readonly CanvasPoint[]): readonly CanvasPoint[] {

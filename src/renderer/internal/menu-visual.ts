@@ -1,7 +1,7 @@
 import type { RenderNode } from '../model/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { ComponentActionTone } from '../../ui-model/contracts.ts';
-import { renderNodeFrameSource } from '../../visual/source.ts';
+import { isFrameCellInteractionState, renderNodeFrameSource } from '../../visual/source.ts';
 import { clipRenderSpans, span } from '../../visual/render.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
@@ -204,7 +204,7 @@ function menuInlineSpans(
       part: `${part}.${String(index)}`,
       partKind: part,
       itemId: item.id,
-      ...(state === undefined ? {} : { state }),
+      ...(isFrameCellInteractionState(state) ? { state } : {}),
       label: `${part}.${String(index)}`
     })
   });
@@ -295,7 +295,7 @@ function menuSpan(
       role: source.label === 'separator' ? 'separator' : 'text',
       part: source.label,
       ...(source.itemId === undefined ? {} : { itemId: source.itemId }),
-      ...(source.state === undefined ? {} : { state: source.state }),
+      ...(isFrameCellInteractionState(source.state) ? { state: source.state } : {}),
       label: source.label
     })
   });

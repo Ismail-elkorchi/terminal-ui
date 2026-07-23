@@ -57,7 +57,7 @@ import { numberInputLayout } from './support/number-input.ts';
 export function formAccessibleBase(widget: FormNode, id: string, focused: boolean): AccessibleNode {
   return {
     id,
-    role: 'application',
+    role: 'form',
     label: formTitle(widget) || id,
     ...(focused ? { focused } : {})
   };
@@ -67,7 +67,7 @@ export function fieldAccessibleBase(widget: FieldNode, id: string, focused: bool
   const description = fieldDescription(widget);
   return {
     id,
-    role: 'text',
+    role: 'group',
     label: labelWithRequired(clean(stringify(widget.props.label)), widget.props.required === true) || id,
     ...(description.length === 0 ? {} : { description }),
     ...(widget.props.disabled === true ? { disabled: true } : {}),
@@ -118,7 +118,7 @@ export function toggleSwitchAccessibleBase(widget: ToggleSwitchNode, id: string,
   const checked = widget.props.checked;
   return {
     id,
-    role: 'checkbox',
+    role: 'switch',
     label: clean(stringify(widget.props.label)) || id,
     value: checked ? onLabel : offLabel,
     checked,
@@ -131,9 +131,10 @@ export function sliderAccessibleBase(widget: SliderNode, id: string, focused: bo
   const model = sliderModel(widget);
   return {
     id,
-    role: 'progressbar',
+    role: 'slider',
     label: clean(stringify(widget.props.label)) || id,
     value: formatNumber(model.value),
+    numericValue: { current: model.value, minimum: model.min, maximum: model.max },
     ...(widget.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
@@ -151,10 +152,14 @@ export function rangeSliderAccessibleBase(widget: RangeSliderNode, id: string, f
     ...(focused ? { focused } : {}),
     children: (['start', 'end'] as const).map((handle) => ({
       id: `${id}:${handle}`,
-      role: 'progressbar',
+      role: 'slider',
       label: `${label} ${handle}`,
       value: formatNumber(handle === 'start' ? model.start : model.end),
-      selected: model.activeHandle === handle,
+      numericValue: {
+        current: handle === 'start' ? model.start : model.end,
+        minimum: model.min,
+        maximum: model.max
+      },
       ...(widget.props.disabled === true ? { disabled: true } : {}),
       ...(focused && model.activeHandle === handle ? { focused: true } : {})
     }))
@@ -165,7 +170,7 @@ export function checkboxGroupAccessibleBase(widget: CheckboxGroupNode, id: strin
   const selected = selectedIds(widget);
   return {
     id,
-    role: 'listbox',
+    role: 'group',
     label: labelWithRequired(clean(stringify(widget.props.label)), widget.props.required === true) || id,
     value: `${String(selected.size)} selected`,
     ...(widget.props.disabled === true ? { disabled: true } : {}),
@@ -180,7 +185,6 @@ export function checkboxGroupAccessibleChildren(widget: CheckboxGroupNode): read
     role: 'checkbox',
     label: option.label,
     checked: selected.has(option.id),
-    selected: selected.has(option.id),
     ...(option.description === undefined ? {} : { description: option.description }),
     ...(option.disabled === true || widget.props.disabled === true ? { disabled: true } : {})
   }));
@@ -191,7 +195,7 @@ export function radioGroupAccessibleBase(widget: RadioGroupNode, id: string, foc
   const description = fieldDescription(widget);
   return {
     id,
-    role: 'listbox',
+    role: 'radiogroup',
     label: labelWithRequired(clean(stringify(widget.props.label)), widget.props.required === true) || id,
     ...(selected === undefined ? {} : { value: selected.label }),
     ...(description.length === 0 ? {} : { description }),
@@ -207,7 +211,6 @@ export function radioGroupAccessibleChildren(widget: RadioGroupNode): readonly A
     role: 'radio',
     label: option.label,
     checked: option.id === selected,
-    selected: option.id === selected,
     ...(option.description === undefined ? {} : { description: option.description }),
     ...(option.disabled === true || widget.props.disabled === true ? { disabled: true } : {})
   }));
@@ -241,7 +244,7 @@ export function calendarAccessibleBase(widget: CalendarNode, id: string, focused
   const selected = selectedCalendarDay(widget);
   return {
     id,
-    role: 'table',
+    role: 'grid',
     label: clean(stringify(widget.props.label)) || clean(stringify(widget.props.monthLabel)) || id,
     ...(selected === undefined ? {} : { value: selected.id }),
     ...(widget.props.disabled === true ? { disabled: true } : {}),
@@ -251,13 +254,25 @@ export function calendarAccessibleBase(widget: CalendarNode, id: string, focused
 
 export function calendarAccessibleChildren(widget: CalendarNode): readonly AccessibleNode[] {
   const selected = selectedId(widget);
-  return calendarDays(widget).filter((day) => day.hidden !== true).map((day) => ({
-    id: `${widget.id ?? 'calendar'}:${day.id}`,
-    role: 'option',
-    label: day.id,
-    selected: day.id === selected,
-    ...(day.disabled === true || widget.props.disabled === true ? { disabled: true } : {})
-  }));
+  const days = calendarDays(widget).filter((day) => day.hidden !== true);
+  const rows: AccessibleNode[] = [];
+  for (let startIndex = 0; startIndex < days.length; startIndex += 7) {
+    const rowIndex = Math.floor(startIndex / 7) + 1;
+    rows.push({
+      id: `${widget.id ?? 'calendar'}:week:${String(rowIndex)}`,
+      role: 'row',
+      position: { rowIndex, rowCount: Math.ceil(days.length / 7), columnCount: 7 },
+      children: days.slice(startIndex, startIndex + 7).map((day, columnIndex) => ({
+        id: `${widget.id ?? 'calendar'}:${day.id}`,
+        role: 'gridcell',
+        label: day.id,
+        selected: day.id === selected,
+        position: { rowIndex, columnIndex: columnIndex + 1, columnCount: 7 },
+        ...(day.disabled === true || widget.props.disabled === true ? { disabled: true } : {})
+      }))
+    });
+  }
+  return rows;
 }
 
 export function selectAccessibleBase(widget: SelectNode, id: string, focused: boolean): AccessibleNode {
@@ -279,15 +294,21 @@ export function selectAccessibleChildren(widget: SelectNode): readonly Accessibl
   if (widget.props.presentation.kind !== 'open') return [];
   const selected = selectedId(widget);
   const highlighted = widget.props.presentation.highlighted;
-  return formOptions(widget).map((option) => ({
-    id: `${widget.id ?? 'select'}:${option.id}`,
-    role: 'option',
-    label: option.label,
-    selected: option.id === selected,
-    ...(option.id === highlighted ? { focused: true } : {}),
-    ...(option.description === undefined ? {} : { description: option.description }),
-    ...(option.disabled === true || widget.props.disabled === true ? { disabled: true } : {})
-  }));
+  const id = widget.id ?? 'select';
+  return [{
+    id: `${id}:options`,
+    role: 'listbox',
+    label: `${clean(stringify(widget.props.label)) || id} options`,
+    children: formOptions(widget).map((option) => ({
+      id: `${id}:${option.id}`,
+      role: 'option',
+      label: option.label,
+      selected: option.id === selected,
+      ...(option.id === highlighted ? { focused: true } : {}),
+      ...(option.description === undefined ? {} : { description: option.description }),
+      ...(option.disabled === true || widget.props.disabled === true ? { disabled: true } : {})
+    }))
+  }];
 }
 
 export function textInputAccessibleBase(widget: TextInputNode, id: string, focused: boolean): AccessibleNode {
@@ -303,7 +324,20 @@ export function numberInputAccessibleBase(widget: NumberInputNode, id: string, f
     validity.length === 0 ? undefined : `Numeric input is ${validity}.`,
     typeof committed === 'number' && Number.isFinite(committed) ? `Committed value: ${formatNumber(committed)}.` : undefined
   ].filter((part): part is string => part !== undefined).join(' ');
-  return { ...base, ...(description.length === 0 ? {} : { description }) };
+  const value = numberInputValue(widget);
+  const current = Number(value);
+  return {
+    ...base,
+    role: 'spinbutton',
+    ...(Number.isFinite(current) ? {
+      numericValue: {
+        current,
+        ...(typeof widget.props.presentation.min === 'number' ? { minimum: widget.props.presentation.min } : {}),
+        ...(typeof widget.props.presentation.max === 'number' ? { maximum: widget.props.presentation.max } : {})
+      }
+    } : {}),
+    ...(description.length === 0 ? {} : { description })
+  };
 }
 
 export function textInputCursor(

@@ -56,7 +56,7 @@ function nodeState(node: AccessibleNode): string {
     ...(node.disabled === true ? ['disabled'] : []),
     ...(node.checked === undefined ? [] : [`checked:${String(node.checked)}`]),
     ...(node.expanded === undefined ? [] : [node.expanded ? 'expanded' : 'collapsed']),
-    ...(node.progress === undefined ? [] : [progressState(node.progress)]),
+    ...(node.numericValue === undefined ? [] : [numericValueState(node.numericValue)]),
     ...(node.live === undefined || node.live === 'off' ? [] : [`live:${node.live}`]),
     ...(node.scope === undefined ? [] : [`scope:${node.scope.kind}`]),
     ...(node.window === undefined ? [] : [windowState(node.window)]),
@@ -65,10 +65,12 @@ function nodeState(node: AccessibleNode): string {
   return state.length === 0 ? '' : ` [${state.join(', ')}]`;
 }
 
-function progressState(progress: NonNullable<AccessibleNode['progress']>): string {
-  if (progress.indeterminate === true) return 'progress:indeterminate';
-  if (progress.value === undefined) return 'progress';
-  return progress.max === undefined ? `progress:${String(progress.value)}` : `progress:${String(progress.value)}/${String(progress.max)}`;
+function numericValueState(numericValue: NonNullable<AccessibleNode['numericValue']>): string {
+  if (numericValue.indeterminate === true) return 'value:indeterminate';
+  if (numericValue.current === undefined) return 'value';
+  return numericValue.maximum === undefined
+    ? `value:${String(numericValue.current)}`
+    : `value:${String(numericValue.current)}/${String(numericValue.maximum)}`;
 }
 
 function windowState(window: NonNullable<AccessibleNode['window']>): string {

@@ -30,6 +30,11 @@ measurement, and frame-source contracts. Layout nodes, frames, and diffs are
 immutable data contracts; normalized render nodes and projection indexes remain
 private implementation details.
 
+The ordinary public render function returns only a frame. Focus regions,
+pointer regions, normalized render nodes, and projection indexes are produced
+only by the renderer's internal projection path and are not properties of the
+public result.
+
 ## Styled Cells
 
 A frame cell carries visible text, display width, continuation metadata for
@@ -52,6 +57,9 @@ available.
 
 Source metadata is JSON-serializable, sanitized before it enters a frame,
 included in frame equality and fingerprinting, and exposed in frame schemas.
+Its optional interaction state is limited to focused, hovered, pressed,
+selected, disabled, and active; cleanup, transcript validation, and the frame
+and diff schemas reject other values.
 Use `renderNodeFrameSource()` for render-node-owned cells, `frameCellSource()` for
 renderer-owned cells without a render node, and `frameSourcePart()` when
 deriving a more specific part from an existing source.

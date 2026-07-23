@@ -2,6 +2,17 @@ import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage, 
 import type { ElementInspection } from '../../element/inspection.ts';
 import type { RenderNode, RenderNodeKind, RenderNodeOfKind } from './types.ts';
 
+const layoutKinds = new Set<RenderNodeKind>([
+  'absolute',
+  'column',
+  'grid',
+  'overlay',
+  'row',
+  'splitPane',
+  'surface',
+  'viewport'
+]);
+
 const renderNodes = new WeakMap<object, unknown>();
 const inspections = new WeakMap<object, ElementInspection>();
 
@@ -52,7 +63,8 @@ function inspectRenderNode<TMessage, TKind extends RenderNodeKind>(
   const keyboard = node.keyMap !== undefined && Object.keys(node.keyMap).length > 0;
   const inspection: ElementInspection = {
     schemaVersion: 'terminal-ui.element.v1',
-    component: node.kind,
+    kind: node.kind,
+    category: node.kind === 'custom' ? 'extension' : layoutKinds.has(node.kind) ? 'layout' : 'component',
     ...(node.id === undefined ? {} : { id: node.id }),
     inputs: Object.freeze({
       keyboard,

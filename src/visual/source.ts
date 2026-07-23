@@ -19,7 +19,7 @@ export interface FrameCellSource {
   readonly partKind?: string;
   readonly itemId?: string;
   readonly itemIndex?: number;
-  readonly state?: string;
+  readonly state?: 'focused' | 'hovered' | 'pressed' | 'selected' | 'disabled' | 'active';
   readonly label?: string;
 }
 
@@ -30,7 +30,7 @@ export interface RenderNodeFrameSourceOptions {
   readonly partKind?: string;
   readonly itemId?: string;
   readonly itemIndex?: number;
-  readonly state?: string;
+  readonly state?: 'focused' | 'hovered' | 'pressed' | 'selected' | 'disabled' | 'active';
   readonly label?: string;
 }
 
@@ -75,7 +75,7 @@ export function sanitizeFrameCellSource(source: FrameCellSource): FrameCellSourc
     ...optionalTextField('partKind', source.partKind),
     ...optionalTextField('itemId', source.itemId),
     ...optionalIndex(source.itemIndex),
-    ...optionalTextField('state', source.state),
+    ...optionalInteractionState(source.state),
     ...optionalTextField('label', source.label)
   };
   const key = frameSourceInternKey(normalized);
@@ -115,6 +115,32 @@ function optionalIndex(value: number | undefined): Pick<FrameCellSource, 'itemIn
   return typeof value === 'number' && Number.isFinite(value)
     ? { itemIndex: Math.max(0, Math.floor(value)) }
     : {};
+}
+
+const interactionStates = [
+  'focused',
+  'hovered',
+  'pressed',
+  'selected',
+  'disabled',
+  'active'
+] as const satisfies readonly NonNullable<FrameCellSource['state']>[];
+
+function optionalInteractionState(value: unknown): Pick<FrameCellSource, 'state'> {
+  if (value === undefined) return {};
+  if (isFrameCellInteractionState(value)) {
+    return { state: value };
+  }
+  throw new TypeError(
+    `Frame cell source state must be one of ${interactionStates.join(', ')}.`
+  );
+}
+
+export function isFrameCellInteractionState(
+  value: unknown
+): value is NonNullable<FrameCellSource['state']> {
+  return typeof value === 'string'
+    && (interactionStates as readonly string[]).includes(value);
 }
 
 function frameSourceInternKey(source: FrameCellSource): string {

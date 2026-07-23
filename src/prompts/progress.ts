@@ -23,8 +23,8 @@ function makeProgressState(
           role: 'progressbar',
           label,
           ...(progress.status === undefined ? {} : { description: progress.status }),
-          progress: progress.kind === 'determinate'
-            ? { value: progress.value, max: progress.max, indeterminate: false }
+          numericValue: progress.kind === 'determinate'
+            ? { current: progress.value, minimum: 0, maximum: progress.max, indeterminate: false }
             : { indeterminate: true }
         }
       });

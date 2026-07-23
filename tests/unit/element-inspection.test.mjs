@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import { button, inspectElement, textInput } from '../../dist/components/index.js';
 import { column, surface } from '../../dist/layout/index.js';
+import { custom } from '../../dist/renderer/index.js';
 
 test('element inspection exposes an immutable authoring projection without renderer payloads', () => {
   const element = surface(column([
@@ -24,7 +25,8 @@ test('element inspection exposes an immutable authoring projection without rende
 
   assert.deepEqual(inspection, {
     schemaVersion: 'terminal-ui.element.v1',
-    component: 'surface',
+    kind: 'surface',
+    category: 'layout',
     id: 'panel',
     inputs: { keyboard: false, text: false, paste: false, focus: 'none' },
     meta: {
@@ -36,7 +38,8 @@ test('element inspection exposes an immutable authoring projection without rende
     },
     children: [{
       schemaVersion: 'terminal-ui.element.v1',
-      component: 'column',
+      kind: 'column',
+      category: 'layout',
       id: 'controls',
       inputs: { keyboard: false, text: false, paste: false, focus: 'none' },
       meta: {
@@ -49,7 +52,8 @@ test('element inspection exposes an immutable authoring projection without rende
       children: [
         {
           schemaVersion: 'terminal-ui.element.v1',
-          component: 'textInput',
+          kind: 'textInput',
+          category: 'component',
           id: 'query',
           inputs: { keyboard: true, text: true, paste: true, focus: 'item' },
           meta: {
@@ -63,7 +67,8 @@ test('element inspection exposes an immutable authoring projection without rende
         },
         {
           schemaVersion: 'terminal-ui.element.v1',
-          component: 'button',
+          kind: 'button',
+          category: 'component',
           id: 'submit',
           inputs: { keyboard: true, text: false, paste: false, focus: 'item' },
           meta: {
@@ -84,9 +89,26 @@ test('element inspection exposes an immutable authoring projection without rende
   assert.equal('renderer' in inspection, false);
 });
 
+test('element inspection identifies custom renderer elements without changing dispatch', () => {
+  const element = custom({
+    id: 'plug-in',
+    renderer: {
+      render() {},
+      accessibility: ({ id }) => ({ id, role: 'text', label: 'Plug-in' })
+    }
+  });
+
+  const inspection = inspectElement(element);
+
+  assert.equal(inspection.kind, 'custom');
+  assert.equal(inspection.category, 'extension');
+  assert.equal(inspection.id, 'plug-in');
+  assert.equal('renderer' in inspection, false);
+});
+
 test('element inspection rejects objects outside the authored element boundary', () => {
   assert.throws(
     () => inspectElement({}),
-    /Expected an Element created by a terminal-ui component or layout factory/u
+    /component or layout factory/u
   );
 });

@@ -80,8 +80,10 @@ test('menu renders nested checked disabled items with menu accessibility', () =>
   assert.equal(frame.cells.find((cell) => cell.text === 'D' && cell.source?.itemId === 'delete')?.style?.fg?.token, 'status.error');
   assert.match(output, /Disabled/u);
   assert.equal(frame.accessibility.root.role, 'menu');
-  assert.equal(frame.accessibility.root.children?.find((node) => node.label === 'Recent')?.selected, true);
+  assert.equal(frame.accessibility.root.children?.find((node) => node.label === 'Recent')?.role, 'menuitem');
+  assert.equal(frame.accessibility.root.children?.find((node) => node.label === 'Recent')?.selected, undefined);
   assert.equal(frame.accessibility.root.children?.find((node) => node.label === 'Disabled Recent')?.disabled, true);
+  assert.equal(frame.accessibility.root.children?.find((node) => node.label === 'Autosave')?.role, 'menuitemcheckbox');
   assert.equal(frame.accessibility.root.children?.find((node) => node.label === 'Autosave')?.checked, true);
   assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
 });

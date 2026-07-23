@@ -745,7 +745,7 @@ test('TUI frame accessibility uses widget metadata and marks only the active foc
     ['option', 'Alpha', false],
     ['option', 'Beta', true]
   ]);
-  assert.equal(tableNode?.role, 'table');
+  assert.equal(tableNode?.role, 'grid');
   assert.equal(tableNode?.children?.[0]?.children?.[1]?.value, 'B1');
 });
 

@@ -506,7 +506,7 @@ test('table and paginator compose explicitly over a bounded page', () => {
   assert.equal(frame.cells.find((cell) => cell.text === 'F')?.source?.label, 'label');
   assert.equal(frame.cells.find((cell) => cell.text === '2')?.source?.label, 'page.value');
   assert.equal(frame.cells.find((cell) => cell.text === '3')?.source?.label, 'page.count');
-  assert.equal(frame.accessibility.root.children?.some((node) => node.role === 'table'), true);
+  assert.equal(frame.accessibility.root.children?.some((node) => node.role === 'grid'), true);
 });
 
 test('table supports sticky headers and both-axis scrollbars directly', () => {

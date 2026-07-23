@@ -90,12 +90,12 @@ test('TUI status, progress, and spinner widgets render accessible status state',
   assert.match(output, /Waiting \[████░░░░░░\]/);
   assert.match(output, /⠋ Working/);
   assert.deepEqual([statusNode?.role, statusNode?.value], ['status', 'Ready']);
-  assert.deepEqual([progressNode?.role, progressNode?.label, progressNode?.progress], [
+  assert.deepEqual([progressNode?.role, progressNode?.label, progressNode?.numericValue], [
     'progressbar',
     'Sync',
-    { value: 100, max: 100 }
+    { current: 100, minimum: 0, maximum: 100 }
   ]);
-  assert.deepEqual([pendingNode?.role, pendingNode?.label, pendingNode?.progress], [
+  assert.deepEqual([pendingNode?.role, pendingNode?.label, pendingNode?.numericValue], [
     'progressbar',
     'Waiting',
     { indeterminate: true }

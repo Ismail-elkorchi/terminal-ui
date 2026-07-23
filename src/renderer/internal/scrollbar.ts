@@ -283,9 +283,21 @@ function scrollbarSource(
     role: 'scrollbar',
     part: `${axis}.${partKind}`,
     partKind,
-    state,
+    ...scrollbarSourceState(state),
     label: `${axis} scrollbar ${partKind}`
   });
+}
+
+function scrollbarSourceState(
+  state: ScrollbarVisualState
+): { readonly state?: NonNullable<FrameCellSource['state']> } {
+  switch (state) {
+    case 'active': return { state: 'active' };
+    case 'hover': return { state: 'hovered' };
+    case 'disabled':
+    case 'inactive': return { state: 'disabled' };
+    case 'idle': return {};
+  }
 }
 
 function normalizeRect(bounds: Rect): Rect {

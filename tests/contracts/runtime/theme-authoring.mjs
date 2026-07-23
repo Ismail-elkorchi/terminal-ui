@@ -15,7 +15,12 @@ const state = scrollReducer(createScrollState({ contentRows: 10, viewportRows: 3
 const accent = resolveThemeColor(defaultTheme, 'accent.primary');
 const inspection = inspectElement(element);
 
-invariant(inspection.component === 'surface' && inspection.children.length === 1, 'layout composition failed');
+invariant(
+  inspection.kind === 'surface' &&
+    inspection.category === 'layout' &&
+    inspection.children.length === 1,
+  'layout composition failed'
+);
 invariant(state.offsetRow === 2, 'behavior reducer failed');
 invariant(accent !== undefined, 'theme token resolution failed');
 

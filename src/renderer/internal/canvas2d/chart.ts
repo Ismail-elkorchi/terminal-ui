@@ -89,8 +89,8 @@ export function drawLineSeries(
 ): void {
   const span = fixedCellSpan(canvas, options.span ?? DEFAULT_SERIES_SPAN, '*');
   const scaled = points.map((point) => ({
-    x: options.xScale === undefined ? point.x : scaleChartValue(point.x, options.xScale),
-    y: options.yScale === undefined ? point.y : scaleChartValue(point.y, options.yScale)
+    x: Math.round(options.xScale === undefined ? point.x : scaleChartValue(point.x, options.xScale)),
+    y: Math.round(options.yScale === undefined ? point.y : scaleChartValue(point.y, options.yScale))
   }));
   canvas.polyline(scaled, span);
 }
@@ -122,7 +122,7 @@ export function drawBarSeries(
     const y = options.yScale === undefined ? bar.value : scaleChartValue(bar.value, options.yScale);
     const top = Math.min(bottom, Math.round(y));
     const height = Math.max(0, bottom - top + 1);
-    canvas.rect({ row: top, column: Math.round(x), width, height }, { fill: span });
+    canvas.rect({ x: Math.round(x), y: top, width, height }, { fill: span });
   }
 }
 

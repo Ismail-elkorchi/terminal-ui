@@ -289,6 +289,78 @@ test('transcript validation rejects under-shaped replay frames and diffs', () =>
   assert.match(invalidDiff.error.message, /diff operation 0/u);
 });
 
+test('transcript validation rejects unknown frame-cell interaction states', () => {
+  const harness = createTerminalHarness();
+  const snapshot = harness.snapshot();
+  const baseFrame = validFrame(2, 1, snapshot);
+  const baseDiff = validDiff(2, 1);
+  const base = {
+    schemaVersion: 'terminal-ui.interaction-transcript.v2',
+    id: 'invalid-frame-source-state',
+    source: 'test',
+    diagnostics: [],
+    redactions: []
+  };
+  const validateCommit = (frame, diff) => validateTranscript({
+    ...base,
+    steps: [{ kind: 'commit', commit: runtimeCommit(frame, diff) }]
+  });
+
+  const cell = validateCommit({
+    ...baseFrame,
+    cells: [{
+      row: 1,
+      column: 1,
+      text: 'x',
+      width: 1,
+      source: { state: 'busy' }
+    }]
+  }, baseDiff);
+  assert.equal(cell.ok, false);
+  assert.match(cell.error.message, /frame cell 0.*state must be focused/u);
+
+  const cursor = validateCommit({
+    ...baseFrame,
+    cursor: { row: 1, column: 1, source: { state: 'busy' } }
+  }, baseDiff);
+  assert.equal(cursor.ok, false);
+  assert.match(cursor.error.message, /frame cursor source.*state must be focused/u);
+
+  const span = validateCommit(baseFrame, {
+    ...baseDiff,
+    operations: [{
+      kind: 'write',
+      row: 1,
+      column: 1,
+      spans: [{ text: 'x', source: { state: 'busy' } }]
+    }]
+  });
+  assert.equal(span.ok, false);
+  assert.match(span.error.message, /write span source.*state must be focused/u);
+
+  const valid = validateCommit({
+    ...baseFrame,
+    cells: [{
+      row: 1,
+      column: 1,
+      text: 'x',
+      width: 1,
+      source: { state: 'active' }
+    }],
+    cursor: { row: 1, column: 1, source: { state: 'selected' } }
+  }, {
+    ...baseDiff,
+    cursor: { row: 1, column: 1, source: { state: 'selected' } },
+    operations: [{
+      kind: 'write',
+      row: 1,
+      column: 1,
+      spans: [{ text: 'x', source: { state: 'active' } }]
+    }]
+  });
+  assert.equal(valid.ok, true, valid.ok ? undefined : valid.error.message);
+});
+
 test('transcript redaction records concrete paths for redacted strings', () => {
   const redacted = redactTranscript({
     schemaVersion: 'terminal-ui.interaction-transcript.v2',

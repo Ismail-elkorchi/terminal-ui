@@ -55,7 +55,7 @@ export function overlayChildBounds(widget: OverlayNode, bounds: Rect): readonly 
 export function canvasAccessibleBase(widget: CanvasNode, id: string, focused: boolean): AccessibleNode {
   return {
     id,
-    role: 'application',
+    role: 'image',
     label: stringify(widget.props.label) || id,
     scope: { kind: 'document' },
     ...(focused ? { focused } : {})

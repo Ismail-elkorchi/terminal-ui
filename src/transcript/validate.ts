@@ -2,6 +2,7 @@ import { validateAccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic, diagnosticOccurrenceIssue, terminalDiagnosticIssue } from '../diagnostics.ts';
 import { err, ok } from '../result.ts';
 import { defineTextWidthProfile, measureTextCells } from '../text/index.ts';
+import { isFrameCellInteractionState } from '../visual/source.ts';
 import {
   applyRenderDiff,
   renderDiffProjectionMatchesFrame
@@ -359,15 +360,19 @@ function frameCellIssue(cell: unknown): string | undefined {
   if (cell['continuation'] !== undefined && typeof cell['continuation'] !== 'boolean') {
     return 'continuation must be a boolean.';
   }
+  const sourceIssue = frameCellSourceIssue(cell['source']);
+  if (sourceIssue !== undefined) return `source: ${sourceIssue}`;
   return undefined;
 }
 
 function cursorIssue(cursor: unknown): string | undefined {
   if (!isRecord(cursor)) return 'frame cursor must be an object.';
   const typed = cursor as Partial<CursorPosition>;
-  return isIntegerAtLeast(typed.row, 1) && isIntegerAtLeast(typed.column, 1)
-    ? undefined
-    : 'frame cursor row and column must be positive integers.';
+  if (!isIntegerAtLeast(typed.row, 1) || !isIntegerAtLeast(typed.column, 1)) {
+    return 'frame cursor row and column must be positive integers.';
+  }
+  const sourceIssue = frameCellSourceIssue(cursor['source']);
+  return sourceIssue === undefined ? undefined : `frame cursor source: ${sourceIssue}`;
 }
 
 function renderDiffIssue(diff: unknown): string | undefined {
@@ -437,6 +442,8 @@ function renderOperationIssue(
         if (!isRecord(item) || typeof item['text'] !== 'string') {
           return 'write spans must contain text.';
         }
+        const sourceIssue = frameCellSourceIssue(item['source']);
+        if (sourceIssue !== undefined) return `write span source: ${sourceIssue}`;
         columns += measureTextCells(item['text'], { widthProfile }).cells;
       }
       if (columns <= 0) return 'write must affect at least one terminal cell.';
@@ -450,6 +457,15 @@ function renderOperationIssue(
     default:
       return `unsupported diff operation kind: ${String(operation['kind'])}.`;
   }
+}
+
+function frameCellSourceIssue(source: unknown): string | undefined {
+  if (source === undefined) return undefined;
+  if (!isRecord(source)) return 'must be an object.';
+  if (source['state'] !== undefined && !isFrameCellInteractionState(source['state'])) {
+    return 'state must be focused, hovered, pressed, selected, disabled, or active.';
+  }
+  return undefined;
 }
 
 function rectIssue(rect: unknown): string | undefined {

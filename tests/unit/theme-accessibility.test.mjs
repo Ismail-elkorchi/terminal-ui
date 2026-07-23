@@ -169,11 +169,112 @@ test('accessible snapshots validate tree identity, focus paths, and role state',
 
   const invalidProgress = validateAccessibleSnapshot({
     ...snapshot,
-    root: { id: 'status', role: 'status', progress: { value: 2, max: 1 } },
+    root: {
+      id: 'status',
+      role: 'progressbar',
+      numericValue: { current: 2, minimum: 0, maximum: 1 }
+    },
     focusPath: []
   });
   assert.equal(invalidProgress.ok, false);
   assert.equal(invalidProgress.error.code, 'ACCESSIBLE_SNAPSHOT_INVALID');
+});
+
+test('accessible snapshots enforce role fields, direct-child roles, numeric values, and index bases', () => {
+  const validRoots = [
+    {
+      id: 'form',
+      role: 'form',
+      children: [{ id: 'switch', role: 'switch', checked: true }]
+    },
+    {
+      id: 'choices',
+      role: 'radiogroup',
+      children: [{ id: 'choice', role: 'radio', checked: true }]
+    },
+    {
+      id: 'files',
+      role: 'tree',
+      window: { start: 0, end: 1, total: 3, omittedBefore: 0, omittedAfter: 2 },
+      children: [{
+        id: 'file',
+        role: 'treeitem',
+        position: { index: 1, count: 3, level: 1 },
+        expanded: false,
+        selected: true
+      }]
+    },
+    {
+      id: 'calendar',
+      role: 'grid',
+      children: [{
+        id: 'week',
+        role: 'row',
+        position: { rowIndex: 1, rowCount: 1, columnCount: 1 },
+        children: [{
+          id: 'day',
+          role: 'gridcell',
+          position: { rowIndex: 1, columnIndex: 1, columnCount: 1 },
+          selected: true
+        }]
+      }]
+    },
+    {
+      id: 'volume',
+      role: 'slider',
+      numericValue: { current: 5, minimum: 0, maximum: 10 }
+    }
+  ];
+
+  for (const root of validRoots) {
+    assert.equal(validateAccessibleSnapshot({
+      schemaVersion: 'terminal-ui.accessible-snapshot.v1',
+      source: 'widget',
+      root,
+      focusPath: [],
+      diagnostics: []
+    }).ok, true, root.id);
+  }
+
+  const invalidRoots = [
+    { id: 'unknown', role: 'text', invented: true },
+    { id: 'checked', role: 'button', checked: true },
+    { id: 'mixed-switch', role: 'switch', checked: 'mixed' },
+    { id: 'selected', role: 'text', selected: true },
+    { id: 'expanded', role: 'status', expanded: true },
+    { id: 'position', role: 'option', position: { index: 0, count: 1 } },
+    { id: 'position-range', role: 'option', position: { index: 2, count: 1 } },
+    { id: 'window', role: 'listbox', window: { start: 1, end: 3, total: 2 } },
+    {
+      id: 'numeric-role',
+      role: 'text',
+      numericValue: { current: 1, minimum: 0, maximum: 2 }
+    },
+    {
+      id: 'numeric-range',
+      role: 'spinbutton',
+      numericValue: { current: Number.NaN, minimum: 0, maximum: 2 }
+    },
+    {
+      id: 'indeterminate-meter',
+      role: 'meter',
+      numericValue: { indeterminate: true }
+    },
+    { id: 'listbox', role: 'listbox', children: [{ id: 'radio', role: 'radio' }] },
+    { id: 'tree', role: 'tree', children: [{ id: 'option', role: 'option' }] },
+    { id: 'grid', role: 'grid', children: [{ id: 'cell', role: 'gridcell' }] }
+  ];
+
+  for (const root of invalidRoots) {
+    const result = validateAccessibleSnapshot({
+      schemaVersion: 'terminal-ui.accessible-snapshot.v1',
+      source: 'widget',
+      root,
+      focusPath: [],
+      diagnostics: []
+    });
+    assert.equal(result.ok, false, root.id);
+  }
 });
 
 test('accessible snapshot validation returns diagnostics for malformed public payloads', () => {

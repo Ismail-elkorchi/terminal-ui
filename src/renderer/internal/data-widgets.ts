@@ -50,7 +50,7 @@ export function paginatorAccessibleBase(
   const controls = paginatorLayout(widget, widthProfile).controls;
   return {
     id,
-    role: controls.length === 0 ? 'status' : 'application',
+    role: controls.length === 0 ? 'status' : 'navigation',
     label: parts.label || id,
     value: `Page ${String(parts.page)} of ${String(parts.pageCount)}`,
     ...(focused ? { focused: true } : {}),

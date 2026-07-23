@@ -162,6 +162,12 @@ class CellFrameBuffer implements FrameBuffer {
       root: { id: 'frame', role: 'text', label: 'frame' }
     });
     const { cells, rowFingerprints } = this.snapshotCellsAndFingerprints();
+    const cursor = options.cursor === undefined ? undefined : {
+      ...options.cursor,
+      ...(options.cursor.source === undefined
+        ? {}
+        : { source: sanitizeFrameCellSource(options.cursor.source) })
+    };
     const frame: FrameBufferSnapshot = {
       schemaVersion: 'terminal-ui.tui-frame.v1',
       width: this.width,
@@ -176,7 +182,7 @@ class CellFrameBuffer implements FrameBuffer {
         fingerprint: bufferFingerprint(rowFingerprints)
       },
       ...(options.hitTargets === undefined ? {} : { hitTargets: options.hitTargets }),
-      ...(options.cursor === undefined ? {} : { cursor: options.cursor }),
+      ...(cursor === undefined ? {} : { cursor }),
       ...(options.focusPath === undefined ? {} : { focusPath: options.focusPath })
     };
     return frame;
@@ -190,7 +196,7 @@ class CellFrameBuffer implements FrameBuffer {
       width: cell.width,
       ...(cell.style === undefined ? {} : { style: cell.style }),
       ...(cell.link === undefined ? {} : { link: cell.link }),
-      ...(cell.source === undefined ? {} : { source: cell.source })
+      ...(cell.source === undefined ? {} : { source: sanitizeFrameCellSource(cell.source) })
     });
   }
 

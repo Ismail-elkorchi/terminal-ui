@@ -249,7 +249,9 @@ export function chartAccessibleChildren(widget: ChartNode): readonly AccessibleN
     role: 'text',
     label: item.label ?? item.id,
     value: `${String(item.points.length)} points`,
-    selected: selected?.series === item.id
+    ...(selected?.series === item.id
+      ? { description: `Selected point ${String(selected.point + 1)} of ${String(item.points.length)}.` }
+      : {})
   }));
 }
 

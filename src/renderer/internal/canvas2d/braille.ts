@@ -15,6 +15,8 @@ export interface BrailleCellPoint {
 }
 
 export function brailleCellForPoint(x: number, y: number): BrailleCellPoint {
+  assertInteger(x, 'Braille x coordinate');
+  assertInteger(y, 'Braille y coordinate');
   const px = Math.floor(x);
   const py = Math.floor(y);
   const cellX = Math.floor(px / 2);
@@ -27,20 +29,29 @@ export function brailleCellForPoint(x: number, y: number): BrailleCellPoint {
 }
 
 export function brailleCharacter(mask: number): string {
-  return String.fromCodePoint(BRAILLE_BASE + normalizeMask(mask));
+  if (!Number.isInteger(mask) || mask < 0 || mask > 0xff) {
+    throw new RangeError('Braille mask must be an integer from 0 through 255.');
+  }
+  return String.fromCodePoint(BRAILLE_BASE + mask);
 }
 
 export function brailleMaskForSubcell(x: number, y: number): number {
+  assertInteger(x, 'Braille subcell x coordinate');
+  assertInteger(y, 'Braille subcell y coordinate');
+  if (x < 0 || x > 1 || y < 0 || y > 3) {
+    throw new RangeError('Braille subcell coordinates must be within a two-by-four cell.');
+  }
   const row = BRAILLE_BITS[y];
   const mask = row?.[x];
   if (mask === undefined) return 0;
   return mask;
 }
 
-function normalizeMask(mask: number): number {
-  return Math.max(0, Math.min(0xff, Math.floor(mask)));
-}
-
 function modulo(value: number, size: number): number {
   return ((value % size) + size) % size;
+}
+
+function assertInteger(value: number, name: string): void {
+  if (Number.isInteger(value)) return;
+  throw new RangeError(`${name} must be a finite integer.`);
 }

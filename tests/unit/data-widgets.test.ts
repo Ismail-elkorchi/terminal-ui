@@ -32,7 +32,7 @@ void test('tree renders expanded visible nodes and accessible selection state', 
   assert.match(output, /▾ Root/u);
   assert.match(output, /› {5}Child/u);
   assert.doesNotMatch(output, /Hidden$/u);
-  assert.equal(frame.accessibility.root.role, 'listbox');
+  assert.equal(frame.accessibility.root.role, 'tree');
   const children = frame.accessibility.root.children;
   assert.ok(children !== undefined);
   assert.equal(children[1]?.selected, true);
