@@ -158,7 +158,7 @@ export function tableAccessibleChildren(
         id: `${widget.id ?? 'table'}:headers`,
         role: 'row',
         position: {
-          rowNumber: 1,
+          rowIndex: 1,
           rowCount: totalRows + 1,
           columnCount: columns.length
         },
@@ -175,9 +175,9 @@ export function tableAccessibleChildren(
             ].join(', ')
           } : {}),
           position: {
-            rowNumber: 1,
+            rowIndex: 1,
             rowCount: totalRows + 1,
-            columnNumber: columnIndex + 1,
+            columnIndex: columnIndex + 1,
             columnCount: columns.length,
             columnLabel: columnLabel(column, columnIndex)
           }
@@ -191,9 +191,9 @@ export function tableAccessibleChildren(
       role: 'row',
       selected: rowIndex === window.selected,
       position: {
-        itemNumber: rowIndex + 1,
-        itemCount: totalRows,
-        rowNumber: hasHeader ? rowIndex + 2 : rowIndex + 1,
+        positionInSet: rowIndex + 1,
+        setSize: totalRows,
+        rowIndex: hasHeader ? rowIndex + 2 : rowIndex + 1,
         rowCount: hasHeader ? totalRows + 1 : totalRows,
         columnCount: columns.length
       },
@@ -206,9 +206,9 @@ export function tableAccessibleChildren(
           label: displayTableValue(value),
           value: displayTableValue(value),
           position: {
-            rowNumber: hasHeader ? rowIndex + 2 : rowIndex + 1,
+            rowIndex: hasHeader ? rowIndex + 2 : rowIndex + 1,
             rowCount: hasHeader ? totalRows + 1 : totalRows,
-            columnNumber: columnIndex + 1,
+            columnIndex: columnIndex + 1,
             columnCount: columns.length,
             columnLabel: label
           },

@@ -77,16 +77,16 @@ test('table widget renders constrained columns and selected rows', () => {
     omittedAfter: 0
   });
   assert.deepEqual(frame.accessibility.root.children?.[0]?.children?.[1]?.position, {
-    rowNumber: 1,
+    rowIndex: 1,
     rowCount: 3,
-    columnNumber: 2,
+    columnIndex: 2,
     columnCount: 2,
     columnLabel: 'Value'
   });
   assert.deepEqual(frame.accessibility.root.children?.[2]?.position, {
-    itemNumber: 2,
-    itemCount: 2,
-    rowNumber: 3,
+    positionInSet: 2,
+    setSize: 2,
+    rowIndex: 3,
     rowCount: 3,
     columnCount: 2
   });

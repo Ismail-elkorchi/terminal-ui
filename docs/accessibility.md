@@ -13,13 +13,13 @@ Snapshot validation rejects unknown fields, fields that are invalid for a
 role, and invalid direct-child roles.
 
 Positions exposed to accessibility consumers are positive and one-based:
-`itemNumber`, `rowNumber`, `columnNumber`, and `level`. Their corresponding
-counts are `itemCount`, `rowCount`, and `columnCount`.
+`positionInSet`, `rowIndex`, `columnIndex`, and `level`. Their corresponding
+counts are `setSize`, `rowCount`, and `columnCount`.
 
 Collection windows use zero-based `startIndex` values and exclusive
 `endIndexExclusive` values. `totalCount`, `omittedBefore`, and `omittedAfter`
 describe the full collection. A visible item at internal index 0 therefore has
-accessibility item number 1.
+accessibility position in set 1.
 
 Use `toAccessibleSnapshot()` for standalone accessible payloads and the testing
 harness `snapshot()` method for rendered surfaces. Prompt and TUI runs return

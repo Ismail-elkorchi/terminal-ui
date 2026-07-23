@@ -65,12 +65,12 @@ export interface AccessibleWindow {
 }
 
 export interface AccessiblePosition {
-  readonly itemNumber?: number;
-  readonly itemCount?: number;
+  readonly positionInSet?: number;
+  readonly setSize?: number;
   readonly level?: number;
-  readonly rowNumber?: number;
+  readonly rowIndex?: number;
   readonly rowCount?: number;
-  readonly columnNumber?: number;
+  readonly columnIndex?: number;
   readonly columnCount?: number;
   readonly columnLabel?: string;
   readonly group?: string;

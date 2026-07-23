@@ -110,12 +110,12 @@
         "position": {
           "type": "object",
           "properties": {
-            "itemNumber": { "type": "integer", "minimum": 1 },
-            "itemCount": { "type": "integer", "minimum": 1 },
+            "positionInSet": { "type": "integer", "minimum": 1 },
+            "setSize": { "type": "integer", "minimum": 1 },
             "level": { "type": "integer", "minimum": 1 },
-            "rowNumber": { "type": "integer", "minimum": 1 },
+            "rowIndex": { "type": "integer", "minimum": 1 },
             "rowCount": { "type": "integer", "minimum": 1 },
-            "columnNumber": { "type": "integer", "minimum": 1 },
+            "columnIndex": { "type": "integer", "minimum": 1 },
             "columnCount": { "type": "integer", "minimum": 1 },
             "columnLabel": { "type": "string" },
             "group": { "type": "string" }

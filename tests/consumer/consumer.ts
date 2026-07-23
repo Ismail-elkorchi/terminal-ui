@@ -159,7 +159,7 @@ const accessible = toAccessibleSnapshot({
     children: [{
       id: 'consumer-item',
       role: 'option',
-      position: { itemNumber: 1, itemCount: 1 }
+      position: { positionInSet: 1, setSize: 1 }
     }]
   }
 });

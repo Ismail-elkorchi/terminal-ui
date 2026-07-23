@@ -12,6 +12,7 @@ import { defaultThemes,
   mergeThemes,
   resolveTerminalStyle } from '../../dist/theme/index.js';
 import { renderDiffAnsi,
+  renderAccessibleSnapshot,
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
@@ -199,7 +200,7 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
       children: [{
         id: 'file',
         role: 'treeitem',
-        position: { itemNumber: 1, itemCount: 3, level: 1 },
+        position: { positionInSet: 1, setSize: 3, level: 1 },
         expanded: false,
         selected: true
       }]
@@ -210,11 +211,11 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
       children: [{
         id: 'week',
         role: 'row',
-        position: { rowNumber: 1, rowCount: 1, columnCount: 1 },
+        position: { rowIndex: 1, rowCount: 1, columnCount: 1 },
         children: [{
           id: 'day',
           role: 'gridcell',
-          position: { rowNumber: 1, columnNumber: 1, columnCount: 1 },
+          position: { rowIndex: 1, columnIndex: 1, columnCount: 1 },
           selected: true
         }]
       }]
@@ -235,6 +236,14 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
       diagnostics: []
     }).ok, true, root.id);
   }
+  assert.match(renderAccessibleSnapshot(toAccessibleSnapshot({
+    source: 'renderer',
+    root: validRoots[2]
+  })), /position:1\/3/u);
+  assert.match(renderAccessibleSnapshot(toAccessibleSnapshot({
+    source: 'renderer',
+    root: validRoots[3]
+  })), /\[row:1\/1\]/u);
 
   const invalidRoots = [
     { id: 'unknown', role: 'text', invented: true },
@@ -242,9 +251,14 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     { id: 'mixed-switch', role: 'switch', checked: 'mixed' },
     { id: 'selected', role: 'text', selected: true },
     { id: 'expanded', role: 'status', expanded: true },
-    { id: 'position', role: 'option', position: { itemNumber: 0, itemCount: 1 } },
-    { id: 'position-range', role: 'option', position: { itemNumber: 2, itemCount: 1 } },
-    { id: 'legacy-position', role: 'option', position: { index: 1, itemCount: 1 } },
+    { id: 'position', role: 'option', position: { positionInSet: 0, setSize: 1 } },
+    { id: 'position-range', role: 'option', position: { positionInSet: 2, setSize: 1 } },
+    { id: 'level', role: 'treeitem', position: { level: 0 } },
+    { id: 'row-position', role: 'row', position: { rowIndex: 0, rowCount: 1 } },
+    { id: 'row-position-range', role: 'row', position: { rowIndex: 2, rowCount: 1 } },
+    { id: 'column-position', role: 'gridcell', position: { columnIndex: 0, columnCount: 1 } },
+    { id: 'column-position-range', role: 'gridcell', position: { columnIndex: 2, columnCount: 1 } },
+    { id: 'legacy-position', role: 'option', position: { itemNumber: 1, setSize: 1 } },
     {
       id: 'window',
       role: 'listbox',

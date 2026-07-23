@@ -14,7 +14,7 @@ const snapshot = toAccessibleSnapshot({
       id: 'item',
       role: 'option',
       label: 'Portable renderer',
-      position: { itemNumber: 1, itemCount: 1 }
+      position: { positionInSet: 1, setSize: 1 }
     }]
   }
 });

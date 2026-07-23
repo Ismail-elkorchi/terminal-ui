@@ -261,13 +261,13 @@ export function calendarAccessibleChildren(widget: CalendarNode): readonly Acces
     rows.push({
       id: `${widget.id ?? 'calendar'}:week:${String(rowIndex)}`,
       role: 'row',
-      position: { rowNumber: rowIndex, rowCount: Math.ceil(days.length / 7), columnCount: 7 },
+      position: { rowIndex, rowCount: Math.ceil(days.length / 7), columnCount: 7 },
       children: days.slice(startIndex, startIndex + 7).map((day, columnIndex) => ({
         id: `${widget.id ?? 'calendar'}:${day.id}`,
         role: 'gridcell',
         label: day.id,
         selected: day.id === selected,
-        position: { rowNumber: rowIndex, columnNumber: columnIndex + 1, columnCount: 7 },
+        position: { rowIndex, columnIndex: columnIndex + 1, columnCount: 7 },
         ...(day.disabled === true || widget.props.disabled === true ? { disabled: true } : {})
       }))
     });

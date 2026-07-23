@@ -92,8 +92,8 @@ export function treeAccessibleChildren(widget: TreeRenderNode, bounds: Rect): re
     disabled: row.node.disabled === true || row.lazyPlaceholder === true,
     ...(row.node.kind === 'leaf' ? {} : { expanded: treeNodeExpanded(row.node) }),
     position: {
-      itemNumber: window.start + index + 1,
-      itemCount: totalRows,
+      positionInSet: window.start + index + 1,
+      setSize: totalRows,
       level: row.depth + 1
     },
     value: row.path.join('/')

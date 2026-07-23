@@ -78,11 +78,11 @@ function windowState(window: NonNullable<AccessibleNode['window']>): string {
 }
 
 function positionState(position: NonNullable<AccessibleNode['position']>): string {
-  if (position.itemNumber !== undefined && position.itemCount !== undefined) {
-    return `position:${String(position.itemNumber)}/${String(position.itemCount)}`;
+  if (position.positionInSet !== undefined && position.setSize !== undefined) {
+    return `position:${String(position.positionInSet)}/${String(position.setSize)}`;
   }
-  if (position.rowNumber !== undefined && position.rowCount !== undefined) {
-    return `row:${String(position.rowNumber)}/${String(position.rowCount)}`;
+  if (position.rowIndex !== undefined && position.rowCount !== undefined) {
+    return `row:${String(position.rowIndex)}/${String(position.rowCount)}`;
   }
   return 'position';
 }

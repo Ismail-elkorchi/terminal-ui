@@ -102,7 +102,7 @@ export function heatmapAccessibleChildren(widget: HeatmapNode, node: LayoutNode)
     return {
       id: `${widget.id ?? 'heatmap'}:row:${String(rowIndex)}`,
       role: 'row',
-      position: { rowNumber: rowIndex + 1, rowCount: rows.length, columnCount: row.length },
+      position: { rowIndex: rowIndex + 1, rowCount: rows.length, columnCount: row.length },
       children: row.map((cell, columnIndex) => ({
         id: `${widget.id ?? 'heatmap'}:${String(rowIndex)}:${String(columnIndex)}`,
         role: 'gridcell' as const,
@@ -110,9 +110,9 @@ export function heatmapAccessibleChildren(widget: HeatmapNode, node: LayoutNode)
         value: cell.value,
         selected: selected?.row === rowIndex && selected.column === columnIndex,
         position: {
-          rowNumber: rowIndex + 1,
+          rowIndex: rowIndex + 1,
           rowCount: rows.length,
-          columnNumber: columnIndex + 1,
+          columnIndex: columnIndex + 1,
           columnCount: row.length
         }
       }))

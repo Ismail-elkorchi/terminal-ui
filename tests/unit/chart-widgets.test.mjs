@@ -461,14 +461,14 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
     row.children?.some((child) => child.label === 'Bravo' && child.selected === true)
   ), true);
   assert.deepEqual(frame.accessibility.root.children?.[0]?.position, {
-    rowNumber: 1,
+    rowIndex: 1,
     rowCount: 2,
     columnCount: 2
   });
   assert.deepEqual(frame.accessibility.root.children?.[0]?.children?.[1]?.position, {
-    rowNumber: 1,
+    rowIndex: 1,
     rowCount: 2,
-    columnNumber: 2,
+    columnIndex: 2,
     columnCount: 2
   });
   assert.equal(frame.hitTargets.some((target) => target.id === 'heatmap:0:1' && target.cursor === 'pointer'), true);

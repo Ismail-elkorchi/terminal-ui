@@ -130,8 +130,8 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
     omittedAfter: 0
   });
   assert.deepEqual(frame.accessibility.root.children?.[1]?.position, {
-    itemNumber: 2,
-    itemCount: 2,
+    positionInSet: 2,
+    setSize: 2,
     level: 2
   });
   assert.equal(frame.accessibility.root.children?.[1]?.value, 'root/api');

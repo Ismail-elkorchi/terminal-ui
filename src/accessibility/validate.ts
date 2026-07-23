@@ -204,12 +204,12 @@ function positionIssueForNode(node: Record<string, unknown>, id: string): Termin
     return accessibilityFailure(`Accessible node position field is unsupported: ${unknownField}.`, id);
   }
   for (const field of [
-    'itemNumber',
-    'itemCount',
+    'positionInSet',
+    'setSize',
     'level',
-    'rowNumber',
+    'rowIndex',
     'rowCount',
-    'columnNumber',
+    'columnIndex',
     'columnCount'
   ] as const) {
     if (position[field] !== undefined && !isPositiveInteger(position[field])) {
@@ -225,9 +225,9 @@ function positionIssueForNode(node: Record<string, unknown>, id: string): Termin
     }
   }
   for (const [indexField, countField] of [
-    ['itemNumber', 'itemCount'],
-    ['rowNumber', 'rowCount'],
-    ['columnNumber', 'columnCount']
+    ['positionInSet', 'setSize'],
+    ['rowIndex', 'rowCount'],
+    ['columnIndex', 'columnCount']
   ] as const) {
     if (
       typeof position[indexField] === 'number'
@@ -244,12 +244,12 @@ function positionIssueForNode(node: Record<string, unknown>, id: string): Termin
 }
 
 const positionFields = new Set([
-  'itemNumber',
-  'itemCount',
+  'positionInSet',
+  'setSize',
   'level',
-  'rowNumber',
+  'rowIndex',
   'rowCount',
-  'columnNumber',
+  'columnIndex',
   'columnCount',
   'columnLabel',
   'group'

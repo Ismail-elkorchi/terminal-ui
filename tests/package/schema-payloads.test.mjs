@@ -102,7 +102,7 @@ test('accessible snapshot schema enums match runtime accessibility constants', a
   );
   assert.deepEqual(
     Object.keys(accessibleSchema.$defs.accessibleNode.properties.position.properties),
-    ['itemNumber', 'itemCount', 'level', 'rowNumber', 'rowCount', 'columnNumber', 'columnCount', 'columnLabel', 'group']
+    ['positionInSet', 'setSize', 'level', 'rowIndex', 'rowCount', 'columnIndex', 'columnCount', 'columnLabel', 'group']
   );
   assert.deepEqual(
     transcriptSchema.$defs.accessibleNode.properties.window,
@@ -127,7 +127,7 @@ test('accessible snapshot schema accepts current names and rejects removed names
       children: [{
         id: 'item',
         role: 'option',
-        position: { itemNumber: 1, itemCount: 1 }
+        position: { positionInSet: 1, setSize: 1 }
       }]
     },
     focusPath: [],
@@ -144,7 +144,7 @@ test('accessible snapshot schema accepts current names and rejects removed names
     ...current,
     root: {
       ...current.root,
-      children: [{ id: 'item', role: 'option', position: { index: 1, count: 1 } }]
+      children: [{ id: 'item', role: 'option', position: { itemNumber: 1, itemCount: 1 } }]
     }
   }), false);
 });

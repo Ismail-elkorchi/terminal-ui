@@ -17,7 +17,7 @@ const snapshot = toAccessibleSnapshot({
     children: [{
       id: 'item',
       role: 'option',
-      position: { itemNumber: 1, itemCount: 1 }
+      position: { positionInSet: 1, setSize: 1 }
     }]
   }
 });
@@ -25,8 +25,8 @@ const validation = validateAccessibleSnapshot(snapshot);
 
 // @ts-expect-error accessibility sources are a closed vocabulary
 const invalidSource: AccessibleSnapshotSource = 'terminal';
-// @ts-expect-error removed generic position names are not public accessibility fields
-const invalidPosition = toAccessibleSnapshot({ source: rendererSource, root: { id: 'item', role: 'option', position: { index: 1 } } });
+// @ts-expect-error removed position names are not public accessibility fields
+const invalidPosition = toAccessibleSnapshot({ source: rendererSource, root: { id: 'item', role: 'option', position: { itemNumber: 1 } } });
 
 void validation;
 void invalidSource;
