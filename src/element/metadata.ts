@@ -43,16 +43,12 @@ export type ElementVisualState =
 
 export type ElementTextRole =
   | 'title'
-  | 'subtitle'
   | 'heading'
   | 'body'
   | 'caption'
   | 'metadata'
   | 'metric'
-  | 'badge'
-  | 'danger'
-  | 'warning'
-  | 'success';
+  | 'badge';
 
 export type SurfaceVisualState = 'active' | 'selected' | 'error' | 'warning' | 'success';
 

@@ -540,16 +540,16 @@ test('scrollback and dialog chrome use placeholder and border slots', () => {
   assert.equal(styleForCell(modalFrame, (cell) => cell.source?.ownerKind === 'dialog' && cell.source.label === 'action-separator')?.fg?.token, 'status.error');
 });
 
-test('semantic text roles use shared visual grammar', () => {
+test('structural text roles use shared visual grammar', () => {
   const textFrame = renderElementFrame(column([
     text('42', { textRole: 'metric' }),
     text('quiet', { textRole: 'caption' }),
-    text('risk', { textRole: 'danger' })
+    text('badge', { textRole: 'badge' })
   ]), { columns: 16, rows: 4 });
 
   assert.equal(styleFor(textFrame, '4')?.fg?.token, 'accent.primary');
   assert.equal(styleFor(textFrame, 'q')?.fg?.token, 'text.muted');
-  assert.equal(styleFor(textFrame, 'r')?.fg?.token, 'status.error');
+  assert.equal(styleFor(textFrame, 'b')?.fg?.token, 'badge.foreground');
 });
 
 test('passive surfaces keep visual state separate from descendant focus', () => {

@@ -80,6 +80,8 @@ rangeSlider({ id: 'invalid-range-state', state: 'disabled' });
 rangeSlider({ id: 'removed-range-presentation', presentation: { value: { start: 1, end: 2 }, activeHandle: 'start' } });
 // @ts-expect-error passive text cannot own local input bindings
 text('Passive', { keys: { enter: () => ({ kind: 'invalid' }) } });
+// @ts-expect-error text roles describe structure, not result styling
+text('Failed', { textRole: 'danger' });
 textInput({
   id: 'invalid-style',
   presentation: { value: '', cursor: 0 },

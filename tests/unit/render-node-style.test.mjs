@@ -76,7 +76,6 @@ test('default state styles cover interaction branches without result styling', (
 test('default text roles cover every branch', () => {
   const cases = [
     ['title', foreground('surface.title', { bold: true })],
-    ['subtitle', foreground('text.muted', { dim: true })],
     ['heading', foreground('text.strong', { bold: true })],
     ['body', foreground('text.default')],
     ['caption', foreground('text.muted', { dim: true })],
@@ -86,10 +85,7 @@ test('default text roles cover every branch', () => {
       fg: { kind: 'theme', token: 'badge.foreground' },
       bg: { kind: 'theme', token: 'badge.background' },
       bold: true
-    }],
-    ['danger', foreground('status.error', { bold: true })],
-    ['warning', foreground('status.warning', { bold: true })],
-    ['success', foreground('status.success', { bold: true })]
+    }]
   ];
 
   for (const [role, expected] of cases) {

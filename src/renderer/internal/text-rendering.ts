@@ -279,16 +279,12 @@ function richTextSource(renderNode: RichTextNode, index: number): FrameCellSourc
 function widgetTextRole(value: unknown): ElementTextRole | undefined {
   switch (value) {
     case 'title':
-    case 'subtitle':
     case 'heading':
     case 'body':
     case 'caption':
     case 'metadata':
     case 'metric':
     case 'badge':
-    case 'danger':
-    case 'warning':
-    case 'success':
       return value;
     default:
       return undefined;

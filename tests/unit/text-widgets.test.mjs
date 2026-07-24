@@ -50,24 +50,25 @@ test('richText renders sanitized styled segments as plain frame text', () => {
 });
 
 test('text renders through shared role styles and source metadata', () => {
-  const frame = renderElementFrame(text('Danger', {
-    id: 'danger-text',
-    textRole: 'danger',
+  const frame = renderElementFrame(text('Badge', {
+    id: 'badge-text',
+    textRole: 'badge',
     meta: {
         styles: {
             root: { underline: true }
         }
     }
 }), { columns: 12, rows: 1 });
-  const first = frame.cells.find((cell) => cell.text === 'D');
+  const first = frame.cells.find((cell) => cell.text === 'B');
 
   assert.deepEqual(first?.style, {
-    fg: { kind: 'theme', token: 'status.error' },
+    fg: { kind: 'theme', token: 'badge.foreground' },
+    bg: { kind: 'theme', token: 'badge.background' },
     bold: true,
     underline: true
   });
-  assert.deepEqual(first?.source, textSource('danger-text', 'text', 'role.danger', { part: 'role.danger' }));
-  assert.equal(frame.accessibility.root.value, 'Danger');
+  assert.deepEqual(first?.source, textSource('badge-text', 'text', 'role.badge', { part: 'role.badge' }));
+  assert.equal(frame.accessibility.root.value, 'Badge');
 });
 
 test('wrapped richText preserves segment style link and source metadata', () => {

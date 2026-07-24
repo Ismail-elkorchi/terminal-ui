@@ -112,6 +112,9 @@ slots describe interaction: `focused`, `hovered`, `pressed`, `selected`,
 styling is carried by the component-specific field and part that owns that
 meaning.
 
+`textRole` describes structure only: title, heading, body, caption, metadata,
+metric, or badge. Validation, warning, failure, and success are not text roles.
+
 ## Inline Content And Adornments
 
 `richText()` and component adornments use authored inline content rather than

@@ -32,7 +32,6 @@ export function defaultStyleForTextRole(role: ElementTextRole): TerminalStyle | 
   switch (role) {
     case 'title':
       return themeStyle('surface.title', { bold: true });
-    case 'subtitle':
     case 'caption':
     case 'metadata':
       return themeStyle('text.muted', { dim: true });
@@ -48,12 +47,6 @@ export function defaultStyleForTextRole(role: ElementTextRole): TerminalStyle | 
         bg: { kind: 'theme', token: 'badge.background' },
         bold: true
       };
-    case 'danger':
-      return themeStyle('status.error', { bold: true });
-    case 'warning':
-      return themeStyle('status.warning', { bold: true });
-    case 'success':
-      return themeStyle('status.success', { bold: true });
   }
 }
 
