@@ -43,7 +43,7 @@ layering, or geometry-only interaction are documented in
 | `contextMenu()` | Controlled contextual command surface anchored to a target or cursor. | Global navigation, a form selector, or persistent sidebar. |
 | `dropdownMenu()` | Controlled compact action trigger with separate open, highlight, activation, dismissal, and popup-scroll state. | A validated form value control; use `select()` for required/error form semantics. |
 | `palette()` | Searchable bounded picker for commands or data entries. | A shell, command parser, or application command registry. |
-| `commandInput()` | Single-line command/composer surface with suggestions and history hooks. | A transcript, event log, or command execution engine. |
+| `commandInput()` | Single-line command entry with suggestions and history hooks. | A general message composer, transcript, event log, or command execution engine. |
 | `list()` | Fixed-row selectable/filterable list using an explicit stable item projection. | A table, tree, arbitrary-element collection, or virtual data store. |
 | `table()` | Structured rows and columns with selection, scrolling, sorting, resizing, density, and cell semantics. | A spreadsheet engine or database. |
 | `tree()` | Expandable hierarchy with selection, filtering, lazy placeholders, and pointer targets. | A filesystem API or storage of expansion state. |
