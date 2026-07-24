@@ -1,5 +1,5 @@
 export interface ProducerAdmissionLease {
-  readonly owner: 'effect' | 'subscription';
+  readonly producer: 'effect' | 'subscription';
   readonly id: string;
   readonly signal: AbortSignal;
   authorized(): boolean;
@@ -7,7 +7,7 @@ export interface ProducerAdmissionLease {
 }
 
 export function createProducerAdmissionLease(
-  owner: ProducerAdmissionLease['owner'],
+  producer: ProducerAdmissionLease['producer'],
   id: string,
   signal: AbortSignal
 ): ProducerAdmissionLease {
@@ -17,7 +17,7 @@ export function createProducerAdmissionLease(
   };
   signal.addEventListener('abort', abort, { once: true });
   return {
-    owner,
+    producer,
     id,
     signal,
     authorized: () => authorized && !signal.aborted,

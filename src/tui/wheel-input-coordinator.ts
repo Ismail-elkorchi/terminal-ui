@@ -14,7 +14,7 @@ interface PendingWheelInput<TResult> {
   completion: Promise<readonly TResult[]>;
 }
 
-interface OwnedWheelTask<TResult> {
+interface TrackedWheelTask<TResult> {
   completion: Promise<readonly TResult[]>;
 }
 
@@ -36,7 +36,7 @@ export interface WheelInputCoordinator<TResult> {
 export function createWheelInputCoordinator<TResult>(
   options: WheelInputCoordinatorOptions<TResult>
 ): WheelInputCoordinator<TResult> {
-  const tasks = new Set<OwnedWheelTask<TResult>>();
+  const tasks = new Set<TrackedWheelTask<TResult>>();
   const batchWindowMs = options.batchWindowMs ?? DEFAULT_WHEEL_BATCH_WINDOW_MS;
   let pending: PendingWheelInput<TResult> | undefined;
 
@@ -55,7 +55,7 @@ export function createWheelInputCoordinator<TResult>(
         completion: Promise.resolve([])
       };
       pending = next;
-      next.completion = ownTask(
+      next.completion = trackTask(
         options.clock
           .sleep(batchWindowMs, controller.signal)
           .then(() => executePending(next))
@@ -70,19 +70,19 @@ export function createWheelInputCoordinator<TResult>(
     }
   };
 
-  function ownTask(task: Promise<readonly TResult[]>): Promise<readonly TResult[]> {
-    const owned: OwnedWheelTask<TResult> = { completion: Promise.resolve([]) };
-    owned.completion = task
+  function trackTask(task: Promise<readonly TResult[]>): Promise<readonly TResult[]> {
+    const tracked: TrackedWheelTask<TResult> = { completion: Promise.resolve([]) };
+    tracked.completion = task
       .catch((cause: unknown) => {
         options.reportFailure(cause);
         return [];
       })
       .then((results) => {
-        tasks.delete(owned);
+        tasks.delete(tracked);
         return results;
       });
-    tasks.add(owned);
-    return owned.completion;
+    tasks.add(tracked);
+    return tracked.completion;
   }
 
   function flush(): Promise<readonly TResult[]> {

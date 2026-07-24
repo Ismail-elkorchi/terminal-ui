@@ -231,7 +231,7 @@ test('activityFeed uses one measured projection for clipped rendering hit target
   assert.equal(frame.accessibility.root.description, 'Showing 2-2 of 3 activity blocks.');
 });
 
-test('activityFeed renders caller-owned reducer expansion state', () => {
+test('activityFeed renders caller-controlled reducer expansion state', () => {
   const reducerBlocks = [
     {
       id: 'collapsed',

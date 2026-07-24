@@ -11,10 +11,10 @@ test('source dependencies follow the architecture boundary direction', async () 
   const graph = await sourceGraph();
   const violations = [];
   for (const [file, dependencies] of graph) {
-    const owner = sourceOwner(file);
+    const sourceLayer = layerForSource(file);
     for (const dependency of dependencies) {
-      const target = sourceOwner(dependency);
-      if (forbiddenDependency(file, owner, target, dependency)) {
+      const targetLayer = layerForSource(dependency);
+      if (forbiddenDependency(file, sourceLayer, targetLayer, dependency)) {
         violations.push(`${relative(file)} -> ${relative(dependency)}`);
       }
     }
@@ -22,16 +22,16 @@ test('source dependencies follow the architecture boundary direction', async () 
   assert.deepEqual(violations, []);
 });
 
-test('dependency cycles do not cross source ownership boundaries', async () => {
+test('dependency cycles do not cross source-layer boundaries', async () => {
   const graph = await sourceGraph();
   const invalid = stronglyConnectedComponents(graph)
     .filter((component) => component.length > 1)
     .map((component) => ({
       files: component.map(relative).sort(),
-      owners: [...new Set(component.map(sourceOwner))].sort()
+      layers: [...new Set(component.map(layerForSource))].sort()
     }))
-    .filter((component) => component.owners.length > 1
-      || component.owners[0] !== 'renderer'
+    .filter((component) => component.layers.length > 1
+      || component.layers[0] !== 'renderer'
       || component.files.some((file) => !file.startsWith('renderer/model/')));
   assert.deepEqual(invalid, []);
 });
@@ -54,30 +54,30 @@ async function sourceGraph() {
   return graph;
 }
 
-function forbiddenDependency(sourceFile, owner, target, targetFile) {
+function forbiddenDependency(sourceFile, sourceLayer, targetLayer, targetFile) {
   const neutral = new Set(['behavior', 'element', 'foundation', 'geometry', 'interaction', 'ui-model', 'visual']);
   const upper = new Set(['authoring', 'components', 'layout', 'renderer', 'testing', 'transcript', 'tui']);
-  if (owner === 'foundation' && target !== 'foundation') return true;
-  if (owner === 'visual' && new Set(['behavior', 'interaction', 'ui-model']).has(target)) return true;
-  if (owner === 'interaction' && new Set(['behavior', 'ui-model']).has(target)) return true;
-  if (owner === 'ui-model' && target === 'behavior') return true;
+  if (sourceLayer === 'foundation' && targetLayer !== 'foundation') return true;
+  if (sourceLayer === 'visual' && new Set(['behavior', 'interaction', 'ui-model']).has(targetLayer)) return true;
+  if (sourceLayer === 'interaction' && new Set(['behavior', 'ui-model']).has(targetLayer)) return true;
+  if (sourceLayer === 'ui-model' && targetLayer === 'behavior') return true;
   if (relative(sourceFile).startsWith('renderer/model/')
     && relative(targetFile).startsWith('renderer/internal/')) return true;
-  if (neutral.has(owner) && upper.has(target)) return true;
-  if (owner === 'authoring' && (target === 'components' || target === 'layout' || target === 'tui')) return true;
-  if (owner === 'authoring' && target === 'renderer' && targetFile.includes(`${path.sep}internal${path.sep}`)) return true;
-  if (owner === 'components' && (target === 'layout' || target === 'tui')) return true;
-  if (owner === 'components' && target === 'renderer' && targetFile.includes(`${path.sep}internal${path.sep}`)) return true;
-  if (owner === 'layout' && (target === 'components' || target === 'tui')) return true;
-  if (owner === 'layout' && target === 'renderer' && targetFile.includes(`${path.sep}internal${path.sep}`)) return true;
-  if (owner === 'renderer' && (target === 'authoring' || target === 'components' || target === 'layout' || target === 'tui')) return true;
-  if (owner === 'transcript' && target === 'tui') return true;
-  if (owner === 'visual' && target === 'theme') return true;
-  if (owner === 'theme' && (target === 'renderer' || target === 'tui')) return true;
-  return owner === 'protocol' && target === 'host';
+  if (neutral.has(sourceLayer) && upper.has(targetLayer)) return true;
+  if (sourceLayer === 'authoring' && (targetLayer === 'components' || targetLayer === 'layout' || targetLayer === 'tui')) return true;
+  if (sourceLayer === 'authoring' && targetLayer === 'renderer' && targetFile.includes(`${path.sep}internal${path.sep}`)) return true;
+  if (sourceLayer === 'components' && (targetLayer === 'layout' || targetLayer === 'tui')) return true;
+  if (sourceLayer === 'components' && targetLayer === 'renderer' && targetFile.includes(`${path.sep}internal${path.sep}`)) return true;
+  if (sourceLayer === 'layout' && (targetLayer === 'components' || targetLayer === 'tui')) return true;
+  if (sourceLayer === 'layout' && targetLayer === 'renderer' && targetFile.includes(`${path.sep}internal${path.sep}`)) return true;
+  if (sourceLayer === 'renderer' && (targetLayer === 'authoring' || targetLayer === 'components' || targetLayer === 'layout' || targetLayer === 'tui')) return true;
+  if (sourceLayer === 'transcript' && targetLayer === 'tui') return true;
+  if (sourceLayer === 'visual' && targetLayer === 'theme') return true;
+  if (sourceLayer === 'theme' && (targetLayer === 'renderer' || targetLayer === 'tui')) return true;
+  return sourceLayer === 'protocol' && targetLayer === 'host';
 }
 
-function sourceOwner(file) {
+function layerForSource(file) {
   return relative(file).split('/')[0];
 }
 

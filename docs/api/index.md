@@ -11,7 +11,7 @@ The root entrypoint exposes the main vertical path:
 - layout factories such as `column()`, `row()`, `grid()`, `surface()`,
   and `viewport()`
 - `resolveSelectedText()` and `copySelectedTextToClipboard()` for
-  app-owned TUI text selection flows
+  caller-controlled TUI text selection flows
 - `toAccessibleSnapshot()`, `findAccessibleNode()`, and
   `validateAccessibleSnapshot()`
 
@@ -40,7 +40,7 @@ problems.
 
 Clipboard sequence and sink helpers live under the protocol entrypoint and are
 gated by explicit caller policy; they do not import or inspect terminal hosts.
-TUI selection helpers resolve selected text from caller-owned source state,
+TUI selection helpers resolve selected text from caller-controlled source state,
 verify the host clipboard capability, and then delegate the protocol write.
 Components never write to the clipboard directly.
 

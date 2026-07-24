@@ -182,7 +182,7 @@ test('palette exposes enabled visible entry hit targets when toMessage is provid
   ]);
 });
 
-test('palette emits compact controlled actions while acceptance remains app-owned', async () => {
+test('palette emits compact controlled actions while acceptance remains caller-controlled', async () => {
   const app = defineTui({
     id: 'palette-actions',
     init: () => ({ messages: [] }),

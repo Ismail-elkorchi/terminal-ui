@@ -44,7 +44,7 @@ export function resolveSelectedText(input: ResolveSelectedTextInput): ResolveSel
       diagnostic: diagnostic('SELECTION_UNAVAILABLE', 'Selection is delegated to the terminal native selection model.', {
         severity: 'info',
         target: 'selection',
-        hint: 'Use application selection mode when app-owned selection text should be available to commands.'
+        hint: 'Use application selection mode when caller-controlled selection text should be available to commands.'
       })
     };
   }
@@ -53,7 +53,7 @@ export function resolveSelectedText(input: ResolveSelectedTextInput): ResolveSel
     return {
       ok: false,
       mode,
-      diagnostic: diagnostic('SELECTION_UNAVAILABLE', 'No application-owned text selection is active.', {
+      diagnostic: diagnostic('SELECTION_UNAVAILABLE', 'No caller-controlled text selection is active.', {
         severity: 'info',
         target: 'selection',
         data: {

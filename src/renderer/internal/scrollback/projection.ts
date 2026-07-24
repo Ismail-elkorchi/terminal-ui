@@ -276,13 +276,13 @@ function segmentContainingItem(
 }
 
 function cacheFor<TKey extends object, TValue>(
-  owner: WeakMap<TKey, Map<string, TValue>>,
+  caches: WeakMap<TKey, Map<string, TValue>>,
   key: TKey
 ): Map<string, TValue> {
-  const cached = owner.get(key);
+  const cached = caches.get(key);
   if (cached !== undefined) return cached;
   const created = new Map<string, TValue>();
-  owner.set(key, created);
+  caches.set(key, created);
   return created;
 }
 

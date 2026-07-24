@@ -87,7 +87,7 @@ interface ChangeWaiter<TState> {
   readonly detach: () => void;
 }
 
-interface OwnedRuntimeTask<TResult> {
+interface TrackedRuntimeTask<TResult> {
   completion: Promise<TResult>;
 }
 
@@ -120,7 +120,7 @@ export function createTuiRuntime<TState, TMessage>(
     recordDiagnostic(item);
   }
   let diagnosticRefreshQueued = false;
-  const backgroundTasks = new Set<OwnedRuntimeTask<void>>();
+  const backgroundTasks = new Set<TrackedRuntimeTask<void>>();
   let pendingFrameChange: Extract<TuiRuntimeChange<TState>, { readonly kind: 'frame' }> | undefined;
   let pendingExitChange: Extract<TuiRuntimeChange<TState>, { readonly kind: 'exit' }> | undefined;
   const changeWaiters: ChangeWaiter<TState>[] = [];
@@ -537,7 +537,7 @@ export function createTuiRuntime<TState, TMessage>(
     recordDiagnostic(item);
     if (phase !== 'active' || currentState.kind === 'empty' || currentRender === undefined || diagnosticRefreshQueued) return;
     diagnosticRefreshQueued = true;
-    ownBackgroundTask(dispatchQueue.run(refreshAfterDiagnostic), 'diagnostic_refresh', () => {
+    trackBackgroundTask(dispatchQueue.run(refreshAfterDiagnostic), 'diagnostic_refresh', () => {
       diagnosticRefreshQueued = false;
     });
   }
@@ -549,25 +549,25 @@ export function createTuiRuntime<TState, TMessage>(
     return occurrence;
   }
 
-  function ownBackgroundTask(task: Promise<unknown>, owner: string, settled?: () => void): void {
-    const owned: OwnedRuntimeTask<void> = { completion: Promise.resolve() };
-    owned.completion = (async () => {
+  function trackBackgroundTask(task: Promise<unknown>, taskName: string, settled?: () => void): void {
+    const tracked: TrackedRuntimeTask<void> = { completion: Promise.resolve() };
+    tracked.completion = (async () => {
       try {
         await task;
       } catch (cause) {
         if (phase !== 'disposing' && phase !== 'disposed') {
-          recordDiagnostic(diagnostic('TUI_RUNTIME_TASK_FAILED', `TUI runtime task ${owner} failed.`, {
+          recordDiagnostic(diagnostic('TUI_RUNTIME_TASK_FAILED', `TUI runtime task ${taskName} failed.`, {
             target: options.app.id,
             cause,
-            data: { owner }
+            data: { taskName }
           }));
         }
       } finally {
         settled?.();
-        backgroundTasks.delete(owned);
+        backgroundTasks.delete(tracked);
       }
     })();
-    backgroundTasks.add(owned);
+    backgroundTasks.add(tracked);
   }
 
   async function refreshAfterDiagnostic(): Promise<void> {

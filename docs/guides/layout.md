@@ -13,7 +13,7 @@ Use the shared layout primitives instead of per-component geometry:
 - `surface()`, `absolute()`, and `overlay()` for coordinate-space composition.
 
 Interactive `tabs()` and `dialog()` surfaces are components. Their renderers
-participate in ordinary layout, but their public ownership follows their
+participate in ordinary layout, but they remain components because of their
 selection, focus, and action semantics.
 
 Layout options include gap, padding, margin, fixed/percent/fill/content sizing,

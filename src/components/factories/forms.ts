@@ -358,7 +358,7 @@ export function select<TValue, const TMessage = never>(options: SelectOptions<TV
   const presentation = normalizeSelectState(options.presentation, options.options);
   const popup = presentation.kind === 'open'
     ? selectPopupRenderNode({
-        ownerId: options.id,
+        parentElementId: options.id,
         options: normalizedOptions,
         presentation,
         ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),

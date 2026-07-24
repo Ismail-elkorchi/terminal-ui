@@ -52,7 +52,7 @@ void test('tableReducer toggles sort state and resizes columns', () => {
   assert.equal(absolute.columnWidths?.['name'], 11);
 });
 
-void test('tablePresentation projects every renderer-owned table state field', () => {
+void test('tablePresentation prepares every renderer-facing table state field', () => {
   const scroll = createScrollState({ contentRows: 20, viewportRows: 5 });
   assert.deepEqual(tableScrollablePresentation({
     selectedRowId: 'row-3',
@@ -114,7 +114,7 @@ void test('tableReducer forwards scroll actions without creating hidden table st
   assert.equal(state.scroll.offsetColumn, 2);
 });
 
-void test('sortTableRows sorts with caller-owned column accessors', () => {
+void test('sortTableRows sorts with caller-controlled column accessors', () => {
   const rows = [
     { name: 'zeta', count: 2 },
     { name: 'alpha', count: 10 },

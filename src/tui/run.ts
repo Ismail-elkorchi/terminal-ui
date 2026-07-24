@@ -152,7 +152,7 @@ export async function runTui<TState, TMessage>(
   ): Promise<TValue> {
     const outcome = await runTuiLifecyclePhase({
       clock: terminalHost.clock,
-      owner: app.id,
+      target: app.id,
       phase,
       timeoutMs: normalized.lifecycle.startupTimeoutMs,
       operation

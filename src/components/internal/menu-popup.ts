@@ -10,7 +10,7 @@ import { normalizeBorderTitle } from '../../visual/border.ts';
 import { menuItemsForRenderer } from './interaction.ts';
 
 export interface MenuPopupInput<TMessage> {
-  readonly ownerId: string;
+  readonly parentElementId: string;
   readonly presentation: MenuPresentation;
   readonly title?: string;
   readonly emptyText?: string;
@@ -22,7 +22,7 @@ export interface MenuPopupInput<TMessage> {
 
 export function menuPopupRenderNode<TMessage>(input: MenuPopupInput<TMessage>): RenderNode<TMessage> {
   return {
-    id: renderNodeId(`${input.ownerId}:popup`, 'menu popup'),
+    id: renderNodeId(`${input.parentElementId}:popup`, 'menu popup'),
     kind: 'surface',
     props: {
       appearance: 'raised',
@@ -39,7 +39,7 @@ export function menuPopupRenderNode<TMessage>(input: MenuPopupInput<TMessage>): 
 function menuPopupCollection<TMessage>(input: MenuPopupInput<TMessage>): RenderNodeOfKind<TMessage, 'menu'> {
   const toActionMessage = input.toActionMessage;
   return {
-    id: renderNodeId(`${input.ownerId}:popup:menu`, 'menu popup collection'),
+    id: renderNodeId(`${input.parentElementId}:popup:menu`, 'menu popup collection'),
     kind: 'menu',
     props: {
       items: menuItemsForRenderer(input.presentation.items),

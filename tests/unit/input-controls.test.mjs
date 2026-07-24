@@ -23,7 +23,7 @@ import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 import { column } from '../../dist/layout/index.js';
 import { calendarFixture } from '../helpers/calendar.mjs';
 
-test('toggleSwitch slider and rangeSlider render caller-owned values with keyboard and mouse affordances', () => {
+test('toggleSwitch slider and rangeSlider render caller-controlled values with keyboard and mouse affordances', () => {
   const widget = column([
     toggleSwitch({
       id: 'switch',

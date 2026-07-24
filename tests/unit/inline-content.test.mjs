@@ -63,7 +63,7 @@ test('inline content normalization sanitizes authored data and validates symboli
   }]), /non-empty accessibleText/u);
 });
 
-test('rich text projects symbol mode and accessible text while the renderer owns source metadata', () => {
+test('rich text projects symbol mode and accessible text while the renderer produces source metadata', () => {
   const element = richText({
     id: 'inline',
     segments: [

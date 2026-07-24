@@ -71,7 +71,7 @@ void test('activityFeedReducer selects records by stable id and supports boundar
   assert.equal(invalid, last);
 });
 
-void test('activityFeedReducer expands and collapses caller-owned block state', () => {
+void test('activityFeedReducer expands and collapses caller-controlled block state', () => {
   const expanded = activityFeedReducer(initialState, { kind: 'expandBlock', id: 'pending' }, { blocks });
   const collapsed = activityFeedReducer(expanded, { kind: 'collapseBlock', id: 'pending' }, { blocks });
   const pending = blocks[0];

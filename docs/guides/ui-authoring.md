@@ -1,7 +1,7 @@
 # UI Authoring
 
 `terminal-ui` applications are pure state machines that return opaque UI
-elements from `view()`. The renderer owns layout, frame construction, focus
+elements from `view()`. The renderer performs layout, frame construction, focus
 targets, hit targets, accessibility snapshots, and terminal output.
 
 Normal application code should think in layers:
@@ -80,11 +80,11 @@ Rules:
   for navigation, data, document, and interactive visualization components;
 - use `keys` only for component-local keyboard behavior that cannot be
   expressed by semantic event props;
-- keep state caller-owned.
+- keep state caller-controlled.
 
 ## Controlled Components
 
-Components do not own durable application state. A component renders caller
+Components do not retain durable application state. A component renders caller
 state and emits caller messages. Behavior helpers can update that state, but
 the application decides when to call them.
 
@@ -98,7 +98,7 @@ Use this pattern:
    has non-trivial navigation or editing behavior.
 
 See [Components](./components.md) for component roles and
-[Behavior helpers](./behavior.md) for reducer ownership boundaries.
+[Behavior helpers](./behavior.md) for reducer state boundaries.
 
 ## Rendering Boundary
 

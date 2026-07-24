@@ -11,7 +11,7 @@ import { completeCollection } from '../../ui-model/collection.ts';
 import { prepareListView } from '../../ui-model/list-view.ts';
 
 export interface SelectPopupInput<TMessage> {
-  readonly ownerId: string;
+  readonly parentElementId: string;
   readonly options: readonly ChoiceItem<unknown>[];
   readonly presentation: Extract<SelectPresentation, { readonly kind: 'open' }>;
   readonly scrollbar?: ScrollbarOptions;
@@ -22,7 +22,7 @@ export interface SelectPopupInput<TMessage> {
 export function selectPopupRenderNode<TMessage>(input: SelectPopupInput<TMessage>): RenderNode<TMessage> {
   const list = selectPopupList(input);
   return {
-    id: renderNodeId(`${input.ownerId}:popup`, 'select popup'),
+    id: renderNodeId(`${input.parentElementId}:popup`, 'select popup'),
     kind: 'surface',
     props: {
       appearance: 'raised',
@@ -49,7 +49,7 @@ function selectPopupList<TMessage>(input: SelectPopupInput<TMessage>): RenderNod
     }
   })));
   return {
-    id: renderNodeId(`${input.ownerId}:popup:list`, 'select popup list'),
+    id: renderNodeId(`${input.parentElementId}:popup:list`, 'select popup list'),
     kind: 'list',
     props: {
       view: prepareListView(collection),

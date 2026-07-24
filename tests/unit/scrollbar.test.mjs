@@ -139,7 +139,7 @@ test('scrollbar visualState controls active and hover thumb styling', () => {
   assert.equal(hoverThumb?.source?.interactionState, 'hovered');
 });
 
-test('scrollbar interaction reducer maps pointer lifecycle to caller-owned visual state', () => {
+test('scrollbar interaction reducer maps pointer lifecycle to caller-controlled visual state', () => {
   let state = scrollbarInteractionReducer({}, pointerAction({
     kind: 'enter',
     targetId: 'editor:scrollbar:vertical:thumb'
@@ -255,7 +255,7 @@ test('textArea scrollbar follows explicit text scroll state', () => {
   assert.equal(frame.cells.filter((cell) => cell.column === 10).length, 2);
 });
 
-test('widget scrollbars expose owner source metadata and visual state', () => {
+test('component scrollbars expose producing-element metadata and visual state', () => {
   const frame = renderElementFrame(textArea({
     id: 'body',
     presentation: { document: prepareTextDocument('alpha\nbravo\ncharlie'), caret: textCaretAt(0), scroll: createScrollState({ offsetRow: 1, contentRows: 3, viewportRows: 2 }) },

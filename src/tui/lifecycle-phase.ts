@@ -36,7 +36,7 @@ export interface TuiLifecyclePhaseResult {
 
 export async function runTuiLifecyclePhase<TValue>(input: {
   readonly clock: TerminalClock;
-  readonly owner: string;
+  readonly target: string;
   readonly phase: TuiLifecyclePhase;
   readonly timeoutMs: number;
   readonly operation: (signal: AbortSignal) => TValue | Promise<TValue>;
@@ -52,7 +52,7 @@ export async function runTuiLifecyclePhase<TValue>(input: {
       return {
         phase: input.phase,
         status: 'timed_out',
-        diagnostic: phaseDiagnostic(input.owner, input.phase, 'timed_out')
+        diagnostic: phaseDiagnostic(input.target, input.phase, 'timed_out')
       };
     })
     .catch<TuiLifecyclePhaseOutcome<TValue>>((cause: unknown) => {
@@ -64,7 +64,7 @@ export async function runTuiLifecyclePhase<TValue>(input: {
         phase: input.phase,
         status: 'failed',
         diagnostic: diagnostic('TUI_CLEANUP_FAILED', 'TUI lifecycle clock failed.', {
-          target: input.owner,
+          target: input.target,
           cause: errorFromUnknown(cause),
           data: { phase: input.phase }
         })
@@ -77,7 +77,7 @@ export async function runTuiLifecyclePhase<TValue>(input: {
       (cause: unknown) => ({
         phase: input.phase,
         status: 'failed',
-        diagnostic: phaseDiagnostic(input.owner, input.phase, 'failed', cause)
+        diagnostic: phaseDiagnostic(input.target, input.phase, 'failed', cause)
       })
     );
   const outcome = await Promise.race([completion, timeout]);
@@ -95,7 +95,7 @@ export function lifecyclePhaseResult(
 }
 
 function phaseDiagnostic(
-  owner: string,
+  target: string,
   phase: TuiLifecyclePhase,
   status: 'failed' | 'timed_out',
   cause?: unknown
@@ -105,7 +105,7 @@ function phaseDiagnostic(
     ? status === 'timed_out' ? 'TUI_STARTUP_TIMEOUT' : 'TUI_STARTUP_FAILED'
     : status === 'timed_out' ? 'TUI_CLEANUP_TIMEOUT' : 'TUI_CLEANUP_FAILED';
   return diagnostic(code, `TUI ${startup ? 'startup' : 'finalization'} ${status.replace('_', ' ')}: ${phase}.`, {
-    target: owner,
+    target,
     ...(cause === undefined ? {} : { cause: errorFromUnknown(cause) }),
     data: { phase }
   });

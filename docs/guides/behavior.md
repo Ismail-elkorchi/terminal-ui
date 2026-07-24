@@ -1,7 +1,7 @@
 # Behavior Helpers
 
 Behavior helpers are pure functions for controlled components. They update
-caller-owned state; they do not render, subscribe to terminal input, mutate
+caller-controlled state; they do not render, subscribe to terminal input, mutate
 hosts, start timers, or own application state.
 
 Use behavior helpers when component interaction has reusable rules:
@@ -39,7 +39,7 @@ are layout. Retained search and collection indexes use `prepare...` names.
 The component families apply that rule independently:
 
 - text input and text area use presentations because their helpers normalize
-  caller-owned editing state into renderer-ready text, caret, selection, and
+  caller-controlled editing state into renderer-ready text, caret, selection, and
   scroll data;
 - select uses a presentation because normalization produces the closed/open
   renderer union, including the highlighted option and popup scroll data;

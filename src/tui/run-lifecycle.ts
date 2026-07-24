@@ -181,7 +181,7 @@ export class TuiRunLifecycleOwner<TState, TMessage> {
   ): Promise<TuiLifecyclePhaseOutcome<TValue>> {
     return runTuiLifecyclePhase({
       clock: this.#host.clock,
-      owner: this.#app.id,
+      target: this.#app.id,
       phase,
       timeoutMs,
       operation

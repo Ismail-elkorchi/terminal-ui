@@ -231,7 +231,7 @@ test('surface conditions map every supported caller-supplied condition directly'
   assert.equal(activeBorder?.style?.fg?.token, 'surface.raised.border');
 });
 
-test('surface titles preserve authored inline styles with renderer-owned source metadata', () => {
+test('surface titles preserve authored inline styles with renderer-produced source metadata', () => {
   const frame = renderElementFrame(surface(text('body', { id: 'body' }), {
     id: 'metric-panel',
     title: [

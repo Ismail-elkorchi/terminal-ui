@@ -99,7 +99,7 @@ stable `id`, an explicit `delivery` policy, and an async
 `messages(context)` iterable. `sequential` preserves every message in order.
 `latest` bounds backlog by replacing a pending uncommitted message with the
 newest value while a render commit is in progress. Source failures become
-diagnostics and may produce a caller-owned lifecycle message through
+diagnostics and may produce a caller-controlled lifecycle message through
 `onLifecycle`. The runtime starts a source once for a stable id and
 aborts/disposes it when it leaves the subscription set or when the TUI exits.
 
@@ -131,7 +131,7 @@ geometry, and `visualState: 'active' | 'hover' | 'disabled' | 'inactive' |
 'idle'` only when the application owns that state. Otherwise renderers derive
 stable `idle` or `inactive` states from scrollability.
 
-Tree components keep hierarchy state caller-owned. Send the component's
+Tree components keep hierarchy state caller-controlled. Send the component's
 interaction `onAction` stream through `treeReducer()` and render passive state with
 `treePresentation()` or controlled scroll state with
 `treeScrollablePresentation()`. Component interaction emits selection,
@@ -182,7 +182,7 @@ Mouse input is normalized through the TUI pointer router before component messag
 are dispatched. Routed pointer events represent terminal mouse reports; they do
 not claim touch or pen input unless a future host adapter can really emit those
 sources. Hit targets are event-aware: each target can accept pointer event kinds
-and compute a caller-owned message from the routed event. Ordinary targets
+and compute a caller-controlled message from the routed event. Ordinary targets
 default to one left-click activation; release events, right-click context-menu
 input, wheel scroll input, and drag/capture input do not reuse the same static
 activation message. Routed pointer events preserve terminal coordinates,
@@ -190,7 +190,7 @@ target-local coordinates, press-origin coordinates for captured drags,
 button/modifier state, vertical and horizontal scroll deltas, captured target
 ids, and the raw terminal mouse event for tests and richer components.
 
-Application text selection is caller-owned state. Editable components expose
+Application text selection is caller-controlled state. Editable components expose
 grapheme-aware caret placement and selection start/extend/end through their
 typed `onAction` union. Route those actions through `textInputReducer()`,
 `textAreaReducer()`, or `commandInputReducer()` for standard controlled
@@ -261,7 +261,7 @@ runtime focus and `disabled` take precedence.
 Use `textArea({ lineNumbers: true })` or
 `textArea({ lineNumbers: { start, minWidth }, activeLine: true })` when a
 multi-line text region needs editor-like anatomy. The renderer emits the gutter,
-line-number, active-line, value, placeholder, selection, caller-owned highlight,
+line-number, active-line, value, placeholder, selection, caller-controlled highlight,
 cursor, and chrome parts with structured source metadata and ordinary style
 slots. `highlights: [{ start, end, label, style }]` is for generic text ranges
 such as search matches; selection remains visually stronger. `wrap: true` or

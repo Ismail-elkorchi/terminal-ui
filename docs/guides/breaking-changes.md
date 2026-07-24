@@ -43,7 +43,7 @@ an authored value cannot conflict with an indeterminate frame.
 
 Menu records are structural variants: `action`, `check`, or non-empty
 `submenu`. Component callbacks emit menu interaction actions; application
-commands and side effects remain application-owned.
+commands and side effects remain caller-controlled.
 
 ## Collections And Windows
 

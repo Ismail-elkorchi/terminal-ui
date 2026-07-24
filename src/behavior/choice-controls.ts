@@ -242,8 +242,8 @@ function reduceSingleChoice(
   }
 }
 
-function enabledIds<TValue>(items: readonly ChoiceItem<TValue>[], owner: string): readonly string[] {
-  resolveStableIds(items, (item) => item.id, owner);
+function enabledIds<TValue>(items: readonly ChoiceItem<TValue>[], context: string): readonly string[] {
+  resolveStableIds(items, (item) => item.id, context);
   return items.filter((item) => item.disabled !== true).map((item) => item.id);
 }
 

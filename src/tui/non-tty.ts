@@ -78,7 +78,7 @@ export async function runTuiNonTty<TState, TMessage>(
     const projection = projectTuiOutput({ frame });
     const output = await runTuiLifecyclePhase({
       clock: host.clock,
-      owner: app.id,
+      target: app.id,
       phase: 'output',
       timeoutMs: options.lifecycle.outputFlushTimeoutMs,
       operation: async (signal) => {
@@ -102,7 +102,7 @@ export async function runTuiNonTty<TState, TMessage>(
     const onExit = app.definition.onExit;
     const exitHook = await runTuiLifecyclePhase({
       clock: host.clock,
-      owner: app.id,
+      target: app.id,
       phase: 'onExit',
       timeoutMs: options.lifecycle.exitHandlerTimeoutMs,
       operation: async () => { await onExit(state); }
@@ -183,21 +183,21 @@ async function finalizeFailedProjection<TState, TMessage>(
 }
 
 async function finalizeNonTtyHost(
-  owner: string,
+  target: string,
   host: TerminalHost,
   lifecycle: NormalizedTuiLifecyclePolicy
 ): Promise<readonly TerminalDiagnostic[]> {
   const phases = [
     await runTuiLifecyclePhase({
       clock: host.clock,
-      owner,
+      target,
       phase: 'flush',
       timeoutMs: lifecycle.outputFlushTimeoutMs,
       operation: async (signal) => host.flush({ signal })
     }),
     await runTuiLifecyclePhase({
       clock: host.clock,
-      owner,
+      target,
       phase: 'host',
       timeoutMs: lifecycle.hostDisposalTimeoutMs,
       operation: async (signal) => host.dispose({ signal })

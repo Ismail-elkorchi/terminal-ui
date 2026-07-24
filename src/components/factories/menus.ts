@@ -73,7 +73,7 @@ export function menuBar(options: MenuBarOptions<unknown>): Element<unknown> {
   const keyMap = menuBarKeyBindings(options.presentation, onAction, options.keys);
   const popup = options.presentation.kind === 'open'
     ? menuPopupRenderNode({
-        ownerId: options.id,
+        parentElementId: options.id,
         presentation: options.presentation.menu,
         ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
         ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),
@@ -118,7 +118,7 @@ export function contextMenu(options: ContextMenuOptions<unknown>): Element<unkno
   const keyMap = contextMenuKeyBindings(options.presentation, onAction, options.keys);
   const popup = options.presentation.kind === 'open'
     ? menuPopupRenderNode({
-        ownerId: options.id,
+        parentElementId: options.id,
         presentation: options.presentation.menu,
         ...(options.title === undefined ? {} : { title: options.title }),
         ...(options.emptyText === undefined ? {} : { emptyText: options.emptyText }),
@@ -165,7 +165,7 @@ export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unk
   const keyMap = dropdownMenuKeyBindings(options.presentation, onAction, options.keys);
   const popup = open
     ? menuPopupRenderNode({
-        ownerId: options.id,
+        parentElementId: options.id,
         presentation: options.presentation.menu,
         ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),
         ...(options.scrollPolicy === undefined ? {} : { scrollPolicy: options.scrollPolicy }),

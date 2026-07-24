@@ -16,12 +16,12 @@ The rendering path is:
 5. `renderFramePlain()`, `renderFrameAnsi()`, `renderFrameDebug()`, and
    `renderDiffAnsi()` serialize the chosen frame representation.
 
-The renderer owns its private node model and implementation kernel.
+The renderer contains its private node model and implementation kernel.
 Component and layout factories construct private render nodes through shared
 authoring helpers and convert callbacks into internal input handlers; renderer
 implementation modules never import those factories or the TUI runtime. The
 renderer resolves each opaque element to its private node before measuring,
-arranging, and rendering it. The `tui` source directory owns application and
+arranging, and rendering it. The `tui` source directory contains application and
 terminal-session lifecycle rather than frame, layout, or render-node rendering.
 
 The renderer package has two deliberate public layers. Application and test
@@ -62,8 +62,8 @@ included in frame equality and fingerprinting, and exposed in frame schemas.
 Its optional interaction state is limited to focused, hovered, pressed,
 selected, disabled, and active; cleanup, transcript validation, and the frame
 and diff schemas reject other values.
-Use `renderNodeFrameSource()` for render-node-owned cells, `frameCellSource()` for
-renderer-owned cells without a render node, and `frameSourcePart()` when
+Use `renderNodeFrameSource()` for cells produced from a render node,
+`frameCellSource()` for cells produced by the renderer without a render node, and `frameSourcePart()` when
 deriving a more specific part from an existing source.
 
 ## Render Spans And Blocks
@@ -134,7 +134,7 @@ axis, producing element, and interaction state are source-marked in the frame,
 while the theme supplies only the generic track/thumb symbols and tokens.
 
 Layout assigns bounds before rendering. Focus targets and hit targets are
-renderer-owned data projected from those bounds. The runtime routes keyboard
+renderer-produced data derived from those bounds. The runtime routes keyboard
 and mouse input through these targets after rendering; renderers do not inspect
 terminal input during render.
 

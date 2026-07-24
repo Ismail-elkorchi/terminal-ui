@@ -17,7 +17,7 @@ surface(text('body'), {
   border: { kind: 'single' }
 });
 
-// @ts-expect-error frame source metadata is renderer-owned
+// @ts-expect-error frame source metadata is renderer-produced
 richText({ segments: [{ kind: 'text', text: 'unsafe', source: { elementId: 'caller' } }] });
 // @ts-expect-error symbolic content requires accessible text
 richText({ segments: [{ kind: 'symbol', unicode: '→', ascii: '->' }] });

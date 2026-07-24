@@ -279,7 +279,7 @@ test('textArea cursor uses the actual line-number gutter width', () => {
   assert.equal(frame.cells.find((cell) => cell.row === 10 && cell.text === 'l')?.column, 7);
 });
 
-test('textArea renders caller-owned highlight ranges without overriding selection', () => {
+test('textArea renders caller-controlled highlight ranges without overriding selection', () => {
   const frame = renderElementFrame(textArea({
     id: 'searchable',
     presentation: {

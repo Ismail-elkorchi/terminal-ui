@@ -5,7 +5,7 @@ import {
   pointerInteractionReducer
 } from '../../dist/behavior/index.js';
 
-void test('pointer interaction reducer keeps hover and press state caller-owned', () => {
+void test('pointer interaction reducer keeps hover and press state caller-controlled', () => {
   const hovered = pointerInteractionReducer({}, { kind: 'enter', targetId: 'button-a' });
   const pressed = pointerInteractionReducer(hovered, { kind: 'press', targetId: 'button-a' });
   const released = pointerInteractionReducer(pressed, { kind: 'release', targetId: 'button-a' });

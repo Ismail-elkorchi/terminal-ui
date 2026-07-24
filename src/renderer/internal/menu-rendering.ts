@@ -241,11 +241,11 @@ function dropdownActiveItem(renderNode: DropdownMenuNode): VisibleMenuItem | und
 }
 
 function accessibleMenuItems(
-  ownerId: string,
+  menuId: string,
   items: readonly VisibleMenuItem[]
 ): readonly AccessibleNode[] {
   return items.map((item) => ({
-    id: `${ownerId}:${item.id}`,
+    id: `${menuId}:${item.id}`,
     role: item.kind === 'check' ? 'menuitemcheckbox' : 'menuitem',
     label: item.label,
     disabled: item.disabled === true,

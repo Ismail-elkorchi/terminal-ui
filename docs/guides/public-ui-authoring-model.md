@@ -10,7 +10,7 @@ mechanisms out of ordinary application code.
 
 ## Layers
 
-| Layer | Owns | Does not own |
+| Layer | Responsibilities | Outside its responsibilities |
 | --- | --- | --- |
 | App API | `defineTui`, init/update/view, subscriptions, and runtime lifecycle. | Renderer packets, component prop bags, and frame internals. |
 | UI authoring API | Typed layout and component factories returning opaque elements. | Measurement, hit-target construction, accessibility tree construction, and renderer props. |
@@ -64,14 +64,14 @@ Rules:
   belongs to the component.
 - Accessibility overrides, focus policy, layering, and typed local style anatomy live
   under `meta`.
-- Controlled state remains caller-owned.
+- Controlled state remains caller-controlled.
 - Component-local `keys` are an escape hatch, not the primary interaction API.
 - There are no mutable component instances, global style cascade, product
   composites, or app-shell recipes.
 
 ## Event Vocabulary
 
-Public event props describe user intent and return caller-owned messages:
+Public event props describe user intent and return caller-controlled messages:
 
 | Event prop | Use |
 | --- | --- |
@@ -144,12 +144,12 @@ foundation, neutral contracts, behavior, and private renderer model
 Component/layout authoring and renderer implementation are sibling consumers
 of the private renderer model. The renderer implementation does not import
 component factories, layout factories, the private authoring helpers, or the
-TUI runtime. The TUI directory owns application/runtime lifecycle only.
+TUI runtime. The TUI directory contains application/runtime lifecycle only.
 
 ## Canvas And Custom Rendering
 
 `canvas()` remains a public drawing component. Its painter receives `Canvas2D`,
-bounds, theme data, source metadata, and caller-owned state. It does not receive
+bounds, theme data, source metadata, and caller-controlled state. It does not receive
 direct frame-buffer or terminal-host access.
 
 `custom()` lives under `./renderer`. It exposes bounded measurement, rendering,
@@ -185,7 +185,7 @@ it does not expose renderer props, callback values, or render-node hooks.
   custom-renderer hooks, focus targets, and hit targets.
 - Component option and event names describe authoring intent, not renderer
   machinery.
-- Component state remains caller-owned and message types remain generic.
+- Component state remains caller-controlled and message types remain generic.
 - Factories infer a union across independent callbacks, direct messages, local
   key bindings, and child elements; ordinary heterogeneous composition does
   not require a factory message type argument.

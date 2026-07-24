@@ -16,7 +16,7 @@ authoring model.
 
 Use `canvas()` when application code only needs to paint inside the rectangle
 assigned by layout. A canvas painter receives a safe drawing surface, bounds,
-theme, source metadata, and caller-owned state. It cannot measure itself,
+theme, source metadata, and caller-controlled state. It cannot measure itself,
 manage children, expose custom focus targets, or emit arbitrary host output.
 
 Canvas output is clipped, sanitized, styled, diffed, and projected into

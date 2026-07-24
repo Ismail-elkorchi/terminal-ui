@@ -41,7 +41,7 @@ focus, and disabled states do not inherit destructive styling.
 
 Every renderer receives bounds from layout. Do not infer screen size from
 process state. If a component needs virtual content, use explicit scroll state,
-content dimensions, selected item ids, or caller-owned offsets.
+content dimensions, selected item ids, or caller-controlled offsets.
 
 When content is larger than the bounds:
 
@@ -57,7 +57,7 @@ Keyboard behavior comes from component event props, `keys`, editable-text
 handlers, focus metadata, and renderer focus targets. Pointer behavior comes
 from hit targets. The runtime routes input after rendering; renderers describe
 target geometry, accepted pointer event kinds, focus intent, and how a routed
-pointer event maps to a caller-owned message. Built-in focusable controls bind
+pointer event maps to a caller-controlled message. Built-in focusable controls bind
 their pointer targets to their single declared focus target. Custom renderers
 must declare that relationship explicitly.
 

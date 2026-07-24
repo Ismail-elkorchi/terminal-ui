@@ -32,6 +32,6 @@ test('JSR manifest exports concrete schema artifacts instead of dist wildcard on
   }
 });
 
-test('JSR publication excludes source-owned test modules', () => {
+test('JSR publication excludes source-local test modules', () => {
   assert.deepEqual(jsrJson.publish?.exclude, ['src/**/*.test.ts']);
 });

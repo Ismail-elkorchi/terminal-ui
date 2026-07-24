@@ -8,7 +8,7 @@ import {
 } from '../../dist/interaction/index.js';
 import { copySelectedTextToClipboard } from '../../dist/tui/index.js';
 
-test('selection interaction resolves the active application-owned source', () => {
+test('selection interaction resolves the active caller-controlled source', () => {
   const result = resolveSelectedText({
     activeSourceId: 'details',
     sources: [

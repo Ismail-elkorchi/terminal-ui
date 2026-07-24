@@ -304,8 +304,8 @@ class CellFrameBuffer implements FrameBuffer {
     const current = this.cells[this.index(row, column)];
     if (current === undefined) return;
     if (current.continuation === true) {
-      const owner = this.findWideOwner(row, column);
-      if (owner !== undefined) this.deleteCellSpan(owner, coverage);
+      const leadingCell = this.findWideLeadingCell(row, column);
+      if (leadingCell !== undefined) this.deleteCellSpan(leadingCell, coverage);
       else {
         if (coverage === 'write') this.markWritten(row, column, 1);
         this.deleteCell(row, column);
@@ -315,7 +315,7 @@ class CellFrameBuffer implements FrameBuffer {
     this.deleteCellSpan(current, coverage);
   }
 
-  private findWideOwner(row: number, column: number): FrameCell | undefined {
+  private findWideLeadingCell(row: number, column: number): FrameCell | undefined {
     for (let candidateColumn = column - 1; candidateColumn >= 1; candidateColumn -= 1) {
       const candidate = this.cellAt(row, candidateColumn);
       if (candidate === undefined) continue;
