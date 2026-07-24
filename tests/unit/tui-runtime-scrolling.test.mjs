@@ -8,18 +8,18 @@ import { contextMenu, text, textArea, tree } from '../../dist/components/index.j
 import { column, overlay, viewport } from '../../dist/layout/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
-test('TUI wheel routing skips non-scroll child targets and reaches scroll owner', async () => {
+test('TUI wheel routing skips non-scroll child targets and reaches the scroll target', async () => {
   const renderer = {
     render({ bounds, target }) {
-      target.write(bounds.row, bounds.column, [{ text: 'child inside scroll owner' }]);
+      target.write(bounds.row, bounds.column, [{ text: 'child inside scroll target' }]);
     },
     accessibility({ id }) {
-      return { id, role: 'group', label: 'scroll owner' };
+      return { id, role: 'group', label: 'scroll target' };
     },
     hitTargets({ bounds }) {
       return [
         {
-          id: 'scroll-owner',
+          id: 'scroll-target',
           bounds,
           accepts: ['scroll'],
           message: (event) => ({
@@ -41,10 +41,10 @@ test('TUI wheel routing skips non-scroll child targets and reaches scroll owner'
     }
   };
   const app = defineTui({
-    id: 'wheel-scroll-owner-tui',
+    id: 'wheel-scroll-target-tui',
     init: () => ({ events: [] }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
-    view: () => custom({ id: 'wheel-scroll-owner', renderer })
+    view: () => custom({ id: 'wheel-scroll-target', renderer })
   });
   const harness = createTerminalHarness({ terminalSize: { columns: 28, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
@@ -58,7 +58,7 @@ test('TUI wheel routing skips non-scroll child targets and reaches scroll owner'
   assert.equal(release.results[1]?.handled, false);
   assert.deepEqual(runtime.state(), {
     events: [
-      { kind: 'scroll', targetId: 'scroll-owner', localColumn: 3 }
+      { kind: 'scroll', targetId: 'scroll-target', localColumn: 3 }
     ]
   });
 });
@@ -133,8 +133,8 @@ test('TUI wheel routing keeps scroll content hits in their overlay region layer'
     update: (state, message) => ({
       state: {
         ...state,
-        [message.owner]: applyScrollEvent(state[message.owner], message.event),
-        events: [...state.events, `${message.owner}:${message.event.target}`]
+        [message.scrollTarget]: applyScrollEvent(state[message.scrollTarget], message.event),
+        events: [...state.events, `${message.scrollTarget}:${message.event.target}`]
       }
     }),
     view: (state) => overlay([
@@ -142,13 +142,13 @@ test('TUI wheel routing keeps scroll content hits in their overlay region layer'
         id: 'background-scroll',
         presentation: { document: prepareTextDocument(backgroundValue), caret: textCaretAt(0), scroll: state.background },
         scrollbar: { visible: 'always' },
-        onAction: (action) => ({ owner: 'background', event: action.event })
+        onAction: (action) => ({ scrollTarget: 'background', event: action.event })
       }),
       viewport(foregroundContent, {
         id: 'foreground-scroll',
         contentRows: 20,
         scroll: state.foreground,
-        onScroll: (event) => ({ owner: 'foreground', event })
+        onScroll: (event) => ({ scrollTarget: 'foreground', event })
       })
     ], { id: 'scroll-layer-root' })
   });
