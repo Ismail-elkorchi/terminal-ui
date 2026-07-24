@@ -4,8 +4,8 @@ import { toRenderNode } from '../model/element.ts';
 import type { RenderNode } from '../model/index.ts';
 import { createRenderEnvironment } from './render-environment.ts';
 import { findRenderNodeFocusTarget, focusPathForLayoutTarget, renderFocusRelation, resolveFocusPath } from './focus.ts';
-import { createProjectionTargetIndex } from './projection-target-index.ts';
-import type { ProjectionTargetIndex } from './projection-target-index.ts';
+import { createRegionTargetIndex } from './region-target-index.ts';
+import type { RegionTargetIndex } from './region-target-index.ts';
 import { createFrameBuffer } from './frame.ts';
 import { blitFrameCell } from './frame-buffer.ts';
 import { projectStyledCursor } from './cursor-projection.ts';
@@ -254,7 +254,7 @@ function renderLayoutRegions<TMessage>(
   const composer = createRegionComposer<TMessage>(viewport, widthProfile);
   const path = nodePath(layout, []);
   renderRenderNodeToRegion(renderNode, layout, [], composer.regionFor(layout, path), composer, theme, widthProfile, focusPath);
-  return composer.snapshot(createProjectionTargetIndex(renderNode, layout), theme, widthProfile);
+  return composer.snapshot(createRegionTargetIndex(renderNode, layout), theme, widthProfile);
 }
 
 function frameHitTargets<TMessage>(
@@ -387,7 +387,7 @@ function orderedChildren(
 interface RegionComposer<TMessage> {
   regionFor(node: LayoutNode, path: FocusPath): DraftRenderRegion;
   snapshot(
-    index: ProjectionTargetIndex<TMessage>,
+    index: RegionTargetIndex<TMessage>,
     theme: TerminalTheme,
     widthProfile: TextWidthProfile
   ): readonly RenderRegion<TMessage>[];

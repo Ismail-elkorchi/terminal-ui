@@ -3,17 +3,17 @@ import type { LayoutFocusTarget, RenderNodeLayoutTarget } from './focus.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { LayoutNode, Rect } from '../model/layout.ts';
 
-export interface ProjectionTargetIndex<TMessage> {
+export interface RegionTargetIndex<TMessage> {
   readonly layoutTargets: readonly RenderNodeLayoutTarget<TMessage>[];
   readonly focusTargets: readonly LayoutFocusTarget[];
   layoutTargetsForRegion(zIndex: number, bounds: Rect): readonly RenderNodeLayoutTarget<TMessage>[];
   focusTargetsForRegion(zIndex: number, bounds: Rect): readonly LayoutFocusTarget[];
 }
 
-export function createProjectionTargetIndex<TMessage>(
+export function createRegionTargetIndex<TMessage>(
   renderNode: RenderNode<TMessage>,
   layout: LayoutNode
-): ProjectionTargetIndex<TMessage> {
+): RegionTargetIndex<TMessage> {
   const layoutTargets = collectRenderNodeLayoutTargets(renderNode, layout);
   const focusTargets = collectLayoutFocusTargets(layout);
   const layoutByLayer = groupByLayer(layoutTargets);

@@ -518,12 +518,12 @@ test('frame passes are applied before snapshots and remain serialization-free', 
   }
 });
 
-test('request projection performs expensive structural work once', async () => {
+test('render request indexes structural targets once', async () => {
   const renderSource = await readFile(new URL('../../src/renderer/internal/render.ts', import.meta.url), 'utf8');
-  const targetIndexSource = await readFile(new URL('../../src/renderer/internal/projection-target-index.ts', import.meta.url), 'utf8');
+  const targetIndexSource = await readFile(new URL('../../src/renderer/internal/region-target-index.ts', import.meta.url), 'utf8');
   const outputPlannerSource = await readFile(new URL('../../src/renderer/internal/output-planner.ts', import.meta.url), 'utf8');
 
-  assert.equal((renderSource.match(/createProjectionTargetIndex\(/gu) ?? []).length, 1);
+  assert.equal((renderSource.match(/createRegionTargetIndex\(/gu) ?? []).length, 1);
   assert.doesNotMatch(renderSource, /collectRenderNodeLayoutTargets|collectRenderNodeFocusTargets/u);
   assert.equal((targetIndexSource.match(/collectRenderNodeLayoutTargets\(/gu) ?? []).length, 1);
   assert.equal((targetIndexSource.match(/collectLayoutFocusTargets\(/gu) ?? []).length, 1);
