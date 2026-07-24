@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   blockSpan,
   brailleCharacter,
-  brailleCellForPoint,
+  brailleCellForSubcell,
   brailleMaskForSubcell,
   canvasTransform,
   createCanvas2D,
@@ -51,19 +51,19 @@ test('Canvas2D clips drawing to the supplied canvas bounds', () => {
   );
 });
 
-test('Canvas2D accumulates braille points into terminal cells', () => {
+test('Canvas2D accumulates Braille subcells into terminal cells', () => {
   const buffer = createFrameBuffer(4, 2);
   const canvas = createCanvas2D(buffer, { row: 1, column: 1, width: 4, height: 2 });
 
-  canvas.braillePoint(0, 0);
-  canvas.braillePoint(1, 0);
-  canvas.braillePoint(0, 1);
+  canvas.brailleSubcell(0, 0);
+  canvas.brailleSubcell(1, 0);
+  canvas.brailleSubcell(0, 1);
 
   const frame = buffer.snapshot();
   const cell = frame.cells.find((current) => current.row === 1 && current.column === 1);
 
   assert.equal(cell?.text, brailleCharacter(0x0b));
-  assert.deepEqual(brailleCellForPoint(5, 9), { cell: { x: 2, y: 2 }, mask: 0x10 });
+  assert.deepEqual(brailleCellForSubcell(5, 9), { cell: { x: 2, y: 2 }, mask: 0x10 });
 });
 
 test('Canvas2D helpers provide deterministic path axis and tooltip primitives', () => {
@@ -116,8 +116,8 @@ test('Canvas2D rejects invalid terminal-cell coordinates, rectangles, radii, ang
     ['polygon y', () => canvas.fillPolygon([point, { ...point, y: Number.NaN }], mark)],
     ['text x', () => canvas.text(Number.NaN, 1, [mark])],
     ['text y', () => canvas.text(1, 0.5, [mark])],
-    ['Braille x', () => canvas.braillePoint(Number.NaN, 1)],
-    ['Braille y', () => canvas.braillePoint(1, 0.5)],
+    ['Braille column subcell', () => canvas.brailleSubcell(Number.NaN, 1)],
+    ['Braille row subcell', () => canvas.brailleSubcell(1, 0.5)],
     ['clear x', () => canvas.clear({ ...rect, x: Number.NaN })],
     ['clear y', () => canvas.clear({ ...rect, y: Number.NaN })],
     ['clear width', () => canvas.clear({ ...rect, width: Number.NaN })],
@@ -198,7 +198,7 @@ test('Canvas2D helpers reject invalid path, shape, and Braille inputs', () => {
     () => ellipseStrokePoints({ x: 0, y: 0 }, 1, 1, 0, Number.NaN),
     /angles/u
   );
-  assert.throws(() => brailleCellForPoint(0.5, 0), /integer/u);
+  assert.throws(() => brailleCellForSubcell(0.5, 0), /integer/u);
   assert.throws(() => brailleMaskForSubcell(2, 0), /two-by-four/u);
   assert.throws(() => brailleMaskForSubcell(0, 4), /two-by-four/u);
   assert.throws(() => brailleCharacter(256), /0 through 255/u);

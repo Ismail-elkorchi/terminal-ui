@@ -35,6 +35,9 @@ const removedFrameCellState: FrameCellSource = {
 const validInteractionState: FrameCellSource = { interactionState: 'focused' };
 
 declare const drawing: Canvas2D;
+drawing.brailleSubcell(0, 0);
+// @ts-expect-error Braille drawing names its subcell coordinate system explicitly
+type RemovedBraillePoint = Canvas2D['braillePoint'];
 const absoluteRect: Rect = { row: 1, column: 1, width: 2, height: 2 };
 // @ts-expect-error absolute frame rectangles are not local Canvas2D rectangles
 drawing.rect(absoluteRect, { fill: { text: '*' } });
@@ -79,4 +82,5 @@ void privateRegions;
 void customRenderInput;
 void framePassColumns;
 void removedFramePassViewport;
+void (undefined as unknown as RemovedBraillePoint);
 void (undefined as unknown as RemovedCustomBuffer);

@@ -9,19 +9,22 @@ const BRAILLE_BITS: readonly (readonly number[])[] = Object.freeze([
   Object.freeze([0x40, 0x80])
 ]);
 
-export interface BrailleCellPoint {
+export interface BrailleCellMapping {
   readonly cell: CanvasPoint;
   readonly mask: number;
 }
 
-export function brailleCellForPoint(x: number, y: number): BrailleCellPoint {
-  assertInteger(x, 'Braille x coordinate');
-  assertInteger(y, 'Braille y coordinate');
-  const px = Math.floor(x);
-  const py = Math.floor(y);
-  const cellX = Math.floor(px / 2);
-  const cellY = Math.floor(py / 4);
-  const mask = brailleMaskForSubcell(modulo(px, 2), modulo(py, 4));
+export function brailleCellForSubcell(
+  columnSubcell: number,
+  rowSubcell: number
+): BrailleCellMapping {
+  assertInteger(columnSubcell, 'Braille column subcell coordinate');
+  assertInteger(rowSubcell, 'Braille row subcell coordinate');
+  const column = Math.floor(columnSubcell);
+  const row = Math.floor(rowSubcell);
+  const cellX = Math.floor(column / 2);
+  const cellY = Math.floor(row / 4);
+  const mask = brailleMaskForSubcell(modulo(column, 2), modulo(row, 4));
   return {
     cell: { x: cellX, y: cellY },
     mask
@@ -35,14 +38,14 @@ export function brailleCharacter(mask: number): string {
   return String.fromCodePoint(BRAILLE_BASE + mask);
 }
 
-export function brailleMaskForSubcell(x: number, y: number): number {
-  assertInteger(x, 'Braille subcell x coordinate');
-  assertInteger(y, 'Braille subcell y coordinate');
-  if (x < 0 || x > 1 || y < 0 || y > 3) {
+export function brailleMaskForSubcell(columnSubcell: number, rowSubcell: number): number {
+  assertInteger(columnSubcell, 'Braille column subcell coordinate');
+  assertInteger(rowSubcell, 'Braille row subcell coordinate');
+  if (columnSubcell < 0 || columnSubcell > 1 || rowSubcell < 0 || rowSubcell > 3) {
     throw new RangeError('Braille subcell coordinates must be within a two-by-four cell.');
   }
-  const row = BRAILLE_BITS[y];
-  const mask = row?.[x];
+  const row = BRAILLE_BITS[rowSubcell];
+  const mask = row?.[columnSubcell];
   if (mask === undefined) return 0;
   return mask;
 }

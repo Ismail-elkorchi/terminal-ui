@@ -24,8 +24,15 @@ accessibility through the canvas component's label or accessibility metadata.
 Canvas points use local, zero-based terminal-cell coordinates. The drawing
 surface converts them to the one-based row and column coordinates of its
 assigned terminal rectangle. Coordinates and sizes must be finite integers;
-sizes and radii must also be non-negative, and Braille subcell coordinates
-must fit their cell.
+sizes and radii must also be non-negative.
+
+`brailleSubcell(columnSubcell, rowSubcell)` addresses a local Braille grid with
+two subcell columns and four subcell rows per terminal cell. A canvas that is
+`width` cells by `height` cells therefore has a `2 * width` by `4 * height`
+subcell grid. The containing local terminal cell is
+`floor(columnSubcell / 2), floor(rowSubcell / 4)`; the remainders select one of
+the cell's eight Braille dots. Coordinates outside the canvas are clipped like
+other drawing operations.
 
 ## Custom Renderer
 

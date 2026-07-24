@@ -41,7 +41,7 @@ export interface Canvas2D {
   arc(center: CanvasPoint, radius: number, startAngle: number, endAngle: number, options: StrokeFillOptions): void;
   fillPolygon(points: readonly CanvasPoint[], span: RenderSpan): void;
   text(x: number, y: number, spans: readonly RenderSpan[]): void;
-  braillePoint(x: number, y: number, style?: TerminalStyle): void;
+  brailleSubcell(columnSubcell: number, rowSubcell: number, style?: TerminalStyle): void;
   clear(bounds?: CanvasPoint & { readonly width: number; readonly height: number }): void;
   translate(dx: number, dy: number): void;
   scale(x: number, y: number): void;

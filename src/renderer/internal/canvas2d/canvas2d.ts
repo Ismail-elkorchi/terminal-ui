@@ -1,4 +1,4 @@
-import { brailleCellForPoint, brailleCharacter } from './braille.ts';
+import { brailleCellForSubcell, brailleCharacter } from './braille.ts';
 import { linePoints } from './paths.ts';
 import {
   ellipseInteriorPoints,
@@ -139,19 +139,19 @@ class FrameBufferCanvas2D implements Canvas2D {
     this.#buffer.write(this.rowFor(point.y), this.columnFor(point.x), this.clipAt(point.x, spans));
   }
 
-  braillePoint(x: number, y: number, style?: TerminalStyle): void {
-    assertIntegerCoordinates('Braille point', x, y);
-    const transformed = this.transformedPoint(x, y);
-    const point = brailleCellForPoint(transformed.x, transformed.y);
-    if (!this.inside(point.cell.x, point.cell.y)) return;
-    const key = `${String(point.cell.x)}:${String(point.cell.y)}`;
+  brailleSubcell(columnSubcell: number, rowSubcell: number, style?: TerminalStyle): void {
+    assertIntegerCoordinates('Braille subcell', columnSubcell, rowSubcell);
+    const transformed = this.transformedPoint(columnSubcell, rowSubcell);
+    const mapping = brailleCellForSubcell(transformed.x, transformed.y);
+    if (!this.inside(mapping.cell.x, mapping.cell.y)) return;
+    const key = `${String(mapping.cell.x)}:${String(mapping.cell.y)}`;
     const previous = this.brailleCells.get(key);
     const next = {
-      mask: (previous?.mask ?? 0) | point.mask,
+      mask: (previous?.mask ?? 0) | mapping.mask,
       ...(style === undefined ? previous?.style === undefined ? {} : { style: previous.style } : { style })
     };
     this.brailleCells.set(key, next);
-    this.point(point.cell.x, point.cell.y, {
+    this.point(mapping.cell.x, mapping.cell.y, {
       text: brailleCharacter(next.mask),
       ...(next.style === undefined ? {} : { style: next.style })
     });

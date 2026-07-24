@@ -26,7 +26,7 @@ export type {
 export {
   blockGlyph,
   blockSpan,
-  brailleCellForPoint,
+  brailleCellForSubcell,
   brailleCharacter,
   brailleMaskForSubcell,
   canvasTransform,
@@ -57,7 +57,7 @@ export type {
   BarDatum,
   BarSeriesOptions,
   BlockGlyph,
-  BrailleCellPoint,
+  BrailleCellMapping,
   Canvas2D,
   CanvasPoint,
   CanvasTransform,
