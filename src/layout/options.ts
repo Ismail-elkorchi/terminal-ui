@@ -8,7 +8,7 @@ import type {
 import type { DataListStylePart, SurfaceStylePart } from '../ui-model/style-parts.ts';
 import type { BorderOptions, BorderTitle } from '../visual/border.ts';
 import type { ScrollbarOptions } from '../interaction/scrollbar.ts';
-import type { SurfaceAppearance, SurfaceCondition } from '../visual/surface.ts';
+import type { SurfaceAppearance } from '../visual/surface.ts';
 import type { GridLayoutOptions, LayoutFlowOptions, LayoutSize } from '../geometry/types.ts';
 import type { SplitPaneStylePart } from '../ui-model/style-parts.ts';
 import type { SplitPaneAction } from '../ui-model/split-pane.ts';
@@ -85,14 +85,10 @@ export interface ScrollableViewportOptions<TMessage = never> extends ViewportBas
 }
 
 export interface SurfaceOptions extends ElementOptions<SurfaceStylePart>, Omit<LayoutFlowOptions, 'gap'> {
-  readonly label?: string;
   readonly title?: BorderTitle;
   readonly appearance?: SurfaceAppearance;
-  readonly condition?: SurfaceCondition;
   readonly border?: BorderOptions;
   readonly shadow?: boolean;
-  readonly disabled?: boolean;
-  readonly focusWithin?: boolean;
 }
 
 export interface AbsoluteOptions extends ElementOptions {

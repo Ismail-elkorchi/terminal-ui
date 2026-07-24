@@ -504,7 +504,7 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
   ], {
     id: 'explorer-layout',
     sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }]
-  }), { id: 'explorer', label: 'Workspace', appearance: 'inset', padding: 1 });
+  }), { id: 'explorer', appearance: 'inset', padding: 1 });
 }
 
 function editorPane(state: EditorState): Element<EditorMessage> {
@@ -548,7 +548,7 @@ function detailsPane(state: EditorState): Element<EditorMessage> {
       { label: 'dirty', value: String(state.buffers.filter(isDirty).length) },
       { label: 'operation', value: operation }
     ]
-  }), { id: 'editor-details', label: 'Context', appearance: 'inset', padding: 1 });
+  }), { id: 'editor-details', appearance: 'inset', padding: 1 });
 }
 
 function commandPane(state: EditorState): Element<EditorMessage> {
@@ -560,7 +560,7 @@ function commandPane(state: EditorState): Element<EditorMessage> {
     display: state.command.input.text.length === 0 ? 'compact' : 'expanded',
     onAction: (action): EditorMessage => ({ kind: 'command', action }),
     onSubmit: (value): EditorMessage => ({ kind: 'submitCommand', value })
-  }), { id: 'editor-command-surface', label: 'Command', appearance: 'raised', padding: { left: 1, right: 1 } });
+  }), { id: 'editor-command-surface', appearance: 'raised', padding: { left: 1, right: 1 } });
 }
 
 function editorStatus(state: EditorState) {

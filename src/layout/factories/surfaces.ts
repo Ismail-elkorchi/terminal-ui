@@ -24,14 +24,10 @@ export function surface<const TChild extends Element<unknown>>(
     ...optionalId(options.id),
     kind: 'surface',
     props: {
-      ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.title === undefined ? {} : { title: normalizeBorderTitle(options.title) }),
       ...(options.appearance === undefined ? {} : { appearance: options.appearance }),
-      ...(options.condition === undefined ? {} : { condition: options.condition }),
       ...(options.border === undefined ? {} : { border: options.border }),
       ...(options.shadow === undefined ? {} : { shadow: options.shadow }),
-      ...(options.disabled === undefined ? {} : { disabled: options.disabled }),
-      ...(options.focusWithin === undefined ? {} : { focusWithin: options.focusWithin }),
       ...surfaceLayoutProps(options)
     },
     children: [toRenderNode(child)] as readonly RenderNode<Message>[],

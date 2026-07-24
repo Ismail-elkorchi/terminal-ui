@@ -30,10 +30,10 @@ export const drawingRenderers = {
     measure: drawingMeasurements.surface,
     layout: ({ renderNode, bounds }) => surfaceChildBounds(renderNode, bounds),
     render: (input) => {
-      drawSurfaceChrome(input.buffer, input.layoutNode.bounds, input.renderNode, input.theme, input.focus);
+      drawSurfaceChrome(input.buffer, input.layoutNode.bounds, input.renderNode, input.theme);
       input.renderChildren();
     },
-    accessibility: ({ renderNode, id, focused }) => surfaceAccessibleBase(renderNode, id, focused)
+    accessibility: ({ id, focused }) => surfaceAccessibleBase(id, focused)
   },
   absolute: {
     measure: drawingMeasurements.absolute,

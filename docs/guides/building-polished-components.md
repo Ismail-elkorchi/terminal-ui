@@ -63,8 +63,8 @@ must declare that relationship explicitly.
 
 Renderer visual focus is a relation: `none`, `self`, or `descendant`.
 Accessibility remains exact and marks only the active target as focused.
-`surface({ focusWithin: true })` may use descendant focus for an active-pane
-treatment; passive surfaces do not inherit focus styling.
+Layout surfaces do not inherit descendant focus styling. Components that need
+an active-pane treatment expose and style that interaction state themselves.
 
 Layer metadata controls z-order. Higher visible layers render above lower
 layers and receive pointer hits first. Modal or popover-like compositions can

@@ -309,7 +309,6 @@ function cpuPanel(state: MonitorState) {
     }
   }), {
     id: 'cpu-panel',
-    label: 'cpu',
     title: {
       start: panelTitle('cpu', 'i7-4770HQ', `${String(cpuValues.at(-1) ?? 0)}%`),
       end: panelTitle('2.5GHz', '8 cores', `temp ${String(70 + (state.tick % 7))}°C`)
@@ -364,7 +363,6 @@ function memoryPanel() {
     memoryRow('Free', 987, 'MiB', 6, 'success')
   ], { id: 'memory-column', gap: 1 }), {
     id: 'memory-panel',
-    label: 'mem',
     title: panelTitle('mem', '15.4 GiB', '76%'),
     appearance: 'inset',
     padding: 1
@@ -402,7 +400,6 @@ function disksPanel() {
     storageRow('efi', 1, '6.30 MiB', '968 MiB')
   ], { id: 'disks-column', gap: 1 }), {
     id: 'disks-panel',
-    label: 'disks',
     title: panelTitle('disks', 'root/swap/efi', '61%'),
     appearance: 'inset',
     padding: 1
@@ -474,7 +471,6 @@ function networkPanel(state: MonitorState) {
     }
   }), {
     id: 'network-panel',
-    label: 'net 192.168.1.6',
     title: panelTitle('net', '192.168.1.6', 'up/down'),
     appearance: 'inset',
     padding: 1
@@ -510,7 +506,6 @@ function processPanel(state: MonitorState) {
     })
   ], { id: 'proc-column', gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }] }), {
     id: 'process-panel',
-    label: 'proc',
     title: panelTitle('proc', `sort=${sort?.columnId ?? 'none'}`, `${String(rows.length)} rows`),
     appearance: 'inset',
     padding: 1

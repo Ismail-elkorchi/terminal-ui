@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  highContrastTheme,
-  noColorTheme } from '../../dist/theme/index.js';
+import { noColorTheme } from '../../dist/theme/index.js';
 import { blockSpan,
   layoutElement,
   renderFramePlain,
@@ -136,13 +134,13 @@ test('surface absolute and overlay compose arbitrary positioned overlapping cont
     ], {
       id: 'overlay'
     }),
-    { id: 'surface', label: 'Drawing surface' }
+    { id: 'surface' }
   ), { columns: 12, rows: 3 });
 
   const output = renderFramePlain(frame);
 
   assert.equal(output, 'base-TOPe\nwide界!ail');
-  assert.equal(frame.accessibility.root.label, 'Drawing surface');
+  assert.equal(frame.accessibility.root.label, 'surface');
   assert.equal(frame.accessibility.root.children?.[0]?.role, 'application');
 });
 
@@ -159,7 +157,6 @@ test('surface is a single-child visual wrapper, not a layout container', () => {
     gap: 1
   }), {
     id: 'single-child-surface',
-    label: 'Composed surface',
     padding: 1,
     gap: 5
   });
@@ -170,12 +167,10 @@ test('surface is a single-child visual wrapper, not a layout container', () => {
   assert.equal(renderFramePlain(frame), '\n one\n\n two');
 });
 
-test('surface appearance and condition draw background border and shadow independently', () => {
+test('surface appearance draws background border and shadow', () => {
   const widget = surface(text('inside', { id: 'surface-content' }), {
     id: 'visual-surface',
-    label: 'Visual surface',
     appearance: 'raised',
-    condition: 'warning',
     title: 'Alert',
     border: { kind: 'dashed' },
     shadow: true
@@ -188,47 +183,9 @@ test('surface appearance and condition draw background border and shadow indepen
 
   assert.match(output, /Alert/u);
   assert.match(output, /inside/u);
-  assert.deepEqual(backgroundCell?.style?.bg, { kind: 'theme', token: 'surface.warning.background' });
-  assert.deepEqual(borderCell?.style?.fg, { kind: 'theme', token: 'surface.warning.border' });
+  assert.deepEqual(backgroundCell?.style?.bg, { kind: 'theme', token: 'surface.raised.background' });
+  assert.deepEqual(borderCell?.style?.fg, { kind: 'theme', token: 'surface.raised.border' });
   assert.deepEqual(shadowCell?.style?.fg, { kind: 'theme', token: 'surface.shadow' });
-});
-
-test('surface conditions map every supported caller-supplied condition directly', () => {
-  const cases = [
-    ['selected', 'surface.selected.background', 'surface.selected.border'],
-    ['warning', 'surface.warning.background', 'surface.warning.border'],
-    ['error', 'surface.danger.background', 'surface.danger.border'],
-    ['success', 'surface.success.background', 'surface.success.border']
-  ];
-
-  for (const [condition, backgroundToken, borderToken] of cases) {
-    const frame = renderElementFrame(surface(text(condition), {
-      id: `surface-${condition}`,
-      appearance: 'raised',
-      condition
-    }), { columns: 14, rows: 3 });
-    const background = frame.cells.find((cell) =>
-      cell.source?.elementKind === 'surface' && cell.source?.partName === 'background'
-    );
-    const border = frame.cells.find((cell) => cell.source?.cellRole === 'border');
-
-    assert.equal(background?.style?.bg?.token, backgroundToken);
-    assert.equal(border?.style?.fg?.token, borderToken);
-  }
-
-  const active = renderElementFrame(surface(text('active'), {
-    id: 'surface-active',
-    appearance: 'raised',
-    condition: 'active'
-  }), { columns: 14, rows: 3 });
-  const activeBackground = active.cells.find((cell) =>
-    cell.source?.elementKind === 'surface' && cell.source?.partName === 'background'
-  );
-  const activeBorder = active.cells.find((cell) => cell.source?.cellRole === 'border');
-
-  assert.equal(activeBackground?.style?.bg?.token, 'surface.raised.background');
-  assert.equal(activeBackground?.style?.bold, true);
-  assert.equal(activeBorder?.style?.fg?.token, 'surface.raised.border');
 });
 
 test('surface titles preserve authored inline styles with renderer-produced source metadata', () => {
@@ -291,39 +248,13 @@ test('surface appearances reserve border content space while plain surfaces stay
   assert.equal(renderFramePlain(transparent), 'flush');
 });
 
-test('surface labels disabled state and theme conditions stay structural', () => {
-  const disabled = renderElementFrame(surface(text('locked', { id: 'locked-body' }), {
-    id: 'locked-surface',
-    label: 'Locked',
-    appearance: 'raised',
-    disabled: true,
-    keys: { enter: () => ({ kind: 'locked' }) }
-  }), { columns: 14, rows: 3 }, { focusPath: ['locked-surface'] });
-  const highContrast = renderElementFrame(surface(text('selected', { id: 'selected-body' }), {
-    id: 'selected-surface',
-    label: 'Selected',
-    appearance: 'raised',
-    condition: 'selected'
-  }), { columns: 14, rows: 3 }, { theme: highContrastTheme });
+test('surface appearance remains structural across theme capabilities', () => {
   const noColor = renderElementFrame(surface(text('plain', { id: 'plain-body' }), {
     id: 'plain-surface',
-    label: 'Plain',
+    title: 'Plain',
     appearance: 'raised'
   }), { columns: 12, rows: 3 }, { theme: noColorTheme });
 
-  const disabledBorder = disabled.cells.find((cell) => cell.source?.cellRole === 'border');
-  const disabledBackground = disabled.cells.find((cell) => cell.source?.elementKind === 'surface' && cell.style?.bg !== undefined);
-  const selectedBorder = highContrast.cells.find((cell) => cell.source?.cellRole === 'border');
-  const selectedBackground = highContrast.cells.find((cell) => cell.source?.elementKind === 'surface' && cell.style?.bg !== undefined);
-
-  assert.match(renderFramePlain(disabled).split('\n')[0] ?? '', /Locked/u);
-  assert.equal(disabled.focusPath, undefined);
-  assert.equal(disabled.accessibility.root.disabled, true);
-  assert.equal(disabledBorder?.style?.fg?.token, 'text.disabled');
-  assert.equal(disabledBackground?.style?.bg?.token, 'surface.raised.background');
-  assert.equal(disabledBackground?.style?.fg?.token, 'text.disabled');
-  assert.equal(selectedBorder?.style?.fg?.token, 'surface.selected.border');
-  assert.equal(selectedBackground?.style?.bg?.token, 'surface.selected.background');
   assert.equal(renderFramePlain(noColor).split('\n')[0], '+ Plain ---+');
 });
 

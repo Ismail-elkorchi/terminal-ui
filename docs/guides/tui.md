@@ -250,13 +250,10 @@ Use `surface()` for visual grouping and elevation, not for app-frame policy.
 default. `neutral` is an unframed content background. `raised` and `inset` are
 framed visual constructions.
 When a framed surface is too small to leave an interior, the border is skipped
-for that frame so child content remains visible. A focusable borderless surface
-uses the root focused state style, defaulting to `focus.background`, so active
-panes can be visible without a global style cascade. Use
-`condition: 'selected' | 'active' | 'warning' | 'error' | 'success'` independently
-when the application wants a surface to show caller-supplied interaction or
-result state. The condition does not choose whether the surface is framed;
-runtime focus and `disabled` take precedence.
+for that frame so child content remains visible. A surface does not carry
+selection, result, disabled, or focus-within state. Put those meanings on the
+component that owns the behavior, then wrap it in a surface when it also needs
+visual containment.
 
 Use `textArea({ lineNumbers: true })` or
 `textArea({ lineNumbers: { startNumber, minWidth }, activeLine: true })` when a

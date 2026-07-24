@@ -3,10 +3,3 @@ export type SurfaceAppearance =
   | 'chrome'
   | 'raised'
   | 'inset';
-
-export type SurfaceCondition =
-  | 'active'
-  | 'selected'
-  | 'warning'
-  | 'error'
-  | 'success';

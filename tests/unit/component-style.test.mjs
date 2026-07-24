@@ -552,7 +552,7 @@ test('structural text roles use shared visual grammar', () => {
   assert.equal(styleFor(textFrame, 'b')?.fg?.token, 'badge.foreground');
 });
 
-test('passive surfaces keep visual state separate from descendant focus', () => {
+test('layout surfaces do not inherit component focus state', () => {
   const focusedFrame = renderElementFrame(surface(textInput({ id: 'pane-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'focus-surface',
     appearance: 'chrome'
@@ -566,39 +566,9 @@ test('passive surfaces keep visual state separate from descendant focus', () => 
         }
     }
 }), { columns: 10, rows: 1 }, { focusPath: ['custom-focus-surface', 'custom-field'] });
-  const focusWithinFrame = renderElementFrame(surface(textInput({ id: 'within-field', presentation: { value: 'Pane', cursor: 0 } }), {
-    id: 'focus-within-surface',
-    appearance: 'chrome',
-    focusWithin: true
-  }), { columns: 10, rows: 1 }, { focusPath: ['focus-within-surface', 'within-field'] });
 
   assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.chrome.background');
   assert.equal(styleForCell(customFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.chrome.background');
-  assert.equal(styleForCell(focusWithinFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'focus.background');
-});
-
-test('surface condition exposes selected panes without stealing focus semantics', () => {
-  const selectedFrame = renderElementFrame(surface(text('Pane', { id: 'selected-label' }), {
-    id: 'selected-surface',
-    appearance: 'chrome',
-    condition: 'selected'
-  }), { columns: 10, rows: 1 });
-  const focusedFrame = renderElementFrame(surface(textInput({ id: 'focused-field', presentation: { value: 'Pane', cursor: 0 } }), {
-    id: 'focused-surface',
-    appearance: 'chrome',
-    condition: 'selected'
-  }), { columns: 10, rows: 1 }, { focusPath: ['focused-surface', 'focused-field'] });
-  const disabledFrame = renderElementFrame(surface(text('Pane', { id: 'disabled-label' }), {
-    id: 'disabled-surface',
-    appearance: 'chrome',
-    condition: 'selected',
-    disabled: true
-  }), { columns: 10, rows: 1 });
-
-  assert.equal(styleForCell(selectedFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.selected.background');
-  assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.selected.background');
-  assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.chrome.background');
-  assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.partName === 'background')?.fg?.token, 'text.disabled');
 });
 
 test('overflow priority preserves important row content before decorative content', () => {

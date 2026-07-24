@@ -11,8 +11,7 @@ const actions = row([
 ] as const, { id: 'actions', gap: 1 });
 const panel = surface(column([actions], { id: 'content' }), {
   id: 'panel',
-  appearance: 'raised',
-  condition: 'selected'
+  appearance: 'raised'
 });
 const root = overlay([panel], { id: 'root' });
 const accepted: Element<Message> = root;
@@ -26,6 +25,30 @@ surface(column([actions], { id: 'legacy-variant-content' }), {
 
 surface(column([actions], { id: 'legacy-state-content' }), {
   id: 'legacy-state-panel',
-  // @ts-expect-error Caller-supplied surface state belongs in condition.
+  // @ts-expect-error A layout surface does not accept component interaction state.
   visualState: 'selected'
+});
+
+surface(column([actions], { id: 'condition-content' }), {
+  id: 'condition-panel',
+  // @ts-expect-error Result and interaction conditions belong to the component carrying them.
+  condition: 'selected'
+});
+
+surface(column([actions], { id: 'disabled-content' }), {
+  id: 'disabled-panel',
+  // @ts-expect-error A visual layout container has no disabled behavior.
+  disabled: true
+});
+
+surface(column([actions], { id: 'focus-within-content' }), {
+  id: 'focus-within-panel',
+  // @ts-expect-error Descendant focus does not change layout-surface appearance.
+  focusWithin: true
+});
+
+surface(column([actions], { id: 'label-content' }), {
+  id: 'label-panel',
+  // @ts-expect-error Layout surfaces do not create named controls.
+  label: 'Panel'
 });

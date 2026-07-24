@@ -307,7 +307,6 @@ function navigationPane(state: WorkspaceState) {
     helpBar({ id: 'navigation-help', groups: [{ id: 'nav', bindings: [{ key: 'click', label: 'select queue' }] }] })
   ], { sizes: [{ kind: 'fill' }, { kind: 'fixed', cells: 1 }] }), {
     id: 'workspace-navigation',
-    label: 'Navigator',
     appearance: 'inset',
     padding: 1
   });
@@ -337,21 +336,21 @@ function issuesPanel(state: WorkspaceState) {
     scrollbar: { visible: 'auto' },
     stickyHeader: true,
     onAction: (action): WorkspaceMessage => ({ kind: 'table', action })
-  }), { id: 'issues-panel', label: 'Ticket queue', appearance: 'neutral', padding: 1 });
+  }), { id: 'issues-panel', appearance: 'neutral', padding: 1 });
 }
 
 function activityPanel(state: WorkspaceState) {
   return surface(column(state.activity.map((entry, index) => text(
     `${String(index + 1).padStart(2, '0')} ${entry}`,
     { id: `activity-${String(index)}` }
-  ))), { id: 'activity-panel', label: 'Activity', appearance: 'neutral', padding: 1 });
+  ))), { id: 'activity-panel', appearance: 'neutral', padding: 1 });
 }
 
 function notesPanel() {
   return surface(column([
     text('This hand-written app composes controlled generic components.'),
     text('Commands: /palette, /issues, /activity, /notes, /resolve.')
-  ], { gap: 1 }), { id: 'notes-panel', label: 'Notes', appearance: 'neutral', padding: 1 });
+  ], { gap: 1 }), { id: 'notes-panel', appearance: 'neutral', padding: 1 });
 }
 
 function inspectorPane(state: WorkspaceState) {
@@ -369,7 +368,7 @@ function inspectorPane(state: WorkspaceState) {
       ]
     }),
     button({ id: 'resolve-button', label: 'Resolve selected', tone: 'primary', onPress: (): WorkspaceMessage => ({ kind: 'resolve' }) })
-  ], { gap: 1 }), { id: 'workspace-inspector', label: 'Inspector', appearance: 'inset', padding: 1 });
+  ], { gap: 1 }), { id: 'workspace-inspector', appearance: 'inset', padding: 1 });
 }
 
 function workspaceStatus(state: WorkspaceState) {
@@ -400,7 +399,7 @@ function commandPane(state: WorkspaceState) {
     onAction: (action): WorkspaceMessage => ({ kind: 'command', action }),
     onSubmit: (value): WorkspaceMessage => ({ kind: 'submit', value }),
     keys: { escape: (): WorkspaceMessage => ({ kind: 'command', action: { kind: 'setValue', value: '' } }) }
-  }), { id: 'workspace-command-surface', label: 'Command', appearance: 'raised', padding: { left: 1, right: 1 } });
+  }), { id: 'workspace-command-surface', appearance: 'raised', padding: { left: 1, right: 1 } });
 }
 
 function paletteLayer(state: WorkspaceState) {
@@ -417,7 +416,6 @@ function paletteLayer(state: WorkspaceState) {
     }
   }), {
     id: 'workspace-palette-surface',
-    label: 'Command palette',
     appearance: 'raised',
     shadow: true,
     padding: 1,

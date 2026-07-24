@@ -62,12 +62,11 @@ export function canvasAccessibleBase(renderNode: CanvasNode, id: string, focused
   };
 }
 
-export function surfaceAccessibleBase(renderNode: SurfaceNode, id: string, focused: boolean): AccessibleNode {
+export function surfaceAccessibleBase(id: string, focused: boolean): AccessibleNode {
   return {
     id,
     role: 'text',
-    label: stringify(renderNode.props.label) || id,
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
+    label: id,
     ...(focused ? { focused } : {})
   };
 }
