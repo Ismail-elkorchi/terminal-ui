@@ -47,8 +47,8 @@ export function toRegionHitTarget<TMessage>(
 }
 
 export function regionIdForLayoutNode(node: LayoutNode, path: FocusPath): string {
-  const semanticPath = path.length === 0 ? [node.identity] : path;
-  return `region:${semanticPath.map(regionIdSegment).join('/')}:z:${String(node.layer.zIndex)}`;
+  const identityPath = path.length === 0 ? [node.identity] : path;
+  return `region:${identityPath.map(regionIdSegment).join('/')}:z:${String(node.layer.zIndex)}`;
 }
 
 export interface DraftRenderRegion {
