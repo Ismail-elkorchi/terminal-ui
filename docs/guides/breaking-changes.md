@@ -5,8 +5,8 @@ model removes invalid states or clarifies ownership. There are no compatibility
 aliases, legacy readers, or migration shims.
 
 This guide describes the current breaking architecture pass. Update an
-application by adopting the new owner for each concern rather than translating
-old field names mechanically.
+application by using the API responsible for each concern rather than
+translating old field names mechanically.
 
 ## Input Identity
 

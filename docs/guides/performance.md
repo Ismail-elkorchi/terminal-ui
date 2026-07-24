@@ -40,10 +40,10 @@ actionable only when:
 
 1. the same scenario and scale regresses on repeated compatible runs;
 2. the p95 change exceeds observed run-to-run variability;
-3. stage measurements identify an owner rather than only a slower total;
+3. stage measurements identify the slower stage rather than only a slower total;
 4. a user-visible interaction or documented scale is affected.
 
-Optimization proposals must record the baseline, hypothesis, changed owner,
+Optimization proposals must record the baseline, hypothesis, changed subsystem,
 after-measurement, invalidation tests, and complexity cost. Retained rendering
 or caches are not justified by total render time alone.
 
