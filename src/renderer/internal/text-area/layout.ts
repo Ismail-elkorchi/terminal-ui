@@ -10,13 +10,13 @@ import type { TerminalTextIndex, TextCaret, TextDocument, TextWidthProfile } fro
 import type { TextAreaVisualLine } from '../input-visual.ts';
 import type { ScrollState } from '../../../interaction/scroll.ts';
 
-export interface ProjectedTextAreaLine extends TextAreaVisualLine {
+export interface TextAreaLayoutLine extends TextAreaVisualLine {
   readonly index: TerminalTextIndex;
 }
 
-export interface TextAreaDocumentProjection {
+export interface TextAreaDocumentLayout {
   readonly document: TextDocument;
-  readonly lines: readonly ProjectedTextAreaLine[];
+  readonly lines: readonly TextAreaLayoutLine[];
   readonly logicalLineRowStarts: readonly number[];
   readonly contentRows: number;
   readonly intrinsicColumns: number;
@@ -25,48 +25,48 @@ export interface TextAreaDocumentProjection {
   readonly width: number;
 }
 
-export interface TextAreaProjectedCursor {
+export interface TextAreaLayoutCursor {
   readonly rowIndex: number;
   readonly columnCells: number;
 }
 
 const MAX_LAYOUTS_PER_DOCUMENT = 8;
 const MAX_RETAINED_LINE_LAYOUTS = 4_096;
-const projections = new WeakMap<TextDocument, Map<string, TextAreaDocumentProjection>>();
-const lineProjections = new Map<string, RetainedLineProjection>();
+const layouts = new WeakMap<TextDocument, Map<string, TextAreaDocumentLayout>>();
+const lineLayouts = new Map<string, RetainedLineLayout>();
 
-interface RetainedProjectedLine {
+interface RetainedLayoutLine {
   readonly text: string;
   readonly relativeStart: number;
   readonly firstVisualLine: boolean;
   readonly index: TerminalTextIndex;
 }
 
-interface RetainedLineProjection {
+interface RetainedLineLayout {
   readonly intrinsicColumns: number;
-  readonly lines: readonly RetainedProjectedLine[];
+  readonly lines: readonly RetainedLayoutLine[];
 }
 
-export function projectTextAreaDocument(
+export function layoutTextAreaDocument(
   document: TextDocument,
   width: number,
   wrap: boolean,
   widthProfile: TextWidthProfile
-): TextAreaDocumentProjection {
+): TextAreaDocumentLayout {
   const normalizedWidth = Math.max(0, Math.floor(width));
   const key = `${wrap ? 'wrap' : 'single'}:${String(normalizedWidth)}:${textWidthProfileKey(widthProfile)}`;
-  const cache = projectionCache(document);
+  const cache = layoutCache(document);
   const cached = touch(cache, key);
   if (cached !== undefined) return cached;
 
-  const lines: ProjectedTextAreaLine[] = [];
+  const lines: TextAreaLayoutLine[] = [];
   const logicalLineRowStarts: number[] = [];
   let intrinsicColumns = 0;
   for (let lineIndex = 0; lineIndex < textDocumentLineCount(document); lineIndex += 1) {
     logicalLineRowStarts.push(lines.length);
     const line = textDocumentLineAt(document, lineIndex);
     if (line === undefined) continue;
-    const retained = retainedLineProjection(line.text, normalizedWidth, wrap, widthProfile);
+    const retained = retainedLineLayout(line.text, normalizedWidth, wrap, widthProfile);
     intrinsicColumns = Math.max(intrinsicColumns, retained.intrinsicColumns);
     lines.push(...retained.lines.map((record) => ({
       text: record.text,
@@ -76,7 +76,7 @@ export function projectTextAreaDocument(
       index: record.index
     })));
   }
-  const projection = Object.freeze({
+  const layout = Object.freeze({
     document,
     lines: Object.freeze(lines),
     logicalLineRowStarts: Object.freeze(logicalLineRowStarts),
@@ -86,22 +86,22 @@ export function projectTextAreaDocument(
     wrap,
     width: normalizedWidth
   });
-  retain(cache, key, projection);
-  return projection;
+  retain(cache, key, layout);
+  return layout;
 }
 
-export function textAreaCursorInProjection(
-  projection: TextAreaDocumentProjection,
+export function textAreaCursorInLayout(
+  layout: TextAreaDocumentLayout,
   caret: TextCaret
-): TextAreaProjectedCursor {
+): TextAreaLayoutCursor {
   const rawOffset = caret.position.offset;
-  const offset = Math.max(0, Math.min(textDocumentLength(projection.document), Math.floor(rawOffset)));
-  const logicalLine = textDocumentLineIndexAtOffset(projection.document, offset);
-  const firstRow = projection.logicalLineRowStarts[logicalLine] ?? 0;
-  const nextRow = projection.logicalLineRowStarts[logicalLine + 1] ?? projection.lines.length;
+  const offset = Math.max(0, Math.min(textDocumentLength(layout.document), Math.floor(rawOffset)));
+  const logicalLine = textDocumentLineIndexAtOffset(layout.document, offset);
+  const firstRow = layout.logicalLineRowStarts[logicalLine] ?? 0;
+  const nextRow = layout.logicalLineRowStarts[logicalLine + 1] ?? layout.lines.length;
   let rowIndex = firstRow;
   for (let index = firstRow; index < nextRow; index += 1) {
-    const record = projection.lines[index];
+    const record = layout.lines[index];
     if (record === undefined) continue;
     const end = record.start + record.text.length;
     const sharedBoundary = offset === end && index < nextRow - 1;
@@ -114,36 +114,36 @@ export function textAreaCursorInProjection(
       break;
     }
   }
-  const record = projection.lines[rowIndex] ?? projection.lines[0];
+  const record = layout.lines[rowIndex] ?? layout.lines[0];
   if (record === undefined) return { rowIndex: 0, columnCells: 0 };
   const localOffset = Math.max(0, Math.min(record.text.length, offset - record.start));
   const grapheme = record.index.codeUnitOffsetToGraphemeIndex(localOffset);
   return { rowIndex, columnCells: record.index.graphemeIndexToVisualColumn(grapheme) };
 }
 
-export function textAreaOffsetInProjection(
-  projection: TextAreaDocumentProjection,
+export function textAreaOffsetInLayout(
+  layout: TextAreaDocumentLayout,
   row: number,
   column: number
 ): number {
-  const rowIndex = Math.max(0, Math.min(projection.lines.length - 1, Math.floor(row)));
-  const record = projection.lines[rowIndex];
+  const rowIndex = Math.max(0, Math.min(layout.lines.length - 1, Math.floor(row)));
+  const record = layout.lines[rowIndex];
   if (record === undefined) return 0;
   const grapheme = record.index.visualColumnToGraphemeIndex(Math.max(0, Math.floor(column)));
   return record.start + record.index.graphemeIndexToCodeUnitOffset(grapheme);
 }
 
 export function textAreaVisibleText(
-  projection: TextAreaDocumentProjection,
+  layout: TextAreaDocumentLayout,
   scroll: ScrollState
 ): string {
-  return projection.lines
+  return layout.lines
     .slice(scroll.offsetRow, scroll.offsetRow + Math.max(0, scroll.viewportRows))
     .map((record) => textAreaVisibleLine(record, scroll.offsetColumn, scroll.viewportColumns))
     .join('\n');
 }
 
-function textAreaVisibleLine(record: ProjectedTextAreaLine, offsetColumn: number, width: number): string {
+function textAreaVisibleLine(record: TextAreaLayoutLine, offsetColumn: number, width: number): string {
   const startGrapheme = record.index.visualColumnToGraphemeIndex(Math.max(0, offsetColumn));
   const endGrapheme = record.index.visualColumnToGraphemeIndex(Math.max(0, offsetColumn + width));
   const start = record.index.graphemeIndexToCodeUnitOffset(startGrapheme);
@@ -151,17 +151,17 @@ function textAreaVisibleLine(record: ProjectedTextAreaLine, offsetColumn: number
   return record.text.slice(start, end);
 }
 
-function projectLine(
+function layoutLine(
   text: string,
   index: TerminalTextIndex,
   width: number,
   wrap: boolean,
   widthProfile: TextWidthProfile
-): readonly RetainedProjectedLine[] {
+): readonly RetainedLayoutLine[] {
   if (!wrap || width <= 0 || index.cells <= width || text.length === 0) {
     return [{ text, relativeStart: 0, firstVisualLine: true, index }];
   }
-  const rows: RetainedProjectedLine[] = [];
+  const rows: RetainedLayoutLine[] = [];
   let visualColumn = 0;
   while (visualColumn < index.cells) {
     const startGrapheme = index.visualColumnToGraphemeIndex(visualColumn);
@@ -181,29 +181,29 @@ function projectLine(
   return rows;
 }
 
-function retainedLineProjection(
+function retainedLineLayout(
   text: string,
   width: number,
   wrap: boolean,
   widthProfile: TextWidthProfile
-): RetainedLineProjection {
+): RetainedLineLayout {
   const key = `${wrap ? 'wrap' : 'single'}:${String(width)}:${textWidthProfileKey(widthProfile)}:${text}`;
-  const cached = touch(lineProjections, key);
+  const cached = touch(lineLayouts, key);
   if (cached !== undefined) return cached;
   const index = createTerminalTextIndex(text, { widthProfile });
   const created = Object.freeze({
     intrinsicColumns: index.cells,
-    lines: Object.freeze(projectLine(text, index, width, wrap, widthProfile))
+    lines: Object.freeze(layoutLine(text, index, width, wrap, widthProfile))
   });
-  retainBounded(lineProjections, key, created, MAX_RETAINED_LINE_LAYOUTS);
+  retainBounded(lineLayouts, key, created, MAX_RETAINED_LINE_LAYOUTS);
   return created;
 }
 
-function projectionCache(document: TextDocument): Map<string, TextAreaDocumentProjection> {
-  const existing = projections.get(document);
+function layoutCache(document: TextDocument): Map<string, TextAreaDocumentLayout> {
+  const existing = layouts.get(document);
   if (existing !== undefined) return existing;
-  const created = new Map<string, TextAreaDocumentProjection>();
-  projections.set(document, created);
+  const created = new Map<string, TextAreaDocumentLayout>();
+  layouts.set(document, created);
   return created;
 }
 
@@ -219,9 +219,9 @@ function touch<TValue>(
 }
 
 function retain(
-  cache: Map<string, TextAreaDocumentProjection>,
+  cache: Map<string, TextAreaDocumentLayout>,
   key: string,
-  value: TextAreaDocumentProjection
+  value: TextAreaDocumentLayout
 ): void {
   retainBounded(cache, key, value, MAX_LAYOUTS_PER_DOCUMENT);
 }

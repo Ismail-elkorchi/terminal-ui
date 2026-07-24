@@ -5,14 +5,14 @@ import {
   textDocumentLineCount,
   textDocumentLineIndexAtOffset
 } from '../../../text/index.ts';
-import { textAreaCursorInProjection } from './projection.ts';
+import { textAreaCursorInLayout } from './layout.ts';
 import type { TextDocument, TextWidthProfile } from '../../../text/index.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { RenderNodeOfKind } from '../../model/index.ts';
 import type { Rect } from '../../model/layout.ts';
 import { textAreaInputContentBounds } from '../input-visual.ts';
-import { projectTextAreaDocument } from './projection.ts';
-import type { TextAreaDocumentProjection } from './projection.ts';
+import { layoutTextAreaDocument } from './layout.ts';
+import type { TextAreaDocumentLayout } from './layout.ts';
 
 type TextAreaNode = RenderNodeOfKind<unknown, 'textArea'>;
 
@@ -21,7 +21,7 @@ export interface TextAreaRenderModel {
   readonly usesPlaceholder: boolean;
   readonly lineCount: number;
   readonly contentBounds: Rect;
-  readonly projection: TextAreaDocumentProjection;
+  readonly layout: TextAreaDocumentLayout;
   readonly scroll: ReturnType<typeof normalizeScrollState>;
   readonly activeLineIndex?: number;
 }
@@ -38,7 +38,7 @@ export function textAreaRenderModel(
   const document = usesPlaceholder ? prepareTextDocument(placeholder) : source;
   const lineCount = textDocumentLineCount(document);
   const contentBounds = textAreaInputContentBounds(bounds, theme, widthProfile, renderNode, lineCount);
-  const projection = projectTextAreaDocument(
+  const layout = layoutTextAreaDocument(
     document,
     contentBounds.width,
     textAreaWrapEnabled(renderNode),
@@ -48,8 +48,8 @@ export function textAreaRenderModel(
   const baseScroll = normalizeScrollState({
     offsetRow: raw?.offsetRow ?? 0,
     offsetColumn: raw?.offsetColumn ?? 0,
-    contentRows: projection.contentRows,
-    contentColumns: projection.contentColumns,
+    contentRows: layout.contentRows,
+    contentColumns: layout.contentColumns,
     viewportRows: contentBounds.height,
     viewportColumns: contentBounds.width,
     followTail: raw?.followTail === true,
@@ -57,13 +57,13 @@ export function textAreaRenderModel(
   });
   const scroll = usesPlaceholder || renderNode.props.revealCaret !== true
     ? baseScroll
-    : revealCaret(baseScroll, textAreaCursorInProjection(projection, renderNode.props.caret));
+    : revealCaret(baseScroll, textAreaCursorInLayout(layout, renderNode.props.caret));
   return {
     document,
     usesPlaceholder,
     lineCount,
     contentBounds,
-    projection,
+    layout,
     scroll,
     ...(usesPlaceholder
       ? {}
@@ -73,7 +73,7 @@ export function textAreaRenderModel(
 
 function revealCaret(
   scroll: ReturnType<typeof normalizeScrollState>,
-  caret: ReturnType<typeof textAreaCursorInProjection>
+  caret: ReturnType<typeof textAreaCursorInLayout>
 ): ReturnType<typeof normalizeScrollState> {
   const lastRow = scroll.offsetRow + Math.max(0, scroll.viewportRows - 1);
   const lastColumn = scroll.offsetColumn + Math.max(0, scroll.viewportColumns - 1);

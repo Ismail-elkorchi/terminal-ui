@@ -16,10 +16,10 @@ import {
 } from './feedback-visual.ts';
 import { textAreaRenderModel } from './text-area/render-model.ts';
 import {
-  textAreaCursorInProjection,
-  textAreaOffsetInProjection,
+  textAreaCursorInLayout,
+  textAreaOffsetInLayout,
   textAreaVisibleText
-} from './text-area/projection.ts';
+} from './text-area/layout.ts';
 import { defaultStyleForTextRole, resolveRenderNodeStyle } from './render-node-style.ts';
 import { renderInlineContent } from './inline-content.ts';
 import { stringify } from './render-node-props.ts';
@@ -97,7 +97,7 @@ export function textAreaBlock(
   const selection = model.usesPlaceholder || renderNode.props.selection === undefined
     ? undefined
     : textDocumentSelectionRange(model.document, renderNode.props.selection, renderNode.props.caret);
-  return block(model.projection.lines
+  return block(model.layout.lines
     .slice(model.scroll.offsetRow, model.scroll.offsetRow + Math.max(0, bounds.height))
     .map((record, index): RenderLine => textAreaInputLine({
       renderNode,
@@ -128,7 +128,7 @@ export function textAreaAccessibleBase(
   const model = bounds === undefined ? undefined : textAreaRenderModel(renderNode, bounds, theme, widthProfile);
   const value = model === undefined || model.usesPlaceholder
     ? ''
-    : textAreaVisibleText(model.projection, model.scroll);
+    : textAreaVisibleText(model.layout, model.scroll);
   return {
     id,
     role: 'textbox',
@@ -147,8 +147,8 @@ export function textAreaCursor(
   widthProfile: TextWidthProfile
 ): CursorPosition {
   const model = textAreaRenderModel(renderNode, bounds, theme, widthProfile);
-  const cursor = textAreaCursorInProjection(
-    model.projection,
+  const cursor = textAreaCursorInLayout(
+    model.layout,
     renderNode.props.caret
   );
   const rowOffset = Math.max(0, Math.min(bounds.height - 1, cursor.rowIndex - model.scroll.offsetRow));
@@ -175,13 +175,13 @@ export function textAreaPointerOffset(
   const model = textAreaRenderModel(renderNode, bounds, theme, widthProfile);
   const rowIndex = Math.max(
     0,
-    Math.min(model.projection.lines.length - 1, model.scroll.offsetRow + pointer.localRow - 1)
+    Math.min(model.layout.lines.length - 1, model.scroll.offsetRow + pointer.localRow - 1)
   );
   const gutterWidth = Math.max(0, bounds.width - model.contentBounds.width);
   const visualColumn = Math.max(0, pointer.localColumn - 1 - gutterWidth + model.scroll.offsetColumn);
   return normalizeTextDocumentOffset(
     model.document,
-    textAreaOffsetInProjection(model.projection, rowIndex, visualColumn)
+    textAreaOffsetInLayout(model.layout, rowIndex, visualColumn)
   );
 }
 

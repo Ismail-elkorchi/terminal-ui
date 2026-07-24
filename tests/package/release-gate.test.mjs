@@ -422,7 +422,7 @@ test('terminal text indexing and editing stay centralized', async () => {
   const chartVisual = await readFile(new URL('../../src/renderer/internal/chart-visual.ts', import.meta.url), 'utf8');
   const dataRenderers = await readFile(new URL('../../src/renderer/internal/renderers/data-renderers.ts', import.meta.url), 'utf8');
   const textRendering = await readFile(new URL('../../src/renderer/internal/text-rendering.ts', import.meta.url), 'utf8');
-  const textAreaProjection = await readFile(new URL('../../src/renderer/internal/text-area/projection.ts', import.meta.url), 'utf8');
+  const textAreaLayout = await readFile(new URL('../../src/renderer/internal/text-area/layout.ts', import.meta.url), 'utf8');
   const textRenderers = await readFile(new URL('../../src/renderer/internal/renderers/text-renderers.ts', import.meta.url), 'utf8');
   const structuredBlock = await readFile(new URL('../../src/renderer/internal/structured-block.ts', import.meta.url), 'utf8');
   const textTypes = await readFile(new URL('../../src/text/types.ts', import.meta.url), 'utf8');
@@ -455,8 +455,8 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(dataRenderers, /\bmeterBlock\b/u);
   assert.match(dataRenderers, /\bheatmapBlock\b/u);
   assert.match(textRendering, /from '\.\/input-visual\.ts'/u);
-  assert.match(textRendering, /from '\.\/text-area\/projection\.ts'/u);
-  assert.match(textAreaProjection, /from '\.\.\/\.\.\/\.\.\/text\/index\.ts'/u);
+  assert.match(textRendering, /from '\.\/text-area\/layout\.ts'/u);
+  assert.match(textAreaLayout, /from '\.\.\/\.\.\/\.\.\/text\/index\.ts'/u);
   assert.match(textRendering, /from '\.\/feedback-visual\.ts'/u);
   assert.match(textRenderers, /from '\.\.\/feedback-visual\.ts'/u);
   assert.match(formRenderers, /\btextInputBlock\b/u);

@@ -8,7 +8,7 @@ import { richTextBlock } from '../text-rendering.ts';
 import { textAreaInputContentBounds } from '../input-visual.ts';
 import { measureBlock, measureSize, measureText } from '../measurement.ts';
 import { stringify } from '../render-node-props.ts';
-import { projectTextAreaDocument } from '../text-area/projection.ts';
+import { layoutTextAreaDocument } from '../text-area/layout.ts';
 import { textAreaWrapEnabled } from '../text-area/render-model.ts';
 import { constrainedMeasureBounds } from './measurement-support.ts';
 import type { RendererMeasurementMap } from './types.ts';
@@ -31,14 +31,14 @@ export const textMeasurements = {
       renderNode,
       textDocumentLineCount(document)
     );
-    const projection = projectTextAreaDocument(
+    const layout = layoutTextAreaDocument(
       document,
       contentBounds.width,
       textAreaWrapEnabled(renderNode),
       widthProfile
     );
     const gutterColumns = Math.max(0, bounds.width - contentBounds.width);
-    return measureSize(projection.intrinsicColumns + gutterColumns, projection.contentRows);
+    return measureSize(layout.intrinsicColumns + gutterColumns, layout.contentRows);
   },
   statusIndicator: ({ renderNode, theme, widthProfile }) => measureText(
     statusIndicatorText(renderNode, theme),
