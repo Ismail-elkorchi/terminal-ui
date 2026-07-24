@@ -41,7 +41,7 @@ void test('paginator routes keyboard and pointer controls through the same actio
   });
   const runtime = createTuiRuntime({
     app,
-    host: createMemoryTerminalHost({ viewport: { columns: 40, rows: 2 } })
+    host: createMemoryTerminalHost({ terminalSize: { columns: 40, rows: 2 } })
   });
 
   await runtime.start();

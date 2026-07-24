@@ -54,8 +54,8 @@ function dashboardWidget(state) {
 test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime memory evidence', async () => {
   const initialWidget = dashboardWidget({ submitted: false });
 
-  const viewport = { columns: 30, rows: 6 };
-  const layout = layoutElement(initialWidget, viewport);
+  const terminalSize = { columns: 30, rows: 6 };
+  const layout = layoutElement(initialWidget, terminalSize);
   assert.equal(layout.kind, 'surface');
   assert.equal(layout.id, 'root-surface');
   assert.deepEqual(layout.bounds, { row: 1, column: 1, width: 30, height: 6 });
@@ -63,7 +63,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.equal(layout.children[0]?.children[1]?.kind, 'row');
   assert.equal(layout.children[0]?.children[1]?.children[1]?.id, 'action-field');
 
-  const frame = renderElementFrame(initialWidget, viewport);
+  const frame = renderElementFrame(initialWidget, terminalSize);
   assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v1');
   assert.equal(frame.width, 30);
   assert.equal(frame.height, 6);
@@ -76,7 +76,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.match(rendered, /Left pane/u);
   assert.match(rendered, /Press en…/u);
 
-  const submittedFrame = renderElementFrame(dashboardWidget({ submitted: true }), viewport, {
+  const submittedFrame = renderElementFrame(dashboardWidget({ submitted: true }), terminalSize, {
     focusPath: frame.focusPath
   });
   const diff = diffFrames(frame, submittedFrame);
@@ -105,7 +105,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
     }),
     view: dashboardWidget
   });
-  const harness = createTerminalHarness({ viewport });
+  const harness = createTerminalHarness({ terminalSize });
   harness.host.input('\r');
   const exit = await runTui(app, harness.host);
 

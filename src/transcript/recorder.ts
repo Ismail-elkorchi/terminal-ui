@@ -32,7 +32,7 @@ export function createTranscriptRecorder(options: TranscriptRecorderOptions = {}
     },
     snapshot(): InteractionTranscript {
       return {
-        schemaVersion: 'terminal-ui.interaction-transcript.v2',
+        schemaVersion: 'terminal-ui.interaction-transcript.v3',
         id,
         source: options.source ?? 'test',
         startedAt: options.startedAt ?? new Date(0).toISOString(),

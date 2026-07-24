@@ -71,7 +71,7 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
 })
     ], { id: 'root' })
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 48, rows: 8 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 48, rows: 8 } });
   const runtime = createTuiRuntime({
     app,
     host,
@@ -153,7 +153,7 @@ test('TUI runtime unwinds nested contained overlay focus to the original field',
         : [])
     ], { id: 'root' })
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 48, rows: 10 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 48, rows: 10 } });
   const runtime = createTuiRuntime({
     app,
     host,
@@ -191,7 +191,7 @@ test('anonymous container focus identity survives terminal resize', async () => 
       textInput({ id: 'second', presentation: { value: state.value, cursor: 0 } })
     ])
   });
-  const harness = createTerminalHarness({ viewport: { columns: 40, rows: 6 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 40, rows: 6 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -220,7 +220,7 @@ test('runTui accepts an initial focus path', async () => {
       textInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 20, rows: 4 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 4 } });
   host.input('\r');
 
   const exit = await runTui(app, host, { initialFocus: { kind: 'path', path: ['column:0', 'second'] } });
@@ -240,7 +240,7 @@ test('runTui accepts a state-derived theme', async () => {
       segments: [{ kind: 'text', text: 'theme', style: { fg: { kind: 'theme', token: 'accent.primary' } } }]
     })
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 12, rows: 2 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 12, rows: 2 } });
   host.input('\r');
 
   const exit = await runTui(app, host, {
@@ -270,13 +270,13 @@ test('TUI runtime restores a serialized focus path when it still exists', async 
       textInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
-  const firstHarness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const firstHarness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const firstRuntime = createTuiRuntime({ app, host: firstHarness.host });
   await firstRuntime.start();
   await firstRuntime.handleInput({ kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   const restoredPath = firstRuntime.frame().focusPath;
 
-  const restoredHarness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const restoredHarness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const restoredRuntime = createTuiRuntime({
     app,
     host: restoredHarness.host,
@@ -307,7 +307,7 @@ test('TUI runtime falls back when restored focus path is stale', async () => {
       textInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const runtime = createTuiRuntime({
     app,
     host: harness.host,
@@ -338,7 +338,7 @@ test('ambiguous initial element focus is diagnosed instead of selecting an arbit
       textInput({ id: 'duplicate', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const runtime = createTuiRuntime({
     app,
     host: harness.host,
@@ -364,7 +364,7 @@ test('TUI runtime traverses focus backward with shifted tab', async () => {
       textInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -411,7 +411,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
 })
     ])
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 6 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 6 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -442,7 +442,7 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
       })
     ])
   });
-  const modalHarness = createTerminalHarness({ viewport: { columns: 30, rows: 8 } });
+  const modalHarness = createTerminalHarness({ terminalSize: { columns: 30, rows: 8 } });
   const modalRuntime = createTuiRuntime({ app: modalApp, host: modalHarness.host });
 
   await modalRuntime.start();
@@ -476,7 +476,7 @@ test('TUI runtime traps focus inside modal and scoped popover widgets', async ()
 })
     ])
   });
-  const popoverHarness = createTerminalHarness({ viewport: { columns: 30, rows: 8 } });
+  const popoverHarness = createTerminalHarness({ terminalSize: { columns: 30, rows: 8 } });
   const popoverRuntime = createTuiRuntime({ app: popoverApp, host: popoverHarness.host });
 
   await popoverRuntime.start();
@@ -533,7 +533,7 @@ test('dialog owns escape dismissal, initial focus, and focus restoration', async
         : [])
     ])
   });
-  const harness = createTerminalHarness({ viewport: { columns: 40, rows: 10 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 40, rows: 10 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -589,7 +589,7 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
   });
   const contextMenuRuntime = createTuiRuntime({
     app: contextMenuApp,
-    host: createTerminalHarness({ viewport: { columns: 24, rows: 5 } }).host
+    host: createTerminalHarness({ terminalSize: { columns: 24, rows: 5 } }).host
   });
 
   await contextMenuRuntime.start();
@@ -640,7 +640,7 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
   });
   const dropdownMenuRuntime = createTuiRuntime({
     app: dropdownMenuApp,
-    host: createTerminalHarness({ viewport: { columns: 24, rows: 5 } }).host
+    host: createTerminalHarness({ terminalSize: { columns: 24, rows: 5 } }).host
   });
 
   await dropdownMenuRuntime.start();
@@ -685,7 +685,7 @@ test('TUI runtime traverses multiple custom focus targets within one widget', as
     update: (state) => ({ state }),
     view: () => custom({ id: 'custom-board', renderer })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 10, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 10, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -724,7 +724,7 @@ test('TUI frame accessibility uses widget metadata and marks only the active foc
       table({ id: 'grid', rows: [['A1', 'B1']], getRowId: (_row, index) => String(index) })
     ])
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 8 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 8 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -771,7 +771,7 @@ test('TUI runtime uses app-level accessibility descriptions for frames and exits
       })
     }
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const running = runTui(app, harness.host);
 
   await waitUntil(() => harness.frames().length === 1);
@@ -806,7 +806,7 @@ test('TUI runtime falls back when app-level accessibility is structurally invali
       })
     }
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();

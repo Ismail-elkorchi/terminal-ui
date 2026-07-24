@@ -127,7 +127,7 @@ test('table exposes row hit targets and routes row messages', async () => {
       onAction: (action) => ({ kind: 'row', action })
     })
   });
-  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 2 } }) });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 2 } }) });
 
   await runtime.start();
   const press = await runtime.handleInput(mousePress(2, 1));
@@ -187,7 +187,7 @@ test('table exposes visible cell hit targets when cell selection is active', asy
       onAction: (action) => ({ kind: 'cell', action })
     })
   });
-  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } }) });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } }) });
 
   await runtime.start();
   await runtime.handleInput(mousePress(2, 11));
@@ -208,7 +208,7 @@ test('table row and cell double clicks emit the same activation action as Enter'
       onAction: (action) => action
     })
   });
-  const rowRuntime = createTuiRuntime({ app: rowApp, host: createMemoryTerminalHost({ viewport: { columns: 20, rows: 2 } }) });
+  const rowRuntime = createTuiRuntime({ app: rowApp, host: createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 2 } }) });
 
   await rowRuntime.start();
   await clickAt(rowRuntime, 1, 1);
@@ -231,7 +231,7 @@ test('table row and cell double clicks emit the same activation action as Enter'
       onAction: (action) => action
     })
   });
-  const cellRuntime = createTuiRuntime({ app: cellApp, host: createMemoryTerminalHost({ viewport: { columns: 20, rows: 2 } }) });
+  const cellRuntime = createTuiRuntime({ app: cellApp, host: createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 2 } }) });
 
   await cellRuntime.start();
   const cellTarget = cellRuntime.frame().hitTargets.find((target) => target.id.includes(':cell:'));
@@ -446,7 +446,7 @@ test('table header capabilities share geometry across keyboard, click, and captu
   });
   const runtime = createTuiRuntime({
     app,
-    host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 4 } }),
+    host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 4 } }),
     initialFocus: { kind: 'path', path: ['metrics'] }
   });
 

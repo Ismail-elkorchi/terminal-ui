@@ -45,7 +45,7 @@ test('activity feed vertical slice maps generic activity blocks through runtime 
     }),
     view
   });
-  const harness = createTerminalHarness({ viewport: { columns: 32, rows: 8 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 32, rows: 8 } });
   harness.host.input('\r');
   const exit = await runTui(app, harness.host);
 

@@ -32,12 +32,12 @@ test('generic host factory rejects untyped invalid selector objects', () => {
 test('generic host factory forwards adapter-specific explicit host options', async () => {
   const memory = createTerminalHost({
     runtime: 'memory',
-    viewport: { columns: 33, rows: 7 },
+    terminalSize: { columns: 33, rows: 7 },
     isTty: false,
     env: { TERM_PROGRAM: 'memory-test' }
   });
   assert.equal(memory.runtime, 'memory');
-  assert.deepEqual(memory.getViewport(), { columns: 33, rows: 7 });
+  assert.deepEqual(memory.getTerminalSize(), { columns: 33, rows: 7 });
   assert.equal(memory.stdin.isTty(), false);
   assert.equal(memory.env.get('TERM_PROGRAM'), 'memory-test');
 
@@ -51,7 +51,7 @@ test('generic host factory forwards adapter-specific explicit host options', asy
   });
   await node.write({ text: 'forwarded' });
   assert.equal(node.runtime, 'node');
-  assert.deepEqual(node.getViewport(), { columns: 41, rows: 9 });
+  assert.deepEqual(node.getTerminalSize(), { columns: 41, rows: 9 });
   assert.deepEqual(writes, ['forwarded']);
   assert.equal(node.env.get('TERM'), 'xterm-256color');
 
@@ -59,13 +59,13 @@ test('generic host factory forwards adapter-specific explicit host options', asy
   const pty = createTerminalHost({
     adapter: 'pty',
     id: 'factory-pty',
-    viewport: { columns: 64, rows: 16 },
+    terminalSize: { columns: 64, rows: 16 },
     stdout: { write: (chunk) => ptyWrites.push(String(chunk)) }
   });
   await pty.write({ text: 'pty' });
   assert.equal(pty.id, 'factory-pty');
   assert.equal(pty.runtime, 'node');
-  assert.deepEqual(pty.getViewport(), { columns: 64, rows: 16 });
+  assert.deepEqual(pty.getTerminalSize(), { columns: 64, rows: 16 });
   assert.deepEqual(ptyWrites, ['pty']);
 });
 
@@ -78,11 +78,11 @@ test('PTY-style host wraps caller-supplied terminal streams without owning proce
   const pty = createPtyTerminalHost({
     id: 'integration-pty',
     runtime: 'node',
-    viewport: { columns: 72, rows: 18 },
+    terminalSize: { columns: 72, rows: 18 },
     stdin: { source: { read: () => input } },
     stdout: { write: (chunk) => writes.push(String(chunk)) },
-    resize: (viewport) => {
-      resizes.push(viewport);
+    resize: (terminalSize) => {
+      resizes.push(terminalSize);
     }
   });
 
@@ -90,7 +90,7 @@ test('PTY-style host wraps caller-supplied terminal streams without owning proce
   assert.equal(pty.runtime, 'node');
   assert.equal(pty.stdin.isTty(), true);
   assert.equal(pty.stdout.isTty(), true);
-  assert.deepEqual(pty.getViewport(), { columns: 72, rows: 18 });
+  assert.deepEqual(pty.getTerminalSize(), { columns: 72, rows: 18 });
   assert.equal(pty.stdout.columns, 72);
   assert.equal((await pty.getCapabilities()).isTty, true);
 
@@ -101,8 +101,8 @@ test('PTY-style host wraps caller-supplied terminal streams without owning proce
   for await (const chunk of pty.stdin.read()) chunks.push(chunk.data);
   assert.deepEqual(chunks, ['typed']);
 
-  await pty.viewportControl.setViewport({ columns: 100, rows: 30 });
-  assert.deepEqual(pty.getViewport(), { columns: 100, rows: 30 });
+  await pty.terminalSizeControl.setTerminalSize({ columns: 100, rows: 30 });
+  assert.deepEqual(pty.getTerminalSize(), { columns: 100, rows: 30 });
   assert.equal(pty.stdout.columns, 100);
   assert.deepEqual(resizes, [{ columns: 100, rows: 30 }]);
 });

@@ -56,12 +56,12 @@ test('region damage for moving overlay includes old and new bounds only', () => 
 test('dirty diff for moved regions round-trips to the full next frame', () => {
   const previousWidget = movingOverlay(2, 2);
   const nextWidget = movingOverlay(3, 5);
-  const viewport = { columns: 12, rows: 5 };
-  const previous = renderElementFrame(previousWidget, viewport);
-  const next = renderElementFrame(nextWidget, viewport);
+  const terminalSize = { columns: 12, rows: 5 };
+  const previous = renderElementFrame(previousWidget, terminalSize);
+  const next = renderElementFrame(nextWidget, terminalSize);
   const dirtyRegions = dirtyRegionsForRegionChanges(
-    renderElementRegions(previousWidget, viewport),
-    renderElementRegions(nextWidget, viewport)
+    renderElementRegions(previousWidget, terminalSize),
+    renderElementRegions(nextWidget, terminalSize)
   );
   const diff = diffFrames(previous, next, { dirtyRegions });
   const applied = applyDiffToFrame(previous, diff);
@@ -69,7 +69,7 @@ test('dirty diff for moved regions round-trips to the full next frame', () => {
   assert.deepEqual(diff.dirtyRegions, dirtyRegions?.rects);
   assert.equal(diff.fullRewrite, false);
   assert.equal(renderFramePlain(applied), renderFramePlain(next));
-  assert.equal(diff.dirtyRegions?.some((rect) => rect.width === viewport.columns && rect.height === viewport.rows), false);
+  assert.equal(diff.dirtyRegions?.some((rect) => rect.width === terminalSize.columns && rect.height === terminalSize.rows), false);
 });
 
 test('incremental diff projections reject width-profile changes', () => {

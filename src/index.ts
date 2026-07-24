@@ -21,7 +21,7 @@ export { createTerminalHost } from './host/index.ts';
 export type {
   CreateTerminalHostOptions,
   TerminalHost,
-  TerminalViewport
+  TerminalSize
 } from './host/index.ts';
 
 export { copySelectedTextToClipboard, defineTui, runTui } from './tui/index.ts';

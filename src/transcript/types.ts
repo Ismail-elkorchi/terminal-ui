@@ -1,13 +1,13 @@
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
 import type { DiagnosticOccurrence, TerminalDiagnostic } from '../diagnostics.ts';
-import type { TerminalRestoreResult, TerminalViewport } from '../host/index.ts';
+import type { TerminalRestoreResult, TerminalSize } from '../host/index.ts';
 import type { FocusPath } from '../interaction/focus.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { TuiMessageSource } from '../runtime-model/message-source.ts';
 
 export interface InteractionTranscript {
-  readonly schemaVersion: 'terminal-ui.interaction-transcript.v2';
+  readonly schemaVersion: 'terminal-ui.interaction-transcript.v3';
   readonly id: string;
   readonly source: TranscriptSource;
   readonly startedAt?: string;
@@ -29,7 +29,7 @@ export type InteractionTranscriptStep =
 export interface TranscriptRuntimeCommit {
   readonly id: string;
   readonly stateVersion: number;
-  readonly viewport: TerminalViewport;
+  readonly terminalSize: TerminalSize;
   readonly focusPath?: FocusPath;
   readonly frame: Frame;
   readonly diff: RenderDiff;

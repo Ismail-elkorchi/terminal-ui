@@ -197,7 +197,7 @@ function updateMonitor(
 }
 
 function monitorView(state: MonitorState, context: TuiContext) {
-  const wide = context.viewport.columns >= 120;
+  const wide = context.terminalSize.columns >= 120;
   return wide ? wideMonitor(state) : compactMonitor(state);
 }
 
@@ -600,7 +600,7 @@ function inlineText(
 }
 
 export async function runScriptedBtopMonitor() {
-  const host = createMemoryTerminalHost({ viewport: { columns: 160, rows: 42 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 160, rows: 42 } });
   const runtime = createTuiRuntime({ app: btopMonitorApp, host, initialFocus: { kind: 'path', path: commandFocusPath } });
   try {
     await runtime.start();

@@ -1019,7 +1019,7 @@ test('Deno and Bun host adapters work with explicit runtime streams', async () =
 
   assert.equal(deno.runtime, 'deno');
   assert.equal((await deno.getCapabilities()).runtime, 'deno');
-  assert.equal(deno.getViewport().columns, 100);
+  assert.equal(deno.getTerminalSize().columns, 100);
   assert.equal(deno.env.get('DENO_ENV'), 'test');
   assert.deepEqual(denoOutput, ['hello-deno']);
   assert.equal(denoInput, 'deno-input');
@@ -1040,7 +1040,7 @@ test('Deno and Bun host adapters work with explicit runtime streams', async () =
 
   assert.equal(bun.runtime, 'bun');
   assert.equal((await bun.getCapabilities()).runtime, 'bun');
-  assert.equal(bun.getViewport().rows, 20);
+  assert.equal(bun.getTerminalSize().rows, 20);
   assert.deepEqual(bunOutput, ['hello-bun']);
   assert.equal(bunInput, 'bun-input');
 });

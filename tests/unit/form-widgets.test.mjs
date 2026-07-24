@@ -257,12 +257,12 @@ test('form controls emit submit and cancel messages while app state owns values'
     })
   });
 
-  const submitRuntime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 6 } }) });
+  const submitRuntime = createTuiRuntime({ app, host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 6 } }) });
   await submitRuntime.start();
   await submitRuntime.handleInput(tab);
   const submit = await submitRuntime.handleInput(enter);
 
-  const cancelRuntime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 6 } }) });
+  const cancelRuntime = createTuiRuntime({ app, host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 6 } }) });
   await cancelRuntime.start();
   await cancelRuntime.handleInput(tab);
   await cancelRuntime.handleInput(tab);

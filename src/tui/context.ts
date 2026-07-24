@@ -7,7 +7,7 @@ export async function createTuiContext(
   diagnostics: readonly DiagnosticOccurrence[] = []
 ): Promise<TuiContext> {
   return {
-    viewport: host.getViewport(),
+    terminalSize: host.getTerminalSize(),
     capabilities: await host.getCapabilities(),
     diagnostics,
     clock: host.clock

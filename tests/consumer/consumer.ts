@@ -135,7 +135,7 @@ const decoded = createInputDecoder().decode({ data: '\r' });
 const selected = resolveSelectedText({
   sources: [{ id: 'consumer-source', text: 'selected text', selection: { start: 0, end: 8 } }]
 });
-const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
 const result = ok('root-entrypoint');
 const protocolWrites: string[] = [];
 const protocol = createProtocolWriter({

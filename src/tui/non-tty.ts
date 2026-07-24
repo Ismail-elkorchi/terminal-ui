@@ -60,7 +60,7 @@ export async function runTuiNonTty<TState, TMessage>(
     recordTuiCommit(transcript, {
       id: `${app.id}:commit:1`,
       stateVersion: 0,
-      viewport: context.viewport,
+      terminalSize: context.terminalSize,
       ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),
       frame,
       diff: diffFrames(undefined, frame)
@@ -135,7 +135,7 @@ export async function runTuiNonTty<TState, TMessage>(
 
 function nonTtyContext(host: TerminalHost, capabilities: TerminalCapabilityProfile): TuiContext {
   return {
-    viewport: host.getViewport(),
+    terminalSize: host.getTerminalSize(),
     capabilities,
     diagnostics: [],
     clock: host.clock

@@ -8,7 +8,7 @@ import {
 import { createPtyTerminalHarness } from '../../dist/testing/index.js';
 
 test('PTY harness restores terminal protocols when a TUI throws during rendering', async () => {
-  const result = createPtyTerminalHarness({ viewport: { columns: 24, rows: 4 } });
+  const result = createPtyTerminalHarness({ terminalSize: { columns: 24, rows: 4 } });
   assert.equal(result.ok, true);
   const harness = result.harness;
   const app = defineTui({

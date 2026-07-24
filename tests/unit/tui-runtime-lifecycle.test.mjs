@@ -23,7 +23,7 @@ test('runTui emits deterministic transcripts when enabled', async () => {
       onSubmit: () => ({ submitted: true })
     })
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 20, rows: 3 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 3 } });
   host.input('\r');
   const exit = await runTui(app, host);
 
@@ -618,7 +618,7 @@ test('TUI runtime exposes diagnostics to app views', async () => {
       return text(`${item?.code ?? 'none'}:${item?.data?.operation ?? 'none'}:${item?.data?.target ?? 'none'}`);
     }
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 48, rows: 3 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 48, rows: 3 } });
   const runtime = createTuiRuntime({ app, host, diagnostics: [appDiagnostic] });
 
   const frame = await runtime.start();
@@ -650,7 +650,7 @@ test('TUI runtime exposes diagnostics to subscription sources', async () => {
     }],
     view: (state) => text(state.label, { id: 'diagnostic-label' })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 48, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 48, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host, diagnostics: [appDiagnostic] });
 
   await runtime.start();
@@ -671,7 +671,7 @@ test('runTui exposes setup diagnostics to app views', async () => {
       return text(`${item?.code ?? 'none'}:${item?.data?.operation ?? 'none'}:${item?.data?.target ?? 'none'}`);
     }
   });
-  const harness = createTerminalHarness({ viewport: { columns: 52, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 52, rows: 3 } });
   const running = runTui(app, harness.host, {
     sessionPolicy: {
       alternateScreen: 'disabled',
@@ -707,7 +707,7 @@ test('runTui decodes legacy input when optional Kitty setup was not applied', as
     view: (state) => text(state.decodedAsKitty ? 'kitty' : 'legacy')
   });
   const harness = createTerminalHarness({
-    viewport: { columns: 20, rows: 3 },
+    terminalSize: { columns: 20, rows: 3 },
     capabilities: { probes: { keyboardProtocol: 'supported' } }
   });
   const write = harness.host.write.bind(harness.host);
@@ -742,7 +742,7 @@ test('runTui restores terminal protocols on successful exit', async () => {
     update: (state) => ({ state }),
     view: () => textInput({ id: 'field', presentation: { value: 'ready', cursor: 0 } })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 16, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 16, rows: 3 } });
   harness.host.endInput();
   const exit = await runTui(app, harness.host);
   const result = { transcript: harness.transcript.snapshot(), output: harness.output(), snapshot: harness.snapshot() };
@@ -781,7 +781,7 @@ test('runTui processes host input chunks until the app exits', async () => {
       onSubmit: () => ({ submitted: true })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   harness.host.input('\r');
   const exit = await runTui(app, harness.host);
 
@@ -811,7 +811,7 @@ test('runTui preserves sanitized completed exit reasons', async () => {
       onSubmit: () => ({ submitted: true })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   harness.host.input('\r');
   const exit = await runTui(app, harness.host);
 
@@ -838,7 +838,7 @@ test('runTui lets apps own escape and ctrlC key bindings', async () => {
       }
     })
   });
-  const escapeHarness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const escapeHarness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const escapeRunning = runTui(app, escapeHarness.host, { input: { escapeDelayMs: 1 } });
   await waitUntil(() => escapeHarness.frames().length === 1);
   escapeHarness.host.input('\u001B');
@@ -846,7 +846,7 @@ test('runTui lets apps own escape and ctrlC key bindings', async () => {
   escapeHarness.host.clock.advance(1);
   const escape = await escapeRunning;
 
-  const ctrlCHarness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const ctrlCHarness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   ctrlCHarness.host.input('\u0003');
   const ctrlC = await runTui(app, ctrlCHarness.host);
 
@@ -867,15 +867,15 @@ test('runTui re-renders when the host emits resize signals', async () => {
     update: (_state, message) => ({ state: { done: message.done }, exit: {} }),
     view: (_state, context) => textInput({
       id: 'resize-field',
-      presentation: { value: `columns:${context.viewport.columns}`, cursor: 0 },
+      presentation: { value: `columns:${context.terminalSize.columns}`, cursor: 0 },
       onSubmit: () => ({ done: true })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const running = runTui(app, harness.host);
 
   await waitUntil(() => harness.frames().length === 1);
-  harness.host.viewportControl?.setViewport({ columns: 12, rows: 3 });
+  harness.host.terminalSizeControl?.setTerminalSize({ columns: 12, rows: 3 });
   harness.host.signals.emit('resize');
   await waitUntil(() => harness.frames().length === 2);
   harness.host.input('\r');
@@ -896,16 +896,16 @@ test('runTui coalesces resize storms to one active and one latest commit', async
     update: (_state, message) => ({ state: { done: message.done }, exit: message.done ? {} : undefined }),
     view: (_state, context) => textInput({
       id: 'resize-storm-field',
-      presentation: { value: `columns:${context.viewport.columns}`, cursor: 0 },
+      presentation: { value: `columns:${context.terminalSize.columns}`, cursor: 0 },
       onSubmit: () => ({ done: true })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
-  const getViewport = harness.host.getViewport.bind(harness.host);
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
+  const getTerminalSize = harness.host.getTerminalSize.bind(harness.host);
   let viewportReads = 0;
-  harness.host.getViewport = () => {
+  harness.host.getTerminalSize = () => {
     viewportReads += 1;
-    return getViewport();
+    return getTerminalSize();
   };
   const signalSubscribed = deferred();
   const originalSubscribe = harness.host.signals.subscribe.bind(harness.host.signals);
@@ -919,7 +919,7 @@ test('runTui coalesces resize storms to one active and one latest commit', async
   const releaseResize = deferred();
   let blocked = false;
   harness.host.write = async (output) => {
-    if (!blocked && harness.host.getViewport().columns === 21) {
+    if (!blocked && harness.host.getTerminalSize().columns === 21) {
       blocked = true;
       resizeStarted.release();
       await releaseResize.promise;
@@ -933,11 +933,11 @@ test('runTui coalesces resize storms to one active and one latest commit', async
     signalSubscribed.promise
   ]);
   const initialViewportReads = viewportReads;
-  await harness.host.viewportControl?.setViewport({ columns: 21, rows: 3 });
+  await harness.host.terminalSizeControl?.setTerminalSize({ columns: 21, rows: 3 });
   harness.host.signals.emit('resize');
   await resizeStarted.promise;
   for (let columns = 22; columns <= 64; columns += 1) {
-    await harness.host.viewportControl?.setViewport({ columns, rows: 3 });
+    await harness.host.terminalSizeControl?.setTerminalSize({ columns, rows: 3 });
     harness.host.signals.emit('resize');
   }
   releaseResize.release();
@@ -959,7 +959,7 @@ test('runTui exits and restores when the host emits interruption signals', async
     update: (state) => ({ state }),
     view: () => textInput({ id: 'signal-field', presentation: { value: 'ready', cursor: 0 } })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const running = runTui(app, harness.host);
 
   await waitUntil(() => harness.frames().length === 1);
@@ -980,7 +980,7 @@ test('runTui restores terminal protocols after initialization failure', async ()
     update: (state) => ({ state }),
     view: () => textInput({ id: 'field', presentation: { value: 'unused', cursor: 0 } })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 16, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 16, rows: 3 } });
   const exit = await runTui(app, harness.host);
 
   assert.equal(exit.status, 'error');
@@ -1192,7 +1192,7 @@ test('runTui restores terminal state after runtime and exit-handler cleanup fail
     },
     view: () => textInput({ id: 'cleanup-submit', presentation: { value: '', cursor: 0 }, onSubmit: () => ({ kind: 'submit' }) })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   harness.input('\r');
 
   const exit = await runTui(app, harness.host);

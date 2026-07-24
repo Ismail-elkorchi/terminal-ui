@@ -125,7 +125,7 @@ test('custom renderer hit targets route mouse messages', async () => {
       state
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 12, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -465,7 +465,7 @@ test('custom composites arrange opaque children while preserving interaction and
       }
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host, initialFocus: { kind: 'path', path: ['custom-actions', 'save'] } });
 
   await runtime.start();

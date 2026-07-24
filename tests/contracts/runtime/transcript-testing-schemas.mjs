@@ -6,7 +6,7 @@ const recorder = createTranscriptRecorder({ id: 'portable', source: 'test' });
 recorder.record({ kind: 'input', event: { kind: 'text', text: 'x', paste: false } });
 const transcript = recorder.snapshot();
 const validation = validateTranscript(transcript);
-const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
 
 await harness.input('x');
 

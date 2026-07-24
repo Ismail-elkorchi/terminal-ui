@@ -17,7 +17,7 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
   let pendingFrame: Frame | undefined;
   let commitSequence = 1;
   const host = createMemoryTerminalHost({
-    ...(options.viewport === undefined ? {} : { viewport: options.viewport }),
+    ...(options.terminalSize === undefined ? {} : { terminalSize: options.terminalSize }),
     observer: {
       recordFrame(frame) {
         pendingFrame = frame as Frame;
@@ -54,11 +54,11 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
       transcript.record({ kind: 'input', event });
       return Promise.resolve();
     },
-    resize(viewport) {
-      deliverHarnessResize(host, viewport);
+    resize(terminalSize) {
+      deliverHarnessResize(host, terminalSize);
       transcript.record({
         kind: 'input',
-        event: { kind: 'resize', viewport }
+        event: { kind: 'resize', terminalSize }
       });
       return Promise.resolve();
     },
@@ -83,7 +83,7 @@ export function createTerminalHarness(options: TerminalHarnessOptions = {}): Ter
 
 function deliverHarnessInputEvent(host: MemoryTerminalHost, event: InputEvent): void {
   if (event.kind === 'resize') {
-    deliverHarnessResize(host, event.viewport);
+    deliverHarnessResize(host, event.terminalSize);
     return;
   }
   if (event.kind === 'signal') {
@@ -98,8 +98,8 @@ function deliverHarnessInputEvent(host: MemoryTerminalHost, event: InputEvent): 
   if (encoded !== undefined) host.input(encoded);
 }
 
-function deliverHarnessResize(host: MemoryTerminalHost, viewport: { readonly columns: number; readonly rows: number }): void {
-  void host.viewportControl?.setViewport(viewport);
+function deliverHarnessResize(host: MemoryTerminalHost, terminalSize: { readonly columns: number; readonly rows: number }): void {
+  void host.terminalSizeControl?.setTerminalSize(terminalSize);
   host.signals.emit('resize');
 }
 
@@ -132,7 +132,7 @@ function harnessCommit(id: string, stateVersion: number, frame: Frame, diff: Ren
   return {
     id,
     stateVersion,
-    viewport: { columns: frame.width, rows: frame.height },
+    terminalSize: { columns: frame.width, rows: frame.height },
     ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),
     frame,
     diff

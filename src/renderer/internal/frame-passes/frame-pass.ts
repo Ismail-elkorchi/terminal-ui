@@ -1,4 +1,4 @@
-import type { ViewportSize } from '../../../geometry/types.ts';
+import type { TerminalSize } from '../../../geometry/types.ts';
 import type { TerminalTheme } from '../../../theme/index.ts';
 import type { FrameBuffer } from '../frame.ts';
 import type { TextWidthProfile } from '../../../text/index.ts';
@@ -12,7 +12,7 @@ export interface FramePass {
 
 export interface FramePassContext {
   readonly theme: TerminalTheme;
-  readonly viewport: ViewportSize;
+  readonly terminalSize: TerminalSize;
   readonly widthProfile: TextWidthProfile;
 }
 

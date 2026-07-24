@@ -16,7 +16,7 @@ interface DenoLike {
 export function createDenoTerminalHost(options: DenoTerminalHostOptions = {}): TerminalHost {
   const deno = denoGlobal();
   const subscribeSignals = options.subscribeSignals ?? denoSignalSubscriber(deno);
-  const getNativeViewport = options.stdout === undefined
+  const getNativeTerminalSize = options.stdout === undefined
     ? () => denoConsoleSize(deno)
     : undefined;
   return createStreamTerminalHost({
@@ -26,7 +26,7 @@ export function createDenoTerminalHost(options: DenoTerminalHostOptions = {}): T
     stdin: options.stdin ?? denoInputOptions(deno),
     stdout: options.stdout ?? denoOutputOptions(deno?.stdout),
     stderr: options.stderr ?? denoOutputOptions(deno?.stderr),
-    ...(getNativeViewport === undefined ? {} : { getViewport: getNativeViewport }),
+    ...(getNativeTerminalSize === undefined ? {} : { getTerminalSize: getNativeTerminalSize }),
     ...(options.capabilities === undefined ? {} : { capabilities: options.capabilities }),
     ...(options.initialState === undefined ? {} : { initialState: options.initialState }),
     ...optionalEnv(options.env ?? denoEnvironment(deno))

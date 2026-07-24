@@ -6,8 +6,8 @@ const authoredNodeLimits = Object.freeze({
 
 export function structuralBudgetViolations(report) {
   const violations = [];
-  const viewportCells = report.metadata.viewport.columns * report.metadata.viewport.rows;
-  const rowLimit = report.metadata.viewport.rows;
+  const terminalSizeCells = report.metadata.terminalSize.columns * report.metadata.terminalSize.rows;
+  const rowLimit = report.metadata.terminalSize.rows;
   for (const scenario of report.scenarios.filter((candidate) => candidate.kind === 'render')) {
     const setupRecords = scenario.setupWork?.normalized_records ?? 0;
     if (setupRecords > scenario.scale) {
@@ -22,15 +22,15 @@ export function structuralBudgetViolations(report) {
     check(violations, scenario.name, 'measured_nodes', measured, authored);
     check(violations, scenario.name, 'rendered_nodes', rendered, measured);
     check(violations, scenario.name, 'query_candidates', maximum(work.query_candidates), scenario.scale);
-    check(violations, scenario.name, 'composed_cells', maximum(work.composed_cells), viewportCells * 2);
+    check(violations, scenario.name, 'composed_cells', maximum(work.composed_cells), terminalSizeCells * 2);
     check(violations, scenario.name, 'snapshot_rows', maximum(work.snapshot_rows), rowLimit);
-    check(violations, scenario.name, 'snapshot_cells', maximum(work.snapshot_cells), viewportCells);
-    check(violations, scenario.name, 'emitted_cells', maximum(work.emitted_cells), viewportCells);
+    check(violations, scenario.name, 'snapshot_cells', maximum(work.snapshot_cells), terminalSizeCells);
+    check(violations, scenario.name, 'emitted_cells', maximum(work.emitted_cells), terminalSizeCells);
     check(violations, scenario.name, 'hit_target_candidates', maximum(work.hit_target_candidates), rowLimit * 8);
     check(violations, scenario.name, 'diff_rows', maximum(work.diff_rows), rowLimit);
-    check(violations, scenario.name, 'diff_cells', maximum(work.diff_cells), viewportCells);
+    check(violations, scenario.name, 'diff_cells', maximum(work.diff_cells), terminalSizeCells);
     check(violations, scenario.name, 'diff_operations', maximum(work.diff_operations), rowLimit * 4);
-    check(violations, scenario.name, 'encoded_bytes', maximum(work.encoded_bytes), viewportCells * 4);
+    check(violations, scenario.name, 'encoded_bytes', maximum(work.encoded_bytes), terminalSizeCells * 4);
   }
   return Object.freeze(violations);
 }
@@ -39,8 +39,8 @@ export function timingRegressionViolations(baseline, current) {
   if (baseline.metadata.runtimeKey !== current.metadata.runtimeKey) {
     return Object.freeze([`runtime key mismatch: ${baseline.metadata.runtimeKey} != ${current.metadata.runtimeKey}`]);
   }
-  if (JSON.stringify(baseline.metadata.viewport) !== JSON.stringify(current.metadata.viewport)) {
-    return Object.freeze(['viewport mismatch between timing reports']);
+  if (JSON.stringify(baseline.metadata.terminalSize) !== JSON.stringify(current.metadata.terminalSize)) {
+    return Object.freeze(['terminal size mismatch between timing reports']);
   }
   const currentScenarios = new Map(current.scenarios.map((scenario) => [scenario.name, scenario]));
   const violations = [];

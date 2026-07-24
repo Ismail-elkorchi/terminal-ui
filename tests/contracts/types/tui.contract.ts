@@ -12,7 +12,13 @@ const app: TuiApp<State, Message> = defineTui<State, Message>({
   update: (state, message) => message.kind === 'increment'
     ? { state: { count: state.count + 1 } }
     : { state: { count: 0 } },
-  view: (state): Element<Message> => text(String(state.count))
+  view: (state, context): Element<Message> => {
+    const columns = context.terminalSize.columns;
+    // @ts-expect-error TUI context no longer calls terminal dimensions a viewport
+    const removedViewport = context.viewport;
+    void removedViewport;
+    return text(`${String(state.count)}/${String(columns)}`);
+  }
 });
 
 // @ts-expect-error update messages must match the declared message union

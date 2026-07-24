@@ -6,6 +6,7 @@ import {
   span,
   type Canvas2D,
   type CustomRendererRenderInput,
+  type FramePassContext,
   type FrameCellSource,
   type Frame,
   type Rect,
@@ -52,6 +53,10 @@ declare const customRenderInput: CustomRendererRenderInput<undefined>;
 customRenderInput.target.write(1, 1, [{ text: 'ok' }]);
 // @ts-expect-error the removed buffer field does not describe the write-only public target
 type RemovedCustomBuffer = CustomRendererRenderInput<undefined>['buffer'];
+declare const framePassContext: FramePassContext;
+const framePassColumns = framePassContext.terminalSize.columns;
+// @ts-expect-error frame passes no longer call terminal dimensions a viewport
+const removedFramePassViewport = framePassContext.viewport;
 
 // @ts-expect-error ordinary public rendering returns a frame, not its private render node
 const privateRenderNode = frame.node;
@@ -67,4 +72,6 @@ void validInteractionState;
 void privateRenderNode;
 void privateRegions;
 void customRenderInput;
+void framePassColumns;
+void removedFramePassViewport;
 void (undefined as unknown as RemovedCustomBuffer);

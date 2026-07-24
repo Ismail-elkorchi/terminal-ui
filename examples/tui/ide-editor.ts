@@ -716,7 +716,7 @@ export async function runScriptedIdeEditor() {
   await mkdir(sourceDirectory, { recursive: true });
   await writeFile(readmePath, '# Workspace\n', 'utf8');
   await writeFile(planPath, 'first line\nsecond line\n', 'utf8');
-  const host = createMemoryTerminalHost({ viewport: { columns: 150, rows: 38 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 150, rows: 38 } });
   const runtime = createTuiRuntime({ app: ideEditorApp, host });
   try {
     await runtime.start();

@@ -14,7 +14,7 @@ import { layoutRenderNode } from './layout.ts';
 import { accessibleNode } from './render-accessibility.ts';
 import { createDraftRenderRegion, regionIdForLayoutNode, toRegionHitTarget } from './render-regions.ts';
 import { renderRenderNode, cursorForRenderNode, hitTargetsForRenderNode } from './render-node-behavior.ts';
-import type { ViewportSize } from '../../geometry/types.ts';
+import type { TerminalSize } from '../../geometry/types.ts';
 import type { TerminalTheme, TerminalThemeDefinition } from '../../theme/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { FocusPath } from './focus.ts';
@@ -114,7 +114,7 @@ export type { RenderWorkInstrumentation, RenderWorkKind, RenderWorkMeasurement }
 
 export interface InternalRenderResult<TMessage = unknown> {
   readonly node: RenderNode<TMessage>;
-  readonly viewport: ViewportSize;
+  readonly terminalSize: TerminalSize;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
   readonly layout: LayoutNode;
@@ -124,27 +124,27 @@ export interface InternalRenderResult<TMessage = unknown> {
 
 export function renderElementFrame(
   element: Element<unknown>,
-  viewport: ViewportSize,
+  terminalSize: TerminalSize,
   options: RenderElementOptions = {}
 ): Frame {
-  return renderElementInternal(element, viewport, options).frame;
+  return renderElementInternal(element, terminalSize, options).frame;
 }
 
 export function renderElementInternal<TMessage>(
   element: Element<TMessage>,
-  viewport: ViewportSize,
+  terminalSize: TerminalSize,
   options: RenderElementOptions = {}
 ): InternalRenderResult<TMessage> {
   const renderNode = measureRenderStage(options.instrumentation, 'resolve_element', () => toRenderNode(element));
   recordRenderWork(options.instrumentation, { kind: 'authored_nodes', count: renderNodeCount(renderNode) });
   const environment = createRenderEnvironment({
-    viewport,
+    terminalSize,
     ...(options.theme === undefined ? {} : { theme: options.theme }),
     ...(options.widthProfile === undefined ? {} : { widthProfile: options.widthProfile })
   });
   const { theme, widthProfile } = environment;
   const layout = measureRenderStage(options.instrumentation, 'layout', () =>
-    layoutRenderNode(renderNode, viewport, theme, widthProfile)
+    layoutRenderNode(renderNode, terminalSize, theme, widthProfile)
   );
   recordRenderWork(options.instrumentation, { kind: 'measured_nodes', count: layoutNodeCount(layout) });
   recordRenderWork(options.instrumentation, { kind: 'rendered_nodes', count: visibleLayoutNodeCount(layout) });
@@ -152,21 +152,21 @@ export function renderElementInternal<TMessage>(
     resolveFocusPath(layout, options.focusPath)
   );
   const regions = measureRenderStage(options.instrumentation, 'regions', () =>
-    renderLayoutRegions(renderNode, layout, viewport, theme, widthProfile, resolvedFocusPath)
+    renderLayoutRegions(renderNode, layout, terminalSize, theme, widthProfile, resolvedFocusPath)
   );
   recordRenderWork(options.instrumentation, {
     kind: 'hit_target_candidates',
     count: regions.reduce((total, region) => total + region.hitTargets.length, 0)
   });
   const buffer = measureRenderStage(options.instrumentation, 'composition', () =>
-    compositeRegions(viewport, regions, widthProfile)
+    compositeRegions(terminalSize, regions, widthProfile)
   );
   recordRenderWork(options.instrumentation, {
     kind: 'composed_cells',
     count: regions.reduce((total, region) => total + region.cells.length, 0)
   });
   measureRenderStage(options.instrumentation, 'frame_passes', () => {
-    applyFramePasses(buffer, framePassesForOptions(options), { theme, viewport, widthProfile });
+    applyFramePasses(buffer, framePassesForOptions(options), { theme, terminalSize, widthProfile });
   });
   const cursor = measureRenderStage(options.instrumentation, 'cursor', () => {
     const next = cursorForFocusedRenderNode(renderNode, layout, resolvedFocusPath, theme, widthProfile);
@@ -190,7 +190,7 @@ export function renderElementInternal<TMessage>(
   recordRenderWork(options.instrumentation, { kind: 'snapshot_rows', count: frame.height });
   recordRenderWork(options.instrumentation, { kind: 'snapshot_cells', count: frame.width * frame.height });
   recordRenderWork(options.instrumentation, { kind: 'emitted_cells', count: frame.cells.length });
-  return { node: renderNode, viewport: environment.viewport, theme, widthProfile, layout, regions, frame };
+  return { node: renderNode, terminalSize: environment.terminalSize, theme, widthProfile, layout, regions, frame };
 }
 
 function recordRenderWork(
@@ -237,21 +237,21 @@ const defaultFramePasses: readonly FramePass[] = Object.freeze([boxDrawingJoinPa
 
 export function renderElementRegions<TMessage>(
   element: Element<TMessage>,
-  viewport: ViewportSize,
+  terminalSize: TerminalSize,
   options: RenderElementOptions = {}
 ): readonly RenderRegion<TMessage>[] {
-  return renderElementInternal(element, viewport, options).regions;
+  return renderElementInternal(element, terminalSize, options).regions;
 }
 
 function renderLayoutRegions<TMessage>(
   renderNode: RenderNode<TMessage>,
   layout: LayoutNode,
-  viewport: ViewportSize,
+  terminalSize: TerminalSize,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   focusPath: FocusPath | undefined
 ): readonly RenderRegion<TMessage>[] {
-  const composer = createRegionComposer<TMessage>(viewport, widthProfile);
+  const composer = createRegionComposer<TMessage>(terminalSize, widthProfile);
   const path = nodePath(layout, []);
   renderRenderNodeToRegion(renderNode, layout, [], composer.regionFor(layout, path), composer, theme, widthProfile, focusPath);
   return composer.snapshot(createRegionTargetIndex(renderNode, layout), theme, widthProfile);
@@ -393,7 +393,7 @@ interface RegionComposer<TMessage> {
   ): readonly RenderRegion<TMessage>[];
 }
 
-function createRegionComposer<TMessage>(viewport: ViewportSize, widthProfile: TextWidthProfile): RegionComposer<TMessage> {
+function createRegionComposer<TMessage>(terminalSize: TerminalSize, widthProfile: TextWidthProfile): RegionComposer<TMessage> {
   const regions: DraftRenderRegion[] = [];
   let regionOrder = 0;
   return {
@@ -402,7 +402,7 @@ function createRegionComposer<TMessage>(viewport: ViewportSize, widthProfile: Te
         id: regionIdForLayoutNode(node, path),
         zIndex: node.layer.zIndex,
         order: regionOrder,
-        viewport,
+        terminalSize,
         bounds: node.layer.bounds,
         underlay: node.layer.underlay,
         widthProfile
@@ -438,11 +438,11 @@ function createRegionComposer<TMessage>(viewport: ViewportSize, widthProfile: Te
 }
 
 export function compositeRegions(
-  viewport: ViewportSize,
+  terminalSize: TerminalSize,
   regions: readonly RenderRegion[],
   widthProfile: TextWidthProfile
 ): FrameBuffer {
-  const buffer = createFrameBuffer(viewport.columns, viewport.rows, { widthProfile });
+  const buffer = createFrameBuffer(terminalSize.columns, terminalSize.rows, { widthProfile });
   for (const region of regions.toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)) {
     if (region.underlay === 'clear') {
       buffer.clear(region.bounds);

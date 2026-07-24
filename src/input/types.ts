@@ -1,4 +1,4 @@
-import type { TerminalInputChunk, TerminalViewport } from '../host/index.ts';
+import type { TerminalInputChunk, TerminalSize } from '../host/index.ts';
 import type { TerminalKeyboardProfile } from '../protocol/index.ts';
 
 export type InputEvent =
@@ -96,7 +96,7 @@ export interface MouseModifiers {
 
 export interface ResizeEvent {
   readonly kind: 'resize';
-  readonly viewport: TerminalViewport;
+  readonly terminalSize: TerminalSize;
 }
 
 export interface FocusEvent {

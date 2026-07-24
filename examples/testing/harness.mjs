@@ -2,13 +2,13 @@ import { createTerminalHarness, runInteractionScript } from '@ismail-elkorchi/te
 import { diffFrames, renderElementFrame } from '@ismail-elkorchi/terminal-ui/renderer';
 import { text } from '@ismail-elkorchi/terminal-ui/components';
 
-const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
 const emptySnapshot = harness.snapshot();
 const frame = renderElementFrame(text('Harness ready', { id: 'ready' }), { columns: 20, rows: 4 });
 harness.recordCommit({
   id: 'example:commit:1',
   stateVersion: 0,
-  viewport: { columns: frame.width, rows: frame.height },
+  terminalSize: { columns: frame.width, rows: frame.height },
   frame,
   diff: diffFrames(undefined, frame)
 });

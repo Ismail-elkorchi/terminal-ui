@@ -7,7 +7,7 @@ import {
   applyRenderDiff,
   renderDiffProjectionMatchesFrame
 } from '../renderer/internal/diff-interpreter.ts';
-import type { TerminalRestoreResult, TerminalStateChange, TerminalStateSnapshot, TerminalViewport } from '../host/index.ts';
+import type { TerminalRestoreResult, TerminalStateChange, TerminalStateSnapshot, TerminalSize } from '../host/index.ts';
 import { normalizeKeyboardProfile } from '../protocol/index.ts';
 import type { KeyName, MouseAction, MouseButton, MouseEncoding } from '../input/index.ts';
 import type { Result } from '../result.ts';
@@ -75,7 +75,7 @@ function isInteractionTranscript(value: unknown): value is InteractionTranscript
 
 function transcriptIssue(transcript: unknown): string | undefined {
   if (!isRecord(transcript)) return 'Interaction transcript must be an object.';
-  if (transcript['schemaVersion'] !== 'terminal-ui.interaction-transcript.v2') {
+  if (transcript['schemaVersion'] !== 'terminal-ui.interaction-transcript.v3') {
     return 'Unsupported interaction transcript schema version.';
   }
   if (!isNonEmptyString(transcript['id'])) {
@@ -192,8 +192,8 @@ function commitIssue(value: unknown): string | undefined {
   if (!isRecord(value)) return 'commit must be an object.';
   if (!isNonEmptyString(value['id'])) return 'commit id must not be empty.';
   if (!isIntegerAtLeast(value['stateVersion'], 0)) return 'commit stateVersion must be a non-negative integer.';
-  const viewport = viewportIssue(value['viewport']);
-  if (viewport !== undefined) return `commit viewport: ${viewport}`;
+  const terminalSize = terminalSizeIssue(value['terminalSize']);
+  if (terminalSize !== undefined) return `commit terminal size: ${terminalSize}`;
   if (value['focusPath'] !== undefined && !isStringArray(value['focusPath'])) {
     return 'commit focusPath must be a string array.';
   }
@@ -201,16 +201,16 @@ function commitIssue(value: unknown): string | undefined {
   if (frame !== undefined) return `commit frame: ${frame}`;
   const diff = renderDiffIssue(value['diff']);
   if (diff !== undefined) return `commit diff: ${diff}`;
-  if (!isRecord(value['viewport']) || !isRecord(value['frame']) || !isRecord(value['diff'])) {
+  if (!isRecord(value['terminalSize']) || !isRecord(value['frame']) || !isRecord(value['diff'])) {
     return 'commit projection is incomplete.';
   }
-  const columns = value['viewport']['columns'];
-  const rows = value['viewport']['rows'];
+  const columns = value['terminalSize']['columns'];
+  const rows = value['terminalSize']['rows'];
   if (value['frame']['width'] !== columns || value['diff']['width'] !== columns) {
-    return 'commit frame and diff width must match viewport columns.';
+    return 'commit frame and diff width must match terminal size columns.';
   }
   if (value['frame']['height'] !== rows || value['diff']['height'] !== rows) {
-    return 'commit frame and diff height must match viewport rows.';
+    return 'commit frame and diff height must match terminal size rows.';
   }
   if (!sameWidthProfile(value['frame']['widthProfile'], value['diff']['widthProfile'])) {
     return 'commit frame and diff width profiles must match.';
@@ -253,7 +253,7 @@ function inputEventIssue(event: unknown): string | undefined {
     case 'mouse':
       return mouseEventIssue(event);
     case 'resize':
-      return viewportIssue(event['viewport']);
+      return terminalSizeIssue(event['terminalSize']);
     case 'focus':
       return typeof event['focused'] === 'boolean' ? undefined : 'focus event requires focused.';
     case 'signal':
@@ -616,12 +616,12 @@ function terminalStateChangeIssue(operation: unknown): string | undefined {
   }
 }
 
-function viewportIssue(viewport: unknown): string | undefined {
-  if (!isRecord(viewport)) return 'viewport must be an object.';
-  const typed = viewport as Partial<TerminalViewport>;
+function terminalSizeIssue(terminalSize: unknown): string | undefined {
+  if (!isRecord(terminalSize)) return 'terminal size must be an object.';
+  const typed = terminalSize as Partial<TerminalSize>;
   return isIntegerAtLeast(typed.columns, 1) && isIntegerAtLeast(typed.rows, 1)
     ? undefined
-    : 'viewport columns and rows must be positive integers.';
+    : 'terminal size columns and rows must be positive integers.';
 }
 
 function transcriptFailure(message: string): Result<never> {

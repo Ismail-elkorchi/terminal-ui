@@ -29,7 +29,7 @@ export async function runInteractionScript(
           await harness.input({ kind: 'paste', text: step.text, bracketed: true });
           break;
         case 'resize':
-          await harness.resize(step.viewport);
+          await harness.resize(step.terminalSize);
           break;
         case 'wait':
           harness.clock.advance(step.ms);

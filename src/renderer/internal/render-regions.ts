@@ -1,6 +1,6 @@
 import { createFrameBuffer } from './frame-buffer.ts';
 import { createDirtyRegionSet } from './dirty-regions.ts';
-import type { ViewportSize } from '../../geometry/types.ts';
+import type { TerminalSize } from '../../geometry/types.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type { DirtyRegionSet } from './dirty-regions.ts';
 import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotMetadata, FrameBufferSnapshotOptions } from './frame-buffer.ts';
@@ -72,29 +72,29 @@ export function createDraftRenderRegion(
     readonly id: string;
     readonly zIndex: number;
     readonly order: number;
-    readonly viewport: ViewportSize;
+    readonly terminalSize: TerminalSize;
     readonly bounds: Rect;
     readonly underlay: LayerUnderlay;
     readonly widthProfile: TextWidthProfile;
   }
 ): DraftRenderRegion {
-  const { id, zIndex, order, viewport, bounds, underlay, widthProfile } = input;
-  const regionBounds = normalizeRegionBounds(viewport, bounds);
+  const { id, zIndex, order, terminalSize, bounds, underlay, widthProfile } = input;
+  const regionBounds = normalizeRegionBounds(terminalSize, bounds);
   return {
     id,
     zIndex,
     order,
     bounds: regionBounds,
     underlay,
-    buffer: createRegionFrameBuffer(viewport, regionBounds, widthProfile)
+    buffer: createRegionFrameBuffer(terminalSize, regionBounds, widthProfile)
   };
 }
 
-function createRegionFrameBuffer(viewport: ViewportSize, bounds: Rect, widthProfile: TextWidthProfile): FrameBuffer {
+function createRegionFrameBuffer(terminalSize: TerminalSize, bounds: Rect, widthProfile: TextWidthProfile): FrameBuffer {
   const local = createFrameBuffer(bounds.width, bounds.height, { widthProfile });
   return {
-    width: viewport.columns,
-    height: viewport.rows,
+    width: terminalSize.columns,
+    height: terminalSize.rows,
     widthProfile: local.widthProfile,
     write(row, column, spans) {
       local.write(toLocalRow(bounds, row), toLocalColumn(bounds, column), spans);
@@ -122,8 +122,8 @@ function createRegionFrameBuffer(viewport: ViewportSize, bounds: Rect, widthProf
       const frame = local.snapshot(options);
       return {
         ...frame,
-        width: viewport.columns,
-        height: viewport.rows,
+        width: terminalSize.columns,
+        height: terminalSize.rows,
         cells: frame.cells.map((cell) => toTerminalCell(bounds, cell)),
         metadata: translateSnapshotMetadata(bounds, frame.metadata)
       };
@@ -131,9 +131,9 @@ function createRegionFrameBuffer(viewport: ViewportSize, bounds: Rect, widthProf
   };
 }
 
-function normalizeRegionBounds(viewport: ViewportSize, bounds: Rect): Rect {
-  const viewportBounds = { row: 1, column: 1, width: viewport.columns, height: viewport.rows };
-  return intersectRects(viewportBounds, bounds) ?? {
+function normalizeRegionBounds(terminalSize: TerminalSize, bounds: Rect): Rect {
+  const terminalBounds = { row: 1, column: 1, width: terminalSize.columns, height: terminalSize.rows };
+  return intersectRects(terminalBounds, bounds) ?? {
     row: Math.max(1, Math.floor(bounds.row)),
     column: Math.max(1, Math.floor(bounds.column)),
     width: 0,

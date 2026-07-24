@@ -37,7 +37,7 @@ test('TUI runtime routes key events through focused widget keymaps', async () =>
       textInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -65,7 +65,7 @@ test('TUI runtime lets focused widgets handle tab before focus traversal', async
       textInput({ id: 'second', presentation: { value: state.active, cursor: 0 }, keys: { enter: () => ({ active: 'second' }) } })
     ])
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 4 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -88,7 +88,7 @@ test('TUI runtime routes default app key bindings after focused widgets', async 
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => textInput({ id: 'field', presentation: { value: state.active, cursor: 0 } })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -120,7 +120,7 @@ test('TUI runtime lets focused widgets override after-focus app bindings', async
       keys: { escape: () => ({ active: 'local' }) }
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -151,7 +151,7 @@ test('TUI runtime lets before-focus app bindings intentionally preempt widgets',
       keys: { enter: () => ({ active: 'local' }) }
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -175,7 +175,7 @@ test('TUI runtime does not steal printable text for default app bindings', async
           onAction: ({ operation }) => ({ value: operation.kind === 'insert' ? operation.text : '' })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -201,7 +201,7 @@ test('TUI runtime routes committed text before after-focus app bindings', async 
       onAction: ({ operation }) => ({ value: operation.kind === 'insert' ? operation.text : '' })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -234,7 +234,7 @@ test('TUI runtime routes committed text through app text bindings', async () => 
   });
   const runtime = createTuiRuntime({
     app,
-    host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } })
+    host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } })
   });
 
   await runtime.start();
@@ -264,7 +264,7 @@ test('TUI runtime routes committed text through component text key bindings', as
   });
   const runtime = createTuiRuntime({
     app,
-    host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } })
+    host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } })
   });
 
   await runtime.start();
@@ -300,7 +300,7 @@ test('TUI runtime evaluates app key binding predicates and dynamic messages', as
       keys: { enter: () => ({ active: 'ready', enabled: true }) }
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 32, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 32, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -332,7 +332,7 @@ test('TUI runtime keeps scanning app key bindings when earlier matches decline',
     update: (_state, message) => ({ state: { active: message.active } }),
     view: (state) => textInput({ id: 'field', presentation: { value: state.active, cursor: 0 } })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 32, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 32, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -353,7 +353,7 @@ test('TUI runtime routes escape through focused widget keymaps', async () => {
       keys: { escape: () => ({ active: 'closed' }) }
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -390,7 +390,7 @@ test('TUI runtime routes focused text and paste through one edit-operation chann
       onAction: ({ operation }) => ({ operation })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 30, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 30, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -414,7 +414,7 @@ test('TUI runtime routes single-space input chunks as text for editable focused 
       onAction: ({ operation }) => ({ text: operation.kind === 'insert' ? operation.text : '' })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 30, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 30, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -439,7 +439,7 @@ test('TUI runtime lets focused space key bindings override text insertion', asyn
       onAction: ({ operation }) => ({ text: operation.kind === 'insert' ? operation.text : '' })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 30, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 30, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -460,7 +460,7 @@ test('TUI runtime decodes input chunks through the configured input pipeline', a
       onAction: ({ operation }) => ({ text: operation.kind === 'insert' ? operation.text : '' })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 30, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 30, rows: 3 } });
   const runtime = createTuiRuntime({
     app,
     host: harness.host,

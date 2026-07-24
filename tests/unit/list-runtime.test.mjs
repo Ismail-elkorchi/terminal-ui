@@ -141,7 +141,7 @@ test('list cursor and mouse hit targets use the filtered visible rows', async ()
       onAction: (action) => ({ kind: 'chosen', action })
     })
   });
-  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 2 } }) });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 2 } }) });
 
   await runtime.start();
   const press = await runtime.handleInput(mousePress(2, 1));
@@ -233,7 +233,7 @@ test('list pointer selection and double-click activation match keyboard semantic
       onAction: (action) => action
     })
   });
-  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 20, rows: 2 } }) });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 2 } }) });
 
   await runtime.start();
   await clickAt(runtime, 1, 1);

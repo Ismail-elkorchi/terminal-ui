@@ -51,7 +51,7 @@ export type {
   TerminalStateKnowledge,
   TerminalStateProvenanceSnapshot,
   TerminalStateSnapshot,
-  TerminalViewport,
+  TerminalSize,
   TerminalWriteReceipt,
   Unsubscribe
 } from './types.ts';

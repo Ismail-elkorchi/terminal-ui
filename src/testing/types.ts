@@ -7,7 +7,7 @@ import type {
   TerminalClock,
   TerminalHost,
   TerminalRestoreResult,
-  TerminalViewport
+  TerminalSize
 } from '../host/index.ts';
 import type { InputEvent } from '../input/index.ts';
 import type { Frame, RenderDiff } from '../renderer/index.ts';
@@ -19,7 +19,7 @@ import type {
 } from '../transcript/index.ts';
 
 export interface TerminalHarnessOptions {
-  readonly viewport?: TerminalViewport;
+  readonly terminalSize?: TerminalSize;
 }
 
 export interface TerminalHarness extends TranscriptReplayTarget {
@@ -27,7 +27,7 @@ export interface TerminalHarness extends TranscriptReplayTarget {
   readonly clock: ControlledTerminalClock;
   readonly transcript: TranscriptRecorder;
   input(event: InputEvent | string): Promise<void>;
-  resize(viewport: TerminalViewport): Promise<void>;
+  resize(terminalSize: TerminalSize): Promise<void>;
   run<T>(operation: (host: TerminalHost) => Promise<T>): Promise<T>;
   snapshot(): AccessibleSnapshot;
   frames(): readonly Frame[];
@@ -38,7 +38,7 @@ export interface TerminalHarness extends TranscriptReplayTarget {
 
 export interface PtyTerminalHarnessOptions {
   readonly id?: string;
-  readonly viewport?: TerminalViewport;
+  readonly terminalSize?: TerminalSize;
   readonly available?: boolean;
 }
 
@@ -51,7 +51,7 @@ export interface PtyTerminalHarness extends TranscriptReplayTarget {
   readonly clock: TerminalClock;
   readonly transcript: TranscriptRecorder;
   input(event: InputEvent | string): Promise<void>;
-  resize(viewport: TerminalViewport): Promise<void>;
+  resize(terminalSize: TerminalSize): Promise<void>;
   closeInput(): void;
   snapshot(): AccessibleSnapshot;
   frames(): readonly Frame[];
@@ -69,7 +69,7 @@ export interface InteractionScript {
 export type InteractionStep =
   | { readonly kind: 'input'; readonly event: InputEvent | string }
   | { readonly kind: 'paste'; readonly text: string }
-  | { readonly kind: 'resize'; readonly viewport: TerminalViewport }
+  | { readonly kind: 'resize'; readonly terminalSize: TerminalSize }
   | { readonly kind: 'wait'; readonly ms: number }
   | { readonly kind: 'assertSnapshot'; readonly assertion: SnapshotAssertion }
   | { readonly kind: 'assertFocus'; readonly assertion: FocusAssertion }

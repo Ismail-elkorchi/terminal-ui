@@ -12,7 +12,7 @@ test('TUI runtime does not reserve escape or ctrlC key events', async () => {
     update: (state) => ({ state }),
     view: () => textInput({ id: 'exit-field', presentation: { value: 'ready', cursor: 0 } })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -51,7 +51,7 @@ test('TUI runtime decodes input chunks before routing them', async () => {
       onSubmit: () => ({ committed: true })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -74,7 +74,7 @@ test('TUI runtime buffers split input chunks before routing them', async () => {
       onSubmit: () => ({ committed: true })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -100,7 +100,7 @@ test('TUI runtime ignores non-command paste, focus, and mouse events without cor
       onSubmit: () => ({ committed: true })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();

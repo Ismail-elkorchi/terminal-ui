@@ -20,7 +20,7 @@ test('public acceptance path covers prompt, TUI, and testing surfaces', async ()
   assert.equal(promptResult.status, 'submitted');
   assert.equal(promptResult.value, 'Ada');
 
-  const harness = createTerminalHarness({ viewport: { columns: 16, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 16, rows: 3 } });
   const app = defineTui({
     id: 'acceptance',
     init: () => ({ count: 0 }),
@@ -37,5 +37,5 @@ test('public acceptance path covers prompt, TUI, and testing surfaces', async ()
     steps: [{ kind: 'assertSnapshot', assertion: { role: 'text' } }]
   });
   assert.equal(scriptResult.snapshot.root.role, 'text');
-  assert.equal(scriptResult.transcript.schemaVersion, 'terminal-ui.interaction-transcript.v2');
+  assert.equal(scriptResult.transcript.schemaVersion, 'terminal-ui.interaction-transcript.v3');
 });

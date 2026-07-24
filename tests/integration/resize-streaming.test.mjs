@@ -17,7 +17,7 @@ import { waitUntil } from '../helpers/async.ts';
 const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 
 test('PTY harness handles resize while async stream messages are rendering', async () => {
-  const result = createPtyTerminalHarness({ viewport: { columns: 36, rows: 8 } });
+  const result = createPtyTerminalHarness({ terminalSize: { columns: 36, rows: 8 } });
   assert.equal(result.ok, true);
   const harness = result.harness;
   const app = defineTui({
@@ -58,7 +58,7 @@ test('PTY harness handles resize while async stream messages are rendering', asy
       }),
       statusBar({
         id: 'status',
-        leading: [{ id: 'viewport', kind: 'text', text: `cols:${context.viewport.columns}` }],
+        leading: [{ id: 'viewport', kind: 'text', text: `cols:${context.terminalSize.columns}` }],
         trailing: [{ id: 'items', kind: 'text', text: `items:${state.history.itemCount}` }]
       })
     ], { id: 'root' })

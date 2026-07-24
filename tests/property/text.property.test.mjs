@@ -95,7 +95,7 @@ test('focus traversal properties avoid disabled targets and remain restorable', 
       })
     ], { id: 'focus-root' })
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 24, rows: 5 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 5 } });
   const runtime = createTuiRuntime({ app, host });
 
   await runtime.start();

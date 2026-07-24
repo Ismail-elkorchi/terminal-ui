@@ -109,7 +109,7 @@ test('terminal harness delivers normalized key events to TUI runtimes', async ()
       onSubmit: () => ({ submitted: true })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
 
   await runInteractionScript(harness, {
     id: 'queue-enter',
@@ -130,7 +130,7 @@ test('terminal harness replay delivers transcript input events back to the memor
   const harness = createTerminalHarness();
 
   await replayTranscript(harness, {
-    schemaVersion: 'terminal-ui.interaction-transcript.v2',
+    schemaVersion: 'terminal-ui.interaction-transcript.v3',
     id: 'replay-input',
     source: 'replay',
     startedAt: new Date(0).toISOString(),
@@ -148,16 +148,16 @@ test('terminal harness replay delivers transcript input events back to the memor
 });
 
 test('terminal harness input events update resize, signal, and end-of-input host state', async () => {
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const signals = [];
   const unsubscribe = harness.host.signals.subscribe((signal) => signals.push(signal));
 
-  await harness.input({ kind: 'resize', viewport: { columns: 44, rows: 12 } });
+  await harness.input({ kind: 'resize', terminalSize: { columns: 44, rows: 12 } });
   await harness.input({ kind: 'signal', signal: 'SIGINT' });
   await harness.input({ kind: 'end' });
   unsubscribe();
 
-  assert.deepEqual(harness.host.getViewport(), { columns: 44, rows: 12 });
+  assert.deepEqual(harness.host.getTerminalSize(), { columns: 44, rows: 12 });
   assert.deepEqual(signals, ['resize', 'SIGINT']);
 
   const chunks = [];
@@ -213,11 +213,11 @@ test('terminal harness resize events drive active TUI resize handling', async ()
     update: (_state, message) => ({ state: { done: message.done }, exit: {} }),
     view: (_state, context) => textInput({
       id: 'resize-field',
-      presentation: { value: `columns:${context.viewport.columns}`, cursor: 0 },
+      presentation: { value: `columns:${context.terminalSize.columns}`, cursor: 0 },
       onSubmit: () => ({ done: true })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const running = runTui(app, harness.host);
 
   await waitUntil(() => harness.frames().length === 1);
@@ -234,12 +234,12 @@ test('terminal harness resize events drive active TUI resize handling', async ()
     harness.transcript.snapshot().steps
       .filter((step) => step.kind === 'input')
       .map((step) => step.event),
-    [{ kind: 'resize', viewport: { columns: 12, rows: 3 } }]
+    [{ kind: 'resize', terminalSize: { columns: 12, rows: 3 } }]
   );
 });
 
 test('interaction scripts assert styled text focus selection and hit targets against recorded frames', async () => {
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 9 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 9 } });
   const frame = renderElementFrame(column([
     richText({
       id: 'styled-line',
@@ -269,7 +269,7 @@ test('interaction scripts assert styled text focus selection and hit targets aga
   harness.recordCommit({
     id: 'semantic-assertions:commit:1',
     stateVersion: 0,
-    viewport: { columns: frame.width, rows: frame.height },
+    terminalSize: { columns: frame.width, rows: frame.height },
     ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),
     frame,
     diff: diffFrames(undefined, frame)

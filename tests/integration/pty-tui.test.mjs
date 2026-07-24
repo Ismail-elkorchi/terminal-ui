@@ -15,7 +15,7 @@ import { waitUntil } from '../helpers/async.ts';
 const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 
 test('PTY harness runs full-screen TUI and captures protocol restoration on success', async () => {
-  const result = createPtyTerminalHarness({ viewport: { columns: 32, rows: 5 } });
+  const result = createPtyTerminalHarness({ terminalSize: { columns: 32, rows: 5 } });
   assert.equal(result.ok, true);
   const harness = result.harness;
   assert.equal(harness.snapshot().source, 'test_harness');
@@ -59,7 +59,7 @@ test('PTY harness runs full-screen TUI and captures protocol restoration on succ
 });
 
 test('PTY harness restores full-screen protocols on interrupt signals', async () => {
-  const result = createPtyTerminalHarness({ viewport: { columns: 24, rows: 4 } });
+  const result = createPtyTerminalHarness({ terminalSize: { columns: 24, rows: 4 } });
   assert.equal(result.ok, true);
   const harness = result.harness;
   const app = defineTui({

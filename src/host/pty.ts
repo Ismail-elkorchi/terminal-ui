@@ -11,27 +11,27 @@ import type {
   RuntimeTerminalOutputOptions,
   TerminalOperationContext,
   TerminalOutput,
-  TerminalViewport
+  TerminalSize
 } from './types.ts';
 
 class PtyOutput implements TerminalOutput {
   readonly #output: RuntimeOutput;
-  readonly #viewport: () => TerminalViewport;
+  readonly #terminalSize: () => TerminalSize;
 
   constructor(
     options: RuntimeTerminalOutputOptions,
-    viewport: () => TerminalViewport
+    terminalSize: () => TerminalSize
   ) {
     this.#output = new RuntimeOutput(options);
-    this.#viewport = viewport;
+    this.#terminalSize = terminalSize;
   }
 
   get columns(): number {
-    return this.#viewport().columns;
+    return this.#terminalSize().columns;
   }
 
   get rows(): number {
-    return this.#viewport().rows;
+    return this.#terminalSize().rows;
   }
 
   write(chunk: string | Uint8Array, context: TerminalOperationContext = {}): Promise<void> {
@@ -59,14 +59,14 @@ class PtyOutput implements TerminalOutput {
 }
 
 export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): PtyTerminalHost {
-  let viewport = options.viewport ?? {
+  let terminalSize = options.terminalSize ?? {
     columns: options.stdout?.columns ?? 80,
     rows: options.stdout?.rows ?? 24
   };
   const inputSource = new RuntimeInput({ ...options.stdin, isTty: options.stdin?.isTty ?? true });
   const stdin = new TerminalInputAuthority(inputSource);
-  const stdout = new PtyOutput({ ...options.stdout, isTty: options.stdout?.isTty ?? true }, () => viewport);
-  const stderr = new PtyOutput({ ...options.stderr, isTty: options.stderr?.isTty ?? true }, () => viewport);
+  const stdout = new PtyOutput({ ...options.stdout, isTty: options.stdout?.isTty ?? true }, () => terminalSize);
+  const stderr = new PtyOutput({ ...options.stderr, isTty: options.stderr?.isTty ?? true }, () => terminalSize);
   const output = createTerminalHostOutputAuthority(stdout, stderr, options.id ?? 'pty');
   const clock = new RuntimeClock();
   const runtime = options.runtime ?? 'node';
@@ -75,8 +75,8 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
       runtime,
       inputIsTty: stdin.isTty(),
       outputIsTty: stdout.isTty(),
-      columns: viewport.columns,
-      rows: viewport.rows,
+      columns: terminalSize.columns,
+      rows: terminalSize.rows,
       rawInput: options.stdin?.setRawMode !== undefined,
       resizeEvents: options.subscribeSignals !== undefined,
       terminalProtocols: stdout.isTty()
@@ -88,9 +88,9 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     ...(options.capabilities?.overrides === undefined ? {} : { overrides: options.capabilities.overrides })
   } satisfies Parameters<typeof resolveTerminalCapabilities>[0];
   const env = new ObjectEnvironment(options.env ?? {});
-  const setViewport = async (nextViewport: TerminalViewport): Promise<void> => {
-    viewport = nextViewport;
-    await options.resize?.(nextViewport);
+  const setTerminalSize = async (nextTerminalSize: TerminalSize): Promise<void> => {
+    terminalSize = nextTerminalSize;
+    await options.resize?.(nextTerminalSize);
   };
   const terminalState = new TerminalStateAuthorityBinding();
   const detector = new TerminalCapabilityDetector({
@@ -110,9 +110,9 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
     signals: new RuntimeSignals(options.subscribeSignals),
     clock,
     env,
-    viewportControl: { setViewport },
+    terminalSizeControl: { setTerminalSize },
     ...(options.observer === undefined ? {} : { observer: options.observer }),
-    getViewport: () => viewport,
+    getTerminalSize: () => terminalSize,
     getCapabilities: (detectionOptions) => detector.detect(detectionOptions),
     beginSession: (sessionOptions) =>
       terminalState.beginLease(sessionOptions?.id ?? `${options.id ?? 'pty'}-session`, detector.current()),

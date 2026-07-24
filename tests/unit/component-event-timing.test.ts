@@ -73,7 +73,7 @@ void test('component key handlers run at dispatch time with the normalized event
   });
   const runtime = createTuiRuntime({
     app,
-    host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } })
+    host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } })
   });
 
   await runtime.start();
@@ -121,7 +121,7 @@ void test('tabs route delete to the selected close action without selecting twic
   });
   const runtime = createTuiRuntime({
     app,
-    host: createMemoryTerminalHost({ viewport: { columns: 24, rows: 4 } })
+    host: createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 4 } })
   });
 
   await runtime.start();
@@ -153,7 +153,7 @@ void test('checkbox keyboard and pointer activation evaluate the same handler at
       }
     })
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host });
 
   await runtime.start();

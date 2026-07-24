@@ -1,7 +1,7 @@
 # Performance Evidence
 
 `npm run benchmark:interactive` measures terminal-ui after a clean build. It
-uses deterministic scenario data, a fixed viewport, the default theme, and one
+uses deterministic scenario data, a fixed terminal size, the default theme, and one
 explicit text-width profile. Warmup iterations are discarded. Sample output
 contains p50, p95, standard deviation, median absolute deviation, and
 coefficient of variation for renderer stages, diffing, output planning, host
@@ -19,7 +19,7 @@ Capture a local timing baseline with:
 npm run benchmark:baseline -- --output baseline.json
 ```
 
-After a change, capture a report on the same runtime and viewport, then compare
+After a change, capture a report on the same runtime and terminal size, then compare
 it with:
 
 ```sh

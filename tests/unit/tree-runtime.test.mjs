@@ -77,7 +77,7 @@ test('tree pointer selection and double-click activation match keyboard semantic
       onAction: (action) => action
     })
   });
-  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 20, rows: 2 } }) });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 2 } }) });
 
   await runtime.start();
   const target = runtime.frame().hitTargets.find((candidate) => candidate.id.endsWith(':body'));

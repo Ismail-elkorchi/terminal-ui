@@ -68,7 +68,8 @@ test('transcript validation rejects malformed input-event variants', () => {
     [{ ...validMouse, row: 0 }, /positive integers/u],
     [{ ...validMouse, rawCode: 0.5 }, /rawCode/u],
     [{ ...validMouse, modifiers: { ...mouseModifiers, alt: 1 } }, /require alt/u],
-    [{ kind: 'resize', viewport: { columns: 0, rows: 1 } }, /viewport/u],
+    [{ kind: 'resize', terminalSize: { columns: 0, rows: 1 } }, /terminal size/u],
+    [{ kind: 'resize', viewport: { columns: 1, rows: 1 } }, /terminal size/u],
     [{ kind: 'focus', focused: 'yes' }, /focus event/u],
     [{ kind: 'signal', signal: '' }, /signal event/u],
     [{ kind: 'unknown', sequence: 1 }, /unknown event/u],
@@ -123,6 +124,15 @@ test('transcript validation rejects malformed frame and render-diff payloads', (
     [{ ...validDiff, operations: [{ kind: 'clearRect', bounds: { row: 0, column: 1, width: 1, height: 1 } }] }, /clearRect bounds/u],
     [{ ...validDiff, operations: [{ kind: 'other' }] }, /unsupported diff operation/u]
   ];
+  const oldCommit = runtimeCommit(validFrame, validDiff);
+  const { terminalSize: removedTerminalSize, ...commitWithoutTerminalSize } = oldCommit;
+  assertInvalid(transcript({
+    id: 'removed-commit-viewport',
+    steps: [{
+      kind: 'commit',
+      commit: { ...commitWithoutTerminalSize, viewport: removedTerminalSize }
+    }]
+  }), /terminal size/u);
 
   for (const [frame, pattern] of frames) {
     assertInvalid(transcript({
@@ -163,7 +173,7 @@ test('transcript validation measures writes with the diff width profile', () => 
       kind: 'commit',
       commit: {
         ...runtimeCommit(frame, diff),
-        viewport: { columns: 1, rows: 1 }
+        terminalSize: { columns: 1, rows: 1 }
       }
     }]
   }));
@@ -193,7 +203,7 @@ test('transcript validation requires a replayable diff chain matching bundled fr
   const commit = (id, stateVersion, committedFrame, committedDiff) => ({
     id,
     stateVersion,
-    viewport: { columns: 1, rows: 1 },
+    terminalSize: { columns: 1, rows: 1 },
     frame: committedFrame,
     diff: committedDiff
   });
@@ -271,7 +281,7 @@ test('transcript validation rejects malformed structured restore results', () =>
 
 function transcript(overrides = {}) {
   return {
-    schemaVersion: 'terminal-ui.interaction-transcript.v2',
+    schemaVersion: 'terminal-ui.interaction-transcript.v3',
     id: '',
     source: 'test',
     steps: [],
@@ -291,7 +301,7 @@ function runtimeCommit(frame, diff) {
   return {
     id: 'runtime:commit:1',
     stateVersion: 0,
-    viewport: { columns: 2, rows: 1 },
+    terminalSize: { columns: 2, rows: 1 },
     frame,
     diff
   };

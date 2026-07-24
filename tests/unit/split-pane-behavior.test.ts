@@ -73,7 +73,7 @@ void test('resizable split pane routes keyboard and captured pointer drag action
       onAction: (action) => ({ action })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();

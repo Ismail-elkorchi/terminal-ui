@@ -129,7 +129,7 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
   const host = createPtyTerminalHost({
     id: options.id ?? 'pty-harness',
     env: { TERM: 'xterm-256color' },
-    viewport: options.viewport ?? { columns: 80, rows: 24 },
+    terminalSize: options.terminalSize ?? { columns: 80, rows: 24 },
     stdin: {
       source: input,
       isTty: true,
@@ -191,9 +191,9 @@ function createAvailablePtyTerminalHarness(options: PtyTerminalHarnessOptions): 
       transcript.record({ kind: 'input', event });
       return Promise.resolve();
     },
-    async resize(viewport) {
-      await host.viewportControl.setViewport(viewport);
-      transcript.record({ kind: 'input', event: { kind: 'resize', viewport } });
+    async resize(terminalSize) {
+      await host.terminalSizeControl.setTerminalSize(terminalSize);
+      transcript.record({ kind: 'input', event: { kind: 'resize', terminalSize } });
     },
     closeInput() {
       input.close();
@@ -272,7 +272,7 @@ function ptyHarnessCommit(
   return {
     id,
     stateVersion,
-    viewport: { columns: frame.width, rows: frame.height },
+    terminalSize: { columns: frame.width, rows: frame.height },
     ...(frame.focusPath === undefined ? {} : { focusPath: frame.focusPath }),
     frame,
     diff

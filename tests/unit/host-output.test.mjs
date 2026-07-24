@@ -145,7 +145,7 @@ test('Bun built-in host uses the Node-compatible process stream when Bun stdout 
 
     assert.equal(host.runtime, 'bun');
     assert.deepEqual(writes, ['bun-output']);
-    assert.deepEqual(host.getViewport(), { columns: 91, rows: 27 });
+    assert.deepEqual(host.getTerminalSize(), { columns: 91, rows: 27 });
   } finally {
     restoreGlobal('Bun', previousBun);
     restoreGlobal('process', previousProcess);
@@ -181,13 +181,13 @@ test('Bun raw-mode mutation preserves the owning stdin receiver', async () => {
 test('Deno host reads native dimensions only for an attached terminal', () => {
   const previousDeno = Reflect.get(globalThis, 'Deno');
   let sizeReads = 0;
-  let viewport = { columns: 123, rows: 41 };
+  let terminalSize = { columns: 123, rows: 41 };
   let signalListener;
   Reflect.set(globalThis, 'Deno', denoLike({
     terminal: true,
     consoleSize: () => {
       sizeReads += 1;
-      return viewport;
+      return terminalSize;
     }
   }));
   try {
@@ -199,11 +199,11 @@ test('Deno host reads native dimensions only for an attached terminal', () => {
     });
     const signals = [];
     const unsubscribe = attached.signals.subscribe((signal) => { signals.push(signal); });
-    assert.deepEqual(attached.getViewport(), { columns: 123, rows: 41 });
-    viewport = { columns: 151, rows: 52 };
+    assert.deepEqual(attached.getTerminalSize(), { columns: 123, rows: 41 });
+    terminalSize = { columns: 151, rows: 52 };
     signalListener?.('resize');
     assert.deepEqual(signals, ['resize']);
-    assert.deepEqual(attached.getViewport(), { columns: 151, rows: 52 });
+    assert.deepEqual(attached.getTerminalSize(), { columns: 151, rows: 52 });
     assert.equal(sizeReads, 3);
     unsubscribe();
 
@@ -215,7 +215,7 @@ test('Deno host reads native dimensions only for an attached terminal', () => {
       }
     }));
     const detached = createDenoTerminalHost();
-    assert.deepEqual(detached.getViewport(), { columns: 80, rows: 24 });
+    assert.deepEqual(detached.getTerminalSize(), { columns: 80, rows: 24 });
     assert.equal(sizeReads, 3);
   } finally {
     restoreGlobal('Deno', previousDeno);

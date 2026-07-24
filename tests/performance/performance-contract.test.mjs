@@ -38,7 +38,7 @@ function performanceReport(overrides = {}) {
   return {
     metadata: {
       runtimeKey: 'node:v24:test:x64',
-      viewport: { columns: 80, rows: 24 }
+      terminalSize: { columns: 80, rows: 24 }
     },
     scenarios: [{
       name: 'sample',

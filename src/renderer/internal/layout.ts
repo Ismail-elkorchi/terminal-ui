@@ -1,4 +1,4 @@
-import type { ViewportSize } from '../../geometry/types.ts';
+import type { TerminalSize } from '../../geometry/types.ts';
 import type { LayerUnderlay } from '../../element/metadata.ts';
 import type { Rect } from '../../geometry/types.ts';
 export type { Rect } from '../../geometry/types.ts';
@@ -23,23 +23,23 @@ export type { Layer, LayoutFocusRegion, LayoutNode } from '../model/layout.ts';
 
 export function layoutElement(
   element: Element,
-  viewport: ViewportSize | Rect,
+  terminalSizeOrBounds: TerminalSize | Rect,
   themeInput?: TerminalTheme | TerminalThemeDefinition,
   widthProfile: TextWidthProfile = defaultTextWidthProfile
 ): LayoutNode {
-  return layoutRenderNode(toRenderNode(element), viewport, themeInput, widthProfile);
+  return layoutRenderNode(toRenderNode(element), terminalSizeOrBounds, themeInput, widthProfile);
 }
 
 export function layoutRenderNode(
   renderNode: RenderNode,
-  viewport: ViewportSize | Rect,
+  terminalSizeOrBounds: TerminalSize | Rect,
   themeInput?: TerminalTheme | TerminalThemeDefinition,
   widthProfile: TextWidthProfile = defaultTextWidthProfile
 ): LayoutNode {
   const theme = themeForLayout(themeInput);
-  const bounds = 'columns' in viewport
-    ? { row: 1, column: 1, width: viewport.columns, height: viewport.rows }
-    : viewport;
+  const bounds = 'columns' in terminalSizeOrBounds
+    ? { row: 1, column: 1, width: terminalSizeOrBounds.columns, height: terminalSizeOrBounds.rows }
+    : terminalSizeOrBounds;
   const viewportBounds = clampRect(bounds);
   const measurements = createRenderMeasurementContext(theme, widthProfile);
   return layoutNode(renderNode, viewportBounds, viewportBounds, theme, widthProfile, measurements, 0, 0, []);

@@ -1,7 +1,7 @@
 import { errorFromUnknown } from '../errors.ts';
 
-export interface ResizeCoordinator<TViewport, TResult> {
-  request(viewport: TViewport): Promise<TResult>;
+export interface ResizeCoordinator<TTerminalSize, TResult> {
+  request(terminalSize: TTerminalSize): Promise<TResult>;
   dispose(cause: unknown): void;
 }
 
@@ -11,17 +11,17 @@ interface ResizeCycle<TResult> {
   readonly reject: (cause: unknown) => void;
 }
 
-export function createResizeCoordinator<TViewport, TResult>(
-  execute: (viewport: TViewport) => Promise<TResult>
-): ResizeCoordinator<TViewport, TResult> {
-  let latest: TViewport | undefined;
+export function createResizeCoordinator<TTerminalSize, TResult>(
+  execute: (terminalSize: TTerminalSize) => Promise<TResult>
+): ResizeCoordinator<TTerminalSize, TResult> {
+  let latest: TTerminalSize | undefined;
   let disposedCause: unknown;
   let cycle: ResizeCycle<TResult> | undefined;
 
   return {
-    request(viewport) {
+    request(terminalSize) {
       if (disposedCause !== undefined) return Promise.reject(errorFromUnknown(disposedCause));
-      latest = viewport;
+      latest = terminalSize;
       if (cycle === undefined) {
         cycle = createResizeCycle<TResult>();
         const activeCycle = cycle;
@@ -43,12 +43,12 @@ export function createResizeCoordinator<TViewport, TResult>(
     let result: TResult | undefined;
     try {
       while (latest !== undefined && disposedCause === undefined) {
-        const viewport = latest;
+        const terminalSize = latest;
         latest = undefined;
-        result = await execute(viewport);
+        result = await execute(terminalSize);
       }
       if (disposedCause !== undefined) return;
-      if (result === undefined) throw new Error('Resize coordinator completed without a viewport.');
+      if (result === undefined) throw new Error('Resize coordinator completed without a terminal size.');
       activeCycle.resolve(result);
     } catch (cause) {
       latest = undefined;

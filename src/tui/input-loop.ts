@@ -78,7 +78,7 @@ export async function runTuiInputLoop<TState, TMessage>(
         if (!event.outcome.ok) throw event.outcome.cause;
         if (resizeQueued) {
           resizeQueued = false;
-          resizeNext = settle(runtime.resize(runtime.host.getViewport()));
+          resizeNext = settle(runtime.resize(runtime.host.getTerminalSize()));
         }
         continue;
       }
@@ -90,7 +90,7 @@ export async function runTuiInputLoop<TState, TMessage>(
       signalNext = signals.next();
       transcript?.record({ kind: 'input', event: { kind: 'signal', signal: event.signal } });
       if (event.signal === 'resize') {
-        if (resizeNext === undefined) resizeNext = settle(runtime.resize(runtime.host.getViewport()));
+        if (resizeNext === undefined) resizeNext = settle(runtime.resize(runtime.host.getTerminalSize()));
         else resizeQueued = true;
         continue;
       }

@@ -2,12 +2,12 @@ import {
   createMemoryTerminalHost,
   resolveTerminalCapabilities,
   type RuntimeTarget,
-  type TerminalViewport
+  type TerminalSize
 } from '@ismail-elkorchi/terminal-ui/host';
 
-const viewport: TerminalViewport = { columns: 80, rows: 24 };
+const terminalSize: TerminalSize = { columns: 80, rows: 24 };
 const runtime: RuntimeTarget = 'memory';
-const host = createMemoryTerminalHost({ viewport });
+const host = createMemoryTerminalHost({ terminalSize });
 const detected = host.getCapabilities({
   activeProbes: ['keyboardProtocol'],
   probeTimeoutMs: 50
@@ -25,10 +25,15 @@ const capabilities = resolveTerminalCapabilities({
   probes: { keyboardProtocol: 'unknown' }
 });
 
-// @ts-expect-error viewport dimensions are numeric terminal cells
-const invalidViewport: TerminalViewport = { columns: '80', rows: 24 };
+// @ts-expect-error terminal-size dimensions are numeric terminal cells
+const invalidTerminalSize: TerminalSize = { columns: '80', rows: 24 };
+// @ts-expect-error host options no longer call terminal dimensions a viewport
+createMemoryTerminalHost({ viewport: terminalSize });
+// @ts-expect-error hosts expose terminal dimensions through getTerminalSize
+type RemovedGetViewport = typeof host['getViewport'];
 
 void host;
 void detected;
 void capabilities;
-void invalidViewport;
+void invalidTerminalSize;
+void (undefined as unknown as RemovedGetViewport);

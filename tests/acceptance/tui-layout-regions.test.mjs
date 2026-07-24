@@ -90,7 +90,7 @@ test('layout regions compose scrollback, activity, tabs, palette, status, and co
     view: workspaceView
   });
 
-  const harness = createTerminalHarness({ viewport: { columns: 64, rows: 12 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 64, rows: 12 } });
   harness.host.input('p');
   harness.host.input('\r');
   const exit = await runTui(app, harness.host);

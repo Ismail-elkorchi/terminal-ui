@@ -462,7 +462,7 @@ function updateResult(state: WorkspaceState): TuiUpdateResult<WorkspaceState, Wo
 }
 
 export async function runScriptedWorkspace() {
-  const host = createMemoryTerminalHost({ viewport: { columns: 112, rows: 32 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 112, rows: 32 } });
   const runtime = createTuiRuntime({ app: interactiveWorkspaceApp, host });
   try {
     await runtime.start();

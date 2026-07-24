@@ -42,7 +42,7 @@ test('IDE filesystem effects leave command input and resize responsive', async (
     },
     async save() {}
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 120, rows: 36 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 120, rows: 36 } });
   const runtime = createTuiRuntime({ app, host });
   try {
     await runtime.start();
@@ -69,7 +69,7 @@ test('IDE filesystem effects leave command input and resize responsive', async (
 });
 
 async function renderExample(app, theme) {
-  const host = createMemoryTerminalHost({ viewport: { columns: 160, rows: 42 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 160, rows: 42 } });
   const runtime = createTuiRuntime({ app, host, theme });
   try {
     const wide = await runtime.start();

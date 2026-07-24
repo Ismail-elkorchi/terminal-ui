@@ -15,21 +15,23 @@ Available adapters include:
 `createTerminalHost({ runtime: 'memory' })` or `createMemoryTerminalHost()` for
 deterministic tests.
 The generic factory forwards runtime-specific options, so callers can still pass
-explicit streams, environment values, viewport settings, and memory-host
+explicit streams, environment values, terminal-size settings, and memory-host
 settings through the selected adapter.
 
 `createPtyTerminalHost()` wraps caller-supplied PTY-style input and output
 streams. It does not spawn processes, supervise child lifecycles, or create
 history/checkpoint files; those policies stay with the caller or test harness.
 The adapter reports output-side TTY protocols by default and exposes an
-explicit `resize()` method that forwards viewport changes to the supplied PTY
+explicit `resize()` method that forwards terminal-size changes to the supplied PTY
 resize hook. Raw input is reported only when the input stream provides a
 `setRawMode()` hook; otherwise `enableRawInput()` returns a typed unsupported
 protocol diagnostic.
 It is also available through `createTerminalHost({ adapter: 'pty', ... })`.
 
-Hosts expose input, output, signals, environment, viewport, capabilities, clock,
-and session-managed terminal restoration.
+Hosts expose input, output, signals, environment, terminal size, capabilities,
+clock, and session-managed terminal restoration. `getTerminalSize()` reads the
+current row and column dimensions; test and PTY hosts expose
+`terminalSizeControl.setTerminalSize()` for deterministic resize delivery.
 Capability facts supplied through host options use explicit
 `supported`/`unsupported`/`unknown` evidence. `getCapabilities()` normally
 returns that resolved profile without terminal I/O. A caller that intends to

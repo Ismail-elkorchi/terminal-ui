@@ -14,7 +14,7 @@ test('renderElementFrame applies frame passes after composition and before snaps
   const pass = {
     id: 'test-marker',
     apply(buffer, context) {
-      assert.equal(context.viewport.columns, 3);
+      assert.equal(context.terminalSize.columns, 3);
       buffer.write(1, 1, [{ text: 'Z', source: { ownerId: 'marker', role: 'custom' } }]);
     }
   };
@@ -47,7 +47,7 @@ test('boxDrawingJoinPass merges source-marked box drawing crossings', () => {
   buffer.write(1, 2, [{ text: '│', source: { role: 'border' } }]);
   buffer.write(3, 2, [{ text: '│', source: { role: 'border' } }]);
 
-  boxDrawingJoinPass.apply(buffer, { theme: defaultTheme, viewport: { columns: 3, rows: 3 } });
+  boxDrawingJoinPass.apply(buffer, { theme: defaultTheme, terminalSize: { columns: 3, rows: 3 } });
 
   assert.equal(renderFramePlain(buffer.snapshot()), ' │\n─┼─\n │');
 });
@@ -58,7 +58,7 @@ test('boxDrawingJoinPass supports ASCII crossings and ignores user text', () => 
   ascii.write(1, 2, [{ text: '|', source: { role: 'border' } }]);
   ascii.write(3, 2, [{ text: '|', source: { role: 'border' } }]);
 
-  boxDrawingJoinPass.apply(ascii, { theme: defaultTheme, viewport: { columns: 3, rows: 3 } });
+  boxDrawingJoinPass.apply(ascii, { theme: defaultTheme, terminalSize: { columns: 3, rows: 3 } });
 
   assert.equal(renderFramePlain(ascii.snapshot()), ' |\n-+-\n |');
 
@@ -67,7 +67,7 @@ test('boxDrawingJoinPass supports ASCII crossings and ignores user text', () => 
   userText.write(1, 2, [{ text: '│', source: { role: 'text' } }]);
   userText.write(3, 2, [{ text: '│', source: { role: 'text' } }]);
 
-  boxDrawingJoinPass.apply(userText, { theme: defaultTheme, viewport: { columns: 3, rows: 3 } });
+  boxDrawingJoinPass.apply(userText, { theme: defaultTheme, terminalSize: { columns: 3, rows: 3 } });
 
   assert.equal(renderFramePlain(userText.snapshot()), ' │\n───\n │');
 });

@@ -23,7 +23,7 @@ test('TUI tabs expose clickable tab hit targets', async () => {
       onAction: (action) => action.kind === 'select' ? { selected: action.id } : { selected: state.selected }
     })
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 32, rows: 4 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 32, rows: 4 } });
   const runtime = createTuiRuntime({ app, host });
   const frame = await runtime.start();
   const target = frame.hitTargets?.find((item) => item.id === 'click-tabs:tab:right');
@@ -55,7 +55,7 @@ test('TUI pointer presses focus the declared target before application actions',
       })
     ], { id: 'pointer-focus-fields', sizes: [{ kind: 'fill' }, { kind: 'fill' }] })
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 30, rows: 2 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 30, rows: 2 } });
   const runtime = createTuiRuntime({ app, host });
   const first = await runtime.start();
   const secondTarget = first.hitTargets?.find((target) => target.focus?.kind === 'focus'
@@ -94,7 +94,7 @@ test('TUI wheel input preserves the current focus path', async () => {
       onAction: () => ({ kind: 'scroll' })
     })
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 20, rows: 2 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 2 } });
   const runtime = createTuiRuntime({ app, host });
   const frame = await runtime.start();
   const target = frame.hitTargets?.find((item) => item.accepts?.includes('scroll') === true);
@@ -128,7 +128,7 @@ test('TUI runtime routes mouse input through the committed render cache', async 
       return button({ id: 'cached-button', label: `Count ${state.count}`, onPress: () => ({ kind: 'click' }) });
     }
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host });
   const frame = await runtime.start();
   const target = frame.hitTargets?.find((item) => item.id.startsWith('cached-button'));
@@ -167,7 +167,7 @@ test('TUI runtime uses committed hit targets without recomputing renderer hit ta
       renderer
     })
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 24, rows: 3 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host });
   const frame = await runtime.start();
   const target = frame.hitTargets?.find((item) => item.id === 'cached-region-hit:press');

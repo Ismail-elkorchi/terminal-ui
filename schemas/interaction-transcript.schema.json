@@ -4,7 +4,7 @@
   "type": "object",
   "required": ["schemaVersion", "id", "source", "steps", "diagnostics", "redactions"],
   "properties": {
-    "schemaVersion": { "const": "terminal-ui.interaction-transcript.v2" },
+    "schemaVersion": { "const": "terminal-ui.interaction-transcript.v3" },
     "id": { "type": "string", "minLength": 1 },
     "source": { "enum": ["prompt", "tui", "test", "replay"] },
     "startedAt": { "type": "string" },
@@ -101,11 +101,11 @@
     },
     "runtimeCommit": {
       "type": "object",
-      "required": ["id", "stateVersion", "viewport", "frame", "diff"],
+      "required": ["id", "stateVersion", "terminalSize", "frame", "diff"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "stateVersion": { "type": "integer", "minimum": 0 },
-        "viewport": { "$ref": "#/$defs/viewport" },
+        "terminalSize": { "$ref": "#/$defs/terminalSize" },
         "focusPath": { "type": "array", "items": { "type": "string" } },
         "frame": { "$ref": "#/$defs/frame" },
         "diff": { "$ref": "#/$defs/renderDiff" }
@@ -232,10 +232,10 @@
         },
         {
           "type": "object",
-          "required": ["kind", "viewport"],
+          "required": ["kind", "terminalSize"],
           "properties": {
             "kind": { "const": "resize" },
-            "viewport": { "$ref": "#/$defs/viewport" }
+            "terminalSize": { "$ref": "#/$defs/terminalSize" }
           },
           "additionalProperties": false
         },
@@ -276,7 +276,7 @@
         }
       ]
     },
-    "viewport": {
+    "terminalSize": {
       "type": "object",
       "required": ["columns", "rows"],
       "properties": {

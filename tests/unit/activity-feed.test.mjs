@@ -183,9 +183,9 @@ test('activityFeed exposes block hit targets and keyboard focus when interactive
     onAction: (action) => ({ kind: 'activity', action }),
     keys: { arrowDown: () => ({ kind: 'next' }) }
   });
-  const viewport = { columns: 36, rows: 10 };
-  const frame = renderElementFrame(element, viewport);
-  const routedTargets = renderElementRegions(element, viewport).flatMap((region) => region.hitTargets);
+  const terminalSize = { columns: 36, rows: 10 };
+  const frame = renderElementFrame(element, terminalSize);
+  const routedTargets = renderElementRegions(element, terminalSize).flatMap((region) => region.hitTargets);
 
   assert.deepEqual(frame.hitTargets?.map((target) => [target.id, target.bounds.height]), [
     ['interactive-feed:block:queued', 3],
@@ -302,7 +302,7 @@ test('structuredBlock and activityFeed preserve document state in high contrast 
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
 });
 
-test('activityFeed bounds rendered rows to the viewport', () => {
+test('activityFeed bounds rendered rows to the terminal size', () => {
   const manyBlocks = Array.from({ length: 1000 }, (_value, index) => ({
     id: `block-${index}`,
     title: `Block ${index}`,

@@ -99,7 +99,7 @@ export function createTuiRuntime<TState, TMessage>(
   options: TuiRuntimeOptions<TState, TMessage>
 ): TuiRuntime<TState, TMessage> {
   let currentState: RuntimeStateSlot<TState> = { kind: 'empty' };
-  let currentViewport = options.host.getViewport();
+  let currentTerminalSize = options.host.getTerminalSize();
   let currentRender: RenderCommitCandidate<TMessage> | undefined;
   let stateVersion = 0;
   let nextCommitSequence = 1;
@@ -164,10 +164,10 @@ export function createTuiRuntime<TState, TMessage>(
       }
     }
   });
-  const resizeCoordinator = createResizeCoordinator(async (viewport: typeof currentViewport) => {
+  const resizeCoordinator = createResizeCoordinator(async (terminalSize: typeof currentTerminalSize) => {
     await wheelInput.flush();
     await pointerMotion.flush();
-    return dispatchQueue.run(() => resizeInternal(viewport));
+    return dispatchQueue.run(() => resizeInternal(terminalSize));
   });
   const subscriptions = createTuiSubscriptionManager<TState, TMessage>({
     ...(options.app.definition.subscriptions === undefined
@@ -203,8 +203,8 @@ export function createTuiRuntime<TState, TMessage>(
     dispatch(message) {
       return dispatchQueue.run(() => dispatchInternal(message, 'external'));
     },
-    resize(viewport) {
-      return resizeCoordinator.request(viewport);
+    resize(terminalSize) {
+      return resizeCoordinator.request(terminalSize);
     },
     async handleInput(event) {
       await wheelInput.flush();
@@ -304,7 +304,7 @@ export function createTuiRuntime<TState, TMessage>(
     const state = ensureState();
     const frame = ensureFrame();
     if (event.kind === 'resize') {
-      const resized = await runtime.resize(event.viewport);
+      const resized = await runtime.resize(event.terminalSize);
       return { handled: true, state: ensureState(), frame: resized };
     }
     const message = messageForInput(state, event);
@@ -381,36 +381,36 @@ export function createTuiRuntime<TState, TMessage>(
     assertRuntimeOperational(phase);
     return commitRuntimeTransition({
       messages: messages.map((message) => ({ message, source })),
-      viewport: currentViewport,
+      terminalSize: currentTerminalSize,
       requestedFocusPath: currentFocusPath
     });
   }
 
-  async function resizeInternal(viewport: Parameters<TuiRuntime<TState, TMessage>['resize']>[0]): Promise<Frame> {
+  async function resizeInternal(terminalSize: Parameters<TuiRuntime<TState, TMessage>['resize']>[0]): Promise<Frame> {
     assertRuntimeOperational(phase);
-    options.transcript?.record({ kind: 'input', event: { kind: 'resize', viewport } });
-    await commitRuntimeTransition({ messages: [], viewport, requestedFocusPath: currentFocusPath });
+    options.transcript?.record({ kind: 'input', event: { kind: 'resize', terminalSize } });
+    await commitRuntimeTransition({ messages: [], terminalSize, requestedFocusPath: currentFocusPath });
     return ensureFrame();
   }
 
-  async function createRuntimeContext(viewport: typeof currentViewport = currentViewport): Promise<TuiContext> {
+  async function createRuntimeContext(terminalSize: typeof currentTerminalSize = currentTerminalSize): Promise<TuiContext> {
     const context = await createTuiContext(options.host, runtimeDiagnostics);
-    return { ...context, viewport };
+    return { ...context, terminalSize };
   }
 
   async function commitRuntimeTransition(input: {
     readonly messages: readonly PendingTuiMessage<TMessage>[];
-    readonly viewport: typeof currentViewport;
+    readonly terminalSize: typeof currentTerminalSize;
     readonly requestedFocusPath: FocusPath | undefined;
     readonly forceFrame?: boolean;
   }): Promise<TState> {
-    const context = await createRuntimeContext(input.viewport);
+    const context = await createRuntimeContext(input.terminalSize);
     assertRuntimeOperational(phase);
     const reduction = reduceMessages(input.messages, context);
-    const viewportChanged = input.viewport.columns !== currentViewport.columns
-      || input.viewport.rows !== currentViewport.rows;
+    const terminalSizeChanged = input.terminalSize.columns !== currentTerminalSize.columns
+      || input.terminalSize.rows !== currentTerminalSize.rows;
     const focusChanged = !sameFocusPath(input.requestedFocusPath, currentFocusPath);
-    const requiresFrame = input.forceFrame === true || reduction.stateUpdates > 0 || viewportChanged || focusChanged;
+    const requiresFrame = input.forceFrame === true || reduction.stateUpdates > 0 || terminalSizeChanged || focusChanged;
     if (!requiresFrame) {
       recordReductionMessages(reduction);
       const exitChange = completeReduction(reduction, currentRender?.frame);
@@ -452,7 +452,7 @@ export function createTuiRuntime<TState, TMessage>(
 
     currentState = { kind: 'ready', value: reduction.state };
     stateVersion = reduction.stateVersion;
-    currentViewport = input.viewport;
+    currentTerminalSize = input.terminalSize;
     currentRender = resolution.render;
     currentFocusPath = resolution.focusPath;
     focusReturnPaths = [...resolution.focusReturnPaths];
@@ -574,7 +574,7 @@ export function createTuiRuntime<TState, TMessage>(
     if (!runtimeIsActive() || currentState.kind === 'empty' || currentRender === undefined) return;
     await commitRuntimeTransition({
       messages: [],
-      viewport: currentViewport,
+      terminalSize: currentTerminalSize,
       requestedFocusPath: currentFocusPath,
       forceFrame: true
     });
@@ -681,7 +681,7 @@ export function createTuiRuntime<TState, TMessage>(
     if (messages.length > 0 || focusChanged) {
       await commitRuntimeTransition({
         messages: messages.map((message) => ({ message, source: 'input' })),
-        viewport: currentViewport,
+        terminalSize: currentTerminalSize,
         requestedFocusPath
       });
     }
@@ -907,7 +907,7 @@ export function createTuiRuntime<TState, TMessage>(
     const requestedFocusPath = direction === 'next'
       ? nextFocusPath(current.layout, currentFocusPath)
       : previousFocusPath(current.layout, currentFocusPath);
-    await commitRuntimeTransition({ messages: [], viewport: currentViewport, requestedFocusPath });
+    await commitRuntimeTransition({ messages: [], terminalSize: currentTerminalSize, requestedFocusPath });
     return ensureFrame();
   }
 
@@ -996,7 +996,7 @@ export function createTuiRuntime<TState, TMessage>(
     recordTuiCommit(options.transcript, {
       id: render.commitId,
       stateVersion: render.stateVersion,
-      viewport: render.viewport,
+      terminalSize: render.terminalSize,
       ...(render.frame.focusPath === undefined ? {} : { focusPath: render.frame.focusPath }),
       frame: render.frame,
       diff

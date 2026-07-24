@@ -109,7 +109,7 @@ void test('date picker component routes keyboard and pointer through CalendarAct
   });
   const runtime = createTuiRuntime({
     app,
-    host: createMemoryTerminalHost({ viewport: { columns: 34, rows: 9 } })
+    host: createMemoryTerminalHost({ terminalSize: { columns: 34, rows: 9 } })
   });
 
   await runtime.start();

@@ -35,7 +35,7 @@ const schemaFiles = [
 test('schemas validate payloads emitted by public runtime APIs', async () => {
   const { ajv, validators } = await loadSchemaValidators();
 
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const app = defineTui({
     id: 'schema-payloads',
     init: () => ({ ready: true }),
@@ -44,12 +44,12 @@ test('schemas validate payloads emitted by public runtime APIs', async () => {
   });
   const frame = renderElementFrame(app.definition.view({ ready: true }, {
     host: harness.host,
-    viewport: harness.host.getViewport(),
+    terminalSize: harness.host.getTerminalSize(),
     capabilities: await harness.host.getCapabilities(),
     clock: harness.clock,
     dispatch: () => {}
-  }), harness.host.getViewport());
-  const nextFrame = renderElementFrame(text('changed', { id: 'changed' }), harness.host.getViewport());
+  }), harness.host.getTerminalSize());
+  const nextFrame = renderElementFrame(text('changed', { id: 'changed' }), harness.host.getTerminalSize());
   const diff = diffFrames(frame, nextFrame);
   harness.host.observer?.recordFrame?.(frame);
   harness.host.observer?.recordDiff?.(diff);
@@ -325,7 +325,7 @@ test('schemas reject malformed nested public payloads', async () => {
   }), false);
 
   const keyTranscript = (alternateCodePoints) => ({
-    schemaVersion: 'terminal-ui.interaction-transcript.v2',
+    schemaVersion: 'terminal-ui.interaction-transcript.v3',
     id: 'key-transcript',
     source: 'test',
     steps: [{
@@ -347,8 +347,19 @@ test('schemas reject malformed nested public payloads', async () => {
   assert.equal(transcriptValidator(keyTranscript({ baseLayout: 97 })), true, ajv.errorsText(transcriptValidator.errors));
   assert.equal(transcriptValidator(keyTranscript({})), false);
 
+  const resizeTranscript = (sizeField) => ({
+    schemaVersion: 'terminal-ui.interaction-transcript.v3',
+    id: 'resize-transcript',
+    source: 'test',
+    steps: [{ kind: 'input', event: { kind: 'resize', ...sizeField } }],
+    diagnostics: [],
+    redactions: []
+  });
+  assert.equal(transcriptValidator(resizeTranscript({ terminalSize: { columns: 20, rows: 4 } })), true);
+  assert.equal(transcriptValidator(resizeTranscript({ viewport: { columns: 20, rows: 4 } })), false);
+
   const transcriptWithKeyboardFlags = (flags) => ({
-    schemaVersion: 'terminal-ui.interaction-transcript.v2',
+    schemaVersion: 'terminal-ui.interaction-transcript.v3',
     id: 'keyboard-flags',
     source: 'test',
     steps: [{

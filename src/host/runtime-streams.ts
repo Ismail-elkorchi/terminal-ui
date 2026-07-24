@@ -22,7 +22,7 @@ import type {
   TerminalOperationContext,
   TerminalSignal,
   TerminalSignalSource,
-  TerminalViewport,
+  TerminalSize,
   Unsubscribe
 } from './types.ts';
 import type { TerminalCapabilityConfiguration } from './capabilities.ts';
@@ -35,7 +35,7 @@ export interface StreamTerminalHostOptions {
   readonly stderr?: RuntimeTerminalOutputOptions;
   readonly stdoutOutput?: TerminalOutput;
   readonly stderrOutput?: TerminalOutput;
-  readonly getViewport?: () => TerminalViewport | undefined;
+  readonly getTerminalSize?: () => TerminalSize | undefined;
   readonly env?: Record<string, string>;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly capabilities?: TerminalCapabilityConfiguration;
@@ -49,18 +49,18 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
   const stderr = options.stderrOutput ?? new RuntimeOutput(options.stderr);
   const clock = new RuntimeClock();
   const output = createTerminalHostOutputAuthority(stdout, stderr, options.id);
-  const getViewport = (): TerminalViewport => options.getViewport?.() ?? {
+  const getTerminalSize = (): TerminalSize => options.getTerminalSize?.() ?? {
     columns: stdout.columns ?? 80,
     rows: stdout.rows ?? 24
   };
-  const initialViewport = getViewport();
+  const initialTerminalSize = getTerminalSize();
   const resolverInput = {
     host: {
       runtime: options.runtime,
       inputIsTty: stdin.isTty(),
       outputIsTty: stdout.isTty(),
-      columns: initialViewport.columns,
-      rows: initialViewport.rows,
+      columns: initialTerminalSize.columns,
+      rows: initialTerminalSize.rows,
       rawInput: options.stdin?.setRawMode !== undefined,
       resizeEvents: options.subscribeSignals !== undefined,
       terminalProtocols: stdout.isTty()
@@ -88,7 +88,7 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
     signals: new RuntimeSignals(options.subscribeSignals),
     clock,
     env: new ObjectEnvironment(options.env ?? {}),
-    getViewport,
+    getTerminalSize,
     getCapabilities: (detectionOptions) => detector.detect(detectionOptions),
     beginSession: (sessionOptions) =>
       terminalState.beginLease(sessionOptions?.id ?? `${options.id}-session`, detector.current()),

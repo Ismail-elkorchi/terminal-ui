@@ -24,7 +24,7 @@ function manager<TMessage = never>(
     clock: host.clock,
     context: options.context ?? (async () => ({
       host,
-      viewport: host.getViewport(),
+      terminalSize: host.getTerminalSize(),
       capabilities: await host.getCapabilities(),
       diagnostics: [],
       clock: host.clock
@@ -187,7 +187,7 @@ void test('effect failures are enclosed across context run recovery and dispatch
     clock: host.clock,
     context: async () => ({
       host,
-      viewport: host.getViewport(),
+      terminalSize: host.getTerminalSize(),
       capabilities: await host.getCapabilities(),
       diagnostics: [],
       clock: host.clock
@@ -251,7 +251,7 @@ void test('cancellation during context acquisition prevents user effect code fro
       const host = createMemoryTerminalHost();
       return {
         host,
-        viewport: host.getViewport(),
+        terminalSize: host.getTerminalSize(),
         capabilities: await host.getCapabilities(),
         diagnostics: [],
         clock: host.clock

@@ -46,7 +46,7 @@ test('TUI wheel routing skips non-scroll child targets and reaches scroll owner'
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => custom({ id: 'wheel-scroll-owner', renderer })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 28, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 28, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -91,7 +91,7 @@ test('TUI press routing keeps scroll-only content targets from swallowing text p
         : { kind: 'text', action }
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 16, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 16, rows: 4 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -152,7 +152,7 @@ test('TUI wheel routing keeps scroll content hits in their overlay region layer'
       })
     ], { id: 'scroll-layer-root' })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 5 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 5 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -198,7 +198,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
       onAction: (action) => ({ event: action.event })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 6 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 6 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -290,7 +290,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
       onAction: (action) => ({ event: action.event })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 10 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 10 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -354,7 +354,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
     }
 })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 10 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 10 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -394,7 +394,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
       onAction: (action) => ({ event: action.event })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 6 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 6 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -425,7 +425,7 @@ test('TUI runtime coalesces compatible wheel packets across terminal reads', asy
       onAction: (action) => ({ event: action.event })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 6 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 6 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -485,7 +485,7 @@ test('TUI runtime flushes pending wheel input before keyboard input', async () =
       onAction: (action) => action.kind === 'scroll' ? { kind: 'scroll', event: action.event } : undefined
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 6 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 6 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -533,7 +533,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
       onAction: (action) => ({ event: action.event })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 22, rows: 6 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 22, rows: 6 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -596,7 +596,7 @@ test('TUI routed horizontal text area scroll uses the editable viewport after gu
       onAction: (action) => ({ event: action.event })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 14, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 14, rows: 4 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -642,7 +642,7 @@ presentation: { document: prepareTextDocument(value), caret: textCaretAt(0), scr
       onAction: (action) => ({ event: action.event })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 6 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 6 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -691,7 +691,7 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
       onAction: (action) => ({ action })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -748,7 +748,7 @@ test('TUI routed context menu scroll events use fixed title chrome and shared sc
       onAction: (action) => ({ action: action.kind === 'menu' ? action.action : action })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();

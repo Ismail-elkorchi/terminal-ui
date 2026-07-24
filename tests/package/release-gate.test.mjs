@@ -573,7 +573,7 @@ test('RenderRegion replaces the obsolete render layer model', async () => {
   assert.match(renderSource, /renderElementRegions/u);
   assert.match(renderSource, /compositeRegions/u);
   assert.doesNotMatch(renderSource, /id:\s*`z:\$\{String\([^`]+zIndex[^`]+`\s*,/u);
-  assert.doesNotMatch(renderSource, /buffer:\s*createFrameBuffer\(viewport\.columns,\s*viewport\.rows\)/u);
+  assert.doesNotMatch(renderSource, /buffer:\s*createFrameBuffer\(terminalSize\.columns,\s*terminalSize\.rows\)/u);
   for (const [label, source] of [['render', renderSource], ['regions', regionSource], ['tui', tuiEntrypoint], ['root', rootEntrypoint]]) {
     assert.doesNotMatch(source, /\bRenderLayer\b/u, label);
     assert.doesNotMatch(source, /\bMutableRenderLayer\b/u, label);

@@ -27,7 +27,7 @@ void test('intervalSource emits deterministic ticks through the terminal clock',
     subscriptions: () => [intervalSource('interval', 10, (tick) => ({ tick }))],
     view: (state) => text(state.ticks.join(','), { id: 'ticks' })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 12, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -56,7 +56,7 @@ void test('timeoutSource emits once after the configured clock delay', async () 
     subscriptions: () => [timeoutSource('timeout', 5, { ready: true })],
     view: (state) => text(state.ready ? 'ready' : 'waiting', { id: 'ready-state' })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 12, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -86,7 +86,7 @@ void test('animationSource maps frames from fps to clock-driven intervals', asyn
     subscriptions: () => [animationSource('animation', 20, (frame) => ({ frame }))],
     view: (state) => text(state.frames.map((frame) => frame.frameIndex).join(','), { id: 'frames' })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 12, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -120,7 +120,7 @@ void test('animationSource coalesces overruns to the latest due frame', async ()
     subscriptions: () => [animationSource('animation', 20, (frame) => ({ frame }))],
     view: (state) => text(String(state.frames.length), { id: 'frame-count' })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 12, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 12, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();

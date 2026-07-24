@@ -5,7 +5,7 @@ export interface Rect {
   readonly height: number;
 }
 
-export interface ViewportSize {
+export interface TerminalSize {
   readonly columns: number;
   readonly rows: number;
 }

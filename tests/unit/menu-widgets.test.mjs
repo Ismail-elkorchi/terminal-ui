@@ -188,7 +188,7 @@ test('menus route keyboard and mouse interaction through generic focus and hit t
       })
     ])
   });
-  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ viewport: { columns: 40, rows: 8 } }) });
+  const runtime = createTuiRuntime({ app, host: createMemoryTerminalHost({ terminalSize: { columns: 40, rows: 8 } }) });
 
   await runtime.start();
   const keyed = await runtime.handleInput(enter);

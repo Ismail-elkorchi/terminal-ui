@@ -14,9 +14,9 @@ import {
 import { text } from '../../dist/components/index.js';
 import { textSamples } from '../support/text-samples.mjs';
 
-test('layout and clipping properties keep rendered cells inside the viewport', () => {
+test('layout and clipping properties keep rendered cells inside the terminal size', () => {
   for (const { index, seed, value } of generatedTexts(64)) {
-    const viewport = viewportFor(value);
+    const terminalSize = terminalSizeFor(value);
     const widget = column([
       text(value, { id: 'top' }),
       row([
@@ -28,12 +28,12 @@ test('layout and clipping properties keep rendered cells inside the viewport', (
       gap: 1,
       padding: { top: 1, right: 1, bottom: 1, left: 1 }
     });
-    const layout = layoutElement(widget, viewport);
-    const frame = renderElementFrame(widget, viewport);
-    const detail = `index=${String(index)} seed=${String(seed)} viewport=${JSON.stringify(viewport)} value=${JSON.stringify(value)}`;
+    const layout = layoutElement(widget, terminalSize);
+    const frame = renderElementFrame(widget, terminalSize);
+    const detail = `index=${String(index)} seed=${String(seed)} terminalSize=${JSON.stringify(terminalSize)} value=${JSON.stringify(value)}`;
 
-    assertBoundsInsideViewport(layout.bounds, viewport, `${detail}: root layout`);
-    for (const child of layout.children) assertBoundsInsideViewport(child.bounds, viewport, `${detail}: child layout`);
+    assertBoundsInsideTerminal(layout.bounds, terminalSize, `${detail}: root layout`);
+    for (const child of layout.children) assertBoundsInsideTerminal(child.bounds, terminalSize, `${detail}: child layout`);
     for (const cell of frame.cells) assertCellInsideFrame(cell, frame, detail);
   }
 });
@@ -65,19 +65,19 @@ function generatedTexts(count) {
   return output;
 }
 
-function viewportFor(value) {
+function terminalSizeFor(value) {
   const width = 4 + (value.length % 24);
   const height = 2 + (value.length % 7);
   return { columns: width, rows: height };
 }
 
-function assertBoundsInsideViewport(bounds, viewport, detail) {
-  assert.equal(bounds.row >= 1, true, `${detail}: row before viewport`);
-  assert.equal(bounds.column >= 1, true, `${detail}: column before viewport`);
+function assertBoundsInsideTerminal(bounds, terminalSize, detail) {
+  assert.equal(bounds.row >= 1, true, `${detail}: row before terminal bounds`);
+  assert.equal(bounds.column >= 1, true, `${detail}: column before terminal bounds`);
   assert.equal(bounds.width >= 0, true, `${detail}: negative width`);
   assert.equal(bounds.height >= 0, true, `${detail}: negative height`);
-  assert.equal(bounds.column + bounds.width - 1 <= viewport.columns || bounds.width === 0, true, `${detail}: width exceeds viewport`);
-  assert.equal(bounds.row + bounds.height - 1 <= viewport.rows || bounds.height === 0, true, `${detail}: height exceeds viewport`);
+  assert.equal(bounds.column + bounds.width - 1 <= terminalSize.columns || bounds.width === 0, true, `${detail}: width exceeds terminal size`);
+  assert.equal(bounds.row + bounds.height - 1 <= terminalSize.rows || bounds.height === 0, true, `${detail}: height exceeds terminal size`);
 }
 
 function assertCellInsideFrame(cell, frame, detail) {

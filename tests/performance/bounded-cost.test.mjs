@@ -51,7 +51,7 @@ test('paste bursts decode as one paste event instead of per-character key churn'
   assert.equal(events[0]?.text.length, 10_000);
 });
 
-test('large list rendering is bounded by viewport size, not collection size', () => {
+test('large list rendering is bounded by terminal size, not collection size', () => {
   const items = Array.from({ length: 50_000 }, (_value, index) => `Item ${index}`);
   const frame = renderElementFrame(list({
     id: 'large-list',
@@ -105,7 +105,7 @@ test('windowed list collections project only supplied rows while preserving glob
   assert.equal(frame.accessibility.root.description, 'Showing 40003-40007 of 50000 items.');
 });
 
-test('large scrollback rendering is bounded by viewport size, not collection size', () => {
+test('large scrollback rendering is bounded by terminal size, not collection size', () => {
   const items = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
   const history = prepareScrollbackHistory(items);
   const frame = renderElementFrame(scrollback({ id: 'large-scrollback', history }), { columns: 48, rows: 12 });
@@ -175,7 +175,7 @@ function byteLength(value) {
   return new TextEncoder().encode(value).byteLength;
 }
 
-test('full frame render stays bounded by viewport for mixed widget trees', () => {
+test('full frame render stays bounded by terminal size for mixed element trees', () => {
   const frame = renderElementFrame(column([
     commandInput({
       id: 'search',
@@ -237,7 +237,7 @@ test('append-heavy scrollback diffs stay bounded by visible rows', () => {
   assert.ok(diff.operations.length <= 16);
 });
 
-test('large table viewport is bounded independently from row count', () => {
+test('large table rendering is bounded by terminal size independently from row count', () => {
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'large-table',
@@ -318,11 +318,11 @@ test('fill-width tables do not scan offscreen row values for intrinsic measureme
   }), { columns: 80, rows: 20 });
 
   assert.match(renderFramePlain(frame), /Row 10000/u);
-  assert.ok(valueReads <= 40, `expected viewport-bounded value reads, received ${String(valueReads)}`);
+  assert.ok(valueReads <= 40, `expected terminal-size-bounded value reads, received ${String(valueReads)}`);
 });
 
 test('large table retained damage is narrowed to changed visible rows', () => {
-  const viewport = { columns: 64, rows: 12 };
+  const terminalSize = { columns: 64, rows: 12 };
   const rows = Array.from({ length: 20_000 }, (_value, index) => [`Row ${index}`, index, `metadata ${index}`]);
   const previousWidget = table({
     getRowId: (_row, index) => String(index),
@@ -353,18 +353,18 @@ test('large table retained damage is narrowed to changed visible rows', () => {
     rows
   });
   const dirty = dirtyRegionsForRegionChanges(
-    renderElementRegions(previousWidget, viewport),
-    renderElementRegions(nextWidget, viewport)
+    renderElementRegions(previousWidget, terminalSize),
+    renderElementRegions(nextWidget, terminalSize)
   );
 
   assert.deepEqual(dirty?.rects, [
     { row: 7, column: 1, width: 64, height: 1 }
   ]);
-  assert.equal(dirty?.rects.some((rect) => rect.width === viewport.columns && rect.height === viewport.rows), false);
+  assert.equal(dirty?.rects.some((rect) => rect.width === terminalSize.columns && rect.height === terminalSize.rows), false);
 });
 
 test('large sparse canvas retained damage is narrowed to touched cells', () => {
-  const viewport = { columns: 120, rows: 40 };
+  const terminalSize = { columns: 120, rows: 40 };
   const previousWidget = canvas({
     id: 'sparse-canvas-damage',
     painter({ canvas }) {
@@ -378,8 +378,8 @@ test('large sparse canvas retained damage is narrowed to touched cells', () => {
     }
   });
   const dirty = dirtyRegionsForRegionChanges(
-    renderElementRegions(previousWidget, viewport),
-    renderElementRegions(nextWidget, viewport)
+    renderElementRegions(previousWidget, terminalSize),
+    renderElementRegions(nextWidget, terminalSize)
   );
 
   assert.deepEqual(dirty?.rects, [
@@ -387,7 +387,7 @@ test('large sparse canvas retained damage is narrowed to touched cells', () => {
   ]);
 });
 
-test('large tree viewport is bounded independently from node count', () => {
+test('large tree rendering is bounded by terminal size independently from node count', () => {
   const frame = renderElementFrame(tree({
     id: 'large-tree',
     selected: 'node-40000',
@@ -429,7 +429,7 @@ test('prepared tree collections avoid recursive flattening on rerender and movem
   const state = treeReducer({ nodes, selected: 'node-25000' }, { kind: 'move', delta: 1 }, { collection });
 
   assert.equal(state.selected, 'node-25001');
-  assert.ok(nodeIdReads < 500, `expected viewport-bounded node reads, received ${String(nodeIdReads)}`);
+  assert.ok(nodeIdReads < 500, `expected terminal-size-bounded node reads, received ${String(nodeIdReads)}`);
 });
 
 test('prepared collections snapshot source membership instead of retaining mutable arrays', () => {
@@ -479,7 +479,7 @@ test('form navigation over many controls records one bounded frame per input', a
       button({ id: 'done', label: 'Done', onPress: () => ({ kind: 'done' }) })
     ], { id: 'many-fields', title: 'Many fields' })
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 32, rows: 12 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 32, rows: 12 } });
   const runtime = createTuiRuntime({ app, host });
 
   await runtime.start();
@@ -491,7 +491,7 @@ test('form navigation over many controls records one bounded frame per input', a
   assert.ok(host.frames().every((frame) => frame.cells.length <= frame.width * frame.height));
 });
 
-test('custom canvas render stays bounded even when painters write outside the viewport', () => {
+test('custom canvas render stays bounded even when painters write outside the terminal size', () => {
   const frame = renderElementFrame(canvas({
     id: 'stress-canvas',
     painter({ canvas, bounds }) {
@@ -505,14 +505,14 @@ test('custom canvas render stays bounded even when painters write outside the vi
   assert.equal(renderFramePlain(frame).split('\n').length, 8);
 });
 
-test('resize storms skip unchanged viewports and commit each distinct sequential resize', async () => {
+test('resize storms skip unchanged terminal sizes and commit each distinct sequential resize', async () => {
   const app = defineTui({
     id: 'resize-bounds',
     init: () => ({ label: 'ready' }),
     update: (state) => ({ state }),
     view: (state) => text(state.label, { id: 'status' })
   });
-  const host = createMemoryTerminalHost({ viewport: { columns: 20, rows: 4 } });
+  const host = createMemoryTerminalHost({ terminalSize: { columns: 20, rows: 4 } });
   const runtime = createTuiRuntime({ app, host });
 
   await runtime.start();

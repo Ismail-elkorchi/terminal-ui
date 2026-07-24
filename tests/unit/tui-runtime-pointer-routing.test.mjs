@@ -18,7 +18,7 @@ test('TUI runtime routes mouse events to widgets under the pointer', async () =>
       onPress: () => ({ clicked: true })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -49,7 +49,7 @@ test('TUI pointer click activates once on left release and ignores right click o
       onPress: () => ({ clicks: 1 })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -84,7 +84,7 @@ test('built-in controls expose controlled pointer presentation without duplicate
       }
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 2 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 2 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -123,7 +123,7 @@ test('disabled controls expose neither activation nor synthetic pointer lifecycl
       }
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 18, rows: 2 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 18, rows: 2 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -163,7 +163,7 @@ test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages',
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => custom({ id: 'pointer-lifecycle', renderer })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -223,7 +223,7 @@ test('TUI pointer click counts use clock, stable target identity, and cross-targ
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => custom({ id: 'pointer-click-count-targets', renderer })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 2 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 2 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
   const click = async (column) => {
     await runtime.handleInput({
@@ -295,7 +295,7 @@ test('TUI pointer hover emits enter leave and hover when crossing targets', asyn
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => custom({ id: 'hover-lifecycle', renderer })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -349,7 +349,7 @@ test('TUI pointer targets receive event-aware messages and horizontal wheel delt
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => custom({ id: 'event-aware-pointer', renderer })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -398,7 +398,7 @@ test('TUI pointer drag routes to the captured origin target', async () => {
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: () => custom({ id: 'drag-pointer', renderer })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -441,7 +441,7 @@ test('TUI pointer motion drops stale drag samples before routing release', async
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: (state) => custom({ id: 'coalesced-drag', renderer, state: state.events.length })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
   await runtime.start();
   await runtime.handleInputChunk({ data: '\u001B[<0;1;1M' });
@@ -490,7 +490,7 @@ test('TUI runtime routes tree row hit targets to node messages', async () => {
       onAction: (action) => action.kind === 'select' ? { id: action.id } : undefined
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -517,7 +517,7 @@ test('TUI runtime routes tree disclosure and body hit targets separately', async
       onAction: (action) => ({ kind: 'tree', action })
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 4 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -566,7 +566,7 @@ test('TUI runtime routes overlapping mouse events to the topmost layer', async (
       id: 'mouse-layer-root'
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();
@@ -600,7 +600,7 @@ test('TUI runtime routes same-layer overlay mouse events to the last visible chi
       })
     ], { id: 'same-layer-overlay' })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 20, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();

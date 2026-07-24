@@ -7,7 +7,7 @@ import { planTerminalFrameOutput } from '../renderer/internal/terminal-frame-pla
 import { defaultTuiLifecyclePolicy } from './run-configuration.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
 import type { AccessibleSnapshot } from '../accessibility/index.ts';
-import type { TerminalHost, TerminalOperationContext, TerminalViewport } from '../host/index.ts';
+import type { TerminalHost, TerminalOperationContext, TerminalSize } from '../host/index.ts';
 import type { TerminalTheme } from '../theme/index.ts';
 import type { DirtyRegionSet } from '../renderer/internal/dirty-regions.ts';
 import type { FocusPath } from '../interaction/focus.ts';
@@ -20,7 +20,7 @@ export interface RenderCommitCandidate<TMessage> {
   readonly commitId: string;
   readonly stateVersion: number;
   readonly themeFingerprint: string;
-  readonly viewport: TerminalViewport;
+  readonly terminalSize: TerminalSize;
   readonly node: RenderNode<TMessage>;
   readonly layout: LayoutNode;
   readonly regions: readonly RenderRegion<TMessage>[];
@@ -37,7 +37,7 @@ export function renderCurrentFrame<TState, TMessage>(
   stateVersion: number,
   commitId: string
 ): RenderCommitCandidate<TMessage> {
-  const renderResult = renderElementInternal(app.definition.view(state, context), context.viewport, {
+  const renderResult = renderElementInternal(app.definition.view(state, context), context.terminalSize, {
     ...(focusPath === undefined ? {} : { focusPath }),
     theme,
     widthProfile: context.capabilities.unicode.widthProfile
@@ -50,7 +50,7 @@ export function renderCurrentFrame<TState, TMessage>(
     commitId,
     stateVersion,
     themeFingerprint: theme.fingerprint,
-    viewport: context.viewport,
+    terminalSize: context.terminalSize,
     node: renderResult.node,
     layout: renderResult.layout,
     regions: renderResult.regions,

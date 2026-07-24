@@ -42,12 +42,12 @@ import { summarizeSamples } from './benchmark-statistics.mjs';
 const quick = process.env['TERMINAL_UI_BENCHMARK_QUICK'] === '1';
 const sampleCount = quick ? 4 : 40;
 const warmupCount = quick ? 1 : 10;
-const viewport = Object.freeze({ columns: 120, rows: 40 });
+const terminalSize = Object.freeze({ columns: 120, rows: 40 });
 const widthProfile = defaultTextWidthProfile;
 const outputPath = outputArgument(process.argv.slice(2));
-const benchmarkHost = createMemoryTerminalHost({ viewport });
+const benchmarkHost = createMemoryTerminalHost({ terminalSize });
 const benchmarkContext = Object.freeze({
-  viewport,
+  terminalSize,
   capabilities: await benchmarkHost.getCapabilities(),
   diagnostics: [],
   clock: benchmarkHost.clock
@@ -58,13 +58,13 @@ const [{ btopMonitorApp }, { ideEditorApp }, { interactiveWorkspaceApp }] = awai
   import('../examples/tui/interactive-workspace.ts')
 ]);
 const metadata = Object.freeze({
-  schemaVersion: 'terminal-ui.performance-evidence.v1',
+  schemaVersion: 'terminal-ui.performance-evidence.v2',
   runtime: 'node',
   runtimeVersion: process.version,
   platform: process.platform,
   architecture: process.arch,
   runtimeKey: `node:${process.version}:${process.platform}:${process.arch}`,
-  viewport,
+  terminalSize,
   theme: defaultTheme.name,
   widthProfile,
   warmupCount,
@@ -139,7 +139,7 @@ function renderScenarios(realApps) {
             scroll: createScrollState({
               offsetRow: index + 100,
               contentRows: textDocumentLineCount(selectionDocument),
-              viewportRows: viewport.rows
+              viewportRows: terminalSize.rows
             })
           },
           lineNumbers: true,
@@ -158,7 +158,7 @@ function renderScenarios(realApps) {
           scroll: createScrollState({
             offsetRow: index + 100,
             contentRows: history.itemCount,
-            viewportRows: viewport.rows
+            viewportRows: terminalSize.rows
           }),
           onAction: () => undefined
         });
@@ -177,7 +177,7 @@ function renderScenarios(realApps) {
             scroll: createScrollState({
               offsetRow: index + 100,
               contentRows: tableCollection.records.length,
-              viewportRows: viewport.rows - 1
+              viewportRows: terminalSize.rows - 1
             })
           },
           onAction: () => undefined
@@ -195,7 +195,7 @@ function renderScenarios(realApps) {
           scroll: createScrollState({
             offsetRow: index + 100,
             contentRows: treeCollection.records.length,
-            viewportRows: viewport.rows
+            viewportRows: terminalSize.rows
           }),
           onAction: () => undefined
         });
@@ -319,7 +319,7 @@ function renderScenarios(realApps) {
     },
     {
       name: 'dense-canvas-composition',
-      scale: viewport.columns * viewport.rows,
+      scale: terminalSize.columns * terminalSize.rows,
       author(index) {
         return column([
           canvas({
@@ -372,7 +372,7 @@ function runRenderScenario(scenario) {
         currentWork.set(sample.kind, (currentWork.get(sample.kind) ?? 0) + sample.count);
       }
     };
-    const frame = renderElementFrame(element, viewport, {
+    const frame = renderElementFrame(element, terminalSize, {
       theme: defaultTheme,
       widthProfile,
       instrumentation: {
@@ -422,8 +422,8 @@ function runRenderScenario(scenario) {
 }
 
 async function runHostWriteScenario() {
-  const host = createMemoryTerminalHost({ viewport });
-  const textChunk = 'x'.repeat(viewport.columns * viewport.rows);
+  const host = createMemoryTerminalHost({ terminalSize });
+  const textChunk = 'x'.repeat(terminalSize.columns * terminalSize.rows);
   const samples = [];
   for (let index = -warmupCount; index < sampleCount; index += 1) {
     const started = performance.now();
@@ -454,7 +454,7 @@ async function runInputToCommitScenario() {
       onAction: (action) => ({ delta: action.kind === 'moveRow' ? action.delta : 0 })
     })
   });
-  const host = createMemoryTerminalHost({ viewport });
+  const host = createMemoryTerminalHost({ terminalSize });
   const runtime = createTuiRuntime({ app, host });
   await runtime.start();
   const samples = [];
@@ -487,7 +487,7 @@ async function runPointerRoutingScenario() {
       onAction: (action) => ({ rowId: action.kind === 'selectRow' ? action.rowId : state.selected })
     })
   });
-  const host = createMemoryTerminalHost({ viewport });
+  const host = createMemoryTerminalHost({ terminalSize });
   const runtime = createTuiRuntime({ app, host });
   await runtime.start();
   const samples = [];
@@ -514,7 +514,7 @@ async function runResizeStormScenario() {
     update: (state) => ({ state }),
     view: (state) => text(state.label)
   });
-  const host = createMemoryTerminalHost({ viewport });
+  const host = createMemoryTerminalHost({ terminalSize });
   const runtime = createTuiRuntime({ app, host });
   await runtime.start();
   const stormSize = quick ? 8 : 40;

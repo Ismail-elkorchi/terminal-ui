@@ -5,6 +5,10 @@ transcript recorder, input injection, resize events, frames, render diffs,
 accessible snapshots, restore checkpoints, and output capture.
 
 Use it to test prompts and TUI apps without private imports.
+Pass `terminalSize` to `createTerminalHarness()` or
+`createPtyTerminalHarness()` to set the initial row and column dimensions.
+Resize input events and interaction-transcript commits use the same
+`terminalSize` field.
 
 `harness.clock` is a controlled terminal clock. Use `advance(ms)` to drive
 timeouts, debounced prompt data sources, validation delays, and scripted waits
@@ -28,7 +32,7 @@ reviewable without maintaining generated stdout snapshots.
 
 Renderer and component regression tests should prove current public behavior:
 styled cells, spans, blocks, frame JSON, diffs, ANSI, focus targets, hit
-targets, accessibility, and bounded viewport cost. See
+targets, accessibility, and cost bounded by terminal size. See
 [Rendering internals](./rendering-internals.md) and
 [Building polished components](./building-polished-components.md).
 

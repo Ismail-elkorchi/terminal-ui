@@ -19,7 +19,7 @@ import type {
   TerminalRestoreResult,
   TerminalSignal,
   TerminalSignalSource,
-  TerminalViewport,
+  TerminalSize,
   Unsubscribe
 } from './types.ts';
 
@@ -256,12 +256,12 @@ export interface MemoryTerminalHost extends TerminalHost {
 }
 
 export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}): MemoryTerminalHost {
-  let viewport: TerminalViewport = options.viewport ?? { columns: 80, rows: 24 };
+  let terminalSize: TerminalSize = options.terminalSize ?? { columns: 80, rows: 24 };
   const isTty = options.isTty ?? true;
   const inputSource = new QueueInput(isTty);
   const stdin = new TerminalInputAuthority(inputSource, () => { inputSource.close(); });
-  const stdout = new BufferOutput(viewport.columns, viewport.rows, isTty);
-  const stderr = new BufferOutput(viewport.columns, viewport.rows, isTty);
+  const stdout = new BufferOutput(terminalSize.columns, terminalSize.rows, isTty);
+  const stderr = new BufferOutput(terminalSize.columns, terminalSize.rows, isTty);
   const output = createTerminalHostOutputAuthority(stdout, stderr, options.id ?? 'memory');
   const signals = new MemorySignals();
   const clock = new MemoryClock();
@@ -270,8 +270,8 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
       runtime: 'memory',
       inputIsTty: stdin.isTty(),
       outputIsTty: stdout.isTty(),
-      columns: viewport.columns,
-      rows: viewport.rows,
+      columns: terminalSize.columns,
+      rows: terminalSize.rows,
       rawInput: true,
       resizeEvents: true,
       terminalProtocols: isTty
@@ -312,9 +312,9 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
     signals,
     clock,
     env,
-    viewportControl: {
-      setViewport(nextViewport: TerminalViewport) {
-        viewport = nextViewport;
+    terminalSizeControl: {
+      setTerminalSize(nextTerminalSize: TerminalSize) {
+        terminalSize = nextTerminalSize;
       }
     },
     observer: {
@@ -331,7 +331,7 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
         options.observer?.recordRestore?.(result);
       }
     },
-    getViewport: () => viewport,
+    getTerminalSize: () => terminalSize,
     getCapabilities: (detectionOptions) => detector.detect(detectionOptions),
     beginSession: (sessionOptions) =>
       terminalState.beginLease(sessionOptions?.id ?? 'memory-session', detector.current()),

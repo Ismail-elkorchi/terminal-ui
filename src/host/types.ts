@@ -2,10 +2,10 @@ import type { RuntimeTarget } from './capability-types.ts';
 import type { TerminalDiagnostic } from '../diagnostics.ts';
 import type { TerminalCapabilityProfile } from './capability-types.ts';
 import type { TerminalCapabilityConfiguration } from './capabilities.ts';
-import type { ViewportSize } from '../geometry/types.ts';
+import type { TerminalSize } from '../geometry/types.ts';
 import type { TerminalKeyboardProfile } from '../protocol/keyboard.ts';
 
-export type TerminalViewport = Readonly<ViewportSize>;
+export type { TerminalSize } from '../geometry/types.ts';
 
 export interface TerminalOutputChunk {
   readonly text?: string;
@@ -78,8 +78,8 @@ export interface TerminalEnvironment {
   entries(): Iterable<readonly [string, string]>;
 }
 
-export interface TerminalViewportControl {
-  setViewport(viewport: TerminalViewport): void | Promise<void>;
+export interface TerminalSizeControl {
+  setTerminalSize(terminalSize: TerminalSize): void | Promise<void>;
 }
 
 export interface TerminalHostObserver {
@@ -97,10 +97,10 @@ export interface TerminalHost {
   readonly signals: TerminalSignalSource;
   readonly clock: TerminalClock;
   readonly env: TerminalEnvironment;
-  readonly viewportControl?: TerminalViewportControl;
+  readonly terminalSizeControl?: TerminalSizeControl;
   readonly observer?: TerminalHostObserver;
 
-  getViewport(): TerminalViewport;
+  getTerminalSize(): TerminalSize;
   getCapabilities(options?: TerminalCapabilityDetectionOptions): Promise<TerminalCapabilityProfile>;
   beginSession(options?: TerminalSessionOptions): Promise<TerminalSession>;
   restoreTerminalState(reason: TerminalRestoreReason, options?: TerminalRestoreOptions): Promise<TerminalRestoreResult>;
@@ -261,7 +261,7 @@ export interface NodeTerminalHostOptions {
 
 export interface MemoryTerminalHostOptions {
   readonly id?: string;
-  readonly viewport?: TerminalViewport;
+  readonly terminalSize?: TerminalSize;
   readonly isTty?: boolean;
   readonly clipboard?: boolean;
   readonly env?: Record<string, string>;
@@ -319,8 +319,8 @@ export interface PtyTerminalHostOptions {
   readonly stdout?: RuntimeTerminalOutputOptions;
   readonly stderr?: RuntimeTerminalOutputOptions;
   readonly env?: Record<string, string>;
-  readonly viewport?: TerminalViewport;
-  readonly resize?: (viewport: TerminalViewport) => void | Promise<void>;
+  readonly terminalSize?: TerminalSize;
+  readonly resize?: (terminalSize: TerminalSize) => void | Promise<void>;
   readonly observer?: TerminalHostObserver;
   readonly subscribeSignals?: (listener: (signal: TerminalSignal) => void) => Unsubscribe;
   readonly capabilities?: TerminalCapabilityConfiguration;
@@ -328,7 +328,7 @@ export interface PtyTerminalHostOptions {
 }
 
 export interface PtyTerminalHost extends TerminalHost {
-  readonly viewportControl: TerminalViewportControl;
+  readonly terminalSizeControl: TerminalSizeControl;
 }
 
 export type CreateTerminalHostOptions =

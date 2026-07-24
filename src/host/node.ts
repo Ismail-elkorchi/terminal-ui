@@ -16,7 +16,7 @@ import type {
   TerminalHost,
   TerminalSignal,
   TerminalSignalSource,
-  TerminalViewport,
+  TerminalSize,
   Unsubscribe
 } from './types.ts';
 
@@ -98,7 +98,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
   const stderr = new NodeTerminalOutput(options.stderr ?? nodeProcess.stderr);
   const output = createTerminalHostOutputAuthority(stdout, stderr, options.id ?? 'node');
   const clock = new NodeClock();
-  const getViewport = (): TerminalViewport => ({
+  const getTerminalSize = (): TerminalSize => ({
     columns: stdout.columns ?? 80,
     rows: stdout.rows ?? 24
   });
@@ -107,8 +107,8 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
       runtime: 'node',
       inputIsTty: stdin.isTty(),
       outputIsTty: stdout.isTty(),
-      columns: getViewport().columns,
-      rows: getViewport().rows,
+      columns: getTerminalSize().columns,
+      rows: getTerminalSize().rows,
       rawInput: typeof inputStream.setRawMode === 'function',
       resizeEvents: typeof outputStream.on === 'function' && typeof outputStream.off === 'function',
       terminalProtocols: stdout.isTty()
@@ -136,7 +136,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
     signals: new NodeSignals(nodeProcess, outputStream),
     clock,
     env: new ProcessEnvironment(options.env ?? nodeProcess.env),
-    getViewport,
+    getTerminalSize,
     getCapabilities: (detectionOptions) => detector.detect(detectionOptions),
     beginSession: (sessionOptions) =>
       terminalState.beginLease(sessionOptions?.id ?? 'node-session', detector.current()),

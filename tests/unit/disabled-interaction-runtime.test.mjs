@@ -153,7 +153,7 @@ test('disabled widget props block generated keyboard and mouse dispatch', async 
       disabled: true
     })
   });
-  const harness = createTerminalHarness({ viewport: { columns: 24, rows: 3 } });
+  const harness = createTerminalHarness({ terminalSize: { columns: 24, rows: 3 } });
   const runtime = createTuiRuntime({ app, host: harness.host });
 
   await runtime.start();

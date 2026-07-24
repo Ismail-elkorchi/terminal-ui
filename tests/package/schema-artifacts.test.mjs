@@ -6,7 +6,7 @@ import { schemaArtifacts } from '../../dist/schemas/index.js';
 
 const requiredArtifacts = new Map([
   ['./accessible-snapshot.schema.json', 'terminal-ui.accessible-snapshot.v1'],
-  ['./interaction-transcript.schema.json', 'terminal-ui.interaction-transcript.v2'],
+  ['./interaction-transcript.schema.json', 'terminal-ui.interaction-transcript.v3'],
   ['./terminal-capabilities.schema.json', 'terminal-ui.terminal-capabilities.v1'],
   ['./terminal-diagnostic.schema.json', 'terminal-ui.terminal-diagnostic.v1'],
   ['./prompt-result.schema.json', 'terminal-ui.prompt-result.v1'],

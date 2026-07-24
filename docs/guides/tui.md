@@ -29,8 +29,9 @@ Restoration still runs through the same session path and restores only state
 that was actually changed.
 
 Setup diagnostics are app-facing data. `runTui()` passes session setup
-diagnostics into `TuiContext.diagnostics`, and `createTuiRuntime()` accepts the
-same diagnostics explicitly for custom loops and tests. Apps that care about
+diagnostics into `TuiContext.diagnostics`; `TuiContext.terminalSize` contains
+the current terminal row and column dimensions. `createTuiRuntime()` accepts
+the same diagnostics explicitly for custom loops and tests. Apps that care about
 optional terminal features, such as drag-capable mouse reporting, can render a
 small warning from `context.diagnostics` instead of parsing terminal protocol
 state. Subscriptions receive the same diagnostics through their subscription
@@ -107,7 +108,7 @@ custom event loops. Dispatches are serialized, so stream events, timers, input,
 signals, and app-triggered messages cannot overlap render commits.
 
 Anonymous layout nodes receive deterministic structural identities based on
-their parent path, kind, and sibling ordinal. That identity survives viewport
+their parent path, kind, and sibling ordinal. That identity survives terminal
 resizes. Components whose focus or interaction state must survive sibling
 reordering still need an explicit top-level `id`.
 
@@ -184,7 +185,7 @@ sources. Hit targets are event-aware: each target can accept pointer event kinds
 and compute a caller-owned message from the routed event. Ordinary targets
 default to one left-click activation; release events, right-click context-menu
 input, wheel scroll input, and drag/capture input do not reuse the same static
-activation message. Routed pointer events preserve viewport coordinates,
+activation message. Routed pointer events preserve terminal coordinates,
 target-local coordinates, press-origin coordinates for captured drags,
 button/modifier state, vertical and horizontal scroll deltas, captured target
 ids, and the raw terminal mouse event for tests and richer components.
