@@ -61,7 +61,7 @@ void test('dropdownMenu behavior separates popup navigation from committed actio
   assert.deepEqual(dropdownMenuPresentation(actions, committed), { kind: 'closed', active: 'beta' });
 });
 
-void test('tabs behavior skips disabled tabs and leaves close ownership with the app', () => {
+void test('tabs behavior skips disabled tabs and leaves close handling with the app', () => {
   const items = [
     { id: 'one' },
     { id: 'two', disabled: true },

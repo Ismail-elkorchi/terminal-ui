@@ -389,7 +389,7 @@ test('table compact fill columns keep marker width aligned with cell hit targets
   ]);
 });
 
-test('table headers can expose a visible resize affordance without changing reducer ownership', () => {
+test('table headers can expose a visible resize affordance without changing caller-controlled reducer state', () => {
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'resizable-table',
