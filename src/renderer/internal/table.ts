@@ -164,7 +164,7 @@ export function tableAccessibleChildren(
         },
         children: columns.map((column, columnIndex) => ({
           id: `${widget.id ?? 'table'}:header:${String(column.index)}`,
-          role: 'gridcell',
+          role: 'columnheader',
           label: columnLabel(column, columnIndex),
           value: columnLabel(column, columnIndex),
           ...(column.sortable === true || column.resizable === true ? {

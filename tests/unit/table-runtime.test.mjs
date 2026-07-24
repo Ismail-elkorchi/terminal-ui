@@ -83,6 +83,7 @@ test('table widget renders constrained columns and selected rows', () => {
     columnCount: 2,
     columnLabel: 'Value'
   });
+  assert.equal(frame.accessibility.root.children?.[0]?.children?.[1]?.role, 'columnheader');
   assert.deepEqual(frame.accessibility.root.children?.[2]?.position, {
     positionInSet: 2,
     setSize: 2,

@@ -51,9 +51,12 @@
             "tab",
             "table",
             "grid",
+            "rowgroup",
             "row",
             "cell",
             "gridcell",
+            "columnheader",
+            "rowheader",
             "tree",
             "treeitem",
             "image",
@@ -183,11 +186,15 @@
         },
         {
           "if": { "type": "object", "properties": { "role": { "enum": ["table", "grid"] } }, "required": ["role"] },
-          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/rowNode" } } } }
+          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/tableChildNode" } } } }
         },
         {
           "if": { "type": "object", "properties": { "role": { "const": "row" } }, "required": ["role"] },
           "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/tableCellNode" } } } }
+        },
+        {
+          "if": { "type": "object", "properties": { "role": { "const": "rowgroup" } }, "required": ["role"] },
+          "then": { "type": "object", "properties": { "children": { "type": "array", "items": { "$ref": "#/$defs/rowNode" } } } }
         },
         {
           "if": { "type": "object", "properties": { "role": { "const": "tree" } }, "required": ["role"] },
@@ -197,10 +204,10 @@
       "additionalProperties": false
     },
     "optionNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "const": "option" } } }]
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["option", "group"] } } }]
     },
     "menuItemNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["menuitem", "menuitemcheckbox", "menuitemradio"] } } }]
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["menuitem", "menuitemcheckbox", "menuitemradio", "group"] } } }]
     },
     "comboboxChildNode": {
       "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["listbox", "status"] } } }]
@@ -209,16 +216,19 @@
       "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "const": "tab" } } }]
     },
     "radioNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "const": "radio" } } }]
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["radio", "group"] } } }]
     },
     "rowNode": {
       "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "const": "row" } } }]
     },
+    "tableChildNode": {
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["row", "rowgroup"] } } }]
+    },
     "tableCellNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["cell", "gridcell"] } } }]
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["cell", "gridcell", "columnheader", "rowheader"] } } }]
     },
     "treeItemNode": {
-      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "const": "treeitem" } } }]
+      "allOf": [{ "$ref": "#/$defs/accessibleNode" }, { "type": "object", "properties": { "role": { "enum": ["treeitem", "group"] } } }]
     }
   }
 }

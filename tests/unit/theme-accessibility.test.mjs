@@ -209,15 +209,32 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
       id: 'calendar',
       role: 'grid',
       children: [{
-        id: 'week',
-        role: 'row',
-        position: { rowIndex: 1, rowCount: 1, columnCount: 1 },
+        id: 'calendar-body',
+        role: 'rowgroup',
         children: [{
-          id: 'day',
-          role: 'gridcell',
-          position: { rowIndex: 1, columnIndex: 1, columnCount: 1 },
-          selected: true
+          id: 'week',
+          role: 'row',
+          position: { rowIndex: 1, rowCount: 1, columnCount: 3 },
+          children: [
+            { id: 'weekday', role: 'columnheader', position: { columnIndex: 1, columnCount: 3 } },
+            { id: 'week-number', role: 'rowheader', position: { columnIndex: 2, columnCount: 3 } },
+            {
+              id: 'day',
+              role: 'gridcell',
+              position: { rowIndex: 1, columnIndex: 3, columnCount: 3 },
+              selected: true
+            }
+          ]
         }]
+      }]
+    },
+    {
+      id: 'grouped-choices',
+      role: 'listbox',
+      children: [{
+        id: 'preferred',
+        role: 'group',
+        children: [{ id: 'preferred-choice', role: 'option' }]
       }]
     },
     {
@@ -286,7 +303,8 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     },
     { id: 'listbox', role: 'listbox', children: [{ id: 'radio', role: 'radio' }] },
     { id: 'tree', role: 'tree', children: [{ id: 'option', role: 'option' }] },
-    { id: 'grid', role: 'grid', children: [{ id: 'cell', role: 'gridcell' }] }
+    { id: 'grid', role: 'grid', children: [{ id: 'cell', role: 'gridcell' }] },
+    { id: 'rowgroup', role: 'rowgroup', children: [{ id: 'cell', role: 'gridcell' }] }
   ];
 
   for (const root of invalidRoots) {

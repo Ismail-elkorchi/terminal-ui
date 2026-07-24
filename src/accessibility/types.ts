@@ -105,9 +105,12 @@ export type AccessibleRole =
   | 'tab'
   | 'table'
   | 'grid'
+  | 'rowgroup'
   | 'row'
   | 'cell'
   | 'gridcell'
+  | 'columnheader'
+  | 'rowheader'
   | 'tree'
   | 'treeitem'
   | 'image'
@@ -150,9 +153,12 @@ export const accessibleRoles = [
   'tab',
   'table',
   'grid',
+  'rowgroup',
   'row',
   'cell',
   'gridcell',
+  'columnheader',
+  'rowheader',
   'tree',
   'treeitem',
   'image',

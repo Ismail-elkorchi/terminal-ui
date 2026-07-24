@@ -135,6 +135,33 @@ test('accessible snapshot schema accepts current names and rejects removed names
   };
 
   assert.equal(validate(current), true, ajv.errorsText(validate.errors));
+  assert.equal(validate({
+    ...current,
+    root: {
+      id: 'standard-table',
+      role: 'table',
+      children: [{
+        id: 'table-head',
+        role: 'rowgroup',
+        children: [{
+          id: 'header-row',
+          role: 'row',
+          children: [
+            { id: 'row-header', role: 'rowheader' },
+            { id: 'column-header', role: 'columnheader' }
+          ]
+        }]
+      }]
+    }
+  }), true, ajv.errorsText(validate.errors));
+  assert.equal(validate({
+    ...current,
+    root: {
+      id: 'invalid-rowgroup',
+      role: 'rowgroup',
+      children: [{ id: 'direct-cell', role: 'gridcell' }]
+    }
+  }), false);
   assert.equal(validate({ ...current, source: 'widget' }), false);
   assert.equal(validate({
     ...current,

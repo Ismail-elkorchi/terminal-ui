@@ -367,16 +367,17 @@ function childRoleIssue(node: Record<string, unknown>, id: string): TerminalDiag
 }
 
 const requiredChildRoles: Readonly<Record<string, ReadonlySet<string>>> = Object.freeze({
-  listbox: new Set(['option']),
-  menu: new Set(['menuitem', 'menuitemcheckbox', 'menuitemradio']),
-  menubar: new Set(['menuitem', 'menuitemcheckbox', 'menuitemradio']),
+  listbox: new Set(['option', 'group']),
+  menu: new Set(['menuitem', 'menuitemcheckbox', 'menuitemradio', 'group']),
+  menubar: new Set(['menuitem', 'menuitemcheckbox', 'menuitemradio', 'group']),
   combobox: new Set(['listbox', 'status']),
   tablist: new Set(['tab']),
-  radiogroup: new Set(['radio']),
-  table: new Set(['row']),
-  grid: new Set(['row']),
-  row: new Set(['cell', 'gridcell']),
-  tree: new Set(['treeitem'])
+  radiogroup: new Set(['radio', 'group']),
+  table: new Set(['row', 'rowgroup']),
+  grid: new Set(['row', 'rowgroup']),
+  rowgroup: new Set(['row']),
+  row: new Set(['cell', 'gridcell', 'columnheader', 'rowheader']),
+  tree: new Set(['treeitem', 'group'])
 });
 
 function optionalStringIssue(
