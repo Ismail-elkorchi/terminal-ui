@@ -8,7 +8,7 @@ import { createRegionTargetIndex } from './region-target-index.ts';
 import type { RegionTargetIndex } from './region-target-index.ts';
 import { createFrameBuffer } from './frame.ts';
 import { blitFrameCell } from './frame-buffer.ts';
-import { projectStyledCursor } from './cursor-projection.ts';
+import { applyCursorStyle } from './cursor-style.ts';
 import { applyFramePasses, boxDrawingJoinPass } from './frame-passes/index.ts';
 import { layoutRenderNode } from './layout.ts';
 import { accessibleNode } from './render-accessibility.ts';
@@ -170,7 +170,7 @@ export function renderElementInternal<TMessage>(
   });
   const cursor = measureRenderStage(options.instrumentation, 'cursor', () => {
     const next = cursorForFocusedRenderNode(renderNode, layout, resolvedFocusPath, theme, widthProfile);
-    projectStyledCursor(buffer, next);
+    applyCursorStyle(buffer, next);
     return next;
   });
   const hitTargets = measureRenderStage(options.instrumentation, 'hit_targets', () =>

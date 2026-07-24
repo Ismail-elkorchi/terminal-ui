@@ -2,7 +2,7 @@ import type { CursorPosition } from '../model/cursor.ts';
 import type { FrameBuffer } from './frame-buffer.ts';
 import type { FrameCell, TerminalStyle } from './frame.ts';
 
-export function projectStyledCursor(buffer: FrameBuffer, cursor: CursorPosition | undefined): void {
+export function applyCursorStyle(buffer: FrameBuffer, cursor: CursorPosition | undefined): void {
   if (cursor?.style === undefined || !insideBuffer(buffer, cursor.row, cursor.column)) return;
   const target = cursorTargetCell(buffer, cursor.row, cursor.column);
   if (target === undefined) {
