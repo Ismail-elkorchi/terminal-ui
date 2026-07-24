@@ -60,6 +60,10 @@ textInput({
 type RemovedComponentTone =
   // @ts-expect-error component families expose their own tone contracts
   import('@ismail-elkorchi/terminal-ui/components').ComponentTone;
+type RemovedComponentStatus =
+  // @ts-expect-error status-bar and process contracts are independent
+  import('@ismail-elkorchi/terminal-ui/components').ComponentStatus;
 
 void menuActionTone;
 void (undefined as unknown as RemovedComponentTone);
+void (undefined as unknown as RemovedComponentStatus);

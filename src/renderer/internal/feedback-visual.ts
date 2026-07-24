@@ -3,7 +3,7 @@ import { sanitizeTerminalText } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { HelpGroup, ProcessStatus } from '../../ui-model/contracts.ts';
 import type { StatusBarItem, StatusBarSection } from '../../ui-model/feedback.ts';
-import { normalizeComponentStatus, normalizeProcessStatus } from '../../ui-model/status.ts';
+import { normalizeProcessStatus, normalizeStatusBarStatus } from '../../ui-model/status.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import { block, clipRenderSpans, line, measureRenderSpans, span } from '../../visual/render.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -84,7 +84,7 @@ function statusBarItems(value: unknown): readonly StatusBarItem[] {
       ...(isInlineContent(candidate.trailing) ? { trailing: candidate.trailing } : {})
     };
     if (candidate.kind === 'status') {
-      return [{ id, kind: 'status', text, status: normalizeComponentStatus(candidate.status), ...adornments }];
+      return [{ id, kind: 'status', text, status: normalizeStatusBarStatus(candidate.status), ...adornments }];
     }
     return candidate.kind === 'text' ? [{ id, kind: 'text', text, ...adornments }] : [];
   });

@@ -107,7 +107,8 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   }
   for (const typeName of [
     'ChoiceItem',
-    'ComponentStatus',
+    'StatusBarStatus',
+    'ProcessStatus',
     'ValidationLevel'
   ]) {
     assert.match(componentContractsDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `components:${typeName}`);

@@ -2,11 +2,11 @@ import type { NotificationTone } from './feedback.ts';
 import type {
   ProcessStatus,
   RecordStatus,
-  ComponentStatus,
+  StatusBarStatus,
   ValidationLevel
 } from './contracts.ts';
 
-const componentStatuses = [
+const statusBarStatuses = [
   'idle',
   'pending',
   'running',
@@ -14,7 +14,7 @@ const componentStatuses = [
   'warning',
   'error',
   'info'
-] as const satisfies readonly ComponentStatus[];
+] as const satisfies readonly StatusBarStatus[];
 
 const processStatuses = [
   'idle',
@@ -50,12 +50,12 @@ const notificationTones = [
   'progress'
 ] as const satisfies readonly NotificationTone[];
 
-export function isComponentStatus(value: unknown): value is ComponentStatus {
-  return includesValue(componentStatuses, value);
+export function isStatusBarStatus(value: unknown): value is StatusBarStatus {
+  return includesValue(statusBarStatuses, value);
 }
 
-export function normalizeComponentStatus(value: unknown, fallback: ComponentStatus = 'idle'): ComponentStatus {
-  return isComponentStatus(value) ? value : fallback;
+export function normalizeStatusBarStatus(value: unknown, fallback: StatusBarStatus = 'idle'): StatusBarStatus {
+  return isStatusBarStatus(value) ? value : fallback;
 }
 
 export function isProcessStatus(value: unknown): value is ProcessStatus {
@@ -104,7 +104,7 @@ export function normalizeNotificationTone(value: unknown, fallback: Notification
   return isNotificationTone(value) ? value : fallback;
 }
 
-export function baseStatusForRecordStatus(status: RecordStatus): ComponentStatus {
+export function baseStatusForRecordStatus(status: RecordStatus): StatusBarStatus {
   if (status === 'failed') return 'error';
   if (status === 'cancelled' || status === 'skipped') return 'warning';
   return status;

@@ -5,9 +5,11 @@ import {
   baseStatusForRecordStatus,
   isProcessStatus,
   isRecordStatus,
+  isStatusBarStatus,
   isValidationLevel,
   normalizeNotificationTone,
   normalizeProcessStatus,
+  normalizeStatusBarStatus,
   optionalRecordStatus,
   optionalValidationLevel
 } from '../../dist/components/index.js';
@@ -17,6 +19,12 @@ void test('process status normalizers keep process semantics distinct from recor
   assert.equal(isProcessStatus('pending'), false);
   assert.equal(normalizeProcessStatus('success'), 'success');
   assert.equal(normalizeProcessStatus('pending', 'idle'), 'idle');
+});
+
+void test('status-bar status accepts informational labels without widening process state', () => {
+  assert.equal(isStatusBarStatus('info'), true);
+  assert.equal(isProcessStatus('info'), false);
+  assert.equal(normalizeStatusBarStatus('pending'), 'pending');
 });
 
 void test('record status normalizers accept event states without accepting idle', () => {

@@ -1,5 +1,5 @@
 import type { ThemeColorToken } from '../visual/color.ts';
-import type { ComponentStatus, TitledItem } from './contracts.ts';
+import type { StatusBarStatus, TitledItem } from './contracts.ts';
 import type { InlineContent } from '../visual/inline-content.ts';
 
 export type StatusBarSection = 'leading' | 'center' | 'trailing';
@@ -18,7 +18,7 @@ export type StatusBarItem = StatusBarItemContent & (
   | {
       readonly kind: 'status';
       readonly text: string;
-      readonly status: ComponentStatus;
+      readonly status: StatusBarStatus;
     }
 );
 

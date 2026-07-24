@@ -1,7 +1,7 @@
 export type ValidationLevel = 'info' | 'warning' | 'error';
 export type ComponentDensity = 'compact' | 'regular';
 
-export type ComponentStatus =
+export type StatusBarStatus =
   | 'idle'
   | 'pending'
   | 'running'
@@ -10,8 +10,17 @@ export type ComponentStatus =
   | 'error'
   | 'info';
 
-export type ProcessStatus = Extract<ComponentStatus, 'idle' | 'running' | 'success' | 'warning' | 'error'>;
-export type RecordStatus = Exclude<ComponentStatus, 'idle'> | 'failed' | 'cancelled' | 'skipped';
+export type ProcessStatus = 'idle' | 'running' | 'success' | 'warning' | 'error';
+export type RecordStatus =
+  | 'pending'
+  | 'running'
+  | 'success'
+  | 'warning'
+  | 'error'
+  | 'info'
+  | 'failed'
+  | 'cancelled'
+  | 'skipped';
 export type LogLevel = 'info' | 'warning' | 'error';
 
 export interface ItemBase {
