@@ -13,13 +13,13 @@ export type { BorderKind } from '../../visual/border.ts';
 
 export type BorderTitleContent = string | readonly RenderSpan[];
 
-export interface BorderTitleRail {
+export interface BorderTitleSlots {
   readonly start?: BorderTitleContent;
   readonly center?: BorderTitleContent;
   readonly end?: BorderTitleContent;
 }
 
-export type BorderTitle = BorderTitleContent | BorderTitleRail;
+export type BorderTitle = BorderTitleContent | BorderTitleSlots;
 
 export interface BorderStyle {
   readonly kind: BorderKind;
@@ -89,10 +89,10 @@ function horizontalLine(
       borderSpan(right, style, 'border.corner')
     ];
   }
-  if (isBorderTitleRail(title)) {
+  if (isBorderTitleSlots(title)) {
     return [
       borderSpan(left, style, 'border.corner'),
-      ...titleRailSpans(title, innerWidth, glyphs.horizontal, style, widthProfile),
+      ...titleSlotSpans(title, innerWidth, glyphs.horizontal, style, widthProfile),
       borderSpan(right, style, 'border.corner')
     ];
   }
@@ -182,8 +182,8 @@ function writeBorderLine(
 }
 
 function titleLength(title: BorderTitle, widthProfile: TextWidthProfile): number {
-  if (isBorderTitleRail(title)) {
-    return titleRailContents(title).reduce(
+  if (isBorderTitleSlots(title)) {
+    return titleSlotContents(title).reduce(
       (sum, currentTitle) => sum + measureRenderSpans(titleSpans(currentTitle, undefined), { widthProfile }),
       0
     );
@@ -193,8 +193,8 @@ function titleLength(title: BorderTitle, widthProfile: TextWidthProfile): number
 
 export function borderTitleText(title: BorderTitle | undefined): string {
   if (title === undefined) return '';
-  if (isBorderTitleRail(title)) {
-    return titleRailContents(title)
+  if (isBorderTitleSlots(title)) {
+    return titleSlotContents(title)
       .map((currentTitle) => borderTitleContentText(currentTitle))
       .filter((text) => text.length > 0)
       .join(' ');
@@ -219,34 +219,34 @@ function titleSpans(title: BorderTitleContent, style: TerminalStyle | undefined)
   ];
 }
 
-function titleRailSpans(
-  rail: BorderTitleRail,
+function titleSlotSpans(
+  slots: BorderTitleSlots,
   innerWidth: number,
   horizontal: string,
   style: TerminalStyle | undefined,
   widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
-  const start = titleContentSpans(rail.start, style);
-  const center = titleContentSpans(rail.center, style);
-  const end = titleContentSpans(rail.end, style);
+  const start = titleContentSpans(slots.start, style);
+  const center = titleContentSpans(slots.center, style);
+  const end = titleContentSpans(slots.end, style);
   const pieces: RenderSpan[] = [];
   let cursor = 0;
 
-  cursor = appendRailSegment(pieces, cursor, 0, innerWidth, start, horizontal, style, widthProfile);
+  cursor = appendTitleSlot(pieces, cursor, 0, innerWidth, start, horizontal, style, widthProfile);
 
   const centerWidth = measureRenderSpans(center, { widthProfile });
   const centerColumn = Math.max(cursor, Math.floor((innerWidth - centerWidth) / 2));
-  cursor = appendRailSegment(pieces, cursor, centerColumn, innerWidth, center, horizontal, style, widthProfile);
+  cursor = appendTitleSlot(pieces, cursor, centerColumn, innerWidth, center, horizontal, style, widthProfile);
 
   const endWidth = measureRenderSpans(end, { widthProfile });
   const endColumn = Math.max(cursor, innerWidth - endWidth);
-  cursor = appendRailSegment(pieces, cursor, endColumn, innerWidth, end, horizontal, style, widthProfile);
+  cursor = appendTitleSlot(pieces, cursor, endColumn, innerWidth, end, horizontal, style, widthProfile);
 
   if (cursor < innerWidth) pieces.push(borderSpan(horizontal.repeat(innerWidth - cursor), style, 'border.edge'));
   return pieces;
 }
 
-function appendRailSegment(
+function appendTitleSlot(
   output: RenderSpan[],
   cursor: number,
   column: number,
@@ -271,14 +271,14 @@ function titleContentSpans(title: BorderTitleContent | undefined, style: Termina
   return title === undefined ? [] : titleSpans(title, style);
 }
 
-function isBorderTitleRail(value: BorderTitle): value is BorderTitleRail {
+function isBorderTitleSlots(value: BorderTitle): value is BorderTitleSlots {
   return typeof value === 'object'
     && !Array.isArray(value)
     && ('start' in value || 'center' in value || 'end' in value);
 }
 
-function titleRailContents(rail: BorderTitleRail): readonly BorderTitleContent[] {
-  return [rail.start, rail.center, rail.end].filter((value): value is BorderTitleContent => value !== undefined);
+function titleSlotContents(slots: BorderTitleSlots): readonly BorderTitleContent[] {
+  return [slots.start, slots.center, slots.end].filter((value): value is BorderTitleContent => value !== undefined);
 }
 
 function sanitizeTitleSpan(currentSpan: RenderSpan, style: TerminalStyle | undefined, index: number): RenderSpan {

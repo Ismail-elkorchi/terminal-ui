@@ -209,9 +209,9 @@ test('surface titles preserve authored inline styles with renderer-produced sour
   assert.equal(titleMetric?.style?.fg?.token, 'chart.value');
 });
 
-test('surface title rails render start center and end zones in the border line', () => {
-  const frame = renderElementFrame(surface(text('body', { id: 'rail-body' }), {
-    id: 'rail-surface',
+test('surface title slots render start center and end zones in the border line', () => {
+  const frame = renderElementFrame(surface(text('body', { id: 'slot-body' }), {
+    id: 'slot-surface',
     title: {
       start: [{ kind: 'text', text: 'cpu', style: { fg: { kind: 'theme', token: 'surface.title' } } }],
       center: [{ kind: 'text', text: 'btop', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }],

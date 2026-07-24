@@ -3,11 +3,11 @@ import type { TerminalTheme } from '../../theme/index.ts';
 import type {
   BorderTitle as AuthoredBorderTitle,
   BorderTitleContent as AuthoredBorderTitleContent,
-  BorderTitleRail as AuthoredBorderTitleRail
+  BorderTitleSlots as AuthoredBorderTitleSlots
 } from '../../visual/border.ts';
 import type { FrameCellSource, TerminalStyle } from '../../visual/render.ts';
 import { span } from '../../visual/render.ts';
-import type { BorderTitle, BorderTitleContent, BorderTitleRail } from './border.ts';
+import type { BorderTitle, BorderTitleContent, BorderTitleSlots } from './border.ts';
 import { renderInlineContent } from './inline-content.ts';
 
 export interface BorderTitleRenderOptions {
@@ -21,25 +21,25 @@ export function renderBorderTitle(
   options: BorderTitleRenderOptions
 ): BorderTitle | undefined {
   if (title === undefined) return undefined;
-  if (isTitleRail(title)) {
-    const rail: BorderTitleRail = {
-      ...renderRailPart('start', title.start, options),
-      ...renderRailPart('center', title.center, options),
-      ...renderRailPart('end', title.end, options)
+  if (isTitleSlots(title)) {
+    const slots: BorderTitleSlots = {
+      ...renderTitleSlot('start', title.start, options),
+      ...renderTitleSlot('center', title.center, options),
+      ...renderTitleSlot('end', title.end, options)
     };
-    return Object.keys(rail).length === 0 ? undefined : rail;
+    return Object.keys(slots).length === 0 ? undefined : slots;
   }
   return renderTitleContent(title, 'title', options);
 }
 
-function renderRailPart<TKey extends keyof AuthoredBorderTitleRail>(
+function renderTitleSlot<TKey extends keyof AuthoredBorderTitleSlots>(
   key: TKey,
   content: AuthoredBorderTitleContent | undefined,
   options: BorderTitleRenderOptions
-): Pick<BorderTitleRail, TKey> | Record<string, never> {
+): Pick<BorderTitleSlots, TKey> | Record<string, never> {
   if (content === undefined) return {};
   const rendered = renderTitleContent(content, `title.${key}`, options);
-  return rendered === undefined ? {} : { [key]: rendered } as Pick<BorderTitleRail, TKey>;
+  return rendered === undefined ? {} : { [key]: rendered } as Pick<BorderTitleSlots, TKey>;
 }
 
 function renderTitleContent(
@@ -64,7 +64,7 @@ function renderTitleContent(
   return spans.length === 0 ? undefined : spans;
 }
 
-function isTitleRail(title: AuthoredBorderTitle): title is AuthoredBorderTitleRail {
+function isTitleSlots(title: AuthoredBorderTitle): title is AuthoredBorderTitleSlots {
   return typeof title === 'object'
     && !Array.isArray(title)
     && ('start' in title || 'center' in title || 'end' in title);

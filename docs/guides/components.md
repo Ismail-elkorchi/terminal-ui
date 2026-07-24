@@ -153,10 +153,10 @@ part, item, and visual-state identity when it compiles inline content into
 render spans. Core theme color tokens are a closed vocabulary; application
 tokens must use the `custom.*` namespace.
 
-`dialog()` titles accept authored inline content, including start, center, and
-end title content. Its `border` option owns geometry only: border kind and
-title alignment. Renderer spans, frame source metadata, and border styles
-remain renderer-extension concerns.
+`dialog()` titles accept authored inline content. A `BorderTitleSlots` object
+places title content in its `start`, `center`, and `end` slots. Its `border`
+option owns geometry only: border kind and title alignment. Renderer spans,
+frame source metadata, and border styles remain renderer-extension concerns.
 
 For app structure and controlled state, see [UI authoring](./ui-authoring.md).
 For reusable reducers, see [Behavior helpers](./behavior.md). For custom

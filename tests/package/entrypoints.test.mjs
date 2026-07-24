@@ -219,6 +219,8 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   assert.match(renderNodeRendererDeclaration, /readonly focused: boolean;/u);
   assert.match(renderNodeRendererDeclaration, /readonly focus: RenderFocusRelation;/u);
   assert.match(renderNodeRendererDeclaration, /export type RenderFocusRelation = 'none' \| 'self' \| 'descendant';/u);
+  assert.match(borderDeclaration, /export interface BorderTitleSlots \{/u);
+  assert.doesNotMatch(borderDeclaration, /\bBorderTitleRail\b/u);
   assert.match(borderDeclaration, /readonly titleAlign\?: 'start' \| 'center' \| 'end';/u);
   assert.doesNotMatch(borderDeclaration, /\b(?:TerminalStyle|RenderSpan|FrameCellSource)\b/u);
 });

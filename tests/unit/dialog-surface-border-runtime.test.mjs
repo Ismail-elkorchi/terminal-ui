@@ -34,8 +34,8 @@ test('dialog accessibility label derives from structured authored titles', () =>
     width: 18,
     height: 5
   }), { columns: 30, rows: 9 });
-  const railTitleFrame = renderElementFrame(dialog(text('inside', { id: 'inside' }), {
-    id: 'rail-dialog',
+  const slottedTitleFrame = renderElementFrame(dialog(text('inside', { id: 'inside' }), {
+    id: 'slotted-dialog',
     modal: true,
     focusPolicy: { returnFocus: 'restore' },
     title: {
@@ -49,7 +49,7 @@ test('dialog accessibility label derives from structured authored titles', () =>
   }), { columns: 34, rows: 9 });
 
   assert.equal(spanTitleFrame.accessibility.root.label, 'Span title');
-  assert.equal(railTitleFrame.accessibility.root.label, 'Start Center End');
+  assert.equal(slottedTitleFrame.accessibility.root.label, 'Start Center End');
 });
 
 test('dialog reserves a structurally separated action area without color', () => {

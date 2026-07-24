@@ -18,13 +18,13 @@ export type BorderKind =
 
 export type BorderTitleContent = string | InlineContent;
 
-export interface BorderTitleRail {
+export interface BorderTitleSlots {
   readonly start?: BorderTitleContent;
   readonly center?: BorderTitleContent;
   readonly end?: BorderTitleContent;
 }
 
-export type BorderTitle = BorderTitleContent | BorderTitleRail;
+export type BorderTitle = BorderTitleContent | BorderTitleSlots;
 
 export interface BorderOptions {
   readonly kind: BorderKind;
@@ -33,7 +33,7 @@ export interface BorderOptions {
 
 export function normalizeBorderTitle(title: BorderTitle): BorderTitle {
   if (typeof title === 'string') return sanitizeTerminalText(title).text;
-  if (!isBorderTitleRail(title)) return normalizeInlineContent(title);
+  if (!isBorderTitleSlots(title)) return normalizeInlineContent(title);
   return Object.freeze({
     ...(title.start === undefined ? {} : { start: normalizeBorderTitleContent(title.start) }),
     ...(title.center === undefined ? {} : { center: normalizeBorderTitleContent(title.center) }),
@@ -44,7 +44,7 @@ export function normalizeBorderTitle(title: BorderTitle): BorderTitle {
 export function borderTitleAccessibleText(title: BorderTitle | undefined): string {
   if (title === undefined) return '';
   if (typeof title === 'string') return sanitizeTerminalText(title).text;
-  if (!isBorderTitleRail(title)) return sanitizeTerminalText(inlineContentAccessibleText(title)).text;
+  if (!isBorderTitleSlots(title)) return sanitizeTerminalText(inlineContentAccessibleText(title)).text;
   return [title.start, title.center, title.end]
     .filter((content): content is BorderTitleContent => content !== undefined)
     .map((content) => typeof content === 'string'
@@ -60,6 +60,6 @@ function normalizeBorderTitleContent(content: BorderTitleContent): BorderTitleCo
     : normalizeInlineContent(content);
 }
 
-function isBorderTitleRail(title: Exclude<BorderTitle, string>): title is BorderTitleRail {
+function isBorderTitleSlots(title: Exclude<BorderTitle, string>): title is BorderTitleSlots {
   return !Array.isArray(title);
 }
