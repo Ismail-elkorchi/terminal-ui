@@ -13,27 +13,27 @@ const blocks = [
     id: 'pending',
     title: 'Pending block',
     summary: 'Waiting',
-    status: 'pending',
+    result: 'pending',
     collapsed: true
   },
   {
     id: 'warning',
     title: 'Warning block',
     summary: 'Needs attention',
-    status: 'warning',
+    level: 'warning',
     body: 'Line one\nLine two'
   },
   {
     id: 'success',
     title: 'Success block',
     summary: 'Done',
-    status: 'success'
+    result: 'success'
   },
   {
     id: 'error',
     title: 'Error block',
     summary: 'Failed \u001B[31mred\u001B[0m',
-    status: 'error',
+    level: 'error',
     details: 'Stack trace'
   }
 ] satisfies readonly StructuredBlock[];

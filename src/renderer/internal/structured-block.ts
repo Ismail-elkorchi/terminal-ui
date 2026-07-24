@@ -4,13 +4,13 @@ import { measureTextCells, textWidthProfileKey } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import { measuredWindow, type MeasuredWindow } from '../../behavior/measured-window.ts';
 import {
-  type DocumentSourceOptions, documentBodyStyle, documentDetailStyle, documentFieldSpans, documentMarkerStyle, documentSpan, documentStatusStyle, documentSummaryStyle, documentTitleStyle, sourceToken
+  type DocumentSourceOptions, documentBodyStyle, documentDetailStyle, documentFieldSpans, documentMarkerStyle, documentRecordLevelStyle, documentResultStyle, documentSpan, documentSummaryStyle, documentTitleStyle, sourceToken
 } from './document-visual.ts';
 import { stringify } from './render-node-props.ts';
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { FieldItem } from '../../ui-model/contracts.ts';
-import { optionalRecordStatus } from '../../ui-model/status.ts';
+import type { FieldItem, LogLevel } from '../../ui-model/contracts.ts';
+import { isRecordResult, optionalRecordResult } from '../../ui-model/status.ts';
 import type { StructuredBlock } from '../../ui-model/documents.ts';
 import type { LayoutNode } from '../model/layout.ts';
 import type { Rect } from '../model/layout.ts';
@@ -289,7 +289,8 @@ function structuredBlockLines(
 
 function structuredBlockDescription(block: StructuredBlock): string {
   const parts = [
-    block.status === undefined ? undefined : `status ${block.status}`,
+    block.result === undefined ? undefined : `result ${block.result}`,
+    block.level === undefined ? undefined : `level ${block.level}`,
     block.collapsed === true ? 'collapsed' : 'expanded',
     block.fields === undefined ? undefined : `${String(block.fields.length)} fields`
   ].filter((part): part is string => part !== undefined);
@@ -298,12 +299,20 @@ function structuredBlockDescription(block: StructuredBlock): string {
 
 function structuredBlockAccessibleChildren(block: StructuredBlock, id: string): readonly AccessibleNode[] {
   const children: AccessibleNode[] = [];
-  if (block.status !== undefined) {
+  if (block.result !== undefined) {
     children.push({
-      id: `${id}:status`,
+      id: `${id}:result`,
       role: 'status',
-      label: 'status',
-      value: block.status
+      label: 'result',
+      value: block.result
+    });
+  }
+  if (block.level !== undefined) {
+    children.push({
+      id: `${id}:level`,
+      role: 'text',
+      label: 'level',
+      value: block.level
     });
   }
   if (block.summary !== undefined && block.summary.length > 0) {
@@ -332,7 +341,8 @@ function blockFromRenderNode(renderNode: StructuredBlockNode): StructuredBlock {
     title: title.length === 0 ? renderNode.id ?? 'Block' : title,
     ...optionalString('summary', renderNode.props.summary),
     ...optionalStyle(renderNode.props.style),
-    ...optionalStatus(renderNode.props.status),
+    ...optionalResult(renderNode.props.result),
+    ...optionalLevel(renderNode.props.level),
     ...optionalFields(renderNode.props.fields),
     ...optionalString('body', renderNode.props.body),
     ...optionalString('details', renderNode.props.details),
@@ -365,7 +375,8 @@ function sanitizeBlock(block: StructuredBlock): StructuredBlock {
     title: cleanLine(block.title),
     ...(block.summary === undefined ? {} : { summary: cleanLine(block.summary) }),
     ...(block.style === undefined ? {} : { style: block.style }),
-    ...(block.status === undefined ? {} : { status: block.status }),
+    ...(isRecordResult(block.result) ? { result: block.result } : {}),
+    ...(isLogLevel(block.level) ? { level: block.level } : {}),
     ...(block.fields === undefined ? {} : { fields: block.fields.map(sanitizeField) }),
     ...(block.body === undefined ? {} : { body: cleanText(block.body) }),
     ...(block.details === undefined ? {} : { details: cleanText(block.details) }),
@@ -402,9 +413,17 @@ function optionalStyle(value: unknown): Pick<StructuredBlock, 'style'> | Record<
   return isTerminalStyle(value) ? { style: value } : {};
 }
 
-function optionalStatus(value: unknown): Pick<StructuredBlock, 'status'> | Record<string, never> {
-  const status = optionalRecordStatus(value);
-  return status === undefined ? {} : { status };
+function optionalResult(value: unknown): Pick<StructuredBlock, 'result'> | Record<string, never> {
+  const result = optionalRecordResult(value);
+  return result === undefined ? {} : { result };
+}
+
+function optionalLevel(value: unknown): Pick<StructuredBlock, 'level'> | Record<string, never> {
+  return isLogLevel(value) ? { level: value } : {};
+}
+
+function isLogLevel(value: unknown): value is LogLevel {
+  return value === 'info' || value === 'warning' || value === 'error';
 }
 
 function optionalFields(value: unknown): Pick<StructuredBlock, 'fields'> | Record<string, never> {
@@ -460,12 +479,20 @@ function headerLine(
       sourceOptionsForBlock(options)
     )
   ];
-  if (block.status !== undefined) {
+  if (block.result !== undefined) {
     spans.push(
-      documentSpan(options.renderNode, options.kind, 'separator', 'status.separator', ' ', documentMarkerStyle(options.renderNode, options.selected), sourceOptionsForBlock(options)),
-      documentSpan(options.renderNode, options.kind, 'chrome', 'status.open', '[', documentStatusStyle(block.status), sourceOptionsForBlock(options)),
-      documentSpan(options.renderNode, options.kind, 'status', `status.${sourceToken(block.status)}`, block.status, documentStatusStyle(block.status), sourceOptionsForBlock(options)),
-      documentSpan(options.renderNode, options.kind, 'chrome', 'status.close', ']', documentStatusStyle(block.status), sourceOptionsForBlock(options))
+      documentSpan(options.renderNode, options.kind, 'separator', 'result.separator', ' ', documentMarkerStyle(options.renderNode, options.selected), sourceOptionsForBlock(options)),
+      documentSpan(options.renderNode, options.kind, 'chrome', 'result.open', '[', documentResultStyle(options.renderNode, block.result), sourceOptionsForBlock(options)),
+      documentSpan(options.renderNode, options.kind, 'result', `result.${sourceToken(block.result)}`, block.result, documentResultStyle(options.renderNode, block.result), sourceOptionsForBlock(options)),
+      documentSpan(options.renderNode, options.kind, 'chrome', 'result.close', ']', documentResultStyle(options.renderNode, block.result), sourceOptionsForBlock(options))
+    );
+  }
+  if (block.level !== undefined) {
+    spans.push(
+      documentSpan(options.renderNode, options.kind, 'separator', 'level.separator', ' ', documentMarkerStyle(options.renderNode, options.selected), sourceOptionsForBlock(options)),
+      documentSpan(options.renderNode, options.kind, 'chrome', 'level.open', '[', documentRecordLevelStyle(options.renderNode, block.level), sourceOptionsForBlock(options)),
+      documentSpan(options.renderNode, options.kind, 'level', `level.${sourceToken(block.level)}`, block.level, documentRecordLevelStyle(options.renderNode, block.level), sourceOptionsForBlock(options)),
+      documentSpan(options.renderNode, options.kind, 'chrome', 'level.close', ']', documentRecordLevelStyle(options.renderNode, block.level), sourceOptionsForBlock(options))
     );
   }
   spans.push(

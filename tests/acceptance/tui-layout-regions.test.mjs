@@ -58,7 +58,7 @@ function workspaceView(state) {
     splitPane([
       activityFeed({
         id: 'activity',
-        blocks: [{ id: 'run', title: 'Run', status: 'running', summary: 'Streaming' }]
+        blocks: [{ id: 'run', title: 'Run', result: 'running', summary: 'Streaming' }]
       }),
       mainPanel
     ], {

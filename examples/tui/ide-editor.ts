@@ -540,7 +540,7 @@ function detailsPane(state: EditorState): Element<EditorMessage> {
   return surface(structuredBlock({
     id: 'editor-details-block',
     title: buffer?.label ?? 'No file selected',
-    status: state.operation.kind === 'failed' ? 'failed' : state.operation.kind === 'pending' ? 'running' : 'success',
+    result: state.operation.kind === 'failed' ? 'failed' : state.operation.kind === 'pending' ? 'running' : 'success',
     summary: state.notice,
     fields: [
       { label: 'workspace', value: state.root ?? 'none' },

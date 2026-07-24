@@ -32,9 +32,9 @@ function view(state) {
 
 test('activity feed vertical slice maps generic activity blocks through runtime frames', async () => {
   const blocks = [
-    { id: 'one', title: 'One', status: 'pending', collapsed: true },
-    { id: 'two', title: 'Two', status: 'running', summary: 'In progress', collapsed: true },
-    { id: 'three', title: 'Three', status: 'success', collapsed: true }
+    { id: 'one', title: 'One', result: 'pending', collapsed: true },
+    { id: 'two', title: 'Two', result: 'running', summary: 'In progress', collapsed: true },
+    { id: 'three', title: 'Three', result: 'success', collapsed: true }
   ];
   const app = defineTui({
     id: 'activity-feed-slice',

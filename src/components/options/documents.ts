@@ -4,7 +4,8 @@ import type { ScrollbarOptions } from '../../interaction/scrollbar.ts';
 import type {
   SearchEntry,
   FieldItem,
-  RecordStatus
+  LogLevel,
+  RecordResult
 } from '../../ui-model/contracts.ts';
 import type {
   CommandInputDisplay,
@@ -59,7 +60,10 @@ export interface StructuredBlockOptions extends ElementOptions<DocumentStylePart
   readonly title: string;
   readonly summary?: string;
   readonly style?: TerminalStyle;
-  readonly status?: RecordStatus;
+  /** Lifecycle outcome for the work represented by this record. */
+  readonly result?: RecordResult;
+  /** Informational severity of the record, independent of its lifecycle result. */
+  readonly level?: LogLevel;
   readonly fields?: readonly FieldItem[];
   readonly body?: string;
   readonly details?: string;

@@ -24,7 +24,7 @@ const blocks = [
     id: 'queued',
     title: 'Queued task',
     summary: 'Waiting for a worker',
-    status: 'pending',
+    result: 'pending',
     fields: [{ label: 'owner', value: 'scheduler' }],
     collapsed: true
   },
@@ -32,7 +32,7 @@ const blocks = [
     id: 'running',
     title: 'Running task',
     summary: 'Streaming output',
-    status: 'running',
+    result: 'running',
     fields: [{ label: 'attempt', value: '2' }],
     body: 'line one\nline two',
     details: 'extra diagnostics'
@@ -41,7 +41,7 @@ const blocks = [
     id: 'done',
     title: 'Completed task',
     summary: 'Finished cleanly',
-    status: 'success',
+    result: 'success',
     collapsed: true
   }
 ];
@@ -55,14 +55,14 @@ test('structuredBlock renders collapsed and expanded block data', () => {
     renderFramePlain(expanded),
     '[-] [running] Running task\nStreaming output\nattempt: 2\nline one\nline two\nDetails: extra diagnostics'
   );
-  assert.equal(collapsed.accessibility.root.description, 'status pending, collapsed, 1 fields');
-  assert.equal(expanded.accessibility.root.description, 'status running, expanded, 1 fields');
+  assert.equal(collapsed.accessibility.root.description, 'result pending, collapsed, 1 fields');
+  assert.equal(expanded.accessibility.root.description, 'result running, expanded, 1 fields');
   assert.equal(collapsed.cells.find((cell) => cell.text === '+')?.source?.label, 'toggle.collapsed');
-  assert.equal(collapsed.cells.find((cell) => cell.text === 'p')?.source?.label, 'status.pending');
+  assert.equal(collapsed.cells.find((cell) => cell.text === 'p')?.source?.label, 'result.pending');
   assert.equal(collapsed.cells.find((cell) => cell.text === 'Q')?.source?.label, 'title');
   assert.ok(collapsed.cells.some((cell) => cell.source?.label === 'field.owner.label' && cell.text === 'o'));
   assert.deepEqual(collapsed.accessibility.root.children?.map((node) => [node.id, node.value]), [
-    ['queued:status', 'pending'],
+    ['queued:result', 'pending'],
     ['queued:summary', 'Waiting for a worker'],
     ['queued:field:owner', 'scheduler']
   ]);
@@ -79,19 +79,31 @@ test('structuredBlock sanitizes terminal control sequences', () => {
   assert.equal(frame.accessibility.root.label, 'Title red');
 });
 
-test('structuredBlock supports required status states with themed status cells', () => {
-  const statuses = ['pending', 'running', 'success', 'warning', 'error', 'failed', 'cancelled', 'skipped', 'info'];
-  for (const status of statuses) {
+test('structuredBlock renders lifecycle results and record levels as distinct fields', () => {
+  const results = ['pending', 'running', 'success', 'failed', 'cancelled', 'skipped'];
+  for (const result of results) {
     const frame = renderElementFrame(structuredBlock({
-      id: `status-${status}`,
-      title: `Status ${status}`,
-      status
+      id: `result-${result}`,
+      title: `Result ${result}`,
+      result
     }), { columns: 40, rows: 2 });
-    const statusCell = frame.cells.find((cell) => cell.text === status[0]);
+    const resultCell = frame.cells.find((cell) => cell.source?.label === `result.${result}`);
 
-    assert.match(renderFramePlain(frame), new RegExp(`\\[${status}\\] Status ${status}`, 'u'));
-    assert.equal(statusCell?.style?.bold, true);
-    assert.equal(statusCell?.style?.fg?.kind, 'theme');
+    assert.match(renderFramePlain(frame), new RegExp(`\\[${result}\\] Result ${result}`, 'u'));
+    assert.equal(resultCell?.style?.bold, true);
+    assert.equal(resultCell?.style?.fg?.kind, 'theme');
+  }
+  for (const level of ['info', 'warning', 'error']) {
+    const frame = renderElementFrame(structuredBlock({
+      id: `level-${level}`,
+      title: `Level ${level}`,
+      level
+    }), { columns: 40, rows: 2 });
+    const levelCell = frame.cells.find((cell) => cell.source?.label === `level.${level}`);
+
+    assert.match(renderFramePlain(frame), new RegExp(`\\[${level}\\] Level ${level}`, 'u'));
+    assert.equal(levelCell?.style?.bold, true);
+    assert.equal(levelCell?.style?.fg?.kind, 'theme');
   }
 });
 
@@ -225,14 +237,14 @@ test('activityFeed renders caller-owned reducer expansion state', () => {
       id: 'collapsed',
       title: 'Collapsed',
       summary: 'Hidden body',
-      status: 'pending',
+      result: 'pending',
       body: 'body from reducer',
       collapsed: true
     },
     {
       id: 'open',
       title: 'Open',
-      status: 'success',
+      result: 'success',
       body: 'already open'
     }
   ];
@@ -272,7 +284,7 @@ test('structuredBlock and activityFeed preserve document state in high contrast 
   const blockFrame = renderElementFrame(structuredBlock({
     id: 'error-record',
     title: 'Import',
-    status: 'error',
+    level: 'error',
     summary: 'Needs attention',
     fields: [{ label: 'owner', value: 'scheduler' }],
     body: 'Line one',
@@ -294,7 +306,7 @@ test('structuredBlock and activityFeed preserve document state in high contrast 
 
   assert.match(renderFramePlain(blockFrame), /\[-\] \[error\] Import/u);
   assert.match(renderFramePlain(blockFrame), /Details: Trace id 42/u);
-  assert.equal(blockFrame.cells.find((cell) => cell.source?.label === 'status.error')?.style?.fg?.token, 'status.error');
+  assert.equal(blockFrame.cells.find((cell) => cell.source?.label === 'level.error')?.style?.fg?.token, 'log.error');
   assert.equal(blockFrame.cells.find((cell) => cell.source?.label === 'details.label')?.source?.role, 'text');
   assert.equal(blockFrame.cells.find((cell) => cell.source?.label === 'field.owner.value')?.text, 's');
   assert.match(highContrast.plainTextFrame, /> \[-\] \[running\] Running task/u);
@@ -306,7 +318,7 @@ test('activityFeed bounds rendered rows to the terminal size', () => {
   const manyBlocks = Array.from({ length: 1000 }, (_value, index) => ({
     id: `block-${index}`,
     title: `Block ${index}`,
-    status: 'running',
+    result: 'running',
     collapsed: true
   }));
   const frame = renderElementFrame(activityFeed({

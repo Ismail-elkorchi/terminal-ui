@@ -361,7 +361,7 @@ function inspectorPane(state: WorkspaceState) {
       id: 'ticket-inspector',
       title: ticket.title,
       summary: ticket.id,
-      status: state.resolved.has(ticket.id) ? 'success' : ticket.status,
+      result: state.resolved.has(ticket.id) ? 'success' : ticket.status,
       fields: [
         { label: 'Owner', value: ticket.owner },
         { label: 'Queue', value: ticket.queue },

@@ -50,7 +50,7 @@ express cleanly.
 | `tree()` | Expandable hierarchy with selection, filtering, lazy placeholders, and pointer targets. | A filesystem API or ownership of expansion state. |
 | `paginator()` | Page navigation control paired with caller-owned paging state. | Data loading or page storage. |
 | `scrollback()` | Append-heavy visible window with semantic scroll, search, fold, and follow-tail actions. | A command input or complete session ledger. |
-| `structuredBlock()` | One titled status record with fields, summary, body, and details. | A generic layout surface or arbitrary markdown block. |
+| `structuredBlock()` | One titled record with fields, summary, body, and details. Its `result` is a lifecycle outcome; its independent `level` is informational severity. | A generic layout surface or arbitrary markdown block. |
 | `activityFeed()` | Variable-height structured records projected through one measured window with stable-ID selection and expansion actions. | Filtering policy, durable history storage, or job orchestration. |
 | `statusBar()` | Passive leading, centered, and trailing text/status items under constrained width. | A command bar, menu bar, or interactive layout frame. |
 | `helpBar()` | Grouped keybinding hints with deterministic constrained-width projection. | Keybinding registration or command routing. |

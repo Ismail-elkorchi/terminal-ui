@@ -2,6 +2,7 @@ import {
   button,
   commandInput,
   rangeSlider,
+  structuredBlock,
   text,
   textInput,
   type MenuActionTone,
@@ -23,6 +24,29 @@ textInput({
     styles: {
       parts: { value: { bold: true }, cursor: { underline: true } },
       states: { focused: { bold: true } }
+    }
+  }
+});
+structuredBlock({
+  id: 'completed-record',
+  title: 'Build',
+  result: 'success',
+  meta: { styles: { parts: { result: { bold: true } } } }
+});
+structuredBlock({ id: 'warning-record', title: 'Build output', level: 'warning' });
+structuredBlock({
+  id: 'removed-record-status',
+  title: 'Build',
+  // @ts-expect-error records expose lifecycle result and informational level separately
+  status: 'failed'
+});
+structuredBlock({
+  id: 'removed-record-status-style',
+  title: 'Build',
+  meta: {
+    styles: {
+      // @ts-expect-error record style slots follow result and level
+      parts: { status: { bold: true } }
     }
   }
 });
@@ -63,7 +87,11 @@ type RemovedComponentTone =
 type RemovedComponentStatus =
   // @ts-expect-error status-bar and process contracts are independent
   import('@ismail-elkorchi/terminal-ui/components').ComponentStatus;
+type RemovedRecordStatus =
+  // @ts-expect-error records expose a result rather than a cross-category status
+  import('@ismail-elkorchi/terminal-ui/components').RecordStatus;
 
 void menuActionTone;
 void (undefined as unknown as RemovedComponentTone);
 void (undefined as unknown as RemovedComponentStatus);
+void (undefined as unknown as RemovedRecordStatus);

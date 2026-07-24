@@ -4,7 +4,8 @@ import type { TextSelection } from '../../../text/index.ts';
 import type { ActivityFeedAction } from '../../../ui-model/activity-feed.ts';
 import type {
   FieldItem,
-  RecordStatus,
+  LogLevel,
+  RecordResult,
   SuggestionItem,
   SearchEntry
 } from '../../../ui-model/contracts.ts';
@@ -51,7 +52,8 @@ export interface StructuredBlockRenderProps {
   readonly title: string;
   readonly summary?: string;
   readonly style?: TerminalStyle;
-  readonly status?: RecordStatus;
+  readonly result?: RecordResult;
+  readonly level?: LogLevel;
   readonly fields?: readonly FieldItem[];
   readonly body?: string;
   readonly details?: string;

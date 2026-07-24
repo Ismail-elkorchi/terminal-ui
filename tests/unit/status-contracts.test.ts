@@ -2,19 +2,18 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  baseStatusForRecordStatus,
   isProcessStatus,
-  isRecordStatus,
+  isRecordResult,
   isStatusBarStatus,
   isValidationLevel,
   normalizeNotificationTone,
   normalizeProcessStatus,
   normalizeStatusBarStatus,
-  optionalRecordStatus,
+  optionalRecordResult,
   optionalValidationLevel
 } from '../../dist/components/index.js';
 
-void test('process status normalizers keep process semantics distinct from record status', () => {
+void test('process status normalizers keep process semantics distinct from record results', () => {
   assert.equal(isProcessStatus('running'), true);
   assert.equal(isProcessStatus('pending'), false);
   assert.equal(normalizeProcessStatus('success'), 'success');
@@ -27,12 +26,12 @@ void test('status-bar status accepts informational labels without widening proce
   assert.equal(normalizeStatusBarStatus('pending'), 'pending');
 });
 
-void test('record status normalizers accept event states without accepting idle', () => {
-  assert.equal(isRecordStatus('failed'), true);
-  assert.equal(isRecordStatus('skipped'), true);
-  assert.equal(isRecordStatus('idle'), false);
-  assert.equal(optionalRecordStatus('cancelled'), 'cancelled');
-  assert.equal(optionalRecordStatus('idle'), undefined);
+void test('record result validation accepts lifecycle outcomes without severity levels', () => {
+  assert.equal(isRecordResult('failed'), true);
+  assert.equal(isRecordResult('skipped'), true);
+  assert.equal(isRecordResult('error'), false);
+  assert.equal(optionalRecordResult('cancelled'), 'cancelled');
+  assert.equal(optionalRecordResult('warning'), undefined);
 });
 
 void test('validation level normalizer keeps validation levels narrow', () => {
@@ -45,11 +44,4 @@ void test('validation level normalizer keeps validation levels narrow', () => {
 void test('notification tones normalize within the notification contract', () => {
   assert.equal(normalizeNotificationTone('progress'), 'progress');
   assert.equal(normalizeNotificationTone('default'), 'info');
-});
-
-void test('record status base mapping preserves shared status styling without flattening public status', () => {
-  assert.equal(baseStatusForRecordStatus('failed'), 'error');
-  assert.equal(baseStatusForRecordStatus('cancelled'), 'warning');
-  assert.equal(baseStatusForRecordStatus('skipped'), 'warning');
-  assert.equal(baseStatusForRecordStatus('running'), 'running');
 });

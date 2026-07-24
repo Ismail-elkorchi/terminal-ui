@@ -140,8 +140,11 @@ function withSelectedId(state: ActivityFeedState, selectedId: string | undefined
 }
 
 function blockTextLines(block: StructuredBlock): readonly string[] {
+  const classification = [block.result, block.level]
+    .flatMap((value) => value === undefined ? [] : [`[${value}]`])
+    .join(' ');
   const lines = [
-    block.status === undefined ? block.title : `[${block.status}] ${block.title}`,
+    classification.length === 0 ? block.title : `${classification} ${block.title}`,
     block.summary,
     ...(block.fields ?? []).map((field) => `${field.label}: ${field.value}`),
     block.collapsed === true ? undefined : block.body,
