@@ -1,13 +1,13 @@
 import {
   list,
-  scrollback,
+  logViewer,
   table,
   tree,
   type Element,
   type ListAction,
   type ListControlAction,
-  type ScrollbackAction,
-  type ScrollbackControlAction,
+  type LogViewerAction,
+  type LogViewerControlAction,
   type TableAction,
   type TableControlAction,
   type TextAreaControlAction,
@@ -18,19 +18,19 @@ import {
   createScrollState,
   listPresentation,
   listScrollablePresentation,
-  prepareScrollbackHistory,
-  scrollbackPresentation,
-  scrollbackScrollablePresentation,
+  prepareLogHistory,
+  logViewerPresentation,
+  logViewerScrollablePresentation,
   tablePresentation,
   tableScrollablePresentation,
   treePresentation,
   treeScrollablePresentation,
   type PassiveListState,
-  type PassiveScrollbackState,
+  type PassiveLogViewerState,
   type PassiveTableState,
   type PassiveTreeState,
   type ScrollableListState,
-  type ScrollableScrollbackState,
+  type ScrollableLogViewerState,
   type ScrollableTableState,
   type ScrollableTreeState
 } from '@ismail-elkorchi/terminal-ui/behavior';
@@ -48,9 +48,9 @@ const passiveTableState: PassiveTableState = {};
 const scrollableTableState: ScrollableTableState = { scroll };
 const passiveTreeState: PassiveTreeState = { nodes: [] };
 const scrollableTreeState: ScrollableTreeState = { nodes: [], scroll };
-const passiveScrollbackState: PassiveScrollbackState = { foldedIds: [], followTail: false };
-const scrollableScrollbackState: ScrollableScrollbackState = { foldedIds: [], followTail: true, scroll };
-const history = prepareScrollbackHistory([]);
+const passiveLogViewerState: PassiveLogViewerState = { foldedIds: [], followTail: false };
+const scrollableLogViewerState: ScrollableLogViewerState = { foldedIds: [], followTail: true, scroll };
+const history = prepareLogHistory([]);
 
 const passiveList = list({
   id: 'passive-list', items: ['one'],
@@ -85,12 +85,12 @@ const scrollableTree = tree({
   scrollbar: { visible: 'auto' },
   onAction: (action) => ({ kind: 'scrollableTree' as const, action })
 });
-const passiveLog = scrollback({
-  id: 'passive-log', ...scrollbackPresentation(history, passiveScrollbackState),
+const passiveLog = logViewer({
+  id: 'passive-log', ...logViewerPresentation(history, passiveLogViewerState),
   onAction: (action) => ({ kind: 'passiveLog' as const, action })
 });
-const scrollableLog = scrollback({
-  id: 'scrollable-log', ...scrollbackScrollablePresentation(history, scrollableScrollbackState),
+const scrollableLog = logViewer({
+  id: 'scrollable-log', ...logViewerScrollablePresentation(history, scrollableLogViewerState),
   scrollbar: { visible: 'auto' },
   onAction: (action) => ({ kind: 'scrollableLog' as const, action })
 });
@@ -101,8 +101,8 @@ export type _PassiveTable = Assert<Equal<MessageOf<typeof passiveTable>, { reado
 export type _ScrollableTable = Assert<Equal<MessageOf<typeof scrollableTable>, { readonly kind: 'scrollableTable'; readonly action: TableAction }>>;
 export type _PassiveTree = Assert<Equal<MessageOf<typeof passiveTree>, { readonly kind: 'passiveTree'; readonly action: TreeControlAction }>>;
 export type _ScrollableTree = Assert<Equal<MessageOf<typeof scrollableTree>, { readonly kind: 'scrollableTree'; readonly action: TreeInteractionAction }>>;
-export type _PassiveLog = Assert<Equal<MessageOf<typeof passiveLog>, { readonly kind: 'passiveLog'; readonly action: ScrollbackControlAction }>>;
-export type _ScrollableLog = Assert<Equal<MessageOf<typeof scrollableLog>, { readonly kind: 'scrollableLog'; readonly action: ScrollbackAction }>>;
+export type _PassiveLog = Assert<Equal<MessageOf<typeof passiveLog>, { readonly kind: 'passiveLog'; readonly action: LogViewerControlAction }>>;
+export type _ScrollableLog = Assert<Equal<MessageOf<typeof scrollableLog>, { readonly kind: 'scrollableLog'; readonly action: LogViewerAction }>>;
 
 declare const textAreaControlAction: TextAreaControlAction;
 void textAreaControlAction;

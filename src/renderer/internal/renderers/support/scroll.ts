@@ -8,7 +8,7 @@ import type {
 import { dataWindow } from '../../../../behavior/data-window.ts';
 import { createScrollState, normalizeScrollState } from '../../../../behavior/scroll.ts';
 import { renderScrollbars, scrollbarLayout } from '../../scrollbar.ts';
-import { scrollbackWindow } from '../../scrollback.ts';
+import { logViewerWindow } from '../../log-viewer.ts';
 import { isRecord } from './common.ts';
 import { viewportVisualState } from './viewport.ts';
 import type { RenderTarget } from '../../../model/render-target.ts';
@@ -41,7 +41,7 @@ type ScrollableRenderNodeKind =
   | 'list'
   | 'menu'
   | 'searchPicker'
-  | 'scrollback'
+  | 'logViewer'
   | 'table'
   | 'textArea'
   | 'tree'
@@ -49,12 +49,12 @@ type ScrollableRenderNodeKind =
 type ScrollableNode<TMessage = unknown> = RenderNodesOfKind<TMessage, ScrollableRenderNodeKind>;
 type StateBackedScrollableNode = RenderNodesOfKind<
   unknown,
-  Exclude<ScrollableRenderNodeKind, 'menu' | 'scrollback' | 'viewport'>
+  Exclude<ScrollableRenderNodeKind, 'menu' | 'logViewer' | 'viewport'>
 >;
 type TableNode = RenderNodeOfKind<unknown, 'table'>;
 type TreeNode = RenderNodeOfKind<unknown, 'tree'>;
 type ViewportNode = RenderNodeOfKind<unknown, 'viewport'>;
-type ScrollbackNode = RenderNodeOfKind<unknown, 'scrollback'>;
+type LogViewerNode = RenderNodeOfKind<unknown, 'logViewer'>;
 type SearchPickerNode = RenderNodeOfKind<unknown, 'searchPicker'>;
 type MenuNode = RenderNodeOfKind<unknown, 'menu'>;
 type TextAreaNode = RenderNodeOfKind<unknown, 'textArea'>;
@@ -169,7 +169,7 @@ function scrollMessageFactory<TMessage>(
     const raw = renderNode.props.toActionMessage;
     return raw === undefined ? undefined : (event) => raw({ kind: 'scroll', event });
   }
-  if (renderNode.kind === 'scrollback') {
+  if (renderNode.kind === 'logViewer') {
     const raw = renderNode.props.toActionMessage;
     return raw === undefined ? undefined : (event) => raw({ kind: 'scroll', event });
   }
@@ -468,12 +468,12 @@ export function viewportScrollbarState(renderNode: ViewportNode, bounds: Rect): 
   });
 }
 
-export function scrollbackScrollbarState(
-  renderNode: ScrollbackNode,
+export function logViewerScrollbarState(
+  renderNode: LogViewerNode,
   node: Pick<LayoutNode, 'bounds'>,
   widthProfile: TextWidthProfile
 ): ScrollState {
-  const window = scrollbackWindow(renderNode, node, widthProfile);
+  const window = logViewerWindow(renderNode, node, widthProfile);
   return createScrollState({
     offsetRow: window.start,
     offsetColumn: 0,

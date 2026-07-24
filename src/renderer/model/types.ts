@@ -96,7 +96,7 @@ export type RenderNodeKind =
   | 'meter'
   | 'heatmap'
   | 'viewport'
-  | 'scrollback'
+  | 'logViewer'
   | 'structuredBlock'
   | 'activityFeed'
   | 'commandInput'

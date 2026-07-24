@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { prepareLogHistory } from '../../dist/behavior/index.js';
 
 import { resolveTerminalCapabilities } from '../../dist/host/index.js';
 import {
@@ -12,7 +12,7 @@ import {
 import { applyRenderDiff } from '../../dist/testing/index.js';
 import {
   richText,
-  scrollback,
+  logViewer,
   text
 } from '../../dist/components/index.js';
 import { defaultTextWidthProfile } from '../../dist/text/index.js';
@@ -82,7 +82,7 @@ test('style-only diffs are incremental and preserve visual dimensions', () => {
   assert.equal(diff.height, previous.height);
 });
 
-test('scrollback cached projections equal fresh projections across render environments', () => {
+test('log viewer cached projections equal fresh projections across render environments', () => {
   const items = Array.from({ length: 96 }, (_value, index) => Object.freeze({
     id: `item-${String(index)}`,
     text: `${index % 3 === 0 ? 'needle ' : ''}row ${String(index)} wide 界 emoji 🙂 combining e\u0301 ${'body '.repeat(index % 7)}`,
@@ -102,17 +102,17 @@ test('scrollback cached projections equal fresh projections across render enviro
 
   for (const widthProfile of profiles) {
     for (const current of cases) {
-      const history = prepareScrollbackHistory(items);
+      const history = prepareLogHistory(items);
       const options = {
         id: 'history',
         history,
         wrap: current.wrap,
         searchQuery: current.searchQuery
       };
-      renderElementFrame(scrollback(options), current, { widthProfile });
-      const cached = renderElementFrame(scrollback(options), current, { widthProfile });
+      renderElementFrame(logViewer(options), current, { widthProfile });
+      const cached = renderElementFrame(logViewer(options), current, { widthProfile });
       const freshItems = items.map((item) => ({ ...item, metadata: { ...item.metadata } }));
-      const fresh = renderElementFrame(scrollback({ ...options, history: prepareScrollbackHistory(freshItems) }), current, { widthProfile });
+      const fresh = renderElementFrame(logViewer({ ...options, history: prepareLogHistory(freshItems) }), current, { widthProfile });
       const detail = `columns=${String(current.columns)} rows=${String(current.rows)} wrap=${String(current.wrap)} query=${current.searchQuery}`;
 
       assert.deepEqual(cached, fresh, detail);

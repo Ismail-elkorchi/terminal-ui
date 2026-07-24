@@ -123,7 +123,7 @@ with the region the user actually sees. Use `scrollPolicy` on scrollable
 components to tune discrete wheel behavior, such as denser line steps for an
 editor-like text area or page-based wheel movement for a large viewport.
 Existing visible-window helpers route through this reducer family so list,
-table, tree, text-area, viewport, search-picker, menu, and scrollback components use
+table, tree, text-area, viewport, search-picker, menu, and log-viewer components use
 one scroll model instead of per-component arithmetic.
 
 Scrollbar options are intentionally generic. Use `visible` and `axis` to control

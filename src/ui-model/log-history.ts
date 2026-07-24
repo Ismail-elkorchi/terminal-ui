@@ -6,7 +6,7 @@ import {
 } from '../text/search-index.ts';
 import type { PreparedTextSearchIndex, PreparedTextSearchQuery } from '../text/search-index.ts';
 
-export interface ScrollbackItem {
+export interface LogEntry {
   readonly id: string;
   readonly text: string;
   readonly level?: 'info' | 'warning' | 'error';
@@ -15,101 +15,101 @@ export interface ScrollbackItem {
   readonly metadata?: Readonly<Record<string, string>>;
 }
 
-export interface ScrollbackHistoryRecord {
-  readonly item: ScrollbackItem;
-  readonly itemIndex: number;
+export interface LogHistoryRecord {
+  readonly entry: LogEntry;
+  readonly entryIndex: number;
   readonly bodyOffset: number;
   readonly bodyText: string;
   readonly displayText: string;
   readonly metadataEntries: readonly (readonly [string, string])[];
-  readonly searchFields: readonly ScrollbackSearchField[];
+  readonly searchFields: readonly LogSearchField[];
 }
 
-export type ScrollbackSearchField =
+export type LogSearchField =
   | { readonly kind: 'timestamp'; readonly text: string }
   | { readonly kind: 'metadataKey'; readonly key: string; readonly text: string }
   | { readonly kind: 'metadataValue'; readonly key: string; readonly text: string }
   | { readonly kind: 'body'; readonly text: string };
 
-export interface ScrollbackSearchMatch {
+export interface LogSearchMatch {
   readonly id: string;
-  readonly itemId: string;
-  readonly itemIndex: number;
+  readonly entryId: string;
+  readonly entryIndex: number;
   readonly occurrenceIndex: number;
-  readonly field: ScrollbackSearchField['kind'];
+  readonly field: LogSearchField['kind'];
   readonly fieldKey?: string;
   readonly startOffset: number;
   readonly endOffsetExclusive: number;
 }
 
-export interface ScrollbackHistorySegment {
+export interface LogHistorySegment {
   readonly startIndex: number;
   readonly startBodyOffset: number;
-  readonly records: readonly ScrollbackHistoryRecord[];
+  readonly records: readonly LogHistoryRecord[];
 }
 
-export interface ScrollbackHistory {
-  readonly kind: 'scrollback-history';
-  readonly segments: readonly ScrollbackHistorySegment[];
-  readonly itemCount: number;
+export interface LogHistory {
+  readonly kind: 'log-history';
+  readonly segments: readonly LogHistorySegment[];
+  readonly entryCount: number;
   readonly bodyLength: number;
 }
 
-export function prepareScrollbackHistory(items: readonly ScrollbackItem[]): ScrollbackHistory {
-  return appendScrollbackHistory(emptyScrollbackHistory, items);
+export function prepareLogHistory(entries: readonly LogEntry[]): LogHistory {
+  return appendLogHistory(emptyLogHistory, entries);
 }
 
-export function appendScrollbackHistory(
-  history: ScrollbackHistory,
-  items: readonly ScrollbackItem[]
-): ScrollbackHistory {
-  assertScrollbackHistory(history);
-  if (items.length === 0) return history;
-  const records = prepareRecords(history, items);
-  const segment = scrollbackSegment(records);
+export function appendLogHistory(
+  history: LogHistory,
+  entries: readonly LogEntry[]
+): LogHistory {
+  assertLogHistory(history);
+  if (entries.length === 0) return history;
+  const records = prepareRecords(history, entries);
+  const segment = logHistorySegment(records);
   const segments = appendSegment(history.segments, segment);
   const last = records.at(-1);
   return registerHistory(Object.freeze({
-    kind: 'scrollback-history',
+    kind: 'log-history',
     segments,
-    itemCount: history.itemCount + records.length,
+    entryCount: history.entryCount + records.length,
     bodyLength: last === undefined
       ? history.bodyLength
       : last.bodyOffset + last.bodyText.length
   }));
 }
 
-export function scrollbackHistoryItemAt(
-  history: ScrollbackHistory,
+export function logHistoryEntryAt(
+  history: LogHistory,
   index: number
-): ScrollbackHistoryRecord | undefined {
-  if (!Number.isInteger(index) || index < 0 || index >= history.itemCount) return undefined;
+): LogHistoryRecord | undefined {
+  if (!Number.isInteger(index) || index < 0 || index >= history.entryCount) return undefined;
   const segment = segmentContainingIndex(history.segments, index);
   return segment?.records[index - segment.startIndex];
 }
 
-export function scrollbackHistoryItems(history: ScrollbackHistory): readonly ScrollbackItem[] {
-  return history.segments.flatMap((segment) => segment.records.map((record) => record.item));
+export function logHistoryEntries(history: LogHistory): readonly LogEntry[] {
+  return history.segments.flatMap((segment) => segment.records.map((record) => record.entry));
 }
 
-export function scrollbackHistoryRecordMatches(
-  record: ScrollbackHistoryRecord,
+export function logHistoryRecordMatches(
+  record: LogHistoryRecord,
   query: string
-): readonly ScrollbackSearchMatch[] {
+): readonly LogSearchMatch[] {
   const searchQuery = query.trim();
   if (searchQuery.length === 0) return [];
-  return scrollbackHistoryRecordMatchesPrepared(record, prepareScrollbackSearchQuery(searchQuery));
+  return logHistoryRecordMatchesPrepared(record, prepareLogSearchQuery(searchQuery));
 }
 
-export function prepareScrollbackSearchQuery(query: string): PreparedTextSearchQuery {
+export function prepareLogSearchQuery(query: string): PreparedTextSearchQuery {
   return prepareTextSearchQuery(query.trim());
 }
 
-export function scrollbackHistoryRecordMatchesPrepared(
-  record: ScrollbackHistoryRecord,
+export function logHistoryRecordMatchesPrepared(
+  record: LogHistoryRecord,
   query: PreparedTextSearchQuery
-): readonly ScrollbackSearchMatch[] {
-  const matches: ScrollbackSearchMatch[] = [];
+): readonly LogSearchMatch[] {
+  const matches: LogSearchMatch[] = [];
   for (const field of record.searchFields) {
     const index = searchIndexFor(field);
     for (const match of findPreparedTextMatches(index, query)) {
@@ -120,9 +120,9 @@ export function scrollbackHistoryRecordMatchesPrepared(
         match.endGraphemeIndexExclusive
       );
       matches.push(Object.freeze({
-        id: `${record.item.id}:${String(occurrenceIndex)}:${field.kind}:${fieldKey ?? ''}:${String(startOffset)}:${String(endOffsetExclusive)}`,
-        itemId: record.item.id,
-        itemIndex: record.itemIndex,
+        id: `${record.entry.id}:${String(occurrenceIndex)}:${field.kind}:${fieldKey ?? ''}:${String(startOffset)}:${String(endOffsetExclusive)}`,
+        entryId: record.entry.id,
+        entryIndex: record.entryIndex,
         occurrenceIndex,
         field: field.kind,
         ...(fieldKey === undefined ? {} : { fieldKey }),
@@ -134,70 +134,70 @@ export function scrollbackHistoryRecordMatchesPrepared(
   return Object.freeze(matches);
 }
 
-export function scrollbackHistoryRecordById(
-  history: ScrollbackHistory,
+export function logHistoryRecordById(
+  history: LogHistory,
   id: string
-): ScrollbackHistoryRecord | undefined {
+): LogHistoryRecord | undefined {
   for (const segment of history.segments) {
     if (segmentIds.get(segment)?.has(id) !== true) continue;
-    return segment.records.find((record) => record.item.id === id);
+    return segment.records.find((record) => record.entry.id === id);
   }
   return undefined;
 }
 
-export function isScrollbackHistory(value: unknown): value is ScrollbackHistory {
+export function isLogHistory(value: unknown): value is LogHistory {
   return isRecord(value) && histories.has(value);
 }
 
-export function assertScrollbackHistory(value: unknown): asserts value is ScrollbackHistory {
-  if (!isScrollbackHistory(value)) {
-    throw new TypeError('scrollback history must be created with prepareScrollbackHistory().');
+export function assertLogHistory(value: unknown): asserts value is LogHistory {
+  if (!isLogHistory(value)) {
+    throw new TypeError('log history must be created with prepareLogHistory().');
   }
 }
 
 const histories = new WeakSet<object>();
-const segmentIds = new WeakMap<ScrollbackHistorySegment, ReadonlySet<string>>();
-const searchIndexes = new WeakMap<ScrollbackSearchField, PreparedTextSearchIndex>();
+const segmentIds = new WeakMap<LogHistorySegment, ReadonlySet<string>>();
+const searchIndexes = new WeakMap<LogSearchField, PreparedTextSearchIndex>();
 
-const emptyScrollbackHistory: ScrollbackHistory = registerHistory(Object.freeze({
-  kind: 'scrollback-history',
+const emptyLogHistory: LogHistory = registerHistory(Object.freeze({
+  kind: 'log-history',
   segments: Object.freeze([]),
-  itemCount: 0,
+  entryCount: 0,
   bodyLength: 0
 }));
 
 function prepareRecords(
-  history: ScrollbackHistory,
-  items: readonly ScrollbackItem[]
-): readonly ScrollbackHistoryRecord[] {
+  history: LogHistory,
+  entries: readonly LogEntry[]
+): readonly LogHistoryRecord[] {
   const appendedIds = new Set<string>();
-  let bodyOffset = history.itemCount === 0 ? 0 : history.bodyLength + 1;
-  return Object.freeze(items.map((item, offset): ScrollbackHistoryRecord => {
-    const id = sanitizeTerminalText(item.id).text;
-    if (id.length === 0) throw new TypeError('scrollback item ids must not be empty.');
+  let bodyOffset = history.entryCount === 0 ? 0 : history.bodyLength + 1;
+  return Object.freeze(entries.map((entry, offset): LogHistoryRecord => {
+    const id = sanitizeTerminalText(entry.id).text;
+    if (id.length === 0) throw new TypeError('log entry ids must not be empty.');
     if (appendedIds.has(id) || history.segments.some((segment) => segmentIds.get(segment)?.has(id) === true)) {
-      throw new TypeError(`Duplicate scrollback item id: ${id}`);
+      throw new TypeError(`Duplicate log entry id: ${id}`);
     }
     appendedIds.add(id);
-    const bodyText = sanitizeTerminalText(item.text).text;
-    const metadataEntries = normalizedMetadataEntries(item.metadata);
-    const normalized = normalizeItem(item, id, bodyText, metadataEntries);
-    const displayText = displayTextForItem(normalized, bodyText, metadataEntries);
+    const bodyText = sanitizeTerminalText(entry.text).text;
+    const metadataEntries = normalizedMetadataEntries(entry.metadata);
+    const normalized = normalizeEntry(entry, id, bodyText, metadataEntries);
+    const displayText = displayTextForEntry(normalized, bodyText, metadataEntries);
     const record = Object.freeze({
-      item: normalized,
-      itemIndex: history.itemCount + offset,
+      entry: normalized,
+      entryIndex: history.entryCount + offset,
       bodyOffset,
       bodyText,
       displayText,
       metadataEntries,
-      searchFields: Object.freeze(searchFieldsForItem(normalized, bodyText, metadataEntries))
+      searchFields: Object.freeze(searchFieldsForEntry(normalized, bodyText, metadataEntries))
     });
     bodyOffset += bodyText.length + 1;
     return record;
   }));
 }
 
-function searchIndexFor(field: ScrollbackSearchField): PreparedTextSearchIndex {
+function searchIndexFor(field: LogSearchField): PreparedTextSearchIndex {
   const cached = searchIndexes.get(field);
   if (cached !== undefined) return cached;
   const prepared = prepareTextSearchIndex(field.text);
@@ -205,45 +205,45 @@ function searchIndexFor(field: ScrollbackSearchField): PreparedTextSearchIndex {
   return prepared;
 }
 
-function normalizeItem(
-  item: ScrollbackItem,
+function normalizeEntry(
+  entry: LogEntry,
   id: string,
   bodyText: string,
   metadataEntries: readonly (readonly [string, string])[]
-): ScrollbackItem {
-  const timestamp = item.timestamp === undefined ? undefined : sanitizeTerminalText(item.timestamp).text;
+): LogEntry {
+  const timestamp = entry.timestamp === undefined ? undefined : sanitizeTerminalText(entry.timestamp).text;
   return Object.freeze({
     id,
     text: bodyText,
-    ...(item.level === undefined ? {} : { level: item.level }),
-    ...(item.style === undefined ? {} : { style: item.style }),
+    ...(entry.level === undefined ? {} : { level: entry.level }),
+    ...(entry.style === undefined ? {} : { style: entry.style }),
     ...(timestamp === undefined ? {} : { timestamp }),
     ...(metadataEntries.length === 0 ? {} : { metadata: Object.freeze(Object.fromEntries(metadataEntries)) })
   });
 }
 
-function displayTextForItem(
-  item: ScrollbackItem,
+function displayTextForEntry(
+  entry: LogEntry,
   bodyText: string,
   metadataEntries: readonly (readonly [string, string])[]
 ): string {
   const prefix = [
-    ...(item.timestamp === undefined ? [] : [`[${item.timestamp}]`]),
+    ...(entry.timestamp === undefined ? [] : [`[${entry.timestamp}]`]),
     ...metadataEntries.map(([key, value]) => `${key}=${value}`)
   ];
   return prefix.length === 0 ? bodyText : `${prefix.join(' ')} ${bodyText}`;
 }
 
-function searchFieldsForItem(
-  item: ScrollbackItem,
+function searchFieldsForEntry(
+  entry: LogEntry,
   bodyText: string,
   metadataEntries: readonly (readonly [string, string])[]
-): readonly ScrollbackSearchField[] {
+): readonly LogSearchField[] {
   return [
-    ...(item.timestamp === undefined
+    ...(entry.timestamp === undefined
       ? []
-      : [{ kind: 'timestamp' as const, text: item.timestamp }]),
-    ...metadataEntries.flatMap(([key, value]): readonly ScrollbackSearchField[] => [
+      : [{ kind: 'timestamp' as const, text: entry.timestamp }]),
+    ...metadataEntries.flatMap(([key, value]): readonly LogSearchField[] => [
       { kind: 'metadataKey', key, text: key },
       { kind: 'metadataValue', key, text: value }
     ]),
@@ -261,36 +261,36 @@ function normalizedMetadataEntries(
     .map((entry) => Object.freeze(entry)));
 }
 
-function scrollbackSegment(records: readonly ScrollbackHistoryRecord[]): ScrollbackHistorySegment {
+function logHistorySegment(records: readonly LogHistoryRecord[]): LogHistorySegment {
   const first = records[0];
   const segment = Object.freeze({
-    startIndex: first?.itemIndex ?? 0,
+    startIndex: first?.entryIndex ?? 0,
     startBodyOffset: first?.bodyOffset ?? 0,
     records
   });
-  segmentIds.set(segment, new Set(records.map((record) => record.item.id)));
+  segmentIds.set(segment, new Set(records.map((record) => record.entry.id)));
   return segment;
 }
 
 function appendSegment(
-  previous: readonly ScrollbackHistorySegment[],
-  appended: ScrollbackHistorySegment
-): readonly ScrollbackHistorySegment[] {
+  previous: readonly LogHistorySegment[],
+  appended: LogHistorySegment
+): readonly LogHistorySegment[] {
   const segments = [...previous];
   let carry = appended;
   while ((segments.at(-1)?.records.length ?? Number.POSITIVE_INFINITY) <= carry.records.length) {
     const left = segments.pop();
     if (left === undefined) break;
-    carry = scrollbackSegment(Object.freeze([...left.records, ...carry.records]));
+    carry = logHistorySegment(Object.freeze([...left.records, ...carry.records]));
   }
   segments.push(carry);
   return Object.freeze(segments);
 }
 
 function segmentContainingIndex(
-  segments: readonly ScrollbackHistorySegment[],
+  segments: readonly LogHistorySegment[],
   index: number
-): ScrollbackHistorySegment | undefined {
+): LogHistorySegment | undefined {
   let low = 0;
   let high = segments.length - 1;
   while (low <= high) {
@@ -312,7 +312,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function registerHistory<T extends ScrollbackHistory>(history: T): T {
+function registerHistory<T extends LogHistory>(history: T): T {
   histories.add(history);
   return history;
 }

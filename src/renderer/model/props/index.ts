@@ -11,7 +11,7 @@ import type {
   ActivityFeedRenderProps,
   CommandInputRenderProps,
   SearchPickerRenderProps,
-  ScrollbackRenderProps,
+  LogViewerRenderProps,
   StructuredBlockRenderProps,
   ViewportRenderProps
 } from './documents.ts';
@@ -115,7 +115,7 @@ export interface RenderNodePropsByKind<TMessage> {
   readonly meter: MeterRenderProps;
   readonly heatmap: HeatmapRenderProps<TMessage>;
   readonly viewport: ViewportRenderProps<TMessage>;
-  readonly scrollback: ScrollbackRenderProps<TMessage>;
+  readonly logViewer: LogViewerRenderProps<TMessage>;
   readonly structuredBlock: StructuredBlockRenderProps;
   readonly activityFeed: ActivityFeedRenderProps<TMessage>;
   readonly commandInput: CommandInputRenderProps<TMessage>;

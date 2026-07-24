@@ -9,29 +9,29 @@ import {
   documentEmptyStyle,
   documentHighlightSpans,
   documentSpan,
-  scrollbackBodyStyle,
-  scrollbackMetadataSeparatorStyle,
-  scrollbackMetadataStyle,
-  scrollbackOmissionStyle,
-  scrollbackSelectedStyle,
-  scrollbackTimestampStyle,
+  logViewerBodyStyle,
+  logViewerMetadataSeparatorStyle,
+  logViewerMetadataStyle,
+  logViewerOmissionStyle,
+  logViewerSelectedStyle,
+  logViewerTimestampStyle,
   sourceToken
 } from './document-visual.ts';
 import {
-  scrollbackItemLevel,
-  scrollbackTimestampText,
-  type ScrollbackBodySelection
-} from './scrollback/content.ts';
+  logEntryLevel,
+  logEntryTimestampText,
+  type LogViewerBodySelection
+} from './log-viewer/content.ts';
 import {
-  projectScrollbackLayout,
-  projectScrollbackSearch,
-  scrollbackRowForItem,
-  type ScrollbackLayoutProjection,
-  visibleScrollbackRecords
-} from './scrollback/projection.ts';
-import { projectScrollbackRecord } from './scrollback/record-projection.ts';
-import { extractScrollbackSelectionText } from '../../behavior/scrollback-selection.ts';
-import { scrollbackHistoryRecordById } from '../../ui-model/scrollback-history.ts';
+  projectLogViewerLayout,
+  projectLogViewerSearch,
+  logViewerRowForEntry,
+  type LogViewerLayoutProjection,
+  visibleLogViewerRecords
+} from './log-viewer/projection.ts';
+import { projectLogViewerRecord } from './log-viewer/record-projection.ts';
+import { extractLogViewerSelectionText } from '../../behavior/log-viewer-selection.ts';
+import { logHistoryRecordById } from '../../ui-model/log-history.ts';
 import { stringify } from './render-node-props.ts';
 import { textOffsetAtVisualColumn } from './text-pointer.ts';
 import { wrapRenderSpans } from '../../visual/render.ts';
@@ -39,48 +39,48 @@ import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import type {
-  ScrollbackHistory,
-  ScrollbackHistoryRecord,
-  ScrollbackItem,
-  ScrollbackSearchMatch
-} from '../../ui-model/scrollback-history.ts';
-import type { ScrollbackBodyAnchor, ScrollbackSelection } from '../../ui-model/scrollback.ts';
+  LogHistory,
+  LogHistoryRecord,
+  LogEntry,
+  LogSearchMatch
+} from '../../ui-model/log-history.ts';
+import type { LogViewerBodyAnchor, LogViewerSelection } from '../../ui-model/log-viewer.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
 import type { LayoutNode } from '../model/layout.ts';
 import type { RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 
-interface ScrollbackTextSegment extends RenderSpan {
+interface LogViewerTextSegment extends RenderSpan {
   readonly matched?: boolean;
 }
 
-interface ScrollbackVisibleRow {
+interface LogViewerVisibleRow {
   readonly id: string;
   readonly text: string;
-  readonly segments: readonly ScrollbackTextSegment[];
-  readonly sourceItemId?: string;
-  readonly sourceItemIndex?: number;
+  readonly segments: readonly LogViewerTextSegment[];
+  readonly sourceEntryId?: string;
+  readonly sourceEntryIndex?: number;
   readonly timestamp?: string;
   readonly metadata?: Readonly<Record<string, string>>;
   readonly matched?: boolean;
   readonly selected?: boolean;
-  readonly bodyPositions?: readonly ScrollbackBodyPosition[];
+  readonly bodyPositions?: readonly LogViewerBodyPosition[];
 }
 
-interface ScrollbackRecordRowProjection {
-  readonly rows: readonly ScrollbackVisibleRow[];
+interface LogViewerRecordRowProjection {
+  readonly rows: readonly LogViewerVisibleRow[];
   readonly matchStartRows: readonly number[];
 }
 
-interface ScrollbackBodyPosition {
+interface LogViewerBodyPosition {
   readonly column: number;
   readonly cells: number;
   readonly text: string;
   readonly offset: number;
-  readonly itemId: string;
+  readonly entryId: string;
 }
 
-interface ScrollbackWindow {
-  readonly rows: readonly ScrollbackVisibleRow[];
+interface LogViewerWindow {
+  readonly rows: readonly LogViewerVisibleRow[];
   readonly totalRows: number;
   readonly start: number;
   readonly end: number;
@@ -91,26 +91,26 @@ interface ScrollbackWindow {
   readonly selectedText?: string;
 }
 
-const scrollbackWindowCache = new WeakMap<object, {
+const logViewerWindowCache = new WeakMap<object, {
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;
-  readonly window: ScrollbackWindow;
+  readonly window: LogViewerWindow;
 }>();
 
-export function scrollbackWindow(
-  renderNode: ScrollbackNode,
+export function logViewerWindow(
+  renderNode: LogViewerNode,
   node: Pick<LayoutNode, 'bounds'>,
   widthProfile: TextWidthProfile
-): ScrollbackWindow {
-  const cached = scrollbackWindowCache.get(renderNode);
+): LogViewerWindow {
+  const cached = logViewerWindowCache.get(renderNode);
   if (
     cached?.width === node.bounds.width
     && cached.height === node.bounds.height
     && cached.widthProfile === widthProfile
   ) return cached.window;
-  const window = projectScrollbackWindow(renderNode, node, widthProfile);
-  scrollbackWindowCache.set(renderNode, {
+  const window = projectLogViewerWindow(renderNode, node, widthProfile);
+  logViewerWindowCache.set(renderNode, {
     width: node.bounds.width,
     height: node.bounds.height,
     widthProfile,
@@ -119,26 +119,26 @@ export function scrollbackWindow(
   return window;
 }
 
-function projectScrollbackWindow(
-  renderNode: ScrollbackNode,
+function projectLogViewerWindow(
+  renderNode: LogViewerNode,
   node: Pick<LayoutNode, 'bounds'>,
   widthProfile: TextWidthProfile
-): ScrollbackWindow {
+): LogViewerWindow {
   const history = renderNode.props.history;
   const wrap = renderNode.props.wrap === true;
   const query = searchQueryProp(renderNode);
   const selection = selectionProp(renderNode);
   const foldedIds = new Set(renderNode.props.foldedIds ?? []);
   const includeBodyPositions = renderNode.props.toActionMessage !== undefined;
-  const projection = projectScrollbackLayout(history, node.bounds.width, wrap, widthProfile, foldedIds);
-  const search = projectScrollbackSearch(history, query, foldedIds);
-  const rowsByRecord = new Map<ScrollbackHistoryRecord, ScrollbackRecordRowProjection>();
-  const projectionForRecord = (record: ScrollbackHistoryRecord): ScrollbackRecordRowProjection => {
+  const projection = projectLogViewerLayout(history, node.bounds.width, wrap, widthProfile, foldedIds);
+  const search = projectLogViewerSearch(history, query, foldedIds);
+  const rowsByRecord = new Map<LogHistoryRecord, LogViewerRecordRowProjection>();
+  const projectionForRecord = (record: LogHistoryRecord): LogViewerRecordRowProjection => {
     const cached = rowsByRecord.get(record);
     if (cached !== undefined) return cached;
-    const rows = scrollbackRecordRowProjection(
+    const rows = logViewerRecordRowProjection(
       renderNode,
-      projectScrollbackRecord(record, foldedIds.has(record.item.id)),
+      projectLogViewerRecord(record, foldedIds.has(record.entry.id)),
       node.bounds.width,
       query,
       selectionForRecord(history, record, selection),
@@ -149,11 +149,11 @@ function projectScrollbackWindow(
     rowsByRecord.set(record, rows);
     return rows;
   };
-  const rowsForRecord = (record: ScrollbackHistoryRecord): readonly ScrollbackVisibleRow[] => (
+  const rowsForRecord = (record: LogHistoryRecord): readonly LogViewerVisibleRow[] => (
     projectionForRecord(record).rows
   );
   const selectedMatch = selectedSearchMatch(renderNode, search.matches);
-  const firstMatchRow = matchingScrollbackRow(
+  const firstMatchRow = matchingLogViewerRow(
     history,
     projection,
     selectedMatch,
@@ -170,7 +170,7 @@ function projectScrollbackWindow(
   const visibleWindow = visibleWindowFromScroll(scroll);
   const omittedBefore = visibleWindow.startIndex;
   const omittedAfter = Math.max(0, projection.totalRows - visibleWindow.endIndexExclusive);
-  const visibleRows = visibleScrollbackRecords(
+  const visibleRows = visibleLogViewerRecords(
     projection,
     visibleWindow.startIndex,
     visibleWindow.endIndexExclusive
@@ -192,43 +192,43 @@ function projectScrollbackWindow(
     end: visibleWindow.endIndexExclusive,
     omittedBefore,
     omittedAfter,
-    matchCount: search.matchingItems,
+    matchCount: search.matchingEntries,
     followTail: scroll.followTail,
     ...selectedTextProp(renderNode, history)
   };
 }
 
-function matchingScrollbackRow(
-  history: ScrollbackHistory,
-  projection: ScrollbackLayoutProjection,
-  match: ScrollbackSearchMatch | undefined,
-  projectionForRecord: (record: ScrollbackHistoryRecord) => ScrollbackRecordRowProjection
+function matchingLogViewerRow(
+  history: LogHistory,
+  projection: LogViewerLayoutProjection,
+  match: LogSearchMatch | undefined,
+  projectionForRecord: (record: LogHistoryRecord) => LogViewerRecordRowProjection
 ): number | undefined {
   if (match === undefined) return undefined;
-  const record = scrollbackHistoryRecordById(history, match.itemId);
-  const itemStartRow = scrollbackRowForItem(projection, match.itemIndex);
-  if (record === undefined || itemStartRow === undefined) return undefined;
+  const record = logHistoryRecordById(history, match.entryId);
+  const entryStartRow = logViewerRowForEntry(projection, match.entryIndex);
+  if (record === undefined || entryStartRow === undefined) return undefined;
   const matchedRow = projectionForRecord(record).matchStartRows[match.occurrenceIndex];
-  return matchedRow === undefined ? undefined : itemStartRow + matchedRow;
+  return matchedRow === undefined ? undefined : entryStartRow + matchedRow;
 }
 
-export function scrollbackText(renderNode: ScrollbackNode, node: LayoutNode, widthProfile: TextWidthProfile): string {
-  return scrollbackWindow(renderNode, node, widthProfile).rows.map((row) => row.text).join('\n');
+export function logViewerText(renderNode: LogViewerNode, node: LayoutNode, widthProfile: TextWidthProfile): string {
+  return logViewerWindow(renderNode, node, widthProfile).rows.map((row) => row.text).join('\n');
 }
 
-export function scrollbackBlock(renderNode: ScrollbackNode, node: LayoutNode, widthProfile: TextWidthProfile): RenderBlock {
+export function logViewerBlock(renderNode: LogViewerNode, node: LayoutNode, widthProfile: TextWidthProfile): RenderBlock {
   return {
-    lines: scrollbackWindow(renderNode, node, widthProfile).rows.map((row) => ({ spans: row.segments }))
+    lines: logViewerWindow(renderNode, node, widthProfile).rows.map((row) => ({ spans: row.segments }))
   };
 }
 
-export function scrollbackPointerAnchor(
-  renderNode: ScrollbackNode,
+export function logViewerPointerAnchor(
+  renderNode: LogViewerNode,
   node: Pick<LayoutNode, 'bounds'>,
   event: RoutedPointerEvent,
   widthProfile: TextWidthProfile
-): ScrollbackBodyAnchor | undefined {
-  const row = scrollbackWindow(renderNode, node, widthProfile).rows[(event.localRow ?? 0) - 1];
+): LogViewerBodyAnchor | undefined {
+  const row = logViewerWindow(renderNode, node, widthProfile).rows[(event.localRow ?? 0) - 1];
   const positions = row?.bodyPositions;
   if (positions === undefined || positions.length === 0) return undefined;
   const column = Math.max(0, (event.localColumn ?? 1) - 1);
@@ -237,7 +237,7 @@ export function scrollbackPointerAnchor(
   );
   if (containing !== undefined) {
     return {
-      itemId: containing.itemId,
+      entryId: containing.entryId,
       offset: containing.offset + textOffsetAtVisualColumn(
         containing.text,
         column - containing.column,
@@ -247,33 +247,33 @@ export function scrollbackPointerAnchor(
   }
   const previous = positions.findLast((position) => column >= position.column + position.cells);
   if (previous !== undefined) {
-    return { itemId: previous.itemId, offset: previous.offset + previous.text.length };
+    return { entryId: previous.entryId, offset: previous.offset + previous.text.length };
   }
   const first = positions[0];
-  return first === undefined ? undefined : { itemId: first.itemId, offset: first.offset };
+  return first === undefined ? undefined : { entryId: first.entryId, offset: first.offset };
 }
 
-export function scrollbackAccessibleBase(
-  renderNode: ScrollbackNode,
+export function logViewerAccessibleBase(
+  renderNode: LogViewerNode,
   node: LayoutNode,
   id: string,
   widthProfile: TextWidthProfile
 ): AccessibleNode {
-  const window = scrollbackWindow(renderNode, node, widthProfile);
+  const window = logViewerWindow(renderNode, node, widthProfile);
   return {
     id,
     role: 'text',
     label: id,
-    description: scrollbackDescription(renderNode, window)
+    description: logViewerDescription(renderNode, window)
   };
 }
 
-export function scrollbackAccessibleChildren(
-  renderNode: ScrollbackNode,
+export function logViewerAccessibleChildren(
+  renderNode: LogViewerNode,
   node: LayoutNode,
   widthProfile: TextWidthProfile
 ): readonly AccessibleNode[] {
-  return scrollbackWindow(renderNode, node, widthProfile).rows.map((row) => ({
+  return logViewerWindow(renderNode, node, widthProfile).rows.map((row) => ({
     id: row.id,
     role: 'text',
     label: row.text,
@@ -282,31 +282,31 @@ export function scrollbackAccessibleChildren(
   }));
 }
 
-function scrollbackDescription(renderNode: ScrollbackNode, window: ScrollbackWindow): string {
+function logViewerDescription(renderNode: LogViewerNode, window: LogViewerWindow): string {
   const query = stringify(renderNode.props.searchQuery);
   const queryText = query.length === 0
     ? ''
-    : ` Search query: ${query}. Matching items: ${String(window.matchCount)}.`;
+    : ` Search query: ${query}. Matching entries: ${String(window.matchCount)}.`;
   const selectionText = window.selectedText === undefined
     ? ''
     : ` Selection length: ${String(window.selectedText.length)}.`;
   const followTailText = ` Follow tail: ${window.followTail ? 'true' : 'false'}.`;
-  if (window.totalRows === 0) return `Showing 0 scrollback rows.${followTailText}${queryText}${selectionText}`;
-  return `Showing ${String(window.start + 1)}-${String(window.end)} of ${String(window.totalRows)} scrollback rows. Omitted before: ${String(window.omittedBefore)}. Omitted after: ${String(window.omittedAfter)}.${followTailText}${queryText}${selectionText}`;
+  if (window.totalRows === 0) return `Showing 0 log rows.${followTailText}${queryText}${selectionText}`;
+  return `Showing ${String(window.start + 1)}-${String(window.end)} of ${String(window.totalRows)} log rows. Omitted before: ${String(window.omittedBefore)}. Omitted after: ${String(window.omittedAfter)}.${followTailText}${queryText}${selectionText}`;
 }
 
-function scrollbackRecordRowProjection(
-  renderNode: ScrollbackNode,
-  projected: ReturnType<typeof projectScrollbackRecord>,
+function logViewerRecordRowProjection(
+  renderNode: LogViewerNode,
+  projected: ReturnType<typeof projectLogViewerRecord>,
   width: number,
   query: string,
-  selection: ScrollbackBodySelection | undefined,
+  selection: LogViewerBodySelection | undefined,
   wrap: boolean,
   includeBodyPositions: boolean,
   widthProfile: TextWidthProfile
-): ScrollbackRecordRowProjection {
+): LogViewerRecordRowProjection {
   const record = projected.source;
-  const fullLine = scrollbackFullLineSpans(renderNode, projected, query, selection);
+  const fullLine = logViewerFullLineSpans(renderNode, projected, query, selection);
   const matchStartRows = wrap
     ? matchRowsForSpans(fullLine, width, widthProfile)
     : fullLine.filter((segment) => segment.matched === true).map(() => 0);
@@ -319,19 +319,19 @@ function scrollbackRecordRowProjection(
       ? bodyPositionsForLine(
           renderLine.spans,
           projected.bodyText,
-          record.item.id,
+          record.entry.id,
           bodyCursor,
           widthProfile
         )
       : { positions: [], nextBodyCursor: bodyCursor };
     bodyCursor = positionProjection.nextBodyCursor;
     return {
-      id: `${renderNode.id ?? 'scrollback'}:item:${String(record.itemIndex)}:line:${String(lineIndex)}`,
+      id: `${renderNode.id ?? 'logViewer'}:entry:${String(record.entryIndex)}:line:${String(lineIndex)}`,
       text: renderLine.spans.map((segment) => segment.text).join(''),
       segments: renderLine.spans,
-      sourceItemId: record.item.id,
-      sourceItemIndex: record.itemIndex,
-      ...timestampForItem(record.item),
+      sourceEntryId: record.entry.id,
+      sourceEntryIndex: record.entryIndex,
+      ...timestampForEntry(record.entry),
       ...metadataForRecord(projected.metadataEntries),
       matched: renderLine.spans.some((segment) => segment.source?.partType === 'match'),
       ...(selection === undefined ? {} : { selected: true }),
@@ -344,7 +344,7 @@ function scrollbackRecordRowProjection(
 }
 
 function matchRowsForSpans(
-  spans: readonly ScrollbackTextSegment[],
+  spans: readonly LogViewerTextSegment[],
   width: number,
   widthProfile: TextWidthProfile
 ): readonly number[] {
@@ -375,39 +375,39 @@ function matchRowsForSpans(
 }
 
 function selectionForRecord(
-  history: ScrollbackHistory,
-  record: ScrollbackHistoryRecord,
-  selection: ScrollbackSelection | undefined
-): ScrollbackBodySelection | undefined {
+  history: LogHistory,
+  record: LogHistoryRecord,
+  selection: LogViewerSelection | undefined
+): LogViewerBodySelection | undefined {
   if (selection === undefined) return undefined;
-  const anchorRecord = scrollbackHistoryRecordById(history, selection.anchor.itemId);
-  const focusRecord = scrollbackHistoryRecordById(history, selection.focus.itemId);
+  const anchorRecord = logHistoryRecordById(history, selection.anchor.entryId);
+  const focusRecord = logHistoryRecordById(history, selection.focus.entryId);
   if (anchorRecord === undefined || focusRecord === undefined) return undefined;
-  const anchorFirst = anchorRecord.itemIndex < focusRecord.itemIndex
-    || anchorRecord.itemIndex === focusRecord.itemIndex
+  const anchorFirst = anchorRecord.entryIndex < focusRecord.entryIndex
+    || anchorRecord.entryIndex === focusRecord.entryIndex
       && selection.anchor.offset <= selection.focus.offset;
   const startRecord = anchorFirst ? anchorRecord : focusRecord;
   const endRecord = anchorFirst ? focusRecord : anchorRecord;
-  if (record.itemIndex < startRecord.itemIndex || record.itemIndex > endRecord.itemIndex) return undefined;
+  if (record.entryIndex < startRecord.entryIndex || record.entryIndex > endRecord.entryIndex) return undefined;
   const startAnchor = anchorFirst ? selection.anchor : selection.focus;
   const endAnchor = anchorFirst ? selection.focus : selection.anchor;
-  const start = record.item.id === startAnchor.itemId
+  const start = record.entry.id === startAnchor.entryId
     ? Math.max(0, Math.min(record.bodyText.length, startAnchor.offset))
     : 0;
-  const end = record.item.id === endAnchor.itemId
+  const end = record.entry.id === endAnchor.entryId
     ? Math.max(0, Math.min(record.bodyText.length, endAnchor.offset))
     : record.bodyText.length;
   return start < end ? { start, end } : undefined;
 }
 
 function withOmissionMarkers(
-  renderNode: ScrollbackNode,
-  rows: readonly ScrollbackVisibleRow[],
+  renderNode: LogViewerNode,
+  rows: readonly LogViewerVisibleRow[],
   omittedBefore: number,
   omittedAfter: number,
   height: number,
   followTail: boolean
-): readonly ScrollbackVisibleRow[] {
+): readonly LogViewerVisibleRow[] {
   if (height <= 0) return [];
   const result = [...rows];
   const replaced = new Set<number>();
@@ -433,43 +433,43 @@ function withOmissionMarkers(
   return result.slice(0, height);
 }
 
-function emptyRows(renderNode: ScrollbackNode, height: number): readonly ScrollbackVisibleRow[] {
+function emptyRows(renderNode: LogViewerNode, height: number): readonly LogViewerVisibleRow[] {
   if (height <= 0) return [];
   return [{
-    id: `${renderNode.id ?? 'scrollback'}:empty`,
-    text: 'No scrollback rows',
+    id: `${renderNode.id ?? 'logViewer'}:empty`,
+    text: 'No log entries',
     segments: [documentSpan(
       renderNode,
-      'scrollback',
+      'logViewer',
       'empty',
       'empty',
-      'No scrollback rows',
+      'No log entries',
       documentEmptyStyle(renderNode)
     )]
   }];
 }
 
 function omissionRow(
-  renderNode: ScrollbackNode,
+  renderNode: LogViewerNode,
   position: 'before' | 'after',
   text: string
-): ScrollbackVisibleRow {
+): LogViewerVisibleRow {
   return {
-    id: `scrollback:omitted-${position}`,
+    id: `logViewer:omitted-${position}`,
     text,
     segments: [documentSpan(
       renderNode,
-      'scrollback',
+      'logViewer',
       'omission',
       `omission.${position}`,
       text,
-      scrollbackOmissionStyle(renderNode)
+      logViewerOmissionStyle(renderNode)
     )]
   };
 }
 
-function timestampForItem(item: ScrollbackItem): { readonly timestamp?: string } {
-  const [timestamp] = scrollbackTimestampText(item);
+function timestampForEntry(entry: LogEntry): { readonly timestamp?: string } {
+  const [timestamp] = logEntryTimestampText(entry);
   return timestamp === undefined ? {} : { timestamp };
 }
 
@@ -477,37 +477,37 @@ function metadataForRecord(entries: readonly (readonly [string, string])[]): { r
   return entries.length === 0 ? {} : { metadata: Object.fromEntries(entries) };
 }
 
-function scrollStateProp(renderNode: ScrollbackNode) {
+function scrollStateProp(renderNode: LogViewerNode) {
   return renderNode.props.scroll;
 }
 
 function selectedTextProp(
-  renderNode: ScrollbackNode,
-  history: ScrollbackHistory
+  renderNode: LogViewerNode,
+  history: LogHistory
 ): { readonly selectedText?: string } {
   const selection = selectionProp(renderNode);
-  const selectedText = extractScrollbackSelectionText({
+  const selectedText = extractLogViewerSelectionText({
     history,
     ...(selection === undefined ? {} : { selection })
   });
   return selectedText === undefined ? {} : { selectedText };
 }
 
-function selectionProp(renderNode: ScrollbackNode): ScrollbackSelection | undefined {
+function selectionProp(renderNode: LogViewerNode): LogViewerSelection | undefined {
   return renderNode.props.selection;
 }
 
 function selectedSearchMatch(
-  renderNode: ScrollbackNode,
-  matches: readonly ScrollbackSearchMatch[]
-): ScrollbackSearchMatch | undefined {
+  renderNode: LogViewerNode,
+  matches: readonly LogSearchMatch[]
+): LogSearchMatch | undefined {
   const selected = renderNode.props.selectedMatch;
   return selected === undefined
     ? matches[0]
     : matches.find((match) => match.id === selected.id) ?? matches[0];
 }
 
-function searchQueryProp(renderNode: ScrollbackNode): string {
+function searchQueryProp(renderNode: LogViewerNode): string {
   return sanitizeTerminalText(stringify(renderNode.props.searchQuery)).text.trim();
 }
 
@@ -532,11 +532,11 @@ function defaultScrollState(
 function bodyPositionsForLine(
   spans: readonly RenderSpan[],
   bodyText: string,
-  itemId: string,
+  entryId: string,
   initialBodyCursor: number,
   widthProfile: TextWidthProfile
-): { readonly positions: readonly ScrollbackBodyPosition[]; readonly nextBodyCursor: number } {
-  const positions: ScrollbackBodyPosition[] = [];
+): { readonly positions: readonly LogViewerBodyPosition[]; readonly nextBodyCursor: number } {
+  const positions: LogViewerBodyPosition[] = [];
   let column = 0;
   let bodyCursor = initialBodyCursor;
   for (const currentSpan of spans) {
@@ -549,7 +549,7 @@ function bodyPositionsForLine(
           cells,
           text: currentSpan.text,
           offset: start,
-          itemId
+          entryId
         });
         bodyCursor = start + currentSpan.text.length;
       }
@@ -561,27 +561,27 @@ function bodyPositionsForLine(
 
 function isBodyTextSpan(currentSpan: RenderSpan): boolean {
   const part = currentSpan.source?.partName;
-  return currentSpan.source?.rendererFamily === 'scrollback'
+  return currentSpan.source?.rendererFamily === 'logViewer'
     && (part === 'body' || part?.startsWith('body.') === true);
 }
 
-function scrollbackFullLineSpans(
-  renderNode: ScrollbackNode,
-  projected: ReturnType<typeof projectScrollbackRecord>,
+function logViewerFullLineSpans(
+  renderNode: LogViewerNode,
+  projected: ReturnType<typeof projectLogViewerRecord>,
   query: string,
-  selection?: ScrollbackBodySelection
-): readonly ScrollbackTextSegment[] {
+  selection?: LogViewerBodySelection
+): readonly LogViewerTextSegment[] {
   const record = projected.source;
-  const timestampStyle = scrollbackTimestampStyle(renderNode);
-  const metadataStyle = scrollbackMetadataStyle(renderNode);
-  const separatorStyle = scrollbackMetadataSeparatorStyle(renderNode);
-  const spans: ScrollbackTextSegment[] = [];
-  for (const timestamp of scrollbackTimestampText(record.item)) {
+  const timestampStyle = logViewerTimestampStyle(renderNode);
+  const metadataStyle = logViewerMetadataStyle(renderNode);
+  const separatorStyle = logViewerMetadataSeparatorStyle(renderNode);
+  const spans: LogViewerTextSegment[] = [];
+  for (const timestamp of logEntryTimestampText(record.entry)) {
     appendGap(spans, renderNode);
     spans.push(...timestampSpans(
       renderNode,
-      record.item,
-      record.itemIndex,
+      record.entry,
+      record.entryIndex,
       timestamp,
       query,
       timestampStyle,
@@ -592,8 +592,8 @@ function scrollbackFullLineSpans(
     appendGap(spans, renderNode);
     spans.push(...metadataSpans(
       renderNode,
-      record.item,
-      record.itemIndex,
+      record.entry,
+      record.entryIndex,
       key,
       value,
       query,
@@ -602,129 +602,129 @@ function scrollbackFullLineSpans(
     ));
   }
   appendGap(spans, renderNode);
-  spans.push(...bodySpans(renderNode, record.item, record.itemIndex, projected.bodyText, query, selection));
+  spans.push(...bodySpans(renderNode, record.entry, record.entryIndex, projected.bodyText, query, selection));
   return spans.filter((span) => span.text.length > 0);
 }
 
-function appendGap(spans: ScrollbackTextSegment[], renderNode: ScrollbackNode): void {
+function appendGap(spans: LogViewerTextSegment[], renderNode: LogViewerNode): void {
   if (spans.length === 0) return;
   spans.push(documentSpan(
     renderNode,
-    'scrollback',
+    'logViewer',
     'separator',
     'separator',
     ' ',
-    scrollbackMetadataSeparatorStyle(renderNode)
+    logViewerMetadataSeparatorStyle(renderNode)
   ));
 }
 
 function timestampSpans(
-  renderNode: ScrollbackNode,
-  item: ScrollbackItem,
-  itemIndex: number,
+  renderNode: LogViewerNode,
+  entry: LogEntry,
+  entryIndex: number,
   timestamp: string,
   query: string,
-  style: ReturnType<typeof scrollbackMetadataStyle>,
-  separatorStyle: ReturnType<typeof scrollbackMetadataSeparatorStyle>
-): readonly ScrollbackTextSegment[] {
+  style: ReturnType<typeof logViewerMetadataStyle>,
+  separatorStyle: ReturnType<typeof logViewerMetadataSeparatorStyle>
+): readonly LogViewerTextSegment[] {
   const value = timestamp.startsWith('[') && timestamp.endsWith(']')
     ? timestamp.slice(1, -1)
     : timestamp;
   return [
     documentSpan(
       renderNode,
-      'scrollback',
+      'logViewer',
       'chrome',
       'timestamp.open',
       '[',
       separatorStyle,
-      sourceOptionsForItem(item, itemIndex)
+      sourceOptionsForEntry(entry, entryIndex)
     ),
     ...documentHighlightSpans({
       renderNode,
-      kind: 'scrollback',
+      kind: 'logViewer',
       visual: 'metadata',
       label: 'timestamp.value',
       text: value,
       query,
       baseStyle: style,
-      sourceOptions: sourceOptionsForItem(item, itemIndex)
+      sourceOptions: sourceOptionsForEntry(entry, entryIndex)
     }),
     documentSpan(
       renderNode,
-      'scrollback',
+      'logViewer',
       'chrome',
       'timestamp.close',
       ']',
       separatorStyle,
-      sourceOptionsForItem(item, itemIndex)
+      sourceOptionsForEntry(entry, entryIndex)
     )
   ];
 }
 
 function metadataSpans(
-  renderNode: ScrollbackNode,
-  item: ScrollbackItem,
-  itemIndex: number,
+  renderNode: LogViewerNode,
+  entry: LogEntry,
+  entryIndex: number,
   key: string,
   value: string,
   query: string,
-  style: ReturnType<typeof scrollbackMetadataStyle>,
-  separatorStyle: ReturnType<typeof scrollbackMetadataSeparatorStyle>
-): readonly ScrollbackTextSegment[] {
+  style: ReturnType<typeof logViewerMetadataStyle>,
+  separatorStyle: ReturnType<typeof logViewerMetadataSeparatorStyle>
+): readonly LogViewerTextSegment[] {
   const token = sourceToken(key);
   return [
     ...documentHighlightSpans({
       renderNode,
-      kind: 'scrollback',
+      kind: 'logViewer',
       visual: 'metadata',
       label: `metadata.${token}.key`,
       text: key,
       query,
       baseStyle: style,
-      sourceOptions: sourceOptionsForItem(item, itemIndex)
+      sourceOptions: sourceOptionsForEntry(entry, entryIndex)
     }),
     documentSpan(
       renderNode,
-      'scrollback',
+      'logViewer',
       'separator',
       `metadata.${token}.separator`,
       '=',
       separatorStyle,
-      sourceOptionsForItem(item, itemIndex)
+      sourceOptionsForEntry(entry, entryIndex)
     ),
     ...documentHighlightSpans({
       renderNode,
-      kind: 'scrollback',
+      kind: 'logViewer',
       visual: 'metadata',
       label: `metadata.${token}.value`,
       text: value,
       query,
       baseStyle: style,
-      sourceOptions: sourceOptionsForItem(item, itemIndex)
+      sourceOptions: sourceOptionsForEntry(entry, entryIndex)
     })
   ];
 }
 
 function bodySpans(
-  renderNode: ScrollbackNode,
-  item: ScrollbackItem,
-  itemIndex: number,
+  renderNode: LogViewerNode,
+  entry: LogEntry,
+  entryIndex: number,
   text: string,
   query: string,
-  selection: ScrollbackBodySelection | undefined
-): readonly ScrollbackTextSegment[] {
-  const itemStyle = scrollbackBodyStyle(renderNode, item.style, scrollbackItemLevel(item));
+  selection: LogViewerBodySelection | undefined
+): readonly LogViewerTextSegment[] {
+  const entryStyle = logViewerBodyStyle(renderNode, entry.style, logEntryLevel(entry));
   if (selection === undefined) {
     return documentHighlightSpans({
       renderNode,
-      kind: 'scrollback',
+      kind: 'logViewer',
       visual: 'body',
       label: 'body',
       text,
       query,
-      baseStyle: itemStyle,
-      sourceOptions: sourceOptionsForItem(item, itemIndex)
+      baseStyle: entryStyle,
+      sourceOptions: sourceOptionsForEntry(entry, entryIndex)
     });
   }
   const start = Math.max(0, Math.min(text.length, selection.start));
@@ -735,47 +735,47 @@ function bodySpans(
   return [
     ...documentHighlightSpans({
       renderNode,
-      kind: 'scrollback',
+      kind: 'logViewer',
       visual: 'body',
       label: 'body',
       text: before,
       query,
-      baseStyle: itemStyle,
-      sourceOptions: sourceOptionsForItem(item, itemIndex)
+      baseStyle: entryStyle,
+      sourceOptions: sourceOptionsForEntry(entry, entryIndex)
     }),
     ...documentHighlightSpans({
       renderNode,
-      kind: 'scrollback',
+      kind: 'logViewer',
       visual: 'body',
       label: 'body.selection',
       text: selected,
       query,
-      baseStyle: scrollbackSelectedStyle(renderNode),
-      sourceOptions: sourceOptionsForItem(item, itemIndex, 'selected')
+      baseStyle: logViewerSelectedStyle(renderNode),
+      sourceOptions: sourceOptionsForEntry(entry, entryIndex, 'selected')
     }),
     ...documentHighlightSpans({
       renderNode,
-      kind: 'scrollback',
+      kind: 'logViewer',
       visual: 'body',
       label: 'body',
       text: after,
       query,
-      baseStyle: itemStyle,
-      sourceOptions: sourceOptionsForItem(item, itemIndex)
+      baseStyle: entryStyle,
+      sourceOptions: sourceOptionsForEntry(entry, entryIndex)
     })
   ];
 }
 
-function sourceOptionsForItem(
-  item: ScrollbackItem,
-  itemIndex: number,
+function sourceOptionsForEntry(
+  entry: LogEntry,
+  entryIndex: number,
   state?: import('../../visual/source.ts').FrameCellSource['interactionState']
 ) {
   return {
-    itemId: item.id,
-    itemIndex,
+    itemId: entry.id,
+    itemIndex: entryIndex,
     ...(state === undefined ? {} : { state })
   };
 }
 
-type ScrollbackNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'scrollback'>;
+type LogViewerNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'logViewer'>;

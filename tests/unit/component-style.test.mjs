@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
-import { prepareSearchPickerIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
 
 import {
   renderFramePlain,
@@ -28,7 +28,7 @@ import {
   searchPicker,
   paginator,
   progressBar,
-  scrollback,
+  logViewer,
   slider,
   spinner,
   statusBar,
@@ -507,10 +507,10 @@ test('tabs use shared selected disabled and value styles', () => {
   assert.equal(styleFor(frame, 'A')?.fg?.token, 'status.warning');
 });
 
-test('scrollback and dialog chrome use placeholder and border slots', () => {
-  const scrollbackFrame = renderElementFrame(scrollback({
-    id: 'styled-scrollback',
-    history: prepareScrollbackHistory(Array.from({ length: 5 }, (_value, index) => ({ id: `row-${String(index)}`, text: `Row ${String(index)}` }))),
+test('log viewer and dialog chrome use placeholder and border slots', () => {
+  const logViewerFrame = renderElementFrame(logViewer({
+    id: 'styled-log-viewer',
+    history: prepareLogHistory(Array.from({ length: 5 }, (_value, index) => ({ id: `row-${String(index)}`, text: `Row ${String(index)}` }))),
     meta: {
         styles: {
             parts: { marker: tokenStyle('status.warning') }
@@ -535,7 +535,7 @@ test('scrollback and dialog chrome use placeholder and border slots', () => {
 }
   ), { columns: 16, rows: 5 });
 
-  assert.equal(styleFor(scrollbackFrame, '.')?.fg?.token, 'status.warning');
+  assert.equal(styleFor(logViewerFrame, '.')?.fg?.token, 'status.warning');
   assert.equal(styleFor(modalFrame, '┌')?.fg?.token, 'status.error');
   assert.equal(styleForCell(modalFrame, (cell) => cell.source?.elementKind === 'dialog' && cell.source.description === 'action-separator')?.fg?.token, 'status.error');
 });

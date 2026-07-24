@@ -48,7 +48,7 @@ layering, or geometry-only interaction are documented in
 | `table()` | Structured rows and columns with selection, scrolling, sorting, resizing, density, and cell semantics. | A spreadsheet engine or database. |
 | `tree()` | Expandable hierarchy with selection, filtering, lazy placeholders, and pointer targets. | A filesystem API or storage of expansion state. |
 | `paginator()` | Page navigation control paired with caller-controlled paging state. | Data loading or page storage. |
-| `scrollback()` | Append-heavy visible window with semantic scroll, search, fold, and follow-tail actions. | A command input or complete session ledger. |
+| `logViewer()` | Append-heavy structured log viewer with severity, timestamps, metadata, search, folding, selection, and follow-tail actions. | Terminal scrollback, a command input, or a session transcript. |
 | `structuredBlock()` | One titled record with fields, summary, body, and details. Its `result` is a lifecycle outcome; its independent `level` is informational severity. | A generic layout surface or arbitrary markdown block. |
 | `activityFeed()` | Variable-height structured records projected through one measured window with stable-ID selection and expansion actions. | Filtering policy, durable history storage, or job orchestration. |
 | `statusBar()` | Passive leading, centered, and trailing text/status items under constrained width. | A command bar, menu bar, or interactive layout frame. |
@@ -94,9 +94,9 @@ exclusive. Use raw arrays for small data; retain prepared complete or windowed
 collections when projection, identity, or hierarchy flattening must not repeat
 on every `view()` call.
 
-`scrollback()` always accepts a prepared `ScrollbackHistory`. Create it with
-`prepareScrollbackHistory()` and retain it in application state. Add records
-with `appendScrollbackHistory()` so sanitation, identity, offsets, wrapping,
+`logViewer()` always accepts a prepared `LogHistory`. Create it with
+`prepareLogHistory()` and retain it in application state. Add log entries
+with `appendLogHistory()` so sanitation, identity, offsets, wrapping,
 and search data remain reusable across frames.
 
 `meta.accessibility` can provide a full accessible node override or lightweight

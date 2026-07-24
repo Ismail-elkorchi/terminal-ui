@@ -21,17 +21,17 @@ import {
   list,
   searchPicker,
   richText,
-  scrollback,
+  logViewer,
   table,
   text,
   tree
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
 import {
-  appendScrollbackHistory,
+  appendLogHistory,
   listReducer,
   prepareSearchPickerIndex,
-  prepareScrollbackHistory,
+  prepareLogHistory,
   prepareListCollection,
   prepareTableCollection,
   prepareTreeCollection,
@@ -105,20 +105,20 @@ test('windowed list collections project only supplied rows while preserving glob
   assert.equal(frame.accessibility.root.description, 'Showing 40003-40007 of 50000 items.');
 });
 
-test('large scrollback rendering is bounded by terminal size, not collection size', () => {
+test('large log viewer rendering is bounded by terminal size, not collection size', () => {
   const items = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
-  const history = prepareScrollbackHistory(items);
-  const frame = renderElementFrame(scrollback({ id: 'large-scrollback', history }), { columns: 48, rows: 12 });
+  const history = prepareLogHistory(items);
+  const frame = renderElementFrame(logViewer({ id: 'large-log-viewer', history }), { columns: 48, rows: 12 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Line 99999/u);
   assert.doesNotMatch(output, /Line 0/u);
   assert.ok(frame.cells.length <= frame.width * frame.height);
   assert.equal(frame.accessibility.root.children?.length, 12);
-  assert.equal(frame.accessibility.root.description, 'Showing 99989-100000 of 100000 scrollback rows. Omitted before: 99988. Omitted after: 0. Follow tail: true.');
+  assert.equal(frame.accessibility.root.description, 'Showing 99989-100000 of 100000 log rows. Omitted before: 99988. Omitted after: 0. Follow tail: true.');
 });
 
-test('prepared scrollback history pays source normalization once and projections do not reread items', () => {
+test('prepared log history pays source normalization once and projections do not reread entries', () => {
   let textReads = 0;
   const items = Array.from({ length: 20_000 }, (_value, index) => ({
     id: `line-${String(index)}`,
@@ -128,11 +128,11 @@ test('prepared scrollback history pays source normalization once and projections
     }
   }));
 
-  const history = prepareScrollbackHistory(items);
+  const history = prepareLogHistory(items);
   assert.equal(textReads, items.length);
   textReads = 0;
-  renderElementFrame(scrollback({ id: 'bounded-history', history }), { columns: 48, rows: 12 });
-  renderElementFrame(scrollback({ id: 'bounded-history', history }), { columns: 64, rows: 16 });
+  renderElementFrame(logViewer({ id: 'bounded-history', history }), { columns: 48, rows: 12 });
+  renderElementFrame(logViewer({ id: 'bounded-history', history }), { columns: 64, rows: 16 });
 
   assert.equal(textReads, 0);
 });
@@ -196,9 +196,9 @@ test('full frame render stays bounded by terminal size for mixed element trees',
       ],
       rows: Array.from({ length: 1_000 }, (_value, index) => [`Item ${index}`, index])
     }),
-    scrollback({
+    logViewer({
       id: 'events',
-      history: prepareScrollbackHistory(Array.from({ length: 1_000 }, (_value, index) => ({ id: `event-${index}`, text: `Event ${index}` })))
+      history: prepareLogHistory(Array.from({ length: 1_000 }, (_value, index) => ({ id: `event-${index}`, text: `Event ${index}` })))
     })
   ]), { columns: 60, rows: 16 });
 
@@ -223,12 +223,12 @@ test('style-only diffs are incremental and preserve visual dimensions', () => {
   assert.ok(diff.operations.length <= 2);
 });
 
-test('append-heavy scrollback diffs stay bounded by visible rows', () => {
+test('append-heavy log viewer diffs stay bounded by visible rows', () => {
   const beforeItems = Array.from({ length: 100_000 }, (_value, index) => ({ id: `line-${index}`, text: `Line ${index}` }));
-  const beforeHistory = prepareScrollbackHistory(beforeItems);
-  const afterHistory = appendScrollbackHistory(beforeHistory, [{ id: 'line-100000', text: 'Line 100000' }]);
-  const previous = renderElementFrame(scrollback({ id: 'append-log', history: beforeHistory }), { columns: 48, rows: 8 });
-  const next = renderElementFrame(scrollback({ id: 'append-log', history: afterHistory }), { columns: 48, rows: 8 });
+  const beforeHistory = prepareLogHistory(beforeItems);
+  const afterHistory = appendLogHistory(beforeHistory, [{ id: 'line-100000', text: 'Line 100000' }]);
+  const previous = renderElementFrame(logViewer({ id: 'append-log', history: beforeHistory }), { columns: 48, rows: 8 });
+  const next = renderElementFrame(logViewer({ id: 'append-log', history: afterHistory }), { columns: 48, rows: 8 });
   const diff = diffFrames(previous, next);
 
   assert.match(renderFramePlain(next), /Line 100000/u);

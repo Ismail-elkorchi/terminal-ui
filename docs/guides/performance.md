@@ -47,7 +47,7 @@ Optimization proposals must record the baseline, hypothesis, changed owner,
 after-measurement, invalidation tests, and complexity cost. Retained rendering
 or caches are not justified by total render time alone.
 
-Scrolling benchmarks cover text areas, scrollback, tables, and trees as
+Scrolling benchmarks cover text areas, log viewers, tables, and trees as
 controlled one-row viewport transitions. On terminals with explicit
 `scrollRegion` support, runtime output planning compares the canonical absolute
 diff with a scrolling-region move plus canonical repair and emits only the

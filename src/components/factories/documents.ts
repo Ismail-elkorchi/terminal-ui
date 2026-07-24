@@ -4,11 +4,11 @@ import type {
   ActivityFeedOptions,
   CommandInputOptions,
   PassiveSearchPickerOptions,
-  PassiveScrollbackOptions,
+  PassiveLogViewerOptions,
   SearchPickerOptions,
   ScrollableSearchPickerOptions,
-  ScrollableScrollbackOptions,
-  ScrollbackOptions,
+  ScrollableLogViewerOptions,
+  LogViewerOptions,
   StructuredBlockOptions
 } from '../options/documents.ts';
 import {
@@ -26,50 +26,50 @@ import type {
   IndependentInteractionOptions,
   InferredElementKeyBindings
 } from '../internal/messages.ts';
-import type { ScrollbackAction, ScrollbackControlAction } from '../../ui-model/scrollback.ts';
-import { assertScrollbackHistory } from '../../ui-model/scrollback-history.ts';
+import type { LogViewerAction, LogViewerControlAction } from '../../ui-model/log-viewer.ts';
+import { assertLogHistory } from '../../ui-model/log-history.ts';
 
 /* eslint-disable @typescript-eslint/unified-signatures -- Separate overloads preserve contextual action types for passive and scrollable controls. */
-export function scrollback<
+export function logViewer<
   const TActionMessage = unknown,
   const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
-    ScrollableScrollbackOptions,
+    ScrollableLogViewerOptions,
     { readonly onAction: TActionMessage },
     TKeys,
     TPointerMessage
   >
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function scrollback<
+export function logViewer<
   const TActionMessage = never,
   const TPointerMessage = never,
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
-    PassiveScrollbackOptions,
+    PassiveLogViewerOptions,
     { readonly onAction: TActionMessage },
     TKeys,
     TPointerMessage
   >
 ): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 /* eslint-enable @typescript-eslint/unified-signatures */
-export function scrollback(options: ScrollbackOptions<unknown>): Element<unknown> {
-  assertScrollbackHistory(options.history);
-  const onControlAction: ((action: ScrollbackControlAction) => unknown) | undefined = options.onAction;
-  const onAction: ((action: ScrollbackAction) => unknown) | undefined = options.onAction === undefined
+export function logViewer(options: LogViewerOptions<unknown>): Element<unknown> {
+  assertLogHistory(options.history);
+  const onControlAction: ((action: LogViewerControlAction) => unknown) | undefined = options.onAction;
+  const onAction: ((action: LogViewerAction) => unknown) | undefined = options.onAction === undefined
     ? undefined
-    : isScrollableScrollbackOptions(options)
+    : isScrollableLogViewerOptions(options)
       ? options.onAction
       : (action) => action.kind === 'scroll'
         ? ignoreMessage()
         : onControlAction === undefined
           ? ignoreMessage()
           : onControlAction(action);
-  return componentElementFromRenderNode<'scrollback', unknown>({
-    ...requiredId(options.id, 'scrollback'),
-    kind: 'scrollback',
+  return componentElementFromRenderNode<'logViewer', unknown>({
+    ...requiredId(options.id, 'logViewer'),
+    kind: 'logViewer',
     props: {
       history: options.history,
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
@@ -86,9 +86,9 @@ export function scrollback(options: ScrollbackOptions<unknown>): Element<unknown
   });
 }
 
-function isScrollableScrollbackOptions<TMessage>(
-  options: ScrollbackOptions<TMessage>
-): options is ScrollableScrollbackOptions<TMessage> {
+function isScrollableLogViewerOptions<TMessage>(
+  options: LogViewerOptions<TMessage>
+): options is ScrollableLogViewerOptions<TMessage> {
   return options.scroll !== undefined;
 }
 

@@ -14,13 +14,13 @@ import type {
   CommandInputValidation,
   StructuredBlock
 } from '../../../ui-model/documents.ts';
-import type { ScrollbackHistory } from '../../../ui-model/scrollback-history.ts';
-import type { ScrollbackSearchMatch } from '../../../ui-model/scrollback-history.ts';
-import type { ScrollbackSelection } from '../../../ui-model/scrollback.ts';
+import type { LogHistory } from '../../../ui-model/log-history.ts';
+import type { LogSearchMatch } from '../../../ui-model/log-history.ts';
+import type { LogViewerSelection } from '../../../ui-model/log-viewer.ts';
 import type { SearchPickerAction } from '../../../ui-model/search-picker.ts';
 import type { SearchPickerIndex } from '../../../ui-model/search-picker-index.ts';
 import type { CommandInputAction } from '../../../ui-model/command-input.ts';
-import type { ScrollbackAction } from '../../../ui-model/scrollback.ts';
+import type { LogViewerAction } from '../../../ui-model/log-viewer.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
 import type { TerminalStyle } from '../../../visual/render.ts';
 import type { MessageResolution } from '../../../interaction/message.ts';
@@ -35,17 +35,17 @@ export interface ViewportRenderProps<TMessage> extends RenderNodeLayoutProps {
   readonly toScrollMessage?: (event: ScrollEvent) => TMessage;
 }
 
-export interface ScrollbackRenderProps<TMessage> {
-  readonly history: ScrollbackHistory;
+export interface LogViewerRenderProps<TMessage> {
+  readonly history: LogHistory;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly toActionMessage?: (action: ScrollbackAction) => MessageResolution<TMessage>;
+  readonly toActionMessage?: (action: LogViewerAction) => MessageResolution<TMessage>;
   readonly wrap?: boolean;
   readonly searchQuery?: string;
-  readonly selectedMatch?: ScrollbackSearchMatch;
+  readonly selectedMatch?: LogSearchMatch;
   readonly foldedIds?: readonly string[];
-  readonly selection?: ScrollbackSelection;
+  readonly selection?: LogViewerSelection;
 }
 
 export interface StructuredBlockRenderProps {

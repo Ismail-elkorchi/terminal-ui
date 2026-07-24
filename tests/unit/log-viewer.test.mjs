@@ -6,30 +6,30 @@ import {
 import {
   createVisualSnapshot,
   renderElementRegions,
-  scrollbackSearchStatistics
+  logViewerSearchStatistics
 } from '../../dist/testing/index.js';
 import { highContrastTheme } from '../../dist/theme/index.js';
 import {
-  appendScrollbackHistory,
+  appendLogHistory,
   createScrollState,
-  extractScrollbackSelectionText,
-  prepareScrollbackHistory,
-  scrollbackHistoryItemAt,
-  scrollbackSearchMatches
+  extractLogViewerSelectionText,
+  prepareLogHistory,
+  logHistoryEntryAt,
+  logViewerSearchMatches
 } from '../../dist/behavior/index.js';
 import {
   renderFramePlain,
   renderElementFrame
 } from '../../dist/renderer/index.js';
-import { scrollback } from '../../dist/components/index.js';
+import { logViewer } from '../../dist/components/index.js';
 
-function item(index, text = `Row ${index}`) {
+function entry(index, text = `Row ${index}`) {
   return { id: `row-${index}`, text };
 }
 
-test('scrollback follows the tail by default and marks omitted earlier rows', () => {
-  const items = Array.from({ length: 20 }, (_value, index) => item(index));
-  const frame = renderElementFrame(scrollback({ id: 'log', history: prepareScrollbackHistory(items) }), { columns: 36, rows: 4 });
+test('log viewer follows the tail by default and marks omitted earlier rows', () => {
+  const entries = Array.from({ length: 20 }, (_value, index) => entry(index));
+  const frame = renderElementFrame(logViewer({ id: 'log', history: prepareLogHistory(entries) }), { columns: 36, rows: 4 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /\.\.\. 16 earlier rows omitted \.\.\./u);
@@ -37,17 +37,17 @@ test('scrollback follows the tail by default and marks omitted earlier rows', ()
   assert.match(output, /Row 18/u);
   assert.match(output, /Row 19/u);
   assert.doesNotMatch(output, /Row 0/u);
-  assert.equal(frame.accessibility.root.description, 'Showing 17-20 of 20 scrollback rows. Omitted before: 16. Omitted after: 0. Follow tail: true.');
+  assert.equal(frame.accessibility.root.description, 'Showing 17-20 of 20 log rows. Omitted before: 16. Omitted after: 0. Follow tail: true.');
   assert.equal(frame.accessibility.root.children?.length, 4);
   assert.equal(frame.cells.find((cell) => cell.text === '.')?.source?.description, 'omission.before');
   assert.equal(frame.cells.find((cell) => cell.text === '.')?.source?.cellRole, 'decoration');
 });
 
-test('scrollback accepts explicit scroll state and marks omitted later rows', () => {
-  const items = Array.from({ length: 10 }, (_value, index) => item(index));
-  const frame = renderElementFrame(scrollback({
+test('log viewer accepts explicit scroll state and marks omitted later rows', () => {
+  const entries = Array.from({ length: 10 }, (_value, index) => entry(index));
+  const frame = renderElementFrame(logViewer({
     id: 'log',
-    history: prepareScrollbackHistory(items),
+    history: prepareLogHistory(entries),
     scroll: createScrollState({ offsetRow: 0, contentRows: 10, viewportRows: 3 })
   }), { columns: 48, rows: 3 });
   const output = renderFramePlain(frame);
@@ -56,14 +56,14 @@ test('scrollback accepts explicit scroll state and marks omitted later rows', ()
   assert.match(output, /Row 1/u);
   assert.match(output, /\.\.\. 7 later rows omitted \(paused\) \.\.\./u);
   assert.doesNotMatch(output, /Row 9/u);
-  assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 10 scrollback rows. Omitted before: 0. Omitted after: 7. Follow tail: false.');
+  assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 10 log rows. Omitted before: 0. Omitted after: 7. Follow tail: false.');
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'omission.after')?.source?.cellRole, 'decoration');
 });
 
-test('scrollback sanitizes terminal control sequences before rendering and accessibility', () => {
-  const frame = renderElementFrame(scrollback({
+test('log viewer sanitizes terminal control sequences before rendering and accessibility', () => {
+  const frame = renderElementFrame(logViewer({
     id: 'safe-log',
-    history: prepareScrollbackHistory([item(0, 'safe \u001B[31mred\u001B[0m text')])
+    history: prepareLogHistory([entry(0, 'safe \u001B[31mred\u001B[0m text')])
   }), { columns: 40, rows: 2 });
   const output = renderFramePlain(frame);
 
@@ -71,10 +71,10 @@ test('scrollback sanitizes terminal control sequences before rendering and acces
   assert.equal(frame.accessibility.root.children?.[0]?.value, 'safe red text');
 });
 
-test('scrollback renders timestamp metadata and item style through visible rows', () => {
-  const widget = scrollback({
+test('log viewer renders timestamp, metadata, and entry styles through visible rows', () => {
+  const widget = logViewer({
     id: 'metadata-log',
-    history: prepareScrollbackHistory([{
+    history: prepareLogHistory([{
       id: 'meta-1',
       timestamp: '10:30',
       metadata: { status: 'ok', source: 'worker' },
@@ -102,14 +102,14 @@ test('scrollback renders timestamp metadata and item style through visible rows'
   assert.equal(frame.accessibility.root.children?.[0]?.value, '[10:30] source=worker status=ok Zulu');
 });
 
-test('scrollback rendering uses the prepared metadata order used for row projection', () => {
-  const history = prepareScrollbackHistory([{
+test('log viewer rendering uses the prepared metadata order used for row projection', () => {
+  const history = prepareLogHistory([{
     id: 'ordered',
     metadata: { a: 'long-value', Z: 'short' },
     text: 'body'
   }]);
-  const record = scrollbackHistoryItemAt(history, 0);
-  const frame = renderElementFrame(scrollback({
+  const record = logHistoryEntryAt(history, 0);
+  const frame = renderElementFrame(logViewer({
     id: 'ordered-metadata',
     history,
     wrap: true
@@ -119,10 +119,10 @@ test('scrollback rendering uses the prepared metadata order used for row project
   assert.equal(frame.accessibility.root.children?.map((node) => node.value).join(''), record?.displayText);
 });
 
-test('scrollback renders log levels through log theme tokens and lets item styles refine them', () => {
-  const frame = renderElementFrame(scrollback({
+test('log viewer renders log levels through log theme tokens and lets entry styles refine them', () => {
+  const frame = renderElementFrame(logViewer({
     id: 'level-log',
-    history: prepareScrollbackHistory([
+    history: prepareLogHistory([
       { id: 'info', level: 'info', text: 'Server ready' },
       { id: 'warn', level: 'warning', text: 'Memory high' },
       { id: 'error', level: 'error', text: 'Request failed', style: { bold: true } }
@@ -137,12 +137,12 @@ test('scrollback renders log levels through log theme tokens and lets item style
   assert.equal(error?.style?.bold, true);
 });
 
-test('scrollback renders folded history as visible document metadata', () => {
-  const history = prepareScrollbackHistory([
+test('log viewer renders folded history as visible document metadata', () => {
+  const history = prepareLogHistory([
     { id: 'a', text: 'alpha\nmore alpha', metadata: { source: 'worker' } },
     { id: 'b', text: 'bravo' }
   ]);
-  const frame = renderElementFrame(scrollback({
+  const frame = renderElementFrame(logViewer({
     id: 'folded-log',
     history,
     foldedIds: ['a']
@@ -151,45 +151,45 @@ test('scrollback renders folded history as visible document metadata', () => {
   assert.match(renderFramePlain(frame), /source=worker folded=true alpha \.\.\./u);
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'metadata.folded.key')?.text, 'f');
   assert.equal(frame.cells.find((cell) => cell.source?.description === 'metadata.folded.value')?.text, 't');
-  assert.equal(scrollbackHistoryItemAt(history, 0)?.bodyText, 'alpha\nmore alpha');
+  assert.equal(logHistoryEntryAt(history, 0)?.bodyText, 'alpha\nmore alpha');
 });
 
-test('scrollback folding preserves source-local selection anchors', () => {
-  const history = prepareScrollbackHistory([
+test('log viewer folding preserves source-local selection anchors', () => {
+  const history = prepareLogHistory([
     { id: 'a', text: 'alpha\nmore alpha' },
     { id: 'b', text: 'bravo' }
   ]);
   const selection = {
-    anchor: { itemId: 'a', offset: 2 },
-    focus: { itemId: 'b', offset: 3 }
+    anchor: { entryId: 'a', offset: 2 },
+    focus: { entryId: 'b', offset: 3 }
   };
-  const frame = renderElementFrame(scrollback({
+  const frame = renderElementFrame(logViewer({
     id: 'folded-selection',
     history,
     foldedIds: ['a'],
     selection
   }), { columns: 48, rows: 3 });
 
-  assert.equal(extractScrollbackSelectionText({ history, selection }), 'pha\nmore alpha\nbra');
+  assert.equal(extractLogViewerSelectionText({ history, selection }), 'pha\nmore alpha\nbra');
   assert.equal(frame.accessibility.root.description?.endsWith('Selection length: 18.'), true);
-  assert.equal(scrollbackHistoryItemAt(history, 0)?.bodyText, 'alpha\nmore alpha');
+  assert.equal(logHistoryEntryAt(history, 0)?.bodyText, 'alpha\nmore alpha');
 });
 
-test('scrollback wraps visible rows when requested', () => {
-  const frame = renderElementFrame(scrollback({
+test('log viewer wraps visible rows when requested', () => {
+  const frame = renderElementFrame(logViewer({
     id: 'wrapped-log',
-    history: prepareScrollbackHistory([item(0, 'abcdef')]),
+    history: prepareLogHistory([entry(0, 'abcdef')]),
     wrap: true
   }), { columns: 3, rows: 3 });
 
   assert.equal(renderFramePlain(frame), 'abc\ndef');
-  assert.equal(frame.accessibility.root.description, 'Showing 1-2 of 2 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true.');
+  assert.equal(frame.accessibility.root.description, 'Showing 1-2 of 2 log rows. Omitted before: 0. Omitted after: 0. Follow tail: true.');
   assert.deepEqual(frame.accessibility.root.children?.map((node) => node.value), ['abc', 'def']);
 });
 
-test('scrollback search navigates to the first match and exposes match segments', () => {
-  const items = Array.from({ length: 12 }, (_value, index) => item(index, index === 8 ? 'needle row' : `plain ${index}`));
-  const widget = scrollback({ id: 'search-log', history: prepareScrollbackHistory(items), searchQuery: 'needle' });
+test('log viewer search navigates to the first match and exposes match segments', () => {
+  const entries = Array.from({ length: 12 }, (_value, index) => entry(index, index === 8 ? 'needle row' : `plain ${index}`));
+  const widget = logViewer({ id: 'search-log', history: prepareLogHistory(entries), searchQuery: 'needle' });
   const frame = renderElementFrame(widget, { columns: 40, rows: 5 });
 
   const matchedCells = frame.cells.filter((cell) => cell.source?.description === 'body.match');
@@ -200,14 +200,14 @@ test('scrollback search navigates to the first match and exposes match segments'
   assert.ok(frame.accessibility.root.children?.some((node) => node.description === 'Search match.'));
   assert.equal(
     frame.accessibility.root.description,
-    'Showing 7-11 of 12 scrollback rows. Omitted before: 6. Omitted after: 1. Follow tail: false. Search query: needle. Matching items: 1.'
+    'Showing 7-11 of 12 log rows. Omitted before: 6. Omitted after: 1. Follow tail: false. Search query: needle. Matching entries: 1.'
   );
 });
 
-test('wrapped scrollback search centers the row containing the first highlight', () => {
-  const frame = renderElementFrame(scrollback({
+test('wrapped log viewer search centers the row containing the first highlight', () => {
+  const frame = renderElementFrame(logViewer({
     id: 'wrapped-search-log',
-    history: prepareScrollbackHistory([{
+    history: prepareLogHistory([{
       id: 'long-record',
       text: `${'prefix '.repeat(12)}needle suffix`
     }]),
@@ -219,13 +219,13 @@ test('wrapped scrollback search centers the row containing the first highlight',
   assert.equal(matches.map((cell) => cell.text).join(''), 'needle');
 });
 
-test('wrapped scrollback search navigates by exact occurrence identity', () => {
-  const history = prepareScrollbackHistory([{
+test('wrapped log viewer search navigates by exact occurrence identity', () => {
+  const history = prepareLogHistory([{
     id: 'long-record',
     text: `needle ${'padding '.repeat(8)}needle suffix`
   }]);
-  const matches = scrollbackSearchMatches(history, 'needle');
-  const frame = renderElementFrame(scrollback({
+  const matches = logViewerSearchMatches(history, 'needle');
+  const frame = renderElementFrame(logViewer({
     id: 'selected-search-occurrence',
     history,
     searchQuery: 'needle',
@@ -241,10 +241,10 @@ test('wrapped scrollback search navigates by exact occurrence identity', () => {
   assert.doesNotMatch(renderFramePlain(frame), /^needle/u);
 });
 
-test('scrollback counts only queries represented by highlighted spans', () => {
-  const frame = renderElementFrame(scrollback({
+test('log viewer counts only queries represented by highlighted spans', () => {
+  const frame = renderElementFrame(logViewer({
     id: 'span-scoped-search',
-    history: prepareScrollbackHistory([{ id: 'split-boundary', timestamp: 'a', text: 'b' }]),
+    history: prepareLogHistory([{ id: 'split-boundary', timestamp: 'a', text: 'b' }]),
     searchQuery: '] b'
   }), { columns: 40, rows: 2 });
 
@@ -253,63 +253,63 @@ test('scrollback counts only queries represented by highlighted spans', () => {
   assert.equal(frame.accessibility.root.children?.[0]?.description, undefined);
   assert.equal(
     frame.accessibility.root.description,
-    'Showing 1-1 of 1 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Search query: ] b. Matching items: 0.'
+    'Showing 1-1 of 1 log rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Search query: ] b. Matching entries: 0.'
   );
 });
 
-test('scrollback search rejects code-unit substrings inside one grapheme', () => {
-  const frame = renderElementFrame(scrollback({
+test('log viewer search rejects code-unit substrings inside one grapheme', () => {
+  const frame = renderElementFrame(logViewer({
     id: 'grapheme-scoped-search',
-    history: prepareScrollbackHistory([{ id: 'family', text: 'team 👨‍👩‍👧‍👦' }]),
+    history: prepareLogHistory([{ id: 'family', text: 'team 👨‍👩‍👧‍👦' }]),
     searchQuery: '👨'
   }), { columns: 40, rows: 2 });
 
   assert.equal(frame.cells.some((cell) => cell.source?.partType === 'match'), false);
   assert.equal(
     frame.accessibility.root.description,
-    'Showing 1-1 of 1 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Search query: 👨. Matching items: 0.'
+    'Showing 1-1 of 1 log rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Search query: 👨. Matching entries: 0.'
   );
 });
 
-test('scrollback search reuses retained segment indexes and invalidates only appended segments', () => {
-  const history = prepareScrollbackHistory(Array.from(
+test('log viewer search reuses retained segment indexes and invalidates only appended segments', () => {
+  const history = prepareLogHistory(Array.from(
     { length: 100 },
-    (_value, index) => item(index, `record ${index} searchable`)
+    (_value, index) => entry(index, `record ${index} searchable`)
   ));
-  const searched = scrollback({ id: 'retained-search', history, searchQuery: 'searchable' });
+  const searched = logViewer({ id: 'retained-search', history, searchQuery: 'searchable' });
 
   renderElementFrame(searched, { columns: 40, rows: 5 });
-  const afterFirst = scrollbackSearchStatistics(history);
+  const afterFirst = logViewerSearchStatistics(history);
   renderElementFrame(searched, { columns: 40, rows: 5 });
-  const afterSecond = scrollbackSearchStatistics(history);
+  const afterSecond = logViewerSearchStatistics(history);
 
   assert.deepEqual(afterSecond, afterFirst);
 
-  const appended = appendScrollbackHistory(history, [{ id: 'new-record', text: 'searchable append' }]);
+  const appended = appendLogHistory(history, [{ id: 'new-record', text: 'searchable append' }]);
   renderElementFrame(
-    scrollback({ id: 'retained-search-appended', history: appended, searchQuery: 'searchable' }),
+    logViewer({ id: 'retained-search-appended', history: appended, searchQuery: 'searchable' }),
     { columns: 40, rows: 5 }
   );
-  const afterAppend = scrollbackSearchStatistics(appended);
+  const afterAppend = logViewerSearchStatistics(appended);
 
   assert.equal(afterAppend.queryEvaluations - afterSecond.queryEvaluations, 1);
   assert.equal(afterAppend.recordEvaluations - afterSecond.recordEvaluations, 1);
 });
 
-test('scrollback renders empty and selected text states in high contrast and no color output', () => {
-  const emptyFrame = renderElementFrame(scrollback({
+test('log viewer renders empty and selected text states in high contrast and no color output', () => {
+  const emptyFrame = renderElementFrame(logViewer({
     id: 'empty-log',
-    history: prepareScrollbackHistory([])
+    history: prepareLogHistory([])
   }), { columns: 32, rows: 3 }, { theme: highContrastTheme });
-  const selectedFrame = renderElementFrame(scrollback({
+  const selectedFrame = renderElementFrame(logViewer({
     id: 'selected-log',
-    history: prepareScrollbackHistory([
+    history: prepareLogHistory([
       { id: 'alpha', text: 'alpha' },
       { id: 'bravo', text: 'bravo charlie' }
     ]),
     selection: {
-      anchor: { itemId: 'alpha', offset: 3 },
-      focus: { itemId: 'bravo', offset: 5 }
+      anchor: { entryId: 'alpha', offset: 3 },
+      focus: { entryId: 'bravo', offset: 5 }
     }
   }), { columns: 32, rows: 4 }, { theme: highContrastTheme });
   const highContrast = createVisualSnapshot({
@@ -321,7 +321,7 @@ test('scrollback renders empty and selected text states in high contrast and no 
     ansi: { capabilities: noColorCapabilities(), theme: highContrastTheme }
   });
 
-  assert.equal(renderFramePlain(emptyFrame), 'No scrollback rows');
+  assert.equal(renderFramePlain(emptyFrame), 'No log entries');
   assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N')?.source?.description, 'empty');
   assert.equal(renderFramePlain(selectedFrame), 'alpha\nbravo charlie');
   assert.equal(selectedFrame.cells.find((cell) => cell.source?.description === 'body.selection')?.style?.bg?.token, 'selection.background');
@@ -329,26 +329,26 @@ test('scrollback renders empty and selected text states in high contrast and no 
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
 });
 
-test('scrollback selection extraction is pure and sanitized', () => {
-  const items = [
-    item(0, 'alpha'),
-    item(1, 'bravo \u001B[31mcharlie\u001B[0m')
+test('log viewer selection extraction is pure and sanitized', () => {
+  const entries = [
+    entry(0, 'alpha'),
+    entry(1, 'bravo \u001B[31mcharlie\u001B[0m')
   ];
-  const text = extractScrollbackSelectionText({
-    history: prepareScrollbackHistory(items),
+  const text = extractLogViewerSelectionText({
+    history: prepareLogHistory(entries),
     selection: {
-      anchor: { itemId: 'row-0', offset: 3 },
-      focus: { itemId: 'row-1', offset: 12 }
+      anchor: { entryId: 'row-0', offset: 3 },
+      focus: { entryId: 'row-1', offset: 12 }
     }
   });
 
   assert.equal(text, 'ha\nbravo charli');
 });
 
-test('scrollback maps pointer selection through metadata to canonical body offsets', () => {
-  const regions = renderElementRegions(scrollback({
+test('log viewer maps pointer selection through metadata to canonical body offsets', () => {
+  const regions = renderElementRegions(logViewer({
     id: 'selectable-log',
-    history: prepareScrollbackHistory([
+    history: prepareLogHistory([
       { id: 'alpha', timestamp: '10:30', metadata: { source: 'worker' }, text: 'alpha' },
       { id: 'bravo', text: 'bravo' }
     ]),
@@ -356,9 +356,9 @@ test('scrollback maps pointer selection through metadata to canonical body offse
     onAction: (action) => ({ action })
   }), { columns: 48, rows: 2 });
   const target = targetById(regions, 'selectable-log:text');
-  const frame = renderElementFrame(scrollback({
+  const frame = renderElementFrame(logViewer({
     id: 'selectable-log',
-    history: prepareScrollbackHistory([
+    history: prepareLogHistory([
       { id: 'alpha', timestamp: '10:30', metadata: { source: 'worker' }, text: 'alpha' },
       { id: 'bravo', text: 'bravo' }
     ]),
@@ -375,26 +375,26 @@ test('scrollback maps pointer selection through metadata to canonical body offse
   assert.deepEqual(target.focus, { kind: 'focus', path: ['selectable-log'] });
   assert.deepEqual(target.message(press)?.action, {
     kind: 'pointer',
-    action: { kind: 'placeCaret', position: { itemId: 'alpha', offset: 2 } }
+    action: { kind: 'placeCaret', position: { entryId: 'alpha', offset: 2 } }
   });
   assert.deepEqual(target.message(drag)?.action, {
     kind: 'pointer',
     action: {
       kind: 'extendSelection',
-      anchor: { itemId: 'alpha', offset: 2 },
-      position: { itemId: 'bravo', offset: 2 }
+      anchor: { entryId: 'alpha', offset: 2 },
+      position: { entryId: 'bravo', offset: 2 }
     }
   });
 });
 
-test('wrapped scrollback preserves selected body source and visual style', () => {
-  const frame = renderElementFrame(scrollback({
+test('wrapped log viewer preserves selected body source and visual style', () => {
+  const frame = renderElementFrame(logViewer({
     id: 'wrapped-selection',
-    history: prepareScrollbackHistory([{ id: 'alpha', text: 'alpha bravo' }]),
+    history: prepareLogHistory([{ id: 'alpha', text: 'alpha bravo' }]),
     wrap: true,
     selection: {
-      anchor: { itemId: 'alpha', offset: 2 },
-      focus: { itemId: 'alpha', offset: 8 }
+      anchor: { entryId: 'alpha', offset: 2 },
+      focus: { entryId: 'alpha', offset: 8 }
     }
   }), { columns: 5, rows: 4 });
   const selected = frame.cells.filter((cell) => cell.source?.partName === 'body.selection');
@@ -404,21 +404,21 @@ test('wrapped scrollback preserves selected body source and visual style', () =>
   assert.ok(new Set(selected.map((cell) => cell.row)).size > 1);
 });
 
-test('wrapped scrollback selection does not alter cached row geometry', () => {
-  const frame = renderElementFrame(scrollback({
+test('wrapped log viewer selection does not alter cached row geometry', () => {
+  const frame = renderElementFrame(logViewer({
     id: 'wrapped-selection-markers',
-    history: prepareScrollbackHistory([{ id: 'alpha', text: 'abcd' }]),
+    history: prepareLogHistory([{ id: 'alpha', text: 'abcd' }]),
     wrap: true,
     selection: {
-      anchor: { itemId: 'alpha', offset: 1 },
-      focus: { itemId: 'alpha', offset: 2 }
+      anchor: { entryId: 'alpha', offset: 1 },
+      focus: { entryId: 'alpha', offset: 2 }
     }
   }), { columns: 4, rows: 2 });
 
   assert.equal(renderFramePlain(frame), 'abcd');
   assert.equal(
     frame.accessibility.root.description,
-    'Showing 1-1 of 1 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Selection length: 1.'
+    'Showing 1-1 of 1 log rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Selection length: 1.'
   );
   assert.equal(frame.accessibility.root.children?.length, 1);
 });

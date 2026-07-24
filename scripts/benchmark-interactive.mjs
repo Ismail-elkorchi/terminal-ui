@@ -10,7 +10,7 @@ import {
 import {
   canvas,
   searchPicker,
-  scrollback,
+  logViewer,
   table,
   text,
   textArea,
@@ -18,10 +18,10 @@ import {
 } from '../dist/components/index.js';
 import { column, overlay } from '../dist/layout/index.js';
 import {
-  appendScrollbackHistory,
+  appendLogHistory,
   createScrollState,
   prepareSearchPickerIndex,
-  prepareScrollbackHistory,
+  prepareLogHistory,
   prepareTableCollection,
   prepareTreeCollection
 } from '../dist/behavior/index.js';
@@ -36,7 +36,7 @@ import {
 } from '../dist/text/index.js';
 import { defaultTheme } from '../dist/theme/index.js';
 import { createTuiRuntime, defineTui } from '../dist/tui/index.js';
-import { searchPickerIndexStatistics, scrollbackSearchStatistics } from '../dist/testing/index.js';
+import { searchPickerIndexStatistics, logViewerSearchStatistics } from '../dist/testing/index.js';
 import { summarizeSamples } from './benchmark-statistics.mjs';
 
 const quick = process.env['TERMINAL_UI_BENCHMARK_QUICK'] === '1';
@@ -108,7 +108,7 @@ function renderScenarios(realApps) {
     id: String(index),
     text: `Log line ${String(index)} contains deterministic searchable text ${String(index % 17)}`
   }));
-  const history = prepareScrollbackHistory(historyItems);
+  const history = prepareLogHistory(historyItems);
   const entries = Array.from({ length: quick ? 1_000 : 20_000 }, (_value, index) => ({
     id: `entry-${String(index)}`,
     label: `Command ${String(index)}`,
@@ -148,16 +148,16 @@ function renderScenarios(realApps) {
       }
     },
     {
-      name: 'scrolling-scrollback',
-      scale: history.itemCount,
-      setupWork: { normalized_records: history.itemCount },
+      name: 'scrolling-log-viewer',
+      scale: history.entryCount,
+      setupWork: { normalized_records: history.entryCount },
       author(index) {
-        return scrollback({
+        return logViewer({
           id: 'scrolling-log',
           history,
           scroll: createScrollState({
             offsetRow: index + 100,
-            contentRows: history.itemCount,
+            contentRows: history.entryCount,
             viewportRows: terminalSize.rows
           }),
           onAction: () => undefined
@@ -259,13 +259,13 @@ function renderScenarios(realApps) {
       }
     },
     {
-      name: 'long-scrollback-wrap',
-      scale: history.itemCount,
-      setupWork: { normalized_records: history.itemCount },
+      name: 'long-log-viewer-wrap',
+      scale: history.entryCount,
+      setupWork: { normalized_records: history.entryCount },
       author(index) {
-        return scrollback({
+        return logViewer({
           id: 'wrapped-log',
-          history: appendScrollbackHistory(history, [{
+          history: appendLogHistory(history, [{
             id: `new-${String(index)}`,
             text: `Newest wrapped line ${String(index)}`
           }]),
@@ -274,15 +274,15 @@ function renderScenarios(realApps) {
       }
     },
     {
-      name: 'long-scrollback-search',
-      scale: history.itemCount,
-      setupWork: { normalized_records: history.itemCount },
+      name: 'long-log-viewer-search',
+      scale: history.entryCount,
+      setupWork: { normalized_records: history.entryCount },
       workSnapshot() {
-        const statistics = scrollbackSearchStatistics(history);
+        const statistics = logViewerSearchStatistics(history);
         return { query_candidates: statistics.recordEvaluations };
       },
       author(index) {
-        return scrollback({
+        return logViewer({
           id: 'searched-log',
           history,
           searchQuery: `searchable text ${String(index % 17)}`

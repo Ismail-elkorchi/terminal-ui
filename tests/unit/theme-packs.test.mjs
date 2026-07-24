@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { prepareLogHistory } from '../../dist/behavior/index.js';
 
 import {
   validateAccessibleSnapshot } from '../../dist/accessibility/index.js';
@@ -32,7 +32,7 @@ import {
   helpBar,
   progressBar,
   richText,
-  scrollback,
+  logViewer,
   table,
   tabs,
   text
@@ -171,9 +171,9 @@ test('default theme specimen composes surface control text command log and data 
       presentation: { value: '/open readme', cursor: 0, suggestions: [{ value: '/open', label: 'Open File' }], selectedSuggestionIndex: 0 },
       display: 'expanded'
     }),
-    scrollback({
+    logViewer({
       id: 'specimen-log',
-      history: prepareScrollbackHistory([
+      history: prepareLogHistory([
         { id: 'info', level: 'info', text: 'Ready' },
         { id: 'warn', level: 'warning', text: 'High memory' },
         { id: 'err', level: 'error', text: 'Failed request' }

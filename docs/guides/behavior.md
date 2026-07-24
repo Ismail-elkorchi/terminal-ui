@@ -15,7 +15,7 @@ Use behavior helpers when component interaction has reusable rules:
 - activity-feed expansion and selection;
 - menu hierarchy, dropdown-menu highlighting, and tab navigation;
 - checkbox-group, radio-group, select, and color-swatch-picker navigation;
-- scrollback search, folds, follow-tail, and scroll projection;
+- log-viewer search, folds, follow-tail, and scroll behavior;
 - chart and heatmap keyboard and pointer selection;
 - pointer interaction, focus, and visual-state reducers;
 - split-pane divider selection, constrained resizing, and pointer drag anchors.
@@ -46,7 +46,7 @@ The component families apply that rule independently:
 - command input uses a presentation derived from its editing, history, and
   suggestion state;
 - table uses a presentation because the selected cell is derived from valid
-  row and column state, while list, tree, tabs, search picker, and scrollback expose
+  row and column state, while list, tree, tabs, search picker, and the log viewer expose
   their independent component fields directly;
 - range slider accepts one grouped state object because the active handle and
   ordered range values form one valid interaction state.
@@ -236,15 +236,15 @@ documented as local accept zero-based terminal-cell coordinates and convert
 them before writing.
 
 Append-heavy documents use the same retained-projection rule through a
-dedicated contract. Build a `ScrollbackHistory` once with
-`prepareScrollbackHistory()`, store it in application state, and append records
-with `appendScrollbackHistory()`. The append helper preserves existing history
+dedicated contract. Build a `LogHistory` once with
+`prepareLogHistory()`, store it in application state, and append log entries
+with `appendLogHistory()`. The append helper preserves existing history
 segments, while wrapping and search indexes are reused by the renderer.
 
 Scrollable controls use exact state and projection variants. For example,
 `PassiveTableState` is projected with `tablePresentation()`, while
 `ScrollableTableState` is projected with `tableScrollablePresentation()` and
-accepts the complete `TableAction` stream. Lists, trees, and scrollback follow
+accepts the complete `TableAction` stream. Lists, trees, and the log viewer follow
 the same naming and action split. This prevents passive controls from receiving
 scroll actions that cannot change their state and prevents scrollable controls
 from losing required scroll metrics during projection.

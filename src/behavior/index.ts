@@ -224,11 +224,11 @@ export type { TabsPresentation, TabsState } from './tabs.ts';
 export type { TabAction } from '../ui-model/tabs.ts';
 export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
 export type {
-  ScrollbackAction,
-  ScrollbackBodyAnchor,
-  ScrollbackControlAction,
-  ScrollbackSelection
-} from '../ui-model/scrollback.ts';
+  LogViewerAction,
+  LogViewerBodyAnchor,
+  LogViewerControlAction,
+  LogViewerSelection
+} from '../ui-model/log-viewer.ts';
 export {
   barChartPresentation,
   barChartReducer,
@@ -307,36 +307,36 @@ export type {
   ScreenStackAction
 } from './screen-stack.ts';
 export {
-  appendScrollbackHistory,
-  prepareScrollbackHistory,
-  scrollbackHistoryItemAt,
-  scrollbackHistoryRecordById,
-  scrollbackHistoryRecordMatches,
-  scrollbackHistoryItems
-} from '../ui-model/scrollback-history.ts';
+  appendLogHistory,
+  prepareLogHistory,
+  logHistoryEntryAt,
+  logHistoryRecordById,
+  logHistoryRecordMatches,
+  logHistoryEntries
+} from '../ui-model/log-history.ts';
 export type {
-  ScrollbackHistory,
-  ScrollbackHistoryRecord,
-  ScrollbackHistorySegment,
-  ScrollbackItem,
-  ScrollbackSearchField,
-  ScrollbackSearchMatch
-} from '../ui-model/scrollback-history.ts';
+  LogHistory,
+  LogHistoryRecord,
+  LogHistorySegment,
+  LogEntry,
+  LogSearchField,
+  LogSearchMatch
+} from '../ui-model/log-history.ts';
 export {
   followTailScrollState,
-  nextScrollbackMatch,
-  scrollbackPresentation,
-  scrollbackScrollablePresentation,
-  scrollbackReducer,
-  scrollbackSearchMatches
-} from './scrollback.ts';
+  nextLogViewerMatch,
+  logViewerPresentation,
+  logViewerScrollablePresentation,
+  logViewerReducer,
+  logViewerSearchMatches
+} from './log-viewer.ts';
 export type {
-  PassiveScrollbackState,
-  ScrollbackPresentation,
-  ScrollbackScrollablePresentation,
-  ScrollableScrollbackState,
-  ScrollbackState
-} from './scrollback.ts';
+  PassiveLogViewerState,
+  LogViewerPresentation,
+  LogViewerScrollablePresentation,
+  ScrollableLogViewerState,
+  LogViewerState
+} from './log-viewer.ts';
 export {
   adjacentItemId,
   defaultNavigationPolicy
@@ -424,5 +424,5 @@ export type {
 } from '../ui-model/tree.ts';
 export type { CollectionWindow, CollectionWindowDomain } from '../ui-model/collection.ts';
 export type { PassiveTreeAction, TreeAction, TreeControlAction, TreeInteractionAction } from '../ui-model/tree.ts';
-export { extractScrollbackSelectionText } from './scrollback-selection.ts';
-export type { ExtractScrollbackSelectionTextInput } from './scrollback-selection.ts';
+export { extractLogViewerSelectionText } from './log-viewer-selection.ts';
+export type { ExtractLogViewerSelectionTextInput } from './log-viewer-selection.ts';

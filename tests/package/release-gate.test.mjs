@@ -293,7 +293,7 @@ test('renderer layer has no command, clipboard, host-output, or raw ANSI side ef
       'drawing-rendering.ts',
       'menu-rendering.ts',
       'search-picker.ts',
-      'scrollback.ts',
+      'log-viewer.ts',
       'structured-block.ts',
       'table.ts',
       'text-rendering.ts',
@@ -468,13 +468,13 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.doesNotMatch(feedbackRenderers, /\bwriteBlock\b/u);
   assert.doesNotMatch(dataRenderers, /sparklineText|barChartText|chartText|meterText|heatmapText/u);
   const searchPicker = await readFile(new URL('../../src/renderer/internal/search-picker.ts', import.meta.url), 'utf8');
-  const scrollback = await readFile(new URL('../../src/renderer/internal/scrollback.ts', import.meta.url), 'utf8');
+  const logViewer = await readFile(new URL('../../src/renderer/internal/log-viewer.ts', import.meta.url), 'utf8');
   assert.match(searchPicker, /from '\.\/command-visual\.ts'/u);
-  assert.match(scrollback, /from '\.\/document-visual\.ts'/u);
+  assert.match(logViewer, /from '\.\/document-visual\.ts'/u);
   assert.match(structuredBlock, /from '\.\/document-visual\.ts'/u);
-  assert.doesNotMatch(scrollback, /from '\.\/text-highlight\.ts'/u);
+  assert.doesNotMatch(logViewer, /from '\.\/text-highlight\.ts'/u);
   assert.doesNotMatch(searchPicker, /function matchSpans/u);
-  assert.doesNotMatch(scrollback, /lowerText\.indexOf/u);
+  assert.doesNotMatch(logViewer, /lowerText\.indexOf/u);
 });
 
 test('TUI ANSI serialization decisions are owned by the internal policy', async () => {
@@ -539,9 +539,9 @@ test('render request indexes structural targets once', async () => {
   assert.match(outputPlannerSource, /evaluateOperations\(diff, operations, policy, false\)/u);
   assert.match(outputPlannerSource, /evaluateOperations\(diff, operations, policy, true\)/u);
 
-  const scrollbackSource = await readFile(new URL('../../src/renderer/internal/scrollback.ts', import.meta.url), 'utf8');
-  assert.match(scrollbackSource, /const scrollbackWindowCache = new WeakMap/u);
-  assert.doesNotMatch(scrollbackSource, /scrollbackItemsFromUnknown/u);
+  const logViewerSource = await readFile(new URL('../../src/renderer/internal/log-viewer.ts', import.meta.url), 'utf8');
+  assert.match(logViewerSource, /const logViewerWindowCache = new WeakMap/u);
+  assert.doesNotMatch(logViewerSource, /logViewerItemsFromUnknown/u);
 });
 
 test('runtime input routing uses the committed render cache', async () => {

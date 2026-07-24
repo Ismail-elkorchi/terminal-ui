@@ -1,55 +1,55 @@
 import { applyScrollEvent, createScrollState, scrollReducer } from './scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import {
-  scrollbackHistoryRecordMatches
-} from '../ui-model/scrollback-history.ts';
-import type { ScrollbackHistory, ScrollbackSearchMatch } from '../ui-model/scrollback-history.ts';
+  logHistoryRecordMatches
+} from '../ui-model/log-history.ts';
+import type { LogHistory, LogSearchMatch } from '../ui-model/log-history.ts';
 import type {
-  ScrollbackAction,
-  ScrollbackControlAction,
-  ScrollbackSelection
-} from '../ui-model/scrollback.ts';
+  LogViewerAction,
+  LogViewerControlAction,
+  LogViewerSelection
+} from '../ui-model/log-viewer.ts';
 
-interface ScrollbackStateBase {
+interface LogViewerStateBase {
   readonly searchQuery?: string;
-  readonly selectedMatch?: ScrollbackSearchMatch;
+  readonly selectedMatch?: LogSearchMatch;
   readonly foldedIds: readonly string[];
   readonly followTail: boolean;
-  readonly selection?: ScrollbackSelection;
+  readonly selection?: LogViewerSelection;
 }
 
-export interface PassiveScrollbackState extends ScrollbackStateBase {
+export interface PassiveLogViewerState extends LogViewerStateBase {
   readonly scroll?: never;
 }
 
-export interface ScrollableScrollbackState extends ScrollbackStateBase {
+export interface ScrollableLogViewerState extends LogViewerStateBase {
   readonly scroll: ScrollState;
 }
 
-export type ScrollbackState = PassiveScrollbackState | ScrollableScrollbackState;
+export type LogViewerState = PassiveLogViewerState | ScrollableLogViewerState;
 
-export interface ScrollbackPresentation {
-  readonly history: ScrollbackHistory;
+export interface LogViewerPresentation {
+  readonly history: LogHistory;
   readonly followTail: boolean;
   readonly searchQuery?: string;
-  readonly selectedMatch?: ScrollbackSearchMatch;
+  readonly selectedMatch?: LogSearchMatch;
   readonly foldedIds: readonly string[];
-  readonly selection?: ScrollbackSelection;
+  readonly selection?: LogViewerSelection;
 }
 
-export interface ScrollbackScrollablePresentation extends ScrollbackPresentation {
+export interface LogViewerScrollablePresentation extends LogViewerPresentation {
   readonly scroll: ScrollState;
 }
 
-export function scrollbackReducer(
-  state: ScrollableScrollbackState,
-  action: ScrollbackAction
-): ScrollableScrollbackState;
-export function scrollbackReducer(
-  state: PassiveScrollbackState,
-  action: ScrollbackControlAction
-): PassiveScrollbackState;
-export function scrollbackReducer(state: ScrollbackState, action: ScrollbackAction): ScrollbackState {
+export function logViewerReducer(
+  state: ScrollableLogViewerState,
+  action: LogViewerAction
+): ScrollableLogViewerState;
+export function logViewerReducer(
+  state: PassiveLogViewerState,
+  action: LogViewerControlAction
+): PassiveLogViewerState;
+export function logViewerReducer(state: LogViewerState, action: LogViewerAction): LogViewerState {
   switch (action.kind) {
     case 'scroll':
       if (state.scroll === undefined) return state;
@@ -57,7 +57,7 @@ export function scrollbackReducer(state: ScrollbackState, action: ScrollbackActi
     case 'pointer': {
       const selection = action.action.kind === 'placeCaret'
         ? undefined
-        : normalizeScrollbackSelection({
+        : normalizeLogViewerSelection({
             anchor: action.action.anchor,
             focus: action.action.position
           });
@@ -94,24 +94,24 @@ export function scrollbackReducer(state: ScrollbackState, action: ScrollbackActi
   }
 }
 
-export function scrollbackPresentation(
-  history: ScrollbackHistory,
-  state: PassiveScrollbackState
-): ScrollbackPresentation {
-  return scrollbackPresentationBase(history, state);
+export function logViewerPresentation(
+  history: LogHistory,
+  state: PassiveLogViewerState
+): LogViewerPresentation {
+  return logViewerPresentationBase(history, state);
 }
 
-export function scrollbackScrollablePresentation(
-  history: ScrollbackHistory,
-  state: ScrollableScrollbackState
-): ScrollbackScrollablePresentation {
-  return { ...scrollbackPresentationBase(history, state), scroll: state.scroll };
+export function logViewerScrollablePresentation(
+  history: LogHistory,
+  state: ScrollableLogViewerState
+): LogViewerScrollablePresentation {
+  return { ...logViewerPresentationBase(history, state), scroll: state.scroll };
 }
 
-function scrollbackPresentationBase(
-  history: ScrollbackHistory,
-  state: ScrollbackStateBase
-): ScrollbackPresentation {
+function logViewerPresentationBase(
+  history: LogHistory,
+  state: LogViewerStateBase
+): LogViewerPresentation {
   return {
     history,
     followTail: state.followTail,
@@ -122,22 +122,22 @@ function scrollbackPresentationBase(
   };
 }
 
-export function scrollbackSearchMatches(
-  history: ScrollbackHistory,
+export function logViewerSearchMatches(
+  history: LogHistory,
   query: string
-): readonly ScrollbackSearchMatch[] {
+): readonly LogSearchMatch[] {
   const normalized = query.trim();
   if (normalized.length === 0) return [];
   return Object.freeze(history.segments.flatMap((segment) =>
-    segment.records.flatMap((record) => scrollbackHistoryRecordMatches(record, normalized))
+    segment.records.flatMap((record) => logHistoryRecordMatches(record, normalized))
   ));
 }
 
-export function nextScrollbackMatch(
-  matches: readonly ScrollbackSearchMatch[],
+export function nextLogViewerMatch(
+  matches: readonly LogSearchMatch[],
   selectedMatchId: string | undefined,
   direction: 1 | -1
-): ScrollbackSearchMatch | undefined {
+): LogSearchMatch | undefined {
   return adjacentMatch(matches, selectedMatchId, direction);
 }
 
@@ -162,7 +162,7 @@ function wrapIndex(index: number, count: number): number {
   return ((Math.floor(index) % size) + size) % size;
 }
 
-function withoutSearch(state: ScrollbackState): ScrollbackState {
+function withoutSearch(state: LogViewerState): LogViewerState {
   if (state.searchQuery === undefined && state.selectedMatch === undefined) return state;
   return {
     foldedIds: state.foldedIds,
@@ -172,7 +172,7 @@ function withoutSearch(state: ScrollbackState): ScrollbackState {
   };
 }
 
-function withoutSelectedMatch(state: ScrollbackState): ScrollbackState {
+function withoutSelectedMatch(state: LogViewerState): LogViewerState {
   if (state.selectedMatch === undefined) return state;
   return {
     foldedIds: state.foldedIds,
@@ -183,11 +183,11 @@ function withoutSelectedMatch(state: ScrollbackState): ScrollbackState {
   };
 }
 
-function withScroll(state: ScrollableScrollbackState, scroll: ScrollState): ScrollableScrollbackState {
+function withScroll(state: ScrollableLogViewerState, scroll: ScrollState): ScrollableLogViewerState {
   return scroll === state.scroll ? state : { ...state, scroll };
 }
 
-function withSelection(state: ScrollbackState, selection: ScrollbackSelection | undefined): ScrollbackState {
+function withSelection(state: LogViewerState, selection: LogViewerSelection | undefined): LogViewerState {
   if (sameSelection(selection, state.selection)) return state;
   if (selection === undefined) {
     return {
@@ -201,23 +201,23 @@ function withSelection(state: ScrollbackState, selection: ScrollbackSelection | 
   return { ...state, selection };
 }
 
-function normalizeScrollbackSelection(selection: ScrollbackSelection): ScrollbackSelection | undefined {
+function normalizeLogViewerSelection(selection: LogViewerSelection): LogViewerSelection | undefined {
   const anchor = normalizeAnchor(selection.anchor);
   const focus = normalizeAnchor(selection.focus);
-  return anchor.itemId === focus.itemId && anchor.offset === focus.offset
+  return anchor.entryId === focus.entryId && anchor.offset === focus.offset
     ? undefined
     : Object.freeze({ anchor, focus });
 }
 
-function normalizeAnchor(anchor: ScrollbackSelection['anchor']): ScrollbackSelection['anchor'] {
-  return Object.freeze({ itemId: anchor.itemId, offset: Math.max(0, Math.floor(anchor.offset)) });
+function normalizeAnchor(anchor: LogViewerSelection['anchor']): LogViewerSelection['anchor'] {
+  return Object.freeze({ entryId: anchor.entryId, offset: Math.max(0, Math.floor(anchor.offset)) });
 }
 
-function sameSelection(left: ScrollbackSelection | undefined, right: ScrollbackSelection | undefined): boolean {
+function sameSelection(left: LogViewerSelection | undefined, right: LogViewerSelection | undefined): boolean {
   if (left === undefined || right === undefined) return left === right;
-  return left.anchor.itemId === right.anchor.itemId
+  return left.anchor.entryId === right.anchor.entryId
     && left.anchor.offset === right.anchor.offset
-    && left.focus.itemId === right.focus.itemId
+    && left.focus.entryId === right.focus.entryId
     && left.focus.offset === right.focus.offset;
 }
 
@@ -235,10 +235,10 @@ function normalizedQuery(query: string | undefined): string | undefined {
 }
 
 function adjacentMatch(
-  matches: readonly ScrollbackSearchMatch[],
+  matches: readonly LogSearchMatch[],
   selectedId: string | undefined,
   direction: 1 | -1
-): ScrollbackSearchMatch | undefined {
+): LogSearchMatch | undefined {
   if (matches.length === 0) return undefined;
   const selectedIndex = selectedId === undefined
     ? direction > 0 ? -1 : 0

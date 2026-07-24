@@ -26,16 +26,16 @@ import {
   structuredBlockBlock
 } from '../structured-block.ts';
 import {
-  scrollbackAccessibleBase,
-  scrollbackAccessibleChildren,
-  scrollbackBlock,
-  scrollbackPointerAnchor
-} from '../scrollback.ts';
+  logViewerAccessibleBase,
+  logViewerAccessibleChildren,
+  logViewerBlock,
+  logViewerPointerAnchor
+} from '../log-viewer.ts';
 import { tableAccessibleBase, tableAccessibleChildren, tableBlock, tableHitTargets } from '../table.ts';
 import { treeAccessibleBase, treeAccessibleChildren, treeBlock, treeHitTargets } from '../tree.ts';
 import { writeRenderBlock } from './support/block.ts';
 import { pointerSelectionHitTargets } from '../text-pointer.ts';
-import type { ScrollbackBodyAnchor } from '../../../ui-model/scrollback.ts';
+import type { LogViewerBodyAnchor } from '../../../ui-model/log-viewer.ts';
 import { focusTarget, hasKeyboardOrInputMap } from './support/common.ts';
 import {
   listAccessibleChildren,
@@ -47,7 +47,7 @@ import {
 } from './support/list.ts';
 import {
   drawScrollbars,
-  scrollbackScrollbarState,
+  logViewerScrollbarState,
   scrollbarHitTargetsForRenderNode,
   scrollbarsForRenderNode,
   tableScrollbarState,
@@ -187,16 +187,16 @@ export const dataRenderers = {
     focusTargets: ({ renderNode, bounds }) => renderNode.props.toActionMessage === undefined ? [] : [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds, widthProfile }) => paginatorHitTargets(renderNode, bounds, widthProfile)
   },
-  scrollback: {
-    measure: dataMeasurements.scrollback,
+  logViewer: {
+    measure: dataMeasurements.logViewer,
     render: ({ renderNode, layoutNode, buffer, theme, widthProfile }) => {
       const scrollbars = scrollbarsForRenderNode(
         renderNode,
         layoutNode.bounds,
-        (contentBounds) => scrollbackScrollbarState(renderNode, { bounds: contentBounds }, widthProfile),
+        (contentBounds) => logViewerScrollbarState(renderNode, { bounds: contentBounds }, widthProfile),
         'vertical'
       );
-      writeRenderBlock(buffer, scrollbars.contentBounds, scrollbackBlock(
+      writeRenderBlock(buffer, scrollbars.contentBounds, logViewerBlock(
         renderNode,
         { ...layoutNode, bounds: scrollbars.contentBounds },
         widthProfile
@@ -204,8 +204,8 @@ export const dataRenderers = {
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, layoutNode, id, widthProfile }) => ({
-      ...scrollbackAccessibleBase(renderNode, layoutNode, id, widthProfile),
-      children: scrollbackAccessibleChildren(renderNode, layoutNode, widthProfile)
+      ...logViewerAccessibleBase(renderNode, layoutNode, id, widthProfile),
+      children: logViewerAccessibleChildren(renderNode, layoutNode, widthProfile)
     }),
     focusTargets: ({ renderNode, bounds }) => renderNode.props.toActionMessage === undefined
       ? []
@@ -214,18 +214,18 @@ export const dataRenderers = {
       const scrollbars = scrollbarsForRenderNode(
         renderNode,
         bounds,
-        (contentBounds) => scrollbackScrollbarState(renderNode, { bounds: contentBounds }, widthProfile),
+        (contentBounds) => logViewerScrollbarState(renderNode, { bounds: contentBounds }, widthProfile),
         'vertical'
       );
       return [
-        ...pointerSelectionHitTargets<ScrollbackBodyAnchor, unknown>({
+        ...pointerSelectionHitTargets<LogViewerBodyAnchor, unknown>({
           id: `${renderNode.id ?? renderNode.kind}:text`,
           bounds: scrollbars.contentBounds,
           focusTargetId: 'self',
           toMessage: renderNode.props.toActionMessage === undefined
             ? undefined
             : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
-          positionAt: (event) => scrollbackPointerAnchor(
+          positionAt: (event) => logViewerPointerAnchor(
             renderNode,
             { bounds: scrollbars.contentBounds },
             event,
@@ -270,4 +270,4 @@ export const dataRenderers = {
       widthProfile
     )
   }
-} satisfies RendererMap<'sparkline' | 'barChart' | 'chart' | 'meter' | 'heatmap' | 'list' | 'table' | 'tree' | 'paginator' | 'scrollback' | 'structuredBlock' | 'activityFeed'>;
+} satisfies RendererMap<'sparkline' | 'barChart' | 'chart' | 'meter' | 'heatmap' | 'list' | 'table' | 'tree' | 'paginator' | 'logViewer' | 'structuredBlock' | 'activityFeed'>;

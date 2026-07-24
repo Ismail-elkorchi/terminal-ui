@@ -12,7 +12,7 @@ import {
   activityFeed,
   commandInput,
   searchPicker,
-  scrollback,
+  logViewer,
   statusBar,
   tabs,
   text
@@ -21,7 +21,7 @@ import {
   grid,
   splitPane
 } from '../../dist/layout/index.js';
-import { prepareSearchPickerIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
 
 function workspaceView(state) {
   const mainPanel = tabs({
@@ -31,9 +31,9 @@ function workspaceView(state) {
       {
         id: 'log',
         label: 'Log',
-        panel: scrollback({
+        panel: logViewer({
           id: 'log',
-          history: prepareScrollbackHistory(state.items.map((item, index) => ({ id: String(index), text: item })))
+          history: prepareLogHistory(state.items.map((item, index) => ({ id: String(index), text: item })))
         })
       },
       {
@@ -75,7 +75,7 @@ function workspaceView(state) {
   });
 }
 
-test('layout regions compose scrollback, activity, tabs, searchPicker, status, and command bar', async () => {
+test('layout regions compose log viewer, activity, tabs, searchPicker, status, and command bar', async () => {
   const app = defineTui({
     id: 'layout-regions',
     init: () => ({ searchPicker: false, query: '', items: ['one', 'two'] }),

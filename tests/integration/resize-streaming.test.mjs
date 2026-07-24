@@ -7,11 +7,11 @@ import {
 } from '../../dist/tui/index.js';
 import { createPtyTerminalHarness } from '../../dist/testing/index.js';
 import {
-  scrollback,
+  logViewer,
   statusBar
 } from '../../dist/components/index.js';
 import { column } from '../../dist/layout/index.js';
-import { appendScrollbackHistory, prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { appendLogHistory, prepareLogHistory } from '../../dist/behavior/index.js';
 import { waitUntil } from '../helpers/async.ts';
 
 const enterKey = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
@@ -22,7 +22,7 @@ test('PTY harness handles resize while async stream messages are rendering', asy
   const harness = result.harness;
   const app = defineTui({
     id: 'pty-resize-streaming',
-    init: () => ({ history: prepareScrollbackHistory([]) }),
+    init: () => ({ history: prepareLogHistory([]) }),
     inputBindings: [{
       id: 'finish-stream',
       triggers: [{ kind: 'key', key: 'enter' }],
@@ -32,7 +32,7 @@ test('PTY harness handles resize while async stream messages are rendering', asy
       if (message.type === 'append') {
         return {
           state: {
-            history: appendScrollbackHistory(state.history, [{ id: String(state.history.itemCount), text: message.text }])
+            history: appendLogHistory(state.history, [{ id: String(state.history.entryCount), text: message.text }])
           }
         };
       }
@@ -52,14 +52,14 @@ test('PTY harness handles resize while async stream messages are rendering', asy
       }
     }],
     view: (state, context) => column([
-      scrollback({
+      logViewer({
         id: 'stream-log',
         history: state.history
       }),
       statusBar({
         id: 'status',
         leading: [{ id: 'viewport', kind: 'text', text: `cols:${context.terminalSize.columns}` }],
-        trailing: [{ id: 'items', kind: 'text', text: `items:${state.history.itemCount}` }]
+        trailing: [{ id: 'items', kind: 'text', text: `items:${state.history.entryCount}` }]
       })
     ], { id: 'root' })
   });

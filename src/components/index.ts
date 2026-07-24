@@ -31,7 +31,7 @@ export {
   radioGroup,
   rangeSlider,
   richText,
-  scrollback,
+  logViewer,
   select,
   sparkline,
   spinner,
@@ -59,7 +59,7 @@ export type { CommandInputAction, CommandInputPresentation } from '../ui-model/c
 export type {
   CommandInputDisplay,
   CommandInputValidation,
-  ScrollbackItem,
+  LogEntry,
   StructuredBlock
 } from '../ui-model/documents.ts';
 export type { TextInputAction, TextInputPresentation } from '../ui-model/text-input.ts';
@@ -129,11 +129,11 @@ export type {
 export type { TabAction } from '../ui-model/tabs.ts';
 export type { ActivityFeedAction } from '../ui-model/activity-feed.ts';
 export type {
-  ScrollbackAction,
-  ScrollbackBodyAnchor,
-  ScrollbackControlAction,
-  ScrollbackSelection
-} from '../ui-model/scrollback.ts';
+  LogViewerAction,
+  LogViewerBodyAnchor,
+  LogViewerControlAction,
+  LogViewerSelection
+} from '../ui-model/log-viewer.ts';
 export type { ChartAction, HeatmapAction } from '../ui-model/visualization.ts';
 export type {
   CheckboxGroupAction,

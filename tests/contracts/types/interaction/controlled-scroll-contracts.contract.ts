@@ -1,17 +1,17 @@
 import {
   list,
   searchPicker,
-  scrollback,
+  logViewer,
   text,
   textArea,
   tree,
   type Element,
   type ListAction,
-  type ScrollbackAction,
+  type LogViewerAction,
   type TextAreaAction,
   type TreeInteractionAction
 } from '@ismail-elkorchi/terminal-ui/components';
-import { createScrollState, prepareSearchPickerIndex, prepareScrollbackHistory } from '@ismail-elkorchi/terminal-ui/behavior';
+import { createScrollState, prepareSearchPickerIndex, prepareLogHistory } from '@ismail-elkorchi/terminal-ui/behavior';
 import { viewport } from '@ismail-elkorchi/terminal-ui/layout';
 import type { ScrollEvent } from '@ismail-elkorchi/terminal-ui/interaction';
 import { prepareTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
@@ -45,9 +45,9 @@ const controlledEditor = textArea({
   scrollbar: { visible: 'auto' },
   onAction: (action) => ({ kind: 'editor' as const, action })
 });
-const controlledLog = scrollback({
+const controlledLog = logViewer({
   id: 'log',
-  history: prepareScrollbackHistory([{ id: 'one', text: 'One' }]),
+  history: prepareLogHistory([{ id: 'one', text: 'One' }]),
   scroll,
   scrollbar: { visible: 'auto' },
   onAction: (action) => ({ kind: 'log' as const, action })
@@ -83,7 +83,7 @@ export type _Editor = Assert<Equal<
 >>;
 export type _Log = Assert<Equal<
   MessageOf<typeof controlledLog>,
-  { readonly kind: 'log'; readonly action: ScrollbackAction }
+  { readonly kind: 'log'; readonly action: LogViewerAction }
 >>;
 export type _SearchPicker = Assert<Equal<
   MessageOf<typeof controlledSearchPicker>,
@@ -100,8 +100,8 @@ list({ id: 'inert-list', items: [], projectItem: () => ({ id: '', label: '' }), 
 tree({ id: 'inert-tree', nodes: [], scrollbar: { visible: 'auto' } });
 // @ts-expect-error text-area scrollbar requires scroll presentation and action routing
 textArea({ id: 'inert-editor', presentation: { document: prepareTextDocument(''), caret: textCaretAt(0 )}, scrollbar: { visible: 'auto' } });
-// @ts-expect-error scrollback scrollbar requires controlled scroll state and action routing
-scrollback({ id: 'inert-log', history: prepareScrollbackHistory([]), scrollbar: { visible: 'auto' } });
+// @ts-expect-error logViewer scrollbar requires controlled scroll state and action routing
+logViewer({ id: 'inert-log', history: prepareLogHistory([]), scrollbar: { visible: 'auto' } });
 // @ts-expect-error searchPicker scrollbar requires controlled scroll state and event routing
 searchPicker({ id: 'inert-searchPicker', searchPickerIndex: prepareSearchPickerIndex([]), scrollbar: { visible: 'auto' } });
 // @ts-expect-error viewport scrollbar requires complete metrics and event routing

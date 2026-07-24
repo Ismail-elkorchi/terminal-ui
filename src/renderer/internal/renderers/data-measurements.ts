@@ -1,4 +1,4 @@
-import { scrollbackHistoryItemAt } from '../../../ui-model/scrollback-history.ts';
+import { logHistoryEntryAt } from '../../../ui-model/log-history.ts';
 import { barChartText, chartText, meterText, heatmapText, sparklineText } from '../charts/index.ts';
 import { paginatorText } from '../data-rendering.ts';
 import { measureBlock, measureSize, measureText } from '../measurement.ts';
@@ -44,7 +44,7 @@ export const dataMeasurements = {
     { widthProfile }
   ),
   paginator: ({ renderNode, widthProfile }) => measureText(paginatorText(renderNode, widthProfile), { widthProfile }),
-  scrollback: ({ renderNode, widthProfile }) => measureText(scrollbackMeasureText(renderNode), { widthProfile }),
+  logViewer: ({ renderNode, widthProfile }) => measureText(logViewerMeasureText(renderNode), { widthProfile }),
   structuredBlock: ({ renderNode, bounds, theme, widthProfile }) => measureBlock(
     structuredBlockBlock(
       renderNode,
@@ -73,12 +73,12 @@ export const dataMeasurements = {
   | 'table'
   | 'tree'
   | 'paginator'
-  | 'scrollback'
+  | 'logViewer'
   | 'structuredBlock'
   | 'activityFeed'
 >;
 
-function scrollbackMeasureText(renderNode: RenderNodeOfKind<unknown, 'scrollback'>): string {
+function logViewerMeasureText(renderNode: RenderNodeOfKind<unknown, 'logViewer'>): string {
   const history = renderNode.props.history;
   const scroll = isRecord(renderNode.props.scroll) ? renderNode.props.scroll : undefined;
   const viewportRows = boundedMeasureSize(
@@ -88,8 +88,8 @@ function scrollbackMeasureText(renderNode: RenderNodeOfKind<unknown, 'scrollback
   );
   const offset = typeof scroll?.offsetRow === 'number'
     ? Math.max(0, Math.floor(scroll.offsetRow))
-    : Math.max(0, history.itemCount - viewportRows);
+    : Math.max(0, history.entryCount - viewportRows);
   return Array.from({ length: viewportRows + 1 }, (_value, index) =>
-    scrollbackHistoryItemAt(history, offset + index)?.bodyText ?? ''
+    logHistoryEntryAt(history, offset + index)?.bodyText ?? ''
   ).join('\n');
 }

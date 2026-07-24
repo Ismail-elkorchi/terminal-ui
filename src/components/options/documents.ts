@@ -12,14 +12,14 @@ import type {
   CommandInputValidation,
   StructuredBlock
 } from '../../ui-model/documents.ts';
-import type { ScrollbackHistory } from '../../ui-model/scrollback-history.ts';
+import type { LogHistory } from '../../ui-model/log-history.ts';
 import type { CommandInputAction, CommandInputPresentation } from '../../ui-model/command-input.ts';
 import type { SearchPickerAction } from '../../ui-model/search-picker.ts';
 import type { SearchPickerIndex } from '../../ui-model/search-picker-index.ts';
 import type { ActivityFeedAction } from '../../ui-model/activity-feed.ts';
-import type { ScrollbackAction, ScrollbackControlAction } from '../../ui-model/scrollback.ts';
-import type { ScrollbackSelection } from '../../ui-model/scrollback.ts';
-import type { ScrollbackSearchMatch } from '../../ui-model/scrollback-history.ts';
+import type { LogViewerAction, LogViewerControlAction } from '../../ui-model/log-viewer.ts';
+import type { LogViewerSelection } from '../../ui-model/log-viewer.ts';
+import type { LogSearchMatch } from '../../ui-model/log-history.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type {
   CommandInputStylePart,
@@ -28,32 +28,32 @@ import type {
   TextAreaStylePart
 } from '../../ui-model/style-parts.ts';
 
-interface ScrollbackBaseOptions<TMessage> extends InteractiveElementOptions<TextAreaStylePart, TMessage> {
-  readonly history: ScrollbackHistory;
+interface LogViewerBaseOptions<TMessage> extends InteractiveElementOptions<TextAreaStylePart, TMessage> {
+  readonly history: LogHistory;
   readonly wrap?: boolean;
   readonly searchQuery?: string;
-  readonly selectedMatch?: ScrollbackSearchMatch;
+  readonly selectedMatch?: LogSearchMatch;
   readonly foldedIds?: readonly string[];
-  readonly selection?: ScrollbackSelection;
+  readonly selection?: LogViewerSelection;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export type ScrollbackOptions<TMessage = never> =
-  | PassiveScrollbackOptions<TMessage>
-  | ScrollableScrollbackOptions<TMessage>;
+export type LogViewerOptions<TMessage = never> =
+  | PassiveLogViewerOptions<TMessage>
+  | ScrollableLogViewerOptions<TMessage>;
 
-export interface PassiveScrollbackOptions<TMessage = never> extends ScrollbackBaseOptions<TMessage> {
+export interface PassiveLogViewerOptions<TMessage = never> extends LogViewerBaseOptions<TMessage> {
   readonly scroll?: never;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
-  readonly onAction?: (action: ScrollbackControlAction) => TMessage;
+  readonly onAction?: (action: LogViewerControlAction) => TMessage;
 }
 
-export interface ScrollableScrollbackOptions<TMessage = never> extends ScrollbackBaseOptions<TMessage> {
+export interface ScrollableLogViewerOptions<TMessage = never> extends LogViewerBaseOptions<TMessage> {
   readonly scroll: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;
-  readonly onAction: (action: ScrollbackAction) => TMessage;
+  readonly onAction: (action: LogViewerAction) => TMessage;
 }
 
 export interface StructuredBlockOptions extends ElementOptions<DocumentStylePart> {
@@ -128,4 +128,4 @@ export type {
   CommandInputValidation,
   StructuredBlock
 } from '../../ui-model/documents.ts';
-export type { ScrollbackHistory, ScrollbackItem } from '../../ui-model/scrollback-history.ts';
+export type { LogHistory, LogEntry } from '../../ui-model/log-history.ts';

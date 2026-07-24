@@ -1,5 +1,5 @@
 import type { TerminalStyle } from '../visual/render.ts';
-export type { ScrollbackHistory, ScrollbackItem } from './scrollback-history.ts';
+export type { LogHistory, LogEntry } from './log-history.ts';
 import type {
   FieldItem,
   LogLevel,

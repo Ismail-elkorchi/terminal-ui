@@ -1,41 +1,41 @@
 import { textWidthProfileKey, wrapTextCells } from '../../../text/index.ts';
 import type { TextWidthProfile } from '../../../text/index.ts';
 import type {
-  ScrollbackHistory,
-  ScrollbackHistoryRecord,
-  ScrollbackHistorySegment
-} from '../../../ui-model/scrollback-history.ts';
+  LogHistory,
+  LogHistoryRecord,
+  LogHistorySegment
+} from '../../../ui-model/log-history.ts';
 import {
-  prepareScrollbackSearchQuery,
-  scrollbackHistoryRecordMatchesPrepared
-} from '../../../ui-model/scrollback-history.ts';
-import type { ScrollbackSearchMatch } from '../../../ui-model/scrollback-history.ts';
-import { projectScrollbackRecord } from './record-projection.ts';
+  prepareLogSearchQuery,
+  logHistoryRecordMatchesPrepared
+} from '../../../ui-model/log-history.ts';
+import type { LogSearchMatch } from '../../../ui-model/log-history.ts';
+import { projectLogViewerRecord } from './record-projection.ts';
 
-export interface ScrollbackLayoutProjection {
-  readonly segments: readonly ScrollbackSegmentProjection[];
+export interface LogViewerLayoutProjection {
+  readonly segments: readonly LogViewerSegmentProjection[];
   readonly totalRows: number;
 }
 
-export interface ScrollbackSegmentProjection {
-  readonly segment: ScrollbackHistorySegment;
+export interface LogViewerSegmentProjection {
+  readonly segment: LogHistorySegment;
   readonly startRow: number;
   readonly rowStarts: readonly number[];
   readonly rowCounts: readonly number[];
   readonly totalRows: number;
 }
 
-export interface ScrollbackVisibleRecord {
-  readonly record: ScrollbackHistoryRecord;
+export interface LogViewerVisibleRecord {
+  readonly record: LogHistoryRecord;
   readonly rowStart: number;
   readonly rowCount: number;
   readonly localStart: number;
   readonly localEnd: number;
 }
 
-export interface ScrollbackSearchProjection {
-  readonly matchingItems: number;
-  readonly matches: readonly ScrollbackSearchMatch[];
+export interface LogViewerSearchProjection {
+  readonly matchingEntries: number;
+  readonly matches: readonly LogSearchMatch[];
 }
 
 interface CachedSegmentLayout {
@@ -45,30 +45,30 @@ interface CachedSegmentLayout {
 }
 
 interface CachedSegmentSearch {
-  readonly matchingItems: number;
-  readonly matches: readonly ScrollbackSearchMatch[];
+  readonly matchingEntries: number;
+  readonly matches: readonly LogSearchMatch[];
 }
 
 const MAX_LAYOUTS_PER_SEGMENT = 8;
 const MAX_SEARCHES_PER_SEGMENT = 16;
-const layoutCache = new WeakMap<ScrollbackHistorySegment, Map<string, CachedSegmentLayout>>();
-const searchCache = new WeakMap<ScrollbackHistorySegment, Map<string, CachedSegmentSearch>>();
-const searchWork = new WeakMap<ScrollbackHistorySegment, { queryEvaluations: number; recordEvaluations: number }>();
+const layoutCache = new WeakMap<LogHistorySegment, Map<string, CachedSegmentLayout>>();
+const searchCache = new WeakMap<LogHistorySegment, Map<string, CachedSegmentSearch>>();
+const searchWork = new WeakMap<LogHistorySegment, { queryEvaluations: number; recordEvaluations: number }>();
 
-export function projectScrollbackLayout(
-  history: ScrollbackHistory,
+export function projectLogViewerLayout(
+  history: LogHistory,
   width: number,
   wrap: boolean,
   widthProfile: TextWidthProfile,
   foldedIds: ReadonlySet<string> = new Set()
-): ScrollbackLayoutProjection {
+): LogViewerLayoutProjection {
   const geometryKey = `${wrap ? 'wrap' : 'single'}:${String(Math.max(0, width))}:${textWidthProfileKey(widthProfile)}`;
-  const segments: ScrollbackSegmentProjection[] = [];
+  const segments: LogViewerSegmentProjection[] = [];
   let startRow = 0;
   for (const segment of history.segments) {
     const foldKey = segment.records
-      .filter((record) => foldedIds.has(record.item.id))
-      .map((record) => record.item.id)
+      .filter((record) => foldedIds.has(record.entry.id))
+      .map((record) => record.entry.id)
       .join('\u0000');
     const key = `${geometryKey}:${foldKey}`;
     const layout = segmentLayout(segment, key, width, wrap, widthProfile, foldedIds);
@@ -78,13 +78,13 @@ export function projectScrollbackLayout(
   return { segments: Object.freeze(segments), totalRows: startRow };
 }
 
-export function visibleScrollbackRecords(
-  projection: ScrollbackLayoutProjection,
+export function visibleLogViewerRecords(
+  projection: LogViewerLayoutProjection,
   start: number,
   end: number
-): readonly ScrollbackVisibleRecord[] {
+): readonly LogViewerVisibleRecord[] {
   if (end <= start || projection.segments.length === 0) return [];
-  const visible: ScrollbackVisibleRecord[] = [];
+  const visible: LogViewerVisibleRecord[] = [];
   let segmentIndex = firstOverlappingSegment(projection.segments, start);
   while (segmentIndex < projection.segments.length) {
     const projected = projection.segments[segmentIndex];
@@ -114,47 +114,47 @@ export function visibleScrollbackRecords(
   return Object.freeze(visible);
 }
 
-export function scrollbackRowForItem(
-  projection: ScrollbackLayoutProjection,
-  itemIndex: number
+export function logViewerRowForEntry(
+  projection: LogViewerLayoutProjection,
+  entryIndex: number
 ): number | undefined {
-  const segmentIndex = segmentContainingItem(projection.segments, itemIndex);
+  const segmentIndex = segmentContainingEntry(projection.segments, entryIndex);
   const projected = projection.segments[segmentIndex];
   if (projected === undefined) return undefined;
-  const localIndex = itemIndex - projected.segment.startIndex;
+  const localIndex = entryIndex - projected.segment.startIndex;
   const localRow = projected.rowStarts[localIndex];
   return localRow === undefined ? undefined : projected.startRow + localRow;
 }
 
-export function projectScrollbackSearch(
-  history: ScrollbackHistory,
+export function projectLogViewerSearch(
+  history: LogHistory,
   query: string,
   foldedIds: ReadonlySet<string> = new Set()
-): ScrollbackSearchProjection {
+): LogViewerSearchProjection {
   const searchQuery = query.trim();
-  if (searchQuery.length === 0) return { matchingItems: 0, matches: [] };
-  const preparedQuery = prepareScrollbackSearchQuery(searchQuery);
-  const allMatches: ScrollbackSearchMatch[] = [];
-  let matchingItems = 0;
+  if (searchQuery.length === 0) return { matchingEntries: 0, matches: [] };
+  const preparedQuery = prepareLogSearchQuery(searchQuery);
+  const allMatches: LogSearchMatch[] = [];
+  let matchingEntries = 0;
   for (const segment of history.segments) {
     const foldKey = segment.records
-      .filter((record) => foldedIds.has(record.item.id))
-      .map((record) => record.item.id)
+      .filter((record) => foldedIds.has(record.entry.id))
+      .map((record) => record.entry.id)
       .join('\u0000');
     const projected = segmentSearch(segment, `${searchQuery}:${foldKey}`, preparedQuery, foldedIds);
-    matchingItems += projected.matchingItems;
+    matchingEntries += projected.matchingEntries;
     allMatches.push(...projected.matches);
   }
   return {
-    matchingItems,
+    matchingEntries,
     matches: Object.freeze(allMatches)
   };
 }
 
 function segmentSearch(
-  segment: ScrollbackHistorySegment,
+  segment: LogHistorySegment,
   key: string,
-  query: ReturnType<typeof prepareScrollbackSearchQuery>,
+  query: ReturnType<typeof prepareLogSearchQuery>,
   foldedIds: ReadonlySet<string>
 ): CachedSegmentSearch {
   const cache = cacheFor(searchCache, segment);
@@ -164,25 +164,25 @@ function segmentSearch(
   work.queryEvaluations += 1;
   work.recordEvaluations += segment.records.length;
   searchWork.set(segment, work);
-  const matches: ScrollbackSearchMatch[] = [];
-  let matchingItems = 0;
+  const matches: LogSearchMatch[] = [];
+  let matchingEntries = 0;
   for (const record of segment.records) {
-    const projected = projectScrollbackRecord(record, foldedIds.has(record.item.id));
-    const recordMatches = scrollbackHistoryRecordMatchesPrepared(
+    const projected = projectLogViewerRecord(record, foldedIds.has(record.entry.id));
+    const recordMatches = logHistoryRecordMatchesPrepared(
       { ...record, searchFields: projected.searchFields },
       query
     );
     if (recordMatches.length > 0) {
-      matchingItems += 1;
+      matchingEntries += 1;
       matches.push(...recordMatches);
     }
   }
-  const result = Object.freeze({ matchingItems, matches: Object.freeze(matches) });
+  const result = Object.freeze({ matchingEntries, matches: Object.freeze(matches) });
   retain(cache, key, result, MAX_SEARCHES_PER_SEGMENT);
   return result;
 }
 
-export function scrollbackSearchStatistics(history: ScrollbackHistory): {
+export function logViewerSearchStatistics(history: LogHistory): {
   readonly queryEvaluations: number;
   readonly recordEvaluations: number;
 } {
@@ -197,7 +197,7 @@ export function scrollbackSearchStatistics(history: ScrollbackHistory): {
 }
 
 function segmentLayout(
-  segment: ScrollbackHistorySegment,
+  segment: LogHistorySegment,
   key: string,
   width: number,
   wrap: boolean,
@@ -212,7 +212,7 @@ function segmentLayout(
   let totalRows = 0;
   for (const record of segment.records) {
     rowStarts.push(totalRows);
-    const projected = projectScrollbackRecord(record, foldedIds.has(record.item.id));
+    const projected = projectLogViewerRecord(record, foldedIds.has(record.entry.id));
     const rowCount = wrap && width > 0
       ? Math.max(1, wrapTextCells(projected.displayText, width, { widthProfile }).length)
       : 1;
@@ -229,7 +229,7 @@ function segmentLayout(
 }
 
 function firstOverlappingSegment(
-  segments: readonly ScrollbackSegmentProjection[],
+  segments: readonly LogViewerSegmentProjection[],
   row: number
 ): number {
   let low = 0;
@@ -243,7 +243,7 @@ function firstOverlappingSegment(
   return low;
 }
 
-function firstOverlappingRecord(segment: ScrollbackSegmentProjection, row: number): number {
+function firstOverlappingRecord(segment: LogViewerSegmentProjection, row: number): number {
   let low = 0;
   let high = segment.rowStarts.length;
   while (low < high) {
@@ -256,9 +256,9 @@ function firstOverlappingRecord(segment: ScrollbackSegmentProjection, row: numbe
   return low;
 }
 
-function segmentContainingItem(
-  segments: readonly ScrollbackSegmentProjection[],
-  itemIndex: number
+function segmentContainingEntry(
+  segments: readonly LogViewerSegmentProjection[],
+  entryIndex: number
 ): number {
   let low = 0;
   let high = segments.length - 1;
@@ -268,8 +268,8 @@ function segmentContainingItem(
     if (projected === undefined) return -1;
     const start = projected.segment.startIndex;
     const end = start + projected.segment.records.length;
-    if (itemIndex < start) high = middle - 1;
-    else if (itemIndex >= end) low = middle + 1;
+    if (entryIndex < start) high = middle - 1;
+    else if (entryIndex >= end) low = middle + 1;
     else return middle;
   }
   return -1;

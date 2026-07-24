@@ -1,24 +1,24 @@
 import type {
-  ScrollbackHistoryRecord,
-  ScrollbackSearchField
-} from '../../../ui-model/scrollback-history.ts';
+  LogHistoryRecord,
+  LogSearchField
+} from '../../../ui-model/log-history.ts';
 
-export interface ProjectedScrollbackRecord {
-  readonly source: ScrollbackHistoryRecord;
+export interface ProjectedLogViewerRecord {
+  readonly source: LogHistoryRecord;
   readonly bodyText: string;
   readonly metadataEntries: readonly (readonly [string, string])[];
   readonly displayText: string;
-  readonly searchFields: readonly ScrollbackSearchField[];
+  readonly searchFields: readonly LogSearchField[];
   readonly folded: boolean;
 }
 
-const expandedRecords = new WeakMap<ScrollbackHistoryRecord, ProjectedScrollbackRecord>();
-const foldedRecords = new WeakMap<ScrollbackHistoryRecord, ProjectedScrollbackRecord>();
+const expandedRecords = new WeakMap<LogHistoryRecord, ProjectedLogViewerRecord>();
+const foldedRecords = new WeakMap<LogHistoryRecord, ProjectedLogViewerRecord>();
 
-export function projectScrollbackRecord(
-  record: ScrollbackHistoryRecord,
+export function projectLogViewerRecord(
+  record: LogHistoryRecord,
   folded: boolean
-): ProjectedScrollbackRecord {
+): ProjectedLogViewerRecord {
   const cache = folded ? foldedRecords : expandedRecords;
   const cached = cache.get(record);
   if (cached !== undefined) return cached;
@@ -27,14 +27,14 @@ export function projectScrollbackRecord(
     ? Object.freeze([...record.metadataEntries, Object.freeze(['folded', 'true'] as const)])
     : record.metadataEntries;
   const prefix = [
-    ...(record.item.timestamp === undefined ? [] : [`[${record.item.timestamp}]`]),
+    ...(record.entry.timestamp === undefined ? [] : [`[${record.entry.timestamp}]`]),
     ...metadataEntries.map(([key, value]) => `${key}=${value}`)
   ];
   const searchFields = Object.freeze([
-    ...(record.item.timestamp === undefined
+    ...(record.entry.timestamp === undefined
       ? []
-      : [{ kind: 'timestamp' as const, text: record.item.timestamp }]),
-    ...metadataEntries.flatMap(([key, value]): readonly ScrollbackSearchField[] => [
+      : [{ kind: 'timestamp' as const, text: record.entry.timestamp }]),
+    ...metadataEntries.flatMap(([key, value]): readonly LogSearchField[] => [
       { kind: 'metadataKey', key, text: key },
       { kind: 'metadataValue', key, text: value }
     ]),

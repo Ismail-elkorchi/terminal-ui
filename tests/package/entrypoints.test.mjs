@@ -121,6 +121,10 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'ButtonOptions',
     'CommandInputAction',
     'CommandInputOptions',
+    'LogEntry',
+    'LogHistory',
+    'LogViewerAction',
+    'LogViewerOptions',
     'MenuItem',
     'SearchPickerAction',
     'SearchPickerOptions',
@@ -162,6 +166,8 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   for (const typeName of [
     'CommandInputAction',
     'CommandInputState',
+    'LogHistory',
+    'LogViewerAction',
     'NotificationAction',
     'SearchPickerAction',
     'ScreenStack',
@@ -186,7 +192,7 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   ]) {
     assert.match(rendererDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `renderer:${typeName}`);
   }
-  assert.doesNotMatch(rendererDeclaration, /\bscrollbackWindow\b/u);
+  assert.doesNotMatch(rendererDeclaration, /\blogViewerWindow\b/u);
 
   for (const typeName of [
     'TuiContext',

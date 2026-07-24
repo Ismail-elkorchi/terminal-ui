@@ -70,7 +70,7 @@ deriving a more specific part from an existing source.
 
 `RenderSpan` is the smallest styled text unit. `RenderLine` and `RenderBlock`
 group spans into terminal-visible rows and blocks. Renderers for rich text,
-tables, scrollback, structured blocks, charts, and command bars use spans so
+tables, log viewers, structured blocks, charts, and command bars use spans so
 style survives clipping, wrapping, scrolling, and snapshot generation.
 
 The shared span helpers measure spans by terminal cell width, clip and wrap by

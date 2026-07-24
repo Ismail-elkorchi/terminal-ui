@@ -8,7 +8,7 @@ import { span } from '../../visual/render.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import { mergeStyles, themeStyle, renderNodeStyle } from './render-node-style.ts';
 
-export type DocumentSurfaceKind = 'scrollback' | 'structuredBlock' | 'activityFeed';
+export type DocumentSurfaceKind = 'logViewer' | 'structuredBlock' | 'activityFeed';
 export type DocumentVisualKind =
   | 'body'
   | 'chrome'
@@ -115,7 +115,7 @@ export function documentResultStyle(renderNode: RenderNode, result: RecordResult
 
 export function documentRecordLevelStyle(renderNode: RenderNode, level: LogLevel): TerminalStyle {
   return mergeStyles(
-    scrollbackLogLevelStyle(level),
+    logViewerLogLevelStyle(level),
     { bold: true },
     renderNode.styles?.parts?.['level']
   ) ?? { bold: true };
@@ -201,32 +201,32 @@ export function documentFieldSpans(
   ];
 }
 
-export function scrollbackTimestampStyle(renderNode: RenderNode): TerminalStyle | undefined {
+export function logViewerTimestampStyle(renderNode: RenderNode): TerminalStyle | undefined {
   return mergeStyles(renderNodeStyle(renderNode, 'timestamp'), themeStyle('log.timestamp'));
 }
 
-export function scrollbackMetadataStyle(renderNode: RenderNode): TerminalStyle | undefined {
+export function logViewerMetadataStyle(renderNode: RenderNode): TerminalStyle | undefined {
   return mergeStyles(renderNodeStyle(renderNode, 'metadata'), themeStyle('log.metadata'));
 }
 
-export function scrollbackMetadataSeparatorStyle(renderNode: RenderNode): TerminalStyle | undefined {
+export function logViewerMetadataSeparatorStyle(renderNode: RenderNode): TerminalStyle | undefined {
   return renderNodeStyle(renderNode, 'separator');
 }
 
-export function scrollbackSelectedStyle(renderNode: RenderNode): TerminalStyle | undefined {
+export function logViewerSelectedStyle(renderNode: RenderNode): TerminalStyle | undefined {
   return renderNodeStyle(renderNode, 'body', 'selected');
 }
 
-export function scrollbackBodyStyle(
+export function logViewerBodyStyle(
   renderNode: RenderNode,
   itemStyle: TerminalStyle | undefined,
   level: LogLevel | undefined,
   selected = false
 ): TerminalStyle | undefined {
-  return documentBodyStyle(renderNode, mergeStyles(scrollbackLogLevelStyle(level), itemStyle), selected);
+  return documentBodyStyle(renderNode, mergeStyles(logViewerLogLevelStyle(level), itemStyle), selected);
 }
 
-export function scrollbackLogLevelStyle(level: LogLevel | undefined): TerminalStyle | undefined {
+export function logViewerLogLevelStyle(level: LogLevel | undefined): TerminalStyle | undefined {
   switch (level) {
     case 'info':
       return themeStyle('log.info');
@@ -239,7 +239,7 @@ export function scrollbackLogLevelStyle(level: LogLevel | undefined): TerminalSt
   }
 }
 
-export function scrollbackOmissionStyle(renderNode: RenderNode): TerminalStyle | undefined {
+export function logViewerOmissionStyle(renderNode: RenderNode): TerminalStyle | undefined {
   return renderNodeStyle(renderNode, 'marker');
 }
 

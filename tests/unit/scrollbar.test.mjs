@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createScrollState, prepareSearchPickerIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { createScrollState, prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
 import {
   asciiSymbols,
   defaultTheme,
@@ -21,7 +21,7 @@ import {
 import {
   menu,
   searchPicker,
-  scrollback,
+  logViewer,
   table,
   textArea,
   tree,
@@ -227,18 +227,18 @@ test('scrollbars render ASCII and Unicode symbol sets through theme data', () =>
   assert.match(renderFramePlain(unicode.snapshot()), /[█│─]/u);
 });
 
-test('scrollback scrollbar is opt-in and preserves scoped visible-window accessibility', () => {
+test('log viewer scrollbar is opt-in and preserves scoped visible-window accessibility', () => {
   const items = Array.from({ length: 8 }, (_value, index) => ({ id: `row-${index}`, text: `Row ${index}` }));
-  const frame = renderElementFrame(scrollback({
+  const frame = renderElementFrame(logViewer({
     id: 'log',
-    history: prepareScrollbackHistory(items),
+    history: prepareLogHistory(items),
     scroll: createScrollState({ offsetRow: 0, contentRows: 8, viewportRows: 3 }),
     scrollbar: {}
   }), { columns: 12, rows: 3 });
 
   assert.equal(frame.cells.filter((cell) => cell.column === 12).length, 3);
   assert.match(renderFramePlain(frame), /Row 0/u);
-  assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 8 scrollback rows. Omitted before: 0. Omitted after: 5. Follow tail: false.');
+  assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 8 log rows. Omitted before: 0. Omitted after: 5. Follow tail: false.');
 });
 
 test('textArea scrollbar follows explicit text scroll state', () => {

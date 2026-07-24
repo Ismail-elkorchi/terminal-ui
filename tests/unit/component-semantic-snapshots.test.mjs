@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
-import { prepareSearchPickerIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { prepareSearchPickerIndex, prepareLogHistory } from '../../dist/behavior/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 import {
@@ -58,7 +58,7 @@ import {
   radioGroup,
   rangeSlider,
   richText,
-  scrollback,
+  logViewer,
   select,
   sparkline,
   spinner,
@@ -559,10 +559,10 @@ const cases = [
     expectText: /Second/u
   },
   {
-    name: 'scrollback',
-    element: () => scrollback({
-      id: 'scrollback',
-      history: prepareScrollbackHistory([
+    name: 'logViewer',
+    element: () => logViewer({
+      id: 'logViewer',
+      history: prepareLogHistory([
         { id: 'one', text: unsafe },
         { id: 'two', text: 'Second' }
       ]),
@@ -682,6 +682,7 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
     'helpBar',
     'label',
     'list',
+    'logViewer',
     'menu',
     'menuBar',
     'meter',
@@ -694,7 +695,6 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
     'rangeSlider',
     'richText',
     'row',
-    'scrollback',
     'searchPicker',
     'select',
     'slider',
