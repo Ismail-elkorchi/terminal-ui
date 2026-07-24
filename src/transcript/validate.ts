@@ -214,7 +214,7 @@ function commitIssue(value: unknown): string | undefined {
   const diff = renderDiffIssue(value['diff']);
   if (diff !== undefined) return `commit diff: ${diff}`;
   if (!isRecord(value['terminalSize']) || !isRecord(value['frame']) || !isRecord(value['diff'])) {
-    return 'commit projection is incomplete.';
+    return 'commit terminal size, frame, and diff must be objects.';
   }
   const columns = value['terminalSize']['columns'];
   const rows = value['terminalSize']['rows'];
