@@ -27,24 +27,24 @@ export interface TextAreaRenderModel {
 }
 
 export function textAreaRenderModel(
-  widget: TextAreaNode,
+  renderNode: TextAreaNode,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): TextAreaRenderModel {
-  const source = widget.props.document;
-  const placeholder = widget.props.placeholder ?? '';
+  const source = renderNode.props.document;
+  const placeholder = renderNode.props.placeholder ?? '';
   const usesPlaceholder = textDocumentLength(source) === 0 && placeholder.length > 0;
   const document = usesPlaceholder ? prepareTextDocument(placeholder) : source;
   const lineCount = textDocumentLineCount(document);
-  const contentBounds = textAreaInputContentBounds(bounds, theme, widthProfile, widget, lineCount);
+  const contentBounds = textAreaInputContentBounds(bounds, theme, widthProfile, renderNode, lineCount);
   const projection = projectTextAreaDocument(
     document,
     contentBounds.width,
-    textAreaWrapEnabled(widget),
+    textAreaWrapEnabled(renderNode),
     widthProfile
   );
-  const raw = widget.props.scroll;
+  const raw = renderNode.props.scroll;
   const baseScroll = normalizeScrollState({
     offsetRow: raw?.offsetRow ?? 0,
     offsetColumn: raw?.offsetColumn ?? 0,
@@ -55,9 +55,9 @@ export function textAreaRenderModel(
     followTail: raw?.followTail === true,
     ...(raw?.selectedIndex === undefined ? {} : { selectedIndex: raw.selectedIndex })
   });
-  const scroll = usesPlaceholder || widget.props.revealCaret !== true
+  const scroll = usesPlaceholder || renderNode.props.revealCaret !== true
     ? baseScroll
-    : revealCaret(baseScroll, textAreaCursorInProjection(projection, widget.props.caret));
+    : revealCaret(baseScroll, textAreaCursorInProjection(projection, renderNode.props.caret));
   return {
     document,
     usesPlaceholder,
@@ -67,7 +67,7 @@ export function textAreaRenderModel(
     scroll,
     ...(usesPlaceholder
       ? {}
-      : { activeLineIndex: textDocumentLineIndexAtOffset(source, widget.props.caret.position.offset) })
+      : { activeLineIndex: textDocumentLineIndexAtOffset(source, renderNode.props.caret.position.offset) })
   };
 }
 
@@ -93,7 +93,7 @@ function revealCaret(
   });
 }
 
-export function textAreaWrapEnabled(widget: TextAreaNode): boolean {
-  const raw = widget.props.wrap;
+export function textAreaWrapEnabled(renderNode: TextAreaNode): boolean {
+  const raw = renderNode.props.wrap;
   return raw === true || typeof raw === 'object' && (raw.mode === undefined || raw.mode === 'soft');
 }

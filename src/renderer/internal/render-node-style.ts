@@ -11,18 +11,18 @@ export interface RenderNodeStyleInput {
   readonly base?: TerminalStyle;
 }
 
-export function resolveRenderNodeStyle(widget: RenderNode, input: RenderNodeStyleInput): TerminalStyle | undefined {
+export function resolveRenderNodeStyle(renderNode: RenderNode, input: RenderNodeStyleInput): TerminalStyle | undefined {
   return mergeStyles(
     defaultStyleForPart(input.part),
     input.base,
-    input.part === 'root' ? widget.styles?.root : widget.styles?.parts?.[input.part],
+    input.part === 'root' ? renderNode.styles?.root : renderNode.styles?.parts?.[input.part],
     input.state === undefined || input.state === 'default' ? undefined : defaultStyleForState(input.state),
-    input.state === undefined || input.state === 'default' ? undefined : widget.styles?.states?.[input.state]
+    input.state === undefined || input.state === 'default' ? undefined : renderNode.styles?.states?.[input.state]
   );
 }
 
-export function renderNodeStyle(widget: RenderNode, part: RenderNodeStylePart, state?: ElementVisualState): TerminalStyle | undefined {
-  return resolveRenderNodeStyle(widget, {
+export function renderNodeStyle(renderNode: RenderNode, part: RenderNodeStylePart, state?: ElementVisualState): TerminalStyle | undefined {
+  return resolveRenderNodeStyle(renderNode, {
     part,
     ...(state === undefined ? {} : { state })
   });

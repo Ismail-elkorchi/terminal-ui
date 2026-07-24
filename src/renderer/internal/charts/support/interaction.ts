@@ -13,10 +13,10 @@ import {
 type ChartNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'chart'>;
 
 export function selectedChartPoint(
-  widget: ChartNode,
+  renderNode: ChartNode,
   series: readonly ChartSeries[]
 ): { readonly series: string; readonly point: number } | undefined {
-  const selected = widget.props.selected;
+  const selected = renderNode.props.selected;
   if (selected === undefined) return undefined;
   const item = series.find((current) => current.id === selected.series);
   if (item === undefined) return undefined;
@@ -25,18 +25,18 @@ export function selectedChartPoint(
 }
 
 export function chartPointPosition(
-  widget: ChartNode,
+  renderNode: ChartNode,
   bounds: Rect,
   seriesId: string,
   point: number,
   range: { readonly min: number; readonly max: number }
 ): { readonly row: number; readonly column: number } | undefined {
-  const series = chartSeries(widget.props.series).find((item) => item.id === seriesId);
+  const series = chartSeries(renderNode.props.series).find((item) => item.id === seriesId);
   if (series === undefined) return undefined;
   const value = series.points[point];
-  const layout = chartLayout(widget, bounds);
+  const layout = chartLayout(renderNode, bounds);
   if (value === undefined || layout.plotHeight <= 0 || layout.plotWidth <= 0) return undefined;
-  const projected = selectedProjectedPoint(widget, series, layout.plotWidth, point);
+  const projected = selectedProjectedPoint(renderNode, series, layout.plotWidth, point);
   if (projected === undefined) return undefined;
   return {
     row: bounds.row + layout.plotRow - 1 + yForValue(projected.value, range, layout.plotHeight),
@@ -56,19 +56,19 @@ export function yForValue(
 }
 
 export function chartMessageFactory<TMessage>(
-  widget: ChartNode<TMessage>
+  renderNode: ChartNode<TMessage>
 ): ((action: ChartAction) => TMessage) | undefined {
-  return widget.props.toActionMessage;
+  return renderNode.props.toActionMessage;
 }
 
 function selectedProjectedPoint(
-  widget: ChartNode,
+  renderNode: ChartNode,
   series: ChartSeries,
   plotWidth: number,
   point: number
 ): ProjectedChartPoint | undefined {
-  const projected = projectChartSeries(widget, series, plotWidth);
-  if (chartSeriesSampleMode(widget, series) !== 'fit') {
+  const projected = projectChartSeries(renderNode, series, plotWidth);
+  if (chartSeriesSampleMode(renderNode, series) !== 'fit') {
     return projected.find((current) => current.point === point);
   }
   return nearestProjectedPoint(projected, point);

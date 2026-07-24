@@ -278,7 +278,7 @@ export const formRenderers = {
               ? undefined
               : (action) => renderNode.props.toActionMessage?.({ kind: 'pointer', action }),
             offsetAt: (event) => singleLineInputPointerOffset({
-              widget: renderNode,
+              renderNode: renderNode,
               bounds,
               theme,
               widthProfile,

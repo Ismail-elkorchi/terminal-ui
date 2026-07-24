@@ -91,7 +91,7 @@ test('terminal-ui source does not own low-level argv tokenization', async () => 
   }
 });
 
-test('TUI render, layout, and accessibility delegate widget behavior through the registry', async () => {
+test('TUI render, layout, and accessibility delegate render-node behavior through the registry', async () => {
   const centralFiles = [
     '../../src/renderer/internal/render.ts',
     '../../src/renderer/internal/layout.ts',
@@ -99,7 +99,7 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
   ];
   for (const relativePath of centralFiles) {
     const source = await readFile(new URL(relativePath, import.meta.url), 'utf8');
-    assert.doesNotMatch(source, /switch\s*\(\s*widget\.kind\s*\)/u, relativePath);
+    assert.doesNotMatch(source, /switch\s*\(\s*renderNode\.kind\s*\)/u, relativePath);
     assert.doesNotMatch(source, /case\s+['"`](?:text|surface|column|row|list|table|textInput|statusBar|progressBar|spinner|viewport|custom)['"`]/u, relativePath);
   }
 
@@ -107,14 +107,14 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
   const registry = await readFile(new URL('../../src/renderer/internal/renderers/index.ts', import.meta.url), 'utf8');
 
   await assert.rejects(access(new URL('../../src/tui/renderers/support.ts', import.meta.url)));
-  assert.match(behavior, /builtinRenderNodeRenderers\[widget\.kind\]/u);
-  assert.doesNotMatch(behavior, /const\s+widgetRenderers\s*=/u);
+  assert.match(behavior, /builtinRenderNodeRenderers\[renderNode\.kind\]/u);
+  assert.doesNotMatch(behavior, /const\s+renderNodeRenderers\s*=/u);
   assert.doesNotMatch(behavior, /satisfies Record<BuiltinRenderNodeKind, RenderNodeRenderer>/u);
-  assert.doesNotMatch(behavior, /from\s+['"]\.\/(?:forms|charts|menu-widgets|drawing-widgets|table|data-widgets|palette|command-input|progress-widget|structured-block)(?:\/index)?['"]/u);
+  assert.doesNotMatch(behavior, /from\s+['"]\.\/(?:forms|charts|menu-rendering|drawing-rendering|table|data-rendering|palette|command-input|progress-bar-rendering|structured-block)(?:\/index)?['"]/u);
   assert.match(registry, /type BuiltinRendererRegistry = \{[\s\S]*RenderNodeRenderer<unknown, TKind>/u);
   assert.match(registry, /satisfies BuiltinRendererRegistry/u);
   assert.doesNotMatch(registry, /custom:\s*\{\s*\}/u);
-  assert.doesNotMatch(registry, /\?\.\(widget,\s*node,\s*id,\s*focused\)/u);
+  assert.doesNotMatch(registry, /\?\.\(renderNode,\s*node,\s*id,\s*focused\)/u);
 
   const rendererFiles = [
     '../../src/renderer/internal/renderers/text-renderers.ts',
@@ -142,8 +142,8 @@ test('TUI render, layout, and accessibility delegate widget behavior through the
   }
 });
 
-test('widget modules do not write directly to terminal hosts', async () => {
-  const widgetFiles = [
+test('element and renderer modules do not write directly to terminal hosts', async () => {
+  const renderingFiles = [
     ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
     ...await sourceFiles(new URL('../../src/layout/', import.meta.url)),
     ...await sourceFiles(new URL('../../src/renderer/', import.meta.url))
@@ -156,7 +156,7 @@ test('widget modules do not write directly to terminal hosts', async () => {
     /\bBun\.write\b/u
   ];
 
-  for (const file of widgetFiles) {
+  for (const file of renderingFiles) {
     const source = await readFile(file, 'utf8');
     for (const pattern of forbiddenPatterns) {
       assert.doesNotMatch(source, pattern, file.pathname);
@@ -164,7 +164,7 @@ test('widget modules do not write directly to terminal hosts', async () => {
   }
 });
 
-test('widget rendering code uses semantic styles instead of raw terminal colors', async () => {
+test('element rendering code uses semantic styles instead of raw terminal colors', async () => {
   const files = [
     ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
     ...await sourceFiles(new URL('../../src/layout/', import.meta.url)),
@@ -281,7 +281,7 @@ test('frame contract remains styled source-aware cells, spans, blocks, and buffe
   }
 });
 
-test('widget rendering layer has no command, clipboard, host-output, or raw ANSI side effects', async () => {
+test('renderer layer has no command, clipboard, host-output, or raw ANSI side effects', async () => {
   const files = [
     ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
     ...await sourceFiles(new URL('../../src/renderer/internal/charts/', import.meta.url)),
@@ -289,14 +289,14 @@ test('widget rendering layer has no command, clipboard, host-output, or raw ANSI
     ...await namedRendererSourceFiles([
       'border.ts',
       'command-input.ts',
-      'data-widgets.ts',
-      'drawing-widgets.ts',
-      'menu-widgets.ts',
+      'data-rendering.ts',
+      'drawing-rendering.ts',
+      'menu-rendering.ts',
       'palette.ts',
       'scrollback.ts',
       'structured-block.ts',
       'table.ts',
-      'text-widgets.ts',
+      'text-rendering.ts',
       'tree.ts',
       'render-node-behavior.ts',
       '../model/renderer.ts'
@@ -368,7 +368,7 @@ test('runtime hot paths use precomputed theme fingerprints', async () => {
   assert.match(themeSource, /fingerprint: themeFingerprint/u);
 });
 
-test('TUI widgets and examples use scheduler sources instead of raw timers', async () => {
+test('TUI components and examples use scheduler sources instead of raw timers', async () => {
   const files = [
     ...await sourceFiles(new URL('../../src/tui/', import.meta.url)),
     ...await sourceFiles(new URL('../../src/components/', import.meta.url)),
@@ -409,19 +409,19 @@ test('terminal text indexing and editing stay centralized', async () => {
   const commandInput = await readFile(new URL('../../src/renderer/internal/command-input.ts', import.meta.url), 'utf8');
   const commandSurface = await readFile(new URL('../../src/behavior/command-input-state.ts', import.meta.url), 'utf8');
   const commandVisual = await readFile(new URL('../../src/renderer/internal/command-visual.ts', import.meta.url), 'utf8');
-  const formWidgets = await readSourceTree(new URL('../../src/renderer/internal/forms/', import.meta.url));
+  const formRendering = await readSourceTree(new URL('../../src/renderer/internal/forms/', import.meta.url));
   const formVisual = await readFile(new URL('../../src/renderer/internal/form-visual.ts', import.meta.url), 'utf8');
   const formRenderers = await readFile(new URL('../../src/renderer/internal/renderers/form-renderers.ts', import.meta.url), 'utf8');
   const inputVisual = await readFile(new URL('../../src/renderer/internal/input-visual.ts', import.meta.url), 'utf8');
-  const menuWidgets = await readFile(new URL('../../src/renderer/internal/menu-widgets.ts', import.meta.url), 'utf8');
+  const menuRendering = await readFile(new URL('../../src/renderer/internal/menu-rendering.ts', import.meta.url), 'utf8');
   const menuVisual = await readFile(new URL('../../src/renderer/internal/menu-visual.ts', import.meta.url), 'utf8');
   const feedbackRenderers = await readFile(new URL('../../src/renderer/internal/renderers/feedback-renderers.ts', import.meta.url), 'utf8');
   const feedbackVisual = await readFile(new URL('../../src/renderer/internal/feedback-visual.ts', import.meta.url), 'utf8');
   const documentVisual = await readFile(new URL('../../src/renderer/internal/document-visual.ts', import.meta.url), 'utf8');
-  const chartWidgets = await readSourceTree(new URL('../../src/renderer/internal/charts/', import.meta.url));
+  const chartRendering = await readSourceTree(new URL('../../src/renderer/internal/charts/', import.meta.url));
   const chartVisual = await readFile(new URL('../../src/renderer/internal/chart-visual.ts', import.meta.url), 'utf8');
   const dataRenderers = await readFile(new URL('../../src/renderer/internal/renderers/data-renderers.ts', import.meta.url), 'utf8');
-  const textWidgets = await readFile(new URL('../../src/renderer/internal/text-widgets.ts', import.meta.url), 'utf8');
+  const textRendering = await readFile(new URL('../../src/renderer/internal/text-rendering.ts', import.meta.url), 'utf8');
   const textAreaProjection = await readFile(new URL('../../src/renderer/internal/text-area/projection.ts', import.meta.url), 'utf8');
   const textRenderers = await readFile(new URL('../../src/renderer/internal/renderers/text-renderers.ts', import.meta.url), 'utf8');
   const structuredBlock = await readFile(new URL('../../src/renderer/internal/structured-block.ts', import.meta.url), 'utf8');
@@ -433,13 +433,13 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(commandSurface, /import \{ editTextBuffer \} from '\.\.\/text\/index\.ts';/u);
   assert.match(commandSurface, /editTextBuffer\(state\.input, action\.operation\)/u);
   assert.doesNotMatch(commandSurface, /case 'moveWordLeft'/u);
-  assert.match(formWidgets, /from '\.\.\/\.\.\/text-display\.ts'/u);
-  assert.match(formWidgets, /from '\.\.\/\.\.\/input-visual\.ts'/u);
-  assert.match(formWidgets, /from '\.\.\/form-visual\.ts'/u);
+  assert.match(formRendering, /from '\.\.\/\.\.\/text-display\.ts'/u);
+  assert.match(formRendering, /from '\.\.\/\.\.\/input-visual\.ts'/u);
+  assert.match(formRendering, /from '\.\.\/form-visual\.ts'/u);
   assert.match(formVisual, /\bformSpan\b/u);
   assert.match(formVisual, /\boptionControlState\b/u);
   assert.match(inputVisual, /from '\.\/text-display\.ts'/u);
-  assert.match(menuWidgets, /from '\.\/menu-visual\.ts'/u);
+  assert.match(menuRendering, /from '\.\/menu-visual\.ts'/u);
   assert.match(menuVisual, /\bmenuItemLine\b/u);
   assert.match(feedbackRenderers, /from '\.\.\/feedback-visual\.ts'/u);
   assert.match(feedbackVisual, /\bstatusBarBlock\b/u);
@@ -447,24 +447,24 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.match(feedbackVisual, /\bstatusIndicatorBlock\b/u);
   assert.match(documentVisual, /\bdocumentHighlightSpans\b/u);
   assert.match(documentVisual, /\bdocumentFieldSpans\b/u);
-  assert.match(chartWidgets, /from '\.\.\/chart-visual\.ts'/u);
+  assert.match(chartRendering, /from '\.\.\/chart-visual\.ts'/u);
   assert.match(chartVisual, /\bchartStateBlock\b/u);
   assert.match(dataRenderers, /\bsparklineBlock\b/u);
   assert.match(dataRenderers, /\bbarChartBlock\b/u);
   assert.match(dataRenderers, /\bchartBlock\b/u);
   assert.match(dataRenderers, /\bmeterBlock\b/u);
   assert.match(dataRenderers, /\bheatmapBlock\b/u);
-  assert.match(textWidgets, /from '\.\/input-visual\.ts'/u);
-  assert.match(textWidgets, /from '\.\/text-area\/projection\.ts'/u);
+  assert.match(textRendering, /from '\.\/input-visual\.ts'/u);
+  assert.match(textRendering, /from '\.\/text-area\/projection\.ts'/u);
   assert.match(textAreaProjection, /from '\.\.\/\.\.\/\.\.\/text\/index\.ts'/u);
-  assert.match(textWidgets, /from '\.\/feedback-visual\.ts'/u);
+  assert.match(textRendering, /from '\.\/feedback-visual\.ts'/u);
   assert.match(textRenderers, /from '\.\.\/feedback-visual\.ts'/u);
   assert.match(formRenderers, /\btextInputBlock\b/u);
   assert.doesNotMatch(textTypes, /\bmoveLineStart\b/u);
   assert.doesNotMatch(textTypes, /\bmoveLineEnd\b/u);
   assert.doesNotMatch(commandInput, /function matchSpans/u);
   assert.doesNotMatch(commandInput, /lowerText\.indexOf/u);
-  assert.doesNotMatch(menuWidgets, /function menuItemStyle/u);
+  assert.doesNotMatch(menuRendering, /function menuItemStyle/u);
   assert.doesNotMatch(feedbackRenderers, /\bwriteBlock\b/u);
   assert.doesNotMatch(dataRenderers, /sparklineText|barChartText|chartText|meterText|heatmapText/u);
   const palette = await readFile(new URL('../../src/renderer/internal/palette.ts', import.meta.url), 'utf8');
@@ -617,7 +617,7 @@ test('dirty region narrowing is structural and render-diff visible', async () =>
   assert.match(frameIndexSource, /new WeakMap<Frame, FrameIndex>/u);
   assert.match(frameIndexSource, /metadata\?\.rowFingerprints/u);
   assert.match(runtimeFrameSource, /dirtyRegionsForRenderCommit/u);
-  assert.doesNotMatch(dirtySource, /widget\.kind|contextMenu|dropdownMenu|modal/u);
+  assert.doesNotMatch(dirtySource, /renderNode\.kind|contextMenu|dropdownMenu|modal/u);
 });
 
 test('box drawing joins are source-role gated frame passes', async () => {
@@ -643,9 +643,9 @@ test('box drawing joins are source-role gated frame passes', async () => {
 
 test('custom renderers can render only through write-scoped renderer inputs', async () => {
   const rendererTypes = await readFile(new URL('../../src/renderer/model/renderer.ts', import.meta.url), 'utf8');
-  const widgetTypes = await readSourceTree(new URL('../../src/components/options/', import.meta.url));
+  const componentOptionTypes = await readSourceTree(new URL('../../src/components/options/', import.meta.url));
   const canvasContract = await readFile(new URL('../../src/renderer/model/canvas.ts', import.meta.url), 'utf8');
-  const customWidgetTypes = await readFile(new URL('../../src/renderer/custom-element.ts', import.meta.url), 'utf8');
+  const customElementTypes = await readFile(new URL('../../src/renderer/custom-element.ts', import.meta.url), 'utf8');
   const factories = await readSourceTree(new URL('../../src/components/factories/', import.meta.url));
   const validation = await readFile(new URL('../../src/components/extension-validation.ts', import.meta.url), 'utf8');
 
@@ -656,23 +656,23 @@ test('custom renderers can render only through write-scoped renderer inputs', as
   assert.doesNotMatch(rendererTypes, /\bhost\b/u);
   assert.doesNotMatch(rendererTypes, /\bwrite\s*\(/u);
 
-  const canvasOptionTypes = widgetTypes.slice(widgetTypes.indexOf('export interface CanvasOptions'));
-  assert.match(customWidgetTypes, /readonly renderer: CustomRenderer<TState, TMessage>;/u);
-  assert.doesNotMatch(customWidgetTypes, /\breadonly painter\b/u);
+  const canvasOptionTypes = componentOptionTypes.slice(componentOptionTypes.indexOf('export interface CanvasOptions'));
+  assert.match(customElementTypes, /readonly renderer: CustomRenderer<TState, TMessage>;/u);
+  assert.doesNotMatch(customElementTypes, /\breadonly painter\b/u);
   assert.match(canvasOptionTypes, /readonly painter: CanvasPainter;/u);
   assert.doesNotMatch(canvasOptionTypes, /\breadonly renderer\b/u);
-  assert.match(widgetTypes, /export type \{ CanvasPainter, CanvasPainterInput \} from '\.\.\/\.\.\/renderer\/model\/canvas\.ts';/u);
+  assert.match(componentOptionTypes, /export type \{ CanvasPainter, CanvasPainterInput \} from '\.\.\/\.\.\/renderer\/model\/canvas\.ts';/u);
   assert.match(canvasContract, /export interface CanvasPainterInput[\s\S]*readonly canvas: Canvas2D;[\s\S]*readonly bounds: Rect;/u);
   assert.doesNotMatch(canvasContract, /readonly buffer: FrameBuffer/u);
-  assert.doesNotMatch(widgetTypes, /\bWidgetRenderer\b/u);
-  assert.doesNotMatch(customWidgetTypes, /\bTerminalHost\b/u);
-  assert.doesNotMatch(customWidgetTypes, /\bclipboard\b/iu);
+  assert.doesNotMatch(componentOptionTypes, /\bWidgetRenderer\b/u);
+  assert.doesNotMatch(customElementTypes, /\bTerminalHost\b/u);
+  assert.doesNotMatch(customElementTypes, /\bclipboard\b/iu);
 
   assert.match(factories, /assertCanvasPainter\(options\.painter\)/u);
   assert.doesNotMatch(factories, /assertCustomRenderer\(options\.renderer/u);
   assert.doesNotMatch(factories, /kind: 'custom'/u);
-  assert.match(customWidgetTypes, /assertCustomRenderer\(options\.renderer/u);
-  assert.match(customWidgetTypes, /kind: 'custom'/u);
+  assert.match(customElementTypes, /assertCustomRenderer\(options\.renderer/u);
+  assert.match(customElementTypes, /kind: 'custom'/u);
   assert.doesNotMatch(factories, /\bhost\b/u);
   assert.doesNotMatch(validation, /\bTerminalHost\b/u);
   assert.doesNotMatch(validation, /\bhost\b/u);
@@ -686,12 +686,12 @@ test('Canvas2D is a FrameBuffer-backed helper without host or ANSI escapes', asy
       source: await readFile(file, 'utf8')
     }))
   );
-  const drawingSource = await readFile(new URL('../../src/renderer/internal/drawing-widgets.ts', import.meta.url), 'utf8');
-  const widgetTypes = await readSourceTree(new URL('../../src/components/options/', import.meta.url));
+  const drawingSource = await readFile(new URL('../../src/renderer/internal/drawing-rendering.ts', import.meta.url), 'utf8');
+  const componentOptionTypes = await readSourceTree(new URL('../../src/components/options/', import.meta.url));
   const canvasContract = await readFile(new URL('../../src/renderer/model/canvas.ts', import.meta.url), 'utf8');
 
   assert.match(drawingSource, /createCanvas2D\(input\.buffer,\s*input\.layoutNode\.bounds\)/u);
-  assert.match(widgetTypes, /readonly painter: CanvasPainter;/u);
+  assert.match(componentOptionTypes, /readonly painter: CanvasPainter;/u);
   assert.match(canvasContract, /readonly canvas: Canvas2D;/u);
   assert.doesNotMatch(canvasContract, /readonly buffer: FrameBuffer/u);
   for (const { file, source } of canvasSources) {

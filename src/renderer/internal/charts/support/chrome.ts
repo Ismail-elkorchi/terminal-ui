@@ -17,13 +17,13 @@ import type { TextWidthProfile } from '../../../../text/index.ts';
 
 type ChartNode = RenderNodeOfKind<unknown, 'chart'>;
 
-export function chartLayout(widget: ChartNode, bounds: Rect): {
+export function chartLayout(renderNode: ChartNode, bounds: Rect): {
   readonly plotRow: number;
   readonly plotWidth: number;
   readonly plotHeight: number;
 } {
-  const headerRows = chartHeaderRows(widget);
-  const footerRows = cleanLabel(widget.props.xLabel).length > 0 ? 1 : 0;
+  const headerRows = chartHeaderRows(renderNode);
+  const footerRows = cleanLabel(renderNode.props.xLabel).length > 0 ? 1 : 0;
   return {
     plotRow: 1 + headerRows,
     plotWidth: bounds.width,
@@ -33,24 +33,24 @@ export function chartLayout(widget: ChartNode, bounds: Rect): {
 
 export function writeChartChrome(
   buffer: ReturnType<typeof createFrameBuffer>,
-  widget: ChartNode,
+  renderNode: ChartNode,
   width: number,
   widthProfile: TextWidthProfile
 ): void {
-  chartHeaderBlock(widget, width, widthProfile).lines.forEach((line, index) => {
+  chartHeaderBlock(renderNode, width, widthProfile).lines.forEach((line, index) => {
     buffer.write(index + 1, 1, line.spans);
   });
-  const footer = chartFooterBlock(widget, width, widthProfile);
+  const footer = chartFooterBlock(renderNode, width, widthProfile);
   if (footer.lines.length > 0) {
     buffer.write(buffer.height, 1, footer.lines[0]?.spans ?? []);
   }
 }
 
-export function chartChromeBlock(widget: ChartNode, width: number, widthProfile: TextWidthProfile): RenderBlock {
+export function chartChromeBlock(renderNode: ChartNode, width: number, widthProfile: TextWidthProfile): RenderBlock {
   return {
     lines: [
-      ...chartHeaderBlock(widget, width, widthProfile).lines,
-      ...chartFooterBlock(widget, width, widthProfile).lines
+      ...chartHeaderBlock(renderNode, width, widthProfile).lines,
+      ...chartFooterBlock(renderNode, width, widthProfile).lines
     ]
   };
 }
@@ -61,51 +61,51 @@ export function seriesGlyph(series: ChartSeries): string {
   return series.kind === 'area' || series.kind === 'bar' ? '█' : '*';
 }
 
-export function usesSignedDomain(widget: ChartNode): boolean {
-  return widget.props.signedDomain === true;
+export function usesSignedDomain(renderNode: ChartNode): boolean {
+  return renderNode.props.signedDomain === true;
 }
 
 export function polarityForValue(value: number): 'positive' | 'negative' {
   return value < 0 ? 'negative' : 'positive';
 }
 
-function chartHeaderRows(widget: ChartNode): number {
-  return (widget.props.legend === true ? 1 : 0) + (cleanLabel(widget.props.yLabel).length > 0 ? 1 : 0);
+function chartHeaderRows(renderNode: ChartNode): number {
+  return (renderNode.props.legend === true ? 1 : 0) + (cleanLabel(renderNode.props.yLabel).length > 0 ? 1 : 0);
 }
 
-function chartHeaderBlock(widget: ChartNode, width: number, widthProfile: TextWidthProfile): RenderBlock {
+function chartHeaderBlock(renderNode: ChartNode, width: number, widthProfile: TextWidthProfile): RenderBlock {
   const rows: RenderLine[] = [];
-  if (widget.props.legend === true) {
+  if (renderNode.props.legend === true) {
     rows.push({
-      spans: clipLineSpans(chartSeries(widget.props.series).flatMap((item, index): readonly RenderSpan[] => [
+      spans: clipLineSpans(chartSeries(renderNode.props.series).flatMap((item, index): readonly RenderSpan[] => [
         ...(index === 0 ? [] : [
           chartSpan(
-            widget,
+            renderNode,
             'chart',
             'separator',
             `legend.${item.id}.separator.beforeGlyph`,
             '  ',
-            chartPlaceholderStyle(widget)
+            chartPlaceholderStyle(renderNode)
           )
         ]),
-        chartSpan(widget, 'chart', 'legend', `legend.${item.id}.glyph`, seriesGlyph(item), chartSeriesStyle(widget, index)),
+        chartSpan(renderNode, 'chart', 'legend', `legend.${item.id}.glyph`, seriesGlyph(item), chartSeriesStyle(renderNode, index)),
         chartSpan(
-          widget,
+          renderNode,
           'chart',
           'separator',
           `legend.${item.id}.separator.beforeLabel`,
           ' ',
-          chartPlaceholderStyle(widget)
+          chartPlaceholderStyle(renderNode)
         ),
-        chartSpan(widget, 'chart', 'legend', `legend.${item.id}.label`, item.label ?? item.id, chartLabelStyle(widget))
+        chartSpan(renderNode, 'chart', 'legend', `legend.${item.id}.label`, item.label ?? item.id, chartLabelStyle(renderNode))
       ]), width, widthProfile)
     });
   }
-  const yLabel = cleanLabel(widget.props.yLabel);
+  const yLabel = cleanLabel(renderNode.props.yLabel);
   if (yLabel.length > 0) {
     rows.push({
       spans: clipLineSpans(
-        [chartSpan(widget, 'chart', 'axis', 'axis.y.label', yLabel, chartAxisStyle(widget))],
+        [chartSpan(renderNode, 'chart', 'axis', 'axis.y.label', yLabel, chartAxisStyle(renderNode))],
         width,
         widthProfile
       )
@@ -114,14 +114,14 @@ function chartHeaderBlock(widget: ChartNode, width: number, widthProfile: TextWi
   return { lines: rows };
 }
 
-function chartFooterBlock(widget: ChartNode, width: number, widthProfile: TextWidthProfile): RenderBlock {
-  const xLabel = cleanLabel(widget.props.xLabel);
+function chartFooterBlock(renderNode: ChartNode, width: number, widthProfile: TextWidthProfile): RenderBlock {
+  const xLabel = cleanLabel(renderNode.props.xLabel);
   return {
     lines: xLabel.length === 0
       ? []
       : [{
           spans: clipLineSpans(
-            [chartSpan(widget, 'chart', 'axis', 'axis.x.label', xLabel, chartAxisStyle(widget))],
+            [chartSpan(renderNode, 'chart', 'axis', 'axis.x.label', xLabel, chartAxisStyle(renderNode))],
             width,
             widthProfile
           )

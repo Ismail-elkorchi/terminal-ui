@@ -53,7 +53,7 @@ type FormStateNode = RenderNodesOfKind<
 >;
 
 export function formSpan(
-  widget: RenderNode,
+  renderNode: RenderNode,
   visual: FormVisualKind,
   label: string,
   text: string,
@@ -62,17 +62,17 @@ export function formSpan(
 ): RenderSpan {
   return span(text, {
     ...(style === undefined ? {} : { style }),
-    source: formSource(widget, visual, label, sourceState)
+    source: formSource(renderNode, visual, label, sourceState)
   });
 }
 
 export function formSource(
-  widget: RenderNode,
+  renderNode: RenderNode,
   visual: FormVisualKind,
   label: string,
   state?: ElementVisualState
 ): FrameCellSource {
-  return renderNodeFrameSource(widget, {
+  return renderNodeFrameSource(renderNode, {
     family: 'form',
     role: roleForVisual(visual),
     part: label,
@@ -86,28 +86,28 @@ export function formLine(spans: readonly RenderSpan[]): RenderLine {
   return line(spans);
 }
 
-export function formLabelStyle(widget: RenderNode, state?: FormControlState): TerminalStyle | undefined {
-  return renderNodeStyle(widget, 'label', state);
+export function formLabelStyle(renderNode: RenderNode, state?: FormControlState): TerminalStyle | undefined {
+  return renderNodeStyle(renderNode, 'label', state);
 }
 
-export function formValueStyle(widget: RenderNode, state?: FormControlState): TerminalStyle | undefined {
-  return renderNodeStyle(widget, formValuePart(widget), state);
+export function formValueStyle(renderNode: RenderNode, state?: FormControlState): TerminalStyle | undefined {
+  return renderNodeStyle(renderNode, formValuePart(renderNode), state);
 }
 
-export function formPlaceholderStyle(widget: RenderNode): TerminalStyle | undefined {
-  return resolveRenderNodeStyle(widget, {
-    part: widget.kind === 'toggleSwitch' ? 'offLabel' : 'description',
+export function formPlaceholderStyle(renderNode: RenderNode): TerminalStyle | undefined {
+  return resolveRenderNodeStyle(renderNode, {
+    part: renderNode.kind === 'toggleSwitch' ? 'offLabel' : 'description',
     base: themeStyle('input.placeholder', { dim: true })
   });
 }
 
-export function formMarkerStyle(widget: RenderNode, state?: FormControlState): TerminalStyle | undefined {
-  const part = formMarkerPart(widget);
-  return mergeStyles(renderNodeStyle(widget, part), state === undefined ? undefined : renderNodeStyle(widget, part, state));
+export function formMarkerStyle(renderNode: RenderNode, state?: FormControlState): TerminalStyle | undefined {
+  const part = formMarkerPart(renderNode);
+  return mergeStyles(renderNodeStyle(renderNode, part), state === undefined ? undefined : renderNodeStyle(renderNode, part, state));
 }
 
-function formValuePart(widget: RenderNode): string {
-  switch (widget.kind) {
+function formValuePart(renderNode: RenderNode): string {
+  switch (renderNode.kind) {
     case 'checkbox':
     case 'checkboxGroup':
     case 'radioGroup':
@@ -120,8 +120,8 @@ function formValuePart(widget: RenderNode): string {
   }
 }
 
-function formMarkerPart(widget: RenderNode): string {
-  switch (widget.kind) {
+function formMarkerPart(renderNode: RenderNode): string {
+  switch (renderNode.kind) {
     case 'colorSwatchPicker':
     case 'calendar':
       return 'navigation';
@@ -137,69 +137,69 @@ function formMarkerPart(widget: RenderNode): string {
   }
 }
 
-export function formErrorStyle(widget: RenderNode): TerminalStyle | undefined {
-  return renderNodeStyle(widget, 'error', 'error');
+export function formErrorStyle(renderNode: RenderNode): TerminalStyle | undefined {
+  return renderNodeStyle(renderNode, 'error', 'error');
 }
 
-export function formControlState(widget: FormStateNode, selected = false): FormControlState | undefined {
-  if (widget.props.disabled === true) return 'disabled';
-  if (typeof widget.props.error === 'string' && widget.props.error.length > 0) return 'error';
+export function formControlState(renderNode: FormStateNode, selected = false): FormControlState | undefined {
+  if (renderNode.props.disabled === true) return 'disabled';
+  if (typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0) return 'error';
   return selected ? 'selected' : undefined;
 }
 
 export function optionControlState(
-  widget: FormStateNode,
+  renderNode: FormStateNode,
   input: {
     readonly selected: boolean;
     readonly disabled?: boolean;
     readonly active?: boolean;
   }
 ): FormControlState | undefined {
-  if (input.disabled === true || widget.props.disabled === true) return 'disabled';
+  if (input.disabled === true || renderNode.props.disabled === true) return 'disabled';
   if (input.active === true) return 'focused';
   return input.selected ? 'selected' : undefined;
 }
 
-export function separatorSpan(widget: RenderNode, text = ' '): RenderSpan {
-  return formSpan(widget, 'separator', 'separator', text);
+export function separatorSpan(renderNode: RenderNode, text = ' '): RenderSpan {
+  return formSpan(renderNode, 'separator', 'separator', text);
 }
 
 export function controlLabelSpans(
-  widget: RenderNode,
+  renderNode: RenderNode,
   text: string,
   state?: FormControlState,
   options: { readonly required?: boolean; readonly label?: string } = {}
 ): readonly RenderSpan[] {
-  return labelSpans(widget, options.label ?? 'label', text, state, options.required === true);
+  return labelSpans(renderNode, options.label ?? 'label', text, state, options.required === true);
 }
 
 export function controlPrefixSpans(
-  widget: RenderNode,
+  renderNode: RenderNode,
   text: string,
   state?: FormControlState,
   options: { readonly required?: boolean; readonly label?: string } = {}
 ): readonly RenderSpan[] {
-  const label = controlLabelSpans(widget, text, state, options);
+  const label = controlLabelSpans(renderNode, text, state, options);
   if (label.length === 0) return [];
   return [
     ...label,
-    formSpan(widget, 'separator', `${options.label ?? 'label'}.separator`, ': ')
+    formSpan(renderNode, 'separator', `${options.label ?? 'label'}.separator`, ': ')
   ];
 }
 
 export function labelSpans(
-  widget: RenderNode,
+  renderNode: RenderNode,
   label: string,
   text: string,
   state?: FormControlState,
   required = false
 ): readonly RenderSpan[] {
   if (text.length === 0) {
-    return required ? [formSpan(widget, 'required', `${label}.required`, 'Required', formLabelStyle(widget, state))] : [];
+    return required ? [formSpan(renderNode, 'required', `${label}.required`, 'Required', formLabelStyle(renderNode, state))] : [];
   }
   return [
-    formSpan(widget, 'label', `${label}.text`, text, formLabelStyle(widget, state), state),
-    ...(required ? [formSpan(widget, 'required', `${label}.required`, ' *', formLabelStyle(widget, state), state)] : [])
+    formSpan(renderNode, 'label', `${label}.text`, text, formLabelStyle(renderNode, state), state),
+    ...(required ? [formSpan(renderNode, 'required', `${label}.required`, ' *', formLabelStyle(renderNode, state), state)] : [])
   ];
 }
 

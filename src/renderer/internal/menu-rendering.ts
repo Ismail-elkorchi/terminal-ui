@@ -45,48 +45,48 @@ interface MenuRow {
 }
 
 export function menuBlock(
-  widget: MenuNode,
+  renderNode: MenuNode,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   focused = false
 ): RenderBlock {
-  const rows = menuRows(widget, bounds);
+  const rows = menuRows(renderNode, bounds);
   if (rows.length === 0 && bounds.height > 0) {
-    return { lines: [menuEmptyLine(widget, emptyText(widget), bounds.width, widthProfile)] };
+    return { lines: [menuEmptyLine(renderNode, emptyText(renderNode), bounds.width, widthProfile)] };
   }
-  const active = menuActiveId(widget);
-  return { lines: rows.map((row) => menuItemLine(widget, row.item, row.item.id === active, bounds.width, theme, widthProfile, focused)) };
+  const active = menuActiveId(renderNode);
+  return { lines: rows.map((row) => menuItemLine(renderNode, row.item, row.item.id === active, bounds.width, theme, widthProfile, focused)) };
 }
 
 export function menuBarBlock(
-  widget: MenuBarNode,
+  renderNode: MenuBarNode,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   focused = false
 ): RenderBlock {
   return {
-    lines: [menuBarLine(widget, topLevelMenuItems(widget), menuBarActiveId(widget), bounds.width, theme, widthProfile, focused)]
+    lines: [menuBarLine(renderNode, topLevelMenuItems(renderNode), menuBarActiveId(renderNode), bounds.width, theme, widthProfile, focused)]
   };
 }
 
 export function dropdownMenuBlock(
-  widget: DropdownMenuNode,
+  renderNode: DropdownMenuNode,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   focused = false
 ): RenderBlock {
-  const active = dropdownActiveItem(widget);
-  const placeholder = clean(stringify(widget.props.placeholder)) || 'Choose action…';
+  const active = dropdownActiveItem(renderNode);
+  const placeholder = clean(stringify(renderNode.props.placeholder)) || 'Choose action…';
   return {
     lines: [dropdownMenuControlLine({
-      widget,
-      label: clean(stringify(widget.props.label)),
+      renderNode,
+      label: clean(stringify(renderNode.props.label)),
       value: active?.label ?? placeholder,
       placeholder: active === undefined,
-      open: widget.props.presentation.kind === 'open',
+      open: renderNode.props.presentation.kind === 'open',
       focused,
       width: bounds.width,
       theme,
@@ -103,75 +103,75 @@ export function menuBarAccessibleBase(_widget: MenuBarNode, id: string, focused:
   return { id, role: 'menubar', label: id, ...(focused ? { focused } : {}) };
 }
 
-export function contextMenuAccessibleBase(widget: ContextMenuNode, id: string, focused: boolean): AccessibleNode {
+export function contextMenuAccessibleBase(renderNode: ContextMenuNode, id: string, focused: boolean): AccessibleNode {
   return {
     id,
     role: 'menu',
-    label: clean(stringify(widget.props.title)) || id,
+    label: clean(stringify(renderNode.props.title)) || id,
     ...(focused ? { focused } : {})
   };
 }
 
-export function dropdownMenuAccessibleBase(widget: DropdownMenuNode, id: string, focused: boolean): AccessibleNode {
-  const active = dropdownActiveItem(widget);
+export function dropdownMenuAccessibleBase(renderNode: DropdownMenuNode, id: string, focused: boolean): AccessibleNode {
+  const active = dropdownActiveItem(renderNode);
   return {
     id,
     role: 'button',
-    label: clean(stringify(widget.props.label)) || id,
+    label: clean(stringify(renderNode.props.label)) || id,
     ...(active === undefined ? {} : { value: active.label }),
-    expanded: widget.props.presentation.kind === 'open',
+    expanded: renderNode.props.presentation.kind === 'open',
     ...(focused ? { focused } : {})
   };
 }
 
-export function menuAccessibleChildren(widget: MenuNode): readonly AccessibleNode[] {
+export function menuAccessibleChildren(renderNode: MenuNode): readonly AccessibleNode[] {
   return accessibleMenuItems(
-    widget.id ?? widget.kind,
-    visibleMenuItems(widget.props.items)
+    renderNode.id ?? renderNode.kind,
+    visibleMenuItems(renderNode.props.items)
   );
 }
 
-export function menuBarAccessibleChildren(widget: MenuBarNode): readonly AccessibleNode[] {
-  const active = menuBarActiveId(widget);
-  return topLevelMenuItems(widget).map((item) => ({
-    id: `${widget.id ?? widget.kind}:${item.id}`,
+export function menuBarAccessibleChildren(renderNode: MenuBarNode): readonly AccessibleNode[] {
+  const active = menuBarActiveId(renderNode);
+  return topLevelMenuItems(renderNode).map((item) => ({
+    id: `${renderNode.id ?? renderNode.kind}:${item.id}`,
     role: item.kind === 'check' ? 'menuitemcheckbox' : 'menuitem',
     label: item.label,
     disabled: item.disabled === true,
     ...(item.kind === 'check' ? { checked: item.checked === true } : {}),
-    ...(item.hasChildren ? { expanded: widget.props.presentation.kind === 'open' && item.id === active } : {}),
-    ...(widget.props.presentation.kind === 'open' && item.id === active
+    ...(item.hasChildren ? { expanded: renderNode.props.presentation.kind === 'open' && item.id === active } : {}),
+    ...(renderNode.props.presentation.kind === 'open' && item.id === active
       ? {
           children: accessibleMenuItems(
-            `${widget.id ?? widget.kind}:${item.id}`,
-            visibleMenuItems(widget.props.presentation.menu.items)
+            `${renderNode.id ?? renderNode.kind}:${item.id}`,
+            visibleMenuItems(renderNode.props.presentation.menu.items)
           )
         }
       : {})
   }));
 }
 
-export function contextMenuAccessibleChildren(widget: ContextMenuNode): readonly AccessibleNode[] | undefined {
-  if (widget.props.presentation.kind === 'closed') return undefined;
+export function contextMenuAccessibleChildren(renderNode: ContextMenuNode): readonly AccessibleNode[] | undefined {
+  if (renderNode.props.presentation.kind === 'closed') return undefined;
   return accessibleMenuItems(
-    widget.id ?? widget.kind,
-    visibleMenuItems(widget.props.presentation.menu.items)
+    renderNode.id ?? renderNode.kind,
+    visibleMenuItems(renderNode.props.presentation.menu.items)
   );
 }
 
-export function dropdownMenuAccessibleChildren(widget: DropdownMenuNode): readonly AccessibleNode[] | undefined {
-  if (widget.props.presentation.kind === 'closed') return undefined;
+export function dropdownMenuAccessibleChildren(renderNode: DropdownMenuNode): readonly AccessibleNode[] | undefined {
+  if (renderNode.props.presentation.kind === 'closed') return undefined;
   return accessibleMenuItems(
-    widget.id ?? widget.kind,
-    visibleMenuItems(widget.props.presentation.menu.items)
+    renderNode.id ?? renderNode.kind,
+    visibleMenuItems(renderNode.props.presentation.menu.items)
   );
 }
 
-export function menuHitTargets<TMessage>(widget: MenuNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  const toMessage = widget.props.toActionMessage;
+export function menuHitTargets<TMessage>(renderNode: MenuNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = renderNode.props.toActionMessage;
   if (toMessage === undefined) return [];
-  return menuRows(widget, bounds).flatMap((row) => row.item.disabled === true ? [] : [{
-    id: menuItemTargetId(widget, row.item.id),
+  return menuRows(renderNode, bounds).flatMap((row) => row.item.disabled === true ? [] : [{
+    id: menuItemTargetId(renderNode, row.item.id),
     bounds: { row: bounds.row + row.row, column: bounds.column, width: bounds.width, height: 1 },
     message: () => toMessage({ kind: 'activate', id: row.item.id }),
     cursor: 'pointer'
@@ -179,13 +179,13 @@ export function menuHitTargets<TMessage>(widget: MenuNode<TMessage>, bounds: Rec
 }
 
 export function menuBarItemBounds(
-  widget: MenuBarNode,
+  renderNode: MenuBarNode,
   bounds: Rect,
   widthProfile: TextWidthProfile
 ): readonly { readonly item: VisibleMenuItem; readonly bounds: Rect }[] {
   let column = bounds.column;
-  const active = menuBarActiveId(widget);
-  return topLevelMenuItems(widget).map((item) => {
+  const active = menuBarActiveId(renderNode);
+  return topLevelMenuItems(renderNode).map((item) => {
     const width = Math.min(
       Math.max(0, bounds.column + bounds.width - column),
       menuBarItemWidth(item, item.id === active, widthProfile)
@@ -196,9 +196,9 @@ export function menuBarItemBounds(
   });
 }
 
-export function menuCursor(widget: MenuNode, bounds: Rect): { readonly row: number; readonly column: number } {
-  const active = menuActiveId(widget);
-  const row = active === undefined ? 0 : menuRows(widget, bounds).find((candidate) => candidate.item.id === active)?.row ?? 0;
+export function menuCursor(renderNode: MenuNode, bounds: Rect): { readonly row: number; readonly column: number } {
+  const active = menuActiveId(renderNode);
+  const row = active === undefined ? 0 : menuRows(renderNode, bounds).find((candidate) => candidate.item.id === active)?.row ?? 0;
   return { row: bounds.row + Math.min(Math.max(0, row), Math.max(0, bounds.height - 1)), column: bounds.column };
 }
 
@@ -215,29 +215,29 @@ export function menuPopupContentSize(
   return { width: Math.max(8, titleWidth + 4, itemWidth + 4), height: contentRows + 2 };
 }
 
-export function topLevelMenuItems(widget: MenuBarNode): readonly VisibleMenuItem[] {
-  return menuItems(widget.props.items, 0);
+export function topLevelMenuItems(renderNode: MenuBarNode): readonly VisibleMenuItem[] {
+  return menuItems(renderNode.props.items, 0);
 }
 
-function menuRows(widget: MenuNode, bounds: Rect): readonly MenuRow[] {
-  const rows = visibleMenuItems(widget.props.items);
-  const start = menuScrollOffset(widget, rows.length, bounds.height);
+function menuRows(renderNode: MenuNode, bounds: Rect): readonly MenuRow[] {
+  const rows = visibleMenuItems(renderNode.props.items);
+  const start = menuScrollOffset(renderNode, rows.length, bounds.height);
   return rows
     .slice(start, start + Math.max(0, bounds.height))
     .map((item, index) => ({ item, row: index }));
 }
 
-function menuActiveId(widget: MenuNode): string | undefined {
-  return widget.props.presentation.activePath.at(-1);
+function menuActiveId(renderNode: MenuNode): string | undefined {
+  return renderNode.props.presentation.activePath.at(-1);
 }
 
-function menuBarActiveId(widget: MenuBarNode): string | undefined {
-  return widget.props.presentation.active ?? topLevelMenuItems(widget).find((item) => item.disabled !== true)?.id;
+function menuBarActiveId(renderNode: MenuBarNode): string | undefined {
+  return renderNode.props.presentation.active ?? topLevelMenuItems(renderNode).find((item) => item.disabled !== true)?.id;
 }
 
-function dropdownActiveItem(widget: DropdownMenuNode): VisibleMenuItem | undefined {
-  const active = widget.props.presentation.active;
-  return active === undefined ? undefined : flattenMenuItems(menuItems(widget.props.items, 0)).find((item) => item.id === active);
+function dropdownActiveItem(renderNode: DropdownMenuNode): VisibleMenuItem | undefined {
+  const active = renderNode.props.presentation.active;
+  return active === undefined ? undefined : flattenMenuItems(menuItems(renderNode.props.items, 0)).find((item) => item.id === active);
 }
 
 function accessibleMenuItems(
@@ -307,13 +307,13 @@ function flattenMenuItems(items: readonly VisibleMenuItem[]): readonly VisibleMe
   return items.flatMap((item): readonly VisibleMenuItem[] => [item, ...flattenMenuItems(item.children ?? [])]);
 }
 
-function emptyText(widget: MenuNode): string {
-  const text = clean(stringify(widget.props.emptyText));
+function emptyText(renderNode: MenuNode): string {
+  const text = clean(stringify(renderNode.props.emptyText));
   return text.length === 0 ? 'No menu items' : text;
 }
 
-function menuScrollOffset(widget: MenuNode, total: number, height: number): number {
-  const rawOffset = widget.props.presentation.scroll?.offsetRow;
+function menuScrollOffset(renderNode: MenuNode, total: number, height: number): number {
+  const rawOffset = renderNode.props.presentation.scroll?.offsetRow;
   return rawOffset === undefined
     ? 0
     : Math.max(0, Math.min(Math.floor(rawOffset), Math.max(0, total - Math.max(0, height))));
@@ -339,6 +339,6 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function menuItemTargetId(widget: MenuNode, itemId: string): string {
-  return renderNodeTargetId(widget, itemId);
+function menuItemTargetId(renderNode: MenuNode, itemId: string): string {
+  return renderNodeTargetId(renderNode, itemId);
 }

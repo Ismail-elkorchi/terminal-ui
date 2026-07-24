@@ -23,16 +23,16 @@ interface ViewportVisualState {
   readonly clippedRight: boolean;
 }
 
-export function viewportAccessibleDescription(widget: ViewportNode, node: LayoutNode): string {
-  const state = viewportVisualState(widget, node.bounds);
+export function viewportAccessibleDescription(renderNode: ViewportNode, node: LayoutNode): string {
+  const state = viewportVisualState(renderNode, node.bounds);
   if (state.empty) return 'Empty viewport content.';
   const rowEnd = Math.min(state.contentRows, state.offsetRow + node.bounds.height);
   const columnEnd = Math.min(state.contentColumns, state.offsetColumn + node.bounds.width);
   return `Showing rows ${String(state.offsetRow + 1)}-${String(rowEnd)} of ${String(state.contentRows)}, columns ${String(state.offsetColumn + 1)}-${String(columnEnd)} of ${String(state.contentColumns)}.`;
 }
 
-export function viewportChildBounds(widget: ViewportNode, bounds: Rect): Rect {
-  const state = viewportVisualState(widget, bounds);
+export function viewportChildBounds(renderNode: ViewportNode, bounds: Rect): Rect {
+  const state = viewportVisualState(renderNode, bounds);
   if (state.empty) return { row: bounds.row, column: bounds.column, width: 0, height: 0 };
   return {
     row: bounds.row - state.offsetRow,
@@ -42,13 +42,13 @@ export function viewportChildBounds(widget: ViewportNode, bounds: Rect): Rect {
   };
 }
 
-export function viewportVisualState(widget: ViewportNode, bounds: Rect): ViewportVisualState {
-  const contentRows = contentSize(widget, 'contentRows', bounds.height);
-  const contentColumns = contentSize(widget, 'contentColumns', bounds.width);
+export function viewportVisualState(renderNode: ViewportNode, bounds: Rect): ViewportVisualState {
+  const contentRows = contentSize(renderNode, 'contentRows', bounds.height);
+  const contentColumns = contentSize(renderNode, 'contentColumns', bounds.width);
   const empty = contentRows === 0 || contentColumns === 0;
   const scroll = normalizeScrollState({
-    offsetRow: nonNegativeInteger(numberProp(widget, 'scrollRow')),
-    offsetColumn: nonNegativeInteger(numberProp(widget, 'scrollColumn')),
+    offsetRow: nonNegativeInteger(numberProp(renderNode, 'scrollRow')),
+    offsetColumn: nonNegativeInteger(numberProp(renderNode, 'scrollColumn')),
     contentRows,
     contentColumns,
     viewportRows: bounds.height,
@@ -70,35 +70,35 @@ export function viewportVisualState(widget: ViewportNode, bounds: Rect): Viewpor
 
 export function drawViewportIndicators(
   buffer: RenderTarget,
-  widget: ViewportNode,
+  renderNode: ViewportNode,
   bounds: Rect,
   theme: TerminalTheme,
   occupiedCells: ReadonlySet<string> = new Set()
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
-  const state = viewportVisualState(widget, bounds);
-  const style = renderNodeStyle(widget, 'empty');
+  const state = viewportVisualState(renderNode, bounds);
+  const style = renderNodeStyle(renderNode, 'empty');
   if (state.empty) {
-    writeViewportIndicator(buffer, widget, centered(bounds), theme.tokens.symbols.viewportEmpty, 'empty', style, occupiedCells);
+    writeViewportIndicator(buffer, renderNode, centered(bounds), theme.tokens.symbols.viewportEmpty, 'empty', style, occupiedCells);
     return;
   }
   if (state.clippedTop) {
-    writeViewportIndicator(buffer, widget, { row: bounds.row, column: midpoint(bounds.column, bounds.width) }, theme.tokens.symbols.viewportClipTop, 'clip-top', style, occupiedCells);
+    writeViewportIndicator(buffer, renderNode, { row: bounds.row, column: midpoint(bounds.column, bounds.width) }, theme.tokens.symbols.viewportClipTop, 'clip-top', style, occupiedCells);
   }
   if (state.clippedBottom) {
-    writeViewportIndicator(buffer, widget, { row: bounds.row + bounds.height - 1, column: midpoint(bounds.column, bounds.width) }, theme.tokens.symbols.viewportClipBottom, 'clip-bottom', style, occupiedCells);
+    writeViewportIndicator(buffer, renderNode, { row: bounds.row + bounds.height - 1, column: midpoint(bounds.column, bounds.width) }, theme.tokens.symbols.viewportClipBottom, 'clip-bottom', style, occupiedCells);
   }
   if (state.clippedLeft) {
-    writeViewportIndicator(buffer, widget, { row: midpoint(bounds.row, bounds.height), column: bounds.column }, theme.tokens.symbols.viewportClipLeft, 'clip-left', style, occupiedCells);
+    writeViewportIndicator(buffer, renderNode, { row: midpoint(bounds.row, bounds.height), column: bounds.column }, theme.tokens.symbols.viewportClipLeft, 'clip-left', style, occupiedCells);
   }
   if (state.clippedRight) {
-    writeViewportIndicator(buffer, widget, { row: midpoint(bounds.row, bounds.height), column: bounds.column + bounds.width - 1 }, theme.tokens.symbols.viewportClipRight, 'clip-right', style, occupiedCells);
+    writeViewportIndicator(buffer, renderNode, { row: midpoint(bounds.row, bounds.height), column: bounds.column + bounds.width - 1 }, theme.tokens.symbols.viewportClipRight, 'clip-right', style, occupiedCells);
   }
 }
 
 function writeViewportIndicator(
   buffer: RenderTarget,
-  widget: ViewportNode,
+  renderNode: ViewportNode,
   position: { readonly row: number; readonly column: number },
   text: string,
   label: string,
@@ -118,7 +118,7 @@ function writeViewportIndicator(
   buffer.write(position.row, position.column, [{
     text: oneCellGlyph(text, fallback, { widthProfile: buffer.widthProfile }),
     ...(style === undefined ? {} : { style }),
-    source: renderNodeFrameSource(widget, { family: 'layout', role: 'decoration', part: label, label })
+    source: renderNodeFrameSource(renderNode, { family: 'layout', role: 'decoration', part: label, label })
   }]);
 }
 
@@ -126,10 +126,10 @@ export function viewportIndicatorCellKey(row: number, column: number): string {
   return cellKey(row, column);
 }
 
-function contentSize(widget: ViewportNode, key: 'contentRows' | 'contentColumns', fallback: number): number {
-  return widget.props[key] === undefined
-    ? Math.max(0, fallback + nonNegativeInteger(numberProp(widget, key === 'contentRows' ? 'scrollRow' : 'scrollColumn')))
-    : nonNegativeInteger(numberProp(widget, key));
+function contentSize(renderNode: ViewportNode, key: 'contentRows' | 'contentColumns', fallback: number): number {
+  return renderNode.props[key] === undefined
+    ? Math.max(0, fallback + nonNegativeInteger(numberProp(renderNode, key === 'contentRows' ? 'scrollRow' : 'scrollColumn')))
+    : nonNegativeInteger(numberProp(renderNode, key));
 }
 
 function centered(bounds: Rect): { readonly row: number; readonly column: number } {

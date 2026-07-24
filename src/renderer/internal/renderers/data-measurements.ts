@@ -1,6 +1,6 @@
 import { scrollbackHistoryItemAt } from '../../../ui-model/scrollback-history.ts';
 import { barChartText, chartText, meterText, heatmapText, sparklineText } from '../charts/index.ts';
-import { paginatorText } from '../data-widgets.ts';
+import { paginatorText } from '../data-rendering.ts';
 import { measureBlock, measureSize, measureText } from '../measurement.ts';
 import { activityFeedBlock, structuredBlockBlock } from '../structured-block.ts';
 import { treeBlock } from '../tree.ts';

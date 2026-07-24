@@ -32,18 +32,18 @@ export function boundedMeasureSize(value: number, minimum: number, maximum: numb
   return Math.min(maximum, Math.max(minimum, current));
 }
 
-export function measurementLayoutNode(widget: RenderNode, bounds: Rect): LayoutNode {
+export function measurementLayoutNode(renderNode: RenderNode, bounds: Rect): LayoutNode {
   return {
-    ...(widget.id === undefined ? {} : { id: widget.id }),
-    kind: widget.kind,
+    ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
+    kind: renderNode.kind,
     bounds,
     viewport: bounds,
-    identity: widget.id ?? `${widget.kind}:0`,
+    identity: renderNode.id ?? `${renderNode.kind}:0`,
     layer: {
-      id: widget.id ?? `${widget.kind}:0`,
+      id: renderNode.id ?? `${renderNode.kind}:0`,
       zIndex: 0,
       bounds,
-      opacity: widget.layer?.opacity ?? 'transparent'
+      opacity: renderNode.layer?.opacity ?? 'transparent'
     },
     visible: true,
     focusable: false,

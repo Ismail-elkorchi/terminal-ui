@@ -32,22 +32,22 @@ interface PaginatorControl {
 
 type PaginatorNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'paginator'>;
 
-export function paginatorText(widget: PaginatorNode, widthProfile: TextWidthProfile): string {
-  return paginatorLayout(widget, widthProfile).spans.map((item) => item.text).join('');
+export function paginatorText(renderNode: PaginatorNode, widthProfile: TextWidthProfile): string {
+  return paginatorLayout(renderNode, widthProfile).spans.map((item) => item.text).join('');
 }
 
-export function paginatorBlock(widget: PaginatorNode, widthProfile: TextWidthProfile): RenderBlock {
-  return { lines: [{ spans: paginatorLayout(widget, widthProfile).spans }] };
+export function paginatorBlock(renderNode: PaginatorNode, widthProfile: TextWidthProfile): RenderBlock {
+  return { lines: [{ spans: paginatorLayout(renderNode, widthProfile).spans }] };
 }
 
 export function paginatorAccessibleBase(
-  widget: PaginatorNode,
+  renderNode: PaginatorNode,
   id: string,
   focused: boolean,
   widthProfile: TextWidthProfile
 ): AccessibleNode {
-  const parts = paginatorParts(widget);
-  const controls = paginatorLayout(widget, widthProfile).controls;
+  const parts = paginatorParts(renderNode);
+  const controls = paginatorLayout(renderNode, widthProfile).controls;
   return {
     id,
     role: controls.length === 0 ? 'status' : 'navigation',
@@ -68,16 +68,16 @@ export function paginatorAccessibleBase(
 }
 
 export function paginatorHitTargets<TMessage>(
-  widget: PaginatorNode<TMessage>,
+  renderNode: PaginatorNode<TMessage>,
   bounds: Rect,
   widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
-  const onAction = widget.props.toActionMessage;
+  const onAction = renderNode.props.toActionMessage;
   if (onAction === undefined || bounds.height <= 0) return [];
-  return paginatorLayout(widget, widthProfile).controls.flatMap((control): readonly HitTarget<TMessage>[] => control.disabled
+  return paginatorLayout(renderNode, widthProfile).controls.flatMap((control): readonly HitTarget<TMessage>[] => control.disabled
     ? []
     : [{
-        id: paginatorControlTargetId(widget, control.action.kind),
+        id: paginatorControlTargetId(renderNode, control.action.kind),
         bounds: {
           row: bounds.row,
           column: bounds.column + control.offset,
@@ -89,18 +89,18 @@ export function paginatorHitTargets<TMessage>(
       }]);
 }
 
-function paginatorLayout(widget: PaginatorNode, widthProfile: TextWidthProfile): PaginatorLayout {
-  const parts = paginatorParts(widget);
+function paginatorLayout(renderNode: PaginatorNode, widthProfile: TextWidthProfile): PaginatorLayout {
+  const parts = paginatorParts(renderNode);
   const spans: RenderSpan[] = [];
   const controls: PaginatorControl[] = [];
   let offset = 0;
   const append = (
     text: string,
     label: string,
-    style = resolveRenderNodeStyle(widget, { part: 'label' }),
+    style = resolveRenderNodeStyle(renderNode, { part: 'label' }),
     state?: import('../../element/metadata.ts').ElementVisualState
   ): void => {
-    spans.push(dataSpan(text, style, dataSource(widget, label, state === undefined ? {} : { state })));
+    spans.push(dataSpan(text, style, dataSource(renderNode, label, state === undefined ? {} : { state })));
     offset += terminalTextWidth(text, { widthProfile });
   };
   const appendControl = (
@@ -111,8 +111,8 @@ function paginatorLayout(widget: PaginatorNode, widthProfile: TextWidthProfile):
   ): void => {
     const width = terminalTextWidth(text, { widthProfile });
     controls.push({ label, action, offset, width, disabled });
-    const state = interactionVisualState(widget, paginatorControlTargetId(widget, action.kind), { disabled });
-    append(text, `control.${action.kind}`, resolveRenderNodeStyle(widget, {
+    const state = interactionVisualState(renderNode, paginatorControlTargetId(renderNode, action.kind), { disabled });
+    append(text, `control.${action.kind}`, resolveRenderNodeStyle(renderNode, {
       part: 'control',
       ...(state === undefined ? {} : { state })
     }), state);
@@ -122,7 +122,7 @@ function paginatorLayout(widget: PaginatorNode, widthProfile: TextWidthProfile):
     append(parts.label, 'label');
     append(' ', 'label.gap');
   }
-  if (widget.props.toActionMessage !== undefined) {
+  if (renderNode.props.toActionMessage !== undefined) {
     const atFirst = parts.page <= 1;
     appendControl('[«]', 'First page', { kind: 'first' }, atFirst);
     append(' ', 'control.gap.first');
@@ -130,10 +130,10 @@ function paginatorLayout(widget: PaginatorNode, widthProfile: TextWidthProfile):
     append(' ', 'control.gap.previous');
   }
   append('Page ', 'page.label');
-  append(String(parts.page), 'page.value', resolveRenderNodeStyle(widget, { part: 'value' }));
-  append(' of ', 'page.separator', resolveRenderNodeStyle(widget, { part: 'separator' }));
-  append(String(parts.pageCount), 'page.count', resolveRenderNodeStyle(widget, { part: 'value' }));
-  if (widget.props.toActionMessage !== undefined) {
+  append(String(parts.page), 'page.value', resolveRenderNodeStyle(renderNode, { part: 'value' }));
+  append(' of ', 'page.separator', resolveRenderNodeStyle(renderNode, { part: 'separator' }));
+  append(String(parts.pageCount), 'page.count', resolveRenderNodeStyle(renderNode, { part: 'value' }));
+  if (renderNode.props.toActionMessage !== undefined) {
     const atLast = parts.page >= parts.pageCount;
     append(' ', 'control.gap.next');
     appendControl('[›]', 'Next page', { kind: 'next' }, atLast);
@@ -143,15 +143,15 @@ function paginatorLayout(widget: PaginatorNode, widthProfile: TextWidthProfile):
   return { spans, controls };
 }
 
-function paginatorControlTargetId(widget: PaginatorNode, kind: PaginatorAction['kind']): string {
-  return renderNodeTargetId(widget, kind);
+function paginatorControlTargetId(renderNode: PaginatorNode, kind: PaginatorAction['kind']): string {
+  return renderNodeTargetId(renderNode, kind);
 }
 
-function paginatorParts(widget: PaginatorNode): PaginatorParts {
-  const pageCount = normalizedCount(numberProp(widget, 'pageCount') ?? 1);
+function paginatorParts(renderNode: PaginatorNode): PaginatorParts {
+  const pageCount = normalizedCount(numberProp(renderNode, 'pageCount') ?? 1);
   return {
-    label: stringify(widget.props.label),
-    page: Math.max(1, Math.min(pageCount, Math.floor(numberProp(widget, 'page') ?? 1))),
+    label: stringify(renderNode.props.label),
+    page: Math.max(1, Math.min(pageCount, Math.floor(numberProp(renderNode, 'page') ?? 1))),
     pageCount
   };
 }

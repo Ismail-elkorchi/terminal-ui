@@ -46,23 +46,23 @@ interface TabHeaderLayout {
   readonly visibleTabs: readonly VisibleTabHeader[];
 }
 
-export function tabsChildBounds(widget: TabsNode, bounds: Rect): readonly Rect[] {
-  const tabs = tabItems(widget);
-  const selected = selectedTabIndex(widget, tabs);
+export function tabsChildBounds(renderNode: TabsNode, bounds: Rect): readonly Rect[] {
+  const tabs = tabItems(renderNode);
+  const selected = selectedTabIndex(renderNode, tabs);
   const panelBounds = clampRect({
     row: bounds.row + 1,
     column: bounds.column,
     width: bounds.width,
     height: bounds.height - 1
   });
-  return (widget.children ?? []).map((_child, index) => index === selected ? panelBounds : emptyRect(bounds));
+  return (renderNode.children ?? []).map((_child, index) => index === selected ? panelBounds : emptyRect(bounds));
 }
 
-export function tabsHeaderText(widget: TabsNode, theme: TerminalTheme, widthProfile: TextWidthProfile): string {
-  const tabs = tabItems(widget);
-  const selected = selectedTabIndex(widget, tabs);
+export function tabsHeaderText(renderNode: TabsNode, theme: TerminalTheme, widthProfile: TextWidthProfile): string {
+  const tabs = tabItems(renderNode);
+  const selected = selectedTabIndex(renderNode, tabs);
   return tabs.map((tab, index) => tabHeaderSpans(
-    widget,
+    renderNode,
     tab,
     index === selected,
     false,
@@ -72,14 +72,14 @@ export function tabsHeaderText(widget: TabsNode, theme: TerminalTheme, widthProf
 }
 
 export function tabsHeaderBlock(
-  widget: TabsNode,
+  renderNode: TabsNode,
   bounds: Rect,
   focused: boolean,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): RenderBlock {
   if (bounds.height <= 0 || bounds.width <= 0) return { lines: [] };
-  const layout = tabHeaderLayout(widget, bounds.width, focused, theme, widthProfile);
+  const layout = tabHeaderLayout(renderNode, bounds.width, focused, theme, widthProfile);
   return {
     lines: [{
       spans: layout.spans
@@ -87,23 +87,23 @@ export function tabsHeaderBlock(
   };
 }
 
-export function tabsAccessibleChildren(widget: TabsNode): readonly AccessibleNode[] {
-  const tabs = tabItems(widget);
-  const selected = selectedTabIndex(widget, tabs);
+export function tabsAccessibleChildren(renderNode: TabsNode): readonly AccessibleNode[] {
+  const tabs = tabItems(renderNode);
+  const selected = selectedTabIndex(renderNode, tabs);
   return tabs.map((tab, index) => ({
-    id: `${widget.id ?? 'tabs'}:${tab.id}`,
+    id: `${renderNode.id ?? 'tabs'}:${tab.id}`,
     role: 'tab',
     label: tab.label,
     ...(tab.badge === undefined ? {} : { value: tab.badge }),
     ...(tab.description === undefined ? {} : { description: tab.description }),
     selected: index === selected,
     disabled: tab.disabled === true,
-    ...(widget.children?.[index]?.id === undefined ? {} : { controls: widget.children[index].id }),
+    ...(renderNode.children?.[index]?.id === undefined ? {} : { controls: renderNode.children[index].id }),
     ...(tab.closable !== true || tab.disabled === true
       ? {}
       : {
           children: [{
-            id: tabCloseTargetId(widget, tab.id),
+            id: tabCloseTargetId(renderNode, tab.id),
             role: 'button' as const,
             label: `Close ${tab.label}`
           }]
@@ -112,15 +112,15 @@ export function tabsAccessibleChildren(widget: TabsNode): readonly AccessibleNod
 }
 
 export function tabsHitTargets<TMessage>(
-  widget: TabsNode<TMessage>,
+  renderNode: TabsNode<TMessage>,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
   if (bounds.height <= 0 || bounds.width <= 0) return [];
-  const toMessage = tabActionMessageFactory(widget);
+  const toMessage = tabActionMessageFactory(renderNode);
   if (toMessage === undefined) return [];
-  const layout = tabHeaderLayout(widget, bounds.width, false, theme, widthProfile);
+  const layout = tabHeaderLayout(renderNode, bounds.width, false, theme, widthProfile);
   const targets: HitTarget<TMessage>[] = [];
   for (const metrics of layout.visibleTabs) {
     const tab = metrics.tab;
@@ -129,7 +129,7 @@ export function tabsHitTargets<TMessage>(
       const width = Math.min(metrics.bodyWidth, Math.max(0, bounds.column + bounds.width - column));
       if (width <= 0) continue;
       targets.push({
-        id: tabTargetId(widget, tab.id),
+        id: tabTargetId(renderNode, tab.id),
         bounds: {
           row: bounds.row,
           column,
@@ -145,7 +145,7 @@ export function tabsHitTargets<TMessage>(
       const width = Math.min(metrics.width - metrics.closeOffset, Math.max(0, bounds.column + bounds.width - closeColumn));
       if (width <= 0) continue;
       targets.push({
-        id: tabCloseTargetId(widget, tab.id),
+        id: tabCloseTargetId(renderNode, tab.id),
         bounds: {
           row: bounds.row,
           column: closeColumn,
@@ -160,9 +160,9 @@ export function tabsHitTargets<TMessage>(
   return targets;
 }
 
-function tabItems(widget: TabsNode): readonly TabItemView[] {
-  if (!Array.isArray(widget.props.tabs)) return [];
-  return widget.props.tabs.filter((tab): tab is {
+function tabItems(renderNode: TabsNode): readonly TabItemView[] {
+  if (!Array.isArray(renderNode.props.tabs)) return [];
+  return renderNode.props.tabs.filter((tab): tab is {
     readonly id: string;
     readonly label: string;
     readonly leading?: InlineContent;
@@ -194,24 +194,24 @@ function tabItems(widget: TabsNode): readonly TabItemView[] {
   }));
 }
 
-function tabActionMessageFactory<TMessage>(widget: TabsNode<TMessage>): ((action: TabAction) => TMessage) | undefined {
-  return widget.props.toActionMessage;
+function tabActionMessageFactory<TMessage>(renderNode: TabsNode<TMessage>): ((action: TabAction) => TMessage) | undefined {
+  return renderNode.props.toActionMessage;
 }
 
 function tabHeaderLayout(
-  widget: TabsNode,
+  renderNode: TabsNode,
   width: number,
   focused: boolean,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): TabHeaderLayout {
   if (width <= 0) return { spans: [], visibleTabs: [] };
-  const tabs = tabItems(widget);
+  const tabs = tabItems(renderNode);
   if (tabs.length === 0) return { spans: [], visibleTabs: [] };
-  const selected = selectedTabIndex(widget, tabs);
+  const selected = selectedTabIndex(renderNode, tabs);
   const entries = tabs.map((tab, index): TabHeaderMetrics => ({
     tab,
-    ...tabHeaderSpans(widget, tab, index === selected, focused && index === selected, theme, widthProfile)
+    ...tabHeaderSpans(renderNode, tab, index === selected, focused && index === selected, theme, widthProfile)
   }));
   let start = selected;
   let end = selected;
@@ -245,13 +245,13 @@ function tabHeaderLayout(
   const spans: RenderSpan[] = [];
   let offset = 0;
   if (start > 0) {
-    spans.push(tabOverflowSpan(widget, '… ', 'overflow.leading'));
+    spans.push(tabOverflowSpan(renderNode, '… ', 'overflow.leading'));
     offset += 2;
   }
   for (let index = start; index <= end; index += 1) {
     const entry = tabHeaderEntry(entries, index);
     if (index > start) {
-      spans.push(tabSpan(widget, ' ', renderNodeStyle(widget, 'label', 'disabled'), entry.tab.id, 'separator', 'separator'));
+      spans.push(tabSpan(renderNode, ' ', renderNodeStyle(renderNode, 'label', 'disabled'), entry.tab.id, 'separator', 'separator'));
       offset += 1;
     }
     visibleTabs.push({ ...entry, offset });
@@ -259,7 +259,7 @@ function tabHeaderLayout(
     offset += entry.width;
   }
   if (end < entries.length - 1) {
-    spans.push(tabOverflowSpan(widget, ' …', 'overflow.trailing'));
+    spans.push(tabOverflowSpan(renderNode, ' …', 'overflow.trailing'));
   }
   return {
     spans: clipRenderSpans(spans, width, { ellipsis: '…', widthProfile }),
@@ -286,48 +286,48 @@ function overflowMarkerWidth(visible: boolean): number {
   return visible ? 2 : 0;
 }
 
-function selectedTabIndex(widget: TabsNode, tabs: readonly { readonly id: string }[]): number {
-  const selected = stringify(widget.props.selected);
+function selectedTabIndex(renderNode: TabsNode, tabs: readonly { readonly id: string }[]): number {
+  const selected = stringify(renderNode.props.selected);
   const index = selected.length === 0 ? 0 : tabs.findIndex((tab) => tab.id === selected);
   return Math.max(0, index === -1 ? 0 : index);
 }
 
-function tabHeaderStyle(widget: TabsNode, state: ElementVisualState | undefined, selected: boolean): TerminalStyle | undefined {
+function tabHeaderStyle(renderNode: TabsNode, state: ElementVisualState | undefined, selected: boolean): TerminalStyle | undefined {
   if (selected && state === 'selected') {
     return mergeStyles(
       themeStyle('tab.active.foreground', { underline: true }),
-      widget.styles?.parts?.['label'],
-      widget.styles?.states?.selected
+      renderNode.styles?.parts?.['label'],
+      renderNode.styles?.states?.selected
     );
   }
-  return resolveRenderNodeStyle(widget, {
+  return resolveRenderNodeStyle(renderNode, {
     part: 'label',
     base: selected ? themeStyle('tab.active.foreground', { underline: true }) : themeStyle('tab.inactive.foreground'),
     ...(state === undefined ? {} : { state })
   });
 }
 
-function tabBadgeStyle(widget: TabsNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
+function tabBadgeStyle(renderNode: TabsNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
   return mergeStyles(
     {
       fg: { kind: 'theme', token: 'badge.foreground' },
       bg: { kind: 'theme', token: 'badge.background' },
       bold: true
     },
-    widget.styles?.parts?.['badge'],
-    state === undefined || state === 'default' ? undefined : widget.styles?.states?.[state]
+    renderNode.styles?.parts?.['badge'],
+    state === undefined || state === 'default' ? undefined : renderNode.styles?.states?.[state]
   );
 }
 
-function tabCloseStyle(widget: TabsNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
+function tabCloseStyle(renderNode: TabsNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
   return mergeStyles(
-    renderNodeStyle(widget, 'close'),
-    state === undefined ? undefined : renderNodeStyle(widget, 'close', state)
+    renderNodeStyle(renderNode, 'close'),
+    state === undefined ? undefined : renderNodeStyle(renderNode, 'close', state)
   );
 }
 
 function tabHeaderSpans(
-  widget: TabsNode,
+  renderNode: TabsNode,
   tab: {
     readonly id: string;
     readonly label: string;
@@ -342,44 +342,44 @@ function tabHeaderSpans(
   widthProfile: TextWidthProfile
 ): { readonly spans: readonly RenderSpan[]; readonly width: number; readonly bodyWidth: number; readonly closeOffset?: number } {
   const disabled = tab.disabled === true;
-  const state = interactionVisualState(widget, tabTargetId(widget, tab.id), {
+  const state = interactionVisualState(renderNode, tabTargetId(renderNode, tab.id), {
     disabled,
     selected,
     focused: focused && selected
   });
-  const closeState = interactionVisualState(widget, tabCloseTargetId(widget, tab.id), {
+  const closeState = interactionVisualState(renderNode, tabCloseTargetId(renderNode, tab.id), {
     disabled,
     selected,
     focused: focused && selected
   });
-  const style = tabHeaderStyle(widget, state, selected);
-  const markerStyle = selected ? tabIndicatorStyle(widget, state) : style;
-  const closeStyle = tabCloseStyle(widget, closeState);
+  const style = tabHeaderStyle(renderNode, state, selected);
+  const markerStyle = selected ? tabIndicatorStyle(renderNode, state) : style;
+  const closeStyle = tabCloseStyle(renderNode, closeState);
   const badge = tab.badge;
   const baseSpans = [
-    tabSpan(widget, selected ? '▏' : ' ', markerStyle, tab.id, 'indicator', 'decoration', 'indicator', state),
-    ...tabLeadingSpans(widget, tab, state, style, theme),
-    ...(tab.leading === undefined ? [] : [tabSpan(widget, ' ', style, tab.id, 'leading.separator', 'separator', 'leading', state)]),
-    tabSpan(widget, tab.label, style, tab.id, 'label', 'text', 'label', state),
+    tabSpan(renderNode, selected ? '▏' : ' ', markerStyle, tab.id, 'indicator', 'decoration', 'indicator', state),
+    ...tabLeadingSpans(renderNode, tab, state, style, theme),
+    ...(tab.leading === undefined ? [] : [tabSpan(renderNode, ' ', style, tab.id, 'leading.separator', 'separator', 'leading', state)]),
+    tabSpan(renderNode, tab.label, style, tab.id, 'label', 'text', 'label', state),
     ...(badge === undefined
       ? []
       : [
-          tabSpan(widget, ' ', style, tab.id, 'badge.separator', 'separator', 'separator', state),
-          tabSpan(widget, badge, tabBadgeStyle(widget, state), tab.id, 'badge', 'text', 'badge', state)
+          tabSpan(renderNode, ' ', style, tab.id, 'badge.separator', 'separator', 'separator', state),
+          tabSpan(renderNode, badge, tabBadgeStyle(renderNode, state), tab.id, 'badge', 'text', 'badge', state)
         ]),
     ...(tab.closable !== true
       ? []
       : [
-          tabSpan(widget, ' ', closeStyle, tab.id, 'close.separator', 'separator', 'separator', closeState)
+          tabSpan(renderNode, ' ', closeStyle, tab.id, 'close.separator', 'separator', 'separator', closeState)
         ])
   ];
   const closeOffset = tab.closable !== true ? undefined : measureRenderSpans(baseSpans, { widthProfile });
   const closeSpans = tab.closable !== true
     ? []
     : [
-        tabSpan(widget, '×', closeStyle, tab.id, 'close', 'text', 'close', closeState)
+        tabSpan(renderNode, '×', closeStyle, tab.id, 'close', 'text', 'close', closeState)
       ];
-  const endSpans = [tabSpan(widget, ' ', style, tab.id, 'padding.trailing', 'separator', 'separator', state)];
+  const endSpans = [tabSpan(renderNode, ' ', style, tab.id, 'padding.trailing', 'separator', 'separator', state)];
   const spans = [...baseSpans, ...closeSpans, ...endSpans];
   const width = measureRenderSpans(spans, { widthProfile });
   return {
@@ -391,7 +391,7 @@ function tabHeaderSpans(
 }
 
 function tabLeadingSpans(
-  widget: TabsNode,
+  renderNode: TabsNode,
   tab: { readonly id: string; readonly leading?: InlineContent },
   state: ElementVisualState | undefined,
   style: TerminalStyle | undefined,
@@ -400,13 +400,13 @@ function tabLeadingSpans(
   if (tab.leading === undefined) return [];
   const leadingStyle = mergeStyles(
     style,
-    widget.styles?.parts?.['leading'],
-    state === undefined || state === 'default' ? undefined : widget.styles?.states?.[state]
+    renderNode.styles?.parts?.['leading'],
+    state === undefined || state === 'default' ? undefined : renderNode.styles?.states?.[state]
   );
   return renderInlineContent(tab.leading, {
     theme,
     ...(leadingStyle === undefined ? {} : { baseStyle: leadingStyle }),
-    source: (_segment, index) => renderNodeFrameSource(widget, {
+    source: (_segment, index) => renderNodeFrameSource(renderNode, {
       family: 'layout',
       role: 'text',
       part: `leading.${String(index)}`,
@@ -418,16 +418,16 @@ function tabLeadingSpans(
   });
 }
 
-function tabIndicatorStyle(widget: TabsNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
+function tabIndicatorStyle(renderNode: TabsNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
   return mergeStyles(
     themeStyle('tab.indicator', { bold: true }),
-    widget.styles?.parts?.['indicator'],
-    state === undefined || state === 'default' ? undefined : widget.styles?.states?.[state]
+    renderNode.styles?.parts?.['indicator'],
+    state === undefined || state === 'default' ? undefined : renderNode.styles?.states?.[state]
   );
 }
 
 function tabSpan(
-  widget: TabsNode,
+  renderNode: TabsNode,
   text: string,
   style: TerminalStyle | undefined,
   itemId: string,
@@ -439,7 +439,7 @@ function tabSpan(
   return {
     text,
     ...(style === undefined ? {} : { style }),
-    source: renderNodeFrameSource(widget, {
+    source: renderNodeFrameSource(renderNode, {
       family: 'layout',
       role,
       part: label,
@@ -451,20 +451,20 @@ function tabSpan(
   };
 }
 
-function tabTargetId(widget: TabsNode, tabId: string): string {
-  return renderNodeTargetId(widget, 'tab', tabId);
+function tabTargetId(renderNode: TabsNode, tabId: string): string {
+  return renderNodeTargetId(renderNode, 'tab', tabId);
 }
 
-function tabCloseTargetId(widget: TabsNode, tabId: string): string {
-  return renderNodeTargetId(widget, 'tab', tabId, 'close');
+function tabCloseTargetId(renderNode: TabsNode, tabId: string): string {
+  return renderNodeTargetId(renderNode, 'tab', tabId, 'close');
 }
 
-function tabOverflowSpan(widget: TabsNode, text: string, part: 'overflow.leading' | 'overflow.trailing'): RenderSpan {
-  const style = renderNodeStyle(widget, 'overflow');
+function tabOverflowSpan(renderNode: TabsNode, text: string, part: 'overflow.leading' | 'overflow.trailing'): RenderSpan {
+  const style = renderNodeStyle(renderNode, 'overflow');
   return {
     text,
     ...(style === undefined ? {} : { style }),
-    source: renderNodeFrameSource(widget, {
+    source: renderNodeFrameSource(renderNode, {
       family: 'layout',
       role: 'decoration',
       part,

@@ -3,8 +3,8 @@ import {
   textDocumentLength,
   textDocumentLineCount
 } from '../../../text/index.ts';
-import { statusIndicatorText } from '../text-widgets.ts';
-import { richTextBlock } from '../text-widgets.ts';
+import { statusIndicatorText } from '../text-rendering.ts';
+import { richTextBlock } from '../text-rendering.ts';
 import { textAreaInputContentBounds } from '../input-visual.ts';
 import { measureBlock, measureSize, measureText } from '../measurement.ts';
 import { stringify } from '../render-node-props.ts';

@@ -23,7 +23,7 @@ type ActivityFeedNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'activity
 type DocumentNode = StructuredBlockNode | ActivityFeedNode;
 
 interface StructuredBlockRenderOptions {
-  readonly widget: DocumentNode;
+  readonly renderNode: DocumentNode;
   readonly kind: 'structuredBlock' | 'activityFeed';
   readonly selected: boolean;
   readonly widthProfile: TextWidthProfile;
@@ -52,24 +52,24 @@ const activityFeedProjectionCache = new WeakMap<object, {
 }>();
 
 export function structuredBlockText(
-  widget: StructuredBlockNode,
+  renderNode: StructuredBlockNode,
   node: LayoutNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): string {
-  return renderBlockText(structuredBlockBlock(widget, node, theme, widthProfile));
+  return renderBlockText(structuredBlockBlock(renderNode, node, theme, widthProfile));
 }
 
 export function structuredBlockBlock(
-  widget: StructuredBlockNode,
+  renderNode: StructuredBlockNode,
   node: LayoutNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): RenderBlock {
-  const block = blockFromRenderNode(widget);
+  const block = blockFromRenderNode(renderNode);
   return {
     lines: structuredBlockLines(block, theme, node.bounds.width, {
-      widget,
+      renderNode,
       kind: 'structuredBlock',
       selected: false,
       widthProfile,
@@ -78,8 +78,8 @@ export function structuredBlockBlock(
   };
 }
 
-export function structuredBlockAccessibleBase(widget: StructuredBlockNode, id: string): AccessibleNode {
-  const block = blockFromRenderNode(widget);
+export function structuredBlockAccessibleBase(renderNode: StructuredBlockNode, id: string): AccessibleNode {
+  const block = blockFromRenderNode(renderNode);
   const children = structuredBlockAccessibleChildren(block, id);
   return {
     id,
@@ -92,34 +92,34 @@ export function structuredBlockAccessibleBase(widget: StructuredBlockNode, id: s
 }
 
 export function activityFeedText(
-  widget: ActivityFeedNode,
+  renderNode: ActivityFeedNode,
   node: LayoutNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): string {
-  return renderBlockText(activityFeedBlock(widget, node, theme, widthProfile));
+  return renderBlockText(activityFeedBlock(renderNode, node, theme, widthProfile));
 }
 
 export function activityFeedBlock(
-  widget: ActivityFeedNode,
+  renderNode: ActivityFeedNode,
   node: LayoutNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): RenderBlock {
   return {
-    lines: activityFeedRows(widget, node, theme, widthProfile)
+    lines: activityFeedRows(renderNode, node, theme, widthProfile)
   };
 }
 
 export function activityFeedAccessibleBase(
-  widget: ActivityFeedNode,
+  renderNode: ActivityFeedNode,
   node: LayoutNode,
   id: string,
   focused: boolean,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): AccessibleNode {
-  const { blocks, window } = activityFeedProjection(widget, node.bounds, theme, widthProfile);
+  const { blocks, window } = activityFeedProjection(renderNode, node.bounds, theme, widthProfile);
   return {
     id,
     role: 'listbox',
@@ -132,14 +132,14 @@ export function activityFeedAccessibleBase(
 }
 
 export function activityFeedAccessibleChildren(
-  widget: ActivityFeedNode,
+  renderNode: ActivityFeedNode,
   node: LayoutNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): readonly AccessibleNode[] {
-  const projection = activityFeedProjection(widget, node.bounds, theme, widthProfile);
+  const projection = activityFeedProjection(renderNode, node.bounds, theme, widthProfile);
   return projection.window.entries.map(({ item: { value: { block, index } } }) => ({
-    id: `${widget.id ?? 'activityFeed'}:block:${block.id}`,
+    id: `${renderNode.id ?? 'activityFeed'}:block:${block.id}`,
     role: 'option',
     label: block.title,
     value: block.summary ?? block.title,
@@ -149,16 +149,16 @@ export function activityFeedAccessibleChildren(
 }
 
 export function activityFeedHitTargets<TMessage>(
-  widget: ActivityFeedNode<TMessage>,
+  renderNode: ActivityFeedNode<TMessage>,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
-  const toActionMessage = activityFeedActionMessageFactory(widget);
+  const toActionMessage = activityFeedActionMessageFactory(renderNode);
   if (toActionMessage === undefined) return [];
-  const projection = activityFeedProjection(widget, bounds, theme, widthProfile);
+  const projection = activityFeedProjection(renderNode, bounds, theme, widthProfile);
   return projection.window.entries.map(({ item: { value: { block } }, rowOffset, visibleRows }) => ({
-      id: `${widget.id ?? 'activityFeed'}:block:${block.id}`,
+      id: `${renderNode.id ?? 'activityFeed'}:block:${block.id}`,
       bounds: {
         row: bounds.row + rowOffset,
         column: bounds.column,
@@ -172,24 +172,24 @@ export function activityFeedHitTargets<TMessage>(
 }
 
 function activityFeedRows(
-  widget: ActivityFeedNode,
+  renderNode: ActivityFeedNode,
   node: LayoutNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): readonly RenderLine[] {
-  const projection = activityFeedProjection(widget, node.bounds, theme, widthProfile);
+  const projection = activityFeedProjection(renderNode, node.bounds, theme, widthProfile);
   return projection.window.entries.flatMap(({ item: { value }, clippedRowsBefore, visibleRows }) =>
     value.lines.slice(clippedRowsBefore, clippedRowsBefore + visibleRows)
   );
 }
 
 function activityFeedProjection(
-  widget: ActivityFeedNode,
+  renderNode: ActivityFeedNode,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): ActivityFeedProjection {
-  const cached = activityFeedProjectionCache.get(widget);
+  const cached = activityFeedProjectionCache.get(renderNode);
   const profileKey = textWidthProfileKey(widthProfile);
   if (
     cached?.width === bounds.width
@@ -197,11 +197,11 @@ function activityFeedProjection(
     && cached.theme === theme
     && cached.widthProfileKey === profileKey
   ) return cached.projection;
-  const blocks = activityFeedBlocks(widget);
-  const selectedIndex = selectedBlockIndex(widget, blocks.length);
+  const blocks = activityFeedBlocks(renderNode);
+  const selectedIndex = selectedBlockIndex(renderNode, blocks.length);
   const measured = blocks.map((block, index): ActivityFeedMeasuredBlock => {
     const selected = selectedIndex === index;
-    const content = activityFeedItemLines(widget, block, index, selected, bounds.width, theme, widthProfile);
+    const content = activityFeedItemLines(renderNode, block, index, selected, bounds.width, theme, widthProfile);
     const marker = selected ? `${theme.tokens.symbols.pointer} ` : '  ';
     return {
       block,
@@ -209,12 +209,12 @@ function activityFeedProjection(
       lines: content.map((line, lineIndex): RenderLine => ({
         spans: [
           documentSpan(
-            widget,
+            renderNode,
             'activityFeed',
             'marker',
             selected ? 'selection.selected' : 'selection.unselected',
             lineIndex === 0 ? marker : '  ',
-            documentMarkerStyle(widget, selected),
+            documentMarkerStyle(renderNode, selected),
             sourceOptionsForBlock({ itemId: block.id, itemIndex: index, selected })
           ),
           ...line.spans
@@ -229,7 +229,7 @@ function activityFeedProjection(
     ...(selectedId === undefined ? {} : { selectedId })
   });
   const projection = { blocks, selectedIndex, window };
-  activityFeedProjectionCache.set(widget, {
+  activityFeedProjectionCache.set(renderNode, {
     width: bounds.width,
     height: bounds.height,
     theme,
@@ -240,7 +240,7 @@ function activityFeedProjection(
 }
 
 function activityFeedItemLines(
-  widget: ActivityFeedNode,
+  renderNode: ActivityFeedNode,
   block: StructuredBlock,
   index: number,
   selected: boolean,
@@ -251,7 +251,7 @@ function activityFeedItemLines(
   const marker = selected ? `${theme.tokens.symbols.pointer} ` : '  ';
   const markerWidth = measureTextCells(marker, { widthProfile }).cells;
   return structuredBlockLines(block, theme, Math.max(0, width - markerWidth), {
-    widget,
+    renderNode,
     kind: 'activityFeed',
     selected,
     widthProfile,
@@ -270,18 +270,18 @@ function structuredBlockLines(
   const fieldLabelWidth = maxFieldLabelWidth(block.fields ?? [], options.widthProfile);
   const lines: RenderLine[] = [headerLine(block, theme, collapsed, options, width)];
   if (block.summary !== undefined && block.summary.length > 0) {
-    lines.push(compactTextLine(block.summary, width, documentSummaryStyle(options.widget, options.selected), options, 'summary', 'summary'));
+    lines.push(compactTextLine(block.summary, width, documentSummaryStyle(options.renderNode, options.selected), options, 'summary', 'summary'));
   }
   for (const field of block.fields ?? []) {
     lines.push(fieldLine(field, fieldLabelWidth, width, options));
   }
   if (!collapsed && block.body !== undefined && block.body.length > 0) {
-    lines.push(...wrappedTextLines(block.body, width, documentBodyStyle(options.widget, block.style, options.selected), options, 'body', 'body'));
+    lines.push(...wrappedTextLines(block.body, width, documentBodyStyle(options.renderNode, block.style, options.selected), options, 'body', 'body'));
   }
   if (!collapsed && block.details !== undefined && block.details.length > 0) {
     const detailLines = block.details.split('\n');
     for (let index = 0; index < detailLines.length; index += 1) {
-      lines.push(...detailTextLines(detailLines[index] ?? '', index === 0, width, documentDetailStyle(options.widget, block.style, options.selected), options));
+      lines.push(...detailTextLines(detailLines[index] ?? '', index === 0, width, documentDetailStyle(options.renderNode, block.style, options.selected), options));
     }
   }
   return lines;
@@ -325,37 +325,37 @@ function structuredBlockAccessibleChildren(block: StructuredBlock, id: string): 
   return children;
 }
 
-function blockFromRenderNode(widget: StructuredBlockNode): StructuredBlock {
-  const title = stringify(widget.props.title);
+function blockFromRenderNode(renderNode: StructuredBlockNode): StructuredBlock {
+  const title = stringify(renderNode.props.title);
   return {
-    id: widget.id ?? 'structured-block',
-    title: title.length === 0 ? widget.id ?? 'Block' : title,
-    ...optionalString('summary', widget.props.summary),
-    ...optionalStyle(widget.props.style),
-    ...optionalStatus(widget.props.status),
-    ...optionalFields(widget.props.fields),
-    ...optionalString('body', widget.props.body),
-    ...optionalString('details', widget.props.details),
-    ...(widget.props.collapsed === true ? { collapsed: true } : {})
+    id: renderNode.id ?? 'structured-block',
+    title: title.length === 0 ? renderNode.id ?? 'Block' : title,
+    ...optionalString('summary', renderNode.props.summary),
+    ...optionalStyle(renderNode.props.style),
+    ...optionalStatus(renderNode.props.status),
+    ...optionalFields(renderNode.props.fields),
+    ...optionalString('body', renderNode.props.body),
+    ...optionalString('details', renderNode.props.details),
+    ...(renderNode.props.collapsed === true ? { collapsed: true } : {})
   };
 }
 
-function activityFeedBlocks(widget: ActivityFeedNode): readonly StructuredBlock[] {
-  return Array.isArray(widget.props.blocks)
-    ? widget.props.blocks.filter(isStructuredBlock).map(sanitizeBlock)
+function activityFeedBlocks(renderNode: ActivityFeedNode): readonly StructuredBlock[] {
+  return Array.isArray(renderNode.props.blocks)
+    ? renderNode.props.blocks.filter(isStructuredBlock).map(sanitizeBlock)
     : [];
 }
 
 function activityFeedActionMessageFactory<TMessage>(
-  widget: ActivityFeedNode<TMessage>
+  renderNode: ActivityFeedNode<TMessage>
 ): ((action: import('../../ui-model/activity-feed.ts').ActivityFeedAction) => TMessage) | undefined {
-  return widget.props.toActionMessage;
+  return renderNode.props.toActionMessage;
 }
 
-function selectedBlockIndex(widget: ActivityFeedNode, length: number): number | undefined {
-  const selectedId = stringify(widget.props.selectedId);
+function selectedBlockIndex(renderNode: ActivityFeedNode, length: number): number | undefined {
+  const selectedId = stringify(renderNode.props.selectedId);
   if (selectedId.length === 0 || length <= 0) return undefined;
-  const selected = activityFeedBlocks(widget).findIndex((block) => block.id === selectedId);
+  const selected = activityFeedBlocks(renderNode).findIndex((block) => block.id === selectedId);
   return selected < 0 ? undefined : selected;
 }
 
@@ -451,26 +451,26 @@ function headerLine(
 ): RenderLine {
   const spans: RenderSpan[] = [
     documentSpan(
-      options.widget,
+      options.renderNode,
       options.kind,
       'marker',
       collapsed ? 'toggle.collapsed' : 'toggle.expanded',
       collapsed ? theme.tokens.symbols.collapsed : theme.tokens.symbols.expanded,
-      documentMarkerStyle(options.widget, options.selected),
+      documentMarkerStyle(options.renderNode, options.selected),
       sourceOptionsForBlock(options)
     )
   ];
   if (block.status !== undefined) {
     spans.push(
-      documentSpan(options.widget, options.kind, 'separator', 'status.separator', ' ', documentMarkerStyle(options.widget, options.selected), sourceOptionsForBlock(options)),
-      documentSpan(options.widget, options.kind, 'chrome', 'status.open', '[', documentStatusStyle(block.status), sourceOptionsForBlock(options)),
-      documentSpan(options.widget, options.kind, 'status', `status.${sourceToken(block.status)}`, block.status, documentStatusStyle(block.status), sourceOptionsForBlock(options)),
-      documentSpan(options.widget, options.kind, 'chrome', 'status.close', ']', documentStatusStyle(block.status), sourceOptionsForBlock(options))
+      documentSpan(options.renderNode, options.kind, 'separator', 'status.separator', ' ', documentMarkerStyle(options.renderNode, options.selected), sourceOptionsForBlock(options)),
+      documentSpan(options.renderNode, options.kind, 'chrome', 'status.open', '[', documentStatusStyle(block.status), sourceOptionsForBlock(options)),
+      documentSpan(options.renderNode, options.kind, 'status', `status.${sourceToken(block.status)}`, block.status, documentStatusStyle(block.status), sourceOptionsForBlock(options)),
+      documentSpan(options.renderNode, options.kind, 'chrome', 'status.close', ']', documentStatusStyle(block.status), sourceOptionsForBlock(options))
     );
   }
   spans.push(
-    documentSpan(options.widget, options.kind, 'separator', 'title.separator', ' ', documentMarkerStyle(options.widget, options.selected), sourceOptionsForBlock(options)),
-    documentSpan(options.widget, options.kind, 'title', 'title', block.title, documentTitleStyle(options.widget, block.style, options.selected), sourceOptionsForBlock(options))
+    documentSpan(options.renderNode, options.kind, 'separator', 'title.separator', ' ', documentMarkerStyle(options.renderNode, options.selected), sourceOptionsForBlock(options)),
+    documentSpan(options.renderNode, options.kind, 'title', 'title', block.title, documentTitleStyle(options.renderNode, block.style, options.selected), sourceOptionsForBlock(options))
   );
   return clipRenderLine({ spans }, Math.max(0, width), {
     ellipsis: '…',
@@ -483,7 +483,7 @@ function fieldLine(field: FieldItem, labelWidth: number, width: number, options:
   return {
     spans: clipRenderSpans(
       documentFieldSpans(
-        options.widget,
+        options.renderNode,
         field,
         labelWidth,
         options.widthProfile,
@@ -507,7 +507,7 @@ function compactTextLine(
 ): RenderLine {
   return {
     spans: clipRenderSpans(
-      [documentSpan(options.widget, options.kind, visual, label, text, style, sourceOptionsForBlock(options))],
+      [documentSpan(options.renderNode, options.kind, visual, label, text, style, sourceOptionsForBlock(options))],
       Math.max(0, width),
       { ellipsis: '…', mode: 'middle', widthProfile: options.widthProfile }
     )
@@ -527,7 +527,7 @@ function wrappedTextLines(
       ? wrapTextCells(line, width, { widthProfile: options.widthProfile }).map((item) => item.text)
       : [line];
     return wrapped.map((textLine) => ({
-      spans: [documentSpan(options.widget, options.kind, visual, label, textLine, style, sourceOptionsForBlock(options))]
+      spans: [documentSpan(options.renderNode, options.kind, visual, label, textLine, style, sourceOptionsForBlock(options))]
     }));
   });
 }
@@ -543,9 +543,9 @@ function detailTextLines(
   const prefix = 'Details';
   const detailText = text.length === 0 ? '' : text;
   const spans: RenderSpan[] = [
-    documentSpan(options.widget, options.kind, 'detail', 'details.label', prefix, style, sourceOptionsForBlock(options)),
-    documentSpan(options.widget, options.kind, 'separator', 'details.separator', ': ', style, sourceOptionsForBlock(options)),
-    documentSpan(options.widget, options.kind, 'detail', 'details.body', detailText, style, sourceOptionsForBlock(options))
+    documentSpan(options.renderNode, options.kind, 'detail', 'details.label', prefix, style, sourceOptionsForBlock(options)),
+    documentSpan(options.renderNode, options.kind, 'separator', 'details.separator', ': ', style, sourceOptionsForBlock(options)),
+    documentSpan(options.renderNode, options.kind, 'detail', 'details.body', detailText, style, sourceOptionsForBlock(options))
   ];
   const plain = spans.map((item) => item.text).join('');
   if (width <= 0 || measureTextCells(plain, { widthProfile: options.widthProfile }).cells <= width) {

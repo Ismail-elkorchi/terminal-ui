@@ -40,21 +40,21 @@ interface ProgressParts {
 }
 
 export function progressBlock(
-  widget: ProgressBarNode,
+  renderNode: ProgressBarNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   maxCells?: number
 ): RenderBlock {
-  const model = progressModel(widget);
-  return block([line(fitProgressSpans(widget, model, theme, maxCells, widthProfile))]);
+  const model = progressModel(renderNode);
+  return block([line(fitProgressSpans(renderNode, model, theme, maxCells, widthProfile))]);
 }
 
-export function progressText(widget: ProgressBarNode, theme: TerminalTheme, widthProfile: TextWidthProfile): string {
-  return progressBlock(widget, theme, widthProfile).lines.map((currentLine) => currentLine.spans.map((currentSpan) => currentSpan.text).join('')).join('\n');
+export function progressText(renderNode: ProgressBarNode, theme: TerminalTheme, widthProfile: TextWidthProfile): string {
+  return progressBlock(renderNode, theme, widthProfile).lines.map((currentLine) => currentLine.spans.map((currentSpan) => currentSpan.text).join('')).join('\n');
 }
 
-export function progressAccessibleBase(widget: ProgressBarNode, id: string): AccessibleNode {
-  const model = progressModel(widget);
+export function progressAccessibleBase(renderNode: ProgressBarNode, id: string): AccessibleNode {
+  const model = progressModel(renderNode);
   if (model.indeterminate) {
     return {
       id,
@@ -76,7 +76,7 @@ export function progressAccessibleBase(widget: ProgressBarNode, id: string): Acc
 }
 
 function fitProgressSpans(
-  widget: ProgressBarNode,
+  renderNode: ProgressBarNode,
   model: ProgressModel,
   theme: TerminalTheme,
   maxCells: number | undefined,
@@ -92,34 +92,34 @@ function fitProgressSpans(
     { ...initialParts, label: false, timing: false, value: false, percentage: false }
   ];
   for (const parts of candidates) {
-    const spans = progressSpans(widget, model, theme, parts, maxCells, widthProfile);
+    const spans = progressSpans(renderNode, model, theme, parts, maxCells, widthProfile);
     if (maxCells === undefined || measureRenderSpans(spans, { widthProfile }) <= maxCells) return spans;
   }
-  return progressSpans(widget, model, theme, candidates.at(-1) ?? initialParts, maxCells, widthProfile);
+  return progressSpans(renderNode, model, theme, candidates.at(-1) ?? initialParts, maxCells, widthProfile);
 }
 
 function progressSpans(
-  widget: ProgressBarNode,
+  renderNode: ProgressBarNode,
   model: ProgressModel,
   theme: TerminalTheme,
   parts: ProgressParts,
   maxCells: number | undefined,
   widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
-  const barWidth = fittedBarWidth(widget, model, theme, parts, maxCells, widthProfile);
+  const barWidth = fittedBarWidth(renderNode, model, theme, parts, maxCells, widthProfile);
   return [
-    ...progressStatusSpans(widget, model, theme),
-    ...(parts.label && model.label.length > 0 && model.labelPosition === 'start' ? [feedbackTextSpan(widget, `${model.label} `, 'progressBar', 'label')] : []),
-    feedbackStructureSpan(widget, '[', 'progressBar', 'chrome.open', statusStyle('idle')),
-    ...progressBarSpans(widget, model, theme, barWidth, widthProfile),
-    feedbackStructureSpan(widget, ']', 'progressBar', 'chrome.close', statusStyle('idle')),
-    ...progressMetricSpans(widget, model, parts),
-    ...(parts.label && model.label.length > 0 && model.labelPosition === 'end' ? [feedbackTextSpan(widget, ` ${model.label}`, 'progressBar', 'label')] : [])
+    ...progressStatusSpans(renderNode, model, theme),
+    ...(parts.label && model.label.length > 0 && model.labelPosition === 'start' ? [feedbackTextSpan(renderNode, `${model.label} `, 'progressBar', 'label')] : []),
+    feedbackStructureSpan(renderNode, '[', 'progressBar', 'chrome.open', statusStyle('idle')),
+    ...progressBarSpans(renderNode, model, theme, barWidth, widthProfile),
+    feedbackStructureSpan(renderNode, ']', 'progressBar', 'chrome.close', statusStyle('idle')),
+    ...progressMetricSpans(renderNode, model, parts),
+    ...(parts.label && model.label.length > 0 && model.labelPosition === 'end' ? [feedbackTextSpan(renderNode, ` ${model.label}`, 'progressBar', 'label')] : [])
   ];
 }
 
 function fittedBarWidth(
-  widget: ProgressBarNode,
+  renderNode: ProgressBarNode,
   model: ProgressModel,
   theme: TerminalTheme,
   parts: ProgressParts,
@@ -128,12 +128,12 @@ function fittedBarWidth(
 ): number {
   if (maxCells === undefined) return model.barWidth;
   const withoutBar = [
-    ...progressStatusSpans(widget, model, theme),
-    ...(parts.label && model.label.length > 0 && model.labelPosition === 'start' ? [feedbackTextSpan(widget, `${model.label} `, 'progressBar', 'label')] : []),
-    feedbackStructureSpan(widget, '[', 'progressBar', 'chrome.open', statusStyle('idle')),
-    feedbackStructureSpan(widget, ']', 'progressBar', 'chrome.close', statusStyle('idle')),
-    ...progressMetricSpans(widget, model, parts),
-    ...(parts.label && model.label.length > 0 && model.labelPosition === 'end' ? [feedbackTextSpan(widget, ` ${model.label}`, 'progressBar', 'label')] : [])
+    ...progressStatusSpans(renderNode, model, theme),
+    ...(parts.label && model.label.length > 0 && model.labelPosition === 'start' ? [feedbackTextSpan(renderNode, `${model.label} `, 'progressBar', 'label')] : []),
+    feedbackStructureSpan(renderNode, '[', 'progressBar', 'chrome.open', statusStyle('idle')),
+    feedbackStructureSpan(renderNode, ']', 'progressBar', 'chrome.close', statusStyle('idle')),
+    ...progressMetricSpans(renderNode, model, parts),
+    ...(parts.label && model.label.length > 0 && model.labelPosition === 'end' ? [feedbackTextSpan(renderNode, ` ${model.label}`, 'progressBar', 'label')] : [])
   ];
   return Math.max(1, Math.min(model.barWidth, maxCells - measureRenderSpans(withoutBar, { widthProfile })));
 }
@@ -148,27 +148,27 @@ function progressParts(model: ProgressModel): ProgressParts {
 }
 
 function progressBarSpans(
-  widget: ProgressBarNode,
+  renderNode: ProgressBarNode,
   model: ProgressModel,
   theme: TerminalTheme,
   barWidth: number,
   widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   if (model.indeterminate) {
-    return indeterminateProgressSpans(widget, model, theme, barWidth, widthProfile);
+    return indeterminateProgressSpans(renderNode, model, theme, barWidth, widthProfile);
   }
   const filledCells = Math.round((model.value / model.max) * barWidth);
   if (model.valueScale.length === 0) {
     return [
       feedbackStructureSpan(
-        widget,
+        renderNode,
         fillTextCells(theme.tokens.symbols.progressFilled, filledCells, { widthProfile }),
         'progressBar',
         'filled',
         progressFillStyle(model.status)
       ),
       feedbackStructureSpan(
-        widget,
+        renderNode,
         fillTextCells(theme.tokens.symbols.progressEmpty, barWidth - filledCells, { widthProfile }),
         'progressBar',
         'track',
@@ -177,9 +177,9 @@ function progressBarSpans(
     ];
   }
   return [
-    ...scaledProgressFillSpans(widget, model, theme, filledCells, barWidth, widthProfile),
+    ...scaledProgressFillSpans(renderNode, model, theme, filledCells, barWidth, widthProfile),
     feedbackStructureSpan(
-      widget,
+      renderNode,
       fillTextCells(theme.tokens.symbols.progressEmpty, barWidth - filledCells, { widthProfile }),
       'progressBar',
       'track',
@@ -189,7 +189,7 @@ function progressBarSpans(
 }
 
 function indeterminateProgressSpans(
-  widget: ProgressBarNode,
+  renderNode: ProgressBarNode,
   model: ProgressModel,
   theme: TerminalTheme,
   barWidth: number,
@@ -208,14 +208,14 @@ function indeterminateProgressSpans(
     remaining -= currentCells;
     return [cell.active
       ? feedbackStructureSpan(
-          widget,
+          renderNode,
           fillTextCells(theme.tokens.symbols.progressFilled, currentCells, { widthProfile }),
           'progressBar',
           'active',
           progressFillStyle(model.status)
         )
       : feedbackStructureSpan(
-          widget,
+          renderNode,
           fillTextCells(theme.tokens.symbols.progressEmpty, currentCells, { widthProfile }),
           'progressBar',
           'track',
@@ -225,7 +225,7 @@ function indeterminateProgressSpans(
 }
 
 function scaledProgressFillSpans(
-  widget: ProgressBarNode,
+  renderNode: ProgressBarNode,
   model: ProgressModel,
   theme: TerminalTheme,
   filledCells: number,
@@ -242,7 +242,7 @@ function scaledProgressFillSpans(
     const currentCells = Math.min(glyphCells, filledCells - usedCells);
     const segmentValue = ((usedCells + currentCells) / Math.max(1, barWidth)) * model.max;
     spans.push(feedbackStructureSpan(
-      widget,
+      renderNode,
       fillTextCells(theme.tokens.symbols.progressFilled, currentCells, { widthProfile }),
       'progressBar',
       `segment.${String(spans.length)}.filled`,
@@ -258,20 +258,20 @@ function scaledProgressFillSpans(
   return spans;
 }
 
-function progressStatusSpans(widget: ProgressBarNode, model: ProgressModel, theme: TerminalTheme) {
+function progressStatusSpans(renderNode: ProgressBarNode, model: ProgressModel, theme: TerminalTheme) {
   if (model.status === 'running') return [];
   return [
-    feedbackStatusMarkerSpan(widget, 'progressBar', 'status.marker', model.status, statusMarker(model.status, theme)),
-    feedbackStructureSpan(widget, ' ', 'progressBar', 'status.gap')
+    feedbackStatusMarkerSpan(renderNode, 'progressBar', 'status.marker', model.status, statusMarker(model.status, theme)),
+    feedbackStructureSpan(renderNode, ' ', 'progressBar', 'status.gap')
   ];
 }
 
-function progressMetricSpans(widget: ProgressBarNode, model: ProgressModel, parts: ProgressParts) {
-  if (model.indeterminate) return parts.timing ? timingSpans(widget, model) : [];
+function progressMetricSpans(renderNode: ProgressBarNode, model: ProgressModel, parts: ProgressParts) {
+  if (model.indeterminate) return parts.timing ? timingSpans(renderNode, model) : [];
   return [
-    ...(parts.value ? [feedbackTextSpan(widget, ` ${String(model.value)}/${String(model.max)}`, 'progressBar', 'value')] : []),
-    ...(parts.percentage ? [feedbackTextSpan(widget, ` ${String(model.percentage)}%`, 'progressBar', 'percentage')] : []),
-    ...(parts.timing ? timingSpans(widget, model) : [])
+    ...(parts.value ? [feedbackTextSpan(renderNode, ` ${String(model.value)}/${String(model.max)}`, 'progressBar', 'value')] : []),
+    ...(parts.percentage ? [feedbackTextSpan(renderNode, ` ${String(model.percentage)}%`, 'progressBar', 'percentage')] : []),
+    ...(parts.timing ? timingSpans(renderNode, model) : [])
   ];
 }
 
@@ -290,33 +290,33 @@ function progressTrackStyle(): TerminalStyle {
   };
 }
 
-function progressModel(widget: ProgressBarNode): ProgressModel {
-  const mode = widget.props.mode;
+function progressModel(renderNode: ProgressBarNode): ProgressModel {
+  const mode = renderNode.props.mode;
   const indeterminate = mode.kind === 'indeterminate';
   const max = mode.kind === 'determinate' ? mode.max ?? 100 : 100;
   const value = mode.kind === 'determinate' ? Math.max(0, Math.min(max, mode.value)) : 0;
-  const barWidth = boundedBarWidth(numberProp(widget, 'barWidth'));
+  const barWidth = boundedBarWidth(numberProp(renderNode, 'barWidth'));
   const percentage = max === 0 ? 0 : Math.round((value / max) * 100);
   return {
-    label: sanitizeTerminalText(stringify(widget.props.label)).text,
-    display: progressDisplay(widget.props.display),
-    labelPosition: progressLabelPosition(widget.props.labelPosition),
-    status: normalizeProcessStatus(widget.props.status, 'running'),
+    label: sanitizeTerminalText(stringify(renderNode.props.label)).text,
+    display: progressDisplay(renderNode.props.display),
+    labelPosition: progressLabelPosition(renderNode.props.labelPosition),
+    status: normalizeProcessStatus(renderNode.props.status, 'running'),
     indeterminate,
     value,
     max,
     barWidth,
     percentage,
     frame: mode.kind === 'indeterminate' ? Math.floor(mode.frame ?? 0) : 0,
-    valueScale: normalizeValueScale(widget.props.valueScale),
-    ...durationProp('elapsedMs', widget.props.elapsedMs),
-    ...durationProp('remainingMs', widget.props.remainingMs)
+    valueScale: normalizeValueScale(renderNode.props.valueScale),
+    ...durationProp('elapsedMs', renderNode.props.elapsedMs),
+    ...durationProp('remainingMs', renderNode.props.remainingMs)
   };
 }
 
-function timingSpans(widget: ProgressBarNode, model: ProgressModel) {
+function timingSpans(renderNode: ProgressBarNode, model: ProgressModel) {
   const text = timingText(model);
-  return text.length === 0 ? [] : [feedbackTextSpan(widget, ` ${text}`, 'progressBar', 'timing')];
+  return text.length === 0 ? [] : [feedbackTextSpan(renderNode, ` ${text}`, 'progressBar', 'timing')];
 }
 
 function progressDescription(model: ProgressModel): { readonly description?: string } {

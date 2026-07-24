@@ -70,7 +70,7 @@ const tableProjectionCache = new WeakMap<object, {
 }>();
 
 export function tableBlock(
-  widget: TableNode,
+  renderNode: TableNode,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
@@ -86,22 +86,22 @@ export function tableBlock(
     selectedCell,
     window,
     widths
-  } = tableProjection(widget, bounds, widthProfile);
+  } = tableProjection(renderNode, bounds, widthProfile);
   const lines: RenderLine[] = [];
   if (hasHeader && headerHeight > 0) {
     lines.push(scrolledLine(
-      headerLine(widget, columns, widths, spacing, widthProfile),
+      headerLine(renderNode, columns, widths, spacing, widthProfile),
       window.horizontalOffset,
       bounds.width,
       widthProfile
     ));
   }
   if (totalRows === 0 && bodyHeight > 0) {
-    lines.push(scrolledLine(emptyLine(widget, spacing), window.horizontalOffset, bounds.width, widthProfile));
+    lines.push(scrolledLine(emptyLine(renderNode, spacing), window.horizontalOffset, bounds.width, widthProfile));
   } else {
     lines.push(...window.rows.map((record) => {
       return scrolledLine(rowLine(
-        widget,
+        renderNode,
         record.row,
         record.index,
         record.id,
@@ -120,13 +120,13 @@ export function tableBlock(
 }
 
 export function tableAccessibleBase(
-  widget: TableNode,
+  renderNode: TableNode,
   bounds: Rect,
   id: string,
   focused: boolean,
   widthProfile: TextWidthProfile
 ): AccessibleNode {
-  const { totalRows, columns, window } = tableProjection(widget, bounds, widthProfile);
+  const { totalRows, columns, window } = tableProjection(renderNode, bounds, widthProfile);
   return {
     id,
     role: 'grid',
@@ -148,14 +148,14 @@ export function tableAccessibleBase(
 }
 
 export function tableAccessibleChildren(
-  widget: TableNode,
+  renderNode: TableNode,
   bounds: Rect,
   widthProfile: TextWidthProfile
 ): readonly AccessibleNode[] {
-  const { totalRows, columns, hasHeader, window, selectedCell } = tableProjection(widget, bounds, widthProfile);
+  const { totalRows, columns, hasHeader, window, selectedCell } = tableProjection(renderNode, bounds, widthProfile);
   const headerRow: AccessibleNode[] = hasHeader
     ? [{
-        id: `${widget.id ?? 'table'}:headers`,
+        id: `${renderNode.id ?? 'table'}:headers`,
         role: 'row',
         position: {
           rowIndex: 1,
@@ -163,7 +163,7 @@ export function tableAccessibleChildren(
           columnCount: columns.length
         },
         children: columns.map((column, columnIndex) => ({
-          id: `${widget.id ?? 'table'}:header:${String(column.index)}`,
+          id: `${renderNode.id ?? 'table'}:header:${String(column.index)}`,
           role: 'columnheader',
           label: columnLabel(column, columnIndex),
           value: columnLabel(column, columnIndex),
@@ -187,7 +187,7 @@ export function tableAccessibleChildren(
   const bodyRows: AccessibleNode[] = window.rows.map((record) => {
     const rowIndex = record.index;
     return {
-      id: tableRowTargetId(widget, record.id),
+      id: tableRowTargetId(renderNode, record.id),
       role: 'row',
       selected: rowIndex === window.selected,
       position: {
@@ -201,7 +201,7 @@ export function tableAccessibleChildren(
         const value = column.value(record.row, rowIndex);
         const label = columnLabel(column, columnIndex);
         return {
-          id: tableCellTargetId(widget, record.id, column.index),
+          id: tableCellTargetId(renderNode, record.id, column.index),
           role: 'gridcell',
           label: displayTableValue(value),
           value: displayTableValue(value),
@@ -221,16 +221,16 @@ export function tableAccessibleChildren(
 }
 
 export function tableHitTargets<TMessage>(
-  widget: TableNode<TMessage>,
+  renderNode: TableNode<TMessage>,
   bounds: Rect,
   widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
-  const toMessage = tableActionMessageFactory(widget);
+  const toMessage = tableActionMessageFactory(renderNode);
   if (toMessage === undefined) return [];
-  const { columns, spacing, headerHeight, window, widths, selectedCell } = tableProjection(widget, bounds, widthProfile);
+  const { columns, spacing, headerHeight, window, widths, selectedCell } = tableProjection(renderNode, bounds, widthProfile);
   const headerTargets = headerHeight <= 0
     ? []
-    : tableHeaderHitTargets(widget, columns, widths, bounds, window.horizontalOffset, spacing, toMessage);
+    : tableHeaderHitTargets(renderNode, columns, widths, bounds, window.horizontalOffset, spacing, toMessage);
   const bodyTargets = window.rows.flatMap((record, visibleIndex): HitTarget<TMessage>[] => {
     const rowIndex = record.index;
     const rowId = record.id;
@@ -241,10 +241,10 @@ export function tableHitTargets<TMessage>(
       height: 1
     };
     if (selectedCell !== undefined) {
-      return tableCellHitTargets(widget, rowId, rowIndex, columns, widths, rowBounds, window.horizontalOffset, spacing, toMessage);
+      return tableCellHitTargets(renderNode, rowId, rowIndex, columns, widths, rowBounds, window.horizontalOffset, spacing, toMessage);
     }
     return [{
-      id: tableRowTargetId(widget, rowId),
+      id: tableRowTargetId(renderNode, rowId),
       bounds: rowBounds,
       message: (event) => toMessage(event.clickCount === 2
         ? { kind: 'activate', rowId, rowIndex }
@@ -256,7 +256,7 @@ export function tableHitTargets<TMessage>(
 }
 
 function tableHeaderHitTargets<TMessage>(
-  widget: TableNode<TMessage>,
+  renderNode: TableNode<TMessage>,
   columns: readonly NormalizedTableColumn[],
   widths: readonly number[],
   bounds: Rect,
@@ -273,7 +273,7 @@ function tableHeaderHitTargets<TMessage>(
     const targets: HitTarget<TMessage>[] = [];
     if (column.sortable === true) {
       targets.push({
-        id: renderNodeTargetId(widget, 'header', column.id, 'sort'),
+        id: renderNodeTargetId(renderNode, 'header', column.id, 'sort'),
         bounds: {
           row: bounds.row,
           column: bounds.column + visible.start,
@@ -287,7 +287,7 @@ function tableHeaderHitTargets<TMessage>(
     }
     if (column.resizable === true) {
       targets.push({
-        id: renderNodeTargetId(widget, 'header', column.id, 'resize'),
+        id: renderNodeTargetId(renderNode, 'header', column.id, 'resize'),
         bounds: {
           row: bounds.row,
           column: bounds.column + visible.end - 1,
@@ -310,7 +310,7 @@ function tableHeaderHitTargets<TMessage>(
 }
 
 function tableCellHitTargets<TMessage>(
-  widget: TableNode<TMessage>,
+  renderNode: TableNode<TMessage>,
   rowId: string,
   rowIndex: number,
   columns: readonly NormalizedTableColumn[],
@@ -327,7 +327,7 @@ function tableCellHitTargets<TMessage>(
     const visible = visibleTableTrack(track, horizontalOffset, rowBounds.width);
     if (visible === undefined) return [];
     return [{
-      id: tableCellTargetId(widget, rowId, column.index),
+      id: tableCellTargetId(renderNode, rowId, column.index),
       bounds: {
         row: rowBounds.row,
         column: rowBounds.column + visible.start,
@@ -346,11 +346,11 @@ function columnLabel(column: NormalizedTableColumn, index: number): string {
   return column.header ?? `Column ${String(index + 1)}`;
 }
 
-function tableWindow(widget: TableNode, bodyHeight: number, selected: number): TableWindow {
-  const window = projectedRowWindow(widget.props.collection, {
+function tableWindow(renderNode: TableNode, bodyHeight: number, selected: number): TableWindow {
+  const window = projectedRowWindow(renderNode.props.collection, {
     viewportRows: bodyHeight,
     selectedIndex: selected,
-    ...scrollInput(widget)
+    ...scrollInput(renderNode)
   });
   return {
     rows: window.rows,
@@ -363,23 +363,23 @@ function tableWindow(widget: TableNode, bodyHeight: number, selected: number): T
   };
 }
 
-function tableProjection(widget: TableNode, bounds: Rect, widthProfile: TextWidthProfile): TableProjection {
-  const cached = tableProjectionCache.get(widget);
+function tableProjection(renderNode: TableNode, bounds: Rect, widthProfile: TextWidthProfile): TableProjection {
+  const cached = tableProjectionCache.get(renderNode);
   const profileKey = textWidthProfileKey(widthProfile);
   if (
     cached?.width === bounds.width
     && cached.height === bounds.height
     && cached.widthProfileKey === profileKey
   ) return cached.projection;
-  const collection = widget.props.collection;
-  const selected = selectedTableRow(widget, collection);
-  const selectedCell = selectedTableCell(widget, collection);
-  const columns = tableColumns(widget, tableRowSample(collection, selected));
-  const spacing = tableSpacing(widget);
+  const collection = renderNode.props.collection;
+  const selected = selectedTableRow(renderNode, collection);
+  const selectedCell = selectedTableCell(renderNode, collection);
+  const columns = tableColumns(renderNode, tableRowSample(collection, selected));
+  const spacing = tableSpacing(renderNode);
   const hasHeader = columns.some((column) => column.header !== undefined);
-  const headerHeight = hasHeader && widget.props.stickyHeader !== false ? 1 : 0;
+  const headerHeight = hasHeader && renderNode.props.stickyHeader !== false ? 1 : 0;
   const bodyHeight = Math.max(0, bounds.height - headerHeight);
-  const window = tableWindow(widget, bodyHeight, selected);
+  const window = tableWindow(renderNode, bodyHeight, selected);
   const projection: TableProjection = {
     totalRows: collection.total,
     columns,
@@ -398,7 +398,7 @@ function tableProjection(widget: TableNode, bounds: Rect, widthProfile: TextWidt
       widthProfile
     )
   };
-  tableProjectionCache.set(widget, {
+  tableProjectionCache.set(renderNode, {
     width: bounds.width,
     height: bounds.height,
     widthProfileKey: profileKey,
@@ -421,39 +421,39 @@ function tableRowSample(
 }
 
 function headerLine(
-  widget: TableNode,
+  renderNode: TableNode,
   columns: readonly NormalizedTableColumn[],
   widths: readonly number[],
   spacing: TableMetrics,
   widthProfile: TextWidthProfile
 ): RenderLine {
-  const decorationStyle = resolveRenderNodeStyle(widget, { part: 'header', base: themeStyle('table.header', { bold: true }) });
-  const spans: RenderSpan[] = [dataSpan(' '.repeat(spacing.markerCells), decorationStyle, tableSource(widget, 'header.marker', undefined, 'decoration'))];
+  const decorationStyle = resolveRenderNodeStyle(renderNode, { part: 'header', base: themeStyle('table.header', { bold: true }) });
+  const spans: RenderSpan[] = [dataSpan(' '.repeat(spacing.markerCells), decorationStyle, tableSource(renderNode, 'header.marker', undefined, 'decoration'))];
   columns.forEach((column, index) => {
-    if (index > 0) spans.push(dataSpan(' '.repeat(spacing.separatorCells), decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
+    if (index > 0) spans.push(dataSpan(' '.repeat(spacing.separatorCells), decorationStyle, tableSource(renderNode, 'column.separator', undefined, 'separator')));
     const headerStyle = mergeStyles(
-      resolveRenderNodeStyle(widget, { part: 'headerCell', base: themeStyle('table.header', { bold: true }) }),
+      resolveRenderNodeStyle(renderNode, { part: 'headerCell', base: themeStyle('table.header', { bold: true }) }),
       column.headerStyle
     );
-    const headerSourceId = `${widget.id ?? 'table'}:header:${String(column.index)}`;
+    const headerSourceId = `${renderNode.id ?? 'table'}:header:${String(column.index)}`;
     const label = column.header ?? '';
     const labelSpans: RenderSpan[] = [
-      ...(label.length === 0 ? [] : [dataSpan(label, headerStyle, tableSource(widget, `header.${String(column.index)}.label`, headerSourceId, 'text', {
+      ...(label.length === 0 ? [] : [dataSpan(label, headerStyle, tableSource(renderNode, `header.${String(column.index)}.label`, headerSourceId, 'text', {
         partKind: 'header'
       }))])
     ];
     const sort = tableSortMarker(column.sort);
     if (sort.length > 0) {
-      labelSpans.push(dataSpan(sort, resolveRenderNodeStyle(widget, {
+      labelSpans.push(dataSpan(sort, resolveRenderNodeStyle(renderNode, {
         part: 'sortIndicator',
         ...(headerStyle === undefined ? {} : { base: headerStyle })
-      }), tableSource(widget, `header.${String(column.index)}.sort`, headerSourceId, 'decoration', {
+      }), tableSource(renderNode, `header.${String(column.index)}.sort`, headerSourceId, 'decoration', {
         partKind: 'sort'
       })));
     }
     const resize = tableResizeMarker(column);
     if (resize.length > 0) {
-      labelSpans.push(dataSpan(resize, headerStyle, tableSource(widget, `header.${String(column.index)}.resize`, headerSourceId, 'decoration', {
+      labelSpans.push(dataSpan(resize, headerStyle, tableSource(renderNode, `header.${String(column.index)}.resize`, headerSourceId, 'decoration', {
         partKind: 'resize'
       })));
     }
@@ -463,7 +463,7 @@ function headerLine(
       column.align,
       widthProfile,
       undefined,
-      tableSource(widget, `header.${String(column.index)}.padding`, headerSourceId, 'decoration'),
+      tableSource(renderNode, `header.${String(column.index)}.padding`, headerSourceId, 'decoration'),
       decorationStyle
     ));
   });
@@ -471,7 +471,7 @@ function headerLine(
 }
 
 function rowLine(
-  widget: TableNode,
+  renderNode: TableNode,
   row: unknown,
   rowIndex: number,
   rowId: string,
@@ -484,36 +484,36 @@ function rowLine(
   spacing: TableMetrics,
   widthProfile: TextWidthProfile
 ): RenderLine {
-  const rowState = interactionVisualState(widget, tableRowTargetId(widget, rowId), {
+  const rowState = interactionVisualState(renderNode, tableRowTargetId(renderNode, rowId), {
     selected,
     focused: focused && selected
   });
-  const rowStyle = resolveRenderNodeStyle(widget, {
+  const rowStyle = resolveRenderNodeStyle(renderNode, {
     part: 'row',
     ...(rowState === undefined ? {} : { state: rowState })
   });
   const selectedStyle = rowState === undefined ? undefined : rowStyle;
   const decorationStyle = rowStyle;
   const spans: RenderSpan[] = [...selectionMarkerSpans(
-    widget,
+    renderNode,
     selected,
     theme,
     selectedStyle,
-    tableSource(widget, `row.${rowId}.marker`, rowId, 'decoration', {
+    tableSource(renderNode, `row.${rowId}.marker`, rowId, 'decoration', {
       partKind: 'marker',
       ...(rowState === undefined ? {} : { state: rowState })
     })
   )];
   columns.forEach((column, columnIndex) => {
-    if (columnIndex > 0) spans.push(dataSpan(' '.repeat(spacing.separatorCells), decorationStyle, tableSource(widget, 'column.separator', undefined, 'separator')));
+    if (columnIndex > 0) spans.push(dataSpan(' '.repeat(spacing.separatorCells), decorationStyle, tableSource(renderNode, 'column.separator', undefined, 'separator')));
     const rendered = renderCell(
-      widget,
+      renderNode,
       row,
       rowIndex,
       column,
       columnIndex,
       theme,
-      tableSource(widget, `row.${rowId}.cell.${String(column.index)}`, rowId, 'text', {
+      tableSource(renderNode, `row.${rowId}.cell.${String(column.index)}`, rowId, 'text', {
         partKind: column.semantic,
         ...(rowState === undefined ? {} : { state: rowState })
       })
@@ -521,14 +521,14 @@ function rowLine(
     const cellSelected = selectedCell?.row === rowIndex && selectedCell.column === columnIndex;
     const cellState = selectedCell === undefined
       ? rowState
-      : interactionVisualState(widget, tableCellTargetId(widget, rowId, column.index), {
+      : interactionVisualState(renderNode, tableCellTargetId(renderNode, rowId, column.index), {
           selected: cellSelected,
           focused: focused && cellSelected
         });
     const cellSelectedStyle = mergeDataStyles(
       selectedStyle,
-      cellState === undefined ? undefined : resolveRenderNodeStyle(widget, { part: 'cell', state: cellState }),
-      cellSelected ? resolveRenderNodeStyle(widget, { part: 'cell', state: 'active' }) : undefined
+      cellState === undefined ? undefined : resolveRenderNodeStyle(renderNode, { part: 'cell', state: cellState }),
+      cellSelected ? resolveRenderNodeStyle(renderNode, { part: 'cell', state: 'active' }) : undefined
     );
     spans.push(...cellSpans(
       rendered,
@@ -536,28 +536,28 @@ function rowLine(
       column.align,
       widthProfile,
       cellSelectedStyle,
-      tableSource(widget, `row.${rowId}.cell.${String(column.index)}.padding`, rowId, 'decoration', {
+      tableSource(renderNode, `row.${rowId}.cell.${String(column.index)}.padding`, rowId, 'decoration', {
         partKind: 'padding',
         ...(cellState === undefined ? {} : { state: cellState })
       }),
-      cellSelectedStyle ?? resolveRenderNodeStyle(widget, { part: 'cell' })
+      cellSelectedStyle ?? resolveRenderNodeStyle(renderNode, { part: 'cell' })
     ));
   });
   return { spans };
 }
 
-function emptyLine(widget: TableNode, spacing: TableMetrics): RenderLine {
-  const emptyText = sanitizeTableText(stringify(widget.props.emptyText)) || 'No rows';
+function emptyLine(renderNode: TableNode, spacing: TableMetrics): RenderLine {
+  const emptyText = sanitizeTableText(stringify(renderNode.props.emptyText)) || 'No rows';
   return {
     spans: [
-      dataSpan(' '.repeat(spacing.markerCells), resolveRenderNodeStyle(widget, { part: 'marker' }), tableSource(widget, 'empty.marker', undefined, 'decoration')),
-      dataSpan(emptyText, resolveRenderNodeStyle(widget, { part: 'empty', base: themeStyle('text.muted', { dim: true }) }), tableSource(widget, 'empty'))
+      dataSpan(' '.repeat(spacing.markerCells), resolveRenderNodeStyle(renderNode, { part: 'marker' }), tableSource(renderNode, 'empty.marker', undefined, 'decoration')),
+      dataSpan(emptyText, resolveRenderNodeStyle(renderNode, { part: 'empty', base: themeStyle('text.muted', { dim: true }) }), tableSource(renderNode, 'empty'))
     ]
   };
 }
 
 function renderCell(
-  widget: TableNode,
+  renderNode: TableNode,
   row: unknown,
   rowIndex: number,
   column: NormalizedTableColumn,
@@ -565,7 +565,7 @@ function renderCell(
   theme: TerminalTheme,
   fallbackSource: FrameCellSource
 ): readonly RenderSpan[] {
-  const fallbackStyle = mergeDataStyles(tableSemanticStyle(widget, column.semantic), column.style);
+  const fallbackStyle = mergeDataStyles(tableSemanticStyle(renderNode, column.semantic), column.style);
   if (column.renderCell !== undefined) {
     return renderResultToSpans(
       column.renderCell(row, rowIndex, columnIndex),
@@ -578,10 +578,10 @@ function renderCell(
   return [dataSpan(displayTableValue(value), fallbackStyle, fallbackSource)];
 }
 
-function tableSemanticStyle(widget: TableNode, semantic: TableColumnSemantic): TerminalStyle | undefined {
-  if (semantic === 'metric') return resolveRenderNodeStyle(widget, { part: 'metric', base: themeStyle('table.metric') });
-  if (semantic === 'metadata') return resolveRenderNodeStyle(widget, { part: 'metadata', base: themeStyle('table.metadata', { dim: true }) });
-  return resolveRenderNodeStyle(widget, { part: 'cell', base: themeStyle('text.default') });
+function tableSemanticStyle(renderNode: TableNode, semantic: TableColumnSemantic): TerminalStyle | undefined {
+  if (semantic === 'metric') return resolveRenderNodeStyle(renderNode, { part: 'metric', base: themeStyle('table.metric') });
+  if (semantic === 'metadata') return resolveRenderNodeStyle(renderNode, { part: 'metadata', base: themeStyle('table.metadata', { dim: true }) });
+  return resolveRenderNodeStyle(renderNode, { part: 'cell', base: themeStyle('text.default') });
 }
 
 function renderResultToSpans(
@@ -678,26 +678,26 @@ function scrolledLine(
   return { spans };
 }
 
-function tableSpacing(widget: TableNode): TableMetrics {
-  return tableMetrics(widget.props.density);
+function tableSpacing(renderNode: TableNode): TableMetrics {
+  return tableMetrics(renderNode.props.density);
 }
 
 
 function selectedTableRow(
-  widget: TableNode,
+  renderNode: TableNode,
   collection: TableCollection<unknown>
 ): number {
-  const selectedCell = selectedTableCell(widget, collection);
+  const selectedCell = selectedTableCell(renderNode, collection);
   if (selectedCell !== undefined) return selectedCell.row;
-  const selectedRowId = stringify(widget.props.selectedRowId);
+  const selectedRowId = stringify(renderNode.props.selectedRowId);
   return selectedRowId.length === 0 ? -1 : collectionRecordById(collection, selectedRowId)?.index ?? -1;
 }
 
 function selectedTableCell(
-  widget: TableNode,
+  renderNode: TableNode,
   collection: TableCollection<unknown>
 ): SelectedTableCell | undefined {
-  const selectedCell = widget.props.selectedCell;
+  const selectedCell = renderNode.props.selectedCell;
   if (!isRecord(selectedCell)) return undefined;
   const rowId = selectedCell.rowId;
   const column = selectedCell.column;
@@ -711,13 +711,13 @@ function selectedTableCell(
   };
 }
 
-function scrollInput(widget: TableNode): { readonly scroll?: ScrollState } {
-  const scroll = scrollStateFromUnknown(widget.props.scroll);
+function scrollInput(renderNode: TableNode): { readonly scroll?: ScrollState } {
+  const scroll = scrollStateFromUnknown(renderNode.props.scroll);
   return scroll === undefined ? {} : { scroll };
 }
 
-function tableActionMessageFactory<TMessage>(widget: TableNode<TMessage>): ((action: TableControlAction) => TMessage) | undefined {
-  return widget.props.toActionMessage;
+function tableActionMessageFactory<TMessage>(renderNode: TableNode<TMessage>): ((action: TableControlAction) => TMessage) | undefined {
+  return renderNode.props.toActionMessage;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
@@ -725,7 +725,7 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
 }
 
 function tableSource(
-  widget: TableNode,
+  renderNode: TableNode,
   label: string,
   id?: string,
   role: FrameCellSource['role'] = 'text',
@@ -734,18 +734,18 @@ function tableSource(
     readonly state?: import('../../element/metadata.ts').ElementVisualState;
   } = {}
 ): FrameCellSource {
-  return dataSource(widget, label, {
+  return dataSource(renderNode, label, {
     ...(id === undefined ? {} : { itemId: id }),
     role,
     ...options
   });
 }
 
-function tableRowTargetId(widget: TableNode, rowId: string): string {
-  return renderNodeTargetId(widget, 'row', rowId);
+function tableRowTargetId(renderNode: TableNode, rowId: string): string {
+  return renderNodeTargetId(renderNode, 'row', rowId);
 }
 
-function tableCellTargetId(widget: TableNode, rowId: string, column: number): string {
-  return renderNodeTargetId(widget, 'row', rowId, 'cell', String(column));
+function tableCellTargetId(renderNode: TableNode, rowId: string, column: number): string {
+  return renderNodeTargetId(renderNode, 'row', rowId, 'cell', String(column));
 }
 type TableNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'table'>;

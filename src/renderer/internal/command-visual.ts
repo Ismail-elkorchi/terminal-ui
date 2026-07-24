@@ -9,7 +9,7 @@ import type { FrameCellSource, RenderSpan, TerminalStyle } from '../../visual/re
 export type CommandSurfaceTone = Extract<ComponentTone, 'info' | 'warning' | 'error' | 'success' | 'muted'>;
 
 export function commandStatusSpans(
-  widget: RenderNode,
+  renderNode: RenderNode,
   theme: TerminalTheme,
   tone: CommandSurfaceTone,
   text: string,
@@ -20,8 +20,8 @@ export function commandStatusSpans(
     readonly textSource?: FrameCellSource;
   } = {}
 ): readonly RenderSpan[] {
-  const markerStyle = options.markerStyle ?? commandToneStyle(widget, tone);
-  const textStyle = options.textStyle ?? (tone === 'muted' ? renderNodeStyle(widget, 'status', 'disabled') : markerStyle);
+  const markerStyle = options.markerStyle ?? commandToneStyle(renderNode, tone);
+  const textStyle = options.textStyle ?? (tone === 'muted' ? renderNodeStyle(renderNode, 'status', 'disabled') : markerStyle);
   return [
     styledSpan(`${commandToneSymbol(theme, tone)} `, markerStyle, options.markerSource),
     styledSpan(text, textStyle, options.textSource)
@@ -50,37 +50,37 @@ export function commandMatchSpans(
   }));
 }
 
-export function commandRowStyle(widget: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
-  const part = commandPrimaryPart(widget);
+export function commandRowStyle(renderNode: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
+  const part = commandPrimaryPart(renderNode);
   const base = themeStyle('text.default');
-  return resolveRenderNodeStyle(widget, {
+  return resolveRenderNodeStyle(renderNode, {
     part,
     base,
     ...(state === undefined ? {} : { state })
   });
 }
 
-export function commandMetadataStyle(widget: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
-  const part = widget.kind === 'palette' ? 'description' : 'suggestion';
-  return renderNodeStyle(widget, part, state);
+export function commandMetadataStyle(renderNode: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
+  const part = renderNode.kind === 'palette' ? 'description' : 'suggestion';
+  return renderNodeStyle(renderNode, part, state);
 }
 
 export function commandSelectionMarkerSpans(
-  widget: RenderNode,
+  renderNode: RenderNode,
   theme: TerminalTheme,
   selected: boolean,
   state: ElementVisualState | undefined,
   source?: FrameCellSource
 ): readonly RenderSpan[] {
-  const style = state === undefined ? undefined : renderNodeStyle(widget, commandPrimaryPart(widget), state);
+  const style = state === undefined ? undefined : renderNodeStyle(renderNode, commandPrimaryPart(renderNode), state);
   return [
     styledSpan(`${selected ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected} `, style, source)
   ];
 }
 
-export function commandGroupSpans(widget: RenderNode, group: string | undefined, state: ElementVisualState | undefined, source?: FrameCellSource): readonly RenderSpan[] {
+export function commandGroupSpans(renderNode: RenderNode, group: string | undefined, state: ElementVisualState | undefined, source?: FrameCellSource): readonly RenderSpan[] {
   if (group === undefined || group.length === 0) return [];
-  const style = commandMetadataStyle(widget, state);
+  const style = commandMetadataStyle(renderNode, state);
   return [
     styledSpan(`[${group}] `, style, source)
   ];
@@ -94,23 +94,23 @@ export function styledSpan(text: string, style: TerminalStyle | undefined, sourc
   };
 }
 
-function commandToneStyle(widget: RenderNode, tone: CommandSurfaceTone): TerminalStyle | undefined {
+function commandToneStyle(renderNode: RenderNode, tone: CommandSurfaceTone): TerminalStyle | undefined {
   switch (tone) {
     case 'info':
-      return renderNodeStyle(widget, 'status', 'focused');
+      return renderNodeStyle(renderNode, 'status', 'focused');
     case 'warning':
-      return renderNodeStyle(widget, 'status', 'warning');
+      return renderNodeStyle(renderNode, 'status', 'warning');
     case 'error':
-      return renderNodeStyle(widget, 'status', 'error');
+      return renderNodeStyle(renderNode, 'status', 'error');
     case 'success':
-      return renderNodeStyle(widget, 'status', 'success');
+      return renderNodeStyle(renderNode, 'status', 'success');
     case 'muted':
-      return renderNodeStyle(widget, 'status', 'disabled');
+      return renderNodeStyle(renderNode, 'status', 'disabled');
   }
 }
 
-function commandPrimaryPart(widget: RenderNode): 'entry' | 'suggestion' {
-  return widget.kind === 'palette' ? 'entry' : 'suggestion';
+function commandPrimaryPart(renderNode: RenderNode): 'entry' | 'suggestion' {
+  return renderNode.kind === 'palette' ? 'entry' : 'suggestion';
 }
 
 function commandToneSymbol(theme: TerminalTheme, tone: CommandSurfaceTone): string {

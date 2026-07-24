@@ -7,7 +7,7 @@ import {
   renderCanvas,
   surfaceAccessibleBase,
   surfaceChildBounds
-} from '../drawing-widgets.ts';
+} from '../drawing-rendering.ts';
 import { dividerAccessibleBase, renderDivider } from '../divider.ts';
 import { drawSurfaceChrome } from '../surface.ts';
 import { renderTooltip, tooltipAccessibleBase } from '../tooltip.ts';

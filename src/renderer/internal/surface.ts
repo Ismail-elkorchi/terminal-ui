@@ -27,8 +27,8 @@ type SurfaceNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'surface'>;
 type DialogNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'dialog'>;
 type SurfaceFrameNode<TMessage = unknown> = DialogNode<TMessage> | SurfaceNode<TMessage>;
 
-export function surfaceChildContentBounds(widget: SurfaceNode, bounds: Rect): Rect {
-  const border = surfaceBorderForBounds(widget, bounds);
+export function surfaceChildContentBounds(renderNode: SurfaceNode, bounds: Rect): Rect {
+  const border = surfaceBorderForBounds(renderNode, bounds);
   return border === undefined || border.kind === 'none'
     ? bounds
     : {
@@ -42,26 +42,26 @@ export function surfaceChildContentBounds(widget: SurfaceNode, bounds: Rect): Re
 export function drawSurfaceChrome(
   buffer: RenderTarget,
   bounds: Rect,
-  widget: SurfaceNode,
+  renderNode: SurfaceNode,
   theme: TerminalTheme,
   focus: RenderFocusRelation
 ): void {
-  const focused = focus === 'self' || (focus === 'descendant' && widget.props.focusWithin === true);
-  const variant = surfaceVariantFromValue(widget.props.variant);
-  const border = surfaceBorderForBounds(widget, bounds, variant, theme);
-  drawSurfaceFrame(buffer, bounds, widget, theme, focused, {
+  const focused = focus === 'self' || (focus === 'descendant' && renderNode.props.focusWithin === true);
+  const variant = surfaceVariantFromValue(renderNode.props.variant);
+  const border = surfaceBorderForBounds(renderNode, bounds, variant, theme);
+  drawSurfaceFrame(buffer, bounds, renderNode, theme, focused, {
     ...(variant === undefined ? {} : { variant }),
     ...(border === undefined ? {} : { border }),
-    ...(widget.props.shadow === true ? { shadow: true } : {}),
-    ...(widget.props.disabled === true ? { disabled: true } : {}),
-    ...(widget.props.visualState === undefined ? {} : { visualState: widget.props.visualState })
+    ...(renderNode.props.shadow === true ? { shadow: true } : {}),
+    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
+    ...(renderNode.props.visualState === undefined ? {} : { visualState: renderNode.props.visualState })
   });
 }
 
 export function drawSurfaceFrame(
   buffer: RenderTarget,
   bounds: Rect,
-  widget: SurfaceFrameNode,
+  renderNode: SurfaceFrameNode,
   theme: TerminalTheme,
   focused: boolean,
   options: SurfaceChromeOptions
@@ -71,8 +71,8 @@ export function drawSurfaceFrame(
     fillSurfaceBackground(
       buffer,
       bounds,
-      surfaceBackgroundStyle(widget, options.variant, focused, border, options),
-      renderNodeFrameSource(widget, {
+      surfaceBackgroundStyle(renderNode, options.variant, focused, border, options),
+      renderNodeFrameSource(renderNode, {
         family: 'surface',
         role: 'decoration',
         part: 'background',
@@ -81,7 +81,7 @@ export function drawSurfaceFrame(
     );
   }
   if (options.shadow === true) {
-    drawSurfaceShadow(buffer, bounds, renderNodeFrameSource(widget, {
+    drawSurfaceShadow(buffer, bounds, renderNodeFrameSource(renderNode, {
       family: 'surface',
       role: 'decoration',
       part: 'shadow',
@@ -105,25 +105,25 @@ function surfaceVariantFromValue(value: unknown): SurfaceVariant | undefined {
 }
 
 function surfaceBorder(
-  widget: SurfaceNode,
-  variant = surfaceVariantFromValue(widget.props.variant),
+  renderNode: SurfaceNode,
+  variant = surfaceVariantFromValue(renderNode.props.variant),
   theme?: TerminalTheme
 ): BorderStyle | undefined {
-  const explicit = borderStyleFromValue(widget.props.border);
+  const explicit = borderStyleFromValue(renderNode.props.border);
   if (explicit !== undefined) {
-    return surfaceBorderStyle(widget, surfaceTitledBorder(widget, explicit, theme), variant);
+    return surfaceBorderStyle(renderNode, surfaceTitledBorder(renderNode, explicit, theme), variant);
   }
   if (variant === undefined || variant === 'neutral' || variant === 'chrome') return undefined;
-  return surfaceBorderStyle(widget, surfaceTitledBorder(widget, { kind: 'single' }, theme), variant);
+  return surfaceBorderStyle(renderNode, surfaceTitledBorder(renderNode, { kind: 'single' }, theme), variant);
 }
 
 function surfaceBorderForBounds(
-  widget: SurfaceNode,
+  renderNode: SurfaceNode,
   bounds: Rect,
-  variant = surfaceVariantFromValue(widget.props.variant),
+  variant = surfaceVariantFromValue(renderNode.props.variant),
   theme?: TerminalTheme
 ): BorderStyle | undefined {
-  return surfaceBorderWithinBounds(surfaceBorder(widget, variant, theme), bounds);
+  return surfaceBorderWithinBounds(surfaceBorder(renderNode, variant, theme), bounds);
 }
 
 function surfaceBorderWithinBounds(border: BorderStyle | undefined, bounds: Rect): BorderStyle | undefined {
@@ -144,13 +144,13 @@ function surfaceFocusedBorder(border: BorderStyle | undefined, focused: boolean)
   };
 }
 
-function surfaceBorderStyle(widget: SurfaceNode, border: BorderStyle, variant: SurfaceVariant | undefined): BorderStyle {
+function surfaceBorderStyle(renderNode: SurfaceNode, border: BorderStyle, variant: SurfaceVariant | undefined): BorderStyle {
   if (border.kind === 'none') return border;
   const variantStyle = variant === undefined ? undefined : surfaceBorderTokenStyle(variant);
   const style = mergeStyles(
-    resolveRenderNodeStyle(widget, {
+    resolveRenderNodeStyle(renderNode, {
       part: 'border',
-      ...(surfaceDisabled(widget) ? { state: 'disabled' } : {}),
+      ...(surfaceDisabled(renderNode) ? { state: 'disabled' } : {}),
       ...(variantStyle === undefined ? {} : { base: variantStyle })
     }),
     border.style
@@ -159,7 +159,7 @@ function surfaceBorderStyle(widget: SurfaceNode, border: BorderStyle, variant: S
 }
 
 export function surfaceBackgroundStyle(
-  widget: SurfaceFrameNode,
+  renderNode: SurfaceFrameNode,
   variant: SurfaceVariant,
   focused = false,
   border?: BorderStyle,
@@ -174,25 +174,25 @@ export function surfaceBackgroundStyle(
     : focused
       ? 'focused'
       : state.visualState;
-  return resolveRenderNodeStyle(widget, {
+  return resolveRenderNodeStyle(renderNode, {
     part: 'root',
     base: focusedBase,
     ...(visualState === undefined ? {} : { state: visualState })
   }) ?? focusedBase;
 }
 
-function surfaceTitledBorder(widget: SurfaceNode, border: BorderStyle, theme: TerminalTheme | undefined): BorderStyle {
+function surfaceTitledBorder(renderNode: SurfaceNode, border: BorderStyle, theme: TerminalTheme | undefined): BorderStyle {
   if (border.kind === 'none' || border.title !== undefined || theme === undefined) return border;
-  const title = surfaceTitle(widget, theme);
+  const title = surfaceTitle(renderNode, theme);
   return title === undefined ? border : { ...border, title };
 }
 
-function surfaceTitle(widget: SurfaceNode, theme: TerminalTheme): BorderTitle | undefined {
-  const title = widget.props.title ?? stringify(widget.props.label);
+function surfaceTitle(renderNode: SurfaceNode, theme: TerminalTheme): BorderTitle | undefined {
+  const title = renderNode.props.title ?? stringify(renderNode.props.label);
   return renderBorderTitle(title, {
     theme,
-    ...surfaceTitleStyleOption(surfaceTitleStyle(widget)),
-    source: (part, index) => renderNodeFrameSource(widget, {
+    ...surfaceTitleStyleOption(surfaceTitleStyle(renderNode)),
+    source: (part, index) => renderNodeFrameSource(renderNode, {
       family: 'surface',
       role: 'text',
       part: `${part}.${String(index)}`,
@@ -206,15 +206,15 @@ function surfaceTitleStyleOption(style: TerminalStyle | undefined): { readonly b
   return style === undefined ? {} : { baseStyle: style };
 }
 
-function surfaceTitleStyle(widget: SurfaceNode): TerminalStyle | undefined {
-  return resolveRenderNodeStyle(widget, {
+function surfaceTitleStyle(renderNode: SurfaceNode): TerminalStyle | undefined {
+  return resolveRenderNodeStyle(renderNode, {
     part: 'title',
     base: { fg: { kind: 'theme', token: 'surface.title' }, bold: true }
   });
 }
 
-function surfaceDisabled(widget: SurfaceNode): boolean {
-  return widget.props.disabled === true;
+function surfaceDisabled(renderNode: SurfaceNode): boolean {
+  return renderNode.props.disabled === true;
 }
 
 function surfaceBorderTokenStyle(variant: SurfaceVariant): TerminalStyle {

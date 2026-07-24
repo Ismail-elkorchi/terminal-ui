@@ -31,8 +31,8 @@ export interface NormalizedTableColumn {
   readonly resizable?: boolean;
 }
 
-export function tableColumns(widget: TableNode, rows: readonly unknown[]): readonly NormalizedTableColumn[] {
-  const raw = widget.props.columns;
+export function tableColumns(renderNode: TableNode, rows: readonly unknown[]): readonly NormalizedTableColumn[] {
+  const raw = renderNode.props.columns;
   const configured = raw?.flatMap((column, index) => normalizeColumn(column, index)) ?? [];
   const columns = configured.length > 0 ? configured : Array.from({
     length: rows.reduce<number>((max, row) => Math.max(max, rowCells(row).length), 0)
@@ -43,8 +43,8 @@ export function tableColumns(widget: TableNode, rows: readonly unknown[]): reado
     semantic: 'text',
     value: (row: unknown) => rowCells(row)[index]
   }));
-  const sort = tableSort(widget.props.sort);
-  const widths = tableColumnWidthOverrides(widget.props.columnWidths);
+  const sort = tableSort(renderNode.props.sort);
+  const widths = tableColumnWidthOverrides(renderNode.props.columnWidths);
   return columns.map((column) => ({
     ...column,
     ...(widths[column.id] === undefined ? {} : { width: widths[column.id] }),
@@ -80,11 +80,11 @@ export function tableColumnWidths(
 }
 
 export function tableIntrinsicSize(
-  widget: TableNode,
+  renderNode: TableNode,
   widthProfile: TextWidthProfile
 ): { readonly width: number; readonly height: number } {
-  const rows = widget.props.collection.records.slice(0, 64).map((record) => record.row);
-  const columns = tableColumns(widget, rows);
+  const rows = renderNode.props.collection.records.slice(0, 64).map((record) => record.row);
+  const columns = tableColumns(renderNode, rows);
   const widths = columns.map((column) => {
     if (typeof column.width === 'number') return Math.max(1, Math.floor(column.width));
     if (column.width?.kind === 'fixed') return Math.max(1, Math.floor(column.width.cells));
@@ -94,7 +94,7 @@ export function tableIntrinsicSize(
   const hasHeader = columns.some((column) => (column.header?.length ?? 0) > 0);
   return {
     width,
-    height: widget.props.collection.total + (hasHeader ? 1 : 0)
+    height: renderNode.props.collection.total + (hasHeader ? 1 : 0)
   };
 }
 

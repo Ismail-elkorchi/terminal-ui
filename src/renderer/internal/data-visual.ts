@@ -14,13 +14,13 @@ export interface DataSourceOptions {
 }
 
 export function selectionMarkerSpans(
-  widget: RenderNode,
+  renderNode: RenderNode,
   selected: boolean,
   theme: TerminalTheme,
   style?: TerminalStyle,
   source?: FrameCellSource
 ): readonly RenderSpan[] {
-  const markerStyle = selected ? (style ?? renderNodeStyle(widget, 'marker', 'selected')) : renderNodeStyle(widget, 'marker');
+  const markerStyle = selected ? (style ?? renderNodeStyle(renderNode, 'marker', 'selected')) : renderNodeStyle(renderNode, 'marker');
   const gapSource = frameSourcePart(source, {
     ...(source?.part === undefined ? {} : { part: `${source.part}.gap` }),
     ...(source?.label === undefined ? {} : { label: `${source.label}.gap` })
@@ -58,8 +58,8 @@ export function mergeDataStyles(...styles: readonly (TerminalStyle | undefined)[
   return Object.keys(merged).length === 0 ? undefined : merged;
 }
 
-export function dataSource(widget: RenderNode, label: string, options: DataSourceOptions = {}): FrameCellSource {
-  return renderNodeFrameSource(widget, {
+export function dataSource(renderNode: RenderNode, label: string, options: DataSourceOptions = {}): FrameCellSource {
+  return renderNodeFrameSource(renderNode, {
     family: 'data',
     role: options.role ?? 'text',
     part: label,

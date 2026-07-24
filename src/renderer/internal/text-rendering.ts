@@ -41,66 +41,66 @@ type HelpBarNode = RenderNodeOfKind<unknown, 'helpBar'>;
 type StatusIndicatorNode = RenderNodeOfKind<unknown, 'statusIndicator'>;
 type SpinnerNode = RenderNodeOfKind<unknown, 'spinner'>;
 
-export function textBlock(widget: TextNode): RenderBlock {
-  const content = sanitizeTerminalText(stringify(widget.props.content)).text;
+export function textBlock(renderNode: TextNode): RenderBlock {
+  const content = sanitizeTerminalText(stringify(renderNode.props.content)).text;
   return blockFromText(content, {
-    ...styleOption(textStyle(widget)),
-    source: textSource(widget)
+    ...styleOption(textStyle(renderNode)),
+    source: textSource(renderNode)
   });
 }
 
-export function textAccessibleBase(widget: TextNode, id: string): AccessibleNode {
+export function textAccessibleBase(renderNode: TextNode, id: string): AccessibleNode {
   return {
     id,
     role: 'text',
     label: id,
-    value: sanitizeTerminalText(stringify(widget.props.content)).text
+    value: sanitizeTerminalText(stringify(renderNode.props.content)).text
   };
 }
 
 export function richTextBlock(
-  widget: RichTextNode,
+  renderNode: RichTextNode,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): RenderBlock {
-  const segments = richTextSegments(widget, theme);
-  if (widget.props.wrap === true && bounds.width > 0) {
+  const segments = richTextSegments(renderNode, theme);
+  if (renderNode.props.wrap === true && bounds.width > 0) {
     return block(wrapRenderSpans(segments, bounds.width, { widthProfile }));
   }
   return block([line(segments)]);
 }
 
-export function richTextAccessibleBase(widget: RichTextNode, id: string): AccessibleNode {
+export function richTextAccessibleBase(renderNode: RichTextNode, id: string): AccessibleNode {
   return {
     id,
     role: 'text',
     label: id,
-    value: inlineContentAccessibleText(widget.props.segments)
+    value: inlineContentAccessibleText(renderNode.props.segments)
   };
 }
 
-export function textAreaText(widget: TextAreaNode, bounds: Rect): string {
-  return textAreaBlock(widget, bounds, defaultTheme, defaultTextWidthProfile).lines.map((currentLine) =>
+export function textAreaText(renderNode: TextAreaNode, bounds: Rect): string {
+  return textAreaBlock(renderNode, bounds, defaultTheme, defaultTextWidthProfile).lines.map((currentLine) =>
     currentLine.spans.map((currentSpan) => currentSpan.text).join('')
   ).join('\n');
 }
 
 export function textAreaBlock(
-  widget: TextAreaNode,
+  renderNode: TextAreaNode,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   focused = false
 ): RenderBlock {
-  const model = textAreaRenderModel(widget, bounds, theme, widthProfile);
-  const selection = model.usesPlaceholder || widget.props.selection === undefined
+  const model = textAreaRenderModel(renderNode, bounds, theme, widthProfile);
+  const selection = model.usesPlaceholder || renderNode.props.selection === undefined
     ? undefined
-    : textDocumentSelectionRange(model.document, widget.props.selection, widget.props.caret);
+    : textDocumentSelectionRange(model.document, renderNode.props.selection, renderNode.props.caret);
   return block(model.projection.lines
     .slice(model.scroll.offsetRow, model.scroll.offsetRow + Math.max(0, bounds.height))
     .map((record, index): RenderLine => textAreaInputLine({
-      widget,
+      renderNode,
       bounds,
       theme,
       widthProfile,
@@ -118,14 +118,14 @@ export function textAreaBlock(
 }
 
 export function textAreaAccessibleBase(
-  widget: TextAreaNode,
+  renderNode: TextAreaNode,
   id: string,
   focused: boolean,
   bounds?: Rect,
   theme: TerminalTheme = defaultTheme,
   widthProfile: TextWidthProfile = defaultTextWidthProfile
 ): AccessibleNode {
-  const model = bounds === undefined ? undefined : textAreaRenderModel(widget, bounds, theme, widthProfile);
+  const model = bounds === undefined ? undefined : textAreaRenderModel(renderNode, bounds, theme, widthProfile);
   const value = model === undefined || model.usesPlaceholder
     ? ''
     : textAreaVisibleText(model.projection, model.scroll);
@@ -134,26 +134,26 @@ export function textAreaAccessibleBase(
     role: 'textbox',
     label: id,
     value,
-    description: textAreaDescription(widget, bounds, theme, widthProfile),
-    ...(widget.props.disabled === true ? { disabled: true } : {}),
+    description: textAreaDescription(renderNode, bounds, theme, widthProfile),
+    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
 
 export function textAreaCursor(
-  widget: TextAreaNode,
+  renderNode: TextAreaNode,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): CursorPosition {
-  const model = textAreaRenderModel(widget, bounds, theme, widthProfile);
+  const model = textAreaRenderModel(renderNode, bounds, theme, widthProfile);
   const cursor = textAreaCursorInProjection(
     model.projection,
-    widget.props.caret
+    renderNode.props.caret
   );
   const rowOffset = Math.max(0, Math.min(bounds.height - 1, cursor.rowIndex - model.scroll.offsetRow));
   return textAreaInputCursor({
-    widget,
+    renderNode,
     bounds,
     theme,
     widthProfile,
@@ -165,14 +165,14 @@ export function textAreaCursor(
 }
 
 export function textAreaPointerOffset(
-  widget: TextAreaNode,
+  renderNode: TextAreaNode,
   bounds: Rect,
   theme: TerminalTheme,
   pointer: RoutedPointerEvent,
   widthProfile: TextWidthProfile
 ): number | undefined {
   if (pointer.localRow === undefined || pointer.localColumn === undefined) return undefined;
-  const model = textAreaRenderModel(widget, bounds, theme, widthProfile);
+  const model = textAreaRenderModel(renderNode, bounds, theme, widthProfile);
   const rowIndex = Math.max(
     0,
     Math.min(model.projection.lines.length - 1, model.scroll.offsetRow + pointer.localRow - 1)
@@ -185,45 +185,45 @@ export function textAreaPointerOffset(
   );
 }
 
-export function helpBarText(widget: HelpBarNode, widthProfile: TextWidthProfile): string {
-  return feedbackHelpBarText(widget, widthProfile);
+export function helpBarText(renderNode: HelpBarNode, widthProfile: TextWidthProfile): string {
+  return feedbackHelpBarText(renderNode, widthProfile);
 }
 
-export function helpBarAccessibleBase(widget: HelpBarNode, id: string, widthProfile: TextWidthProfile): AccessibleNode {
+export function helpBarAccessibleBase(renderNode: HelpBarNode, id: string, widthProfile: TextWidthProfile): AccessibleNode {
   return {
     id,
     role: 'status',
     label: id,
-    value: helpBarText(widget, widthProfile),
+    value: helpBarText(renderNode, widthProfile),
     live: 'polite'
   };
 }
 
-export function statusIndicatorText(widget: StatusIndicatorNode, theme: TerminalTheme): string {
-  return feedbackStatusIndicatorText(widget, theme);
+export function statusIndicatorText(renderNode: StatusIndicatorNode, theme: TerminalTheme): string {
+  return feedbackStatusIndicatorText(renderNode, theme);
 }
 
-export function statusIndicatorAccessibleBase(widget: StatusIndicatorNode, id: string): AccessibleNode {
+export function statusIndicatorAccessibleBase(renderNode: StatusIndicatorNode, id: string): AccessibleNode {
   return {
     id,
     role: 'status',
     label: id,
-    value: statusIndicatorText(widget, defaultTheme),
+    value: statusIndicatorText(renderNode, defaultTheme),
     live: 'polite'
   };
 }
 
-export function spinnerBlock(widget: SpinnerNode, theme: TerminalTheme): RenderBlock {
-  return feedbackSpinnerBlock(widget, theme);
+export function spinnerBlock(renderNode: SpinnerNode, theme: TerminalTheme): RenderBlock {
+  return feedbackSpinnerBlock(renderNode, theme);
 }
 
-export function spinnerText(widget: SpinnerNode, theme: TerminalTheme): string {
-  return feedbackSpinnerText(widget, theme);
+export function spinnerText(renderNode: SpinnerNode, theme: TerminalTheme): string {
+  return feedbackSpinnerText(renderNode, theme);
 }
 
-export function spinnerAccessibleBase(widget: SpinnerNode, id: string): AccessibleNode {
-  const status = normalizeProcessStatus(widget.props.status, 'running');
-  const label = stringify(widget.props.label) || 'Loading';
+export function spinnerAccessibleBase(renderNode: SpinnerNode, id: string): AccessibleNode {
+  const status = normalizeProcessStatus(renderNode.props.status, 'running');
+  const label = stringify(renderNode.props.label) || 'Loading';
   return {
     id,
     role: 'status',
@@ -233,20 +233,20 @@ export function spinnerAccessibleBase(widget: SpinnerNode, id: string): Accessib
   };
 }
 
-function richTextSegments(widget: RichTextNode, theme: TerminalTheme): readonly RenderSpan[] {
-  const rootStyle = resolveRenderNodeStyle(widget, { part: 'root' });
-  return renderInlineContent(widget.props.segments, {
+function richTextSegments(renderNode: RichTextNode, theme: TerminalTheme): readonly RenderSpan[] {
+  const rootStyle = resolveRenderNodeStyle(renderNode, { part: 'root' });
+  return renderInlineContent(renderNode.props.segments, {
     theme,
     ...(rootStyle === undefined ? {} : { baseStyle: rootStyle }),
-    source: (_segment, index) => richTextSource(widget, index)
+    source: (_segment, index) => richTextSource(renderNode, index)
   });
 }
 
-function textStyle(widget: TextNode): TerminalStyle | undefined {
-  const role = widgetTextRole(widget.props.textRole);
+function textStyle(renderNode: TextNode): TerminalStyle | undefined {
+  const role = widgetTextRole(renderNode.props.textRole);
   const base = role === undefined ? undefined : defaultStyleForTextRole(role);
-  if (base === undefined) return resolveRenderNodeStyle(widget, { part: 'root' });
-  return resolveRenderNodeStyle(widget, {
+  if (base === undefined) return resolveRenderNodeStyle(renderNode, { part: 'root' });
+  return resolveRenderNodeStyle(renderNode, {
     part: 'root',
     base
   });
@@ -256,9 +256,9 @@ function styleOption(style: TerminalStyle | undefined): { readonly style?: Termi
   return style === undefined ? {} : { style };
 }
 
-function textSource(widget: TextNode): FrameCellSource {
-  const role = widgetTextRole(widget.props.textRole);
-  return renderNodeFrameSource(widget, {
+function textSource(renderNode: TextNode): FrameCellSource {
+  const role = widgetTextRole(renderNode.props.textRole);
+  return renderNodeFrameSource(renderNode, {
     family: 'text',
     role: 'text',
     part: role === undefined ? 'content' : `role.${role}`,
@@ -266,8 +266,8 @@ function textSource(widget: TextNode): FrameCellSource {
   });
 }
 
-function richTextSource(widget: RichTextNode, index: number): FrameCellSource {
-  return renderNodeFrameSource(widget, {
+function richTextSource(renderNode: RichTextNode, index: number): FrameCellSource {
+  return renderNodeFrameSource(renderNode, {
     family: 'text',
     role: 'text',
     part: 'segment',
@@ -296,28 +296,28 @@ function widgetTextRole(value: unknown): ElementTextRole | undefined {
 }
 
 function textAreaDescription(
-  widget: TextAreaNode,
+  renderNode: TextAreaNode,
   bounds: Rect | undefined,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): string {
-  const lines = textDocumentLength(widget.props.document) === 0 ? 0 : textDocumentLineCount(widget.props.document);
-  const scrollText = bounds === undefined ? '' : textAreaScrollDescription(widget, bounds, theme, widthProfile);
-  const selection = widget.props.selection;
+  const lines = textDocumentLength(renderNode.props.document) === 0 ? 0 : textDocumentLineCount(renderNode.props.document);
+  const scrollText = bounds === undefined ? '' : textAreaScrollDescription(renderNode, bounds, theme, widthProfile);
+  const selection = renderNode.props.selection;
   const selectionText = selection === undefined ? '' : ' Selection active.';
-  const requiredText = widget.props.required === true ? ' Required.' : '';
-  const error = sanitizeTerminalText(stringify(widget.props.error)).text;
+  const requiredText = renderNode.props.required === true ? ' Required.' : '';
+  const error = sanitizeTerminalText(stringify(renderNode.props.error)).text;
   const errorText = error.length === 0 ? '' : ` ${error}`;
   return `${String(lines)} lines.${scrollText}${selectionText}${requiredText}${errorText}`;
 }
 
 function textAreaScrollDescription(
-  widget: TextAreaNode,
+  renderNode: TextAreaNode,
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): string {
-  const model = textAreaRenderModel(widget, bounds, theme, widthProfile);
+  const model = textAreaRenderModel(renderNode, bounds, theme, widthProfile);
   const totalRows = model.scroll.contentRows;
   const visibleRows = Math.min(totalRows, Math.max(0, model.scroll.viewportRows));
   const start = visibleRows === 0 ? 0 : model.scroll.offsetRow + 1;

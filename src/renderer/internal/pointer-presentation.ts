@@ -8,17 +8,17 @@ import { ignoreMessage, isIgnoredMessage } from '../../interaction/message.ts';
 const presentationKinds = ['enter', 'leave', 'pointerDown', 'pointerUp'] as const;
 
 export function pointerPresentationHitTargets<TMessage>(
-  widget: RenderNode<TMessage>,
+  renderNode: RenderNode<TMessage>,
   bounds: HitTarget<TMessage>['bounds'],
   targets: readonly HitTarget<TMessage>[]
 ): readonly HitTarget<TMessage>[] {
-  const toActionMessage = widget.pointer?.toActionMessage;
+  const toActionMessage = renderNode.pointer?.toActionMessage;
   if (toActionMessage === undefined) return targets;
-  if (targets.length === 0 && renderNodeDisabled(widget)) return targets;
+  if (targets.length === 0 && renderNodeDisabled(renderNode)) return targets;
   const authoredTargets = targets.length > 0
     ? targets
     : [{
-        id: `${widget.id ?? widget.kind}:root`,
+        id: `${renderNode.id ?? renderNode.kind}:root`,
         bounds,
         accepts: ['click'] as const,
         message: ignoreMessage,
@@ -28,18 +28,18 @@ export function pointerPresentationHitTargets<TMessage>(
 }
 
 export function renderNodePointerVisualState(
-  widget: RenderNode,
+  renderNode: RenderNode,
   targetId: string
 ): 'hovered' | 'pressed' | undefined {
-  return pointerVisualState(widget.pointer?.state, targetId);
+  return pointerVisualState(renderNode.pointer?.state, targetId);
 }
 
-export function renderNodeTargetId(widget: RenderNode, ...parts: readonly string[]): string {
-  return [widget.id ?? widget.kind, ...parts].join(':');
+export function renderNodeTargetId(renderNode: RenderNode, ...parts: readonly string[]): string {
+  return [renderNode.id ?? renderNode.kind, ...parts].join(':');
 }
 
 export function interactionVisualState(
-  widget: RenderNode,
+  renderNode: RenderNode,
   targetId: string,
   state: {
     readonly disabled?: boolean;
@@ -52,7 +52,7 @@ export function interactionVisualState(
   if (state.disabled === true) return 'disabled';
   if (state.error === true) return 'error';
   if (state.warning === true) return 'warning';
-  const pointer = renderNodePointerVisualState(widget, targetId);
+  const pointer = renderNodePointerVisualState(renderNode, targetId);
   if (pointer === 'pressed') return 'pressed';
   if (state.selected === true) return 'selected';
   if (state.focused === true) return 'focused';
@@ -101,6 +101,6 @@ function mergeKinds(
   return [...new Set([...current, ...additions])];
 }
 
-function renderNodeDisabled(widget: RenderNode): boolean {
-  return 'disabled' in widget.props && widget.props.disabled;
+function renderNodeDisabled(renderNode: RenderNode): boolean {
+  return 'disabled' in renderNode.props && renderNode.props.disabled;
 }

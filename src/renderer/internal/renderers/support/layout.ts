@@ -24,29 +24,29 @@ type LayoutFlowNode = RenderNodesOfKind<
 
 type MeasureChild = (index: number) => Measurement;
 
-export function gridChildBounds(widget: GridNode, bounds: Rect, measureChild: MeasureChild): readonly Rect[] {
-  if (Array.isArray(widget.props.areas)) {
-    return gridAreaChildBounds(widget, bounds, measureChild);
+export function gridChildBounds(renderNode: GridNode, bounds: Rect, measureChild: MeasureChild): readonly Rect[] {
+  if (Array.isArray(renderNode.props.areas)) {
+    return gridAreaChildBounds(renderNode, bounds, measureChild);
   }
-  const rows = layoutSizes(widget.props.rows);
-  const columns = layoutSizes(widget.props.columns);
+  const rows = layoutSizes(renderNode.props.rows);
+  const columns = layoutSizes(renderNode.props.columns);
   const resolvedRows = rows.length === 0 ? [{ kind: 'fill' as const }] : rows;
   const resolvedColumns = columns.length === 0 ? [{ kind: 'fill' as const }] : columns;
-  const options = gridLayoutOptions(widget);
+  const options = gridLayoutOptions(renderNode);
   const contentBounds = layoutContentBounds(bounds, options);
   const rowRects = splitTracks(
     contentBounds,
     'vertical',
     resolvedRows,
     gapOnlyOptions(options.rowGap ?? options.gap),
-    gridContentSizes(resolvedRows, resolvedColumns.length, widget.children?.length ?? 0, measureChild, 'vertical')
+    gridContentSizes(resolvedRows, resolvedColumns.length, renderNode.children?.length ?? 0, measureChild, 'vertical')
   );
   const columnRects = splitTracks(
     contentBounds,
     'horizontal',
     resolvedColumns,
     gapOnlyOptions(options.columnGap ?? options.gap),
-    gridContentSizes(resolvedColumns, resolvedColumns.length, widget.children?.length ?? 0, measureChild, 'horizontal')
+    gridContentSizes(resolvedColumns, resolvedColumns.length, renderNode.children?.length ?? 0, measureChild, 'horizontal')
   );
   const cells = rowRects.flatMap((rowRect) => columnRects.map((columnRect) => ({
     row: rowRect.row,
@@ -54,16 +54,16 @@ export function gridChildBounds(widget: GridNode, bounds: Rect, measureChild: Me
     width: columnRect.width,
     height: rowRect.height
   })));
-  return (widget.children ?? []).map((_child, index) => cells[index] ?? emptyRect(bounds));
+  return (renderNode.children ?? []).map((_child, index) => cells[index] ?? emptyRect(bounds));
 }
 
-function gridAreaChildBounds(widget: GridNode, bounds: Rect, measureChild: MeasureChild): readonly Rect[] {
-  const template = gridAreasTemplate(widget.props.areas);
-  const areaNames = gridAreaNames(widget.props.areaNames);
+function gridAreaChildBounds(renderNode: GridNode, bounds: Rect, measureChild: MeasureChild): readonly Rect[] {
+  const template = gridAreasTemplate(renderNode.props.areas);
+  const areaNames = gridAreaNames(renderNode.props.areaNames);
   if (template.length === 0 || areaNames.length === 0) return [];
-  const rows = layoutSizes(widget.props.rows);
-  const columns = layoutSizes(widget.props.columns);
-  const options = gridLayoutOptions(widget);
+  const rows = layoutSizes(renderNode.props.rows);
+  const columns = layoutSizes(renderNode.props.columns);
+  const options = gridLayoutOptions(renderNode);
   const contentBounds = layoutContentBounds(bounds, options);
   const rowRects = splitTracks(
     contentBounds,
@@ -82,12 +82,12 @@ function gridAreaChildBounds(widget: GridNode, bounds: Rect, measureChild: Measu
   return areaNames.map((name) => areaBounds(template, name, rowRects, columnRects) ?? emptyRect(bounds));
 }
 
-export function splitPaneChildBounds(widget: SplitPaneNode, bounds: Rect, measureChild: MeasureChild): readonly Rect[] {
-  const children = widget.children ?? [];
-  const explicit = layoutSizes(widget.props.sizes);
+export function splitPaneChildBounds(renderNode: SplitPaneNode, bounds: Rect, measureChild: MeasureChild): readonly Rect[] {
+  const children = renderNode.children ?? [];
+  const explicit = layoutSizes(renderNode.props.sizes);
   const tracks = explicit.length === children.length ? explicit : children.map(() => ({ kind: 'fill' as const }));
-  const direction = widget.props.direction === 'horizontal' ? 'horizontal' : 'vertical';
-  return splitTracks(bounds, direction, tracks, layoutFlowOptions(widget), tracks.map((track, index) => {
+  const direction = renderNode.props.direction === 'horizontal' ? 'horizontal' : 'vertical';
+  return splitTracks(bounds, direction, tracks, layoutFlowOptions(renderNode), tracks.map((track, index) => {
     if (track.kind !== 'content') return 0;
     const measure = measureChild(index);
     return direction === 'horizontal' ? measure.preferredWidth : measure.preferredHeight;
@@ -183,9 +183,9 @@ export function fillLayoutSizes(count: number): readonly LayoutSize[] {
   return Array.from({ length: Math.max(0, count) }, () => ({ kind: 'fill' }));
 }
 
-export function childLayoutSizes(widget: SizedFlowNode, fallback?: readonly LayoutSize[]): readonly LayoutSize[] {
-  const children = widget.children ?? [];
-  const explicit = layoutSizes(widget.props.sizes);
+export function childLayoutSizes(renderNode: SizedFlowNode, fallback?: readonly LayoutSize[]): readonly LayoutSize[] {
+  const children = renderNode.children ?? [];
+  const explicit = layoutSizes(renderNode.props.sizes);
   return explicit.length === children.length ? explicit : fallback ?? fillLayoutSizes(children.length);
 }
 
@@ -210,11 +210,11 @@ function overflowPriorityWeight(priority: ElementOverflowPriority | undefined): 
   }
 }
 
-export function gridLayoutOptions(widget: GridNode): GridLayoutOptions {
+export function gridLayoutOptions(renderNode: GridNode): GridLayoutOptions {
   return {
-    ...layoutFlowOptions(widget),
-    ...optionalNumberProp(widget, 'rowGap'),
-    ...optionalNumberProp(widget, 'columnGap')
+    ...layoutFlowOptions(renderNode),
+    ...optionalNumberProp(renderNode, 'rowGap'),
+    ...optionalNumberProp(renderNode, 'columnGap')
   };
 }
 
@@ -265,48 +265,48 @@ function areaSpan(
   };
 }
 
-export function layoutFlowOptions(widget: LayoutFlowNode): LayoutFlowOptions {
+export function layoutFlowOptions(renderNode: LayoutFlowNode): LayoutFlowOptions {
   return {
-    ...optionalNumberProp(widget, 'gap'),
-    ...optionalInsetProp(widget, 'padding'),
-    ...optionalInsetProp(widget, 'margin'),
-    ...optionalNumberProp(widget, 'minWidth'),
-    ...optionalNumberProp(widget, 'minHeight'),
-    ...optionalNumberProp(widget, 'maxWidth'),
-    ...optionalNumberProp(widget, 'maxHeight'),
-    ...optionalAlignmentProp(widget),
-    ...optionalJustificationProp(widget),
-    ...optionalOverflowProp(widget)
+    ...optionalNumberProp(renderNode, 'gap'),
+    ...optionalInsetProp(renderNode, 'padding'),
+    ...optionalInsetProp(renderNode, 'margin'),
+    ...optionalNumberProp(renderNode, 'minWidth'),
+    ...optionalNumberProp(renderNode, 'minHeight'),
+    ...optionalNumberProp(renderNode, 'maxWidth'),
+    ...optionalNumberProp(renderNode, 'maxHeight'),
+    ...optionalAlignmentProp(renderNode),
+    ...optionalJustificationProp(renderNode),
+    ...optionalOverflowProp(renderNode)
   };
 }
 
 function optionalNumberProp(
-  widget: LayoutFlowNode,
+  renderNode: LayoutFlowNode,
   key: keyof LayoutFlowOptions | 'columnGap' | 'rowGap'
 ): Record<string, number> {
-  const value = Reflect.get(widget.props, key) as unknown;
+  const value = Reflect.get(renderNode.props, key) as unknown;
   return typeof value === 'number' && Number.isFinite(value) ? { [key]: value } : {};
 }
 
-function optionalInsetProp(widget: LayoutFlowNode, key: 'padding' | 'margin'): Record<string, LayoutInsetInput> {
-  const value = widget.props[key];
+function optionalInsetProp(renderNode: LayoutFlowNode, key: 'padding' | 'margin'): Record<string, LayoutInsetInput> {
+  const value = renderNode.props[key];
   if (typeof value === 'number' && Number.isFinite(value)) return { [key]: value };
   if (!isInsetObject(value)) return {};
   return { [key]: value };
 }
 
-function optionalAlignmentProp(widget: LayoutFlowNode): { readonly align?: LayoutAlignment } {
-  const value = widget.props.align;
+function optionalAlignmentProp(renderNode: LayoutFlowNode): { readonly align?: LayoutAlignment } {
+  const value = renderNode.props.align;
   return isLayoutAlignment(value) ? { align: value } : {};
 }
 
-function optionalJustificationProp(widget: LayoutFlowNode): { readonly justify?: LayoutJustification } {
-  const value = widget.props.justify;
+function optionalJustificationProp(renderNode: LayoutFlowNode): { readonly justify?: LayoutJustification } {
+  const value = renderNode.props.justify;
   return isLayoutJustification(value) ? { justify: value } : {};
 }
 
-function optionalOverflowProp(widget: LayoutFlowNode): { readonly overflow?: LayoutOverflow } {
-  const value = widget.props.overflow;
+function optionalOverflowProp(renderNode: LayoutFlowNode): { readonly overflow?: LayoutOverflow } {
+  const value = renderNode.props.overflow;
   return isLayoutOverflow(value) ? { overflow: value } : {};
 }
 

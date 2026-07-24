@@ -18,7 +18,7 @@ type TextAreaNode = RenderNodeOfKind<unknown, 'textArea'>;
 type InputNode = SingleLineInputNode | TextAreaNode;
 
 export interface SingleLineInputBlockInput {
-  readonly widget: SingleLineInputNode;
+  readonly renderNode: SingleLineInputNode;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
@@ -30,7 +30,7 @@ export interface SingleLineInputBlockInput {
 }
 
 export interface TextAreaInputBlockInput {
-  readonly widget: TextAreaNode;
+  readonly renderNode: TextAreaNode;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
@@ -61,27 +61,27 @@ export function singleLineInputBlock(input: SingleLineInputBlockInput): RenderBl
     model.display,
     model.usesPlaceholder ? undefined : input.selection,
     model.contentStyle,
-    renderNodeStyle(input.widget, 'selection', 'selected'),
+    renderNodeStyle(input.renderNode, 'selection', 'selected'),
     {
-      normalSource: inputSource(input.widget, model.usesPlaceholder ? 'placeholder' : 'value'),
-      selectedSource: inputSource(input.widget, 'selection')
+      normalSource: inputSource(input.renderNode, model.usesPlaceholder ? 'placeholder' : 'value'),
+      selectedSource: inputSource(input.renderNode, 'selection')
     }
   );
   return block([line([
-    styledSpan(model.prefix, model.chromeStyle, inputSource(input.widget, 'chrome', 'chrome.prefix')),
+    styledSpan(model.prefix, model.chromeStyle, inputSource(input.renderNode, 'chrome', 'chrome.prefix')),
     ...clipSpans(
       contentSpans,
       Math.max(0, input.bounds.width - model.prefixWidth - model.suffixWidth),
       input.widthProfile
     ),
-    styledSpan(model.suffix, model.chromeStyle, inputSource(input.widget, 'chrome', 'chrome.suffix'))
+    styledSpan(model.suffix, model.chromeStyle, inputSource(input.renderNode, 'chrome', 'chrome.suffix'))
   ])]);
 }
 
 export function singleLineInputCursor(input: SingleLineInputBlockInput): CursorPosition {
   const model = singleLineInputModel({ ...input, focused: true });
   const contentWidth = Math.max(0, input.bounds.width - model.prefixWidth - model.suffixWidth);
-  const style = cursorVisualStyle(input.widget);
+  const style = cursorVisualStyle(input.renderNode);
   return {
     row: input.bounds.row,
     column: input.bounds.column + model.prefixWidth + singleLineCursorColumn(
@@ -91,7 +91,7 @@ export function singleLineInputCursor(input: SingleLineInputBlockInput): CursorP
       Math.max(0, contentWidth - 1)
     ),
     ...(style === undefined ? {} : { style }),
-    source: inputSource(input.widget, 'cursor')
+    source: inputSource(input.renderNode, 'cursor')
   };
 }
 
@@ -111,9 +111,9 @@ export function textAreaInputLine(input: TextAreaInputBlockInput, lineInput: {
   readonly lineIndex: number;
   readonly offsetColumn: number;
 }): RenderLine {
-  const active = input.activeLineIndex === lineInput.lineRecord.logicalLineIndex && textAreaActiveLineEnabled(input.widget);
+  const active = input.activeLineIndex === lineInput.lineRecord.logicalLineIndex && textAreaActiveLineEnabled(input.renderNode);
   const prefix = textAreaLinePrefixSpans(
-    input.widget,
+    input.renderNode,
     input.theme,
     input.focused === true,
     lineInput.rowIndex,
@@ -133,14 +133,14 @@ export function textAreaInputLine(input: TextAreaInputBlockInput, lineInput: {
   const selectionInWindow = input.usesPlaceholder === true
     ? undefined
     : selectionIntersection(input.selection, lineInput.lineRecord.start + window.startOffset, lineInput.lineRecord.start + window.endOffset);
-  const contentStyle = input.usesPlaceholder === true ? renderNodeStyle(input.widget, 'placeholder') : inputContentStyle(input.widget, input.focused === true, active);
-  const contentSpans = textAreaContentSpans(input.widget, {
+  const contentStyle = input.usesPlaceholder === true ? renderNodeStyle(input.renderNode, 'placeholder') : inputContentStyle(input.renderNode, input.focused === true, active);
+  const contentSpans = textAreaContentSpans(input.renderNode, {
     text: window.text,
     absoluteStart: lineInput.lineRecord.start + window.startOffset,
     usesPlaceholder: input.usesPlaceholder === true,
     active,
     contentStyle,
-    selectedStyle: renderNodeStyle(input.widget, 'selection', 'selected'),
+    selectedStyle: renderNodeStyle(input.renderNode, 'selection', 'selected'),
     ...(selectionInWindow === undefined
       ? {}
       : {
@@ -153,12 +153,12 @@ export function textAreaInputLine(input: TextAreaInputBlockInput, lineInput: {
   return line([
     ...prefix,
     ...contentSpans,
-    ...textAreaActiveLineFill(input.widget, active, contentWidth, contentSpans, input.widthProfile)
+    ...textAreaActiveLineFill(input.renderNode, active, contentWidth, contentSpans, input.widthProfile)
   ]);
 }
 
 export function textAreaInputCursor(input: {
-  readonly widget: TextAreaNode;
+  readonly renderNode: TextAreaNode;
   readonly bounds: Rect;
   readonly theme: TerminalTheme;
   readonly widthProfile: TextWidthProfile;
@@ -167,8 +167,8 @@ export function textAreaInputCursor(input: {
   readonly offsetColumn: number;
   readonly lineCount: number;
 }): CursorPosition {
-  const prefixWidth = textAreaInputPrefixWidth(input.widget, input.theme, input.widthProfile, input.lineCount);
-  const style = cursorVisualStyle(input.widget);
+  const prefixWidth = textAreaInputPrefixWidth(input.renderNode, input.theme, input.widthProfile, input.lineCount);
+  const style = cursorVisualStyle(input.renderNode);
   return {
     row: input.bounds.row + input.rowOffset,
     column: input.bounds.column + prefixWidth + Math.max(0, Math.min(
@@ -176,7 +176,7 @@ export function textAreaInputCursor(input: {
       Math.max(0, input.columnCells - input.offsetColumn)
     )),
     ...(style === undefined ? {} : { style }),
-    source: inputSource(input.widget, 'cursor')
+    source: inputSource(input.renderNode, 'cursor')
   };
 }
 
@@ -184,12 +184,12 @@ export function textAreaInputContentBounds(
   bounds: Rect,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
-  widget?: TextAreaNode,
+  renderNode?: TextAreaNode,
   lineCount = 1
 ): Rect {
-  const prefixWidth = widget === undefined
+  const prefixWidth = renderNode === undefined
     ? terminalTextWidth(`${theme.tokens.symbols.borderSingle.vertical} `, { widthProfile })
-    : textAreaInputPrefixWidth(widget, theme, widthProfile, lineCount);
+    : textAreaInputPrefixWidth(renderNode, theme, widthProfile, lineCount);
   return {
     ...bounds,
     width: Math.max(0, bounds.width - prefixWidth)
@@ -209,7 +209,7 @@ function singleLineInputModel(input: SingleLineInputBlockInput): {
   const value = cleanInputText(input.value);
   const placeholder = cleanInputText(input.placeholder ?? '');
   const usesPlaceholder = value.length === 0 && placeholder.length > 0;
-  const prefix = `${inputStateMarker(input.widget, input.theme, input.focused === true)}[ `;
+  const prefix = `${inputStateMarker(input.renderNode, input.theme, input.focused === true)}[ `;
   const suffix = ' ]';
   return {
     display: usesPlaceholder ? placeholder : value,
@@ -218,13 +218,13 @@ function singleLineInputModel(input: SingleLineInputBlockInput): {
     suffix,
     prefixWidth: terminalTextWidth(prefix, { widthProfile: input.widthProfile }),
     suffixWidth: terminalTextWidth(suffix, { widthProfile: input.widthProfile }),
-    chromeStyle: inputChromeStyle(input.widget, input.focused === true),
-    contentStyle: usesPlaceholder ? renderNodeStyle(input.widget, 'placeholder') : inputContentStyle(input.widget, input.focused === true)
+    chromeStyle: inputChromeStyle(input.renderNode, input.focused === true),
+    contentStyle: usesPlaceholder ? renderNodeStyle(input.renderNode, 'placeholder') : inputContentStyle(input.renderNode, input.focused === true)
   };
 }
 
 function textAreaLinePrefixSpans(
-  widget: TextAreaNode,
+  renderNode: TextAreaNode,
   theme: TerminalTheme,
   focused: boolean,
   rowIndex: number,
@@ -233,97 +233,97 @@ function textAreaLinePrefixSpans(
   active: boolean,
   firstVisualLine = true
 ): readonly RenderSpan[] {
-  const marker = textAreaLineMarker(widget, theme, focused, rowIndex, active);
-  const lineNumber = textAreaLineNumber(widget, lineIndex, lineCount, firstVisualLine);
-  const markerStyle = textAreaMarkerStyle(widget, focused, active, rowIndex);
-  const gutterStyle = textAreaGutterStyle(widget, active);
+  const marker = textAreaLineMarker(renderNode, theme, focused, rowIndex, active);
+  const lineNumber = textAreaLineNumber(renderNode, lineIndex, lineCount, firstVisualLine);
+  const markerStyle = textAreaMarkerStyle(renderNode, focused, active, rowIndex);
+  const gutterStyle = textAreaGutterStyle(renderNode, active);
   if (lineNumber === undefined) {
-    return [styledSpan(`${marker} `, markerStyle, inputSource(widget, active ? 'activeLine' : 'chrome', active ? 'activeLine.gutter' : 'chrome.prefix'))];
+    return [styledSpan(`${marker} `, markerStyle, inputSource(renderNode, active ? 'activeLine' : 'chrome', active ? 'activeLine.gutter' : 'chrome.prefix'))];
   }
   return [
-    styledSpan(marker, markerStyle, inputSource(widget, active ? 'activeLine' : 'chrome', active ? 'activeLine.marker' : 'chrome.marker')),
-    styledSpan(lineNumber, textAreaLineNumberStyle(widget, active), inputSource(widget, 'lineNumber', active ? 'activeLine.lineNumber' : 'lineNumber')),
-    styledSpan(` ${theme.tokens.symbols.borderSingle.vertical} `, gutterStyle, inputSource(widget, 'gutter', active ? 'activeLine.gutter' : 'gutter.separator'))
+    styledSpan(marker, markerStyle, inputSource(renderNode, active ? 'activeLine' : 'chrome', active ? 'activeLine.marker' : 'chrome.marker')),
+    styledSpan(lineNumber, textAreaLineNumberStyle(renderNode, active), inputSource(renderNode, 'lineNumber', active ? 'activeLine.lineNumber' : 'lineNumber')),
+    styledSpan(` ${theme.tokens.symbols.borderSingle.vertical} `, gutterStyle, inputSource(renderNode, 'gutter', active ? 'activeLine.gutter' : 'gutter.separator'))
   ];
 }
 
 function textAreaInputPrefixWidth(
-  widget: TextAreaNode,
+  renderNode: TextAreaNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile,
   lineCount: number
 ): number {
   return spansWidth(
-    textAreaLinePrefixSpans(widget, theme, true, 0, Math.max(0, lineCount - 1), lineCount, false),
+    textAreaLinePrefixSpans(renderNode, theme, true, 0, Math.max(0, lineCount - 1), lineCount, false),
     widthProfile
   );
 }
 
-function textAreaLineMarker(widget: TextAreaNode, theme: TerminalTheme, focused: boolean, rowIndex: number, active: boolean): string {
+function textAreaLineMarker(renderNode: TextAreaNode, theme: TerminalTheme, focused: boolean, rowIndex: number, active: boolean): string {
   if (active) return focused ? theme.tokens.symbols.pointer : theme.tokens.symbols.selected;
-  if (rowIndex === 0) return inputStateMarker(widget, theme, focused);
+  if (rowIndex === 0) return inputStateMarker(renderNode, theme, focused);
   return theme.tokens.symbols.borderSingle.vertical;
 }
 
-function inputStateMarker(widget: InputNode, theme: TerminalTheme, focused: boolean): string {
-  if (widget.props.disabled === true) return '-';
-  if (typeof widget.props.error === 'string' && widget.props.error.length > 0) return theme.tokens.symbols.statusError;
+function inputStateMarker(renderNode: InputNode, theme: TerminalTheme, focused: boolean): string {
+  if (renderNode.props.disabled === true) return '-';
+  if (typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0) return theme.tokens.symbols.statusError;
   return focused ? theme.tokens.symbols.pointer : theme.tokens.symbols.borderSingle.vertical;
 }
 
-function inputChromeStyle(widget: InputNode, focused: boolean): TerminalStyle | undefined {
-  const state = widget.props.disabled === true
+function inputChromeStyle(renderNode: InputNode, focused: boolean): TerminalStyle | undefined {
+  const state = renderNode.props.disabled === true
     ? 'disabled'
-    : typeof widget.props.error === 'string' && widget.props.error.length > 0
+    : typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0
       ? 'error'
       : focused
         ? 'focused'
         : undefined;
-  return resolveRenderNodeStyle(widget, {
+  return resolveRenderNodeStyle(renderNode, {
     part: 'border',
     base: { fg: { kind: 'theme', token: 'control.border' } },
     ...(state === undefined ? {} : { state })
   });
 }
 
-function cursorVisualStyle(widget: InputNode): TerminalStyle | undefined {
+function cursorVisualStyle(renderNode: InputNode): TerminalStyle | undefined {
   return mergeStyles(
     inputCursorStyle(),
-    widget.styles?.parts?.['cursor'],
-    widget.styles?.states?.focused
+    renderNode.styles?.parts?.['cursor'],
+    renderNode.styles?.states?.focused
   );
 }
 
-function textAreaMarkerStyle(widget: TextAreaNode, focused: boolean, active: boolean, rowIndex: number): TerminalStyle | undefined {
-  if (active) return textAreaActiveGutterStyle(widget);
-  if (focused && rowIndex === 0) return inputChromeStyle(widget, true);
-  return textAreaGutterStyle(widget, false);
+function textAreaMarkerStyle(renderNode: TextAreaNode, focused: boolean, active: boolean, rowIndex: number): TerminalStyle | undefined {
+  if (active) return textAreaActiveGutterStyle(renderNode);
+  if (focused && rowIndex === 0) return inputChromeStyle(renderNode, true);
+  return textAreaGutterStyle(renderNode, false);
 }
 
-function textAreaGutterStyle(widget: TextAreaNode, active: boolean): TerminalStyle | undefined {
+function textAreaGutterStyle(renderNode: TextAreaNode, active: boolean): TerminalStyle | undefined {
   return active
-    ? textAreaActiveGutterStyle(widget)
+    ? textAreaActiveGutterStyle(renderNode)
     : mergeStyles(
         {
           fg: { kind: 'theme', token: 'editor.gutter.foreground' },
           bg: { kind: 'theme', token: 'editor.gutter.background' }
         },
-        widget.styles?.parts?.['gutter']
+        renderNode.styles?.parts?.['gutter']
       );
 }
 
-function textAreaActiveGutterStyle(widget: TextAreaNode): TerminalStyle | undefined {
+function textAreaActiveGutterStyle(renderNode: TextAreaNode): TerminalStyle | undefined {
   return mergeStyles(
     {
       fg: { kind: 'theme', token: 'editor.gutter.active.foreground' },
       bg: { kind: 'theme', token: 'editor.activeLine.background' },
       bold: true
     },
-    widget.styles?.parts?.['gutter']
+    renderNode.styles?.parts?.['gutter']
   );
 }
 
-function textAreaLineNumberStyle(widget: TextAreaNode, active: boolean): TerminalStyle | undefined {
+function textAreaLineNumberStyle(renderNode: TextAreaNode, active: boolean): TerminalStyle | undefined {
   return active
     ? mergeStyles(
         {
@@ -331,36 +331,36 @@ function textAreaLineNumberStyle(widget: TextAreaNode, active: boolean): Termina
           bg: { kind: 'theme', token: 'editor.activeLine.background' },
           bold: true
         },
-        widget.styles?.parts?.['lineNumber']
+        renderNode.styles?.parts?.['lineNumber']
       )
     : mergeStyles(
         {
           fg: { kind: 'theme', token: 'editor.gutter.foreground' },
           bg: { kind: 'theme', token: 'editor.gutter.background' }
         },
-        widget.styles?.parts?.['lineNumber']
+        renderNode.styles?.parts?.['lineNumber']
       );
 }
 
-function inputContentStyle(widget: InputNode, focused: boolean, active = false): TerminalStyle | undefined {
-  if (widget.props.disabled === true) return renderNodeStyle(widget, 'value', 'disabled');
-  if (typeof widget.props.error === 'string' && widget.props.error.length > 0) return renderNodeStyle(widget, 'value', 'error');
+function inputContentStyle(renderNode: InputNode, focused: boolean, active = false): TerminalStyle | undefined {
+  if (renderNode.props.disabled === true) return renderNodeStyle(renderNode, 'value', 'disabled');
+  if (typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0) return renderNodeStyle(renderNode, 'value', 'error');
   return mergeStyles(
-    renderNodeStyle(widget, 'value'),
-    focused ? widget.styles?.states?.focused : undefined,
-    active && widget.kind === 'textArea' ? textAreaActiveLineTextStyle(widget) : undefined
+    renderNodeStyle(renderNode, 'value'),
+    focused ? renderNode.styles?.states?.focused : undefined,
+    active && renderNode.kind === 'textArea' ? textAreaActiveLineTextStyle(renderNode) : undefined
   );
 }
 
-function textAreaActiveLineTextStyle(widget: TextAreaNode): TerminalStyle | undefined {
+function textAreaActiveLineTextStyle(renderNode: TextAreaNode): TerminalStyle | undefined {
   return mergeStyles(
     { bg: { kind: 'theme', token: 'editor.activeLine.background' } },
-    widget.styles?.parts?.['activeLine']
+    renderNode.styles?.parts?.['activeLine']
   );
 }
 
 function textAreaContentSpans(
-  widget: TextAreaNode,
+  renderNode: TextAreaNode,
   input: {
     readonly text: string;
     readonly absoluteStart: number;
@@ -373,11 +373,11 @@ function textAreaContentSpans(
 ): readonly RenderSpan[] {
   if (input.text.length === 0) return [];
   const absoluteEnd = input.absoluteStart + input.text.length;
-  const highlights = input.usesPlaceholder ? [] : textAreaHighlights(widget, input.absoluteStart, absoluteEnd);
+  const highlights = input.usesPlaceholder ? [] : textAreaHighlights(renderNode, input.absoluteStart, absoluteEnd);
   if (input.selection === undefined && highlights.length === 0) {
     return selectedTextSpans(input.text, undefined, input.contentStyle, input.selectedStyle, {
-      normalSource: textAreaContentSource(widget, input.usesPlaceholder, input.active),
-      selectedSource: inputSource(widget, 'selection')
+      normalSource: textAreaContentSource(renderNode, input.usesPlaceholder, input.active),
+      selectedSource: inputSource(renderNode, 'selection')
     });
   }
 
@@ -390,7 +390,7 @@ function textAreaContentSpans(
     if (selected) {
       return [span(text, {
         ...(input.selectedStyle === undefined ? {} : { style: input.selectedStyle }),
-        source: inputSource(widget, 'selection')
+        source: inputSource(renderNode, 'selection')
       })];
     }
     const highlight = highlights.find((current) => start >= current.start && end <= current.end);
@@ -398,18 +398,18 @@ function textAreaContentSpans(
       const style = mergeStyles(input.contentStyle, defaultHighlightStyle(), highlight.style);
       return [span(text, {
         ...(style === undefined ? {} : { style }),
-        source: inputSource(widget, 'highlight', highlight.label)
+        source: inputSource(renderNode, 'highlight', highlight.label)
       })];
     }
     return [span(text, {
       ...(input.contentStyle === undefined ? {} : { style: input.contentStyle }),
-      source: textAreaContentSource(widget, input.usesPlaceholder, input.active)
+      source: textAreaContentSource(renderNode, input.usesPlaceholder, input.active)
     })];
   });
 }
 
 function textAreaActiveLineFill(
-  widget: TextAreaNode,
+  renderNode: TextAreaNode,
   active: boolean,
   contentWidth: number,
   contentSpans: readonly RenderSpan[],
@@ -419,11 +419,11 @@ function textAreaActiveLineFill(
   const remaining = Math.max(0, contentWidth - spansWidth(contentSpans, widthProfile));
   return remaining === 0
     ? []
-    : [styledSpan(' '.repeat(remaining), textAreaActiveLineTextStyle(widget), inputSource(widget, 'activeLine', 'activeLine.background'))];
+    : [styledSpan(' '.repeat(remaining), textAreaActiveLineTextStyle(renderNode), inputSource(renderNode, 'activeLine', 'activeLine.background'))];
 }
 
-function textAreaHighlights(widget: TextAreaNode, start: number, end: number): readonly NormalizedTextAreaHighlight[] {
-  const raw = widget.props.highlights;
+function textAreaHighlights(renderNode: TextAreaNode, start: number, end: number): readonly NormalizedTextAreaHighlight[] {
+  const raw = renderNode.props.highlights;
   if (!Array.isArray(raw) || end <= start) return [];
   return raw.flatMap((input, index): readonly NormalizedTextAreaHighlight[] => {
     const normalized = normalizeTextAreaHighlight(input, index, start, end);
@@ -543,25 +543,25 @@ function spansWidth(spans: readonly RenderSpan[], widthProfile: TextWidthProfile
   return spans.reduce((sum, current) => sum + terminalTextWidth(current.text, { widthProfile }), 0);
 }
 
-function inputSource(widget: InputNode, visual: FormVisualKind, label: string = visual): FrameCellSource {
-  return formSource(widget, visual, label);
+function inputSource(renderNode: InputNode, visual: FormVisualKind, label: string = visual): FrameCellSource {
+  return formSource(renderNode, visual, label);
 }
 
-function textAreaContentSource(widget: TextAreaNode, placeholder: boolean, active: boolean): FrameCellSource {
-  if (placeholder) return inputSource(widget, 'placeholder');
-  return inputSource(widget, 'value', active ? 'activeLine.value' : 'value');
+function textAreaContentSource(renderNode: TextAreaNode, placeholder: boolean, active: boolean): FrameCellSource {
+  if (placeholder) return inputSource(renderNode, 'placeholder');
+  return inputSource(renderNode, 'value', active ? 'activeLine.value' : 'value');
 }
 
-function textAreaLineNumber(widget: TextAreaNode, lineIndex: number, lineCount: number, firstVisualLine: boolean): string | undefined {
-  const options = textAreaLineNumberOptions(widget);
+function textAreaLineNumber(renderNode: TextAreaNode, lineIndex: number, lineCount: number, firstVisualLine: boolean): string | undefined {
+  const options = textAreaLineNumberOptions(renderNode);
   if (options === undefined) return undefined;
   const start = options.start;
   const width = Math.max(options.minWidth, String(start + Math.max(0, lineCount - 1)).length);
   return firstVisualLine ? String(start + lineIndex).padStart(width, ' ') : ''.padStart(width, ' ');
 }
 
-function textAreaLineNumberOptions(widget: TextAreaNode): { readonly start: number; readonly minWidth: number } | undefined {
-  const raw = widget.props.lineNumbers;
+function textAreaLineNumberOptions(renderNode: TextAreaNode): { readonly start: number; readonly minWidth: number } | undefined {
+  const raw = renderNode.props.lineNumbers;
   if (raw !== true && !isRecord(raw)) return undefined;
   const start = isRecord(raw) && typeof raw['start'] === 'number' && Number.isFinite(raw['start'])
     ? Math.floor(raw['start'])
@@ -572,8 +572,8 @@ function textAreaLineNumberOptions(widget: TextAreaNode): { readonly start: numb
   return { start, minWidth };
 }
 
-function textAreaActiveLineEnabled(widget: TextAreaNode): boolean {
-  return widget.props.activeLine === true;
+function textAreaActiveLineEnabled(renderNode: TextAreaNode): boolean {
+  return renderNode.props.activeLine === true;
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

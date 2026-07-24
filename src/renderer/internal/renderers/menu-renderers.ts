@@ -11,7 +11,7 @@ import {
   menuBarBlock,
   menuBlock,
   menuHitTargets
-} from '../menu-widgets.ts';
+} from '../menu-rendering.ts';
 import {
   contextMenuHitTargets,
   contextMenuPopupBounds,

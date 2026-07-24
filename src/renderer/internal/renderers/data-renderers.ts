@@ -16,7 +16,7 @@ import {
   sparklineAccessibleBase,
   sparklineBlock
 } from '../charts/index.ts';
-import { paginatorAccessibleBase, paginatorBlock, paginatorHitTargets } from '../data-widgets.ts';
+import { paginatorAccessibleBase, paginatorBlock, paginatorHitTargets } from '../data-rendering.ts';
 import {
   activityFeedAccessibleBase,
   activityFeedAccessibleChildren,

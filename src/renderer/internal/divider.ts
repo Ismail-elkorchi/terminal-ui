@@ -16,18 +16,18 @@ interface DividerGlyphs {
   readonly vertical: string;
 }
 
-export function renderDivider(widget: DividerNode, buffer: RenderTarget, bounds: Rect, theme: TerminalTheme): void {
-  const orientation = dividerOrientation(widget);
-  const style = dividerStyle(widget);
+export function renderDivider(renderNode: DividerNode, buffer: RenderTarget, bounds: Rect, theme: TerminalTheme): void {
+  const orientation = dividerOrientation(renderNode);
+  const style = dividerStyle(renderNode);
   if (orientation === 'vertical') {
-    renderVerticalDivider(widget, buffer, bounds, style, theme);
+    renderVerticalDivider(renderNode, buffer, bounds, style, theme);
     return;
   }
-  renderHorizontalDivider(widget, buffer, bounds, style, theme);
+  renderHorizontalDivider(renderNode, buffer, bounds, style, theme);
 }
 
-export function dividerAccessibleBase(widget: DividerNode, id: string, focused: boolean): AccessibleNode {
-  const label = dividerLabel(widget);
+export function dividerAccessibleBase(renderNode: DividerNode, id: string, focused: boolean): AccessibleNode {
+  const label = dividerLabel(renderNode);
   return {
     id,
     role: 'text',
@@ -37,56 +37,56 @@ export function dividerAccessibleBase(widget: DividerNode, id: string, focused: 
 }
 
 export function dividerPreferredSize(
-  widget: DividerNode,
+  renderNode: DividerNode,
   widthProfile: TextWidthProfile
 ): { readonly width: number; readonly height: number } {
-  const label = dividerLabel(widget);
+  const label = dividerLabel(renderNode);
   const labelCells = measureTextCells(label, { widthProfile }).cells;
-  return dividerOrientation(widget) === 'vertical'
+  return dividerOrientation(renderNode) === 'vertical'
     ? { width: 1, height: Math.max(1, labelCells) }
     : { width: Math.max(1, labelCells + (labelCells === 0 ? 0 : 2)), height: 1 };
 }
 
 function renderHorizontalDivider(
-  widget: DividerNode,
+  renderNode: DividerNode,
   buffer: RenderTarget,
   bounds: Rect,
   style: TerminalStyle | undefined,
   theme: TerminalTheme
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
-  const glyph = oneCellGlyph(dividerGlyphs(widget, theme).horizontal, '-', {
+  const glyph = oneCellGlyph(dividerGlyphs(renderNode, theme).horizontal, '-', {
     widthProfile: buffer.widthProfile
   });
-  const label = dividerLabel(widget);
+  const label = dividerLabel(renderNode);
   const spans = label.length === 0
-    ? [separatorSpan(widget, glyph.repeat(bounds.width), style)]
-    : labelledDividerSpans(widget, glyph, label, bounds.width, dividerLabelAlign(widget), style, buffer.widthProfile);
+    ? [separatorSpan(renderNode, glyph.repeat(bounds.width), style)]
+    : labelledDividerSpans(renderNode, glyph, label, bounds.width, dividerLabelAlign(renderNode), style, buffer.widthProfile);
   buffer.write(bounds.row, bounds.column, spans);
 }
 
 function renderVerticalDivider(
-  widget: DividerNode,
+  renderNode: DividerNode,
   buffer: RenderTarget,
   bounds: Rect,
   style: TerminalStyle | undefined,
   theme: TerminalTheme
 ): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
-  const glyph = oneCellGlyph(dividerGlyphs(widget, theme).vertical, '|', {
+  const glyph = oneCellGlyph(dividerGlyphs(renderNode, theme).vertical, '|', {
     widthProfile: buffer.widthProfile
   });
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
     buffer.write(row, bounds.column, [{
       text: glyph,
       ...(style === undefined ? {} : { style }),
-      source: renderNodeFrameSource(widget, { family: 'drawing', role: 'separator', part: 'separator', label: 'separator' })
+      source: renderNodeFrameSource(renderNode, { family: 'drawing', role: 'separator', part: 'separator', label: 'separator' })
     }]);
   }
 }
 
 function labelledDividerSpans(
-  widget: DividerNode,
+  renderNode: DividerNode,
   glyph: string,
   label: string,
   width: number,
@@ -100,18 +100,18 @@ function labelledDividerSpans(
   const before = align === 'end' ? remaining : align === 'center' ? Math.floor(remaining / 2) : 0;
   const after = remaining - before;
   return [
-    separatorSpan(widget, glyph.repeat(before), style, 'separator.before'),
-    labelSpan(widget, clippedLabel, style),
-    separatorSpan(widget, glyph.repeat(after), style, 'separator.after')
+    separatorSpan(renderNode, glyph.repeat(before), style, 'separator.before'),
+    labelSpan(renderNode, clippedLabel, style),
+    separatorSpan(renderNode, glyph.repeat(after), style, 'separator.after')
   ].filter((span) => span.text.length > 0);
 }
 
-function dividerOrientation(widget: DividerNode): DividerOrientation {
-  return widget.props.orientation === 'vertical' ? 'vertical' : 'horizontal';
+function dividerOrientation(renderNode: DividerNode): DividerOrientation {
+  return renderNode.props.orientation === 'vertical' ? 'vertical' : 'horizontal';
 }
 
-function dividerLineKind(widget: DividerNode): DividerLineKind {
-  const value = widget.props.line;
+function dividerLineKind(renderNode: DividerNode): DividerLineKind {
+  const value = renderNode.props.line;
   return value === 'double'
     || value === 'heavy'
     || value === 'dashed'
@@ -122,17 +122,17 @@ function dividerLineKind(widget: DividerNode): DividerLineKind {
     : 'single';
 }
 
-function dividerLabel(widget: DividerNode): string {
-  return stringify(widget.props.label);
+function dividerLabel(renderNode: DividerNode): string {
+  return stringify(renderNode.props.label);
 }
 
-function dividerLabelAlign(widget: DividerNode): 'start' | 'center' | 'end' {
-  const value = widget.props.labelAlign;
+function dividerLabelAlign(renderNode: DividerNode): 'start' | 'center' | 'end' {
+  const value = renderNode.props.labelAlign;
   return value === 'center' || value === 'end' ? value : 'start';
 }
 
-function dividerGlyphs(widget: DividerNode, theme: TerminalTheme): DividerGlyphs {
-  switch (dividerLineKind(widget)) {
+function dividerGlyphs(renderNode: DividerNode, theme: TerminalTheme): DividerGlyphs {
+  switch (dividerLineKind(renderNode)) {
     case 'single':
       return {
         horizontal: theme.tokens.symbols.borderSingle.horizontal,
@@ -153,28 +153,28 @@ function dividerGlyphs(widget: DividerNode, theme: TerminalTheme): DividerGlyphs
   }
 }
 
-function dividerStyle(widget: DividerNode): TerminalStyle | undefined {
-  return mergeStyles(renderNodeStyle(widget, 'border'), widget.styles?.root);
+function dividerStyle(renderNode: DividerNode): TerminalStyle | undefined {
+  return mergeStyles(renderNodeStyle(renderNode, 'border'), renderNode.styles?.root);
 }
 
-function dividerLabelStyle(widget: DividerNode, base: TerminalStyle | undefined): TerminalStyle | undefined {
-  return mergeStyles(base, renderNodeStyle(widget, 'label'));
+function dividerLabelStyle(renderNode: DividerNode, base: TerminalStyle | undefined): TerminalStyle | undefined {
+  return mergeStyles(base, renderNodeStyle(renderNode, 'label'));
 }
 
-function separatorSpan(widget: DividerNode, text: string, style: TerminalStyle | undefined, label = 'separator'): RenderSpan {
+function separatorSpan(renderNode: DividerNode, text: string, style: TerminalStyle | undefined, label = 'separator'): RenderSpan {
   return {
     text,
     ...(style === undefined ? {} : { style }),
-    source: renderNodeFrameSource(widget, { family: 'drawing', role: 'separator', part: label, label })
+    source: renderNodeFrameSource(renderNode, { family: 'drawing', role: 'separator', part: label, label })
   };
 }
 
-function labelSpan(widget: DividerNode, text: string, baseStyle: TerminalStyle | undefined): RenderSpan {
-  const style = dividerLabelStyle(widget, baseStyle);
+function labelSpan(renderNode: DividerNode, text: string, baseStyle: TerminalStyle | undefined): RenderSpan {
+  const style = dividerLabelStyle(renderNode, baseStyle);
   return {
     text,
     ...(style === undefined ? {} : { style }),
-    source: renderNodeFrameSource(widget, { family: 'drawing', role: 'text', part: 'label', label: 'label' })
+    source: renderNodeFrameSource(renderNode, { family: 'drawing', role: 'text', part: 'label', label: 'label' })
   };
 }
 type DividerNode = RenderNodeOfKind<unknown, 'divider'>;

@@ -41,17 +41,17 @@ export function chartSeries(value: unknown): readonly ChartSeries[] {
 }
 
 export function projectChartSeries(
-  widget: ChartNode,
+  renderNode: ChartNode,
   item: ChartSeries,
   plotWidth: number
 ): readonly ProjectedChartPoint[] {
   if (plotWidth <= 0 || item.points.length === 0) return [];
-  const mode = chartSeriesSampleMode(widget, item);
-  if (mode === 'fit') return fitChartSeries(widget, item, plotWidth);
+  const mode = chartSeriesSampleMode(renderNode, item);
+  if (mode === 'fit') return fitChartSeries(renderNode, item, plotWidth);
   const count = Math.min(item.points.length, plotWidth);
-  const align = mode === 'window' ? chartSeriesSampleAlign(widget, item) : 'start';
+  const align = mode === 'window' ? chartSeriesSampleAlign(renderNode, item) : 'start';
   const pointStart = mode === 'window'
-    ? selectedWindowStart(widget, item.points.length, count, align)
+    ? selectedWindowStart(renderNode, item.points.length, count, align)
     : 0;
   const columnStart = align === 'end' ? Math.max(0, plotWidth - count) : 0;
   return Array.from({ length: count }, (_, index) => {
@@ -66,12 +66,12 @@ export function projectChartSeries(
 }
 
 function selectedWindowStart(
-  widget: ChartNode,
+  renderNode: ChartNode,
   pointCount: number,
   windowSize: number,
   align: ChartSampleAlign
 ): number {
-  const selected = widget.props.selected;
+  const selected = renderNode.props.selected;
   if (selected !== undefined) {
     const point = Math.max(0, Math.min(pointCount - 1, Math.floor(selected.point)));
     return Math.max(0, Math.min(pointCount - windowSize, point - Math.floor(windowSize / 2)));
@@ -79,8 +79,8 @@ function selectedWindowStart(
   return align === 'end' ? Math.max(0, pointCount - windowSize) : 0;
 }
 
-export function chartSeriesSampleMode(widget: ChartNode, item: ChartSeries): ChartSampleMode {
-  return item.sampleMode ?? widget.props.sampleMode ?? 'one-per-column';
+export function chartSeriesSampleMode(renderNode: ChartNode, item: ChartSeries): ChartSampleMode {
+  return item.sampleMode ?? renderNode.props.sampleMode ?? 'one-per-column';
 }
 
 export function chartSeriesScale(
@@ -102,16 +102,16 @@ export function chartPointStyle(
 }
 
 function fitChartSeries(
-  widget: ChartNode,
+  renderNode: ChartNode,
   item: ChartSeries,
   plotWidth: number
 ): readonly ProjectedChartPoint[] {
   if (plotWidth <= 0 || item.points.length === 0) return [];
   if (plotWidth === 1 || item.points.length === 1) {
-    const point = chartSeriesSampleAlign(widget, item) === 'end' ? item.points.length - 1 : 0;
+    const point = chartSeriesSampleAlign(renderNode, item) === 'end' ? item.points.length - 1 : 0;
     return [{ point, sourcePosition: point, column: 0, value: item.points[point] ?? 0 }];
   }
-  const interpolation = chartSeriesInterpolation(widget, item);
+  const interpolation = chartSeriesInterpolation(renderNode, item);
   return Array.from({ length: plotWidth }, (_value, column) => {
     const position = (column / Math.max(1, plotWidth - 1)) * (item.points.length - 1);
     const point = Math.max(0, Math.min(item.points.length - 1, Math.round(position)));
@@ -135,12 +135,12 @@ function interpolatedChartValue(points: readonly number[], position: number): nu
   return left + (right - left) * (position - leftIndex);
 }
 
-function chartSeriesSampleAlign(widget: ChartNode, item: ChartSeries): ChartSampleAlign {
-  return item.sampleAlign ?? widget.props.sampleAlign ?? 'start';
+function chartSeriesSampleAlign(renderNode: ChartNode, item: ChartSeries): ChartSampleAlign {
+  return item.sampleAlign ?? renderNode.props.sampleAlign ?? 'start';
 }
 
-function chartSeriesInterpolation(widget: ChartNode, item: ChartSeries): ChartInterpolation {
-  return item.interpolation ?? widget.props.interpolation ?? 'nearest';
+function chartSeriesInterpolation(renderNode: ChartNode, item: ChartSeries): ChartInterpolation {
+  return item.interpolation ?? renderNode.props.interpolation ?? 'nearest';
 }
 
 function isChartSeriesKind(value: unknown): value is NonNullable<ChartSeries['kind']> {

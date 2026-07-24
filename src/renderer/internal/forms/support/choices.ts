@@ -12,18 +12,18 @@ type ChoiceControlNode<TMessage = unknown> = CheckboxGroupNode<TMessage> | Choic
 type SelectableControlNode<TMessage = unknown> = ChoiceControlNode<TMessage> | ColorSwatchPickerNode<TMessage> | CalendarNode<TMessage>;
 type OptionStateNode<TMessage = unknown> = ChoiceControlNode<TMessage> | ColorSwatchPickerNode<TMessage>;
 
-export function selectedId(widget: SelectableControlNode): string | undefined {
-  const selected = widget.kind === 'select' ? widget.props.presentation.selected : widget.props.selected;
+export function selectedId(renderNode: SelectableControlNode): string | undefined {
+  const selected = renderNode.kind === 'select' ? renderNode.props.presentation.selected : renderNode.props.selected;
   return typeof selected === 'string' ? clean(selected) : undefined;
 }
 
-export function selectedOption(widget: ChoiceNode): ChoiceItem<unknown> | undefined {
-  const selected = selectedId(widget);
-  return selected === undefined ? undefined : formOptions(widget).find((option) => option.id === selected);
+export function selectedOption(renderNode: ChoiceNode): ChoiceItem<unknown> | undefined {
+  const selected = selectedId(renderNode);
+  return selected === undefined ? undefined : formOptions(renderNode).find((option) => option.id === selected);
 }
 
-export function formOptions(widget: ChoiceControlNode): readonly ChoiceItem<unknown>[] {
-  return widget.props.options.flatMap((option): readonly ChoiceItem<unknown>[] => sanitizeOption(option));
+export function formOptions(renderNode: ChoiceControlNode): readonly ChoiceItem<unknown>[] {
+  return renderNode.props.options.flatMap((option): readonly ChoiceItem<unknown>[] => sanitizeOption(option));
 }
 
 export function sanitizeOption(value: unknown): readonly ChoiceItem<unknown>[] {
@@ -43,28 +43,28 @@ export function sanitizeOption(value: unknown): readonly ChoiceItem<unknown>[] {
 
 export function optionStyle(
   option: ChoiceItem<unknown>,
-  widget: OptionStateNode
+  renderNode: OptionStateNode
 ): TerminalStyle | undefined {
-  if (option.disabled === true || widget.props.disabled === true) {
-    return resolveRenderNodeStyle(widget, { part: 'option', state: 'disabled' });
+  if (option.disabled === true || renderNode.props.disabled === true) {
+    return resolveRenderNodeStyle(renderNode, { part: 'option', state: 'disabled' });
   }
-  return resolveRenderNodeStyle(widget, {
+  return resolveRenderNodeStyle(renderNode, {
     part: 'option',
-    ...(option.id === focusedId(widget)
+    ...(option.id === focusedId(renderNode)
       ? { state: 'focused' }
-      : option.id === selectedId(widget)
+      : option.id === selectedId(renderNode)
         ? { state: 'selected' }
         : {})
   });
 }
 
-export function selectedIds(widget: CheckboxGroupNode): ReadonlySet<string> {
-  return new Set(widget.props.selected?.map(clean) ?? []);
+export function selectedIds(renderNode: CheckboxGroupNode): ReadonlySet<string> {
+  return new Set(renderNode.props.selected?.map(clean) ?? []);
 }
 
-export function focusedId(widget: OptionStateNode): string | undefined {
-  const focused = widget.kind === 'select'
-    ? widget.props.presentation.kind === 'open' ? widget.props.presentation.highlighted : undefined
-    : widget.props.focused;
+export function focusedId(renderNode: OptionStateNode): string | undefined {
+  const focused = renderNode.kind === 'select'
+    ? renderNode.props.presentation.kind === 'open' ? renderNode.props.presentation.highlighted : undefined
+    : renderNode.props.focused;
   return typeof focused === 'string' ? clean(focused) : undefined;
 }

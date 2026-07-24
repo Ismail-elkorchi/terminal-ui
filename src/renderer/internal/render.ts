@@ -244,7 +244,7 @@ export function renderElementRegions<TMessage>(
 }
 
 function renderLayoutRegions<TMessage>(
-  widget: RenderNode<TMessage>,
+  renderNode: RenderNode<TMessage>,
   layout: LayoutNode,
   viewport: ViewportSize,
   theme: TerminalTheme,
@@ -253,8 +253,8 @@ function renderLayoutRegions<TMessage>(
 ): readonly RenderRegion<TMessage>[] {
   const composer = createRegionComposer<TMessage>(viewport, widthProfile);
   const path = nodePath(layout, []);
-  renderRenderNodeToRegion(widget, layout, [], composer.regionFor(layout, path), composer, theme, widthProfile, focusPath);
-  return composer.snapshot(createProjectionTargetIndex(widget, layout), theme, widthProfile);
+  renderRenderNodeToRegion(renderNode, layout, [], composer.regionFor(layout, path), composer, theme, widthProfile, focusPath);
+  return composer.snapshot(createProjectionTargetIndex(renderNode, layout), theme, widthProfile);
 }
 
 function frameHitTargets<TMessage>(
@@ -296,7 +296,7 @@ function frameHitTargetFromRegion(hitTarget: RenderRegionHitTarget): FrameHitTar
 }
 
 function renderRenderNodeToRegion<TMessage>(
-  widget: RenderNode<TMessage>,
+  renderNode: RenderNode<TMessage>,
   node: LayoutNode,
   parentPath: FocusPath,
   region: DraftRenderRegion,
@@ -307,20 +307,20 @@ function renderRenderNodeToRegion<TMessage>(
 ): void {
   if (!node.visible) return;
   const path = nodePath(node, parentPath);
-  renderRenderNode(widget, {
+  renderRenderNode(renderNode, {
     layoutNode: node,
     buffer: region.buffer,
     theme,
     widthProfile,
     focus: renderFocusRelation(focusPath, path),
     renderChildren(target = region.buffer) {
-      renderRenderNodeChildrenToRegions(widget, node, path, target, region, composer, theme, widthProfile, focusPath);
+      renderRenderNodeChildrenToRegions(renderNode, node, path, target, region, composer, theme, widthProfile, focusPath);
     }
   });
 }
 
 function renderRenderNodeChildrenToRegions<TMessage>(
-  widget: RenderNode<TMessage>,
+  renderNode: RenderNode<TMessage>,
   node: LayoutNode,
   path: FocusPath,
   buffer: RenderTarget,
@@ -330,7 +330,7 @@ function renderRenderNodeChildrenToRegions<TMessage>(
   widthProfile: TextWidthProfile,
   focusPath: FocusPath | undefined
 ): void {
-  const children = widget.children ?? [];
+  const children = renderNode.children ?? [];
   for (const { child, childNode } of orderedChildren(children, node)) {
     if (buffer !== region.buffer) {
       renderRenderNodeToBuffer(child, childNode, path, buffer, theme, widthProfile, focusPath);
@@ -344,7 +344,7 @@ function renderRenderNodeChildrenToRegions<TMessage>(
 }
 
 function renderRenderNodeToBuffer<TMessage>(
-  widget: RenderNode<TMessage>,
+  renderNode: RenderNode<TMessage>,
   node: LayoutNode,
   parentPath: FocusPath,
   buffer: RenderTarget,
@@ -354,14 +354,14 @@ function renderRenderNodeToBuffer<TMessage>(
 ): void {
   if (!node.visible) return;
   const path = nodePath(node, parentPath);
-  renderRenderNode(widget, {
+  renderRenderNode(renderNode, {
     layoutNode: node,
     buffer,
     theme,
     widthProfile,
     focus: renderFocusRelation(focusPath, path),
     renderChildren(target = buffer) {
-      for (const { child, childNode } of orderedChildren(widget.children ?? [], node)) {
+      for (const { child, childNode } of orderedChildren(renderNode.children ?? [], node)) {
         renderRenderNodeToBuffer(child, childNode, path, target, theme, widthProfile, focusPath);
       }
     }
@@ -473,13 +473,13 @@ function withInheritedBackground(cell: FrameCell, lower: FrameCell | undefined):
 }
 
 function cursorForFocusedRenderNode(
-  widget: RenderNode,
+  renderNode: RenderNode,
   layout: LayoutNode,
   focusPath: FocusPath | undefined,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): { readonly row: number; readonly column: number } | undefined {
-  const target = findRenderNodeFocusTarget(widget, layout, focusPath);
+  const target = findRenderNodeFocusTarget(renderNode, layout, focusPath);
   if (target === undefined) return undefined;
   return cursorForRenderNode(target.renderNode, target, theme, widthProfile)
     ?? { row: target.bounds.row, column: target.bounds.column };

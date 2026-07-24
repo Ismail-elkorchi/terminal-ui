@@ -12,9 +12,9 @@ import { clampRect, nonNegativeInteger } from './common.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
 import { oneCellGlyph } from '../../../../text/index.ts';
 
-export function dialogBounds(widget: RenderNode, bounds: Rect): Rect {
-  const width = Math.min(bounds.width, Math.max(4, Math.floor(numberProp(widget, 'width') ?? Math.min(bounds.width, 60))));
-  const height = Math.min(bounds.height, Math.max(3, Math.floor(numberProp(widget, 'height') ?? Math.min(bounds.height, 20))));
+export function dialogBounds(renderNode: RenderNode, bounds: Rect): Rect {
+  const width = Math.min(bounds.width, Math.max(4, Math.floor(numberProp(renderNode, 'width') ?? Math.min(bounds.width, 60))));
+  const height = Math.min(bounds.height, Math.max(3, Math.floor(numberProp(renderNode, 'height') ?? Math.min(bounds.height, 20))));
   return clampRect({
     row: bounds.row + Math.max(0, Math.floor((bounds.height - height) / 2)),
     column: bounds.column + Math.max(0, Math.floor((bounds.width - width) / 2)),
@@ -24,13 +24,13 @@ export function dialogBounds(widget: RenderNode, bounds: Rect): Rect {
 }
 
 export function dialogChildBounds(
-  widget: RenderNode,
+  renderNode: RenderNode,
   bounds: Rect,
   border: BorderStyle,
   measureChild: (index: number) => Measurement
 ): readonly Rect[] {
-  const contentBounds = borderContentBounds(dialogBounds(widget, bounds), border);
-  if (!dialogHasActions(widget)) return [contentBounds];
+  const contentBounds = borderContentBounds(dialogBounds(renderNode, bounds), border);
+  if (!dialogHasActions(renderNode)) return [contentBounds];
   const actionHeight = dialogActionHeight(contentBounds.height, measureChild(1));
   const separatorHeight = contentBounds.height > actionHeight ? 1 : 0;
   const bodyHeight = Math.max(0, contentBounds.height - actionHeight - separatorHeight);
@@ -51,13 +51,13 @@ export function dialogChildBounds(
 }
 
 export function dialogOutsideHitTargets<TMessage>(
-  widget: RenderNodeOfKind<TMessage, 'dialog'>,
+  renderNode: RenderNodeOfKind<TMessage, 'dialog'>,
   bounds: Rect
 ): readonly HitTarget<TMessage>[] {
-  const toDismissMessage = widget.props.toDismissMessage;
-  if (!widget.props.dismissOnOutsidePress || toDismissMessage === undefined) return [];
-  return outsideRects(bounds, dialogBounds(widget, bounds)).map((targetBounds, index) => ({
-    id: `${widget.id ?? 'dialog'}:outside:${String(index)}`,
+  const toDismissMessage = renderNode.props.toDismissMessage;
+  if (!renderNode.props.dismissOnOutsidePress || toDismissMessage === undefined) return [];
+  return outsideRects(bounds, dialogBounds(renderNode, bounds)).map((targetBounds, index) => ({
+    id: `${renderNode.id ?? 'dialog'}:outside:${String(index)}`,
     bounds: targetBounds,
     accepts: ['click'],
     cursor: 'default',
@@ -97,8 +97,8 @@ function dialogActionSeparatorBounds(node: LayoutNode): Rect | undefined {
   };
 }
 
-function dialogHasActions(widget: RenderNode): boolean {
-  return (widget.children?.length ?? 0) > 1;
+function dialogHasActions(renderNode: RenderNode): boolean {
+  return (renderNode.children?.length ?? 0) > 1;
 }
 
 function dialogActionHeight(contentHeight: number, measure: Measurement | undefined): number {

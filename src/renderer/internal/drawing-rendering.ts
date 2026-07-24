@@ -17,7 +17,7 @@ type OverlayNode = RenderNodeOfKind<unknown, 'overlay'>;
 export function renderCanvas(input: RenderNodeRenderInput<unknown, 'canvas'>): void {
   const painter = canvasPainter(input.renderNode.props.painter);
   if (painter === undefined) {
-    throw new Error('Canvas widgets must provide a painter.');
+    throw new Error('Canvas renderNodes must provide a painter.');
   }
   painter({
     canvas: createCanvas2D(input.buffer, input.layoutNode.bounds),
@@ -26,19 +26,19 @@ export function renderCanvas(input: RenderNodeRenderInput<unknown, 'canvas'>): v
   });
 }
 
-export function surfaceChildBounds(widget: SurfaceNode, bounds: Rect): readonly Rect[] {
-  const contentBounds = layoutContentBounds(surfaceChildContentBounds(widget, bounds), layoutFlowOptions(widget));
-  return (widget.children ?? []).map(() => contentBounds);
+export function surfaceChildBounds(renderNode: SurfaceNode, bounds: Rect): readonly Rect[] {
+  const contentBounds = layoutContentBounds(surfaceChildContentBounds(renderNode, bounds), layoutFlowOptions(renderNode));
+  return (renderNode.children ?? []).map(() => contentBounds);
 }
 
-export function absoluteChildBounds(widget: AbsoluteNode, bounds: Rect): readonly Rect[] {
-  if ((widget.children ?? []).length === 0) return [];
-  const rowOffset = Math.floor(numberProp(widget, 'row') ?? 1);
-  const columnOffset = Math.floor(numberProp(widget, 'column') ?? 1);
+export function absoluteChildBounds(renderNode: AbsoluteNode, bounds: Rect): readonly Rect[] {
+  if ((renderNode.children ?? []).length === 0) return [];
+  const rowOffset = Math.floor(numberProp(renderNode, 'row') ?? 1);
+  const columnOffset = Math.floor(numberProp(renderNode, 'column') ?? 1);
   const row = bounds.row + rowOffset - 1;
   const column = bounds.column + columnOffset - 1;
-  const width = Math.floor(numberProp(widget, 'width') ?? bounds.column + bounds.width - column);
-  const height = Math.floor(numberProp(widget, 'height') ?? bounds.row + bounds.height - row);
+  const width = Math.floor(numberProp(renderNode, 'width') ?? bounds.column + bounds.width - column);
+  const height = Math.floor(numberProp(renderNode, 'height') ?? bounds.row + bounds.height - row);
   const childBounds = intersectRects(bounds, {
     row,
     column,
@@ -48,26 +48,26 @@ export function absoluteChildBounds(widget: AbsoluteNode, bounds: Rect): readonl
   return [childBounds ?? { row: bounds.row, column: bounds.column, width: 0, height: 0 }];
 }
 
-export function overlayChildBounds(widget: OverlayNode, bounds: Rect): readonly Rect[] {
-  return (widget.children ?? []).map(() => bounds);
+export function overlayChildBounds(renderNode: OverlayNode, bounds: Rect): readonly Rect[] {
+  return (renderNode.children ?? []).map(() => bounds);
 }
 
-export function canvasAccessibleBase(widget: CanvasNode, id: string, focused: boolean): AccessibleNode {
+export function canvasAccessibleBase(renderNode: CanvasNode, id: string, focused: boolean): AccessibleNode {
   return {
     id,
     role: 'image',
-    label: stringify(widget.props.label) || id,
+    label: stringify(renderNode.props.label) || id,
     scope: { kind: 'document' },
     ...(focused ? { focused } : {})
   };
 }
 
-export function surfaceAccessibleBase(widget: SurfaceNode, id: string, focused: boolean): AccessibleNode {
+export function surfaceAccessibleBase(renderNode: SurfaceNode, id: string, focused: boolean): AccessibleNode {
   return {
     id,
     role: 'text',
-    label: stringify(widget.props.label) || id,
-    ...(widget.props.disabled === true ? { disabled: true } : {}),
+    label: stringify(renderNode.props.label) || id,
+    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }

@@ -1,7 +1,7 @@
 import { notificationStackPreferredSize } from '../notifications.ts';
-import { progressText } from '../progress-widget.ts';
+import { progressText } from '../progress-bar-rendering.ts';
 import { statusBarText } from '../feedback-visual.ts';
-import { helpBarText, spinnerBlock } from '../text-widgets.ts';
+import { helpBarText, spinnerBlock } from '../text-rendering.ts';
 import { measureBlock, measureSize, measureText } from '../measurement.ts';
 import type { RendererMeasurementMap } from './types.ts';
 

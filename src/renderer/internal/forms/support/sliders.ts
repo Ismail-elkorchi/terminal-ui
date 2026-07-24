@@ -28,47 +28,47 @@ export interface RangeSliderModel extends SliderModel {
 }
 
 export function sliderMessageFactory<TMessage>(
-  widget: SliderNode<TMessage>
+  renderNode: SliderNode<TMessage>
 ): ((value: number) => TMessage) | undefined {
-  return widget.props.toMessage;
+  return renderNode.props.toMessage;
 }
 
 export function rangeSliderActionMessageFactory<TMessage>(
-  widget: RangeSliderNode<TMessage>
+  renderNode: RangeSliderNode<TMessage>
 ): ((action: RangeSliderAction) => TMessage) | undefined {
-  return widget.props.toActionMessage;
+  return renderNode.props.toActionMessage;
 }
 
-export function sliderModel(widget: SliderNode): SliderModel {
-  return numericSliderModel(widget.props);
+export function sliderModel(renderNode: SliderNode): SliderModel {
+  return numericSliderModel(renderNode.props);
 }
 
-export function rangeSliderModel(widget: RangeSliderNode): RangeSliderModel {
+export function rangeSliderModel(renderNode: RangeSliderNode): RangeSliderModel {
   const base = numericSliderModel({
-    ...widget.props,
-    ...(widget.props.range === undefined ? {} : {
-      min: widget.props.range.min,
-      max: widget.props.range.max
+    ...renderNode.props,
+    ...(renderNode.props.range === undefined ? {} : {
+      min: renderNode.props.range.min,
+      max: renderNode.props.range.max
     }),
-    value: widget.props.presentation.value.start
+    value: renderNode.props.presentation.value.start
   });
-  const start = clampNumber(finiteNumber(widget.props.presentation.value.start, base.min), base.min, base.max);
-  const end = clampNumber(finiteNumber(widget.props.presentation.value.end, base.max), base.min, base.max);
+  const start = clampNumber(finiteNumber(renderNode.props.presentation.value.start, base.min), base.min, base.max);
+  const end = clampNumber(finiteNumber(renderNode.props.presentation.value.end, base.max), base.min, base.max);
   return {
     ...base,
     start: Math.min(start, end),
     end: Math.max(start, end),
-    activeHandle: widget.props.presentation.activeHandle
+    activeHandle: renderNode.props.presentation.activeHandle
   };
 }
 
 export function sliderTrackSpans(
-  widget: SliderNode,
+  renderNode: SliderNode,
   model: SliderModel,
   widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   const position = sliderPosition(model, model.value);
-  const disabled = widget.props.disabled === true;
+  const disabled = renderNode.props.disabled === true;
   return Array.from({ length: model.width }, (_, index): RenderSpan => {
     const current = index === position
       ? { text: oneCellGlyph('●', 'o', { widthProfile }), label: 'track.handle', selected: true }
@@ -76,23 +76,23 @@ export function sliderTrackSpans(
         ? { text: oneCellGlyph('━', '-', { widthProfile }), label: 'track.filled', selected: false }
         : { text: oneCellGlyph('─', '-', { widthProfile }), label: 'track.empty', selected: false };
     return formSpan(
-      widget,
+      renderNode,
       current.selected ? 'handle' : 'track',
       current.label,
       current.text,
-      sliderPartStyle(widget, current.label, disabled)
+      sliderPartStyle(renderNode, current.label, disabled)
     );
   });
 }
 
 export function rangeSliderTrackSpans(
-  widget: RangeSliderNode,
+  renderNode: RangeSliderNode,
   model: RangeSliderModel,
   widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   const start = sliderPosition(model, model.start);
   const end = sliderPosition(model, model.end);
-  const disabled = widget.props.disabled === true;
+  const disabled = renderNode.props.disabled === true;
   return Array.from({ length: model.width }, (_, index): RenderSpan => {
     const current = index === start || index === end
       ? {
@@ -105,11 +105,11 @@ export function rangeSliderTrackSpans(
         ? { text: oneCellGlyph('━', '-', { widthProfile }), label: 'track.filled', selected: false, active: false }
         : { text: oneCellGlyph('─', '-', { widthProfile }), label: 'track.empty', selected: false, active: false };
     return formSpan(
-      widget,
+      renderNode,
       current.selected ? 'handle' : 'track',
       current.label,
       current.text,
-      sliderPartStyle(widget, current.label, disabled, current.active),
+      sliderPartStyle(renderNode, current.label, disabled, current.active),
       current.active ? 'active' : undefined
     );
   });
@@ -147,11 +147,11 @@ function isRangePointerEvent(kind: RoutedPointerEvent['kind']): boolean {
 }
 
 export function toggleValueStyle(
-  widget: ToggleSwitchNode,
+  renderNode: ToggleSwitchNode,
   checked: boolean
 ): TerminalStyle | undefined {
-  if (widget.props.disabled === true) return renderNodeStyle(widget, checked ? 'onLabel' : 'offLabel', 'disabled');
-  return resolveRenderNodeStyle(widget, {
+  if (renderNode.props.disabled === true) return renderNodeStyle(renderNode, checked ? 'onLabel' : 'offLabel', 'disabled');
+  return resolveRenderNodeStyle(renderNode, {
     part: checked ? 'onLabel' : 'offLabel',
     base: {
       fg: { kind: 'theme', token: checked ? 'control.primary.foreground' : 'control.foreground' },
@@ -197,7 +197,7 @@ function numericSliderModel(props: {
 }
 
 function sliderPartStyle(
-  widget: SliderNode | RangeSliderNode,
+  renderNode: SliderNode | RangeSliderNode,
   label: string,
   disabled: boolean,
   active = false
@@ -211,7 +211,7 @@ function sliderPartStyle(
     : label === 'track.filled'
       ? { fg: { kind: 'theme', token: 'control.track.filled' } }
       : { fg: { kind: 'theme', token: 'control.track' } };
-  return resolveRenderNodeStyle(widget, {
+  return resolveRenderNodeStyle(renderNode, {
     part: 'value',
     base,
     ...(disabled ? { state: 'disabled' } : active ? { state: 'focused' } : {})

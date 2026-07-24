@@ -46,21 +46,21 @@ type DescribedControlNode = RenderNodesOfKind<
 
 export function controlInputBlock(
   value: string,
-  widget: InputControlNode,
+  renderNode: InputControlNode,
   bounds: Rect,
   focused: boolean,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): RenderBlock {
-  const placeholder = clean(stringify(widget.props.placeholder));
-  const cursor = widget.kind === 'numberInput' ? widget.props.presentation.cursor : numberProp(widget, 'cursor');
+  const placeholder = clean(stringify(renderNode.props.placeholder));
+  const cursor = renderNode.kind === 'numberInput' ? renderNode.props.presentation.cursor : numberProp(renderNode, 'cursor');
   const selection = selectionFromUnknown(
     value,
-    widget.kind === 'numberInput' ? widget.props.presentation.selection : widget.props.selection
+    renderNode.kind === 'numberInput' ? renderNode.props.presentation.selection : renderNode.props.selection
   );
   const rows = [
     ...singleLineInputBlock({
-      widget,
+      renderNode,
       bounds,
       theme,
       widthProfile,
@@ -70,62 +70,62 @@ export function controlInputBlock(
       ...(cursor === undefined ? {} : { cursor }),
       ...(selection === undefined ? {} : { selection })
     }).lines,
-    ...errorLines(widget, bounds.width, widthProfile)
+    ...errorLines(renderNode, bounds.width, widthProfile)
   ];
   return block(rows.slice(0, Math.max(0, bounds.height)));
 }
 
 export function inputAccessibleBase(
-  widget: InputControlNode,
+  renderNode: InputControlNode,
   id: string,
   focused: boolean,
   value: string
 ): AccessibleNode {
-  const description = fieldDescription(widget);
+  const description = fieldDescription(renderNode);
   return {
     id,
     role: 'textbox',
     label: id,
     value,
     ...(description.length === 0 ? {} : { description }),
-    ...(widget.props.disabled === true ? { disabled: true } : {}),
+    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
     ...(focused ? { focused } : {})
   };
 }
 
-export function fieldHeaderLines(widget: FieldNode): readonly (readonly RenderSpan[])[] {
+export function fieldHeaderLines(renderNode: FieldNode): readonly (readonly RenderSpan[])[] {
   const rows: (readonly RenderSpan[])[] = [];
-  const label = clean(stringify(widget.props.label));
-  if (label.length > 0 || widget.props.required === true) {
+  const label = clean(stringify(renderNode.props.label));
+  if (label.length > 0 || renderNode.props.required === true) {
     rows.push(labelSpans(
-      widget,
+      renderNode,
       'field.label',
       label,
-      widget.props.disabled === true ? 'disabled' : undefined,
-      widget.props.required === true
+      renderNode.props.disabled === true ? 'disabled' : undefined,
+      renderNode.props.required === true
     ));
   }
-  const description = clean(stringify(widget.props.description));
+  const description = clean(stringify(renderNode.props.description));
   if (description.length > 0) {
-    rows.push([formSpan(widget, 'description', 'field.description', description, formValueStyle(widget, 'disabled'))]);
+    rows.push([formSpan(renderNode, 'description', 'field.description', description, formValueStyle(renderNode, 'disabled'))]);
   }
-  const error = clean(stringify(widget.props.error));
+  const error = clean(stringify(renderNode.props.error));
   if (error.length > 0) {
-    rows.push([formSpan(widget, 'error', 'validation.error', error, formErrorStyle(widget))]);
+    rows.push([formSpan(renderNode, 'error', 'validation.error', error, formErrorStyle(renderNode))]);
   }
   return rows;
 }
 
 export function errorLines(
-  widget: ErrorControlNode,
+  renderNode: ErrorControlNode,
   width: number,
   widthProfile: TextWidthProfile
 ): readonly RenderLine[] {
-  const error = clean(stringify(widget.props.error));
+  const error = clean(stringify(renderNode.props.error));
   return error.length === 0
     ? []
     : [clippedFormLine(
-        [formSpan(widget, 'error', 'validation.error', error, formErrorStyle(widget))],
+        [formSpan(renderNode, 'error', 'validation.error', error, formErrorStyle(renderNode))],
         width,
         widthProfile
       )];
@@ -139,22 +139,22 @@ export function clippedFormLine(
   return formLine(clipRenderSpans(spans, Math.max(0, width), { widthProfile }));
 }
 
-export function fieldDescription(widget: DescribedControlNode): string {
-  const description = 'description' in widget.props ? widget.props.description : undefined;
-  const required = 'required' in widget.props && widget.props.required;
+export function fieldDescription(renderNode: DescribedControlNode): string {
+  const description = 'description' in renderNode.props ? renderNode.props.description : undefined;
+  const required = 'required' in renderNode.props && renderNode.props.required;
   return [
     clean(stringify(description)),
     required ? 'Required.' : '',
-    clean(stringify(widget.props.error))
+    clean(stringify(renderNode.props.error))
   ].filter((part) => part.length > 0).join(' ');
 }
 
-export function formTitle(widget: FormNode): string {
-  return clean(stringify(widget.props.title));
+export function formTitle(renderNode: FormNode): string {
+  return clean(stringify(renderNode.props.title));
 }
 
-export function labelText(widget: LabelNode): string {
-  return labelWithRequired(clean(stringify(widget.props.text)), widget.props.required === true);
+export function labelText(renderNode: LabelNode): string {
+  return labelWithRequired(clean(stringify(renderNode.props.text)), renderNode.props.required === true);
 }
 
 export function labelWithRequired(label: string, required: boolean): string {
@@ -162,16 +162,16 @@ export function labelWithRequired(label: string, required: boolean): string {
   return required ? `${label} *` : label;
 }
 
-export function inputValue(widget: TextInputNode): string {
-  return clean(stringify(widget.props.value));
+export function inputValue(renderNode: TextInputNode): string {
+  return clean(stringify(renderNode.props.value));
 }
 
-export function numberInputValue(widget: NumberInputNode): string {
-  return clean(stringify(widget.props.presentation.value));
+export function numberInputValue(renderNode: NumberInputNode): string {
+  return clean(stringify(renderNode.props.presentation.value));
 }
 
 export function singleLineCursor(
-  widget: InputControlNode,
+  renderNode: InputControlNode,
   value: string,
   cursor: number | undefined,
   bounds: Rect,
@@ -179,7 +179,7 @@ export function singleLineCursor(
   widthProfile: TextWidthProfile
 ): CursorPosition {
   return singleLineInputCursor({
-    widget,
+    renderNode,
     bounds,
     theme,
     widthProfile,

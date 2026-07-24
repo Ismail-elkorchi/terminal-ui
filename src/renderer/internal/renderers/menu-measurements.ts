@@ -1,5 +1,5 @@
 import { commandInputBlock } from '../command-input.ts';
-import { dropdownMenuBlock, menuBarBlock, menuBlock } from '../menu-widgets.ts';
+import { dropdownMenuBlock, menuBarBlock, menuBlock } from '../menu-rendering.ts';
 import { measureBlock, zeroMeasurement } from '../measurement.ts';
 import { paletteBlock } from '../palette.ts';
 import { constrainedMeasureBounds } from './measurement-support.ts';

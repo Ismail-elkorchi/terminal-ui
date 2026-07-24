@@ -8,7 +8,7 @@ import type { LayoutNode } from '../model/layout.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 
 export function accessibleNode(
-  widget: RenderNode,
+  renderNode: RenderNode,
   node: LayoutNode,
   parentPath: FocusPath,
   focusPath: FocusPath | undefined,
@@ -17,33 +17,33 @@ export function accessibleNode(
 ): AccessibleNode {
   if (!node.visible) {
     return {
-      id: widget.id ?? `${widget.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`,
+      id: renderNode.id ?? `${renderNode.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`,
       role: 'text',
-      label: widget.id ?? widget.kind
+      label: renderNode.id ?? renderNode.kind
     };
   }
   const path = [...parentPath, node.identity];
-  const id = widget.id ?? `${widget.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`;
-  if (isDecorative(widget.accessibility)) {
-    assertDecorativeRenderNodeIsNotInteractive(widget, node, theme, widthProfile);
-    return decorativeRootNode(id, widget.accessibility);
+  const id = renderNode.id ?? `${renderNode.kind}-${String(node.bounds.row)}-${String(node.bounds.column)}`;
+  if (isDecorative(renderNode.accessibility)) {
+    assertDecorativeRenderNodeIsNotInteractive(renderNode, node, theme, widthProfile);
+    return decorativeRootNode(id, renderNode.accessibility);
   }
-  const base = accessibilityForRenderNode(widget, node, id, focusPathIncludes(focusPath, path), theme, widthProfile);
-  const children = base.children ?? accessibleChildren(widget, node, path, focusPath, theme, widthProfile);
-  return mergeAccessibleNode(withScope(base, widget), widget.accessibility, children);
+  const base = accessibilityForRenderNode(renderNode, node, id, focusPathIncludes(focusPath, path), theme, widthProfile);
+  const children = base.children ?? accessibleChildren(renderNode, node, path, focusPath, theme, widthProfile);
+  return mergeAccessibleNode(withScope(base, renderNode), renderNode.accessibility, children);
 }
 
 function accessibleChildren(
-  widget: RenderNode,
+  renderNode: RenderNode,
   node: LayoutNode,
   path: FocusPath,
   focusPath: FocusPath | undefined,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): readonly AccessibleNode[] | undefined {
-  const children = widget.children ?? [];
+  const children = renderNode.children ?? [];
   if (children.length === 0) return undefined;
-  const rendered = orderedAccessibleChildren(widget, node).flatMap(({ child, childNode }) => {
+  const rendered = orderedAccessibleChildren(renderNode, node).flatMap(({ child, childNode }) => {
     if (!childNode.visible) return [];
     if (isDecorative(child.accessibility)) {
       assertDecorativeRenderNodeIsNotInteractive(child, childNode, theme, widthProfile);
@@ -55,15 +55,15 @@ function accessibleChildren(
 }
 
 function orderedAccessibleChildren(
-  widget: RenderNode,
+  renderNode: RenderNode,
   node: LayoutNode
 ): readonly { readonly child: RenderNode; readonly childNode: LayoutNode }[] {
-  const pairs = (widget.children ?? [])
+  const pairs = (renderNode.children ?? [])
     .map((child, index) => ({ child, childNode: node.children[index], index }))
     .filter((item): item is { readonly child: RenderNode; readonly childNode: LayoutNode; readonly index: number } =>
       item.childNode !== undefined
     );
-  if (widget.kind !== 'overlay') return pairs;
+  if (renderNode.kind !== 'overlay') return pairs;
   return pairs.toSorted((left, right) =>
     right.childNode.layer.zIndex - left.childNode.layer.zIndex
     || right.index - left.index
@@ -106,18 +106,18 @@ function isAccessibleNode(value: AccessibilityOptions | AccessibleNode): value i
   return 'role' in value;
 }
 
-function withScope(base: AccessibleNode, widget: RenderNode): AccessibleNode {
+function withScope(base: AccessibleNode, renderNode: RenderNode): AccessibleNode {
   if (base.scope !== undefined) return base;
-  if (widget.kind === 'overlay') {
+  if (renderNode.kind === 'overlay') {
     return {
       ...base,
       scope: {
         kind: 'popover',
-        ...(widget.focus?.scope?.kind === 'contain' ? { trapsFocus: true } : {})
+        ...(renderNode.focus?.scope?.kind === 'contain' ? { trapsFocus: true } : {})
       }
     };
   }
-  if (widget.focus?.scope?.kind === 'contain') {
+  if (renderNode.focus?.scope?.kind === 'contain') {
     return {
       ...base,
       scope: {
@@ -130,22 +130,22 @@ function withScope(base: AccessibleNode, widget: RenderNode): AccessibleNode {
 }
 
 function assertDecorativeRenderNodeIsNotInteractive(
-  widget: RenderNode,
+  renderNode: RenderNode,
   node: LayoutNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): void {
-  if (widget.keyMap !== undefined && Object.keys(widget.keyMap).length > 0) {
-    throw new Error(`Decorative widget "${widget.id ?? widget.kind}" cannot define keyboard messages.`);
+  if (renderNode.keyMap !== undefined && Object.keys(renderNode.keyMap).length > 0) {
+    throw new Error(`Decorative renderNode "${renderNode.id ?? renderNode.kind}" cannot define keyboard messages.`);
   }
-  if (widget.inputMap?.text !== undefined || widget.inputMap?.paste !== undefined) {
-    throw new Error(`Decorative widget "${widget.id ?? widget.kind}" cannot define text input messages.`);
+  if (renderNode.inputMap?.text !== undefined || renderNode.inputMap?.paste !== undefined) {
+    throw new Error(`Decorative renderNode "${renderNode.id ?? renderNode.kind}" cannot define text input messages.`);
   }
   if (
-    widget.custom?.renderer.hitTargets !== undefined
-    || focusTargetsForRenderNode(widget, node.bounds, theme, widthProfile).some((target) => !target.disabled)
+    renderNode.custom?.renderer.hitTargets !== undefined
+    || focusTargetsForRenderNode(renderNode, node.bounds, theme, widthProfile).some((target) => !target.disabled)
   ) {
-    throw new Error(`Decorative widget "${widget.id ?? widget.kind}" cannot expose focus or hit targets.`);
+    throw new Error(`Decorative renderNode "${renderNode.id ?? renderNode.kind}" cannot expose focus or hit targets.`);
   }
 }
 

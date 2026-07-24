@@ -1,7 +1,7 @@
 import {
   helpBarAccessibleBase,
   spinnerAccessibleBase,
-} from '../text-widgets.ts';
+} from '../text-rendering.ts';
 import {
   helpBarBlock,
   statusBarBlock,
@@ -10,7 +10,7 @@ import {
 import {
   progressAccessibleBase,
   progressBlock
-} from '../progress-widget.ts';
+} from '../progress-bar-rendering.ts';
 import {
   notificationStackAccessibleBase,
   notificationStackHitTargets,

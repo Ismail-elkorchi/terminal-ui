@@ -19,11 +19,11 @@ export interface TooltipSize {
 
 export type TooltipVisualKind = 'background' | 'content';
 
-export function renderTooltip(widget: TooltipNode, buffer: RenderTarget, bounds: Rect, theme: TerminalTheme): void {
+export function renderTooltip(renderNode: TooltipNode, buffer: RenderTarget, bounds: Rect, theme: TerminalTheme): void {
   if (bounds.width <= 0 || bounds.height <= 0) return;
-  const tone = tooltipTone(widget);
-  const border = tooltipBorder(widget, tone);
-  fillTooltipBackground(widget, buffer, bounds, tooltipBackgroundStyle(tone));
+  const tone = tooltipTone(renderNode);
+  const border = tooltipBorder(renderNode, tone);
+  fillTooltipBackground(renderNode, buffer, bounds, tooltipBackgroundStyle(tone));
   drawBorder(buffer, bounds, border, theme);
   const contentBounds = {
     row: bounds.row + 1,
@@ -31,21 +31,21 @@ export function renderTooltip(widget: TooltipNode, buffer: RenderTarget, bounds:
     width: Math.max(0, bounds.width - 2),
     height: Math.max(0, bounds.height - 2)
   };
-  const lines = tooltipContentLines(widget).slice(0, contentBounds.height);
+  const lines = tooltipContentLines(renderNode).slice(0, contentBounds.height);
   for (let index = 0; index < lines.length; index += 1) {
     const line = clipTextCells(lines[index] ?? '', contentBounds.width, { widthProfile: buffer.widthProfile }).text;
     buffer.write(contentBounds.row + index, contentBounds.column, [{
       text: line,
       style: tooltipTextStyle(tone),
-      source: tooltipSource(widget, 'content', `content.${String(index)}`)
+      source: tooltipSource(renderNode, 'content', `content.${String(index)}`)
     }]);
   }
 }
 
-export function tooltipPreferredSize(widget: TooltipNode, widthProfile: TextWidthProfile): TooltipSize {
-  const maxWidth = tooltipMaxWidth(widget);
-  const title = tooltipTitle(widget);
-  const lines = tooltipContentLines(widget);
+export function tooltipPreferredSize(renderNode: TooltipNode, widthProfile: TextWidthProfile): TooltipSize {
+  const maxWidth = tooltipMaxWidth(renderNode);
+  const title = tooltipTitle(renderNode);
+  const lines = tooltipContentLines(renderNode);
   const contentWidth = lines.reduce(
     (max, line) => Math.max(max, measureTextCells(line, { widthProfile }).cells),
     0
@@ -57,9 +57,9 @@ export function tooltipPreferredSize(widget: TooltipNode, widthProfile: TextWidt
   };
 }
 
-export function tooltipAccessibleBase(widget: TooltipNode, id: string, focused: boolean): AccessibleNode {
-  const title = tooltipTitle(widget);
-  const content = tooltipContentLines(widget).join(' ');
+export function tooltipAccessibleBase(renderNode: TooltipNode, id: string, focused: boolean): AccessibleNode {
+  const title = tooltipTitle(renderNode);
+  const content = tooltipContentLines(renderNode).join(' ');
   return {
     id,
     role: 'text',
@@ -71,8 +71,8 @@ export function tooltipAccessibleBase(widget: TooltipNode, id: string, focused: 
   };
 }
 
-function tooltipContentLines(widget: TooltipNode): readonly string[] {
-  const content = widget.props.content;
+function tooltipContentLines(renderNode: TooltipNode): readonly string[] {
+  const content = renderNode.props.content;
   if (Array.isArray(content)) {
     const cleaned = content.map((line) => stringify(line)).filter((line) => line.length > 0);
     return cleaned.length === 0 ? [''] : cleaned;
@@ -81,19 +81,19 @@ function tooltipContentLines(widget: TooltipNode): readonly string[] {
   return text.length === 0 ? [''] : text.split('\n');
 }
 
-function tooltipTitle(widget: TooltipNode): string {
-  return stringify(widget.props.title);
+function tooltipTitle(renderNode: TooltipNode): string {
+  return stringify(renderNode.props.title);
 }
 
-function tooltipMaxWidth(widget: TooltipNode): number {
-  const value = widget.props.maxWidth;
+function tooltipMaxWidth(renderNode: TooltipNode): number {
+  const value = renderNode.props.maxWidth;
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.max(4, Math.floor(value))
     : 48;
 }
 
-function tooltipTone(widget: TooltipNode): TooltipTone {
-  const value = widget.props.tone;
+function tooltipTone(renderNode: TooltipNode): TooltipTone {
+  const value = renderNode.props.tone;
   return value === 'info'
     || value === 'success'
     || value === 'warning'
@@ -102,9 +102,9 @@ function tooltipTone(widget: TooltipNode): TooltipTone {
     : 'default';
 }
 
-function tooltipBorder(widget: TooltipNode, tone: TooltipTone): BorderStyle {
-  const explicit = borderStyleFromValue(widget.props.border);
-  const title = tooltipTitle(widget);
+function tooltipBorder(renderNode: TooltipNode, tone: TooltipTone): BorderStyle {
+  const explicit = borderStyleFromValue(renderNode.props.border);
+  const title = tooltipTitle(renderNode);
   return {
     ...(explicit ?? { kind: 'rounded' }),
     ...(title.length === 0 ? {} : { title }),
@@ -112,19 +112,19 @@ function tooltipBorder(widget: TooltipNode, tone: TooltipTone): BorderStyle {
   };
 }
 
-function fillTooltipBackground(widget: TooltipNode, buffer: RenderTarget, bounds: Rect, style: TerminalStyle): void {
+function fillTooltipBackground(renderNode: TooltipNode, buffer: RenderTarget, bounds: Rect, style: TerminalStyle): void {
   const text = ' '.repeat(bounds.width);
   for (let row = bounds.row; row < bounds.row + bounds.height; row += 1) {
     buffer.write(row, bounds.column, [{
       text,
       style,
-      source: tooltipSource(widget, 'background', 'background')
+      source: tooltipSource(renderNode, 'background', 'background')
     }]);
   }
 }
 
-function tooltipSource(widget: TooltipNode, visual: TooltipVisualKind, label: string): FrameCellSource {
-  return renderNodeFrameSource(widget, {
+function tooltipSource(renderNode: TooltipNode, visual: TooltipVisualKind, label: string): FrameCellSource {
+  return renderNodeFrameSource(renderNode, {
     family: 'drawing',
     role: visual === 'content' ? 'text' : 'decoration',
     part: label,

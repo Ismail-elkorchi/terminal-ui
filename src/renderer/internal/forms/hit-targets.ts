@@ -37,14 +37,14 @@ import {
 import { renderNodeTargetId } from '../pointer-presentation.ts';
 import { ignoreMessage } from '../../../interaction/message.ts';
 
-export function controlHitTargets<TMessage>(widget: ActivationControlNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  if (widget.props.disabled === true) return [];
-  const handler = widget.kind === 'button'
-    ? widget.props.toPressMessage
-    : checkboxMessageHandler(widget);
+export function controlHitTargets<TMessage>(renderNode: ActivationControlNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  if (renderNode.props.disabled === true) return [];
+  const handler = renderNode.kind === 'button'
+    ? renderNode.props.toPressMessage
+    : checkboxMessageHandler(renderNode);
   if (handler === undefined) return [];
   return [{
-    id: controlTargetId(widget),
+    id: controlTargetId(renderNode),
     bounds,
     message: handler,
     cursor: 'pointer'
@@ -52,24 +52,24 @@ export function controlHitTargets<TMessage>(widget: ActivationControlNode<TMessa
 }
 
 function checkboxMessageHandler<TMessage>(
-  widget: RenderNodesOfKind<TMessage, 'checkbox' | 'toggleSwitch'>
+  renderNode: RenderNodesOfKind<TMessage, 'checkbox' | 'toggleSwitch'>
 ): (() => TMessage) | undefined {
-  const toMessage = widget.props.toMessage;
-  return toMessage === undefined ? undefined : () => toMessage(!widget.props.checked);
+  const toMessage = renderNode.props.toMessage;
+  return toMessage === undefined ? undefined : () => toMessage(!renderNode.props.checked);
 }
 
-export function controlTargetId(widget: ActivationControlNode<unknown>): string {
-  return renderNodeTargetId(widget, 'control');
+export function controlTargetId(renderNode: ActivationControlNode<unknown>): string {
+  return renderNodeTargetId(renderNode, 'control');
 }
 
-export function optionHitTargets<TMessage>(widget: OptionControlNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  const toMessage = widget.props.toActionMessage;
+export function optionHitTargets<TMessage>(renderNode: OptionControlNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = renderNode.props.toActionMessage;
   if (toMessage === undefined) return [];
-  const labelOffset = clean(stringify(widget.props.label)).length > 0 ? 1 : 0;
-  return formOptions(widget).flatMap((option, index): HitTarget<TMessage>[] => {
+  const labelOffset = clean(stringify(renderNode.props.label)).length > 0 ? 1 : 0;
+  return formOptions(renderNode).flatMap((option, index): HitTarget<TMessage>[] => {
     if (option.disabled === true) return [];
     return [{
-      id: `${widget.id ?? widget.kind}:${option.id}`,
+      id: `${renderNode.id ?? renderNode.kind}:${option.id}`,
       bounds: {
         row: bounds.row + labelOffset + index,
         column: bounds.column,
@@ -82,14 +82,14 @@ export function optionHitTargets<TMessage>(widget: OptionControlNode<TMessage>, 
   });
 }
 
-export function checkboxGroupHitTargets<TMessage>(widget: CheckboxGroupNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  const toMessage = widget.props.toActionMessage;
+export function checkboxGroupHitTargets<TMessage>(renderNode: CheckboxGroupNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = renderNode.props.toActionMessage;
   if (toMessage === undefined) return [];
-  const labelOffset = clean(stringify(widget.props.label)).length > 0 ? 1 : 0;
-  return formOptions(widget).flatMap((option, index): HitTarget<TMessage>[] => {
+  const labelOffset = clean(stringify(renderNode.props.label)).length > 0 ? 1 : 0;
+  return formOptions(renderNode).flatMap((option, index): HitTarget<TMessage>[] => {
     if (option.disabled === true) return [];
     return [{
-      id: `${widget.id ?? widget.kind}:${option.id}`,
+      id: `${renderNode.id ?? renderNode.kind}:${option.id}`,
       bounds: {
         row: bounds.row + labelOffset + index,
         column: bounds.column,
@@ -103,16 +103,16 @@ export function checkboxGroupHitTargets<TMessage>(widget: CheckboxGroupNode<TMes
 }
 
 export function sliderHitTargets<TMessage>(
-  widget: SliderNode<TMessage>,
+  renderNode: SliderNode<TMessage>,
   bounds: Rect,
   widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
-  const toMessage = sliderMessageFactory(widget);
+  const toMessage = sliderMessageFactory(renderNode);
   if (toMessage === undefined) return [];
-  const model = sliderModel(widget);
-  const labelWidth = terminalTextWidth(labelPrefix(clean(stringify(widget.props.label))), { widthProfile });
+  const model = sliderModel(renderNode);
+  const labelWidth = terminalTextWidth(labelPrefix(clean(stringify(renderNode.props.label))), { widthProfile });
   return sliderValues(model).map((value, index) => ({
-    id: `${widget.id ?? widget.kind}:value:${String(index)}`,
+    id: `${renderNode.id ?? renderNode.kind}:value:${String(index)}`,
     bounds: {
       row: bounds.row,
       column: bounds.column + labelWidth + index,
@@ -125,14 +125,14 @@ export function sliderHitTargets<TMessage>(
 }
 
 export function rangeSliderHitTargets<TMessage>(
-  widget: RangeSliderNode<TMessage>,
+  renderNode: RangeSliderNode<TMessage>,
   bounds: Rect,
   widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
-  const toMessage = rangeSliderActionMessageFactory(widget);
-  if (toMessage === undefined || widget.props.disabled === true) return [];
-  const model = rangeSliderModel(widget);
-  const labelWidth = terminalTextWidth(labelPrefix(clean(stringify(widget.props.label))), { widthProfile });
+  const toMessage = rangeSliderActionMessageFactory(renderNode);
+  if (toMessage === undefined || renderNode.props.disabled === true) return [];
+  const model = rangeSliderModel(renderNode);
+  const labelWidth = terminalTextWidth(labelPrefix(clean(stringify(renderNode.props.label))), { widthProfile });
   const trackBounds = {
     row: bounds.row,
     column: bounds.column + labelWidth,
@@ -141,7 +141,7 @@ export function rangeSliderHitTargets<TMessage>(
   };
   if (trackBounds.width <= 0 || trackBounds.height <= 0) return [];
   return [{
-    id: `${widget.id ?? widget.kind}:track`,
+    id: `${renderNode.id ?? renderNode.kind}:track`,
     bounds: trackBounds,
     accepts: ['pointerDown', 'dragStart', 'drag'],
     message: (event) => {
@@ -153,21 +153,21 @@ export function rangeSliderHitTargets<TMessage>(
 }
 
 export function numberInputHitTargets<TMessage>(
-  widget: NumberInputNode<TMessage>,
+  renderNode: NumberInputNode<TMessage>,
   bounds: Rect
 ): readonly HitTarget<TMessage>[] {
-  const onAction = widget.props.toActionMessage;
+  const onAction = renderNode.props.toActionMessage;
   const layout = numberInputLayout(bounds);
-  if (onAction === undefined || widget.props.disabled === true || layout === undefined) return [];
+  if (onAction === undefined || renderNode.props.disabled === true || layout === undefined) return [];
   return [
     {
-      id: `${widget.id ?? widget.kind}:step:decrement`,
+      id: `${renderNode.id ?? renderNode.kind}:step:decrement`,
       bounds: layout.decrement,
       message: () => onAction({ kind: 'step', direction: 'decrement' }),
       cursor: 'pointer'
     },
     {
-      id: `${widget.id ?? widget.kind}:step:increment`,
+      id: `${renderNode.id ?? renderNode.kind}:step:increment`,
       bounds: layout.increment,
       message: () => onAction({ kind: 'step', direction: 'increment' }),
       cursor: 'pointer'
@@ -175,20 +175,20 @@ export function numberInputHitTargets<TMessage>(
   ];
 }
 
-export function pickerHitTargets<TMessage>(widget: PickerNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  const toMessage = pickerMessageFactory(widget);
+export function pickerHitTargets<TMessage>(renderNode: PickerNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = pickerMessageFactory(renderNode);
   if (toMessage === undefined) return [];
-  const columns = pickerColumns(widget, widget.kind === 'calendar' ? 7 : 4);
-  const options = widget.kind === 'calendar' ? calendarDays(widget) : colorOptions(widget);
-  const rowOffset = pickerOptionRowOffset(widget, columns);
+  const columns = pickerColumns(renderNode, renderNode.kind === 'calendar' ? 7 : 4);
+  const options = renderNode.kind === 'calendar' ? calendarDays(renderNode) : colorOptions(renderNode);
+  const rowOffset = pickerOptionRowOffset(renderNode, columns);
   return options.flatMap((option, index): HitTarget<TMessage>[] => {
     if (option.disabled === true) return [];
     return [{
-      id: `${widget.id ?? widget.kind}:${option.id}`,
+      id: `${renderNode.id ?? renderNode.kind}:${option.id}`,
       bounds: {
         row: bounds.row + rowOffset + Math.floor(index / columns),
-        column: bounds.column + (index % columns) * pickerCellWidth(widget),
-        width: pickerCellWidth(widget),
+        column: bounds.column + (index % columns) * pickerCellWidth(renderNode),
+        width: pickerCellWidth(renderNode),
         height: 1
       },
       message: () => toMessage(option),
@@ -198,24 +198,24 @@ export function pickerHitTargets<TMessage>(widget: PickerNode<TMessage>, bounds:
 }
 
 export function calendarNavigationHitTargets<TMessage>(
-  widget: RenderNodeOfKind<TMessage, 'calendar'>,
+  renderNode: RenderNodeOfKind<TMessage, 'calendar'>,
   bounds: Rect,
   widthProfile: TextWidthProfile
 ): readonly HitTarget<TMessage>[] {
-  const onAction = widget.props.toActionMessage;
-  if (onAction === undefined || widget.props.disabled === true || bounds.height <= 0) return [];
-  const labelOffset = clean(stringify(widget.props.label)).length > 0 ? 1 : 0;
-  const monthLabelWidth = terminalTextWidth(clean(stringify(widget.props.monthLabel)), { widthProfile });
+  const onAction = renderNode.props.toActionMessage;
+  if (onAction === undefined || renderNode.props.disabled === true || bounds.height <= 0) return [];
+  const labelOffset = clean(stringify(renderNode.props.label)).length > 0 ? 1 : 0;
+  const monthLabelWidth = terminalTextWidth(clean(stringify(renderNode.props.monthLabel)), { widthProfile });
   const row = bounds.row + labelOffset;
   return [
     {
-      id: `${widget.id ?? widget.kind}:month:previous`,
+      id: `${renderNode.id ?? renderNode.kind}:month:previous`,
       bounds: { row, column: bounds.column, width: Math.min(3, bounds.width), height: 1 },
       message: () => onAction({ kind: 'moveMonth', months: -1 }),
       cursor: 'pointer'
     },
     {
-      id: `${widget.id ?? widget.kind}:month:next`,
+      id: `${renderNode.id ?? renderNode.kind}:month:next`,
       bounds: {
         row,
         column: bounds.column + Math.min(Math.max(0, bounds.width - 3), 4 + monthLabelWidth),

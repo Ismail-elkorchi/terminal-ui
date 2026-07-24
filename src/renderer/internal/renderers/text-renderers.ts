@@ -8,7 +8,7 @@ import {
   textAreaCursor,
   textAreaPointerOffset,
   textBlock,
-} from '../text-widgets.ts';
+} from '../text-rendering.ts';
 import { statusIndicatorBlock } from '../feedback-visual.ts';
 import { writeRenderBlock } from './support/block.ts';
 import { focusTarget } from './support/common.ts';

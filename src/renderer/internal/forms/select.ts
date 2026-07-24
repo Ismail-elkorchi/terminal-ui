@@ -11,14 +11,14 @@ import { formOptions } from './support/choices.ts';
 type SelectNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'select'>;
 
 export function selectPopupBounds(
-  widget: SelectNode,
+  renderNode: SelectNode,
   bounds: Rect,
   viewport: Rect,
   widthProfile: TextWidthProfile
 ): readonly Rect[] {
-  if (widget.props.presentation.kind !== 'open' || (widget.children?.length ?? 0) === 0) return [];
-  const options = formOptions(widget);
-  const visibleRows = Math.min(Math.max(1, options.length), widget.props.maxVisibleOptions);
+  if (renderNode.props.presentation.kind !== 'open' || (renderNode.children?.length ?? 0) === 0) return [];
+  const options = formOptions(renderNode);
+  const visibleRows = Math.min(Math.max(1, options.length), renderNode.props.maxVisibleOptions);
   const labelWidth = options.reduce(
     (width, option) => Math.max(width, terminalTextWidth(option.label, { widthProfile })),
     0
@@ -34,17 +34,17 @@ export function selectPopupBounds(
       bounds: { row: bounds.row, column: bounds.column, width: bounds.width, height: 1 }
     },
     size,
-    ...(widget.props.placement === undefined ? {} : { placement: widget.props.placement }),
+    ...(renderNode.props.placement === undefined ? {} : { placement: renderNode.props.placement }),
     margin: 0
   })];
 }
 
 export function selectHitTargets<TMessage>(
-  widget: SelectNode<TMessage>,
+  renderNode: SelectNode<TMessage>,
   layout: LayoutNode
 ): readonly HitTarget<TMessage>[] {
-  const toMessage = widget.props.toActionMessage;
-  if (toMessage === undefined || widget.props.disabled === true) return [];
+  const toMessage = renderNode.props.toActionMessage;
+  if (toMessage === undefined || renderNode.props.disabled === true) return [];
   const triggerBounds = {
     row: layout.bounds.row,
     column: layout.bounds.column,
@@ -52,25 +52,25 @@ export function selectHitTargets<TMessage>(
     height: Math.min(1, layout.bounds.height)
   };
   const trigger: HitTarget<TMessage> = {
-    id: renderNodeTargetId(widget, 'trigger'),
+    id: renderNodeTargetId(renderNode, 'trigger'),
     bounds: triggerBounds,
     accepts: ['click'],
     message: () => toMessage({ kind: 'toggle' }),
     cursor: 'pointer',
-    ...(widget.props.presentation.kind === 'open' ? { zIndex: 21 } : {})
+    ...(renderNode.props.presentation.kind === 'open' ? { zIndex: 21 } : {})
   };
-  if (widget.props.presentation.kind !== 'open') return [trigger];
+  if (renderNode.props.presentation.kind !== 'open') return [trigger];
   const popupBounds = layout.children[0]?.bounds;
   return [
     {
-      id: renderNodeTargetId(widget, 'outside'),
+      id: renderNodeTargetId(renderNode, 'outside'),
       bounds: layout.viewport,
       accepts: ['click'],
       message: () => toMessage({ kind: 'dismiss', reason: 'outsidePress' }),
       zIndex: 18
     },
     ...(popupBounds === undefined ? [] : [{
-      id: renderNodeTargetId(widget, 'popup'),
+      id: renderNodeTargetId(renderNode, 'popup'),
       bounds: popupBounds,
       accepts: ['click'] as const,
       message: ignoreMessage,

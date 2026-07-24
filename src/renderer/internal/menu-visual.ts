@@ -26,18 +26,18 @@ export interface MenuVisualItem {
   readonly tone?: ComponentActionTone;
 }
 
-export function menuTitleLine(widget: RenderNode, title: string, width: number, widthProfile: TextWidthProfile): RenderLine {
+export function menuTitleLine(renderNode: RenderNode, title: string, width: number, widthProfile: TextWidthProfile): RenderLine {
   return {
     spans: clipSpans([
-      menuSpan(widget, title, renderNodeStyle(widget, 'title'), { label: 'title' })
+      menuSpan(renderNode, title, renderNodeStyle(renderNode, 'title'), { label: 'title' })
     ], width, widthProfile)
   };
 }
 
-export function menuEmptyLine(widget: RenderNode, text: string, width: number, widthProfile: TextWidthProfile): RenderLine {
+export function menuEmptyLine(renderNode: RenderNode, text: string, width: number, widthProfile: TextWidthProfile): RenderLine {
   return {
     spans: clipSpans([
-      menuSpan(widget, text, resolveRenderNodeStyle(widget, {
+      menuSpan(renderNode, text, resolveRenderNodeStyle(renderNode, {
         part: 'empty',
         base: themeStyle('text.muted', { dim: true })
       }), { label: 'empty' })
@@ -46,7 +46,7 @@ export function menuEmptyLine(widget: RenderNode, text: string, width: number, w
 }
 
 export function menuBarLine(
-  widget: RenderNode,
+  renderNode: RenderNode,
   items: readonly MenuVisualItem[],
   selectedId: string | undefined,
   width: number,
@@ -56,20 +56,20 @@ export function menuBarLine(
 ): RenderLine {
   const spans: RenderSpan[] = [];
   items.forEach((item, index) => {
-    if (index > 0) spans.push(menuSpan(widget, '  ', renderNodeStyle(widget, 'separator'), { label: 'separator' }));
+    if (index > 0) spans.push(menuSpan(renderNode, '  ', renderNodeStyle(renderNode, 'separator'), { label: 'separator' }));
     const selected = item.id === selectedId;
-    const state = interactionVisualState(widget, menuItemTargetId(widget, item.id), {
+    const state = interactionVisualState(renderNode, menuItemTargetId(renderNode, item.id), {
       disabled: item.disabled === true,
       selected,
       focused: focused && selected
     });
-    spans.push(...menuBarItemSpans(widget, item, selected, state, theme));
+    spans.push(...menuBarItemSpans(renderNode, item, selected, state, theme));
   });
   return { spans: clipSpans(spans, width, widthProfile) };
 }
 
 export function dropdownMenuControlLine(input: {
-  readonly widget: RenderNode;
+  readonly renderNode: RenderNode;
   readonly label: string;
   readonly value: string;
   readonly placeholder: boolean;
@@ -80,31 +80,31 @@ export function dropdownMenuControlLine(input: {
   readonly widthProfile: TextWidthProfile;
 }): RenderLine {
   const stateStyle = input.placeholder
-    ? renderNodeStyle(input.widget, 'placeholder')
-    : resolveRenderNodeStyle(input.widget, { part: 'label', base: themeStyle('text.default') });
-  const chromeStyle = renderNodeStyle(input.widget, 'chrome');
+    ? renderNodeStyle(input.renderNode, 'placeholder')
+    : resolveRenderNodeStyle(input.renderNode, { part: 'label', base: themeStyle('text.default') });
+  const chromeStyle = renderNodeStyle(input.renderNode, 'chrome');
   const marker = input.open ? input.theme.tokens.symbols.treeExpanded : input.theme.tokens.symbols.treeCollapsed;
-  const state = interactionVisualState(input.widget, renderNodeTargetId(input.widget, 'control'), {
+  const state = interactionVisualState(input.renderNode, renderNodeTargetId(input.renderNode, 'control'), {
     selected: input.open,
     focused: input.focused === true
   });
-  const controlStyle = state === undefined ? chromeStyle : resolveRenderNodeStyle(input.widget, { part: 'chrome', state });
+  const controlStyle = state === undefined ? chromeStyle : resolveRenderNodeStyle(input.renderNode, { part: 'chrome', state });
   const spans: RenderSpan[] = [
     ...(input.label.length === 0
       ? []
       : [
-          menuSpan(input.widget, `${input.label}: `, renderNodeStyle(input.widget, 'label'), { label: 'label' })
+          menuSpan(input.renderNode, `${input.label}: `, renderNodeStyle(input.renderNode, 'label'), { label: 'label' })
         ]),
-    menuSpan(input.widget, '[', controlStyle, { label: 'dropdownMenu-open', state }),
-    menuSpan(input.widget, input.value, mergeStyles(stateStyle, controlStyle), { label: 'dropdownMenu-value', state }),
-    menuSpan(input.widget, ` ${marker}`, controlStyle, { label: 'dropdownMenu-marker', state }),
-    menuSpan(input.widget, ']', controlStyle, { label: 'dropdownMenu-close', state })
+    menuSpan(input.renderNode, '[', controlStyle, { label: 'dropdownMenu-open', state }),
+    menuSpan(input.renderNode, input.value, mergeStyles(stateStyle, controlStyle), { label: 'dropdownMenu-value', state }),
+    menuSpan(input.renderNode, ` ${marker}`, controlStyle, { label: 'dropdownMenu-marker', state }),
+    menuSpan(input.renderNode, ']', controlStyle, { label: 'dropdownMenu-close', state })
   ];
   return { spans: clipSpans(spans, input.width, input.widthProfile) };
 }
 
 export function menuItemLine(
-  widget: RenderNode,
+  renderNode: RenderNode,
   item: MenuVisualItem,
   selected: boolean,
   width: number,
@@ -112,24 +112,24 @@ export function menuItemLine(
   widthProfile: TextWidthProfile,
   focused = false
 ): RenderLine {
-  const state = interactionVisualState(widget, menuItemTargetId(widget, item.id), {
+  const state = interactionVisualState(renderNode, menuItemTargetId(renderNode, item.id), {
     disabled: item.disabled === true,
     selected,
     focused: focused && selected
   });
   return {
-    spans: clipSpans(menuItemSpans(widget, item, selected, state, theme), width, widthProfile)
+    spans: clipSpans(menuItemSpans(renderNode, item, selected, state, theme), width, widthProfile)
   };
 }
 
 function menuBarItemSpans(
-  widget: RenderNode,
+  renderNode: RenderNode,
   item: MenuVisualItem,
   selected: boolean,
   state: ElementVisualState | undefined,
   theme: TerminalTheme
 ): readonly RenderSpan[] {
-  const labelStyle = menuLabelStyle(widget, item, state);
+  const labelStyle = menuLabelStyle(renderNode, item, state);
   const marker = item.disabled === true
     ? '-'
     : selected
@@ -138,23 +138,23 @@ function menuBarItemSpans(
         ? theme.tokens.symbols.statusError
         : '';
   return [
-    ...(marker.length === 0 ? [] : [menuSpan(widget, `${marker} `, menuMarkerStyle(widget, item, state), { itemId: item.id, label: 'marker', state })]),
-    ...menuInlineSpans(widget, item.leading, 'leading', item, state, theme),
-    ...(item.leading === undefined ? [] : [menuSpan(widget, ' ', menuMutedStyle(widget, state), { itemId: item.id, label: 'leading-gap', state })]),
-    menuSpan(widget, item.label, labelStyle, { itemId: item.id, label: 'label', state }),
-    ...(item.trailing === undefined ? [] : [menuSpan(widget, ' ', menuMutedStyle(widget, state), { itemId: item.id, label: 'trailing-gap', state })]),
-    ...menuInlineSpans(widget, item.trailing, 'trailing', item, state, theme)
+    ...(marker.length === 0 ? [] : [menuSpan(renderNode, `${marker} `, menuMarkerStyle(renderNode, item, state), { itemId: item.id, label: 'marker', state })]),
+    ...menuInlineSpans(renderNode, item.leading, 'leading', item, state, theme),
+    ...(item.leading === undefined ? [] : [menuSpan(renderNode, ' ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'leading-gap', state })]),
+    menuSpan(renderNode, item.label, labelStyle, { itemId: item.id, label: 'label', state }),
+    ...(item.trailing === undefined ? [] : [menuSpan(renderNode, ' ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'trailing-gap', state })]),
+    ...menuInlineSpans(renderNode, item.trailing, 'trailing', item, state, theme)
   ];
 }
 
 function menuItemSpans(
-  widget: RenderNode,
+  renderNode: RenderNode,
   item: MenuVisualItem,
   selected: boolean,
   state: ElementVisualState | undefined,
   theme: TerminalTheme
 ): readonly RenderSpan[] {
-  const labelStyle = menuLabelStyle(widget, item, state);
+  const labelStyle = menuLabelStyle(renderNode, item, state);
   const marker = item.disabled === true
     ? '-'
     : selected
@@ -166,24 +166,24 @@ function menuItemSpans(
   const branch = item.hasChildren ? item.expanded === true ? theme.tokens.symbols.treeExpanded : theme.tokens.symbols.treeCollapsed : theme.tokens.symbols.unselected;
   const indent = '  '.repeat(Math.max(0, item.depth));
   return [
-    menuSpan(widget, `${marker} `, menuMarkerStyle(widget, item, state), { itemId: item.id, label: 'marker', state }),
-    ...(indent.length === 0 ? [] : [menuSpan(widget, indent, menuMutedStyle(widget, state), { itemId: item.id, label: 'indent', state })]),
-    menuSpan(widget, checked, item.checked === true ? menuCheckedStyle(widget, state) : menuMutedStyle(widget, state), { itemId: item.id, label: 'checked', state }),
-    menuSpan(widget, ' ', menuMutedStyle(widget, state), { itemId: item.id, label: 'gap', state }),
-    menuSpan(widget, branch, item.hasChildren ? menuBranchStyle(widget, state) : menuMutedStyle(widget, state), { itemId: item.id, label: 'branch', state }),
-    menuSpan(widget, ' ', menuMutedStyle(widget, state), { itemId: item.id, label: 'gap', state }),
-    ...menuInlineSpans(widget, item.leading, 'leading', item, state, theme),
-    ...(item.leading === undefined ? [] : [menuSpan(widget, ' ', menuMutedStyle(widget, state), { itemId: item.id, label: 'leading-gap', state })]),
-    menuSpan(widget, item.label, labelStyle, { itemId: item.id, label: 'label', state }),
-    ...descriptionSpans(widget, item, state),
-    ...shortcutSpans(widget, item, state),
-    ...(item.trailing === undefined ? [] : [menuSpan(widget, ' ', menuMutedStyle(widget, state), { itemId: item.id, label: 'trailing-gap', state })]),
-    ...menuInlineSpans(widget, item.trailing, 'trailing', item, state, theme)
+    menuSpan(renderNode, `${marker} `, menuMarkerStyle(renderNode, item, state), { itemId: item.id, label: 'marker', state }),
+    ...(indent.length === 0 ? [] : [menuSpan(renderNode, indent, menuMutedStyle(renderNode, state), { itemId: item.id, label: 'indent', state })]),
+    menuSpan(renderNode, checked, item.checked === true ? menuCheckedStyle(renderNode, state) : menuMutedStyle(renderNode, state), { itemId: item.id, label: 'checked', state }),
+    menuSpan(renderNode, ' ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'gap', state }),
+    menuSpan(renderNode, branch, item.hasChildren ? menuBranchStyle(renderNode, state) : menuMutedStyle(renderNode, state), { itemId: item.id, label: 'branch', state }),
+    menuSpan(renderNode, ' ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'gap', state }),
+    ...menuInlineSpans(renderNode, item.leading, 'leading', item, state, theme),
+    ...(item.leading === undefined ? [] : [menuSpan(renderNode, ' ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'leading-gap', state })]),
+    menuSpan(renderNode, item.label, labelStyle, { itemId: item.id, label: 'label', state }),
+    ...descriptionSpans(renderNode, item, state),
+    ...shortcutSpans(renderNode, item, state),
+    ...(item.trailing === undefined ? [] : [menuSpan(renderNode, ' ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'trailing-gap', state })]),
+    ...menuInlineSpans(renderNode, item.trailing, 'trailing', item, state, theme)
   ];
 }
 
 function menuInlineSpans(
-  widget: RenderNode,
+  renderNode: RenderNode,
   content: InlineContent | undefined,
   part: 'leading' | 'trailing',
   item: MenuVisualItem,
@@ -192,13 +192,13 @@ function menuInlineSpans(
 ): readonly RenderSpan[] {
   if (content === undefined) return [];
   const style = mergeStyles(
-    menuLabelStyle(widget, item, state),
-    widget.styles?.parts?.[part]
+    menuLabelStyle(renderNode, item, state),
+    renderNode.styles?.parts?.[part]
   );
   return renderInlineContent(content, {
     theme,
     ...(style === undefined ? {} : { baseStyle: style }),
-    source: (_segment: InlineContentSegment, index) => renderNodeFrameSource(widget, {
+    source: (_segment: InlineContentSegment, index) => renderNodeFrameSource(renderNode, {
       family: 'menu',
       role: 'text',
       part: `${part}.${String(index)}`,
@@ -210,72 +210,72 @@ function menuInlineSpans(
   });
 }
 
-function descriptionSpans(widget: RenderNode, item: MenuVisualItem, state: ElementVisualState | undefined): readonly RenderSpan[] {
+function descriptionSpans(renderNode: RenderNode, item: MenuVisualItem, state: ElementVisualState | undefined): readonly RenderSpan[] {
   if (item.description === undefined || item.description.length === 0) return [];
   return [
-    menuSpan(widget, '  ', menuMutedStyle(widget, state), { itemId: item.id, label: 'description-gap', state }),
-    menuSpan(widget, item.description, menuMutedStyle(widget, state), { itemId: item.id, label: 'description', state })
+    menuSpan(renderNode, '  ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'description-gap', state }),
+    menuSpan(renderNode, item.description, menuMutedStyle(renderNode, state), { itemId: item.id, label: 'description', state })
   ];
 }
 
-function shortcutSpans(widget: RenderNode, item: MenuVisualItem, state: ElementVisualState | undefined): readonly RenderSpan[] {
+function shortcutSpans(renderNode: RenderNode, item: MenuVisualItem, state: ElementVisualState | undefined): readonly RenderSpan[] {
   if (item.shortcut === undefined || item.shortcut.length === 0) return [];
   return [
-    menuSpan(widget, '  ', menuMutedStyle(widget, state), { itemId: item.id, label: 'shortcut-gap', state }),
-    menuSpan(widget, item.shortcut, menuShortcutStyle(widget, state), { itemId: item.id, label: 'shortcut', state })
+    menuSpan(renderNode, '  ', menuMutedStyle(renderNode, state), { itemId: item.id, label: 'shortcut-gap', state }),
+    menuSpan(renderNode, item.shortcut, menuShortcutStyle(renderNode, state), { itemId: item.id, label: 'shortcut', state })
   ];
 }
 
-function menuLabelStyle(widget: RenderNode, item: MenuVisualItem, state: ElementVisualState | undefined): TerminalStyle | undefined {
-  const stateStyle = resolveRenderNodeStyle(widget, {
+function menuLabelStyle(renderNode: RenderNode, item: MenuVisualItem, state: ElementVisualState | undefined): TerminalStyle | undefined {
+  const stateStyle = resolveRenderNodeStyle(renderNode, {
     part: 'label',
     base: state === 'selected' ? themeStyle('menu.selected') : themeStyle('text.default'),
     ...(state === undefined ? {} : { state })
   });
   if (item.tone === 'destructive') return mergeStyles(
     stateStyle,
-    renderNodeStyle(widget, 'label', 'error')
+    renderNodeStyle(renderNode, 'label', 'error')
   );
   return stateStyle;
 }
 
-function menuMarkerStyle(widget: RenderNode, item: MenuVisualItem, state: ElementVisualState | undefined): TerminalStyle | undefined {
+function menuMarkerStyle(renderNode: RenderNode, item: MenuVisualItem, state: ElementVisualState | undefined): TerminalStyle | undefined {
   return mergeStyles(
-    menuStateStyle(widget, 'marker', state),
-    item.tone === 'destructive' ? renderNodeStyle(widget, 'marker', 'error') : undefined
+    menuStateStyle(renderNode, 'marker', state),
+    item.tone === 'destructive' ? renderNodeStyle(renderNode, 'marker', 'error') : undefined
   );
 }
 
-function menuCheckedStyle(widget: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
+function menuCheckedStyle(renderNode: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
   return mergeStyles(
-    renderNodeStyle(widget, 'marker', 'success'),
-    menuStateStyle(widget, 'marker', state)
+    renderNodeStyle(renderNode, 'marker', 'success'),
+    menuStateStyle(renderNode, 'marker', state)
   );
 }
 
-function menuBranchStyle(widget: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
+function menuBranchStyle(renderNode: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
   return mergeStyles(
     {
       fg: { kind: 'theme', token: 'tree.branch' }
     },
-    menuStateStyle(widget, 'marker', state)
+    menuStateStyle(renderNode, 'marker', state)
   );
 }
 
-function menuShortcutStyle(widget: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
-  return menuStateStyle(widget, 'shortcut', state);
+function menuShortcutStyle(renderNode: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
+  return menuStateStyle(renderNode, 'shortcut', state);
 }
 
-function menuMutedStyle(widget: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
-  return menuStateStyle(widget, 'description', state);
+function menuMutedStyle(renderNode: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
+  return menuStateStyle(renderNode, 'description', state);
 }
 
 function menuStateStyle(
-  widget: RenderNode,
+  renderNode: RenderNode,
   part: 'description' | 'label' | 'marker' | 'shortcut',
   state: ElementVisualState | undefined
 ): TerminalStyle | undefined {
-  return resolveRenderNodeStyle(widget, {
+  return resolveRenderNodeStyle(renderNode, {
     part,
     ...(state === 'selected' ? { base: themeStyle('menu.selected') } : {}),
     ...(state === undefined ? {} : { state })
@@ -283,14 +283,14 @@ function menuStateStyle(
 }
 
 function menuSpan(
-  widget: RenderNode,
+  renderNode: RenderNode,
   text: string,
   style: TerminalStyle | undefined,
   source: { readonly itemId?: string; readonly label: string; readonly state?: ElementVisualState | undefined }
 ): RenderSpan {
   return span(text, {
     ...(style === undefined ? {} : { style }),
-    source: renderNodeFrameSource(widget, {
+    source: renderNodeFrameSource(renderNode, {
       family: 'menu',
       role: source.label === 'separator' ? 'separator' : 'text',
       part: source.label,
@@ -301,8 +301,8 @@ function menuSpan(
   });
 }
 
-function menuItemTargetId(widget: RenderNode, itemId: string): string {
-  return renderNodeTargetId(widget, itemId);
+function menuItemTargetId(renderNode: RenderNode, itemId: string): string {
+  return renderNodeTargetId(renderNode, itemId);
 }
 
 function clipSpans(

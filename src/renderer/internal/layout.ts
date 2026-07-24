@@ -31,7 +31,7 @@ export function layoutElement(
 }
 
 export function layoutRenderNode(
-  widget: RenderNode,
+  renderNode: RenderNode,
   viewport: ViewportSize | Rect,
   themeInput?: TerminalTheme | TerminalThemeDefinition,
   widthProfile: TextWidthProfile = defaultTextWidthProfile
@@ -42,11 +42,11 @@ export function layoutRenderNode(
     : viewport;
   const viewportBounds = clampRect(bounds);
   const measurements = createRenderMeasurementContext(theme, widthProfile);
-  return layoutNode(widget, viewportBounds, viewportBounds, theme, widthProfile, measurements, 0, 0, []);
+  return layoutNode(renderNode, viewportBounds, viewportBounds, theme, widthProfile, measurements, 0, 0, []);
 }
 
 function layoutNode(
-  widget: RenderNode,
+  renderNode: RenderNode,
   bounds: Rect,
   viewport: Rect,
   theme: TerminalTheme,
@@ -56,22 +56,22 @@ function layoutNode(
   parentZIndex: number,
   parentIdentity: readonly string[]
 ): LayoutNode {
-  const placedBounds = placeRenderNode(widget, bounds, viewport, theme, widthProfile);
-  const visible = widget.layer?.visible !== false;
-  const zIndex = parentZIndex + zIndexForRenderNode(widget);
-  const identity = widget.id ?? `${widget.kind}:${String(ordinal)}`;
+  const placedBounds = placeRenderNode(renderNode, bounds, viewport, theme, widthProfile);
+  const visible = renderNode.layer?.visible !== false;
+  const zIndex = parentZIndex + zIndexForRenderNode(renderNode);
+  const identity = renderNode.id ?? `${renderNode.kind}:${String(ordinal)}`;
   const identityPath = [...parentIdentity, identity];
   const layer = {
     id: identityPath.join('/'),
     zIndex,
     bounds: placedBounds,
-    opacity: opacityForRenderNode(widget)
+    opacity: opacityForRenderNode(renderNode)
   };
   if (!visible) {
     return {
-      ...(widget.id === undefined ? {} : { id: widget.id }),
+      ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
       identity,
-      kind: widget.kind,
+      kind: renderNode.kind,
       bounds: placedBounds,
       viewport,
       layer,
@@ -81,8 +81,8 @@ function layoutNode(
       children: []
     };
   }
-  const childBounds = boundsForChildren(widget, placedBounds, viewport, measurements);
-  const focusTargets = focusTargetsForRenderNode(widget, placedBounds, theme, widthProfile).map((target): LayoutFocusRegion => ({
+  const childBounds = boundsForChildren(renderNode, placedBounds, viewport, measurements);
+  const focusTargets = focusTargetsForRenderNode(renderNode, placedBounds, theme, widthProfile).map((target): LayoutFocusRegion => ({
     id: target.id,
     bounds: target.bounds,
     ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
@@ -90,11 +90,11 @@ function layoutNode(
     ...(target.order === undefined ? {} : { order: target.order }),
     ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId })
   }));
-  const focusScope = focusScopeForRenderNode(widget);
+  const focusScope = focusScopeForRenderNode(renderNode);
   return {
-    ...(widget.id === undefined ? {} : { id: widget.id }),
+    ...(renderNode.id === undefined ? {} : { id: renderNode.id }),
     identity,
-    kind: widget.kind,
+    kind: renderNode.kind,
     bounds: placedBounds,
     viewport,
     layer,
@@ -102,7 +102,7 @@ function layoutNode(
     focusable: focusTargets.some((target) => !target.disabled && target.bounds.width > 0 && target.bounds.height > 0),
     ...(focusScope === undefined ? {} : { focusScope }),
     focusTargets,
-    children: (widget.children ?? [])
+    children: (renderNode.children ?? [])
       .map((child, index) => layoutNode(
         child,
         childBounds[index] ?? emptyRect(placedBounds),
@@ -118,13 +118,13 @@ function layoutNode(
 }
 
 function boundsForChildren(
-  widget: RenderNode,
+  renderNode: RenderNode,
   bounds: Rect,
   viewport: Rect,
   measurements: RenderMeasurementContext
 ): readonly Rect[] {
-  const children = widget.children ?? [];
-  return children.length === 0 ? [] : layoutChildBounds(widget, bounds, viewport, measurements);
+  const children = renderNode.children ?? [];
+  return children.length === 0 ? [] : layoutChildBounds(renderNode, bounds, viewport, measurements);
 }
 
 function emptyRect(bounds: Rect): Rect {
@@ -140,13 +140,13 @@ function clampRect(bounds: Rect): Rect {
   };
 }
 
-function zIndexForRenderNode(widget: RenderNode): number {
-  const zIndex = widget.layer?.zIndex;
+function zIndexForRenderNode(renderNode: RenderNode): number {
+  const zIndex = renderNode.layer?.zIndex;
   return zIndex === undefined || !Number.isFinite(zIndex) ? 0 : zIndex;
 }
 
-function opacityForRenderNode(widget: RenderNode): ElementLayerOpacity {
-  return widget.layer?.opacity ?? 'transparent';
+function opacityForRenderNode(renderNode: RenderNode): ElementLayerOpacity {
+  return renderNode.layer?.opacity ?? 'transparent';
 }
 
 function themeForLayout(theme: TerminalTheme | TerminalThemeDefinition | undefined): TerminalTheme {

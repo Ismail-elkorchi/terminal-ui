@@ -31,7 +31,7 @@ export function heatmapRows(value: unknown): readonly (readonly HeatmapCell[])[]
 }
 
 export function heatmapCellSpans(
-  widget: HeatmapNode,
+  renderNode: HeatmapNode,
   rowIndex: number,
   columnIndex: number,
   options: {
@@ -50,11 +50,11 @@ export function heatmapCellSpans(
     options.value,
     options.range,
     options.scale,
-    chartHeatmapStyle(widget, options.intensity, options.selected)
+    chartHeatmapStyle(renderNode, options.intensity, options.selected)
   );
   if (!options.selected) {
     return [chartSpan(
-      widget,
+      renderNode,
       'heatmap',
       'cell',
       `${id}.value`,
@@ -64,7 +64,7 @@ export function heatmapCellSpans(
   }
   if (options.cellWidth === 1) {
     return [chartSpan(
-      widget,
+      renderNode,
       'heatmap',
       'selected',
       `${id}.selected`,
@@ -74,9 +74,9 @@ export function heatmapCellSpans(
   }
   if (options.cellWidth === 2) {
     return [
-      chartSpan(widget, 'heatmap', 'marker', `${id}.selected.marker`, '›', cellStyle),
+      chartSpan(renderNode, 'heatmap', 'marker', `${id}.selected.marker`, '›', cellStyle),
       chartSpan(
-        widget,
+        renderNode,
         'heatmap',
         'cell',
         `${id}.value`,
@@ -86,9 +86,9 @@ export function heatmapCellSpans(
     ];
   }
   return [
-    chartSpan(widget, 'heatmap', 'marker', `${id}.selected.open`, '[', cellStyle),
+    chartSpan(renderNode, 'heatmap', 'marker', `${id}.selected.open`, '[', cellStyle),
     chartSpan(
-      widget,
+      renderNode,
       'heatmap',
       'cell',
       `${id}.value`,
@@ -97,7 +97,7 @@ export function heatmapCellSpans(
       }),
       cellStyle
     ),
-    chartSpan(widget, 'heatmap', 'marker', `${id}.selected.close`, ']', cellStyle)
+    chartSpan(renderNode, 'heatmap', 'marker', `${id}.selected.close`, ']', cellStyle)
   ];
 }
 
@@ -111,9 +111,9 @@ export function heatmapRange(
 }
 
 export function heatmapSelected(
-  widget: HeatmapNode
+  renderNode: HeatmapNode
 ): { readonly row: number; readonly column: number } | undefined {
-  const selected = widget.props.selected;
+  const selected = renderNode.props.selected;
   if (selected === undefined) return undefined;
   return {
     row: Math.max(0, Math.floor(selected.row)),
@@ -121,18 +121,18 @@ export function heatmapSelected(
   };
 }
 
-export function heatmapCellWidth(widget: HeatmapNode): number {
-  return boundedInteger(numberProp(widget, 'cellWidth'), 1, 8, 3);
+export function heatmapCellWidth(renderNode: HeatmapNode): number {
+  return boundedInteger(numberProp(renderNode, 'cellWidth'), 1, 8, 3);
 }
 
-export function heatmapGap(widget: HeatmapNode): number {
-  return boundedInteger(numberProp(widget, 'gap'), 0, 4, 1);
+export function heatmapGap(renderNode: HeatmapNode): number {
+  return boundedInteger(numberProp(renderNode, 'gap'), 0, 4, 1);
 }
 
 export function heatmapMessageFactory<TMessage>(
-  widget: HeatmapNode<TMessage>
+  renderNode: HeatmapNode<TMessage>
 ): ((action: HeatmapAction) => TMessage) | undefined {
-  return widget.props.toActionMessage;
+  return renderNode.props.toActionMessage;
 }
 
 export { normalizedIndex };

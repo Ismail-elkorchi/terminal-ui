@@ -31,41 +31,41 @@ interface PaletteRenderModel {
   readonly availableEntries: number;
 }
 
-export function paletteBlock(widget: PaletteNode, height: number, theme: TerminalTheme): RenderBlock {
-  const model = paletteRenderModel(widget, height);
+export function paletteBlock(renderNode: PaletteNode, height: number, theme: TerminalTheme): RenderBlock {
+  const model = paletteRenderModel(renderNode, height);
   const lines: RenderLine[] = [
     {
       spans: [
-        styledSpan(model.title.length === 0 ? 'Palette' : model.title, renderNodeStyle(widget, 'title'), paletteSource(widget, 'title')),
+        styledSpan(model.title.length === 0 ? 'Palette' : model.title, renderNodeStyle(renderNode, 'title'), paletteSource(renderNode, 'title')),
         ...(model.resultSummary.length === 0 ? [] : [styledSpan(
           `  ${model.resultSummary}`,
-          renderNodeStyle(widget, 'help', 'disabled'),
-          paletteSource(widget, 'result.summary')
+          renderNodeStyle(renderNode, 'help', 'disabled'),
+          paletteSource(renderNode, 'result.summary')
         )])
       ]
     },
     {
       spans: [
-        styledSpan(`${theme.tokens.symbols.pointer} `, renderNodeStyle(widget, 'placeholder'), paletteSource(widget, 'query.marker', 'decoration')),
-        styledSpan(model.query, renderNodeStyle(widget, 'value'), paletteSource(widget, 'query'))
+        styledSpan(`${theme.tokens.symbols.pointer} `, renderNodeStyle(renderNode, 'placeholder'), paletteSource(renderNode, 'query.marker', 'decoration')),
+        styledSpan(model.query, renderNodeStyle(renderNode, 'value'), paletteSource(renderNode, 'query'))
       ]
     }
   ];
   if (model.window.total === 0 && model.availableEntries > 0) {
-    const emptyStyle = resolveRenderNodeStyle(widget, {
+    const emptyStyle = resolveRenderNodeStyle(renderNode, {
       part: 'empty',
       base: themeStyle('input.placeholder', { dim: true })
     });
     lines.push({
-      spans: commandStatusSpans(widget, theme, 'muted', emptyText(widget), {
+      spans: commandStatusSpans(renderNode, theme, 'muted', emptyText(renderNode), {
         ...(emptyStyle === undefined ? {} : { textStyle: emptyStyle }),
-        markerSource: paletteSource(widget, 'empty.marker', 'decoration'),
-        textSource: paletteSource(widget, 'empty')
+        markerSource: paletteSource(renderNode, 'empty.marker', 'decoration'),
+        textSource: paletteSource(renderNode, 'empty')
       })
     });
   } else {
     lines.push(...model.window.entries.slice(0, model.availableEntries).map((entry, index) => entryLine(
-      widget,
+      renderNode,
       entry,
       index === model.window.selected,
       model.window.start + index,
@@ -75,31 +75,31 @@ export function paletteBlock(widget: PaletteNode, height: number, theme: Termina
   }
   if (model.selectedPreview !== undefined && model.selectedPreview.length > 0 && lines.length < height) {
     lines.push({
-      spans: commandStatusSpans(widget, theme, 'info', model.selectedPreview, {
-        markerSource: paletteSource(widget, 'preview.marker', 'decoration'),
-        textSource: paletteSource(widget, 'preview')
+      spans: commandStatusSpans(renderNode, theme, 'info', model.selectedPreview, {
+        markerSource: paletteSource(renderNode, 'preview.marker', 'decoration'),
+        textSource: paletteSource(renderNode, 'preview')
       })
     });
   }
   if (model.helpText.length > 0 && lines.length < height) {
     lines.push({
-      spans: commandStatusSpans(widget, theme, 'muted', model.helpText, {
-        markerSource: paletteSource(widget, 'help.marker', 'decoration'),
-        textSource: paletteSource(widget, 'help')
+      spans: commandStatusSpans(renderNode, theme, 'muted', model.helpText, {
+        markerSource: paletteSource(renderNode, 'help.marker', 'decoration'),
+        textSource: paletteSource(renderNode, 'help')
       })
     });
   }
   return { lines: lines.slice(0, height) };
 }
 
-export function paletteHitTargets<TMessage>(widget: PaletteNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  const toMessage = paletteMessageFactory(widget);
+export function paletteHitTargets<TMessage>(renderNode: PaletteNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = paletteMessageFactory(renderNode);
   if (toMessage === undefined) return [];
-  const model = paletteRenderModel(widget, bounds.height);
+  const model = paletteRenderModel(renderNode, bounds.height);
   return model.window.entries.slice(0, model.availableEntries).flatMap((entry, index): readonly HitTarget<TMessage>[] => {
     if (entry.disabled === true) return [];
     return [{
-      id: paletteEntryTargetId(widget, entry.id),
+      id: paletteEntryTargetId(renderNode, entry.id),
       bounds: {
         row: bounds.row + 2 + index,
         column: bounds.column,
@@ -112,10 +112,10 @@ export function paletteHitTargets<TMessage>(widget: PaletteNode<TMessage>, bound
   });
 }
 
-export function paletteAccessibleChildren(widget: PaletteNode, height: number): readonly AccessibleNode[] {
-  const { window } = paletteRenderModel(widget, height);
+export function paletteAccessibleChildren(renderNode: PaletteNode, height: number): readonly AccessibleNode[] {
+  const { window } = paletteRenderModel(renderNode, height);
   return window.entries.map((entry, index) => ({
-    id: `${widget.id ?? 'palette'}:${entry.id}`,
+    id: `${renderNode.id ?? 'palette'}:${entry.id}`,
     role: 'option',
     label: entry.label,
     ...(entry.description === undefined ? {} : { description: entry.description }),
@@ -131,49 +131,49 @@ export function paletteAccessibleChildren(widget: PaletteNode, height: number): 
 }
 
 function entryLine<TValue>(
-  widget: PaletteNode,
+  renderNode: PaletteNode,
   entry: SearchEntry<TValue>,
   selected: boolean,
   itemIndex: number,
   query: string,
   theme: TerminalTheme
 ): RenderLine {
-  const state = interactionVisualState(widget, paletteEntryTargetId(widget, entry.id), {
+  const state = interactionVisualState(renderNode, paletteEntryTargetId(renderNode, entry.id), {
     disabled: entry.disabled === true,
     selected
   });
-  const rowStyle = commandRowStyle(widget, state);
+  const rowStyle = commandRowStyle(renderNode, state);
   const spans: RenderSpan[] = [
-    ...commandSelectionMarkerSpans(widget, theme, selected, state, paletteSource(widget, `entry.${entry.id}.marker`, 'decoration', entry.id, itemIndex, state)),
-    ...commandGroupSpans(widget, entry.group, state, paletteSource(widget, `entry.${entry.id}.group`, 'text', entry.id, itemIndex, state)),
+    ...commandSelectionMarkerSpans(renderNode, theme, selected, state, paletteSource(renderNode, `entry.${entry.id}.marker`, 'decoration', entry.id, itemIndex, state)),
+    ...commandGroupSpans(renderNode, entry.group, state, paletteSource(renderNode, `entry.${entry.id}.group`, 'text', entry.id, itemIndex, state)),
     ...commandMatchSpans(entry.label, query, rowStyle, {
-      source: paletteSource(widget, `entry.${entry.id}.label`, 'text', entry.id, itemIndex, state),
-      matchSource: paletteSource(widget, `entry.${entry.id}.match`, 'text', entry.id, itemIndex, state)
+      source: paletteSource(renderNode, `entry.${entry.id}.label`, 'text', entry.id, itemIndex, state),
+      matchSource: paletteSource(renderNode, `entry.${entry.id}.match`, 'text', entry.id, itemIndex, state)
     })
   ];
   if (entry.description !== undefined && entry.description.length > 0) {
     spans.push(styledSpan(
       ` · ${entry.description}`,
-      commandMetadataStyle(widget, state),
-      paletteSource(widget, `entry.${entry.id}.description`, 'text', entry.id, itemIndex, state)
+      commandMetadataStyle(renderNode, state),
+      paletteSource(renderNode, `entry.${entry.id}.description`, 'text', entry.id, itemIndex, state)
     ));
   }
   return { spans };
 }
 
-function paletteRenderModel(widget: PaletteNode, height: number): PaletteRenderModel {
-  const cached = renderModelCache.get(widget);
+function paletteRenderModel(renderNode: PaletteNode, height: number): PaletteRenderModel {
+  const cached = renderModelCache.get(renderNode);
   if (cached?.height === height) return cached.model;
-  const title = titleText(widget);
-  const query = queryText(widget);
-  const helpText = helpTextProp(widget);
-  const index = widget.props.index;
+  const title = titleText(renderNode);
+  const query = queryText(renderNode);
+  const helpText = helpTextProp(renderNode);
+  const index = renderNode.props.index;
   const window = paletteWindow({
     index,
     query,
-    ...selectedInput(widget),
-    ...scrollInput(widget),
-    limit: entryLimit(widget, height)
+    ...selectedInput(renderNode),
+    ...scrollInput(renderNode),
+    limit: entryLimit(renderNode, height)
   });
   const selectedPreview = window.selectedEntry?.preview;
   const resultSummary = paletteResultSummary(window.total, index.size, query);
@@ -188,50 +188,50 @@ function paletteRenderModel(widget: PaletteNode, height: number): PaletteRenderM
     resultSummary,
     availableEntries: Math.max(0, height - 2 - reserve)
   };
-  renderModelCache.set(widget, { height, model });
+  renderModelCache.set(renderNode, { height, model });
   return model;
 }
 
-function selectedInput(widget: PaletteNode): Partial<Pick<PaletteWindowInput<unknown>, 'selected' | 'selectedId'>> {
-  const selected = widget.props.selected;
-  const selectedId = selectedIdText(widget);
+function selectedInput(renderNode: PaletteNode): Partial<Pick<PaletteWindowInput<unknown>, 'selected' | 'selectedId'>> {
+  const selected = renderNode.props.selected;
+  const selectedId = selectedIdText(renderNode);
   return {
     ...(selected === undefined ? {} : { selected }),
     ...(selectedId.length === 0 ? {} : { selectedId })
   };
 }
 
-function paletteMessageFactory<TMessage>(widget: PaletteNode<TMessage>): ((entry: SearchEntry<unknown>) => TMessage) | undefined {
-  return widget.props.toMessage;
+function paletteMessageFactory<TMessage>(renderNode: PaletteNode<TMessage>): ((entry: SearchEntry<unknown>) => TMessage) | undefined {
+  return renderNode.props.toMessage;
 }
 
-function scrollInput(widget: PaletteNode): Partial<Pick<PaletteWindowInput<unknown>, 'scroll'>> {
-  return widget.props.scroll === undefined ? {} : { scroll: widget.props.scroll };
+function scrollInput(renderNode: PaletteNode): Partial<Pick<PaletteWindowInput<unknown>, 'scroll'>> {
+  return renderNode.props.scroll === undefined ? {} : { scroll: renderNode.props.scroll };
 }
 
-function entryLimit(widget: PaletteNode, height: number): number {
-  const maxVisible = widget.props.maxVisible;
+function entryLimit(renderNode: PaletteNode, height: number): number {
+  const maxVisible = renderNode.props.maxVisible;
   return Math.max(1, Math.min(Math.floor(maxVisible ?? Math.max(1, height - 2)), Math.max(1, height - 2)));
 }
 
-function titleText(widget: PaletteNode): string {
-  return clean(stringify(widget.props.title));
+function titleText(renderNode: PaletteNode): string {
+  return clean(stringify(renderNode.props.title));
 }
 
-function queryText(widget: PaletteNode): string {
-  return clean(stringify(widget.props.query));
+function queryText(renderNode: PaletteNode): string {
+  return clean(stringify(renderNode.props.query));
 }
 
-function selectedIdText(widget: PaletteNode): string {
-  return clean(stringify(widget.props.selectedId));
+function selectedIdText(renderNode: PaletteNode): string {
+  return clean(stringify(renderNode.props.selectedId));
 }
 
-function helpTextProp(widget: PaletteNode): string {
-  return clean(stringify(widget.props.helpText));
+function helpTextProp(renderNode: PaletteNode): string {
+  return clean(stringify(renderNode.props.helpText));
 }
 
-function emptyText(widget: PaletteNode): string {
-  const text = clean(stringify(widget.props.emptyText));
+function emptyText(renderNode: PaletteNode): string {
+  const text = clean(stringify(renderNode.props.emptyText));
   return text.length === 0 ? 'No matches' : text;
 }
 
@@ -246,26 +246,26 @@ function clean(value: string): string {
 }
 
 function paletteSource(
-  widget: PaletteNode,
+  renderNode: PaletteNode,
   label: string,
   role: FrameCellSource['role'] = 'text',
-  id: string | undefined = widget.id,
+  id: string | undefined = renderNode.id,
   itemIndex?: number,
   state?: import('../../element/metadata.ts').ElementVisualState
 ): FrameCellSource {
-  return renderNodeFrameSource(widget, {
+  return renderNodeFrameSource(renderNode, {
     family: 'command',
     role,
     part: label,
-    ...(id === undefined || id === widget.id ? {} : { itemId: id }),
+    ...(id === undefined || id === renderNode.id ? {} : { itemId: id }),
     ...(itemIndex === undefined ? {} : { itemIndex }),
     ...(isFrameCellInteractionState(state) ? { state } : {}),
     label
   });
 }
 
-function paletteEntryTargetId(widget: PaletteNode, entryId: string): string {
-  return renderNodeTargetId(widget, entryId);
+function paletteEntryTargetId(renderNode: PaletteNode, entryId: string): string {
+  return renderNodeTargetId(renderNode, entryId);
 }
 
 type PaletteNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'palette'>;

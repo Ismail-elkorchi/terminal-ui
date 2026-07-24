@@ -12,21 +12,21 @@ import { renderBorderTitle } from '../../border-title.ts';
 type DialogNode = RenderNodeOfKind<unknown, 'dialog'>;
 
 export function borderForDialog(
-  widget: DialogNode,
+  renderNode: DialogNode,
   theme?: TerminalTheme
 ): BorderStyle {
   const border = defaultBorderStyle(
-    widget,
-    borderStyleFromValue(widget.props.border) ?? { kind: 'single' },
-    dialogBorderStyle(widget)
+    renderNode,
+    borderStyleFromValue(renderNode.props.border) ?? { kind: 'single' },
+    dialogBorderStyle(renderNode)
   );
   if (border.title !== undefined || border.kind === 'none' || theme === undefined) {
     return border;
   }
-  const title = renderBorderTitle(widget.props.title, {
+  const title = renderBorderTitle(renderNode.props.title, {
     theme,
-    ...styleOption(renderNodeStyle(widget, 'title')),
-    source: (part, index) => renderNodeFrameSource(widget, {
+    ...styleOption(renderNodeStyle(renderNode, 'title')),
+    source: (part, index) => renderNodeFrameSource(renderNode, {
       family: 'dialog',
       role: 'text',
       part: `${part}.${String(index)}`,
@@ -41,21 +41,21 @@ function styleOption(style: TerminalStyle | undefined): { readonly baseStyle?: T
   return style === undefined ? {} : { baseStyle: style };
 }
 
-function defaultBorderStyle(widget: DialogNode, border: BorderStyle, baseStyle = renderNodeStyle(widget, 'border')): BorderStyle {
+function defaultBorderStyle(renderNode: DialogNode, border: BorderStyle, baseStyle = renderNodeStyle(renderNode, 'border')): BorderStyle {
   if (border.kind === 'none') return border;
   const style = mergeStyles(baseStyle, border.style);
   return style === undefined ? border : { ...border, style };
 }
 
-function dialogBorderStyle(widget: DialogNode): TerminalStyle | undefined {
+function dialogBorderStyle(renderNode: DialogNode): TerminalStyle | undefined {
   return mergeStyles(
     { fg: { kind: 'theme', token: 'surface.raised.border' } },
-    widget.styles?.parts?.['border']
+    renderNode.styles?.parts?.['border']
   );
 }
 
-export function dialogLabel(widget: DialogNode): string {
-  return borderTitleAccessibleText(widget.props.title);
+export function dialogLabel(renderNode: DialogNode): string {
+  return borderTitleAccessibleText(renderNode.props.title);
 }
 
 export function borderContentBounds(bounds: Rect, border: BorderStyle): Rect {

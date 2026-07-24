@@ -28,156 +28,156 @@ type CalendarNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'calendar'>;
 type PickerNode<TMessage = unknown> = ColorSwatchPickerNode<TMessage> | CalendarNode<TMessage>;
 
 export function pickerMessageFactory<TMessage>(
-  widget: PickerNode<TMessage>
+  renderNode: PickerNode<TMessage>
 ): ((option: ColorSwatchPickerOption<unknown> | CalendarDay) => TMessage) | undefined {
-  if (widget.kind === 'colorSwatchPicker') {
-    const toMessage = widget.props.toActionMessage;
+  if (renderNode.kind === 'colorSwatchPicker') {
+    const toMessage = renderNode.props.toActionMessage;
     return toMessage === undefined ? undefined : (option) => toMessage({ kind: 'select', id: option.id });
   }
-  const toMessage = widget.props.toMessage;
+  const toMessage = renderNode.props.toMessage;
   return toMessage === undefined ? undefined : (option) => toMessage(option as CalendarDay);
 }
 
-export function colorOptions(widget: ColorSwatchPickerNode): readonly ColorSwatchPickerOption<unknown>[] {
-  return widget.props.options.flatMap(
+export function colorOptions(renderNode: ColorSwatchPickerNode): readonly ColorSwatchPickerOption<unknown>[] {
+  return renderNode.props.options.flatMap(
     (option): readonly ColorSwatchPickerOption<unknown>[] => sanitizeColorOption(option)
   );
 }
 
-export function selectedColorOption(widget: ColorSwatchPickerNode): ColorSwatchPickerOption<unknown> | undefined {
-  const selected = selectedId(widget);
-  return selected === undefined ? undefined : colorOptions(widget).find((option) => option.id === selected);
+export function selectedColorOption(renderNode: ColorSwatchPickerNode): ColorSwatchPickerOption<unknown> | undefined {
+  const selected = selectedId(renderNode);
+  return selected === undefined ? undefined : colorOptions(renderNode).find((option) => option.id === selected);
 }
 
-export function calendarDays(widget: CalendarNode): readonly CalendarDay[] {
-  return widget.props.days.flatMap((day): readonly CalendarDay[] => sanitizeCalendarDay(day));
+export function calendarDays(renderNode: CalendarNode): readonly CalendarDay[] {
+  return renderNode.props.days.flatMap((day): readonly CalendarDay[] => sanitizeCalendarDay(day));
 }
 
-export function selectedCalendarDay(widget: CalendarNode): CalendarDay | undefined {
-  const selected = selectedId(widget);
-  return selected === undefined ? undefined : calendarDays(widget).find((day) => day.id === selected);
+export function selectedCalendarDay(renderNode: CalendarNode): CalendarDay | undefined {
+  const selected = selectedId(renderNode);
+  return selected === undefined ? undefined : calendarDays(renderNode).find((day) => day.id === selected);
 }
 
-export function pickerColumns(widget: PickerNode, fallback: number): number {
-  return widget.kind === 'calendar'
+export function pickerColumns(renderNode: PickerNode, fallback: number): number {
+  return renderNode.kind === 'calendar'
     ? 7
-    : Math.max(1, Math.floor(finiteNumber(widget.props.columns, fallback)));
+    : Math.max(1, Math.floor(finiteNumber(renderNode.props.columns, fallback)));
 }
 
-export function pickerCellWidth(widget: PickerNode): number {
-  return widget.kind === 'calendar' ? 4 : 12;
+export function pickerCellWidth(renderNode: PickerNode): number {
+  return renderNode.kind === 'calendar' ? 4 : 12;
 }
 
-export function pickerOptionRowOffset(widget: PickerNode, columns: number): number {
-  let offset = clean(widget.props.label ?? '').length > 0 ? 1 : 0;
-  if (widget.kind === 'colorSwatchPicker' && selectedColorOption(widget) !== undefined) offset += 1;
-  if (widget.kind === 'calendar' && columns === 7) offset += 2;
+export function pickerOptionRowOffset(renderNode: PickerNode, columns: number): number {
+  let offset = clean(renderNode.props.label ?? '').length > 0 ? 1 : 0;
+  if (renderNode.kind === 'colorSwatchPicker' && selectedColorOption(renderNode) !== undefined) offset += 1;
+  if (renderNode.kind === 'calendar' && columns === 7) offset += 2;
   return offset;
 }
 
-export function calendarMonthHeaderSpans(widget: CalendarNode): readonly RenderSpan[] {
-  const label = clean(widget.props.monthLabel);
-  if (widget.props.toActionMessage === undefined || widget.props.disabled === true) {
-    return [formSpan(widget, 'title', 'month.label', label, formLabelStyle(widget))];
+export function calendarMonthHeaderSpans(renderNode: CalendarNode): readonly RenderSpan[] {
+  const label = clean(renderNode.props.monthLabel);
+  if (renderNode.props.toActionMessage === undefined || renderNode.props.disabled === true) {
+    return [formSpan(renderNode, 'title', 'month.label', label, formLabelStyle(renderNode))];
   }
   return [
-    formSpan(widget, 'marker', 'month.previous', '[‹]', formMarkerStyle(widget)),
-    separatorSpan(widget),
-    formSpan(widget, 'title', 'month.label', label, formLabelStyle(widget)),
-    separatorSpan(widget),
-    formSpan(widget, 'marker', 'month.next', '[›]', formMarkerStyle(widget))
+    formSpan(renderNode, 'marker', 'month.previous', '[‹]', formMarkerStyle(renderNode)),
+    separatorSpan(renderNode),
+    formSpan(renderNode, 'title', 'month.label', label, formLabelStyle(renderNode)),
+    separatorSpan(renderNode),
+    formSpan(renderNode, 'marker', 'month.next', '[›]', formMarkerStyle(renderNode))
   ];
 }
 
 export function colorSwatchPickerSummarySpans(
   option: ColorSwatchPickerOption<unknown>,
-  widget: ColorSwatchPickerNode,
+  renderNode: ColorSwatchPickerNode,
   widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
-  const disabled = option.disabled === true || widget.props.disabled === true;
+  const disabled = option.disabled === true || renderNode.props.disabled === true;
   const style = disabled
-    ? renderNodeStyle(widget, 'summary', 'disabled')
-    : option.style ?? colorSwatchStyle(widget);
+    ? renderNodeStyle(renderNode, 'summary', 'disabled')
+    : option.style ?? colorSwatchStyle(renderNode);
   return [
-    formSpan(widget, 'summary', 'summary.label', 'Selected', formLabelStyle(widget, disabled ? 'disabled' : undefined)),
-    formSpan(widget, 'separator', 'summary.separator', ': '),
-    formSpan(widget, 'swatch', 'summary.swatch', oneCellGlyph(option.swatch ?? '■', '*', { widthProfile }), style),
-    separatorSpan(widget),
-    formSpan(widget, 'summary', 'summary.value', option.label, style)
+    formSpan(renderNode, 'summary', 'summary.label', 'Selected', formLabelStyle(renderNode, disabled ? 'disabled' : undefined)),
+    formSpan(renderNode, 'separator', 'summary.separator', ': '),
+    formSpan(renderNode, 'swatch', 'summary.swatch', oneCellGlyph(option.swatch ?? '■', '*', { widthProfile }), style),
+    separatorSpan(renderNode),
+    formSpan(renderNode, 'summary', 'summary.value', option.label, style)
   ];
 }
 
 export function colorSwatchPickerSpans(
   option: ColorSwatchPickerOption<unknown>,
-  widget: ColorSwatchPickerNode,
+  renderNode: ColorSwatchPickerNode,
   widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
-  const selected = option.id === selectedId(widget);
-  const disabled = option.disabled === true || widget.props.disabled === true;
+  const selected = option.id === selectedId(renderNode);
+  const disabled = option.disabled === true || renderNode.props.disabled === true;
   const label = padTextCells(clip(option.label, 8, widthProfile), 8, { widthProfile });
-  const state = optionControlState(widget, { selected, disabled });
+  const state = optionControlState(renderNode, { selected, disabled });
   const style = disabled
-    ? renderNodeStyle(widget, 'option', 'disabled')
-    : option.style ?? colorOptionStyle(option, widget) ?? colorSwatchStyle(widget);
+    ? renderNodeStyle(renderNode, 'option', 'disabled')
+    : option.style ?? colorOptionStyle(option, renderNode) ?? colorSwatchStyle(renderNode);
   return [
-    formSpan(widget, 'marker', `option.${option.id}.open`, selected ? '[' : ' ', formMarkerStyle(widget, state)),
+    formSpan(renderNode, 'marker', `option.${option.id}.open`, selected ? '[' : ' ', formMarkerStyle(renderNode, state)),
     formSpan(
-      widget,
+      renderNode,
       'swatch',
       `option.${option.id}.swatch`,
       oneCellGlyph(option.swatch ?? '■', '*', { widthProfile }),
       style
     ),
-    separatorSpan(widget),
-    formSpan(widget, 'option', `option.${option.id}.label`, label, style),
-    formSpan(widget, 'marker', `option.${option.id}.close`, selected ? ']' : ' ', formMarkerStyle(widget, state))
+    separatorSpan(renderNode),
+    formSpan(renderNode, 'option', `option.${option.id}.label`, label, style),
+    formSpan(renderNode, 'marker', `option.${option.id}.close`, selected ? ']' : ' ', formMarkerStyle(renderNode, state))
   ];
 }
 
 export function calendarWeekdayHeaderSpans(
-  widget: CalendarNode,
+  renderNode: CalendarNode,
   widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
-  return widget.props.weekdays.slice(0, 7).map((label, index) =>
+  return renderNode.props.weekdays.slice(0, 7).map((label, index) =>
     formSpan(
-      widget,
+      renderNode,
       'weekday',
       `weekday.${String(index)}`,
       ` ${padTextCells(clipNoEllipsis(clean(label), 2, widthProfile), 2, { widthProfile })} `,
-      formLabelStyle(widget, 'disabled')
+      formLabelStyle(renderNode, 'disabled')
     )
   );
 }
 
 export function calendarCellSpans(
   day: CalendarDay,
-  widget: CalendarNode,
+  renderNode: CalendarNode,
   widthProfile: TextWidthProfile
 ): readonly RenderSpan[] {
   const label = padTextCells(clipNoEllipsis(day.label, 2, widthProfile), 2, {
     align: 'end',
     widthProfile
   });
-  const selected = day.id === selectedId(widget);
-  const state = calendarDayState(day, widget);
+  const selected = day.id === selectedId(renderNode);
+  const state = calendarDayState(day, renderNode);
   if (selected) {
     return [
-      formSpan(widget, 'marker', `day.${day.id}.open`, '[', formMarkerStyle(widget, state)),
-      formSpan(widget, 'day', `day.${day.id}.label`, label, calendarDayStyle(day, widget)),
-      formSpan(widget, 'marker', `day.${day.id}.close`, ']', formMarkerStyle(widget, state))
+      formSpan(renderNode, 'marker', `day.${day.id}.open`, '[', formMarkerStyle(renderNode, state)),
+      formSpan(renderNode, 'day', `day.${day.id}.label`, label, calendarDayStyle(day, renderNode)),
+      formSpan(renderNode, 'marker', `day.${day.id}.close`, ']', formMarkerStyle(renderNode, state))
     ];
   }
   if (day.today === true) {
     return [
-      formSpan(widget, 'marker', `day.${day.id}.today`, '*', formMarkerStyle(widget, state)),
-      formSpan(widget, 'day', `day.${day.id}.label`, label, calendarDayStyle(day, widget)),
-      separatorSpan(widget)
+      formSpan(renderNode, 'marker', `day.${day.id}.today`, '*', formMarkerStyle(renderNode, state)),
+      formSpan(renderNode, 'day', `day.${day.id}.label`, label, calendarDayStyle(day, renderNode)),
+      separatorSpan(renderNode)
     ];
   }
   return [
-    separatorSpan(widget),
-    formSpan(widget, 'day', `day.${day.id}.label`, label, calendarDayStyle(day, widget)),
-    separatorSpan(widget)
+    separatorSpan(renderNode),
+    formSpan(renderNode, 'day', `day.${day.id}.label`, label, calendarDayStyle(day, renderNode)),
+    separatorSpan(renderNode)
   ];
 }
 
@@ -216,8 +216,8 @@ function sanitizeCalendarDay(value: unknown): readonly CalendarDay[] {
   }];
 }
 
-function colorSwatchStyle(widget: ColorSwatchPickerNode): TerminalStyle | undefined {
-  return resolveRenderNodeStyle(widget, {
+function colorSwatchStyle(renderNode: ColorSwatchPickerNode): TerminalStyle | undefined {
+  return resolveRenderNodeStyle(renderNode, {
     part: 'swatch',
     base: {
       fg: { kind: 'theme', token: 'control.primary.foreground' },
@@ -228,34 +228,34 @@ function colorSwatchStyle(widget: ColorSwatchPickerNode): TerminalStyle | undefi
 
 function colorOptionStyle(
   option: ColorSwatchPickerOption<unknown>,
-  widget: ColorSwatchPickerNode
+  renderNode: ColorSwatchPickerNode
 ): TerminalStyle | undefined {
-  if (option.disabled === true || widget.props.disabled === true) {
-    return renderNodeStyle(widget, 'option', 'disabled');
+  if (option.disabled === true || renderNode.props.disabled === true) {
+    return renderNodeStyle(renderNode, 'option', 'disabled');
   }
-  return renderNodeStyle(widget, 'option', option.id === selectedId(widget) ? 'selected' : undefined);
+  return renderNodeStyle(renderNode, 'option', option.id === selectedId(renderNode) ? 'selected' : undefined);
 }
 
 function calendarDayStyle(
   day: CalendarDay,
-  widget: CalendarNode
+  renderNode: CalendarNode
 ): TerminalStyle | undefined {
-  if (day.disabled === true || widget.props.disabled === true) {
-    return renderNodeStyle(widget, 'option', 'disabled');
+  if (day.disabled === true || renderNode.props.disabled === true) {
+    return renderNodeStyle(renderNode, 'option', 'disabled');
   }
-  if (day.id === selectedId(widget)) return renderNodeStyle(widget, 'option', 'selected');
-  if (day.id === widget.props.focused) return renderNodeStyle(widget, 'option', 'focused');
-  if (day.today === true) return renderNodeStyle(widget, 'option', 'focused');
-  return renderNodeStyle(widget, 'option', day.outsideMonth === true ? 'disabled' : undefined);
+  if (day.id === selectedId(renderNode)) return renderNodeStyle(renderNode, 'option', 'selected');
+  if (day.id === renderNode.props.focused) return renderNodeStyle(renderNode, 'option', 'focused');
+  if (day.today === true) return renderNodeStyle(renderNode, 'option', 'focused');
+  return renderNodeStyle(renderNode, 'option', day.outsideMonth === true ? 'disabled' : undefined);
 }
 
 function calendarDayState(
   day: CalendarDay,
-  widget: CalendarNode
+  renderNode: CalendarNode
 ): 'selected' | 'disabled' | 'focused' | undefined {
-  if (day.disabled === true || widget.props.disabled === true) return 'disabled';
-  if (day.id === selectedId(widget)) return 'selected';
-  if (day.id === widget.props.focused) return 'focused';
+  if (day.disabled === true || renderNode.props.disabled === true) return 'disabled';
+  if (day.id === selectedId(renderNode)) return 'selected';
+  if (day.id === renderNode.props.focused) return 'focused';
   return day.today === true ? 'focused' : undefined;
 }
 

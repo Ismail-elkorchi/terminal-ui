@@ -47,94 +47,94 @@ import {
 import { cleanLabel, rangeFor } from './support/values.ts';
 
 export function chartBlock(
-  widget: ChartNode,
+  renderNode: ChartNode,
   node: LayoutNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): RenderBlock {
-  const series = chartSeries(widget.props.series);
+  const series = chartSeries(renderNode.props.series);
   const points = series.flatMap((item) => item.points);
-  const state = chartStateBlock(widget, 'chart', theme, {
+  const state = chartStateBlock(renderNode, 'chart', theme, {
     empty: points.length === 0,
-    emptyText: chartStateDescription(widget, 'No chart data'),
-    loadingText: cleanLabel(widget.props.loadingText),
-    errorText: cleanLabel(widget.props.errorText)
+    emptyText: chartStateDescription(renderNode, 'No chart data'),
+    loadingText: cleanLabel(renderNode.props.loadingText),
+    errorText: cleanLabel(renderNode.props.errorText)
   });
   if (state !== undefined) return state;
   if (node.bounds.height <= 0 || node.bounds.width <= 0) return { lines: [] };
-  const layout = chartLayout(widget, node.bounds);
+  const layout = chartLayout(renderNode, node.bounds);
   if (layout.plotHeight <= 0 || layout.plotWidth <= 0) {
-    return chartChromeBlock(widget, node.bounds.width, widthProfile);
+    return chartChromeBlock(renderNode, node.bounds.width, widthProfile);
   }
-  const range = rangeFor(points, numberProp(widget, 'min'), numberProp(widget, 'max'));
-  const widgetScale = normalizeValueScale(widget.props.valueScale);
+  const range = rangeFor(points, numberProp(renderNode, 'min'), numberProp(renderNode, 'max'));
+  const widgetScale = normalizeValueScale(renderNode.props.valueScale);
   const buffer = createFrameBuffer(node.bounds.width, node.bounds.height, { widthProfile });
-  writeChartChrome(buffer, widget, node.bounds.width, widthProfile);
+  writeChartChrome(buffer, renderNode, node.bounds.width, widthProfile);
   const canvas = createCanvas2D(buffer, {
     row: layout.plotRow,
     column: 1,
     width: layout.plotWidth,
     height: layout.plotHeight
   });
-  if (usesSignedDomain(widget) && range.min < 0 && range.max > 0) {
+  if (usesSignedDomain(renderNode) && range.min < 0 && range.max > 0) {
     canvas.line(0, yForValue(0, range, layout.plotHeight), Math.max(0, layout.plotWidth - 1), yForValue(0, range, layout.plotHeight), chartSpan(
-      widget,
+      renderNode,
       'chart',
       'baseline',
       'baseline.zero',
       oneCellGlyph('─', '-', { widthProfile }),
-      chartBaselineStyle(widget)
+      chartBaselineStyle(renderNode)
     ));
   }
   for (const [seriesIndex, item] of series.entries()) {
-    const visible = projectChartSeries(widget, item, layout.plotWidth);
+    const visible = projectChartSeries(renderNode, item, layout.plotWidth);
     const glyph = oneCellGlyph(
       seriesGlyph(item),
       item.kind === 'area' || item.kind === 'bar' ? '#' : '*',
       { widthProfile }
     );
-    const seriesStyle = chartSeriesStyle(widget, seriesIndex);
+    const seriesStyle = chartSeriesStyle(renderNode, seriesIndex);
     const seriesScale = chartSeriesScale(item, widgetScale);
     if (item.kind === 'area' || item.kind === 'bar') {
-      drawFilledChartSeries(canvas, widget, item, visible, range, layout.plotHeight, glyph, seriesStyle, seriesScale, usesSignedDomain(widget));
+      drawFilledChartSeries(canvas, renderNode, item, visible, range, layout.plotHeight, glyph, seriesStyle, seriesScale, usesSignedDomain(renderNode));
     } else if (item.kind === 'scatter') {
       visible.forEach((projected) => {
-        const signed = usesSignedDomain(widget);
+        const signed = usesSignedDomain(renderNode);
         const polarity = polarityForValue(projected.value);
         canvas.point(
           projected.column,
           yForValue(projected.value, range, layout.plotHeight),
           chartSpan(
-            widget,
+            renderNode,
             'chart',
             'point',
             signed ? `series.${item.id}.${polarity}.point` : `series.${item.id}.point`,
             glyph,
-            chartPointStyle(projected.value, range, seriesScale, signed ? chartPolarityStyle(widget, polarity) : seriesStyle)
+            chartPointStyle(projected.value, range, seriesScale, signed ? chartPolarityStyle(renderNode, polarity) : seriesStyle)
           )
         );
       });
-    } else if (usesSignedDomain(widget) || seriesScale.length > 0) {
-      drawSegmentedChartLine(canvas, widget, item, visible, range, layout.plotHeight, glyph, seriesStyle, seriesScale, usesSignedDomain(widget));
+    } else if (usesSignedDomain(renderNode) || seriesScale.length > 0) {
+      drawSegmentedChartLine(canvas, renderNode, item, visible, range, layout.plotHeight, glyph, seriesStyle, seriesScale, usesSignedDomain(renderNode));
     } else {
       drawLineSeries(canvas, visible.map((projected) => ({ x: projected.column, y: projected.value })), {
         yScale: { domain: [range.min, range.max], range: [layout.plotHeight - 1, 0] },
-        span: chartSpan(widget, 'chart', 'line', `series.${item.id}.line`, glyph, seriesStyle)
+        span: chartSpan(renderNode, 'chart', 'line', `series.${item.id}.line`, glyph, seriesStyle)
       });
     }
   }
-  const selected = selectedChartPoint(widget, series);
+  const selected = selectedChartPoint(renderNode, series);
   if (selected !== undefined) {
-    const position = chartPointPosition(widget, node.bounds, selected.series, selected.point, range);
+    const position = chartPointPosition(renderNode, node.bounds, selected.series, selected.point, range);
     if (position !== undefined) {
       buffer.write(position.row, position.column, [
         chartSpan(
-          widget,
+          renderNode,
           'chart',
           'selected',
           `selection.${selected.series}.${String(selected.point)}`,
           oneCellGlyph('◆', '*', { widthProfile }),
-          chartSelectedStyle(widget)
+          chartSelectedStyle(renderNode)
         )
       ]);
     }
@@ -144,7 +144,7 @@ export function chartBlock(
 
 function drawFilledChartSeries(
   canvas: ReturnType<typeof createCanvas2D>,
-  widget: ChartNode,
+  renderNode: ChartNode,
   item: ChartSeries,
   visible: readonly ProjectedChartPoint[],
   range: { readonly min: number; readonly max: number },
@@ -165,12 +165,12 @@ function drawFilledChartSeries(
       yScale: { domain: [range.min, range.max], range: [height - 1, 0] },
       baseline,
       span: chartSpan(
-        widget,
+        renderNode,
         'chart',
         kind,
         signed ? `series.${item.id}.${polarity}.${kind}` : `series.${item.id}.${kind}`,
         glyph,
-        chartPointStyle(projected.value, range, scale, signed ? chartPolarityStyle(widget, polarity) : fallback)
+        chartPointStyle(projected.value, range, scale, signed ? chartPolarityStyle(renderNode, polarity) : fallback)
       )
     });
   }
@@ -178,7 +178,7 @@ function drawFilledChartSeries(
 
 function drawSegmentedChartLine(
   canvas: ReturnType<typeof createCanvas2D>,
-  widget: ChartNode,
+  renderNode: ChartNode,
   item: ChartSeries,
   visible: readonly ProjectedChartPoint[],
   range: { readonly min: number; readonly max: number },
@@ -194,12 +194,12 @@ function drawSegmentedChartLine(
     if (projected === undefined) return;
     const polarity = polarityForValue(projected.value);
     canvas.point(projected.column, yForValue(projected.value, range, height), chartSpan(
-      widget,
+      renderNode,
       'chart',
       'point',
       signed ? `series.${item.id}.${polarity}.point` : `series.${item.id}.point`,
       glyph,
-      chartPointStyle(projected.value, range, scale, signed ? chartPolarityStyle(widget, polarity) : fallback)
+      chartPointStyle(projected.value, range, scale, signed ? chartPolarityStyle(renderNode, polarity) : fallback)
     ));
     return;
   }
@@ -211,28 +211,28 @@ function drawSegmentedChartLine(
     drawLineSeries(canvas, [{ x: previous.column, y: previous.value }, { x: current.column, y: current.value }], {
       yScale: { domain: [range.min, range.max], range: [height - 1, 0] },
       span: chartSpan(
-        widget,
+        renderNode,
         'chart',
         'line',
         signed ? `series.${item.id}.${polarity}.line` : `series.${item.id}.line`,
         glyph,
-        chartPointStyle(current.value, range, scale, signed ? chartPolarityStyle(widget, polarity) : fallback)
+        chartPointStyle(current.value, range, scale, signed ? chartPolarityStyle(renderNode, polarity) : fallback)
       )
     });
   }
 }
 
 export function chartText(
-  widget: ChartNode,
+  renderNode: ChartNode,
   node: LayoutNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): string {
-  return chartTextFromBlock(chartBlock(widget, node, theme, widthProfile));
+  return chartTextFromBlock(chartBlock(renderNode, node, theme, widthProfile));
 }
 
-export function chartAccessibleBase(widget: ChartNode, id: string): AccessibleNode {
-  const series = chartSeries(widget.props.series);
+export function chartAccessibleBase(renderNode: ChartNode, id: string): AccessibleNode {
+  const series = chartSeries(renderNode.props.series);
   return {
     id,
     role: 'text',
@@ -241,11 +241,11 @@ export function chartAccessibleBase(widget: ChartNode, id: string): AccessibleNo
   };
 }
 
-export function chartAccessibleChildren(widget: ChartNode): readonly AccessibleNode[] {
-  const series = chartSeries(widget.props.series);
-  const selected = selectedChartPoint(widget, series);
+export function chartAccessibleChildren(renderNode: ChartNode): readonly AccessibleNode[] {
+  const series = chartSeries(renderNode.props.series);
+  const selected = selectedChartPoint(renderNode, series);
   return series.map((item) => ({
-    id: `${widget.id ?? 'chart'}:${item.id}`,
+    id: `${renderNode.id ?? 'chart'}:${item.id}`,
     role: 'text',
     label: item.label ?? item.id,
     value: `${String(item.points.length)} points`,
@@ -255,20 +255,20 @@ export function chartAccessibleChildren(widget: ChartNode): readonly AccessibleN
   }));
 }
 
-export function chartHitTargets<TMessage>(widget: ChartNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
-  const toMessage = chartMessageFactory(widget);
+export function chartHitTargets<TMessage>(renderNode: ChartNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {
+  const toMessage = chartMessageFactory(renderNode);
   if (toMessage === undefined) return [];
-  const series = chartSeries(widget.props.series);
+  const series = chartSeries(renderNode.props.series);
   const points = series.flatMap((item) => item.points);
   if (points.length === 0) return [];
-  const range = rangeFor(points, numberProp(widget, 'min'), numberProp(widget, 'max'));
-  const layout = chartLayout(widget, bounds);
+  const range = rangeFor(points, numberProp(renderNode, 'min'), numberProp(renderNode, 'max'));
+  const layout = chartLayout(renderNode, bounds);
   if (layout.plotHeight <= 0 || layout.plotWidth <= 0) return [];
-  return series.flatMap((item) => projectChartSeries(widget, item, layout.plotWidth).flatMap((projected): HitTarget<TMessage>[] => {
+  return series.flatMap((item) => projectChartSeries(renderNode, item, layout.plotWidth).flatMap((projected): HitTarget<TMessage>[] => {
     const row = bounds.row + layout.plotRow - 1 + yForValue(projected.value, range, layout.plotHeight);
     const column = bounds.column + projected.column;
     return [{
-      id: `${widget.id ?? 'chart'}:${item.id}:${String(projected.column)}`,
+      id: `${renderNode.id ?? 'chart'}:${item.id}:${String(projected.column)}`,
       bounds: { row, column, width: 1, height: 1 },
       message: () => toMessage({
         kind: 'select',

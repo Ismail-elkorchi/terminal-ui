@@ -34,10 +34,10 @@ export function collectLayoutFocusTargets(layout: LayoutNode): readonly LayoutFo
 }
 
 export function collectRenderNodeFocusTargets<TMessage>(
-  widget: RenderNode<TMessage>,
+  renderNode: RenderNode<TMessage>,
   layout: LayoutNode
 ): readonly RenderNodeFocusTarget<TMessage>[] {
-  return collectRenderNodeFocusRegionTargets(widget, layout, []).filter((target) => target.focusable);
+  return collectRenderNodeFocusRegionTargets(renderNode, layout, []).filter((target) => target.focusable);
 }
 
 export function collectRenderNodeLayoutTargets<TMessage>(
@@ -105,12 +105,12 @@ export function findAnyLayoutFocusTarget(
 }
 
 export function findRenderNodeFocusTarget<TMessage>(
-  widget: RenderNode<TMessage>,
+  renderNode: RenderNode<TMessage>,
   layout: LayoutNode,
   path: FocusPath | undefined
 ): RenderNodeFocusTarget<TMessage> | undefined {
   if (path === undefined) return undefined;
-  return scopedFocusTargets(layout, collectRenderNodeFocusTargets(widget, layout)).find((target) => samePath(target.path, path));
+  return scopedFocusTargets(layout, collectRenderNodeFocusTargets(renderNode, layout)).find((target) => samePath(target.path, path));
 }
 
 export function renderNodeKeyChainForFocus<TMessage>(
@@ -176,7 +176,7 @@ function collectLayoutTargets(layout: LayoutNode, parentPath: FocusPath): readon
 }
 
 function collectRenderNodeFocusRegionTargets<TMessage>(
-  widget: RenderNode<TMessage>,
+  renderNode: RenderNode<TMessage>,
   layout: LayoutNode,
   parentPath: FocusPath
 ): readonly RenderNodeFocusTarget<TMessage>[] {
@@ -196,10 +196,10 @@ function collectRenderNodeFocusRegionTargets<TMessage>(
       ...(target.cursor === undefined ? {} : { cursor: target.cursor }),
       ...(target.order === undefined ? {} : { order: target.order }),
       ...(target.scopeId === undefined ? {} : { scopeId: target.scopeId }),
-      renderNode: widget
+      renderNode: renderNode
     };
   });
-  const children = widget.children ?? [];
+  const children = renderNode.children ?? [];
   return [
     ...current,
     ...orderedRenderNodeFocusChildren(children, layout).flatMap(({ child, childLayout }) =>

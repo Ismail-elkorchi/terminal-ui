@@ -17,51 +17,51 @@ import type { RenderBlock } from '../../../visual/render.ts';
 import { boundedInteger, cleanLabel } from './support/values.ts';
 
 export function meterBlock(
-  widget: MeterNode,
+  renderNode: MeterNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): RenderBlock {
-  const value = numberProp(widget, 'value') ?? 0;
-  const min = numberProp(widget, 'min') ?? 0;
-  const max = Math.max(min + 1, numberProp(widget, 'max') ?? 100);
-  const width = boundedInteger(numberProp(widget, 'width'), 4, 40, 12);
+  const value = numberProp(renderNode, 'value') ?? 0;
+  const min = numberProp(renderNode, 'min') ?? 0;
+  const max = Math.max(min + 1, numberProp(renderNode, 'max') ?? 100);
+  const width = boundedInteger(numberProp(renderNode, 'width'), 4, 40, 12);
   const ratio = Math.max(0, Math.min(1, (value - min) / (max - min)));
-  if (meterVariant(widget) === 'dial') return meterDialBlock(widget, ratio, width, widthProfile);
+  if (meterVariant(renderNode) === 'dial') return meterDialBlock(renderNode, ratio, width, widthProfile);
   const filledCells = Math.round(ratio * width);
   const emptyCells = Math.max(0, width - filledCells);
-  const label = cleanLabel(widget.props.label);
-  const status = chartStatus(widget.props.status);
+  const label = cleanLabel(renderNode.props.label);
+  const status = chartStatus(renderNode.props.status);
   const valueText = `${String(Math.round(ratio * 100))}%`;
   return {
     lines: [{
       spans: [
         ...(label.length === 0 ? [] : [
-          chartSpan(widget, 'meter', 'label', 'metric.label', label, chartLabelStyle(widget)),
-          chartSpan(widget, 'meter', 'separator', 'metric.separator.afterLabel', ' ', chartPlaceholderStyle(widget))
+          chartSpan(renderNode, 'meter', 'label', 'metric.label', label, chartLabelStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'separator', 'metric.separator.afterLabel', ' ', chartPlaceholderStyle(renderNode))
         ]),
-        chartSpan(widget, 'meter', 'chrome', 'metric.bar.open', '[', chartPlaceholderStyle(widget)),
+        chartSpan(renderNode, 'meter', 'chrome', 'metric.bar.open', '[', chartPlaceholderStyle(renderNode)),
         chartSpan(
-          widget,
+          renderNode,
           'meter',
           'fill',
           'metric.bar.filled',
           fillTextCells(theme.tokens.symbols.progressFilled, filledCells, { widthProfile }),
-          chartMetricStyle(widget, status)
+          chartMetricStyle(renderNode, status)
         ),
         chartSpan(
-          widget,
+          renderNode,
           'meter',
           'fill',
           'metric.bar.empty',
           fillTextCells(theme.tokens.symbols.progressEmpty, emptyCells, { widthProfile }),
-          chartPlaceholderStyle(widget)
+          chartPlaceholderStyle(renderNode)
         ),
-        chartSpan(widget, 'meter', 'chrome', 'metric.bar.close', ']', chartPlaceholderStyle(widget)),
-        chartSpan(widget, 'meter', 'separator', 'metric.separator.beforeValue', ' ', chartPlaceholderStyle(widget)),
-        chartSpan(widget, 'meter', 'metric', 'metric.value', valueText, chartMetricStyle(widget, status)),
+        chartSpan(renderNode, 'meter', 'chrome', 'metric.bar.close', ']', chartPlaceholderStyle(renderNode)),
+        chartSpan(renderNode, 'meter', 'separator', 'metric.separator.beforeValue', ' ', chartPlaceholderStyle(renderNode)),
+        chartSpan(renderNode, 'meter', 'metric', 'metric.value', valueText, chartMetricStyle(renderNode, status)),
         ...(status === undefined ? [] : [
-          chartSpan(widget, 'meter', 'separator', 'status.separator', ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'meter', 'status', 'status.value', status, chartMetricStyle(widget, status))
+          chartSpan(renderNode, 'meter', 'separator', 'status.separator', ' ', chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'status', 'status.value', status, chartMetricStyle(renderNode, status))
         ])
       ]
     }]
@@ -69,7 +69,7 @@ export function meterBlock(
 }
 
 function meterDialBlock(
-  widget: MeterNode,
+  renderNode: MeterNode,
   ratio: number,
   width: number,
   widthProfile: TextWidthProfile
@@ -77,8 +77,8 @@ function meterDialBlock(
   const innerWidth = Math.max(4, width);
   const filledCells = Math.round(ratio * innerWidth);
   const emptyCells = Math.max(0, innerWidth - filledCells);
-  const label = cleanLabel(widget.props.label);
-  const status = chartStatus(widget.props.status);
+  const label = cleanLabel(renderNode.props.label);
+  const status = chartStatus(renderNode.props.status);
   const valueText = `${String(Math.round(ratio * 100))}%`;
   const markerGlyph = '▲';
   const markerCells = measureTextCells(markerGlyph, { widthProfile }).cells;
@@ -92,53 +92,53 @@ function meterDialBlock(
   return {
     lines: [
       ...(label.length === 0 ? [] : [{
-        spans: [chartSpan(widget, 'meter', 'label', 'dial.label', label, chartLabelStyle(widget))]
+        spans: [chartSpan(renderNode, 'meter', 'label', 'dial.label', label, chartLabelStyle(renderNode))]
       }]),
       {
         spans: [
-          chartSpan(widget, 'meter', 'chrome', 'dial.open', oneCellGlyph('╭', '+', { widthProfile }), chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'meter', 'fill', 'dial.filled', fillTextCells('─', filledCells, { widthProfile }), chartMetricStyle(widget, status)),
-          chartSpan(widget, 'meter', 'fill', 'dial.empty', fillTextCells('─', emptyCells, { widthProfile }), chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'meter', 'chrome', 'dial.close', oneCellGlyph('╮', '+', { widthProfile }), chartPlaceholderStyle(widget))
+          chartSpan(renderNode, 'meter', 'chrome', 'dial.open', oneCellGlyph('╭', '+', { widthProfile }), chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'fill', 'dial.filled', fillTextCells('─', filledCells, { widthProfile }), chartMetricStyle(renderNode, status)),
+          chartSpan(renderNode, 'meter', 'fill', 'dial.empty', fillTextCells('─', emptyCells, { widthProfile }), chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'chrome', 'dial.close', oneCellGlyph('╮', '+', { widthProfile }), chartPlaceholderStyle(renderNode))
         ]
       },
       {
         spans: [
-          chartSpan(widget, 'meter', 'chrome', 'dial.side.left', oneCellGlyph('│', '|', { widthProfile }), chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'meter', 'marker', 'dial.needle', marker, chartMetricStyle(widget, status)),
-          chartSpan(widget, 'meter', 'chrome', 'dial.side.right', oneCellGlyph('│', '|', { widthProfile }), chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'meter', 'separator', 'dial.separator.beforeValue', ' ', chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'meter', 'metric', 'dial.value', valueText, chartValueStyle(widget))
+          chartSpan(renderNode, 'meter', 'chrome', 'dial.side.left', oneCellGlyph('│', '|', { widthProfile }), chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'marker', 'dial.needle', marker, chartMetricStyle(renderNode, status)),
+          chartSpan(renderNode, 'meter', 'chrome', 'dial.side.right', oneCellGlyph('│', '|', { widthProfile }), chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'separator', 'dial.separator.beforeValue', ' ', chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'metric', 'dial.value', valueText, chartValueStyle(renderNode))
         ]
       },
       {
         spans: [
-          chartSpan(widget, 'meter', 'chrome', 'dial.bottom.open', oneCellGlyph('╰', '+', { widthProfile }), chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'meter', 'chrome', 'dial.bottom.edge', fillTextCells('─', innerWidth, { widthProfile }), chartPlaceholderStyle(widget)),
-          chartSpan(widget, 'meter', 'chrome', 'dial.bottom.close', oneCellGlyph('╯', '+', { widthProfile }), chartPlaceholderStyle(widget))
+          chartSpan(renderNode, 'meter', 'chrome', 'dial.bottom.open', oneCellGlyph('╰', '+', { widthProfile }), chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'chrome', 'dial.bottom.edge', fillTextCells('─', innerWidth, { widthProfile }), chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'chrome', 'dial.bottom.close', oneCellGlyph('╯', '+', { widthProfile }), chartPlaceholderStyle(renderNode))
         ]
       }
     ]
   };
 }
 
-function meterVariant(widget: MeterNode): 'linear' | 'dial' {
-  return widget.props.variant === 'dial' ? 'dial' : 'linear';
+function meterVariant(renderNode: MeterNode): 'linear' | 'dial' {
+  return renderNode.props.variant === 'dial' ? 'dial' : 'linear';
 }
 
 export function meterText(
-  widget: MeterNode,
+  renderNode: MeterNode,
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): string {
-  return chartTextFromBlock(meterBlock(widget, theme, widthProfile));
+  return chartTextFromBlock(meterBlock(renderNode, theme, widthProfile));
 }
 
-export function meterAccessibleBase(widget: MeterNode, id: string): AccessibleNode {
-  const value = numberProp(widget, 'value') ?? 0;
-  const min = numberProp(widget, 'min') ?? 0;
-  const max = Math.max(min + 1, numberProp(widget, 'max') ?? 100);
-  const label = cleanLabel(widget.props.label);
+export function meterAccessibleBase(renderNode: MeterNode, id: string): AccessibleNode {
+  const value = numberProp(renderNode, 'value') ?? 0;
+  const min = numberProp(renderNode, 'min') ?? 0;
+  const max = Math.max(min + 1, numberProp(renderNode, 'max') ?? 100);
+  const label = cleanLabel(renderNode.props.label);
   return {
     id,
     role: 'meter',
