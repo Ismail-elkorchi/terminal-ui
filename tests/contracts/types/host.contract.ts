@@ -1,6 +1,7 @@
 import {
   createMemoryTerminalHost,
   resolveTerminalCapabilities,
+  type RuntimeTerminalOutputOptions,
   type RuntimeTarget,
   type TerminalSize
 } from '@ismail-elkorchi/terminal-ui/host';
@@ -8,6 +9,9 @@ import {
 const terminalSize: TerminalSize = { columns: 80, rows: 24 };
 const runtime: RuntimeTarget = 'memory';
 const host = createMemoryTerminalHost({ terminalSize });
+const recoveryOutput: RuntimeTerminalOutputOptions = {
+  recoveryWrite: () => undefined
+};
 const detected = host.getCapabilities({
   activeProbes: ['keyboardProtocol'],
   probeTimeoutMs: 50
@@ -31,9 +35,16 @@ const invalidTerminalSize: TerminalSize = { columns: '80', rows: 24 };
 createMemoryTerminalHost({ viewport: terminalSize });
 // @ts-expect-error hosts expose terminal dimensions through getTerminalSize
 type RemovedGetViewport = typeof host['getViewport'];
+// @ts-expect-error recovery writes are no longer exposed as safety writes
+type RemovedWriteSafety = typeof host['writeSafety'];
+// @ts-expect-error runtime output adapters name the restoration path recoveryWrite
+const removedSafetyWrite: RuntimeTerminalOutputOptions = { safetyWrite: () => undefined };
 
 void host;
+void recoveryOutput;
 void detected;
 void capabilities;
 void invalidTerminalSize;
 void (undefined as unknown as RemovedGetViewport);
+void (undefined as unknown as RemovedWriteSafety);
+void removedSafetyWrite;

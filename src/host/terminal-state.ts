@@ -286,7 +286,7 @@ export class TerminalStateAuthority {
     operation: TerminalStateChange,
     context: TerminalOperationContext
   ): Promise<void> {
-    const protocol = this.safetyProtocol(context);
+    const protocol = this.recoveryProtocol(context);
     switch (operation.kind) {
       case 'cursorVisible':
         await (operation.enabled ? protocol.showCursor() : protocol.hideCursor());
@@ -374,10 +374,10 @@ export class TerminalStateAuthority {
     });
   }
 
-  private safetyProtocol(context: TerminalOperationContext): ReturnType<typeof createProtocolWriter> {
+  private recoveryProtocol(context: TerminalOperationContext): ReturnType<typeof createProtocolWriter> {
     return createProtocolWriter({
       write: async (sequence) => {
-        requireCommittedTerminalWrite(await this.#host.writeSafety({ text: sequence }, context));
+        requireCommittedTerminalWrite(await this.#host.writeRecovery({ text: sequence }, context));
       }
     });
   }

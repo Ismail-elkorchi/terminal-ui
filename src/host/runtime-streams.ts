@@ -94,7 +94,7 @@ export function createStreamTerminalHost(options: StreamTerminalHostOptions): Te
       terminalState.beginLease(sessionOptions?.id ?? `${options.id}-session`, detector.current()),
     restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
     write: output.write,
-    writeSafety: output.writeSafety,
+    writeRecovery: output.writeRecovery,
     flush: output.flush,
     dispose: async (context) => {
       await settleResourceDisposal([
@@ -176,19 +176,19 @@ export class RuntimeOutput implements TerminalOutput {
     }, context);
   }
 
-  async writeSafety(
+  async writeRecovery(
     chunk: string | Uint8Array,
     context: TerminalOperationContext = {}
   ): Promise<import('./types.ts').TerminalWriteReceipt> {
     if (context.signal?.aborted === true) {
-      return failedTerminalWrite('runtime-safety-output', context.signal.reason);
+      return failedTerminalWrite('runtime-recovery-output', context.signal.reason);
     }
     if (this.#phase !== 'open') {
-      return failedTerminalWrite('runtime-safety-output', new Error('Terminal output is not writable after disposal begins.'));
+      return failedTerminalWrite('runtime-recovery-output', new Error('Terminal output is not writable after disposal begins.'));
     }
     try {
-      if (this.#options.safetyWrite !== undefined) {
-        await this.#options.safetyWrite(chunk, context);
+      if (this.#options.recoveryWrite !== undefined) {
+        await this.#options.recoveryWrite(chunk, context);
       } else if (this.#options.writable !== undefined) {
         this.#writer ??= this.#options.writable.getWriter();
         await waitForTerminalOperation(
@@ -196,11 +196,11 @@ export class RuntimeOutput implements TerminalOutput {
           context
         );
       } else {
-        return failedTerminalWrite('runtime-safety-output', new Error('The output adapter has no safety-write authority.'));
+        return failedTerminalWrite('runtime-recovery-output', new Error('The output adapter has no recovery-write authority.'));
       }
       return committedTerminalWrite();
     } catch (cause) {
-      return indeterminateTerminalWrite('runtime-safety-output', cause);
+      return indeterminateTerminalWrite('runtime-recovery-output', cause);
     }
   }
 

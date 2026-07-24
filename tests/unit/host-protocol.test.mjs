@@ -619,11 +619,11 @@ test('terminal sessions apply legacy input inside an owned Kitty stack frame', a
 
 test('terminal sessions continue restoring later state after one restore operation fails', async () => {
   const host = createMemoryTerminalHost();
-  const originalWrite = host.writeSafety.bind(host);
+  const originalWrite = host.writeRecovery.bind(host);
   const session = await host.beginSession({ id: 'restore-best-effort' });
   await session.enableRawInput();
   await session.enableAlternateScreen();
-  host.writeSafety = async (output) => {
+  host.writeRecovery = async (output) => {
     if (output.text === '\u001B[?1049l') throw new Error('alternate screen restore failed');
     return originalWrite(output);
   };
@@ -642,12 +642,12 @@ test('terminal sessions continue restoring later state after one restore operati
 
 test('terminal sessions retry restoration after an unsuccessful completed attempt', async () => {
   const host = createMemoryTerminalHost();
-  const originalWrite = host.writeSafety.bind(host);
+  const originalWrite = host.writeRecovery.bind(host);
   const session = await host.beginSession({ id: 'restore-retry' });
   await session.enableRawInput();
   await session.enableAlternateScreen();
   let remainingFailures = 1;
-  host.writeSafety = async (output, context) => {
+  host.writeRecovery = async (output, context) => {
     if (output.text === '\u001B[?1049l' && remainingFailures > 0) {
       remainingFailures -= 1;
       throw new Error('transient alternate screen restore failure');
@@ -666,12 +666,12 @@ test('terminal sessions retry restoration after an unsuccessful completed attemp
 
 test('terminal restoration checks cancellation between protocol operations and remains retryable', async () => {
   const host = createMemoryTerminalHost();
-  const write = host.writeSafety.bind(host);
+  const write = host.writeRecovery.bind(host);
   const session = await host.beginSession({ id: 'restore-operation-cancellation' });
   await session.enableAlternateScreen();
   await session.hideCursor();
   const controller = new globalThis.AbortController();
-  host.writeSafety = async (output, context) => {
+  host.writeRecovery = async (output, context) => {
     const receipt = await write(output, context);
     if (output.text === '\u001B[?25h') controller.abort(new Error('restore deadline expired'));
     return receipt;
@@ -685,7 +685,7 @@ test('terminal restoration checks cancellation between protocol operations and r
   assert.equal(cancelled.diagnostics[0]?.data?.operation, 'cursorVisible');
   assert.doesNotMatch(host.output(), /\u001B\[\?1049l/u);
 
-  host.writeSafety = write;
+  host.writeRecovery = write;
   const retried = await session.restore('error');
   assert.equal(retried.status, 'restored');
   assert.deepEqual(retried.confirmed.map((operation) => operation.kind), ['alternateScreen']);
@@ -693,12 +693,12 @@ test('terminal restoration checks cancellation between protocol operations and r
 
 test('concurrent terminal session restores share one authority operation across caller contexts', async () => {
   const host = createMemoryTerminalHost();
-  const originalWrite = host.writeSafety.bind(host);
+  const originalWrite = host.writeRecovery.bind(host);
   const session = await host.beginSession({ id: 'coalesced-restore' });
   await session.enableAlternateScreen();
   const restoreStarted = deferred();
   const releaseRestore = deferred();
-  host.writeSafety = async (output, context) => {
+  host.writeRecovery = async (output, context) => {
     if (output.text === '\u001B[?1049l') {
       restoreStarted.resolve();
       await releaseRestore.promise;
@@ -837,8 +837,8 @@ test('shared terminal restoration is independent from each caller cancellation c
   await session.enableAlternateScreen();
   const restoreStarted = deferred();
   const releaseRestore = deferred();
-  const write = host.writeSafety.bind(host);
-  host.writeSafety = async (output, context) => {
+  const write = host.writeRecovery.bind(host);
+  host.writeRecovery = async (output, context) => {
     if (output.text === '\u001B[?1049l') {
       restoreStarted.resolve();
       await Promise.race([
@@ -872,8 +872,8 @@ test('terminal lease creation waits for in-flight restoration to commit', async 
   await first.enableAlternateScreen();
   const restoreStarted = deferred();
   const releaseRestore = deferred();
-  const write = host.writeSafety.bind(host);
-  host.writeSafety = async (output, context) => {
+  const write = host.writeRecovery.bind(host);
+  host.writeRecovery = async (output, context) => {
     if (output.text === '\u001B[?1049l') {
       restoreStarted.resolve();
       await releaseRestore.promise;
@@ -943,7 +943,7 @@ test('stream host disposal restores active terminal sessions', async () => {
     },
     stdout: {
       write: (chunk) => output.push(String(chunk)),
-      safetyWrite: (chunk) => output.push(String(chunk)),
+      recoveryWrite: (chunk) => output.push(String(chunk)),
       isTty: true
     }
   });
@@ -966,13 +966,13 @@ test('stream host disposal restores active terminal sessions', async () => {
   assert.deepEqual(afterDisposeRestore.confirmed, []);
 });
 
-test('stream host restoration uses safety output while normal output is blocked', async () => {
+test('stream host restoration uses recovery output while normal output is blocked', async () => {
   const normalWrites = [];
-  const safetyWrites = [];
+  const recoveryWrites = [];
   const blocked = deferred();
   const release = deferred();
   const host = createDenoTerminalHost({
-    id: 'stream-safety-restore',
+    id: 'stream-recovery-restore',
     capabilities: { overrides: { alternateScreen: true } },
     stdout: {
       isTty: true,
@@ -983,10 +983,10 @@ test('stream host restoration uses safety output while normal output is blocked'
           await release.promise;
         }
       },
-      safetyWrite: (chunk) => { safetyWrites.push(String(chunk)); }
+      recoveryWrite: (chunk) => { recoveryWrites.push(String(chunk)); }
     }
   });
-  const session = await host.beginSession({ id: 'stream-safety-session' });
+  const session = await host.beginSession({ id: 'stream-recovery-session' });
   assert.equal((await session.enableAlternateScreen()).status, 'applied');
   const normalWrite = host.write({ text: 'blocked-frame' });
   await blocked.promise;
@@ -994,7 +994,7 @@ test('stream host restoration uses safety output while normal output is blocked'
   const restored = await session.restore('error');
 
   assert.equal(restored.status, 'restored');
-  assert.deepEqual(safetyWrites, ['\u001B[?1049l']);
+  assert.deepEqual(recoveryWrites, ['\u001B[?1049l']);
   assert.equal(normalWrites.includes('blocked-frame'), true);
   release.resolve();
   assert.equal((await normalWrite).status, 'committed');

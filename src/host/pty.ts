@@ -38,11 +38,11 @@ class PtyOutput implements TerminalOutput {
     return this.#output.write(chunk, context);
   }
 
-  writeSafety(
+  writeRecovery(
     chunk: string | Uint8Array,
     context: TerminalOperationContext = {}
   ): Promise<import('./types.ts').TerminalWriteReceipt> {
-    return this.#output.writeSafety(chunk, context);
+    return this.#output.writeRecovery(chunk, context);
   }
 
   flush(context: TerminalOperationContext = {}): Promise<void> {
@@ -118,7 +118,7 @@ export function createPtyTerminalHost(options: PtyTerminalHostOptions = {}): Pty
       terminalState.beginLease(sessionOptions?.id ?? `${options.id ?? 'pty'}-session`, detector.current()),
     restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
     write: output.write,
-    writeSafety: output.writeSafety,
+    writeRecovery: output.writeRecovery,
     flush: output.flush,
     dispose: async (context) => {
       await settleResourceDisposal([

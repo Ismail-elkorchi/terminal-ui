@@ -52,7 +52,7 @@ function asError(cause: unknown): Error {
 
 export interface TerminalHostOutputAuthority {
   readonly write: TerminalHost['write'];
-  readonly writeSafety: TerminalHost['writeSafety'];
+  readonly writeRecovery: TerminalHost['writeRecovery'];
   readonly flush: TerminalHost['flush'];
   readonly dispose: TerminalHost['dispose'];
 }
@@ -79,11 +79,11 @@ export function createTerminalHostOutputAuthority(
           : failedTerminalWrite(target, cause);
       }
     },
-    writeSafety: async (chunk: TerminalOutputChunk, context = {}) => {
+    writeRecovery: async (chunk: TerminalOutputChunk, context = {}) => {
       const parts = [chunk.text, chunk.bytes].filter((part): part is string | Uint8Array => part !== undefined);
       let committedParts = 0;
       for (const part of parts) {
-        const receipt = await stdout.writeSafety(part, context);
+        const receipt = await stdout.writeRecovery(part, context);
         if (receipt.status !== 'committed') {
           return committedParts === 0 ? receipt : indeterminateTerminalWrite(target, receipt.diagnostic);
         }

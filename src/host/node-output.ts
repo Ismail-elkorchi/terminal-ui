@@ -29,16 +29,16 @@ export class NodeTerminalOutput implements TerminalOutput {
     return this.#queue.run((operationContext) => writeNodeChunk(this.#stream, chunk, operationContext), context);
   }
 
-  async writeSafety(
+  async writeRecovery(
     chunk: string | Uint8Array,
     context: TerminalOperationContext = {}
   ): Promise<TerminalWriteReceipt> {
-    if (context.signal?.aborted === true) return failedTerminalWrite('node-safety-output', context.signal.reason);
+    if (context.signal?.aborted === true) return failedTerminalWrite('node-recovery-output', context.signal.reason);
     try {
       await writeNodeChunk(this.#stream, chunk, context);
       return committedTerminalWrite();
     } catch (cause) {
-      return indeterminateTerminalWrite('node-safety-output', cause);
+      return indeterminateTerminalWrite('node-recovery-output', cause);
     }
   }
 

@@ -48,7 +48,7 @@ export interface TerminalInput {
 
 export interface TerminalOutput {
   write(chunk: string | Uint8Array, context?: TerminalOperationContext): Promise<void>;
-  writeSafety(chunk: string | Uint8Array, context?: TerminalOperationContext): Promise<TerminalWriteReceipt>;
+  writeRecovery(chunk: string | Uint8Array, context?: TerminalOperationContext): Promise<TerminalWriteReceipt>;
   flush(context?: TerminalOperationContext): Promise<void>;
   dispose(context?: TerminalOperationContext): Promise<void>;
   isTty(): boolean;
@@ -105,7 +105,7 @@ export interface TerminalHost {
   beginSession(options?: TerminalSessionOptions): Promise<TerminalSession>;
   restoreTerminalState(reason: TerminalRestoreReason, options?: TerminalRestoreOptions): Promise<TerminalRestoreResult>;
   write(output: TerminalOutputChunk, context?: TerminalOperationContext): Promise<TerminalWriteReceipt>;
-  writeSafety(output: TerminalOutputChunk, context?: TerminalOperationContext): Promise<TerminalWriteReceipt>;
+  writeRecovery(output: TerminalOutputChunk, context?: TerminalOperationContext): Promise<TerminalWriteReceipt>;
   flush(context?: TerminalOperationContext): Promise<void>;
   dispose(context?: TerminalOperationContext): Promise<void>;
 }
@@ -283,7 +283,7 @@ export interface RuntimeTerminalInputOptions {
 
 export interface RuntimeTerminalOutputOptions {
   readonly write?: (chunk: string | Uint8Array, context: TerminalOperationContext) => void | Promise<void>;
-  readonly safetyWrite?: (chunk: string | Uint8Array, context: TerminalOperationContext) => void | Promise<void>;
+  readonly recoveryWrite?: (chunk: string | Uint8Array, context: TerminalOperationContext) => void | Promise<void>;
   readonly writable?: WritableStream<Uint8Array>;
   readonly isTty?: boolean;
   readonly columns?: number;

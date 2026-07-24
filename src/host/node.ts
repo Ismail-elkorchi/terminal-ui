@@ -142,7 +142,7 @@ export function createNodeTerminalHost(options: NodeTerminalHostOptions = {}): T
       terminalState.beginLease(sessionOptions?.id ?? 'node-session', detector.current()),
     restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
     write: output.write,
-    writeSafety: output.writeSafety,
+    writeRecovery: output.writeRecovery,
     flush: output.flush,
     dispose: async (context) => {
       await settleResourceDisposal([

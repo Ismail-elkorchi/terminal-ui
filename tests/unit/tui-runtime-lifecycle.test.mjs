@@ -50,8 +50,8 @@ test('runTui fails and records final diagnostics when terminal restoration is un
     })
   });
   const host = createMemoryTerminalHost();
-  const write = host.writeSafety.bind(host);
-  host.writeSafety = async (output, context) => {
+  const write = host.writeRecovery.bind(host);
+  host.writeRecovery = async (output, context) => {
     if (output.text === '\u001B[?1049l') throw new Error('alternate screen restore failed');
     return write(output, context);
   };

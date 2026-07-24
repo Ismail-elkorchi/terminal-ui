@@ -90,7 +90,7 @@ function explicitStreamHost(runtime) {
       write: (chunk) => {
         output.push(String(chunk));
       },
-      safetyWrite: (chunk) => {
+      recoveryWrite: (chunk) => {
         output.push(String(chunk));
       }
     }

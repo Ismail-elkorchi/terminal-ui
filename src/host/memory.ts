@@ -118,12 +118,12 @@ class BufferOutput implements TerminalOutput {
     return Promise.resolve();
   }
 
-  writeSafety(
+  writeRecovery(
     chunk: string | Uint8Array,
     context: TerminalOperationContext = {}
   ): Promise<import('./types.ts').TerminalWriteReceipt> {
     if (context.signal?.aborted === true) {
-      return Promise.resolve(failedTerminalWrite('memory-safety-output', context.signal.reason));
+      return Promise.resolve(failedTerminalWrite('memory-recovery-output', context.signal.reason));
     }
     this.#chunks.push(typeof chunk === 'string' ? chunk : new TextDecoder().decode(chunk));
     return Promise.resolve(committedTerminalWrite());
@@ -337,7 +337,7 @@ export function createMemoryTerminalHost(options: MemoryTerminalHostOptions = {}
       terminalState.beginLease(sessionOptions?.id ?? 'memory-session', detector.current()),
     restoreTerminalState: (reason, options) => terminalState.restoreAll(reason, options),
     write: output.write,
-    writeSafety: output.writeSafety,
+    writeRecovery: output.writeRecovery,
     flush: output.flush,
     input: (data: string | Uint8Array) => { inputSource.push(data); },
     endInput: () => { inputSource.close(); },
