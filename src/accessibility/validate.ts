@@ -46,6 +46,8 @@ function firstSnapshotIssue(snapshot: unknown): TerminalDiagnostic | undefined {
     focusPath: snapshot['focusPath']
   });
   if (focusIssue !== undefined) return focusIssue;
+  const labelRelationshipIssue = firstLabelRelationshipIssue(snapshot['root']);
+  if (labelRelationshipIssue !== undefined) return labelRelationshipIssue;
   return undefined;
 }
 
@@ -77,6 +79,9 @@ function firstNodeIssue(node: unknown, ids: Set<string>): TerminalDiagnostic | u
   const controlsIssue = optionalStringIssue(node, 'controls', id);
   if (controlsIssue !== undefined) return controlsIssue;
   if (node['controls'] === '') return accessibilityFailure('Accessible node controls must not be empty.', id);
+  const labelledByIssue = optionalStringIssue(node, 'labelledBy', id);
+  if (labelledByIssue !== undefined) return labelledByIssue;
+  if (node['labelledBy'] === '') return accessibilityFailure('Accessible node labelledBy must not be empty.', id);
   if (node['value'] !== undefined && !isAccessibleValue(node['value'])) {
     return accessibilityFailure('Accessible node value must be string, number, boolean, or null.', id);
   }
@@ -132,6 +137,7 @@ const accessibleNodeFields = new Set([
   'position',
   'description',
   'controls',
+  'labelledBy',
   'children'
 ]);
 
@@ -274,6 +280,29 @@ function firstFocusIssue(
   return undefined;
 }
 
+function firstLabelRelationshipIssue(root: AccessibleNode): TerminalDiagnostic | undefined {
+  const nodes = new Map<string, AccessibleNode>();
+  collectAccessibleNodes(root, nodes);
+  for (const node of nodes.values()) {
+    if (node.labelledBy === undefined) continue;
+    if (node.labelledBy === node.id) {
+      return accessibilityFailure('Accessible node labelledBy must identify a different node.', node.id);
+    }
+    if (!nodes.has(node.labelledBy)) {
+      return accessibilityFailure(
+        `Accessible node labelledBy must identify a node in the same snapshot: ${node.labelledBy}.`,
+        node.id
+      );
+    }
+  }
+  return undefined;
+}
+
+function collectAccessibleNodes(node: AccessibleNode, nodes: Map<string, AccessibleNode>): void {
+  nodes.set(node.id, node);
+  for (const child of node.children ?? []) collectAccessibleNodes(child, nodes);
+}
+
 function accessibilityFailure(message: string, target?: string): TerminalDiagnostic {
   return diagnostic(
     'ACCESSIBLE_SNAPSHOT_INVALID',
@@ -382,7 +411,7 @@ const requiredChildRoles: Readonly<Record<string, ReadonlySet<string>>> = Object
 
 function optionalStringIssue(
   node: Record<string, unknown>,
-  field: 'label' | 'description' | 'controls',
+  field: 'label' | 'description' | 'controls' | 'labelledBy',
   id: string
 ): TerminalDiagnostic | undefined {
   if (node[field] === undefined) return undefined;

@@ -35,7 +35,7 @@ export interface FieldRenderProps extends RenderNodeLayoutProps {
 
 export interface LabelRenderProps {
   readonly text: string;
-  readonly forId?: string;
+  readonly forId: string;
   readonly required?: boolean;
   readonly disabled?: boolean;
 }

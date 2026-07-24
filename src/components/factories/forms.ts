@@ -97,12 +97,15 @@ export function field<const TChildren extends ElementChildren>(
 }
 
 export function label(options: LabelOptions): Element {
+  if (options.forId.length === 0) {
+    throw new Error('label() requires a non-empty target control id.');
+  }
   return componentElementFromRenderNode<'label'>({
-    ...optionalId(options.id),
+    ...requiredId(options.id, 'label'),
     kind: 'label',
     props: {
       text: options.text,
-      ...(options.forId === undefined ? {} : { forId: options.forId }),
+      forId: options.forId,
       ...(options.required === undefined ? {} : { required: options.required }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled })
     },

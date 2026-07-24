@@ -33,6 +33,72 @@ export function accessibleNode(
   return mergeAccessibleNode(withScope(base, renderNode), renderNode.accessibility, children);
 }
 
+export function withControlLabelRelationships(
+  root: AccessibleNode,
+  renderNode: RenderNode
+): AccessibleNode {
+  const accessibleNodes = new Map<string, AccessibleNode>();
+  collectAccessibleNodes(root, accessibleNodes);
+  const labels = collectControlLabels(renderNode);
+  const labelsByTarget = new Map<string, string>();
+  for (const { labelId, targetId } of labels) {
+    if (!accessibleNodes.has(labelId)) {
+      throw new Error(`Control label "${labelId}" is not present in the accessibility tree.`);
+    }
+    const target = accessibleNodes.get(targetId);
+    if (target === undefined) {
+      throw new Error(`Control label "${labelId}" targets missing accessible control "${targetId}".`);
+    }
+    if (targetId === labelId) {
+      throw new Error(`Control label "${labelId}" cannot label itself.`);
+    }
+    if (target.labelledBy !== undefined && target.labelledBy !== labelId) {
+      throw new Error(
+        `Accessible control "${targetId}" already has labelledBy "${target.labelledBy}".`
+      );
+    }
+    const existing = labelsByTarget.get(targetId);
+    if (existing !== undefined) {
+      throw new Error(`Accessible control "${targetId}" has multiple labels: "${existing}" and "${labelId}".`);
+    }
+    labelsByTarget.set(targetId, labelId);
+  }
+  return applyControlLabels(root, labelsByTarget);
+}
+
+function collectControlLabels(
+  renderNode: RenderNode
+): readonly { readonly labelId: string; readonly targetId: string }[] {
+  const labels = renderNode.kind === 'label'
+    ? [{
+        labelId: renderNode.id ?? '',
+        targetId: typeof renderNode.props.forId === 'string' ? renderNode.props.forId : ''
+      }]
+    : [];
+  return [
+    ...labels,
+    ...(renderNode.children ?? []).flatMap(collectControlLabels)
+  ];
+}
+
+function collectAccessibleNodes(node: AccessibleNode, nodes: Map<string, AccessibleNode>): void {
+  nodes.set(node.id, node);
+  for (const child of node.children ?? []) collectAccessibleNodes(child, nodes);
+}
+
+function applyControlLabels(
+  node: AccessibleNode,
+  labelsByTarget: ReadonlyMap<string, string>
+): AccessibleNode {
+  const labelledBy = labelsByTarget.get(node.id);
+  const children = node.children?.map((child) => applyControlLabels(child, labelsByTarget));
+  return {
+    ...node,
+    ...(labelledBy === undefined ? {} : { labelledBy }),
+    ...(children === undefined ? {} : { children })
+  };
+}
+
 function accessibleChildren(
   renderNode: RenderNode,
   node: LayoutNode,

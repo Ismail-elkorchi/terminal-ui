@@ -46,8 +46,9 @@ export interface FieldOptions extends ElementOptions<FormGroupStylePart>, Layout
 }
 
 export interface LabelOptions extends ElementOptions<FormGroupStylePart> {
+  readonly id: string;
   readonly text: string;
-  readonly forId?: string;
+  readonly forId: string;
   readonly required?: boolean;
   readonly disabled?: boolean;
 }

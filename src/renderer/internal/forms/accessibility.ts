@@ -76,12 +76,10 @@ export function fieldAccessibleBase(renderNode: FieldNode, id: string, focused: 
 }
 
 export function labelAccessibleBase(renderNode: LabelNode, id: string): AccessibleNode {
-  const description = stringify(renderNode.props.forId);
   return {
     id,
     role: 'text',
     label: labelText(renderNode) || id,
-    ...(description.length === 0 ? {} : { description: `Labels ${description}.` }),
     ...(renderNode.props.disabled === true ? { disabled: true } : {})
   };
 }

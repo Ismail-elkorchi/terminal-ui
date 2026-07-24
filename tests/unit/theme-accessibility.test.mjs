@@ -241,6 +241,14 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
       id: 'volume',
       role: 'slider',
       numericValue: { current: 5, minimum: 0, maximum: 10 }
+    },
+    {
+      id: 'labelled-group',
+      role: 'group',
+      children: [
+        { id: 'name-label', role: 'text', label: 'Name' },
+        { id: 'name-input', role: 'textbox', labelledBy: 'name-label' }
+      ]
     }
   ];
 
@@ -304,7 +312,9 @@ test('accessible snapshots enforce role fields, direct-child roles, numeric valu
     { id: 'listbox', role: 'listbox', children: [{ id: 'radio', role: 'radio' }] },
     { id: 'tree', role: 'tree', children: [{ id: 'option', role: 'option' }] },
     { id: 'grid', role: 'grid', children: [{ id: 'cell', role: 'gridcell' }] },
-    { id: 'rowgroup', role: 'rowgroup', children: [{ id: 'cell', role: 'gridcell' }] }
+    { id: 'rowgroup', role: 'rowgroup', children: [{ id: 'cell', role: 'gridcell' }] },
+    { id: 'missing-label-reference', role: 'textbox', labelledBy: 'missing-label' },
+    { id: 'self-label-reference', role: 'textbox', labelledBy: 'self-label-reference' }
   ];
 
   for (const root of invalidRoots) {

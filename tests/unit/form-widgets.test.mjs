@@ -15,6 +15,7 @@ import {
   checkbox,
   field,
   form,
+  label,
   numberInput,
   radioGroup,
   select,
@@ -230,6 +231,38 @@ test('form accessibility exposes labels, values, validation, required, disabled,
   assert.equal(terms?.description, 'Required. Required before submit');
   assert.equal(terms?.focused, true);
   assert.equal(tier?.children?.[1]?.disabled, true);
+});
+
+test('control labels create a structural accessible-name relationship', () => {
+  const frame = renderElementFrame(form([
+    label({ id: 'email-label', forId: 'email-input', text: 'Email', required: true }),
+    textInput({
+      id: 'email-input',
+      presentation: { value: 'user@example.test', cursor: 0 }
+    })
+  ], {
+    id: 'labelled-form',
+    title: 'Account'
+  }), { columns: 32, rows: 4 });
+  const [labelNode, inputNode] = frame.accessibility.root.children;
+
+  assert.equal(labelNode?.role, 'text');
+  assert.equal(labelNode?.label, 'Email *');
+  assert.equal(labelNode?.description, undefined);
+  assert.equal(inputNode?.role, 'textbox');
+  assert.equal(inputNode?.labelledBy, 'email-label');
+  assert.equal(validateAccessibleSnapshot(frame.accessibility).ok, true);
+});
+
+test('control labels reject missing accessible targets', () => {
+  assert.throws(
+    () => renderElementFrame(label({
+      id: 'orphan-label',
+      forId: 'missing-input',
+      text: 'Missing'
+    }), { columns: 12, rows: 1 }),
+    /targets missing accessible control "missing-input"/u
+  );
 });
 
 test('form controls emit submit and cancel messages while app state owns values', async () => {

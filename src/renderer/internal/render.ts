@@ -11,7 +11,7 @@ import { blitFrameCell } from './frame-buffer.ts';
 import { applyCursorStyle } from './cursor-style.ts';
 import { applyFramePasses, boxDrawingJoinPass } from './frame-passes/index.ts';
 import { layoutRenderNode } from './layout.ts';
-import { accessibleNode } from './render-accessibility.ts';
+import { accessibleNode, withControlLabelRelationships } from './render-accessibility.ts';
 import { createDraftRenderRegion, regionIdForLayoutNode, toRegionHitTarget } from './render-regions.ts';
 import { renderRenderNode, cursorForRenderNode, hitTargetsForRenderNode } from './render-node-behavior.ts';
 import type { TerminalSize } from '../../geometry/types.ts';
@@ -178,7 +178,10 @@ export function renderElementInternal<TMessage>(
   );
   const accessibility = measureRenderStage(options.instrumentation, 'accessibility', () => toAccessibleSnapshot({
     source: 'renderer',
-    root: accessibleNode(renderNode, layout, [], resolvedFocusPath, theme, widthProfile),
+    root: withControlLabelRelationships(
+      accessibleNode(renderNode, layout, [], resolvedFocusPath, theme, widthProfile),
+      renderNode
+    ),
     ...(resolvedFocusPath === undefined ? {} : { focusPath: resolvedFocusPath })
   }));
   const frame = measureRenderStage(options.instrumentation, 'snapshot', () => buffer.snapshot({

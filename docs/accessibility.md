@@ -17,9 +17,10 @@ declared roles, not only trees emitted by built-in controls. Tables and grids
 may contain rows directly or through row groups. Rows may contain cells, grid
 cells, column headers, and row headers. List boxes, menus, radio groups, and
 trees may use grouping nodes around their required item roles. Built-in table
-headers are emitted as column headers. Labels and descriptions remain fields on
-the node they describe; built-in controls do not require separate descriptive
-children.
+headers are emitted as column headers. A separate `label()` element creates a
+machine-readable `labelledBy` relationship on its target control. Labels and
+descriptions authored directly on built-in controls remain fields on the node
+they describe and do not require separate descriptive children.
 
 Positions exposed to accessibility consumers are positive and one-based:
 `positionInSet`, `rowIndex`, `columnIndex`, and `level`. Their corresponding

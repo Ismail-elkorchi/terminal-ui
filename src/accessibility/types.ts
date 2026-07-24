@@ -28,6 +28,7 @@ export interface AccessibleNode {
   readonly position?: AccessiblePosition;
   readonly description?: string;
   readonly controls?: string;
+  readonly labelledBy?: string;
   readonly children?: readonly AccessibleNode[];
 }
 

@@ -1,6 +1,7 @@
 import {
   button,
   commandInput,
+  label,
   rangeSlider,
   structuredBlock,
   text,
@@ -12,6 +13,7 @@ import {
 const validationLevel: ValidationLevel = 'warning';
 const menuActionTone: MenuActionTone = 'destructive';
 button({ id: 'save', label: 'Save', tone: 'primary' });
+label({ id: 'query-label', forId: 'query', text: 'Query' });
 commandInput({
   id: 'command',
   presentation: { value: '', cursor: 0, suggestions: [] },
@@ -63,6 +65,10 @@ structuredBlock({
 
 // @ts-expect-error interactive components require authored identity
 button({ label: 'Save' });
+// @ts-expect-error a control label must identify its target control
+label({ id: 'missing-label-target', text: 'Query' });
+// @ts-expect-error a control label needs its own stable relationship identity
+label({ forId: 'query', text: 'Query' });
 button({ id: 'disabled-button', label: 'Save', disabled: true });
 // @ts-expect-error pointer press is controlled through pointer interaction
 button({ id: 'legacy-button-state', label: 'Save', state: 'pressed' });
