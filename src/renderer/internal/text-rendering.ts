@@ -243,7 +243,7 @@ function richTextSegments(renderNode: RichTextNode, theme: TerminalTheme): reado
 }
 
 function textStyle(renderNode: TextNode): TerminalStyle | undefined {
-  const role = widgetTextRole(renderNode.props.textRole);
+  const role = renderNodeTextRole(renderNode.props.textRole);
   const base = role === undefined ? undefined : defaultStyleForTextRole(role);
   if (base === undefined) return resolveRenderNodeStyle(renderNode, { part: 'root' });
   return resolveRenderNodeStyle(renderNode, {
@@ -257,7 +257,7 @@ function styleOption(style: TerminalStyle | undefined): { readonly style?: Termi
 }
 
 function textSource(renderNode: TextNode): FrameCellSource {
-  const role = widgetTextRole(renderNode.props.textRole);
+  const role = renderNodeTextRole(renderNode.props.textRole);
   return renderNodeFrameSource(renderNode, {
     rendererFamily: 'text',
     cellRole: 'text',
@@ -276,7 +276,7 @@ function richTextSource(renderNode: RichTextNode, index: number): FrameCellSourc
   });
 }
 
-function widgetTextRole(value: unknown): ElementTextRole | undefined {
+function renderNodeTextRole(value: unknown): ElementTextRole | undefined {
   switch (value) {
     case 'title':
     case 'heading':

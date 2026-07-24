@@ -67,7 +67,7 @@ export function chartBlock(
     return chartLabelsBlock(renderNode, node.bounds.width, widthProfile);
   }
   const range = rangeFor(points, numberProp(renderNode, 'min'), numberProp(renderNode, 'max'));
-  const widgetScale = normalizeValueScale(renderNode.props.valueScale);
+  const chartScale = normalizeValueScale(renderNode.props.valueScale);
   const buffer = createFrameBuffer(node.bounds.width, node.bounds.height, { widthProfile });
   writeChartLabels(buffer, renderNode, node.bounds.width, widthProfile);
   const canvas = createCanvas2D(buffer, {
@@ -94,7 +94,7 @@ export function chartBlock(
       { widthProfile }
     );
     const seriesStyle = chartSeriesStyle(renderNode, seriesIndex);
-    const seriesScale = chartSeriesScale(item, widgetScale);
+    const seriesScale = chartSeriesScale(item, chartScale);
     if (item.kind === 'area' || item.kind === 'bar') {
       drawFilledChartSeries(canvas, renderNode, item, visible, range, layout.plotHeight, glyph, seriesStyle, seriesScale, usesSignedDomain(renderNode));
     } else if (item.kind === 'scatter') {

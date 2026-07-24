@@ -337,6 +337,6 @@ test('region-local overlay buffers preserve clipped viewport coordinates and hit
 test('canvas rejects missing painters as programmer errors', () => {
   assert.throws(
     () => canvas({ id: 'bad-canvas-factory', painter: undefined }),
-    /Canvas widgets must provide a painter function/u
+    /canvas\(\) requires a painter function/u
   );
 });
