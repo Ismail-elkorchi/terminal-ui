@@ -11,8 +11,8 @@ import { inputCursorStyle, mergeStyles, resolveRenderNodeStyle, themeStyle, rend
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { TextSelection, TextWidthProfile } from '../../text/index.ts';
-import type { SuggestionItem, ComponentValidationTone } from '../../ui-model/contracts.ts';
-import { optionalValidationTone } from '../../ui-model/status.ts';
+import type { SuggestionItem } from '../../ui-model/contracts.ts';
+import { optionalValidationLevel } from '../../ui-model/status.ts';
 import type { CommandInputDisplay, CommandInputValidation } from '../../ui-model/documents.ts';
 import type { CursorPosition } from '../model/cursor.ts';
 import type { Rect } from '../model/layout.ts';
@@ -84,7 +84,7 @@ export function commandInputAccessibleChildren(renderNode: CommandInputNode): re
     children.push({
       id: `${renderNode.id ?? 'command-input'}:validation`,
       role: 'status',
-      label: validation.tone ?? 'validation',
+      label: validation.level ?? 'validation',
       value: validation.message
     });
   }
@@ -227,7 +227,7 @@ function commandInputModel(renderNode: CommandInputNode, width: number, widthPro
 
 function validationLine(renderNode: CommandInputNode, validation: CommandInputValidation, theme: TerminalTheme): RenderLine {
   return {
-    spans: commandStatusSpans(renderNode, theme, validationToneForSurface(validation.tone ?? 'error'), validation.message, {
+    spans: commandStatusSpans(renderNode, theme, validation.level ?? 'error', validation.message, {
       markerSource: commandSource(renderNode, 'validation.marker', { role: 'decoration', partKind: 'marker' }),
       textSource: commandSource(renderNode, 'validation', { partKind: 'validation' })
     })
@@ -307,15 +307,11 @@ function validationProp(renderNode: CommandInputNode): CommandInputValidation | 
   if (!isRecord(validation)) return undefined;
   const message = validation.message;
   if (typeof message !== 'string' || message.length === 0) return undefined;
-  const tone = optionalValidationTone(validation.tone);
+  const level = optionalValidationLevel(validation.level);
   return {
     message: clean(message),
-    ...(tone === undefined ? {} : { tone })
+    ...(level === undefined ? {} : { level })
   };
-}
-
-function validationToneForSurface(tone: ComponentValidationTone): 'info' | 'warning' | 'error' {
-  return tone;
 }
 
 function valueWindowSpans(

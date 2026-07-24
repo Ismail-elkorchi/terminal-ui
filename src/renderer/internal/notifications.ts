@@ -11,12 +11,11 @@ import type { RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import { numberProp } from './render-node-props.ts';
 import type { HitTarget } from '../model/renderer.ts';
 import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
-import { normalizeNotificationTone, statusFromTone } from '../../ui-model/status.ts';
+import { normalizeNotificationTone } from '../../ui-model/status.ts';
 import type { NotificationItem, NotificationPlacement, NotificationTone } from '../../ui-model/feedback.ts';
 import type { NotificationStackAction } from '../../ui-model/notification-stack.ts';
 import type { NotificationStackPresentation } from '../../ui-model/notification-stack.ts';
 import { feedbackSpan } from './feedback-visual.ts';
-import { statusToken } from './status-visual.ts';
 import { mergeStyles } from './render-node-style.ts';
 import {
   placeNotificationStack,
@@ -430,7 +429,18 @@ function borderToken(tone: NotificationTone): ThemeColorToken {
 }
 
 function foregroundToken(tone: NotificationTone): ThemeColorToken {
-  return statusToken(statusFromTone(tone));
+  switch (tone) {
+    case 'progress':
+      return 'status.running';
+    case 'success':
+      return 'status.success';
+    case 'warning':
+      return 'status.warning';
+    case 'error':
+      return 'status.error';
+    case 'info':
+      return 'status.info';
+  }
 }
 
 function notificationPlacement(renderNode: NotificationStackNode): NotificationPlacement {

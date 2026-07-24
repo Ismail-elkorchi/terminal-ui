@@ -70,6 +70,10 @@ express cleanly.
 
 Every component accepts top-level `id` and optional `meta`.
 
+Command-input validation uses `level: 'info' | 'warning' | 'error'`.
+Buttons, menu actions, notifications, and tooltips each expose their own
+narrow tone values; those contracts are not interchangeable.
+
 Components that expose interactive scroll chrome use controlled variants. A
 visible scrollbar requires caller-owned scroll state and a semantic action or
 scroll handler. Passive variants may project a fixed window, but cannot expose

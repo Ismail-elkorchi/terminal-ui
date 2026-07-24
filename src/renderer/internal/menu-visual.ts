@@ -1,6 +1,6 @@
 import type { RenderNode } from '../model/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { ComponentActionTone } from '../../ui-model/contracts.ts';
+import type { MenuActionTone } from '../../ui-model/menu.ts';
 import { isFrameCellInteractionState, renderNodeFrameSource } from '../../visual/source.ts';
 import { clipRenderSpans, span } from '../../visual/render.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
@@ -23,7 +23,7 @@ export interface MenuVisualItem {
   readonly depth: number;
   readonly expanded?: boolean;
   readonly hasChildren: boolean;
-  readonly tone?: ComponentActionTone;
+  readonly tone?: MenuActionTone;
 }
 
 export function menuTitleLine(renderNode: RenderNode, title: string, width: number, widthProfile: TextWidthProfile): RenderLine {

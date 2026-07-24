@@ -4,7 +4,7 @@ import type {
 } from '../interaction/anchored-surface.ts';
 import type { ScrollEvent } from '../interaction/scroll.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
-import type { ComponentActionTone, ComponentTone, ItemBase } from './contracts.ts';
+import type { ItemBase } from './contracts.ts';
 import type { InlineContent } from '../visual/inline-content.ts';
 import { assertUniqueRecursiveIds } from './identity.ts';
 
@@ -12,8 +12,10 @@ interface MenuItemBase extends ItemBase {
   readonly leading?: InlineContent;
   readonly trailing?: InlineContent;
   readonly shortcut?: string;
-  readonly tone?: ComponentActionTone;
+  readonly tone?: MenuActionTone;
 }
+
+export type MenuActionTone = 'default' | 'destructive';
 
 export interface MenuActionItem extends MenuItemBase {
   readonly kind: 'action';
@@ -93,7 +95,7 @@ export function assertValidMenuItems(items: readonly MenuItemStructure[]): void 
 
 export type DividerOrientation = 'horizontal' | 'vertical';
 export type DividerLineKind = 'single' | 'double' | 'heavy' | 'dashed' | 'dotted' | 'ascii' | 'empty';
-export type TooltipTone = Extract<ComponentTone, 'default' | 'info' | 'success' | 'warning' | 'error'>;
+export type TooltipTone = 'default' | 'info' | 'success' | 'warning' | 'error';
 
 export type MenuAction =
   | { readonly kind: 'focus'; readonly id: string }

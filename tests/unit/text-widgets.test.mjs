@@ -354,7 +354,7 @@ test('editable text controls remain readable in high contrast and no-color proje
       prompt: '/',
       presentation: { value: '', cursor: 0, suggestions: [] },
       placeholder: 'command',
-      validation: { tone: 'warning', message: 'Waiting' }
+      validation: { level: 'warning', message: 'Waiting' }
     })
   ]);
   const frame = renderElementFrame(widget, { columns: 28, rows: 3 }, {

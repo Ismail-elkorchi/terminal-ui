@@ -1,10 +1,10 @@
 import type { TerminalStyle } from '../visual/render.ts';
 export type { ScrollbackHistory, ScrollbackItem } from './scrollback-history.ts';
 import type {
-  ComponentValidationTone,
   FieldItem,
   RecordStatus,
-  TitledItem
+  TitledItem,
+  ValidationLevel
 } from './contracts.ts';
 
 export interface StructuredBlock extends TitledItem {
@@ -19,7 +19,7 @@ export interface StructuredBlock extends TitledItem {
 
 export interface CommandInputValidation {
   readonly message: string;
-  readonly tone?: ComponentValidationTone;
+  readonly level?: ValidationLevel;
 }
 
 export type CommandInputDisplay = 'compact' | 'expanded';

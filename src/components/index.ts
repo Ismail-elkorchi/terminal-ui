@@ -157,16 +157,12 @@ export {
   isProcessStatus,
   isRecordStatus,
   isComponentStatus,
-  isComponentTone,
-  isValidationTone,
+  isValidationLevel,
   normalizeNotificationTone,
   normalizeProcessStatus,
   normalizeRecordStatus,
   normalizeComponentStatus,
-  normalizeComponentTone,
   optionalProcessStatus,
   optionalRecordStatus,
-  optionalValidationTone,
-  recordStatusFromTone,
-  statusFromTone
+  optionalValidationLevel
 } from '../ui-model/status.ts';

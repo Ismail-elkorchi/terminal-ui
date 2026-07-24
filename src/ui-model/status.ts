@@ -3,22 +3,8 @@ import type {
   ProcessStatus,
   RecordStatus,
   ComponentStatus,
-  ComponentTone,
-  ComponentValidationTone
+  ValidationLevel
 } from './contracts.ts';
-
-const componentTones = [
-  'default',
-  'primary',
-  'secondary',
-  'info',
-  'success',
-  'warning',
-  'error',
-  'destructive',
-  'progress',
-  'muted'
-] as const satisfies readonly ComponentTone[];
 
 const componentStatuses = [
   'idle',
@@ -50,11 +36,11 @@ const recordStatuses = [
   'skipped'
 ] as const satisfies readonly RecordStatus[];
 
-const validationTones = [
+const validationLevels = [
   'info',
   'warning',
   'error'
-] as const satisfies readonly ComponentValidationTone[];
+] as const satisfies readonly ValidationLevel[];
 
 const notificationTones = [
   'info',
@@ -63,14 +49,6 @@ const notificationTones = [
   'error',
   'progress'
 ] as const satisfies readonly NotificationTone[];
-
-export function isComponentTone(value: unknown): value is ComponentTone {
-  return includesValue(componentTones, value);
-}
-
-export function normalizeComponentTone(value: unknown, fallback: ComponentTone = 'default'): ComponentTone {
-  return isComponentTone(value) ? value : fallback;
-}
 
 export function isComponentStatus(value: unknown): value is ComponentStatus {
   return includesValue(componentStatuses, value);
@@ -110,12 +88,12 @@ export function normalizeRecordStatus(
   return isRecordStatus(value) ? value : fallback;
 }
 
-export function isValidationTone(value: unknown): value is ComponentValidationTone {
-  return includesValue(validationTones, value);
+export function isValidationLevel(value: unknown): value is ValidationLevel {
+  return includesValue(validationLevels, value);
 }
 
-export function optionalValidationTone(value: unknown): ComponentValidationTone | undefined {
-  return isValidationTone(value) ? value : undefined;
+export function optionalValidationLevel(value: unknown): ValidationLevel | undefined {
+  return isValidationLevel(value) ? value : undefined;
 }
 
 export function isNotificationTone(value: unknown): value is NotificationTone {
@@ -124,51 +102,6 @@ export function isNotificationTone(value: unknown): value is NotificationTone {
 
 export function normalizeNotificationTone(value: unknown, fallback: NotificationTone = 'info'): NotificationTone {
   return isNotificationTone(value) ? value : fallback;
-}
-
-export function statusFromTone(tone: ComponentTone, fallback: ComponentStatus = 'info'): ComponentStatus {
-  switch (tone) {
-    case 'success':
-      return 'success';
-    case 'warning':
-      return 'warning';
-    case 'error':
-    case 'destructive':
-      return 'error';
-    case 'progress':
-      return 'running';
-    case 'info':
-      return 'info';
-    case 'default':
-    case 'primary':
-    case 'secondary':
-    case 'muted':
-      return fallback;
-  }
-}
-
-export function recordStatusFromTone(
-  tone: ComponentTone,
-  fallback: RecordStatus = 'info'
-): RecordStatus {
-  switch (tone) {
-    case 'success':
-      return 'success';
-    case 'warning':
-      return 'warning';
-    case 'error':
-    case 'destructive':
-      return 'error';
-    case 'progress':
-      return 'running';
-    case 'info':
-      return 'info';
-    case 'default':
-    case 'primary':
-    case 'secondary':
-    case 'muted':
-      return fallback;
-  }
 }
 
 export function baseStatusForRecordStatus(status: RecordStatus): ComponentStatus {

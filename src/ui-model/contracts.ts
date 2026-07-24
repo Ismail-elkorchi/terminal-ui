@@ -1,17 +1,4 @@
-export type ComponentTone =
-  | 'default'
-  | 'primary'
-  | 'secondary'
-  | 'info'
-  | 'success'
-  | 'warning'
-  | 'error'
-  | 'destructive'
-  | 'progress'
-  | 'muted';
-
-export type ComponentActionTone = Extract<ComponentTone, 'default' | 'destructive'>;
-export type ComponentValidationTone = Extract<ComponentTone, 'info' | 'warning' | 'error'>;
+export type ValidationLevel = 'info' | 'warning' | 'error';
 export type ComponentDensity = 'compact' | 'regular';
 
 export type ComponentStatus =

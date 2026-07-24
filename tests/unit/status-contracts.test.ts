@@ -5,13 +5,11 @@ import {
   baseStatusForRecordStatus,
   isProcessStatus,
   isRecordStatus,
-  isValidationTone,
+  isValidationLevel,
   normalizeNotificationTone,
   normalizeProcessStatus,
   optionalRecordStatus,
-  optionalValidationTone,
-  recordStatusFromTone,
-  statusFromTone
+  optionalValidationLevel
 } from '../../dist/components/index.js';
 
 void test('process status normalizers keep process semantics distinct from record status', () => {
@@ -29,19 +27,16 @@ void test('record status normalizers accept event states without accepting idle'
   assert.equal(optionalRecordStatus('idle'), undefined);
 });
 
-void test('validation tone normalizer keeps validation tones narrow', () => {
-  assert.equal(isValidationTone('warning'), true);
-  assert.equal(isValidationTone('success'), false);
-  assert.equal(optionalValidationTone('error'), 'error');
-  assert.equal(optionalValidationTone('progress'), undefined);
+void test('validation level normalizer keeps validation levels narrow', () => {
+  assert.equal(isValidationLevel('warning'), true);
+  assert.equal(isValidationLevel('success'), false);
+  assert.equal(optionalValidationLevel('error'), 'error');
+  assert.equal(optionalValidationLevel('progress'), undefined);
 });
 
-void test('notification tones normalize before mapping to status', () => {
+void test('notification tones normalize within the notification contract', () => {
   assert.equal(normalizeNotificationTone('progress'), 'progress');
   assert.equal(normalizeNotificationTone('default'), 'info');
-  assert.equal(statusFromTone('progress'), 'running');
-  assert.equal(recordStatusFromTone('progress'), 'running');
-  assert.equal(recordStatusFromTone('destructive'), 'error');
 });
 
 void test('record status base mapping preserves shared status styling without flattening public status', () => {

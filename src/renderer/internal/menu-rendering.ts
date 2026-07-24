@@ -1,7 +1,7 @@
 import type { AccessibleNode } from '../../accessibility/index.ts';
 import { sanitizeTerminalText } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
-import type { ComponentActionTone } from '../../ui-model/contracts.ts';
+import type { MenuActionTone } from '../../ui-model/menu.ts';
 import { isInlineContent } from '../../visual/inline-content.ts';
 import type { RenderBlock } from '../../visual/render.ts';
 import { terminalTextWidth } from '../../text/index.ts';
@@ -30,7 +30,7 @@ export interface VisibleMenuItem extends MenuVisualItem {
   readonly label: string;
   readonly disabled?: boolean;
   readonly checked?: boolean;
-  readonly tone?: ComponentActionTone;
+  readonly tone?: MenuActionTone;
   readonly description?: string;
   readonly shortcut?: string;
   readonly depth: number;

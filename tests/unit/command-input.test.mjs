@@ -169,7 +169,7 @@ test('commandInput renders completion preview validation footer match styles and
         { value: 'a🙂bc', label: 'a🙂bc', description: 'first match' }
       ], selectedSuggestion: 0 },
       completionPreview: 'bc',
-      validation: { message: 'Choose a value', tone: 'warning' },
+      validation: { message: 'Choose a value', level: 'warning' },
       footer: 'enter accepts',
       display: 'expanded'
     }),
@@ -316,7 +316,7 @@ test('commandInput exposes prompt value selection suggestion validation and foot
         { value: 'open-file', label: 'Open file', description: 'recent' }
       ], selectedSuggestion: 0 },
       completionPreview: 's',
-      validation: { tone: 'warning', message: 'Needs target' },
+      validation: { level: 'warning', message: 'Needs target' },
       footer: 'Enter run',
       display: 'expanded'
     }),

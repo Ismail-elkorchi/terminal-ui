@@ -1,5 +1,5 @@
 import type { ThemeColorToken } from '../visual/color.ts';
-import type { ComponentStatus, ComponentTone, TitledItem } from './contracts.ts';
+import type { ComponentStatus, TitledItem } from './contracts.ts';
 import type { InlineContent } from '../visual/inline-content.ts';
 
 export type StatusBarSection = 'leading' | 'center' | 'trailing';
@@ -30,7 +30,7 @@ export interface NotificationItem extends TitledItem {
   readonly dismissible?: boolean;
 }
 
-export type NotificationTone = Extract<ComponentTone, 'info' | 'success' | 'warning' | 'error' | 'progress'>;
+export type NotificationTone = 'info' | 'success' | 'warning' | 'error' | 'progress';
 export type NotificationPlacement = 'top-right' | 'bottom-right' | 'centered-stack';
 export type ProgressBarDisplay = 'bar' | 'bar+percent' | 'bar+value' | 'bar+value+percent';
 export type ProgressBarLabelPosition = 'start' | 'end' | 'none';

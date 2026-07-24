@@ -90,6 +90,7 @@ export type {
   DropdownMenuPresentation,
   MenuAction,
   MenuActionItem,
+  MenuActionTone,
   MenuBarAction,
   MenuBarPresentation,
   MenuCheckItem,

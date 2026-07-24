@@ -3,10 +3,9 @@ import { resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-no
 import type { TerminalTheme } from '../../theme/index.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
-import type { ComponentTone } from '../../ui-model/contracts.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 
-export type CommandSurfaceTone = Extract<ComponentTone, 'info' | 'warning' | 'error' | 'success' | 'muted'>;
+export type CommandSurfaceTone = 'info' | 'warning' | 'error' | 'success' | 'muted';
 
 export function commandStatusSpans(
   renderNode: RenderNode,
