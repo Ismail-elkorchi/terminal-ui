@@ -146,7 +146,7 @@ export function createTuiRuntime<TState, TMessage>(
         recordDiagnostic(diagnostic('TUI_RUNTIME_TASK_FAILED', 'TUI wheel input flush failed.', {
           target: options.app.id,
           cause,
-          data: { owner: 'wheel_flush' }
+          data: { taskName: 'wheel_input_flush' }
         }));
       }
     }
@@ -159,7 +159,7 @@ export function createTuiRuntime<TState, TMessage>(
         recordDiagnostic(diagnostic('TUI_RUNTIME_TASK_FAILED', 'TUI pointer motion dispatch failed.', {
           target: options.app.id,
           cause,
-          data: { owner: 'pointer_motion' }
+          data: { taskName: 'pointer_motion_dispatch' }
         }));
       }
     }
