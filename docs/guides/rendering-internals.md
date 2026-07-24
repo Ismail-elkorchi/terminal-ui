@@ -17,10 +17,12 @@ The rendering path is:
    `renderDiffAnsi()` serialize the chosen frame representation.
 
 The renderer owns its private node model and implementation kernel.
-Component and layout factories compile authored options through a shared
-private authoring boundary; renderer implementation modules never import those
-factories or the TUI runtime. The `tui` source directory owns application and
-terminal-session lifecycle rather than frame, layout, or widget rendering.
+Component and layout factories construct private render nodes through shared
+authoring helpers and convert callbacks into internal input handlers; renderer
+implementation modules never import those factories or the TUI runtime. The
+renderer resolves each opaque element to its private node before measuring,
+arranging, and rendering it. The `tui` source directory owns application and
+terminal-session lifecycle rather than frame, layout, or render-node rendering.
 
 The renderer package has two deliberate public layers. Application and test
 code uses `renderElementFrame()`, frame/diff

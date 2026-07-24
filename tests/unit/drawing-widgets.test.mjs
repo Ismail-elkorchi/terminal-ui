@@ -192,7 +192,7 @@ test('surface variants draw semantic background border and shadow without owning
   assert.deepEqual(shadowCell?.style?.fg, { kind: 'theme', token: 'surface.shadow' });
 });
 
-test('surface titles compile authored inline styles with renderer-owned source metadata', () => {
+test('surface titles preserve authored inline styles with renderer-owned source metadata', () => {
   const frame = renderElementFrame(surface(text('body', { id: 'body' }), {
     id: 'metric-panel',
     title: [

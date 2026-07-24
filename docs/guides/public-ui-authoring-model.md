@@ -86,8 +86,9 @@ Public event props describe user intent and return caller-owned messages:
 | `keys` | Component-local key bindings not covered by semantic events. |
 
 Handlers may return `undefined` when a conditional interaction is declined.
-Internally, factories compile these events into key maps, input maps, focus
-targets, and hit targets. Those mechanisms are not public component state.
+Internally, factories convert authored callbacks into key maps and input maps,
+then the renderer derives focus targets and hit targets from the private render
+node. Those mechanisms are not public component state.
 
 ## Entry Points
 
@@ -131,7 +132,7 @@ The physical dependency direction is enforced by package tests:
 ```text
 foundation and neutral contracts
   -> private renderer model
-  -> shared authoring compiler
+  -> shared private node construction and callback adaptation
   -> component and layout factories
 
 foundation, neutral contracts, behavior, and private renderer model
@@ -142,8 +143,8 @@ foundation, neutral contracts, behavior, and private renderer model
 
 Component/layout authoring and renderer implementation are sibling consumers
 of the private renderer model. The renderer implementation does not import
-component factories, layout factories, the authoring compiler, or the TUI
-runtime. The TUI directory owns application/runtime lifecycle only.
+component factories, layout factories, the private authoring helpers, or the
+TUI runtime. The TUI directory owns application/runtime lifecycle only.
 
 ## Canvas And Custom Rendering
 
