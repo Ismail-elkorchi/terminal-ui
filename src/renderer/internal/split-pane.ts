@@ -28,11 +28,11 @@ export function renderSplitPaneDividers<TMessage>(
     const active = dividerIndex === selected;
     const style = splitPaneDividerStyle(renderNode, active, focused);
     const source = renderNodeFrameSource(renderNode, {
-      family: 'layout',
-      role: 'separator',
-      part: active ? 'divider.active' : 'divider',
+      rendererFamily: 'layout',
+      cellRole: 'separator',
+      partName: active ? 'divider.active' : 'divider',
       itemIndex: dividerIndex,
-      label: `divider.${String(dividerIndex)}`
+      description: `divider.${String(dividerIndex)}`
     });
     if (renderNode.props.direction === 'horizontal') {
       const glyph = oneCellGlyph(theme.tokens.symbols.borderSingle.vertical, '|', {

@@ -329,7 +329,7 @@ function scrollbackRecordRowProjection(
       sourceItemIndex: record.itemIndex,
       ...timestampForItem(record.item),
       ...metadataForRecord(projected.metadataEntries),
-      matched: renderLine.spans.some((segment) => segment.source?.partKind === 'match'),
+      matched: renderLine.spans.some((segment) => segment.source?.partType === 'match'),
       ...(selection === undefined ? {} : { selected: true }),
       ...(positionProjection.positions.length === 0
         ? {}
@@ -556,8 +556,8 @@ function bodyPositionsForLine(
 }
 
 function isBodyTextSpan(currentSpan: RenderSpan): boolean {
-  const part = currentSpan.source?.part;
-  return currentSpan.source?.family === 'scrollback'
+  const part = currentSpan.source?.partName;
+  return currentSpan.source?.rendererFamily === 'scrollback'
     && (part === 'body' || part?.startsWith('body.') === true);
 }
 
@@ -765,7 +765,7 @@ function bodySpans(
 function sourceOptionsForItem(
   item: ScrollbackItem,
   itemIndex: number,
-  state?: import('../../visual/source.ts').FrameCellSource['state']
+  state?: import('../../visual/source.ts').FrameCellSource['interactionState']
 ) {
   return {
     itemId: item.id,

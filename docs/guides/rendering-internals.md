@@ -51,11 +51,11 @@ changes shape.
 
 ## Source Metadata
 
-`FrameCellSource` is the renderer-owned provenance contract for visible
-cells. It identifies the owning component or renderer (`ownerId`, `ownerKind`),
-the component family, semantic role, visual part, optional item identity or
-index, visual state, and a human-readable label when that information is
-available.
+`FrameCellSource` is the renderer-produced provenance contract for visible
+cells. It identifies the producing element (`elementId`, `elementKind`), the
+renderer family, cell role, visual part name and type, optional item identity or
+zero-based item index, interaction state, and a human-readable description when
+that information is available.
 
 Source metadata is JSON-serializable, sanitized before it enters a frame,
 included in frame equality and fingerprinting, and exposed in frame schemas.
@@ -130,8 +130,8 @@ terminal glyph choices for borders, progress, status, and scrollbars.
 Components may accept typed root, part, and visual-state styles through
 `meta.styles`; each component contract defines its available part names.
 Scrollbar renderers use one shared grammar: track cells, thumb cells,
-axis, owner component, and visual state are source-marked in the frame, while the
-theme supplies only the generic track/thumb symbols and tokens.
+axis, producing element, and interaction state are source-marked in the frame,
+while the theme supplies only the generic track/thumb symbols and tokens.
 
 Layout assigns bounds before rendering. Focus targets and hit targets are
 renderer-owned data projected from those bounds. The runtime routes keyboard

@@ -69,7 +69,7 @@ void test('window charts keep keyboard selection inside the projected viewport',
     selected: { series: 'cpu', point: 4 }
   }), { columns: 3, rows: 3 });
 
-  assert.equal(frame.cells.some((cell) => cell.source?.label === 'selection.cpu.4'), true);
+  assert.equal(frame.cells.some((cell) => cell.source?.description === 'selection.cpu.4'), true);
 });
 
 void test('heatmap behavior navigates selectable cells by row and page', () => {

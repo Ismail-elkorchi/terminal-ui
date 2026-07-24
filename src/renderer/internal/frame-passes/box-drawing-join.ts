@@ -53,7 +53,7 @@ function neighborCell(
 function isMergeableCell(cell: FrameCell): boolean {
   return cell.continuation !== true
     && cell.width === 1
-    && (cell.source?.role === 'border' || cell.source?.role === 'separator');
+    && (cell.source?.cellRole === 'border' || cell.source?.cellRole === 'separator');
 }
 
 function shapeForGlyph(glyph: string): GlyphShape | undefined {

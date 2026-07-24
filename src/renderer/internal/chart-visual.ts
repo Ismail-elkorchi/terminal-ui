@@ -95,11 +95,11 @@ export function chartSource(
   label: string
 ): FrameCellSource {
   return renderNodeFrameSource(renderNode, {
-    family: kind,
-    role: roleForVisual(visual),
-    part: label,
-    partKind: visual,
-    label
+    rendererFamily: kind,
+    cellRole: roleForVisual(visual),
+    partName: label,
+    partType: visual,
+    description: label
   });
 }
 
@@ -199,7 +199,7 @@ function cleanStateText(value: unknown, fallback: string): string {
   return cleaned.length === 0 ? fallback : cleaned;
 }
 
-function roleForVisual(visual: ChartVisualKind): NonNullable<FrameCellSource['role']> {
+function roleForVisual(visual: ChartVisualKind): NonNullable<FrameCellSource['cellRole']> {
   switch (visual) {
     case 'separator':
       return 'separator';

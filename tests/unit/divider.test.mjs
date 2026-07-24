@@ -20,14 +20,14 @@ test('divider renders labelled horizontal separators with semantic source roles'
         }
     }
 }), { columns: 24, rows: 1 });
-  const separatorCells = frame.cells.filter((cell) => cell.source?.role === 'separator');
-  const labelCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'divider' && cell.source.part === 'label');
+  const separatorCells = frame.cells.filter((cell) => cell.source?.cellRole === 'separator');
+  const labelCells = frame.cells.filter((cell) => cell.source?.elementKind === 'divider' && cell.source.partName === 'label');
 
   assert.equal(renderFramePlain(frame), '┄┄┄┄┄┄ Operations ┄┄┄┄┄┄');
   assert.equal(separatorCells.length > 0, true);
-  assert.equal(separatorCells.every((cell) => cell.source?.ownerKind === 'divider'), true);
-  assert.equal(separatorCells.some((cell) => cell.source?.part === 'separator.before'), true);
-  assert.equal(separatorCells.some((cell) => cell.source?.part === 'separator.after'), true);
+  assert.equal(separatorCells.every((cell) => cell.source?.elementKind === 'divider'), true);
+  assert.equal(separatorCells.some((cell) => cell.source?.partName === 'separator.before'), true);
+  assert.equal(separatorCells.some((cell) => cell.source?.partName === 'separator.after'), true);
   assert.equal(labelCells.map((cell) => cell.text).join(''), ' Operations ');
   assert.deepEqual(separatorCells[0]?.style?.fg, { kind: 'theme', token: 'surface.border' });
   assert.deepEqual(labelCells[1]?.style?.fg, { kind: 'theme', token: 'accent.primary' });
@@ -48,7 +48,7 @@ test('divider renders vertical and empty separators without layout state', () =>
 
   assert.equal(renderFramePlain(vertical), '┊\n┊\n┊');
   assert.equal(renderFramePlain(empty), '');
-  assert.equal(empty.cells.every((cell) => cell.source?.role === 'separator'), true);
+  assert.equal(empty.cells.every((cell) => cell.source?.cellRole === 'separator'), true);
 });
 
 test('divider uses theme separator glyphs for single-line no-color output', () => {

@@ -84,7 +84,7 @@ test('transcript validation rejects malformed input-event variants', () => {
 test('transcript validation rejects malformed frame and render-diff payloads', () => {
   const snapshot = createTerminalHarness().snapshot();
   const validFrame = {
-    schemaVersion: 'terminal-ui.tui-frame.v1',
+    schemaVersion: 'terminal-ui.tui-frame.v2',
     width: 2,
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
@@ -92,7 +92,7 @@ test('transcript validation rejects malformed frame and render-diff payloads', (
     accessibility: snapshot
   };
   const validDiff = {
-    schemaVersion: 'terminal-ui.render-diff.v2',
+    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 2,
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
@@ -152,7 +152,7 @@ test('transcript validation measures writes with the diff width profile', () => 
   const snapshot = createTerminalHarness().snapshot();
   const widthProfile = { emoji: 'narrow', ambiguous: 'narrow' };
   const frame = {
-    schemaVersion: 'terminal-ui.tui-frame.v1',
+    schemaVersion: 'terminal-ui.tui-frame.v2',
     width: 1,
     height: 1,
     widthProfile,
@@ -160,7 +160,7 @@ test('transcript validation measures writes with the diff width profile', () => 
     accessibility: snapshot
   };
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v2',
+    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 1,
     height: 1,
     widthProfile,
@@ -185,7 +185,7 @@ test('transcript validation requires a replayable diff chain matching bundled fr
   const snapshot = createTerminalHarness().snapshot();
   const widthProfile = { emoji: 'wide', ambiguous: 'narrow' };
   const frame = (text) => ({
-    schemaVersion: 'terminal-ui.tui-frame.v1',
+    schemaVersion: 'terminal-ui.tui-frame.v2',
     width: 1,
     height: 1,
     widthProfile,
@@ -193,7 +193,7 @@ test('transcript validation requires a replayable diff chain matching bundled fr
     accessibility: snapshot
   });
   const diff = (text, fullRewrite) => ({
-    schemaVersion: 'terminal-ui.render-diff.v2',
+    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 1,
     height: 1,
     widthProfile,
@@ -281,7 +281,7 @@ test('transcript validation rejects malformed structured restore results', () =>
 
 function transcript(overrides = {}) {
   return {
-    schemaVersion: 'terminal-ui.interaction-transcript.v3',
+    schemaVersion: 'terminal-ui.interaction-transcript.v4',
     id: '',
     source: 'test',
     steps: [],

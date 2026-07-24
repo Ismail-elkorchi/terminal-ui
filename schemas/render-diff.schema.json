@@ -4,7 +4,7 @@
   "type": "object",
   "required": ["schemaVersion", "width", "height", "widthProfile", "operations", "fullRewrite"],
   "properties": {
-    "schemaVersion": { "const": "terminal-ui.render-diff.v2" },
+    "schemaVersion": { "const": "terminal-ui.render-diff.v3" },
     "width": { "type": "integer", "minimum": 0 },
     "height": { "type": "integer", "minimum": 0 },
     "widthProfile": { "$ref": "#/$defs/textWidthProfile" },
@@ -149,16 +149,16 @@
     "frameCellSource": {
       "type": "object",
       "properties": {
-        "ownerId": { "type": "string" },
-        "ownerKind": { "type": "string" },
-        "family": { "type": "string" },
-        "role": { "type": "string" },
-        "part": { "type": "string" },
-        "partKind": { "type": "string" },
+        "elementId": { "type": "string" },
+        "elementKind": { "type": "string" },
+        "rendererFamily": { "type": "string" },
+        "cellRole": { "enum": ["text", "border", "separator", "scrollbar", "cursor", "decoration", "chart", "custom"] },
+        "partName": { "type": "string" },
+        "partType": { "type": "string" },
         "itemId": { "type": "string" },
         "itemIndex": { "type": "integer", "minimum": 0 },
-        "state": { "enum": ["focused", "hovered", "pressed", "selected", "disabled", "active"] },
-        "label": { "type": "string" }
+        "interactionState": { "enum": ["focused", "hovered", "pressed", "selected", "disabled", "active"] },
+        "description": { "type": "string" }
       },
       "additionalProperties": false
     }

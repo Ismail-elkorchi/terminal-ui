@@ -64,7 +64,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   assert.equal(layout.children[0]?.children[1]?.children[1]?.id, 'action-field');
 
   const frame = renderElementFrame(initialWidget, terminalSize);
-  assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v1');
+  assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v2');
   assert.equal(frame.width, 30);
   assert.equal(frame.height, 6);
   assert.equal(frame.accessibility.source, 'renderer');
@@ -80,7 +80,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
     focusPath: frame.focusPath
   });
   const diff = diffFrames(frame, submittedFrame);
-  assert.equal(diff.schemaVersion, 'terminal-ui.render-diff.v2');
+  assert.equal(diff.schemaVersion, 'terminal-ui.render-diff.v3');
   assert.equal(diff.fullRewrite, false);
   assert.ok(diff.operations.every((operation) => operation.kind === 'write' || operation.kind === 'clearRect'));
   assert.ok(diff.operations.some((operation) =>
@@ -93,7 +93,7 @@ test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime
   );
   assert.equal(submittedWrite?.kind, 'write');
   assert.equal(submittedWrite?.spans[0]?.style?.inverse, true);
-  assert.equal(submittedWrite?.spans[0]?.source?.ownerId, 'action-field');
+  assert.equal(submittedWrite?.spans[0]?.source?.elementId, 'action-field');
   assert.ok(renderDiffAnsi(diff).includes('\u001B['));
 
   const app = defineTui({

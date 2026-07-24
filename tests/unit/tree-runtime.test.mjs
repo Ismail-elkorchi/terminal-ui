@@ -116,9 +116,9 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
   assert.match(output, /API Layer/u);
   assert.doesNotMatch(output, /Terminal UI/u);
   assert.equal(disabledCell?.style?.fg?.token, 'text.disabled');
-  assert.equal(frame.cells.find((cell) => cell.text === '▣')?.source?.label, 'node.root.icon');
-  assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.label, 'node.api.label');
-  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.label, 'node.api.label');
+  assert.equal(frame.cells.find((cell) => cell.text === '▣')?.source?.description, 'node.root.icon');
+  assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.description, 'node.api.label');
+  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.description, 'node.api.label');
   assert.equal(frame.accessibility.root.children?.[1]?.selected, true);
   assert.equal(frame.accessibility.root.children?.[1]?.disabled, true);
   assert.equal(frame.accessibility.root.children?.[1]?.description, 'Server request boundary');
@@ -152,6 +152,6 @@ test('tree renders lazy placeholders and clips tiny viewports safely', () => {
   const output = renderFramePlain(frame);
   assert.match(output, /Very long…/u);
   assert.match(output, /Loading/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.label, 'node.root:lazy.label');
+  assert.equal(frame.cells.find((cell) => cell.text === 'L')?.source?.description, 'node.root:lazy.label');
   assert.equal(frame.accessibility.root.children?.[1]?.disabled, true);
 });

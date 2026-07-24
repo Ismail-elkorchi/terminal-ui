@@ -7,7 +7,7 @@ import { normalizeProcessStatus, normalizeStatusBarStatus } from '../../ui-model
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import { block, clipRenderSpans, line, measureRenderSpans, span } from '../../visual/render.ts';
 import type { RenderBlock, RenderSpan, TerminalStyle } from '../../visual/render.ts';
-import type { FrameSemanticRole } from './frame-passes/index.ts';
+import type { FrameCellRole } from './frame-passes/index.ts';
 import { statusMarker, statusStyle } from './status-visual.ts';
 import { numberProp, stringify } from './render-node-props.ts';
 import { mergeStyles, renderNodeStyle } from './render-node-style.ts';
@@ -38,9 +38,9 @@ export interface FeedbackSpanOptions {
   readonly kind: FeedbackVisualKind;
   readonly label: string;
   readonly style?: TerminalStyle | undefined;
-  readonly role?: FrameSemanticRole | undefined;
+  readonly role?: FrameCellRole | undefined;
   readonly sourceId?: string | undefined;
-  readonly state?: import('../../visual/source.ts').FrameCellSource['state'] | undefined;
+  readonly state?: import('../../visual/source.ts').FrameCellSource['interactionState'] | undefined;
 }
 
 export function statusBarBlock(
@@ -155,12 +155,12 @@ function statusInlineSpans(
     theme,
     ...(baseStyle === undefined ? {} : { baseStyle }),
     source: (_segment, index) => renderNodeFrameSource(renderNode, {
-      family: 'feedback',
-      role: 'text',
-      part: `${part}.${String(index)}`,
-      partKind: stylePart,
+      rendererFamily: 'feedback',
+      cellRole: 'text',
+      partName: `${part}.${String(index)}`,
+      partType: stylePart,
       itemId,
-      label: `${part}.${String(index)}`
+      description: `${part}.${String(index)}`
     })
   });
 }
@@ -566,13 +566,13 @@ export function feedbackSpan(
   return span(text, {
     ...(options.style === undefined ? {} : { style: options.style }),
     source: renderNodeFrameSource(renderNode, {
-      family: 'feedback',
-      role: options.role ?? 'text',
-      part: options.label,
-      partKind: options.kind,
+      rendererFamily: 'feedback',
+      cellRole: options.role ?? 'text',
+      partName: options.label,
+      partType: options.kind,
       ...(options.sourceId === undefined ? {} : { itemId: options.sourceId }),
-      ...(options.state === undefined ? {} : { state: options.state }),
-      label: options.label
+      ...(options.state === undefined ? {} : { interactionState: options.state }),
+      description: options.label
     })
   });
 }

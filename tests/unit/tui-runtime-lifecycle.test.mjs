@@ -788,8 +788,8 @@ test('runTui processes host input chunks until the app exits', async () => {
   assert.equal(exit.status, 'completed');
   assert.deepEqual(exit.state, { submitted: true });
   assert.equal(harness.frames().length, 2);
-  assert.equal(harness.frames()[0].schemaVersion, 'terminal-ui.tui-frame.v1');
-  assert.equal(harness.diffs()[0].schemaVersion, 'terminal-ui.render-diff.v2');
+  assert.equal(harness.frames()[0].schemaVersion, 'terminal-ui.tui-frame.v2');
+  assert.equal(harness.diffs()[0].schemaVersion, 'terminal-ui.render-diff.v3');
   assert.equal(harness.diffs()[0].fullRewrite, true);
   assert.equal(harness.diffs()[1].fullRewrite, false);
   assert.match(renderFramePlain(harness.frames()[1]), /submitted/);

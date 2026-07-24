@@ -6,12 +6,12 @@ import { schemaArtifacts } from '../../dist/schemas/index.js';
 
 const requiredArtifacts = new Map([
   ['./accessible-snapshot.schema.json', 'terminal-ui.accessible-snapshot.v1'],
-  ['./interaction-transcript.schema.json', 'terminal-ui.interaction-transcript.v3'],
+  ['./interaction-transcript.schema.json', 'terminal-ui.interaction-transcript.v4'],
   ['./terminal-capabilities.schema.json', 'terminal-ui.terminal-capabilities.v1'],
   ['./terminal-diagnostic.schema.json', 'terminal-ui.terminal-diagnostic.v1'],
   ['./prompt-result.schema.json', 'terminal-ui.prompt-result.v1'],
-  ['./tui-frame.schema.json', 'terminal-ui.tui-frame.v1'],
-  ['./render-diff.schema.json', 'terminal-ui.render-diff.v2']
+  ['./tui-frame.schema.json', 'terminal-ui.tui-frame.v2'],
+  ['./render-diff.schema.json', 'terminal-ui.render-diff.v3']
 ]);
 
 test('schema catalog exposes every product machine-readable artifact', async () => {

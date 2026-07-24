@@ -324,20 +324,20 @@ test('commandInput exposes prompt value selection suggestion validation and foot
     { focusPath: ['cmd-source'] }
   );
 
-  assert.equal(frame.cells.find((cell) => cell.text === ':')?.source?.label, 'prompt');
-  assert.equal(frame.cells.find((cell) => cell.text === ':')?.source?.partKind, 'prompt');
-  assert.equal(frame.cells.find((cell) => cell.text === 'o')?.source?.label, 'value');
-  assert.equal(frame.cells.find((cell) => cell.text === 'o')?.source?.partKind, 'value');
-  assert.equal(frame.cells.find((cell) => cell.text === 'f')?.source?.label, 'selection');
-  assert.equal(frame.cells.find((cell) => cell.text === 'f')?.source?.partKind, 'selection');
-  assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === 's')?.source?.label, 'completion');
-  assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === 's')?.source?.partKind, 'completion');
-  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.label, 'validation');
-  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.partKind, 'validation');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'suggestion.0.marker')?.text, '›');
-  assert.equal(frame.cells.find((cell) => cell.text === 'O')?.source?.label, 'suggestion.0.match');
-  assert.equal(frame.cells.find((cell) => cell.text === 'O')?.source?.partKind, 'match');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'suggestion.0.description')?.text, ' ');
-  assert.equal(frame.cells.find((cell) => cell.text === 'E')?.source?.label, 'footer');
-  assert.equal(frame.cells.find((cell) => cell.text === 'E')?.source?.partKind, 'footer');
+  assert.equal(frame.cells.find((cell) => cell.text === ':')?.source?.description, 'prompt');
+  assert.equal(frame.cells.find((cell) => cell.text === ':')?.source?.partType, 'prompt');
+  assert.equal(frame.cells.find((cell) => cell.text === 'o')?.source?.description, 'value');
+  assert.equal(frame.cells.find((cell) => cell.text === 'o')?.source?.partType, 'value');
+  assert.equal(frame.cells.find((cell) => cell.text === 'f')?.source?.description, 'selection');
+  assert.equal(frame.cells.find((cell) => cell.text === 'f')?.source?.partType, 'selection');
+  assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === 's')?.source?.description, 'completion');
+  assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === 's')?.source?.partType, 'completion');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.description, 'validation');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.partType, 'validation');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'suggestion.0.marker')?.text, '›');
+  assert.equal(frame.cells.find((cell) => cell.text === 'O')?.source?.description, 'suggestion.0.match');
+  assert.equal(frame.cells.find((cell) => cell.text === 'O')?.source?.partType, 'match');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'suggestion.0.description')?.text, ' ');
+  assert.equal(frame.cells.find((cell) => cell.text === 'E')?.source?.description, 'footer');
+  assert.equal(frame.cells.find((cell) => cell.text === 'E')?.source?.partType, 'footer');
 });

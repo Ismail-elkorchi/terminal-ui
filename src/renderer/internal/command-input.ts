@@ -114,7 +114,7 @@ export function commandInputCursor(renderNode: CommandInputNode, bounds: Rect, w
     row: bounds.row,
     column: bounds.column + Math.max(0, Math.min(bounds.width - 1, model.promptCells + model.cursorColumn)),
     style: inputCursorStyle(),
-    source: commandSource(renderNode, 'cursor', { role: 'cursor', partKind: 'cursor' })
+    source: commandSource(renderNode, 'cursor', { role: 'cursor', partType: 'cursor' })
   };
 }
 
@@ -164,9 +164,9 @@ function inputLine(renderNode: CommandInputNode, width: number, widthProfile: Te
   const placeholder = placeholderText(renderNode);
   const completion = completionText(renderNode);
   const spans: RenderSpan[] = [
-    styledSpan(model.prompt, commandPromptStyle(renderNode), commandSource(renderNode, 'prompt', { role: 'decoration', partKind: 'prompt' })),
+    styledSpan(model.prompt, commandPromptStyle(renderNode), commandSource(renderNode, 'prompt', { role: 'decoration', partType: 'prompt' })),
     ...(model.value.length === 0 && placeholder.length > 0
-      ? clipRenderSpans([styledSpan(placeholder, renderNodeStyle(renderNode, 'placeholder'), commandSource(renderNode, 'placeholder', { partKind: 'placeholder' }))], model.contentWidth, { widthProfile })
+      ? clipRenderSpans([styledSpan(placeholder, renderNodeStyle(renderNode, 'placeholder'), commandSource(renderNode, 'placeholder', { partType: 'placeholder' }))], model.contentWidth, { widthProfile })
       : valueWindowSpans(renderNode, model, widthProfile))
   ];
   const visibleCells = measureRenderSpans(spans, { widthProfile }) - model.promptCells;
@@ -176,7 +176,7 @@ function inputLine(renderNode: CommandInputNode, width: number, widthProfile: Te
       styledSpan(completion, resolveRenderNodeStyle(renderNode, {
         part: 'completion',
         base: themeStyle('input.placeholder', { dim: true })
-      }), commandSource(renderNode, 'completion', { partKind: 'completion' }))
+      }), commandSource(renderNode, 'completion', { partType: 'completion' }))
     ], completionWidth, { widthProfile }));
   }
   const historyIndex = numberProp(renderNode, 'historyIndex');
@@ -184,7 +184,7 @@ function inputLine(renderNode: CommandInputNode, width: number, widthProfile: Te
     spans.push(styledSpan(
       `  #${String(Math.max(0, Math.floor(historyIndex)) + 1)}`,
       renderNodeStyle(renderNode, 'placeholder'),
-      commandSource(renderNode, 'history', { partKind: 'history' })
+      commandSource(renderNode, 'history', { partType: 'history' })
     ));
   }
   return {
@@ -228,8 +228,8 @@ function commandInputModel(renderNode: CommandInputNode, width: number, widthPro
 function validationLine(renderNode: CommandInputNode, validation: CommandInputValidation, theme: TerminalTheme): RenderLine {
   return {
     spans: commandStatusSpans(renderNode, theme, validation.level ?? 'error', validation.message, {
-      markerSource: commandSource(renderNode, 'validation.marker', { role: 'decoration', partKind: 'marker' }),
-      textSource: commandSource(renderNode, 'validation', { partKind: 'validation' })
+      markerSource: commandSource(renderNode, 'validation.marker', { role: 'decoration', partType: 'marker' }),
+      textSource: commandSource(renderNode, 'validation', { partType: 'validation' })
     })
   };
 }
@@ -276,8 +276,8 @@ function commandSuggestionTargetId(renderNode: CommandInputNode, index: number):
 function mutedLine(renderNode: CommandInputNode, text: string, theme: TerminalTheme): RenderLine {
   return {
     spans: commandStatusSpans(renderNode, theme, 'muted', text, {
-      markerSource: commandSource(renderNode, 'footer.marker', { role: 'decoration', partKind: 'marker' }),
-      textSource: commandSource(renderNode, 'footer', { partKind: 'footer' })
+      markerSource: commandSource(renderNode, 'footer.marker', { role: 'decoration', partType: 'marker' }),
+      textSource: commandSource(renderNode, 'footer', { partType: 'footer' })
     })
   };
 }
@@ -326,13 +326,13 @@ function valueWindowSpans(
     renderNodeStyle(renderNode, 'value'),
     renderNodeStyle(renderNode, 'value', 'selected'),
     {
-      normalSource: commandSource(renderNode, 'value', { partKind: 'value' }),
-      selectedSource: commandSource(renderNode, 'selection', { partKind: 'selection', state: 'selected' })
+      normalSource: commandSource(renderNode, 'value', { partType: 'value' }),
+      selectedSource: commandSource(renderNode, 'selection', { partType: 'selection', state: 'selected' })
     }
   );
   if (model.offsetCells <= 0) return spans;
   return [
-    styledSpan('‹', renderNodeStyle(renderNode, 'placeholder'), commandSource(renderNode, 'window.left', { role: 'decoration', partKind: 'window' })),
+    styledSpan('‹', renderNodeStyle(renderNode, 'placeholder'), commandSource(renderNode, 'window.left', { role: 'decoration', partType: 'window' })),
     ...clipRenderSpans(spans, Math.max(0, model.contentWidth - 1), { widthProfile })
   ];
 }
@@ -350,35 +350,37 @@ function windowSelection(selection: TextSelection | undefined, start: number, en
 
 function commandSource(
   renderNode: CommandInputNode,
-  label: string,
+  description: string,
   options: {
-    readonly role?: FrameCellSource['role'];
-    readonly partKind?: CommandPartKind;
+    readonly role?: FrameCellSource['cellRole'];
+    readonly partType?: CommandPartKind;
     readonly state?: import('../../element/metadata.ts').ElementVisualState;
   } = {}
 ): FrameCellSource {
   return renderNodeFrameSource(renderNode, {
-    family: 'command',
-    role: options.role ?? 'text',
-    part: label,
-    ...(options.partKind === undefined ? {} : { partKind: options.partKind }),
-    ...(isFrameCellInteractionState(options.state) ? { state: options.state } : {}),
-    label
+    rendererFamily: 'command',
+    cellRole: options.role ?? 'text',
+    partName: description,
+    ...(options.partType === undefined ? {} : { partType: options.partType }),
+    ...(isFrameCellInteractionState(options.state)
+      ? { interactionState: options.state }
+      : {}),
+    description
   });
 }
 
 function commandSourceOptions(
-  partKind: CommandPartKind,
+  partType: CommandPartKind,
   state?: import('../../element/metadata.ts').ElementVisualState,
-  role?: FrameCellSource['role']
+  role?: FrameCellSource['cellRole']
 ): {
-  readonly role?: FrameCellSource['role'];
-  readonly partKind: CommandPartKind;
+  readonly role?: FrameCellSource['cellRole'];
+  readonly partType: CommandPartKind;
   readonly state?: import('../../element/metadata.ts').ElementVisualState;
 } {
   return {
     ...(role === undefined ? {} : { role }),
-    partKind,
+    partType,
     ...(state === undefined ? {} : { state })
   };
 }

@@ -42,13 +42,27 @@ void test('terminal link and source equality compare explicit fields', () => {
   assert.equal(sameTerminalLink({ href: 'https://example.test' }, { href: 'https://example.test', id: 'a' }), false);
   assert.equal(
     sameFrameCellSource(
-      { ownerId: 'x', ownerKind: 'text', family: 'text', role: 'text', part: 'title', label: 'Title' },
-      { label: 'Title', part: 'title', role: 'text', family: 'text', ownerKind: 'text', ownerId: 'x' }
+      {
+        elementId: 'x',
+        elementKind: 'text',
+        rendererFamily: 'text',
+        cellRole: 'text',
+        partName: 'title',
+        description: 'Title'
+      },
+      {
+        description: 'Title',
+        partName: 'title',
+        cellRole: 'text',
+        rendererFamily: 'text',
+        elementKind: 'text',
+        elementId: 'x'
+      }
     ),
     true
   );
-  assert.equal(sameFrameCellSource({ ownerId: 'x' }, { ownerId: 'y' }), false);
-  assert.equal(sameFrameCellSource({ ownerId: 'x', itemId: 'a' }, { ownerId: 'x', itemId: 'b' }), false);
+  assert.equal(sameFrameCellSource({ elementId: 'x' }, { elementId: 'y' }), false);
+  assert.equal(sameFrameCellSource({ elementId: 'x', itemId: 'a' }, { elementId: 'x', itemId: 'b' }), false);
 });
 
 void test('frame cell equality covers text, width, continuation, style, link, and source', () => {
@@ -59,7 +73,7 @@ void test('frame cell equality covers text, width, continuation, style, link, an
     width: 2,
     style: { bold: true, fg: { kind: 'rgb', r: 1, g: 2, b: 3 } },
     link: { href: 'https://example.test' },
-    source: { ownerId: 'cell', role: 'text' }
+    source: { elementId: 'cell', cellRole: 'text' }
   };
 
   assert.equal(sameFrameCell(cell, { ...cell, style: { fg: { kind: 'rgb', r: 1, g: 2, b: 3 }, bold: true } }), true);

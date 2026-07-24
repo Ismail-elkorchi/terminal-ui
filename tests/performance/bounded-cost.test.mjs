@@ -149,7 +149,7 @@ test('small local frame updates produce bounded render diffs', () => {
 
 test('terminal output planning does not exceed absolute-addressed literal-clear output', () => {
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v2',
+    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 120,
     height: 30,
     fullRewrite: false,

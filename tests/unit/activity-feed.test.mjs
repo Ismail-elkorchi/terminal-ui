@@ -57,10 +57,10 @@ test('structuredBlock renders collapsed and expanded block data', () => {
   );
   assert.equal(collapsed.accessibility.root.description, 'result pending, collapsed, 1 fields');
   assert.equal(expanded.accessibility.root.description, 'result running, expanded, 1 fields');
-  assert.equal(collapsed.cells.find((cell) => cell.text === '+')?.source?.label, 'toggle.collapsed');
-  assert.equal(collapsed.cells.find((cell) => cell.text === 'p')?.source?.label, 'result.pending');
-  assert.equal(collapsed.cells.find((cell) => cell.text === 'Q')?.source?.label, 'title');
-  assert.ok(collapsed.cells.some((cell) => cell.source?.label === 'field.owner.label' && cell.text === 'o'));
+  assert.equal(collapsed.cells.find((cell) => cell.text === '+')?.source?.description, 'toggle.collapsed');
+  assert.equal(collapsed.cells.find((cell) => cell.text === 'p')?.source?.description, 'result.pending');
+  assert.equal(collapsed.cells.find((cell) => cell.text === 'Q')?.source?.description, 'title');
+  assert.ok(collapsed.cells.some((cell) => cell.source?.description === 'field.owner.label' && cell.text === 'o'));
   assert.deepEqual(collapsed.accessibility.root.children?.map((node) => [node.id, node.value]), [
     ['queued:result', 'pending'],
     ['queued:summary', 'Waiting for a worker'],
@@ -87,7 +87,7 @@ test('structuredBlock renders lifecycle results and record levels as distinct fi
       title: `Result ${result}`,
       result
     }), { columns: 40, rows: 2 });
-    const resultCell = frame.cells.find((cell) => cell.source?.label === `result.${result}`);
+    const resultCell = frame.cells.find((cell) => cell.source?.description === `result.${result}`);
 
     assert.match(renderFramePlain(frame), new RegExp(`\\[${result}\\] Result ${result}`, 'u'));
     assert.equal(resultCell?.style?.bold, true);
@@ -99,7 +99,7 @@ test('structuredBlock renders lifecycle results and record levels as distinct fi
       title: `Level ${level}`,
       level
     }), { columns: 40, rows: 2 });
-    const levelCell = frame.cells.find((cell) => cell.source?.label === `level.${level}`);
+    const levelCell = frame.cells.find((cell) => cell.source?.description === `level.${level}`);
 
     assert.match(renderFramePlain(frame), new RegExp(`\\[${level}\\] Level ${level}`, 'u'));
     assert.equal(levelCell?.style?.bold, true);
@@ -136,7 +136,7 @@ test('structuredBlock aligns and wraps by terminal cells under wide profiles', (
     details: '···'
   }), { columns: 12, rows: 6 }, { widthProfile });
   const separators = frame.cells
-    .filter((cell) => cell.text === ':' && cell.source?.label?.startsWith('field.') === true)
+    .filter((cell) => cell.text === ':' && cell.source?.description?.startsWith('field.') === true)
     .map((cell) => cell.column);
 
   assert.equal(renderFramePlain(frame), '[-] Wide\n界: wide\nab: ascii\nDetails: ·\n··');
@@ -174,11 +174,11 @@ test('activityFeed renders selected visible blocks and accessible options', () =
   assert.equal(frame.accessibility.root.role, 'listbox');
   assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 3 activity blocks.');
   assert.equal(frame.cells.find((cell) => cell.text === '›')?.style?.bg?.kind, 'theme');
-  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.label, 'selection.selected');
-  assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.ownerKind, 'activityFeed');
-  assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.label, 'title');
+  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.description, 'selection.selected');
+  assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.elementKind, 'activityFeed');
+  assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.description, 'title');
   assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.itemId, 'running');
-  assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.state, 'selected');
+  assert.equal(frame.cells.find((cell) => cell.text === 'R')?.source?.interactionState, 'selected');
   assert.equal(frame.cells.find((cell) => cell.text === 'R')?.style?.bg?.token, 'selection.background');
   assert.deepEqual(frame.accessibility.root.children?.map((node) => [node.id, node.selected]), [
     ['feed:block:queued', false],
@@ -261,7 +261,7 @@ test('activityFeed renders caller-owned reducer expansion state', () => {
   }), { columns: 40, rows: 6 });
 
   assert.match(renderFramePlain(frame), /body from reducer/u);
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'toggle.expanded' && cell.text === '-')?.text, '-');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'toggle.expanded' && cell.text === '-')?.text, '-');
   assert.equal(reducerBlocks[0]?.collapsed, true);
 });
 
@@ -306,9 +306,9 @@ test('structuredBlock and activityFeed preserve document state in high contrast 
 
   assert.match(renderFramePlain(blockFrame), /\[-\] \[error\] Import/u);
   assert.match(renderFramePlain(blockFrame), /Details: Trace id 42/u);
-  assert.equal(blockFrame.cells.find((cell) => cell.source?.label === 'level.error')?.style?.fg?.token, 'log.error');
-  assert.equal(blockFrame.cells.find((cell) => cell.source?.label === 'details.label')?.source?.role, 'text');
-  assert.equal(blockFrame.cells.find((cell) => cell.source?.label === 'field.owner.value')?.text, 's');
+  assert.equal(blockFrame.cells.find((cell) => cell.source?.description === 'level.error')?.style?.fg?.token, 'log.error');
+  assert.equal(blockFrame.cells.find((cell) => cell.source?.description === 'details.label')?.source?.cellRole, 'text');
+  assert.equal(blockFrame.cells.find((cell) => cell.source?.description === 'field.owner.value')?.text, 's');
   assert.match(highContrast.plainTextFrame, /> \[-\] \[running\] Running task/u);
   assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);

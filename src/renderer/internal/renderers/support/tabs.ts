@@ -407,13 +407,13 @@ function tabLeadingSpans(
     theme,
     ...(leadingStyle === undefined ? {} : { baseStyle: leadingStyle }),
     source: (_segment, index) => renderNodeFrameSource(renderNode, {
-      family: 'layout',
-      role: 'text',
-      part: `leading.${String(index)}`,
-      partKind: 'leading',
+      rendererFamily: 'layout',
+      cellRole: 'text',
+      partName: `leading.${String(index)}`,
+      partType: 'leading',
       itemId: tab.id,
-      ...(isFrameCellInteractionState(state) ? { state } : {}),
-      label: `leading.${String(index)}`
+      ...(isFrameCellInteractionState(state) ? { interactionState: state } : {}),
+      description: `leading.${String(index)}`
     })
   });
 }
@@ -433,20 +433,20 @@ function tabSpan(
   itemId: string,
   label: string,
   role: 'decoration' | 'separator' | 'text',
-  partKind?: string,
+  partType?: string,
   state?: ElementVisualState
 ): RenderSpan {
   return {
     text,
     ...(style === undefined ? {} : { style }),
     source: renderNodeFrameSource(renderNode, {
-      family: 'layout',
-      role,
-      part: label,
-      ...(partKind === undefined ? {} : { partKind }),
+      rendererFamily: 'layout',
+      cellRole: role,
+      partName: label,
+      ...(partType === undefined ? {} : { partType }),
       itemId,
-      ...(isFrameCellInteractionState(state) ? { state } : {}),
-      label
+      ...(isFrameCellInteractionState(state) ? { interactionState: state } : {}),
+      description: label
     })
   };
 }
@@ -465,11 +465,11 @@ function tabOverflowSpan(renderNode: TabsNode, text: string, part: 'overflow.lea
     text,
     ...(style === undefined ? {} : { style }),
     source: renderNodeFrameSource(renderNode, {
-      family: 'layout',
-      role: 'decoration',
-      part,
-      partKind: 'overflow',
-      label: part
+      rendererFamily: 'layout',
+      cellRole: 'decoration',
+      partName: part,
+      partType: 'overflow',
+      description: part
     })
   };
 }

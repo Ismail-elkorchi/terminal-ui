@@ -74,19 +74,19 @@ export function drawSurfaceFrame(
       bounds,
       surfaceBackgroundStyle(renderNode, options.appearance, focused, border, options),
       renderNodeFrameSource(renderNode, {
-        family: 'surface',
-        role: 'decoration',
-        part: 'background',
-        label: 'background'
+        rendererFamily: 'surface',
+        cellRole: 'decoration',
+        partName: 'background',
+        description: 'background'
       })
     );
   }
   if (options.shadow === true) {
     drawSurfaceShadow(buffer, bounds, renderNodeFrameSource(renderNode, {
-      family: 'surface',
-      role: 'decoration',
-      part: 'shadow',
-      label: 'shadow'
+      rendererFamily: 'surface',
+      cellRole: 'decoration',
+      partName: 'shadow',
+      description: 'shadow'
     }));
   }
   if (border !== undefined) drawBorder(buffer, bounds, border, theme);
@@ -240,11 +240,11 @@ function surfaceTitle(renderNode: SurfaceNode, theme: TerminalTheme): BorderTitl
     theme,
     ...surfaceTitleStyleOption(surfaceTitleStyle(renderNode)),
     source: (part, index) => renderNodeFrameSource(renderNode, {
-      family: 'surface',
-      role: 'text',
-      part: `${part}.${String(index)}`,
-      partKind: 'title',
-      label: `${part}.${String(index)}`
+      rendererFamily: 'surface',
+      cellRole: 'text',
+      partName: `${part}.${String(index)}`,
+      partType: 'title',
+      description: `${part}.${String(index)}`
     })
   });
 }

@@ -37,5 +37,5 @@ test('public acceptance path covers prompt, TUI, and testing surfaces', async ()
     steps: [{ kind: 'assertSnapshot', assertion: { role: 'text' } }]
   });
   assert.equal(scriptResult.snapshot.root.role, 'text');
-  assert.equal(scriptResult.transcript.schemaVersion, 'terminal-ui.interaction-transcript.v3');
+  assert.equal(scriptResult.transcript.schemaVersion, 'terminal-ui.interaction-transcript.v4');
 });

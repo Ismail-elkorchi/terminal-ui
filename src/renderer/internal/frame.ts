@@ -94,7 +94,7 @@ export function renderFramePlain(frame: Frame): string {
 export function renderFrameAnsi(frame: Frame, options: RenderSerializeOptions): string {
   const operations: RenderOperation[] = [...frameWriteOperations(frame)];
   return renderDiffAnsi({
-    schemaVersion: 'terminal-ui.render-diff.v2',
+    schemaVersion: 'terminal-ui.render-diff.v3',
     width: frame.width,
     height: frame.height,
     widthProfile: frame.widthProfile,
@@ -114,7 +114,7 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
       ? [{ kind: 'clearRect', bounds: { row: 1, column: 1, width: next.width, height: next.height } } as const]
       : [];
     const diff: RenderDiff = {
-      schemaVersion: 'terminal-ui.render-diff.v2',
+      schemaVersion: 'terminal-ui.render-diff.v3',
       width: next.width,
       height: next.height,
       widthProfile: next.widthProfile,
@@ -156,7 +156,7 @@ export function diffFrames(previous: Frame | undefined, next: Frame, options: Di
   }
 
   const diff: RenderDiff = {
-    schemaVersion: 'terminal-ui.render-diff.v2',
+    schemaVersion: 'terminal-ui.render-diff.v3',
     width: next.width,
     height: next.height,
     widthProfile: next.widthProfile,

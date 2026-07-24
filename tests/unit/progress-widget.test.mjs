@@ -20,17 +20,17 @@ test('progressBar supports value plus percentage display and status tone', () =>
     status: 'success'
   }), { columns: 32, rows: 1 });
   const filledCell = frame.cells.find((cell) => cell.text === '█');
-  const markerCell = frame.cells.find((cell) => cell.source?.label === 'status.marker');
-  const valueCell = frame.cells.find((cell) => cell.source?.label === 'value' && cell.text === '5');
-  const percentageCell = frame.cells.find((cell) => cell.source?.label === 'percentage' && cell.text === '5');
+  const markerCell = frame.cells.find((cell) => cell.source?.description === 'status.marker');
+  const valueCell = frame.cells.find((cell) => cell.source?.description === 'value' && cell.text === '5');
+  const percentageCell = frame.cells.find((cell) => cell.source?.description === 'percentage' && cell.text === '5');
 
   assert.equal(renderFramePlain(frame), '✓ Deploy [██░░] 5/10 50%');
   assert.equal(markerCell?.text, '✓');
-  assert.equal(markerCell?.source?.role, 'decoration');
+  assert.equal(markerCell?.source?.cellRole, 'decoration');
   assert.deepEqual(filledCell?.style?.fg, { kind: 'theme', token: 'status.success' });
   assert.equal(filledCell?.style?.bold, true);
-  assert.equal(filledCell?.source?.label, 'filled');
-  assert.equal(filledCell?.source?.role, 'decoration');
+  assert.equal(filledCell?.source?.description, 'filled');
+  assert.equal(filledCell?.source?.cellRole, 'decoration');
   assert.equal(valueCell?.text, '5');
   assert.equal(percentageCell?.text, '5');
   assert.deepEqual(frame.accessibility.root.numericValue, { current: 5, minimum: 0, maximum: 10 });
@@ -45,8 +45,8 @@ test('progressBar supports bar-only display with end label and explicit bar widt
     display: 'bar',
     labelPosition: 'end'
   }), { columns: 32, rows: 1 });
-  const filled = frame.cells.find((cell) => cell.source?.label === 'filled');
-  const empty = frame.cells.find((cell) => cell.source?.label === 'track');
+  const filled = frame.cells.find((cell) => cell.source?.description === 'filled');
+  const empty = frame.cells.find((cell) => cell.source?.description === 'track');
 
   assert.equal(renderFramePlain(frame), '[█░░░] Build');
   assert.equal(filled?.style?.fg?.token, 'control.track.filled');
@@ -66,7 +66,7 @@ test('progressBar treats bar width as terminal cells under ambiguous-wide profil
   }), { columns: 6, rows: 1 }, { widthProfile });
 
   assert.equal(renderFramePlain(frame), '[██]');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'chrome.close')?.column, 6);
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'chrome.close')?.column, 6);
 });
 
 test('progressBar valueScale renders segmented fill tokens', () => {
@@ -83,7 +83,7 @@ test('progressBar valueScale renders segmented fill tokens', () => {
     ]
   }), { columns: 12, rows: 1 });
 
-  const segments = frame.cells.filter((cell) => cell.source?.label?.startsWith('segment.') === true);
+  const segments = frame.cells.filter((cell) => cell.source?.description?.startsWith('segment.') === true);
 
   assert.equal(renderFramePlain(frame), '[████░]');
   assert.equal(segments.length, 4);
@@ -166,11 +166,11 @@ test('progressBar degrades display parts deterministically under width pressure'
   assert.equal(renderFramePlain(normal), '✓ [██████░░] 3/4 75%');
   assert.equal(renderFramePlain(tight), '✓ [█] 75%');
   assert.equal(renderFramePlain(tiny), '✓ [██]');
-  assert.equal(tight.cells.some((cell) => cell.source?.label === 'percentage'), true);
-  assert.equal(tight.cells.some((cell) => cell.source?.label === 'value'), false);
-  assert.equal(tight.cells.some((cell) => cell.source?.label === 'label'), false);
-  assert.equal(tiny.cells.some((cell) => cell.source?.label === 'filled'), true);
-  assert.equal(tiny.cells.some((cell) => cell.source?.label === 'percentage'), false);
+  assert.equal(tight.cells.some((cell) => cell.source?.description === 'percentage'), true);
+  assert.equal(tight.cells.some((cell) => cell.source?.description === 'value'), false);
+  assert.equal(tight.cells.some((cell) => cell.source?.description === 'label'), false);
+  assert.equal(tiny.cells.some((cell) => cell.source?.description === 'filled'), true);
+  assert.equal(tiny.cells.some((cell) => cell.source?.description === 'percentage'), false);
 });
 
 test('progressBar renders indeterminate bars with scoped progress accessibility', () => {
@@ -181,13 +181,13 @@ test('progressBar renders indeterminate bars with scoped progress accessibility'
     barWidth: 4,
     status: 'warning'
   }), { columns: 24, rows: 1 });
-  const activeCell = frame.cells.find((cell) => cell.source?.label === 'active');
-  const markerCell = frame.cells.find((cell) => cell.source?.label === 'status.marker');
+  const activeCell = frame.cells.find((cell) => cell.source?.description === 'active');
+  const markerCell = frame.cells.find((cell) => cell.source?.description === 'status.marker');
 
   assert.equal(renderFramePlain(frame), '! Waiting [░██░]');
   assert.equal(markerCell?.text, '!');
   assert.equal(activeCell?.style?.fg?.token, 'status.warning');
-  assert.equal(activeCell?.source?.role, 'decoration');
+  assert.equal(activeCell?.source?.cellRole, 'decoration');
   assert.deepEqual(frame.accessibility.root.numericValue, { indeterminate: true });
 });
 

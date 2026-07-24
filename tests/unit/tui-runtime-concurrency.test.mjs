@@ -149,7 +149,7 @@ test('TUI runtime start returns the committed initial frame', async () => {
 
   const frame = await runtime.start();
 
-  assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v1');
+  assert.equal(frame.schemaVersion, 'terminal-ui.tui-frame.v2');
   assert.equal(frame.accessibility.root.id, 'start-label');
   assert.equal(runtime.exit(), undefined);
   assert.deepEqual(runtime.frame(), frame);

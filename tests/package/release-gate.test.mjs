@@ -620,7 +620,7 @@ test('dirty region narrowing is structural and render-diff visible', async () =>
   assert.doesNotMatch(dirtySource, /renderNode\.kind|contextMenu|dropdownMenu|modal/u);
 });
 
-test('box drawing joins are source-role gated frame passes', async () => {
+test('box drawing joins are cell-role gated frame passes', async () => {
   const borderSource = await readFile(new URL('../../src/renderer/internal/border.ts', import.meta.url), 'utf8');
   const joinPass = await readFile(new URL('../../src/renderer/internal/frame-passes/box-drawing-join.ts', import.meta.url), 'utf8');
   const rendererSources = await Promise.all(
@@ -631,11 +631,12 @@ test('box drawing joins are source-role gated frame passes', async () => {
   );
 
   assert.match(borderSource, /function borderSpan\(/u);
-  assert.match(borderSource, /frameCellSource\(\{\s*ownerKind:\s*'border',\s*family:\s*'surface',\s*role:\s*'border',\s*part:\s*label,\s*label\s*\}\)/u);
+  assert.match(borderSource, /rendererFamily:\s*'surface'/u);
+  assert.match(borderSource, /cellRole:\s*'border'/u);
   assert.match(borderSource, /borderSpan\(left,\s*style,\s*'border\.corner'\)/u);
   assert.match(borderSource, /borderSpan\(glyphs\.horizontal\.repeat\(innerWidth\),\s*style,\s*'border\.edge'\)/u);
-  assert.match(joinPass, /cell\.source\?\.role === 'border' \|\| cell\.source\?\.role === 'separator'/u);
-  assert.doesNotMatch(joinPass, /source\?\.role !== 'text'/u);
+  assert.match(joinPass, /cell\.source\?\.cellRole === 'border' \|\| cell\.source\?\.cellRole === 'separator'/u);
+  assert.doesNotMatch(joinPass, /source\?\.cellRole !== 'text'/u);
   for (const { file, source } of rendererSources) {
     assert.doesNotMatch(source, /boxDrawingJoin|joinedDirections|glyphForDirections/u, file.pathname);
   }

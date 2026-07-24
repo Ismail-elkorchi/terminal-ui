@@ -27,11 +27,11 @@ export function borderForDialog(
     theme,
     ...styleOption(renderNodeStyle(renderNode, 'title')),
     source: (part, index) => renderNodeFrameSource(renderNode, {
-      family: 'dialog',
-      role: 'text',
-      part: `${part}.${String(index)}`,
-      partKind: 'title',
-      label: `${part}.${String(index)}`
+      rendererFamily: 'dialog',
+      cellRole: 'text',
+      partName: `${part}.${String(index)}`,
+      partType: 'title',
+      description: `${part}.${String(index)}`
     })
   });
   return title === undefined ? border : { ...border, title };

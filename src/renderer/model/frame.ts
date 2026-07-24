@@ -7,7 +7,7 @@ import type { CursorPosition } from './cursor.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 
 export interface Frame {
-  readonly schemaVersion: 'terminal-ui.tui-frame.v1';
+  readonly schemaVersion: 'terminal-ui.tui-frame.v2';
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;

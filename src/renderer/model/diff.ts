@@ -4,7 +4,7 @@ import type { Rect } from './layout.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 
 export interface RenderDiff {
-  readonly schemaVersion: 'terminal-ui.render-diff.v2';
+  readonly schemaVersion: 'terminal-ui.render-diff.v3';
   readonly width: number;
   readonly height: number;
   readonly widthProfile: TextWidthProfile;

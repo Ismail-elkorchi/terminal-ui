@@ -81,10 +81,10 @@ test('list widget exposes source-aware row values matches and empty filter state
     filterQuery: 'missing'
   }), { columns: 24, rows: 2 });
 
-  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.label, 'item.Atlas.marker');
-  assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.label, 'item.Atlas.match');
-  assert.equal(frame.cells.find((cell) => cell.text === 'l')?.source?.label, 'item.Atlas.value');
-  assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N')?.source?.label, 'filter.empty');
+  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.description, 'item.Atlas.marker');
+  assert.equal(frame.cells.find((cell) => cell.text === 'A')?.source?.description, 'item.Atlas.match');
+  assert.equal(frame.cells.find((cell) => cell.text === 'l')?.source?.description, 'item.Atlas.value');
+  assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N')?.source?.description, 'filter.empty');
   assert.match(renderFramePlain(emptyFrame), /No matching items/u);
 });
 

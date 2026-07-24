@@ -79,7 +79,13 @@ export function drawDialogActionSeparator(
   buffer.write(bounds.row, bounds.column, [{
     text: glyph.repeat(bounds.width),
     ...(style === undefined ? {} : { style }),
-    source: frameCellSource({ ownerKind: 'dialog', family: 'component', role: 'separator', part: 'action-separator', label: 'action-separator' })
+    source: frameCellSource({
+      elementKind: 'dialog',
+      rendererFamily: 'component',
+      cellRole: 'separator',
+      partName: 'action-separator',
+      description: 'action-separator'
+    })
   }]);
 }
 

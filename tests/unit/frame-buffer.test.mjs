@@ -58,70 +58,85 @@ test('FrameBuffer preserves style, links, and source metadata per visible cell',
     text: 'Hi',
     style: { bold: true, fg: { kind: 'theme', token: 'accent.primary' } },
     link: { href: 'https://example.test', id: 'doc' },
-    source: { ownerId: 'title', ownerKind: 'example', family: 'test', role: 'heading', part: 'title', label: 'Title' }
+    source: {
+      elementId: 'title',
+      elementKind: 'example',
+      rendererFamily: 'test',
+      cellRole: 'text',
+      partName: 'title',
+      description: 'Title'
+    }
   }]);
   const [first, second] = buffer.snapshot().cells;
 
   assert.deepEqual(first?.style, { bold: true, fg: { kind: 'theme', token: 'accent.primary' } });
   assert.deepEqual(second?.link, { href: 'https://example.test', id: 'doc' });
-  assert.deepEqual(first?.source, { ownerId: 'title', ownerKind: 'example', family: 'test', role: 'heading', part: 'title', label: 'Title' });
+  assert.deepEqual(first?.source, {
+    elementId: 'title',
+    elementKind: 'example',
+    rendererFamily: 'test',
+    cellRole: 'text',
+    partName: 'title',
+    description: 'Title'
+  });
 });
 
 test('FrameCellSource sanitizes stable structured metadata before entering frames', () => {
   const sanitized = sanitizeFrameCellSource({
-    ownerId: 'owner\u001B[31m',
-    ownerKind: 'widget',
-    family: 'text',
-    role: 'text',
-    part: 'body',
-    partKind: 'segment',
+    elementId: 'owner\u001B[31m',
+    elementKind: 'widget',
+    rendererFamily: 'text',
+    cellRole: 'text',
+    partName: 'body',
+    partType: 'segment',
     itemId: 'item',
     itemIndex: 2.9,
-    state: 'selected',
-    label: 'Title',
+    interactionState: 'selected',
+    description: 'Title',
     ignored: 'legacy'
   });
 
   assert.deepEqual(sanitized, {
-    ownerId: 'owner',
-    ownerKind: 'widget',
-    family: 'text',
-    role: 'text',
-    part: 'body',
-    partKind: 'segment',
+    elementId: 'owner',
+    elementKind: 'widget',
+    rendererFamily: 'text',
+    cellRole: 'text',
+    partName: 'body',
+    partType: 'segment',
     itemId: 'item',
     itemIndex: 2,
-    state: 'selected',
-    label: 'Title'
+    interactionState: 'selected',
+    description: 'Title'
   });
   assert.equal(Object.isFrozen(sanitized), true);
   assert.equal(sanitizeFrameCellSource(sanitized), sanitized);
   assert.equal(
-    sanitizeFrameCellSource({ ownerId: 'cell', itemIndex: 0 }),
-    sanitizeFrameCellSource({ ownerId: 'cell', itemIndex: 0 })
+    sanitizeFrameCellSource({ elementId: 'cell', itemIndex: 0 }),
+    sanitizeFrameCellSource({ elementId: 'cell', itemIndex: 0 })
   );
 
   const buffer = createFrameBuffer(4, 1);
-  buffer.write(1, 1, [{ text: 'A', source: frameCellSource({ ownerId: 'cell', kind: 'legacy', itemIndex: -1 }) }]);
-  assert.deepEqual(buffer.snapshot().cells[0]?.source, { ownerId: 'cell', itemIndex: 0 });
+  buffer.write(1, 1, [{ text: 'A', source: frameCellSource({ elementId: 'cell', kind: 'legacy', itemIndex: -1 }) }]);
+  assert.deepEqual(buffer.snapshot().cells[0]?.source, { elementId: 'cell', itemIndex: 0 });
 });
 
 test('FrameCellSource interaction states agree across cleanup, frames, and schemas', () => {
   const states = ['focused', 'hovered', 'pressed', 'selected', 'disabled', 'active'];
+  const roles = ['text', 'border', 'separator', 'scrollbar', 'cursor', 'decoration', 'chart', 'custom'];
   const buffer = createFrameBuffer(states.length, 1);
 
   for (const [index, state] of states.entries()) {
     buffer.write(1, index + 1, [{
       text: String(index),
-      source: frameCellSource({ ownerId: `cell-${String(index)}`, state })
+      source: frameCellSource({ elementId: `cell-${String(index)}`, interactionState: state })
     }]);
   }
-  assert.deepEqual(buffer.snapshot().cells.map((cell) => cell.source?.state), states);
+  assert.deepEqual(buffer.snapshot().cells.map((cell) => cell.source?.interactionState), states);
 
   const schemaStates = [
-    ['tui-frame.schema.json', (schema) => schema.$defs.frameCellSource.properties.state.enum],
-    ['render-diff.schema.json', (schema) => schema.$defs.frameCellSource.properties.state.enum],
-    ['interaction-transcript.schema.json', (schema) => schema.$defs.frameCellSource.properties.state.enum]
+    ['tui-frame.schema.json', (schema) => schema.$defs.frameCellSource.properties.interactionState.enum],
+    ['render-diff.schema.json', (schema) => schema.$defs.frameCellSource.properties.interactionState.enum],
+    ['interaction-transcript.schema.json', (schema) => schema.$defs.frameCellSource.properties.interactionState.enum]
   ];
   for (const [filename, getStates] of schemaStates) {
     const schema = JSON.parse(readFileSync(
@@ -129,19 +144,24 @@ test('FrameCellSource interaction states agree across cleanup, frames, and schem
       'utf8'
     ));
     assert.deepEqual(getStates(schema), states, filename);
+    assert.deepEqual(schema.$defs.frameCellSource.properties.cellRole.enum, roles, filename);
   }
 });
 
 test('FrameCellSource rejects unknown interaction values at every frame-buffer entry point', () => {
   assert.throws(
-    () => sanitizeFrameCellSource({ ownerId: 'invalid', state: 'busy' }),
-    /Frame cell source state/u
+    () => sanitizeFrameCellSource({ elementId: 'invalid', cellRole: 'heading' }),
+    /Frame cell source cellRole/u
+  );
+  assert.throws(
+    () => sanitizeFrameCellSource({ elementId: 'invalid', interactionState: 'busy' }),
+    /Frame cell source interactionState/u
   );
 
   const written = createFrameBuffer(1, 1);
   assert.throws(
-    () => written.write(1, 1, [{ text: 'x', source: { state: 'busy' } }]),
-    /Frame cell source state/u
+    () => written.write(1, 1, [{ text: 'x', source: { interactionState: 'busy' } }]),
+    /Frame cell source interactionState/u
   );
 
   const blitted = createFrameBuffer(1, 1);
@@ -151,17 +171,17 @@ test('FrameCellSource rejects unknown interaction values at every frame-buffer e
       column: 1,
       text: 'x',
       width: 1,
-      source: { state: 'busy' }
+      source: { interactionState: 'busy' }
     }),
-    /Frame cell source state/u
+    /Frame cell source interactionState/u
   );
 
   const cursor = createFrameBuffer(1, 1);
   assert.throws(
     () => cursor.snapshot({
-      cursor: { row: 1, column: 1, source: { state: 'busy' } }
+      cursor: { row: 1, column: 1, source: { interactionState: 'busy' } }
     }),
-    /Frame cell source state/u
+    /Frame cell source interactionState/u
   );
 });
 
@@ -292,15 +312,15 @@ test('diffFrames treats link-only and source-only cell changes as minimal writes
   const afterLink = createFrameBuffer(12, 1);
   afterLink.write(1, 1, [{ text: 'doc', link: { href: 'https://new.example' } }]);
   const beforeSource = createFrameBuffer(12, 1);
-  beforeSource.write(1, 1, [{ text: 'src', source: { ownerId: 'old', ownerKind: 'test' } }]);
+  beforeSource.write(1, 1, [{ text: 'src', source: { elementId: 'old', elementKind: 'test' } }]);
   const afterSource = createFrameBuffer(12, 1);
-  afterSource.write(1, 1, [{ text: 'src', source: { ownerId: 'new', ownerKind: 'test' } }]);
+  afterSource.write(1, 1, [{ text: 'src', source: { elementId: 'new', elementKind: 'test' } }]);
 
   assert.deepEqual(diffFrames(beforeLink.snapshot(), afterLink.snapshot()).operations, [
     { kind: 'write', row: 1, column: 1, spans: [{ text: 'doc', link: { href: 'https://new.example' } }] }
   ]);
   assert.deepEqual(diffFrames(beforeSource.snapshot(), afterSource.snapshot()).operations, [
-    { kind: 'write', row: 1, column: 1, spans: [{ text: 'src', source: { ownerId: 'new', ownerKind: 'test' } }] }
+    { kind: 'write', row: 1, column: 1, spans: [{ text: 'src', source: { elementId: 'new', elementKind: 'test' } }] }
   ]);
 });
 
@@ -339,7 +359,7 @@ test('renderFrameAnsi serializes full frames as row runs instead of per-cell cur
 
 test('renderDiffAnsi serializes styled spans according to terminal color capability', () => {
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v2',
+    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 6,
     height: 1,
     fullRewrite: false,
@@ -362,7 +382,7 @@ test('renderDiffAnsi serializes styled spans according to terminal color capabil
 
 test('renderDiffAnsi gates OSC 8 hyperlinks by capability and option', () => {
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v2',
+    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 4,
     height: 1,
     fullRewrite: false,
@@ -383,7 +403,7 @@ test('renderDiffAnsi gates OSC 8 hyperlinks by capability and option', () => {
 
 test('renderDiffAnsi chooses shorter cursor and tail-clear encodings without exceeding the baseline', () => {
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v2',
+    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 20,
     height: 4,
     fullRewrite: false,
@@ -403,7 +423,7 @@ test('renderDiffAnsi chooses shorter cursor and tail-clear encodings without exc
 
 test('renderDiffAnsi emits the structural final cursor without session visibility commands', () => {
   const output = renderDiffAnsi({
-    schemaVersion: 'terminal-ui.render-diff.v2',
+    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 8,
     height: 3,
     fullRewrite: false,
@@ -417,7 +437,7 @@ test('renderDiffAnsi emits the structural final cursor without session visibilit
 
 test('renderDiffAnsi wraps non-empty output when synchronized output is explicitly supported', () => {
   const output = renderDiffAnsi({
-    schemaVersion: 'terminal-ui.render-diff.v2',
+    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 4,
     height: 1,
     fullRewrite: false,

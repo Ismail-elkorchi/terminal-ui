@@ -68,11 +68,11 @@ test('custom renderer output preserves metadata and sanitizes terminal controls'
         text: '\u001B[31mUnsafe\u001B[0m red \u0007text',
         link: { href: 'https://example.test/\u001B[31mred', id: '\u001B[31mlink' },
         source: {
-          ownerId: '\u001B[31mcustom-source',
-          ownerKind: '\u001B[31mcustom-renderer',
-          family: 'custom',
-          role: 'custom',
-          label: '\u001B[31munsafe-source'
+          elementId: '\u001B[31mcustom-source',
+          elementKind: '\u001B[31mcustom-renderer',
+          rendererFamily: 'custom',
+          cellRole: 'custom',
+          description: '\u001B[31munsafe-source'
         }
       }]);
     },
@@ -92,11 +92,11 @@ test('custom renderer output preserves metadata and sanitizes terminal controls'
   assert.equal(renderFramePlain(frame), 'Unsafe red text');
   assert.deepEqual(first?.link, { href: 'https://example.test/red', id: 'link' });
   assert.deepEqual(first?.source, {
-    ownerId: 'custom-source',
-    ownerKind: 'custom-renderer',
-    family: 'custom',
-    role: 'custom',
-    label: 'unsafe-source'
+    elementId: 'custom-source',
+    elementKind: 'custom-renderer',
+    rendererFamily: 'custom',
+    cellRole: 'custom',
+    description: 'unsafe-source'
   });
   assert.equal(frame.accessibility.root.label, 'Unsafe custom');
   assert.equal(frame.accessibility.root.description, 'custom renderer');

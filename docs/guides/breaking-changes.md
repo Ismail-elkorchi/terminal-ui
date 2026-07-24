@@ -124,7 +124,14 @@ Interaction transcripts store `DiagnosticOccurrence` records with a distinct
 owner-local `id` and `sequence`; equal diagnostic content is no longer erased
 by content-based deduplication.
 
-The render-diff schema is `terminal-ui.render-diff.v2`. Transcript diff steps
-embed that version. This release intentionally has no version-1 reader. Other
-schema version `1` identifiers continue to denote their current, unrelated
-contracts; they are not compatibility promises.
+Frame-cell provenance now uses `elementId`, `elementKind`, `rendererFamily`,
+`cellRole`, `partName`, `partType`, `itemId`, `itemIndex`,
+`interactionState`, and `description`. The previous owner, generic role, part,
+state, and label fields are not accepted.
+
+The frame schema is `terminal-ui.tui-frame.v2`, the render-diff schema is
+`terminal-ui.render-diff.v3`, and the interaction transcript schema is
+`terminal-ui.interaction-transcript.v4`. Transcript commits embed the current
+frame and diff versions. This release intentionally has no readers for the
+superseded versions. Other schema version `1` identifiers continue to denote
+their current, unrelated contracts; they are not compatibility promises.

@@ -66,11 +66,11 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.role, 'slider');
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.selected, undefined);
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[0]?.numericValue?.current, 20);
-  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.ownerKind, 'toggleSwitch');
-  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.label, 'value.on.open');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'slider' && cell.text === '●')?.source?.label, 'track.handle');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'range' && cell.source?.label === 'track.startHandle')?.text, '●');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'range' && cell.source?.label === 'track.endHandle')?.text, '●');
+  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.elementKind, 'toggleSwitch');
+  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.description, 'value.on.open');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'slider' && cell.text === '●')?.source?.description, 'track.handle');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'range' && cell.source?.description === 'track.startHandle')?.text, '●');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'range' && cell.source?.description === 'track.endHandle')?.text, '●');
 });
 
 test('slider controls reject invalid authored numeric contracts consistently', () => {
@@ -259,15 +259,15 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
     columnIndex: 1,
     columnCount: 7
   });
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'check-list' && cell.text === 'x')?.source?.label, 'option.email.marker.checked');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'check-list' && cell.text === 'x')?.source?.role, 'decoration');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.text === 'S')?.source?.label, 'summary.label');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.source?.label === 'summary.swatch')?.style?.bg?.token, 'control.primary.background');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.source?.label === 'summary.swatch')?.source?.role, 'decoration');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'colors' && cell.source?.label === 'option.green.swatch')?.text, '■');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.source?.label === 'weekday.0')?.style?.fg?.token, 'text.disabled');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.source?.label === 'day.2026-06-15.open')?.text, '[');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'dates' && cell.text === '1')?.source?.role, 'text');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'check-list' && cell.text === 'x')?.source?.description, 'option.email.marker.checked');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'check-list' && cell.text === 'x')?.source?.cellRole, 'decoration');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'colors' && cell.text === 'S')?.source?.description, 'summary.label');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'colors' && cell.source?.description === 'summary.swatch')?.style?.bg?.token, 'control.primary.background');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'colors' && cell.source?.description === 'summary.swatch')?.source?.cellRole, 'decoration');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'colors' && cell.source?.description === 'option.green.swatch')?.text, '■');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'dates' && cell.source?.description === 'weekday.0')?.style?.fg?.token, 'text.disabled');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'dates' && cell.source?.description === 'day.2026-06-15.open')?.text, '[');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'dates' && cell.text === '1')?.source?.cellRole, 'text');
 });
 
 test('picker columns remain cell-aligned under ambiguous-wide profiles', () => {
@@ -285,13 +285,13 @@ test('picker columns remain cell-aligned under ambiguous-wide profiles', () => {
   }), { columns: 32, rows: 3 }, { widthProfile });
 
   assert.equal(
-    colorFrame.cells.find((cell) => cell.source?.label === 'option.dots.close')?.column,
+    colorFrame.cells.find((cell) => cell.source?.description === 'option.dots.close')?.column,
     12
   );
   assert.deepEqual(
     Array.from({ length: 7 }, (_value, index) => Math.min(
       ...calendarFrame.cells
-        .filter((cell) => cell.source?.label === `weekday.${String(index)}`)
+        .filter((cell) => cell.source?.description === `weekday.${String(index)}`)
         .map((cell) => cell.column)
     )),
     [1, 5, 9, 13, 17, 21, 25]
@@ -310,8 +310,8 @@ test('picker swatches remain inside their fixed cell budget under ambiguous-wide
     onAction: () => ({ kind: 'select' })
   }), { columns: 24, rows: 1 }, { widthProfile });
 
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'option.first.swatch')?.text, '*');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'option.second.open')?.column, 13);
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'option.first.swatch')?.text, '*');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'option.second.open')?.column, 13);
   assert.deepEqual(frame.hitTargets?.find((target) => target.id === 'wide-swatch:second')?.bounds, {
     row: 1,
     column: 13,
@@ -366,9 +366,9 @@ test('form controls keep state visible in high contrast and no-color projections
   assert.match(highContrast.plainTextFrame, /Region: Select region/u);
   assert.match(highContrast.plainTextFrame, /\[\s*2\]/u);
   assert.match(highContrast.ansiFrame, /\\x1b\[/u);
-  assert.match(highContrast.frameJson, /"label": "label.required"/u);
-  assert.match(highContrast.frameJson, /"label": "track.handle"/u);
-  assert.match(highContrast.frameJson, /"label": "value.placeholder"/u);
+  assert.match(highContrast.frameJson, /"description": "label.required"/u);
+  assert.match(highContrast.frameJson, /"description": "track.handle"/u);
+  assert.match(highContrast.frameJson, /"description": "value.placeholder"/u);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
   assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
 });

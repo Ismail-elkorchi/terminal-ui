@@ -188,13 +188,13 @@ function renderNotificationCard(
       text: '×',
       style: notificationPartStyle(renderNode, 'dismiss', tone, false, dismissState),
       source: renderNodeFrameSource(renderNode, {
-        family: 'feedback',
-        role: 'text',
-        part: 'dismiss',
-        partKind: 'notification',
+        rendererFamily: 'feedback',
+        cellRole: 'text',
+        partName: 'dismiss',
+        partType: 'notification',
         itemId: card.item.id,
-        ...(isFrameCellInteractionState(dismissState) ? { state: dismissState } : {}),
-        label: 'dismiss'
+        ...(isFrameCellInteractionState(dismissState) ? { interactionState: dismissState } : {}),
+        description: 'dismiss'
       })
     }]);
   }
@@ -207,13 +207,13 @@ function renderNotificationCard(
   for (let index = 0; index < Math.min(card.lines.length, contentBounds.height); index += 1) {
     const cardLine = card.lines[index] ?? { kind: 'message', text: '' };
     const source = renderNodeFrameSource(renderNode, {
-        family: 'feedback',
-        role: 'text',
-        part: cardLine.kind,
-        partKind: 'notification',
+        rendererFamily: 'feedback',
+        cellRole: 'text',
+        partName: cardLine.kind,
+        partType: 'notification',
         itemId: card.item.id,
-        ...(isFrameCellInteractionState(card.state) ? { state: card.state } : {}),
-        label: cardLine.kind
+        ...(isFrameCellInteractionState(card.state) ? { interactionState: card.state } : {}),
+        description: cardLine.kind
     });
     buffer.write(contentBounds.row + index, contentBounds.column, clipRenderSpans([{
       text: cardLine.text,
@@ -296,12 +296,12 @@ function fillCardBackground(
       text: line,
       style,
       source: renderNodeFrameSource(renderNode, {
-        family: 'feedback',
-        role: 'decoration',
-        part: 'background',
+        rendererFamily: 'feedback',
+        cellRole: 'decoration',
+        partName: 'background',
         itemId: item.id,
-        ...(isFrameCellInteractionState(state) ? { state } : {}),
-        label: 'background'
+        ...(isFrameCellInteractionState(state) ? { interactionState: state } : {}),
+        description: 'background'
       })
     }]);
   }

@@ -172,13 +172,13 @@ test('form fields expose label required description and validation source anatom
   });
   const frame = renderElementFrame(widget, { columns: 42, rows: 8 });
 
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'setup-form' && cell.text === 'S')?.source?.label, 'form.title');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'name-field' && cell.text === 'N')?.source?.label, 'field.label.text');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'name-field' && cell.text === '*')?.source?.label, 'field.label.required');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'name-field' && cell.text === 'S')?.source?.label, 'field.description');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'name-field' && cell.text === 'N' && cell.source.label === 'validation.error')?.style?.fg?.token, 'status.error');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'terms' && cell.text === '*')?.source?.label, 'label.required');
-  assert.equal(frame.cells.find((cell) => cell.source?.ownerId === 'terms' && cell.text === 'R')?.source?.label, 'validation.error');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'setup-form' && cell.text === 'S')?.source?.description, 'form.title');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'name-field' && cell.text === 'N')?.source?.description, 'field.label.text');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'name-field' && cell.text === '*')?.source?.description, 'field.label.required');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'name-field' && cell.text === 'S')?.source?.description, 'field.description');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'name-field' && cell.text === 'N' && cell.source.description === 'validation.error')?.style?.fg?.token, 'status.error');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'terms' && cell.text === '*')?.source?.description, 'label.required');
+  assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'terms' && cell.text === 'R')?.source?.description, 'validation.error');
 });
 
 test('form accessibility exposes labels, values, validation, required, disabled, and focus state', () => {

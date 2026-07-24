@@ -94,7 +94,7 @@ test('palette widget renders query matches disabled entries preview help empty s
   }, new Map());
   const matchCell = frame.cells.find((cell) => cell.text === 'R');
   const disabledCell = frame.cells.find((cell) =>
-    cell.source?.label === 'entry.run-tests.description'
+    cell.source?.description === 'entry.run-tests.description'
     && cell.text.trim().length > 0
   );
 
@@ -104,12 +104,12 @@ test('palette widget renders query matches disabled entries preview help empty s
   assert.match([...lines.values()].join('\n'), /Run Tests/u);
   assert.match([...lines.values()].join('\n'), /\[Workspace\]/u);
   assert.match([...lines.values()].join('\n'), /enter accepts/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.label, 'title');
-  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.label, 'query.marker');
-  assert.equal(frame.cells.find((cell) => cell.text === 'r')?.source?.label, 'query');
-  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.label, 'entry.run-tests.group');
-  assert.equal(matchCell?.source?.label, 'entry.run-tests.match');
-  assert.equal(disabledCell?.source?.label, 'entry.run-tests.description');
+  assert.equal(frame.cells.find((cell) => cell.text === 'T')?.source?.description, 'title');
+  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.description, 'query.marker');
+  assert.equal(frame.cells.find((cell) => cell.text === 'r')?.source?.description, 'query');
+  assert.equal(frame.cells.find((cell) => cell.text === '[')?.source?.description, 'entry.run-tests.group');
+  assert.equal(matchCell?.source?.description, 'entry.run-tests.match');
+  assert.equal(disabledCell?.source?.description, 'entry.run-tests.description');
   assert.equal(matchCell?.style?.fg?.token, 'command.match');
   assert.equal(disabledCell?.style?.fg?.token, 'text.disabled');
   assert.equal(frame.accessibility.root.role, 'listbox');
@@ -161,7 +161,7 @@ test('palette widget renders empty states for unrelated queries', () => {
 
   const text = frame.cells.map((cell) => cell.text).join('');
   assert.match(text, /No available entries/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.label, 'empty');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.description, 'empty');
 });
 
 test('palette exposes enabled visible entry hit targets when toMessage is provided', () => {

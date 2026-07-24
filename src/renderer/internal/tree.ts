@@ -166,44 +166,44 @@ function treeLine(
       markerStyle,
       treeSource(renderNode, `node.${row.node.id}.marker`, {
         itemId: nodeSourceId,
-        partKind: 'selection-marker',
+        partType: 'selection-marker',
         role: 'decoration',
         ...treeSourceState(treeRowSourceState(row, rowState))
       })
     ),
     ...(row.depth === 0 ? [] : [dataSpan('  '.repeat(row.depth), indentStyle, treeSource(renderNode, `node.${row.node.id}.indent`, {
       itemId: nodeSourceId,
-      partKind: 'indent',
+      partType: 'indent',
       role: 'decoration',
       ...treeSourceState(treeRowSourceState(row, rowState))
     }))]),
     dataSpan(branch, disclosureStyle, treeSource(renderNode, `node.${row.node.id}.disclosure`, {
       itemId: nodeSourceId,
-      partKind: 'disclosure',
+      partType: 'disclosure',
       role: 'decoration',
       ...treeSourceState(treeDisclosureSourceState(row, disclosureState))
     })),
     dataSpan(' ', disclosureStyle, treeSource(renderNode, `node.${row.node.id}.disclosure.gap`, {
       itemId: nodeSourceId,
-      partKind: 'gap',
+      partType: 'gap',
       role: 'decoration',
       ...treeSourceState(treeDisclosureSourceState(row, disclosureState))
     })),
     ...(icon.length === 0 ? [] : [dataSpan(icon, iconStyle, treeSource(renderNode, `node.${row.node.id}.icon`, {
       itemId: nodeSourceId,
-      partKind: 'icon',
+      partType: 'icon',
       role: 'decoration',
       ...treeSourceState(treeRowSourceState(row, rowState))
     }))]),
     ...dataValueSpans(label, query, labelStyle, {
       source: treeSource(renderNode, `node.${row.node.id}.label`, {
         itemId: nodeSourceId,
-        partKind: 'label',
+        partType: 'label',
         ...treeSourceState(treeRowSourceState(row, rowState))
       }),
       matchSource: treeSource(renderNode, `node.${row.node.id}.match`, {
         itemId: nodeSourceId,
-        partKind: 'match'
+        partType: 'match'
       }),
       ...(matchStyle === undefined ? {} : { matchStyle })
     })
@@ -290,21 +290,21 @@ function treeDisclosureVisualState(
 function treeRowSourceState(
   row: TreeVisibleRow,
   state: ElementVisualState | undefined
-): FrameCellSource['state'] {
+): FrameCellSource['interactionState'] {
   return row.lazyPlaceholder === true || !isFrameCellInteractionState(state) ? undefined : state;
 }
 
 function treeDisclosureSourceState(
   row: TreeVisibleRow,
   state: ElementVisualState | undefined
-): FrameCellSource['state'] {
+): FrameCellSource['interactionState'] {
   if (row.lazyPlaceholder === true || !treeNodeCanDisclose(row.node)) return undefined;
   return isFrameCellInteractionState(state) ? state : undefined;
 }
 
 function treeSourceState(
-  state: FrameCellSource['state']
-): { readonly state?: NonNullable<FrameCellSource['state']> } {
+  state: FrameCellSource['interactionState']
+): { readonly state?: NonNullable<FrameCellSource['interactionState']> } {
   return state === undefined ? {} : { state };
 }
 
@@ -398,15 +398,15 @@ function treeSource(
   label: string,
   options: {
     readonly itemId?: string;
-    readonly partKind?: string;
-    readonly role?: FrameCellSource['role'];
-    readonly state?: FrameCellSource['state'];
+    readonly partType?: string;
+    readonly role?: FrameCellSource['cellRole'];
+    readonly state?: FrameCellSource['interactionState'];
   } = {}
 ): FrameCellSource {
   return dataSource(renderNode, label, {
     ...(options.itemId === undefined ? {} : { itemId: options.itemId }),
     role: options.role,
-    ...(options.partKind === undefined ? {} : { partKind: options.partKind }),
+    ...(options.partType === undefined ? {} : { partType: options.partType }),
     ...(options.state === undefined ? {} : { state: options.state })
   });
 }

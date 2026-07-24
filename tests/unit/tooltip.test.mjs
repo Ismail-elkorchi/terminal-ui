@@ -21,7 +21,7 @@ test('tooltip renders bounded popover content with semantic surface tokens', () 
     tone: 'info'
   }), { columns: 14, rows: 4 });
   const output = renderFramePlain(frame);
-  const border = frame.cells.find((cell) => cell.source?.role === 'border');
+  const border = frame.cells.find((cell) => cell.source?.cellRole === 'border');
   const content = frame.cells.find((cell) => cell.text === 'U');
   const highContrastFrame = renderElementFrame(tooltip({
     id: 'tip-hc',
@@ -64,15 +64,15 @@ test('tooltip visibility and anchor determine painted geometry', () => {
   assert.equal(visible.cells.every((cell) => cell.row >= 1 && cell.row <= 6 && cell.column >= 1 && cell.column <= 20), true);
 });
 
-function tooltipSource(ownerId, role, label, partKind = label) {
+function tooltipSource(elementId, role, label, partType = label) {
   return {
-    ownerId,
-    ownerKind: 'tooltip',
-    family: 'drawing',
-    role,
-    part: label,
-    partKind,
-    label
+    elementId,
+    elementKind: 'tooltip',
+    rendererFamily: 'drawing',
+    cellRole: role,
+    partName: label,
+    partType,
+    description: label
   };
 }
 

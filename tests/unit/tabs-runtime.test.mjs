@@ -50,7 +50,7 @@ test('tabs keep active markers disabled targets and overflow visible without col
   assert.match(header, /▏Alpha/u);
   assert.match(header, /…/u);
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['tabs:tab:alpha']);
-  assert.equal(frame.cells.find((cell) => cell.source?.itemId === 'alpha' && cell.source.label === 'indicator')?.text, '▏');
+  assert.equal(frame.cells.find((cell) => cell.source?.itemId === 'alpha' && cell.source.description === 'indicator')?.text, '▏');
 });
 
 test('tabs keep the selected tab visible when headers overflow', () => {
@@ -77,7 +77,7 @@ test('tabs keep the selected tab visible when headers overflow', () => {
   assert.match(header, /▏Gamma 2 ×/u);
   assert.doesNotMatch(header, /Alpha/u);
   assert.deepEqual(frame.hitTargets?.map((target) => target.id), ['tabs:tab:gamma', 'tabs:tab:gamma:close']);
-  assert.equal(frame.cells.find((cell) => cell.source?.partKind === 'overflow')?.text, '…');
+  assert.equal(frame.cells.find((cell) => cell.source?.partType === 'overflow')?.text, '…');
   assert.equal(frame.accessibility.root.children?.[2]?.value, '2');
   assert.deepEqual(frame.accessibility.root.children?.[2]?.children, [{
     id: 'tabs:tab:gamma:close',

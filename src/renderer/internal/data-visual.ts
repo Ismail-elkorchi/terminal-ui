@@ -8,8 +8,8 @@ import type { FrameCellSource, RenderSpan, TerminalStyle } from '../../visual/re
 export interface DataSourceOptions {
   readonly itemId?: string;
   readonly itemIndex?: number;
-  readonly role?: FrameCellSource['role'];
-  readonly partKind?: string;
+  readonly role?: FrameCellSource['cellRole'];
+  readonly partType?: string;
   readonly state?: import('../../element/metadata.ts').ElementVisualState;
 }
 
@@ -22,8 +22,8 @@ export function selectionMarkerSpans(
 ): readonly RenderSpan[] {
   const markerStyle = selected ? (style ?? renderNodeStyle(renderNode, 'marker', 'selected')) : renderNodeStyle(renderNode, 'marker');
   const gapSource = frameSourcePart(source, {
-    ...(source?.part === undefined ? {} : { part: `${source.part}.gap` }),
-    ...(source?.label === undefined ? {} : { label: `${source.label}.gap` })
+    ...(source?.partName === undefined ? {} : { partName: `${source.partName}.gap` }),
+    ...(source?.description === undefined ? {} : { description: `${source.description}.gap` })
   });
   return [
     dataSpan(selected ? theme.tokens.symbols.pointer : theme.tokens.symbols.unselected, markerStyle, source),
@@ -58,16 +58,22 @@ export function mergeDataStyles(...styles: readonly (TerminalStyle | undefined)[
   return Object.keys(merged).length === 0 ? undefined : merged;
 }
 
-export function dataSource(renderNode: RenderNode, label: string, options: DataSourceOptions = {}): FrameCellSource {
+export function dataSource(
+  renderNode: RenderNode,
+  description: string,
+  options: DataSourceOptions = {}
+): FrameCellSource {
   return renderNodeFrameSource(renderNode, {
-    family: 'data',
-    role: options.role ?? 'text',
-    part: label,
-    ...(options.partKind === undefined ? {} : { partKind: options.partKind }),
+    rendererFamily: 'data',
+    cellRole: options.role ?? 'text',
+    partName: description,
+    ...(options.partType === undefined ? {} : { partType: options.partType }),
     ...(options.itemId === undefined ? {} : { itemId: options.itemId }),
     ...(options.itemIndex === undefined ? {} : { itemIndex: options.itemIndex }),
-    ...(isFrameCellInteractionState(options.state) ? { state: options.state } : {}),
-    label
+    ...(isFrameCellInteractionState(options.state)
+      ? { interactionState: options.state }
+      : {}),
+    description
   });
 }
 

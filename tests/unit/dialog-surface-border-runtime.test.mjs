@@ -71,7 +71,7 @@ test('dialog reserves a structurally separated action area without color', () =>
   assert.deepEqual(layout.children[1]?.bounds, { row: 7, column: 7, width: 18, height: 1 });
 
   const frame = renderElementFrame(widget, { columns: 30, rows: 9 }, { theme: noColorTheme });
-  const separatorCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'dialog' && cell.source.label === 'action-separator');
+  const separatorCells = frame.cells.filter((cell) => cell.source?.elementKind === 'dialog' && cell.source.description === 'action-separator');
 
   assert.equal(separatorCells.length, 18);
   assert.deepEqual([...new Set(separatorCells.map((cell) => cell.text))], ['-']);
@@ -90,7 +90,7 @@ test('dialog action separators preserve one-cell geometry under ambiguous-wide p
   }), { columns: 24, rows: 9 }, {
     widthProfile: { emoji: 'wide', ambiguous: 'wide' }
   });
-  const separators = frame.cells.filter((cell) => cell.source?.label === 'action-separator');
+  const separators = frame.cells.filter((cell) => cell.source?.description === 'action-separator');
 
   assert.equal(separators.length, 14);
   assert.ok(separators.every((cell) => cell.text === '-' && cell.width === 1));
@@ -156,14 +156,14 @@ test('surface chrome variant renders one-line bars without border chrome', () =>
   }), { columns: 10, rows: 1 });
   const output = renderFramePlain(frame);
   const background = frame.cells.find((cell) =>
-    cell.source?.ownerKind === 'surface'
-    && cell.source.part === 'background'
+    cell.source?.elementKind === 'surface'
+    && cell.source.partName === 'background'
     && cell.style?.bg?.kind === 'theme'
   );
 
   assert.equal(output, ' Menu');
   assert.equal(background?.style?.bg?.token, 'surface.chrome.background');
-  assert.equal(frame.cells.some((cell) => cell.source?.role === 'border'), false);
+  assert.equal(frame.cells.some((cell) => cell.source?.cellRole === 'border'), false);
 });
 
 test('surface borders degrade in tiny regions to preserve child content', () => {
@@ -176,7 +176,7 @@ test('surface borders degrade in tiny regions to preserve child content', () => 
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 10, height: 1 });
   assert.equal(renderFramePlain(frame), 'Menu');
-  assert.equal(frame.cells.some((cell) => cell.source?.role === 'border'), false);
+  assert.equal(frame.cells.some((cell) => cell.source?.cellRole === 'border'), false);
 });
 
 test('shared border renderer clips titles and supports tiny ascii borders', () => {

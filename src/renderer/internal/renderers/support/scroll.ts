@@ -103,8 +103,8 @@ export function drawScrollbars(
 ): void {
   if (plan.layout !== undefined) {
     renderScrollbars(buffer, plan.layout, theme, {
-      ...(renderNode.id === undefined ? {} : { ownerId: renderNode.id }),
-      ownerKind: renderNode.kind
+      ...(renderNode.id === undefined ? {} : { elementId: renderNode.id }),
+      elementKind: renderNode.kind
     });
   }
 }

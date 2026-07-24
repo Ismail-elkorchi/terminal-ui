@@ -39,13 +39,13 @@ test('notificationStack renders stacked status cards with semantic styles and ac
     onAction: (action) => action
   }), { columns: 48, rows: 14 });
   const output = renderFramePlain(frame);
-  const border = frame.cells.find((cell) => cell.source?.role === 'border');
-  const progressCell = frame.cells.find((cell) => cell.source?.label === 'progress.filled' && cell.text.length > 0);
-  const progressValue = frame.cells.find((cell) => cell.source?.label === 'progress.value' && cell.text === '4');
-  const selectedTitle = frame.cells.find((cell) => cell.source?.itemId === 'deploy' && cell.source?.label === 'title');
-  const selectedMessage = frame.cells.find((cell) => cell.source?.itemId === 'deploy' && cell.source?.label === 'message');
-  const selectedMeta = frame.cells.find((cell) => cell.source?.itemId === 'deploy' && cell.source?.label === 'meta');
-  const background = frame.cells.find((cell) => cell.source?.itemId === 'deploy' && cell.source?.label === 'background');
+  const border = frame.cells.find((cell) => cell.source?.cellRole === 'border');
+  const progressCell = frame.cells.find((cell) => cell.source?.description === 'progress.filled' && cell.text.length > 0);
+  const progressValue = frame.cells.find((cell) => cell.source?.description === 'progress.value' && cell.text === '4');
+  const selectedTitle = frame.cells.find((cell) => cell.source?.itemId === 'deploy' && cell.source?.description === 'title');
+  const selectedMessage = frame.cells.find((cell) => cell.source?.itemId === 'deploy' && cell.source?.description === 'message');
+  const selectedMeta = frame.cells.find((cell) => cell.source?.itemId === 'deploy' && cell.source?.description === 'meta');
+  const background = frame.cells.find((cell) => cell.source?.itemId === 'deploy' && cell.source?.description === 'background');
 
   assert.match(output, /Deploying/u);
   assert.match(output, /Harbor route update/u);
@@ -53,15 +53,15 @@ test('notificationStack renders stacked status cards with semantic styles and ac
   assert.match(output, /› progress/u);
   assert.match(output, /Saved/u);
   assert.deepEqual(border?.style?.fg, { kind: 'theme', token: 'selection.foreground' });
-  assert.equal(progressCell?.source?.ownerKind, 'notificationStack');
-  assert.equal(progressCell?.source?.partKind, 'notification');
-  assert.equal(progressCell?.source?.role, 'decoration');
-  assert.equal(progressValue?.source?.ownerKind, 'notificationStack');
-  assert.equal(progressValue?.source?.partKind, 'notification');
+  assert.equal(progressCell?.source?.elementKind, 'notificationStack');
+  assert.equal(progressCell?.source?.partType, 'notification');
+  assert.equal(progressCell?.source?.cellRole, 'decoration');
+  assert.equal(progressValue?.source?.elementKind, 'notificationStack');
+  assert.equal(progressValue?.source?.partType, 'notification');
   assert.deepEqual(selectedTitle?.style?.bg, { kind: 'theme', token: 'selection.background' });
-  assert.equal(selectedMessage?.source?.role, 'text');
-  assert.equal(selectedMeta?.source?.role, 'text');
-  assert.equal(background?.source?.role, 'decoration');
+  assert.equal(selectedMessage?.source?.cellRole, 'text');
+  assert.equal(selectedMeta?.source?.cellRole, 'text');
+  assert.equal(background?.source?.cellRole, 'decoration');
   assert.equal(frame.accessibility.root.role, 'listbox');
   assert.equal(frame.accessibility.root.scope?.kind, 'popover');
   assert.equal(frame.accessibility.root.children?.length, 2);
@@ -84,13 +84,13 @@ test('notification progress fills an exact terminal-cell budget under wide profi
     maxWidth: 20
   }), { columns: 22, rows: 7 }, { widthProfile });
   const progressText = frame.cells
-    .filter((cell) => cell.source?.label === 'progress.filled' || cell.source?.label === 'progress.empty')
+    .filter((cell) => cell.source?.description === 'progress.filled' || cell.source?.description === 'progress.empty')
     .filter((cell) => cell.width > 0)
     .map((cell) => cell.text)
     .join('');
 
   assert.equal(measureTextCells(progressText, { widthProfile }).cells, 12);
-  assert.equal(frame.cells.some((cell) => cell.source?.label === 'progress.value' && cell.text === '5'), true);
+  assert.equal(frame.cells.some((cell) => cell.source?.description === 'progress.value' && cell.text === '5'), true);
 });
 
 test('notificationStack middle-clips compact title and message lines', () => {
@@ -201,7 +201,7 @@ test('notificationStack is constrained by its layout bounds', () => {
       })
     }
   }), { columns: 60, rows: 12 });
-  const notificationCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'notificationStack');
+  const notificationCells = frame.cells.filter((cell) => cell.source?.elementKind === 'notificationStack');
 
   assert.ok(notificationCells.length > 0);
   assert.equal(notificationCells.every((cell) => cell.column >= 36), true);
@@ -214,7 +214,7 @@ test('notificationStack skips cards when bounds cannot fit a viable card', () =>
     presentation: { kind: 'live', items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }] },
     maxWidth: 24
   }), { columns: 28, rows: 2 });
-  const notificationCells = frame.cells.filter((cell) => cell.source?.ownerKind === 'notificationStack');
+  const notificationCells = frame.cells.filter((cell) => cell.source?.elementKind === 'notificationStack');
 
   assert.equal(notificationCells.length, 0);
   assert.doesNotMatch(renderFramePlain(frame), /Saved/u);
@@ -269,8 +269,8 @@ test('notificationStack keeps tone progress and selection meaningful in no color
   assert.match(highContrast.plainTextFrame, /75%/u);
   assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'progress.filled')?.source?.role, 'decoration');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'progress.value')?.source?.role, 'text');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'progress.filled')?.source?.cellRole, 'decoration');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'progress.value')?.source?.cellRole, 'text');
 });
 
 function colorCapabilities() {

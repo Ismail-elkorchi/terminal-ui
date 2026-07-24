@@ -15,21 +15,21 @@ test('renderElementFrame applies frame passes after composition and before snaps
     id: 'test-marker',
     apply(buffer, context) {
       assert.equal(context.terminalSize.columns, 3);
-      buffer.write(1, 1, [{ text: 'Z', source: { ownerId: 'marker', role: 'custom' } }]);
+      buffer.write(1, 1, [{ text: 'Z', source: { elementId: 'marker', cellRole: 'custom' } }]);
     }
   };
 
   const frame = renderElementFrame(text('abc'), { columns: 3, rows: 1 }, { framePasses: [pass] });
 
   assert.equal(renderFramePlain(frame), 'Zbc');
-  assert.deepEqual(frame.cells[0]?.source, { ownerId: 'marker', role: 'custom' });
+  assert.deepEqual(frame.cells[0]?.source, { elementId: 'marker', cellRole: 'custom' });
 });
 
 test('renderElementFrame can disable configured frame passes for debug and tests', () => {
   const pass = {
     id: 'test-marker',
     apply(buffer) {
-      buffer.write(1, 1, [{ text: 'Z', source: { ownerId: 'marker', role: 'custom' } }]);
+      buffer.write(1, 1, [{ text: 'Z', source: { elementId: 'marker', cellRole: 'custom' } }]);
     }
   };
 
@@ -43,9 +43,9 @@ test('renderElementFrame can disable configured frame passes for debug and tests
 
 test('boxDrawingJoinPass merges source-marked box drawing crossings', () => {
   const buffer = createFrameBuffer(3, 3);
-  buffer.write(2, 1, [{ text: '───', source: { role: 'border' } }]);
-  buffer.write(1, 2, [{ text: '│', source: { role: 'border' } }]);
-  buffer.write(3, 2, [{ text: '│', source: { role: 'border' } }]);
+  buffer.write(2, 1, [{ text: '───', source: { cellRole: 'border' } }]);
+  buffer.write(1, 2, [{ text: '│', source: { cellRole: 'border' } }]);
+  buffer.write(3, 2, [{ text: '│', source: { cellRole: 'border' } }]);
 
   boxDrawingJoinPass.apply(buffer, { theme: defaultTheme, terminalSize: { columns: 3, rows: 3 } });
 
@@ -54,18 +54,18 @@ test('boxDrawingJoinPass merges source-marked box drawing crossings', () => {
 
 test('boxDrawingJoinPass supports ASCII crossings and ignores user text', () => {
   const ascii = createFrameBuffer(3, 3);
-  ascii.write(2, 1, [{ text: '---', source: { role: 'border' } }]);
-  ascii.write(1, 2, [{ text: '|', source: { role: 'border' } }]);
-  ascii.write(3, 2, [{ text: '|', source: { role: 'border' } }]);
+  ascii.write(2, 1, [{ text: '---', source: { cellRole: 'border' } }]);
+  ascii.write(1, 2, [{ text: '|', source: { cellRole: 'border' } }]);
+  ascii.write(3, 2, [{ text: '|', source: { cellRole: 'border' } }]);
 
   boxDrawingJoinPass.apply(ascii, { theme: defaultTheme, terminalSize: { columns: 3, rows: 3 } });
 
   assert.equal(renderFramePlain(ascii.snapshot()), ' |\n-+-\n |');
 
   const userText = createFrameBuffer(3, 3);
-  userText.write(2, 1, [{ text: '───', source: { role: 'text' } }]);
-  userText.write(1, 2, [{ text: '│', source: { role: 'text' } }]);
-  userText.write(3, 2, [{ text: '│', source: { role: 'text' } }]);
+  userText.write(2, 1, [{ text: '───', source: { cellRole: 'text' } }]);
+  userText.write(1, 2, [{ text: '│', source: { cellRole: 'text' } }]);
+  userText.write(3, 2, [{ text: '│', source: { cellRole: 'text' } }]);
 
   boxDrawingJoinPass.apply(userText, { theme: defaultTheme, terminalSize: { columns: 3, rows: 3 } });
 

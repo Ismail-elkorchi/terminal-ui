@@ -291,9 +291,9 @@ test('table supports scroll state column sizing styled renderers sort markers em
   assert.match(output, /bravo🙂/u);
   assert.match(output, /charlie/u);
   assert.equal(styledScore?.style?.fg?.token, 'status.success');
-  assert.equal(styledScore?.source?.label, 'row.1.cell.2');
-  assert.equal(styledScore?.source?.ownerKind, 'table');
-  assert.equal(sortMarker?.source?.label, 'header.1.sort');
+  assert.equal(styledScore?.source?.description, 'row.1.cell.2');
+  assert.equal(styledScore?.source?.elementKind, 'table');
+  assert.equal(sortMarker?.source?.description, 'header.1.sort');
   assert.equal(selectedScore?.style?.bg?.token, 'selection.background');
   assert.equal(frame.accessibility.root.children?.[0]?.children?.[0]?.value, 'Name');
   assert.equal(frame.accessibility.root.children?.[2]?.children?.[1]?.selected, true);
@@ -325,12 +325,12 @@ test('table source metadata describes headers rows cells separators and empty st
     emptyText: 'No rows'
   }), { columns: 24, rows: 3 });
 
-  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.label, 'header.0.label');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'header.0.resize')?.source?.role, 'decoration');
-  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.label, 'row.1.marker');
-  assert.equal(frame.cells.find((cell) => cell.text === 'P')?.source?.label, 'row.1.cell.0');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'column.separator')?.source?.role, 'separator');
-  assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N' && cell.row === 2)?.source?.label, 'empty');
+  assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.description, 'header.0.label');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'header.0.resize')?.source?.cellRole, 'decoration');
+  assert.equal(frame.cells.find((cell) => cell.text === '›')?.source?.description, 'row.1.marker');
+  assert.equal(frame.cells.find((cell) => cell.text === 'P')?.source?.description, 'row.1.cell.0');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'column.separator')?.source?.cellRole, 'separator');
+  assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N' && cell.row === 2)?.source?.description, 'empty');
 });
 
 test('table compact metric semantics tighten spacing and expose metric metadata', () => {
@@ -348,18 +348,18 @@ test('table compact metric semantics tighten spacing and expose metric metadata'
       tableColumn({ id: 'cpu-3', value: (row) => Array.isArray(row) ? row[3] : undefined, header: 'CPU', width: { kind: 'fixed', cells: 4 }, align: 'end', semantic: 'metric', render: ({ value }) => Number(value).toFixed(1) })
     ]
   }), { columns: 24, rows: 2 });
-  const metricCell = frame.cells.find((cell) => cell.text === '4' && cell.source?.label === 'row.0.cell.3');
-  const metadataCell = frame.cells.find((cell) => cell.text === '1' && cell.source?.label === 'row.0.cell.0');
-  const markerCell = frame.cells.find((cell) => cell.source?.label === 'row.0.marker');
+  const metricCell = frame.cells.find((cell) => cell.text === '4' && cell.source?.description === 'row.0.cell.3');
+  const metadataCell = frame.cells.find((cell) => cell.text === '1' && cell.source?.description === 'row.0.cell.0');
+  const markerCell = frame.cells.find((cell) => cell.source?.description === 'row.0.marker');
 
   assert.equal(renderFramePlain(frame), '  PID Name     Mem  CPU\n› 18  node    188M  4.2');
-  assert.equal(markerCell?.source?.partKind, 'marker');
-  assert.equal(markerCell?.source?.state, 'selected');
-  assert.equal(metadataCell?.source?.partKind, 'metadata');
+  assert.equal(markerCell?.source?.partType, 'marker');
+  assert.equal(markerCell?.source?.interactionState, 'selected');
+  assert.equal(metadataCell?.source?.partType, 'metadata');
   assert.equal(metadataCell?.style?.fg?.token, 'table.metadata');
-  assert.equal(metricCell?.source?.partKind, 'metric');
+  assert.equal(metricCell?.source?.partType, 'metric');
   assert.equal(metricCell?.style?.fg?.token, 'table.metric');
-  assert.equal(metricCell?.source?.state, 'selected');
+  assert.equal(metricCell?.source?.interactionState, 'selected');
 });
 
 test('table compact fill columns keep marker width aligned with cell hit targets', () => {
@@ -523,9 +523,9 @@ test('table and paginator compose explicitly over a bounded page', () => {
   assert.match(output, /Pulse/u);
   assert.doesNotMatch(output, /Aster/u);
   assert.match(output, /Fleet Page 2 of 3/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'F')?.source?.label, 'label');
-  assert.equal(frame.cells.find((cell) => cell.text === '2')?.source?.label, 'page.value');
-  assert.equal(frame.cells.find((cell) => cell.text === '3')?.source?.label, 'page.count');
+  assert.equal(frame.cells.find((cell) => cell.text === 'F')?.source?.description, 'label');
+  assert.equal(frame.cells.find((cell) => cell.text === '2')?.source?.description, 'page.value');
+  assert.equal(frame.cells.find((cell) => cell.text === '3')?.source?.description, 'page.count');
   assert.equal(frame.accessibility.root.children?.some((node) => node.role === 'grid'), true);
 });
 

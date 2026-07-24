@@ -125,11 +125,11 @@ function fillTooltipBackground(renderNode: TooltipNode, buffer: RenderTarget, bo
 
 function tooltipSource(renderNode: TooltipNode, visual: TooltipVisualKind, label: string): FrameCellSource {
   return renderNodeFrameSource(renderNode, {
-    family: 'drawing',
-    role: visual === 'content' ? 'text' : 'decoration',
-    part: label,
-    partKind: visual,
-    label
+    rendererFamily: 'drawing',
+    cellRole: visual === 'content' ? 'text' : 'decoration',
+    partName: label,
+    partType: visual,
+    description: label
   });
 }
 

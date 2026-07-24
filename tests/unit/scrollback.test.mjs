@@ -39,8 +39,8 @@ test('scrollback follows the tail by default and marks omitted earlier rows', ()
   assert.doesNotMatch(output, /Row 0/u);
   assert.equal(frame.accessibility.root.description, 'Showing 17-20 of 20 scrollback rows. Omitted before: 16. Omitted after: 0. Follow tail: true.');
   assert.equal(frame.accessibility.root.children?.length, 4);
-  assert.equal(frame.cells.find((cell) => cell.text === '.')?.source?.label, 'omission.before');
-  assert.equal(frame.cells.find((cell) => cell.text === '.')?.source?.role, 'decoration');
+  assert.equal(frame.cells.find((cell) => cell.text === '.')?.source?.description, 'omission.before');
+  assert.equal(frame.cells.find((cell) => cell.text === '.')?.source?.cellRole, 'decoration');
 });
 
 test('scrollback accepts explicit scroll state and marks omitted later rows', () => {
@@ -57,7 +57,7 @@ test('scrollback accepts explicit scroll state and marks omitted later rows', ()
   assert.match(output, /\.\.\. 7 later rows omitted \(paused\) \.\.\./u);
   assert.doesNotMatch(output, /Row 9/u);
   assert.equal(frame.accessibility.root.description, 'Showing 1-3 of 10 scrollback rows. Omitted before: 0. Omitted after: 7. Follow tail: false.');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'omission.after')?.source?.role, 'decoration');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'omission.after')?.source?.cellRole, 'decoration');
 });
 
 test('scrollback sanitizes terminal control sequences before rendering and accessibility', () => {
@@ -89,15 +89,15 @@ test('scrollback renders timestamp metadata and item style through visible rows'
 
   assert.equal(renderFramePlain(frame), '[10:30] source=worker status=ok Zulu');
   assert.deepEqual(frame.accessibility.root.children?.map((node) => node.value), ['[10:30] source=worker status=ok Zulu']);
-  assert.equal(timestampCell?.source?.label, 'timestamp.open');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'timestamp.value')?.style?.fg?.token, 'log.timestamp');
-  assert.equal(metadataCell?.source?.label, 'metadata.source.key');
+  assert.equal(timestampCell?.source?.description, 'timestamp.open');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'timestamp.value')?.style?.fg?.token, 'log.timestamp');
+  assert.equal(metadataCell?.source?.description, 'metadata.source.key');
   assert.equal(metadataCell?.style?.fg?.token, 'log.metadata');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.status.value')?.text, 'o');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.status.value')?.source?.itemId, 'meta-1');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.status.value')?.source?.itemIndex, 0);
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'metadata.status.value')?.text, 'o');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'metadata.status.value')?.source?.itemId, 'meta-1');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'metadata.status.value')?.source?.itemIndex, 0);
   assert.deepEqual(styledCell?.style, { fg: { kind: 'theme', token: 'status.success' }, bold: true });
-  assert.equal(styledCell?.source?.label, 'body');
+  assert.equal(styledCell?.source?.description, 'body');
   assert.equal(styledCell?.source?.itemId, 'meta-1');
   assert.equal(frame.accessibility.root.children?.[0]?.value, '[10:30] source=worker status=ok Zulu');
 });
@@ -149,8 +149,8 @@ test('scrollback renders folded history as visible document metadata', () => {
   }), { columns: 48, rows: 2 });
 
   assert.match(renderFramePlain(frame), /source=worker folded=true alpha \.\.\./u);
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.folded.key')?.text, 'f');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'metadata.folded.value')?.text, 't');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'metadata.folded.key')?.text, 'f');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'metadata.folded.value')?.text, 't');
   assert.equal(scrollbackHistoryItemAt(history, 0)?.bodyText, 'alpha\nmore alpha');
 });
 
@@ -192,10 +192,10 @@ test('scrollback search navigates to the first match and exposes match segments'
   const widget = scrollback({ id: 'search-log', history: prepareScrollbackHistory(items), searchQuery: 'needle' });
   const frame = renderElementFrame(widget, { columns: 40, rows: 5 });
 
-  const matchedCells = frame.cells.filter((cell) => cell.source?.label === 'body.match');
+  const matchedCells = frame.cells.filter((cell) => cell.source?.description === 'body.match');
   assert.equal(matchedCells.map((cell) => cell.text).join(''), 'needle');
   assert.equal(matchedCells.every((cell) => cell.style?.fg?.token === 'menu.match'), true);
-  assert.equal(frame.cells.some((cell) => cell.source?.label === 'body' && cell.text === ' '), true);
+  assert.equal(frame.cells.some((cell) => cell.source?.description === 'body' && cell.text === ' '), true);
   assert.match(renderFramePlain(frame), /needle row/u);
   assert.ok(frame.accessibility.root.children?.some((node) => node.description === 'Search match.'));
   assert.equal(
@@ -214,7 +214,7 @@ test('wrapped scrollback search centers the row containing the first highlight',
     searchQuery: 'needle',
     wrap: true
   }), { columns: 8, rows: 5 });
-  const matches = frame.cells.filter((cell) => cell.source?.partKind === 'match');
+  const matches = frame.cells.filter((cell) => cell.source?.partType === 'match');
 
   assert.equal(matches.map((cell) => cell.text).join(''), 'needle');
 });
@@ -235,7 +235,7 @@ test('wrapped scrollback search navigates by exact occurrence identity', () => {
 
   assert.equal(matches.length, 2);
   assert.equal(
-    frame.cells.filter((cell) => cell.source?.partKind === 'match').map((cell) => cell.text).join(''),
+    frame.cells.filter((cell) => cell.source?.partType === 'match').map((cell) => cell.text).join(''),
     'needle'
   );
   assert.doesNotMatch(renderFramePlain(frame), /^needle/u);
@@ -249,7 +249,7 @@ test('scrollback counts only queries represented by highlighted spans', () => {
   }), { columns: 40, rows: 2 });
 
   assert.equal(renderFramePlain(frame), '[a] b');
-  assert.equal(frame.cells.some((cell) => cell.source?.partKind === 'match'), false);
+  assert.equal(frame.cells.some((cell) => cell.source?.partType === 'match'), false);
   assert.equal(frame.accessibility.root.children?.[0]?.description, undefined);
   assert.equal(
     frame.accessibility.root.description,
@@ -264,7 +264,7 @@ test('scrollback search rejects code-unit substrings inside one grapheme', () =>
     searchQuery: '👨'
   }), { columns: 40, rows: 2 });
 
-  assert.equal(frame.cells.some((cell) => cell.source?.partKind === 'match'), false);
+  assert.equal(frame.cells.some((cell) => cell.source?.partType === 'match'), false);
   assert.equal(
     frame.accessibility.root.description,
     'Showing 1-1 of 1 scrollback rows. Omitted before: 0. Omitted after: 0. Follow tail: true. Search query: 👨. Matching items: 0.'
@@ -322,9 +322,9 @@ test('scrollback renders empty and selected text states in high contrast and no 
   });
 
   assert.equal(renderFramePlain(emptyFrame), 'No scrollback rows');
-  assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N')?.source?.label, 'empty');
+  assert.equal(emptyFrame.cells.find((cell) => cell.text === 'N')?.source?.description, 'empty');
   assert.equal(renderFramePlain(selectedFrame), 'alpha\nbravo charlie');
-  assert.equal(selectedFrame.cells.find((cell) => cell.source?.label === 'body.selection')?.style?.bg?.token, 'selection.background');
+  assert.equal(selectedFrame.cells.find((cell) => cell.source?.description === 'body.selection')?.style?.bg?.token, 'selection.background');
   assert.equal(highContrast.plainTextFrame, noColor.plainTextFrame);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
 });
@@ -365,7 +365,7 @@ test('scrollback maps pointer selection through metadata to canonical body offse
     scroll: createScrollState({ offsetRow: 0, contentRows: 2, viewportRows: 2 }),
     onAction: (action) => ({ action })
   }), { columns: 48, rows: 2 });
-  const alpha = frame.cells.find((cell) => cell.source?.part === 'body' && cell.text === 'p');
+  const alpha = frame.cells.find((cell) => cell.source?.partName === 'body' && cell.text === 'p');
   const bravo = frame.cells.find((cell) => cell.source?.itemId === 'bravo' && cell.text === 'a');
   assert.ok(alpha);
   assert.ok(bravo);
@@ -397,7 +397,7 @@ test('wrapped scrollback preserves selected body source and visual style', () =>
       focus: { itemId: 'alpha', offset: 8 }
     }
   }), { columns: 5, rows: 4 });
-  const selected = frame.cells.filter((cell) => cell.source?.part === 'body.selection');
+  const selected = frame.cells.filter((cell) => cell.source?.partName === 'body.selection');
 
   assert.equal(selected.map((cell) => cell.text).join(''), 'pha br');
   assert.equal(selected.every((cell) => cell.style?.bg?.token === 'selection.background'), true);

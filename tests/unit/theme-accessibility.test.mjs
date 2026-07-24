@@ -43,7 +43,7 @@ test('theme API defines token palettes, merges symbols, and resolves semantic st
     }
   });
   const diff = {
-    schemaVersion: 'terminal-ui.render-diff.v2',
+    schemaVersion: 'terminal-ui.render-diff.v3',
     width: 4,
     height: 1,
     fullRewrite: false,

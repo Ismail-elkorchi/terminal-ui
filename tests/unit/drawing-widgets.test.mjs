@@ -63,7 +63,7 @@ test('canvas painters can provide source metadata without becoming pseudo-contro
     painter({ canvas }) {
       canvas.text(0, 0, [{
         text: 'node',
-        source: { ownerId: 'node-a', ownerKind: 'diagram', role: 'custom', label: 'node.label' }
+        source: { elementId: 'node-a', elementKind: 'diagram', cellRole: 'custom', description: 'node.label' }
       }]);
     }
   }), { columns: 12, rows: 2 });
@@ -71,8 +71,8 @@ test('canvas painters can provide source metadata without becoming pseudo-contro
   assert.equal(renderFramePlain(frame), 'node');
   assert.equal(frame.focusPath, undefined);
   assert.equal(frame.accessibility.root.focused, undefined);
-  assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.label, 'node.label');
-  assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.role, 'custom');
+  assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.description, 'node.label');
+  assert.equal(frame.cells.find((cell) => cell.text === 'n')?.source?.cellRole, 'custom');
 });
 
 test('Canvas2D draws curves polygons and transformed paths through the frame buffer', () => {
@@ -182,9 +182,9 @@ test('surface appearance and condition draw background border and shadow indepen
   });
   const frame = renderElementFrame(widget, { columns: 14, rows: 4 });
   const output = renderFramePlain(frame);
-  const backgroundCell = frame.cells.find((cell) => cell.source?.ownerKind === 'surface' && cell.source.role === 'decoration' && cell.style?.bg !== undefined);
-  const borderCell = frame.cells.find((cell) => cell.source?.role === 'border');
-  const shadowCell = frame.cells.find((cell) => cell.source?.label === 'shadow');
+  const backgroundCell = frame.cells.find((cell) => cell.source?.elementKind === 'surface' && cell.source.cellRole === 'decoration' && cell.style?.bg !== undefined);
+  const borderCell = frame.cells.find((cell) => cell.source?.cellRole === 'border');
+  const shadowCell = frame.cells.find((cell) => cell.source?.description === 'shadow');
 
   assert.match(output, /Alert/u);
   assert.match(output, /inside/u);
@@ -208,9 +208,9 @@ test('surface conditions map every supported caller-supplied condition directly'
       condition
     }), { columns: 14, rows: 3 });
     const background = frame.cells.find((cell) =>
-      cell.source?.ownerKind === 'surface' && cell.source?.part === 'background'
+      cell.source?.elementKind === 'surface' && cell.source?.partName === 'background'
     );
-    const border = frame.cells.find((cell) => cell.source?.role === 'border');
+    const border = frame.cells.find((cell) => cell.source?.cellRole === 'border');
 
     assert.equal(background?.style?.bg?.token, backgroundToken);
     assert.equal(border?.style?.fg?.token, borderToken);
@@ -222,9 +222,9 @@ test('surface conditions map every supported caller-supplied condition directly'
     condition: 'active'
   }), { columns: 14, rows: 3 });
   const activeBackground = active.cells.find((cell) =>
-    cell.source?.ownerKind === 'surface' && cell.source?.part === 'background'
+    cell.source?.elementKind === 'surface' && cell.source?.partName === 'background'
   );
-  const activeBorder = active.cells.find((cell) => cell.source?.role === 'border');
+  const activeBorder = active.cells.find((cell) => cell.source?.cellRole === 'border');
 
   assert.equal(activeBackground?.style?.bg?.token, 'surface.raised.background');
   assert.equal(activeBackground?.style?.bold, true);
@@ -241,14 +241,14 @@ test('surface titles preserve authored inline styles with renderer-owned source 
     border: { kind: 'single' },
     appearance: 'inset'
   }), { columns: 16, rows: 3 });
-  const titleLabel = frame.cells.find((cell) => cell.text === 'c' && cell.source?.partKind === 'title');
-  const titleMetric = frame.cells.find((cell) => cell.text === '3' && cell.source?.partKind === 'title');
+  const titleLabel = frame.cells.find((cell) => cell.text === 'c' && cell.source?.partType === 'title');
+  const titleMetric = frame.cells.find((cell) => cell.text === '3' && cell.source?.partType === 'title');
 
   assert.match(renderFramePlain(frame).split('\n')[0] ?? '', /cpu 38%/u);
-  assert.equal(titleLabel?.source?.ownerKind, 'surface');
-  assert.equal(titleLabel?.source?.label, 'title.0');
+  assert.equal(titleLabel?.source?.elementKind, 'surface');
+  assert.equal(titleLabel?.source?.description, 'title.0');
   assert.equal(titleLabel?.style?.fg?.token, 'chart.label');
-  assert.equal(titleMetric?.source?.label, 'title.1');
+  assert.equal(titleMetric?.source?.description, 'title.1');
   assert.equal(titleMetric?.style?.fg?.token, 'chart.value');
 });
 
@@ -268,7 +268,7 @@ test('surface title rails render start center and end zones in the border line',
   assert.match(titleLine, /cpu/u);
   assert.match(titleLine, /btop/u);
   assert.match(titleLine, /BAT 84%/u);
-  assert.equal(frame.cells.find((cell) => cell.text === 'c')?.source?.label, 'title.start.0');
+  assert.equal(frame.cells.find((cell) => cell.text === 'c')?.source?.description, 'title.start.0');
   assert.equal(frame.cells.find((cell) => cell.text === 'b')?.style?.fg?.token, 'accent.primary');
   assert.equal(frame.cells.find((cell) => cell.text === 'B')?.style?.fg?.token, 'chart.value');
 });
@@ -286,7 +286,7 @@ test('surface appearances reserve border content space while plain surfaces stay
     id: 'plain'
   }), { columns: 10, rows: 3 });
 
-  assert.deepEqual(neutral.cells.find((cell) => cell.source?.ownerKind === 'surface')?.style?.bg, { kind: 'theme', token: 'surface.background' });
+  assert.deepEqual(neutral.cells.find((cell) => cell.source?.elementKind === 'surface')?.style?.bg, { kind: 'theme', token: 'surface.background' });
   assert.match(renderFramePlain(visualLayout).split('\n')[1] ?? '', /^│inner/u);
   assert.equal(renderFramePlain(transparent), 'flush');
 });
@@ -311,10 +311,10 @@ test('surface labels disabled state and theme conditions stay structural', () =>
     appearance: 'raised'
   }), { columns: 12, rows: 3 }, { theme: noColorTheme });
 
-  const disabledBorder = disabled.cells.find((cell) => cell.source?.role === 'border');
-  const disabledBackground = disabled.cells.find((cell) => cell.source?.ownerKind === 'surface' && cell.style?.bg !== undefined);
-  const selectedBorder = highContrast.cells.find((cell) => cell.source?.role === 'border');
-  const selectedBackground = highContrast.cells.find((cell) => cell.source?.ownerKind === 'surface' && cell.style?.bg !== undefined);
+  const disabledBorder = disabled.cells.find((cell) => cell.source?.cellRole === 'border');
+  const disabledBackground = disabled.cells.find((cell) => cell.source?.elementKind === 'surface' && cell.style?.bg !== undefined);
+  const selectedBorder = highContrast.cells.find((cell) => cell.source?.cellRole === 'border');
+  const selectedBackground = highContrast.cells.find((cell) => cell.source?.elementKind === 'surface' && cell.style?.bg !== undefined);
 
   assert.match(renderFramePlain(disabled).split('\n')[0] ?? '', /Locked/u);
   assert.equal(disabled.focusPath, undefined);

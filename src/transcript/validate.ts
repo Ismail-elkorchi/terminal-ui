@@ -2,7 +2,7 @@ import { validateAccessibleSnapshot } from '../accessibility/index.ts';
 import { diagnostic, diagnosticOccurrenceIssue, terminalDiagnosticIssue } from '../diagnostics.ts';
 import { err, ok } from '../result.ts';
 import { defineTextWidthProfile, measureTextCells } from '../text/index.ts';
-import { isFrameCellInteractionState } from '../visual/source.ts';
+import { isFrameCellInteractionState, isFrameCellRole } from '../visual/source.ts';
 import {
   applyRenderDiff,
   renderDiffProjectionMatchesFrame
@@ -60,6 +60,18 @@ const mouseButtons = [
   'none',
   'unknown'
 ] as const satisfies readonly MouseButton[];
+const frameCellSourceFields = new Set([
+  'elementId',
+  'elementKind',
+  'rendererFamily',
+  'cellRole',
+  'partName',
+  'partType',
+  'itemId',
+  'itemIndex',
+  'interactionState',
+  'description'
+]);
 
 export function validateTranscript(transcript: unknown): Result<InteractionTranscript> {
   const issue = transcriptIssue(transcript);
@@ -75,7 +87,7 @@ function isInteractionTranscript(value: unknown): value is InteractionTranscript
 
 function transcriptIssue(transcript: unknown): string | undefined {
   if (!isRecord(transcript)) return 'Interaction transcript must be an object.';
-  if (transcript['schemaVersion'] !== 'terminal-ui.interaction-transcript.v3') {
+  if (transcript['schemaVersion'] !== 'terminal-ui.interaction-transcript.v4') {
     return 'Unsupported interaction transcript schema version.';
   }
   if (!isNonEmptyString(transcript['id'])) {
@@ -328,7 +340,7 @@ function mouseEventIssue(event: Record<string, unknown>): string | undefined {
 
 function frameIssue(frame: unknown): string | undefined {
   if (!isRecord(frame)) return 'frame must be an object.';
-  if (frame['schemaVersion'] !== 'terminal-ui.tui-frame.v1') return 'frame schemaVersion is invalid.';
+  if (frame['schemaVersion'] !== 'terminal-ui.tui-frame.v2') return 'frame schemaVersion is invalid.';
   if (!isIntegerAtLeast(frame['width'], 0) || !isIntegerAtLeast(frame['height'], 0)) {
     return 'frame width and height must be non-negative integers.';
   }
@@ -377,7 +389,7 @@ function cursorIssue(cursor: unknown): string | undefined {
 
 function renderDiffIssue(diff: unknown): string | undefined {
   if (!isRecord(diff)) return 'diff must be an object.';
-  if (diff['schemaVersion'] !== 'terminal-ui.render-diff.v2') return 'diff schemaVersion is invalid.';
+  if (diff['schemaVersion'] !== 'terminal-ui.render-diff.v3') return 'diff schemaVersion is invalid.';
   if (!isIntegerAtLeast(diff['width'], 0) || !isIntegerAtLeast(diff['height'], 0)) {
     return 'diff width and height must be non-negative integers.';
   }
@@ -462,8 +474,16 @@ function renderOperationIssue(
 function frameCellSourceIssue(source: unknown): string | undefined {
   if (source === undefined) return undefined;
   if (!isRecord(source)) return 'must be an object.';
-  if (source['state'] !== undefined && !isFrameCellInteractionState(source['state'])) {
-    return 'state must be focused, hovered, pressed, selected, disabled, or active.';
+  const unknownField = Object.keys(source).find((field) => !frameCellSourceFields.has(field));
+  if (unknownField !== undefined) return `unsupported field: ${unknownField}.`;
+  if (source['cellRole'] !== undefined && !isFrameCellRole(source['cellRole'])) {
+    return 'cellRole must identify a supported frame-cell role.';
+  }
+  if (
+    source['interactionState'] !== undefined
+    && !isFrameCellInteractionState(source['interactionState'])
+  ) {
+    return 'interactionState must be focused, hovered, pressed, selected, disabled, or active.';
   }
   return undefined;
 }

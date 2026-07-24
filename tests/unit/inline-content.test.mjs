@@ -80,13 +80,13 @@ test('rich text projects symbol mode and accessible text while the renderer owns
   assert.deepEqual(
     unicode.cells.find((cell) => cell.text === '→')?.source,
     {
-      ownerId: 'inline',
-      ownerKind: 'richText',
-      family: 'text',
-      role: 'text',
-      part: 'segment',
+      elementId: 'inline',
+      elementKind: 'richText',
+      rendererFamily: 'text',
+      cellRole: 'text',
+      partName: 'segment',
       itemIndex: 1,
-      label: 'segment.1'
+      description: 'segment.1'
     }
   );
 });
@@ -139,13 +139,13 @@ test('inline adornments use component part styles and source anatomy', () => {
   ];
 
   for (const frame of frames) {
-    const leading = frame.cells.find((cell) => cell.source?.partKind === 'leading' && cell.text === '◆');
+    const leading = frame.cells.find((cell) => cell.source?.partType === 'leading' && cell.text === '◆');
     assert.equal(leading?.style?.fg?.token, 'status.info');
-    assert.equal(leading?.source?.role, 'text');
+    assert.equal(leading?.source?.cellRole, 'text');
   }
-  assert.equal(frames[0]?.cells.find((cell) => cell.source?.partKind === 'trailing')?.style?.fg?.token, 'status.warning');
-  assert.equal(frames[1]?.cells.find((cell) => cell.source?.partKind === 'trailing')?.style?.fg?.token, 'status.warning');
-  assert.equal(frames[3]?.cells.find((cell) => cell.source?.partKind === 'trailing')?.style?.fg?.token, 'status.warning');
+  assert.equal(frames[0]?.cells.find((cell) => cell.source?.partType === 'trailing')?.style?.fg?.token, 'status.warning');
+  assert.equal(frames[1]?.cells.find((cell) => cell.source?.partType === 'trailing')?.style?.fg?.token, 'status.warning');
+  assert.equal(frames[3]?.cells.find((cell) => cell.source?.partType === 'trailing')?.style?.fg?.token, 'status.warning');
 });
 
 test('table inline cell content preserves authored style while replacing authored source metadata', () => {
@@ -161,14 +161,14 @@ test('table inline cell content preserves authored style while replacing authore
         kind: 'text',
         text: String(value),
         style: { fg: { kind: 'theme', token: 'status.success' } },
-        source: { ownerId: 'authored' }
+        source: { elementId: 'authored' }
       })
     })]
   }), { columns: 20, rows: 2 });
   const cell = frame.cells.find((candidate) => candidate.text === 'r');
 
   assert.equal(cell?.style?.fg?.token, 'status.success');
-  assert.equal(cell?.source?.ownerId, 'results');
-  assert.equal(cell?.source?.ownerKind, 'table');
-  assert.equal(cell?.source?.part, 'row.one.cell.0');
+  assert.equal(cell?.source?.elementId, 'results');
+  assert.equal(cell?.source?.elementKind, 'table');
+  assert.equal(cell?.source?.partName, 'row.one.cell.0');
 });

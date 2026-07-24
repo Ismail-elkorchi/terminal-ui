@@ -80,7 +80,12 @@ function renderVerticalDivider(
     buffer.write(row, bounds.column, [{
       text: glyph,
       ...(style === undefined ? {} : { style }),
-      source: renderNodeFrameSource(renderNode, { family: 'drawing', role: 'separator', part: 'separator', label: 'separator' })
+      source: renderNodeFrameSource(renderNode, {
+        rendererFamily: 'drawing',
+        cellRole: 'separator',
+        partName: 'separator',
+        description: 'separator'
+      })
     }]);
   }
 }
@@ -165,7 +170,12 @@ function separatorSpan(renderNode: DividerNode, text: string, style: TerminalSty
   return {
     text,
     ...(style === undefined ? {} : { style }),
-    source: renderNodeFrameSource(renderNode, { family: 'drawing', role: 'separator', part: label, label })
+    source: renderNodeFrameSource(renderNode, {
+      rendererFamily: 'drawing',
+      cellRole: 'separator',
+      partName: label,
+      description: label
+    })
   };
 }
 
@@ -174,7 +184,12 @@ function labelSpan(renderNode: DividerNode, text: string, baseStyle: TerminalSty
   return {
     text,
     ...(style === undefined ? {} : { style }),
-    source: renderNodeFrameSource(renderNode, { family: 'drawing', role: 'text', part: 'label', label: 'label' })
+    source: renderNodeFrameSource(renderNode, {
+      rendererFamily: 'drawing',
+      cellRole: 'text',
+      partName: 'label',
+      description: 'label'
+    })
   };
 }
 type DividerNode = RenderNodeOfKind<unknown, 'divider'>;

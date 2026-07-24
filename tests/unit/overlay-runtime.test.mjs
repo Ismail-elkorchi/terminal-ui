@@ -192,13 +192,13 @@ test('focus is scoped to the topmost visible focus layer', () => {
   assert.deepEqual(frame.focusPath, ['focus-root', 'upper-input']);
   assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 4 });
   assert.deepEqual(frame.cursor?.source, {
-    ownerId: 'upper-input',
-    ownerKind: 'textInput',
-    family: 'form',
-    role: 'cursor',
-    part: 'cursor',
-    partKind: 'cursor',
-    label: 'cursor'
+    elementId: 'upper-input',
+    elementKind: 'textInput',
+    rendererFamily: 'form',
+    cellRole: 'cursor',
+    partName: 'cursor',
+    partType: 'cursor',
+    description: 'cursor'
   });
 });
 

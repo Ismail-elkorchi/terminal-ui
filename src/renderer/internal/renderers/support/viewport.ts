@@ -118,7 +118,12 @@ function writeViewportIndicator(
   buffer.write(position.row, position.column, [{
     text: oneCellGlyph(text, fallback, { widthProfile: buffer.widthProfile }),
     ...(style === undefined ? {} : { style }),
-    source: renderNodeFrameSource(renderNode, { family: 'layout', role: 'decoration', part: label, label })
+    source: renderNodeFrameSource(renderNode, {
+      rendererFamily: 'layout',
+      cellRole: 'decoration',
+      partName: label,
+      description: label
+    })
   }]);
 }
 

@@ -259,20 +259,20 @@ function styleOption(style: TerminalStyle | undefined): { readonly style?: Termi
 function textSource(renderNode: TextNode): FrameCellSource {
   const role = widgetTextRole(renderNode.props.textRole);
   return renderNodeFrameSource(renderNode, {
-    family: 'text',
-    role: 'text',
-    part: role === undefined ? 'content' : `role.${role}`,
-    label: role === undefined ? 'content' : `role.${role}`
+    rendererFamily: 'text',
+    cellRole: 'text',
+    partName: role === undefined ? 'content' : `role.${role}`,
+    description: role === undefined ? 'content' : `role.${role}`
   });
 }
 
 function richTextSource(renderNode: RichTextNode, index: number): FrameCellSource {
   return renderNodeFrameSource(renderNode, {
-    family: 'text',
-    role: 'text',
-    part: 'segment',
+    rendererFamily: 'text',
+    cellRole: 'text',
+    partName: 'segment',
     itemIndex: index,
-    label: `segment.${String(index)}`
+    description: `segment.${String(index)}`
   });
 }
 

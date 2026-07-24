@@ -26,9 +26,13 @@ renderElementFrame(text('Invalid'), { columns: '20', rows: 2 });
 
 const invalidInteractionState: FrameCellSource = {
   // @ts-expect-error frame-cell interaction state is a closed serialization contract
-  state: 'busy'
+  interactionState: 'busy'
 };
-const validInteractionState: FrameCellSource = { state: 'focused' };
+const removedFrameCellState: FrameCellSource = {
+  // @ts-expect-error serialized interaction metadata no longer uses the ambiguous state field
+  state: 'focused'
+};
+const validInteractionState: FrameCellSource = { interactionState: 'focused' };
 
 declare const drawing: Canvas2D;
 const absoluteRect: Rect = { row: 1, column: 1, width: 2, height: 2 };
@@ -68,6 +72,7 @@ void renderStage;
 void removedRenderStage;
 void plain;
 void invalidInteractionState;
+void removedFrameCellState;
 void validInteractionState;
 void privateRenderNode;
 void privateRegions;

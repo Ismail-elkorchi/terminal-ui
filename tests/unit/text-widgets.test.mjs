@@ -44,7 +44,7 @@ test('richText renders sanitized styled segments as plain frame text', () => {
   assert.equal(renderFramePlain(frame), 'Build failed');
   assert.equal(frame.accessibility.root.value, 'Build failed');
   assert.deepEqual(frame.cells.find((cell) => cell.text === 'B')?.source, textSource('rich', 'richText', 'segment.0', {
-    part: 'segment',
+    partName: 'segment',
     itemIndex: 0
   }));
 });
@@ -67,7 +67,7 @@ test('text renders through shared role styles and source metadata', () => {
     bold: true,
     underline: true
   });
-  assert.deepEqual(first?.source, textSource('badge-text', 'text', 'role.badge', { part: 'role.badge' }));
+  assert.deepEqual(first?.source, textSource('badge-text', 'text', 'role.badge', { partName: 'role.badge' }));
   assert.equal(frame.accessibility.root.value, 'Badge');
 });
 
@@ -96,7 +96,7 @@ test('wrapped richText preserves segment style link and source metadata', () => 
   assert.deepEqual(beta?.style, { fg: { kind: 'theme', token: 'status.warning' }, underline: true, bold: true });
   assert.deepEqual(beta?.link, { href: 'https://example.test/beta' });
   assert.deepEqual(beta?.source, textSource('rich-wrap', 'richText', 'segment.1', {
-    part: 'segment',
+    partName: 'segment',
     itemIndex: 1
   }));
   assert.equal(frame.accessibility.root.value, 'Alpha Beta');
@@ -140,7 +140,7 @@ test('textArea renders multiline windows and exposes cursor/accessibility state'
   assert.equal(frame.cursor?.style?.inverse, true);
   const caretCell = frame.cells.find((cell) => cell.row === frame.cursor?.row && cell.column === frame.cursor.column);
   assert.equal(caretCell?.style?.inverse, true);
-  assert.equal(caretCell?.source?.label, 'value');
+  assert.equal(caretCell?.source?.description, 'value');
   assert.equal(frame.accessibility.root.role, 'textbox');
   assert.equal(
     frame.accessibility.root.description,
@@ -164,14 +164,14 @@ test('editable text controls expose source metadata for chrome value placeholder
     presentation: { value: '42', cursor: 2, validity: 'valid', parsedValue: 42 }
   }), { columns: 12, rows: 1 });
 
-  assert.equal(inputFrame.cells.find((cell) => cell.text === '[')?.source?.label, 'chrome.prefix');
-  assert.equal(inputFrame.cells.find((cell) => cell.text === 'a')?.source?.label, 'value');
-  assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.label, 'selection');
-  assert.equal(inputFrame.cells.find((cell) => cell.text === ']')?.source?.label, 'chrome.suffix');
-  assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.ownerId, 'email');
-  assert.equal(placeholderFrame.cells.find((cell) => cell.text === 'E')?.source?.label, 'placeholder');
-  assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.ownerKind, 'numberInput');
-  assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.label, 'value');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === '[')?.source?.description, 'chrome.prefix');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === 'a')?.source?.description, 'value');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.description, 'selection');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === ']')?.source?.description, 'chrome.suffix');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.elementId, 'email');
+  assert.equal(placeholderFrame.cells.find((cell) => cell.text === 'E')?.source?.description, 'placeholder');
+  assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.elementKind, 'numberInput');
+  assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.description, 'value');
 });
 
 test('text widgets map Unicode cursor positions through the shared text contract', () => {
@@ -196,13 +196,13 @@ test('text widgets map Unicode cursor positions through the shared text contract
   assert.deepEqual(textInputFrame.cursor?.source, formSource('unicode-input', 'textInput', 'cursor'));
   assert.deepEqual(secondaryInputFrame.cursor?.source, formSource('unicode-field', 'textInput', 'cursor'));
   assert.deepEqual(commandFrame.cursor?.source, {
-    ownerId: 'unicode-command',
-    ownerKind: 'commandInput',
-    family: 'command',
-    role: 'cursor',
-    part: 'cursor',
-    partKind: 'cursor',
-    label: 'cursor'
+    elementId: 'unicode-command',
+    elementKind: 'commandInput',
+    rendererFamily: 'command',
+    cellRole: 'cursor',
+    partName: 'cursor',
+    partType: 'cursor',
+    description: 'cursor'
   });
   assert.equal(textInputFrame.cursor?.style?.fg?.token, 'input.cursor');
   assert.equal(commandFrame.cursor?.style?.fg?.token, 'input.cursor');
@@ -231,11 +231,11 @@ test('textArea editable cells expose chrome value placeholder and selection sour
     placeholder: 'Write notes'
   }), { columns: 12, rows: 1 });
 
-  assert.equal(selectedFrame.cells.find((cell) => cell.text === '›')?.source?.label, 'chrome.prefix');
-  assert.equal(selectedFrame.cells.find((cell) => cell.text === 'a')?.source?.label, 'value');
-  assert.equal(selectedFrame.cells.find((cell) => cell.text === 'l')?.source?.label, 'selection');
-  assert.equal(selectedFrame.cells.find((cell) => cell.row === 2 && cell.text === 'b')?.source?.label, 'value');
-  assert.equal(placeholderFrame.cells.find((cell) => cell.text === 'W')?.source?.label, 'placeholder');
+  assert.equal(selectedFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'chrome.prefix');
+  assert.equal(selectedFrame.cells.find((cell) => cell.text === 'a')?.source?.description, 'value');
+  assert.equal(selectedFrame.cells.find((cell) => cell.text === 'l')?.source?.description, 'selection');
+  assert.equal(selectedFrame.cells.find((cell) => cell.row === 2 && cell.text === 'b')?.source?.description, 'value');
+  assert.equal(placeholderFrame.cells.find((cell) => cell.text === 'W')?.source?.description, 'placeholder');
   assert.equal(placeholderFrame.accessibility.root.value, '');
 });
 
@@ -250,17 +250,17 @@ test('textArea can opt into line number gutter and active line anatomy', () => {
 
   assert.equal(renderFramePlain(frame), '› 1 │ alpha\n› 2 │ beta');
   assert.deepEqual(cursorPosition(frame.cursor), { row: 2, column: 8 });
-  assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === '1')?.source?.label, 'lineNumber');
-  assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === '2')?.source?.label, 'activeLine.lineNumber');
-  assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === '│')?.source?.label, 'activeLine.gutter');
-  assert.equal(activeContent?.source?.label, 'activeLine.value');
-  assert.equal(activeContent?.source?.role, 'text');
+  assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === '1')?.source?.description, 'lineNumber');
+  assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === '2')?.source?.description, 'activeLine.lineNumber');
+  assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === '│')?.source?.description, 'activeLine.gutter');
+  assert.equal(activeContent?.source?.description, 'activeLine.value');
+  assert.equal(activeContent?.source?.cellRole, 'text');
   assert.equal(activeContent?.style?.fg?.token, 'text.default');
   assert.equal(activeContent?.style?.bg?.token, 'editor.activeLine.background');
   assert.equal(activeContent?.style?.bold, undefined);
   assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === '1')?.style?.fg?.token, 'editor.gutter.foreground');
   assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === '2')?.style?.fg?.token, 'editor.gutter.active.foreground');
-  assert.equal(frame.cells.find((cell) => cell.source?.label === 'activeLine.background')?.style?.bg?.token, 'editor.activeLine.background');
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'activeLine.background')?.style?.bg?.token, 'editor.activeLine.background');
 });
 
 test('textArea cursor uses the actual line-number gutter width', () => {
@@ -297,13 +297,13 @@ test('textArea renders caller-owned highlight ranges without overriding selectio
   const custom = frame.cells.find((cell) => cell.text === 'g');
 
   assert.equal(renderFramePlain(frame), '› alpha beta gamma');
-  assert.equal(selected?.source?.partKind, 'selection');
+  assert.equal(selected?.source?.partType, 'selection');
   assert.equal(selected?.style?.bg?.token, 'selection.background');
-  assert.equal(highlighted?.source?.partKind, 'highlight');
-  assert.equal(highlighted?.source?.label, 'search.match');
+  assert.equal(highlighted?.source?.partType, 'highlight');
+  assert.equal(highlighted?.source?.description, 'search.match');
   assert.equal(highlighted?.style?.fg?.token, 'menu.match');
   assert.equal(highlighted?.style?.underline, true);
-  assert.equal(custom?.source?.label, 'custom.match');
+  assert.equal(custom?.source?.description, 'custom.match');
   assert.equal(custom?.style?.fg?.token, 'status.warning');
   assert.equal(custom?.style?.bold, true);
 });
@@ -319,8 +319,8 @@ test('textArea can soft-wrap long logical lines while preserving editor anatomy'
 
   assert.equal(renderFramePlain(frame), '› 1 │ alpha\n›   │ beta g\n›   │ amma');
   assert.deepEqual(cursorPosition(frame.cursor), { row: 2, column: 11 });
-  assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === '1')?.source?.label, 'activeLine.lineNumber');
-  assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === '│')?.source?.label, 'activeLine.gutter');
+  assert.equal(frame.cells.find((cell) => cell.row === 1 && cell.text === '1')?.source?.description, 'activeLine.lineNumber');
+  assert.equal(frame.cells.find((cell) => cell.row === 2 && cell.text === '│')?.source?.description, 'activeLine.gutter');
   assert.equal(
     frame.accessibility.root.description,
     '1 lines. Showing 1-3 of 3 rows. Omitted before: 0. Omitted after: 0. Horizontal offset: 0.'
@@ -336,7 +336,7 @@ test('wrapped textArea exposes scrollbar scope over visual rows', () => {
   }), { columns: 9, rows: 2 });
 
   assert.equal(renderFramePlain(frame), '› beta g┃\n│ amma d│');
-  assert.equal(frame.cells.find((cell) => cell.text === '┃')?.source?.ownerKind, 'textArea');
+  assert.equal(frame.cells.find((cell) => cell.text === '┃')?.source?.elementKind, 'textArea');
   assert.equal(
     frame.accessibility.root.description,
     '1 lines. Showing 2-3 of 4 rows. Omitted before: 1. Omitted after: 1. Horizontal offset: 0.'
@@ -374,8 +374,8 @@ test('editable text controls remain readable in high contrast and no-color proje
   assert.match(highContrast.plainTextFrame, /x\[ alpha \]/u);
   assert.match(highContrast.plainTextFrame, /\/command/u);
   assert.match(highContrast.ansiFrame, /\\x1b\[/u);
-  assert.match(highContrast.frameJson, /"label": "selection"/u);
-  assert.match(highContrast.frameJson, /"label": "validation"/u);
+  assert.match(highContrast.frameJson, /"description": "selection"/u);
+  assert.match(highContrast.frameJson, /"description": "validation"/u);
   assert.doesNotMatch(noColor.ansiFrame, /\\x1b\[[0-9;]*m/u);
   assert.equal(noColor.plainTextFrame, highContrast.plainTextFrame);
 });
@@ -541,26 +541,26 @@ function pointerEvent({
   };
 }
 
-function textSource(ownerId, ownerKind, label, extra = {}) {
+function textSource(elementId, elementKind, label, extra = {}) {
   return {
-    ownerId,
-    ownerKind,
-    family: 'text',
-    role: 'text',
-    label,
+    elementId,
+    elementKind,
+    rendererFamily: 'text',
+    cellRole: 'text',
+    description: label,
     ...extra
   };
 }
 
-function formSource(ownerId, ownerKind, label) {
+function formSource(elementId, elementKind, label) {
   return {
-    ownerId,
-    ownerKind,
-    family: 'form',
-    role: 'cursor',
-    part: label,
-    partKind: 'cursor',
-    label
+    elementId,
+    elementKind,
+    rendererFamily: 'form',
+    cellRole: 'cursor',
+    partName: label,
+    partType: 'cursor',
+    description: label
   };
 }
 

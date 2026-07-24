@@ -289,12 +289,12 @@ function sanitizeTitleSpan(currentSpan: RenderSpan, style: TerminalStyle | undef
     ...(currentSpan.style === undefined ? {} : { style: currentSpan.style }),
     ...(currentSpan.link === undefined ? {} : { link: currentSpan.link }),
     source: currentSpan.source ?? frameCellSource({
-      ownerKind: 'border',
-      family: 'surface',
-      role: 'text',
-      part: `border.title.${String(index)}`,
-      partKind: 'title',
-      label: `border.title.${String(index)}`
+      elementKind: 'border',
+      rendererFamily: 'surface',
+      cellRole: 'text',
+      partName: `border.title.${String(index)}`,
+      partType: 'title',
+      description: `border.title.${String(index)}`
     })
   };
 }
@@ -302,7 +302,13 @@ function sanitizeTitleSpan(currentSpan: RenderSpan, style: TerminalStyle | undef
 function borderSpan(text: string, style: TerminalStyle | undefined, label: string): RenderSpan {
   return span(text, {
     ...(style === undefined ? {} : { style }),
-    source: frameCellSource({ ownerKind: 'border', family: 'surface', role: 'border', part: label, label })
+    source: frameCellSource({
+      elementKind: 'border',
+      rendererFamily: 'surface',
+      cellRole: 'border',
+      partName: label,
+      description: label
+    })
   });
 }
 

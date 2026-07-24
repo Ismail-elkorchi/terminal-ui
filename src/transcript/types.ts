@@ -7,7 +7,7 @@ import type { Frame, RenderDiff } from '../renderer/index.ts';
 import type { TuiMessageSource } from '../runtime-model/message-source.ts';
 
 export interface InteractionTranscript {
-  readonly schemaVersion: 'terminal-ui.interaction-transcript.v3';
+  readonly schemaVersion: 'terminal-ui.interaction-transcript.v4';
   readonly id: string;
   readonly source: TranscriptSource;
   readonly startedAt?: string;

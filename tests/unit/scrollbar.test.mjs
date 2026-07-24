@@ -61,14 +61,14 @@ test('renderScrollbars uses theme scrollbar symbols and tokens', () => {
   assert.ok(thumbCell);
   assert.ok(trackCell);
   assert.ok(trackCells.every((cell) => cell.style?.fg?.kind === 'theme'));
-  assert.equal(thumbCell.source?.role, 'scrollbar');
-  assert.equal(thumbCell.source?.ownerKind, 'scrollbar');
-  assert.equal(thumbCell.source?.family, 'scroll');
-  assert.equal(thumbCell.source?.part, 'vertical.thumb');
-  assert.equal(thumbCell.source?.partKind, 'thumb');
-  assert.equal(thumbCell.source?.state, undefined);
-  assert.equal(trackCell.source?.part, 'vertical.track');
-  assert.equal(trackCell.source?.partKind, 'track');
+  assert.equal(thumbCell.source?.cellRole, 'scrollbar');
+  assert.equal(thumbCell.source?.elementKind, 'scrollbar');
+  assert.equal(thumbCell.source?.rendererFamily, 'scroll');
+  assert.equal(thumbCell.source?.partName, 'vertical.thumb');
+  assert.equal(thumbCell.source?.partType, 'thumb');
+  assert.equal(thumbCell.source?.interactionState, undefined);
+  assert.equal(trackCell.source?.partName, 'vertical.track');
+  assert.equal(trackCell.source?.partType, 'track');
 });
 
 test('renderScrollbars keeps one-cell tracks under ambiguous-wide profiles', () => {
@@ -103,7 +103,7 @@ test('scrollbarLayout exposes inactive state for visible non-overflowing tracks'
   const cells = buffer.snapshot().cells.filter((cell) => cell.column === 4);
 
   assert.equal(cells.length, 3);
-  assert.ok(cells.every((cell) => cell.source?.state === 'disabled'));
+  assert.ok(cells.every((cell) => cell.source?.interactionState === 'disabled'));
   assert.ok(cells.every((cell) => cell.style?.fg?.token === 'scrollbar.track'));
   assert.ok(cells.every((cell) => cell.style?.dim === true));
 });
@@ -131,12 +131,12 @@ test('scrollbar visualState controls active and hover thumb styling', () => {
   assert.equal(activeLayout.verticalTrack?.state, 'active');
   assert.equal(activeThumb?.style?.bold, true);
   assert.equal(activeThumb?.style?.fg?.token, 'focus.border');
-  assert.equal(activeThumb?.source?.state, 'active');
+  assert.equal(activeThumb?.source?.interactionState, 'active');
   assert.equal(hoverLayout.verticalTrack?.state, 'hover');
   assert.equal(hoverThumb?.style?.bold, true);
   assert.equal(hoverThumb?.style?.inverse, undefined);
   assert.equal(hoverThumb?.style?.fg?.token, 'scrollbar.thumb');
-  assert.equal(hoverThumb?.source?.state, 'hovered');
+  assert.equal(hoverThumb?.source?.interactionState, 'hovered');
 });
 
 test('scrollbar interaction reducer maps pointer lifecycle to caller-owned visual state', () => {
@@ -264,12 +264,12 @@ test('widget scrollbars expose owner source metadata and visual state', () => {
 
   const thumbCell = frame.cells.find((cell) => cell.text === defaultTheme.tokens.symbols.scrollbarVerticalThumb);
 
-  assert.equal(thumbCell?.source?.ownerId, 'body');
-  assert.equal(thumbCell?.source?.ownerKind, 'textArea');
-  assert.equal(thumbCell?.source?.family, 'scroll');
-  assert.equal(thumbCell?.source?.role, 'scrollbar');
-  assert.equal(thumbCell?.source?.partKind, 'thumb');
-  assert.equal(thumbCell?.source?.state, 'hovered');
+  assert.equal(thumbCell?.source?.elementId, 'body');
+  assert.equal(thumbCell?.source?.elementKind, 'textArea');
+  assert.equal(thumbCell?.source?.rendererFamily, 'scroll');
+  assert.equal(thumbCell?.source?.cellRole, 'scrollbar');
+  assert.equal(thumbCell?.source?.partType, 'thumb');
+  assert.equal(thumbCell?.source?.interactionState, 'hovered');
   assert.equal(thumbCell?.style?.inverse, undefined);
   assert.equal(thumbCell?.style?.bold, true);
 });
@@ -382,11 +382,11 @@ test('viewport scrollbar clips child rendering to content bounds', () => {
 
   assert.ok(thumb);
   assert.ok(track);
-  assert.equal(thumb.source?.ownerKind, 'viewport');
-  assert.equal(thumb.source?.partKind, 'thumb');
+  assert.equal(thumb.source?.elementKind, 'viewport');
+  assert.equal(thumb.source?.partType, 'thumb');
   assert.equal(thumb.style?.fg?.token, 'scrollbar.thumb');
-  assert.equal(track.source?.ownerKind, 'viewport');
-  assert.equal(track.source?.partKind, 'track');
+  assert.equal(track.source?.elementKind, 'viewport');
+  assert.equal(track.source?.partType, 'track');
   assert.equal(track.style?.fg?.token, 'scrollbar.track');
   assert.equal(track.style?.dim, true);
 });

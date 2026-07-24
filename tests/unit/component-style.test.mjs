@@ -129,13 +129,13 @@ test('button states use shared styles and structural markers', () => {
   assert.equal(styleFor(destructiveFrame, 'D')?.fg?.token, 'status.error');
   assert.equal(styleFor(pressedFrame, 'P')?.bg?.token, 'selection.background');
   assert.equal(styleFor(disabledFrame, 'D')?.fg?.token, 'text.disabled');
-  assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.label, 'chrome.focus');
-  assert.equal(focusedFrame.cells.find((cell) => cell.text === '[')?.source?.label, 'chrome.open');
-  assert.equal(pendingFrame.cells.find((cell) => cell.text === 'i')?.source?.label, 'state.marker');
-  assert.equal(destructiveFrame.cells.find((cell) => cell.text === '×')?.source?.label, 'state.marker');
-  assert.equal(pressedFrame.cells.find((cell) => cell.text === '●')?.source?.label, 'state.marker');
-  assert.equal(disabledFrame.cells.find((cell) => cell.text === '-')?.source?.label, 'state.marker');
-  assert.equal(disabledFrame.cells.find((cell) => cell.text === 'D')?.source?.label, 'label.text');
+  assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'chrome.focus');
+  assert.equal(focusedFrame.cells.find((cell) => cell.text === '[')?.source?.description, 'chrome.open');
+  assert.equal(pendingFrame.cells.find((cell) => cell.text === 'i')?.source?.description, 'state.marker');
+  assert.equal(destructiveFrame.cells.find((cell) => cell.text === '×')?.source?.description, 'state.marker');
+  assert.equal(pressedFrame.cells.find((cell) => cell.text === '●')?.source?.description, 'state.marker');
+  assert.equal(disabledFrame.cells.find((cell) => cell.text === '-')?.source?.description, 'state.marker');
+  assert.equal(disabledFrame.cells.find((cell) => cell.text === 'D')?.source?.description, 'label.text');
 });
 
 test('controlled pointer interaction resolves styles and source state across component families', () => {
@@ -192,19 +192,19 @@ test('controlled pointer interaction resolves styles and source state across com
   }), { columns: 30, rows: 6 });
 
   assert.equal(styleFor(checkboxFrame, 'E')?.bg?.token, 'focus.background');
-  assert.equal(checkboxFrame.cells.find((cell) => cell.text === 'E')?.source?.state, 'hovered');
+  assert.equal(checkboxFrame.cells.find((cell) => cell.text === 'E')?.source?.interactionState, 'hovered');
   assert.equal(styleFor(listFrame, 'B')?.bg?.token, 'focus.background');
-  assert.equal(listFrame.cells.find((cell) => cell.text === 'B')?.source?.state, 'hovered');
+  assert.equal(listFrame.cells.find((cell) => cell.text === 'B')?.source?.interactionState, 'hovered');
   assert.equal(styleFor(tabFrame, 'T')?.bg?.token, 'selection.background');
-  assert.equal(tabFrame.cells.find((cell) => cell.text === 'T')?.source?.state, 'pressed');
+  assert.equal(tabFrame.cells.find((cell) => cell.text === 'T')?.source?.interactionState, 'pressed');
   assert.equal(styleFor(menuFrame, 'S')?.bg?.token, 'focus.background');
-  assert.equal(menuFrame.cells.find((cell) => cell.text === 'S')?.source?.state, 'hovered');
+  assert.equal(menuFrame.cells.find((cell) => cell.text === 'S')?.source?.interactionState, 'hovered');
   assert.equal(styleFor(commandFrame, 'S')?.bg?.token, 'focus.background');
-  assert.equal(commandFrame.cells.find((cell) => cell.text === 'S')?.source?.state, 'hovered');
-  assert.equal(paginatorFrame.cells.find((cell) => cell.source?.part === 'control.next')?.source?.state, 'pressed');
+  assert.equal(commandFrame.cells.find((cell) => cell.text === 'S')?.source?.interactionState, 'hovered');
+  assert.equal(paginatorFrame.cells.find((cell) => cell.source?.partName === 'control.next')?.source?.interactionState, 'pressed');
   assert.equal(notificationFrame.cells.find((cell) =>
-    cell.source?.itemId === 'ready' && cell.source.part === 'title'
-  )?.source?.state, 'hovered');
+    cell.source?.itemId === 'ready' && cell.source.partName === 'title'
+  )?.source?.interactionState, 'hovered');
 });
 
 test('text entry chrome uses shared border focus and error styles', () => {
@@ -336,10 +336,10 @@ test('list table and tree share data navigation selection and match styles', () 
   assert.equal(styleForCell(activeTableFrame, (cell) => cell.text === 'A')?.bg?.token, 'selection.background');
   assert.equal(styleForCell(treeFrame, (cell) => cell.text === '▾')?.fg?.token, 'tree.branch');
   assert.equal(styleForCell(treeFrame, (cell) => cell.text === 'A')?.fg?.token, 'menu.match');
-  assert.equal(listFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'item.Atlas.match');
-  assert.equal(tableFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'row.0.cell.0');
-  assert.equal(activeTableFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'row.0.cell.0');
-  assert.equal(treeFrame.cells.find((cell) => cell.text === 'A')?.source?.label, 'node.api.match');
+  assert.equal(listFrame.cells.find((cell) => cell.text === 'A')?.source?.description, 'item.Atlas.match');
+  assert.equal(tableFrame.cells.find((cell) => cell.text === 'A')?.source?.description, 'row.0.cell.0');
+  assert.equal(activeTableFrame.cells.find((cell) => cell.text === 'A')?.source?.description, 'row.0.cell.0');
+  assert.equal(treeFrame.cells.find((cell) => cell.text === 'A')?.source?.description, 'node.api.match');
 });
 
 test('default interactive widget anatomy uses theme tokens instead of terminal defaults', () => {
@@ -425,20 +425,20 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
     maxWidth: 24
   }), { columns: 32, rows: 6 });
 
-  assert.equal(styleForSource(buttonFrame, (source) => source.label === 'label.text')?.fg?.token, 'control.primary.foreground');
-  assert.equal(styleForSource(inputFrame, (source) => source.part === 'value')?.fg?.token, 'text.default');
-  assert.equal(styleForSource(commandFrame, (source) => source.part === 'prompt')?.fg?.token, 'command.prompt');
-  assert.equal(styleForSource(commandFrame, (source) => source.part === 'suggestion.0.label')?.bg?.token, 'selection.background');
-  assert.equal(styleForSource(menuFrame, (source) => source.part === 'label' && source.itemId === 'open')?.bg?.token, 'selection.background');
-  assert.equal(styleForSource(dropdownMenuFrame, (source) => source.part === 'dropdownMenu-value')?.fg?.token, 'text.default');
-  assert.equal(styleForSource(paletteFrame, (source) => source.part === 'entry.open.label')?.fg?.token, 'text.default');
-  assert.equal(styleForSource(tabsFrame, (source) => source.part === 'label' && source.itemId === 'one')?.fg?.token, 'tab.active.foreground');
-  assert.equal(styleForSource(tabsFrame, (source) => source.part === 'label' && source.itemId === 'two')?.fg?.token, 'tab.inactive.foreground');
-  assert.equal(styleForSource(tableFrame, (source) => source.part === 'row.1.cell.0')?.fg?.token, 'text.default');
-  assert.equal(styleForSource(treeFrame, (source) => source.part === 'node.root.label')?.fg?.token, 'text.default');
-  assert.equal(styleForSource(treeFrame, (source) => source.part === 'node.root.disclosure')?.fg?.token, 'tree.branch');
-  assert.equal(styleForSource(noticeFrame, (source) => source.part === 'title')?.fg?.token, 'status.success');
-  assert.equal(styleForSource(noticeFrame, (source) => source.part === 'message')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(buttonFrame, (source) => source.description === 'label.text')?.fg?.token, 'control.primary.foreground');
+  assert.equal(styleForSource(inputFrame, (source) => source.partName === 'value')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(commandFrame, (source) => source.partName === 'prompt')?.fg?.token, 'command.prompt');
+  assert.equal(styleForSource(commandFrame, (source) => source.partName === 'suggestion.0.label')?.bg?.token, 'selection.background');
+  assert.equal(styleForSource(menuFrame, (source) => source.partName === 'label' && source.itemId === 'open')?.bg?.token, 'selection.background');
+  assert.equal(styleForSource(dropdownMenuFrame, (source) => source.partName === 'dropdownMenu-value')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(paletteFrame, (source) => source.partName === 'entry.open.label')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(tabsFrame, (source) => source.partName === 'label' && source.itemId === 'one')?.fg?.token, 'tab.active.foreground');
+  assert.equal(styleForSource(tabsFrame, (source) => source.partName === 'label' && source.itemId === 'two')?.fg?.token, 'tab.inactive.foreground');
+  assert.equal(styleForSource(tableFrame, (source) => source.partName === 'row.1.cell.0')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(treeFrame, (source) => source.partName === 'node.root.label')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(treeFrame, (source) => source.partName === 'node.root.disclosure')?.fg?.token, 'tree.branch');
+  assert.equal(styleForSource(noticeFrame, (source) => source.partName === 'title')?.fg?.token, 'status.success');
+  assert.equal(styleForSource(noticeFrame, (source) => source.partName === 'message')?.fg?.token, 'text.default');
 });
 
 test('tree rows expose styled disclosure icon and label anatomy', () => {
@@ -466,15 +466,15 @@ test('tree rows expose styled disclosure icon and label anatomy', () => {
   const disclosure = frame.cells.find((cell) => cell.text === '▾');
   const icon = frame.cells.find((cell) => cell.text === '◆');
   const label = frame.cells.find((cell) => cell.text === 'R');
-  const indent = frame.cells.find((cell) => cell.source?.partKind === 'indent');
+  const indent = frame.cells.find((cell) => cell.source?.partType === 'indent');
 
   assert.equal(disclosure?.style?.fg?.token, 'status.warning');
-  assert.equal(disclosure?.source?.partKind, 'disclosure');
-  assert.equal(disclosure?.source?.state, undefined);
+  assert.equal(disclosure?.source?.partType, 'disclosure');
+  assert.equal(disclosure?.source?.interactionState, undefined);
   assert.equal(icon?.style?.fg?.token, 'status.info');
-  assert.equal(icon?.source?.partKind, 'icon');
+  assert.equal(icon?.source?.partType, 'icon');
   assert.equal(label?.style?.fg?.token, 'status.success');
-  assert.equal(label?.source?.partKind, 'label');
+  assert.equal(label?.source?.partType, 'label');
   assert.equal(indent?.style?.fg?.token, 'status.warning');
 });
 
@@ -500,7 +500,7 @@ test('tabs use shared selected disabled and value styles', () => {
     }
   }), { columns: 32, rows: 3 }, { focusPath: ['tabs'] });
   const dStyles = stylesFor(frame, 'D');
-  const selectedLabel = frame.cells.find((cell) => cell.source?.itemId === 'data' && cell.source?.label === 'label');
+  const selectedLabel = frame.cells.find((cell) => cell.source?.itemId === 'data' && cell.source?.description === 'label');
 
   assert.equal(dStyles[0]?.fg?.token, 'text.muted');
   assert.equal(selectedLabel?.style?.fg?.token, 'status.success');
@@ -537,7 +537,7 @@ test('scrollback and dialog chrome use placeholder and border slots', () => {
 
   assert.equal(styleFor(scrollbackFrame, '.')?.fg?.token, 'status.warning');
   assert.equal(styleFor(modalFrame, '┌')?.fg?.token, 'status.error');
-  assert.equal(styleForCell(modalFrame, (cell) => cell.source?.ownerKind === 'dialog' && cell.source.label === 'action-separator')?.fg?.token, 'status.error');
+  assert.equal(styleForCell(modalFrame, (cell) => cell.source?.elementKind === 'dialog' && cell.source.description === 'action-separator')?.fg?.token, 'status.error');
 });
 
 test('structural text roles use shared visual grammar', () => {
@@ -572,9 +572,9 @@ test('passive surfaces keep visual state separate from descendant focus', () => 
     focusWithin: true
   }), { columns: 10, rows: 1 }, { focusPath: ['focus-within-surface', 'within-field'] });
 
-  assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'surface.chrome.background');
-  assert.equal(styleForCell(customFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'surface.chrome.background');
-  assert.equal(styleForCell(focusWithinFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'focus.background');
+  assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.chrome.background');
+  assert.equal(styleForCell(customFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.chrome.background');
+  assert.equal(styleForCell(focusWithinFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'focus.background');
 });
 
 test('surface condition exposes selected panes without stealing focus semantics', () => {
@@ -595,10 +595,10 @@ test('surface condition exposes selected panes without stealing focus semantics'
     disabled: true
   }), { columns: 10, rows: 1 });
 
-  assert.equal(styleForCell(selectedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'surface.selected.background');
-  assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'surface.selected.background');
-  assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'surface.chrome.background');
-  assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.part === 'background')?.fg?.token, 'text.disabled');
+  assert.equal(styleForCell(selectedFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.selected.background');
+  assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.selected.background');
+  assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.chrome.background');
+  assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.partName === 'background')?.fg?.token, 'text.disabled');
 });
 
 test('overflow priority preserves important row content before decorative content', () => {
@@ -675,18 +675,18 @@ test('feedback widgets use shared status styles and source metadata', () => {
 
   assert.equal(styleFor(statusFrame, 'R')?.fg?.token, 'status.success');
   assert.equal(styleFor(statusFrame, 'R')?.bg?.token, 'surface.chrome.background');
-  assert.equal(statusFrame.cells.find((cell) => cell.text === 'R')?.source?.ownerKind, 'statusBar');
+  assert.equal(statusFrame.cells.find((cell) => cell.text === 'R')?.source?.elementKind, 'statusBar');
   assert.equal(styleFor(helpFrame, 'E')?.fg?.token, 'accent.primary');
   assert.equal(styleFor(helpFrame, 'o')?.bg?.token, 'surface.chrome.background');
-  assert.equal(helpFrame.cells.find((cell) => cell.text === 'E')?.source?.label, 'group.primary.binding.0.key');
+  assert.equal(helpFrame.cells.find((cell) => cell.text === 'E')?.source?.description, 'group.primary.binding.0.key');
   assert.equal(styleFor(activityFrame, '!')?.fg?.token, 'status.warning');
-  assert.equal(activityFrame.cells.find((cell) => cell.text === '!')?.source?.label, 'status.marker');
+  assert.equal(activityFrame.cells.find((cell) => cell.text === '!')?.source?.description, 'status.marker');
   assert.equal(activityFrame.cells.find((cell) => cell.text === 'I')?.style?.fg?.token, 'text.default');
   assert.equal(styleFor(spinnerFrame, '✓')?.fg?.token, 'status.success');
-  assert.equal(spinnerFrame.cells.find((cell) => cell.text === '✓')?.source?.label, 'status.marker');
+  assert.equal(spinnerFrame.cells.find((cell) => cell.text === '✓')?.source?.description, 'status.marker');
   assert.equal(spinnerFrame.cells.find((cell) => cell.text === 'L')?.style?.fg?.token, 'text.default');
   assert.equal(styleFor(progressFrame, '█')?.fg?.token, 'status.error');
-  assert.equal(progressFrame.cells.find((cell) => cell.text === '█')?.source?.label, 'filled');
+  assert.equal(progressFrame.cells.find((cell) => cell.text === '█')?.source?.description, 'filled');
 });
 
 test('record results and notification tones retain their component-specific styling', () => {
@@ -749,11 +749,11 @@ test('chart widgets use shared visual state styles and source metadata', () => {
 }), { columns: 8, rows: 1 });
 
   assert.equal(styleFor(barFrame, 'A')?.fg?.token, 'status.success');
-  assert.equal(barFrame.cells.find((cell) => cell.text === 'A')?.source?.ownerKind, 'barChart');
+  assert.equal(barFrame.cells.find((cell) => cell.text === 'A')?.source?.elementKind, 'barChart');
   assert.equal(styleFor(chartFrame, 'U')?.fg?.token, 'status.error');
-  assert.equal(chartFrame.cells.find((cell) => cell.text === 'U')?.source?.label, 'state.error.message');
+  assert.equal(chartFrame.cells.find((cell) => cell.text === 'U')?.source?.description, 'state.error.message');
   assert.equal(styleFor(heatmapFrame, '█')?.fg?.token, 'status.warning');
-  assert.equal(heatmapFrame.cells.find((cell) => cell.text === '█')?.source?.label, 'cell.0.0.value');
+  assert.equal(heatmapFrame.cells.find((cell) => cell.text === '█')?.source?.description, 'cell.0.0.value');
 });
 
 test('choice and picker controls use shared form visual styles and source metadata', () => {
@@ -785,13 +785,13 @@ test('choice and picker controls use shared form visual styles and source metada
     ...calendarFixture({ selected: { year: 2026, month: 6, day: 2 } })
   }), { columns: 30, rows: 8 });
 
-  assert.equal(styleForCell(toggleFrame, (cell) => cell.source?.label === 'value.on')?.bg?.token, 'control.toggle.on.background');
-  assert.equal(toggleFrame.cells.find((cell) => cell.source?.label === 'value.off')?.style?.fg?.token, 'input.placeholder');
-  assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.label === 'track.handle')?.bg?.token, 'control.track.filled');
-  assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.label === 'track.filled')?.fg?.token, 'control.track.filled');
-  assert.equal(checkboxFrame.cells.find((cell) => cell.text === 'x')?.source?.label, 'option.a.marker.checked');
-  assert.equal(styleForCell(colorFrame, (cell) => cell.source?.label === 'summary.swatch')?.bg?.token, 'control.primary.background');
-  assert.equal(colorFrame.cells.find((cell) => cell.source?.label === 'option.green.swatch')?.text, '■');
-  assert.equal(dateFrame.cells.find((cell) => cell.source?.label === 'weekday.0')?.style?.fg?.token, 'text.disabled');
-  assert.equal(dateFrame.cells.find((cell) => cell.text === '[')?.source?.label, 'day.2026-06-02.open');
+  assert.equal(styleForCell(toggleFrame, (cell) => cell.source?.description === 'value.on')?.bg?.token, 'control.toggle.on.background');
+  assert.equal(toggleFrame.cells.find((cell) => cell.source?.description === 'value.off')?.style?.fg?.token, 'input.placeholder');
+  assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.description === 'track.handle')?.bg?.token, 'control.track.filled');
+  assert.equal(styleForCell(sliderFrame, (cell) => cell.source?.description === 'track.filled')?.fg?.token, 'control.track.filled');
+  assert.equal(checkboxFrame.cells.find((cell) => cell.text === 'x')?.source?.description, 'option.a.marker.checked');
+  assert.equal(styleForCell(colorFrame, (cell) => cell.source?.description === 'summary.swatch')?.bg?.token, 'control.primary.background');
+  assert.equal(colorFrame.cells.find((cell) => cell.source?.description === 'option.green.swatch')?.text, '■');
+  assert.equal(dateFrame.cells.find((cell) => cell.source?.description === 'weekday.0')?.style?.fg?.token, 'text.disabled');
+  assert.equal(dateFrame.cells.find((cell) => cell.text === '[')?.source?.description, 'day.2026-06-02.open');
 });

@@ -439,7 +439,7 @@ function headerLine(
     const label = column.header ?? '';
     const labelSpans: RenderSpan[] = [
       ...(label.length === 0 ? [] : [dataSpan(label, headerStyle, tableSource(renderNode, `header.${String(column.index)}.label`, headerSourceId, 'text', {
-        partKind: 'header'
+        partType: 'header'
       }))])
     ];
     const sort = tableSortMarker(column.sort);
@@ -448,13 +448,13 @@ function headerLine(
         part: 'sortIndicator',
         ...(headerStyle === undefined ? {} : { base: headerStyle })
       }), tableSource(renderNode, `header.${String(column.index)}.sort`, headerSourceId, 'decoration', {
-        partKind: 'sort'
+        partType: 'sort'
       })));
     }
     const resize = tableResizeMarker(column);
     if (resize.length > 0) {
       labelSpans.push(dataSpan(resize, headerStyle, tableSource(renderNode, `header.${String(column.index)}.resize`, headerSourceId, 'decoration', {
-        partKind: 'resize'
+        partType: 'resize'
       })));
     }
     spans.push(...cellSpans(
@@ -500,7 +500,7 @@ function rowLine(
     theme,
     selectedStyle,
     tableSource(renderNode, `row.${rowId}.marker`, rowId, 'decoration', {
-      partKind: 'marker',
+      partType: 'marker',
       ...(rowState === undefined ? {} : { state: rowState })
     })
   )];
@@ -514,7 +514,7 @@ function rowLine(
       columnIndex,
       theme,
       tableSource(renderNode, `row.${rowId}.cell.${String(column.index)}`, rowId, 'text', {
-        partKind: column.semantic,
+        partType: column.semantic,
         ...(rowState === undefined ? {} : { state: rowState })
       })
     );
@@ -537,7 +537,7 @@ function rowLine(
       widthProfile,
       cellSelectedStyle,
       tableSource(renderNode, `row.${rowId}.cell.${String(column.index)}.padding`, rowId, 'decoration', {
-        partKind: 'padding',
+        partType: 'padding',
         ...(cellState === undefined ? {} : { state: cellState })
       }),
       cellSelectedStyle ?? resolveRenderNodeStyle(renderNode, { part: 'cell' })
@@ -728,9 +728,9 @@ function tableSource(
   renderNode: TableNode,
   label: string,
   id?: string,
-  role: FrameCellSource['role'] = 'text',
+  role: FrameCellSource['cellRole'] = 'text',
   options: {
-    readonly partKind?: string;
+    readonly partType?: string;
     readonly state?: import('../../element/metadata.ts').ElementVisualState;
   } = {}
 ): FrameCellSource {

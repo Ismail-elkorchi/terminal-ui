@@ -199,13 +199,13 @@ function menuInlineSpans(
     theme,
     ...(style === undefined ? {} : { baseStyle: style }),
     source: (_segment: InlineContentSegment, index) => renderNodeFrameSource(renderNode, {
-      family: 'menu',
-      role: 'text',
-      part: `${part}.${String(index)}`,
-      partKind: part,
+      rendererFamily: 'menu',
+      cellRole: 'text',
+      partName: `${part}.${String(index)}`,
+      partType: part,
       itemId: item.id,
-      ...(isFrameCellInteractionState(state) ? { state } : {}),
-      label: `${part}.${String(index)}`
+      ...(isFrameCellInteractionState(state) ? { interactionState: state } : {}),
+      description: `${part}.${String(index)}`
     })
   });
 }
@@ -291,12 +291,12 @@ function menuSpan(
   return span(text, {
     ...(style === undefined ? {} : { style }),
     source: renderNodeFrameSource(renderNode, {
-      family: 'menu',
-      role: source.label === 'separator' ? 'separator' : 'text',
-      part: source.label,
+      rendererFamily: 'menu',
+      cellRole: source.label === 'separator' ? 'separator' : 'text',
+      partName: source.label,
       ...(source.itemId === undefined ? {} : { itemId: source.itemId }),
-      ...(isFrameCellInteractionState(source.state) ? { state: source.state } : {}),
-      label: source.label
+      ...(isFrameCellInteractionState(source.state) ? { interactionState: source.state } : {}),
+      description: source.label
     })
   });
 }

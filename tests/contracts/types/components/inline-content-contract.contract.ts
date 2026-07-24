@@ -18,7 +18,7 @@ surface(text('body'), {
 });
 
 // @ts-expect-error frame source metadata is renderer-owned
-richText({ segments: [{ kind: 'text', text: 'unsafe', source: { ownerId: 'caller' } }] });
+richText({ segments: [{ kind: 'text', text: 'unsafe', source: { elementId: 'caller' } }] });
 // @ts-expect-error symbolic content requires accessible text
 richText({ segments: [{ kind: 'symbol', unicode: '→', ascii: '->' }] });
 surface(text('invalid border title'), {
@@ -27,7 +27,7 @@ surface(text('invalid border title'), {
 });
 surface(text('invalid title source'), {
   // @ts-expect-error surface titles cannot author renderer source metadata
-  title: [{ kind: 'text', text: 'Title', source: { ownerId: 'caller' } }]
+  title: [{ kind: 'text', text: 'Title', source: { elementId: 'caller' } }]
 });
 button({
   id: 'invalid-token',

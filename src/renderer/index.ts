@@ -101,7 +101,7 @@ export {
 export type {
   FramePass,
   FramePassContext,
-  FrameSemanticRole
+  FrameCellRole
 } from './internal/frame-passes/index.ts';
 export {
   frameCellSource,

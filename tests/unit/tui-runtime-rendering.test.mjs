@@ -151,7 +151,7 @@ test('viewport widgets render a clipped scrolled window into child content', () 
     }
   ), { columns: 5, rows: 2 });
   const output = renderFramePlain(frame);
-  const rightMarker = frame.cells.find((cell) => cell.source?.ownerKind === 'viewport' && cell.source.label === 'clip-right');
+  const rightMarker = frame.cells.find((cell) => cell.source?.elementKind === 'viewport' && cell.source.description === 'clip-right');
 
   assert.equal(output, 'w-1 →\nw-2');
   assert.equal(rightMarker?.text, '→');
@@ -181,7 +181,7 @@ test('viewport widgets expose empty virtual content without rendering child cont
     { id: 'empty-window', contentRows: 0, contentColumns: 8 }
   ), { columns: 5, rows: 3 });
   const output = renderFramePlain(frame);
-  const emptyMarker = frame.cells.find((cell) => cell.source?.ownerKind === 'viewport' && cell.source.label === 'empty');
+  const emptyMarker = frame.cells.find((cell) => cell.source?.elementKind === 'viewport' && cell.source.description === 'empty');
 
   assert.doesNotMatch(output, /hidden child/u);
   assert.equal(emptyMarker?.text, '∅');
@@ -200,7 +200,7 @@ test('viewport clipped-edge indicators do not overwrite visible content cells', 
     }
   ), { columns: 3, rows: 3 });
   const labels = new Set(frame.cells
-    .map((cell) => cell.source?.label)
+    .map((cell) => cell.source?.description)
     .filter((label) => label !== undefined));
 
   assert.ok(labels.has('clip-top'));
@@ -221,7 +221,7 @@ test('viewport edge indicators preserve fixed-cell geometry under ambiguous-wide
   ), { columns: 3, rows: 3 }, {
     widthProfile: { emoji: 'wide', ambiguous: 'wide' }
   });
-  const top = frame.cells.find((cell) => cell.source?.label === 'clip-top');
+  const top = frame.cells.find((cell) => cell.source?.description === 'clip-top');
 
   assert.equal(top?.text, '^');
   assert.equal(top?.width, 1);

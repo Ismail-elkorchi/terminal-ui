@@ -42,8 +42,8 @@ export interface ScrollbarLayout {
 }
 
 export interface ScrollbarRenderOptions {
-  readonly ownerId?: string;
-  readonly ownerKind?: string;
+  readonly elementId?: string;
+  readonly elementKind?: string;
 }
 
 export function scrollbarLayout(
@@ -272,30 +272,30 @@ function scrollbarStyle(thumb: boolean, state: ScrollbarVisualState): TerminalSt
 
 function scrollbarSource(
   axis: ScrollbarTrack['axis'],
-  partKind: 'track' | 'thumb',
+  partType: 'track' | 'thumb',
   state: ScrollbarVisualState,
   options: ScrollbarRenderOptions
 ): FrameCellSource {
   return frameCellSource({
-    ...(options.ownerId === undefined ? {} : { ownerId: options.ownerId }),
-    ownerKind: options.ownerKind ?? 'scrollbar',
-    family: 'scroll',
-    role: 'scrollbar',
-    part: `${axis}.${partKind}`,
-    partKind,
+    ...(options.elementId === undefined ? {} : { elementId: options.elementId }),
+    elementKind: options.elementKind ?? 'scrollbar',
+    rendererFamily: 'scroll',
+    cellRole: 'scrollbar',
+    partName: `${axis}.${partType}`,
+    partType,
     ...scrollbarSourceState(state),
-    label: `${axis} scrollbar ${partKind}`
+    description: `${axis} scrollbar ${partType}`
   });
 }
 
 function scrollbarSourceState(
   state: ScrollbarVisualState
-): { readonly state?: NonNullable<FrameCellSource['state']> } {
+): { readonly interactionState?: NonNullable<FrameCellSource['interactionState']> } {
   switch (state) {
-    case 'active': return { state: 'active' };
-    case 'hover': return { state: 'hovered' };
+    case 'active': return { interactionState: 'active' };
+    case 'hover': return { interactionState: 'hovered' };
     case 'disabled':
-    case 'inactive': return { state: 'disabled' };
+    case 'inactive': return { interactionState: 'disabled' };
     case 'idle': return {};
   }
 }

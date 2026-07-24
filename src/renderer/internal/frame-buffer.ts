@@ -169,7 +169,7 @@ class CellFrameBuffer implements FrameBuffer {
         : { source: sanitizeFrameCellSource(options.cursor.source) })
     };
     const frame: FrameBufferSnapshot = {
-      schemaVersion: 'terminal-ui.tui-frame.v1',
+      schemaVersion: 'terminal-ui.tui-frame.v2',
       width: this.width,
       height: this.height,
       widthProfile: this.widthProfile,
@@ -371,7 +371,7 @@ class CellFrameBuffer implements FrameBuffer {
 function isMergeableFrameCell(cell: FrameCell): boolean {
   return cell.continuation !== true
     && cell.width === 1
-    && (cell.source?.role === 'border' || cell.source?.role === 'separator');
+    && (cell.source?.cellRole === 'border' || cell.source?.cellRole === 'separator');
 }
 
 function sanitizeTerminalLink(link: TerminalLink): TerminalLink {
@@ -484,16 +484,16 @@ function frameCellSourceFingerprint(source: FrameCellSource): number {
   const cached = sourceFingerprintCache.get(source);
   if (cached !== undefined) return cached;
   let next = fnvOffset;
-  next = hashText(next, source.ownerId ?? '');
-  next = hashText(next, source.ownerKind ?? '');
-  next = hashText(next, source.family ?? '');
-  next = hashText(next, source.role ?? '');
-  next = hashText(next, source.part ?? '');
-  next = hashText(next, source.partKind ?? '');
+  next = hashText(next, source.elementId ?? '');
+  next = hashText(next, source.elementKind ?? '');
+  next = hashText(next, source.rendererFamily ?? '');
+  next = hashText(next, source.cellRole ?? '');
+  next = hashText(next, source.partName ?? '');
+  next = hashText(next, source.partType ?? '');
   next = hashText(next, source.itemId ?? '');
   next = hashNumber(next, source.itemIndex ?? -1);
-  next = hashText(next, source.state ?? '');
-  next = hashText(next, source.label ?? '');
+  next = hashText(next, source.interactionState ?? '');
+  next = hashText(next, source.description ?? '');
   sourceFingerprintCache.set(source, next);
   return next;
 }

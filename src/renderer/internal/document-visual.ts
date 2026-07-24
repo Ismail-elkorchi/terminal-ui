@@ -32,7 +32,7 @@ export interface DocumentHighlightSpan extends RenderSpan {
 export interface DocumentSourceOptions {
   readonly itemId?: string;
   readonly itemIndex?: number;
-  readonly state?: FrameCellSource['state'];
+  readonly state?: FrameCellSource['interactionState'];
 }
 
 export function documentSpan(
@@ -83,14 +83,14 @@ export function documentSource(
   sourceOptions: DocumentSourceOptions = {}
 ): FrameCellSource {
   return renderNodeFrameSource(renderNode, {
-    family: kind,
-    role: roleForVisual(visual),
-    part: label,
-    partKind: visual,
+    rendererFamily: kind,
+    cellRole: roleForVisual(visual),
+    partName: label,
+    partType: visual,
     ...(sourceOptions.itemId === undefined ? {} : { itemId: sourceOptions.itemId }),
     ...(sourceOptions.itemIndex === undefined ? {} : { itemIndex: sourceOptions.itemIndex }),
-    ...(sourceOptions.state === undefined ? {} : { state: sourceOptions.state }),
-    label
+    ...(sourceOptions.state === undefined ? {} : { interactionState: sourceOptions.state }),
+    description: label
   });
 }
 
@@ -256,7 +256,7 @@ export function sourceToken(value: string): string {
   return token.length === 0 ? 'value' : token;
 }
 
-function roleForVisual(visual: DocumentVisualKind): NonNullable<FrameCellSource['role']> {
+function roleForVisual(visual: DocumentVisualKind): NonNullable<FrameCellSource['cellRole']> {
   switch (visual) {
     case 'chrome':
     case 'empty':

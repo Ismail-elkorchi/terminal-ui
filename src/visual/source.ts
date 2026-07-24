@@ -1,6 +1,6 @@
 import { sanitizeTerminalText } from '../text/index.ts';
 
-export type FrameSemanticRole =
+export type FrameCellRole =
   | 'text'
   | 'border'
   | 'separator'
@@ -10,28 +10,39 @@ export type FrameSemanticRole =
   | 'chart'
   | 'custom';
 
+const frameCellRoles = [
+  'text',
+  'border',
+  'separator',
+  'scrollbar',
+  'cursor',
+  'decoration',
+  'chart',
+  'custom'
+] as const satisfies readonly FrameCellRole[];
+
 export interface FrameCellSource {
-  readonly ownerId?: string;
-  readonly ownerKind?: string;
-  readonly family?: string;
-  readonly role?: FrameSemanticRole;
-  readonly part?: string;
-  readonly partKind?: string;
+  readonly elementId?: string;
+  readonly elementKind?: string;
+  readonly rendererFamily?: string;
+  readonly cellRole?: FrameCellRole;
+  readonly partName?: string;
+  readonly partType?: string;
   readonly itemId?: string;
   readonly itemIndex?: number;
-  readonly state?: 'focused' | 'hovered' | 'pressed' | 'selected' | 'disabled' | 'active';
-  readonly label?: string;
+  readonly interactionState?: 'focused' | 'hovered' | 'pressed' | 'selected' | 'disabled' | 'active';
+  readonly description?: string;
 }
 
 export interface RenderNodeFrameSourceOptions {
-  readonly family?: string;
-  readonly role?: FrameSemanticRole;
-  readonly part?: string;
-  readonly partKind?: string;
+  readonly rendererFamily?: string;
+  readonly cellRole?: FrameCellRole;
+  readonly partName?: string;
+  readonly partType?: string;
   readonly itemId?: string;
   readonly itemIndex?: number;
-  readonly state?: 'focused' | 'hovered' | 'pressed' | 'selected' | 'disabled' | 'active';
-  readonly label?: string;
+  readonly interactionState?: 'focused' | 'hovered' | 'pressed' | 'selected' | 'disabled' | 'active';
+  readonly description?: string;
 }
 
 const sanitizedFrameSources = new WeakSet<FrameCellSource>();
@@ -39,12 +50,12 @@ const frameSourceInternLimit = 8192;
 const internedFrameSources = new Map<string, FrameCellSource>();
 
 export function renderNodeFrameSource(
-  widget: { readonly id?: string; readonly kind: string },
+  renderNode: { readonly id?: string; readonly kind: string },
   options: RenderNodeFrameSourceOptions = {}
 ): FrameCellSource {
   return sanitizeFrameCellSource({
-    ...(widget.id === undefined ? {} : { ownerId: widget.id }),
-    ownerKind: widget.kind,
+    ...(renderNode.id === undefined ? {} : { elementId: renderNode.id }),
+    elementKind: renderNode.kind,
     ...options
   });
 }
@@ -55,7 +66,7 @@ export function frameCellSource(input: FrameCellSource): FrameCellSource {
 
 export function frameSourcePart(
   source: FrameCellSource | undefined,
-  options: Pick<RenderNodeFrameSourceOptions, 'part' | 'partKind' | 'state' | 'label'>
+  options: Pick<RenderNodeFrameSourceOptions, 'partName' | 'partType' | 'interactionState' | 'description'>
 ): FrameCellSource | undefined {
   if (source === undefined) return undefined;
   return sanitizeFrameCellSource({
@@ -67,16 +78,16 @@ export function frameSourcePart(
 export function sanitizeFrameCellSource(source: FrameCellSource): FrameCellSource {
   if (sanitizedFrameSources.has(source)) return source;
   const normalized: FrameCellSource = {
-    ...optionalTextField('ownerId', source.ownerId),
-    ...optionalTextField('ownerKind', source.ownerKind),
-    ...optionalTextField('family', source.family),
-    ...optionalTextField('role', source.role),
-    ...optionalTextField('part', source.part),
-    ...optionalTextField('partKind', source.partKind),
+    ...optionalTextField('elementId', source.elementId),
+    ...optionalTextField('elementKind', source.elementKind),
+    ...optionalTextField('rendererFamily', source.rendererFamily),
+    ...optionalCellRole(source.cellRole),
+    ...optionalTextField('partName', source.partName),
+    ...optionalTextField('partType', source.partType),
     ...optionalTextField('itemId', source.itemId),
     ...optionalIndex(source.itemIndex),
-    ...optionalInteractionState(source.state),
-    ...optionalTextField('label', source.label)
+    ...optionalInteractionState(source.interactionState),
+    ...optionalTextField('description', source.description)
   };
   const key = frameSourceInternKey(normalized);
   const interned = internedFrameSources.get(key);
@@ -90,16 +101,16 @@ export function sanitizeFrameCellSource(source: FrameCellSource): FrameCellSourc
 
 export function sameFrameCellSource(left: FrameCellSource | undefined, right: FrameCellSource | undefined): boolean {
   if (left === undefined || right === undefined) return left === right;
-  return left.ownerId === right.ownerId
-    && left.ownerKind === right.ownerKind
-    && left.family === right.family
-    && left.role === right.role
-    && left.part === right.part
-    && left.partKind === right.partKind
+  return left.elementId === right.elementId
+    && left.elementKind === right.elementKind
+    && left.rendererFamily === right.rendererFamily
+    && left.cellRole === right.cellRole
+    && left.partName === right.partName
+    && left.partType === right.partType
     && left.itemId === right.itemId
     && left.itemIndex === right.itemIndex
-    && left.state === right.state
-    && left.label === right.label;
+    && left.interactionState === right.interactionState
+    && left.description === right.description;
 }
 
 function optionalTextField<Key extends keyof FrameCellSource>(
@@ -117,6 +128,18 @@ function optionalIndex(value: number | undefined): Pick<FrameCellSource, 'itemIn
     : {};
 }
 
+function optionalCellRole(value: unknown): Pick<FrameCellSource, 'cellRole'> {
+  if (value === undefined) return {};
+  if (isFrameCellRole(value)) {
+    return { cellRole: value };
+  }
+  throw new TypeError(`Frame cell source cellRole must be one of ${frameCellRoles.join(', ')}.`);
+}
+
+export function isFrameCellRole(value: unknown): value is FrameCellRole {
+  return typeof value === 'string' && (frameCellRoles as readonly string[]).includes(value);
+}
+
 const interactionStates = [
   'focused',
   'hovered',
@@ -124,37 +147,37 @@ const interactionStates = [
   'selected',
   'disabled',
   'active'
-] as const satisfies readonly NonNullable<FrameCellSource['state']>[];
+] as const satisfies readonly NonNullable<FrameCellSource['interactionState']>[];
 
-function optionalInteractionState(value: unknown): Pick<FrameCellSource, 'state'> {
+function optionalInteractionState(value: unknown): Pick<FrameCellSource, 'interactionState'> {
   if (value === undefined) return {};
   if (isFrameCellInteractionState(value)) {
-    return { state: value };
+    return { interactionState: value };
   }
   throw new TypeError(
-    `Frame cell source state must be one of ${interactionStates.join(', ')}.`
+    `Frame cell source interactionState must be one of ${interactionStates.join(', ')}.`
   );
 }
 
 export function isFrameCellInteractionState(
   value: unknown
-): value is NonNullable<FrameCellSource['state']> {
+): value is NonNullable<FrameCellSource['interactionState']> {
   return typeof value === 'string'
     && (interactionStates as readonly string[]).includes(value);
 }
 
 function frameSourceInternKey(source: FrameCellSource): string {
   return [
-    source.ownerId ?? '',
-    source.ownerKind ?? '',
-    source.family ?? '',
-    source.role ?? '',
-    source.part ?? '',
-    source.partKind ?? '',
+    source.elementId ?? '',
+    source.elementKind ?? '',
+    source.rendererFamily ?? '',
+    source.cellRole ?? '',
+    source.partName ?? '',
+    source.partType ?? '',
     source.itemId ?? '',
     source.itemIndex === undefined ? '' : String(source.itemIndex),
-    source.state ?? '',
-    source.label ?? ''
+    source.interactionState ?? '',
+    source.description ?? ''
   ].join('\u0000');
 }
 

@@ -244,7 +244,7 @@ test('schemas reject malformed nested public payloads', async () => {
   const transcriptValidator = validators.get('interaction-transcript.schema.json');
 
   assert.equal(frameValidator({
-    schemaVersion: 'terminal-ui.tui-frame.v1',
+    schemaVersion: 'terminal-ui.tui-frame.v2',
     width: 1,
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
@@ -254,16 +254,16 @@ test('schemas reject malformed nested public payloads', async () => {
       text: 'x',
       width: 1,
       source: {
-        ownerId: 'owner',
-        ownerKind: 'text',
-        family: 'text',
-        role: 'text',
-        part: 'body',
-        partKind: 'segment',
+        elementId: 'owner',
+        elementKind: 'text',
+        rendererFamily: 'text',
+        cellRole: 'text',
+        partName: 'body',
+        partType: 'segment',
         itemId: 'item',
         itemIndex: 0,
-        state: 'selected',
-        label: 'Body'
+        interactionState: 'selected',
+        description: 'Body'
       }
     }],
     accessibility: {
@@ -276,16 +276,37 @@ test('schemas reject malformed nested public payloads', async () => {
   }), true, ajv.errorsText(frameValidator.errors));
 
   assert.equal(frameValidator({
-    schemaVersion: 'terminal-ui.tui-frame.v1',
+    schemaVersion: 'terminal-ui.tui-frame.v2',
     width: 1,
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
-    cells: [{ row: 1, column: 1, text: 'x', width: 1, source: { id: 'legacy', kind: 'old' } }],
-    accessibility: { root: { id: 'bad-source', role: 'text' } }
+    cells: [{
+      row: 1,
+      column: 1,
+      text: 'x',
+      width: 1,
+      source: {
+        ownerId: 'legacy',
+        ownerKind: 'text',
+        family: 'text',
+        role: 'text',
+        part: 'body',
+        partKind: 'segment',
+        state: 'selected',
+        label: 'Legacy'
+      }
+    }],
+    accessibility: {
+      schemaVersion: 'terminal-ui.accessible-snapshot.v1',
+      source: 'tui',
+      root: { id: 'bad-source', role: 'text' },
+      focusPath: [],
+      diagnostics: []
+    }
   }), false);
 
   assert.equal(validators.get('tui-frame.schema.json')({
-    schemaVersion: 'terminal-ui.tui-frame.v1',
+    schemaVersion: 'terminal-ui.tui-frame.v2',
     width: 1,
     height: 1,
     widthProfile: { emoji: 'wide', ambiguous: 'narrow' },
@@ -325,7 +346,7 @@ test('schemas reject malformed nested public payloads', async () => {
   }), false);
 
   const keyTranscript = (alternateCodePoints) => ({
-    schemaVersion: 'terminal-ui.interaction-transcript.v3',
+    schemaVersion: 'terminal-ui.interaction-transcript.v4',
     id: 'key-transcript',
     source: 'test',
     steps: [{
@@ -348,7 +369,7 @@ test('schemas reject malformed nested public payloads', async () => {
   assert.equal(transcriptValidator(keyTranscript({})), false);
 
   const resizeTranscript = (sizeField) => ({
-    schemaVersion: 'terminal-ui.interaction-transcript.v3',
+    schemaVersion: 'terminal-ui.interaction-transcript.v4',
     id: 'resize-transcript',
     source: 'test',
     steps: [{ kind: 'input', event: { kind: 'resize', ...sizeField } }],
@@ -359,7 +380,7 @@ test('schemas reject malformed nested public payloads', async () => {
   assert.equal(transcriptValidator(resizeTranscript({ viewport: { columns: 20, rows: 4 } })), false);
 
   const transcriptWithKeyboardFlags = (flags) => ({
-    schemaVersion: 'terminal-ui.interaction-transcript.v3',
+    schemaVersion: 'terminal-ui.interaction-transcript.v4',
     id: 'keyboard-flags',
     source: 'test',
     steps: [{

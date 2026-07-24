@@ -73,12 +73,12 @@ export function formSource(
   state?: ElementVisualState
 ): FrameCellSource {
   return renderNodeFrameSource(renderNode, {
-    family: 'form',
-    role: roleForVisual(visual),
-    part: label,
-    partKind: visual,
-    ...(isFrameCellInteractionState(state) ? { state } : {}),
-    label
+    rendererFamily: 'form',
+    cellRole: roleForVisual(visual),
+    partName: label,
+    partType: visual,
+    ...(isFrameCellInteractionState(state) ? { interactionState: state } : {}),
+    description: label
   });
 }
 
@@ -214,7 +214,7 @@ export function labelSpans(
   ];
 }
 
-function roleForVisual(visual: FormVisualKind): NonNullable<FrameCellSource['role']> {
+function roleForVisual(visual: FormVisualKind): NonNullable<FrameCellSource['cellRole']> {
   switch (visual) {
     case 'cursor':
       return 'cursor';

@@ -248,19 +248,19 @@ function clean(value: string): string {
 function paletteSource(
   renderNode: PaletteNode,
   label: string,
-  role: FrameCellSource['role'] = 'text',
+  role: FrameCellSource['cellRole'] = 'text',
   id: string | undefined = renderNode.id,
   itemIndex?: number,
   state?: import('../../element/metadata.ts').ElementVisualState
 ): FrameCellSource {
   return renderNodeFrameSource(renderNode, {
-    family: 'command',
-    role,
-    part: label,
+    rendererFamily: 'command',
+    cellRole: role,
+    partName: label,
     ...(id === undefined || id === renderNode.id ? {} : { itemId: id }),
     ...(itemIndex === undefined ? {} : { itemIndex }),
-    ...(isFrameCellInteractionState(state) ? { state } : {}),
-    label
+    ...(isFrameCellInteractionState(state) ? { interactionState: state } : {}),
+    description: label
   });
 }
 
