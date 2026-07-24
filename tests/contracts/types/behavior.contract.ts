@@ -1,10 +1,12 @@
 import {
   commandInputReducer,
   createScrollState,
+  pointerInteractionReducer,
   scrollReducer,
   tableReducer,
   type CommandInputState
 } from '@ismail-elkorchi/terminal-ui/behavior';
+import * as behavior from '@ismail-elkorchi/terminal-ui/behavior';
 
 const command: CommandInputState = { input: { text: '', cursor: 0 }, history: [], suggestions: [] };
 const edited = commandInputReducer(command, { kind: 'edit', operation: { kind: 'insert', text: 'x' } });
@@ -16,9 +18,14 @@ const table = tableReducer({ selectedRowId: 'one' }, { kind: 'moveRow', delta: 1
   rows: [{ id: 'one' }, { id: 'two' }],
   getRowId: (row) => row.id
 });
+const pointer = pointerInteractionReducer({}, { kind: 'enter', targetId: 'save:control' });
 
 // @ts-expect-error reducer actions are discriminated contracts
 scrollReducer(scrolled, { kind: 'scrollLines', rows: 'two' });
+// @ts-expect-error pointer interaction no longer uses presentation vocabulary
+type RemovedPointerPresentationReducer = typeof behavior['pointerPresentationReducer'];
 
 void edited;
 void table;
+void pointer;
+void (undefined as unknown as RemovedPointerPresentationReducer);

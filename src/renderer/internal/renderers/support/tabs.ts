@@ -11,7 +11,7 @@ import type { HitTarget } from '../../../model/renderer.ts';
 import type { TabAction } from '../../../../ui-model/tabs.ts';
 import type { TerminalTheme } from '../../../../theme/index.ts';
 import type { TextWidthProfile } from '../../../../text/index.ts';
-import { interactionVisualState, renderNodeTargetId } from '../../pointer-presentation.ts';
+import { interactionVisualState, renderNodeTargetId } from '../../pointer-interaction.ts';
 import type { ElementVisualState } from '../../../../element/metadata.ts';
 import { isInlineContent } from '../../../../visual/inline-content.ts';
 import type { InlineContent } from '../../../../visual/inline-content.ts';

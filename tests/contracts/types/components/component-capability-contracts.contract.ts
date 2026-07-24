@@ -15,7 +15,7 @@ textInput({
 // @ts-expect-error interactive components require authored identity
 button({ label: 'Save' });
 button({ id: 'disabled-button', label: 'Save', disabled: true });
-// @ts-expect-error pointer press is controlled through pointer presentation
+// @ts-expect-error pointer press is controlled through pointer interaction
 button({ id: 'legacy-button-state', label: 'Save', state: 'pressed' });
 // @ts-expect-error range sliders retain the shared disabled control contract
 rangeSlider({ id: 'invalid-range-state', presentation: { value: { start: 1, end: 2 }, activeHandle: 'start' }, state: 'disabled' });

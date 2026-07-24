@@ -34,7 +34,7 @@ import {
   clean,
   labelPrefix
 } from './support/shared.ts';
-import { renderNodeTargetId } from '../pointer-presentation.ts';
+import { renderNodeTargetId } from '../pointer-interaction.ts';
 import { ignoreMessage } from '../../../interaction/message.ts';
 
 export function controlHitTargets<TMessage>(renderNode: ActivationControlNode<TMessage>, bounds: Rect): readonly HitTarget<TMessage>[] {

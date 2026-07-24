@@ -17,7 +17,7 @@ Use behavior helpers when component interaction has reusable rules:
 - checkbox-group, radio-group, select, and color-swatch-picker navigation;
 - scrollback search, folds, follow-tail, and scroll projection;
 - chart and heatmap keyboard and pointer selection;
-- pointer presentation, focus, and visual-state reducers;
+- pointer interaction, focus, and visual-state reducers;
 - split-pane divider selection, constrained resizing, and pointer drag anchors.
 
 The pattern is:

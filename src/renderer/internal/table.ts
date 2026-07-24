@@ -30,7 +30,7 @@ import {
 } from './table/columns.ts';
 import { tableColumnTracks, visibleTableTrack } from './table/geometry.ts';
 import { tableMetrics, type TableMetrics } from './component-metrics.ts';
-import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
+import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 import { renderInlineContent } from './inline-content.ts';
 
 interface TableWindow {

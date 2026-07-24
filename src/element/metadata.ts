@@ -1,7 +1,7 @@
 import type { AccessibilityOptions, AccessibleNode } from '../accessibility/index.ts';
 import type { BindableKeyName, InputEvent, InputTrigger } from '../input/index.ts';
 import type { FocusPath, InitialFocusSelector } from '../interaction/focus.ts';
-import type { PointerPresentationOptions } from '../interaction/pointer-presentation.ts';
+import type { PointerInteractionOptions } from '../interaction/pointer-interaction.ts';
 import type { MessageResolution } from '../interaction/message.ts';
 import type { TerminalStyle } from '../visual/render.ts';
 
@@ -96,7 +96,7 @@ export interface InteractiveElementOptions<
   TMessage = never
 > extends ElementOptions<TPart> {
   readonly id: string;
-  readonly pointer?: PointerPresentationOptions<TMessage>;
+  readonly pointer?: PointerInteractionOptions<TMessage>;
 }
 
 export interface ElementTextInputHandlers<TMessage> {

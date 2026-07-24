@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
-import { pointerPresentationReducer } from '../../dist/behavior/index.js';
+import { pointerInteractionReducer } from '../../dist/behavior/index.js';
 import { createTerminalHarness } from '../../dist/testing/index.js';
 import { custom, renderFramePlain } from '../../dist/renderer/index.js';
 import { button, tree } from '../../dist/components/index.js';
@@ -67,12 +67,12 @@ test('TUI pointer click activates once on left release and ignores right click o
   assert.deepEqual(runtime.state(), { clicks: 1 });
 });
 
-test('built-in controls expose controlled pointer presentation without duplicate activation', async () => {
+test('built-in controls expose controlled pointer interaction without duplicate activation', async () => {
   const app = defineTui({
-    id: 'controlled-pointer-presentation',
+    id: 'controlled-pointer-interaction',
     init: () => ({ pointer: {}, activations: 0 }),
     update: (state, message) => message.kind === 'pointer'
-      ? { state: { ...state, pointer: pointerPresentationReducer(state.pointer, message.action) } }
+      ? { state: { ...state, pointer: pointerInteractionReducer(state.pointer, message.action) } }
       : { state: { ...state, activations: state.activations + 1 } },
     view: (state) => button({
       id: 'controlled-button',
@@ -109,7 +109,7 @@ test('built-in controls expose controlled pointer presentation without duplicate
 
 test('disabled controls expose neither activation nor synthetic pointer lifecycle targets', async () => {
   const app = defineTui({
-    id: 'disabled-pointer-presentation',
+    id: 'disabled-pointer-interaction',
     init: () => ({ events: [] }),
     update: (state, message) => ({ state: { events: [...state.events, message] } }),
     view: (state) => button({

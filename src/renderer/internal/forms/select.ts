@@ -5,7 +5,7 @@ import type { RenderNodeOfKind } from '../../model/index.ts';
 import type { LayoutNode, Rect } from '../../model/layout.ts';
 import type { HitTarget } from '../../model/renderer.ts';
 import { ignoreMessage } from '../../../interaction/message.ts';
-import { renderNodeTargetId } from '../pointer-presentation.ts';
+import { renderNodeTargetId } from '../pointer-interaction.ts';
 import { formOptions } from './support/choices.ts';
 
 type SelectNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'select'>;

@@ -1,8 +1,12 @@
 import {
   ignoreMessage,
   placeAnchoredSurface,
+  pointerVisualState,
   resolveSelectedText,
-  type AnchoredSurfacePlacement
+  type AnchoredSurfacePlacement,
+  type PointerInteractionAction,
+  type PointerInteractionOptions,
+  type PointerInteractionState
 } from '@ismail-elkorchi/terminal-ui/interaction';
 
 const placement: AnchoredSurfacePlacement = 'auto';
@@ -16,11 +20,25 @@ const selected = resolveSelectedText({
   sources: [{ id: 'document', text: 'terminal', selection: { start: 0, end: 4 } }]
 });
 const ignored = ignoreMessage();
+const pointerState: PointerInteractionState = { hoveredTargetId: 'save:control' };
+const pointerAction: PointerInteractionAction = { kind: 'press', targetId: 'save:control' };
+const pointerOptions: PointerInteractionOptions<PointerInteractionAction> = {
+  state: pointerState,
+  onAction: (action) => action
+};
+const pointerStyle = pointerVisualState(pointerState, 'save:control');
 
 // @ts-expect-error placement vocabulary is closed
 const invalidPlacement: AnchoredSurfacePlacement = 'center';
+type RemovedPointerPresentationState =
+  // @ts-expect-error pointer state is interaction data, not presentation data
+  import('@ismail-elkorchi/terminal-ui/interaction').PointerPresentationState;
 
 void bounds;
 void selected;
 void ignored;
+void pointerAction;
+void pointerOptions;
+void pointerStyle;
 void invalidPlacement;
+void (undefined as unknown as RemovedPointerPresentationState);

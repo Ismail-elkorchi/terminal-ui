@@ -7,7 +7,7 @@ import {
   menuBarItemBounds,
   menuPopupContentSize
 } from './menu-rendering.ts';
-import { renderNodeTargetId } from './pointer-presentation.ts';
+import { renderNodeTargetId } from './pointer-interaction.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 
 type ContextMenuNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'contextMenu'>;

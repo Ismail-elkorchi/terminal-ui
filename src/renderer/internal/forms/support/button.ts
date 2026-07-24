@@ -13,7 +13,7 @@ import {
 import {
   interactionVisualState,
   renderNodePointerVisualState
-} from '../../pointer-presentation.ts';
+} from '../../pointer-interaction.ts';
 import { renderInlineContent } from '../../inline-content.ts';
 
 type ButtonNode = RenderNodeOfKind<unknown, 'button'>;

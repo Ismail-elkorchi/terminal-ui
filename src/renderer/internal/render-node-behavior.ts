@@ -2,7 +2,7 @@ import type { ElementFocusScope } from '../../element/metadata.ts';
 import { builtinRenderNodeRenderers } from './renderers/index.ts';
 import { normalizeMeasurement, zeroMeasurement } from './measurement.ts';
 import { renderNodeInteractionDisabled } from './render-node-interaction.ts';
-import { pointerPresentationHitTargets } from './pointer-presentation.ts';
+import { pointerInteractionHitTargets } from './pointer-interaction.ts';
 import {
   emptyRect, hasKeyboardOrInputMap, sameRect
 } from './renderers/support/common.ts';
@@ -196,11 +196,11 @@ export function hitTargetsForRenderNode<TMessage>(
     theme,
     widthProfile
   }) ?? [];
-  const presented = pointerPresentationHitTargets(renderNode, target.bounds, targets);
-  if (renderNode.kind === 'custom' || target.layoutNode.focusTargets.length !== 1) return presented;
+  const interactionTargets = pointerInteractionHitTargets(renderNode, target.bounds, targets);
+  if (renderNode.kind === 'custom' || target.layoutNode.focusTargets.length !== 1) return interactionTargets;
   const focusTarget = target.layoutNode.focusTargets[0];
-  if (focusTarget === undefined || focusTarget.disabled) return presented;
-  return presented.map((hitTarget): HitTarget<TMessage> => hitTarget.focus === undefined
+  if (focusTarget === undefined || focusTarget.disabled) return interactionTargets;
+  return interactionTargets.map((hitTarget): HitTarget<TMessage> => hitTarget.focus === undefined
     ? { ...hitTarget, focus: { kind: 'target', targetId: focusTarget.id } }
     : hitTarget);
 }

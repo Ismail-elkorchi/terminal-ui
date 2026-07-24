@@ -14,7 +14,7 @@ import type { PaletteFilterResult, PaletteWindowInput } from '../../behavior/pal
 import type { Rect } from '../model/layout.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 import type { HitTarget } from '../model/renderer.ts';
-import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
+import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 
 const renderModelCache = new WeakMap<object, {
   readonly height: number;

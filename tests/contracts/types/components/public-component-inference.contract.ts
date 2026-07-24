@@ -30,5 +30,5 @@ export type _Toolbar = Assert<Equal<
 export type _Controlled = Assert<Equal<
   MessageOf<typeof controlled>,
   | { readonly kind: 'activate' }
-  | { readonly kind: 'pointer'; readonly action: import('@ismail-elkorchi/terminal-ui/interaction').PointerPresentationAction }
+  | { readonly kind: 'pointer'; readonly action: import('@ismail-elkorchi/terminal-ui/interaction').PointerInteractionAction }
 >>;

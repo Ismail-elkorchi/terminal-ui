@@ -1,13 +1,13 @@
-import type { PointerPresentationAction } from '../../interaction/pointer-presentation.ts';
-import { pointerVisualState } from '../../interaction/pointer-presentation.ts';
+import type { PointerInteractionAction } from '../../interaction/pointer-interaction.ts';
+import { pointerVisualState } from '../../interaction/pointer-interaction.ts';
 import type { RenderNode } from '../model/index.ts';
 import type { HitTarget } from '../model/renderer.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
 import { ignoreMessage, isIgnoredMessage } from '../../interaction/message.ts';
 
-const presentationKinds = ['enter', 'leave', 'pointerDown', 'pointerUp'] as const;
+const interactionKinds = ['enter', 'leave', 'pointerDown', 'pointerUp'] as const;
 
-export function pointerPresentationHitTargets<TMessage>(
+export function pointerInteractionHitTargets<TMessage>(
   renderNode: RenderNode<TMessage>,
   bounds: HitTarget<TMessage>['bounds'],
   targets: readonly HitTarget<TMessage>[]
@@ -61,16 +61,16 @@ export function interactionVisualState(
 
 function decoratePointerTarget<TMessage>(
   target: HitTarget<TMessage>,
-  toActionMessage: (action: PointerPresentationAction) => TMessage
+  toActionMessage: (action: PointerInteractionAction) => TMessage
 ): HitTarget<TMessage> {
   const accepted = target.accepts ?? ['click'];
   if (!accepted.includes('click')) return target;
   return {
     ...target,
-    accepts: mergeKinds(accepted, presentationKinds),
+    accepts: mergeKinds(accepted, interactionKinds),
     message: (event) => {
-      const presentation = pointerAction(event, target.id, toActionMessage);
-      return isIgnoredMessage(presentation) ? target.message(event) : presentation;
+      const interaction = pointerAction(event, target.id, toActionMessage);
+      return isIgnoredMessage(interaction) ? target.message(event) : interaction;
     }
   };
 }
@@ -78,7 +78,7 @@ function decoratePointerTarget<TMessage>(
 function pointerAction<TMessage>(
   event: RoutedPointerEvent,
   targetId: string,
-  toMessage: (action: PointerPresentationAction) => TMessage
+  toMessage: (action: PointerInteractionAction) => TMessage
 ): import('../../interaction/message.ts').MessageResolution<TMessage> {
   switch (event.kind) {
     case 'enter':

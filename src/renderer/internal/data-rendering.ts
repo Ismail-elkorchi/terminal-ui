@@ -8,7 +8,7 @@ import { resolveRenderNodeStyle } from './render-node-style.ts';
 import type { Rect } from '../model/layout.ts';
 import type { HitTarget } from '../model/renderer.ts';
 import type { RenderBlock, RenderSpan } from '../../visual/render.ts';
-import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
+import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 
 interface PaginatorParts {

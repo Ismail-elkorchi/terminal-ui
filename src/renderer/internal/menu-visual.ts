@@ -6,7 +6,7 @@ import { clipRenderSpans, span } from '../../visual/render.ts';
 import type { RenderLine, RenderSpan, TerminalStyle } from '../../visual/render.ts';
 import { mergeStyles, resolveRenderNodeStyle, themeStyle, renderNodeStyle } from './render-node-style.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
-import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
+import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 import { renderInlineContent } from './inline-content.ts';
 import type { InlineContent, InlineContentSegment } from '../../visual/inline-content.ts';
 import type { TextWidthProfile } from '../../text/index.ts';

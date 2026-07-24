@@ -80,11 +80,11 @@ export type {
   ProgressFrame,
   ProgressFrameCell
 } from './feedback.ts';
-export { pointerPresentationReducer } from './pointer-presentation.ts';
+export { pointerInteractionReducer } from './pointer-interaction.ts';
 export type {
-  PointerPresentationAction,
-  PointerPresentationState
-} from '../interaction/pointer-presentation.ts';
+  PointerInteractionAction,
+  PointerInteractionState
+} from '../interaction/pointer-interaction.ts';
 export {
   listPresentation,
   listScrollablePresentation,

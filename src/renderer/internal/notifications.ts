@@ -22,7 +22,7 @@ import {
   placeNotificationStack,
   type NotificationStackSize
 } from './notifications/placement.ts';
-import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
+import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 import type { ElementVisualState } from '../../element/metadata.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 

@@ -75,7 +75,7 @@ import {
   numberInputValue,
 } from './support/shared.ts';
 import { numberInputLayout } from './support/number-input.ts';
-import { interactionVisualState } from '../pointer-presentation.ts';
+import { interactionVisualState } from '../pointer-interaction.ts';
 import { controlTargetId } from './hit-targets.ts';
 
 export function formContentBounds(renderNode: FormNode, bounds: Rect): Rect {

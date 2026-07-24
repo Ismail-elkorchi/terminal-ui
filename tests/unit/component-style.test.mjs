@@ -138,7 +138,7 @@ test('button states use shared styles and structural markers', () => {
   assert.equal(disabledFrame.cells.find((cell) => cell.text === 'D')?.source?.label, 'label.text');
 });
 
-test('controlled pointer presentation resolves styles and source state across component families', () => {
+test('controlled pointer interaction resolves styles and source state across component families', () => {
   const checkboxFrame = renderElementFrame(checkbox({
     id: 'check',
     label: 'Enabled',

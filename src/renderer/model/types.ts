@@ -9,13 +9,13 @@ import type { RenderNodeRenderer } from './renderer.ts';
 import type { RenderNodePropsByKind } from './props/index.ts';
 import type { RenderNodeId } from '../../foundation/identity.ts';
 import type {
-  PointerPresentationAction,
-  PointerPresentationState
-} from '../../interaction/pointer-presentation.ts';
+  PointerInteractionAction,
+  PointerInteractionState
+} from '../../interaction/pointer-interaction.ts';
 
-export interface RenderNodePointerPresentation<TMessage> {
-  readonly state?: PointerPresentationState;
-  readonly toActionMessage?: (action: PointerPresentationAction) => TMessage;
+export interface RenderNodePointerInteraction<TMessage> {
+  readonly state?: PointerInteractionState;
+  readonly toActionMessage?: (action: PointerInteractionAction) => TMessage;
 }
 
 interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
@@ -28,7 +28,7 @@ interface RenderNodeBase<TMessage, TKind extends RenderNodeKind> {
   readonly children?: readonly RenderNode<TMessage>[];
   readonly keyMap?: ElementKeyBindings<TMessage>;
   readonly inputMap?: RenderNodeInputMap<TMessage>;
-  readonly pointer?: RenderNodePointerPresentation<TMessage>;
+  readonly pointer?: RenderNodePointerInteraction<TMessage>;
   readonly accessibility?: ElementAccessibility;
 }
 

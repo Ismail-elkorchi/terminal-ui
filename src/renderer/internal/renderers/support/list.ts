@@ -14,7 +14,7 @@ import type { RenderBlock, RenderLine } from '../../../../visual/render.ts';
 import type { HitTarget } from '../../../model/renderer.ts';
 import type { ListControlAction } from '../../../../ui-model/list.ts';
 import type { ListViewProjection } from '../../../../ui-model/list.ts';
-import { interactionVisualState, renderNodeTargetId } from '../../pointer-presentation.ts';
+import { interactionVisualState, renderNodeTargetId } from '../../pointer-interaction.ts';
 import { measureBlock } from '../../measurement.ts';
 import type { Measurement } from '../../../model/measurement.ts';
 

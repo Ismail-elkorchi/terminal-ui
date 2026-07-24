@@ -1,23 +1,23 @@
-export interface PointerPresentationState {
+export interface PointerInteractionState {
   readonly hoveredTargetId?: string;
   readonly pressedTargetId?: string;
 }
 
-export type PointerPresentationAction =
+export type PointerInteractionAction =
   | { readonly kind: 'enter'; readonly targetId: string }
   | { readonly kind: 'leave'; readonly targetId: string }
   | { readonly kind: 'press'; readonly targetId: string }
   | { readonly kind: 'release'; readonly targetId: string };
 
-export interface PointerPresentationOptions<TMessage> {
-  readonly state?: PointerPresentationState;
-  readonly onAction?: (action: PointerPresentationAction) => TMessage;
+export interface PointerInteractionOptions<TMessage> {
+  readonly state?: PointerInteractionState;
+  readonly onAction?: (action: PointerInteractionAction) => TMessage;
 }
 
 export type PointerVisualState = 'hovered' | 'pressed';
 
 export function pointerVisualState(
-  state: PointerPresentationState | undefined,
+  state: PointerInteractionState | undefined,
   targetId: string
 ): PointerVisualState | undefined {
   if (state?.pressedTargetId === targetId) return 'pressed';

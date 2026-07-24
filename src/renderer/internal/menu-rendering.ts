@@ -15,7 +15,7 @@ import {
   menuItemLine
 } from './menu-visual.ts';
 import type { MenuVisualItem } from './menu-visual.ts';
-import { renderNodeTargetId } from './pointer-presentation.ts';
+import { renderNodeTargetId } from './pointer-interaction.ts';
 import { stringify } from './render-node-props.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 

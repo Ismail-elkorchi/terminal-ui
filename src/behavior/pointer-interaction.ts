@@ -1,12 +1,12 @@
 import type {
-  PointerPresentationAction,
-  PointerPresentationState
-} from '../interaction/pointer-presentation.ts';
+  PointerInteractionAction,
+  PointerInteractionState
+} from '../interaction/pointer-interaction.ts';
 
-export function pointerPresentationReducer(
-  state: PointerPresentationState,
-  action: PointerPresentationAction
-): PointerPresentationState {
+export function pointerInteractionReducer(
+  state: PointerInteractionState,
+  action: PointerInteractionAction
+): PointerInteractionState {
   switch (action.kind) {
     case 'enter':
       return { ...state, hoveredTargetId: action.targetId };
@@ -24,9 +24,9 @@ export function pointerPresentationReducer(
 }
 
 function withoutTarget(
-  state: PointerPresentationState,
-  field: keyof PointerPresentationState
-): PointerPresentationState {
+  state: PointerInteractionState,
+  field: keyof PointerInteractionState
+): PointerInteractionState {
   return {
     ...(field === 'hoveredTargetId' || state.hoveredTargetId === undefined
       ? {}

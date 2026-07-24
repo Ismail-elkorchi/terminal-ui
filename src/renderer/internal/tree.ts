@@ -21,7 +21,7 @@ import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan, TerminalStyl
 import { ignoreMessage } from '../../interaction/message.ts';
 import type { ScrollState } from '../../interaction/scroll.ts';
 import type { HitTarget } from '../model/renderer.ts';
-import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
+import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 
 interface TreeWindow {
   readonly rows: readonly TreeVisibleRow[];

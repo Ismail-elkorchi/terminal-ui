@@ -18,7 +18,7 @@ import type { CursorPosition } from '../model/cursor.ts';
 import type { Rect } from '../model/layout.ts';
 import type { RoutedPointerEvent } from '../../input/pointer.ts';
 import type { HitTarget } from '../model/renderer.ts';
-import { interactionVisualState, renderNodeTargetId } from './pointer-presentation.ts';
+import { interactionVisualState, renderNodeTargetId } from './pointer-interaction.ts';
 import { clipRenderSpans, measureRenderSpans } from '../../visual/render.ts';
 import type { FrameCellSource, RenderBlock, RenderLine, RenderSpan } from '../../visual/render.ts';
 
