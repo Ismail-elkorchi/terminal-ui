@@ -7,7 +7,7 @@ import type { FrameBuffer, FrameBufferSnapshot, FrameBufferSnapshotMetadata, Fra
 import type { FrameCell, FrameHitTarget } from '../model/frame.ts';
 import type { FocusPath, LayoutFocusTarget } from './focus.ts';
 import type { ResolvedPointerFocusIntent } from '../../interaction/focus.ts';
-import type { ElementLayerOpacity } from '../../element/metadata.ts';
+import type { LayerUnderlay } from '../../element/metadata.ts';
 import type { LayoutNode, Rect } from '../model/layout.ts';
 import type { PointerEventKind, RoutedPointerEvent } from '../../input/pointer.ts';
 import type { HitTarget } from '../model/renderer.ts';
@@ -23,7 +23,7 @@ export interface RenderRegion<TMessage = unknown> {
   readonly zIndex: number;
   readonly order: number;
   readonly bounds: Rect;
-  readonly opacity: ElementLayerOpacity;
+  readonly underlay: LayerUnderlay;
   readonly cells: readonly FrameCell[];
   readonly metadata: FrameBufferSnapshotMetadata;
   readonly hitTargets: readonly RenderRegionHitTarget<TMessage>[];
@@ -56,7 +56,7 @@ export interface DraftRenderRegion {
   readonly zIndex: number;
   readonly order: number;
   readonly bounds: Rect;
-  readonly opacity: ElementLayerOpacity;
+  readonly underlay: LayerUnderlay;
   readonly buffer: FrameBuffer;
 }
 
@@ -74,18 +74,18 @@ export function createDraftRenderRegion(
     readonly order: number;
     readonly viewport: ViewportSize;
     readonly bounds: Rect;
-    readonly opacity: ElementLayerOpacity;
+    readonly underlay: LayerUnderlay;
     readonly widthProfile: TextWidthProfile;
   }
 ): DraftRenderRegion {
-  const { id, zIndex, order, viewport, bounds, opacity, widthProfile } = input;
+  const { id, zIndex, order, viewport, bounds, underlay, widthProfile } = input;
   const regionBounds = normalizeRegionBounds(viewport, bounds);
   return {
     id,
     zIndex,
     order,
     bounds: regionBounds,
-    opacity,
+    underlay,
     buffer: createRegionFrameBuffer(viewport, regionBounds, widthProfile)
   };
 }

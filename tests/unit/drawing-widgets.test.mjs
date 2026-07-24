@@ -287,10 +287,10 @@ test('surface labels disabled state and theme variants stay structural', () => {
   assert.equal(renderFramePlain(noColor).split('\n')[0], '+ Plain ---+');
 });
 
-test('region projection keeps overlapping z-index content separate before compositing', () => {
+test('preserve underlay leaves unwritten lower cells in the composed frame', () => {
   const widget = surface(
     overlay([
-      text('lower', {
+      text('lower!', {
     id: 'lower',
     meta: {
         layer: {
@@ -316,8 +316,8 @@ test('region projection keeps overlapping z-index content separate before compos
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 10]);
   assert.equal(regions[0]?.cells.some((cell) => cell.text === 'l'), true);
   assert.equal(regions[1]?.cells.some((cell) => cell.text === 'U'), true);
-  assert.equal(regions[1]?.opacity, 'transparent');
-  assert.equal(renderFramePlain(frame), 'UPPER');
+  assert.equal(regions[1]?.underlay, 'preserve');
+  assert.equal(renderFramePlain(frame), 'UPPER!');
 });
 
 test('region-local overlay buffers preserve clipped viewport coordinates and hit targets', () => {

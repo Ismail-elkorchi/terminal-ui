@@ -31,7 +31,7 @@ export function menuPopupRenderNode<TMessage>(input: MenuPopupInput<TMessage>): 
       ...(input.title === undefined ? {} : { title: normalizeBorderTitle(input.title) })
     },
     children: [menuPopupCollection(input)],
-    layer: { zIndex: 20, opacity: 'opaque' },
+    layer: { zIndex: 20, underlay: 'clear' },
     focus: { disabled: true }
   };
 }

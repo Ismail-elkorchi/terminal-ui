@@ -5,7 +5,7 @@ interface DirtyRegionSource {
   readonly zIndex: number;
   readonly order: number;
   readonly bounds: Rect;
-  readonly opacity: string;
+  readonly underlay: string;
   readonly metadata: {
     readonly fingerprint: string;
     readonly rowFingerprints: readonly { readonly row: number; readonly fingerprint: string }[];
@@ -137,7 +137,7 @@ function intersectRects(left: Rect, right: Rect): Rect | undefined {
 function sameRegionSurface(left: DirtyRegionSource, right: DirtyRegionSource): boolean {
   return left.zIndex === right.zIndex
     && left.order === right.order
-    && left.opacity === right.opacity
+    && left.underlay === right.underlay
     && sameRect(left.bounds, right.bounds);
 }
 

@@ -1,5 +1,5 @@
 import type { ViewportSize } from '../../geometry/types.ts';
-import type { ElementLayerOpacity } from '../../element/metadata.ts';
+import type { LayerUnderlay } from '../../element/metadata.ts';
 import type { Rect } from '../../geometry/types.ts';
 export type { Rect } from '../../geometry/types.ts';
 import type { RenderNode } from '../model/index.ts';
@@ -65,7 +65,7 @@ function layoutNode(
     id: identityPath.join('/'),
     zIndex,
     bounds: placedBounds,
-    opacity: opacityForRenderNode(renderNode)
+    underlay: underlayForRenderNode(renderNode)
   };
   if (!visible) {
     return {
@@ -145,8 +145,8 @@ function zIndexForRenderNode(renderNode: RenderNode): number {
   return zIndex === undefined || !Number.isFinite(zIndex) ? 0 : zIndex;
 }
 
-function opacityForRenderNode(renderNode: RenderNode): ElementLayerOpacity {
-  return renderNode.layer?.opacity ?? 'transparent';
+function underlayForRenderNode(renderNode: RenderNode): LayerUnderlay {
+  return renderNode.layer?.underlay ?? 'preserve';
 }
 
 function themeForLayout(theme: TerminalTheme | TerminalThemeDefinition | undefined): TerminalTheme {

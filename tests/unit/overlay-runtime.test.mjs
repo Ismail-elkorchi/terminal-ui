@@ -202,7 +202,7 @@ test('focus is scoped to the topmost visible focus layer', () => {
   });
 });
 
-test('overlapping dialog renders above lower region content', () => {
+test('dialog clear underlay removes lower cells throughout its region', () => {
   const widget = surface(overlay([
     canvas({
     id: 'dialog-backdrop-canvas',
@@ -244,7 +244,7 @@ test('overlapping dialog renders above lower region content', () => {
     : frame.cells.filter((cell) => cell.text === 'b' && cellInsideRect(cell, modalRegion.bounds));
 
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 20]);
-  assert.equal(modalRegion?.opacity, 'opaque');
+  assert.equal(modalRegion?.underlay, 'clear');
   assert.equal(regions[0]?.cells.some((cell) => cell.text === 'b'), true);
   assert.equal(regions[1]?.cells.some((cell) => cell.text === 'f'), true);
   assert.deepEqual(leakedBackdropCells, []);
@@ -361,14 +361,14 @@ test('context menu renders above canvas content in a higher region', () => {
   const firstLine = output.split('\n')[0] ?? '';
 
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 12, 32]);
-  assert.equal(regions[2]?.opacity, 'opaque');
+  assert.equal(regions[2]?.underlay, 'clear');
   assert.equal(regions[0]?.cells.some((cell) => cell.text === 'c'), true);
   assert.equal(regions[2]?.cells.some((cell) => cell.text === 'A'), true);
   assert.match(firstLine, /Actions/u);
   assert.match(output, /Copy/u);
 });
 
-test('inheritBackground regions preserve lower background styles', () => {
+test('inheritBackground underlay copies a lower background when the upper cell has none', () => {
   const widget = overlay([
     canvas({
       id: 'background-style-canvas',
@@ -384,7 +384,7 @@ test('inheritBackground regions preserve lower background styles', () => {
     meta: {
         layer: {
             zIndex: 4,
-            opacity: 'inheritBackground'
+            underlay: 'inheritBackground'
         }
     }
 })

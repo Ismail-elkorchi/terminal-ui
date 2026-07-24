@@ -15,13 +15,21 @@ const rows = table({
   onAction: (action) => ({ kind: 'table' as const, action })
 });
 const passive: Element = text('Ready');
+const clearUnderlay = text('Clear', { meta: { layer: { underlay: 'clear' } } });
+const preserveUnderlay = text('Preserve', { meta: { layer: { underlay: 'preserve' } } });
+const inheritedBackground = text('Inherit', { meta: { layer: { underlay: 'inheritBackground' } } });
 type SaveMessage = ElementMessage<typeof save>;
 const message: SaveMessage = { kind: 'save' };
 
 // @ts-expect-error interactive components require stable identity
 button({ label: 'Invalid', onPress: () => ({ kind: 'invalid' } as const) });
+// @ts-expect-error lower-layer handling is named by the operation, not opacity
+text('Removed opacity contract', { meta: { layer: { opacity: 'opaque' } } });
 
 void rows;
 void passive;
+void clearUnderlay;
+void preserveUnderlay;
+void inheritedBackground;
 void message;
 void save;

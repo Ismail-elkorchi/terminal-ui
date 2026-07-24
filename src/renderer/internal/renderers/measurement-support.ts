@@ -43,7 +43,7 @@ export function measurementLayoutNode(renderNode: RenderNode, bounds: Rect): Lay
       id: renderNode.id ?? `${renderNode.kind}:0`,
       zIndex: 0,
       bounds,
-      opacity: renderNode.layer?.opacity ?? 'transparent'
+      underlay: renderNode.layer?.underlay ?? 'preserve'
     },
     visible: true,
     focusable: false,

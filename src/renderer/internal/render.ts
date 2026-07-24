@@ -404,7 +404,7 @@ function createRegionComposer<TMessage>(viewport: ViewportSize, widthProfile: Te
         order: regionOrder,
         viewport,
         bounds: node.layer.bounds,
-        opacity: node.layer.opacity,
+        underlay: node.layer.underlay,
         widthProfile
       });
       regionOrder += 1;
@@ -421,7 +421,7 @@ function createRegionComposer<TMessage>(viewport: ViewportSize, widthProfile: Te
             zIndex: region.zIndex,
             order: region.order,
             bounds: region.bounds,
-            opacity: region.opacity,
+            underlay: region.underlay,
             cells: snapshot.cells,
             metadata: snapshot.metadata,
             hitTargets: frameHitTargets(
@@ -444,12 +444,12 @@ export function compositeRegions(
 ): FrameBuffer {
   const buffer = createFrameBuffer(viewport.columns, viewport.rows, { widthProfile });
   for (const region of regions.toSorted((left, right) => left.zIndex - right.zIndex || left.order - right.order)) {
-    if (region.opacity === 'opaque') {
+    if (region.underlay === 'clear') {
       buffer.clear(region.bounds);
       for (const cell of region.cells) blitFrameCell(buffer, cell);
       continue;
     }
-    if (region.opacity === 'inheritBackground') {
+    if (region.underlay === 'inheritBackground') {
       for (const cell of region.cells) {
         blitFrameCell(buffer, withInheritedBackground(cell, buffer.readCell(cell.row, cell.column)));
       }

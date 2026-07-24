@@ -1,4 +1,4 @@
-import type { ElementFocusScope, ElementLayerOpacity } from '../../element/metadata.ts';
+import type { ElementFocusScope, LayerUnderlay } from '../../element/metadata.ts';
 import type { Rect } from '../../geometry/types.ts';
 import type { CursorPosition } from './cursor.ts';
 import type { RenderNodeKind } from './types.ts';
@@ -9,7 +9,7 @@ export interface Layer {
   readonly id: string;
   readonly zIndex: number;
   readonly bounds: Rect;
-  readonly opacity: ElementLayerOpacity;
+  readonly underlay: LayerUnderlay;
 }
 
 export interface LayoutFocusRegion {

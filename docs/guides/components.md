@@ -96,8 +96,11 @@ inside a subtree. A modal `dialog()` requires an explicit `focusPolicy` for its
 initial target and focus-return behavior; a non-modal dialog does not create a
 focus scope.
 
-`meta.layer` controls visibility, z-index, opacity, and overflow priority.
-Higher visible layers render above lower layers and receive pointer hits first.
+`meta.layer` controls visibility, z-index, lower-layer handling, and overflow
+priority. Its `underlay` field clears lower cells with `clear`, leaves them in
+place with `preserve`, or copies a lower background into an upper cell that has
+none with `inheritBackground`. Higher visible layers render above lower layers
+and receive pointer hits first.
 
 `meta.styles` is a semantic slot map for local visual overrides. Slots are
 named for stable component parts and states: `root`, `border`, `title`,

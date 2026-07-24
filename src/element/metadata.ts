@@ -23,12 +23,12 @@ export type ElementKeyBindings<TMessage> = Readonly<Partial<Record<BindableKeyNa
 };
 
 export type ElementOverflowPriority = 'required' | 'important' | 'secondary' | 'decorative';
-export type ElementLayerOpacity = 'opaque' | 'transparent' | 'inheritBackground';
+export type LayerUnderlay = 'clear' | 'preserve' | 'inheritBackground';
 
 export interface ElementLayer {
   readonly zIndex?: number;
   readonly visible?: boolean;
-  readonly opacity?: ElementLayerOpacity;
+  readonly underlay?: LayerUnderlay;
   readonly overflowPriority?: ElementOverflowPriority;
 }
 

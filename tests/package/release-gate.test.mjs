@@ -565,7 +565,7 @@ test('RenderRegion replaces the obsolete render layer model', async () => {
 
   assert.match(regionSource, /interface RenderRegion/u);
   assert.match(regionSource, /regionIdForLayoutNode/u);
-  assert.match(regionSource, /readonly opacity: ElementLayerOpacity;/u);
+  assert.match(regionSource, /readonly underlay: LayerUnderlay;/u);
   assert.match(regionSource, /readonly metadata: FrameBufferSnapshotMetadata;/u);
   assert.match(regionSource, /translateSnapshotMetadata/u);
   assert.match(regionSource, /createRegionFrameBuffer/u);

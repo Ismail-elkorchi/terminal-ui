@@ -36,7 +36,7 @@ export function dialog<TMessage>(child: Element<TMessage>, options: DialogOption
 }
 
 function dialogMeta<TMessage>(options: DialogOptions<TMessage>) {
-  const base = withMetaDefaults(options.meta, { layer: { opacity: 'opaque' } });
+  const base = withMetaDefaults(options.meta, { layer: { underlay: 'clear' } });
   const authoredFocus = {
     ...(base.focus?.disabled === undefined ? {} : { disabled: base.focus.disabled }),
     ...(base.focus?.order === undefined ? {} : { order: base.focus.order })

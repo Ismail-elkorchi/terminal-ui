@@ -30,7 +30,7 @@ export function selectPopupRenderNode<TMessage>(input: SelectPopupInput<TMessage
       padding: 0
     },
     children: [list],
-    layer: { zIndex: 20, opacity: 'opaque' },
+    layer: { zIndex: 20, underlay: 'clear' },
     focus: { disabled: true }
   };
 }

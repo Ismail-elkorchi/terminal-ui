@@ -131,8 +131,8 @@ export function contextMenu(options: ContextMenuOptions<unknown>): Element<unkno
       })
     : undefined;
   const meta = options.presentation.kind === 'open'
-    ? withMetaDefaults(options.meta, { focus: { scope: { kind: 'contain' } }, layer: { opacity: 'transparent' } })
-    : withMetaDefaults(options.meta, { focus: { disabled: true }, layer: { opacity: 'transparent' } });
+    ? withMetaDefaults(options.meta, { focus: { scope: { kind: 'contain' } }, layer: { underlay: 'preserve' } })
+    : withMetaDefaults(options.meta, { focus: { disabled: true }, layer: { underlay: 'preserve' } });
   return componentElementFromRenderNode<'contextMenu', unknown>({
     ...requiredId(options.id, 'contextMenu'),
     kind: 'contextMenu',
@@ -176,7 +176,7 @@ export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unk
       })
     : undefined;
   const meta = open
-    ? withMetaDefaults(options.meta, { focus: { scope: { kind: 'contain' } }, layer: { opacity: 'opaque' } })
+    ? withMetaDefaults(options.meta, { focus: { scope: { kind: 'contain' } }, layer: { underlay: 'clear' } })
     : options.meta;
   return componentElementFromRenderNode<'dropdownMenu', unknown>({
     ...requiredId(options.id, 'dropdownMenu'),
@@ -213,7 +213,7 @@ export function divider(options: DividerOptions = {}): Element {
 export function tooltip(options: TooltipOptions): Element {
   const visible = options.presentation.kind === 'visible';
   const meta = withMetaDefaults(options.meta, {
-    layer: { visible, zIndex: 20, opacity: 'opaque' }
+    layer: { visible, zIndex: 20, underlay: 'clear' }
   });
   return componentElementFromRenderNode<'tooltip'>({
     ...optionalId(options.id),
