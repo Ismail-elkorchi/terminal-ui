@@ -75,7 +75,7 @@ test('TUI frame cursor follows the selected visible list item', () => {
   assert.match(addressed, /\u001B\[3H$/u);
 });
 
-test('TUI status, progress, and spinner widgets render accessible status state', () => {
+test('TUI status, progress, and spinner components render accessible status state', () => {
   const frame = renderElementFrame(column([
     statusBar({ id: 'status', leading: [{ id: 'ready', kind: 'status', text: 'Ready', status: 'success' }] }),
     progressBar({ id: 'progress', label: 'Sync', mode: { kind: 'determinate', value: 150, max: 100 } }),
@@ -120,7 +120,7 @@ test('renderDiffAnsi serializes clear, write, and structural cursor state', () =
 });
 
 
-test('TUI rendering windows large list and table widgets to visible height', () => {
+test('TUI rendering windows large list and table components to visible height', () => {
   const manyItems = Array.from({ length: 1000 }, (_value, index) => `Item ${index}`);
   const frame = renderElementFrame(column([
     list({ id: 'many-items', items: manyItems, projectItem: (item) => ({ id: item, label: item }), selectedId: 'Item 990' }),
@@ -139,7 +139,7 @@ test('TUI rendering windows large list and table widgets to visible height', () 
   assert.equal(tableNode?.description, 'Showing 1-4 of 1000 rows.');
 });
 
-test('viewport widgets render a clipped scrolled window into child content', () => {
+test('viewport layouts render a clipped scrolled window into child content', () => {
   const frame = renderElementFrame(viewport(
     text('row-0\nrow-1\nrow-2\nrow-3', { id: 'viewport-text' }),
     {
@@ -161,7 +161,7 @@ test('viewport widgets render a clipped scrolled window into child content', () 
   );
 });
 
-test('viewport widgets keep offscreen content from leaking into neighboring layout', () => {
+test('viewport layouts keep offscreen content from leaking into neighboring layout', () => {
   const frame = renderElementFrame(row([
     viewport(
       text('left-0\nleft-1\nleft-2', { id: 'left-content' }),
@@ -175,7 +175,7 @@ test('viewport widgets keep offscreen content from leaking into neighboring layo
   assert.doesNotMatch(output, /left-0|left-1/u);
 });
 
-test('viewport widgets expose empty virtual content without rendering child content', () => {
+test('viewport layouts expose empty virtual content without rendering child content', () => {
   const frame = renderElementFrame(viewport(
     text('hidden child', { id: 'empty-content' }),
     { id: 'empty-window', contentRows: 0, contentColumns: 8 }

@@ -7,7 +7,7 @@ import { custom, renderFramePlain } from '../../dist/renderer/index.js';
 import { button, tree } from '../../dist/components/index.js';
 import { overlay } from '../../dist/layout/index.js';
 
-test('TUI runtime routes mouse events to widgets under the pointer', async () => {
+test('TUI runtime routes mouse events to elements under the pointer', async () => {
   const app = defineTui({
     id: 'mouse-routing',
     init: () => ({ clicked: false }),

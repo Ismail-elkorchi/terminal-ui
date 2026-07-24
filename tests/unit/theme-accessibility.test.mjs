@@ -118,12 +118,12 @@ test('theme definitions reject removed top-level token fields', () => {
   );
 });
 
-test('rich text widgets preserve render spans and render their plain text into frames', () => {
-  const widget = richText({
+test('rich text components preserve render spans and render their plain text into frames', () => {
+  const element = richText({
     id: 'styled-title',
     segments: [{ kind: 'text', text: 'Styled title', style: { fg: { kind: 'theme', token: 'accent.primary' }, bold: true } }]
   });
-  const frame = renderElementFrame(widget, { columns: 20, rows: 2 });
+  const frame = renderElementFrame(element, { columns: 20, rows: 2 });
 
   assert.equal(renderFramePlain(frame), 'Styled title');
   assert.equal(frame.cells[0]?.style?.fg?.kind, 'theme');

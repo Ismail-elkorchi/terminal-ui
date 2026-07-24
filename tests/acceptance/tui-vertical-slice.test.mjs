@@ -51,7 +51,7 @@ function dashboardWidget(state) {
   );
 }
 
-test('vertical TUI slice turns widget tree into layout, frame, diff, and runtime memory evidence', async () => {
+test('vertical TUI slice turns element tree into layout, frame, diff, and runtime memory evidence', async () => {
   const initialWidget = dashboardWidget({ submitted: false });
 
   const terminalSize = { columns: 30, rows: 6 };

@@ -122,11 +122,11 @@ test('notificationStack history is focusable and owns navigation bindings', () =
 });
 
 test('notificationStack live mode is a passive live region without selection targets', () => {
-  const widget = notificationStack({
+  const element = notificationStack({
     id: 'live-notices',
     presentation: { kind: 'live', items: [{ id: 'a', title: 'Passive', dismissible: false }] }
   });
-  const frame = renderElementFrame(widget, { columns: 32, rows: 8 });
+  const frame = renderElementFrame(element, { columns: 32, rows: 8 });
 
   assert.equal(frame.focusPath, undefined);
   assert.equal(frame.hitTargets?.length ?? 0, 0);
@@ -136,7 +136,7 @@ test('notificationStack live mode is a passive live region without selection tar
 });
 
 test('notificationStack live mode exposes pointer dismissal only for dismissible items', () => {
-  const widget = notificationStack({
+  const element = notificationStack({
     id: 'live-notices',
     presentation: {
       kind: 'live',
@@ -147,8 +147,8 @@ test('notificationStack live mode exposes pointer dismissal only for dismissible
     },
     onDismiss: (id) => ({ kind: 'dismiss', id })
   });
-  const frame = renderElementFrame(widget, { columns: 40, rows: 12 });
-  const targets = renderElementRegions(widget, { columns: 40, rows: 12 }).flatMap((region) => region.hitTargets);
+  const frame = renderElementFrame(element, { columns: 40, rows: 12 });
+  const targets = renderElementRegions(element, { columns: 40, rows: 12 }).flatMap((region) => region.hitTargets);
 
   assert.equal(frame.hitTargets?.some((target) => target.id.includes('fixed:dismiss')) ?? false, false);
   const target = targets.find((candidate) => candidate.id.includes('dismissible:dismiss'));
@@ -221,14 +221,14 @@ test('notificationStack skips cards when bounds cannot fit a viable card', () =>
 });
 
 test('notificationStack exposes dismiss hit targets for placed cards', () => {
-  const widget = notificationStack({
+  const element = notificationStack({
     id: 'notices',
     presentation: { kind: 'history', items: [{ id: 'saved', title: 'Saved', message: 'State stored', tone: 'success' }], selected: 'saved' },
     maxWidth: 24,
     onAction: (action) => action
   });
-  const frame = renderElementFrame(widget, { columns: 36, rows: 8 });
-  const regions = renderElementRegions(widget, { columns: 36, rows: 8 });
+  const frame = renderElementFrame(element, { columns: 36, rows: 8 });
+  const regions = renderElementRegions(element, { columns: 36, rows: 8 });
 
   const target = frame.hitTargets.find((candidate) => candidate.id === 'notices:notification:saved:dismiss');
   const routedTarget = regions.flatMap((region) => region.hitTargets).find((candidate) => candidate.id === 'notices:notification:saved:dismiss');

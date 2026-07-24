@@ -50,7 +50,7 @@ test('windowed collection uses its declared external projection query', () => {
   assert.equal(prepareListProjection({ collection }).query, 'item');
 });
 
-test('list widget filters items and can use explicit shared scroll state', () => {
+test('list component filters items and can use explicit shared scroll state', () => {
   const frame = renderElementFrame(list({
     projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'filtered-list',
@@ -66,7 +66,7 @@ test('list widget filters items and can use explicit shared scroll state', () =>
   assert.equal(frame.accessibility.root.description, 'Showing 2-3 of 4 items.');
 });
 
-test('list widget exposes source-aware row values matches and empty filter state', () => {
+test('list component exposes source-aware row values matches and empty filter state', () => {
   const frame = renderElementFrame(list({
     projectItem: (item) => ({ id: String(item), label: String(item) }),
     id: 'items',

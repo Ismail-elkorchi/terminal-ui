@@ -107,7 +107,7 @@ test('high contrast theme keeps semantic status chart and diff tokens distinct',
   });
 });
 
-test('theme matrix snapshots cover core widgets with packs high contrast and no color', () => {
+test('theme matrix snapshots cover core components with packs high contrast and no color', () => {
   const themes = [...packedThemes, highContrastTheme, noColorTheme];
   for (const theme of themes) {
     const frame = renderElementFrame(column([

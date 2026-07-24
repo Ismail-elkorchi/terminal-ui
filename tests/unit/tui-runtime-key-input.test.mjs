@@ -27,7 +27,7 @@ test('defineTui rejects duplicate binding identities and duplicate triggers with
   }), /duplicate trigger/u);
 });
 
-test('TUI runtime routes key events through focused widget keymaps', async () => {
+test('TUI runtime routes key events through focused element keymaps', async () => {
   const app = defineTui({
     id: 'keymap-routing',
     init: () => ({ active: 'none' }),
@@ -55,7 +55,7 @@ test('TUI runtime routes key events through focused widget keymaps', async () =>
   assert.match(renderFramePlain(runtime.frame()), /second/);
 });
 
-test('TUI runtime lets focused widgets handle tab before focus traversal', async () => {
+test('TUI runtime lets focused elements handle tab before focus traversal', async () => {
   const app = defineTui({
     id: 'tab-keymap-routing',
     init: () => ({ active: 'none' }),
@@ -78,7 +78,7 @@ test('TUI runtime lets focused widgets handle tab before focus traversal', async
   assert.match(renderFramePlain(runtime.frame()), /accepted/);
 });
 
-test('TUI runtime routes default app key bindings after focused widgets', async () => {
+test('TUI runtime routes default app key bindings after focused elements', async () => {
   const app = defineTui({
     id: 'app-key-binding-after-focus',
     init: () => ({ active: 'open' }),
@@ -106,7 +106,7 @@ test('TUI runtime routes default app key bindings after focused widgets', async 
   assert.match(renderFramePlain(runtime.frame()), /closed/);
 });
 
-test('TUI runtime lets focused widgets override after-focus app bindings', async () => {
+test('TUI runtime lets focused elements override after-focus app bindings', async () => {
   const app = defineTui({
     id: 'app-key-binding-focused-wins',
     init: () => ({ active: 'open' }),
@@ -137,7 +137,7 @@ test('TUI runtime lets focused widgets override after-focus app bindings', async
   assert.match(renderFramePlain(runtime.frame()), /local/);
 });
 
-test('TUI runtime lets before-focus app bindings intentionally preempt widgets', async () => {
+test('TUI runtime lets before-focus app bindings intentionally preempt elements', async () => {
   const app = defineTui({
     id: 'app-key-binding-before-focus',
     init: () => ({ active: 'open' }),
@@ -342,7 +342,7 @@ test('TUI runtime keeps scanning app key bindings when earlier matches decline',
   assert.deepEqual(runtime.state(), { active: 'fallback' });
 });
 
-test('TUI runtime routes escape through focused widget keymaps', async () => {
+test('TUI runtime routes escape through focused element keymaps', async () => {
   const app = defineTui({
     id: 'escape-keymap-routing',
     init: () => ({ active: 'open' }),
@@ -403,7 +403,7 @@ test('TUI runtime routes focused text and paste through one edit-operation chann
   assert.match(renderFramePlain(runtime.frame()), /abc/);
 });
 
-test('TUI runtime routes single-space input chunks as text for editable focused widgets', async () => {
+test('TUI runtime routes single-space input chunks as text for editable focused elements', async () => {
   const app = defineTui({
     id: 'space-input-routing',
     init: () => ({ value: '' }),

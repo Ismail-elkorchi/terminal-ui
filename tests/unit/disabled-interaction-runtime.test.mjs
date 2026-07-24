@@ -140,7 +140,7 @@ for (const current of disabledWidgetCases) {
   });
 }
 
-test('disabled widget props block generated keyboard and mouse dispatch', async () => {
+test('disabled component props block generated keyboard and mouse dispatch', async () => {
   const app = defineTui({
     id: 'disabled-interaction-runtime',
     init: () => ({ active: 'idle' }),

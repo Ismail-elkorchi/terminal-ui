@@ -656,7 +656,7 @@ const cases = [
   }
 ];
 
-test('semantic widget snapshots cover every built-in public widget factory', () => {
+test('semantic element snapshots cover every built-in public element factory', () => {
   const names = cases.map((item) => item.name).sort();
   assert.deepEqual(names, [
     'absolute',

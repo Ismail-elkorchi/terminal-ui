@@ -7,7 +7,7 @@ import { button, dialog, text } from '../../dist/components/index.js';
 import { row, surface } from '../../dist/layout/index.js';
 
 test('dialog centers a bounded dialog and lays out child content inside the border', () => {
-  const widget = dialog(text('inside', { id: 'inside' }), {
+  const element = dialog(text('inside', { id: 'inside' }), {
     id: 'dialog',
     title: 'Confirm',
     modal: true,
@@ -15,10 +15,10 @@ test('dialog centers a bounded dialog and lays out child content inside the bord
     width: 12,
     height: 5
   });
-  const layout = layoutElement(widget, { columns: 30, rows: 9 });
+  const layout = layoutElement(element, { columns: 30, rows: 9 });
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 4, column: 11, width: 10, height: 3 });
-  const frame = renderElementFrame(widget, { columns: 30, rows: 9 });
+  const frame = renderElementFrame(element, { columns: 30, rows: 9 });
   const rendered = frame.cells.map((cell) => cell.text).join('');
   assert.equal(frame.accessibility.root.label, 'Confirm');
   assert.match(rendered, /inside/u);
@@ -53,7 +53,7 @@ test('dialog accessibility label derives from structured authored titles', () =>
 });
 
 test('dialog reserves a structurally separated action area without color', () => {
-  const widget = dialog(text('Dialog body', { id: 'body' }), {
+  const element = dialog(text('Dialog body', { id: 'body' }), {
     id: 'dialog',
     title: 'Confirm',
     modal: true,
@@ -65,12 +65,12 @@ test('dialog reserves a structurally separated action area without color', () =>
       button({ id: 'confirm', label: 'OK' })
     ], { gap: 1 })
   });
-  const layout = layoutElement(widget, { columns: 30, rows: 9 }, noColorTheme);
+  const layout = layoutElement(element, { columns: 30, rows: 9 }, noColorTheme);
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 3, column: 7, width: 18, height: 3 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 7, column: 7, width: 18, height: 1 });
 
-  const frame = renderElementFrame(widget, { columns: 30, rows: 9 }, { theme: noColorTheme });
+  const frame = renderElementFrame(element, { columns: 30, rows: 9 }, { theme: noColorTheme });
   const separatorCells = frame.cells.filter((cell) => cell.source?.elementKind === 'dialog' && cell.source.description === 'action-separator');
 
   assert.equal(separatorCells.length, 18);
@@ -97,7 +97,7 @@ test('dialog action separators preserve one-cell geometry under ambiguous-wide p
 });
 
 test('dialog exposes outside-press dismissal only outside its painted bounds', () => {
-  const widget = dialog(text('Dialog body', { id: 'body' }), {
+  const element = dialog(text('Dialog body', { id: 'body' }), {
     id: 'dismissible-dialog',
     title: 'Dismissible',
     modal: true,
@@ -110,7 +110,7 @@ test('dialog exposes outside-press dismissal only outside its painted bounds', (
     width: 12,
     height: 5
   });
-  const targets = renderElementRegions(widget, { columns: 30, rows: 9 }).flatMap((region) => region.hitTargets);
+  const targets = renderElementRegions(element, { columns: 30, rows: 9 }).flatMap((region) => region.hitTargets);
   const dialogRect = { row: 3, column: 10, width: 12, height: 5 };
   const outside = targets.filter((target) => target.id.startsWith('dismissible-dialog:outside:'));
 
@@ -124,7 +124,7 @@ test('dialog exposes outside-press dismissal only outside its painted bounds', (
   }), { kind: 'dismiss', reason: 'outsidePress' });
 });
 
-test('border model supports styled widget borders and borderless layout', () => {
+test('border model supports styled element borders and borderless layout', () => {
   const doubleFrame = renderElementFrame(surface(text('inside', { id: 'inside' }), {
     id: 'panel',
     title: 'Panel',
@@ -167,12 +167,12 @@ test('surface bar appearance renders one-line bars without borders', () => {
 });
 
 test('surface borders degrade in tiny regions to preserve child content', () => {
-  const widget = surface(text('Menu', { id: 'menu-label' }), {
+  const element = surface(text('Menu', { id: 'menu-label' }), {
     id: 'tiny-raised',
     appearance: 'raised'
   });
-  const layout = layoutElement(widget, { columns: 10, rows: 1 });
-  const frame = renderElementFrame(widget, { columns: 10, rows: 1 });
+  const layout = layoutElement(element, { columns: 10, rows: 1 });
+  const frame = renderElementFrame(element, { columns: 10, rows: 1 });
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 10, height: 1 });
   assert.equal(renderFramePlain(frame), 'Menu');

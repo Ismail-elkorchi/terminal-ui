@@ -426,7 +426,7 @@ test('TUI runtime respects explicit focus order and disabled focus targets', asy
   assert.deepEqual(runtime.state(), { active: 'later' });
 });
 
-test('TUI runtime traps focus inside modal and scoped popover widgets', async () => {
+test('TUI runtime traps focus inside modal and scoped popover elements', async () => {
   const modalApp = defineTui({
     id: 'modal-focus-scope',
     init: () => ({ active: 'idle' }),
@@ -651,7 +651,7 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
   assert.deepEqual(dropdownMenuRuntime.state(), { active: 'dropdownMenu' });
 });
 
-test('TUI runtime traverses multiple custom focus targets within one widget', async () => {
+test('TUI runtime traverses multiple custom focus targets within one element', async () => {
   const renderer = {
     render({ target, bounds }) {
       target.write(bounds.row, bounds.column, [{ text: 'AB' }]);
@@ -695,7 +695,7 @@ test('TUI runtime traverses multiple custom focus targets within one widget', as
   assert.deepEqual(runtime.frame().focusPath, ['custom-board', 'left']);
 });
 
-test('TUI frame accessibility uses widget metadata and marks only the active focus target', async () => {
+test('TUI frame accessibility uses element metadata and marks only the active focus target', async () => {
   const app = defineTui({
     id: 'a11y-frame',
     init: () => ({ active: 'idle' }),

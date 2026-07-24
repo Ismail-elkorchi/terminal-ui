@@ -20,7 +20,7 @@ import {
   text
 } from '../../dist/components/index.js';
 
-test('canvas writes styled spans through safe Canvas2D APIs', () => {
+test('canvas component writes styled spans through safe Canvas2D APIs', () => {
   const frame = renderElementFrame(canvas({
     id: 'canvas',
     label: 'Game board',
@@ -150,7 +150,7 @@ test('surface is a single-child visual wrapper, not a layout container', () => {
     /surface\(\) expects exactly one non-surface child/u
   );
 
-  const widget = surface(column([
+  const element = surface(column([
     text('one'),
     text('two')
   ], {
@@ -160,22 +160,22 @@ test('surface is a single-child visual wrapper, not a layout container', () => {
     padding: 1,
     gap: 5
   });
-  const frame = renderElementFrame(widget, { columns: 18, rows: 5 });
-  const layout = layoutElement(widget, { columns: 18, rows: 5 });
+  const frame = renderElementFrame(element, { columns: 18, rows: 5 });
+  const layout = layoutElement(element, { columns: 18, rows: 5 });
 
   assert.equal(layout.children.length, 1);
   assert.equal(renderFramePlain(frame), '\n one\n\n two');
 });
 
 test('surface appearance draws background border and shadow', () => {
-  const widget = surface(text('inside', { id: 'surface-content' }), {
+  const element = surface(text('inside', { id: 'surface-content' }), {
     id: 'visual-surface',
     appearance: 'raised',
     title: 'Alert',
     border: { kind: 'dashed' },
     shadow: true
   });
-  const frame = renderElementFrame(widget, { columns: 14, rows: 4 });
+  const frame = renderElementFrame(element, { columns: 14, rows: 4 });
   const output = renderFramePlain(frame);
   const backgroundCell = frame.cells.find((cell) => cell.source?.elementKind === 'surface' && cell.source.cellRole === 'decoration' && cell.style?.bg !== undefined);
   const borderCell = frame.cells.find((cell) => cell.source?.cellRole === 'border');
@@ -259,7 +259,7 @@ test('surface appearance remains structural across theme capabilities', () => {
 });
 
 test('preserve underlay leaves unwritten lower cells in the composed frame', () => {
-  const widget = surface(
+  const element = surface(
     overlay([
       text('lower!', {
     id: 'lower',
@@ -281,8 +281,8 @@ test('preserve underlay leaves unwritten lower cells in the composed frame', () 
     { id: 'layer-surface' }
   );
 
-  const regions = renderElementRegions(widget, { columns: 8, rows: 2 });
-  const frame = renderElementFrame(widget, { columns: 8, rows: 2 });
+  const regions = renderElementRegions(element, { columns: 8, rows: 2 });
+  const frame = renderElementFrame(element, { columns: 8, rows: 2 });
 
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 10]);
   assert.equal(regions[0]?.cells.some((cell) => cell.text === 'l'), true);
@@ -292,7 +292,7 @@ test('preserve underlay leaves unwritten lower cells in the composed frame', () 
 });
 
 test('region-local overlay buffers preserve clipped viewport coordinates and hit targets', () => {
-  const widget = surface(
+  const element = surface(
     overlay([
       canvas({
         id: 'region-base',
@@ -320,8 +320,8 @@ test('region-local overlay buffers preserve clipped viewport coordinates and hit
     { id: 'region-surface' }
   );
 
-  const regions = renderElementRegions(widget, { columns: 10, rows: 3 });
-  const frame = renderElementFrame(widget, { columns: 10, rows: 3 });
+  const regions = renderElementRegions(element, { columns: 10, rows: 3 });
+  const frame = renderElementFrame(element, { columns: 10, rows: 3 });
   const overlayRegion = regions.find((region) => region.zIndex === 10);
   const hitTarget = frame.hitTargets?.find((item) => item.id.startsWith('region-button'));
 

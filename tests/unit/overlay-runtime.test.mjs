@@ -6,7 +6,7 @@ import { canvas, contextMenu, dialog, dropdownMenu, table, text, textInput } fro
 import { absolute, overlay, surface } from '../../dist/layout/index.js';
 
 test('absolute clips child bounds without leaking outside its parent', () => {
-  const widget = absolute(text('OVERFLOW', { id: 'absolute-text' }), {
+  const element = absolute(text('OVERFLOW', { id: 'absolute-text' }), {
     id: 'absolute-clip',
     row: 1,
     column: 4,
@@ -14,8 +14,8 @@ test('absolute clips child bounds without leaking outside its parent', () => {
     height: 1
   });
 
-  const layout = layoutElement(widget, { columns: 6, rows: 1 });
-  const frame = renderElementFrame(widget, { columns: 6, rows: 1 });
+  const layout = layoutElement(element, { columns: 6, rows: 1 });
+  const frame = renderElementFrame(element, { columns: 6, rows: 1 });
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 4, width: 3, height: 1 });
   assert.equal(renderFramePlain(frame), '   OVE');
@@ -90,7 +90,7 @@ test('overlay preserves declaration order within one layer and z-order across la
 });
 
 test('overlay accessibility and initial focus follow topmost visual order', () => {
-  const widget = overlay([
+  const element = overlay([
     textInput({ id: 'lower-field', presentation: { value: 'lower', cursor: 0 } }),
     textInput({ id: 'upper-field', presentation: { value: 'upper', cursor: 0 } })
   ], { id: 'focus-overlay' });
@@ -113,7 +113,7 @@ test('overlay accessibility and initial focus follow topmost visual order', () =
 })
   ], { id: 'accessibility-overlay' });
 
-  const frame = renderElementFrame(widget, { columns: 12, rows: 2 });
+  const frame = renderElementFrame(element, { columns: 12, rows: 2 });
   const zFrame = renderElementFrame(zWidget, { columns: 12, rows: 2 });
 
   assert.deepEqual(frame.focusPath, ['focus-overlay', 'upper-field']);
@@ -122,8 +122,8 @@ test('overlay accessibility and initial focus follow topmost visual order', () =
 });
 
 
-test('layers render top z-index content last and hide invisible widgets', () => {
-  const widget = overlay([
+test('layers render top z-index content last and hide invisible elements', () => {
+  const element = overlay([
     text('lower', {
     id: 'lower',
     meta: {
@@ -153,8 +153,8 @@ test('layers render top z-index content last and hide invisible widgets', () => 
     id: 'layer-root'
   });
 
-  const layout = layoutElement(widget, { columns: 12, rows: 2 });
-  const frame = renderElementFrame(widget, { columns: 12, rows: 2 });
+  const layout = layoutElement(element, { columns: 12, rows: 2 });
+  const frame = renderElementFrame(element, { columns: 12, rows: 2 });
   const output = renderFramePlain(frame);
 
   assert.equal(layout.children[0]?.layer.zIndex, 0);
@@ -166,7 +166,7 @@ test('layers render top z-index content last and hide invisible widgets', () => 
 });
 
 test('focus is scoped to the topmost visible focus layer', () => {
-  const widget = overlay([
+  const element = overlay([
     textInput({
     id: 'lower-input', presentation: { value: 'lower', cursor: 0 },
     meta: {
@@ -187,7 +187,7 @@ test('focus is scoped to the topmost visible focus layer', () => {
     id: 'focus-root'
   });
 
-  const frame = renderElementFrame(widget, { columns: 16, rows: 2 }, { focusPath: ['focus-root', 'lower-input'] });
+  const frame = renderElementFrame(element, { columns: 16, rows: 2 }, { focusPath: ['focus-root', 'lower-input'] });
 
   assert.deepEqual(frame.focusPath, ['focus-root', 'upper-input']);
   assert.deepEqual(cursorPosition(frame.cursor), { row: 1, column: 4 });
@@ -203,7 +203,7 @@ test('focus is scoped to the topmost visible focus layer', () => {
 });
 
 test('dialog clear underlay removes lower cells throughout its region', () => {
-  const widget = surface(overlay([
+  const element = surface(overlay([
     canvas({
     id: 'dialog-backdrop-canvas',
     painter({ canvas, bounds }) {
@@ -235,8 +235,8 @@ test('dialog clear underlay removes lower cells throughout its region', () => {
     border: { kind: 'none' }
   });
 
-  const regions = renderElementRegions(widget, { columns: 24, rows: 7 });
-  const frame = renderElementFrame(widget, { columns: 24, rows: 7 });
+  const regions = renderElementRegions(element, { columns: 24, rows: 7 });
+  const frame = renderElementFrame(element, { columns: 24, rows: 7 });
   const output = renderFramePlain(frame);
   const modalRegion = regions[1];
   const leakedBackdropCells = modalRegion === undefined
@@ -253,7 +253,7 @@ test('dialog clear underlay removes lower cells throughout its region', () => {
 });
 
 test('dropdownMenu renders above table content in a higher region', () => {
-  const widget = surface(overlay([
+  const element = surface(overlay([
     table({
     getRowId: (_row, index) => String(index),
     id: 'settings-table',
@@ -303,8 +303,8 @@ test('dropdownMenu renders above table content in a higher region', () => {
     border: { kind: 'none' }
   });
 
-  const regions = renderElementRegions(widget, { columns: 28, rows: 5 });
-  const output = renderFramePlain(renderElementFrame(widget, { columns: 28, rows: 5 }));
+  const regions = renderElementRegions(element, { columns: 28, rows: 5 });
+  const output = renderFramePlain(renderElementFrame(element, { columns: 28, rows: 5 }));
   const firstLine = output.split('\n')[0] ?? '';
 
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 15, 35]);
@@ -316,7 +316,7 @@ test('dropdownMenu renders above table content in a higher region', () => {
 });
 
 test('context menu renders above canvas content in a higher region', () => {
-  const widget = surface(overlay([
+  const element = surface(overlay([
     canvas({
     id: 'context-menu-canvas',
     painter({ canvas, bounds }) {
@@ -356,8 +356,8 @@ test('context menu renders above canvas content in a higher region', () => {
     border: { kind: 'none' }
   });
 
-  const regions = renderElementRegions(widget, { columns: 24, rows: 4 });
-  const output = renderFramePlain(renderElementFrame(widget, { columns: 24, rows: 4 }));
+  const regions = renderElementRegions(element, { columns: 24, rows: 4 });
+  const output = renderFramePlain(renderElementFrame(element, { columns: 24, rows: 4 }));
   const firstLine = output.split('\n')[0] ?? '';
 
   assert.deepEqual(regions.map((region) => region.zIndex), [0, 12, 32]);
@@ -369,7 +369,7 @@ test('context menu renders above canvas content in a higher region', () => {
 });
 
 test('inheritBackground underlay copies a lower background when the upper cell has none', () => {
-  const widget = overlay([
+  const element = overlay([
     canvas({
       id: 'background-style-canvas',
       painter({ canvas }) {
@@ -389,7 +389,7 @@ test('inheritBackground underlay copies a lower background when the upper cell h
     }
 })
   ], { id: 'inherit-background-root' });
-  const frame = renderElementFrame(widget, { columns: 4, rows: 2 });
+  const frame = renderElementFrame(element, { columns: 4, rows: 2 });
   const cell = frame.cells.find((item) => item.row === 1 && item.column === 1);
 
   assert.equal(cell?.text, 'B');

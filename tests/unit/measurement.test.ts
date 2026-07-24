@@ -16,7 +16,7 @@ import {
   zeroMeasurement
 } from '../../dist/renderer/index.js';
 
-void test('measurement helpers normalize clamp and combine widget measurements', () => {
+void test('measurement helpers normalize clamp and combine element measurements', () => {
   assert.deepEqual(zeroMeasurement(), { minWidth: 0, minHeight: 0, preferredWidth: 0, preferredHeight: 0 });
   assert.deepEqual(normalizeMeasurement({
     minWidth: -5,

@@ -509,7 +509,7 @@ test('TUI runtime flushes pending wheel input before keyboard input', async () =
   });
 });
 
-test('TUI routed wheel events honor widget scroll policy line steps', async () => {
+test('TUI routed wheel events honor scroll-target line steps', async () => {
   const value = Array.from({ length: 40 }, (_, index) =>
     `line ${String(index + 1).padStart(2, '0')} ${'x'.repeat(60)}`
   ).join('\n');
@@ -622,7 +622,7 @@ test('TUI routed horizontal text area scroll uses the editable viewport after gu
   assert.equal(runtime.state().scroll.offsetColumn, value.length - editableViewportColumns);
 });
 
-test('TUI routed wheel events support page-based widget scroll policy', async () => {
+test('TUI routed wheel events support page-based scroll-target policy', async () => {
   const value = Array.from({ length: 40 }, (_, index) => `line ${String(index + 1).padStart(2, '0')}`).join('\n');
   const app = defineTui({
     id: 'text-area-scroll-policy-pages-tui',

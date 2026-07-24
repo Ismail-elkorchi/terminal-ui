@@ -103,7 +103,7 @@ test('tree filters through descendants and exposes selected disabled metadata-ri
       kind: 'branch',
       expanded: false,
       children: [
-        { id: 'ui', label: 'Terminal UI', kind: 'leaf', metadata: { domain: 'widgets' } },
+        { id: 'ui', label: 'Terminal UI', kind: 'leaf', metadata: { domain: 'components' } },
         { id: 'api', label: 'API Layer', kind: 'leaf', description: 'Server request boundary', disabled: true, metadata: { domain: 'server' } }
       ]
     }]

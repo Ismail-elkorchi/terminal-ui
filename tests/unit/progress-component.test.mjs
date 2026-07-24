@@ -10,7 +10,7 @@ import { renderFramePlain,
 } from '../../dist/renderer/index.js';
 import { progressBar } from '../../dist/components/index.js';
 
-test('progressBar supports value plus percentage display and status tone', () => {
+test('progressBar component supports value plus percentage display and status tone', () => {
   const frame = renderElementFrame(progressBar({
     id: 'deploy',
     label: 'Deploy',

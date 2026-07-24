@@ -10,7 +10,7 @@ import {
   tree
 } from '../../dist/components/index.js';
 
-void test('tree renders expanded visible nodes and accessible selection state', () => {
+void test('tree component renders expanded visible nodes and accessible selection state', () => {
   const frame = renderElementFrame(tree({
     id: 'tree',
     selected: 'child',

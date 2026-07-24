@@ -49,7 +49,7 @@ test('list and table reject empty or duplicate stable ids at authoring time', ()
   }), /ids must not be empty/u);
 });
 
-test('table widget renders constrained columns and selected rows', () => {
+test('table component renders constrained columns and selected rows', () => {
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'table',

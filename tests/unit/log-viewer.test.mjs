@@ -72,7 +72,7 @@ test('log viewer sanitizes terminal control sequences before rendering and acces
 });
 
 test('log viewer renders timestamp, metadata, and entry styles through visible rows', () => {
-  const widget = logViewer({
+  const element = logViewer({
     id: 'metadata-log',
     history: prepareLogHistory([{
       id: 'meta-1',
@@ -82,7 +82,7 @@ test('log viewer renders timestamp, metadata, and entry styles through visible r
       style: { fg: { kind: 'theme', token: 'status.success' }, bold: true }
     }])
   });
-  const frame = renderElementFrame(widget, { columns: 80, rows: 2 });
+  const frame = renderElementFrame(element, { columns: 80, rows: 2 });
   const styledCell = frame.cells.find((cell) => cell.text === 'Z');
   const timestampCell = frame.cells.find((cell) => cell.text === '[');
   const metadataCell = frame.cells.find((cell) => cell.text === 's');
@@ -189,8 +189,8 @@ test('log viewer wraps visible rows when requested', () => {
 
 test('log viewer search navigates to the first match and exposes match segments', () => {
   const entries = Array.from({ length: 12 }, (_value, index) => entry(index, index === 8 ? 'needle row' : `plain ${index}`));
-  const widget = logViewer({ id: 'search-log', history: prepareLogHistory(entries), searchQuery: 'needle' });
-  const frame = renderElementFrame(widget, { columns: 40, rows: 5 });
+  const element = logViewer({ id: 'search-log', history: prepareLogHistory(entries), searchQuery: 'needle' });
+  const frame = renderElementFrame(element, { columns: 40, rows: 5 });
 
   const matchedCells = frame.cells.filter((cell) => cell.source?.description === 'body.match');
   assert.equal(matchedCells.map((cell) => cell.text).join(''), 'needle');

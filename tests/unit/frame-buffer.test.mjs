@@ -84,7 +84,7 @@ test('FrameBuffer preserves style, links, and source metadata per visible cell',
 test('FrameCellSource sanitizes stable structured metadata before entering frames', () => {
   const sanitized = sanitizeFrameCellSource({
     elementId: 'owner\u001B[31m',
-    elementKind: 'widget',
+    elementKind: 'text',
     rendererFamily: 'text',
     cellRole: 'text',
     partName: 'body',
@@ -98,7 +98,7 @@ test('FrameCellSource sanitizes stable structured metadata before entering frame
 
   assert.deepEqual(sanitized, {
     elementId: 'owner',
-    elementKind: 'widget',
+    elementKind: 'text',
     rendererFamily: 'text',
     cellRole: 'text',
     partName: 'body',

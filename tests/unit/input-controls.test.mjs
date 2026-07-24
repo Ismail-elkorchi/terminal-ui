@@ -24,7 +24,7 @@ import { column } from '../../dist/layout/index.js';
 import { calendarFixture } from '../helpers/calendar.mjs';
 
 test('toggleSwitch slider and rangeSlider render caller-controlled values with keyboard and mouse affordances', () => {
-  const widget = column([
+  const element = column([
     toggleSwitch({
       id: 'switch',
       label: 'Live updates',
@@ -50,7 +50,7 @@ test('toggleSwitch slider and rangeSlider render caller-controlled values with k
       onAction: (action) => ({ kind: 'range', action })
     })
   ], { gap: 1 });
-  const frame = renderElementFrame(widget, { columns: 56, rows: 7 });
+  const frame = renderElementFrame(element, { columns: 56, rows: 7 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Live updates: \[ On \] Off/u);
@@ -186,7 +186,7 @@ test('rangeSlider pointer capture preserves the pressed handle and arrow keys us
 });
 
 test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit targets and accessibility', () => {
-  const widget = column([
+  const element = column([
     checkboxGroup({
       id: 'check-list',
       label: 'Channels',
@@ -219,7 +219,7 @@ test('checkboxGroup colorSwatchPicker and calendar expose selectable item hit ta
       onAction: (action) => ({ kind: 'date', action })
     })
   ], { gap: 1 });
-  const frame = renderElementFrame(widget, { columns: 72, rows: 18 });
+  const frame = renderElementFrame(element, { columns: 72, rows: 18 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Channels/u);
@@ -321,7 +321,7 @@ test('picker swatches remain inside their fixed cell budget under ambiguous-wide
 });
 
 test('form controls keep state visible in high contrast and no-color projections', () => {
-  const widget = column([
+  const element = column([
     checkbox({
       id: 'agree',
       label: 'Agree',
@@ -351,7 +351,7 @@ test('form controls keep state visible in high contrast and no-color projections
       })
     })
   ], { gap: 1 });
-  const frame = renderElementFrame(widget, { columns: 32, rows: 14 }, { theme: highContrastTheme });
+  const frame = renderElementFrame(element, { columns: 32, rows: 14 }, { theme: highContrastTheme });
   const highContrast = createVisualSnapshot({
     frame,
     ansi: { capabilities: colorCapabilities(), theme: highContrastTheme }

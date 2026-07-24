@@ -75,8 +75,8 @@ test('track helpers split fixed, percent, and fill regions deterministically', (
   );
 });
 
-test('grid and splitPane widgets lay out common app frames', () => {
-  const widget = grid([
+test('grid and splitPane layouts arrange common app frames', () => {
+  const element = grid([
     text('header', { id: 'header' }),
     splitPane([
       text('left', { id: 'left' }),
@@ -95,7 +95,7 @@ test('grid and splitPane widgets lay out common app frames', () => {
     columns: [{ kind: 'fill' }]
   });
 
-  const layout = layoutElement(widget, { columns: 40, rows: 8 });
+  const layout = layoutElement(element, { columns: 40, rows: 8 });
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 40, height: 1 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 2, column: 1, width: 40, height: 5 });
   assert.deepEqual(layout.children[1]?.children[0]?.bounds, { row: 2, column: 1, width: 10, height: 5 });
@@ -105,7 +105,7 @@ test('grid and splitPane widgets lay out common app frames', () => {
 });
 
 test('splitPane content tracks use measured child width', () => {
-  const widget = splitPane([
+  const element = splitPane([
     text('measured', { id: 'measured' }),
     text('remaining', { id: 'remaining' })
   ], {
@@ -114,14 +114,14 @@ test('splitPane content tracks use measured child width', () => {
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
   });
 
-  const layout = layoutElement(widget, { columns: 20, rows: 3 });
+  const layout = layoutElement(element, { columns: 20, rows: 3 });
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 8, height: 3 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 9, width: 12, height: 3 });
 });
 
 test('wrapped text-area content tracks retain intrinsic width', () => {
-  const widget = row([
+  const element = row([
     textArea({
       id: 'wrapped-content-editor',
       presentation: { document: prepareTextDocument('x'), caret: textCaretAt(0 )},
@@ -133,14 +133,14 @@ test('wrapped text-area content tracks retain intrinsic width', () => {
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
   });
 
-  const layout = layoutElement(widget, { columns: 30, rows: 3 });
+  const layout = layoutElement(element, { columns: 30, rows: 3 });
 
   assert.equal(layout.children[0]?.bounds.width, 3);
   assert.equal(layout.children[1]?.bounds.width, 27);
 });
 
 test('searchPicker content tracks use the active text-width profile', () => {
-  const widget = row([
+  const element = row([
     searchPicker({
       id: 'profiled-searchPicker',
       searchPickerIndex: prepareSearchPickerIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
@@ -153,13 +153,13 @@ test('searchPicker content tracks use the active text-width profile', () => {
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
   });
   const narrow = layoutElement(
-    widget,
+    element,
     { columns: 40, rows: 5 },
     undefined,
     { emoji: 'narrow', ambiguous: 'narrow' }
   );
   const wide = layoutElement(
-    widget,
+    element,
     { columns: 40, rows: 5 },
     undefined,
     { emoji: 'wide', ambiguous: 'narrow' }
@@ -170,7 +170,7 @@ test('searchPicker content tracks use the active text-width profile', () => {
 });
 
 test('column explicit sizes keep fixed header and footer tracks around fill content', () => {
-  const widget = column([
+  const element = column([
     text('Header', { id: 'header' }),
     text('Body', { id: 'body' }),
     text('Footer', { id: 'footer' })
@@ -179,8 +179,8 @@ test('column explicit sizes keep fixed header and footer tracks around fill cont
     sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }]
   });
 
-  const layout = layoutElement(widget, { columns: 20, rows: 6 });
-  const output = renderFramePlain(renderElementFrame(widget, { columns: 20, rows: 6 }));
+  const layout = layoutElement(element, { columns: 20, rows: 6 });
+  const output = renderFramePlain(renderElementFrame(element, { columns: 20, rows: 6 }));
 
   assert.deepEqual(layout.children.map((child) => child.bounds), [
     { row: 1, column: 1, width: 20, height: 1 },
@@ -192,7 +192,7 @@ test('column explicit sizes keep fixed header and footer tracks around fill cont
 });
 
 test('row explicit sizes keep fixed sidebars around fill content', () => {
-  const widget = row([
+  const element = row([
     text('Nav', { id: 'nav' }),
     text('Main', { id: 'main' }),
     text('Tools', { id: 'tools' })
@@ -201,7 +201,7 @@ test('row explicit sizes keep fixed sidebars around fill content', () => {
     sizes: [{ kind: 'fixed', cells: 4 }, { kind: 'fill' }, { kind: 'content' }]
   });
 
-  const layout = layoutElement(widget, { columns: 16, rows: 2 });
+  const layout = layoutElement(element, { columns: 16, rows: 2 });
 
   assert.deepEqual(layout.children.map((child) => child.bounds), [
     { row: 1, column: 1, width: 4, height: 2 },
@@ -222,7 +222,7 @@ test('column and row reject size tracks that do not match child count', () => {
 });
 
 test('splitPane pressure keeps pane order and collapses gaps before clipping content', () => {
-  const widget = splitPane([
+  const element = splitPane([
     text('left', { id: 'left' }),
     text('middle', { id: 'middle' }),
     text('right', { id: 'right' })
@@ -237,18 +237,18 @@ test('splitPane pressure keeps pane order and collapses gaps before clipping con
     gap: 1
   });
 
-  const layout = layoutElement(widget, { columns: 7, rows: 1 });
+  const layout = layoutElement(element, { columns: 7, rows: 1 });
 
   assert.deepEqual(layout.children.map((child) => child.bounds), [
     { row: 1, column: 1, width: 4, height: 1 },
     { row: 1, column: 5, width: 0, height: 1 },
     { row: 1, column: 5, width: 3, height: 1 }
   ]);
-  assert.equal(renderFramePlain(renderElementFrame(widget, { columns: 7, rows: 1 })), 'leftrig');
+  assert.equal(renderFramePlain(renderElementFrame(element, { columns: 7, rows: 1 })), 'leftrig');
 });
 
 test('row pressure uses overflow priority without rewarding decorative tail content', () => {
-  const widget = row([
+  const element = row([
     text('REQUIRED', {
     id: 'required',
     meta: {
@@ -275,8 +275,8 @@ test('row pressure uses overflow priority without rewarding decorative tail cont
 })
   ], { gap: 0 });
 
-  const layout = layoutElement(widget, { columns: 5, rows: 1 });
-  const output = renderFramePlain(renderElementFrame(widget, { columns: 5, rows: 1 }));
+  const layout = layoutElement(element, { columns: 5, rows: 1 });
+  const output = renderFramePlain(renderElementFrame(element, { columns: 5, rows: 1 }));
 
   assert.deepEqual(layout.children.map((child) => child.bounds), [
     { row: 1, column: 1, width: 4, height: 1 },
@@ -287,7 +287,7 @@ test('row pressure uses overflow priority without rewarding decorative tail cont
 });
 
 test('grid content rows and columns use measured child dimensions', () => {
-  const widget = grid([
+  const element = grid([
     text('wide-label', { id: 'wide-label' }),
     text('two\nrows', { id: 'two-rows' }),
     text('x', { id: 'x' }),
@@ -300,7 +300,7 @@ test('grid content rows and columns use measured child dimensions', () => {
     columnGap: 1
   });
 
-  const layout = layoutElement(widget, { columns: 20, rows: 6 });
+  const layout = layoutElement(element, { columns: 20, rows: 6 });
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 10, height: 2 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 12, width: 9, height: 2 });
@@ -309,7 +309,7 @@ test('grid content rows and columns use measured child dimensions', () => {
 });
 
 test('named-area grid content tracks use measured area children', () => {
-  const widget = grid({
+  const element = grid({
     id: 'named-content-grid',
     areas: 'left right',
     rows: [{ kind: 'content' }],
@@ -321,8 +321,8 @@ test('named-area grid content tracks use measured area children', () => {
     }
   });
 
-  const layout = layoutElement(widget, { columns: 20, rows: 3 });
-  const output = renderFramePlain(renderElementFrame(widget, { columns: 20, rows: 3 }));
+  const layout = layoutElement(element, { columns: 20, rows: 3 });
+  const output = renderFramePlain(renderElementFrame(element, { columns: 20, rows: 3 }));
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 10, height: 1 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 1, column: 12, width: 9, height: 1 });
@@ -330,7 +330,7 @@ test('named-area grid content tracks use measured area children', () => {
 });
 
 test('layout flow options align, justify, and bound content regions', () => {
-  const widget = surface(text('centered', { id: 'centered' }), {
+  const element = surface(text('centered', { id: 'centered' }), {
     id: 'aligned-surface',
     border: { kind: 'none' },
     maxWidth: 4,
@@ -339,7 +339,7 @@ test('layout flow options align, justify, and bound content regions', () => {
     justify: 'end'
   });
 
-  const layout = layoutElement(widget, { columns: 10, rows: 4 });
+  const layout = layoutElement(element, { columns: 10, rows: 4 });
 
   assert.deepEqual(layout.children[0]?.bounds, { row: 4, column: 4, width: 4, height: 1 });
 });

@@ -135,7 +135,7 @@ test('commandInput projects controlled state and emits semantic actions', async 
   ]);
 });
 
-test('commandInput widget renders prompt, suggestions, cursor, and accessibility', () => {
+test('commandInput component renders prompt, suggestions, cursor, and accessibility', () => {
   const frame = renderElementFrame(
     commandInput({
       id: 'command',

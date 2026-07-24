@@ -29,7 +29,7 @@ import {
   surface
 } from '../../dist/layout/index.js';
 
-test('sparkline renders bounded numeric points', () => {
+test('sparkline component renders bounded numeric points', () => {
   const frame = renderElementFrame(sparkline({
     id: 'spark',
     values: [0, 1, 2, 3]
@@ -490,7 +490,7 @@ test('heatmap renders empty state through chart state contract', () => {
   assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.description, 'state.empty.message');
 });
 
-test('chart widgets preserve visualization meaning in high contrast and no color themes', () => {
+test('chart components preserve visualization meaning in high contrast and no color themes', () => {
   const highContrast = renderElementFrame(chart({
     id: 'contrast-chart',
     legend: true,

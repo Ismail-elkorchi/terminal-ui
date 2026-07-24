@@ -17,7 +17,7 @@ import { textSamples } from '../support/text-samples.mjs';
 test('layout and clipping properties keep rendered cells inside the terminal size', () => {
   for (const { index, seed, value } of generatedTexts(64)) {
     const terminalSize = terminalSizeFor(value);
-    const widget = column([
+    const element = column([
       text(value, { id: 'top' }),
       row([
         text(`${value} left`, { id: 'left' }),
@@ -28,8 +28,8 @@ test('layout and clipping properties keep rendered cells inside the terminal siz
       gap: 1,
       padding: { top: 1, right: 1, bottom: 1, left: 1 }
     });
-    const layout = layoutElement(widget, terminalSize);
-    const frame = renderElementFrame(widget, terminalSize);
+    const layout = layoutElement(element, terminalSize);
+    const frame = renderElementFrame(element, terminalSize);
     const detail = `index=${String(index)} seed=${String(seed)} terminalSize=${JSON.stringify(terminalSize)} value=${JSON.stringify(value)}`;
 
     assertBoundsInsideTerminal(layout.bounds, terminalSize, `${detail}: root layout`);

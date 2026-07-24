@@ -5,7 +5,7 @@ import { noColorTheme } from '../../dist/theme/index.js';
 import { tabs, text, textInput } from '../../dist/components/index.js';
 
 test('tabs render only the selected panel as focusable content', () => {
-  const widget = tabs({
+  const element = tabs({
     id: 'tabs',
     selected: 'second',
     tabs: [
@@ -19,11 +19,11 @@ test('tabs render only the selected panel as focusable content', () => {
     ]
   });
 
-  const layout = layoutElement(widget, { columns: 32, rows: 5 });
+  const layout = layoutElement(element, { columns: 32, rows: 5 });
   assert.deepEqual(layout.children[0]?.bounds, { row: 1, column: 1, width: 0, height: 0 });
   assert.deepEqual(layout.children[1]?.bounds, { row: 2, column: 1, width: 32, height: 4 });
 
-  const frame = renderElementFrame(widget, { columns: 32, rows: 5 });
+  const frame = renderElementFrame(element, { columns: 32, rows: 5 });
   assert.ok(frame.focusPath?.includes('second-input'));
   assert.ok(!frame.focusPath?.includes('first-input'));
   assert.match(frame.cells.map((cell) => cell.text).join(''), /▏Second/u);

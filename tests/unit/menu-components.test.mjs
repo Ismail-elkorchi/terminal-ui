@@ -64,7 +64,7 @@ const items = [
   { kind: 'action', id: 'disabled', label: 'Disabled', disabled: true }
 ];
 
-test('menu renders nested checked disabled items with menu accessibility', () => {
+test('menu component renders nested checked disabled items with menu accessibility', () => {
   const frame = renderElementFrame(menu({
     id: 'file-menu',
     presentation: menuPresentation(items, { activePath: ['open', 'recent'] })

@@ -342,7 +342,7 @@ test('list table and tree share data navigation selection and match styles', () 
   assert.equal(treeFrame.cells.find((cell) => cell.text === 'A')?.source?.description, 'node.api.match');
 });
 
-test('default interactive widget anatomy uses theme tokens instead of terminal defaults', () => {
+test('default interactive component anatomy uses theme tokens instead of terminal defaults', () => {
   const buttonFrame = renderElementFrame(button({
     id: 'primary',
     label: 'Save',
@@ -599,7 +599,7 @@ test('overflow priority preserves important row content before decorative conten
   assert.equal(renderFramePlain(frame).trimEnd(), 'REQUIREDsed');
 });
 
-test('feedback widgets use shared status styles and source metadata', () => {
+test('feedback components use shared status styles and source metadata', () => {
   const statusFrame = renderElementFrame(statusBar({
     id: 'status',
     leading: [{ id: 'ready', kind: 'text', text: 'Ready' }],
@@ -689,7 +689,7 @@ test('record results and notification tones retain their component-specific styl
   assert.equal(styleFor(notificationFrame, '█')?.fg?.token, 'status.running');
 });
 
-test('chart widgets use shared visual state styles and source metadata', () => {
+test('chart components use shared visual state styles and source metadata', () => {
   const barFrame = renderElementFrame(barChart({
     id: 'bars',
     selectedId: 'atlas',

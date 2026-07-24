@@ -26,8 +26,8 @@ import { row } from '../../dist/layout/index.js';
 const enter = { kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 const tab = { kind: 'key', key: 'tab', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' };
 
-test('form primitives render settings and setup-wizard shapes with scoped state', () => {
-  const widget = form([
+test('form components render settings and setup-wizard shapes with scoped state', () => {
+  const element = form([
     field(textInput({
       id: 'name-input',
       presentation: { value: '', cursor: 0 },
@@ -80,7 +80,7 @@ test('form primitives render settings and setup-wizard shapes with scoped state'
     title: 'Setup'
   });
 
-  const frame = renderElementFrame(widget, { columns: 48, rows: 24 });
+  const frame = renderElementFrame(element, { columns: 48, rows: 24 });
   const output = renderFramePlain(frame);
 
   assert.match(output, /Setup/u);
@@ -146,7 +146,7 @@ test('closed select renders only its trigger and hides popup accessibility child
 });
 
 test('form fields expose label required description and validation source anatomy', () => {
-  const widget = form([
+  const element = form([
     field(textInput({
       id: 'name-input',
       presentation: { value: '', cursor: 0 },
@@ -171,7 +171,7 @@ test('form fields expose label required description and validation source anatom
     id: 'setup-form',
     title: 'Setup'
   });
-  const frame = renderElementFrame(widget, { columns: 42, rows: 8 });
+  const frame = renderElementFrame(element, { columns: 42, rows: 8 });
 
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'setup-form' && cell.text === 'S')?.source?.description, 'form.title');
   assert.equal(frame.cells.find((cell) => cell.source?.elementId === 'name-field' && cell.text === 'N')?.source?.description, 'field.label.text');
@@ -183,7 +183,7 @@ test('form fields expose label required description and validation source anatom
 });
 
 test('form accessibility exposes labels, values, validation, required, disabled, and focus state', () => {
-  const widget = form([
+  const element = form([
     field(textInput({
       id: 'email',
       presentation: { value: 'user@example.test', cursor: 0 },
@@ -215,7 +215,7 @@ test('form accessibility exposes labels, values, validation, required, disabled,
     title: 'Account'
   });
 
-  const frame = renderElementFrame(widget, { columns: 40, rows: 10 }, {
+  const frame = renderElementFrame(element, { columns: 40, rows: 10 }, {
     focusPath: ['account-form', 'terms']
   });
   const [emailField, terms, tier] = frame.accessibility.root.children;

@@ -32,7 +32,7 @@ import {
   textDocumentSelectionBetween
 } from '../../dist/text/index.js';
 
-test('richText renders sanitized styled segments as plain frame text', () => {
+test('richText component renders sanitized styled segments as plain frame text', () => {
   const frame = renderElementFrame(richText({
     id: 'rich',
     segments: [
@@ -174,7 +174,7 @@ test('editable text controls expose source metadata for frame, value, placeholde
   assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.description, 'value');
 });
 
-test('text widgets map Unicode cursor positions through the shared text contract', () => {
+test('text components map Unicode cursor positions through the shared text contract', () => {
   const value = 'a🙂界b';
   const textInputFrame = renderElementFrame(textInput({
     id: 'unicode-input',
@@ -344,7 +344,7 @@ test('wrapped textArea exposes scrollbar scope over visual rows', () => {
 });
 
 test('editable text controls remain readable in high contrast and no-color projections', () => {
-  const widget = column([
+  const element = column([
     textInput({
       id: 'contrast-input',
       presentation: { value: 'alpha', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 4 } },
@@ -358,7 +358,7 @@ test('editable text controls remain readable in high contrast and no-color proje
       validation: { level: 'warning', message: 'Waiting' }
     })
   ]);
-  const frame = renderElementFrame(widget, { columns: 28, rows: 3 }, {
+  const frame = renderElementFrame(element, { columns: 28, rows: 3 }, {
     theme: highContrastTheme,
     focusPath: ['contrast-input']
   });

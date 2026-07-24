@@ -73,7 +73,7 @@ test('searchPickerWindow bounds visible entries around stable id selection and s
   assert.equal(scrolled.omittedAfter, 1);
 });
 
-test('searchPicker widget renders query matches disabled entries preview help empty state and accessibility', () => {
+test('searchPicker component renders query matches disabled entries preview help empty state and accessibility', () => {
   const frame = renderElementFrame(
     searchPicker({
       id: 'searchPicker',
@@ -148,7 +148,7 @@ test('searchPicker entry normalization is retained across authored frames', () =
   assert.equal(labelReads, measuredEntries.length);
 });
 
-test('searchPicker widget renders empty states for unrelated queries', () => {
+test('searchPicker component renders empty states for unrelated queries', () => {
   const frame = renderElementFrame(
     searchPicker({
       id: 'searchPicker',
