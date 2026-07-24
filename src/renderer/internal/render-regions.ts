@@ -111,7 +111,7 @@ function createRegionFrameBuffer(viewport: ViewportSize, bounds: Rect, widthProf
     },
     readCell(row, column) {
       const cell = local.readCell(toLocalRow(bounds, row), toLocalColumn(bounds, column));
-      return cell === undefined ? undefined : toViewportCell(bounds, cell);
+      return cell === undefined ? undefined : toTerminalCell(bounds, cell);
     },
     clear(rect) {
       const clearBounds = rect === undefined ? bounds : intersectRects(bounds, rect);
@@ -124,7 +124,7 @@ function createRegionFrameBuffer(viewport: ViewportSize, bounds: Rect, widthProf
         ...frame,
         width: viewport.columns,
         height: viewport.rows,
-        cells: frame.cells.map((cell) => toViewportCell(bounds, cell)),
+        cells: frame.cells.map((cell) => toTerminalCell(bounds, cell)),
         metadata: translateSnapshotMetadata(bounds, frame.metadata)
       };
     }
@@ -183,7 +183,7 @@ function toLocalCell(bounds: Rect, cell: FrameCell): FrameCell {
   };
 }
 
-function toViewportCell(bounds: Rect, cell: FrameCell): FrameCell {
+function toTerminalCell(bounds: Rect, cell: FrameCell): FrameCell {
   return {
     ...cell,
     row: cell.row + bounds.row - 1,
