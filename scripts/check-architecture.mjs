@@ -29,25 +29,25 @@ const forbiddenDependencies = new Map([
 for (const filePath of sourceFiles) {
   const sourceText = await fs.readFile(filePath, 'utf8');
   const sourceFile = ts.createSourceFile(filePath, sourceText, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-  const owner = firstSegment(filePath);
+  const sourceLayer = firstSegment(filePath);
   for (const statement of sourceFile.statements) {
     if (!ts.isImportDeclaration(statement) && !ts.isExportDeclaration(statement)) continue;
     const specifier = statement.moduleSpecifier;
     if (specifier === undefined || !ts.isStringLiteral(specifier) || !specifier.text.startsWith('.')) continue;
     const target = path.resolve(path.dirname(filePath), specifier.text);
-    const targetOwner = firstSegment(target);
-    const allowedFoundationDependencies = foundationDependencies.get(owner);
+    const targetLayer = firstSegment(target);
+    const allowedFoundationDependencies = foundationDependencies.get(sourceLayer);
     if (allowedFoundationDependencies !== undefined
-      && owner !== targetOwner
-      && targetOwner !== undefined
-      && !allowedFoundationDependencies.has(targetOwner)) {
-      failures.push(`${relative(filePath)} imports non-foundation ${targetOwner} layer through ${specifier.text}`);
+      && sourceLayer !== targetLayer
+      && targetLayer !== undefined
+      && !allowedFoundationDependencies.has(targetLayer)) {
+      failures.push(`${relative(filePath)} imports non-foundation ${targetLayer} layer through ${specifier.text}`);
     }
-    if (forbiddenDependencies.get(owner)?.has(targetOwner) === true) {
-      failures.push(`${relative(filePath)} imports forbidden ${targetOwner} layer through ${specifier.text}`);
+    if (forbiddenDependencies.get(sourceLayer)?.has(targetLayer) === true) {
+      failures.push(`${relative(filePath)} imports forbidden ${targetLayer} layer through ${specifier.text}`);
     }
   }
-  inspectDeterministicGlobals(sourceFile, owner, filePath);
+  inspectDeterministicGlobals(sourceFile, sourceLayer, filePath);
   inspectTuiContext(sourceFile, filePath);
 }
 
@@ -67,15 +67,15 @@ for (const privateModule of [
 
 if (failures.length > 0) throw new Error(`Architecture contract failed:\n${failures.join('\n')}`);
 
-function inspectDeterministicGlobals(sourceFile, owner, filePath) {
-  if (!new Set(['behavior', 'components', 'layout', 'renderer', 'ui-model', 'visual']).has(owner)) return;
+function inspectDeterministicGlobals(sourceFile, sourceLayer, filePath) {
+  if (!new Set(['behavior', 'components', 'layout', 'renderer', 'ui-model', 'visual']).has(sourceLayer)) return;
   const visit = (node) => {
     if (ts.isIdentifier(node) && node.text === 'process') {
-      failures.push(`${relative(filePath)} reads process-global state in deterministic layer ${owner}`);
+      failures.push(`${relative(filePath)} reads process-global state in deterministic layer ${sourceLayer}`);
     }
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)
       && new Set(['setInterval', 'setTimeout']).has(node.expression.text)) {
-      failures.push(`${relative(filePath)} creates a raw timer in deterministic layer ${owner}`);
+      failures.push(`${relative(filePath)} creates a raw timer in deterministic layer ${sourceLayer}`);
     }
     ts.forEachChild(node, visit);
   };
