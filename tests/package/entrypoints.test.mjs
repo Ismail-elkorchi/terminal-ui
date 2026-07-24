@@ -159,7 +159,7 @@ test('entrypoint declarations expose layered public type contracts', async () =>
   ]) {
     assert.match(layoutDeclaration, new RegExp(`\\b${typeName}\\b`, 'u'), `layout:${typeName}`);
   }
-  assert.doesNotMatch(layoutDeclaration, /\bScreenStack\b/u);
+  assert.doesNotMatch(layoutDeclaration, /\bNavigationStack\b/u);
   assert.doesNotMatch(layoutDeclaration, /\b(?:Layer|LayoutNode|Rect|RegionOpacity)\b/u);
   assert.doesNotMatch(layoutDeclaration, /\b(?:gridCellRects|splitTracks)\b/u);
 
@@ -168,9 +168,11 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'CommandInputState',
     'LogHistory',
     'LogViewerAction',
+    'NavigationEntry',
+    'NavigationStack',
+    'NavigationStackAction',
     'NotificationAction',
     'SearchPickerAction',
-    'ScreenStack',
     'ScrollAction',
     'SpinnerAction',
     'TableAction',

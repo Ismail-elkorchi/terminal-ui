@@ -298,14 +298,14 @@ export type {
   ScrollEventTarget
 } from '../interaction/scroll.ts';
 export {
-  activeScreen,
-  screenStackReducer
-} from './screen-stack.ts';
+  activeNavigationEntry,
+  navigationStackReducer
+} from './navigation-stack.ts';
 export type {
-  Screen,
-  ScreenStack,
-  ScreenStackAction
-} from './screen-stack.ts';
+  NavigationEntry,
+  NavigationStack,
+  NavigationStackAction
+} from './navigation-stack.ts';
 export {
   appendLogHistory,
   prepareLogHistory,

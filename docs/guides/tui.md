@@ -206,9 +206,9 @@ emulator state.
 Layout regions are structural element data. Layout elements such as `grid()`
 and `splitPane()`, and interactive components such as `tabs()` and `dialog()`,
 produce regular layout nodes, frames, diffs, and accessible
-snapshots. For application navigation, use the pure `screenStackReducer()` and
-`activeScreen()` helpers; a screen stack is serializable state, not a hidden
-runtime mode.
+snapshots. For application navigation, use the pure `navigationStackReducer()`
+and `activeNavigationEntry()` helpers. A navigation stack is serializable
+application state, not a hidden runtime mode or a terminal screen.
 
 Use explicit track sizes for chrome/body compositions. `grid()` uses `rows` and
 `columns`, while `splitPane()`, `column()`, and `row()` use `sizes`. The same
