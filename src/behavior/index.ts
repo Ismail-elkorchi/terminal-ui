@@ -113,11 +113,10 @@ export type {
   ListViewProjection,
   WindowedListCollection
 } from '../ui-model/list.ts';
-export { rangeSliderPresentation, rangeSliderReducer } from './range-slider.ts';
+export { rangeSliderReducer } from './range-slider.ts';
 export type {
   RangeSliderAction,
   RangeSliderHandle,
-  RangeSliderPresentation,
   RangeSliderReducerOptions,
   RangeSliderState
 } from '../ui-model/range-slider.ts';

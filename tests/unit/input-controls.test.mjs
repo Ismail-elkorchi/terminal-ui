@@ -44,7 +44,7 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
     rangeSlider({
       id: 'range',
       label: 'Window',
-      presentation: { value: { start: 20, end: 80 }, activeHandle: 'start' },
+      state: { value: { start: 20, end: 80 }, activeHandle: 'start' },
       range: { min: 0, max: 100 },
       width: 11,
       onAction: (action) => ({ kind: 'range', action })
@@ -74,21 +74,21 @@ test('toggleSwitch slider and rangeSlider render caller-owned values with keyboa
 });
 
 test('slider controls reject invalid authored numeric contracts consistently', () => {
-  const validRangePresentation = { value: { start: 10, end: 20 }, activeHandle: 'start' };
+  const validRangeState = { value: { start: 10, end: 20 }, activeHandle: 'start' };
   assert.throws(() => slider({ id: 'nan-slider', value: Number.NaN }), /value must be finite/u);
   assert.throws(() => slider({ id: 'bounds-slider', value: 1, min: 2, max: 1 }), /finite ordered bounds/u);
   assert.throws(() => slider({ id: 'step-slider', value: 1, step: 0 }), /step must be finite and greater than zero/u);
   assert.throws(() => slider({ id: 'width-slider', value: 1, width: 1.5 }), /width must be a positive safe integer/u);
   assert.throws(
-    () => rangeSlider({ id: 'nan-range', presentation: { value: { start: Number.NaN, end: 20 }, activeHandle: 'start' } }),
+    () => rangeSlider({ id: 'nan-range', state: { value: { start: Number.NaN, end: 20 }, activeHandle: 'start' } }),
     /value must be finite/u
   );
   assert.throws(
-    () => rangeSlider({ id: 'ordered-range', presentation: { value: { start: 20, end: 10 }, activeHandle: 'start' } }),
+    () => rangeSlider({ id: 'ordered-range', state: { value: { start: 20, end: 10 }, activeHandle: 'start' } }),
     /start value must be less than or equal/u
   );
   assert.throws(
-    () => rangeSlider({ id: 'width-range', presentation: validRangePresentation, width: 0 }),
+    () => rangeSlider({ id: 'width-range', state: validRangeState, width: 0 }),
     /width must be a positive safe integer/u
   );
 });
@@ -141,7 +141,7 @@ test('rangeSlider pointer capture preserves the pressed handle and arrow keys us
     }),
     view: (state) => rangeSlider({
       id: 'window',
-      presentation: state.range,
+      state: state.range,
       range: options.range,
       step: options.step,
       width: 11,

@@ -56,7 +56,7 @@ const disabledWidgetCases = [
     element: () => rangeSlider({
       id: 'disabled-range',
       label: 'Window',
-      presentation: { value: { start: 2, end: 8 }, activeHandle: 'start' },
+      state: { value: { start: 2, end: 8 }, activeHandle: 'start' },
       onAction: () => message,
       disabled: true
     })

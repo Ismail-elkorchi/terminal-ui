@@ -27,6 +27,30 @@ The pattern is:
 3. Convert component event props to typed messages.
 4. In `update()`, pass the message through the matching behavior helper.
 
+## State and renderer input
+
+Reducer state is application data stored by the caller. Component options stay
+as direct fields when a few values are independent. A component uses a grouped
+`state` object when several fields must describe one valid combination.
+`presentation` is reserved for normalized data already shaped for rendering.
+Computed wrapping, rows, carets, selection geometry, and similar coordinates
+are layout. Retained search and collection indexes use `prepare...` names.
+
+The component families apply that rule independently:
+
+- text input and text area use presentations because their helpers normalize
+  caller-owned editing state into renderer-ready text, caret, selection, and
+  scroll data;
+- select uses a presentation because normalization produces the closed/open
+  renderer union, including the highlighted option and popup scroll data;
+- command input uses a presentation derived from its editing, history, and
+  suggestion state;
+- table uses a presentation because the selected cell is derived from valid
+  row and column state, while list, tree, tabs, palette, and scrollback expose
+  their independent component fields directly;
+- range slider accepts one grouped state object because the active handle and
+  ordered range values form one valid interaction state.
+
 ```ts
 import {
   commandInput

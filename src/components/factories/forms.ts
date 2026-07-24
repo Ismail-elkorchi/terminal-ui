@@ -218,9 +218,9 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
     ...(options.step === undefined ? {} : { step: options.step }),
     ...(options.width === undefined ? {} : { width: options.width })
   });
-  assertNumericControlValue('rangeSlider', options.presentation.value.start, range);
-  assertNumericControlValue('rangeSlider', options.presentation.value.end, range);
-  if (options.presentation.value.start > options.presentation.value.end) {
+  assertNumericControlValue('rangeSlider', options.state.value.start, range);
+  assertNumericControlValue('rangeSlider', options.state.value.end, range);
+  if (options.state.value.start > options.state.value.end) {
     throw new RangeError('rangeSlider start value must be less than or equal to end value.');
   }
   const keyMap = rangeSliderKeyBindings(options);
@@ -229,7 +229,7 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
     kind: 'rangeSlider',
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
-      presentation: options.presentation,
+      state: options.state,
       ...(options.range === undefined ? {} : { range: options.range }),
       ...(options.step === undefined ? {} : { step: options.step }),
       ...(options.width === undefined ? {} : { width: options.width }),

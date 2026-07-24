@@ -81,7 +81,6 @@ export type {
 export type {
   RangeSliderAction,
   RangeSliderHandle,
-  RangeSliderPresentation,
   RangeSliderState
 } from '../ui-model/range-slider.ts';
 export type {

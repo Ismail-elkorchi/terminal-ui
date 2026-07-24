@@ -7,8 +7,6 @@ export interface RangeSliderState {
   readonly activeHandle: RangeSliderHandle;
 }
 
-export type RangeSliderPresentation = RangeSliderState;
-
 export type RangeSliderAction =
   | { readonly kind: 'selectHandle'; readonly handle: RangeSliderHandle }
   | { readonly kind: 'step'; readonly direction: SliderStepDirection }

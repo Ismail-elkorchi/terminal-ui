@@ -288,7 +288,7 @@ const cases = [
     element: () => rangeSlider({
       id: 'range-slider',
       label: unsafe,
-      presentation: { value: { start: 2, end: 8 }, activeHandle: 'end' },
+      state: { value: { start: 2, end: 8 }, activeHandle: 'end' },
       range: { min: 0, max: 10 },
       onAction: (action) => ({ kind: 'range', action })
     }),

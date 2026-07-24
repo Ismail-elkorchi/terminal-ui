@@ -50,15 +50,15 @@ export function rangeSliderModel(renderNode: RangeSliderNode): RangeSliderModel 
       min: renderNode.props.range.min,
       max: renderNode.props.range.max
     }),
-    value: renderNode.props.presentation.value.start
+    value: renderNode.props.state.value.start
   });
-  const start = clampNumber(finiteNumber(renderNode.props.presentation.value.start, base.min), base.min, base.max);
-  const end = clampNumber(finiteNumber(renderNode.props.presentation.value.end, base.max), base.min, base.max);
+  const start = clampNumber(finiteNumber(renderNode.props.state.value.start, base.min), base.min, base.max);
+  const end = clampNumber(finiteNumber(renderNode.props.state.value.end, base.max), base.min, base.max);
   return {
     ...base,
     start: Math.min(start, end),
     end: Math.max(start, end),
-    activeHandle: renderNode.props.presentation.activeHandle
+    activeHandle: renderNode.props.state.activeHandle
   };
 }
 

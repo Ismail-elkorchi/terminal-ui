@@ -1,6 +1,5 @@
 import type {
   RangeSliderAction,
-  RangeSliderPresentation,
   RangeSliderReducerOptions,
   RangeSliderState
 } from '../ui-model/range-slider.ts';
@@ -24,10 +23,6 @@ export function rangeSliderReducer(
     case 'set':
       return setHandle(normalized, action.handle, action.value, min, max);
   }
-}
-
-export function rangeSliderPresentation(state: RangeSliderState): RangeSliderPresentation {
-  return state;
 }
 
 function normalizeState(state: RangeSliderState, min: number, max: number): RangeSliderState {

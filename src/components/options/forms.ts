@@ -19,7 +19,7 @@ import type {
   RadioGroupAction,
   SelectAction
 } from '../../ui-model/choice-controls.ts';
-import type { RangeSliderAction, RangeSliderPresentation } from '../../ui-model/range-slider.ts';
+import type { RangeSliderAction, RangeSliderState } from '../../ui-model/range-slider.ts';
 import type { SelectPresentation } from '../../ui-model/choice-controls.ts';
 import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } from '../../element/metadata.ts';
 import type {
@@ -100,7 +100,7 @@ export interface SliderOptions<TMessage = never> extends InteractiveElementOptio
 
 export interface RangeSliderOptions<TMessage = never> extends InteractiveElementOptions<SliderStylePart, TMessage> {
   readonly label?: string;
-  readonly presentation: RangeSliderPresentation;
+  readonly state: RangeSliderState;
   readonly range?: NumericRange;
   readonly step?: number;
   readonly width?: number;
@@ -204,4 +204,5 @@ export type {
   SliderStepDirection,
   SliderStepEvent
 } from '../../ui-model/forms.ts';
+export type { RangeSliderState } from '../../ui-model/range-slider.ts';
 export type { SelectPresentation } from '../../ui-model/choice-controls.ts';

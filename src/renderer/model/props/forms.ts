@@ -7,7 +7,7 @@ import type {
   ColorSwatchPickerOption,
   NumericRange
 } from '../../../ui-model/forms.ts';
-import type { RangeSliderAction, RangeSliderPresentation } from '../../../ui-model/range-slider.ts';
+import type { RangeSliderAction, RangeSliderState } from '../../../ui-model/range-slider.ts';
 import type { NumberInputControlAction, NumberInputPresentation } from '../../../ui-model/number-input.ts';
 import type { CalendarAction, CalendarDay } from '../../../ui-model/calendar.ts';
 import type {
@@ -83,7 +83,7 @@ export interface SliderRenderProps<TMessage> {
 
 export interface RangeSliderRenderProps<TMessage> {
   readonly label?: string;
-  readonly presentation: RangeSliderPresentation;
+  readonly state: RangeSliderState;
   readonly range?: NumericRange;
   readonly step?: number;
   readonly width?: number;
