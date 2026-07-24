@@ -40,7 +40,7 @@ const WHEEL_SCROLL_COLUMNS = 3;
 type ScrollableRenderNodeKind =
   | 'list'
   | 'menu'
-  | 'palette'
+  | 'searchPicker'
   | 'scrollback'
   | 'table'
   | 'textArea'
@@ -55,7 +55,7 @@ type TableNode = RenderNodeOfKind<unknown, 'table'>;
 type TreeNode = RenderNodeOfKind<unknown, 'tree'>;
 type ViewportNode = RenderNodeOfKind<unknown, 'viewport'>;
 type ScrollbackNode = RenderNodeOfKind<unknown, 'scrollback'>;
-type PaletteNode = RenderNodeOfKind<unknown, 'palette'>;
+type SearchPickerNode = RenderNodeOfKind<unknown, 'searchPicker'>;
 type MenuNode = RenderNodeOfKind<unknown, 'menu'>;
 type TextAreaNode = RenderNodeOfKind<unknown, 'textArea'>;
 
@@ -485,9 +485,9 @@ export function scrollbackScrollbarState(
   });
 }
 
-export function paletteScrollbarState(renderNode: PaletteNode, bounds: Rect): ScrollState {
+export function searchPickerScrollbarState(renderNode: SearchPickerNode, bounds: Rect): ScrollState {
   const scroll = normalizedRenderNodeScroll(renderNode, {
-    contentRows: scrollNumberProp(renderNode, 'contentRows') ?? renderNode.props.paletteIndex.size,
+    contentRows: scrollNumberProp(renderNode, 'contentRows') ?? renderNode.props.searchPickerIndex.size,
     contentColumns: scrollNumberProp(renderNode, 'contentColumns') ?? bounds.width,
     viewportRows: bounds.height,
     viewportColumns: bounds.width

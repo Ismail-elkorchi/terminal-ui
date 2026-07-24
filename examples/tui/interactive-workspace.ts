@@ -7,10 +7,10 @@ import {
   commandInputPresentation,
   commandInputReducer,
   createScrollState,
-  palettePresentation,
-  paletteReducer,
-  preparePaletteIndex,
-  selectedPaletteEntry,
+  searchPickerPresentation,
+  searchPickerReducer,
+  prepareSearchPickerIndex,
+  selectedSearchPickerEntry,
   tableReducer,
   tableScrollablePresentation,
   tabsReducer,
@@ -20,8 +20,8 @@ import {
 import type {
   CommandInputAction,
   CommandInputState,
-  PaletteAction,
-  PaletteState,
+  SearchPickerAction,
+  SearchPickerState,
   ScrollableTableState,
   ScrollableTreeState,
   TabAction,
@@ -34,7 +34,7 @@ import {
   button,
   commandInput,
   helpBar,
-  palette,
+  searchPicker,
   statusBar,
   structuredBlock,
   table,
@@ -62,13 +62,13 @@ interface WorkspaceState {
   readonly tree: ScrollableTreeState<NavigationMetadata>;
   readonly table: ScrollableTableState;
   readonly command: CommandInputState;
-  readonly palette: PaletteState & { readonly open: boolean; readonly used: boolean };
+  readonly searchPicker: SearchPickerState & { readonly open: boolean; readonly used: boolean };
   readonly resolved: ReadonlySet<string>;
   readonly activity: readonly string[];
   readonly pointer: {
     readonly tree: boolean;
     readonly table: boolean;
-    readonly palette: boolean;
+    readonly searchPicker: boolean;
   };
 }
 
@@ -78,16 +78,16 @@ type WorkspaceMessage =
   | { readonly kind: 'tabs'; readonly action: TabAction }
   | { readonly kind: 'command'; readonly action: CommandInputAction }
   | { readonly kind: 'submit'; readonly value: string }
-  | { readonly kind: 'openPalette' }
-  | { readonly kind: 'closePalette' }
-  | { readonly kind: 'palette'; readonly action: PaletteAction }
-  | { readonly kind: 'acceptPalette'; readonly source: 'keyboard' | 'pointer'; readonly value?: string }
+  | { readonly kind: 'openSearchPicker' }
+  | { readonly kind: 'closeSearchPicker' }
+  | { readonly kind: 'searchPicker'; readonly action: SearchPickerAction }
+  | { readonly kind: 'acceptSearchPicker'; readonly source: 'keyboard' | 'pointer'; readonly value?: string }
   | { readonly kind: 'resolve' }
   | { readonly kind: 'exit' };
 
 const tickets: readonly Ticket[] = Object.freeze([
   { id: 'T-101', queue: 'triage', title: 'Resize flicker in split pane', owner: 'Mina', severity: 'high', status: 'running' },
-  { id: 'T-102', queue: 'triage', title: 'Palette query loses context', owner: 'Noor', severity: 'medium', status: 'pending' },
+  { id: 'T-102', queue: 'triage', title: 'SearchPicker query loses context', owner: 'Noor', severity: 'medium', status: 'pending' },
   { id: 'T-103', queue: 'review', title: 'Table row hover affordance', owner: 'Ilyas', severity: 'medium', status: 'pending' },
   { id: 'T-104', queue: 'done', title: 'Surface disabled contrast', owner: 'Sara', severity: 'low', status: 'success' },
   { id: 'T-105', queue: 'triage', title: 'Mouse wheel over viewport', owner: 'Lina', severity: 'medium', status: 'pending' },
@@ -102,15 +102,15 @@ const tableColumns: readonly TableColumn<Ticket>[] = [
   { id: 'status', header: 'Status', value: (ticket) => ticket.status, width: { kind: 'fixed', cells: 10 } }
 ];
 
-const paletteEntries: readonly SearchEntry[] = [
+const searchPickerEntries: readonly SearchEntry[] = [
   { id: 'issues', label: 'Open issues', value: '/issues', group: 'Navigation' },
   { id: 'activity', label: 'Open activity', value: '/activity', group: 'Navigation' },
   { id: 'resolve', label: 'Resolve selected ticket', value: '/resolve', group: 'Actions' },
   { id: 'notes', label: 'Open notes', value: '/notes', group: 'Navigation' }
 ];
-const workspacePaletteIndex = preparePaletteIndex(paletteEntries);
+const workspaceSearchPickerIndex = prepareSearchPickerIndex(searchPickerEntries);
 
-const suggestions = paletteEntries.map((entry) => ({ label: entry.label, value: entry.value }));
+const suggestions = searchPickerEntries.map((entry) => ({ label: entry.label, value: entry.value }));
 
 function navigationNodes(): readonly TreeNode<NavigationMetadata>[] {
   return [{
@@ -143,10 +143,10 @@ function initialState(): WorkspaceState {
       history: [],
       suggestions
     },
-    palette: { open: false, used: false, query: '', selectedIndex: 0, selectedIds: [] },
+    searchPicker: { open: false, used: false, query: '', selectedIndex: 0, selectedIds: [] },
     resolved: new Set<string>(),
     activity: ['Workspace started.', 'Loaded six controlled ticket records.'],
-    pointer: { tree: false, table: false, palette: false }
+    pointer: { tree: false, table: false, searchPicker: false }
   };
 }
 
@@ -211,21 +211,21 @@ function updateWorkspace(
       return updateResult({ ...state, command: commandInputReducer(state.command, message.action) });
     case 'submit':
       return updateResult(applyCommand(state, message.value));
-    case 'openPalette':
-      return updateResult({ ...state, palette: { ...state.palette, open: true } });
-    case 'closePalette':
-      return updateResult({ ...state, palette: { ...state.palette, open: false, query: '' } });
-    case 'palette':
+    case 'openSearchPicker':
+      return updateResult({ ...state, searchPicker: { ...state.searchPicker, open: true } });
+    case 'closeSearchPicker':
+      return updateResult({ ...state, searchPicker: { ...state.searchPicker, open: false, query: '' } });
+    case 'searchPicker':
       return updateResult({
         ...state,
-        palette: { ...state.palette, ...paletteReducer(state.palette, message.action, { paletteIndex: workspacePaletteIndex }) }
+        searchPicker: { ...state.searchPicker, ...searchPickerReducer(state.searchPicker, message.action, { searchPickerIndex: workspaceSearchPickerIndex }) }
       });
-    case 'acceptPalette': {
-      const selected = message.value ?? selectedPaletteEntry({ paletteIndex: workspacePaletteIndex, state: state.palette })?.value;
+    case 'acceptSearchPicker': {
+      const selected = message.value ?? selectedSearchPickerEntry({ searchPickerIndex: workspaceSearchPickerIndex, state: state.searchPicker })?.value;
       return updateResult(selected === undefined ? state : applyCommand({
         ...state,
-        palette: { ...state.palette, open: false, used: true },
-        pointer: { ...state.pointer, palette: message.source === 'pointer' || state.pointer.palette }
+        searchPicker: { ...state.searchPicker, open: false, used: true },
+        pointer: { ...state.pointer, searchPicker: message.source === 'pointer' || state.pointer.searchPicker }
       }, selected));
     }
     case 'resolve': {
@@ -254,7 +254,7 @@ function applyCommand(state: WorkspaceState, raw: string): WorkspaceState {
     }
   };
   switch (command) {
-    case '/palette': return { ...cleared, palette: { ...state.palette, open: true } };
+    case '/palette': return { ...cleared, searchPicker: { ...state.searchPicker, open: true } };
     case '/issues': return { ...cleared, tab: 'issues' };
     case '/activity': return { ...cleared, tab: 'activity' };
     case '/notes': return { ...cleared, tab: 'notes' };
@@ -293,7 +293,7 @@ function workspaceView(state: WorkspaceState) {
       command: commandPane(state)
     }
   });
-  return overlay([base, ...(state.palette.open ? [paletteLayer(state)] : [])], { id: 'workspace-root' });
+  return overlay([base, ...(state.searchPicker.open ? [searchPickerLayer(state)] : [])], { id: 'workspace-root' });
 }
 
 function navigationPane(state: WorkspaceState) {
@@ -402,20 +402,20 @@ function commandPane(state: WorkspaceState) {
   }), { id: 'workspace-command-surface', appearance: 'raised', padding: { left: 1, right: 1 } });
 }
 
-function paletteLayer(state: WorkspaceState) {
-  return surface(palette({
-    id: 'workspace-palette',
+function searchPickerLayer(state: WorkspaceState) {
+  return surface(searchPicker({
+    id: 'workspace-search-picker',
     title: 'Commands',
-    paletteIndex: workspacePaletteIndex,
-    ...palettePresentation(state.palette),
-    onAction: (action): WorkspaceMessage => ({ kind: 'palette', action }),
-    onSelect: (entry): WorkspaceMessage => ({ kind: 'acceptPalette', source: 'pointer', value: entry.value }),
+    searchPickerIndex: workspaceSearchPickerIndex,
+    ...searchPickerPresentation(state.searchPicker),
+    onAction: (action): WorkspaceMessage => ({ kind: 'searchPicker', action }),
+    onSelect: (entry): WorkspaceMessage => ({ kind: 'acceptSearchPicker', source: 'pointer', value: entry.value }),
     keys: {
-      enter: (): WorkspaceMessage => ({ kind: 'acceptPalette', source: 'keyboard' }),
-      escape: (): WorkspaceMessage => ({ kind: 'closePalette' })
+      enter: (): WorkspaceMessage => ({ kind: 'acceptSearchPicker', source: 'keyboard' }),
+      escape: (): WorkspaceMessage => ({ kind: 'closeSearchPicker' })
     }
   }), {
-    id: 'workspace-palette-surface',
+    id: 'workspace-search-picker-surface',
     appearance: 'raised',
     shadow: true,
     padding: 1,
@@ -464,9 +464,9 @@ export async function runScriptedWorkspace() {
   const runtime = createTuiRuntime({ app: interactiveWorkspaceApp, host });
   try {
     await runtime.start();
-    await runtime.dispatch({ kind: 'openPalette' });
+    await runtime.dispatch({ kind: 'openSearchPicker' });
     await runtime.handleInput({ kind: 'text', text: 'resolve', paste: false });
-    const keyboardPaletteQuery = runtime.state().palette.query;
+    const keyboardSearchPickerQuery = runtime.state().searchPicker.query;
     await runtime.handleInput(keyEvent('enter'));
     await click(runtime, targetById(runtime, 'workspace-tree:queue:review:body'));
     await click(runtime, targetByPrefix(runtime, 'ticket-table:row:T-103'));
@@ -486,13 +486,13 @@ export async function runScriptedWorkspace() {
       selectedNode: state.tree.selected,
       selectedTicket: selectedTicket(state).id,
       activeTab: state.tab,
-      paletteUsed: state.palette.used,
+      searchPickerUsed: state.searchPicker.used,
       pointerTree: state.pointer.tree,
       pointerTable: state.pointer.table,
-      pointerPalette: state.pointer.palette,
+      pointerSearchPicker: state.pointer.searchPicker,
       tabSelectedByPointer,
       tabSelectedByKeyboard,
-      keyboardPaletteQuery,
+      keyboardSearchPickerQuery,
       tableHitTargets: frame.hitTargets?.filter((target) => target.id.startsWith('ticket-table')).length ?? 0,
       focusValidAfterResize,
       statusVisible: renderFramePlain(frame).includes(selectedTicket(state).id),

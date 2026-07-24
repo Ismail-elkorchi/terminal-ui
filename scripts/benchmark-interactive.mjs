@@ -9,7 +9,7 @@ import {
 } from '../dist/renderer/index.js';
 import {
   canvas,
-  palette,
+  searchPicker,
   scrollback,
   table,
   text,
@@ -20,7 +20,7 @@ import { column, overlay } from '../dist/layout/index.js';
 import {
   appendScrollbackHistory,
   createScrollState,
-  preparePaletteIndex,
+  prepareSearchPickerIndex,
   prepareScrollbackHistory,
   prepareTableCollection,
   prepareTreeCollection
@@ -36,7 +36,7 @@ import {
 } from '../dist/text/index.js';
 import { defaultTheme } from '../dist/theme/index.js';
 import { createTuiRuntime, defineTui } from '../dist/tui/index.js';
-import { paletteIndexStatistics, scrollbackSearchStatistics } from '../dist/testing/index.js';
+import { searchPickerIndexStatistics, scrollbackSearchStatistics } from '../dist/testing/index.js';
 import { summarizeSamples } from './benchmark-statistics.mjs';
 
 const quick = process.env['TERMINAL_UI_BENCHMARK_QUICK'] === '1';
@@ -115,7 +115,7 @@ function renderScenarios(realApps) {
     value: index,
     keywords: [`group-${String(index % 25)}`]
   }));
-  const paletteIndex = preparePaletteIndex(entries);
+  const searchPickerIndex = prepareSearchPickerIndex(entries);
   const treeNodes = Array.from({ length: quick ? 2_000 : 50_000 }, (_value, index) => ({
     id: `node-${String(index)}`,
     kind: 'leaf',
@@ -290,17 +290,17 @@ function renderScenarios(realApps) {
       }
     },
     {
-      name: 'large-palette-filter',
+      name: 'large-search-picker-filter',
       scale: entries.length,
       setupWork: { normalized_records: entries.length },
       workSnapshot() {
-        const statistics = paletteIndexStatistics(paletteIndex);
+        const statistics = searchPickerIndexStatistics(searchPickerIndex);
         return { query_candidates: statistics.candidateEvaluations };
       },
       author(index) {
-        return palette({
+        return searchPicker({
           id: 'commands',
-          paletteIndex,
+          searchPickerIndex,
           query: String(entries.length - 1 - index),
           maxVisible: 8
         });

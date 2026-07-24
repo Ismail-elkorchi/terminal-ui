@@ -107,7 +107,7 @@ export type CommandInputStylePart =
   | 'validation'
   | 'status'
   | 'footer';
-export type PaletteStylePart =
+export type SearchPickerStylePart =
   | TextEntryStylePart
   | 'title'
   | 'entry'

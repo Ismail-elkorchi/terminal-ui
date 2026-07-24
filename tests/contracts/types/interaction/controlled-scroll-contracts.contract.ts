@@ -1,6 +1,6 @@
 import {
   list,
-  palette,
+  searchPicker,
   scrollback,
   text,
   textArea,
@@ -11,7 +11,7 @@ import {
   type TextAreaAction,
   type TreeInteractionAction
 } from '@ismail-elkorchi/terminal-ui/components';
-import { createScrollState, preparePaletteIndex, prepareScrollbackHistory } from '@ismail-elkorchi/terminal-ui/behavior';
+import { createScrollState, prepareSearchPickerIndex, prepareScrollbackHistory } from '@ismail-elkorchi/terminal-ui/behavior';
 import { viewport } from '@ismail-elkorchi/terminal-ui/layout';
 import type { ScrollEvent } from '@ismail-elkorchi/terminal-ui/interaction';
 import { prepareTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
@@ -52,12 +52,12 @@ const controlledLog = scrollback({
   scrollbar: { visible: 'auto' },
   onAction: (action) => ({ kind: 'log' as const, action })
 });
-const controlledPalette = palette({
-  id: 'palette',
-  paletteIndex: preparePaletteIndex([{ id: 'one', label: 'One', value: 1 }]),
+const controlledSearchPicker = searchPicker({
+  id: 'searchPicker',
+  searchPickerIndex: prepareSearchPickerIndex([{ id: 'one', label: 'One', value: 1 }]),
   scroll,
   scrollbar: { visible: 'auto' },
-  onScroll: (event) => ({ kind: 'paletteScroll' as const, event })
+  onScroll: (event) => ({ kind: 'searchPickerScroll' as const, event })
 });
 const controlledViewport = viewport(text('content'), {
   id: 'viewport',
@@ -85,9 +85,9 @@ export type _Log = Assert<Equal<
   MessageOf<typeof controlledLog>,
   { readonly kind: 'log'; readonly action: ScrollbackAction }
 >>;
-export type _Palette = Assert<Equal<
-  MessageOf<typeof controlledPalette>,
-  { readonly kind: 'paletteScroll'; readonly event: ScrollEvent }
+export type _SearchPicker = Assert<Equal<
+  MessageOf<typeof controlledSearchPicker>,
+  { readonly kind: 'searchPickerScroll'; readonly event: ScrollEvent }
 >>;
 export type _Viewport = Assert<Equal<
   MessageOf<typeof controlledViewport>,
@@ -102,7 +102,7 @@ tree({ id: 'inert-tree', nodes: [], scrollbar: { visible: 'auto' } });
 textArea({ id: 'inert-editor', presentation: { document: prepareTextDocument(''), caret: textCaretAt(0 )}, scrollbar: { visible: 'auto' } });
 // @ts-expect-error scrollback scrollbar requires controlled scroll state and action routing
 scrollback({ id: 'inert-log', history: prepareScrollbackHistory([]), scrollbar: { visible: 'auto' } });
-// @ts-expect-error palette scrollbar requires controlled scroll state and event routing
-palette({ id: 'inert-palette', paletteIndex: preparePaletteIndex([]), scrollbar: { visible: 'auto' } });
+// @ts-expect-error searchPicker scrollbar requires controlled scroll state and event routing
+searchPicker({ id: 'inert-searchPicker', searchPickerIndex: prepareSearchPickerIndex([]), scrollbar: { visible: 'auto' } });
 // @ts-expect-error viewport scrollbar requires complete metrics and event routing
 viewport(text('content'), { id: 'inert-viewport', contentRows: 20, scrollbar: { visible: 'auto' } });

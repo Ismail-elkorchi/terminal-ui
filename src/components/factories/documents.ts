@@ -3,10 +3,10 @@ import type { Element } from '../../element/index.ts';
 import type {
   ActivityFeedOptions,
   CommandInputOptions,
-  PassivePaletteOptions,
+  PassiveSearchPickerOptions,
   PassiveScrollbackOptions,
-  PaletteOptions,
-  ScrollablePaletteOptions,
+  SearchPickerOptions,
+  ScrollableSearchPickerOptions,
   ScrollableScrollbackOptions,
   ScrollbackOptions,
   StructuredBlockOptions
@@ -16,7 +16,7 @@ import {
   componentMetaProps,
   interactionProps,
   mergeKeyBindings,
-  paletteKeyBindings
+  searchPickerKeyBindings
 } from '../internal/interaction.ts';
 import { optionalId, requiredId } from '../../authoring/render-node.ts';
 import { ignoreMessage } from '../../interaction/message.ts';
@@ -193,7 +193,7 @@ export function commandInput(options: CommandInputOptions<unknown>): Element<unk
   });
 }
 
-export function palette<
+export function searchPicker<
   TValue,
   const TSelectMessage = never,
   const TScrollMessage = unknown,
@@ -202,7 +202,7 @@ export function palette<
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
-    ScrollablePaletteOptions<TValue>,
+    ScrollableSearchPickerOptions<TValue>,
     {
       readonly onSelect: TSelectMessage;
       readonly onScroll: TScrollMessage;
@@ -212,7 +212,7 @@ export function palette<
     TPointerMessage
   >
 ): Element<TSelectMessage | TScrollMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function palette<
+export function searchPicker<
   TValue,
   const TSelectMessage = never,
   const TActionMessage = never,
@@ -220,7 +220,7 @@ export function palette<
   const TKeys extends InferredElementKeyBindings | undefined = undefined
 >(
   options: IndependentInteractionOptions<
-    PassivePaletteOptions<TValue>,
+    PassiveSearchPickerOptions<TValue>,
     {
       readonly onSelect: TSelectMessage;
       readonly onAction: TActionMessage;
@@ -229,16 +229,16 @@ export function palette<
     TPointerMessage
   >
 ): Element<TSelectMessage | TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
-export function palette<TValue>(options: PaletteOptions<TValue, unknown>): Element<unknown> {
+export function searchPicker<TValue>(options: SearchPickerOptions<TValue, unknown>): Element<unknown> {
   const action = options.onAction;
-  const generatedKeys = action === undefined ? undefined : paletteKeyBindings(action);
+  const generatedKeys = action === undefined ? undefined : searchPickerKeyBindings(action);
   const keyMap = mergeKeyBindings(generatedKeys, options.keys);
   const toMessage = searchSelectionHandler(options.onSelect);
-  return componentElementFromRenderNode<'palette', unknown>({
-    ...requiredId(options.id, 'palette'),
-    kind: 'palette',
+  return componentElementFromRenderNode<'searchPicker', unknown>({
+    ...requiredId(options.id, 'searchPicker'),
+    kind: 'searchPicker',
     props: {
-      paletteIndex: options.paletteIndex,
+      searchPickerIndex: options.searchPickerIndex,
       ...(options.title === undefined ? {} : { title: options.title }),
       ...(options.query === undefined ? {} : { query: options.query }),
       ...(toMessage === undefined ? {} : { toMessage }),

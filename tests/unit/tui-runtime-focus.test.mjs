@@ -12,19 +12,19 @@ import { waitUntil } from '../helpers/async.ts';
 test('TUI runtime keeps command focus when contained overlays close under passive notifications', async () => {
   const app = defineTui({
     id: 'overlay-focus-return-tui',
-    init: () => ({ command: '', paletteOpen: false, notifications: [] }),
+    init: () => ({ command: '', searchPickerOpen: false, notifications: [] }),
     update: (state, message) => {
       if (message.kind === 'text') {
         return { state: { ...state, command: `${state.command}${message.text}` } };
       }
       if (message.kind === 'open') {
-        return { state: { ...state, paletteOpen: true } };
+        return { state: { ...state, searchPickerOpen: true } };
       }
       if (message.kind === 'accept') {
         return {
           state: {
             ...state,
-            paletteOpen: false,
+            searchPickerOpen: false,
             notifications: [{ id: 'accepted', title: 'Accepted', tone: 'success' }]
           }
         };
@@ -43,14 +43,14 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
           })
         })
       ], { id: 'base' }),
-      ...(state.paletteOpen
+      ...(state.searchPickerOpen
         ? [
             surface(button({
               id: 'accept',
               label: 'Accept',
               onPress: () => ({ kind: 'accept' })
             }), {
-    id: 'palette-surface',
+    id: 'searchPicker-surface',
     meta: {
         layer: {
             zIndex: 20
@@ -81,7 +81,7 @@ test('TUI runtime keeps command focus when contained overlays close under passiv
   await runtime.start();
   await runtime.handleInput({ kind: 'text', text: 'a' });
   await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
-  assert.deepEqual(runtime.frame().focusPath, ['root', 'palette-surface', 'accept']);
+  assert.deepEqual(runtime.frame().focusPath, ['root', 'searchPicker-surface', 'accept']);
 
   await runtime.handleInput({ kind: 'key', key: 'enter', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
   assert.equal(runtime.state()?.notifications.length, 1);

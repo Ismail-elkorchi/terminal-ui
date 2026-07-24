@@ -123,7 +123,7 @@ with the region the user actually sees. Use `scrollPolicy` on scrollable
 components to tune discrete wheel behavior, such as denser line steps for an
 editor-like text area or page-based wheel movement for a large viewport.
 Existing visible-window helpers route through this reducer family so list,
-table, tree, text-area, viewport, palette, menu, and scrollback components use
+table, tree, text-area, viewport, search-picker, menu, and scrollback components use
 one scroll model instead of per-component arithmetic.
 
 Scrollbar options are intentionally generic. Use `visible` and `axis` to control
@@ -150,7 +150,7 @@ marks disclosure, indent, icon, label, match, and selection-marker parts
 separately for snapshots and debug projections.
 
 Command surfaces are ordinary components. Apps decide which normalized key
-names map to palette, accept, cancel, or history messages through component `keys`
+names map to search-picker, accept, cancel, or history messages through component `keys`
 values; `terminal-ui` does not reserve a global command-palette shortcut,
 Escape key, or Ctrl-C key event. Host signals such as `SIGINT` and `SIGTERM`
 still interrupt the full-screen run through the terminal host signal path.

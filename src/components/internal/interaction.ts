@@ -22,7 +22,7 @@ import type {
   MenuPresentationItem
 } from '../../ui-model/menu.ts';
 import type { CommandInputAction } from '../../ui-model/command-input.ts';
-import type { PaletteAction } from '../../ui-model/palette.ts';
+import type { SearchPickerAction } from '../../ui-model/search-picker.ts';
 import type { TextEditOperation } from '../../text/index.ts';
 import type { RenderMenuItem } from '../../renderer/model/props/menus.ts';
 import { mergeKeyBindings } from '../../authoring/metadata.ts';
@@ -194,8 +194,8 @@ export function commandInputKeyBindings<TMessage>(
   };
 }
 
-export function paletteKeyBindings<TMessage>(
-  onAction: (action: PaletteAction) => TMessage
+export function searchPickerKeyBindings<TMessage>(
+  onAction: (action: SearchPickerAction) => TMessage
 ): ElementKeyBindings<TMessage> {
   return {
     backspace: () => onAction({ kind: 'deleteQueryBackward' }),

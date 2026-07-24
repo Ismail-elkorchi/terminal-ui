@@ -1,4 +1,4 @@
-export type PaletteAction =
+export type SearchPickerAction =
   | { readonly kind: 'setQuery'; readonly query: string }
   | { readonly kind: 'insertQuery'; readonly text: string }
   | { readonly kind: 'deleteQueryBackward' }
@@ -8,5 +8,5 @@ export type PaletteAction =
   | { readonly kind: 'clearSelected' }
   | { readonly kind: 'preview'; readonly id?: string };
 
-export type { PaletteIndex, PaletteQueryProjection } from './palette-index.ts';
-export { preparePaletteIndex, projectPaletteQuery } from './palette-index.ts';
+export type { SearchPickerIndex, SearchPickerQueryProjection } from './search-picker-index.ts';
+export { prepareSearchPickerIndex, projectSearchPickerQuery } from './search-picker-index.ts';

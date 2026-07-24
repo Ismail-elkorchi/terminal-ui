@@ -20,7 +20,7 @@ layering, or geometry-only interaction are documented in
 | `text()` | Static sanitized text with an optional semantic text role. | A text editor, input, or rich styling container. |
 | `richText()` | Styled authored inline content with optional links and accessible symbol fallbacks. | A document model, markdown renderer, or source-metadata escape hatch. |
 | `textArea()` | Caller-controlled multi-line editable text surface with cursor, selection, gutter, wrapping, and scroll state. | A full IDE editor with syntax services, files, or undo history. |
-| `textInput()` | Caller-controlled single-line editable value with cursor, placeholder, validation, and pointer-to-text support. | A command palette, number parser, or multi-line editor. |
+| `textInput()` | Caller-controlled single-line editable value with cursor, placeholder, validation, and pointer-to-text support. | A command picker, number parser, or multi-line editor. |
 | `numberInput()` | Single numeric field with optional step controls and validation display. | A slider, range selector, or numeric domain model. |
 | `tabs()` | Tab header plus selected-panel layout with semantic select, close, and navigation actions. | Navigation routing, persistence, or hidden panel state. |
 | `dialog()` | Centered surface with explicit modal focus policy, semantic dismissal, and an optional action area. | A general overlay system, route, or storage for open/closed state. |
@@ -35,14 +35,14 @@ layering, or geometry-only interaction are documented in
 | `rangeSlider()` | Two numeric endpoints with a caller-controlled active handle on one track. | Two unrelated sliders or a progress meter. |
 | `checkboxGroup()` | Multiple independent choices with semantic focus, movement, and toggle actions. | A tree, table, or form validator. |
 | `radioGroup()` | One selected choice with semantic focus and selection actions. | A menu or arbitrary command list. |
-| `select()` | Form value trigger with controlled open, highlight, commit, dismissal, and popup-scroll state. | A command menu, context menu, or searchable palette. |
+| `select()` | Form value trigger with controlled open, highlight, commit, dismissal, and popup-scroll state. | A command menu, context menu, or searchable picker. |
 | `colorSwatchPicker()` | Compact caller-controlled color choice with semantic navigation and selection actions. | A full color-management tool. |
 | `calendar()` | Compact caller-controlled date choice control. | Calendar scheduling or date arithmetic. |
 | `menu()` | Inline command/action list with semantic navigation, activation, hierarchy, and scroll actions. | A form value selector or searchable command surface. |
 | `menuBar()` | Horizontal top-level command headings with controlled heading selection and hierarchical menu navigation. | Application chrome or routing. |
 | `contextMenu()` | Controlled contextual command surface anchored to a target or cursor. | Global navigation, a form selector, or persistent sidebar. |
 | `dropdownMenu()` | Controlled compact action trigger with separate open, highlight, activation, dismissal, and popup-scroll state. | A validated form value control; use `select()` for required/error form semantics. |
-| `palette()` | Searchable bounded picker for commands or data entries. | A shell, command parser, or application command registry. |
+| `searchPicker()` | Searchable bounded picker for commands or data entries. | A shell, command parser, or application command registry. |
 | `commandInput()` | Single-line command entry with suggestions and history hooks. | A general message composer, transcript, event log, or command execution engine. |
 | `list()` | Fixed-row selectable/filterable list using an explicit stable item projection. | A table, tree, arbitrary-element collection, or virtual data store. |
 | `table()` | Structured rows and columns with selection, scrolling, sorting, resizing, density, and cell semantics. | A spreadsheet engine or database. |

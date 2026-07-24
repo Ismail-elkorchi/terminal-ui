@@ -110,7 +110,7 @@ test('TUI render, layout, and accessibility delegate render-node behavior throug
   assert.match(behavior, /builtinRenderNodeRenderers\[renderNode\.kind\]/u);
   assert.doesNotMatch(behavior, /const\s+renderNodeRenderers\s*=/u);
   assert.doesNotMatch(behavior, /satisfies Record<BuiltinRenderNodeKind, RenderNodeRenderer>/u);
-  assert.doesNotMatch(behavior, /from\s+['"]\.\/(?:forms|charts|menu-rendering|drawing-rendering|table|data-rendering|palette|command-input|progress-bar-rendering|structured-block)(?:\/index)?['"]/u);
+  assert.doesNotMatch(behavior, /from\s+['"]\.\/(?:forms|charts|menu-rendering|drawing-rendering|table|data-rendering|search-picker|command-input|progress-bar-rendering|structured-block)(?:\/index)?['"]/u);
   assert.match(registry, /type BuiltinRendererRegistry = \{[\s\S]*RenderNodeRenderer<unknown, TKind>/u);
   assert.match(registry, /satisfies BuiltinRendererRegistry/u);
   assert.doesNotMatch(registry, /custom:\s*\{\s*\}/u);
@@ -292,7 +292,7 @@ test('renderer layer has no command, clipboard, host-output, or raw ANSI side ef
       'data-rendering.ts',
       'drawing-rendering.ts',
       'menu-rendering.ts',
-      'palette.ts',
+      'search-picker.ts',
       'scrollback.ts',
       'structured-block.ts',
       'table.ts',
@@ -467,13 +467,13 @@ test('terminal text indexing and editing stay centralized', async () => {
   assert.doesNotMatch(menuRendering, /function menuItemStyle/u);
   assert.doesNotMatch(feedbackRenderers, /\bwriteBlock\b/u);
   assert.doesNotMatch(dataRenderers, /sparklineText|barChartText|chartText|meterText|heatmapText/u);
-  const palette = await readFile(new URL('../../src/renderer/internal/palette.ts', import.meta.url), 'utf8');
+  const searchPicker = await readFile(new URL('../../src/renderer/internal/search-picker.ts', import.meta.url), 'utf8');
   const scrollback = await readFile(new URL('../../src/renderer/internal/scrollback.ts', import.meta.url), 'utf8');
-  assert.match(palette, /from '\.\/command-visual\.ts'/u);
+  assert.match(searchPicker, /from '\.\/command-visual\.ts'/u);
   assert.match(scrollback, /from '\.\/document-visual\.ts'/u);
   assert.match(structuredBlock, /from '\.\/document-visual\.ts'/u);
   assert.doesNotMatch(scrollback, /from '\.\/text-highlight\.ts'/u);
-  assert.doesNotMatch(palette, /function matchSpans/u);
+  assert.doesNotMatch(searchPicker, /function matchSpans/u);
   assert.doesNotMatch(scrollback, /lowerText\.indexOf/u);
 });
 

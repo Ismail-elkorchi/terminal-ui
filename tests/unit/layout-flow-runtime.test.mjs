@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { gridCellRects, layoutElement, renderElementFrame, renderFramePlain, splitTracks } from '../../dist/renderer/index.js';
-import { commandInput, palette, text, textArea } from '../../dist/components/index.js';
+import { commandInput, searchPicker, text, textArea } from '../../dist/components/index.js';
 import { column, grid, row, splitPane, surface } from '../../dist/layout/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
-import { preparePaletteIndex } from '../../dist/behavior/index.js';
+import { prepareSearchPickerIndex } from '../../dist/behavior/index.js';
 
 test('track helpers split fixed, percent, and fill regions deterministically', () => {
   assert.deepEqual(
@@ -139,17 +139,17 @@ test('wrapped text-area content tracks retain intrinsic width', () => {
   assert.equal(layout.children[1]?.bounds.width, 27);
 });
 
-test('palette content tracks use the active text-width profile', () => {
+test('searchPicker content tracks use the active text-width profile', () => {
   const widget = row([
-    palette({
-      id: 'profiled-palette',
-      paletteIndex: preparePaletteIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
+    searchPicker({
+      id: 'profiled-searchPicker',
+      searchPickerIndex: prepareSearchPickerIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
       query: '',
       onSelect: (entry) => entry.value
     }),
-    text('remaining', { id: 'profiled-palette-sibling' })
+    text('remaining', { id: 'profiled-searchPicker-sibling' })
   ], {
-    id: 'profiled-palette-row',
+    id: 'profiled-searchPicker-row',
     sizes: [{ kind: 'content' }, { kind: 'fill' }]
   });
   const narrow = layoutElement(

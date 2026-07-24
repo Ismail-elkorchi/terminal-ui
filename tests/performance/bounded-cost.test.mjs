@@ -19,7 +19,7 @@ import {
   form,
   textInput,
   list,
-  palette,
+  searchPicker,
   richText,
   scrollback,
   table,
@@ -30,7 +30,7 @@ import { column } from '../../dist/layout/index.js';
 import {
   appendScrollbackHistory,
   listReducer,
-  preparePaletteIndex,
+  prepareSearchPickerIndex,
   prepareScrollbackHistory,
   prepareListCollection,
   prepareTableCollection,
@@ -445,19 +445,19 @@ test('prepared collections snapshot source membership instead of retaining mutab
   assert.deepEqual(tableCollection.records.map((record) => record.id), ['alpha', 'bravo']);
 });
 
-test('palette filtering returns bounded windows for large entry sets', () => {
+test('searchPicker filtering returns bounded windows for large entry sets', () => {
   const entries = Array.from({ length: 20_000 }, (_value, index) => ({
     id: `entry-${index}`,
     label: `Entry ${index}`,
     value: index,
     keywords: [`tag-${index % 25}`]
   }));
-  const frame = renderElementFrame(palette({
-    id: 'large-palette',
+  const frame = renderElementFrame(searchPicker({
+    id: 'large-searchPicker',
     query: '19999',
     selectedId: 'entry-19999',
     maxVisible: 5,
-    paletteIndex: preparePaletteIndex(entries)
+    searchPickerIndex: prepareSearchPickerIndex(entries)
   }), { columns: 48, rows: 8 });
 
   assert.match(renderFramePlain(frame), /Entry 19999/u);

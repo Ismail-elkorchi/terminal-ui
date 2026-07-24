@@ -5,7 +5,7 @@ import {
   checkbox,
   commandInput,
   list,
-  palette,
+  searchPicker,
   slider,
   table,
   tabs,
@@ -14,7 +14,7 @@ import {
   textInput
 } from '../../dist/components/index.js';
 import type { TabAction } from '../../dist/components/index.js';
-import { preparePaletteIndex } from '../../dist/behavior/index.js';
+import { prepareSearchPickerIndex } from '../../dist/behavior/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import type { InputEvent } from '../../dist/input/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
@@ -34,7 +34,7 @@ void test('component construction and rendering do not execute event handlers', 
     table({ id: 'table', rows: ['a'], getRowId: (row) => row, presentation: { selectedRowId: 'a' }, onAction: message }),
     textArea({ id: 'area', presentation: { document: prepareTextDocument('a'), caret: textCaretAt(0 )}, onAction: message }),
     commandInput({ id: 'command', presentation: { value: 'a', cursor: 0, suggestions: [] }, onAction: message }),
-    palette({ id: 'palette', paletteIndex: preparePaletteIndex([{ id: 'a', label: 'A', value: 'a' }]), onAction: message })
+    searchPicker({ id: 'searchPicker', searchPickerIndex: prepareSearchPickerIndex([{ id: 'a', label: 'A', value: 'a' }]), onAction: message })
   ];
 
   for (const element of elements) renderElementFrame(element, { columns: 40, rows: 6 });

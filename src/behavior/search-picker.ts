@@ -2,33 +2,33 @@ import { editTextBuffer } from '../text/index.ts';
 import { rowWindow } from './data-window.ts';
 import type { ScrollState } from '../interaction/scroll.ts';
 import type { SearchEntry } from '../ui-model/contracts.ts';
-import type { PaletteAction } from '../ui-model/palette.ts';
-import { projectPaletteQuery } from '../ui-model/palette-index.ts';
-import type { PaletteIndex, PaletteQueryProjection } from '../ui-model/palette-index.ts';
+import type { SearchPickerAction } from '../ui-model/search-picker.ts';
+import { projectSearchPickerQuery } from '../ui-model/search-picker-index.ts';
+import type { SearchPickerIndex, SearchPickerQueryProjection } from '../ui-model/search-picker-index.ts';
 
-export type PaletteAsyncState<TValue = string> =
+export type SearchPickerAsyncState<TValue = string> =
   | { readonly status: 'idle'; readonly entries: readonly SearchEntry<TValue>[] }
   | { readonly status: 'loading'; readonly entries: readonly SearchEntry<TValue>[] }
   | { readonly status: 'error'; readonly entries: readonly SearchEntry<TValue>[]; readonly message: string };
 
-export interface PaletteState {
+export interface SearchPickerState {
   readonly query: string;
   readonly selectedIndex: number;
   readonly selectedIds: readonly string[];
   readonly previewId?: string;
 }
 
-export interface PalettePresentation {
+export interface SearchPickerPresentation {
   readonly query: string;
   readonly selectedIndex: number;
 }
 
-export interface PaletteReducerOptions<TValue = string> {
-  readonly paletteIndex: PaletteIndex<TValue>;
+export interface SearchPickerReducerOptions<TValue = string> {
+  readonly searchPickerIndex: SearchPickerIndex<TValue>;
 }
 
-export interface PaletteWindowInput<TValue = string> {
-  readonly paletteIndex: PaletteIndex<TValue>;
+export interface SearchPickerWindowInput<TValue = string> {
+  readonly searchPickerIndex: SearchPickerIndex<TValue>;
   readonly query?: string;
   readonly selectedIndex?: number;
   readonly selectedId?: string;
@@ -36,7 +36,7 @@ export interface PaletteWindowInput<TValue = string> {
   readonly limit?: number;
 }
 
-export interface PaletteFilterResult<TValue = string> {
+export interface SearchPickerFilterResult<TValue = string> {
   readonly entries: readonly SearchEntry<TValue>[];
   readonly selectedIndex?: number;
   readonly selectedEntry?: SearchEntry<TValue>;
@@ -47,36 +47,36 @@ export interface PaletteFilterResult<TValue = string> {
   readonly omittedAfter: number;
 }
 
-export interface PaletteSelectionInput<TValue = string> {
-  readonly paletteIndex: PaletteIndex<TValue>;
-  readonly state: PaletteState;
+export interface SearchPickerSelectionInput<TValue = string> {
+  readonly searchPickerIndex: SearchPickerIndex<TValue>;
+  readonly state: SearchPickerState;
   readonly scroll?: ScrollState;
   readonly limit?: number;
 }
 
-export interface PaletteGroup<TValue = string> {
+export interface SearchPickerGroup<TValue = string> {
   readonly id: string;
   readonly label: string;
   readonly entries: readonly SearchEntry<TValue>[];
 }
 
-export type PaletteGroupSelector<TValue> = (entry: SearchEntry<TValue>) => {
+export type SearchPickerGroupSelector<TValue> = (entry: SearchEntry<TValue>) => {
   readonly id: string;
   readonly label?: string;
 };
 
-export function palettePresentation(state: PaletteState): PalettePresentation {
+export function searchPickerPresentation(state: SearchPickerState): SearchPickerPresentation {
   return {
     query: state.query,
     selectedIndex: state.selectedIndex
   };
 }
 
-export function paletteReducer<TValue>(
-  state: PaletteState,
-  action: PaletteAction,
-  options: PaletteReducerOptions<TValue>
-): PaletteState {
+export function searchPickerReducer<TValue>(
+  state: SearchPickerState,
+  action: SearchPickerAction,
+  options: SearchPickerReducerOptions<TValue>
+): SearchPickerState {
   switch (action.kind) {
     case 'setQuery':
       return {
@@ -105,7 +105,7 @@ export function paletteReducer<TValue>(
         ...state,
         selectedIndex: wrapIndex(
           state.selectedIndex + action.delta,
-          projectPaletteQuery(options.paletteIndex, state.query).entries.length
+          projectSearchPickerQuery(options.searchPickerIndex, state.query).entries.length
         )
       };
     case 'selectIndex':
@@ -113,7 +113,7 @@ export function paletteReducer<TValue>(
         ...state,
         selectedIndex: clampIndex(
           action.entryIndex,
-          projectPaletteQuery(options.paletteIndex, state.query).entries.length
+          projectSearchPickerQuery(options.searchPickerIndex, state.query).entries.length
         )
       };
     case 'toggleSelected':
@@ -131,8 +131,8 @@ export function paletteReducer<TValue>(
   }
 }
 
-export function paletteWindow<TValue>(input: PaletteWindowInput<TValue>): PaletteFilterResult<TValue> {
-  const projection = projectPaletteQuery(input.paletteIndex, input.query ?? '');
+export function searchPickerWindow<TValue>(input: SearchPickerWindowInput<TValue>): SearchPickerFilterResult<TValue> {
+  const projection = projectSearchPickerQuery(input.searchPickerIndex, input.query ?? '');
   const filtered = projection.entries;
   const totalCount = filtered.length;
   const limit = Math.max(1, Math.floor(input.limit ?? totalCount));
@@ -164,9 +164,9 @@ export function paletteWindow<TValue>(input: PaletteWindowInput<TValue>): Palett
   };
 }
 
-export function selectedPaletteEntry<TValue>(input: PaletteSelectionInput<TValue>): SearchEntry<TValue> | undefined {
-  return paletteWindow({
-    paletteIndex: input.paletteIndex,
+export function selectedSearchPickerEntry<TValue>(input: SearchPickerSelectionInput<TValue>): SearchEntry<TValue> | undefined {
+  return searchPickerWindow({
+    searchPickerIndex: input.searchPickerIndex,
     query: input.state.query,
     selectedIndex: input.state.selectedIndex,
     ...(input.scroll === undefined ? {} : { scroll: input.scroll }),
@@ -174,10 +174,10 @@ export function selectedPaletteEntry<TValue>(input: PaletteSelectionInput<TValue
   }).selectedEntry;
 }
 
-export function groupPaletteEntries<TValue>(
+export function groupSearchPickerEntries<TValue>(
   entries: readonly SearchEntry<TValue>[],
-  groupFor: PaletteGroupSelector<TValue>
-): readonly PaletteGroup<TValue>[] {
+  groupFor: SearchPickerGroupSelector<TValue>
+): readonly SearchPickerGroup<TValue>[] {
   const groups = new Map<string, { label: string; entries: SearchEntry<TValue>[] }>();
   for (const entry of entries) {
     const group = groupFor(entry);
@@ -195,8 +195,8 @@ export function groupPaletteEntries<TValue>(
   }));
 }
 
-export function paletteStatus<TValue>(
-  state: PaletteAsyncState<TValue>
+export function searchPickerStatus<TValue>(
+  state: SearchPickerAsyncState<TValue>
 ): 'idle' | 'loading' | 'error' | 'empty' {
   if (state.status === 'loading' || state.status === 'error') return state.status;
   return state.entries.length === 0 ? 'empty' : 'idle';
@@ -222,7 +222,7 @@ function clampIndex(index: number, count: number): number {
 
 function selectedIndex<TValue>(
   entries: readonly SearchEntry<TValue>[],
-  input: Pick<PaletteWindowInput<TValue>, 'selectedIndex' | 'selectedId'>
+  input: Pick<SearchPickerWindowInput<TValue>, 'selectedIndex' | 'selectedId'>
 ): number {
   if (input.selectedId !== undefined) {
     const byId = entries.findIndex((entry) => entry.id === input.selectedId);
@@ -231,11 +231,11 @@ function selectedIndex<TValue>(
   return clampIndex(input.selectedIndex ?? 0, entries.length);
 }
 
-export function paletteProjection<TValue>(index: PaletteIndex<TValue>, query = ''): PaletteQueryProjection<TValue> {
-  return projectPaletteQuery(index, query);
+export function searchPickerProjection<TValue>(index: SearchPickerIndex<TValue>, query = ''): SearchPickerQueryProjection<TValue> {
+  return projectSearchPickerQuery(index, query);
 }
 
-function withoutPreview(state: PaletteState): PaletteState {
+function withoutPreview(state: SearchPickerState): SearchPickerState {
   return {
     query: state.query,
     selectedIndex: state.selectedIndex,

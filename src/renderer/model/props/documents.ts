@@ -17,8 +17,8 @@ import type {
 import type { ScrollbackHistory } from '../../../ui-model/scrollback-history.ts';
 import type { ScrollbackSearchMatch } from '../../../ui-model/scrollback-history.ts';
 import type { ScrollbackSelection } from '../../../ui-model/scrollback.ts';
-import type { PaletteAction } from '../../../ui-model/palette.ts';
-import type { PaletteIndex } from '../../../ui-model/palette-index.ts';
+import type { SearchPickerAction } from '../../../ui-model/search-picker.ts';
+import type { SearchPickerIndex } from '../../../ui-model/search-picker-index.ts';
 import type { CommandInputAction } from '../../../ui-model/command-input.ts';
 import type { ScrollbackAction } from '../../../ui-model/scrollback.ts';
 import type { RenderNodeLayoutProps } from './shared-layout.ts';
@@ -83,10 +83,10 @@ export interface CommandInputRenderProps<TMessage> {
   readonly toActionMessage?: (action: CommandInputAction) => TMessage;
 }
 
-export interface PaletteRenderProps<TMessage> {
+export interface SearchPickerRenderProps<TMessage> {
   readonly title?: string;
   readonly query?: string;
-  readonly paletteIndex: PaletteIndex<unknown>;
+  readonly searchPickerIndex: SearchPickerIndex<unknown>;
   readonly toMessage?: (entry: SearchEntry<unknown>) => TMessage;
   readonly selectedIndex?: number;
   readonly selectedId?: string;
@@ -97,5 +97,5 @@ export interface PaletteRenderProps<TMessage> {
   readonly maxVisible?: number;
   readonly helpText?: string;
   readonly emptyText?: string;
-  readonly toActionMessage?: (action: PaletteAction) => TMessage;
+  readonly toActionMessage?: (action: SearchPickerAction) => TMessage;
 }

@@ -122,7 +122,8 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'CommandInputAction',
     'CommandInputOptions',
     'MenuItem',
-    'PaletteAction',
+    'SearchPickerAction',
+    'SearchPickerOptions',
     'TableAction',
     'TableColumn',
     'TreeNode'
@@ -162,7 +163,7 @@ test('entrypoint declarations expose layered public type contracts', async () =>
     'CommandInputAction',
     'CommandInputState',
     'NotificationAction',
-    'PaletteAction',
+    'SearchPickerAction',
     'ScreenStack',
     'ScrollAction',
     'SpinnerAction',

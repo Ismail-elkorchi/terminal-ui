@@ -1,16 +1,17 @@
 import {
   commandInput,
-  palette,
+  searchPicker,
   textArea,
   tree,
   type CommandInputAction,
   type Element,
-  type PaletteAction,
+  type SearchPickerAction,
   type TextAreaAction,
   type TreeAction
 } from '@ismail-elkorchi/terminal-ui/components';
+import * as components from '@ismail-elkorchi/terminal-ui/components';
 import { prepareTextDocument, textCaretAt } from '@ismail-elkorchi/terminal-ui/text';
-import { preparePaletteIndex } from '@ismail-elkorchi/terminal-ui/behavior';
+import { prepareSearchPickerIndex } from '@ismail-elkorchi/terminal-ui/behavior';
 
 export type MessageOf<TElement> = TElement extends Element<infer TMessage> ? TMessage : never;
 export type Equal<TLeft, TRight> =
@@ -45,19 +46,25 @@ const commands = commandInput({
   }
 });
 
-const search = palette({
+const search = searchPicker({
   id: 'search',
-  paletteIndex: preparePaletteIndex([{ id: 'open', label: 'Open', value: 1 }]),
+  searchPickerIndex: prepareSearchPickerIndex([{ id: 'open', label: 'Open', value: 1 }]),
   onSelect: (entry) => ({ kind: 'selectEntry' as const, value: entry.value }),
-  onAction: (action: PaletteAction) => ({ kind: 'palette' as const, action }),
+  onAction: (action: SearchPickerAction) => ({ kind: 'searchPicker' as const, action }),
   keys: {
-    enter: () => ({ kind: 'acceptPalette' as const }),
-    escape: () => ({ kind: 'closePalette' as const })
+    enter: () => ({ kind: 'acceptSearchPicker' as const }),
+    escape: () => ({ kind: 'closeSearchPicker' as const })
   }
 });
 
-// @ts-expect-error palette input names its prepared search index explicitly
-palette({ id: 'legacy-search', index: preparePaletteIndex([{ id: 'open', label: 'Open', value: 1 }]) });
+// @ts-expect-error searchPicker input names its prepared search index explicitly
+searchPicker({ id: 'legacy-search', index: prepareSearchPickerIndex([{ id: 'open', label: 'Open', value: 1 }]) });
+type RemovedPaletteFactory =
+  // @ts-expect-error the generic searchable-selection component is named searchPicker
+  typeof components.palette;
+type RemovedPaletteAction =
+  // @ts-expect-error the old palette family is not exported
+  import('@ismail-elkorchi/terminal-ui/components').PaletteAction;
 
 export type TreeMessage =
   | { readonly kind: 'tree'; readonly action: TreeAction }
@@ -68,11 +75,11 @@ export type CommandMessage =
   | { readonly kind: 'submit' }
   | { readonly kind: 'history'; readonly delta: -1 }
   | { readonly kind: 'close' };
-export type PaletteMessage =
+export type SearchPickerMessage =
   | { readonly kind: 'selectEntry'; readonly value: number }
-  | { readonly kind: 'palette'; readonly action: PaletteAction }
-  | { readonly kind: 'acceptPalette' }
-  | { readonly kind: 'closePalette' };
+  | { readonly kind: 'searchPicker'; readonly action: SearchPickerAction }
+  | { readonly kind: 'acceptSearchPicker' }
+  | { readonly kind: 'closeSearchPicker' };
 
 export type _TreeActual = Assert<MessageOf<typeof explorer> extends TreeMessage ? true : false>;
 export type _TreeExpected = Assert<TreeMessage extends MessageOf<typeof explorer> ? true : false>;
@@ -80,5 +87,7 @@ export type _EditorActual = Assert<MessageOf<typeof editor> extends EditorMessag
 export type _EditorExpected = Assert<EditorMessage extends MessageOf<typeof editor> ? true : false>;
 export type _CommandActual = Assert<MessageOf<typeof commands> extends CommandMessage ? true : false>;
 export type _CommandExpected = Assert<CommandMessage extends MessageOf<typeof commands> ? true : false>;
-export type _PaletteActual = Assert<MessageOf<typeof search> extends PaletteMessage ? true : false>;
-export type _PaletteExpected = Assert<PaletteMessage extends MessageOf<typeof search> ? true : false>;
+export type _SearchPickerActual = Assert<MessageOf<typeof search> extends SearchPickerMessage ? true : false>;
+export type _SearchPickerExpected = Assert<SearchPickerMessage extends MessageOf<typeof search> ? true : false>;
+void (undefined as unknown as RemovedPaletteAction);
+void (undefined as unknown as RemovedPaletteFactory);

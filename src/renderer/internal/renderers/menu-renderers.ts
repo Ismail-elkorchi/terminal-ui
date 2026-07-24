@@ -27,13 +27,13 @@ import {
   commandInputPointerOffset,
   commandInputSuggestionHitTargets
 } from '../command-input.ts';
-import { paletteAccessibleChildren, paletteBlock, paletteHitTargets } from '../palette.ts';
+import { searchPickerAccessibleChildren, searchPickerBlock, searchPickerHitTargets } from '../search-picker.ts';
 import { textPointerHitTargets } from '../text-pointer.ts';
 import { stringify } from '../render-node-props.ts';
 import {
   drawScrollbars,
   menuScrollbarState,
-  paletteScrollbarState,
+  searchPickerScrollbarState,
   scrollbarHitTargetsForRenderNode,
   scrollbarsForRenderNode
 } from './support/scroll.ts';
@@ -162,11 +162,11 @@ export const menuRenderers = {
       ...commandInputSuggestionHitTargets(renderNode, bounds)
     ]
   },
-  palette: {
-    measure: menuMeasurements.palette,
+  searchPicker: {
+    measure: menuMeasurements.searchPicker,
     render: ({ renderNode, layoutNode, buffer, theme }) => {
-      const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => paletteScrollbarState(renderNode, contentBounds), 'vertical');
-      writeRenderBlock(buffer, scrollbars.contentBounds, paletteBlock(renderNode, scrollbars.contentBounds.height, theme));
+      const scrollbars = scrollbarsForRenderNode(renderNode, layoutNode.bounds, (contentBounds) => searchPickerScrollbarState(renderNode, contentBounds), 'vertical');
+      writeRenderBlock(buffer, scrollbars.contentBounds, searchPickerBlock(renderNode, scrollbars.contentBounds.height, theme));
       drawScrollbars(buffer, renderNode, scrollbars, theme);
     },
     accessibility: ({ renderNode, layoutNode, id, focused }) => ({
@@ -175,15 +175,15 @@ export const menuRenderers = {
       label: stringify(renderNode.props.title) || id,
       value: stringify(renderNode.props.query),
       ...(focused ? { focused } : {}),
-      children: paletteAccessibleChildren(renderNode, layoutNode.bounds.height)
+      children: searchPickerAccessibleChildren(renderNode, layoutNode.bounds.height)
     }),
     focusTargets: ({ bounds }) => [focusTarget(bounds)],
     hitTargets: ({ renderNode, bounds }) => {
-      const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => paletteScrollbarState(renderNode, contentBounds), 'vertical');
+      const scrollbars = scrollbarsForRenderNode(renderNode, bounds, (contentBounds) => searchPickerScrollbarState(renderNode, contentBounds), 'vertical');
       return [
-        ...paletteHitTargets(renderNode, scrollbars.contentBounds),
+        ...searchPickerHitTargets(renderNode, scrollbars.contentBounds),
         ...scrollbarHitTargetsForRenderNode(renderNode, scrollbars, scrollbars.state)
       ];
     }
   }
-} satisfies RendererMap<'menu' | 'menuBar' | 'contextMenu' | 'dropdownMenu' | 'commandInput' | 'palette'>;
+} satisfies RendererMap<'menu' | 'menuBar' | 'contextMenu' | 'dropdownMenu' | 'commandInput' | 'searchPicker'>;

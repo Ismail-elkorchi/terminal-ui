@@ -171,28 +171,28 @@ export type {
   NotificationState
 } from './notifications.ts';
 export {
-  groupPaletteEntries,
-  paletteProjection,
-  palettePresentation,
-  paletteReducer,
-  paletteStatus,
-  paletteWindow,
-  selectedPaletteEntry
-} from './palette.ts';
+  groupSearchPickerEntries,
+  searchPickerProjection,
+  searchPickerPresentation,
+  searchPickerReducer,
+  searchPickerStatus,
+  searchPickerWindow,
+  selectedSearchPickerEntry
+} from './search-picker.ts';
 export type {
-  PaletteAsyncState,
-  PaletteFilterResult,
-  PaletteGroup,
-  PaletteGroupSelector,
-  PalettePresentation,
-  PaletteReducerOptions,
-  PaletteSelectionInput,
-  PaletteState,
-  PaletteWindowInput
-} from './palette.ts';
-export type { PaletteAction } from '../ui-model/palette.ts';
-export { preparePaletteIndex } from '../ui-model/palette-index.ts';
-export type { PaletteIndex, PaletteQueryProjection } from '../ui-model/palette-index.ts';
+  SearchPickerAsyncState,
+  SearchPickerFilterResult,
+  SearchPickerGroup,
+  SearchPickerGroupSelector,
+  SearchPickerPresentation,
+  SearchPickerReducerOptions,
+  SearchPickerSelectionInput,
+  SearchPickerState,
+  SearchPickerWindowInput
+} from './search-picker.ts';
+export type { SearchPickerAction } from '../ui-model/search-picker.ts';
+export { prepareSearchPickerIndex } from '../ui-model/search-picker-index.ts';
+export type { SearchPickerIndex, SearchPickerQueryProjection } from '../ui-model/search-picker-index.ts';
 export {
   contextMenuPresentation,
   contextMenuReducer,

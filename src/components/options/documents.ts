@@ -14,8 +14,8 @@ import type {
 } from '../../ui-model/documents.ts';
 import type { ScrollbackHistory } from '../../ui-model/scrollback-history.ts';
 import type { CommandInputAction, CommandInputPresentation } from '../../ui-model/command-input.ts';
-import type { PaletteAction } from '../../ui-model/palette.ts';
-import type { PaletteIndex } from '../../ui-model/palette-index.ts';
+import type { SearchPickerAction } from '../../ui-model/search-picker.ts';
+import type { SearchPickerIndex } from '../../ui-model/search-picker-index.ts';
 import type { ActivityFeedAction } from '../../ui-model/activity-feed.ts';
 import type { ScrollbackAction, ScrollbackControlAction } from '../../ui-model/scrollback.ts';
 import type { ScrollbackSelection } from '../../ui-model/scrollback.ts';
@@ -24,7 +24,7 @@ import type { ElementKeyBindings, ElementOptions, InteractiveElementOptions } fr
 import type {
   CommandInputStylePart,
   DocumentStylePart,
-  PaletteStylePart,
+  SearchPickerStylePart,
   TextAreaStylePart
 } from '../../ui-model/style-parts.ts';
 
@@ -91,32 +91,32 @@ export interface CommandInputOptions<TMessage = never> extends InteractiveElemen
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-interface PaletteBaseOptions<TValue, TMessage> extends InteractiveElementOptions<PaletteStylePart, TMessage> {
+interface SearchPickerBaseOptions<TValue, TMessage> extends InteractiveElementOptions<SearchPickerStylePart, TMessage> {
   readonly title?: string;
   readonly query?: string;
-  readonly paletteIndex: PaletteIndex<TValue>;
+  readonly searchPickerIndex: SearchPickerIndex<TValue>;
   readonly onSelect?: (entry: SearchEntry<TValue>) => TMessage;
   readonly selectedIndex?: number;
   readonly selectedId?: string;
   readonly maxVisible?: number;
   readonly helpText?: string;
   readonly emptyText?: string;
-  readonly onAction?: (action: PaletteAction) => TMessage;
+  readonly onAction?: (action: SearchPickerAction) => TMessage;
   readonly keys?: ElementKeyBindings<TMessage>;
 }
 
-export type PaletteOptions<TValue = string, TMessage = never> =
-  | PassivePaletteOptions<TValue, TMessage>
-  | ScrollablePaletteOptions<TValue, TMessage>;
+export type SearchPickerOptions<TValue = string, TMessage = never> =
+  | PassiveSearchPickerOptions<TValue, TMessage>
+  | ScrollableSearchPickerOptions<TValue, TMessage>;
 
-export interface PassivePaletteOptions<TValue = string, TMessage = never> extends PaletteBaseOptions<TValue, TMessage> {
+export interface PassiveSearchPickerOptions<TValue = string, TMessage = never> extends SearchPickerBaseOptions<TValue, TMessage> {
   readonly scroll?: never;
   readonly scrollbar?: never;
   readonly scrollPolicy?: never;
   readonly onScroll?: never;
 }
 
-export interface ScrollablePaletteOptions<TValue = string, TMessage = never> extends PaletteBaseOptions<TValue, TMessage> {
+export interface ScrollableSearchPickerOptions<TValue = string, TMessage = never> extends SearchPickerBaseOptions<TValue, TMessage> {
   readonly scroll: ScrollState;
   readonly scrollbar?: ScrollbarOptions;
   readonly scrollPolicy?: ScrollPolicy;

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createScrollState, preparePaletteIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { createScrollState, prepareSearchPickerIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
 import {
   asciiSymbols,
   defaultTheme,
@@ -20,7 +20,7 @@ import {
 } from '../../dist/testing/index.js';
 import {
   menu,
-  palette,
+  searchPicker,
   scrollback,
   table,
   textArea,
@@ -350,11 +350,11 @@ test('tree scrollbar follows explicit tree scroll state', () => {
   assert.equal(frame.cells.filter((cell) => cell.column === 16).length, 2);
 });
 
-test('palette scrollbar renders beside the filtered result window', () => {
-  const frame = renderElementFrame(palette({
-    id: 'palette',
+test('searchPicker scrollbar renders beside the filtered result window', () => {
+  const frame = renderElementFrame(searchPicker({
+    id: 'searchPicker',
     title: 'Actions',
-    paletteIndex: preparePaletteIndex([
+    searchPickerIndex: prepareSearchPickerIndex([
       { id: 'one', label: 'One', value: 'one' },
       { id: 'two', label: 'Two', value: 'two' },
       { id: 'three', label: 'Three', value: 'three' },

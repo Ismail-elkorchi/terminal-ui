@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  paletteProjection,
-  preparePaletteIndex,
-  paletteWindow
+  searchPickerProjection,
+  prepareSearchPickerIndex,
+  searchPickerWindow
 } from '../../dist/behavior/index.js';
 import { renderElementFrame } from '../../dist/renderer/index.js';
-import { palette } from '../../dist/components/index.js';
+import { searchPicker } from '../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
@@ -16,20 +16,20 @@ const entries = [
   { id: 'toggle-terminal', label: 'Toggle Terminal', group: 'Workspace', value: { kind: 'action' }, description: 'Show terminal', keywords: ['terminal'] },
   { id: 'run-tests', label: 'Run Tests', group: 'Workspace', value: { kind: 'action' }, description: 'Execute tests', keywords: ['verify'], disabled: true }
 ];
-const index = preparePaletteIndex(entries);
+const index = prepareSearchPickerIndex(entries);
 
-test('palette filtering is fuzzy stable and value-agnostic', () => {
+test('searchPicker filtering is fuzzy stable and value-agnostic', () => {
   assert.deepEqual(
-    paletteProjection(index, 'term').entries.map((entry) => entry.id),
+    searchPickerProjection(index, 'term').entries.map((entry) => entry.id),
     ['toggle-terminal']
   );
   assert.deepEqual(
-    paletteProjection(index, 'rt').entries.map((entry) => entry.id),
+    searchPickerProjection(index, 'rt').entries.map((entry) => entry.id),
     ['run-tests']
   );
 });
 
-test('palette filtering reuses immutable entry search text across queries', () => {
+test('searchPicker filtering reuses immutable entry search text across queries', () => {
   let labelReads = 0;
   const measuredEntry = {
     id: 'measured',
@@ -41,21 +41,21 @@ test('palette filtering reuses immutable entry search text across queries', () =
     keywords: ['stable']
   };
 
-  const measuredIndex = preparePaletteIndex([measuredEntry]);
-  assert.deepEqual(paletteProjection(measuredIndex, 'measured').entries.map((entry) => entry.id), ['measured']);
-  assert.deepEqual(paletteProjection(measuredIndex, 'stable').entries.map((entry) => entry.id), ['measured']);
+  const measuredIndex = prepareSearchPickerIndex([measuredEntry]);
+  assert.deepEqual(searchPickerProjection(measuredIndex, 'measured').entries.map((entry) => entry.id), ['measured']);
+  assert.deepEqual(searchPickerProjection(measuredIndex, 'stable').entries.map((entry) => entry.id), ['measured']);
   assert.equal(labelReads, 1);
 });
 
-test('paletteWindow bounds visible entries around stable id selection and scroll', () => {
-  const centered = paletteWindow({ paletteIndex: index, selectedId: 'run-tests', limit: 2 });
+test('searchPickerWindow bounds visible entries around stable id selection and scroll', () => {
+  const centered = searchPickerWindow({ searchPickerIndex: index, selectedId: 'run-tests', limit: 2 });
   assert.equal(centered.totalCount, 3);
   assert.deepEqual(centered.entries.map((entry) => entry.id), ['toggle-terminal', 'run-tests']);
   assert.equal(centered.selectedIndex, 1);
   assert.equal(centered.selectedEntry?.id, 'run-tests');
 
-  const scrolled = paletteWindow({
-    paletteIndex: index,
+  const scrolled = searchPickerWindow({
+    searchPickerIndex: index,
     selectedId: 'run-tests',
     scroll: {
       offsetRow: 0,
@@ -73,13 +73,13 @@ test('paletteWindow bounds visible entries around stable id selection and scroll
   assert.equal(scrolled.omittedAfter, 1);
 });
 
-test('palette widget renders query matches disabled entries preview help empty state and accessibility', () => {
+test('searchPicker widget renders query matches disabled entries preview help empty state and accessibility', () => {
   const frame = renderElementFrame(
-    palette({
-      id: 'palette',
+    searchPicker({
+      id: 'searchPicker',
       title: 'Things',
       query: 'run',
-      paletteIndex: index,
+      searchPickerIndex: index,
       selectedId: 'run-tests',
       maxVisible: 2,
       helpText: 'enter accepts, escape closes',
@@ -124,7 +124,7 @@ test('palette widget renders query matches disabled entries preview help empty s
   assert.equal(frame.accessibility.root.children?.[0]?.value, undefined);
 });
 
-test('palette entry normalization is retained across authored frames', () => {
+test('searchPicker entry normalization is retained across authored frames', () => {
   let labelReads = 0;
   const measuredEntries = Array.from({ length: 100 }, (_, index) => ({
     id: `entry-${String(index)}`,
@@ -134,10 +134,10 @@ test('palette entry normalization is retained across authored frames', () => {
     },
     value: index
   }));
-  const measuredIndex = preparePaletteIndex(measuredEntries);
-  const authoredFrame = (query) => palette({
-    id: 'measured-palette',
-      paletteIndex: measuredIndex,
+  const measuredIndex = prepareSearchPickerIndex(measuredEntries);
+  const authoredFrame = (query) => searchPicker({
+    id: 'measured-searchPicker',
+      searchPickerIndex: measuredIndex,
     query,
     onSelect: (entry) => entry.value
   });
@@ -148,12 +148,12 @@ test('palette entry normalization is retained across authored frames', () => {
   assert.equal(labelReads, measuredEntries.length);
 });
 
-test('palette widget renders empty states for unrelated queries', () => {
+test('searchPicker widget renders empty states for unrelated queries', () => {
   const frame = renderElementFrame(
-    palette({
-      id: 'palette',
+    searchPicker({
+      id: 'searchPicker',
       query: 'zz',
-      paletteIndex: index,
+      searchPickerIndex: index,
       emptyText: 'No available entries'
     }),
     { columns: 32, rows: 4 }
@@ -164,12 +164,12 @@ test('palette widget renders empty states for unrelated queries', () => {
   assert.equal(frame.cells.find((cell) => cell.text === 'N')?.source?.description, 'empty');
 });
 
-test('palette exposes enabled visible entry hit targets when toMessage is provided', () => {
+test('searchPicker exposes enabled visible entry hit targets when toMessage is provided', () => {
   const frame = renderElementFrame(
-    palette({
+    searchPicker({
       id: 'commands',
       query: '',
-      paletteIndex: index,
+      searchPickerIndex: index,
       maxVisible: 3,
       onSelect: (entry) => ({ kind: 'select', id: entry.id })
     }),
@@ -182,15 +182,15 @@ test('palette exposes enabled visible entry hit targets when toMessage is provid
   ]);
 });
 
-test('palette emits compact controlled actions while acceptance remains caller-controlled', async () => {
+test('searchPicker emits compact controlled actions while acceptance remains caller-controlled', async () => {
   const app = defineTui({
-    id: 'palette-actions',
+    id: 'searchPicker-actions',
     init: () => ({ messages: [] }),
     update: (state, message) => ({ state: { messages: [...state.messages, message] } }),
-    view: () => palette({
+    view: () => searchPicker({
       id: 'commands',
       query: '',
-      paletteIndex: index,
+      searchPickerIndex: index,
       onAction: (action) => ({ kind: 'action', action }),
       keys: {
         enter: () => ({ kind: 'accept' }),

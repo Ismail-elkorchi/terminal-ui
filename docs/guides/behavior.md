@@ -9,7 +9,7 @@ Use behavior helpers when component interaction has reusable rules:
 - scroll offsets and follow-tail state;
 - table row, cell, sort, and resize behavior;
 - tree expansion, filtering, selection, and lazy state;
-- palette query, selection, preview, and grouping;
+- search-picker query, selection, preview, and grouping;
 - command-input editing, history, and suggestion navigation;
 - notification history, expiry, pause, resume, and dismissal;
 - activity-feed expansion and selection;
@@ -46,7 +46,7 @@ The component families apply that rule independently:
 - command input uses a presentation derived from its editing, history, and
   suggestion state;
 - table uses a presentation because the selected cell is derived from valid
-  row and column state, while list, tree, tabs, palette, and scrollback expose
+  row and column state, while list, tree, tabs, search picker, and scrollback expose
   their independent component fields directly;
 - range slider accepts one grouped state object because the active handle and
   ordered range values form one valid interaction state.
@@ -86,53 +86,53 @@ function view(state: State) {
 ```
 
 Collection-dependent reducers receive their current data as reducer options;
-the routed action remains a compact user intent. A controlled palette follows
+the routed action remains a compact user intent. A controlled search picker follows
 the same pattern:
 
 ```ts
 import {
-  palette,
-  type PaletteAction,
+  searchPicker,
+  type SearchPickerAction,
   type SearchEntry
 } from '@ismail-elkorchi/terminal-ui/components';
 import {
-  palettePresentation,
-  paletteReducer,
-  preparePaletteIndex,
-  type PaletteState
+  searchPickerPresentation,
+  searchPickerReducer,
+  prepareSearchPickerIndex,
+  type SearchPickerState
 } from '@ismail-elkorchi/terminal-ui/behavior';
 
 const entries = [
   { id: 'open', label: 'Open', value: 'open' }
 ] satisfies readonly SearchEntry<string>[];
-const paletteIndex = preparePaletteIndex(entries);
+const searchPickerIndex = prepareSearchPickerIndex(entries);
 
-type PaletteMessage =
-  | { kind: 'palette'; action: PaletteAction }
-  | { kind: 'acceptPalette' }
-  | { kind: 'closePalette' };
+type SearchPickerMessage =
+  | { kind: 'searchPicker'; action: SearchPickerAction }
+  | { kind: 'acceptSearchPicker' }
+  | { kind: 'closeSearchPicker' };
 
-function updatePalette(state: PaletteState, action: PaletteAction): PaletteState {
-  return paletteReducer(state, action, { paletteIndex });
+function updateSearchPicker(state: SearchPickerState, action: SearchPickerAction): SearchPickerState {
+  return searchPickerReducer(state, action, { searchPickerIndex });
 }
 
-function paletteView(state: PaletteState) {
-  return palette({
+function searchPickerView(state: SearchPickerState) {
+  return searchPicker({
     id: 'commands',
-    paletteIndex,
-    ...palettePresentation(state),
-    onAction: (action): PaletteMessage => ({ kind: 'palette', action }),
+    searchPickerIndex,
+    ...searchPickerPresentation(state),
+    onAction: (action): SearchPickerMessage => ({ kind: 'searchPicker', action }),
     keys: {
-      enter: (): PaletteMessage => ({ kind: 'acceptPalette' }),
-      escape: (): PaletteMessage => ({ kind: 'closePalette' })
+      enter: (): SearchPickerMessage => ({ kind: 'acceptSearchPicker' }),
+      escape: (): SearchPickerMessage => ({ kind: 'closeSearchPicker' })
     }
   });
 }
 ```
 
-Text editing and selection movement produce `PaletteAction` messages. Accept
+Text editing and selection movement produce `SearchPickerAction` messages. Accept
 and close remain application decisions because they change application state,
-not palette state.
+not search-picker state.
 
 Hierarchical data uses the same controlled shape without moving application
 effects into the component:

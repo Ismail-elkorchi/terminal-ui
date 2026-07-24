@@ -11,7 +11,7 @@ import { renderFramePlain } from '../../dist/renderer/index.js';
 import {
   activityFeed,
   commandInput,
-  palette,
+  searchPicker,
   scrollback,
   statusBar,
   tabs,
@@ -21,12 +21,12 @@ import {
   grid,
   splitPane
 } from '../../dist/layout/index.js';
-import { preparePaletteIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { prepareSearchPickerIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
 
 function workspaceView(state) {
   const mainPanel = tabs({
     id: 'main-tabs',
-    selected: state.palette ? 'actions' : 'log',
+    selected: state.searchPicker ? 'actions' : 'log',
     tabs: [
       {
         id: 'log',
@@ -39,11 +39,11 @@ function workspaceView(state) {
       {
         id: 'actions',
         label: 'Actions',
-        panel: palette({
-          id: 'palette',
+        panel: searchPicker({
+          id: 'searchPicker',
           title: 'Actions',
           query: state.query,
-          paletteIndex: preparePaletteIndex([
+          searchPickerIndex: prepareSearchPickerIndex([
             { id: 'open', label: 'Open', value: 'open' },
             { id: 'quit', label: 'Quit', value: 'quit' }
           ]),
@@ -66,7 +66,7 @@ function workspaceView(state) {
       direction: 'horizontal',
       sizes: [{ kind: 'fixed', cells: 20 }, { kind: 'fill' }]
     }),
-    statusBar({ id: 'status', leading: [{ id: 'view', kind: 'text', text: state.palette ? 'palette' : 'log' }] }),
+    statusBar({ id: 'status', leading: [{ id: 'view', kind: 'text', text: state.searchPicker ? 'searchPicker' : 'log' }] }),
     commandInput({ id: 'command', prompt: '/', presentation: { value: state.query, cursor: 0, suggestions: [] } })
   ], {
     id: 'workspace',
@@ -75,16 +75,16 @@ function workspaceView(state) {
   });
 }
 
-test('layout regions compose scrollback, activity, tabs, palette, status, and command bar', async () => {
+test('layout regions compose scrollback, activity, tabs, searchPicker, status, and command bar', async () => {
   const app = defineTui({
     id: 'layout-regions',
-    init: () => ({ palette: false, query: '', items: ['one', 'two'] }),
+    init: () => ({ searchPicker: false, query: '', items: ['one', 'two'] }),
     inputBindings: [
-      { id: 'open-palette', triggers: [{ kind: 'text', text: 'p' }], message: { type: 'palette' } },
+      { id: 'open-searchPicker', triggers: [{ kind: 'text', text: 'p' }], message: { type: 'searchPicker' } },
       { id: 'exit', triggers: [{ kind: 'key', key: 'enter' }], message: { type: 'exit' } }
     ],
     update: (state, message) => {
-      if (message.type === 'palette') return { state: { ...state, palette: true, query: 'o' } };
+      if (message.type === 'searchPicker') return { state: { ...state, searchPicker: true, query: 'o' } };
       return { state, exit: {} };
     },
     view: workspaceView
@@ -96,7 +96,7 @@ test('layout regions compose scrollback, activity, tabs, palette, status, and co
   const exit = await runTui(app, harness.host);
 
   assert.equal(exit.status, 'completed');
-  assert.equal(exit.state.palette, true);
+  assert.equal(exit.state.searchPicker, true);
   const frames = harness.frames();
   const lastFrame = frames.at(-1);
   assert.notEqual(lastFrame, undefined);

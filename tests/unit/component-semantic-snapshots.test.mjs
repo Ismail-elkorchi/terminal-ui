@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
-import { preparePaletteIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { prepareSearchPickerIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
 import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 import {
@@ -53,7 +53,7 @@ import {
   notificationStack,
   numberInput,
   paginator,
-  palette,
+  searchPicker,
   progressBar,
   radioGroup,
   rangeSlider,
@@ -591,11 +591,11 @@ const cases = [
     expectFocus: true
   },
   {
-    name: 'palette',
-    element: () => palette({
-      id: 'palette',
+    name: 'searchPicker',
+    element: () => searchPicker({
+      id: 'searchPicker',
       title: unsafe,
-      paletteIndex: preparePaletteIndex([
+      searchPickerIndex: prepareSearchPickerIndex([
         { id: 'alpha', label: unsafe, value: 'alpha', preview: 'Preview' },
         { id: 'beta', label: 'Beta', value: 'beta', disabled: true }
       ]),
@@ -689,13 +689,13 @@ test('semantic widget snapshots cover every built-in public widget factory', () 
     'numberInput',
     'overlay',
     'paginator',
-    'palette',
     'progressBar',
     'radioGroup',
     'rangeSlider',
     'richText',
     'row',
     'scrollback',
+    'searchPicker',
     'select',
     'slider',
     'sparkline',

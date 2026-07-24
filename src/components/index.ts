@@ -25,7 +25,7 @@ export {
   menuBar,
   notificationStack,
   numberInput,
-  palette,
+  searchPicker,
   paginator,
   progressBar,
   radioGroup,
@@ -114,7 +114,7 @@ export type {
   CalendarAction,
   CalendarDay
 } from '../ui-model/calendar.ts';
-export type { PaletteAction } from '../ui-model/palette.ts';
+export type { SearchPickerAction } from '../ui-model/search-picker.ts';
 export type {
   ContextMenuAction,
   DropdownMenuAction,

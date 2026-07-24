@@ -10,7 +10,7 @@ import type {
 import type {
   ActivityFeedRenderProps,
   CommandInputRenderProps,
-  PaletteRenderProps,
+  SearchPickerRenderProps,
   ScrollbackRenderProps,
   StructuredBlockRenderProps,
   ViewportRenderProps
@@ -119,7 +119,7 @@ export interface RenderNodePropsByKind<TMessage> {
   readonly structuredBlock: StructuredBlockRenderProps;
   readonly activityFeed: ActivityFeedRenderProps<TMessage>;
   readonly commandInput: CommandInputRenderProps<TMessage>;
-  readonly palette: PaletteRenderProps<TMessage>;
+  readonly searchPicker: SearchPickerRenderProps<TMessage>;
   readonly grid: GridRenderProps;
   readonly splitPane: SplitPaneRenderProps<TMessage>;
   readonly tabs: TabsRenderProps<TMessage>;

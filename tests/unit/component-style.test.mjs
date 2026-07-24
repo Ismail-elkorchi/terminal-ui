@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calendarFixture } from '../helpers/calendar.mjs';
-import { preparePaletteIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
+import { prepareSearchPickerIndex, prepareScrollbackHistory } from '../../dist/behavior/index.js';
 
 import {
   renderFramePlain,
@@ -25,7 +25,7 @@ import {
   menu,
   menuBar,
   notificationStack,
-  palette,
+  searchPicker,
   paginator,
   progressBar,
   scrollback,
@@ -235,7 +235,7 @@ test('text entry chrome uses shared border focus and error styles', () => {
   assert.equal(styleFor(areaFrame, '×')?.fg?.token, 'status.error');
 });
 
-test('menu palette table and tree use selected placeholder and title slots', () => {
+test('menu searchPicker table and tree use selected placeholder and title slots', () => {
   const menuFrame = renderElementFrame(menuBar({
     id: 'styled-menu',
     presentation: { kind: 'closed', active: 'file' },
@@ -249,10 +249,10 @@ test('menu palette table and tree use selected placeholder and title slots', () 
         }
     }
 }), { columns: 20, rows: 1 });
-  const paletteFrame = renderElementFrame(palette({
-    id: 'styled-palette',
+  const searchPickerFrame = renderElementFrame(searchPicker({
+    id: 'styled-searchPicker',
     title: 'Commands',
-    paletteIndex: preparePaletteIndex([]),
+    searchPickerIndex: prepareSearchPickerIndex([]),
     meta: {
         styles: {
             parts: {
@@ -287,8 +287,8 @@ test('menu palette table and tree use selected placeholder and title slots', () 
 }), { columns: 16, rows: 1 });
 
   assert.equal(styleFor(menuFrame, 'F')?.fg?.token, 'status.success');
-  assert.equal(styleFor(paletteFrame, 'C')?.fg?.token, 'status.error');
-  assert.equal(styleFor(paletteFrame, 'N')?.fg?.token, 'status.warning');
+  assert.equal(styleFor(searchPickerFrame, 'C')?.fg?.token, 'status.error');
+  assert.equal(styleFor(searchPickerFrame, 'N')?.fg?.token, 'status.warning');
   assert.equal(styleForCell(tableFrame, (cell) => cell.row > 1 && cell.text === 'N')?.fg?.token, 'status.warning');
   assert.equal(styleFor(treeFrame, 'A')?.fg?.token, 'status.success');
 });
@@ -385,11 +385,11 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
       { kind: 'action', id: 'us', label: 'United States' }
     ]
   }), { columns: 32, rows: 1 });
-  const paletteFrame = renderElementFrame(palette({
-    id: 'palette',
+  const searchPickerFrame = renderElementFrame(searchPicker({
+    id: 'searchPicker',
     query: 'o',
     selectedIndex: 1,
-    paletteIndex: preparePaletteIndex([
+    searchPickerIndex: prepareSearchPickerIndex([
       { id: 'open', label: 'Open file' },
       { id: 'toggle', label: 'Toggle theme' }
     ])
@@ -431,7 +431,7 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
   assert.equal(styleForSource(commandFrame, (source) => source.partName === 'suggestion.0.label')?.bg?.token, 'selection.background');
   assert.equal(styleForSource(menuFrame, (source) => source.partName === 'label' && source.itemId === 'open')?.bg?.token, 'selection.background');
   assert.equal(styleForSource(dropdownMenuFrame, (source) => source.partName === 'dropdownMenu-value')?.fg?.token, 'text.default');
-  assert.equal(styleForSource(paletteFrame, (source) => source.partName === 'entry.open.label')?.fg?.token, 'text.default');
+  assert.equal(styleForSource(searchPickerFrame, (source) => source.partName === 'entry.open.label')?.fg?.token, 'text.default');
   assert.equal(styleForSource(tabsFrame, (source) => source.partName === 'label' && source.itemId === 'one')?.fg?.token, 'tab.active.foreground');
   assert.equal(styleForSource(tabsFrame, (source) => source.partName === 'label' && source.itemId === 'two')?.fg?.token, 'tab.inactive.foreground');
   assert.equal(styleForSource(tableFrame, (source) => source.partName === 'row.1.cell.0')?.fg?.token, 'text.default');

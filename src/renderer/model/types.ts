@@ -100,7 +100,7 @@ export type RenderNodeKind =
   | 'structuredBlock'
   | 'activityFeed'
   | 'commandInput'
-  | 'palette'
+  | 'searchPicker'
   | 'grid'
   | 'splitPane'
   | 'tabs'

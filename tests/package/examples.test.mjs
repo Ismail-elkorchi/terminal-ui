@@ -37,10 +37,10 @@ for (const example of exampleScripts) {
       assert.equal(summary.activeTab, 'issues');
       assert.equal(summary.tabSelectedByPointer, true);
       assert.equal(summary.tabSelectedByKeyboard, true);
-      assert.equal(summary.paletteUsed, true);
+      assert.equal(summary.searchPickerUsed, true);
       assert.equal(summary.pointerTree, true);
       assert.equal(summary.pointerTable, true);
-      assert.equal(summary.keyboardPaletteQuery, 'resolve');
+      assert.equal(summary.keyboardSearchPickerQuery, 'resolve');
       assert.equal(summary.visible, true);
       assert.equal(summary.tableHitTargets > 0, true);
       assert.equal(summary.focusValidAfterResize, true);

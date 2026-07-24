@@ -60,7 +60,7 @@ export function commandRowStyle(renderNode: RenderNode, state: ElementVisualStat
 }
 
 export function commandMetadataStyle(renderNode: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
-  const part = renderNode.kind === 'palette' ? 'description' : 'suggestion';
+  const part = renderNode.kind === 'searchPicker' ? 'description' : 'suggestion';
   return renderNodeStyle(renderNode, part, state);
 }
 
@@ -112,7 +112,7 @@ function commandToneStyle(renderNode: RenderNode, tone: CommandSurfaceTone): Ter
 }
 
 function commandPrimaryPart(renderNode: RenderNode): 'entry' | 'suggestion' {
-  return renderNode.kind === 'palette' ? 'entry' : 'suggestion';
+  return renderNode.kind === 'searchPicker' ? 'entry' : 'suggestion';
 }
 
 function commandToneSymbol(theme: TerminalTheme, tone: CommandSurfaceTone): string {
