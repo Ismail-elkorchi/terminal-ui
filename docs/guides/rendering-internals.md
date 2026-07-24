@@ -7,8 +7,8 @@ terminal output only at the boundary.
 
 The rendering path is:
 
-1. An element tree is normalized to render nodes, then measured and laid out
-   into layout nodes.
+1. Each opaque element is resolved to its private render node, then the tree is
+   measured and laid out into layout nodes.
 2. Renderers write `RenderSpan` data into a `FrameBuffer`.
 3. The buffer produces a `Frame` with styled cells, source metadata, focus
    targets, hit targets, and an accessible snapshot.
@@ -16,23 +16,23 @@ The rendering path is:
 5. `renderFramePlain()`, `renderFrameAnsi()`, `renderFrameDebug()`, and
    `renderDiffAnsi()` serialize the chosen frame representation.
 
-The renderer owns its private normalized node model and implementation kernel.
+The renderer owns its private node model and implementation kernel.
 Component and layout factories compile authored options through a shared
 private authoring boundary; renderer implementation modules never import those
 factories or the TUI runtime. The `tui` source directory owns application and
 terminal-session lifecycle rather than frame, layout, or widget rendering.
 
 The renderer package has two deliberate public layers. Application and test
-code uses authored-element projection (`renderElementFrame()`), frame/diff
+code uses `renderElementFrame()`, frame/diff
 serialization, and output projection. Renderer extensions use `custom()`,
 `customComposite()`, `Canvas2D`, render spans, bounded `RenderTarget`, geometry,
 measurement, and frame-source contracts. Layout nodes, frames, and diffs are
-immutable data contracts; normalized render nodes and projection indexes remain
+immutable data contracts; private render nodes and region target indexes remain
 private implementation details.
 
 The ordinary public render function returns only a frame. Focus regions,
-pointer regions, normalized render nodes, and projection indexes are produced
-only by the renderer's internal projection path and are not properties of the
+pointer regions, private render nodes, and region target indexes are produced
+only by the renderer's internal render path and are not properties of the
 public result.
 
 ## Styled Cells

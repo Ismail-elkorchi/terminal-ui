@@ -5,7 +5,7 @@ import { text } from '../../dist/components/index.js';
 import { createMemoryTerminalHost } from '../../dist/host/index.js';
 import { diffFrames, renderDiffAnsi, renderElementFrame } from '../../dist/renderer/index.js';
 
-test('render instrumentation records each projection stage only when requested', () => {
+test('render instrumentation records each stage only when requested', () => {
   const samples = [];
   const work = [];
   let tick = 0;
@@ -19,7 +19,7 @@ test('render instrumentation records each projection stage only when requested',
 
   assert.equal(frame.width, 20);
   assert.deepEqual(samples.map((sample) => sample.stage), [
-    'normalize',
+    'resolve_element',
     'layout',
     'focus',
     'regions',

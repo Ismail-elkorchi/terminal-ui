@@ -2,7 +2,7 @@ import { toAccessibleSnapshot, validateAccessibleSnapshot } from '../accessibili
 import type { RenderNode } from '../renderer/model/index.ts';
 import { defaultTheme, defineTheme, isTerminalTheme } from '../theme/index.ts';
 import { dirtyRegionsForRegionChanges } from '../renderer/internal/dirty-regions.ts';
-import { diffFrames, renderElementProjection } from '../renderer/internal/render.ts';
+import { diffFrames, renderElementInternal } from '../renderer/internal/render.ts';
 import { planTerminalFrameOutput } from '../renderer/internal/terminal-frame-planner.ts';
 import { defaultTuiLifecyclePolicy } from './run-configuration.ts';
 import { requireCommittedTerminalWrite } from '../host/write-receipt.ts';
@@ -37,21 +37,23 @@ export function renderCurrentFrame<TState, TMessage>(
   stateVersion: number,
   commitId: string
 ): RenderCommitCandidate<TMessage> {
-  const projection = renderElementProjection(app.definition.view(state, context), context.viewport, {
+  const renderResult = renderElementInternal(app.definition.view(state, context), context.viewport, {
     ...(focusPath === undefined ? {} : { focusPath }),
     theme,
     widthProfile: context.capabilities.unicode.widthProfile
   });
-  const accessibility = appAccessibility(app, state, projection.frame);
-  const frame = accessibility === projection.frame.accessibility ? projection.frame : { ...projection.frame, accessibility };
+  const accessibility = appAccessibility(app, state, renderResult.frame);
+  const frame = accessibility === renderResult.frame.accessibility
+    ? renderResult.frame
+    : { ...renderResult.frame, accessibility };
   return {
     commitId,
     stateVersion,
     themeFingerprint: theme.fingerprint,
     viewport: context.viewport,
-    node: projection.node,
-    layout: projection.layout,
-    regions: projection.regions,
+    node: renderResult.node,
+    layout: renderResult.layout,
+    regions: renderResult.regions,
     frame,
     theme
   };

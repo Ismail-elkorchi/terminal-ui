@@ -154,7 +154,7 @@ export {
 export type {
   RenderElementOptions,
   RenderInstrumentation,
-  RenderProjectionStage,
+  RenderStage,
   RenderStageMeasurement
 } from './internal/render.ts';
 export {

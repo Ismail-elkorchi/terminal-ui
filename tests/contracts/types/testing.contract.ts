@@ -14,9 +14,9 @@ type TestingModule = typeof import('@ismail-elkorchi/terminal-ui/testing');
 
 // @ts-expect-error interaction steps are discriminated
 const invalidScript: InteractionScript = { id: 'invalid', steps: [{ kind: 'sleep', ms: 1 }] };
-// @ts-expect-error private render projections are not part of the testing package
-type PrivateRenderProjection = TestingModule['RenderElementProjection'];
+// @ts-expect-error private runtime render results are not part of the testing package
+type PrivateRenderResult = TestingModule['InternalRenderResult'];
 
 void result;
 void invalidScript;
-void (undefined as unknown as PrivateRenderProjection);
+void (undefined as unknown as PrivateRenderResult);

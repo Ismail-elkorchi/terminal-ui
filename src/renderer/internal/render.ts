@@ -87,8 +87,8 @@ export interface RenderElementOptions {
   readonly instrumentation?: RenderInstrumentation;
 }
 
-export type RenderProjectionStage =
-  | 'normalize'
+export type RenderStage =
+  | 'resolve_element'
   | 'layout'
   | 'focus'
   | 'regions'
@@ -100,7 +100,7 @@ export type RenderProjectionStage =
   | 'snapshot';
 
 export interface RenderStageMeasurement {
-  readonly stage: RenderProjectionStage;
+  readonly stage: RenderStage;
   readonly durationMs: number;
 }
 
@@ -112,7 +112,7 @@ export interface RenderInstrumentation {
 
 export type { RenderWorkInstrumentation, RenderWorkKind, RenderWorkMeasurement } from '../model/instrumentation.ts';
 
-export interface RenderElementProjection<TMessage = unknown> {
+export interface InternalRenderResult<TMessage = unknown> {
   readonly node: RenderNode<TMessage>;
   readonly viewport: ViewportSize;
   readonly theme: TerminalTheme;
@@ -127,15 +127,15 @@ export function renderElementFrame(
   viewport: ViewportSize,
   options: RenderElementOptions = {}
 ): Frame {
-  return renderElementProjection(element, viewport, options).frame;
+  return renderElementInternal(element, viewport, options).frame;
 }
 
-export function renderElementProjection<TMessage>(
+export function renderElementInternal<TMessage>(
   element: Element<TMessage>,
   viewport: ViewportSize,
   options: RenderElementOptions = {}
-): RenderElementProjection<TMessage> {
-  const renderNode = measureRenderStage(options.instrumentation, 'normalize', () => toRenderNode(element));
+): InternalRenderResult<TMessage> {
+  const renderNode = measureRenderStage(options.instrumentation, 'resolve_element', () => toRenderNode(element));
   recordRenderWork(options.instrumentation, { kind: 'authored_nodes', count: renderNodeCount(renderNode) });
   const environment = createRenderEnvironment({
     viewport,
@@ -215,7 +215,7 @@ function visibleLayoutNodeCount(node: LayoutNode): number {
 
 function measureRenderStage<TValue>(
   instrumentation: RenderInstrumentation | undefined,
-  stage: RenderProjectionStage,
+  stage: RenderStage,
   operation: () => TValue
 ): TValue {
   if (instrumentation === undefined) return operation();
@@ -240,7 +240,7 @@ export function renderElementRegions<TMessage>(
   viewport: ViewportSize,
   options: RenderElementOptions = {}
 ): readonly RenderRegion<TMessage>[] {
-  return renderElementProjection(element, viewport, options).regions;
+  return renderElementInternal(element, viewport, options).regions;
 }
 
 function renderLayoutRegions<TMessage>(

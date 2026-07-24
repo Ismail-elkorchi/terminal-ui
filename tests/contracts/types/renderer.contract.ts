@@ -8,12 +8,16 @@ import {
   type FrameCellSource,
   type Frame,
   type Rect,
+  type RenderStage,
   type RenderSpan
 } from '@ismail-elkorchi/terminal-ui/renderer';
 
 const renderSpan: RenderSpan = span('ready', { style: { bold: true } });
 const frame: Frame = renderElementFrame(text('Ready'), { columns: 20, rows: 2 });
 const plain = renderFramePlain(frame);
+const renderStage: RenderStage = 'resolve_element';
+// @ts-expect-error resolving an opaque element is not a normalization stage
+const removedRenderStage: RenderStage = 'normalize';
 
 // @ts-expect-error render bounds use terminal cell numbers
 renderElementFrame(text('Invalid'), { columns: '20', rows: 2 });
@@ -49,6 +53,8 @@ const privateRenderNode = frame.node;
 const privateRegions = frame.regions;
 
 void renderSpan;
+void renderStage;
+void removedRenderStage;
 void plain;
 void invalidInteractionState;
 void validInteractionState;
