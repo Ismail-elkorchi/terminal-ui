@@ -218,10 +218,10 @@ function updateWorkspace(
     case 'palette':
       return updateResult({
         ...state,
-        palette: { ...state.palette, ...paletteReducer(state.palette, message.action, { index: workspacePaletteIndex }) }
+        palette: { ...state.palette, ...paletteReducer(state.palette, message.action, { paletteIndex: workspacePaletteIndex }) }
       });
     case 'acceptPalette': {
-      const selected = message.value ?? selectedPaletteEntry({ index: workspacePaletteIndex, state: state.palette })?.value;
+      const selected = message.value ?? selectedPaletteEntry({ paletteIndex: workspacePaletteIndex, state: state.palette })?.value;
       return updateResult(selected === undefined ? state : applyCommand({
         ...state,
         palette: { ...state.palette, open: false, used: true },
@@ -407,7 +407,7 @@ function paletteLayer(state: WorkspaceState) {
   return surface(palette({
     id: 'workspace-palette',
     title: 'Commands',
-    index: workspacePaletteIndex,
+    paletteIndex: workspacePaletteIndex,
     ...palettePresentation(state.palette),
     onAction: (action): WorkspaceMessage => ({ kind: 'palette', action }),
     onSelect: (entry): WorkspaceMessage => ({ kind: 'acceptPalette', source: 'pointer', value: entry.value }),

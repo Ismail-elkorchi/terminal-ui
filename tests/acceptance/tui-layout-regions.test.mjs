@@ -43,11 +43,11 @@ function workspaceView(state) {
           id: 'palette',
           title: 'Actions',
           query: state.query,
-          index: preparePaletteIndex([
+          paletteIndex: preparePaletteIndex([
             { id: 'open', label: 'Open', value: 'open' },
             { id: 'quit', label: 'Quit', value: 'quit' }
           ]),
-          selected: 0
+          selectedIndex: 0
         })
       }
     ]

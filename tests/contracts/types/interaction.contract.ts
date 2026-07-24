@@ -17,7 +17,7 @@ const bounds = placeAnchoredSurface({
   placement
 });
 const selected = resolveSelectedText({
-  sources: [{ id: 'document', text: 'terminal', selection: { start: 0, end: 4 } }]
+  sources: [{ id: 'document', text: 'terminal', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
 });
 const ignored = ignoreMessage();
 const pointerState: PointerInteractionState = { hoveredTargetId: 'save:control' };

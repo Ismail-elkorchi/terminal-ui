@@ -22,7 +22,7 @@ export function createTerminalTextIndex(
     bytes: byteOffsets[byteOffsets.length - 1] ?? 0,
     graphemeIndexToCodeUnitOffset(index) {
       const bounded = clampIndex(index, graphemes.length);
-      return graphemes[bounded]?.start ?? text.length;
+      return graphemes[bounded]?.startOffset ?? text.length;
     },
     codeUnitOffsetToGraphemeIndex(offset) {
       return offsetToGraphemeIndex(offset, codeUnitOffsets, text.length);
@@ -60,10 +60,10 @@ function visualColumnOffsets(graphemes: readonly { readonly cells: number }[]): 
 }
 
 function graphemeCodeUnitOffsets(
-  graphemes: readonly { readonly start: number }[],
+  graphemes: readonly { readonly startOffset: number }[],
   textLength: number
 ): readonly number[] {
-  return [...graphemes.map((segment) => segment.start), textLength];
+  return [...graphemes.map((segment) => segment.startOffset), textLength];
 }
 
 function utf8ByteOffsets(graphemes: readonly { readonly text: string }[]): readonly number[] {

@@ -38,8 +38,8 @@ export interface ScrollbackSearchMatch {
   readonly occurrenceIndex: number;
   readonly field: ScrollbackSearchField['kind'];
   readonly fieldKey?: string;
-  readonly start: number;
-  readonly end: number;
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
 }
 
 export interface ScrollbackHistorySegment {
@@ -115,17 +115,19 @@ export function scrollbackHistoryRecordMatchesPrepared(
     for (const match of findPreparedTextMatches(index, query)) {
       const occurrenceIndex = matches.length;
       const fieldKey = 'key' in field ? field.key : undefined;
-      const start = index.textIndex.graphemeIndexToCodeUnitOffset(match.startGrapheme);
-      const end = index.textIndex.graphemeIndexToCodeUnitOffset(match.endGrapheme);
+      const startOffset = index.textIndex.graphemeIndexToCodeUnitOffset(match.startGraphemeIndex);
+      const endOffsetExclusive = index.textIndex.graphemeIndexToCodeUnitOffset(
+        match.endGraphemeIndexExclusive
+      );
       matches.push(Object.freeze({
-        id: `${record.item.id}:${String(occurrenceIndex)}:${field.kind}:${fieldKey ?? ''}:${String(start)}:${String(end)}`,
+        id: `${record.item.id}:${String(occurrenceIndex)}:${field.kind}:${fieldKey ?? ''}:${String(startOffset)}:${String(endOffsetExclusive)}`,
         itemId: record.item.id,
         itemIndex: record.itemIndex,
         occurrenceIndex,
         field: field.kind,
         ...(fieldKey === undefined ? {} : { fieldKey }),
-        start,
-        end
+        startOffset,
+        endOffsetExclusive
       }));
     }
   }

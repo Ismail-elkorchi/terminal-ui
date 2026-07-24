@@ -9,15 +9,15 @@ export interface TextDocument {
 }
 
 export interface TextDocumentLine {
-  readonly index: number;
-  readonly start: number;
-  readonly end: number;
+  readonly lineIndex: number;
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
   readonly text: string;
 }
 
 export interface TextDocumentChange {
   readonly document: TextDocument;
-  readonly replaced: { readonly start: number; readonly end: number };
+  readonly replaced: { readonly startOffset: number; readonly endOffsetExclusive: number };
   readonly insertedLength: number;
 }
 
@@ -87,17 +87,25 @@ export function textDocumentSlice(
 
 export function textDocumentEdit(
   document: TextDocument,
-  range: { readonly start: number; readonly end: number },
+  range: { readonly startOffset: number; readonly endOffsetExclusive: number },
   insertion: string
 ): TextDocumentChange {
-  const start = normalizeTextDocumentOffset(document, Math.min(range.start, range.end));
-  const end = normalizeTextDocumentOffset(document, Math.max(range.start, range.end));
+  const start = normalizeTextDocumentOffset(document, Math.min(range.startOffset, range.endOffsetExclusive));
+  const end = normalizeTextDocumentOffset(document, Math.max(range.startOffset, range.endOffsetExclusive));
   const sanitized = sanitizeTerminalText(insertion).text;
   if (start === end && sanitized.length === 0) {
-    return { document, replaced: { start, end }, insertedLength: 0 };
+    return {
+      document,
+      replaced: { startOffset: start, endOffsetExclusive: end },
+      insertedLength: 0
+    };
   }
   if (sanitized === textDocumentSlice(document, start, end)) {
-    return { document, replaced: { start, end }, insertedLength: sanitized.length };
+    return {
+      document,
+      replaced: { startOffset: start, endOffsetExclusive: end },
+      insertedLength: sanitized.length
+    };
   }
   const root = dataFor(document).root;
   const [before, remainder] = split(root, start);
@@ -105,19 +113,26 @@ export function textDocumentEdit(
   const next = concat(concat(before, treeFromText(sanitized)), after);
   return {
     document: createDocument(next),
-    replaced: { start, end },
+    replaced: { startOffset: start, endOffsetExclusive: end },
     insertedLength: sanitized.length
   };
 }
 
-export function textDocumentLineAt(document: TextDocument, index: number): TextDocumentLine | undefined {
+export function textDocumentLineAt(document: TextDocument, lineIndex: number): TextDocumentLine | undefined {
   const lineCount = textDocumentLineCount(document);
-  if (!Number.isInteger(index) || index < 0 || index >= lineCount) return undefined;
+  if (!Number.isInteger(lineIndex) || lineIndex < 0 || lineIndex >= lineCount) return undefined;
   const root = dataFor(document).root;
-  const start = index === 0 ? 0 : offsetAfterLineBreak(root, index - 1);
-  const afterBreak = index < root.lineBreaks ? offsetAfterLineBreak(root, index) : root.length;
-  const end = index < root.lineBreaks ? Math.max(start, afterBreak - 1) : afterBreak;
-  return { index, start, end, text: textDocumentSlice(document, start, end) };
+  const startOffset = lineIndex === 0 ? 0 : offsetAfterLineBreak(root, lineIndex - 1);
+  const afterBreak = lineIndex < root.lineBreaks ? offsetAfterLineBreak(root, lineIndex) : root.length;
+  const endOffsetExclusive = lineIndex < root.lineBreaks
+    ? Math.max(startOffset, afterBreak - 1)
+    : afterBreak;
+  return {
+    lineIndex,
+    startOffset,
+    endOffsetExclusive,
+    text: textDocumentSlice(document, startOffset, endOffsetExclusive)
+  };
 }
 
 export function textDocumentLineIndexAtOffset(document: TextDocument, offset: number): number {
@@ -130,8 +145,8 @@ export function normalizeTextDocumentOffset(document: TextDocument, offset: numb
   const bounded = clampOffset(offset, length);
   const lineIndex = textDocumentLineIndexAtOffset(document, bounded);
   const line = textDocumentLineAt(document, lineIndex);
-  if (line === undefined || bounded > line.end) return bounded;
-  return line.start + normalizeTextCursor(line.text, bounded - line.start);
+  if (line === undefined || bounded > line.endOffsetExclusive) return bounded;
+  return line.startOffset + normalizeTextCursor(line.text, bounded - line.startOffset);
 }
 
 export function normalizeTextDocumentSelection(
@@ -139,11 +154,13 @@ export function normalizeTextDocumentSelection(
   selection: TextSelection | undefined
 ): TextSelection | undefined {
   if (selection === undefined) return undefined;
-  const first = normalizeTextDocumentOffset(document, selection.start);
-  const second = normalizeTextDocumentOffset(document, selection.end);
+  const first = normalizeTextDocumentOffset(document, selection.startOffset);
+  const second = normalizeTextDocumentOffset(document, selection.endOffsetExclusive);
   const start = Math.min(first, second);
   const end = Math.max(first, second);
-  return start === end ? undefined : { start, end };
+  return start === end
+    ? undefined
+    : { startOffset: start, endOffsetExclusive: end };
 }
 
 export function normalizeTextPosition(document: TextDocument, position: TextPosition): TextPosition {
@@ -178,14 +195,14 @@ export function textDocumentSelectionRange(
   document: TextDocument,
   selection: TextDocumentSelection | undefined,
   caret: TextCaret
-): { readonly start: number; readonly end: number } {
+): { readonly startOffset: number; readonly endOffsetExclusive: number } {
   const focus = normalizeTextCaret(document, caret).position.offset;
-  if (selection === undefined) return { start: focus, end: focus };
+  if (selection === undefined) return { startOffset: focus, endOffsetExclusive: focus };
   const normalized = normalizeTextDocumentSelectionModel(document, selection);
-  if (normalized === undefined) return { start: focus, end: focus };
+  if (normalized === undefined) return { startOffset: focus, endOffsetExclusive: focus };
   return {
-    start: Math.min(normalized.anchor.offset, normalized.focus.offset),
-    end: Math.max(normalized.anchor.offset, normalized.focus.offset)
+    startOffset: Math.min(normalized.anchor.offset, normalized.focus.offset),
+    endOffsetExclusive: Math.max(normalized.anchor.offset, normalized.focus.offset)
   };
 }
 
@@ -208,12 +225,15 @@ function treeFromText(text: string): PieceNode {
   return balancedTree(leaves, 0, leaves.length);
 }
 
-function balancedTree(nodes: readonly PieceNode[], start: number, end: number): PieceNode {
-  const count = end - start;
+function balancedTree(nodes: readonly PieceNode[], startIndex: number, endIndexExclusive: number): PieceNode {
+  const count = endIndexExclusive - startIndex;
   if (count <= 0) return EMPTY_LEAF;
-  if (count === 1) return nodes[start] ?? EMPTY_LEAF;
-  const middle = start + Math.floor(count / 2);
-  return branch(balancedTree(nodes, start, middle), balancedTree(nodes, middle, end));
+  if (count === 1) return nodes[startIndex] ?? EMPTY_LEAF;
+  const middle = startIndex + Math.floor(count / 2);
+  return branch(
+    balancedTree(nodes, startIndex, middle),
+    balancedTree(nodes, middle, endIndexExclusive)
+  );
 }
 
 function leaf(text: string): PieceLeaf {
@@ -279,14 +299,22 @@ function split(node: PieceNode, offset: number): readonly [PieceNode, PieceNode]
   return [concat(node.left, before), after];
 }
 
-function collectSlice(node: PieceNode, start: number, end: number, output: string[]): void {
-  if (start >= end || end <= 0 || start >= node.length) return;
+function collectSlice(node: PieceNode, startOffset: number, endOffsetExclusive: number, output: string[]): void {
+  if (startOffset >= endOffsetExclusive || endOffsetExclusive <= 0 || startOffset >= node.length) return;
   if (node.kind === 'leaf') {
-    output.push(node.text.slice(Math.max(0, start), Math.min(node.length, end)));
+    output.push(node.text.slice(
+      Math.max(0, startOffset),
+      Math.min(node.length, endOffsetExclusive)
+    ));
     return;
   }
-  collectSlice(node.left, start, Math.min(end, node.left.length), output);
-  collectSlice(node.right, start - node.left.length, end - node.left.length, output);
+  collectSlice(node.left, startOffset, Math.min(endOffsetExclusive, node.left.length), output);
+  collectSlice(
+    node.right,
+    startOffset - node.left.length,
+    endOffsetExclusive - node.left.length,
+    output
+  );
 }
 
 function lineBreaksBefore(node: PieceNode, offset: number): number {

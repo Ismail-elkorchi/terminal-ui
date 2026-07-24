@@ -19,11 +19,11 @@ const index = preparePaletteIndex(entries);
 
 void test('paletteReducer owns query selection preview and multi-select state', () => {
   const initial = { query: '', selectedIndex: 0, selectedIds: [] };
-  const queried = paletteReducer(initial, { kind: 'setQuery', query: 'file' }, { index });
-  const moved = paletteReducer(queried, { kind: 'moveSelection', delta: -1 }, { index });
-  const selected = paletteReducer(moved, { kind: 'toggleSelected', id: 'close' }, { index });
-  const preview = paletteReducer(selected, { kind: 'preview', id: 'close' }, { index });
-  const cleared = paletteReducer(preview, { kind: 'clearSelected' }, { index });
+  const queried = paletteReducer(initial, { kind: 'setQuery', query: 'file' }, { paletteIndex: index });
+  const moved = paletteReducer(queried, { kind: 'moveSelection', delta: -1 }, { paletteIndex: index });
+  const selected = paletteReducer(moved, { kind: 'toggleSelected', id: 'close' }, { paletteIndex: index });
+  const preview = paletteReducer(selected, { kind: 'preview', id: 'close' }, { paletteIndex: index });
+  const cleared = paletteReducer(preview, { kind: 'clearSelected' }, { paletteIndex: index });
 
   assert.deepEqual(queried, { query: 'file', selectedIndex: 0, selectedIds: [] });
   assert.equal(moved.selectedIndex, 1);
@@ -34,20 +34,20 @@ void test('paletteReducer owns query selection preview and multi-select state', 
 
 void test('paletteReducer can edit query and move within filtered entries', () => {
   const initial = { query: '', selectedIndex: 0, selectedIds: [] };
-  const typed = paletteReducer(initial, { kind: 'insertQuery', text: 'file🙂' }, { index });
-  const shortened = paletteReducer(typed, { kind: 'deleteQueryBackward' }, { index });
-  const moved = paletteReducer(shortened, { kind: 'moveSelection', delta: -1 }, { index });
+  const typed = paletteReducer(initial, { kind: 'insertQuery', text: 'file🙂' }, { paletteIndex: index });
+  const shortened = paletteReducer(typed, { kind: 'deleteQueryBackward' }, { paletteIndex: index });
+  const moved = paletteReducer(shortened, { kind: 'moveSelection', delta: -1 }, { paletteIndex: index });
 
   assert.deepEqual(typed, { query: 'file🙂', selectedIndex: 0, selectedIds: [] });
   assert.deepEqual(shortened, { query: 'file', selectedIndex: 0, selectedIds: [] });
   assert.equal(moved.selectedIndex, 1);
-  assert.deepEqual(palettePresentation(moved), { query: 'file', selected: 1 });
+  assert.deepEqual(palettePresentation(moved), { query: 'file', selectedIndex: 1 });
 });
 
 void test('selectedPaletteEntry returns the filtered selected entry from palette state', () => {
   const state = { query: 'file', selectedIndex: 1, selectedIds: [] };
 
-  assert.equal(selectedPaletteEntry({ index, state })?.id, 'close');
+  assert.equal(selectedPaletteEntry({ paletteIndex: index, state })?.id, 'close');
 });
 
 void test('groupPaletteEntries preserves first-seen group order', () => {

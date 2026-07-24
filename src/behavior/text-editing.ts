@@ -167,7 +167,10 @@ export function applyTextPointerAction(
   const offset = normalizeTextCursor(state.text, action.offset);
   if (action.kind === 'placeCaret') return { text: state.text, cursor: offset };
   const anchor = normalizeTextCursor(state.text, action.anchor);
-  const selection = normalizeTextSelection(state.text, { start: anchor, end: offset });
+  const selection = normalizeTextSelection(state.text, {
+    startOffset: anchor,
+    endOffsetExclusive: offset
+  });
   return {
     text: state.text,
     cursor: offset,
@@ -181,5 +184,7 @@ export function selectionFromTextPointerAction(
   if (action.kind === 'placeCaret') return undefined;
   const start = Math.max(0, Math.floor(Math.min(action.anchor, action.offset)));
   const end = Math.max(start, Math.floor(Math.max(action.anchor, action.offset)));
-  return start === end ? undefined : { start, end };
+  return start === end
+    ? undefined
+    : { startOffset: start, endOffsetExclusive: end };
 }

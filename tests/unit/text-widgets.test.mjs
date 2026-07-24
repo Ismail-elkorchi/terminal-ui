@@ -152,7 +152,7 @@ test('textArea renders multiline windows and exposes cursor/accessibility state'
 test('editable text controls expose source metadata for chrome value placeholder and selection', () => {
   const inputFrame = renderElementFrame(textInput({
     id: 'email',
-    presentation: { value: 'abc', cursor: 0, selection: { start: 1, end: 2 } },
+    presentation: { value: 'abc', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 2 } },
   }), { columns: 12, rows: 1 });
   const placeholderFrame = renderElementFrame(textInput({
     id: 'empty',
@@ -178,7 +178,7 @@ test('text widgets map Unicode cursor positions through the shared text contract
   const value = 'a🙂界b';
   const textInputFrame = renderElementFrame(textInput({
     id: 'unicode-input',
-    presentation: { value, cursor: 'a🙂'.length, selection: { start: 1, end: 'a🙂'.length } }
+    presentation: { value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length } }
   }), { columns: 12, rows: 1 }, { focusPath: ['unicode-input'] });
   const secondaryInputFrame = renderElementFrame(textInput({
     id: 'unicode-field',
@@ -187,7 +187,7 @@ test('text widgets map Unicode cursor positions through the shared text contract
   const commandFrame = renderElementFrame(commandInput({
     id: 'unicode-command',
     prompt: '> ',
-    presentation: { value, cursor: 'a🙂'.length, selection: { start: 1, end: 'a🙂'.length }, suggestions: [] }
+    presentation: { value, cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }, suggestions: [] }
   }), { columns: 18, rows: 1 }, { focusPath: ['unicode-command'] });
 
   assert.deepEqual(cursorPosition(textInputFrame.cursor), { row: 1, column: 7 });
@@ -288,8 +288,8 @@ test('textArea renders caller-controlled highlight ranges without overriding sel
       selection: textDocumentSelectionBetween(0, 5)
     },
     highlights: [
-      { start: 6, end: 10, label: 'search.match' },
-      { start: 11, end: 16, label: 'custom.match', style: { fg: { kind: 'theme', token: 'status.warning' }, bold: true } }
+      { startOffset: 6, endOffsetExclusive: 10, label: 'search.match' },
+      { startOffset: 11, endOffsetExclusive: 16, label: 'custom.match', style: { fg: { kind: 'theme', token: 'status.warning' }, bold: true } }
     ]
   }), { columns: 24, rows: 1 });
   const selected = frame.cells.find((cell) => cell.text === 'a');
@@ -347,7 +347,7 @@ test('editable text controls remain readable in high contrast and no-color proje
   const widget = column([
     textInput({
       id: 'contrast-input',
-      presentation: { value: 'alpha', cursor: 0, selection: { start: 1, end: 4 } },
+      presentation: { value: 'alpha', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 4 } },
       error: 'Invalid value'
     }),
     commandInput({

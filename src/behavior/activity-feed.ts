@@ -14,7 +14,7 @@ export interface ActivityFeedReducerOptions {
 
 export interface ActivityFeedVisibleBlock {
   readonly block: StructuredBlock;
-  readonly index: number;
+  readonly itemIndex: number;
 }
 
 export interface ActivityFeedPresentation {
@@ -67,8 +67,8 @@ export function visibleActivityFeedBlocks(
   blocks: readonly StructuredBlock[],
   state: Pick<ActivityFeedState, 'expandedIds' | 'collapsedIds'>
 ): readonly ActivityFeedVisibleBlock[] {
-  return blocks.map((block, index) => ({
-    index,
+  return blocks.map((block, itemIndex) => ({
+    itemIndex,
     block: {
       ...block,
       collapsed: activityBlockCollapsed(block, state)

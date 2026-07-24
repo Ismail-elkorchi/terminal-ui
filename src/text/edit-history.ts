@@ -113,5 +113,5 @@ function sameSelection(
   right: TextEditBuffer['selection']
 ): boolean {
   if (left === undefined || right === undefined) return left === right;
-  return left.start === right.start && left.end === right.end;
+  return left.startOffset === right.startOffset && left.endOffsetExclusive === right.endOffsetExclusive;
 }

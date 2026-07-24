@@ -247,7 +247,7 @@ export function paginator(options: PaginatorOptions<unknown>): Element<unknown> 
     ...requiredId(options.id, 'paginator'),
     kind: 'paginator',
     props: {
-      page: options.page,
+      pageNumber: options.pageNumber,
       pageCount: options.pageCount,
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })

@@ -8,7 +8,7 @@ import { extractTextSelection } from '../../dist/text/index.js';
 test('extractTextSelection is pure and sanitizes terminal controls by default', () => {
   const selected = extractTextSelection({
     text: 'alpha \u001B[31mbravo\u001B[0m charlie',
-    selection: { start: 6, end: 17 }
+    selection: { startOffset: 6, endOffsetExclusive: 17 }
   });
 
   assert.equal(selected, 'bravo charl');

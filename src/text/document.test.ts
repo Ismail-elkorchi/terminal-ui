@@ -22,15 +22,15 @@ void test('text documents are opaque retained values', () => {
 
 void test('piece-tree edits preserve content and document identity for no-op replacements', () => {
   const document = prepareTextDocument('alpha\nbeta\ngamma');
-  const noChange = textDocumentEdit(document, { start: 6, end: 10 }, 'beta');
-  const changed = textDocumentEdit(document, { start: 6, end: 10 }, 'BRAVO');
+  const noChange = textDocumentEdit(document, { startOffset: 6, endOffsetExclusive: 10 }, 'beta');
+  const changed = textDocumentEdit(document, { startOffset: 6, endOffsetExclusive: 10 }, 'BRAVO');
 
   assert.equal(noChange.document, document);
   assert.equal(textDocumentText(changed.document), 'alpha\nBRAVO\ngamma');
   assert.deepEqual(textDocumentLineAt(changed.document, 1), {
-    index: 1,
-    start: 6,
-    end: 11,
+    lineIndex: 1,
+    startOffset: 6,
+    endOffsetExclusive: 11,
     text: 'BRAVO'
   });
 });
@@ -40,7 +40,10 @@ void test('single-character edits in large documents preserve exact text geometr
   const source = lines.join('\n');
   const document = prepareTextDocument(source);
   const start = source.indexOf('line-10000') + 5;
-  const changed = textDocumentEdit(document, { start, end: start + 1 }, 'X').document;
+  const changed = textDocumentEdit(document, {
+    startOffset: start,
+    endOffsetExclusive: start + 1
+  }, 'X').document;
 
   assert.equal(textDocumentLineCount(changed), lines.length);
   assert.equal(textDocumentLineAt(changed, 10_000)?.text, 'line-X0000');

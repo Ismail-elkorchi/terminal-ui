@@ -6,9 +6,9 @@ export interface MeasuredWindowItem<TValue> {
 
 export interface MeasuredWindowEntry<TValue> {
   readonly item: MeasuredWindowItem<TValue>;
-  readonly index: number;
-  readonly startRow: number;
-  readonly endRow: number;
+  readonly itemIndex: number;
+  readonly startRowIndex: number;
+  readonly endRowIndexExclusive: number;
   readonly rowOffset: number;
   readonly clippedRowsBefore: number;
   readonly visibleRows: number;
@@ -27,7 +27,7 @@ export interface MeasuredWindow<TValue> {
   readonly viewportRows: number;
   readonly offsetRow: number;
   readonly startIndex: number;
-  readonly endIndex: number;
+  readonly endIndexExclusive: number;
   readonly omittedBefore: number;
   readonly omittedAfter: number;
 }
@@ -52,33 +52,33 @@ export function measuredWindow<TValue>(input: MeasuredWindowInput<TValue>): Meas
         maxOffset
       );
   const viewportEnd = offsetRow + viewportRows;
-  const entries = items.flatMap((item, index): readonly MeasuredWindowEntry<TValue>[] => {
-    const startRow = starts[index] ?? 0;
-    const endRow = starts[index + 1] ?? startRow;
+  const entries = items.flatMap((item, itemIndex): readonly MeasuredWindowEntry<TValue>[] => {
+    const startRow = starts[itemIndex] ?? 0;
+    const endRow = starts[itemIndex + 1] ?? startRow;
     const visibleStart = Math.max(startRow, offsetRow);
     const visibleEnd = Math.min(endRow, viewportEnd);
     if (visibleEnd <= visibleStart) return [];
     return [{
       item,
-      index,
-      startRow,
-      endRow,
+      itemIndex,
+      startRowIndex: startRow,
+      endRowIndexExclusive: endRow,
       rowOffset: visibleStart - offsetRow,
       clippedRowsBefore: visibleStart - startRow,
       visibleRows: visibleEnd - visibleStart
     }];
   });
-  const startIndex = entries[0]?.index ?? 0;
-  const endIndex = (entries.at(-1)?.index ?? -1) + 1;
+  const startIndex = entries[0]?.itemIndex ?? 0;
+  const endIndexExclusive = (entries.at(-1)?.itemIndex ?? -1) + 1;
   return {
     entries,
     totalRows,
     viewportRows,
     offsetRow,
     startIndex,
-    endIndex,
+    endIndexExclusive,
     omittedBefore: startIndex,
-    omittedAfter: Math.max(0, items.length - endIndex)
+    omittedAfter: Math.max(0, items.length - endIndexExclusive)
   };
 }
 

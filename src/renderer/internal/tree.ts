@@ -313,7 +313,7 @@ function treeProjection(renderNode: TreeRenderNode, height: number): TreeProject
   if (cached?.height === height) return cached.projection;
   const selected = selectedTreeId(renderNode);
   const projection = {
-    totalRows: renderNode.props.view.collection.total,
+    totalRows: renderNode.props.view.collection.totalCount,
     selected,
     window: treeWindow(renderNode, height, selected)
   };
@@ -330,8 +330,8 @@ function treeWindow(renderNode: TreeRenderNode, height: number, selected: string
   });
   return {
     rows: window.rows.map((record) => record.row),
-    start: window.start,
-    end: window.end
+    start: window.startIndex,
+    end: window.endIndexExclusive
   };
 }
 
@@ -345,7 +345,7 @@ function selectedTreeIndex(
   selected: string | undefined
 ): number | undefined {
   if (selected === undefined) return undefined;
-  return collectionRecordById(collection, selected)?.index;
+  return collectionRecordById(collection, selected)?.itemIndex;
 }
 
 function treeDisclosureBounds(bounds: Rect, rowIndex: number, row: TreeVisibleRow): Rect | undefined {

@@ -12,8 +12,8 @@ test('selection interaction resolves the active caller-controlled source', () =>
   const result = resolveSelectedText({
     activeSourceId: 'details',
     sources: [
-      { id: 'table', text: 'alpha beta', selection: { start: 0, end: 5 }, priority: 10 },
-      { id: 'details', label: 'Details', text: 'charlie delta', selection: { start: 8, end: 13 } }
+      { id: 'table', text: 'alpha beta', selection: { startOffset: 0, endOffsetExclusive: 5 }, priority: 10 },
+      { id: 'details', label: 'Details', text: 'charlie delta', selection: { startOffset: 8, endOffsetExclusive: 13 } }
     ]
   });
 
@@ -31,8 +31,8 @@ test('selection interaction falls back to the highest-priority selected source',
   const result = resolveSelectedText({
     activeSourceId: 'missing',
     sources: [
-      { id: 'low', text: 'low value', selection: { start: 0, end: 3 } },
-      { id: 'high', text: 'high value', selection: { start: 0, end: 4 }, priority: 3 }
+      { id: 'low', text: 'low value', selection: { startOffset: 0, endOffsetExclusive: 3 } },
+      { id: 'high', text: 'high value', selection: { startOffset: 0, endOffsetExclusive: 4 }, priority: 3 }
     ]
   });
 
@@ -48,7 +48,7 @@ test('selection interaction falls back to the highest-priority selected source',
 test('selection interaction reports terminal-native delegation as non-copyable app state', () => {
   const result = resolveSelectedText({
     mode: 'terminalNative',
-    sources: [{ id: 'source', text: 'selected', selection: { start: 0, end: 8 } }]
+    sources: [{ id: 'source', text: 'selected', selection: { startOffset: 0, endOffsetExclusive: 8 } }]
   });
 
   assert.equal(result.ok, false);
@@ -61,7 +61,7 @@ test('selection interaction returns a typed diagnostic when no source has select
   const result = resolveSelectedText({
     activeSourceId: 'empty',
     sources: [
-      { id: 'empty', text: 'text', selection: { start: 1, end: 1 } },
+      { id: 'empty', text: 'text', selection: { startOffset: 1, endOffsetExclusive: 1 } },
       { id: 'none', text: 'text' }
     ]
   });
@@ -80,7 +80,7 @@ test('selection interaction writes clipboard text only through explicit policy a
   const result = await copySelectedTextToClipboard({
     host,
     policy: { allow: true },
-    sources: [{ id: 'field', text: 'copy this', selection: { start: 0, end: 4 } }]
+    sources: [{ id: 'field', text: 'copy this', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
   });
 
   assert.equal(result.ok, true);
@@ -94,7 +94,7 @@ test('selection interaction rejects clipboard writes when the host capability is
   const result = await copySelectedTextToClipboard({
     host,
     policy: { allow: true },
-    sources: [{ id: 'field', text: 'copy this', selection: { start: 0, end: 4 } }]
+    sources: [{ id: 'field', text: 'copy this', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
   });
 
   assert.equal(result.ok, false);

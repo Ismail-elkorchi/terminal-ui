@@ -96,12 +96,12 @@ function createTableColumn<TRow, TValue>(
 
 export interface TableCellSelection {
   readonly rowId: string;
-  readonly column?: number;
+  readonly columnIndex?: number;
 }
 
 export interface TextAreaHighlight {
-  readonly start: number;
-  readonly end: number;
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
   readonly label?: string;
   readonly style?: TerminalStyle;
 }
@@ -111,6 +111,6 @@ export interface TextAreaWrapOptions {
 }
 
 export interface TextAreaLineNumberOptions {
-  readonly start?: number;
+  readonly startNumber?: number;
   readonly minWidth?: number;
 }

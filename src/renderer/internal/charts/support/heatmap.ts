@@ -112,12 +112,12 @@ export function heatmapRange(
 
 export function heatmapSelected(
   renderNode: HeatmapNode
-): { readonly row: number; readonly column: number } | undefined {
+): { readonly rowIndex: number; readonly columnIndex: number } | undefined {
   const selected = renderNode.props.selected;
   if (selected === undefined) return undefined;
   return {
-    row: Math.max(0, Math.floor(selected.row)),
-    column: Math.max(0, Math.floor(selected.column))
+    rowIndex: Math.max(0, Math.floor(selected.rowIndex)),
+    columnIndex: Math.max(0, Math.floor(selected.columnIndex))
   };
 }
 

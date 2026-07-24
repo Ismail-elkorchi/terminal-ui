@@ -176,7 +176,7 @@ export function commandInput(options: CommandInputOptions<unknown>): Element<unk
       ...(options.footer === undefined ? {} : { footer: options.footer }),
       ...(options.matchQuery === undefined ? {} : { matchQuery: options.matchQuery }),
       suggestions: presentation.suggestions,
-      ...(presentation.selectedSuggestion === undefined ? {} : { selectedSuggestion: presentation.selectedSuggestion }),
+      ...(presentation.selectedSuggestionIndex === undefined ? {} : { selectedSuggestionIndex: presentation.selectedSuggestionIndex }),
       ...(presentation.historyIndex === undefined ? {} : { historyIndex: presentation.historyIndex }),
       ...(options.display === undefined ? {} : { display: options.display }),
       ...(action === undefined ? {} : { toActionMessage: action })
@@ -238,11 +238,11 @@ export function palette<TValue>(options: PaletteOptions<TValue, unknown>): Eleme
     ...requiredId(options.id, 'palette'),
     kind: 'palette',
     props: {
-      index: options.index,
+      paletteIndex: options.paletteIndex,
       ...(options.title === undefined ? {} : { title: options.title }),
       ...(options.query === undefined ? {} : { query: options.query }),
       ...(toMessage === undefined ? {} : { toMessage }),
-      ...(options.selected === undefined ? {} : { selected: options.selected }),
+      ...(options.selectedIndex === undefined ? {} : { selectedIndex: options.selectedIndex }),
       ...(options.selectedId === undefined ? {} : { selectedId: options.selectedId }),
       ...(options.scroll === undefined ? {} : { scroll: options.scroll }),
       ...(options.scrollbar === undefined ? {} : { scrollbar: options.scrollbar }),

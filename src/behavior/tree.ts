@@ -186,10 +186,10 @@ export function prepareTreeRows<TMetadata extends Readonly<Record<string, unknow
   rows: readonly TreeVisibleRow<TMetadata>[],
   window?: CollectionWindow
 ): TreeCollection<TMetadata> {
-  const start = window?.start ?? 0;
+  const startIndex = window?.startIndex ?? 0;
   const records = rows.map((row, offset): TreeCollectionRecord<TMetadata> => ({
     id: row.node.id,
-    index: start + offset,
+    itemIndex: startIndex + offset,
     row: Object.freeze({ ...row, path: Object.freeze([...row.path]) })
   }));
   return window === undefined
@@ -245,7 +245,7 @@ function selectTreeNode<TMetadata extends Readonly<Record<string, unknown>>>(
   if (selectedRecord === undefined) return state;
   const scroll = state.scroll === undefined
     ? undefined
-    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: selectedRecord.index });
+    : scrollReducer(state.scroll, { kind: 'itemIntoView', itemIndex: selectedRecord.itemIndex });
   return { ...state, selected: id, ...(scroll === undefined ? {} : { scroll }) };
 }
 

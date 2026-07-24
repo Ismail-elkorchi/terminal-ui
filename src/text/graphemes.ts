@@ -22,8 +22,8 @@ export function segmentGraphemesForMeasurement(
   }
   const segments = Object.freeze([...segmenter.segment(text)].map((segment) => Object.freeze({
     text: segment.segment,
-    start: segment.index,
-    end: segment.index + segment.segment.length,
+    startOffset: segment.index,
+    endOffsetExclusive: segment.index + segment.segment.length,
     cells: measureGraphemeCells(segment.segment, options)
   })));
   if (cacheKey !== undefined) {

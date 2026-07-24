@@ -15,13 +15,13 @@ type ChartNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'chart'>;
 export function selectedChartPoint(
   renderNode: ChartNode,
   series: readonly ChartSeries[]
-): { readonly series: string; readonly point: number } | undefined {
+): { readonly series: string; readonly pointIndex: number } | undefined {
   const selected = renderNode.props.selected;
   if (selected === undefined) return undefined;
   const item = series.find((current) => current.id === selected.series);
   if (item === undefined) return undefined;
-  const point = Math.max(0, Math.floor(selected.point));
-  return point < item.points.length ? { series: selected.series, point } : undefined;
+  const pointIndex = Math.max(0, Math.floor(selected.pointIndex));
+  return pointIndex < item.points.length ? { series: selected.series, pointIndex } : undefined;
 }
 
 export function chartPointPosition(

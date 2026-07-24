@@ -47,18 +47,20 @@ export function dataWindow(input: DataWindowInput): DataWindow {
         viewportColumns
       });
   const window = visibleWindowFromScroll(scroll);
-  const selectedVisibleIndex = selectedIndex === undefined || selectedIndex < window.start || selectedIndex >= window.end
+  const selectedVisibleIndex = selectedIndex === undefined
+    || selectedIndex < window.startIndex
+    || selectedIndex >= window.endIndexExclusive
     ? undefined
-    : selectedIndex - window.start;
+    : selectedIndex - window.startIndex;
   return {
     totalRows,
-    start: window.start,
-    end: window.end,
+    startIndex: window.startIndex,
+    endIndexExclusive: window.endIndexExclusive,
     ...(selectedIndex === undefined ? {} : { selectedIndex }),
     ...(selectedVisibleIndex === undefined ? {} : { selectedVisibleIndex }),
     offsetColumn: scroll.offsetColumn,
-    omittedBefore: window.start,
-    omittedAfter: Math.max(0, totalRows - window.end)
+    omittedBefore: window.startIndex,
+    omittedAfter: Math.max(0, totalRows - window.endIndexExclusive)
   };
 }
 
@@ -67,7 +69,7 @@ export function rowWindow<TValue>(
   input: Omit<DataWindowInput, 'totalRows'>
 ): DataWindow & { readonly rows: readonly TValue[] } {
   const window = dataWindow({ ...input, totalRows: rows.length });
-  return { ...window, rows: rows.slice(window.start, window.end) };
+  return { ...window, rows: rows.slice(window.startIndex, window.endIndexExclusive) };
 }
 
 export function projectedRowWindow<TRecord extends CollectionRecord>(
@@ -80,30 +82,38 @@ export function projectedRowWindow<TRecord extends CollectionRecord>(
   const viewportColumns = nonNegativeInteger(input.viewportColumns ?? input.scroll?.viewportColumns ?? contentColumns);
   const requested = dataWindow({
     ...input,
-    totalRows: projection.total,
+    totalRows: projection.totalCount,
     ...(input.scroll === undefined ? {} : { scroll: input.scroll }),
     contentColumns,
     viewportColumns
   });
-  const availableEnd = projection.start + projection.records.length;
-  const lastStart = Math.max(projection.start, availableEnd - Math.min(viewportRows, projection.records.length));
-  const start = Math.max(projection.start, Math.min(lastStart, requested.start));
-  const localStart = start - projection.start;
+  const availableEnd = projection.startIndex + projection.records.length;
+  const lastStart = Math.max(
+    projection.startIndex,
+    availableEnd - Math.min(viewportRows, projection.records.length)
+  );
+  const startIndex = Math.max(
+    projection.startIndex,
+    Math.min(lastStart, requested.startIndex)
+  );
+  const localStart = startIndex - projection.startIndex;
   const rows = projection.records.slice(localStart, localStart + viewportRows);
-  const end = start + rows.length;
+  const endIndexExclusive = startIndex + rows.length;
   const selectedIndex = requested.selectedIndex;
-  const selectedVisibleIndex = selectedIndex === undefined || selectedIndex < start || selectedIndex >= end
+  const selectedVisibleIndex = selectedIndex === undefined
+    || selectedIndex < startIndex
+    || selectedIndex >= endIndexExclusive
     ? undefined
-    : selectedIndex - start;
+    : selectedIndex - startIndex;
   return {
     totalRows: requested.totalRows,
-    start,
-    end,
+    startIndex,
+    endIndexExclusive,
     ...(selectedIndex === undefined ? {} : { selectedIndex }),
     offsetColumn: requested.offsetColumn,
     rows,
-    omittedBefore: start,
-    omittedAfter: Math.max(0, projection.total - end),
+    omittedBefore: startIndex,
+    omittedAfter: Math.max(0, projection.totalCount - endIndexExclusive),
     ...(selectedVisibleIndex === undefined ? {} : { selectedVisibleIndex })
   };
 }
@@ -153,7 +163,7 @@ function scrollForSelection(input: {
   });
   return input.selectedIndex === undefined
     ? base
-    : scrollReducer(base, { kind: 'itemIntoView', index: input.selectedIndex });
+    : scrollReducer(base, { kind: 'itemIntoView', itemIndex: input.selectedIndex });
 }
 
 function optionalSelectedIndex(value: Readonly<Record<string, unknown>>): { readonly selectedIndex?: number } {

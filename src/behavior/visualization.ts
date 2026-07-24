@@ -61,26 +61,26 @@ export function chartReducer(
   if (currentSeries === undefined) return state;
   switch (action.kind) {
     case 'select':
-      return selectedChartPoint(selectable, action.series, action.point, state);
+      return selectedChartPoint(selectable, action.series, action.pointIndex, state);
     case 'movePoint':
-      return { selected: { series: currentSeries.id, point: bounded(action.delta + (state.selected?.point ?? 0), currentSeries.points.length) } };
+      return { selected: { series: currentSeries.id, pointIndex: bounded(action.delta + (state.selected?.pointIndex ?? 0), currentSeries.points.length) } };
     case 'pagePoints':
       return {
         selected: {
           series: currentSeries.id,
-          point: bounded((state.selected?.point ?? 0) + action.delta * normalizedPageSize(options.pageSize), currentSeries.points.length)
+          pointIndex: bounded((state.selected?.pointIndex ?? 0) + action.delta * normalizedPageSize(options.pageSize), currentSeries.points.length)
         }
       };
     case 'moveSeries': {
       const next = selectable[wrapIndex(currentSeriesIndex + action.delta, selectable.length)];
       return next === undefined
         ? state
-        : { selected: { series: next.id, point: bounded(state.selected?.point ?? 0, next.points.length) } };
+        : { selected: { series: next.id, pointIndex: bounded(state.selected?.pointIndex ?? 0, next.points.length) } };
     }
     case 'firstPoint':
-      return { selected: { series: currentSeries.id, point: 0 } };
+      return { selected: { series: currentSeries.id, pointIndex: 0 } };
     case 'lastPoint':
-      return { selected: { series: currentSeries.id, point: Math.max(0, currentSeries.points.length - 1) } };
+      return { selected: { series: currentSeries.id, pointIndex: Math.max(0, currentSeries.points.length - 1) } };
   }
 }
 
@@ -108,32 +108,32 @@ export function heatmapReducer<TValue>(
   if (cells.length === 0) return state;
   switch (action.kind) {
     case 'select':
-      return cells.some((cell) => cell.row === action.row && cell.column === action.column)
-        ? { selected: { row: action.row, column: action.column } }
+      return cells.some((cell) => cell.rowIndex === action.rowIndex && cell.columnIndex === action.columnIndex)
+        ? { selected: { rowIndex: action.rowIndex, columnIndex: action.columnIndex } }
         : state;
     case 'move': {
       const current = selectedHeatmapIndex(cells, state.selected);
       const candidate = directionalHeatmapCell(cells, current, {
-        row: current.row + action.rows,
-        column: current.column + action.columns
+        rowIndex: current.rowIndex + action.rows,
+        columnIndex: current.columnIndex + action.columns
       });
       return candidate === undefined ? state : { selected: candidate };
     }
     case 'pageRows': {
       const current = selectedHeatmapIndex(cells, state.selected);
       const candidate = directionalHeatmapCell(cells, current, {
-        row: current.row + action.delta * normalizedPageSize(options.pageRows),
-        column: current.column
+        rowIndex: current.rowIndex + action.delta * normalizedPageSize(options.pageRows),
+        columnIndex: current.columnIndex
       });
       return candidate === undefined ? state : { selected: candidate };
     }
     case 'first': {
       const first = cells[0];
-      return first === undefined ? state : { selected: { row: first.row, column: first.column } };
+      return first === undefined ? state : { selected: { rowIndex: first.rowIndex, columnIndex: first.columnIndex } };
     }
     case 'last': {
       const last = cells.at(-1);
-      return last === undefined ? state : { selected: { row: last.row, column: last.column } };
+      return last === undefined ? state : { selected: { rowIndex: last.rowIndex, columnIndex: last.columnIndex } };
     }
   }
 }
@@ -145,27 +145,32 @@ export function heatmapPresentation(state: HeatmapState): HeatmapPresentation {
 function selectedChartPoint(
   series: readonly ChartSeries[],
   id: string,
-  point: number,
+  pointIndex: number,
   fallback: ChartState
 ): ChartState {
   const selected = series.find((item) => item.id === id);
   return selected === undefined
     ? fallback
-    : { selected: { series: selected.id, point: bounded(point, selected.points.length) } };
+    : {
+        selected: {
+          series: selected.id,
+          pointIndex: bounded(pointIndex, selected.points.length)
+        }
+      };
 }
 
 function selectableHeatmapCells<TValue>(rows: readonly (readonly HeatmapCell<TValue>[])[]): readonly HeatmapSelection[] {
   return rows.flatMap((row, rowIndex) => row.flatMap((cell, columnIndex): readonly HeatmapSelection[] =>
-    cell.disabled === true ? [] : [{ row: rowIndex, column: columnIndex }]
+    cell.disabled === true ? [] : [{ rowIndex: rowIndex, columnIndex: columnIndex }]
   ));
 }
 
 function selectedHeatmapIndex(cells: readonly HeatmapSelection[], selected: HeatmapSelection | undefined): HeatmapSelection {
   return (selected === undefined
     ? undefined
-    : cells.find((cell) => cell.row === selected.row && cell.column === selected.column))
+    : cells.find((cell) => cell.rowIndex === selected.rowIndex && cell.columnIndex === selected.columnIndex))
     ?? cells[0]
-    ?? { row: 0, column: 0 };
+    ?? { rowIndex: 0, columnIndex: 0 };
 }
 
 function directionalHeatmapCell(
@@ -185,10 +190,10 @@ function followsDirection(
   current: HeatmapSelection,
   target: HeatmapSelection
 ): boolean {
-  const rowDirection = Math.sign(target.row - current.row);
-  const columnDirection = Math.sign(target.column - current.column);
-  return (rowDirection === 0 || Math.sign(cell.row - current.row) === rowDirection || cell.row === current.row)
-    && (columnDirection === 0 || Math.sign(cell.column - current.column) === columnDirection || cell.column === current.column);
+  const rowDirection = Math.sign(target.rowIndex - current.rowIndex);
+  const columnDirection = Math.sign(target.columnIndex - current.columnIndex);
+  return (rowDirection === 0 || Math.sign(cell.rowIndex - current.rowIndex) === rowDirection || cell.rowIndex === current.rowIndex)
+    && (columnDirection === 0 || Math.sign(cell.columnIndex - current.columnIndex) === columnDirection || cell.columnIndex === current.columnIndex);
 }
 
 function compareDirectionalCells(
@@ -197,15 +202,15 @@ function compareDirectionalCells(
   current: HeatmapSelection,
   target: HeatmapSelection
 ): number {
-  const rowMovement = target.row !== current.row;
-  const columnMovement = target.column !== current.column;
+  const rowMovement = target.rowIndex !== current.rowIndex;
+  const columnMovement = target.columnIndex !== current.columnIndex;
   const leftDistance = navigationDistance(left, target, rowMovement, columnMovement);
   const rightDistance = navigationDistance(right, target, rowMovement, columnMovement);
   for (let index = 0; index < leftDistance.length; index += 1) {
     const difference = (leftDistance[index] ?? 0) - (rightDistance[index] ?? 0);
     if (difference !== 0) return difference;
   }
-  return left.row - right.row || left.column - right.column;
+  return left.rowIndex - right.rowIndex || left.columnIndex - right.columnIndex;
 }
 
 function navigationDistance(
@@ -214,8 +219,8 @@ function navigationDistance(
   rowMovement: boolean,
   columnMovement: boolean
 ): readonly number[] {
-  const rowDistance = Math.abs(cell.row - target.row);
-  const columnDistance = Math.abs(cell.column - target.column);
+  const rowDistance = Math.abs(cell.rowIndex - target.rowIndex);
+  const columnDistance = Math.abs(cell.columnIndex - target.columnIndex);
   if (rowMovement && !columnMovement) return [rowDistance, columnDistance];
   if (columnMovement && !rowMovement) return [columnDistance, rowDistance];
   return [rowDistance + columnDistance, rowDistance, columnDistance];

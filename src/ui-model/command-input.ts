@@ -7,7 +7,7 @@ export interface CommandInputPresentation {
   readonly cursor: number;
   readonly suggestions: readonly SuggestionItem[];
   readonly selection?: TextSelection;
-  readonly selectedSuggestion?: number;
+  readonly selectedSuggestionIndex?: number;
   readonly historyIndex?: number;
 }
 
@@ -17,6 +17,6 @@ export type CommandInputAction =
   | { readonly kind: 'historyPrevious' }
   | { readonly kind: 'historyNext' }
   | { readonly kind: 'moveSuggestion'; readonly delta: 1 | -1 }
-  | { readonly kind: 'selectSuggestion'; readonly index: number }
+  | { readonly kind: 'selectSuggestion'; readonly suggestionIndex: number }
   | { readonly kind: 'acceptSuggestion' }
   | { readonly kind: 'setValue'; readonly value: string };

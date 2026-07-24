@@ -40,16 +40,22 @@ void test('scrollbackSearchMatches and nextScrollbackMatch expose one ordered oc
   const matches = scrollbackSearchMatches(history, 'needle');
 
   assert.equal(matches.length, 3);
-  assert.deepEqual(matches.map(({ itemId, occurrenceIndex, field, start, end }) => ({
+  assert.deepEqual(matches.map(({
     itemId,
     occurrenceIndex,
     field,
-    start,
-    end
+    startOffset,
+    endOffsetExclusive
+  }) => ({
+    itemId,
+    occurrenceIndex,
+    field,
+    startOffset,
+    endOffsetExclusive
   })), [
-    { itemId: 'b', occurrenceIndex: 0, field: 'body', start: 6, end: 12 },
-    { itemId: 'c', occurrenceIndex: 0, field: 'body', start: 8, end: 14 },
-    { itemId: 'c', occurrenceIndex: 1, field: 'body', start: 15, end: 21 }
+    { itemId: 'b', occurrenceIndex: 0, field: 'body', startOffset: 6, endOffsetExclusive: 12 },
+    { itemId: 'c', occurrenceIndex: 0, field: 'body', startOffset: 8, endOffsetExclusive: 14 },
+    { itemId: 'c', occurrenceIndex: 1, field: 'body', startOffset: 15, endOffsetExclusive: 21 }
   ]);
   assert.equal(nextScrollbackMatch(matches, matches[0]?.id, 1)?.id, matches[1]?.id);
   assert.equal(nextScrollbackMatch(matches, matches[2]?.id, 1)?.id, matches[0]?.id);

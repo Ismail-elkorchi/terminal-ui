@@ -189,7 +189,7 @@ export type ScrollableTableOptions<TRow, TMessage = never> = TableBaseOptions<TR
 };
 
 export interface PaginatorOptions<TMessage = never> extends InteractiveElementOptions<PaginatorStylePart, TMessage> {
-  readonly page: number;
+  readonly pageNumber: number;
   readonly pageCount: number;
   readonly label?: string;
   readonly onAction?: (action: PaginatorAction) => TMessage;

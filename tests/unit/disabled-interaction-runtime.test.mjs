@@ -172,7 +172,7 @@ test('commandInput preserves disabled suggestion semantics', () => {
       prompt: '>',
       presentation: { value: 'de', cursor: 0, suggestions: [
         { value: 'deploy', label: 'Deploy', description: 'Unavailable', disabled: true }
-      ], selectedSuggestion: 0 },
+      ], selectedSuggestionIndex: 0 },
       matchQuery: 'de',
       display: 'expanded'
     }),

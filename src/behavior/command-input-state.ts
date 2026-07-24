@@ -9,7 +9,7 @@ export interface CommandInputState {
   readonly history: readonly string[];
   readonly historyIndex?: number;
   readonly suggestions: readonly SuggestionItem[];
-  readonly selectedSuggestion?: number;
+  readonly selectedSuggestionIndex?: number;
 }
 
 export function commandInputReducer(state: CommandInputState, action: CommandInputAction): CommandInputState {
@@ -30,7 +30,7 @@ export function commandInputReducer(state: CommandInputState, action: CommandInp
     case 'moveSuggestion':
       return moveSuggestion(state, action.delta);
     case 'selectSuggestion':
-      return selectSuggestion(state, action.index);
+      return selectSuggestion(state, action.suggestionIndex);
     case 'acceptSuggestion': {
       const suggestion = acceptedSuggestion(state);
       return suggestion === undefined || suggestion.disabled === true
@@ -53,11 +53,11 @@ function commandInputHistory(state: CommandInputState, direction: 1 | -1): Comma
 
 function moveSuggestion(state: CommandInputState, direction: 1 | -1): CommandInputState {
   if (state.suggestions.length === 0) return state;
-  const current = state.selectedSuggestion ?? (direction === 1 ? -1 : 0);
+  const current = state.selectedSuggestionIndex ?? (direction === 1 ? -1 : 0);
   for (let offset = 1; offset <= state.suggestions.length; offset += 1) {
-    const selectedSuggestion = (current + (direction * offset) + state.suggestions.length) % state.suggestions.length;
-    if (state.suggestions[selectedSuggestion]?.disabled !== true) {
-      return { ...state, selectedSuggestion };
+    const selectedSuggestionIndex = (current + (direction * offset) + state.suggestions.length) % state.suggestions.length;
+    if (state.suggestions[selectedSuggestionIndex]?.disabled !== true) {
+      return { ...state, selectedSuggestionIndex };
     }
   }
   return withClearedSuggestion(state);
@@ -68,7 +68,7 @@ function selectSuggestion(state: CommandInputState, index: number): CommandInput
   const suggestion = state.suggestions[normalized];
   return suggestion === undefined || suggestion.disabled === true
     ? state
-    : { ...state, selectedSuggestion: normalized };
+    : { ...state, selectedSuggestionIndex: normalized };
 }
 
 function withClearedHistory(state: CommandInputState): CommandInputState {
@@ -76,7 +76,7 @@ function withClearedHistory(state: CommandInputState): CommandInputState {
     input: state.input,
     history: state.history,
     suggestions: state.suggestions,
-    ...(state.selectedSuggestion === undefined ? {} : { selectedSuggestion: state.selectedSuggestion })
+    ...(state.selectedSuggestionIndex === undefined ? {} : { selectedSuggestionIndex: state.selectedSuggestionIndex })
   };
 }
 
@@ -90,9 +90,9 @@ function withClearedSuggestion(state: CommandInputState): CommandInputState {
 }
 
 function acceptedSuggestion(state: CommandInputState): SuggestionItem | undefined {
-  return state.selectedSuggestion === undefined
+  return state.selectedSuggestionIndex === undefined
     ? state.suggestions.find((suggestion) => suggestion.disabled !== true)
-    : state.suggestions[state.selectedSuggestion];
+    : state.suggestions[state.selectedSuggestionIndex];
 }
 
 function clampIndex(index: number, count: number): number {

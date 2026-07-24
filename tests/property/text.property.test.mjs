@@ -62,10 +62,10 @@ test('scroll window properties keep normalized windows within content bounds', (
     const window = visibleWindowFromScroll(scrolled);
     const detail = `index=${String(index)} contentRows=${String(contentRows)} viewportRows=${String(viewportRows)}`;
 
-    assert.equal(window.start >= 0, true, `${detail}: start before zero`);
-    assert.equal(window.end >= window.start, true, `${detail}: end before start`);
-    assert.equal(window.end <= scrolled.contentRows, true, `${detail}: end beyond content`);
-    assert.equal(window.end - window.start <= Math.max(0, scrolled.viewportRows), true, `${detail}: visible window exceeds viewport`);
+    assert.equal(window.startIndex >= 0, true, `${detail}: start before zero`);
+    assert.equal(window.endIndexExclusive >= window.startIndex, true, `${detail}: end before start`);
+    assert.equal(window.endIndexExclusive <= scrolled.contentRows, true, `${detail}: end beyond content`);
+    assert.equal(window.endIndexExclusive - window.startIndex <= Math.max(0, scrolled.viewportRows), true, `${detail}: visible window exceeds viewport`);
   }
 });
 

@@ -23,8 +23,8 @@ export function highlightRenderSpans(
   const spans: HighlightRenderSpan[] = [];
   let cursor = 0;
   for (const match of matches) {
-    const start = index.graphemeIndexToCodeUnitOffset(match.startGrapheme);
-    const end = index.graphemeIndexToCodeUnitOffset(match.endGrapheme);
+    const start = index.graphemeIndexToCodeUnitOffset(match.startGraphemeIndex);
+    const end = index.graphemeIndexToCodeUnitOffset(match.endGraphemeIndexExclusive);
     if (start > cursor) spans.push(spanForText(text.slice(cursor, start), options.baseStyle));
     spans.push(spanForText(text.slice(start, end), mergeStyles(options.baseStyle, options.matchStyle), true));
     cursor = end;

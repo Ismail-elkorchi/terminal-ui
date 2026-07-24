@@ -25,7 +25,7 @@ void test('bar chart behavior keeps stable selection through reorder and deletio
   assert.ok(cpu);
   assert.ok(memory);
   assert.ok(disk);
-  const selected = barChartReducer({}, { kind: 'select', id: 'memory', index: 1 }, items);
+  const selected = barChartReducer({}, { kind: 'select', id: 'memory', itemIndex: 1 }, items);
   const reordered = [disk, memory, cpu];
   const moved = barChartReducer(selected, { kind: 'move', delta: 1 }, reordered);
   const recovered = barChartReducer(selected, { kind: 'move', delta: 1 }, [cpu, disk]);
@@ -47,7 +47,7 @@ void test('bar chart pointer targets emit stable item actions', () => {
   }), { columns: 20, rows: 2 });
   const targets = regions.flatMap((region) => region.hitTargets);
 
-  assert.deepEqual(targets[1]?.message(routedPointerEvent()), { kind: 'select', id: 'memory', index: 1 });
+  assert.deepEqual(targets[1]?.message(routedPointerEvent()), { kind: 'select', id: 'memory', itemIndex: 1 });
 });
 
 void test('chart behavior navigates series, points, and pages without owning data', () => {
@@ -55,18 +55,18 @@ void test('chart behavior navigates series, points, and pages without owning dat
     { id: 'cpu', points: [1, 2, 3, 4, 5, 6] },
     { id: 'memory', points: [2, 4, 6] }
   ];
-  const paged = chartReducer({ selected: { series: 'cpu', point: 1 } }, { kind: 'pagePoints', delta: 1 }, series, { pageSize: 3 });
+  const paged = chartReducer({ selected: { series: 'cpu', pointIndex: 1 } }, { kind: 'pagePoints', delta: 1 }, series, { pageSize: 3 });
   const moved = chartReducer(paged, { kind: 'moveSeries', delta: 1 }, series);
 
-  assert.deepEqual(chartPresentation(paged), { selected: { series: 'cpu', point: 4 } });
-  assert.deepEqual(moved, { selected: { series: 'memory', point: 2 } });
+  assert.deepEqual(chartPresentation(paged), { selected: { series: 'cpu', pointIndex: 4 } });
+  assert.deepEqual(moved, { selected: { series: 'memory', pointIndex: 2 } });
 });
 
 void test('window charts keep keyboard selection inside the projected viewport', () => {
   const frame = renderElementFrame(chart({
     id: 'windowed',
     series: [{ id: 'cpu', points: [1, 2, 3, 4, 5, 6], sampleMode: 'window' }],
-    selected: { series: 'cpu', point: 4 }
+    selected: { series: 'cpu', pointIndex: 4 }
   }), { columns: 3, rows: 3 });
 
   assert.equal(frame.cells.some((cell) => cell.source?.description === 'selection.cpu.4'), true);
@@ -78,11 +78,11 @@ void test('heatmap behavior navigates selectable cells by row and page', () => {
     [{ id: 'c', value: 3, disabled: true }, { id: 'd', value: 4 }],
     [{ id: 'e', value: 5 }, { id: 'f', value: 6 }]
   ];
-  const moved = heatmapReducer({ selected: { row: 0, column: 0 } }, { kind: 'move', rows: 1, columns: 0 }, rows);
+  const moved = heatmapReducer({ selected: { rowIndex: 0, columnIndex: 0 } }, { kind: 'move', rows: 1, columns: 0 }, rows);
   const paged = heatmapReducer(moved, { kind: 'pageRows', delta: 1 }, rows, { pageRows: 2 });
 
-  assert.deepEqual(moved, { selected: { row: 1, column: 1 } });
-  assert.deepEqual(heatmapPresentation(paged), { selected: { row: 2, column: 1 } });
+  assert.deepEqual(moved, { selected: { rowIndex: 1, columnIndex: 1 } });
+  assert.deepEqual(heatmapPresentation(paged), { selected: { rowIndex: 2, columnIndex: 1 } });
 });
 
 void test('chart and heatmap pointer targets emit semantic select actions', () => {
@@ -99,6 +99,6 @@ void test('chart and heatmap pointer targets emit semantic select actions', () =
 
   const chartTarget = chartRegions.flatMap((region) => region.hitTargets)[0];
   const heatmapTarget = heatmapRegions.flatMap((region) => region.hitTargets)[0];
-  assert.deepEqual(chartTarget?.message(routedPointerEvent()), { kind: 'select', series: 'cpu', point: 0 });
-  assert.deepEqual(heatmapTarget?.message(routedPointerEvent()), { kind: 'select', row: 0, column: 0 });
+  assert.deepEqual(chartTarget?.message(routedPointerEvent()), { kind: 'select', series: 'cpu', pointIndex: 0 });
+  assert.deepEqual(heatmapTarget?.message(routedPointerEvent()), { kind: 'select', rowIndex: 0, columnIndex: 0 });
 });

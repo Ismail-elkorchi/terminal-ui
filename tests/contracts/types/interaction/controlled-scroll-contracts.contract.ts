@@ -54,7 +54,7 @@ const controlledLog = scrollback({
 });
 const controlledPalette = palette({
   id: 'palette',
-  index: preparePaletteIndex([{ id: 'one', label: 'One', value: 1 }]),
+  paletteIndex: preparePaletteIndex([{ id: 'one', label: 'One', value: 1 }]),
   scroll,
   scrollbar: { visible: 'auto' },
   onScroll: (event) => ({ kind: 'paletteScroll' as const, event })
@@ -103,6 +103,6 @@ textArea({ id: 'inert-editor', presentation: { document: prepareTextDocument('')
 // @ts-expect-error scrollback scrollbar requires controlled scroll state and action routing
 scrollback({ id: 'inert-log', history: prepareScrollbackHistory([]), scrollbar: { visible: 'auto' } });
 // @ts-expect-error palette scrollbar requires controlled scroll state and event routing
-palette({ id: 'inert-palette', index: preparePaletteIndex([]), scrollbar: { visible: 'auto' } });
+palette({ id: 'inert-palette', paletteIndex: preparePaletteIndex([]), scrollbar: { visible: 'auto' } });
 // @ts-expect-error viewport scrollbar requires complete metrics and event routing
 viewport(text('content'), { id: 'inert-viewport', contentRows: 20, scrollbar: { visible: 'auto' } });

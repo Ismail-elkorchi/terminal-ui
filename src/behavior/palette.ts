@@ -20,17 +20,17 @@ export interface PaletteState {
 
 export interface PalettePresentation {
   readonly query: string;
-  readonly selected: number;
+  readonly selectedIndex: number;
 }
 
 export interface PaletteReducerOptions<TValue = string> {
-  readonly index: PaletteIndex<TValue>;
+  readonly paletteIndex: PaletteIndex<TValue>;
 }
 
 export interface PaletteWindowInput<TValue = string> {
-  readonly index: PaletteIndex<TValue>;
+  readonly paletteIndex: PaletteIndex<TValue>;
   readonly query?: string;
-  readonly selected?: number;
+  readonly selectedIndex?: number;
   readonly selectedId?: string;
   readonly scroll?: ScrollState;
   readonly limit?: number;
@@ -38,17 +38,17 @@ export interface PaletteWindowInput<TValue = string> {
 
 export interface PaletteFilterResult<TValue = string> {
   readonly entries: readonly SearchEntry<TValue>[];
-  readonly selected?: number;
+  readonly selectedIndex?: number;
   readonly selectedEntry?: SearchEntry<TValue>;
-  readonly total: number;
-  readonly start: number;
-  readonly end: number;
+  readonly totalCount: number;
+  readonly startIndex: number;
+  readonly endIndexExclusive: number;
   readonly omittedBefore: number;
   readonly omittedAfter: number;
 }
 
 export interface PaletteSelectionInput<TValue = string> {
-  readonly index: PaletteIndex<TValue>;
+  readonly paletteIndex: PaletteIndex<TValue>;
   readonly state: PaletteState;
   readonly scroll?: ScrollState;
   readonly limit?: number;
@@ -68,7 +68,7 @@ export type PaletteGroupSelector<TValue> = (entry: SearchEntry<TValue>) => {
 export function palettePresentation(state: PaletteState): PalettePresentation {
   return {
     query: state.query,
-    selected: state.selectedIndex
+    selectedIndex: state.selectedIndex
   };
 }
 
@@ -103,12 +103,18 @@ export function paletteReducer<TValue>(
     case 'moveSelection':
       return {
         ...state,
-        selectedIndex: wrapIndex(state.selectedIndex + action.delta, projectPaletteQuery(options.index, state.query).entries.length)
+        selectedIndex: wrapIndex(
+          state.selectedIndex + action.delta,
+          projectPaletteQuery(options.paletteIndex, state.query).entries.length
+        )
       };
     case 'selectIndex':
       return {
         ...state,
-        selectedIndex: clampIndex(action.index, projectPaletteQuery(options.index, state.query).entries.length)
+        selectedIndex: clampIndex(
+          action.entryIndex,
+          projectPaletteQuery(options.paletteIndex, state.query).entries.length
+        )
       };
     case 'toggleSelected':
       return {
@@ -126,16 +132,16 @@ export function paletteReducer<TValue>(
 }
 
 export function paletteWindow<TValue>(input: PaletteWindowInput<TValue>): PaletteFilterResult<TValue> {
-  const projection = projectPaletteQuery(input.index, input.query ?? '');
+  const projection = projectPaletteQuery(input.paletteIndex, input.query ?? '');
   const filtered = projection.entries;
-  const total = filtered.length;
-  const limit = Math.max(1, Math.floor(input.limit ?? total));
-  if (total === 0) {
+  const totalCount = filtered.length;
+  const limit = Math.max(1, Math.floor(input.limit ?? totalCount));
+  if (totalCount === 0) {
     return {
       entries: [],
-      total,
-      start: 0,
-      end: 0,
+      totalCount,
+      startIndex: 0,
+      endIndexExclusive: 0,
       omittedBefore: 0,
       omittedAfter: 0
     };
@@ -148,11 +154,11 @@ export function paletteWindow<TValue>(input: PaletteWindowInput<TValue>): Palett
   });
   return {
     entries: window.rows,
-    ...(window.selectedVisibleIndex === undefined ? {} : { selected: window.selectedVisibleIndex }),
+    ...(window.selectedVisibleIndex === undefined ? {} : { selectedIndex: window.selectedVisibleIndex }),
     ...(filtered[selectedAbsolute] === undefined ? {} : { selectedEntry: filtered[selectedAbsolute] }),
-    total,
-    start: window.start,
-    end: window.end,
+    totalCount,
+    startIndex: window.startIndex,
+    endIndexExclusive: window.endIndexExclusive,
     omittedBefore: window.omittedBefore,
     omittedAfter: window.omittedAfter
   };
@@ -160,9 +166,9 @@ export function paletteWindow<TValue>(input: PaletteWindowInput<TValue>): Palett
 
 export function selectedPaletteEntry<TValue>(input: PaletteSelectionInput<TValue>): SearchEntry<TValue> | undefined {
   return paletteWindow({
-    index: input.index,
+    paletteIndex: input.paletteIndex,
     query: input.state.query,
-    selected: input.state.selectedIndex,
+    selectedIndex: input.state.selectedIndex,
     ...(input.scroll === undefined ? {} : { scroll: input.scroll }),
     ...(input.limit === undefined ? {} : { limit: input.limit })
   }).selectedEntry;
@@ -216,13 +222,13 @@ function clampIndex(index: number, count: number): number {
 
 function selectedIndex<TValue>(
   entries: readonly SearchEntry<TValue>[],
-  input: Pick<PaletteWindowInput<TValue>, 'selected' | 'selectedId'>
+  input: Pick<PaletteWindowInput<TValue>, 'selectedIndex' | 'selectedId'>
 ): number {
   if (input.selectedId !== undefined) {
     const byId = entries.findIndex((entry) => entry.id === input.selectedId);
     if (byId !== -1) return byId;
   }
-  return clampIndex(input.selected ?? 0, entries.length);
+  return clampIndex(input.selectedIndex ?? 0, entries.length);
 }
 
 export function paletteProjection<TValue>(index: PaletteIndex<TValue>, query = ''): PaletteQueryProjection<TValue> {

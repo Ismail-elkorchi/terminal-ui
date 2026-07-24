@@ -33,11 +33,11 @@ test('commandInputReducer edits, navigates history, and accepts suggestions', ()
   assert.equal(earlier.historyIndex, 0);
 
   const selected = commandInputReducer(earlier, { kind: 'moveSuggestion', delta: 1 });
-  assert.equal(selected.selectedSuggestion, 0);
+  assert.equal(selected.selectedSuggestionIndex, 0);
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
   assert.deepEqual(accepted.input, { text: 'test --watch', cursor: 12 });
-  assert.equal('selectedSuggestion' in accepted, false);
+  assert.equal('selectedSuggestionIndex' in accepted, false);
 });
 
 test('commandInputReducer skips disabled suggestions for selection and acceptance', () => {
@@ -52,16 +52,16 @@ test('commandInputReducer skips disabled suggestions for selection and acceptanc
   };
 
   const selected = commandInputReducer(initial, { kind: 'moveSuggestion', delta: 1 });
-  assert.equal(selected.selectedSuggestion, 1);
+  assert.equal(selected.selectedSuggestionIndex, 1);
 
-  const selectedByIndex = commandInputReducer(initial, { kind: 'selectSuggestion', index: 1 });
-  assert.equal(selectedByIndex.selectedSuggestion, 1);
-  assert.equal(commandInputReducer(initial, { kind: 'selectSuggestion', index: 0 }), initial);
+  const selectedByIndex = commandInputReducer(initial, { kind: 'selectSuggestion', suggestionIndex: 1 });
+  assert.equal(selectedByIndex.selectedSuggestionIndex, 1);
+  assert.equal(commandInputReducer(initial, { kind: 'selectSuggestion', suggestionIndex: 0 }), initial);
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
   assert.deepEqual(accepted.input, { text: 'status', cursor: 6 });
 
-  const manuallyDisabled = commandInputReducer({ ...initial, selectedSuggestion: 0 }, { kind: 'acceptSuggestion' });
+  const manuallyDisabled = commandInputReducer({ ...initial, selectedSuggestionIndex: 0 }, { kind: 'acceptSuggestion' });
   assert.deepEqual(manuallyDisabled.input, { text: '', cursor: 0 });
 });
 
@@ -75,7 +75,7 @@ test('commandInputReducer ignores accept when every suggestion is disabled', () 
   };
 
   const selected = commandInputReducer(initial, { kind: 'moveSuggestion', delta: 1 });
-  assert.equal('selectedSuggestion' in selected, false);
+  assert.equal('selectedSuggestionIndex' in selected, false);
 
   const accepted = commandInputReducer(selected, { kind: 'acceptSuggestion' });
   assert.deepEqual(accepted.input, { text: 'd', cursor: 1 });
@@ -83,11 +83,11 @@ test('commandInputReducer ignores accept when every suggestion is disabled', () 
 
 test('commandInput projects controlled state and emits semantic actions', async () => {
   const command = {
-    input: { text: 'te', cursor: 2, selection: { start: 0, end: 1 } },
+    input: { text: 'te', cursor: 2, selection: { startOffset: 0, endOffsetExclusive: 1 } },
     history: ['build'],
     historyIndex: 0,
     suggestions: [{ value: 'test', label: 'test' }],
-    selectedSuggestion: 0
+    selectedSuggestionIndex: 0
   };
   const app = defineTui({
     id: 'command-actions',
@@ -119,9 +119,9 @@ test('commandInput projects controlled state and emits semantic actions', async 
   assert.deepEqual(commandInputPresentation(command), {
     value: 'te',
     cursor: 2,
-    selection: { start: 0, end: 1 },
+    selection: { startOffset: 0, endOffsetExclusive: 1 },
     suggestions: [{ value: 'test', label: 'test' }],
-    selectedSuggestion: 0,
+    selectedSuggestionIndex: 0,
     historyIndex: 0
   });
   assert.deepEqual(runtime.state().messages, [
@@ -143,7 +143,7 @@ test('commandInput widget renders prompt, suggestions, cursor, and accessibility
       presentation: { value: 'op', cursor: 2, suggestions: [
         { value: 'open', label: 'open', description: 'Open item' },
         { value: 'options', label: 'options' }
-      ], selectedSuggestion: 1 },
+      ], selectedSuggestionIndex: 1 },
       display: 'expanded'
     }),
     { columns: 30, rows: 4 }
@@ -165,9 +165,9 @@ test('commandInput renders completion preview validation footer match styles and
     commandInput({
       id: 'launcher',
       prompt: '?',
-      presentation: { value: 'a🙂', cursor: 'a🙂'.length, selection: { start: 1, end: 'a🙂'.length }, suggestions: [
+      presentation: { value: 'a🙂', cursor: 'a🙂'.length, selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }, suggestions: [
         { value: 'a🙂bc', label: 'a🙂bc', description: 'first match' }
-      ], selectedSuggestion: 0 },
+      ], selectedSuggestionIndex: 0 },
       completionPreview: 'bc',
       validation: { message: 'Choose a value', level: 'warning' },
       footer: 'enter accepts',
@@ -204,7 +204,7 @@ test('commandInput stays compact by default even when suggestions are provided',
       prompt: '/',
       presentation: { value: '', cursor: 0, suggestions: [
         { value: 'open', label: 'open', description: 'Open item' }
-      ], selectedSuggestion: 0 },
+      ], selectedSuggestionIndex: 0 },
       placeholder: 'Type a command',
       footer: 'Enter run'
     }),
@@ -312,9 +312,9 @@ test('commandInput exposes prompt value selection suggestion validation and foot
     commandInput({
       id: 'cmd-source',
       prompt: ':',
-      presentation: { value: 'open file', cursor: 0, selection: { start: 5, end: 9 }, suggestions: [
+      presentation: { value: 'open file', cursor: 0, selection: { startOffset: 5, endOffsetExclusive: 9 }, suggestions: [
         { value: 'open-file', label: 'Open file', description: 'recent' }
-      ], selectedSuggestion: 0 },
+      ], selectedSuggestionIndex: 0 },
       completionPreview: 's',
       validation: { level: 'warning', message: 'Needs target' },
       footer: 'Enter run',

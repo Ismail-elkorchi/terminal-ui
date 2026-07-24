@@ -2,20 +2,20 @@ const collectionProjectionBrand: unique symbol = Symbol('terminal-ui.collection-
 
 export interface CollectionRecord {
   readonly id: string;
-  readonly index: number;
+  readonly itemIndex: number;
 }
 
 interface CollectionProjectionBase<TRecord extends CollectionRecord> {
   readonly [collectionProjectionBrand]: true;
   readonly records: readonly TRecord[];
-  readonly start: number;
-  readonly total: number;
+  readonly startIndex: number;
+  readonly totalCount: number;
 }
 
 export interface CompleteCollectionProjection<TRecord extends CollectionRecord>
   extends CollectionProjectionBase<TRecord> {
   readonly kind: 'complete';
-  readonly start: 0;
+  readonly startIndex: 0;
 }
 
 export interface WindowedCollectionProjection<TRecord extends CollectionRecord>
@@ -29,8 +29,8 @@ export type CollectionProjection<TRecord extends CollectionRecord> =
   | WindowedCollectionProjection<TRecord>;
 
 export interface CollectionWindow {
-  readonly start: number;
-  readonly total: number;
+  readonly startIndex: number;
+  readonly totalCount: number;
   readonly domain: CollectionWindowDomain;
 }
 
@@ -58,8 +58,8 @@ export function completeCollection<TRecord extends CollectionRecord>(
     [collectionProjectionBrand]: true,
     kind: 'complete',
     records: immutableRecords,
-    start: 0,
-    total: immutableRecords.length
+    startIndex: 0,
+    totalCount: immutableRecords.length
   });
 }
 
@@ -67,19 +67,19 @@ export function windowedCollection<TRecord extends CollectionRecord>(input: {
   readonly records: readonly TRecord[];
   readonly window: CollectionWindow;
 }): WindowedCollectionProjection<TRecord> {
-  const start = nonNegativeInteger(input.window.start, 'collection window start');
-  const total = nonNegativeInteger(input.window.total, 'collection total');
-  if (start > total) throw new RangeError('collection window start must not exceed its total.');
-  if (input.records.length > total - start) {
+  const startIndex = nonNegativeInteger(input.window.startIndex, 'collection window startIndex');
+  const totalCount = nonNegativeInteger(input.window.totalCount, 'collection totalCount');
+  if (startIndex > totalCount) throw new RangeError('collection window startIndex must not exceed its totalCount.');
+  if (input.records.length > totalCount - startIndex) {
     throw new RangeError('collection window records must fit inside its declared total.');
   }
-  const immutableRecords = immutableCollectionRecords(input.records, start, total);
+  const immutableRecords = immutableCollectionRecords(input.records, startIndex, totalCount);
   return Object.freeze<WindowedCollectionProjection<TRecord>>({
     [collectionProjectionBrand]: true,
     kind: 'window',
     records: immutableRecords,
-    start,
-    total,
+    startIndex,
+    totalCount,
     domain: normalizeWindowDomain(input.window.domain)
   });
 }
@@ -115,8 +115,10 @@ function immutableCollectionRecords<TRecord extends CollectionRecord>(
     if (seen.has(record.id)) {
       throw new TypeError(`collection record ids must be unique; duplicate id: ${record.id}`);
     }
-    if (!Number.isSafeInteger(record.index) || record.index !== expectedIndex || record.index >= total) {
-      throw new RangeError(`collection record index must equal its stable position: ${String(expectedIndex)}.`);
+    if (!Number.isSafeInteger(record.itemIndex)
+      || record.itemIndex !== expectedIndex
+      || record.itemIndex >= total) {
+      throw new RangeError(`collection record itemIndex must equal its stable position: ${String(expectedIndex)}.`);
     }
     seen.add(record.id);
     return Object.freeze({ ...record });

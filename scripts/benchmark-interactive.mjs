@@ -300,7 +300,7 @@ function renderScenarios(realApps) {
       author(index) {
         return palette({
           id: 'commands',
-          index: paletteIndex,
+          paletteIndex,
           query: String(entries.length - 1 - index),
           maxVisible: 8
         });

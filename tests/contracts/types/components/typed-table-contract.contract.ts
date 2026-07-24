@@ -58,7 +58,7 @@ const processes = table({
   ],
   presentation: {
     selectedRowId: '42',
-    selectedCell: { rowId: '42', column: 1 }
+    selectedCell: { rowId: '42', columnIndex: 1 }
   },
   onAction: (action) => ({
     kind: 'selected' as const,

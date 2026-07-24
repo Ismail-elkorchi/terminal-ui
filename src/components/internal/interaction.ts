@@ -49,7 +49,7 @@ export function listKeyBindings<TValue, TMessage>(
   const selectedId = options.selectedId;
   const selectedIndex = selectedId === undefined
     ? -1
-    : collectionRecordById(collection, selectedId)?.index ?? -1;
+    : collectionRecordById(collection, selectedId)?.itemIndex ?? -1;
   const generated = {
     arrowUp: () => onAction({ kind: 'move', delta: -1 }),
     arrowDown: () => onAction({ kind: 'move', delta: 1 }),
@@ -58,7 +58,7 @@ export function listKeyBindings<TValue, TMessage>(
     home: () => onAction({ kind: 'first' }),
     end: () => onAction({ kind: 'last' }),
     ...(selectedId === undefined || selectedIndex < 0 ? {} : {
-      enter: () => onAction({ kind: 'activate', id: selectedId, index: selectedIndex })
+      enter: () => onAction({ kind: 'activate', id: selectedId, itemIndex: selectedIndex })
     })
   } satisfies ElementKeyBindings<TMessage>;
   return mergeKeyBindings(generated, options.keys);
@@ -73,10 +73,10 @@ export function tableKeyBindings<TRow, TMessage>(
   const selectedRowId = options.presentation?.selectedRowId;
   const selectedRowIndex = selectedRowId === undefined
     ? -1
-    : collectionRecordById(collection, selectedRowId)?.index ?? -1;
-  const selectedColumn = options.presentation?.selectedCell?.column === undefined
+    : collectionRecordById(collection, selectedRowId)?.itemIndex ?? -1;
+  const selectedColumn = options.presentation?.selectedCell?.columnIndex === undefined
     ? undefined
-    : options.columns?.filter((column) => column.hidden !== true)[options.presentation.selectedCell.column];
+    : options.columns?.filter((column) => column.hidden !== true)[options.presentation.selectedCell.columnIndex];
   const generated = {
     arrowUp: () => onAction({ kind: 'moveRow', delta: -1 }),
     arrowDown: () => onAction({ kind: 'moveRow', delta: 1 }),
@@ -86,11 +86,11 @@ export function tableKeyBindings<TRow, TMessage>(
       triggers: [
         {
           trigger: { kind: 'key', key: 'arrowLeft', modifiers: { alt: true } },
-          onKey: () => onAction({ kind: 'resizeColumnBy', column: selectedColumn.id, delta: -1 })
+          onKey: () => onAction({ kind: 'resizeColumnBy', columnId: selectedColumn.id, delta: -1 })
         },
         {
           trigger: { kind: 'key', key: 'arrowRight', modifiers: { alt: true } },
-          onKey: () => onAction({ kind: 'resizeColumnBy', column: selectedColumn.id, delta: 1 })
+          onKey: () => onAction({ kind: 'resizeColumnBy', columnId: selectedColumn.id, delta: 1 })
         }
       ]
     } : {}),
@@ -99,16 +99,16 @@ export function tableKeyBindings<TRow, TMessage>(
     home: () => onAction({ kind: 'firstRow' }),
     end: () => onAction({ kind: 'lastRow' }),
     ...(selectedColumn?.sortable === true ? {
-      space: () => onAction({ kind: 'sortBy', column: selectedColumn.id })
+      space: () => onAction({ kind: 'sortBy', columnId: selectedColumn.id })
     } : {}),
     ...(selectedRowId === undefined || selectedRowIndex < 0 ? {} : {
       enter: () => onAction({
         kind: 'activate',
         rowId: selectedRowId,
         rowIndex: selectedRowIndex,
-        ...(options.presentation?.selectedCell?.column === undefined
+        ...(options.presentation?.selectedCell?.columnIndex === undefined
           ? {}
-          : { column: options.presentation.selectedCell.column })
+          : { columnIndex: options.presentation.selectedCell.columnIndex })
       })
     })
   } satisfies ElementKeyBindings<TMessage>;

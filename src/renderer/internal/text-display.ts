@@ -48,9 +48,17 @@ export function selectedTextSpans(
   const normalized = normalizeTextSelection(value, selection);
   if (normalized === undefined) return [styledSpan(value, normalStyle, options.normalSource)];
   return [
-    ...(normalized.start > 0 ? [styledSpan(textRange(value, 0, normalized.start), normalStyle, options.normalSource)] : []),
-    styledSpan(textRange(value, normalized.start, normalized.end), selectedStyle, options.selectedSource),
-    ...(normalized.end < value.length ? [styledSpan(textRange(value, normalized.end, value.length), normalStyle, options.normalSource)] : [])
+    ...(normalized.startOffset > 0
+      ? [styledSpan(textRange(value, 0, normalized.startOffset), normalStyle, options.normalSource)]
+      : []),
+    styledSpan(
+      textRange(value, normalized.startOffset, normalized.endOffsetExclusive),
+      selectedStyle,
+      options.selectedSource
+    ),
+    ...(normalized.endOffsetExclusive < value.length
+      ? [styledSpan(textRange(value, normalized.endOffsetExclusive, value.length), normalStyle, options.normalSource)]
+      : [])
   ].filter((span) => span.text.length > 0);
 }
 
@@ -103,10 +111,10 @@ export function textDisplayWidth(value: string, options: TextMeasurementOptions)
 
 export function selectionFromUnknown(value: string, selection: unknown): TextSelection | undefined {
   if (!isRecord(selection)) return undefined;
-  const start = selection['start'];
-  const end = selection['end'];
-  if (typeof start !== 'number' || typeof end !== 'number') return undefined;
-  return normalizeTextSelection(value, { start, end });
+  const startOffset = selection['startOffset'];
+  const endOffsetExclusive = selection['endOffsetExclusive'];
+  if (typeof startOffset !== 'number' || typeof endOffsetExclusive !== 'number') return undefined;
+  return normalizeTextSelection(value, { startOffset, endOffsetExclusive });
 }
 
 function textRange(value: string, start: number, end: number): string {

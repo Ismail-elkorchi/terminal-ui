@@ -43,7 +43,7 @@ void test('paginator normalizes page bounds and renders compact status', () => {
   const frame = renderElementFrame(paginator({
     id: 'pages',
     label: 'Results',
-    page: 20,
+    pageNumber: 20,
     pageCount: 4
   }), { columns: 24, rows: 1 });
 

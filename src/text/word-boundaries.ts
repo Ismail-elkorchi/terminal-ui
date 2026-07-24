@@ -4,13 +4,13 @@ import type { TextSelection } from './types.ts';
 
 export function wordSelectionAt(text: string, offset: number): TextSelection {
   const segments = segmentGraphemes(text);
-  if (segments.length === 0) return { start: 0, end: 0 };
+  if (segments.length === 0) return { startOffset: 0, endOffsetExclusive: 0 };
 
   const cursor = normalizeTextCursor(text, offset);
   const index = segmentIndexForWord(text, cursor);
-  if (index === undefined) return { start: cursor, end: cursor };
+  if (index === undefined) return { startOffset: cursor, endOffsetExclusive: cursor };
   const segment = segments[index];
-  if (segment === undefined || isWordSeparator(segment.text)) return { start: cursor, end: cursor };
+  if (segment === undefined || isWordSeparator(segment.text)) return { startOffset: cursor, endOffsetExclusive: cursor };
 
   let startIndex = index;
   while (startIndex > 0) {
@@ -26,16 +26,16 @@ export function wordSelectionAt(text: string, offset: number): TextSelection {
     endIndex += 1;
   }
 
-  const start = segments[startIndex]?.start ?? cursor;
-  const end = segments[endIndex]?.start ?? text.length;
-  return { start, end };
+  const start = segments[startIndex]?.startOffset ?? cursor;
+  const end = segments[endIndex]?.startOffset ?? text.length;
+  return { startOffset: start, endOffsetExclusive: end };
 }
 
 export function lineSelectionAt(text: string, offset: number): TextSelection {
   const cursor = clampTextOffset(offset, text.length);
   return {
-    start: lineStartOffset(text, cursor),
-    end: lineEndOffset(text, cursor)
+    startOffset: lineStartOffset(text, cursor),
+    endOffsetExclusive: lineEndOffset(text, cursor)
   };
 }
 
@@ -56,7 +56,7 @@ export function previousWordBoundary(text: string, offset: number): number {
   let index = previousSegmentIndex(segments, cursor);
   while (index >= 0 && isWordSeparator(segments[index]?.text ?? '')) index -= 1;
   while (index > 0 && !isWordSeparator(segments[index - 1]?.text ?? '')) index -= 1;
-  return segments[index]?.start ?? 0;
+  return segments[index]?.startOffset ?? 0;
 }
 
 export function nextWordBoundary(text: string, offset: number): number {
@@ -65,7 +65,7 @@ export function nextWordBoundary(text: string, offset: number): number {
   let index = segmentIndexAtOrAfter(segments, cursor);
   while (index < segments.length && isWordSeparator(segments[index]?.text ?? '')) index += 1;
   while (index < segments.length && !isWordSeparator(segments[index]?.text ?? '')) index += 1;
-  return segments[index]?.start ?? text.length;
+  return segments[index]?.startOffset ?? text.length;
 }
 
 export function lineOffsetByDelta(text: string, offset: number, delta: number): number {
@@ -80,24 +80,24 @@ export function lineOffsetByDelta(text: string, offset: number, delta: number): 
 }
 
 function previousSegmentIndex(
-  segments: readonly { readonly start: number; readonly end: number }[],
+  segments: readonly { readonly startOffset: number; readonly endOffsetExclusive: number }[],
   cursor: number
 ): number {
   let previous = -1;
   for (const [index, segment] of segments.entries()) {
-    if (segment.start >= cursor) break;
-    if (segment.end <= cursor) previous = index;
-    if (cursor > segment.start && cursor < segment.end) return index;
+    if (segment.startOffset >= cursor) break;
+    if (segment.endOffsetExclusive <= cursor) previous = index;
+    if (cursor > segment.startOffset && cursor < segment.endOffsetExclusive) return index;
   }
   return previous;
 }
 
 function segmentIndexAtOrAfter(
-  segments: readonly { readonly start: number; readonly end: number }[],
+  segments: readonly { readonly startOffset: number; readonly endOffsetExclusive: number }[],
   cursor: number
 ): number {
   for (const [index, segment] of segments.entries()) {
-    if (cursor <= segment.start || (cursor > segment.start && cursor < segment.end)) return index;
+    if (cursor <= segment.startOffset || (cursor > segment.startOffset && cursor < segment.endOffsetExclusive)) return index;
   }
   return segments.length;
 }
@@ -123,8 +123,8 @@ function visualColumnInRange(text: string, start: number, offset: number): numbe
   const cursor = normalizeTextCursor(text, offset);
   let column = 0;
   for (const segment of segmentGraphemes(text)) {
-    if (segment.start < start) continue;
-    if (segment.start >= cursor) break;
+    if (segment.startOffset < start) continue;
+    if (segment.startOffset >= cursor) break;
     column += segment.cells;
   }
   return column;
@@ -134,11 +134,11 @@ function offsetAtVisualColumn(text: string, start: number, end: number, column: 
   const target = Math.max(0, Math.floor(column));
   let current = 0;
   for (const segment of segmentGraphemes(text)) {
-    if (segment.start < start) continue;
-    if (segment.start >= end) break;
+    if (segment.startOffset < start) continue;
+    if (segment.startOffset >= end) break;
     const next = current + segment.cells;
-    if (next > target) return segment.start;
-    if (next === target) return segment.end;
+    if (next > target) return segment.startOffset;
+    if (next === target) return segment.endOffsetExclusive;
     current = next;
   }
   return end;
@@ -148,14 +148,14 @@ function segmentIndexForWord(text: string, cursor: number): number | undefined {
   const segments = segmentGraphemes(text);
   let previousBoundary: number | undefined;
   for (const [index, segment] of segments.entries()) {
-    if (cursor > segment.start && cursor < segment.end) return index;
-    if (cursor === segment.start) {
+    if (cursor > segment.startOffset && cursor < segment.endOffsetExclusive) return index;
+    if (cursor === segment.startOffset) {
       if (!isWordSeparator(segment.text)) return index;
       const previous = previousBoundary === undefined ? undefined : segments[previousBoundary];
       if (previous !== undefined && !isWordSeparator(previous.text)) return previousBoundary;
       return index;
     }
-    if (cursor === segment.end) previousBoundary = index;
+    if (cursor === segment.endOffsetExclusive) previousBoundary = index;
   }
   return previousBoundary ?? (text.length === 0 ? undefined : segments.length - 1);
 }

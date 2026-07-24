@@ -53,7 +53,7 @@ test('table widget renders constrained columns and selected rows', () => {
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'table',
-    presentation: { selectedCell: { rowId: '1', column: 1 } },
+    presentation: { selectedCell: { rowId: '1', columnIndex: 1 } },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 5 },
@@ -141,7 +141,7 @@ test('table exposes visible cell hit targets when cell selection is active', asy
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'cell-table',
-    presentation: { selectedCell: { rowId: '0', column: 1 } },
+    presentation: { selectedCell: { rowId: '0', columnIndex: 1 } },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 6 },
@@ -167,13 +167,13 @@ test('table exposes visible cell hit targets when cell selection is active', asy
     init: () => ({ selected: 'none' }),
     update: (_state, message) => ({
       state: {
-        selected: `${String(message.action.rowIndex)}:${String([['Atlas', 89], ['Pulse', 92]][message.action.rowIndex]?.[message.action.column])}:${['Name', 'Score'][message.action.column]}`
+        selected: `${String(message.action.rowIndex)}:${String([['Atlas', 89], ['Pulse', 92]][message.action.rowIndex]?.[message.action.columnIndex])}:${['Name', 'Score'][message.action.columnIndex]}`
       }
     }),
     view: () => table({
     getRowId: (_row, index) => String(index),
     id: 'cell-table',
-      presentation: { selectedCell: { rowId: '0', column: 1 } },
+      presentation: { selectedCell: { rowId: '0', columnIndex: 1 } },
       columns: [
         {
           id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 6 },
@@ -224,7 +224,7 @@ test('table row and cell double clicks emit the same activation action as Enter'
     update: (state, message) => ({ state: { actions: [...state.actions, message] } }),
     view: () => table({
       id: 'activation-table-cell',
-      presentation: { selectedCell: { rowId: 'alpha', column: 0 } },
+      presentation: { selectedCell: { rowId: 'alpha', columnIndex: 0 } },
       rows: [['alpha']],
       getRowId: () => 'alpha',
       columns: [{ id: 'name', header: 'Name', value: (row) => row[0] }],
@@ -239,8 +239,8 @@ test('table row and cell double clicks emit the same activation action as Enter'
   await clickAt(cellRuntime, cellTarget.bounds.row, cellTarget.bounds.column);
   await clickAt(cellRuntime, cellTarget.bounds.row, cellTarget.bounds.column);
   assert.deepEqual(cellRuntime.state().actions, [
-    { kind: 'selectCell', rowId: 'alpha', rowIndex: 0, column: 0 },
-    { kind: 'activate', rowId: 'alpha', rowIndex: 0, column: 0 }
+    { kind: 'selectCell', rowId: 'alpha', rowIndex: 0, columnIndex: 0 },
+    { kind: 'activate', rowId: 'alpha', rowIndex: 0, columnIndex: 0 }
   ]);
 });
 
@@ -249,8 +249,8 @@ test('table supports scroll state column sizing styled renderers sort markers em
     getRowId: (_row, index) => String(index),
     id: 'table',
     presentation: {
-      selectedCell: { rowId: '2', column: 1 },
-      sort: { column: 'name-1', direction: 'ascending' },
+      selectedCell: { rowId: '2', columnIndex: 1 },
+      sort: { columnId: 'name-1', direction: 'ascending' },
       scroll: createScrollState({ offsetRow: 1, offsetColumn: 0, contentRows: 3, viewportRows: 2 })
     },
     onAction: (action) => action,
@@ -304,7 +304,7 @@ test('table source metadata describes headers rows cells separators and empty st
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'fleet-table',
-    presentation: { selectedCell: { rowId: '1', column: 1 } },
+    presentation: { selectedCell: { rowId: '1', columnIndex: 1 } },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 6, resizable: true },
@@ -369,7 +369,7 @@ test('table compact fill columns keep marker width aligned with cell hit targets
     density: 'compact',
     presentation: {
       selectedRowId: '0',
-      selectedCell: { rowId: '0', column: 1 }
+      selectedCell: { rowId: '0', columnIndex: 1 }
     },
     stickyHeader: true,
     rows: [[18, 'node', 4.2]],
@@ -426,7 +426,7 @@ test('table header capabilities share geometry across keyboard, click, and captu
   };
   const app = defineTui({
     id: 'table-header-interaction',
-    init: () => ({ selectedRowId: '0', selectedColumn: 0, columnWidths: { name: 8 } }),
+    init: () => ({ selectedRowId: '0', selectedColumnIndex: 0, columnWidths: { name: 8 } }),
     update: (state, message) => ({
       state: tableReducer(state, message.action, reducerOptions)
     }),
@@ -437,7 +437,7 @@ test('table header capabilities share geometry across keyboard, click, and captu
       columns,
       presentation: {
         selectedRowId: state.selectedRowId,
-        selectedCell: { rowId: state.selectedRowId, column: state.selectedColumn },
+        selectedCell: { rowId: state.selectedRowId, columnIndex: state.selectedColumnIndex },
         sort: state.sort,
         columnWidths: state.columnWidths
       },
@@ -452,7 +452,7 @@ test('table header capabilities share geometry across keyboard, click, and captu
 
   await runtime.start();
   await runtime.handleInput({ kind: 'key', key: 'space', modifiers: { ctrl: false, alt: false, shift: false, meta: false }, eventType: 'press', location: 'standard' });
-  assert.deepEqual(runtime.state()?.sort, { column: 'name', direction: 'ascending' });
+  assert.deepEqual(runtime.state()?.sort, { columnId: 'name', direction: 'ascending' });
   await runtime.handleInput({
     kind: 'key',
     key: 'arrowRight',
@@ -471,7 +471,7 @@ test('table header capabilities share geometry across keyboard, click, and captu
 
   await runtime.handleInput(mousePress(sortTarget.bounds.row, sortTarget.bounds.column));
   await runtime.handleInput(mouseRelease(sortTarget.bounds.row, sortTarget.bounds.column));
-  assert.deepEqual(runtime.state()?.sort, { column: 'name', direction: 'descending' });
+  assert.deepEqual(runtime.state()?.sort, { columnId: 'name', direction: 'descending' });
 
   await runtime.handleInput(mousePress(resizeTarget.bounds.row, resizeTarget.bounds.column));
   await runtime.handleInput({
@@ -501,7 +501,7 @@ test('table headers emit no command targets without explicit column capabilities
 
 test('table and paginator compose explicitly over a bounded page', () => {
   const rows = [['Aster'], ['Atlas'], ['Pulse'], ['Lumen'], ['Vector']];
-  const page = paginationWindow({ page: 2, pageSize: 2, total: rows.length });
+  const page = paginationWindow({ pageNumber: 2, pageSize: 2, totalCount: rows.length });
   const frame = renderElementFrame(column([
     table({
     getRowId: (_row, index) => String(index),
@@ -509,12 +509,12 @@ test('table and paginator compose explicitly over a bounded page', () => {
       presentation: { selectedRowId: '0' },
       columns: [{
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
-      rows: rows.slice(page.start, page.end)
+      rows: rows.slice(page.startIndex, page.endIndexExclusive)
     }),
     paginator({
       id: 'fleet-pages-paginator',
       label: 'Fleet',
-      page: page.page,
+      pageNumber: page.pageNumber,
       pageCount: page.pageCount
     })
   ]), { columns: 24, rows: 5 });
@@ -609,7 +609,7 @@ test('table controlled scroll presentation drives the vertical window and scroll
     getRowId: (_row, index) => String(index),
     id: 'selected-cell-window',
     presentation: {
-      selectedCell: { rowId: '4', column: 0 },
+      selectedCell: { rowId: '4', columnIndex: 0 },
       scroll: createScrollState({ contentRows: 6, offsetRow: 3 })
     },
     scrollbar: { visible: 'always' },

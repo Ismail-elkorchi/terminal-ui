@@ -431,13 +431,13 @@ function isScrollbarVisualState(value: unknown): value is ScrollbarVisualState {
 export function tableScrollbarState(renderNode: TableNode, bounds: Rect): ScrollState {
   const selected = selectedTableRow(renderNode);
   const window = dataWindow({
-    totalRows: renderNode.props.collection.total,
+    totalRows: renderNode.props.collection.totalCount,
     viewportRows: bounds.height,
     selectedIndex: selected
   });
   const configured = normalizedRenderNodeScroll(renderNode, {
-    offsetRow: scrollNumberProp(renderNode, 'offsetRow') ?? window.start,
-    contentRows: scrollNumberProp(renderNode, 'contentRows') ?? renderNode.props.collection.total,
+    offsetRow: scrollNumberProp(renderNode, 'offsetRow') ?? window.startIndex,
+    contentRows: scrollNumberProp(renderNode, 'contentRows') ?? renderNode.props.collection.totalCount,
     contentColumns: scrollNumberProp(renderNode, 'contentColumns') ?? bounds.width,
     viewportRows: bounds.height,
     viewportColumns: bounds.width
@@ -447,7 +447,7 @@ export function tableScrollbarState(renderNode: TableNode, bounds: Rect): Scroll
 
 export function treeScrollbarState(renderNode: TreeNode, bounds: Rect): ScrollState {
   const scroll = normalizedRenderNodeScroll(renderNode, {
-    contentRows: renderNode.props.view.collection.total,
+    contentRows: renderNode.props.view.collection.totalCount,
     contentColumns: scrollNumberProp(renderNode, 'contentColumns') ?? bounds.width,
     viewportRows: bounds.height,
     viewportColumns: bounds.width
@@ -487,7 +487,7 @@ export function scrollbackScrollbarState(
 
 export function paletteScrollbarState(renderNode: PaletteNode, bounds: Rect): ScrollState {
   const scroll = normalizedRenderNodeScroll(renderNode, {
-    contentRows: scrollNumberProp(renderNode, 'contentRows') ?? renderNode.props.index.size,
+    contentRows: scrollNumberProp(renderNode, 'contentRows') ?? renderNode.props.paletteIndex.size,
     contentColumns: scrollNumberProp(renderNode, 'contentColumns') ?? bounds.width,
     viewportRows: bounds.height,
     viewportColumns: bounds.width
@@ -567,6 +567,6 @@ function selectedTableRow(renderNode: TableNode): number {
   const selectedRowId = selectedCellId ?? (typeof renderNode.props.selectedRowId === 'string' ? renderNode.props.selectedRowId : undefined);
   const selected = selectedRowId === undefined
     ? -1
-    : collectionRecordById(renderNode.props.collection, selectedRowId)?.index ?? -1;
+    : collectionRecordById(renderNode.props.collection, selectedRowId)?.itemIndex ?? -1;
   return Math.max(0, selected);
 }

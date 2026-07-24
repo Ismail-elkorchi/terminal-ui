@@ -168,7 +168,7 @@ test('default theme specimen composes surface control text command log and data 
     }),
     commandInput({
       id: 'specimen-command',
-      presentation: { value: '/open readme', cursor: 0, suggestions: [{ value: '/open', label: 'Open File' }], selectedSuggestion: 0 },
+      presentation: { value: '/open readme', cursor: 0, suggestions: [{ value: '/open', label: 'Open File' }], selectedSuggestionIndex: 0 },
       display: 'expanded'
     }),
     scrollback({

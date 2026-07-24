@@ -1,7 +1,7 @@
 export interface GraphemeSegment {
   readonly text: string;
-  readonly start: number;
-  readonly end: number;
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
   readonly cells: number;
 }
 
@@ -37,8 +37,8 @@ export interface TextWrapOptions extends TextMeasurementOptions {
 }
 
 export interface TextSelection {
-  readonly start: number;
-  readonly end: number;
+  readonly startOffset: number;
+  readonly endOffsetExclusive: number;
 }
 
 export type TextAffinity = 'upstream' | 'downstream';
@@ -118,6 +118,6 @@ export interface SanitizedTerminalText {
 
 export interface RemovedControlSequence {
   readonly sequence: string;
-  readonly index: number;
+  readonly codeUnitOffset: number;
   readonly kind: 'escape' | 'control';
 }

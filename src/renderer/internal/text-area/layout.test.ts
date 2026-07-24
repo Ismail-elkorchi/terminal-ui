@@ -51,7 +51,7 @@ void test('text-area accessibility text is bounded to the visible viewport', () 
 void test('edited documents retain unchanged logical-line layout work', () => {
   const document = prepareTextDocument('alpha\nbravo\ncharlie');
   const first = layoutTextAreaDocument(document, 4, true, defaultTextWidthProfile);
-  const edited = textDocumentEdit(document, { start: 6, end: 11 }, 'BRAVO').document;
+  const edited = textDocumentEdit(document, { startOffset: 6, endOffsetExclusive: 11 }, 'BRAVO').document;
   const second = layoutTextAreaDocument(edited, 4, true, defaultTextWidthProfile);
 
   assert.equal(second.lines[0]?.index, first.lines[0]?.index);

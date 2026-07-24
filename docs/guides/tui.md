@@ -259,12 +259,13 @@ result state. The condition does not choose whether the surface is framed;
 runtime focus and `disabled` take precedence.
 
 Use `textArea({ lineNumbers: true })` or
-`textArea({ lineNumbers: { start, minWidth }, activeLine: true })` when a
+`textArea({ lineNumbers: { startNumber, minWidth }, activeLine: true })` when a
 multi-line text region needs editor-like anatomy. The renderer emits the gutter,
 line-number, active-line, value, placeholder, selection, caller-controlled highlight,
 cursor, and chrome parts with structured source metadata and ordinary style
-slots. `highlights: [{ start, end, label, style }]` is for generic text ranges
-such as search matches; selection remains visually stronger. `wrap: true` or
+slots. `highlights: [{ startOffset, endOffsetExclusive, label, style }]` uses
+zero-based UTF-16 code-unit offsets for generic text ranges such as search
+matches; selection remains visually stronger. `wrap: true` or
 `wrap: { mode: 'soft' }` turns long logical lines into visual rows and composes
 with the same scroll state, scrollbar, cursor, and accessibility contracts. The
 cursor uses the generic `input.cursor` token in frame metadata. The component does

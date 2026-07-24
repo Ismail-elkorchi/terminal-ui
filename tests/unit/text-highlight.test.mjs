@@ -31,8 +31,8 @@ test('highlight matching keeps emoji ZWJ sequences whole', () => {
 
 test('highlight matching supports CJK and case-insensitive text by default', () => {
   assert.deepEqual(findTextHighlightMatches('Alpha界Beta界', '界'), [
-    { startGrapheme: 5, endGrapheme: 6 },
-    { startGrapheme: 10, endGrapheme: 11 }
+    { startGraphemeIndex: 5, endGraphemeIndexExclusive: 6 },
+    { startGraphemeIndex: 10, endGraphemeIndexExclusive: 11 }
   ]);
   assert.deepEqual(highlightRenderSpans('Alpha', 'alp').map((span) => [span.text, span.matched === true]), [
     ['Alp', true],
@@ -42,7 +42,7 @@ test('highlight matching supports CJK and case-insensitive text by default', () 
 
 test('highlight matching can fold accents when requested', () => {
   assert.deepEqual(findTextHighlightMatches('Résumé', 'resume', { accentSensitive: false }), [
-    { startGrapheme: 0, endGrapheme: 6 }
+    { startGraphemeIndex: 0, endGraphemeIndexExclusive: 6 }
   ]);
 });
 

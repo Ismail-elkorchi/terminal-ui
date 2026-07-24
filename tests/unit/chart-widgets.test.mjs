@@ -156,7 +156,7 @@ test('chart fit sample mode selects raw points by scaled source position', () =>
     id: 'fit-selected-first',
     min: 0,
     max: 10,
-    selected: { series: 'load', point: 0 },
+    selected: { series: 'load', pointIndex: 0 },
     sampleMode: 'fit',
     series: [{ id: 'load', points: [0, 10], kind: 'scatter' }]
   }), { columns: 10, rows: 3 });
@@ -164,7 +164,7 @@ test('chart fit sample mode selects raw points by scaled source position', () =>
     id: 'fit-selected-last',
     min: 0,
     max: 10,
-    selected: { series: 'load', point: 1 },
+    selected: { series: 'load', pointIndex: 1 },
     sampleMode: 'fit',
     series: [{ id: 'load', points: [0, 10], kind: 'scatter' }]
   }), { columns: 10, rows: 3 });
@@ -250,7 +250,7 @@ test('selected heatmap cells and fixed-grid chart glyphs remain one cell under a
   const heatmapFrame = renderElementFrame(heatmap({
     id: 'selected-wide-heatmap',
     rows: [[{ id: 'first', value: 1 }, { id: 'second', value: 0 }]],
-    selected: { row: 0, column: 0 },
+    selected: { rowIndex: 0, columnIndex: 0 },
     cellWidth: 1,
     gap: 0,
     min: 0,
@@ -258,7 +258,7 @@ test('selected heatmap cells and fixed-grid chart glyphs remain one cell under a
   }), { columns: 2, rows: 1 }, { widthProfile });
   const chartFrame = renderElementFrame(chart({
     id: 'wide-grid-chart',
-    selected: { series: 'load', point: 1 },
+    selected: { series: 'load', pointIndex: 1 },
     series: [{ id: 'load', kind: 'area', points: [1, 2] }]
   }), { columns: 2, rows: 2 }, { widthProfile });
 
@@ -292,7 +292,7 @@ test('chart renders scatter points legends axis labels and selectable point hit 
     legend: true,
     xLabel: 'watch cycle',
     yLabel: 'signal',
-    selected: { series: 'scatter', point: 2 },
+    selected: { series: 'scatter', pointIndex: 2 },
     series: [
       { id: 'line', label: 'Line', points: [1, 3, 2, 4], kind: 'line', glyph: '+' },
       { id: 'scatter', label: 'Scatter', points: [4, 1, 3, 2], kind: 'scatter', glyph: 'o' }
@@ -449,7 +449,7 @@ test('heatmap renders selectable cells with accessibility and hit targets', () =
     ],
     min: 0,
     max: 5,
-    selected: { row: 0, column: 1 },
+    selected: { rowIndex: 0, columnIndex: 1 },
     keys: { enter: () => ({ kind: 'select-current' }) },
     onAction: (action) => ({ kind: 'heatmap', action })
   }), { columns: 12, rows: 3 });
@@ -494,13 +494,13 @@ test('chart widgets preserve visualization meaning in high contrast and no color
   const highContrast = renderElementFrame(chart({
     id: 'contrast-chart',
     legend: true,
-    selected: { series: 'alpha', point: 1 },
+    selected: { series: 'alpha', pointIndex: 1 },
     series: [{ id: 'alpha', label: 'Alpha', points: [1, 3, 2], glyph: '+' }]
   }), { columns: 18, rows: 5 }, { theme: highContrastTheme });
   const noColor = renderElementFrame(heatmap({
     id: 'mono-heatmap',
     rows: [[{ id: 'a', value: 1 }, { id: 'b', value: 4 }]],
-    selected: { row: 0, column: 1 },
+    selected: { rowIndex: 0, columnIndex: 1 },
     min: 0,
     max: 4
   }), { columns: 10, rows: 1 }, { theme: noColorTheme });

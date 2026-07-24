@@ -49,10 +49,10 @@ export function editTextBuffer(buffer: TextEditBuffer, operation: TextEditOperat
     }
     case 'deleteWordBackward':
       if (selection !== undefined) return replaceTextRange(buffer.text, selection, '');
-      return replaceTextRange(buffer.text, { start: previousWordBoundary(buffer.text, cursor), end: cursor }, '');
+      return replaceTextRange(buffer.text, { startOffset: previousWordBoundary(buffer.text, cursor), endOffsetExclusive: cursor }, '');
     case 'deleteWordForward':
       if (selection !== undefined) return replaceTextRange(buffer.text, selection, '');
-      return replaceTextRange(buffer.text, { start: cursor, end: nextWordBoundary(buffer.text, cursor) }, '');
+      return replaceTextRange(buffer.text, { startOffset: cursor, endOffsetExclusive: nextWordBoundary(buffer.text, cursor) }, '');
     case 'moveLeft':
       return moveTo(buffer.text, cursor, selection, leftTarget(buffer.text, cursor, selection, operation.select), operation.select);
     case 'moveRight':
@@ -74,7 +74,7 @@ export function editTextBuffer(buffer: TextEditBuffer, operation: TextEditOperat
     case 'movePageDown':
       return moveTo(buffer.text, cursor, selection, lineOffsetByDelta(buffer.text, cursor, PAGE_LINE_DELTA), operation.select);
     case 'selectAll': {
-      const normalized = normalizeTextSelection(buffer.text, { start: 0, end: buffer.text.length });
+      const normalized = normalizeTextSelection(buffer.text, { startOffset: 0, endOffsetExclusive: buffer.text.length });
       return {
         text: buffer.text,
         cursor: buffer.text.length,
@@ -91,7 +91,7 @@ export function editTextBuffer(buffer: TextEditBuffer, operation: TextEditOperat
 }
 
 function selectedRange(selection: TextSelection | undefined, cursor: number): TextSelection {
-  return selection ?? { start: cursor, end: cursor };
+  return selection ?? { startOffset: cursor, endOffsetExclusive: cursor };
 }
 
 function moveTo(
@@ -104,7 +104,7 @@ function moveTo(
   const nextCursor = normalizeTextCursor(text, target);
   if (select !== true) return { text, cursor: nextCursor };
   const anchor = selectionAnchor(selection, cursor);
-  const nextSelection = normalizeTextSelection(text, { start: anchor, end: nextCursor });
+  const nextSelection = normalizeTextSelection(text, { startOffset: anchor, endOffsetExclusive: nextCursor });
   return {
     text,
     cursor: nextCursor,
@@ -114,9 +114,9 @@ function moveTo(
 
 function selectionAnchor(selection: TextSelection | undefined, cursor: number): number {
   if (selection === undefined) return cursor;
-  if (cursor <= selection.start) return selection.end;
-  if (cursor >= selection.end) return selection.start;
-  return selection.start;
+  if (cursor <= selection.startOffset) return selection.endOffsetExclusive;
+  if (cursor >= selection.endOffsetExclusive) return selection.startOffset;
+  return selection.startOffset;
 }
 
 function leftTarget(
@@ -125,7 +125,7 @@ function leftTarget(
   selection: TextSelection | undefined,
   select: boolean | undefined
 ): number {
-  if (select !== true && selection !== undefined) return selection.start;
+  if (select !== true && selection !== undefined) return selection.startOffset;
   return previousGraphemeBoundary(text, cursor);
 }
 
@@ -135,7 +135,7 @@ function rightTarget(
   selection: TextSelection | undefined,
   select: boolean | undefined
 ): number {
-  if (select !== true && selection !== undefined) return selection.end;
+  if (select !== true && selection !== undefined) return selection.endOffsetExclusive;
   return nextGraphemeBoundary(text, cursor);
 }
 
@@ -145,7 +145,7 @@ function wordLeftTarget(
   selection: TextSelection | undefined,
   select: boolean | undefined
 ): number {
-  if (select !== true && selection !== undefined) return selection.start;
+  if (select !== true && selection !== undefined) return selection.startOffset;
   return previousWordBoundary(text, cursor);
 }
 
@@ -155,6 +155,6 @@ function wordRightTarget(
   selection: TextSelection | undefined,
   select: boolean | undefined
 ): number {
-  if (select !== true && selection !== undefined) return selection.end;
+  if (select !== true && selection !== undefined) return selection.endOffsetExclusive;
   return nextWordBoundary(text, cursor);
 }

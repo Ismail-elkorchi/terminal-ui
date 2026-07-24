@@ -126,7 +126,7 @@ export function barChartHitTargets<TMessage>(renderNode: BarChartNode<TMessage>,
       id: `${renderNode.id ?? renderNode.kind}:bar:${item.id}`,
       bounds: { row: bounds.row + visibleIndex, column: bounds.column, width: bounds.width, height: 1 },
       cursor: 'pointer',
-      message: () => toMessage({ kind: 'select', id: item.id, index })
+      message: () => toMessage({ kind: 'select', id: item.id, itemIndex: index })
     };
   });
 }

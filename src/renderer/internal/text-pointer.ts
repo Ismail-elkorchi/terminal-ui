@@ -75,9 +75,9 @@ export function textOffsetAtVisualColumn(
 }
 
 export function textSelectionBetween(anchor: number, offset: number): TextSelection {
-  const start = Math.min(anchor, offset);
-  const end = Math.max(anchor, offset);
-  return { start, end };
+  const startOffset = Math.min(anchor, offset);
+  const endOffsetExclusive = Math.max(anchor, offset);
+  return { startOffset, endOffsetExclusive };
 }
 
 export function clampedTextOffset(text: string, offset: number): number {

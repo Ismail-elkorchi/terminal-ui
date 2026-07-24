@@ -7,7 +7,7 @@ export function commandInputPresentation(state: CommandInputState): CommandInput
     cursor: state.input.cursor,
     ...(state.input.selection === undefined ? {} : { selection: state.input.selection }),
     suggestions: state.suggestions,
-    ...(state.selectedSuggestion === undefined ? {} : { selectedSuggestion: state.selectedSuggestion }),
+    ...(state.selectedSuggestionIndex === undefined ? {} : { selectedSuggestionIndex: state.selectedSuggestionIndex }),
     ...(state.historyIndex === undefined ? {} : { historyIndex: state.historyIndex })
   };
 }

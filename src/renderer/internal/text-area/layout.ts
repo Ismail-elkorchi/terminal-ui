@@ -70,8 +70,8 @@ export function layoutTextAreaDocument(
     intrinsicColumns = Math.max(intrinsicColumns, retained.intrinsicColumns);
     lines.push(...retained.lines.map((record) => ({
       text: record.text,
-      start: line.start + record.relativeStart,
-      logicalLineIndex: line.index,
+      start: line.startOffset + record.relativeStart,
+      logicalLineIndex: line.lineIndex,
       firstVisualLine: record.firstVisualLine,
       index: record.index
     })));

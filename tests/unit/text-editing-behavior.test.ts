@@ -31,7 +31,7 @@ void test('textInputReducer applies edits and grapheme-aware pointer selections'
   assert.deepEqual(textInputPresentation(selected), {
     value: 'a🙂bc',
     cursor: 4,
-    selection: { start: 1, end: 4 }
+    selection: { startOffset: 1, endOffsetExclusive: 4 }
   });
   assert.deepEqual(replaced, { text: 'aXc', cursor: 2 });
 });

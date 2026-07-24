@@ -19,7 +19,7 @@ export type ScrollAction =
   | { readonly kind: 'scrollPages'; readonly rows?: number; readonly columns?: number }
   | { readonly kind: 'top' }
   | { readonly kind: 'bottom' }
-  | { readonly kind: 'itemIntoView'; readonly index: number }
+  | { readonly kind: 'itemIntoView'; readonly itemIndex: number }
   | { readonly kind: 'setFollowTail'; readonly followTail: boolean };
 
 export type ScrollEventSource = 'wheel' | 'pointerDown' | 'dragStart' | 'drag';
@@ -63,6 +63,6 @@ export interface CreateScrollStateInput {
 }
 
 export interface ScrollVisibleWindow {
-  readonly start: number;
-  readonly end: number;
+  readonly startIndex: number;
+  readonly endIndexExclusive: number;
 }

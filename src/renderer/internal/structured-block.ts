@@ -126,7 +126,7 @@ export function activityFeedAccessibleBase(
     label: id,
     description: blocks.length === 0
       ? 'Showing 0 activity blocks.'
-      : `Showing ${String(window.startIndex + 1)}-${String(window.endIndex)} of ${String(blocks.length)} activity blocks.`,
+      : `Showing ${String(window.startIndex + 1)}-${String(window.endIndexExclusive)} of ${String(blocks.length)} activity blocks.`,
     ...(focused ? { focused } : {})
   };
 }

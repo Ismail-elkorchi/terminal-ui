@@ -174,13 +174,13 @@ test('controlled pointer interaction resolves styles and source state across com
   }), { columns: 20, rows: 2 });
   const commandFrame = renderElementFrame(commandInput({
     id: 'command',
-    presentation: { value: '/o', cursor: 0, suggestions: [{ value: '/open', label: 'Open' }, { value: '/save', label: 'Save' }], selectedSuggestion: 0 },
+    presentation: { value: '/o', cursor: 0, suggestions: [{ value: '/open', label: 'Open' }, { value: '/save', label: 'Save' }], selectedSuggestionIndex: 0 },
     display: 'expanded',
     pointer: { state: { hoveredTargetId: 'command:suggestion:1' } }
   }), { columns: 24, rows: 3 });
   const paginatorFrame = renderElementFrame(paginator({
     id: 'pages',
-    page: 2,
+    pageNumber: 2,
     pageCount: 4,
     onAction: () => undefined,
     pointer: { state: { pressedTargetId: 'pages:next' } }
@@ -252,7 +252,7 @@ test('menu palette table and tree use selected placeholder and title slots', () 
   const paletteFrame = renderElementFrame(palette({
     id: 'styled-palette',
     title: 'Commands',
-    index: preparePaletteIndex([]),
+    paletteIndex: preparePaletteIndex([]),
     meta: {
         styles: {
             parts: {
@@ -312,7 +312,7 @@ test('list table and tree share data navigation selection and match styles', () 
   const activeTableFrame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'active-table',
-    presentation: { selectedCell: { rowId: '0', column: 0 } },
+    presentation: { selectedCell: { rowId: '0', columnIndex: 0 } },
     columns: [{
       id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: 8 }],
     rows: [['Atlas'], ['Pulse']]
@@ -363,7 +363,7 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
     presentation: { value: '/open README.md', cursor: 0, suggestions: [
       { value: '/open', label: 'Open file' },
       { value: '/save', label: 'Save file' }
-    ], selectedSuggestion: 0 },
+    ], selectedSuggestionIndex: 0 },
     display: 'expanded',
   }), { columns: 36, rows: 3 });
   const menuFrame = renderElementFrame(menu({
@@ -388,8 +388,8 @@ test('default interactive widget anatomy uses theme tokens instead of terminal d
   const paletteFrame = renderElementFrame(palette({
     id: 'palette',
     query: 'o',
-    selected: 1,
-    index: preparePaletteIndex([
+    selectedIndex: 1,
+    paletteIndex: preparePaletteIndex([
       { id: 'open', label: 'Open file' },
       { id: 'toggle', label: 'Toggle theme' }
     ])

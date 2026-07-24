@@ -105,7 +105,7 @@ import {
 const entries = [
   { id: 'open', label: 'Open', value: 'open' }
 ] satisfies readonly SearchEntry<string>[];
-const index = preparePaletteIndex(entries);
+const paletteIndex = preparePaletteIndex(entries);
 
 type PaletteMessage =
   | { kind: 'palette'; action: PaletteAction }
@@ -113,13 +113,13 @@ type PaletteMessage =
   | { kind: 'closePalette' };
 
 function updatePalette(state: PaletteState, action: PaletteAction): PaletteState {
-  return paletteReducer(state, action, { index });
+  return paletteReducer(state, action, { paletteIndex });
 }
 
 function paletteView(state: PaletteState) {
   return palette({
     id: 'commands',
-    index,
+    paletteIndex,
     ...palettePresentation(state),
     onAction: (action): PaletteMessage => ({ kind: 'palette', action }),
     keys: {
@@ -189,7 +189,7 @@ const visibleRows = [{ id: 'row-40000', value: 42 }];
 const collection = prepareTableCollection(
   visibleRows,
   (row) => row.id,
-  { start: 40_000, total: 100_000, domain: { kind: 'source' } }
+  { startIndex: 40_000, totalCount: 100_000, domain: { kind: 'source' } }
 );
 
 table({
@@ -201,8 +201,9 @@ table({
 
 `prepareListCollection()`, `prepareTableCollection()`, and
 `prepareTreeCollection()` create complete projections. The list and table
-helpers accept `start` and `total` to create a windowed projection whose
-records retain global indices. Every window declares whether those indexes
+helpers accept `startIndex` and `totalCount` to create a windowed projection
+whose records retain zero-based global `itemIndex` values. `totalCount` may be
+zero. Every window declares whether those indexes
 belong to the source or to an external projection. Externally filtered or sorted
 windows use a stable projection ID and carry their query/sort provenance.
 `prepareTreeRows()` accepts an already flattened tree projection and the same
@@ -213,6 +214,26 @@ Prepared collections snapshot membership and identity. Replace the collection
 when rows are inserted, deleted, reordered, or reprojected. Reducers and
 renderers reuse identity and projection work while the same collection object
 is retained; they do not retain mutable application arrays implicitly.
+
+## Index And Range Conventions
+
+Public collection positions are zero-based indexes. `itemIndex`, table
+`rowIndex` and `columnIndex`, chart `pointIndex`, and heatmap `rowIndex` and
+`columnIndex` refer to positions in caller-supplied data, not terminal
+coordinates. Collection and pagination ranges use `startIndex` with an
+exclusive `endIndexExclusive`; `totalCount` may be zero. Pagination
+`pageNumber` is one-based, while `pageCount` is always at least one, including
+for an empty collection.
+
+Text selections and highlights use zero-based UTF-16 code-unit
+`startOffset` values and exclusive `endOffsetExclusive` values. Prepared
+search matches use zero-based grapheme indexes with an exclusive
+`endGraphemeIndexExclusive`.
+
+Terminal rectangles, frame cells, and routed pointer events use one-based
+terminal `row` and `column` coordinates. Drawing operations explicitly
+documented as local accept zero-based terminal-cell coordinates and convert
+them before writing.
 
 Append-heavy documents use the same retained-projection rule through a
 dedicated contract. Build a `ScrollbackHistory` once with

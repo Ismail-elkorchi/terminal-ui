@@ -39,7 +39,7 @@ function selectPopupList<TMessage>(input: SelectPopupInput<TMessage>): RenderNod
   const toActionMessage = input.toActionMessage;
   const collection = completeCollection(input.options.map((option, index): ListCollectionRecord<unknown> => ({
     id: option.id,
-    index,
+    itemIndex: index,
     value: option.value,
     item: {
       id: option.id,

@@ -93,7 +93,7 @@ test('windowed list collections project only supplied rows while preserving glob
   const collection = prepareListCollection(values, (value, index) => {
     projectorCalls += 1;
     return { id: String(index), label: value };
-  }, { start, total: 50_000, domain: { kind: 'source' } });
+  }, { startIndex: start, totalCount: 50_000, domain: { kind: 'source' } });
   const frame = renderElementFrame(list({
     id: 'windowed-list',
     collection,
@@ -183,7 +183,7 @@ test('full frame render stays bounded by terminal size for mixed element trees',
       presentation: { value: 'fil', cursor: 0, suggestions: [
         { value: 'file', label: 'file' },
         { value: 'filter', label: 'filter' }
-      ], selectedSuggestion: 0 },
+      ], selectedSuggestionIndex: 0 },
     }),
     table({
     getRowId: (_row, index) => String(index),
@@ -241,7 +241,7 @@ test('large table rendering is bounded by terminal size independently from row c
   const frame = renderElementFrame(table({
     getRowId: (_row, index) => String(index),
     id: 'large-table',
-    presentation: { selectedCell: { rowId: '42000', column: 1 } },
+    presentation: { selectedCell: { rowId: '42000', columnIndex: 1 } },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
@@ -285,7 +285,7 @@ test('windowed table collections identify only supplied records and keep global 
   const collection = prepareTableCollection(rows, (_row, index) => {
     rowIdCalls += 1;
     return String(index);
-  }, { start, total: 100_000, domain: { kind: 'source' } });
+  }, { startIndex: start, totalCount: 100_000, domain: { kind: 'source' } });
   const frame = renderElementFrame(table({
     id: 'windowed-table',
     collection,
@@ -327,7 +327,7 @@ test('large table retained damage is narrowed to changed visible rows', () => {
   const previousWidget = table({
     getRowId: (_row, index) => String(index),
     id: 'large-table-damage',
-    presentation: { selectedCell: { rowId: '12000', column: 1 } },
+    presentation: { selectedCell: { rowId: '12000', columnIndex: 1 } },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
@@ -341,7 +341,7 @@ test('large table retained damage is narrowed to changed visible rows', () => {
   const nextWidget = table({
     getRowId: (_row, index) => String(index),
     id: 'large-table-damage',
-    presentation: { selectedCell: { rowId: '12000', column: 2 } },
+    presentation: { selectedCell: { rowId: '12000', columnIndex: 2 } },
     columns: [
       {
         id: 'name-0', value: (row) => Array.isArray(row) ? row[0] : row, header: 'Name', width: { kind: 'fixed', cells: 16 } },
@@ -457,7 +457,7 @@ test('palette filtering returns bounded windows for large entry sets', () => {
     query: '19999',
     selectedId: 'entry-19999',
     maxVisible: 5,
-    index: preparePaletteIndex(entries)
+    paletteIndex: preparePaletteIndex(entries)
   }), { columns: 48, rows: 8 });
 
   assert.match(renderFramePlain(frame), /Entry 19999/u);

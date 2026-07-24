@@ -71,7 +71,7 @@ export type ChartInterpolation = 'nearest' | 'linear';
 
 export interface ChartPointSelection {
   readonly series: string;
-  readonly point: number;
+  readonly pointIndex: number;
 }
 
 export type MeterVariant = 'linear' | 'dial';
@@ -85,6 +85,6 @@ export interface HeatmapCell<TValue = unknown> {
 }
 
 export interface HeatmapSelection {
-  readonly row: number;
-  readonly column: number;
+  readonly rowIndex: number;
+  readonly columnIndex: number;
 }

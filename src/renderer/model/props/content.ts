@@ -108,7 +108,7 @@ export interface TreeRenderProps<TMessage> {
 }
 
 export interface PaginatorRenderProps<TMessage> {
-  readonly page: number;
+  readonly pageNumber: number;
   readonly pageCount: number;
   readonly label?: string;
   readonly toActionMessage?: (action: PaginatorAction) => TMessage;

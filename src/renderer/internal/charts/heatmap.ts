@@ -48,7 +48,7 @@ export function heatmapBlock(
   const range = heatmapRange(rows, numberProp(renderNode, 'min'), numberProp(renderNode, 'max'));
   const selected = heatmapSelected(renderNode);
   const scale = normalizeValueScale(renderNode.props.valueScale);
-  const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
+  const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.rowIndex ?? 0);
   return {
     lines: rows.slice(rowWindow.start, rowWindow.end).map((row, rowOffset): RenderLine => {
       const rowIndex = rowWindow.start + rowOffset;
@@ -62,7 +62,7 @@ export function heatmapBlock(
           range,
           scale,
           intensity: normalizedIndex(cell.value, range, heatmapIntensityLevelCount - 1),
-          selected: selected?.row === rowIndex && selected.column === columnIndex,
+          selected: selected?.rowIndex === rowIndex && selected.columnIndex === columnIndex,
           widthProfile
         })
       ]);
@@ -83,7 +83,7 @@ export function heatmapText(
 export function heatmapAccessibleBase(renderNode: HeatmapNode, node: LayoutNode, id: string, focused: boolean): AccessibleNode {
   const rows = heatmapRows(renderNode.props.rows);
   const selected = heatmapSelected(renderNode);
-  const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
+  const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.rowIndex ?? 0);
   return {
     id,
     role: 'grid',
@@ -96,7 +96,7 @@ export function heatmapAccessibleBase(renderNode: HeatmapNode, node: LayoutNode,
 export function heatmapAccessibleChildren(renderNode: HeatmapNode, node: LayoutNode): readonly AccessibleNode[] {
   const rows = heatmapRows(renderNode.props.rows);
   const selected = heatmapSelected(renderNode);
-  const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.row ?? 0);
+  const rowWindow = visibleWindow(rows.length, node.bounds.height, selected?.rowIndex ?? 0);
   return rows.slice(rowWindow.start, rowWindow.end).map((row, rowOffset): AccessibleNode => {
     const rowIndex = rowWindow.start + rowOffset;
     return {
@@ -108,7 +108,7 @@ export function heatmapAccessibleChildren(renderNode: HeatmapNode, node: LayoutN
         role: 'gridcell' as const,
         label: cell.label ?? cell.id,
         value: cell.value,
-        selected: selected?.row === rowIndex && selected.column === columnIndex,
+        selected: selected?.rowIndex === rowIndex && selected.columnIndex === columnIndex,
         position: {
           rowIndex: rowIndex + 1,
           rowCount: rows.length,
@@ -125,7 +125,7 @@ export function heatmapHitTargets<TMessage>(renderNode: HeatmapNode<TMessage>, b
   if (toMessage === undefined) return [];
   const rows = heatmapRows(renderNode.props.rows);
   const selected = heatmapSelected(renderNode);
-  const rowWindow = visibleWindow(rows.length, bounds.height, selected?.row ?? 0);
+  const rowWindow = visibleWindow(rows.length, bounds.height, selected?.rowIndex ?? 0);
   const cellWidth = heatmapCellWidth(renderNode);
   const gap = heatmapGap(renderNode);
   return rows.slice(rowWindow.start, rowWindow.end).flatMap((row, rowOffset): HitTarget<TMessage>[] => {
@@ -142,7 +142,7 @@ export function heatmapHitTargets<TMessage>(renderNode: HeatmapNode<TMessage>, b
           width: Math.min(cellWidth, bounds.column + bounds.width - column),
           height: 1
         },
-        message: () => toMessage({ kind: 'select', row: rowIndex, column: columnIndex }),
+        message: () => toMessage({ kind: 'select', rowIndex, columnIndex }),
         cursor: 'pointer'
       }];
     });

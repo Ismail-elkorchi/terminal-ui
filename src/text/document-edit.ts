@@ -31,7 +31,11 @@ export interface TextDocumentEditState {
 }
 
 export interface TextDocumentEditResult extends TextDocumentEditState {
-  readonly changedRange?: { readonly start: number; readonly oldEnd: number; readonly newEnd: number };
+  readonly changedRange?: {
+    readonly startOffset: number;
+    readonly oldEndOffsetExclusive: number;
+    readonly newEndOffsetExclusive: number;
+  };
 }
 
 export function editTextDocument(
@@ -48,19 +52,20 @@ export function editTextDocument(
       if (selection !== undefined) return replaceRange(state, caret, selection, '');
       if (caret.position.offset === 0) return unchanged(state, caret, selection);
       const line = lineContaining(state.document, caret.position.offset);
-      const local = caret.position.offset - line.start;
-      const previous = line.start + previousGraphemeBoundary(line.text, local);
+      const local = caret.position.offset - line.startOffset;
+      const previous = line.startOffset + previousGraphemeBoundary(line.text, local);
       return replaceOffsets(state, previous, caret.position.offset, '');
     }
     case 'deleteForward': {
       if (selection !== undefined) return replaceRange(state, caret, selection, '');
       if (caret.position.offset >= textDocumentLength(state.document)) return unchanged(state, caret, selection);
       const line = lineContaining(state.document, caret.position.offset);
-      if (caret.position.offset === line.end && line.index < textDocumentLineCount(state.document) - 1) {
+      if (caret.position.offset === line.endOffsetExclusive
+        && line.lineIndex < textDocumentLineCount(state.document) - 1) {
         return replaceOffsets(state, caret.position.offset, caret.position.offset + 1, '');
       }
-      const local = caret.position.offset - line.start;
-      return replaceOffsets(state, caret.position.offset, line.start + nextGraphemeBoundary(line.text, local), '');
+      const local = caret.position.offset - line.startOffset;
+      return replaceOffsets(state, caret.position.offset, line.startOffset + nextGraphemeBoundary(line.text, local), '');
     }
     case 'deleteWordBackward':
       if (selection !== undefined) return replaceRange(state, caret, selection, '');
@@ -78,11 +83,11 @@ export function editTextDocument(
       return move(state, caret, selection, nextWordOffset(state.document, caret.position.offset), 'downstream', operation.select);
     case 'moveHome': {
       const line = lineContaining(state.document, caret.position.offset);
-      return move(state, caret, selection, line.start, 'downstream', operation.select);
+      return move(state, caret, selection, line.startOffset, 'downstream', operation.select);
     }
     case 'moveEnd': {
       const line = lineContaining(state.document, caret.position.offset);
-      return move(state, caret, selection, line.end, 'upstream', operation.select);
+      return move(state, caret, selection, line.endOffsetExclusive, 'upstream', operation.select);
     }
     case 'moveLineUp':
       return moveByLine(state, caret, selection, -1, operation.select);
@@ -111,17 +116,17 @@ function replaceRange(
   insertion: string
 ): TextDocumentEditResult {
   const range = textDocumentSelectionRange(state.document, selection, caret);
-  return replaceOffsets(state, range.start, range.end, insertion);
+  return replaceOffsets(state, range.startOffset, range.endOffsetExclusive, insertion);
 }
 
 function replaceOffsets(
   state: TextDocumentEditState,
-  start: number,
-  end: number,
+  startOffset: number,
+  endOffsetExclusive: number,
   insertion: string
 ): TextDocumentEditResult {
-  const change = textDocumentEdit(state.document, { start, end }, insertion);
-  const offset = change.replaced.start + change.insertedLength;
+  const change = textDocumentEdit(state.document, { startOffset, endOffsetExclusive }, insertion);
+  const offset = change.replaced.startOffset + change.insertedLength;
   const nextCaret = caretAt(offset, 'downstream');
   if (change.document === state.document && sameCaret(nextCaret, state.caret) && state.selection === undefined) {
     return state;
@@ -130,9 +135,9 @@ function replaceOffsets(
     document: change.document,
     caret: nextCaret,
     changedRange: {
-      start: change.replaced.start,
-      oldEnd: change.replaced.end,
-      newEnd: offset
+      startOffset: change.replaced.startOffset,
+      oldEndOffsetExclusive: change.replaced.endOffsetExclusive,
+      newEndOffsetExclusive: offset
     }
   };
 }
@@ -165,14 +170,17 @@ function moveByLine(
 ): TextDocumentEditResult {
   const current = lineContaining(state.document, caret.position.offset);
   const currentIndex = createTerminalTextIndex(current.text);
-  const local = Math.max(0, Math.min(current.text.length, caret.position.offset - current.start));
+  const local = Math.max(0, Math.min(current.text.length, caret.position.offset - current.startOffset));
   const preferred = caret.preferredColumnCells
     ?? currentIndex.graphemeIndexToVisualColumn(currentIndex.codeUnitOffsetToGraphemeIndex(local));
-  const targetIndex = Math.max(0, Math.min(textDocumentLineCount(state.document) - 1, current.index + delta));
+  const targetIndex = Math.max(
+    0,
+    Math.min(textDocumentLineCount(state.document) - 1, current.lineIndex + delta)
+  );
   const target = textDocumentLineAt(state.document, targetIndex) ?? current;
   const targetText = createTerminalTextIndex(target.text);
   const grapheme = targetText.visualColumnToGraphemeIndex(preferred);
-  const offset = target.start + targetText.graphemeIndexToCodeUnitOffset(grapheme);
+  const offset = target.startOffset + targetText.graphemeIndexToCodeUnitOffset(grapheme);
   return move(state, caret, selection, offset, 'downstream', selecting, preferred);
 }
 
@@ -183,10 +191,10 @@ function leftOffset(
   selecting: boolean | undefined
 ): number {
   const range = textDocumentSelectionRange(document, selection, caret);
-  if (selecting !== true && selection !== undefined) return range.start;
+  if (selecting !== true && selection !== undefined) return range.startOffset;
   const line = lineContaining(document, caret.position.offset);
-  if (caret.position.offset === line.start && line.index > 0) return caret.position.offset - 1;
-  return line.start + previousGraphemeBoundary(line.text, caret.position.offset - line.start);
+  if (caret.position.offset === line.startOffset && line.lineIndex > 0) return caret.position.offset - 1;
+  return line.startOffset + previousGraphemeBoundary(line.text, caret.position.offset - line.startOffset);
 }
 
 function rightOffset(
@@ -196,24 +204,26 @@ function rightOffset(
   selecting: boolean | undefined
 ): number {
   const range = textDocumentSelectionRange(document, selection, caret);
-  if (selecting !== true && selection !== undefined) return range.end;
+  if (selecting !== true && selection !== undefined) return range.endOffsetExclusive;
   const line = lineContaining(document, caret.position.offset);
-  if (caret.position.offset === line.end && line.index < textDocumentLineCount(document) - 1) {
+  if (caret.position.offset === line.endOffsetExclusive
+    && line.lineIndex < textDocumentLineCount(document) - 1) {
     return caret.position.offset + 1;
   }
-  return line.start + nextGraphemeBoundary(line.text, caret.position.offset - line.start);
+  return line.startOffset + nextGraphemeBoundary(line.text, caret.position.offset - line.startOffset);
 }
 
 function previousWordOffset(document: TextDocument, offset: number): number {
   const line = lineContaining(document, offset);
-  if (offset === line.start && line.index > 0) return offset - 1;
-  return line.start + previousWordBoundary(line.text, offset - line.start);
+  if (offset === line.startOffset && line.lineIndex > 0) return offset - 1;
+  return line.startOffset + previousWordBoundary(line.text, offset - line.startOffset);
 }
 
 function nextWordOffset(document: TextDocument, offset: number): number {
   const line = lineContaining(document, offset);
-  if (offset === line.end && line.index < textDocumentLineCount(document) - 1) return offset + 1;
-  return line.start + nextWordBoundary(line.text, offset - line.start);
+  if (offset === line.endOffsetExclusive
+    && line.lineIndex < textDocumentLineCount(document) - 1) return offset + 1;
+  return line.startOffset + nextWordBoundary(line.text, offset - line.startOffset);
 }
 
 function lineContaining(document: TextDocument, offset: number): NonNullable<ReturnType<typeof textDocumentLineAt>> {

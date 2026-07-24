@@ -304,7 +304,7 @@ function withSelectHighlight<TValue>(
   const index = options.findIndex((option) => option.id === highlighted);
   const scroll = state.scroll === undefined || index < 0
     ? state.scroll
-    : scrollReducer(state.scroll, { kind: 'itemIntoView', index });
+    : scrollReducer(state.scroll, { kind: 'itemIntoView', itemIndex: index });
   return {
     ...state,
     highlighted,

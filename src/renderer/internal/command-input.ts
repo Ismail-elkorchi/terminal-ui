@@ -50,7 +50,7 @@ export function commandInputBlock(
   if (bounds.height > lines.length && validation !== undefined) lines.push(validationLine(renderNode, validation, theme));
   if (display === 'expanded') {
     const suggestions = commandInputSuggestions(renderNode);
-    const selected = nonNegativeInteger(numberProp(renderNode, 'selectedSuggestion'));
+    const selected = nonNegativeInteger(numberProp(renderNode, 'selectedSuggestionIndex'));
     const remaining = Math.max(0, bounds.height - lines.length - footerReserve(renderNode));
     lines.push(...suggestions.slice(0, remaining).map((suggestion, index) => suggestionLine(
       renderNode,
@@ -88,7 +88,7 @@ export function commandInputAccessibleChildren(renderNode: CommandInputNode): re
       value: validation.message
     });
   }
-  const selected = nonNegativeInteger(numberProp(renderNode, 'selectedSuggestion'));
+  const selected = nonNegativeInteger(numberProp(renderNode, 'selectedSuggestionIndex'));
   if (suggestions.length > 0) {
     const id = renderNode.id ?? 'command-input';
     children.push({
@@ -153,7 +153,7 @@ export function commandInputSuggestionHitTargets<TMessage>(
         width: bounds.width,
         height: 1
       },
-      message: () => toMessage({ kind: 'selectSuggestion', index }),
+      message: () => toMessage({ kind: 'selectSuggestion', suggestionIndex: index }),
       cursor: 'pointer'
     }];
   });
@@ -339,12 +339,12 @@ function valueWindowSpans(
 
 function windowSelection(selection: TextSelection | undefined, start: number, end: number): TextSelection | undefined {
   if (selection === undefined) return undefined;
-  const nextStart = Math.max(start, selection.start);
-  const nextEnd = Math.min(end, selection.end);
+  const nextStart = Math.max(start, selection.startOffset);
+  const nextEnd = Math.min(end, selection.endOffsetExclusive);
   if (nextStart >= nextEnd) return undefined;
   return {
-    start: nextStart - start,
-    end: nextEnd - start
+    startOffset: nextStart - start,
+    endOffsetExclusive: nextEnd - start
   };
 }
 

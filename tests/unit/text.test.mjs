@@ -29,7 +29,7 @@ test('text measurement sanitizes control sequences and measures visible cells', 
   assert.equal(sanitized.changed, true);
   assert.deepEqual(sanitized.removedControlSequences, [{
     sequence: '\u001B[31m',
-    index: 0,
+    codeUnitOffset: 0,
     kind: 'escape'
   }]);
   assert.equal(Object.isFrozen(sanitized), true);
@@ -140,7 +140,7 @@ test('text editing sanitizes inserted text before deriving cursor offsets', () =
   );
   assert.deepEqual(
     editTextBuffer(
-      { text: 'abcd', cursor: 3, selection: { start: 1, end: 3 } },
+      { text: 'abcd', cursor: 3, selection: { startOffset: 1, endOffsetExclusive: 3 } },
       { kind: 'replaceSelection', text: `Y\u0007Z` }
     ),
     { text: 'aYZd', cursor: 3 }
@@ -179,11 +179,11 @@ test('terminal text index handles wide cells, lines, tabs, and standalone helper
 
 test('text editing replaces selections and uses spec-shaped home/end operations', () => {
   assert.deepEqual(
-    editTextBuffer({ text: 'hello world', cursor: 11, selection: { start: 6, end: 11 } }, { kind: 'insert', text: 'terminal' }),
+    editTextBuffer({ text: 'hello world', cursor: 11, selection: { startOffset: 6, endOffsetExclusive: 11 } }, { kind: 'insert', text: 'terminal' }),
     { text: 'hello terminal', cursor: 14 }
   );
   assert.deepEqual(
-    editTextBuffer({ text: 'abc🙂def', cursor: 0, selection: { start: 3, end: 'abc🙂'.length } }, { kind: 'deleteForward' }),
+    editTextBuffer({ text: 'abc🙂def', cursor: 0, selection: { startOffset: 3, endOffsetExclusive: 'abc🙂'.length } }, { kind: 'deleteForward' }),
     { text: 'abcdef', cursor: 3 }
   );
   assert.deepEqual(
@@ -191,7 +191,7 @@ test('text editing replaces selections and uses spec-shaped home/end operations'
     { text: 'abZc', cursor: 3 }
   );
   assert.deepEqual(
-    editTextBuffer({ text: 'abc', cursor: 2, selection: { start: 0, end: 2 } }, { kind: 'moveHome' }),
+    editTextBuffer({ text: 'abc', cursor: 2, selection: { startOffset: 0, endOffsetExclusive: 2 } }, { kind: 'moveHome' }),
     { text: 'abc', cursor: 0 }
   );
 });
@@ -211,11 +211,11 @@ test('text editing supports word operations and selection movement', () => {
   );
   assert.deepEqual(
     editTextBuffer({ text: 'alpha bravo', cursor: 0 }, { kind: 'moveWordRight', select: true }),
-    { text: 'alpha bravo', cursor: 'alpha'.length, selection: { start: 0, end: 'alpha'.length } }
+    { text: 'alpha bravo', cursor: 'alpha'.length, selection: { startOffset: 0, endOffsetExclusive: 'alpha'.length } }
   );
   assert.deepEqual(
     editTextBuffer({ text: 'alpha bravo', cursor: 0 }, { kind: 'selectAll' }),
-    { text: 'alpha bravo', cursor: 'alpha bravo'.length, selection: { start: 0, end: 'alpha bravo'.length } }
+    { text: 'alpha bravo', cursor: 'alpha bravo'.length, selection: { startOffset: 0, endOffsetExclusive: 'alpha bravo'.length } }
   );
 });
 
@@ -235,7 +235,7 @@ test('text area editing handles multiline inserts and line/page movement', () =>
     {
       text: pasted.text,
       cursor: 'alpha\nbravo\ncha'.length,
-      selection: { start: 'alpha\nbra'.length, end: 'alpha\nbravo\ncha'.length }
+      selection: { startOffset: 'alpha\nbra'.length, endOffsetExclusive: 'alpha\nbravo\ncha'.length }
     }
   );
   const twelveLines = Array.from({ length: 12 }, (_, index) => `line${String(index)}`).join('\n');

@@ -125,14 +125,14 @@ export function chartBlock(
   }
   const selected = selectedChartPoint(renderNode, series);
   if (selected !== undefined) {
-    const position = chartPointPosition(renderNode, node.bounds, selected.series, selected.point, range);
+    const position = chartPointPosition(renderNode, node.bounds, selected.series, selected.pointIndex, range);
     if (position !== undefined) {
       buffer.write(position.row, position.column, [
         chartSpan(
           renderNode,
           'chart',
           'selected',
-          `selection.${selected.series}.${String(selected.point)}`,
+          `selection.${selected.series}.${String(selected.pointIndex)}`,
           oneCellGlyph('◆', '*', { widthProfile }),
           chartSelectedStyle(renderNode)
         )
@@ -250,7 +250,7 @@ export function chartAccessibleChildren(renderNode: ChartNode): readonly Accessi
     label: item.label ?? item.id,
     value: `${String(item.points.length)} points`,
     ...(selected?.series === item.id
-      ? { description: `Selected point ${String(selected.point + 1)} of ${String(item.points.length)}.` }
+      ? { description: `Selected point ${String(selected.pointIndex + 1)} of ${String(item.points.length)}.` }
       : {})
   }));
 }
@@ -273,7 +273,7 @@ export function chartHitTargets<TMessage>(renderNode: ChartNode<TMessage>, bound
       message: () => toMessage({
         kind: 'select',
         series: item.id,
-        point: projected.point
+        pointIndex: projected.point
       }),
       cursor: 'pointer'
     }];

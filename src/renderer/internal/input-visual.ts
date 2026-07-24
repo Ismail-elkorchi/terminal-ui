@@ -145,8 +145,10 @@ export function textAreaInputLine(input: TextAreaInputBlockInput, lineInput: {
       ? {}
       : {
           selection: {
-            start: selectionInWindow.start - lineInput.lineRecord.start - window.startOffset,
-            end: selectionInWindow.end - lineInput.lineRecord.start - window.startOffset
+            startOffset: selectionInWindow.startOffset - lineInput.lineRecord.start - window.startOffset,
+            endOffsetExclusive: selectionInWindow.endOffsetExclusive
+              - lineInput.lineRecord.start
+              - window.startOffset
           }
         })
   });
@@ -390,7 +392,9 @@ function textAreaContentSpans(
     const end = cuts[index + 1];
     if (end === undefined || end <= start) return [];
     const text = input.text.slice(start, end);
-    const selected = input.selection !== undefined && start >= input.selection.start && end <= input.selection.end;
+    const selected = input.selection !== undefined
+      && start >= input.selection.startOffset
+      && end <= input.selection.endOffsetExclusive;
     if (selected) {
       return [span(text, {
         ...(input.selectedStyle === undefined ? {} : { style: input.selectedStyle }),
@@ -442,13 +446,16 @@ function normalizeTextAreaHighlight(
   windowEnd: number
 ): NormalizedTextAreaHighlight | undefined {
   if (!isRecord(value)) return undefined;
-  const start = value['start'];
-  const end = value['end'];
-  if (typeof start !== 'number' || typeof end !== 'number' || !Number.isFinite(start) || !Number.isFinite(end)) {
+  const startOffset = value['startOffset'];
+  const endOffsetExclusive = value['endOffsetExclusive'];
+  if (typeof startOffset !== 'number'
+    || typeof endOffsetExclusive !== 'number'
+    || !Number.isFinite(startOffset)
+    || !Number.isFinite(endOffsetExclusive)) {
     return undefined;
   }
-  const rangeStart = Math.max(0, Math.floor(Math.min(start, end)));
-  const rangeEnd = Math.max(0, Math.floor(Math.max(start, end)));
+  const rangeStart = Math.max(0, Math.floor(Math.min(startOffset, endOffsetExclusive)));
+  const rangeEnd = Math.max(0, Math.floor(Math.max(startOffset, endOffsetExclusive)));
   const clippedStart = Math.max(windowStart, rangeStart);
   const clippedEnd = Math.min(windowEnd, rangeEnd);
   if (clippedEnd <= clippedStart) return undefined;
@@ -473,8 +480,8 @@ function normalizedTextCuts(
 ): readonly number[] {
   const cuts = new Set<number>([0, length]);
   if (selection !== undefined) {
-    cuts.add(clampOffset(selection.start, length));
-    cuts.add(clampOffset(selection.end, length));
+    cuts.add(clampOffset(selection.startOffset, length));
+    cuts.add(clampOffset(selection.endOffsetExclusive, length));
   }
   for (const highlight of highlights) {
     cuts.add(clampOffset(highlight.start, length));
@@ -531,9 +538,11 @@ function selectionIntersection(
   end: number
 ): ReturnType<typeof selectionFromUnknown> {
   if (selection === undefined) return undefined;
-  const nextStart = Math.max(start, selection.start);
-  const nextEnd = Math.min(end, selection.end);
-  return nextStart >= nextEnd ? undefined : { start: nextStart, end: nextEnd };
+  const nextStart = Math.max(start, selection.startOffset);
+  const nextEnd = Math.min(end, selection.endOffsetExclusive);
+  return nextStart >= nextEnd
+    ? undefined
+    : { startOffset: nextStart, endOffsetExclusive: nextEnd };
 }
 
 function styledSpan(text: string, style: TerminalStyle | undefined, source: FrameCellSource): RenderSpan {
@@ -560,20 +569,29 @@ function textAreaLineNumber(renderNode: TextAreaNode, lineIndex: number, lineCou
   const options = textAreaLineNumberOptions(renderNode);
   if (options === undefined) return undefined;
   const start = options.start;
-  const width = Math.max(options.minWidth, String(start + Math.max(0, lineCount - 1)).length);
-  return firstVisualLine ? String(start + lineIndex).padStart(width, ' ') : ''.padStart(width, ' ');
+  const width = Math.max(
+    options.minWidth,
+    String(start + Math.max(0, lineCount - 1)).length
+  );
+  return firstVisualLine
+    ? String(start + lineIndex).padStart(width, ' ')
+    : ''.padStart(width, ' ');
 }
 
-function textAreaLineNumberOptions(renderNode: TextAreaNode): { readonly start: number; readonly minWidth: number } | undefined {
+function textAreaLineNumberOptions(
+  renderNode: TextAreaNode
+): { readonly start: number; readonly minWidth: number } | undefined {
   const raw = renderNode.props.lineNumbers;
   if (raw !== true && !isRecord(raw)) return undefined;
-  const start = isRecord(raw) && typeof raw['start'] === 'number' && Number.isFinite(raw['start'])
-    ? Math.floor(raw['start'])
+  const startNumber = isRecord(raw)
+    && typeof raw['startNumber'] === 'number'
+    && Number.isFinite(raw['startNumber'])
+    ? Math.floor(raw['startNumber'])
     : 1;
   const minWidth = isRecord(raw) && typeof raw['minWidth'] === 'number' && Number.isFinite(raw['minWidth'])
     ? Math.max(1, Math.floor(raw['minWidth']))
     : 1;
-  return { start, minWidth };
+  return { start: startNumber, minWidth };
 }
 
 function textAreaActiveLineEnabled(renderNode: TextAreaNode): boolean {

@@ -103,11 +103,11 @@ export function tableBlock(
       return scrolledLine(rowLine(
         renderNode,
         record.row,
-        record.index,
+        record.itemIndex,
         record.id,
         columns,
         widths,
-        record.index === window.selected,
+        record.itemIndex === window.selected,
         selectedCell,
         focused,
         theme,
@@ -185,7 +185,7 @@ export function tableAccessibleChildren(
       }]
     : [];
   const bodyRows: AccessibleNode[] = window.rows.map((record) => {
-    const rowIndex = record.index;
+    const rowIndex = record.itemIndex;
     return {
       id: tableRowTargetId(renderNode, record.id),
       role: 'row',
@@ -232,7 +232,7 @@ export function tableHitTargets<TMessage>(
     ? []
     : tableHeaderHitTargets(renderNode, columns, widths, bounds, window.horizontalOffset, spacing, toMessage);
   const bodyTargets = window.rows.flatMap((record, visibleIndex): HitTarget<TMessage>[] => {
-    const rowIndex = record.index;
+    const rowIndex = record.itemIndex;
     const rowId = record.id;
     const rowBounds = {
       row: bounds.row + headerHeight + visibleIndex,
@@ -281,7 +281,7 @@ function tableHeaderHitTargets<TMessage>(
           height: 1
         },
         accepts: ['click'],
-        message: () => toMessage({ kind: 'sortBy', column: column.id }),
+        message: () => toMessage({ kind: 'sortBy', columnId: column.id }),
         cursor: 'pointer'
       });
     }
@@ -299,7 +299,7 @@ function tableHeaderHitTargets<TMessage>(
           ? ignoreMessage()
           : toMessage({
               kind: 'setColumnWidth',
-              column: column.id,
+              columnId: column.id,
               width: track.width + event.column - (event.pressColumn ?? event.column)
             }),
         cursor: 'pointer'
@@ -335,8 +335,8 @@ function tableCellHitTargets<TMessage>(
         height: 1
       },
       message: (event) => toMessage(event.clickCount === 2
-        ? { kind: 'activate', rowId, rowIndex, column: visibleColumnIndex }
-        : { kind: 'selectCell', rowId, rowIndex, column: visibleColumnIndex }),
+        ? { kind: 'activate', rowId, rowIndex, columnIndex: visibleColumnIndex }
+        : { kind: 'selectCell', rowId, rowIndex, columnIndex: visibleColumnIndex }),
       cursor: 'pointer'
     }];
   });
@@ -354,8 +354,8 @@ function tableWindow(renderNode: TableNode, bodyHeight: number, selected: number
   });
   return {
     rows: window.rows,
-    start: window.start,
-    end: window.end,
+    start: window.startIndex,
+    end: window.endIndexExclusive,
     selected,
     horizontalOffset: window.offsetColumn,
     omittedBefore: window.omittedBefore,
@@ -381,7 +381,7 @@ function tableProjection(renderNode: TableNode, bounds: Rect, widthProfile: Text
   const bodyHeight = Math.max(0, bounds.height - headerHeight);
   const window = tableWindow(renderNode, bodyHeight, selected);
   const projection: TableProjection = {
-    totalRows: collection.total,
+    totalRows: collection.totalCount,
     columns,
     spacing,
     hasHeader,
@@ -414,7 +414,7 @@ function tableRowSample(
 ): readonly unknown[] {
   const recordCount = collection.records.length;
   if (recordCount <= limit) return collection.records.map((record) => record.row);
-  const selectedOffset = selected - collection.start;
+  const selectedOffset = selected - collection.startIndex;
   const anchor = selectedOffset < 0 || selectedOffset >= recordCount ? 0 : selectedOffset;
   const start = Math.max(0, Math.min(recordCount - limit, anchor - Math.floor(limit / 2)));
   return collection.records.slice(start, start + limit).map((record) => record.row);
@@ -518,7 +518,8 @@ function rowLine(
         ...(rowState === undefined ? {} : { state: rowState })
       })
     );
-    const cellSelected = selectedCell?.row === rowIndex && selectedCell.column === columnIndex;
+    const cellSelected = selectedCell?.row === rowIndex
+      && selectedCell.column === columnIndex;
     const cellState = selectedCell === undefined
       ? rowState
       : interactionVisualState(renderNode, tableCellTargetId(renderNode, rowId, column.index), {
@@ -690,7 +691,9 @@ function selectedTableRow(
   const selectedCell = selectedTableCell(renderNode, collection);
   if (selectedCell !== undefined) return selectedCell.row;
   const selectedRowId = stringify(renderNode.props.selectedRowId);
-  return selectedRowId.length === 0 ? -1 : collectionRecordById(collection, selectedRowId)?.index ?? -1;
+  return selectedRowId.length === 0
+    ? -1
+    : collectionRecordById(collection, selectedRowId)?.itemIndex ?? -1;
 }
 
 function selectedTableCell(
@@ -700,14 +703,14 @@ function selectedTableCell(
   const selectedCell = renderNode.props.selectedCell;
   if (!isRecord(selectedCell)) return undefined;
   const rowId = selectedCell.rowId;
-  const column = selectedCell.column;
+  const columnIndex = selectedCell.columnIndex;
   if (typeof rowId !== 'string') return undefined;
-  const row = collectionRecordById(collection, rowId)?.index;
+  const row = collectionRecordById(collection, rowId)?.itemIndex;
   if (row === undefined) return undefined;
   return {
     row,
     rowId,
-    column: typeof column === 'number' ? Math.max(0, Math.floor(column)) : 0
+    column: typeof columnIndex === 'number' ? Math.max(0, Math.floor(columnIndex)) : 0
   };
 }
 

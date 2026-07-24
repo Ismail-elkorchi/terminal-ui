@@ -9,7 +9,7 @@ const placed = placeAnchoredSurface({
   size: { width: 5, height: 2 }
 });
 const selected = resolveSelectedText({
-  sources: [{ id: 'source', text: 'terminal', selection: { start: 0, end: 4 } }]
+  sources: [{ id: 'source', text: 'terminal', selection: { startOffset: 0, endOffsetExclusive: 4 } }]
 });
 const width = measureTextCells('A界').cells;
 const sanitized = sanitizeTerminalText('\u001B[31mtext');

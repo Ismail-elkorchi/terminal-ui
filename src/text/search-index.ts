@@ -2,8 +2,8 @@ import { createTerminalTextIndex } from './terminal-text-index.ts';
 import type { TerminalTextIndex, TextMeasurementOptions } from './types.ts';
 
 export interface TextHighlightMatch {
-  readonly startGrapheme: number;
-  readonly endGrapheme: number;
+  readonly startGraphemeIndex: number;
+  readonly endGraphemeIndexExclusive: number;
 }
 
 export interface TextHighlightOptions extends TextMeasurementOptions {
@@ -49,7 +49,10 @@ export function findPreparedTextMatches(
   const matches: TextHighlightMatch[] = [];
   for (let start = 0; start <= index.graphemes.length - query.graphemes.length;) {
     if (matchesAt(index.graphemes, query.graphemes, start)) {
-      matches.push({ startGrapheme: start, endGrapheme: start + query.graphemes.length });
+      matches.push({
+        startGraphemeIndex: start,
+        endGraphemeIndexExclusive: start + query.graphemes.length
+      });
       start += query.graphemes.length;
     } else {
       start += 1;

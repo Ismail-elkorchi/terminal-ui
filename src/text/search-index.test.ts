@@ -17,9 +17,9 @@ void test('prepared text search preserves grapheme boundaries and normalization'
     index,
     prepareTextSearchQuery('café', { accentSensitive: false, caseSensitive: false })
   ), [
-    { startGrapheme: 0, endGrapheme: 4 },
-    { startGrapheme: 5, endGrapheme: 9 },
-    { startGrapheme: 12, endGrapheme: 16 }
+    { startGraphemeIndex: 0, endGraphemeIndexExclusive: 4 },
+    { startGraphemeIndex: 5, endGraphemeIndexExclusive: 9 },
+    { startGraphemeIndex: 12, endGraphemeIndexExclusive: 16 }
   ]);
   assert.deepEqual(findPreparedTextMatches(index, prepareTextSearchQuery('👨')), []);
 });
@@ -28,7 +28,7 @@ void test('prepared text search emits non-overlapping ordered matches', () => {
   const index = prepareTextSearchIndex('aaaaa');
 
   assert.deepEqual(findPreparedTextMatches(index, prepareTextSearchQuery('aa')), [
-    { startGrapheme: 0, endGrapheme: 2 },
-    { startGrapheme: 2, endGrapheme: 4 }
+    { startGraphemeIndex: 0, endGraphemeIndexExclusive: 2 },
+    { startGraphemeIndex: 2, endGraphemeIndexExclusive: 4 }
   ]);
 });

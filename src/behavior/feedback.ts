@@ -1,7 +1,7 @@
 export type ProgressCompletionState = 'empty' | 'partial' | 'complete' | 'overflow';
 
 export interface ProgressFrameCell {
-  readonly index: number;
+  readonly cellIndex: number;
   readonly active: boolean;
 }
 
@@ -30,9 +30,9 @@ export function indeterminateProgressFrame(frame: number, width: number): Progre
     frame: normalizedFrame,
     activeStart: normalizedFrame,
     activeWidth,
-    cells: Array.from({ length: normalizedWidth }, (_unused, index) => ({
-      index,
-      active: wrappedDistance(index, normalizedFrame, normalizedWidth) < activeWidth
+    cells: Array.from({ length: normalizedWidth }, (_unused, cellIndex) => ({
+      cellIndex,
+      active: wrappedDistance(cellIndex, normalizedFrame, normalizedWidth) < activeWidth
     }))
   };
 }

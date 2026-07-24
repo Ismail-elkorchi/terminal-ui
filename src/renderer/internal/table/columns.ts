@@ -48,7 +48,7 @@ export function tableColumns(renderNode: TableNode, rows: readonly unknown[]): r
   return columns.map((column) => ({
     ...column,
     ...(widths[column.id] === undefined ? {} : { width: widths[column.id] }),
-    ...(sort?.column === column.id ? { sort: sort.direction } : {})
+    ...(sort?.columnId === column.id ? { sort: sort.direction } : {})
   }));
 }
 
@@ -94,7 +94,7 @@ export function tableIntrinsicSize(
   const hasHeader = columns.some((column) => (column.header?.length ?? 0) > 0);
   return {
     width,
-    height: renderNode.props.collection.total + (hasHeader ? 1 : 0)
+    height: renderNode.props.collection.totalCount + (hasHeader ? 1 : 0)
   };
 }
 
@@ -194,10 +194,10 @@ function intrinsicColumnWidth(
 
 function tableSort(value: unknown): TableSortState | undefined {
   if (!isRecord(value)) return undefined;
-  const column = value['column'];
+  const columnId = value['columnId'];
   const direction = value['direction'];
-  return typeof column === 'string' && (direction === 'ascending' || direction === 'descending')
-    ? { column, direction }
+  return typeof columnId === 'string' && (direction === 'ascending' || direction === 'descending')
+    ? { columnId, direction }
     : undefined;
 }
 

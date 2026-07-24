@@ -34,7 +34,7 @@ void test('component construction and rendering do not execute event handlers', 
     table({ id: 'table', rows: ['a'], getRowId: (row) => row, presentation: { selectedRowId: 'a' }, onAction: message }),
     textArea({ id: 'area', presentation: { document: prepareTextDocument('a'), caret: textCaretAt(0 )}, onAction: message }),
     commandInput({ id: 'command', presentation: { value: 'a', cursor: 0, suggestions: [] }, onAction: message }),
-    palette({ id: 'palette', index: preparePaletteIndex([{ id: 'a', label: 'A', value: 'a' }]), onAction: message })
+    palette({ id: 'palette', paletteIndex: preparePaletteIndex([{ id: 'a', label: 'A', value: 'a' }]), onAction: message })
   ];
 
   for (const element of elements) renderElementFrame(element, { columns: 40, rows: 6 });

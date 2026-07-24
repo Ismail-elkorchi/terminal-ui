@@ -50,7 +50,7 @@ void test('text edit history restores selection and respects grapheme-safe edits
   const initial = {
     text: 'a🙂b',
     cursor: 'a🙂'.length,
-    selection: { start: 1, end: 'a🙂'.length }
+    selection: { startOffset: 1, endOffsetExclusive: 'a🙂'.length }
   };
   const replaced = applyTextEditWithHistory(initial, emptyTextEditHistory(), { kind: 'insert', text: 'é' });
   const moved = applyTextEditWithHistory(replaced.buffer, replaced.history, { kind: 'moveWordRight', select: true });

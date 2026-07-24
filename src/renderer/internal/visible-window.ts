@@ -8,9 +8,10 @@ export interface VisibleWindow {
 export function visibleWindow(total: number, height: number, preferredIndex: number): VisibleWindow {
   const state = scrollReducer(
     createScrollState({ contentRows: total, viewportRows: height }),
-    { kind: 'itemIntoView', index: preferredIndex }
+    { kind: 'itemIntoView', itemIndex: preferredIndex }
   );
-  return visibleWindowFromScroll(state);
+  const window = visibleWindowFromScroll(state);
+  return { start: window.startIndex, end: window.endIndexExclusive };
 }
 
 export function windowDescription(kind: string, window: VisibleWindow, total: number): string {

@@ -47,7 +47,7 @@ const commands = commandInput({
 
 const search = palette({
   id: 'search',
-  index: preparePaletteIndex([{ id: 'open', label: 'Open', value: 1 }]),
+  paletteIndex: preparePaletteIndex([{ id: 'open', label: 'Open', value: 1 }]),
   onSelect: (entry) => ({ kind: 'selectEntry' as const, value: entry.value }),
   onAction: (action: PaletteAction) => ({ kind: 'palette' as const, action }),
   keys: {
@@ -55,6 +55,9 @@ const search = palette({
     escape: () => ({ kind: 'closePalette' as const })
   }
 });
+
+// @ts-expect-error palette input names its prepared search index explicitly
+palette({ id: 'legacy-search', index: preparePaletteIndex([{ id: 'open', label: 'Open', value: 1 }]) });
 
 export type TreeMessage =
   | { readonly kind: 'tree'; readonly action: TreeAction }

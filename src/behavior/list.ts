@@ -92,7 +92,7 @@ export function listReducer<TValue>(
   const scrollIndex = listViewScrollPosition(view, selectedId);
   const scroll = state.scroll === undefined || scrollIndex === undefined
     ? state.scroll
-    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: scrollIndex });
+    : scrollReducer(state.scroll, { kind: 'itemIntoView', itemIndex: scrollIndex });
   return state.selectedId === selectedId && state.scroll === scroll
     ? state
     : {
@@ -133,11 +133,11 @@ export function prepareListCollection<TValue>(
   projectItem: ListItemProjector<TValue>,
   window?: CollectionWindow
 ): ListCollection<TValue> {
-  const start = window?.start ?? 0;
+  const startIndex = window?.startIndex ?? 0;
   const records = values.map((value, offset): ListCollectionRecord<TValue> => {
-    const index = start + offset;
-    const item = normalizedListItem(projectItem(value, index));
-    return { id: item.id, index, value, item };
+    const itemIndex = startIndex + offset;
+    const item = normalizedListItem(projectItem(value, itemIndex));
+    return { id: item.id, itemIndex, value, item };
   });
   return window === undefined
     ? completeCollection(records)

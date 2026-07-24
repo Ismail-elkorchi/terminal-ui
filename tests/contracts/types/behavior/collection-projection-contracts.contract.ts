@@ -1,4 +1,5 @@
 import {
+  paginationWindow,
   prepareListCollection,
   prepareTableCollection,
   prepareTreeRows
@@ -8,20 +9,20 @@ import { list, table, tree } from '@ismail-elkorchi/terminal-ui/components';
 const listCollection = prepareListCollection(
   ['alpha', 'bravo'],
   (value, index) => ({ id: String(index), label: value }),
-  { start: 100, total: 1_000, domain: { kind: 'source' } }
+  { startIndex: 100, totalCount: 1_000, domain: { kind: 'source' } }
 );
 const tableCollection = prepareTableCollection(
   [{ id: 'one', value: 1 }],
   (row) => row.id,
-  { start: 20, total: 500, domain: { kind: 'source' } }
+  { startIndex: 20, totalCount: 500, domain: { kind: 'source' } }
 );
 const treeCollection = prepareTreeRows([{
   node: { id: 'leaf', label: 'Leaf', kind: 'leaf' },
   depth: 0,
   path: ['leaf']
 }], {
-  start: 10,
-  total: 100,
+  startIndex: 10,
+  totalCount: 100,
   domain: { kind: 'projection', id: 'tree:query', filterQuery: 'leaf' }
 });
 
@@ -32,6 +33,12 @@ table({
   columns: [{ id: 'value', value: (row) => row.value }]
 });
 tree({ id: 'tree', collection: treeCollection });
+paginationWindow({ pageNumber: 2, pageSize: 25, totalCount: 100 });
+
+// @ts-expect-error collection windows use explicit index and count fields
+prepareListCollection(['alpha'], (value) => ({ id: value, label: value }), { start: 0, total: 1, domain: { kind: 'source' } });
+// @ts-expect-error pagination input uses totalCount
+paginationWindow({ page: 2, pageSize: 25, total: 100 });
 
 // @ts-expect-error externally windowed lists cannot be filtered locally
 list({ id: 'filtered-window-list', collection: listCollection, filterQuery: 'alpha' });

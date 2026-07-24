@@ -48,8 +48,9 @@ commands and side effects remain caller-controlled.
 ## Collections And Windows
 
 Large list, table, and tree inputs use immutable complete or windowed
-collection projections. A window records its stable global start and total;
-records retain stable IDs and indices. Replace a prepared projection whenever
+collection projections. A window records its zero-based `startIndex` and
+possibly-zero `totalCount`; records retain stable IDs and zero-based
+`itemIndex` values. Replace a prepared projection whenever
 membership, ordering, or projected values change. Do not mutate the source
 array and expect retained indexes to update.
 

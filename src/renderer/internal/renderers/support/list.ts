@@ -29,7 +29,7 @@ export function listScrollbarState(renderNode: ListNode, bounds: Rect): ScrollSt
   if (explicitScroll !== undefined) {
     return normalizeScrollState({
       ...explicitScroll,
-      contentRows: projection.total,
+      contentRows: projection.totalCount,
       contentColumns: bounds.width,
       viewportRows: bounds.height,
       viewportColumns: bounds.width
@@ -37,7 +37,7 @@ export function listScrollbarState(renderNode: ListNode, bounds: Rect): ScrollSt
   }
   const window = listWindow(renderNode, projection, bounds.height, selected, bounds.width);
   return createScrollState({
-    offsetRow: window.start,
+    offsetRow: window.startIndex,
     offsetColumn: window.offsetColumn,
     contentRows: window.totalRows,
     contentColumns: bounds.width,
@@ -126,7 +126,7 @@ export function listIntrinsicMeasurement(
   theme: TerminalTheme,
   widthProfile: TextWidthProfile
 ): Measurement {
-  const rowCount = Math.max(1, Math.min(intrinsicMeasurementRows, renderNode.props.view.total));
+  const rowCount = Math.max(1, Math.min(intrinsicMeasurementRows, renderNode.props.view.totalCount));
   return measureBlock(listBlock(renderNode, rowCount, theme), { widthProfile });
 }
 
@@ -138,7 +138,10 @@ export function listAccessibleNode(renderNode: ListNode, node: LayoutNode, id: s
     id,
     role: 'listbox',
     label: id,
-    description: windowDescription('items', window, projection.total),
+    description: windowDescription('items', {
+      start: window.startIndex,
+      end: window.endIndexExclusive
+    }, projection.totalCount),
     ...(focused ? { focused } : {})
   };
 }
@@ -165,12 +168,12 @@ function listOptionTargetId(renderNode: ListNode, entryId: string): string {
 export function listCursor(renderNode: ListNode, bounds: Rect): { readonly row: number; readonly column: number } {
   const projection = renderNode.props.view;
   const selected = selectedVisibleIndex(projection, stringify(renderNode.props.selectedId));
-  if (selected < 0 || projection.total === 0 || bounds.height <= 0) {
+  if (selected < 0 || projection.totalCount === 0 || bounds.height <= 0) {
     return { row: bounds.row, column: bounds.column };
   }
   const window = listWindow(renderNode, projection, bounds.height, selected, bounds.width);
-  const selectedRow = selected >= window.start && selected < window.end
-    ? bounds.row + selected - window.start
+  const selectedRow = selected >= window.startIndex && selected < window.endIndexExclusive
+    ? bounds.row + selected - window.startIndex
     : bounds.row;
   return { row: selectedRow, column: bounds.column };
 }
@@ -193,8 +196,8 @@ export function listHitTargets<TMessage>(renderNode: ListNode<TMessage>, bounds:
         height: 1
       },
       message: (event) => toMessage(event.clickCount === 2
-        ? { kind: 'activate', id: entry.id, index: itemIndex }
-        : { kind: 'select', id: entry.id, index: itemIndex }),
+        ? { kind: 'activate', id: entry.id, itemIndex }
+        : { kind: 'select', id: entry.id, itemIndex }),
       cursor: 'pointer'
     }];
   });
@@ -210,7 +213,7 @@ function listWindow(renderNode: ListNode, projection: ListViewProjection<unknown
   };
   if (projection.source.kind === 'complete') return rowWindow(projection.entries, input);
   const window = projectedRowWindow(projection.source, input);
-  const localStart = window.start - projection.source.start;
+  const localStart = window.startIndex - projection.source.startIndex;
   return {
     ...window,
     rows: projection.entries.slice(localStart, localStart + window.rows.length)
@@ -229,5 +232,5 @@ function toActionMessageProp<TMessage>(renderNode: ListNode<TMessage>): ((action
 function selectedVisibleIndex(projection: ListViewProjection<unknown>, selectedId: string): number {
   if (selectedId.length === 0) return -1;
   const local = projection.entries.findIndex((entry) => entry.id === selectedId);
-  return local < 0 ? -1 : projection.start + local;
+  return local < 0 ? -1 : projection.startIndex + local;
 }

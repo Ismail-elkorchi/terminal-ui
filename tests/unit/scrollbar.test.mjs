@@ -354,7 +354,7 @@ test('palette scrollbar renders beside the filtered result window', () => {
   const frame = renderElementFrame(palette({
     id: 'palette',
     title: 'Actions',
-    index: preparePaletteIndex([
+    paletteIndex: preparePaletteIndex([
       { id: 'one', label: 'One', value: 'one' },
       { id: 'two', label: 'Two', value: 'two' },
       { id: 'three', label: 'Three', value: 'three' },

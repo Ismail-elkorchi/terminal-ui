@@ -48,14 +48,14 @@ test('palette filtering reuses immutable entry search text across queries', () =
 });
 
 test('paletteWindow bounds visible entries around stable id selection and scroll', () => {
-  const centered = paletteWindow({ index, selectedId: 'run-tests', limit: 2 });
-  assert.equal(centered.total, 3);
+  const centered = paletteWindow({ paletteIndex: index, selectedId: 'run-tests', limit: 2 });
+  assert.equal(centered.totalCount, 3);
   assert.deepEqual(centered.entries.map((entry) => entry.id), ['toggle-terminal', 'run-tests']);
-  assert.equal(centered.selected, 1);
+  assert.equal(centered.selectedIndex, 1);
   assert.equal(centered.selectedEntry?.id, 'run-tests');
 
   const scrolled = paletteWindow({
-    index,
+    paletteIndex: index,
     selectedId: 'run-tests',
     scroll: {
       offsetRow: 0,
@@ -69,7 +69,7 @@ test('paletteWindow bounds visible entries around stable id selection and scroll
     limit: 2
   });
   assert.deepEqual(scrolled.entries.map((entry) => entry.id), ['open-file', 'toggle-terminal']);
-  assert.equal(scrolled.selected, undefined);
+  assert.equal(scrolled.selectedIndex, undefined);
   assert.equal(scrolled.omittedAfter, 1);
 });
 
@@ -79,7 +79,7 @@ test('palette widget renders query matches disabled entries preview help empty s
       id: 'palette',
       title: 'Things',
       query: 'run',
-      index,
+      paletteIndex: index,
       selectedId: 'run-tests',
       maxVisible: 2,
       helpText: 'enter accepts, escape closes',
@@ -137,7 +137,7 @@ test('palette entry normalization is retained across authored frames', () => {
   const measuredIndex = preparePaletteIndex(measuredEntries);
   const authoredFrame = (query) => palette({
     id: 'measured-palette',
-    index: measuredIndex,
+      paletteIndex: measuredIndex,
     query,
     onSelect: (entry) => entry.value
   });
@@ -153,7 +153,7 @@ test('palette widget renders empty states for unrelated queries', () => {
     palette({
       id: 'palette',
       query: 'zz',
-      index,
+      paletteIndex: index,
       emptyText: 'No available entries'
     }),
     { columns: 32, rows: 4 }
@@ -169,7 +169,7 @@ test('palette exposes enabled visible entry hit targets when toMessage is provid
     palette({
       id: 'commands',
       query: '',
-      index,
+      paletteIndex: index,
       maxVisible: 3,
       onSelect: (entry) => ({ kind: 'select', id: entry.id })
     }),
@@ -190,7 +190,7 @@ test('palette emits compact controlled actions while acceptance remains caller-c
     view: () => palette({
       id: 'commands',
       query: '',
-      index,
+      paletteIndex: index,
       onAction: (action) => ({ kind: 'action', action }),
       keys: {
         enter: () => ({ kind: 'accept' }),

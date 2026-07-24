@@ -63,10 +63,10 @@ function viewIndex<TValue>(collection: ListCollection<TValue>, query: string): L
   const entries = Object.freeze(visibleRecords.map((record, visibleIndex): ListViewEntry<TValue> => {
     const selectable = record.item.disabled ? undefined : selectableIndex++;
     if (selectable !== undefined) selectablePositions.set(record.id, selectable);
-    scrollPositions.set(record.id, collection.kind === 'window' ? record.index : visibleIndex);
+    scrollPositions.set(record.id, collection.kind === 'window' ? record.itemIndex : visibleIndex);
     return Object.freeze({
       id: record.id,
-      sourceIndex: record.index,
+      sourceIndex: record.itemIndex,
       visibleIndex,
       ...(selectable === undefined ? {} : { selectableIndex: selectable }),
       value: record.value,
@@ -80,8 +80,8 @@ function viewIndex<TValue>(collection: ListCollection<TValue>, query: string): L
     query,
     entries,
     selectable,
-    start: collection.kind === 'window' ? collection.start : 0,
-    total: collection.kind === 'window' ? collection.total : entries.length
+    startIndex: collection.kind === 'window' ? collection.startIndex : 0,
+    totalCount: collection.kind === 'window' ? collection.totalCount : entries.length
   });
   const index = Object.freeze({ projection, selectablePositions, scrollPositions });
   byQuery.set(query, index);

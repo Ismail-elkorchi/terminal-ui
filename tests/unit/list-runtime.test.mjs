@@ -39,8 +39,8 @@ test('windowed collection uses its declared external projection query', () => {
     ['Item 100'],
     (item, index) => ({ id: String(index), label: item }),
     {
-      start: 100,
-      total: 1_000,
+      startIndex: 100,
+      totalCount: 1_000,
       domain: { kind: 'projection', id: 'items:item', filterQuery: 'item' }
     }
   );
@@ -154,7 +154,7 @@ test('list cursor and mouse hit targets use the filtered visible rows', async ()
 test('list selection uses stable identity across reorder, filter, insertion, and deletion', () => {
   const items = ['alpha', 'bravo', 'charlie'];
   const projectItem = (item) => ({ id: item, label: item });
-  const selected = listReducer({}, { kind: 'select', id: 'bravo', index: 1 }, { items, projectItem });
+  const selected = listReducer({}, { kind: 'select', id: 'bravo', itemIndex: 1 }, { items, projectItem });
   const reordered = [items[2], items[1], items[0]];
   const moved = listReducer(selected, { kind: 'move', delta: 1 }, { items: reordered, projectItem });
   const inserted = ['delta', ...reordered];
@@ -187,7 +187,7 @@ test('filtered list scrolling uses visible positions instead of sparse source in
     scroll: createScrollState({ contentRows: 3, viewportRows: 1, offsetRow: 0 })
   };
 
-  const first = listReducer(base, { kind: 'select', id: 'item-500', index: 500 }, {
+  const first = listReducer(base, { kind: 'select', id: 'item-500', itemIndex: 500 }, {
     items,
     projectItem,
     filterQuery: 'visible'
@@ -208,13 +208,13 @@ test('windowed list selection keeps global collection indexes in scroll state', 
   const collection = prepareListCollection(
     ['Item 100', 'Item 101'],
     (item, index) => ({ id: String(index), label: item }),
-    { start: 100, total: 1_000, domain: { kind: 'source' } }
+    { startIndex: 100, totalCount: 1_000, domain: { kind: 'source' } }
   );
   const state = {
     scroll: createScrollState({ contentRows: 1_000, viewportRows: 10 })
   };
 
-  const selected = listReducer(state, { kind: 'select', id: '100', index: 100 }, { collection });
+  const selected = listReducer(state, { kind: 'select', id: '100', itemIndex: 100 }, { collection });
 
   assert.equal(selected.selectedId, '100');
   assert.equal(selected.scroll.selectedIndex, 100);
@@ -240,7 +240,7 @@ test('list pointer selection and double-click activation match keyboard semantic
   await clickAt(runtime, 1, 1);
 
   assert.deepEqual(runtime.state().actions, [
-    { kind: 'select', id: 'alpha', index: 0 },
-    { kind: 'activate', id: 'alpha', index: 0 }
+    { kind: 'select', id: 'alpha', itemIndex: 0 },
+    { kind: 'activate', id: 'alpha', itemIndex: 0 }
   ]);
 });

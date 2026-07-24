@@ -51,7 +51,7 @@ export function paletteBlock(renderNode: PaletteNode, height: number, theme: Ter
       ]
     }
   ];
-  if (model.window.total === 0 && model.availableEntries > 0) {
+  if (model.window.totalCount === 0 && model.availableEntries > 0) {
     const emptyStyle = resolveRenderNodeStyle(renderNode, {
       part: 'empty',
       base: themeStyle('input.placeholder', { dim: true })
@@ -67,8 +67,8 @@ export function paletteBlock(renderNode: PaletteNode, height: number, theme: Ter
     lines.push(...model.window.entries.slice(0, model.availableEntries).map((entry, index) => entryLine(
       renderNode,
       entry,
-      index === model.window.selected,
-      model.window.start + index,
+      index === model.window.selectedIndex,
+      model.window.startIndex + index,
       model.query,
       theme
     )));
@@ -121,11 +121,11 @@ export function paletteAccessibleChildren(renderNode: PaletteNode, height: numbe
     ...(entry.description === undefined ? {} : { description: entry.description }),
     ...(entry.preview === undefined ? {} : { value: entry.preview }),
     position: {
-      positionInSet: window.start + index + 1,
-      setSize: window.total,
+      positionInSet: window.startIndex + index + 1,
+      setSize: window.totalCount,
       ...(entry.group === undefined ? {} : { group: entry.group })
     },
-    selected: index === window.selected,
+    selected: index === window.selectedIndex,
     disabled: entry.disabled === true
   }));
 }
@@ -167,16 +167,16 @@ function paletteRenderModel(renderNode: PaletteNode, height: number): PaletteRen
   const title = titleText(renderNode);
   const query = queryText(renderNode);
   const helpText = helpTextProp(renderNode);
-  const index = renderNode.props.index;
+  const index = renderNode.props.paletteIndex;
   const window = paletteWindow({
-    index,
+    paletteIndex: index,
     query,
     ...selectedInput(renderNode),
     ...scrollInput(renderNode),
     limit: entryLimit(renderNode, height)
   });
   const selectedPreview = window.selectedEntry?.preview;
-  const resultSummary = paletteResultSummary(window.total, index.size, query);
+  const resultSummary = paletteResultSummary(window.totalCount, index.size, query);
   const reserve = (selectedPreview === undefined || selectedPreview.length === 0 ? 0 : 1)
     + (helpText.length === 0 ? 0 : 1);
   const model = {
@@ -192,11 +192,11 @@ function paletteRenderModel(renderNode: PaletteNode, height: number): PaletteRen
   return model;
 }
 
-function selectedInput(renderNode: PaletteNode): Partial<Pick<PaletteWindowInput<unknown>, 'selected' | 'selectedId'>> {
-  const selected = renderNode.props.selected;
+function selectedInput(renderNode: PaletteNode): Partial<Pick<PaletteWindowInput<unknown>, 'selectedIndex' | 'selectedId'>> {
+  const selectedIndex = renderNode.props.selectedIndex;
   const selectedId = selectedIdText(renderNode);
   return {
-    ...(selected === undefined ? {} : { selected }),
+    ...(selectedIndex === undefined ? {} : { selectedIndex }),
     ...(selectedId.length === 0 ? {} : { selectedId })
   };
 }

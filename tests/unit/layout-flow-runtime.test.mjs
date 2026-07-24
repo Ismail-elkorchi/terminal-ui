@@ -143,7 +143,7 @@ test('palette content tracks use the active text-width profile', () => {
   const widget = row([
     palette({
       id: 'profiled-palette',
-      index: preparePaletteIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
+      paletteIndex: preparePaletteIndex([{ id: 'emoji', label: '🙂'.repeat(10), value: 'emoji' }]),
       query: '',
       onSelect: (entry) => entry.value
     }),

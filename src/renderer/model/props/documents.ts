@@ -77,7 +77,7 @@ export interface CommandInputRenderProps<TMessage> {
   readonly footer?: string;
   readonly matchQuery?: string;
   readonly suggestions?: readonly SuggestionItem[];
-  readonly selectedSuggestion?: number;
+  readonly selectedSuggestionIndex?: number;
   readonly historyIndex?: number;
   readonly display?: CommandInputDisplay;
   readonly toActionMessage?: (action: CommandInputAction) => TMessage;
@@ -86,9 +86,9 @@ export interface CommandInputRenderProps<TMessage> {
 export interface PaletteRenderProps<TMessage> {
   readonly title?: string;
   readonly query?: string;
-  readonly index: PaletteIndex<unknown>;
+  readonly paletteIndex: PaletteIndex<unknown>;
   readonly toMessage?: (entry: SearchEntry<unknown>) => TMessage;
-  readonly selected?: number;
+  readonly selectedIndex?: number;
   readonly selectedId?: string;
   readonly scroll?: ScrollState;
   readonly scrollbar?: ScrollbarOptions;

@@ -3,4 +3,4 @@ export type PaginatorAction =
   | { readonly kind: 'previous' }
   | { readonly kind: 'next' }
   | { readonly kind: 'last' }
-  | { readonly kind: 'select'; readonly page: number };
+  | { readonly kind: 'select'; readonly pageNumber: number };

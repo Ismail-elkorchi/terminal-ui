@@ -13,7 +13,7 @@ import type { TextWidthProfile } from '../../text/index.ts';
 
 interface PaginatorParts {
   readonly label: string;
-  readonly page: number;
+  readonly pageNumber: number;
   readonly pageCount: number;
 }
 
@@ -52,7 +52,7 @@ export function paginatorAccessibleBase(
     id,
     role: controls.length === 0 ? 'status' : 'navigation',
     label: parts.label || id,
-    value: `Page ${String(parts.page)} of ${String(parts.pageCount)}`,
+    value: `Page ${String(parts.pageNumber)} of ${String(parts.pageCount)}`,
     ...(focused ? { focused: true } : {}),
     ...(controls.length === 0
       ? {}
@@ -123,18 +123,18 @@ function paginatorLayout(renderNode: PaginatorNode, widthProfile: TextWidthProfi
     append(' ', 'label.gap');
   }
   if (renderNode.props.toActionMessage !== undefined) {
-    const atFirst = parts.page <= 1;
+    const atFirst = parts.pageNumber <= 1;
     appendControl('[«]', 'First page', { kind: 'first' }, atFirst);
     append(' ', 'control.gap.first');
     appendControl('[‹]', 'Previous page', { kind: 'previous' }, atFirst);
     append(' ', 'control.gap.previous');
   }
   append('Page ', 'page.label');
-  append(String(parts.page), 'page.value', resolveRenderNodeStyle(renderNode, { part: 'value' }));
+  append(String(parts.pageNumber), 'page.value', resolveRenderNodeStyle(renderNode, { part: 'value' }));
   append(' of ', 'page.separator', resolveRenderNodeStyle(renderNode, { part: 'separator' }));
   append(String(parts.pageCount), 'page.count', resolveRenderNodeStyle(renderNode, { part: 'value' }));
   if (renderNode.props.toActionMessage !== undefined) {
-    const atLast = parts.page >= parts.pageCount;
+    const atLast = parts.pageNumber >= parts.pageCount;
     append(' ', 'control.gap.next');
     appendControl('[›]', 'Next page', { kind: 'next' }, atLast);
     append(' ', 'control.gap.last');
@@ -151,7 +151,7 @@ function paginatorParts(renderNode: PaginatorNode): PaginatorParts {
   const pageCount = normalizedCount(numberProp(renderNode, 'pageCount') ?? 1);
   return {
     label: stringify(renderNode.props.label),
-    page: Math.max(1, Math.min(pageCount, Math.floor(numberProp(renderNode, 'page') ?? 1))),
+    pageNumber: Math.max(1, Math.min(pageCount, Math.floor(numberProp(renderNode, 'pageNumber') ?? 1))),
     pageCount
   };
 }

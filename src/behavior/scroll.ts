@@ -64,8 +64,8 @@ export function scrollReducer(state: ScrollState, action: ScrollAction): ScrollS
     case 'itemIntoView':
       return preserveScrollIdentity(state, normalizeScrollState({
         ...state,
-        offsetRow: centeredOffset(state.contentRows, state.viewportRows, action.index),
-        selectedIndex: normalizeSelectedIndex(action.index, state.contentRows),
+        offsetRow: centeredOffset(state.contentRows, state.viewportRows, action.itemIndex),
+        selectedIndex: normalizeSelectedIndex(action.itemIndex, state.contentRows),
         followTail: false
       }));
     case 'setFollowTail':
@@ -92,11 +92,13 @@ export function applyScrollEvent(state: ScrollState, event: ScrollEvent): Scroll
 
 export function visibleWindowFromScroll(state: ScrollState): ScrollVisibleWindow {
   const normalized = normalizeScrollState(state);
-  if (normalized.contentRows <= 0 || normalized.viewportRows <= 0) return { start: 0, end: 0 };
+  if (normalized.contentRows <= 0 || normalized.viewportRows <= 0) {
+    return { startIndex: 0, endIndexExclusive: 0 };
+  }
   const size = Math.min(normalized.contentRows, Math.max(1, normalized.viewportRows));
   return {
-    start: normalized.offsetRow,
-    end: Math.min(normalized.contentRows, normalized.offsetRow + size)
+    startIndex: normalized.offsetRow,
+    endIndexExclusive: Math.min(normalized.contentRows, normalized.offsetRow + size)
   };
 }
 

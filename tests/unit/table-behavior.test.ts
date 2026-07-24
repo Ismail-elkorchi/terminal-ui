@@ -18,10 +18,14 @@ const options: TableReducerOptions<string> = {
 
 void test('tableReducer selects rows by stable id and clamps cell columns', () => {
   const row = tableReducer({}, { kind: 'selectRow', rowId: 'row-2', rowIndex: 2 }, options);
-  const cell = tableReducer(row, { kind: 'selectCell', rowId: 'row-0', rowIndex: 0, column: 99 }, options);
+  const cell = tableReducer(
+    row,
+    { kind: 'selectCell', rowId: 'row-0', rowIndex: 0, columnIndex: 99 },
+    options
+  );
 
   assert.deepEqual(row, { selectedRowId: 'row-2' });
-  assert.deepEqual(cell, { selectedRowId: 'row-0', selectedColumn: 2 });
+  assert.deepEqual(cell, { selectedRowId: 'row-0', selectedColumnIndex: 2 });
 });
 
 void test('tableReducer preserves identity across reorder and recovers after deletion', () => {
@@ -39,14 +43,26 @@ void test('tableReducer preserves identity across reorder and recovers after del
 });
 
 void test('tableReducer toggles sort state and resizes columns', () => {
-  const first = tableReducer({}, { kind: 'sortBy', column: 'name' }, options);
-  const second = tableReducer(first, { kind: 'sortBy', column: 'name' }, options);
-  const resized = tableReducer(second, { kind: 'resizeColumnBy', column: 'name', delta: 4 }, { ...options, minColumnWidth: 3 });
-  const shrunk = tableReducer(resized, { kind: 'resizeColumnBy', column: 'name', delta: -100 }, { ...options, minColumnWidth: 3 });
-  const absolute = tableReducer(shrunk, { kind: 'setColumnWidth', column: 'name', width: 11 }, { ...options, minColumnWidth: 3 });
+  const first = tableReducer({}, { kind: 'sortBy', columnId: 'name' }, options);
+  const second = tableReducer(first, { kind: 'sortBy', columnId: 'name' }, options);
+  const resized = tableReducer(
+    second,
+    { kind: 'resizeColumnBy', columnId: 'name', delta: 4 },
+    { ...options, minColumnWidth: 3 }
+  );
+  const shrunk = tableReducer(
+    resized,
+    { kind: 'resizeColumnBy', columnId: 'name', delta: -100 },
+    { ...options, minColumnWidth: 3 }
+  );
+  const absolute = tableReducer(
+    shrunk,
+    { kind: 'setColumnWidth', columnId: 'name', width: 11 },
+    { ...options, minColumnWidth: 3 }
+  );
 
-  assert.deepEqual(first.sort, { column: 'name', direction: 'ascending' });
-  assert.deepEqual(second.sort, { column: 'name', direction: 'descending' });
+  assert.deepEqual(first.sort, { columnId: 'name', direction: 'ascending' });
+  assert.deepEqual(second.sort, { columnId: 'name', direction: 'descending' });
   assert.equal(resized.columnWidths?.['name'], 7);
   assert.equal(shrunk.columnWidths?.['name'], 3);
   assert.equal(absolute.columnWidths?.['name'], 11);
@@ -56,14 +72,14 @@ void test('tablePresentation prepares every renderer-facing table state field', 
   const scroll = createScrollState({ contentRows: 20, viewportRows: 5 });
   assert.deepEqual(tableScrollablePresentation({
     selectedRowId: 'row-3',
-    selectedColumn: 2,
-    sort: { column: 'name', direction: 'descending' },
+    selectedColumnIndex: 2,
+    sort: { columnId: 'name', direction: 'descending' },
     columnWidths: { name: 18 },
     scroll
   }), {
     selectedRowId: 'row-3',
-    selectedCell: { rowId: 'row-3', column: 2 },
-    sort: { column: 'name', direction: 'descending' },
+    selectedCell: { rowId: 'row-3', columnIndex: 2 },
+    sort: { columnId: 'name', direction: 'descending' },
     columnWidths: { name: 18 },
     scroll
   });
@@ -128,11 +144,11 @@ void test('sortTableRows sorts with caller-controlled column accessors', () => {
   };
 
   assert.deepEqual(
-    sortTableRows(rows, { column: 'name', direction: 'ascending' }, valueForColumn).map((row) => row.name),
+    sortTableRows(rows, { columnId: 'name', direction: 'ascending' }, valueForColumn).map((row) => row.name),
     ['alpha', 'beta', 'zeta']
   );
   assert.deepEqual(
-    sortTableRows(rows, { column: 'count', direction: 'descending' }, valueForColumn).map((row) => row.count),
+    sortTableRows(rows, { columnId: 'count', direction: 'descending' }, valueForColumn).map((row) => row.count),
     [10, 2, 1]
   );
 });

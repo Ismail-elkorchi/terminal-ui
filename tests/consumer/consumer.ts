@@ -133,7 +133,7 @@ await memoryHost.write({ text: 'ordered output' });
 await memoryHost.flush();
 const decoded = createInputDecoder().decode({ data: '\r' });
 const selected = resolveSelectedText({
-  sources: [{ id: 'consumer-source', text: 'selected text', selection: { start: 0, end: 8 } }]
+  sources: [{ id: 'consumer-source', text: 'selected text', selection: { startOffset: 0, endOffsetExclusive: 8 } }]
 });
 const harness = createTerminalHarness({ terminalSize: { columns: 20, rows: 4 } });
 const result = ok('root-entrypoint');

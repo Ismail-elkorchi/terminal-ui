@@ -32,7 +32,7 @@ export function extractScrollbackSelectionText(
       if (localEnd >= localStart) {
         selected.push(extractTextSelection({
           text: record.bodyText,
-          selection: { start: localStart, end: localEnd },
+          selection: { startOffset: localStart, endOffsetExclusive: localEnd },
           sanitize: false
         }) ?? '');
       }

@@ -18,7 +18,7 @@ import type { CollectionWindow } from '../ui-model/collection.ts';
 
 interface TableStateBase {
   readonly selectedRowId?: string;
-  readonly selectedColumn?: number;
+  readonly selectedColumnIndex?: number;
   readonly sort?: TableSortState;
   readonly columnWidths?: Readonly<Record<string, number>>;
 }
@@ -51,7 +51,7 @@ export type TableReducerOptions<TRow> = TableReducerOptionsBase & (
     }
 );
 
-export type TableCellValueGetter<TRow> = (row: TRow, column: string) => unknown;
+export type TableCellValueGetter<TRow> = (row: TRow, columnId: string) => unknown;
 
 export function tableReducer<TRow>(
   state: ScrollableTableState,
@@ -77,7 +77,7 @@ export function tableReducer<TRow>(
         : selectRow(state, action.rowId, collection);
     case 'selectCell':
       return collectionRecordById(collection, action.rowId) !== undefined
-        ? selectCell(state, action.rowId, action.column, collection, options.columnCount)
+        ? selectCell(state, action.rowId, action.columnIndex, collection, options.columnCount)
         : state;
     case 'moveRow':
       return selectRowAtOffset(state, action.delta, rowIds, collection);
@@ -85,7 +85,7 @@ export function tableReducer<TRow>(
       return selectCell(
         state,
         selectedRowId(state, collection),
-        (state.selectedColumn ?? 0) + action.delta,
+        (state.selectedColumnIndex ?? 0) + action.delta,
         collection,
         options.columnCount
       );
@@ -105,17 +105,17 @@ export function tableReducer<TRow>(
     case 'sortBy':
       return {
         ...state,
-        sort: nextSort(state.sort, action.column)
+        sort: nextSort(state.sort, action.columnId)
       };
     case 'resizeColumnBy':
       return {
         ...state,
-        columnWidths: resizedColumns(state.columnWidths, action.column, action.delta, options.minColumnWidth)
+        columnWidths: resizedColumns(state.columnWidths, action.columnId, action.delta, options.minColumnWidth)
       };
     case 'setColumnWidth':
       return {
         ...state,
-        columnWidths: setColumnWidth(state.columnWidths, action.column, action.width, options.minColumnWidth)
+        columnWidths: setColumnWidth(state.columnWidths, action.columnId, action.width, options.minColumnWidth)
       };
     case 'scroll':
       return state.scroll === undefined
@@ -138,9 +138,9 @@ export function tableScrollablePresentation(state: ScrollableTableState): TableS
 function tablePresentationBase(state: TableStateBase): TablePresentation {
   return {
     ...(state.selectedRowId === undefined ? {} : { selectedRowId: state.selectedRowId }),
-    ...(state.selectedRowId === undefined || state.selectedColumn === undefined
+    ...(state.selectedRowId === undefined || state.selectedColumnIndex === undefined
       ? {}
-      : { selectedCell: { rowId: state.selectedRowId, column: state.selectedColumn } }),
+      : { selectedCell: { rowId: state.selectedRowId, columnIndex: state.selectedColumnIndex } }),
     ...(state.sort === undefined ? {} : { sort: state.sort }),
     ...(state.columnWidths === undefined ? {} : { columnWidths: state.columnWidths })
   };
@@ -151,10 +151,10 @@ export function prepareTableCollection<TRow>(
   getRowId: (row: TRow, index: number) => string,
   window?: CollectionWindow
 ): TableCollection<TRow> {
-  const start = window?.start ?? 0;
+  const startIndex = window?.startIndex ?? 0;
   const records = rows.map((row, offset): TableCollectionRecord<TRow> => {
-    const index = start + offset;
-    return { id: getRowId(row, index), index, row };
+    const itemIndex = startIndex + offset;
+    return { id: getRowId(row, itemIndex), itemIndex, row };
   });
   return window === undefined
     ? completeCollection(records)
@@ -171,11 +171,11 @@ function selectRow(
   collection: TableCollection<unknown>
 ): TableState {
   if (selectedRowId === undefined) return withoutRowSelection(state);
-  const selectedRow = collectionRecordById(collection, selectedRowId)?.index;
+  const selectedRow = collectionRecordById(collection, selectedRowId)?.itemIndex;
   if (selectedRow === undefined) return state;
   const scroll = state.scroll === undefined
     ? undefined
-    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: selectedRow });
+    : scrollReducer(state.scroll, { kind: 'itemIntoView', itemIndex: selectedRow });
   if (state.selectedRowId === selectedRowId && state.scroll === scroll) return state;
   return {
     ...state,
@@ -192,17 +192,19 @@ function selectCell(
   columnCount: number | undefined
 ): TableState {
   if (selectedRowId === undefined) return withoutRowSelection(state);
-  const selectedRow = collectionRecordById(collection, selectedRowId)?.index;
+  const selectedRow = collectionRecordById(collection, selectedRowId)?.itemIndex;
   if (selectedRow === undefined) return state;
-  const selectedColumn = boundedIndex(column, columnCount);
+  const selectedColumnIndex = boundedIndex(column, columnCount);
   const scroll = state.scroll === undefined
     ? undefined
-    : scrollReducer(state.scroll, { kind: 'itemIntoView', index: selectedRow });
-  if (state.selectedRowId === selectedRowId && state.selectedColumn === selectedColumn && state.scroll === scroll) return state;
+    : scrollReducer(state.scroll, { kind: 'itemIntoView', itemIndex: selectedRow });
+  if (state.selectedRowId === selectedRowId
+    && state.selectedColumnIndex === selectedColumnIndex
+    && state.scroll === scroll) return state;
   return {
     ...state,
     selectedRowId,
-    selectedColumn,
+    selectedColumnIndex,
     ...(scroll === undefined ? {} : { scroll })
   };
 }
@@ -242,14 +244,14 @@ export function sortTableRows<TRow>(
   if (sort === undefined) return rows;
   const direction = sort.direction === 'ascending' ? 1 : -1;
   return [...rows].sort((left, right) =>
-    compareValues(valueForColumn(left, sort.column), valueForColumn(right, sort.column)) * direction
+    compareValues(valueForColumn(left, sort.columnId), valueForColumn(right, sort.columnId)) * direction
   );
 }
 
-function nextSort(current: TableSortState | undefined, column: string): TableSortState {
-  if (current?.column !== column) return { column, direction: 'ascending' };
+function nextSort(current: TableSortState | undefined, columnId: string): TableSortState {
+  if (current?.columnId !== columnId) return { columnId, direction: 'ascending' };
   return {
-    column,
+    columnId,
     direction: current.direction === 'ascending' ? 'descending' : 'ascending'
   };
 }

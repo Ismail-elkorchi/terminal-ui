@@ -28,7 +28,7 @@ void test('scroll state normalizes offsets and visible windows', () => {
     viewportColumns: 4,
     followTail: false
   });
-  assert.deepEqual(visibleWindowFromScroll(state), { start: 15, end: 20 });
+  assert.deepEqual(visibleWindowFromScroll(state), { startIndex: 15, endIndexExclusive: 20 });
 });
 
 void test('scroll reducer supports line, page, top, and bottom actions', () => {
@@ -98,11 +98,11 @@ void test('follow-tail stays at the bottom while content grows and freezes when 
 void test('item-into-view centers selected items and records selection', () => {
   const state = scrollReducer(
     createScrollState({ contentRows: 50_000, viewportRows: 10 }),
-    { kind: 'itemIntoView', index: 40_000 }
+    { kind: 'itemIntoView', itemIndex: 40_000 }
   );
 
   assert.equal(state.selectedIndex, 40_000);
-  assert.deepEqual(visibleWindowFromScroll(state), { start: 39_995, end: 40_005 });
+  assert.deepEqual(visibleWindowFromScroll(state), { startIndex: 39_995, endIndexExclusive: 40_005 });
 });
 
 void test('normalizing a selected index clamps it to content bounds', () => {

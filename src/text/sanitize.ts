@@ -29,12 +29,12 @@ export function sanitizeTerminalText(
     return result;
   }
   const removedControlSequences: RemovedControlSequence[] = [];
-  const withoutEscapes = text.replace(escapeOrCsi, (sequence: string, index: number) => {
-    removedControlSequences.push({ sequence, index, kind: 'escape' });
+  const withoutEscapes = text.replace(escapeOrCsi, (sequence: string, codeUnitOffset: number) => {
+    removedControlSequences.push({ sequence, codeUnitOffset, kind: 'escape' });
     return replacement;
   });
-  const sanitized = withoutEscapes.replace(controlCharacters, (sequence: string, index: number) => {
-    removedControlSequences.push({ sequence, index, kind: 'control' });
+  const sanitized = withoutEscapes.replace(controlCharacters, (sequence: string, codeUnitOffset: number) => {
+    removedControlSequences.push({ sequence, codeUnitOffset, kind: 'control' });
     return replacement;
   });
   const result = Object.freeze({

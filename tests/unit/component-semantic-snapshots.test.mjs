@@ -214,7 +214,7 @@ const cases = [
   },
   {
     name: 'paginator',
-    element: () => paginator({ id: 'pages', label: unsafe, page: 2, pageCount: 3 }),
+    element: () => paginator({ id: 'pages', label: unsafe, pageNumber: 2, pageCount: 3 }),
     expectText: /Page 2 of 3/u
   },
   {
@@ -532,7 +532,7 @@ const cases = [
         [{ id: 'a', label: unsafe, value: 1 }, { id: 'b', label: 'Beta', value: 3 }],
         [{ id: 'c', label: 'Gamma', value: 5 }]
       ],
-      selected: { row: 0, column: 1 },
+      selected: { rowIndex: 0, columnIndex: 1 },
       keys: { enter: () => ({ kind: 'heatmap-enter' }) },
       onAction: (action) => ({ kind: 'heatmap', action })
     }),
@@ -580,7 +580,7 @@ const cases = [
     name: 'commandInput',
     element: () => commandInput({
       id: 'command-input',
-      presentation: { value: unsafe, cursor: 0, suggestions: [{ value: 'open', label: unsafe, description: 'Open action' }], selectedSuggestion: 0 },
+      presentation: { value: unsafe, cursor: 0, suggestions: [{ value: 'open', label: unsafe, description: 'Open action' }], selectedSuggestionIndex: 0 },
       prompt: '>',
     }),
     expectText: /Unsafe red text/u,
@@ -591,7 +591,7 @@ const cases = [
     element: () => palette({
       id: 'palette',
       title: unsafe,
-      index: preparePaletteIndex([
+      paletteIndex: preparePaletteIndex([
         { id: 'alpha', label: unsafe, value: 'alpha', preview: 'Preview' },
         { id: 'beta', label: 'Beta', value: 'beta', disabled: true }
       ]),

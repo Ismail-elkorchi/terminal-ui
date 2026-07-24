@@ -168,9 +168,13 @@ function projectScrollbackWindow(
         viewportRows: node.bounds.height
       });
   const visibleWindow = visibleWindowFromScroll(scroll);
-  const omittedBefore = visibleWindow.start;
-  const omittedAfter = Math.max(0, projection.totalRows - visibleWindow.end);
-  const visibleRows = visibleScrollbackRecords(projection, visibleWindow.start, visibleWindow.end)
+  const omittedBefore = visibleWindow.startIndex;
+  const omittedAfter = Math.max(0, projection.totalRows - visibleWindow.endIndexExclusive);
+  const visibleRows = visibleScrollbackRecords(
+    projection,
+    visibleWindow.startIndex,
+    visibleWindow.endIndexExclusive
+  )
     .flatMap(({ record, localStart, localEnd }) => rowsForRecord(record).slice(localStart, localEnd));
   return {
     rows: projection.totalRows === 0
@@ -184,8 +188,8 @@ function projectScrollbackWindow(
           scroll.followTail
         ),
     totalRows: projection.totalRows,
-    start: visibleWindow.start,
-    end: visibleWindow.end,
+    start: visibleWindow.startIndex,
+    end: visibleWindow.endIndexExclusive,
     omittedBefore,
     omittedAfter,
     matchCount: search.matchingItems,
@@ -515,7 +519,7 @@ function defaultScrollState(
   if (firstMatchRow !== undefined) {
     return scrollReducer(
       createScrollState({ contentRows: totalRows, viewportRows }),
-      { kind: 'itemIntoView', index: firstMatchRow }
+      { kind: 'itemIntoView', itemIndex: firstMatchRow }
     );
   }
   return createScrollState({

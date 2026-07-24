@@ -14,8 +14,8 @@ test('dataWindow keeps selected rows visible and preserves explicit scroll windo
     dataWindow({ totalRows: 100, viewportRows: 5, selectedIndex: 40 }),
     {
       totalRows: 100,
-      start: 38,
-      end: 43,
+      startIndex: 38,
+      endIndexExclusive: 43,
       selectedIndex: 40,
       selectedVisibleIndex: 2,
       offsetColumn: 0,
@@ -39,8 +39,8 @@ test('dataWindow keeps selected rows visible and preserves explicit scroll windo
     }),
     {
       totalRows: 100,
-      start: 10,
-      end: 15,
+      startIndex: 10,
+      endIndexExclusive: 15,
       offsetColumn: 3,
       omittedBefore: 10,
       omittedAfter: 85
@@ -59,8 +59,8 @@ test('prepared collections reject ambiguous identity and invalid global windows'
   );
   assert.throws(
     () => prepareTreeRows([{ node: { id: 'one', label: 'One', kind: 'leaf' }, depth: 0, path: ['one'] }], {
-      start: 2,
-      total: 2,
+      startIndex: 2,
+      totalCount: 2,
       domain: { kind: 'source' }
     }),
     /must fit inside/u

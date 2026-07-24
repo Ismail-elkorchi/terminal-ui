@@ -27,12 +27,12 @@ void test('indeterminateProgressFrame derives a bounded active window from frame
     activeStart: 1,
     activeWidth: 2,
     cells: [
-      { index: 0, active: false },
-      { index: 1, active: true },
-      { index: 2, active: true },
-      { index: 3, active: false },
-      { index: 4, active: false },
-      { index: 5, active: false }
+      { cellIndex: 0, active: false },
+      { cellIndex: 1, active: true },
+      { cellIndex: 2, active: true },
+      { cellIndex: 3, active: false },
+      { cellIndex: 4, active: false },
+      { cellIndex: 5, active: false }
     ]
   });
 });

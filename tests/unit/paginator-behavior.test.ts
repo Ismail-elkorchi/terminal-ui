@@ -14,24 +14,24 @@ import { createTuiRuntime, defineTui } from '../../dist/tui/index.js';
 
 void test('paginator reducer bounds semantic navigation actions', () => {
   const options = { pageCount: 4 };
-  const previous = paginatorReducer({ page: 1 }, { kind: 'previous' }, options);
+  const previous = paginatorReducer({ pageNumber: 1 }, { kind: 'previous' }, options);
   const next = paginatorReducer(previous, { kind: 'next' }, options);
-  const selected = paginatorReducer(next, { kind: 'select', page: 99 }, options);
+  const selected = paginatorReducer(next, { kind: 'select', pageNumber: 99 }, options);
   const first = paginatorReducer(selected, { kind: 'first' }, options);
   const last = paginatorReducer(first, { kind: 'last' }, options);
 
-  assert.strictEqual(previous.page, 1);
-  assert.deepEqual(next, { page: 2 });
-  assert.deepEqual(selected, { page: 4 });
-  assert.deepEqual(first, { page: 1 });
-  assert.deepEqual(last, { page: 4 });
-  assert.deepEqual(paginatorPresentation({ page: 10 }, options), { page: 4, pageCount: 4 });
+  assert.strictEqual(previous.pageNumber, 1);
+  assert.deepEqual(next, { pageNumber: 2 });
+  assert.deepEqual(selected, { pageNumber: 4 });
+  assert.deepEqual(first, { pageNumber: 1 });
+  assert.deepEqual(last, { pageNumber: 4 });
+  assert.deepEqual(paginatorPresentation({ pageNumber: 10 }, options), { pageNumber: 4, pageCount: 4 });
 });
 
 void test('paginator routes keyboard and pointer controls through the same action stream', async () => {
   const app = defineTui<PaginatorState, PaginatorAction>({
     id: 'paginator-actions',
-    init: () => ({ page: 2 }),
+    init: () => ({ pageNumber: 2 }),
     update: (state, action) => ({ state: paginatorReducer(state, action, { pageCount: 4 }) }),
     view: (state) => paginator({
       id: 'pages',
@@ -52,7 +52,7 @@ void test('paginator routes keyboard and pointer controls through the same actio
     eventType: 'press',
     location: 'standard'
   });
-  assert.equal(runtime.state().page, 3);
+  assert.equal(runtime.state().pageNumber, 3);
 
   const interactiveFrame = runtime.frame();
   assert.ok(interactiveFrame);
@@ -81,7 +81,7 @@ void test('paginator routes keyboard and pointer controls through the same actio
     modifiers: { shift: false, alt: false, ctrl: false }
   });
 
-  assert.equal(runtime.state().page, 4);
+  assert.equal(runtime.state().pageNumber, 4);
   const frame = runtime.frame();
   assert.ok(frame);
   assert.match(renderFramePlain(frame), /Page 4 of 4/u);

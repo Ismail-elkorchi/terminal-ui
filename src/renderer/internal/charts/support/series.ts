@@ -73,7 +73,7 @@ function selectedWindowStart(
 ): number {
   const selected = renderNode.props.selected;
   if (selected !== undefined) {
-    const point = Math.max(0, Math.min(pointCount - 1, Math.floor(selected.point)));
+    const point = Math.max(0, Math.min(pointCount - 1, Math.floor(selected.pointIndex)));
     return Math.max(0, Math.min(pointCount - windowSize, point - Math.floor(windowSize / 2)));
   }
   return align === 'end' ? Math.max(0, pointCount - windowSize) : 0;

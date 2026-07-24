@@ -12,7 +12,7 @@ export interface PaletteIndex<TValue = string> {
 
 export interface PaletteQueryProjection<TValue = string> {
   readonly kind: 'palette-query';
-  readonly index: PaletteIndex<TValue>;
+  readonly paletteIndex: PaletteIndex<TValue>;
   readonly query: string;
   readonly entries: readonly SearchEntry<TValue>[];
 }
@@ -95,7 +95,12 @@ export function projectPaletteQuery<TValue>(
         .filter((result): result is typeof result & { readonly score: number } => result.score !== undefined)
         .sort((left, right) => left.score - right.score || left.sourceIndex - right.sourceIndex)
         .map((result) => result.entry));
-  const projection = Object.freeze({ kind: 'palette-query' as const, index, query: normalizedQuery, entries });
+  const projection = Object.freeze({
+    kind: 'palette-query' as const,
+    paletteIndex: index,
+    query: normalizedQuery,
+    entries
+  });
   data.projections.set(normalizedQuery, projection);
   if (data.projections.size > queryCacheLimit) {
     const oldest = data.projections.keys().next().value;

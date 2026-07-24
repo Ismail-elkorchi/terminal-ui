@@ -94,9 +94,9 @@ export interface CommandInputOptions<TMessage = never> extends InteractiveElemen
 interface PaletteBaseOptions<TValue, TMessage> extends InteractiveElementOptions<PaletteStylePart, TMessage> {
   readonly title?: string;
   readonly query?: string;
-  readonly index: PaletteIndex<TValue>;
+  readonly paletteIndex: PaletteIndex<TValue>;
   readonly onSelect?: (entry: SearchEntry<TValue>) => TMessage;
-  readonly selected?: number;
+  readonly selectedIndex?: number;
   readonly selectedId?: string;
   readonly maxVisible?: number;
   readonly helpText?: string;

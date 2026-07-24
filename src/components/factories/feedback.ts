@@ -215,7 +215,7 @@ export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
     end: () => onAction({ kind: 'last' }),
     enter: () => selectedIndex < 0
       ? undefined
-      : onAction({ kind: 'activate', id: options.items[selectedIndex]?.id ?? '', index: selectedIndex })
+      : onAction({ kind: 'activate', id: options.items[selectedIndex]?.id ?? '', itemIndex: selectedIndex })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<unknown>;
   return componentElementFromRenderNode<'barChart', unknown>({
     ...requiredId(options.id, 'barChart'),
@@ -248,7 +248,7 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
     end: () => onAction({ kind: 'lastPoint' }),
     enter: () => selected === undefined
       ? ignoreMessage()
-      : onAction({ kind: 'select', series: selected.series, point: selected.point })
+      : onAction({ kind: 'select', series: selected.series, pointIndex: selected.pointIndex })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   return componentElementFromRenderNode<'chart', TMessage>({
     ...requiredId(options.id, 'chart'),
@@ -309,7 +309,11 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
     end: () => onAction({ kind: 'last' }),
     enter: () => selected === undefined
       ? ignoreMessage()
-      : onAction({ kind: 'select', row: selected.row, column: selected.column })
+      : onAction({
+          kind: 'select',
+          rowIndex: selected.rowIndex,
+          columnIndex: selected.columnIndex
+        })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   return componentElementFromRenderNode<'heatmap', TMessage>({
     ...requiredId(options.id, 'heatmap'),

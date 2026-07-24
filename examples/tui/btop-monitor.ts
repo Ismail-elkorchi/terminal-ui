@@ -144,7 +144,7 @@ function initialState(): MonitorState {
     tick: 0,
     processTable: {
       selectedRowId,
-      sort: { column: 'memory', direction: 'descending' },
+      sort: { columnId: 'memory', direction: 'descending' },
       scroll: createScrollState({
         contentRows: processRows.length,
         selectedIndex: processRows.findIndex((row) => String(row.pid) === selectedRowId)
@@ -166,13 +166,13 @@ function updateMonitor(
         }
       };
     case 'cycleSort': {
-      const column = state.processTable.sort?.column === 'memory' ? 'cpu' : 'memory';
+      const columnId = state.processTable.sort?.columnId === 'memory' ? 'cpu' : 'memory';
       return {
         state: {
           ...state,
           processTable: {
             ...state.processTable,
-            sort: { column, direction: 'descending' }
+            sort: { columnId, direction: 'descending' }
           }
         }
       };
@@ -494,7 +494,7 @@ function processPanel(state: MonitorState) {
   const sort = state.processTable.sort;
   return surface(column([
     row([
-      statusBar({ id: 'proc-mode', leading: [{ id: 'mode', kind: 'text', text: `proc filter  sort=${sort?.column ?? 'none'} ${sort?.direction ?? ''}` }] }),
+      statusBar({ id: 'proc-mode', leading: [{ id: 'mode', kind: 'text', text: `proc filter  sort=${sort?.columnId ?? 'none'} ${sort?.direction ?? ''}` }] }),
       statusBar({ id: 'proc-flags', trailing: [{ id: 'flags', kind: 'text', text: 'per-core reverse tree memory' }] })
     ], { id: 'proc-header', sizes: [{ kind: 'fill' }, { kind: 'content' }] }),
     table({
@@ -511,7 +511,7 @@ function processPanel(state: MonitorState) {
   ], { id: 'proc-column', gap: 0, sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fill' }] }), {
     id: 'process-panel',
     label: 'proc',
-    title: panelTitle('proc', `sort=${sort?.column ?? 'none'}`, `${String(rows.length)} rows`),
+    title: panelTitle('proc', `sort=${sort?.columnId ?? 'none'}`, `${String(rows.length)} rows`),
     appearance: 'inset',
     padding: 1
   });
