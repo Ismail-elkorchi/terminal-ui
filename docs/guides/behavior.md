@@ -268,7 +268,7 @@ Behavior helpers do not:
 - own file-system, network, or process state.
 
 Renderer internals may still use lower-level key maps, input maps, hit targets,
-and render-node callbacks. Those are compiled from component options and should
+and render-node callbacks. Those are constructed from component options and should
 not become the public behavior model.
 
 For component roles, see [Components](./components.md). For runtime routing,

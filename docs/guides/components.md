@@ -149,7 +149,7 @@ button({
 ```
 
 Callers do not author frame source metadata. The renderer assigns component,
-part, item, and visual-state identity when it compiles inline content into
+part, item, and visual-state identity when it converts inline content into
 render spans. Core theme color tokens are a closed vocabulary; application
 tokens must use the `custom.*` namespace.
 
