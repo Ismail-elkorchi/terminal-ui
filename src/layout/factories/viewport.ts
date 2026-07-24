@@ -1,4 +1,4 @@
-import { elementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
+import { layoutElementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
 import type { RenderNode } from '../../renderer/model/index.ts';
 import type { Element, ElementMessage } from '../../element/index.ts';
 import type { ViewportOptions } from '../options.ts';
@@ -11,7 +11,7 @@ export function viewport<const TChild extends Element<unknown>, const TMessage =
 ): Element<ElementMessage<TChild> | TMessage> {
   type Message = ElementMessage<TChild> | TMessage;
   const childNode = toRenderNode(child);
-  return elementFromRenderNode<'viewport', Message>({
+  return layoutElementFromRenderNode<'viewport', Message>({
     ...requiredId(options.id, 'viewport'),
     kind: 'viewport',
     props: {
@@ -26,5 +26,5 @@ export function viewport<const TChild extends Element<unknown>, const TMessage =
     },
     children: [childNode] as readonly RenderNode<Message>[],
     ...interactionProps(options)
-  }, 'layout');
+  });
 }

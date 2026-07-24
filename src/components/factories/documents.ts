@@ -1,4 +1,4 @@
-import { elementFromRenderNode } from '../../renderer/model/element.ts';
+import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
   ActivityFeedOptions,
@@ -67,7 +67,7 @@ export function scrollback(options: ScrollbackOptions<unknown>): Element<unknown
         : onControlAction === undefined
           ? ignoreMessage()
           : onControlAction(action);
-  return elementFromRenderNode<'scrollback', unknown>({
+  return componentElementFromRenderNode<'scrollback', unknown>({
     ...requiredId(options.id, 'scrollback'),
     kind: 'scrollback',
     props: {
@@ -93,7 +93,7 @@ function isScrollableScrollbackOptions<TMessage>(
 }
 
 export function structuredBlock(options: StructuredBlockOptions): Element {
-  return elementFromRenderNode<'structuredBlock'>({
+  return componentElementFromRenderNode<'structuredBlock'>({
     ...optionalId(options.id),
     kind: 'structuredBlock',
     props: {
@@ -123,7 +123,7 @@ export function activityFeed<const TMessage = never>(options: ActivityFeedOption
     enter: () => selectedBlock === undefined ? ignoreMessage() : onAction({ kind: 'toggleBlock', id: selectedBlock.id })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
   const keyMap = mergeKeyBindings(generatedKeys, options.keys);
-  return elementFromRenderNode<'activityFeed', TMessage>({
+  return componentElementFromRenderNode<'activityFeed', TMessage>({
     ...requiredId(options.id, 'activityFeed'),
     kind: 'activityFeed',
     props: {
@@ -161,7 +161,7 @@ export function commandInput(options: CommandInputOptions<unknown>): Element<unk
     : { enter: () => onSubmit(options.presentation.value) };
   const keyMap = mergeKeyBindings(mergeKeyBindings(generatedKeys, submitKeys), options.keys);
   const presentation = options.presentation;
-  return elementFromRenderNode<'commandInput', unknown>({
+  return componentElementFromRenderNode<'commandInput', unknown>({
     ...requiredId(options.id, 'commandInput'),
     kind: 'commandInput',
     props: {
@@ -233,7 +233,7 @@ export function palette<TValue>(options: PaletteOptions<TValue, unknown>): Eleme
   const generatedKeys = action === undefined ? undefined : paletteKeyBindings(action);
   const keyMap = mergeKeyBindings(generatedKeys, options.keys);
   const toMessage = searchSelectionHandler(options.onSelect);
-  return elementFromRenderNode<'palette', unknown>({
+  return componentElementFromRenderNode<'palette', unknown>({
     ...requiredId(options.id, 'palette'),
     kind: 'palette',
     props: {

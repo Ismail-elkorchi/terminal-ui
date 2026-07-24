@@ -5,7 +5,7 @@ import type {
   ElementTextInputHandlers
 } from '../element/metadata.ts';
 import type { Element } from '../element/index.ts';
-import { elementFromRenderNode } from './model/element.ts';
+import { extensionElementFromRenderNode } from './model/element.ts';
 import type { RenderNodeInputMap } from './model/index.ts';
 import type { RenderNodeRenderer } from './model/renderer.ts';
 import type { CustomRenderer } from './custom-renderer.ts';
@@ -59,7 +59,7 @@ export function custom<TState, const TMessage = never>(
     ...(inputMap === undefined ? {} : { inputMap })
   });
   const renderer = adaptCustomRenderer(options.renderer, 'state' in options ? options.state : undefined);
-  return elementFromRenderNode<'custom', TMessage>({
+  return extensionElementFromRenderNode<'custom', TMessage>({
     id: renderNodeId(options.id),
     kind: 'custom',
     props: {},
@@ -71,7 +71,7 @@ export function custom<TState, const TMessage = never>(
       pointer: options.pointer,
       meta: options.meta
     })
-  }, 'extension');
+  });
 }
 
 export function assertCustomRenderer(

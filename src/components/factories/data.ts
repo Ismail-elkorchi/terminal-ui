@@ -1,4 +1,4 @@
-import { elementFromRenderNode } from '../../renderer/model/element.ts';
+import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
   ListOptions,
@@ -67,7 +67,7 @@ export function list<TValue>(options: ListOptions<TValue, unknown>): Element<unk
   const keyMap = listKeyBindings(options, view.source);
   const toActionMessage: ((action: ListControlAction) => unknown) | undefined = options.onAction;
   const toScrollActionMessage = isScrollableListOptions(options) ? options.onAction : undefined;
-  return elementFromRenderNode<'list', unknown>({
+  return componentElementFromRenderNode<'list', unknown>({
     ...requiredId(options.id, 'list'),
     kind: 'list',
     props: {
@@ -129,7 +129,7 @@ export function table<TRow>(options: TableOptions<TRow, unknown>): Element<unkno
   const toScrollActionMessage = isScrollableTableOptions(options) ? options.onAction : undefined;
   const presentation = options.presentation;
   const scroll = isScrollableTableOptions(options) ? options.presentation.scroll : undefined;
-  return elementFromRenderNode<'table', unknown>({
+  return componentElementFromRenderNode<'table', unknown>({
     ...requiredId(options.id, 'table'),
     kind: 'table',
     props: {
@@ -202,7 +202,7 @@ export function tree<TMetadata extends Readonly<Record<string, unknown>>>(
     options.filterQuery === undefined ? {} : { filterQuery: options.filterQuery }
   );
   const view = prepareTreeView(collection, options.filterQuery);
-  return elementFromRenderNode<'tree', unknown>({
+  return componentElementFromRenderNode<'tree', unknown>({
     ...requiredId(options.id, 'tree'),
     kind: 'tree',
     props: {
@@ -243,7 +243,7 @@ export function paginator<
 >): Element<TActionMessage | TPointerMessage | ComponentKeyBindingMessages<TKeys>>;
 export function paginator(options: PaginatorOptions<unknown>): Element<unknown> {
   const keyMap = paginatorKeyBindings(options);
-  return elementFromRenderNode<'paginator', unknown>({
+  return componentElementFromRenderNode<'paginator', unknown>({
     ...requiredId(options.id, 'paginator'),
     kind: 'paginator',
     props: {

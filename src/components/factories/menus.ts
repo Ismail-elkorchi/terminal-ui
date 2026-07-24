@@ -1,4 +1,4 @@
-import { elementFromRenderNode } from '../../renderer/model/element.ts';
+import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
   ContextMenuOptions,
@@ -39,7 +39,7 @@ export function menu<
 export function menu(options: MenuOptions<unknown>): Element<unknown> {
   const onAction = options.onAction;
   const keyMap = menuKeyBindings(options.presentation, onAction, options.keys);
-  return elementFromRenderNode<'menu', unknown>({
+  return componentElementFromRenderNode<'menu', unknown>({
     ...requiredId(options.id, 'menu'),
     kind: 'menu',
     props: {
@@ -83,7 +83,7 @@ export function menuBar(options: MenuBarOptions<unknown>): Element<unknown> {
         })
       })
     : undefined;
-  return elementFromRenderNode<'menuBar', unknown>({
+  return componentElementFromRenderNode<'menuBar', unknown>({
     ...requiredId(options.id, 'menuBar'),
     kind: 'menuBar',
     props: {
@@ -133,7 +133,7 @@ export function contextMenu(options: ContextMenuOptions<unknown>): Element<unkno
   const meta = options.presentation.kind === 'open'
     ? withMetaDefaults(options.meta, { focus: { scope: { kind: 'contain' } }, layer: { opacity: 'transparent' } })
     : withMetaDefaults(options.meta, { focus: { disabled: true }, layer: { opacity: 'transparent' } });
-  return elementFromRenderNode<'contextMenu', unknown>({
+  return componentElementFromRenderNode<'contextMenu', unknown>({
     ...requiredId(options.id, 'contextMenu'),
     kind: 'contextMenu',
     props: {
@@ -178,7 +178,7 @@ export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unk
   const meta = open
     ? withMetaDefaults(options.meta, { focus: { scope: { kind: 'contain' } }, layer: { opacity: 'opaque' } })
     : options.meta;
-  return elementFromRenderNode<'dropdownMenu', unknown>({
+  return componentElementFromRenderNode<'dropdownMenu', unknown>({
     ...requiredId(options.id, 'dropdownMenu'),
     kind: 'dropdownMenu',
     props: {
@@ -197,7 +197,7 @@ export function dropdownMenu(options: DropdownMenuOptions<unknown>): Element<unk
 }
 
 export function divider(options: DividerOptions = {}): Element {
-  return elementFromRenderNode<'divider'>({
+  return componentElementFromRenderNode<'divider'>({
     ...optionalId(options.id),
     kind: 'divider',
     props: {
@@ -215,7 +215,7 @@ export function tooltip(options: TooltipOptions): Element {
   const meta = withMetaDefaults(options.meta, {
     layer: { visible, zIndex: 20, opacity: 'opaque' }
   });
-  return elementFromRenderNode<'tooltip'>({
+  return componentElementFromRenderNode<'tooltip'>({
     ...optionalId(options.id),
     kind: 'tooltip',
     props: {

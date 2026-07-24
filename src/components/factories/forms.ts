@@ -1,4 +1,4 @@
-import { elementFromRenderNode } from '../../renderer/model/element.ts';
+import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type {
   ButtonOptions,
@@ -63,7 +63,7 @@ export function form<const TChildren extends ElementChildren>(
   options: FormOptions = {}
 ): Element<ElementChildrenMessage<TChildren>> {
   type Message = ElementChildrenMessage<TChildren>;
-  return elementFromRenderNode<'form', Message>({
+  return componentElementFromRenderNode<'form', Message>({
     ...optionalId(options.id),
     kind: 'form',
     props: {
@@ -80,7 +80,7 @@ export function field<const TChildren extends ElementChildren>(
   options: FieldOptions
 ): Element<ElementChildrenMessage<TChildren>> {
   type Message = ElementChildrenMessage<TChildren>;
-  return elementFromRenderNode<'field', Message>({
+  return componentElementFromRenderNode<'field', Message>({
     ...optionalId(options.id),
     kind: 'field',
     props: {
@@ -97,7 +97,7 @@ export function field<const TChildren extends ElementChildren>(
 }
 
 export function label(options: LabelOptions): Element {
-  return elementFromRenderNode<'label'>({
+  return componentElementFromRenderNode<'label'>({
     ...optionalId(options.id),
     kind: 'label',
     props: {
@@ -127,7 +127,7 @@ export function button(options: ButtonOptions<unknown>): Element<unknown> {
     onPress === undefined || options.disabled === true || state === 'pending' ? undefined : () => onPress(),
     options.keys
   );
-  return elementFromRenderNode<'button', unknown>({
+  return componentElementFromRenderNode<'button', unknown>({
     ...requiredId(options.id, 'button'),
     kind: 'button',
     props: {
@@ -150,7 +150,7 @@ export function checkbox<const TMessage = never>(options: CheckboxOptions<TMessa
     toMessage === undefined ? undefined : () => toMessage(!options.checked),
     options.keys
   );
-  return elementFromRenderNode<'checkbox', TMessage>({
+  return componentElementFromRenderNode<'checkbox', TMessage>({
     ...requiredId(options.id, 'checkbox'),
     kind: 'checkbox',
     props: {
@@ -172,7 +172,7 @@ export function toggleSwitch<const TMessage = never>(options: ToggleSwitchOption
     toMessage === undefined ? undefined : () => toMessage(!options.checked),
     options.keys
   );
-  return elementFromRenderNode<'toggleSwitch', TMessage>({
+  return componentElementFromRenderNode<'toggleSwitch', TMessage>({
     ...requiredId(options.id, 'toggleSwitch'),
     kind: 'toggleSwitch',
     props: {
@@ -193,7 +193,7 @@ export function slider<const TMessage = never>(options: SliderOptions<TMessage>)
   const range = validatedNumericControlRange('slider', options);
   assertNumericControlValue('slider', options.value, range);
   const keyMap = sliderKeyBindings(options);
-  return elementFromRenderNode<'slider', TMessage>({
+  return componentElementFromRenderNode<'slider', TMessage>({
     ...requiredId(options.id, 'slider'),
     kind: 'slider',
     props: {
@@ -224,7 +224,7 @@ export function rangeSlider<const TMessage = never>(options: RangeSliderOptions<
     throw new RangeError('rangeSlider start value must be less than or equal to end value.');
   }
   const keyMap = rangeSliderKeyBindings(options);
-  return elementFromRenderNode<'rangeSlider', TMessage>({
+  return componentElementFromRenderNode<'rangeSlider', TMessage>({
     ...requiredId(options.id, 'rangeSlider'),
     kind: 'rangeSlider',
     props: {
@@ -249,7 +249,7 @@ export function checkboxGroup<TValue, const TMessage = never>(options: CheckboxG
     ...(options.focused === undefined ? {} : { focused: options.focused })
   }, options.options);
   const keyMap = checkboxGroupKeyBindings(options);
-  return elementFromRenderNode<'checkboxGroup', TMessage>({
+  return componentElementFromRenderNode<'checkboxGroup', TMessage>({
     ...requiredId(options.id, 'checkboxGroup'),
     kind: 'checkboxGroup',
     props: {
@@ -274,7 +274,7 @@ export function radioGroup<TValue, const TMessage = never>(options: RadioGroupOp
     ...(options.focused === undefined ? {} : { focused: options.focused })
   }, options.options);
   const keyMap = radioGroupKeyBindings(options);
-  return elementFromRenderNode<'radioGroup', TMessage>({
+  return componentElementFromRenderNode<'radioGroup', TMessage>({
     ...requiredId(options.id, 'radioGroup'),
     kind: 'radioGroup',
     props: {
@@ -299,7 +299,7 @@ export function colorSwatchPicker<TValue, const TMessage = never>(options: Color
     ...(options.focused === undefined ? {} : { focused: options.focused })
   }, options.options);
   const keyMap = colorSwatchPickerKeyBindings(options);
-  return elementFromRenderNode<'colorSwatchPicker', TMessage>({
+  return componentElementFromRenderNode<'colorSwatchPicker', TMessage>({
     ...requiredId(options.id, 'colorSwatchPicker'),
     kind: 'colorSwatchPicker',
     props: {
@@ -330,7 +330,7 @@ export function calendar<
 export function calendar(options: CalendarOptions<unknown>): Element<unknown> {
   const keyMap = calendarKeyBindings(options);
   const onAction = options.onAction;
-  return elementFromRenderNode<'calendar', unknown>({
+  return componentElementFromRenderNode<'calendar', unknown>({
     ...requiredId(options.id, 'calendar'),
     kind: 'calendar',
     props: {
@@ -366,7 +366,7 @@ export function select<TValue, const TMessage = never>(options: SelectOptions<TV
         ...(options.onAction === undefined ? {} : { toActionMessage: options.onAction })
       })
     : undefined;
-  return elementFromRenderNode<'select', TMessage>({
+  return componentElementFromRenderNode<'select', TMessage>({
     ...requiredId(options.id, 'select'),
     kind: 'select',
     props: {
@@ -412,7 +412,7 @@ export function textInput<
 export function textInput(options: TextInputOptions<unknown>): Element<unknown> {
   const presentation = options.presentation;
   const keyMap = textInputKeyBindings(options.onAction, options.onSubmit, presentation.value, options.keys);
-  return elementFromRenderNode<'textInput', unknown>({
+  return componentElementFromRenderNode<'textInput', unknown>({
     ...requiredId(options.id, 'textInput'),
     kind: 'textInput',
     props: {
@@ -451,7 +451,7 @@ export function numberInput(options: NumberInputOptions<unknown>): Element<unkno
       ? undefined
       : (operation) => options.onAction?.({ kind: 'edit', operation })
   );
-  return elementFromRenderNode<'numberInput', unknown>({
+  return componentElementFromRenderNode<'numberInput', unknown>({
     ...requiredId(options.id, 'numberInput'),
     kind: 'numberInput',
     props: {

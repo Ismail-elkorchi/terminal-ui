@@ -1,4 +1,4 @@
-import { elementFromRenderNode } from '../../renderer/model/element.ts';
+import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
   StatusIndicatorOptions,
@@ -78,7 +78,7 @@ export function notificationStack(rawOptions: object): Element<unknown> {
     ? undefined
     : mergeKeyBindings(generated, keys);
   resolveStableIds(options.presentation.items, (item) => item.id, 'notificationStack');
-  return elementFromRenderNode<'notificationStack', unknown>({
+  return componentElementFromRenderNode<'notificationStack', unknown>({
     ...requiredId(options.id, 'notificationStack'),
     kind: 'notificationStack',
     props: {
@@ -99,7 +99,7 @@ export function statusBar(options: StatusBarOptions): Element {
   const center = normalizedStatusItems(options.center ?? []);
   const trailing = normalizedStatusItems(options.trailing ?? []);
   resolveStableIds([...leading, ...center, ...trailing], (item) => item.id, 'statusBar');
-  return elementFromRenderNode<'statusBar'>({
+  return componentElementFromRenderNode<'statusBar'>({
     ...requiredId(options.id, 'statusBar'),
     kind: 'statusBar',
     props: { leading, center, trailing },
@@ -119,7 +119,7 @@ function normalizedStatusItems(
 
 export function helpBar(options: HelpBarOptions): Element {
   resolveStableIds(options.groups, (group) => group.id, 'helpBar');
-  return elementFromRenderNode<'helpBar'>({
+  return componentElementFromRenderNode<'helpBar'>({
     ...optionalId(options.id),
     kind: 'helpBar',
     props: { groups: options.groups },
@@ -128,7 +128,7 @@ export function helpBar(options: HelpBarOptions): Element {
 }
 
 export function statusIndicator(options: StatusIndicatorOptions = {}): Element {
-  return elementFromRenderNode<'statusIndicator'>({
+  return componentElementFromRenderNode<'statusIndicator'>({
     ...optionalId(options.id),
     kind: 'statusIndicator',
     props: {
@@ -141,7 +141,7 @@ export function statusIndicator(options: StatusIndicatorOptions = {}): Element {
 
 export function progressBar(options: ProgressBarOptions): Element {
   assertProgressBarMode(options.mode);
-  return elementFromRenderNode<'progressBar'>({
+  return componentElementFromRenderNode<'progressBar'>({
     ...optionalId(options.id),
     kind: 'progressBar',
     props: {
@@ -175,7 +175,7 @@ function assertProgressBarMode(mode: ProgressBarOptions['mode']): void {
 }
 
 export function sparkline(options: SparklineOptions): Element {
-  return elementFromRenderNode<'sparkline'>({
+  return componentElementFromRenderNode<'sparkline'>({
     ...optionalId(options.id),
     kind: 'sparkline',
     props: {
@@ -217,7 +217,7 @@ export function barChart(options: BarChartOptions<unknown>): Element<unknown> {
       ? undefined
       : onAction({ kind: 'activate', id: options.items[selectedIndex]?.id ?? '', index: selectedIndex })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<unknown>;
-  return elementFromRenderNode<'barChart', unknown>({
+  return componentElementFromRenderNode<'barChart', unknown>({
     ...requiredId(options.id, 'barChart'),
     kind: 'barChart',
     props: {
@@ -250,7 +250,7 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
       ? ignoreMessage()
       : onAction({ kind: 'select', series: selected.series, point: selected.point })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
-  return elementFromRenderNode<'chart', TMessage>({
+  return componentElementFromRenderNode<'chart', TMessage>({
     ...requiredId(options.id, 'chart'),
     kind: 'chart',
     props: {
@@ -279,7 +279,7 @@ export function chart<const TMessage = never>(options: ChartOptions<TMessage>): 
 }
 
 export function meter(options: MeterOptions): Element {
-  return elementFromRenderNode<'meter'>({
+  return componentElementFromRenderNode<'meter'>({
     ...optionalId(options.id),
     kind: 'meter',
     props: {
@@ -311,7 +311,7 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
       ? ignoreMessage()
       : onAction({ kind: 'select', row: selected.row, column: selected.column })
   } satisfies import('../../element/metadata.ts').ElementKeyBindings<TMessage>;
-  return elementFromRenderNode<'heatmap', TMessage>({
+  return componentElementFromRenderNode<'heatmap', TMessage>({
     ...requiredId(options.id, 'heatmap'),
     kind: 'heatmap',
     props: {
@@ -335,7 +335,7 @@ export function heatmap<TValue, const TMessage = never>(options: HeatmapOptions<
 }
 
 export function spinner(options: SpinnerOptions = {}): Element {
-  return elementFromRenderNode<'spinner'>({
+  return componentElementFromRenderNode<'spinner'>({
     ...optionalId(options.id),
     kind: 'spinner',
     props: {

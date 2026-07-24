@@ -1,4 +1,4 @@
-import { elementFromRenderNode } from '../../renderer/model/element.ts';
+import { layoutElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element, ElementChildren, ElementChildrenMessage } from '../../element/index.ts';
 import type { ColumnOptions, RowOptions } from '../options.ts';
 import { renderNodeMeta as componentMetaProps } from '../../renderer/model/metadata.ts';
@@ -16,7 +16,7 @@ export function column<const TChildren extends ElementChildren>(
   const childList = renderNodeChildren(children);
   assertTrackCount('column', options.sizes, childList.length);
   type Message = ElementChildrenMessage<TChildren>;
-  return elementFromRenderNode<'column', Message>({
+  return layoutElementFromRenderNode<'column', Message>({
     ...optionalId(options.id),
     kind: 'column',
     props: {
@@ -25,7 +25,7 @@ export function column<const TChildren extends ElementChildren>(
     },
     children: childList,
     ...componentMetaProps(options.meta)
-  }, 'layout');
+  });
 }
 
 export function row<const TChildren extends ElementChildren>(
@@ -39,7 +39,7 @@ export function row<const TChildren extends ElementChildren>(
   const childList = renderNodeChildren(children);
   assertTrackCount('row', options.sizes, childList.length);
   type Message = ElementChildrenMessage<TChildren>;
-  return elementFromRenderNode<'row', Message>({
+  return layoutElementFromRenderNode<'row', Message>({
     ...optionalId(options.id),
     kind: 'row',
     props: {
@@ -48,5 +48,5 @@ export function row<const TChildren extends ElementChildren>(
     },
     children: childList,
     ...componentMetaProps(options.meta)
-  }, 'layout');
+  });
 }

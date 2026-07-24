@@ -6,12 +6,33 @@ const renderNodes = new WeakMap<object, unknown>();
 const inspections = new WeakMap<object, ElementInspection>();
 const inspectionCategories = new WeakMap<object, ElementInspection['category']>();
 
-export function elementFromRenderNode<
+export function componentElementFromRenderNode<
   const TKind extends RenderNodeKind,
   TMessage = never
+>(node: RenderNodeOfKind<TMessage, TKind>): Element<TMessage> {
+  return elementFromRenderNode(node, 'component');
+}
+
+export function layoutElementFromRenderNode<
+  const TKind extends RenderNodeKind,
+  TMessage = never
+>(node: RenderNodeOfKind<TMessage, TKind>): Element<TMessage> {
+  return elementFromRenderNode(node, 'layout');
+}
+
+export function extensionElementFromRenderNode<
+  const TKind extends RenderNodeKind,
+  TMessage = never
+>(node: RenderNodeOfKind<TMessage, TKind>): Element<TMessage> {
+  return elementFromRenderNode(node, 'extension');
+}
+
+function elementFromRenderNode<
+  const TKind extends RenderNodeKind,
+  TMessage
 >(
   node: RenderNodeOfKind<TMessage, TKind>,
-  category: ElementInspection['category'] = 'component'
+  category: ElementInspection['category']
 ): Element<TMessage> {
   const element = Object.freeze({}) as Element<TMessage>;
   renderNodes.set(element, node);
@@ -23,7 +44,7 @@ export function elementFromRenderNode<
 export function inspectElementInternal(element: ElementValue): ElementInspection {
   const inspection = isObject(element) ? inspections.get(element) : undefined;
   if (inspection === undefined) {
-    throw new TypeError('Expected an Element created by a terminal-ui component or layout factory.');
+    throw new TypeError('Expected an Element created by a terminal-ui component, layout, or renderer-extension factory.');
   }
   return inspection;
 }
@@ -31,7 +52,7 @@ export function inspectElementInternal(element: ElementValue): ElementInspection
 export function toRenderNode<TElement extends ElementValue>(element: TElement): RenderNode<ElementMessage<TElement>> {
   const node = isObject(element) ? renderNodes.get(element) : undefined;
   if (node === undefined) {
-    throw new TypeError('Expected an Element created by a terminal-ui component or layout factory.');
+    throw new TypeError('Expected an Element created by a terminal-ui component, layout, or renderer-extension factory.');
   }
   return node as RenderNode<ElementMessage<TElement>>;
 }

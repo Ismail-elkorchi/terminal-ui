@@ -267,11 +267,11 @@ test('renderer and layout boundaries reject unauthored JavaScript objects', asyn
 
   assert.throws(
     () => renderElementFrame(invalid, { columns: 10, rows: 3 }),
-    /Expected an Element created by a terminal-ui component or layout factory/u
+    /Expected an Element created by a terminal-ui component, layout, or renderer-extension factory/u
   );
   assert.throws(
     () => column([invalid]),
-    /Expected an Element created by a terminal-ui component or layout factory/u
+    /Expected an Element created by a terminal-ui component, layout, or renderer-extension factory/u
   );
 });
 

@@ -1,4 +1,4 @@
-import { elementFromRenderNode } from '../../renderer/model/element.ts';
+import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import { assertCanvasPainter } from '../extension-validation.ts';
 import type { CanvasOptions } from '../options/drawing.ts';
@@ -7,7 +7,7 @@ import { optionalId } from '../../authoring/render-node.ts';
 
 export function canvas(options: CanvasOptions): Element {
   assertCanvasPainter(options.painter);
-  return elementFromRenderNode<'canvas'>({
+  return componentElementFromRenderNode<'canvas'>({
     ...optionalId(options.id),
     kind: 'canvas',
     props: {

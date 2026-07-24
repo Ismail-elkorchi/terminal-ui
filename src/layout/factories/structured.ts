@@ -1,4 +1,4 @@
-import { elementFromRenderNode, toRenderNodes } from '../../renderer/model/element.ts';
+import { layoutElementFromRenderNode, toRenderNodes } from '../../renderer/model/element.ts';
 import type {
   Element,
   ElementChildren,
@@ -27,7 +27,7 @@ export function grid(
   options?: GridOptions
 ): Element<unknown> {
   if (options !== undefined) {
-    return elementFromRenderNode<'grid', unknown>({
+    return layoutElementFromRenderNode<'grid', unknown>({
       ...optionalId(options.id),
       kind: 'grid',
       props: {
@@ -40,7 +40,7 @@ export function grid(
       },
       children: renderNodeChildren(childrenOrOptions as ElementChildren),
       ...componentMetaProps(options.meta)
-    }, 'layout');
+    });
   }
 
   const areaOptions = childrenOrOptions as GridAreasOptions;
@@ -53,7 +53,7 @@ export function grid(
   if (template[0] !== undefined && areaOptions.columns.length !== template[0].length) {
     throw new RangeError(`grid areas columns length ${String(areaOptions.columns.length)} must match template columns ${String(template[0].length)}.`);
   }
-  return elementFromRenderNode<'grid', unknown>({
+  return layoutElementFromRenderNode<'grid', unknown>({
     ...optionalId(areaOptions.id),
     kind: 'grid',
     props: {
@@ -72,5 +72,5 @@ export function grid(
         .filter((child): child is ElementValue => child !== undefined)
     ),
     ...componentMetaProps(areaOptions.meta)
-  }, 'layout');
+  });
 }

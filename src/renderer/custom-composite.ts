@@ -1,5 +1,5 @@
 import { renderNodeId } from '../foundation/identity.ts';
-import { elementFromRenderNode, toRenderNodes } from './model/element.ts';
+import { extensionElementFromRenderNode, toRenderNodes } from './model/element.ts';
 import { renderNodeInteraction } from './model/metadata.ts';
 import type { AccessibleNode } from '../accessibility/index.ts';
 import type {
@@ -108,7 +108,7 @@ export function customComposite<
     'state' in options ? options.state : undefined,
     children.length
   );
-  return elementFromRenderNode<'custom', TMessage | ElementChildrenMessage<TChildren>>({
+  return extensionElementFromRenderNode<'custom', TMessage | ElementChildrenMessage<TChildren>>({
     id: renderNodeId(options.id),
     kind: 'custom',
     props: {},
@@ -121,7 +121,7 @@ export function customComposite<
       pointer: options.pointer,
       meta: options.meta
     })
-  }, 'extension');
+  });
 }
 
 function adaptCustomCompositeRenderer<TState, TMessage>(

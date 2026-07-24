@@ -1,4 +1,4 @@
-import { elementFromRenderNode } from '../../renderer/model/element.ts';
+import { componentElementFromRenderNode } from '../../renderer/model/element.ts';
 import type { Element } from '../../element/index.ts';
 import type {
   RichTextOptions,
@@ -24,7 +24,7 @@ import type {
 } from '../internal/messages.ts';
 
 export function text(content: string, options: TextOptions = {}): Element {
-  return elementFromRenderNode<'text'>({
+  return componentElementFromRenderNode<'text'>({
     ...optionalId(options.id),
     kind: 'text',
     props: {
@@ -36,7 +36,7 @@ export function text(content: string, options: TextOptions = {}): Element {
 }
 
 export function richText(options: RichTextOptions): Element {
-  return elementFromRenderNode<'richText'>({
+  return componentElementFromRenderNode<'richText'>({
     ...optionalId(options.id),
     kind: 'richText',
     props: {
@@ -91,7 +91,7 @@ export function textArea(options: TextAreaOptions<unknown>): Element<unknown> {
   const keys = textAreaKeyBindings(toControlMessage, options.keys);
   const presentation = options.presentation;
   assertTextDocument(presentation.document);
-  return elementFromRenderNode<'textArea', unknown>({
+  return componentElementFromRenderNode<'textArea', unknown>({
     ...requiredId(options.id, 'textArea'),
     kind: 'textArea',
     props: {

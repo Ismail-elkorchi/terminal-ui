@@ -2,7 +2,7 @@ import { mergeKeyBindings } from '../../authoring/metadata.ts';
 import { layoutProps, requiredId } from '../../authoring/render-node.ts';
 import type { Element } from '../../element/index.ts';
 import type { ElementKeyBindings } from '../../element/metadata.ts';
-import { elementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
+import { componentElementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
 import { renderNodeInteraction as interactionProps } from '../../renderer/model/metadata.ts';
 import type { RenderTabItem } from '../../renderer/model/props/tabs.ts';
 import type { TabAction } from '../../ui-model/tabs.ts';
@@ -34,7 +34,7 @@ export function tabs<TMessage>(options: TabsOptions<TMessage>): Element<TMessage
     enter: () => selected === undefined ? ignoreMessage() : onAction({ kind: 'select', id: selected })
   } satisfies ElementKeyBindings<TMessage>;
   const keys = mergeKeyBindings(generated, options.keys);
-  return elementFromRenderNode<'tabs', TMessage>({
+  return componentElementFromRenderNode<'tabs', TMessage>({
     ...requiredId(options.id, 'tabs'),
     kind: 'tabs',
     props: {

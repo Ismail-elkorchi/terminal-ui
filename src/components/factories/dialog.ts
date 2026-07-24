@@ -1,7 +1,7 @@
 import { mergeKeyBindings, withMetaDefaults } from '../../authoring/metadata.ts';
 import { layoutProps, requiredId } from '../../authoring/render-node.ts';
 import type { Element } from '../../element/index.ts';
-import { elementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
+import { componentElementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
 import { renderNodeInteraction as interactionProps } from '../../renderer/model/metadata.ts';
 import type { DialogOptions } from '../options/dialog.ts';
 import { normalizeBorderTitle } from '../../visual/border.ts';
@@ -15,7 +15,7 @@ export function dialog<TMessage>(child: Element<TMessage>, options: DialogOption
   const keys = mergeKeyBindings(dismissal?.escape === true
     ? { escape: () => dismissal.onDismiss('escape') }
     : undefined, options.keys);
-  return elementFromRenderNode<'dialog', TMessage>({
+  return componentElementFromRenderNode<'dialog', TMessage>({
     ...requiredId(options.id, 'dialog'),
     kind: 'dialog',
     props: {

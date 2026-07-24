@@ -1,4 +1,4 @@
-import { elementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
+import { layoutElementFromRenderNode, toRenderNode } from '../../renderer/model/element.ts';
 import type { RenderNode } from '../../renderer/model/index.ts';
 import type { Element, ElementChildren, ElementChildrenMessage, ElementMessage } from '../../element/index.ts';
 import type { AbsoluteOptions, OverlayOptions, SurfaceOptions } from '../options.ts';
@@ -20,7 +20,7 @@ export function surface<const TChild extends Element<unknown>>(
 ): Element<ElementMessage<TChild>> {
   type Message = ElementMessage<TChild>;
   assertSurfaceChild(child);
-  return elementFromRenderNode<'surface', Message>({
+  return layoutElementFromRenderNode<'surface', Message>({
     ...optionalId(options.id),
     kind: 'surface',
     props: {
@@ -36,7 +36,7 @@ export function surface<const TChild extends Element<unknown>>(
     },
     children: [toRenderNode(child)] as readonly RenderNode<Message>[],
     ...componentMetaProps(options.meta)
-  }, 'layout');
+  });
 }
 
 export function absolute<const TChild extends Element<unknown>>(
@@ -48,7 +48,7 @@ export function absolute<const TChild extends Element<unknown>>(
   options: AbsoluteOptions
 ): Element<ElementMessage<TChild>> {
   type Message = ElementMessage<TChild>;
-  return elementFromRenderNode<'absolute', Message>({
+  return layoutElementFromRenderNode<'absolute', Message>({
     ...optionalId(options.id),
     kind: 'absolute',
     props: {
@@ -59,7 +59,7 @@ export function absolute<const TChild extends Element<unknown>>(
     },
     children: [toRenderNode(child)] as readonly RenderNode<Message>[],
     ...componentMetaProps(options.meta)
-  }, 'layout');
+  });
 }
 
 export function overlay<const TChildren extends ElementChildren>(
@@ -71,11 +71,11 @@ export function overlay<const TChildren extends ElementChildren>(
   options: OverlayOptions = {}
 ): Element<ElementChildrenMessage<TChildren>> {
   type Message = ElementChildrenMessage<TChildren>;
-  return elementFromRenderNode<'overlay', Message>({
+  return layoutElementFromRenderNode<'overlay', Message>({
     ...optionalId(options.id),
     kind: 'overlay',
     props: {},
     children: renderNodeChildren(children),
     ...componentMetaProps(options.meta)
-  }, 'layout');
+  });
 }

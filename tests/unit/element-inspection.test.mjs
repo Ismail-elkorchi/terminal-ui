@@ -109,6 +109,6 @@ test('element inspection identifies custom renderer elements without changing di
 test('element inspection rejects objects outside the authored element boundary', () => {
   assert.throws(
     () => inspectElement({}),
-    /component or layout factory/u
+    /component, layout, or renderer-extension factory/u
   );
 });
