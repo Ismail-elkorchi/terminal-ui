@@ -689,16 +689,16 @@ test('feedback widgets use shared status styles and source metadata', () => {
   assert.equal(progressFrame.cells.find((cell) => cell.text === '█')?.source?.label, 'filled');
 });
 
-test('record and notification widgets use shared semantic status contracts', () => {
+test('record results and notification tones retain their component-specific styling', () => {
   const failedBlockFrame = renderElementFrame(structuredBlock({
     id: 'failed-block',
     title: 'Import',
-    status: 'failed'
+    result: 'failed'
   }), { columns: 32, rows: 2 });
   const skippedBlockFrame = renderElementFrame(structuredBlock({
     id: 'skipped-block',
     title: 'Import',
-    status: 'skipped'
+    result: 'skipped'
   }), { columns: 32, rows: 2 });
   const notificationFrame = renderElementFrame(notificationStack({
     id: 'notices',

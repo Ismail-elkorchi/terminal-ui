@@ -152,17 +152,15 @@ export type {
 export type * from '../ui-model/style-parts.ts';
 export type * from './options/index.ts';
 export {
-  baseStatusForRecordStatus,
   isNotificationTone,
   isProcessStatus,
-  isRecordStatus,
+  isRecordResult,
   isStatusBarStatus,
   isValidationLevel,
   normalizeNotificationTone,
   normalizeProcessStatus,
-  normalizeRecordStatus,
   normalizeStatusBarStatus,
   optionalProcessStatus,
-  optionalRecordStatus,
+  optionalRecordResult,
   optionalValidationLevel
 } from '../ui-model/status.ts';

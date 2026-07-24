@@ -128,7 +128,7 @@ const blocks = [
   {
     id: 'queued',
     title: unsafe,
-    status: 'pending',
+    result: 'pending',
     summary: 'Waiting',
     fields: [{ label: 'owner', value: 'scheduler' }],
     body: 'Body'
@@ -136,7 +136,7 @@ const blocks = [
   {
     id: 'running',
     title: 'Running',
-    status: 'running',
+    result: 'running',
     summary: 'Working',
     fields: [{ label: 'worker', value: 'one' }],
     body: 'Details'

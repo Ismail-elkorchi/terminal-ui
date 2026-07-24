@@ -2,7 +2,8 @@ import type { TerminalStyle } from '../visual/render.ts';
 export type { ScrollbackHistory, ScrollbackItem } from './scrollback-history.ts';
 import type {
   FieldItem,
-  RecordStatus,
+  LogLevel,
+  RecordResult,
   TitledItem,
   ValidationLevel
 } from './contracts.ts';
@@ -10,7 +11,10 @@ import type {
 export interface StructuredBlock extends TitledItem {
   readonly summary?: string;
   readonly style?: TerminalStyle;
-  readonly status?: RecordStatus;
+  /** Lifecycle outcome for the work represented by this record. */
+  readonly result?: RecordResult;
+  /** Informational severity of the record, independent of its lifecycle result. */
+  readonly level?: LogLevel;
   readonly fields?: readonly FieldItem[];
   readonly body?: string;
   readonly details?: string;

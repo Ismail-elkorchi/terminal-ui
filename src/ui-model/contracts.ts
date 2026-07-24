@@ -11,13 +11,10 @@ export type StatusBarStatus =
   | 'info';
 
 export type ProcessStatus = 'idle' | 'running' | 'success' | 'warning' | 'error';
-export type RecordStatus =
+export type RecordResult =
   | 'pending'
   | 'running'
   | 'success'
-  | 'warning'
-  | 'error'
-  | 'info'
   | 'failed'
   | 'cancelled'
   | 'skipped';

@@ -2,12 +2,10 @@ import type { RenderNode } from '../model/index.ts';
 import { padTextCells } from '../../text/index.ts';
 import type { TextWidthProfile } from '../../text/index.ts';
 import { highlightRenderSpans } from './text-highlight.ts';
-import type { FieldItem, LogLevel, RecordStatus } from '../../ui-model/contracts.ts';
-import { baseStatusForRecordStatus } from '../../ui-model/status.ts';
+import type { FieldItem, LogLevel, RecordResult } from '../../ui-model/contracts.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import { span } from '../../visual/render.ts';
 import type { FrameCellSource, RenderSpan, TerminalStyle } from '../../visual/render.ts';
-import { statusStyle } from './status-visual.ts';
 import { mergeStyles, themeStyle, renderNodeStyle } from './render-node-style.ts';
 
 export type DocumentSurfaceKind = 'scrollback' | 'structuredBlock' | 'activityFeed';
@@ -21,8 +19,9 @@ export type DocumentVisualKind =
   | 'metadata'
   | 'marker'
   | 'omission'
+  | 'level'
+  | 'result'
   | 'separator'
-  | 'status'
   | 'summary'
   | 'title';
 
@@ -95,8 +94,27 @@ export function documentSource(
   });
 }
 
-export function documentStatusStyle(status: RecordStatus): TerminalStyle {
-  return mergeStyles(statusStyle(baseStatusForRecordStatus(status)), { bold: true }) ?? { bold: true };
+export function documentResultStyle(result: RecordResult): TerminalStyle {
+  const token = (() => {
+    switch (result) {
+      case 'pending':
+        return 'status.pending';
+      case 'running':
+        return 'status.running';
+      case 'success':
+        return 'status.success';
+      case 'failed':
+        return 'status.error';
+      case 'cancelled':
+      case 'skipped':
+        return 'status.warning';
+    }
+  })();
+  return themeStyle(token, { bold: true });
+}
+
+export function documentRecordLevelStyle(level: LogLevel): TerminalStyle {
+  return mergeStyles(scrollbackLogLevelStyle(level), { bold: true }) ?? { bold: true };
 }
 
 export function documentMarkerStyle(renderNode: RenderNode, selected = false): TerminalStyle | undefined {
@@ -248,7 +266,8 @@ function roleForVisual(visual: DocumentVisualKind): NonNullable<FrameCellSource[
     case 'field':
     case 'match':
     case 'metadata':
-    case 'status':
+    case 'level':
+    case 'result':
     case 'summary':
     case 'title':
       return 'text';

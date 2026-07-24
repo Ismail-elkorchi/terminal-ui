@@ -1,7 +1,7 @@
 import type { NotificationTone } from './feedback.ts';
 import type {
   ProcessStatus,
-  RecordStatus,
+  RecordResult,
   StatusBarStatus,
   ValidationLevel
 } from './contracts.ts';
@@ -24,17 +24,14 @@ const processStatuses = [
   'error'
 ] as const satisfies readonly ProcessStatus[];
 
-const recordStatuses = [
+const recordResults = [
   'pending',
   'running',
   'success',
-  'warning',
-  'error',
-  'info',
   'failed',
   'cancelled',
   'skipped'
-] as const satisfies readonly RecordStatus[];
+] as const satisfies readonly RecordResult[];
 
 const validationLevels = [
   'info',
@@ -73,19 +70,12 @@ export function optionalProcessStatus(value: unknown): ProcessStatus | undefined
   return isProcessStatus(value) ? value : undefined;
 }
 
-export function isRecordStatus(value: unknown): value is RecordStatus {
-  return includesValue(recordStatuses, value);
+export function isRecordResult(value: unknown): value is RecordResult {
+  return includesValue(recordResults, value);
 }
 
-export function optionalRecordStatus(value: unknown): RecordStatus | undefined {
-  return isRecordStatus(value) ? value : undefined;
-}
-
-export function normalizeRecordStatus(
-  value: unknown,
-  fallback: RecordStatus = 'info'
-): RecordStatus {
-  return isRecordStatus(value) ? value : fallback;
+export function optionalRecordResult(value: unknown): RecordResult | undefined {
+  return isRecordResult(value) ? value : undefined;
 }
 
 export function isValidationLevel(value: unknown): value is ValidationLevel {
@@ -102,12 +92,6 @@ export function isNotificationTone(value: unknown): value is NotificationTone {
 
 export function normalizeNotificationTone(value: unknown, fallback: NotificationTone = 'info'): NotificationTone {
   return isNotificationTone(value) ? value : fallback;
-}
-
-export function baseStatusForRecordStatus(status: RecordStatus): StatusBarStatus {
-  if (status === 'failed') return 'error';
-  if (status === 'cancelled' || status === 'skipped') return 'warning';
-  return status;
 }
 
 function includesValue<TValue extends string>(values: readonly TValue[], value: unknown): value is TValue {
