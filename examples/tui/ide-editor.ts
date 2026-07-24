@@ -487,7 +487,7 @@ function topMenu(state: EditorState): Element<EditorMessage> {
     items: menuItems,
     presentation: menuBarPresentation(menuItems, state.menu),
     onAction: (action): EditorMessage => ({ kind: 'menu', action })
-  }), { id: 'editor-menu-surface', variant: 'chrome', padding: { left: 1, right: 1 } });
+  }), { id: 'editor-menu-surface', appearance: 'chrome', padding: { left: 1, right: 1 } });
 }
 
 function explorerPane(state: EditorState): Element<EditorMessage> {
@@ -504,7 +504,7 @@ function explorerPane(state: EditorState): Element<EditorMessage> {
   ], {
     id: 'explorer-layout',
     sizes: [{ kind: 'fixed', cells: 1 }, { kind: 'fixed', cells: 1 }, { kind: 'fill' }, { kind: 'fixed', cells: 1 }]
-  }), { id: 'explorer', label: 'Workspace', variant: 'inset', padding: 1 });
+  }), { id: 'explorer', label: 'Workspace', appearance: 'inset', padding: 1 });
 }
 
 function editorPane(state: EditorState): Element<EditorMessage> {
@@ -512,7 +512,7 @@ function editorPane(state: EditorState): Element<EditorMessage> {
     return surface(column([
       text('Open a folder or file to start editing.', { id: 'empty-title', textRole: 'heading' }),
       text('/open <path> and /folder <path> run asynchronously.', { id: 'empty-help', textRole: 'body' })
-    ], { id: 'empty-editor', gap: 1 }), { id: 'editor-empty', variant: 'neutral', padding: 1 });
+    ], { id: 'empty-editor', gap: 1 }), { id: 'editor-empty', appearance: 'neutral', padding: 1 });
   }
   return tabs({
     id: 'editor-tabs',
@@ -548,7 +548,7 @@ function detailsPane(state: EditorState): Element<EditorMessage> {
       { label: 'dirty', value: String(state.buffers.filter(isDirty).length) },
       { label: 'operation', value: operation }
     ]
-  }), { id: 'editor-details', label: 'Context', variant: 'inset', padding: 1 });
+  }), { id: 'editor-details', label: 'Context', appearance: 'inset', padding: 1 });
 }
 
 function commandPane(state: EditorState): Element<EditorMessage> {
@@ -560,7 +560,7 @@ function commandPane(state: EditorState): Element<EditorMessage> {
     display: state.command.input.text.length === 0 ? 'compact' : 'expanded',
     onAction: (action): EditorMessage => ({ kind: 'command', action }),
     onSubmit: (value): EditorMessage => ({ kind: 'submitCommand', value })
-  }), { id: 'editor-command-surface', label: 'Command', variant: 'raised', padding: { left: 1, right: 1 } });
+  }), { id: 'editor-command-surface', label: 'Command', appearance: 'raised', padding: { left: 1, right: 1 } });
 }
 
 function editorStatus(state: EditorState) {

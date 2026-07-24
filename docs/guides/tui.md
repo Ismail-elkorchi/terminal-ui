@@ -246,16 +246,17 @@ surface(column([
 ```
 
 Use `surface()` for visual grouping and elevation, not for app-frame policy.
-`variant: 'chrome'` is the lightest app-bar treatment and is borderless by
-default. `neutral` is an unframed content background. `raised`, `inset`,
-`selected`, `warning`, `danger`, and `success` are framed panel/dialog states.
+`appearance: 'chrome'` is the lightest app-bar treatment and is borderless by
+default. `neutral` is an unframed content background. `raised` and `inset` are
+framed visual constructions.
 When a framed surface is too small to leave an interior, the border is skipped
 for that frame so child content remains visible. A focusable borderless surface
 uses the root focused state style, defaulting to `focus.background`, so active
 panes can be visible without a global style cascade. Use
-`visualState: 'selected' | 'active' | 'warning' | 'error' | 'success'` when the
-application wants a surface to show caller-owned state while it is not focused;
-runtime focus and `disabled` still take precedence.
+`condition: 'selected' | 'active' | 'warning' | 'error' | 'success'` independently
+when the application wants a surface to show caller-supplied interaction or
+result state. The condition does not choose whether the surface is framed;
+runtime focus and `disabled` take precedence.
 
 Use `textArea({ lineNumbers: true })` or
 `textArea({ lineNumbers: { start, minWidth }, activeLine: true })` when a

@@ -170,11 +170,12 @@ test('surface is a single-child visual wrapper, not a layout container', () => {
   assert.equal(renderFramePlain(frame), '\n one\n\n two');
 });
 
-test('surface variants draw semantic background border and shadow without owning state', () => {
+test('surface appearance and condition draw background border and shadow independently', () => {
   const widget = surface(text('inside', { id: 'surface-content' }), {
     id: 'visual-surface',
     label: 'Visual surface',
-    variant: 'warning',
+    appearance: 'raised',
+    condition: 'warning',
     title: 'Alert',
     border: { kind: 'dashed' },
     shadow: true
@@ -192,6 +193,44 @@ test('surface variants draw semantic background border and shadow without owning
   assert.deepEqual(shadowCell?.style?.fg, { kind: 'theme', token: 'surface.shadow' });
 });
 
+test('surface conditions map every supported caller-supplied condition directly', () => {
+  const cases = [
+    ['selected', 'surface.selected.background', 'surface.selected.border'],
+    ['warning', 'surface.warning.background', 'surface.warning.border'],
+    ['error', 'surface.danger.background', 'surface.danger.border'],
+    ['success', 'surface.success.background', 'surface.success.border']
+  ];
+
+  for (const [condition, backgroundToken, borderToken] of cases) {
+    const frame = renderElementFrame(surface(text(condition), {
+      id: `surface-${condition}`,
+      appearance: 'raised',
+      condition
+    }), { columns: 14, rows: 3 });
+    const background = frame.cells.find((cell) =>
+      cell.source?.ownerKind === 'surface' && cell.source?.part === 'background'
+    );
+    const border = frame.cells.find((cell) => cell.source?.role === 'border');
+
+    assert.equal(background?.style?.bg?.token, backgroundToken);
+    assert.equal(border?.style?.fg?.token, borderToken);
+  }
+
+  const active = renderElementFrame(surface(text('active'), {
+    id: 'surface-active',
+    appearance: 'raised',
+    condition: 'active'
+  }), { columns: 14, rows: 3 });
+  const activeBackground = active.cells.find((cell) =>
+    cell.source?.ownerKind === 'surface' && cell.source?.part === 'background'
+  );
+  const activeBorder = active.cells.find((cell) => cell.source?.role === 'border');
+
+  assert.equal(activeBackground?.style?.bg?.token, 'surface.raised.background');
+  assert.equal(activeBackground?.style?.bold, true);
+  assert.equal(activeBorder?.style?.fg?.token, 'surface.raised.border');
+});
+
 test('surface titles preserve authored inline styles with renderer-owned source metadata', () => {
   const frame = renderElementFrame(surface(text('body', { id: 'body' }), {
     id: 'metric-panel',
@@ -200,7 +239,7 @@ test('surface titles preserve authored inline styles with renderer-owned source 
       { kind: 'text', text: ' 38%', style: { fg: { kind: 'theme', token: 'chart.value' } } }
     ],
     border: { kind: 'single' },
-    variant: 'inset'
+    appearance: 'inset'
   }), { columns: 16, rows: 3 });
   const titleLabel = frame.cells.find((cell) => cell.text === 'c' && cell.source?.partKind === 'title');
   const titleMetric = frame.cells.find((cell) => cell.text === '3' && cell.source?.partKind === 'title');
@@ -222,7 +261,7 @@ test('surface title rails render start center and end zones in the border line',
       end: [{ kind: 'text', text: 'BAT 84%', style: { fg: { kind: 'theme', token: 'chart.value' } } }]
     },
     border: { kind: 'single' },
-    variant: 'chrome'
+    appearance: 'chrome'
   }), { columns: 40, rows: 3 });
   const titleLine = renderFramePlain(frame).split('\n')[0] ?? '';
 
@@ -234,14 +273,14 @@ test('surface title rails render start center and end zones in the border line',
   assert.equal(frame.cells.find((cell) => cell.text === 'B')?.style?.fg?.token, 'chart.value');
 });
 
-test('surface variants reserve border content space while plain surfaces stay transparent', () => {
+test('surface appearances reserve border content space while plain surfaces stay transparent', () => {
   const neutral = renderElementFrame(surface(text('neutral', { id: 'neutral-inner' }), {
     id: 'neutral',
-    variant: 'neutral'
+    appearance: 'neutral'
   }), { columns: 10, rows: 2 });
   const visualLayout = renderElementFrame(surface(text('inner', { id: 'inner' }), {
     id: 'visual',
-    variant: 'raised'
+    appearance: 'raised'
   }), { columns: 10, rows: 3 });
   const transparent = renderElementFrame(surface(text('flush', { id: 'flush' }), {
     id: 'plain'
@@ -252,23 +291,24 @@ test('surface variants reserve border content space while plain surfaces stay tr
   assert.equal(renderFramePlain(transparent), 'flush');
 });
 
-test('surface labels disabled state and theme variants stay structural', () => {
+test('surface labels disabled state and theme conditions stay structural', () => {
   const disabled = renderElementFrame(surface(text('locked', { id: 'locked-body' }), {
     id: 'locked-surface',
     label: 'Locked',
-    variant: 'raised',
+    appearance: 'raised',
     disabled: true,
     keys: { enter: () => ({ kind: 'locked' }) }
   }), { columns: 14, rows: 3 }, { focusPath: ['locked-surface'] });
   const highContrast = renderElementFrame(surface(text('selected', { id: 'selected-body' }), {
     id: 'selected-surface',
     label: 'Selected',
-    variant: 'selected'
+    appearance: 'raised',
+    condition: 'selected'
   }), { columns: 14, rows: 3 }, { theme: highContrastTheme });
   const noColor = renderElementFrame(surface(text('plain', { id: 'plain-body' }), {
     id: 'plain-surface',
     label: 'Plain',
-    variant: 'raised'
+    appearance: 'raised'
   }), { columns: 12, rows: 3 }, { theme: noColorTheme });
 
   const disabledBorder = disabled.cells.find((cell) => cell.source?.role === 'border');

@@ -269,7 +269,7 @@ function topBar(state: MonitorState) {
       end: panelTitle('BAT', '84%', `${String(4.14 + state.tick / 200).slice(0, 4)}W  2000ms`)
     },
     border: { kind: 'single' },
-    variant: 'chrome',
+    appearance: 'chrome',
     padding: { left: 1, right: 1 }
   });
 }
@@ -314,7 +314,7 @@ function cpuPanel(state: MonitorState) {
       start: panelTitle('cpu', 'i7-4770HQ', `${String(cpuValues.at(-1) ?? 0)}%`),
       end: panelTitle('2.5GHz', '8 cores', `temp ${String(70 + (state.tick % 7))}°C`)
     },
-    variant: 'inset',
+    appearance: 'inset',
     padding: 1
   });
 }
@@ -366,7 +366,7 @@ function memoryPanel() {
     id: 'memory-panel',
     label: 'mem',
     title: panelTitle('mem', '15.4 GiB', '76%'),
-    variant: 'inset',
+    appearance: 'inset',
     padding: 1
   });
 }
@@ -404,7 +404,7 @@ function disksPanel() {
     id: 'disks-panel',
     label: 'disks',
     title: panelTitle('disks', 'root/swap/efi', '61%'),
-    variant: 'inset',
+    appearance: 'inset',
     padding: 1
   });
 }
@@ -476,7 +476,7 @@ function networkPanel(state: MonitorState) {
     id: 'network-panel',
     label: 'net 192.168.1.6',
     title: panelTitle('net', '192.168.1.6', 'up/down'),
-    variant: 'inset',
+    appearance: 'inset',
     padding: 1
   });
 }
@@ -512,7 +512,7 @@ function processPanel(state: MonitorState) {
     id: 'process-panel',
     label: 'proc',
     title: panelTitle('proc', `sort=${sort?.column ?? 'none'}`, `${String(rows.length)} rows`),
-    variant: 'inset',
+    appearance: 'inset',
     padding: 1
   });
 }

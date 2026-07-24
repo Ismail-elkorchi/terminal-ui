@@ -91,7 +91,7 @@ function view(state: State): Element<Message> {
       { kind: 'fixed', cells: 1 }
     ]
   });
-  return surface(content, { id: 'root', variant: 'raised' });
+  return surface(content, { id: 'root', appearance: 'raised' });
 }
 
 const app = defineTui<State, Message>({

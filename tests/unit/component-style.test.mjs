@@ -555,11 +555,11 @@ test('structural text roles use shared visual grammar', () => {
 test('passive surfaces keep visual state separate from descendant focus', () => {
   const focusedFrame = renderElementFrame(surface(textInput({ id: 'pane-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'focus-surface',
-    variant: 'chrome'
+    appearance: 'chrome'
   }), { columns: 10, rows: 1 }, { focusPath: ['focus-surface', 'pane-field'] });
   const customFrame = renderElementFrame(surface(textInput({ id: 'custom-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'custom-focus-surface',
-    variant: 'chrome',
+    appearance: 'chrome',
     meta: {
         styles: {
             states: { focused: { bg: { kind: 'theme', token: 'status.warning' } } }
@@ -568,7 +568,7 @@ test('passive surfaces keep visual state separate from descendant focus', () => 
 }), { columns: 10, rows: 1 }, { focusPath: ['custom-focus-surface', 'custom-field'] });
   const focusWithinFrame = renderElementFrame(surface(textInput({ id: 'within-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'focus-within-surface',
-    variant: 'chrome',
+    appearance: 'chrome',
     focusWithin: true
   }), { columns: 10, rows: 1 }, { focusPath: ['focus-within-surface', 'within-field'] });
 
@@ -577,26 +577,26 @@ test('passive surfaces keep visual state separate from descendant focus', () => 
   assert.equal(styleForCell(focusWithinFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'focus.background');
 });
 
-test('surface visualState exposes selected panes without stealing focus semantics', () => {
+test('surface condition exposes selected panes without stealing focus semantics', () => {
   const selectedFrame = renderElementFrame(surface(text('Pane', { id: 'selected-label' }), {
     id: 'selected-surface',
-    variant: 'chrome',
-    visualState: 'selected'
+    appearance: 'chrome',
+    condition: 'selected'
   }), { columns: 10, rows: 1 });
   const focusedFrame = renderElementFrame(surface(textInput({ id: 'focused-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'focused-surface',
-    variant: 'chrome',
-    visualState: 'selected'
+    appearance: 'chrome',
+    condition: 'selected'
   }), { columns: 10, rows: 1 }, { focusPath: ['focused-surface', 'focused-field'] });
   const disabledFrame = renderElementFrame(surface(text('Pane', { id: 'disabled-label' }), {
     id: 'disabled-surface',
-    variant: 'chrome',
-    visualState: 'selected',
+    appearance: 'chrome',
+    condition: 'selected',
     disabled: true
   }), { columns: 10, rows: 1 });
 
-  assert.equal(styleForCell(selectedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'selection.background');
-  assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'selection.background');
+  assert.equal(styleForCell(selectedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'surface.selected.background');
+  assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'surface.selected.background');
   assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.part === 'background')?.bg?.token, 'surface.chrome.background');
   assert.equal(styleForCell(disabledFrame, (cell) => cell.source?.part === 'background')?.fg?.token, 'text.disabled');
 });

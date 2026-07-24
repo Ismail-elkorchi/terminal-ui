@@ -26,8 +26,8 @@ export function surface<const TChild extends Element<unknown>>(
     props: {
       ...(options.label === undefined ? {} : { label: options.label }),
       ...(options.title === undefined ? {} : { title: normalizeBorderTitle(options.title) }),
-      ...(options.variant === undefined ? {} : { variant: options.variant }),
-      ...(options.visualState === undefined ? {} : { visualState: options.visualState }),
+      ...(options.appearance === undefined ? {} : { appearance: options.appearance }),
+      ...(options.condition === undefined ? {} : { condition: options.condition }),
       ...(options.border === undefined ? {} : { border: options.border }),
       ...(options.shadow === undefined ? {} : { shadow: options.shadow }),
       ...(options.disabled === undefined ? {} : { disabled: options.disabled }),

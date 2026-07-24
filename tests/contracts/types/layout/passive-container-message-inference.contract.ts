@@ -11,8 +11,21 @@ const actions = row([
 ] as const, { id: 'actions', gap: 1 });
 const panel = surface(column([actions], { id: 'content' }), {
   id: 'panel',
-  variant: 'raised'
+  appearance: 'raised',
+  condition: 'selected'
 });
 const root = overlay([panel], { id: 'root' });
 const accepted: Element<Message> = root;
 void accepted;
+
+surface(column([actions], { id: 'legacy-variant-content' }), {
+  id: 'legacy-variant-panel',
+  // @ts-expect-error Surface construction belongs in appearance.
+  variant: 'raised'
+});
+
+surface(column([actions], { id: 'legacy-state-content' }), {
+  id: 'legacy-state-panel',
+  // @ts-expect-error Caller-supplied surface state belongs in condition.
+  visualState: 'selected'
+});

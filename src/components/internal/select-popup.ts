@@ -25,7 +25,7 @@ export function selectPopupRenderNode<TMessage>(input: SelectPopupInput<TMessage
     id: renderNodeId(`${input.ownerId}:popup`, 'select popup'),
     kind: 'surface',
     props: {
-      variant: 'raised',
+      appearance: 'raised',
       border: { kind: 'rounded' },
       padding: 0
     },

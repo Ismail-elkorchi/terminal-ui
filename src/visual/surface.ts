@@ -1,9 +1,12 @@
-export type SurfaceVariant =
+export type SurfaceAppearance =
   | 'neutral'
   | 'chrome'
   | 'raised'
-  | 'inset'
+  | 'inset';
+
+export type SurfaceCondition =
+  | 'active'
   | 'selected'
   | 'warning'
-  | 'danger'
+  | 'error'
   | 'success';

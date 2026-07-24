@@ -1,6 +1,6 @@
 import { borderStyleFromValue, drawBorder } from './border.ts';
 import type { BorderStyle, BorderTitle } from './border.ts';
-import type { SurfaceVariant } from '../../visual/surface.ts';
+import type { SurfaceAppearance, SurfaceCondition } from '../../visual/surface.ts';
 import type { RenderTarget } from '../model/render-target.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import type { Rect } from '../model/layout.ts';
@@ -13,14 +13,14 @@ import type { RenderFocusRelation } from '../model/renderer.ts';
 import { renderBorderTitle } from './border-title.ts';
 import { oneCellGlyph } from '../../text/index.ts';
 
-export type { SurfaceVariant } from '../../visual/surface.ts';
+export type { SurfaceAppearance, SurfaceCondition } from '../../visual/surface.ts';
 
 export interface SurfaceChromeOptions {
-  readonly variant?: SurfaceVariant;
+  readonly appearance?: SurfaceAppearance;
+  readonly condition?: SurfaceCondition;
   readonly border?: BorderStyle;
   readonly shadow?: boolean;
   readonly disabled?: boolean;
-  readonly visualState?: 'active' | 'selected' | 'error' | 'warning' | 'success';
 }
 
 type SurfaceNode<TMessage = unknown> = RenderNodeOfKind<TMessage, 'surface'>;
@@ -47,14 +47,15 @@ export function drawSurfaceChrome(
   focus: RenderFocusRelation
 ): void {
   const focused = focus === 'self' || (focus === 'descendant' && renderNode.props.focusWithin === true);
-  const variant = surfaceVariantFromValue(renderNode.props.variant);
-  const border = surfaceBorderForBounds(renderNode, bounds, variant, theme);
+  const appearance = surfaceAppearanceFromValue(renderNode.props.appearance);
+  const condition = surfaceConditionFromValue(renderNode.props.condition);
+  const border = surfaceBorderForBounds(renderNode, bounds, appearance, condition, theme);
   drawSurfaceFrame(buffer, bounds, renderNode, theme, focused, {
-    ...(variant === undefined ? {} : { variant }),
+    ...(appearance === undefined ? {} : { appearance }),
+    ...(condition === undefined ? {} : { condition }),
     ...(border === undefined ? {} : { border }),
     ...(renderNode.props.shadow === true ? { shadow: true } : {}),
-    ...(renderNode.props.disabled === true ? { disabled: true } : {}),
-    ...(renderNode.props.visualState === undefined ? {} : { visualState: renderNode.props.visualState })
+    ...(renderNode.props.disabled === true ? { disabled: true } : {})
   });
 }
 
@@ -67,11 +68,11 @@ export function drawSurfaceFrame(
   options: SurfaceChromeOptions
 ): void {
   const border = surfaceFocusedBorder(surfaceBorderWithinBounds(options.border, bounds), focused);
-  if (options.variant !== undefined) {
+  if (options.appearance !== undefined) {
     fillSurfaceBackground(
       buffer,
       bounds,
-      surfaceBackgroundStyle(renderNode, options.variant, focused, border, options),
+      surfaceBackgroundStyle(renderNode, options.appearance, focused, border, options),
       renderNodeFrameSource(renderNode, {
         family: 'surface',
         role: 'decoration',
@@ -91,14 +92,20 @@ export function drawSurfaceFrame(
   if (border !== undefined) drawBorder(buffer, bounds, border, theme);
 }
 
-function surfaceVariantFromValue(value: unknown): SurfaceVariant | undefined {
+function surfaceAppearanceFromValue(value: unknown): SurfaceAppearance | undefined {
   return value === 'neutral'
     || value === 'chrome'
     || value === 'raised'
     || value === 'inset'
+    ? value
+    : undefined;
+}
+
+function surfaceConditionFromValue(value: unknown): SurfaceCondition | undefined {
+  return value === 'active'
     || value === 'selected'
     || value === 'warning'
-    || value === 'danger'
+    || value === 'error'
     || value === 'success'
     ? value
     : undefined;
@@ -106,24 +113,31 @@ function surfaceVariantFromValue(value: unknown): SurfaceVariant | undefined {
 
 function surfaceBorder(
   renderNode: SurfaceNode,
-  variant = surfaceVariantFromValue(renderNode.props.variant),
+  appearance = surfaceAppearanceFromValue(renderNode.props.appearance),
+  condition = surfaceConditionFromValue(renderNode.props.condition),
   theme?: TerminalTheme
 ): BorderStyle | undefined {
   const explicit = borderStyleFromValue(renderNode.props.border);
   if (explicit !== undefined) {
-    return surfaceBorderStyle(renderNode, surfaceTitledBorder(renderNode, explicit, theme), variant);
+    return surfaceBorderStyle(renderNode, surfaceTitledBorder(renderNode, explicit, theme), appearance, condition);
   }
-  if (variant === undefined || variant === 'neutral' || variant === 'chrome') return undefined;
-  return surfaceBorderStyle(renderNode, surfaceTitledBorder(renderNode, { kind: 'single' }, theme), variant);
+  if (appearance === undefined || appearance === 'neutral' || appearance === 'chrome') return undefined;
+  return surfaceBorderStyle(
+    renderNode,
+    surfaceTitledBorder(renderNode, { kind: 'single' }, theme),
+    appearance,
+    condition
+  );
 }
 
 function surfaceBorderForBounds(
   renderNode: SurfaceNode,
   bounds: Rect,
-  variant = surfaceVariantFromValue(renderNode.props.variant),
+  appearance = surfaceAppearanceFromValue(renderNode.props.appearance),
+  condition = surfaceConditionFromValue(renderNode.props.condition),
   theme?: TerminalTheme
 ): BorderStyle | undefined {
-  return surfaceBorderWithinBounds(surfaceBorder(renderNode, variant, theme), bounds);
+  return surfaceBorderWithinBounds(surfaceBorder(renderNode, appearance, condition, theme), bounds);
 }
 
 function surfaceBorderWithinBounds(border: BorderStyle | undefined, bounds: Rect): BorderStyle | undefined {
@@ -144,15 +158,22 @@ function surfaceFocusedBorder(border: BorderStyle | undefined, focused: boolean)
   };
 }
 
-function surfaceBorderStyle(renderNode: SurfaceNode, border: BorderStyle, variant: SurfaceVariant | undefined): BorderStyle {
+function surfaceBorderStyle(
+  renderNode: SurfaceNode,
+  border: BorderStyle,
+  appearance: SurfaceAppearance | undefined,
+  condition: SurfaceCondition | undefined
+): BorderStyle {
   if (border.kind === 'none') return border;
-  const variantStyle = variant === undefined ? undefined : surfaceBorderTokenStyle(variant);
+  const appearanceStyle = appearance === undefined ? undefined : surfaceBorderTokenStyle(appearance);
+  const conditionStyle = surfaceDisabled(renderNode) ? undefined : surfaceConditionBorderStyle(condition);
   const style = mergeStyles(
     resolveRenderNodeStyle(renderNode, {
       part: 'border',
       ...(surfaceDisabled(renderNode) ? { state: 'disabled' } : {}),
-      ...(variantStyle === undefined ? {} : { base: variantStyle })
+      ...(appearanceStyle === undefined ? {} : { base: appearanceStyle })
     }),
+    conditionStyle,
     border.style
   );
   return style === undefined ? border : { ...border, style };
@@ -160,12 +181,18 @@ function surfaceBorderStyle(renderNode: SurfaceNode, border: BorderStyle, varian
 
 export function surfaceBackgroundStyle(
   renderNode: SurfaceFrameNode,
-  variant: SurfaceVariant,
+  appearance: SurfaceAppearance,
   focused = false,
   border?: BorderStyle,
-  state: Pick<SurfaceChromeOptions, 'disabled' | 'visualState'> = {}
+  state: Pick<SurfaceChromeOptions, 'disabled' | 'condition'> = {}
 ): TerminalStyle {
-  const base = { bg: { kind: 'theme', token: surfaceBackgroundToken(variant) } } satisfies TerminalStyle;
+  const condition = state.disabled === true ? undefined : state.condition;
+  const base = {
+    bg: {
+      kind: 'theme',
+      token: surfaceConditionBackgroundToken(condition) ?? surfaceBackgroundToken(appearance)
+    }
+  } satisfies TerminalStyle;
   const focusedBase: TerminalStyle = focused && state.disabled !== true && (border === undefined || border.kind === 'none')
     ? { ...base, bg: { kind: 'theme' as const, token: 'focus.background' } }
     : base;
@@ -173,10 +200,8 @@ export function surfaceBackgroundStyle(
     ? 'disabled'
     : focused
       ? 'focused'
-      : state.visualState === 'active' || state.visualState === 'selected'
-        ? state.visualState
-        : undefined;
-  const conditionStyle = surfaceConditionStyle(state.visualState);
+      : undefined;
+  const conditionStyle = surfaceConditionStyle(condition);
   const styledBase = mergeStyles(focusedBase, conditionStyle) ?? focusedBase;
   return resolveRenderNodeStyle(renderNode, {
     part: 'root',
@@ -186,9 +211,9 @@ export function surfaceBackgroundStyle(
 }
 
 function surfaceConditionStyle(
-  visualState: SurfaceChromeOptions['visualState']
+  condition: SurfaceChromeOptions['condition']
 ): TerminalStyle | undefined {
-  switch (visualState) {
+  switch (condition) {
     case 'error':
       return themeStyle('status.error', { bold: true });
     case 'warning':
@@ -196,6 +221,7 @@ function surfaceConditionStyle(
     case 'success':
       return themeStyle('status.success', { bold: true });
     case 'active':
+      return { bold: true };
     case 'selected':
     case undefined:
       return undefined;
@@ -238,9 +264,9 @@ function surfaceDisabled(renderNode: SurfaceNode): boolean {
   return renderNode.props.disabled === true;
 }
 
-function surfaceBorderTokenStyle(variant: SurfaceVariant): TerminalStyle {
+function surfaceBorderTokenStyle(appearance: SurfaceAppearance): TerminalStyle {
   return {
-    fg: { kind: 'theme', token: surfaceBorderToken(variant) }
+    fg: { kind: 'theme', token: surfaceBorderToken(appearance) }
   };
 }
 
@@ -285,8 +311,8 @@ export function drawSurfaceShadow(
   }]);
 }
 
-function surfaceBackgroundToken(variant: SurfaceVariant): ThemeColorToken {
-  switch (variant) {
+function surfaceBackgroundToken(appearance: SurfaceAppearance): ThemeColorToken {
+  switch (appearance) {
     case 'neutral':
       return 'surface.background';
     case 'chrome':
@@ -295,19 +321,11 @@ function surfaceBackgroundToken(variant: SurfaceVariant): ThemeColorToken {
       return 'surface.raised.background';
     case 'inset':
       return 'surface.inset.background';
-    case 'selected':
-      return 'surface.selected.background';
-    case 'warning':
-      return 'surface.warning.background';
-    case 'danger':
-      return 'surface.danger.background';
-    case 'success':
-      return 'surface.success.background';
   }
 }
 
-function surfaceBorderToken(variant: SurfaceVariant): ThemeColorToken {
-  switch (variant) {
+function surfaceBorderToken(appearance: SurfaceAppearance): ThemeColorToken {
+  switch (appearance) {
     case 'neutral':
       return 'surface.border';
     case 'chrome':
@@ -316,13 +334,44 @@ function surfaceBorderToken(variant: SurfaceVariant): ThemeColorToken {
       return 'surface.raised.border';
     case 'inset':
       return 'surface.inset.border';
-    case 'selected':
-      return 'surface.selected.border';
-    case 'warning':
-      return 'surface.warning.border';
-    case 'danger':
-      return 'surface.danger.border';
-    case 'success':
-      return 'surface.success.border';
   }
+}
+
+function surfaceConditionBackgroundToken(
+  condition: SurfaceCondition | undefined
+): ThemeColorToken | undefined {
+  switch (condition) {
+    case 'selected':
+      return 'surface.selected.background';
+    case 'warning':
+      return 'surface.warning.background';
+    case 'error':
+      return 'surface.danger.background';
+    case 'success':
+      return 'surface.success.background';
+    case 'active':
+    case undefined:
+      return undefined;
+  }
+}
+
+function surfaceConditionBorderStyle(
+  condition: SurfaceCondition | undefined
+): TerminalStyle | undefined {
+  const token = (() => {
+    switch (condition) {
+      case 'selected':
+        return 'surface.selected.border';
+      case 'warning':
+        return 'surface.warning.border';
+      case 'error':
+        return 'surface.danger.border';
+      case 'success':
+        return 'surface.success.border';
+      case 'active':
+      case undefined:
+        return undefined;
+    }
+  })();
+  return token === undefined ? undefined : { fg: { kind: 'theme', token } };
 }

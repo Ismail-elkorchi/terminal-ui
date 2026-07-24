@@ -21,7 +21,7 @@ export const drawingMeasurements = {
     const content = combineMeasurementsOverlay(childMeasurements(childCount, measureChild));
     const explicit = borderStyleFromValue(renderNode.props.border);
     const border = explicit ?? (
-      renderNode.props.variant === undefined || renderNode.props.variant === 'neutral'
+      renderNode.props.appearance === undefined || renderNode.props.appearance === 'neutral'
         ? { kind: 'none' as const }
         : { kind: 'single' as const }
     );

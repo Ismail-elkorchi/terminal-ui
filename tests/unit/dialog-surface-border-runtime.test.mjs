@@ -151,7 +151,7 @@ test('border model supports styled widget borders and borderless layout', () => 
 test('surface chrome variant renders one-line bars without border chrome', () => {
   const frame = renderElementFrame(surface(text('Menu', { id: 'menu-label' }), {
     id: 'app-chrome',
-    variant: 'chrome',
+    appearance: 'chrome',
     padding: { left: 1, right: 1 }
   }), { columns: 10, rows: 1 });
   const output = renderFramePlain(frame);
@@ -169,7 +169,7 @@ test('surface chrome variant renders one-line bars without border chrome', () =>
 test('surface borders degrade in tiny regions to preserve child content', () => {
   const widget = surface(text('Menu', { id: 'menu-label' }), {
     id: 'tiny-raised',
-    variant: 'raised'
+    appearance: 'raised'
   });
   const layout = layoutElement(widget, { columns: 10, rows: 1 });
   const frame = renderElementFrame(widget, { columns: 10, rows: 1 });

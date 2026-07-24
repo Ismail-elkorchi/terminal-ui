@@ -25,7 +25,7 @@ export function menuPopupRenderNode<TMessage>(input: MenuPopupInput<TMessage>): 
     id: renderNodeId(`${input.ownerId}:popup`, 'menu popup'),
     kind: 'surface',
     props: {
-      variant: 'raised',
+      appearance: 'raised',
       border: { kind: 'rounded' },
       padding: 0,
       ...(input.title === undefined ? {} : { title: normalizeBorderTitle(input.title) })

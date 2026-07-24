@@ -219,7 +219,7 @@ test('default theme specimen composes surface control text command log and data 
     ]
   }), {
     id: 'specimen-surface',
-    variant: 'raised',
+    appearance: 'raised',
     title: 'Theme specimen',
     border: { kind: 'rounded' },
     padding: 1

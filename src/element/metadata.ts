@@ -50,8 +50,6 @@ export type ElementTextRole =
   | 'metric'
   | 'badge';
 
-export type SurfaceVisualState = 'active' | 'selected' | 'error' | 'warning' | 'success';
-
 export interface ElementStyles<TPart extends string = string> {
   readonly root?: TerminalStyle;
   readonly parts?: Readonly<Partial<Record<TPart, TerminalStyle>>>;

@@ -156,7 +156,7 @@ export const layoutRenderers = {
       const border = borderForDialog(input.renderNode, input.theme);
       const childBounds = dialogBounds(input.renderNode, input.layoutNode.bounds);
       drawSurfaceFrame(input.buffer, childBounds, input.renderNode, input.theme, focused, {
-        variant: 'raised',
+        appearance: 'raised',
         border,
         shadow: true
       });

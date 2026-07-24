@@ -7,7 +7,7 @@ const action = { kind: 'save' };
 const element = surface(column([
   text('Ready'),
   button({ id: 'save', label: 'Save', onPress: () => action })
-]), { id: 'surface', variant: 'raised' });
+]), { id: 'surface', appearance: 'raised' });
 const state = scrollReducer(createScrollState({ contentRows: 10, viewportRows: 3 }), {
   kind: 'scrollLines',
   rows: 2
