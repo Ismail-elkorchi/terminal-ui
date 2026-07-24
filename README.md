@@ -97,8 +97,8 @@ import { custom, renderElementFrame } from '@ismail-elkorchi/terminal-ui/rendere
 const meter = custom({
   id: 'meter',
   renderer: {
-    render({ buffer, bounds }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'CPU ███░ 75%' }]);
+    render({ target, bounds }) {
+      target.write(bounds.row, bounds.column, [{ text: 'CPU ███░ 75%' }]);
     },
     accessibility() {
       return { id: 'meter', role: 'status', label: 'CPU', value: '75%' };

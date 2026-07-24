@@ -24,9 +24,9 @@ import {
 test('custom renderers render through required renderer contract', () => {
   let observedFocus;
   const renderer = {
-    render({ state, bounds, buffer, focus }) {
+    render({ state, bounds, target, focus }) {
       observedFocus = focus;
-      buffer.write(bounds.row, bounds.column, [{
+      target.write(bounds.row, bounds.column, [{
         text: state.label,
         style: { bold: true }
       }]);
@@ -63,8 +63,8 @@ test('custom renderers render through required renderer contract', () => {
 
 test('custom renderer output preserves metadata and sanitizes terminal controls', () => {
   const renderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{
         text: '\u001B[31mUnsafe\u001B[0m red \u0007text',
         link: { href: 'https://example.test/\u001B[31mred', id: '\u001B[31mlink' },
         source: {
@@ -105,8 +105,8 @@ test('custom renderer output preserves metadata and sanitizes terminal controls'
 
 test('custom renderer hit targets route mouse messages', async () => {
   const renderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'hit' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'hit' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'hit' };
@@ -156,8 +156,8 @@ test('custom renderer measurement participates in content track layout', () => {
           preferredHeight: 2
         };
       },
-      render({ bounds, buffer }) {
-        buffer.write(bounds.row, bounds.column, [{ text: 'custom' }]);
+      render({ bounds, target }) {
+        target.write(bounds.row, bounds.column, [{ text: 'custom' }]);
       },
       accessibility({ id }) {
         return { id, role: 'text', label: 'custom' };
@@ -195,8 +195,8 @@ test('layout measures children only for content-sized tracks', () => {
           preferredHeight: 1
         };
       },
-      render({ bounds, buffer }) {
-        buffer.write(bounds.row, bounds.column, [{ text: 'custom' }]);
+      render({ bounds, target }) {
+        target.write(bounds.row, bounds.column, [{ text: 'custom' }]);
       },
       accessibility({ id }) {
         return { id, role: 'text', label: 'custom' };
@@ -239,8 +239,8 @@ test('custom measurements are cached by complete bounds rather than dimensions a
           preferredHeight: 1
         };
       },
-      render({ bounds, buffer }) {
-        buffer.write(bounds.row, bounds.column, [{ text: 'x' }]);
+      render({ bounds, target }) {
+        target.write(bounds.row, bounds.column, [{ text: 'x' }]);
       },
       accessibility({ id }) {
         return { id, role: 'text', label: id };
@@ -312,8 +312,8 @@ test('malformed custom renderers fail as programmer errors', () => {
 
 test('custom renderer focus targets require stable ids', () => {
   const renderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'focus' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'focus' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'focus' };
@@ -331,8 +331,8 @@ test('custom renderer focus targets require stable ids', () => {
 
 test('custom renderer hit targets resolve explicitly declared focus targets', () => {
   const renderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'focusable' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'focusable' }]);
     },
     accessibility({ id, focused }) {
       return { id, role: 'button', label: 'focusable', ...(focused ? { focused: true } : {}) };
@@ -357,8 +357,8 @@ test('custom renderer hit targets resolve explicitly declared focus targets', ()
 
 test('custom renderer hit targets reject unavailable focus targets', () => {
   const renderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'invalid' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'invalid' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'invalid' };
@@ -384,8 +384,8 @@ test('custom renderer hit targets reject unavailable focus targets', () => {
 
 test('custom renderers must provide accessibility unless explicitly decorative', () => {
   const visualRenderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'decor' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'decor' }]);
     }
   };
   const accessibleFrame = renderElementFrame(column([
@@ -407,8 +407,8 @@ test('custom renderers must provide accessibility unless explicitly decorative',
 
 test('decorative custom renderers cannot expose interaction targets', () => {
   const interactiveRenderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'button' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'button' }]);
     },
     hitTargets({ bounds }) {
       return [{ id: 'press', bounds, message: () => ({ pressed: true }) }];
@@ -456,8 +456,8 @@ test('custom composites arrange opaque children while preserving interaction and
             }
           ];
         },
-        render({ bounds, buffer }) {
-          buffer.write(bounds.row + 1, bounds.column, [{ text: `selected:${state.selected}` }]);
+        render({ bounds, target }) {
+          target.write(bounds.row + 1, bounds.column, [{ text: `selected:${state.selected}` }]);
         },
         accessibility({ id }) {
           return { id, role: 'group', label: 'Actions' };

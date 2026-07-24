@@ -17,7 +17,7 @@ export interface CustomRendererInput<TState> {
 export type CustomRendererMeasureInput<TState> = CustomRendererInput<TState>;
 
 export interface CustomRendererRenderInput<TState> extends CustomRendererInput<TState> {
-  readonly buffer: RenderTarget;
+  readonly target: RenderTarget;
   readonly focus: RenderFocusRelation;
 }
 

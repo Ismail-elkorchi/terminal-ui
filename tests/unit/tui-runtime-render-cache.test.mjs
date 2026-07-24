@@ -147,8 +147,8 @@ test('TUI runtime routes mouse input through the committed render cache', async 
 test('TUI runtime uses committed hit targets without recomputing renderer hit targets', async () => {
   let hitTargetCalls = 0;
   const renderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'cached hit' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'cached hit' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'cached hit' };

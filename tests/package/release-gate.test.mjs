@@ -643,6 +643,8 @@ test('box drawing joins are source-role gated frame passes', async () => {
 
 test('custom renderers can render only through write-scoped renderer inputs', async () => {
   const rendererTypes = await readFile(new URL('../../src/renderer/model/renderer.ts', import.meta.url), 'utf8');
+  const customRendererTypes = await readFile(new URL('../../src/renderer/custom-renderer.ts', import.meta.url), 'utf8');
+  const customCompositeTypes = await readFile(new URL('../../src/renderer/custom-composite.ts', import.meta.url), 'utf8');
   const componentOptionTypes = await readSourceTree(new URL('../../src/components/options/', import.meta.url));
   const canvasContract = await readFile(new URL('../../src/renderer/model/canvas.ts', import.meta.url), 'utf8');
   const customElementTypes = await readFile(new URL('../../src/renderer/custom-element.ts', import.meta.url), 'utf8');
@@ -655,6 +657,10 @@ test('custom renderers can render only through write-scoped renderer inputs', as
   assert.doesNotMatch(rendererTypes, /\bTerminalHost\b/u);
   assert.doesNotMatch(rendererTypes, /\bhost\b/u);
   assert.doesNotMatch(rendererTypes, /\bwrite\s*\(/u);
+  assert.match(customRendererTypes, /readonly target: RenderTarget;/u);
+  assert.match(customCompositeTypes, /readonly target: RenderTarget;/u);
+  assert.doesNotMatch(customRendererTypes, /readonly buffer: RenderTarget;/u);
+  assert.doesNotMatch(customCompositeTypes, /readonly buffer: RenderTarget;/u);
 
   const canvasOptionTypes = componentOptionTypes.slice(componentOptionTypes.indexOf('export interface CanvasOptions'));
   assert.match(customElementTypes, /readonly renderer: CustomRenderer<TState, TMessage>;/u);

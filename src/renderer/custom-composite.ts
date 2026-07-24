@@ -36,7 +36,7 @@ export interface CustomCompositeLayoutInput<TState> extends CustomCompositeInput
 }
 
 export interface CustomCompositeRenderInput<TState> extends CustomCompositeInput<TState> {
-  readonly buffer: RenderTarget;
+  readonly target: RenderTarget;
   readonly focus: RenderFocusRelation;
 }
 
@@ -140,7 +140,7 @@ function adaptCustomCompositeRenderer<TState, TMessage>(
       childCount
     ),
     render: ({ layoutNode, buffer, theme, widthProfile, focus, renderChildren }) => {
-      render?.({ state, bounds: layoutNode.bounds, buffer, theme, widthProfile, focus });
+      render?.({ state, bounds: layoutNode.bounds, target: buffer, theme, widthProfile, focus });
       renderChildren();
     },
     accessibility: ({ layoutNode, id, focused, theme, widthProfile }) => renderer.accessibility({

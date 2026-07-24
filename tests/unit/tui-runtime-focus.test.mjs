@@ -653,8 +653,8 @@ test('TUI runtime focuses top-layer context menus and open dropdownMenus', async
 
 test('TUI runtime traverses multiple custom focus targets within one widget', async () => {
   const renderer = {
-    render({ buffer, bounds }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'AB' }]);
+    render({ target, bounds }) {
+      target.write(bounds.row, bounds.column, [{ text: 'AB' }]);
     },
     accessibility({ id, focused }) {
       return {

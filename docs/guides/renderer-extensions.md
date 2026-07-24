@@ -7,9 +7,10 @@ authoring model.
 `terminal-ui` exposes two extension paths:
 
 - `canvas()` from the component layer for bounded drawing through `Canvas2D`;
-- `custom()` from the renderer entrypoint for a full renderer protocol.
-- `customComposite()` for arranging opaque authored children without exposing
-  renderer nodes.
+- `custom()` from the renderer entrypoint for a custom renderer for one
+  element;
+- `customComposite()` when the custom renderer must additionally measure and
+  arrange opaque authored children without exposing renderer nodes.
 
 ## Canvas Component
 

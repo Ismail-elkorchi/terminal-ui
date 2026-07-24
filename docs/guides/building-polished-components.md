@@ -80,9 +80,10 @@ shape.
 
 ## Renderer Extensions
 
-Use `custom()` for a full renderer protocol: measurement, layout, rendering,
-accessibility, focus targets, and hit targets. Use `canvas()` for bounded
-drawing through `Canvas2D`.
+Use `custom()` for a custom renderer for one element, including measurement,
+rendering, accessibility, focus targets, and hit targets. Use
+`customComposite()` when it must additionally measure and arrange child
+elements. Use `canvas()` for bounded drawing through `Canvas2D`.
 
 Both paths draw through the same sanitized frame pipeline; neither path writes
 raw terminal output. Interactive custom renderers must provide accessibility.

@@ -180,8 +180,8 @@ it does not expose renderer props, callback values, or render-node hooks.
 - Public declarations do not expose `RenderNode` or `props` through components
   and layout.
 - Private render nodes are not exported by any public entrypoint. The renderer
-  extension entrypoint exposes frame buffers, bounded custom-renderer hooks,
-  focus targets, and hit targets.
+  extension entrypoint exposes a bounded write-only render target,
+  custom-renderer hooks, focus targets, and hit targets.
 - Component option and event names describe authoring intent, not renderer
   machinery.
 - Component state remains caller-owned and message types remain generic.

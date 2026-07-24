@@ -10,8 +10,8 @@ import { prepareTextDocument, textCaretAt } from '../../dist/text/index.js';
 
 test('TUI wheel routing skips non-scroll child targets and reaches scroll owner', async () => {
   const renderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'child inside scroll owner' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'child inside scroll owner' }]);
     },
     accessibility({ id }) {
       return { id, role: 'group', label: 'scroll owner' };

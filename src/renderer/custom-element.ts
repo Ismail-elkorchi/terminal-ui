@@ -108,7 +108,7 @@ function adaptCustomRenderer<TState, TMessage>(
         preferredHeight: 0
       },
     render: ({ layoutNode, buffer, theme, widthProfile, focus }) => {
-      renderer.render({ state, bounds: layoutNode.bounds, buffer, theme, widthProfile, focus });
+      renderer.render({ state, bounds: layoutNode.bounds, target: buffer, theme, widthProfile, focus });
     },
     ...(renderer.accessibility === undefined ? {} : {
       accessibility: ({ layoutNode, id, focused, theme, widthProfile }) => renderer.accessibility?.({

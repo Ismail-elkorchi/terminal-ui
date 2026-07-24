@@ -5,6 +5,7 @@ import {
   renderFramePlain,
   span,
   type Canvas2D,
+  type CustomRendererRenderInput,
   type FrameCellSource,
   type Frame,
   type Rect,
@@ -37,15 +38,20 @@ drawing.rect({ x: 0, y: 0, width: 2, height: 2 }, { fill: { text: '*' } });
 custom({
   id: 'write-only-custom-renderer',
   renderer: {
-    render({ buffer }) {
-      buffer.write(1, 1, [{ text: 'ok' }]);
+    render({ target }) {
+      target.write(1, 1, [{ text: 'ok' }]);
       // @ts-expect-error public custom render targets do not expose private frame-buffer reads
-      const readCell = buffer.readCell;
+      const readCell = target.readCell;
       void readCell;
     },
     accessibility: ({ id }) => ({ id, role: 'text', label: 'write only' })
   }
 });
+
+declare const customRenderInput: CustomRendererRenderInput<undefined>;
+customRenderInput.target.write(1, 1, [{ text: 'ok' }]);
+// @ts-expect-error the removed buffer field does not describe the write-only public target
+type RemovedCustomBuffer = CustomRendererRenderInput<undefined>['buffer'];
 
 // @ts-expect-error ordinary public rendering returns a frame, not its private render node
 const privateRenderNode = frame.node;
@@ -60,3 +66,5 @@ void invalidInteractionState;
 void validInteractionState;
 void privateRenderNode;
 void privateRegions;
+void customRenderInput;
+void (undefined as unknown as RemovedCustomBuffer);

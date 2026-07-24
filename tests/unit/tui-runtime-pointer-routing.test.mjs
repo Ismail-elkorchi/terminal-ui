@@ -135,8 +135,8 @@ test('disabled controls expose neither activation nor synthetic pointer lifecycl
 
 test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages', async () => {
   const renderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'pointer lifecycle' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'pointer lifecycle' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'pointer lifecycle' };
@@ -194,8 +194,8 @@ test('TUI pointer targets receive pointerDown and pointerUp lifecycle messages',
 
 test('TUI pointer click counts use clock, stable target identity, and cross-target reset', async () => {
   const renderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'left right' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'left right' }]);
     },
     accessibility({ id }) {
       return { id, role: 'group', label: 'click targets' };
@@ -255,8 +255,8 @@ test('TUI pointer click counts use clock, stable target identity, and cross-targ
 
 test('TUI pointer hover emits enter leave and hover when crossing targets', async () => {
   const renderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'left  right' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'left  right' }]);
     },
     accessibility({ id }) {
       return { id, role: 'group', label: 'hover lifecycle' };
@@ -320,8 +320,8 @@ test('TUI pointer hover emits enter leave and hover when crossing targets', asyn
 
 test('TUI pointer targets receive event-aware messages and horizontal wheel deltas', async () => {
   const renderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'pointer target' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'pointer target' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'pointer target' };
@@ -371,8 +371,8 @@ test('TUI pointer targets receive event-aware messages and horizontal wheel delt
 
 test('TUI pointer drag routes to the captured origin target', async () => {
   const renderer = {
-    render({ bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: 'drag target' }]);
+    render({ bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: 'drag target' }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'drag target' };
@@ -419,8 +419,8 @@ test('TUI pointer drag routes to the captured origin target', async () => {
 
 test('TUI pointer motion drops stale drag samples before routing release', async () => {
   const renderer = {
-    render({ state, bounds, buffer }) {
-      buffer.write(bounds.row, bounds.column, [{ text: `events ${String(state)}` }]);
+    render({ state, bounds, target }) {
+      target.write(bounds.row, bounds.column, [{ text: `events ${String(state)}` }]);
     },
     accessibility({ id }) {
       return { id, role: 'button', label: 'coalesced drag target' };
