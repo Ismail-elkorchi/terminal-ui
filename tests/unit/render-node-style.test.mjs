@@ -18,7 +18,7 @@ const foreground = (token, extra = {}) => ({
   ...extra
 });
 
-test('default part styles cover every handled visual condition', () => {
+test('default part styles cover structural and interaction parts only', () => {
   const selection = {
     fg: { kind: 'theme', token: 'selection.foreground' },
     bg: { kind: 'theme', token: 'selection.background' },
@@ -34,19 +34,19 @@ test('default part styles cover every handled visual condition', () => {
     ['placeholder', foreground('input.placeholder', { dim: true })],
     ['selected', selection],
     ['focused', { bold: true }],
-    ['disabled', foreground('text.disabled', { dim: true })],
-    ['error', foreground('status.error', { bold: true })],
-    ['warning', foreground('status.warning')],
-    ['success', foreground('status.success', { bold: true })]
+    ['disabled', foreground('text.disabled', { dim: true })]
   ];
 
   for (const [part, expected] of cases) {
     assert.deepEqual(defaultStyleForPart(part), expected, part);
   }
+  for (const outcome of ['error', 'warning', 'success']) {
+    assert.equal(defaultStyleForPart(outcome), undefined, outcome);
+  }
   assert.equal(defaultStyleForPart('caller-defined'), undefined);
 });
 
-test('default state styles cover every branch without destructive bleed-through', () => {
+test('default state styles cover interaction branches without result styling', () => {
   const selection = {
     fg: { kind: 'theme', token: 'selection.foreground' },
     bg: { kind: 'theme', token: 'selection.background' },
@@ -59,10 +59,7 @@ test('default state styles cover every branch without destructive bleed-through'
     ['pressed', selection],
     ['selected', selection],
     ['disabled', foreground('text.disabled', { dim: true })],
-    ['active', { bold: true }],
-    ['error', foreground('status.error', { bold: true })],
-    ['warning', foreground('status.warning')],
-    ['success', foreground('status.success', { bold: true })]
+    ['active', { bold: true }]
   ];
 
   for (const [state, expected] of cases) {
@@ -70,6 +67,9 @@ test('default state styles cover every branch without destructive bleed-through'
   }
   for (const state of ['selected', 'focused', 'disabled']) {
     assert.notEqual(defaultStyleForState(state)?.fg?.token, 'status.error', state);
+  }
+  for (const outcome of ['error', 'warning', 'success']) {
+    assert.equal(defaultStyleForState(outcome), undefined, outcome);
   }
 });
 

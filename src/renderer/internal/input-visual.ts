@@ -3,7 +3,7 @@ import { block, line, span } from './frame.ts';
 import { formSource, type FormVisualKind } from './form-visual.ts';
 import { selectedTextSpans, selectionFromUnknown, singleLineCursorColumn, visibleLineWindow } from './text-display.ts';
 import { textOffsetAtVisualColumn } from './text-pointer.ts';
-import { inputCursorStyle, mergeStyles, resolveRenderNodeStyle, renderNodeStyle } from './render-node-style.ts';
+import { inputCursorStyle, mergeStyles, resolveRenderNodeStyle, renderNodeStyle, themeStyle } from './render-node-style.ts';
 import type { TextAreaHighlight } from '../../ui-model/content.ts';
 import type { TextSelection, TextWidthProfile } from '../../text/index.ts';
 import type { TerminalTheme } from '../../theme/index.ts';
@@ -274,16 +274,14 @@ function inputStateMarker(renderNode: InputNode, theme: TerminalTheme, focused: 
 function inputChromeStyle(renderNode: InputNode, focused: boolean): TerminalStyle | undefined {
   const state = renderNode.props.disabled === true
     ? 'disabled'
-    : typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0
-      ? 'error'
-      : focused
-        ? 'focused'
-        : undefined;
-  return resolveRenderNodeStyle(renderNode, {
+    : focused
+      ? 'focused'
+      : undefined;
+  return mergeStyles(resolveRenderNodeStyle(renderNode, {
     part: 'border',
     base: { fg: { kind: 'theme', token: 'control.border' } },
     ...(state === undefined ? {} : { state })
-  });
+  }), inputValidationStyle(renderNode));
 }
 
 function cursorVisualStyle(renderNode: InputNode): TerminalStyle | undefined {
@@ -344,12 +342,18 @@ function textAreaLineNumberStyle(renderNode: TextAreaNode, active: boolean): Ter
 
 function inputContentStyle(renderNode: InputNode, focused: boolean, active = false): TerminalStyle | undefined {
   if (renderNode.props.disabled === true) return renderNodeStyle(renderNode, 'value', 'disabled');
-  if (typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0) return renderNodeStyle(renderNode, 'value', 'error');
   return mergeStyles(
     renderNodeStyle(renderNode, 'value'),
     focused ? renderNode.styles?.states?.focused : undefined,
-    active && renderNode.kind === 'textArea' ? textAreaActiveLineTextStyle(renderNode) : undefined
+    active && renderNode.kind === 'textArea' ? textAreaActiveLineTextStyle(renderNode) : undefined,
+    inputValidationStyle(renderNode)
   );
+}
+
+function inputValidationStyle(renderNode: InputNode): TerminalStyle | undefined {
+  return typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0
+    ? mergeStyles(themeStyle('status.error', { bold: true }), renderNode.styles?.parts?.['error'])
+    : undefined;
 }
 
 function textAreaActiveLineTextStyle(renderNode: TextAreaNode): TerminalStyle | undefined {

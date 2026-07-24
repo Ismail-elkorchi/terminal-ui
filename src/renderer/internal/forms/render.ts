@@ -144,7 +144,6 @@ export function checkboxBlock(
   const symbol = checked ? theme.tokens.symbols.checkboxChecked : theme.tokens.symbols.checkboxUnchecked;
   const state = interactionVisualState(renderNode, controlTargetId(renderNode), {
     disabled: renderNode.props.disabled === true,
-    error: typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0,
     focused
   });
   const lines = [
@@ -177,7 +176,6 @@ export function toggleSwitchBlock(
   const offLabel = clean(stringify(renderNode.props.offLabel)) || 'Off';
   const state = interactionVisualState(renderNode, controlTargetId(renderNode), {
     disabled: renderNode.props.disabled === true,
-    error: typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0,
     focused
   });
   const lines = [

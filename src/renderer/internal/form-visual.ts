@@ -87,11 +87,11 @@ export function formLine(spans: readonly RenderSpan[]): RenderLine {
 }
 
 export function formLabelStyle(renderNode: RenderNode, state?: FormControlState): TerminalStyle | undefined {
-  return renderNodeStyle(renderNode, 'label', state);
+  return mergeStyles(renderNodeStyle(renderNode, 'label', state), formValidationStyle(renderNode));
 }
 
 export function formValueStyle(renderNode: RenderNode, state?: FormControlState): TerminalStyle | undefined {
-  return renderNodeStyle(renderNode, formValuePart(renderNode), state);
+  return mergeStyles(renderNodeStyle(renderNode, formValuePart(renderNode), state), formValidationStyle(renderNode));
 }
 
 export function formPlaceholderStyle(renderNode: RenderNode): TerminalStyle | undefined {
@@ -103,7 +103,11 @@ export function formPlaceholderStyle(renderNode: RenderNode): TerminalStyle | un
 
 export function formMarkerStyle(renderNode: RenderNode, state?: FormControlState): TerminalStyle | undefined {
   const part = formMarkerPart(renderNode);
-  return mergeStyles(renderNodeStyle(renderNode, part), state === undefined ? undefined : renderNodeStyle(renderNode, part, state));
+  return mergeStyles(
+    renderNodeStyle(renderNode, part),
+    state === undefined ? undefined : renderNodeStyle(renderNode, part, state),
+    formValidationStyle(renderNode)
+  );
 }
 
 function formValuePart(renderNode: RenderNode): string {
@@ -138,13 +142,20 @@ function formMarkerPart(renderNode: RenderNode): string {
 }
 
 export function formErrorStyle(renderNode: RenderNode): TerminalStyle | undefined {
-  return renderNodeStyle(renderNode, 'error', 'error');
+  return mergeStyles(themeStyle('status.error', { bold: true }), renderNode.styles?.parts?.['error']);
 }
 
 export function formControlState(renderNode: FormStateNode, selected = false): FormControlState | undefined {
   if (renderNode.props.disabled === true) return 'disabled';
-  if (typeof renderNode.props.error === 'string' && renderNode.props.error.length > 0) return 'error';
   return selected ? 'selected' : undefined;
+}
+
+function formValidationStyle(renderNode: RenderNode): TerminalStyle | undefined {
+  return 'error' in renderNode.props
+    && typeof renderNode.props.error === 'string'
+    && renderNode.props.error.length > 0
+    ? formErrorStyle(renderNode)
+    : undefined;
 }
 
 export function optionControlState(

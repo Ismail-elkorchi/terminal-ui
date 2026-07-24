@@ -5,7 +5,7 @@ import type { RenderTarget } from '../model/render-target.ts';
 import { renderNodeFrameSource } from '../../visual/source.ts';
 import type { Rect } from '../model/layout.ts';
 import type { FrameCellSource, TerminalStyle } from '../../visual/render.ts';
-import { mergeStyles, resolveRenderNodeStyle } from './render-node-style.ts';
+import { mergeStyles, resolveRenderNodeStyle, themeStyle } from './render-node-style.ts';
 import { stringify } from './render-node-props.ts';
 import type { TerminalTheme, ThemeColorToken } from '../../theme/index.ts';
 import type { RenderNodeOfKind } from '../model/index.ts';
@@ -169,16 +169,37 @@ export function surfaceBackgroundStyle(
   const focusedBase: TerminalStyle = focused && state.disabled !== true && (border === undefined || border.kind === 'none')
     ? { ...base, bg: { kind: 'theme' as const, token: 'focus.background' } }
     : base;
-  const visualState = state.disabled === true
+  const interactionState = state.disabled === true
     ? 'disabled'
     : focused
       ? 'focused'
-      : state.visualState;
+      : state.visualState === 'active' || state.visualState === 'selected'
+        ? state.visualState
+        : undefined;
+  const conditionStyle = surfaceConditionStyle(state.visualState);
+  const styledBase = mergeStyles(focusedBase, conditionStyle) ?? focusedBase;
   return resolveRenderNodeStyle(renderNode, {
     part: 'root',
-    base: focusedBase,
-    ...(visualState === undefined ? {} : { state: visualState })
+    base: styledBase,
+    ...(interactionState === undefined ? {} : { state: interactionState })
   }) ?? focusedBase;
+}
+
+function surfaceConditionStyle(
+  visualState: SurfaceChromeOptions['visualState']
+): TerminalStyle | undefined {
+  switch (visualState) {
+    case 'error':
+      return themeStyle('status.error', { bold: true });
+    case 'warning':
+      return themeStyle('status.warning');
+    case 'success':
+      return themeStyle('status.success', { bold: true });
+    case 'active':
+    case 'selected':
+    case undefined:
+      return undefined;
+  }
 }
 
 function surfaceTitledBorder(renderNode: SurfaceNode, border: BorderStyle, theme: TerminalTheme | undefined): BorderStyle {

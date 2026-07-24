@@ -234,7 +234,7 @@ function menuLabelStyle(renderNode: RenderNode, item: MenuVisualItem, state: Ele
   });
   if (item.tone === 'destructive') return mergeStyles(
     stateStyle,
-    renderNodeStyle(renderNode, 'label', 'error')
+    themeStyle('status.error', { bold: true })
   );
   return stateStyle;
 }
@@ -242,13 +242,13 @@ function menuLabelStyle(renderNode: RenderNode, item: MenuVisualItem, state: Ele
 function menuMarkerStyle(renderNode: RenderNode, item: MenuVisualItem, state: ElementVisualState | undefined): TerminalStyle | undefined {
   return mergeStyles(
     menuStateStyle(renderNode, 'marker', state),
-    item.tone === 'destructive' ? renderNodeStyle(renderNode, 'marker', 'error') : undefined
+    item.tone === 'destructive' ? themeStyle('status.error', { bold: true }) : undefined
   );
 }
 
 function menuCheckedStyle(renderNode: RenderNode, state: ElementVisualState | undefined): TerminalStyle | undefined {
   return mergeStyles(
-    renderNodeStyle(renderNode, 'marker', 'success'),
+    themeStyle('accent.primary', { bold: true }),
     menuStateStyle(renderNode, 'marker', state)
   );
 }

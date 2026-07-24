@@ -392,12 +392,11 @@ function notificationPartStyle(
   state: ElementVisualState | undefined,
   base?: TerminalStyle
 ): TerminalStyle {
-  const toneState = tone === 'progress' ? 'active' : tone === 'info' ? undefined : tone;
   return mergeStyles({
     fg: { kind: 'theme', token: emphasized ? foregroundToken(tone) : 'text.default' },
     ...(isHighlightedState(state) ? { bg: { kind: 'theme', token: 'selection.background' } } : {}),
     bold: emphasized || tone === 'error' || tone === 'success'
-  }, base, renderNode.styles?.parts?.[part], toneState === undefined ? undefined : renderNode.styles?.states?.[toneState], state === undefined || state === 'default' ? undefined : renderNode.styles?.states?.[state]) ?? {};
+  }, base, renderNode.styles?.parts?.[part], state === undefined || state === 'default' ? undefined : renderNode.styles?.states?.[state]) ?? {};
 }
 
 function backgroundToken(tone: NotificationTone): ThemeColorToken {

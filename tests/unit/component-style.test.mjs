@@ -224,7 +224,7 @@ test('text entry chrome uses shared border focus and error styles', () => {
     error: 'Required',
     meta: {
         styles: {
-            states: { error: tokenStyle('status.error') }
+            parts: { error: tokenStyle('status.error') }
         }
     }
 }), { columns: 16, rows: 2 });

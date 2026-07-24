@@ -22,9 +22,10 @@ For each component or renderer extension:
 
 ## Visual States
 
-Use semantic component states instead of hardcoded colors. Common state slots
-are `root`, `border`, `title`, `label`, `value`, `placeholder`, `selected`,
-`focused`, `disabled`, `error`, `warning`, and `success`.
+Use semantic component states instead of hardcoded colors. Generic state slots
+are `focused`, `hovered`, `pressed`, `selected`, `disabled`, and `active`.
+Stable component parts such as `root`, `border`, `title`, `label`, `value`,
+and `placeholder` remain separate from those states.
 
 Theme defaults should make ordinary components readable. Local `meta.styles`
 overrides should affect only the component that receives them and the stable
@@ -32,9 +33,9 @@ slots that renderer uses. There is no global style cascade.
 
 Selected and pressed content uses selection colors; focus and active states
 add emphasis; hovered content uses the focus background; and disabled content
-uses disabled text. Warning, error, successful completion, and destructive
-actions use their corresponding status colors. Selection, focus, and disabled
-states do not inherit destructive styling.
+uses disabled text. Component contracts apply validation, warning, failure,
+successful completion, and destructive-action colors directly. Selection,
+focus, and disabled states do not inherit destructive styling.
 
 ## Layout And Bounds
 

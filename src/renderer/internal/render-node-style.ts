@@ -77,12 +77,6 @@ export function defaultStyleForPart(part: RenderNodeStylePart): TerminalStyle | 
       return defaultStyleForState('focused');
     case 'disabled':
       return defaultStyleForState('disabled');
-    case 'error':
-      return themeStyle('status.error', { bold: true });
-    case 'warning':
-      return themeStyle('status.warning');
-    case 'success':
-      return themeStyle('status.success', { bold: true });
     default:
       return undefined;
   }
@@ -114,12 +108,6 @@ export function defaultStyleForState(state: ElementVisualState): TerminalStyle |
       return themeStyle('text.disabled', { dim: true });
     case 'active':
       return { bold: true };
-    case 'error':
-      return themeStyle('status.error', { bold: true });
-    case 'warning':
-      return themeStyle('status.warning');
-    case 'success':
-      return themeStyle('status.success', { bold: true });
   }
 }
 

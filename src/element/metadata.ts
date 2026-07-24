@@ -39,10 +39,7 @@ export type ElementVisualState =
   | 'pressed'
   | 'selected'
   | 'disabled'
-  | 'active'
-  | 'error'
-  | 'warning'
-  | 'success';
+  | 'active';
 
 export type ElementTextRole =
   | 'title'
@@ -57,7 +54,7 @@ export type ElementTextRole =
   | 'warning'
   | 'success';
 
-export type SurfaceVisualState = Extract<ElementVisualState, 'active' | 'selected' | 'error' | 'warning' | 'success'>;
+export type SurfaceVisualState = 'active' | 'selected' | 'error' | 'warning' | 'success';
 
 export interface ElementStyles<TPart extends string = string> {
   readonly root?: TerminalStyle;

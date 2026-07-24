@@ -5,7 +5,6 @@ import type { TerminalTheme } from '../../../../theme/index.ts';
 import type { RenderSpan, TerminalStyle } from '../../frame.ts';
 import { formSource, formSpan, separatorSpan } from '../../form-visual.ts';
 import {
-  defaultStyleForState,
   mergeStyles,
   resolveRenderNodeStyle,
   themeStyle
@@ -114,7 +113,7 @@ function buttonBaseStyle(renderNode: ButtonNode): TerminalStyle | undefined {
     case 'secondary':
       return controlToneStyle('secondary');
     case 'destructive':
-      return mergeStyles(defaultStyleForState('error'), { bold: true });
+      return themeStyle('status.error', { bold: true });
   }
 }
 
@@ -128,7 +127,7 @@ function buttonChromeBaseStyle(renderNode: ButtonNode): TerminalStyle | undefine
     case 'secondary':
       return controlToneBorderStyle('secondary');
     case 'destructive':
-      return mergeStyles(defaultStyleForState('error'), { bold: true });
+      return themeStyle('status.error', { bold: true });
   }
 }
 
@@ -178,7 +177,6 @@ function buttonState(renderNode: ButtonNode, focused: boolean): ElementVisualSta
   if (renderNode.props.state === 'pending') return undefined;
   return interactionVisualState(renderNode, buttonTargetId(renderNode), {
     disabled: renderNode.props.disabled === true,
-    error: buttonTone(renderNode) === 'destructive',
     focused
   });
 }

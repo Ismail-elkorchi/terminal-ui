@@ -27,6 +27,16 @@ textInput({
     }
   }
 });
+textInput({
+  id: 'removed-result-style-state',
+  presentation: { value: '', cursor: 0 },
+  meta: {
+    styles: {
+      // @ts-expect-error generic style states describe interaction, not validation outcomes
+      states: { error: { bold: true } }
+    }
+  }
+});
 structuredBlock({
   id: 'completed-record',
   title: 'Build',

@@ -94,18 +94,21 @@ export function styledSpan(text: string, style: TerminalStyle | undefined, sourc
 }
 
 function commandToneStyle(renderNode: RenderNode, tone: CommandSurfaceTone): TerminalStyle | undefined {
-  switch (tone) {
-    case 'info':
-      return renderNodeStyle(renderNode, 'status', 'focused');
-    case 'warning':
-      return renderNodeStyle(renderNode, 'status', 'warning');
-    case 'error':
-      return renderNodeStyle(renderNode, 'status', 'error');
-    case 'success':
-      return renderNodeStyle(renderNode, 'status', 'success');
-    case 'muted':
-      return renderNodeStyle(renderNode, 'status', 'disabled');
-  }
+  const base = (() => {
+    switch (tone) {
+      case 'info':
+        return themeStyle('status.info');
+      case 'warning':
+        return themeStyle('status.warning');
+      case 'error':
+        return themeStyle('status.error', { bold: true });
+      case 'success':
+        return themeStyle('status.success', { bold: true });
+      case 'muted':
+        return themeStyle('text.disabled', { dim: true });
+    }
+  })();
+  return resolveRenderNodeStyle(renderNode, { part: 'status', base });
 }
 
 function commandPrimaryPart(renderNode: RenderNode): 'entry' | 'suggestion' {

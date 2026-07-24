@@ -106,10 +106,11 @@ place with `preserve`, or copies a lower background into an upper cell that has
 none with `inheritBackground`. Higher visible layers render above lower layers
 and receive pointer hits first.
 
-`meta.styles` is a semantic slot map for local visual overrides. Slots are
-named for stable component parts and states: `root`, `border`, `title`,
-`label`, `value`, `placeholder`, `selected`, `focused`, `disabled`, `error`,
-`warning`, and `success`.
+`meta.styles` is a semantic slot map for local visual overrides. Generic state
+slots describe interaction: `focused`, `hovered`, `pressed`, `selected`,
+`disabled`, and `active`. Result, validation, notification, and destructive
+styling is carried by the component-specific field and part that owns that
+meaning.
 
 ## Inline Content And Adornments
 

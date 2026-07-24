@@ -43,15 +43,11 @@ export function interactionVisualState(
   targetId: string,
   state: {
     readonly disabled?: boolean;
-    readonly error?: boolean;
-    readonly warning?: boolean;
     readonly selected?: boolean;
     readonly focused?: boolean;
   } = {}
 ): import('../../element/metadata.ts').ElementVisualState | undefined {
   if (state.disabled === true) return 'disabled';
-  if (state.error === true) return 'error';
-  if (state.warning === true) return 'warning';
   const pointer = renderNodePointerVisualState(renderNode, targetId);
   if (pointer === 'pressed') return 'pressed';
   if (state.selected === true) return 'selected';
