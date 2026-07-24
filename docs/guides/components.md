@@ -39,7 +39,7 @@ layering, or geometry-only interaction are documented in
 | `colorSwatchPicker()` | Compact caller-controlled color choice with semantic navigation and selection actions. | A full color-management tool. |
 | `calendar()` | Compact caller-controlled date choice control. | Calendar scheduling or date arithmetic. |
 | `menu()` | Inline command/action list with semantic navigation, activation, hierarchy, and scroll actions. | A form value selector or searchable command surface. |
-| `menuBar()` | Horizontal top-level command headings with controlled heading selection and hierarchical menu navigation. | Application chrome or routing. |
+| `menuBar()` | Horizontal top-level command headings with controlled heading selection and hierarchical menu navigation. | An application toolbar or routing. |
 | `contextMenu()` | Controlled contextual command surface anchored to a target or cursor. | Global navigation, a form selector, or persistent sidebar. |
 | `dropdownMenu()` | Controlled compact action trigger with separate open, highlight, activation, dismissal, and popup-scroll state. | A validated form value control; use `select()` for required/error form semantics. |
 | `searchPicker()` | Searchable bounded picker for commands or data entries. | A shell, command parser, or application command registry. |
@@ -83,7 +83,7 @@ Command-input validation uses `level: 'info' | 'warning' | 'error'`.
 Buttons, menu actions, notifications, and tooltips each expose their own
 narrow tone values; those contracts are not interchangeable.
 
-Components that expose interactive scroll chrome use controlled variants. A
+Components that expose interactive scrollbars use controlled variants. A
 visible scrollbar requires caller-controlled scroll state and a semantic action or
 scroll handler. Passive variants may project a fixed window, but cannot expose
 an inert scrollbar.

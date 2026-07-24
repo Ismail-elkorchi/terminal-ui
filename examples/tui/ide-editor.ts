@@ -487,7 +487,7 @@ function topMenu(state: EditorState): Element<EditorMessage> {
     items: menuItems,
     presentation: menuBarPresentation(menuItems, state.menu),
     onAction: (action): EditorMessage => ({ kind: 'menu', action })
-  }), { id: 'editor-menu-surface', appearance: 'chrome', padding: { left: 1, right: 1 } });
+  }), { id: 'editor-menu-surface', appearance: 'bar', padding: { left: 1, right: 1 } });
 }
 
 function explorerPane(state: EditorState): Element<EditorMessage> {

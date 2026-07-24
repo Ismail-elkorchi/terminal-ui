@@ -218,7 +218,7 @@ test('surface title rails render start center and end zones in the border line',
       end: [{ kind: 'text', text: 'BAT 84%', style: { fg: { kind: 'theme', token: 'chart.value' } } }]
     },
     border: { kind: 'single' },
-    appearance: 'chrome'
+    appearance: 'bar'
   }), { columns: 40, rows: 3 });
   const titleLine = renderFramePlain(frame).split('\n')[0] ?? '';
 

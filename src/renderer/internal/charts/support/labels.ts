@@ -31,7 +31,7 @@ export function chartLayout(renderNode: ChartNode, bounds: Rect): {
   };
 }
 
-export function writeChartChrome(
+export function writeChartLabels(
   buffer: ReturnType<typeof createFrameBuffer>,
   renderNode: ChartNode,
   width: number,
@@ -46,7 +46,7 @@ export function writeChartChrome(
   }
 }
 
-export function chartChromeBlock(renderNode: ChartNode, width: number, widthProfile: TextWidthProfile): RenderBlock {
+export function chartLabelsBlock(renderNode: ChartNode, width: number, widthProfile: TextWidthProfile): RenderBlock {
   return {
     lines: [
       ...chartHeaderBlock(renderNode, width, widthProfile).lines,

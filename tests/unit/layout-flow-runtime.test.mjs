@@ -169,7 +169,7 @@ test('searchPicker content tracks use the active text-width profile', () => {
   assert.equal(wide.children[0]?.bounds.width, 22);
 });
 
-test('column explicit sizes keep fixed chrome around fill content', () => {
+test('column explicit sizes keep fixed header and footer tracks around fill content', () => {
   const widget = column([
     text('Header', { id: 'header' }),
     text('Body', { id: 'body' }),

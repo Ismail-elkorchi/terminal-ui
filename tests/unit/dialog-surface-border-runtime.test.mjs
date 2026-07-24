@@ -148,10 +148,10 @@ test('border model supports styled widget borders and borderless layout', () => 
   assert.equal(renderFramePlain(borderlessFrame), 'flush');
 });
 
-test('surface chrome variant renders one-line bars without border chrome', () => {
+test('surface bar appearance renders one-line bars without borders', () => {
   const frame = renderElementFrame(surface(text('Menu', { id: 'menu-label' }), {
-    id: 'app-chrome',
-    appearance: 'chrome',
+    id: 'app-bar',
+    appearance: 'bar',
     padding: { left: 1, right: 1 }
   }), { columns: 10, rows: 1 });
   const output = renderFramePlain(frame);
@@ -162,7 +162,7 @@ test('surface chrome variant renders one-line bars without border chrome', () =>
   );
 
   assert.equal(output, ' Menu');
-  assert.equal(background?.style?.bg?.token, 'surface.chrome.background');
+  assert.equal(background?.style?.bg?.token, 'surface.bar.background');
   assert.equal(frame.cells.some((cell) => cell.source?.cellRole === 'border'), false);
 });
 

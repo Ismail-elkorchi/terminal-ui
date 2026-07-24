@@ -634,7 +634,7 @@ function timestampSpans(
     documentSpan(
       renderNode,
       'logViewer',
-      'chrome',
+      'delimiter',
       'timestamp.open',
       '[',
       separatorStyle,
@@ -653,7 +653,7 @@ function timestampSpans(
     documentSpan(
       renderNode,
       'logViewer',
-      'chrome',
+      'delimiter',
       'timestamp.close',
       ']',
       separatorStyle,

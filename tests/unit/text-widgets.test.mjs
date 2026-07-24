@@ -149,7 +149,7 @@ test('textArea renders multiline windows and exposes cursor/accessibility state'
   assert.equal(frame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
 });
 
-test('editable text controls expose source metadata for chrome value placeholder and selection', () => {
+test('editable text controls expose source metadata for frame, value, placeholder, and selection', () => {
   const inputFrame = renderElementFrame(textInput({
     id: 'email',
     presentation: { value: 'abc', cursor: 0, selection: { startOffset: 1, endOffsetExclusive: 2 } },
@@ -164,10 +164,10 @@ test('editable text controls expose source metadata for chrome value placeholder
     presentation: { value: '42', cursor: 2, validity: 'valid', parsedValue: 42 }
   }), { columns: 12, rows: 1 });
 
-  assert.equal(inputFrame.cells.find((cell) => cell.text === '[')?.source?.description, 'chrome.prefix');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === '[')?.source?.description, 'frame.prefix');
   assert.equal(inputFrame.cells.find((cell) => cell.text === 'a')?.source?.description, 'value');
   assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.description, 'selection');
-  assert.equal(inputFrame.cells.find((cell) => cell.text === ']')?.source?.description, 'chrome.suffix');
+  assert.equal(inputFrame.cells.find((cell) => cell.text === ']')?.source?.description, 'frame.suffix');
   assert.equal(inputFrame.cells.find((cell) => cell.text === 'b')?.source?.elementId, 'email');
   assert.equal(placeholderFrame.cells.find((cell) => cell.text === 'E')?.source?.description, 'placeholder');
   assert.equal(numberFrame.cells.find((cell) => cell.text === '4')?.source?.elementKind, 'numberInput');
@@ -216,7 +216,7 @@ test('text widgets map Unicode cursor positions through the shared text contract
   assert.equal(commandFrame.cells.some((cell) => cell.style?.bg?.kind === 'theme' && cell.style.bg.token === 'selection.background'), true);
 });
 
-test('textArea editable cells expose chrome value placeholder and selection source metadata', () => {
+test('textArea editable cells expose gutter, value, placeholder, and selection source metadata', () => {
   const selectedFrame = renderElementFrame(textArea({
     id: 'notes',
     presentation: {
@@ -231,7 +231,7 @@ test('textArea editable cells expose chrome value placeholder and selection sour
     placeholder: 'Write notes'
   }), { columns: 12, rows: 1 });
 
-  assert.equal(selectedFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'chrome.prefix');
+  assert.equal(selectedFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'gutter.prefix');
   assert.equal(selectedFrame.cells.find((cell) => cell.text === 'a')?.source?.description, 'value');
   assert.equal(selectedFrame.cells.find((cell) => cell.text === 'l')?.source?.description, 'selection');
   assert.equal(selectedFrame.cells.find((cell) => cell.row === 2 && cell.text === 'b')?.source?.description, 'value');
@@ -587,7 +587,7 @@ function noColorCapabilities() {
   };
 }
 
-test('helpBar and statusIndicator provide reusable app chrome', () => {
+test('helpBar and statusIndicator provide reusable application status displays', () => {
   const helpFrame = renderElementFrame(helpBar({
     id: 'help',
     groups: [{

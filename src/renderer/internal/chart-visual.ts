@@ -22,7 +22,7 @@ export type ChartVisualKind =
   | 'baseline'
   | 'bar'
   | 'cell'
-  | 'chrome'
+  | 'frame'
   | 'empty'
   | 'error'
   | 'fill'
@@ -205,7 +205,7 @@ function roleForVisual(visual: ChartVisualKind): NonNullable<FrameCellSource['ce
       return 'separator';
     case 'baseline':
       return 'separator';
-    case 'chrome':
+    case 'frame':
     case 'fill':
     case 'marker':
       return 'decoration';

@@ -13,7 +13,7 @@ import { oneCellGlyph } from '../../text/index.ts';
 
 export type { SurfaceAppearance } from '../../visual/surface.ts';
 
-export interface SurfaceChromeOptions {
+export interface SurfaceFrameOptions {
   readonly appearance?: SurfaceAppearance;
   readonly border?: BorderStyle;
   readonly shadow?: boolean;
@@ -35,7 +35,7 @@ export function surfaceChildContentBounds(renderNode: SurfaceNode, bounds: Rect)
       };
 }
 
-export function drawSurfaceChrome(
+export function drawSurface(
   buffer: RenderTarget,
   bounds: Rect,
   renderNode: SurfaceNode,
@@ -56,7 +56,7 @@ export function drawSurfaceFrame(
   renderNode: SurfaceFrameNode,
   theme: TerminalTheme,
   focused: boolean,
-  options: SurfaceChromeOptions
+  options: SurfaceFrameOptions
 ): void {
   const border = surfaceFocusedBorder(surfaceBorderWithinBounds(options.border, bounds), focused);
   if (options.appearance !== undefined) {
@@ -85,7 +85,7 @@ export function drawSurfaceFrame(
 
 function surfaceAppearanceFromValue(value: unknown): SurfaceAppearance | undefined {
   return value === 'neutral'
-    || value === 'chrome'
+    || value === 'bar'
     || value === 'raised'
     || value === 'inset'
     ? value
@@ -101,7 +101,7 @@ function surfaceBorder(
   if (explicit !== undefined) {
     return surfaceBorderStyle(renderNode, surfaceTitledBorder(renderNode, explicit, theme), appearance);
   }
-  if (appearance === undefined || appearance === 'neutral' || appearance === 'chrome') return undefined;
+  if (appearance === undefined || appearance === 'neutral' || appearance === 'bar') return undefined;
   return surfaceBorderStyle(
     renderNode,
     surfaceTitledBorder(renderNode, { kind: 'single' }, theme),
@@ -259,8 +259,8 @@ function surfaceBackgroundToken(appearance: SurfaceAppearance): ThemeColorToken 
   switch (appearance) {
     case 'neutral':
       return 'surface.background';
-    case 'chrome':
-      return 'surface.chrome.background';
+    case 'bar':
+      return 'surface.bar.background';
     case 'raised':
       return 'surface.raised.background';
     case 'inset':
@@ -272,8 +272,8 @@ function surfaceBorderToken(appearance: SurfaceAppearance): ThemeColorToken {
   switch (appearance) {
     case 'neutral':
       return 'surface.border';
-    case 'chrome':
-      return 'surface.chrome.border';
+    case 'bar':
+      return 'surface.bar.border';
     case 'raised':
       return 'surface.raised.border';
     case 'inset':

@@ -285,7 +285,7 @@ function workspaceView(state: WorkspaceState) {
     ],
     gap: 1,
     children: {
-      header: surface(text('Interactive Workspace', { textRole: 'title' }), { id: 'workspace-header', appearance: 'chrome', padding: { left: 1 } }),
+      header: surface(text('Interactive Workspace', { textRole: 'title' }), { id: 'workspace-header', appearance: 'bar', padding: { left: 1 } }),
       nav: navigationPane(state),
       main: mainPane(state),
       inspector: inspectorPane(state),

@@ -307,7 +307,7 @@ test('table scrollbar can expose vertical and horizontal scroll scope together',
   assert.ok(frame.cells.some((cell) => cell.row === 3 && cell.style?.fg?.token === 'scrollbar.track'));
 });
 
-test('menu scrollbar windows menu rows instead of drawing decorative chrome only', () => {
+test('menu scrollbar windows menu rows instead of drawing a fixed decoration only', () => {
   const frame = renderElementFrame(menu({
     id: 'menu',
     presentation: {

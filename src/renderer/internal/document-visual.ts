@@ -11,7 +11,7 @@ import { mergeStyles, themeStyle, renderNodeStyle } from './render-node-style.ts
 export type DocumentSurfaceKind = 'logViewer' | 'structuredBlock' | 'activityFeed';
 export type DocumentVisualKind =
   | 'body'
-  | 'chrome'
+  | 'delimiter'
   | 'detail'
   | 'empty'
   | 'field'
@@ -258,7 +258,7 @@ export function sourceToken(value: string): string {
 
 function roleForVisual(visual: DocumentVisualKind): NonNullable<FrameCellSource['cellRole']> {
   switch (visual) {
-    case 'chrome':
+    case 'delimiter':
     case 'empty':
     case 'marker':
     case 'omission':

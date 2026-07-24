@@ -23,13 +23,13 @@ import type { TextWidthProfile } from '../../../text/index.ts';
 import { normalizeValueScale } from '../value-scale.ts';
 import type { NormalizedValueScaleStop } from '../value-scale.ts';
 import {
-  chartChromeBlock,
+  chartLabelsBlock,
   chartLayout,
   polarityForValue,
   seriesGlyph,
   usesSignedDomain,
-  writeChartChrome
-} from './support/chrome.ts';
+  writeChartLabels
+} from './support/labels.ts';
 import {
   chartMessageFactory,
   chartPointPosition,
@@ -64,12 +64,12 @@ export function chartBlock(
   if (node.bounds.height <= 0 || node.bounds.width <= 0) return { lines: [] };
   const layout = chartLayout(renderNode, node.bounds);
   if (layout.plotHeight <= 0 || layout.plotWidth <= 0) {
-    return chartChromeBlock(renderNode, node.bounds.width, widthProfile);
+    return chartLabelsBlock(renderNode, node.bounds.width, widthProfile);
   }
   const range = rangeFor(points, numberProp(renderNode, 'min'), numberProp(renderNode, 'max'));
   const widgetScale = normalizeValueScale(renderNode.props.valueScale);
   const buffer = createFrameBuffer(node.bounds.width, node.bounds.height, { widthProfile });
-  writeChartChrome(buffer, renderNode, node.bounds.width, widthProfile);
+  writeChartLabels(buffer, renderNode, node.bounds.width, widthProfile);
   const canvas = createCanvas2D(buffer, {
     row: layout.plotRow,
     column: 1,

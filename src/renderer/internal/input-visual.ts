@@ -68,13 +68,13 @@ export function singleLineInputBlock(input: SingleLineInputBlockInput): RenderBl
     }
   );
   return block([line([
-    styledSpan(model.prefix, model.chromeStyle, inputSource(input.renderNode, 'chrome', 'chrome.prefix')),
+    styledSpan(model.prefix, model.frameStyle, inputSource(input.renderNode, 'frame', 'frame.prefix')),
     ...clipSpans(
       contentSpans,
       Math.max(0, input.bounds.width - model.prefixWidth - model.suffixWidth),
       input.widthProfile
     ),
-    styledSpan(model.suffix, model.chromeStyle, inputSource(input.renderNode, 'chrome', 'chrome.suffix'))
+    styledSpan(model.suffix, model.frameStyle, inputSource(input.renderNode, 'frame', 'frame.suffix'))
   ])]);
 }
 
@@ -205,7 +205,7 @@ function singleLineInputModel(input: SingleLineInputBlockInput): {
   readonly suffix: string;
   readonly prefixWidth: number;
   readonly suffixWidth: number;
-  readonly chromeStyle: TerminalStyle | undefined;
+  readonly frameStyle: TerminalStyle | undefined;
   readonly contentStyle: TerminalStyle | undefined;
 } {
   const value = cleanInputText(input.value);
@@ -220,7 +220,7 @@ function singleLineInputModel(input: SingleLineInputBlockInput): {
     suffix,
     prefixWidth: terminalTextWidth(prefix, { widthProfile: input.widthProfile }),
     suffixWidth: terminalTextWidth(suffix, { widthProfile: input.widthProfile }),
-    chromeStyle: inputChromeStyle(input.renderNode, input.focused === true),
+    frameStyle: inputBorderStyle(input.renderNode, input.focused === true),
     contentStyle: usesPlaceholder ? renderNodeStyle(input.renderNode, 'placeholder') : inputContentStyle(input.renderNode, input.focused === true)
   };
 }
@@ -240,10 +240,10 @@ function textAreaLinePrefixSpans(
   const markerStyle = textAreaMarkerStyle(renderNode, focused, active, rowIndex);
   const gutterStyle = textAreaGutterStyle(renderNode, active);
   if (lineNumber === undefined) {
-    return [styledSpan(`${marker} `, markerStyle, inputSource(renderNode, active ? 'activeLine' : 'chrome', active ? 'activeLine.gutter' : 'chrome.prefix'))];
+    return [styledSpan(`${marker} `, markerStyle, inputSource(renderNode, active ? 'activeLine' : 'gutter', active ? 'activeLine.gutter' : 'gutter.prefix'))];
   }
   return [
-    styledSpan(marker, markerStyle, inputSource(renderNode, active ? 'activeLine' : 'chrome', active ? 'activeLine.marker' : 'chrome.marker')),
+    styledSpan(marker, markerStyle, inputSource(renderNode, active ? 'activeLine' : 'gutter', active ? 'activeLine.marker' : 'gutter.marker')),
     styledSpan(lineNumber, textAreaLineNumberStyle(renderNode, active), inputSource(renderNode, 'lineNumber', active ? 'activeLine.lineNumber' : 'lineNumber')),
     styledSpan(` ${theme.tokens.symbols.borderSingle.vertical} `, gutterStyle, inputSource(renderNode, 'gutter', active ? 'activeLine.gutter' : 'gutter.separator'))
   ];
@@ -273,7 +273,7 @@ function inputStateMarker(renderNode: InputNode, theme: TerminalTheme, focused: 
   return focused ? theme.tokens.symbols.pointer : theme.tokens.symbols.borderSingle.vertical;
 }
 
-function inputChromeStyle(renderNode: InputNode, focused: boolean): TerminalStyle | undefined {
+function inputBorderStyle(renderNode: InputNode, focused: boolean): TerminalStyle | undefined {
   const state = renderNode.props.disabled === true
     ? 'disabled'
     : focused
@@ -296,7 +296,7 @@ function cursorVisualStyle(renderNode: InputNode): TerminalStyle | undefined {
 
 function textAreaMarkerStyle(renderNode: TextAreaNode, focused: boolean, active: boolean, rowIndex: number): TerminalStyle | undefined {
   if (active) return textAreaActiveGutterStyle(renderNode);
-  if (focused && rowIndex === 0) return inputChromeStyle(renderNode, true);
+  if (focused && rowIndex === 0) return inputBorderStyle(renderNode, true);
   return textAreaGutterStyle(renderNode, false);
 }
 

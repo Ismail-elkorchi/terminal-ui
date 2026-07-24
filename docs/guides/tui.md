@@ -210,7 +210,7 @@ snapshots. For application navigation, use the pure `navigationStackReducer()`
 and `activeNavigationEntry()` helpers. A navigation stack is serializable
 application state, not a hidden runtime mode or a terminal screen.
 
-Use explicit track sizes for chrome/body compositions. `grid()` uses `rows` and
+Use explicit track sizes for header/body compositions. `grid()` uses `rows` and
 `columns`, while `splitPane()`, `column()`, and `row()` use `sizes`. The same
 `LayoutSize` vocabulary applies across them: fixed cells for headers, footers,
 and side rails; fill tracks for scrollable bodies; content tracks for measured
@@ -246,7 +246,7 @@ surface(column([
 ```
 
 Use `surface()` for visual grouping and elevation, not for app-frame policy.
-`appearance: 'chrome'` is the lightest app-bar treatment and is borderless by
+`appearance: 'bar'` is the lightest app-bar treatment and is borderless by
 default. `neutral` is an unframed content background. `raised` and `inset` are
 framed visual constructions.
 When a framed surface is too small to leave an interior, the border is skipped
@@ -259,7 +259,7 @@ Use `textArea({ lineNumbers: true })` or
 `textArea({ lineNumbers: { startNumber, minWidth }, activeLine: true })` when a
 multi-line text region needs editor-like anatomy. The renderer emits the gutter,
 line-number, active-line, value, placeholder, selection, caller-controlled highlight,
-cursor, and chrome parts with structured source metadata and ordinary style
+cursor, and frame parts with structured source metadata and ordinary style
 slots. `highlights: [{ startOffset, endOffsetExclusive, label, style }]` uses
 zero-based UTF-16 code-unit offsets for generic text ranges such as search
 matches; selection remains visually stronger. `wrap: true` or

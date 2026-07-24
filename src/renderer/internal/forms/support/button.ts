@@ -26,12 +26,12 @@ export function buttonSpans(
   const spans: RenderSpan[] = [];
   const visualState = buttonState(renderNode, focused);
   const style = buttonStyle(renderNode, focused);
-  const chromeStyle = buttonChromeStyle(renderNode, focused);
+  const frameStyle = buttonFrameStyle(renderNode, focused);
   if (focused && renderNode.props.disabled !== true) {
-    spans.push(formSpan(renderNode, 'chrome', 'chrome.open', '[', chromeStyle, visualState));
-    spans.push(formSpan(renderNode, 'chrome', 'chrome.focus', theme.tokens.symbols.pointer, chromeStyle, visualState));
+    spans.push(formSpan(renderNode, 'frame', 'frame.open', '[', frameStyle, visualState));
+    spans.push(formSpan(renderNode, 'frame', 'frame.focus', theme.tokens.symbols.pointer, frameStyle, visualState));
   } else {
-    spans.push(formSpan(renderNode, 'chrome', 'chrome.open', '[ ', chromeStyle, visualState));
+    spans.push(formSpan(renderNode, 'frame', 'frame.open', '[ ', frameStyle, visualState));
   }
   const state = buttonStateMarker(renderNode, theme);
   if (state.length > 0) {
@@ -55,7 +55,7 @@ export function buttonSpans(
       source: (_segment, index) => formSource(renderNode, 'trailing', `trailing.${String(index)}`, visualState)
     }));
   }
-  spans.push(formSpan(renderNode, 'chrome', 'chrome.close', ' ]', chromeStyle, visualState));
+  spans.push(formSpan(renderNode, 'frame', 'frame.close', ' ]', frameStyle, visualState));
   return spans;
 }
 
@@ -93,11 +93,11 @@ function buttonStyle(renderNode: ButtonNode, focused: boolean): TerminalStyle | 
   });
 }
 
-function buttonChromeStyle(renderNode: ButtonNode, focused: boolean): TerminalStyle | undefined {
+function buttonFrameStyle(renderNode: ButtonNode, focused: boolean): TerminalStyle | undefined {
   const state = buttonState(renderNode, focused);
-  const base = buttonChromeBaseStyle(renderNode);
+  const base = buttonFrameBaseStyle(renderNode);
   return resolveRenderNodeStyle(renderNode, {
-    part: 'chrome',
+    part: 'frame',
     ...(base === undefined ? {} : { base }),
     ...(state === undefined ? {} : { state })
   });
@@ -117,7 +117,7 @@ function buttonBaseStyle(renderNode: ButtonNode): TerminalStyle | undefined {
   }
 }
 
-function buttonChromeBaseStyle(renderNode: ButtonNode): TerminalStyle | undefined {
+function buttonFrameBaseStyle(renderNode: ButtonNode): TerminalStyle | undefined {
   if (renderNode.props.state === 'pending') return themeStyle('status.pending', { bold: true });
   switch (buttonTone(renderNode)) {
     case 'default':

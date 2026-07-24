@@ -129,8 +129,8 @@ test('button states use shared styles and structural markers', () => {
   assert.equal(styleFor(destructiveFrame, 'D')?.fg?.token, 'status.error');
   assert.equal(styleFor(pressedFrame, 'P')?.bg?.token, 'selection.background');
   assert.equal(styleFor(disabledFrame, 'D')?.fg?.token, 'text.disabled');
-  assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'chrome.focus');
-  assert.equal(focusedFrame.cells.find((cell) => cell.text === '[')?.source?.description, 'chrome.open');
+  assert.equal(focusedFrame.cells.find((cell) => cell.text === '›')?.source?.description, 'frame.focus');
+  assert.equal(focusedFrame.cells.find((cell) => cell.text === '[')?.source?.description, 'frame.open');
   assert.equal(pendingFrame.cells.find((cell) => cell.text === 'i')?.source?.description, 'state.marker');
   assert.equal(destructiveFrame.cells.find((cell) => cell.text === '×')?.source?.description, 'state.marker');
   assert.equal(pressedFrame.cells.find((cell) => cell.text === '●')?.source?.description, 'state.marker');
@@ -207,7 +207,7 @@ test('controlled pointer interaction resolves styles and source state across com
   )?.source?.interactionState, 'hovered');
 });
 
-test('text entry chrome uses shared border focus and error styles', () => {
+test('text entry frames use shared border, focus, and error styles', () => {
   const inputFrame = renderElementFrame(textInput({
     id: 'query',
     presentation: { value: 'abc', cursor: 0 },
@@ -507,7 +507,7 @@ test('tabs use shared selected disabled and value styles', () => {
   assert.equal(styleFor(frame, 'A')?.fg?.token, 'status.warning');
 });
 
-test('log viewer and dialog chrome use placeholder and border slots', () => {
+test('log viewer omissions and dialog borders use their direct style slots', () => {
   const logViewerFrame = renderElementFrame(logViewer({
     id: 'styled-log-viewer',
     history: prepareLogHistory(Array.from({ length: 5 }, (_value, index) => ({ id: `row-${String(index)}`, text: `Row ${String(index)}` }))),
@@ -555,11 +555,11 @@ test('structural text roles use shared visual grammar', () => {
 test('layout surfaces do not inherit component focus state', () => {
   const focusedFrame = renderElementFrame(surface(textInput({ id: 'pane-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'focus-surface',
-    appearance: 'chrome'
+    appearance: 'bar'
   }), { columns: 10, rows: 1 }, { focusPath: ['focus-surface', 'pane-field'] });
   const customFrame = renderElementFrame(surface(textInput({ id: 'custom-field', presentation: { value: 'Pane', cursor: 0 } }), {
     id: 'custom-focus-surface',
-    appearance: 'chrome',
+    appearance: 'bar',
     meta: {
         styles: {
             states: { focused: { bg: { kind: 'theme', token: 'status.warning' } } }
@@ -567,8 +567,8 @@ test('layout surfaces do not inherit component focus state', () => {
     }
 }), { columns: 10, rows: 1 }, { focusPath: ['custom-focus-surface', 'custom-field'] });
 
-  assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.chrome.background');
-  assert.equal(styleForCell(customFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.chrome.background');
+  assert.equal(styleForCell(focusedFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.bar.background');
+  assert.equal(styleForCell(customFrame, (cell) => cell.source?.partName === 'background')?.bg?.token, 'surface.bar.background');
 });
 
 test('overflow priority preserves important row content before decorative content', () => {
@@ -644,10 +644,10 @@ test('feedback widgets use shared status styles and source metadata', () => {
   }), { columns: 32, rows: 1 });
 
   assert.equal(styleFor(statusFrame, 'R')?.fg?.token, 'status.success');
-  assert.equal(styleFor(statusFrame, 'R')?.bg?.token, 'surface.chrome.background');
+  assert.equal(styleFor(statusFrame, 'R')?.bg?.token, 'surface.bar.background');
   assert.equal(statusFrame.cells.find((cell) => cell.text === 'R')?.source?.elementKind, 'statusBar');
   assert.equal(styleFor(helpFrame, 'E')?.fg?.token, 'accent.primary');
-  assert.equal(styleFor(helpFrame, 'o')?.bg?.token, 'surface.chrome.background');
+  assert.equal(styleFor(helpFrame, 'o')?.bg?.token, 'surface.bar.background');
   assert.equal(helpFrame.cells.find((cell) => cell.text === 'E')?.source?.description, 'group.primary.binding.0.key');
   assert.equal(styleFor(activityFrame, '!')?.fg?.token, 'status.warning');
   assert.equal(activityFrame.cells.find((cell) => cell.text === '!')?.source?.description, 'status.marker');

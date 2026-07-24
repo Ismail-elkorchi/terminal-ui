@@ -1,5 +1,5 @@
 export type SurfaceAppearance =
   | 'neutral'
-  | 'chrome'
+  | 'bar'
   | 'raised'
   | 'inset';

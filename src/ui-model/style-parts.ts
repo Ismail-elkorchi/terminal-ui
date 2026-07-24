@@ -35,7 +35,7 @@ export type TextAreaStylePart = TextEntryStylePart |
   'gutter' | 'lineNumber' | 'activeLine' | 'highlight' | 'scrollbar';
 export type NumberInputStylePart = TextEntryStylePart | 'stepper';
 export type FormGroupStylePart = 'title' | 'label' | 'description' | 'error';
-export type ButtonStylePart = 'chrome' | 'marker' | 'leading' | 'label' | 'trailing';
+export type ButtonStylePart = 'frame' | 'marker' | 'leading' | 'label' | 'trailing';
 export type ToggleStylePart = 'label' | 'track' | 'handle' | 'onLabel' | 'offLabel' | 'error';
 export type SliderStylePart = 'label' | 'track' | 'fill' | 'handle' | 'value' | 'error';
 export type ChoiceStylePart = 'label' | 'marker' | 'option' | 'description' | 'error';
@@ -49,7 +49,7 @@ export type PickerStylePart =
   | 'option'
   | 'error';
 export type MenuStylePart =
-  | 'chrome'
+  | 'control'
   | 'title'
   | 'leading'
   | 'label'

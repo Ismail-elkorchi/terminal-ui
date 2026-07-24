@@ -9,7 +9,7 @@ import {
   surfaceChildBounds
 } from '../drawing-rendering.ts';
 import { dividerAccessibleBase, renderDivider } from '../divider.ts';
-import { drawSurfaceChrome } from '../surface.ts';
+import { drawSurface } from '../surface.ts';
 import { renderTooltip, tooltipAccessibleBase } from '../tooltip.ts';
 import { placeAnchoredSurface } from '../../../interaction/anchored-surface.ts';
 import { tooltipPreferredSize } from '../tooltip.ts';
@@ -30,7 +30,7 @@ export const drawingRenderers = {
     measure: drawingMeasurements.surface,
     layout: ({ renderNode, bounds }) => surfaceChildBounds(renderNode, bounds),
     render: (input) => {
-      drawSurfaceChrome(input.buffer, input.layoutNode.bounds, input.renderNode, input.theme);
+      drawSurface(input.buffer, input.layoutNode.bounds, input.renderNode, input.theme);
       input.renderChildren();
     },
     accessibility: ({ id, focused }) => surfaceAccessibleBase(id, focused)

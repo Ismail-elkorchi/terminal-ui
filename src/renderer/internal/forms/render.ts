@@ -183,22 +183,22 @@ export function toggleSwitchBlock(
       ...controlPrefixSpans(renderNode, label, state),
       ...(checked
         ? [
-            formSpan(renderNode, 'chrome', 'value.on.open', '[', formMarkerStyle(renderNode, state), state),
+            formSpan(renderNode, 'frame', 'value.on.open', '[', formMarkerStyle(renderNode, state), state),
             separatorSpan(renderNode),
             formSpan(renderNode, 'value', 'value.on', onLabel, mergeStyles(toggleValueStyle(renderNode, true), renderNodeStyle(renderNode, 'value', state)), state),
             separatorSpan(renderNode),
-            formSpan(renderNode, 'chrome', 'value.on.close', ']', formMarkerStyle(renderNode, state), state),
+            formSpan(renderNode, 'frame', 'value.on.close', ']', formMarkerStyle(renderNode, state), state),
             separatorSpan(renderNode),
             formSpan(renderNode, 'placeholder', 'value.off', offLabel, formPlaceholderStyle(renderNode))
           ]
         : [
             formSpan(renderNode, 'placeholder', 'value.on', onLabel, formPlaceholderStyle(renderNode)),
             separatorSpan(renderNode),
-            formSpan(renderNode, 'chrome', 'value.off.open', '[', formMarkerStyle(renderNode, state), state),
+            formSpan(renderNode, 'frame', 'value.off.open', '[', formMarkerStyle(renderNode, state), state),
             separatorSpan(renderNode),
             formSpan(renderNode, 'value', 'value.off', offLabel, mergeStyles(toggleValueStyle(renderNode, false), renderNodeStyle(renderNode, 'value', state)), state),
             separatorSpan(renderNode),
-            formSpan(renderNode, 'chrome', 'value.off.close', ']', formMarkerStyle(renderNode, state), state)
+            formSpan(renderNode, 'frame', 'value.off.close', ']', formMarkerStyle(renderNode, state), state)
           ])
     ], bounds.width, widthProfile),
     ...errorLines(renderNode, bounds.width, widthProfile)
@@ -378,8 +378,8 @@ export function selectBlock(
       separatorSpan(renderNode),
       formSpan(
         renderNode,
-        'chrome',
-        'chrome.dropdownMenu',
+        'marker',
+        'value.disclosure',
         renderNode.props.presentation.kind === 'open'
           ? theme.tokens.symbols.treeExpanded
           : theme.tokens.symbols.treeCollapsed,

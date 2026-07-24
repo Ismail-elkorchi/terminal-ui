@@ -66,7 +66,7 @@ test('progressBar treats bar width as terminal cells under ambiguous-wide profil
   }), { columns: 6, rows: 1 }, { widthProfile });
 
   assert.equal(renderFramePlain(frame), '[██]');
-  assert.equal(frame.cells.find((cell) => cell.source?.description === 'chrome.close')?.column, 6);
+  assert.equal(frame.cells.find((cell) => cell.source?.description === 'frame.close')?.column, 6);
 });
 
 test('progressBar valueScale renders segmented fill tokens', () => {

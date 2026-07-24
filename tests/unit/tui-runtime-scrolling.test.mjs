@@ -717,7 +717,7 @@ test('TUI routed tree scroll events carry normalized rendered viewport metrics',
   assert.match(renderFramePlain(runtime.frame()), /Node 4/u);
 });
 
-test('TUI routed context menu scroll events use fixed title chrome and shared scroll policy', async () => {
+test('TUI routed context menu scroll events use a fixed title row and shared scroll policy', async () => {
   const items = Array.from({ length: 8 }, (_value, index) => ({
     kind: 'action',
     id: `item-${String(index + 1)}`,

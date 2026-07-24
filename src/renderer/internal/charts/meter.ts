@@ -39,7 +39,7 @@ export function meterBlock(
           chartSpan(renderNode, 'meter', 'label', 'metric.label', label, chartLabelStyle(renderNode)),
           chartSpan(renderNode, 'meter', 'separator', 'metric.separator.afterLabel', ' ', chartPlaceholderStyle(renderNode))
         ]),
-        chartSpan(renderNode, 'meter', 'chrome', 'metric.bar.open', '[', chartPlaceholderStyle(renderNode)),
+        chartSpan(renderNode, 'meter', 'frame', 'metric.bar.open', '[', chartPlaceholderStyle(renderNode)),
         chartSpan(
           renderNode,
           'meter',
@@ -56,7 +56,7 @@ export function meterBlock(
           fillTextCells(theme.tokens.symbols.progressEmpty, emptyCells, { widthProfile }),
           chartPlaceholderStyle(renderNode)
         ),
-        chartSpan(renderNode, 'meter', 'chrome', 'metric.bar.close', ']', chartPlaceholderStyle(renderNode)),
+        chartSpan(renderNode, 'meter', 'frame', 'metric.bar.close', ']', chartPlaceholderStyle(renderNode)),
         chartSpan(renderNode, 'meter', 'separator', 'metric.separator.beforeValue', ' ', chartPlaceholderStyle(renderNode)),
         chartSpan(renderNode, 'meter', 'metric', 'metric.value', valueText, chartMetricStyle(renderNode, status)),
         ...(status === undefined ? [] : [
@@ -96,26 +96,26 @@ function meterDialBlock(
       }]),
       {
         spans: [
-          chartSpan(renderNode, 'meter', 'chrome', 'dial.open', oneCellGlyph('╭', '+', { widthProfile }), chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'frame', 'dial.open', oneCellGlyph('╭', '+', { widthProfile }), chartPlaceholderStyle(renderNode)),
           chartSpan(renderNode, 'meter', 'fill', 'dial.filled', fillTextCells('─', filledCells, { widthProfile }), chartMetricStyle(renderNode, status)),
           chartSpan(renderNode, 'meter', 'fill', 'dial.empty', fillTextCells('─', emptyCells, { widthProfile }), chartPlaceholderStyle(renderNode)),
-          chartSpan(renderNode, 'meter', 'chrome', 'dial.close', oneCellGlyph('╮', '+', { widthProfile }), chartPlaceholderStyle(renderNode))
+          chartSpan(renderNode, 'meter', 'frame', 'dial.close', oneCellGlyph('╮', '+', { widthProfile }), chartPlaceholderStyle(renderNode))
         ]
       },
       {
         spans: [
-          chartSpan(renderNode, 'meter', 'chrome', 'dial.side.left', oneCellGlyph('│', '|', { widthProfile }), chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'frame', 'dial.side.left', oneCellGlyph('│', '|', { widthProfile }), chartPlaceholderStyle(renderNode)),
           chartSpan(renderNode, 'meter', 'marker', 'dial.needle', marker, chartMetricStyle(renderNode, status)),
-          chartSpan(renderNode, 'meter', 'chrome', 'dial.side.right', oneCellGlyph('│', '|', { widthProfile }), chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'frame', 'dial.side.right', oneCellGlyph('│', '|', { widthProfile }), chartPlaceholderStyle(renderNode)),
           chartSpan(renderNode, 'meter', 'separator', 'dial.separator.beforeValue', ' ', chartPlaceholderStyle(renderNode)),
           chartSpan(renderNode, 'meter', 'metric', 'dial.value', valueText, chartValueStyle(renderNode))
         ]
       },
       {
         spans: [
-          chartSpan(renderNode, 'meter', 'chrome', 'dial.bottom.open', oneCellGlyph('╰', '+', { widthProfile }), chartPlaceholderStyle(renderNode)),
-          chartSpan(renderNode, 'meter', 'chrome', 'dial.bottom.edge', fillTextCells('─', innerWidth, { widthProfile }), chartPlaceholderStyle(renderNode)),
-          chartSpan(renderNode, 'meter', 'chrome', 'dial.bottom.close', oneCellGlyph('╯', '+', { widthProfile }), chartPlaceholderStyle(renderNode))
+          chartSpan(renderNode, 'meter', 'frame', 'dial.bottom.open', oneCellGlyph('╰', '+', { widthProfile }), chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'frame', 'dial.bottom.edge', fillTextCells('─', innerWidth, { widthProfile }), chartPlaceholderStyle(renderNode)),
+          chartSpan(renderNode, 'meter', 'frame', 'dial.bottom.close', oneCellGlyph('╯', '+', { widthProfile }), chartPlaceholderStyle(renderNode))
         ]
       }
     ]

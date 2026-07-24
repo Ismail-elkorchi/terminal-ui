@@ -269,7 +269,7 @@ function topBar(state: MonitorState) {
       end: panelTitle('BAT', '84%', `${String(4.14 + state.tick / 200).slice(0, 4)}W  2000ms`)
     },
     border: { kind: 'single' },
-    appearance: 'chrome',
+    appearance: 'bar',
     padding: { left: 1, right: 1 }
   });
 }

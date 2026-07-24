@@ -580,7 +580,7 @@ export function feedbackSpan(
 function feedbackBarValueStyle(renderNode: FeedbackNode): TerminalStyle | undefined {
   return mergeStyles(
     {
-      bg: { kind: 'theme', token: 'surface.chrome.background' }
+      bg: { kind: 'theme', token: 'surface.bar.background' }
     },
     renderNodeStyle(renderNode, 'value')
   );
@@ -589,7 +589,7 @@ function feedbackBarValueStyle(renderNode: FeedbackNode): TerminalStyle | undefi
 function feedbackBarSeparatorStyle(renderNode: FeedbackNode): TerminalStyle | undefined {
   return mergeStyles(
     {
-      bg: { kind: 'theme', token: 'surface.chrome.background' }
+      bg: { kind: 'theme', token: 'surface.bar.background' }
     },
     renderNodeStyle(renderNode, 'marker')
   );

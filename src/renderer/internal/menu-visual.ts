@@ -82,13 +82,15 @@ export function dropdownMenuControlLine(input: {
   const stateStyle = input.placeholder
     ? renderNodeStyle(input.renderNode, 'placeholder')
     : resolveRenderNodeStyle(input.renderNode, { part: 'label', base: themeStyle('text.default') });
-  const chromeStyle = renderNodeStyle(input.renderNode, 'chrome');
+  const baseControlStyle = renderNodeStyle(input.renderNode, 'control');
   const marker = input.open ? input.theme.tokens.symbols.treeExpanded : input.theme.tokens.symbols.treeCollapsed;
   const state = interactionVisualState(input.renderNode, renderNodeTargetId(input.renderNode, 'control'), {
     selected: input.open,
     focused: input.focused === true
   });
-  const controlStyle = state === undefined ? chromeStyle : resolveRenderNodeStyle(input.renderNode, { part: 'chrome', state });
+  const controlStyle = state === undefined
+    ? baseControlStyle
+    : resolveRenderNodeStyle(input.renderNode, { part: 'control', state });
   const spans: RenderSpan[] = [
     ...(input.label.length === 0
       ? []

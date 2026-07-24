@@ -482,17 +482,17 @@ function headerLine(
   if (block.result !== undefined) {
     spans.push(
       documentSpan(options.renderNode, options.kind, 'separator', 'result.separator', ' ', documentMarkerStyle(options.renderNode, options.selected), sourceOptionsForBlock(options)),
-      documentSpan(options.renderNode, options.kind, 'chrome', 'result.open', '[', documentResultStyle(options.renderNode, block.result), sourceOptionsForBlock(options)),
+      documentSpan(options.renderNode, options.kind, 'delimiter', 'result.open', '[', documentResultStyle(options.renderNode, block.result), sourceOptionsForBlock(options)),
       documentSpan(options.renderNode, options.kind, 'result', `result.${sourceToken(block.result)}`, block.result, documentResultStyle(options.renderNode, block.result), sourceOptionsForBlock(options)),
-      documentSpan(options.renderNode, options.kind, 'chrome', 'result.close', ']', documentResultStyle(options.renderNode, block.result), sourceOptionsForBlock(options))
+      documentSpan(options.renderNode, options.kind, 'delimiter', 'result.close', ']', documentResultStyle(options.renderNode, block.result), sourceOptionsForBlock(options))
     );
   }
   if (block.level !== undefined) {
     spans.push(
       documentSpan(options.renderNode, options.kind, 'separator', 'level.separator', ' ', documentMarkerStyle(options.renderNode, options.selected), sourceOptionsForBlock(options)),
-      documentSpan(options.renderNode, options.kind, 'chrome', 'level.open', '[', documentRecordLevelStyle(options.renderNode, block.level), sourceOptionsForBlock(options)),
+      documentSpan(options.renderNode, options.kind, 'delimiter', 'level.open', '[', documentRecordLevelStyle(options.renderNode, block.level), sourceOptionsForBlock(options)),
       documentSpan(options.renderNode, options.kind, 'level', `level.${sourceToken(block.level)}`, block.level, documentRecordLevelStyle(options.renderNode, block.level), sourceOptionsForBlock(options)),
-      documentSpan(options.renderNode, options.kind, 'chrome', 'level.close', ']', documentRecordLevelStyle(options.renderNode, block.level), sourceOptionsForBlock(options))
+      documentSpan(options.renderNode, options.kind, 'delimiter', 'level.close', ']', documentRecordLevelStyle(options.renderNode, block.level), sourceOptionsForBlock(options))
     );
   }
   spans.push(

@@ -10,11 +10,11 @@ export type FormControlState = ElementVisualState;
 
 export type FormVisualKind =
   | 'activeLine'
-  | 'chrome'
   | 'cursor'
   | 'day'
   | 'description'
   | 'error'
+  | 'frame'
   | 'handle'
   | 'help'
   | 'label'
@@ -222,7 +222,7 @@ function roleForVisual(visual: FormVisualKind): NonNullable<FrameCellSource['cel
     case 'separator':
       return 'separator';
     case 'activeLine':
-    case 'chrome':
+    case 'frame':
     case 'handle':
     case 'marker':
     case 'required':
