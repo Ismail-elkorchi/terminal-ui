@@ -2,11 +2,18 @@
 
 Components are typed public factories that return opaque `Element<TMessage>`
 values. They are generic UI building blocks, not product-specific recipes.
+They own component behavior, interaction messages, and accessibility semantics
+such as control roles, values, and relationships. Whether an element has
+children does not decide its category.
 
 Use this matrix to choose the narrowest component that matches the job. Add a
 component only when it has distinct state, actions, accessibility, or
 presentation semantics that current layout and component contracts cannot
 express cleanly.
+
+Factories whose primary responsibility is positioning, sizing, clipping,
+layering, or geometry-only interaction are documented in
+[Layout](./layout.md).
 
 | Component | Role | Not |
 | --- | --- | --- |
@@ -15,16 +22,8 @@ express cleanly.
 | `textArea()` | Caller-controlled multi-line editable text surface with cursor, selection, gutter, wrapping, and scroll state. | A full IDE editor with syntax services, files, or undo history. |
 | `textInput()` | Caller-controlled single-line editable value with cursor, placeholder, validation, and pointer-to-text support. | A command palette, number parser, or multi-line editor. |
 | `numberInput()` | Single numeric field with optional step controls and validation display. | A slider, range selector, or numeric domain model. |
-| `column()` | Vertical composition with shared flow options. | A visual panel or scroll container by itself. |
-| `row()` | Horizontal composition with shared flow options. | A toolbar semantic model or menu. |
-| `grid()` | Row/column layout, including named areas, for explicit spatial composition. | A responsive app shell or breakpoint policy engine. |
-| `splitPane()` | Axis-based pane division with static tracks or caller-controlled divider selection and resize actions. | Retaining pane content, persistence, or a general window manager. |
-| `surface()` | Single-child visual container for hierarchy, border/title grammar, state tone, and accessible naming. | A multi-child layout primitive; compose children before wrapping. |
 | `tabs()` | Tab header plus selected-panel layout with semantic select, close, and navigation actions. | Navigation routing, persistence, or hidden panel state. |
 | `dialog()` | Centered surface with explicit modal focus policy, semantic dismissal, and an optional action area. | A general overlay system, route, or storage for open/closed state. |
-| `overlay()` | Layer multiple children in the same bounds. | A positioning engine with product semantics. |
-| `absolute()` | Place one child at a relative rectangle. | A layout solver or drag/drop framework. |
-| `viewport()` | Bounded window over one child with caller-controlled scroll offsets. | A semantic list, table, editor, or transcript component. |
 | `canvas()` | Safe drawing component for custom diagrams and visualizations. | Raw ANSI output or an imperative terminal API. |
 | `form()` | Group controls into a form-like layout. | Form validation, submission, or retained state. |
 | `field()` | Label/help/error wrapper around field content. | A value control by itself. |
@@ -144,10 +143,10 @@ part, item, and visual-state identity when it compiles inline content into
 render spans. Core theme color tokens are a closed vocabulary; application
 tokens must use the `custom.*` namespace.
 
-`surface()` and `dialog()` titles accept the same authored inline content,
-including title rails with `start`, `center`, and `end` content. Their `border`
-option owns geometry only: border kind and title alignment. Renderer spans,
-frame source metadata, and border styles remain renderer-extension concerns.
+`dialog()` titles accept authored inline content, including start, center, and
+end title content. Its `border` option owns geometry only: border kind and
+title alignment. Renderer spans, frame source metadata, and border styles
+remain renderer-extension concerns.
 
 For app structure and controlled state, see [UI authoring](./ui-authoring.md).
 For reusable reducers, see [Behavior helpers](./behavior.md). For custom

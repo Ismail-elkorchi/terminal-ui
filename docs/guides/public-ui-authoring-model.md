@@ -171,8 +171,11 @@ They do not inspect private render-node fields through authored elements.
 
 Use `inspectElement(element)` when authoring tools or diagnostics need a stable,
 read-only description before rendering. The projection includes authored
-identity, input capabilities, focus policy, visual state, and child structure;
-it does not expose renderer props, callback values, or render-node hooks.
+identity, whether the element came from the component, layout, or renderer
+extension API, input capabilities, focus policy, visual state, and child
+structure; it does not expose renderer props, callback values, or render-node
+hooks. The category describes the authoring entrypoint only and does not
+participate in render dispatch.
 
 ## Invariants
 

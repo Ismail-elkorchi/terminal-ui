@@ -3,18 +3,34 @@
 Layout turns a pure element tree into deterministic rectangles, layers, focus
 targets, hit targets, and accessible structure.
 
-Use the shared layout primitives instead of per-component geometry:
+Layout factories are exported from `@ismail-elkorchi/terminal-ui/layout`.
+Their primary responsibility is positioning, sizing, clipping, layering, or
+geometry-only interaction. They preserve child behavior and accessibility;
+they do not become components merely because they contain children or expose a
+scroll or resize action that changes geometry.
 
-- `column()` for vertical tracks;
-- `row()` for horizontal tracks;
-- `grid()` for row/column cells;
-- `splitPane()` for static pane tracks or controlled divider resizing;
-- `viewport()` for clipped virtual content;
-- `surface()`, `absolute()`, and `overlay()` for coordinate-space composition.
+| Layout factory | Responsibility | Not |
+| --- | --- | --- |
+| `column()` | Vertical tracks with shared flow options. | A visual panel or semantic control group by itself. |
+| `row()` | Horizontal tracks with shared flow options. | A toolbar, menu, or command model. |
+| `grid()` | Row/column tracks and named areas for spatial composition. | An accessible data grid or breakpoint policy engine. |
+| `splitPane()` | Static pane tracks or caller-controlled divider resizing. | Retaining pane content, persistence, or a window manager. |
+| `surface()` | Single-child visual containment, border and title geometry, and background construction. | Multi-child flow; compose children before wrapping. |
+| `overlay()` | Multiple children sharing the same bounds and layer order. | Modal behavior or product overlay lifecycle. |
+| `absolute()` | One child placed at a relative rectangle. | A layout solver or drag/drop framework. |
+| `viewport()` | Clipping and caller-controlled scrolling over one child. | A semantic list, table, editor, or transcript component. |
 
 Interactive `tabs()` and `dialog()` surfaces are components. Their renderers
-participate in ordinary layout, but they remain components because of their
-selection, focus, and action semantics.
+participate in ordinary layout, but `tabs()` owns selection actions and the
+tablist/tab/tabpanel accessibility relationships. `dialog()` owns dialog
+semantics, dismissal, modal focus containment, initial focus, and focus
+restoration. Those responsibilities, not their child content, keep them in the
+component API.
+
+`inspectElement()` reports `layout` for every factory in the table and
+`component` for `tabs()` and `dialog()`. This category is private inspection
+information; rendering still dispatches by the existing private render-node
+kind.
 
 Layout options include gap, padding, margin, fixed/percent/fill/content sizing,
 min/max dimensions, alignment, justification, overflow, z-index, visibility,
@@ -28,6 +44,8 @@ objects.
 
 See [Rendering internals](./rendering-internals.md) for the frame, diff, and
 serialization pipeline that consumes layout output.
+See [Components](./components.md) for factories that own control, document,
+feedback, and accessibility behavior.
 
 Executable example:
 
